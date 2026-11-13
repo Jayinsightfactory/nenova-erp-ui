@@ -1,5 +1,6 @@
 import DistributionInlineDates, {DistributionInlineDatesHeader} from '../../components/shipment/DistributionInlineDates';
 import DistributionKakaoFeed from '../../components/shipment/DistributionKakaoFeed';
+import DistributionConfirmationSummary from '../../components/shipment/DistributionConfirmationSummary';
 import {majorInlineWeekScope} from '../../lib/shipmentMajorInlineDates.js';
 import DistributionProductTree from '../../components/shipment/DistributionProductTree';
 import DistributionDateFilter from '../../components/shipment/DistributionDateFilter';
@@ -1525,6 +1526,7 @@ export default function Distribute() {
         <DistributionPicker label="차수" value={week} triggerRef={weekPickerRef} shortcut="Ctrl+Alt+1" disabled={hasDateDrafts||saving}
           options={distributionWeekOptions(week).map(value => ({ key: value, label: value, selected: value === week }))}
           onSelect={option => guardedWeekInput.setValue(option.key)} testId="distribution-week-picker" />
+        <DistributionConfirmationSummary week={week} refreshKey={`${saving}-${fixLoading}`} />
         {tab!==1 && <>
         <DistributionPicker label="품목그룹" value={selectedProdGroupLabel || '전체'} disabled={hasDateDrafts || saving || prodGroupsLoading}
           options={[{ key: '', label: '전체', selected: !prodGroup }, ...prodGroups.map(g => ({ key: g.key, label: g.label, selected: g.key === prodGroup }))]}
@@ -1998,9 +2000,9 @@ export default function Distribute() {
           )}
 
           {/* ── 오른쪽: 거래처 분배 정보 (품목기준) / 품목 목록 (업체기준) ── */}
-          <div style={{minWidth:0}}>
+          <div className="distribution-with-kakao" style={{minWidth:0}}><div style={{minWidth:0}}>
             {viewMode === 'prod' && (
-              <div className="distribution-with-kakao"><div style={{minWidth:0}}>
+              <div style={{minWidth:0}}>
                 {/* 분배 컨트롤 */}
                 <div style={{padding:'8px 14px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
                   <span style={{fontSize:12,fontWeight:600,color:'var(--text2)'}}>분배방식</span>
@@ -2212,7 +2214,7 @@ export default function Distribute() {
                       </>
                     )}
                 </div>
-              </div><DistributionKakaoFeed /></div>
+              </div>
             )}
 
             {/* 업체 기준 오른쪽: 해당 업체 주문 품목 */}
@@ -2586,7 +2588,7 @@ export default function Distribute() {
                   )}
               </div>
             )}
-          </div>
+          </div><DistributionKakaoFeed /></div>
         </div>
       )}
 

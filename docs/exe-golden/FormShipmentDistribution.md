@@ -653,3 +653,6 @@ ShipmentDate↔PeriodDay exact 시각 JOIN, DetailFix=1, EstQuantity>0를 사용
 
 ## 2026-11-13 분배 수정 품종 재확정
 설치 EXE FormShipmentDistribution을 dnSpy CLI로 재추출해 CountryFlower별 Fix/Cancel을 재확인했다. 운영 AppLog상 카네이션 한 품종만 취소됐으며 기존 미국 미확정2품종으로 일반 재확정 보호가 실패했다. 변경 ProdKey→활성 Product CountryFlower 범위를 서버/트랜잭션에서 검증해 선택 품종 재확정에만 적용한다. 원본 native SP와 실제 운영 API의 LocalDB 실행으로 타품종 상태/수량/금액 보존 확인. docs/plans/distribution-refix-2026-11-13.md 참조.
+
+## 2026-11-13 카톡 수동 완료·선택차수 확정현황
+설치 EXE FormShipmentDistribution dnSpy CLI를 재추출해 GetFixStatus의 ViewShipment.DetailFix=1 판정을 재확인했다. 운영 SELECT 동일46-01:2025 카테고리17 모두확정,2026 카테고리13 중미국더글라스/레몬잎미확정·카네이션385/385확정. 신규GET은 명시연도/세부차수별 CountryFlower total/fixed 집계이며 전부/일부를 구분한다. 원장쓰기/SP호출 없음. 수동 카톡완료는 웹파일뿐이며 EXE상태와 무관하다. 계획 distribution-check-done-2026-11-13.md.

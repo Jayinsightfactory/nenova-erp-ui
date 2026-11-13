@@ -2763,6 +2763,12 @@
 2026-11-13 네덜란드 원본 물량표에 품목 열·헤더 고정과 상단 스크롤바 동기화를 적용했다. 좁은 화면에서도 고정을 유지한다. 주문·분배 API 수정 없음. 운영 배포는 기록 시점 미검증.
 검색어: 네덜란드 물량표 품목 고정 상단 스크롤 DutchVolumeSheet
 
+## 2026-11-13 양쪽 분배탭 카톡 수동 작업완료·선택차수 확정현황
+- fresh nw-kakao-done-1113 @72064052, 단일작업자. 농장/업체 한 카톡패널 인스턴스 공유. 수동완료는 서버웹 runtime 해시키/CAS연결 이벤트로 저장·해제, 원문/개인정보 저장없음. 서버성공뒤 초록색표시, 새로고침/탭전환 유지. ERP업무완료/분배저장·확정과 무관.
+- 선택차수옆 확정현황 버튼+빨간카테고리 표시. GET ViewShipment.DetailFix 연도+세부차수 집계, 전부/일부/미확정 구분, 조회만. 설치EXE dnSpy GetFixStatus 재추출, 운영2025/2026동일46-01 각각17/13카테고리 SELECT:2026카네이션385확정/미국2품종미확정 재확인. 명시연도없는쓰기/재고/원장변경0.
+- 실제운영 체크API(withAuth 포함)를 격리폴더에연결한 HTTP Chrome:체크/녹색→업체탭유지→새로고침유지→해제→새store재조회 false PASS, 주문/분배POST0. 파일실제CAS 동시작성1승자/1충돌·반복요청멱등·수정원문다른키·origin/body/method/충돌 API 회귀PASS. 확정조회API 교차연도/불일치400/POST405 PASS, 기본UI회귀전체PASS.
+- 전체 ERP계약exit0, dnSpy/manifest213/쓰기guard2API PASS. 화면webpack1worker빌드exit0. 공통가이드dry-run PASS, 최종녹화/정식build/PR/배포/운영확인 진행중(미검증).
+검색어: kakao-done-1113 작업완료 초록색 업체정보 농장정보 확정현황 빨간카테고리 CAS request-done
 
 ## 2026-11-13 데스크톱 홈 개편·메모장 독립 유지
 - 사용자 확정 범위: 첨부 Electron 데스크톱 홈만. 일반 /dashboard 보존. 새 worktree nw-home-notes-1113, origin/master 기반, 최신72064052 통합. 단일 작업자.

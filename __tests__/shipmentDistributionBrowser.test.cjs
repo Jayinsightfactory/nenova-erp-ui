@@ -23,14 +23,17 @@ async function waitForServer(process) {
 }
 
 test('distribution workspace keyboard, favorites, safe drafts, stale reads, and viewports', { timeout: 180000 }, async () => {
+  const doneDirectory=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'nenova-kakao-browser-'));
+  const fixtureSecret='nenova-isolated-browser-checklist-secret';
   const server = process.env.DISTRIBUTION_BROWSER_BASE ? null : spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'dev', '-p', String(port)], {
-    cwd: root, windowsHide: true, stdio: 'ignore', env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
+    cwd: root, windowsHide: true, stdio: 'ignore', env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1',JWT_SECRET:fixtureSecret,DISTRIBUTION_KAKAO_DONE_DIR:doneDirectory },
   });
   let browser;
   try {
     if(server)await waitForServer(server);
     browser = await chromium.launch({ executablePath: chrome, headless: true });
     const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+    await context.addCookies([{name:'nenovaToken',value:require('jsonwebtoken').sign({userId:'fixture-user-a',authority:2},fixtureSecret,{expiresIn:'1h'}),url:base}]);
     const page = await context.newPage();
     let userId = 'fixture-user-a';
     let feedVersion=0,feedFailure=false;const feedCursors=[];
@@ -67,6 +70,8 @@ let orderPosts = 0;
       const request = route.request();
       const url = new URL(request.url());
       const type = url.searchParams.get('type');
+      if(url.pathname==='/api/kakao/request-done')return route.continue();
+      if(url.pathname==='/api/shipment/distribution-confirmation')return reply(route,{ok:true,week:url.searchParams.get('week'),rows:[{category:'연습 확정품종',detailCount:2,fixedCount:2,status:'FIXED'},{category:'연습 미확정품종',detailCount:3,fixedCount:0,status:'UNFIXED'}]});
       if (url.pathname === '/api/kakao/sales-feed') {
         feedCursors.push(url.searchParams.get('afterKey'));
         if(feedFailure)return reply(route,{error:'연습 조회 실패'},503);
@@ -254,6 +259,23 @@ let orderPosts = 0;
     const beforeScroll=await page.evaluate(()=>window.scrollY);
     await chatList.hover();await page.mouse.wheel(0,500);
     assert.equal(await page.evaluate(()=>window.scrollY),beforeScroll,'reading chat does not move distribution page');
+      const summary=page.getByTestId('distribution-confirmation-summary');
+      await summary.getByRole('button',{name:'연습 확정품종',exact:true}).waitFor();
+      await summary.getByRole('button',{name:'확정현황 확인',exact:true}).click();
+      await summary.getByRole('dialog').getByText('연습 미확정품종',{exact:true}).waitFor();
+      await summary.getByRole('button',{name:'닫기',exact:true}).click();
+      const doneBox=page.getByRole('checkbox',{name:'연습업체 수국 2박스 추가 작업완료',exact:true});
+      await page.locator('input[aria-label="연습업체 수국 2박스 추가 작업완료"]:not(:disabled)').waitFor();
+      await doneBox.click();await page.locator('article[data-request-done="true"]').filter({hasText:'연습업체 수국 2박스 추가'}).waitFor();
+      await page.getByRole('button',{name:/출고분배 및 업체정보/}).click();
+      assert.equal(await page.getByRole('complementary',{name:'카톡 추가·취소 요청',exact:true}).count(),1);
+      assert.equal(await doneBox.isChecked(),true,'same panel completion survives customer tab');
+      await page.reload();await page.locator('input[aria-label="연습업체 수국 2박스 추가 작업완료"]:checked').waitFor();
+      assert.equal(await page.locator('article[data-request-done="true"]').filter({hasText:'연습업체 수국 2박스 추가'}).evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(220, 252, 231)');
+      await doneBox.click();await page.locator('input[aria-label="연습업체 수국 2박스 추가 작업완료"]:not(:checked):not(:disabled)').waitFor();
+      const {requestDoneKey}=await import('../lib/distributionKakaoDoneClient.js');const doneKey=await requestDoneKey({id:'nenovakakao|fixture|add',text:'연습업체 수국 2박스 추가'});
+      assert.equal((await require('../lib/distributionKakaoDoneStore').createKakaoDoneStore({directory:doneDirectory}).read(doneKey)).done,false,'actual production HTTP API persists in isolated files');
+      assert.equal(savePosts,0,'checking chat never saves distribution');assert.equal(orderPosts,0);
     // 차수 입력칸에 직접 입력(오늘 날짜 기준 ±3 범위에 41차가 없는 날에도 동작) → 팝업 선택도 그대로 검증
     const weekInput = page.getByPlaceholder(/^\d{4}-\d{2}-\d{2}$|YYYY-WW-SS/).first();
     await weekInput.fill('2026-41-01');
@@ -683,5 +705,6 @@ let orderPosts = 0;
   } finally {
     await browser?.close().catch(() => {});
     server?.kill();
+    assert(path.resolve(doneDirectory).startsWith(path.resolve(require('node:os').tmpdir())+path.sep+'nenova-kakao-browser-'));fs.rmSync(doneDirectory,{recursive:true,force:true});
   }
 });

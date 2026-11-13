@@ -2,6 +2,14 @@
   "id": "shipment-distribution-workspace",
   "title": "출고분배 버튼 선택·담당자 즐겨찾기·키보드·확정 수정이력",
   "scope": [
+    "components/shipment/DistributionConfirmationSummary.js",
+    "lib/distributionConfirmationSummary.js",
+    "pages/api/shipment/distribution-confirmation.js",
+    "pages/api/kakao/request-done.js",
+    "lib/distributionKakaoDoneStore.js",
+    "lib/distributionKakaoDoneClient.js",
+    "__tests__/distributionKakaoDone.test.cjs",
+    "__tests__/distributionConfirmation.test.cjs",
     "lib/distributionKakaoRequests.js",
     "__tests__/distributionKakaoRequests.test.cjs",
     "components/shipment/DistributionKakaoFeed.js",
@@ -52,6 +60,8 @@
     "ProdKey"
   ],
   "actions": [
+    {"name":"WEB_REQUEST_DONE","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"Farm/customer share one feed. Manual checkbox persists only hashed request-key, done boolean, revision and time in web runtime immutable CAS events. No raw text/user information stored. Authenticated same-origin POST, stale409, retry idempotent, original completion preserved on error, green only after server success. Poll reads states; edited excerpt gets new key. No ERP table writes or automatic completion."},
+    {"name":"READ_CATEGORY_CONFIRMATION","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"GET explicit year+subweek ViewShipment CountryFlower aggregate with native DetailFix. Full/partial/unfixed distinguished, fully fixed red buttons plus partial label. Button opens read-only summary and never invokes fix/unfix or changes filters/drafts. Stale responses excluded by sequence and exact week. Same-week previous-year fixture required."},
     {
       "name": "READ_LIVE_KAKAO_REQUESTS",
       "orderDetail": "preserve",
@@ -157,6 +167,8 @@
     "dateClassification": "Both workspaces use shared persisted date index keyed by selected year+week and Master customer+product. Positive Date facts and explicit undated order candidates, no computed calendar. Filter changes preserve full-week drafts and save targets; existing exact date editor remains sole day-quantity writer."
   },
   "requiredTestFiles": [
+    "__tests__/distributionKakaoDone.test.cjs",
+    "__tests__/distributionConfirmation.test.cjs",
     "__tests__/distributionKakaoRequests.test.cjs",
     "scripts/test-distribution-refix-sql.cjs",
     "__tests__/estimateCategoryCycle.test.js",

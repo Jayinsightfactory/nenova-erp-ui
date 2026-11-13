@@ -1218,3 +1218,6 @@ warehouse API가 부서명만 검사해 DeptName이 비어 있는 Authority4/7 �
 
 ## 2026-11-13 분배 수정 재확정 범위
 확정된 품종 수정 후 이미 미확정인 타품종 때문에 재확정이 실패한 사례. 분배수정은 변경 ProdKey의 CountryFlower를 서버에서 검증해 동일 품종만 취소/재확정하며 일반 수동 부분확정 보호는 유지한다. 회귀: __tests__/estimateCategoryCycle.test.js, __tests__/distributionFixCycleRollback.test.js, scripts/test-distribution-localdb.cjs --fix-cycle. 상세 docs/plans/distribution-refix-2026-11-13.md.
+
+## 2026-11-13 분배 카톡 수동 완료 표시
+농장/업체가 공통패널을 공유한다. 수동 작업완료는 웹 runtime 해시키·완료여부만 CAS 이벤트로 저장하고 ERP저장·확정근거로 사용하지 않는다. 카테고리 표시도 명시연도/세부차수 ViewShipment.DetailFix만 읽는다. 회귀 distributionKakaoDone.test.cjs,distributionConfirmation.test.cjs 및 격리폴더 실제HTTPAPI 체크/탭전환/새로고침/해제 Chrome검증. 모든ERP원장 보존.
