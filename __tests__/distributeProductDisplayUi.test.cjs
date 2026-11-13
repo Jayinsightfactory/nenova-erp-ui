@@ -35,6 +35,8 @@ const Page = load(source, name=>{
   if(name.endsWith('/shipmentMajorInlineDates.js')) return libRequire('./shipmentMajorInlineDates.js');
   if(name.endsWith('/DistributionProductTree')) return load(fs.readFileSync('components/shipment/DistributionProductTree.js','utf8'),n=>n.includes('shipmentDistributionNavigation')?libRequire('./shipmentDistributionNavigation.js'):n.includes('distributeProductDisplay')?display:require(n));
   if(name.endsWith('/DistributionDateFilter')) return load(fs.readFileSync('components/shipment/DistributionDateFilter.js','utf8'),require);
+  if(name.endsWith('/DistributionScrollBar')) return ()=>null;
+  if(name.endsWith('/DistributionFixToggle')) return ()=>null;
   if(name.endsWith('/DistributionConfirmationSummary')) return ()=>null;
   if(name.endsWith('/DistributionKakaoFeed')) return load(fs.readFileSync('components/shipment/DistributionKakaoFeed.js','utf8'),n=>n.includes('distributionKakaoDoneClient')?{requestDoneKey:()=>{},readRequestDone:()=>{}}:n.includes('/lib/')?require('../lib/'+n.split('/').pop()):require(n));
   if(name.endsWith('/shipmentDistributionWorkspace.js')) return libRequire('./shipmentDistributionWorkspace.js');

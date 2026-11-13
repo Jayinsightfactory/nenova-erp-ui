@@ -19,6 +19,7 @@ import { assertShipmentDistributionVerification } from '../../../lib/shipmentDis
 import { buildProdGroupWhere, loadShipmentProdGroups, parseProdGroupKey, prodGroupLabel } from '../../../lib/shipmentProdGroups.js';
 import { useExeParityFlag, normalizeOrderYearWeek2, resolveBeforeOrderYearWeek } from '../../../lib/exeParity/common.js';
 import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
+import {assertDistributionExpected} from '../../../lib/distributionConcurrentEdit';
 import {
   sqlDistributeGetProductList,
   sqlDistributeGetCustomerList,
@@ -964,6 +965,7 @@ async function saveDistributeBatch(req, res) {
       prodKey: Number(entry?.prodKey),
       outQty: Number(entry?.outQty) || 0,
       cost: Number(entry?.cost),
+      expected: entry?.expected,
     }));
     if (normalizedEntries.some((entry) => !Number.isInteger(entry.custKey) || entry.custKey <= 0 ||
       !Number.isInteger(entry.prodKey) || entry.prodKey <= 0 || entry.outQty < 0)) {
@@ -991,7 +993,7 @@ async function saveDistributeBatch(req, res) {
     const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
 
     const results = await withTransaction(async (tQuery) => {
-      if (entryCustomers.length === 1) {
+      if (entryCustomers.length === 1 && (req.body.source!=='distribution-workspace'||req.body.editGuard)) {
         await assertErpEditGuard(tQuery, { orderYear, orderWeek: week, custKey: entryCustomers[0] }, req.user, req.body);
       }
       const saved = [];
@@ -1044,6 +1046,7 @@ async function saveDistributeBatch(req, res) {
         }
 
         let shipmentKey = smResult.recordset[0]?.ShipmentKey;
+        if(!shipmentKey&&req.body.source==='distribution-workspace')assertDistributionExpected(entry.expected,null);
         // 0수량은 기존 출고 제거 요청이다. 대상이 없으면 빈 Master를 새로 만들지 않는다.
         if (!shipmentKey && entry.outQty <= 0) {
           saved.push({ ...entry, action: 'noop' });
@@ -1085,6 +1088,7 @@ async function saveDistributeBatch(req, res) {
           throw new Error(`${week}차 업체 ${entry.custKey}·품목 ${entry.prodKey} 출고상세가 중복되어 저장을 중단했습니다.`);
         }
         const oldRow = oldSd.recordset[0];
+        if(req.body.source==='distribution-workspace')assertDistributionExpected(entry.expected,oldRow);
         const oldQty = Number(oldRow?.OutQuantity || 0);
         const units = distributeUnits(entry.outQty, product);
         const canonicalOutQty = entry.outQty > 0 ? units.outQty : 0;
@@ -1210,7 +1214,7 @@ async function saveDistributeBatch(req, res) {
       message: '출고 분배 일괄 저장 완료',
     });
   } catch (err) {
-    const status = ['ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err?.code) ? 409 : 500;
+    const status = err?.statusCode || (['ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err?.code) ? 409 : 500);
     return res.status(status).json({ success: false, code: err?.code, error: err.message, lease: err?.lease || null });
   }
 }

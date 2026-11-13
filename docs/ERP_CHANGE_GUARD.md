@@ -1221,3 +1221,6 @@ warehouse API가 부서명만 검사해 DeptName이 비어 있는 Authority4/7 �
 
 ## 2026-11-13 분배 카톡 수동 완료 표시
 농장/업체가 공통패널을 공유한다. 수동 작업완료는 웹 runtime 해시키·완료여부만 CAS 이벤트로 저장하고 ERP저장·확정근거로 사용하지 않는다. 카테고리 표시도 명시연도/세부차수 ViewShipment.DetailFix만 읽는다. 회귀 distributionKakaoDone.test.cjs,distributionConfirmation.test.cjs 및 격리폴더 실제HTTPAPI 체크/탭전환/새로고침/해제 Chrome검증. 모든ERP원장 보존.
+
+## 2026-11-13 확정 버튼 실제 범위/분배 동시작업
+로컬 isFixed 초기값만 보던 확정버튼을 DB DetailFix와 연결한다. 명시 연도+세부차수, Product CountryFlower 해석을 GET/POST 공유하고 native category 인수 미지원은 전체처리 금지. 기존 일반 부분확정 보호는 유지. 분배 workspace는 수량/단가 field CAS로 견적업체 presence와 구분하며 같은 행 변경은409, 원장트랜잭션/농장/확정 보호 유지. 계획 distribution-confirm-toggle-2026-11-13.md 및 실행회귀 참조.

@@ -18,6 +18,7 @@ import { assertErpEditGuard, advanceErpEditGuard, editErrorResponse } from '../.
 import { normalizeEstimateEditProdKeys, resolveEstimateEditCategories } from '../../../lib/estimateCategoryCycle.js';
 import { lockStockGateOperation, clearStockGateOperation } from '../../../lib/stockGateOperation.js';
 import { assertNoOrderlessLinesBeforeFix } from '../../../lib/shipmentEstimateGuard.js';
+import {loadDistributionConfirmationScope} from '../../../lib/distributionConfirmationSummary';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -199,6 +200,13 @@ async function loadEstimateEditGroups(rawKeys, requestedCategories, q = query, l
 }
 
 async function resolveFixCategoryScope(req, countryFlowersFilter) {
+  if(req.body?.cycleSource==='distribute-toolbar'){
+    const actual=await loadDistributionConfirmationScope(query,sql,req.erpWeek,req.body.confirmationSelection);
+    const wanted=normalizeCountryFlowerFilter(countryFlowersFilter);
+    if(!actual.length||!wanted||wanted.size!==actual.length||actual.some(cf=>!wanted.has(cf)))throw new Error('선택 범위의 확정현황이 바뀌었습니다. 다시 조회하세요.');
+    req.distributionToolbarCategories=actual;
+    return wanted;
+  }
   if (req.body?.distributionEditProdKeys !== undefined) {
     if (req.body.cycleSource !== 'distribute-save' || req.body.editProdKeys !== undefined || req.body.autoStockAdd || req.body.confirmAutoStockAdd || !Array.isArray(countryFlowersFilter) || !countryFlowersFilter.length) {
       throw new Error('분배 수정의 품종 범위를 확인하지 못했습니다. 다시 조회하세요.');
@@ -233,7 +241,7 @@ async function resolveFixCategoryScope(req, countryFlowersFilter) {
 function isScopedCategoryEdit(req) { return !!(req.estimateEditGroups || req.distributionEditGroups); }
 
 async function runFixTargetProcedure(name, shape, orderYear, orderWeek, uid, cf, req, skipStockCalc) {
-  if (isScopedCategoryEdit(req) && !shape.hasCountryFlower) throw new Error('전산의 품종별 확정 기능을 확인하지 못했습니다. 전체 품종을 대신 변경하지 않습니다.');
+  if ((isScopedCategoryEdit(req)||req.distributionToolbarCategories) && !shape.hasCountryFlower) throw new Error('전산의 품종별 확정 기능을 확인하지 못했습니다. 전체 품종을 대신 변경하지 않습니다.');
   // One category + its lease baseline commit together. A failed SP rolls back
   // this category, not earlier successful categories reported to the client.
   return withTransaction(async (tQ) => {
@@ -244,6 +252,10 @@ async function runFixTargetProcedure(name, shape, orderYear, orderWeek, uid, cf,
     if (req.body?.editGuard) await assertErpEditGuard(tQ, scope, req.user, req.body);
     if (req.estimateEditGroups) await loadEstimateEditGroups(req.body.editProdKeys, [cf], tQ, true);
     if (req.distributionEditGroups) await loadEstimateEditGroups(req.distributionEditGroups.find(g => g.countryFlower === cf)?.prodKeys, [cf], tQ, true);
+    if(req.distributionToolbarCategories){
+      const actual=await loadDistributionConfirmationScope(tQ,sql,{orderYear,orderWeek},req.body.confirmationSelection,true);
+      if(actual.length!==req.distributionToolbarCategories.length||actual.some(c=>!req.distributionToolbarCategories.includes(c))||!actual.includes(cf))throw new Error('선택 품종의 확정 범위가 바뀌었습니다. 다시 조회하세요.');
+    }
     // 보호장치 ①: 확정 범위에 주문서 없는 출고가 있으면 확정 자체를 막는다 (견적서·매출·이카운트 누락 방지)
     if (name === 'usp_ShipmentFix') await assertNoOrderlessLinesBeforeFix(tQ, sql, { orderYear, orderWeek, custKey: req.body?.custKey, countryFlower: shape.hasCountryFlower ? cf : null });
     const result = await runShipmentProcedure(name, shape, orderYear, orderWeek, uid, cf, tQ);
