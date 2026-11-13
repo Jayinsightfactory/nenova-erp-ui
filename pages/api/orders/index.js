@@ -3,6 +3,7 @@
 // POST → 정식 테이블에 저장 (OrderMaster + OrderDetail)
 
 import { query, withTransaction, sql } from '../../../lib/db';
+import orderBatch from '../../../lib/orderRegistrationBatch.cjs';
 import { runOrderStockCalculationBatch } from '../../../lib/orderStockCalculation.js';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderUnit, requireOrderYear } from '../../../lib/orderUtils';
@@ -54,7 +55,7 @@ async function safeNextKey(tQ, table, keyCol) {
 // PK 충돌 시 MAX+1 재계산 후 재시도 (최대 5회).
 // buildInsert(newKey) 는 해당 key 로 INSERT 를 수행하는 async 함수.
 // 성공 시 실제 사용된 key 반환, 모두 실패 시 마지막 에러 throw.
-async function tryInsertWithRetry(tQ, table, keyCol, buildInsert, maxRetry = 5) {
+async function tryInsertWithRetry(tQ, table, keyCol, buildInsert, log, maxRetry = 5) {
   let lastErr;
   for (let attempt = 0; attempt < maxRetry; attempt++) {
     const key = await safeNextKey(tQ, table, keyCol);
@@ -65,7 +66,7 @@ async function tryInsertWithRetry(tQ, table, keyCol, buildInsert, maxRetry = 5) 
       lastErr = e;
       // PK 충돌(2627) 또는 UNIQUE 위반(2601) 만 재시도
       if (e.number === 2627 || e.number === 2601 || /PRIMARY KEY|duplicate key|UNIQUE/i.test(e.message || '')) {
-        await appLog('safeInsert', '재시도', `${table}.${keyCol}=${key} 충돌 → 재시도 ${attempt + 1}/${maxRetry}`, false);
+        log('safeInsert', '재시도', `${table}.${keyCol}=${key} 충돌 → 재시도 ${attempt + 1}/${maxRetry}`, false);
         continue;
       }
       throw e;
@@ -353,9 +354,14 @@ async function getOrders(req, res) {
 
 async function verifyCreatedOrdersInTransaction(tQuery, { orderYear, orderWeek, custKey, results }) {
   const verifiedItems = [];
+  const keys = [...new Set((results || []).filter(item => Number.isInteger(Number(item?.prodKey)) &&
+    Number.isFinite(Number(item?.finalQty))).map(item => Number(item.prodKey)))];
+  const facts = keys.length >= 4
+    ? await orderBatch.verify(tQuery, sql, {orderYear, orderWeek, custKey}, keys)
+    : null;
   for (const item of results || []) {
     if (!Number.isInteger(Number(item?.prodKey)) || !Number.isFinite(Number(item?.finalQty))) continue;
-    const check = await tQuery(
+    const check = facts ? null : await tQuery(
       `SELECT rawOrder.RecordCount AS RawOrderCount, rawOrder.Qty AS RawOrderQty,
               viewOrder.RecordCount AS ViewOrderCount, viewOrder.Qty AS ViewOrderQty
          FROM (VALUES (1)) seed(n)
@@ -378,7 +384,7 @@ async function verifyCreatedOrdersInTransaction(tQuery, { orderYear, orderWeek, 
         pk: { type: sql.Int, value: Number(item.prodKey) },
       },
     );
-    const row = check.recordset?.[0] || {};
+    const row = facts ? facts.get(Number(item.prodKey)) : check.recordset?.[0] || {};
     const verification = evaluateOrderRegistrationPostWrite({
       expectedOrderOut: item.finalQty,
       facts: {
@@ -420,6 +426,11 @@ async function createOrder(req, res) {
     return res.status(400).json({ success: false, error: '품목을 입력하세요.' });
   }
 
+  // Flush diagnostic events after releasing the transaction's pool connection.
+  const diagnostics = [];
+  const log = (category, step, detail, isError = false) => {
+    diagnostics.push({ category, step, detail, isError, at: Date.now() });
+  };
   try {
     await appLog('createOrder', '시작', `custKey=${custKey} custName=${custName} week=${week} items=${writeItems?.length} mode=${orderMode}`);
 
@@ -486,6 +497,7 @@ async function createOrder(req, res) {
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
     const { orderMasterKey, results, prodKeys, shipmentMasterKey, postWriteVerification } = await withTransaction(async (tQuery) => {
+      diagnostics.length = 0; // A deadlock retry starts a fresh transaction.
       await assertErpEditGuard(tQuery, { orderYear, orderWeek, custKey: Number(resolvedCustKey) }, req.user, req.body);
       // 기존 OrderMaster 확인 (같은 업체+연도+차수 — 연도 무시 시 25년 주문에 26년 등록이 붙는 버그 방지)
       // 수량 0으로 숨긴 Master도 재사용한다. 새로 INSERT하면 EXE에 같은 차수 주문이 두 장이 된다.
@@ -517,7 +529,7 @@ async function createOrder(req, res) {
             { mk: { type: sql.Int, value: mk }, uid: { type: sql.NVarChar, value: uid } }
           );
         }
-        await appLog('createOrder', 'OM_FOUND', `mk=${mk}`);
+        log('createOrder', 'OM_FOUND', `mk=${mk}`);
         // Manager/OrderCode 없는 경우(웹 이전 생성분)만 보완
         const ywk = orderYear + (orderWeek || '').split('-')[0]; // 전산 raw OrderYearWeek = 연도+대차수
         const yearWeekPatch = hasOrderYearWeekColumn
@@ -538,7 +550,7 @@ async function createOrder(req, res) {
         );
       } else {
         mk = await tryInsertWithRetry(tQuery, 'OrderMaster', 'OrderMasterKey', async (newMk) => {
-          await appLog('createOrder', 'OM_INSERT', `new mk=${newMk} ck=${resolvedCustKey} wk=${orderWeek}`);
+          log('createOrder', 'OM_INSERT', `new mk=${newMk} ck=${resolvedCustKey} wk=${orderWeek}`);
           const ywk = orderYear + (orderWeek || '').split('-')[0]; // 전산 raw OrderYearWeek = 연도+대차수
           const params = {
             mk:       { type: sql.Int,      value: newMk },
@@ -565,7 +577,7 @@ async function createOrder(req, res) {
               params
             );
           }
-        });
+        }, log);
         await syncKeyNumbering(tQuery, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
       }
 
@@ -602,7 +614,7 @@ async function createOrder(req, res) {
             if (hasShipmentCreateIdColumn) { cols.push('CreateID'); vals.push('@createId'); params.createId = { type: sql.NVarChar, value: uid }; }
             if (hasShipmentCreateDtmColumn) { cols.push('CreateDtm'); vals.push('GETDATE()'); }
             await tQuery(`INSERT INTO ShipmentMaster (${cols.join(', ')}) VALUES (${vals.join(', ')})`, params);
-          });
+          }, log);
           await syncKeyNumbering(tQuery, 'ShipmentMasterKey', 'ShipmentMaster', 'ShipmentKey');
         }
       }
@@ -629,7 +641,37 @@ async function createOrder(req, res) {
       const detailResults = [];
       const changedProdKeys = new Set();
       const touchedOrderMasterKeys = new Set([Number(mk)]);
-      for (const item of scopedWriteItems) {
+      const batchScope = {master:mk,customer:Number(resolvedCustKey),year:orderYear,week:orderWeek,
+        uid,history:historyDescr,hasDescr:hasOrderDetailDescrColumn};
+      const newLines = isMyCustomerSource
+        ? await orderBatch.prepare(tQuery, sql, batchScope, scopedWriteItems, (item, product) => {
+          const unit = normalizeOrderUnit(item.unit, normalizeOrderUnit(product.OutUnit, '박스'));
+          const quantities = myCustomerOrderAllUnits(item.qty, unit, product);
+          const outQty = quantities.outQ;
+          if (!(outQty > 0)) return null;
+          const plan = planMyCustomerOrderWrite({orderMode,inputOutQty:outQty,previousQty:0,
+            hasActiveOrderDetail:false,hasShipmentDetail:false});
+          if(plan.action !== 'INSERT') return null;
+          return {
+            values:{pk:item.prodKey,box:quantities.box,bunch:quantities.bunch,steam:quantities.steam,oq:outQty,
+              est:myCustomerOrderEstQuantity(myCustomerOrderAllUnits(outQty, normalizeOrderUnit(product.OutUnit, '박스'), product), product, outQty),
+              descr:String(item.descr || item.memo || extractMoqText(product) || '').trim()},
+            response:{prodKey:item.prodKey,prodName:item.prodName || product.ProdName || '',qty:outQty,
+              inputQty:outQty,unit:normalizeOrderUnit(product.OutUnit,'박스'),status:'OK',
+              previousQty:0,deltaQty:plan.deltaQty,finalQty:outQty},
+          };
+        }) : null;
+      if (newLines) {
+        const saved = await orderBatch.insert(tQuery, sql, batchScope, newLines);
+        await syncKeyNumbering(tQuery, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
+        for (const [index, row] of saved.entries()) {
+          const { pk, box, bunch, steam } = newLines[index].values;
+          log('createOrder', 'OD_INSERT', `nk=${row.orderDetailKey} pk=${pk} box=${box} bunch=${bunch} steam=${steam}`);
+          detailResults.push(row);
+          changedProdKeys.add(row.prodKey);
+        }
+      }
+      for (const item of newLines ? [] : scopedWriteItems) {
         let prodKey = item.prodKey;
         if (!prodKey && item.prodName) {
           const pr = await tQuery(
@@ -771,7 +813,7 @@ async function createOrder(req, res) {
           }
           const nextOutQty = overflow.nextOutQty;
           if (overflow.kind === 'zero' || (!isMyCustomerSource && applyDeltaAdd && nextOutQty <= 0)) {
-            await appLog('createOrder', 'OD_DELETE_ZERO', `pk=${prodKey} old=${oldOutQty} delta=${outQty}`);
+            log('createOrder', 'OD_DELETE_ZERO', `pk=${prodKey} old=${oldOutQty} delta=${outQty}`);
             await tQuery(
               `UPDATE OrderDetail SET
                  BoxQuantity=0, BunchQuantity=0, SteamQuantity=0,
@@ -790,7 +832,7 @@ async function createOrder(req, res) {
               String(oldOutQty),
               '0',
               historyDescr,
-              uid
+              uid, log
             );
             // 내 업체의 여러 명시 행은 한 트랜잭션 끝까지 모두 처리한 뒤에만 Master를 정리한다.
             // 중간 0행 처리 뒤 다음 품목을 같은 Master에 넣는 ghost 삭제를 막는다.
@@ -843,7 +885,7 @@ async function createOrder(req, res) {
                  ${hasOrderDetailDescrColumn ? `Descr = CASE WHEN @descr<>'' THEN @descr ELSE Descr END,` : ''}
                  LastUpdateID=@uid, LastUpdateDtm=GETDATE()
                WHERE OrderDetailKey=@dk`;
-          await appLog('createOrder', 'OD_UPDATE', `pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty} delta=${isDelta} revive=${reviveDeleted ? 1 : 0}`);
+          log('createOrder', 'OD_UPDATE', `pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty} delta=${isDelta} revive=${reviveDeleted ? 1 : 0}`);
           await tQuery(updateSql,
             { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
               steam: { type: sql.Float, value: steamQty },
@@ -859,7 +901,7 @@ async function createOrder(req, res) {
             String(oldOutQty),
             String(nextOutQty),
             historyDescr,
-            uid
+            uid, log
           );
           changedProdKeys.add(Number(prodKey));
           detailResults.push({
@@ -879,7 +921,7 @@ async function createOrder(req, res) {
             ? myCustomerOrderEstQuantity(myCustomerOrderAllUnits(outQty, normalizeOrderUnit(prod.OutUnit, '박스'), prod), prod, outQty)
             : outQty;
           const newDetailKey = await tryInsertWithRetry(tQuery, 'OrderDetail', 'OrderDetailKey', async (newNk) => {
-            await appLog('createOrder', 'OD_INSERT', `nk=${newNk} pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
+            log('createOrder', 'OD_INSERT', `nk=${newNk} pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
             const insertCols = hasOrderDetailDescrColumn
               ? `(OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
                   OutQuantity, EstQuantity, NoneOutQuantity, Descr, isDeleted, CreateID, CreateDtm)`
@@ -903,9 +945,9 @@ async function createOrder(req, res) {
                 uid:   { type: sql.NVarChar, value: 'admin' }, // 전산 호환
               }
             );
-          });
+          }, log);
           await syncKeyNumbering(tQuery, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
-          await insertOrderHistory(tQuery, newDetailKey, '0', String(outQty), historyDescr, uid);
+          await insertOrderHistory(tQuery, newDetailKey, '0', String(outQty), historyDescr, uid, log);
           changedProdKeys.add(Number(prodKey));
           detailResults.push({
             prodKey,
@@ -961,6 +1003,7 @@ async function createOrder(req, res) {
       return { orderMasterKey: mk, results: detailResults, prodKeys: [...changedProdKeys], shipmentMasterKey: ensuredShipmentMasterKey, postWriteVerification, editDigestAfter: editGuardAfter.editDigestAfter, revision: editGuardAfter.revision };
     });
 
+    await orderBatch.flushDiagnostics(query, sql, diagnostics);
     // 내 업체와 엑셀 최종 주문등록은 주문 전용: ADD/REPLACE/FINAL_SNAPSHOT 모두 재고 보존.
     const stockWarning = isMyCustomerSource
       ? null
@@ -979,6 +1022,7 @@ async function createOrder(req, res) {
       results,
     });
   } catch (err) {
+    await orderBatch.flushDiagnostics(query, sql, diagnostics);
     await appLog('createOrder', '오류', err.message, true);
     return res.status(err.statusCode || 500).json({
       success: false,
@@ -1112,7 +1156,7 @@ async function runStockCalculation(orderYear, orderWeek, uid, prodKeys = []) {
   }
 }
 
-async function insertOrderHistory(tQuery, detailKey, before, after, descr, uid) {
+async function insertOrderHistory(tQuery, detailKey, before, after, descr, uid, log) {
   try {
     await tQuery(
       `INSERT INTO OrderHistory
@@ -1127,6 +1171,6 @@ async function insertOrderHistory(tQuery, detailKey, before, after, descr, uid) 
       }
     );
   } catch (e) {
-    await appLog('OrderHistory', '오류', e.message, true);
+    log('OrderHistory', '오류', e.message, true);
   }
 }

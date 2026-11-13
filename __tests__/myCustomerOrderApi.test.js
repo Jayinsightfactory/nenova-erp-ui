@@ -263,8 +263,8 @@ function makeDb(initial = baseState()) {
   return db;
 }
 
-function loadCreateOrder(db) {
-  let source = fs.readFileSync(API_FILE, 'utf8');
+function loadCreateOrder(db, { source: sourceOverride, dependencies: dependencyOverrides = {} } = {}) {
+  let source = sourceOverride ?? fs.readFileSync(API_FILE, 'utf8');
   // Remove ESM imports, retaining all production function bodies.
   source = source.replace(/^import[\s\S]*?from ['"][^'"]+['"];?\s*/gm, '');
   source = source.replace(/export\s+default\s+/, 'const handlerExport = ');
@@ -273,6 +273,7 @@ function loadCreateOrder(db) {
     .replace(/export\s+(?=const|function)/g, '');
   const policy = new Function(`${policySource}\nreturn { MY_CUSTOMER_ORDER_MODE, assertMyCustomerExpectedCurrentQty, expandFinalSnapshotItems, isAbsoluteOrderMode, isFinalSnapshotOrderSource, isMyCustomerOrderSource, planMyCustomerOrderWrite, validateMyCustomerOrderWriteRequest };`)();
   const dependencies = {
+    orderBatch: require('../lib/orderRegistrationBatch.cjs'),
     query: db.query,
     withTransaction: db.withTransaction,
     // Order semantics fixture; the real transaction helper is executed separately
@@ -306,6 +307,7 @@ function loadCreateOrder(db) {
     // Names used by the pending pure policy seam are supplied as harmless
     // defaults; policy behavior is asserted through the actual API writes.
     ...policy,
+    ...dependencyOverrides,
   };
   const names = Object.keys(dependencies);
   const values = names.map(name => dependencies[name]);
@@ -316,9 +318,9 @@ function loadCreateOrder(db) {
   return loaded.createOrder;
 }
 
-async function call(createOrder, db, body) {
+async function call(createOrder, db, body, { user = { userId: 'fixture-user' }, request = {} } = {}) {
   const response = { statusCode: 200, payload: undefined, status(code) { this.statusCode = code; return this; }, json(value) { this.payload = value; return this; }, end() { return this; } };
-  await createOrder({ method: 'POST', body, user: { userId: 'fixture-user' } }, response);
+  await createOrder({ method: 'POST', body, user, ...request }, response);
   return response;
 }
 
@@ -560,4 +562,5 @@ async function main() {
   console.log('my customer order API integration tests passed');
 }
 
-main().catch(error => { console.error(error); process.exitCode = 1; });
+if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });
+module.exports = { loadCreateOrder, call };

@@ -3,6 +3,7 @@
 // 상단: 범위·사람·검색·보기 / 좌: 연도별 차수 / 우측 끝: 접을 수 있는 관리자 PC 현황
 // 중: 선택 차수의 단계 요약띠 + 칸반 또는 표 / 우: 파일 상세(버전·내려받기·교정)
 // 접근 범위는 서버(lib/workDrive)가 이미 걸러서 준다 — 화면은 받은 것만 보여준다.
+import { decodeDriveList } from '../../lib/workDriveListDecode.cjs';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fileSubcategory, filterCategories, subcategoryCounts } from '../../lib/workDriveCategories';
 import { isKakaoInbound, securityEvent, securityRows, securityCounts } from '../../lib/workDriveSecurity';
@@ -60,11 +61,20 @@ export default function WorkDrivePage() {
   const [pv, setPv] = useState(null);
   // 출처 필터(2026-11-09): '' | 'pc'(데몬 자동) | 'web'(웹 직접 업로드). 새 상태는 항상 맨 뒤에 추가한다(위 테스트가 훅 인덱스로 상태를 넣음).
   const [originF, setOriginF] = useState('');
+  const [usageData,setUsageData]=useState(null);
+  const [usageError,setUsageError]=useState('');
+  const loadSequence=useRef(0);
+  const usage=usageData ?? data?.usage ?? null;
   const chooseStage = (value) => { setStageF(value); setSubF(''); };
 
+  const loadUsage=async(sequence)=>{
+    try {const r=await fetch('/api/work/drive?usage=only',{cache:'no-store'}),j=await r.json();if(!j.success||j.usage==null)throw Error(j.error||'사용량 확인 실패');if(loadSequence.current===sequence){setUsageData(j.usage);setUsageError('');}}
+    catch(e){if(loadSequence.current===sequence)setUsageError(e.message);}
+  };
   const load = async () => {
-    try { const r = await fetch('/api/work/drive', { cache: 'no-store' }); const j = await r.json(); if (!j.success) throw new Error(j.error || '실패'); setData(j); setErr(''); }
-    catch (e) { setErr(e.message); }
+    const sequence=++loadSequence.current;
+    try { const r = await fetch('/api/work/drive?format=table-v1&usage=deferred', { cache: 'no-store' }); const j = await r.json(); if (!j.success) throw new Error(j.error || '실패');if(loadSequence.current!==sequence)return;setData(decodeDriveList(j));setUsageData(j.usage ?? null);setUsageError('');setErr('');if(j.isAdmin)void loadUsage(sequence); }
+    catch (e) { if(loadSequence.current===sequence)setErr(e.message); }
   };
   useEffect(() => { load(); }, []);
   useEffect(() => { if (data?.isAdmin) setScope('all'); }, [data?.isAdmin]);
@@ -216,7 +226,7 @@ export default function WorkDrivePage() {
       <header className="top">
         <div className="title">
           <h1 data-desktop-chrome>업무 드라이브</h1>
-          <span className="sub">{data ? <>{data.me}{data.dept ? ` · ${data.dept}` : ''} <b>{files.length.toLocaleString()}</b>개 파일{data.usage && <span className="usage" title={`색인 기준 ${data.usage.files}개 · 디스크 ${fmtG(data.usage.onDisk)} (${data.usage.onDiskPct}%) · 예전 방식(중복 합산) ${fmtG(data.usage.indexedNaive)}`}> · 사용량 <b>{fmtG(data.usage.used)}</b> / {fmtG(data.usage.max)} ({data.usage.pct}%)</span>}</> : '불러오는 중…'}</span>
+          <span className="sub">{data ? <>{data.me}{data.dept ? ` · ${data.dept}` : ''} <b>{files.length.toLocaleString()}</b>개 파일{usage && <span className="usage" title={`색인 기준 ${usage.files}개 · 디스크 ${fmtG(usage.onDisk)} (${usage.onDiskPct}%) · 예전 방식(중복 합산) ${fmtG(usage.indexedNaive)}`}> · 사용량 <b>{fmtG(usage.used)}</b> / {fmtG(usage.max)} ({usage.pct}%)</span>}{!usage&&data.isAdmin&&<span className="usage" role="status"> · {usageError?'사용량 확인 실패 · 파일은 사용 가능':'사용량 확인 중…'}</span>}</> : '불러오는 중…'}</span>
         </div>
         <label className="search"><span className="ico">⌕</span><input placeholder="파일명 · 이름 · 차수(38-2) 검색" value={q} onChange={(e) => setQ(e.target.value)} />{q && <button className="clr" onClick={() => setQ('')}>✕</button>}</label>
         <div className="seg">{[['kanban', '칸반'], ['list', '목록'], ['recent', '최근'], ...(data?.isAdmin ? [['security', '보안 이력']] : [])].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>

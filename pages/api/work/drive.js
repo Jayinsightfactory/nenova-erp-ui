@@ -9,7 +9,8 @@ import fs from 'fs';
 import path from 'path';
 import { withAuth } from '../../../lib/auth';
 import { listVisible, getFile, reclassify, reclassifyAll, downloadLog, deptOfName, STAGES } from '../../../lib/workDrive';
-import { readDriveListAsync } from '../../../lib/workDriveListAsync.cjs';
+import { sendDriveListJson } from '../../../lib/workDriveListResponse.cjs';
+import { readDriveListAsync, readDriveUsageAsync } from '../../../lib/workDriveListAsync.cjs';
 import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
 import { WORK_DRIVE_ADMIN_USER_IDS } from '../../../lib/workDrive';
 
@@ -30,10 +31,18 @@ export default withAuth(async function handler(req, res) {
     const who = deptOfName(user.userName);
     const isAdmin = isOrbitReportViewer(user) || WORK_DRIVE_ADMIN_USER_IDS.includes(String(user.userId || '').trim());
     // usage(2026-11-09): 관리자에게만 실제 사용량(색인 최신행 기준 + 디스크 교차검증, 5GB 대비 %) — 507 용량 오판 재발 감시용
-    let snapshot;
-    try { snapshot = await readDriveListAsync({ includeUsage: isAdmin }); }
+    if (req.query.usage === 'only') {
+      if (!isAdmin) return res.status(403).json({success:false,error:'사용량 조회 권한이 없습니다.'});
+      try { const snapshot=await readDriveUsageAsync();return res.status(200).json({success:true,usage:snapshot.usage}); }
+      catch { res.setHeader('Retry-After','2');return res.status(503).json({success:false,error:'사용량을 확인하지 못했습니다. 파일 목록은 계속 사용할 수 있습니다.'}); }
+    }
+    const deferredUsage=req.query.format==='table-v1' && req.query.usage==='deferred';
+    let snapshot,usage;
+    try {
+      [snapshot,usage]=await Promise.all([readDriveListAsync(),isAdmin&&!deferredUsage?readDriveUsageAsync():null]);
+    }
     catch { res.setHeader('Retry-After','2');return res.status(503).json({success:false,error:'업무 파일 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'}); }
-    return res.status(200).json({ success: true, me: who.name || user.userName || user.userId, dept: who.dept, isAdmin, stages: STAGES, files: listVisible(user, snapshot.rows), ...(isAdmin ? { usage: snapshot.usage } : {}) });
+    return sendDriveListJson(res, { success: true, me: who.name || user.userName || user.userId, dept: who.dept, isAdmin, stages: STAGES, files: listVisible(user, snapshot.rows), ...(isAdmin ? { usage: usage?.usage ?? null } : {}) }, { table: req.query.format === 'table-v1' });
   }
   if (req.method === 'POST') {
     const b = req.body || {};

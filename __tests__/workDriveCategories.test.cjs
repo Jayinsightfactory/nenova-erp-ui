@@ -36,7 +36,7 @@ for (const stage of stages) {
 assert.equal(filterCategories(files, '', 'stale').length, files.length);
 assert.equal(JSON.stringify(files), snapshot);
 let values = {}, index = 0, setters = {};
-const Page = compile('pages/work/drive.js', name => name === 'react' ? { ...React, useState(v) { const i = index++; return [Object.hasOwn(values, i) ? values[i] : v, n => { setters[i] = n; }]; }, useMemo: f => f(), useRef: v => ({current:v}), useEffect() {} } : name === '../../lib/workDriveCategories' ? policy : name === '../../lib/workDriveSecurity' ? security : require(name)).default;
+const Page = compile('pages/work/drive.js', name => name === 'react' ? { ...React, useState(v) { const i = index++; return [Object.hasOwn(values, i) ? values[i] : v, n => { setters[i] = n; }]; }, useMemo: f => f(), useRef: v => ({current:v}), useEffect() {} } : name === '../../lib/workDriveCategories' ? policy : name === '../../lib/workDriveSecurity' ? security : name === '../../lib/workDriveListDecode.cjs' ? require('../lib/workDriveListDecode.cjs') : require(name)).default;
 const data = { files, stages, me: '담당자', dept: '영업', isAdmin: true };
 function tree(v = {}) { values = { 0: data, ...v }; index = 0; setters = {}; return Page(); }
 function render(v) { return renderToStaticMarkup(tree(v)); }
@@ -80,10 +80,25 @@ html = render({15:files[0],25:[incoming]}); assert.match(html,/카카오톡 수�
 const securityRoot = tree({6:'security',20:[incoming,outgoing],21:'copy'});
 const reference = find(securityRoot, e => e.type === 'button' && React.Children.toArray(e.props.children).includes('수신·내부 기록'));
 assert(reference); reference.props.onClick(); assert.equal(setters[26], 'reference'); assert.equal(setters[21], '');
+html=render({0:{...data,usage:null},31:null,32:''});assert.match(html,/사용량 확인 중/);
+html=render({0:{...data,usage:null},31:null,32:'fixture failure'});assert.match(html,/사용량 확인 실패/);assert.match(html,/개 파일/);
+html=render({0:{...data,usage:null},31:{used:0,max:100,files:0,onDisk:0,onDiskPct:0,indexedNaive:0,pct:0}});assert.match(html,/0%/);assert.doesNotMatch(html,/사용량 확인 중/);
 console.log('work-drive: subcategories, precedence, immutable major category, count conservation, layout order, permission and all view filters passed');
 (async () => {
   const originalFetch = global.fetch;
   try {
+    const listRoot=tree(),listRefresh=find(listRoot,e=>e.type==='button'&&e.props.onClick?.name==='load');assert(listRefresh);
+    const table=await require('../lib/workDriveListTable.cjs').encodeDriveFileTable(files);
+    for(const result of [{success:true,...data,fileTable:table,files:undefined},{success:true,...data}]){
+      global.fetch=async(url,options)=>{if(url==='/api/work/drive?usage=only')return {json:async()=>({success:true,usage:{used:0,max:100,files:0,onDisk:0,onDiskPct:0,indexedNaive:0,pct:0}})};assert.equal(url,'/api/work/drive?format=table-v1&usage=deferred');assert.equal(options.cache,'no-store');return {json:async()=>result};};
+      await listRefresh.props.onClick();assert.deepEqual(setters[0].files,files);assert.equal(setters[1],'');
+      const restored=render({0:setters[0],6:'list',7:'송금·경영',18:'지출결의'});assert.match(restored,/지출결의서 250829 청구서/);assert.doesNotMatch(restored,/외화송금신청서.pdf/);
+    }
+    const usageRoot=tree(),usageRefresh=find(usageRoot,e=>e.type==='button'&&e.props.onClick?.name==='load'),usageRequests=[];
+    global.fetch=async url=>url.includes('usage=only')?new Promise(resolve=>usageRequests.push(resolve)):{json:async()=>({success:true,...data,usage:null})};
+    await usageRefresh.props.onClick();await usageRefresh.props.onClick();assert.equal(usageRequests.length,2);
+    usageRequests[1]({json:async()=>({success:true,usage:{used:0,max:100,pct:0}})});await new Promise(resolve=>setImmediate(resolve));assert.equal(setters[31].used,0);
+    usageRequests[0]({json:async()=>({success:false,error:'stale usage failure'})});await new Promise(resolve=>setImmediate(resolve));assert.equal(setters[32],'');
     const requestRoot = tree({6:'security',21:'copy'});
     const refresh = find(requestRoot, e => e.type === 'button' && e.props.onClick?.name === 'loadEg');
     assert(refresh);
