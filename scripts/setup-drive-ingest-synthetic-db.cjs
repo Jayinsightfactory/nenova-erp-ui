@@ -9,7 +9,8 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
  if(fs.existsSync(stateFile))throw Error('Existing test state must be explicitly cleaned up first');
  const state={name:'nenova-upload-synthetic-'+Date.now(),host:'127.0.0.1',port:14339,password:'Synthetic!'+crypto.randomBytes(20).toString('hex'),database:'NenovaUploadSynthetic',user:'sa'};
- const child=spawnSync('docker',['run','-d','--name',state.name,'--label','nenova.synthetic=upload-load','--memory','2g','-p',`127.0.0.1:${state.port}:1433`,'-e','ACCEPT_EULA=Y','-e','MSSQL_SA_PASSWORD','-e','MSSQL_MEMORY_LIMIT_MB=1024','mcr.microsoft.com/mssql/server:2022-latest'],{encoding:'utf8',env:{...process.env,MSSQL_SA_PASSWORD:state.password}});
+ const image='mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89';
+ const child=spawnSync('docker',['run','-d','--name',state.name,'--label','nenova.synthetic=upload-load','--memory','2g','--cpus','1','-p',`127.0.0.1:${state.port}:1433`,'-e','ACCEPT_EULA=Y','-e','MSSQL_SA_PASSWORD','-e','MSSQL_MEMORY_LIMIT_MB=1024',image],{encoding:'utf8',env:{...process.env,MSSQL_SA_PASSWORD:state.password}});
  if(child.status!==0)throw Error('Docker synthetic container start failed');
  state.containerId=child.stdout.trim();fs.writeFileSync(stateFile,JSON.stringify(state),{mode:0o600});
  const config={server:state.host,port:state.port,user:state.user,password:state.password,database:'master',options:{encrypt:false,trustServerCertificate:true},connectionTimeout:3000};

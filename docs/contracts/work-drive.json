@@ -114,7 +114,7 @@
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
   ],
-  "pairWorker": "The authenticated ingest endpoint admits two concurrent bodies per web process and holds at most 24 additional connections for 15 seconds before Retry-After. A separate low-priority child stores the original and index; a bounded, recoverable on-disk intent precedes new invoice/result writes. Pair analysis runs in another supervised child and is no longer awaited by upload; its atomic output and admin recompute format are unchanged. Worker processes receive no ERP credentials. Remit parsing runs in the child, legacy SQL import is awaited before 200 as before. Contended mirrors can spool locally; overload remains explicit.",
+  "pairWorker": "The authenticated ingest endpoint admits two concurrent bodies per web process and holds at most 24 additional connections for 15 seconds before Retry-After. A separate low-priority child stores the original and index; a bounded, recoverable on-disk intent precedes new invoice/result writes. Pair analysis runs in another supervised child and is no longer awaited by upload; its atomic output and admin recompute format are unchanged. Automatic jobs request an acknowledgment only, so the web process need not receive the full saved pair document. Worker processes receive no ERP credentials. Remit parsing runs in the child, legacy SQL import is awaited before 200 as before. Contended mirrors can spool locally; overload remains explicit.",
   "requiredTests": [
     "__tests__/workDrivePairsWorker.test.cjs"
   ],

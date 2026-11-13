@@ -1,0 +1,77 @@
+name: Synthetic upload 30-minute soak
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upload-ingest-soak-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  soak:
+    name: Disposable Linux SQL / ${{ matrix.users }} identities / 30 minutes
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        users: [5, 10, 20]
+    env:
+      NENOVA_DISPOSABLE_CI: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify disposable runner resources
+        run: |
+          node - <<'NODE'
+          const os=require('node:os'),fs=require('node:fs');
+          const d=fs.statfsSync(process.cwd()),free=Number(d.bavail)*Number(d.bsize);
+          const info={linux:process.platform==='linux',cpus:os.availableParallelism(),ramGiB:Math.round(os.totalmem()/2**30),diskFreeGiB:Math.floor(free/2**30)};
+          console.log(JSON.stringify(info));
+          if(!info.linux||info.cpus<2||os.totalmem()<6*2**30||free<10*2**30)process.exit(1);
+          NODE
+      - name: Install repository dependencies
+        timeout-minutes: 8
+        run: npm ci
+      - name: Verify bounded metrics and artifact redaction
+        run: node --max-old-space-size=128 --test __tests__/driveLoadMetrics.test.cjs
+      - name: Pull pinned disposable SQL Server image
+        timeout-minutes: 5
+        run: docker pull mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89
+      - name: Start loopback-only synthetic SQL fixture
+        timeout-minutes: 5
+        run: node scripts/setup-drive-ingest-synthetic-db.cjs
+      - name: Run production API soak
+        timeout-minutes: 41
+        run: >-
+          timeout --signal=TERM --kill-after=30s 40m
+          node --max-old-space-size=384 scripts/test-drive-ingest-mixed-load.cjs
+          --production=1 --seconds=1800 --counts=${{ matrix.users }} --samples=0
+          --output=work/mixed-load/public/soak-summary.json
+      - name: Write sanitized aggregate report
+        if: always()
+        run: node scripts/report-drive-ingest-soak.cjs
+      - name: Remove only verified synthetic SQL container
+        if: always()
+        timeout-minutes: 2
+        run: node scripts/cleanup-drive-ingest-synthetic-db.cjs
+      - name: Upload aggregate report only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload-soak-${{ matrix.users }}-aggregate
+          path: |
+            work/mixed-load/public/soak-summary.json
+            work/mixed-load/public/soak-summary.md
+          retention-days: 7
+          if-no-files-found: error
