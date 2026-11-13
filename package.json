@@ -31,7 +31,7 @@
     "pretest:pivot": "npm run test:pivot-exe && npm run test:pivot-volume-remaining",
     "test:pivot-volume-remaining": "node __tests__/pivotVolumeRemainingFormula.test.js",
     "pretest:erp-manifest": "npm run test:pivot-exe && npm run test:stock-cascade",
-    "test:stock-cascade": "node --test __tests__/stockCascade.test.cjs __tests__/stockCascadeRepair.test.cjs __tests__/invoiceReceiptStockReadback.test.js __tests__/orderStockCalculation.test.js",
+    "test:stock-cascade": "node --test __tests__/approvedStock35Repair.test.cjs __tests__/stockCascade.test.cjs __tests__/stockCascadeRepair.test.cjs __tests__/invoiceReceiptStockReadback.test.js __tests__/orderStockCalculation.test.js",
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "node web.js",

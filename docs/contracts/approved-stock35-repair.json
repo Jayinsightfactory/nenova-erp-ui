@@ -1,0 +1,10 @@
+{
+ "id":"approved-stock35-repair","title":"대표 승인 35차 세 품목 +1 및 native 이월 보정",
+ "scope":["lib/approvedStock35Repair.mjs","scripts/approved-stock35-repair.mjs","scripts/test-approved-stock35-sql.cjs","package.json"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "actions":[{"name":"PREVIEW_REHEARSE_APPLY","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"Exact 2026/35-02 products1062/2322/2601; owner-approved +1 each only once. Append three audit histories, CAS Product.Stock +1, native ProductStock cascade incl future years. Preserve old histories, all money/estimate/order/warehouse/confirmation/procedure data. Default SELECT-only, fingerprint + matching rollback rehearsal + gate IDLE V2 + no retry. No UI bypass or schema migration."}],
+ "crossYearFixture":{"required":true,"description":"2025 same subweek unchanged; native 2027 existing snapshots carry exactly+1. Prior snapshot immutable. Wrong scope, extra +1 per week, stale, duplicate, unsupported unit and changed unrelated data reject."},
+ "requiredTestFiles":["__tests__/approvedStock35Repair.test.cjs","scripts/test-approved-stock35-sql.cjs"],
+ "dnspyEvidence":{"required":true,"record":"docs/plans/approved-stock35-2026-11-13.md","source":"actual installed FormStockAdd, FormStockView and SELECT-only native SP definition","methods":["FormStockAdd.btnSave_Click","FormStockView.GetData","usp_StockCalculation"],"tables":["StockHistory","Product","StockMaster","ProductStock","ViewWarehouse","ViewShipment","NenovaStockWeekGate"]},
+ "requiredCommands":["node --test __tests__/approvedStock35Repair.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}
