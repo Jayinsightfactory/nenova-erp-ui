@@ -188,7 +188,7 @@ function Todo({ data }) {
       <table className="media">
         <thead><tr><th>매뉴얼</th><th>영상</th><th>화면 캡처</th><th>영상을 아직 못 만든 이유</th></tr></thead>
         <tbody>{(data.manuals || []).map((m) => {
-          const need = m.steps.filter((s) => s.captureKind === 'screen').length, have = m.steps.filter((s) => s.capture).length;
+          const need = m.steps.filter((s) => s.captureKind === 'screen' || s.capture).length, have = m.steps.filter((s) => s.capture).length;
           return <tr key={m.id}><td>{m.title}</td><td><Badge tone={m.video ? 'ok' : 'plain'}>{m.video ? '있음' : '대기'}</Badge></td><td>{m.video && !have ? '영상으로 대신' : `${have} / ${need}단계`}</td><td>{m.media?.videoWaiting || '-'}</td></tr>;
         })}</tbody>
       </table>
