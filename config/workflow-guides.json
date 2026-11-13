@@ -567,6 +567,9 @@
         "/shipment/distribute"
       ],
       "sourceFiles": [
+        "components/shipment/DistributionMoveDialog.js",
+        "lib/shipmentDistributionPeers.js",
+        "lib/useDistributionViewport.js",
         "components/shipment/DistributionFixToggle.js",
         "components/shipment/DistributionScrollBar.js",
         "components/shipment/DistributionConfirmationSummary.js",
@@ -610,27 +613,32 @@
             {
               "scenario": "favorites",
               "title": "2. 품종별 즐겨찾기와 펼치기·접기",
-              "seconds": 62.257
+              "seconds": 61.814
             },
             {
               "scenario": "dates",
               "title": "3. 업체 검색과 날짜별 수량 입력",
-              "seconds": 107.203
+              "seconds": 106.257
             },
             {
               "scenario": "save",
               "title": "4. 견적수량·매출 보존 확인 후 명시 저장",
-              "seconds": 182.49
+              "seconds": 181.018
             },
             {
               "scenario": "tab",
               "title": "5. 출고일지정 탭에서 저장값 재확인",
-              "seconds": 197.689
+              "seconds": 196.214
             },
             {
               "scenario": "customers",
               "title": "6. 업체부터 선택하는 독립 작업공간",
-              "seconds": 224.495
+              "seconds": 222.901
+            },
+            {
+              "scenario": "unlimited",
+              "title": "7. 여러 업체를 연속 추가하고 출고일 숨기기",
+              "seconds": 276.406
             }
           ]
         }

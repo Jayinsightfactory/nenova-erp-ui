@@ -25,7 +25,10 @@ function load(source, localRequire) {
 // lib 끼리의 상대 import(./customerSearch.js → ./qwertyHangul.js)는 lib 기준으로 해석
 const libRequire = name => name.startsWith('./') ? load(fs.readFileSync('lib/'+name.slice(2).replace(/\.js$/,'')+'.js','utf8'),libRequire) : require(name);
 const display = load(fs.readFileSync('lib/distributeProductDisplay.js','utf8'),require);
-const Page = load(source, name=>{
+const loadPage = input => load(input, name=>{
+  if(name.endsWith('/useDistributionViewport.js')) return {useDistributionViewport:()=>{}};
+  if(name.endsWith('/shipmentDistributionPeers.js')) return libRequire('./shipmentDistributionPeers.js');
+  if(name.endsWith('/DistributionMoveDialog')) return ()=>null;
   if(name.endsWith('/useApi')) return {apiGet:()=>{throw Error('Display fixture must not query ERP');}};
   if(name.endsWith('/useWeekInput')) return {useWeekInput:()=>({value:'2026-41-01'}),getCurrentWeek:()=> '2026-41-01',WeekInput:()=>null,
     formatWeekDisplay:w=>String(w).replace(/^2026-/,'')};
@@ -48,6 +51,7 @@ const Page = load(source, name=>{
   if(name.endsWith('/DistributionPicker')) return load(fs.readFileSync('components/shipment/DistributionPicker.js','utf8'),require);
   return require(name);
 }).default;
+const Page=loadPage(source);
 const html=renderToStaticMarkup(React.createElement(Page));
 assert.match(html,/data-product-select="true"[^>]*title="CARNATION Pastel Crimea"[^>]*>Pastel Crimea<\/button>/);
 assert.match(html,/data-testid="distribution-previous-stock"[^>]*><div[^>]*>전차수 재고 \(박스\)<\/div><div[^>]*>2\.00<\/div>/);
@@ -64,4 +68,18 @@ assert.match(html,/data-ai-verify="product-3199" aria-pressed="false"/);
 assert.match(html,/🚚 출고분배 및 농장정보[\s\S]*🏬 출고분배 및 업체정보[\s\S]*📅 출고일 지정/);
 assert.doesNotMatch(html,/aria-keyshortcuts="Control\+S"[^>]*data-ai-verify|data-ai-verify="[^"]*"[^>]*aria-keyshortcuts="Control\+S"/,'save button must not carry data-ai-verify');
 console.log('Distribution real-page SSR: compact full names, original title, previous stock and responsive product panel passed');
+let matrix=source;
+const item={...fixtures[0],주문수량:1,출고수량:1,Cost:100};
+for(const [state,value] of Object.entries({tab:1,selectedCust:{CustKey:1,CustName:'Fixture 1'},pairCust:{CustKey:2,CustName:'Fixture 2'},custItems:[item],pairItems:[item],extraPeers:Array.from({length:6},(_,i)=>({cust:{CustKey:i+3,CustName:'Fixture '+(i+3)},items:[item],inputs:{}}))})){
+ const pattern=new RegExp(String.raw`(const \[${state}, [^\]]+\] = useState\()([^;]+)(\);)`);
+ assert.match(matrix,pattern);matrix=matrix.replace(pattern,(_,a,_old,b)=>a+JSON.stringify(value)+b);
+}
+const compare=renderToStaticMarkup(React.createElement(loadPage(matrix)));
+assert.equal([...compare.matchAll(/data-ai-verify="pair-cust-head-\d+"/g)].length,8);
+assert.match(compare,/title="CARNATION Apple Tea">Apple Tea<\/span>/);
+assert.doesNotMatch(compare,/data-ai-verify="move-to[12]-/);
+assert.match(compare,/data-ai-verify="customer-show-dates" checked/);
+const compact=renderToStaticMarkup(React.createElement(loadPage(matrix.replace('const [showCustomerDates,setShowCustomerDates]=useState(true);','const [showCustomerDates,setShowCustomerDates]=useState(false);'))));
+assert.doesNotMatch(compact,/data-ai-verify="customer-show-dates" checked/);
+console.log('Eight-company real-page SSR: no selection cap, compact native names, no middle move column, dates default ON and OFF supported');
 module.exports={html};

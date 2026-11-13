@@ -55,7 +55,12 @@
     "components/shipment/DistributionFixToggle.js",
     "components/shipment/DistributionScrollBar.js",
     "lib/distributionConcurrentEdit.js",
-    "__tests__/distributionConcurrentEdit.test.cjs"
+    "__tests__/distributionConcurrentEdit.test.cjs",
+    "lib/shipmentDistributionPeers.js",
+    "lib/useDistributionViewport.js",
+    "__tests__/shipmentDistributionPeers.test.cjs",
+    "components/shipment/DistributionMoveDialog.js",
+    "scripts/distribution-unlimited-localdb-browser.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -159,6 +164,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "Country header shows favorite family buttons (all families in country-view-all). Explicit selection sets separate local farmFamily, opens that family, clears search, and uses existing draft guard before native scope changes. Country resets display family. Product click changes native prodGroup without silently changing navigation family. Global search bypasses country/family display filter; same year/week API and writer paths unchanged. Entire country selector stays with sticky toolbar, expanded chooser bounded22vh. No ERP writes."
+    },
+    {
+      "name": "UNBOUNDED_CUSTOMER_COMPARISON",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "No fixed UI customer cap. Independent week+customer+epoch GET ownership, duplicate selection prevented, read errors block save, removing one preserves other columns/drafts. Default visible dates may be hidden only without date drafts; display-only shortened names retain native title/keys. Two or more use contiguous customer columns without movement cells; optional movement dialog edits drafts only. Existing year-scoped order registration, field-CAS batch and category refix are unchanged. Existing1000-row transaction bound checked before order/unfix side effects. Left exploration and right context/table scroll independently; sticky selected-product/customer controls remain visible."
     }
   ],
   "crossYearFixture": {
@@ -222,7 +233,9 @@
     "__tests__/distributeProductDisplay.test.js",
     "__tests__/shipmentDistributionCustomerLoading.test.cjs",
     "__tests__/shipmentDistributionBrowser.test.cjs",
-    "__tests__/distributionConcurrentEdit.test.cjs"
+    "__tests__/distributionConcurrentEdit.test.cjs",
+    "__tests__/shipmentDistributionPeers.test.cjs",
+    "scripts/distribution-unlimited-localdb-browser.cjs"
   ],
   "requiredCommands": [
     "node scripts/test-distribution-localdb.cjs --fix-cycle",
@@ -234,6 +247,7 @@
     "npm run build",
     "node scripts/test-distribution-catalog-downstream-sql.cjs",
     "node scripts/test-distribution-customer-scope-sql.cjs",
-    "node scripts/test-distribution-date-index-sql.cjs"
+    "node scripts/test-distribution-date-index-sql.cjs",
+    "node scripts/test-distribution-localdb.cjs --multi-save --browser-refresh --unlimited-customers"
   ]
 }

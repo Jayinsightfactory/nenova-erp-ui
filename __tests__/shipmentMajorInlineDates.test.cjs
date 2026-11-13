@@ -18,12 +18,12 @@ test('whole major week defines identical display axis from every selected subwee
  assert.deepEqual(majorInlineDisplayRows({error:'failed'},['45-01']),[]);
  assert.equal(majorInlineDateModel([],[],'2026','45-02',1,3513).total,null,'missing calendar cannot become an empty-customer zero total');
 });
-test('actual updated guide has numbered chapters/captions and bounded camera on all six workflow steps',()=>{
+test('actual updated guide has numbered chapters/captions and bounded camera on all seven workflow steps',()=>{
  const fs=require('node:fs'),{cameraFilters}=require('../scripts/lib/workflow-guide-recorder.cjs');
  const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8')),wf=registry.workflows.find(w=>w.id==='shipment-distribution-dates'),guide=wf.guides[0];
- const proof=JSON.parse(fs.readFileSync('public'+guide.proof,'utf8'));assert.equal(proof.browserZoom,100);assert.equal(proof.productionWrites,0);assert.equal(proof.presentation.numberedSteps,6);
- assert.deepEqual([...new Set(proof.presentation.focusShots.map(s=>s.number))],[1,2,3,4,5,6]);cameraFilters(proof.presentation.focusShots);
- assert.deepEqual(guide.chapters.map(c=>c.scenario),['country','favorites','dates','save','tab','customers']);guide.chapters.forEach((c,i)=>assert(c.title.startsWith((i+1)+'. ')));
+ const proof=JSON.parse(fs.readFileSync('public'+guide.proof,'utf8'));assert.equal(proof.browserZoom,100);assert.equal(proof.productionWrites,0);assert.equal(proof.presentation.numberedSteps,7);
+ assert.deepEqual([...new Set(proof.presentation.focusShots.map(s=>s.number))],[1,2,3,4,5,6,7]);cameraFilters(proof.presentation.focusShots);
+ assert.deepEqual(guide.chapters.map(c=>c.scenario),['country','favorites','dates','save','tab','customers','unlimited']);guide.chapters.forEach((c,i)=>assert(c.title.startsWith((i+1)+'. ')));
  const cues=fs.readFileSync('public'+guide.captions,'utf8').split(/\r?\n\r?\n/).filter(c=>c.includes('-->'));assert(cues.every(c=>/^\d\. /m.test(c)));
 });
 test('GET scope validates embedded year before normalization; conflicting and missing years rejected',async()=>{

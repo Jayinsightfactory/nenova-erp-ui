@@ -15,5 +15,5 @@ export default function DistributionScrollBar({viewMode,selectionKey}){
   measure();fromTable();
   return()=>{resize.disconnect();node.removeEventListener('scroll',fromBar);table.removeEventListener('scroll',fromTable);};
  },[viewMode,selectionKey]);
- return <div data-testid="distribution-top-scroll" ref={bar} aria-label="분배표 좌우 이동" tabIndex={0} style={{height:20,overflowX:'scroll',overflowY:'hidden',background:'var(--blue-bg)',border:'1px solid var(--border)'}}><div style={{width:Math.max(width,1),height:1}} /></div>;
+ return <div data-testid="distribution-top-scroll" ref={bar} aria-label="분배표 좌우 이동" tabIndex={0} style={{height:20,minHeight:20,flexShrink:0,overflowX:'scroll',overflowY:'hidden',background:'var(--blue-bg)',border:'1px solid var(--border)'}}><div style={{width:Math.max(width,1),height:1}} /></div>;
 }

@@ -2872,6 +2872,16 @@
 - 실측 디스크 여유에서 운영 예비 5GiB를 남긴 범위까지 기존 10GiB 한도 확대. 최대 100GiB. 업로드/용량 테스트·필수 ERP 검증·로컬 빌드 통과. 운영 반영 미검증.
 검색어: 업무드라이브 100GiB 가용공간 운영여유 5GiB
 
+
+## 2026-11-13 — 출고분배 업체 무제한·독립 스크롤 진행
+- 사용자 요청: 업체 5개 선택 제한 해제, 카네이션 표시 접두어 정리·품목 셀 축소, 출고일 기본 표시/숨김, 여러 업체 사이 이동칸 제거. 아래 품목 선택해도 업체 검색/추가/선택품목과 표 머리글 고정.
+- 신규 작업트리 nw-unlimited-customers-1113 (origin/master ad41db286). dnSpy FormShipmentDistribution 재확인, year/week read-only probe. 운영 쓰기0.
+- 8업체 actual production API→LocalDB 저장 및 새로고침, actual estimate API 인쇄/엑셀 각8행, ECOUNT1080단 및 금액·VAT·XLSX 재열기 통과. 출력 확정 자격만 fixture seed, native 확정/취소는 별도 실제 SP 검증 통과.
+- 연속 추가·업체별 조회 소유권·동적 슬롯/색상, 가운데 업체2 제거 시 나머지 초안 승격보존, 조회실패 저장금지, 1000행 사전차단. 2업체 이상 동일 붙은 비교표, 이동은 별도창.
+- 긴 좌측70품목 끝 선택 + 우측40행 양모드 context/thead 고정 및 상단 좌우바·저장 위치 검증 통과. 상세 docs/plans/distribution-unlimited-customers-2026-11-13.md.
+- 미완료: 최신 화면 영상 재촬영·정식 build, CI/병합·Cafe24·실운영 브라우저 확인 진행 중.
+검색어: 출고분배 업체 무제한 8업체 LocalDB 독립스크롤 업체검색 고정 출고일 숨김 수량이동 CARNATION
+
 ## 2026-11-13 주차 손익 최종 통관비 저장 경로 보완
 - 사용자36~46 최신통관비 갱신 승인. 초기222~232 새버전 생성 뒤 SQL JSON/실Chrome를 대조하여 POST 응답의 관세/평균 보완값과 과거 GET 고정 저장값 불일치 재현. 과거 동결 정책을 해제하지 않고 저장 직전 최종화를 추가, 원천은 cacheSourcePayload로 보존하고 donor만 원천으로 되돌려 중복 가산 방지. ERP/수기/확정/기존버전 변경0.
 - 실제 FormSalesView dnSpy 재실행, 운영 SELECT 원장6종 지문 전후동일/활성확정0 확인. 새8단위/반례, 기존관세와합계29검사, 실제 LocalDB final JSON commit/readback·원천donor·2025 sentinel·원천실패rollback·확정skip·money보존 PASS. LocalDB 첫 정리만 연결pool 때문에 실패해 해당 random fixture만 정리 후 최종exit0. 운영DB 시험0.
@@ -2887,3 +2897,9 @@
 - 추가 사용자확정: 반복업무는 하나이며 회차가 쌓이면 안됨. 저장본·원시회차조회·달력/주간은 보존하고, desktopHomeWorkspace 응답(홈/메모장 공용)에 최신회차 한건/규칙 projection 적용. 최신완료후 과거미완료 재등장 차단, 다음반복일 새회차, 제목같은 별도규칙 보존. 서버화면 변경이라 Desktop 설치버전 변경 불필요.
 - 표적10검사/실제파일 workspace 회귀/PM전체 PASS. 실제Chrome game DOM0·일반CSS·오류표시·Enter/Space 켜기끄기·reload꺼짐·1920/1280/390 JS0 PASS. 실제홈+notes 11/1부터 daily seed 11/30에도8규칙=8줄 PASS. 가이드 최종촬영/필수CI/배포 진행중, 아직 미검증.
 검색어: pm-control-game-1113 gameEnabled 기본꺼짐 반복업무누적 personalHomeCurrentTasks 최신회차1건 정정
+
+- 2026-11-13 후속: origin/master6305601e2 병합, WORK_MEMORY 양쪽 항목 보존. 최신 가이드377.6초/7단계/1920×1080/100% 실제 연습 UI 촬영 및 QA, 8업체 입력→일괄저장 완료 포함. 전체 ERP 계약/후속 스크립트, dnSpy/manifest217/쓰기guard, 정식 가이드 검사 통과. 최종 빌드·CI·배포 확인 진행.
+검색어: 업체8개 연속추가 날짜숨김 독립스크롤 377.6초 가이드
+
+- PR1726 CI 첫 실행은 영상 단계수 기대값6이 최신7과 달라 실패. 검사도7단계 전체 번호·카메라·목차로 수정, 해당22검사 통과. 실제 LocalDB8 저장/새페이지 유지와 견적 Quantity/ECOUNT 수량30~240 및 금액을 XLSX 재열기까지 추가 검증 통과. 런타임 UI 변경 없음.
+검색어: PR1726 가이드7단계 CI 영상 단계수 견적 Quantity XLSX1080
