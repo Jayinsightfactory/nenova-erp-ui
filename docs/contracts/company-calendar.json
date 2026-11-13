@@ -8,9 +8,10 @@
     "desktop/shell/company-calendar.js"
   ],
   "businessIdentity": [
-    "company calendar event UUID",
-    "execution date including year",
-    "verified creator userId"
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
   ],
   "actions": [
     {
@@ -45,7 +46,8 @@
     "node --test __tests__/companyCalendar.test.js desktop/tests/company-calendar.test.cjs",
     "npm run test:erp-contract",
     "npm run test:nenova-dnspy-evidence",
-    "npm run build"
+    "npm run build",
+    "npm run guard:erp-writes -- --changed-from origin/master"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -59,5 +61,11 @@
       "ShipmentDetail (preserve)",
       "Estimate (preserve)"
     ]
-  }
+  },
+  "companyIdentity": [
+    "company calendar event UUID",
+    "execution date including year",
+    "verified creator userId"
+  ],
+  "identityNote": "ERP identity is the standard preserved-ledger guard; company calendar lookup uses companyIdentity only and never queries these ERP keys."
 }

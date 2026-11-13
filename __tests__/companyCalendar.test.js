@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
+const actorKey=value=>createHash('sha256').update('nenova-company-author\0'+value).digest('hex');
 import {companyCalendar} from '../lib/companyCalendarStore.js';
 import {mutatePersonalHome} from '../lib/personalHomeStore.js';
 const a={userId:'employee-A',accountActive:true},b={userId:'employee-B',accountActive:true},admin={userId:'nenovaSS3',accountActive:true};
@@ -16,7 +17,7 @@ test('company event shares across employees; only author/admin edits, no creator
  await assert.rejects(companyCalendar(b,query,{action:'delete',expectedRevision:1,requestId:randomUUID(),id},{root}),e=>e.statusCode===403);
  result=await companyCalendar(a,query,{...create(1,{title:'변경된 회의'}),action:'update',id},{root});assert.equal(result.events[0].title,'변경된 회의');
  result=await companyCalendar(admin,query,{action:'delete',expectedRevision:2,requestId:randomUUID(),id},{root});assert.equal(result.events.length,0);assert.equal(result.revision,3);
- const stored=JSON.parse(await fs.readFile(path.join(root,'calendar.json'),'utf8'));assert.equal(stored.events[0].createdBy,a.userId);assert.equal(stored.events[0].updatedBy,admin.userId);assert.ok(stored.events[0].deletedAt);
+ const stored=JSON.parse(await fs.readFile(path.join(root,'calendar.json'),'utf8'));assert.equal(stored.events[0].createdBy,actorKey(a.userId));assert.equal(stored.events[0].updatedBy,actorKey(admin.userId));assert.ok(stored.events[0].deletedAt);
 }));
 test('CAS exactly one winner, retry is idempotent, request IDs scoped to actor',()=>fixture(async root=>{
  const c=create(0),out=await Promise.allSettled([companyCalendar(a,query,c,{root}),companyCalendar(b,query,create(0),{root})]);assert.equal(out.filter(r=>r.status==='fulfilled').length,1);assert.equal(out.find(r=>r.status==='rejected').reason.statusCode,409);
@@ -50,5 +51,5 @@ test('HTTP handler requires active identity, bound owner and same-origin POST',a
 });
 
 test('large Korean notes stay below IPC byte limit and selected day is prioritized',()=>fixture(async root=>{
- const events=Array.from({length:1000},(_,i)=>({id:randomUUID(),title:'회사 일정 '+i,date:i===999?'2026-11-30':'2026-11-01',startTime:'',endTime:'',note:'한'.repeat(2000),createdBy:a.userId,createdAt:'2026-11-01T00:00:00Z',updatedAt:'2026-11-01T00:00:00Z'}));await fs.writeFile(path.join(root,'calendar.json'),JSON.stringify({schemaVersion:1,revision:1000,events,requests:{}}));const result=await companyCalendar(b,{month:'2026-11',date:'2026-11-30'},null,{root});assert.equal(result.total,1000);assert.equal(result.truncated,true);assert.ok(result.events.some(event=>event.date==='2026-11-30'));assert.ok(Buffer.byteLength(JSON.stringify(result),'utf8')<2*1024*1024);
+ const events=Array.from({length:1000},(_,i)=>({id:randomUUID(),title:'회사 일정 '+i,date:i===999?'2026-11-30':'2026-11-01',startTime:'',endTime:'',note:'한'.repeat(2000),createdBy:actorKey(a.userId),createdAt:'2026-11-01T00:00:00Z',updatedAt:'2026-11-01T00:00:00Z'}));await fs.writeFile(path.join(root,'calendar.json'),JSON.stringify({schemaVersion:1,revision:1000,events,requests:{}}));const result=await companyCalendar(b,{month:'2026-11',date:'2026-11-30'},null,{root});assert.equal(result.total,1000);assert.equal(result.truncated,true);assert.ok(result.events.some(event=>event.date==='2026-11-30'));assert.ok(Buffer.byteLength(JSON.stringify(result),'utf8')<2*1024*1024);
 }));

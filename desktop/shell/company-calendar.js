@@ -4,7 +4,7 @@
   window.NenovaCompanyCalendar={create(onChange){
     const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
     const button=(text,fn,cls='')=>{const b=el('button',cls,text);b.type='button';b.onclick=fn;return b;};
-    let owner='',epoch=0,readId=0,snapshot=null,query={},editing=null,initial='',editRevision=0,pending=null,busy=false,trigger=null,reported=false;
+    let owner='',epoch=0,readId=0,snapshot=null,query={},editing=null,initial='',editRevision=0,pending=null,busy=false,trigger=null,reported=false,listDate='';
     const dialog=el('dialog','company-dialog');dialog.setAttribute('aria-labelledby','companyDialogTitle');
     const heading=el('div','company-dialog-heading'),title=el('h2','','회사 공통 일정');title.id='companyDialogTitle';
     const close=button('×',tryClose);close.setAttribute('aria-label','공통 일정 창 닫기');heading.append(title,close);
@@ -50,14 +50,14 @@
       finally{if(generation===epoch){busy=false;controls();report();}}
     }
     form.onsubmit=event=>{event.preventDefault();if(!form.reportValidity())return;void mutate(editing?'update':'create');};form.addEventListener('input',report);form.addEventListener('change',report);
-    day.onchange=()=>{if(dirty()){day.value=fields.date.value;status.textContent='작성 중인 내용을 저장하거나 닫은 뒤 날짜를 바꿔 주세요.';return;}showList();void load({...query,date:day.value});};
+    day.onchange=()=>{if(dirty()){day.value=listDate;status.textContent='작성 중인 내용을 저장하거나 닫은 뒤 날짜를 바꿔 주세요.';return;}listDate=day.value;edit(null,listDate);showList();void load({...query,date:day.value});};
     dialog.addEventListener('cancel',event=>{event.preventDefault();tryClose();});
     dialog.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();tryClose();}});
     list.onkeydown=event=>{const rows=[...list.querySelectorAll('button')],at=rows.indexOf(document.activeElement),delta={ArrowUp:-1,ArrowDown:1}[event.key];if(at>=0&&delta!==undefined){event.preventDefault();rows[Math.max(0,Math.min(rows.length-1,at+delta))]?.focus();}};
     return {
       get events(){return snapshot?.events||[];},get truncated(){return !!snapshot?.truncated;},load,
       setOwner(value){if(owner===value)return;owner=value;epoch++;readId++;snapshot=null;pending=null;busy=false;editing=null;if(dialog.open)dialog.close();for(const input of Object.values(fields))input.value='';initial=fingerprint();list.replaceChildren();status.textContent='';report();onChange?.();},
-      open(date,event=null){if(!owner)return;trigger=document.activeElement;day.value=date;edit(event,date);if(!dialog.open)dialog.showModal();showList();fields.title.focus();void load({...query,date});},
+      open(date,event=null){if(!owner)return;trigger=document.activeElement;day.value=date;listDate=date;edit(event,date);if(!dialog.open)dialog.showModal();showList();fields.title.focus();void load({...query,date});},
       openEvent(event){this.open(event.date,event);},
     };
   }};
