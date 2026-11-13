@@ -5,6 +5,9 @@ import { verifyFarmExport, exportFarmWorkbook } from '../../../lib/shipmentFarmW
 import { query, sql } from '../../../lib/db';
 import { requireOrderYear } from '../../../lib/orderUtils';
 import { fieldVolumeSql, createFieldVolumeWorkbook } from '../../../lib/shipmentFieldVolume';
+import XLSX from 'xlsx';
+import { parseAllocationWorkbook } from '../../../lib/shipmentImport';
+import { createUploadedFieldWorkbook } from '../../../lib/shipmentFieldUpload';
 
 export const config={api:{bodyParser:false,responseLimit:'40mb'}};
 async function handler(req,res) {
@@ -15,21 +18,29 @@ async function handler(req,res) {
     file=Array.isArray(files.file)?files.file[0]:files.file;
     if(!file)throw Object.assign(new Error('원본 엑셀 파일이 필요합니다.'),{statusCode:400});
     const buffer=fs.readFileSync(file.filepath);
-    const plan=verifyFarmExport(buffer,Array.isArray(fields.exportPlan)?fields.exportPlan[0]:fields.exportPlan,req.user.userId);
-    const mode=Array.isArray(fields.mode)?fields.mode[0]:fields.mode;
+    const field=name=>Array.isArray(fields[name])?fields[name][0]:fields[name];
+    const mode=field('mode');
     let output;
-    if(mode==='field-volume') {
-      if(plan.kind!=='field-volume-v2')throw Object.assign(new Error('현장물량표를 생성하기 전에 다시 검증하세요.'),{statusCode:409});
-      const {orderYear,orderWeek}=requireOrderYear(plan.week,plan.orderYear);
-      const scope=fieldVolumeSql(plan.products.map(p=>p.prodKey));
-      const params={year:{type:sql.NVarChar,value:orderYear},major:{type:sql.NVarChar,value:orderWeek.split('-')[0]},minor:{type:sql.Int,value:Number(orderWeek.split('-')[1])}};
-      const lines=await query(scope.lines,params),farms=await query(scope.farms,params);
-      output=await createFieldVolumeWorkbook(plan,lines.recordset,farms.recordset);
+    if(mode==='field-upload') {
+      if(!/\.xlsx$/i.test(file.originalFilename||''))throw new Error('바로 생성은 .xlsx 물량표를 선택하세요.');
+      const workbook=XLSX.read(buffer,{type:'buffer'});
+      const parsed=parseAllocationWorkbook(XLSX,workbook);
+      output=await createUploadedFieldWorkbook(buffer,parsed.rows,{filename:file.originalFilename,farmText:field('farmText'),week:field('week'),year:field('year')});
     } else {
-      if(mode || plan.kind)throw Object.assign(new Error('잘못된 다운로드 형식입니다.'),{statusCode:400});
-      output=await exportFarmWorkbook(buffer,plan);
+      const plan=verifyFarmExport(buffer,field('exportPlan'),req.user.userId);
+      if(mode==='field-volume') {
+        if(plan.kind!=='field-volume-v2')throw Object.assign(new Error('현장물량표를 생성하기 전에 다시 검증하세요.'),{statusCode:409});
+        const {orderYear,orderWeek}=requireOrderYear(plan.week,plan.orderYear);
+        const scope=fieldVolumeSql(plan.products.map(p=>p.prodKey));
+        const params={year:{type:sql.NVarChar,value:orderYear},major:{type:sql.NVarChar,value:orderWeek.split('-')[0]},minor:{type:sql.Int,value:Number(orderWeek.split('-')[1])}};
+        const lines=await query(scope.lines,params),farms=await query(scope.farms,params);
+        output=await createFieldVolumeWorkbook(plan,lines.recordset,farms.recordset);
+      } else {
+        if(mode || plan.kind)throw Object.assign(new Error('잘못된 다운로드 형식입니다.'),{statusCode:400});
+        output=await exportFarmWorkbook(buffer,plan);
+      }
     }
-    const name=String(file.originalFilename || '물량표.xlsx').replace(/\.xlsx$/i,'')+(mode==='field-volume'?'-신형현장물량표.xlsx':'-농장분배.xlsx');
+    const name=String(file.originalFilename || '물량표.xlsx').replace(/\.xlsx$/i,'')+(mode==='field-upload'?'-신형현장물량표-업로드기준.xlsx':mode==='field-volume'?'-신형현장물량표.xlsx':'-농장분배.xlsx');
     res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition',`attachment; filename*=UTF-8''${encodeURIComponent(name)}`);
     res.setHeader('Cache-Control','no-store');

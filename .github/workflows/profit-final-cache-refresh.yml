@@ -1,0 +1,50 @@
+name: Explicit approved profit final-cache refresh
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: Approved 2026 starting week (36-46)
+        default: '36'
+        required: true
+      to:
+        description: Approved 2026 ending week (36-46)
+        default: '46'
+        required: true
+      apply:
+        description: Explicitly create new calculation versions (preserve originals)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify bounded operation without SQL or credentials
+        run: node --test __tests__/profitFinalCacheRefresh.test.cjs
+      - name: Explicit server-side cache refresh
+        env:
+          NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
+          START: ${{ inputs.from }}
+          END: ${{ inputs.to }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          mkdir -p .verify
+          if [ "$APPLY" = "true" ]; then
+            node scripts/refresh-profit-final-cache.mjs "--from=$START" "--to=$END" --apply --report=.verify/final-cache-refresh.json
+          else
+            node scripts/refresh-profit-final-cache.mjs "--from=$START" "--to=$END"
+          fi
+      - name: Preserve operation metadata only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-cache-refresh-metadata
+          path: .verify/final-cache-refresh.json
+          if-no-files-found: ignore
+          retention-days: 7

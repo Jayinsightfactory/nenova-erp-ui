@@ -959,7 +959,7 @@ export default function Distribute() {
     const next=extraPeers[0];
     if(next){peerReads.current.cancel(week,next.cust.CustKey);setPairCust(next.cust);setPairItems(next.items);setPairEditInputs(next.inputs);setExtraPeers(prev=>prev.slice(1));}
     else {setPairCust(null);setPairItems([]);setPairEditInputs({});}
-    setPairReadError('');setPairSlot(1);setMoveQtyInputs({});setPairGroupFilter('');setMultiMove({});
+    setPairReadError(next?.error||'');setPairSlot(1);setMoveQtyInputs({});setPairGroupFilter('');setMultiMove({});
   };
   // 업체 3~5 선택 — slot 3 이면 extraPeers[0]. 앞 칸이 비어 있으면 다음 빈 칸에 채운다.
   const updateExtra = (index, key, next) => setExtraPeers(prev => prev.map((p, i) => i === index ? { ...p, [key]: typeof next === 'function' ? next(p[key]) : next } : p));

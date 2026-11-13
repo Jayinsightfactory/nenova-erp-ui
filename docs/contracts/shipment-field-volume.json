@@ -12,7 +12,8 @@
     "__tests__/shipmentFieldVolume.test.cjs",
     "scripts/lib/shipment-field-fixture.cjs",
     "scripts/lib/shipment-field-guide-caption.cjs",
-    "scripts/record-shipment-field-volume.cjs"
+    "scripts/record-shipment-field-volume.cjs",
+    "lib/shipmentFieldUpload.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -28,6 +29,14 @@
       "shipmentDate": "preserve",
       "shipmentFarm": "preserve",
       "sideEffect": "SELECT-only saved result export. Source file summaries retained as planning values; no ERP writes."
+    },
+    {
+      "name": "GENERATE_UPLOADED_FIELD_VOLUME",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "sideEffect": "Authenticated file-only conversion. Zero database queries or writes; no matching or apply prerequisite. Source weekday, units and summaries preserved. Optional pasted/embedded farm notes validated; unresolved notes retained. Previous subweek not inferred."
     }
   ],
   "crossYearFixture": {

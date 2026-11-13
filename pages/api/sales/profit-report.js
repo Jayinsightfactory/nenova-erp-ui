@@ -2,6 +2,7 @@ import { profitInvoiceDependencies, withProfitInvoiceMemo } from '../../../lib/p
 // 주차별 매출이익 보고서 API — 자동열은 SQL, 수기열은 WebProfitReport 저장.
 import { withAuth } from '../../../lib/auth';
 import { applyTemplateDutyToReport, clearTemplateDutyCache } from '../../../lib/profitTemplateDutyData';
+import { finalizeProfitCachePayload } from '../../../lib/profitReportFinalCache.mjs';
 import { selectReportInventoryValuation } from '../../../lib/profitReportValuation.mjs';
 import { buildInventoryBasis } from '../../../lib/profitReportInventoryBasis.mjs';
 import { resolveApprovedThaiCustoms } from '../../../lib/profitReportActualCosts.mjs';
@@ -703,9 +704,10 @@ async function previousReportPeriod(orderYear,major){
   const dateOnly=`${orderYear}-01-01`,calendar=await loadProfitReportCalendar(dateOnly);
   return resolvePreviousProfitWeek(calendar,resolveCurrentProfitWeek(calendar,dateOnly));
 }
-async function loadCoherentLatestReport(major,orderYear){
+async function loadCoherentLatestReport(major,orderYear,{forCache=false}={}){
   let diagnostic;
   const work=async()=>{
+    if(forCache)clearTemplateDutyCache();
     const previous=await previousReportPeriod(orderYear,major);
     const years=[...new Set([String(orderYear),previous.orderYear,String(Number(orderYear)-1)])];
     const signature=async()=>JSON.stringify({erp:[...(await loadSourceFingerprints(years,{force:true})).map].sort(([a],[b])=>a.localeCompare(b)),invoice:await latestProfitInvoiceFence(years),settlement:await settlementScopeFence(years)});
@@ -725,10 +727,10 @@ async function loadCoherentLatestReport(major,orderYear){
       diagnostic?.sourceChanged(before,after,years);
       throw Object.assign(new Error('조회 중 원천이 변경되었습니다. 다시 조회하세요.'),{code:'PROFIT_SOURCES_CHANGED',statusCode:409});
     }
-    return result;
+    return forCache?finalizeProfitCachePayload(raw,{orderYear,major,finalize:async()=>result}):result;
   };
   if(currentErpReadContext())return work();
-  return shareLatestProfitRead(orderYear,major,async()=>{
+  const execute=async()=>{
     const pool=await getPool();
     diagnostic=createProfitReadFailureDiagnostic({orderYear,major,pool});
     return withErpReadContext({allowExternalEvidenceReads:true,serializeReads:false,queryFn:async(statement,params)=>{
@@ -737,7 +739,10 @@ async function loadCoherentLatestReport(major,orderYear){
       const timer=setTimeout(()=>{observation.timerFired();request.cancel();},45_000);
       try{return await request.query(statement);}catch(error){observation.failed(error);throw error;}finally{clearTimeout(timer);}
     }},work);
-  });
+  };
+  // A cache write requires its raw donor too; it cannot borrow an ordinary GET's
+  // in-flight response, which intentionally returns only the displayed result.
+  return forCache?execute():shareLatestProfitRead(orderYear,major,execute);
 }
 export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
   const {mode='display',preferLive=false,currentPeriod,confirmedResult,storedResult}=options;
@@ -763,7 +768,7 @@ export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
 }
 
 export async function saveProfitReportCache(options) {
-  return saveProfitCache(options,loadReportData);
+  return saveProfitCache(options,(major,orderYear)=>loadCoherentLatestReport(major,orderYear,{forCache:true}));
 }
 
 /**
