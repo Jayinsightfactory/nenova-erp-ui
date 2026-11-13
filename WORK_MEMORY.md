@@ -2832,6 +2832,16 @@
 - 검증 완료: 실제 운영 API+native SP LocalDB 취소/확정과 전년도/타품종 보존; Chrome 여러 업체5/7 한 번 저장→새로고침→견적/이카운트 XLSX 각2행 재열기(150/210단); 외국 견적lease 상태 CAS 저장/409/400/재조회; 40행 양쪽 표 고정/스크롤/단일업체 품종; 실제 브라우저 회귀.
 - 운영 임의 확정취소/수량 보정 0. 필수검사·최종빌드/CI·배포/운영 스모크는 이 기록 작성 시 진행 중이며 미검증. 완료 결과는 아래 후속 기록으로 남긴다.
 검색어: 확정취소 빨간버튼 distribute-toolbar confirmationSelection distribution-workspace DISTRIBUTION_STALE 고정헤더 좌우스크롤 업체1품종 2026-11-13
+
+## 2026-11-13 국가 옆 품종 바로 선택 후속
+콜롬비아 등 국가 옆 즐겨찾기 품종 버튼을 복원하고, 별도 farmFamily 보기필터로 하나 선택→그 품종만 자동 펼침→국가 클릭 전체 복귀를 제공한다. 품목 선택의 native prodGroup과 분리하여 품목 클릭으로 목록이 임의로 좁혀지지 않는다. 전체 품목 검색/다른 품종 미저장 이동 보호 유지. 국가/품종 선택부도 sticky header 안으로 이동, 전체 국가 목록은22vh 제한. ERP SQL/API/수량/매출 writer 변경0.
+검증: navigation 단위, 실제 Chrome favorite 버튼/해당 품종만/재열기/전체복귀/전역검색, 40행 양쪽 스크롤/고정머리글·저장, 종합 브라우저 회귀 통과. 필수 ERP검사·안내영상·최종빌드/CI/배포/운영은 진행 중(아직 미검증). 직전1714 배포는 새master dd8866c40로 STALE_RELEASE 차단되어 최신 배포 추적 중, 원장수정0.
+검색어: country-family-buttons farmFamily 국가옆품종버튼 콜롬비아 카네이션 바로선택 전체복귀 2026-11-13
+
+후속 검토: 아직 custDist에 없는 임시 업체의 양수 outInputs도 초안으로 판정하도록 보완(0/빈값 제외), 국가/품종 이동 취소 후5/7 유지 회귀 추가. 공간부족으로 로컬 녹화/ERP검사 실패, 작업 산출물만 E:/CodexTaskCache로 보존 이동. 의존성 누락이 있어 깨끗한 E 작업트리에서 재설치/재검증 예정. 운영 첫 수정은 dd8866c40 포함 배포43359135756 성공: 빨간 확정취소/선택콜롬비아 범위, 업체1 품종버튼/고정머리글/저장/스크롤 실제 읽기확인(원장POST0). 최신 품종 버튼은 아직 배포 전.
+
+검증 복구 완료: E의 임시 복구 작업트리는 런타임 설치 중단 상태이며 실제 검증은 C:/Users/USER/nw-family-buttons-1113에서 npm ci(55초) 재설치 후 수행. 전체 ERP 계약 종료0, 브라우저 회귀(추가 업체5/7 이동취소 유지·한 번 저장) 통과, manifest215/dnSpy/write guard0API 및 npm run build 종료0. 영상278.15초 검수 완료. CI·최종 품종버튼 배포/운영은 다음 기록에서 확인.
+검색어: 품종버튼 최종빌드통과 staged-draft navigation-cancel5/7 환경복구완료 2026-11-13
 - 검증중 동시 PR#1714/1715(a64c73db/dd8866c4) 통합. 기능충돌 없음, WORK_MEMORY 양쪽보존·Desktop releaseNotes 결합. PM의 쉬운 오류제목 개선을 보존하고 회사공통 기능버전은1.3.23으로 조정. 앞선1worker빌드는 내 Next PID19908만 종료. 변경된shell소스 포함 가이드 재촬영 및 통합검증을 진행한다.
 - 후속 통합본: 공통UI/기존계정경합 native PASS, manifest216/쓰기guard 새API1건 PASS. PM개선 포함 가이드169.15초/10단계 재촬영·소스해시17영상·회사저장/홈재열기 최종프레임 PASS. 로컬 빌드는 컴파일 후 ENOSPC로 중단되어 생성캐시만 E:/CodexGeneratedCache/2026-11-13/company-calendar-1113-cache-backup에 보존이동, 새cache-live로 .next/cache junction 연결(소스·업무데이터 변경0). 별도 이전 디렉터리 일괄삭제는 자동검토가 차단해 실행하지 않았고 이 보존이동 방식으로 공간 해결. 새1worker webpack build exit0. 빌드된 /desktop-guide 실제재생·10목차·한국어자막/다운로드/Enter열기닫기/1920·390/JS0 PASS. 최종PR CI·릴리스·운영배포는 진행예정.
 

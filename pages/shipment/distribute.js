@@ -6,7 +6,7 @@ import DistributionConfirmationSummary from '../../components/shipment/Distribut
 import {majorInlineWeekScope} from '../../lib/shipmentMajorInlineDates.js';
 import DistributionProductTree from '../../components/shipment/DistributionProductTree';
 import DistributionDateFilter from '../../components/shipment/DistributionDateFilter';
-import {favoriteDistributionRows,buildDistributionDateLookup} from '../../lib/shipmentDistributionNavigation.js';
+import {favoriteDistributionRows,buildDistributionDateLookup,distributionFamilyMatches} from '../../lib/shipmentDistributionNavigation.js';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { apiGet, apiPost, apiDelete, apiPut } from '../../lib/useApi';
 import { useWeekInput, getCurrentWeek, WeekInput, formatWeekDisplay } from '../../lib/useWeekInput';
@@ -129,6 +129,7 @@ export default function Distribute() {
   );
   const [prodGroup, setProdGroup] = useState('');
   const [farmCountry,setFarmCountry]=useState('');
+  const [farmFamily,setFarmFamily]=useState('');
   const [expandedFamilies,setExpandedFamilies]=useState({});
   const [farmDate,setFarmDate]=useState(''),[customerDate,setCustomerDate]=useState('');
   const [dateIndex,setDateIndex]=useState([]),[dateIndexLoading,setDateIndexLoading]=useState(false),[dateIndexError,setDateIndexError]=useState('');
@@ -399,13 +400,18 @@ export default function Distribute() {
   const confirmFarmDraftDiscard=()=>!saving&&confirmDateDraftDiscard()&&(!hasDistributionDrafts(custDist,outInputs,[],{})||window.confirm('저장하지 않은 품목 분배가 있습니다. 선택을 바꾸면 이 품목 입력값이 사라집니다. 계속할까요?'));
   const confirmCustomerDraftDiscard=()=>!saving&&confirmDateDraftDiscard()&&((!hasDistributionDrafts([],{},custItems,custEditInputs)&&!hasDistributionDrafts([],{},pairItems,pairEditInputs)&&!extraPeers.some(p=>hasDistributionDrafts([],{},p.items,p.inputs)))||window.confirm('저장하지 않은 업체 분배가 있습니다. 업체 선택을 바꿀까요?'));
   const chooseProdGroup = (key) => {
-    if(key===prodGroup || !confirmFarmDraftDiscard())return;
+    if(key!==prodGroup&&!confirmFarmDraftDiscard())return;
+    setFarmFamily(key.includes(PG_SEP)&&!key.endsWith(PG_SEP)?key:'');setProdFilter('');
+    if(key&&!key.endsWith(PG_SEP))setExpandedFamilies(prev=>({...prev,[key]:true}));
+    if(key===prodGroup)return;
     groupChosenRef.current=true;setProdGroup(key);
     if(key){const country=key.split(PG_SEP)[0];if(country)setFarmCountry(country);}
     setSelectedProd(null);setCustDist([]);setOutInputs({});setSelectedDistCust(null);setFarmRows([]);
   };
   const chooseFarmCountry=country=>{
-    if(country===farmCountry||!confirmFarmDraftDiscard())return;
+    if((country===farmCountry&&!farmFamily&&prodGroup===(country?`${country}${PG_SEP}`:''))||!confirmFarmDraftDiscard())return;
+    setFarmFamily('');setProdFilter('');
+    setSelectedProd(null);setCustDist([]);setOutInputs({});setSelectedDistCust(null);setFarmRows([]);
     groupChosenRef.current=true;setFarmCountry(country);setProdGroup(country?`${country}${PG_SEP}`:'');
   };
 
@@ -546,6 +552,7 @@ export default function Distribute() {
       setProdGroups(groups);
       setProdGroup(prev => prev && groups.some(g=>g.key===prev||(prev.endsWith(PG_SEP)&&g.country===prev.slice(0,-2)))?prev:'');
       setFarmCountry(prev=>groups.some(g=>g.country===prev)?prev:'');
+      setFarmFamily(prev=>groups.some(g=>g.key===prev)?prev:'');
     })();
     return () => { cancelled = true; };
   }, [week, loadProdGroups]);
@@ -1257,6 +1264,7 @@ export default function Distribute() {
   const favoriteKeys = new Set(favoriteProducts.map(row => row.prodKey));
   const filteredProds = favoriteDistributionRows(sortDistributionProducts(distributionAddProductCandidates(products,productCatalog),prodFilter)
     .filter(p=>String(prodFilter||'').trim()||!farmCountry||p.CounName===farmCountry)
+    .filter(p=>String(prodFilter||'').trim()||distributionFamilyMatches(p,farmFamily))
     .filter(p=>!favoritesOnly||favoriteKeys.has(Number(p.ProdKey)))
     .filter(p=>dateLookup.matches(farmDate,p.ProdKey)),favoriteKeys);
   const filteredCustomers = sortDistributionCustomers(customerPool,custFilter).filter(c=>dateLookup.matches(customerDate,null,c.CustKey));
@@ -1528,11 +1536,9 @@ export default function Distribute() {
         ))}
 
       </div>
-      <DistributionScrollBar viewMode={viewMode} selectionKey={`${tab}-${selectedProd?.ProdKey}-${selectedCust?.CustKey}-${pairCust?.CustKey}-${custLoading}-${distLoading}-${pairLoading}-${custItems.length}-${custDist.length}`} />
-      </div>
       {/* 국가별 제목 아래 품종을 모으되 기존 품종 선택/즐겨찾기 동작은 유지한다. */}
       {tab!==1 && <>
-      <div data-testid="distribution-group-buttons" style={{padding:'4px 5px',background:'var(--surface)',borderLeft:'1px solid var(--border)',borderRight:'1px solid var(--border)',borderTop:'1px solid var(--border-t)',display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
+      <div data-testid="distribution-group-buttons" style={{maxHeight:'22vh',overflowY:'auto',alignContent:'start',padding:'4px 5px',background:'var(--surface)',borderLeft:'1px solid var(--border)',borderRight:'1px solid var(--border)',borderTop:'1px solid var(--border-t)',display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
         <span style={{fontSize:12,fontWeight:700,color:'var(--text2)'}}>국가</span>
         <button type="button" data-ai-verify="group-all" aria-pressed={!farmCountry} disabled={hasDateDrafts || saving || prodGroupsLoading}
           onClick={() => chooseFarmCountry('')} style={pickButtonStyle(!farmCountry, true)}>전체</button>
@@ -1548,11 +1554,16 @@ export default function Distribute() {
                 aria-pressed={selectedCountries.includes(country)} disabled={!accountId || favoritesPending || countryFavorite === undefined} onClick={() => toggleCountryFavorite(country)}
                 style={{...pickButtonStyle(false,true),padding:'2px 4px',color:selectedCountries.includes(country)?'#d97706':'var(--text3)'}}>{selectedCountries.includes(country)?'★':'☆'}</button>
             </h3>
-
+            <div data-testid={`country-family-buttons-${country}`} style={{display:'flex',alignItems:'center',gap:4,flexWrap:'wrap'}}>
+              {groups.filter(g=>showAllProdGroups||favoriteGroups.some(f=>f.groupKey===g.key)).map(g=><button type="button" key={g.key} data-ai-verify={`country-family-${g.key}`} aria-pressed={farmFamily===g.key} disabled={hasDateDrafts||saving||prodGroupsLoading}
+                onClick={()=>chooseProdGroup(g.key)} style={pickButtonStyle(farmFamily===g.key,true)}>{g.flower}</button>)}
+            </div>
           </div>
         ))}
       </div>
       </>}
+      <DistributionScrollBar viewMode={viewMode} selectionKey={`${tab}-${selectedProd?.ProdKey}-${selectedCust?.CustKey}-${pairCust?.CustKey}-${custLoading}-${distLoading}-${pairLoading}-${custItems.length}-${custDist.length}`} />
+      </div>
       <details style={{padding:'1px 5px',fontSize:11,color:'var(--text3)',background:'var(--surface)'}}><summary>단축키·입력 안내 · 출고일은 선택 세부차수만 수정</summary>
         단축키: Ctrl+Alt+1 차수 · Ctrl+Alt+2 품목 · Ctrl+Alt+3 업체 · Ctrl+Alt+4 수량 · Ctrl+Enter 조회 · 수량 Enter 다음 입력(마지막은 저장 버튼 이동) · Ctrl+S 수량·단가 저장 · 출고일은 실제 날짜순 · 단/송이 수량 입력. Enter 이동만으로 저장되지 않습니다.
       </details>
