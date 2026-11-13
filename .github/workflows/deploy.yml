@@ -67,6 +67,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate bounded CPU sampler with synthetic child
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund ws && node scripts/test-login-cpu.cjs
       - name: Package read-only diagnostic commands
         id: perf-script
         run: |
@@ -82,9 +87,12 @@ jobs:
             printf "node <<'LOGIN_DIAG'\n"
             cat scripts/diagnose-login-readonly.cjs
             printf "\nLOGIN_DIAG\n"
+            printf "node <<'CPU_DIAG'\n"
+            cat scripts/diagnose-login-cpu.cjs
+            printf "\nCPU_DIAG\n"
             echo 'PERF_DIAG_EOF'
           } >> "$GITHUB_OUTPUT"
-      - name: Read-only sanitized server performance diagnosis
+      - name: Sanitized diagnosis and temporary local CPU sampler
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 172.233.89.171
