@@ -17,3 +17,6 @@
 견적의 WebErpEditLease는 연도+메인차수+업체 단위여서 다른 품목 분배도 막고 있었다. 분배 workspace batch만 expected {outQty,cost}를 필수로 보내 native Master/Detail UPDLOCK,HOLDLOCK 안에서 변경행 단위 compare-and-set을 한다. baseline 누락400, 동시 수량/단가 변경409로 전체 배치 rollback. 다른 화면의 lease/기준 digest는 갱신하지 않으므로 그 화면이 오래된 값을 덮어쓰려 하면 기존 stale검사가 막는다. editGuard를 명시한 기존 클라이언트는 기존 lease검사도 유지. Order 등록·농장·확정·날짜/수량/금액 검증은 그대로이며, 원장 작업을 하지 않는 화면 표시만으로 분배를 차단하지 않는다.
 
 양쪽 탭 toolbar/저장/차수/가로스크롤은 sticky. 우측 표는 별도 상하/좌우 scroll, table header sticky. 상단 스크롤바와 실제 표 양방향 동기화. 업체 하나 선택 시도 기존 pairGroupFilter와 같은 품종 선택 UI 제공, 필터로 초안/합계/저장대상 축소 금지. 신규 web ledger/migration 없음.
+
+## 실행 결과
+2026-11-13: 필수 ERP 전체 계약 검사, dnSpy evidence, 변경 API3개 write guard, 215개 manifest, npm run build 모두 통과. 실제 LocalDB 운영 API/native SP 취소→미확정 GET→재확정→확정 GET, 2025/2026 same37 전년도/타품종/주문/날짜/농장/Estimate/수량/Amount/Vat 보존 통과. 분배 실제 API 한 번 저장 2업체5/7→새 페이지 SQL GET 유지→견적/이카운트 Excel 각2행150/210단→실제xlsx재열기 통과. 다른 견적 lease 상태 row CAS 성공/변경409/누락400/lease보존 확인. 운영 writer 실행0. Chrome 종합회귀 및 40행 양쪽 내부스크롤/머리글/저장 toolbar/가로바/업체1품종 통과. 영상251.45초·1920x1080·100%,6단계 및 처음/중간/마지막 프레임 검수 완료. CI·배포·운영 읽기전용 확인은 후속 WORK_MEMORY 기록.
