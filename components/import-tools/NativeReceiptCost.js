@@ -3,10 +3,20 @@ import { auInvoiceTariffDefault } from '../../lib/auInvoiceTariffDefaults.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview';
 import styles from '../../styles/NativeReceiptCost.module.css';
 
+// 원산지 → 매입 통화(운송은 항공 기본). 콜롬비아·에콰도르·미국 USD, 호주 AUD.
+// 중국은 운송이 두 가지라 자동 적용하지 않고 기존처럼 직접 선택한다. 그 외 나라도 마찬가지.
+const COUNTRY_DEFAULT_CURRENCY = { CO: 'USD', EC: 'USD', US: 'USD', AU: 'AUD' };
+// 중국은 통화 CNY 고정이고, 운송은 농장으로 정해진다(사용자 확인): HUBFRESH=해상, Cloudland=항공.
+// 이 두 농장이 아니면 통화만 채우고 운송은 직접 고르게 한다.
+const COUNTRY_FIXED_CURRENCY = { CN: 'CNY' };
+const CN_FARM_TRANSPORT = [[/hub\s*fresh/i, 'SEA'], [/cloud\s*land/i, 'AIR']];
+const chinaTransport = farmName => (CN_FARM_TRANSPORT.find(([pattern]) => pattern.test(String(farmName || ''))) || [])[1] || '';
+
 export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, onClose }) {
   const [data, setData] = useState(null), [error, setError] = useState('');
   const [metadata, setMetadata] = useState({ currency: '', transportMode: '', gw: '', cw: '' });
   const [applied, setApplied] = useState(null);
+  const [autoApplied, setAutoApplied] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [inputDraft, setInputDraft] = useState(null);
   const receiveInputDraft = useCallback((input, state) => setInputDraft({ input, edited: state?.edited === true }), []);
@@ -19,10 +29,18 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
       .then(async response => { const value = await response.json(); if (!response.ok || !value.success) throw new Error(value.error || '입고 조회 실패'); return value; })
       .then(value => { if (!abort.signal.aborted) {
         setData(value);
+        // 입고에 저장된 검증 비용 메타(통화·운송)가 있으면 그것을, 없으면 원산지로 정해지는 나라는 묻지 않고 바로 적용한다(다르면 "기준 변경").
         const verifiedMetadata = value.source.receiptExpenses?.verified === true ? value.source.receiptExpenses.receiptMetadata : null;
-        const defaults = value.automatic?.metadata || { currency: verifiedMetadata?.currency ?? '', transportMode: verifiedMetadata?.transportMode ?? '', gw: value.source.gw ?? '', cw: value.source.cw ?? '' };
+        const verifiedBoth = Boolean(verifiedMetadata?.currency && verifiedMetadata?.transportMode);
+        const cnMode = value.source.country === 'CN' ? chinaTransport(value.source.farmName) : '';
+        const guess = !value.automatic && !verifiedBoth && (COUNTRY_DEFAULT_CURRENCY[value.source.country] || (cnMode && COUNTRY_FIXED_CURRENCY.CN));
+        const defaults = value.automatic?.metadata || {
+          currency: verifiedMetadata?.currency || guess || COUNTRY_FIXED_CURRENCY[value.source.country] || '',
+          transportMode: verifiedMetadata?.transportMode || (guess ? (cnMode || 'AIR') : ''),
+          gw: value.source.gw ?? '', cw: value.source.cw ?? '' };
         setMetadata(defaults);
         if (value.automatic || (defaults.currency && defaults.transportMode)) setApplied(defaults);
+        setAutoApplied(Boolean(guess));
       } })
       .catch(e => { if (!abort.signal.aborted) setError(e.message); });
     return () => { active.current = false; generation.current++; abort.abort(); };
@@ -76,7 +94,8 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
         {data.document.lines.filter(line => line.nativePriceBasis && Math.abs(Number(line.nativeStoredUnitPrice) - line.unitPrice) > 0.000001).map(line =>
           <p key={line.lineId}>{line.originalName} · 저장 단가 {line.nativeStoredUnitPrice} · 저장 총액 {line.lineAmount} ÷ {line.bunchQuantity}단 = 원가 계산용 {line.unitPrice}/단</p>)}
       </div>}
-      <form className={styles.metadata} onSubmit={event => { event.preventDefault(); generation.current++; setApplied({ ...metadata }); }}>
+      <form className={styles.metadata} onSubmit={event => { event.preventDefault(); generation.current++; setAutoApplied(false); setApplied({ ...metadata }); }}>
+        {autoApplied && applied && <p role="status">입고자료의 원산지{data?.source.country === 'CN' ? '·농장' : ''} 기준으로 <strong>{applied.currency} · {applied.transportMode === 'AIR' ? '항공' : '해상'}</strong>을(를) 자동 적용했습니다. 다르면 아래에서 고쳐 "기준 변경"을 누르세요.</p>}
         <p>입고자료에 저장되지 않은 계산 기준만 확인하세요. 인보이스 파일은 필요하지 않습니다.</p>
         <label>매입 통화<select required value={metadata.currency} onChange={e => updateMetadata('currency', e.target.value)}><option value="">통화 선택</option>{['USD','EUR','CNY','AUD','NZD','THB'].map(value => <option key={value}>{value}</option>)}</select></label>
         <label>운송 방식<select required value={metadata.transportMode} onChange={e => updateMetadata('transportMode', e.target.value)}><option value="">운송 선택</option><option value="AIR">항공</option><option value="SEA">해상</option></select></label>

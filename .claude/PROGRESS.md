@@ -1,3 +1,47 @@
+## [2026-11-12] 세션 — 도착원가 기본값 자동 적용 + 중국 장미 B급/S급 + 매칭 후보 순위·나라 불일치 경고
+
+### 작업 내용
+- `components/import-tools/NativeReceiptCost.js`: 입고 원산지로 통화·운송 자동 적용(콜롬비아·에콰도르·미국 USD/항공, 호주 AUD/항공, 중국 HUBFRESH=CNY·해상, Cloudland=CNY·항공). 그 외는 직접 선택. `lib/nativeReceiptCost.js`: 품목 미연결 행이 원산지 판단을 막지 않게 함.
+- `lib/boxMetricTable.js`·`lib/freightCalc.js`·`lib/profitReportWeekCheck.js`: 중국 장미를 이름의 cm로 50cm 미만=`장미 B급`, 60cm 초과=`장미 S급`(범위는 양끝이 같은 쪽일 때만). **36-01 차수부터만 적용**(이전 차수는 기존 `장미` 유지: 과거 골든 테스트·원가 보존). 단당 무게/CBM 값은 B/S 전용 값이 정해질 때까지 `장미` 표 재사용(금액 변동 없음, 카테고리 이름만 분리). 40cm 잔여보정은 `장미 B급`도 인식.
+- `lib/invoiceMatchAssist.js`(신규)·`components/import-tools/InvoiceMatchSuggestions.js`(신규)·`InvoiceReceiptWorkbench.js`: 후보 순위 버튼(1순위 굵게, 2순위 이하 버튼, 100% 이름일치면 숨김), "미매칭 N행 1순위로 모두 적용", 나라 불일치 경고(농장·CHINA/중국어 표기·통화 근거 2개 이상일 때), 선택 품목 원산지 불일치 배지. 도착원가(원가만 계산)도 같은 작업대를 사용.
+- 테스트: `__tests__/invoiceMatchAssist.test.js`(10, test:packing-team에 등록), `boxMetricTable` 갱신. erp-contract·packing-team 통과.
+- 업무드라이브 데이터 활용(MD 근거: `docs/work-sessions/2026-09-21_arrival-drive-auto.md`, `2026-10-08_drive-invoice-sample-audit.md`, `docs/plans/invoice-real-source-validation.md`): 드라이브 원본 파일은 서버 `data/drive`(로컬 없음)이고, 최신 원가자료는 서버가 1분마다 `WebArrivalCostLine`에 자동 반영해 둔다. 그 저장분(현재 11,703행, 품목키 전부 연결)을 매칭 근거로 사용: `lib/driveMatchHistory.js`·`pages/api/import/receipts/drive-match-history.js`(읽기 전용 GET) → `rankProductSuggestions(history)`에서 과거 연결 품목을 94~99점으로 올리고 "과거 N회 매칭" 표시. 줄 나라와 품목 나라가 다른 이력은 제외.
+- 발견: `WebArrivalCostLine` 현재본에 나라 불일치 연결 25행(중국→콜롬비아 12·네덜란드 1·에티오피아 1, 콜롬비아→에콰도르 5, 에콰도르→콜롬비아 6). DB는 수정하지 않음.
+- 도착원가 자동 매칭 로직 보강(운영 데이터는 건드리지 않음, 다음 업로드부터 적용): `lib/discontinuedVendors.js`(신규, 거래 종료 거래처 표식 `[MEL]`·`[오경]`)를 `lib/arrivalCostExcel.js` matchProduct와 `lib/invoiceMatchAssist.js` 후보 순위에 적용 — 원문에 같은 표식이 없으면 그 품목은 자동 연결·후보에서 제외. `lib/arrivalImportPolicy.js`: 샘플 시트 판별에 스페인어 `ejemplo` 추가(과거 `Ejemplo` 시트의 에콰도르 6행이 실제 입고처럼 올라갔음). 회귀 테스트 `__tests__/arrivalMatchRegression.test.js`(실제 어긋난 입력값 재현: ROSE CHINA≠ROSE, Rose Ecuador≠ROSE, Mayra 에콰도르↔콜롬비아, [MEL]/[오경], Ejemplo)를 test:erp-contract에 등록.
+- 기존 어긋난 20행(재연결 13·연결 해제 7) 정정은 로직 변경과 분리해 보류. 수정 계획·변경 전 값은 세션 scratchpad `plan.json`(저장소 밖)에만 있음. [오경] 5행(13-1)은 옛 자료라 그대로 둠.
+
+### 미결 이슈 / 확인 필요
+- 드라이브 원본 파일 자체(서버 `data/drive`)는 로컬 미열람. 이미 DB에 반영된 원가자료 이력만 사용. 후보 버튼·과거 이력 표시는 편집 가능한 문서에서 브라우저 확인 못 함.
+- B급/S급 전용 단당 무게/CBM 값, 적용 시작 차수(현재 36-01) 사용자 확정 필요.
+- 후보 버튼 UI는 편집 가능한 문서에서 브라우저로 직접 눌러 보지 못함(확정 입고 문서만 열람).
+
+## [2026-11-12] 세션 — 콜롬비아 도착원가: 농장별 행 + 서버 보관 누적 통합문서(과거 차수 시트 유지)
+
+### 작업 내용
+- 사용자 지시: 도착원가 엑셀에 인보이스의 농장이 모두 농장별로 들어가고, `45-1 콜카장 원가자료.xlsx`처럼 과거 차수 시트가 유지된 채 새 차수 시트가 계속 쌓이게.
+- `lib/invoiceCostOriginalColombia.js`: 원본 양식 A열(농장)에 행별 농장명(없을 때만 문서 단일 농장명). `lib/invoiceReceiptCostExport.js`: 공동 AWB 행에 farmName 전달.
+- `lib/costWorkbookMerge.js`: 누적 통합문서에 새 차수 시트 병합(기존 시트 바이트 보존, 스타일 번호만 이동, 같은 이름은 해당 시트만 교체).
+- `lib/costMasterStore.js`·`lib/costMasterHttp.js`·`pages/api/import/receipts/cost-master.js`: 서버 `data/cost-master/colombia.xlsx` 보관(최초 1회 업로드, 교체 확인 필요, 쓸 때마다 backups/ 보존 30개, 임시파일→rename). `.gitignore`에 data/cost-master/ 추가.
+- `lib/invoiceSharedAwbApi.js`: download에 `appendToMaster:true` 옵션(검증 완료 후에만 쓰기, 누적 파일 없으면 409). `components/import-tools/SharedAwbCostReview.js`: 누적 상태·업로드·추가 체크 UI.
+- 테스트: `__tests__/costWorkbookMerge.test.js`(4), `__tests__/costMasterStore.test.js`(5). 기존 공동AWB/원가 export/erpContractManifest 회귀 통과, `npm run test:erp-contract` EXIT0.
+
+### 변경된 파일
+- 위 목록 + `__tests__` 2개 신규. 운영 DB 쓰기·스키마 변경 없음(서버 파일만 사용).
+
+### 후속 (같은 날) — 도착원가 작업 화면: 콜롬비아 전체 농장 한 번에
+- 원인: 도착원가 작업은 입고 1건(농장 1곳+송장 1개)마다 엑셀 생성 → 농장 1곳만 나옴.
+- `lib/nativeSharedCost.js`(읽기 전용 SELECT): 같은 연도·차수 콜롬비아 입고 전체를 공동 AWB 계산 입력으로 묶음. 범위 MAIN(콜카장, 수국 제외)/HYDRANGEA(수국 13농장). 품종은 "추천"만 하고 사용자가 확정. 운송료 행·품목정보 없는 행은 계산에서 빼고 화면에 "제외한 행"으로 표시.
+- `pages/api/import/receipts/native-shared-cost.js`: 기존 공동 AWB 핸들러에 prepare 주입(계산 코어·검증 그대로). `components/import-tools/InvoiceWarehouseCostBrowse.js`에 "콜롬비아 전체 농장 한 번에 계산" 버튼, `SharedAwbCostReview.js`에 native 모드·AWB 입력·FB 환산 박스수 입력·추천 품종 적용.
+- 누적 파일을 콜카장(`CO`)/수국(`CO_HYDRANGEA`) 둘로 분리(`masterKeyFor`): 샘플 45-1 콜카장 파일은 수국이 없는 33농장 시트라 수국을 섞으면 안 됨. 시트 B열은 품목명만(원본 양식), A열 농장, 박스 수량은 FB 환산값(fullBoxEquivalent) 사용.
+- 실데이터 검증(읽기 전용, 2026-45-01): 콜카장 33농장·272행·송이 310,455·65,305.20 USD = 샘플 45-1과 일치, 계산 CALCULATED 문제 0. 수국 13농장·37행·20,010송이·36,722,790원 = 11/03 검증값과 일치. 입고 #7902에 품목정보 없는 1행(300송이 64.5 USD)과 #7912/#7915 국내 운송료 행은 제외 표시.
+- 테스트: `__tests__/nativeSharedCost.test.js`(6) 추가, costMasterStore/invoiceSharedAwbApi/invoiceReceiptCostExport 회귀 통과.
+
+### 다음 작업 예정
+- 서버에 45-1 콜카장 누적 파일·수국 누적 파일 최초 업로드(UI) 후 실제 다운로드 확인. 환산 박스수(FB)는 원본 패킹 값을 사람이 입력(샘플 45-1: 장미 236·카네이션 751·알스트로 93·루스커스 74.2).
+
+### 미결 이슈 / 블로킹
+- 미검증: Excel 앱에서 병합 결과 열기·재계산, 화면 직접 클릭 E2E, 운영 서버 data/ 유지 확인, 배포. 입고 #7902의 품목정보 없는 1행은 사용자 확인 필요(샘플 45-1에는 없음). 콜롬비아 그외통관비 소스 이중화(기존 미결) 변경 없음.
+
 ## [2026-11-12] 세션 — 출고내역서 '저장 후 원본 변경' 알림을 변경 내역 표시 + 안 바뀐 품목 배분 유지로 개선
 
 ### 작업 내용

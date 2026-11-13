@@ -57,6 +57,14 @@
     },
     {
       "id": "shared-awb-cost",
+      "videoWaivers": [
+        {
+          "file": "components/import-tools/SharedAwbCostReview.js",
+          "sha256": "4e8f7065bf28d53117863a91c0dbc19c7f1d943d8a4710fab39d409647c792cb",
+          "reason": "콜롬비아 전체 농장 한 번에 계산(기존 입고 모드)·누적 원가자료 옵션·통관비 기준 추가 — 공동 AWB 조회·입력·다운로드 기본 조작 순서는 변경 없음",
+          "approvedBy": "사용자 지시 2026-11-13 (영상 없이 배포)"
+        }
+      ],
       "title": "공동 AWB 혼합 품종 원가 계산",
       "entryPaths": [
         "/import/tools"

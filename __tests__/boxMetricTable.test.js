@@ -21,7 +21,23 @@ const assert = require('assert');
   assert.strictEqual(T.colombiaRateDefaultKeys('17').BoxWeight_콜롬비아수국, 5.6);
 
   // ── 중국: 엑셀 G열 SEARCH 순서 (CARNATION → ROSE → LISIANTHUS → EUCALYPTUS → Sinensis → Gypsophila → 기타)
+  // 장미 크기 등급(사용자 지정): 50cm 미만=B급, 60cm 초과=S급, 50~60cm·길이 없음=기존 '장미'
+  assert.strictEqual(T.chinaSubcategory('ROSE CHINA / 아바란체(Avalanche) 40cm', '36-01'), '장미 B급');
+  assert.strictEqual(T.chinaSubcategory('ROSE CHINA / 그로우 (Water Sprite) 75-80cm', '36-01'), '장미 S급');
+  assert.strictEqual(T.chinaSubcategory('ROSE CHINA / 로맨틱 비치 70cm-75cm', '36-01'), '장미 S급');
+  assert.strictEqual(T.chinaSubcategory('ROSE CHINA / 나이팅게일 65-75cm', '36-01'), '장미 S급');
+  assert.strictEqual(T.chinaSubcategory('ROSE CHINA / 갓챠(Gotcha) ', '36-01'), '장미');
+  assert.strictEqual(T.chinaSubcategory('ROSE CHINA / X 55cm', '36-01'), '장미');
+  assert.strictEqual(T.chinaSubcategory('ROSE CHINA / X 50cm', '36-01'), '장미');
+  assert.strictEqual(T.chinaSubcategory('ROSE CHINA / X 60cm', '36-01'), '장미');
+  assert.strictEqual(T.chinaSubcategory('ROSE CHINA / X 45-55cm', '36-01'), '장미');       // 범위가 걸치면 등급 없음
+  assert.strictEqual(T.chinaSubcategory('Carnation CHINA / X 40cm', '36-01'), '카네이션');  // 장미만 등급 분리
+  // 과거 차수(35-02 이하)·차수 미상은 크기가 있어도 기존 '장미' 그대로 — 과거 원가 결과 보존
+  assert.strictEqual(T.chinaSubcategory('ROSE CHINA / 아바란체(Avalanche) 40cm', '35-02'), '장미');
   assert.strictEqual(T.chinaSubcategory('ROSE CHINA / 아바란체(Avalanche) 40cm'), '장미');
+  assert.strictEqual(T.chinaSubcategory('ROSE CHINA / 그로우 75-80cm', '27-02'), '장미');
+  assert.deepStrictEqual(T.chinaBunchMetrics('장미 B급', '35-02'), T.chinaBunchMetrics('장미', '35-02')); // 값 분리 전까지 장미 표 사용
+  assert.deepStrictEqual(T.chinaBunchMetrics('장미 S급', '27-02'), T.chinaBunchMetrics('장미', '27-02'));
   assert.strictEqual(T.chinaSubcategory('Carnation CHINA / 라이트 파우더'), '카네이션');
   assert.strictEqual(T.chinaSubcategory('CHINA / 리모늄 시네신스 화이트 (Sinensis white) 500g'), '시네신스');
   assert.strictEqual(T.chinaSubcategory('CHINA / 안개꽃 (Gypsophila white)'), '안개꽃');
