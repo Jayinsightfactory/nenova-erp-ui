@@ -25,6 +25,10 @@ on:
         type: boolean
         required: false
         default: false
+      work_summary_only:
+        description: '읽기 전용: 최근 60분 웹 업무 로그 집계만 조회 (배포 없음)'
+        type: boolean
+        default: false
       migrate_order_mappings:
         description: '승인된 업체·품목 매칭 파일의 공유 DB 최초 이전'
         type: boolean
@@ -39,10 +43,23 @@ on:
     branches: [master]
 
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnose_paste_only == true && 'nenova-paste-readonly-audit' || github.event_name == 'workflow_dispatch' && inputs.diagnose_performance_only == true && 'nenova-performance-readonly-audit' || 'nenova-cafe24-production' }}
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnose_paste_only == true && 'nenova-paste-readonly-audit' || github.event_name == 'workflow_dispatch' && (inputs.diagnose_performance_only == true || inputs.work_summary_only == true) && 'nenova-performance-readonly-audit' || 'nenova-cafe24-production' }}
   cancel-in-progress: false
 
 jobs:
+  work-summary:
+    if: github.event_name == 'workflow_dispatch' && inputs.work_summary_only == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Read bounded local work telemetry only
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: cd /var/www/nenova-erp && nice -n 10 node scripts/server-work-summary.cjs 60
   diagnose-checkout:
     if: github.event_name == 'workflow_dispatch' && inputs.diagnose_checkout_only == true
     runs-on: ubuntu-latest
@@ -127,7 +144,7 @@ jobs:
           script: ${{ steps.audit-script.outputs.script }}
   deploy:
     # 운영 배포는 master 만(11/04 사장님 지시): 다른 브랜치 workflow_dispatch 가 master 배포를 덮어쓰던 사고 차단. 진단 job 은 브랜치 무관
-    if: github.ref == 'refs/heads/master' && (github.event_name != 'workflow_dispatch' || (inputs.diagnose_checkout_only != true && inputs.diagnose_performance_only != true && inputs.diagnose_paste_only != true && inputs.diagnose_paste_models != true))
+    if: github.ref == 'refs/heads/master' && (github.event_name != 'workflow_dispatch' || (inputs.work_summary_only != true && inputs.diagnose_checkout_only != true && inputs.diagnose_performance_only != true && inputs.diagnose_paste_only != true && inputs.diagnose_paste_models != true))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (hydration 스모크 스크립트용)
