@@ -507,19 +507,20 @@ export default function DistributeImport() {
     setLoading(false);
     setPreview(prev => prev ? { ...prev, replacementPlan: null, exportPlan: null, fieldExportPlan: null, fieldExportReady: false } : prev);
   };
-  const handleFarmDownload = async (fieldVolume = false) => {
+  const handleFarmDownload = async (fieldVolume = false, uploadOnly = false) => {
     const plan=fieldVolume ? preview?.fieldExportPlan : preview?.exportPlan;
-    if (!file || !plan || (fieldVolume && !preview?.fieldExportReady) || pendingJob) return;
+    if (!file || (!uploadOnly && (!plan || (fieldVolume && !preview?.fieldExportReady))) || pendingJob || downloading || loading || applying) return;
     setDownloading(true); setError('');
     try {
       const revision=sheetLoadRef.current;
-      const form = new FormData(); form.append('file', file); form.append('exportPlan', plan);
-      if(fieldVolume)form.append('mode','field-volume');
+      const form = new FormData(); form.append('file', file);
+      if(uploadOnly){form.append('mode','field-upload');form.append('farmText',farmText);form.append('week',weekInput.value);}
+      else {form.append('exportPlan', plan);if(fieldVolume)form.append('mode','field-volume');}
       const response = await fetch('/api/shipment/distribute-import-export', {method:'POST',body:form,credentials:'same-origin'});
       if (!response.ok) { const data=await response.json(); throw new Error(data.error || '엑셀 다운로드 실패'); }
       const blob=await response.blob();if(revision!==sheetLoadRef.current)return;
       const url=URL.createObjectURL(blob), link=document.createElement('a');
-      link.href=url; link.download=file.name.replace(/\.xlsx$/i,'')+(fieldVolume?'-신형현장물량표.xlsx':'-농장분배.xlsx');
+      link.href=url; link.download=file.name.replace(/\.xlsx$/i,'')+(uploadOnly?'-신형현장물량표-업로드기준.xlsx':fieldVolume?'-신형현장물량표.xlsx':'-농장분배.xlsx');
       document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
     } catch(e) {setError(e.message);} finally {setDownloading(false);}
   };
@@ -767,6 +768,8 @@ export default function DistributeImport() {
           />
           <button disabled={loading || applying || preAligning} style={st.secondaryBtn} onClick={() => fileRef.current?.click()}>파일 선택</button>
           <span style={st.fileName}>{file ? `${file.name} · 새 파일 내용 기준` : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
+          <button style={st.primaryBtn} onClick={() => handleFarmDownload(true,true)} disabled={!file || !/\.xlsx$/i.test(file.name) || loading || applying || downloading || preAligning || !!pendingJob} title="원본 수량·요일색·입고·재고로 바로 생성합니다. 입력한 카톡 또는 엑셀 농장메모도 확인하며, 이전차수는 포함하지 않습니다.">{downloading ? '다운로드 준비 중...' : '물량표 바로 생성'}</button>
+          <span style={{fontSize:12,color:'#475569'}}>바로 생성: 분배 저장 없이 원본 기준 · 이전차수 미포함</span>
           <button
             style={preAlignAvailable ? st.preAlignBtn : st.preAlignDisabledBtn}
             onClick={handlePreAlign}

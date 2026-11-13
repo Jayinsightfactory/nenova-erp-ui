@@ -12,10 +12,21 @@ if(!proof.presentation.inputCaretVisible){
  fs.copyFileSync('.verify/field-volume/camera-aligned.mp4',dir+'/support.mp4');
  proof.presentation.inputCaretVisible=true;proof.presentation.rawCaptureSha256=hash(fs.readFileSync(raw));delete proof.printPreviewCaption;
 }
+// Camera crop of the captured Excel page only; enlarge the actual printed cells.
+if(!proof.printPreviewZoom){
+  // The registry is updated after finalize on a new recording; VTT contains the current capture times.
+ const vtt=fs.readFileSync(dir+'/support.ko.vtt','utf8');const cues=[...vtt.matchAll(/(\d\d):(\d\d):(\d\d)\.(\d{3}) -->[^\n]*\n4\./g)].map(m=>Number(m[1])*3600+Number(m[2])*60+Number(m[3])+Number(m[4])/1000);
+ const start=cues[0];if(!Number.isFinite(start))throw Error('Print review timing missing');
+ fs.writeFileSync('.verify/field-volume/caption-raw.txt','4. 바로 생성: 원본 돈셀 3 · 입고 5 · 재고 1\n이전차수 분배 미포함 · 업로드 원본 기준');
+ const enable=`between(t,${start},${proof.duration-7.2})`,font="fontfile='C\\:/Windows/Fonts/malgun.ttf'";
+ const filter=`zoompan=z='if(gte(it,${start}),2,1)':x='if(gte(it,${start}),195,0)':y=0:d=1:s=1920x1080:fps=20,drawbox=x=0:y=955:w=1920:h=125:color=0x102847@0.95:t=fill:enable='${enable}',drawtext=${font}:textfile=.verify/field-volume/caption-raw.txt:fontcolor=white:fontsize=28:line_spacing=10:x=40:y=975:enable='${enable}'`;
+ execFileSync('ffmpeg',['-y','-loglevel','error','-i',dir+'/support.mp4','-vf',filter,'-an','-c:v','libx264','-preset','veryfast','-crf','22','-pix_fmt','yuv420p','-movflags','+faststart','.verify/field-volume/print-zoomed.mp4'],{stdio:'pipe'});
+ fs.copyFileSync('.verify/field-volume/print-zoomed.mp4',dir+'/support.mp4');proof.printPreviewZoom={start,scale:2,x:195,y:0,source:'camera crop of actual captured Excel print page'};delete proof.printPreviewCaption;
+}
 if(proof.printPreviewCaption&&proof.videoSha256===hash(fs.readFileSync(dir+'/support.mp4')))return;
 fs.mkdirSync('.verify/field-volume',{recursive:true});fs.writeFileSync('.verify/field-volume/caption-last.txt','4. 돈셀(2) 3 /5: 이전 2 · 이번 3 · 당일합계 5\n요일색 · 입고 5 · 출고 3 · 재고 1 · 잔량 3 확인');fs.writeFileSync('.verify/field-volume/caption-step.txt','4 단계');
 const enable=`gte(t,${Math.max(0,proof.duration-7.2)})`,font="fontfile='C\\:/Windows/Fonts/malgun.ttf'";
-const filter=`drawbox=x=0:y=955:w=1920:h=125:color=0x102847@0.95:t=fill:enable='${enable}',drawtext=${font}:textfile=.verify/field-volume/caption-last.txt:fontcolor=white:fontsize=28:line_spacing=10:x=40:y=975:enable='${enable}',drawbox=x=20:y=10:w=160:h=60:color=0x102847@0.95:t=fill:enable='${enable}',drawtext=${font}:textfile=.verify/field-volume/caption-step.txt:fontcolor=white:fontsize=30:x=35:y=23:enable='${enable}'`;
+const filter=`drawbox=x=0:y=955:w=1920:h=125:color=0x102847@0.95:t=fill:enable='${enable}',drawtext=${font}:textfile=.verify/field-volume/caption-last.txt:fontcolor=white:fontsize=28:line_spacing=10:x=40:y=975:enable='${enable}',drawbox=x=1680:y=10:w=200:h=60:color=0x102847@0.95:t=fill:enable='${enable}',drawtext=${font}:textfile=.verify/field-volume/caption-step.txt:fontcolor=white:fontsize=30:x=1695:y=23:enable='${enable}'`;
 execFileSync('ffmpeg',['-y','-loglevel','error','-i',dir+'/support.mp4','-vf',filter,'-c:v','libx264','-preset','veryfast','-crf','22','-pix_fmt','yuv420p','-movflags','+faststart','.verify/field-volume/captioned.mp4'],{stdio:'pipe'});
 fs.copyFileSync('.verify/field-volume/captioned.mp4',dir+'/support.mp4');proof.videoSha256=hash(fs.readFileSync(dir+'/support.mp4'));proof.printPreviewCaption={number:4,source:'actual Excel ReadOnly PDF rendered to PNG; captured in local browser',start:Math.max(0,proof.duration-7.2),end:proof.duration};fs.writeFileSync(proofFile,JSON.stringify(proof,null,2)+'\n');
 }
