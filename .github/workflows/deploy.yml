@@ -95,7 +95,7 @@ jobs:
             printf "\nCPU_DIAG\n"
             echo 'PERF_DIAG_EOF'
           } >> "$GITHUB_OUTPUT"
-      - name: Temporary native ZIP mitigation and bounded local CPU sampler
+      - name: Bounded CPU sampler without runtime tuning
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 172.233.89.171

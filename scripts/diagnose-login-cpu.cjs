@@ -26,6 +26,6 @@ async function captureLoginCpu(pid,dir,WebSocket,{enableNativeZlib=false,xlsxMod
   if(opened){const remains=await list();if(remains)throw Error('INSPECTOR_CLEANUP_FAILED');}
  }
 }
-async function run(){const dir='/var/www/nenova-erp',rows=JSON.parse(cp.execFileSync('pm2',['jlist'],{encoding:'utf8',maxBuffer:16*1024*1024})),app=rows.find(p=>p.name==='nenova-erp'&&p.pm2_env?.status==='online');if(!app?.pid)throw Error('APP_NOT_RUNNING');const WebSocket=require(dir+'/node_modules/next/dist/compiled/ws');const result=await captureLoginCpu(app.pid,dir,WebSocket,{enableNativeZlib:true});console.log(JSON.stringify({section:'login_cpu_profile',inspectorClosed:true,...result}));}
+async function run(){const dir='/var/www/nenova-erp',rows=JSON.parse(cp.execFileSync('pm2',['jlist'],{encoding:'utf8',maxBuffer:16*1024*1024})),app=rows.find(p=>p.name==='nenova-erp'&&p.pm2_env?.status==='online');if(!app?.pid)throw Error('APP_NOT_RUNNING');const WebSocket=require(dir+'/node_modules/next/dist/compiled/ws');const result=await captureLoginCpu(app.pid,dir,WebSocket,{enableNativeZlib:false});console.log(JSON.stringify({section:'login_cpu_profile',inspectorClosed:true,...result}));}
 if(require.main===module||!require.main)run().catch(e=>{console.log(JSON.stringify({section:'login_cpu_profile',failed:true,code:/^[A-Z_]{1,40}$/.test(e.message)?e.message:'FAILED'}));process.exitCode=1;});
 module.exports={captureLoginCpu};
