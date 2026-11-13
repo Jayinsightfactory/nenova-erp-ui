@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-13T09:18:03.298Z",
+  "recordedAt": "2026-11-13T09:46:09.266Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 42.55,
+  "duration": 53.7,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "ceff0c64d71739d99d0405e4f6f72513b51b2a0dbe778baa3d72b6de4b3b4fe6",
-  "captionsSha256": "e47834c4c0dbe6abb4aa6eb30302e48eeb1969be5f1d0e00cf8357f10f4260ca",
+  "videoSha256": "45d2354539324a9960a762eeca77eed3e2988264163d9d04d1ba11f0ec7a7500",
+  "captionsSha256": "d835170af0dbd6f0bde8ab972346c5daf15c067b0d73fee8dddf045c3bfe129b",
   "sourceHashes": {
-    "components/import-tools/PedidosTool.js": "28cf363a73902a1a17fcc66ee800cf79356f6680268ea51982ef829f488cc84c"
+    "components/import-tools/PedidosTool.js": "42f97388757bc4a0469d98aeb6f8862918de595cb8837f351a6c497292868985"
   },
   "presentation": {
-    "numberedSteps": 4,
+    "numberedSteps": 5,
     "zoom": "post-capture-1.4x",
     "transitionSeconds": 1.2,
     "captionBand": "unscaled-bottom-180px",
@@ -28,31 +28,38 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 4.1476111,
+        "start": 4.135467,
         "x": 394,
         "y": 718.0625,
-        "end": 10.378531899999997
+        "end": 10.364269200000003
       },
       {
         "number": 2,
-        "start": 14.734010099999999,
+        "start": 14.7205963,
         "x": 382.5,
         "y": 814.375,
-        "end": 20.965880199999997
+        "end": 20.936274200000003
       },
       {
         "number": 3,
-        "start": 25.286559800000003,
+        "start": 25.3152611,
         "x": 294.125,
         "y": 847.6875,
-        "end": 31.5180884
+        "end": 31.5387521
       },
       {
         "number": 4,
-        "start": 35.865077400000004,
+        "start": 35.9766391,
+        "x": 1196.921875,
+        "y": 605.1875,
+        "end": 42.730654599999994
+      },
+      {
+        "number": 5,
+        "start": 47.0616421,
         "x": 353.359375,
         "y": 558.6875,
-        "end": 42.1141761
+        "end": 53.326302900000016
       }
     ]
   }

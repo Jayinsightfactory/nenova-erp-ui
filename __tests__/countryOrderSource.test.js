@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildCountryOrderMatrix, compareCountryOrderSubweeks, isCountryOrderCustomerCode, buildCountryOrderUnitBasis, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities } from '../lib/countryOrderSource.js';
+import { reviewCountryOrderQuantities, buildCountryOrderMatrix, compareCountryOrderSubweeks, isCountryOrderCustomerCode, buildCountryOrderUnitBasis, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities } from '../lib/countryOrderSource.js';
 
 const row = { OrderYear: 2026, OrderWeek: '42-01', CustKey: 1, CustName: '업체', CustOrderCode: 'CL21', ProdKey: 1983, ProdName: 'tulip', FlowerName: '튤립', CounName: '네덜란드', OutUnit: '단', OutQuantity: 20, BoxQuantity: 1, BunchQuantity: 20, SteamQuantity: 200, SourceRowCount: 1 };
 function response(rows = [row], country = 'Netherlands', counName = '네덜란드') { return { success: true, readOnly: true, scope: { country, counName, year: 2026, majorWeek: '42', scopeKey: `${country}/2026/42` }, subweeks: [{ key: '2026/42-01', orderWeek: '42-01' }], rows, warnings: [] }; }
@@ -152,4 +152,17 @@ test('product snapshot and factor suggestion derive only missing factors from en
   assert.deepEqual(suggestCountryOrderProductFactors(target, { 1: '100' }), { SteamOf1Bunch: 10, SteamOf1Box: 50 });
   assert.deepEqual(suggestCountryOrderProductFactors(target, {}), {});
   assert.deepEqual(suggestCountryOrderProductFactors(target, { 1: '0' }), {});
+});
+
+test('review uses the selected stem or bunch unit, allows zero and preserves ERP evidence', () => {
+  for (const [country, name, expected] of [['Netherlands', '네덜란드', 200], ['Australia', '호주', 20]]) {
+    const matrix = buildCountryOrderMatrix(response([{ ...row, CounName: name }], country, name), '42-01');
+    const source = matrix.rows[0];
+    const change = value => reviewCountryOrderQuantities(matrix, { [source.key]: { 1: value } });
+    assert.equal(change('14').rows[0].total, 14);
+    assert.equal(change('0').rows[0].quantities['1'], 0);
+    assert.equal(source.quantities['1'], expected);
+    assert.deepEqual(change('14').rows[0].storedQuantities, source.storedQuantities);
+    for (const invalid of ['', '-1', 'Infinity']) assert.throws(() => change(invalid), /수량/);
+  }
 });
