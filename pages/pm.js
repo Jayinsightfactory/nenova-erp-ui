@@ -9,6 +9,7 @@ import { CHART_COLORS, SHIRTS, STAGE_COLOR } from '../lib/pmThemes';
 import { LEVELS, levelOf } from '../lib/pmBonus';
 import { STAGES, stageLabel, staffLinks, lineWidth, linkTaskText, linkTipText, stageNowRows } from '../lib/pmStages';
 import { normalizePlaybooks, playbookSummary, sortPlaybookCards, kstDateTime } from '../lib/pmPlaybooks';
+import { pmUnresolved } from '../lib/pmUnresolved';
 import { buildHandoffs, chainView, filterLog, logFacets, kstHM, kstDay, fmtGap, DEFAULT_WINDOW_H } from '../lib/pmWorkLog';
 import MenuBackButton from '../components/MenuBackButton';
 import IsoScene, { ISO_CSS } from '../components/pm/IsoScene';
@@ -808,6 +809,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
   const visibleRooms = rooms.filter((r) => r.dept !== '미배치' || r.seats.length);
   const pmAgent = agents.find((a) => a.id === 'pm');
   const labAgents = agents.filter((a) => a !== pmAgent);
+  const unresolved = pmUnresolved(tasks);
   const grouped = TASK_GROUPS.map((g) => ({ ...g, items: [] }));
   const other = [];
   for (const t of tasks) { const s = `${t.state || ''}`; const g = grouped.find((x) => x.match(s, t)); (g ? g.items : other).push(t); }
@@ -969,16 +971,27 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
           </section>
           <PlaybookPanel playbooks={d.playbooks} />
           <section className="panel">
-            <h2>에이전트 대화</h2>
-            <div className="feed">
-              {board.slice(0, 60).map((m, i) => (
-                <div key={i} className="msg">
-                  <div className="mh"><b style={{ color: hashColor(m.from) }}>{m.from}</b> → <b>{m.to}</b>{m.type ? <span className="mt">{m.type}</span> : null}<span className="muted"> {ago(m.at, now)}</span></div>
-                  <div className="mb">{m.text}</div>
-                </div>
-              ))}
-              {!board.length && <p className="muted">대화 없음</p>}
-            </div>
+            <h2>PM이 스스로 해결 못 한 일 <small>{unresolved.length}</small></h2>
+            {unresolved.length ? (
+              <ul className="unres">{unresolved.map((u) => (
+                <li key={u.id}>
+                  <div><b>{u.title}</b>{u.since ? <span className="muted"> · {u.since}</span> : null}</div>
+                  {u.todo && <div className="dec">{u.todo}</div>}
+                </li>
+              ))}</ul>
+            ) : <p className="muted">지금 사장님이 보실 것 없음</p>}
+            <details className="rawtalk">
+              <summary>에이전트 대화 원문 보기 <small>{board.length}</small></summary>
+              <div className="feed">
+                {board.slice(0, 60).map((m, i) => (
+                  <div key={i} className="msg">
+                    <div className="mh"><b style={{ color: hashColor(m.from) }}>{m.from}</b> → <b>{m.to}</b>{m.type ? <span className="mt">{m.type}</span> : null}<span className="muted"> {ago(m.at, now)}</span></div>
+                    <div className="mb">{m.text}</div>
+                  </div>
+                ))}
+                {!board.length && <p className="muted">대화 없음</p>}
+              </div>
+            </details>
           </section>
         </aside>
       </div>
@@ -1073,6 +1086,9 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
         .pm .pblearn { margin: 2px 0; } .pm .pbh { display: flex; justify-content: space-between; gap: 6px; } .pm .pbh .chip { flex: none; }
         .pm .pbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pm .pbk { word-break: break-all; }
         .pm .feed { max-height: 60vh; overflow-y: auto; }
+        .pm .unres { list-style: none; margin: 0 0 8px; padding: 0; } .pm .unres li { padding: 7px 0; border-bottom: 1px solid var(--pm-line); font-size: 13px; line-height: 1.45; } .pm .unres li:last-child { border-bottom: 0; }
+        .pm .unres .dec { font-size: 12px; color: var(--pm-muted); }
+        .pm .rawtalk > summary { cursor: pointer; font-size: 12px; color: var(--pm-muted); padding: 4px 0; } .pm .rawtalk[open] > summary { margin-bottom: 6px; }
         .pm .mh { font-size: 11px; } .pm .mt { margin-left: 6px; } .pm .mb { margin-top: 2px; line-height: 1.4; word-break: break-word; }
         .pm .credit { margin-top: 12px; font-size: 11px; color: var(--pm-muted); }
         /* 복도 = 2.5D 길(살짝 눕힌 바닥판 + 두께) */
