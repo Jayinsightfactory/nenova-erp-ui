@@ -16,7 +16,7 @@ const require = createRequire(import.meta.url);
 const suffix = process.platform === 'win32' ? '-msvc' : process.platform === 'linux' ? '-gnu' : '';
 const { transformSync } = require(`@next/swc-${process.platform}-${process.arch}${suffix}`);
 const lib = fileURLToPath(new URL('../lib/', import.meta.url));
-const realModules = new Set(['shipmentImport', 'orderUtils', 'shipmentImportQty', 'shipmentFixScope',
+const realModules = new Set(['shipmentImport', 'orderUtils', 'customerExportName','shipmentImportQty', 'shipmentFixScope',
   'shipmentFixScopeCore', 'shipmentDescr', 'distributeUnits', 'pivotProdName',
   'pivotVolumeProductLabel', 'dutchVolumeCustomerMatch', 'weekdayEarlyShipmentImport']);
 const cache = new Map();
