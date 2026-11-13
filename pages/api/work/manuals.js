@@ -20,6 +20,27 @@ function handoverWithLiveTriggers() {
   } catch { /* 갱신본을 못 읽으면 저장소에 든 것을 그대로 쓴다 */ }
   return h;
 }
+// 단계별 화면 캡처: 사장님 PC 가 올린 갱신본(import-captures)이 있으면 단계에 붙인다.
+// 그림은 저장소에 넣지 않는다(실제 업무 화면이라 코드 기록에 남기지 않고, 올린 파일만 바꾸면 내릴 수 있게).
+function handoverWithCaptures() {
+  const h = handoverWithLiveTriggers();
+  if (!h?.manuals) return h;
+  try {
+    const p = featureFilePath('import-captures');
+    if (p && fs.existsSync(p)) {
+      const cap = JSON.parse(fs.readFileSync(p, 'utf8'));
+      h.captureInfo = { generatedAt: cap.generatedAt || null, clarity: cap.clarity === 'clear' ? 'clear' : 'blurred' };
+      h.manuals = h.manuals.map((m) => ({
+        ...m,
+        steps: m.steps.map((s) => {
+          const c = cap.captures?.[m.id]?.[String(s.no)];
+          return c?.img && /^data:image\/(jpeg|png);base64,/.test(c.img) ? { ...s, capture: { img: c.img, w: c.w || null, h: c.h || null, observedAt: c.observedAt || null } } : s;
+        }),
+      }));
+    }
+  } catch { /* 갱신본을 못 읽으면 글 단계만 보여 준다 */ }
+  return h;
+}
 import { DEPARTMENTS, isManualAdmin, visibleManuals, getLayout, saveManualEdit, saveLayout } from '../../../lib/workManuals';
 
 export default withAuth(async function handler(req, res) {
@@ -33,7 +54,7 @@ export default withAuth(async function handler(req, res) {
       manuals: visibleManuals(user),
       layout: getLayout(user),
       routines: getRoutines(),
-      handover: handoverWithLiveTriggers(),
+      handover: handoverWithCaptures(),
     });
   }
   if (req.method === 'POST') {
