@@ -951,6 +951,7 @@
         "desktop/shell/shell.js",
         "desktop/shell/company-calendar.js",
         "desktop/main.cjs",
+        "desktop/windows-identity.cjs",
         "desktop/notes-preload.cjs",
         "desktop/shell/home-dashboard.js",
         "desktop/shell/index.html",
@@ -993,47 +994,47 @@
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 16.513
+              "seconds": 16.351
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 25.719
+              "seconds": 25.497
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 36.586
+              "seconds": 36.427
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 45.673
+              "seconds": 45.508
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 66.988
+              "seconds": 66.902
             },
             {
               "scenario": "calendar",
               "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 76.347
+              "seconds": 76.284
             },
             {
               "scenario": "independent",
               "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 100.902
+              "seconds": 101.066
             },
             {
               "scenario": "company",
               "title": "9. 회사 공통 일정 등록",
-              "seconds": 112.45
+              "seconds": 112.684
             },
             {
               "scenario": "collapse",
               "title": "10. 월간·주간 접기와 홈 다시 열기",
-              "seconds": 139.365
+              "seconds": 140.114
             }
           ]
         }

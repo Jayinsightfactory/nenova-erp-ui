@@ -46,7 +46,8 @@
       "task-launcher.cjs",
       "lifecycle.cjs",
       "home-board.cjs",
-      "company-calendar.cjs"
+      "company-calendar.cjs",
+      "windows-identity.cjs"
     ],
     "asar": true,
     "electronFuses": {
@@ -77,8 +78,14 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "로그인 전 복원된 홈 화면에 가려진 기존 로그인 탭을 자동으로 보여주도록 수정했습니다."
-    }
+      "releaseNotes": "로그인 탭이 홈에 가려지지 않게 하고 작업표시줄 이름·아이콘을 네노바 업무로 지정했습니다."
+    },
+    "extraResources": [
+      {
+        "from": "assets/icon.ico",
+        "to": "app-icon.ico"
+      }
+    ]
   },
   "dependencies": {
     "electron-updater": "6.8.10"

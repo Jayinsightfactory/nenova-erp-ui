@@ -38,6 +38,10 @@ jobs:
         run: npm run test:updater
       - name: Build Windows installer
         run: npm run dist
+      - name: Verify native taskbar icon resource
+        run: |
+          if (-not (Test-Path -LiteralPath 'dist/win-unpacked/resources/app-icon.ico')) { throw 'Native taskbar icon is missing' }
+          if ((Get-FileHash -LiteralPath 'dist/win-unpacked/resources/app-icon.ico').Hash -ne (Get-FileHash -LiteralPath 'assets/icon.ico').Hash) { throw 'Native taskbar icon differs from source' }
       - name: Installer SHA256
         run: Get-FileHash dist/Nenova-Desktop-Setup-*-x64.exe -Algorithm SHA256 | Format-List | Out-File dist/SHA256.txt
       - uses: actions/upload-artifact@v4

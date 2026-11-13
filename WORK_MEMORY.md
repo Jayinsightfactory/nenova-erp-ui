@@ -2920,3 +2920,8 @@
 - 운영읽기전용진단은 기존배포와 독립그룹으로 실행되게 조정(쓰기배포 직렬화 유지). 진단집계 메모리여유2895MB/OOM0, DBtimeout320건(과거포함) 확인. 최근 로그인오류는 ETIMEOUT connectionFailure=true, 권한/컬럼/테이블오류없음. PC 동일설정 DB SELECT1은80ms PASS. 서버새연결SELECT1은 진행중. 원장·계정·인증정보 변경/출력/저장 없음, 서버로그 원문 대신 허용된오류코드·불리언만 출력.
 - 1.3.24 CI/정식릴리스·설치·사용자로그인복구는 진행중/미완료. 세부로그 .verify 로컬.
 검색어: desktop-login-1113 1.3.24 verifyAccount loginOwner menuOpen ETIMEOUT 로그인서버오류 작업표시줄 Nenova.lnk
+
+- 후속 원인확정: 새 SQL연결347~387ms PASS와 loopback 앱ping12초TIMEOUT 대비. 임시 localhost CPU profile4초/3669샘플에서 xlsx.inflate/build_tree→api/work/drive-ingest 확인. Worker분리 서버긴급PR1730(567b072b) 전체CI43384415991 SUCCESS, a80adf4a 병합. 별도 worktree nw-drive-pairs-unblock-1113. 프로파일 Inspector닫힘확인2회, 원시CPUprofile/업무요청/환경/비밀번호출력0. 서버정식배포와 live로그인확인 진행중.
+- 사용자‘Electron으로뜸’ 확인: 현재 electron.exe 테스트프로세스없고 설치exe 제품메타는NenovaDesktop1.3.23. 창별AppUserModel/relaunch표시명을‘네노바 업무’로 명시하고 taskbar표시false설정방지, OS에서읽을수있는 resources/app-icon.ico를추가복사. 패키지asar내경로를Shell에넘기지않음. 두단위검사/실제Electron전체회귀PASS. 종료중지연navigation의없는창layout안전가드보완. strict디렉티브유지. 최종168.3초/10단계 가이드재촬영 및 전소스해시검사PASS.
+- 사용자PC탐색기와앱이최소화·사용자입력으로바뀌어자동클릭추가중단. 비밀번호대신직접로그인결과만요청받았고서버오류실패확인. 작업표시줄고정아이콘은구형ERP이며실제새앱이름수정도포함. 1.3.24최종CI/릴리스/설치/실제사용자로그인복구는미완료.
+검색어: desktop-login-1113 후속 1.3.24 windows-identity app-icon.ico Electron 표시 PR1730 a80adf4a

@@ -1,4 +1,5 @@
 'use strict';
+const { applyWindowIdentity } = require('./windows-identity.cjs');
 const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen, dialog, shell, Menu, safeStorage, net, Notification, clipboard } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -98,7 +99,7 @@ function readSaved() {
   try { if (!safeStorage.isEncryptionAvailable() || fs.statSync(statePath()).size > 1024 * 1024) return null; return safeSnapshot(JSON.parse(safeStorage.decryptString(fs.readFileSync(statePath())))); } catch { return null; }
 }
 function layout(w) {
-  if (w.win.isDestroyed()) return;
+  if (!w || w.win.isDestroyed()) return;
   const [width, height] = w.win.getContentSize();
   const { top, bottom } = shellInsets(w);
   for (const id of w.ids) {
@@ -128,6 +129,7 @@ function createWindow(config = {}) {
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: !app.isPackaged } });
   const w = { id, win, ids: [], activeId: null, menuOpen: true, toolsOpen: false, message: '', notice: '', confirmedClose: false };
   windows.set(id, w);
+  applyWindowIdentity(win,{packaged:app.isPackaged,execPath:process.execPath,resourcesPath:process.resourcesPath,appDir:__dirname});
   win.setMenuBarVisibility(false);
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', e => e.preventDefault());

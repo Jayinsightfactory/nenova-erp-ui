@@ -4,7 +4,7 @@ const fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:p
 const puppeteer=require('puppeteer-core');
 const {requestOptions}=require('../desktop/home-workspace.cjs');
 const {createWorkflowGuideRecorder}=require('./lib/workflow-guide-recorder.cjs');
-const sources=['desktop/shell/shell.js','desktop/shell/company-calendar.js','desktop/main.cjs','desktop/notes-preload.cjs','desktop/shell/home-dashboard.js','desktop/shell/index.html','desktop/shell/home-workspace.js','desktop/shell/shell.css','desktop/shell/notes.html','desktop/shell/notes.js','desktop/shell/notes.css','desktop/shell/task-settings.js','desktop/shell/task-controls.js','pages/desktop-guide.js'];
+const sources=['desktop/shell/shell.js','desktop/shell/company-calendar.js','desktop/main.cjs','desktop/windows-identity.cjs','desktop/notes-preload.cjs','desktop/shell/home-dashboard.js','desktop/shell/index.html','desktop/shell/home-workspace.js','desktop/shell/shell.css','desktop/shell/notes.html','desktop/shell/notes.js','desktop/shell/notes.css','desktop/shell/task-settings.js','desktop/shell/task-controls.js','pages/desktop-guide.js'];
 const root=path.resolve(__dirname,'..');
 async function fixture({seedDate}={}){
  const store=await import('../lib/personalHomeStore.js');const shared=await import('../lib/companyCalendarStore.js');
@@ -18,7 +18,7 @@ async function fixture({seedDate}={}){
  const server=http.createServer((req,res)=>{let name=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html';if(name==='demo.css'){res.setHeader('content-type','text/css');return res.end('body{width:320px;margin:76px auto;border:1px solid #dce3ee;border-radius:10px;box-shadow:0 12px 40px #1232}html{background:#f3f5f9}dialog{width:310px;max-height:650px}');}if(!/^[\w.-]+$/.test(name)){res.writeHead(404);return res.end();}const file=path.join(root,'desktop/shell',name);if(!fs.existsSync(file)){res.writeHead(404);return res.end();}res.setHeader('content-type',name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/html; charset=utf-8');let data=fs.readFileSync(file);if(name==='notes.html'&&req.url.includes('demo=1'))data=data.toString().replace('</head>','<link rel="stylesheet" href="/demo.css"></head>');res.end(data);});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
  async function invoke(action,payload={}){
-  calls.push({action,payload});if(action==='state')return {homeOwnerId:owner,ownerId:owner,menuOpen:true,online:true,pinned:pin,reminder,menus,windows:[],tabs:[],favorites:[],version:'1.3.23'};
+  calls.push({action,payload});if(action==='state')return {homeOwnerId:owner,ownerId:owner,menuOpen:true,online:true,pinned:pin,reminder,menus,windows:[],tabs:[],favorites:[],version:require('../desktop/package.json').version};
   if(action==='homeRequests')return {success:true,ownerId:owner,requests:[{id:'abcdef123456',title:'업무 화면 개선 요청',status:'working',statusLabel:'처리중',categoryLabel:'기능요청'},{id:'abcdef123457',title:'일정 기능 검토',status:'received',statusLabel:'접수',categoryLabel:'기능요청'}]};
   if(action==='companyCalendar'){if(fail&&payload.method==='POST'){fail=false;return {success:false,status:503,error:'연습 공통 일정 저장 실패 · 입력 유지'};}try{return await shared.companyCalendar({userId:owner,accountActive:true},payload.query,payload.method==='POST'?payload.command:null,{root:path.join(storage,'company')});}catch(e){return {success:false,status:e.statusCode||500,error:e.message};}}
   if(action==='workspace'||action==='homeWorkspace'){
