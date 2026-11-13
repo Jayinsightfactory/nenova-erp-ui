@@ -1,7 +1,6 @@
 # Disposable upload/login/home soak
 
-The workflow `.github/workflows/upload-ingest-soak.yml` runs only when a PR changes
-that workflow itself, or through manual dispatch. It does not deploy anything.
+The workflow `.github/workflows/upload-ingest-soak.yml` is manually dispatched for capacity changes. The initial qualification ran on PR #1735. It does not deploy anything.
 Three independent GitHub-hosted Ubuntu runners test 5, 10 and 20 synthetic users
 for **1,800 seconds each**, in parallel. No staff PC or production server receives
 sustained test traffic. The harness refuses runs of 5 minutes or longer outside
@@ -74,6 +73,4 @@ node --max-old-space-size=128 --test __tests__/driveLoadMetrics.test.cjs
 node --check scripts/test-drive-ingest-mixed-load.cjs
 ```
 
-The new 30-minute Linux CI stages have **not yet run**. The tests above cover
-300,000 response observations without accessing body/JWT data, artifact redaction
-and repeat sanitization, fixed metrics memory, and maximum XLSX/PDF fixtures.
+Qualification: [CI run 43397896301](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/43397896301) passed all three stages on November 13, 2026. For 5/10/20 users login p95 was 6/7/7 ms and authenticated personal home p95 was 8/7/7 ms. All 600/1,200/2,400 uploads were accepted, with zero timeouts, corrupt/missing originals or duplicate IDs. This qualification covers the source revision in the three artifacts; it is not a capacity guarantee for every subsequent release. The lightweight metrics and redaction checks remain part of the ordinary ERP CI.

@@ -1,16 +1,13 @@
 name: Synthetic upload 30-minute soak
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/upload-ingest-soak.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: upload-ingest-soak-${{ github.event.pull_request.number || github.ref }}
+  group: upload-ingest-soak-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
