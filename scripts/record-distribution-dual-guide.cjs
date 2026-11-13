@@ -7,13 +7,18 @@ async function main(){
  let rec,capturedGuide=null,stopped=false,step=0;try{
  const page=await browser.newPage();await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});const errors=[],posts=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')console.log(m.text());});await page.setRequestInterception(true);
  const groups=[{key:'콜롬비아::수국',country:'콜롬비아',flower:'수국',label:'콜롬비아수국'},{key:'콜롬비아::카네이션',country:'콜롬비아',flower:'카네이션',label:'콜롬비아카네이션'},{key:'콜롬비아::장미',country:'콜롬비아',flower:'장미',label:'콜롬비아장미'},{key:'네덜란드::장미',country:'네덜란드',flower:'장미',label:'네덜란드장미'},{key:'네덜란드::튤립',country:'네덜란드',flower:'튤립',label:'네덜란드튤립'}];
- let staleRead=false,stalePack=false,axisFixture=false,customerGets=0;const customerRace=process.argv.includes('--customer-race');let account='guide-support',countrySetting=null;const favGroups=groups.slice(0,4).map((g,i)=>({FavoriteKey:i+1,FilterData:JSON.stringify({groupKey:g.key})}));
+ let guideDone={};let staleRead=false,stalePack=false,axisFixture=false,customerGets=0;const customerRace=process.argv.includes('--customer-race');let account='guide-support',countrySetting=null;const favGroups=groups.slice(0,4).map((g,i)=>({FavoriteKey:i+1,FilterData:JSON.stringify({groupKey:g.key})}));
  const prod={ProdKey:3513,ProdName:'연습 카네이션 Honey',DisplayName:'연습 카네이션 Honey',CounName:'콜롬비아',FlowerName:'카네이션',OutUnit:'박스',EstUnit:'단',BunchOf1Box:15,SteamOf1Bunch:20,SteamOf1Box:300,inQty:1,outQty:1,Cost:11500};
  let context={scope:{orderYear:'2026',orderWeek:'45-01',custKey:777,prodKey:3513},detail:{...prod,OutQuantity:1,EstQuantity:15,Cost:11500,Amount:156818,Vat:15682,DetailFix:true,MasterFix:true},calendar:Array.from({length:7},(_,i)=>{const d=new Date(Date.UTC(2026,10,4+i));return {WeekDay:d.getUTCDay()+1,Timestamp:d.toISOString().slice(0,10)+' 00:00:00.000'};}),dates:[{Timestamp:'2026-11-06 00:00:00.000',ShipmentQuantity:1,EstQuantity:15,Cost:11500,Amount:156818,Vat:15682,Descr:''}]};
  const customer=()=>({CustKey:777,CustName:'연습업체',주문코드:'연습',주문수량:1,출고수량:1,Cost:11500,단가:11500,OutUnit:'박스',SdetailKey:101,ShipmentDateLabel:context.dates[0].Timestamp.slice(0,10),ShipmentDateCount:context.dates.length});
  page.on('request',async req=>{const u=new URL(req.url());if(u.origin!==base)return req.abort();if(!u.pathname.startsWith('/api/'))return req.continue();
   const body=req.postData()?JSON.parse(req.postData()):{},type=u.searchParams.get('type');let d={success:true,items:[],rows:[],groups:[],products:[],customers:[],favorites:[],data:[]},status=200;
   if(req.method()!=='GET')posts.push({path:u.pathname,body});
+  if(u.pathname==='/api/kakao/request-done'){
+    if(req.method()==='GET')d={ok:true,states:String(u.searchParams.get('keys')||'').split(',').filter(Boolean).map(key=>guideDone[key]||{key,done:false,revision:null,at:null})};
+    else {const state={key:body.key,done:body.done,revision:body.requestId,at:new Date().toISOString()};guideDone[body.key]=state;d={ok:true,state};}
+  }
+  if(u.pathname==='/api/shipment/distribution-confirmation')d={ok:true,week:u.searchParams.get('week'),rows:[{category:'콜롬비아카네이션',detailCount:2,fixedCount:2,status:'FIXED'},{category:'미국더글라스',detailCount:1,fixedCount:0,status:'UNFIXED'}]};
   if(u.pathname==='/api/auth/me')d.user={userId:account,userName:'영업지원 연습',authority:2};
   if(u.pathname==='/api/kakao/sales-feed')d={ok:true,hasMore:false,nextAfterKey:'guide-cancel',messages:[{source:'nenovakakao',chat_id:'fixture',external_message_id:'guide-add',chatroom:'영업방',sender:'연습 담당',created_at:'2026-11-13T10:00:00+09:00',message:'연습업체 카네이션 1박스 추가'},{source:'nenovakakao',chat_id:'fixture',external_message_id:'guide-cancel',chatroom:'영업방',sender:'연습 담당',created_at:'2026-11-13T10:05:00+09:00',message:'연습업체 카네이션 1박스 취소'},...Array.from({length:20},(_,i)=>({source:'nenovakakao',chat_id:'fixture',external_message_id:'guide-scroll-'+i,chatroom:'영업방',sender:'연습 담당',created_at:'2026-11-13T10:'+String(i+6).padStart(2,'0')+':00+09:00',message:'연습업체 '+(i+1)+' 카네이션 1박스 추가\n업체와 품목을 확인하는 연습 요청입니다.'}))]};
   if(u.pathname==='/api/favorites'){
@@ -61,7 +66,7 @@ async function main(){
   assert(customerGets>=4);assert(!posts.some(p=>p.path.startsWith('/api/orders')||p.path.startsWith('/api/shipment')));assert.deepEqual(errors,[]);
   console.log('PASS delayed customer-load race: week effect plus manual search, 2025/2026 same45, customer list visible/loading cleared, no ERP writes');return;
  }
- if(record)rec=await createWorkflowGuideRecorder(page,{root,workflowId:'shipment-distribution-dates',guideId:'support',title:'농장·업체별 출고분배와 출고일',sourceFiles:['lib/distributionKakaoRequests.js','lib/distributionSalesInboxRefresh.js','pages/shipment/distribute.js','components/shipment/DistributionKakaoFeed.js','components/shipment/DistributionDateEditor.js','components/shipment/DistributionProductTree.js','components/shipment/DistributionDateFilter.js','lib/shipmentDistributionNavigation.js','components/shipment/DistributionInlineDates.js','lib/shipmentInlineDates.js','lib/shipmentDateDisplayUnits.js','lib/shipmentMajorInlineDates.js'],fixtureOnly:true});
+ if(record)rec=await createWorkflowGuideRecorder(page,{root,workflowId:'shipment-distribution-dates',guideId:'support',title:'농장·업체별 출고분배와 출고일',sourceFiles:['components/shipment/DistributionConfirmationSummary.js','lib/distributionKakaoDoneClient.js','lib/distributionKakaoRequests.js','lib/distributionSalesInboxRefresh.js','pages/shipment/distribute.js','components/shipment/DistributionKakaoFeed.js','components/shipment/DistributionDateEditor.js','components/shipment/DistributionProductTree.js','components/shipment/DistributionDateFilter.js','lib/shipmentDistributionNavigation.js','components/shipment/DistributionInlineDates.js','lib/shipmentInlineDates.js','lib/shipmentDateDisplayUnits.js','lib/shipmentMajorInlineDates.js'],fixtureOnly:true});
  if(process.argv.includes('--camera-probe'))rec={chapter:()=>{},caption:async()=>{},pause:async()=>{},unfocus:async()=>{},stop:async()=>{},focus:async(selector,number)=>{const box=await page.$eval(selector,n=>{const r=n.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,w:r.width,h:r.height};});if(box.x<0||box.x>1920||box.y<70||box.y>900)throw Error('CAMERA '+number+' '+selector+' '+JSON.stringify(box));}};
  if(rec){const chapter=rec.chapter;rec.chapter=async(scenario,title)=>{step++;chapter(scenario,`${step}. ${title}`);await rec.caption(`${step}. ${title} · 전체 화면에서 조작 위치를 확인하세요.`);await rec.pause(1200);};}
  if(rec)await rec.chapter('country','국가 선택과 독립 탐색');
@@ -71,6 +76,8 @@ async function main(){
  const week=async value=>{await page.waitForNetworkIdle({idleTime:200});const w=await page.$('input[placeholder="YYYY-WW-SS"]')||await page.$('input[placeholder*="2026-"]');if(rec){await w.evaluate(n=>{n.setAttribute('data-guide-week','true');n.scrollIntoView({block:'center'});});await rec.focus('[data-guide-week]',step);}
  await w.click();await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.press('Backspace');await w.type(value);await page.keyboard.press('Tab');if(rec)await rec.unfocus();await page.waitForNetworkIdle({idleTime:200});};
  await week('2026-45-01');await text('🔍 조회');await page.waitForNetworkIdle({idleTime:200});
+ await text('확정현황 확인');await page.waitForSelector('[role="dialog"][aria-label="2026-45-01 확정현황"]');
+ await hold('선택 차수 옆 확정현황 버튼에서 카테고리 상태를 확인합니다.\n확정 카테고리는 빨간색으로 표시되며 조회만 합니다.');await text('닫기');
  await click('[data-ai-verify="country-select-콜롬비아"]');await page.waitForSelector('[data-ai-verify="family-toggle-콜롬비아::카네이션"]');
  assert.equal(await page.$eval('[data-ai-verify="family-toggle-콜롬비아::알스트로"]',n=>n.getAttribute('aria-expanded')),'false');
  assert.deepEqual(await page.$$eval('[data-testid="product-family-콜롬비아::카네이션"] [data-product-select]',n=>n.map(x=>x.getAttribute('data-ai-verify'))),['product-3515','product-3513']);
@@ -88,6 +95,9 @@ async function main(){
  await hold('최근 3일 영업방의 추가·취소 요청을 자동으로 불러옵니다.\n15초마다 새 요청을 확인합니다. 잔량·출고일 변경은 제외합니다.');
  await page.hover('[aria-label="카톡 요청 목록"]');await page.mouse.wheel({deltaY:350});
  await hold('카톡 목록 안에서 스크롤하므로 분배표를 보면서 요청을 확인할 수 있습니다.');
+ const doneSelector='input[aria-label="연습업체 20 카네이션 1박스 추가 작업완료"]';
+ await page.waitForSelector(doneSelector+':not(:disabled)');await click(doneSelector);await page.waitForSelector('article[data-request-done="true"]');
+ await hold('작업완료를 체크하면 서버에 저장한 뒤 초록색으로 표시됩니다.\n수량 저장·전산 확정과는 별도인 업무 확인 표시입니다.');
  await page.evaluate(()=>[...document.querySelectorAll('button')].find(b=>b.textContent==='추가·취소 불러오기')?.click());
  await page.waitForFunction(()=>document.querySelector('[aria-label="카톡 추가·취소 요청"]')?.textContent.includes('연습업체 카네이션 1박스 취소'));
  if(rec){await page.$eval(farmSearch,n=>n.scrollIntoView({block:'center'}));await rec.focus(farmSearch,step);}
@@ -130,12 +140,14 @@ async function main(){
  assert.equal(await page.$$eval('[data-testid="distribution-group-buttons"]',n=>n.length),0,'farm country controls absent in customer workspace');
  await click('[data-ai-verify="customer-777"]');await page.waitForSelector('[data-ai-verify="date-edit-777-3513"]');
  assert((await page.content()).includes('US Douglas'),'customer items not restricted by farm country');
+ assert.equal(await page.$eval(doneSelector,n=>n.checked),true,'customer tab shares checked chat');
+ await hold('업체정보에서도 같은 카톡 요청을 확인합니다.\n농장정보에서 체크한 작업완료와 초록색 표시가 유지됩니다.');
  await hold('업체정보는 업체를 먼저 고르고 그 업체의 품목을 봅니다.\n농장정보에서 고른 국가·품종에 제한되지 않습니다.');
  await select('select[aria-label="업체 출고일 분류"]','2026-11-05');await page.waitForSelector('[data-ai-verify="customer-777"]');
  await click('[data-ai-verify="date-edit-777-3513"]');await page.waitForSelector('[role="dialog"] input');await text('닫기');
  await hold('두 작업공간 모두 저장된 출고일로 분류합니다.\n행 옆 날짜순 단·송이 입력칸에서 총량을 유지하며 날짜별 수량을 바꿉니다.');
  assert.deepEqual(errors,[]);assert.equal(posts.filter(x=>x.path==='/api/orders'||x.path==='/api/shipment/distribute').length,0);
- if(record){capturedGuide=await rec.stop();stopped=true;const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8'));const wf=registry.workflows.find(w=>w.id==='shipment-distribution-dates');wf.sourceFiles=['lib/distributionKakaoRequests.js','lib/distributionSalesInboxRefresh.js','pages/shipment/distribute.js','components/shipment/DistributionKakaoFeed.js','components/shipment/DistributionDateEditor.js','components/shipment/DistributionProductTree.js','components/shipment/DistributionDateFilter.js','lib/shipmentDistributionNavigation.js','components/shipment/DistributionInlineDates.js','lib/shipmentInlineDates.js','lib/shipmentDateDisplayUnits.js','lib/shipmentMajorInlineDates.js'];wf.guides[0].status='ready';wf.guides[0].chapters=capturedGuide.chapters;fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');return;}
+ if(record){capturedGuide=await rec.stop();stopped=true;const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8'));const wf=registry.workflows.find(w=>w.id==='shipment-distribution-dates');wf.sourceFiles=['components/shipment/DistributionConfirmationSummary.js','lib/distributionKakaoDoneClient.js','lib/distributionKakaoRequests.js','lib/distributionSalesInboxRefresh.js','pages/shipment/distribute.js','components/shipment/DistributionKakaoFeed.js','components/shipment/DistributionDateEditor.js','components/shipment/DistributionProductTree.js','components/shipment/DistributionDateFilter.js','lib/shipmentDistributionNavigation.js','components/shipment/DistributionInlineDates.js','lib/shipmentInlineDates.js','lib/shipmentDateDisplayUnits.js','lib/shipmentMajorInlineDates.js'];wf.guides[0].status='ready';wf.guides[0].chapters=capturedGuide.chapters;fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');return;}
  // Empty-scope and near-miss regressions are dry-only, after the narrated workflow.
  for(const year of [2025,2026]){await week(year+'-45-03');await page.waitForSelector('[data-testid="distribution-no-order-candidates"]');await click('[data-ai-verify="customer-777"]');await page.waitForNetworkIdle({idleTime:200});await click('[data-ai-verify="add-panel-open"]');await page.waitForSelector('[data-testid="distribution-add-panel"]');await page.type('[data-ai-verify="add-prod-search"]','Honey');await click('[data-ai-verify="add-prod-3513"]');await click('[data-ai-verify="add-panel-close"]');}
  assert.equal(posts.filter(x=>x.path==='/api/orders'||x.path==='/api/shipment/distribute').length,0);
