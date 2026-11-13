@@ -2810,7 +2810,21 @@
 검색어: field-volume final-build33 source-proven-zero stock SELECT-only manifest215
 
 - 배포 직전 최종CI verify/installer 모두 SUCCESS. 동시 PR#1708(견적 관리 원장알림)265bc97f 병합으로 WORK_MEMORY append만 충돌 → 양쪽 기록 보존 통합. 기능 파일 충돌 없음. 통합본 CI 재확인 후 병합/배포 진행.
+- 2026-11-13 사용자승인35차보정준비(codex/stock35-approved,base32a5e4ef): 최신요청‘35차0,영향36~46각1개조절’에따라2026/35-02 Prod1062/2322/2601각+1한번/현재고0·4·0→1·5·1/native후속cascade계획. 기존이력삭제/매주중복+1/확정해제/매출수정없음.
+- preview 원천2회동일,111스냅샷(2026/2027기존준비분포함)전부정확+1,아직운영쓰기0. 새전용수동operator는기본SELECT·고정scope/승인/음수/단위검사·exact지문·같은원천rollbackrehearsal·IDLE V2게이트·CAS·기존업무/금액/원장/확정본보존·재실행차단·실패전체rollback.
+- 신규17단위·반례PASS,LocalDB SQL130에실native정의(현재정렬cursor)및기존fixture readiness stub로실행: 중간native실패후rollback·rehearsalreadback·exact3history/현재고+1·2025보존/2027+1·금액보존·중복차단PASS. 전체ERP검사/build/PR/배포/운영rehearse/apply는후속검증전미완료. 계획 docs/plans/approved-stock35-2026-11-13.md.
+검색어: approved-stock35-repair 35-02 1062 2322 2601 +1 111스냅샷 현재고1 5 1
+- 필수verify는ERP행위/manifest/dnSpy/쓰기범위/workflow까지PASS후webpack에서ENOSPC(여유약0.6GB)로중단. 운영rehearse/apply아직0. 자신이생성한두.next정리를시도했으나안전정책차단,우회하지않고사용자에게탐색기정리요청. GitHub의독립Linux빌드검증준비를계속하며검증실패를무시한운영반영금지.
 
+
+## 2026-11-13 회사 공통 일정·홈 요청 버튼·접기/열기
+- fresh nw-company-calendar-1113 @32a5e4ef, 단일 작업자. 사용자 위치확정: 환영문구 옆 웹개발요청, 월간제목 옆 공통일정, 월간제목 우측 접기/열기. 월간/주간 각각 접고 홈재열기 기본 모두열림. 일반웹 /dashboard 보존.
+- 회사공통은 web-only 별도 company-calendar/calendar.json(개인파일·ERP 원장 보존). 활성직원 등록/조회, 본인·기존SS3관리자만 수정/삭제. 작성·수정주체/시각, 소프트삭제, CAS+actor별멱등+원자게시/파일잠금(기존개인home lock재사용). 고정 authenticated main IPC/API, owner+generation fencing/본문크기/동일origin/입력허용목록, 서비스주체거절. 시간·날짜·메모 검증, 월간+주간회사공통녹색배지/블록. 브라우저 직접network없음.
+- 실제파일·API·bridge8검사 PASS: A등록/B읽기·타인수정403/본인수정/SS3삭제, 전년동일날짜독립, CAS1winner·동일요청재시도/actor분리, 손상닫힘/원자게시실패이전bytes보존, 개인파일미변경, 활성계정/CSRF/owner·지연응답/크기. 실제Chrome4폭/모달1920·390/쓰기실패·응답유실같은요청재시도·중복0·초안/Escape·월/주같은일정·접기독립/재조회유지/홈재열기펼침·웹개발요청고정경로/owner비우기/개인쓰기0·JS0 PASS.
+- Native Electron CSP company모듈/IPCGEt·회사초안 유지 및 개인초안false로회사초안경고해제되지않음·Escape모달보호/기존계정경합 PASS. 기존개인시간/월간7건·메뉴검색·notes280/320/390·실제종료6모드 회귀 PASS. API추가용 회사계약/부작용표 작성. ERP SQL/스키마/운영원장읽기·쓰기 없음, DB probe/dnSpy신규SQL 해당없음(필수가드 유지). 기준: 검색/한국시간/페이지주스크롤/키보드/에러재시도/입력보존/가이드 적용.
+- Desktop1.3.22 목표. 가이드10단계 갱신·정식ERP/build/CI/릴리스/운영배포는 진행예정·미검증. 시작계정전체주간13%, reset1795064856(동시작업 포함).
+검색어: company-calendar-1113 1.3.22 회사공통일정 웹개발요청 접기열기 홈기본열림 homeDrafts companyCalendarRequest
+- 후속: 요청 버튼의 실제 native PM작성 경로·Tab정리 PASS. 공통데이터는 actor hash로 저장(원문 로그인ID 없음), 큰 한글메모 응답1.5MB 상한/선택일 우선, 원자게시 실패보존 포함9검사 PASS. 사용자 위치확정 답변 반영. 실제10단계166.05초 한국어 영상 최종촬영·영상/소스해시/전체17영상/번호·카메라·자막·저장버튼/홈아이콘가림 프레임 PASS. 초기 촬영은 홈아이콘이 줌카메라영역 밖이라 검증차단→상단정적강조·뱃지이동 옵션 추가 후 재촬영(우회 없음). 공식ERP pre/test/post exit0, dnSpy/manifest/쓰기가드 PASS. 최종webpack빌드 및 CI/배포·운영검증 진행예정/미검증.
 ## 2026-11-13 출고분배 확정 토글·동시업무·고정 헤더
 - 로컬 isFixed만 바뀌던 확정 UI를 실제 DetailFix+선택 native CountryFlower 범위로 연결. 확정/일부확정은 빨간 확정취소, 미확정은 확정. GET/POST 범위 공통해석, 클릭 직전 상태 재확인, 조회오류/빈범위 차단. 일반 부분확정/음수재고/후속차수 보호 유지.
 - 분배 workspace batch는 expected 수량/단가 compare-and-set과 native 행 잠금을 사용하여 견적 업체 presence만으로 막히지 않는다. 기준변경409/누락400 및 전체배치 rollback, 다른 화면 lease/digest 보존.
@@ -2828,3 +2842,9 @@
 
 검증 복구 완료: E의 임시 복구 작업트리는 런타임 설치 중단 상태이며 실제 검증은 C:/Users/USER/nw-family-buttons-1113에서 npm ci(55초) 재설치 후 수행. 전체 ERP 계약 종료0, 브라우저 회귀(추가 업체5/7 이동취소 유지·한 번 저장) 통과, manifest215/dnSpy/write guard0API 및 npm run build 종료0. 영상278.15초 검수 완료. CI·최종 품종버튼 배포/운영은 다음 기록에서 확인.
 검색어: 품종버튼 최종빌드통과 staged-draft navigation-cancel5/7 환경복구완료 2026-11-13
+- 검증중 동시 PR#1714/1715(a64c73db/dd8866c4) 통합. 기능충돌 없음, WORK_MEMORY 양쪽보존·Desktop releaseNotes 결합. PM의 쉬운 오류제목 개선을 보존하고 회사공통 기능버전은1.3.23으로 조정. 앞선1worker빌드는 내 Next PID19908만 종료. 변경된shell소스 포함 가이드 재촬영 및 통합검증을 진행한다.
+- 후속 통합본: 공통UI/기존계정경합 native PASS, manifest216/쓰기guard 새API1건 PASS. PM개선 포함 가이드169.15초/10단계 재촬영·소스해시17영상·회사저장/홈재열기 최종프레임 PASS. 로컬 빌드는 컴파일 후 ENOSPC로 중단되어 생성캐시만 E:/CodexGeneratedCache/2026-11-13/company-calendar-1113-cache-backup에 보존이동, 새cache-live로 .next/cache junction 연결(소스·업무데이터 변경0). 별도 이전 디렉터리 일괄삭제는 자동검토가 차단해 실행하지 않았고 이 보존이동 방식으로 공간 해결. 새1worker webpack build exit0. 빌드된 /desktop-guide 실제재생·10목차·한국어자막/다운로드/Enter열기닫기/1920·390/JS0 PASS. 최종PR CI·릴리스·운영배포는 진행예정.
+
+## 2026-11-13 업무드라이브 용량
+- 운영 색인 8998개, 5GiB 한도 잔여 3621바이트. 저장 파일시스템 가용 바이트로 검증되는 경우에 한해 관리자가 승인한 10GiB 적용, 조회 실패 시 기존 상한. 원장 변경 없음. 운영 적용 미검증.
+검색어: 업무드라이브 507 statfsSync 10GiB driveCapacity

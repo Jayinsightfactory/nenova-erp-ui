@@ -8,6 +8,7 @@ const { parseBootstrap } = require('./bootstrap.cjs');
 const { launchTaskShortcut }=require('./task-launcher.cjs');
 const {closeMainAction}=require('./lifecycle.cjs');
 const {homeRequests}=require('./home-board.cjs');
+const {companyCalendarRequest}=require('./company-calendar.cjs');
 const { homeWorkspaceRequest } = require('./home-workspace.cjs');
 const { pmLiveStatus } = require('./pm-live.cjs');
 const { createActivity } = require('./activity.cjs');
@@ -353,7 +354,7 @@ function command(w, action, p = {}) {
   if (!['close', 'closeWindow', 'quit', 'pmLiveStatus'].includes(action) && !(action === 'appUpdate' && p.automatic === true)) activity?.record(auditAction, trustedUrl(p.url || p.href) || t?.url || '/desktop');
   switch (action) {
     case 'state': break;
-    case 'homeDraft': w.homeDirty = p.dirty === true; return state(w);
+    case 'homeDraft': {const scope=p.scope||'personal';if(!['personal','company'].includes(scope)||typeof p.dirty!=='boolean')throw Error('입력 상태를 확인하세요.');w.homeDrafts={...w.homeDrafts,[scope]:p.dirty};w.homeDirty=Object.values(w.homeDrafts).some(Boolean);return state(w);}
     case 'homeWorkspace': {
       if (locked || !actor) return Promise.reject(new Error('로그인을 다시 확인하세요.'));
       const owner = actor, generation = authGeneration;
@@ -377,6 +378,7 @@ function command(w, action, p = {}) {
     case 'appUpdate': { if (p.automatic === true) { void updateScheduler?.tick(true); break; } const phase = updater?.getState().phase; if (phase === 'available') updater.download(); else if (phase === 'downloaded') updater.install(); else updater?.check(); break; }
     case 'cancelUpdate': updater?.cancel(); break;
     case 'sync': verifyAccount().catch(() => {}); break;
+    case 'companyCalendar': {const owner=actor,generation=authGeneration;return companyCalendarRequest({payload:p,owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
     case 'homeRequests': {const owner=actor,generation=authGeneration;return homeRequests({owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
     case 'taskShortcut': return openTaskShortcut(p,w);
     case 'taskMenus': return {menus:locked?[]:menus};
@@ -433,7 +435,7 @@ function command(w, action, p = {}) {
 }
 function lockAccount() {
   locked = true;
-  for (const w of windows.values()) w.homeDirty = false;
+  for (const w of windows.values()){w.homeDirty=false;w.homeDrafts={};}
   clearTimeout(saveTimer);
   for (const t of tabs.values()) if (new URL(t.url).pathname !== '/login') { t.view.webContents.stop(); t.view.setVisible(false); }
   for (const w of auxiliary) w.destroy();
@@ -671,7 +673,7 @@ app.whenReady().then(async () => {
   protocol.handle('nenova-app', request => {
     const u = new URL(request.url);
     const name = u.pathname.slice(1);
-    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css','home-workspace.js','task-settings.js','task-controls.js','home-dashboard.js','notes.html','notes.js','notes.css'].includes(name)) return new Response('Not found', { status: 404 });
+    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css','home-workspace.js','task-settings.js','task-controls.js','home-dashboard.js','company-calendar.js','notes.html','notes.js','notes.css'].includes(name)) return new Response('Not found', { status: 404 });
     return new Response(fs.readFileSync(path.join(__dirname, 'shell', name)), { headers: { 'content-type': name.endsWith('.html') ? 'text/html; charset=utf-8' : name.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8', 'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'" } });
   });
   webSession = session.fromPartition('persist:nenova-work');
