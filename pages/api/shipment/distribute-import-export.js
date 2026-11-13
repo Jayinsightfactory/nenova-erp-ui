@@ -19,7 +19,7 @@ async function handler(req,res) {
     const mode=Array.isArray(fields.mode)?fields.mode[0]:fields.mode;
     let output;
     if(mode==='field-volume') {
-      if(plan.kind!=='field-volume-v1')throw Object.assign(new Error('현장물량표를 생성하기 전에 다시 검증하세요.'),{statusCode:409});
+      if(plan.kind!=='field-volume-v2')throw Object.assign(new Error('현장물량표를 생성하기 전에 다시 검증하세요.'),{statusCode:409});
       const {orderYear,orderWeek}=requireOrderYear(plan.week,plan.orderYear);
       const scope=fieldVolumeSql(plan.products.map(p=>p.prodKey));
       const params={year:{type:sql.NVarChar,value:orderYear},major:{type:sql.NVarChar,value:orderWeek.split('-')[0]},minor:{type:sql.Int,value:Number(orderWeek.split('-')[1])}};
