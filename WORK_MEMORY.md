@@ -2762,6 +2762,15 @@
 
 2026-11-13 네덜란드 원본 물량표에 품목 열·헤더 고정과 상단 스크롤바 동기화를 적용했다. 좁은 화면에서도 고정을 유지한다. 주문·분배 API 수정 없음. 운영 배포는 기록 시점 미검증.
 검색어: 네덜란드 물량표 품목 고정 상단 스크롤 DutchVolumeSheet
+# 2026-11-13 견적서관리 원장 연결 알림 (최신 사용자 지시)
+- 전용 nw-estimate-ledger-alerts / codex/estimate-ledger-alerts, origin/master72064052 기준. 차단하지않고볼수있게만: 철회된EXE/트리거/permit초안포함0. 새GET /api/estimate/ledger-alerts와조회차수상단알림,전체업체·세부차수·품목·원수량/단위·저장공급가·키표시. DB SELECT만,스키마/원장/수식/삭제로직/EXE변경0.
+- 6개단위/API/UI계약PASS. 격리LocalDB SQL2016호환에서양연도·세부차수·날짜만잔존·삭제마스터/활성품목제외·missing품목·정확연결키·적용차수이월·행불변PASS. 운영SELECT36차9건(삭제품목출고1/명시차감연결없음8),42차연결없음4. 36차Prod3028검출.10594는웹연결키/과거감사없어현재DB만으로감지불가(화면한계명시). ‘삭제확정’/삭제자추정금지.
+- 실제브라우저연습컴포넌트1920x1080/390폭에서경고/0건/미지원/조회실패·늦은응답폐기·Enter/Space펼침·가로스크롤확인. 알림은인쇄제외. 새메뉴/탭/업무순서변경없음. 첫전체검사새setter fixture누락으로중단후estimateRefreshFlow주입보완/대상PASS. 전체검사·build·PR·배포는후속결과확인전미검증.
+검색어: estimate-ledger-alerts 원장연결알림 삭제품목출고잔존 명시차감연결없음 EXE미변경 읽기전용
+- 후속전체검사는workflow-guide source hash검사에서중단(가이드재촬영요구). 사용자명시승인‘이번알림만영상없이배포’에따라두기존견적workflow에현재pages/estimate.js exact해시의한정waiver추가,기존영상/증거해시는수정하지않음.
+- 최종공식npm run build exit0(webpack/1worker),전체ERP행위계약PASS이후별도manifest214/dnSpy/쓰기범위1API/workflow-guide검사PASS. 한차례verify명령전체exit0로표현하지않음(가이드waiver후공식build분리완료). PR/CI/운영화면은후속확인.
+검색어: estimate-ledger-alerts 원장연결알림 공식buildPASS 사용자영상제외 EXE불변 DB읽기전용
+
 
 ## 2026-11-13 신형 현장물량표 생성
 - 요청 흐름: 출고분배 엑셀업로드 분배 적용→카톡 업체·품목별 농장분배 검증/적용→신형 현장물량표 생성. 기존 원본보존 다운로드 별도 유지.

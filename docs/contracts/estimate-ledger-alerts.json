@@ -1,0 +1,10 @@
+{
+ "id":"estimate-ledger-alerts","title":"견적서 원장 누락 위험 읽기 알림",
+ "scope":["lib/estimateLedgerAlerts.js","pages/api/estimate/ledger-alerts.js","components/EstimateLedgerAlerts.js","pages/estimate.js","scripts/test-estimate-ledger-alerts-sql.cjs","package.json"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "actions":[{"name":"READ_ALERTS","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT-only deleted/missing product with remaining shipment/estimate and explicit missing web-linked Estimate key. No EXE patch, DDL, trigger, DML, auto repair, writer blocking or financial formula change."}],
+ "crossYearFixture":{"required":true,"description":"Same major in 2025/2026 isolated by mandatory year. Subweeks share selected major; stale response excluded; zero and unknown distinct; unsupported schema is not clean."},
+ "requiredTestFiles":["__tests__/estimateLedgerAlerts.test.cjs"],
+ "dnspyEvidence":{"required":true,"record":"docs/plans/estimate-ledger-alerts-2026-11-13.md","source":"Actual FormEstimateView and ClassEstimate from local decompile; previous SELECT-only 36/42 forensic evidence","methods":["FormEstimateView.GetExcelDetail","ClassEstimate.Delete"],"tables":["Product","ShipmentMaster","ShipmentDetail","ShipmentDate","Estimate","WebSalesDefectDeduction"]},
+ "requiredCommands":["node --test __tests__/estimateLedgerAlerts.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}
