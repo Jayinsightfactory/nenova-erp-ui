@@ -10,6 +10,7 @@ const cwd = process.cwd();
 process.chdir(tmp);
 
 const src = fs.readFileSync(path.join(cwd, 'lib', 'workDrive.js'), 'utf8')
+  .replace(/^import ingestIndexModule from '\.\/workDriveIngestIndex\.cjs';/m, 'const ingestIndexModule = require('+JSON.stringify(path.join(cwd,'lib','workDriveIngestIndex.cjs'))+');')
   .replace(/^import fs from 'fs';/m, "const fs = require('fs');")
   .replace(/^import path from 'path';/m, "const path = require('path');")
   .replace(/^import crypto from 'crypto';/m, "const crypto = require('crypto');")

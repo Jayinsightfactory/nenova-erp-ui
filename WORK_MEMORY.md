@@ -2937,3 +2937,9 @@
 - 보완: 피드각조회1500ms제한·공유품질inflight계속coalesce/후속캐시갱신. 느린피드백은feedErrors로안내하고개인JSON업무표시·체크저장성공. 출처읽음표시는지연/알수없는키허용하지않음. IPC fetch/body Timeout/Abort는한글503/504결과로반환해Electron원문예외노출방지, 계정generation격리보존. 실제파일/주입지연회귀 및bridge5검사PASS.
 - 본창뿐아니라메모장에도Windowsidentity동일적용. 최종전체창포함가이드165.3초10단계와소스해시PASS. 사용자작업중으로네이티브창자동클릭이최소화/geometry오류를반환하여추가화면조작중단. 사용자가직접재조회하도록안내예정. 1.3.24최종CI/릴리스/사용자PC설치와홈·PM재확인은진행중미검증.
 검색어: desktop-login-1113 homeFeedRead 1500ms transportFailure 503 504 오늘업무Timeout PM확인불가 로그인사용자확인 1.3.24
+
+## 2026-11-13 — 업로드 색인 반복파싱과 홈 시간초과 추가완화
+- 정식 XLSX Worker 배포 후 CPU profile에서 drive-ingest 색인 readFileSync/JSON 재해석 잔존 확인. 운영 색인 9,256,233 bytes, PM 상태파일292,209 bytes. 운영내용/개인정보출력없음.
+- ingest 전용 집계캐시: 첫 SHA중복·역사상 버전수·id별최신 미삭제 용량의 기존의미 보존. 외부 stat변경은 전체재읽기, 자체확인된append만 증분반영. 보안/목록/이력은 원래전체색인읽기 유지, 알수없는레거시행은원래경로fallback. SQL/remit변경없음.
+- 기존workDrive검사 및4개캐시검사PASS(외부append/교체/삭제/손상/중복/숨김/교정/대용량반복읽기). 필수CI·배포·운영응답검증 진행중 미검증. 메뉴기준선: 화면/업무순서변경없어해당없음.
+검색어: drive-index-1113 9256233 desktop:command TimeoutError index.jsonl ingestIndexCache
