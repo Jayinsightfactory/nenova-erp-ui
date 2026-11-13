@@ -73,8 +73,8 @@ jobs:
       - name: Validate bounded CPU sampler with synthetic child
         run: |
           mkdir -p .verify/cpu-sampler-deps
-          npm install --prefix .verify/cpu-sampler-deps --no-package-lock --no-save --ignore-scripts --no-audit --no-fund ws
-          CPU_SAMPLER_WS="$PWD/.verify/cpu-sampler-deps/node_modules/ws" node scripts/test-login-cpu.cjs
+          npm install --prefix .verify/cpu-sampler-deps --no-package-lock --no-save --ignore-scripts --no-audit --no-fund ws xlsx
+          CPU_SAMPLER_WS="$PWD/.verify/cpu-sampler-deps/node_modules/ws" CPU_SAMPLER_XLSX="$PWD/.verify/cpu-sampler-deps/node_modules/xlsx" node scripts/test-login-cpu.cjs
       - name: Package read-only diagnostic commands
         id: perf-script
         run: |
@@ -95,7 +95,7 @@ jobs:
             printf "\nCPU_DIAG\n"
             echo 'PERF_DIAG_EOF'
           } >> "$GITHUB_OUTPUT"
-      - name: Sanitized diagnosis and temporary local CPU sampler
+      - name: Temporary native ZIP mitigation and bounded local CPU sampler
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 172.233.89.171
