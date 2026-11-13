@@ -76,7 +76,8 @@
     "__tests__/workDrive.test.js",
     "__tests__/workDrivePairs.test.js",
     "__tests__/erpContractManifest.test.js",
-    "__tests__/packingSharedHistory.test.js"
+    "__tests__/packingSharedHistory.test.js",
+    "__tests__/workDriveIngestIndex.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -105,5 +106,6 @@
   "pairWorker": "Invoice/workbook pair derivation runs in one bounded worker per web process. Ingest still persists and classifies the file and completes the same existing remit stage before awaiting pair derivation. Pair failures still do not fail the upload. Admin GET/POST response fields and matching algorithm remain unchanged; cold GET and manual recompute await the worker. Queued requests coalesce; unchanged immutable workbook sheet names are cached by path/SHA/stat; worker locks serialize publishers across processes and output is atomic. No added MSSQL queries or writes; original file bytes/index/classification/permissions/remit logic unchanged.",
   "requiredTests": [
     "__tests__/workDrivePairsWorker.test.cjs"
-  ]
+  ],
+  "ingestIndexCache": "Ingest-only process cache holds duplicate/version/latest-size aggregates. Exact dev/ino/size/mtimeNs/ctimeNs signatures invalidate on external changes. Only own verified append updates aggregates without rereading; unsupported legacy rows fall back to historical scan. History, download, ACL paths still read the original complete audit index. No SQL/remit changes."
 }
