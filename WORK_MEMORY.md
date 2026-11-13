@@ -2780,3 +2780,4 @@
 
 - 최종 사용자 정정: 월간이 기본, 그 하단에 주간만 표시. 전환탭 제거, 큰 월간 개요 + 바로 아래 선택 주 시간표를 동시에 표시하도록 수정. 월간칸에는 시간순2건/추가건수/완료전체를 표시. 날짜선택 시 하단주간과 우측업무 연동. 최종4폭·원문링크/키보드/초안/주·월이동/빈칸12시prefill/쓰기0/JS0 PASS, native CSP 기본월간우선·하단7일 PASS. 최종 주/월 단위/bridge8건 PASS, 추가preview정렬/상한 검증 포함. 사용가이드와 최종CI/빌드는 이 정정본으로 갱신 예정.
 검색어: 월간기본 하단주간 monthly-overview weekly-below calendar-preview
+- 최종 월간기본/하단주간 가이드108.15초/8단계 재촬영. 월간 날짜선택→하단주간 빈12시 실제선택→우측12시채움 각 결과·강조·줌아웃·자막가림 프레임 PASS. 가이드16영상/소스해시 PASS. 단위9건, 실제4폭 월간기본·주간하단·preview·prefill·입력보존/검색/owner PASS, native CSP/인증회귀 PASS. Manifest213·writeguard0API·실제owner파일회귀 PASS. 최종webpack빌드 진행중, final CI/배포·재생 미검증.
