@@ -808,90 +808,6 @@
       ]
     },
     {
-      "id": "desktop-task-schedule",
-      "title": "오늘의 내 업무 · 시간과 바로가기",
-      "entryPaths": [
-        "/desktop-guide"
-      ],
-      "sourceFiles": [
-        "desktop/main.cjs",
-        "desktop/notes-preload.cjs",
-        "desktop/shell/home-dashboard.js",
-        "desktop/shell/index.html",
-        "desktop/shell/home-workspace.js",
-        "desktop/shell/shell.css",
-        "desktop/shell/notes.html",
-        "desktop/shell/notes.js",
-        "desktop/shell/notes.css",
-        "desktop/shell/task-settings.js",
-        "desktop/shell/task-controls.js",
-        "pages/desktop-guide.js"
-      ],
-      "requiredScenarios": [
-        "overview",
-        "schedule",
-        "save",
-        "notes",
-        "shortcut",
-        "launch",
-        "calendar",
-        "independent"
-      ],
-      "guides": [
-        {
-          "id": "staff",
-          "role": "직원",
-          "title": "시간표 입력부터 PC 메모장 바로가기까지",
-          "status": "ready",
-          "src": "/guides/desktop-task-schedule/staff.mp4",
-          "captions": "/guides/desktop-task-schedule/staff.ko.vtt",
-          "proof": "/guides/desktop-task-schedule/staff.proof.json",
-          "chapters": [
-            {
-              "scenario": "overview",
-              "title": "1. 홈에서 오늘 업무 확인",
-              "seconds": 0
-            },
-            {
-              "scenario": "schedule",
-              "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 9.126
-            },
-            {
-              "scenario": "save",
-              "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 18.461
-            },
-            {
-              "scenario": "notes",
-              "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 29.542
-            },
-            {
-              "scenario": "shortcut",
-              "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 38.665
-            },
-            {
-              "scenario": "launch",
-              "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 60.164
-            },
-            {
-              "scenario": "calendar",
-              "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 69.437
-            },
-            {
-              "scenario": "independent",
-              "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 93.761
-            }
-          ]
-        }
-      ]
-    },
-    {
       "id": "shipment-field-volume",
       "title": "출고분배에서 신형 현장물량표 만들기",
       "entryPaths": [
@@ -955,6 +871,104 @@
               "scenario": "review",
               "title": "4. 생성 엑셀의 인쇄 결과와 수량을 확인합니다",
               "seconds": 62.665
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "desktop-task-schedule",
+      "title": "오늘의 내 업무 · 시간과 바로가기",
+      "entryPaths": [
+        "/desktop-guide"
+      ],
+      "sourceFiles": [
+        "desktop/shell/shell.js",
+        "desktop/shell/company-calendar.js",
+        "desktop/main.cjs",
+        "desktop/notes-preload.cjs",
+        "desktop/shell/home-dashboard.js",
+        "desktop/shell/index.html",
+        "desktop/shell/home-workspace.js",
+        "desktop/shell/shell.css",
+        "desktop/shell/notes.html",
+        "desktop/shell/notes.js",
+        "desktop/shell/notes.css",
+        "desktop/shell/task-settings.js",
+        "desktop/shell/task-controls.js",
+        "pages/desktop-guide.js"
+      ],
+      "requiredScenarios": [
+        "overview",
+        "schedule",
+        "save",
+        "notes",
+        "shortcut",
+        "launch",
+        "calendar",
+        "independent",
+        "company",
+        "collapse"
+      ],
+      "guides": [
+        {
+          "id": "staff",
+          "role": "직원",
+          "title": "시간표 입력부터 PC 메모장 바로가기까지",
+          "status": "ready",
+          "src": "/guides/desktop-task-schedule/staff.mp4",
+          "captions": "/guides/desktop-task-schedule/staff.ko.vtt",
+          "proof": "/guides/desktop-task-schedule/staff.proof.json",
+          "chapters": [
+            {
+              "scenario": "overview",
+              "title": "1. 홈에서 오늘 업무 확인",
+              "seconds": 0
+            },
+            {
+              "scenario": "schedule",
+              "title": "2. 시간표에서 매일 업무 입력",
+              "seconds": 16.49
+            },
+            {
+              "scenario": "save",
+              "title": "3. 업무명과 반복을 입력하고 저장",
+              "seconds": 25.919
+            },
+            {
+              "scenario": "notes",
+              "title": "4. 좁은 PC 메모장에서 업무 확인",
+              "seconds": 37.505
+            },
+            {
+              "scenario": "shortcut",
+              "title": "5. 메뉴를 검색해 바로가기 연결",
+              "seconds": 46.694
+            },
+            {
+              "scenario": "launch",
+              "title": "6. 바로가기와 완료를 따로 사용",
+              "seconds": 68.138
+            },
+            {
+              "scenario": "calendar",
+              "title": "7. 월간 달력과 하단 주간 시간표",
+              "seconds": 77.585
+            },
+            {
+              "scenario": "independent",
+              "title": "8. 메모장에서 홈 다시 열기",
+              "seconds": 102.202
+            },
+            {
+              "scenario": "company",
+              "title": "9. 회사 공통 일정 등록",
+              "seconds": 113.754
+            },
+            {
+              "scenario": "collapse",
+              "title": "10. 월간·주간 접기와 홈 다시 열기",
+              "seconds": 141.008
             }
           ]
         }

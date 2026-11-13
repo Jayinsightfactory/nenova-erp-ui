@@ -421,6 +421,7 @@
       if (id) { dropHandled = true; run('reorder', { id, beforeId: null }); }
     });
     document.addEventListener('keydown', (event) => {
+      if(document.querySelector('dialog[open]'))return;
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'b') { event.preventDefault(); run('tools'); return; }
       if (event.key === 'Escape' && state.menuOpen && !event.defaultPrevented) { event.preventDefault(); setMenu(false); return; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setMenu(true, true); return; }

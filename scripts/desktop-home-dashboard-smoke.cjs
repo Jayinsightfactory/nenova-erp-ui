@@ -20,7 +20,7 @@ const {fixture}=require('./desktop-task-schedule-smoke.cjs');
  await page.focus('[data-date="'+other+'"]');await page.keyboard.press('ArrowRight');assert.notEqual(await page.evaluate(()=>document.activeElement.dataset.date),other);
  await page.click('[aria-label="다음 달"]');await page.waitForFunction(()=>!document.querySelector('.calendar-status').textContent.includes('확인하고'));
  assert.equal(await page.$eval('.hw-tool-body input',e=>e.value),other,'month browsing never changes selected tasks');
- await new Promise(r=>setTimeout(r,350));await page.click('#workCalendar .workspace-actions button:last-child');await page.waitForFunction(date=>document.querySelector('.hw-tool-body input').value===date,{},app.date);
+ await new Promise(r=>setTimeout(r,350));await page.click('#calendarToday');await page.waitForFunction(date=>document.querySelector('.hw-tool-body input').value===date,{},app.date);
  await page.waitForSelector('.hw-task');await page.waitForSelector('.week-event');
  for(const width of [1920,1280,800,390]){await page.setViewport({width,height:1080});await page.$eval('#home',e=>e.scrollTop=0);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'no horizontal overflow '+width);
@@ -28,7 +28,7 @@ const {fixture}=require('./desktop-task-schedule-smoke.cjs');
    if(width>=1280)assert.ok(geometry.right);if(width===1920)assert.ok(geometry.rows.length===8&&geometry.rows.every(v=>v<1080));
    await page.screenshot({path:path.resolve('.verify/dashboard-'+width+'.png')});
  }
- await page.setViewport({width:1920,height:1080});const beforeWeek=await page.$eval('.week-day',e=>e.dataset.date);await page.click('[aria-label="다음 주"]');await new Promise(r=>setTimeout(r,350));assert.notEqual(await page.$eval('.week-day',e=>e.dataset.date),beforeWeek);assert.equal(await page.$eval('.hw-tool-body input',e=>e.value),app.date);await page.click('#workCalendar .workspace-actions button:last-child');await page.waitForSelector('.week-event');await page.click('[aria-label="'+app.date+' 12:00 업무 추가"]');assert.equal(await page.$eval('.hw-add input[name=startTime]',e=>e.value),'12:00');
+ await page.setViewport({width:1920,height:1080});const beforeWeek=await page.$eval('.week-day',e=>e.dataset.date);await page.click('[aria-label="다음 주"]');await new Promise(r=>setTimeout(r,350));assert.notEqual(await page.$eval('.week-day',e=>e.dataset.date),beforeWeek);assert.equal(await page.$eval('.hw-tool-body input',e=>e.value),app.date);await page.click('#calendarToday');await page.waitForSelector('.week-event');await page.click('[aria-label="'+app.date+' 12:00 업무 추가"]');assert.equal(await page.$eval('.hw-add input[name=startTime]',e=>e.value),'12:00');
  await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);assert.equal(await page.$eval('.week-slot',e=>getComputedStyle(e).transitionDuration),'0s');
  await page.evaluate(()=>window.fixtureEmit({homeOwnerId:'',menuOpen:true,online:true}));assert.equal(await page.$$('.request-row').then(r=>r.length),0);assert.equal(await page.$eval('.week-day',e=>e.disabled),true);
  assert.equal(app.calls.filter(c=>c.payload?.method==='POST').length,initialPosts);assert.deepEqual(errors,[]);

@@ -41,6 +41,7 @@ app.whenReady().then(() => {
     }
     assert.ok(['GET','HEAD'].includes(request.method)||pathname==='/api/desktop/home-workspace'&&request.method==='POST','no ERP mutation requests');
     if (pathname === '/api/desktop/home-workspace') return Response.json({ success: true, schemaVersion: 1, ownerId: 'exit-probe', revision: 0, tasks: [], guidance: [], feedback: [],...(request.method==='POST'?{revision:1}:{}) });
+    if(pathname==='/api/desktop/company-calendar')return Response.json({success:true,schemaVersion:1,ownerId:'exit-probe',revision:0,events:[]});
     if(pathname==='/api/pm/staff-requests')return Response.json({success:true,requests:[]});
     if (pathname === '/api/auth/me') return Response.json({ success: true, user: { userId: 'exit-probe' } });
     if (pathname === '/api/desktop/bootstrap') return Response.json({ success: true, schemaVersion: 1, user: { userId: 'exit-probe' }, webVersion: 'fixture', menuVersion: 'a'.repeat(64), menus: [{group:'Fixture',items:[{href:'/test/probe',labelKey:'Probe',popup:false}]}] });
