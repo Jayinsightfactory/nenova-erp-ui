@@ -2,18 +2,19 @@
   "id": "profit-weekly-cache",
   "title": "과거 차수 저장 계산본 전용 조회와 웹·월별·엑셀 일치",
   "scope": [
-    "lib/profitReportSnapshot.js", "lib/profitReportStoredCalculation.js", "lib/profitReportConfirm.js",
+    "lib/profitReportSnapshot.js", "lib/profitReportStoredCalculation.js", "lib/profitReportFinalCache.mjs", "lib/profitReportConfirm.js",
     "lib/profitReportExcel.js", "lib/profitReportMonthly.js",
     "pages/api/sales/profit-report.js", "pages/api/sales/profit-report-output.js",
     "pages/api/sales/profit-analysis.js", "pages/api/moyi/drive-report-sync.js",
-    "pages/sales/profit-report.js", "components/ProfitReportSnapshotBanner.js", "components/ProfitWeekCheckPanel.js"
+    "pages/sales/profit-report.js", "components/ProfitReportSnapshotBanner.js", "components/ProfitWeekCheckPanel.js",
+    "scripts/refresh-profit-final-cache.mjs", ".github/workflows/profit-final-cache-refresh.yml"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "cacheIdentity": ["OrderYear", "MajorWeek", "VersionNo"],
   "actions": [
     {"name": "HISTORICAL_DISPLAY", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "확정 CALC 우선, 아니면 v1 row.calc/totals 저장값만. 일반 조회에서 지문/원가/이월 원천 조회와 수식 재적용 및 쓰기 금지."},
     {"name": "CURRENT_OR_EXPLICIT_AUDIT", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "현재·미래 실제 업무차수 및 명시 auditLive는 기존 원천 계산만. GET은 저장하지 않음."},
-    {"name": "EXPLICIT_OR_SCHEDULED_CACHE_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "WebProfitReportSnapshot INSERT만. 동일 세션 연도차수 applock, 계산 전후 강제 새 지문 비교, 저장직전 확정 잠금 재검사. ERP·WebProfitReport 수기·확정 revision 보존."},
+    {"name": "EXPLICIT_OR_SCHEDULED_CACHE_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "WebProfitReportSnapshot INSERT만. 동일 세션 연도차수 applock, 계산 전후 강제 새 지문 비교, 저장직전 확정 잠금 재검사. 최종 관세·평균원가 calc/totals를 그대로 저장하고 cacheSourcePayload에 보완 전 원천을 보존, 미래 donor는 원천만 사용. ERP·WebProfitReport 수기·확정 revision 보존."},
     {"name": "EXPLICIT_INPUT_SAVE_FOLLOWUP", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "기존 명시 입력 저장 로직 불변. 성공 후 같은 차수 계산본을 명시 갱신. 원천 저장과 계산본 실패는 별도 표시; 일반 조회가 갱신을 유발하지 않음."}
   ],
   "rules": {
@@ -27,7 +28,7 @@
     "disclosure": "저장된 계산본은 회계 확정 아님. 저장시각/버전 표시; 조회 지문 검사·자동 최신화·확정됨 오표시 없음. 과거 참고 원장 패널은 명시 클릭에서만 조회. 확정본도 auditLive 명시 검산에서는 현재 미분류 진단을 추가 조회하되 확정 CALC/합계는 보존. 2026-10-29 명시 사용자 승인 예외: 품목별 관세 보완은 DB 확정 CALC/저장본을 수정하지 않는 파생 읽기 화면으로 본표·월별·출력에 동일 적용. originalConfirmedTotals/originalCalc에 원래 값 보존, effectiveViewTotals 및 파생 라벨 표시. 원가 근거 부족 시 수익률 보류; 자동 재저장/재확정 금지."
   },
   "crossYearFixture": {"required": true, "description": "2026/31 요청에2025/31 payload 거부, 저장 계산 결과가 다른 연도이면INSERT0; 달력 현재2026/44에서31과44 분리. scheduler 계약의2025/53→2026/01 경계 공유."},
-  "requiredTestFiles": ["__tests__/profitReportWeeklyCache.test.js", "__tests__/profitReportSnapshot.test.js", "__tests__/profitReportMonthly.test.js", "__tests__/profitReportClassificationInput.test.js", "__tests__/profitReportConfirmSnapshotImmutability.test.js", "__tests__/profitRangeOutput.test.cjs"],
+  "requiredTestFiles": ["__tests__/profitFinalCache.test.cjs", "__tests__/profitFinalCacheRefresh.test.cjs", "__tests__/profitReportWeeklyCache.test.js", "__tests__/profitReportSnapshot.test.js", "__tests__/profitReportMonthly.test.js", "__tests__/profitReportClassificationInput.test.js", "__tests__/profitReportConfirmSnapshotImmutability.test.js", "__tests__/profitRangeOutput.test.cjs"],
   "dnspyEvidence": {
     "required": true,
     "record": "docs/plans/profit-weekly-cache-evidence-2026-10-27.md",

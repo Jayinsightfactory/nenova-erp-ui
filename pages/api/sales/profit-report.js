@@ -2,6 +2,7 @@ import { profitInvoiceDependencies, withProfitInvoiceMemo } from '../../../lib/p
 // 주차별 매출이익 보고서 API — 자동열은 SQL, 수기열은 WebProfitReport 저장.
 import { withAuth } from '../../../lib/auth';
 import { applyTemplateDutyToReport, clearTemplateDutyCache } from '../../../lib/profitTemplateDutyData';
+import { finalizeProfitCachePayload } from '../../../lib/profitReportFinalCache.mjs';
 import { selectReportInventoryValuation } from '../../../lib/profitReportValuation.mjs';
 import { buildInventoryBasis } from '../../../lib/profitReportInventoryBasis.mjs';
 import { resolveApprovedThaiCustoms } from '../../../lib/profitReportActualCosts.mjs';
@@ -763,7 +764,9 @@ export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
 }
 
 export async function saveProfitReportCache(options) {
-  return saveProfitCache(options,loadReportData);
+  return saveProfitCache(options,async(major,orderYear)=>finalizeProfitCachePayload(
+    await loadReportData(major,orderYear),{major,orderYear,
+      finalize:payload=>{clearTemplateDutyCache();return applyTemplateDutyToReport(payload,orderYear,major,{strict:true});}}));
 }
 
 /**

@@ -2864,3 +2864,10 @@
 ## 2026-11-13 업무드라이브 가용 용량 자동 적용
 - 실측 디스크 여유에서 운영 예비 5GiB를 남긴 범위까지 기존 10GiB 한도 확대. 최대 100GiB. 업로드/용량 테스트·필수 ERP 검증·로컬 빌드 통과. 운영 반영 미검증.
 검색어: 업무드라이브 100GiB 가용공간 운영여유 5GiB
+
+## 2026-11-13 주차 손익 최종 통관비 저장 경로 보완
+- 사용자36~46 최신통관비 갱신 승인. 초기222~232 새버전 생성 뒤 SQL JSON/실Chrome를 대조하여 POST 응답의 관세/평균 보완값과 과거 GET 고정 저장값 불일치 재현. 과거 동결 정책을 해제하지 않고 저장 직전 최종화를 추가, 원천은 cacheSourcePayload로 보존하고 donor만 원천으로 되돌려 중복 가산 방지. ERP/수기/확정/기존버전 변경0.
+- 실제 FormSalesView dnSpy 재실행, 운영 SELECT 원장6종 지문 전후동일/활성확정0 확인. 새8단위/반례, 기존관세와합계29검사, 실제 LocalDB final JSON commit/readback·원천donor·2025 sentinel·원천실패rollback·확정skip·money보존 PASS. LocalDB 첫 정리만 연결pool 때문에 실패해 해당 random fixture만 정리 후 최종exit0. 운영DB 시험0.
+- 전체verify는기존‘raw만저장’문구회귀 assertion에서중단. 해당행을최종저장/원천분리계약으로갱신후대상29검사와전체posthook·manifest217·쓰기guard·dnSpy모두PASS. 정식webpack1worker는E산출물React경로누락으로첫실패, E의의존성junction연결후두번째build exit0. 전체필수CI·PR/배포·운영 재갱신은 아직미완료.
+- 현재·진행45/46 GET502/HTML을갱신실패와혼동하지않도록기존인증POST만36~46순차호출하는명시운영도구/수동workflow 추가. dryrun기본·양쪽scope검사·원장SQL0·자동재시도0·CI금액/토큰저장0. 로컬함수호출임시45/46은운영전용파일원천과다를수있어완료로판정하지않으며,배포후운영HTTP로새버전대체예정.
+검색어: profit-final-cache cacheSourcePayload finalizationVersion 관세응답저장불일치 36~46 E드라이브 명시POST
