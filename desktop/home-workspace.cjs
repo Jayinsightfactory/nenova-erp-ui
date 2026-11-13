@@ -59,10 +59,16 @@ function requestOptions(payload, owner) {
   }
   return { url: url.href, options };
 }
+function transportFailure(error,isCurrent) {
+  if(!isCurrent())return fail('계정이 변경되었습니다. 업무를 다시 불러오세요.');
+  const timeout=['TimeoutError','AbortError'].includes(error?.name);
+  return {success:false,status:timeout?504:503,error:timeout?'업무 조회가 지연되고 있습니다. 잠시 후 다시 시도해 주세요. 입력한 내용은 유지됩니다.':'서버에 연결하지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.'};
+}
 async function homeWorkspaceRequest({ payload, owner, fetch, isCurrent, onUnauthorized }) {
   const request = requestOptions(payload, owner);
   request.options.signal = AbortSignal.timeout(15000);
-  const response = await fetch(request.url, request.options);
+  let response;
+  try { response = await fetch(request.url, request.options); } catch (error) { return transportFailure(error,isCurrent); }
   if (!isCurrent()) return fail('계정이 변경되었습니다. 업무를 다시 불러오세요.');
   if (response.status === 401) {
     onUnauthorized();
@@ -70,7 +76,8 @@ async function homeWorkspaceRequest({ payload, owner, fetch, isCurrent, onUnauth
   }
   const contentLength = Number(response.headers.get('content-length'));
   if (Number.isFinite(contentLength) && contentLength > 2 * 1024 * 1024) return fail('업무 응답이 너무 큽니다.');
-  const raw = await response.text();
+  let raw;
+  try { raw = await response.text(); } catch (error) { return transportFailure(error,isCurrent); }
   if (!isCurrent()) return fail('계정이 변경되었습니다. 업무를 다시 불러오세요.');
   if (raw.length > 2 * 1024 * 1024) return fail('업무 응답이 너무 큽니다.');
   let data;

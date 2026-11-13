@@ -169,6 +169,7 @@ function openNotesWindow() {
   const work=screen.getPrimaryDisplay().workArea;
   const win=new BrowserWindow({width:320,height:690,useContentSize:true,minWidth:280,minHeight:480,x:Math.max(work.x,work.x+work.width-340),y:work.y+25,title:'네노바 업무 메모장',icon:path.join(__dirname,'assets','icon.png'),backgroundColor:'#ffffff',alwaysOnTop:readNotesPrefs().pinned,show:false,
     webPreferences:{preload:path.join(__dirname,'notes-preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,devTools:!app.isPackaged}});
+  applyWindowIdentity(win,{packaged:app.isPackaged,execPath:process.execPath,resourcesPath:process.resourcesPath,appDir:__dirname});
   notesWindow=win;auxiliary.add(win);win.setMenuBarVisibility(false);
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',event=>event.preventDefault());win.webContents.on('will-attach-webview',event=>event.preventDefault());
   win.on('close',event=>{if(!quitting&&notesDirty&&!confirm({win,activeId:null},'저장하지 않은 메모장 입력을 버리고 닫을까요?'))event.preventDefault();});

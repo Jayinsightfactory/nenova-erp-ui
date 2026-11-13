@@ -41,3 +41,12 @@ test('calendar month/week are validated read-only queries with fixed owner and o
  for(const value of ['2026-02-30','1999-12-31',[],null])assert.throws(()=>requestOptions({method:'GET',calendarWeek:value},'verified'));
  for(const value of ['2026-13','2026-1',[],null])assert.throws(()=>requestOptions({method:'GET',calendarMonth:value},'verified'));
 });
+
+test('transport timeout is a clean retryable result and never hides an account change',async()=>{
+ let unauthorized=0;const base={payload:{method:'GET'},owner:'a',isCurrent:()=>true,onUnauthorized:()=>unauthorized++};
+ for(const name of ['TimeoutError','AbortError','TypeError']){
+  const value=await homeWorkspaceRequest({...base,fetch:async()=>{throw Object.assign(new Error('internal transport details'),{name});}});assert.equal(value.success,false);assert.equal(value.status,name==='TypeError'?503:504);assert(!/remote method|TimeoutError|internal transport/.test(value.error));
+ }
+ const bodyTimeout=await homeWorkspaceRequest({...base,fetch:async()=>({status:200,headers:new Headers(),text:async()=>{throw Object.assign(Error('hidden'),{name:'AbortError'});}})});assert.equal(bodyTimeout.status,504);assert.equal(unauthorized,0);
+ await assert.rejects(homeWorkspaceRequest({...base,isCurrent:()=>false,fetch:async()=>{throw Object.assign(Error('hidden'),{name:'TimeoutError'});}}),/계정이 변경/);
+});

@@ -78,7 +78,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "로그인 탭이 홈에 가려지지 않게 하고 작업표시줄 이름·아이콘을 네노바 업무로 지정했습니다."
+      "releaseNotes": "로그인 탭 가림과 Electron 작업표시줄 표시를 수정했습니다. 본창·메모장 모두 네노바 업무 아이콘을 사용하며 업무 조회 지연 시 입력을 유지하고 쉬운 재시도 안내를 보여줍니다."
     },
     "extraResources": [
       {

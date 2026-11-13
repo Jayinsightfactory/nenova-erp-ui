@@ -2932,3 +2932,8 @@
 - 실제Worker 3검사 PASS: 주이벤트루프timer응답/기존짝결과동일/3동시요청/원본색인bytes보존/변경파일갱신/캐시재파싱0/timeout·게시실패시기존대상보존/잠금·temp정리. 기존workDrivePairs+MOYI회귀 PASS. 변경API2건 쓰기가드/217manifest PASS. 운영데이터직접변경/원장쓰기0. CI·배포·운영로그인복구는진행중미완료.
 - 기준선: 내부실행격리이며사용자메뉴/작업순서/권한/입출력변경없어새가이드해당없음. 기존API의remit순서와MSSQL문구보존, 새SQL0이라새dnSpy/업무DBprobe해당없음(전체CI가드는유지).
 검색어: drive-pairs-unblock-1113 로그인500 ETIMEOUT CPU104 XLSX.inflate workDrivePairsWorker 주스레드정지
+
+- 사용자후속‘로그인 됐는데 아이콘없음’ 확인. 서버임시 native-zlib완화 후실계정로그인사용자확인, 정식Worker배포43385150877 SUCCESS(a80adf4a) 및읽기pingDB성공4263ms. 이후사용자오늘업무/PM타임아웃추가신고: 개인업무응답이SQL피드백조회까지기다리는추가결합확인.
+- 보완: 피드각조회1500ms제한·공유품질inflight계속coalesce/후속캐시갱신. 느린피드백은feedErrors로안내하고개인JSON업무표시·체크저장성공. 출처읽음표시는지연/알수없는키허용하지않음. IPC fetch/body Timeout/Abort는한글503/504결과로반환해Electron원문예외노출방지, 계정generation격리보존. 실제파일/주입지연회귀 및bridge5검사PASS.
+- 본창뿐아니라메모장에도Windowsidentity동일적용. 최종전체창포함가이드165.3초10단계와소스해시PASS. 사용자작업중으로네이티브창자동클릭이최소화/geometry오류를반환하여추가화면조작중단. 사용자가직접재조회하도록안내예정. 1.3.24최종CI/릴리스/사용자PC설치와홈·PM재확인은진행중미검증.
+검색어: desktop-login-1113 homeFeedRead 1500ms transportFailure 503 504 오늘업무Timeout PM확인불가 로그인사용자확인 1.3.24

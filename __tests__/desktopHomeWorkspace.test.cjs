@@ -72,5 +72,16 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=req
  await handler({method:'GET',user:{userId:'alice'},query:{expectedOwnerId:'bob'},headers:{}},res);assert.equal(invoked,0);
  await handler({method:'GET',user:{userId:'alice',accountActive:false},query:{},headers:{}},res);assert.equal(res.value.code,'ACCOUNT_INACTIVE');assert.equal(invoked,0);
  await handler({method:'GET',user:{userId:'alice'},query:{},headers:{}},res);assert.equal(res.code,200);assert.equal(invoked,1);
+ {
+  const delayedOwner='delayed-feeds',seed=await save(delayedOwner,0,{action:'create',title:'지연에도 보이는 업무',frequency:'once',startDate:'2026-01-02',weekdays:[]});
+  const deps={root,now,feedTimeoutMs:10,readKnowledge:async()=>({items:[]}),loadQuality:()=>new Promise(()=>{})};
+  const started=performance.now(),visible=await desktopHomeWorkspace({userId:delayedOwner,authority:6},{date:'2026-01-02'},null,deps);
+  assert(performance.now()-started<500,'slow SQL feed must not hold personal task response');assert.equal(visible.tasks.length,1);assert(visible.feedErrors.feedback);assert.deepEqual(visible.feedback,[]);
+  const done=await desktopHomeWorkspace({userId:delayedOwner,authority:6},{},{action:'complete',date:'2026-01-02',taskId:seed.rules[0].id,done:true,expectedRevision:seed.revision,requestId:'delayed-feed-done'},deps);assert.equal(done.tasks[0].done,true);
+  const beforeRead=(await store.readPersonalHome(delayedOwner,{root})).revision;
+  await assert.rejects(()=>desktopHomeWorkspace({userId:delayedOwner,authority:6},{},{action:'read',date:'2026-01-02',sourceKey:'feedback/'+uuid+'/1',expectedRevision:beforeRead,requestId:'delayed-feed-denied'},deps));
+  assert.equal((await store.readPersonalHome(delayedOwner,{root})).revision,beforeRead,'timed-out feed never authorizes an unknown source');
+  const knowledgeDelayed=await desktopHomeWorkspace({userId:delayedOwner,authority:6},{date:'2026-01-02'},null,{...deps,readKnowledge:()=>new Promise(()=>{}),loadQuality:async()=>({cases:[]})});assert.equal(knowledgeDelayed.tasks.length,1);assert(knowledgeDelayed.feedErrors.guidance);
+ }
  console.log('personal home fixture passed: owner isolation, recurrence/history/archive/restore/stop, replay/concurrency, pagination, source permissions/year boundary/partial failure/cache, preflight account race. Fixture root:',root);
 })().catch(e=>{console.error(e);process.exitCode=1;});
