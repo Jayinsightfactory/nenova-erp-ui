@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import CollapsibleTop from '../../components/CollapsibleTop';
+import WorkflowGuide from '../../components/WorkflowGuide';
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { buildImportProductSearchHits, importProductOverrideKey, IMPORT_SKIP_PRODUCT_VALUE, isImportSkipProductValue, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue, isAlstroImportRow } from '../../lib/shipmentImportQty';
 import { buildImportFixBlockedAlert } from '../../lib/shipmentFixScopeCore';
@@ -494,7 +495,7 @@ export default function DistributeImport() {
     setProdOverridesState(next);
     sheetLoadRef.current += 1;
     setLoading(false); // discard an older in-flight preview without leaving its spinner locked
-    setPreview(prev => prev ? { ...prev, replacementPlan: null, exportPlan: null } : prev);
+    setPreview(prev => prev ? { ...prev, replacementPlan: null, exportPlan: null, fieldExportPlan: null, fieldExportReady: false } : prev);
   };
 
   const handleReverify = async () => {
@@ -504,17 +505,21 @@ export default function DistributeImport() {
   const invalidateFarmPreview = () => {
     sheetLoadRef.current += 1;
     setLoading(false);
-    setPreview(prev => prev ? { ...prev, replacementPlan: null, exportPlan: null } : prev);
+    setPreview(prev => prev ? { ...prev, replacementPlan: null, exportPlan: null, fieldExportPlan: null, fieldExportReady: false } : prev);
   };
-  const handleFarmDownload = async () => {
-    if (!file || !preview?.exportPlan) return;
+  const handleFarmDownload = async (fieldVolume = false) => {
+    const plan=fieldVolume ? preview?.fieldExportPlan : preview?.exportPlan;
+    if (!file || !plan || (fieldVolume && !preview?.fieldExportReady) || pendingJob) return;
     setDownloading(true); setError('');
     try {
-      const form = new FormData(); form.append('file', file); form.append('exportPlan', preview.exportPlan);
+      const revision=sheetLoadRef.current;
+      const form = new FormData(); form.append('file', file); form.append('exportPlan', plan);
+      if(fieldVolume)form.append('mode','field-volume');
       const response = await fetch('/api/shipment/distribute-import-export', {method:'POST',body:form,credentials:'same-origin'});
       if (!response.ok) { const data=await response.json(); throw new Error(data.error || '엑셀 다운로드 실패'); }
-      const blob=await response.blob(), url=URL.createObjectURL(blob), link=document.createElement('a');
-      link.href=url; link.download=file.name.replace(/\.xlsx$/i,'')+'-농장분배.xlsx';
+      const blob=await response.blob();if(revision!==sheetLoadRef.current)return;
+      const url=URL.createObjectURL(blob), link=document.createElement('a');
+      link.href=url; link.download=file.name.replace(/\.xlsx$/i,'')+(fieldVolume?'-신형현장물량표.xlsx':'-농장분배.xlsx');
       document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
     } catch(e) {setError(e.message);} finally {setDownloading(false);}
   };
@@ -691,9 +696,10 @@ export default function DistributeImport() {
     <>
       <div style={st.page}>
         <div style={st.toolbar}>
-          <div>
+          <div style={{flex:'1 1 320px',minWidth:0}}>
             <h1 data-desktop-chrome style={st.title}>출고분배 엑셀 검증 업로드</h1>
             <div style={st.sub}>차수피벗 출고리스트 또는 분류프로그램 물량표를 읽어 기존 주문등록 수량 기준으로 변경을 검증합니다.</div>
+            <WorkflowGuide workflowId="shipment-field-volume" />
           </div>
           <div style={st.controls}>
             <button onClick={weekInput.prevWeek} style={st.iconBtn}>◁</button>
@@ -742,6 +748,7 @@ export default function DistributeImport() {
             style={{ display: 'none' }}
             onChange={e => {
               const selectedFile = e.target.files?.[0] || null;
+              setFarmText('');
               setFarmOverrides({ targets: {}, farms: {} });
               ++sheetLoadRef.current;
               setFile(selectedFile);
@@ -1003,9 +1010,15 @@ export default function DistributeImport() {
               onChange={e=>{setFarmText(e.target.value);setFarmOverrides({targets:{},farms:{}});invalidateFarmPreview();}}
               placeholder={'42-2 장미 농장분배\n-라움\n퀵샌드 40단(엘리떼 30단, 발로레스 10단)'}
               style={{width:'100%',minHeight:150,boxSizing:'border-box',padding:10,fontSize:14}} />
+            <button style={st.secondaryBtn} disabled={applying || loading || !!pendingJob || !preview?.drawingFarmText}
+              onClick={()=>{setFarmText(preview.drawingFarmText);setFarmOverrides({targets:{},farms:{}});invalidateFarmPreview();}}>엑셀 농장메모 불러오기</button>
+            <span style={{marginLeft:8,fontSize:12}}>카톡 내용을 붙여넣거나, 엑셀 텍스트 상자의 농장메모를 불러온 뒤 검증하세요.</span>
             <p style={{fontSize:13,color:'#475569'}}>엑셀 수정 내역과 농장별 합계를 함께 검증합니다. 카톡 제목 차수와 관계없이 선택한 연도·차수에 적용합니다. 원본 표의 크기·여백·인쇄 설정을 유지하고 표 밖 빈 공간에 농장분배를 넣습니다.</p>
             <button style={st.primaryBtn} disabled={loading || applying || !file} onClick={()=>handlePreview()}>수정 내역 + 농장분배 검증</button>{' '}
-            <button style={st.secondaryBtn} disabled={downloading || applying || loading || !preview?.exportPlan} onClick={handleFarmDownload}>{downloading?'다운로드 준비 중…':'검증된 엑셀 다운로드'}</button>
+            <button style={st.secondaryBtn} disabled={downloading || applying || loading || !!pendingJob || !preview?.exportPlan} onClick={()=>handleFarmDownload(false)}>{downloading?'다운로드 준비 중…':'검증된 엑셀 다운로드'}</button>{' '}
+            <button style={st.applyBtn} disabled={downloading || applying || loading || !!pendingJob || !preview?.fieldExportReady} onClick={()=>handleFarmDownload(true)}>신형 현장물량표 생성</button>
+            <p style={{fontSize:13,color:'#475569'}}>1. 엑셀 업로드 분배 적용 → 2. 카톡 농장분배 검증·적용 → 3. 신형 현장물량표 생성. 저장된 결과가 검증값과 일치하면 생성할 수 있습니다. 품종(이전차수) 이번수량 /당일합계로 표시하며 요일색과 입고·출고·재고·잔량을 함께 출력합니다.</p>
+            {preview?.fieldExportError && <p role="alert" style={{color:'#b91c1c'}}>현장물량표: {preview.fieldExportError}</p>}
             <span style={{marginLeft:10,fontSize:12}}>ERP 저장은 ‘적용’ 버튼으로 진행합니다.</span>
           </div>
         </section>
@@ -2130,14 +2143,14 @@ function SimpleUnmatched({ rows }) {
 
 const st = {
   page: { padding: 18, maxWidth: 1600, margin: '0 auto' },
-  toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 12 },
+  toolbar: { display: 'flex', flexWrap:'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 12 },
   title: { margin: 0, fontSize: 22, color: '#0f172a' },
   sub: { marginTop: 4, fontSize: 13, color: '#64748b' },
   controls: { display: 'flex', alignItems: 'center', gap: 4 },
   iconBtn: { width: 32, height: 32, border: '1px solid #cbd5e1', background: '#fff', borderRadius: 6, cursor: 'pointer' },
   weekInput: { width: 104, height: 32, border: '1px solid #cbd5e1', borderRadius: 6, textAlign: 'center', fontWeight: 700 },
   uploadBand: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: 12, border: '1px solid #dbe3ef', background: '#f8fafc', borderRadius: 8, marginBottom: 12 },
-  fileName: { flex: 1, color: '#475569', fontSize: 13 },
+  fileName: { flex:'1 1 220px', minWidth:0, overflowWrap:'anywhere', color: '#475569', fontSize: 13 },
   secondaryBtn: { height: 34, padding: '0 14px', border: '1px solid #cbd5e1', background: '#fff', borderRadius: 6, cursor: 'pointer' },
   primaryBtn: { height: 34, padding: '0 16px', border: 0, background: '#2563eb', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   preAlignBtn: { height: 34, padding: '0 16px', border: 0, background: '#0f766e', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },

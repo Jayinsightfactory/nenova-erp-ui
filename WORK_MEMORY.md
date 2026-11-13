@@ -2795,4 +2795,17 @@
 - 후속전체검사는workflow-guide source hash검사에서중단(가이드재촬영요구). 사용자명시승인‘이번알림만영상없이배포’에따라두기존견적workflow에현재pages/estimate.js exact해시의한정waiver추가,기존영상/증거해시는수정하지않음.
 - 최종공식npm run build exit0(webpack/1worker),전체ERP행위계약PASS이후별도manifest214/dnSpy/쓰기범위1API/workflow-guide검사PASS. 한차례verify명령전체exit0로표현하지않음(가이드waiver후공식build분리완료). PR/CI/운영화면은후속확인.
 검색어: estimate-ledger-alerts 원장연결알림 공식buildPASS 사용자영상제외 EXE불변 DB읽기전용
+
+
+## 2026-11-13 신형 현장물량표 생성
+- 요청 흐름: 출고분배 엑셀업로드 분배 적용→카톡 업체·품목별 농장분배 검증/적용→신형 현장물량표 생성. 기존 원본보존 다운로드 별도 유지.
+- 저장결과와 서명검증값을 SELECT 재대조, 동일연도·대차수의 이전세부차수만 같은 실제출고일·지역·업체·품목에 합산. 돈셀(2)3/5, 1차-only 포함, 다음차수/다른연도 혼입차단, 단위분리·농장합계/날짜 검증. ERP 원장쓰기 추가0.
+- 요일 원본RGB/테마tint 색·품종별 입고/출고/재고/잔량, A3 5지역 단위 출력. 입고/재고는 업로드 기준, 출고는 선택차수 전체 저장분배, 잔량=입고+재고-출고. 빈요약 미입력. 농장 복수출고일은 임의비례분배 없이 별도표에1회.
+- 엑셀텍스트상자 카네이션13/장미15 항목 파서오류0. 엑셀 농장메모 불러오기로 카톡란 연결. 원본 빈공간 부족은 원본다운로드만 제한, 새양식 생성·유효농장 적용과 분리. 새 파일선택은 이전 카톡 초기화.
+- 실제dnSpy 재실행/2025·2026 동일46차 SELECT 확인(운영수정0), 표적17검사 PASS. Excel ReadOnly 열기→실제PDF A3 3쪽 및 첫쪽수량/색 검증. 실제Chrome 합성1920/390 전체흐름·Tab/ShiftTab/Enter·파일다운로드bytes 대조 PASS. 70초 실제가이드/한국어목차·자막·줌/최종Excel인쇄뷰 기록, 프레임 직접확인 및 가이드검사 PASS.
+- 기준선: 페이지스크롤/반응형/키보드/실패안내/가이드 적용; ERP변경확인은 기존버튼 보존; 새ERP쓰기 해당없음. 전체필수gate/정식build/PR·CI·배포·운영스모크는 진행예정(미검증). 상세 docs/plans/field-volume-2026-11-13.md.
+검색어: 신형현장물량표 엑셀업로드 카톡농장분배 돈셀(2)3/5 요일색 입고출고재고잔량 field-volume-v1
+- 후속: 공식 전체 ERP 계약/pre/post exit0, dnSpy exit0, manifest215/쓰기guard/가이드 exit0. 원본 공란 재고의 source 입고·주문·잔량 식으로만0판정하는 추가회귀 포함 관련33검사 PASS, 최종공식 webpack/1worker build exit0. 2025/2026 새출력SQL 실조회와 모델 분리 PASS(운영쓰기0). PR/CI/배포·운영가이드재생은 후속.
+검색어: field-volume final-build33 source-proven-zero stock SELECT-only manifest215
+
 - 배포 직전 최종CI verify/installer 모두 SUCCESS. 동시 PR#1708(견적 관리 원장알림)265bc97f 병합으로 WORK_MEMORY append만 충돌 → 양쪽 기록 보존 통합. 기능 파일 충돌 없음. 통합본 CI 재확인 후 병합/배포 진행.

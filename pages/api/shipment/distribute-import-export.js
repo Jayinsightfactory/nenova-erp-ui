@@ -2,6 +2,9 @@ import fs from 'fs';
 import formidable from 'formidable';
 import { withAuth } from '../../../lib/auth';
 import { verifyFarmExport, exportFarmWorkbook } from '../../../lib/shipmentFarmWorkbook';
+import { query, sql } from '../../../lib/db';
+import { requireOrderYear } from '../../../lib/orderUtils';
+import { fieldVolumeSql, createFieldVolumeWorkbook } from '../../../lib/shipmentFieldVolume';
 
 export const config={api:{bodyParser:false,responseLimit:'40mb'}};
 async function handler(req,res) {
@@ -13,8 +16,20 @@ async function handler(req,res) {
     if(!file)throw Object.assign(new Error('원본 엑셀 파일이 필요합니다.'),{statusCode:400});
     const buffer=fs.readFileSync(file.filepath);
     const plan=verifyFarmExport(buffer,Array.isArray(fields.exportPlan)?fields.exportPlan[0]:fields.exportPlan,req.user.userId);
-    const output=await exportFarmWorkbook(buffer,plan);
-    const name=String(file.originalFilename || '물량표.xlsx').replace(/\.xlsx$/i,'')+'-농장분배.xlsx';
+    const mode=Array.isArray(fields.mode)?fields.mode[0]:fields.mode;
+    let output;
+    if(mode==='field-volume') {
+      if(plan.kind!=='field-volume-v1')throw Object.assign(new Error('현장물량표를 생성하기 전에 다시 검증하세요.'),{statusCode:409});
+      const {orderYear,orderWeek}=requireOrderYear(plan.week,plan.orderYear);
+      const scope=fieldVolumeSql(plan.products.map(p=>p.prodKey));
+      const params={year:{type:sql.NVarChar,value:orderYear},major:{type:sql.NVarChar,value:orderWeek.split('-')[0]},minor:{type:sql.Int,value:Number(orderWeek.split('-')[1])}};
+      const lines=await query(scope.lines,params),farms=await query(scope.farms,params);
+      output=await createFieldVolumeWorkbook(plan,lines.recordset,farms.recordset);
+    } else {
+      if(mode || plan.kind)throw Object.assign(new Error('잘못된 다운로드 형식입니다.'),{statusCode:400});
+      output=await exportFarmWorkbook(buffer,plan);
+    }
+    const name=String(file.originalFilename || '물량표.xlsx').replace(/\.xlsx$/i,'')+(mode==='field-volume'?'-신형현장물량표.xlsx':'-농장분배.xlsx');
     res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition',`attachment; filename*=UTF-8''${encodeURIComponent(name)}`);
     res.setHeader('Cache-Control','no-store');

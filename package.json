@@ -126,7 +126,7 @@
     "test:incoming-linked": "node --test __tests__/incomingApprovalLinkedPolicy.test.mjs __tests__/incomingApprovalStockAdjustment.test.mjs __tests__/incomingApprovalCosts.test.mjs __tests__/incomingApprovalProfit.test.mjs && node --test __tests__/incomingApprovalProfitSql.test.mjs",
     "test:workflow-guides": "node --test __tests__/workflowGuides.test.cjs && node scripts/check-workflow-guides.cjs && node scripts/test-numbered-workflow-guide.cjs --recorded && node __tests__/importHandover.test.cjs",
     "test:shipment-statement": "node --test __tests__/shipmentStatement.test.cjs __tests__/shipmentStatementStore.test.cjs __tests__/shipmentStatementApi.test.cjs __tests__/shipmentStatementSelection.test.cjs __tests__/shipmentStatementGroups.test.cjs __tests__/shipmentStatementLabels.test.cjs __tests__/shipmentStatementLabelEdit.test.cjs __tests__/shipmentStatementChanges.test.cjs",
-    "test:shipment-farm-text": "node --test __tests__/shipmentFarmTextImport.test.cjs"
+    "test:shipment-farm-text": "node --test __tests__/shipmentFarmTextImport.test.cjs && node --test __tests__/shipmentFieldVolume.test.cjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",

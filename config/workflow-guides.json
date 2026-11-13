@@ -888,6 +888,75 @@
           ]
         }
       ]
+    },
+    {
+      "id": "shipment-field-volume",
+      "title": "출고분배에서 신형 현장물량표 만들기",
+      "entryPaths": [
+        "/shipment/distribute-import"
+      ],
+      "sourceFiles": [
+        "pages/shipment/distribute-import.js"
+      ],
+      "requiredScenarios": [
+        "upload",
+        "farm",
+        "generate",
+        "review"
+      ],
+      "guides": [
+        {
+          "id": "support",
+          "role": "영업지원",
+          "title": "업로드 분배·카톡 농장분배·현장물량표 생성",
+          "status": "ready",
+          "src": "/guides/shipment-field-volume/support.mp4",
+          "captions": "/guides/shipment-field-volume/support.ko.vtt",
+          "proof": "/guides/shipment-field-volume/support.proof.json",
+          "chapters": [
+            {
+              "scenario": "upload",
+              "title": "1. 엑셀을 선택하고 업로드 분배를 적용합니다",
+              "seconds": 0.145
+            },
+            {
+              "scenario": "upload",
+              "title": "1. 검증하기로 업체·품목·수량을 확인합니다",
+              "seconds": 8.644
+            },
+            {
+              "scenario": "upload",
+              "title": "1. 분배 적용 확인 후 저장합니다",
+              "seconds": 17.206
+            },
+            {
+              "scenario": "farm",
+              "title": "2. 카톡 내용을 붙여넣어 업체·품목·농장을 지정합니다",
+              "seconds": 25.673
+            },
+            {
+              "scenario": "farm",
+              "title": "2. 농장분배 합계와 대상 연결을 검증합니다",
+              "seconds": 35.677
+            },
+            {
+              "scenario": "farm",
+              "title": "2. 검증한 농장분배를 적용합니다",
+              "seconds": 44.099
+            },
+            {
+              "scenario": "generate",
+              "title": "3. 신형 현장물량표 생성으로 결과 엑셀을 받습니다",
+              "seconds": 52.651
+            },
+            {
+              "scenario": "review",
+              "title": "4. 생성 엑셀의 인쇄 결과와 수량을 확인합니다",
+              "seconds": 62.665
+            }
+          ]
+        }
+      ]
     }
   ]
 }

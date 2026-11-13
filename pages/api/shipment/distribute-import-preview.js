@@ -9,6 +9,9 @@ import { createReplacementPlan } from '../../../lib/shipmentReplacementPlan.js';
 import { mirrorWebUpload } from '../../../lib/workDrive';
 import { buildFarmImportPreview } from '../../../lib/shipmentFarmImport';
 import { planFarmWorkbook, signFarmExport } from '../../../lib/shipmentFarmWorkbook';
+import { fieldVolumePlan, farmWorkbookReadiness } from '../../../lib/shipmentFieldVolume';
+import { readFarmDrawingText } from '../../../lib/shipmentFarmDrawing';
+import { FARM_SHEET } from '../../../lib/shipmentFarmText';
 
 export const config = {
   api: { bodyParser: false },
@@ -79,19 +82,34 @@ async function handler(req, res) {
       prodKeysInScope: parsed.prodKeysInScope,
       pairKeysInScope: parsed.pairKeysInScope,
     });
-    await buildFarmImportPreview({ XLSX, workbook, preview, text: farmText, overrides: farmOverrides });
     const original = fs.readFileSync(file.filepath);
     const isXlsx = /\.xlsx$/i.test(file.originalFilename || '');
+    const drawingFarmText = isXlsx && !workbook.Sheets[FARM_SHEET] ? await readFarmDrawingText(original) : '';
+    await buildFarmImportPreview({ XLSX, workbook, preview, text: farmText, overrides: farmOverrides });
     const exportLayout = isXlsx ? await planFarmWorkbook(original, preview.rows) : {
       entries: [], patches: [], errors: preview.rows.some(r=>r.farmSource) ? ['농장분배 원본 보존 다운로드는 .xlsx 파일을 사용하세요.'] : [],
     };
-    preview.farmImport.layoutErrors = exportLayout.errors;
-    const farmValid = !preview.farmImport.errors.length && !exportLayout.errors.length;
-    const exportPlan = farmValid && isXlsx && !preview.unmatched?.length ? signFarmExport(original, exportLayout, req.user.userId) : null;
+    preview.farmImport.layoutErrors = exportLayout.errors.map(message=>`원본 보존 다운로드: ${message} 신형 현장물량표는 별도 양식으로 생성합니다.`);
+    // Original print-space limits affect only the optional original-layout download.
+    // For XLSX, valid farm assignments can be saved and printed in the new layout.
+    const readiness = farmWorkbookReadiness({isXlsx,farmErrors:preview.farmImport.errors,layoutErrors:exportLayout.errors,unmatched:preview.unmatched});
+    const exportPlan = readiness.canExportOriginal ? signFarmExport(original, exportLayout, req.user.userId) : null;
+    // New layout does not require free space in the original print area.
+    let fieldPlan = null, fieldExportError = '';
+    if (readiness.canPrepareField) {
+      try { fieldPlan = await fieldVolumePlan(original, preview); }
+      catch (error) { fieldExportError = error.message; }
+    }
+    const fieldExportReady = !!fieldPlan && preview.rows.every(r =>
+      Math.abs(Number(r.currentOutQty || 0)-Number(r.uploadQty || 0))<0.000001 && !r.farmChanged && !Number(r.shipmentDateIssueCount || 0));
     return res.status(200).json({
       ...preview,
-      replacementPlan: farmValid ? createReplacementPlan(preview, req.user.userId) : null,
+      replacementPlan: readiness.canApplyFarm ? createReplacementPlan(preview, req.user.userId) : null,
       exportPlan,
+      fieldExportPlan: fieldPlan ? signFarmExport(original, fieldPlan, req.user.userId) : null,
+      fieldExportReady,
+      fieldExportError,
+      drawingFarmText,
       fileName: file.originalFilename || 'upload.xlsx',
       logs: [...parsed.logs, ...preview.logs],
     });

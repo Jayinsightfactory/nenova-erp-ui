@@ -1,0 +1,65 @@
+{
+  "id": "shipment-field-volume",
+  "title": "저장된 출고·농장분배의 신형 현장물량표",
+  "scope": [
+    "lib/shipmentFieldVolume.js",
+    "lib/shipmentFarmDrawing.js",
+    "pages/api/shipment/distribute-import-preview.js",
+    "pages/api/shipment/distribute-import-export.js",
+    "pages/shipment/distribute-import.js",
+    "lib/shipmentFarmText.js",
+    "lib/shipmentFarmImport.js",
+    "__tests__/shipmentFieldVolume.test.cjs",
+    "scripts/lib/shipment-field-fixture.cjs",
+    "scripts/lib/shipment-field-guide-caption.cjs",
+    "scripts/record-shipment-field-volume.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "GENERATE_FIELD_VOLUME",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "sideEffect": "SELECT-only saved result export. Source file summaries retained as planning values; no ERP writes."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/46-01 excluded from 2026/46-02; same actual date and prior subweek only; future subweek excluded."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/plans/field-volume-2026-11-13.md",
+    "source": "actual local dnSpy.Console FormShipmentDistribution 2026-11-13",
+    "methods": [
+      "GetProductList",
+      "GetCustomerList",
+      "grdViewShipment_FocusedRowChanged"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "ShipmentFarm",
+      "ViewWarehouse"
+    ]
+  },
+  "requiredTestFiles": [
+    "__tests__/shipmentFieldVolume.test.cjs"
+  ],
+  "requiredCommands": [
+    "node --test __tests__/shipmentFieldVolume.test.cjs",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}
