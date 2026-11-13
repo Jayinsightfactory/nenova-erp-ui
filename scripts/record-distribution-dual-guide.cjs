@@ -6,7 +6,7 @@ async function main(){
  const browser=await puppeteer.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--no-sandbox']});
  let rec,capturedGuide=null,stopped=false,step=0;try{
  const page=await browser.newPage();await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});const errors=[],posts=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')console.log(m.text());});await page.setRequestInterception(true);
- const groups=[{key:'콜롬비아::수국',country:'콜롬비아',flower:'수국',label:'콜롬비아수국'},{key:'콜롬비아::카네이션',country:'콜롬비아',flower:'카네이션',label:'콜롬비아카네이션'},{key:'콜롬비아::장미',country:'콜롬비아',flower:'장미',label:'콜롬비아장미'},{key:'네덜란드::장미',country:'네덜란드',flower:'장미',label:'네덜란드장미'},{key:'네덜란드::튤립',country:'네덜란드',flower:'튤립',label:'네덜란드튤립'}];
+ const groups=[{key:'콜롬비아::수국',country:'콜롬비아',flower:'수국',label:'콜롬비아수국'},{key:'콜롬비아::카네이션',country:'콜롬비아',flower:'카네이션',label:'콜롬비아카네이션'},{key:'콜롬비아::장미',country:'콜롬비아',flower:'장미',label:'콜롬비아장미'},{key:'네덜란드::장미',country:'네덜란드',flower:'장미',label:'네덜란드장미'},{key:'네덜란드::튤립',country:'네덜란드',flower:'튤립',label:'네덜란드튤립'},{key:'콜롬비아::알스트로',country:'콜롬비아',flower:'알스트로',label:'콜롬비아알스트로'}];
  let guideDone={};let staleRead=false,stalePack=false,axisFixture=false,customerGets=0;const customerRace=process.argv.includes('--customer-race');let account='guide-support',countrySetting=null;const favGroups=groups.slice(0,4).map((g,i)=>({FavoriteKey:i+1,FilterData:JSON.stringify({groupKey:g.key})}));
  const prod={ProdKey:3513,ProdName:'연습 카네이션 Honey',DisplayName:'연습 카네이션 Honey',CounName:'콜롬비아',FlowerName:'카네이션',OutUnit:'박스',EstUnit:'단',BunchOf1Box:15,SteamOf1Bunch:20,SteamOf1Box:300,inQty:1,outQty:1,Cost:11500};
  let context={scope:{orderYear:'2026',orderWeek:'45-01',custKey:777,prodKey:3513},detail:{...prod,OutQuantity:1,EstQuantity:15,Cost:11500,Amount:156818,Vat:15682,DetailFix:true,MasterFix:true},calendar:Array.from({length:7},(_,i)=>{const d=new Date(Date.UTC(2026,10,4+i));return {WeekDay:d.getUTCDay()+1,Timestamp:d.toISOString().slice(0,10)+' 00:00:00.000'};}),dates:[{Timestamp:'2026-11-06 00:00:00.000',ShipmentQuantity:1,EstQuantity:15,Cost:11500,Amount:156818,Vat:15682,Descr:''}]};
@@ -81,6 +81,15 @@ async function main(){
  await text('확정현황 확인');await page.waitForSelector('[role="dialog"][aria-label="2026-45-01 확정현황"]');
  await hold('선택 차수 옆 확정현황 버튼에서 카테고리 상태를 확인합니다.\n확정 카테고리는 빨간색으로 표시되며 조회만 합니다.');await text('닫기');
  await click('[data-ai-verify="country-select-콜롬비아"]');await page.waitForSelector('[data-ai-verify="family-toggle-콜롬비아::카네이션"]');
+ assert.deepEqual(await page.$$eval('[data-testid="country-family-buttons-콜롬비아"] button',n=>n.map(b=>b.textContent)),['수국','카네이션','장미']);
+ await click('[data-ai-verify="country-family-콜롬비아::카네이션"]');
+ assert.deepEqual(await page.$$eval('[data-testid^="product-family-"]',n=>n.map(x=>x.dataset.testid)),['product-family-콜롬비아::카네이션']);
+ assert.equal(await page.$eval('[data-ai-verify="family-toggle-콜롬비아::카네이션"]',n=>n.getAttribute('aria-expanded')),'true');
+ await hold('국가 이름 옆 즐겨찾기 품종 버튼을 누르면 그 품종만 표시합니다.\n여러 품종을 하나씩 접고 펼칠 필요가 없습니다.');
+ await click('[data-ai-verify="family-toggle-콜롬비아::카네이션"]');await click('[data-ai-verify="country-family-콜롬비아::카네이션"]');
+ assert.equal(await page.$eval('[data-ai-verify="family-toggle-콜롬비아::카네이션"]',n=>n.getAttribute('aria-expanded')),'true','same active family button reopens it');
+ await click('[data-ai-verify="country-select-콜롬비아"]');
+
  assert.equal(await page.$eval('[data-ai-verify="family-toggle-콜롬비아::알스트로"]',n=>n.getAttribute('aria-expanded')),'false');
  assert.deepEqual(await page.$$eval('[data-testid="product-family-콜롬비아::카네이션"] [data-product-select]',n=>n.map(x=>x.getAttribute('data-ai-verify'))),['product-3515','product-3513']);
  const families=await page.$$eval('[data-testid^="product-family-"]',n=>n.map(x=>x.getAttribute('data-testid')));assert.equal(families.at(-1),'product-family-콜롬비아::알스트로');
@@ -189,6 +198,15 @@ async function main(){
  assert.deepEqual(errors,[]);assert.equal(posts.filter(x=>x.path==='/api/orders'||x.path==='/api/shipment/distribute').length,0);
  if(record){capturedGuide=await rec.stop();stopped=true;const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8'));const wf=registry.workflows.find(w=>w.id==='shipment-distribution-dates');wf.sourceFiles=['components/shipment/DistributionFixToggle.js','components/shipment/DistributionScrollBar.js','components/shipment/DistributionConfirmationSummary.js','lib/distributionKakaoDoneClient.js','lib/distributionKakaoRequests.js','lib/distributionSalesInboxRefresh.js','pages/shipment/distribute.js','components/shipment/DistributionKakaoFeed.js','components/shipment/DistributionDateEditor.js','components/shipment/DistributionProductTree.js','components/shipment/DistributionDateFilter.js','lib/shipmentDistributionNavigation.js','components/shipment/DistributionInlineDates.js','lib/shipmentInlineDates.js','lib/shipmentDateDisplayUnits.js','lib/shipmentMajorInlineDates.js'];wf.guides[0].status='ready';wf.guides[0].chapters=capturedGuide.chapters;fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');return;}
  // Empty-scope and near-miss regressions are dry-only, after the narrated workflow.
+ await text('출고분배 및 농장정보');await click('[data-ai-verify="country-family-콜롬비아::카네이션"]');await click('[data-ai-verify="product-3513"]');
+ assert.equal(await page.$$eval('[data-testid^="product-family-"]',n=>n.length),1,'product click preserves explicit family filter');
+ const globalSearch='input[placeholder="품목·국가·품종 검색 (전체 품목)"]';await page.type(globalSearch,'A Unfavorite');
+ await page.waitForSelector('[data-testid="product-family-콜롬비아::알스트로"]');
+ await page.click(globalSearch);await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.press('Backspace');
+ await page.waitForSelector('[data-testid="product-family-콜롬비아::카네이션"]');assert.equal(await page.$$eval('[data-testid^="product-family-"]',n=>n.length),1);
+ await click('[data-ai-verify="country-select-콜롬비아"]');assert((await page.$$eval('[data-testid^="product-family-"]',n=>n.length))>1);
+ await text('출고분배 및 업체정보');
+
  for(const year of [2025,2026]){await week(year+'-45-03');await page.waitForSelector('[data-testid="distribution-no-order-candidates"]');await click('[data-ai-verify="customer-777"]');await page.waitForNetworkIdle({idleTime:200});await click('[data-ai-verify="add-panel-open"]');await page.waitForSelector('[data-testid="distribution-add-panel"]');await page.type('[data-ai-verify="add-prod-search"]','Honey');await click('[data-ai-verify="add-prod-3513"]');await click('[data-ai-verify="add-panel-close"]');}
  assert.equal(posts.filter(x=>x.path==='/api/orders'||x.path==='/api/shipment/distribute').length,0);
  assert.deepEqual(errors,[]);

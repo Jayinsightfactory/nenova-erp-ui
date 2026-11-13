@@ -267,7 +267,7 @@ const seolUserCap = { userId: 'nenovaSS2', userName: '설연주' };
 // 용량 오판 수정(2026-11-09): 교정 행 100번 추가해도 용량 불변, 숨김(deleted) 파일 제외, 실제 상한 초과 시에만 507, 디스크 교차검증
 {
   const u0 = wd.driveUsage();
-  assert.ok(u0.used > 0 && u0.files > 0 && u0.max === wd.TOTAL_MAX, '사용량 기본값: ' + JSON.stringify(u0));
+  assert.ok(u0.used > 0 && u0.files > 0 && u0.max === Math.min(wd.TOTAL_MAX, u0.used + Math.max(0, u0.available - 5 * 1024 ** 3)), '사용량 기본값: ' + JSON.stringify(u0));
   assert.ok(u0.onDisk >= u0.used, '디스크 합 ≥ 색인 최신행 합(숨김 본체 포함)');
   const target = wd.listVisible(boss).find((x) => x.filename === '38차 운임비.xlsx');
   for (let i = 0; i < 100; i++) wd.reclassify(boss, target.id, { stage: i % 2 ? '출고' : '원가·운임' });
@@ -277,7 +277,19 @@ const seolUserCap = { userId: 'nenovaSS2', userName: '설연주' };
   wd.reclassify(boss, target.id, { deleted: true });
   const u2 = wd.driveUsage();
   assert.strictEqual(u2.used, u1.used - target.size, '숨김 파일은 용량에서 제외'); assert.strictEqual(u2.files, u1.files - 1);
-  // 507 은 실제 용량 기준으로만: 상한을 임시로 낮춘 사본 모듈로 검증(TOTAL_MAX 는 5GB 유지)
+  // 507 은 실제 용량 기준으로만: 상한을 임시로 낮춘 사본 모듈로 검증(운영 여유 5GiB 보존)
+  const diskStats = fs.statfsSync;
+  try {
+    fs.statfsSync = () => ({ bavail: 20, bsize: 1024 ** 3 });
+    assert.strictEqual(wd.driveUsage().max, u2.used + 15 * 1024 ** 3);
+    fs.statfsSync = () => ({ bavail: 200, bsize: 1024 ** 3 });
+    assert.strictEqual(wd.driveUsage().max, 100 * 1024 ** 3);
+    fs.statfsSync = () => ({ bavail: 0, bsize: 4096 });
+    assert.strictEqual(wd.driveUsage().max, u2.used);
+    assert.strictEqual(wd.ingestFile({ buffer: Buffer.from('no-space'), filename: 'order.pdf' }).status, 507);
+    fs.statfsSync = () => { throw Error('unavailable'); };
+    assert.strictEqual(wd.driveUsage().max, u2.used);
+  } finally { fs.statfsSync = diskStats; }
   const small = src.replace(/const TOTAL_MAX = [^;]+;/, 'const TOTAL_MAX = 60;');
   const smallPath = path.join(tmp, 'workDriveSmall.cjs'); fs.writeFileSync(smallPath, small);
   const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), 'wd-cap-')); process.chdir(tmp2);

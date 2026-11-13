@@ -757,13 +757,14 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
   const [pmOpen, setPmOpen] = useState(false);
   const floorRef = useRef(null);
   // 장면(아이소메트릭) / 목록(예전 카드 격자) 보기 — 이 PC 편의 설정
-  const [view, setView] = useState('scene');
-  useEffect(() => { try { const v = window.localStorage.getItem('pm.view'); if (v === 'list' || v === 'scene' || v === '3d') setView(v); } catch { /* 무시 */ } }, []);
+  // 게임 장면은 직접 선택할 때만 켠다. 이전 자동 장면 설정은 새 기본값에 이월하지 않는다.
+  const [view, setView] = useState('list');
+  useEffect(() => { try { const v = window.localStorage.getItem('pm.view.v2'); if (v === 'list' || v === 'scene' || v === '3d') setView(v); } catch { /* 무시 */ } }, []);
   const [sideOpen, setSideOpen] = useState(false);
   const [fb3d, setFb3d] = useState('');
   useEffect(() => { try { if (window.localStorage.getItem('pm.side') === '1') setSideOpen(true); } catch { /* 무시 */ } }, []);
   const toggleSide = () => setSideOpen((v) => { try { window.localStorage.setItem('pm.side', v ? '0' : '1'); } catch { /* 무시 */ } return !v; });
-  const pickView = (v) => { setView(v); try { window.localStorage.setItem('pm.view', v); } catch { /* 무시 */ } };
+  const pickView = (v) => { setView(v); try { window.localStorage.setItem('pm.view.v2', v); } catch { /* 무시 */ } };
   useEffect(() => { const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)'); if (!mq) return undefined; const f = () => setReduced(mq.matches); f(); mq.addEventListener?.('change', f); return () => mq.removeEventListener?.('change', f); }, []);
   const openPerson = useCallback((n, tab = 'auto') => { setSelTab(tab); setSel(n); }, []);
   const closeSel = useCallback(() => setSel(null), []);

@@ -86,15 +86,15 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
     fs.writeFileSync(proofFile, JSON.stringify(proof, null, 2) + '\n');
     return { chapters, duration, mp4, captions, proofFile };
   }
-  async function focus(selector, number, { staticHighlight = false } = {}) {
+  async function focus(selector, number, { staticHighlight = false, badgeLeft = 20 } = {}) {
     if (!await page.$('#nenova-guide-capture')) await page.evaluate(installOverlay, title);
-    const box = await page.$eval(selector, (node, number) => {
+    const box = await page.$eval(selector, (node, {number,badgeLeft}) => {
       const r=node.getBoundingClientRect(), host=document.getElementById('nenova-guide-capture');
       const mark=document.createElement('div'); mark.dataset.guideFocus='true';
       mark.style.cssText=`position:fixed;left:${r.left-6}px;top:${r.top-6}px;width:${r.width+12}px;height:${r.height+12}px;border:4px solid #f59e0b;border-radius:8px;box-sizing:border-box`;
-      const badge=document.createElement('div');badge.dataset.guideFocus='true';badge.textContent=`${number} 단계`;badge.style.cssText='position:fixed;left:20px;top:10px;background:#12335b;color:white;border:3px solid #f59e0b;border-radius:12px;padding:5px 15px;font-size:26px;font-weight:bold';host.append(badge,mark);
+      const badge=document.createElement('div');badge.dataset.guideFocus='true';badge.textContent=`${number} 단계`;badge.style.cssText=`position:fixed;left:${badgeLeft}px;top:10px;background:#12335b;color:white;border:3px solid #f59e0b;border-radius:12px;padding:5px 15px;font-size:26px;font-weight:bold`;host.append(badge,mark);
       return {x:r.x+r.width/2,y:r.y+r.height/2};
-    }, number);
+    }, {number,badgeLeft});
     if(staticHighlight)await page.evaluate(()=>{const c=document.querySelector('[data-guide-caption]');c.style.bottom='auto';c.style.top='80px';});
     await new Promise(r=>setTimeout(r,1800));if(!staticHighlight){activeShot={number,start:elapsed(),...box};focusShots.push(activeShot);}
     await new Promise(r=>setTimeout(r,2200));

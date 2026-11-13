@@ -152,6 +152,7 @@ function installFixtureProtocol() {
       activityEvents.push(...body.events);
       return Response.json({success:true,acceptedIds:body.events.map(event=>event.id)});
     }
+    if(url.pathname==='/api/desktop/company-calendar')return Response.json({success:true,schemaVersion:1,ownerId:accountActor,revision:0,events:[]});
     if(url.pathname==='/api/pm/staff-requests')return Response.json({success:true,requests:[]});
     if (url.pathname === PM_OFFICE_ROUTE && request.method === 'GET') {
       return Response.json({ success: true, ageSec: 15, receivedAt: new Date().toISOString(), unresolved: [{ id: 'fixture', title: '시험 PC 화면 해독이 3시간 넘게 멈춤', since: '1일째', todo: '사장님 확인 필요' }], data: {
@@ -266,6 +267,14 @@ async function verifyHomeUi(contents, window) {
   assert.equal(await contents.executeJavaScript('document.querySelector(".week-scroll").hidden'),false,'weekly time-block calendar remains visible below the monthly overview');
   assert.equal(await contents.executeJavaScript('document.querySelectorAll(".week-day").length'),7);
   assert.equal(await contents.executeJavaScript('document.querySelector(".calendar-month-view").offsetTop < document.querySelector(".week-scroll").offsetTop'),true,'monthly overview comes first');
+  const shared=await contents.executeJavaScript(`window.desktop.invoke('companyCalendar',{method:'GET',query:{month:'2026-11',date:'2026-11-13'}})`);assert.equal(shared.ownerId,accountActor);assert.equal(shared.success,true);
+  await contents.executeJavaScript(`document.querySelector('#companyCalendarButton').click();const field=document.querySelector('.company-form [name=title]');field.value='Native 공통 일정 초안';field.dispatchEvent(new Event('input',{bubbles:true}));`);
+  await waitFor(()=>window.homeDirty,'company draft is protected by native close confirmation');
+  await main.command(window,'homeDraft',{dirty:false});assert.equal(window.homeDirty,true,'personal poll cannot clear company draft');
+  contents.sendInputEvent({type:'keyDown',keyCode:'Escape'});contents.sendInputEvent({type:'keyUp',keyCode:'Escape'});
+  await waitFor(()=>contents.executeJavaScript('!document.querySelector(".company-confirm").hidden'),'Escape protects unsaved company input');
+  assert.equal(window.menuOpen,true,'Escape in the dialog does not hide native home');
+  await contents.executeJavaScript(`document.querySelector('.company-confirm button').click()`);await waitFor(()=>!window.homeDirty,'discard clears only company draft');
   assert.equal(boundary.protocol, 'nenova-app:'); assert.equal(boundary.module, true);
   assert.match(boundary.csp, /connect-src 'none'/, 'home UI does not relax browser network CSP');
   await contents.executeJavaScript(`(() => { const date = document.querySelector('.hw-tool-body input[type=date]');
@@ -320,6 +329,9 @@ async function verifyHomeUi(contents, window) {
   await waitFor(() => homeStore(accountActor).tasks.find(task => task.id === uiTask.id).archived, 'today task archive persists');
   await contents.executeJavaScript('document.querySelector(".hw-tool-body select").value = "archived"; document.querySelector(".hw-tool-body select").dispatchEvent(new Event("change"))');
   await waitFor(() => contents.executeJavaScript('document.querySelector(".hw-rows").textContent.includes("수정된 오늘 업무")'), 'archived task remains recoverable');
+  await contents.executeJavaScript(`document.querySelector('#webRequestButton').click()`);
+  await waitFor(()=>[...main.tabs.values()].some(tab=>new URL(tab.url).pathname==='/pm'&&new URL(tab.url).searchParams.get('requests')==='new'),'top web request opens the actual PM composer route');
+  const requestTab=[...main.tabs.values()].find(tab=>new URL(tab.url).pathname==='/pm'&&new URL(tab.url).searchParams.get('requests')==='new');await waitFor(()=>!requestTab.loading,'request tab ready');const previousDialogAnswer=dialogAnswer;dialogAnswer=0;try{await main.command(window,'close',{id:requestTab.id});await waitFor(()=>!main.tabs.has(requestTab.id),'request tab cleanup');}finally{dialogAnswer=previousDialogAnswer;}
   main.command(window, 'activate', { id: previousActive });
   await waitFor(() => [...main.tabs.values()].every(tab => !tab.loading), 'home source tabs finish loading before synthetic shell-state checks');
   await contents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');

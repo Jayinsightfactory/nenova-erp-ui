@@ -32,7 +32,9 @@
     "desktop/lifecycle.cjs",
     "desktop/shell/home-dashboard.js",
     "desktop/tests/home-board.test.cjs",
-    "desktop/scripts/exit-probe.cjs"
+    "desktop/scripts/exit-probe.cjs",
+    "desktop/shell/company-calendar.js",
+    "desktop/company-calendar.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
