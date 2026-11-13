@@ -8,8 +8,8 @@ import formidable from 'formidable';
 import { ingestFile, FILE_MAX } from '../../../lib/workDrive';
 import { importRemitFile } from '../../../lib/farmRemitInbox';
 import { REMIT_FILE_RE } from '../../../lib/farmRemitImport';
-import * as XLSX from 'xlsx';
-import { onFileIngested } from '../../../lib/workDrivePairs';
+import { recomputeDrivePairsAsync } from '../../../lib/workDrivePairsAsync.cjs';
+import { isInvoiceFile, isResultWorkbook } from '../../../lib/workDrivePairs';
 
 export const config = { api: { bodyParser: false } };
 
@@ -46,6 +46,7 @@ export default async function handler(req, res) {
     catch (e) { console.error('[drive-ingest] remit import failed:', e.message); remit = { error: e.message }; }
   }
   // 인보이스 PDF·결과 엑셀이면 짝(data/drive/pairs.json) 재계산. 실패해도 업로드는 성공
-  if (!r.duplicate) { try { onFileIngested({ id: r.id, filename: pick('filename') || f.originalFilename || '' }, { xlsxLib: XLSX }); } catch (e) { console.error('[drive-ingest] pairs failed:', e.message); } }
+  buffer=null; // persisted bytes are read by the bounded worker; do not retain upload buffers while queued.
+  if (!r.duplicate && (isInvoiceFile({filename:_fn}) || isResultWorkbook({filename:_fn}))) { try { await recomputeDrivePairsAsync(); } catch { console.error('[drive-ingest] pair worker failed; upload preserved'); } }
   return res.status(200).json({ success: true, id: r.id, duplicate: r.duplicate, version: r.version, classification: r.classification, remit });
 }

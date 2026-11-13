@@ -25,7 +25,10 @@
     "pages/api/estimate/weekday-upload-preview.js",
     "pages/api/sales/profit-report-excel-audit.js",
     "pages/api/raum/pnl-import.js",
-    "scripts/work-drive-backfill-web-uploads.mjs"
+    "scripts/work-drive-backfill-web-uploads.mjs",
+    "lib/workDrivePairsAsync.cjs",
+    "lib/workDrivePairsWorker.cjs",
+    "__tests__/workDrivePairsWorker.test.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -98,5 +101,9 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
+  ],
+  "pairWorker": "Invoice/workbook pair derivation runs in one bounded worker per web process. Ingest still persists and classifies the file and completes the same existing remit stage before awaiting pair derivation. Pair failures still do not fail the upload. Admin GET/POST response fields and matching algorithm remain unchanged; cold GET and manual recompute await the worker. Queued requests coalesce; unchanged immutable workbook sheet names are cached by path/SHA/stat; worker locks serialize publishers across processes and output is atomic. No added MSSQL queries or writes; original file bytes/index/classification/permissions/remit logic unchanged.",
+  "requiredTests": [
+    "__tests__/workDrivePairsWorker.test.cjs"
   ]
 }

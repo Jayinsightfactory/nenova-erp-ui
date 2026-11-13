@@ -2925,3 +2925,10 @@
 - 사용자‘Electron으로뜸’ 확인: 현재 electron.exe 테스트프로세스없고 설치exe 제품메타는NenovaDesktop1.3.23. 창별AppUserModel/relaunch표시명을‘네노바 업무’로 명시하고 taskbar표시false설정방지, OS에서읽을수있는 resources/app-icon.ico를추가복사. 패키지asar내경로를Shell에넘기지않음. 두단위검사/실제Electron전체회귀PASS. 종료중지연navigation의없는창layout안전가드보완. strict디렉티브유지. 최종168.3초/10단계 가이드재촬영 및 전소스해시검사PASS.
 - 사용자PC탐색기와앱이최소화·사용자입력으로바뀌어자동클릭추가중단. 비밀번호대신직접로그인결과만요청받았고서버오류실패확인. 작업표시줄고정아이콘은구형ERP이며실제새앱이름수정도포함. 1.3.24최종CI/릴리스/설치/실제사용자로그인복구는미완료.
 검색어: desktop-login-1113 후속 1.3.24 windows-identity app-icon.ico Electron 표시 PR1730 a80adf4a
+
+## 2026-11-13 로그인 장애: 드라이브 짝짓기 동기 Excel 해제 분리
+- 사용자 PC Desktop 로그인500. 안전진단: 최근 로그인 ETIMEOUT connectionFailure, PC SELECT1 80ms/웹서버새풀SELECT1 347~387ms PASS, 실제앱 loopback/api/ping12초timeout. PM2 CPU104%, 메모리부족/OOM없음. 임시 localhost Inspector CPU4초/3669표본: XLSX build_tree/deflate가주요소요, 호출경로 api/work/drive-ingest→onFileIngested→전체시트명 재계산. Inspector사용후닫힘검증완료, 요청·비밀번호·환경값/원시프로파일출력0. 작업운영브랜치 codex/login-cpu-diag-1113(별도배포X).
+- 서버긴급수정: 새파일저장·분류·기존송금await 뒤, 동일짝짓기를 단일 Worker에서await. 관리자짝GET빈캐시/POST도Worker공유. 유형/중복조건·응답·점수/과거연도파일·MSSQL모두보존. 이중요청coalesce·대기128한도·업로드buffer해제·Worker256MB·10분기한·실패원본/기존짝보존. 기존검증된owner lock재사용으로다중프로세스게시직렬화, tmp+rename원자게시. 시트명SHA/stat캐시512개·nativezlib로반복압축해제줄임.
+- 실제Worker 3검사 PASS: 주이벤트루프timer응답/기존짝결과동일/3동시요청/원본색인bytes보존/변경파일갱신/캐시재파싱0/timeout·게시실패시기존대상보존/잠금·temp정리. 기존workDrivePairs+MOYI회귀 PASS. 변경API2건 쓰기가드/217manifest PASS. 운영데이터직접변경/원장쓰기0. CI·배포·운영로그인복구는진행중미완료.
+- 기준선: 내부실행격리이며사용자메뉴/작업순서/권한/입출력변경없어새가이드해당없음. 기존API의remit순서와MSSQL문구보존, 새SQL0이라새dnSpy/업무DBprobe해당없음(전체CI가드는유지).
+검색어: drive-pairs-unblock-1113 로그인500 ETIMEOUT CPU104 XLSX.inflate workDrivePairsWorker 주스레드정지
