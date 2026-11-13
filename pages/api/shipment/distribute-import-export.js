@@ -1,5 +1,5 @@
 import { readPalletSnapshots } from '../../../lib/shipmentImportAudit';
-import { palletSnapshot } from '../../../lib/shipmentPallet';
+import { palletSnapshot, addPalletSnapshots } from '../../../lib/shipmentPallet';
 import fs from 'fs';
 import formidable from 'formidable';
 import { withAuth } from '../../../lib/auth';
@@ -34,9 +34,14 @@ async function handler(req,res) {
       const fileWeek=(file.originalFilename||'').match(/(?:^|[^0-9])(\d{2})[-－](\d{1,2})(?!\d)/);
       const sameWeek=!fileWeek || scope?.orderWeek===fileWeek[1]+'-'+fileWeek[2].padStart(2,'0');
       const saved=scope && sameWeek ? await readPalletSnapshots(scope.orderYear,scope.orderWeek) : {};
-      const pallets={...saved,...palletSnapshot(XLSX,workbook,parsed.rows)};
+      let pallets={...saved,...palletSnapshot(XLSX,workbook,parsed.rows)};
       let previousFile;
       if(prior){const bytes=fs.readFileSync(prior.filepath);previousFile={filename:prior.originalFilename||'',buffer:bytes,rows:parseAllocationWorkbook(XLSX,XLSX.read(bytes,{type:'buffer'})).rows};}
+      if(prior&&previousFile){
+        const book=XLSX.read(previousFile.buffer,{type:'buffer'});
+        const priorSaved=scope&&sameWeek?await readPalletSnapshots(scope.orderYear,scope.orderWeek.slice(0,2)+'-01'):{};
+        pallets=addPalletSnapshots({...priorSaved,...palletSnapshot(XLSX,book,previousFile.rows)},pallets);
+      }
       output=await createUploadedFieldWorkbook(buffer,parsed.rows,{previousFile,pallets,customerDirectory:directory.recordset,filename:file.originalFilename,farmText:field('farmText'),week:field('week'),year:field('year')});
     } else {
       const plan=verifyFarmExport(buffer,field('exportPlan'),req.user.userId);
@@ -46,7 +51,8 @@ async function handler(req,res) {
         const scope=fieldVolumeSql(plan.products.map(p=>p.prodKey));
         const params={year:{type:sql.NVarChar,value:orderYear},major:{type:sql.NVarChar,value:orderWeek.split('-')[0]},minor:{type:sql.Int,value:Number(orderWeek.split('-')[1])}};
         const lines=await query(scope.lines,params),farms=await query(scope.farms,params);
-        plan.pallets=await readPalletSnapshots(orderYear,orderWeek);
+        const snapshots=await Promise.all(Array.from({length:Number(orderWeek.slice(3))},(_,i)=>readPalletSnapshots(orderYear,orderWeek.slice(0,3)+String(i+1).padStart(2,'0'))));
+        plan.pallets=addPalletSnapshots(...snapshots);
         output=await createFieldVolumeWorkbook(plan,lines.recordset,farms.recordset);
       } else {
         if(mode || plan.kind)throw Object.assign(new Error('잘못된 다운로드 형식입니다.'),{statusCode:400});
