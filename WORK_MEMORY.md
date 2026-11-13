@@ -2852,6 +2852,13 @@
 - 검증중 동시 PR#1714/1715(a64c73db/dd8866c4) 통합. 기능충돌 없음, WORK_MEMORY 양쪽보존·Desktop releaseNotes 결합. PM의 쉬운 오류제목 개선을 보존하고 회사공통 기능버전은1.3.23으로 조정. 앞선1worker빌드는 내 Next PID19908만 종료. 변경된shell소스 포함 가이드 재촬영 및 통합검증을 진행한다.
 - 후속 통합본: 공통UI/기존계정경합 native PASS, manifest216/쓰기guard 새API1건 PASS. PM개선 포함 가이드169.15초/10단계 재촬영·소스해시17영상·회사저장/홈재열기 최종프레임 PASS. 로컬 빌드는 컴파일 후 ENOSPC로 중단되어 생성캐시만 E:/CodexGeneratedCache/2026-11-13/company-calendar-1113-cache-backup에 보존이동, 새cache-live로 .next/cache junction 연결(소스·업무데이터 변경0). 별도 이전 디렉터리 일괄삭제는 자동검토가 차단해 실행하지 않았고 이 보존이동 방식으로 공간 해결. 새1worker webpack build exit0. 빌드된 /desktop-guide 실제재생·10목차·한국어자막/다운로드/Enter열기닫기/1920·390/JS0 PASS. 최종PR CI·릴리스·운영배포는 진행예정.
 
+## 2026-11-13 물량표 업로드만으로 바로 생성
+- 요청: 분배 적용·농장 지정이 없어도 파일 업로드 후 현장물량표 생성. 상단 `물량표 바로 생성` 추가, 원본 XLSX/카톡 또는 텍스트상자 농장메모로 변환. 서명/ERP 매칭/DB 조회/쓰기 불필요. 이전차수 미포함을 명시하며 기존 저장분배 누적 생성은 보존.
+- 실제 카네이션·장미 원본 파일 생성·재열기 및 동일품목 별도 재고행 보존 확인. 농장 메모는 단위/합계/유일 연결 검증 후 반영, 미연결·중복·불일치는 원문과 확인 시트에 유지. 양수 장미가 여러 길이면 추측 연결하지 않음.
+- 테스트·실제 브라우저 연습자료2경로 다운로드 검증 수행. 최종 가이드 재촬영/필수 ERP gate/CI/운영 배포는 기록 시 진행 중, 미검증.
+검색어: 물량표 바로 생성 field-upload shipmentFieldUpload 업로드기준 농장메모 확인 DB0 2026-11-13
+- 완료 검증: 핵심29테스트, 첨부2종 파일 재열기, 브라우저1920/390·두 경로 실제다운로드·키보드 PASS. 가이드85.15초/한글자막/목차·실제 인쇄 수량 확대·최종 프레임 확인. 필수 ERP 계약/dnSpy/manifest/쓰기guard/가이드 검사와 1worker webpack production build exit0. PR CI·운영 배포는 후속 확인 예정.
+
 ## 2026-11-13 업무드라이브 용량
 - 운영 색인 8998개, 5GiB 한도 잔여 3621바이트. 저장 파일시스템 가용 바이트로 검증되는 경우에 한해 관리자가 승인한 10GiB 적용, 조회 실패 시 기존 상한. 원장 변경 없음. 운영 적용 미검증.
 검색어: 업무드라이브 507 statfsSync 10GiB driveCapacity
@@ -2871,3 +2878,12 @@
 - 전체verify는기존‘raw만저장’문구회귀 assertion에서중단. 해당행을최종저장/원천분리계약으로갱신후대상29검사와전체posthook·manifest217·쓰기guard·dnSpy모두PASS. 정식webpack1worker는E산출물React경로누락으로첫실패, E의의존성junction연결후두번째build exit0. 전체필수CI·PR/배포·운영 재갱신은 아직미완료.
 - 현재·진행45/46 GET502/HTML을갱신실패와혼동하지않도록기존인증POST만36~46순차호출하는명시운영도구/수동workflow 추가. dryrun기본·양쪽scope검사·원장SQL0·자동재시도0·CI금액/토큰저장0. 로컬함수호출임시45/46은운영전용파일원천과다를수있어완료로판정하지않으며,배포후운영HTTP로새버전대체예정.
 검색어: profit-final-cache cacheSourcePayload finalizationVersion 관세응답저장불일치 36~46 E드라이브 명시POST
+## 2026-11-13 PM 진행·오류 관제 기본 보기 확인
+- 사용자 후속 요청: 진행·오류관제 탭도 게임화면 기본 비활성. 최신 origin/master ad41db28 새 worktree에서 desktop/shell/shell.js pmOpenButton이 동일 /pm을 여는 것을 확인. pages/pm.js에 앞선 PR#1721 list 기본+pm.view.v2 설정이 포함되어 이미 같은 변경 적용 대상. 중복 코드·재배포 없음. 사용자 실행중 탭 자체는 미조작/미검증, 닫고 다시 열어 새 페이지를 로드하도록 안내.
+검색어: PM 진행 오류 관제 동일페이지 /pm 기본비활성 PR1721 pmOpenButton
+
+## 2026-11-13 PM 실제 게임 비활성·반복 업무 누적 수정
+- 사장님 첨부 화면으로 앞선 PR1721이 목록보기만 바꿔 게임 요소를 숨기지 못한 것을 확인·정정. 기본 gameEnabled=false로 캐릭터/정원/장면/게임 테마를 렌더하지 않는 일반 관제. 상단 게임켜기/끄기 직접선택만 허용, 새탭/새로고침은 항상 꺼짐. 진행/오류/업무대장/직원요청 보존. 게임선택시 기존 기능 보존, 일반 직원상세에서는 상점/성장 숨김. PM판매경계 유지(범용가이드 직접import 대신 PM소유 정적영상플레이어).
+- 추가 사용자확정: 반복업무는 하나이며 회차가 쌓이면 안됨. 저장본·원시회차조회·달력/주간은 보존하고, desktopHomeWorkspace 응답(홈/메모장 공용)에 최신회차 한건/규칙 projection 적용. 최신완료후 과거미완료 재등장 차단, 다음반복일 새회차, 제목같은 별도규칙 보존. 서버화면 변경이라 Desktop 설치버전 변경 불필요.
+- 표적10검사/실제파일 workspace 회귀/PM전체 PASS. 실제Chrome game DOM0·일반CSS·오류표시·Enter/Space 켜기끄기·reload꺼짐·1920/1280/390 JS0 PASS. 실제홈+notes 11/1부터 daily seed 11/30에도8규칙=8줄 PASS. 가이드 최종촬영/필수CI/배포 진행중, 아직 미검증.
+검색어: pm-control-game-1113 gameEnabled 기본꺼짐 반복업무누적 personalHomeCurrentTasks 최신회차1건 정정

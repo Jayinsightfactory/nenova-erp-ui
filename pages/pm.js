@@ -5,13 +5,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button, IconButton, LinkButton, PersonChip, PmUiStyles, SelectCard, Tabs, ToggleChip } from '../components/pm/ui';
 import { Avatar, PmThemeCtx, ShopPanel, ThemePicker, TokenBadge, usePmTheme, usePmThemeState, useWallet } from '../components/pm/PmTheme';
-import { CHART_COLORS, SHIRTS, STAGE_COLOR } from '../lib/pmThemes';
+import { CHART_COLORS, SHIRTS, STAGE_COLOR, PM_CONTROL_CSS } from '../lib/pmThemes';
 import { LEVELS, levelOf } from '../lib/pmBonus';
 import { STAGES, stageLabel, staffLinks, lineWidth, linkTaskText, linkTipText, stageNowRows } from '../lib/pmStages';
 import { normalizePlaybooks, playbookSummary, sortPlaybookCards, kstDateTime } from '../lib/pmPlaybooks';
 import { pmUnresolved } from '../lib/pmUnresolved';
 import { buildHandoffs, chainView, filterLog, logFacets, kstHM, kstDay, fmtGap, DEFAULT_WINDOW_H } from '../lib/pmWorkLog';
 import MenuBackButton from '../components/MenuBackButton';
+import ControlGuide from '../components/pm/ControlGuide';
 import IsoScene, { ISO_CSS } from '../components/pm/IsoScene';
 import BgScene, { BG_CSS } from '../components/pm/BgScene';
 import { hasSceneMap } from '../lib/pmSceneMap';
@@ -223,10 +224,10 @@ function BonusCard({ name }) {
   );
 }
 
-function StaffDrawer({ name, live, now, onClose, initialTab = 'now', workLog = [], isAdmin = false, myStaff = null }) {
+function StaffDrawer({ name, live, now, onClose, initialTab = 'now', workLog = [], isAdmin = false, myStaff = null, gameEnabled = false }) {
   const canEdit = isAdmin || (!!myStaff && myStaff === name);
   const editNote = canEdit ? '' : (myStaff ? '본인 캐릭터에서만 사고 꾸밀 수 있습니다' : '계정 연결 필요 — 관리자에게 PM 계정 연결을 요청하세요');
-  const startShop = initialTab === 'look' || initialTab === 'wallet';
+  const startShop = gameEnabled && (initialTab === 'look' || initialTab === 'wallet');
   const [tab, setTab] = useState(startShop ? 'now' : (initialTab === 'auto' ? 'now' : initialTab === 'time' ? 'rhythm' : initialTab));
   const [view, setView] = useState(startShop ? 'shop' : 'detail');
   const [res, setRes] = useState(null);
@@ -275,7 +276,7 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'now', workLog = [
         <div className="sdh">
           <h2>{view === 'shop' ? '상점 · 꾸미기' : '직원 상세'}</h2>
           {view === 'detail' && <Tabs className="sdtabs" label="직원 상세 탭" value={tab} onChange={setTab}
-            items={[['now', '지금'], ['flow', '업무흐름'], ['log', '작업로그'], ['rhythm', '주간리듬'], ['role', '역할'], ['grow', '키우기']]} />}
+            items={[['now', '지금'], ['flow', '업무흐름'], ['log', '작업로그'], ['rhythm', '주간리듬'], ['role', '역할'], ...(gameEnabled ? [['grow', '키우기']] : [])]} />}
           <IconButton className="x" label="닫기" onClick={onClose} />
         </div>
         {view === 'shop' ? (
@@ -283,11 +284,11 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'now', workLog = [
         ) : (
           <div className="sdbody sdgrid">
             <aside className="pcard who">
-              <div className="avbox">{avatars[name] ? <Avatar cfg={avatars[name]} state={st} size={150} name={name} /> : <span className="avph" aria-hidden>{(name || '?').slice(0, 1)}</span>}</div>
+              {gameEnabled && <div className="avbox">{avatars[name] ? <Avatar cfg={avatars[name]} state={st} size={150} name={name} /> : <span className="avph" aria-hidden>{(name || '?').slice(0, 1)}</span>}</div>}
               <div className="wname">{name}</div>
               <div className="muted">{d?.role?.dept || live?.dept || ''}{d?.dataName && d.dataName !== name ? ` · ${d.dataName}` : ''}</div>
-              <div className="lv"><b>Lv. {lv ? lv.level : '–'}</b><span className="gauge" aria-label={`다음 레벨까지 ${lvPct}%`}><i style={{ width: `${lvPct}%` }} /><em>{lvPct}%</em></span></div>
-              <div className="tok">🪙 <b>{wallet ? wallet.balance.toLocaleString() : '–'}</b> TOKENS</div>
+              {gameEnabled && <div className="lv"><b>Lv. {lv ? lv.level : '–'}</b><span className="gauge" aria-label={`다음 레벨까지 ${lvPct}%`}><i style={{ width: `${lvPct}%` }} /><em>{lvPct}%</em></span></div>}
+              {gameEnabled && <div className="tok">🪙 <b>{wallet ? wallet.balance.toLocaleString() : '–'}</b> TOKENS</div>}
               <span className={`chip chip-${st}`}>{STATUS_LABEL[st]}{live?.lastAt ? ` · ${ago(live.lastAt, now)}` : ''}</span>
             </aside>
             <div className="sdmain">
@@ -332,12 +333,12 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'now', workLog = [
                 )}
               </section>
             </div>
-            <aside className="sdside">
+            {gameEnabled && <aside className="sdside">
               <BonusCard name={name} />
               <Button className="bigbtn shopb" onClick={() => setView('shop')}><span aria-hidden>🎁</span> 상점</Button>
               <Button className="bigbtn lookb" onClick={() => setView('shop')}><span aria-hidden>👕</span> 꾸미기</Button>
               {!canEdit && <p className="muted small">{editNote}</p>}
-            </aside>
+            </aside>}
           </div>
         )}
       </div>
@@ -755,6 +756,8 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
   const pmTheme = usePmThemeState(myStaff || '');
   const [reqOpen, setReqOpen] = useState(!!requestMode);
   const [pmOpen, setPmOpen] = useState(false);
+  // 새로 연 PM 탭은 항상 일반 관제 화면. 게임은 이 화면에서 직접 켤 때만 렌더링한다.
+  const [gameEnabled, setGameEnabled] = useState(false);
   const floorRef = useRef(null);
   // 장면(아이소메트릭) / 목록(예전 카드 격자) 보기 — 이 PC 편의 설정
   // 게임 장면은 직접 선택할 때만 켠다. 이전 자동 장면 설정은 새 기본값에 이월하지 않는다.
@@ -832,25 +835,27 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
 
   return (
     <PmThemeCtx.Provider value={pmTheme.ctx}>
-    <GrowProvider>
-    <div className="pm" data-theme={pmTheme.themeId}>
+    <GrowProvider enabled={gameEnabled}>
+    <div className="pm" data-theme={pmTheme.themeId} data-game={gameEnabled ? 'on' : 'off'}>
       <PmUiStyles />
-      <style dangerouslySetInnerHTML={{ __html: pmTheme.css }} />
+      <style dangerouslySetInnerHTML={{ __html: pmTheme.css + PM_CONTROL_CSS }} />
       <header className="top">
         <MenuBackButton />
-        <h1>PM 사무실</h1>
+        <h1>{gameEnabled ? 'PM 사무실' : 'PM 진행·오류 관제'}</h1>
         <span className={`badge ${mode}`}>{mode === 'live' ? '실행' : '그림자'}</span>
         <span className={`badge age ${stale ? 'warn' : ''}`}>데이터 {fmtAge(ageSec)} 전{stale ? ' · 갱신 끊김?' : ''}</span>
         <span className="badge plain">작업중 {working}</span>
         <StaffRequestsButton onClick={() => setReqOpen(true)} />
         <Button size="sm" onClick={() => setPmOpen(true)}>🤖 PM 일지</Button>
-        <ThemePicker value={pmTheme.themeId} onChange={pmTheme.pick} />
+        <ToggleChip on={gameEnabled} onClick={() => { setGameEnabled(v => !v); setSel(null); setTip(null); }}>{gameEnabled ? '게임 화면 끄기' : '게임 화면 켜기'}</ToggleChip>
+        {gameEnabled && <ThemePicker value={pmTheme.themeId} onChange={pmTheme.pick} />}
         {err && <span className="badge warn">불러오기 실패: {err}</span>}
       </header>
+      <ControlGuide />
       <StaffRequests startWriting={requestMode==='new'} focusId={requestFocus} open={reqOpen} onClose={() => setReqOpen(false)} />
       {pmOpen && <PmPopover pmAgent={pmAgent} detail={d.pmDetail} tasks={tasks} now={now} onClose={() => setPmOpen(false)}
         onOpenGoals={() => { setPmOpen(false); const el = document.querySelector('.vispanel'); if (el) { el.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }} />}
-      <GardenStrip />
+      {gameEnabled && <GardenStrip />}
       {ts?.data && (
         <div className="tstrip" title={ts.data.method || ''}>
           <b>업무 시간 계기판</b>
@@ -863,8 +868,18 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
       )}
       {!resp && !err && <p className="muted">불러오는 중…</p>}
       {resp && !resp.data && <p className="muted">아직 올라온 pm-office 데이터가 없습니다.</p>}
-      <div className={`wrap ${sideOpen ? 'open' : 'wide'}`}>
-        {view === 'scene' || view === '3d' ? (
+      <div className={`wrap ${gameEnabled && sideOpen ? 'open' : 'wide'}`}>
+        {!gameEnabled ? (
+          <main className="control-summary panel" aria-label="일반 업무 관제">
+            <h2>진행 현황</h2>
+            <p className="muted">게임 화면 꺼짐 · 업무 진행과 오류를 확인하세요.</p>
+            <div className="control-agents">{agents.map((a, i) => <div className="control-agent" key={a.id || a.name || i}>
+              <b>{a.name || a.id}</b><span className={`chip chip-${STATUS_LABEL[a.status] ? a.status : 'off'}`}>{STATUS_LABEL[a.status] || STATUS_LABEL.off}</span>
+              <span>{a.activity || '활동 내역 없음'}</span><small>{ago(a.lastAt, now)}</small>
+            </div>)}</div>
+            {!agents.length && <p className="muted">에이전트 없음</p>}
+          </main>
+        ) : view === 'scene' || view === '3d' ? (
         <main className="floor scene">
           <div className="scene-h">
             <b>사무실 장면</b><small>스테이션·캐릭터에 마우스 = 자세히 · 클릭 = 고정 · 라벨칩 클릭 = 직원 시간</small>
@@ -931,7 +946,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
         </main>
         )}
         <aside className="side" aria-label="작업로그·업무 대장 패널">
-          <Button size="sm" className="sidetog" aria-expanded={sideOpen} onClick={toggleSide}>{sideOpen ? '패널 접기 (장면 아래로)' : '작업로그 패널을 옆으로 펼치기'}</Button>
+          {gameEnabled && <Button size="sm" className="sidetog" aria-expanded={sideOpen} onClick={toggleSide}>{sideOpen ? '패널 접기 (장면 아래로)' : '작업로그 패널을 옆으로 펼치기'}</Button>}
           {ts?.data && (
             <details className="panel" open>
               <summary><h2>네노바웹 기능 후보 <small>실측 절감순</small></h2></summary>
@@ -996,8 +1011,8 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
           </section>
         </aside>
       </div>
-      {sel && <StaffDrawer key={sel + selTab} initialTab={selTab} name={sel} workLog={workLog} live={staff.find((x) => x.name === sel) || null} now={now} onClose={closeSel} isAdmin={isAdmin} myStaff={myStaff} />}
-      <p className="credit">픽셀 사무실 아이디어: pablodelucca/pixel-agents (그림은 직접 제작)</p>
+      {sel && <StaffDrawer key={sel + selTab} initialTab={selTab} gameEnabled={gameEnabled} name={sel} workLog={workLog} live={staff.find((x) => x.name === sel) || null} now={now} onClose={closeSel} isAdmin={isAdmin} myStaff={myStaff} />}
+      {gameEnabled && <p className="credit">픽셀 사무실 아이디어: pablodelucca/pixel-agents (그림은 직접 제작)</p>}
       <style dangerouslySetInnerHTML={{ __html: ISO_CSS }} />
       <style dangerouslySetInnerHTML={{ __html: BG_CSS }} />
       <style jsx global>{`
