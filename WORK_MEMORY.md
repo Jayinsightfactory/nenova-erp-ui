@@ -2735,6 +2735,13 @@
 - 메뉴기준 적용: 읽기밀도/키보드/반응형/스크롤/뒤로가기/오류입력보존/가이드. ERP업무키·원장쓰기·전산probe 해당없음(동작은개인JSON·메뉴이동만).
 검색어: task-launch-1112 1.3.19 320px 8개 startTime endTime shortcut 시간표 CAS nativeIPC 가이드57.6
 
+## 2026-11-13 분배 수정 품종 재확정 실패 정정
+- nw-distribution-refix-1113, 단일작업자. 운영 SELECT+설치EXE dnSpy 확인: 2026/46-01 카네이션 한 품종만 취소됐으며 이미 미확정인 미국2품종 때문에 일반 부분확정 보호가 재확정 차단. 7개는 Mandalay 양수업체7행 전체제출 수.
+- 변경 ProdKey의 활성 Product CountryFlower를 서버/잠금트랜잭션에서 검증해 distribute-save 재확정범위 유지. 일반 부분확정·이전차수·음수재고 보호 유지. 품목저장은 변경 업체만 제출/카운트, 저장완료와 재확정실패 구분.
+- 실제 운영 fix/unfix API+native SP LocalDB: 선택품종복원/미국2미확정 보존/2025동일차수/주문·날짜·금액 불변 PASS. Chrome 변경1행만 요청 PASS. 전체 ERP계약 exit0, dnSpy/manifest213/writeguard1API PASS. 가이드 실제Chrome1920x1080/100%,192.3초6단계25조작, 해시/목차 PASS.
+- 운영 카네이션385행/635.4666667박스/107633550원, 날짜수량불일치0. 운영 보정은 배포 후 최신 전체원장지문 대조해 해당품종만재확정. 현재 PR/공식build/배포/복구 미검증(후속 진행).
+검색어: distribution-refix-1113 카네이션 Mandalay 7개 PARTIAL_CATEGORY_FIX_BLOCKED distributionEditProdKeys
+
 ## 2026-11-13 업무 바로가기 메뉴 검색 보완
 - 사용자: 바로가기 추가할 때 검색이 안 됨. 원인: 공유 task-controls가 검색 없는 native select만 제공. fresh nw-task-search-1113 @e31713c4, 단일 작업자.
 - 홈/PC메모장 공유 검색칸, 메뉴명·분류 NFKC/대소문자/공백 정규화·현재 메뉴 필터·결과수/없음 안내. Enter 첫 후보 명시선택(등록아님), ArrowDown 목록초점, Escape 검색초기화→창닫기. 검색만으로 기존href 변경0, 다른 검색 중 기존연결 묵시적 저장차단, 메뉴갱신/웹전환/초기화 유지. API/IPC/SQL/개인업무 저장코드 변경0.

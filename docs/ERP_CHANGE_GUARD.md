@@ -1215,3 +1215,6 @@ warehouse API가 부서명만 검사해 DeptName이 비어 있는 Authority4/7 �
 
 ## 2026-11-11 출고 메인차수 공통 표시축
 고객별 실재 차수만 표시하던 화면을 전체 동일연도·메인차수 subweek Set으로 정정했다. 다른 고객/품목의01/03과 고객-only02 fixture로 선택01/02/03 어디서나 공통행과0을 확인한다. 부재0/실재0 모두 readonly, unknown을0으로 바꾸지 않는다. 기존 actual model과 selected-only canonical 날짜저장 유지. 수량·매출·견적·재고 SQL/API 변경0. 계약 shipment-major-inline-dates 및 계획 distribution-major-layout-2026-11-11 참조.
+
+## 2026-11-13 분배 수정 재확정 범위
+확정된 품종 수정 후 이미 미확정인 타품종 때문에 재확정이 실패한 사례. 분배수정은 변경 ProdKey의 CountryFlower를 서버에서 검증해 동일 품종만 취소/재확정하며 일반 수동 부분확정 보호는 유지한다. 회귀: __tests__/estimateCategoryCycle.test.js, __tests__/distributionFixCycleRollback.test.js, scripts/test-distribution-localdb.cjs --fix-cycle. 상세 docs/plans/distribution-refix-2026-11-13.md.
