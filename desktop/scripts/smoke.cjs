@@ -154,7 +154,7 @@ function installFixtureProtocol() {
     }
     if(url.pathname==='/api/pm/staff-requests')return Response.json({success:true,requests:[]});
     if (url.pathname === PM_OFFICE_ROUTE && request.method === 'GET') {
-      return Response.json({ success: true, ageSec: 15, receivedAt: new Date().toISOString(), data: {
+      return Response.json({ success: true, ageSec: 15, receivedAt: new Date().toISOString(), unresolved: [{ id: 'fixture', title: '시험 PC 화면 해독이 3시간 넘게 멈춤', since: '1일째', todo: '사장님 확인 필요' }], data: {
         generatedAt: new Date().toISOString(), agents: [{ id: 'pm', status: 'working', activity: '오류·정체 상태 확인 중' }],
       } });
     }
@@ -258,7 +258,8 @@ async function verifyHomeUi(contents, window) {
     border: getComputedStyle(document.querySelector('#pmLivePanel')).borderTopColor,
     status: document.querySelector('#pmLiveBadge').textContent })`);
   assert.match(pmPanel.border, /rgb\(216, 47, 54\)/, 'PM live area uses the requested red highlight box');
-  assert.match(pmPanel.status, /라이브/); assert.match(pmPanel.text, /오류·정체 상태 확인 중/);
+  assert.match(pmPanel.status, /오류 1건/); assert.match(pmPanel.text, /시험 PC 화면 해독이 3시간 넘게 멈춤/);
+  assert.doesNotMatch(pmPanel.text, /오류·정체 상태 확인 중|서버 수신|PM 기록/, 'PM home panel shows issue titles only');
   const boundary = await contents.executeJavaScript(`({ protocol: location.protocol,
     module: [...document.scripts].some(script => script.src === 'nenova-app://shell/home-workspace.js'),
     csp: document.querySelector('meta[http-equiv="Content-Security-Policy"]').content })`);
