@@ -25,7 +25,7 @@ async function fixture(){
    const request=requestOptions(payload,owner);let record;
    if(payload.method==='POST'){const {expectedOwnerId,...command}=JSON.parse(request.options.body);try{record=await store.mutatePersonalHome(owner,command,{root:storage});}catch(e){return {success:false,status:e.statusCode||500,error:e.message};}}
    else record=await store.readPersonalHome(owner,{root:storage});
-   return {success:true,schemaVersion:1,ownerId:owner,date:payload.method==='POST'?payload.command.date:payload.date||date,revision:record.revision,...store.personalHomeTasks(record,payload.date||date,{limit:500}),...((payload.calendarMonth||payload.method==='POST')?{calendar:store.personalHomeCalendar(record,payload.calendarMonth||payload.command.date.slice(0,7))}:{}),guidance:[],feedback:[],syncedAt:new Date().toISOString()};
+   return {success:true,schemaVersion:1,ownerId:owner,date:payload.method==='POST'?payload.command.date:payload.date||date,revision:record.revision,...store.personalHomeTasks(record,payload.date||date,{limit:500}),...((payload.calendarWeek||payload.method==='POST')?{calendarWeek:store.personalHomeWeek(record,payload.calendarWeek||payload.command.date)}:{}),...((payload.calendarMonth||payload.method==='POST')?{calendar:store.personalHomeCalendar(record,payload.calendarMonth||payload.command.date.slice(0,7),{preview:true})}:{}),guidance:[],feedback:[],syncedAt:new Date().toISOString()};
   }
   if(action==='pin'){pin=payload.pinned;return {pinned:pin};}if(action==='reminder'){reminder=payload.time;return {};}
   if(action==='shortcut'||action==='taskShortcut')return {opened:true};if(action==='copy')return {copied:8};return {};
@@ -67,8 +67,12 @@ async function record(page,app){
  await page.$eval('#add button[type=submit]',e=>e.scrollIntoView({block:'center'}));await recorder.focus('#add button[type=submit]',5);
  await page.click('#add button[type=submit]');await page.waitForFunction(()=>!document.querySelector('#editor').open);await recorder.unfocus();await recorder.caption('5. 메뉴를 검색해 바로가기 연결 · 저장된 목록에서 주문등록 바로가기를 확인합니다.');await recorder.pause(2200);
  await step('launch','6. 바로가기와 완료를 따로 사용','.task-go',async()=>{await page.click('.task-go');await recorder.caption('6. 바로가기와 완료를 따로 사용 · 메뉴를 열어도 완료 체크는 바뀌지 않습니다. 연습 화면이라 실제 ERP 이동은 하지 않습니다.');await page.click('.task input');await page.waitForFunction(()=>document.querySelector('.task input').checked);});
- await page.goto(app.base+'/index.html');await page.waitForSelector('.calendar-day small');await recorder.restoreOverlay();
- await step('calendar','7. 게시판과 달력에서 업무 확인','#workCalendar',async()=>{const target=app.date.slice(0,8)+String(Number(app.date.slice(8))===1?2:1).padStart(2,'0');await page.click('[data-date="'+target+'"]');await recorder.caption('7. 게시판과 달력에서 업무 확인 · 날짜를 선택하면 오른쪽 업무가 바뀝니다. 왼쪽 위에서 개발요청 작성과 전체 보기를 열 수 있습니다.');});
+ await page.goto(app.base+'/index.html');await page.waitForSelector('.week-event');await recorder.restoreOverlay();
+ await step('calendar','7. 월간 달력과 하단 주간 시간표','.calendar-day[data-date="'+app.date+'"]',async()=>{await page.click('.calendar-day[data-date="'+app.date+'"]');await recorder.caption('7. 월간 달력과 하단 주간 시간표 · 월간 달력이 기본입니다. 날짜를 선택하면 아래 해당 주 시간표와 오른쪽 업무가 함께 바뀝니다.');});
+ await recorder.caption('7. 월간 달력과 하단 주간 시간표 · 빈 12:00 칸을 눌러 그 시간의 업무를 입력합니다.');await recorder.pause(1800);
+ await page.$eval('[aria-label="'+app.date+' 12:00 업무 추가"]',e=>e.scrollIntoView({block:'center'}));await recorder.pause(600);
+ await recorder.focus('[aria-label="'+app.date+' 12:00 업무 추가"]',7);await page.click('[aria-label="'+app.date+' 12:00 업무 추가"]');await recorder.unfocus();
+ await recorder.caption('7. 월간 달력과 하단 주간 시간표 · 입력란에 시작 12:00이 채워졌습니다. 달력 아래 게시판에서 개발요청 작성·전체 보기를 엽니다.');await recorder.focus('.hw-add input[name=startTime]',7);await recorder.pause(1800);await recorder.unfocus();
  await page.goto(app.base+'/notes.html?demo=1');await page.waitForSelector('.task');await recorder.restoreOverlay();
  await step('independent','8. 메모장에서 홈 다시 열기','#openHome',async()=>{await recorder.caption('8. 메모장에서 홈 다시 열기 · 본창을 닫아도 메모장은 유지됩니다. 위쪽 화살표로 홈을 다시 엽니다. 모든 창을 닫으려면 아래 전체 종료를 사용하세요.');await page.click('#openHome');});
  await page.goto(app.base+'/index.html');await page.waitForSelector('.hw-task');await recorder.restoreOverlay();await recorder.caption('8. 메모장에서 홈 다시 열기 · 홈으로 돌아와 업무를 이어갑니다.');await recorder.pause(2200);

@@ -2773,3 +2773,10 @@
 - 메뉴 기준 적용: 검색·한국시간·페이지주스크롤·키보드·반복일정·입력보존·오류재시도·실제 가이드. 해당없음: ERP원장/dnSpy새SQL/운영DB probe/일반웹홈/직원PC원격명령. Desktop1.3.21 목표. 계정주간 시작8%(계정전체, reset1795064856). 정식 ERP/build/최종가이드/PR·CI·릴리스·운영배포는 이 항목 시점 진행중·미검증.
 검색어: home-notes-workspace-1113 1.3.21 메모장독립 closeMainAction homeRequests personalHomeCalendar 개발요청 달력 우측업무 reduced-motion
 - 후속: 최종 native6모드 실제 프로세스 정상종료·본창닫기후 메모장GET/POST저장·홈재개·snapshot보존·초안취소 PASS. 부하 중 기존 cancel-double-close 15초 timeout 1회 발생(will-quit/quit은 수신), 촬영/회귀종료후 단독재검6모드 PASS. ERP계약 정식 pre/test/post exit0, dnSpy·manifest213·writeguard0API·PM suite PASS. 최종 한국어 실제UI 가이드91.2초/8단계 녹화·가이드전체16영상/소스해시·최종줌/자막프레임 PASS. 전체webpack빌드 진행중.
+
+- 추가 사용자지시: 첨부처럼 큰 주간 시간표 달력. 월~일 가로·시간 세로·업무 색상블록·겹친일정 분할·시간미정 별도·월간전환. 달력을 계획영역 맨 위로 확대, 기존 게시판은 그 아래. 빈 시간은 해당 날짜/시간만 입력에 채우고 자동저장0. 종료 미정은 기본 표시1시간을 명시. calendarWeek owner GET projection(일100건 상한/추가건수 안내), 원장·스키마 변경0.
+- 추가 단위: 정확한 시작/종료·완료/보관/snapshot·월말/교차연도·상한·불변·2000/2100 경계. 실제 Chrome 큰 주간/월간·주 이동중 선택일 유지·빈칸12시 prefill·4폭/쓰기0/JS0 및 검색회귀 PASS. Native CSP 하에서 기본7일 시간표/인증race/기존업무/로그아웃 PASS. 이전 두 CI는 통과했으나 추가지시 후 최종 변경 CI/빌드/가이드 재검 전이므로 병합하지 않음. 진행 중 첫 빌드는 내 작업의 Next PID33704만 종료해 소스혼합 방지.
+검색어: 큰주간달력 weekly-time-block calendarWeek personalHomeWeek 겹친일정 시간미정 주간시간표
+
+- 최종 사용자 정정: 월간이 기본, 그 하단에 주간만 표시. 전환탭 제거, 큰 월간 개요 + 바로 아래 선택 주 시간표를 동시에 표시하도록 수정. 월간칸에는 시간순2건/추가건수/완료전체를 표시. 날짜선택 시 하단주간과 우측업무 연동. 최종4폭·원문링크/키보드/초안/주·월이동/빈칸12시prefill/쓰기0/JS0 PASS, native CSP 기본월간우선·하단7일 PASS. 최종 주/월 단위/bridge8건 PASS, 추가preview정렬/상한 검증 포함. 사용가이드와 최종CI/빌드는 이 정정본으로 갱신 예정.
+검색어: 월간기본 하단주간 monthly-overview weekly-below calendar-preview

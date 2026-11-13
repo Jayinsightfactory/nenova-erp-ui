@@ -81,7 +81,7 @@
     if (followsToday && selectedDate !== today() && !editing && !pending && !input.value.trim()) { selectedDate = today(); date.value = selectedDate; snapshot = null; }
     const ticket = epoch, requestedDate = selectedDate, generation = ++readGeneration; querying = true;
     if (!snapshot) status.textContent = '개인 업무와 소식을 불러오는 중…';
-    try { const data = await invoke({ method: 'GET', date: requestedDate, calendarMonth:requestedDate.slice(0,7), offset: 0, limit: 200 });
+    try { const data = await invoke({ method: 'GET', date: requestedDate, calendarMonth:requestedDate.slice(0,7),calendarWeek:requestedDate, offset: 0, limit: 200 });
       if (ticket !== epoch || generation !== readGeneration || requestedDate !== selectedDate) return;
       if (!data?.success || data.ownerId !== owner) throw new Error(data?.error || '개인 업무를 확인하지 못했습니다.');
       for (const lane of lanes) if (data.feedErrors?.[lane.key] && !data[lane.key]?.length && snapshot?.[lane.key]?.length) data[lane.key] = snapshot[lane.key];
@@ -141,7 +141,7 @@
     if (editing && rows.querySelector('.hw-edit')) {try{captureEdit();}catch{ return; }}
     const focusedEdit = rows.querySelector('.hw-edit')?.contains(document.activeElement) ? { name: document.activeElement.name, start: document.activeElement.selectionStart, end: document.activeElement.selectionEnd } : null;
     rows.replaceChildren(); weekday.textContent = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'long' }).format(new Date(selectedDate + 'T12:00:00+09:00'));
-    window.dispatchEvent(new CustomEvent('home-workspace-data',{detail:{owner,date:selectedDate,calendar:snapshot?.calendar}}));
+    window.dispatchEvent(new CustomEvent('home-workspace-data',{detail:{owner,date:selectedDate,calendar:snapshot?.calendar,calendarWeek:snapshot?.calendarWeek}}));
     const all = snapshot?.tasks || []; const active = all.filter(t => !t.archived);
     progress.max=Math.max(1,active.length);progress.value=active.filter(t=>t.done).length;
     count.textContent = snapshot ? (snapshot.nextOffset != null ? '불러온 업무 ' : '') + active.filter(t => t.done).length + ' / ' + active.length + ' 완료' + (snapshot.nextOffset != null ? ' · 전체 ' + snapshot.totalTasks + '건' : '') : '';
@@ -304,7 +304,7 @@
   setInterval(() => { if (!visible || document.hidden || detail) return; for (const lane of lanes) if (!lane.paused && !lane.hover && !lane.focus && (snapshot?.[lane.key]?.length || 0) > 1) lane.at = (lane.at + 1) % snapshot[lane.key].length; renderFeeds(); }, 8000);
   reduced.addEventListener('change', e => { if (e.matches) { lanes.forEach(l => l.paused = true); renderFeeds(); } });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void load(); else clearTimeout(timer); });
-  window.homeWorkspace = { selectDate:changeDate, applyState(next) {
+  window.homeWorkspace = { selectDate:changeDate, beginAt(value,time){if(!changeDate(value,false))return false;settingsToggle.open=true;addSettings.setStart(time);input.focus();input.scrollIntoView({block:'center',behavior:reduced.matches?'instant':'smooth'});return true;}, applyState(next) {
     if(Array.isArray(next.menus)){menuGroups=next.menus;addSettings.setMenus(menuGroups);}
     const nextOwner = Object.prototype.hasOwnProperty.call(next, 'homeOwnerId') ? String(next.homeOwnerId || '') : owner;
     const changed = nextOwner !== owner, wasVisible = visible, wasOnline = online;

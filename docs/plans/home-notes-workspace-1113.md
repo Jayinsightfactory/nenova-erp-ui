@@ -22,3 +22,8 @@
 참고(2026-11-13 확인): https://m3.material.io/styles/motion / https://developer.mozilla.org/en-US/docs/Web/API/Document/startViewTransition / https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion
 
 검증: native Electron 종료/노트만 저장·조회/재개/마지막 노트 종료/명시 종료 취소/계정전환; 월 집계 양성·경계·기존 snapshot; 게시판 owner race·고정 GET·projection; 실제 1920/1280/800/390 레이아웃·키보드·reduced-motion·데이터 실패/빈 상태; 실제 가이드 갱신, 필수 계약/가드/webpack, PR CI·1.3.21 설치파일·Cafe24·운영 smoke.
+
+### 추가 사용자 지시: 큰 주간 시간 블록 달력
+- 2026-11-13 첨부처럼 최종 사용자 정정: 큰 월간보기가 기본이며 그 하단에 월~일 가로/시간 세로 주간 시간표를 항상 함께 표시. 보기전환 탭 없음. 계획 영역 맨 위, 08~19시 기본 높이(업무가 이른/늦은 시간에 있으면 범위 확장), 실제 종료 시간·반복 일정·시간 미정을 구분. 월간 날짜칸에 시간순 일정2건·추가건수와 완료/전체 표시.
+- 겹친 일정은 나란히 분할, 색은 업무ID별 일관됨. 일정/날짜 클릭은 해당일 조회, 빈 시간 클릭은 기존 업무 입력의 날짜·시간만 채움(자동 저장 없음). 100건/일 초과는 건수와 일별조회로 안내, 제목·본문 임의 생성 없음.
+- 주간 데이터는 기존 owner GET의 calendarWeek 선택 조회와 기존 mutation 응답의 읽기 projection이며 SQL/새 쓰기 없음. 실제 윤년/교차연도/보관/스냅샷·시간·projection 상한/불변 테스트.

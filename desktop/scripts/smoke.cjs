@@ -97,6 +97,8 @@ async function homeFixture(request, url) {
   } else assert.equal(request.method, 'GET');
   // Snapshot before waiting: delayed A data must never become B data by accident.
   const result = homeSnapshot(owner, date);
+  if(url.searchParams.has('calendarMonth')){const month=url.searchParams.get('calendarMonth');result.calendar={month,days:[]};}
+  if(url.searchParams.has('calendarWeek')){const anchor=new Date(url.searchParams.get('calendarWeek')+'T12:00:00Z');anchor.setUTCDate(anchor.getUTCDate()-(anchor.getUTCDay()+6)%7);const start=anchor.toISOString().slice(0,10);result.calendarWeek={start,days:Array.from({length:7},(_,i)=>{const day=new Date(anchor);day.setUTCDate(day.getUTCDate()+i);const label=day.toISOString().slice(0,10),tasks=result.tasks.filter(t=>t.occurrenceDate===label&&!t.archived);return {date:label,tasks,total:tasks.length,more:0};})};}
   const held = homeHolds.find(item => !item.started && item.predicate(record));
   if (held) { held.started = true; await new Promise(resolve => { held.release = resolve; }); }
   return Response.json(result);
@@ -260,6 +262,9 @@ async function verifyHomeUi(contents, window) {
   const boundary = await contents.executeJavaScript(`({ protocol: location.protocol,
     module: [...document.scripts].some(script => script.src === 'nenova-app://shell/home-workspace.js'),
     csp: document.querySelector('meta[http-equiv="Content-Security-Policy"]').content })`);
+  assert.equal(await contents.executeJavaScript('document.querySelector(".week-scroll").hidden'),false,'weekly time-block calendar remains visible below the monthly overview');
+  assert.equal(await contents.executeJavaScript('document.querySelectorAll(".week-day").length'),7);
+  assert.equal(await contents.executeJavaScript('document.querySelector(".calendar-month-view").offsetTop < document.querySelector(".week-scroll").offsetTop'),true,'monthly overview comes first');
   assert.equal(boundary.protocol, 'nenova-app:'); assert.equal(boundary.module, true);
   assert.match(boundary.csp, /connect-src 'none'/, 'home UI does not relax browser network CSP');
   await contents.executeJavaScript(`(() => { const date = document.querySelector('.hw-tool-body input[type=date]');
