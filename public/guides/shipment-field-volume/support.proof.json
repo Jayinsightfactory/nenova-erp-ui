@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-13T01:51:43.648Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 69.7,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "9164e45fdb73bee7eb88b9e234c0f0d71781bfaa8a5caa3593fd78d759682e07",
+  "captionsSha256": "d498e4d02808568d13eea7700d75cfe60dac997ff0870b13c478f8fb86d9af98",
+  "sourceHashes": {
+    "pages/shipment/distribute-import.js": "b04ce91c2dc038812cb3e7af23eff3bbd6e90f79b7ea15ecc622a424eb9f7e55"
+  },
+  "presentation": {
+    "numberedSteps": 8,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 1.9683517000000001,
+        "x": 543.5859375,
+        "y": 253.546875,
+        "end": 8.2841456
+      },
+      {
+        "number": 1,
+        "start": 10.4651064,
+        "x": 1410.4765625,
+        "y": 253.546875,
+        "end": 16.8671875
+      },
+      {
+        "number": 1,
+        "start": 19.0184378,
+        "x": 1743.53125,
+        "y": 253.546875,
+        "end": 25.3822792
+      },
+      {
+        "number": 2,
+        "start": 27.4870134,
+        "x": 1060,
+        "y": 558.140625,
+        "end": 35.3246666
+      },
+      {
+        "number": 2,
+        "start": 37.4941754,
+        "x": 387.8203125,
+        "y": 659.140625,
+        "end": 43.8160171
+      },
+      {
+        "number": 2,
+        "start": 45.918722,
+        "x": 1743.53125,
+        "y": 253.546875,
+        "end": 52.2465675
+      },
+      {
+        "number": 3,
+        "start": 54.4741334,
+        "x": 733.8125,
+        "y": 659.140625,
+        "end": 60.8161337
+      }
+    ]
+  },
+  "printPreviewCaption": {
+    "number": 4,
+    "source": "actual Excel ReadOnly PDF rendered to PNG; captured in local browser",
+    "start": 62.5,
+    "end": 69.7
+  }
+}
