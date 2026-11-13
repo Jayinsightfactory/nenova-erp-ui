@@ -15,10 +15,11 @@ function whenIdle(fn) {
   const id = setTimeout(fn, 1200); return () => clearTimeout(id);
 }
 
-export function GrowProvider({ children, refreshMs = 60000 }) {
+export function GrowProvider({ children, refreshMs = 60000, enabled = true }) {
   const [view, setView] = useState(null);
   const [manifest, setManifest] = useState(null);
   useEffect(() => {
+    if (!enabled) return;
     let alive = true; let timer = null;
     const load = () => fetch('/api/pm/grow', { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (alive && j.success) setView(j.data); }).catch(() => {});
     const cancel = whenIdle(() => {
@@ -26,7 +27,7 @@ export function GrowProvider({ children, refreshMs = 60000 }) {
       fetch('/pm-grow/manifest.json').then((r) => r.json()).then((m) => { if (alive) setManifest(m); }).catch(() => {});
     });
     return () => { alive = false; cancel(); if (timer) clearInterval(timer); };
-  }, [refreshMs]);
+  }, [refreshMs, enabled]);
   return <GrowCtx.Provider value={{ view, manifest }}>{children}</GrowCtx.Provider>;
 }
 
