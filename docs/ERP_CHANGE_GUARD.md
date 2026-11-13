@@ -1224,3 +1224,6 @@ warehouse API가 부서명만 검사해 DeptName이 비어 있는 Authority4/7 �
 
 ## 2026-11-13 확정 버튼 실제 범위/분배 동시작업
 로컬 isFixed 초기값만 보던 확정버튼을 DB DetailFix와 연결한다. 명시 연도+세부차수, Product CountryFlower 해석을 GET/POST 공유하고 native category 인수 미지원은 전체처리 금지. 기존 일반 부분확정 보호는 유지. 분배 workspace는 수량/단가 field CAS로 견적업체 presence와 구분하며 같은 행 변경은409, 원장트랜잭션/농장/확정 보호 유지. 계획 distribution-confirm-toggle-2026-11-13.md 및 실행회귀 참조.
+
+## 2026-11-13 국가 옆 즐겨찾기 품종 버튼
+국가와 별도 farmFamily 표시필터를 두어 버튼으로 한 품종만 즉시 열고 국가 클릭으로 전체 복귀한다. 품목 클릭이 native prodGroup을 바꿔도 보기필터를 바꾸지 않는다. 전역검색 예외와 미저장 이동보호 유지. 분류는 CounName::FlowerName이며 원장/SQL/API 변경0. 계약 shipment-distribution-workspace, 계획 distribution-family-buttons-2026-11-13.md, navigation 단위/실브라우저 회귀 및 안내영상 참조.

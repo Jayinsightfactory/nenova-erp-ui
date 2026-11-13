@@ -33,6 +33,9 @@ test('remarks distinguish persisted shipment text from unsaved OutUnit quantity'
   assert.match(distributionQuantityRemark('기존 출고 비고', 48, 50, '단'), /미저장 48 → 50단/);
   assert.equal(hasDistributionDrafts([{ CustKey: 478, 출고수량: 48 }], { 478: 50 }), true);
   assert.equal(hasDistributionDrafts([{ CustKey: 478, 출고수량: 48 }], { 478: 48 }), false);
+  assert.equal(hasDistributionDrafts([], {777:5,888:7}),true,'staged customers without persisted rows are unsaved drafts');
+  assert.equal(hasDistributionDrafts([], {777:0,888:''}),false,'empty staged customers create no draft');
+  assert.equal(hasDistributionDrafts([{CustKey:478,출고수량:48}],{478:48,777:5}),true,'new customer draft is protected beside unchanged existing rows');
 });
 
 test('exe-style week buttons: ±3 majors keep year/sub-week, sub-week buttons keep major, edges clamp', async () => {
