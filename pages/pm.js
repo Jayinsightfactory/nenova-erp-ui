@@ -24,11 +24,11 @@ import StaffRequests, { StaffRequestsButton } from '../components/pm/StaffReques
 import dynamic from 'next/dynamic';
 const Scene3D = dynamic(() => import('../components/pm3d/Scene3D'), { ssr: false, loading: () => <p className="muted">3D 장면 불러오는 중…</p> });
 
-export async function getServerSideProps({ req, res, resolvedUrl }) {
+export async function getServerSideProps({ req, res, resolvedUrl, query }) {
   const user = await verifyReqUser(req, res);
   if (!user) return { redirect: { destination: '/login?next=' + encodeURIComponent(resolvedUrl || '/pm'), permanent: false } };
   // 보기는 로그인 직원 전체 허용. 쓰기 동작은 API 가 관리자만 허용(isAdmin=UI 힌트).
-  return { props: { userId: user.userId || '', isAdmin: isOrbitReportViewer(user), myStaff: staffOfUser(user) } };
+  return { props: { requestMode:['list','new'].includes(query?.requests)?query.requests:null, requestFocus:typeof query?.requestId==='string'&&/^[a-f0-9]{12}$/.test(query.requestId)?query.requestId:null, userId: user.userId || '', isAdmin: isOrbitReportViewer(user), myStaff: staffOfUser(user) } };
 }
 
 const POLL_MS = 20000;
@@ -740,7 +740,7 @@ function HandoffChains({ workLog, handoffs, reduced, onOpenPerson }) {
   );
 }
 
-export default function PmOffice({ isAdmin = false, myStaff = null }) {
+export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=null,requestFocus=null }) {
   const [resp, setResp] = useState(null);
   const [err, setErr] = useState('');
   const [now, setNow] = useState(0);
@@ -752,7 +752,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
   const onTip = useCallback((l, toggle) => setTip((cur) => (toggle && cur && cur.name === l.name && cur.stage === l.stage ? null : l)), []);
   const [reduced, setReduced] = useState(false);
   const pmTheme = usePmThemeState(myStaff || '');
-  const [reqOpen, setReqOpen] = useState(false);
+  const [reqOpen, setReqOpen] = useState(!!requestMode);
   const [pmOpen, setPmOpen] = useState(false);
   const floorRef = useRef(null);
   // 장면(아이소메트릭) / 목록(예전 카드 격자) 보기 — 이 PC 편의 설정
@@ -844,7 +844,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         <ThemePicker value={pmTheme.themeId} onChange={pmTheme.pick} />
         {err && <span className="badge warn">불러오기 실패: {err}</span>}
       </header>
-      <StaffRequests open={reqOpen} onClose={() => setReqOpen(false)} />
+      <StaffRequests startWriting={requestMode==='new'} focusId={requestFocus} open={reqOpen} onClose={() => setReqOpen(false)} />
       {pmOpen && <PmPopover pmAgent={pmAgent} detail={d.pmDetail} tasks={tasks} now={now} onClose={() => setPmOpen(false)}
         onOpenGoals={() => { setPmOpen(false); const el = document.querySelector('.vispanel'); if (el) { el.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }} />}
       <GardenStrip />
