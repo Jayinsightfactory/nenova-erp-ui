@@ -18,7 +18,7 @@ async function main(){
     if(req.method()==='GET')d={ok:true,states:String(u.searchParams.get('keys')||'').split(',').filter(Boolean).map(key=>guideDone[key]||{key,done:false,revision:null,at:null})};
     else {const state={key:body.key,done:body.done,revision:body.requestId,at:new Date().toISOString()};guideDone[body.key]=state;d={ok:true,state};}
   }
-  if(u.pathname==='/api/shipment/distribution-confirmation')d={ok:true,week:u.searchParams.get('week'),rows:[{category:'콜롬비아카네이션',detailCount:2,fixedCount:2,status:'FIXED'},{category:'미국더글라스',detailCount:1,fixedCount:0,status:'UNFIXED'}]};
+  if(u.pathname==='/api/shipment/distribution-confirmation')d={ok:true,week:u.searchParams.get('week'),categories:['콜롬비아카네이션'],rows:[{category:'콜롬비아카네이션',detailCount:2,fixedCount:2,status:'FIXED'},{category:'미국더글라스',detailCount:1,fixedCount:0,status:'UNFIXED'}]};
   if(u.pathname==='/api/auth/me')d.user={userId:account,userName:'영업지원 연습',authority:2};
   if(u.pathname==='/api/kakao/sales-feed')d={ok:true,hasMore:false,nextAfterKey:'guide-cancel',messages:[{source:'nenovakakao',chat_id:'fixture',external_message_id:'guide-add',chatroom:'영업방',sender:'연습 담당',created_at:'2026-11-13T10:00:00+09:00',message:'연습업체 카네이션 1박스 추가'},{source:'nenovakakao',chat_id:'fixture',external_message_id:'guide-cancel',chatroom:'영업방',sender:'연습 담당',created_at:'2026-11-13T10:05:00+09:00',message:'연습업체 카네이션 1박스 취소'},...Array.from({length:20},(_,i)=>({source:'nenovakakao',chat_id:'fixture',external_message_id:'guide-scroll-'+i,chatroom:'영업방',sender:'연습 담당',created_at:'2026-11-13T10:'+String(i+6).padStart(2,'0')+':00+09:00',message:'연습업체 '+(i+1)+' 카네이션 1박스 추가\n업체와 품목을 확인하는 연습 요청입니다.'}))]};
   if(u.pathname==='/api/favorites'){
@@ -32,6 +32,8 @@ async function main(){
   if(type==='custWeekGrid')d.rows=[{...prod,SdetailKey:101,OutQuantity:1,...Object.fromEntries(context.calendar.flatMap(r=>[[`ymd${r.WeekDay}`,r.Timestamp.slice(0,10)],[`day${r.WeekDay}`,context.dates.find(x=>x.Timestamp===r.Timestamp)?.ShipmentQuantity||0]]))}];
   if(['custItems','products'].includes(type) && u.searchParams.get('week')?.endsWith('45-03')){if(type==='custItems')d.items=[];else d.products=[];}
   if(type==='workspaceCustomers' && u.searchParams.get('week')?.endsWith('45-03'))d.customers=[{...customer(),noOrder:true}];
+  if(process.argv.includes('--layout-only')&&type==='custDist')d.customers=Array.from({length:40},(_,i)=>({...customer(),CustKey:777+i,CustName:'연습업체 '+i}));
+  if(process.argv.includes('--layout-only')&&type==='custItems')d.items=Array.from({length:40},(_,i)=>({...prod,ProdKey:3513+i,ProdName:'Layout '+i,출고수량:1,주문수량:1}));
   if(type==='fixedScopes')d.scopes=[{prodKey:3513,fixed:true,countryFlower:'콜롬비아카네이션'}];
   if(u.pathname==='/api/shipment/distribution-dates'){
     if(req.method()==='GET'){let ctx=staleRead?{...context,dates:context.dates.map((r,i)=>i? r:{...r,ShipmentQuantity:r.ShipmentQuantity+0.1})}:context;if(stalePack)ctx={...ctx,detail:{...ctx.detail,BunchOf1Box:16}};d={success:true,context:ctx,snapshot:core.distributionDateSnapshot(ctx),blocked:''};}
@@ -66,7 +68,7 @@ async function main(){
   assert(customerGets>=4);assert(!posts.some(p=>p.path.startsWith('/api/orders')||p.path.startsWith('/api/shipment')));assert.deepEqual(errors,[]);
   console.log('PASS delayed customer-load race: week effect plus manual search, 2025/2026 same45, customer list visible/loading cleared, no ERP writes');return;
  }
- if(record)rec=await createWorkflowGuideRecorder(page,{root,workflowId:'shipment-distribution-dates',guideId:'support',title:'농장·업체별 출고분배와 출고일',sourceFiles:['components/shipment/DistributionConfirmationSummary.js','lib/distributionKakaoDoneClient.js','lib/distributionKakaoRequests.js','lib/distributionSalesInboxRefresh.js','pages/shipment/distribute.js','components/shipment/DistributionKakaoFeed.js','components/shipment/DistributionDateEditor.js','components/shipment/DistributionProductTree.js','components/shipment/DistributionDateFilter.js','lib/shipmentDistributionNavigation.js','components/shipment/DistributionInlineDates.js','lib/shipmentInlineDates.js','lib/shipmentDateDisplayUnits.js','lib/shipmentMajorInlineDates.js'],fixtureOnly:true});
+ if(record)rec=await createWorkflowGuideRecorder(page,{root,workflowId:'shipment-distribution-dates',guideId:'support',title:'농장·업체별 출고분배와 출고일',sourceFiles:['components/shipment/DistributionFixToggle.js','components/shipment/DistributionScrollBar.js','components/shipment/DistributionConfirmationSummary.js','lib/distributionKakaoDoneClient.js','lib/distributionKakaoRequests.js','lib/distributionSalesInboxRefresh.js','pages/shipment/distribute.js','components/shipment/DistributionKakaoFeed.js','components/shipment/DistributionDateEditor.js','components/shipment/DistributionProductTree.js','components/shipment/DistributionDateFilter.js','lib/shipmentDistributionNavigation.js','components/shipment/DistributionInlineDates.js','lib/shipmentInlineDates.js','lib/shipmentDateDisplayUnits.js','lib/shipmentMajorInlineDates.js'],fixtureOnly:true});
  if(process.argv.includes('--camera-probe'))rec={chapter:()=>{},caption:async()=>{},pause:async()=>{},unfocus:async()=>{},stop:async()=>{},focus:async(selector,number)=>{const box=await page.$eval(selector,n=>{const r=n.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,w:r.width,h:r.height};});if(box.x<0||box.x>1920||box.y<70||box.y>900)throw Error('CAMERA '+number+' '+selector+' '+JSON.stringify(box));}};
  if(rec){const chapter=rec.chapter;rec.chapter=async(scenario,title)=>{step++;chapter(scenario,`${step}. ${title}`);await rec.caption(`${step}. ${title} · 전체 화면에서 조작 위치를 확인하세요.`);await rec.pause(1200);};}
  if(rec)await rec.chapter('country','국가 선택과 독립 탐색');
@@ -90,6 +92,39 @@ async function main(){
  await select('select[aria-label="품종·품목 출고일 분류"]','2026-11-06');await page.waitForSelector('[data-ai-verify="product-3513"]');
  assert.equal(await page.$$eval('[data-ai-verify="product-3515"]',n=>n.length),0);await select('select[aria-label="품종·품목 출고일 분류"]','');
  await click('[data-ai-verify="product-3513"]');await page.waitForSelector('[data-ai-verify="date-edit-777-3513"]');
+ if(process.argv.includes('--layout-only')){
+  await page.setViewport({width:1100,height:800});await new Promise(r=>setTimeout(r,500));
+  const verify=async(mode)=>{
+   const sel=`[data-distribution-scroll="${mode}"]`;
+   await page.waitForFunction(s=>{const n=document.querySelector(s);return n&&n.scrollHeight>n.clientHeight;},{},sel);
+   const before=await page.$eval('button[aria-keyshortcuts="Control+S"]',n=>n.getBoundingClientRect().top);
+   await page.$eval(sel,n=>{n.scrollTop=500;});
+   const rect=await page.$eval(sel,n=>({top:n.getBoundingClientRect().top,head:n.querySelector('table > thead').getBoundingClientRect().top,scroll:n.scrollTop}));
+   assert(rect.scroll>0);assert(Math.abs(rect.head-rect.top)<3,'table header remains fixed '+mode+JSON.stringify(rect));
+   assert.equal(await page.$eval('button[aria-keyshortcuts="Control+S"]',n=>n.getBoundingClientRect().top),before);
+   const bar='[data-testid="distribution-top-scroll"]';await page.$eval(bar,n=>{n.scrollLeft=300;});await new Promise(r=>setTimeout(r,200));
+   const sizes=await page.$eval(sel,n=>({left:n.scrollLeft,max:n.scrollWidth-n.clientWidth}));
+   if(sizes.max>0)assert(sizes.left>0,'top bar sync '+mode+JSON.stringify({sizes,bar:await page.$eval(bar,n=>({width:n.clientWidth,scroll:n.scrollWidth,left:n.scrollLeft}))}));
+   await page.$eval(sel,n=>{n.scrollTop=0;n.scrollLeft=0;});
+  };
+  await verify('prod');await text('출고분배 및 업체정보');await click('[data-ai-verify="customer-777"]');await page.waitForSelector('[data-testid="distribution-single-group-buttons"]');await verify('cust');
+  assert.equal(await page.$$eval('[data-testid="distribution-single-group-buttons"] button',n=>n.length)>1,true);
+  console.log('PASS 40-row farm/company: internal vertical scroll, sticky table headers/save toolbar, top horizontal mirror, one-customer family choices');return;
+ }
+ const toggle='[data-testid="distribution-fix-toggle"]';await page.waitForFunction(s=>document.querySelector(s)?.textContent.includes('확정취소'),{},toggle);
+ if(rec)await rec.focus(toggle,step);await hold('이미 확정된 카테고리는 빨간 확정취소 버튼으로 표시합니다.\n버튼을 누르면 실제 카테고리 범위를 다시 확인하고 처리합니다.');if(rec)await rec.unfocus();
+ const scroll='[data-testid="distribution-top-scroll"]';
+ if(!record){
+  await page.setViewport({width:390,height:844});
+  await page.waitForFunction(()=>{const n=document.querySelector('[data-distribution-scroll="prod"]');return n&&n.scrollWidth>n.clientWidth;});
+  await page.$eval(scroll,n=>{n.scrollLeft=300;});await new Promise(r=>setTimeout(r,150));
+  assert(await page.$eval('[data-distribution-scroll="prod"]',n=>n.scrollLeft>0),'top bar moves farm table');
+  await page.$eval('[data-distribution-scroll="prod"]',n=>{n.scrollLeft=100;});await new Promise(r=>setTimeout(r,150));
+  assert(await page.$eval(scroll,n=>n.scrollLeft===100),'table moves top bar');
+  await page.$eval(scroll,n=>{n.scrollLeft=0;});await page.setViewport({width:1920,height:1080});
+ }
+ if(rec)await rec.focus(scroll,step);await hold('상단 좌우 이동바는 넓은 표를 이동할 때 사용합니다.\n차수와 저장 버튼은 상단에 고정되어 있습니다.');if(rec)await rec.unfocus();
+
  if(rec)await rec.chapter('dates','업체 검색과 날짜별 수량 입력');
  const farmSearch='[data-ai-verify="farm-distribution-customer-search"]';
  await hold('최근 3일 영업방의 추가·취소 요청을 자동으로 불러옵니다.\n15초마다 새 요청을 확인합니다. 잔량·출고일 변경은 제외합니다.');
@@ -139,6 +174,11 @@ async function main(){
  await text('출고분배 및 업체정보');await page.waitForSelector('[data-ai-verify="customer-777"]');
  assert.equal(await page.$$eval('[data-testid="distribution-group-buttons"]',n=>n.length),0,'farm country controls absent in customer workspace');
  await click('[data-ai-verify="customer-777"]');await page.waitForSelector('[data-ai-verify="date-edit-777-3513"]');
+ await page.waitForSelector('[data-testid="distribution-single-group-buttons"]');
+ await click('[data-ai-verify="single-group-콜롬비아 카네이션"]');
+ await hold('업체 하나만 선택해도 품종 버튼으로 좁혀 볼 수 있습니다.\n상단 저장 버튼과 좌우 이동바는 스크롤해도 남아 있습니다.');
+ await click('[data-ai-verify="single-group-all"]');
+
  assert((await page.content()).includes('US Douglas'),'customer items not restricted by farm country');
  assert.equal(await page.$eval(doneSelector,n=>n.checked),true,'customer tab shares checked chat');
  await hold('업체정보에서도 같은 카톡 요청을 확인합니다.\n농장정보에서 체크한 작업완료와 초록색 표시가 유지됩니다.');
@@ -147,7 +187,7 @@ async function main(){
  await click('[data-ai-verify="date-edit-777-3513"]');await page.waitForSelector('[role="dialog"] input');await text('닫기');
  await hold('두 작업공간 모두 저장된 출고일로 분류합니다.\n행 옆 날짜순 단·송이 입력칸에서 총량을 유지하며 날짜별 수량을 바꿉니다.');
  assert.deepEqual(errors,[]);assert.equal(posts.filter(x=>x.path==='/api/orders'||x.path==='/api/shipment/distribute').length,0);
- if(record){capturedGuide=await rec.stop();stopped=true;const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8'));const wf=registry.workflows.find(w=>w.id==='shipment-distribution-dates');wf.sourceFiles=['components/shipment/DistributionConfirmationSummary.js','lib/distributionKakaoDoneClient.js','lib/distributionKakaoRequests.js','lib/distributionSalesInboxRefresh.js','pages/shipment/distribute.js','components/shipment/DistributionKakaoFeed.js','components/shipment/DistributionDateEditor.js','components/shipment/DistributionProductTree.js','components/shipment/DistributionDateFilter.js','lib/shipmentDistributionNavigation.js','components/shipment/DistributionInlineDates.js','lib/shipmentInlineDates.js','lib/shipmentDateDisplayUnits.js','lib/shipmentMajorInlineDates.js'];wf.guides[0].status='ready';wf.guides[0].chapters=capturedGuide.chapters;fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');return;}
+ if(record){capturedGuide=await rec.stop();stopped=true;const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8'));const wf=registry.workflows.find(w=>w.id==='shipment-distribution-dates');wf.sourceFiles=['components/shipment/DistributionFixToggle.js','components/shipment/DistributionScrollBar.js','components/shipment/DistributionConfirmationSummary.js','lib/distributionKakaoDoneClient.js','lib/distributionKakaoRequests.js','lib/distributionSalesInboxRefresh.js','pages/shipment/distribute.js','components/shipment/DistributionKakaoFeed.js','components/shipment/DistributionDateEditor.js','components/shipment/DistributionProductTree.js','components/shipment/DistributionDateFilter.js','lib/shipmentDistributionNavigation.js','components/shipment/DistributionInlineDates.js','lib/shipmentInlineDates.js','lib/shipmentDateDisplayUnits.js','lib/shipmentMajorInlineDates.js'];wf.guides[0].status='ready';wf.guides[0].chapters=capturedGuide.chapters;fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');return;}
  // Empty-scope and near-miss regressions are dry-only, after the narrated workflow.
  for(const year of [2025,2026]){await week(year+'-45-03');await page.waitForSelector('[data-testid="distribution-no-order-candidates"]');await click('[data-ai-verify="customer-777"]');await page.waitForNetworkIdle({idleTime:200});await click('[data-ai-verify="add-panel-open"]');await page.waitForSelector('[data-testid="distribution-add-panel"]');await page.type('[data-ai-verify="add-prod-search"]','Honey');await click('[data-ai-verify="add-prod-3513"]');await click('[data-ai-verify="add-panel-close"]');}
  assert.equal(posts.filter(x=>x.path==='/api/orders'||x.path==='/api/shipment/distribute').length,0);
