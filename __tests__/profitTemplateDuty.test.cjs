@@ -173,7 +173,7 @@ test('older derived payload cannot double-add duty; final cache preserves separa
  const orphan=structuredClone(old);delete orphan.templateDuty;
  assert.throws(()=>m.applyTemplateDutyView(orphan,ctx()),e=>e.code==='DUTY_DERIVED_VERSION_MISMATCH');
  const report=fs.readFileSync('pages/api/sales/profit-report.js','utf8');
- assert.match(report,/saveProfitCache\(options,async\(major,orderYear\)=>finalizeProfitCachePayload/);
+ assert.match(report,/saveProfitCache\(options,\(major,orderYear\)=>loadCoherentLatestReport\(major,orderYear,\{forCache:true\}\)\)/);
  assert.match(report,/await loadReportData\(major,orderYear\)/);
  const confirm=fs.readFileSync('pages/api/sales/profit-report-confirm.js','utf8');
  assert.match(confirm,/await loadReportData\(major, orderYear\)/);

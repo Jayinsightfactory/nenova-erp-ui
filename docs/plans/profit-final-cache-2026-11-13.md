@@ -17,7 +17,7 @@ FormSalesView.GetData의 기존 ViewShipment/ViewOrder/ShipmentDate/PeriodDay �
 |donor 읽기|완성 계산본의 cacheSourcePayload만 원천으로 사용|읽기만|보존|
 |원천/관세/평균 연결 실패|INSERT0/기존 transaction rollback|보존|보존|
 
-`finalizeProfitCachePayload`는 raw materialization→strict 관세/평균 연결→최종 형식/연도/차수검사→최종 calc 보존과 raw donor 분리를 수행한다. 명시 저장은 관세 메모리 캐시를 새로 읽는다. `saveProfitCache`는 이미 검증된 materialized calc를 auto/manual로 재계산하지 않는다. `profitCacheSourcePayload`는 동일 연도/차수·정책버전·원천 형식을 검증하며 중첩/누락/상이연도 donor를 거부한다. 옛 계산본/확정 JSON의 UPDATE/DELETE 및 schema 변경0.
+`finalizeProfitCachePayload`는 raw materialization→strict 관세/평균 연결→최종 형식/연도/차수검사→최종 calc 보존과 raw donor 분리를 수행한다. 명시 저장은 기존 loadCoherentLatestReport의 current/prior 최신 SQL·전체 연도/인보이스/정산 원천 전후 fence와 strict 연결을 공유하며 관세 메모리 캐시를 새로 읽는다. 원천 donor도 필요한 저장 계산은 일반 GET in-flight 결과를 차용하지 않고 별도 scoped read를 수행한다. `saveProfitCache`는 이미 검증된 materialized calc를 auto/manual로 재계산하지 않는다. `profitCacheSourcePayload`는 동일 연도/차수·정책버전·원천 형식을 검증하며 중첩/누락/상이연도 donor를 거부한다. 옛 계산본/확정 JSON의 UPDATE/DELETE 및 schema 변경0.
 
 기존 사용자가 누르는 조회/계산본 생성·갱신 순서·버튼·페이지 구조 변경 없음. 화면틀/스크롤/키보드/가이드 신규 변경 해당없음. 원가 산식·관세율·EXE/SP 변경 없음. 계산 보류 원천을 임의0으로 만드는 수정 아님. 45·46 조회의 HTTP HTML 오류는 저장 완료와 별개로 검증한다.
 

@@ -63,11 +63,10 @@ test('production snapshot transaction preserves completed cells, original versio
  assert.equal(C.profitDisplayCalculation(revisited).rows[0].calc.J,790);
 });
 test('all refresh callers use finalization inside the existing atomic snapshot service',async()=>{
- const{F}=await fixtures();const source=fs.readFileSync(path.join(root,'pages/api/sales/profit-report.js'),'utf8');
+ const source=fs.readFileSync(path.join(root,'pages/api/sales/profit-report.js'),'utf8');
  const body=source.slice(source.indexOf('export async function saveProfitReportCache('),source.indexOf('/**',source.indexOf('export async function saveProfitReportCache('))).replace('export ','');
- let strict=false;
- let cleared=0;
- const fn=new Function('saveProfitCache','loadReportData','finalizeProfitCachePayload','applyTemplateDutyToReport','clearTemplateDutyCache',body+';return saveProfitReportCache;')
-  (async(o,compute)=>compute(o.major,o.orderYear),async()=>raw(),F.finalizeProfitCachePayload,async(p,y,m,options)=>{strict=options.strict;assert.equal(cleared,1);assert.equal(y,'2026');assert.equal(m,'36');return p;},()=>cleared++);
- assert.equal((await fn({orderYear:'2026',major:'36'})).cacheFinalizationVersion,1);assert.equal(strict,true);
+ let called=0;
+ const fn=new Function('saveProfitCache','loadCoherentLatestReport',body+';return saveProfitReportCache;')
+  (async(o,compute)=>compute(o.major,o.orderYear),async(m,y,options)=>{called++;assert.equal(y,'2026');assert.equal(m,'36');assert.equal(options.forCache,true);return finalFixture();});
+ assert.equal((await fn({orderYear:'2026',major:'36'})).cacheFinalizationVersion,1);assert.equal(called,1);
 });

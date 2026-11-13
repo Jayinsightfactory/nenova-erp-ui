@@ -66,6 +66,12 @@ async function main(){
   confirm=null;changeSettlement=true;
   await assert.rejects(L.loadWeeklyReportPayload('44','2026'),e=>e.statusCode===409&&e.code==='PROFIT_SOURCES_CHANGED');
   changeSettlement=false;assert.equal(frozen.rows[0].calc.C,12345,'new source fence never mutates the saved calculation');
+  const finalCache=await import('../lib/profitReportFinalCache.mjs');let clears=0;
+  const cacheDependencies={...dependencies,finalizeProfitCachePayload:finalCache.finalizeProfitCachePayload,clearTemplateDutyCache:()=>{clears++;},saveProfitCache:async(options,compute)=>compute(options.major,options.orderYear)};
+  const cacheLoader=new Function(...Object.keys(cacheDependencies),`${loaderBody};return {saveProfitReportCache};`)(...Object.values(cacheDependencies));
+  const beforeCacheReads=live,completed=await cacheLoader.saveProfitReportCache({orderYear:'2026',major:'44'});
+  assert.equal(live-beforeCacheReads,2,'current and prior raw SQL are both refreshed before finalization');
+  assert.equal(clears,1);assert.equal(completed.cacheFinalizationVersion,1);assert.equal(completed.cacheSourcePayload.major,'44');assert.equal(completed.financialReadPolicy.frozen,true);
   const confirmBody=api.slice(api.indexOf('async function buildConfirmedPayload'),api.indexOf('export async function currentProfitPeriod'));
   assert.doesNotMatch(confirmBody,/loadManual\(|currencyRates\(|unclassifiedDetailsByCategory\(/);
 
