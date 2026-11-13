@@ -2857,3 +2857,13 @@
 ## 2026-11-13 업무드라이브 가용 용량 자동 적용
 - 실측 디스크 여유에서 운영 예비 5GiB를 남긴 범위까지 기존 10GiB 한도 확대. 최대 100GiB. 업로드/용량 테스트·필수 ERP 검증·로컬 빌드 통과. 운영 반영 미검증.
 검색어: 업무드라이브 100GiB 가용공간 운영여유 5GiB
+
+
+## 2026-11-13 — 출고분배 업체 무제한·독립 스크롤 진행
+- 사용자 요청: 업체 5개 선택 제한 해제, 카네이션 표시 접두어 정리·품목 셀 축소, 출고일 기본 표시/숨김, 여러 업체 사이 이동칸 제거. 아래 품목 선택해도 업체 검색/추가/선택품목과 표 머리글 고정.
+- 신규 작업트리 nw-unlimited-customers-1113 (origin/master ad41db286). dnSpy FormShipmentDistribution 재확인, year/week read-only probe. 운영 쓰기0.
+- 8업체 actual production API→LocalDB 저장 및 새로고침, actual estimate API 인쇄/엑셀 각8행, ECOUNT1080단 및 금액·VAT·XLSX 재열기 통과. 출력 확정 자격만 fixture seed, native 확정/취소는 별도 실제 SP 검증 통과.
+- 연속 추가·업체별 조회 소유권·동적 슬롯/색상, 가운데 업체2 제거 시 나머지 초안 승격보존, 조회실패 저장금지, 1000행 사전차단. 2업체 이상 동일 붙은 비교표, 이동은 별도창.
+- 긴 좌측70품목 끝 선택 + 우측40행 양모드 context/thead 고정 및 상단 좌우바·저장 위치 검증 통과. 상세 docs/plans/distribution-unlimited-customers-2026-11-13.md.
+- 미완료: 최신 화면 영상 재촬영·정식 build, CI/병합·Cafe24·실운영 브라우저 확인 진행 중.
+검색어: 출고분배 업체 무제한 8업체 LocalDB 독립스크롤 업체검색 고정 출고일 숨김 수량이동 CARNATION

@@ -1,3 +1,6 @@
+import DistributionMoveDialog from '../../components/shipment/DistributionMoveDialog';
+import {distributionPeerColor,distributionSlotMark,createDistributionPeerReads,assertDistributionBatchSize} from '../../lib/shipmentDistributionPeers.js';
+import {useDistributionViewport} from '../../lib/useDistributionViewport.js';
 import DistributionScrollBar from '../../components/shipment/DistributionScrollBar';
 import DistributionInlineDates, {DistributionInlineDatesHeader} from '../../components/shipment/DistributionInlineDates';
 import DistributionKakaoFeed from '../../components/shipment/DistributionKakaoFeed';
@@ -105,8 +108,6 @@ function autoSplitQty(totalQty, dayCount) {
 }
 
 // 나란히 보기 업체 3~5 색과 번호 표시
-const PEER_COLORS = ['#047857', '#7c3aed', '#be185d'];
-const SLOT_MARK = ['①', '②', '③', '④', '⑤'];
 
 export default function Distribute() {
   const { t } = useLang();
@@ -177,7 +178,12 @@ export default function Distribute() {
   const [pairGroupFilter, setPairGroupFilter] = useState(''); // 나란히 보기 품종 버튼 (화면 필터 전용)
   // 업체 3~5 (나란히 보기 추가 칸): [{ cust, items, inputs }] — 업체 1·2와 같은 custItems 조회·배치 저장 경로
   const [extraPeers, setExtraPeers] = useState([]);
-  const [extraLoading, setExtraLoading] = useState(0);
+  const extraLoading = extraPeers.filter(p=>p.loading).length;
+  const [customerReadError,setCustomerReadError]=useState(''),[pairReadError,setPairReadError]=useState('');
+  const [appendCompany,setAppendCompany]=useState(false);
+  const [showCustomerDates,setShowCustomerDates]=useState(true);
+  const [moveOpen,setMoveOpen]=useState(false);
+  const peerReads=useRef(createDistributionPeerReads());
   const [multiMove, setMultiMove] = useState({});
   // 품목추가·수량추가 창: 품종 → 품목 → 단위 → ± 버튼 (현재 수량에 더하기, 저장은 기존 업체 탭 저장)
   const [addPanel, setAddPanel] = useState(null);
@@ -278,8 +284,11 @@ export default function Distribute() {
   const favoritesRequestRef = useRef(0);
   const accountRef = useRef('');
   const saveInFlightRef = useRef(false);
-  const anySaveModal = Boolean(saveModal || spModal || showHistory);
-  const saveBlocked = hasDateDrafts || tab > 1 || !!dateEditor || saving || loading || distLoading || custLoading || spLoading || fixLoading || shipDaySaving || anySaveModal;
+  const anySaveModal = Boolean(saveModal || spModal || showHistory || moveOpen);
+  const saveBlocked = hasDateDrafts || tab > 1 || !!dateEditor || saving || loading || distLoading || custLoading || pairLoading || extraLoading>0 || extraPeers.some(p=>p.error)||!!customerReadError||!!pairReadError || spLoading || fixLoading || shipDaySaving || anySaveModal;
+
+  const workspaceRef=useRef(null);
+  useDistributionViewport(workspaceRef,`${tab}|${selectedProd?.ProdKey}|${selectedCust?.CustKey}|${distLoading}|${custLoading}|${pairLoading}|${extraLoading}|${showCustomerDates}`);
 
   const loadFavoriteProducts = useCallback(async () => {
     const request = ++favoritesRequestRef.current;
@@ -451,8 +460,8 @@ export default function Distribute() {
       customerRequestRef.current += 1;tab2RequestRef.current += 1;pivotRequestRef.current += 1;
       setSelectedCust(null); setCustItems([]); setCustEditInputs({});
       pairRequestRef.current += 1;
-      setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1); setMoveQtyInputs({}); setPairGroupFilter('');
-      extraRequestRef.current += 1; setExtraPeers([]); setMultiMove({});
+      setCustomerReadError('');setPairReadError('');setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1); setMoveQtyInputs({}); setPairGroupFilter('');
+      extraRequestRef.current += 1;peerReads.current.reset(); setExtraPeers([]); setMultiMove({});
     }
     setProdAddedCusts([]); setProdAddOpen(false);
     setSelectedDistCust(null); setFarmRows([]);
@@ -894,10 +903,11 @@ export default function Distribute() {
   const selectCust = async (cust, { skipDraftCheck = false } = {}) => {
     if ((saving || loading) && !skipDraftCheck) return;
     if (!week || !inCustomerPool(cust)) return;
+    if([pairCust,...extraPeers.map(p=>p.cust)].some(c=>Number(c?.CustKey)===Number(cust.CustKey))){setErr('이미 다른 열에서 선택한 업체입니다.');return;}
     if (!skipDraftCheck && !confirmCustomerDraftDiscard()) return;
     const request = ++customerRequestRef.current;
     const requestedWeek = week;
-    setSelectedCust(cust); setPairSlot(1);
+    setSelectedCust(cust); setPairSlot(1);setCustomerReadError('');
     setCustItems([]); setCustEditInputs({});
     setCustLoading(true);
     try {
@@ -912,7 +922,7 @@ export default function Distribute() {
         inputs[item.ProdKey] = { outQty: item.출고수량 || 0, cost: item.Cost || 0 };
       });
       setCustEditInputs(inputs);
-    } catch(e) { if (request === customerRequestRef.current) setErr(e.message); }
+    } catch(e) { if (request === customerRequestRef.current){setErr(e.message);setCustomerReadError(e.message);} }
     finally { if (request === customerRequestRef.current) setCustLoading(false); }
   };
 
@@ -920,12 +930,13 @@ export default function Distribute() {
   const selectPairCust = async (cust, { skipDraftCheck = false } = {}) => {
     if ((saving || loading) && !skipDraftCheck) return;
     if (!week || !inCustomerPool(cust)) return;
+    if(extraPeers.some(p=>Number(p.cust.CustKey)===Number(cust.CustKey))){setErr('이미 다른 열에서 선택한 업체입니다.');return;}
     if (Number(cust.CustKey) === Number(selectedCust?.CustKey)) { setErr('업체 1과 같은 업체는 업체 2로 선택할 수 없습니다.'); return; }
     if (!skipDraftCheck && hasDistributionDrafts([], {}, pairItems, pairEditInputs) &&
       !window.confirm('업체 2의 저장하지 않은 변경이 있습니다. 업체를 바꾸면 입력값이 사라집니다. 계속하시겠습니까?')) return;
     const request = ++pairRequestRef.current;
     const requestedWeek = week;
-    setPairCust(cust);
+    setPairCust(cust);setPairReadError('');
     setPairItems([]); setPairEditInputs({}); setMoveQtyInputs({}); setPairGroupFilter('');
     setPairLoading(true);
     try {
@@ -937,63 +948,70 @@ export default function Distribute() {
       const inputs = {};
       items.forEach(item => { inputs[item.ProdKey] = { outQty: item.출고수량 || 0, cost: item.Cost || 0 }; });
       setPairEditInputs(inputs);
-    } catch(e) { if (request === pairRequestRef.current) setErr(e.message); }
+    } catch(e) { if (request === pairRequestRef.current){setErr(e.message);setPairReadError(e.message);} }
     finally { if (request === pairRequestRef.current) setPairLoading(false); }
   };
   const clearPairCust = () => {
     if (hasDistributionDrafts([], {}, pairItems, pairEditInputs) &&
       !window.confirm('업체 2의 저장하지 않은 변경이 있습니다. 해제하면 입력값이 사라집니다. 계속하시겠습니까?')) return;
-    if (extraHasDrafts() && !window.confirm('업체 3~5의 저장하지 않은 변경도 함께 사라집니다. 계속하시겠습니까?')) return;
+    if(pairLoading||extraLoading)return;
     pairRequestRef.current += 1;
-    setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1); setMoveQtyInputs({}); setPairGroupFilter('');
-    extraRequestRef.current += 1; setExtraPeers([]); setMultiMove({});
+    const next=extraPeers[0];
+    if(next){peerReads.current.cancel(week,next.cust.CustKey);setPairCust(next.cust);setPairItems(next.items);setPairEditInputs(next.inputs);setExtraPeers(prev=>prev.slice(1));}
+    else {setPairCust(null);setPairItems([]);setPairEditInputs({});}
+    setPairReadError('');setPairSlot(1);setMoveQtyInputs({});setPairGroupFilter('');setMultiMove({});
   };
   // 업체 3~5 선택 — slot 3 이면 extraPeers[0]. 앞 칸이 비어 있으면 다음 빈 칸에 채운다.
   const updateExtra = (index, key, next) => setExtraPeers(prev => prev.map((p, i) => i === index ? { ...p, [key]: typeof next === 'function' ? next(p[key]) : next } : p));
   const selectExtraCust = async (cust, slot, { skipDraftCheck = false } = {}) => {
-    if ((saving || loading) && !skipDraftCheck) return;
-    if (!week || !pairCust || !inCustomerPool(cust)) return;
-    const index = Math.min(slot - 3, extraPeers.length);
-    const taken = [selectedCust, pairCust, ...extraPeers.filter((_, i) => i !== index).map(p => p.cust)];
-    if (taken.some(c => Number(c?.CustKey) === Number(cust.CustKey))) { setErr('이미 다른 칸에 선택된 업체입니다.'); return; }
-    const prev = extraPeers[index];
-    if (!skipDraftCheck && prev && Number(prev.cust.CustKey) !== Number(cust.CustKey) && hasDistributionDrafts([], {}, prev.items, prev.inputs) &&
-      !window.confirm(`업체 ${index + 3}의 저장하지 않은 변경이 있습니다. 업체를 바꾸면 입력값이 사라집니다. 계속하시겠습니까?`)) return;
-    const request = ++extraRequestRef.current;
-    const requestedWeek = week;
-    setExtraPeers(list => { const next = [...list]; next[index] = { cust, items: [], inputs: {} }; return next; });
-    setExtraLoading(n => n + 1);
-    try {
-      const d = await apiGetDistribute({ type:'custItems', week, custKey: cust.CustKey });
-      if (request !== extraRequestRef.current || requestedWeek !== currentWeekRef.current) return;
-      if (d?.success !== true) throw new Error(`업체 ${index + 3} 품목 조회 결과를 확인하지 못했습니다.`);
-      const items = sortDistributionProducts(d.items || []);
-      const inputs = {};
-      items.forEach(item => { inputs[item.ProdKey] = { outQty: item.출고수량 || 0, cost: item.Cost || 0 }; });
-      setExtraPeers(list => list.map((p, i) => i === index && Number(p.cust.CustKey) === Number(cust.CustKey) ? { cust, items, inputs } : p));
-    } catch(e) { if (request === extraRequestRef.current) setErr(e.message); }
-    finally { setExtraLoading(n => Math.max(0, n - 1)); }
+    if ((saving || loading) && !skipDraftCheck) return false;
+    if (!week || !pairCust || !Number.isInteger(slot) || slot<3 || (!inCustomerPool(cust)&&!(skipDraftCheck&&extraPeers.some(p=>Number(p.cust.CustKey)===Number(cust?.CustKey))))) return false;
+    const index=Math.min(slot-3,extraPeers.length);
+    const taken=[selectedCust,pairCust,...extraPeers.filter((_,i)=>i!==index).map(p=>p.cust)];
+    if(taken.some(c=>Number(c?.CustKey)===Number(cust.CustKey))){setErr('이미 다른 칸에 선택된 업체입니다.');return false;}
+    const prev=extraPeers[index];
+    if(!skipDraftCheck&&prev&&Number(prev.cust.CustKey)!==Number(cust.CustKey)&&hasDistributionDrafts([],{},prev.items,prev.inputs)&&!window.confirm(`업체 ${index+3}의 저장하지 않은 변경이 있습니다. 업체를 바꾸시겠습니까?`))return false;
+    if(prev)peerReads.current.cancel(week,prev.cust.CustKey);
+    let token;try{token=peerReads.current.start(week,cust.CustKey);}catch(e){setErr(e.message);return false;}
+    setExtraPeers(list=>{const next=[...list];next[index]={cust,items:[],inputs:{},loading:true,error:''};return next;});
+    try{
+      const d=await apiGetDistribute({type:'custItems',week,custKey:cust.CustKey});
+      if(!peerReads.current.current(token,currentWeekRef.current))return false;
+      if(d?.success!==true)throw Error(`업체 ${index+3} 품목 조회 결과를 확인하지 못했습니다.`);
+      const items=sortDistributionProducts(d.items||[]),inputs={};
+      items.forEach(item=>{inputs[item.ProdKey]={outQty:item.출고수량||0,cost:item.Cost||0};});
+      setExtraPeers(list=>list.map(p=>Number(p.cust.CustKey)===Number(cust.CustKey)?{cust,items,inputs,loading:false,error:''}:p));return true;
+    }catch(e){if(peerReads.current.current(token,currentWeekRef.current)){setErr(e.message);setExtraPeers(list=>list.map(p=>Number(p.cust.CustKey)===Number(cust.CustKey)?{...p,loading:false,error:e.message}:p));}return false;}
   };
   const clearExtraCust = (index) => {
     const peer = extraPeers[index];
     if (!peer) return;
     if (hasDistributionDrafts([], {}, peer.items, peer.inputs) &&
       !window.confirm(`업체 ${index + 3}의 저장하지 않은 변경이 있습니다. 해제하면 입력값이 사라집니다. 계속하시겠습니까?`)) return;
-    extraRequestRef.current += 1;
+    peerReads.current.cancel(week,peer.cust.CustKey);
     setExtraPeers(prev => prev.filter((_, i) => i !== index));
     setMultiMove({}); setPairSlot(1);
   };
   // 나란히 보기의 업체 칸들: 0=업체 1, 1=업체 2, 2~4=업체 3~5
+  const chooseCustomerSlot = cust => {
+    if(appendCompany){
+      if([selectedCust,pairCust,...extraPeers.map(p=>p.cust)].some(c=>Number(c?.CustKey)===Number(cust.CustKey)))return;
+      if(!selectedCust)return selectCust(cust);
+      if(!pairCust)return selectPairCust(cust);
+      return selectExtraCust(cust,extraPeers.length+3);
+    }
+    return !selectedCust?selectCust(cust):pairSlot>=3?selectExtraCust(cust,pairSlot):pairSlot===2?selectPairCust(cust):selectCust(cust);
+  };
   const pairSides = () => [
     { cust: selectedCust, items: custItems, inputs: custEditInputs, setItems: setCustItems, setInputs: setCustEditInputs },
     { cust: pairCust, items: pairItems, inputs: pairEditInputs, setItems: setPairItems, setInputs: setPairEditInputs },
-    ...extraPeers.map((p, i) => ({ cust: p.cust, items: p.items, inputs: p.inputs, setItems: next => updateExtra(i, 'items', next), setInputs: next => updateExtra(i, 'inputs', next) })),
+    ...extraPeers.map((p, i) => ({ cust: p.cust, items: p.items, inputs: p.inputs, loading:p.loading,error:p.error,setItems: next => updateExtra(i, 'items', next), setInputs: next => updateExtra(i, 'inputs', next) })),
   ];
   // 한쪽 업체의 출고수량을 다른 쪽으로 옮기기 (화면 입력값만; DB 반영은 저장)
   // - 이동 수량 칸이 비어 있으면 전부, 숫자가 있으면 그만큼만 (보내는 쪽 수량이 상한)
   // - 받는 업체에 그 품목 주문이 없으면 임시 행(주문수량 0)을 만들고, 저장 시 주문등록 → 분배 순으로 처리
   // - 보내는 쪽이 0 이 돼도 주문등록은 건드리지 않는다
-  const moveDistributionQty = (prodKey, fromIndex, toIndex, factor = 1) => {
+  const moveDistributionQty = (prodKey, fromIndex, toIndex, factor = 1, quantityOverride) => {
     const sides = pairSides();
     if (!sides[fromIndex]?.cust || !sides[toIndex]?.cust || fromIndex === toIndex) return;
     const { items: fromItems, inputs: fromInputs, setInputs: setFromInputs } = sides[fromIndex];
@@ -1003,13 +1021,15 @@ export default function Distribute() {
     const target = toItems.find(item => Number(item.ProdKey) === Number(prodKey));
     const fromQty = fromInputs[prodKey]?.outQty !== undefined ? parseFloat(fromInputs[prodKey].outQty) || 0 : (source.출고수량 || 0);
     const toQty = target ? (toInputs[prodKey]?.outQty !== undefined ? parseFloat(toInputs[prodKey].outQty) || 0 : (target.출고수량 || 0)) : 0;
-    const requested = String(moveQtyInputs[prodKey] ?? '').trim() === '' ? '' : toNativeQty(moveQtyInputs[prodKey], factor);
+    const raw=quantityOverride===undefined?moveQtyInputs[prodKey]:quantityOverride;
+    const requested = String(raw ?? '').trim() === '' ? '' : toNativeQty(raw, factor);
     const plan = planDistributionMove({ fromQty, toQty, requested });
     if (plan.moved <= 0) return;
     if (!target) setToItems(prev => [...prev, pendingDistributionItem(source)]);
     setFromInputs(prev => ({ ...prev, [prodKey]: { ...(prev[prodKey] || {}), outQty: plan.fromAfter } }));
     setToInputs(prev => ({ ...prev, [prodKey]: { ...(prev[prodKey] || {}), outQty: plan.toAfter, cost: prev[prodKey]?.cost ?? (target?.Cost ?? source.Cost ?? 0) } }));
     setMoveQtyInputs(prev => ({ ...prev, [prodKey]: '' }));
+    return true;
   };
 
   // 주문이 없던 업체에 옮긴 품목 → 기존 주문등록 API(가산 등록)로 먼저 주문을 만든다. 분배 저장은 그 뒤.
@@ -1083,6 +1103,7 @@ export default function Distribute() {
         ...submittedExtras.flatMap(p => toEntries(p.cust, dropEmptyPending(p.items, p.inputs), p.inputs)),
       ];
       if (entries.length === 0) { appendSaveLog({ mode: 'cust', name: pairName, week, skipped: true }); return; }
+      assertDistributionBatchSize(entries);
       // 확정 품목군이 있으면 확정해제 뒤에 주문등록·분배를 하고 재확정 (해제 실패 시 아무것도 쓰지 않음)
       await saveWithFixCycleIfNeeded({
         prodKeys: entries.map(entry => entry.prodKey),
@@ -1322,6 +1343,7 @@ export default function Distribute() {
   const pairQtyCell = (sideIndex, row, color) => {
     const side = pairSides()[sideIndex];
     if (!side?.cust) return '—';
+    if(side.error||side.loading)return <span role="status">{side.loading?'조회 중…':'조회 실패: 다시 조회하세요'}</span>;
     const item = side.items.find(i => Number(i.ProdKey) === Number(row.ProdKey));
     const edit = side.inputs[row.ProdKey] || {};
     const before = item ? Number(item.출고수량 || 0) : 0;
@@ -1352,6 +1374,7 @@ export default function Distribute() {
           })}
         </span>
         {dateButton(side.cust.CustKey,row,`${side.cust.CustName} · ${row.ProdName}`)}
+        <div>{distributionQuantityRemark(item?.ShipmentDescr,before,value,row.OutUnit)&&`${distributionSlotMark(sideIndex)} ${distributionQuantityRemark(item?.ShipmentDescr,before,value,row.OutUnit)}`}</div>
         {changed && <div data-ai-verify={`before-${side.cust.CustKey}-${row.ProdKey}`} style={{fontSize:10,color:'#b45309',textAlign:'right'}}>변경 전 {before} {row.OutUnit}</div>}
       </div>
     );
@@ -1443,13 +1466,13 @@ export default function Distribute() {
     setDateEditor({scope:{orderYear:selectedOrderYear,orderWeek:week.slice(-5),custKey:Number(custKey),prodKey:Number(prod.ProdKey)},label,inlineDraft,draftKey:`${custKey}|${prod.ProdKey}`});
   };
   const dateHeader = <DistributionInlineDatesHeader calendar={inlineCalendar} year={selectedOrderYear} week={week}/>;
-  const dateButton = (custKey, prod, label) => <DistributionInlineDates commonWeeks={majorWeekScope.weeks} commonError={majorWeekScope.error} productInfo={prod} majorFacts={majorInlineFactsMap?.get(String(custKey)+'|'+String(prod.ProdKey))??(majorInlineFactsMap?[]:null)} calendar={inlineCalendar} facts={inlineFactsMap.get(`${custKey}|${prod.ProdKey}`)||[]} year={selectedOrderYear} week={week}
+  const dateButton = (custKey, prod, label) => viewMode==='cust'&&!showCustomerDates?null:<DistributionInlineDates commonWeeks={majorWeekScope.weeks} commonError={majorWeekScope.error} productInfo={prod} majorFacts={majorInlineFactsMap?.get(String(custKey)+'|'+String(prod.ProdKey))??(majorInlineFactsMap?[]:null)} calendar={inlineCalendar} facts={inlineFactsMap.get(`${custKey}|${prod.ProdKey}`)||[]} year={selectedOrderYear} week={week}
     custKey={custKey} prodKey={prod.ProdKey} draft={dateDrafts[`${custKey}|${prod.ProdKey}`]} loading={dateIndexLoading} error={dateIndexError}
     disabled={saving||loading||hasQuantityDraft()||!!dateEditor} onDraft={draft=>setDateDrafts(prev=>{const next={...prev},key=`${custKey}|${prod.ProdKey}`;if(draft)next[key]=draft;else delete next[key];return next;})}
     onOpen={draft=>openDateEditor(custKey,prod,label,draft)} />;
 
   return (
-    <div data-testid="distribution-workspace" style={{display:'flex',flexDirection:'column',minHeight:'calc(100vh - 104px)',minWidth:0}}>
+    <div ref={workspaceRef} data-testid="distribution-workspace" style={{height:tab<2?'var(--distribution-available-height,calc(100dvh - 104px))':undefined,overflow:tab<2?'hidden':undefined,display:'flex',flexDirection:'column',minHeight:tab<2?0:'calc(100vh - 104px)',minWidth:0}}>
       {dateEditor && <DistributionDateEditor {...dateEditor} onClose={()=>setDateEditor(null)} onSaved={async()=>{
         setDateDrafts(prev=>{const next={...prev};delete next[dateEditor.draftKey];return next;});
         setSuccessMsg('출고일 분배 저장 완료 · 출고 총량·매출·확정 상태 유지');
@@ -1466,13 +1489,20 @@ export default function Distribute() {
       .distribution-customer-table th:nth-child(n+4):nth-child(-n+10){width:52px}
       .distribution-customer-table > thead > tr > th,.distribution-customer-table > tbody > tr > td{padding:2px !important;}
       .distribution-customer-table > tbody > tr > td:nth-child(n+4):nth-child(-n+10) input{width:50px !important;padding:0 2px !important;}
-      .distribution-data-scroll{min-width:0;max-height:calc(100vh - var(--distribution-header-height,120px) - 80px);overflow:auto;}
-      .distribution-data-scroll > table > thead{position:sticky;top:0;z-index:5;background:var(--surface);}
-      .distribution-with-kakao{display:grid;grid-template-columns:minmax(0,1fr) 300px;align-items:start;gap:4px}
-      .distribution-kakao-feed{padding:6px;border-left:1px solid var(--border);min-width:0;background:var(--surface)}
-      @media(max-width:1400px){.distribution-with-kakao{grid-template-columns:minmax(0,1fr)}.distribution-kakao-feed{border-top:1px solid var(--border);border-left:0}}
-      @media (max-width: 900px) { .distribution-workspace-grid { grid-template-columns: minmax(0, 1fr) !important; } }`}</style>
-      <div data-testid="distribution-sticky-header" style={{position:"sticky",top:0,zIndex:40,background:"var(--surface)",boxShadow:"0 2px 4px #0002"}}>
+      .distribution-left-column,.distribution-detail-column{display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;}
+      .distribution-left-column> :not(.distribution-navigation-scroll),.distribution-detail-column> :not(.distribution-data-scroll):not(.distribution-detail-column){flex-shrink:0;}
+      .distribution-navigation-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;}
+      .distribution-data-scroll{flex:1;min-height:0;min-width:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;}
+      .distribution-table-context{position:sticky;top:0;left:0;z-index:8;background:var(--surface);}
+      .distribution-data-scroll > table > thead{position:sticky;top:var(--distribution-context-height,0px);z-index:7;background:var(--surface);}
+      .distribution-with-kakao{display:grid;grid-template-columns:minmax(0,1fr) 300px;align-items:stretch;gap:4px;height:100%;min-height:0;overflow:hidden;}
+      .distribution-customer-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:4px 5px;background:var(--surface);border-bottom:1px solid var(--border);font-size:12px;}
+      .distribution-matrix-product{width:160px;min-width:130px;max-width:180px;position:sticky;left:0;z-index:2;background:var(--surface);white-space:normal!important;}
+      .distribution-product-label{display:inline-block;max-width:180px;overflow-wrap:anywhere;}
+      .distribution-kakao-feed{height:100%;max-height:100%!important;padding:6px;border-left:1px solid var(--border);min-width:0;background:var(--surface)}
+      @media(min-width:901px) and (max-width:1400px){.distribution-with-kakao{grid-template-columns:minmax(0,1fr) 250px}}
+      @media (max-width: 900px) { [data-testid=distribution-workspace]{height:auto!important;overflow:visible!important}.distribution-workspace-grid { grid-template-columns:minmax(0,1fr)!important;overflow:visible!important;grid-template-rows:auto!important}.distribution-left-column{height:auto;max-height:45vh}.distribution-with-kakao{height:auto;overflow:visible;grid-template-columns:minmax(0,1fr)}.distribution-detail-column{height:auto;overflow:visible}.distribution-data-scroll{max-height:65vh;flex:auto}.distribution-kakao-feed{border-top:1px solid var(--border)} }`}</style>
+      <div data-testid="distribution-sticky-header" style={{flexShrink:0,position:"sticky",top:0,zIndex:40,background:"var(--surface)",boxShadow:"0 2px 4px #0002"}}>
       {/* 툴바 */}
       <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px 8px 0 0',padding:'4px 5px',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',flexShrink:0}}>
         <WeekInput weekInput={guardedWeekInput} label="차수" />
@@ -1562,7 +1592,7 @@ export default function Distribute() {
         ))}
       </div>
       </>}
-      <DistributionScrollBar viewMode={viewMode} selectionKey={`${tab}-${selectedProd?.ProdKey}-${selectedCust?.CustKey}-${pairCust?.CustKey}-${custLoading}-${distLoading}-${pairLoading}-${custItems.length}-${custDist.length}`} />
+      <DistributionScrollBar viewMode={viewMode} selectionKey={`${tab}-${selectedProd?.ProdKey}-${selectedCust?.CustKey}-${pairCust?.CustKey}-${custLoading}-${distLoading}-${pairLoading}-${extraLoading}-${extraPeers.length}-${showCustomerDates}-${custItems.length}-${custDist.length}`} />
       </div>
       <details style={{padding:'1px 5px',fontSize:11,color:'var(--text3)',background:'var(--surface)'}}><summary>단축키·입력 안내 · 출고일은 선택 세부차수만 수정</summary>
         단축키: Ctrl+Alt+1 차수 · Ctrl+Alt+2 품목 · Ctrl+Alt+3 업체 · Ctrl+Alt+4 수량 · Ctrl+Enter 조회 · 수량 Enter 다음 입력(마지막은 저장 버튼 이동) · Ctrl+S 수량·단가 저장 · 출고일은 실제 날짜순 · 단/송이 수량 입력. Enter 이동만으로 저장되지 않습니다.
@@ -1632,7 +1662,7 @@ export default function Distribute() {
                   <span style={{fontSize:11,color:'var(--text3)',alignSelf:'center'}}>업체</span>
                   {sides.map((sd, i) => (
                     <button key={sd.cust.CustKey} type="button" data-ai-verify={`add-side-${i + 1}`} aria-pressed={sd === side}
-                      onClick={() => setAddPanel(prev => ({ ...prev, side: i }))} style={pickButtonStyle(sd === side, true)}>{SLOT_MARK[i]} {sd.cust.CustName}</button>
+                      onClick={() => setAddPanel(prev => ({ ...prev, side: i }))} style={pickButtonStyle(sd === side, true)}>{distributionSlotMark(i)} {sd.cust.CustName}</button>
                   ))}
                 </div>
               )}
@@ -1664,8 +1694,7 @@ export default function Distribute() {
                   const at = sides.findIndex(sd => Number(sd.cust.CustKey) === Number(c.CustKey));
                   if (at >= 0) { setAddPanel(prev => ({ ...prev, side: at })); setAddCustFilter(''); return; }
                   if (!pairCust) { await selectPairCust(c); setAddPanel(prev => prev && ({ ...prev, side: 1 })); }
-                  else if (extraPeers.length < 3) { const slot = 3 + extraPeers.length; await selectExtraCust(c, slot); setAddPanel(prev => prev && ({ ...prev, side: slot - 1 })); }
-                  else { setErr('업체는 5개까지 고를 수 있습니다. 칸을 비운 뒤 다시 고르세요.'); return; }
+                  else { const slot = 3 + extraPeers.length; const ok=await selectExtraCust(c, slot); if(ok)setAddPanel(prev => prev && ({ ...prev, side: slot - 1 })); }
                   setAddCustFilter('');
                 };
                 return (
@@ -1846,18 +1875,18 @@ export default function Distribute() {
 
       {/* 탭0 품목 기준 / 탭1 업체 기준 본문 */}
       {(tab === 0 || tab === 1) && (
-        <div className="distribution-workspace-grid" style={{display:'grid',gridTemplateColumns: viewMode==='prod'?'minmax(210px, 20%) minmax(0, 1fr)':'minmax(240px, 28%) minmax(0, 1fr)',alignItems:'start',background:'var(--surface)',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px'}}>
+        <div className="distribution-workspace-grid" style={{flex:1,minHeight:0,overflow:'hidden',gridTemplateRows:'minmax(0,1fr)',display:'grid',gridTemplateColumns: viewMode==='prod'?'minmax(210px, 20%) minmax(0, 1fr)':'minmax(240px, 28%) minmax(0, 1fr)',alignItems:'start',background:'var(--surface)',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px'}}>
 
           {/* ── 품목 기준: 왼쪽 품목 목록 ── */}
           {viewMode === 'prod' && (
-            <div style={{borderRight:'1px solid var(--border)',minWidth:0}}>
+            <div className="distribution-left-column" style={{borderRight:'1px solid var(--border)',minWidth:0}}>
               <DistributionDateFilter label="품종·품목" value={farmDate} onChange={setFarmDate} dates={dateLookup.dates} loading={dateIndexLoading} error={dateIndexError} />
               <div style={{padding:'8px 12px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',gap:6,flexWrap:'wrap'}}>
                 <input ref={productSearchRef} className="filter-input" placeholder="품목·국가·품종 검색 (전체 품목)" value={prodFilter} onFocus={ensureProductCatalog} onChange={e=>{ if (e.target.value.trim()) ensureProductCatalog(); setProdFilter(e.target.value); }} style={{flex:1,height:28,fontSize:12,minWidth:0}}/>
                 <button type="button" className={`btn btn-sm ${favoritesOnly?'btn-primary':'btn-secondary'}`}
                   aria-pressed={favoritesOnly} onClick={() => setFavoritesOnly(value => !value)}>★ 즐겨찾기만</button>
               </div>
-              <div style={{overflowX:'auto'}}>
+              <div className="distribution-navigation-scroll" data-testid="distribution-product-navigation" tabIndex={0}>
                 {loading ? <div className="skeleton" style={{margin:12,height:300,borderRadius:8}}></div> : (
                   // 품목명만 — 단위·입수·잔량·입고·출고·현재고는 선택하면 오른쪽에 같은 내용이 나온다.
                   <DistributionProductTree rows={filteredProds} favoriteKeys={favoriteKeys} groupFavorites={favoriteGroups} selectedProd={selectedProd}
@@ -1870,7 +1899,7 @@ export default function Distribute() {
 
           {/* ── 업체 기준: 왼쪽 업체 목록 ── */}
           {viewMode === 'cust' && (
-            <div style={{borderRight:'1px solid var(--border)',minWidth:0}}>
+            <div className="distribution-left-column" style={{borderRight:'1px solid var(--border)',minWidth:0}}>
               <DistributionDateFilter label="업체" value={customerDate} onChange={setCustomerDate} dates={dateLookup.dates} loading={dateIndexLoading} error={dateIndexError} />
               <div style={{padding:'8px 12px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
                 <span style={{fontSize:11,fontWeight:700,color:'var(--text2)'}}>거래처 목록</span>
@@ -1885,22 +1914,22 @@ export default function Distribute() {
               {/* 두 업체 나란히 보기: 업체 버튼 클릭이 채울 칸 선택 */}
               <div data-testid="distribution-pair-slots" style={{padding:'6px 12px',borderBottom:'1px solid var(--border)',display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',fontSize:11}}>
                 <span style={{color:'var(--text3)'}}>버튼 클릭 →</span>
-                <button type="button" data-ai-verify="pair-slot-1" aria-pressed={pairSlot === 1} disabled={hasDateDrafts||saving} onClick={() => setPairSlot(1)}
+                <button type="button" data-ai-verify="pair-slot-1" aria-pressed={pairSlot === 1} disabled={hasDateDrafts||saving} onClick={() => {setAppendCompany(false);setPairSlot(1);}}
                   style={{...weekButtonStyle('1', pairSlot === 1), padding:'3px 10px', fontSize:11}}>
                   업체 1{selectedCust ? `: ${selectedCust.CustName}` : ''}
                 </button>
-                <button type="button" data-ai-verify="pair-slot-2" aria-pressed={pairSlot === 2} disabled={hasDateDrafts||saving} onClick={() => setPairSlot(2)}
+                <button type="button" data-ai-verify="pair-slot-2" aria-pressed={pairSlot === 2} disabled={hasDateDrafts||saving} onClick={() => {setAppendCompany(false);setPairSlot(2);}}
                   style={{...weekButtonStyle('2', pairSlot === 2), padding:'3px 10px', fontSize:11,
                     border: pairSlot === 2 ? '2px solid #b45309' : '1px solid #fcd34d', background: pairSlot === 2 ? '#b45309' : '#fffbeb', color: pairSlot === 2 ? '#fff' : '#b45309'}}>
                   업체 2{pairCust ? `: ${pairCust.CustName}` : ' (비교·이동)'}
                 </button>
-                {pairCust && <button type="button" className="btn btn-sm" data-ai-verify="pair-clear" disabled={hasDateDrafts||saving} onClick={clearPairCust} style={{padding:'2px 7px',fontSize:11}}>업체 2 해제</button>}
-                {pairCust && [3, 4, 5].filter(slot => slot - 3 <= extraPeers.length).map(slot => {
+                {pairCust && <button type="button" className="btn btn-sm" data-ai-verify="pair-clear" disabled={hasDateDrafts||saving||pairLoading||extraLoading>0} onClick={clearPairCust} style={{padding:'2px 7px',fontSize:11}}>업체 2 해제</button>}
+                {pairCust && Array.from({length:extraPeers.length+1},(_,i)=>i+3).map(slot => {
                   const peer = extraPeers[slot - 3];
-                  const color = PEER_COLORS[slot - 3];
+                  const color = distributionPeerColor(slot - 3);
                   return (
                     <span key={slot} style={{display:'inline-flex',gap:3}}>
-                      <button type="button" data-ai-verify={`pair-slot-${slot}`} aria-pressed={pairSlot === slot} disabled={hasDateDrafts||saving} onClick={() => setPairSlot(slot)}
+                      <button type="button" data-ai-verify={`pair-slot-${slot}`} aria-pressed={pairSlot === slot} disabled={hasDateDrafts||saving} onClick={() => {setAppendCompany(false);setPairSlot(slot);}}
                         style={{...weekButtonStyle(String(slot), pairSlot === slot), padding:'3px 10px', fontSize:11,
                           border: `${pairSlot === slot ? 2 : 1}px solid ${color}`, background: pairSlot === slot ? color : '#fff', color: pairSlot === slot ? '#fff' : color}}>
                         업체 {slot}{peer ? `: ${peer.cust.CustName}` : ' (추가)'}
@@ -1909,8 +1938,10 @@ export default function Distribute() {
                     </span>
                   );
                 })}
-                <span style={{color:'var(--text3)'}}>업체를 2~5개 고르면 품목·수량이 나란히 보이고 → ← 로 수량을 옮길 수 있습니다.</span>
+                <button type="button" className={`btn btn-sm ${appendCompany?'btn-primary':'btn-secondary'}`} data-ai-verify="customer-append-mode" aria-pressed={appendCompany} disabled={saving||hasDateDrafts} onClick={()=>setAppendCompany(v=>!v)}>+ 업체 연속 추가</button>
+                <span style={{color:'var(--text3)'}}>업체를 여러 곳 고르면 품목·수량이 나란히 보입니다. 이동은 상단 별도 창에서 합니다.</span>
               </div>
+              <div className="distribution-navigation-scroll" data-testid="distribution-customer-navigation">
               {/* nenova.exe식 버튼형 업체 선택 */}
               <div data-testid="distribution-customer-buttons" style={{padding:'8px 12px',borderBottom:'1px solid var(--border)',display:'flex',gap:5,flexWrap:'wrap',maxHeight:150,overflowY:'auto'}}>
                 {loading ? <span style={{fontSize:11,color:'var(--text3)'}}>업체 조회 중…</span>
@@ -1922,11 +1953,11 @@ export default function Distribute() {
                     return (
                       <button key={c.CustKey} type="button" data-ai-verify={`customer-${c.CustKey}`} aria-pressed={active || isPair || extraIndex >= 0}
                         disabled={loading || saving} title={`${c.CustName} #${c.CustKey}${isPair ? ' (업체 2)' : active ? ' (업체 1)' : extraIndex >= 0 ? ` (업체 ${extraIndex + 3})` : ''}`}
-                        onClick={() => (!selectedCust ? selectCust(c) : pairSlot >= 3 ? selectExtraCust(c, pairSlot) : pairSlot === 2 ? selectPairCust(c) : selectCust(c))}
+                        onClick={() => chooseCustomerSlot(c)}
                         style={isPair ? {...pickButtonStyle(true, false), background:'#b45309', border:'2px solid #b45309'}
-                          : extraIndex >= 0 ? {...pickButtonStyle(true, false), background:PEER_COLORS[extraIndex], border:`2px solid ${PEER_COLORS[extraIndex]}`}
+                          : extraIndex >= 0 ? {...pickButtonStyle(true, false), background:distributionPeerColor(extraIndex), border:`2px solid ${distributionPeerColor(extraIndex)}`}
                           : pickButtonStyle(active, false)}>
-                        {active ? '① ' : isPair ? '② ' : extraIndex >= 0 ? `${SLOT_MARK[extraIndex + 2]} ` : ''}{c.CustName}{c.noOrder && <span style={{fontSize:10,opacity:0.7}}> (주문없음)</span>}
+                        {active ? '① ' : isPair ? '② ' : extraIndex >= 0 ? `${distributionSlotMark(extraIndex + 2)} ` : ''}{c.CustName}{c.noOrder && <span style={{fontSize:10,opacity:0.7}}> (주문없음)</span>}
                       </button>
                     );
                   })}
@@ -1941,7 +1972,7 @@ export default function Distribute() {
                         : filteredCustomers.slice(0,80).map(c => (
                           <tr key={c.CustKey} className={selectedCust?.CustKey===c.CustKey?'selected':''}>
                             <td className="name"><button type="button" className="btn btn-sm" disabled={loading || saving} data-ai-verify={`customer-row-${c.CustKey}`}
-                              onClick={() => (!selectedCust ? selectCust(c) : pairSlot >= 3 ? selectExtraCust(c, pairSlot) : pairSlot === 2 ? selectPairCust(c) : selectCust(c))}>{c.CustName}</button></td>
+                              onClick={() => chooseCustomerSlot(c)}>{c.CustName}</button></td>
                             <td><span className="badge badge-gray" style={{fontSize:10}}>{c.CustArea}</span></td>
                             <td style={{fontFamily:'var(--mono)',fontSize:11}}>{c.OrderCode}</td>
                           </tr>
@@ -1950,13 +1981,14 @@ export default function Distribute() {
                   </table>
                 )}
               </div>
+              </div>
             </div>
           )}
 
           {/* ── 오른쪽: 거래처 분배 정보 (품목기준) / 품목 목록 (업체기준) ── */}
-          <div className="distribution-with-kakao" style={{minWidth:0}}><div style={{minWidth:0}}>
+          <div className="distribution-with-kakao" style={{minWidth:0}}><div className="distribution-detail-column" data-testid="distribution-details-panel">
             {viewMode === 'prod' && (
-              <div style={{minWidth:0}}>
+              <div className="distribution-detail-column">
                 {/* 분배 컨트롤 */}
                 <div style={{padding:'8px 14px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
                   <span style={{fontSize:12,fontWeight:600,color:'var(--text2)'}}>분배방식</span>
@@ -1999,7 +2031,7 @@ export default function Distribute() {
                     : distLoading ? <div className="skeleton" style={{margin:16,height:200,borderRadius:8}}></div>
                     : (
                       <>
-                        <div style={{padding:'4px 5px',background:'var(--blue-bg)',fontSize:12,color:'var(--blue)',fontWeight:600,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                        <div data-distribution-context data-testid="distribution-item-context" className="distribution-table-context" style={{padding:'4px 5px',background:'var(--blue-bg)',fontSize:12,color:'var(--blue)',fontWeight:600,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                           <span>{distributeProductName(selectedProd, selectedFlower)} — 거래처 분배 정보</span>
                           <input className="filter-input" placeholder="업체명 검색 (분배 업체)" value={farmCustomerSearch}
                             data-ai-verify="farm-distribution-customer-search" aria-label="농장정보 분배 업체 검색"
@@ -2171,6 +2203,14 @@ export default function Distribute() {
               </div>
             )}
 
+            {viewMode==='cust'&&<div className="distribution-customer-controls">
+              <label><input type="checkbox" data-ai-verify="customer-show-dates" checked={showCustomerDates} disabled={hasDateDrafts} onChange={e=>setShowCustomerDates(e.target.checked)}/> 출고일 표시</label>
+              {hasDateDrafts&&<span>출고일 변경을 저장하거나 취소한 뒤 숨길 수 있습니다.</span>}
+              {pairCust&&<button type="button" className="btn btn-sm" data-ai-verify="customer-move-open" disabled={saving||pairLoading||extraLoading>0} onClick={()=>setMoveOpen(true)}>업체 간 수량 이동</button>}
+              {customerReadError&&<button type="button" onClick={()=>selectCust(selectedCust,{skipDraftCheck:true})}>업체 1 다시 조회</button>}
+              {pairReadError&&<button type="button" onClick={()=>selectPairCust(pairCust,{skipDraftCheck:true})}>업체 2 다시 조회</button>}
+              {extraPeers.filter(p=>p.error).map((p,i)=><span key={p.cust.CustKey} role="alert">업체 {extraPeers.indexOf(p)+3} 조회 실패 <button type="button" onClick={()=>selectExtraCust(p.cust,extraPeers.indexOf(p)+3,{skipDraftCheck:true})}>다시 조회</button></span>)}
+            </div>}
             {/* 업체 기준 오른쪽: 해당 업체 주문 품목 */}
             {viewMode === 'cust' && (
               <div data-distribution-scroll="cust" className="distribution-data-scroll">
@@ -2179,9 +2219,10 @@ export default function Distribute() {
                   : custLoading || pairLoading || extraLoading > 0 ? <div className="skeleton" style={{margin:16,height:300,borderRadius:8}}></div>
                   : pairCust ? (
                     <>
+                      <div data-distribution-context className="distribution-table-context">
                       <div style={{padding:'8px 14px',background:'var(--blue-bg)',fontSize:12,color:'var(--blue)',fontWeight:600,borderBottom:'1px solid var(--border-t)'}}>
-                        ① {selectedCust.CustName} ↔ ② {pairCust.CustName} — 품목별 출고수량 나란히 보기 (→ ← 로 이동, Ctrl+S 저장은 두 업체 함께)
-                        {extraPeers.map((p, i) => <span key={p.cust.CustKey} style={{color:PEER_COLORS[i]}}> ↔ {SLOT_MARK[i + 2]} {p.cust.CustName}</span>)}
+                        ① {selectedCust.CustName} ↔ ② {pairCust.CustName} — 품목별 출고수량 비교 (Ctrl+S 함께 저장)
+                        {extraPeers.map((p, i) => <span key={p.cust.CustKey} style={{color:distributionPeerColor(i)}}> ↔ {distributionSlotMark(i + 2)} {p.cust.CustName}</span>)}
                         {fixedCount(pairRows) > 0 && <span data-testid="distribution-pair-fixed-count" style={{marginLeft:8,color:'#B91C1C'}}>🔒 확정 품목 {fixedCount(pairRows)}개 (저장 시 확정해제→저장→재확정)</span>}
                       </div>
                       {(() => {
@@ -2199,10 +2240,11 @@ export default function Distribute() {
                           </div>
                         );
                       })()}
-                      {extraPeers.length > 0 ? (() => {
+                      </div>
+                      {(() => {
                         // 업체 3개 이상: 이동 칸 없이 업체 열끼리 붙여서 바로 수정 (업체명 = 머리줄)
                         const sides = pairSides();
-                        const colors = ['var(--blue)', '#b45309', ...PEER_COLORS];
+                        const colors=sides.map((_,i)=>i===0?'var(--blue)':i===1?'#b45309':distributionPeerColor(i-2));
                         const rows = pairSearchRows.filter(row => matchItemName(row, custItemFilter)).filter(row => distributionPairFilterMatches(row, pairGroupFilter)).filter(row=>!customerDate||pairSides().some(side=>side.cust&&dateLookup.matches(customerDate,row.ProdKey,side.cust.CustKey)));
                         const itemAt = (sd, row) => sd.items.find(i => Number(i.ProdKey) === Number(row.ProdKey));
                         const qtyAt = (sd, row) => { const item = itemAt(sd, row); const e = sd.inputs[row.ProdKey]; return e?.outQty !== undefined ? parseFloat(e.outQty) || 0 : (item?.출고수량 || 0); };
@@ -2211,17 +2253,17 @@ export default function Distribute() {
                           <table className="tbl" data-testid="distribution-pair-table" data-layout="multi" style={{fontSize:12,width:'auto'}}>
                             <thead>
                               <tr data-testid="distribution-pair-cust-header">
-                                <th rowSpan={2}>품목명</th><th rowSpan={2}>단위</th>
+                                <th rowSpan={2} className="distribution-matrix-product">품목명</th><th rowSpan={2}>단위</th>
                                 {sides.map((sd, i) => (
                                   <th key={sd.cust.CustKey} colSpan={2} data-ai-verify={`pair-cust-head-${i + 1}`}
-                                    style={{...edge(i), textAlign:'center', color:colors[i], fontSize:13, background:'#f8fafc'}}>{SLOT_MARK[i]} {sd.cust.CustName}</th>
+                                    style={{...edge(i), textAlign:'center', color:colors[i], fontSize:13, background:'#f8fafc'}}>{distributionSlotMark(i)} {sd.cust.CustName}</th>
                                 ))}
                                 <th rowSpan={2} style={{textAlign:'right'}} title="이 차수 입고 − 전체 출고(선택 업체들의 화면 변경분 반영), 저장 단위">재고잔량(변경후)</th>
                               </tr>
                               <tr>
                                 {sides.map((sd, i) => [
                                   <th key={`o-${i}`} style={{...edge(i), textAlign:'right'}}>주문</th>,
-                                  <th key={`q-${i}`} style={{textAlign:'center',color:colors[i]}}>출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span>{dateHeader}</th>,
+                                  <th key={`q-${i}`} style={{textAlign:'center',color:colors[i]}}>출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span>{showCustomerDates&&dateHeader}</th>,
                                 ])}
                               </tr>
                             </thead>
@@ -2232,7 +2274,7 @@ export default function Distribute() {
                                 const left = prod ? (Number(prod.inQty) || 0) - (Number(prod.outQty) || 0) - delta : null;
                                 return (
                                   <tr key={row.ProdKey}>
-                                    <td style={{fontWeight:500,padding:'3px 6px',whiteSpace:'nowrap'}}>{fixedBadge(row.ProdKey)}{row.DisplayName || row.ProdName}</td>
+                                    <td style={{fontWeight:500,padding:'3px 6px',whiteSpace:'normal'}} className="distribution-matrix-product">{fixedBadge(row.ProdKey)}<span className="distribution-product-label" title={row.DisplayName||row.ProdName}>{distributeProductName(row,row.FlowerName)}</span></td>
                                     <td style={{fontSize:11,padding:'3px 6px'}} title="저장 단위">{row.OutUnit}</td>
                                     {sides.map((sd, i) => {
                                       const item = itemAt(sd, row);
@@ -2259,161 +2301,17 @@ export default function Distribute() {
                             </tfoot>
                           </table>
                         );
-                      })() : (
-                      <table className="tbl" data-testid="distribution-pair-table" style={{fontSize:12,width:'auto'}}>
-                        <thead>
-                          <tr data-testid="distribution-pair-cust-header">
-                            <th colSpan={2} />
-                            <th colSpan={2} data-ai-verify="pair-cust-head-1" style={{textAlign:'center',color:'var(--blue)',background:'#eff6ff',fontSize:13}}>① {selectedCust.CustName}</th>
-                            <th style={{textAlign:'center',fontSize:11}}>① ⇄ ②</th>
-                            <th colSpan={2} data-ai-verify="pair-cust-head-2" style={{textAlign:'center',color:'#b45309',background:'#fff7ed',fontSize:13}}>② {pairCust.CustName}</th>
-                            {extraPeers.map((p, i) => <th key={p.cust.CustKey} colSpan={2} data-ai-verify={`pair-cust-head-${i + 3}`} style={{textAlign:'center',color:PEER_COLORS[i],background:'#f8fafc',fontSize:13}}>{SLOT_MARK[i + 2]} {p.cust.CustName}</th>)}
-                            <th colSpan={2} />
-                          </tr>
-                          <tr>
-                            <th>품목명</th><th>단위</th>
-                            <th style={{textAlign:'right'}}>① 주문</th>
-                            <th style={{textAlign:'center',color:'var(--blue)'}}>① 출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span>{dateHeader}</th>
-                            <th style={{textAlign:'center'}}>이동</th>
-                            <th style={{textAlign:'center',color:'#b45309'}}>② 출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span>{dateHeader}</th>
-                            <th style={{textAlign:'right'}}>② 주문</th>
-                            {extraPeers.map((p, i) => [
-                              <th key={`in-${i}`} style={{textAlign:'center',color:PEER_COLORS[i]}}>{SLOT_MARK[i + 2]} 출고 입력{dateHeader}</th>,
-                              <th key={`ord-${i}`} style={{textAlign:'right'}}>{SLOT_MARK[i + 2]} 주문</th>,
-                            ])}
-                            <th style={{textAlign:'right'}} title="이 차수 입고 − 전체 출고(선택 업체들의 화면 변경분 반영), 저장 단위">재고잔량(변경후)</th>
-                            <th>미저장 변경</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pairSearchRows.filter(row => matchItemName(row, custItemFilter)).filter(row => distributionPairFilterMatches(row, pairGroupFilter)).filter(row=>!customerDate||pairSides().some(side=>side.cust&&dateLookup.matches(customerDate,row.ProdKey,side.cust.CustKey))).map(row => {
-                            const editA = custEditInputs[row.ProdKey] || {};
-                            const editB = pairEditInputs[row.ProdKey] || {};
-                            const qtyA = row.a ? (editA.outQty !== undefined ? editA.outQty : (row.a.출고수량 || 0)) : null;
-                            const qtyB = row.b ? (editB.outQty !== undefined ? editB.outQty : (row.b.출고수량 || 0)) : null;
-                            const qtyX = extraPeers.map((p, i) => {
-                              const item = row.extra?.[i];
-                              if (!item) return null;
-                              const e = p.inputs[row.ProdKey] || {};
-                              return e.outQty !== undefined ? e.outQty : (item.출고수량 || 0);
-                            });
-                            // 박스·단·송이 세 칸이 같은 값을 환산해 보여 준다. 어느 칸에 넣어도 저장값은 OutUnit 하나
-                            // (입수 BunchOf1Box/SteamOf1Box 가 없으면 그 단위 칸은 잠금). OutUnit 칸만 Enter 이동 대상.
-                            const qtyInput = (cust, item, value, inputs, setInputs, color) => (
-                              <span style={{display:'inline-flex',gap:3}}>
-                                {['박스', '단', '송이'].map(unit => {
-                                  const f = distributionUnitFactor(row, unit);
-                                  const native = unit === (row.OutUnit || '박스');
-                                  const filled = parseFloat(value) > 0;
-                                  return (
-                                    <input key={unit} type="number" min={0} step={native ? 0.1 : 0.01} placeholder={unit}
-                                      value={filled && f ? toDisplayQty(value, f) : ''} disabled={hasDateDrafts || saving || loading || !f}
-                                      title={f ? `${unit} (저장 단위 ${row.OutUnit})` : `${unit}: 입수 정보가 없어 환산 불가`}
-                                      {...(native ? { 'data-distribute-qty': 'true', 'aria-keyshortcuts': 'Enter', onKeyDown: handleQuantityEnter } : {})}
-                                      data-ai-verify={native ? `qty-${cust.CustKey}-${item.ProdKey}` : `qty-${cust.CustKey}-${item.ProdKey}-${unit}`}
-                                      aria-label={`${cust.CustName} ${item.ProdName} 출고수량 (${unit})`}
-                                      onChange={e=>setInputs(prev=>({...prev,[item.ProdKey]:{...(prev[item.ProdKey]||{}),outQty:native ? e.target.value : toNativeQty(e.target.value, f)}}))}
-                                      style={{width:native?58:50,height:26,border:`1px solid ${filled?(native?color:'var(--border2)'):'var(--border2)'}`,borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 3px',background:filled&&native?'var(--blue-bg)':'var(--bg)',fontWeight:filled&&native?700:400,color:native?undefined:'var(--text2)'}} />
-                                  );
-                                })}
-                              </span>
-                            );
-                            return (
-                              <tr key={row.ProdKey}>
-                                <td style={{fontWeight:500,padding:'3px 6px',whiteSpace:'nowrap'}}>{fixedBadge(row.ProdKey)}{row.DisplayName || row.ProdName}</td>
-                                <td style={{fontSize:11,padding:'3px 6px'}} title="저장 단위">{row.OutUnit}</td>
-                                <td className="num" style={{color:'var(--blue)'}}>{row.a ? (row.a.pendingOrder ? <span style={{color:'#b45309',fontSize:11}}>주문등록 예정</span> : (row.a.주문수량||0).toFixed(2)) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>
-                                <td>{pairQtyCell(0, row, 'var(--blue)')}</td>
-                                <td style={{textAlign:'center',whiteSpace:'nowrap'}}>
-                                  <button type="button" className="btn btn-sm" data-ai-verify={`move-to1-${row.ProdKey}`} disabled={hasDateDrafts || saving || loading || !(parseFloat(qtyB) > 0)}
-                                    title={!row.a ? '②→① 이동 (①에 주문이 없어 저장 시 주문등록 후 분배)' : '②→① 이동 (이동 수량이 비어 있으면 전부; 화면 입력값만, 저장 시 반영)'}
-                                    onClick={() => moveDistributionQty(row.ProdKey, 1, 0, distributionUnitFactor(row, moveUnitInputs[row.ProdKey] || row.OutUnit) || 1)} style={{padding:'1px 7px'}}>←</button>
-                                  <input type="number" min={0} step={0.1} value={moveQtyInputs[row.ProdKey] ?? ''} placeholder="전부" disabled={hasDateDrafts || saving || loading}
-                                    data-ai-verify={`move-qty-${row.ProdKey}`} aria-label={`${row.ProdName} 이동 수량`}
-                                    onChange={e=>setMoveQtyInputs(prev=>({...prev,[row.ProdKey]:e.target.value}))}
-                                    style={{width:50,height:24,margin:'0 0 0 3px',border:'1px solid var(--border2)',borderRadius:'4px 0 0 4px',textAlign:'right',fontSize:11,fontFamily:'var(--mono)',padding:'0 3px'}} />
-                                  <select value={moveUnitInputs[row.ProdKey] || row.OutUnit || '박스'} disabled={hasDateDrafts || saving || loading}
-                                    data-ai-verify={`move-unit-${row.ProdKey}`} aria-label={`${row.ProdName} 이동 수량 단위`}
-                                    onChange={e=>setMoveUnitInputs(prev=>({...prev,[row.ProdKey]:e.target.value}))}
-                                    style={{height:24,marginRight:3,border:'1px solid var(--border2)',borderLeft:'none',borderRadius:'0 4px 4px 0',fontSize:11}}>
-                                    {['박스', '단', '송이'].filter(u => distributionUnitFactor(row, u)).map(u => <option key={u} value={u}>{u}</option>)}
-                                  </select>
-                                  <button type="button" className="btn btn-sm" data-ai-verify={`move-to2-${row.ProdKey}`} disabled={hasDateDrafts || saving || loading || !(parseFloat(qtyA) > 0)}
-                                    title={!row.b ? '①→② 이동 (②에 주문이 없어 저장 시 주문등록 후 분배)' : '①→② 이동 (이동 수량이 비어 있으면 전부; 화면 입력값만, 저장 시 반영)'}
-                                    onClick={() => moveDistributionQty(row.ProdKey, 0, 1, distributionUnitFactor(row, moveUnitInputs[row.ProdKey] || row.OutUnit) || 1)} style={{padding:'1px 7px'}}>→</button>
-                                  {extraPeers.length > 0 && (() => {
-                                    // 업체 3개 이상: 보내는 곳 → 받는 곳 을 골라 같은 이동 수량·단위로 이동
-                                    const mm = multiMove[row.ProdKey] || { from: 0, to: 2 };
-                                    const names = pairSides().map((side, i) => `${SLOT_MARK[i]} ${side.cust?.CustName || ''}`);
-                                    const pick = (key, label) => (
-                                      <select value={mm[key]} disabled={hasDateDrafts || saving || loading} data-ai-verify={`move-${key}-${row.ProdKey}`} aria-label={`${row.ProdName} 이동 ${label}`}
-                                        onChange={e => setMultiMove(prev => ({ ...prev, [row.ProdKey]: { ...mm, [key]: Number(e.target.value) } }))}
-                                        style={{height:22,fontSize:11,maxWidth:110}}>
-                                        {names.map((n, i) => <option key={i} value={i}>{n}</option>)}
-                                      </select>
-                                    );
-                                    return (
-                                      <div style={{marginTop:3,display:'flex',gap:2,alignItems:'center',justifyContent:'center'}}>
-                                        {pick('from', '보내는 업체')}<span>→</span>{pick('to', '받는 업체')}
-                                        <button type="button" className="btn btn-sm" data-ai-verify={`move-go-${row.ProdKey}`} disabled={hasDateDrafts || saving || loading || mm.from === mm.to}
-                                          title="고른 업체끼리 이동 (이동 수량이 비어 있으면 전부; 받는 곳에 주문이 없으면 저장 시 주문등록 후 분배)"
-                                          onClick={() => moveDistributionQty(row.ProdKey, mm.from, mm.to, distributionUnitFactor(row, moveUnitInputs[row.ProdKey] || row.OutUnit) || 1)} style={{padding:'1px 6px',fontSize:11}}>이동</button>
-                                      </div>
-                                    );
-                                  })()}
-                                </td>
-                                <td>{pairQtyCell(1, row, '#b45309')}</td>
-                                <td className="num" style={{color:'#b45309'}}>{row.b ? (row.b.pendingOrder ? <span style={{color:'#b45309',fontSize:11}}>주문등록 예정</span> : (row.b.주문수량||0).toFixed(2)) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>
-                                {extraPeers.map((p, i) => {
-                                  const item = row.extra?.[i];
-                                  return [
-                                    <td key={`in-${i}`}>{pairQtyCell(i + 2, row, PEER_COLORS[i])}</td>,
-                                    <td key={`ord-${i}`} className="num" style={{color:PEER_COLORS[i]}}>{item ? (item.pendingOrder ? <span style={{fontSize:11}}>주문등록 예정</span> : (item.주문수량||0).toFixed(2)) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>,
-                                  ];
-                                })}
-                                <td className="num" data-ai-verify={`pair-remain-${row.ProdKey}`}>{(() => {
-                                  const prod = products.find(p => Number(p.ProdKey) === Number(row.ProdKey));
-                                  if (!prod) return <span style={{color:'var(--text3)'}}>—</span>;
-                                  const delta = (row.a ? (parseFloat(qtyA) || 0) - (row.a.출고수량 || 0) : 0) + (row.b ? (parseFloat(qtyB) || 0) - (row.b.출고수량 || 0) : 0)
-                                    + extraPeers.reduce((a, _, i) => a + (row.extra?.[i] ? (parseFloat(qtyX[i]) || 0) - (row.extra[i].출고수량 || 0) : 0), 0);
-                                  const left = (Number(prod.inQty) || 0) - (Number(prod.outQty) || 0) - delta;
-                                  return <span style={{fontWeight:700,color:left<0?'var(--red)':left===0?'var(--green)':'var(--text1)'}}>{left.toFixed(2)} <span style={{fontSize:10,fontWeight:400,color:'var(--text3)'}}>{row.OutUnit}</span></span>;
-                                })()}</td>
-                                <td style={{fontSize:11,color:'var(--text3)'}}>
-                                  {row.a && <div>① {distributionQuantityRemark(row.a.ShipmentDescr, row.a.출고수량, qtyA, row.OutUnit)}</div>}
-                                  {row.b && <div>② {distributionQuantityRemark(row.b.ShipmentDescr, row.b.출고수량, qtyB, row.OutUnit)}</div>}
-                                  {extraPeers.map((p, i) => row.extra?.[i] && <div key={i}>{SLOT_MARK[i + 2]} {distributionQuantityRemark(row.extra[i].ShipmentDescr, row.extra[i].출고수량, qtyX[i], row.OutUnit)}</div>)}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                        <tfoot>
-                          <tr className="foot">
-                            <td colSpan={2}>합계</td>
-                            <td className="num">{custItems.reduce((a,b)=>a+(b.주문수량||0),0).toFixed(2)}</td>
-                            <td className="num" style={{color:'var(--blue)'}}>{custItems.reduce((a,item)=>{const e=custEditInputs[item.ProdKey]||{};return a+(parseFloat(e.outQty!==undefined?e.outQty:(item.출고수량||0))||0);},0).toFixed(2)}</td>
-                            <td></td>
-                            <td className="num" style={{color:'#b45309'}}>{pairItems.reduce((a,item)=>{const e=pairEditInputs[item.ProdKey]||{};return a+(parseFloat(e.outQty!==undefined?e.outQty:(item.출고수량||0))||0);},0).toFixed(2)}</td>
-                            <td className="num">{pairItems.reduce((a,b)=>a+(b.주문수량||0),0).toFixed(2)}</td>
-                            {extraPeers.map((p, i) => [
-                              <td key={`in-${i}`} className="num" style={{color:PEER_COLORS[i]}}>{p.items.reduce((a,item)=>{const e=p.inputs[item.ProdKey]||{};return a+(parseFloat(e.outQty!==undefined?e.outQty:(item.출고수량||0))||0);},0).toFixed(2)}</td>,
-                              <td key={`ord-${i}`} className="num">{p.items.reduce((a,b)=>a+(b.주문수량||0),0).toFixed(2)}</td>,
-                            ])}
-                            <td></td>
-                            <td></td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                      )}
+                      })()}
                     </>
                   ) : (
                     <>
+                      <div data-distribution-context className="distribution-table-context">
                       <div style={{padding:'8px 14px',background:'var(--blue-bg)',fontSize:12,color:'var(--blue)',fontWeight:600,borderBottom:'1px solid var(--border-t)'}}>
                         {selectedCust.CustName} ({selectedCust.OrderCode}) — 주문 품목 목록
                         {itemFilterInput}
                       </div>
                       <div data-testid="distribution-single-group-buttons" style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center',padding:'4px 5px'}}><span style={{fontSize:11}}>품종</span>{['',...distributionPairGroups(custItems)].map(g=><button key={g||'all'} type="button" data-ai-verify={`single-group-${g||'all'}`} aria-pressed={pairGroupFilter===g} onClick={()=>setPairGroupFilter(g)} style={pickButtonStyle(pairGroupFilter===g,true)}>{g||'전체'}</button>)}</div>
+                      </div>
                       <table className="tbl" style={{fontSize:12}}>
                         <thead>
                           <tr>
@@ -2424,7 +2322,7 @@ export default function Distribute() {
                             <th style={{textAlign:'right'}}>잔량</th>
                             <th style={{textAlign:'right',color:'var(--amber)'}}>단가 (편집)</th>
                             <th style={{textAlign:'right',color:'var(--text3)'}}>금액</th>
-                            <th style={{padding:0}}>{dateHeader}</th>
+                            <th style={{padding:0}}>{showCustomerDates&&dateHeader}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2437,7 +2335,7 @@ export default function Distribute() {
                                   <tr key={`search-${item.ProdKey}`} data-ai-verify={`search-only-${selectedCust.CustKey}-${item.ProdKey}`} style={{background:'#fafafa',color:'var(--text2)'}}>
                                     <td style={{fontSize:11}}>{item.CounName}</td>
                                     <td style={{fontSize:11}}>{item.FlowerName}</td>
-                                    <td style={{fontWeight:500}}>{item.DisplayName || item.ProdName} <span style={{fontSize:10,color:'#b45309'}}>주문 없음</span></td>
+                                    <td style={{fontWeight:500}}><span className="distribution-product-label" title={item.DisplayName||item.ProdName}>{distributeProductName(item,item.FlowerName)}</span> <span style={{fontSize:10,color:'#b45309'}}>주문 없음</span></td>
                                     <td style={{fontSize:11}}>{item.OutUnit}</td>
                                     <td className="num" style={{color:'var(--text3)'}}>0.00</td>
                                     <td>
@@ -2478,7 +2376,7 @@ export default function Distribute() {
                                 <tr key={i} style={{background:item.잔량>0?'#FFFBEB':undefined}}>
                                   <td style={{fontSize:11}}>{item.CounName}</td>
                                   <td style={{fontSize:11}}>{item.FlowerName}</td>
-                                  <td style={{fontWeight:500}}>{fixedBadge(item.ProdKey)}{item.DisplayName || item.ProdName}</td>
+                                  <td style={{fontWeight:500}}>{fixedBadge(item.ProdKey)}<span className="distribution-product-label" title={item.DisplayName||item.ProdName}>{distributeProductName(item,item.FlowerName)}</span></td>
                                   <td style={{fontSize:11}}>{item.OutUnit}</td>
                                   <td className="num" style={{color:'var(--blue)',fontWeight:700}}>{(item.주문수량||0).toFixed(2)}</td>
                                   <td>
@@ -2655,6 +2553,7 @@ export default function Distribute() {
         </div>
       )}
 
+      {moveOpen&&pairCust&&<DistributionMoveDialog rows={pairRows} sides={pairSides()} onMove={moveDistributionQty} onClose={()=>setMoveOpen(false)}/>}
       {/* 출고 분배 내역 조회 모달 */}
       {showHistory && (
         <div className="modal-overlay" onClick={()=>setShowHistory(false)}>

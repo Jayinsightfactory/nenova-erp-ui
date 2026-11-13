@@ -26,6 +26,9 @@ function load(source, localRequire) {
 const libRequire = name => name.startsWith('./') ? load(fs.readFileSync('lib/'+name.slice(2).replace(/\.js$/,'')+'.js','utf8'),libRequire) : require(name);
 const display = load(fs.readFileSync('lib/distributeProductDisplay.js','utf8'),require);
 const Page = load(source, name=>{
+  if(name.endsWith('/useDistributionViewport.js')) return {useDistributionViewport:()=>{}};
+  if(name.endsWith('/shipmentDistributionPeers.js')) return libRequire('./shipmentDistributionPeers.js');
+  if(name.endsWith('/DistributionMoveDialog')) return ()=>null;
   if(name.endsWith('/useApi')) return {apiGet:()=>{throw Error('Display fixture must not query ERP');}};
   if(name.endsWith('/useWeekInput')) return {useWeekInput:()=>({value:'2026-41-01'}),getCurrentWeek:()=> '2026-41-01',WeekInput:()=>null,
     formatWeekDisplay:w=>String(w).replace(/^2026-/,'')};

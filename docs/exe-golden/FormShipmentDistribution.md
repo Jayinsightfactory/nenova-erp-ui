@@ -659,3 +659,6 @@ ShipmentDate↔PeriodDay exact 시각 JOIN, DetailFix=1, EstQuantity>0를 사용
 
 ## 2026-11-13 확정 토글 실제상태
 설치EXE FormShipmentDistribution 실제 dnSpy.Console 재추출: GetFixStatus의 CountryFlower별 DetailFix=1 판정, btnFix_Click의 native 확정/취소 분기를 확인. 2025/2026 46-01 운영 SELECT 분리:2025전부확정,2026혼합상태(업무 중 가변). 로컬 boolean이 아닌 DB판정, native 카테고리 범위를 표시/전송한다. 분배의 SQL행잠금은 유지하고 웹 견적의 광역 presence와 field CAS를 구분한다. 계획 distribution-confirm-toggle-2026-11-13.md.
+
+## 2026-11-13 업체 비교 제한 해제·독립 스크롤 선검증
+실제 설치 EXE FormShipmentDistribution dnSpy CLI 재추출(nw-unlimited-customers-1113-dnspy.log): GetProductList/GetCustomerList/btnSave_Click 명시 SelectOrderYear/SelectOrderWeek와 CustKey/ProdKey, OutUnit 저장을 확인. 비교열5개 제한은 웹 UI이며 native 업무키/SQL 제한으로 추정하지 않는다. 운영 READ ONLY 46-01:2025 상세1214/업체60/품목345/확정1214,2026 상세821/업체62/품목212/확정167(업무중 가변). 기존 native API의1~1000 변경행 트랜잭션 한도와500품목 조회 보호는 유지. 표시/조회 소유권/스크롤만 확장하며 원본 품목명·수량·금액/날짜·isFix는 변경하지 않는다. 계획 distribution-unlimited-customers-2026-11-13.md.

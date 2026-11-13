@@ -483,38 +483,41 @@ let orderPosts = 0;
     await page.locator('[data-ai-verify="discard-drafts"]').click();
     assert.equal(await page.locator('[data-ai-verify="qty-436-2429"]').inputValue(), '51');
     assert.equal(await page.locator('[data-ai-verify="discard-drafts"]').isDisabled(), true, 'nothing left to cancel');
+    const move=async(prod,quantity,unit,from,to)=>{
+      await page.locator('[data-ai-verify="customer-move-open"]').click();
+      await page.locator('[data-ai-verify="move-dialog-product"]').selectOption(String(prod));
+      await page.locator('[data-ai-verify="move-dialog-from"]').selectOption(String(from));
+      await page.locator('[data-ai-verify="move-dialog-to"]').selectOption(String(to));
+      await page.locator('[data-ai-verify="move-dialog-unit"]').selectOption(unit);
+      await page.locator('[data-ai-verify="move-dialog-quantity"]').fill(quantity);
+      await page.locator('[data-ai-verify="move-dialog-apply"]').click();
+      await page.getByRole('dialog',{name:'업체 간 수량 이동'}).getByRole('button',{name:'닫기',exact:true}).click();
+    };
     // 이동 단위 박스: 1박스 = 10단 이동 후 되돌림
-    await page.locator('[data-ai-verify="move-unit-2429"]').selectOption('박스');
-    await page.locator('[data-ai-verify="move-qty-2429"]').fill('1');
-    await page.locator('[data-ai-verify="move-to2-2429"]').click();
+    await move(2429,'1','박스',0,1);
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '41');
     assert.equal(await page.locator('[data-ai-verify="qty-436-2429"]').inputValue(), '61');
-    await page.locator('[data-ai-verify="move-unit-2429"]').selectOption('단');
-    await page.locator('[data-ai-verify="move-qty-2429"]').fill('10');
-    await page.locator('[data-ai-verify="move-to1-2429"]').click();
+    await move(2429,'10','단',1,0);
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '51');
     assert.equal(await page.locator('[data-ai-verify="pair-remain-2429"]').count(), 1, 'pair view shows stock remaining after change');
     assert.equal(await page.locator('[data-ai-verify="pair-group-all"]').getAttribute('aria-pressed'), 'true');
-    await page.locator('[data-ai-verify="move-to2-2429"]').click();
+    await move(2429,'','단',0,1);
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '');
     assert.equal(await page.locator('[data-ai-verify="qty-436-2429"]').inputValue(), '102');
-    assert.equal(await page.locator('[data-ai-verify="move-to2-2429"]').isDisabled(), true, 'nothing left to move from customer 1');
+    assert.equal(await page.locator('[data-ai-verify^="move-to"]').count(),0,'no middle move controls with two companies');
     // 부분 이동 + 주문 없는 업체: Zinnia 7 중 3 만 ② 로 (② 에는 주문 없음 → 임시 행 '주문등록 예정')
     // 주문 없는 칸도 입력 가능(빈 칸) — 이동 전에는 값 없음, 주문등록 예정 아님
     assert.equal(await page.locator('[data-ai-verify="qty-436-90"]').inputValue(), '', 'customer 2 has no Zinnia order yet (empty editable cell)');
     assert.equal(await page.getByText('주문등록 예정').count(), 0);
-    await page.locator('[data-ai-verify="move-qty-90"]').fill('3');
-    await page.locator('[data-ai-verify="move-to2-90"]').click();
+    await move(90,'3','박스',0,1);
     assert.equal(await page.locator('[data-ai-verify="qty-478-90"]').inputValue(), '4', 'partial move leaves 4 at customer 1');
     assert.equal(await page.locator('[data-ai-verify="qty-436-90"]').inputValue(), '3');
     await page.getByText('주문등록 예정').waitFor();
     // 되돌리면(②→① 3) 주문등록 예정 행은 0 → 저장 시 주문도 분배도 만들지 않음; 다시 3 옮겨 저장
-    await page.locator('[data-ai-verify="move-qty-90"]').fill('3');
-    await page.locator('[data-ai-verify="move-to1-90"]').click();
+    await move(90,'3','박스',1,0);
     assert.equal(await page.locator('[data-ai-verify="qty-478-90"]').inputValue(), '7');
     assert.equal(await page.locator('[data-ai-verify="qty-436-90"]').inputValue(), '');
-    await page.locator('[data-ai-verify="move-qty-90"]').fill('3');
-    await page.locator('[data-ai-verify="move-to2-90"]').click();
+    await move(90,'3','박스',0,1);
     assert.equal(await page.locator('[data-ai-verify="qty-436-90"]').inputValue(), '3');
     await page.getByText(/② 기존 출고 비고 · 미저장 51 → 102단/).waitFor();
     await page.getByText(/① 기존 출고 비고 · 미저장 51 → 0단/).waitFor();
