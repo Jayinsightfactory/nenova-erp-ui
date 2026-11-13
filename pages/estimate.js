@@ -6,6 +6,7 @@ import { additionalCycleWeek } from '../lib/estimateFreightDraft';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import EstimateShipmentDateSales from '../components/EstimateShipmentDateSales';
+import EstimateLedgerAlerts from '../components/EstimateLedgerAlerts';
 import { createPortal } from 'react-dom';
 import { apiGet, apiPost } from '../lib/useApi';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
@@ -905,6 +906,7 @@ function EstimateByWeek() {
 
   // 왼쪽 패널 - 출고 목록
   const [shipments, setShipments] = useState([]);
+  const [ledgerAlertScope, setLedgerAlertScope] = useState(null);
   const [selectedGroups, setSelectedGroups] = useState(new Set()); // 다중 선택 (전체선택 + 인쇄용)
   const [selectedId, setSelectedId] = useState(null);
   const [selectedCustKey, setSelectedCustKey] = useState(null);
@@ -1438,6 +1440,7 @@ function EstimateByWeek() {
     const shouldApply = () => estimateSelectionStateRef.current.shouldApply(token, renderedSelectionScopeRef.current)
       && (typeof opts.shouldApply !== 'function' || opts.shouldApply());
     setLoading(true); setItemLoading(false); setErr('');
+    setLedgerAlertScope({year:scope.year,week:scope.week,request:Date.now()});
     return apiGet('/api/estimate', {
       week: scope.week,        // "14" 전달 → API에서 14-01, 14-02 등 자동 매칭
       year: scope.year,
@@ -4795,6 +4798,9 @@ function EstimateByWeek() {
 
       {err      && <div className="banner-err">⚠️ {err}</div>}
       {successMsg && <div className="banner-ok">{successMsg}</div>}
+      {!previewCapture && <EstimateLedgerAlerts scope={ledgerAlertScope
+        && String(ledgerAlertScope.year)===String(yearStr)
+        && Number(ledgerAlertScope.week)===Number(weekNum) ? ledgerAlertScope : null} />}
 
       {/* ── 2분할 ── */}
       <div className="split-panel estimate-split-panel">
