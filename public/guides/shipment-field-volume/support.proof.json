@@ -9,7 +9,7 @@
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "9164e45fdb73bee7eb88b9e234c0f0d71781bfaa8a5caa3593fd78d759682e07",
+  "videoSha256": "8ac28c91a839e5d42e3a47a5321ed541456ac609f3abaf8f092e8fe4b612cfe0",
   "captionsSha256": "d498e4d02808568d13eea7700d75cfe60dac997ff0870b13c478f8fb86d9af98",
   "sourceHashes": {
     "pages/shipment/distribute-import.js": "b04ce91c2dc038812cb3e7af23eff3bbd6e90f79b7ea15ecc622a424eb9f7e55"
@@ -50,7 +50,7 @@
       {
         "number": 2,
         "start": 27.4870134,
-        "x": 1060,
+        "x": 480,
         "y": 558.140625,
         "end": 35.3246666
       },
@@ -75,7 +75,9 @@
         "y": 659.140625,
         "end": 60.8161337
       }
-    ]
+    ],
+    "inputCaretVisible": true,
+    "rawCaptureSha256": "559312de060d4b5861ead1bf0bf1a01881b219e52c5f4d15f4fda9111dae5ad3"
   },
   "printPreviewCaption": {
     "number": 4,
