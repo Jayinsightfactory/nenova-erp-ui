@@ -344,6 +344,7 @@ async function verifyNotesUi(sourceWindow) {
   await waitFor(()=>contents.executeJavaScript('document.querySelector("[name=shortcutMenu]").value==="/test/fixture"'),'memo menu search selects exact route');
   assert.equal(await contents.executeJavaScript('document.querySelector("#editor").open'),true,'search Enter keeps editor open');
   assert.equal(homeRequests.filter(r=>r.method==='POST').length,searchPosts,'search Enter never registers task');
+  assert.equal(await contents.executeJavaScript(`(() => {const c=window.NenovaTaskControls.create();const kind=c.root.querySelector('[name=shortcutKind]');const query=c.root.querySelector('[name=shortcutSearch]');kind.value='desktop';kind.dispatchEvent(new Event('change'));query.value='fixture';query.dispatchEvent(new Event('input'));kind.value='none';kind.dispatchEvent(new Event('change'));return c.dirty();})()`),false,'disconnected hidden search never blocks date changes');
   await contents.executeJavaScript(`(() => { document.querySelector('#frequency').value='monthly'; document.querySelector('#frequency').dispatchEvent(new Event('change')); document.querySelector('#title').value='메모장 월말 확인'; document.querySelector('#add button[type=submit]').click(); })()`);
   await waitFor(()=>homeStore(accountActor).tasks.some(task=>task.title==='메모장 월말 확인'),'memo creates task');
   assert.equal(homeRequests.filter(request=>request.body?.title==='메모장 월말 확인').at(-1).body.frequency,'monthly');

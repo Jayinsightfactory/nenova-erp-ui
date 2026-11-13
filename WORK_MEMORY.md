@@ -2749,3 +2749,4 @@
 - 정식 ERP contract(pre/post포함)exit0, dnSpy/manifest/writeguard PASS. 실제한국어6단계 가이드70.5초 재촬영(검색어실제입력·Enter·선택확인·저장버튼별도줌·결과/줌아웃), 최종프레임·가이드해시검증PASS.
 - Desktop1.3.20/웹다운로드갱신. 로컬정식webpack빌드 진행중, PR/CI/릴리스/운영배포·재생 미검증(후속). 메뉴기준 검색/키보드/밀도/입력보존/가이드 적용, ERP원장/dnSpy신규SQL/운영probe 해당없음. 시작계정전체주간6%, reset1795064856.
 검색어: task-shortcut-search-1113 1.3.20 shortcutSearch 메뉴검색 분류검색 Enter 필터 NativeSelect
+- 후속 검증: 연결 해제 후 숨겨진 검색어가 draft로 남는 반례를 실제 Chrome에서 재현→dirty 판정에서 제외→회귀PASS. Native Electron CI에도 동일 반례 추가. 검색어는 비영구UI이며 선택 종류·시간만 기존대로 초안 보호. 최신00532c39 통합(충돌은 WORK_MEMORY만, 양쪽기록보존), 검색 코드에는 충돌 없음. 최종 가이드69.7초 재촬영 및 통합빌드/CI 진행.
