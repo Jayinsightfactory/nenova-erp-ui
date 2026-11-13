@@ -1,0 +1,63 @@
+{
+  "id": "company-calendar",
+  "title": "Authenticated shared company calendar, separate from personal tasks and ERP",
+  "scope": [
+    "lib/companyCalendarStore.js",
+    "pages/api/desktop/company-calendar.js",
+    "desktop/company-calendar.cjs",
+    "desktop/shell/company-calendar.js"
+  ],
+  "businessIdentity": [
+    "company calendar event UUID",
+    "execution date including year",
+    "verified creator userId"
+  ],
+  "actions": [
+    {
+      "name": "COMPANY_GET",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "COMPANY_CREATE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "AUTHOR_OR_ADMIN_UPDATE_DELETE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 identical dates remain separate; shared event appears to both employees, immutable author controls edit/delete."
+  },
+  "requiredTestFiles": [
+    "__tests__/companyCalendar.test.js",
+    "desktop/tests/company-calendar.test.cjs",
+    "scripts/desktop-company-calendar-smoke.cjs"
+  ],
+  "requiredCommands": [
+    "node --test __tests__/companyCalendar.test.js desktop/tests/company-calendar.test.cjs",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run build"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "Web-only shared calendar JSON file, fixed authenticated route, no MSSQL or nenova.exe action. Existing lock/CAS primitives reused; ERP tables preserved.",
+    "methods": [
+      "companyCalendar file-only CAS"
+    ],
+    "tables": [
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)",
+      "Estimate (preserve)"
+    ]
+  }
+}

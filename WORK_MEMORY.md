@@ -2810,3 +2810,12 @@
 검색어: field-volume final-build33 source-proven-zero stock SELECT-only manifest215
 
 - 배포 직전 최종CI verify/installer 모두 SUCCESS. 동시 PR#1708(견적 관리 원장알림)265bc97f 병합으로 WORK_MEMORY append만 충돌 → 양쪽 기록 보존 통합. 기능 파일 충돌 없음. 통합본 CI 재확인 후 병합/배포 진행.
+
+
+## 2026-11-13 회사 공통 일정·홈 요청 버튼·접기/열기
+- fresh nw-company-calendar-1113 @32a5e4ef, 단일 작업자. 사용자 위치확정: 환영문구 옆 웹개발요청, 월간제목 옆 공통일정, 월간제목 우측 접기/열기. 월간/주간 각각 접고 홈재열기 기본 모두열림. 일반웹 /dashboard 보존.
+- 회사공통은 web-only 별도 company-calendar/calendar.json(개인파일·ERP 원장 보존). 활성직원 등록/조회, 본인·기존SS3관리자만 수정/삭제. 작성·수정주체/시각, 소프트삭제, CAS+actor별멱등+원자게시/파일잠금(기존개인home lock재사용). 고정 authenticated main IPC/API, owner+generation fencing/본문크기/동일origin/입력허용목록, 서비스주체거절. 시간·날짜·메모 검증, 월간+주간회사공통녹색배지/블록. 브라우저 직접network없음.
+- 실제파일·API·bridge8검사 PASS: A등록/B읽기·타인수정403/본인수정/SS3삭제, 전년동일날짜독립, CAS1winner·동일요청재시도/actor분리, 손상닫힘/원자게시실패이전bytes보존, 개인파일미변경, 활성계정/CSRF/owner·지연응답/크기. 실제Chrome4폭/모달1920·390/쓰기실패·응답유실같은요청재시도·중복0·초안/Escape·월/주같은일정·접기독립/재조회유지/홈재열기펼침·웹개발요청고정경로/owner비우기/개인쓰기0·JS0 PASS.
+- Native Electron CSP company모듈/IPCGEt·회사초안 유지 및 개인초안false로회사초안경고해제되지않음·Escape모달보호/기존계정경합 PASS. 기존개인시간/월간7건·메뉴검색·notes280/320/390·실제종료6모드 회귀 PASS. API추가용 회사계약/부작용표 작성. ERP SQL/스키마/운영원장읽기·쓰기 없음, DB probe/dnSpy신규SQL 해당없음(필수가드 유지). 기준: 검색/한국시간/페이지주스크롤/키보드/에러재시도/입력보존/가이드 적용.
+- Desktop1.3.22 목표. 가이드10단계 갱신·정식ERP/build/CI/릴리스/운영배포는 진행예정·미검증. 시작계정전체주간13%, reset1795064856(동시작업 포함).
+검색어: company-calendar-1113 1.3.22 회사공통일정 웹개발요청 접기열기 홈기본열림 homeDrafts companyCalendarRequest
