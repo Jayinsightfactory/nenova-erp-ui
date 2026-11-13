@@ -2912,3 +2912,11 @@
 - 운영 원본 CARANATION Vintage Honey가 기존 CARNATION 별칭에 없어서 표시 접두어가 남음. 카네이션 선택 범위에서만 CARANATION 별칭 추가. 원본명/제목/ERP payload/품목 합치기 없음. 2025/2026 같은46-01/ProdKey3513 수량29·금액 불변 fixture.
 - 최신377.6초 가이드는 이번 별칭으로 달라지지 않는 연습 이름/7단계이며 업무흐름·실제 영상은 그대로 유효. 출력/수량 writer 변경 없음. 검사·빌드·PR·배포 진행 중.
 검색어: CARANATION Vintage Honey 표시접두어 PR1726 8업체 381품목 고정헤더
+
+
+## 2026-11-13 데스크톱 로그인 가림·서버 로그인 오류 진단
+- 사용자 PC Desktop1.3.23 실행 프로세스와 기존 로그인 탭 확인. 홈이 앞에 떠 로그인 입력을 가리고 있었음. 현재 로그인 탭을 UI로 표시했으나 사용자 직접 로그인은 서버오류500으로 실패(비밀번호 입력/전송을 대행하지 않음). 작업표시줄의 고정 Nenova.lnk는 기존 Wooribnc ERP exe이며 웹Desktop은 다른 실행파일. 탐색기 조작중 사용자입력/최소화가 감지되어 추가GUI조작 중단.
+- 앱 수정: verifyAccount에서 인증없음이면 기존 로그인 탭도 실제 소유 창에서 활성화하여 disabled홈에 가려지지 않게 함. 실제Electron 기존로그인복원/home숨김/nativeView visible 회귀PASS. 1.3.24 준비; 내 업무 가이드 최종166초10단계 재촬영, 전체17흐름18영상 PASS.
+- 운영읽기전용진단은 기존배포와 독립그룹으로 실행되게 조정(쓰기배포 직렬화 유지). 진단집계 메모리여유2895MB/OOM0, DBtimeout320건(과거포함) 확인. 최근 로그인오류는 ETIMEOUT connectionFailure=true, 권한/컬럼/테이블오류없음. PC 동일설정 DB SELECT1은80ms PASS. 서버새연결SELECT1은 진행중. 원장·계정·인증정보 변경/출력/저장 없음, 서버로그 원문 대신 허용된오류코드·불리언만 출력.
+- 1.3.24 CI/정식릴리스·설치·사용자로그인복구는 진행중/미완료. 세부로그 .verify 로컬.
+검색어: desktop-login-1113 1.3.24 verifyAccount loginOwner menuOpen ETIMEOUT 로그인서버오류 작업표시줄 Nenova.lnk

@@ -490,7 +490,11 @@ async function verifyAccount(initial = false) {
     menus = []; syncStatus = 'error';
     lockAccount();
     const w = [...windows.values()][0] || createWindow();
-    if (![...tabs.values()].some(t => new URL(t.url).pathname === '/login')) openTab(w, { url: '/login', title: '네노바 로그인' });
+    const login = [...tabs.values()].find(t => new URL(t.url).pathname === '/login');
+    if (login) {
+      const ownerWindow = windows.get(login.windowId);
+      if (ownerWindow) activate(ownerWindow, login.id);
+    } else openTab(w, { url: '/login', title: '네노바 로그인' });
     return;
   }
   const changed = actor !== newActor;
