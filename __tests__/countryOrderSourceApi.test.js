@@ -78,3 +78,28 @@ test('nonfinite or invalid basis response fails without leaking partial rows', a
     assert.equal(s.res.code, 409); assert.equal(s.res.body.rows, undefined);
   }
 });
+
+test('cycle selection reads week names only and detail selection scopes rows and diagnostics to the exact week', async () => {
+  const query = { country: 'Netherlands', year: '2026', majorWeek: '42' };
+  const list = setup();
+  await list.handler({ method: 'GET', query: { ...query, list: 'subweeks' } }, list.res);
+  assert.deepEqual(list.res.body.rows, []);
+  assert.equal(list.res.body.subweeks[0].orderWeek, '42-01');
+  assert.equal(list.calls.length, 2);
+  assert.match(list.calls[1].sql, /SELECT DISTINCT v.OrderWeek/);
+  const detail = setup();
+  await detail.handler({ method: 'GET', query: { ...query, orderWeek: '42-01' } }, detail.res);
+  assert.equal(detail.res.body.rows.length, 1);
+  for (const call of detail.calls.slice(1)) {
+    assert.match(call.sql, /OrderWeek=@orderWeek/);
+    assert.equal(call.params.orderWeek.value, '42-01');
+    assert.equal(call.params.orderYear.value, '2026');
+  }
+  const stale = setup({ rows: [{ ...row, OrderWeek: '42-02' }] });
+  await stale.handler({ method: 'GET', query: { ...query, orderWeek: '42-01' } }, stale.res);
+  assert.equal(stale.res.code, 409);
+  const invalid = setup();
+  await invalid.handler({ method: 'GET', query: { ...query, orderWeek: '41-01' } }, invalid.res);
+  assert.equal(invalid.res.code, 400);
+  assert.equal(invalid.calls.length, 0);
+});
