@@ -1,3 +1,4 @@
+import WorkflowGuide from '../WorkflowGuide';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PEDIDOS_COUNTRIES, generatePedidos, generatePedidosFromMatrix, formatPedidosQuantity, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
 import { buildCountryOrderMatrix, excludeBlockedCountryOrderRows, applyCountryOrderManualQuantities, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities, buildCountryOrderProductSnapshot, suggestCountryOrderProductFactors } from '../../lib/countryOrderSource';
@@ -10,6 +11,7 @@ export default function PedidosTool({ active = true }) {
   const [cycles, setCycles] = useState([]);
   const [cycleKey, setCycleKey] = useState('');
   const [orderWeek, setOrderWeek] = useState('');
+  const [subweeks, setSubweeks] = useState([]);
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   const [reload, setReload] = useState(0);
@@ -46,24 +48,30 @@ export default function PedidosTool({ active = true }) {
     invalidate(setSourceMode, value);
   }
   function changeCountry(value) {
+    if (value === country) return;
+    setCycleKey(''); setSubweeks([]);
     requestGuard.current.invalidate(); setResponse(null); setOrderWeek(''); setLoading(false);
     invalidate(setCountry, value);
   }
   function changeCycle(value) {
     if (value === cycleKey) return;
+    setSubweeks([]);
     requestGuard.current.invalidate(); setResponse(null); setOrderWeek(''); setLoading(false);
     invalidate(setCycleKey, value);
   }
 
   useEffect(() => {
-    clearResults(); setResponse(null); setOrderWeek(''); setManual({}); setProductDialog(null); setProductSaved('');
+    clearResults(); setResponse(null); setManual({}); setProductDialog(null); setProductSaved('');
     if (!active || sourceMode !== 'erp') { requestGuard.current.invalidate(); setLoading(false); return; }
-    const selected = cycles.find(cycle => cycle.key === cycleKey) ?? cycles[0];
+    const selected = cycles.find(cycle => cycle.key === cycleKey);
     const scopeKey = country && selected ? `${country}/${selected.key}` : null;
     const request = requestGuard.current.begin(scopeKey);
     const params = new URLSearchParams();
-    if (country) params.set('country', country);
-    if (country && cycleKey && selected) { params.set('year', String(selected.year)); params.set('majorWeek', selected.majorWeek); }
+    if (country && selected) {
+      params.set('country', country); params.set('year', String(selected.year)); params.set('majorWeek', selected.majorWeek);
+      if (orderWeek) params.set('orderWeek', orderWeek);
+      else params.set('list', 'subweeks');
+    }
     setLoading(true);
     (async () => {
       try {
@@ -73,8 +81,16 @@ export default function PedidosTool({ active = true }) {
         if (!result.ok || !body.success) throw new Error(body.message || body.error || '전산 주문 조회에 실패했습니다. 다시 조회하세요.');
         if (!request.accepts(body)) throw new Error('조회 범위가 현재 선택과 다릅니다. 다시 조회하세요.');
         if (!Array.isArray(body.cycles) || body.cycles.length !== 6 || !Array.isArray(body.rows) || !Array.isArray(body.subweeks)) throw new Error('전산 조회 응답이 불완전합니다. 다시 조회하세요.');
-        setCycles(body.cycles); setResponse(country ? body : null);
-        setOrderWeek(body.subweeks[0]?.orderWeek ?? '');
+        setCycles(body.cycles);
+        if (!orderWeek) { setSubweeks(body.subweeks); return; }
+        if (!body.subweeks.some(item => item.orderWeek === orderWeek)) throw new Error('선택한 세부차수에 주문이 없습니다. 차수를 다시 선택하세요.');
+        setResponse(body);
+        const currentMatrix = buildCountryOrderMatrix(body, orderWeek);
+        if (!currentMatrix.blockers.length) {
+          const outputs = generatePedidosFromMatrix(currentMatrix);
+          setContext({ country, year: selected.year, week: orderWeek, sourceName: '전산 원주문 (읽기 전용)' });
+          setResults(outputs);
+        }
       } catch (err) {
         if (!request.signal.aborted) { setResponse(null); setError(err.message || '전산 주문 조회에 실패했습니다.'); }
       } finally { if (!request.signal.aborted) setLoading(false); }
@@ -82,7 +98,7 @@ export default function PedidosTool({ active = true }) {
     return () => requestGuard.current.invalidate();
     // cycles are response metadata, never an additional query trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, sourceMode, country, cycleKey, reload]);
+  }, [active, sourceMode, country, cycleKey, orderWeek, reload]);
 
   const matrixState = useMemo(() => {
     if (!response || !orderWeek || loading) return { matrix: null, error: '' };
@@ -90,7 +106,7 @@ export default function PedidosTool({ active = true }) {
     catch (err) { return { matrix: null, error: err.message || '전산 행렬을 확인하지 못했습니다.' }; }
   }, [response, orderWeek, loading]);
   const matrix = matrixState.matrix;
-  const selectedCycle = cycles.find(cycle => cycle.key === cycleKey) ?? cycles[0];
+  const selectedCycle = cycles.find(cycle => cycle.key === cycleKey);
   const matchesScope = Boolean(matrix && response?.scope?.scopeKey === `${country}/${selectedCycle?.key}` && matrix.scope.country === country && matrix.scope.year === selectedCycle?.year && matrix.scope.orderWeek === orderWeek);
   const canExport = active && !loading && !busy && matchesScope;
   const blockedRowCount = matrix ? matrix.rows.filter(row => row.blocked).length : 0;
@@ -202,15 +218,27 @@ export default function PedidosTool({ active = true }) {
   const noItems = results !== null && (results.length === 0 || results.every(output => output.itemCount === 0));
   return <section className="pedidos-tool" aria-label="국가별 발주서 파일 변환">
     <div className="pedidos-heading"><div><h2>국가별 발주서</h2><p>전산 원주문 또는 Excel 원본을 기존 국가별 양식으로 내려받으세요.</p></div><span className="pedidos-free">전산 읽기 전용 · 원장 변경 없음</span></div>
+    <WorkflowGuide workflowId="import-country-orders" />
     <div className="pedidos-source" role="group" aria-label="발주 수량 원천">
       <button type="button" aria-pressed={sourceMode === 'erp'} onClick={() => changeSource('erp')}>전산에서 자동 불러오기</button>
       <button type="button" aria-pressed={sourceMode === 'upload'} onClick={() => changeSource('upload')}>Excel 원본 업로드</button>
     </div>
     {sourceMode === 'erp' ? <div className="pedidos-auto">
-      <label className="pedidos-country">국가<select value={country} disabled={!cycles.length} onChange={event => changeCountry(event.target.value)}><option value="">국가 선택</option>{PEDIDOS_COUNTRIES.map(value => <option key={value} value={value}>{importCountryLabel(value)}</option>)}</select></label>
-      <div className="pedidos-cycles" role="group" aria-label="오늘부터 다음 5개 대차수">{cycles.map(cycle => <button type="button" key={cycle.key} aria-pressed={selectedCycle?.key === cycle.key} onClick={() => changeCycle(cycle.key)}>{cycle.year} {cycle.majorWeek}차 <small>{cycle.startDate.slice(5).replace('-', '/')}–{cycle.endDate.slice(5).replace('-', '/')}</small></button>)}</div>
-      <div className="pedidos-subweeks" role="group" aria-label="실제 주문 세부차수">{response?.subweeks.map(subweek => <button type="button" key={subweek.key} aria-pressed={orderWeek === subweek.orderWeek} onClick={() => { setManual({}); invalidate(setOrderWeek, subweek.orderWeek); }}>{subweek.orderWeek}차</button>)}</div>
-      <div className="pedidos-auto-actions"><button type="button" disabled={!canGenerate} onClick={requestGenerate}>미리보기 생성</button>{matrix && matrix.blockers.length > 0 && <button type="button" className="pedidos-partial" disabled={!canGeneratePartial} onClick={() => convertMatrix(true)}>확인 필요 품목 {blockedRowCount}개 제외하고 생성</button>}<button type="button" className="pedidos-secondary" disabled={loading} onClick={() => { requestGuard.current.invalidate(); clearResults(); setResponse(null); setReload(value => value + 1); }}>다시 조회</button><span>{loading ? '전산 원주문 조회 중…' : response && !response.subweeks.length ? '선택 범위에 주문 없음' : !country ? '국가를 선택하면 자동으로 조회합니다.' : '세부차수의 원수량을 확인한 뒤 생성하세요.'}</span></div>
+      <h3>1. 국가</h3>
+      <div className="pedidos-subweeks" role="group" aria-label="국가">{PEDIDOS_COUNTRIES.map(value => <button type="button" key={value} aria-pressed={country === value} onClick={() => changeCountry(value)}>{importCountryLabel(value)}</button>)}</div>
+      {country && <><h3>2. 차수</h3>
+      <div className="pedidos-cycles" role="group" aria-label="오늘부터 다음 5개 대차수">{cycles.map(cycle => <button type="button" key={cycle.key} aria-pressed={selectedCycle?.key === cycle.key} onClick={() => changeCycle(cycle.key)}>{cycle.year} {cycle.majorWeek}차 <small>{cycle.startDate.slice(5).replace('-', '/')}–{cycle.endDate.slice(5).replace('-', '/')}</small></button>)}</div></>}
+      {cycleKey && <><h3>3. 세부차수</h3>
+      <div className="pedidos-subweeks" role="group" aria-label="실제 주문 세부차수">{subweeks.map(subweek => <button type="button" key={subweek.key} aria-pressed={orderWeek === subweek.orderWeek} onClick={() => {
+        if (orderWeek === subweek.orderWeek) return;
+        requestGuard.current.invalidate(); setResponse(null); setManual({}); invalidate(setOrderWeek, subweek.orderWeek);
+      }}>{subweek.orderWeek}차</button>)}</div></>}
+      <div className="pedidos-auto-actions">
+        {results?.length ? results.map(output => <button key={output.filename} type="button" onClick={() => download(output)}>{output.filename} 다운로드</button>) : <button type="button" disabled>엑셀 다운로드</button>}
+        {matrix?.blockers.length > 0 && <><button type="button" disabled={!canGenerate} onClick={requestGenerate}>미리보기 생성</button><button type="button" className="pedidos-partial" disabled={!canGeneratePartial} onClick={() => convertMatrix(true)}>확인 필요 품목 {blockedRowCount}개 제외하고 생성</button></>}
+        <button type="button" className="pedidos-secondary" disabled={loading} onClick={() => { requestGuard.current.invalidate(); clearResults(); setResponse(null); setReload(value => value + 1); }}>다시 조회</button>
+        <span role="status">{loading ? (orderWeek ? '전산 원주문 조회 중…' : '차수 목록 조회 중…') : !country ? '국가를 선택하세요.' : !cycleKey ? '차수를 선택하세요.' : !orderWeek ? (subweeks.length ? '세부차수를 선택하면 주문을 조회합니다.' : '선택 범위에 주문 없음') : ''}</span>
+      </div>
       {matrixState.error && <p role="alert" className="pedidos-error">{matrixState.error}</p>}
       {matrix && <>
         <p className="pedidos-note">{matrix.scope.year}년 {matrix.scope.orderWeek}차 · 품목 {matrix.rows.length}개 · 업체 {matrix.customers.length}개 · 수량을 환산하지 않은 원주문입니다.</p>

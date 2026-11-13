@@ -1039,6 +1039,55 @@
           ]
         }
       ]
+    },
+    {
+      "id": "import-country-orders",
+      "title": "국가별 발주서 조회와 다운로드",
+      "entryPaths": [
+        "/import/tools"
+      ],
+      "sourceFiles": [
+        "components/import-tools/PedidosTool.js"
+      ],
+      "requiredScenarios": [
+        "country",
+        "cycle",
+        "week",
+        "download"
+      ],
+      "guides": [
+        {
+          "id": "import",
+          "role": "수입부",
+          "title": "국가·차수 선택과 엑셀 다운로드",
+          "status": "ready",
+          "src": "/guides/import-country-orders/import.mp4",
+          "captions": "/guides/import-country-orders/import.ko.vtt",
+          "proof": "/guides/import-country-orders/import.proof.json",
+          "chapters": [
+            {
+              "scenario": "country",
+              "title": "1. 국가 선택",
+              "seconds": 0.021
+            },
+            {
+              "scenario": "cycle",
+              "title": "2. 차수 선택",
+              "seconds": 10.605
+            },
+            {
+              "scenario": "week",
+              "title": "3. 세부차수 조회",
+              "seconds": 21.174
+            },
+            {
+              "scenario": "download",
+              "title": "4. 엑셀 다운로드",
+              "seconds": 31.732
+            }
+          ]
+        }
+      ]
     }
   ]
 }

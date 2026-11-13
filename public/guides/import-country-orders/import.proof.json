@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-13T09:18:03.298Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 42.55,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "ceff0c64d71739d99d0405e4f6f72513b51b2a0dbe778baa3d72b6de4b3b4fe6",
+  "captionsSha256": "e47834c4c0dbe6abb4aa6eb30302e48eeb1969be5f1d0e00cf8357f10f4260ca",
+  "sourceHashes": {
+    "components/import-tools/PedidosTool.js": "28cf363a73902a1a17fcc66ee800cf79356f6680268ea51982ef829f488cc84c"
+  },
+  "presentation": {
+    "numberedSteps": 4,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 4.1476111,
+        "x": 394,
+        "y": 718.0625,
+        "end": 10.378531899999997
+      },
+      {
+        "number": 2,
+        "start": 14.734010099999999,
+        "x": 382.5,
+        "y": 814.375,
+        "end": 20.965880199999997
+      },
+      {
+        "number": 3,
+        "start": 25.286559800000003,
+        "x": 294.125,
+        "y": 847.6875,
+        "end": 31.5180884
+      },
+      {
+        "number": 4,
+        "start": 35.865077400000004,
+        "x": 353.359375,
+        "y": 558.6875,
+        "end": 42.1141761
+      }
+    ]
+  }
+}
