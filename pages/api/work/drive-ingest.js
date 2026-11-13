@@ -5,11 +5,11 @@
 import fs from 'fs';
 import crypto from 'crypto';
 import formidable from 'formidable';
-import { ingestFile, FILE_MAX } from '../../../lib/workDrive';
+import { FILE_MAX } from '../../../lib/workDrive';
+import { startDriveIngestService } from '../../../lib/workDriveIngestAsync.cjs';
+import { measure } from '../../../lib/serverWorkTelemetry.cjs';
 import { importRemitFile } from '../../../lib/farmRemitInbox';
 import { REMIT_FILE_RE } from '../../../lib/farmRemitImport';
-import { recomputeDrivePairsAsync } from '../../../lib/workDrivePairsAsync.cjs';
-import { isInvoiceFile, isResultWorkbook } from '../../../lib/workDrivePairs';
 
 export const config = { api: { bodyParser: false } };
 
@@ -28,25 +28,35 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ success: false, error: 'Method not allowed' }); }
   const t = tokenOk(req);
   if (!t.ok) return res.status(t.status).json({ success: false, error: t.error });
-  const form = formidable({ maxFileSize: FILE_MAX, keepExtensions: true, multiples: false });
-  let fields, files;
-  try { [fields, files] = await form.parse(req); } catch (e) { return res.status(413).json({ success: false, error: '업로드 파싱 실패: ' + e.message }); }
-  const f = Array.isArray(files.file) ? files.file[0] : files.file;
-  if (!f) return res.status(400).json({ success: false, error: 'file 필드 없음' });
-  const pick = (k) => { const v = fields[k]; return Array.isArray(v) ? v[0] : v; };
-  let buffer;
-  try { buffer = fs.readFileSync(f.filepath); } finally { try { fs.unlinkSync(f.filepath); } catch {} }
-  const r = ingestFile({ buffer, filename: pick('filename') || f.originalFilename, orbitUserId: pick('orbitUserId'), userName: pick('userName'), hostname: pick('hostname'), dir: pick('dir'), mtime: pick('mtime'), eventType: pick('eventType'), egressSnapshot: String(pick('egressSnapshot') || '') === '1' });
-  if (!r.ok) return res.status(r.status || 400).json({ success: false, error: r.error });
-  // 송금 자동 인식: 경영지원의 '해외건별송금신청*.xlsx'가 올라오면 행을 읽어 농장 송금 대기함(WebFarmRemit PENDING)에 넣는다. 실패는 로그만(업로드는 성공 처리)
-  let remit = null;
-  const _fn = pick('filename') || f.originalFilename || '';
-  if (!r.duplicate && REMIT_FILE_RE.test(_fn) && /\.xlsx?$/i.test(_fn)) {
-    try { remit = await importRemitFile({ buffer, fileId: r.id, fileName: _fn, by: 'drive:' + (r.classification?.uploaderName || '') }); }
-    catch (e) { console.error('[drive-ingest] remit import failed:', e.message); remit = { error: e.message }; }
+  const service=startDriveIngestService(),release=await measure('admission',()=>service.acquire(req));
+  if(!release){res.setHeader('Retry-After','5');return res.status(503).json({success:false,error:'업무 파일 저장 중입니다. 잠시 후 다시 시도해 주세요.'});}
+  const temporary=new Set();
+  try{
+    const form = formidable({ maxFileSize: FILE_MAX, maxTotalFileSize: FILE_MAX, maxFiles: 1, maxFields: 16, maxFieldsSize: 16*1024, keepExtensions: true, multiples: false });
+    form.on('fileBegin',(_name,file)=>{if(file.filepath)temporary.add(file.filepath);});
+    let fields,files;
+    try{[fields,files]=await measure('multipart',()=>form.parse(req));}catch{return res.status(413).json({success:false,error:'업로드 파싱 실패'});}
+    const f=Array.isArray(files.file)?files.file[0]:files.file;
+    if(!f)return res.status(400).json({success:false,error:'file 필드 없음'});
+    temporary.add(f.filepath);
+    const pick=k=>Array.isArray(fields[k])?fields[k][0]:fields[k];
+    const filename=pick('filename')||f.originalFilename||'';
+    const stored=await measure('store',()=>service.ingest({filepath:f.filepath,filename,orbitUserId:pick('orbitUserId'),userName:pick('userName'),hostname:pick('hostname'),dir:pick('dir'),mtime:pick('mtime'),eventType:pick('eventType'),egressSnapshot:String(pick('egressSnapshot')||'')==='1'}));
+    const r=stored.result;
+    if(!r.ok){if(r.status===503)res.setHeader('Retry-After','5');return res.status(r.status||400).json({success:false,error:r.error});}
+    // Preserve the awaited SQL import and legacy remit response. Workbook parsing occurs
+    // in the storage worker; all existing SQL and duplicate decisions remain unchanged.
+    let remit=null;
+    if(!r.duplicate&&REMIT_FILE_RE.test(filename)&&/\.xlsx?$/i.test(filename)){
+      if(stored.remitError)remit={error:stored.remitError};
+      else try{remit=await measure('remit',()=>importRemitFile({parsedRows:stored.parsedRows,fileId:r.id,fileName:filename,by:'drive:'+(r.classification?.uploaderName||'')}));}
+      catch(e){console.error('[drive-ingest] remit import failed');remit={error:e.message};}
+    }
+    return res.status(200).json({success:true,id:r.id,duplicate:r.duplicate,version:r.version,classification:r.classification,remit});
+  }catch(e){
+    res.setHeader('Retry-After','5');return res.status(e.status||503).json({success:false,error:'업무 파일 저장 실패. 잠시 후 다시 시도해 주세요.'});
+  }finally{
+    await Promise.all([...temporary].map(file=>fs.promises.unlink(file).catch(()=>{})));
+    release();
   }
-  // 인보이스 PDF·결과 엑셀이면 짝(data/drive/pairs.json) 재계산. 실패해도 업로드는 성공
-  buffer=null; // persisted bytes are read by the bounded worker; do not retain upload buffers while queued.
-  if (!r.duplicate && (isInvoiceFile({filename:_fn}) || isResultWorkbook({filename:_fn}))) { try { await recomputeDrivePairsAsync(); } catch { console.error('[drive-ingest] pair worker failed; upload preserved'); } }
-  return res.status(200).json({ success: true, id: r.id, duplicate: r.duplicate, version: r.version, classification: r.classification, remit });
 }

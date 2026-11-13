@@ -130,3 +130,6 @@ scripts/bank-quick/_probe/
 /data/arrival-upload-review/
 /.probe.cjs
 /data/cost-workbook-history/
+
+/work/mixed-load/
+/data/runtime/server-logs/

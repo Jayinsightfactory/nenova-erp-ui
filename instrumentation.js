@@ -3,6 +3,12 @@
 export async function register() {
   // Keep node-only SQL scheduler dependencies out of the dev browser/edge bundle.
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+  if (process.env.NEXT_PHASE !== 'phase-production-build' && (process.env.NODE_ENV === 'production' || process.env.NENOVA_WORK_LOGS === '1')) {
+    const {startProduction} = await import('./lib/serverWorkTelemetry.cjs');
+    startProduction();
+    const {startDriveIngestService} = await import('./lib/workDriveIngestAsync.cjs');
+    startDriveIngestService();
+  }
   // Build workers must never schedule report writes or open report SQL connections.
   if (process.env.NEXT_PHASE !== 'phase-production-build' && process.env.NODE_ENV === 'production' && process.env.DB_SERVER) {
     try {

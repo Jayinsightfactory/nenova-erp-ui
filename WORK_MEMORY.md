@@ -2943,3 +2943,9 @@
 - ingest 전용 집계캐시: 첫 SHA중복·역사상 버전수·id별최신 미삭제 용량의 기존의미 보존. 외부 stat변경은 전체재읽기, 자체확인된append만 증분반영. 보안/목록/이력은 원래전체색인읽기 유지, 알수없는레거시행은원래경로fallback. SQL/remit변경없음.
 - 기존workDrive검사 및4개캐시검사PASS(외부append/교체/삭제/손상/중복/숨김/교정/대용량반복읽기). 필수CI·배포·운영응답검증 진행중 미검증. 메뉴기준선: 화면/업무순서변경없어해당없음.
 검색어: drive-index-1113 9256233 desktop:command TimeoutError index.jsonl ingestIndexCache
+
+## 2026-11-13 — 직원 동시 업로드와 개인 업무 조회 지연
+- 운영 읽기 진단 43392737941: 웹 CPU 172.2%, RSS 731MiB, 최근 30분 메모리 재시작 0. 단순 DB ping과 실제 로그인/개인업무 응답 구분.
+- 서버 우선: 수신 2개+제한 FIFO, 파일 저장과 엑셀 매칭 별도 저우선순위 자식 프로세스, 재시작 후 디스크 작업 복구. 기존 송금 SQL 본문·응답 유지. 홈 지침 불필요한 인계 이력 제거, 공지/피드백 공통 대기 예산.
+- 서버 지연 로그: 비식별 JSONL·일별 용량/7일 제한, 요청/단계·CPU·메모리·이벤트루프·혼잡 집계. 업무 원장/메뉴/사용 순서 변경 없음. 회귀 및 합성 DB 실로그인·인증된 개인 업무·5/10/20명 혼합 시험 진행. 실제 직원 전체 PC 부하, 장기 운영·오프사이트 백업 복원 미검증.
+검색어: upload-ops-1113 server-work-summary admission pair-jobs ingest-owner serverWorkTelemetry dbPool
