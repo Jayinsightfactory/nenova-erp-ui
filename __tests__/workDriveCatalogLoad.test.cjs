@@ -12,7 +12,7 @@ test('preview is available before paint and full network completion; the full ca
 });
 test('full failure keeps preview usable; explicit retry completes without restarting preview',async()=>{
  let calls=0;const {loader,events}=fixture(async url=>{calls++;return url.includes('preview=1')?response(payload([file('recent')],false)):calls===2?response({success:false,error:'fixture transient'},503):response(payload([file('recent'),file('older')]));});
- await loader.load();await tick();assert.equal(events.states.at(-1).phase,'error');assert.equal(events.files.length,1);await loader.retry();assert.equal(calls,3);assert.equal(events.files.at(-1).value.files.length,2);loader.close();
+ await loader.load();await tick();assert.equal(events.states.at(-1).phase,'error');assert.equal(events.states.at(-1).retry,'full');assert.equal(events.files.length,1);await loader.retry();assert.equal(calls,3);assert.equal(events.files.at(-1).value.files.length,2);loader.close();
 });
 test('abort and generation prevent an old full response from overwriting a newer reload or unmounted screen',async()=>{
  let oldFull,previewCount=0;const signals=[];const {loader,events}=fixture(async(url,{signal})=>{signals.push(signal);if(url.includes('preview=1'))return response(payload([file('generation-'+(++previewCount))],previewCount>1));return new Promise(resolve=>{oldFull=resolve;});});
@@ -35,4 +35,8 @@ test('API preview is explicit opt-in and uses only the authorized preview reader
  async function request(query){const res={setHeader(){},status(code){this.statusCode=code;return this;},json(value){this.payload=value;return this;}};await handler({method:'GET',user,query},res);return res;}
  let result=await request({format:'table-v1',preview:'1',usage:'deferred'});assert.deepEqual(result.payload.files,[file('authorized')]);assert.deepEqual(result.payload.catalog,{complete:false,totalFiles:155});assert.equal(lists,0);assert.equal(previews,1);
  result=await request({preview:'1'});assert(!result.payload.catalog);assert.equal(lists,1);assert.equal(previews,1);result=await request({format:'table-v1',usage:'deferred'});assert.equal(result.payload.catalog.complete,true);totalFiles=1;result=await request({format:'table-v1',preview:'1'});assert.equal(result.payload.catalog.complete,true);
+});
+
+test('a preview failure after a populated screen offers a new preview reload, not an inert full retry',async()=>{
+ let calls=0;const {loader,events}=fixture(async()=>++calls===2?response({success:false,error:'preview unavailable'},503):response(payload([file('existing')])));await loader.load();await loader.load();assert.equal(events.states.at(-1).retry,'preview');assert.equal(events.files.length,1);await loader.load();assert.equal(events.states.at(-1).phase,'ready');loader.close();
 });

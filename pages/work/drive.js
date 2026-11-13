@@ -129,7 +129,7 @@ export default function WorkDrivePage() {
     return base.sort((a, b) => (val(a) > val(b) ? d : val(a) < val(b) ? -d : 0)).slice(0, view === 'recent' ? 200 : 2000);
   }, [scoped, inCycle, view, q, stageF, subF, sort]);
 
-  const fix = async (id, patch) => { const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...patch }) }); const j = await r.json(); if (!j.success) { alert(j.error); return; } await load(); if (sel?.id === id) setSel(j.item); };
+  const fix = async (id, patch) => { const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...patch }) }); const j = await r.json(); if (!j.success) { alert(j.error); return; } await load(); };
   const reclassAll = async () => { if (!confirm('규칙으로 전체 재분류할까요? 손으로 고친 파일은 그대로 둡니다.')) return; setBusy('재분류 중…'); const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reclassifyAll' }) }); const j = await r.json(); setBusy(''); alert(j.success ? `검사 ${j.scanned}건 · 바뀜 ${j.changed}건` : j.error); await load(); };
   const openLog = async (id) => { const r = await fetch('/api/work/drive?log=' + encodeURIComponent(id)); const j = await r.json(); setLog(j.log || []); };
   // 보안 이력(유출 경로): 관리자만. 차단·알림 없이 기록만 본다.
@@ -261,7 +261,7 @@ export default function WorkDrivePage() {
       {catalogState.phase!=='ready'&&<div className="warn" role={catalogState.error?'alert':'status'}>
         {catalogState.phase==='loading'?'최근 파일을 불러오는 중…':catalogState.error?(catalogState.denied?'파일 접근 권한을 확인해 주세요.':data?'전체 목록을 불러오지 못했습니다. 표시된 파일은 사용할 수 있습니다.':'파일 목록을 불러오지 못했습니다.'): '최근 파일부터 표시했습니다. 전체 검색·필터·통계를 준비 중…'}
         {data&&<> 현재 {files.length.toLocaleString()}개{Number.isFinite(catalogState.totalFiles)?` / 전체 ${catalogState.totalFiles.toLocaleString()}개`:''} · 일부 목록 기준</>}
-        {catalogState.error&&<><span> {catalogState.error} </span><button className="ghost" onClick={()=>catalogState.denied||!data?load():catalogLoader.current?.retry()}>목록 다시 불러오기</button></>}
+        {catalogState.error&&<><span> {catalogState.error} </span><button className="ghost" onClick={()=>catalogState.retry==='full'?catalogLoader.current?.retry():load()}>목록 다시 불러오기</button></>}
       </div>}
 
       <div className="body">

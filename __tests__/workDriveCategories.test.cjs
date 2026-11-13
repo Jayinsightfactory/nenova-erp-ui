@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 require('./workDriveSecurity.test.cjs');
+require('./workDriveCatalogLoad.test.cjs');
 const fs = require('fs'), path = require('path'), Module = require('module');
 const React = require('react'), { renderToStaticMarkup } = require('react-dom/server');
 const { transformSync } = require('next/dist/build/swc');
