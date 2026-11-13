@@ -124,3 +124,47 @@ test('API opts into deferred usage explicitly, authorizes separate usage before 
  result=await request(a,{});assert(!Object.hasOwn(result.payload,'usage'));assert.deepEqual(result.payload.files,wd.listVisible(a));
  failUsage=true;result=await request(boss,{usage:'only'});assert.equal(result.statusCode,503);assert.equal(result.headers['Retry-After'],'2');result=await request(boss,{format:'table-v1',usage:'deferred'});assert.equal(result.statusCode,200);assert(result.payload.files.length>0);
 }));
+
+test('preview returns the first 100 full-list files after ACL and correction, isolated per waiting viewer', () => fixture(async ({ index, wd }) => {
+  const reader = createDriveListReader({ projectRoot });
+  const users = [a, b, boss];
+  const shuffled = Array.from({ length: 240 }, (_, i) => ({
+    id: 'many-' + i, filename: i + '.txt', uploadedAt: '2026-11-' + String(1 + (i % 28)).padStart(2, '0'),
+    uploaderName: i % 2 ? a.userName : b.userName, sensitive: true, egressSnapshot: i % 11 === 0,
+  }));
+  fs.appendFileSync(index, shuffled.map(JSON.stringify).join('\n') + '\n');
+  try {
+    for (const includeFull of [false, true]) {
+      const pending = users.map(previewViewer => reader.read({ previewViewer }));
+      if (includeFull) pending.push(reader.read());
+      const results = await Promise.all(pending);
+      users.forEach((user, i) => {
+        const full = wd.listVisible(user);
+        assert.deepEqual(results[i], { files: full.slice(0, 100), totalFiles: full.length });
+      });
+      if (includeFull) assert(results.at(-1).rows.length >= shuffled.length);
+    }
+    const previous = (await reader.read({ previewViewer: a })).files[0];
+    fs.appendFileSync(index, JSON.stringify({ ...previous, deleted: true }) + '\n');
+    const next = await reader.read({ previewViewer: a });
+    assert(!next.files.some(row => row.id === previous.id));
+    assert.deepEqual(next.files, wd.listVisible(a).slice(0, 100));
+  } finally { await reader.close(); }
+}));
+
+test('preview IPC forwards only the two fields needed by the drive ACL', async () => {
+  const { EventEmitter } = require('node:events');
+  const child = new EventEmitter();
+  let sent;
+  Object.assign(child, { ref() {}, unref() {}, terminate: async () => {}, postMessage: msg => { sent = msg; } });
+  const reader = createDriveListReader({ projectRoot, launchChild: () => child });
+  try {
+    const result = reader.read({ previewViewer: { ...a, token: 'private', password: 'private', permissions: ['admin'] } });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(sent.viewers, [a]);
+    assert.equal(sent.previewOnly, true);
+    const expected = { files: [], totalFiles: 0 };
+    child.emit('message', { id: sent.id, ok: true, previews: [expected] });
+    assert.deepEqual(await result, expected);
+  } finally { await reader.close(); }
+});

@@ -3,7 +3,7 @@
 // 상단: 범위·사람·검색·보기 / 좌: 연도별 차수 / 우측 끝: 접을 수 있는 관리자 PC 현황
 // 중: 선택 차수의 단계 요약띠 + 칸반 또는 표 / 우: 파일 상세(버전·내려받기·교정)
 // 접근 범위는 서버(lib/workDrive)가 이미 걸러서 준다 — 화면은 받은 것만 보여준다.
-import { decodeDriveList } from '../../lib/workDriveListDecode.cjs';
+import { createDriveCatalogLoader } from '../../lib/workDriveCatalogLoad.cjs';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fileSubcategory, filterCategories, subcategoryCounts } from '../../lib/workDriveCategories';
 import { isKakaoInbound, securityEvent, securityRows, securityCounts } from '../../lib/workDriveSecurity';
@@ -63,20 +63,26 @@ export default function WorkDrivePage() {
   const [originF, setOriginF] = useState('');
   const [usageData,setUsageData]=useState(null);
   const [usageError,setUsageError]=useState('');
-  const loadSequence=useRef(0);
+  const [catalogState,setCatalogState]=useState({phase:'loading',error:''});
+  const catalogLoader=useRef(null),selectionPending=useRef(null);
   const usage=usageData ?? data?.usage ?? null;
   const chooseStage = (value) => { setStageF(value); setSubF(''); };
 
-  const loadUsage=async(sequence)=>{
-    try {const r=await fetch('/api/work/drive?usage=only',{cache:'no-store'}),j=await r.json();if(!j.success||j.usage==null)throw Error(j.error||'사용량 확인 실패');if(loadSequence.current===sequence){setUsageData(j.usage);setUsageError('');}}
-    catch(e){if(loadSequence.current===sequence)setUsageError(e.message);}
-  };
   const load = async () => {
-    const sequence=++loadSequence.current;
-    try { const r = await fetch('/api/work/drive?format=table-v1&usage=deferred', { cache: 'no-store' }); const j = await r.json(); if (!j.success) throw new Error(j.error || '실패');if(loadSequence.current!==sequence)return;setData(decodeDriveList(j));setUsageData(j.usage ?? null);setUsageError('');setErr('');if(j.isAdmin)void loadUsage(sequence); }
-    catch (e) { if(loadSequence.current===sequence)setErr(e.message); }
+    catalogLoader.current?.close();selectionPending.current=sel?.id??selectionPending.current;
+    const loader=createDriveCatalogLoader({
+      onFiles:(payload,{complete})=>{
+        setData(payload);setErr('');
+        setSel(previous=>{const id=previous?.id??selectionPending.current;if(!id)return null;const fresh=payload.files.find(file=>file.id===id);if(!fresh){if(complete)selectionPending.current=null;return null;}return {...fresh,year:yearOf(fresh),ck:fresh.cycle?`${yearOf(fresh)}:${fresh.cycle}`:NONE};});
+      },
+      onStatus:state=>{setCatalogState(previous=>({...previous,...state}));if(state.denied)setErr(state.error);},
+      onUsage:setUsageData,onUsageError:setUsageError,
+      onDenied:()=>{selectionPending.current=null;setData(null);setSel(null);setLog(null);setEg(null);setTl(null);setPv(null);},
+      nextPaint:()=>new Promise(resolve=>{if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>requestAnimationFrame(resolve));else setTimeout(resolve,0);}),
+    });
+    catalogLoader.current=loader;await loader.load();
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load();return ()=>catalogLoader.current?.close(); }, []);
   useEffect(() => { if (data?.isAdmin) setScope('all'); }, [data?.isAdmin]);
 
   const files = useMemo(() => (data?.files || []).map((f) => ({ ...f, year: yearOf(f), ck: f.cycle ? `${yearOf(f)}:${f.cycle}` : NONE })), [data]);
@@ -123,7 +129,7 @@ export default function WorkDrivePage() {
     return base.sort((a, b) => (val(a) > val(b) ? d : val(a) < val(b) ? -d : 0)).slice(0, view === 'recent' ? 200 : 2000);
   }, [scoped, inCycle, view, q, stageF, subF, sort]);
 
-  const fix = async (id, patch) => { const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...patch }) }); const j = await r.json(); if (!j.success) { alert(j.error); return; } await load(); if (sel?.id === id) setSel(j.item); };
+  const fix = async (id, patch) => { const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...patch }) }); const j = await r.json(); if (!j.success) { alert(j.error); return; } await load(); };
   const reclassAll = async () => { if (!confirm('규칙으로 전체 재분류할까요? 손으로 고친 파일은 그대로 둡니다.')) return; setBusy('재분류 중…'); const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reclassifyAll' }) }); const j = await r.json(); setBusy(''); alert(j.success ? `검사 ${j.scanned}건 · 바뀜 ${j.changed}건` : j.error); await load(); };
   const openLog = async (id) => { const r = await fetch('/api/work/drive?log=' + encodeURIComponent(id)); const j = await r.json(); setLog(j.log || []); };
   // 보안 이력(유출 경로): 관리자만. 차단·알림 없이 기록만 본다.
@@ -163,7 +169,7 @@ export default function WorkDrivePage() {
   };
   useEffect(() => { if (view === 'security' && data?.isAdmin) loadEg(); }, [view, egWho, egDays]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setTl(null); if (sel && data?.isAdmin) openTl(sel.id); }, [sel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const pick = (f) => { setSel(f); setLog(null); };
+  const pick = (f) => { selectionPending.current=f.id;setSel(f); setLog(null); };
   const th = (k, label) => <th onClick={() => setSort(([pk, pd]) => [k, pk === k ? -pd : -1])} className={sort[0] === k ? 'on' : ''}>{label}{sort[0] === k ? (sort[1] < 0 ? ' ▼' : ' ▲') : ''}</th>;
 
 
@@ -251,7 +257,12 @@ export default function WorkDrivePage() {
         {anyF && <button className="link" onClick={clearF}>초기화</button>}
         <span className="cnt">{scoped.length.toLocaleString()}건</span>
       </div>
-      {err && <p className="warn">{err}</p>}
+      {err && <p className="warn" role="alert">{err}</p>}
+      {catalogState.phase!=='ready'&&<div className="warn" role={catalogState.error?'alert':'status'}>
+        {catalogState.phase==='loading'?'최근 파일을 불러오는 중…':catalogState.error?(catalogState.denied?'파일 접근 권한을 확인해 주세요.':data?'전체 목록을 불러오지 못했습니다. 표시된 파일은 사용할 수 있습니다.':'파일 목록을 불러오지 못했습니다.'): '최근 파일부터 표시했습니다. 전체 검색·필터·통계를 준비 중…'}
+        {data&&<> 현재 {files.length.toLocaleString()}개{Number.isFinite(catalogState.totalFiles)?` / 전체 ${catalogState.totalFiles.toLocaleString()}개`:''} · 일부 목록 기준</>}
+        {catalogState.error&&<><span> {catalogState.error} </span><button className="ghost" onClick={()=>catalogState.retry==='full'?catalogLoader.current?.retry():load()}>목록 다시 불러오기</button></>}
+      </div>}
 
       <div className="body">
         {/* ── 사이드바 ── */}
@@ -322,7 +333,7 @@ export default function WorkDrivePage() {
 
         {/* ── 상세 서랍 ── */}
         {sel && <aside className="right">
-          <div className="dh"><Badge f={sel} /><div className="dn">{sel.filename}</div><button className="x" onClick={() => setSel(null)} title="닫기">✕</button></div>
+          <div className="dh"><Badge f={sel} /><div className="dn">{sel.filename}</div><button className="x" onClick={() => {selectionPending.current=null;setSel(null);}} title="닫기">✕</button></div>
           <div className="dact">
             {sel.canDownload ? <a className="btn" href={'/api/work/drive?download=' + encodeURIComponent(sel.id)}>내려받기</a> : <span className="btn dis">내려받기 권한 없음</span>}
             {data?.isAdmin && <button className="ghost" onClick={() => openLog(sel.id)}>기록</button>}
