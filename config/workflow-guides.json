@@ -610,27 +610,27 @@
             {
               "scenario": "favorites",
               "title": "2. 품종별 즐겨찾기와 펼치기·접기",
-              "seconds": 36.672
+              "seconds": 62.257
             },
             {
               "scenario": "dates",
               "title": "3. 업체 검색과 날짜별 수량 입력",
-              "seconds": 81.107
+              "seconds": 107.203
             },
             {
               "scenario": "save",
               "title": "4. 견적수량·매출 보존 확인 후 명시 저장",
-              "seconds": 155.946
+              "seconds": 182.49
             },
             {
               "scenario": "tab",
               "title": "5. 출고일지정 탭에서 저장값 재확인",
-              "seconds": 171.145
+              "seconds": 197.689
             },
             {
               "scenario": "customers",
               "title": "6. 업체부터 선택하는 독립 작업공간",
-              "seconds": 197.865
+              "seconds": 224.495
             }
           ]
         }
