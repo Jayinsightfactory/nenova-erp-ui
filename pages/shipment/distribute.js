@@ -1173,8 +1173,8 @@ export default function Distribute() {
       if (submittedPair && Number(submittedPair.CustKey) === Number(pairCust?.CustKey)) selectPairCust(submittedPair, { skipDraftCheck: true }); // 업체 2 새로고침
       submittedExtras.forEach((p, i) => selectExtraCust(p.cust, i + 3, { skipDraftCheck: true })); // 업체 3~5 새로고침
     } catch(e) {
-      setErr(e.message);
-      appendSaveLog({ mode: 'cust', name: pairName, week: submittedWeek, error: e.message });
+      setErr(e.applyCommitted ? `분배 수량은 저장됐지만 재확정에 실패했습니다. ${e.message}` : e.message);
+      appendSaveLog({ mode: 'cust', name: pairName, week: submittedWeek, ...(e.applyCommitted ? { note: `분배 저장 완료 · 재확정 실패: ${e.message}` } : { error: e.message }) });
     } finally { saveInFlightRef.current = false; setSaving(false); }
   };
 
@@ -1258,7 +1258,9 @@ export default function Distribute() {
     setSaving(true); setErr('');
     try {
       // 추가한(주문 없는) 업체는 수량이 있을 때만 — 주문등록 먼저, 0 이면 주문도 분배도 만들지 않음
-      const rows = custDistRows.filter(c => !c.addedNoOrder || (Number(outInputs[c.CustKey]) || 0) > 0);
+      const rows = custDistRows.filter(c => c.addedNoOrder
+        ? (Number(outInputs[c.CustKey]) || 0) > 0
+        : (Number(outInputs[c.CustKey]) || 0) !== Number(c.출고수량 || 0));
       const newOrders = rows.filter(c => c.addedNoOrder);
       const entries = rows.map(c => ({
         custKey: c.CustKey,
@@ -1291,14 +1293,14 @@ export default function Distribute() {
         },
       });
       if (submittedWeek !== currentWeekRef.current) return;
-      const savedCount = custDistRows.filter(c => (outInputs[c.CustKey]||0) > 0).length;
+      const savedCount = rows.length;
       const totalSaved = Object.values(outInputs).reduce((a,b)=>a+(b||0),0);
       setSaveModal({ prodName: selectedProd.ProdName, week, savedCount, totalQty: totalSaved });
       appendSaveLog({ mode: 'prod', name: submittedProd.ProdName, week: submittedWeek, savedCount, totalQty: totalSaved, orderCount: newOrders.length });
       if (Number(submittedProd.ProdKey) === Number(selectedProd?.ProdKey)) selectProd(submittedProd, { skipDraftCheck: true }); // 새로고침
     } catch(e) {
-      setErr(e.message);
-      appendSaveLog({ mode: 'prod', name: submittedProd.ProdName, week: submittedWeek, error: e.message });
+      setErr(e.applyCommitted ? `분배 수량은 저장됐지만 재확정에 실패했습니다. ${e.message}` : e.message);
+      appendSaveLog({ mode: 'prod', name: submittedProd.ProdName, week: submittedWeek, ...(e.applyCommitted ? { note: `분배 저장 완료 · 재확정 실패: ${e.message}` } : { error: e.message }) });
     } finally { saveInFlightRef.current = false; setSaving(false); }
   };
 
@@ -1803,7 +1805,7 @@ export default function Distribute() {
                     <td style={{padding:'6px 4px', fontWeight:'bold', color:'var(--blue)'}}>{saveModal.week}</td>
                   </tr>
                   <tr style={{borderBottom:'1px solid var(--border)'}}>
-                    <td style={{padding:'6px 4px', color:'var(--text3)'}}>거래처 수</td>
+                    <td style={{padding:'6px 4px', color:'var(--text3)'}}>변경 거래처 수</td>
                     <td style={{padding:'6px 4px', fontWeight:'bold'}}>{saveModal.savedCount}개</td>
                   </tr>
                   <tr>

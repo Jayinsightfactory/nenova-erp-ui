@@ -50,7 +50,7 @@ function loadFixApi({ query = async () => ({ recordset: [] }), withTransaction, 
     assertNoOrderlessLinesBeforeFix: async () => ({ ok: true, lines: [] }),
   };
   vm.createContext(context);
-  vm.runInContext(`${source}\nglobalThis.__fixApi = { loadEstimateEditGroups, resolveFixCategoryScope, runFixTargetProcedure, shipmentProcedureSql, runStockCalculationForProducts };`, context, {
+  vm.runInContext(`${source}\nglobalThis.__fixApi = { loadEstimateEditGroups, resolveFixCategoryScope, isScopedCategoryEdit, runFixTargetProcedure, shipmentProcedureSql, runStockCalculationForProducts };`, context, {
     filename: 'pages/api/shipment/fix.js',
   });
   return { ...context.__fixApi, sql };
@@ -82,6 +82,16 @@ async function main() {
   };
 
   console.log('=== estimate category scope ===');
+  await test('distribution edit scopes only its verified category while unrelated US groups remain unfixed', async () => {
+    const api=loadFixApi({query:async()=>({recordset:[{ProdKey:433,CountryFlower:'Carnation',isDeleted:0}]})});
+    const req={body:{cycleSource:'distribute-save',distributionEditProdKeys:[433]}};
+    const scope=await api.resolveFixCategoryScope(req,['Carnation']);
+    assert.deepEqual([...scope],['Carnation']);assert.equal(api.isScopedCategoryEdit(req),true);
+    assert.deepEqual(JSON.parse(JSON.stringify(req.distributionEditGroups)),[{countryFlower:'Carnation',prodKeys:[433]}]);
+    assert.equal(evaluatePartialCategoryFixBlock([{countryFlower:'Carnation'},{countryFlower:'US Douglas'},{countryFlower:'US Lemon'}],scope).blocked,true,'ordinary fix must retain its partial-category protection');
+    await rejects(()=>api.resolveFixCategoryScope({body:{cycleSource:'distribute-save',distributionEditProdKeys:[433]}},['US Douglas']),/일치하지/);
+    await rejects(()=>api.runFixTargetProcedure('usp_ShipmentFix',{hasCountryFlower:false},'2026','46-01','fixture','Carnation',req,false),/전체 품종/);
+  });
   await test('Hydro only resolves to its exact product keys', () => {
     assert.deepEqual(
       resolveEstimateEditCategories([101, 102], [
