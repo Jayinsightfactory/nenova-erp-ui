@@ -85,7 +85,7 @@ assert.match(page, /<div className="side-history"><DutchWorkHistory/, '저장 �
 assert.equal((page.match(/<DutchWorkHistory\b/g) || []).length, 1, '작업 저장 이력 UI를 복제하면 안 됩니다.');
 assert.doesNotMatch(page, /zoom:\.7/, '전체 화면 축소 대신 셀 폭을 줄여 읽기 쉬운 글씨를 유지해야 합니다.');
 assert.match(page, /\.board-primary \.grid-wrap,\.board-primary \.preview-wrap\{max-height:none;min-height:0\}/, '물량표와 검토표는 자체 세로 스크롤 없이 페이지 높이에 맞춰 펼쳐져야 합니다.');
-assert.match(page, /\.board-primary :global\(\.sheet-scroll\)\{max-height:none;min-height:0\}/, '원본 Pivot 물량표는 내부 세로 스크롤 없이 전체 페이지 스크롤을 사용해야 합니다.');
+assert.match(volumeSheet, /max-height:72dvh/, 'The original matrix supports vertical scrolling.');
 assert.doesNotMatch(page, /\.board-primary[^\n]*max-height:(?:calc\(100vh|65vh|55vh)/, '브레이크포인트에서도 물량 영역에 고정 높이/내부 세로 스크롤을 되살리면 안 됩니다.');
 assert.match(page, /anchor\.download = `\$\{fileName\.replace\(\/\\\.xlsx\?\$\/i, ''\)\}_물량표\.xlsx`/, '다운로드 파일명은 단가표가 아닌 물량표여야 합니다.');
 assert.match(page, />물량표 다운로드<\/button>/, '엑셀 출력 버튼은 물량표 다운로드로 표시해야 합니다.');

@@ -722,7 +722,6 @@ export default function DutchVolumeBoard() {
     .side-instructions summary{cursor:pointer;font-weight:700}
     .side-instructions p{margin:7px 0 0;line-height:1.45}
     .board-primary .grid-wrap,.board-primary .preview-wrap{max-height:none;min-height:0}
-    .board-primary :global(.sheet-scroll){max-height:none;min-height:0}
     .board-primary .mapping-table{table-layout:fixed;width:100%;font-size:15px}
     .board-primary .mapping-table th,.board-primary .mapping-table td{height:auto;min-height:42px;padding:6px 5px;white-space:normal;overflow-wrap:anywhere;vertical-align:middle}
     .board-primary .mapping-table td input,.board-primary .mapping-table td select{width:100%;min-width:0;box-sizing:border-box;font-size:14px}
