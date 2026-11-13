@@ -364,6 +364,7 @@ const detailContext = {
   },
   setLoading: value => detailEvents.push(['loading', value]),
   setShipments: value => detailEvents.push(['shipments', value]),
+  setLedgerAlertScope: value => detailEvents.push(['ledgerAlerts', value]),
   setSelectedGroups: value => detailEvents.push(['groups', value]),
   setSelectedDeductionKeys: value => detailEvents.push(['deductions', value]),
   resetEstimateDeductionSelection: () => [],
