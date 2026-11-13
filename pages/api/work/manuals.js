@@ -6,7 +6,20 @@
 // routines: 부서별 신입 루틴(하루·주간·월간·메일·넘김·현장팀). 관찰 패턴 집계라 로그인 직원 전원 열람(신입 온보딩용).
 import { withAuth } from '../../../lib/auth';
 import { getRoutines, confirmRoutineItem } from '../../../lib/workManualRoutines';
+import fs from 'fs';
 import { importHandoverForView } from '../../../lib/importHandover';
+import { featureFilePath } from '../../../lib/workFeatureData';
+
+// 계기 사슬: 사장님 PC 의 매일 분석이 올린 갱신본(import-triggers)이 있으면 그것으로 바꿔 끼운다.
+function handoverWithLiveTriggers() {
+  const h = importHandoverForView();
+  if (!h?.education) return h;
+  try {
+    const p = featureFilePath('import-triggers');
+    if (p && fs.existsSync(p)) { const live = JSON.parse(fs.readFileSync(p, 'utf8')); if (Array.isArray(live?.chains) && live.chains.length) h.education.triggers = { ...live, live: true }; }
+  } catch { /* 갱신본을 못 읽으면 저장소에 든 것을 그대로 쓴다 */ }
+  return h;
+}
 import { DEPARTMENTS, isManualAdmin, visibleManuals, getLayout, saveManualEdit, saveLayout } from '../../../lib/workManuals';
 
 export default withAuth(async function handler(req, res) {
@@ -20,7 +33,7 @@ export default withAuth(async function handler(req, res) {
       manuals: visibleManuals(user),
       layout: getLayout(user),
       routines: getRoutines(),
-      handover: importHandoverForView(),
+      handover: handoverWithLiveTriggers(),
     });
   }
   if (req.method === 'POST') {

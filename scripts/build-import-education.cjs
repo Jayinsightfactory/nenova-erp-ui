@@ -6,7 +6,7 @@
 const fs = require('node:fs'), path = require('node:path');
 const dir = process.argv[2]; if (!dir) { console.error('분석 폴더 경로가 필요합니다'); process.exit(1); }
 const read = f => { try { return JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); } catch { return null; } };
-const erp = read('erp-files-edu.json'), kakao = read('kakao-edu.json');
+const erp = read('erp-files-edu.json'), kakao = read('kakao-edu.json'), trig = read('trigger-chains.json');
 if (!erp) { console.error('erp-files-edu.json 없음'); process.exit(1); }
 const cut = (s, n) => { s = String(s ?? '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
@@ -35,9 +35,18 @@ const expenseLabels = (erp.expenseLabels || []).map(l => ({ label: l.label, coun
 // 4) 아직 분석에 안 잡힌 화면(해독이 안 된 쪽에 많이 나오는 창)
 const blind = erp.undecoded ? { undecoded: erp.undecoded.totals.undecoded, decoded: erp.undecoded.totals.decoded, titles: (erp.undecoded.titles || []).filter(t => t.title && !/제목 없음/.test(t.title)).slice(0, 20).map(t => ({ title: cut(t.title, 60), undecoded: t.undecoded ?? t.u ?? t.count, decoded: t.decoded ?? t.d ?? null })) } : null;
 
+// 5) 계기 사슬: 각 작업이 무엇을 계기로 시작되는지(직전에 들어온 것 → 확인하는 곳 → 하는 일)
+const compactChains = t => !t ? null : { generatedAt: t.generatedAt, inputs: t.method?.inputs || null, chains: (t.chains || []).map(c => ({
+  id: c.id, action: c.action, anchor: cut(c.anchor, 160), windowMin: c.window?.minutes ?? null, status: c.status, basis: cut(c.statusBasis, 260), summary: c.summary,
+  when: [...(c.timing?.weekdayTop || []), ...(c.timing?.hourTop || [])].join(' · '), anchors: c.counts?.anchors ?? null,
+  signals: [...(c.signals || [])].sort((a, b) => (b.beyondChance ? 1 : 0) - (a.beyondChance ? 1 : 0) || (b.lift || 0) - (a.lift || 0)).slice(0, 6).map(s => ({ source: s.source, where: cut(s.where, 60), who: s.who, what: cut(s.what, 90), share: s.share, base: s.base, lag: s.lagMedianMin, strong: !!s.beyondChance })),
+  fields: (c.fields || []).map(x => ({ field: x.field, from: cut(x.from, 200), basis: cut(x.basis, 160) })),
+  cases: (c.manualCases || []).slice(0, 2).map(x => cut(x, 420)), handoff: cut(c.handoff, 220), question: c.question || null, unverified: (c.unverified || []).slice(0, 4).map(x => cut(x, 140)),
+})) };
 const data = {
   version: 1, updatedAt: new Date().toISOString().slice(0, 10),
   basis: { receipts12m: Object.values(totalBy).reduce((a, b) => a + b, 0), window: erp.meta?.window12m, perWeekMedian: erp.perWeek?.median, perSubWeekMedian: erp.perSubWeek?.median, farms12m: erp.idleFarms?.farmsIn12m, countryNote: '입고 기록에 나라 칸이 없어 농장 표와 품목으로 나라를 정했다(추정 포함).', kakao: kakao?.coverage ? { messages: kakao.coverage.total, period: kakao.coverage.period, rooms: (kakao.coverage.rooms || []).map(x => ({ room: x.room, count: x.count, first: x.first, last: x.last })) } : null },
+  triggers: compactChains(trig),
   countries, weeklySheet, fileKinds, templates, expenseLabels, blind,
   cycles: kakao?.cycles || [], notices: kakao?.templates || [], qa: kakao?.qa || [], glossary: kakao?.glossary || [], partners: kakao?.partners || [], incidents: kakao?.incidents || [], kakaoCountries: (kakao?.countries || []).map(c => ({ country: c.country, items: c.items, arrive: c.arrive, order: c.order })), missing: kakao?.missingProcedures || [], unverified: kakao?.unverified || [], clCodes: kakao?.clCodes ? { distinct: kakao.clCodes.distinct, prefix: kakao.clCodes.prefix } : null,
 };
