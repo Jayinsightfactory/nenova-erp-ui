@@ -87,7 +87,10 @@
     "npm run build",
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "node --test __tests__/personalHomeSchedule.test.js desktop/tests/task-launcher.test.cjs",
-    "node scripts/desktop-task-schedule-smoke.cjs"
+    "node scripts/desktop-task-schedule-smoke.cjs",
+    "node scripts/desktop-home-dashboard-smoke.cjs",
+    "node --test __tests__/personalHomeCalendar.test.js desktop/tests/home-board.test.cjs",
+    "node desktop/scripts/exit-probe.cjs"
   ],
   "dnspyEvidence": {
     "required": true,

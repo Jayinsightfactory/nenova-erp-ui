@@ -12,17 +12,21 @@
   const write=btn('＋ 요청 작성',()=>open('requests=new'),'workspace-primary'),all=btn('전체 보기 ↗',()=>open('requests=list'));
   actions.append(write,all);head.append(title,actions);
   const boardStatus=el('p','workspace-muted','로그인 후 개발요청을 확인할 수 있습니다.'),list=el('div','request-list');boardStatus.setAttribute('role','status');
+  list.addEventListener('keydown',e=>{if(!['ArrowDown','ArrowUp','Home','End'].includes(e.key))return;const rows=[...list.querySelectorAll('.request-row')],at=rows.indexOf(document.activeElement);if(at<0)return;e.preventDefault();const index=e.key==='Home'?0:e.key==='End'?rows.length-1:Math.max(0,Math.min(rows.length-1,at+(e.key==='ArrowDown'?1:-1)));rows[index]?.focus();});
   const retry=btn('새로고침',()=>void loadBoard(),'workspace-refresh');board.append(head,boardStatus,list,retry);
   async function loadBoard(){
     if(!owner||!visible||!online||boardBusy||document.hidden)return;
     const ticket=generation,actor=owner;boardBusy=true;retry.disabled=true;
     try{const data=await window.desktop.invoke('homeRequests');if(ticket!==generation||actor!==owner)return;
       if(!data?.success||data.ownerId!==owner)throw Error('개발요청을 확인하지 못했습니다.');
+      const focused=list.contains(document.activeElement)?document.activeElement.dataset.request:null;
       list.replaceChildren();for(const request of (data.requests||[]).slice(0,4)){
         const row=btn('',()=>open('requests=list&requestId='+encodeURIComponent(request.id)),'request-row');
+        row.dataset.request=request.id;
         const badge=el('span','request-status',request.statusLabel);badge.dataset.status=request.status;
         row.append(badge,el('span','request-title',request.title),el('span','request-category',request.categoryLabel));list.append(row);
       }
+      if(focused)list.querySelector('[data-request="'+focused+'"]')?.focus({preventScroll:true});
       boardStatus.textContent=data.requests?.length?'최근 요청 · 제목을 선택하면 상세 내용을 엽니다.':'등록된 개발요청이 없습니다. 새 요청을 작성해 보세요.';
     }catch(e){if(ticket===generation){list.replaceChildren();boardStatus.textContent=e.message||'게시판 조회 실패 · 다시 시도해 주세요.';}}
     finally{if(ticket===generation){boardBusy=false;retry.disabled=false;clearTimeout(timer);timer=setTimeout(()=>void loadBoard(),60000);}}

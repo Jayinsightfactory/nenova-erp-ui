@@ -798,6 +798,9 @@
         "/desktop-guide"
       ],
       "sourceFiles": [
+        "desktop/main.cjs",
+        "desktop/notes-preload.cjs",
+        "desktop/shell/home-dashboard.js",
         "desktop/shell/index.html",
         "desktop/shell/home-workspace.js",
         "desktop/shell/shell.css",
@@ -814,7 +817,9 @@
         "save",
         "notes",
         "shortcut",
-        "launch"
+        "launch",
+        "calendar",
+        "independent"
       ],
       "guides": [
         {
@@ -834,27 +839,37 @@
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 9.055
+              "seconds": 9.053
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 18.123
+              "seconds": 18.152
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 28.447
+              "seconds": 28.703
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 37.522
+              "seconds": 37.785
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 58.792
+              "seconds": 59.132
+            },
+            {
+              "scenario": "calendar",
+              "title": "7. 게시판과 달력에서 업무 확인",
+              "seconds": 68.378
+            },
+            {
+              "scenario": "independent",
+              "title": "8. 메모장에서 홈 다시 열기",
+              "seconds": 77.713
             }
           ]
         }

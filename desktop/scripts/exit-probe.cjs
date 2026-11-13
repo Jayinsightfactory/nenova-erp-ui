@@ -39,8 +39,8 @@ app.whenReady().then(() => {
       assert.ok(body.events.length <= 50 && body.events.every(event => event.kind === 'desktop' && !event.path.includes('?')));
       return Response.json({ success: true, acceptedIds: body.events.map(event => event.id) });
     }
-    assert.ok(['GET', 'HEAD'].includes(request.method), 'no ERP mutation requests');
-    if (pathname === '/api/desktop/home-workspace') return Response.json({ success: true, schemaVersion: 1, ownerId: 'exit-probe', revision: 0, tasks: [], guidance: [], feedback: [] });
+    assert.ok(['GET','HEAD'].includes(request.method)||pathname==='/api/desktop/home-workspace'&&request.method==='POST','no ERP mutation requests');
+    if (pathname === '/api/desktop/home-workspace') return Response.json({ success: true, schemaVersion: 1, ownerId: 'exit-probe', revision: 0, tasks: [], guidance: [], feedback: [],...(request.method==='POST'?{revision:1}:{}) });
     if(pathname==='/api/pm/staff-requests')return Response.json({success:true,requests:[]});
     if (pathname === '/api/auth/me') return Response.json({ success: true, user: { userId: 'exit-probe' } });
     if (pathname === '/api/desktop/bootstrap') return Response.json({ success: true, schemaVersion: 1, user: { userId: 'exit-probe' }, webVersion: 'fixture', menuVersion: 'a'.repeat(64), menus: [{group:'Fixture',items:[{href:'/test/probe',labelKey:'Probe',popup:false}]}] });
@@ -65,7 +65,10 @@ app.whenReady().then(async () => {
     const notes=webContents.getAllWebContents().find(c=>c.getURL().includes('/notes.html'));assert.ok(notes);
     w.win.close();await new Promise(r=>setTimeout(r,500));assert.equal(main.windows.size,0);assert.equal(notes.isDestroyed(),false);
     assert.equal(await notes.executeJavaScript("window.notes.invoke('workspace',{method:'GET',date:'2026-11-13'})").then(r=>r.ownerId),'exit-probe');
-    console.log('NOTES SURVIVED');
+    const created=await notes.executeJavaScript("window.notes.invoke('workspace',{method:'POST',command:{action:'create',date:'2026-11-13',expectedRevision:0,requestId:'notes-only-create',title:'fixture',frequency:'once',weekdays:[]}})");assert.equal(created.revision,1);
+    await new Promise(r=>setTimeout(r,600));
+    if(require('electron').safeStorage.isEncryptionAvailable()){const saved=JSON.parse(require('electron').safeStorage.decryptString(fs.readFileSync(path.join(profile,'workspace.encrypted'))));assert.equal(saved.windows[0].tabs.length,1,'notes-only background never replaces the saved workspace with empty windows');}
+    console.log('NOTES SURVIVED AND SAVED');
     if(process.argv.includes('--notes-dirty')){
       await notes.executeJavaScript("window.notes.invoke('draft',{dirty:true})");answer=1;require('electron').BrowserWindow.fromWebContents(notes).close();await new Promise(r=>setTimeout(r,100));assert.equal(notes.isDestroyed(),false);answer=0;
     }

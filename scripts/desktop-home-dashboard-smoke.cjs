@@ -6,6 +6,7 @@ const {fixture}=require('./desktop-task-schedule-smoke.cjs');
  await page.setRequestInterception(true);page.on('request',r=>new URL(r.url()).hostname==='127.0.0.1'?r.continue():r.abort());
  await page.setViewport({width:1920,height:1080});await page.goto(app.base);await page.waitForSelector('.request-row');await page.waitForFunction(()=>document.querySelector('.calendar-day small'));
  const initialPosts=app.calls.filter(c=>c.payload?.method==='POST').length;
+ await page.focus('.request-row');await page.keyboard.press('ArrowDown');assert.equal(await page.evaluate(()=>document.activeElement.dataset.request),'abcdef123457');await page.keyboard.press('Home');assert.equal(await page.evaluate(()=>document.activeElement.dataset.request),'abcdef123456');
  await page.click('.request-row');assert.match(app.calls.at(-1).payload.url,/^\/pm\?requests=list&requestId=abcdef123456$/);
  await page.click('.workspace-primary');assert.equal(app.calls.at(-1).payload.url,'/pm?requests=new');
  await page.click('.hw-add>input');await page.type('.hw-add>input','초안 보존');

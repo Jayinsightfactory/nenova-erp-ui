@@ -2762,3 +2762,14 @@
 
 2026-11-13 네덜란드 원본 물량표에 품목 열·헤더 고정과 상단 스크롤바 동기화를 적용했다. 좁은 화면에서도 고정을 유지한다. 주문·분배 API 수정 없음. 운영 배포는 기록 시점 미검증.
 검색어: 네덜란드 물량표 품목 고정 상단 스크롤 DutchVolumeSheet
+
+
+## 2026-11-13 데스크톱 홈 개편·메모장 독립 유지
+- 사용자 확정 범위: 첨부 Electron 데스크톱 홈만. 일반 /dashboard 보존. 새 worktree nw-home-notes-1113, origin/master 기반, 최신72064052 통합. 단일 작업자.
+- 좌측 개발요청 게시판(기존 API 고정 GET, 제목·상태·분류만 main projection)·실제 개인 업무 달력·즐겨찾기·메뉴. 우측 오늘 업무8건·주의지침·수입피드백. 현재 요청 원문/작성은 /pm 기존 게시판 deep-link. ERP/요청 원장 자동쓰기0.
+- 달력은 기존 occurrence/version/snapshot/종료/보관을 재사용한 월별 해당일 건수이며 이월을 중복집계하지 않음. 윤년·월말·연도경계·완료/보관·미변경 단위검증. 달 이동은 선택일 보존, 작성중 날짜변경 차단, 키보드 방향키·게시판 Home/End, 초점 보존·계정변경 비우기.
+- 본창X는 메모장 유지. 메모장 ↗로 홈 복원, 명시 완전종료/로그아웃은 모두 닫음. 메모장 미저장 초안 경고 추가. notes-only 저장예약은 마지막 정상 작업창 snapshot을 빈창으로 덮지 않도록 보호. Native 실제 생존/재개/마지막창 종료/명시종료/초안취소 PASS(추가 저장snapshot 검사 후속).
+- 생성 디자인 시안과 공식 Material3/MDN 조사 반영. 짧은 버튼140ms·달력180ms feature-detect ViewTransition, reduced-motion 지원. 1920/1280/800/390 실제Chrome 폭·8건·초안·월이동·원문링크·계정정보·키보드/초점·쓰기0/JS0 PASS. 기존 시간표/검색/실패보존/피드상세 회귀 및 native IPC/계정race/종료 스모크 PASS.
+- 메뉴 기준 적용: 검색·한국시간·페이지주스크롤·키보드·반복일정·입력보존·오류재시도·실제 가이드. 해당없음: ERP원장/dnSpy새SQL/운영DB probe/일반웹홈/직원PC원격명령. Desktop1.3.21 목표. 계정주간 시작8%(계정전체, reset1795064856). 정식 ERP/build/최종가이드/PR·CI·릴리스·운영배포는 이 항목 시점 진행중·미검증.
+검색어: home-notes-workspace-1113 1.3.21 메모장독립 closeMainAction homeRequests personalHomeCalendar 개발요청 달력 우측업무 reduced-motion
+- 후속: 최종 native6모드 실제 프로세스 정상종료·본창닫기후 메모장GET/POST저장·홈재개·snapshot보존·초안취소 PASS. 부하 중 기존 cancel-double-close 15초 timeout 1회 발생(will-quit/quit은 수신), 촬영/회귀종료후 단독재검6모드 PASS. ERP계약 정식 pre/test/post exit0, dnSpy·manifest213·writeguard0API·PM suite PASS. 최종 한국어 실제UI 가이드91.2초/8단계 녹화·가이드전체16영상/소스해시·최종줌/자막프레임 PASS. 전체webpack빌드 진행중.
