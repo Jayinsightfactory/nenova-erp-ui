@@ -168,3 +168,29 @@ test('preview IPC forwards only the two fields needed by the drive ACL', async (
     assert.deepEqual(await result, expected);
   } finally { await reader.close(); }
 });
+
+test('capture validates before normalization, retries short reads and never caches an unstable or oversized image', () => fixture(async ({index, wd}) => {
+  const {captureDriveIndex} = require('../lib/workDriveIndexCapture.cjs');
+  const max = 64 * 1024 * 1024;
+  const first = captureDriveIndex(index,max);
+  const correction = {id:'a',filename:'after.txt',uploadedAt:'2026-11-13',uploaderName:a.userName};
+  fs.appendFileSync(index, JSON.stringify(correction)+'\n');
+  assert.equal(wd.listVisible(a,wd.readDriveListRows(first.bytes))[0].filename,'a.txt');
+  const second = captureDriveIndex(index,max,first.signature);
+  assert.equal(wd.listVisible(a,wd.readDriveListRows(second.bytes))[0].filename,'after.txt');
+  assert(captureDriveIndex(index,max,second.signature).unchanged);
+  let reads=0;
+  const interrupted={...fs,readSync(fd,buf,off,len,pos){
+    const n=fs.readSync(fd,buf,off,Math.min(30,len),pos);
+    if(reads++===0)fs.appendFileSync(index,'{"id":"b","deleted":true}\n');
+    return n;
+  }};
+  const newer=captureDriveIndex(index,max,null,interrupted);
+  assert(reads>2);
+  assert(!wd.listVisible(b,wd.readDriveListRows(newer.bytes)).some(r=>r.id==='b'));
+  let closes=0;
+  const churning={...fs,readSync(...args){fs.appendFileSync(index,'\n');return fs.readSync(...args);},closeSync(fd){closes++;fs.closeSync(fd);}};
+  assert.throws(()=>captureDriveIndex(index,max,null,churning),/CHANGED_DURING_COPY/);
+  assert.equal(closes,2);
+  assert.throws(()=>captureDriveIndex(index,1),/UNREADABLE/);
+}));
