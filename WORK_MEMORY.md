@@ -2912,3 +2912,11 @@
 - 운영 원본 CARANATION Vintage Honey가 기존 CARNATION 별칭에 없어서 표시 접두어가 남음. 카네이션 선택 범위에서만 CARANATION 별칭 추가. 원본명/제목/ERP payload/품목 합치기 없음. 2025/2026 같은46-01/ProdKey3513 수량29·금액 불변 fixture.
 - 최신377.6초 가이드는 이번 별칭으로 달라지지 않는 연습 이름/7단계이며 업무흐름·실제 영상은 그대로 유효. 출력/수량 writer 변경 없음. 검사·빌드·PR·배포 진행 중.
 검색어: CARANATION Vintage Honey 표시접두어 PR1726 8업체 381품목 고정헤더
+
+
+## 2026-11-13 로그인 장애: 드라이브 짝짓기 동기 Excel 해제 분리
+- 사용자 PC Desktop 로그인500. 안전진단: 최근 로그인 ETIMEOUT connectionFailure, PC SELECT1 80ms/웹서버새풀SELECT1 347~387ms PASS, 실제앱 loopback/api/ping12초timeout. PM2 CPU104%, 메모리부족/OOM없음. 임시 localhost Inspector CPU4초/3669표본: XLSX build_tree/deflate가주요소요, 호출경로 api/work/drive-ingest→onFileIngested→전체시트명 재계산. Inspector사용후닫힘검증완료, 요청·비밀번호·환경값/원시프로파일출력0. 작업운영브랜치 codex/login-cpu-diag-1113(별도배포X).
+- 서버긴급수정: 새파일저장·분류·기존송금await 뒤, 동일짝짓기를 단일 Worker에서await. 관리자짝GET빈캐시/POST도Worker공유. 유형/중복조건·응답·점수/과거연도파일·MSSQL모두보존. 이중요청coalesce·대기128한도·업로드buffer해제·Worker256MB·10분기한·실패원본/기존짝보존. 기존검증된owner lock재사용으로다중프로세스게시직렬화, tmp+rename원자게시. 시트명SHA/stat캐시512개·nativezlib로반복압축해제줄임.
+- 실제Worker 3검사 PASS: 주이벤트루프timer응답/기존짝결과동일/3동시요청/원본색인bytes보존/변경파일갱신/캐시재파싱0/timeout·게시실패시기존대상보존/잠금·temp정리. 기존workDrivePairs+MOYI회귀 PASS. 변경API2건 쓰기가드/217manifest PASS. 운영데이터직접변경/원장쓰기0. CI·배포·운영로그인복구는진행중미완료.
+- 기준선: 내부실행격리이며사용자메뉴/작업순서/권한/입출력변경없어새가이드해당없음. 기존API의remit순서와MSSQL문구보존, 새SQL0이라새dnSpy/업무DBprobe해당없음(전체CI가드는유지).
+검색어: drive-pairs-unblock-1113 로그인500 ETIMEOUT CPU104 XLSX.inflate workDrivePairsWorker 주스레드정지
