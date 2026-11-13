@@ -2734,3 +2734,11 @@
 - Desktop1.3.19·다운로드링크갱신. 정식webpack1worker빌드 진행, PR/CI/설치파일공개/Cafe24배포/운영재생은 후속(미검증). 기록 docs/plans/task-launch-criteria-1112.md.
 - 메뉴기준 적용: 읽기밀도/키보드/반응형/스크롤/뒤로가기/오류입력보존/가이드. ERP업무키·원장쓰기·전산probe 해당없음(동작은개인JSON·메뉴이동만).
 검색어: task-launch-1112 1.3.19 320px 8개 startTime endTime shortcut 시간표 CAS nativeIPC 가이드57.6
+
+## 2026-11-13 업무 바로가기 메뉴 검색 보완
+- 사용자: 바로가기 추가할 때 검색이 안 됨. 원인: 공유 task-controls가 검색 없는 native select만 제공. fresh nw-task-search-1113 @e31713c4, 단일 작업자.
+- 홈/PC메모장 공유 검색칸, 메뉴명·분류 NFKC/대소문자/공백 정규화·현재 메뉴 필터·결과수/없음 안내. Enter 첫 후보 명시선택(등록아님), ArrowDown 목록초점, Escape 검색초기화→창닫기. 검색만으로 기존href 변경0, 다른 검색 중 기존연결 묵시적 저장차단, 메뉴갱신/웹전환/초기화 유지. API/IPC/SQL/개인업무 저장코드 변경0.
+- 실제Chrome 홈+notes320/280/390 검색·없음·IME보호·Enter등록0·ArrowDown/Escape·초점복귀·현재연결보존·갱신·디스크저장/재조회·웹전환/JS0 PASS. 기존시간표/실패보존/CAS회귀 및 native Electron 검색Enter/명시선택href/정상저장 PASS.
+- 정식 ERP contract(pre/post포함)exit0, dnSpy/manifest/writeguard PASS. 실제한국어6단계 가이드70.5초 재촬영(검색어실제입력·Enter·선택확인·저장버튼별도줌·결과/줌아웃), 최종프레임·가이드해시검증PASS.
+- Desktop1.3.20/웹다운로드갱신. 로컬정식webpack빌드 진행중, PR/CI/릴리스/운영배포·재생 미검증(후속). 메뉴기준 검색/키보드/밀도/입력보존/가이드 적용, ERP원장/dnSpy신규SQL/운영probe 해당없음. 시작계정전체주간6%, reset1795064856.
+검색어: task-shortcut-search-1113 1.3.20 shortcutSearch 메뉴검색 분류검색 Enter 필터 NativeSelect

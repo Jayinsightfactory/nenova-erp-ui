@@ -1,16 +1,16 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-12T13:02:18.533Z",
+  "recordedAt": "2026-11-13T00:28:15.281Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 57.65,
+  "duration": 70.5,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "8d3789373fb9282dfd395c869e09ff683ac0586c74f9d592392012d3a520824c",
-  "captionsSha256": "7f73c3659d6834728f505ef7be2e4f8383bfb6afa66c59d335c76c6e17a1d3d0",
+  "videoSha256": "da6caa78e7acea6b2e0113e597b6cdad1e382cc5435030bf8e40bff504d6f6fa",
+  "captionsSha256": "1df25aa0502a8b92a5addfd79db8d9800a9ee08805c7abaa588d56f0d36a4e69",
   "sourceHashes": {
     "desktop/shell/index.html": "0c23b4805a377063cf02404ab4112fcd1e0fcd538997d1e3c488627996aed1ef",
     "desktop/shell/home-workspace.js": "9664008197ac226ed7fdd411cd5140a11ca4066480beef4a5013129c8da6defd",
@@ -19,7 +19,7 @@
     "desktop/shell/notes.js": "8e65a088e8b7438132cc18b9b66491e6afd4fc0075ca566b2a8a8a6aed2cefc0",
     "desktop/shell/notes.css": "e28ebc5096da1328240609b025f5302fa525be8da11c9a1b6ef3932e8ee608c7",
     "desktop/shell/task-settings.js": "754ded3a1dd20966906f7b419a626523085e0d433d06a4ee8310332b2e042192",
-    "desktop/shell/task-controls.js": "3ca90bb4121fe02aeb746c72f462d331932cd4b96b3ff07a2e2cf0b4fe655b7d",
+    "desktop/shell/task-controls.js": "813ef15ba55af733b5472322be312dfa0f08773a74891d2524e9a7056040e2fa",
     "pages/desktop-guide.js": "81c54215b51832511e37cddfdd8e1b777c6e30449da65507b247f96969f27113"
   },
   "presentation": {
@@ -36,45 +36,52 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 3.6250820000000004,
+        "start": 3.6421677999999997,
         "x": 227.8203125,
         "y": 358,
-        "end": 8.8428819
+        "end": 8.8586636
       },
       {
         "number": 2,
-        "start": 12.6719357,
+        "start": 12.677712600000001,
         "x": 960,
         "y": 518,
-        "end": 17.8960255
+        "end": 17.9266734
       },
       {
         "number": 3,
-        "start": 21.7464977,
+        "start": 21.817520799999997,
         "x": 960,
         "y": 503,
-        "end": 28.2091249
+        "end": 28.513326799999998
       },
       {
         "number": 4,
-        "start": 32.1501595,
+        "start": 32.496745600000004,
         "x": 960,
         "y": 124.921875,
-        "end": 37.3703676
+        "end": 37.7230306
       },
       {
         "number": 5,
-        "start": 41.2050398,
+        "start": 41.5739088,
         "x": 960,
-        "y": 608.46875,
-        "end": 46.55687330000001
+        "y": 649.921875,
+        "end": 49.6821347
+      },
+      {
+        "number": 5,
+        "start": 53.529832199999994,
+        "x": 1080,
+        "y": 836.3984375,
+        "end": 56.972624599999996
       },
       {
         "number": 6,
-        "start": 50.380489600000004,
+        "start": 63.0027501,
         "x": 933.40625,
         "y": 264.28125,
-        "end": 55.668265600000005
+        "end": 68.268874
       }
     ]
   }
