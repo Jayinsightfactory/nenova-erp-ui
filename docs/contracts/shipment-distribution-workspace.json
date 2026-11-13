@@ -163,7 +163,7 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025/2026 same41-02 custody/product fixtures: current-year update/delete/audit rollback cannot affect prior-year99 quantity. Explicit conflicting/missing years rejected.; 2025/2026 same45 delayed week effect plus manual search, reverse responses and stale errors preserve newer customers/loading. Current error clears loading; absent scope skips API.; actual LocalDB toolbar production API/native SP 2025/2026 same37-01 preserves prior-year detail and target quantities/money/Estimate/farms/orders/dates through cancel/confirm. Browser exact year and stale-state toggle tested. Field CAS rejects changed same-row baseline with 409 and missing400 while unrelated estimate presence is preserved."
+    "description": "2025/2026 same41-02 custody/product fixtures: current-year update/delete/audit rollback cannot affect prior-year99 quantity. Explicit conflicting/missing years rejected.; 2025/2026 same45 delayed week effect plus manual search, reverse responses and stale errors preserve newer customers/loading. Current error clears loading; absent scope skips API.; actual LocalDB toolbar production API/native SP 2025/2026 same37-01 preserves prior-year detail and target quantities/money/Estimate/farms/orders/dates through cancel/confirm. Browser exact year and stale-state toggle tested. Field CAS rejects changed same-row baseline with 409 and missing400 while unrelated estimate presence is preserved.; family navigation fixtures use 2025/2026 same46-01 separate 99/7 hydrangea payloads and preserve originals; staged missing-row5/7 drafts prevent navigation loss while zero/empty is clean."
   },
   "dnspyEvidence": {
     "required": true,
