@@ -14,10 +14,11 @@ import { createUploadedFieldWorkbook } from '../../../lib/shipmentFieldUpload';
 export const config={api:{bodyParser:false,responseLimit:'40mb'}};
 async function handler(req,res) {
   if(req.method!=='POST')return res.status(405).end();
-  let file;
+  let file,prior;
   try {
     const [fields,files]=await formidable({maxFileSize:30*1024*1024,maxFieldsSize:4*1024*1024,multiples:false}).parse(req);
     file=Array.isArray(files.file)?files.file[0]:files.file;
+    prior=Array.isArray(files.previousFile)?files.previousFile[0]:files.previousFile;
     if(!file)throw Object.assign(new Error('원본 엑셀 파일이 필요합니다.'),{statusCode:400});
     const buffer=fs.readFileSync(file.filepath);
     const field=name=>Array.isArray(fields[name])?fields[name][0]:fields[name];
@@ -34,7 +35,9 @@ async function handler(req,res) {
       const sameWeek=!fileWeek || scope?.orderWeek===fileWeek[1]+'-'+fileWeek[2].padStart(2,'0');
       const saved=scope && sameWeek ? await readPalletSnapshots(scope.orderYear,scope.orderWeek) : {};
       const pallets={...saved,...palletSnapshot(XLSX,workbook,parsed.rows)};
-      output=await createUploadedFieldWorkbook(buffer,parsed.rows,{pallets,customerDirectory:directory.recordset,filename:file.originalFilename,farmText:field('farmText'),week:field('week'),year:field('year')});
+      let previousFile;
+      if(prior){const bytes=fs.readFileSync(prior.filepath);previousFile={filename:prior.originalFilename||'',buffer:bytes,rows:parseAllocationWorkbook(XLSX,XLSX.read(bytes,{type:'buffer'})).rows};}
+      output=await createUploadedFieldWorkbook(buffer,parsed.rows,{previousFile,pallets,customerDirectory:directory.recordset,filename:file.originalFilename,farmText:field('farmText'),week:field('week'),year:field('year')});
     } else {
       const plan=verifyFarmExport(buffer,field('exportPlan'),req.user.userId);
       if(mode==='field-volume') {
@@ -56,6 +59,6 @@ async function handler(req,res) {
     res.setHeader('Cache-Control','no-store');
     return res.status(200).send(output);
   }catch(e){return res.status(e.statusCode || 400).json({success:false,error:e.message});}
-  finally{if(file)try{fs.unlinkSync(file.filepath);}catch{}}
+  finally{for(const temp of [file,prior])if(temp)try{fs.unlinkSync(temp.filepath);}catch{}}
 }
 export default withAuth(handler);

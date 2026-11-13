@@ -122,6 +122,7 @@ export default function DistributeImport() {
   const applyResultRef = useRef(null);
   const comparisonRef = useRef(null);
   const preAlignAvailable = false;
+  const priorFiles=useRef(new Map());
   const [file, setFile] = useState(null);
   const sheetLoadRef = useRef(0);
   const [earlyImportMode, setEarlyImportMode] = useState('ORIGINAL_INCLUDES_EARLY');
@@ -514,7 +515,7 @@ export default function DistributeImport() {
     try {
       const revision=sheetLoadRef.current;
       const form = new FormData(); form.append('file', sourceFile);
-      if(uploadOnly){form.append('mode','field-upload');form.append('farmText',memo);form.append('week',weekInput.value);}
+      if(uploadOnly){const prior=priorFiles.current.get(weekInput.value.slice(0,4)+'|'+sourceFile.name.replace(/[-－]02(?!\d)/,'-01'));if(prior&&prior!==sourceFile)form.append('previousFile',prior);form.append('year',String(weekInput.value).match(/^(\d{4})-/)?.[1]||String(new Date().getFullYear()));form.append('mode','field-upload');form.append('farmText',memo);form.append('week',weekInput.value);}
       else {form.append('exportPlan', plan);if(fieldVolume)form.append('mode','field-volume');}
       const response = await fetch('/api/shipment/distribute-import-export', {method:'POST',body:form,credentials:'same-origin'});
       if (!response.ok) { const data=await response.json(); throw new Error(data.error || '엑셀 다운로드 실패'); }
@@ -750,6 +751,7 @@ export default function DistributeImport() {
             onChange={e => {
               const selectedFile = e.target.files?.[0];
               if (!selectedFile) return;
+              if(/[-－]01(?!\d)/.test(selectedFile.name))priorFiles.current.set(weekInput.value.slice(0,4)+'|'+selectedFile.name,selectedFile);
               e.target.value = '';
               setFarmText('');
               setFarmOverrides({ targets: {}, farms: {} });
