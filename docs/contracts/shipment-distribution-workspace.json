@@ -51,7 +51,11 @@
     "scripts/test-distribution-date-index-sql.cjs",
     "scripts/record-distribution-dual-guide.cjs",
     "__tests__/distributeProductDisplay.test.js",
-    "__tests__/shipmentDistributionCustomerLoading.test.cjs"
+    "__tests__/shipmentDistributionCustomerLoading.test.cjs",
+    "components/shipment/DistributionFixToggle.js",
+    "components/shipment/DistributionScrollBar.js",
+    "lib/distributionConcurrentEdit.js",
+    "__tests__/distributionConcurrentEdit.test.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -60,8 +64,18 @@
     "ProdKey"
   ],
   "actions": [
-    {"name":"WEB_REQUEST_DONE","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"Farm/customer share one feed. Manual checkbox persists only hashed request-key, done boolean, revision and time in web runtime immutable CAS events. No raw text/user information stored. Authenticated same-origin POST, stale409, retry idempotent, original completion preserved on error, green only after server success. Poll reads states; edited excerpt gets new key. No ERP table writes or automatic completion."},
-    {"name":"READ_CATEGORY_CONFIRMATION","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"GET explicit year+subweek ViewShipment CountryFlower aggregate with native DetailFix. Full/partial/unfixed distinguished, fully fixed red buttons plus partial label. Button opens read-only summary and never invokes fix/unfix or changes filters/drafts. Stale responses excluded by sequence and exact week. Same-week previous-year fixture required."},
+    {
+      "name": "WEB_REQUEST_DONE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Farm/customer share one feed. Manual checkbox persists only hashed request-key, done boolean, revision and time in web runtime immutable CAS events. No raw text/user information stored. Authenticated same-origin POST, stale409, retry idempotent, original completion preserved on error, green only after server success. Poll reads states; edited excerpt gets new key. No ERP table writes or automatic completion."
+    },
+    {
+      "name": "READ_CATEGORY_CONFIRMATION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "GET explicit year+subweek ViewShipment CountryFlower aggregate with native DetailFix. Full/partial/unfixed distinguished, fully fixed red buttons plus partial label. Button opens read-only summary and never invokes fix/unfix or changes filters/drafts. Stale responses excluded by sequence and exact week. Same-week previous-year fixture required."
+    },
     {
       "name": "READ_LIVE_KAKAO_REQUESTS",
       "orderDetail": "preserve",
@@ -114,7 +128,7 @@
       "name": "COUNTRY_CUSTOMER_READ",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Read-only country:: scope. workspaceCustomers queries active current-year/week orders before shipment exists; empty scope exposes active noOrder candidates, with 80 visible and full-list search. Native flower SP/confirmation actions require variety selection. No ledger writes on selection."
+      "sideEffect": "Read-only country:: scope. workspaceCustomers queries active current-year/week orders before shipment exists; empty scope exposes active noOrder candidates, with 80 visible and full-list search. Native flower distribution SP actions require variety selection; confirmation toolbar resolves country selection to the actual canonical Product.CountryFlower categories before any action. No ledger writes on selection."
     },
     {
       "name": "LOAD_CUSTOMER_WORKSPACE",
@@ -127,11 +141,23 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "Farm workspace customer-name search filters only the already loaded selected-product customer rows, including locally added no-order rows. It is display-only; totals, selection, drafts, API requests and ERP ledgers are unchanged. Matching uses the existing customer search normalizer."
+    },
+    {
+      "name": "TOOLBAR_CONFIRM_TOGGLE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Explicit year+subweek GET and Product CountryFlower scope shared with manual toolbar POST; confirmed/partial is red cancel, unfixed green confirm; click rechecks scope/state, error/empty/stale disabled. Native category argument mandatory. Ordinary manual partial/stock/nextweek/orderless guards retained. No optimistic flip. Confirmed target-only native SP; other categories/year and quantities/money/date/order preserved."
+    },
+    {
+      "name": "DISTRIBUTION_FIELD_CAS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "set-final-nonnegative",
+      "sideEffect": "distribution-workspace batch sends exact read outQty/cost baseline for every changed customer/product. Native Master/Detail UPDLOCK HOLDLOCK compare-and-set rejects missing/stale baseline; estimate customer-wide presence alone cannot block. Lease-owning clients retain existing guard. Other estimate screen baseline is not advanced and stale write remains rejected. Existing explicit year, fixed, farm, order join, date synchronization and audit guards preserved. Sticky save toolbar/top horizontal mirror and internal sticky table headers; one customer family buttons use same display-only filter as pair view."
     }
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025/2026 same41-02 custody/product fixtures: current-year update/delete/audit rollback cannot affect prior-year99 quantity. Explicit conflicting/missing years rejected.; 2025/2026 same45 delayed week effect plus manual search, reverse responses and stale errors preserve newer customers/loading. Current error clears loading; absent scope skips API."
+    "description": "2025/2026 same41-02 custody/product fixtures: current-year update/delete/audit rollback cannot affect prior-year99 quantity. Explicit conflicting/missing years rejected.; 2025/2026 same45 delayed week effect plus manual search, reverse responses and stale errors preserve newer customers/loading. Current error clears loading; absent scope skips API.; actual LocalDB toolbar production API/native SP 2025/2026 same37-01 preserves prior-year detail and target quantities/money/Estimate/farms/orders/dates through cancel/confirm. Browser exact year and stale-state toggle tested. Field CAS rejects changed same-row baseline with 409 and missing400 while unrelated estimate presence is preserved."
   },
   "dnspyEvidence": {
     "required": true,
@@ -163,7 +189,7 @@
     "price": "Quantity-only saves preserve native customer Cost, including zero; never substitute Product.Cost when row.Cost exists.",
     "catalogSearch": "Group picker includes all active Product CounName+FlowerName regardless of year/week/order/shipment existence. Product-tab nonblank search merges active catalog by ProdKey, preserves selected-week quantities, matches country/flower/name and prioritizes favorites, then A-Z; blank search shows active country catalog grouped by family, preserving selected-week quantities. SELECT only; saves retain existing preflight and writers. Catalog-only products must also pass the selection whitelist, including empty 45-03 product lists. Header picker remains usable with zero current-week products and loads the same active catalog on open. Existing positive order registration precedes shipment writes. Customer add dialog also opens the active catalog when the selected week has zero products. Native rows are enriched with country/packing metadata while stored week quantities and explicit zero price win. Country-only filter matches all its varieties; nonblank add search remains global. Selection alone never registers an order.",
     "countryGrouping": "Farm-only country navigation and favorite-first expandable family/SKU tree. Customer workspace has independent week-wide company selection and independent item/date filters; farm country/family never restricts customer scope.",
-    "countrySelection": "Country name is a distinct selectable country-only filter (country::), independent of favorites; no country-only CountryFlower/SP mutation scope. workspaceCustomers includes scoped active orders before shipment/date exists; empty scope displays active noOrder candidates with explicit notice, never creates fake orders.",
+    "countrySelection": "Country:: is read UI scope; confirmation toolbar resolves it through actual Product.CountryFlower list and explicit year/subweek. Other native distribution actions still require a variety.",
     "dateClassification": "Both workspaces use shared persisted date index keyed by selected year+week and Master customer+product. Positive Date facts and explicit undated order candidates, no computed calendar. Filter changes preserve full-week drafts and save targets; existing exact date editor remains sole day-quantity writer."
   },
   "requiredTestFiles": [
@@ -188,7 +214,8 @@
     "scripts/record-distribution-dual-guide.cjs",
     "__tests__/distributeProductDisplay.test.js",
     "__tests__/shipmentDistributionCustomerLoading.test.cjs",
-    "__tests__/shipmentDistributionBrowser.test.cjs"
+    "__tests__/shipmentDistributionBrowser.test.cjs",
+    "__tests__/distributionConcurrentEdit.test.cjs"
   ],
   "requiredCommands": [
     "node scripts/test-distribution-localdb.cjs --fix-cycle",

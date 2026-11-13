@@ -2815,3 +2815,11 @@
 - 신규17단위·반례PASS,LocalDB SQL130에실native정의(현재정렬cursor)및기존fixture readiness stub로실행: 중간native실패후rollback·rehearsalreadback·exact3history/현재고+1·2025보존/2027+1·금액보존·중복차단PASS. 전체ERP검사/build/PR/배포/운영rehearse/apply는후속검증전미완료. 계획 docs/plans/approved-stock35-2026-11-13.md.
 검색어: approved-stock35-repair 35-02 1062 2322 2601 +1 111스냅샷 현재고1 5 1
 - 필수verify는ERP행위/manifest/dnSpy/쓰기범위/workflow까지PASS후webpack에서ENOSPC(여유약0.6GB)로중단. 운영rehearse/apply아직0. 자신이생성한두.next정리를시도했으나안전정책차단,우회하지않고사용자에게탐색기정리요청. GitHub의독립Linux빌드검증준비를계속하며검증실패를무시한운영반영금지.
+
+## 2026-11-13 출고분배 확정 토글·동시업무·고정 헤더
+- 로컬 isFixed만 바뀌던 확정 UI를 실제 DetailFix+선택 native CountryFlower 범위로 연결. 확정/일부확정은 빨간 확정취소, 미확정은 확정. GET/POST 범위 공통해석, 클릭 직전 상태 재확인, 조회오류/빈범위 차단. 일반 부분확정/음수재고/후속차수 보호 유지.
+- 분배 workspace batch는 expected 수량/단가 compare-and-set과 native 행 잠금을 사용하여 견적 업체 presence만으로 막히지 않는다. 기준변경409/누락400 및 전체배치 rollback, 다른 화면 lease/digest 보존.
+- 양쪽 탭 저장/차수/좌우 이동바 sticky, 우측 표 내부 스크롤/열제목 고정. 업체1만 선택해도 품종 필터 가능.
+- 검증 완료: 실제 운영 API+native SP LocalDB 취소/확정과 전년도/타품종 보존; Chrome 여러 업체5/7 한 번 저장→새로고침→견적/이카운트 XLSX 각2행 재열기(150/210단); 외국 견적lease 상태 CAS 저장/409/400/재조회; 40행 양쪽 표 고정/스크롤/단일업체 품종; 실제 브라우저 회귀.
+- 운영 임의 확정취소/수량 보정 0. 필수검사·최종빌드/CI·배포/운영 스모크는 이 기록 작성 시 진행 중이며 미검증. 완료 결과는 아래 후속 기록으로 남긴다.
+검색어: 확정취소 빨간버튼 distribute-toolbar confirmationSelection distribution-workspace DISTRIBUTION_STALE 고정헤더 좌우스크롤 업체1품종 2026-11-13

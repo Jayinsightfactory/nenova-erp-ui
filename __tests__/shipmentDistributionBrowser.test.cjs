@@ -48,6 +48,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
 let withGerbera = true; // 어느 업체에도 분배 없는 차수 품목 (품목명 검색 → 주문등록 경로)
 let orderPosts = 0;
   let badgeFixed = false;
+  let toolbarFixed=false; const toolbarCalls=[];
   const productGroupQueries = [];
   let fixedScopeNext = false; // 다음 저장의 확정 범위 조회에서 Alstroemeria 품목군을 확정 상태로
   const cycleCalls = [];
@@ -71,7 +72,7 @@ let orderPosts = 0;
       const url = new URL(request.url());
       const type = url.searchParams.get('type');
       if(url.pathname==='/api/kakao/request-done')return route.continue();
-      if(url.pathname==='/api/shipment/distribution-confirmation')return reply(route,{ok:true,week:url.searchParams.get('week'),rows:[{category:'연습 확정품종',detailCount:2,fixedCount:2,status:'FIXED'},{category:'연습 미확정품종',detailCount:3,fixedCount:0,status:'UNFIXED'}]});
+      if(url.pathname==='/api/shipment/distribution-confirmation')return reply(route,{ok:true,week:url.searchParams.get('week'),categories:['연습 미확정품종'],rows:[{category:'연습 확정품종',detailCount:2,fixedCount:2,status:'FIXED'},{category:'연습 미확정품종',detailCount:3,fixedCount:toolbarFixed?3:0,status:toolbarFixed?'FIXED':'UNFIXED'}]});
       if (url.pathname === '/api/kakao/sales-feed') {
         feedCursors.push(url.searchParams.get('afterKey'));
         if(feedFailure)return reply(route,{error:'연습 조회 실패'},503);
@@ -128,6 +129,10 @@ let orderPosts = 0;
       if (url.pathname === '/api/shipment/ship-days') return reply(route, { success: true, configs: [] });
       if (url.pathname === '/api/shipment/fix' && request.method() === 'POST') {
         const body = JSON.parse(request.postData() || '{}');
+        if(body.cycleSource==='distribute-toolbar'){
+          assert.equal(body.orderYear,'2026');assert.deepEqual(body.countryFlowers,['연습 미확정품종']);assert.equal(typeof body.confirmationSelection.prodGroup,'string');
+          toolbarCalls.push(body.action);toolbarFixed=body.action==='fix';return reply(route,{success:true,message:'toolbar fixture ok'});
+        }
         // 자동 사이클: 화면 연도 명시, force=false, 바꾸는 품목의 품목군만
         assert.deepEqual([body.week, body.orderYear, body.force, body.countryFlowers, body.cycleSource], ['2026-41-02', '2026', false, ['콜롬비아 알스트로'], 'distribute-save']);
         cycleCalls.push(body.action);
@@ -264,6 +269,18 @@ let orderPosts = 0;
       await summary.getByRole('button',{name:'확정현황 확인',exact:true}).click();
       await summary.getByRole('dialog').getByText('연습 미확정품종',{exact:true}).waitFor();
       await summary.getByRole('button',{name:'닫기',exact:true}).click();
+      const toggle=page.getByTestId('distribution-fix-toggle');await toggle.getByText('확정 / Confirmar',{exact:false}).waitFor();
+      toolbarFixed=true;await toggle.click(); // DB changed after display: refresh only, no POST.
+      await page.waitForFunction(()=>document.querySelector('[data-testid="distribution-fix-toggle"]')?.textContent.includes('확정취소'));
+      assert.equal(toolbarCalls.length,0);assert.equal(await toggle.evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(220, 38, 38)');
+      page.once('dialog',d=>d.accept());await toggle.click();
+      await page.waitForFunction(()=>document.querySelector('[data-testid="distribution-fix-toggle"]')?.textContent.includes('확정 / Confirmar'));
+      page.once('dialog',d=>d.accept());await toggle.click();
+      await page.waitForFunction(()=>document.querySelector('[data-testid="distribution-fix-toggle"]')?.textContent.includes('확정취소'));
+      page.once('dialog',d=>d.accept());await toggle.click();
+      await page.waitForFunction(()=>document.querySelector('[data-testid="distribution-fix-toggle"]')?.textContent.includes('확정 / Confirmar'));
+      assert.deepEqual(toolbarCalls,['unfix','fix','unfix']);
+
       const doneBox=page.getByRole('checkbox',{name:'연습업체 수국 2박스 추가 작업완료',exact:true});
       await page.locator('input[aria-label="연습업체 수국 2박스 추가 작업완료"]:not(:disabled)').waitFor();
       await doneBox.click();await page.locator('article[data-request-done="true"]').filter({hasText:'연습업체 수국 2박스 추가'}).waitFor();
@@ -421,6 +438,8 @@ let orderPosts = 0;
     await page.locator('[data-ai-verify="customer-478"]').click();
     const customerQty = page.locator('[data-distribute-qty="true"]');
     await customerQty.waitFor();
+    await page.getByTestId('distribution-single-group-buttons').waitFor();
+    await page.locator('[data-ai-verify="single-group-all"]').click();
     await customerQty.fill('51');
     await customerQty.press('Enter');
     assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-keyshortcuts')), 'Control+S');
@@ -649,11 +668,11 @@ let orderPosts = 0;
     assert.equal(savePosts, 5, 'history modal blocks background save');
     await page.locator('.modal-overlay').last().getByRole('button', { name: '닫기' }).first().click();
 
-    await page.getByRole('button', { name: /확정 \/ Confirmar/ }).click();
-    await page.getByText(/확정 전 이슈 발견/).waitFor();
-    await page.keyboard.press('Control+s');
-    assert.equal(savePosts, 5, 'validation modal blocks background save');
-    await page.locator('.modal-overlay').last().getByRole('button', { name: /취소 \/ Cancelar/ }).click();
+    const postsBeforeCancel=toolbarCalls.length;
+    page.once('dialog',dialog=>{assert.match(dialog.message(),/차수 전체 사전검증/);dialog.dismiss();});
+    await page.getByTestId('distribution-fix-toggle').click();
+    await page.waitForFunction(()=>!document.querySelector('[data-testid="distribution-fix-toggle"]')?.disabled);
+    assert.equal(toolbarCalls.length,postsBeforeCancel,'canceling confirmation never writes');
 
     page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: '전산 개별출고분배' }).click();

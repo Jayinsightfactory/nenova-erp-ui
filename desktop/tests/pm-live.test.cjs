@@ -31,3 +31,15 @@ test('activity text is bounded and unrelated payload fields are not returned', (
   const result = pmLiveStatus({ ageSec: 1, token: 'secret', data: { agents: [{ id: 'pm', status: 'working', activity: 'x'.repeat(500) }] } });
   assert.equal(result.activity.length, 240); assert.equal('token' in result, false);
 });
+
+test('unresolved issue titles are passed through as titles only', () => {
+  const result = pmLiveStatus({ ageSec: 5, unresolved: [{ id: 'a', title: '  아드리아나 PC 화면 해독이 3시간 넘게 멈춤 ', todo: '사장님 확인 필요' }, { title: 'x'.repeat(200) }, { title: 7 }, null],
+    data: { agents: [{ id: 'pm', status: 'working', activity: '조사 중: staff-decode-fresh' }] } });
+  assert.deepEqual(result.issues.map(item => item.length), [25, 80]);
+  assert.equal(result.issues[0], '아드리아나 PC 화면 해독이 3시간 넘게 멈춤');
+});
+
+test('no unresolved list from an older server is reported as unknown, not as healthy', () => {
+  assert.equal(pmLiveStatus({ ageSec: 5, data: { agents: [{ id: 'pm', status: 'idle' }] } }).issues, null);
+  assert.deepEqual(pmLiveStatus({ ageSec: 5, unresolved: [], data: { agents: [{ id: 'pm', status: 'idle' }] } }).issues, []);
+});
