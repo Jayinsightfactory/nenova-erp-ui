@@ -13,7 +13,9 @@
     "scripts/lib/shipment-field-fixture.cjs",
     "scripts/lib/shipment-field-guide-caption.cjs",
     "scripts/record-shipment-field-volume.cjs",
-    "lib/shipmentFieldUpload.js"
+    "lib/shipmentFieldUpload.js",
+    "lib/shipmentPallet.js",
+    "scripts/sql/shipment-import-pallet-snapshot.sql"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -36,7 +38,7 @@
       "shipmentDetail": "preserve",
       "shipmentDate": "preserve",
       "shipmentFarm": "preserve",
-      "sideEffect": "Authenticated file-only conversion. Active Customer display-name lookup only, zero writes; no matching or apply prerequisite. Source weekday, units and summaries preserved. Print assigned farm quantities as entered, independently of source shipment quantities. Omit raw text and unresolved notes. Previous subweek not inferred."
+      "sideEffect": "Authenticated file-only conversion. Active Customer display-name lookup only, zero writes; no matching or apply prerequisite. Source weekday, units and summaries preserved. Print assigned farm quantities as entered, independently of source shipment quantities. Omit raw text and unresolved notes. Previous subweek not inferred. Reads successful same year/week pallet snapshots for mixed loads; absent family is distinct from zero."
     }
   ],
   "crossYearFixture": {

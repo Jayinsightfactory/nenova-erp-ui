@@ -13,7 +13,7 @@ async function handler(req, res) {
   let progressStarted = false;
   try {
     // Before audit initialization or any ERP write, require the complete server-verified preview.
-    assertReplacementPlan(req.body || {}, req.user.userId);
+    const palletSnapshot = assertReplacementPlan(req.body || {}, req.user.userId);
     const earlyImportMode = requireEarlyImportMode(req.body?.earlyImportMode);
     if (!req.body?.earlyLedgerFingerprint || req.body?.earlyLedgerFingerprint !== req.body?.rows?.[0]?.earlyLedgerFingerprint) {
       return res.status(409).json({ success: false, code: 'EARLY_IMPORT_PREVIEW_REQUIRED', error: '선출고 처리 원장을 포함한 검증 결과가 필요합니다. 다시 검증하세요.' });
@@ -32,6 +32,7 @@ async function handler(req, res) {
     }
     progressStarted = true;
     const result = await applyImportRows({
+      palletSnapshot,
       rawWeek: req.body?.week,
       rawYear: req.body?.year,
       rows: req.body?.rows,
