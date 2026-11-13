@@ -25,6 +25,9 @@
     "pages/api/orders/mappings.js",
     "pages/api/orders/shipment-list-source.js",
     "lib/orderImportParse.js",
+    "lib/orderImportFileAsync.cjs",
+    "lib/orderImportFileWorker.cjs",
+    "__tests__/orderImportFileIsolation.test.cjs",
     "lib/orderImportMatch.js",
     "lib/orderImportRegister.js",
     "lib/orderImportCustomerProductMappings.js",
@@ -260,5 +263,6 @@
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build"
   ],
+  "fileReadIsolation": "Existing mirror and canonical workbook parser run in a bounded low-priority child. No register, quantity, matching or SQL changes; queue overload returns retryable status before matching.",
   "nativeHeaderCompatibility": "2026-10-21: FormOrderAdd creates empty header; FINAL_SNAPSHOT must prepare it for native manual distribution. No shipment quantities, dates, farms, confirmation, stock or estimates are created. Existing headers unchanged; failures roll back header and orders together."
 }
