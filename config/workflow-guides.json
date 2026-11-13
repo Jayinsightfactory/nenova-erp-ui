@@ -973,6 +973,52 @@
           ]
         }
       ]
+    },
+    {
+      "id": "pm-control",
+      "title": "PM 진행·오류 관제와 게임 화면 선택",
+      "entryPaths": [
+        "/pm"
+      ],
+      "sourceFiles": [
+        "pages/pm.js",
+        "lib/pmThemes.js",
+        "components/pm/grow/Grow.js",
+        "components/pm/ControlGuide.js"
+      ],
+      "requiredScenarios": [
+        "control",
+        "game",
+        "off"
+      ],
+      "guides": [
+        {
+          "id": "staff",
+          "role": "직원",
+          "title": "일반 관제 기본·게임 화면 켜기와 끄기",
+          "status": "ready",
+          "src": "/guides/pm-control/staff.mp4",
+          "captions": "/guides/pm-control/staff.ko.vtt",
+          "proof": "/guides/pm-control/staff.proof.json",
+          "chapters": [
+            {
+              "scenario": "control",
+              "title": "1. 일반 관제에서 진행과 오류 확인",
+              "seconds": 0
+            },
+            {
+              "scenario": "game",
+              "title": "2. 필요한 경우 게임 화면 켜기",
+              "seconds": 10.438
+            },
+            {
+              "scenario": "off",
+              "title": "3. 게임을 끄고 일반 관제로 복귀",
+              "seconds": 23.48
+            }
+          ]
+        }
+      ]
     }
   ]
 }

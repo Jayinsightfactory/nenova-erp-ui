@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-13T04:47:34.574Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 36.5,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "3dd65a4384ae502fe7bfb5467601c56d8530704ee00901995462c3cbfa5acb02",
+  "captionsSha256": "eb31bcd99daaf3fa40480876537093d11cffbedb134811a8c7c74c46526dd084",
+  "sourceHashes": {
+    "pages/pm.js": "53f52f8584e6dc1dd8a3061a2630042143cadb52372be0cd5993186e12255aa9",
+    "lib/pmThemes.js": "3def5828b6c24d3c0871b919e2d86107d28dadbb392f711c0a36fb939cd6f9dd",
+    "components/pm/grow/Grow.js": "96d41e964416fe19e8c78b6dd895c3676b7a50769b5552fa757f63078d010601",
+    "components/pm/ControlGuide.js": "7bb3a5c41c67c7df54d925ef7bf35f9a11caaed136a39eca432879498b45fcb2"
+  },
+  "presentation": {
+    "numberedSteps": 3,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 4.321293,
+        "x": 960,
+        "y": 236.5,
+        "end": 10.2324338
+      }
+    ]
+  }
+}
