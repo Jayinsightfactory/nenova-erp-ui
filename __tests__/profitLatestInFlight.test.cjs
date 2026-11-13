@@ -30,7 +30,8 @@ test('transaction/replay contexts bypass join and registration',async()=>{
 });
 test('production callers retain independent policy and fences before the live-only shared reader',()=>{
  const fs=require('node:fs'),source=fs.readFileSync(require('node:path').join(__dirname,'../pages/api/sales/profit-report.js'),'utf8');
- assert.match(source,/if\(currentErpReadContext\(\)\)return work\(\);\s*return shareLatestProfitRead\(orderYear,major/);
+ assert.match(source,/if\(currentErpReadContext\(\)\)return work\(\);\s*const execute=async/);
+ assert.match(source,/return forCache\?execute\(\):shareLatestProfitRead\(orderYear,major,execute\)/);
  const loader=source.slice(source.indexOf('export async function loadWeeklyReportPayload'));
  assert.ok(loader.indexOf('getActiveConfirm')<loader.indexOf('loadCoherentLatestReport'));
  assert.match(source,/const after=await signature\(\);\s*if\(before!==after\)/);

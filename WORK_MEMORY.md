@@ -2833,6 +2833,13 @@
 - 운영 임의 확정취소/수량 보정 0. 필수검사·최종빌드/CI·배포/운영 스모크는 이 기록 작성 시 진행 중이며 미검증. 완료 결과는 아래 후속 기록으로 남긴다.
 검색어: 확정취소 빨간버튼 distribute-toolbar confirmationSelection distribution-workspace DISTRIBUTION_STALE 고정헤더 좌우스크롤 업체1품종 2026-11-13
 
+## 2026-11-13 승인 35차 재고 보정 운영 반영
+- PR #1718 squash 2e4cb944, CI 43360654316 성공. 최초 배포 43361285864는 newer-master 안전차단; 포함 관계 확인 후 최신 08775737 배포 43362171804 성공, 운영 /api/ping DB 연결 및 Chrome 버전 확인.
+- 로컬 필수 ERP 검사/dnSpy/manifest/쓰기 guard 통과, ENOSPC 후 별도 정식 build 성공. 신규17검사 및 실제 LocalDB native/rollback/교차연도/금액보존 검증 통과. 사용자 지시에 따라 이후 증거/백업은 E:/NenovaVerification/stock35-20261113 저장.
+- 운영 동일 원천 해시 3a3c99c0fe20d38250935ec25317d4ba3b3185c06a321dc7d6b7be23bd367551로 rehearsal 전체 rollback/readback 일치 후 apply COMMIT/readback 일치. 새 StockHistory 567404/567405/567406. 2026/35-02 Prod1062/2322/2601 -1→0박스. 기존 준비된 2026/2027 후속111개 snapshot 각각 정확+1, 이전35-01 불변, 현재고1/5/1. 다른 품목·기존이력·주문/출고/입고/견적/매출금액/기존보고서/확정본/SP/EXE 보존 지문 확인. 매주 새+1 이력을 만든 것이 아님.
+- 웹35차 명시 계산본 갱신 v10→v11 후 카네이션 F=0, J=15,432,767,K=12.5% 실화면 확인. 단순 재고 보정만의 예상 J=15,501,657과 다름: 기존 최신 계산정책이 통관비 H=4,788,519→4,857,409(+68,890원)도 함께 적용. 수국/장미 등 타행 평가액·통관비도 재계산됨. 기존v10 삭제/덮어쓰기 없음. 이 차이를 재고보정 효과로 혼동하면 안 됨.
+- 36~46 ERP 재고수량 보정/전후 대사는 완료. 36~46 웹 저장 계산본 갱신은 아직 미실행: 기존 갱신이 재고 외 최신 비용정책도 함께 적용하는 점 때문에 범위 선택 필요. 46 기존 저장본 없음. 전체 차수 수익률 정확성 인증이나 EXE 실제 UI 저장 스모크 완료를 의미하지 않음.
+검색어: stock35 applied 567404 567405 567406 E드라이브 111스냅샷 35차v11 통관비68890 후속보고서미갱신
 ## 2026-11-13 국가 옆 품종 바로 선택 후속
 콜롬비아 등 국가 옆 즐겨찾기 품종 버튼을 복원하고, 별도 farmFamily 보기필터로 하나 선택→그 품종만 자동 펼침→국가 클릭 전체 복귀를 제공한다. 품목 선택의 native prodGroup과 분리하여 품목 클릭으로 목록이 임의로 좁혀지지 않는다. 전체 품목 검색/다른 품종 미저장 이동 보호 유지. 국가/품종 선택부도 sticky header 안으로 이동, 전체 국가 목록은22vh 제한. ERP SQL/API/수량/매출 writer 변경0.
 검증: navigation 단위, 실제 Chrome favorite 버튼/해당 품종만/재열기/전체복귀/전역검색, 40행 양쪽 스크롤/고정머리글·저장, 종합 브라우저 회귀 통과. 필수 ERP검사·안내영상·최종빌드/CI/배포/운영은 진행 중(아직 미검증). 직전1714 배포는 새master dd8866c40로 STALE_RELEASE 차단되어 최신 배포 추적 중, 원장수정0.
@@ -2865,6 +2872,12 @@
 - 실측 디스크 여유에서 운영 예비 5GiB를 남긴 범위까지 기존 10GiB 한도 확대. 최대 100GiB. 업로드/용량 테스트·필수 ERP 검증·로컬 빌드 통과. 운영 반영 미검증.
 검색어: 업무드라이브 100GiB 가용공간 운영여유 5GiB
 
+## 2026-11-13 주차 손익 최종 통관비 저장 경로 보완
+- 사용자36~46 최신통관비 갱신 승인. 초기222~232 새버전 생성 뒤 SQL JSON/실Chrome를 대조하여 POST 응답의 관세/평균 보완값과 과거 GET 고정 저장값 불일치 재현. 과거 동결 정책을 해제하지 않고 저장 직전 최종화를 추가, 원천은 cacheSourcePayload로 보존하고 donor만 원천으로 되돌려 중복 가산 방지. ERP/수기/확정/기존버전 변경0.
+- 실제 FormSalesView dnSpy 재실행, 운영 SELECT 원장6종 지문 전후동일/활성확정0 확인. 새8단위/반례, 기존관세와합계29검사, 실제 LocalDB final JSON commit/readback·원천donor·2025 sentinel·원천실패rollback·확정skip·money보존 PASS. LocalDB 첫 정리만 연결pool 때문에 실패해 해당 random fixture만 정리 후 최종exit0. 운영DB 시험0.
+- 전체verify는기존‘raw만저장’문구회귀 assertion에서중단. 해당행을최종저장/원천분리계약으로갱신후대상29검사와전체posthook·manifest217·쓰기guard·dnSpy모두PASS. 정식webpack1worker는E산출물React경로누락으로첫실패, E의의존성junction연결후두번째build exit0. 전체필수CI·PR/배포·운영 재갱신은 아직미완료.
+- 현재·진행45/46 GET502/HTML을갱신실패와혼동하지않도록기존인증POST만36~46순차호출하는명시운영도구/수동workflow 추가. dryrun기본·양쪽scope검사·원장SQL0·자동재시도0·CI금액/토큰저장0. 로컬함수호출임시45/46은운영전용파일원천과다를수있어완료로판정하지않으며,배포후운영HTTP로새버전대체예정.
+검색어: profit-final-cache cacheSourcePayload finalizationVersion 관세응답저장불일치 36~46 E드라이브 명시POST
 ## 2026-11-13 PM 진행·오류 관제 기본 보기 확인
 - 사용자 후속 요청: 진행·오류관제 탭도 게임화면 기본 비활성. 최신 origin/master ad41db28 새 worktree에서 desktop/shell/shell.js pmOpenButton이 동일 /pm을 여는 것을 확인. pages/pm.js에 앞선 PR#1721 list 기본+pm.view.v2 설정이 포함되어 이미 같은 변경 적용 대상. 중복 코드·재배포 없음. 사용자 실행중 탭 자체는 미조작/미검증, 닫고 다시 열어 새 페이지를 로드하도록 안내.
 검색어: PM 진행 오류 관제 동일페이지 /pm 기본비활성 PR1721 pmOpenButton

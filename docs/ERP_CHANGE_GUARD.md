@@ -1,5 +1,15 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-13 손익 명시 갱신의 최종 통관비 저장
+
+관세·평균 보완을 POST 응답에만 적용하고 보완 전 JSON을 저장하면 과거 고정 GET에서
+숫자가 되돌아간다. 명시/예약 갱신은 같은 잠금·원천 지문 transaction 안에서 최종 calc와
+totals를 새 버전으로 저장하며 auto/manual 재계산으로 덮지 않는다. 보완 전 원천은 같은
+payload의 cacheSourcePayload로 분리하고 다음 차수 donor는 그 원천만 사용한다.
+잘못된 연도/차수·중첩/누락 원천·SQL/평균 조회 실패는 새 저장을 거부한다. 기존 확정본,
+수기값, 원본 버전, ERP 원장은 보존한다. 기준/부작용은
+plans/profit-final-cache-2026-11-13.md, 실행 회귀는 profitFinalCache.test.cjs.
+
 ## 2026-11-10 행내 세부차수 비교·메인차수 합계
 
 출고일 표에서 같은 연도/메인차수01~04의Master업체+품목별 저장수량을 읽고,
