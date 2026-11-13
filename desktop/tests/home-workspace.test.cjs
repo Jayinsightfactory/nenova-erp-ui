@@ -35,3 +35,9 @@ test('bridge returns conflict details, locks on unauthorized and bounds response
   await assert.rejects(homeWorkspaceRequest({ ...args, fetch: async () => Response.json(snapshot('a'), { headers: { 'content-length': String(3 * 1024 * 1024) } }) }));
   assert.deepEqual(await homeWorkspaceRequest({ ...args, fetch: async () => Response.json(snapshot('a')) }), snapshot('a'));
 });
+
+test('calendar month/week are validated read-only queries with fixed owner and origin',()=>{
+ const request=requestOptions({method:'GET',calendarMonth:'2026-12',calendarWeek:'2027-01-01',url:'https://evil.test'},'verified');const u=new URL(request.url);assert.equal(u.origin,'https://nenovaweb.com');assert.equal(u.searchParams.get('expectedOwnerId'),'verified');assert.equal(u.searchParams.get('calendarWeek'),'2027-01-01');assert.equal(u.searchParams.get('calendarMonth'),'2026-12');assert.equal(request.options.method,'GET');
+ for(const value of ['2026-02-30','1999-12-31',[],null])assert.throws(()=>requestOptions({method:'GET',calendarWeek:value},'verified'));
+ for(const value of ['2026-13','2026-1',[],null])assert.throws(()=>requestOptions({method:'GET',calendarMonth:value},'verified'));
+});

@@ -1,0 +1,37 @@
+const assert=require('node:assert/strict'),path=require('node:path'),puppeteer=require('puppeteer-core');
+const {fixture}=require('./desktop-task-schedule-smoke.cjs');
+(async()=>{const app=await fixture(),browser=await puppeteer.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+ try{const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.exposeFunction('fixtureInvoke',app.invoke);
+ await page.evaluateOnNewDocument(()=>window.desktop={invoke:(a,p)=>window.fixtureInvoke(a,p),onState(cb){window.fixtureEmit=cb;}});
+ await page.setRequestInterception(true);page.on('request',r=>new URL(r.url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ await page.setViewport({width:1920,height:1080});await page.goto(app.base);await page.waitForSelector('.request-row');await page.waitForSelector('.week-event');assert.equal(await page.$eval('.week-scroll',e=>e.hidden),false);await page.waitForFunction(()=>document.querySelector('.calendar-day small'));
+ const ordering=await page.evaluate(()=>({month:document.querySelector('.calendar-month-view').getBoundingClientRect().top,week:document.querySelector('.week-scroll').getBoundingClientRect().top,tabs:document.querySelectorAll('.calendar-tabs').length}));assert.ok(ordering.month<ordering.week);assert.equal(ordering.tabs,0);
+ const initialPosts=app.calls.filter(c=>c.payload?.method==='POST').length;
+ await page.focus('.request-row');await page.keyboard.press('ArrowDown');assert.equal(await page.evaluate(()=>document.activeElement.dataset.request),'abcdef123457');await page.keyboard.press('Home');assert.equal(await page.evaluate(()=>document.activeElement.dataset.request),'abcdef123456');
+ await page.click('.request-row');assert.match(app.calls.at(-1).payload.url,/^\/pm\?requests=list&requestId=abcdef123456$/);
+ await page.click('.workspace-primary');assert.equal(app.calls.at(-1).payload.url,'/pm?requests=new');
+ await page.click('.hw-add>input');await page.type('.hw-add>input','초안 보존');
+ const other=app.date.slice(0,8)+String(Number(app.date.slice(8))===1?2:1).padStart(2,'0');
+ await page.click('[data-date="'+other+'"]');assert.equal(await page.$eval('.hw-tool-body input',e=>e.value),app.date);assert.equal(await page.$eval('.hw-add>input',e=>e.value),'초안 보존');
+ await page.$eval('.hw-add>input',e=>{e.value='';e.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.click('[data-date="'+other+'"]');await page.waitForFunction(date=>document.querySelector('.hw-tool-body input').value===date,{},other);
+ await page.waitForFunction(()=>!document.querySelector('.hw-add>button').disabled);
+ assert.equal(await page.$eval('[data-date="'+other+'"]',e=>e.getAttribute('aria-pressed')),'true');
+ await page.focus('[data-date="'+other+'"]');await page.keyboard.press('ArrowRight');assert.notEqual(await page.evaluate(()=>document.activeElement.dataset.date),other);
+ await page.click('[aria-label="다음 달"]');await page.waitForFunction(()=>!document.querySelector('.calendar-status').textContent.includes('확인하고'));
+ assert.equal(await page.$eval('.hw-tool-body input',e=>e.value),other,'month browsing never changes selected tasks');
+ await new Promise(r=>setTimeout(r,350));await page.click('#workCalendar .workspace-actions button:last-child');await page.waitForFunction(date=>document.querySelector('.hw-tool-body input').value===date,{},app.date);
+ await page.waitForSelector('.hw-task');await page.waitForSelector('.week-event');
+ for(const width of [1920,1280,800,390]){await page.setViewport({width,height:1080});await page.$eval('#home',e=>e.scrollTop=0);
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'no horizontal overflow '+width);
+   const geometry=await page.evaluate(()=>{const board=document.querySelector('#requestBoard').getBoundingClientRect(),rail=document.querySelector('#homeWorkspace').getBoundingClientRect();return {right:rail.left>=board.right,rows:[...document.querySelectorAll('.hw-task')].map(e=>e.getBoundingClientRect().bottom)};});
+   if(width>=1280)assert.ok(geometry.right);if(width===1920)assert.ok(geometry.rows.length===8&&geometry.rows.every(v=>v<1080));
+   await page.screenshot({path:path.resolve('.verify/dashboard-'+width+'.png')});
+ }
+ await page.setViewport({width:1920,height:1080});const beforeWeek=await page.$eval('.week-day',e=>e.dataset.date);await page.click('[aria-label="다음 주"]');await new Promise(r=>setTimeout(r,350));assert.notEqual(await page.$eval('.week-day',e=>e.dataset.date),beforeWeek);assert.equal(await page.$eval('.hw-tool-body input',e=>e.value),app.date);await page.click('#workCalendar .workspace-actions button:last-child');await page.waitForSelector('.week-event');await page.click('[aria-label="'+app.date+' 12:00 업무 추가"]');assert.equal(await page.$eval('.hw-add input[name=startTime]',e=>e.value),'12:00');
+ await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);assert.equal(await page.$eval('.week-slot',e=>getComputedStyle(e).transitionDuration),'0s');
+ await page.evaluate(()=>window.fixtureEmit({homeOwnerId:'',menuOpen:true,online:true}));assert.equal(await page.$$('.request-row').then(r=>r.length),0);assert.equal(await page.$eval('.week-day',e=>e.disabled),true);
+ assert.equal(app.calls.filter(c=>c.payload?.method==='POST').length,initialPosts);assert.deepEqual(errors,[]);
+ console.log('Dashboard PASS: large monthly default + weekly below + preview + prefill, request links, dirty-date fence, keyboard, owner clear, 1920/1280/800/390, 8 rows, reduced motion, no writes/JS errors');
+ }finally{await browser.close();await app.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

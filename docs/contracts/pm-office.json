@@ -40,7 +40,8 @@
     "lib/pmDeskSlots.js",
     "components/pm/Character.js",
     "lib/pmVisits.js",
-    "pages/api/pm/visits.js"
+    "pages/api/pm/visits.js",
+    "components/pm/StaffRequests.js"
   ],
   "businessIdentity": [
     "OrderYear",

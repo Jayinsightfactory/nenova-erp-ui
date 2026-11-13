@@ -2762,6 +2762,25 @@
 
 2026-11-13 네덜란드 원본 물량표에 품목 열·헤더 고정과 상단 스크롤바 동기화를 적용했다. 좁은 화면에서도 고정을 유지한다. 주문·분배 API 수정 없음. 운영 배포는 기록 시점 미검증.
 검색어: 네덜란드 물량표 품목 고정 상단 스크롤 DutchVolumeSheet
+
+
+## 2026-11-13 데스크톱 홈 개편·메모장 독립 유지
+- 사용자 확정 범위: 첨부 Electron 데스크톱 홈만. 일반 /dashboard 보존. 새 worktree nw-home-notes-1113, origin/master 기반, 최신72064052 통합. 단일 작업자.
+- 좌측 개발요청 게시판(기존 API 고정 GET, 제목·상태·분류만 main projection)·실제 개인 업무 달력·즐겨찾기·메뉴. 우측 오늘 업무8건·주의지침·수입피드백. 현재 요청 원문/작성은 /pm 기존 게시판 deep-link. ERP/요청 원장 자동쓰기0.
+- 달력은 기존 occurrence/version/snapshot/종료/보관을 재사용한 월별 해당일 건수이며 이월을 중복집계하지 않음. 윤년·월말·연도경계·완료/보관·미변경 단위검증. 달 이동은 선택일 보존, 작성중 날짜변경 차단, 키보드 방향키·게시판 Home/End, 초점 보존·계정변경 비우기.
+- 본창X는 메모장 유지. 메모장 ↗로 홈 복원, 명시 완전종료/로그아웃은 모두 닫음. 메모장 미저장 초안 경고 추가. notes-only 저장예약은 마지막 정상 작업창 snapshot을 빈창으로 덮지 않도록 보호. Native 실제 생존/재개/마지막창 종료/명시종료/초안취소 PASS(추가 저장snapshot 검사 후속).
+- 생성 디자인 시안과 공식 Material3/MDN 조사 반영. 짧은 버튼140ms·달력180ms feature-detect ViewTransition, reduced-motion 지원. 1920/1280/800/390 실제Chrome 폭·8건·초안·월이동·원문링크·계정정보·키보드/초점·쓰기0/JS0 PASS. 기존 시간표/검색/실패보존/피드상세 회귀 및 native IPC/계정race/종료 스모크 PASS.
+- 메뉴 기준 적용: 검색·한국시간·페이지주스크롤·키보드·반복일정·입력보존·오류재시도·실제 가이드. 해당없음: ERP원장/dnSpy새SQL/운영DB probe/일반웹홈/직원PC원격명령. Desktop1.3.21 목표. 계정주간 시작8%(계정전체, reset1795064856). 정식 ERP/build/최종가이드/PR·CI·릴리스·운영배포는 이 항목 시점 진행중·미검증.
+검색어: home-notes-workspace-1113 1.3.21 메모장독립 closeMainAction homeRequests personalHomeCalendar 개발요청 달력 우측업무 reduced-motion
+- 후속: 최종 native6모드 실제 프로세스 정상종료·본창닫기후 메모장GET/POST저장·홈재개·snapshot보존·초안취소 PASS. 부하 중 기존 cancel-double-close 15초 timeout 1회 발생(will-quit/quit은 수신), 촬영/회귀종료후 단독재검6모드 PASS. ERP계약 정식 pre/test/post exit0, dnSpy·manifest213·writeguard0API·PM suite PASS. 최종 한국어 실제UI 가이드91.2초/8단계 녹화·가이드전체16영상/소스해시·최종줌/자막프레임 PASS. 전체webpack빌드 진행중.
+
+- 추가 사용자지시: 첨부처럼 큰 주간 시간표 달력. 월~일 가로·시간 세로·업무 색상블록·겹친일정 분할·시간미정 별도·월간전환. 달력을 계획영역 맨 위로 확대, 기존 게시판은 그 아래. 빈 시간은 해당 날짜/시간만 입력에 채우고 자동저장0. 종료 미정은 기본 표시1시간을 명시. calendarWeek owner GET projection(일100건 상한/추가건수 안내), 원장·스키마 변경0.
+- 추가 단위: 정확한 시작/종료·완료/보관/snapshot·월말/교차연도·상한·불변·2000/2100 경계. 실제 Chrome 큰 주간/월간·주 이동중 선택일 유지·빈칸12시 prefill·4폭/쓰기0/JS0 및 검색회귀 PASS. Native CSP 하에서 기본7일 시간표/인증race/기존업무/로그아웃 PASS. 이전 두 CI는 통과했으나 추가지시 후 최종 변경 CI/빌드/가이드 재검 전이므로 병합하지 않음. 진행 중 첫 빌드는 내 작업의 Next PID33704만 종료해 소스혼합 방지.
+검색어: 큰주간달력 weekly-time-block calendarWeek personalHomeWeek 겹친일정 시간미정 주간시간표
+
+- 최종 사용자 정정: 월간이 기본, 그 하단에 주간만 표시. 전환탭 제거, 큰 월간 개요 + 바로 아래 선택 주 시간표를 동시에 표시하도록 수정. 월간칸에는 시간순2건/추가건수/완료전체를 표시. 날짜선택 시 하단주간과 우측업무 연동. 최종4폭·원문링크/키보드/초안/주·월이동/빈칸12시prefill/쓰기0/JS0 PASS, native CSP 기본월간우선·하단7일 PASS. 최종 주/월 단위/bridge8건 PASS, 추가preview정렬/상한 검증 포함. 사용가이드와 최종CI/빌드는 이 정정본으로 갱신 예정.
+검색어: 월간기본 하단주간 monthly-overview weekly-below calendar-preview
+- 최종 월간기본/하단주간 가이드108.15초/8단계 재촬영. 월간 날짜선택→하단주간 빈12시 실제선택→우측12시채움 각 결과·강조·줌아웃·자막가림 프레임 PASS. 가이드16영상/소스해시 PASS. 단위9건, 실제4폭 월간기본·주간하단·preview·prefill·입력보존/검색/owner PASS, native CSP/인증회귀 PASS. Manifest213·writeguard0API·실제owner파일회귀 PASS. 최종webpack빌드 진행중, final CI/배포·재생 미검증.
 # 2026-11-13 견적서관리 원장 연결 알림 (최신 사용자 지시)
 - 전용 nw-estimate-ledger-alerts / codex/estimate-ledger-alerts, origin/master72064052 기준. 차단하지않고볼수있게만: 철회된EXE/트리거/permit초안포함0. 새GET /api/estimate/ledger-alerts와조회차수상단알림,전체업체·세부차수·품목·원수량/단위·저장공급가·키표시. DB SELECT만,스키마/원장/수식/삭제로직/EXE변경0.
 - 6개단위/API/UI계약PASS. 격리LocalDB SQL2016호환에서양연도·세부차수·날짜만잔존·삭제마스터/활성품목제외·missing품목·정확연결키·적용차수이월·행불변PASS. 운영SELECT36차9건(삭제품목출고1/명시차감연결없음8),42차연결없음4. 36차Prod3028검출.10594는웹연결키/과거감사없어현재DB만으로감지불가(화면한계명시). ‘삭제확정’/삭제자추정금지.
@@ -2770,3 +2789,4 @@
 - 후속전체검사는workflow-guide source hash검사에서중단(가이드재촬영요구). 사용자명시승인‘이번알림만영상없이배포’에따라두기존견적workflow에현재pages/estimate.js exact해시의한정waiver추가,기존영상/증거해시는수정하지않음.
 - 최종공식npm run build exit0(webpack/1worker),전체ERP행위계약PASS이후별도manifest214/dnSpy/쓰기범위1API/workflow-guide검사PASS. 한차례verify명령전체exit0로표현하지않음(가이드waiver후공식build분리완료). PR/CI/운영화면은후속확인.
 검색어: estimate-ledger-alerts 원장연결알림 공식buildPASS 사용자영상제외 EXE불변 DB읽기전용
+- 배포 직전 최종CI verify/installer 모두 SUCCESS. 동시 PR#1708(견적 관리 원장알림)265bc97f 병합으로 WORK_MEMORY append만 충돌 → 양쪽 기록 보존 통합. 기능 파일 충돌 없음. 통합본 CI 재확인 후 병합/배포 진행.

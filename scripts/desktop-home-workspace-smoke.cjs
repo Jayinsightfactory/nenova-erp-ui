@@ -64,7 +64,7 @@ const root = path.resolve(__dirname, '..');
         await page.evaluate(async ({ status, dueDate }) => {
           Object.assign(fixture.feedback[0], { status, dueDate, unread: true, isNew: true, detailsTruncated: true });
           fixture.feedback[0].details.dueDate = '2025-01-01';
-          [...document.querySelectorAll('.hw-heading button')].find(b => b.textContent === '다시 조회').click();
+          [...document.querySelectorAll('.hw-tool-body button')].find(b => b.textContent === '다시 조회').click();
           await new Promise(resolve => setTimeout(resolve, 0));
         }, { status, dueDate });
         const actual = await page.$eval('.hw-feedback-state', e => ({ label: e.textContent, className: e.className }));
@@ -74,7 +74,7 @@ const root = path.resolve(__dirname, '..');
       }
       await page.evaluate(async () => {
         Object.assign(fixture.feedback[0], { status: 'WAITING', dueDate: '2025-12-31', unread: false, isNew: false, detailsTruncated: false });
-        [...document.querySelectorAll('.hw-heading button')].find(b => b.textContent === '다시 조회').click();
+        [...document.querySelectorAll('.hw-tool-body button')].find(b => b.textContent === '다시 조회').click();
         await new Promise(resolve => setTimeout(resolve, 0));
       });
       assert.equal(await page.$eval('.hw-feed-read', e => e.textContent), '읽음');
@@ -82,14 +82,14 @@ const root = path.resolve(__dirname, '..');
       await page.evaluate(async () => {
         fixture.savedDetails = fixture.feedback[0].details;
         fixture.feedback[0].details = {}; fixture.feedback[0].detailsTruncated = true;
-        [...document.querySelectorAll('.hw-heading button')].find(b => b.textContent === '다시 조회').click();
+        [...document.querySelectorAll('.hw-tool-body button')].find(b => b.textContent === '다시 조회').click();
         await new Promise(resolve => setTimeout(resolve, 0));
       });
       assert.equal(await page.$eval('.hw-feedback-state', e => e.textContent), '기한 초과', 'top-level due date survives the detailed-feed size budget');
       await page.evaluate(async () => {
         fixture.feedback[0].details = fixture.savedDetails; fixture.feedback[0].detailsTruncated = false;
         delete fixture.feedback[0].dueDate;
-        [...document.querySelectorAll('.hw-heading button')].find(b => b.textContent === '다시 조회').click();
+        [...document.querySelectorAll('.hw-tool-body button')].find(b => b.textContent === '다시 조회').click();
         await new Promise(resolve => setTimeout(resolve, 0));
       });
       assert.equal(await page.$eval('.hw-feedback-state', e => e.textContent), '기한 초과', 'older feed details due date remains compatible');
@@ -115,9 +115,9 @@ const root = path.resolve(__dirname, '..');
       await page.focus('.hw-edit input'); await page.keyboard.press('Escape'); assert.equal((await page.$$('.hw-edit')).length, 0);
       assert.equal(await page.evaluate(() => document.activeElement.textContent), '수정');
       await page.click('.hw-task>button'); await page.$eval('.hw-edit input', e => { e.value = '충돌 후 유지할 수정 초안'; e.dispatchEvent(new Event('input', { bubbles: true })); });
-      const priorDate = await page.$eval('.hw-heading input', e => e.value);
-      await page.$eval('.hw-heading input', e => { e.value = '2025-12-31'; e.dispatchEvent(new Event('change', { bubbles: true })); });
-      assert.equal(await page.$eval('.hw-heading input', e => e.value), priorDate);
+      const priorDate = await page.$eval('.hw-tool-body input', e => e.value);
+      await page.$eval('.hw-tool-body input', e => { e.value = '2025-12-31'; e.dispatchEvent(new Event('change', { bubbles: true })); });
+      assert.equal(await page.$eval('.hw-tool-body input', e => e.value), priorDate);
       await page.evaluate(() => fixture.conflict = true); await page.click('.hw-edit button[type=submit]');
       await page.waitForFunction(() => !document.querySelector('.hw-edit'));
       assert.equal(await page.$eval('.hw-task-label span', e => e.textContent), '충돌 후 유지할 수정 초안');
@@ -149,7 +149,7 @@ const root = path.resolve(__dirname, '..');
       await page.evaluate(async () => {
         const base = fixture.feedback[0];
         fixture.feedback = ['CLOSED','OBSERVING','NEW','WAITING','ANSWERED','RECURRED'].map((status, index) => ({ ...base, id: String(index), sourceKey: 'priority:' + index, title: status + ' 순환 검증', status, dueDate: '2025-12-31' }));
-        [...document.querySelectorAll('.hw-heading button')].find(b => b.textContent === '다시 조회').click();
+        [...document.querySelectorAll('.hw-tool-body button')].find(b => b.textContent === '다시 조회').click();
         await new Promise(resolve => setTimeout(resolve, 0));
       });
       assert.match(await page.$eval('.hw-feedback-count', e => e.textContent), /^표시 6건 · 지연 1 · 필요 2 · 답변 2 · 1\/6$/);
@@ -170,7 +170,7 @@ const root = path.resolve(__dirname, '..');
       await page.screenshot({ path: path.join(root, `desktop/test-output/home-feedback-status-${width}.png`), fullPage: true });
       await page.evaluate(async () => {
         fixture.feedback = [];
-        [...document.querySelectorAll('.hw-heading button')].find(b => b.textContent === '다시 조회').click();
+        [...document.querySelectorAll('.hw-tool-body button')].find(b => b.textContent === '다시 조회').click();
         await new Promise(resolve => setTimeout(resolve, 0));
       });
       assert.equal(await page.$eval('.hw-feedback-count', e => e.textContent), '표시 0건 · 지연 0 · 필요 0 · 답변 0');
