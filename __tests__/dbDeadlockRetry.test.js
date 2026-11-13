@@ -43,11 +43,12 @@ function loadDb(behaviors = [], readContext = () => undefined) {
   }
   const sql = { ISOLATION_LEVEL:{READ_COMMITTED:2,SERIALIZABLE:4}, Transaction, Request, connect: async () => ({}) };
   const source = fs.readFileSync(require('node:path').join(__dirname, '../lib/db.js'), 'utf8')
+    .replace("import telemetry from './serverWorkTelemetry.cjs';", 'const telemetry = globalThis.__telemetry;')
     .replace("import sql from 'mssql';", 'const sql = globalThis.__sql;')
     .replace("import { currentErpReadContext } from './erpReadContext.js';", 'const currentErpReadContext = globalThis.__readContext;')
     .replace(/export (async )?function /g, '$1function ')
     .replace('export { sql };', 'globalThis.__exports = { isDeadlockError, withTransaction, query, getPool };');
-  const context = { __sql: sql, __readContext:readContext, process: { env: {} }, setTimeout, Math };
+  const context = { __telemetry:require('../lib/serverWorkTelemetry.cjs'), __sql: sql, __readContext:readContext, process: { env: {} }, setTimeout, Math };
   vm.runInNewContext(source, context, { filename: 'lib/db.js' });
   return { ...context.__exports, transactions };
 }

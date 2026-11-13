@@ -82,6 +82,7 @@ jobs:
             printf "node <<'LOGIN_DIAG'\n"
             cat scripts/diagnose-login-readonly.cjs
             printf "\nLOGIN_DIAG\n"
+            echo 'cd /var/www/nenova-erp && if test -f scripts/server-work-summary.cjs; then node scripts/server-work-summary.cjs 30; fi'
             echo 'PERF_DIAG_EOF'
           } >> "$GITHUB_OUTPUT"
       - name: Read-only sanitized server performance diagnosis
