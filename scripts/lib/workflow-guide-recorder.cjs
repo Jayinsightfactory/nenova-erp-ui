@@ -87,6 +87,7 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
     return { chapters, duration, mp4, captions, proofFile };
   }
   async function focus(selector, number, { staticHighlight = false } = {}) {
+    if (!await page.$('#nenova-guide-capture')) await page.evaluate(installOverlay, title);
     const box = await page.$eval(selector, (node, number) => {
       const r=node.getBoundingClientRect(), host=document.getElementById('nenova-guide-capture');
       const mark=document.createElement('div'); mark.dataset.guideFocus='true';

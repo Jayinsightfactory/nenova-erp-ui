@@ -2,6 +2,8 @@
   "id": "shipment-distribution-workspace",
   "title": "출고분배 버튼 선택·담당자 즐겨찾기·키보드·확정 수정이력",
   "scope": [
+    "lib/distributionKakaoRequests.js",
+    "__tests__/distributionKakaoRequests.test.cjs",
     "components/shipment/DistributionKakaoFeed.js",
     "pages/api/kakao/order-feed.js",
     "__tests__/distributionKakaoFeedApi.test.cjs",
@@ -50,6 +52,12 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "READ_LIVE_KAKAO_REQUESTS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Authenticated existing sales-feed only, recentSalesPeriod KST3days, refreshSalesFeed bounded pagination/8s per page, 15s visible-online poll without overlapping; each completed scan restarts the recent period to include late imports with lower external keys. requestExcerpt excludes balance/delivery-change sections and cancellation-report nouns; requestRows deduplicates canonical message identities and sorts absolute timestamps DESC. Errors preserve prior rows and drafts; completion timestamp only after complete scan. Source excerpts never execute ERP actions. All orders/shipment/dates/farms/Estimate/stock/sales/profit preserved."
+    },
     {
       "name": "DISTRIBUTION_CATEGORY_REFIX",
       "orderDetail": "preserve",
@@ -149,6 +157,7 @@
     "dateClassification": "Both workspaces use shared persisted date index keyed by selected year+week and Master customer+product. Positive Date facts and explicit undated order candidates, no computed calendar. Filter changes preserve full-week drafts and save targets; existing exact date editor remains sole day-quantity writer."
   },
   "requiredTestFiles": [
+    "__tests__/distributionKakaoRequests.test.cjs",
     "scripts/test-distribution-refix-sql.cjs",
     "__tests__/estimateCategoryCycle.test.js",
     "__tests__/shipmentDistributionWorkspace.test.js",

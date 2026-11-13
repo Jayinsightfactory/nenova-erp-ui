@@ -33,6 +33,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
     const page = await context.newPage();
     let userId = 'fixture-user-a';
+    let feedVersion=0,feedFailure=false;const feedCursors=[];
     let shipmentQty = 48;
     let savePosts = 0;
     let multiCustomerSave = false;
@@ -66,12 +67,19 @@ let orderPosts = 0;
       const request = route.request();
       const url = new URL(request.url());
       const type = url.searchParams.get('type');
-      if (url.pathname === '/api/kakao/order-feed') return reply(route, {ok:true,blocks:[
+      if (url.pathname === '/api/kakao/sales-feed') {
+        feedCursors.push(url.searchParams.get('afterKey'));
+        if(feedFailure)return reply(route,{error:'연습 조회 실패'},503);
+        if(url.searchParams.get('afterKey'))return reply(route,{ok:true,hasMore:false,nextAfterKey:null,messages:[]});
+        return reply(route, {ok:true,hasMore:false,nextAfterKey:'last',messages:[
         {msgId:'add',room:'연습방',sender:'연습',time:'10:00',text:'연습업체 수국 2박스 추가'},
         {msgId:'cancel',room:'연습방',sender:'연습',time:'10:01',text:'연습업체 수국 1박스 취소'},
         {msgId:'normal',room:'연습방',sender:'연습',time:'10:02',text:'일반 주문 수국 3박스'},
+        {msgId:'balance',room:'연습방',sender:'연습',text:'46-1 잔량\n중국 태림취소분 킹스데이 10단'},
+        {msgId:'date',room:'연습방',sender:'연습',text:'46-1 출고일 변경\n업체 A 수국 2박스\n월요일 출고'},
         ...Array.from({length:40},(_,i)=>({msgId:`scroll-${i}`,room:'연습방',sender:'연습',time:'10:03',text:`스크롤 연습 ${i} 수국 1박스 추가\n업체와 품목을 확인하는 연습 메시지`})),
-      ]});
+        ...(feedVersion?[{msgId:'0-late',room:'연습방',sender:'연습',text:'새 요청 업체 B 수국 3박스 취소'}]:[]),
+      ].map((m,i)=>({source:'nenovakakao',chat_id:'fixture',external_message_id:m.msgId,chatroom:m.room,sender:m.sender,message:m.text,created_at:`2026-11-13T10:${String(i).padStart(2,'0')}:00+09:00`}))});}
       if (url.pathname === '/api/master/customers' && request.method() === 'GET')
         return reply(route, { success: true, data: [{ CustKey: 478, CustName: 'Alpha Florist' }, { CustKey: 777, CustName: 'Nova No-Order', Manager: '김담당' }, { CustKey: 888, CustName: '(주)미카엘플라워', Manager: '박담당' }] });
       if (url.pathname === '/api/auth/me') return reply(route, { success: true, user: { userId } });
@@ -226,6 +234,21 @@ let orderPosts = 0;
     await page.getByText('연습업체 수국 2박스 추가',{exact:true}).waitFor();
     await page.getByText('연습업체 수국 1박스 취소',{exact:true}).waitFor();
     assert.equal(await page.getByText('일반 주문 수국 3박스',{exact:true}).count(),0,'only addition/cancellation source messages are shown');
+      assert.equal(await page.getByText(/중국 태림취소분 킹스데이/).count(),0,'balance report excluded');
+      assert.equal(await page.getByText(/46-1 출고일 변경/).count(),0,'delivery change excluded');
+      feedVersion=1;
+      await page.getByText('새 요청 업체 B 수국 3박스 취소',{exact:true}).waitFor({timeout:20000});
+      assert(feedCursors.length>=2&&feedCursors.every(k=>!k),'completed scans restart so lower-key late imports are visible');
+      const feed=page.getByRole('complementary',{name:'카톡 추가·취소 요청',exact:true});
+      assert.match(await feed.locator('article').first().innerText(),/새 요청 업체 B/,'latest timestamp first');
+      await feed.getByRole('button',{name:'취소',exact:true}).click();
+      assert.equal(await feed.getByText('연습업체 수국 2박스 추가',{exact:true}).count(),0);
+      await feed.getByRole('button',{name:'전체',exact:true}).click();
+      feedFailure=true;await feed.getByRole('button',{name:'추가·취소 불러오기',exact:true}).click();
+      await feed.getByText('연습 조회 실패',{exact:true}).waitFor();
+      assert.equal(await feed.getByText('새 요청 업체 B 수국 3박스 취소',{exact:true}).count(),1,'failed refresh preserves existing requests');
+      feedFailure=false;await feed.getByRole('button',{name:'추가·취소 불러오기',exact:true}).click();
+      await feed.getByText('연습 조회 실패',{exact:true}).waitFor({state:'hidden'});
     const chatList=page.getByRole('region',{name:'카톡 요청 목록',exact:true});
     assert.ok(await chatList.evaluate(el=>el.scrollHeight>el.clientHeight&&el.clientHeight<=window.innerHeight*.65+1),'chat list has bounded internal scrolling');
     const beforeScroll=await page.evaluate(()=>window.scrollY);

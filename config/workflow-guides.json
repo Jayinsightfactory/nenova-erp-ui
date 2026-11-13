@@ -555,7 +555,10 @@
         "/shipment/distribute"
       ],
       "sourceFiles": [
+        "lib/distributionKakaoRequests.js",
+        "lib/distributionSalesInboxRefresh.js",
         "pages/shipment/distribute.js",
+        "components/shipment/DistributionKakaoFeed.js",
         "components/shipment/DistributionDateEditor.js",
         "components/shipment/DistributionProductTree.js",
         "components/shipment/DistributionDateFilter.js",
@@ -591,27 +594,27 @@
             {
               "scenario": "favorites",
               "title": "2. 품종별 즐겨찾기와 펼치기·접기",
-              "seconds": 22.089
+              "seconds": 22.195
             },
             {
               "scenario": "dates",
               "title": "3. 업체 검색과 날짜별 수량 입력",
-              "seconds": 48.805
+              "seconds": 48.751
             },
             {
               "scenario": "save",
               "title": "4. 견적수량·매출 보존 확인 후 명시 저장",
-              "seconds": 114.883
+              "seconds": 114.658
             },
             {
               "scenario": "tab",
               "title": "5. 출고일지정 탭에서 저장값 재확인",
-              "seconds": 130.069
+              "seconds": 129.84
             },
             {
               "scenario": "customers",
               "title": "6. 업체부터 선택하는 독립 작업공간",
-              "seconds": 156.818
+              "seconds": 156.619
             }
           ]
         }

@@ -2741,3 +2741,11 @@
 - 실제 운영 fix/unfix API+native SP LocalDB: 선택품종복원/미국2미확정 보존/2025동일차수/주문·날짜·금액 불변 PASS. Chrome 변경1행만 요청 PASS. 전체 ERP계약 exit0, dnSpy/manifest213/writeguard1API PASS. 가이드 실제Chrome1920x1080/100%,192.3초6단계25조작, 해시/목차 PASS.
 - 운영 카네이션385행/635.4666667박스/107633550원, 날짜수량불일치0. 운영 보정은 배포 후 최신 전체원장지문 대조해 해당품종만재확정. 현재 PR/공식build/배포/복구 미검증(후속 진행).
 검색어: distribution-refix-1113 카네이션 Mandalay 7개 PARTIAL_CATEGORY_FIX_BLOCKED distributionEditProdKeys
+
+## 2026-11-13 카네이션 재확정 복구 + 카톡 최신 요청 패널
+- 선행 PR1703/00532c39 CI43337795236·Cafe24배포43338049959 성공. 카네이션385행만 운영native fix API로 재확정200, 미국더글라스7/미국레몬잎3 미확정유지. 2025/2026동일46-01 상세(target flag제외)·주문·출고일·농장·Estimate 지문동일. 635.4666667박스/107633550원 보존. Mandalay7업체 실제견적API→견적/ECOUNT XLSX재열기 각7행/124단/1402500원 PASS. 운영 브라우저 확정표시 확인. 운영추가재고/업로드0.
+- 후속 nw-distribution-feed-1113 단일작업자. 사용자정정: 추가·취소만 표시, 잔량·출고일변경 제외. 구글시트전체조회/문자열취소분오탐을 기존sales-feed+recentSalesPeriod/refreshSalesFeed로 교체. 15초증분/창복귀/온라인갱신·중복실행/미완료/실패보존·timestamp정렬·원문발췌helper공유. ERP API/원장 변경0.
+- 순수회귀 잔량취소분/출고일/혼합요청/오전오후·날짜/중복 PASS. 실제Chrome 신규취소자동수신/증분cursor/정렬/필터/503기존목록유지/내부스크롤·기존분배저장 PASS. 전체ERP계약exit0, dnSpy/manifest213/writeguard0API PASS. 운영 기존sales-feed120건(오늘7건)/최신09:48/관측679ms READONLY확인.
+- 최종 가이드/정식빌드/PR/배포/운영새패널은 진행중, 아직 미검증. 계획 docs/plans/distribution-kakao-fresh-2026-11-13.md.
+검색어: distribution-feed-1113 카톡 잔량 출고일 제외 sales-feed 15초 requestExcerpt 1703 복구124단
+- 최종 보완: 완료한 최근3일 조회는 다음 주기에 처음부터 재확인, 페이지 미완료만 cursor유지. 운영 ID순≠시각순 근거 및 lower-key late import Chrome 회귀 PASS. 최종 전체ERP계약 재실행exit0. 실제Chrome연습가이드192.15초6단계25조작/1920x1080/100%, 목차/해시/첫중간끝 프레임 PASS.
