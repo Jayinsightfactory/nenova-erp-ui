@@ -4,6 +4,15 @@ import { distributeProductName, distributePreviousStock, distributePreviousStock
 
 const name = (ProdName, flower) => distributeProductName({ ProdName }, flower);
 assert.equal(name('CARNATION Pastel Crimea', '카네이션'), 'Pastel Crimea');
+// Native legacy spelling is display-only: retain the exact original product/order key.
+for(const year of [2025,2026]){
+ const row=Object.freeze({OrderYear:year,OrderWeek:'46-01',ProdKey:3513,ProdName:'CARANATION Vintage Honey',OutQuantity:29,Amount:100,Vat:10});
+ const before=JSON.stringify(row);assert.equal(distributeProductName(row,'카네이션'),'Vintage Honey');assert.equal(JSON.stringify(row),before);
+ assert.equal(distributeProductName(row,'장미'),'CARANATION Vintage Honey');
+}
+assert.equal(name('CARANATION','카네이션'),'CARANATION');
+assert.equal(name('CARANATIONX Honey','카네이션'),'CARANATIONX Honey');
+
 assert.equal(name('CARNATION Pastel Crimea', ''), 'CARNATION Pastel Crimea');
 assert.equal(name('CARNATION Pastel Crimea', '수국'), 'CARNATION Pastel Crimea');
 assert.equal(name('MiniCarnation Athena', '카네이션'), 'MiniCarnation Athena');

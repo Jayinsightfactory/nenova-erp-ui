@@ -81,7 +81,7 @@
   "actions": [
     {
       "name": "DISTRIBUTION_PRODUCT_DISPLAY",
-      "description": "품목 패널 폭/줄바꿈 및 선택 품종과 같은 맨 앞 접두어만 표시 축약. EXE BeforeStock인 _exeParity.prevStock을 입고 옆/전차수 열에 그대로 표시하며 입고를 빼지 않는다. legacy 현재 snapshot은 전차수로 추정하지 않는다. SQL/저장/자동분배/수량 계산 보존.",
+      "description": "품목 패널 폭/줄바꿈 및 선택 품종과 같은 맨 앞 접두어만 표시 축약. EXE BeforeStock인 _exeParity.prevStock을 입고 옆/전차수 열에 그대로 표시하며 입고를 빼지 않는다. legacy 현재 snapshot은 전차수로 추정하지 않는다. SQL/저장/자동분배/수량 계산 보존. 운영 원본 CARANATION도 카네이션의 표시 별칭으로만 제거하며 원본명·ProdKey·연도·수량·금액은 변경하지 않는다.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "shipmentDate": "preserve",

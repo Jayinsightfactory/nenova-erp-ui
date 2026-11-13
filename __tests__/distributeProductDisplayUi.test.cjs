@@ -69,14 +69,14 @@ assert.match(html,/🚚 출고분배 및 농장정보[\s\S]*🏬 출고분배 �
 assert.doesNotMatch(html,/aria-keyshortcuts="Control\+S"[^>]*data-ai-verify|data-ai-verify="[^"]*"[^>]*aria-keyshortcuts="Control\+S"/,'save button must not carry data-ai-verify');
 console.log('Distribution real-page SSR: compact full names, original title, previous stock and responsive product panel passed');
 let matrix=source;
-const item={...fixtures[0],주문수량:1,출고수량:1,Cost:100};
+const item={...fixtures[0],ProdName:'CARANATION Vintage Honey',주문수량:1,출고수량:1,Cost:100};
 for(const [state,value] of Object.entries({tab:1,selectedCust:{CustKey:1,CustName:'Fixture 1'},pairCust:{CustKey:2,CustName:'Fixture 2'},custItems:[item],pairItems:[item],extraPeers:Array.from({length:6},(_,i)=>({cust:{CustKey:i+3,CustName:'Fixture '+(i+3)},items:[item],inputs:{}}))})){
  const pattern=new RegExp(String.raw`(const \[${state}, [^\]]+\] = useState\()([^;]+)(\);)`);
  assert.match(matrix,pattern);matrix=matrix.replace(pattern,(_,a,_old,b)=>a+JSON.stringify(value)+b);
 }
 const compare=renderToStaticMarkup(React.createElement(loadPage(matrix)));
 assert.equal([...compare.matchAll(/data-ai-verify="pair-cust-head-\d+"/g)].length,8);
-assert.match(compare,/title="CARNATION Apple Tea">Apple Tea<\/span>/);
+assert.match(compare,/title="CARANATION Vintage Honey">Vintage Honey<\/span>/);
 assert.doesNotMatch(compare,/data-ai-verify="move-to[12]-/);
 assert.match(compare,/data-ai-verify="customer-show-dates" checked/);
 const compact=renderToStaticMarkup(React.createElement(loadPage(matrix.replace('const [showCustomerDates,setShowCustomerDates]=useState(true);','const [showCustomerDates,setShowCustomerDates]=useState(false);'))));
