@@ -61,5 +61,15 @@
     "npm run test:erp-manifest -- --changed-from origin/master",
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build"
-  ]
+  ],
+  "sourceSummary": {
+    "identity": [
+      "sheetName",
+      "physicalRow",
+      "ProdKey"
+    ],
+    "rule": "Sum distinct physical source rows for the same matched product exactly once; deduplicate customer columns and repeated name blocks. Preserve original formula cached zero values. Infer blank zero only from the source equation.",
+    "nearMiss": "Reject one physical row mapped to multiple product keys or conflicting per-unit conversion factors.",
+    "staleFormat": "field-volume-v1 tokens are rejected before DB access; revalidation issues field-volume-v2."
+  }
 }
