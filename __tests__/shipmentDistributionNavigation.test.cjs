@@ -1,4 +1,12 @@
 const test=require('node:test'),assert=require('node:assert/strict');
+test('explicit family navigation uses UI country and flower, preserving full catalog on empty filter',async()=>{
+ const {distributionFamilyMatches:match}=await import('../lib/shipmentDistributionNavigation.js');
+ const rose={CounName:'네덜란드',FlowerName:'장미',CountryFlower:'네덜란드'};
+ const tulip={...rose,FlowerName:'튤립'};
+ assert(match(rose,''));assert(match(tulip,''));assert(match(rose,'네덜란드::장미'));
+ assert(!match(tulip,'네덜란드::장미'));assert(!match(rose,'콜롬비아::장미'));
+ for(const bad of ['네덜란드','네덜란드::','::장미','네덜란드::장미::추가'])assert(!match(rose,bad));
+});
 test('favorite families and SKUs precede nonfavorites without hiding them',async()=>{
  const {distributionNavigationGroups,favoriteDistributionRows}=await import('../lib/shipmentDistributionNavigation.js');
  const rows=[{ProdKey:1,ProdName:'A',CounName:'CO',FlowerName:'Rose'},{ProdKey:2,ProdName:'Z',CounName:'CO',FlowerName:'Hydrangea'},{ProdKey:3,ProdName:'A',CounName:'CO',FlowerName:'Hydrangea'},{ProdKey:4,ProdName:'B',CounName:'CO',FlowerName:'Other'}];
