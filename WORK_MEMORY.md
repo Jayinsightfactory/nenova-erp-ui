@@ -2829,3 +2829,7 @@
 검색어: 확정취소 빨간버튼 distribute-toolbar confirmationSelection distribution-workspace DISTRIBUTION_STALE 고정헤더 좌우스크롤 업체1품종 2026-11-13
 - 검증중 동시 PR#1714/1715(a64c73db/dd8866c4) 통합. 기능충돌 없음, WORK_MEMORY 양쪽보존·Desktop releaseNotes 결합. PM의 쉬운 오류제목 개선을 보존하고 회사공통 기능버전은1.3.23으로 조정. 앞선1worker빌드는 내 Next PID19908만 종료. 변경된shell소스 포함 가이드 재촬영 및 통합검증을 진행한다.
 - 후속 통합본: 공통UI/기존계정경합 native PASS, manifest216/쓰기guard 새API1건 PASS. PM개선 포함 가이드169.15초/10단계 재촬영·소스해시17영상·회사저장/홈재열기 최종프레임 PASS. 로컬 빌드는 컴파일 후 ENOSPC로 중단되어 생성캐시만 E:/CodexGeneratedCache/2026-11-13/company-calendar-1113-cache-backup에 보존이동, 새cache-live로 .next/cache junction 연결(소스·업무데이터 변경0). 별도 이전 디렉터리 일괄삭제는 자동검토가 차단해 실행하지 않았고 이 보존이동 방식으로 공간 해결. 새1worker webpack build exit0. 빌드된 /desktop-guide 실제재생·10목차·한국어자막/다운로드/Enter열기닫기/1920·390/JS0 PASS. 최종PR CI·릴리스·운영배포는 진행예정.
+
+## 2026-11-13 업무드라이브 용량
+- 운영 색인 8998개, 5GiB 한도 잔여 3621바이트. 저장 파일시스템 가용 바이트로 검증되는 경우에 한해 관리자가 승인한 10GiB 적용, 조회 실패 시 기존 상한. 원장 변경 없음. 운영 적용 미검증.
+검색어: 업무드라이브 507 statfsSync 10GiB driveCapacity

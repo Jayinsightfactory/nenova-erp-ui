@@ -83,6 +83,7 @@
       "ORBIT_DRIVE_INGEST_TOKEN timing-safe compare (pages/api/work/drive-ingest.js)",
       "NenovaWeb JWT userName→부서 접근 규칙 (lib/workDrive.canView/canDownload)",
       "File-only persistence under data/drive (no SQL)",
+      "Shared drive storage allows up to 10 GiB when the drive filesystem has room for the remaining quota, otherwise the 5 GiB limit applies. Admin usage reports available bytes; 507 rejects files above the effective limit.",
       "Invoice PDF ↔ result workbook pairing from data/drive/index.jsonl → data/drive/pairs.json (lib/workDrivePairs, admin-only GET /api/work/drive-pairs, no SQL)",
       "Web direct uploads mirrored into data/drive via lib/workDrive.mirrorWebUpload (hostname 'web', eventType 'web-upload', source=feature path); never throws, upload API responses unchanged, no SQL (2026-11-09)"
     ],
