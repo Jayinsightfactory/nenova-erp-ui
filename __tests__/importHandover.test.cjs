@@ -34,10 +34,12 @@ const bad = H.validateImportHandover(oneWord);
 assert.ok(bad.some((x) => x.includes('한 단어가 아니라')) && bad.some((x) => x.includes('작업 순서')), '한 단어짜리 칸을 잡아야 함');
 
 // 2) 기준 위반을 잡아내는지
-const good = { id: 'a', title: '가', status: 'estimated', why: '왜', when: '언제', prepare: ['자료'], steps: [{ no: 1, title: '하나', look: '봄', input: '넣음', why: '이유' }], doneCheck: ['확인'], pitfalls: [{ mistake: '실수', fix: '처리' }], next: '다음', evidence: [{ source: '전산', count: 1 }] };
+const good = { id: 'a', title: '가', status: 'estimated', why: '왜', when: '언제', prepare: ['자료'], steps: [{ no: 1, title: '하나', look: '봄', input: '넣음', why: '이유', captureKind: 'screen' }], media: { video: '대기', videoWaiting: '연습 자료 준비 뒤' }, doneCheck: ['확인'], pitfalls: [{ mistake: '실수', fix: '처리' }], next: '다음', evidence: [{ source: '전산', count: 1 }] };
 const wrap = (m, schedule = {}) => ({ version: 1, manuals: [m], schedule });
 assert.deepEqual(H.validateImportHandover(wrap(good)), []);
 assert.ok(H.validateImportHandover(wrap({ ...good, why: '' })).some((x) => x.includes('①')), '왜·언제 누락을 잡아야 함');
+assert.ok(H.validateImportHandover(wrap({ ...good, media: { video: '대기' } })).some((x) => x.includes('videoWaiting')), '영상이 없는데 이유가 없으면 잡아야 함(놓치지 않게)');
+assert.ok(H.validateImportHandover(wrap({ ...good, steps: [{ ...good.steps[0], captureKind: undefined }] })).some((x) => x.includes('captureKind')), '단계에 화면 종류가 없으면 잡아야 함');
 assert.ok(H.validateImportHandover(wrap({ ...good, steps: [{ ...good.steps[0], no: 2 }] })).some((x) => x.includes('번호')), '단계 번호가 1부터가 아니면 잡아야 함');
 assert.ok(H.validateImportHandover(wrap({ ...good, steps: [{ no: 1, title: '신규 누르기', look: '', input: '', why: '' }] })).some((x) => x.includes('무엇을 보고')), '버튼 순서만 있는 단계를 잡아야 함');
 assert.ok(H.validateImportHandover(wrap({ ...good, doneCheck: [] })).some((x) => x.includes('④')));

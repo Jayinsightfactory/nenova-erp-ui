@@ -456,6 +456,25 @@ const weakEvidence = [
   { title: '전화 · 휴대폰 메신저 · 회의에서 정한 것', reason: '기록에 남지 않음' },
 ];
 
+// 영상이 아직 없는 매뉴얼은 "왜 아직인지"를 반드시 적는다(놓치지 않게 — 화면의 「남은 일」과 자동 검사가 이 목록을 본다).
+const VIDEO_WAITING = {
+  'incoming-upload': '전산 프로그램 화면. 연습용 자료로 돌릴 방법(시험용 전산)이 정해지면 녹화',
+  'customs-docs': '메일 · 메신저 · 폴더 화면. 실제 서류가 보이므로 연습용 서류 묶음을 만든 뒤 녹화',
+  'quarantine-warehouse': '대부분 메신저 방 화면. 연습용 대화로 재현할 방법을 정한 뒤 녹화',
+  'cost-sheet': '엑셀 화면. 숫자 출처(환율 · 관세율) 질문의 답을 받아 절차를 확정한 뒤 연습용 파일로 녹화',
+  'colombia-weekly-order': '전산 프로그램 + 주문서 생성 + 메신저. 발주 마감표 질문의 답을 받아 확정한 뒤 녹화',
+  'china-order': '웹 화면 1단계는 지금도 녹화 가능. 나머지는 엑셀 · 위챗이라 확정 뒤 함께 녹화',
+  'payment-request': '엑셀 · 인쇄 화면. 결제일 · 전달 대상 질문의 답을 받아 확정한 뒤 연습용 파일로 녹화',
+  'defect-claim': '폴더 · 메신저 · 웹 화면. 불량 공유방 수집이 다시 쌓이고 절차가 확정된 뒤 녹화',
+};
+const MESSENGER_SCREEN = /카카오톡|WhatsApp|위챗|메일|채팅방|선율 방|백상|현장 방|일정 방|요청 방|농장 방/;
+const allManuals = [product, incoming, packing, customsDocs, quarantineWarehouse, costSheet, colombiaOrder, chinaOrder, paymentRequest, defectClaim];
+for (const m of allManuals) {
+  // screen = 화면 캡처를 실을 수 있는 단계, messenger = 메신저 · 메일 화면이라 캡처를 싣지 않는 단계
+  for (const s of m.steps) s.captureKind = MESSENGER_SCREEN.test(s.screen || '') ? 'messenger' : 'screen';
+  m.media = m.video ? { video: '있음' } : { video: '대기', videoWaiting: VIDEO_WAITING[m.id] };
+}
+
 const data = {
   version: 1, updatedAt: '2026-11-12', dept: '수입부',
   sourceSummary: [
@@ -465,7 +484,7 @@ const data = {
   ],
   schedule: { daily, weekly, monthly },
   countryCalendar,
-  manuals: [product, incoming, packing, customsDocs, quarantineWarehouse, costSheet, colombiaOrder, chinaOrder, paymentRequest, defectClaim],
+  manuals: allManuals,
   questions, notYet, weakEvidence,
 };
 fs.writeFileSync(path.join(process.cwd(), 'data', 'import-handover.json'), JSON.stringify(data, null, 2) + '\n');
@@ -547,6 +566,14 @@ ${notYet.map(x => `- **${x.title}** — ${x.reason}`).join('\n')}
 ## 8. 근거가 부족한 절차
 
 ${weakEvidence.map(x => `- **${x.title}** — ${x.reason}`).join('\n')}
+
+## 9. 영상 · 화면 캡처 현황(놓치지 않게)
+
+영상이 없는 매뉴얼은 먼저 단계별 화면 캡처로 보여 주고, 영상은 아래 이유가 풀리면 만든다. 메신저 · 메일 화면 단계는 캡처를 싣지 않는다.
+
+| 매뉴얼 | 영상 | 캡처를 실을 단계 | 영상을 아직 못 만든 이유 |
+|---|---|---|---|
+${allManuals.map(m => `| ${m.title} | ${m.media.video} | ${m.steps.filter(s => s.captureKind === 'screen').map(s => s.no).join(', ') || '-'} / 전체 ${m.steps.length}단계 | ${m.media.videoWaiting || '-'} |`).join('\n')}
 `;
 fs.writeFileSync(path.join(process.cwd(), 'docs', 'IMPORT_DEPT_WORK_SCHEDULE.md'), md);
 console.log('wrote data/import-handover.json', { daily: daily.length, weekly: weekly.length, monthly: monthly.length, manuals: data.manuals.length, questions: questions.length });

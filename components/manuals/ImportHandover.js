@@ -110,7 +110,7 @@ function CountryCalendar({ calendar, manuals, onOpen }) {
   );
 }
 
-function ManualView({ manual, onBack }) {
+function ManualView({ manual, onBack, blurred }) {
   return (
     <article className="manual" aria-label={`${manual.title} 매뉴얼`}>
       <div className="mhead">
@@ -131,7 +131,7 @@ function ManualView({ manual, onBack }) {
       <h4>③ 단계별로 따라 하기 <small className="muted">(영상 · 자막 · 목차와 같은 번호)</small></h4>
       {manual.video
         ? <WorkflowGuide workflowId={manual.video.workflowId} defaultOpen />
-        : <p className="empty">이 절차는 아직 영상이 없습니다. 아래 글 단계로 따라 하세요.</p>}
+        : <p className="empty">이 절차는 아직 영상이 없습니다. 아래 글 단계와 화면 캡처로 따라 하세요.{manual.media?.videoWaiting ? <small className="muted"> 영상 대기 이유: {manual.media.videoWaiting}</small> : null}</p>}
       <ol className="msteps">
         {manual.steps.map((s) => (
           <li key={s.no}>
@@ -143,6 +143,15 @@ function ManualView({ manual, onBack }) {
                 <dt>무엇을 넣고</dt><dd>{s.input}</dd>
                 <dt>왜</dt><dd>{s.why}</dd>
               </dl>
+              {s.capture ? (
+                <figure className="cap">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={s.capture.img} alt={`${s.no}단계 화면 예시: ${s.title}`} loading="lazy" />
+                  <figcaption>실제 업무 화면 예시{s.capture.observedAt ? ` (${String(s.capture.observedAt).slice(0, 10)})` : ''}{blurred ? ' — 글자는 흐리게 처리했습니다. 어느 창의 어느 자리인지 보는 용도입니다.' : ''}</figcaption>
+                </figure>
+              ) : s.captureKind === 'messenger'
+                ? <small className="muted capnote">메신저 · 메일 화면이라 캡처를 싣지 않습니다.</small>
+                : !manual.video ? <small className="muted capnote">화면 캡처 준비 중</small> : null}
             </div>
           </li>
         ))}
@@ -175,6 +184,14 @@ function Todo({ data }) {
       ) : <p className="empty">없음</p>}
       <h4>아직 매뉴얼을 못 만든 절차</h4>
       {data.notYet?.length ? <ul>{data.notYet.map((x, i) => <li key={i}><b>{x.title}</b> — {x.reason}</li>)}</ul> : <p className="empty">없음</p>}
+      <h4>영상 · 화면 캡처 현황 <small className="muted">(영상이 없는 매뉴얼은 캡처로 먼저 · 영상은 이유가 풀리면)</small></h4>
+      <table className="media">
+        <thead><tr><th>매뉴얼</th><th>영상</th><th>화면 캡처</th><th>영상을 아직 못 만든 이유</th></tr></thead>
+        <tbody>{(data.manuals || []).map((m) => {
+          const need = m.steps.filter((s) => s.captureKind === 'screen').length, have = m.steps.filter((s) => s.capture).length;
+          return <tr key={m.id}><td>{m.title}</td><td><Badge tone={m.video ? 'ok' : 'plain'}>{m.video ? '있음' : '대기'}</Badge></td><td>{m.video && !have ? '영상으로 대신' : `${have} / ${need}단계`}</td><td>{m.media?.videoWaiting || '-'}</td></tr>;
+        })}</tbody>
+      </table>
       <h4>근거가 부족한 절차</h4>
       {data.weakEvidence?.length ? <ul>{data.weakEvidence.map((x, i) => <li key={i}><b>{x.title}</b> — {x.reason}</li>)}</ul> : <p className="empty">없음</p>}
     </>
@@ -202,7 +219,7 @@ export default function ImportHandover({ data, me, initialManual }) {
           새로 온 사람이 이 표와 매뉴얼만 보고 일을 이어받도록 만든 업무 지원 자료입니다. 줄마다 <Badge tone="ok">확정</Badge>(전산 기록 등 두 가지 이상 근거가 서로 맞음)과 <Badge tone="est">추정</Badge>(한 가지 근거뿐)을 표시했습니다. 갱신 {data.updatedAt}.
         </p>
         {src.length > 0 && <p className="muted"><small>근거 자료: {src.map((s) => `${s.label} ${s.period}${s.count != null ? ` ${Number(s.count).toLocaleString()}건` : ''}`).join(' / ')}</small></p>}
-        {manual ? <ManualView manual={manual} onBack={() => setOpenId(null)} /> : (
+        {manual ? <ManualView manual={manual} onBack={() => setOpenId(null)} blurred={data.captureInfo?.clarity !== 'clear'} /> : (
           <>
             <Tabs label="업무표 보기" items={KINDS} value={kind} onChange={setKind} />
             {kind === 'manuals' && (
@@ -259,6 +276,12 @@ export default function ImportHandover({ data, me, initialManual }) {
         .ih .msteps dt { color: var(--pm-muted); }
         .ih .msteps dd { margin: 0; }
         @media (max-width: 760px) { .ih .msteps dl { grid-template-columns: 1fr; } }
+        .ih .cap { margin: 8px 0 0; max-width: 720px; }
+        .ih .cap img { display: block; width: 100%; height: auto; border: 1px solid var(--pm-line); border-radius: 6px; }
+        .ih .cap figcaption, .ih .capnote { display: block; margin-top: 4px; font-size: 12px; color: var(--pm-muted); }
+        .ih table.media { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0 12px; }
+        .ih table.media th, .ih table.media td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--pm-line); vertical-align: top; }
+        .ih table.media th { color: var(--pm-muted); font-weight: 600; }
       `}</style>
     </div>
   );
