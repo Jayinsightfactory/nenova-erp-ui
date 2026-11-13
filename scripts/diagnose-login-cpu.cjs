@@ -13,13 +13,15 @@ async function captureLoginCpu(pid,dir,WebSocket,{enableNativeZlib=false,xlsxMod
    const expression=`(()=>{const req=typeof require==='function'?require:process.mainModule.require.bind(process.mainModule),x=req(${JSON.stringify(xlsxModule)}),book=x.utils.book_new();x.utils.book_append_sheet(book,x.utils.aoa_to_sheet([['fixture',1],['same',2]]),'7-1');const bytes=x.write(book,{type:'buffer',bookType:'xlsx',compression:true}),read=()=>{const b=x.read(bytes,{type:'buffer'});return JSON.stringify({names:b.SheetNames,rows:x.utils.sheet_to_json(b.Sheets['7-1'],{header:1})})},before=read();x.CFB.utils.use_zlib(req('node:zlib'));return before===read()})()`;
    const tuned=await post('Runtime.evaluate',{expression,returnByValue:true});if(tuned.exceptionDetails||tuned.result?.value!==true)throw Error('NATIVE_ZIP_FIXTURE_FAILED');
   }
+  const stateExpression=`(()=>{const req=typeof require==='function'?require:process.mainModule.require.bind(process.mainModule),p=req(${JSON.stringify(path.join(dir,'node_modules/mssql'))}).pool,fs=req('node:fs'),size=n=>{try{return fs.statSync(${JSON.stringify(dir)}+'/'+n).size}catch{return null}},num=x=>Number.isFinite(x)?x:null;return {pool:p?{connected:!!p.connected,connecting:!!p.connecting,size:num(p.size),available:num(p.available),borrowed:num(p.borrowed),pending:num(p.pending)}:null,pmOfficeBytes:size('data/runtime/work-feature-pm-office.json'),driveIndexBytes:size('data/drive/index.jsonl')}})()`;
+  let appState=null;try{const r=await post('Runtime.evaluate',{expression:stateExpression,returnByValue:true});appState=r.result?.value||null;}catch{}
   await post('Profiler.enable');await post('Profiler.start');await new Promise(r=>setTimeout(r,4000));const {profile}=await post('Profiler.stop');
   const nodes=new Map(profile.nodes.map(n=>[n.id,n])),counts=new Map();for(const id of profile.samples||[])counts.set(id,(counts.get(id)||0)+1);
   const safeName=n=>/^[\w$ .<>:[\]()-]{0,100}$/.test(n||'')?(n||'[anonymous]'):'[function]';
   const parents=new Map();for(const n of profile.nodes)for(const id of n.children||[])parents.set(id,n.id);
   const safeFrame=f=>{let url=f.url||'';if(url.startsWith('file://')){try{url=new URL(url).pathname;}catch{url='';}}return {name:safeName(f.functionName),file:url.startsWith(dir+'/')?url.slice(dir.length+1).split('?')[0]:url.startsWith('node:')?url:'[runtime]',line:f.lineNumber+1};};
   const top=[...counts].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([id,count])=>{const f=nodes.get(id).callFrame;let ancestors=[],p=parents.get(id);for(let i=0;i<24&&p;i++,p=parents.get(p))ancestors.push(safeFrame(nodes.get(p).callFrame));return {...safeFrame(f),samples:count,ancestors};});
-  return {nativeZlibEnabled:enableNativeZlib,samples:profile.samples?.length||0,durationMs:(profile.endTime-profile.startTime)/1000,top};
+  return {appState,nativeZlibEnabled:enableNativeZlib,samples:profile.samples?.length||0,durationMs:(profile.endTime-profile.startTime)/1000,top};
  }finally{
   if(ws){if(opened){try{await post('Runtime.evaluate',{expression:"(typeof require==='function'?require:process.mainModule.require.bind(process.mainModule))('node:inspector').close()"},2500);}catch{}}try{ws.terminate();}catch{}}
   for(const p of pending.values())p.reject(Error('CLOSED'));pending.clear();
