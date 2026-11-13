@@ -1,0 +1,21 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{pathToFileURL}=require('node:url'),XLSX=require('xlsx');
+const {createDrivePairsRunner}=require('../lib/workDrivePairsAsync.cjs');
+const projectRoot=process.cwd();
+function cleanup(root){const resolved=path.resolve(root),base=path.resolve(os.tmpdir())+path.sep;if(!resolved.startsWith(base)||!path.basename(resolved).startsWith('nenova-pair-worker-'))throw Error('Unsafe fixture path');fs.rmSync(resolved,{recursive:true,force:true});}
+async function fixture(){const rootDir=fs.mkdtempSync(path.join(os.tmpdir(),'nenova-pair-worker-')),book=XLSX.utils.book_new();for(let i=1;i<=15;i++)XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([['연습',i]]),i+'-1');const bytes=XLSX.write(book,{type:'buffer',bookType:'xlsx',compression:true});fs.writeFileSync(path.join(rootDir,'sample.xlsx'),bytes);const rows=[{id:'pdf',filename:'2026 07-1 네덜란드 인보이스.pdf',uploaderName:'fixture',mtime:'2026-11-01T00:00:00Z'},{id:'book',filename:'2026 원가자료.xlsx',rel:'sample.xlsx',sha:'old',uploaderName:'fixture',mtime:'2026-11-01T01:00:00Z'}];fs.writeFileSync(path.join(rootDir,'index.jsonl'),rows.map(JSON.stringify).join('\n')+'\n');return{rootDir,rows,bytes};}
+test('real worker preserves pair results while main event loop runs, caches sheets and refreshes changed files',async()=>{
+ const f=await fixture(),runner=createDrivePairsRunner({projectRoot,rootDir:f.rootDir,idleMs:100000});let ticks=0;const timer=setInterval(()=>ticks++,5);
+ try{const original=fs.readFileSync(path.join(f.rootDir,'index.jsonl'));const [a,b,c]=await Promise.all([runner.run(),runner.run(),runner.run()]);assert.deepEqual(a,b);assert.deepEqual(b,c);assert(ticks>=5,'CPU-heavy read must not block main timers');assert.equal(runner.stats().workbooksRead,1);
+ const {recomputePairs}=await import(pathToFileURL(path.join(projectRoot,'lib/workDrivePairs.js')).href);const direct=recomputePairs({xlsxLib:XLSX,rootDir:f.rootDir});assert.deepEqual(a.pairs,direct.pairs);assert.deepEqual(a.counts,direct.counts);assert.deepEqual(fs.readFileSync(path.join(f.rootDir,'index.jsonl')),original);
+ await runner.run();assert.equal(runner.stats().workbooksRead,0,'unchanged workbook is not decompressed again');f.rows[1].sha='new';fs.writeFileSync(path.join(f.rootDir,'index.jsonl'),f.rows.map(JSON.stringify).join('\n')+'\n');const updated=await runner.run();assert.equal(runner.stats().workbooksRead,1);assert.equal(updated.pairs[0].workbook.sha,'new');assert.equal(fs.existsSync(path.join(f.rootDir,'pairs-worker.lock')),false);assert.equal(fs.readdirSync(f.rootDir).some(n=>n.includes('.tmp')),false);
+ }finally{clearInterval(timer);await runner.close();cleanup(f.rootDir);}
+});
+test('worker timeout rejects safely, preserves published pairs and releases only its own lock',async()=>{
+ const f=await fixture(),target=path.join(f.rootDir,'pairs.json'),prior='{"old":true}';fs.writeFileSync(target,prior);const runner=createDrivePairsRunner({projectRoot,rootDir:f.rootDir,timeoutMs:1});
+ try{await assert.rejects(runner.run(),/TIMEOUT/);await runner.close();assert.equal(fs.readFileSync(target,'utf8'),prior);assert.equal(fs.existsSync(path.join(f.rootDir,'pairs-worker.lock')),false);}finally{await runner.close();cleanup(f.rootDir);}
+});
+
+test('failed atomic publication preserves previous target and releases acquired lock',async()=>{
+ const f=await fixture(),target=path.join(f.rootDir,'pairs.json');fs.mkdirSync(target);fs.writeFileSync(path.join(target,'marker'),'preserve');const runner=createDrivePairsRunner({projectRoot,rootDir:f.rootDir});
+ try{await assert.rejects(runner.run(),/RECOMPUTE_FAILED/);assert.equal(fs.readFileSync(path.join(target,'marker'),'utf8'),'preserve');assert.equal(fs.existsSync(path.join(f.rootDir,'pairs-worker.lock')),false);assert(!fs.readdirSync(f.rootDir).some(n=>n.includes('.tmp')));}finally{await runner.close();cleanup(f.rootDir);}
+});
