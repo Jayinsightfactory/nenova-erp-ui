@@ -19,4 +19,4 @@ require.cache[require.resolve('mssql')].exports=native;
 const fixture=require('./test-weekday-distribution-sql.cjs');
 fixture.inspectFixture=()=>({password:'local-windows-auth-no-password',image:'LocalDB-16-dedicated-fixture'});
 console.log('Dedicated LocalDB fixture: Windows authentication, no operational endpoint, temporary guarded DB');
-require('./test-distribution-catalog-downstream-sql.cjs');
+require(process.argv.includes('--fix-cycle')?'./test-distribution-refix-sql.cjs':'./test-distribution-catalog-downstream-sql.cjs');

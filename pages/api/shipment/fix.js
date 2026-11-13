@@ -199,6 +199,16 @@ async function loadEstimateEditGroups(rawKeys, requestedCategories, q = query, l
 }
 
 async function resolveFixCategoryScope(req, countryFlowersFilter) {
+  if (req.body?.distributionEditProdKeys !== undefined) {
+    if (req.body.cycleSource !== 'distribute-save' || req.body.editProdKeys !== undefined || req.body.autoStockAdd || req.body.confirmAutoStockAdd || !Array.isArray(countryFlowersFilter) || !countryFlowersFilter.length) {
+      throw new Error('분배 수정의 품종 범위를 확인하지 못했습니다. 다시 조회하세요.');
+    }
+    const groups = await loadEstimateEditGroups(req.body.distributionEditProdKeys);
+    const wanted = new Set(countryFlowersFilter.map(v => String(v).trim()));
+    if (wanted.has('') || [...wanted].some(cf => !groups.some(g => g.countryFlower === cf))) throw new Error('수정 품목과 확정 처리 품종이 일치하지 않습니다.');
+    req.distributionEditGroups = groups.filter(g => wanted.has(g.countryFlower));
+    return wanted;
+  }
   if (req.body?.editProdKeys === undefined) return normalizeCountryFlowerFilter(countryFlowersFilter);
   if (!Array.isArray(countryFlowersFilter) || countryFlowersFilter.length !== 1) {
     const error = new Error('견적서 수정은 확인한 품종 한 개씩 처리합니다. 수정 품종을 다시 조회하세요.');
@@ -220,8 +230,10 @@ async function resolveFixCategoryScope(req, countryFlowersFilter) {
   }
 }
 
+function isScopedCategoryEdit(req) { return !!(req.estimateEditGroups || req.distributionEditGroups); }
+
 async function runFixTargetProcedure(name, shape, orderYear, orderWeek, uid, cf, req, skipStockCalc) {
-  if (req.estimateEditGroups && !shape.hasCountryFlower) throw new Error('전산의 품종별 확정 기능을 확인하지 못했습니다. 전체 품종을 대신 변경하지 않습니다.');
+  if (isScopedCategoryEdit(req) && !shape.hasCountryFlower) throw new Error('전산의 품종별 확정 기능을 확인하지 못했습니다. 전체 품종을 대신 변경하지 않습니다.');
   // One category + its lease baseline commit together. A failed SP rolls back
   // this category, not earlier successful categories reported to the client.
   return withTransaction(async (tQ) => {
@@ -231,6 +243,7 @@ async function runFixTargetProcedure(name, shape, orderYear, orderWeek, uid, cf,
     const scope = { orderYear, orderWeek, custKey: Number(req.body.custKey) };
     if (req.body?.editGuard) await assertErpEditGuard(tQ, scope, req.user, req.body);
     if (req.estimateEditGroups) await loadEstimateEditGroups(req.body.editProdKeys, [cf], tQ, true);
+    if (req.distributionEditGroups) await loadEstimateEditGroups(req.distributionEditGroups.find(g => g.countryFlower === cf)?.prodKeys, [cf], tQ, true);
     // 보호장치 ①: 확정 범위에 주문서 없는 출고가 있으면 확정 자체를 막는다 (견적서·매출·이카운트 누락 방지)
     if (name === 'usp_ShipmentFix') await assertNoOrderlessLinesBeforeFix(tQ, sql, { orderYear, orderWeek, custKey: req.body?.custKey, countryFlower: shape.hasCountryFlower ? cf : null });
     const result = await runShipmentProcedure(name, shape, orderYear, orderWeek, uid, cf, tQ);
@@ -847,10 +860,10 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const skipStockCalc = req.body?.skipStockCalc === true;
   await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}${cycleSourceLabel(req)}`);
 
-  const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, req.estimateEditGroups ? allowedCountryFlowers : null);
+  const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, isScopedCategoryEdit(req) ? allowedCountryFlowers : null);
   if (lowerUnfixedWeeks.length > 0) {
     const lowerDetails = (await loadLowerUnfixedDetails(orderYear, orderWeek))
-      .filter(row => !req.estimateEditGroups || allowedCountryFlowers.has(row.category));
+      .filter(row => !isScopedCategoryEdit(req) || allowedCountryFlowers.has(row.category));
     const labels = lowerUnfixedWeeks.map(w => `${w.OrderYear}-${w.OrderWeek}`).join(', ');
     await logFix('lower_unfixed_block', `${orderYear}/${orderWeek} blocked by ${labels} (all-categories)`, true);
     return res.status(409).json({
@@ -858,14 +871,14 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       code: 'LOWER_UNFIXED_EXISTS',
       lowerWeeks: lowerUnfixedWeeks,
       lowerDetails,
-      error: `[${week}] 확정 불가: 이전 차수에 미확정 출고가 남아 있습니다 (${req.estimateEditGroups ? '수정 품종' : '전 카테고리'} 기준). 먼저 ${labels} 차수를 낮은 차수부터 확정하세요.`,
+      error: `[${week}] 확정 불가: 이전 차수에 미확정 출고가 남아 있습니다 (${isScopedCategoryEdit(req) ? '수정 품종' : '전 카테고리'} 기준). 먼저 ${labels} 차수를 낮은 차수부터 확정하세요.`,
     });
   }
 
   const allUnfixedTargets = await loadShipmentCategoryTargets(orderYear, orderWeek, 0, null);
   // EXE permits selected CountryFlower fix. Keep the legacy full-week UI
-  // policy separate; validated Estimate edits must not include unrelated rows.
-  const partialFixGuard = req.estimateEditGroups ? { blocked: false } : evaluatePartialCategoryFixBlock(allUnfixedTargets, allowedCountryFlowers);
+  // policy separate; validated estimate/distribution edits keep their category scope.
+  const partialFixGuard = isScopedCategoryEdit(req) ? { blocked: false } : evaluatePartialCategoryFixBlock(allUnfixedTargets, allowedCountryFlowers);
   if (partialFixGuard.blocked) {
     await logFix('partial_category_fix_block', `${orderYear}/${orderWeek} remaining=${partialFixGuard.remainingCategories?.join(',')}`, true);
     return res.status(409).json({
@@ -1002,7 +1015,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
 
   const procedureShape = await loadProcedureShape('usp_ShipmentFix');
   const wholeWeekNegativeRows = (await loadNegativeGuardRows(orderYear, orderWeek))
-    .filter(row => !req.estimateEditGroups || allowedCountryFlowers.has(String(row.CountryFlower || '').trim()));
+    .filter(row => !isScopedCategoryEdit(req) || allowedCountryFlowers.has(String(row.CountryFlower || '').trim()));
   if (wholeWeekNegativeRows.length > 0) {
     return res.status(400).json({
       success: false,
@@ -1014,7 +1027,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const targets = procedureShape.hasCountryFlower
     ? categoryTargets
     : [{ countryFlower: null, label: 'ALL', mode: 'ALL', isBlank: false }];
-  if (req.estimateEditGroups && !procedureShape.hasCountryFlower) throw new Error('품종별 확정 범위를 지원하지 않는 전산입니다. 전체 확정으로 변경하지 않았습니다.');
+  if (isScopedCategoryEdit(req) && !procedureShape.hasCountryFlower) throw new Error('품종별 확정 범위를 지원하지 않는 전산입니다. 전체 확정으로 변경하지 않았습니다.');
   await logFix('fix_targets', `${orderYear}/${orderWeek} targets=${targets.length} shapeCountry=${procedureShape.hasCountryFlower ? 1 : 0}`);
 
   // 3. SP 호출 — DB 프로시저 구조에 맞춰 카테고리별/차수전체 자동 선택
@@ -1127,7 +1140,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     errors.length > 0 || stockErrors.length > 0 || !reconcile.parity.exeAligned,
   );
   const success = errors.length === 0 && stockErrors.length === 0 && reconcile.stockErrors.length === 0;
-  const editGuardAfter = success && !req.estimateEditGroups ? await advanceOptionalFixEditGuard(req) : null;
+  const editGuardAfter = success && !isScopedCategoryEdit(req) ? await advanceOptionalFixEditGuard(req) : null;
   return res.status(200).json({
     success,
     message: `[${week}] ${procedureShape.hasCountryFlower ? `${results.length}개 카테고리` : '차수 전체'} 확정 완료` +
@@ -1181,7 +1194,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     const categoryTargets = await loadShipmentCategoryTargets(orderYear, orderWeek, 1, allowedCountryFlowers);
 
     if (categoryTargets.length === 0) {
-      if (req.estimateEditGroups) {
+      if (isScopedCategoryEdit(req)) {
         return res.status(200).json({ success: true, message: `[${week}] 수정 품종은 이미 미확정 상태입니다.`, results: [] });
       } else if (!skipStockCalc) {
         const prodKeys = await loadShipmentProdKeys(orderYear, orderWeek, null, 'ALL');
@@ -1212,7 +1225,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     const targets = procedureShape.hasCountryFlower
       ? categoryTargets
       : [{ countryFlower: null, label: 'ALL', mode: 'ALL', isBlank: false }];
-    if (req.estimateEditGroups && !procedureShape.hasCountryFlower) throw new Error('품종별 확정취소 범위를 지원하지 않는 전산입니다. 전체 취소로 변경하지 않았습니다.');
+    if (isScopedCategoryEdit(req) && !procedureShape.hasCountryFlower) throw new Error('품종별 확정취소 범위를 지원하지 않는 전산입니다. 전체 취소로 변경하지 않았습니다.');
     await logFix('unfix_targets', `${orderYear}/${orderWeek} targets=${targets.length} shapeCountry=${procedureShape.hasCountryFlower ? 1 : 0}`);
 
     const results = [];
@@ -1275,9 +1288,9 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
           forceFullWeekRecalc: Boolean(allowedCountryFlowers),
         });
 
-    const pendingUnfixed = await loadShipmentCategoryTargets(orderYear, orderWeek, 0, req.estimateEditGroups ? allowedCountryFlowers : null);
+    const pendingUnfixed = await loadShipmentCategoryTargets(orderYear, orderWeek, 0, isScopedCategoryEdit(req) ? allowedCountryFlowers : null);
     const pendingUnfixedLabels = labelsFromCategoryTargets(pendingUnfixed);
-    const requiresAllCategoryFix = !req.estimateEditGroups && pendingUnfixed.length > 1;
+    const requiresAllCategoryFix = !isScopedCategoryEdit(req) && pendingUnfixed.length > 1;
 
 
     const calcCheck = evaluateUnfixStockCalcResult({
@@ -1305,7 +1318,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       });
     }
     const success = errors.length === 0;
-    const editGuardAfter = success && !req.estimateEditGroups ? await advanceOptionalFixEditGuard(req) : null;
+    const editGuardAfter = success && !isScopedCategoryEdit(req) ? await advanceOptionalFixEditGuard(req) : null;
     return res.status(200).json({
       success,
       message: `[${week}] ${results.length}개 카테고리 확정 취소` +

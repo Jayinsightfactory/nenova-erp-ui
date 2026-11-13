@@ -14,11 +14,11 @@ const load = () => import(pathToFileURL(path.join(__dirname, '../lib/fixCycleCli
 
 // 가짜 확정 원장: 품목군별 isFix. unfix/fix 성공 시에만 상태가 바뀐다(실패 = 서버 트랜잭션 롤백 = 불변).
 function fakeFixApi({ failOn } = {}) {
-  const state = { '콜롬비아 알스트로': true };
+  const state = { '콜롬비아 알스트로': true, '미국더글라스': false, '미국레몬잎': false };
   const calls = [];
   global.fetch = async (url, init) => {
     const body = JSON.parse(init.body);
-    calls.push({ action: body.action, cycleSource: body.cycleSource, force: body.force, orderYear: body.orderYear });
+    calls.push({ action: body.action, cycleSource: body.cycleSource, force: body.force, orderYear: body.orderYear, distributionEditProdKeys: body.distributionEditProdKeys, countryFlowers: body.countryFlowers });
     const ok = failOn !== body.action;
     if (ok) for (const cf of body.countryFlowers) state[cf] = body.action === 'fix';
     const payload = ok ? { success: true } : { success: false, error: `${body.action} SP 실패(롤백)` };
@@ -42,6 +42,14 @@ test('success: unfix → save → refix, 이력 출처 표시 전달, force=fals
   assert.deepEqual(api.calls.map(c => c.action), ['unfix', 'fix']);
   assert.ok(api.calls.every(c => c.cycleSource === 'distribute-save' && c.force === false && c.orderYear === '2026'));
   assert.equal(api.state['콜롬비아 알스트로'], true);
+  assert.equal(api.state['미국더글라스'],false);assert.equal(api.state['미국레몬잎'],false);
+  assert.ok(api.calls.every(c=>JSON.stringify(c.distributionEditProdKeys)==='[2429]'&&JSON.stringify(c.countryFlowers)==='["콜롬비아 알스트로"]'));
+});
+
+test('saved quantities are distinguished from refix failure',async()=>{
+  const {runEditWithFixCycle}=await load();const api=fakeFixApi({failOn:'fix'});let saved=false;
+  await assert.rejects(cycle(runEditWithFixCycle,async()=>{saved=true;}),e=>e.applyCommitted===true&&/fix SP/.test(e.message));
+  assert.equal(saved,true);assert.equal(api.state['미국더글라스'],false);
 });
 
 test('save failure: 재확정까지 마친 뒤 저장 오류를 그대로 던짐 → 확정 상태 원래대로', async () => {

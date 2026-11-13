@@ -155,14 +155,14 @@ let orderPosts = 0;
             assert.deepEqual(body.entries.map(entry => [entry.custKey, entry.prodKey, entry.outQty]), [[478, 61, 3]]);
             return reply(route, { success: true, verified: true, results: [{ verified: true }] });
           }
-          if (body.entries.length === 1) {
+          if (body.entries.length === 1 && body.entries[0].outQty === 51) {
             assert.equal(body.entries[0].outQty, 51, 'customer mode Ctrl+S submits customer draft');
             assert.equal(body.entries[0].cost, 100);
           } else {
+            assert.equal(body.entries.length,1,'product save submits only the changed customer');
             assert.equal(body.entries[0].outQty, 50);
             assert.equal(body.entries[0].cost, 700, 'quantity-only save preserves native customer price');
-            assert.equal(body.entries[1].custKey, 436);
-            assert.equal(body.entries[1].outQty, 0);
+            assert.equal(body.entries.some(e=>e.custKey===436),false,'unchanged customer is not applied again');
           }
           if (failNextSave) { failNextSave = false; return reply(route, { success: false, error: 'fixture 검증 실패' }, 409); }
           if (holdNextSave) { heldSaveStarted.resolve(); await releaseHeldSave.promise; holdNextSave = false; }

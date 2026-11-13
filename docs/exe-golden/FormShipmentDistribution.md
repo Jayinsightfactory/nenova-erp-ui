@@ -650,3 +650,6 @@ ShipmentDate↔PeriodDay exact 시각 JOIN, DetailFix=1, EstQuantity>0를 사용
 
 ## 2026-11-11 메인차수 공통 표시축 정정
 설치 EXE FormShipmentDistribution 재추출(GetOrderWeek/선택 연도·차수 저장)을 확인했다. 웹 비교축은 같은 연도·메인차수 전체 majorDateFacts에서 얻는다. 업체/품목에는02만 있어도 전체에01/02/03이 있으면 세 행을 모두 표시한다. 부재0은 조회용이며 실제0과 구별한다. 공통 날짜 머리글은 표 열당1회, 선택 양수 실재행만 편집한다. SQL·원장 writer·EXE 저장순서 변경0. 근거: docs/plans/distribution-major-layout-2026-11-11.md.
+
+## 2026-11-13 분배 수정 품종 재확정
+설치 EXE FormShipmentDistribution을 dnSpy CLI로 재추출해 CountryFlower별 Fix/Cancel을 재확인했다. 운영 AppLog상 카네이션 한 품종만 취소됐으며 기존 미국 미확정2품종으로 일반 재확정 보호가 실패했다. 변경 ProdKey→활성 Product CountryFlower 범위를 서버/트랜잭션에서 검증해 선택 품종 재확정에만 적용한다. 원본 native SP와 실제 운영 API의 LocalDB 실행으로 타품종 상태/수량/금액 보존 확인. docs/plans/distribution-refix-2026-11-13.md 참조.

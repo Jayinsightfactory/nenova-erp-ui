@@ -9,6 +9,7 @@
     "scripts/distribution-multi-save-fixture.cjs",
     "scripts/distribution-localdb-browser.cjs",
     "scripts/test-distribution-localdb.cjs",
+    "scripts/test-distribution-refix-sql.cjs",
     "pages/shipment/distribute.js",
     "components/shipment/DistributionPicker.js",
     "lib/shipmentDistributionWorkspace.js",
@@ -49,6 +50,12 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "DISTRIBUTION_CATEGORY_REFIX",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "distribute-save sends distributionEditProdKeys on both unfix/fix. Server resolves active Product.CountryFlower, rejects empty/mismatched scopes, revalidates each category under transaction locks, requires native CountryFlower SP support, and applies lower-week/negative-stock/readback guards within the verified edit categories. Unrelated unfixed categories cannot block restoration and remain untouched. Ordinary manual partial-category fix protection remains. Product saves submit changed customer quantities only; completion counts changed rows. A post-apply refix failure explicitly reports saved quantities and remaining unfixed state instead of a generic save failure."
+    },
     {
       "name": "STAGE_MULTIPLE_PRODUCT_CUSTOMERS",
       "orderDetail": "preserve",
@@ -142,6 +149,8 @@
     "dateClassification": "Both workspaces use shared persisted date index keyed by selected year+week and Master customer+product. Positive Date facts and explicit undated order candidates, no computed calendar. Filter changes preserve full-week drafts and save targets; existing exact date editor remains sole day-quantity writer."
   },
   "requiredTestFiles": [
+    "scripts/test-distribution-refix-sql.cjs",
+    "__tests__/estimateCategoryCycle.test.js",
     "__tests__/shipmentDistributionWorkspace.test.js",
     "__tests__/distributionFixCycleRollback.test.js",
     "__tests__/shipmentDistributionAudit.test.js",
@@ -161,6 +170,7 @@
     "__tests__/shipmentDistributionBrowser.test.cjs"
   ],
   "requiredCommands": [
+    "node scripts/test-distribution-localdb.cjs --fix-cycle",
     "node --test __tests__/distributionKakaoFeedApi.test.cjs",
     "npm run test:erp-contract",
     "npm run test:nenova-dnspy-evidence",
