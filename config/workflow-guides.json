@@ -831,7 +831,7 @@
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 9.052
+              "seconds": 9.055
             },
             {
               "scenario": "save",
@@ -841,17 +841,17 @@
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 28.521
+              "seconds": 28.447
             },
             {
               "scenario": "shortcut",
-              "title": "5. 메뉴 또는 웹 바로가기 연결",
-              "seconds": 37.594
+              "title": "5. 메뉴를 검색해 바로가기 연결",
+              "seconds": 37.522
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 46.757
+              "seconds": 58.792
             }
           ]
         }

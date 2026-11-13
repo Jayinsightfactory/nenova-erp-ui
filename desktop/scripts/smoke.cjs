@@ -338,9 +338,17 @@ async function verifyNotesUi(sourceWindow) {
   assert.equal((await contents.executeJavaScript('window.notes.invoke("pin",{pinned:true})')).pinned,true);
   await contents.executeJavaScript('document.querySelector("#pin").click()');
   await waitFor(()=>contents.executeJavaScript('window.notes.invoke("state").then(state=>state.pinned===false&&document.querySelector("#pin").getAttribute("aria-pressed")==="false")'),'memo pin toggles');
-  await contents.executeJavaScript(`(() => { document.querySelector('#openAdd').click(); document.querySelector('#frequency').value='monthly'; document.querySelector('#frequency').dispatchEvent(new Event('change')); document.querySelector('#title').value='메모장 월말 확인'; document.querySelector('#add button[type=submit]').click(); })()`);
+  await contents.executeJavaScript(`(() => { document.querySelector('#openAdd').click();const kind=document.querySelector('[name=shortcutKind]');kind.value='desktop';kind.dispatchEvent(new Event('change'));const search=document.querySelector('[name=shortcutSearch]');search.value='fixture';search.dispatchEvent(new Event('input',{bubbles:true}));search.focus(); })()`);
+  const searchPosts=homeRequests.filter(r=>r.method==='POST').length;
+  contents.sendInputEvent({type:'keyDown',keyCode:'Enter'});contents.sendInputEvent({type:'keyUp',keyCode:'Enter'});
+  await waitFor(()=>contents.executeJavaScript('document.querySelector("[name=shortcutMenu]").value==="/test/fixture"'),'memo menu search selects exact route');
+  assert.equal(await contents.executeJavaScript('document.querySelector("#editor").open'),true,'search Enter keeps editor open');
+  assert.equal(homeRequests.filter(r=>r.method==='POST').length,searchPosts,'search Enter never registers task');
+  assert.equal(await contents.executeJavaScript(`(() => {const c=window.NenovaTaskControls.create();const kind=c.root.querySelector('[name=shortcutKind]');const query=c.root.querySelector('[name=shortcutSearch]');kind.value='desktop';kind.dispatchEvent(new Event('change'));query.value='fixture';query.dispatchEvent(new Event('input'));kind.value='none';kind.dispatchEvent(new Event('change'));return c.dirty();})()`),false,'disconnected hidden search never blocks date changes');
+  await contents.executeJavaScript(`(() => { document.querySelector('#frequency').value='monthly'; document.querySelector('#frequency').dispatchEvent(new Event('change')); document.querySelector('#title').value='메모장 월말 확인'; document.querySelector('#add button[type=submit]').click(); })()`);
   await waitFor(()=>homeStore(accountActor).tasks.some(task=>task.title==='메모장 월말 확인'),'memo creates task');
   assert.equal(homeRequests.filter(request=>request.body?.title==='메모장 월말 확인').at(-1).body.frequency,'monthly');
+  assert.equal(homeRequests.filter(request=>request.body?.title==='메모장 월말 확인').at(-1).body.shortcut.target,'/test/fixture');
   await waitFor(()=>contents.executeJavaScript('document.querySelector("#tasks").textContent.includes("메모장 월말 확인")'),'memo reflects saved task');
   await capture(note,'notes-ui.png');
   await contents.executeJavaScript('document.querySelector("#copy").click()');

@@ -2741,3 +2741,12 @@
 - 실제 운영 fix/unfix API+native SP LocalDB: 선택품종복원/미국2미확정 보존/2025동일차수/주문·날짜·금액 불변 PASS. Chrome 변경1행만 요청 PASS. 전체 ERP계약 exit0, dnSpy/manifest213/writeguard1API PASS. 가이드 실제Chrome1920x1080/100%,192.3초6단계25조작, 해시/목차 PASS.
 - 운영 카네이션385행/635.4666667박스/107633550원, 날짜수량불일치0. 운영 보정은 배포 후 최신 전체원장지문 대조해 해당품종만재확정. 현재 PR/공식build/배포/복구 미검증(후속 진행).
 검색어: distribution-refix-1113 카네이션 Mandalay 7개 PARTIAL_CATEGORY_FIX_BLOCKED distributionEditProdKeys
+
+## 2026-11-13 업무 바로가기 메뉴 검색 보완
+- 사용자: 바로가기 추가할 때 검색이 안 됨. 원인: 공유 task-controls가 검색 없는 native select만 제공. fresh nw-task-search-1113 @e31713c4, 단일 작업자.
+- 홈/PC메모장 공유 검색칸, 메뉴명·분류 NFKC/대소문자/공백 정규화·현재 메뉴 필터·결과수/없음 안내. Enter 첫 후보 명시선택(등록아님), ArrowDown 목록초점, Escape 검색초기화→창닫기. 검색만으로 기존href 변경0, 다른 검색 중 기존연결 묵시적 저장차단, 메뉴갱신/웹전환/초기화 유지. API/IPC/SQL/개인업무 저장코드 변경0.
+- 실제Chrome 홈+notes320/280/390 검색·없음·IME보호·Enter등록0·ArrowDown/Escape·초점복귀·현재연결보존·갱신·디스크저장/재조회·웹전환/JS0 PASS. 기존시간표/실패보존/CAS회귀 및 native Electron 검색Enter/명시선택href/정상저장 PASS.
+- 정식 ERP contract(pre/post포함)exit0, dnSpy/manifest/writeguard PASS. 실제한국어6단계 가이드70.5초 재촬영(검색어실제입력·Enter·선택확인·저장버튼별도줌·결과/줌아웃), 최종프레임·가이드해시검증PASS.
+- Desktop1.3.20/웹다운로드갱신. 로컬정식webpack빌드 진행중, PR/CI/릴리스/운영배포·재생 미검증(후속). 메뉴기준 검색/키보드/밀도/입력보존/가이드 적용, ERP원장/dnSpy신규SQL/운영probe 해당없음. 시작계정전체주간6%, reset1795064856.
+검색어: task-shortcut-search-1113 1.3.20 shortcutSearch 메뉴검색 분류검색 Enter 필터 NativeSelect
+- 후속 검증: 연결 해제 후 숨겨진 검색어가 draft로 남는 반례를 실제 Chrome에서 재현→dirty 판정에서 제외→회귀PASS. Native Electron CI에도 동일 반례 추가. 검색어는 비영구UI이며 선택 종류·시간만 기존대로 초안 보호. 최신00532c39 통합(충돌은 WORK_MEMORY만, 양쪽기록보존), 검색 코드에는 충돌 없음. 최종 가이드69.7초 재촬영 및 통합빌드/CI 진행.
