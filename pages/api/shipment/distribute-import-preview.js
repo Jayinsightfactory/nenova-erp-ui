@@ -97,7 +97,7 @@ async function handler(req, res) {
     // New layout does not require free space in the original print area.
     let fieldPlan = null, fieldExportError = '';
     if (readiness.canPrepareField) {
-      try { fieldPlan = await fieldVolumePlan(original, preview); }
+      try { fieldPlan = await fieldVolumePlan(original, preview, workbook); }
       catch (error) { fieldExportError = error.message; }
     }
     const fieldExportReady = !!fieldPlan && preview.rows.every(r =>
