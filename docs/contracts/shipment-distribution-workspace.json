@@ -197,7 +197,7 @@
     "countryGrouping": "Farm-only country navigation and favorite-first expandable family/SKU tree. Customer workspace has independent week-wide company selection and independent item/date filters; farm country/family never restricts customer scope.",
     "countrySelection": "Country:: is read UI scope; confirmation toolbar resolves it through actual Product.CountryFlower list and explicit year/subweek. Other native distribution actions still require a variety.",
     "dateClassification": "Both workspaces use shared persisted date index keyed by selected year+week and Master customer+product. Positive Date facts and explicit undated order candidates, no computed calendar. Filter changes preserve full-week drafts and save targets; existing exact date editor remains sole day-quantity writer.",
-    "familyButtons": "CounName::FlowerName only for local navigation via distributionFamilyMatches, independent of native CountryFlower. favoriteGroups controls compact country family buttons; global search keeps full catalog; explicit family selection auto opens that group."
+    "familyButtons": "CounName::FlowerName only for local navigation via distributionFamilyMatches, independent of native CountryFlower. favoriteGroups controls compact country family buttons; global search keeps full catalog; explicit family selection auto opens that group. Staged no-order customer positive outInputs also count as drafts before country/family navigation; cancel retains all staged inputs, zero/empty does not create a draft."
   },
   "requiredTestFiles": [
     "__tests__/distributionKakaoDone.test.cjs",

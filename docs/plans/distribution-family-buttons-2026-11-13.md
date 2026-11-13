@@ -7,3 +7,5 @@
 기준: 현재 dnSpy FormShipmentDistribution의 품종별 품목 탐색과 기존 UI CounName/FlowerName 분류. 이번 변경의 SQL/API/SP 수정 없음. 선택/즐겨찾기 표시/펼치기는 OrderDetail, ShipmentDetail 수량·단가·Amount/Vat/isFix, ShipmentDate/Farm, Estimate, 재고, WebProfitReport 모두 보존. 실제 저장/확정은 직전 배포의 검증된 경로 그대로다.
 
 회귀: 국가 favorite+품종 favorite 2개/비favorite 1개, 단독 선택시 해당 품종만/강제 펼침/국가로 복귀, 품목 클릭으로 보기 범위 유지, 전역 검색 예외, 다른 연도 동일 차수, 미저장 이동 취소, ERP POST 0. 필수 검사와 가이드 갱신, CI/배포/운영에서 직전 확정·고정헤더 작업까지 함께 확인한다.
+
+검토 중 발견한 임시 업체 초안 보호 누락도 보정: 아직 custDist에 없는 추가 업체의 양수 outInputs도 hasDistributionDrafts가 감지한다. 국가/품종 이동 취소 후 두 임시 업체5/7 유지 및 한 번 저장 회귀로 확인한다. 0/빈 임시행은 초안이 아니며 주문을 만들지 않는다.
