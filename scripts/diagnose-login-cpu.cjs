@@ -8,7 +8,7 @@ async function captureLoginCpu(pid,dir,WebSocket){
   if(!targets){if(!/\/node(?:js)?$/.test(fs.realpathSync('/proc/'+pid+'/exe')))throw Error('NOT_NODE');process.kill(pid,'SIGUSR1');opened=true;for(let n=0;n<20&&!targets;n++){await new Promise(r=>setTimeout(r,250));targets=await list();}}
   if(!targets?.[0]?.webSocketDebuggerUrl)throw Error('INSPECTOR_UNAVAILABLE');const u=new URL(targets[0].webSocketDebuggerUrl);if(!['127.0.0.1','localhost'].includes(u.hostname)||u.port!=='9229')throw Error('NONLOCAL_INSPECTOR');
   ws=new WebSocket(u.href);await new Promise((r,j)=>{const t=setTimeout(()=>j(Error('SOCKET_TIMEOUT')),5000);ws.once('open',()=>{clearTimeout(t);r();});ws.once('error',j);});ws.on('message',raw=>{let m;try{m=JSON.parse(String(raw));}catch{return;}const p=pending.get(m.id);if(p){pending.delete(m.id);m.error?p.reject(Error('PROTOCOL_ERROR')):p.resolve(m.result);}});
-  const identity=await post('Runtime.evaluate',{expression:'({pid:process.pid,canClose:!!process.mainModule?.require})',returnByValue:true});if(identity.result?.value?.pid!==pid)throw Error('PID_MISMATCH');if(opened&&!identity.result.value.canClose)throw Error('CLOSE_UNAVAILABLE');
+  const identity=await post('Runtime.evaluate',{expression:'({pid:process.pid,canClose:typeof require==='function'||!!process.mainModule?.require})',returnByValue:true});if(identity.result?.value?.pid!==pid)throw Error('PID_MISMATCH');if(opened&&!identity.result.value.canClose)throw Error('CLOSE_UNAVAILABLE');
   await post('Profiler.enable');await post('Profiler.start');await new Promise(r=>setTimeout(r,4000));const {profile}=await post('Profiler.stop');
   const nodes=new Map(profile.nodes.map(n=>[n.id,n])),counts=new Map();for(const id of profile.samples||[])counts.set(id,(counts.get(id)||0)+1);
   const safeName=n=>/^[\w$ .<>:[\]()-]{0,100}$/.test(n||'')?(n||'[anonymous]'):'[function]';
@@ -16,7 +16,7 @@ async function captureLoginCpu(pid,dir,WebSocket){
   const top=[...counts].sort((a,b)=>b[1]-a[1]).slice(0,15).map(([id,count])=>{const n=nodes.get(id),f=n.callFrame,url=f.url||'';let ancestors=[],p=parents.get(id);for(let i=0;i<5&&p;i++,p=parents.get(p))ancestors.push(safeName(nodes.get(p).callFrame.functionName));return {name:safeName(f.functionName),file:url.startsWith(dir+'/')?url.slice(dir.length+1).split('?')[0]:url.startsWith('node:')?url:'[runtime]',line:f.lineNumber+1,samples:count,ancestors};});
   return {samples:profile.samples?.length||0,durationMs:(profile.endTime-profile.startTime)/1000,top};
  }finally{
-  if(ws){if(opened){try{await post('Runtime.evaluate',{expression:"process.mainModule.require('node:inspector').close()"},2500);}catch{}}try{ws.terminate();}catch{}}
+  if(ws){if(opened){try{await post('Runtime.evaluate',{expression:"(typeof require==='function'?require:process.mainModule.require.bind(process.mainModule))('node:inspector').close()"},2500);}catch{}}try{ws.terminate();}catch{}}
   for(const p of pending.values())p.reject(Error('CLOSED'));pending.clear();
   if(opened){const remains=await list();if(remains)throw Error('INSPECTOR_CLEANUP_FAILED');}
  }

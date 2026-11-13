@@ -71,7 +71,10 @@ jobs:
         with:
           node-version: 20
       - name: Validate bounded CPU sampler with synthetic child
-        run: npm install --no-save --ignore-scripts --no-audit --no-fund ws && node scripts/test-login-cpu.cjs
+        run: |
+          mkdir -p .verify/cpu-sampler-deps
+          npm install --prefix .verify/cpu-sampler-deps --no-package-lock --no-save --ignore-scripts --no-audit --no-fund ws
+          CPU_SAMPLER_WS="$PWD/.verify/cpu-sampler-deps/node_modules/ws" node scripts/test-login-cpu.cjs
       - name: Package read-only diagnostic commands
         id: perf-script
         run: |
