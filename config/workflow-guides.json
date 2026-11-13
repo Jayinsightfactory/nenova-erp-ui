@@ -844,52 +844,52 @@
             {
               "scenario": "upload",
               "title": "1. 파일 선택에서 물량표 엑셀을 업로드합니다",
-              "seconds": 0.106
+              "seconds": 0.077
             },
             {
               "scenario": "upload-only",
-              "title": "1. 물량표 바로 생성은 분배 저장 없이 원본 기준으로 만듭니다",
-              "seconds": 8.529
+              "title": "1. 파일 선택만으로 신형 현장물량표가 다운로드됩니다",
+              "seconds": 8.532
             },
             {
               "scenario": "upload",
               "title": "1. 검증하기로 업체·품목·수량을 확인합니다",
-              "seconds": 17.677
+              "seconds": 17.707
             },
             {
               "scenario": "upload",
               "title": "1. 분배 적용 확인 후 저장합니다",
-              "seconds": 26.247
+              "seconds": 26.32
             },
             {
               "scenario": "farm",
               "title": "2. 카톡 내용을 붙여넣어 업체·품목·농장을 지정합니다",
-              "seconds": 34.767
+              "seconds": 34.822
             },
             {
               "scenario": "farm",
               "title": "2. 농장분배 합계와 대상 연결을 검증합니다",
-              "seconds": 44.852
+              "seconds": 45.078
             },
             {
               "scenario": "farm",
               "title": "2. 검증한 농장분배를 적용합니다",
-              "seconds": 53.376
+              "seconds": 53.515
             },
             {
               "scenario": "generate",
               "title": "3. 신형 현장물량표 생성으로 결과 엑셀을 받습니다",
-              "seconds": 62.006
+              "seconds": 62.341
             },
             {
               "scenario": "review",
               "title": "4. 바로 생성 엑셀의 원본 수량을 확인합니다",
-              "seconds": 72.063
+              "seconds": 72.057
             },
             {
               "scenario": "review",
               "title": "4. 생성 엑셀의 인쇄 결과와 수량을 확인합니다",
-              "seconds": 78.12
+              "seconds": 78.604
             }
           ]
         }
