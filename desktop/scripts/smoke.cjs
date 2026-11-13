@@ -851,6 +851,17 @@ async function run() {
   assert.ok([...main.tabs.values()].some(tab => new URL(tab.url).pathname === '/login'), 'logout opens login for account switching');
   assert.equal(fixtureRequests.filter(request => request.pathname === '/api/auth/logout' && request.method === 'POST').length, 1, 'logout revokes the server session once');
 
+  // A restored unauthenticated home must reveal the existing login, not leave it hidden.
+  main.command(sourceWindow, 'menu', {open:true});
+  accountActor = '';
+  await main.verifyAccount(true);
+  const loginAfterRestore = [...main.tabs.values()].find(tab=>new URL(tab.url).pathname==='/login');
+  assert.ok(loginAfterRestore);
+  const loginOwner = main.windows.get(loginAfterRestore.windowId);
+  assert.equal(loginOwner.menuOpen,false,'unauthenticated restore reveals login instead of disabled home');
+  assert.equal(loginOwner.activeId,loginAfterRestore.id,'existing login tab is activated');
+  assert.equal(loginAfterRestore.view.getVisible(),true,'native login view is visible');
+
   console.log('Electron smoke passed: personal home native IPC/UI/failure retry/account races, logout, tab lifecycle, isolated zoom and web globals, same-origin popup opener, account transition lock/storage clear, viewport overflow, and unload/close confirmation.');
   console.log(`Screenshots: ${OUTPUT}`);
 }

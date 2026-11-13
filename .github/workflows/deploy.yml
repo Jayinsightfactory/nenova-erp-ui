@@ -39,7 +39,7 @@ on:
     branches: [master]
 
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnose_paste_only == true && 'nenova-paste-readonly-audit' || 'nenova-cafe24-production' }}
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnose_paste_only == true && 'nenova-paste-readonly-audit' || github.event_name == 'workflow_dispatch' && inputs.diagnose_performance_only == true && 'nenova-performance-readonly-audit' || 'nenova-cafe24-production' }}
   cancel-in-progress: false
 
 jobs:
@@ -79,6 +79,9 @@ jobs:
             printf "\nPY_DIAG\nnode <<'ACTIVITY_DIAG'\n"
             cat scripts/diagnose-activity-readonly.cjs
             printf "\nACTIVITY_DIAG\n"
+            printf "node <<'LOGIN_DIAG'\n"
+            cat scripts/diagnose-login-readonly.cjs
+            printf "\nLOGIN_DIAG\n"
             echo 'PERF_DIAG_EOF'
           } >> "$GITHUB_OUTPUT"
       - name: Read-only sanitized server performance diagnosis

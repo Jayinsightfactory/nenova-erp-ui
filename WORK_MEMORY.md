@@ -2914,9 +2914,26 @@
 검색어: CARANATION Vintage Honey 표시접두어 PR1726 8업체 381품목 고정헤더
 
 
+## 2026-11-13 데스크톱 로그인 가림·서버 로그인 오류 진단
+- 사용자 PC Desktop1.3.23 실행 프로세스와 기존 로그인 탭 확인. 홈이 앞에 떠 로그인 입력을 가리고 있었음. 현재 로그인 탭을 UI로 표시했으나 사용자 직접 로그인은 서버오류500으로 실패(비밀번호 입력/전송을 대행하지 않음). 작업표시줄의 고정 Nenova.lnk는 기존 Wooribnc ERP exe이며 웹Desktop은 다른 실행파일. 탐색기 조작중 사용자입력/최소화가 감지되어 추가GUI조작 중단.
+- 앱 수정: verifyAccount에서 인증없음이면 기존 로그인 탭도 실제 소유 창에서 활성화하여 disabled홈에 가려지지 않게 함. 실제Electron 기존로그인복원/home숨김/nativeView visible 회귀PASS. 1.3.24 준비; 내 업무 가이드 최종166초10단계 재촬영, 전체17흐름18영상 PASS.
+- 운영읽기전용진단은 기존배포와 독립그룹으로 실행되게 조정(쓰기배포 직렬화 유지). 진단집계 메모리여유2895MB/OOM0, DBtimeout320건(과거포함) 확인. 최근 로그인오류는 ETIMEOUT connectionFailure=true, 권한/컬럼/테이블오류없음. PC 동일설정 DB SELECT1은80ms PASS. 서버새연결SELECT1은 진행중. 원장·계정·인증정보 변경/출력/저장 없음, 서버로그 원문 대신 허용된오류코드·불리언만 출력.
+- 1.3.24 CI/정식릴리스·설치·사용자로그인복구는 진행중/미완료. 세부로그 .verify 로컬.
+검색어: desktop-login-1113 1.3.24 verifyAccount loginOwner menuOpen ETIMEOUT 로그인서버오류 작업표시줄 Nenova.lnk
+
+- 후속 원인확정: 새 SQL연결347~387ms PASS와 loopback 앱ping12초TIMEOUT 대비. 임시 localhost CPU profile4초/3669샘플에서 xlsx.inflate/build_tree→api/work/drive-ingest 확인. Worker분리 서버긴급PR1730(567b072b) 전체CI43384415991 SUCCESS, a80adf4a 병합. 별도 worktree nw-drive-pairs-unblock-1113. 프로파일 Inspector닫힘확인2회, 원시CPUprofile/업무요청/환경/비밀번호출력0. 서버정식배포와 live로그인확인 진행중.
+- 사용자‘Electron으로뜸’ 확인: 현재 electron.exe 테스트프로세스없고 설치exe 제품메타는NenovaDesktop1.3.23. 창별AppUserModel/relaunch표시명을‘네노바 업무’로 명시하고 taskbar표시false설정방지, OS에서읽을수있는 resources/app-icon.ico를추가복사. 패키지asar내경로를Shell에넘기지않음. 두단위검사/실제Electron전체회귀PASS. 종료중지연navigation의없는창layout안전가드보완. strict디렉티브유지. 최종168.3초/10단계 가이드재촬영 및 전소스해시검사PASS.
+- 사용자PC탐색기와앱이최소화·사용자입력으로바뀌어자동클릭추가중단. 비밀번호대신직접로그인결과만요청받았고서버오류실패확인. 작업표시줄고정아이콘은구형ERP이며실제새앱이름수정도포함. 1.3.24최종CI/릴리스/설치/실제사용자로그인복구는미완료.
+검색어: desktop-login-1113 후속 1.3.24 windows-identity app-icon.ico Electron 표시 PR1730 a80adf4a
+
 ## 2026-11-13 로그인 장애: 드라이브 짝짓기 동기 Excel 해제 분리
 - 사용자 PC Desktop 로그인500. 안전진단: 최근 로그인 ETIMEOUT connectionFailure, PC SELECT1 80ms/웹서버새풀SELECT1 347~387ms PASS, 실제앱 loopback/api/ping12초timeout. PM2 CPU104%, 메모리부족/OOM없음. 임시 localhost Inspector CPU4초/3669표본: XLSX build_tree/deflate가주요소요, 호출경로 api/work/drive-ingest→onFileIngested→전체시트명 재계산. Inspector사용후닫힘검증완료, 요청·비밀번호·환경값/원시프로파일출력0. 작업운영브랜치 codex/login-cpu-diag-1113(별도배포X).
 - 서버긴급수정: 새파일저장·분류·기존송금await 뒤, 동일짝짓기를 단일 Worker에서await. 관리자짝GET빈캐시/POST도Worker공유. 유형/중복조건·응답·점수/과거연도파일·MSSQL모두보존. 이중요청coalesce·대기128한도·업로드buffer해제·Worker256MB·10분기한·실패원본/기존짝보존. 기존검증된owner lock재사용으로다중프로세스게시직렬화, tmp+rename원자게시. 시트명SHA/stat캐시512개·nativezlib로반복압축해제줄임.
 - 실제Worker 3검사 PASS: 주이벤트루프timer응답/기존짝결과동일/3동시요청/원본색인bytes보존/변경파일갱신/캐시재파싱0/timeout·게시실패시기존대상보존/잠금·temp정리. 기존workDrivePairs+MOYI회귀 PASS. 변경API2건 쓰기가드/217manifest PASS. 운영데이터직접변경/원장쓰기0. CI·배포·운영로그인복구는진행중미완료.
 - 기준선: 내부실행격리이며사용자메뉴/작업순서/권한/입출력변경없어새가이드해당없음. 기존API의remit순서와MSSQL문구보존, 새SQL0이라새dnSpy/업무DBprobe해당없음(전체CI가드는유지).
 검색어: drive-pairs-unblock-1113 로그인500 ETIMEOUT CPU104 XLSX.inflate workDrivePairsWorker 주스레드정지
+
+- 사용자후속‘로그인 됐는데 아이콘없음’ 확인. 서버임시 native-zlib완화 후실계정로그인사용자확인, 정식Worker배포43385150877 SUCCESS(a80adf4a) 및읽기pingDB성공4263ms. 이후사용자오늘업무/PM타임아웃추가신고: 개인업무응답이SQL피드백조회까지기다리는추가결합확인.
+- 보완: 피드각조회1500ms제한·공유품질inflight계속coalesce/후속캐시갱신. 느린피드백은feedErrors로안내하고개인JSON업무표시·체크저장성공. 출처읽음표시는지연/알수없는키허용하지않음. IPC fetch/body Timeout/Abort는한글503/504결과로반환해Electron원문예외노출방지, 계정generation격리보존. 실제파일/주입지연회귀 및bridge5검사PASS.
+- 본창뿐아니라메모장에도Windowsidentity동일적용. 최종전체창포함가이드165.3초10단계와소스해시PASS. 사용자작업중으로네이티브창자동클릭이최소화/geometry오류를반환하여추가화면조작중단. 사용자가직접재조회하도록안내예정. 1.3.24최종CI/릴리스/사용자PC설치와홈·PM재확인은진행중미검증.
+검색어: desktop-login-1113 homeFeedRead 1500ms transportFailure 503 504 오늘업무Timeout PM확인불가 로그인사용자확인 1.3.24

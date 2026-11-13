@@ -1,4 +1,5 @@
 'use strict';
+const { applyWindowIdentity } = require('./windows-identity.cjs');
 const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen, dialog, shell, Menu, safeStorage, net, Notification, clipboard } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -98,7 +99,7 @@ function readSaved() {
   try { if (!safeStorage.isEncryptionAvailable() || fs.statSync(statePath()).size > 1024 * 1024) return null; return safeSnapshot(JSON.parse(safeStorage.decryptString(fs.readFileSync(statePath())))); } catch { return null; }
 }
 function layout(w) {
-  if (w.win.isDestroyed()) return;
+  if (!w || w.win.isDestroyed()) return;
   const [width, height] = w.win.getContentSize();
   const { top, bottom } = shellInsets(w);
   for (const id of w.ids) {
@@ -128,6 +129,7 @@ function createWindow(config = {}) {
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: !app.isPackaged } });
   const w = { id, win, ids: [], activeId: null, menuOpen: true, toolsOpen: false, message: '', notice: '', confirmedClose: false };
   windows.set(id, w);
+  applyWindowIdentity(win,{packaged:app.isPackaged,execPath:process.execPath,resourcesPath:process.resourcesPath,appDir:__dirname});
   win.setMenuBarVisibility(false);
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', e => e.preventDefault());
@@ -167,6 +169,7 @@ function openNotesWindow() {
   const work=screen.getPrimaryDisplay().workArea;
   const win=new BrowserWindow({width:320,height:690,useContentSize:true,minWidth:280,minHeight:480,x:Math.max(work.x,work.x+work.width-340),y:work.y+25,title:'네노바 업무 메모장',icon:path.join(__dirname,'assets','icon.png'),backgroundColor:'#ffffff',alwaysOnTop:readNotesPrefs().pinned,show:false,
     webPreferences:{preload:path.join(__dirname,'notes-preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,devTools:!app.isPackaged}});
+  applyWindowIdentity(win,{packaged:app.isPackaged,execPath:process.execPath,resourcesPath:process.resourcesPath,appDir:__dirname});
   notesWindow=win;auxiliary.add(win);win.setMenuBarVisibility(false);
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',event=>event.preventDefault());win.webContents.on('will-attach-webview',event=>event.preventDefault());
   win.on('close',event=>{if(!quitting&&notesDirty&&!confirm({win,activeId:null},'저장하지 않은 메모장 입력을 버리고 닫을까요?'))event.preventDefault();});
@@ -490,7 +493,11 @@ async function verifyAccount(initial = false) {
     menus = []; syncStatus = 'error';
     lockAccount();
     const w = [...windows.values()][0] || createWindow();
-    if (![...tabs.values()].some(t => new URL(t.url).pathname === '/login')) openTab(w, { url: '/login', title: '네노바 로그인' });
+    const login = [...tabs.values()].find(t => new URL(t.url).pathname === '/login');
+    if (login) {
+      const ownerWindow = windows.get(login.windowId);
+      if (ownerWindow) activate(ownerWindow, login.id);
+    } else openTab(w, { url: '/login', title: '네노바 로그인' });
     return;
   }
   const changed = actor !== newActor;

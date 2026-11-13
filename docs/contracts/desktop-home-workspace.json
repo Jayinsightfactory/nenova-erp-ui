@@ -34,7 +34,8 @@
     "desktop/tests/home-board.test.cjs",
     "desktop/scripts/exit-probe.cjs",
     "desktop/shell/company-calendar.js",
-    "desktop/company-calendar.cjs"
+    "desktop/company-calendar.cjs",
+    "desktop/windows-identity.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -125,5 +126,7 @@
   "scheduleAndShortcut": "Criteria: docs/plans/task-launch-criteria-1112.md. startTime/endTime optional KST HH:mm, omitted preserves old settings, empty clears, end strictly after start. shortcut null or kind/target/label, web http(s) without credentials, desktop exact current authenticated bootstrap menu validated at launch in main process. Launch never writes personal completion or ERP. Selected occurrence settings update immediately via snapshot, future rule next day; previous dates and owners preserve snapshots. Shared task-settings normalization in server, IPC and UI. Compact 320px content notes/8 rows, home first8 with paging/timeline.",
   "shortcutSearch": "Home and notes share a local search input over the authenticated bootstrap menu labels and groups. NFKC/case/whitespace normalization, no network. Filtering preserves the selected href, unmatched search cannot silently save an old connection, Enter explicitly selects first visible result without submitting, ArrowDown focuses native select, Escape clears query before dialog close. Queries are not persisted. Account/menu refresh preserves query and valid selection; switching kind clears hidden search validity. Native Electron smoke plus actual Chromium search/save/reload/no-result/keyboard/280-390px regression.",
   "presentation": "Desktop home only: read-only projected staff requests, large monthly overview by default with sorted two-item daily previews and counts; selected Monday-first weekly time-block schedule always displayed below, exact times, overlap lanes and empty-slot prefill, right task/guidance/feedback rail. Main-window close preserves notes; explicit quit/logout closes all. Web dashboard unchanged.",
-  "recurringTaskDisplay": "Home and notes show one latest scheduled occurrence per rule. Earlier unfinished occurrences remain stored for history but do not accumulate or reappear after latest completion. Calendar and weekly views retain exact date occurrences; distinct rules are never merged by title."
+  "recurringTaskDisplay": "Home and notes show one latest scheduled occurrence per rule. Earlier unfinished occurrences remain stored for history but do not accumulate or reappear after latest completion. Calendar and weekly views retain exact date occurrences; distinct rules are never merged by title.",
+  "windowsIdentity": "Main windows set explicit Nenova taskbar AppUserModelID, relaunchDisplayName, relaunchCommand and a real external app-icon.ico. The ICO is copied as a builder extraResource, never handed to Windows as an asar path. Authentication failures activate the existing login view in its owner window.",
+  "feedIsolation": "Guidance/quality reads have a 1500ms per-source deadline so slow SQL feedback cannot hold personal JSON task reads/writes past IPC transport deadlines. Pending shared quality loads still coalesce and may fill their cache later; a timeout returns explicit feedErrors and never authorizes an unknown read marker. Existing client last-good feed retention remains owner-scoped. Main bridge returns Korean retryable 503/504 transport results instead of raw Electron TimeoutError, preserving account-generation checks and input drafts."
 }
