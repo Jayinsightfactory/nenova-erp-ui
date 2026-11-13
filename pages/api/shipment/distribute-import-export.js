@@ -25,7 +25,8 @@ async function handler(req,res) {
       if(!/\.xlsx$/i.test(file.originalFilename||''))throw new Error('바로 생성은 .xlsx 물량표를 선택하세요.');
       const workbook=XLSX.read(buffer,{type:'buffer'});
       const parsed=parseAllocationWorkbook(XLSX,workbook);
-      output=await createUploadedFieldWorkbook(buffer,parsed.rows,{filename:file.originalFilename,farmText:field('farmText'),week:field('week'),year:field('year')});
+      const directory=await query("SELECT CustName, OrderCode, Descr FROM Customer WHERE ISNULL(isDeleted,0)=0");
+      output=await createUploadedFieldWorkbook(buffer,parsed.rows,{customerDirectory:directory.recordset,filename:file.originalFilename,farmText:field('farmText'),week:field('week'),year:field('year')});
     } else {
       const plan=verifyFarmExport(buffer,field('exportPlan'),req.user.userId);
       if(mode==='field-volume') {

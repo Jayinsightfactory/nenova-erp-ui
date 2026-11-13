@@ -36,7 +36,7 @@
       "shipmentDetail": "preserve",
       "shipmentDate": "preserve",
       "shipmentFarm": "preserve",
-      "sideEffect": "Authenticated file-only conversion. Zero database queries or writes; no matching or apply prerequisite. Source weekday, units and summaries preserved. Optional pasted/embedded farm notes validated; unresolved notes retained. Previous subweek not inferred."
+      "sideEffect": "Authenticated file-only conversion. Active Customer display-name lookup only, zero writes; no matching or apply prerequisite. Source weekday, units and summaries preserved. Print assigned farm quantities as entered, independently of source shipment quantities. Omit raw text and unresolved notes. Previous subweek not inferred."
     }
   ],
   "crossYearFixture": {

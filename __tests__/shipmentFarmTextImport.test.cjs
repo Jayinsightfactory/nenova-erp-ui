@@ -3,7 +3,7 @@ const XLSX=require('xlsx'),ExcelJS=require('exceljs'),JSZip=require('jszip');
 const suffix=process.platform==='win32'?'-msvc':process.platform==='linux'?'-gnu':'';
 const {transformSync}=require(`@next/swc-${process.platform}-${process.arch}${suffix}`);
 const cache=new Map();
-const allowed=new Set(['shipmentFarmText','shipmentFarmWorkbook','shipmentFarmImport','shipmentFarmAssignments','shipmentFarmCandidates','shipmentImportQty','orderUtils','shipmentImport','shipmentFixScopeCore','shipmentFixScope','shipmentDescr','distributeUnits','pivotProdName','orderImportCustomerMatch','sourceProductScope','shipmentImportSourceScope']);
+const allowed=new Set(['shipmentFarmText','shipmentFarmWorkbook','shipmentFarmImport','shipmentFarmAssignments','shipmentFarmCandidates','customerExportName','shipmentImportQty','orderUtils','shipmentImport','shipmentFixScopeCore','shipmentFixScope','shipmentDescr','distributeUnits','pivotProdName','orderImportCustomerMatch','sourceProductScope','shipmentImportSourceScope']);
 function load(name){
   if(cache.has(name))return cache.get(name).exports;
   const mod={exports:{}};cache.set(name,mod);
