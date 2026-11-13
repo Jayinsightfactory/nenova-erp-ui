@@ -2806,7 +2806,7 @@
 - 기준선: 페이지스크롤/반응형/키보드/실패안내/가이드 적용; ERP변경확인은 기존버튼 보존; 새ERP쓰기 해당없음. 전체필수gate/정식build/PR·CI·배포·운영스모크는 진행예정(미검증). 상세 docs/plans/field-volume-2026-11-13.md.
 검색어: 신형현장물량표 엑셀업로드 카톡농장분배 돈셀(2)3/5 요일색 입고출고재고잔량 field-volume-v1
 - 후속: 공식 전체 ERP 계약/pre/post exit0, dnSpy exit0, manifest215/쓰기guard/가이드 exit0. 원본 공란 재고의 source 입고·주문·잔량 식으로만0판정하는 추가회귀 포함 관련33검사 PASS, 최종공식 webpack/1worker build exit0. 2025/2026 새출력SQL 실조회와 모델 분리 PASS(운영쓰기0). PR/CI/배포·운영가이드재생은 후속.
-- 배포전 원본재검사: 카네이션 Vintage Honey 9/74행이 동일Prod3513으로 연결(SELECT만)되며 별도재고1이 첫셀참조에서 누락됨을 재현. 원본 SheetJS 캐시0을 사용하고 원본 물리행별입고/재고를1회합산, 업체/반복블록중복0. 실제원본 입고1/재고1 확인. 제로환산공유·캐시0·복수품목오연결차단 포함 관련37검사PASS. 기존UI/가이드/원장쓰기변경0, 후속빌드/CI/배포 미검증.
+- 배포전 원본재검사: 카네이션 Vintage Honey 9/74행이 동일Prod3513으로 연결(SELECT만)되며 별도재고1이 첫셀참조에서 누락됨을 재현. 원본 SheetJS 캐시0을 사용하고 원본 물리행별입고/재고를1회합산, 업체/반복블록중복0. 실제원본 입고1/재고1 확인. 제로환산공유·캐시0·복수품목오연결차단 포함 관련37검사PASS. 기존UI/가이드/원장쓰기변경0, 보완본 공식 ERP 전체/pre/post·dnSpy·manifest·쓰기가드·가이드·webpack1worker build 모두exit0. 후속CI/배포 미검증.
 검색어: field-volume final-build33 source-proven-zero stock SELECT-only manifest215
 
 - 배포 직전 최종CI verify/installer 모두 SUCCESS. 동시 PR#1708(견적 관리 원장알림)265bc97f 병합으로 WORK_MEMORY append만 충돌 → 양쪽 기록 보존 통합. 기능 파일 충돌 없음. 통합본 CI 재확인 후 병합/배포 진행.
