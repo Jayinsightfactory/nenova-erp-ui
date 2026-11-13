@@ -8,7 +8,8 @@
 import fs from 'fs';
 import path from 'path';
 import { withAuth } from '../../../lib/auth';
-import { listVisible, getFile, reclassify, reclassifyAll, downloadLog, deptOfName, STAGES, driveUsage } from '../../../lib/workDrive';
+import { listVisible, getFile, reclassify, reclassifyAll, downloadLog, deptOfName, STAGES } from '../../../lib/workDrive';
+import { readDriveListAsync } from '../../../lib/workDriveListAsync.cjs';
 import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
 import { WORK_DRIVE_ADMIN_USER_IDS } from '../../../lib/workDrive';
 
@@ -29,7 +30,10 @@ export default withAuth(async function handler(req, res) {
     const who = deptOfName(user.userName);
     const isAdmin = isOrbitReportViewer(user) || WORK_DRIVE_ADMIN_USER_IDS.includes(String(user.userId || '').trim());
     // usage(2026-11-09): 관리자에게만 실제 사용량(색인 최신행 기준 + 디스크 교차검증, 5GB 대비 %) — 507 용량 오판 재발 감시용
-    return res.status(200).json({ success: true, me: who.name || user.userName || user.userId, dept: who.dept, isAdmin, stages: STAGES, files: listVisible(user), ...(isAdmin ? { usage: driveUsage() } : {}) });
+    let snapshot;
+    try { snapshot = await readDriveListAsync({ includeUsage: isAdmin }); }
+    catch { res.setHeader('Retry-After','2');return res.status(503).json({success:false,error:'업무 파일 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'}); }
+    return res.status(200).json({ success: true, me: who.name || user.userName || user.userId, dept: who.dept, isAdmin, stages: STAGES, files: listVisible(user, snapshot.rows), ...(isAdmin ? { usage: snapshot.usage } : {}) });
   }
   if (req.method === 'POST') {
     const b = req.body || {};
