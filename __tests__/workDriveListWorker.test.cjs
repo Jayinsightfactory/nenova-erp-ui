@@ -99,3 +99,28 @@ test('response backpressure and disconnect stop further writes',async()=>{
  Object.assign(res,{setHeader(){},write(){writes++;queueMicrotask(()=>res.emit('close'));return false;},end(){ended=true;}});
  await sendDriveListJson(res,{success:true,files:Array.from({length:200},(_,i)=>({id:String(i),filename:'fixture'}))},{chunkBytes:10});assert.equal(writes,1);assert.equal(ended,false);for(const event of ['close','drain','error'])assert.equal(res.listenerCount(event),0);
 });
+
+test('usage-only reader scans freshly without returning rows; its slow queue cannot block the list',()=>fixture(async({root,wd})=>{
+ const {createDriveUsageReader}=require('../lib/workDriveListAsync.cjs'),usageReader=createDriveUsageReader({projectRoot}),listReader=createDriveListReader({projectRoot});
+ try{const first=await usageReader.read();assert.equal(first.rows,undefined);assert.equal(first.usage.onDisk,wd.driveUsage().onDisk);fs.writeFileSync(path.join(root,'fresh-orphan.txt'),'fresh');const next=await usageReader.read();assert.equal(next.usage.onDisk,first.usage.onDisk+5);assert.equal(usageReader.stats().diskWalks,2);const list=await listReader.read();assert.equal(list.usage,undefined);assert.equal(listReader.stats().diskWalks,0);}finally{await usageReader.close();await listReader.close();}
+ const {EventEmitter}=require('node:events'),usageChild=new EventEmitter(),listChild=new EventEmitter();let message;
+ for(const child of [usageChild,listChild])Object.assign(child,{ref(){},unref(){},terminate:async()=>{}});
+ usageChild.postMessage=m=>{message=m;};listChild.postMessage=m=>queueMicrotask(()=>listChild.emit('message',{id:m.id,ok:true,snapshot:{rows:[]}}));
+ const slow=createDriveUsageReader({maxWaiters:1,launchChild:()=>usageChild}),fast=createDriveListReader({launchChild:()=>listChild});
+ try{const pending=slow.read(),closed=assert.rejects(pending,/CLOSED/);await new Promise(resolve=>setImmediate(resolve));assert.equal(message.usageOnly,true);await assert.rejects(slow.read(),/BUSY/);assert.deepEqual((await fast.read()).rows,[]);assert.equal(fast.status().waiters,0);await slow.close();await closed;}finally{await slow.close();await fast.close();}
+}));
+
+test('API opts into deferred usage explicitly, authorizes separate usage before work, and preserves legacy admin usage',()=>fixture(async({wd})=>{
+ let listCalls=0,usageCalls=0,failUsage=false;
+ const source=fs.readFileSync(path.join(projectRoot,'pages/api/work/drive.js'),'utf8').replace(/^import[\s\S]*?from ['"][^'"]+['"];?\s*/gm,'').replace('export default','return');
+ const expectedUsage={used:0,max:100,files:0,pct:0};
+ const deps={fs,path,withAuth:fn=>fn,...wd,isOrbitReportViewer:u=>u?.userId===boss.userId,sendDriveListJson:async(res,payload)=>res.status(200).json(payload),readDriveListAsync:async options=>{listCalls++;assert.equal(options?.includeUsage,undefined);return {rows:wd.readDriveListRows()};},readDriveUsageAsync:async()=>{usageCalls++;if(failUsage)throw Error('fixture slow disk failure');return {usage:expectedUsage};}};
+ const handler=new Function(...Object.keys(deps),source)(...Object.values(deps));
+ async function request(user,query){const res={statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(code){this.statusCode=code;return this;},json(payload){this.payload=payload;return this;}};await handler({method:'GET',user,query},res);return res;}
+ let result=await request(boss,{format:'table-v1',usage:'deferred'});assert.equal(result.statusCode,200);assert.equal(result.payload.usage,null);assert.deepEqual(result.payload.files,wd.listVisible(boss));assert.equal(usageCalls,0);assert.equal(result.headers['Cache-Control'],'no-store');
+ result=await request(a,{usage:'only'});assert.equal(result.statusCode,403);assert.equal(usageCalls,0);
+ result=await request(boss,{usage:'only'});assert.equal(result.statusCode,200);assert.deepEqual(result.payload.usage,expectedUsage);assert.equal(listCalls,1);
+ result=await request(boss,{});assert.equal(result.statusCode,200);assert.deepEqual(result.payload.usage,expectedUsage);assert.deepEqual(result.payload.files,wd.listVisible(boss));
+ result=await request(a,{});assert(!Object.hasOwn(result.payload,'usage'));assert.deepEqual(result.payload.files,wd.listVisible(a));
+ failUsage=true;result=await request(boss,{usage:'only'});assert.equal(result.statusCode,503);assert.equal(result.headers['Retry-After'],'2');result=await request(boss,{format:'table-v1',usage:'deferred'});assert.equal(result.statusCode,200);assert(result.payload.files.length>0);
+}));
