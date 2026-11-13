@@ -13,7 +13,8 @@ async function captureLoginCpu(pid,dir,WebSocket){
   const nodes=new Map(profile.nodes.map(n=>[n.id,n])),counts=new Map();for(const id of profile.samples||[])counts.set(id,(counts.get(id)||0)+1);
   const safeName=n=>/^[\w$ .<>:[\]()-]{0,100}$/.test(n||'')?(n||'[anonymous]'):'[function]';
   const parents=new Map();for(const n of profile.nodes)for(const id of n.children||[])parents.set(id,n.id);
-  const top=[...counts].sort((a,b)=>b[1]-a[1]).slice(0,15).map(([id,count])=>{const n=nodes.get(id),f=n.callFrame,url=f.url||'';let ancestors=[],p=parents.get(id);for(let i=0;i<5&&p;i++,p=parents.get(p))ancestors.push(safeName(nodes.get(p).callFrame.functionName));return {name:safeName(f.functionName),file:url.startsWith(dir+'/')?url.slice(dir.length+1).split('?')[0]:url.startsWith('node:')?url:'[runtime]',line:f.lineNumber+1,samples:count,ancestors};});
+  const safeFrame=f=>{let url=f.url||'';if(url.startsWith('file://')){try{url=new URL(url).pathname;}catch{url='';}}return {name:safeName(f.functionName),file:url.startsWith(dir+'/')?url.slice(dir.length+1).split('?')[0]:url.startsWith('node:')?url:'[runtime]',line:f.lineNumber+1};};
+  const top=[...counts].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([id,count])=>{const f=nodes.get(id).callFrame;let ancestors=[],p=parents.get(id);for(let i=0;i<24&&p;i++,p=parents.get(p))ancestors.push(safeFrame(nodes.get(p).callFrame));return {...safeFrame(f),samples:count,ancestors};});
   return {samples:profile.samples?.length||0,durationMs:(profile.endTime-profile.startTime)/1000,top};
  }finally{
   if(ws){if(opened){try{await post('Runtime.evaluate',{expression:"(typeof require==='function'?require:process.mainModule.require.bind(process.mainModule))('node:inspector').close()"},2500);}catch{}}try{ws.terminate();}catch{}}
