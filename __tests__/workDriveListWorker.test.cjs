@@ -66,3 +66,12 @@ test('expired queued callers reject before starting any new read',async()=>{
   child.emit('message',{id:messages[0].id,ok:true,snapshot:{rows:[]}});await first;await expired;assert.equal(launches,1);assert.equal(messages.length,1,'expired pending batch must not start IPC work');assert.equal(reader.status().waiters,0);
  }finally{await reader.close();}
 });
+test('a slow child termination cannot extend pending HTTP deadlines',async()=>{
+ const {EventEmitter}=require('node:events'),child=new EventEmitter();let release;
+ Object.assign(child,{ref(){},unref(){},terminate:()=>new Promise(resolve=>{release=resolve;}),postMessage(){}});
+ const reader=createDriveListReader({timeoutMs:20,launchChild:()=>child}),guard=setInterval(()=>{},1000);
+ try{
+  await assert.rejects(reader.read(),/TIMEOUT/);await new Promise(resolve=>setTimeout(resolve,5));assert(release);
+  await assert.rejects(reader.read(),/TIMEOUT/);assert.equal(reader.status().waiters,0);
+ }finally{release?.();await reader.close();clearInterval(guard);}
+});

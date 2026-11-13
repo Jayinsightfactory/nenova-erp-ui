@@ -48,10 +48,10 @@ heartbeat 정지는 줄었지만, 콜드 시작에는 약 63 ms가 추가되었�
 
 ## 회귀 범위
 
-- 새 6개 검사: 같은 스냅샷/정렬/요청별 ACL·관리자 용량, 배치 coalesce,
+- 새 7개 검사: 같은 스냅샷/정렬/요청별 ACL·관리자 용량, 배치 coalesce,
   외부 교정/append·동일 크기 교체·삭제, 읽기 오류 시 stale 거부,
   동시성 한도·timeout·종료·원본 불변, 실행 중 새 호출의 freshness,
-  인증정보 없는 IPC, 동기 실행/전송 예외의 503 정리, 큐 만료 전송 방지.
+  인증정보 없는 IPC, 동기 실행/전송 예외의 503 정리, 큐 만료 전송 방지·자식 종료 지연 중 대기 기한 유지.
 - 기존 `workDrive.test.js`(권한·다운로드·교정·용량), `workDrivePairs.test.js`,
   `workDriveIngestIndex.test.cjs` 통과. 계약 manifest와 ERP 쓰기 범위 검사 통과.
 - 전체 필수 CI·빌드·운영 재확인은 별도 단계이며 이 로컬 검증만으로 완료로 보지 않는다.
