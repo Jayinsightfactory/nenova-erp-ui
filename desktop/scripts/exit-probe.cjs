@@ -5,7 +5,7 @@ if (!process.versions.electron) {
   const { spawnSync } = require('node:child_process');
   const assert = require('node:assert/strict');
   const electron = require('electron');
-  for (const mode of ['--quit', '--window-close', '--cancel-double-close']) {
+  for (const mode of ['--quit', '--window-close', '--cancel-double-close','--notes-survive','--notes-quit','--notes-dirty']) {
     const child = spawnSync(electron, [__filename, mode], { encoding: 'utf8', timeout: 15000, windowsHide: true });
     process.stdout.write(child.stdout || '');
     process.stderr.write(child.stderr || '');
@@ -41,6 +41,7 @@ app.whenReady().then(() => {
     }
     assert.ok(['GET', 'HEAD'].includes(request.method), 'no ERP mutation requests');
     if (pathname === '/api/desktop/home-workspace') return Response.json({ success: true, schemaVersion: 1, ownerId: 'exit-probe', revision: 0, tasks: [], guidance: [], feedback: [] });
+    if(pathname==='/api/pm/staff-requests')return Response.json({success:true,requests:[]});
     if (pathname === '/api/auth/me') return Response.json({ success: true, user: { userId: 'exit-probe' } });
     if (pathname === '/api/desktop/bootstrap') return Response.json({ success: true, schemaVersion: 1, user: { userId: 'exit-probe' }, webVersion: 'fixture', menuVersion: 'a'.repeat(64), menus: [{group:'Fixture',items:[{href:'/test/probe',labelKey:'Probe',popup:false}]}] });
     return new Response('<!doctype html><title>Isolated exit fixture</title><p>No live requests</p>', {headers:{'content-type':'text/html'}});
@@ -59,7 +60,22 @@ app.whenReady().then(async () => {
     console.log('EXIT FAILED', main.windows.size, main.tabs.size, webContents.getAllWebContents().map(wc => ({id:wc.id,url:wc.getURL()})));
     app.exit(2);
   }, 8000); watchdog.unref();
-  if (process.argv.includes('--cancel-double-close')) {
+  if(process.argv.some(a=>a.startsWith('--notes-'))){
+    await main.command(w,'notesOpen',{});await new Promise(r=>setTimeout(r,500));
+    const notes=webContents.getAllWebContents().find(c=>c.getURL().includes('/notes.html'));assert.ok(notes);
+    w.win.close();await new Promise(r=>setTimeout(r,500));assert.equal(main.windows.size,0);assert.equal(notes.isDestroyed(),false);
+    assert.equal(await notes.executeJavaScript("window.notes.invoke('workspace',{method:'GET',date:'2026-11-13'})").then(r=>r.ownerId),'exit-probe');
+    console.log('NOTES SURVIVED');
+    if(process.argv.includes('--notes-dirty')){
+      await notes.executeJavaScript("window.notes.invoke('draft',{dirty:true})");answer=1;require('electron').BrowserWindow.fromWebContents(notes).close();await new Promise(r=>setTimeout(r,100));assert.equal(notes.isDestroyed(),false);answer=0;
+    }
+    if(process.argv.includes('--notes-survive')){
+      await notes.executeJavaScript("window.notes.invoke('home')");await new Promise(r=>setTimeout(r,400));assert.equal(main.windows.size,1);const reopened=[...main.windows.values()][0];
+      main.command(reopened,'open',{url:'/test/probe'});assert.equal(main.tabs.size,1);reopened.win.close();await new Promise(r=>setTimeout(r,400));assert.equal(main.windows.size,0);
+      require('electron').BrowserWindow.fromWebContents(notes).close();
+    }else await notes.executeJavaScript("window.notes.invoke('quit')").catch(()=>{});
+  }
+  else if (process.argv.includes('--cancel-double-close')) {
     answer = 1;
     w.win.close();
     await new Promise(r => setTimeout(r, 300));

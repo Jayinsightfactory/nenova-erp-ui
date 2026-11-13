@@ -33,7 +33,8 @@
   const filter = node('select'); filter.setAttribute('aria-label', '업무 보기');
   for (const [value, label] of [['active', '전체 업무'], ['pending', '미완료'], ['done', '완료'], ['repeat', '반복 업무'], ['archived', '삭제한 업무']]) filter.add(new Option(label, value));
   const guide=button('사용 가이드 영상',()=>window.desktop.invoke('open',{url:'/desktop-guide',title:'오늘의 내 업무 사용 가이드'}).catch(e=>setError(e.message)));
-  heading.append(guide,title, date, weekday, current, filter, count, refresh, openNotes, downloadNotes);
+  heading.append(title,openNotes);
+  const tools=node('details','hw-tools');tools.append(node('summary','','날짜 · 보기 · 도구'));const toolBody=node('div','hw-tool-body');toolBody.append(date,weekday,current,filter,refresh,downloadNotes,guide);tools.append(toolBody);
   const status = node('p', 'hw-status'); status.setAttribute('role', 'status');
   const error = node('div', 'hw-error'); error.setAttribute('role', 'alert'); error.hidden = true;
   const errorText = node('span'); const retry = button('다시 시도', () => pending ? void sendPending() : void load()); error.append(errorText, retry);
@@ -45,7 +46,8 @@
   const viewBar=node('div','hw-viewbar'),listView=button('목록',()=>{timeline=false;renderTasks();}),timeView=button('시간표',()=>{timeline=true;expanded=true;renderTasks();});viewBar.append(listView,timeView);
   const rows = node('div', 'hw-rows');
   const more = button('전체 보기', () => { if (!expanded) { expanded = true; renderTasks(); } else if (snapshot?.nextOffset != null) void loadMore(); else { expanded = false; renderTasks(); } }); more.hidden = true;
-  panel.append(heading, status, error, form,viewBar, rows, more); root.append(feeds, feedDetail, panel);
+  const progress=node('progress','hw-progress');progress.max=1;progress.value=0;progress.setAttribute('aria-label','업무 완료율');
+  panel.append(heading,count,progress,tools,status,error,form,viewBar,rows,more); root.append(panel, feeds, feedDetail);
 
   function makeRepeat(values, frequency) {
     const wrap = node('div', 'hw-repeat'); const select = node('select'); select.setAttribute('aria-label', '반복 기준');
@@ -62,10 +64,10 @@
   function lock() { form.querySelectorAll('input,select,button').forEach(e => e.disabled = !owner || busy || !snapshot); date.disabled = busy || !owner; filter.disabled = busy || !owner; openNotes.disabled = !owner; downloadNotes.disabled = !owner; retry.disabled = busy; }
   function stamp(value) { if (!value) return ''; const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(d); }
   function changeDate(value, auto = false) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || busy) return;
-    if (editing || pending || input.value.trim() || addSettings.dirty()) { date.value = selectedDate; setError('작성 중인 업무를 저장하거나 수정 취소 후 날짜를 변경해 주세요. 추가 입력은 직접 지울 수 있습니다.'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || busy) return false;
+    if (editing || pending || input.value.trim() || addSettings.dirty()) { date.value = selectedDate; setError('작성 중인 업무를 저장하거나 수정 취소 후 날짜를 변경해 주세요. 추가 입력은 직접 지울 수 있습니다.'); return false; }
     selectedDate = value; followsToday = auto; date.value = value; expanded = false; confirmation = null;
-    snapshot = null; renderTasks(); void load();
+    snapshot = null; renderTasks(); void load(); return true;
   }
   date.addEventListener('change', () => changeDate(date.value)); filter.addEventListener('change', () => { expanded = false; renderTasks(); });
   input.addEventListener('input', draftSignal);settingsToggle.addEventListener('input',draftSignal);
@@ -79,7 +81,7 @@
     if (followsToday && selectedDate !== today() && !editing && !pending && !input.value.trim()) { selectedDate = today(); date.value = selectedDate; snapshot = null; }
     const ticket = epoch, requestedDate = selectedDate, generation = ++readGeneration; querying = true;
     if (!snapshot) status.textContent = '개인 업무와 소식을 불러오는 중…';
-    try { const data = await invoke({ method: 'GET', date: requestedDate, offset: 0, limit: 200 });
+    try { const data = await invoke({ method: 'GET', date: requestedDate, calendarMonth:requestedDate.slice(0,7), offset: 0, limit: 200 });
       if (ticket !== epoch || generation !== readGeneration || requestedDate !== selectedDate) return;
       if (!data?.success || data.ownerId !== owner) throw new Error(data?.error || '개인 업무를 확인하지 못했습니다.');
       for (const lane of lanes) if (data.feedErrors?.[lane.key] && !data[lane.key]?.length && snapshot?.[lane.key]?.length) data[lane.key] = snapshot[lane.key];
@@ -139,7 +141,9 @@
     if (editing && rows.querySelector('.hw-edit')) {try{captureEdit();}catch{ return; }}
     const focusedEdit = rows.querySelector('.hw-edit')?.contains(document.activeElement) ? { name: document.activeElement.name, start: document.activeElement.selectionStart, end: document.activeElement.selectionEnd } : null;
     rows.replaceChildren(); weekday.textContent = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'long' }).format(new Date(selectedDate + 'T12:00:00+09:00'));
+    window.dispatchEvent(new CustomEvent('home-workspace-data',{detail:{owner,date:selectedDate,calendar:snapshot?.calendar}}));
     const all = snapshot?.tasks || []; const active = all.filter(t => !t.archived);
+    progress.max=Math.max(1,active.length);progress.value=active.filter(t=>t.done).length;
     count.textContent = snapshot ? (snapshot.nextOffset != null ? '불러온 업무 ' : '') + active.filter(t => t.done).length + ' / ' + active.length + ' 완료' + (snapshot.nextOffset != null ? ' · 전체 ' + snapshot.totalTasks + '건' : '') : '';
     const items = all.filter(t => filter.value === 'archived' ? t.archived : !t.archived && (filter.value === 'pending' ? !t.done : filter.value === 'done' ? t.done : filter.value === 'repeat' ? (t.frequency||((t.weekdays||[]).length?'weekly':'once')) !== 'once' : true)).sort(window.NenovaTaskSettings.compare);
     listView.setAttribute('aria-pressed',String(!timeline));timeView.setAttribute('aria-pressed',String(timeline));
@@ -300,7 +304,7 @@
   setInterval(() => { if (!visible || document.hidden || detail) return; for (const lane of lanes) if (!lane.paused && !lane.hover && !lane.focus && (snapshot?.[lane.key]?.length || 0) > 1) lane.at = (lane.at + 1) % snapshot[lane.key].length; renderFeeds(); }, 8000);
   reduced.addEventListener('change', e => { if (e.matches) { lanes.forEach(l => l.paused = true); renderFeeds(); } });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void load(); else clearTimeout(timer); });
-  window.homeWorkspace = { applyState(next) {
+  window.homeWorkspace = { selectDate:changeDate, applyState(next) {
     if(Array.isArray(next.menus)){menuGroups=next.menus;addSettings.setMenus(menuGroups);}
     const nextOwner = Object.prototype.hasOwnProperty.call(next, 'homeOwnerId') ? String(next.homeOwnerId || '') : owner;
     const changed = nextOwner !== owner, wasVisible = visible, wasOnline = online;

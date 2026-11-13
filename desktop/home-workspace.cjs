@@ -20,6 +20,7 @@ function requestOptions(payload, owner) {
   const options = { method, credentials: 'include', cache: 'no-store', redirect: 'error', headers: { Origin: ORIGIN } };
   if (method === 'GET') {
     url.searchParams.set('expectedOwnerId', owner);
+    if(payload.calendarMonth!==undefined){if(typeof payload.calendarMonth!=='string'||!/^(?:20\d{2}|2100)-(?:0[1-9]|1[0-2])$/.test(payload.calendarMonth))return fail('달력의 연월을 확인하세요.');url.searchParams.set('calendarMonth',payload.calendarMonth);}
     if (payload.date !== undefined) url.searchParams.set('date', dateValue(payload.date));
     for (const key of ['offset', 'limit']) if (payload[key] !== undefined) {
       if (!Number.isSafeInteger(payload[key]) || payload[key] < (key === 'limit' ? 1 : 0) || payload[key] > (key === 'limit' ? 500 : 10_000_000)) return fail('목록 범위를 확인하세요.');

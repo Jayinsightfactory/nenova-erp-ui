@@ -315,6 +315,7 @@
     for (const key of ['windows', 'tabs', 'favorites', 'menus']) if (Array.isArray(next[key])) state[key] = next[key];
     render();
     window.homeWorkspace?.applyState(next);
+    window.homeDashboard?.applyState(next);
     if (Object.prototype.hasOwnProperty.call(next, 'homeOwnerId') && next.homeOwnerId !== pmLive.owner) {
       pmLive.owner = next.homeOwnerId || ''; pmLive.generation++; pmLive.busy = false;
       clearTimeout(pmLive.timer); pmLive.timer = null;

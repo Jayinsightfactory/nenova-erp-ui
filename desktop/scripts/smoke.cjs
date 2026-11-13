@@ -150,6 +150,7 @@ function installFixtureProtocol() {
       activityEvents.push(...body.events);
       return Response.json({success:true,acceptedIds:body.events.map(event=>event.id)});
     }
+    if(url.pathname==='/api/pm/staff-requests')return Response.json({success:true,requests:[]});
     if (url.pathname === PM_OFFICE_ROUTE && request.method === 'GET') {
       return Response.json({ success: true, ageSec: 15, receivedAt: new Date().toISOString(), data: {
         generatedAt: new Date().toISOString(), agents: [{ id: 'pm', status: 'working', activity: '오류·정체 상태 확인 중' }],
@@ -261,7 +262,7 @@ async function verifyHomeUi(contents, window) {
     csp: document.querySelector('meta[http-equiv="Content-Security-Policy"]').content })`);
   assert.equal(boundary.protocol, 'nenova-app:'); assert.equal(boundary.module, true);
   assert.match(boundary.csp, /connect-src 'none'/, 'home UI does not relax browser network CSP');
-  await contents.executeJavaScript(`(() => { const date = document.querySelector('.hw-heading input[type=date]');
+  await contents.executeJavaScript(`(() => { const date = document.querySelector('.hw-tool-body input[type=date]');
     date.value = '${HOME_DATE}'; date.dispatchEvent(new Event('change', {bubbles:true})); })()`);
   await waitFor(() => contents.executeJavaScript(`document.querySelector('.hw-rows').textContent.includes('IPC 생성 업무') && !document.querySelector('.hw-add>button').disabled`), 'home reload shows server-confirmed IPC snapshot');
   assert.equal(await contents.executeJavaScript('Boolean(document.querySelector("#homeWorkspace img")) || Boolean(window.__homeInjected)'), false, 'feed HTML remains inert text');
@@ -311,7 +312,7 @@ async function verifyHomeUi(contents, window) {
   await waitFor(() => contents.executeJavaScript('Boolean(document.querySelector(".hw-confirm button"))'), 'archive confirmation opens');
   await contents.executeJavaScript('document.querySelector(".hw-confirm button").click()');
   await waitFor(() => homeStore(accountActor).tasks.find(task => task.id === uiTask.id).archived, 'today task archive persists');
-  await contents.executeJavaScript('document.querySelector(".hw-heading select").value = "archived"; document.querySelector(".hw-heading select").dispatchEvent(new Event("change"))');
+  await contents.executeJavaScript('document.querySelector(".hw-tool-body select").value = "archived"; document.querySelector(".hw-tool-body select").dispatchEvent(new Event("change"))');
   await waitFor(() => contents.executeJavaScript('document.querySelector(".hw-rows").textContent.includes("수정된 오늘 업무")'), 'archived task remains recoverable');
   main.command(window, 'activate', { id: previousActive });
   await waitFor(() => [...main.tabs.values()].every(tab => !tab.loading), 'home source tabs finish loading before synthetic shell-state checks');
@@ -647,12 +648,12 @@ async function run() {
     assert.ok(updateLayout.width <= updateLayout.viewport, 'long release notes do not overflow');
     assert.ok(updateLayout.notice.top >= 0 && updateLayout.notice.bottom <= 44 && updateLayout.notice.right <= updateLayout.tabs.left, `${width}px update notice stays inside the tab bar without overlapping tabs`);
     const [welcome, updatePanel, pmPanel, search] = updateLayout.children;
-    if (width > 1120) {
+    if (width > 1350) {
       assert.ok(welcome.right <= updatePanel.left && updatePanel.right <= pmPanel.left && pmPanel.right <= search.left, 'PM live panel is highlighted between app update and menu search');
-    } else if (width <= 800) {
+    } else if (width <= 600) {
       assert.ok(welcome.bottom <= updatePanel.top && updatePanel.bottom <= pmPanel.top && pmPanel.bottom <= search.top, 'small header follows title-update-PM-search order');
     } else {
-      assert.ok(welcome.right <= updatePanel.left && pmPanel.top >= Math.max(welcome.bottom, updatePanel.bottom) && search.top >= pmPanel.bottom, 'medium header keeps PM and search below title and update');
+      assert.ok(welcome.right <= updatePanel.left && pmPanel.top >= Math.max(welcome.bottom, updatePanel.bottom) && search.left >= pmPanel.right, 'medium header keeps PM and search below title and update');
     }
     shellContents.send('desktop:state', { appUpdate: { phase: 'idle', message: '앱 업데이트를 확인할 수 있습니다.' } });
     await waitFor(() => shellContents.executeJavaScript("document.querySelector('#appUpdateNotes li')?.textContent === '상단 홈 버튼을 알아보기 쉬운 집 모양으로 바꿨습니다.'"), 'installed-version note fallback');
