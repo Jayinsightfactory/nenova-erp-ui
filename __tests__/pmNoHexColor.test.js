@@ -9,10 +9,12 @@ const root = process.cwd();
 const walk = (d) => fs.readdirSync(path.join(root, d), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : /\.jsx?$/.test(e.name) ? [path.join(d, e.name)] : []));
 const files = [path.join('pages', 'pm.js'), ...walk(path.join('components', 'pm')), ...fs.readdirSync(path.join(root, 'lib')).filter((f) => /^pm.*\.js$/.test(f)).map((f) => path.join('lib', f))];
 const ALLOW = path.join('lib', 'pmThemes.js');
+// 분위기 정의 파일도 색을 정하는 곳이다(2026-11-15 '맑은 업무' 확정). 토큰 값만 덮어쓰는 파일만 여기에 넣는다.
+const ALLOW_LOOKS = [path.join('lib', 'pmLookClear.js')];
 const HEX = /(^|[^&\w$])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/;
 const bad = [];
 for (const f of files) {
-  if (f === ALLOW) continue;
+  if (f === ALLOW || ALLOW_LOOKS.includes(f)) continue;
   fs.readFileSync(path.join(root, f), 'utf8').split('\n').forEach((line, i) => { if (HEX.test(line)) bad.push(`${f}:${i + 1}: ${line.trim().slice(0, 100)}`); });
 }
 assert.deepStrictEqual(bad, [], `하드코딩 색(#hex) 금지 — lib/pmThemes.js 토큰을 var(--pm-*) 로 쓰세요:\n${bad.join('\n')}`);

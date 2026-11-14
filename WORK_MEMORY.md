@@ -3017,6 +3017,13 @@ Cafe24 2만여 파일에서 관리자 전체 목록 응답이 2.31~6.14초였다
 - 미검증/남은 일: `/pm`(글 4만 자·16px 칩 306개)과 `/ops`(혼자 어두운 분위기)는 `pages/pm.js`·`pages/ops.js`가 가이드 영상 지문 대상이라 손대지 않았다 — 고치려면 영상 재촬영이 같이 필요. 힉스필드는 잔액 756.8·모델 목록까지만 확인되고 생성 도구가 세션에 연결되지 않아 분위기 시안 3종(A 따뜻한 종이·B 맑은 업무·C 짙은 관제)은 코드로 만들었다(`Desktop\디자인시안`). 방향 선택은 사장님 결정 대기. 운영 크롬에서 화면 사진이 찍히지 않아 사진은 로컬 실행본 기준.
 - 검색어: UI 표준 화면 기준 버튼 통일 뒤로가기 nv-back EmptyState Notice Skeleton 기술 레이더 불러오는 중 멈춤 조건 지우기 매뉴얼 접힘 줄 설치 첫 결과 흐름 S6 S9 디자인 시안
 
+## 2026-11-15 화면 분위기 "맑은 업무"(시안 B) 확정 · 레이더·매뉴얼 적용
+- 요청/원인: 사장님이 분위기 시안 A/B/C 그림을 보고 B(흰 바탕·얇은 선·남색 강조)를 골랐다.
+- 구현: `lib/pmLookClear.js`(토큰 값만 덮어쓰는 분위기 정의, `data-look="clear"`), `/pm/radar`·`components/manuals/{ImportHandover,RoutineManual,LivePipelineManual}`·`pages/work/manuals.js`에 연결. 레이더는 색 면(분홍·민트·노랑 카드)을 흰 바탕+선으로, 점수·새로 꼬리표·막대는 남색의 짙고 옅음으로. `__tests__/pmNoHexColor.test.js`에 분위기 정의 파일 허용 목록 추가. `docs/UI_STANDARD.md` 5절 갱신.
+- 검증: pmNoHexColor·pmUiKit·pmTechRadar·importHandover·workLivePipelines·pmBoundary 통과. 로컬 1440px·390px 사진(가로 밀림 없음).
+- 미검증/남은 일: `/pm` 사무실·`/ops`는 `pages/pm.js`·`lib/pmThemes.js`·`pages/ops.js`가 가이드 영상 지문 대상이라 그대로다. 레이더 작은 카드의 점수 꼬리표가 제목 아랫줄로 내려간다(꼬리표 셋일 때 제목이 찌그러지던 것을 막은 결과).
+- 검색어: 맑은 업무 분위기 시안 B pmLookClear data-look clear 남색 흰 바탕 얇은 선 레이더 매뉴얼 색 면 제거
+
 ## 2026-11-15 PM 확인표 — 조사 결과에 "어디서 무엇을 확인했는지" 줄 남기기
 - 요청/원인: 사장님 지시 이력 1,188건(최근 30일 948건 전수 + 이전 표본 240건) 분석에서 AI 결과를 다시 고치는 지시가 37%, 첫 실수 1·2위가 "일부만 함"(57건)·"확인 없이 완료 보고"(45건). 사장님이 FDE 로직 적용 순서 1번(확인표)을 승인.
 - 구현: PC C:\Users\USER\nenova-pm(저장소 밖)의 조사 지침 두 곳(pm.js, pm-staff.js)에 확인표 문장을 넣고 check-table.js가 CHECK: 줄을 세어 업무 대장·게시판에 "확인 n건 · 미검증 m건"으로 붙인다. 대장 상태 판단은 바꾸지 않았다. 이 저장소에는 .claude/agents/nenova-pm.md에 같은 표 형식을 적었다.

@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Badge, Button, EmptyState, LinkButton, Notice, SelectCard, Skeleton, ToggleChip, PmUiStyles, Tabs } from '../../components/pm/ui';
 import { themeById, themeCss } from '../../lib/pmThemes';
+import { LOOK_CLEAR, lookClearCss } from '../../lib/pmLookClear';
 import { verifyReqUser } from '../../lib/auth';
 
 export async function getServerSideProps({ req, res, resolvedUrl }) {
@@ -205,9 +206,9 @@ export default function TechRadar() {
   const sysCount = useMemo(() => { const m = new Map(); items.forEach((x) => (x.systems || []).forEach((s) => m.set(s, (m.get(s) || 0) + 1))); return [...m.entries()].sort((a, b) => b[1] - a[1]); }, [items]);
 
   return (
-    <div className="pm radar" data-theme="B">
+    <div className="pm radar" data-theme="B" data-look={LOOK_CLEAR}>
       <PmUiStyles />
-      <style dangerouslySetInnerHTML={{ __html: clayCss }} />
+      <style dangerouslySetInnerHTML={{ __html: clayCss + lookClearCss }} />
       <header className="top">
         <div className="brand">
           <h1>기술 레이더</h1>
@@ -340,6 +341,26 @@ export default function TechRadar() {
         .radar .errraw summary { cursor: pointer; }
         .radar .pmk-notice { margin-top: 12px; }
         .radar .fclear .fl { font-weight: bold; }
+        /* "맑은 업무" 분위기(lib/pmLookClear.js) — 색 면을 걷어 내고 얇은 선으로. 강조색(남색)은 한 색의 짙고 옅음으로만 쓴다. */
+        .pm.radar[data-look="clear"] .bc.tone0, .pm.radar[data-look="clear"] .bc.tone1, .pm.radar[data-look="clear"] .bc.tone2 { background: var(--pm-surface); border: 1px solid var(--pm-line); box-shadow: none; }
+        .pm.radar[data-look="clear"] .sc, .pm.radar[data-look="clear"] .box, .pm.radar[data-look="clear"] .filters { border: 1px solid var(--pm-line); box-shadow: none; }
+        .pm.radar[data-look="clear"] .bic, .pm.radar[data-look="clear"] .ic0, .pm.radar[data-look="clear"] .ic1, .pm.radar[data-look="clear"] .ic2, .pm.radar[data-look="clear"] .ic3 { background: var(--pm-surface2); box-shadow: none; }
+        .pm.radar[data-look="clear"] .bc .pts { background: var(--pm-surface2); color: var(--pm-ink); }
+        .pm.radar[data-look="clear"] .newb { background: color-mix(in srgb, var(--pm-accent) 10%, var(--pm-surface)); color: var(--pm-accent); }
+        .pm.radar[data-look="clear"] .sc .score.top { background: var(--pm-accent); color: var(--pm-accent-ink); }
+        .pm.radar[data-look="clear"] .sc .score.hi { background: color-mix(in srgb, var(--pm-accent) 14%, var(--pm-surface)); color: var(--pm-accent); }
+        .pm.radar[data-look="clear"] .sc .score.mid, .pm.radar[data-look="clear"] .sc .score.lo { background: var(--pm-surface2); color: var(--pm-muted); }
+        .pm.radar[data-look="clear"] .bf.top { background: var(--pm-accent); }
+        .pm.radar[data-look="clear"] .bf.hi { background: color-mix(in srgb, var(--pm-accent) 62%, var(--pm-surface)); }
+        .pm.radar[data-look="clear"] .bf.mid { background: color-mix(in srgb, var(--pm-accent) 36%, var(--pm-surface)); }
+        .pm.radar[data-look="clear"] .bf.lo { background: color-mix(in srgb, var(--pm-accent) 18%, var(--pm-surface)); }
+        .pm.radar[data-look="clear"] .box .tchip.c0, .pm.radar[data-look="clear"] .box .tchip.c1, .pm.radar[data-look="clear"] .box .tchip.c2, .pm.radar[data-look="clear"] .box .tchip.c3 { background: var(--pm-surface2); }
+        .pm.radar[data-look="clear"] .brand .round, .pm.radar[data-look="clear"] .bc .term { box-shadow: none; border: 1px solid var(--pm-line); }
+        .pm.radar[data-look="clear"] .pmk-chip.on { color: var(--pm-accent); }
+        /* 꼬리표가 셋 붙어도 제목이 찌그러지지 않게 — 넘치면 꼬리표가 아랫줄로 */
+        .radar .sc .hit { flex-wrap: wrap; }
+        .radar .sc .hit .ttl { flex: 1 1 110px; min-width: 110px; }
+        .pm.radar[data-look="clear"] .pmk-btn.pmk-primary { color: var(--pm-accent-ink); }
         /* 고른 칩·주 버튼 글자 — 민트 바탕 위 흰 글자는 잘 안 읽혀 본문 글자색으로 */
         .radar .pmk-chip.on, .radar .pmk-btn.pmk-primary { color: var(--pm-ink); }
         /* 왼쪽 추천 큰 카드 — 파스텔 클레이(핑크/민트/크림 교대) */
