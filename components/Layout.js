@@ -47,6 +47,7 @@ export const MENU_ITEMS = [
       { href: '/operations-knowledge', labelKey: '주의·이슈 및 업무처리 지침', popup: false },
       { href: '/work/drive', labelKey: '업무 드라이브', popup: false },
       { href: '/work/operations', labelKey: '내 작업 기록', popup: false },
+      { href: '/work/meetings', labelKey: '회의정리', popup: false },
     ]
   },
   {

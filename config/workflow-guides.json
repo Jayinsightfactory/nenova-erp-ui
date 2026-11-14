@@ -1143,6 +1143,88 @@
           ]
         }
       ]
+    },
+    {
+      "id": "work-meetings",
+      "title": "회의 내용을 화이트보드로 정리하기",
+      "entryPaths": [
+        "/work/meetings"
+      ],
+      "sourceFiles": [
+        "pages/work/meetings.js",
+        "components/meetings/MeetingBoard.js",
+        "components/meetings/boardExport.js",
+        "lib/meetingBoard.js"
+      ],
+      "requiredScenarios": [
+        "new",
+        "paste",
+        "organize",
+        "edit",
+        "move",
+        "source",
+        "save",
+        "export",
+        "reopen"
+      ],
+      "guides": [
+        {
+          "id": "staff",
+          "role": "직원",
+          "title": "회의 내용 넣기부터 보드 고치기 · 저장 · 다시 열기",
+          "status": "ready",
+          "src": "/guides/work-meetings/staff.mp4",
+          "captions": "/guides/work-meetings/staff.ko.vtt",
+          "proof": "/guides/work-meetings/staff.proof.json",
+          "chapters": [
+            {
+              "scenario": "new",
+              "title": "1. 새 회의 정리 시작",
+              "seconds": 0.008
+            },
+            {
+              "scenario": "paste",
+              "title": "2. 회의 내용 넣기",
+              "seconds": 13.209
+            },
+            {
+              "scenario": "organize",
+              "title": "3. AI로 정리하기",
+              "seconds": 34.919
+            },
+            {
+              "scenario": "edit",
+              "title": "4. 쪽지 고치기",
+              "seconds": 54.775
+            },
+            {
+              "scenario": "move",
+              "title": "5. 쪽지 옮기기",
+              "seconds": 70.346
+            },
+            {
+              "scenario": "source",
+              "title": "6. 원문에서 확인하기",
+              "seconds": 84.44
+            },
+            {
+              "scenario": "save",
+              "title": "7. 저장하기",
+              "seconds": 101.826
+            },
+            {
+              "scenario": "export",
+              "title": "8. 그림으로 받기",
+              "seconds": 114.995
+            },
+            {
+              "scenario": "reopen",
+              "title": "9. 목록에서 다시 열기",
+              "seconds": 130.398
+            }
+          ]
+        }
+      ]
     }
   ]
 }
