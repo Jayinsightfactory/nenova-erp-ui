@@ -45,8 +45,8 @@ async function main(){
   try{
     await page.goto(base+'/estimate?tab=shipment-date',{waitUntil:'networkidle0'});
     await page.waitForSelector('[role="combobox"]:not([disabled])');
-    rec=dry?{caption:async()=>{},chapter:()=>{},pause:ms=>new Promise(r=>setTimeout(r,Math.min(ms,100))),stop:async()=>null}:await createWorkflowGuideRecorder(page,{root,workflowId:workflow.id,guideId:'sales',title:workflow.title,sourceFiles:workflow.sourceFiles,fixtureOnly:true});
-    rec.chapter('favorite','업체 자동완성으로 선택하기');
+    rec=dry?{caption:async()=>{},chapter:()=>{},focus:async()=>{},unfocus:async()=>{},pause:ms=>new Promise(r=>setTimeout(r,Math.min(ms,100))),stop:async()=>null}:await createWorkflowGuideRecorder(page,{root,workflowId:workflow.id,guideId:'sales',title:workflow.title,sourceFiles:workflow.sourceFiles,fixtureOnly:true});
+    rec.chapter('favorite','1. 업체 자동완성으로 선택하기');await rec.caption('1. 업체명 입력칸에서 검색하고 방향키와 Enter로 선택합니다.');await rec.focus('[role="combobox"]',1);
     await page.focus('[role="combobox"]');await page.type('[role="combobox"]','호텔');await page.waitForSelector('[role="listbox"]');
     assert.equal(await page.$$eval('[role="option"]',n=>n.length),2);
     await hold('업체명을 입력하면 바로 아래에 검색 후보가 뜹니다.\n방향키로 이동하고 Enter로 선택할 수 있습니다.',6);
@@ -55,7 +55,7 @@ async function main(){
     await clickText('즐겨찾기 저장');await page.waitForFunction(()=>document.body.textContent.includes('업체와 정산 요일을 즐겨찾기에 저장했습니다.'));
     await clickText('연습 호텔 A (화~월)');await page.waitForFunction(()=>document.querySelectorAll('th[scope="colgroup"]').length===2);
     await hold('이제 즐겨찾기 업체를 누르면 바로 조회합니다.\n저장한 정산 요일의 최근 두 기간과 공급가·VAT·합계가 보입니다.',7);
-    rec.chapter('range','원하는 기간과 매출 확인');
+    await rec.unfocus();rec.chapter('range','2. 원하는 기간과 매출 확인');await rec.caption('2. 조회 방식과 시작일·종료일을 선택합니다.');await rec.focus('[aria-label="출고 매출 조회 방식"]',2);
     await page.select('[aria-label="출고 매출 조회 방식"]','range');
     await dateInput('출고 매출 시작일','2026-11-02');await dateInput('출고 매출 종료일','2026-11-15');
     await clickText('기간 달력');await page.waitForSelector('[aria-label="출고일 기간 달력"]');
@@ -68,19 +68,19 @@ async function main(){
     assert.equal(await page.$$eval('th[scope="colgroup"]',n=>n.length),2);
     assert.equal(await page.$$eval('tbody tr',n=>n.length),21);
     await hold('품목은 행, 날짜와 요일은 열로 표시됩니다.\n선택 범위를 7일씩 나눠 주차별로 나란히 비교합니다.',7);
-    rec.chapter('source','일별 수량·원차수·매출 합계');
+    await rec.unfocus();rec.chapter('source','3. 일별 수량·원차수·매출 합계');await rec.caption('3. 품목별 저장 판매단가와 일별 수량을 확인합니다.');await page.$eval('[aria-label="연습 장미 레드 출고 저장 판매단가"]',n=>n.scrollIntoView({block:'center'}));await rec.focus('[aria-label="연습 장미 레드 출고 저장 판매단가"]',3);
     assert(await page.evaluate(()=>document.body.textContent.includes('90 = 30(44-1) / 60(44-2)')));
     const rowHeight=await page.$eval('tbody tr',n=>n.getBoundingClientRect().height);assert(rowHeight<=38,'compact data row');
     await hold('품목명 옆에 저장 판매단가가 바로 보입니다.\n단가가 여러 개면 각각의 단가와 수량을 나눠 표시합니다.',7);
     assert(await page.$eval('[aria-label="연습 장미 레드 출고 저장 판매단가"]',n=>n.textContent.includes('1,100원')&&n.textContent.includes('2,200원')));
     await page.screenshot({path:'.verify/date-sales-quick-desktop.png'});
-    await page.$eval('tfoot',n=>n.scrollIntoView({block:'center'}));
+    await rec.unfocus();await page.$eval('tfoot',n=>{document.body.style.paddingBottom='700px';n.scrollIntoView({block:'center',behavior:'instant'});const r=n.getBoundingClientRect();window.scrollBy(0,r.y+r.height/2-500);});await rec.focus('tfoot',3);
     await hold('표 아래에는 날짜별 매출과 주차별 총매출이 나옵니다.\n금액은 부가세 포함, 단·송이·박스 수량은 따로 표시합니다.',7);
-    await page.$eval('button[aria-label*="연습 장미 레드"][aria-label*="상세"]',n=>n.click());await page.waitForSelector('[aria-label="출고일 단가 상세"]');
+    await rec.unfocus();await page.$eval('button[aria-label*="연습 장미 레드"][aria-label*="상세"]',n=>n.scrollIntoView({block:'center'}));await rec.focus('button[aria-label*="연습 장미 레드"][aria-label*="상세"]',3);await page.$eval('button[aria-label*="연습 장미 레드"][aria-label*="상세"]',n=>n.click());await page.waitForSelector('[aria-label="출고일 단가 상세"]');
     await page.$eval('[aria-label="출고일 단가 상세"]',n=>n.scrollIntoView({block:'center'}));
     await hold('수량을 누르면 날짜별 단가와 매출 상세를 확인합니다.\n이 화면은 원장을 변경하지 않는 조회 전용입니다.',6);
-    await clickText('상세 닫기');
-    rec.chapter('history','즐겨찾기와 이전 정산 이력');
+    await rec.unfocus();await clickText('상세 닫기');
+    await rec.unfocus();rec.chapter('history','4. 즐겨찾기와 이전 정산 이력');await page.$eval('[aria-label="업체별 정산 즐겨찾기"]',n=>n.scrollIntoView({block:'center'}));await rec.caption('4. 즐겨찾기에서 이전 정산기간을 다시 조회합니다.');await rec.focus('[aria-label="업체별 정산 즐겨찾기"]',4);
     await page.$eval('[aria-label="업체별 정산 즐겨찾기"]',n=>n.scrollIntoView({block:'center'}));await clickText('연습 호텔 A (화~월)');
     await page.waitForFunction(()=>document.querySelectorAll('th[scope="colgroup"]').length===2);
     const currentHeader=await page.$eval('th[scope="colgroup"]',n=>n.textContent);
@@ -91,7 +91,7 @@ async function main(){
     await clickText('이전 12개 정산 기간 더 보기');await page.waitForFunction(()=>document.querySelectorAll('th[scope="colgroup"]').length===24);
     await clickText('최근 2기간 보기');await page.waitForFunction(()=>document.querySelectorAll('th[scope="colgroup"]').length===2);
     assert.deepEqual(errors,[]);
-    const result=await rec.stop();stopped=true;
+    await rec.unfocus();const result=await rec.stop();stopped=true;
     if(!dry){workflow.guides[0].status='ready';workflow.guides[0].chapters=result.chapters;fs.writeFileSync(registryPath,JSON.stringify(registry,null,2)+'\n');}
     // Additional non-recorded checks: latest stored price on favorite click, no extra Query action.
     if(dry){priceVersion=1;const before=requests.length;await clickText('연습 호텔 A (화~월)');await page.waitForFunction(()=>document.querySelector('[aria-label="연습 장미 레드 출고 저장 판매단가"]')?.textContent.includes('3,300원'));assert(requests.length>before);assert.equal(await page.$$eval('th[scope="colgroup"]',n=>n.length),2);}

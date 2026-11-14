@@ -33,22 +33,24 @@ export default function MobileCustomerList() {
       .catch(() => {});
   }, [me]);
 
-  // 거래처 검색
+  // 입력은 즉시 표시하고, 연속 입력 중인 원격 조회는 합쳐서 보낸다.
   useEffect(() => {
     if (!me) return;
-    if (!search && !showAll) return;
-    setLoading(true);
-    const url = search
-      ? `/api/customers/search?q=${encodeURIComponent(search)}`
-      : '/api/customers/search';
-    fetch(url)
-      .then(r => r.json())
-      .then(d => {
-        if (d?.success) setCustomers(d.customers || []);
-        else setCustomers([]);
-      })
-      .catch(() => setCustomers([]))
-      .finally(() => setLoading(false));
+    if (!search && !showAll) { setLoading(false); return; }
+    const controller = new AbortController();
+    let live = true;
+    const timer = setTimeout(() => {
+      setLoading(true);
+      const url = search
+        ? `/api/customers/search?q=${encodeURIComponent(search)}`
+        : '/api/customers/search';
+      fetch(url, { signal: controller.signal })
+        .then(r => r.json())
+        .then(d => { if (live) setCustomers(d?.success ? (d.customers || []) : []); })
+        .catch(() => { if (live) setCustomers([]); })
+        .finally(() => { if (live) setLoading(false); });
+    }, search ? 250 : 0);
+    return () => { live = false; clearTimeout(timer); controller.abort(); };
   }, [me, search, showAll]);
 
   if (!me) return null;

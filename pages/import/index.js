@@ -1,7 +1,7 @@
 // pages/import/index.js
 // 수입부 한 화면 — Ant Design 파일럿(2026-09-22, 사장님 승인으로 antd 도입). 데이터 로직은 이전 버전과 동일(새 API 없음).
 //   상단 Statistic KPI / 왼쪽 농장 Table(상태·잔액·D-day·클레임) / 가운데 IncomingInsight(농장 흐름 또는 차수 보드) / 오른쪽 할 일 Tabs(송금 확정·클레임·ETA·미입고)
-import { useEffect, useMemo, useState } from 'react';
+import { startTransition, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Row, Col, Card, Statistic, Table, Tag, Tabs, Button, Input, Select, Space, Typography, Tooltip, Badge, Empty, Segmented, message, theme as antdTheme } from 'antd';
 import { ReloadOutlined, WarningOutlined, DollarOutlined, InboxOutlined, ClockCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import koKR from 'antd/locale/ko_KR';
@@ -83,7 +83,7 @@ export function ImportOnePage({ initialRole = 'import' } = {}) {
 
         <Row gutter={6} wrap={false} style={{ alignItems: 'flex-start' }}>
           <Col flex="0 0 300px">
-            <Card size="small" title={<Space size={4}><Input.Search size="small" placeholder="농장 검색" allowClear onChange={(e) => setQ(e.target.value)} style={{ width: 150 }} /><Select size="small" allowClear placeholder="상태" style={{ width: 96 }} value={stF} onChange={setStF} options={Object.keys(ST_C).map((s) => ({ value: s, label: s }))} /></Space>} extra={<a onClick={() => { setFarm(''); setView('board'); }}>전체</a>}>
+            <Card size="small" title={<Space size={4}><Input.Search size="small" placeholder="농장 검색" allowClear onChange={(e) => { const value = e.target.value; startTransition(() => setQ(value)); }} style={{ width: 150 }} /><Select size="small" allowClear placeholder="상태" style={{ width: 96 }} value={stF} onChange={setStF} options={Object.keys(ST_C).map((s) => ({ value: s, label: s }))} /></Space>} extra={<a onClick={() => { setFarm(''); setView('board'); }}>전체</a>}>
               <Table size="small" rowKey="farm" columns={farmCols} dataSource={farms} loading={loading && !ledger} pagination={{ pageSize: 25, size: 'small', showSizeChanger: false, showTotal: (n) => `${n}곳` }} scroll={{ y: 'calc(100vh - 330px)' }} rowClassName={(r) => (r.farm === farm ? 'ant-table-row-selected' : '')} onRow={(r) => ({ onClick: () => pick(r.farm), style: { cursor: 'pointer' } })} />
             </Card>
           </Col>

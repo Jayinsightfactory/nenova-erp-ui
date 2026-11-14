@@ -140,6 +140,12 @@ export default function Stock() {
       String(s.FlowerName || '').toLowerCase().includes(searchLive) ||
       String(s.CounName || '').toLowerCase().includes(searchLive)));
 
+  const visibleGroupCounts = new Map();
+  for (const row of visibleStock) {
+    const key = groupKeyOf(row);
+    visibleGroupCounts.set(key, (visibleGroupCounts.get(key) || 0) + 1);
+  }
+
   const applyAllEdits = async () => {
     const week = weekInput.value;
     const orderYear = String(week || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear());
@@ -355,7 +361,7 @@ export default function Stock() {
                           <td colSpan={colCount} style={{fontSize:12,fontWeight:800,padding:'5px 8px',color:'var(--text2)'}}>
                             {collapsed.has(gk) ? '▸' : '▾'} {gk}
                             <span style={{fontWeight:400,color:'var(--text3)',marginLeft:6}}>
-                              ({visibleStock.filter(x=>groupKeyOf(x)===gk).length}개)
+                              ({visibleGroupCounts.get(gk)}개)
                             </span>
                           </td>
                         </tr>

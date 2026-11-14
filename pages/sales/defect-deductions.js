@@ -228,6 +228,12 @@ export default function SalesDefectDeductionsPage() {
   const manualCostInputRef = useRef(null);
   const manualCostSavingRef = useRef(false);
   const lookupRequestSeq = useRef(0);
+  const lookupController = useRef(null);
+  useEffect(() => () => {
+    clearTimeout(searchTimer.current);
+    lookupRequestSeq.current += 1;
+    lookupController.current?.abort();
+  }, []);
   const salesLoadRequestSeq = useRef(0);
   const supportLoadRequestSeq = useRef(0);
   const supportReviewWindowRef = useRef(null);
@@ -536,6 +542,8 @@ export default function SalesDefectDeductionsPage() {
 
   const closeLookup = () => {
     clearTimeout(searchTimer.current);
+    lookupRequestSeq.current += 1;
+    lookupController.current?.abort();
     setLookup([]);
     setActiveSearch(null);
     setLookupQuery('');
@@ -577,9 +585,12 @@ export default function SalesDefectDeductionsPage() {
   const fetchLookup = (index, kind, term) => {
     clearTimeout(searchTimer.current);
     const requestSeq = ++lookupRequestSeq.current;
+    lookupController.current?.abort();
+    const controller = new AbortController();
+    lookupController.current = controller;
     searchTimer.current = setTimeout(async () => {
       try {
-        const data = await apiGet('/api/sales/defect-deductions', { view: 'lookups', kind, q: term });
+        const data = await apiGet('/api/sales/defect-deductions', { view: 'lookups', kind, q: term }, { signal: controller.signal });
         if (requestSeq !== lookupRequestSeq.current) return;
         const items = kind === 'customer' ? (data.customers || []) : kind === 'product' ? (data.products || []) : (data.farms || []);
         setLookup(items);
@@ -593,7 +604,7 @@ export default function SalesDefectDeductionsPage() {
           candidateScores: items.map((item) => Number(item.MatchConfidence || item.MatchScore / 100 || 0)),
           modelVersion: data.productMatch?.modelVersion,
         }).catch(() => {});
-      } catch (e) { setError(e.message); }
+      } catch (e) { if (requestSeq === lookupRequestSeq.current && !controller.signal.aborted) setError(e.message); }
     }, 120);
   };
 

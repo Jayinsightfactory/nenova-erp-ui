@@ -6,6 +6,10 @@
     "lib/displayName.js",
     "lib/productMatchingLearningStore.js",
     "lib/productSearchRanking.js",
+    "lib/productSearchWorker.js",
+    "lib/useRankedProductSearch.js",
+    "pages/master/products.js",
+    "__tests__/productSearchCache.test.cjs",
     "lib/orderImportMatch.js",
     "pages/orders/import.js",
     "pages/orders/paste.js",
@@ -42,5 +46,5 @@
   "downstreamPreserve": ["OrderDetail", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "ProductStock", "Estimate", "WebProfitReport", "Product.ProdName", "Product.DisplayName"],
   "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"],
   "requiredTests": ["__tests__/naturalLanguageProductMatching.test.js"],
-  "requiredTestFiles": ["__tests__/naturalLanguageProductMatching.test.js", "__tests__/erpContractManifest.test.js"]
+  "requiredTestFiles": ["__tests__/naturalLanguageProductMatching.test.js", "__tests__/productSearchCache.test.cjs", "__tests__/productSearchWorker.test.js", "__tests__/remoteSearchCancellation.test.cjs", "__tests__/erpContractManifest.test.js"]
 }

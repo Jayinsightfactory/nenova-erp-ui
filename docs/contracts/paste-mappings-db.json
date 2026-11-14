@@ -105,6 +105,7 @@
     }
   ],
   "criteria": {
+    "searchSnapshot": "Each authenticated product search checks the committed migration marker and the product mapping revision in one read. Reuse parsed aliases and ranked results only for that catalog and revision. Reject unavailable mapping data.",
     "authority": "Three full JSON documents in shared MSSQL are the only runtime source after committed migration. No process cache authority, file writes, file fallback or empty-success fallback on DB failure.",
     "lossless": "Preserve exact aliases, keys, manual/unit/savedAt/actor metadata, unknown fields and complete customer-product history. No rematching, metadata refresh during migration or SQL collation folding of alias keys.",
     "concurrency": "Read current document and apply existing manual protection and mutation under one DB transaction lock. Distinct concurrent alias writes must survive.",

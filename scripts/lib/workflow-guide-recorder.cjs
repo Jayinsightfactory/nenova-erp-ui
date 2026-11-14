@@ -97,6 +97,7 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
       const badge=document.createElement('div');badge.dataset.guideFocus='true';badge.textContent=`${number} 단계`;badge.style.cssText=`position:fixed;left:${badgeLeft}px;top:10px;background:#12335b;color:white;border:3px solid #f59e0b;border-radius:12px;padding:5px 15px;font-size:26px;font-weight:bold`;host.append(badge,mark);
       return {x:r.x+r.width/2,y:r.y+r.height/2};
     }, {number,badgeLeft});
+    if (!staticHighlight && (!Number.isFinite(box.x) || !Number.isFinite(box.y) || box.x < 0 || box.x > 1920 || box.y < (includeHeader ? 0 : 70) || box.y > 900)) throw Error(`Guide target outside capture band: ${selector} ${JSON.stringify(box)}`);
     if(staticHighlight)await page.evaluate(()=>{const c=document.querySelector('[data-guide-caption]');c.style.bottom='auto';c.style.top='80px';});
     await new Promise(r=>setTimeout(r,1800));if(!staticHighlight){activeShot={number,start:elapsed(),...box};focusShots.push(activeShot);}
     await new Promise(r=>setTimeout(r,2200));
