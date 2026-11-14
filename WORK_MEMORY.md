@@ -3016,3 +3016,10 @@ Cafe24 2만여 파일에서 관리자 전체 목록 응답이 2.31~6.14초였다
 - 검증: `node __tests__/pmUiKit.test.js`·`pmTechRadar`·`importHandover.test.cjs`·`pmBoundary` 통과. 로컬 실행본에서 1440px·390px 전후 사진, 불러오는 중·오류 상태, 탭 7개 전환·매뉴얼 열기·돌아가기 확인.
 - 미검증/남은 일: `/pm`(글 4만 자·16px 칩 306개)과 `/ops`(혼자 어두운 분위기)는 `pages/pm.js`·`pages/ops.js`가 가이드 영상 지문 대상이라 손대지 않았다 — 고치려면 영상 재촬영이 같이 필요. 힉스필드는 잔액 756.8·모델 목록까지만 확인되고 생성 도구가 세션에 연결되지 않아 분위기 시안 3종(A 따뜻한 종이·B 맑은 업무·C 짙은 관제)은 코드로 만들었다(`Desktop\디자인시안`). 방향 선택은 사장님 결정 대기. 운영 크롬에서 화면 사진이 찍히지 않아 사진은 로컬 실행본 기준.
 - 검색어: UI 표준 화면 기준 버튼 통일 뒤로가기 nv-back EmptyState Notice Skeleton 기술 레이더 불러오는 중 멈춤 조건 지우기 매뉴얼 접힘 줄 설치 첫 결과 흐름 S6 S9 디자인 시안
+
+## 2026-11-15 화면 분위기 "맑은 업무"(시안 B) 확정 · 레이더·매뉴얼 적용
+- 요청/원인: 사장님이 분위기 시안 A/B/C 그림을 보고 B(흰 바탕·얇은 선·남색 강조)를 골랐다.
+- 구현: `lib/pmLookClear.js`(토큰 값만 덮어쓰는 분위기 정의, `data-look="clear"`), `/pm/radar`·`components/manuals/{ImportHandover,RoutineManual,LivePipelineManual}`·`pages/work/manuals.js`에 연결. 레이더는 색 면(분홍·민트·노랑 카드)을 흰 바탕+선으로, 점수·새로 꼬리표·막대는 남색의 짙고 옅음으로. `__tests__/pmNoHexColor.test.js`에 분위기 정의 파일 허용 목록 추가. `docs/UI_STANDARD.md` 5절 갱신.
+- 검증: pmNoHexColor·pmUiKit·pmTechRadar·importHandover·workLivePipelines·pmBoundary 통과. 로컬 1440px·390px 사진(가로 밀림 없음).
+- 미검증/남은 일: `/pm` 사무실·`/ops`는 `pages/pm.js`·`lib/pmThemes.js`·`pages/ops.js`가 가이드 영상 지문 대상이라 그대로다. 레이더 작은 카드의 점수 꼬리표가 제목 아랫줄로 내려간다(꼬리표 셋일 때 제목이 찌그러지던 것을 막은 결과).
+- 검색어: 맑은 업무 분위기 시안 B pmLookClear data-look clear 남색 흰 바탕 얇은 선 레이더 매뉴얼 색 면 제거

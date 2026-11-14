@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Notice, PmUiStyles, Skeleton } from '../../components/pm/ui';
 import { allThemesCss } from '../../lib/pmThemes';
+import { LOOK_CLEAR, lookClearCss } from '../../lib/pmLookClear';
 import RoutineManual from '../../components/manuals/RoutineManual';
 import LivePipelineManual from '../../components/manuals/LivePipelineManual';
 import ImportHandover from '../../components/manuals/ImportHandover';
@@ -188,9 +189,9 @@ export default function WorkManualsPage() {
 
   // 불러오는 중·오류 — 기준(docs/UI_STANDARD.md 7절): 글자만 두지 않고 뼈대 / 쉬운 말 + [다시 불러오기]
   if (err || !data) return (
-    <div className="pm wm-wait" data-theme="B">
+    <div className="pm wm-wait" data-theme="B" data-look={LOOK_CLEAR}>
       <PmUiStyles />
-      <style dangerouslySetInnerHTML={{ __html: themeCss }} />
+      <style dangerouslySetInnerHTML={{ __html: themeCss + lookClearCss }} />
       {err ? (
         <Notice tone="error" title="업무 매뉴얼을 불러오지 못했습니다" action={<Button size="sm" variant="secondary" loading={busy} onClick={load}>다시 불러오기</Button>}>
           잠시 뒤 다시 눌러 주세요.
