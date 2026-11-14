@@ -4,7 +4,9 @@
 // 중: 선택 차수의 단계 요약띠 + 칸반 또는 표 / 우: 파일 상세(버전·내려받기·교정)
 // 접근 범위는 서버(lib/workDrive)가 이미 걸러서 준다 — 화면은 받은 것만 보여준다.
 import { createDriveCatalogLoader } from '../../lib/workDriveCatalogLoad.cjs';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { cycleKey, yearOf } from '../../lib/workDriveSearch.cjs';
+import { createDriveSearchLoader } from '../../lib/workDriveSearchLoad.cjs';
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { fileSubcategory, filterCategories, subcategoryCounts } from '../../lib/workDriveCategories';
 import { isKakaoInbound, securityEvent, securityRows, securityCounts } from '../../lib/workDriveSecurity';
 
@@ -13,17 +15,6 @@ const fmtD = (t) => { try { return new Date(t).toLocaleDateString('ko-KR', { mon
 const ago = (t) => { const s = (Date.now() - new Date(t).getTime()) / 1000; if (!(s >= 0)) return ''; if (s < 90) return '방금'; if (s < 3600) return Math.round(s / 60) + '분 전'; if (s < 86400) return Math.round(s / 3600) + '시간 전'; return Math.round(s / 86400) + '일 전'; };
 const fmtG = (n) => (n >= 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : (n / 1048576).toFixed(0) + ' MB');
 const fmtS = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB');
-const cycleKey = (c) => { const m = String(c || '').match(/^(\d+)(?:-(\d+))?$/); return m ? parseInt(m[1], 10) * 10 + (parseInt(m[2] || '0', 10)) : -1; };
-// 차수의 연도: ① 파일명에 적힌 연도(2025년·2024-46차·25년) ② 파일 수정시각 연도 — 단, 차수가 그 시점 주차보다 한참 크면(연말 차수를 1월에 손댄 파일) 전년
-const weekOf = (d) => Math.ceil(((d - new Date(d.getFullYear(), 0, 1)) / 864e5 + 1) / 7);
-const yearOf = (f) => {
-  const m = String(f.filename || '').match(/(?:^|[^\d])(20(2\d))(?:년|-\d{2}차|\s*\d{2}차)/) || String(f.filename || '').match(/(?:^|[^\d])(2\d)년/);
-  if (m) return m[1].length === 4 ? parseInt(m[1], 10) : 2000 + parseInt(m[1], 10);
-  const d = new Date(f.mtime || f.uploadedAt); let y = d.getFullYear(); if (!(y > 2000)) { return new Date(f.uploadedAt).getFullYear(); }
-  const major = parseInt(String(f.cycle || '').split('-')[0], 10);
-  if (major > weekOf(d) + 2) y -= 1;
-  return y;
-};
 const icon = (f) => (f.ext === 'pdf' ? '📄' : /xls|csv/.test(f.ext) ? '📊' : /doc|hwp|txt/.test(f.ext) ? '📝' : /png|jpg|jpeg/.test(f.ext) ? '🖼' : '📁');
 const dayKey = (t) => String(t || '').slice(0, 10);
 const NONE = '__none';
@@ -65,32 +56,63 @@ export default function WorkDrivePage() {
   const [usageError,setUsageError]=useState('');
   const [catalogState,setCatalogState]=useState({phase:'loading',error:''});
   const catalogLoader=useRef(null),selectionPending=useRef(null);
+  const [searchData,setSearchData]=useState(null),[searchState,setSearchState]=useState({phase:'idle'}),[rowLimit,setRowLimit]=useState(200);
+  const searchLoader=useRef(null),queryRef=useRef(q);queryRef.current=q;
+  const searchCriteria=useMemo(()=>({scope,who,dept:deptF,ext:extF,dir:dirF,period:periodF,sensitive:sensF,versions:verF,origin:originF,stage:stageF,subcategory:subF,sortKey:sort[0],sortDirection:sort[1],limit:view==='recent'?200:rowLimit,offset:new Date().getTimezoneOffset()}),[scope,who,deptF,extF,dirF,periodF,sensF,verF,originF,stageF,subF,sort,view,rowLimit]);
+  const criteriaRef=useRef(searchCriteria);criteriaRef.current=searchCriteria;
   const usage=usageData ?? data?.usage ?? null;
+  const denyFiles=()=>{
+    catalogLoader.current?.close();searchLoader.current?.cancel();selectionPending.current=null;
+    setData(null);setSearchData(null);setSel(null);setLog(null);setEg(null);setTl(null);setPv(null);setUsageData(null);
+    setErr('파일 접근 권한을 확인해 주세요.');setSearchState({phase:'error',error:'파일 접근 권한을 확인해 주세요.'});
+  };
   const chooseStage = (value) => { setStageF(value); setSubF(''); };
 
   const load = async () => {
     catalogLoader.current?.close();selectionPending.current=sel?.id??selectionPending.current;
     const loader=createDriveCatalogLoader({
       onFiles:(payload,{complete})=>{
-        setData(payload);setErr('');
+        if(queryRef.current){if(!complete)setData(previous=>previous??payload);return;}
+        if(complete)startTransition(()=>setData(payload));else setData(payload);setErr('');
         setSel(previous=>{const id=previous?.id??selectionPending.current;if(!id)return null;const fresh=payload.files.find(file=>file.id===id);if(!fresh){if(complete)selectionPending.current=null;return null;}return {...fresh,year:yearOf(fresh),ck:fresh.cycle?`${yearOf(fresh)}:${fresh.cycle}`:NONE};});
       },
       onStatus:state=>{setCatalogState(previous=>({...previous,...state}));if(state.denied)setErr(state.error);},
       onUsage:setUsageData,onUsageError:setUsageError,
-      onDenied:()=>{selectionPending.current=null;setData(null);setSel(null);setLog(null);setEg(null);setTl(null);setPv(null);},
+      onDenied:denyFiles,
       nextPaint:()=>new Promise(resolve=>{if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>requestAnimationFrame(resolve));else setTimeout(resolve,0);}),
     });
-    catalogLoader.current=loader;await loader.load();
+    catalogLoader.current=loader;if(queryRef.current){loader.pause();setSearchData(null);void searchLoader.current?.search(queryRef.current,criteriaRef.current);}await loader.load();
   };
   useEffect(() => { load();return ()=>catalogLoader.current?.close(); }, []);
+  useEffect(()=>{
+    const loader=createDriveSearchLoader({onResult:payload=>{
+      setSearchData(payload);
+      setData(previous=>({...previous,me:payload.me,dept:payload.dept,isAdmin:payload.isAdmin,stages:payload.stages,files:previous?.files||[]}));
+      setSel(previous=>{const id=previous?.id??selectionPending.current,fresh=payload.files.find(file=>file.id===id);selectionPending.current=fresh?.id??null;return fresh?{...fresh,year:yearOf(fresh),ck:fresh.cycle?`${yearOf(fresh)}:${fresh.cycle}`:NONE}:null;});
+    },onState:setSearchState,onDenied:denyFiles});
+    searchLoader.current=loader;return ()=>loader.close();
+  },[]);
+  useEffect(()=>{
+    setSearchData(null);setRowLimit(200);
+    if(!q){searchLoader.current?.cancel();setSearchState({phase:'idle'});catalogLoader.current?.resume();}
+    else catalogLoader.current?.pause();
+  },[q]);
+  useEffect(()=>{
+    if(!q)return;
+    setSearchState({phase:'loading',query:q,error:''});
+    const timer=setTimeout(()=>searchLoader.current?.search(q,searchCriteria),200);
+    return ()=>{clearTimeout(timer);searchLoader.current?.cancel();};
+  },[q,searchCriteria]);
   useEffect(() => { if (data?.isAdmin) setScope('all'); }, [data?.isAdmin]);
 
-  const files = useMemo(() => (data?.files || []).map((f) => ({ ...f, year: yearOf(f), ck: f.cycle ? `${yearOf(f)}:${f.cycle}` : NONE })), [data]);
+  const files = useMemo(() => ((q ? searchData?.files : data?.files) || []).map((f) => ({ ...f, year: yearOf(f), ck: f.cycle ? `${yearOf(f)}:${f.cycle}` : NONE })), [data,q,searchData]);
+  const searchSummary=q?searchData?.search:null;
+  const viewerData=q?(searchData??data):data;
   const extKind = (f) => (/xls|csv/.test(f.ext) ? 'xls' : f.ext === 'pdf' ? 'pdf' : /doc|hwp|txt|ppt/.test(f.ext) ? 'doc' : /png|jpg|jpeg/.test(f.ext) ? 'img' : 'etc');
-  const verCount = useMemo(() => { const m = {}; for (const f of files) { const k = f.uploaderName + '|' + f.filename; m[k] = (m[k] || 0) + 1; } return m; }, [files]);
+  const verCount = useMemo(() => { const m = {}; for (const f of files) { const k = f.uploaderName + '|' + f.filename; m[k] = f.searchVersionCount ?? ((m[k] || 0) + 1); } return m; }, [files]);
   const since = periodF ? Date.now() - Number(periodF) * 86400e3 : 0;
-  const scoped = useMemo(() => files
-    .filter((f) => who ? f.uploaderName === who : scope === 'all' ? true : scope === 'mine' ? f.uploaderName === data?.me : (f.dept === data?.dept || f.uploaderName === data?.me))
+  const scoped = useMemo(() => q?files:files
+    .filter((f) => who ? f.uploaderName === who : scope === 'all' ? true : scope === 'mine' ? f.uploaderName === viewerData?.me : (f.dept === viewerData?.dept || f.uploaderName === data?.me))
     .filter((f) => !deptF || f.dept === deptF)
     .filter((f) => !extF || extKind(f) === extF)
     .filter((f) => !dirF || f.sourceDir === dirF)
@@ -99,35 +121,39 @@ export default function WorkDrivePage() {
     .filter((f) => !verF || verCount[f.uploaderName + '|' + f.filename] > 1)
     .filter((f) => !originF || (originF === 'web') === (f.eventType === 'web-upload' || f.hostname === 'web'))
     .filter((f) => !q || f.filename.toLowerCase().includes(q.toLowerCase()) || (f.uploaderName || '').includes(q) || (f.cycle || '') === q), [files, scope, who, q, data, deptF, extF, dirF, since, sensF, verF, originF, verCount]);
-  const dirs = useMemo(() => { const m = {}; for (const f of files) if (f.sourceDir) m[f.sourceDir] = (m[f.sourceDir] || 0) + 1; return Object.entries(m).filter(([, n]) => n >= 5).sort((a, b) => b[1] - a[1]).slice(0, 30); }, [files]); // 5건 이상 폴더만, 많은 순 30개
+  const dirs = useMemo(() => { if(searchSummary?.facets)return searchSummary.facets.dirs;const m = {}; for (const f of files) if (f.sourceDir) m[f.sourceDir] = (m[f.sourceDir] || 0) + 1; return Object.entries(m).filter(([, n]) => n >= 5).sort((a, b) => b[1] - a[1]).slice(0, 30); }, [files,searchSummary]); // 5건 이상 폴더만, 많은 순 30개
   const anyF = !!(deptF || extF || dirF || periodF || sensF || verF || originF || stageF);
   const clearF = () => { setDeptF(''); setExtF(''); setDirF(''); setPeriodF(''); setSensF(''); setVerF(''); setOriginF(''); chooseStage(''); };
 
   // 사람 칩(범위 안에서) · 연도별 차수 · PC별 업로드 현황(사장)
-  const people = useMemo(() => { const m = new Map(); for (const f of files.filter((f) => scope === 'all' ? true : scope === 'mine' ? f.uploaderName === data?.me : (f.dept === data?.dept || f.uploaderName === data?.me))) if (f.uploaderName) { const p = m.get(f.uploaderName) || { name: f.uploaderName, dept: f.dept, n: 0, last: '' }; p.n++; if (f.uploadedAt > p.last) p.last = f.uploadedAt; m.set(f.uploaderName, p); } return [...m.values()].sort((a, b) => b.n - a.n); }, [files, scope, data]);
+  const people = useMemo(() => { if(searchSummary?.facets)return searchSummary.facets.people;const m = new Map(); for (const f of files.filter((f) => scope === 'all' ? true : scope === 'mine' ? f.uploaderName === data?.me : (f.dept === data?.dept || f.uploaderName === data?.me))) if (f.uploaderName) { const p = m.get(f.uploaderName) || { name: f.uploaderName, dept: f.dept, n: 0, last: '' }; p.n++; if (f.uploadedAt > p.last) p.last = f.uploadedAt; m.set(f.uploaderName, p); } return [...m.values()].sort((a, b) => b.n - a.n); }, [files, scope, data,searchSummary]);
   const years = useMemo(() => {
+    if(searchSummary?.years)return searchSummary.years;
     const m = new Map();
     for (const f of scoped) if (f.cycle) { const y = m.get(f.year) || new Map(); y.set(f.cycle, (y.get(f.cycle) || 0) + 1); m.set(f.year, y); }
     return [...m.entries()].sort((a, b) => b[0] - a[0]).map(([y, cs]) => ({ year: y, cycles: [...cs.entries()].sort((a, b) => cycleKey(b[0]) - cycleKey(a[0])).map(([c, n]) => ({ c, n, ck: `${y}:${c}` })) }));
-  }, [scoped]);
+  }, [scoped,searchSummary]);
   const allCk = years.flatMap((y) => y.cycles.map((c) => c.ck));
   const cur = cycle === NONE ? NONE : (cycle && allCk.includes(cycle) ? cycle : allCk[0] || null);
   const noCycle = scoped.filter((f) => f.ck === NONE);
   const inCycle = cur === NONE ? noCycle : scoped.filter((f) => f.ck === cur);
-  const stages = data?.stages || [];
+  const stages = viewerData?.stages || [];
   const stageCount = (list) => Object.fromEntries(stages.map((s) => [s, list.filter((f) => f.stage === s).length]));
   const today = dayKey(new Date().toISOString());
-  const hosts = useMemo(() => { const m = new Map(); for (const f of files) { const k = `${f.uploaderName || '?'}@${f.hostname || '?'}`; const h = m.get(k) || { name: f.uploaderName || '?', host: f.hostname || '?', n: 0, today: 0, last: '' }; h.n++; if (dayKey(f.uploadedAt) === today) h.today++; if (f.uploadedAt > h.last) h.last = f.uploadedAt; m.set(k, h); } return [...m.values()].sort((a, b) => (b.last > a.last ? 1 : -1)); }, [files, today]);
+  const hosts = useMemo(() => { if(searchSummary?.facets)return searchSummary.facets.hosts;const m = new Map(); for (const f of files) { const k = `${f.uploaderName || '?'}@${f.hostname || '?'}`; const h = m.get(k) || { name: f.uploaderName || '?', host: f.hostname || '?', n: 0, today: 0, last: '' }; h.n++; if (dayKey(f.uploadedAt) === today) h.today++; if (f.uploadedAt > h.last) h.last = f.uploadedAt; m.set(k, h); } return [...m.values()].sort((a, b) => (b.last > a.last ? 1 : -1)); }, [files, today,searchSummary]);
 
   // 표 데이터: 검색 중이거나 차수 없음이거나 목록 보기 → 표, 최근 보기 → 최근 200건
   const showList = view === 'list' || cur === NONE || !!q;
   const categoryBase = view === 'recent' || q ? scoped : inCycle;
-  const categoryRows = filterCategories(categoryBase, stageF, subF);
+  const categoryRows = q?scoped:filterCategories(categoryBase, stageF, subF);
+  const categoryTotal=searchSummary?.categoryCount??categoryRows.length;
+  const scopedTotal=searchSummary?.scopedCount??scoped.length;
   const listRows = useMemo(() => {
+    if(q)return files;
     const base = filterCategories(view === 'recent' || q ? scoped : inCycle, stageF, subF);
     const [k, d] = sort; const val = (f) => (k === 'cycle' ? cycleKey(f.cycle) : k === 'size' ? f.size : k === 'stage' ? fileSubcategory(f) : String(f[k] || ''));
-    return base.sort((a, b) => (val(a) > val(b) ? d : val(a) < val(b) ? -d : 0)).slice(0, view === 'recent' ? 200 : 2000);
-  }, [scoped, inCycle, view, q, stageF, subF, sort]);
+    return base.sort((a, b) => (val(a) > val(b) ? d : val(a) < val(b) ? -d : 0)).slice(0, view === 'recent' ? 200 : rowLimit);
+  }, [scoped, inCycle, view, q, stageF, subF, sort, rowLimit,files]);
 
   const fix = async (id, patch) => { const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...patch }) }); const j = await r.json(); if (!j.success) { alert(j.error); return; } await load(); };
   const reclassAll = async () => { if (!confirm('규칙으로 전체 재분류할까요? 손으로 고친 파일은 그대로 둡니다.')) return; setBusy('재분류 중…'); const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reclassifyAll' }) }); const j = await r.json(); setBusy(''); alert(j.success ? `검사 ${j.scanned}건 · 바뀜 ${j.changed}건` : j.error); await load(); };
@@ -209,12 +235,12 @@ export default function WorkDrivePage() {
 
   const curWed = cur && cur !== NONE ? cycleWed(parseInt(cur.split(':')[0], 10), cur.split(':')[1]) : null;
   const curLabel = cur === NONE ? '차수 없는 파일' : cur ? `${cur.split(':')[0]}년 ${cur.split(':')[1]}차` : '';
-  const sc = stageCount(categoryBase);
+  const sc = searchSummary?.stageCounts?Object.fromEntries(stages.map(s=>[s,searchSummary.stageCounts[s]||0])):stageCount(categoryBase);
   const visibleCounts = stageCount(categoryRows);
-  const subCounts = subcategoryCounts(categoryBase, stageF);
+  const subCounts = searchSummary?.subcategoryCounts??subcategoryCounts(categoryBase, stageF);
   const categoryTabs = <div className="category-nav" aria-label="파일 분류">
     <div className="strip" role="group" aria-label="대분류">
-      <button className={'stg-chip' + (!stageF ? ' on' : '')} aria-pressed={!stageF} onClick={() => chooseStage('')}>전체 <em>{categoryBase.length}</em></button>
+      <button className={'stg-chip' + (!stageF ? ' on' : '')} aria-pressed={!stageF} onClick={() => chooseStage('')}>전체 <em>{q?scopedTotal:categoryBase.length}</em></button>
       {stages.map((s) => <button key={s} className={'stg-chip' + (stageF === s ? ' on' : '') + (!sc[s] ? ' zero' : '')} aria-pressed={stageF === s} onClick={() => chooseStage(s)}><Dot s={s} />{s}<em>{sc[s]}</em></button>)}
     </div>
     {stageF ? <div className="subtabs" role="group" aria-label={`${stageF} 세부 분류`}>
@@ -232,7 +258,7 @@ export default function WorkDrivePage() {
       <header className="top">
         <div className="title">
           <h1 data-desktop-chrome>업무 드라이브</h1>
-          <span className="sub">{data ? <>{data.me}{data.dept ? ` · ${data.dept}` : ''} <b>{files.length.toLocaleString()}</b>개 파일{usage && <span className="usage" title={`색인 기준 ${usage.files}개 · 디스크 ${fmtG(usage.onDisk)} (${usage.onDiskPct}%) · 예전 방식(중복 합산) ${fmtG(usage.indexedNaive)}`}> · 사용량 <b>{fmtG(usage.used)}</b> / {fmtG(usage.max)} ({usage.pct}%)</span>}{!usage&&data.isAdmin&&<span className="usage" role="status"> · {usageError?'사용량 확인 실패 · 파일은 사용 가능':'사용량 확인 중…'}</span>}</> : '불러오는 중…'}</span>
+          <span className="sub">{data ? <>{data.me}{data.dept ? ` · ${data.dept}` : ''} <b>{(searchSummary?.visibleTotal??catalogState.totalFiles??data.files.length).toLocaleString()}</b>개 파일{usage && <span className="usage" title={`색인 기준 ${usage.files}개 · 디스크 ${fmtG(usage.onDisk)} (${usage.onDiskPct}%) · 예전 방식(중복 합산) ${fmtG(usage.indexedNaive)}`}> · 사용량 <b>{fmtG(usage.used)}</b> / {fmtG(usage.max)} ({usage.pct}%)</span>}{!usage&&data.isAdmin&&<span className="usage" role="status"> · {usageError?'사용량 확인 실패 · 파일은 사용 가능':'사용량 확인 중…'}</span>}</> : '불러오는 중…'}</span>
         </div>
         <label className="search"><span className="ico">⌕</span><input placeholder="파일명 · 이름 · 차수(38-2) 검색" value={q} onChange={(e) => setQ(e.target.value)} />{q && <button className="clr" onClick={() => setQ('')}>✕</button>}</label>
         <div className="seg">{[['kanban', '칸반'], ['list', '목록'], ['recent', '최근'], ...(data?.isAdmin ? [['security', '보안 이력']] : [])].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
@@ -246,7 +272,7 @@ export default function WorkDrivePage() {
         <div className="seg soft">{[['mine', '내 파일'], ['dept', '내 부서'], ['all', '전체']].map(([k, l]) => <button key={k} className={scope === k && !who ? 'on' : ''} onClick={() => { setScope(k); setWho(''); }}>{l}</button>)}</div>
         {people.length > 1 && <div className="chips">{people.map((p) => <button key={p.name} className={who === p.name ? 'on' : ''} onClick={() => setWho(who === p.name ? '' : p.name)} title={`${p.dept || ''} · 마지막 ${fmtT(p.last)}`}><Avatar name={p.name} />{p.name}<em>{p.n}</em></button>)}</div>}
         <span className="sep" />
-        <Sel value={deptF} onChange={setDeptF}><option value="">부서</option>{[...new Set(files.map((f) => f.dept).filter(Boolean))].map((d) => <option key={d}>{d}</option>)}</Sel>
+        <Sel value={deptF} onChange={setDeptF}><option value="">부서</option>{(searchSummary?.facets?.depts??[...new Set(files.map((f) => f.dept).filter(Boolean))]).map((d) => <option key={d}>{d}</option>)}</Sel>
         <Sel value={stageF} onChange={chooseStage}><option value="">대분류</option>{stages.map((s) => <option key={s}>{s}</option>)}</Sel>
         <Sel value={extF} onChange={setExtF}><option value="">종류</option><option value="xls">엑셀·CSV</option><option value="pdf">PDF</option><option value="doc">문서·PPT</option><option value="img">이미지</option><option value="etc">기타</option></Sel>
         <Sel value={dirF} onChange={setDirF}><option value="">폴더</option>{dirs.map(([d, n]) => <option key={d} value={d}>{d} ({n})</option>)}</Sel>
@@ -255,15 +281,16 @@ export default function WorkDrivePage() {
         <Sel value={originF} onChange={setOriginF}><option value="">출처</option><option value="pc">PC 자동</option><option value="web">웹 업로드</option></Sel>
         <Sel value={verF} onChange={setVerF}><option value="">버전</option><option value="multi">2개 이상</option></Sel>
         {anyF && <button className="link" onClick={clearF}>초기화</button>}
-        <span className="cnt">{scoped.length.toLocaleString()}건</span>
+        <span className="cnt">{scopedTotal.toLocaleString()}건</span>
       </div>
       {err && <p className="warn" role="alert">{err}</p>}
-      {catalogState.phase!=='ready'&&<div className="warn" role={catalogState.error?'alert':'status'}>
+      {!q&&catalogState.phase!=='ready'&&<div className="warn" role={catalogState.error?'alert':'status'}>
         {catalogState.phase==='loading'?'최근 파일을 불러오는 중…':catalogState.error?(catalogState.denied?'파일 접근 권한을 확인해 주세요.':data?'전체 목록을 불러오지 못했습니다. 표시된 파일은 사용할 수 있습니다.':'파일 목록을 불러오지 못했습니다.'): '최근 파일부터 표시했습니다. 전체 검색·필터·통계를 준비 중…'}
         {data&&<> 현재 {files.length.toLocaleString()}개{Number.isFinite(catalogState.totalFiles)?` / 전체 ${catalogState.totalFiles.toLocaleString()}개`:''} · 일부 목록 기준</>}
         {catalogState.error&&<><span> {catalogState.error} </span><button className="ghost" onClick={()=>catalogState.retry==='full'?catalogLoader.current?.retry():load()}>목록 다시 불러오기</button></>}
       </div>}
 
+      {q&&searchState.phase!=='ready'&&<div className="warn" role={searchState.error?'alert':'status'}>{searchState.error||'전체 파일에서 검색 중…'}{searchState.error&&<button className="ghost" onClick={()=>searchLoader.current?.search(q,searchCriteria)}>검색 다시 시도</button>}</div>}
       <div className="body">
         {/* ── 사이드바 ── */}
         <aside className="left" aria-label="연도별 차수">
@@ -273,7 +300,7 @@ export default function WorkDrivePage() {
               {years.length === 0 && <div className="dim pad">차수 파일 없음</div>}
               {years.map((y) => <div key={y.year}><div className="yr">{y.year}</div>{y.cycles.map((c, i) => <button key={c.ck} className={c.ck === cur ? 'on' : ''} onClick={() => { setCycle(c.ck); if (view === 'recent') setView('kanban'); }}><span>{c.c}차<small className="wd-date">{fmtMD(cycleWed(y.year, c.c))}</small>{y === years[0] && i === 0 && <em className="now">현재</em>}</span><span className="n">{c.n}</span></button>)}</div>)}
             </div>
-            <button className={'nonebtn' + (cur === NONE ? ' on' : '')} onClick={() => { setCycle(NONE); if (view === 'recent') setView('list'); }}><span>차수 없음</span><span className="n">{noCycle.length}</span></button>
+            <button className={'nonebtn' + (cur === NONE ? ' on' : '')} onClick={() => { setCycle(NONE); if (view === 'recent') setView('list'); }}><span>차수 없음</span><span className="n">{searchSummary?.noCycleCount??noCycle.length}</span></button>
           </section>
         </aside>
 
@@ -322,12 +349,13 @@ export default function WorkDrivePage() {
             <div className="h2">최근 올라온 파일 <span className="dim">{listRows.length}건 · 최신순</span></div>
             {listRows.length === 0 && <div className="empty-state">조건에 맞는 파일이 없습니다</div>}
             {Object.entries(listRows.reduce((m, f) => { (m[dayKey(f.uploadedAt)] ||= []).push(f); return m; }, {})).map(([d, rows]) => <section key={d} className="daysec"><div className="day">{d === today ? '오늘' : fmtD(d)} <em>{rows.length}</em></div><Table rows={rows} withCycle /></section>)}
-          </> : !cur && !q ? <div className="empty-state">차수 파일이 없습니다. 왼쪽 ‘차수 없음’에서도 확인해 주세요.</div> : <>
-            <div className="h2">{q ? <>&ldquo;{q}&rdquo; 검색 결과</> : curLabel}{!q && curWed && <span className="wed">기준 수요일 {curWed.getMonth() + 1}월 {curWed.getDate()}일</span>} <span className="dim">{categoryRows.length}개{stageF ? ` · ${stageF}${subF ? ' › ' + subF : ''}` : ''}</span></div>
-            {showList ? <Table rows={listRows} withCycle={!!q || cur === NONE} /> : (
+          </> : q&&searchState.phase!=='ready'&&!searchData ? <div className="empty-state">{searchState.error?'검색을 다시 시도해 주세요.':'전체 파일에서 검색 중…'}</div> : !cur && !q ? <div className="empty-state">차수 파일이 없습니다. 왼쪽 ‘차수 없음’에서도 확인해 주세요.</div> : <>
+            <div className="h2">{q ? <>&ldquo;{q}&rdquo; 검색 결과</> : curLabel}{!q && curWed && <span className="wed">기준 수요일 {curWed.getMonth() + 1}월 {curWed.getDate()}일</span>} <span className="dim">{categoryTotal}개{stageF ? ` · ${stageF}${subF ? ' › ' + subF : ''}` : ''}</span></div>
+            {showList ? <><Table rows={listRows} withCycle={!!q || cur === NONE} />{categoryTotal>listRows.length&&(rowLimit<50000?<button className="ghost" onClick={()=>setRowLimit(n=>Math.min(50000,n+200))}>파일 200개 더 보기 ({listRows.length.toLocaleString()} / {categoryTotal.toLocaleString()})</button>:<p role="status">50,000개까지 표시했습니다. 검색어나 필터로 범위를 좁혀 주세요.</p>)}</> : (
               <div className="kanban">
-                {stages.filter((s) => !stageF || s === stageF).map((s) => <div className={'col' + (s === '미분류' ? ' un' : '') + (!visibleCounts[s] ? ' zero' : '')} key={s}><div className="ch"><Dot s={s} />{s}<em>{visibleCounts[s]}</em></div>{!visibleCounts[s] ? <div className="empty">조건에 맞는 파일 없음</div> : categoryRows.filter((f) => f.stage === s).map((f) => <Card key={f.id} f={f} />)}</div>)}
+                {stages.filter((s) => !stageF || s === stageF).map((s) => <div className={'col' + (s === '미분류' ? ' un' : '') + (!visibleCounts[s] ? ' zero' : '')} key={s}><div className="ch"><Dot s={s} />{s}<em>{visibleCounts[s]}</em></div>{!visibleCounts[s] ? <div className="empty">조건에 맞는 파일 없음</div> : categoryRows.slice(0,rowLimit).filter((f) => f.stage === s).map((f) => <Card key={f.id} f={f} />)}</div>)}
               </div>)}
+            {!showList&&categoryRows.length>rowLimit&&<button className="ghost" onClick={()=>setRowLimit(n=>n+200)}>파일 200개 더 보기 ({Math.min(rowLimit,categoryRows.length).toLocaleString()} / {categoryRows.length.toLocaleString()})</button>}
           </>}
         </main>
 

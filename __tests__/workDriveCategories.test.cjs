@@ -37,7 +37,7 @@ for (const stage of stages) {
 assert.equal(filterCategories(files, '', 'stale').length, files.length);
 assert.equal(JSON.stringify(files), snapshot);
 let values = {}, index = 0, setters = {};
-const Page = compile('pages/work/drive.js', name => name === 'react' ? { ...React, useState(v) { const i = index++; return [Object.hasOwn(values, i) ? values[i] : v, n => { setters[i] = n; }]; }, useMemo: f => f(), useRef: v => ({current:v}), useEffect() {} } : name === '../../lib/workDriveCategories' ? policy : name === '../../lib/workDriveSecurity' ? security : name === '../../lib/workDriveCatalogLoad.cjs' ? require('../lib/workDriveCatalogLoad.cjs') : require(name)).default;
+const Page = compile('pages/work/drive.js', name => name === 'react' ? { ...React, useState(v) { const i = index++; return [Object.hasOwn(values, i) ? values[i] : v, n => { setters[i] = n; }]; }, useMemo: f => f(), useRef: v => ({current:v}), useEffect() {} } : name === '../../lib/workDriveCategories' ? policy : name === '../../lib/workDriveSecurity' ? security : name === '../../lib/workDriveSearch.cjs' ? require('../lib/workDriveSearch.cjs') : name === '../../lib/workDriveSearchLoad.cjs' ? require('../lib/workDriveSearchLoad.cjs') : name === '../../lib/workDriveCatalogLoad.cjs' ? require('../lib/workDriveCatalogLoad.cjs') : require(name)).default;
 const data = { files, stages, me: '담당자', dept: '영업', isAdmin: true };
 function tree(v = {}) { values = { 0: data, ...v }; index = 0; setters = {}; return Page(); }
 function render(v) { return renderToStaticMarkup(tree(v)); }
@@ -49,7 +49,7 @@ for (const mode of ['kanban', 'list', 'recent']) {
   html = render({ 6: mode, 7: '원가·운임', 18: '원가자료' });
   assert.match(html, /38-2 NL 원가자료.xlsx/); assert.doesNotMatch(html, /운임비.xlsx/);
 }
-html = render({ 5: '외화', 7: '송금·경영', 18: '송금·결제' });
+html = render({ 34: {files}, 35: {phase:'ready'}, 5: '외화', 7: '송금·경영', 18: '송금·결제' });
 assert.match(html, /외화송금신청서.pdf/); assert.doesNotMatch(html, /하나은행 外/);
 html = render({ 0: { ...data, isAdmin: false } }); assert.doesNotMatch(html, /aria-label="PC별 업로드 현황"/);
 html = render({ 19: false }); assert.match(html, /aria-expanded="false"/); assert.doesNotMatch(html, /오늘 \/ 전체 파일/);
