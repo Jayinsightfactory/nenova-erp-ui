@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, PmUiStyles, Tabs, ToggleChip } from '../pm/ui';
 import { allThemesCss, readStoredTheme } from '../../lib/pmThemes';
+import { LOOK_CLEAR, lookClearCss } from '../../lib/pmLookClear';
 import WorkflowGuide from '../WorkflowGuide';
 import ImportEducation from './ImportEducation';
 import ImportWeekday, { DAYS, ManualBtn, Status, evidenceText, mediaOf } from './ImportWeekday';
@@ -459,9 +460,9 @@ export default function ImportHandover({ data, me, initialManual }) {
   const tabLabel = KINDS.find(([k]) => k === kind)?.[1];
 
   return (
-    <div className="pm ih" data-theme={theme}>
+    <div className="pm ih" data-theme={theme} data-look={LOOK_CLEAR}>
       <PmUiStyles />
-      <style dangerouslySetInnerHTML={{ __html: css }} />
+      <style dangerouslySetInnerHTML={{ __html: css + lookClearCss }} />
       <section aria-label="수입부 인수인계 업무표" ref={secRef}>
         <h2>수입부 인수인계 업무표 <small className="muted">하루 · 주 · 월 — 아침에 출근해서 하는 순서대로</small></h2>
         {!manual && (

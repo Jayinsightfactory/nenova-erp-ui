@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, PmUiStyles, Tabs, ToggleChip } from '../pm/ui';
 import { allThemesCss, readStoredTheme } from '../../lib/pmThemes';
+import { LOOK_CLEAR, lookClearCss } from '../../lib/pmLookClear';
 
 const CONF = { high: ['높음', 'ok'], medium: ['보통', 'idle'], low: ['낮음', 'off'], estimate: ['추정', 'est'] };
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
@@ -344,9 +345,9 @@ export default function RoutineManual({ routines, me, onConfirm, onSwitch, onLiv
   const done = FIRST_WEEK.filter(([k]) => checks[k]).length;
 
   return (
-    <div className="pm wmr" data-theme={theme}>
+    <div className="pm wmr" data-theme={theme} data-look={LOOK_CLEAR}>
       <PmUiStyles />
-      <style dangerouslySetInnerHTML={{ __html: css }} />
+      <style dangerouslySetInnerHTML={{ __html: css + lookClearCss }} />
       <header className="hd">
         <h1 data-desktop-chrome>부서별 신입 루틴 매뉴얼</h1>
         <p className="muted">
