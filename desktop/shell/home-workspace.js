@@ -40,9 +40,9 @@
   const errorText = node('span'); const retry = button('다시 시도', () => pending ? void sendPending() : void load()); error.append(errorText, retry);
   const form = node('form', 'hw-add');
   const input = node('input'); input.placeholder = '해야 할 일을 입력하세요'; input.maxLength = 300; input.required = true; input.setAttribute('aria-label', '추가할 업무');
-  const repeat = makeRepeat([]); const add = node('button', 'hw-primary', '＋ 추가'); add.type = 'submit';
+  const repeat = makeRepeat([]); const add = node('button', 'hw-primary', '업무 추가'); add.type = 'submit';
   const addSettings=window.NenovaTaskControls.create();const settingsToggle=node('details','hw-settings');settingsToggle.append(node('summary','','시간 · 바로가기 설정'),addSettings.root);
-  form.append(input, repeat.root, add,settingsToggle);
+  form.append(input, repeat.root, settingsToggle, add);
   const viewBar=node('div','hw-viewbar'),listView=button('목록',()=>{timeline=false;renderTasks();}),timeView=button('시간표',()=>{timeline=true;expanded=true;renderTasks();});viewBar.append(listView,timeView);
   const rows = node('div', 'hw-rows');
   const more = button('전체 보기', () => { if (!expanded) { expanded = true; renderTasks(); } else if (snapshot?.nextOffset != null) void loadMore(); else { expanded = false; renderTasks(); } }); more.hidden = true;

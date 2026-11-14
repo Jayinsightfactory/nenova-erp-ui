@@ -37,7 +37,11 @@ for (const stage of stages) {
 assert.equal(filterCategories(files, '', 'stale').length, files.length);
 assert.equal(JSON.stringify(files), snapshot);
 let values = {}, index = 0, setters = {};
-const Page = compile('pages/work/drive.js', name => name === 'react' ? { ...React, useState(v) { const i = index++; return [Object.hasOwn(values, i) ? values[i] : v, n => { setters[i] = n; }]; }, useMemo: f => f(), useRef: v => ({current:v}), useEffect() {} } : name === '../../lib/workDriveCategories' ? policy : name === '../../lib/workDriveSecurity' ? security : name === '../../lib/workDriveSearch.cjs' ? require('../lib/workDriveSearch.cjs') : name === '../../lib/workDriveSearchLoad.cjs' ? require('../lib/workDriveSearchLoad.cjs') : name === '../../lib/workDriveCatalogLoad.cjs' ? require('../lib/workDriveCatalogLoad.cjs') : require(name)).default;
+const driveGuide = compile('components/WorkflowGuide.js', name => {
+  if (name.endsWith('.module.css')) return {};
+  return Module.createRequire(path.resolve(__dirname, '../components/WorkflowGuide.js'))(name);
+});
+const Page = compile('pages/work/drive.js', name => name === '../../components/WorkflowGuide' ? driveGuide : name === 'react' ? { ...React, useState(v) { const i = index++; return [Object.hasOwn(values, i) ? values[i] : v, n => { setters[i] = n; }]; }, useMemo: f => f(), useRef: v => ({current:v}), useEffect() {} } : name === '../../lib/workDriveCategories' ? policy : name === '../../lib/workDriveSecurity' ? security : name === '../../lib/workDriveSearch.cjs' ? require('../lib/workDriveSearch.cjs') : name === '../../lib/workDriveSearchLoad.cjs' ? require('../lib/workDriveSearchLoad.cjs') : name === '../../lib/workDriveCatalogLoad.cjs' ? require('../lib/workDriveCatalogLoad.cjs') : require(name)).default;
 const data = { files, stages, me: '담당자', dept: '영업', isAdmin: true };
 function tree(v = {}) { values = { 0: data, ...v }; index = 0; setters = {}; return Page(); }
 function render(v) { return renderToStaticMarkup(tree(v)); }
