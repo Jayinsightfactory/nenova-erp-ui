@@ -10,6 +10,7 @@ import { apiGetExe } from '../../lib/exeParity/client.js';
 import { mapExeOrderViewToOrders } from '../../lib/exeParity/mapResponses.js';
 import { useLang } from '../../lib/i18n';
 import { resolveOrderListYearScope } from '../../lib/orderListYearScope.js';
+import { orderListModel, orderListPage, orderListCsv } from '../../lib/orderListPage.js';
 
 const fmt = n => Number(n || 0).toLocaleString();
 
@@ -29,6 +30,7 @@ export default function OrderList() {
   const { t } = useLang();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [queryVersion, setQueryVersion] = useState(0);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [custName, setCustName] = useState('');
@@ -38,6 +40,7 @@ export default function OrderList() {
   const [showDate, setShowDate] = useState(true);   // 주문일 열 표시 여부
 
   const load = () => {
+    setQueryVersion(version => version + 1);
     setLoading(true); setErr('');
     // 차수 필터 있으면 날짜 무시하고 차수 기준 조회
     let params;
@@ -86,15 +89,7 @@ export default function OrderList() {
   }, [orders, displayedFilter]);
 
   const handleExcel = () => {
-    const rows = [['주문일자','차수','거래처','지역','담당자','국가','꽃','품목명(색상)','단위','박스수량','단수량','송이수량','클라이언트코드']];
-    filteredOrders.forEach(o => {
-      o.items.forEach(item => {
-        rows.push([o.date, o.week, o.custName, o.custArea, o.manager,
-          item.counName, item.flowerName, item.prodName,
-          item.unit, item.boxQty||0, item.bunchQty||0, item.steamQty||0, o.orderCode]);
-      });
-    });
-    const csv = rows.map(r => r.map(v => `"${v||''}"`).join(',')).join('\n');
+    const csv = orderListCsv(filteredOrders);
     const blob = new Blob(['\uFEFF'+csv], {type:'text/csv'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -136,25 +131,26 @@ export default function OrderList() {
       </div>
 
       {err && <div className="banner-err">⚠️ {err}</div>}
-      <OrderResults filteredOrders={filteredOrders} loading={loading} showDate={showDate} />
+      <OrderResults filteredOrders={filteredOrders} loading={loading} showDate={showDate} resetKey={queryVersion} />
     </div>
   );
 }
 
-const OrderResults = memo(function OrderResults({filteredOrders, loading, showDate}) {
+const OrderResults = memo(function OrderResults({filteredOrders, loading, showDate, resetKey}) {
   const [selectedRow, setSelectedRow] = useState(null);
-  const {totalBox, totalBunch, totalSteam, totalCount} = useMemo(() => {
-    const sums = {totalBox: 0, totalBunch: 0, totalSteam: 0, totalCount: 0};
-    for (const order of filteredOrders) {
-      sums.totalCount += order.items.length;
-      for (const item of order.items) {
-        sums.totalBox += item.boxQty || 0;
-        sums.totalBunch += item.bunchQty || 0;
-        sums.totalSteam += item.steamQty || 0;
-      }
-    }
-    return sums;
-  }, [filteredOrders]);
+  const model = useMemo(() => orderListModel(filteredOrders), [filteredOrders]);
+  const {totalBox, totalBunch, totalSteam, totalCount} = model;
+  const [position, setPosition] = useState({ source: filteredOrders, resetKey, page: 0 });
+  const requestedPage = position.source === filteredOrders && position.resetKey === resetKey ? position.page : 0;
+  const window = useMemo(() => orderListPage(model, requestedPage), [model, requestedPage]);
+  const changePage = page => setPosition({ source: filteredOrders, resetKey, page });
+  const moveRowFocus = event => {
+    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+    const rows = [...event.currentTarget.closest('tbody').querySelectorAll('[data-order-item]')];
+    const index = rows.indexOf(event.currentTarget);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? rows.length - 1 : Math.max(0, Math.min(rows.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)));
+    event.preventDefault(); rows[next]?.focus();
+  };
 
   return <>
       {/* 합계 요약 */}
@@ -165,6 +161,11 @@ const OrderResults = memo(function OrderResults({filteredOrders, loading, showDa
         <span>송이 합계: <strong style={{fontFamily:'var(--mono)'}}>{fmt(totalSteam)}</strong></span>
       </div>
 
+      <nav aria-label="주문 목록 페이지" style={{display:'flex',alignItems:'center',gap:12,padding:'7px 10px',flexWrap:'wrap'}}>
+        <span role="status">품목 {window.start.toLocaleString()}–{window.end.toLocaleString()} / {totalCount.toLocaleString()}건 · {window.page + 1} / {window.pageCount}쪽</span>
+        <button type="button" className="btn" disabled={loading || window.page === 0} onClick={() => changePage(window.page - 1)}>이전 100건</button>
+        <button type="button" className="btn" disabled={loading || window.page + 1 >= window.pageCount} onClick={() => changePage(window.page + 1)}>다음 100건</button>
+      </nav>
       {/* 주문 목록 테이블 */}
       <div className="table-wrap">
         {loading ? (
@@ -195,12 +196,8 @@ const OrderResults = memo(function OrderResults({filteredOrders, loading, showDa
                     조회된 주문이 없습니다
                   </td>
                 </tr>
-              ) : filteredOrders.map(o => {
-                const orderTotal = {
-                  box:   o.items.reduce((a,i) => a+(i.boxQty  ||0), 0),
-                  bunch: o.items.reduce((a,i) => a+(i.bunchQty||0), 0),
-                  steam: o.items.reduce((a,i) => a+(i.steamQty||0), 0),
-                };
+              ) : window.groups.map(group => {
+                const o = group.order, orderTotal = group.subtotal;
                 return [
                   // ── 차수 헤더 행
                   <tr key={`week-${o.id}`} style={{background:'#E0E8F0'}}>
@@ -222,12 +219,20 @@ const OrderResults = memo(function OrderResults({filteredOrders, loading, showDa
                   </tr>,
 
                   // ── 품목 행들
-                  ...o.items.map((item, idx) => {
-                    const isSelected = selectedRow?.orderId === o.id && selectedRow?.idx === idx;
+                  ...group.items.map((item, pageIndex) => {
+                    const idx = group.itemStart + pageIndex;
+                    const isSelected = selectedRow?.orderId === o.id && selectedRow?.item === item;
                     return (
                       <tr key={`item-${o.id}-${idx}`}
                         className={isSelected ? 'selected' : ''}
-                        onClick={() => setSelectedRow({orderId: o.id, idx})}
+                        data-order-item="true"
+                        tabIndex={0}
+                        aria-selected={isSelected}
+                        onClick={() => setSelectedRow({orderId: o.id, item})}
+                        onKeyDown={event => {
+                          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedRow({orderId: o.id, item}); }
+                          else moveRowFocus(event);
+                        }}
                         style={{cursor:'pointer'}}
                       >
                         {showDate && <td style={{fontFamily:'var(--mono)', fontSize:11}}>{o.date}</td>}
