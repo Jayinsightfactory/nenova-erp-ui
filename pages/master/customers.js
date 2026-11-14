@@ -1,9 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import ui from '../../styles/customerPilot.module.css';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
 import { CUSTOMER_COLUMNS, CUSTOMER_FIELDS, CUSTOMER_WEEKDAYS, customerCell, customerDraft, filterCustomers, validateCustomerDraft } from '../../lib/customerEditor';
+
+const CustomerRow = memo(function CustomerRow({ row, selected, onSelect, onOpen }) {
+  return <tr className={selected ? 'selected' : ''} tabIndex={0} aria-selected={selected}
+    onClick={() => onSelect(row.CustKey)} onDoubleClick={() => onOpen(row)}
+    onKeyDown={event => { if (event.key === 'Enter') { onSelect(row.CustKey); onOpen(row); } }}>
+    {CUSTOMER_COLUMNS.map(([key]) => {
+      const text = customerCell(row, key);
+      return <td key={key} title={text}>{text}</td>;
+    })}
+  </tr>;
+});
 
 export default function Customers() {
   const [rows, setRows] = useState([]);
@@ -47,11 +58,11 @@ export default function Customers() {
     window.addEventListener('beforeunload', beforeUnload);
     return () => window.removeEventListener('beforeunload', beforeUnload);
   }, [editor, dirty, saving]);
-  const open = row => {
+  const open = useCallback(row => {
     returnFocus.current = document.activeElement;
     setEditor({ mode: row ? 'update' : 'create', custKey: row?.CustKey, original: customerDraft(row) });
     setDraft(customerDraft(row)); setError(''); setNotice('');
-  };
+  }, []);
   const save = async event => {
     event.preventDefault();
     if (saveBusy.current) return;
@@ -86,9 +97,9 @@ export default function Customers() {
       <table className="tbl customer-table"><thead>
         <tr>{CUSTOMER_COLUMNS.map(([key, label]) => <th key={key} aria-sort={sort.key === key ? sort.direction === 1 ? 'ascending' : 'descending' : 'none'}><button onClick={() => setSort(s => ({ key, direction: s.key === key ? -s.direction : 1 }))}>{label} {sort.key === key ? sort.direction === 1 ? '▲' : '▼' : ''}</button></th>)}</tr>
         <tr>{CUSTOMER_COLUMNS.map(([key, label]) => <th key={key}><input aria-label={`${label} 필터`} value={filters[key] || ''} onChange={e => setFilters(f => ({ ...f, [key]: e.target.value }))} /></th>)}</tr>
-      </thead><tbody>{visible.map(row => <tr key={row.CustKey} className={selectedKey === row.CustKey ? 'selected' : ''} tabIndex={0} aria-selected={selectedKey === row.CustKey} onClick={() => setSelectedKey(row.CustKey)} onDoubleClick={() => open(row)} onKeyDown={e => { if (e.key === 'Enter') { setSelectedKey(row.CustKey); open(row); } }}>
-        {CUSTOMER_COLUMNS.map(([key]) => <td key={key} title={customerCell(row, key)}>{customerCell(row, key)}</td>)}
-      </tr>)}{!loading && !visible.length && <tr><td colSpan={CUSTOMER_COLUMNS.length}>검색 조건에 맞는 거래처가 없습니다.</td></tr>}</tbody></table>
+      </thead><tbody>{visible.map(row => <CustomerRow key={row.CustKey} row={row}
+        selected={selectedKey === row.CustKey} onSelect={setSelectedKey} onOpen={open} />)}
+      {!loading && !visible.length && <tr><td colSpan={CUSTOMER_COLUMNS.length}>검색 조건에 맞는 거래처가 없습니다.</td></tr>}</tbody></table>
     </div>
     {selected && <section className="customer-detail" aria-label="선택한 거래처 상세"><strong>{selected.CustName} <small>#{selected.CustKey}</small></strong><span>그룹: {selected.Group1 || '—'}</span><span>품목분류: {selected.ProductType || '—'}</span><span>주문코드: {selected.OrderCode || '—'}</span><p>비고: {selected.Descr || '—'}</p></section>}
     <Dialog.Root open={!!editor} onOpenChange={value => { if (!value) closeEditor(); }}>

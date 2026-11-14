@@ -455,22 +455,25 @@ function CustomerSearchSelect({ value, onChange, placeholder }) {
   }, [open]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let live = true;
     if (!open || query.trim().length < 1) {
       setRemote([]);
+      setLoading(false);
       return undefined;
     }
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const d = await apiGet('/api/customers/search', { q: query.trim() });
-        setRemote(d.customers || []);
+        const d = await apiGet('/api/customers/search', { q: query.trim() }, { signal: controller.signal });
+        if (live) setRemote(d.customers || []);
       } catch {
-        setRemote([]);
+        if (live) setRemote([]);
       } finally {
-        setLoading(false);
+        if (live) setLoading(false);
       }
     }, 250);
-    return () => clearTimeout(t);
+    return () => { live = false; clearTimeout(t); controller.abort(); };
   }, [query, open]);
 
   return (

@@ -6,6 +6,7 @@
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { customerMatchesSearch } from '../../../lib/customerSearch';
+import { cachedRows } from '../../../lib/searchCatalogCache.js';
 
 // ── 서버 메모리 캐시
 if (!global._custCache) {
@@ -39,18 +40,16 @@ export default withAuth(async function handler(req, res) {
 
   try {
     // 캐시 갱신
-    if (refresh === '1' || !isCacheValid()) {
-      cache.data = await fetchAllCustomers();
-      cache.updatedAt = Date.now();
-    }
-
-    let customers = cache.data;
+    let customers = await cachedRows(cache, refresh === '1', fetchAllCustomers);
 
     // 검색어로 필터링 (캐시 데이터에서)
     if (q && q.trim()) {
-      customers = customers.filter(c => customerMatchesSearch(c, q));
-      // 검색어 있을 때는 상위 50개만
-      customers = customers.slice(0, 50);
+      const matches = [];
+      for (const customer of customers) {
+        if (customerMatchesSearch(customer, q)) matches.push(customer);
+        if (matches.length === 50) break;
+      }
+      customers = matches;
     }
 
     return res.status(200).json({
@@ -60,8 +59,6 @@ export default withAuth(async function handler(req, res) {
       customers,
     });
   } catch (err) {
-    cache.data = null;
-    cache.updatedAt = null;
     return res.status(500).json({ success: false, error: err.message });
   }
 });

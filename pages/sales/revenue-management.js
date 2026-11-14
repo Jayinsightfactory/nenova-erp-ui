@@ -124,18 +124,20 @@ export default function SalesRevenueManagement() {
 
   // 네노바 거래처 검색
   useEffect(() => {
+    const controller = new AbortController();
+    let live = true;
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (!custSearch.trim()) {
+    if (!custSearch.trim() || custSearch === selectedCust?.CustName) {
       setCustResults([]);
       return;
     }
     searchTimer.current = setTimeout(() => {
-      apiGet('/api/customers/search', { q: custSearch })
-        .then(d => setCustResults(d.customers || []))
-        .catch(() => setCustResults([]));
+      apiGet('/api/customers/search', { q: custSearch }, { signal: controller.signal })
+        .then(d => { if (live) setCustResults(d.customers || []); })
+        .catch(() => { if (live) setCustResults([]); });
     }, 250);
-    return () => clearTimeout(searchTimer.current);
-  }, [custSearch]);
+    return () => { live = false; clearTimeout(searchTimer.current); controller.abort(); };
+  }, [custSearch, selectedCust]);
 
   const refreshPendingBatch = async (pendingMeta, pendingRows) => {
     if (!pendingMeta || !pendingRows?.length) return;

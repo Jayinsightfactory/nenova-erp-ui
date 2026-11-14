@@ -46,8 +46,11 @@ function LookupInput({ kind, value, onInput, onSelect, placeholder }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let live = true;
     if (!open || !String(value || '').trim()) {
       setOptions([]);
+      setBusy(false);
       return undefined;
     }
     const timer = setTimeout(async () => {
@@ -57,17 +60,18 @@ function LookupInput({ kind, value, onInput, onSelect, placeholder }) {
         const url = kind === 'product'
           ? `/api/products/search?q=${encoded}`
           : `/api/arrival-cost?lookup=farms&q=${encoded}&limit=30`;
-        const res = await fetch(url, { credentials: 'same-origin' });
+        const res = await fetch(url, { credentials: 'same-origin', signal: controller.signal });
         const json = await parseJsonResponse(res);
+        if (!live) return;
         if (res.ok && json.success) setOptions(kind === 'product' ? (json.products || []).slice(0, 30) : (json.farms || []));
         else setOptions([]);
       } catch (_) {
-        setOptions([]);
+        if (live) setOptions([]);
       } finally {
-        setBusy(false);
+        if (live) setBusy(false);
       }
     }, 220);
-    return () => clearTimeout(timer);
+    return () => { live = false; clearTimeout(timer); controller.abort(); };
   }, [kind, open, value]);
 
   return <div className="lookup-input">

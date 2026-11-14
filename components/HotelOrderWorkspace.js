@@ -175,8 +175,9 @@ export default function HotelOrderWorkspace({apiGet=liveGet,apiPost=livePost}={}
   useEffect(() => {
     if (!picker || picker.special) return;
     const seq = ++lookup.current;
-    const timer = setTimeout(() => apiGet('/api/products/search', { q: search }).then(d => { if (seq === lookup.current) setHits((d.products || []).slice(0, 100)); }).catch(e => setError(e.message)), 250);
-    return () => { clearTimeout(timer); lookup.current++; };
+    const controller = new AbortController();
+    const timer = setTimeout(() => apiGet('/api/products/search', { q: search }, { signal: controller.signal }).then(d => { if (seq === lookup.current) setHits((d.products || []).slice(0, 100)); }).catch(e => { if (seq === lookup.current && !controller.signal.aborted) setError(e.message); }), 250);
+    return () => { clearTimeout(timer); lookup.current++; controller.abort(); };
   }, [search, picker]);
   useEffect(() => { if (picker) focus.current?.focus(); }, [picker]);
   useEffect(() => {

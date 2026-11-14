@@ -5,7 +5,7 @@
 //   - 주문등록 버튼 → 팝업 새 창으로 열기
 //   - 차수/품목 필터, 박스/단/송이 합계 표시
 
-import { useState, useEffect } from 'react';
+import { memo, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { apiGetExe } from '../../lib/exeParity/client.js';
 import { mapExeOrderViewToOrders } from '../../lib/exeParity/mapResponses.js';
 import { useLang } from '../../lib/i18n';
@@ -34,7 +34,6 @@ export default function OrderList() {
   const [custName, setCustName] = useState('');
   const [weekFilter, setWeekFilter] = useState('');
   const [prodFilter, setProdFilter] = useState('');
-  const [selectedRow, setSelectedRow] = useState(null); // { orderId, prodKey }
   const [err, setErr] = useState('');
   const [showDate, setShowDate] = useState(true);   // 주문일 열 표시 여부
 
@@ -78,18 +77,13 @@ export default function OrderList() {
   useEffect(() => { if (startDate && endDate) load(); }, [startDate, endDate]);
 
   // 품목 필터 적용
-  const filteredOrders = orders.map(o => ({
-    ...o,
-    items: prodFilter
-      ? o.items.filter(i => i.prodName?.toLowerCase().includes(prodFilter.toLowerCase()))
-      : o.items
-  })).filter(o => o.items.length > 0);
-
-  // 전체 합계
-  const totalBox   = filteredOrders.flatMap(o => o.items).reduce((a, i) => a + (i.boxQty  || 0), 0);
-  const totalBunch = filteredOrders.flatMap(o => o.items).reduce((a, i) => a + (i.bunchQty|| 0), 0);
-  const totalSteam = filteredOrders.flatMap(o => o.items).reduce((a, i) => a + (i.steamQty|| 0), 0);
-  const totalCount = filteredOrders.reduce((a, o) => a + o.items.length, 0);
+  const displayedFilter = useDeferredValue(prodFilter);
+  const filteredOrders = useMemo(() => {
+    const query = displayedFilter.toLowerCase();
+    if (!query) return orders.filter(order => order.items.length);
+    return orders.map(order => ({ ...order, items: order.items.filter(item => item.prodName?.toLowerCase().includes(query)) }))
+      .filter(order => order.items.length);
+  }, [orders, displayedFilter]);
 
   const handleExcel = () => {
     const rows = [['주문일자','차수','거래처','지역','담당자','국가','꽃','품목명(색상)','단위','박스수량','단수량','송이수량','클라이언트코드']];
@@ -128,7 +122,7 @@ export default function OrderList() {
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>{t('새로고침')}</button>
           <button className="btn btn-sm" style={{background:'#006600',color:'#fff',borderColor:'#004400'}} onClick={openOrderNew}>✏️ 주문 등록 / Reg. Pedido</button>
-          <button className="btn" onClick={handleExcel}>📊 엑 셀 / Excel</button>
+          <button className="btn" onClick={handleExcel} disabled={prodFilter !== displayedFilter}>📊 엑 셀 / Excel</button>
           <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫 기 / Cerrar</button>
         </div>
         {/* 주문일 표시 토글 */}
@@ -142,7 +136,27 @@ export default function OrderList() {
       </div>
 
       {err && <div className="banner-err">⚠️ {err}</div>}
+      <OrderResults filteredOrders={filteredOrders} loading={loading} showDate={showDate} />
+    </div>
+  );
+}
 
+const OrderResults = memo(function OrderResults({filteredOrders, loading, showDate}) {
+  const [selectedRow, setSelectedRow] = useState(null);
+  const {totalBox, totalBunch, totalSteam, totalCount} = useMemo(() => {
+    const sums = {totalBox: 0, totalBunch: 0, totalSteam: 0, totalCount: 0};
+    for (const order of filteredOrders) {
+      sums.totalCount += order.items.length;
+      for (const item of order.items) {
+        sums.totalBox += item.boxQty || 0;
+        sums.totalBunch += item.bunchQty || 0;
+        sums.totalSteam += item.steamQty || 0;
+      }
+    }
+    return sums;
+  }, [filteredOrders]);
+
+  return <>
       {/* 합계 요약 */}
       <div style={{padding:'4px 10px', background:'var(--header-bg)', border:'1px solid var(--border)', borderTop:'none', fontSize:12, display:'flex', gap:20}}>
         <span>조회 결과: <strong>{totalCount}건</strong></span>
@@ -259,6 +273,5 @@ export default function OrderList() {
           </table>
         )}
       </div>
-    </div>
-  );
-}
+  </>;
+});

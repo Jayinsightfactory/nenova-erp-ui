@@ -35,9 +35,9 @@ function nextResponse(id) {
   });
 }
 
-async function search(id, query, { limit = 20, fallback = false } = {}) {
+async function search(id, query, { limit = 20, fallback = false, filterFirst = false } = {}) {
   const response = nextResponse(id);
-  worker.postMessage({ id, query, limit, fallback });
+  worker.postMessage({ id, query, limit, fallback, filterFirst });
   return response;
 }
 
@@ -60,6 +60,8 @@ try {
     assert.equal(response.error, undefined);
     const expected = rankProductSearchOptions(query, products, { limit });
     assert.deepEqual(response.indices.map(index => products[index]), expected, `ranking parity for ${query}`);
+    const master = await search(id + 10, query, { limit, filterFirst: true });
+    assert.deepEqual(master.indices.map(index => products[index]), rankProductSearchOptions(query, filterProducts(products, query), { limit }));
   }
 
   // Chosung matching is supplied by filterProducts as the worker fallback.

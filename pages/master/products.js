@@ -1,15 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
 import { productEditPayload } from '../../lib/productMasterPolicy';
 import { suggestDisplayName, getDisplayName, filterProducts } from '../../lib/displayName';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
+import useRankedProductSearch from '../../lib/useRankedProductSearch';
 import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
 import ProductCatalogPhoto from '../../components/catalog/ProductCatalogPhoto';
 import ProductBulkEditor from '../../components/catalog/ProductBulkEditor';
 import ProductInputHistory from '../../components/catalog/ProductInputHistory';
 import WorkflowGuide from '../../components/WorkflowGuide';
 import { matchesProductFlowers, productFlowerCounts, matchesProductCountry, productCountryCounts, groupProductsByCountryFlower } from '../../lib/productCatalogFilter';
+
+const pageSize = 100;
 
 export default function Products({embedded=false,onDirtyChange}={}) {
   const { t } = useLang();
@@ -33,9 +36,9 @@ export default function Products({embedded=false,onDirtyChange}={}) {
   useEffect(()=>{apiGet('/api/master',{entity:'codes'}).then(setMasterCodes).catch(e=>setErr(e.message));},[]);
   const [bulkEdit,setBulkEdit]=useState(false);
   const [showInputHistory,setShowInputHistory]=useState(false);
-  const countries = productCountryCounts(products);
-  const countryProducts = products.filter(p => matchesProductCountry(p, selectedCountry));
-  const flowers = productFlowerCounts(countryProducts);
+  const countries = useMemo(() => productCountryCounts(products), [products]);
+  const countryProducts = useMemo(() => products.filter(p => matchesProductCountry(p, selectedCountry)), [products, selectedCountry]);
+  const flowers = useMemo(() => productFlowerCounts(countryProducts), [countryProducts]);
   const moveFilterFocus = event => {
     if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
     const buttons = [...event.currentTarget.querySelectorAll('button')];
@@ -66,11 +69,27 @@ export default function Products({embedded=false,onDirtyChange}={}) {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = rankProductSearchOptions(search, countryProducts
+  const candidates = useMemo(() => countryProducts
     .filter(p => matchesProductFlowers(p, selectedFlowers))
-    .filter(p => !showOnlyNoAlias || !p.DisplayName)
-    .filter(p => !search || filterProducts([p], search).length > 0), { limit: products.length });
-  const productGroups = groupProductsByCountryFlower(filtered);
+    .filter(p => !showOnlyNoAlias || !p.DisplayName), [countryProducts, selectedFlowers, showOnlyNoAlias]);
+  const largeCatalog = candidates.length > 200;
+  const result = useRankedProductSearch(search, candidates, { enabled: largeCatalog, limit: products.length, filterFirst: true });
+  const useWorkerResult = largeCatalog && !!search.trim();
+  const filtered = useMemo(() => useWorkerResult ? result.results
+    : rankProductSearchOptions(search, filterProducts(candidates, search), { limit: products.length }),
+    [useWorkerResult, result.results, search, candidates, products.length]);
+  const productGroups = useMemo(() => groupProductsByCountryFlower(filtered), [filtered]);
+  const [paging, setPaging] = useState(null);
+  const pageCount = Math.ceil(filtered.length / pageSize);
+  const page = paging?.groups === productGroups ? Math.min(paging.page, Math.max(0, pageCount - 1)) : 0;
+  const pageGroups = useMemo(() => {
+    const first = page * pageSize, end = first + pageSize;
+    return productGroups.flatMap(group => {
+      const from = Math.max(0, first - group.start);
+      const to = Math.min(group.products.length, end - group.start);
+      return to > from ? [{ ...group, count: group.products.length, start: group.start + from, products: group.products.slice(from, to) }] : [];
+    });
+  }, [page, productGroups]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -151,7 +170,7 @@ export default function Products({embedded=false,onDirtyChange}={}) {
     } catch (e) { alert(e.message); } finally { setReviewSaving(false); }
   };
 
-  const noAliasCount = products.filter(p => !p.DisplayName).length;
+  const noAliasCount = useMemo(() => products.filter(p => !p.DisplayName).length, [products]);
 
   const handleExport = () => {
     downloadCsv(makeDatedFilename('품목목록'), [
@@ -220,6 +239,11 @@ export default function Products({embedded=false,onDirtyChange}={}) {
       <div style={{ display:'flex', flexWrap:'wrap', alignItems:'center', gap:12, padding:'6px 0' }}>
         <strong role="status" aria-live="polite">{selectedCountry ?? '전체 국가'} › {selectedFlowers[0] ?? '전체 품종'} · 하위 품목 {filtered.length}개</strong>
         <small style={{ color:'var(--text2)' }}>국가 선택 → 품종별 하위 품목 · 품목명에 마우스를 올리면 사진, 클릭하면 사진 관리</small>
+        {!bulkEdit && pageCount > 1 && <nav aria-label="품목 목록 페이지" style={{display:'flex', alignItems:'center', gap:8}}>
+          <button type="button" className="btn btn-sm" disabled={page === 0} onClick={() => setPaging({groups: productGroups, page: page - 1})}>이전</button>
+          <span>{page + 1} / {pageCount}쪽</span>
+          <button type="button" className="btn btn-sm" disabled={page + 1 >= pageCount} onClick={() => setPaging({groups: productGroups, page: page + 1})}>다음</button>
+        </nav>}
       </div>
       {photoTarget && <ProductCatalogPhoto key={`${photoTarget.product.ProdKey}-${photoTarget.editing}`} target={photoTarget} onClose={() => setPhotoTarget(null)} />}
       {err && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>⚠️ {err}</div>}
@@ -247,8 +271,8 @@ export default function Products({embedded=false,onDirtyChange}={}) {
                 <th style={{ textAlign: 'right' }}>재고</th>
               </tr>
             </thead>
-            {productGroups.map(group => <tbody key={group.key} aria-label={`${group.country} ${group.flower} 품목 묶음`}>
-              <tr><th colSpan={14} scope="rowgroup" style={{ textAlign:'left', background:'var(--primary-bg, #eff6ff)', padding:'7px 10px' }}>{group.country} › {group.flower} · {group.products.length}개</th></tr>
+            {pageGroups.map(group => <tbody key={group.key} aria-label={`${group.country} ${group.flower} 품목 묶음`}>
+              <tr><th colSpan={14} scope="rowgroup" style={{ textAlign:'left', background:'var(--primary-bg, #eff6ff)', padding:'7px 10px' }}>{group.country} › {group.flower} · {group.count}개</th></tr>
               {group.products.map((p, i) => (
                 <tr
                   key={p.ProdKey}
@@ -289,7 +313,7 @@ export default function Products({embedded=false,onDirtyChange}={}) {
                 </tr>
               ))}
             </tbody>)}
-            {!filtered.length && <tbody><tr><td colSpan={14}>선택한 국가·품종과 검색 조건에 맞는 품목이 없습니다.</td></tr></tbody>}
+            {!filtered.length && <tbody><tr><td colSpan={14}>{result.loading ? '품목 검색 중…' : result.error || '선택한 국가·품종과 검색 조건에 맞는 품목이 없습니다.'}</td></tr></tbody>}
           </table>
         )}
       </div>
