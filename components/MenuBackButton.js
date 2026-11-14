@@ -63,11 +63,18 @@ export default function MenuBackButton({standalone=false}){
   return <><button
       type="button"
       data-ui-back-button
-      className={standalone?'nv-standalone-back':''}
+      className={standalone?'nv-standalone-back':'nv-back'}
       onClick={resetCurrentMenu}
       title="이전 화면으로"
       aria-label="뒤로가기"
-    >← 뒤로가기</button>{standalone&&<style jsx>{`
+    >← 뒤로가기</button>{!standalone&&<style jsx global>{`
+    /* 상단바 뒤로가기 — 예전에는 클래스가 없어 브라우저 기본 회색 버튼으로 보였다. 옆 버튼(로그아웃·닫기)과 같은 모양으로 맞춘다(docs/UI_STANDARD.md). */
+    button.nv-back{display:inline-flex;align-items:center;gap:4px;min-height:24px;padding:2px 10px;border:1px solid #b9c7d8;border-radius:6px;background:#fff;color:#173f73;font:inherit;font-size:12px;font-weight:600;line-height:1.2;white-space:nowrap;cursor:pointer;transition:background .12s,border-color .12s,transform .12s}
+    button.nv-back:hover{background:#edf5ff;border-color:#7292ba}
+    button.nv-back:active{transform:translateY(1px)}
+    button.nv-back:focus-visible{outline:2px solid #2b6cb0;outline-offset:2px}
+    @media(max-width:760px){button.nv-back{min-height:32px}}
+  `}</style>}{standalone&&<style jsx>{`
     .nv-standalone-back{position:fixed;right:12px;top:34px;z-index:20000;border:1px solid #7292ba;border-radius:6px;background:#fff;color:#173f73;padding:5px 10px;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(16,45,82,.2);cursor:pointer}
     .nv-standalone-back:hover{background:#edf5ff}
     @media(max-width:760px){.nv-standalone-back{right:7px;top:31px;padding:4px 7px;font-size:11px}}
