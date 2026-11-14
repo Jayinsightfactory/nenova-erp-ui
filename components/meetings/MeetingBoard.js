@@ -79,7 +79,13 @@ export default function MeetingBoard({ board, readOnly = false, selectedId, onSe
     const dx = event.clientX - drag.startX, dy = event.clientY - drag.startY;
     setDrag({ ...drag, x: Math.max(0, drag.baseX + dx), y: Math.max(0, drag.baseY + dy), moved: drag.moved || Math.abs(dx) + Math.abs(dy) > 3 });
   };
-  const endDrag = () => { if (!drag) return; if (drag.moved) onMove(drag.id, Math.round(drag.x), Math.round(drag.y)); setDrag(null); };
+  // 놓는 순간의 자리로 끝낸다(마지막 움직임 신호가 빠져도 놓은 곳에 놓이게).
+  const endDrag = event => {
+    if (!drag) return;
+    const dx = event?.clientX != null ? event.clientX - drag.startX : drag.x - drag.baseX, dy = event?.clientY != null ? event.clientY - drag.startY : drag.y - drag.baseY;
+    if (drag.moved || Math.abs(dx) + Math.abs(dy) > 3) onMove(drag.id, Math.round(Math.max(0, drag.baseX + dx)), Math.round(Math.max(0, drag.baseY + dy)));
+    setDrag(null);
+  };
 
   const pick = card => {
     setPickedLink(null);
@@ -125,7 +131,7 @@ export default function MeetingBoard({ board, readOnly = false, selectedId, onSe
               className={`mtb-card mtb-${card.type}${selected ? ' on' : ''}${drag?.id === card.id ? ' drag' : ''}${linkFrom === card.id ? ' linking' : ''}`}
               style={{ left: at.x, top: at.y, width: CARD_W }} data-card={card.id} data-type={card.type}
               tabIndex={0} role="group" aria-label={`${CARD_TYPE_LABEL[card.type]} 쪽지: ${card.text}`}
-              onPointerDown={event => startDrag(event, card)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
+              onPointerDown={event => startDrag(event, card)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={() => setDrag(null)}
               onClick={event => { if (!event.target.closest('button,textarea,input')) pick(card); }}
               onDoubleClick={() => { if (!readOnly) { onSelect(card.id); setEditing(card.id); } }}
               onKeyDown={event => cardKeys(event, card)}>
