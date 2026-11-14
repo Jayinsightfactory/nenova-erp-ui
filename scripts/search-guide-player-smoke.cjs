@@ -9,17 +9,17 @@ const ids=['arrival-upload-review','estimate-management','estimate-shipment-date
  const results=[];
  try{
   for(const id of ids){
-   const workflow=registry.workflows.find(w=>w.id===id),page=await browser.newPage(),errors=[],assets=[];
+   const workflow=registry.workflows.find(w=>w.id===id),page=await browser.newPage(),errors=[],assets=[],consoleErrors=[];
    await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});
-   page.on('pageerror',e=>errors.push(e.message));
+   page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
    page.on('response',r=>{if(new URL(r.url()).pathname.startsWith('/guides/'))assets.push(r.status());});
    await page.setRequestInterception(true);page.on('request',r=>{
     const u=new URL(r.url());if(u.origin!==base)return r.abort();if(!u.pathname.startsWith('/api/'))return r.continue();
     const user={userId:'guide',userName:'연습 사용자',authority:1,accountActive:true};
-    return r.respond({status:200,contentType:'application/json',body:JSON.stringify({success:true,user,rows:[],items:[],data:[],products:[],customers:[],weeks:[],shipments:[],groups:[],countries:[],flowers:[],favorites:[],history:[],operations:[],requests:[],permissions:{request:true,review:true},config:{enabled:false,countries:[]},lookup:{farms:[],products:[]}})});
+    return r.respond({status:200,contentType:'application/json',body:JSON.stringify({success:true,user,rows:[],items:[],data:[],varieties:[],imports:[],candidates:[],results:[],types:[],mismatches:[],products:[],customers:[],weeks:[],shipments:[],groups:[],countries:[],flowers:[],favorites:[],history:[],operations:[],requests:[],permissions:{request:true,review:true},config:{enabled:false,year:'2026',countries:[]},lookup:{farms:[],products:[]}})});
    });
    await page.goto(base+workflow.entryPaths[0],{waitUntil:'networkidle0'});
-   await page.waitForFunction(title=>[...document.querySelectorAll('h3')].some(n=>n.textContent===title),{},workflow.title);
+   await page.waitForFunction(title=>[...document.querySelectorAll('h3')].some(n=>n.textContent===title),{},workflow.title).catch(async e=>{fs.mkdirSync('.verify/search-guide-player',{recursive:true});await page.screenshot({path:'.verify/search-guide-player/failure.png',fullPage:true});fs.writeFileSync('.verify/search-guide-player/failure.txt',await page.evaluate(()=>document.body.innerText));console.error(id,'pageErrors',errors,'consoleErrors',consoleErrors);throw e;});
    await page.evaluate(title=>{const h=[...document.querySelectorAll('h3')].find(n=>n.textContent===title);h.closest('details').id='guide-qa';},workflow.title);
    const summary=await page.$('#guide-qa > summary');await summary.focus();await page.keyboard.press('Enter');
    const guide=workflow.guides[0];
