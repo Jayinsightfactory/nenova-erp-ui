@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-14T08:30:16.517Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 84.45,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "7032ccc47297afdd00c82300d97a93750592138a6ea8f66fec9b2ecb17ac2272",
+  "captionsSha256": "f6faab1aa8b0fe3005b098014bb9bf01fbba00ecb9381764d6945306baf950ab",
+  "sourceHashes": {
+    "pages/briefing.js": "ec0e298316fb139ab59afd580070b4f24ff8c83350ad0a46d7d3fbc449642e43",
+    "lib/morningBriefing.js": "41aa7a373b7da482ec49b5409bb36257e627f37b48887a26470ea6b55ae9ca4a"
+  },
+  "presentation": {
+    "numberedSteps": 4,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 1.8226251000000002,
+        "x": 80.5,
+        "y": 104,
+        "end": 8.3468874
+      },
+      {
+        "number": 1,
+        "start": 10.3892545,
+        "x": 1060,
+        "y": 249.1875,
+        "end": 16.809917900000002
+      },
+      {
+        "number": 2,
+        "start": 23.8473026,
+        "x": 642,
+        "y": 432.03125,
+        "end": 30.262566
+      },
+      {
+        "number": 2,
+        "start": 32.291242700000005,
+        "x": 1060,
+        "y": 432.03125,
+        "end": 38.7091926
+      },
+      {
+        "number": 2,
+        "start": 40.7307336,
+        "x": 1478,
+        "y": 432.03125,
+        "end": 47.1454603
+      },
+      {
+        "number": 3,
+        "start": 54.6761041,
+        "x": 561.6875,
+        "y": 463.453125,
+        "end": 61.155852200000005
+      },
+      {
+        "number": 4,
+        "start": 72.3002597,
+        "x": 1518.1484375,
+        "y": 118.640625,
+        "end": 78.7680881
+      }
+    ]
+  }
+}

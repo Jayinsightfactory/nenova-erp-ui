@@ -1094,6 +1094,56 @@
           ]
         }
       ]
+    },
+    {
+      "id": "morning-briefing",
+      "title": "아침 브리핑 한 장 보기",
+      "entryPaths": [
+        "/briefing"
+      ],
+      "sourceFiles": [
+        "pages/briefing.js",
+        "lib/morningBriefing.js"
+      ],
+      "requiredScenarios": [
+        "open",
+        "read-cards",
+        "open-source",
+        "reload"
+      ],
+      "guides": [
+        {
+          "id": "overview",
+          "role": "전 직원",
+          "title": "아침 브리핑으로 오늘 볼 것 확인하기",
+          "status": "ready",
+          "src": "/guides/morning-briefing/overview.mp4",
+          "captions": "/guides/morning-briefing/overview.ko.vtt",
+          "proof": "/guides/morning-briefing/overview.proof.json",
+          "chapters": [
+            {
+              "scenario": "open",
+              "title": "1. 메뉴에서 아침 브리핑을 엽니다",
+              "seconds": 0
+            },
+            {
+              "scenario": "read-cards",
+              "title": "2. 빨간 카드부터 차례로 읽습니다",
+              "seconds": 22.025
+            },
+            {
+              "scenario": "open-source",
+              "title": "3. 카드 아래 링크로 처리 화면을 엽니다",
+              "seconds": 52.858
+            },
+            {
+              "scenario": "reload",
+              "title": "4. 다시 불러오기로 최신 숫자를 봅니다",
+              "seconds": 70.462
+            }
+          ]
+        }
+      ]
     }
   ]
 }
