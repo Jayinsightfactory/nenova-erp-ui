@@ -3041,3 +3041,6 @@ pm run test:canon 통과.
 - 검증: `node scripts/check-workflow-guides.cjs --changed-from origin/master` → PASS 20 workflows, 21 verified videos. `node scripts/pm-control-smoke.cjs` PASS(1920/1280/390, 쓰기 0), `record-ops-control-tower-guide.cjs` passed(외부 요청 0·쓰기 0). 영상 장면을 뽑아 번호·확대·자막 확인.
 - 미검증/남은 일: `pm-control-smoke.cjs` 끝의 "가이드 접으면 영상 멈춤" 확인이 실행마다 붙었다 떨어졌다 한다(3번 중 1번 통과) — 접은 직후 바로 검사하는 시차 문제로 보이며 이번 변경과 무관(재생기 코드 안 건드림). `/ops` 색은 토큰이 아니라 파일 안에 직접 있다.
 - 검색어: 맑은 업무 PM 사무실 일반 관제 운영 관제탑 흰 바탕 가이드 영상 재촬영 pm-control ops-control-tower data-look
+
+2026-11-15 불량 차감 수입부 확인 탭에 입고 농장 후보 표시(메뉴 제안 카드 1, 1단계 읽기만). 농장 칸이 빈 줄 아래에 같은 차수(없으면 직전 차수)에 그 품목을 입고한 농장을 참고 글로 보인다. 농장 칸을 채우거나 저장하지 않는다. 조회는 GET view=farm-candidates(SELECT만, 수입부 확인 권한). 과거 채워진 787줄 대조: 후보 1곳 207줄 중 184줄 일치(89%), 여러 곳 566줄 중 화면에 보이는 4곳 안에 실제 농장 261줄(46%), 맨 앞 후보 일치 111줄(20%) — 순서는 근거가 아니므로 자동 채움 금지. 미검증: nenova.exe 대조, 농장 표기 차이, 2단계(눌러서 채움)는 사장님 승인 뒤.
+검색어: 불량 차감 농장 후보 farm-candidates defectFarmCandidates 수입부 확인 입고 농장 메뉴 제안 카드 1
