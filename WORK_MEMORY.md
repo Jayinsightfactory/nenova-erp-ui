@@ -3034,3 +3034,10 @@ pm run test:canon 통과.
 
 2026-11-14 메뉴 자동 제안 첫 시험(수입부). 컷 1,906개와 전산 12개월 기록에서 불편 신호를 규칙 15가지(화면 11·전산 4)로 세어 후보 15개를 만들고 카드 3장을 골랐다: 불량 차감 농장 후보(바꾸는 화면·제안만, 농장 빈 줄 532/1,319, 과거 787줄 대조 시 후보 1곳 89% 일치), 입고 등록 전 점검판(읽기), 새 품목 채움 상태표(읽기). 화면·API·DB 변경 없음(전산은 조회만). 설계와 후보 표는 docs/MENU_SUGGESTION_PILOT_2026-11-14.md, 카드 파일은 사장님 PC 바탕화면 메뉴제안카드 폴더, 집계 스크립트는 저장소 밖 import-handover-data/menu-suggest. 미검증: 기대 효과의 분, nenova.exe 화면 대조, 단위 환산, 화면 기록 도착률 35% 한계.
 검색어: 메뉴 자동 제안 불편 신호 후보 표 카드 불량 차감 농장 후보 입고 점검판 새 품목 채움 상태표 scan_friction NOWLINK
+
+## 2026-11-15 "맑은 업무" 분위기 — PM 사무실(일반 관제)·운영 관제탑 적용 + 가이드 영상 2편 재촬영
+- 요청/원인: 사장님 지시 "바꿔 주세요" — 레이더·매뉴얼에 이어 `/pm`·`/ops`도 시안 B 분위기로.
+- 구현: `pages/pm.js` 일반 관제(게임 꺼짐)에만 `data-look="clear"`(게임 화면은 고른 테마 유지), `pages/ops.js` 어두운 바탕 → 흰 바탕·얇은 선·남색, 내부 용어 문구("ORBIT_OWNER_TOKEN 미설정") → 쉬운 말. 가이드 영상 `public/guides/pm-control/staff.mp4`(36.5초)·`public/guides/ops-control-tower/overview.mp4`(42.9초)를 실제 화면+연습 자료로 다시 촬영.
+- 검증: `node scripts/check-workflow-guides.cjs --changed-from origin/master` → PASS 20 workflows, 21 verified videos. `node scripts/pm-control-smoke.cjs` PASS(1920/1280/390, 쓰기 0), `record-ops-control-tower-guide.cjs` passed(외부 요청 0·쓰기 0). 영상 장면을 뽑아 번호·확대·자막 확인.
+- 미검증/남은 일: `pm-control-smoke.cjs` 끝의 "가이드 접으면 영상 멈춤" 확인이 실행마다 붙었다 떨어졌다 한다(3번 중 1번 통과) — 접은 직후 바로 검사하는 시차 문제로 보이며 이번 변경과 무관(재생기 코드 안 건드림). `/ops` 색은 토큰이 아니라 파일 안에 직접 있다.
+- 검색어: 맑은 업무 PM 사무실 일반 관제 운영 관제탑 흰 바탕 가이드 영상 재촬영 pm-control ops-control-tower data-look
