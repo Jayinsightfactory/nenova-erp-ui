@@ -66,6 +66,31 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=req
  const failed=await desktopHomeWorkspace({userId:'bob',authority:6},{date:'2026-01-02'},{action:'create',date:'2026-01-02',title:'실패중 저장',expectedRevision:0,requestId:'failed_feed_save'}, {...deps,readKnowledge:async()=>{throw Error('fixture');},loadQuality:async()=>{throw Error('fixture');}});assert.equal(failed.tasks.length,1);assert.ok(failed.feedErrors.feedback);
  let calls=0,time=0;const cached=createHomeQualityCache(async()=>{calls++;await new Promise(r=>setTimeout(r,5));return {cases:[]};},()=>time);await Promise.all([cached({year:2026}),cached({year:2026})]);assert.equal(calls,1);time=26000;await cached({year:2026});assert.equal(calls,2);
  let failures=0;const bad=createHomeQualityCache(async()=>{failures++;throw Error('retry');});await bad({year:2026}).catch(()=>{});await bad({year:2026}).catch(()=>{});assert.equal(failures,2);
+ {
+  let clock=0,finish;const scope={year:2026};
+  const cache=createHomeQualityCache(()=>new Promise(resolve=>{finish=resolve;}),()=>clock);
+  const initial=cache(scope);await Promise.resolve();finish({cases:[1]});await initial;
+  clock=26000;
+  assert.deepEqual(await cache(scope,{allowStale:true}),{cases:[1]});
+  const strict=cache(scope);finish({cases:[2]});assert.deepEqual(await strict,{cases:[2]});
+  clock=150000;
+  const expired=cache(scope,{allowStale:true});await Promise.resolve();finish({cases:[3]});
+  assert.deepEqual(await expired,{cases:[3]});
+ }
+ {
+  const {loadHomeQuality}=await import('../lib/homeQualityProjection.js');
+  const scope={year:2026,from:1,to:53},key='7e92770b-c816-4a57-a650-317abeae4be9';
+  const empty=await loadHomeQuality(scope,async(statement,year)=>{
+   assert.equal(year,2026);assert(!/ViewWarehouse|INSERT|UPDATE\s+dbo|DELETE\s+FROM/i.test(statement));
+   return {recordsets:[[]]};
+  });assert.deepEqual(empty.cases,[]);
+  const created=new Date('2026-10-01T00:00:00Z');
+  const row={OrderYear:2026,OrderWeek:'40-01',DeductionKey:3,ProdKey:5,CustKey:7,OriginalQuantity:1,ImportConfirmed:true,ProductName:'테스트',FarmName:'',ResolvedFarmName:'농장원본'};
+  const record={CaseKey:key.toUpperCase(),OrderYear:2026,SourceKey:3,Status:'NEW',Version:1,UpdatedAt:created,DueDate:created};
+  const result=await loadHomeQuality(scope,async()=>({recordsets:[[record],[{...row,OrderYear:2025,ResolvedFarmName:'전년도'},row],[],[],[{CaseKey:key,Kind:'REQUEST',Body:'first',CreatedAt:created},{CaseKey:key,Kind:'COMMENT',Body:'last',CreatedAt:created}]]}));
+  assert.equal(result.cases[0].CaseKey,key);assert.equal(result.cases[0].LatestBody,'last');assert.equal(result.cases[0].DueDate,'2026-10-01');
+  assert.equal(result.coverage.rows.length,1);assert.equal(result.coverage.rows[0].farmName,'농장원본');assert.deepEqual(result.inbox.items[0].caseKeys,[key]);
+ }
  const api=await fs.readFile('pages/api/desktop/home-workspace.js','utf8');const module=await import('data:text/javascript;base64,'+Buffer.from(api.replace(/^import .*;\r?\n/gm,'').replace('export default withAuth(createDesktopHomeHandler());','')).toString('base64'));
  let invoked=0;const handler=module.createDesktopHomeHandler({workspace:async()=>{invoked++;return {success:true};}});const res={setHeader(){},status(code){this.code=code;return this;},json(value){this.value=value;return this;}};
  await handler({method:'POST',user:{userId:'alice'},query:{},body:{expectedOwnerId:'bob'},headers:{}},res);assert.equal(res.code,403);assert.equal(res.value.code,'ACCOUNT_CHANGED');assert.equal(invoked,0);
