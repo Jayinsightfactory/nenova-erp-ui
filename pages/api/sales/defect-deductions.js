@@ -30,6 +30,8 @@ import {
   saveManagerOption,
 } from '../../../lib/salesDefectDeductions.js';
 import { saveManualCost } from '../../../lib/salesDefectManualCost.js';
+import { loadDefectFarmCandidates } from '../../../lib/defectFarmCandidates.js';
+import { query, sql } from '../../../lib/db.js';
 import {
   canUseDefectIncoming,
   canUseDefectSales,
@@ -48,6 +50,12 @@ async function handler(req, res) {
       if (req.query.view === 'cost-candidates') {
         if (!canUseDefectSupport(req.user)) return res.status(403).json({ success: false, error: '영업지원 권한이 필요합니다.' });
         const data = await loadDefectCostCandidates({ year: req.query.year, week: req.query.week, custKey: req.query.custKey, prodKey: req.query.prodKey, search: req.query.q });
+        return res.status(200).json({ success: true, ...data });
+      }
+      if (req.query.view === 'farm-candidates') {
+        // 읽기 전용: 같은 차수(없으면 직전 차수)에 그 품목을 입고한 농장 후보. 저장하지 않는다.
+        if (!canUseDefectIncoming(req.user)) return res.status(403).json({ success: false, error: '수입부 확인 권한이 필요합니다.' });
+        const data = await loadDefectFarmCandidates({ year: normalizeYear(req.query.year || defaultYear()), week: normalizeParentWeek(req.query.week || 1), query, sql });
         return res.status(200).json({ success: true, ...data });
       }
       if(req.query.view==='omission-history')return res.status(200).json({success:true,rows:await listOmissionHistory({year:req.query.year,user:req.user})});

@@ -16,6 +16,7 @@ import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/e
 import { isDefectAdmin, isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
 import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, getSupportLinkedEstimate, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
 import { sortDefectDisplayRows, sortIncomingRows } from '../../lib/salesDefectIncomingGroup.js';
+import { farmCandidateLabel } from '../../lib/defectFarmCandidates.js';
 import { canUseDefectIncoming, canUseDefectSupport } from '../../lib/salesDefectDeductionCore';
 import { selectDefectRange } from '../../lib/defectDragSelection.js';
 import { buildDefectProductDisplay } from '../../lib/defectProductDisplay.js';
@@ -179,6 +180,8 @@ export default function SalesDefectDeductionsPage() {
   const managementAllowed = canUseDefectIncoming(currentUser || {}) || canUseDefectSupport(currentUser || {});
   const [rows, setRows] = useState([]);
   const [incomingRows, setIncomingRows] = useState([]);
+  // 입고 농장 후보(읽기 전용 참고). 농장 칸은 채우지 않는다 — 사람이 검색·확정으로 저장한다.
+  const [farmCandidates, setFarmCandidates] = useState({});
   const [incomingGroupMode, setIncomingGroupMode] = useState('customer');
   const [salesSortMode, setSalesSortMode] = useState('customer');
   const [supportRows, setSupportRows] = useState([]);
@@ -334,6 +337,11 @@ export default function SalesDefectDeductionsPage() {
       if (requestSeq !== managementIncomingRequest.current) return data;
       setIncomingRows(data.rows || []);
       setHistory(data.history || []);
+      // 후보는 참고 정보다. 못 불러와도 확인 업무는 그대로 진행된다(오류로 올리지 않음).
+      setFarmCandidates({});
+      apiGet('/api/sales/defect-deductions', { year, week, view: 'farm-candidates' })
+        .then((extra) => { if (requestSeq === managementIncomingRequest.current) setFarmCandidates(extra.candidates || {}); })
+        .catch(() => {});
       return data;
     } catch (e) {
       if (requestSeq === managementIncomingRequest.current) setError(e.message);
@@ -1889,6 +1897,7 @@ export default function SalesDefectDeductionsPage() {
                   <button type="button" className="btn btn-xs lookup-btn" onClick={() => runLookup(sourceIndex, 'farm', '', 'incoming')}>검색</button>
                 </div>
                 {renderLookupPanel(sourceIndex, 'farm', 'incoming')}
+                {!String(row.farmName || '').trim() && farmCandidateLabel(farmCandidates[row.deductionKey]) && <div className="incoming-farm-candidates" title="같은 차수(없으면 직전 차수)에 이 품목을 입고한 농장입니다. 참고용이며 자동으로 채워지지 않습니다.">{farmCandidateLabel(farmCandidates[row.deductionKey])}</div>}
               </td>
               <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateIncomingRow(sourceIndex, { creditApplied: e.target.checked, importConfirmed: false })} /> 가능</label></td>
               <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.importReviewRequired} onChange={(e) => updateIncomingRow(sourceIndex, { importReviewRequired: e.target.checked, importConfirmed: false })} /> 필요</label></td>
@@ -2232,6 +2241,7 @@ export default function SalesDefectDeductionsPage() {
         .incoming-note-input { min-width: 0; width: 100%; }
         .incoming-confirmed { color: #166534; font-weight: 700; }
         .incoming-pending { color: #b45309; font-weight: 700; }
+        .incoming-farm-candidates { margin-top: 3px; font-size: 11.5px; line-height: 1.35; color: #47607a; white-space: normal; word-break: keep-all; }
         .sales-view-toggle { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); background: #f8fafc; border-radius: 4px; }
         .defect-sort-field { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
         .defect-sort-field .input { min-width: 150px; }
