@@ -2,11 +2,12 @@
 //   하루·주·월 업무표(아침에 출근해서 하는 순서대로) → 각 줄에서 새 기준 매뉴얼(6항목 + 가이드 영상)로 바로 들어간다.
 //   데이터: lib/importHandover.js(data/import-handover.json). 확정/추정과 근거 건수를 줄마다 표시한다.
 //   색은 /pm 토큰(var(--pm-*))만 — hex 금지(__tests__/importHandover.test.js). 버튼은 components/pm/ui 키트만.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, PmUiStyles, Tabs, ToggleChip } from '../pm/ui';
 import { allThemesCss, readStoredTheme } from '../../lib/pmThemes';
 import WorkflowGuide from '../WorkflowGuide';
 import ImportEducation from './ImportEducation';
+import ImportWeekday from './ImportWeekday';
 
 const KINDS = [['daily', '하루'], ['weekly', '주'], ['monthly', '월'], ['manuals', '매뉴얼 전체'], ['edu', '신입 교육'], ['todo', '남은 일 · 물어볼 것']];
 const WHEN_HEAD = { daily: '시간대', weekly: '요일', monthly: '시기' };
@@ -110,6 +111,22 @@ function CountryCalendar({ calendar, manuals, onOpen }) {
   );
 }
 
+// 강의형 설명 영상: 기록된 화면 그림에 설명 음성을 붙인 것(실제 조작 녹화가 아님). 목차 번호는 글 단계와 같다.
+function Lecture({ manual }) {
+  const ref = useRef(null);
+  const mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+  const go = (t) => { const v = ref.current; if (!v) return; v.currentTime = t; v.play?.().catch(() => {}); };
+  return (
+    <div className="lec">
+      <p className="muted"><small>강의형 설명 영상 — 기록된 업무 화면 그림에 설명을 붙였습니다(실제 조작을 찍은 사용 가이드 영상이 아닙니다). 길이 {mmss(manual.lecture.seconds || 0)}</small></p>
+      <video ref={ref} controls preload="metadata" src={`/api/work/manual-lecture?id=${manual.id}`} aria-label={`${manual.title} 강의형 설명 영상`} />
+      <div className="chips" role="group" aria-label="영상 목차">
+        {manual.lecture.chapters.map((ch, i) => <Button key={i} size="sm" variant="secondary" onClick={() => go(ch.start)}>{ch.title} <small className="muted">{mmss(ch.start)}</small></Button>)}
+      </div>
+    </div>
+  );
+}
+
 function ManualView({ manual, onBack, blurred }) {
   return (
     <article className="manual" aria-label={`${manual.title} 매뉴얼`}>
@@ -131,6 +148,7 @@ function ManualView({ manual, onBack, blurred }) {
       <h4>③ 단계별로 따라 하기 <small className="muted">(영상 · 자막 · 목차와 같은 번호)</small></h4>
       {manual.video
         ? <WorkflowGuide workflowId={manual.video.workflowId} defaultOpen />
+        : manual.lecture ? <Lecture manual={manual} />
         : <p className="empty">이 절차는 아직 영상이 없습니다. 아래 글 단계와 화면 캡처로 따라 하세요.{manual.media?.videoWaiting ? <small className="muted"> 영상 대기 이유: {manual.media.videoWaiting}</small> : null}</p>}
       <ol className="msteps">
         {manual.steps.map((s) => (
@@ -182,6 +200,12 @@ function Todo({ data }) {
       {data.questions?.length ? (
         <ol className="qs">{data.questions.map((q, i) => <li key={i}><Badge tone={q.priority === '급함' ? 'err' : 'plain'}>{q.priority}</Badge> <b>{q.topic}</b> — {q.question}{q.why ? <small className="muted"> ({q.why})</small> : null}</li>)}</ol>
       ) : <p className="empty">없음</p>}
+      {data.answered?.length > 0 && (
+        <>
+          <h4>기록으로 풀린 것 <small className="muted">직원에게 묻지 않고 쌓인 기록을 더 파서 알아낸 것 — 매뉴얼 본문에도 넣었습니다</small></h4>
+          <ul className="qs">{data.answered.map((x, i) => <li key={i}><Badge tone={x.status === 'confirmed' ? 'ok' : 'est'}>{x.status === 'confirmed' ? '확정' : '추정'}</Badge> <b>{x.topic}</b> — {x.answer}{x.evidence ? <small className="muted"> ({x.evidence})</small> : null}</li>)}</ul>
+        </>
+      )}
       <h4>아직 매뉴얼을 못 만든 절차</h4>
       {data.notYet?.length ? <ul>{data.notYet.map((x, i) => <li key={i}><b>{x.title}</b> — {x.reason}</li>)}</ul> : <p className="empty">없음</p>}
       <h4>영상 · 화면 캡처 현황 <small className="muted">(영상이 없는 매뉴얼은 캡처로 먼저 · 영상은 이유가 풀리면)</small></h4>
@@ -189,7 +213,7 @@ function Todo({ data }) {
         <thead><tr><th>매뉴얼</th><th>영상</th><th>화면 캡처</th><th>영상을 아직 못 만든 이유</th></tr></thead>
         <tbody>{(data.manuals || []).map((m) => {
           const need = m.steps.filter((s) => s.captureKind === 'screen' || s.capture).length, have = m.steps.filter((s) => s.capture).length;
-          return <tr key={m.id}><td>{m.title}</td><td><Badge tone={m.video ? 'ok' : 'plain'}>{m.video ? '있음' : '대기'}</Badge></td><td>{m.video && !have ? '영상으로 대신' : `${have} / ${need}단계`}</td><td>{m.media?.videoWaiting || '-'}</td></tr>;
+          return <tr key={m.id}><td>{m.title}</td><td><Badge tone={m.video ? 'ok' : m.lecture ? 'est' : 'plain'}>{m.video ? '조작 영상' : m.lecture ? '강의형 영상' : '대기'}</Badge></td><td>{m.video && !have ? '영상으로 대신' : `${have} / ${need}단계`}</td><td>{m.media?.videoWaiting || '-'}</td></tr>;
         })}</tbody>
       </table>
       <h4>근거가 부족한 절차</h4>
@@ -228,7 +252,7 @@ export default function ImportHandover({ data, me, initialManual }) {
                   <div key={m.id} className="mcard">
                     <b>{m.title}</b> <Status it={m} />
                     <p>{m.why}</p>
-                    <Button size="sm" variant="primary" onClick={() => setOpenId(m.id)}>{m.video ? '영상 + 글 매뉴얼 열기' : '글 매뉴얼 열기'}</Button>
+                    <Button size="sm" variant="primary" onClick={() => setOpenId(m.id)}>{m.video ? '영상 + 글 매뉴얼 열기' : m.lecture ? '강의 영상 + 글 매뉴얼 열기' : '글 매뉴얼 열기'}</Button>
                   </div>
                 ))}
               </div>
@@ -236,6 +260,8 @@ export default function ImportHandover({ data, me, initialManual }) {
             {kind === 'edu' && <ImportEducation data={data.education} />}
             {kind === 'todo' && <Todo data={data} />}
             {kind === 'weekly' && <CountryCalendar calendar={data.countryCalendar} manuals={data.manuals} onOpen={setOpenId} />}
+            {kind === 'daily' && <ImportWeekday weekday={data.weekday} schedule={data.schedule} calendar={data.countryCalendar} manuals={data.manuals} onOpen={setOpenId} />}
+            {kind === 'daily' && data.weekday?.weekdays?.length ? <h4>하루 흐름 한눈에 <small className="muted">월요일 / 화~금 공통 순서</small></h4> : null}
             {['daily', 'weekly', 'monthly'].includes(kind) && <ScheduleTable key={kind} kind={kind} rows={data.schedule?.[kind] || []} onOpen={setOpenId} />}
           </>
         )}
@@ -276,6 +302,8 @@ export default function ImportHandover({ data, me, initialManual }) {
         .ih .msteps dt { color: var(--pm-muted); }
         .ih .msteps dd { margin: 0; }
         @media (max-width: 760px) { .ih .msteps dl { grid-template-columns: 1fr; } }
+        .ih .lec video { display: block; width: 100%; max-width: 960px; border: 1px solid var(--pm-line); border-radius: 6px; background: var(--pm-ink); }
+        .ih .lec .chips { margin-top: 8px; }
         .ih .cap { margin: 8px 0 0; max-width: 720px; }
         .ih .cap img { display: block; width: 100%; height: auto; border: 1px solid var(--pm-line); border-radius: 6px; }
         .ih .cap figcaption, .ih .capnote { display: block; margin-top: 4px; font-size: 12px; color: var(--pm-muted); }
