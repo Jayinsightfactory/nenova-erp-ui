@@ -93,6 +93,8 @@
     "__tests__/defectCompanyFilter.test.js",
     "scripts/defect-company-filter-smoke.cjs",
     "lib/defectCostCandidates.js",
+    "lib/defectFarmCandidates.js",
+    "__tests__/defectFarmCandidates.test.js",
     "components/DefectCostLookup.js",
     "__tests__/defectCostCandidates.test.js",
     "scripts/defect-cost-held-smoke.cjs"
@@ -482,7 +484,8 @@
     "__tests__/defectProductDisplay.test.js",
     "__tests__/defectResolution.test.js",
     "__tests__/defectCompanyFilter.test.js",
-    "__tests__/defectCostCandidates.test.js"
+    "__tests__/defectCostCandidates.test.js",
+    "__tests__/defectFarmCandidates.test.js"
   ],
   "maintenanceGuide": "docs/DEFECT_DEDUCTION_MAINTENANCE.md",
   "recentCostPolicy": "2026-11-03 user policy: previous five parent weeks only within selected year, own customer first, otherwise latest other customer price for identical ProdKey. No previous-year fallback. Target ShipmentKey still requires actual current year/week customer distribution; absent target remains pending for later weeks.",
