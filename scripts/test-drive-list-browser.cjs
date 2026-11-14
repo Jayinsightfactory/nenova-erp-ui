@@ -13,6 +13,7 @@ async function until(predicate){for(let i=0;i<200;i++){if(predicate())return;awa
 function send(res,payload,table=true){return sendDriveListJson(res,payload,{table}).catch(()=>res.destroy());}
 function finishFull(entries=pendingFull.splice(0),status=200,extra={}){for(const {res}of entries){if(res.destroyed)continue;if(status!==200){res.statusCode=status;res.setHeader('Content-Type','application/json');res.end(JSON.stringify({success:false,error:status===403?'fixture permission changed':'fixture temporary failure'}));}else void send(res,{...base,files,catalog:{complete:true,totalFiles:files.length},...extra});}}
 function finishUsage(){for(const res of pendingUsage.splice(0)){if(res.destroyed)continue;res.setHeader('Content-Type','application/json');res.statusCode=mode==='usage-failure'?503:200;res.end(JSON.stringify(mode==='usage-failure'?{success:false,error:'fixture usage failure'}:{success:true,usage:mode==='zero'?{...usage,used:0,pct:0}:usage}));}}
+let previewGate;
 async function navigate(nextMode){for(const {res}of pendingFull.splice(0))res.destroy();for(const res of pendingUsage.splice(0))res.destroy();mode=nextMode;await page.goto('http://localhost:'+server.address().port+'/work/drive?popup=1',{waitUntil:'domcontentloaded'});await page.waitForSelector('.wd .card,.wd .lst tbody tr',{timeout:60000});}
 (async()=>{
  categories=await import(require('node:url').pathToFileURL(path.join(process.cwd(),'lib/workDriveCategories.js')));
@@ -21,8 +22,18 @@ async function navigate(nextMode){for(const {res}of pendingFull.splice(0))res.de
   if(url.pathname==='/api/work/drive'){
    res.setHeader('Cache-Control','no-store');if(url.searchParams.get('usage')==='only'){pendingUsage.push(res);return;}
    assert.equal(url.searchParams.get('format'),'table-v1');assert.equal(url.searchParams.get('usage'),'deferred');
-   if(url.searchParams.get('preview')==='1'){previewRequests++;const selected=mode==='small'?files.slice(0,83):mode==='legacy'?files:files.slice(0,100);return void send(res,{...base,files:selected,...(mode==='legacy'?{}:{catalog:{complete:mode==='small',totalFiles:mode==='small'?83:files.length}})},mode!=='legacy');}
-   if(url.searchParams.has('search')){const query=url.searchParams.get('search'),criteria=JSON.parse(url.searchParams.get('criteria')||'{}'),window=buildSearchWindow(files,query,criteria,{me:base.me,dept:base.dept},categories);lastSearchWindow={rows:window.files.length,total:window.totalFiles,scope:criteria.scope,jsonBytes:Buffer.byteLength(JSON.stringify(window))};if(mode==='search-failure'&&criteria.scope==='mine')await delay(600);if(mode==='search-failure'&&searchFailures++===0){res.statusCode=503;res.setHeader('Content-Type','application/json');res.end(JSON.stringify({success:false,error:'fixture search unavailable'}));return;}return void send(res,{...base,files:window.files,search:{...window,files:undefined,query},catalog:{complete:true}});}
+   if(url.searchParams.get('preview')==='1'){
+    previewRequests++;
+    if(mode==='early-scope'){
+     await previewGate;
+     return void send(res,{...base,files:files.slice(0,83),catalog:{complete:true,totalFiles:83}});
+    }
+    if(mode==='early-person'){
+     const twoPeople=[files[0],{...files[1],uploaderName:'fixture-peer'}];
+     return void send(res,{...base,isAdmin:false,files:twoPeople,catalog:{complete:false,totalFiles:files.length}});
+    }
+    const selected=mode==='small'?files.slice(0,83):mode==='legacy'?files:files.slice(0,100);return void send(res,{...base,files:selected,...(mode==='legacy'?{}:{catalog:{complete:mode==='small',totalFiles:mode==='small'?83:files.length}})},mode!=='legacy');}
+   if(url.searchParams.has('search')){const query=url.searchParams.get('search'),criteria=JSON.parse(url.searchParams.get('criteria')||'{}'),window=buildSearchWindow(files,query,criteria,{me:base.me,dept:base.dept},categories);lastSearchWindow={rows:window.files.length,total:window.totalFiles,scope:criteria.scope,who:criteria.who,jsonBytes:Buffer.byteLength(JSON.stringify(window))};if(mode==='search-failure'&&criteria.scope==='mine')await delay(600);if(mode==='search-failure'&&searchFailures++===0){res.statusCode=503;res.setHeader('Content-Type','application/json');res.end(JSON.stringify({success:false,error:'fixture search unavailable'}));return;}return void send(res,{...base,files:window.files,search:{...window,files:undefined,query},catalog:{complete:true}});}
    fullRequests++;pendingFull.push({res});return;
   }
   if(url.pathname.startsWith('/api/')){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(url.pathname==='/api/auth/me'?{success:true,user:{userId:'fixture',userName:'fixture'}}:{success:true,items:[],rows:[],favorites:[]}));return;}return handle(req,res);
@@ -50,11 +61,37 @@ async function navigate(nextMode){for(const {res}of pendingFull.splice(0))res.de
   assert.equal(await page.$$eval('details[open] a[download]',links=>links.length),2);
   console.log('Guide player verified',metadata);return;
  }
+ // Hold the first role-bearing response until after an explicit click.
+ for(const label of ['내 파일','내 부서',null]){
+  mode='early-scope';const before=previewRequests;let releasePreview;
+  previewGate=new Promise(resolve=>{releasePreview=resolve;});
+  await page.goto('http://localhost:'+server.address().port+'/work/drive?popup=1',{waitUntil:'domcontentloaded'});
+  await until(()=>previewRequests>before);
+  if(label)await page.$$eval('.wd .seg.soft button',(buttons,label)=>buttons.find(b=>b.textContent===label).click(),label);
+  releasePreview();await page.waitForSelector('.wd .pc-panel');
+  await page.waitForSelector('.wd .card');
+  assert.equal(await page.$eval('.wd .seg.soft .on',b=>b.textContent),label||'전체');
+  await page.type('.wd .search input','fixture-20819');
+  await page.waitForFunction(()=>document.querySelector('.lst tbody')?.textContent.includes('fixture-20819'));
+  assert.equal(lastSearchWindow.scope,label==='내 파일'?'mine':label==='내 부서'?'dept':'all');finishUsage();
+ }
+ // A named person takes precedence during role revalidation; deselect returns to the chosen scope.
+ await navigate('early-person');await until(()=>pendingFull.length===1);
+ await page.$$eval('.wd .chips button',buttons=>buttons.find(b=>b.textContent.includes('fixture-peer')).click());
+ finishFull(undefined,200,{files:[files[0],{...files[1],uploaderName:'fixture-peer'}]});
+ await page.waitForSelector('.wd .pc-panel');await page.waitForSelector('input[aria-label="fixture-peer 검색"]');
+ await page.type('.wd .search input','fixture-20819');
+ await until(()=>lastSearchWindow.who==='fixture-peer');assert.equal(lastSearchWindow.scope,'dept');
+ await page.click('button[aria-label="검색어 지우기"]');
+ await page.$$eval('.wd .chips button',buttons=>buttons.find(b=>b.textContent.includes('fixture-peer')).click());
+ assert.equal(await page.$eval('.wd .seg.soft .on',b=>b.textContent),'내 부서');
+ results.push({case:'scope-before-role',explicitMine:true,explicitDepartment:true,untouchedAdminAll:true,explicitPerson:true});
+ const fullRequestsBeforeProgressive=fullRequests;
  // Keep the full response withheld while files, category selection and detail are
  // usable. A search outside the first 100 must complete after the catalog arrives.
  await navigate('progressive');await until(()=>pendingFull.length===1);assert((await page.$eval('.wd',e=>e.textContent)).includes('일부 목록 기준'));assert((await page.$eval('.wd .sub',e=>e.textContent)).includes('20,820'));
  await page.$$eval('.wd .seg button',buttons=>buttons.find(button=>button.textContent==='목록').click());await page.click('.lst tbody tr');const selected=await page.$eval('.right .dn',e=>e.textContent);await page.$$eval('select.sel',selects=>{const select=selects.find(s=>[...s.options].some(o=>o.textContent==='대분류'));select.value='발주';select.dispatchEvent(new Event('change',{bubbles:true}));});
- const searchStart=performance.now();await page.type('.wd .search input','fixture-20819');await page.waitForFunction(()=>document.querySelector('.lst tbody')?.textContent.includes('fixture-20819'));const independentSearchMs=Math.round(performance.now()-searchStart);assert.equal(fullRequests,1);finishFull();assert.equal(await page.$eval('.wd .search input',e=>e.value),'fixture-20819');assert.equal(await page.$('.right .dn'),null);assert.equal(await page.$$eval('select.sel',selects=>selects.find(s=>[...s.options].some(o=>o.textContent==='대분류')).value),'발주');assert(await page.$eval('.wd .search input',e=>e===document.activeElement));assert(!(await page.$eval('.wd',e=>e.textContent)).includes('일부 목록 기준'));finishUsage();results.push({case:'preview-before-full',filesVisibleBeforeFull:100,fullFiles:files.length,searchRestored:true,filterAndFocusPreserved:true,unmatchedDetailCleared:true,independentSearchMs});
+ const searchStart=performance.now();await page.type('.wd .search input','fixture-20819');await page.waitForFunction(()=>document.querySelector('.lst tbody')?.textContent.includes('fixture-20819'));const independentSearchMs=Math.round(performance.now()-searchStart);assert.equal(fullRequests-fullRequestsBeforeProgressive,1);finishFull();assert.equal(await page.$eval('.wd .search input',e=>e.value),'fixture-20819');assert.equal(await page.$('.right .dn'),null);assert.equal(await page.$$eval('select.sel',selects=>selects.find(s=>[...s.options].some(o=>o.textContent==='대분류')).value),'발주');assert(await page.$eval('.wd .search input',e=>e===document.activeElement));assert(!(await page.$eval('.wd',e=>e.textContent)).includes('일부 목록 기준'));finishUsage();results.push({case:'preview-before-full',filesVisibleBeforeFull:100,fullFiles:files.length,searchRestored:true,filterAndFocusPreserved:true,unmatchedDetailCleared:true,independentSearchMs});
  // Broad matches retain all counts/sort/filter inputs while painting only 200 rows.
  await page.focus('.wd .search input');await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');const broadStart=performance.now();await page.type('.wd .search input','fixture-');await page.waitForFunction(()=>document.querySelectorAll('.lst tbody tr').length===200&&document.body.textContent.includes('파일 200개 더 보기'));const broadSearchMs=Math.round(performance.now()-broadStart);assert((await page.$eval('.wd .cnt',e=>e.textContent)).includes('20,820'));
  await page.$$eval('.wd button',buttons=>buttons.find(b=>b.textContent.includes('파일 200개 더 보기')).focus());await page.keyboard.press('Enter');await page.waitForFunction(()=>document.querySelectorAll('.lst tbody tr').length===400);results.push({case:'broad-search',exactMatches:20820,initialPaintRows:200,keyboardMoreRows:400,broadSearchMs,responseFiles:lastSearchWindow.rows,responseJsonBytes:lastSearchWindow.jsonBytes});
