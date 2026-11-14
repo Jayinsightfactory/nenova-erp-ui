@@ -4,6 +4,7 @@
 // 중: 선택 차수의 단계 요약띠 + 칸반 또는 표 / 우: 파일 상세(버전·내려받기·교정)
 // 접근 범위는 서버(lib/workDrive)가 이미 걸러서 준다 — 화면은 받은 것만 보여준다.
 import { createDriveCatalogLoader } from '../../lib/workDriveCatalogLoad.cjs';
+import WorkflowGuide from '../../components/WorkflowGuide';
 import { cycleKey, yearOf } from '../../lib/workDriveSearch.cjs';
 import { createDriveSearchLoader } from '../../lib/workDriveSearchLoad.cjs';
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
@@ -29,6 +30,9 @@ export default function WorkDrivePage() {
   const [scope, setScope] = useState('dept');   // mine | dept | all
   const [who, setWho] = useState('');           // 올린 사람 필터
   const [q, setQ] = useState('');
+  const searchInput = useRef(null);
+  const scopeLabels = { mine: '내 파일', dept: '내 부서', all: '전체' };
+  const activeScope = who || scopeLabels[scope];
   const [view, setView] = useState('kanban');   // kanban | list | recent
   const [stageF, setStageF] = useState('');     // 단계 필터
   const [deptF, setDeptF] = useState('');       // 부서
@@ -260,16 +264,25 @@ export default function WorkDrivePage() {
           <h1 data-desktop-chrome>업무 드라이브</h1>
           <span className="sub">{data ? <>{data.me}{data.dept ? ` · ${data.dept}` : ''} <b>{(searchSummary?.visibleTotal??catalogState.totalFiles??data.files.length).toLocaleString()}</b>개 파일{usage && <span className="usage" title={`색인 기준 ${usage.files}개 · 디스크 ${fmtG(usage.onDisk)} (${usage.onDiskPct}%) · 예전 방식(중복 합산) ${fmtG(usage.indexedNaive)}`}> · 사용량 <b>{fmtG(usage.used)}</b> / {fmtG(usage.max)} ({usage.pct}%)</span>}{!usage&&data.isAdmin&&<span className="usage" role="status"> · {usageError?'사용량 확인 실패 · 파일은 사용 가능':'사용량 확인 중…'}</span>}</> : '불러오는 중…'}</span>
         </div>
-        <label className="search"><span className="ico">⌕</span><input placeholder="파일명 · 이름 · 차수(38-2) 검색" value={q} onChange={(e) => setQ(e.target.value)} />{q && <button className="clr" onClick={() => setQ('')}>✕</button>}</label>
+        <div className="search-tools" role="search" aria-label="업무 파일 검색">
+          <div className="seg soft" role="group" aria-label="파일 검색 범위">
+            {Object.entries(scopeLabels).map(([key, label]) => <button key={key} type="button" aria-pressed={scope === key && !who} className={scope === key && !who ? 'on' : ''} onClick={() => { setScope(key); setWho(''); }}>{label}</button>)}
+          </div>
+          <div className="search">
+            <span className="ico" aria-hidden="true">⌕</span>
+            <input ref={searchInput} aria-label={activeScope + ' 검색'} placeholder="파일명 · 이름 · 차수(38-2) 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+            {q && <button type="button" className="clr" aria-label="검색어 지우기" title="검색어 지우기" onClick={() => { setQ(''); searchInput.current?.focus(); }}>✕</button>}
+          </div>
+        </div>
         <div className="seg">{[['kanban', '칸반'], ['list', '목록'], ['recent', '최근'], ...(data?.isAdmin ? [['security', '보안 이력']] : [])].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
         <div className="grow" />
         <button className="ghost" onClick={load} title="새로고침">↻</button>
         {data?.isAdmin && <button className="ghost" onClick={reclassAll} disabled={!!busy}>{busy || '일괄 재분류'}</button>}
       </header>
+      <WorkflowGuide workflowId="work-drive-search" />
 
       {/* ── 범위 · 사람 · 필터 ── */}
       <div className="filters">
-        <div className="seg soft">{[['mine', '내 파일'], ['dept', '내 부서'], ['all', '전체']].map(([k, l]) => <button key={k} className={scope === k && !who ? 'on' : ''} onClick={() => { setScope(k); setWho(''); }}>{l}</button>)}</div>
         {people.length > 1 && <div className="chips">{people.map((p) => <button key={p.name} className={who === p.name ? 'on' : ''} onClick={() => setWho(who === p.name ? '' : p.name)} title={`${p.dept || ''} · 마지막 ${fmtT(p.last)}`}><Avatar name={p.name} />{p.name}<em>{p.n}</em></button>)}</div>}
         <span className="sep" />
         <Sel value={deptF} onChange={setDeptF}><option value="">부서</option>{(searchSummary?.facets?.depts??[...new Set(files.map((f) => f.dept).filter(Boolean))]).map((d) => <option key={d}>{d}</option>)}</Sel>
@@ -290,7 +303,7 @@ export default function WorkDrivePage() {
         {catalogState.error&&<><span> {catalogState.error} </span><button className="ghost" onClick={()=>catalogState.retry==='full'?catalogLoader.current?.retry():load()}>목록 다시 불러오기</button></>}
       </div>}
 
-      {q&&searchState.phase!=='ready'&&<div className="warn" role={searchState.error?'alert':'status'}>{searchState.error||'전체 파일에서 검색 중…'}{searchState.error&&<button className="ghost" onClick={()=>searchLoader.current?.search(q,searchCriteria)}>검색 다시 시도</button>}</div>}
+      {q&&searchState.phase!=='ready'&&<div className="warn" role={searchState.error?'alert':'status'}>{searchState.error||activeScope+'에서 검색 중…'}{searchState.error&&<button className="ghost" onClick={()=>searchLoader.current?.search(q,searchCriteria)}>검색 다시 시도</button>}</div>}
       <div className="body">
         {/* ── 사이드바 ── */}
         <aside className="left" aria-label="연도별 차수">
@@ -349,7 +362,7 @@ export default function WorkDrivePage() {
             <div className="h2">최근 올라온 파일 <span className="dim">{listRows.length}건 · 최신순</span></div>
             {listRows.length === 0 && <div className="empty-state">조건에 맞는 파일이 없습니다</div>}
             {Object.entries(listRows.reduce((m, f) => { (m[dayKey(f.uploadedAt)] ||= []).push(f); return m; }, {})).map(([d, rows]) => <section key={d} className="daysec"><div className="day">{d === today ? '오늘' : fmtD(d)} <em>{rows.length}</em></div><Table rows={rows} withCycle /></section>)}
-          </> : q&&searchState.phase!=='ready'&&!searchData ? <div className="empty-state">{searchState.error?'검색을 다시 시도해 주세요.':'전체 파일에서 검색 중…'}</div> : !cur && !q ? <div className="empty-state">차수 파일이 없습니다. 왼쪽 ‘차수 없음’에서도 확인해 주세요.</div> : <>
+          </> : q&&searchState.phase!=='ready'&&!searchData ? <div className="empty-state">{searchState.error?'검색을 다시 시도해 주세요.':activeScope+'에서 검색 중…'}</div> : !cur && !q ? <div className="empty-state">차수 파일이 없습니다. 왼쪽 ‘차수 없음’에서도 확인해 주세요.</div> : <>
             <div className="h2">{q ? <>&ldquo;{q}&rdquo; 검색 결과</> : curLabel}{!q && curWed && <span className="wed">기준 수요일 {curWed.getMonth() + 1}월 {curWed.getDate()}일</span>} <span className="dim">{categoryTotal}개{stageF ? ` · ${stageF}${subF ? ' › ' + subF : ''}` : ''}</span></div>
             {showList ? <><Table rows={listRows} withCycle={!!q || cur === NONE} />{categoryTotal>listRows.length&&(rowLimit<50000?<button className="ghost" onClick={()=>setRowLimit(n=>Math.min(50000,n+200))}>파일 200개 더 보기 ({listRows.length.toLocaleString()} / {categoryTotal.toLocaleString()})</button>:<p role="status">50,000개까지 표시했습니다. 검색어나 필터로 범위를 좁혀 주세요.</p>)}</> : (
               <div className="kanban">
@@ -404,6 +417,7 @@ button{font:inherit;color:inherit}
         /* 툴바 */
 .top{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--sf);border-bottom:1px solid var(--ln);flex-wrap:wrap}
 .title h1{font-size:16px;font-weight:700;margin:0;letter-spacing:-.2px}.title .sub{font-size:12px;color:var(--mu)}.title .sub b{color:var(--tx);font-weight:600}
+.search-tools{display:flex;align-items:center;gap:8px;flex:1 1 420px;max-width:640px;flex-wrap:wrap}.search-tools .seg{flex:none}
 .search{display:flex;align-items:center;gap:6px;flex:1 1 260px;max-width:460px;padding:6px 10px;border:1px solid var(--ln);border-radius:var(--r);background:var(--bg)}
 .search:focus-within{border-color:var(--ac);background:var(--sf);box-shadow:0 0 0 3px var(--acs)}.search .ico{color:var(--mu);font-size:15px}
 .search input{flex:1;border:0;background:transparent;outline:0;font:inherit;min-width:0}.search .clr{border:0;background:transparent;color:var(--mu);cursor:pointer}

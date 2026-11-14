@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-14T10:19:39.968Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 49,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "554a0050410854fba41c84f850ff789d201683e94282fcb357b2f34254e99d74",
+  "captionsSha256": "75d69bd017c5db9f759d62b22f093b9431952ebde033b4ed62f67fa6b99672e7",
+  "sourceHashes": {
+    "pages/work/drive.js": "15ac135f2a69ea11f64a2322f2f926e3d758f389154e420747c3ba07b915b5ba"
+  },
+  "presentation": {
+    "numberedSteps": 4,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 900
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 4.429607499999999,
+        "x": 435.0234375,
+        "y": 76,
+        "end": 10.590492400000002
+      },
+      {
+        "number": 2,
+        "start": 15.128647199999993,
+        "x": 825.3125,
+        "y": 76,
+        "end": 24.42371519999999
+      },
+      {
+        "number": 3,
+        "start": 29.025512099999993,
+        "x": 1155,
+        "y": 379.296875,
+        "end": 35.09573939999999
+      },
+      {
+        "number": 4,
+        "start": 39.62179649999998,
+        "x": 1022.921875,
+        "y": 76,
+        "end": 45.71085650000001
+      }
+    ]
+  }
+}

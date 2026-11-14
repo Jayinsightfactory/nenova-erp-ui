@@ -942,6 +942,110 @@
       ]
     },
     {
+      "id": "import-country-orders",
+      "title": "국가별 발주서 조회와 다운로드",
+      "entryPaths": [
+        "/import/tools"
+      ],
+      "sourceFiles": [
+        "components/import-tools/PedidosTool.js"
+      ],
+      "requiredScenarios": [
+        "country",
+        "cycle",
+        "week",
+        "review",
+        "download"
+      ],
+      "guides": [
+        {
+          "id": "import",
+          "role": "수입부",
+          "title": "국가·차수 선택과 엑셀 다운로드",
+          "status": "ready",
+          "src": "/guides/import-country-orders/import.mp4",
+          "captions": "/guides/import-country-orders/import.ko.vtt",
+          "proof": "/guides/import-country-orders/import.proof.json",
+          "chapters": [
+            {
+              "scenario": "country",
+              "title": "1. 국가 선택",
+              "seconds": 0.012
+            },
+            {
+              "scenario": "cycle",
+              "title": "2. 차수 선택",
+              "seconds": 10.587
+            },
+            {
+              "scenario": "week",
+              "title": "3. 세부차수 조회",
+              "seconds": 21.183
+            },
+            {
+              "scenario": "review",
+              "title": "4. 송이 수 확인·수정",
+              "seconds": 31.828
+            },
+            {
+              "scenario": "download",
+              "title": "5. 엑셀 다운로드",
+              "seconds": 42.941
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "work-drive-search",
+      "title": "업무 드라이브에서 파일 찾기",
+      "entryPaths": [
+        "/work/drive"
+      ],
+      "sourceFiles": [
+        "pages/work/drive.js"
+      ],
+      "requiredScenarios": [
+        "scope",
+        "query",
+        "detail",
+        "clear"
+      ],
+      "guides": [
+        {
+          "id": "staff",
+          "role": "직원",
+          "title": "검색 범위 선택과 파일 확인",
+          "status": "ready",
+          "src": "/guides/work-drive-search/staff.mp4",
+          "captions": "/guides/work-drive-search/staff.ko.vtt",
+          "proof": "/guides/work-drive-search/staff.proof.json",
+          "chapters": [
+            {
+              "scenario": "scope",
+              "title": "1. 내 파일 선택",
+              "seconds": 0
+            },
+            {
+              "scenario": "query",
+              "title": "2. 파일명 검색",
+              "seconds": 10.792
+            },
+            {
+              "scenario": "detail",
+              "title": "3. 파일 상세 확인",
+              "seconds": 24.624
+            },
+            {
+              "scenario": "clear",
+              "title": "4. 검색어 지우기",
+              "seconds": 35.302
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "desktop-task-schedule",
       "title": "오늘의 내 업무 · 시간과 바로가기",
       "entryPaths": [
@@ -994,102 +1098,47 @@
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 16.359
+              "seconds": 16.283
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 25.641
+              "seconds": 25.418
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 36.309
+              "seconds": 41.647
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 45.387
+              "seconds": 63.066
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 66.664
+              "seconds": 85.192
             },
             {
               "scenario": "calendar",
               "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 75.957
+              "seconds": 97.192
             },
             {
               "scenario": "independent",
               "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 100.323
+              "seconds": 122.081
             },
             {
               "scenario": "company",
               "title": "9. 회사 공통 일정 등록",
-              "seconds": 111.818
+              "seconds": 135.393
             },
             {
               "scenario": "collapse",
               "title": "10. 월간·주간 접기와 홈 다시 열기",
-              "seconds": 138.696
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "import-country-orders",
-      "title": "국가별 발주서 조회와 다운로드",
-      "entryPaths": [
-        "/import/tools"
-      ],
-      "sourceFiles": [
-        "components/import-tools/PedidosTool.js"
-      ],
-      "requiredScenarios": [
-        "country",
-        "cycle",
-        "week",
-        "review",
-        "download"
-      ],
-      "guides": [
-        {
-          "id": "import",
-          "role": "수입부",
-          "title": "국가·차수 선택과 엑셀 다운로드",
-          "status": "ready",
-          "src": "/guides/import-country-orders/import.mp4",
-          "captions": "/guides/import-country-orders/import.ko.vtt",
-          "proof": "/guides/import-country-orders/import.proof.json",
-          "chapters": [
-            {
-              "scenario": "country",
-              "title": "1. 국가 선택",
-              "seconds": 0.012
-            },
-            {
-              "scenario": "cycle",
-              "title": "2. 차수 선택",
-              "seconds": 10.587
-            },
-            {
-              "scenario": "week",
-              "title": "3. 세부차수 조회",
-              "seconds": 21.183
-            },
-            {
-              "scenario": "review",
-              "title": "4. 송이 수 확인·수정",
-              "seconds": 31.828
-            },
-            {
-              "scenario": "download",
-              "title": "5. 엑셀 다운로드",
-              "seconds": 42.941
+              "seconds": 163.623
             }
           ]
         }
