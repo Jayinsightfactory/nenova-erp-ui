@@ -12,6 +12,7 @@ export function Button({ variant = 'secondary', size = 'md', loading = false, di
   return (
     <button type="button" {...rest} disabled={disabled || loading} aria-busy={loading || undefined}
       className={cx(site, 'pmk', 'pmk-btn', `pmk-${variant}`, `pmk-${size}`, className)}>
+      {loading && <span className="pmk-spin" aria-hidden="true" />}
       {children}
     </button>
   );
@@ -78,6 +79,40 @@ export function Badge({ tone = 'plain', className, children, ...rest }) {
   return <span {...rest} className={cx('badge', tone, className)}>{children}</span>;
 }
 
+// 빈 화면 안내 — "왜 비었는지(title) + 다음 한 걸음(action 버튼 1개)". 불러오는 중에는 쓰지 않는다(Skeleton 을 쓴다).
+//   기준: docs/UI_STANDARD.md "빈 화면". art 는 장식 그림(선택), action 은 <Button> 하나.
+export function EmptyState({ title, children, action, art, className, ...rest }) {
+  return (
+    <div {...rest} className={cx('pmk-empty', className)}>
+      {art && <div className="pmk-empty-art" aria-hidden="true">{art}</div>}
+      <p className="pmk-empty-title">{title}</p>
+      {children && <p className="pmk-empty-body">{children}</p>}
+      {action && <div className="pmk-empty-act">{action}</div>}
+    </div>
+  );
+}
+
+// 화면 안 알림(자동으로 사라지지 않는다) — tone: info | ok | warn | error. 오류는 "무슨 일 + 다음 행동(action 버튼 1개)".
+const NOTICE_MARK = { info: 'i', ok: '✓', warn: '!', error: '!' };
+export function Notice({ tone = 'info', title, children, action, className, ...rest }) {
+  return (
+    <div {...rest} role={tone === 'error' ? 'alert' : 'status'} className={cx('pmk-notice', `pmk-notice-${tone}`, className)}>
+      <span className="pmk-notice-mark" aria-hidden="true">{NOTICE_MARK[tone] || 'i'}</span>
+      <div className="pmk-notice-text">{title && <b>{title}</b>}{children && <span>{children}</span>}</div>
+      {action && <div className="pmk-notice-act">{action}</div>}
+    </div>
+  );
+}
+
+// 불러오는 중 뼈대 — 표·카드·목록 자리에만(버튼에는 쓰지 않는다). rows=줄 수, card=카드 모양.
+export function Skeleton({ rows = 3, card = false, label = '불러오는 중', className }) {
+  return (
+    <div className={cx('pmk-skel', card && 'pmk-skel-card', className)} role="status" aria-label={label}>
+      {Array.from({ length: rows }).map((_, i) => <span key={i} className="pmk-skel-line" style={{ width: `${[92, 78, 85, 64, 88][i % 5]}%` }} />)}
+    </div>
+  );
+}
+
 // 페이지에 한 번 렌더. 색 토큰은 테마(lib/pmThemes.js)가 정한다.
 export function PmUiStyles() {
   return (
@@ -128,7 +163,43 @@ export function PmUiStyles() {
       .pm .pmk-tab { flex: 1; min-height: 40px; padding: 0 10px; background: none; border: 0; border-bottom: 3px solid transparent; color: var(--pmk-tab-ink); font-size: 14px; }
       .pm .pmk-tab:hover { color: var(--pmk-ink); }
       .pm .pmk-tab.on { color: var(--pmk-ink); font-weight: bold; border-bottom-color: var(--pmk-tab-on); }
+      /* 눌림 반응 — 칩·탭·카드·아이콘도 누르는 순간 살짝 눌린다(버튼과 같은 감각). */
+      .pm .pmk-chip, .pm .pmk-person, .pm .pmk-tab, .pm .pmk-icon, .pm .pmk-card { transition: transform .12s, background .12s, border-color .12s, color .12s; }
+      .pm .pmk-chip:active:not(:disabled), .pm .pmk-person:active:not(:disabled), .pm .pmk-icon:active:not(:disabled) { transform: scale(.96); }
+      .pm .pmk-card:active:not(:disabled) { transform: scale(.985); }
+      .pm .pmk-tab:hover { border-bottom-color: var(--pmk-sec-border); }
+      .pm .pmk-tab.on:hover { border-bottom-color: var(--pmk-tab-on); }
+      /* 진행 중 — 버튼 안 돌림 표시(글자는 그대로 두어 폭이 흔들리지 않는다) */
+      .pm .pmk-btn { gap: 6px; }
+      .pm .pmk-spin { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: pmk-spin .7s linear infinite; }
+      @keyframes pmk-spin { to { transform: rotate(360deg); } }
+      /* 빈 화면 */
+      .pm .pmk-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 16px; text-align: center; border: 1px dashed var(--pmk-sec-border); border-radius: var(--pmk-radius); background: var(--pmk-sec-bg); color: var(--pmk-ink); }
+      .pm .pmk-empty-art { font-size: 28px; line-height: 1; margin-bottom: 2px; }
+      .pm .pmk-empty-art img { display: block; width: 120px; height: auto; }
+      .pm .pmk-empty-title { margin: 0; font-size: 14px; font-weight: bold; }
+      .pm .pmk-empty-body { margin: 0; max-width: 46ch; font-size: 13px; line-height: 1.5; color: var(--pmk-tab-ink); }
+      .pm .pmk-empty-act { margin-top: 8px; }
+      /* 화면 안 알림 */
+      .pm .pmk-notice { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: var(--pmk-radius); font-size: 13px; line-height: 1.5; background: var(--pm-off-bg); color: var(--pm-off-ink); }
+      .pm .pmk-notice-ok { background: var(--pm-ok-bg); color: var(--pm-ok-ink); }
+      .pm .pmk-notice-warn { background: var(--pm-idle-bg); color: var(--pm-idle-ink); }
+      .pm .pmk-notice-error { background: var(--pm-err-bg); color: var(--pm-err-ink); }
+      .pm .pmk-notice-mark { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; font-size: 11px; font-weight: bold; line-height: 1; }
+      .pm .pmk-notice-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .pm .pmk-notice-act { flex: 0 0 auto; align-self: center; }
+      /* 불러오는 중 뼈대 */
+      .pm .pmk-skel { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+      .pm .pmk-skel-card { padding: 16px; border-radius: var(--pmk-radius); background: var(--pmk-sec-bg); border: 1px solid var(--pmk-sec-border); }
+      .pm .pmk-skel-line { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--pmk-chip-bg) 25%, var(--pmk-sec-border) 37%, var(--pmk-chip-bg) 63%); background-size: 400% 100%; animation: pmk-skel 1.4s ease infinite; }
+      .pm .pmk-skel-line:first-child { height: 16px; }
+      @keyframes pmk-skel { from { background-position: 100% 50%; } to { background-position: 0 50%; } }
+      @media (prefers-reduced-motion: reduce) {
+        .pm .pmk-skel-line, .pm .pmk-spin { animation: none; }
+        .pm .pmk-btn, .pm .pmk-chip, .pm .pmk-person, .pm .pmk-tab, .pm .pmk-icon, .pm .pmk-card { transition: none; }
+      }
       @media (max-width: 640px) {
+        .pm .pmk-notice { flex-wrap: wrap; }
         .pm { --pmk-h: 44px; --pmk-h-sm: 36px; }
         .pm .pmk-tab { min-height: 44px; flex: 1 0 33%; }
       }
