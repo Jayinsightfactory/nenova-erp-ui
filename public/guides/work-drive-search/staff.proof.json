@@ -1,18 +1,18 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-14T10:19:39.968Z",
+  "recordedAt": "2026-11-14T10:56:44.790Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 49,
+  "duration": 44.35,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "554a0050410854fba41c84f850ff789d201683e94282fcb357b2f34254e99d74",
-  "captionsSha256": "75d69bd017c5db9f759d62b22f093b9431952ebde033b4ed62f67fa6b99672e7",
+  "videoSha256": "2fa570c08dd929088d446ba110e3fd30534183da3006dafe55de225fcfefa14a",
+  "captionsSha256": "22de48359bd4042031607a3037843901c6e1f10694aed0a4c2091f5c463914e2",
   "sourceHashes": {
-    "pages/work/drive.js": "15ac135f2a69ea11f64a2322f2f926e3d758f389154e420747c3ba07b915b5ba"
+    "pages/work/drive.js": "cab6a4acabcf348dcea8320b09d5e498be6572a12f944d35869b5affcec17037"
   },
   "presentation": {
     "numberedSteps": 4,
@@ -28,31 +28,31 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 4.429607499999999,
+        "start": 4.339945800000001,
         "x": 435.0234375,
         "y": 76,
-        "end": 10.590492400000002
+        "end": 10.4159979
       },
       {
         "number": 2,
-        "start": 15.128647199999993,
+        "start": 14.969642599999998,
         "x": 825.3125,
         "y": 76,
-        "end": 24.42371519999999
+        "end": 22.9359543
       },
       {
         "number": 3,
-        "start": 29.025512099999993,
+        "start": 27.475277600000002,
         "x": 1155,
         "y": 379.296875,
-        "end": 35.09573939999999
+        "end": 33.564541
       },
       {
         "number": 4,
-        "start": 39.62179649999998,
+        "start": 38.1112743,
         "x": 1022.921875,
         "y": 76,
-        "end": 45.71085650000001
+        "end": 44.1612308
       }
     ]
   }

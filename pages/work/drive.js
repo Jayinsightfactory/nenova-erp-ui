@@ -27,7 +27,8 @@ export default function WorkDrivePage() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
   const [cycle, setCycle] = useState(null);     // 'YYYY:38-2' | NONE
-  const [scope, setScope] = useState('dept');   // mine | dept | all
+  const [chosenScope, setScope] = useState(null);
+  const scope = chosenScope ?? (data?.isAdmin ? 'all' : 'dept');
   const [who, setWho] = useState('');           // 올린 사람 필터
   const [q, setQ] = useState('');
   const searchInput = useRef(null);
@@ -107,7 +108,6 @@ export default function WorkDrivePage() {
     const timer=setTimeout(()=>searchLoader.current?.search(q,searchCriteria),200);
     return ()=>{clearTimeout(timer);searchLoader.current?.cancel();};
   },[q,searchCriteria]);
-  useEffect(() => { if (data?.isAdmin) setScope('all'); }, [data?.isAdmin]);
 
   const files = useMemo(() => ((q ? searchData?.files : data?.files) || []).map((f) => ({ ...f, year: yearOf(f), ck: f.cycle ? `${yearOf(f)}:${f.cycle}` : NONE })), [data,q,searchData]);
   const searchSummary=q?searchData?.search:null;
@@ -283,7 +283,7 @@ export default function WorkDrivePage() {
 
       {/* ── 범위 · 사람 · 필터 ── */}
       <div className="filters">
-        {people.length > 1 && <div className="chips">{people.map((p) => <button key={p.name} className={who === p.name ? 'on' : ''} onClick={() => setWho(who === p.name ? '' : p.name)} title={`${p.dept || ''} · 마지막 ${fmtT(p.last)}`}><Avatar name={p.name} />{p.name}<em>{p.n}</em></button>)}</div>}
+        {people.length > 1 && <div className="chips">{people.map((p) => <button key={p.name} className={who === p.name ? 'on' : ''} aria-pressed={who === p.name} onClick={() => { setScope(scope); setWho(who === p.name ? '' : p.name); }} title={`${p.dept || ''} · 마지막 ${fmtT(p.last)}`}><Avatar name={p.name} />{p.name}<em>{p.n}</em></button>)}</div>}
         <span className="sep" />
         <Sel value={deptF} onChange={setDeptF}><option value="">부서</option>{(searchSummary?.facets?.depts??[...new Set(files.map((f) => f.dept).filter(Boolean))]).map((d) => <option key={d}>{d}</option>)}</Sel>
         <Sel value={stageF} onChange={chooseStage}><option value="">대분류</option>{stages.map((s) => <option key={s}>{s}</option>)}</Sel>

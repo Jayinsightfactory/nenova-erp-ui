@@ -1029,17 +1029,17 @@
             {
               "scenario": "query",
               "title": "2. 파일명 검색",
-              "seconds": 10.792
+              "seconds": 10.629
             },
             {
               "scenario": "detail",
               "title": "3. 파일 상세 확인",
-              "seconds": 24.624
+              "seconds": 23.143
             },
             {
               "scenario": "clear",
               "title": "4. 검색어 지우기",
-              "seconds": 35.302
+              "seconds": 33.775
             }
           ]
         }
