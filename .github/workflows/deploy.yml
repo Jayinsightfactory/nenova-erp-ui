@@ -41,6 +41,8 @@ on:
         default: false
   push:
     branches: [master]
+    paths-ignore:
+      - 'docs/**'
 
 concurrency:
   group: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnose_paste_only == true && 'nenova-paste-readonly-audit' || github.event_name == 'workflow_dispatch' && (inputs.diagnose_performance_only == true || inputs.work_summary_only == true) && 'nenova-performance-readonly-audit' || 'nenova-cafe24-production' }}
@@ -148,12 +150,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (hydration 스모크 스크립트용)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node (ERP 계약검사용)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
