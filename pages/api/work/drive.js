@@ -10,7 +10,7 @@ import path from 'path';
 import { withAuth } from '../../../lib/auth';
 import { listVisible, getFile, reclassify, reclassifyAll, downloadLog, deptOfName, STAGES } from '../../../lib/workDrive';
 import { sendDriveListJson } from '../../../lib/workDriveListResponse.cjs';
-import { readDriveListAsync, readDriveUsageAsync, readDrivePreviewAsync } from '../../../lib/workDriveListAsync.cjs';
+import { readDriveListAsync, readDriveUsageAsync, readDrivePreviewAsync, readDriveSearchAsync } from '../../../lib/workDriveListAsync.cjs';
 import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
 import { WORK_DRIVE_ADMIN_USER_IDS } from '../../../lib/workDrive';
 
@@ -28,6 +28,7 @@ export default withAuth(async function handler(req, res) {
       return fs.createReadStream(g.abs).pipe(res);
     }
     if (req.query.log) return res.status(200).json({ success: true, log: downloadLog(user, String(req.query.log)) });
+    const disconnect=new AbortController();res.once?.('close',()=>{if(!res.writableEnded)disconnect.abort();});
     const who = deptOfName(user.userName);
     const isAdmin = isOrbitReportViewer(user) || WORK_DRIVE_ADMIN_USER_IDS.includes(String(user.userId || '').trim());
     // usage(2026-11-09): 관리자에게만 실제 사용량(색인 최신행 기준 + 디스크 교차검증, 5GB 대비 %) — 507 용량 오판 재발 감시용
@@ -35,6 +36,16 @@ export default withAuth(async function handler(req, res) {
       if (!isAdmin) return res.status(403).json({success:false,error:'사용량 조회 권한이 없습니다.'});
       try { const snapshot=await readDriveUsageAsync();return res.status(200).json({success:true,usage:snapshot.usage}); }
       catch { res.setHeader('Retry-After','2');return res.status(503).json({success:false,error:'사용량을 확인하지 못했습니다. 파일 목록은 계속 사용할 수 있습니다.'}); }
+    }
+    if (req.query.search !== undefined) {
+      if (typeof req.query.search !== 'string' || !req.query.search.length || req.query.search.length > 500) return res.status(400).json({success:false,error:'검색어는 1~500자로 입력해 주세요.'});
+      let criteria;try{criteria=req.query.criteria===undefined?{}:JSON.parse(String(req.query.criteria));if(!criteria||typeof criteria!=='object'||Array.isArray(criteria)||String(req.query.criteria||'').length>6000)throw Error();}catch{return res.status(400).json({success:false,error:'검색 조건을 확인해 주세요.'});}
+      try {
+        const result=await readDriveSearchAsync(user,req.query.search,{signal:disconnect.signal,criteria});
+        if(res.destroyed||res.writableEnded)return;
+        const {files,...summary}=result;
+        return sendDriveListJson(res,{success:true,me:who.name||user.userName||user.userId,dept:who.dept,isAdmin,stages:STAGES,files,search:{...summary,query:req.query.search},catalog:{complete:true}},{table:req.query.format==='table-v1'});
+      } catch {if(disconnect.signal.aborted)return;res.setHeader('Retry-After','2');return res.status(503).json({success:false,error:'전체 파일 검색에 실패했습니다. 다시 시도해 주세요.'});}
     }
     if (req.query.format==='table-v1' && req.query.preview==='1') {
       try {
@@ -45,9 +56,10 @@ export default withAuth(async function handler(req, res) {
     const deferredUsage=req.query.format==='table-v1' && req.query.usage==='deferred';
     let snapshot,usage;
     try {
-      [snapshot,usage]=await Promise.all([readDriveListAsync(),isAdmin&&!deferredUsage?readDriveUsageAsync():null]);
+      [snapshot,usage]=await Promise.all([readDriveListAsync({signal:disconnect.signal}),isAdmin&&!deferredUsage?readDriveUsageAsync():null]);
     }
-    catch { res.setHeader('Retry-After','2');return res.status(503).json({success:false,error:'업무 파일 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'}); }
+    catch { if(disconnect.signal.aborted)return;res.setHeader('Retry-After','2');return res.status(503).json({success:false,error:'업무 파일 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'}); }
+    if(res.destroyed||res.writableEnded)return;
     return sendDriveListJson(res, { success: true, me: who.name || user.userName || user.userId, dept: who.dept, isAdmin, stages: STAGES, files: listVisible(user, snapshot.rows), ...(req.query.format==='table-v1'?{catalog:{complete:true}}:{}), ...(isAdmin ? { usage: usage?.usage ?? null } : {}) }, { table: req.query.format === 'table-v1' });
   }
   if (req.method === 'POST') {
