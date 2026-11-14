@@ -94,3 +94,23 @@ console.log('importEducation ok');
   assert.ok(ui.includes('<ImportWeekday'), '하루 탭에 요일별 업무표가 있어야 함');
 }
 console.log('importWeekday ok');
+
+// 새 화면 규칙(검토 반영): 쓰는 법·문제가 생겼을 때 탭·매뉴얼 열기 단추가 있고, 하루 탭은 예전 7칸 표를 그리지 않는다
+{
+  const read = (...p) => fs.readFileSync(path.join(repo, ...p), 'utf8');
+  const all = ui + read('components', 'manuals', 'ImportWeekday.js');
+  assert.ok(ui.includes('이 화면 쓰는 법'), '맨 위에 「이 화면 쓰는 법」이 있어야 함');
+  assert.ok(ui.includes("'문제가 생겼을 때'"), '「문제가 생겼을 때」 탭이 있어야 함');
+  assert.ok(all.includes('매뉴얼 열기') && all.includes('매뉴얼 준비 중'), '「매뉴얼 열기」 단추와 「매뉴얼 준비 중」 문구가 있어야 함');
+  assert.ok(!/kind === 'daily'[^\n]*<ScheduleTable/.test(ui) && /\['weekly', 'monthly'\]\.includes\(kind\)[^\n]*<ScheduleTable/.test(ui), '하루 탭에서는 ScheduleTable 을 그리지 않는다(주·월만)');
+  assert.ok(!ui.includes('하루 흐름 한눈에'), '「하루 흐름 한눈에」 표는 없어야 함');
+  assert.ok(ui.includes('role="dialog"') && ui.includes('mn-open') && ui.includes('popstate'), '캡처 큰 그림(dialog)·확인 필요 안내·뒤로가기 처리');
+  assert.ok(ui.indexOf('KINDS = [[') < ui.indexOf("['trouble'"), '탭 줄에 문제가 생겼을 때 탭');
+  const pageSrc = read('pages', 'work', 'manuals.js');
+  assert.ok(pageSrc.includes('다른 부서 업무 기록 보기') && pageSrc.includes('<details'), '아래쪽 부서별 구역은 접혀 있어야 함');
+  for (const [name, src] of [['ImportHandover', ui], ['ImportWeekday', read('components', 'manuals', 'ImportWeekday.js')], ['ImportEducation', read('components', 'manuals', 'ImportEducation.js')]]) {
+    assert.ok(!/rgba?\(/.test(src), `${name}: rgba 대신 토큰만`);
+    assert.ok(!/<h5/.test(src), `${name}: 제목 단계를 건너뛰지 않는다(h5 금지)`);
+  }
+}
+console.log('importHandoverView ok');
