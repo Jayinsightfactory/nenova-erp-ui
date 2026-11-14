@@ -11,7 +11,7 @@ const src = fs.readFileSync(path.join(cwd, 'lib', 'workFeatureData.js'), 'utf8')
   .replace(/^import fs from 'fs';/m, "const fs = require('fs');")
   .replace(/^import path from 'path';/m, "const path = require('path');")
   .replace(/^export (const|function) /gm, '$1 ')
-  + '\nmodule.exports = { FEATURE_NAMES, FEATURE_MAX, FEATURE_NAME_MAX, featureFilePath, saveFeatureFile };';
+  + '\nmodule.exports = { FEATURE_NAMES, FEATURE_MAX, FEATURE_NAME_MAX, featureFilePath, saveFeatureFile, isFeatureName };';
 const modPath = path.join(tmp, 'workFeatureData.cjs');
 fs.writeFileSync(modPath, src);
 process.chdir(tmp);
@@ -20,7 +20,7 @@ const w = require(modPath);
 // runtime 없으면 저장소 스냅샷 경로
 assert.strictEqual(w.featureFilePath('storyboards'), path.join(tmp, 'data', 'work-feature-storyboards.json'));
 assert.strictEqual(w.featureFilePath('../../etc/passwd'), null, '허용 이름만');
-assert.deepStrictEqual([...w.FEATURE_NAMES], ['proposals', 'storyboards', 'workflows', 'simulations', 'adoption-ledger', 'self-tune-report', 'pm-office', 'timesave', 'tech-radar', 'manual-routines', 'live-pipelines', 'import-triggers', 'import-captures']);
+assert.deepStrictEqual([...w.FEATURE_NAMES], ['proposals', 'storyboards', 'workflows', 'simulations', 'adoption-ledger', 'self-tune-report', 'pm-office', 'timesave', 'tech-radar', 'manual-routines', 'live-pipelines', 'import-triggers', 'import-captures', 'import-lectures']);
 // pm-office: 2MB 상한·generatedAt 필수·runtime 저장
 assert.strictEqual(w.saveFeatureFile('pm-office', Buffer.from(JSON.stringify({ generatedAt: 'x', pad: 'a'.repeat(2 * 1024 * 1024) }))).status, 413);
 assert.ok(w.saveFeatureFile('pm-office', Buffer.from(JSON.stringify({ generatedAt: '2026-11-02T00:00:00Z', agents: [] }))).ok);
@@ -68,3 +68,9 @@ assert.ok(/featureFilePath\(name\)/.test(featApi) && /isOrbitReportViewer/.test(
 assert.ok(/^data\/runtime\/$/m.test(fs.readFileSync(path.join(cwd, '.gitignore'), 'utf8')), '.gitignore data/runtime/');
 
 console.log('workFeatureData tests passed: runtime 우선·업로드 검증·파일 전용·토큰·gitignore');
+
+// 강의 영상 본체는 매뉴얼마다 따로 올린다 — 정해진 모양의 이름만 받는다
+assert.strictEqual(w.isFeatureName('import-lecture-cost-sheet'), true);
+assert.strictEqual(w.isFeatureName('import-lecture-../x'), false);
+assert.strictEqual(w.isFeatureName('import-lecture-'), false);
+assert.strictEqual(w.featureFilePath('import-lecture-../../etc'), null);

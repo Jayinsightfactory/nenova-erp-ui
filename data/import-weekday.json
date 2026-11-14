@@ -1,0 +1,1532 @@
+{
+  "version": 1,
+  "generatedAt": "2026-11-14",
+  "basis": {
+    "cuts": 2593,
+    "from": "2026-10-05",
+    "to": "2026-11-12",
+    "seats": 2,
+    "note": "수입부 PC 두 자리의 화면 기록을 업무 단위로 묶어 요일 · 시간대별로 센 것. 같은 요일이 있던 날 가운데 3분의 1 이상(2일 이상)에서 보인 작업만 싣는다. 화면 기록만의 집계라 추정이며, 전산 기록으로 확인된 일은 하루 · 주 업무표에 확정으로 표시돼 있다."
+  },
+  "weekdays": [
+    {
+      "weekday": "월",
+      "observedDays": 6,
+      "blocks": [
+        {
+          "time": "07~09시",
+          "items": [
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "colombia-weekly-order",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 30,
+              "countries": [
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 23,
+              "countries": [
+                "태국",
+                "미국",
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 8,
+              "countries": [
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "09~11시",
+          "items": [
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 28,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "colombia-weekly-order",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 13,
+              "countries": [
+                "네덜란드",
+                "태국",
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 2,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "11~13시",
+          "items": [
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 24,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 7,
+              "countries": [
+                "중국",
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 2,
+              "countries": [],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "13~15시",
+          "items": [
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 6,
+              "totalDays": 6,
+              "minutes": 31,
+              "countries": [
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "china-order",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 30,
+              "countries": [
+                "태국",
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 28,
+              "countries": [
+                "중국",
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 22,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "서류 · 파일 정리(차수 폴더)",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 49,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "15~17시",
+          "items": [
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "china-order",
+              "seenDays": 6,
+              "totalDays": 6,
+              "minutes": 9,
+              "countries": [
+                "콜롬비아",
+                "네덜란드",
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 13,
+              "countries": [
+                "중국",
+                "네덜란드",
+                "뉴질랜드"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 10,
+              "countries": [
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "불량 클레임 · 크레딧",
+              "manualId": "defect-claim",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 3,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 2,
+              "countries": [
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "17~19시",
+          "items": [
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "china-order",
+              "seenDays": 6,
+              "totalDays": 6,
+              "minutes": 31,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 6,
+              "totalDays": 6,
+              "minutes": 31,
+              "countries": [
+                "중국",
+                "뉴질랜드",
+                "태국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 6,
+              "totalDays": 6,
+              "minutes": 11,
+              "countries": [
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 8,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "전산 발주 · 주문 조회",
+              "manualId": null,
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 7,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "19시 이후",
+          "items": [
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "china-order",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 14,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 5,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "weekday": "화",
+      "observedDays": 6,
+      "blocks": [
+        {
+          "time": "09~11시",
+          "items": [
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 6,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "china-order",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 25,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 4,
+              "countries": [],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 0,
+              "countries": [],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "11~13시",
+          "items": [
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "china-order",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 25,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 17,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 35,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 23,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "13~15시",
+          "items": [
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "china-order",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 8,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 15,
+              "countries": [
+                "뉴질랜드",
+                "네덜란드"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 22,
+              "countries": [],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "15~17시",
+          "items": [
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 6,
+              "totalDays": 6,
+              "minutes": 26,
+              "countries": [
+                "중국",
+                "네덜란드",
+                "뉴질랜드"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 19,
+              "countries": [
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "china-order",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 25,
+              "countries": [
+                "네덜란드",
+                "뉴질랜드",
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "입고 등록(전산)",
+              "manualId": "incoming-upload",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 13,
+              "countries": [
+                "중국",
+                "네덜란드"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 4,
+              "countries": [],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "17~19시",
+          "items": [
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 6,
+              "totalDays": 6,
+              "minutes": 5,
+              "countries": [
+                "네덜란드"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 10,
+              "countries": [
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "china-order",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 31,
+              "countries": [
+                "태국",
+                "중국",
+                "네덜란드"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 5,
+              "countries": [],
+              "freq": "자주"
+            },
+            {
+              "title": "입고 등록(전산)",
+              "manualId": "incoming-upload",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 4,
+              "countries": [],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "19시 이후",
+          "items": [
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 38,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "weekday": "수",
+      "observedDays": 6,
+      "blocks": [
+        {
+          "time": "09~11시",
+          "items": [
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 16,
+              "countries": [
+                "중국",
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "colombia-weekly-order",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 10,
+              "countries": [
+                "네덜란드",
+                "에콰도르",
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 25,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "11~13시",
+          "items": [
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 20,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 1,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 15,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "입고 등록(전산)",
+              "manualId": "incoming-upload",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 11,
+              "countries": [
+                "콜롬비아",
+                "태국",
+                "중국"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "13~15시",
+          "items": [
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 16,
+              "countries": [
+                "에콰도르",
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 20,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 14,
+              "countries": [
+                "에콰도르",
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "입고 등록(전산)",
+              "manualId": "incoming-upload",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 5,
+              "countries": [],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "15~17시",
+          "items": [
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 6,
+              "totalDays": 6,
+              "minutes": 32,
+              "countries": [
+                "중국",
+                "콜롬비아"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "china-order",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 23,
+              "countries": [
+                "에콰도르",
+                "중국",
+                "네덜란드"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 14,
+              "countries": [
+                "중국",
+                "네덜란드"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 21,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "불량 클레임 · 크레딧",
+              "manualId": "defect-claim",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 20,
+              "countries": [
+                "콜롬비아",
+                "에콰도르"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "17~19시",
+          "items": [
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "colombia-weekly-order",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 40,
+              "countries": [
+                "콜롬비아",
+                "에콰도르",
+                "네덜란드"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 14,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 12,
+              "countries": [
+                "중국",
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "서류 · 파일 정리(차수 폴더)",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 5,
+              "countries": [
+                "네덜란드",
+                "에콰도르",
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "신규 품목 등록",
+              "manualId": "product-new-registration",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 4,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "weekday": "목",
+      "observedDays": 6,
+      "blocks": [
+        {
+          "time": "09~11시",
+          "items": [
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 15,
+              "countries": [
+                "중국",
+                "에콰도르",
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 7,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "colombia-weekly-order",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 14,
+              "countries": [
+                "네덜란드",
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 6,
+              "countries": [],
+              "freq": "자주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 4,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "11~13시",
+          "items": [
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 3,
+              "countries": [
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "colombia-weekly-order",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 11,
+              "countries": [],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "13~15시",
+          "items": [
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 21,
+              "countries": [],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 6,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 54,
+              "countries": [
+                "네덜란드",
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 15,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "서류 · 파일 정리(차수 폴더)",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 5,
+              "countries": [],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "15~17시",
+          "items": [
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "china-order",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 19,
+              "countries": [
+                "콜롬비아",
+                "네덜란드",
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 37,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 15,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 10,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "17~19시",
+          "items": [
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "china-order",
+              "seenDays": 5,
+              "totalDays": 6,
+              "minutes": 11,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 7,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 4,
+              "totalDays": 6,
+              "minutes": 3,
+              "countries": [
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "불량 클레임 · 크레딧",
+              "manualId": "defect-claim",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 14,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 3,
+              "totalDays": 6,
+              "minutes": 11,
+              "countries": [],
+              "freq": "자주"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "weekday": "금",
+      "observedDays": 5,
+      "blocks": [
+        {
+          "time": "09~11시",
+          "items": [
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "colombia-weekly-order",
+              "seenDays": 4,
+              "totalDays": 5,
+              "minutes": 7,
+              "countries": [
+                "콜롬비아"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 23,
+              "countries": [
+                "중국",
+                "에콰도르",
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "불량 클레임 · 크레딧",
+              "manualId": "defect-claim",
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 10,
+              "countries": [
+                "네덜란드",
+                "콜롬비아",
+                "에콰도르"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "입고 등록(전산)",
+              "manualId": "incoming-upload",
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 5,
+              "countries": [
+                "중국",
+                "에콰도르"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 5,
+              "countries": [
+                "에콰도르"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "11~13시",
+          "items": [
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "colombia-weekly-order",
+              "seenDays": 4,
+              "totalDays": 5,
+              "minutes": 9,
+              "countries": [
+                "콜롬비아"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 4,
+              "totalDays": 5,
+              "minutes": 8,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "서류 · 파일 정리(차수 폴더)",
+              "manualId": "customs-docs",
+              "seenDays": 2,
+              "totalDays": 5,
+              "minutes": 73,
+              "countries": [],
+              "freq": "가끔"
+            },
+            {
+              "title": "공급처 자료 확인",
+              "manualId": null,
+              "seenDays": 2,
+              "totalDays": 5,
+              "minutes": 32,
+              "countries": [],
+              "freq": "가끔"
+            },
+            {
+              "title": "입고 등록(전산)",
+              "manualId": "incoming-upload",
+              "seenDays": 2,
+              "totalDays": 5,
+              "minutes": 15,
+              "countries": [],
+              "freq": "가끔"
+            }
+          ]
+        },
+        {
+          "time": "13~15시",
+          "items": [
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 5,
+              "totalDays": 5,
+              "minutes": 29,
+              "countries": [
+                "중국",
+                "에콰도르",
+                "네덜란드"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "colombia-weekly-order",
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 45,
+              "countries": [
+                "네덜란드",
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "서류 · 파일 정리(차수 폴더)",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 36,
+              "countries": [
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 9,
+              "countries": [
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 4,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "15~17시",
+          "items": [
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 72,
+              "countries": [
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "colombia-weekly-order",
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 25,
+              "countries": [
+                "콜롬비아",
+                "네덜란드"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "통관 서류 · 도착 일정",
+              "manualId": "customs-docs",
+              "seenDays": 2,
+              "totalDays": 5,
+              "minutes": 77,
+              "countries": [
+                "콜롬비아"
+              ],
+              "freq": "가끔"
+            },
+            {
+              "title": "불량 클레임 · 크레딧",
+              "manualId": "defect-claim",
+              "seenDays": 2,
+              "totalDays": 5,
+              "minutes": 8,
+              "countries": [
+                "중국"
+              ],
+              "freq": "가끔"
+            },
+            {
+              "title": "입고 등록(전산)",
+              "manualId": "incoming-upload",
+              "seenDays": 2,
+              "totalDays": 5,
+              "minutes": 8,
+              "countries": [],
+              "freq": "가끔"
+            }
+          ]
+        },
+        {
+          "time": "17~19시",
+          "items": [
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "colombia-weekly-order",
+              "seenDays": 5,
+              "totalDays": 5,
+              "minutes": 15,
+              "countries": [
+                "콜롬비아",
+                "네덜란드"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 4,
+              "totalDays": 5,
+              "minutes": 19,
+              "countries": [
+                "네덜란드",
+                "콜롬비아",
+                "중국"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "인보이스 · 서류 대조",
+              "manualId": "packing-list-from-invoice",
+              "seenDays": 4,
+              "totalDays": 5,
+              "minutes": 15,
+              "countries": [
+                "중국",
+                "콜롬비아"
+              ],
+              "freq": "거의 매주"
+            },
+            {
+              "title": "지출결의서 · 결제 확인",
+              "manualId": "payment-request",
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 5,
+              "countries": [
+                "중국"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "공급처 자료 확인",
+              "manualId": null,
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 3,
+              "countries": [
+                "네덜란드"
+              ],
+              "freq": "자주"
+            }
+          ]
+        },
+        {
+          "time": "19시 이후",
+          "items": [
+            {
+              "title": "원가자료 작성",
+              "manualId": "cost-sheet",
+              "seenDays": 3,
+              "totalDays": 5,
+              "minutes": 10,
+              "countries": [
+                "콜롬비아"
+              ],
+              "freq": "자주"
+            },
+            {
+              "title": "농장 발주(주문서 · 농장 방 협의)",
+              "manualId": "colombia-weekly-order",
+              "seenDays": 2,
+              "totalDays": 5,
+              "minutes": 25,
+              "countries": [],
+              "freq": "가끔"
+            },
+            {
+              "title": "입고 등록(전산)",
+              "manualId": "incoming-upload",
+              "seenDays": 2,
+              "totalDays": 5,
+              "minutes": 18,
+              "countries": [],
+              "freq": "가끔"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "weekday": "토",
+      "observedDays": 0,
+      "blocks": []
+    },
+    {
+      "weekday": "일",
+      "observedDays": 0,
+      "blocks": []
+    }
+  ]
+}

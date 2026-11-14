@@ -75,3 +75,22 @@ console.log('importHandover ok');
   assert.ok(ui.includes("'신입 교육'") && ui.includes('<ImportEducation'), '업무표에 신입 교육 탭이 있어야 함');
 }
 console.log('importEducation ok');
+
+// 요일별 업무표(월~일): 요일마다 따로 보여야 하고, 사람 이름·쓰지 않는 말이 없어야 한다
+{
+  const wk = JSON.parse(fs.readFileSync(path.join(repo, 'data', 'import-weekday.json'), 'utf8'));
+  assert.deepStrictEqual(wk.weekdays.map((w) => w.weekday), ['월', '화', '수', '목', '금', '토', '일'], '요일별 업무표는 월~일 7칸');
+  for (const w of wk.weekdays.slice(0, 5)) {
+    assert.ok(w.observedDays >= 3 && w.blocks.length >= 3, `${w.weekday}요일: 시간대 3칸 이상`);
+    for (const b of w.blocks) for (const it of b.items) assert.ok(it.title && it.seenDays >= 2 && it.totalDays >= it.seenDays && ['거의 매주', '자주', '가끔'].includes(it.freq), `${w.weekday} ${b.time}: 일 이름·며칠 중 며칠·빈도`);
+  }
+  const sig = (w) => JSON.stringify(w.blocks.map((b) => [b.time, b.items.map((i) => i.title)]));
+  assert.ok(new Set(wk.weekdays.slice(0, 5).map(sig)).size === 5, '월~금이 서로 다른 내용이어야 함(같은 표를 복사해 채우지 않는다)');
+  const raw = JSON.stringify(wk);
+  for (const w of H.BANNED_WORDS) assert.ok(!raw.includes(w), `요일별 업무표에 쓰지 않는 말: ${w}`);
+  for (const name of data.manuals.flatMap((m) => m.practicedBy || [])) assert.ok(!raw.includes(name), '요일별 업무표에는 개인 이름을 싣지 않는다');
+  const wui = fs.readFileSync(path.join(repo, 'components', 'manuals', 'ImportWeekday.js'), 'utf8');
+  assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(wui), 'ImportWeekday 는 /pm 색 토큰만 써야 함');
+  assert.ok(ui.includes('<ImportWeekday'), '하루 탭에 요일별 업무표가 있어야 함');
+}
+console.log('importWeekday ok');
