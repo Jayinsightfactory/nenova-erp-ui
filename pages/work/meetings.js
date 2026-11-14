@@ -26,6 +26,8 @@ async function api(body, query = '') {
   if (!response.ok || !data?.success) throw Object.assign(new Error(data?.error || '요청을 처리하지 못했습니다. 잠시 뒤 다시 눌러 주세요.'), { code: data?.code, status: response.status });
   return data;
 }
+// 저장 시각은 세계 표준시라 그대로 자르면 오전 9시 전에는 하루 전으로 보인다 → 보는 사람 시간으로 바꿔 날짜만.
+const localDay = iso => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const countText = counts => ['topic', 'decision', 'action', 'question'].filter(type => counts?.[type]).map(type => `${CARD_TYPE_LABEL[type]} ${counts[type]}`).join(' · ');
 
 export default function MeetingsPage() {
@@ -192,7 +194,7 @@ export default function MeetingsPage() {
                 <div className="mt-row-main">
                   <b>{row.title}</b>
                   <span>{[row.date, row.attendees && `참석 ${row.attendees}`, countText(row.counts)].filter(Boolean).join(' · ') || '쪽지 없음'}</span>
-                  <small>{row.mine ? (row.shared ? '직원 모두와 함께 보는 회의' : '나만 보는 회의') : `${row.ownerName || '다른 직원'} 님이 함께 보기로 연 회의`} · 고친 때 {String(row.updatedAt).slice(0, 10)}{row.counts?.needCheck ? ` · 확인 필요 ${row.counts.needCheck}` : ''}</small>
+                  <small>{row.mine ? (row.shared ? '직원 모두와 함께 보는 회의' : '나만 보는 회의') : `${row.ownerName || '다른 직원'} 님이 함께 보기로 연 회의`} · 고친 때 {localDay(row.updatedAt)}{row.counts?.needCheck ? ` · 확인 필요 ${row.counts.needCheck}` : ''}</small>
                 </div>
                 <div className="mt-row-acts">
                   {tab === 'active' ? (

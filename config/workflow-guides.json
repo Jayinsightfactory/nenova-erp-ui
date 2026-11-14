@@ -1180,47 +1180,47 @@
             {
               "scenario": "new",
               "title": "1. 새 회의 정리 시작",
-              "seconds": 0.008
+              "seconds": 0.007
             },
             {
               "scenario": "paste",
               "title": "2. 회의 내용 넣기",
-              "seconds": 13.209
+              "seconds": 13.254
             },
             {
               "scenario": "organize",
               "title": "3. AI로 정리하기",
-              "seconds": 34.919
+              "seconds": 35.25
             },
             {
               "scenario": "edit",
               "title": "4. 쪽지 고치기",
-              "seconds": 54.775
+              "seconds": 55.243
             },
             {
               "scenario": "move",
               "title": "5. 쪽지 옮기기",
-              "seconds": 70.346
+              "seconds": 70.95
             },
             {
               "scenario": "source",
               "title": "6. 원문에서 확인하기",
-              "seconds": 84.44
+              "seconds": 85.076
             },
             {
               "scenario": "save",
               "title": "7. 저장하기",
-              "seconds": 101.826
+              "seconds": 102.539
             },
             {
               "scenario": "export",
               "title": "8. 그림으로 받기",
-              "seconds": 114.995
+              "seconds": 115.767
             },
             {
               "scenario": "reopen",
               "title": "9. 목록에서 다시 열기",
-              "seconds": 130.398
+              "seconds": 131.311
             }
           ]
         }

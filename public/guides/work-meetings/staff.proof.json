@@ -1,19 +1,19 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-14T15:50:52.895Z",
+  "recordedAt": "2026-11-14T16:29:22.212Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 147.25,
+  "duration": 148.25,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "3e949afddd7dea94155c332536904b67ba2e65a102e118d5dc0ba33abc94dd2f",
-  "captionsSha256": "61fbc932a3ef40f9e618c60613690841dca4f19a38940d28f342925bfaf29ef5",
+  "videoSha256": "8184b19ae41ef891da0a495a786856b9b52a4fe4e895950b76590f26290f4e5b",
+  "captionsSha256": "5699ae60d265a5b0e9323d89429a49511faf1fdbcca90ccd6d8544dda0621d32",
   "sourceHashes": {
-    "pages/work/meetings.js": "45d4f232e607cd0dc5885bb02fa03be05b5ff14691e192bf734cebb11cf05b22",
-    "components/meetings/MeetingBoard.js": "67bef6fe465f79af809793504ff70f5aef258aca935c7728405a6efb7858f0cb",
+    "pages/work/meetings.js": "08ce0f247ccb9e7c9399cd25c8cc6cc3c82bcb5cdef78e5ca587c66358686be5",
+    "components/meetings/MeetingBoard.js": "f27ffc581567e08321181e809d3301127695194228940c314005dab660304954",
     "components/meetings/boardExport.js": "488f73d76c3277d3d425700f1866ebc2006e5bf613f94200919fcad9568f8223",
     "lib/meetingBoard.js": "325dd03e46309951aa50028baf5313e6cf8246d8a50d8fe05c529fec3e1843bd"
   },
@@ -31,66 +31,66 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 4.441284799999999,
+        "start": 4.421486400000001,
         "x": 1820.9296875,
         "y": 79,
-        "end": 11.1794351
+        "end": 11.226927599999998
       },
       {
         "number": 2,
-        "start": 17.6333001,
+        "start": 17.6715837,
         "x": 784,
         "y": 411.46875,
-        "end": 31.424008999999998
+        "end": 31.738148099999997
       },
       {
         "number": 3,
-        "start": 39.3388492,
+        "start": 39.6732869,
         "x": 275,
         "y": 603.203125,
-        "end": 47.8899678
+        "end": 48.2730879
       },
       {
         "number": 4,
-        "start": 59.1868261,
+        "start": 59.663833,
         "x": 1235,
         "y": 556,
-        "end": 68.3251088
+        "end": 68.9116289
       },
       {
         "number": 5,
-        "start": 74.7633746,
+        "start": 75.3778924,
         "x": 1507,
         "y": 412.5,
-        "end": 82.40360639999999
+        "end": 83.02169190000001
       },
       {
         "number": 6,
-        "start": 88.8509294,
+        "start": 89.5018119,
         "x": 963,
         "y": 435,
-        "end": 95.571354
+        "end": 96.270144
       },
       {
         "number": 7,
-        "start": 106.24791719999999,
+        "start": 106.96705499999999,
         "x": 275,
         "y": 294,
-        "end": 112.9720894
+        "end": 113.73834070000001
       },
       {
         "number": 8,
-        "start": 119.41906630000001,
+        "start": 120.1916342,
         "x": 692.4453125,
         "y": 294,
-        "end": 126.45527100000001
+        "end": 127.35245439999998
       },
       {
         "number": 9,
-        "start": 134.8304016,
+        "start": 135.76338990000002,
         "x": 1780,
         "y": 292.5,
-        "end": 141.58572099999998
+        "end": 142.4966328
       }
     ]
   }
