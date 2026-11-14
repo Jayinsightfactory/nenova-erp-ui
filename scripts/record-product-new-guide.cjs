@@ -23,7 +23,7 @@ async function main() {
   const listener = net.createServer(); await new Promise(r => listener.listen(0, '127.0.0.1', r));
   const port = listener.address().port; await new Promise(r => listener.close(r));
   const secret = crypto.randomUUID(), base = 'http://127.0.0.1:' + port, log = fs.openSync('.verify/product-new-guide-server.log', 'w');
-  const server = spawn(process.execPath, [require.resolve('next/dist/bin/next'), ...(process.env.GUIDE_PRODUCT_DEV==='1'?['dev','--webpack']:['start']), '-p', String(port)], { env: { ...process.env, ...(process.env.GUIDE_PRODUCT_DEV==='1'?{NEXT_DIST_DIR:'.verify/product-guide-next'}:{}), DB_SERVER: '', JWT_SECRET: secret }, stdio: ['ignore', log, log], windowsHide: true });
+  const server = spawn(process.execPath, [require.resolve('next/dist/bin/next'), 'start', '-p', String(port)], { env: { ...process.env, DB_SERVER: '', JWT_SECRET: secret }, stdio: ['ignore', log, log], windowsHide: true });
   fs.closeSync(log); let browser;
   try {
     for (let i = 0; i < 90; i++) { try { if ((await fetch(base + '/login')).status === 200) break; } catch {} if (i === 89) throw Error('UI server unavailable'); await new Promise(r => setTimeout(r, 1000)); }

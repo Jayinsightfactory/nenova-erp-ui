@@ -343,52 +343,6 @@
       ]
     },
     {
-      "id": "arrival-upload-review",
-      "title": "도착원가 시트 검토 업로드",
-      "entryPaths": [
-        "/arrival-cost"
-      ],
-      "sourceFiles": [
-        "pages/arrival-cost.js",
-        "components/ArrivalUploadReview.js",
-        "lib/arrivalReviewCountries.js",
-        "styles/ArrivalUploadReview.module.css"
-      ],
-      "requiredScenarios": [
-        "analyze",
-        "review",
-        "save"
-      ],
-      "guides": [
-        {
-          "id": "import",
-          "role": "수입부",
-          "title": "원본 분석·시트 검토·저장",
-          "status": "ready",
-          "src": "/guides/arrival-upload-review/import.mp4",
-          "captions": "/guides/arrival-upload-review/import.ko.vtt",
-          "proof": "/guides/arrival-upload-review/import.proof.json",
-          "chapters": [
-            {
-              "scenario": "analyze",
-              "title": "1. 원본 엑셀 분석",
-              "seconds": 0
-            },
-            {
-              "scenario": "review",
-              "title": "2. 국가·차수·연도와 제외 시트 검토",
-              "seconds": 15.652
-            },
-            {
-              "scenario": "save",
-              "title": "3. 선택 시트 저장·결과 확인",
-              "seconds": 58.149
-            }
-          ]
-        }
-      ]
-    },
-    {
       "id": "estimate-management",
       "videoWaivers": [
         {
@@ -436,12 +390,12 @@
             {
               "scenario": "remark",
               "title": "2. 비고를 눌러 수정하기",
-              "seconds": 9.027
+              "seconds": 9.004
             },
             {
               "scenario": "print",
               "title": "3. 인쇄 전 마지막 합계 확인",
-              "seconds": 23.64
+              "seconds": 23.995
             }
           ]
         }
@@ -500,17 +454,17 @@
             {
               "scenario": "range",
               "title": "2. 원하는 기간과 매출 확인",
-              "seconds": 18.711
+              "seconds": 18.691
             },
             {
               "scenario": "source",
               "title": "3. 일별 수량·원차수·매출 합계",
-              "seconds": 37.38
+              "seconds": 37.387
             },
             {
               "scenario": "history",
               "title": "4. 즐겨찾기와 이전 정산 이력",
-              "seconds": 62.993
+              "seconds": 75.329
             }
           ]
         }
@@ -784,32 +738,32 @@
             {
               "scenario": "open",
               "title": "2. 신규 등록 창 열기",
-              "seconds": 30.182
+              "seconds": 30.123
             },
             {
               "scenario": "name",
               "title": "3. 품목명과 웹 표시 이름 넣기",
-              "seconds": 55.484
+              "seconds": 55.468
             },
             {
               "scenario": "classify",
               "title": "4. 꽃 종류와 국가 고르기",
-              "seconds": 97.052
+              "seconds": 96.926
             },
             {
               "scenario": "units",
               "title": "5. 단위와 박스 환산 넣기",
-              "seconds": 120.904
+              "seconds": 120.797
             },
             {
               "scenario": "freight",
               "title": "6. 비워 둘 칸 확인하기",
-              "seconds": 162.592
+              "seconds": 162.632
             },
             {
               "scenario": "verify",
               "title": "7. 저장하고 목록에서 확인하기",
-              "seconds": 179.475
+              "seconds": 179.522
             }
           ]
         }
@@ -1221,6 +1175,52 @@
               "scenario": "reopen",
               "title": "9. 목록에서 다시 열기",
               "seconds": 131.311
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arrival-upload-review",
+      "title": "도착원가 시트 검토 업로드",
+      "entryPaths": [
+        "/arrival-cost"
+      ],
+      "sourceFiles": [
+        "pages/arrival-cost.js",
+        "components/ArrivalUploadReview.js",
+        "lib/arrivalReviewCountries.js",
+        "styles/ArrivalUploadReview.module.css"
+      ],
+      "requiredScenarios": [
+        "analyze",
+        "review",
+        "save"
+      ],
+      "guides": [
+        {
+          "id": "import",
+          "role": "수입부",
+          "title": "원본 분석·시트 검토·저장",
+          "status": "ready",
+          "src": "/guides/arrival-upload-review/import.mp4",
+          "captions": "/guides/arrival-upload-review/import.ko.vtt",
+          "proof": "/guides/arrival-upload-review/import.proof.json",
+          "chapters": [
+            {
+              "scenario": "analyze",
+              "title": "1. 원본 엑셀 분석",
+              "seconds": 0
+            },
+            {
+              "scenario": "review",
+              "title": "2. 국가·차수·연도와 제외 시트 검토",
+              "seconds": 15.715
+            },
+            {
+              "scenario": "save",
+              "title": "3. 선택 시트 저장·결과 확인",
+              "seconds": 58.308
             }
           ]
         }

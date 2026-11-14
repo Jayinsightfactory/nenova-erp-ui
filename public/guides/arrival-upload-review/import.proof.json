@@ -1,16 +1,16 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-14T16:25:10.256Z",
+  "recordedAt": "2026-11-14T16:49:45.224Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 69.7,
+  "duration": 71.35,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "3dfc20bdcdddd4a51334a45ff1deeea96d24cb127fb7f605f7c889a6cae6a9b1",
-  "captionsSha256": "5792fb7e41c659a18eb1d9e8c3ceaa67577f3bcf0c720de2688a3a0da27ecb49",
+  "videoSha256": "f356db99c0567404aea15af04b7bc066538f983dd728426420908fe341640219",
+  "captionsSha256": "550966072b10eeefe549073d420cfaf9c35c19f4661b7a8d8af4af06ac906a3c",
   "sourceHashes": {
     "pages/arrival-cost.js": "3d1ef0b3c8fb4bea74623d3a66734c299b7c839d0c62314e787aa4a15bd3110a",
     "components/ArrivalUploadReview.js": "aa07ad23ed7e768fa53d24acfff628d1ee36317ab81ab83d85c09e1f89b6d1d6",
@@ -31,45 +31,45 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 1.8121394,
+        "start": 1.8282470999999996,
         "x": 737.15625,
         "y": 397.640625,
-        "end": 10.324962
+        "end": 10.315783799999998
       },
       {
         "number": 2,
-        "start": 17.4726023,
+        "start": 17.5289689,
         "x": 450.96875,
         "y": 553.234375,
-        "end": 22.696891299999997
+        "end": 22.756160199999997
       },
       {
         "number": 2,
-        "start": 24.7284759,
+        "start": 24.785826999999998,
         "x": 794.015625,
         "y": 546.984375,
-        "end": 29.961912299999998
+        "end": 30.014753199999998
       },
       {
         "number": 2,
-        "start": 31.9792288,
+        "start": 32.0383158,
         "x": 450.96875,
         "y": 611.234375,
-        "end": 37.1955893
+        "end": 37.2592991
       },
       {
         "number": 2,
-        "start": 39.222221600000005,
+        "start": 39.27524759999999,
         "x": 794.015625,
         "y": 604.984375,
-        "end": 44.4635212
+        "end": 44.5044363
       },
       {
         "number": 3,
-        "start": 59.9606132,
+        "start": 60.1356549,
         "x": 433.2890625,
         "y": 713.328125,
-        "end": 69.55554180000001
+        "end": 63.63295170000001
       }
     ]
   }

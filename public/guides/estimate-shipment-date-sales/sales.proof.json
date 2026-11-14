@@ -1,16 +1,16 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-14T16:23:29.578Z",
+  "recordedAt": "2026-11-14T16:52:00.414Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 81.7,
+  "duration": 94.1,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "ebe00049216ba7bb9604093112ce682879a3b39cb8f733f3019d23a73ef01e1b",
-  "captionsSha256": "915f77bc488ae1ce4f9f2bb2ef0297c5b4b1ed6e089dc5ca661ca98fa7d4ed78",
+  "videoSha256": "0e3af6e5f5b7fabc32132ea1f802de276d71868625f1e6dc156175ced38bd282",
+  "captionsSha256": "8b18bcbc6f341c765d09887864c2bbacc962894d7fa709bf18c95e57fe701ba7",
   "sourceHashes": {
     "pages/estimate.js": "af6dd4704a5484f2ce514b00173cb528e740bc271fcd4c38988b53922c753b1d",
     "components/EstimateShipmentDateSales.js": "a4499c31739b874b38a82ddb6b2294fe55bc3e0548860ce7b5d1e4e6c0e0fb0a",
@@ -34,31 +34,45 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 1.8260274000000003,
+        "start": 1.8229743999999997,
         "x": 338,
         "y": 259.546875,
-        "end": 18.5000555
+        "end": 18.485772700000002
       },
       {
         "number": 2,
-        "start": 20.5299532,
+        "start": 20.5130673,
         "x": 1160.359375,
         "y": 274.546875,
-        "end": 37.179660500000004
+        "end": 37.1819587
       },
       {
         "number": 3,
-        "start": 39.1962957,
+        "start": 39.21992899999999,
         "x": 533.6015625,
         "y": 507.609375,
-        "end": 62.7797645
+        "end": 49.76555520000001
+      },
+      {
+        "number": 3,
+        "start": 51.783010600000004,
+        "x": 1060,
+        "y": 500.296875,
+        "end": 62.2001597
+      },
+      {
+        "number": 3,
+        "start": 64.22117019999999,
+        "x": 622.171875,
+        "y": 471.921875,
+        "end": 73.6757853
       },
       {
         "number": 4,
-        "start": 64.82556439999999,
+        "start": 77.151741,
         "x": 1060,
         "y": 201.546875,
-        "end": 81.5775363
+        "end": 93.9439672
       }
     ]
   }
