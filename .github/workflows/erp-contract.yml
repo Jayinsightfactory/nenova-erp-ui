@@ -26,7 +26,7 @@ jobs:
       - name: Nenova dnSpy evidence guard
         run: npm run test:nenova-dnspy-evidence
       - name: Menu search concurrency and ranking
-        run: node --test __tests__/productSearchCache.test.cjs __tests__/remoteSearchCancellation.test.cjs __tests__/productSearchWorker.test.js __tests__/useRankedProductSearch.test.js __tests__/mappingDbStore.test.js __tests__/productMasterUi.test.cjs __tests__/productCatalogUi.test.cjs
+        run: node --test __tests__/productSearchCache.test.cjs __tests__/remoteSearchCancellation.test.cjs __tests__/productSearchWorker.test.js __tests__/useRankedProductSearch.test.js __tests__/mappingDbStore.test.js __tests__/productMasterUi.test.cjs __tests__/productCatalogUi.test.cjs __tests__/orderListPage.test.cjs
       - name: Menu workflow guide videos
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}

@@ -3,9 +3,11 @@
   "title": "주문조회 차수 연도 분리 계약",
   "scope": [
     "lib/orderListYearScope.js",
+    "lib/orderListPage.js",
     "pages/orders/index.js",
     "pages/api/orders/index.js",
     "__tests__/orderListYearScope.test.js",
+    "__tests__/orderListPage.test.cjs",
     "docs/work-reports/2026-08-25_paste-undo-order-list-year.md"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -17,7 +19,7 @@
     }
   ],
   "readPolicy": {
-    "productFilter": "기간·차수로 조회한 주문 내에서 품목 필터를 적용한다. 표와 엑셀은 같은 검색 결과를 사용하고 수량·거래처 소계·전체 합계의 순서를 유지한다.",
+    "productFilter": "기간·차수로 조회한 주문 내에서 품목 필터를 적용한다. 표는 전체 결과 중 100개 품목행씩 이동하며 거래처 소계·전체 합계와 엑셀은 화면 페이지와 무관하게 전체 필터 결과를 사용한다.",
     "fullWeek": "YYYY-NN-NN에서 연도를 사용한다.",
     "shortWeek": "화면이 전달한 year를 사용하고, 없으면 같은 연도의 조회기간, 마지막으로 현재 운영연도를 사용한다.",
     "crossYearDateRange": "짧은 차수와 두 연도에 걸친 기간을 함께 보내면 모호한 조회를 차단한다.",
@@ -52,6 +54,7 @@
     "tables": ["OrderMaster", "OrderDetail", "OrderHistory", "ViewOrder"]
   },
   "requiredTestFiles": [
+    "__tests__/orderListPage.test.cjs",
     "__tests__/orderListYearScope.test.js",
     "__tests__/erpContractManifest.test.js"
   ],

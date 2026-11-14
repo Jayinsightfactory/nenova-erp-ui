@@ -17,10 +17,30 @@ const FIN_LINKS = [['/incoming-price', '송금·크레딧 입력'], ['/stats/piv
 const LINKS = [['/incoming', '입고 원장'], ['/import/freight-calc', 'AWB 운임 계산기'], ['/incoming-price', '단가·송금 입력'], ['/arrival-cost', '도착원가'], ['/freight', '운송기준원가'], ['/stats/pivot-import', '수입 피벗'], ['/stats/pivot-import-farm-settings', '결제일 설정'], ['/sales/farm-quality', '농장 품질'], ['/incoming/kakao-summary', '카톡 수량집계']];
 const DDayTag = ({ pay }) => { if (!pay || !pay.unpaidN) return <Text type="secondary">–</Text>; if (!pay.day) return <a href="/stats/pivot-import-farm-settings"><Tag>결제일 설정</Tag></a>; const d = pay.dday; return <Tooltip title={`매월 ${pay.day}일 · 가장 오래된 미결 ${pay.oldestUnpaid} → 만기 ${pay.nextDue} · 미결 ${pay.unpaidN}건${pay.overdueUSD > 0.5 ? ` · 연체 $${fmt(pay.overdueUSD)}` : ''}`}><Tag color={d < 0 ? 'red' : d <= 7 ? 'orange' : 'green'} style={{ fontWeight: 700 }}>{d < 0 ? `D+${-d}` : d === 0 ? 'D-DAY' : `D-${d}`}</Tag></Tooltip>; };
 
+function FarmLookup({ledger, farm, loading, pick, clear}) {
+  const [q, setQ] = useState('');
+  const [stF, setStF] = useState();
+  const farms = useMemo(() => {
+    const query = q.toLowerCase();
+    return (ledger?.rows || []).filter(row => (!query || row.farm.toLowerCase().includes(query)) && (!stF || row.status === stF));
+  }, [ledger, q, stF]);
+  const farmCols = [
+    { title: '농장', dataIndex: 'farm', ellipsis: true, render: (v, r) => <Space size={4}><Badge color={{ 미송금: 'red', 부분송금: 'orange', 완납: 'green', 청구없음: '#d9d9d9' }[r.status]} /><a onClick={() => pick(v)}>{v}</a></Space> },
+    { title: '잔액 $', dataIndex: 'balance', align: 'right', width: 92, sorter: (a, b) => a.balance - b.balance, defaultSortOrder: 'descend', render: (v) => <Text strong type={v > 0.5 ? 'danger' : 'success'}>{fmt(v)}</Text> },
+    { title: 'D-day', key: 'dday', width: 74, sorter: (a, b) => (a.pay?.dday ?? 9999) - (b.pay?.dday ?? 9999), render: (_, r) => <DDayTag pay={r.pay} /> },
+    { title: '클레임', key: 'claims', width: 70, align: 'right', sorter: (a, b) => a.claims.pending - b.claims.pending || a.claims.n - b.claims.n, render: (_, r) => r.claims.n ? <Badge count={r.claims.pending} size="small" offset={[6, 0]}><span>{r.claims.n}</span></Badge> : <Text type="secondary">–</Text> },
+  ];
+  return (
+    <Card size="small" title={<Space size={4}><Input.Search size="small" placeholder="농장 검색" allowClear onChange={(e) => { const value = e.target.value; startTransition(() => setQ(value)); }} style={{ width: 150 }} /><Select size="small" allowClear placeholder="상태" style={{ width: 96 }} value={stF} onChange={setStF} options={Object.keys(ST_C).map((s) => ({ value: s, label: s }))} /></Space>} extra={<a onClick={clear}>전체</a>}>
+      <Table size="small" rowKey="farm" columns={farmCols} dataSource={farms} loading={loading} pagination={{ pageSize: 25, size: 'small', showSizeChanger: false, showTotal: (n) => `${n}곳` }} scroll={{ y: 'calc(100vh - 330px)' }} rowClassName={(r) => (r.farm === farm ? 'ant-table-row-selected' : '')} onRow={(r) => ({ onClick: () => pick(r.farm), style: { cursor: 'pointer' } })} />
+    </Card>
+  );
+}
+
 export function ImportOnePage({ initialRole = 'import' } = {}) {
   const [weeks, setWeeks] = useState([]); const [year, setYear] = useState(''); const [week, setWeek] = useState(''); const [months, setMonths] = useState('6');
   const [board, setBoard] = useState(null); const [ledger, setLedger] = useState(null); const [inbox, setInbox] = useState(null); const [eta, setEta] = useState(null);
-  const [farm, setFarm] = useState(''); const [view, setView] = useState('board'); const [q, setQ] = useState(''); const [stF, setStF] = useState();
+  const [farm, setFarm] = useState(''); const [view, setView] = useState('board');
   const [role, setRole] = useState(initialRole);
   const [todo, setTodo] = useState('remit'); const [tick, setTick] = useState(0); const [loading, setLoading] = useState(false); const [rightOpen, setRightOpen] = useState(true);
 
@@ -36,7 +56,6 @@ export function ImportOnePage({ initialRole = 'import' } = {}) {
       .catch((e) => message.error(e.message)).finally(() => setLoading(false));
   }, [year, week, months, tick]);
 
-  const farms = useMemo(() => (ledger?.rows || []).filter((r) => (!q || r.farm.toLowerCase().includes(q.toLowerCase())) && (!stF || r.status === stF)), [ledger, q, stF]);
   const pendingClaims = useMemo(() => (ledger?.rows || []).flatMap((r) => r.claims.items.filter((c) => !c.confirmed || c.review).map((c) => ({ ...c, farm: r.farm }))), [ledger]);
   const etaRows = eta?.rows || []; const lateEta = etaRows.filter((r) => r.late); const missing = (board?.items || []).filter((i) => i.tag === '미입고'); const inboxRows = inbox?.rows || [];
   const act = async (body) => { try { await api('/api/incoming/remit-inbox', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); message.success(body.action === 'confirm' ? '송금 확정 — 잔액에 반영' : '거절 처리'); setTick((t) => t + 1); } catch (e) { message.error(e.message); } };
@@ -45,12 +64,7 @@ export function ImportOnePage({ initialRole = 'import' } = {}) {
   const T = ledger?.totals || {};
   const cur = (ledger?.rows || []).find((r) => r.farm === farm);
 
-  const farmCols = [
-    { title: '농장', dataIndex: 'farm', ellipsis: true, render: (v, r) => <Space size={4}><Badge color={{ 미송금: 'red', 부분송금: 'orange', 완납: 'green', 청구없음: '#d9d9d9' }[r.status]} /><a onClick={() => pick(v)}>{v}</a></Space> },
-    { title: '잔액 $', dataIndex: 'balance', align: 'right', width: 92, sorter: (a, b) => a.balance - b.balance, defaultSortOrder: 'descend', render: (v) => <Text strong type={v > 0.5 ? 'danger' : 'success'}>{fmt(v)}</Text> },
-    { title: 'D-day', key: 'dday', width: 74, sorter: (a, b) => (a.pay?.dday ?? 9999) - (b.pay?.dday ?? 9999), render: (_, r) => <DDayTag pay={r.pay} /> },
-    { title: '클레임', key: 'claims', width: 70, align: 'right', sorter: (a, b) => a.claims.pending - b.claims.pending || a.claims.n - b.claims.n, render: (_, r) => r.claims.n ? <Badge count={r.claims.pending} size="small" offset={[6, 0]}><span>{r.claims.n}</span></Badge> : <Text type="secondary">–</Text> },
-  ];
+
   // 송금신청서 확정/거절 표는 components/import/SettlementTab.js 의 RemitInboxTable 로 이동(정산 탭과 공유, 데이터 흐름 동일)
 
   return (
@@ -83,9 +97,7 @@ export function ImportOnePage({ initialRole = 'import' } = {}) {
 
         <Row gutter={6} wrap={false} style={{ alignItems: 'flex-start' }}>
           <Col flex="0 0 300px">
-            <Card size="small" title={<Space size={4}><Input.Search size="small" placeholder="농장 검색" allowClear onChange={(e) => { const value = e.target.value; startTransition(() => setQ(value)); }} style={{ width: 150 }} /><Select size="small" allowClear placeholder="상태" style={{ width: 96 }} value={stF} onChange={setStF} options={Object.keys(ST_C).map((s) => ({ value: s, label: s }))} /></Space>} extra={<a onClick={() => { setFarm(''); setView('board'); }}>전체</a>}>
-              <Table size="small" rowKey="farm" columns={farmCols} dataSource={farms} loading={loading && !ledger} pagination={{ pageSize: 25, size: 'small', showSizeChanger: false, showTotal: (n) => `${n}곳` }} scroll={{ y: 'calc(100vh - 330px)' }} rowClassName={(r) => (r.farm === farm ? 'ant-table-row-selected' : '')} onRow={(r) => ({ onClick: () => pick(r.farm), style: { cursor: 'pointer' } })} />
-            </Card>
+            <FarmLookup ledger={ledger} farm={farm} loading={loading && !ledger} pick={pick} clear={() => { setFarm(''); setView('board'); }} />
           </Col>
           <Col flex="1 1 0" style={{ minWidth: 0 }}>
             <Card size="small" title={farm ? <Space><Text strong>{farm}</Text>{cur && <Tag color={ST_C[cur.status]}>{cur.status}</Tag>}{cur && <DDayTag pay={cur.pay} />}</Space> : <Segmented size="small" value={view} onChange={setView} options={role === 'finance' ? [{ label: '농장 정산·송금', value: 'ledger' }, { label: '차수 보드', value: 'board' }, { label: '발주·입고 비교', value: 'reconcile' }] : [{ label: '차수 보드', value: 'board' }, { label: '발주·입고 비교', value: 'reconcile' }, { label: '품목 추이', value: 'product' }, { label: '입고 예정 칸반', value: 'eta' }]} />} extra={farm && <Button size="small" onClick={() => { setFarm(''); setView('board'); }}>전체로</Button>}>
