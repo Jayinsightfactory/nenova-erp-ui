@@ -195,7 +195,9 @@ export default function WorkManualsPage() {
   };
   if (view === 'live') return <LivePipelineManual me={data.me} onBack={() => setView('routine')} />;
   const handover = <ImportHandover data={data.handover} me={data.me} initialManual={manualParam} />;
-  if (view === 'routine' && data.routines) return <>{handover}<RoutineManual routines={data.routines} me={data.me} onConfirm={confirmRoutine} onSwitch={() => setView('drafts')} onLive={() => setView('live')} /></>;
+  const foldStyle = { margin: '12px 16px' };
+  const sumStyle = { cursor: 'pointer', fontWeight: 600, fontSize: 14, padding: '8px 0', minHeight: 36 };
+  if (view === 'routine' && data.routines) return <>{handover}<details style={foldStyle}><summary style={sumStyle}>다른 부서 업무 기록 보기</summary><RoutineManual routines={data.routines} me={data.me} onConfirm={confirmRoutine} onSwitch={() => setView('drafts')} onLive={() => setView('live')} /></details></>;
 
   const depts = ordered(data.departments, layout.home, (d) => d.id);
   const dept = data.departments.find((d) => d.id === deptId);
@@ -205,6 +207,7 @@ export default function WorkManualsPage() {
   return (
     <>
     {handover}
+    <details style={foldStyle}><summary style={sumStyle}>다른 부서 업무 기록 보기</summary>
     <div className="wm">
       <div className="top">
         {dept ? (
@@ -281,6 +284,7 @@ export default function WorkManualsPage() {
       )}
       <style jsx>{css}</style>
     </div>
+    </details>
     </>
   );
 }
