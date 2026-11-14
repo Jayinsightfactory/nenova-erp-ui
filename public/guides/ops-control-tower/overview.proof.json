@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-10T06:09:54.199Z",
+  "recordedAt": "2026-11-14T16:55:21.895Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
@@ -9,9 +9,9 @@
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "96f57db8ce9c253a89d780649b1b3e48abe8ba5c513e3b0cdd16b11f2dcd5053",
-  "captionsSha256": "8fb214e0c560d2fed3a06d1837d36f2de65b9561bbb5628cc0e346bb7a75937c",
+  "videoSha256": "baf61cb4246533164b7aa1f62123a821ffc5240e24ea4a6a8b3484723a469846",
+  "captionsSha256": "a90fbc42bf67b85e2382e94538d9b59991c8e3f24714c64c30fc1d93500b50e9",
   "sourceHashes": {
-    "pages/ops.js": "78d949a265f9b73d5db6141523b2e53ac8976a9d227621bb5fb8e13d46b31905"
+    "pages/ops.js": "64d99887987a931e3c43306d0bd1ad29e7227b43ca0c0e1bd14ccb03c0056eca"
   }
 }
