@@ -1,7 +1,9 @@
 // pages/work/manuals.js
 // 부서별 업무 매뉴얼 — 부서=폴더, 업무=아이콘. 홈 화면처럼 빈칸 없이 붙고 끌어서 순서를 바꾼다.
 // 열람: 사장님(nenovaSS3) 전체 / 직원 본인 매뉴얼만 (API에서 거름). 저장소는 웹 전용 JSON(lib/workManuals.js).
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button, Notice, PmUiStyles, Skeleton } from '../../components/pm/ui';
+import { allThemesCss } from '../../lib/pmThemes';
 import RoutineManual from '../../components/manuals/RoutineManual';
 import LivePipelineManual from '../../components/manuals/LivePipelineManual';
 import ImportHandover from '../../components/manuals/ImportHandover';
@@ -165,9 +167,13 @@ export default function WorkManualsPage() {
   const [view, setView] = useState('routine'); // routine=부서별 신입 루틴(기본) / drafts=직원별 절차 초안 / live=라이브 매뉴얼(단계 캡처 재생)
 
   useEffect(() => { try { setManualParam(new URLSearchParams(window.location.search).get('manual')); } catch { /* 주소 읽기 실패 — 업무표부터 */ } }, []);
-  useEffect(() => {
-    api().then((j) => { setData(j); setLayout(j.layout || {}); }).catch((e) => setErr(e.message));
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => {
+    setErr(''); setBusy(true);
+    api().then((j) => { setData(j); setLayout(j.layout || {}); }).catch((e) => setErr(e.message)).finally(() => setBusy(false));
   }, []);
+  useEffect(() => { load(); }, [load]);
+  const themeCss = useMemo(() => allThemesCss(), []);
 
   const byDept = useMemo(() => {
     const m = {};
@@ -180,8 +186,22 @@ export default function WorkManualsPage() {
     api({ action: 'layout', key, order }).catch(() => {});
   };
 
-  if (err) return <div className="wm"><p className="err">{err}</p><style jsx>{css}</style></div>;
-  if (!data) return <div className="wm"><p className="muted">불러오는 중…</p><style jsx>{css}</style></div>;
+  // 불러오는 중·오류 — 기준(docs/UI_STANDARD.md 7절): 글자만 두지 않고 뼈대 / 쉬운 말 + [다시 불러오기]
+  if (err || !data) return (
+    <div className="pm wm-wait" data-theme="B">
+      <PmUiStyles />
+      <style dangerouslySetInnerHTML={{ __html: themeCss }} />
+      {err ? (
+        <Notice tone="error" title="업무 매뉴얼을 불러오지 못했습니다" action={<Button size="sm" variant="secondary" loading={busy} onClick={load}>다시 불러오기</Button>}>
+          잠시 뒤 다시 눌러 주세요.
+          <details className="wm-raw"><summary>자세히</summary>{err}</details>
+        </Notice>
+      ) : (
+        <div aria-busy="true"><Skeleton card rows={5} /><Skeleton card rows={4} /></div>
+      )}
+      <style jsx global>{waitCss}</style>
+    </div>
+  );
 
   const confirmRoutine = async (id, status) => {
     try {
@@ -195,9 +215,8 @@ export default function WorkManualsPage() {
   };
   if (view === 'live') return <LivePipelineManual me={data.me} onBack={() => setView('routine')} />;
   const handover = <ImportHandover data={data.handover} me={data.me} initialManual={manualParam} />;
-  const foldStyle = { margin: '12px 16px' };
-  const sumStyle = { cursor: 'pointer', fontWeight: 600, fontSize: 14, padding: '8px 0', minHeight: 36 };
-  if (view === 'routine' && data.routines) return <>{handover}<details style={foldStyle}><summary style={sumStyle}>다른 부서 업무 기록 보기</summary><RoutineManual routines={data.routines} me={data.me} onConfirm={confirmRoutine} onSwitch={() => setView('drafts')} onLive={() => setView('live')} /></details></>;
+  const foldCss = <style jsx global>{waitCss}</style>;
+  if (view === 'routine' && data.routines) return <>{handover}{foldCss}<details className="wm-fold"><summary>다른 부서 업무 기록 보기</summary><RoutineManual routines={data.routines} me={data.me} onConfirm={confirmRoutine} onSwitch={() => setView('drafts')} onLive={() => setView('live')} /></details></>;
 
   const depts = ordered(data.departments, layout.home, (d) => d.id);
   const dept = data.departments.find((d) => d.id === deptId);
@@ -206,8 +225,8 @@ export default function WorkManualsPage() {
 
   return (
     <>
-    {handover}
-    <details style={foldStyle}><summary style={sumStyle}>다른 부서 업무 기록 보기</summary>
+    {handover}{foldCss}
+    <details className="wm-fold"><summary>다른 부서 업무 기록 보기</summary>
     <div className="wm">
       <div className="top">
         {dept ? (
@@ -288,6 +307,24 @@ export default function WorkManualsPage() {
     </>
   );
 }
+
+// 불러오는 중·오류 자리와 아래쪽 접힘 줄 — 화면 어디서나 같은 모양이 되게 전역 규칙으로 둔다(하위 부품에는 scoped 스타일이 닿지 않는다)
+const waitCss = `
+.wm-wait{background:var(--pm-bg);color:var(--pm-ink);font-family:var(--pm-font);padding:16px;min-height:60vh;display:flex;flex-direction:column;gap:16px}
+.wm-wait .pmk-skel-card{margin-bottom:16px}
+.wm-wait .wm-raw{margin-top:4px;font-size:12px;opacity:.8}
+.wm-wait .wm-raw summary{cursor:pointer}
+.wm-fold{margin:12px 16px}
+.wm-fold>summary{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border:1px solid #d9dee6;border-radius:8px;background:#fff;color:#1d2a3a;font-size:14px;font-weight:700;cursor:pointer;list-style:none;transition:background .12s,border-color .12s}
+.wm-fold>summary::-webkit-details-marker{display:none}
+.wm-fold>summary::before{content:"";flex:0 0 auto;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .15s}
+.wm-fold[open]>summary::before{transform:rotate(45deg)}
+.wm-fold>summary:hover{background:#f4f7fb;border-color:#b9c7d8}
+.wm-fold>summary:focus-visible{outline:2px solid #2b6cb0;outline-offset:2px}
+.wm-fold[open]>summary{margin-bottom:8px}
+@media (max-width:760px){.wm-fold{margin:10px 6px}.wm-fold>summary{min-height:44px}}
+@media (prefers-reduced-motion:reduce){.wm-fold>summary,.wm-fold>summary::before{transition:none}}
+`;
 
 const css = `
 .wm{--ink:#1d1d1f;--ink2:#6e6e73;--line:#e5e5ea;--card:#fff;--ground:#f5f5f7;--blue:#0071e3;
