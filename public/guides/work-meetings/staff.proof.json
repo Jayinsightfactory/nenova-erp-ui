@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-14T15:50:52.895Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 147.25,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "3e949afddd7dea94155c332536904b67ba2e65a102e118d5dc0ba33abc94dd2f",
+  "captionsSha256": "61fbc932a3ef40f9e618c60613690841dca4f19a38940d28f342925bfaf29ef5",
+  "sourceHashes": {
+    "pages/work/meetings.js": "45d4f232e607cd0dc5885bb02fa03be05b5ff14691e192bf734cebb11cf05b22",
+    "components/meetings/MeetingBoard.js": "67bef6fe465f79af809793504ff70f5aef258aca935c7728405a6efb7858f0cb",
+    "components/meetings/boardExport.js": "488f73d76c3277d3d425700f1866ebc2006e5bf613f94200919fcad9568f8223",
+    "lib/meetingBoard.js": "325dd03e46309951aa50028baf5313e6cf8246d8a50d8fe05c529fec3e1843bd"
+  },
+  "presentation": {
+    "numberedSteps": 9,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 4.441284799999999,
+        "x": 1820.9296875,
+        "y": 79,
+        "end": 11.1794351
+      },
+      {
+        "number": 2,
+        "start": 17.6333001,
+        "x": 784,
+        "y": 411.46875,
+        "end": 31.424008999999998
+      },
+      {
+        "number": 3,
+        "start": 39.3388492,
+        "x": 275,
+        "y": 603.203125,
+        "end": 47.8899678
+      },
+      {
+        "number": 4,
+        "start": 59.1868261,
+        "x": 1235,
+        "y": 556,
+        "end": 68.3251088
+      },
+      {
+        "number": 5,
+        "start": 74.7633746,
+        "x": 1507,
+        "y": 412.5,
+        "end": 82.40360639999999
+      },
+      {
+        "number": 6,
+        "start": 88.8509294,
+        "x": 963,
+        "y": 435,
+        "end": 95.571354
+      },
+      {
+        "number": 7,
+        "start": 106.24791719999999,
+        "x": 275,
+        "y": 294,
+        "end": 112.9720894
+      },
+      {
+        "number": 8,
+        "start": 119.41906630000001,
+        "x": 692.4453125,
+        "y": 294,
+        "end": 126.45527100000001
+      },
+      {
+        "number": 9,
+        "start": 134.8304016,
+        "x": 1780,
+        "y": 292.5,
+        "end": 141.58572099999998
+      }
+    ]
+  }
+}

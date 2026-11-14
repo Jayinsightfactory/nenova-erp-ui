@@ -1,0 +1,48 @@
+{
+  "id": "meeting-board",
+  "title": "회의정리(회의 내용 → AI 화이트보드, 웹 전용 파일 저장) 계약",
+  "scope": [
+    "pages/work/meetings.js",
+    "pages/api/work/meetings.js",
+    "components/meetings/MeetingBoard.js",
+    "components/meetings/boardExport.js",
+    "lib/meetingBoard.js",
+    "lib/meetingBoardStore.js",
+    "lib/meetingBoardLlm.js"
+  ],
+  "route": {
+    "page": "/work/meetings",
+    "menuGroup": "업무 매뉴얼",
+    "menuLabel": "회의정리",
+    "standardShell": true,
+    "popupShell": false
+  },
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "MEETING_BOARD_ORGANIZE", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] },
+    { "name": "MEETING_BOARD_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] },
+    { "name": "MEETING_BOARD_TRASH_RESTORE_PURGE", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] },
+    { "name": "MEETING_BOARD_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "ERP 주문·출고·재고·견적을 읽거나 쓰지 않는다. 회의 한 건을 data/runtime/meeting-board/<id>.json 파일로만 저장하며 OrderYear/OrderWeek 와 무관하다. SQL 연결을 열지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/meetingBoard.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "회의정리는 nenova.exe 기능이 아닌 웹 전용 기능이며 ERP 테이블 side effect는 모두 preserve다.",
+    "methods": ["NenovaWeb JWT UserInfo.UserID claim check (만든 사람 판정만 저장)"],
+    "tables": ["UserInfo (login source only; no write)", "OrderDetail (preserve)", "ShipmentDetail (preserve)"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
