@@ -331,6 +331,33 @@ function ManualList({ data, onOpen }) {
           <dl className="essl">{data.essentials.map((e, i) => <div key={i}><dt>{e.term} {e.status ? <Status it={e} /> : null}</dt><dd>{e.meaning}</dd></div>)}</dl>
         </details>
       )}
+      {data.rooms?.length > 0 && (
+        <details className="fold"><summary>대화방 지도 ({data.rooms.length}) <small className="muted">어느 방에서 누구와 무슨 일을 하나</small></summary>
+          <div className="tblwrap"><table className="ihtbl"><thead><tr><th>방</th><th>상대</th><th>수입부가 하는 일</th><th>사내에서 같이</th><th>근거</th></tr></thead>
+            <tbody>{data.rooms.map((r, i) => <tr key={i}><td><small className="muted">{r.app}</small><br /><b>{r.room}</b></td><td>{r.who}</td><td>{r.work}</td><td>{r.withDept || '-'}</td><td>{r.status ? <Status it={r} /> : null}</td></tr>)}</tbody></table></div>
+        </details>
+      )}
+      {data.orderDeadlines?.length > 0 && (
+        <details className="fold"><summary>나라별 마지막 추가 발주 ({data.orderDeadlines.length}) <small className="muted">언제까지 전달했나 — 기록에서 본 경향</small></summary>
+          {data.orderDeadlineRule ? <p><b>원칙</b> {data.orderDeadlineRule}</p> : null}
+          {data.orderDeadlineNote ? <p className="muted"><small>{data.orderDeadlineNote}</small></p> : null}
+          <div className="tblwrap"><table className="ihtbl"><thead><tr><th>나라</th><th>어느 방</th><th>마지막 추가 전달</th><th>도착</th><th>도착 며칠 전</th><th>관측</th></tr></thead>
+            <tbody>{data.orderDeadlines.map((r, i) => <tr key={i}><td><b>{r.country}</b></td><td>{r.channel || '-'}</td><td>{r.lastAdd}{r.note ? <><br /><small className="muted">{r.note}</small></> : null}</td><td>{r.arrival || '-'}</td><td>{r.gap || '-'}</td><td>{r.observed || '-'}</td></tr>)}</tbody></table></div>
+        </details>
+      )}
+      {(data.chinaMoq?.length > 0 || data.chinaBoxUnits?.length > 0) && (
+        <details className="fold"><summary>중국 최소 주문량 · 박스당 단수 <small className="muted">기록에서 찾은 값 — 공급처 정본 표는 아직 없음</small></summary>
+          {data.chinaMoq?.length > 0 && (
+            <div className="tblwrap"><table className="ihtbl"><thead><tr><th>품목</th><th>최소 주문량</th><th>출처 · 주의</th><th>근거</th></tr></thead>
+              <tbody>{data.chinaMoq.map((r, i) => <tr key={i}><td><b>{r.item}</b></td><td>{r.moq}</td><td>{r.note || '-'}</td><td>{r.status ? <Status it={r} /> : null}</td></tr>)}</tbody></table></div>
+          )}
+          {data.chinaBoxNote ? <p className="muted"><small>{data.chinaBoxNote}</small></p> : null}
+          {data.chinaBoxUnits?.length > 0 && (
+            <div className="tblwrap"><table className="ihtbl"><thead><tr><th>한 박스에</th><th>품목</th></tr></thead>
+              <tbody>{data.chinaBoxUnits.map((r, i) => <tr key={i}><td><b>{r.perBox}</b></td><td>{Array.isArray(r.items) ? r.items.join(', ') : r.items}</td></tr>)}</tbody></table></div>
+          )}
+        </details>
+      )}
       {data.folderMap?.length > 0 && (
         <details className="fold"><summary>파일·폴더 지도 ({data.folderMap.length})</summary>
           <div className="tblwrap"><table className="ihtbl"><thead><tr><th>어디</th><th>경로</th><th>쓰임</th><th /></tr></thead>
