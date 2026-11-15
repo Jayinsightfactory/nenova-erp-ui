@@ -382,15 +382,26 @@ function Todo({ data }) {
   }
   return (
     <>
+      {data.ownerFollowUps?.length > 0 && (
+        <div className="box ownerask">
+          <h4>사장님께 다시 여쭐 것 ({data.ownerFollowUps.length}) <small className="muted">답이 분명하지 않았던 것 — 풀린 것으로 치지 않고 남겨 둡니다</small></h4>
+          <ol className="qs">{data.ownerFollowUps.map((x, i) => (
+            <li key={i}><b>{x.topic}</b>{x.why ? <> <Badge tone="est">{x.why}</Badge></> : null}
+              <p>{x.ask}</p>
+              {x.said ? <p><small className="muted">지난 답: {x.said}</small></p> : null}
+            </li>
+          ))}</ol>
+        </div>
+      )}
       <h4>직원에게 물어볼 것 <small className="muted">(주제별 · 화면에 안 찍힌 판단 기준)</small></h4>
       {groups.length ? groups.map((g) => (
         <details key={g.topic} className="fold" open={g.items.some((q) => q.priority === '급함')}>
           <summary>{g.topic} ({g.items.length})</summary>
-          <ol className="qs">{g.items.map((q, i) => <li key={i}><Badge tone={q.priority === '급함' ? 'err' : 'plain'}>{q.priority === '급함' ? '급함' : '나중'}</Badge> {q.question}{q.why ? <small className="muted"> ({q.why})</small> : null}</li>)}</ol>
+          <ol className="qs">{g.items.map((q, i) => <li key={i}><Badge tone={q.priority === '급함' ? 'err' : 'plain'}>{q.priority === '급함' ? '급함' : '나중'}</Badge> {q.askOwner ? <Badge tone="est">사장님께도 다시 여쭘</Badge> : null} {q.question}{q.why ? <small className="muted"> ({q.why})</small> : null}</li>)}</ol>
         </details>
       )) : <p className="empty">없음</p>}
       {data.answered?.length > 0 && (
-        <details className="fold"><summary>기록으로 풀린 것 ({data.answered.length}) <small className="muted">직원에게 묻지 않고 쌓인 기록에서 알아낸 것</small></summary>
+        <details className="fold"><summary>풀린 것 ({data.answered.length}) <small className="muted">쌓인 기록에서 알아낸 것과 사장님이 분명히 답하신 것</small></summary>
           <ul className="qs">{data.answered.map((x, i) => <li key={i}><Badge tone={x.status === 'confirmed' ? 'ok' : 'est'}>{x.status === 'confirmed' ? '확정' : '추정'}</Badge> <b>{x.topic}</b> — {x.answer}{x.evidence ? <small className="muted"> ({x.evidence})</small> : null}</li>)}</ul>
         </details>
       )}
