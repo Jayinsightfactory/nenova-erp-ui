@@ -368,10 +368,10 @@ export default function TechRadar() {
         .radar .bc.tone0 { background: color-mix(in srgb, var(--pm-accent2) 26%, var(--pm-surface)); }
         .radar .bc.tone1 { background: color-mix(in srgb, var(--pm-accent) 20%, var(--pm-surface)); }
         .radar .bc.tone2 { background: color-mix(in srgb, var(--pm-idle-bg) 50%, var(--pm-surface)); }
-        .radar .bc header { display: flex; gap: 10px; align-items: flex-start; }
+        .radar .bc header { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
         .radar .bic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 17px; background: var(--pm-surface); box-shadow: var(--pm-shadow); }
-        .radar .bc .ttl { flex: 1; min-width: 0; }
-        .radar .bc .ttl a { color: var(--pm-ink); font-weight: 800; font-size: 15px; text-decoration: none; word-break: break-all; }
+        .radar .bc .ttl { flex: 1 1 150px; min-width: 150px; } /* 꼬리표가 많아도 제목이 세로로 찌그러지지 않게 — 넘치면 꼬리표가 아랫줄로 */
+        .radar .bc .ttl a { color: var(--pm-ink); font-weight: 800; font-size: 15px; text-decoration: none; overflow-wrap: anywhere; }
         .radar .bc .ttl a:hover { text-decoration: underline; }
         .radar .bc .meta { display: block; color: var(--pm-muted); font-size: 12px; margin-top: 2px; }
         .radar .bc .pts { flex: 0 0 auto; background: var(--pm-accent); color: var(--pm-accent-ink); padding: 4px 10px; font-size: 12px; font-weight: bold; white-space: nowrap; }
@@ -469,6 +469,10 @@ export default function TechRadar() {
           .cols { grid-template-columns: minmax(280px, 1fr) 1.4fr; }
           .side { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; }
           .side .box { flex: 1 1 220px; }
+        }
+        /* 왼쪽 메뉴가 있는 중간 폭(태블릿·좁은 창)에서는 한 단으로 */
+        @media (max-width: 900px) {
+          .cols { grid-template-columns: 1fr; }
         }
         @media (max-width: 640px) {
           .radar { padding: 14px 16px 32px; }
