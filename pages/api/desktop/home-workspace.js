@@ -13,7 +13,10 @@ export const createDesktopHomeHandler=({workspace=desktopHomeWorkspace}={})=>asy
       const {expectedOwnerId,...command}=req.body||{};
       return res.status(200).json(await workspace(req.user,req.query,command));
     }
-    return res.status(200).json(await workspace(req.user,req.query));
+    const start=performance.now();
+    const result=await workspace(req.user,req.query);
+    res.setHeader('Server-Timing',`workspace;dur=${Math.round(performance.now()-start)}`);
+    return res.status(200).json(result);
   }catch(e){return res.status(e.statusCode||500).json({success:false,error:e.statusCode?e.message:'개인 업무를 불러오거나 저장하지 못했습니다.'});}
 };
 export default withAuth(createDesktopHomeHandler());

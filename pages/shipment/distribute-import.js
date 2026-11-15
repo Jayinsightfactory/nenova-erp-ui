@@ -1679,23 +1679,27 @@ function CustomerSearchSelect({ value, onChange, suggested = [], options = [], p
   }, [open]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let live = true;
     if (!open || query.trim().length < 1) {
       setRemote([]);
+      setLoading(false);
       return undefined;
     }
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/customers/search?q=${encodeURIComponent(query.trim())}`, { credentials: 'same-origin' });
+        const res = await fetch(`/api/customers/search?q=${encodeURIComponent(query.trim())}`, { credentials: 'same-origin', signal: controller.signal });
         const d = await res.json();
-        setRemote(d.customers || []);
+        if (!live) return;
+        if (live) setRemote(d.customers || []);
       } catch {
-        setRemote([]);
+        if (live) setRemote([]);
       } finally {
-        setLoading(false);
+        if (live) setLoading(false);
       }
     }, 250);
-    return () => clearTimeout(t);
+    return () => { live = false; clearTimeout(t); controller.abort(); };
   }, [query, open]);
 
   const suggestedIds = new Set(suggested.map(s => String(s.custKey)));
@@ -1832,15 +1836,19 @@ function ProductSearchSelect({ value, onChange, suggested = [], options = [], pl
   }, [open]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let live = true;
     if (!open || query.trim().length < 1) {
       setRemote([]);
+      setLoading(false);
       return undefined;
     }
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/products/search?q=${encodeURIComponent(query.trim())}`, { credentials: 'same-origin' });
+        const res = await fetch(`/api/products/search?q=${encodeURIComponent(query.trim())}`, { credentials: 'same-origin', signal: controller.signal });
         const d = await res.json();
+        if (!live) return;
         const ctx = String(contextText || '').replace(/\s+/g, '');
         const list = [...(d.products || [])];
         if (ctx) {
@@ -1862,12 +1870,12 @@ function ProductSearchSelect({ value, onChange, suggested = [], options = [], pl
         }
         setRemote(list.slice(0, 200));
       } catch {
-        setRemote([]);
+        if (live) setRemote([]);
       } finally {
-        setLoading(false);
+        if (live) setLoading(false);
       }
     }, 250);
-    return () => clearTimeout(t);
+    return () => { live = false; clearTimeout(t); controller.abort(); };
   }, [query, open, contextText]);
 
   const searchHits = buildImportProductSearchHits({ query, remote, options, suggested });

@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, PmUiStyles, Tabs, ToggleChip } from '../pm/ui';
 import { allThemesCss, readStoredTheme } from '../../lib/pmThemes';
+import { LOOK_CLEAR, lookClearCss } from '../../lib/pmLookClear';
 
 const CONF = { high: ['높음', 'ok'], medium: ['보통', 'idle'], low: ['낮음', 'off'], estimate: ['추정', 'est'] };
 const SLIDE_MS = 3600;
@@ -198,9 +199,9 @@ export default function LivePipelineManual({ me, onBack }) {
   };
 
   return (
-    <div className="pm wmr lv" data-theme={theme}>
+    <div className="pm wmr lv" data-theme={theme} data-look={LOOK_CLEAR}>
       <PmUiStyles />
-      <style dangerouslySetInnerHTML={{ __html: css }} />
+      <style dangerouslySetInnerHTML={{ __html: css + lookClearCss }} />
       <header className="hd">
         <h1 data-desktop-chrome>라이브 매뉴얼 — 작업이 실제로 흘러가는 순서</h1>
         <p className="muted">

@@ -126,22 +126,26 @@ function RegisterCustomerPicker({
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let live = true;
     const q = query.trim();
     if (q.length < 1) {
       setResults([]);
+      setLoading(false);
       return undefined;
     }
     const t = setTimeout(() => {
       setLoading(true);
-      apiGet('/api/customers/search', { q })
+      apiGet('/api/customers/search', { q }, { signal: controller.signal })
         .then((d) => {
+          if (!live) return;
           setResults(d.customers || []);
           setOpen(true);
         })
-        .catch(() => setResults([]))
-        .finally(() => setLoading(false));
+        .catch(() => { if (live) setResults([]); })
+        .finally(() => { if (live) setLoading(false); });
     }, 250);
-    return () => clearTimeout(t);
+    return () => { live = false; clearTimeout(t); controller.abort(); };
   }, [query]);
 
   const pick = (cust) => {

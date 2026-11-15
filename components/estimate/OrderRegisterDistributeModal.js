@@ -130,17 +130,20 @@ export default function OrderRegisterDistributeModal({
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let live = true;
     const q = custQuery.trim();
     if (!open || selectedCustFixed || q.length < 1) {
       setCustResults([]);
       return undefined;
     }
     const t = setTimeout(() => {
-      apiGet('/api/customers/search', { q })
-        .then((d) => { setCustResults(d.customers || []); setCustOpen(true); })
-        .catch(() => setCustResults([]));
+      apiGet('/api/customers/search', { q }, { signal: controller.signal })
+        .then((d) => {
+          if (!live) return; setCustResults(d.customers || []); setCustOpen(true); })
+        .catch(() => { if (live) setCustResults([]); });
     }, 250);
-    return () => clearTimeout(t);
+    return () => { live = false; clearTimeout(t); controller.abort(); };
   }, [custQuery, open, selectedCustFixed]);
 
   // 품목 점수 계산은 전체 카탈로그를 훑기 때문에 타이핑 중간 값으로는 계산하지 않고,

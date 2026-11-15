@@ -75,3 +75,42 @@ console.log('importHandover ok');
   assert.ok(ui.includes("'신입 교육'") && ui.includes('<ImportEducation'), '업무표에 신입 교육 탭이 있어야 함');
 }
 console.log('importEducation ok');
+
+// 요일별 업무표(월~일): 요일마다 따로 보여야 하고, 사람 이름·쓰지 않는 말이 없어야 한다
+{
+  const wk = JSON.parse(fs.readFileSync(path.join(repo, 'data', 'import-weekday.json'), 'utf8'));
+  assert.deepStrictEqual(wk.weekdays.map((w) => w.weekday), ['월', '화', '수', '목', '금', '토', '일'], '요일별 업무표는 월~일 7칸');
+  for (const w of wk.weekdays.slice(0, 5)) {
+    assert.ok(w.observedDays >= 3 && w.blocks.length >= 3, `${w.weekday}요일: 시간대 3칸 이상`);
+    for (const b of w.blocks) for (const it of b.items) assert.ok(it.title && it.seenDays >= 2 && it.totalDays >= it.seenDays && ['거의 매주', '자주', '가끔'].includes(it.freq), `${w.weekday} ${b.time}: 일 이름·며칠 중 며칠·빈도`);
+  }
+  const sig = (w) => JSON.stringify(w.blocks.map((b) => [b.time, b.items.map((i) => i.title)]));
+  assert.ok(new Set(wk.weekdays.slice(0, 5).map(sig)).size === 5, '월~금이 서로 다른 내용이어야 함(같은 표를 복사해 채우지 않는다)');
+  const raw = JSON.stringify(wk);
+  for (const w of H.BANNED_WORDS) assert.ok(!raw.includes(w), `요일별 업무표에 쓰지 않는 말: ${w}`);
+  for (const name of data.manuals.flatMap((m) => m.practicedBy || [])) assert.ok(!raw.includes(name), '요일별 업무표에는 개인 이름을 싣지 않는다');
+  const wui = fs.readFileSync(path.join(repo, 'components', 'manuals', 'ImportWeekday.js'), 'utf8');
+  assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(wui), 'ImportWeekday 는 /pm 색 토큰만 써야 함');
+  assert.ok(ui.includes('<ImportWeekday'), '하루 탭에 요일별 업무표가 있어야 함');
+}
+console.log('importWeekday ok');
+
+// 새 화면 규칙(검토 반영): 쓰는 법·문제가 생겼을 때 탭·매뉴얼 열기 단추가 있고, 하루 탭은 예전 7칸 표를 그리지 않는다
+{
+  const read = (...p) => fs.readFileSync(path.join(repo, ...p), 'utf8');
+  const all = ui + read('components', 'manuals', 'ImportWeekday.js');
+  assert.ok(ui.includes('이 화면 쓰는 법'), '맨 위에 「이 화면 쓰는 법」이 있어야 함');
+  assert.ok(ui.includes("'문제가 생겼을 때'"), '「문제가 생겼을 때」 탭이 있어야 함');
+  assert.ok(all.includes('매뉴얼 열기') && all.includes('매뉴얼 준비 중'), '「매뉴얼 열기」 단추와 「매뉴얼 준비 중」 문구가 있어야 함');
+  assert.ok(!/kind === 'daily'[^\n]*<ScheduleTable/.test(ui) && /\['weekly', 'monthly'\]\.includes\(kind\)[^\n]*<ScheduleTable/.test(ui), '하루 탭에서는 ScheduleTable 을 그리지 않는다(주·월만)');
+  assert.ok(!ui.includes('하루 흐름 한눈에'), '「하루 흐름 한눈에」 표는 없어야 함');
+  assert.ok(ui.includes('role="dialog"') && ui.includes('mn-open') && ui.includes('popstate'), '캡처 큰 그림(dialog)·확인 필요 안내·뒤로가기 처리');
+  assert.ok(ui.indexOf('KINDS = [[') < ui.indexOf("['trouble'"), '탭 줄에 문제가 생겼을 때 탭');
+  const pageSrc = read('pages', 'work', 'manuals.js');
+  assert.ok(pageSrc.includes('다른 부서 업무 기록 보기') && pageSrc.includes('<details'), '아래쪽 부서별 구역은 접혀 있어야 함');
+  for (const [name, src] of [['ImportHandover', ui], ['ImportWeekday', read('components', 'manuals', 'ImportWeekday.js')], ['ImportEducation', read('components', 'manuals', 'ImportEducation.js')]]) {
+    assert.ok(!/rgba?\(/.test(src), `${name}: rgba 대신 토큰만`);
+    assert.ok(!/<h5/.test(src), `${name}: 제목 단계를 건너뛰지 않는다(h5 금지)`);
+  }
+}
+console.log('importHandoverView ok');

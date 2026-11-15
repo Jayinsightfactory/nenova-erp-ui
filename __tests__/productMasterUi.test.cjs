@@ -5,11 +5,12 @@ function load(file,req=require){const m={exports:{}};const {code}=transformSync(
 const policy=load('lib/productMasterPolicy.js'),filter=load('lib/productCatalogFilter.js');
 let states=[],cursor=0,captured;
 const Page=load('pages/master/products.js',name=>{
- if(name==='react')return {...React,useEffect:()=>{},useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return[states[i],v=>states[i]=typeof v==='function'?v(states[i]):v];}};
+ if(name==='react')return {...React,useEffect:()=>{},useMemo:calculate=>calculate(),useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return[states[i],v=>states[i]=typeof v==='function'?v(states[i]):v];}};
  if(name.endsWith('/useApi'))return {apiPost:async(url,body)=>{captured=body;},apiGet:async()=>({data:[]})};
  if(name.endsWith('/i18n'))return {useLang:()=>({t:s=>s})};
  if(name.endsWith('/displayName'))return {suggestDisplayName:()=>'',getDisplayName:p=>p.ProdName,filterProducts:p=>p};
  if(name.endsWith('/productSearchRanking'))return {rankProductSearchOptions:(_,p)=>p};
+ if(name.endsWith('/useRankedProductSearch'))return {__esModule:true,default:()=>({results:[],loading:false})};
  if(name.endsWith('/exportUtils'))return {};
  if(name.endsWith('/productMasterPolicy'))return policy;
  if(name.endsWith('/productCatalogFilter'))return filter;

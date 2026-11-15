@@ -12,6 +12,7 @@ import { normalizePlaybooks, playbookSummary, sortPlaybookCards, kstDateTime } f
 import { pmUnresolved } from '../lib/pmUnresolved';
 import { buildHandoffs, chainView, filterLog, logFacets, kstHM, kstDay, fmtGap, DEFAULT_WINDOW_H } from '../lib/pmWorkLog';
 import MenuBackButton from '../components/MenuBackButton';
+import { LOOK_CLEAR, lookClearCss } from '../lib/pmLookClear'; // 일반 관제(게임 꺼짐)는 '맑은 업무' 분위기, 게임 화면은 고른 테마 그대로
 import ControlGuide from '../components/pm/ControlGuide';
 import IsoScene, { ISO_CSS } from '../components/pm/IsoScene';
 import BgScene, { BG_CSS } from '../components/pm/BgScene';
@@ -836,9 +837,9 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
   return (
     <PmThemeCtx.Provider value={pmTheme.ctx}>
     <GrowProvider enabled={gameEnabled}>
-    <div className="pm" data-theme={pmTheme.themeId} data-game={gameEnabled ? 'on' : 'off'}>
+    <div className="pm" data-theme={pmTheme.themeId} data-game={gameEnabled ? 'on' : 'off'} data-look={gameEnabled ? undefined : LOOK_CLEAR}>
       <PmUiStyles />
-      <style dangerouslySetInnerHTML={{ __html: pmTheme.css + PM_CONTROL_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: pmTheme.css + PM_CONTROL_CSS + lookClearCss }} />
       <header className="top">
         <MenuBackButton />
         <h1>{gameEnabled ? 'PM 사무실' : 'PM 진행·오류 관제'}</h1>

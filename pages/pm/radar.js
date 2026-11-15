@@ -7,9 +7,10 @@
 //   분류 아이콘·저장소명·★별수·점수 배지는 각각 별 요소로 분리(한 덩어리 금지), 점수는 "N/10" 둥근 클레이 배지.
 // 수집기 확장(2026-11-12) 추가 필드 — 모두 선택 사항(없는 예전 회차 항목은 꼬리표 줄 자체가 안 나온다):
 //   sourceLabel(찾은 곳) · inUse(이미 사용 중) · resurfaced(별 급증으로 재평가) · actionLlm('바로 시험' 이었으나 회차 상한 3개에 밀려 대기).
-import { useEffect, useMemo, useState } from 'react';
-import { Badge, Button, SelectCard, ToggleChip, PmUiStyles, Tabs } from '../../components/pm/ui';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Badge, Button, EmptyState, LinkButton, Notice, SelectCard, Skeleton, ToggleChip, PmUiStyles, Tabs } from '../../components/pm/ui';
 import { themeById, themeCss } from '../../lib/pmThemes';
+import { LOOK_CLEAR, lookClearCss } from '../../lib/pmLookClear';
 import { verifyReqUser } from '../../lib/auth';
 
 export async function getServerSideProps({ req, res, resolvedUrl }) {
@@ -90,14 +91,13 @@ function BigCard({ x, i }) {
         {x.pilotResult && <Badge className="pilot" title={x.pilotResult.summary}>🧪 시험함 {x.pilotResult.score}점</Badge>}
       </header>
       <Tags x={x} />
-      {x.easy && <p className="easy"><b>🤔 이게 뭐예요?</b> {x.easy}</p>}
-      {x.analogy && <p className="easy"><b>💡 우리 회사에 빗대면</b> {x.analogy}</p>}
-      {!x.easy && !x.analogy && <p className="easy">{x.summary}</p>}
-      {(x.terms || []).length > 0 && (
-        <div className="terms">{x.terms.map((t) => <Badge key={t.t} className="term" title={t.d}><b>{t.t}</b> {t.d}</Badge>)}</div>
-      )}
+      <p className="easy">{x.easy || x.summary}</p>
       {open && (
         <div className="detail">
+          {x.analogy && <p><b>우리 회사에 빗대면</b> {x.analogy}</p>}
+          {(x.terms || []).length > 0 && (
+            <div className="terms">{x.terms.map((t) => <Badge key={t.t} className="term" title={t.d}><b>{t.t}</b> {t.d}</Badge>)}</div>
+          )}
           {x.why && <p><b>왜 인기인가요?</b> {x.why}</p>}
           <ExtraDetail x={x} />
           <p><b>기술 정보</b> {x.desc || '-'}</p>
@@ -166,11 +166,17 @@ export default function TechRadar() {
   const [shown, setShown] = useState(PAGE);
   const clayCss = useMemo(() => themeCss(themeById('B')), []);
 
-  useEffect(() => {
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => {
+    setErr(''); setBusy(true);
     fetch('/api/pm/radar', { cache: 'no-store' }).then((r) => r.json())
-      .then((j) => { if (!j.success) throw new Error(j.error || '불러오기 실패'); setData(j.data); setRoundId(ALL); })
-      .catch((e) => setErr(e.message));
+      .then((j) => { if (!j.success) throw new Error(j.error || '불러오기 실패'); setData(j.data || { rounds: [] }); setRoundId(ALL); })
+      .catch((e) => setErr(e.message))
+      .finally(() => setBusy(false));
   }, []);
+  useEffect(() => { load(); }, [load]);
+  // 걸린 조건 수(기본값 = 주제·추천 전체, ★5 이상) — "조건 지우기"에 쓴다
+  const clearFilters = () => { setSys(''); setAct(''); setMinScore(5); setSrc(''); setHideInUse(false); };
   useEffect(() => { setShown(PAGE); }, [roundId, act, sys, minScore, track, src, hideInUse]);
 
   const rounds = useMemo(() => data?.rounds || [], [data]);
@@ -191,6 +197,7 @@ export default function TechRadar() {
   const hideOn = hideInUse && inUseCount > 0;
   const items = useMemo(() => (round?.items || []).filter((x) => ((x.track || 'interest') === track) && (!act || x.action === act) && (!sys || (x.systems || []).includes(sys)) && x.score >= minScore
     && (!srcOn || srcParts(x).some((t) => srcKind(t) === srcOn)) && (!hideOn || !x.inUse)), [round, act, sys, minScore, track, srcOn, hideOn]);
+  const nFilters = (sys ? 1 : 0) + (act ? 1 : 0) + (minScore !== 5 ? 1 : 0) + (srcOn ? 1 : 0) + (hideOn ? 1 : 0);
   const featured = useMemo(() => items.filter((x) => x.action === '바로 시험').slice(0, 3), [items]);
   const rest = useMemo(() => items.filter((x) => !featured.includes(x)), [items, featured]);
   // 오른쪽 사이드바 집계 — 클라이언트에서만(새 API 없음)
@@ -199,9 +206,9 @@ export default function TechRadar() {
   const sysCount = useMemo(() => { const m = new Map(); items.forEach((x) => (x.systems || []).forEach((s) => m.set(s, (m.get(s) || 0) + 1))); return [...m.entries()].sort((a, b) => b[1] - a[1]); }, [items]);
 
   return (
-    <div className="pm radar" data-theme="B">
+    <div className="pm radar" data-theme="B" data-look={LOOK_CLEAR}>
       <PmUiStyles />
-      <style dangerouslySetInnerHTML={{ __html: clayCss }} />
+      <style dangerouslySetInnerHTML={{ __html: clayCss + lookClearCss }} />
       <header className="top">
         <div className="brand">
           <h1>기술 레이더</h1>
@@ -215,11 +222,22 @@ export default function TechRadar() {
           ]} />
         )}
       </header>
-      <p className="sub">PM 이 월·목 아침 GitHub 인기·급상승 저장소를 살펴 우리 회사(네노바웹·Orbit·AI 자동화·MOYI)에 쓸모 있는 것만 골랐습니다. 추천은 회차마다 계속 쌓이며, 오른쪽 &quot;회차별로 보기&quot;에서 한 회차만 볼 수 있습니다.</p>
+      <p className="sub">월·목 아침마다 새로 나온 도구 가운데 우리 회사에 쓸모 있는 것만 골라 쌓아 둡니다.</p>
 
-      {err && <p className="muted">불러오지 못했습니다: {err}</p>}
-      {!err && !data && <p className="muted">불러오는 중…</p>}
-      {data && !rounds.length && <p className="muted">아직 올라온 회차가 없습니다.</p>}
+      {err && (
+        <Notice tone="error" title="추천 목록을 불러오지 못했습니다" action={<Button size="sm" variant="secondary" loading={busy} onClick={load}>다시 불러오기</Button>}>
+          잠시 뒤 다시 눌러 주세요. 계속 안 되면 PM 사무실에 알려 주세요.
+          <details className="errraw"><summary>자세히</summary>{err}</details>
+        </Notice>
+      )}
+      {!err && !data && (
+        <div className="loading" aria-busy="true">
+          <Skeleton card rows={4} /><Skeleton card rows={3} /><Skeleton card rows={3} />
+        </div>
+      )}
+      {data && !rounds.length && (
+        <EmptyState art="🛰️" title="아직 올라온 추천이 없습니다">월요일과 목요일 아침에 새 추천이 올라옵니다. 그때 다시 열어 보세요.</EmptyState>
+      )}
 
       {round && (
         <>
@@ -246,6 +264,11 @@ export default function TechRadar() {
                 <ToggleChip on={hideOn} aria-pressed={hideOn} onClick={() => setHideInUse(!hideOn)}>빼고 보기 ({inUseCount}개)</ToggleChip>
               </div>
             )}
+            {nFilters > 0 && (
+              <div className="fg fclear"><span className="fl">조건 {nFilters}개로 {items.length}건 보는 중</span>
+                <LinkButton onClick={clearFilters}>조건 지우기</LinkButton>
+              </div>
+            )}
           </div>
 
           <div className="cols">
@@ -255,12 +278,16 @@ export default function TechRadar() {
                   <SectionH count={featured.length}>바로 시험해 볼 것</SectionH>
                   {featured.map((x, i) => <BigCard key={x.name} x={x} i={i} />)}
                 </>
-              ) : <p className="muted">이번 조건에 &quot;바로 시험&quot; 추천이 없습니다.</p>}
+              ) : <EmptyState title="바로 시험해 볼 것이 없습니다">{nFilters > 0 ? '지금 고른 조건에는 없습니다. 조건을 지우면 다시 보입니다.' : '이번에는 관찰·참고만 있습니다.'}</EmptyState>}
             </section>
 
             <section className="mid">
               <SectionH count={rest.length}>{featured.length ? '관찰·참고' : '전체'}</SectionH>
-              {rest.length === 0 && <p className="muted">조건에 맞는 항목이 없습니다.</p>}
+              {rest.length === 0 && (
+                <EmptyState title="조건에 맞는 것이 없습니다" action={nFilters > 0 ? <Button size="sm" variant="secondary" onClick={clearFilters}>조건 지우기</Button> : null}>
+                  {nFilters > 0 ? '조건을 줄이면 더 많이 보입니다.' : '이 구분에는 아직 추천이 없습니다.'}
+                </EmptyState>
+              )}
               <div className="grid">{rest.slice(0, shown).map((x, i) => <SmallCard key={x.name} x={x} i={i} />)}</div>
               {rest.length > shown && (
                 <div className="more"><Button variant="secondary" onClick={() => setShown(shown + PAGE)}>더 보기 ({rest.length - shown}건 남음)</Button></div>
@@ -308,15 +335,43 @@ export default function TechRadar() {
       {/* 카드(BigCard·SmallCard)는 별도 컴포넌트라 위쪽 scoped 스타일이 닿지 않는다 → .radar 아래 전역 규칙으로 둔다.
           (scoped 에 두면 카드 배경·모서리가 빠지고 제목 줄이 브라우저 기본 회색 버튼으로 보인다) */}
       <style jsx global>{`
+        /* 불러오는 중 뼈대 · 오류 원문 · 조건 지우기 줄 (기준: docs/UI_STANDARD.md 7절) */
+        .radar .loading { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 16px; }
+        .radar .errraw { margin-top: 4px; font-size: 12px; opacity: .8; }
+        .radar .errraw summary { cursor: pointer; }
+        .radar .pmk-notice { margin-top: 12px; }
+        .radar .fclear .fl { font-weight: bold; }
+        /* "맑은 업무" 분위기(lib/pmLookClear.js) — 색 면을 걷어 내고 얇은 선으로. 강조색(남색)은 한 색의 짙고 옅음으로만 쓴다. */
+        .pm.radar[data-look="clear"] .bc.tone0, .pm.radar[data-look="clear"] .bc.tone1, .pm.radar[data-look="clear"] .bc.tone2 { background: var(--pm-surface); border: 1px solid var(--pm-line); box-shadow: none; }
+        .pm.radar[data-look="clear"] .sc, .pm.radar[data-look="clear"] .box, .pm.radar[data-look="clear"] .filters { border: 1px solid var(--pm-line); box-shadow: none; }
+        .pm.radar[data-look="clear"] .bic, .pm.radar[data-look="clear"] .ic0, .pm.radar[data-look="clear"] .ic1, .pm.radar[data-look="clear"] .ic2, .pm.radar[data-look="clear"] .ic3 { background: var(--pm-surface2); box-shadow: none; }
+        .pm.radar[data-look="clear"] .bc .pts { background: var(--pm-surface2); color: var(--pm-ink); }
+        .pm.radar[data-look="clear"] .newb { background: color-mix(in srgb, var(--pm-accent) 10%, var(--pm-surface)); color: var(--pm-accent); }
+        .pm.radar[data-look="clear"] .sc .score.top { background: var(--pm-accent); color: var(--pm-accent-ink); }
+        .pm.radar[data-look="clear"] .sc .score.hi { background: color-mix(in srgb, var(--pm-accent) 14%, var(--pm-surface)); color: var(--pm-accent); }
+        .pm.radar[data-look="clear"] .sc .score.mid, .pm.radar[data-look="clear"] .sc .score.lo { background: var(--pm-surface2); color: var(--pm-muted); }
+        .pm.radar[data-look="clear"] .bf.top { background: var(--pm-accent); }
+        .pm.radar[data-look="clear"] .bf.hi { background: color-mix(in srgb, var(--pm-accent) 62%, var(--pm-surface)); }
+        .pm.radar[data-look="clear"] .bf.mid { background: color-mix(in srgb, var(--pm-accent) 36%, var(--pm-surface)); }
+        .pm.radar[data-look="clear"] .bf.lo { background: color-mix(in srgb, var(--pm-accent) 18%, var(--pm-surface)); }
+        .pm.radar[data-look="clear"] .box .tchip.c0, .pm.radar[data-look="clear"] .box .tchip.c1, .pm.radar[data-look="clear"] .box .tchip.c2, .pm.radar[data-look="clear"] .box .tchip.c3 { background: var(--pm-surface2); }
+        .pm.radar[data-look="clear"] .brand .round, .pm.radar[data-look="clear"] .bc .term { box-shadow: none; border: 1px solid var(--pm-line); }
+        .pm.radar[data-look="clear"] .pmk-chip.on { color: var(--pm-accent); }
+        /* 꼬리표가 셋 붙어도 제목이 찌그러지지 않게 — 넘치면 꼬리표가 아랫줄로 */
+        .radar .sc .hit { flex-wrap: wrap; }
+        .radar .sc .hit .ttl { flex: 1 1 110px; min-width: 110px; }
+        .pm.radar[data-look="clear"] .pmk-btn.pmk-primary { color: var(--pm-accent-ink); }
+        /* 고른 칩·주 버튼 글자 — 민트 바탕 위 흰 글자는 잘 안 읽혀 본문 글자색으로 */
+        .radar .pmk-chip.on, .radar .pmk-btn.pmk-primary { color: var(--pm-ink); }
         /* 왼쪽 추천 큰 카드 — 파스텔 클레이(핑크/민트/크림 교대) */
         .radar .bc { border-radius: calc(var(--pm-radius) + 4px); padding: 16px; margin-bottom: 14px; box-shadow: var(--pm-shadow); display: flex; flex-direction: column; gap: 9px; }
         .radar .bc.tone0 { background: color-mix(in srgb, var(--pm-accent2) 26%, var(--pm-surface)); }
         .radar .bc.tone1 { background: color-mix(in srgb, var(--pm-accent) 20%, var(--pm-surface)); }
         .radar .bc.tone2 { background: color-mix(in srgb, var(--pm-idle-bg) 50%, var(--pm-surface)); }
-        .radar .bc header { display: flex; gap: 10px; align-items: flex-start; }
+        .radar .bc header { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
         .radar .bic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 17px; background: var(--pm-surface); box-shadow: var(--pm-shadow); }
-        .radar .bc .ttl { flex: 1; min-width: 0; }
-        .radar .bc .ttl a { color: var(--pm-ink); font-weight: 800; font-size: 15px; text-decoration: none; word-break: break-all; }
+        .radar .bc .ttl { flex: 1 1 150px; min-width: 150px; } /* 꼬리표가 많아도 제목이 세로로 찌그러지지 않게 — 넘치면 꼬리표가 아랫줄로 */
+        .radar .bc .ttl a { color: var(--pm-ink); font-weight: 800; font-size: 15px; text-decoration: none; overflow-wrap: anywhere; }
         .radar .bc .ttl a:hover { text-decoration: underline; }
         .radar .bc .meta { display: block; color: var(--pm-muted); font-size: 12px; margin-top: 2px; }
         .radar .bc .pts { flex: 0 0 auto; background: var(--pm-accent); color: var(--pm-accent-ink); padding: 4px 10px; font-size: 12px; font-weight: bold; white-space: nowrap; }
@@ -414,6 +469,10 @@ export default function TechRadar() {
           .cols { grid-template-columns: minmax(280px, 1fr) 1.4fr; }
           .side { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; }
           .side .box { flex: 1 1 220px; }
+        }
+        /* 왼쪽 메뉴가 있는 중간 폭(태블릿·좁은 창)에서는 한 단으로 */
+        @media (max-width: 900px) {
+          .cols { grid-template-columns: 1fr; }
         }
         @media (max-width: 640px) {
           .radar { padding: 14px 16px 32px; }

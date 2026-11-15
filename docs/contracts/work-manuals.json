@@ -4,6 +4,7 @@
   "scope": [
     "pages/work/manuals.js",
     "pages/api/work/manuals.js",
+    "pages/api/work/manual-lecture.js",
     "lib/workManuals.js",
     "scripts/sync-orbit-manuals.js",
     "components/Layout.js",

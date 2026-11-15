@@ -1,5 +1,5 @@
 // pages/sales/status.js — 판매현황
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { memo, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
 import { useDropdownNav } from '../../lib/useDropdownNav';
@@ -52,22 +52,25 @@ export default function SalesStatus() {
 
   // 거래처 검색 디바운스
   useEffect(() => {
+    const controller = new AbortController();
+    let live = true;
     if (custDebounce.current) clearTimeout(custDebounce.current);
-    if (!custSearch.trim()) {
+    if (!custSearch.trim() || custSearch === selectedCust?.CustName) {
       setCustList([]);
       setCustOpen(false);
       return;
     }
     custDebounce.current = setTimeout(() => {
-      apiGet('/api/customers/search', { q: custSearch })
+      apiGet('/api/customers/search', { q: custSearch }, { signal: controller.signal })
         .then(d => {
+          if (!live) return;
           setCustList(d.customers || []);
           setCustOpen(true);
         })
         .catch(() => {});
     }, 300);
-    return () => clearTimeout(custDebounce.current);
-  }, [custSearch]);
+    return () => { live = false; clearTimeout(custDebounce.current); controller.abort(); };
+  }, [custSearch, selectedCust]);
 
   const handleSelectCust = useCallback((c) => {
     setSelectedCust(c);
@@ -417,6 +420,19 @@ export default function SalesStatus() {
         ))}
       </div>
 
+      <SalesTables tab={tab} loading={loading} rows={rows} byCustomer={byCustomer} byProduct={byProduct} totalRow={totalRow} />
+
+      <style jsx>{`
+        .cust-option:hover {
+          background: var(--hover-bg, #f5f5f5);
+        }
+      `}</style>
+    </div>
+  );
+}
+
+const SalesTables = memo(function SalesTables({ tab, loading, rows, byCustomer, byProduct, totalRow }) {
+  return <>
       {/* ── 전체 탭 */}
       {tab === 'all' && (
         <div className="card">
@@ -644,12 +660,5 @@ export default function SalesStatus() {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .cust-option:hover {
-          background: var(--hover-bg, #f5f5f5);
-        }
-      `}</style>
-    </div>
-  );
-}
+  </>;
+});

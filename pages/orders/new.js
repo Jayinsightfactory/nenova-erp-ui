@@ -12,6 +12,7 @@ import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput'
 import { useLang } from '../../lib/i18n';
 import { useColumnResize } from '../../lib/useColumnResize';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
+import useRankedProductSearch from '../../lib/useRankedProductSearch';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const CUSTOMER_FAV_PAGE = 'orders-customer';
@@ -126,14 +127,17 @@ export default function OrderNew() {
 
   // ── 거래처 검색 (300ms 디바운스)
   useEffect(() => {
-    if (custSearch.length < 1) { setCustList([]); return; }
+    const controller = new AbortController();
+    let live = true;
+    if (!custSearch.trim() || custSearch === selectedCust?.CustName) { setCustList([]); setShowCustDrop(false); return; }
     const t = setTimeout(() => {
-      apiGet('/api/customers/search', { q: custSearch })
-        .then(d => { setCustList(d.customers || []); setShowCustDrop(true); })
+      apiGet('/api/customers/search', { q: custSearch }, { signal: controller.signal })
+        .then(d => {
+          if (!live) return; setCustList(d.customers || []); setShowCustDrop(true); })
         .catch(() => {});
     }, 300);
-    return () => clearTimeout(t);
-  }, [custSearch]);
+    return () => { live = false; clearTimeout(t); controller.abort(); };
+  }, [custSearch, selectedCust]);
 
   // ── 담당자별 거래처 패널용 전체 목록 + 즐겨찾기
   useEffect(() => {
@@ -253,7 +257,11 @@ export default function OrderNew() {
   };
 
   // ── 필터된 품목 (중간 패널 - 검색어만 적용, 그룹은 이미 서버에서 필터됨)
-  const filteredProds = rankProductSearchOptions(prodSearch, prodList, { limit: 200 });
+  const searchInWorker = prodList.length > 200 && !!prodSearch.trim();
+  const productSearch = useRankedProductSearch(prodSearch, prodList, {enabled: searchInWorker, limit: 200});
+  const smallList = useMemo(() => searchInWorker ? [] : rankProductSearchOptions(prodSearch, prodList, { limit: 200 }),
+    [prodSearch, prodList, searchInWorker]);
+  const filteredProds = searchInWorker ? productSearch.results : smallList;
 
   const custMgrList = useMemo(() => (
     [...new Set(allCusts.map(c => c.Manager || '미지정'))].sort((a, b) => a.localeCompare(b, 'ko'))
@@ -1070,7 +1078,9 @@ export default function OrderNew() {
               </thead>
               <tbody>
                 {filteredProds.length === 0 ? (
-                  <tr><td colSpan={13} style={{ textAlign: 'center', padding: 20, color: 'var(--text3)' }}>품목 로딩 중...</td></tr>
+                  <tr><td colSpan={13} style={{ textAlign: 'center', padding: 20, color: 'var(--text3)' }}>
+                    {productSearch.error || (productSearch.loading ? '품목 검색 중…' : prodSearch.trim() ? '검색 결과가 없습니다.' : '품목을 선택해 주세요.')}
+                  </td></tr>
                 ) : filteredProds.map(p => {
                   const q = quantities[p.ProdKey] || initQty();
                   const hasQty = q.box > 0 || q.bunch > 0 || q.steam > 0;

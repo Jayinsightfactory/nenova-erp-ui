@@ -264,7 +264,7 @@ export default function MobileChat() {
     const t = setTimeout(() => {
       fetch(`/api/products/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
         .then(r => r.json())
-        .then(d => setProductOptions((d.products || []).slice(0, 12)))
+        .then(d => { if (!ctrl.signal.aborted) setProductOptions((d.products || []).slice(0, 12)); })
         .catch(() => {});
     }, 180);
     return () => { clearTimeout(t); ctrl.abort(); };

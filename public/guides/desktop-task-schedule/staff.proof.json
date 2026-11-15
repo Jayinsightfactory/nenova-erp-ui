@@ -1,16 +1,16 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-13T07:31:53.334Z",
+  "recordedAt": "2026-11-14T10:13:55.674Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 165.3,
+  "duration": 194.85,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "24a2d4d3eec727cb3c51a09f592c39ff5f97cb6e7e66d062e8b65f5d0244182f",
-  "captionsSha256": "ff3474c9f11a96650256bd4bad60d519124a74d56be31bf4cde98e2e0aa5337a",
+  "videoSha256": "584f0e8d2a4f49037892b67a4126b3e67bec4010bae01632f71670a168fb25a1",
+  "captionsSha256": "dba7f46d5d5ff907a53676cf2e78844a3c9bcc151f001886d1010101be3a51b3",
   "sourceHashes": {
     "desktop/shell/shell.js": "53ef76d83fb303598a7d91cf51125b3ee0e238c81bda610ffd2bf6d39410f44e",
     "desktop/shell/company-calendar.js": "b1a441d61d8ce1f40274b67ba1805a4a1e31c3b5eee4190cc280735b4a92d557",
@@ -19,11 +19,11 @@
     "desktop/notes-preload.cjs": "38ef36a4a818e878f0e1ffa1e987aa4baa53deb62a17c01951ab764866378c1b",
     "desktop/shell/home-dashboard.js": "97449c154c7ad177ddd941db7e626e9bfef9e91b08d3dcf73ef01239d8ff200b",
     "desktop/shell/index.html": "b2532da3a21b64eebdf2e71b4cc696919cd557d07d16ebcd9d95115424b9ddfb",
-    "desktop/shell/home-workspace.js": "48a5256b74ba843952066148770fa44fbfb43cf29758b9b8733a829d53072243",
-    "desktop/shell/shell.css": "d5d95495f9318636fc9c6b4f395878a1c6f2448e9573a43147f95b46059975c5",
-    "desktop/shell/notes.html": "eea12d90e95fd9af29896a7e86928c2bc45a450eb248e5c29b5d2f2bc17cb447",
+    "desktop/shell/home-workspace.js": "c01c836a583b8a4990c25018326c075853073b25c0c64433f5890a548045f936",
+    "desktop/shell/shell.css": "6aaf9892a1bfcb89b7873b80d7673ba20cc7c9aff10b3fba46db83ed3fd3a891",
+    "desktop/shell/notes.html": "d7c39341e2988d1125b62887bd530be262784206febb362b3d31a0bf54c7ca5d",
     "desktop/shell/notes.js": "ab16235cf5724428388fb91a7d55eaea850f1d12fded08a20fe40d0bcce3559b",
-    "desktop/shell/notes.css": "6f7b52b051a52a4e7d861c269d07e9c11be6b43f1f393e089e147ade0048cf55",
+    "desktop/shell/notes.css": "aa2f88e70a869d2989a3b07fc4723e21186ff514beda4023cfbbe80e37b57527",
     "desktop/shell/task-settings.js": "754ded3a1dd20966906f7b419a626523085e0d433d06a4ee8310332b2e042192",
     "desktop/shell/task-controls.js": "78a93820ac8a4e81a1afee10fa20d824982cf4d24cfc7ad7ce1a1947b0d7f7bf",
     "pages/desktop-guide.js": "949a4f03a8e6e97ebaf2d20f717f8c82fa9b26029e5ecd292c668921719ea8ce"
@@ -42,129 +42,150 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 3.6641428,
+        "start": 3.615147100000002,
         "x": 1303.1875,
         "y": 247.390625,
-        "end": 8.8906157
+        "end": 8.8220861
       },
       {
         "number": 1,
-        "start": 10.9420689,
+        "start": 10.8508367,
         "x": 347.703125,
         "y": 97,
-        "end": 16.1573335
+        "end": 16.075363199999998
       },
       {
         "number": 2,
-        "start": 20.0274292,
+        "start": 19.909184399999997,
         "x": 1565.28125,
-        "y": 475.390625,
-        "end": 25.316645400000002
+        "y": 490.390625,
+        "end": 25.1865521
       },
       {
         "number": 3,
-        "start": 29.3377452,
+        "start": 29.053437100000004,
         "x": 1565.28125,
-        "y": 450.140625,
-        "end": 36.0253868
+        "y": 468.140625,
+        "end": 33.5478909
+      },
+      {
+        "number": 3,
+        "start": 35.5595585,
+        "x": 1843.890625,
+        "y": 563.390625,
+        "end": 41.154440400000006
       },
       {
         "number": 4,
-        "start": 39.9466368,
+        "start": 45.2718525,
         "x": 960,
-        "y": 124.921875,
-        "end": 45.160985000000004
+        "y": 213.890625,
+        "end": 48.691139
+      },
+      {
+        "number": 4,
+        "start": 50.709560200000006,
+        "x": 1066.46875,
+        "y": 211.890625,
+        "end": 54.12436220000001
+      },
+      {
+        "number": 4,
+        "start": 57.3077782,
+        "x": 1080,
+        "y": 772.0078125,
+        "end": 62.82667070000001
       },
       {
         "number": 5,
-        "start": 49.011190199999994,
+        "start": 66.6898068,
         "x": 960,
         "y": 649.921875,
-        "end": 56.9722893
+        "end": 74.6544806
       },
       {
         "number": 5,
-        "start": 60.8179703,
+        "start": 78.5792003,
         "x": 1080,
         "y": 836.3984375,
-        "end": 64.246117
+        "end": 82.7546104
       },
       {
         "number": 6,
-        "start": 70.28776300000001,
+        "start": 88.8528033,
         "x": 933.40625,
-        "y": 264.28125,
-        "end": 75.5603557
+        "y": 266.28125,
+        "end": 94.83011560000001
       },
       {
         "number": 7,
-        "start": 79.5796127,
-        "x": 948.2890625,
+        "start": 100.90265529999999,
+        "x": 1112.796875,
         "y": 471.390625,
-        "end": 84.9021688
+        "end": 106.3334727
       },
       {
         "number": 7,
-        "start": 89.33755000000001,
-        "x": 801.28125,
+        "start": 110.83018000000001,
+        "x": 958.7890625,
         "y": 547.78125,
-        "end": 92.7671277
+        "end": 114.25250340000001
       },
       {
         "number": 7,
-        "start": 94.785716,
+        "start": 116.27867239999999,
         "x": 1351.796875,
-        "y": 493.390625,
-        "end": 99.9939855
+        "y": 491.390625,
+        "end": 121.49525340000001
       },
       {
         "number": 8,
-        "start": 103.94781939999999,
+        "start": 125.7292786,
         "x": 1015.234375,
         "y": 100.421875,
-        "end": 109.1930924
+        "end": 130.96706819999997
       },
       {
         "number": 9,
-        "start": 115.4636604,
+        "start": 139.12242210000002,
         "x": 199.9765625,
         "y": 249.390625,
-        "end": 118.94498759999999
+        "end": 142.72995439999997
       },
       {
         "number": 9,
-        "start": 120.96577740000001,
+        "start": 144.89004100000002,
         "x": 960,
         "y": 508.546875,
-        "end": 125.65050810000001
+        "end": 149.63993499999998
       },
       {
         "number": 9,
-        "start": 127.6905179,
+        "start": 151.6655456,
         "x": 780.328125,
         "y": 802.328125,
-        "end": 131.23940689999998
+        "end": 155.96943
       },
       {
         "number": 9,
-        "start": 133.2807127,
-        "x": 948.2890625,
+        "start": 158.2032291,
+        "x": 1112.796875,
         "y": 466.890625,
-        "end": 138.4888474
+        "end": 163.41251559999998
       },
       {
         "number": 10,
-        "start": 142.3142045,
+        "start": 167.28432260000002,
         "x": 1165.453125,
         "y": 249.390625,
-        "end": 147.5512482
+        "end": 172.6913064
       },
       {
         "number": 10,
-        "start": 149.5732517,
+        "start": 174.7201997,
         "x": 1165.453125,
         "y": 322.390625,
-        "end": 154.8016433
+        "end": 180.1188912
       }
     ]
   }
