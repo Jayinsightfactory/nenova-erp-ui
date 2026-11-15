@@ -53,7 +53,7 @@
 
   function moveMenuFocus(event) {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    const items = [...document.querySelectorAll('#favoritesList button, #menuGroups button')].filter(button => !button.disabled);
+    const items = [...document.querySelectorAll('#searchResults button, #favoritesList button, #menuGroups button')].filter(button => !button.disabled);
     if (!items.length) return;
     event.preventDefault();
     const index = items.indexOf(document.activeElement);
@@ -184,6 +184,9 @@
       startItems.push({ href: '/dashboard', labelKey: '네노바 홈', favorite: state.favorites.some(f => { try { return new URL(f.url).pathname === '/dashboard'; } catch { return false; } }) });
     }
     const allGroups = startItems.length ? [{ group: '시작', items: startItems }, ...state.menus] : state.menus;
+    // 검색 결과는 검색창 바로 밑에 메뉴 버튼으로 펼친다(사장님 지시 2026-11-15). 아래 '모든 업무' 목록도 그대로 함께 걸러진다.
+    const results = $('searchResults'); const focusedResult = results.contains(document.activeElement) ? document.activeElement.dataset.searchHref : '';
+    results.replaceChildren(); results.hidden = !query;
     for (const group of allGroups) {
       const groupName = String(group.group || '기타');
       const matching = (Array.isArray(group.items) ? group.items : []).filter((item) =>
@@ -205,11 +208,24 @@
         star.setAttribute('aria-label', star.title);
         star.setAttribute('aria-pressed', String(Boolean(item.favorite)));
         row.append(button, star); items.append(row); count++;
+        if (query) {
+          const hit = makeButton('menu-item search-result', '', `${item.labelKey || item.href} 열기`, () => openPage(item));
+          hit.dataset.searchHref = item.href;
+          const hitLabel = document.createElement('span'); hitLabel.textContent = item.labelKey || item.href;
+          const hitGroup = document.createElement('small'); hitGroup.textContent = groupName;
+          hit.append(hitLabel, hitGroup); results.append(hit);
+        }
       }
       card.append(heading, items); groups.append(card);
     }
     $('resultCount').textContent = `${count}개 화면`;
     $('emptySearch').hidden = count > 0;
+    if (query) {
+      const summary = document.createElement('p'); summary.className = 'search-results-count';
+      summary.textContent = count ? `검색 결과 ${count}개 · ↓ 키로 이동, Enter 로 열기` : '검색 결과가 없습니다. 다른 단어로 찾아보세요.';
+      results.prepend(summary);
+      if (focusedResult) [...results.querySelectorAll('button')].find(button => button.dataset.searchHref === focusedResult)?.focus({ preventScroll: true });
+    }
     const favorites = $('favoritesList'); favorites.replaceChildren();
     const matches = state.favorites.filter((item) => !query || `${item.number} ${item.alias || ''} ${item.title || ''} ${item.url || ''}`.toLocaleLowerCase('ko').includes(query));
     $('favoritesSection').hidden = !state.online;
@@ -316,6 +332,7 @@
     render();
     window.homeWorkspace?.applyState(next);
     window.homeDashboard?.applyState(next);
+    window.homeBriefing?.applyState(next);
     if (Object.prototype.hasOwnProperty.call(next, 'homeOwnerId') && next.homeOwnerId !== pmLive.owner) {
       pmLive.owner = next.homeOwnerId || ''; pmLive.generation++; pmLive.busy = false;
       clearTimeout(pmLive.timer); pmLive.timer = null;
@@ -410,6 +427,10 @@
     });
     $('favoritesList').addEventListener('keydown', moveMenuFocus);
     $('menuGroups').addEventListener('keydown', moveMenuFocus);
+    $('searchResults').addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); const input = $('menuSearch'); input.value = ''; renderMenus(); input.focus(); return; }
+      moveMenuFocus(event);
+    });
     $('tabs').addEventListener('dragover', (event) => {
       if (event.target.closest('.tab') || !event.dataTransfer.types.includes('application/x-nenova-tab')) return;
       event.preventDefault(); event.dataTransfer.dropEffect = 'move';

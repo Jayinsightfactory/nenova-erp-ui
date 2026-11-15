@@ -4,7 +4,7 @@ const fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:p
 const puppeteer=require('puppeteer-core');
 const {requestOptions}=require('../desktop/home-workspace.cjs');
 const {createWorkflowGuideRecorder}=require('./lib/workflow-guide-recorder.cjs');
-const sources=['desktop/shell/shell.js','desktop/shell/company-calendar.js','desktop/main.cjs','desktop/windows-identity.cjs','desktop/notes-preload.cjs','desktop/shell/home-dashboard.js','desktop/shell/index.html','desktop/shell/home-workspace.js','desktop/shell/shell.css','desktop/shell/notes.html','desktop/shell/notes.js','desktop/shell/notes.css','desktop/shell/task-settings.js','desktop/shell/task-controls.js','pages/desktop-guide.js'];
+const sources=['desktop/shell/shell.js','desktop/shell/company-calendar.js','desktop/main.cjs','desktop/windows-identity.cjs','desktop/notes-preload.cjs','desktop/shell/home-dashboard.js','desktop/shell/home-briefing.js','desktop/shell/index.html','desktop/shell/home-workspace.js','desktop/shell/shell.css','desktop/shell/notes.html','desktop/shell/notes.js','desktop/shell/notes.css','desktop/shell/task-settings.js','desktop/shell/task-controls.js','pages/desktop-guide.js'];
 const root=path.resolve(__dirname,'..');
 async function fixture({seedDate}={}){
  const store=await import('../lib/personalHomeStore.js');const shared=await import('../lib/companyCalendarStore.js');
@@ -19,6 +19,7 @@ async function fixture({seedDate}={}){
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
  async function invoke(action,payload={}){
   calls.push({action,payload});if(action==='state')return {homeOwnerId:owner,ownerId:owner,menuOpen:true,online:true,pinned:pin,reminder,menus,windows:[],tabs:[],favorites:[],version:require('../desktop/package.json').version};
+  if(action==='morningBriefing')return require('./lib/morning-briefing-desktop-fixture.cjs').practiceBriefing(owner);
   if(action==='homeRequests')return {success:true,ownerId:owner,requests:[{id:'abcdef123456',title:'업무 화면 개선 요청',status:'working',statusLabel:'처리중',categoryLabel:'기능요청'},{id:'abcdef123457',title:'일정 기능 검토',status:'received',statusLabel:'접수',categoryLabel:'기능요청'}]};
   if(action==='companyCalendar'){if(fail&&payload.method==='POST'){fail=false;return {success:false,status:503,error:'연습 공통 일정 저장 실패 · 입력 유지'};}try{return await shared.companyCalendar({userId:owner,accountActive:true},payload.query,payload.method==='POST'?payload.command:null,{root:path.join(storage,'company')});}catch(e){return {success:false,status:e.statusCode||500,error:e.message};}}
   if(action==='workspace'||action==='homeWorkspace'){
@@ -54,6 +55,10 @@ async function record(page,app){
  async function step(scenario,title,selector,act){recorder.chapter(scenario,title);await recorder.caption(title+' · 먼저 화면에서 위치를 확인하세요.');await recorder.pause(1800);await recorder.focus(selector,Number(title.split('.')[0]));await act();await recorder.pause(1800);await recorder.unfocus();}
  await step('overview','1. 홈에서 오늘 업무 확인','.hw-heading h2',async()=>{await recorder.caption('1. 홈에서 오늘 업무 확인 · 시간순 목록과 별도의 완료 체크를 확인합니다.');});
  await recorder.caption('1. 홈에서 오늘 업무 확인 · 웹 개발요청 버튼은 상단 환영 문구 옆에 있습니다. 실제 업무에서 누르면 기존 요청 작성 창을 엽니다.');await recorder.focus('#webRequestButton',1);await recorder.pause(1800);await recorder.unfocus();
+ await page.waitForSelector('#briefingList [data-briefing-card]');await recorder.caption('1. 홈에서 오늘 업무 확인 · 제목 아래 아침 브리핑 칸에서 오늘 바로 볼 것을 색으로 확인합니다. 빨강이 가장 급합니다.');await recorder.focus('#briefingPanel',1);await recorder.pause(2600);await recorder.unfocus();
+ await recorder.caption('1. 홈에서 오늘 업무 확인 · 아침 브리핑 칸의 크기는 고정입니다. 내용이 넘치면 칸 안에서 스크롤하고, 줄을 누르면 해당 화면이 열립니다.');await recorder.pause(3200);
+ await recorder.caption('1. 홈에서 오늘 업무 확인 · 업무 화면 찾기에 메뉴 이름을 입력합니다.');await recorder.focus('.search-box',1);await page.type('#menuSearch','주문',{delay:230});await page.waitForFunction(()=>!document.querySelector('#searchResults').hidden);await recorder.caption('1. 홈에서 오늘 업무 확인 · 검색 결과가 검색창 바로 밑에 메뉴 버튼으로 나옵니다.');await recorder.pause(2600);await recorder.unfocus();
+ await recorder.caption('1. 홈에서 오늘 업무 확인 · 결과를 누르거나 ↓ 키와 Enter 로 화면을 엽니다. 검색어를 지우면 결과 창이 닫힙니다.');await recorder.pause(2400);await page.$eval('#menuSearch',e=>{e.value='';e.dispatchEvent(new Event('input',{bubbles:true}));});await page.waitForFunction(()=>document.querySelector('#searchResults').hidden);await recorder.pause(1200);
  await step('schedule','2. 시간표에서 매일 업무 입력','.hw-viewbar',async()=>{await page.$$eval('.hw-viewbar button',b=>b[1].click());await recorder.caption('2. 시간표에서 매일 업무 입력 · 빈 시간의 추가 버튼을 누르면 시작 시간이 채워집니다.');});
  await page.$$eval('.hw-time-slot',rows=>rows.find(r=>r.querySelector('time').textContent==='15:00').querySelector('.hw-slot-add').click());
  await step('save','3. 업무명과 반복을 입력하고 저장','.hw-add',async()=>{await page.type('.hw-add>input','매일 자료 확인',{delay:120});await page.select('.hw-repeat>select','daily');await recorder.caption('3. 업무명과 반복을 입력하고 저장 · 매일과 시작 15:00을 확인한 다음, 입력란 아래의 업무 추가를 누릅니다.');await recorder.unfocus();await recorder.focus('.hw-add>button',3);await page.click('.hw-add>button');await page.waitForFunction(()=>!document.querySelector('.hw-add>input').value);});

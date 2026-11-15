@@ -8,7 +8,7 @@ const today = '2026-11-14';
 
 // 1) 읽기 전용: 브리핑이 부르는 주소는 전부 조회(GET)용이고, 화면·변환 코드에 쓰기 호출이 없다.
 for (const source of BRIEFING_SOURCES) assert.match(source.path, /^\/api\//);
-for (const file of ['pages/briefing.js', 'lib/morningBriefing.js']) {
+for (const file of ['pages/briefing.js', 'lib/morningBriefing.js', 'pages/api/briefing.js', 'desktop/morning-briefing.cjs', 'desktop/shell/home-briefing.js']) {
   const text = fs.readFileSync(file, 'utf8');
   assert.doesNotMatch(text, /method:\s*['"](POST|PUT|PATCH|DELETE)['"]|apiPost|apiPut|apiPatch|apiDelete/, `${file} 에 쓰기 호출 금지`);
   assert.doesNotMatch(text, /components\/Layout/, `${file} 는 Layout 을 다시 감싸지 않는다`);
@@ -66,6 +66,14 @@ assert.equal(broken.cards.find((c) => c.id === 'receivables').statusLabel, '관�
 assert.equal(broken.cards.find((c) => c.id === 'approvals').status, 'gray'); // 응답 자체가 없을 때도 회색
 assert.equal(broken.cards.find((c) => c.id === 'week').headline, '미확정 4건');
 assert.equal(broken.overall, 'amber');
+assert.equal(broken.summary, '급한 것은 없고, 확인할 것 1가지 · 확인 못 한 항목 3가지');
+// 불러오지 못한 항목이 섞여 있으면 '급한 것이 없다'·초록으로 말하지 않는다. 권한 없음·한도 미설정은 실패로 세지 않는다.
+const partial = buildBriefing({ orderRequests: { ok: false, status: 500, error: 'x' }, incoming: ok({ rows: [] }), week: { ok: false, status: 0, error: 'y' } }, { today, isAdmin: false });
+assert.equal(partial.overall, 'gray');
+assert.equal(partial.summary, '확인 못 한 항목 2가지 — 다시 불러와 주세요');
+const noLimit = buildBriefing({ orderRequests: ok({ requests: [] }), incoming: ok({ rows: [] }), week: ok({ kpi: {} }), approvals: ok({ rows: [] }), receivables: ok({ totals: {}, rows: [] }), creditLimit: ok({ rows: [] }) }, { today, isAdmin: true });
+assert.equal(noLimit.overall, 'green');
+assert.equal(noLimit.failed, 0);
 
 // 5) 관리자가 아니면 관리자 카드를 만들지 않는다.
 const staff = buildBriefing({ orderRequests: ok({ requests: [] }), incoming: ok({ rows: [] }), week: ok({ kpi: {} }) }, { today, isAdmin: false });
@@ -79,5 +87,13 @@ assert.equal(buildBriefing({}, { today, isAdmin: true }).overall, 'gray');
 // 7) 날짜·금액 표기.
 assert.equal(todayKst(Date.UTC(2026, 10, 13, 15, 30)), '2026-11-14'); // UTC 13일 15:30 = 한국 14일 00:30
 assert.equal(won(1234567.4), '1,234,567원');
+
+// 8) 서버 창구·데스크톱 연결부도 조회(GET)만 한다. 내부 호출 주소는 BRIEFING_SOURCES 뿐이다.
+const api = fs.readFileSync('pages/api/briefing.js', 'utf8');
+assert.match(api, /req\.method !== 'GET'/);
+assert.match(api, /method: 'GET'/);
+assert.match(api, /BRIEFING_SOURCES\.filter\(\(source\) => isAdmin \|\| !source\.adminOnly\)/);
+assert.doesNotMatch(api, /from '..\/..\/lib\/db'|query\(/, '브리핑 창구는 SQL 을 직접 실행하지 않는다');
+assert.match(fs.readFileSync('desktop/morning-briefing.cjs', 'utf8'), /method:'GET'/);
 
 console.log('morningBriefing: ok');

@@ -1,0 +1,48 @@
+{
+  "id": "morning-briefing",
+  "title": "아침 브리핑 한 장 (웹 /briefing · 데스크톱 홈 칸, 읽기 전용)",
+  "scope": [
+    "lib/morningBriefing.js",
+    "pages/briefing.js",
+    "pages/api/briefing.js",
+    "desktop/morning-briefing.cjs",
+    "desktop/shell/home-briefing.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "BRIEFING_GET", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "브리핑은 새 집계를 하지 않는다. 연도·차수 범위는 각 원본 조회 API(/api/stats/dashboard, /api/incoming/eta 등)가 정한 그대로이며, 응답의 year·week 를 그대로 표시한다. 입고 예정의 '예정일 지남'만 원본과 같은 규칙을 한국 날짜로 한 번 더 본다(__tests__/morningBriefing.test.js 3번)."
+  },
+  "requiredTestFiles": [
+    "__tests__/morningBriefing.test.js",
+    "desktop/tests/morning-briefing.test.cjs",
+    "scripts/desktop-home-briefing-smoke.cjs",
+    "scripts/record-morning-briefing-guide.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "nenova.exe 에 해당 기능이 없는 웹 전용 읽기 화면이다. 새 SQL 이 없고, 로그인한 사람의 쿠키로 기존 검증된 GET API 6개(/api/m/order-request, /api/incoming/eta, /api/stats/dashboard, /api/mgmt/approvals, /api/mgmt/ar-aging, /api/mgmt/credit-limit)를 그대로 불러 카드로만 바꾼다. 관리자 전용 3개는 관리자일 때만 호출한다. ERP 원장 쓰기 없음.",
+    "methods": ["morningBriefing read-only card projection over existing GET APIs"],
+    "tables": [
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)",
+      "Estimate (preserve)",
+      "OrderRequest (existing /api/m/order-request read)",
+      "WarehouseMaster (existing /api/incoming/eta read)"
+    ]
+  },
+  "preserves": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "WarehouseMaster", "WarehouseDetail", "ProductStock", "Estimate", "WebProfitReport", "OrderRequest"],
+  "requiredCommands": [
+    "node __tests__/morningBriefing.test.js",
+    "node --test desktop/tests/morning-briefing.test.cjs",
+    "node scripts/desktop-home-briefing-smoke.cjs",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

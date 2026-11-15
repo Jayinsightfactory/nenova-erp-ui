@@ -1,0 +1,23 @@
+# 2026-11-15 아침 브리핑 — 웹 한 장 + 데스크톱 홈 칸 + 검색 결과 펼침
+
+## 질문 → 답변
+
+**Q1. (11-14) "피클이라는 앱의 기능을 네노바웹에 구현 가능하게 분석해봐" → "맞음, 1번부터"**
+- 피클 = 말로 시키면 대신 처리하는 개인 AI 비서 앱으로 특정. 추천 1번 "아침 브리핑 한 장"을 구현.
+- 웹 `/briefing`: 주문 신청 승인 대기·입고 예정·이번 차수 현황 + (관리자) 결재 대기·미수금·외상 한도를 급한 순서 카드로 표시.
+- 새 계산식·새 SQL 없음. 기존 조회 API(GET) 응답을 `lib/morningBriefing.js` 가 카드로만 바꾼다. 조회 실패는 0·초록이 아니라 회색 "확인 못 함".
+
+**Q2. (11-15) "아침브리핑은 1번 이미지 공간에 넣고, 저 크기가 넘어갈 시 스크롤해서 보게, 전체 틀 유지되게 하고, 업무화면찾기 검색 바로 밑에 검색결과 나오게 해줘. 메뉴버튼"**
+- 데스크톱 홈 "오늘의 업무를 시작하세요" 제목 아래 빈 칸에 아침 브리핑 칸 추가. 칸 높이는 윗줄 높이에 맞춰 고정, 넘치면 칸 안에서만 스크롤. 업데이트 칸·PM 라이브·검색·달력 위치는 그대로(1920/1600/1366 폭에서 좌표 비교 검사).
+- 홈 화면은 서버를 직접 못 부르므로(CSP) 메인 쪽 `desktop/morning-briefing.cjs` 가 `GET /api/briefing` 한 번만 호출. `/api/briefing` 은 로그인 쿠키 그대로 기존 조회 API를 서버 안에서 불러 카드로 묶는다(권한·숫자는 원본과 동일).
+- "업무 화면 찾기": 글자를 치면 검색창 바로 밑에 결과가 메뉴 버튼으로 뜬다(↓·Enter·Esc). 아래 "모든 업무" 걸러짐은 그대로.
+- 못 불러온 항목이 섞이면 요약을 "급한 것 없음"·초록으로 두지 않도록 수정(로컬 확인 중 발견).
+
+## 검증
+- `node __tests__/morningBriefing.test.js`, `node --test desktop/tests/*.test.cjs`(62), `node scripts/desktop-home-briefing-smoke.cjs`, 기존 홈 smoke 5종, `npm run test:ui-layout`, `npm run test:workflow-guides`, ERP manifest(220)·write guard·dnSpy evidence, `npm run build`.
+- 가이드 영상: `morning-briefing/overview`(웹, 4단계) 신규, `desktop-task-schedule/staff`(1단계에 브리핑 칸·검색 결과 추가) 재촬영. 연습 자료, 쓰기 0.
+- 미검증: 운영 실제 숫자 대조, 데스크톱 1.3.26 설치본 실기 확인(게시 전).
+
+## 다음
+- 본편 반영·웹 배포 후 운영 `/briefing` 숫자를 원본 화면과 대조.
+- 데스크톱 1.3.26 게시(직원 PC 업데이트 안내가 나가므로 사장님 승인 후) + `components/DesktopDownloadButton.js` 주소 갱신.

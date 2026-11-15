@@ -3058,3 +3058,9 @@ pm run test:canon 통과.
 - 1차 배포 후 운영 메뉴 102개를 순회하고 기본 검색칸 69곳의 입력 반영을 확인했다. 전체 순회에서 주문 목록 입력 최대 224ms, 경영지원 농장 검색 140ms가 남았다. 상품표·판매표의 첫 글자는 739→35ms, 189→56ms로 개선됐다.
 - 주문은 전체 결과를 검색하고 화면에 품목 100행씩 표시한다. 거래처 소계와 전체합계·내보내기는 전체 필터 결과로 계산한다. 수입·경영지원은 입력을 농장 목록에 한정해 중앙 정산·송금 화면의 재렌더를 없앤다.
 - 검색어: 운영 재검증 주문 목록 100행 페이지 전체 합계 CSV 경영지원 수입부 농장 검색 입력 지연
+
+## 2026-11-15 · 아침 브리핑(웹 /briefing + 데스크톱 홈 칸) · 홈 검색 결과 펼침
+- 사장님 지시: 피클 앱 분석 1번 → 아침 브리핑. 이어서 데스크톱 홈 제목 아래 빈 칸에 넣고(크기 고정·칸 안 스크롤·전체 틀 유지), 업무 화면 찾기 결과를 검색창 바로 밑에.
+- 구현: lib/morningBriefing.js(기존 GET 응답→카드, 새 SQL 0) · pages/briefing.js · pages/api/briefing.js(쿠키 그대로 내부 GET 6개 호출) · desktop/morning-briefing.cjs + shell/home-briefing.js · shell.js 검색 결과(#searchResults). 계약 docs/contracts/morning-briefing.json. 데스크톱 1.3.26(게시는 승인 대기).
+- 함정: 못 불러온 카드가 섞여도 요약이 초록 '급한 것 없음'이 되던 것을 unavailable 집계로 막음. 워크트리에서 desktop 테스트는 desktop/node_modules 가 없으면 updater 5건이 실패(코드 문제 아님).
+검색어: 아침 브리핑 briefing 피클 홈 빈 칸 스크롤 고정 검색 결과 검색창 밑 searchResults morningBriefing 1.3.26

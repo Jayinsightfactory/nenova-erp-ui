@@ -12,6 +12,7 @@ const {homeRequests}=require('./home-board.cjs');
 const {companyCalendarRequest}=require('./company-calendar.cjs');
 const { homeWorkspaceRequest } = require('./home-workspace.cjs');
 const { pmLiveStatus } = require('./pm-live.cjs');
+const { morningBriefing } = require('./morning-briefing.cjs');
 const { createActivity } = require('./activity.cjs');
 let menus = [], syncStatus = 'checking', menuVersion = '', webVersion = '';
 const SHELL = 'nenova-app://shell/index.html';
@@ -354,7 +355,7 @@ function command(w, action, p = {}) {
   const t = tabs.get(typeof p.id === 'string' ? p.id : w.activeId);
   const auditAction = action === 'homeWorkspace' && p.method === 'POST'
     ? ({create:'homeCreate',update:'homeUpdate',complete:'homeComplete',archive:'homeArchive',restore:'homeRestore',stop:'homeStop',read:'homeRead'}[p.command?.action] || action) : action;
-  if (!['close', 'closeWindow', 'quit', 'pmLiveStatus'].includes(action) && !(action === 'appUpdate' && p.automatic === true)) activity?.record(auditAction, trustedUrl(p.url || p.href) || t?.url || '/desktop');
+  if (!['close', 'closeWindow', 'quit', 'pmLiveStatus', 'morningBriefing'].includes(action) && !(action === 'appUpdate' && p.automatic === true)) activity?.record(auditAction, trustedUrl(p.url || p.href) || t?.url || '/desktop');
   switch (action) {
     case 'state': break;
     case 'homeDraft': {const scope=p.scope||'personal';if(!['personal','company'].includes(scope)||typeof p.dirty!=='boolean')throw Error('입력 상태를 확인하세요.');w.homeDrafts={...w.homeDrafts,[scope]:p.dirty};w.homeDirty=Object.values(w.homeDrafts).some(Boolean);return state(w);}
@@ -382,6 +383,7 @@ function command(w, action, p = {}) {
     case 'cancelUpdate': updater?.cancel(); break;
     case 'sync': verifyAccount().catch(() => {}); break;
     case 'companyCalendar': {const owner=actor,generation=authGeneration;return companyCalendarRequest({payload:p,owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
+    case 'morningBriefing': {const owner=actor,generation=authGeneration;return morningBriefing({owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
     case 'homeRequests': {const owner=actor,generation=authGeneration;return homeRequests({owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
     case 'taskShortcut': return openTaskShortcut(p,w);
     case 'taskMenus': return {menus:locked?[]:menus};
