@@ -3064,3 +3064,9 @@ pm run test:canon 통과.
 - 구현: lib/morningBriefing.js(기존 GET 응답→카드, 새 SQL 0) · pages/briefing.js · pages/api/briefing.js(쿠키 그대로 내부 GET 6개 호출) · desktop/morning-briefing.cjs + shell/home-briefing.js · shell.js 검색 결과(#searchResults). 계약 docs/contracts/morning-briefing.json. 데스크톱 1.3.26(게시는 승인 대기).
 - 함정: 못 불러온 카드가 섞여도 요약이 초록 '급한 것 없음'이 되던 것을 unavailable 집계로 막음. 워크트리에서 desktop 테스트는 desktop/node_modules 가 없으면 updater 5건이 실패(코드 문제 아님).
 검색어: 아침 브리핑 briefing 피클 홈 빈 칸 스크롤 고정 검색 결과 검색창 밑 searchResults morningBriefing 1.3.26
+
+## 2026-11-16 · 데스크톱 자동 업데이트: 조용히 받아 두고 앱을 끌 때 설치 (1.3.26, 아침 브리핑과 한 버전)
+- 사장님 지시 "a"(A안). updater.cjs background 기본 켬: 확인→검증→조용히 받기→downloaded. engine.autoInstallOnAppQuit 는 등록용으로만 켜고 받은 뒤 끔 → will-quit 에서 armQuitInstall()이 (downloaded·공간 1GB·로그오프 아님)일 때만 켬.
+- 함정: electron-updater 6.8 은 autoInstallOnAppQuit 가 false 면 종료 처리기 자체를 등록하지 않는다(addQuitHandler). 그래서 받기 전에는 true 여야 한다. 처리기는 종료 순간 값을 다시 읽는다.
+- 1.3.26 이 첫 적용 버전 → 직원은 1.3.25→1.3.26 한 번은 직접 눌러야 하고, 자동 흐름은 1.3.27 부터 보인다. 설치본 실기 흐름은 미검증.
+검색어: 자동 업데이트 조용히 받기 끌 때 설치 autoInstallOnAppQuit armQuitInstall session-end 지금 재시작하여 업데이트 1.3.26

@@ -439,7 +439,7 @@ async function run() {
   const shellContents = sourceWindow.win.webContents;
   await verifyHomeBridge(shellContents);
   await verifyHomeUi(shellContents, sourceWindow);
-  for (const [phase, label, disabled] of [['available', '앱 1.4.0 다운로드', false], ['downloading', '다운로드 42%', true], ['downloaded', '재시작하여 업데이트', false], ['unavailable', '앱 업데이트 확인', true]]) {
+  for (const [phase, label, disabled] of [['available', '앱 1.4.0 다운로드', false], ['downloading', '다운로드 42%', true], ['downloaded', '지금 재시작하여 업데이트', false], ['unavailable', '앱 업데이트 확인', true]]) {
     shellContents.send('desktop:state', { appUpdate: { phase, version: '1.4.0', percent: 42, message: '검증 상태' } });
     await new Promise(r => setTimeout(r, 50));
     const updateUi = await shellContents.executeJavaScript("({label:document.getElementById('appUpdateButton').textContent,disabled:document.getElementById('appUpdateButton').disabled,cancel:!document.getElementById('cancelUpdateButton').hidden,notice:!document.getElementById('appUpdateNotice').hidden,noticeLabel:document.getElementById('appUpdateNotice').getAttribute('aria-label')})");

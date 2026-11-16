@@ -294,11 +294,11 @@
     const update = state.appUpdate || { phase: 'unavailable', message: '' };
     const updateNotice = $('appUpdateNotice');
     updateNotice.hidden = !['available', 'downloaded'].includes(update.phase);
-    updateNotice.textContent = update.phase === 'downloaded' ? '업데이트 준비됨' : '업데이트 필요';
-    updateNotice.title = update.phase === 'downloaded' ? '다운로드 완료. 업데이트 안내 열기' : `업데이트가 필요합니다. 앱 ${update.version || ''} 안내 열기`;
+    updateNotice.textContent = update.phase === 'downloaded' ? '끌 때 업데이트' : '업데이트 필요';
+    updateNotice.title = update.phase === 'downloaded' ? '새 버전을 받아 두었습니다. 앱을 끄면 설치됩니다. 안내 열기' : `업데이트가 필요합니다. 앱 ${update.version || ''} 안내 열기`;
     updateNotice.setAttribute('aria-label', updateNotice.title);
     $('appUpdateButton').disabled = ['unavailable', 'checking', 'downloading', 'installing'].includes(update.phase);
-    $('appUpdateButton').textContent = update.phase === 'available' ? `앱 ${update.version} 다운로드` : update.phase === 'downloaded' ? '재시작하여 업데이트' : update.phase === 'checking' ? '앱 업데이트 확인 중…' : update.phase === 'downloading' ? `다운로드 ${update.percent}%` : '앱 업데이트 확인';
+    $('appUpdateButton').textContent = update.phase === 'available' ? `앱 ${update.version} 다운로드` : update.phase === 'downloaded' ? '지금 재시작하여 업데이트' : update.phase === 'checking' ? '앱 업데이트 확인 중…' : update.phase === 'downloading' ? `다운로드 ${update.percent}%` : '앱 업데이트 확인';
     $('cancelUpdateButton').hidden = update.phase !== 'downloading';
     $('appUpdateStatus').textContent = `앱 ${state.version || ''} · ${update.message || ''}`;
     const releaseNotes = Array.isArray(update.releaseNotes) ? update.releaseNotes.filter(note => typeof note === 'string' && note.trim()).slice(0, 3) : [];

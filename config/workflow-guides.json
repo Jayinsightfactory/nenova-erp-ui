@@ -1231,47 +1231,47 @@
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 39.83
+              "seconds": 51.979
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 48.997
+              "seconds": 61.184
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 64.939
+              "seconds": 77.215
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 86.036
+              "seconds": 98.461
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 107.347
+              "seconds": 119.762
             },
             {
               "scenario": "calendar",
               "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 116.705
+              "seconds": 129.15
             },
             {
               "scenario": "independent",
               "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 141.215
+              "seconds": 153.765
             },
             {
               "scenario": "company",
               "title": "9. 회사 공통 일정 등록",
-              "seconds": 152.732
+              "seconds": 165.336
             },
             {
               "scenario": "collapse",
               "title": "10. 월간·주간 접기와 홈 다시 열기",
-              "seconds": 179.897
+              "seconds": 192.34
             }
           ]
         }
