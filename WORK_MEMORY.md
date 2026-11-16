@@ -3074,3 +3074,7 @@ pm run test:canon 통과.
 - 가이드 촬영·전체 ERP 회귀검사 진행 중. PR/배포 및 실제 Desktop 최종 검증은 아직 미완료. 운영 DB 수정 및 유료 AI 호출 없음.
 - 가이드 실제 페이지 촬영 43.3초, 1920×1080/100%, 3단계 번호·1.4배 확대·환율 입력·다운로드 포함. 시작/중간/끝 프레임 확인 및 registry/proof 검사 PASS. 전체 ERP 검사 중 packing 매칭 화면 30초 시간초과 1건은 단독 재검사 5/5 PASS(전체 묶음 성공으로 표기하지 않음).
 검색어: import-release-1116 GitHub sandbox 인증 정상 VN read-only XLSX 14675 가이드
+## 2026-11-16 · 견적서관리 차수 총매출과 업체순
+- FormEstimateView.GetData의 최종 ORDER BY sl.CustKey를 실제 EXE dnSpy CLI에서 확인. 출고 목록의 기존 매출순과 업체 코드 오름차순을 전환한다.
+- 전체 거래처·요일 확정 견적 목록의 totalAmount를 합산한다. 읽기 전용 202646 probe 결과 60곳, 275,485,610원. 전년도 같은 차수 제외 및 음수 차감 회귀검사 추가.
+- 검색어: 견적서관리 출고 목록 차수 총매출 업체순 CustKey

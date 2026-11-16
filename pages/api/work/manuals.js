@@ -7,7 +7,7 @@
 import { withAuth } from '../../../lib/auth';
 import { getRoutines, confirmRoutineItem } from '../../../lib/workManualRoutines';
 import fs from 'fs';
-import { importHandoverForView } from '../../../lib/importHandover';
+import { importHandoverForView, handoverForView, HANDOVER_DEPTS } from '../../../lib/importHandover';
 import { featureFilePath } from '../../../lib/workFeatureData';
 
 // 계기 사슬: 사장님 PC 의 매일 분석이 올린 갱신본(import-triggers)이 있으면 그것으로 바꿔 끼운다.
@@ -22,8 +22,7 @@ function handoverWithLiveTriggers() {
 }
 // 단계별 화면 캡처: 사장님 PC 가 올린 갱신본(import-captures)이 있으면 단계에 붙인다.
 // 그림은 저장소에 넣지 않는다(실제 업무 화면이라 코드 기록에 남기지 않고, 올린 파일만 바꾸면 내릴 수 있게).
-function handoverWithCaptures() {
-  const h = handoverWithLiveTriggers();
+function withCaptures(h) {
   if (!h?.manuals) return h;
   try {
     const p = featureFilePath('import-captures');
@@ -39,7 +38,14 @@ function handoverWithCaptures() {
       }));
     }
   } catch { /* 갱신본을 못 읽으면 글 단계만 보여 준다 */ }
-  // 강의형 설명 영상 목차(import-lectures): 영상 본체는 /api/work/manual-lecture?id= 로 따로 받는다
+  return h;
+}
+function handoverWithCaptures() {
+  return withLectures(withCaptures(handoverWithLiveTriggers()));
+}
+// 강의형 설명 영상 목차(import-lectures): 영상 본체는 /api/work/manual-lecture?id= 로 따로 받는다. 매뉴얼 id 로 찾으니 부서 공통.
+function withLectures(h) {
+  if (!h?.manuals) return h;
   try {
     const p = featureFilePath('import-lectures');
     if (p && fs.existsSync(p)) {
@@ -52,20 +58,30 @@ function handoverWithCaptures() {
   } catch { /* 목차를 못 읽으면 영상 없이 보여 준다 */ }
   return h;
 }
+// 부서별 인수인계: 수입부는 계기 갱신본까지, 캡처·강의 목차는 매뉴얼 id 로 찾으니 모든 부서 공통(올린 그림이 있는 단계만 붙는다).
+function handoversAll(importOne) {
+  return HANDOVER_DEPTS.map((d) => {
+    const data = d.id === 'import' ? importOne : withLectures(withCaptures(handoverForView(d.id)));
+    return { id: d.id, name: d.name, ready: !!data, data: data || null };
+  });
+}
 import { DEPARTMENTS, isManualAdmin, visibleManuals, getLayout, saveManualEdit, saveLayout } from '../../../lib/workManuals';
 
 export default withAuth(async function handler(req, res) {
   const user = req.user;
   if (req.method === 'GET') {
+    const handover = handoverWithCaptures();
     return res.status(200).json({
       success: true,
+      myDept: user.deptName || null,
       isAdmin: isManualAdmin(user),
       me: user.userName || user.userId,
       departments: DEPARTMENTS,
       manuals: visibleManuals(user),
       layout: getLayout(user),
       routines: getRoutines(),
-      handover: handoverWithCaptures(),
+      handover,
+      handovers: handoversAll(handover),
     });
   }
   if (req.method === 'POST') {

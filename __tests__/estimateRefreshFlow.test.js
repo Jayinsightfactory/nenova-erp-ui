@@ -364,6 +364,7 @@ const detailContext = {
   },
   setLoading: value => detailEvents.push(['loading', value]),
   setShipments: value => detailEvents.push(['shipments', value]),
+  setWeekSales: value => detailEvents.push(['weekSales', value]),
   setLedgerAlertScope: value => detailEvents.push(['ledgerAlerts', value]),
   setSelectedGroups: value => detailEvents.push(['groups', value]),
   setSelectedDeductionKeys: value => detailEvents.push(['deductions', value]),
@@ -408,8 +409,10 @@ fallbackDetail.reject(new Error('late fallback failed'));
 await detailRun;
 check('late fallback adds no error or finally event after fresh load', detailEvents.length === eventsAfterFreshLoad
   || detailEvents.slice(eventsAfterFreshLoad).every(([kind]) => !['err', 'itemLoading'].includes(kind)));
-listLoad.resolve({ shipments: [] });
+listLoad.resolve({ shipments: [], weekSales: 0 });
 await loadRun;
+check('empty week displays a verified zero after loading', detailEvents.some(([kind, value]) =>
+  kind === 'weekSales' && value?.amount === 0 && value.year === lateScope.year && value.week === lateScope.week));
 check('late fallback does not overwrite current error state', !detailEvents.some(([kind, value]) => kind === 'err'
   && String(value).includes('late fallback')));
 

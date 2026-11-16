@@ -8,6 +8,7 @@ import { sqlEstimateGetPrintDetail } from '../lib/exeEstimateViewSql.js';
 import { buildEstimatePrintWorksheet } from '../lib/estimatePrintExcel.js';
 import { prepareEstimatePrintRows } from '../lib/estimatePrintPrepare.js';
 import { sortEstimateShipmentsForList, sortEstimateShipmentsForPrint } from '../lib/estimatePrintOrder.js';
+import { sumEstimateWeekSales } from '../lib/exeEstimateViewSql.js';
 
 const exeRows = [
   {
@@ -180,7 +181,14 @@ assert.deepEqual(salesOrdered.map((row) => row.CustKey), [13, 280, 31],
   '좌측 업체 목록은 매출 내림차순, 동률은 업체명순이어야 한다.');
 // 좌측 목록은 렌더 직전에 매출순 정렬을 적용하고, 담당자별 출력 모달과 같은
 // 후보 집합(visibleShipments = 최근 차수 필터 적용본)을 봐야 한다.
-assert.match(pageSource, /displayShips = sortEstimateShipmentsForList\(visibleShipments\)/,
+assert.deepEqual(sortEstimateShipmentsForList(salesOrdered, 'customer').map(row => row.CustKey), [13, 31, 280]);
+assert.equal(sumEstimateWeekSales([
+  { OrderYearWeek: '202646', totalAmount: '150' },
+  { OrderYearWeek: '202546', totalAmount: 800 },
+  { OrderYearWeek: '202646', totalAmount: -25 },
+], '202646'), 125);
+assert.equal(sumEstimateWeekSales([], '202646'), 0);
+assert.match(pageSource, /displayShips = sortEstimateShipmentsForList\(visibleShipments, listOrder\)/,
   '좌측 업체 목록은 visibleShipments를 매출순 정렬해 렌더링해야 한다.');
 assert.match(pageSource, /filterRecentParentWeeks\(shipments, recentOnly\)/,
   '최근 차수 필터는 공용 헬퍼로 계산해 모달과 공유해야 한다.');
