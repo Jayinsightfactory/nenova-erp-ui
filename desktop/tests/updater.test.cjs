@@ -21,7 +21,8 @@ test('release notes are bounded plain text and keep their version through downlo
   const older = fixture(); older.engine.checkForUpdates = async () => ({ updateInfo: { ...info('1.2.0'), releaseNotes: '오래된 변경' } });
   await older.updater.check(); assert.deepEqual(older.updater.getState().releaseNotes, []);
 });
-function fixture({ enabled = true, space = true, prepare = () => true } = {}) {
+// 기존 검사는 '직접 누르는 흐름'을 본다(background:false). 조용히 받기·끌 때 설치는 아래 전용 검사에서 본다.
+function fixture({ enabled = true, space = true, prepare = () => true, background = false } = {}) {
   const engine = new EventEmitter();
   engine.currentVersion = { version: '1.3.0' };
   engine.checkForUpdates = async () => ({ updateInfo: info() });
@@ -29,8 +30,9 @@ function fixture({ enabled = true, space = true, prepare = () => true } = {}) {
   const installs = [];
   engine.quitAndInstall = (...args) => installs.push(args);
   const states = [];
-  const updater = createUpdater({ engine, enabled, enoughSpace: () => space, prepareInstall: prepare, notify: s => states.push(s) });
-  return { engine, updater, installs, states };
+  const disk = { ok: space };
+  const updater = createUpdater({ engine, enabled, enoughSpace: () => disk.ok, prepareInstall: prepare, notify: s => states.push(s), background });
+  return { engine, updater, installs, states, disk };
 }
 test('fixed feed, manual-only download/install and strict artifact metadata', () => {
   assert.equal(require('../package.json').build.publish.url, FEED);
@@ -136,4 +138,60 @@ test('current/older releases and development mode do not download', async () => 
     await f.updater.download(); assert.equal(f.updater.getState().phase,'current');
   }
   const f=fixture({enabled:false}); await f.updater.check(); assert.equal(f.updater.getState().phase,'unavailable');
+});
+
+// ── 사장님 지시 2026-11-16 A안: 조용히 받아 두고 앱을 끌 때 설치 ──
+const settle = () => new Promise(resolve => setImmediate(resolve));
+test('background default: a valid newer release downloads by itself and never restarts the app', async () => {
+  const f = fixture({ background: true }); let downloads = 0;
+  f.engine.downloadUpdate = async () => { downloads++; };
+  assert.equal(f.engine.autoDownload, false, 'the library never downloads before our metadata validation');
+  assert.equal(f.engine.autoInstallOnAppQuit, true, 'quit handler can register; armed only by armQuitInstall');
+  await f.updater.check(); await settle();
+  assert.equal(downloads, 1); assert.equal(f.updater.getState().phase, 'downloaded');
+  assert.match(f.updater.getState().message, /앱을 끄면 설치/);
+  assert.deepEqual(f.installs, [], 'no quitAndInstall without an explicit click');
+  assert.equal(f.engine.autoInstallOnAppQuit, false, 'stays disarmed while the employee keeps working');
+  assert.deepEqual(f.states.map(s => s.phase).filter((p, i, a) => p !== a[i - 1]), ['checking', 'available', 'downloading', 'downloaded']);
+});
+test('background: same/older/invalid releases and low disk never download', async () => {
+  for (const version of ['1.3.0', '1.2.9']) {
+    const f = fixture({ background: true }); let downloads = 0; f.engine.downloadUpdate = async () => { downloads++; };
+    f.engine.checkForUpdates = async () => ({ updateInfo: info(version) }); await f.updater.check(); await settle();
+    assert.equal(downloads, 0); assert.equal(f.updater.getState().phase, 'current');
+  }
+  const bad = fixture({ background: true }); let badDownloads = 0; bad.engine.downloadUpdate = async () => { badDownloads++; };
+  const broken = info(); broken.files[0].url = 'https://evil.test/setup.exe'; bad.engine.checkForUpdates = async () => ({ updateInfo: broken });
+  await bad.updater.check(); await settle(); assert.equal(badDownloads, 0); assert.equal(bad.updater.getState().phase, 'error');
+  const low = fixture({ background: true, space: false }); let lowDownloads = 0; low.engine.downloadUpdate = async () => { lowDownloads++; };
+  await low.updater.check(); await settle(); assert.equal(lowDownloads, 0); assert.equal(low.updater.getState().phase, 'error');
+  assert.equal(low.updater.armQuitInstall(), false);
+});
+test('install on quit is armed only for a downloaded release with disk space, outside Windows shutdown', async () => {
+  const idle = fixture({ background: true }); assert.equal(idle.updater.armQuitInstall(), false); assert.equal(idle.engine.autoInstallOnAppQuit, false);
+  const f = fixture({ background: true }); await f.updater.check(); await settle();
+  f.disk.ok = false; assert.equal(f.updater.armQuitInstall(), false); assert.equal(f.engine.autoInstallOnAppQuit, false);
+  f.disk.ok = true; assert.equal(f.updater.armQuitInstall(), true); assert.equal(f.engine.autoInstallOnAppQuit, true);
+  assert.deepEqual(f.installs, [], 'arming never restarts or installs by itself');
+  const ending = fixture({ background: true }); await ending.updater.check(); await settle();
+  ending.updater.blockQuitInstall(); assert.equal(ending.updater.armQuitInstall(), false); assert.equal(ending.engine.autoInstallOnAppQuit, false);
+  const manual = fixture({ background: false }); await manual.updater.check(); await manual.updater.download();
+  assert.equal(manual.updater.armQuitInstall(), false); assert.equal(manual.engine.autoInstallOnAppQuit, false);
+});
+test('background: a download the employee cancelled is not restarted behind their back, the button still works', async () => {
+  const f = fixture({ background: true }); let downloads = 0, release;
+  f.engine.downloadUpdate = token => { downloads++; return new Promise(resolve => { release = resolve; token.onCancel?.(resolve); }); };
+  await f.updater.check(); assert.equal(f.updater.getState().phase, 'downloading');
+  f.updater.cancel(); release(); await settle();
+  assert.equal(f.updater.getState().phase, 'available'); assert.equal(f.updater.armQuitInstall(), false);
+  f.engine.downloadUpdate = async () => { downloads++; };
+  await f.updater.download(); assert.equal(downloads, 2); assert.equal(f.updater.getState().phase, 'downloaded');
+});
+test('background: "지금 재시작" still needs the explicit confirmation and failed downloads keep work running', async () => {
+  let asked = 0; const f = fixture({ background: true, prepare: () => { asked++; return false; } });
+  await f.updater.check(); await settle(); await f.updater.install();
+  assert.equal(asked, 1); assert.deepEqual(f.installs, []); assert.equal(f.updater.getState().phase, 'downloaded');
+  const failing = fixture({ background: true }); failing.engine.downloadUpdate = async () => { throw Error('network'); };
+  await failing.updater.check(); await settle();
+  assert.equal(failing.updater.getState().phase, 'error'); assert.equal(failing.updater.armQuitInstall(), false); assert.deepEqual(failing.installs, []);
 });

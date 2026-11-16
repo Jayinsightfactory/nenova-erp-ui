@@ -25,6 +25,7 @@ export const MENU_ITEMS = [
   {
     group: 'PM',
     items: [
+      { href: '/briefing', labelKey: '아침 브리핑', popup: false },
       { href: '/pm', labelKey: 'PM 사무실(AI 팀·직원 실시간)', popup: false },
       { href: '/pm/radar', labelKey: '기술 레이더(GitHub 추천)', popup: false },
     ]

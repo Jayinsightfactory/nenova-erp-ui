@@ -12,6 +12,7 @@ const {homeRequests}=require('./home-board.cjs');
 const {companyCalendarRequest}=require('./company-calendar.cjs');
 const { homeWorkspaceRequest } = require('./home-workspace.cjs');
 const { pmLiveStatus } = require('./pm-live.cjs');
+const { morningBriefing } = require('./morning-briefing.cjs');
 const { createActivity } = require('./activity.cjs');
 let menus = [], syncStatus = 'checking', menuVersion = '', webVersion = '';
 const SHELL = 'nenova-app://shell/index.html';
@@ -131,6 +132,8 @@ function createWindow(config = {}) {
   windows.set(id, w);
   applyWindowIdentity(win,{packaged:app.isPackaged,execPath:process.execPath,resourcesPath:process.resourcesPath,appDir:__dirname});
   win.setMenuBarVisibility(false);
+  // Windows 로그오프·종료 중에는 받아 둔 업데이트 설치를 시작하지 않는다(설치 중 전원 꺼짐 방지).
+  win.on('session-end', () => updater?.blockQuitInstall());
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', e => e.preventDefault());
   win.webContents.on('will-attach-webview', e => e.preventDefault());
@@ -172,6 +175,7 @@ function openNotesWindow() {
   applyWindowIdentity(win,{packaged:app.isPackaged,execPath:process.execPath,resourcesPath:process.resourcesPath,appDir:__dirname});
   notesWindow=win;auxiliary.add(win);win.setMenuBarVisibility(false);
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',event=>event.preventDefault());win.webContents.on('will-attach-webview',event=>event.preventDefault());
+  win.on('session-end',()=>updater?.blockQuitInstall());
   win.on('close',event=>{if(!quitting&&notesDirty&&!confirm({win,activeId:null},'저장하지 않은 메모장 입력을 버리고 닫을까요?'))event.preventDefault();});
   win.on('closed',()=>{auxiliary.delete(win);if(notesWindow===win){notesWindow=null;notesDirty=false;}});
   win.loadURL(NOTES);win.once('ready-to-show',()=>win.show());activity?.record('notesOpen','/desktop/notes');return notesState();
@@ -354,7 +358,7 @@ function command(w, action, p = {}) {
   const t = tabs.get(typeof p.id === 'string' ? p.id : w.activeId);
   const auditAction = action === 'homeWorkspace' && p.method === 'POST'
     ? ({create:'homeCreate',update:'homeUpdate',complete:'homeComplete',archive:'homeArchive',restore:'homeRestore',stop:'homeStop',read:'homeRead'}[p.command?.action] || action) : action;
-  if (!['close', 'closeWindow', 'quit', 'pmLiveStatus'].includes(action) && !(action === 'appUpdate' && p.automatic === true)) activity?.record(auditAction, trustedUrl(p.url || p.href) || t?.url || '/desktop');
+  if (!['close', 'closeWindow', 'quit', 'pmLiveStatus', 'morningBriefing'].includes(action) && !(action === 'appUpdate' && p.automatic === true)) activity?.record(auditAction, trustedUrl(p.url || p.href) || t?.url || '/desktop');
   switch (action) {
     case 'state': break;
     case 'homeDraft': {const scope=p.scope||'personal';if(!['personal','company'].includes(scope)||typeof p.dirty!=='boolean')throw Error('입력 상태를 확인하세요.');w.homeDrafts={...w.homeDrafts,[scope]:p.dirty};w.homeDirty=Object.values(w.homeDrafts).some(Boolean);return state(w);}
@@ -382,6 +386,7 @@ function command(w, action, p = {}) {
     case 'cancelUpdate': updater?.cancel(); break;
     case 'sync': verifyAccount().catch(() => {}); break;
     case 'companyCalendar': {const owner=actor,generation=authGeneration;return companyCalendarRequest({payload:p,owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
+    case 'morningBriefing': {const owner=actor,generation=authGeneration;return morningBriefing({owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
     case 'homeRequests': {const owner=actor,generation=authGeneration;return homeRequests({owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
     case 'taskShortcut': return openTaskShortcut(p,w);
     case 'taskMenus': return {menus:locked?[]:menus};
@@ -748,7 +753,7 @@ app.whenReady().then(async () => {
   notesTimer=setInterval(()=>void checkNotesReminder(),60*1000);notesTimer.unref();void checkNotesReminder();
 });
 app.on('before-quit', e => { if (!quitting && (windows.size||hasNotes())) { e.preventDefault(); quit(); } });
-app.on('will-quit', () => { clearInterval(updateTimer); clearInterval(activityTimer); clearInterval(notesTimer); aiBridge?.stop(); });
+app.on('will-quit', () => { updater?.armQuitInstall(); clearInterval(updateTimer); clearInterval(activityTimer); clearInterval(notesTimer); aiBridge?.stop(); });
 app.on('window-all-closed', () => { if (!quitting) { quitting = true; app.quit(); } });
 // Export only to the local Node test runner. No renderer receives this object.
 module.exports = { windows, tabs, command, createWindow, moveTab, snapshot, verifyAccount };
