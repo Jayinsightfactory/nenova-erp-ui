@@ -16,6 +16,7 @@ import {
   mapExeDetailRowToWebItem,
   mapEstimateDeleteSnapshot,
   sqlEstimateGetData,
+  sumEstimateWeekSales,
   sqlEstimateGetDetail,
   sqlEstimateGetExcelDetail,
   sqlEstimateGetPrintDetail,
@@ -500,6 +501,16 @@ async function getEstimates(req, res) {
     }
 
     let items = [];
+    let weekSales;
+    if (req.query.weekSales === '1' && orderYearWeek) {
+      const allDays = activeWdKrToExeSqlIn(null);
+      const fullWeek = useExeParity && !showUnfixed && !ck && wdIn === allDays
+        ? masterResult
+        : await query(sqlEstimateGetData({ orderYearWeek, weekDayIn: allDays }), {
+          orderYearWeek: { type: sql.NVarChar, value: orderYearWeek },
+        });
+      weekSales = sumEstimateWeekSales(fullWeek.recordset, orderYearWeek);
+    }
     if (masterResult.recordset.length > 0) {
       const firstRow = masterResult.recordset[0];
       if (useExeParity && orderYearWeek && !showUnfixed && firstRow.CustKey) {
@@ -519,6 +530,7 @@ async function getEstimates(req, res) {
       source: useExeParity && !showUnfixed ? 'real_db_exe_parity' : 'real_db',
       orderYearWeek: orderYearWeek || undefined,
       shipments: masterResult.recordset,
+      weekSales,
       items,
     });
   } catch (err) {
