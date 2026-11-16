@@ -2,6 +2,50 @@
   "version": 1,
   "workflows": [
     {
+      "id": "invoice-cost-readonly",
+      "title": "기존 입고로 도착원가 바로 다운로드",
+      "entryPaths": [
+        "/import/tools"
+      ],
+      "sourceFiles": [
+        "components/import-tools/NativeReceiptCost.js",
+        "components/import-tools/InvoiceReceiptCostReview.js"
+      ],
+      "requiredScenarios": [
+        "lookup",
+        "inputs",
+        "download"
+      ],
+      "guides": [
+        {
+          "id": "import",
+          "role": "수입부",
+          "title": "자동값 확인·누락 수정·다운로드",
+          "status": "ready",
+          "src": "/guides/invoice-cost-readonly/import.mp4",
+          "captions": "/guides/invoice-cost-readonly/import.ko.vtt",
+          "proof": "/guides/invoice-cost-readonly/import.proof.json",
+          "chapters": [
+            {
+              "scenario": "lookup",
+              "title": "1. 기존 입고의 자동 통화·중량·참고 세율을 확인합니다. 인보이스 재업로드와 매칭은 반복하지 않습니다.",
+              "seconds": 0.038
+            },
+            {
+              "scenario": "inputs",
+              "title": "2. 자동 환율을 확인하고 필요할 때만 수정합니다. 수정 후 별도 체크나 미리보기 없이 다시 검증됩니다.",
+              "seconds": 9.657
+            },
+            {
+              "scenario": "download",
+              "title": "3. 다운로드를 누르면 서버가 현재 입고·금액·수량을 다시 검증하고 엑셀을 만듭니다. 운영 원장은 저장하지 않습니다.",
+              "seconds": 22.135
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "customs-settlement-zip",
       "title": "선율 정산 ZIP 실비 원천 연결",
       "entryPaths": [
@@ -356,6 +400,12 @@
           "sha256": "3267bc0cd1f7984461f06fd7cb43d3136c3f31a3506dcef35bb928c1a86ac8f0",
           "reason": "원장 연결 알림만 추가, 기존 수량·비고·인쇄 조작 순서 보존. 이번 알림만 영상 재촬영 제외",
           "approvedBy": "사용자 명시 답변 2026-11-13: 이번 알림만 영상 없이 배포"
+        },
+        {
+          "file": "pages/estimate.js",
+          "sha256": "6b55772afa0ce2a43f161ab1201e225c3f85596cea613dbf7517e16fc9c20745",
+          "reason": "견적 목록 상단 차수 총매출 및 업체순 버튼 추가. 이번 변경의 영상 재촬영 제외.",
+          "approvedBy": "사용자 명시 답변 2026-11-16: 이번 변경만 영상 재촬영 제외"
         }
       ],
       "title": "견적서 관리",
@@ -415,6 +465,12 @@
           "sha256": "3267bc0cd1f7984461f06fd7cb43d3136c3f31a3506dcef35bb928c1a86ac8f0",
           "reason": "원장 연결 알림만 추가, 출고일 정산 매출 탭과 기존 조작 순서 보존. 이번 알림만 영상 재촬영 제외",
           "approvedBy": "사용자 명시 답변 2026-11-13: 이번 알림만 영상 없이 배포"
+        },
+        {
+          "file": "pages/estimate.js",
+          "sha256": "6b55772afa0ce2a43f161ab1201e225c3f85596cea613dbf7517e16fc9c20745",
+          "reason": "견적 목록 상단 차수 총매출 및 업체순 버튼 추가. 이번 변경의 영상 재촬영 제외.",
+          "approvedBy": "사용자 명시 답변 2026-11-16: 이번 변경만 영상 재촬영 제외"
         }
       ],
       "title": "업체별 출고일 정산 매출 조회",

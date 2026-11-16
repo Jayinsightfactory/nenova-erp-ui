@@ -751,3 +751,4 @@
 - [네덜란드 물량표 고정 열·헤더와 상단 스크롤](2026-11-13_dutch-scroll.md)
 
 - [국가별 발주서 조회와 다운로드](2026-11-13_import-country-download.md)
+- [베트남 GW 운송·읽기전용 원가 다운로드 간소화(미배포)](2026-11-13_import-readonly-streamline.md)

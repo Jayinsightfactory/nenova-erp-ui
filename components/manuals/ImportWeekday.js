@@ -7,6 +7,7 @@ import { Badge, Button, ToggleChip } from '../pm/ui';
 
 export const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const dayTypeOf = (wd) => (wd === '월' ? '월요일' : ['화', '수', '목', '금'].includes(wd) ? '화~금' : null);
+const startMin = (when) => { const m = /^\s*(\d{1,2}):(\d{2})/.exec(String(when || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : Infinity; };
 const STATUS = { confirmed: ['확정', 'ok'], estimated: ['추정', 'est'] };
 
 export function evidenceText(evidence) {
@@ -49,11 +50,14 @@ function DetailPanel({ r }) {
 
 export default function ImportWeekday({ weekday, schedule, calendar, manuals, onOpen, wd, onPick, today }) {
   const day = (weekday?.weekdays || []).find((w) => w.weekday === wd);
-  const daily = (schedule?.daily || []).filter((r) => r.dayType === dayTypeOf(wd)).sort((a, b) => String(a.when).localeCompare(String(b.when)));
+  // days(요일 글자 배열)가 있으면 그 요일에 들어 있는 줄, 없으면 dayType 으로 고른다. 시작 시각 순(시각이 아닌 말은 뒤로).
+  const daily = (schedule?.daily || []).filter((r) => (Array.isArray(r.days) ? r.days.includes(wd) : r.dayType === dayTypeOf(wd))).sort((a, b) => startMin(a.when) - startMin(b.when) || String(a.when).localeCompare(String(b.when)));
   const weekly = (schedule?.weekly || []).filter((r) => String(r.when || '').split(/[·,\s]+/).includes(wd));
   const countryCells = (calendar || []).flatMap((c) => c.cells.filter((x) => x.weekday === wd || x.weekday === '매일').map((x) => ({ ...x, country: c.country })));
   const weekend = today === '토' || today === '일';
-  if (!weekday?.weekdays?.length) return null;
+  const hasCountry = (calendar || []).length > 0;
+  const hasRef = !!weekday?.weekdays?.length; // 화면 기록 집계가 없는 부서는 「참고」 접이식을 뺀다
+  if (!hasRef && !(schedule?.daily || []).length && !(schedule?.weekly || []).length && !hasCountry) return null;
   const rowOf = (r, head) => (
     <li key={r.id} className="wkrow">
       <details>
@@ -82,10 +86,10 @@ export default function ImportWeekday({ weekday, schedule, calendar, manuals, on
             </>
           )}
         </>
-      ) : <p className="empty">이 요일에 따로 정해진 일은 아직 확인되지 않았습니다. 아래 나라별 일을 보세요.</p>}
+      ) : <p className="empty">이 요일에 따로 정해진 일은 아직 확인되지 않았습니다. {hasCountry ? '아래 나라별 일을 보세요.' : ''}</p>}
 
-      <h4>{wd}요일 나라별 일</h4>
-      {countryCells.length ? (
+      {hasCountry && <h4>{wd}요일 나라별 일</h4>}
+      {hasCountry && (countryCells.length ? (
         <ul className="wklist">
           {countryCells.map((x, i) => (
             <li key={i} className="wkrow">
@@ -98,9 +102,9 @@ export default function ImportWeekday({ weekday, schedule, calendar, manuals, on
             </li>
           ))}
         </ul>
-      ) : <p className="empty">이 요일에 확인된 나라별 일이 없습니다.</p>}
+      ) : <p className="empty">이 요일에 확인된 나라별 일이 없습니다.</p>)}
 
-      <details className="wkref">
+      {hasRef && <details className="wkref">
         <summary>참고: 지난 몇 주 동안 이 요일에 실제로 한 일(화면 기록 집계)</summary>
         {blocks.length ? (
           <>
@@ -132,7 +136,7 @@ export default function ImportWeekday({ weekday, schedule, calendar, manuals, on
             {weekday.basis?.note ? <p className="muted"><small>{weekday.basis.note} ({weekday.basis.from}~{weekday.basis.to}, 업무 단위 {Number(weekday.basis.cuts).toLocaleString()}개)</small></p> : null}
           </>
         ) : <p className="empty">{['토', '일'].includes(wd) ? '주말은 PC 화면 기록이 없습니다.' : '이 요일의 기록이 아직 모이지 않았습니다.'}</p>}
-      </details>
+      </details>}
     </div>
   );
 }

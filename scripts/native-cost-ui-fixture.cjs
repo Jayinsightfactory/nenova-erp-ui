@@ -3,6 +3,8 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
 (async () => {
   const { createNativeCostWorkbook } = await import('../lib/invoiceReceiptCostExport.js');
   const { createNativeCostHandler } = await import('../lib/nativeCostHttp.js');
+  const { fetchLiveInvoiceRate } = await import('../lib/invoiceLiveExchangeRate.js');
+  const appPort=Number(process.env.NATIVE_APP_PORT||19430),uiPort=Number(process.env.NATIVE_UI_PORT||19431);
   const secret = crypto.randomBytes(32).toString('hex'), user = { userId:'fixture-user', userName:'테스트 담당자', authority:1, deptName:'테스트' };
   const token = jwt.sign(user, secret, { expiresIn:'2h' });
   const counts = { read:0, preview:0, download:0, blockedWrites:0 };
@@ -25,11 +27,12 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
   const types = { Int:1, NVarChar:n=>n }, queryFn = async (sql,p) => {
     if (/\b(INSERT|UPDATE|DELETE|EXEC|MERGE)\b/i.test(sql)) throw new Error('Write blocked');
     counts.read++;
+    if(sql.includes('invoice-expenses:committed-scope'))return {recordset:[]};
     if(sql.includes('nl-cost:readonly-customer-comparison'))return {recordsets:[
       [{CustKey:999999,OrderCode:'CL2'}],[],raw.map(r=>({...r}))]}; // TEST_ONLY: no customer-order evidence.
     return { recordset: raw.filter(r=>r.WarehouseKey===p.warehouseKey.value && r.OrderYear===p.orderYear.value && r.OrderWeek===p.orderWeek.value) };
   };
-  const child = spawn(process.execPath,[require.resolve('next/dist/bin/next'),'start','-H','127.0.0.1','-p','19430'],{
+  const child = spawn(process.execPath,[require.resolve('next/dist/bin/next'),...(process.env.NATIVE_FIXTURE_DEV==='1'?['dev','--webpack']:['start']),'-H','127.0.0.1','-p',String(appPort)],{
     env:{...process.env,DB_SERVER:'',DB_USER:'',DB_PASSWORD:'',NEXT_DIST_DIR:'.next',JWT_SECRET:secret},stdio:['ignore','ignore','ignore'],windowsHide:true });
   const server = http.createServer(async (req,res) => {
     const url = new URL(req.url,'http://127.0.0.1');
@@ -43,12 +46,16 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
         const handler=createNativeCostHandler({queryFn,types,authorize:u=>u===user,generate:async result=>{
           const testResult={...result,input:{...result.input,exchangeRateType:'TEST_ONLY',
             estimateSource:`TEST_ONLY 격리 재생. 고객 주문은 합성 시험자료. ${result.input.estimateSource||''}`}};
-          const bytes=await createNativeCostWorkbook(testResult);counts.download++;return bytes;
+          const bytes=await createNativeCostWorkbook(testResult);counts.download++;counts.downloadBytes=bytes.length;return bytes;
         }});
         res.status=n=>{res.statusCode=n;return res;};res.json=v=>{res.setHeader('Content-Type','application/json; charset=utf-8');res.end(JSON.stringify(v));};res.send=v=>res.end(v);
         return handler({method:req.method,query:Object.fromEntries(url.searchParams),body:payload,user},res);
       }
       if(req.method!=='GET'){counts.blockedWrites++;return send({success:false,error:'Fixture blocks writes'},409);}
+      if(url.pathname==='/api/import/receipts/live-exchange-rate'){
+        try{return send({success:true,...await fetchLiveInvoiceRate(url.searchParams.get('currency'))});}
+        catch{return send({success:false,error:'시험 환율 조회 실패'},503);}
+      }
       if(url.pathname==='/api/auth/me')return send({success:true,user});
       if(url.pathname==='/api/import/receipts/warehouse-list')return send({success:true,
         scope:{orderYear:url.searchParams.get('orderYear'),orderWeek:url.searchParams.get('orderWeek')},
@@ -58,9 +65,9 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
       if(url.pathname==='/api/import/tools/product-matches')return send({success:true,products:[],value:{version:1,entries:[]},revision:1});
       return send({success:true,items:[],history:[],events:[],entries:[],documents:[]});
     }
-    const upstream=http.request({hostname:'127.0.0.1',port:19430,path:req.url,method:req.method,headers:{...req.headers,host:'127.0.0.1:19430',cookie:`nenovaToken=${token}`,authorization:`Bearer ${token}`}},r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res);});
+    const upstream=http.request({hostname:'127.0.0.1',port:appPort,path:req.url,method:req.method,headers:{...req.headers,host:`127.0.0.1:${appPort}`,cookie:`nenovaToken=${token}`,authorization:`Bearer ${token}`}},r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res);});
     upstream.on('error',()=>{res.writeHead(503);res.end('Starting isolated app');});req.pipe(upstream);
   });
-  server.listen(19431,'127.0.0.1',()=>console.log('NATIVE_UI_FIXTURE http://127.0.0.1:19431/import/tools?popup=1'));
+  server.listen(uiPort,'127.0.0.1',()=>console.log(`NATIVE_UI_FIXTURE http://127.0.0.1:${uiPort}/import/tools?popup=1`));
   const stop=()=>{child.kill();server.close();};process.on('SIGINT',stop);process.on('SIGTERM',stop);
 })().catch(e=>{console.error(e.message);process.exitCode=1;});

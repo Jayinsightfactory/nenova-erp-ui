@@ -6,7 +6,7 @@ for(const [profile,expected] of [
  ['US_ORIGINAL_V1',199000],['VN_ORIGINAL_V1',208000],['NZ_ORIGINAL_V1',190500],
  ['EC_ORIGINAL_V1',219000],['CO_ORIGINAL_V1',239000],['CN_AIR_ORIGINAL_V1',248000],
 ])test(`${profile} restores original customs rows without using old weight or amounts`,()=>{
- const input={weightRef:'C8',countRef:'C9',weight:100,count:3,labelCol:'O',valueCol:'P',start:6};
+ const input={weightRef:'C8',countRef:'C9',weight:100,count:3,labelCol:'O',valueCol:'P',start:6,domesticWeight:100,domesticWeightRef:'F7'};
  const before=JSON.stringify(input),result=customsReferenceCells(profile,input);
  assert.equal(result.total,expected);assert.equal(JSON.stringify(input),before);
  assert.equal(result.cells.get('O6').value,'백상');assert.equal(result.cells.get('O7').value,'통관 수수료');

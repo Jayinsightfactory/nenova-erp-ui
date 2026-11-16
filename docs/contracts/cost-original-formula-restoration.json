@@ -1,5 +1,6 @@
 {
  "id":"cost-original-formula-restoration",
+ "vietnamTransport":"2026-11-13 latest user policy replaces historical flat N8 with GW capacity-decomposition. Original CW storage and separate GW input F7 are retained. Formula/cached value use same truck policy, no historic or approved workbook mutation. Tests vnOriginalCostInputs and invoiceCostCustomsReference.",
  "title":"국가별 원본 원가 계산·판매·이익 엑셀 복원",
  "scope":["lib/invoiceCostOriginalRestoration.js","lib/invoiceCostCustomsReference.js","lib/invoiceReceiptCostExport.js","lib/invoiceCostSalesDefaults.js","lib/invoiceCostFormulaComparison.js","lib/chinaSeaCbmReference.js","lib/invoiceCostTemplates/china-sea-cbm-reference-v1.json","scripts/build-china-sea-cbm-reference.mjs","lib/invoiceCostTemplates/sales-reference-v1.json","scripts/build-cost-sales-reference.mjs","scripts/verify-colombia-cost-recalculation.ps1"],
  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],

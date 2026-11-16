@@ -906,6 +906,8 @@ function EstimateByWeek() {
 
   // 왼쪽 패널 - 출고 목록
   const [shipments, setShipments] = useState([]);
+  const [listOrder, setListOrder] = useState('sales');
+  const [weekSales, setWeekSales] = useState(null);
   const [ledgerAlertScope, setLedgerAlertScope] = useState(null);
   const [selectedGroups, setSelectedGroups] = useState(new Set()); // 다중 선택 (전체선택 + 인쇄용)
   const [selectedId, setSelectedId] = useState(null);
@@ -1442,12 +1444,14 @@ function EstimateByWeek() {
     if (!token) return Promise.resolve({ skipped: true });
     const shouldApply = () => estimateSelectionStateRef.current.shouldApply(token, renderedSelectionScopeRef.current)
       && (typeof opts.shouldApply !== 'function' || opts.shouldApply());
+    setWeekSales(null);
     setLoading(true); setItemLoading(false); setErr('');
     setLedgerAlertScope({year:scope.year,week:scope.week,request:Date.now()});
     return apiGet('/api/estimate', {
       week: scope.week,        // "14" 전달 → API에서 14-01, 14-02 등 자동 매칭
       year: scope.year,
       custKey: scope.filterCustKey || '',
+      weekSales: 1,
       includeUnfixed: includeUnfixedForLoad ? '1' : '',
       ...(scope.weekDays.length < 7 ? { weekDays: scope.weekDays.join(',') } : {}),
       })
@@ -1462,6 +1466,8 @@ function EstimateByWeek() {
             || nextShipments.find((ship) => Number(ship.CustKey) === Number(preserved.custKey))
           : nextShipments[0];
         setShipments(nextShipments);
+        setWeekSales(Number.isFinite(data.weekSales)
+          ? { year: scope.year, week: scope.week, amount: data.weekSales } : null);
         setSelectedGroups(new Set()); // 새 조회 시 다중선택 초기화
         setSelectedDeductionKeys(resetEstimateDeductionSelection());
         setItems([]);
@@ -4832,6 +4838,17 @@ function EstimateByWeek() {
               </span>
             )}
           </div>
+          <div style={{display:'flex', alignItems:'center', flexWrap:'wrap', gap:8, padding:'6px 10px'}}>
+            <strong title="전체 거래처·전체 요일의 확정 견적 합계 (부가세·차감 포함)">
+              {yearStr}년 {weekNum}차 총매출 {weekSales && String(weekSales.year) === String(yearStr)
+                && String(weekSales.week) === String(weekNum) ? fmt(weekSales.amount) + '원' : '—'}
+            </strong>
+            <button type="button" className="btn btn-sm" aria-pressed={listOrder === 'customer'}
+              title="업체 코드 오름차순과 매출 내림차순 전환"
+              onClick={() => setListOrder(listOrder === 'customer' ? 'sales' : 'customer')}>
+              {listOrder === 'customer' ? '✓ 업체순' : '업체순'}
+            </button>
+          </div>
           <div style={{overflowY:'auto', flex:1, minWidth:0}}>
             {loading
               ? <div className="skeleton" style={{height:200, margin:12}}></div>
@@ -4850,13 +4867,13 @@ function EstimateByWeek() {
                           }}
                           title="전체 선택/해제"/>
                       </th>
-                      <th>차수</th><th>거래처</th><th>담당자</th>
-                      <th style={{textAlign:'right'}}>총 합계금액 ▼</th>
+                      <th>차수</th><th>{listOrder === 'customer' ? '거래처 ▲' : '거래처'}</th><th>담당자</th>
+                      <th style={{textAlign:'right'}}>{listOrder === 'sales' ? '총 합계금액 ▼' : '총 합계금액'}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(() => {
-                      const displayShips = sortEstimateShipmentsForList(visibleShipments);
+                      const displayShips = sortEstimateShipmentsForList(visibleShipments, listOrder);
                       if (displayShips.length === 0) {
                         return (
                           <tr>
