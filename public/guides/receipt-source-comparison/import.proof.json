@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-16T04:01:25.857Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 29.15,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "2fd64afa22e35287f7f470d557244ade134d1c3d86557da315bb13ea1dc623f7",
+  "captionsSha256": "22c4e6e502bb31e8ec7c34069217fe3b2e171caaa4d74486f2fcd81c171eec6f",
+  "sourceHashes": {
+    "components/import-tools/InvoiceReceiptComparison.js": "f33ff13fbf321faba43c85ca6a154f4fa873ba47c3399df4441391e91532c5d6",
+    "components/import-tools/InvoiceTotalEvidence.js": "df2715071da5ee83d716dd26ee8e4871352442b2b0a0f45c171e5d0509850e9b",
+    "styles/InvoiceReceipt.module.css": "5569d3cb481c7f61e67c7f1c90b412bf4b1b103c7aaecdbddafeab301b5e0e0a"
+  },
+  "presentation": {
+    "numberedSteps": 3,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 3.4515172999999995,
+        "x": 1479.109375,
+        "y": 277.65625,
+        "end": 9.426304199999999
+      },
+      {
+        "number": 2,
+        "start": 13.144806599999999,
+        "x": 1805.84375,
+        "y": 463.875,
+        "end": 19.061203299999995
+      },
+      {
+        "number": 3,
+        "start": 22.9372422,
+        "x": 584.640625,
+        "y": 540.1875,
+        "end": 28.8648141
+      }
+    ]
+  }
+}
