@@ -14,6 +14,8 @@
   let tabSignature = '';
   let renderedActiveId = null;
   let menuSignature = '';
+  let searchCatalog = [], searchMatches = [], activeResult = -1;
+  const searchKey = text => String(text || '').normalize('NFKC').toLocaleLowerCase('ko').replace(/\s+/g, '');
 
   function activeTab() { return state.tabs.find((tab) => tab.id === state.activeId) || null; }
   function shortUrl(url) {
@@ -49,6 +51,58 @@
   function openPage(item) {
     if (!item || !item.href) return;
     run('open', { url: item.href, title: item.labelKey || item.title || item.href });
+  }
+
+  function dismissMenuResults() {
+    $('menuSearchPopup').hidden = true;
+    $('menuSearch').setAttribute('aria-expanded', 'false');
+    $('menuSearch').removeAttribute('aria-activedescendant');
+    activeResult = -1;
+  }
+  function chooseMenuResult(index) {
+    const item = searchMatches[index];
+    if (!item) return;
+    $('menuSearch').value = '';
+    dismissMenuResults();
+    openPage(item);
+  }
+  function highlightMenuResult(index) {
+    const list = $('menuSearchResults'), previous = list.children[activeResult], option = list.children[index];
+    if (!option) return;
+    previous?.setAttribute('aria-selected','false');
+    activeResult = index; option.setAttribute('aria-selected','true');
+    $('menuSearch').setAttribute('aria-activedescendant',option.id);
+    const box=list.getBoundingClientRect(), row=option.getBoundingClientRect();
+    if(row.bottom>box.bottom)list.scrollTop+=row.bottom-box.bottom;
+    else if(row.top<box.top)list.scrollTop-=box.top-row.top;
+  }
+  function showMenuResults() {
+    const input = $('menuSearch'), key = searchKey(input.value), list = $('menuSearchResults');
+    dismissMenuResults(); list.replaceChildren(); searchMatches = [];
+    if (!key || !state.menuOpen || document.activeElement !== input) return;
+    // Build the full menu catalog only when permissions or favorites change.
+    const matched = searchCatalog.filter(item => item.key.includes(key));
+    const rank = item => item.name === key ? 0 : item.name.startsWith(key) ? 1 : item.name.includes(key) ? 2 : 3;
+    const seen = new Set();
+    for (const item of matched.sort((a,b) => rank(a) - rank(b))) {
+      if (seen.has(item.route)) continue;
+      seen.add(item.route); searchMatches.push(item);
+    }
+    const rows = document.createDocumentFragment();
+    for (const [index,item] of searchMatches.entries()) {
+      const option = makeButton('home-menu-option', '', item.labelKey+' 열기', () => chooseMenuResult(index));
+      option.id='home-menu-option-'+index;option.tabIndex=-1;option.setAttribute('role','option');option.setAttribute('aria-selected','false');
+      const name=document.createElement('span'),group=document.createElement('small');name.textContent=item.display;group.textContent=item.group;
+      option.append(name,group);rows.append(option);
+    }
+    list.append(rows);list.scrollTop=0;
+    $('menuSearchStatus').textContent=searchMatches.length?'검색 결과 '+searchMatches.length+'개':'검색 결과가 없습니다. 다른 메뉴 이름으로 찾아보세요.';
+    $('menuSearchPopup').hidden=false;input.setAttribute('aria-expanded','true');
+  }
+  function indexMenu(href, labelKey, group, display=labelKey) {
+    if (!href) return;
+    let route;try{route=new URL(href,'https://nenovaweb.com').href;}catch{return;}
+    searchCatalog.push({href,route,labelKey,group,display,name:searchKey(display),key:searchKey([display,labelKey,group,href].join(' '))});
   }
 
   function moveMenuFocus(event) {
@@ -170,10 +224,10 @@
   }
 
   function renderMenus() {
-    const query = $('menuSearch').value.trim().toLocaleLowerCase('ko');
-    const nextSignature = JSON.stringify([query, state.online, state.menus, state.favorites]);
+    const nextSignature = JSON.stringify([state.online, state.menus, state.favorites]);
     if (nextSignature === menuSignature) return;
     menuSignature = nextSignature;
+    searchCatalog = [];
     const focusedFavorite = document.activeElement?.dataset?.menuFavorite;
     const groups = $('menuGroups');
     groups.replaceChildren();
@@ -186,8 +240,7 @@
     const allGroups = startItems.length ? [{ group: '시작', items: startItems }, ...state.menus] : state.menus;
     for (const group of allGroups) {
       const groupName = String(group.group || '기타');
-      const matching = (Array.isArray(group.items) ? group.items : []).filter((item) =>
-        !query || `${groupName} ${item.labelKey || ''} ${item.href || ''}`.toLocaleLowerCase('ko').includes(query));
+      const matching = Array.isArray(group.items) ? group.items : [];
       if (!matching.length) continue;
       const card = document.createElement('section'); card.className = 'menu-group';
       const heading = document.createElement('h3');
@@ -195,6 +248,7 @@
       heading.append(line, document.createTextNode(groupName));
       const items = document.createElement('div'); items.className = 'group-items';
       for (const item of matching) {
+        indexMenu(item.href,item.labelKey || item.href,groupName);
         const button = makeButton('menu-item', '', `${item.labelKey || item.href} 열기`, () => openPage(item));
         const label = document.createElement('span'); label.textContent = item.labelKey || item.href;
         button.append(label);
@@ -211,15 +265,16 @@
     $('resultCount').textContent = `${count}개 화면`;
     $('emptySearch').hidden = count > 0;
     const favorites = $('favoritesList'); favorites.replaceChildren();
-    const matches = state.favorites.filter((item) => !query || `${item.number} ${item.alias || ''} ${item.title || ''} ${item.url || ''}`.toLocaleLowerCase('ko').includes(query));
+    const matches = state.favorites;
     $('favoritesSection').hidden = !state.online;
     if (!matches.length && state.online) {
       const hint = document.createElement('p');
       hint.className = 'home-note';
-      hint.textContent = query ? '검색한 즐겨찾기가 없습니다.' : '아래 메뉴 이름 옆 ☆를 누르면 화면을 열지 않고 즐겨찾기에 추가됩니다.';
+      hint.textContent = '아래 메뉴 이름 옆 ☆를 누르면 화면을 열지 않고 즐겨찾기에 추가됩니다.';
       favorites.append(hint);
     }
     for (const item of matches) {
+      if(state.online)indexMenu(item.url,item.title || shortUrl(item.url),'즐겨찾기',item.number+' '+(item.alias || item.title || shortUrl(item.url)));
       const button = makeButton('favorite-card', '', `${item.title || item.url} 열기`, () => openPage({ href: item.url, labelKey: item.title }));
       const original = item.title || shortUrl(item.url);
       button.textContent = `${item.number} ${item.alias && item.alias !== original ? `${item.alias}(${original})` : original}`;
@@ -244,6 +299,7 @@
       favorites.append(row);
     }
     if (focusedFavorite) [...document.querySelectorAll('[data-menu-favorite]')].find(button => button.dataset.menuFavorite === focusedFavorite)?.focus();
+    showMenuResults();
   }
 
   function render() {
@@ -311,6 +367,7 @@
   function applyState(next) {
     if (!next || typeof next !== 'object') return;
     const wasMenuOpen = state.menuOpen;
+    if(next.menuOpen===false || (Object.hasOwn(next,'homeOwnerId') && next.homeOwnerId!==pmLive.owner)){ $('menuSearch').value='';dismissMenuResults(); }
     for (const key of ['appUpdate', 'windowId', 'activeId', 'menuOpen', 'toolsOpen', 'online', 'message', 'notice', 'version', 'syncStatus', 'webVersion', 'menuVersion']) if (Object.prototype.hasOwnProperty.call(next, key)) state[key] = next[key];
     for (const key of ['windows', 'tabs', 'favorites', 'menus']) if (Array.isArray(next[key])) state[key] = next[key];
     render();
@@ -404,9 +461,19 @@
     $('zoomOutButton').addEventListener('click', () => { const tab = activeTab(); if (tab) run('zoom', { value: Math.max(.5, Math.round(((tab.zoom || 1) - .1) * 10) / 10) }); });
     $('zoomInButton').addEventListener('click', () => { const tab = activeTab(); if (tab) run('zoom', { value: Math.min(2, Math.round(((tab.zoom || 1) + .1) * 10) / 10) }); });
     $('zoomButton').addEventListener('click', () => run('zoom', { value: 1 }));
-    $('menuSearch').addEventListener('input', renderMenus);
+    $('menuSearch').addEventListener('input', showMenuResults);
+    $('menuSearch').addEventListener('focus', showMenuResults);
+    $('menuSearch').addEventListener('blur', dismissMenuResults);
+    $('menuSearchPopup').addEventListener('mousedown',event=>{if(event.target.closest('[role=option]'))event.preventDefault();});
     $('menuSearch').addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowDown') moveMenuFocus(event);
+      if(event.isComposing || event.keyCode===229)return;
+      const visible=!$('menuSearchPopup').hidden;
+      if(visible && event.key==='Escape'){event.preventDefault();event.stopPropagation();$('menuSearch').value='';dismissMenuResults();return;}
+      if(visible && event.key==='Enter'){event.preventDefault();if(searchMatches.length)chooseMenuResult(Math.max(0,activeResult));return;}
+      if(visible && ['ArrowDown','ArrowUp'].includes(event.key)){
+        event.preventDefault();const n=searchMatches.length;if(n)highlightMenuResult(activeResult<0?(event.key==='ArrowDown'?0:n-1):(activeResult+(event.key==='ArrowDown'?1:-1)+n)%n);return;
+      }
+      if(!visible && event.key==='ArrowDown')moveMenuFocus(event);
     });
     $('favoritesList').addEventListener('keydown', moveMenuFocus);
     $('menuGroups').addEventListener('keydown', moveMenuFocus);
@@ -421,7 +488,7 @@
       if (id) { dropHandled = true; run('reorder', { id, beforeId: null }); }
     });
     document.addEventListener('keydown', (event) => {
-      if(document.querySelector('dialog[open]'))return;
+      if(document.querySelector('dialog[open]')||event.isComposing||event.keyCode===229)return;
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'b') { event.preventDefault(); run('tools'); return; }
       if (event.key === 'Escape' && state.menuOpen && !event.defaultPrevented) { event.preventDefault(); setMenu(false); return; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setMenu(true, true); return; }
