@@ -1233,57 +1233,57 @@
             {
               "scenario": "overview",
               "title": "1. 홈에서 오늘 업무 확인",
-              "seconds": 0
+              "seconds": 0.1
             },
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 32.717
+              "seconds": 35.2
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 42.166
+              "seconds": 45.4
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 68.859
+              "seconds": 72.9
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 90.733
+              "seconds": 94.85
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 119.754
+              "seconds": 123.85
             },
             {
               "scenario": "calendar",
               "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 129.638
+              "seconds": 133.85
             },
             {
               "scenario": "independent",
               "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 154.975
+              "seconds": 161.2
             },
             {
               "scenario": "company",
               "title": "9. 공통 일정 제목과 색상 등록·수정",
-              "seconds": 166.775
+              "seconds": 173.45
             },
             {
               "scenario": "collapse",
               "title": "10. 월간·주간 접기와 홈 다시 열기",
-              "seconds": 223.352
+              "seconds": 233.2
             },
             {
               "scenario": "weekly",
               "title": "11. 주차별 일정과 다음 주 차수 확인",
-              "seconds": 248.841
+              "seconds": 260.5
             }
           ]
         }
