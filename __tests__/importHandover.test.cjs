@@ -114,3 +114,27 @@ console.log('importWeekday ok');
   }
 }
 console.log('importHandoverView ok');
+
+// 부서별 인수인계: 네 부서 목록·파일이 있는 부서는 기준 통과·화면에 부서 선택과 「준비 중」 안내·화면 문구에 부서 이름이 박혀 있지 않음
+{
+  const read = (...p) => fs.readFileSync(path.join(repo, ...p), 'utf8');
+  const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), 'ih-dept-'));
+  fs.writeFileSync(path.join(tmp2, 'ih.cjs'), strip(read('lib', 'importHandover.js')) + '\nmodule.exports = { HANDOVER_DEPTS, loadHandover, handoverForView };');
+  const D = require(path.join(tmp2, 'ih.cjs'));
+  assert.deepStrictEqual(D.HANDOVER_DEPTS.map((d) => d.id), ['import', 'sales-support', 'sales', 'management'], '부서는 수입부·영업지원·영업부·경영지원 네 곳');
+  assert.deepStrictEqual(D.HANDOVER_DEPTS.map((d) => d.name), ['수입부', '영업지원', '영업부', '경영지원']);
+  const { check } = require(path.join(repo, 'scripts', 'validate-handover.cjs'));
+  for (const d of D.HANDOVER_DEPTS) {
+    const f = path.join(repo, 'data', d.file);
+    if (!fs.existsSync(f)) continue; // 다른 작업자가 아직 만드는 중일 수 있다
+    assert.deepEqual(check(f), [], `${d.name} 자료가 기준을 통과해야 함`);
+    assert.ok(D.handoverForView(d.id)?.schedule, `${d.name}: 화면용 가공`);
+  }
+  assert.equal(D.loadHandover('nope'), null, '모르는 부서는 null');
+  const page = read('pages', 'work', 'manuals.js');
+  assert.ok(page.includes('부서 선택') && page.includes("searchParams.set('dept'"), '화면에 부서 선택과 주소 반영이 있어야 함');
+  assert.ok(page.includes('준비 중입니다'), '자료 없는 부서는 「준비 중」 안내');
+  assert.ok(!ui.includes('수입부 인수인계 업무표'), 'ImportHandover 에 부서 이름이 글자로 박혀 있으면 안 됨(data.dept 사용)');
+  for (const f of ['ImportHandover', 'ImportWeekday']) assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(read('components', 'manuals', f + '.js')), `${f}: 색 토큰만`);
+}
+console.log('deptHandover ok');
