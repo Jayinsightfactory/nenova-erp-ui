@@ -4,7 +4,7 @@ import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoice
 import { resumeReceiptSource, readExistingReceiptSource, draftConflictMessage } from '../../lib/invoiceReceiptSourceResume.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
 import SharedAwbCostReview from './SharedAwbCostReview.js';
-import InvoiceTotalEvidence from './InvoiceTotalEvidence.js';
+import InvoiceReceiptComparison from './InvoiceReceiptComparison.js';
 import {invoiceAmountReview,invoiceAmountConfirmed} from '../../lib/invoiceAmountReview.js';
 import InvoiceDraftCost from './InvoiceDraftCost.js';
 import { prepareInvoiceCostOnly } from '../../lib/invoiceCostOnlyWorkflow.js';
@@ -1525,12 +1525,12 @@ export default function InvoiceReceiptWorkbench({
       <textarea ref={copyRef} readOnly value={issueBrief} rows={Math.min(16, Math.max(5, issueBrief.split('\n').length + 1))} />
     </Modal>}
 
-    {amountOpen && <Modal wide title="인보이스 총금액 확인 · 입고 등록" onClose={()=>setAmountOpen(false)} footer={<>
+    {amountOpen && <Modal wide title="원본·품목·수량·총금액 대조 · 입고 등록" onClose={()=>setAmountOpen(false)} footer={<>
       <button type="button" onClick={()=>setAmountOpen(false)}>닫기 · 입력값 유지</button>
-      <button type="button" className={styles.primary} disabled={!amountSourceReady||!amountChecked||!invoiceAmountReview(documentValue).matches||Boolean(busy)} onClick={confirmAmountAndRegister}>금액 확인 · 입고 등록</button>
+      <button type="button" className={styles.primary} disabled={!amountSourceReady||!amountChecked||!invoiceAmountReview(documentValue).matches||Boolean(busy)} onClick={confirmAmountAndRegister}>대조 확인 · 입고 등록</button>
     </>}>
       <div className={styles.amountComparison}>
-        <InvoiceTotalEvidence file={file} evidence={documentValue.rawMetadata?.metadataEvidence?.invoice_total || documentValue.rawMetadata?.metadataEvidence?.total_value || documentValue.rawMetadata?.reviewEvidence?.invoice_total || documentValue.rawMetadata?.reviewEvidence?.total_value} onReady={setAmountSourceReady}/>
+        <InvoiceReceiptComparison file={file} document={documentValue} productByKey={productByKey} onReady={setAmountSourceReady}/>
         <section aria-label="입고 금액 대조">{(()=>{const review=invoiceAmountReview(documentValue);return <>
           <h3>{documentValue.orderYear}/{documentValue.orderWeek} · {documentValue.invoiceNo}</h3>
           <p>농장: {documentValue.reviewedMetadata.farmName||'미선택'}</p>
@@ -1539,7 +1539,7 @@ export default function InvoiceReceiptWorkbench({
           <p>원문 운송·부대비: {displayNumber(review.extras)} {review.currency} (상품금액에 중복 등록하지 않음)</p>
           <p>상품금액 + 부대비: <strong>{displayNumber(review.total)} {review.currency}</strong></p>
           <p role="status">차액: {displayNumber(review.difference)} {review.currency} · {review.message}</p>
-          <label><input type="checkbox" checked={amountChecked} disabled={!amountSourceReady||!review.matches} onChange={e=>setAmountChecked(e.target.checked)}/>원본의 총금액·통화와 등록 금액을 확인했습니다.</label>
+          <label><input type="checkbox" checked={amountChecked} disabled={!amountSourceReady||!review.matches} onChange={e=>setAmountChecked(e.target.checked)}/>원본의 품목·수량·통화·총금액과 입고 예정값을 대조했습니다.</label>
           <p>확인 후 서버 재검증을 통과한 경우에만 입고등록됩니다. 완료된 입고건은 새창으로 표시됩니다.</p>
         </>;})()}</section>
       </div>
