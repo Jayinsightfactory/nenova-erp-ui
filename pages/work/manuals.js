@@ -2,7 +2,7 @@
 // 부서별 업무 매뉴얼 — 부서=폴더, 업무=아이콘. 홈 화면처럼 빈칸 없이 붙고 끌어서 순서를 바꾼다.
 // 열람: 사장님(nenovaSS3) 전체 / 직원 본인 매뉴얼만 (API에서 거름). 저장소는 웹 전용 JSON(lib/workManuals.js).
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Notice, PmUiStyles, Skeleton } from '../../components/pm/ui';
+import { Button, Notice, PmUiStyles, Skeleton, ToggleChip } from '../../components/pm/ui';
 import { allThemesCss } from '../../lib/pmThemes';
 import { LOOK_CLEAR, lookClearCss } from '../../lib/pmLookClear';
 import RoutineManual from '../../components/manuals/RoutineManual';
@@ -165,9 +165,11 @@ export default function WorkManualsPage() {
   const [open, setOpen] = useState(null);
   const [layout, setLayout] = useState({});
   const [manualParam, setManualParam] = useState(null); // ?manual=<id> 로 들어오면 그 매뉴얼을 바로 연다
+  const [deptParam, setDeptParam] = useState(null); // ?dept=<id> — 처음 보여 줄 부서
+  const [deptPick, setDeptPick] = useState(null); // 사람이 단추로 고른 부서
   const [view, setView] = useState('routine'); // routine=부서별 신입 루틴(기본) / drafts=직원별 절차 초안 / live=라이브 매뉴얼(단계 캡처 재생)
 
-  useEffect(() => { try { setManualParam(new URLSearchParams(window.location.search).get('manual')); } catch { /* 주소 읽기 실패 — 업무표부터 */ } }, []);
+  useEffect(() => { try { const q = new URLSearchParams(window.location.search); setManualParam(q.get('manual')); setDeptParam(q.get('dept')); } catch { /* 주소 읽기 실패 — 업무표부터 */ } }, []);
   const [busy, setBusy] = useState(false);
   const load = useCallback(() => {
     setErr(''); setBusy(true);
@@ -215,7 +217,30 @@ export default function WorkManualsPage() {
     } catch (e) { setErr(e.message); }
   };
   if (view === 'live') return <LivePipelineManual me={data.me} onBack={() => setView('routine')} />;
-  const handover = <ImportHandover data={data.handover} me={data.me} initialManual={manualParam} />;
+  // 부서 고르기: 사람이 고른 것 → 주소 ?manual= 이 들어 있는 부서(?dept= 가 그 매뉴얼을 가졌으면 그대로) → ?dept= → 내 부서 → 수입부
+  const handovers = data.handovers || [{ id: 'import', name: '수입부', ready: !!data.handover, data: data.handover }];
+  const byId = (id) => handovers.find((h) => h.id === id);
+  const hasManual = (h, mid) => !!h?.data?.manuals?.some((m) => m.id === mid);
+  const manualDept = manualParam ? handovers.find((h) => hasManual(h, manualParam)) : null;
+  const paramDept = byId(deptParam);
+  const myDept = handovers.find((h) => h.name === data.myDept);
+  const curDept = deptPick ? byId(deptPick) : (manualParam && manualDept && !hasManual(paramDept, manualParam) ? manualDept : paramDept || manualDept || myDept || handovers[0]);
+  const pickDept = (id) => {
+    if (id === curDept.id) return;
+    setDeptPick(id); setManualParam(null);
+    try { const u = new URL(window.location.href); u.searchParams.set('dept', id); u.searchParams.delete('manual'); window.history.replaceState({}, '', u); } catch { /* 주소를 못 바꿔도 화면은 바뀐다 */ }
+  };
+  const deptBar = (
+    <div className="pm wm-dept" data-theme="B" data-look={LOOK_CLEAR}>
+      <PmUiStyles />
+      <style dangerouslySetInnerHTML={{ __html: themeCss + lookClearCss }} />
+      <div className="wm-dept-chips" role="group" aria-label="부서 선택">
+        {handovers.map((h) => <ToggleChip key={h.id} on={h.id === curDept.id} onClick={() => pickDept(h.id)}>{h.name}</ToggleChip>)}
+      </div>
+      {!curDept.ready && <Notice tone="info" title="이 부서의 인수인계 자료는 준비 중입니다">자료가 올라오면 이 자리에 업무표와 매뉴얼이 나옵니다.</Notice>}
+    </div>
+  );
+  const handover = <>{deptBar}{curDept.ready && <ImportHandover key={curDept.id} data={curDept.data} me={data.me} initialManual={hasManual(curDept, manualParam) ? manualParam : null} />}</>;
   const foldCss = <style jsx global>{waitCss}</style>;
   if (view === 'routine' && data.routines) return <>{handover}{foldCss}<details className="wm-fold"><summary>다른 부서 업무 기록 보기</summary><RoutineManual routines={data.routines} me={data.me} onConfirm={confirmRoutine} onSwitch={() => setView('drafts')} onLive={() => setView('live')} /></details></>;
 
@@ -315,6 +340,8 @@ const waitCss = `
 .wm-wait .pmk-skel-card{margin-bottom:16px}
 .wm-wait .wm-raw{margin-top:4px;font-size:12px;opacity:.8}
 .wm-wait .wm-raw summary{cursor:pointer}
+.wm-dept{background:var(--pm-bg);color:var(--pm-ink);font-family:var(--pm-font);padding:16px 16px 0}
+.wm-dept .wm-dept-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .wm-fold{margin:12px 16px}
 .wm-fold>summary{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border:1px solid #d9dee6;border-radius:8px;background:#fff;color:#1d2a3a;font-size:14px;font-weight:700;cursor:pointer;list-style:none;transition:background .12s,border-color .12s}
 .wm-fold>summary::-webkit-details-marker{display:none}
