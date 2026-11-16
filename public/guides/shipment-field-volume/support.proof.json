@@ -1,18 +1,18 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-16T01:43:01.063Z",
+  "recordedAt": "2026-11-16T01:57:54.426Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 91.15,
+  "duration": 99.9,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "d9bfb8e763da09f242f0efb1922a3bd99e819d1ac135c97f428b25410ab52162",
-  "captionsSha256": "afbe290b082917584a8540ecd970537c3dad3fd4ab108ce6481a078b5fb21179",
+  "videoSha256": "f2a376d8d93b5e24107aa7bea65b4d92ba21e8c3d81829d08bb0f101c4458c1f",
+  "captionsSha256": "c50032e075e317776db819621998e0c1f5970539fc1c211b644277534f8d17cf",
   "sourceHashes": {
-    "pages/shipment/distribute-import.js": "15beada34f736b0ff8c1e46b8049c83c2169d44cb93b66fb6975e0dc38609dab"
+    "pages/shipment/distribute-import.js": "5d45ccb3ad18eb5e7709db79b457e980ca85b65da2b61664a7c06d31da9b3c93"
   },
   "presentation": {
     "numberedSteps": 10,
@@ -28,66 +28,66 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 2.451513299999999,
+        "start": 2.8018767000000007,
         "x": 543.5859375,
-        "y": 253.546875,
-        "end": 9.545377099999998
+        "y": 254.546875,
+        "end": 9.5904029
       },
       {
         "number": 1,
-        "start": 12.0746793,
-        "x": 929.390625,
-        "y": 253.546875,
-        "end": 18.299735699999996
+        "start": 12.069805400000002,
+        "x": 1114.4609375,
+        "y": 254.546875,
+        "end": 19.1487806
       },
       {
         "number": 1,
-        "start": 21.451345799999995,
-        "x": 1786.3359375,
-        "y": 253.546875,
-        "end": 28.025682499999995
+        "start": 22.0645576,
+        "x": 1410.4765625,
+        "y": 254.546875,
+        "end": 28.881884899999996
       },
       {
         "number": 1,
-        "start": 30.824830900000002,
-        "x": 573.390625,
-        "y": 295.546875,
-        "end": 37.5588908
+        "start": 32.7750476,
+        "x": 1743.53125,
+        "y": 254.546875,
+        "end": 39.70329770000001
       },
       {
         "number": 2,
-        "start": 40.062598,
+        "start": 42.8696334,
         "x": 480,
         "y": 558.140625,
-        "end": 48.076870099999994
+        "end": 51.0689726
       },
       {
         "number": 2,
-        "start": 50.9052611,
+        "start": 54.7991212,
         "x": 387.8203125,
         "y": 659.140625,
-        "end": 57.649450099999996
+        "end": 62.0681526
       },
       {
         "number": 2,
-        "start": 59.9042284,
-        "x": 573.390625,
-        "y": 295.546875,
-        "end": 66.4859922
+        "start": 64.9954688,
+        "x": 1743.53125,
+        "y": 254.546875,
+        "end": 72.03796249999999
       },
       {
         "number": 3,
-        "start": 69.0110869,
+        "start": 76.19158919999998,
         "x": 733.8125,
         "y": 659.140625,
-        "end": 75.46882689999998
+        "end": 83.3701777
       }
     ],
     "inputCaretVisible": true,
-    "rawCaptureSha256": "2a9f95261e2c6d698a41b40c11dbd3e4c5d1329b980224370e0de5a53c2c9996"
+    "rawCaptureSha256": "63fea2f6bc57af29ce6e85167f6c7ac5fa636cae66b7f091aa697f5db3975b6d"
   },
   "printPreviewZoom": {
-    "start": 77.153,
+    "start": 85.109,
     "scale": 2,
     "x": 195,
     "y": 0,
@@ -98,7 +98,7 @@
   "printPreviewCaption": {
     "number": 4,
     "source": "actual Excel ReadOnly PDF rendered to PNG; captured in local browser",
-    "start": 83.95,
-    "end": 91.15
+    "start": 92.7,
+    "end": 99.9
   }
 }

@@ -122,7 +122,7 @@ export default function DistributeImport() {
   const applyResultRef = useRef(null);
   const comparisonRef = useRef(null);
   const preAlignAvailable = false;
-  const priorFiles=useRef(new Map());
+
   const [file, setFile] = useState(null);
   const sheetLoadRef = useRef(0);
   const [earlyImportMode, setEarlyImportMode] = useState('ORIGINAL_INCLUDES_EARLY');
@@ -508,20 +508,65 @@ export default function DistributeImport() {
     setLoading(false);
     setPreview(prev => prev ? { ...prev, replacementPlan: null, exportPlan: null, fieldExportPlan: null, fieldExportReady: false } : prev);
   };
-  const handleFarmDownload = async (fieldVolume = false, uploadOnly = false, sourceFile = file, memo = farmText) => {
-    const plan=fieldVolume ? preview?.fieldExportPlan : preview?.exportPlan;
-    if (!sourceFile || (!uploadOnly && (!plan || (fieldVolume && !preview?.fieldExportReady))) || (!uploadOnly && pendingJob) || downloading || loading || applying) return;
+  const [savedSources,setSavedSources]=useState([]);
+  const [checkedSources,setCheckedSources]=useState([]);
+  const [savingSources,setSavingSources]=useState(false);
+  const sourceYear=String(weekInput.value).match(/^(\d{4})-/)?.[1]||String(new Date().getFullYear());
+  const archiveUrl='/api/shipment/field-sources?'+new URLSearchParams({year:sourceYear,week:weekInput.value});
+  const currentArchive=useRef(archiveUrl);
+  currentArchive.current=archiveUrl;
+  useEffect(()=>{
+    let active=true;
+    setSavedSources([]);setCheckedSources([]);
+    if(/^(?:\d{4}-)?\d{2}-\d{2}$/.test(weekInput.value)){
+      fetch(archiveUrl).then(async r=>{const data=await r.json();if(!r.ok)throw Error(data.error);if(active)setSavedSources(data.items);}).catch(e=>{if(active)setError(e.message);});
+    }
+    return ()=>{active=false;};
+  },[archiveUrl]);
+  async function saveSources(files){
+    setSavingSources(true);
+    try{
+      for(const source of files){
+        const form=new FormData();form.append('file',source);
+        const res=await fetch(archiveUrl,{method:'POST',body:form});
+        const data=await res.json();
+        if(!res.ok)throw Error(data.error||'원본 저장 실패');
+        if(currentArchive.current===archiveUrl)setSavedSources(data.items);
+      }
+      if(currentArchive.current===archiveUrl)setMessage('원본 저장 완료 · 다운로드할 품목을 체크하세요.');
+    }catch(e){setError(e.message);}finally{setSavingSources(false);}
+  }
+  async function downloadChecked(){
+    setDownloading(true);setError('');
+    try{
+      const selected=savedSources.filter(s=>checkedSources.includes(s.id));
+      const form=new FormData();
+      form.append('selection',JSON.stringify(selected.map(({id,revision})=>({id,revision}))));
+      form.append('filename',file?.name||'');form.append('farmText',farmText);
+      const res=await fetch(archiveUrl,{method:'POST',body:form});
+      if(!res.ok)throw Error((await res.json()).error||'다운로드 실패');
+      const blob=await res.blob(),link=document.createElement('a');
+      link.href=URL.createObjectURL(blob);
+      const encoded=res.headers.get('Content-Disposition')?.split("UTF-8''")[1];
+      link.download=encoded?decodeURIComponent(encoded):weekInput.value+' 현장물량표.'+(selected.length===1?'xlsx':'zip');
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+    }catch(e){setError(e.message);}finally{setDownloading(false);}
+  }
+  const handleFarmDownload = async () => {
+    const sourceFile=file;
+    const plan=preview?.exportPlan;
+    if (!sourceFile || !plan || pendingJob || downloading || loading || applying) return;
     setDownloading(true); setError('');
     try {
       const revision=sheetLoadRef.current;
       const form = new FormData(); form.append('file', sourceFile);
-      if(uploadOnly){const prior=priorFiles.current.get(weekInput.value.slice(0,4)+'|'+sourceFile.name.replace(/[-－]02(?!\d)/,'-01'));if(prior&&prior!==sourceFile)form.append('previousFile',prior);form.append('year',String(weekInput.value).match(/^(\d{4})-/)?.[1]||String(new Date().getFullYear()));form.append('mode','field-upload');form.append('farmText',memo);form.append('week',weekInput.value);}
-      else {form.append('exportPlan', plan);if(fieldVolume)form.append('mode','field-volume');}
+      form.append('exportPlan',plan);
       const response = await fetch('/api/shipment/distribute-import-export', {method:'POST',body:form,credentials:'same-origin'});
       if (!response.ok) { const data=await response.json(); throw new Error(data.error || '엑셀 다운로드 실패'); }
       const blob=await response.blob();if(revision!==sheetLoadRef.current)return;
       const url=URL.createObjectURL(blob), link=document.createElement('a');
-      link.href=url; link.download=sourceFile.name.replace(/\.xlsx$/i,'')+(uploadOnly?'-신형현장물량표-업로드기준.xlsx':fieldVolume?'-신형현장물량표.xlsx':'-농장분배.xlsx');
+      link.href=url; link.download=sourceFile.name.replace(/\.xlsx$/i,'')+'-농장분배.xlsx';
       document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
     } catch(e) {setError(e.message);} finally {setDownloading(false);}
   };
@@ -746,12 +791,13 @@ export default function DistributeImport() {
             ref={fileRef}
             type="file"
             disabled={applying}
-            accept=".xlsx,.xls"
+            accept=".xlsx,.xls" multiple disabled={savingSources || downloading || applying}
             style={{ display: 'none' }}
             onChange={e => {
-              const selectedFile = e.target.files?.[0];
+              const selectedFiles=Array.from(e.target.files||[]);
+              const selectedFile=selectedFiles[0];
               if (!selectedFile) return;
-              if(/[-－]01(?!\d)/.test(selectedFile.name))priorFiles.current.set(weekInput.value.slice(0,4)+'|'+selectedFile.name,selectedFile);
+
               e.target.value = '';
               setFarmText('');
               setFarmOverrides({ targets: {}, farms: {} });
@@ -768,14 +814,21 @@ export default function DistributeImport() {
               setProdOverridesState({});
               setUnmatchedModalOpen(false);
               if (/\.xlsx$/i.test(selectedFile.name)) {
-                void handleFarmDownload(true, true, selectedFile, '');
+                void saveSources(selectedFiles.filter(source=>/\.xlsx$/i.test(source.name)));
               }
             }}
           />
           <button disabled={loading || applying || preAligning || downloading} style={st.secondaryBtn} onClick={() => fileRef.current?.click()}>파일 선택</button>
           <span style={st.fileName}>{file ? `${file.name} · 새 파일 내용 기준` : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
-          <button style={st.primaryBtn} onClick={() => handleFarmDownload(true,true)} disabled={!file || !/\.xlsx$/i.test(file.name) || loading || applying || downloading || preAligning || !!pendingJob} title="원본 수량·요일색·입고·재고로 바로 생성합니다. 입력한 카톡 또는 엑셀 농장메모도 확인하며, 이전차수는 포함하지 않습니다.">{downloading ? '다운로드 준비 중...' : '물량표 바로 생성'}</button>
-          <span style={{fontSize:12,color:'#475569'}}>xlsx 선택 시 신형 현장물량표 자동 다운로드 · 카톡 입력 후 다시 생성 가능 · 원본 기준(이전차수 미포함)</span>
+          <fieldset disabled={savingSources||downloading||applying}>
+            <legend>저장된 물량표 · 합산할 품목</legend>
+            {savedSources.length===0&&<span>이 차수에 저장된 품목이 없습니다.</span>}
+            {savedSources.map(item=><label key={item.id} style={{marginRight:12}} title={item.filename}>
+              <input type="checkbox" checked={checkedSources.includes(item.id)} onChange={e=>setCheckedSources(prev=>e.target.checked?[...prev,item.id]:prev.filter(id=>id!==item.id))}/>
+              {item.label} ({item.filename})
+            </label>)}
+          </fieldset>
+          <button style={st.primaryBtn} onClick={downloadChecked} disabled={!checkedSources.length||savingSources||loading||applying||downloading||!!pendingJob}>선택 품목 다운로드</button>
           <button
             style={preAlignAvailable ? st.preAlignBtn : st.preAlignDisabledBtn}
             onClick={handlePreAlign}
@@ -1025,7 +1078,7 @@ export default function DistributeImport() {
             <p style={{fontSize:13,color:'#475569'}}>엑셀 수정 내역과 농장별 합계를 함께 검증합니다. 카톡 제목 차수와 관계없이 선택한 연도·차수에 적용합니다. 원본 표의 크기·여백·인쇄 설정을 유지하고 표 밖 빈 공간에 농장분배를 넣습니다.</p>
             <button style={st.primaryBtn} disabled={loading || applying || !file} onClick={()=>handlePreview()}>수정 내역 + 농장분배 검증</button>{' '}
             <button style={st.secondaryBtn} disabled={downloading || applying || loading || !!pendingJob || !preview?.exportPlan} onClick={()=>handleFarmDownload(false)}>{downloading?'다운로드 준비 중…':'검증된 엑셀 다운로드'}</button>{' '}
-            <button style={st.applyBtn} disabled={downloading || applying || loading || !!pendingJob || !preview?.fieldExportReady} onClick={()=>handleFarmDownload(true)}>신형 현장물량표 생성</button>
+            <button style={st.applyBtn} disabled={downloading || applying || loading || !!pendingJob || !checkedSources.length || savingSources || !preview?.fieldExportReady} onClick={downloadChecked}>신형 현장물량표 생성</button>
             <p style={{fontSize:13,color:'#475569'}}>1. 엑셀 업로드 분배 적용 → 2. 카톡 농장분배 검증·적용 → 3. 신형 현장물량표 생성. 저장된 결과가 검증값과 일치하면 생성할 수 있습니다. 품종(이전차수) 이번수량 /당일합계로 표시하며 요일색과 입고·출고·재고·잔량을 함께 출력합니다.</p>
             {preview?.fieldExportError && <p role="alert" style={{color:'#b91c1c'}}>현장물량표: {preview.fieldExportError}</p>}
             <span style={{marginLeft:10,fontSize:12}}>ERP 저장은 ‘적용’ 버튼으로 진행합니다.</span>

@@ -15,6 +15,8 @@
     "scripts/record-shipment-field-volume.cjs",
     "lib/shipmentFieldUpload.js",
     "lib/shipmentPallet.js",
+    "lib/shipmentFieldSources.js",
+    "pages/api/shipment/field-sources.js",
     "scripts/sql/shipment-import-pallet-snapshot.sql"
   ],
   "businessIdentity": [
@@ -38,7 +40,7 @@
       "shipmentDetail": "preserve",
       "shipmentDate": "preserve",
       "shipmentFarm": "preserve",
-      "sideEffect": "Authenticated file-only conversion. Active Customer display-name lookup only, zero writes; no matching or apply prerequisite. Source weekday, units and summaries preserved. Print assigned farm quantities as entered, independently of source shipment quantities. Omit raw text and unresolved notes. Previous subweek not inferred. Reads successful same year/week pallet snapshots for mixed loads; absent family is distinct from zero."
+      "sideEffect": "Authenticated file-only conversion. Active Customer display-name lookup only, zero writes; no matching or apply prerequisite. Source weekday, units and summaries preserved. Print assigned farm quantities as entered, independently of source shipment quantities. Omit raw text and unresolved notes. Previous subweek not inferred. Authenticated year/week source archive stores raw xlsx on the private server disk. Checked source families alone contribute to pallet totals. Verified saved plans read current scoped shipment/farm rows for download."
     }
   ],
   "crossYearFixture": {

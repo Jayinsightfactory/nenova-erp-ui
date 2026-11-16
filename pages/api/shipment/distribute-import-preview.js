@@ -1,4 +1,5 @@
 import fs from 'fs';
+import {rememberFieldPlan} from '../../../lib/shipmentFieldSources';
 import formidable from 'formidable';
 import XLSX from 'xlsx';
 import { withAuth } from '../../../lib/auth';
@@ -105,6 +106,7 @@ async function handler(req, res) {
     }
     const fieldExportReady = !!fieldPlan && preview.rows.every(r =>
       Math.abs(Number(r.currentOutQty || 0)-Number(r.uploadQty || 0))<0.000001 && !r.farmChanged && !Number(r.shipmentDateIssueCount || 0));
+    if(fieldExportReady)await rememberFieldPlan(fieldPlan,original);
     return res.status(200).json({
       ...preview,
       replacementPlan: readiness.canApplyFarm ? createReplacementPlan(preview, req.user.userId) : null,

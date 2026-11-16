@@ -18,6 +18,17 @@ previewCount++;const farmInput=await req.fetchPostData()||'';
 const hasFarm=farmInput.includes('연습농장'),r={...f.row,currentOutQty:stage>0?3:0,shipmentDiffQty:stage>0?0:3,needsShipmentApply:stage===0||(hasFarm&&stage<2),farmChanged:hasFarm&&stage<2,farmText:hasFarm?'연습농장 3':'',farmAssignments:hasFarm?[{farmKey:4,shipmentQuantity:3}]:undefined,farmBefore:stage>=2?[{farmKey:4,shipmentQuantity:3}]:[],farmBeforeText:stage>=2?'연습농장 3':''};
 data={success:true,orderYear:'2026',week:'46-02',rows:[r],applyRows:r.needsShipmentApply?[r]:[],changedRows:[],unmatched:[],summaryByCustomer:[],replacementCategories:['연습카네이션'],replacementScopeLabels:['연습카네이션'],replacementProductKeys:[2],replacementPlan:'fixture',exportPlan:'fixture-original',fieldExportPlan:'fixture-field',fieldExportReady:stage>=2&&!r.farmChanged,fieldExportError:'',drawingFarmText:'-연습업체\n돈셀 3(연습농장)',farmImport:{errors:[],reviews:[],changedCount:r.farmChanged?1:0,layoutErrors:[]},earlyImport:{mode:'ALREADY_EXCLUDED',fingerprint:'fixture',scope:[]},totals:{rows:1,uploadQty:3},logs:['연습 물량표 검증 완료']};}
 if(url.pathname==='/api/shipment/distribute-import-apply'){stage++;data={success:true,appliedCount:1,shipmentChangedCount:1,orderCreatedCount:0,orderUpdatedCount:0,shipmentDeletedCount:0,skippedNoChangeCount:0,verification:{checked:1,mismatchCount:0},appliedRows:[{custName:'연습업체',prodName:'돈셀',beforeQty:stage===1?0:3,afterQty:3,shipmentChanged:stage===1,farmChanged:stage===2}],logs:['연습 자료 적용 완료']};}
+if(url.pathname==='/api/shipment/field-sources'){
+ const item={id:'fixture:carnation',revision:'fixture',label:'카네이션',filename:'input.xlsx'};
+ const body=req.method()==='POST'?(await req.fetchPostData()||''):'';
+ if(body.includes('name="selection"')){
+   assert(body.includes(item.id));
+   const raw=stage===0;if(raw)rawExportCount++;else exportCount++;
+   const filename=raw?'input-신형현장물량표-업로드기준.xlsx':'input-신형현장물량표.xlsx';
+   return req.respond({status:200,contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers:{'Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(filename)},body:raw?f.rawOutput:f.output});
+ }
+ return req.respond({status:200,contentType:'application/json',body:JSON.stringify({items:req.method()==='POST'||rawExportCount?[item]:[]})});
+}
 if(url.pathname==='/api/shipment/distribute-import-export'){const body=await req.fetchPostData();const raw=body.includes('field-upload');assert(raw||body.includes('field-volume'));if(raw){assert.equal(stage,0);assert.equal(previewCount,0);rawExportCount++;}else exportCount++;return req.respond({status:200,contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers:{'Content-Disposition':'attachment; filename="field.xlsx"'},body:raw?f.rawOutput:f.output});}
 return req.respond({status:200,contentType:'application/json',body:JSON.stringify(data)});
 }catch(e){errors.push(e.message);try{await req.abort();}catch{}}});
@@ -27,10 +38,13 @@ const button=async label=>{const bs=await page.$$('button');for(const b of bs)if
 const mark=async label=>{const b=await button(label);await b.evaluate(e=>{e.scrollIntoView({block:'center'});document.querySelectorAll('[data-field-focus]').forEach(x=>x.removeAttribute('data-field-focus'));e.dataset.fieldFocus='true';});return b;};
 let rec;if(!dry)rec=await createWorkflowGuideRecorder(page,{workflowId:'shipment-field-volume',guideId:'support',title:'물량표 바로 생성 · 분배·농장 적용 후 생성',sourceFiles:['pages/shipment/distribute-import.js'],fixtureOnly:true});
 const step=async(n,scenario,title,selector,action)=>{if(rec){rec.chapter(scenario,`${n}. ${title}`);await rec.caption(`${n}. ${title}`);await rec.focus(selector,n);}console.log('step',n,title);await action();if(rec){await rec.pause(2800);await rec.unfocus();}};
+const weekInput=await page.$('input[placeholder="22-01"]');await weekInput.click({clickCount:3});await weekInput.type('2026-46-02');await weekInput.press('Tab');
 await mark('파일 선택');await step(1,'upload','파일 선택에서 물량표 엑셀을 업로드합니다','[data-field-focus]',async()=>{const chooser=page.waitForFileChooser();await(await button('파일 선택')).click();await(await chooser).accept([input]);});
-await mark('물량표 바로 생성');await step(1,'upload-only','파일 선택만으로 신형 현장물량표가 다운로드됩니다','[data-field-focus]',async()=>{await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='물량표 바로 생성'&&!b.disabled));});
+await page.waitForSelector('fieldset input[type=checkbox]');
+await page.click('fieldset input[type=checkbox]');
+await mark('선택 품목 다운로드');await step(1,'upload-only','저장된 품목을 체크하고 선택 품목 다운로드를 누릅니다','[data-field-focus]',async()=>{await(await button('선택 품목 다운로드')).click();});
 await new Promise(r=>setTimeout(r,600));assert.equal(rawExportCount,1);assert.equal(stage,0);assert.equal(previewCount,0);assert.deepEqual(fs.readFileSync('.verify/field-volume/input-신형현장물량표-업로드기준.xlsx'),f.rawOutput);
-const weekInput=await page.$('input[placeholder="22-01"]');await weekInput.click({clickCount:3});await weekInput.type('2026-46-02');await weekInput.press('Tab');await page.select('select','ALREADY_EXCLUDED');
+await page.select('select','ALREADY_EXCLUDED');
 await mark('검증하기');await step(1,'upload','검증하기로 업체·품목·수량을 확인합니다','[data-field-focus]',async()=>{await(await button('검증하기')).click();await page.waitForFunction(()=>document.body.innerText.includes('연습업체'));});
 assert.equal(await(await button('신형 현장물량표 생성')).evaluate(e=>e.disabled),true);
 await mark('승인 후 주문등록+분배');await step(1,'upload','분배 적용 확인 후 저장합니다','[data-field-focus]',async()=>{await(await button('승인 후 주문등록+분배')).click();await page.waitForFunction(()=>document.body.innerText.includes('적용 완료:'));});

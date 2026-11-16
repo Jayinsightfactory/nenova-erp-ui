@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {transformSync}=require(`@next/swc-${process.platform}-${process.arch}${process.platform==='win32'?'-msvc':process.platform==='linux'?'-gnu':''}`);const cache=new Map();
-function load(name){if(cache.has(name))return cache.get(name).exports;const m={exports:{}};cache.set(name,m);const file=path.resolve('lib',name+'.js');const {code}=transformSync(fs.readFileSync(file,'utf8'),false,Buffer.from(JSON.stringify({filename:file,jsc:{target:'es2020',parser:{syntax:'ecmascript'}},module:{type:'commonjs'}})));new Function('require','module','exports',code)(id=>id.startsWith('.')?load(path.basename(id,'.js')):require(id),m,m.exports);return m.exports;}
+function load(name){if(cache.has(name))return cache.get(name).exports;const m={exports:{}};cache.set(name,m);const file=path.resolve('lib',name+'.js');const {code}=transformSync(fs.readFileSync(file,'utf8'),false,Buffer.from(JSON.stringify({filename:file,jsc:{target:'es2020',parser:{syntax:'ecmascript'}},module:{type:'commonjs'}})));new Function('require','module','exports',code)(id=>id.startsWith('.')&&id.endsWith('.cjs')?require(path.resolve('lib',id)):id.startsWith('.')?load(path.basename(id,'.js')):require(id),m,m.exports);return m.exports;}
 const api=load('shipmentFieldVolume'),drawing=load('shipmentFarmDrawing'),text=load('shipmentFarmText'),ExcelJS=require('exceljs'),JSZip=require('jszip');
 function farmRows(ws){
   return ws.getSheetValues().flatMap((_,i)=>{
@@ -57,4 +57,40 @@ test('memo uses master export alias and entered farm quantities while source shi
   assert.match(ws.getCell('C3').text,/북문-☆ 3 \(아유라 4, 테오칼리 1\)/);
   assert.equal(ws.getCell('E3').value,5);
   assert.doesNotMatch(ws.getSheetValues().flat().join(' '),/원문|농장메모 확인|돈셀 2/);
+});
+
+test('undated retained stock uses the same route in new and previously saved pallet snapshots',()=>{
+  const XLSX=require('xlsx'),{palletSnapshot,palletText,addPalletSnapshots}=load('shipmentPallet');
+  const sheet=XLSX.utils.aoa_to_sheet([['수국','경부선주광'],['',''],['','주광보유'],['수국',37]]);
+  const snapshot=palletSnapshot(XLSX,{Sheets:{원본:sheet}},[{sheetName:'원본',colNo:2,productFamily:'hydrangea',uploadQty:37}]);
+  assert.equal(snapshot.hydrangea['["미지정","경부선주광"]'],37);
+  const legacy={hydrangea:{'["미정","경부선주광"]':3}};
+  assert.match(palletText(snapshot,'미지정','경부선주광'),/수국 0\.9/);
+  assert.match(palletText(addPalletSnapshots(legacy,snapshot),'미지정','경부선주광'),/수국 1 .* = 1빠렛/);
+  assert.match(palletText(snapshot,'목','경부선주광'),/수국 0 /);
+});
+test('archived selection reopens by year, replaces the same source and scopes saved export pallets', async t=>{
+  const store=load('shipmentFieldSources'),f=await uploadFixture();
+  const root=fs.mkdtempSync(path.join(require('os').tmpdir(),'field-sources-'));
+  const oldRoot=process.env.FIELD_UPLOAD_DIR;
+  process.env.FIELD_UPLOAD_DIR=root;
+  t.after(()=>{if(oldRoot===undefined)delete process.env.FIELD_UPLOAD_DIR;else process.env.FIELD_UPLOAD_DIR=oldRoot;fs.rmSync(root,{recursive:true,force:true});});
+  const name='46-02 카네이션.xlsx',year='2026',week='46-02';
+  const original=await store.saveSource(year,week,name,f.buffer);
+  await store.saveSource(year,week,name,f.buffer);
+  assert.deepEqual(await store.listSources('2025',week),[]);
+  const catalog=store.catalog(await store.listSources(year,week));
+  assert.equal(catalog.length,1);
+  const selection=catalog.map(({id,revision})=>({id,revision}));
+  const p=plan();await store.rememberFieldPlan(p,f.buffer);
+  const output=await store.downloadSelection(year,week,selection,[],null,async saved=>{
+    assert.deepEqual(saved.selectedFamilies,['carnation']);
+    assert.deepEqual(saved.pallets,original.pallets);
+    return api.createFieldVolumeWorkbook(saved,[line('46-01',2),line('46-02',3)],[farm()]);
+  });
+  const b=new ExcelJS.Workbook();await b.xlsx.load(output.output);
+  assert.equal(b.worksheets[0].getCell('A4').text,'총합계');
+  assert.match(b.worksheets[0].getCell('C6').text,/카네이션 .*빠렛/);
+  assert.doesNotMatch(b.worksheets[0].getCell('C6').text,/장미|수국/);
+  await assert.rejects(store.selectedData(year,week,[{...selection[0],revision:'stale'}]),/저장 목록/);
 });
