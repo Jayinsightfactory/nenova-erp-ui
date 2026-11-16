@@ -67,5 +67,11 @@
     "execution date including year",
     "verified creator userId"
   ],
-  "identityNote": "ERP identity is the standard preserved-ledger guard; company calendar lookup uses companyIdentity only and never queries these ERP keys."
+  "identityNote": "ERP identity is the standard preserved-ledger guard; company calendar lookup uses companyIdentity only and never queries these ERP keys.",
+  "eventDisplay": {
+    "title": "Existing title is returned in each event for month, week and date projections.",
+    "color": "Optional six-digit #RRGGBB input, persisted and returned as lowercase #rrggbb. Omitted create or legacy colorless record uses #267b4c. Omitted update preserves the saved color for older clients.",
+    "storage": "Additive event.color in the existing schemaVersion 1 JSON file; no SQL or schema migration. Reads do not rewrite legacy records.",
+    "safety": "Existing author/admin permissions, revision CAS, actor-scoped request replay and atomic publication remain in force for color edits."
+  }
 }

@@ -37,6 +37,22 @@ test('separate years, time validation, active actor, query limits and personal d
 test('corrupt storage never becomes empty or gets overwritten',()=>fixture(async root=>{
  const bytes='{broken';await fs.writeFile(path.join(root,'calendar.json'),bytes);await assert.rejects(companyCalendar(a,query,create(0),{root}),e=>e.statusCode===503);assert.equal(await fs.readFile(path.join(root,'calendar.json'),'utf8'),bytes);
 }));
+
+test('colors persist, normalize and remain intact for older editors and colorless storage',()=>fixture(async root=>{
+ let result=await companyCalendar(a,query,create(0,{color:'#A13BCD'}),{root});
+ const id=result.events[0].id;assert.equal(result.events[0].color,'#a13bcd');
+ result=await companyCalendar(b,query,null,{root});assert.equal(result.events[0].color,'#a13bcd');assert.equal(result.events[0].title,'회사 회의');
+ result=await companyCalendar(a,query,{...create(1,{title:'구버전 수정'}),action:'update',id},{root});assert.equal(result.events[0].color,'#a13bcd');
+ result=await companyCalendar(admin,query,{...create(2,{color:'#FF8800'}),action:'update',id},{root});assert.equal(result.events[0].color,'#ff8800');
+ const file=path.join(root,'calendar.json'),stored=JSON.parse(await fs.readFile(file,'utf8'));assert.equal(stored.events[0].color,'#ff8800');delete stored.events[0].color;await fs.writeFile(file,JSON.stringify(stored));
+ const before=await fs.readFile(file);result=await companyCalendar(b,query,null,{root});assert.equal(result.events[0].color,'#267b4c');assert.deepEqual(await fs.readFile(file),before,'reading legacy records does not migrate or change revision');
+ result=await companyCalendar(a,query,create(3),{root});assert.equal(result.events[1].color,'#267b4c');assert.equal(result.schemaVersion,1);
+ for(const color of ['',null,123,'red','#abc','#12345678','var(--color)','url(x)'])await assert.rejects(companyCalendar(a,query,create(4,{color}),{root}),e=>e.statusCode===400);
+ assert.equal((await companyCalendar(a,query,null,{root})).revision,4);
+ await assert.rejects(companyCalendar(b,query,{...create(4,{color:'#123456'}),action:'update',id},{root}),e=>e.statusCode===403);
+ const edit={...create(4,{color:'#123456'}),action:'update',id};result=await companyCalendar(a,query,edit,{root});assert.equal((await companyCalendar(a,query,edit,{root})).revision,result.revision);
+ await assert.rejects(companyCalendar(a,query,{...edit,color:'#654321'},{root}),e=>e.statusCode===409);
+}));
 test('failed atomic publication preserves old bytes and removes its temporary file',()=>fixture(async root=>{
  await companyCalendar(a,query,create(0),{root});const file=path.join(root,'calendar.json'),before=await fs.readFile(file),rename=fs.rename;
  try{fs.rename=async()=>{throw Error('fixture publication failure');};await assert.rejects(companyCalendar(a,query,create(1),{root}),/publication/);}finally{fs.rename=rename;}

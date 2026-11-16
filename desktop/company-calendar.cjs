@@ -12,6 +12,7 @@ function requestOptions(payload,owner){
   else{const c=payload.command;if(!c||!['create','update','delete'].includes(c.action)||!Number.isSafeInteger(c.expectedRevision)||c.expectedRevision<0||typeof c.requestId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(c.requestId))fail('공통 일정 저장 요청을 확인하세요.');
     const command={action:c.action,requestId:c.requestId,expectedRevision:c.expectedRevision};
     for(const [key,max] of [['id',36],['title',120],['date',10],['startTime',5],['endTime',5],['note',2000]])if(c[key]!==undefined){if(typeof c[key]!=='string'||c[key].length>max)fail('공통 일정 입력을 확인하세요.');command[key]=c[key];}
+    if(c.color!==undefined){if(typeof c.color!=='string'||!/^#[a-f0-9]{6}$/i.test(c.color))fail('일정 색상을 확인하세요.');command.color=c.color.toLowerCase();}
     options.headers['Content-Type']='application/json';options.body=JSON.stringify({expectedOwnerId:owner,query:cleanQuery,command});
   }
   return {url:url.href,options};

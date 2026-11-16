@@ -1,7 +1,12 @@
 /* Authenticated shared calendar. Text-only DOM; personal tasks are never mutated. */
 (() => {
   'use strict';
-  window.NenovaCompanyCalendar={create(onChange){
+  const palette = [['#267b4c','초록'],['#2563eb','파랑'],['#7c3aed','보라'],['#b45309','주황'],['#be365c','분홍'],['#475569','회색']];
+  const colorOf = value => /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : palette[0][0];
+  function applyColor(node, value) {
+    node.style.setProperty('--company-color', colorOf(value));
+  }
+  window.NenovaCompanyCalendar={applyColor,create(onChange){
     const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
     const button=(text,fn,cls='')=>{const b=el('button',cls,text);b.type='button';b.onclick=fn;return b;};
     let owner='',epoch=0,readId=0,snapshot=null,query={},editing=null,initial='',editRevision=0,pending=null,busy=false,trigger=null,reported=false,listDate='';
@@ -16,6 +21,19 @@
     function field(name,label,type,max){const wrap=el('label','',label),input=el(type==='textarea'?'textarea':'input');if(type!=='textarea')input.type=type;input.name=name;if(max)input.maxLength=max;wrap.append(input);form.append(wrap);fields[name]=input;return input;}
     field('title','일정 제목','text',120).required=true;field('date','일정 날짜','date').required=true;
     field('startTime','시작 시간 · 미입력은 시간 미정','time');field('endTime','종료 시간 · 선택','time');field('note','일정 메모','textarea',2000);
+    const colors=el('fieldset','company-colors'),choices=el('div','company-color-choices');
+    colors.append(el('legend','','일정 색상'),choices);form.insertBefore(colors,fields.note.parentElement);
+    const customLabel=el('label','company-color-custom','직접 선택'),colorInput=el('input');
+    colorInput.type='color';colorInput.name='color';colorInput.setAttribute('aria-label','일정 색상 직접 선택');fields.color=colorInput;
+    for(const [value,name] of palette){
+      const swatch=button(name,()=>{colorInput.value=value;syncColor();report();},'company-swatch');
+      swatch.dataset.value=value;applyColor(swatch,value);choices.append(swatch);
+    }
+    customLabel.append(colorInput);choices.append(customLabel);
+    function syncColor(){
+      for(const swatch of choices.querySelectorAll('.company-swatch'))swatch.setAttribute('aria-pressed',String(swatch.dataset.value===colorInput.value));
+    }
+    colorInput.addEventListener('input',syncColor);
     const actions=el('div','company-dialog-actions'),save=el('button','workspace-primary','전체 직원에게 일정 저장');save.type='submit';
     const remove=button('이 공통 일정 삭제',()=>{confirmBox.hidden=false;confirmText.textContent='회사 전체에서 이 일정을 삭제할까요?';confirmYes.onclick=()=>void mutate('delete');confirmYes.focus();});actions.append(save,remove);form.append(actions);
     const status=el('p','company-dialog-status');status.setAttribute('role','status');
@@ -24,8 +42,8 @@
     const fingerprint=()=>JSON.stringify(Object.values(fields).map(input=>input.value));
     const dirty=()=>!!pending||dialog.open&&fingerprint()!==initial;
     function report(){const value=dirty();if(value!==reported){reported=value;void window.desktop.invoke('homeDraft',{scope:'company',dirty:value}).catch(()=>{});}}
-    function controls(){const readonly=!!editing&&!editing.canEdit;for(const input of Object.values(fields))input.disabled=busy||!!pending||readonly;save.disabled=busy||!snapshot;save.hidden=readonly;save.textContent=pending?'같은 요청으로 다시 저장':'전체 직원에게 일정 저장';remove.hidden=!editing||readonly;remove.disabled=busy||!!pending;newButton.disabled=busy||!!pending;day.disabled=busy||!!pending;confirmYes.disabled=busy;}
-    function showList(){list.replaceChildren();const items=(snapshot?.events||[]).filter(item=>item.date===day.value);for(const event of items){const b=button((event.startTime||'시간 미정')+' · '+event.title,()=>edit(event));b.title=event.note||event.title;list.append(b);}if(!items.length)list.append(el('p','company-muted','선택한 날짜에 등록된 공통 일정이 없습니다.'));}
+    function controls(){const readonly=!!editing&&!editing.canEdit;for(const input of Object.values(fields))input.disabled=busy||!!pending||readonly;colors.disabled=busy||!!pending||readonly;save.disabled=busy||!snapshot;save.hidden=readonly;save.textContent=pending?'같은 요청으로 다시 저장':'전체 직원에게 일정 저장';remove.hidden=!editing||readonly;remove.disabled=busy||!!pending;newButton.disabled=busy||!!pending;day.disabled=busy||!!pending;confirmYes.disabled=busy;}
+    function showList(){list.replaceChildren();const items=(snapshot?.events||[]).filter(item=>item.date===day.value);for(const event of items){const b=button((event.startTime||'시간 미정')+' · '+event.title,()=>edit(event));b.title=event.note||event.title;applyColor(b,event.color);list.append(b);}if(!items.length)list.append(el('p','company-muted','선택한 날짜에 등록된 공통 일정이 없습니다.'));}
     function setSnapshot(data){snapshot=data;showList();controls();onChange?.();}
     async function load(next=query){query={...next};const ticket=++readId,generation=epoch,actor=owner;if(!actor)return;
       try{const result=await window.desktop.invoke('companyCalendar',{method:'GET',query});if(generation!==epoch||ticket!==readId||actor!==owner)return;if(!result?.success||result.ownerId!==owner)throw Error(result?.error||'공통 일정을 확인하지 못했습니다.');setSnapshot(result);}
@@ -34,10 +52,11 @@
     function edit(event,date=day.value){
       if(busy||pending)return;if(dialog.open&&dirty()){status.textContent='작성 중인 내용을 저장하거나 창을 닫은 뒤 다른 일정을 선택하세요.';return;}
       editing=event||null;editRevision=snapshot?.revision??0;confirmBox.hidden=true;status.textContent='';
-      for(const [key,input]of Object.entries(fields))input.value=event?.[key]||(key==='date'?date:'');
+      for(const [key,input]of Object.entries(fields))input.value=key==='color'?colorOf(event?.color):event?.[key]||(key==='date'?date:'');
+      syncColor();
       initial=fingerprint();controls();report();fields.title.focus();
     }
-    function finishClose(){dialog.close();editing=null;pending=null;initial=fingerprint();confirmBox.hidden=true;report();trigger?.isConnected&&trigger.focus();}
+    function finishClose(){dialog.close();editing=null;pending=null;initial=fingerprint();confirmBox.hidden=true;report();const target=trigger?.isConnected?trigger:trigger?.dataset.focus?document.querySelector('[data-focus="'+CSS.escape(trigger.dataset.focus)+'"]'):null;(target||document.getElementById('companyCalendarButton'))?.focus({preventScroll:true});}
     function tryClose(){if(busy||pending){status.textContent='저장 결과를 먼저 같은 요청으로 확인하세요.';return;}if(dirty()){confirmBox.hidden=false;confirmText.textContent='저장하지 않은 입력을 버리고 닫을까요?';confirmYes.onclick=finishClose;confirmNo.focus();return;}finishClose();}
     async function mutate(action){
       if(busy||!owner||!snapshot)return;
@@ -56,7 +75,7 @@
     list.onkeydown=event=>{const rows=[...list.querySelectorAll('button')],at=rows.indexOf(document.activeElement),delta={ArrowUp:-1,ArrowDown:1}[event.key];if(at>=0&&delta!==undefined){event.preventDefault();rows[Math.max(0,Math.min(rows.length-1,at+delta))]?.focus();}};
     return {
       get events(){return snapshot?.events||[];},get truncated(){return !!snapshot?.truncated;},load,
-      setOwner(value){if(owner===value)return;owner=value;epoch++;readId++;snapshot=null;pending=null;busy=false;editing=null;if(dialog.open)dialog.close();for(const input of Object.values(fields))input.value='';initial=fingerprint();list.replaceChildren();status.textContent='';report();onChange?.();},
+      setOwner(value){if(owner===value)return;owner=value;epoch++;readId++;snapshot=null;pending=null;busy=false;editing=null;if(dialog.open)dialog.close();for(const [key,input]of Object.entries(fields))input.value=key==='color'?colorOf(null):'';syncColor();initial=fingerprint();list.replaceChildren();status.textContent='';report();onChange?.();},
       open(date,event=null){if(!owner)return;trigger=document.activeElement;day.value=date;listDate=date;edit(event,date);if(!dialog.open)dialog.showModal();showList();fields.title.focus();void load({...query,date});},
       openEvent(event){this.open(event.date,event);},
     };

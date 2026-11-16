@@ -15,3 +15,10 @@ test('bridge rejects late account results, unauthorized and oversized/mismatched
  assert.equal((await companyCalendarRequest({...args,fetch:async()=>Response.json({success:false,error:'conflict'},{status:409})})).status,409);
  await assert.rejects(companyCalendarRequest({...args,fetch:async()=>new Response('x',{headers:{'content-length':3*1024*1024}})}),/너무/);
 });
+
+test('bridge accepts only six-digit event colors and preserves omission for older editors',()=>{
+ const payload={method:'POST',query:{month:'2026-11'},command:{action:'create',expectedRevision:0,requestId:randomUUID(),title:'회의',date:'2026-11-13'}};
+ assert.equal('color'in JSON.parse(requestOptions(payload,'a').options.body).command,false);
+ assert.equal(JSON.parse(requestOptions({...payload,command:{...payload.command,color:'#A13BCD'}},'a').options.body).command.color,'#a13bcd');
+ for(const color of ['',null,123,'red','#abc','#12345678','var(--color)','url(x)'])assert.throws(()=>requestOptions({...payload,command:{...payload.command,color}},'a'),/색상/);
+});

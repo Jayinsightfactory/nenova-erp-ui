@@ -106,3 +106,34 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .hw-panel .hw-add > .hw-settings { grid-column: 1; align-self: center; }
 .hw-panel .hw-add > .hw-settings[open] { grid-column: 1 / -1; }
 .hw-panel .hw-add > .hw-primary { grid-column: 2; justify-self: end; }
+
+/* Date selection covers the cell; individual event titles remain separate buttons. */
+.calendar-cell { position: relative; min-width: 0; min-height: 162px; box-sizing: border-box; display: flex; flex-direction: column; gap: 5px; padding: 9px; background: white; }
+.workspace-card .calendar-cell .calendar-day { position: static; min-height: 0; width: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.calendar-cell .calendar-day::after { content: ""; position: absolute; inset: 0; cursor: pointer; }
+.calendar-cell .calendar-day:disabled::after { cursor: default; }
+.calendar-cell:has(.calendar-day[aria-current=date]) { box-shadow: inset 0 0 0 1px #91b5fc; }
+.calendar-cell:has(.calendar-day[aria-pressed=true]) { background: #eef4ff; box-shadow: inset 0 0 0 2px #6e9cf0; }
+.calendar-cell:has(.calendar-day:focus-visible) { outline: 2px solid #235ee7; outline-offset: -3px; }
+.calendar-cell .month-task, .calendar-cell .month-more { pointer-events: none; }
+.workspace-card .month-company, .workspace-card .week-event.is-company, .workspace-card .week-unscheduled.is-company {
+  background: color-mix(in srgb, var(--company-color) 13%, white);
+  color: color-mix(in srgb, var(--company-color) 32%, #17283b);
+  border: 0; border-inline-start: 3px solid var(--company-color);
+}
+.workspace-card .month-company { position: relative; z-index: 1; width: 100%; min-width: 0; min-height: 0; font-size: 12px; font-weight: 600; line-height: 1.45; padding: 4px 6px; border-radius: 4px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.workspace-card .month-company:hover { background: color-mix(in srgb, var(--company-color) 22%, white); }
+.workspace-card .month-company:focus-visible { outline: 2px solid #235ee7; outline-offset: 1px; }
+.company-dialog .company-day-list button { border-inline-start: 4px solid var(--company-color); }
+.company-colors { grid-column: 1/-1; min-width: 0; margin: 0; padding: 0; border: 0; }
+.company-colors legend { margin-bottom: 6px; padding: 0; font-size: 12px; color: #526a83; }
+.company-color-choices { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.company-dialog .company-swatch { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; }
+.company-swatch::before { content: ""; width: 11px; height: 11px; border-radius: 50%; background: var(--company-color); }
+.company-dialog .company-swatch[aria-pressed=true] { border-color: #415a76; box-shadow: inset 0 0 0 1px #415a76; }
+.company-form .company-color-custom { display: inline-flex; flex-direction: row-reverse; align-items: center; gap: 4px; cursor: pointer; }
+.company-color-custom input[type=color] { width: 30px; height: 30px; padding: 2px; cursor: inherit; }
+@media(max-width:600px) {
+  .calendar-cell { min-height: 128px; gap: 3px; padding: 5px 2px; }
+  .workspace-card .month-company { font-size: 10px; padding: 3px 2px; border-inline-start-width: 2px; }
+}
