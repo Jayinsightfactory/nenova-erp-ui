@@ -40,7 +40,7 @@ const mark=async label=>{const b=await button(label);await b.evaluate(e=>{e.scro
 let rec;if(!dry)rec=await createWorkflowGuideRecorder(page,{workflowId:'shipment-field-volume',guideId:'support',title:'물량표 바로 생성 · 분배·농장 적용 후 생성',sourceFiles:['pages/shipment/distribute-import.js'],fixtureOnly:true});
 const step=async(n,scenario,title,selector,action)=>{if(rec){rec.chapter(scenario,`${n}. ${title}`);await rec.caption(`${n}. ${title}`);await rec.focus(selector,n);}console.log('step',n,title);await action();if(rec){await rec.pause(2800);await rec.unfocus();}};
 await page.waitForFunction(()=>document.querySelector('input[placeholder="22-01"]')?.value==='2026-46-02');
-await mark('파일 선택');await step(1,'upload','파일 선택에서 물량표 엑셀을 업로드합니다','[data-field-focus]',async()=>{const chooser=page.waitForFileChooser();await(await button('파일 선택')).click();await(await chooser).accept([input]);});
+await mark('물량표 모아 업로드');await step(1,'upload','물량표 모아 업로드에서 엑셀을 선택합니다','[data-field-focus]',async()=>{const chooser=page.waitForFileChooser();await(await button('물량표 모아 업로드')).click();await(await chooser).accept([input]);});
 await page.waitForSelector('fieldset input[type=checkbox]');
 await page.click('fieldset input[type=checkbox]');
 await mark('선택 품목 다운로드');await step(1,'upload-only','저장된 품목을 체크하고 선택 품목 다운로드를 누릅니다','[data-field-focus]',async()=>{await(await button('선택 품목 다운로드')).click();});

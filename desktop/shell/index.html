@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'">
   <title>Nenova 데스크톱</title>
   <link rel="stylesheet" href="./shell.css">
+  <link rel="stylesheet" href="./task-controls.css">
   <script src="./task-settings.js" defer></script><script src="./task-controls.js" defer></script><script src="./home-workspace.js" defer></script>
   <script src="./company-calendar.js" defer></script><script src="./home-dashboard.js" defer></script><script src="./shell.js" defer></script>
 </head>
@@ -79,8 +80,13 @@
             </section>
           <div class="search-wrap">
             <label for="menuSearch">업무 화면 찾기</label>
-            <div class="search-box"><span aria-hidden="true">⌕</span><input id="menuSearch" type="search" placeholder="메뉴 이름 검색" autocomplete="off" spellcheck="false" aria-controls="menuGroups"></div>
-            <kbd>Ctrl K</kbd>
+            <div class="home-search-anchor">
+              <div class="search-box"><span aria-hidden="true">⌕</span><input id="menuSearch" type="search" role="combobox" placeholder="메뉴 이름 검색" autocomplete="off" spellcheck="false" aria-autocomplete="list" aria-expanded="false" aria-controls="menuSearchResults"><kbd>Ctrl K</kbd></div>
+              <div id="menuSearchPopup" class="home-search-popup" hidden>
+                <p id="menuSearchStatus" role="status"></p>
+                <div id="menuSearchResults" role="listbox" aria-label="업무 화면 검색 결과"></div>
+              </div>
+            </div>
           </div>
         </div>
         <div class="home-columns"><div class="home-primary"><section id="workCalendar" class="workspace-card" aria-label="개인 업무 달력"></section><section id="requestBoard" class="workspace-card" aria-label="개발요청 게시판"></section>

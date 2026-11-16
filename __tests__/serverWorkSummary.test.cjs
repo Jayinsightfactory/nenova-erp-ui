@@ -15,3 +15,17 @@ test('separates order read/write timing, preserves the stages of the actual slow
  assert.equal(v.slowSamples[1].method,'GET');assert.equal(v.focusRoutes.find(r=>r.route===route).count,4);assert.equal(v.focusRoutes.find(r=>r.route==='/api/desktop/home-workspace').p95BucketMs,null);
  assert.equal(v.slowStageMaxMs.dbQuery,8000);assert.ok(!JSON.stringify(v).includes('private-value'));
 });
+
+test('keeps upload queue and workbook timing in the operator report without workbook contents', async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'nenova-field-summary-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));
+ const at=new Date().toISOString(),route='/api/shipment/distribute-import-export';
+ const events=[
+   {at,kind:'minute',groups:{[route]:{count:1,errors:0,busy:0,maxMs:1800,buckets:[0,0,0,0,1,0,0,0,0]}}},
+   {at,kind:'request',route,method:'POST',ms:1800,status:200,stages:{multipart:30,fieldWorkbook:1350,privateFilename:'private-value'}},
+ ];
+ await fs.writeFile(path.join(dir,'work-'+at.slice(0,10)+'.jsonl'),events.map(e=>JSON.stringify(e)).join('\n'));
+ const report=await summary(dir,30);
+ assert.equal(report.focusRoutes.find(r=>r.route===route).count,1);
+ assert.deepEqual(report.slowSamples[0].stagesAtMaxMs,{multipart:30,fieldWorkbook:1350});
+ assert.ok(!JSON.stringify(report).includes('private-value'));
+});

@@ -60,19 +60,27 @@
   }
   function paintMonth(){
     const [year,m]=month.split('-').map(Number),first=new Date(Date.UTC(year,m-1,1)).getUTCDay(),length=new Date(Date.UTC(year,m,0)).getUTCDate();
-    const focused=grid.contains(document.activeElement)?document.activeElement.dataset.date:null;calTitle.textContent=year+'년 '+m+'월';grid.replaceChildren();
+    const focused=grid.contains(document.activeElement)?document.activeElement.dataset:null;
+    const sharedByDate=new Map();
+    for(const event of company.events){if(!sharedByDate.has(event.date))sharedByDate.set(event.date,[]);sharedByDate.get(event.date).push(event);}
+    calTitle.textContent=year+'년 '+m+'월';grid.replaceChildren();
     for(let i=0;i<first;i++){const spacer=el('span','calendar-spacer');spacer.setAttribute('aria-hidden','true');grid.append(spacer);}
     for(let d=1;d<=length;d++){
-      const date=month+'-'+String(d).padStart(2,'0'),data=days.find(x=>x.date===date),shared=company.events.filter(event=>event.date===date),b=btn('',()=>choose(date),'calendar-day');b.dataset.date=date;
+      const date=month+'-'+String(d).padStart(2,'0'),data=days.find(x=>x.date===date),cell=el('div','calendar-cell'),b=btn('',()=>choose(date),'calendar-day');b.dataset.date=date;cell.append(b);
       const top=el('span','calendar-date-top');top.append(el('span','calendar-date-number',String(d)));if(data?.total)top.append(el('small','',data.done+'/'+data.total));b.append(top);
-      if(shared.length){const common=el('span','month-company','회사 공통 '+shared.length+'건 · '+shared[0].title);common.title=shared.map(event=>(event.startTime||'시간 미정')+' '+event.title).join('\n');b.append(common);}
-      for(const task of data?.preview||[]){const item=el('span','month-task'+(task.done?' is-done':''),(task.startTime?task.startTime+' ':'')+task.title);item.title=task.title;b.append(item);}if(data?.total>(data?.preview?.length||0)&&data?.preview?.length)b.append(el('span','month-more','＋ '+(data.total-data.preview.length)+'건'));
-      b.onclick=event=>{if(event.target.closest('.month-company'))company.open(date);else choose(date);};
-      b.setAttribute('aria-label',date+(data?' · 개인 업무 '+data.total+'건, 완료 '+data.done+'건':'')+(shared.length?' · 회사 공통 '+shared.length+'건':''));b.setAttribute('aria-pressed',String(date===selected));
+      for(const event of sharedByDate.get(date)||[]){
+        const common=btn(event.title,()=>company.openEvent(event),'month-company');
+        common.dataset.eventId=event.id;common.dataset.focus='month-event-'+event.id+'-'+date;
+        common.title=event.title+' · '+(event.startTime||'시간 미정')+' · 회사 공통 일정';common.setAttribute('aria-label',common.title);
+        window.NenovaCompanyCalendar.applyColor(common,event.color);cell.append(common);
+      }
+      for(const task of data?.preview||[]){const item=el('span','month-task'+(task.done?' is-done':''),(task.startTime?task.startTime+' ':'')+task.title);item.title=task.title;cell.append(item);}if(data?.total>(data?.preview?.length||0)&&data?.preview?.length)cell.append(el('span','month-more','＋ '+(data.total-data.preview.length)+'건'));
+      b.setAttribute('aria-label',date+(data?' · 개인 업무 '+data.total+'건, 완료 '+data.done+'건':''));b.setAttribute('aria-pressed',String(date===selected));
       if(date===today())b.setAttribute('aria-current','date');b.disabled=!owner;b.tabIndex=date===(selected.startsWith(month)?selected:month+'-01')?0:-1;
-      b.onkeydown=e=>{const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-7,ArrowDown:7}[e.key];if(delta===undefined)return;e.preventDefault();const target=shift(date,delta);if(target.slice(0,7)!==month)return;grid.querySelectorAll('button').forEach(n=>n.tabIndex=n.dataset.date===target?0:-1);grid.querySelector('[data-date="'+target+'"]')?.focus();};grid.append(b);
+      b.onkeydown=e=>{const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-7,ArrowDown:7}[e.key];if(delta===undefined)return;e.preventDefault();const target=shift(date,delta);if(target.slice(0,7)!==month)return;grid.querySelectorAll('.calendar-day').forEach(n=>n.tabIndex=n.dataset.date===target?0:-1);grid.querySelector('[data-date="'+target+'"]')?.focus();};grid.append(cell);
     }
-    if(focused)grid.querySelector('[data-date="'+focused+'"]')?.focus({preventScroll:true});
+    if(focused?.focus)grid.querySelector('[data-focus="'+CSS.escape(focused.focus)+'"]')?.focus({preventScroll:true});
+    else if(focused?.date)grid.querySelector('[data-date="'+focused.date+'"]')?.focus({preventScroll:true});
   }
   const minutes=time=>Number(time.slice(0,2))*60+Number(time.slice(3));
   const timeLabel=value=>String(Math.floor(value/60)).padStart(2,'0')+':'+String(value%60).padStart(2,'0');
@@ -92,7 +100,7 @@
       b.onkeydown=e=>{const delta={ArrowLeft:-1,ArrowRight:1}[e.key];if(delta===undefined)return;e.preventDefault();weekView.querySelector('[data-focus="day-'+shift(date,delta)+'"]')?.focus();};header.append(b);
     }
     const allDay=el('div','week-allday');allDay.append(el('span','week-zone','시간 미정'));
-    for(const date of dates){const col=el('div','week-allday-items');const unscheduled=data.find(d=>d.date===date)?.tasks.filter(t=>!t.startTime)||[];for(const task of unscheduled.slice(0,3)){const b=btn(task.title,()=>task.company?company.openEvent(task):choose(date),'week-unscheduled'+(task.company?' is-company':'')+(task.done?' is-done':''));if(task.company)b.textContent='회사 공통 · '+task.title;b.title=task.title;b.dataset.focus=task.id+date;col.append(b);}if(unscheduled.length>3)col.append(btn('＋ '+(unscheduled.length-3)+'건',()=>unscheduled.slice(3).some(task=>task.company)?company.open(date):choose(date),'week-unscheduled'));allDay.append(col);}
+    for(const date of dates){const col=el('div','week-allday-items');const unscheduled=data.find(d=>d.date===date)?.tasks.filter(t=>!t.startTime)||[];for(const task of unscheduled.slice(0,3)){const b=btn(task.title,()=>task.company?company.openEvent(task):choose(date),'week-unscheduled'+(task.company?' is-company':'')+(task.done?' is-done':''));if(task.company)window.NenovaCompanyCalendar.applyColor(b,task.color);b.title=task.title+(task.company?' · 회사 공통 일정':'');b.dataset.focus=task.id+date;col.append(b);}if(unscheduled.length>3)col.append(btn('＋ '+(unscheduled.length-3)+'건',()=>unscheduled.slice(3).some(task=>task.company)?company.open(date):choose(date),'week-unscheduled'));allDay.append(col);}
     const timed=data.flatMap(d=>d.tasks.filter(t=>t.startTime));const earliest=Math.min(8*60,...timed.map(t=>Math.floor(minutes(t.startTime)/60)*60)),latest=Math.min(1440,Math.max(19*60,...timed.map(t=>Math.ceil((t.endTime?minutes(t.endTime):minutes(t.startTime)+60)/60)*60)));
     const height=(latest-earliest)*.8,body=el('div','week-body'),axis=el('div','week-axis');body.style.height=(height+24)+'px';
     for(let value=earliest;value<=latest;value+=60){const label=el('span','',timeLabel(value));label.style.top=(value-earliest)*.8+'px';axis.append(label);}body.append(axis);
@@ -102,9 +110,10 @@
         add.onkeydown=e=>{const delta={ArrowUp:-60,ArrowDown:60}[e.key];if(delta===undefined)return;e.preventDefault();const target=col.querySelector('[data-focus="slot-'+date+'-'+(value+delta)+'"]');if(target){add.tabIndex=-1;target.tabIndex=0;target.focus();}};col.append(add);}
       for(const item of layoutEvents(data.find(d=>d.date===date)?.tasks.filter(t=>t.startTime)||[])){
         const {task}=item,b=btn('',()=>task.company?company.openEvent(task):choose(date),'week-event'+(task.company?' is-company':'')+(task.done?' is-done':''));b.dataset.focus=task.id+date;b.dataset.taskId=task.id;
-        const color=[...task.id].reduce((sum,c)=>sum+c.charCodeAt(0),0)%5;b.dataset.color=String(color);
+        if(task.company)window.NenovaCompanyCalendar.applyColor(b,task.color);
+        else b.dataset.color=String([...task.id].reduce((sum,c)=>sum+c.charCodeAt(0),0)%5);
         b.style.top=(item.start-earliest)*.8+'px';b.style.height=Math.max(22,(Math.min(item.end,latest)-item.start)*.8-3)+'px';b.style.left='calc('+item.lane/item.columns*100+'% + 3px)';b.style.width='calc('+100/item.columns+'% - 6px)';
-        b.append(el('strong','',(task.company?'회사 공통 · ':'')+task.title),el('small','',task.startTime+(task.endTime?' – '+task.endTime:' · 종료 미정')));b.title=date+' '+task.startTime+(task.endTime?'–'+task.endTime:' (종료 미정 · 기본 표시 1시간)')+' '+task.title+(task.done?' · 완료':'');b.setAttribute('aria-label',b.title+(task.company?' · 공통 일정 보기':' · 오른쪽 업무에서 확인'));col.append(b);
+        b.append(el('strong','',task.title),el('small','',task.startTime+(task.endTime?' – '+task.endTime:' · 종료 미정')));b.title=date+' '+task.startTime+(task.endTime?'–'+task.endTime:' (종료 미정 · 기본 표시 1시간)')+' '+task.title+(task.done?' · 완료':'');b.setAttribute('aria-label',b.title+(task.company?' · 공통 일정 보기':' · 오른쪽 업무에서 확인'));col.append(b);
       }
       const more=data.find(d=>d.date===date)?.more;if(more){const b=btn('추가 '+more+'건 · 일별 보기',()=>choose(date),'week-more');col.append(b);}body.append(col);
     }
@@ -126,10 +135,9 @@
     if(changed||e.detail.calendar||e.detail.calendarWeek){paint();if(owner&&visible&&online)void company.load({month,week:weekAnchor,date:selected});}
   });
   window.homeDashboard={applyState(state){const previousVisible=visible,previousOnline=online,nextOwner='homeOwnerId'in state?String(state.homeOwnerId||''):owner,changed=nextOwner!==owner;
-    if(changed){owner=nextOwner;company.setOwner(owner);companyError='';generation++;calendarRead++;boardBusy=false;clearTimeout(timer);list.replaceChildren();days=[];selected=today();weekAnchor=selected;weekData=null;month=selected.slice(0,7);boardStatus.textContent=owner?'개발요청을 확인합니다.':'로그인 후 개발요청을 확인할 수 있습니다.';}
+    if(changed){monthOpen=true;weekOpen=true;owner=nextOwner;company.setOwner(owner);companyError='';generation++;calendarRead++;boardBusy=false;clearTimeout(timer);list.replaceChildren();days=[];selected=today();weekAnchor=selected;weekData=null;month=selected.slice(0,7);boardStatus.textContent=owner?'개발요청을 확인합니다.':'로그인 후 개발요청을 확인할 수 있습니다.';}
     if('menuOpen'in state)visible=!!state.menuOpen;if('online'in state)online=!!state.online;
     for(const b of [write,all,retry,webRequest].filter(Boolean))b.disabled=!owner||!online;if(changed||previousVisible!==visible||previousOnline!==online)paint();
-    if(visible&&(changed||!previousVisible)){setMonthOpen(true);setWeekOpen(true);}
     if(owner&&visible&&online&&(changed||!previousVisible||!previousOnline)){void loadBoard();void loadCalendar();}if(!visible||!online)clearTimeout(timer);
   }};
   const webRequest=document.getElementById('webRequestButton');webRequest?.addEventListener('click',()=>open('requests=new'));

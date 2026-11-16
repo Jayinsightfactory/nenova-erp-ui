@@ -1,5 +1,7 @@
 {
  "id":"invoice-cost-preview","title":"입고 없이 인보이스 원가 계산본 다운로드",
+ "streamlineScope":["lib/vnOriginalCostInputs.js","lib/readOnlyInvoiceCostValidation.js"],
+ "readOnlyStreamline":"2026-11-13 user request: calculation-only downloads run the full current-input pure validator without a redundant applicability checkbox/preview click. Server country/formula, input, quantity/amount and source-digest revalidation remain authoritative. Approval/save UI and all ERP writes unchanged. VN exact White8 reference tariff only; current GW truck decomposition is separate from original CW storage. Missing GW never replaced with CW; saved explicit costs/zero preserved.",
  "scope":["lib/invoiceCostDownloadFeedback.js","lib/auInvoiceTariffDefaults.js","lib/invoiceCostEditing.js","lib/invoiceCostPreview.js","pages/api/import/receipts/invoice-cost.js","components/import-tools/InvoiceDraftCost.js","components/import-tools/InvoiceReceiptCostReview.js","components/import-tools/InvoiceReceiptWorkbench.js","components/import-tools/PackingListTool.js","pages/import/tools.js","lib/invoiceReceiptCostExport.js"],
  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
  "downloadFeedback":"Presentation-only: existing busy or non-APPROVED gate retained, current error/missing values/confirmation/preview required reason shown on button and adjacent status. Zero remains valid where allowed; no server or SQL change.",

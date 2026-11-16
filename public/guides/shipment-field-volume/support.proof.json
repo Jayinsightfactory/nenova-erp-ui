@@ -1,18 +1,18 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-16T03:45:31.791Z",
+  "recordedAt": "2026-11-16T03:52:17.311Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 85.05,
+  "duration": 87.85,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "db493a4b13a5088f82ebd7005db33371bea4492efe6a7a2475af89c7a8a9a299",
-  "captionsSha256": "57374baeb7965c75d1b30dbdc14d6fdc5141bfdeec704f2716a55433963dbddb",
+  "videoSha256": "aa772a5f388faea9ef0d76caae75ad66a93a24a2038b8535fc41d743eeb9bd17",
+  "captionsSha256": "8439fbc8a45c008e2f3b30380525d2efe3b9b49457ca21b6cf1721502fe078e4",
   "sourceHashes": {
-    "pages/shipment/distribute-import.js": "eec75c5836c882f8df26bfc595d8966b06c0ae3f53eefdc7755822823c239c02"
+    "pages/shipment/distribute-import.js": "e961243897355c9d17eb3ad8cb519e6c0b7fe40d940d3942f3fd22cbc16d27a1"
   },
   "presentation": {
     "numberedSteps": 10,
@@ -28,77 +28,83 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 1.9069398999999998,
-        "x": 543.5859375,
+        "start": 2.0737395000000007,
+        "x": 668.6015625,
         "y": 254.546875,
-        "end": 8.212655
+        "end": 8.4201153
       },
       {
         "number": 1,
-        "start": 10.3676976,
-        "x": 1293.3984375,
+        "start": 10.842273100000002,
+        "x": 1106.6171875,
         "y": 254.546875,
-        "end": 16.6777939
+        "end": 17.1989477
       },
       {
         "number": 1,
-        "start": 19.4649388,
-        "x": 1589.4140625,
-        "y": 254.546875,
-        "end": 25.8372059
-      },
-      {
-        "number": 1,
-        "start": 27.9954775,
-        "x": 376.46875,
+        "start": 19.9675446,
+        "x": 1072.6015625,
         "y": 297.546875,
-        "end": 34.376060700000004
+        "end": 26.5426254
+      },
+      {
+        "number": 1,
+        "start": 28.948701900000003,
+        "x": 1405.65625,
+        "y": 297.546875,
+        "end": 35.546712
       },
       {
         "number": 2,
-        "start": 36.5355772,
+        "start": 37.80255809999999,
         "x": 480,
         "y": 558.140625,
-        "end": 44.4681835
+        "end": 45.804397
       },
       {
         "number": 2,
-        "start": 46.6356722,
+        "start": 48.2209965,
         "x": 387.8203125,
         "y": 659.140625,
-        "end": 53.00249530000001
+        "end": 54.8377542
       },
       {
         "number": 2,
-        "start": 55.1322207,
-        "x": 376.46875,
+        "start": 57.0943658,
+        "x": 1405.65625,
         "y": 297.546875,
-        "end": 61.5094416
+        "end": 64.0238086
       },
       {
         "number": 3,
-        "start": 63.907004799999996,
+        "start": 66.45927750000001,
         "x": 733.8125,
         "y": 659.140625,
-        "end": 70.3244365
+        "end": 72.8240555
       }
     ],
     "inputCaretVisible": true,
-    "rawCaptureSha256": "2e43a870b92595b28f2d99e4179fdc3b49a51dcd9a20f3625ca1131b6f76231e"
+    "rawCaptureSha256": "c03a1c1411b328e27b3de560bfe7de5785e0ceabbcf20c8fea86b84df24ebe7e"
   },
   "printPreviewZoom": {
-    "start": 71.882,
-    "scale": 2,
-    "x": 195,
+    "start": 74.684,
+    "scale": 1.35,
+    "x": 0,
     "y": 0,
-    "source": "camera crop of actual captured Excel print page",
+    "source": "camera crop of actual captured Excel print page; product/name and stock/remainder columns preserved",
+    "cameraBand": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 900
+    },
     "transitionSeconds": 1.2,
     "returnsToFullFrame": true
   },
   "printPreviewCaption": {
     "number": 4,
     "source": "actual Excel ReadOnly PDF rendered to PNG; captured in local browser",
-    "start": 77.85,
-    "end": 85.05
+    "start": 80.64999999999999,
+    "end": 87.85
   }
 }

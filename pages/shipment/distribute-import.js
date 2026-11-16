@@ -8,6 +8,7 @@ import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { buildImportProductSearchHits, importProductOverrideKey, IMPORT_SKIP_PRODUCT_VALUE, isImportSkipProductValue, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue, isAlstroImportRow } from '../../lib/shipmentImportQty';
 import { buildImportFixBlockedAlert } from '../../lib/shipmentFixScopeCore';
 import { waitForImportResult, IMPORT_UNKNOWN_CODES, importPendingKey, readPendingImport, savePendingImport, clearPendingImport } from '../../lib/importApplyClient';
+import { createImportReadRequests } from '../../lib/importReadRequests';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => {
@@ -122,9 +123,10 @@ export default function DistributeImport() {
   const applyResultRef = useRef(null);
   const comparisonRef = useRef(null);
   const preAlignAvailable = false;
-
   const [file, setFile] = useState(null);
   const sheetLoadRef = useRef(0);
+  const readRequestsRef = useRef(null);
+  if (!readRequestsRef.current) readRequestsRef.current = createImportReadRequests();
   const [earlyImportMode, setEarlyImportMode] = useState('ORIGINAL_INCLUDES_EARLY');
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -195,7 +197,7 @@ export default function DistributeImport() {
       setPendingReady(true); setPendingJob(job);
       if (job) recoverPendingJob(job);
     })().catch(e => { if (!cancelled) setError(e.message); });
-    return () => { cancelled = true; mountedRef.current = false; };
+    return () => { cancelled = true; mountedRef.current = false; readRequestsRef.current.abortAll(); };
   }, []);
 
   const loadImportHistory = useCallback(async () => {
@@ -352,10 +354,12 @@ export default function DistributeImport() {
   }, [applyResult?.running, applyResult?.appliedCount, applyResult?.skippedNoChangeCount]);
 
   const handlePreview = async (options = {}) => {
+    if (applying || preAligning) return;
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
     if (options.requireConfirmation && !confirm(`선택 차수: ${weekInput.value}\n업로드 파일: ${file.name}\n\n해당 차수에 이 파일이 맞습니까?\n확인을 누르면 검증을 시작합니다.`)) return;
     const fileRevision = sheetLoadRef.current;
+    const request = readRequestsRef.current.start('preview');
     setLoading(true);
     setError('');
     if (!options.preserveMessage) setMessage('');
@@ -384,9 +388,9 @@ export default function DistributeImport() {
         cust: { ...custOverridesRef.current },
         prod: { ...prodOverridesRef.current },
       };
-      const res = await fetch('/api/shipment/distribute-import-preview', { method: 'POST', body: form, credentials: 'same-origin' });
+      const res = await fetch('/api/shipment/distribute-import-preview', { method: 'POST', body: form, credentials: 'same-origin', signal: request.signal });
       const data = await res.json();
-      if (fileRevision !== sheetLoadRef.current) return;
+      if (!request.isCurrent() || fileRevision !== sheetLoadRef.current) return;
       if (!data.success) throw new Error(data.error || '검증 실패');
       verifiedOverridesRef.current = submittedOverrides;
       setPreview(data);
@@ -426,9 +430,10 @@ export default function DistributeImport() {
         }
       }
     } catch (e) {
-      if (fileRevision === sheetLoadRef.current) setError(e.message);
+      if (request.isCurrent() && fileRevision === sheetLoadRef.current) setError(request.timedOut ? '검증 응답이 지연됩니다. 파일을 다시 선택하거나 검증하기를 다시 눌러 주세요. 전산 적용은 실행하지 않았습니다.' : e.message);
     } finally {
-      if (fileRevision === sheetLoadRef.current) setLoading(false);
+      if (request.isCurrent() && fileRevision === sheetLoadRef.current) setLoading(false);
+      request.finish();
     }
   };
 
@@ -508,6 +513,7 @@ export default function DistributeImport() {
     setLoading(false);
     setPreview(prev => prev ? { ...prev, replacementPlan: null, exportPlan: null, fieldExportPlan: null, fieldExportReady: false } : prev);
   };
+  const archivePicker=useRef(false);
   const [savedSources,setSavedSources]=useState([]);
   const [checkedSources,setCheckedSources]=useState([]);
   const [includePrevious,setIncludePrevious]=useState(true);
@@ -556,22 +562,28 @@ export default function DistributeImport() {
       setTimeout(()=>URL.revokeObjectURL(link.href),1000);
     }catch(e){setError(e.message);}finally{setDownloading(false);}
   }
-  const handleFarmDownload = async () => {
-    const sourceFile=file;
-    const plan=preview?.exportPlan;
-    if (!sourceFile || !plan || pendingJob || downloading || loading || applying) return;
+  const handleFarmDownload = async (fieldVolume = false, uploadOnly = false, sourceFile = file, memo = farmText) => {
+    const plan=fieldVolume ? preview?.fieldExportPlan : preview?.exportPlan;
+    if (!sourceFile || (!uploadOnly && (!plan || (fieldVolume && !preview?.fieldExportReady))) || (!uploadOnly && pendingJob) || (!uploadOnly && (downloading || loading)) || applying) return;
+    const request = readRequestsRef.current.start('export');
+    const revision=sheetLoadRef.current;
     setDownloading(true); setError('');
     try {
-      const revision=sheetLoadRef.current;
-      const form = new FormData(); form.append('file', sourceFile);
-      form.append('exportPlan',plan);
-      const response = await fetch('/api/shipment/distribute-import-export', {method:'POST',body:form,credentials:'same-origin'});
+      const form = new FormData(); form.append('file', sourceFile);if(isSecondRound)form.append('includePrevious',String(includePrevious));
+      if(uploadOnly){form.append('mode','field-upload');form.append('farmText',memo);form.append('week',weekInput.value);}
+      else {form.append('exportPlan', plan);if(fieldVolume)form.append('mode','field-volume');}
+      const response = await fetch('/api/shipment/distribute-import-export', {method:'POST',body:form,credentials:'same-origin',signal:request.signal});
       if (!response.ok) { const data=await response.json(); throw new Error(data.error || '엑셀 다운로드 실패'); }
-      const blob=await response.blob();if(revision!==sheetLoadRef.current)return;
+      const blob=await response.blob();if(!request.isCurrent() || revision!==sheetLoadRef.current)return;
       const url=URL.createObjectURL(blob), link=document.createElement('a');
-      link.href=url; link.download=sourceFile.name.replace(/\.xlsx$/i,'')+'-농장분배.xlsx';
+      link.href=url; link.download=sourceFile.name.replace(/\.xlsx$/i,'')+(uploadOnly?'-신형현장물량표-업로드기준.xlsx':fieldVolume?'-신형현장물량표.xlsx':'-농장분배.xlsx');
       document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    } catch(e) {setError(e.message);} finally {setDownloading(false);}
+    } catch(e) {
+      if (request.isCurrent() && revision===sheetLoadRef.current) setError(request.timedOut ? '물량표 생성 응답이 지연됩니다. 파일을 다시 선택하거나 물량표 바로 생성을 다시 눌러 주세요. 전산 적용은 실행하지 않았습니다.' : e.message);
+    } finally {
+      if (request.isCurrent()) setDownloading(false);
+      request.finish();
+    }
   };
   const handleApply = async () => {
     if (!pendingReady || pendingJob || applying) {
@@ -764,6 +776,7 @@ export default function DistributeImport() {
           storageKey="distribute-import"
           summary={(
             <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <button type="button" style={{ ...st.miniBtn, flexShrink: 0 }} disabled={applying || preAligning} onClick={()=>{archivePicker.current=false;if(fileRef.current){fileRef.current.multiple=false;fileRef.current.click();}}}>파일 선택</button>
               <b>{weekInput.value}</b>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
                 {file ? file.name : '파일 미선택'}
@@ -773,7 +786,7 @@ export default function DistributeImport() {
                   적용 {applyRows.length} · 미매칭 {(preview.unmatched || []).length} · ⚠경고 {qtyWarningRows.length}
                 </span>
               )}
-              <button style={st.miniBtn} onClick={handlePreview} disabled={loading}>{loading ? '검증중…' : '검증'}</button>
+              <button style={st.miniBtn} onClick={handlePreview} disabled={loading || applying || preAligning}>{loading ? '검증중…' : '검증'}</button>
               <button style={st.miniApplyBtn} onClick={handleApply} disabled={applying || !!pendingJob || !pendingReady || !preview}>{applying ? '적용중…' : '적용'}</button>
             </span>
           )}
@@ -794,14 +807,16 @@ export default function DistributeImport() {
             ref={fileRef}
             type="file"
             disabled={applying}
-            accept=".xlsx,.xls" multiple disabled={savingSources || downloading || applying}
+            accept=".xlsx,.xls"
             style={{ display: 'none' }}
             onChange={e => {
               const selectedFiles=Array.from(e.target.files||[]);
               const selectedFile=selectedFiles[0];
+              const archive=archivePicker.current;archivePicker.current=false;
               if (!selectedFile) return;
-
               e.target.value = '';
+              readRequestsRef.current.abortAll();
+              setDownloading(false);
               setFarmText('');
               setFarmOverrides({ targets: {}, farms: {} });
               ++sheetLoadRef.current;
@@ -817,12 +832,12 @@ export default function DistributeImport() {
               setProdOverridesState({});
               setUnmatchedModalOpen(false);
               if (/\.xlsx$/i.test(selectedFile.name)) {
-                void saveSources(selectedFiles.filter(source=>/\.xlsx$/i.test(source.name)));
+                if(archive)void saveSources(selectedFiles);else void handleFarmDownload(true, true, selectedFile, '');
               }
             }}
           />
-          <button disabled={loading || applying || preAligning || downloading} style={st.secondaryBtn} onClick={() => fileRef.current?.click()}>파일 선택</button>
-          <span style={st.fileName}>{file ? `${file.name} · 새 파일 내용 기준` : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
+          <button disabled={applying || preAligning} style={st.secondaryBtn} onClick={()=>{archivePicker.current=false;if(fileRef.current){fileRef.current.multiple=false;fileRef.current.click();}}}>파일 선택</button>
+          <button style={st.secondaryBtn} disabled={savingSources||applying||preAligning} onClick={()=>{archivePicker.current=true;if(fileRef.current){fileRef.current.multiple=true;fileRef.current.click();}}}>물량표 모아 업로드</button>
           <fieldset disabled={savingSources||downloading||applying}>
             <legend>저장된 물량표 · 합산할 품목</legend>
             {savedSources.length===0&&<span>이 차수에 저장된 품목이 없습니다.</span>}
@@ -834,6 +849,9 @@ export default function DistributeImport() {
           {isSecondRound&&<label><input type="checkbox" checked={includePrevious} disabled={downloading||savingSources}
             onChange={e=>setIncludePrevious(e.target.checked)}/> 1차 물량 합산</label>}
           <button style={st.primaryBtn} onClick={downloadChecked} disabled={!checkedSources.length||savingSources||loading||applying||downloading||!!pendingJob}>선택 품목 다운로드</button>
+          <span style={st.fileName}>{file ? `${file.name} · 새 파일 내용 기준` : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
+          <button style={st.primaryBtn} onClick={() => handleFarmDownload(true,true)} disabled={!file || !/\.xlsx$/i.test(file.name) || loading || applying || downloading || preAligning || !!pendingJob} title="원본 수량·요일색·입고·재고로 바로 생성합니다. 입력한 카톡 또는 엑셀 농장메모도 확인하며, 이전차수는 포함하지 않습니다.">{downloading ? '다운로드 준비 중...' : '물량표 바로 생성'}</button>
+          <span style={{fontSize:12,color:'#475569'}}>xlsx 선택 시 신형 현장물량표 자동 다운로드 · 카톡 입력 후 다시 생성 가능 · 원본 기준(이전차수 미포함)</span>
           <button
             style={preAlignAvailable ? st.preAlignBtn : st.preAlignDisabledBtn}
             onClick={handlePreAlign}
@@ -1083,7 +1101,7 @@ export default function DistributeImport() {
             <p style={{fontSize:13,color:'#475569'}}>엑셀 수정 내역과 농장별 합계를 함께 검증합니다. 카톡 제목 차수와 관계없이 선택한 연도·차수에 적용합니다. 원본 표의 크기·여백·인쇄 설정을 유지하고 표 밖 빈 공간에 농장분배를 넣습니다.</p>
             <button style={st.primaryBtn} disabled={loading || applying || !file} onClick={()=>handlePreview()}>수정 내역 + 농장분배 검증</button>{' '}
             <button style={st.secondaryBtn} disabled={downloading || applying || loading || !!pendingJob || !preview?.exportPlan} onClick={()=>handleFarmDownload(false)}>{downloading?'다운로드 준비 중…':'검증된 엑셀 다운로드'}</button>{' '}
-            <button style={st.applyBtn} disabled={downloading || applying || loading || !!pendingJob || !checkedSources.length || savingSources || !preview?.fieldExportReady} onClick={downloadChecked}>신형 현장물량표 생성</button>
+            <button style={st.applyBtn} disabled={downloading || applying || loading || !!pendingJob || !preview?.fieldExportReady} onClick={()=>checkedSources.length?downloadChecked():handleFarmDownload(true)}>신형 현장물량표 생성</button>
             <p style={{fontSize:13,color:'#475569'}}>1. 엑셀 업로드 분배 적용 → 2. 카톡 농장분배 검증·적용 → 3. 신형 현장물량표 생성. 저장된 결과가 검증값과 일치하면 생성할 수 있습니다. 품종(이전차수) 이번수량 /당일합계로 표시하며 요일색과 입고·출고·재고·잔량을 함께 출력합니다.</p>
             {preview?.fieldExportError && <p role="alert" style={{color:'#b91c1c'}}>현장물량표: {preview.fieldExportError}</p>}
             <span style={{marginLeft:10,fontSize:12}}>ERP 저장은 ‘적용’ 버튼으로 진행합니다.</span>

@@ -42,7 +42,35 @@
   const input = node('input'); input.placeholder = '해야 할 일을 입력하세요'; input.maxLength = 300; input.required = true; input.setAttribute('aria-label', '추가할 업무');
   const repeat = makeRepeat([]); const add = node('button', 'hw-primary', '업무 추가'); add.type = 'submit';
   const addSettings=window.NenovaTaskControls.create();const settingsToggle=node('details','hw-settings');settingsToggle.append(node('summary','','시간 · 바로가기 설정'),addSettings.root);
-  form.append(input, repeat.root, settingsToggle, add);
+  const titleLinks=node('div','hw-title-links');titleLinks.hidden=true;
+  titleLinks.append(node('small','','바로가기 연결 · 선택 사항'));
+  const linkChoices=node('div','hw-title-choices');linkChoices.setAttribute('role','group');linkChoices.setAttribute('aria-label','입력한 업무명과 관련된 메뉴');titleLinks.append(linkChoices);
+  form.append(input, titleLinks, repeat.root, settingsToggle, add);
+  const menuText=value=>String(value||'').normalize('NFKC').toLocaleLowerCase('ko').replace(/\s+/g,'');
+  let titleMenuIndex=[];
+  function hideTitleLinks(){titleLinks.hidden=true;linkChoices.replaceChildren();}
+  function showTitleLinks(){
+    hideTitleLinks();const q=menuText(input.value);
+    if(!q||!owner||!online||!snapshot||busy||document.activeElement!==input||addSettings.root.querySelector('[name=shortcutKind]').value!=='none')return;
+    const matches=titleMenuIndex.filter(m=>m.key.includes(q));
+    matches.sort((a,b)=>Number(!a.name.startsWith(q))-Number(!b.name.startsWith(q)));
+    for(const m of matches){
+      const pick=button(m.label,()=>{
+        if(busy||!owner||!online||addSettings.root.querySelector('[name=shortcutKind]').value!=='none'||!addSettings.chooseDesktop(m.href))return;
+        hideTitleLinks();settingsToggle.open=true;draftSignal();input.focus({preventScroll:true});
+      });pick.title=m.group+' · '+m.label+' 바로가기 연결';linkChoices.append(pick);
+    }
+    titleLinks.hidden=!linkChoices.childElementCount;
+  }
+  input.addEventListener('input',showTitleLinks);input.addEventListener('focus',showTitleLinks);
+  form.addEventListener('focusout',e=>{if(e.relatedTarget!==input&&!titleLinks.contains(e.relatedTarget))hideTitleLinks();});
+  form.addEventListener('keydown',e=>{
+    if(titleLinks.hidden||e.isComposing||e.keyCode===229)return;
+    const choices=[...linkChoices.children],at=choices.indexOf(e.target);
+    if(e.target!==input&&at<0)return;
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();input.focus({preventScroll:true});hideTitleLinks();return;}
+    if(e.key==='ArrowDown'||(e.key==='ArrowUp'&&at>=0)){e.preventDefault();const next=at+(e.key==='ArrowDown'?1:-1);(next<0?input:choices[Math.min(next,choices.length-1)])?.focus();}
+  });
   const viewBar=node('div','hw-viewbar'),listView=button('목록',()=>{timeline=false;renderTasks();}),timeView=button('시간표',()=>{timeline=true;expanded=true;renderTasks();});viewBar.append(listView,timeView);
   const rows = node('div', 'hw-rows');
   const more = button('전체 보기', () => { if (!expanded) { expanded = true; renderTasks(); } else if (snapshot?.nextOffset != null) void loadMore(); else { expanded = false; renderTasks(); } }); more.hidden = true;
@@ -305,11 +333,20 @@
   reduced.addEventListener('change', e => { if (e.matches) { lanes.forEach(l => l.paused = true); renderFeeds(); } });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void load(); else clearTimeout(timer); });
   window.homeWorkspace = { selectDate:changeDate, beginAt(value,time){if(!changeDate(value,false))return false;settingsToggle.open=true;addSettings.setStart(time);input.focus();input.scrollIntoView({block:'center',behavior:reduced.matches?'instant':'smooth'});return true;}, applyState(next) {
-    if(Array.isArray(next.menus)){menuGroups=next.menus;addSettings.setMenus(menuGroups);}
+    if(Array.isArray(next.menus)){
+      menuGroups=next.menus;addSettings.setMenus(menuGroups);const entries=new Map();
+      for(const group of menuGroups)for(const item of group.items||[]){
+        if(!item.href||/[?#]/.test(item.href)||!item.labelKey||entries.has(item.href))continue;
+        entries.set(item.href,{href:item.href,label:item.labelKey,group:group.group,name:menuText(item.labelKey),key:menuText(item.labelKey+' '+(group.group||''))});
+      }
+      titleMenuIndex=[...entries.values()];
+    }
     const nextOwner = Object.prototype.hasOwnProperty.call(next, 'homeOwnerId') ? String(next.homeOwnerId || '') : owner;
     const changed = nextOwner !== owner, wasVisible = visible, wasOnline = online;
     if (changed) { epoch++; owner = nextOwner; snapshot = null; pending = null; editing = null; editDraft = null; confirmation = null; busy = false; querying = false; failures = 0; input.value = ''; repeat.reset(); addSettings.reset(); filter.value = 'active'; expanded = false; selectedDate = today(); date.value = selectedDate; followsToday = true; detail = null; feedDetail.hidden = true; feedDetail.replaceChildren(); setError(''); lanes.forEach(l => { l.at = 0; l.hover = false; l.focus = false; }); }
     if ('menuOpen' in next) visible = !!next.menuOpen; if ('online' in next) online = !!next.online;
+    if(changed||!visible||!online)hideTitleLinks();
+    else if(Array.isArray(next.menus)&&document.activeElement===input)showTitleLinks();
     if (changed) { status.textContent = owner ? '개인 업무를 확인합니다.' : '로그인이 필요합니다.'; renderTasks(); renderFeeds(); lock(); }
     if (!visible || !online || !owner) clearTimeout(timer);
     if (owner && !online) status.textContent = '연결 대기 · ' + (snapshot ? '마지막 갱신 ' + stamp(snapshot.syncedAt) : '온라인 연결 후 다시 확인합니다.');

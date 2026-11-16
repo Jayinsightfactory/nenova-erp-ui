@@ -1,0 +1,13 @@
+{
+  "id":"import-readonly-streamline",
+  "title":"베트남 중량별 국내운송·읽기전용 다운로드 간소화",
+  "scope":["lib/vnOriginalCostInputs.js","lib/readOnlyInvoiceCostValidation.js","lib/invoiceCostCustomsReference.js","lib/invoiceCostOriginalRestoration.js","lib/nativeReceiptCost.js","components/import-tools/NativeReceiptCost.js","components/import-tools/InvoiceReceiptCostReview.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"READONLY_CALCULATE_DOWNLOAD","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"read-only","warehouseDetail":"read-only","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","notes":"No approval/receipt writer changes. Pure current-input validation enables calculation-file download directly, server recalculates and source digest rechecks. Latest user requests GW-based domestic transport; CW original storage fee kept separate. Exact current reference White8 tariff only, not statutory rate assertion; unknown product tariff remains missing. Historic approved inputs preserved."}],
+  "crossYearFixture":{"required":true,"description":"VN defaults require2026 and week>=37-01, exact active Vietnamese White8 product. 2025 same week and mismatching/deleted product return no tariff. Other country validators retain scope."},
+  "requiredTestFiles":["__tests__/vnOriginalCostInputs.test.js","__tests__/readOnlyInvoiceCostValidation.test.js","__tests__/nativeReceiptCost.test.js","__tests__/invoiceReceiptCostRegistryUi.test.js","__tests__/invoiceCostCustomsReference.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"Existing ExcelLoadingPackingList.MakeTempTable unit/amount separation and native InsertMaster stock side effects remain untouched. New helpers do not access DB. Native read/download source SELECT retains year/week/key digest revalidation.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","Product"]},
+  "designDocument":"docs/plans/import-streamline-2026-11-13.md",
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
+  "status":"implementation; native app/Excel/guide/CI/deployment not yet verified"
+}

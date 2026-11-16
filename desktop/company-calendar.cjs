@@ -12,6 +12,9 @@ function requestOptions(payload,owner){
   else{const c=payload.command;if(!c||!['create','update','delete'].includes(c.action)||!Number.isSafeInteger(c.expectedRevision)||c.expectedRevision<0||typeof c.requestId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(c.requestId))fail('공통 일정 저장 요청을 확인하세요.');
     const command={action:c.action,requestId:c.requestId,expectedRevision:c.expectedRevision};
     for(const [key,max] of [['id',36],['title',120],['date',10],['startTime',5],['endTime',5],['note',2000]])if(c[key]!==undefined){if(typeof c[key]!=='string'||c[key].length>max)fail('공통 일정 입력을 확인하세요.');command[key]=c[key];}
+    if(c.color!==undefined){if(typeof c.color!=='string'||!/^#[a-f0-9]{6}$/i.test(c.color))fail('일정 색상을 확인하세요.');command.color=c.color.toLowerCase();}
+    if(c.weekly!==undefined){const w=c.weekly;if(!w||typeof w!=='object'||Array.isArray(w)||Object.keys(w).some(key=>!['endDate','deadline','inclusive','resetDate'].includes(key))||typeof w.endDate!=='string'||w.endDate.length!==10||typeof w.deadline!=='string'||w.deadline.length!==10||w.inclusive!==undefined&&typeof w.inclusive!=='boolean'||w.resetDate!==undefined&&(typeof w.resetDate!=='string'||w.resetDate.length!==10))fail('주차 반복 범위를 확인하세요.');personalOptions({method:'GET',date:w.endDate},owner);personalOptions({method:'GET',date:w.deadline},owner);if(w.resetDate!==undefined)personalOptions({method:'GET',date:w.resetDate},owner);command.weekly={endDate:w.endDate,deadline:w.deadline,...(w.inclusive!==undefined?{inclusive:w.inclusive}:{}),...(w.resetDate!==undefined?{resetDate:w.resetDate}:{})};}
+    if(c.recurringEdit!==undefined){if(typeof c.recurringEdit!=='boolean')fail('주차 반복 수정 요청을 확인하세요.');command.recurringEdit=c.recurringEdit;}
     options.headers['Content-Type']='application/json';options.body=JSON.stringify({expectedOwnerId:owner,query:cleanQuery,command});
   }
   return {url:url.href,options};

@@ -3,6 +3,8 @@ import { INVOICE_COST_FORMULAS, previewInvoiceCost, restoredInvoiceCostInput } f
 import { acquireInvoiceCostWorkflowLock, classifyInvoiceCostPostResponse, invoiceCostApprovalInvalidationEvents, isInvoiceCostGenerationCurrent, runInvoiceCostSaveWorkflow, runInvoiceCostStageRunner, shouldShowInvoiceCostPreviewNotice, verifyInvoiceCostReadback } from '../../lib/invoiceReceiptCostWorkflow';
 import styles from '../../styles/InvoiceReceiptCost.module.css';
 import useCostStepGuide from './useCostStepGuide';
+import { calculateVnOriginalCustoms, VN_CUSTOMS_SOURCE } from '../../lib/vnOriginalCostInputs.js';
+import { readOnlyInvoiceCostValidation } from '../../lib/readOnlyInvoiceCostValidation.js';
 import { invoiceCostDownloadFeedback } from '../../lib/invoiceCostDownloadFeedback.js';
 import { downloadInvoiceCostExport, invoiceCostExportEligibility } from '../../lib/invoiceReceiptStageLogClient.js';
 import { validateInvoiceCostReadback } from '../../lib/invoiceReceiptCostWorkflow';
@@ -151,6 +153,9 @@ function initialForm(document, receiptLines) {
   const verifiedFormula = INVOICE_COST_FORMULAS[initialFormulaId];
   const marketRate = document?.reviewedMetadata?.audMarketRate || null;
   const savedLines = new Map((saved.lineInputs || []).map(line => [String(line.lineId).toLowerCase(), line]));
+  const vn = verifiedFormula?.country==='VN' && document.costStatus==='PREVIEW_ONLY'
+    ? calculateVnOriginalCustoms({gw:document.reviewedMetadata?.gw,cw:document.reviewedMetadata?.cw,
+      itemCount:new Set(receiptLines.filter(l=>Number(l.prodKey)>0).map(l=>Number(l.prodKey))).size}) : null;
   return {
     ...EMPTY_FORM,
     nativeCurrency: uniformNativeCurrency,
@@ -159,6 +164,8 @@ function initialForm(document, receiptLines) {
       freightCurrency: String(freight.currency).trim().toUpperCase(),
     } : {}),
     ...saved,
+    ...(vn && vn.total!==null && numberOrNull(saved.customsTotalKRW)===null ? {customsTotalKRW:vn.total,expenseBasis:'ESTIMATED',estimateSource:VN_CUSTOMS_SOURCE} : {}),
+    ...(vn && verifiedFormula.freightIncluded && numberOrNull(saved.freightAmount)===null && !recognizedFreight ? {freightAmount:0,freightCurrency:uniformNativeCurrency} : {}),
     ...(verifiedFormula?.country === 'AU' ? {
       exchangeRateKRW: saved.exchangeRateKRW ?? marketRate?.rate ?? '',
       exchangeRateType: saved.exchangeRateType ?? 'MARKET_SEARCH',
@@ -331,7 +338,7 @@ function Field({ label, children, wide = false }) {
 
 function money(value) {
   return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
-    ? `${Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 6 })}원` : '—';
+    ? `${Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 0 })}원` : '—';
 }
 
 function unitLabel(value) {
@@ -365,7 +372,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const [exchangeRateStatus, setExchangeRateStatus] = useState('');
   const [exchangeRateRetry, setExchangeRateRetry] = useState(0);
   const [preview, setPreview] = useState(null);
-  useEffect(() => { onInputDraftChange?.(payloadOf(form), { edited: inputEdited }); }, [form, inputEdited, onInputDraftChange]);
+  useEffect(() => { onInputDraftChange?.({...payloadOf(form),formulaApplicabilityConfirmed:nativePreview||form.formulaApplicabilityConfirmed===true}, { edited: inputEdited }); }, [form, inputEdited, onInputDraftChange, nativePreview]);
   useEffect(() => {
     const template = nlInvoiceDraftTemplate(document, receiptLines, form);
     if (!template || (Number(form.customsTotalKRW) === template.total
@@ -609,7 +616,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     if (nativePreview) {
       setBusyIdentity(identity);
       try {
-        const data = await onNativeAction('preview', payloadOf(form));
+        const data = await onNativeAction('preview', { ...payloadOf(form), formulaApplicabilityConfirmed: true });
         if (isCurrent(expectedIdentity, expectedGeneration)) {
           setPreview(data.preview);
           setNotice({ type: data.preview?.status === 'APPROVED' ? 'success' : 'error', text: data.preview?.status === 'APPROVED' ? '계산 완료. 운영 DB 저장 없이 엑셀을 다운로드할 수 있습니다.' : '아래 누락 항목을 입력하세요. 입고자료는 변경하지 않았습니다.' });
@@ -766,7 +773,13 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const reviewOnly = allowedFormulaIds.length === 0 || (form.formulaId && (!selectedFormula || !allowedFormulaIds.includes(form.formulaId)));
   const exportActual = verifiedExport?.identity === identity ? verifiedExport.actual : null;
   const exportEligibility = invoiceCostExportEligibility(document, exportActual);
-  const downloadFeedback = invoiceCostDownloadFeedback({busy,preview,notice,form,reviewOnly,manualLineCount:manualLineIds.length,inputEdited});
+  // Read-only calculation is not approval. Validate every current input locally,
+  // then let the existing download endpoint revalidate the source and calculation.
+  // No redundant consent checkbox or preview click is needed to download a file.
+  const readOnlyValidation = nativePreview ? readOnlyInvoiceCostValidation(document,receiptLines,payloadOf(form)) : null;
+  const downloadInput = readOnlyValidation?.input || payloadOf(form);
+  const currentReadOnlyPreview = readOnlyValidation?.preview;
+  const downloadFeedback = invoiceCostDownloadFeedback({busy,preview:nativePreview?currentReadOnlyPreview:preview,notice,form:nativePreview?{...form,formulaApplicabilityConfirmed:true}:form,reviewOnly,manualLineCount:manualLineIds.length,inputEdited});
   const guideRoot = useCostStepGuide(JSON.stringify(form) + String(busy) + String(preview?.status), nativePreview && !downloadFeedback.disabled);
   async function downloadCost() {
     if (busy || pending || exportLockRef.current || !exportEligibility.allowed) return;
@@ -782,7 +795,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   }
 
   return <section ref={guideRoot} className={styles.root} aria-label="인보이스 도착원가 검토">
-    <p role="status">강조된 입력칸을 확인하세요. 입력 후 미리보기·다운로드 순서로 안내합니다.</p>
+    <p role="status">{nativePreview?'확인할 이슈만 수정하세요. 값이 유효하면 바로 엑셀을 다운로드할 수 있습니다.':'강조된 입력칸을 확인하세요. 입력 후 미리보기·다운로드 순서로 안내합니다.'}</p>
     <header className={styles.header}>
       <div><span className={styles.eyebrow}>검증된 원가 계산</span><h3>{invoicePreview ? '인보이스 수량 도착원가' : '실제 입고량 도착원가'}</h3>
         <p>검증된 공식만 계산합니다. 적용 확인은 이 문서에 대한 수동 검토이며 공식의 보편적 유효성을 뜻하지 않습니다. 95% 적재 예상값은 비교 전용입니다.</p></div>
@@ -903,9 +916,9 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       {country === 'TH' && <label className={styles.confirmation}><input type="checkbox" checked={form.lossTreatmentConfirmed === true} onChange={event => update('lossTreatmentConfirmed', event.target.checked)} />
         <span>검역 손실·소독비를 확인하고 현재 통관비 합계에 포함했습니다 (없으면 0 확인)</span></label>}
     </>}
-    <label className={styles.confirmation}><input data-cost-confirm type="checkbox" checked={form.formulaApplicabilityConfirmed === true}
+    {!nativePreview && <label className={styles.confirmation}><input data-cost-confirm type="checkbox" checked={form.formulaApplicabilityConfirmed === true}
       onChange={event => update('formulaApplicabilityConfirmed', event.target.checked)} />
-      <span>이 입고일·운송·품목에 해당 원본 계산식 적용을 확인했습니다{isChinaAir ? ' · 현재 GW/CW와 행별 실중량·CBM 환산중량을 직접 검토했습니다' : ''}</span></label>
+      <span>이 입고일·운송·품목에 해당 원본 계산식 적용을 확인했습니다{isChinaAir ? ' · 현재 GW/CW와 행별 실중량·CBM 환산중량을 직접 검토했습니다' : ''}</span></label>}
 
     <details className={styles.evidence}>
       <summary>검증된 계산 근거 보기</summary>
@@ -948,7 +961,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       {nativePreview ? <button data-cost-download type="button" className={styles.primary} disabled={downloadFeedback.disabled} title={downloadFeedback.reason || '미승인 계산본을 다운로드합니다.'} aria-describedby={downloadFeedback.disabled ? 'cost-download-reason' : undefined} onClick={async () => {
         const expectedIdentity = identity, generation = generationRef.current;
         setBusyIdentity(identity);
-        try { await onNativeAction('download', payloadOf(form)); if(isCurrent(expectedIdentity,generation))setNotice({type:'success',text:'미승인 계산본 엑셀 다운로드를 시작했습니다. 입고·승인 원가는 변경하지 않았습니다.'}); }
+        try { await onNativeAction('download', downloadInput); if(isCurrent(expectedIdentity,generation))setNotice({type:'success',text:'미승인 계산본 엑셀 다운로드를 시작했습니다. 입고·승인 원가는 변경하지 않았습니다.'}); }
         catch (error) { if (isCurrent(expectedIdentity, generation)) setNotice({ type: 'error', text: error.message }); }
         finally { if (isCurrent(expectedIdentity, generation)) setBusyIdentity(''); }
       }}><span>도착원가 엑셀 다운로드 · 미승인 계산본</span>{downloadFeedback.disabled && <small className={styles.downloadReason}>{downloadFeedback.reason.length > 180 ? `${downloadFeedback.reason.slice(0,180)}… (아래 상세 사유 확인)` : downloadFeedback.reason}</small>}</button> : <>
