@@ -510,6 +510,8 @@ export default function DistributeImport() {
   };
   const [savedSources,setSavedSources]=useState([]);
   const [checkedSources,setCheckedSources]=useState([]);
+  const [includePrevious,setIncludePrevious]=useState(true);
+  const isSecondRound=/-0?2$/.test(weekInput.value);
   const [savingSources,setSavingSources]=useState(false);
   const sourceYear=String(weekInput.value).match(/^(\d{4})-/)?.[1]||String(new Date().getFullYear());
   const archiveUrl='/api/shipment/field-sources?'+new URLSearchParams({year:sourceYear,week:weekInput.value});
@@ -541,6 +543,7 @@ export default function DistributeImport() {
     try{
       const selected=savedSources.filter(s=>checkedSources.includes(s.id));
       const form=new FormData();
+      if(isSecondRound)form.append('includePrevious',String(includePrevious));
       form.append('selection',JSON.stringify(selected.map(({id,revision})=>({id,revision}))));
       form.append('filename',file?.name||'');form.append('farmText',farmText);
       const res=await fetch(archiveUrl,{method:'POST',body:form});
@@ -828,6 +831,8 @@ export default function DistributeImport() {
               {item.label} ({item.filename})
             </label>)}
           </fieldset>
+          {isSecondRound&&<label><input type="checkbox" checked={includePrevious} disabled={downloading||savingSources}
+            onChange={e=>setIncludePrevious(e.target.checked)}/> 1차 물량 합산</label>}
           <button style={st.primaryBtn} onClick={downloadChecked} disabled={!checkedSources.length||savingSources||loading||applying||downloading||!!pendingJob}>선택 품목 다운로드</button>
           <button
             style={preAlignAvailable ? st.preAlignBtn : st.preAlignDisabledBtn}

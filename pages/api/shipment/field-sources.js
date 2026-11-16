@@ -23,15 +23,18 @@ async function handler(req,res){
       await saveSource(orderYear,orderWeek,file.originalFilename,await fs.readFile(file.filepath));
       return res.json({items:catalog(await listSources(orderYear,orderWeek))});
     }
+    const mode=first(fields.includePrevious);
+    if(mode!=null&&!['true','false'].includes(mode))throw Error('1차 합산 여부를 확인하세요.');
+    const includePrevious=!orderWeek.endsWith('-02')||mode!=='false';
     const selection=JSON.parse(first(fields.selection)||'[]');
     const customers=await query('SELECT CustName, OrderCode, Descr FROM Customer WHERE ISNULL(isDeleted,0)=0');
     async function renderSaved(plan){
-      const scope=fieldVolumeSql(plan.products.map(p=>p.prodKey));
+      const scope=fieldVolumeSql(plan.products.map(p=>p.prodKey),plan.includePrevious);
       const params={year:{type:sql.NVarChar,value:orderYear},major:{type:sql.NVarChar,value:orderWeek.slice(0,2)},minor:{type:sql.Int,value:Number(orderWeek.slice(3))}};
       const [lines,farms]=await Promise.all([query(scope.lines,params),query(scope.farms,params)]);
       return createFieldVolumeWorkbook(plan,lines.recordset,farms.recordset);
     }
-    const {output,name}=await downloadSelection(orderYear,orderWeek,selection,customers.recordset,{filename:first(fields.filename),text:first(fields.farmText)},renderSaved);
+    const {output,name}=await downloadSelection(orderYear,orderWeek,selection,customers.recordset,{filename:first(fields.filename),text:first(fields.farmText)},renderSaved,includePrevious);
     res.setHeader('Content-Disposition',"attachment; filename*=UTF-8''"+encodeURIComponent(name));
     res.setHeader('Content-Type',name.endsWith('.zip')?'application/zip':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     return res.send(output);

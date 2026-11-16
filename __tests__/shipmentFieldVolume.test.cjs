@@ -82,15 +82,36 @@ test('archived selection reopens by year, replaces the same source and scopes sa
   const catalog=store.catalog(await store.listSources(year,week));
   assert.equal(catalog.length,1);
   const selection=catalog.map(({id,revision})=>({id,revision}));
+  await store.saveSource(year,'46-01','46-01 카네이션.xlsx',f.buffer);
+  const combined=await store.selectedData(year,week,selection);
+  const second=await store.selectedData(year,week,selection,false);
+  assert(combined.parts[0].prior);
+  assert.equal(second.parts[0].prior,undefined);
+  for(const [route,boxes] of Object.entries(second.pallets.carnation)){
+    assert.equal(combined.pallets.carnation[route],2*boxes);
+  }
   const p=plan();await store.rememberFieldPlan(p,f.buffer);
   const output=await store.downloadSelection(year,week,selection,[],null,async saved=>{
     assert.deepEqual(saved.selectedFamilies,['carnation']);
-    assert.deepEqual(saved.pallets,original.pallets);
+    assert.deepEqual(saved.pallets,combined.pallets);
     return api.createFieldVolumeWorkbook(saved,[line('46-01',2),line('46-02',3)],[farm()]);
   });
   const b=new ExcelJS.Workbook();await b.xlsx.load(output.output);
   assert.equal(b.worksheets[0].getCell('A4').text,'총합계');
   assert.match(b.worksheets[0].getCell('C6').text,/카네이션 .*빠렛/);
   assert.doesNotMatch(b.worksheets[0].getCell('C6').text,/장미|수국/);
+  const currentOnly=await store.downloadSelection(year,week,selection,[],null,async saved=>{
+    assert.equal(saved.includePrevious,false);
+    assert.deepEqual(saved.pallets,original.pallets);
+    const sql=api.fieldVolumeSql([2],saved.includePrevious);
+    for(const query of [sql.lines,sql.farms]){
+      assert.match(query,/SUBSTRING\(sm.OrderWeek,4,8\)\) = @minor/);
+      assert.doesNotMatch(query,/BETWEEN 1 AND @minor/);
+    }
+    return api.createFieldVolumeWorkbook(saved,[line('46-02',3)],[farm()]);
+  },false);
+  await b.xlsx.load(currentOnly.output);
+  assert.match(b.worksheets[0].getCell('C3').text,/업체 3 \(아유라 3\)/);
+  assert.match(b.worksheets[0].getCell('C6').text,/\(총 3\)/);
   await assert.rejects(store.selectedData(year,week,[{...selection[0],revision:'stale'}]),/저장 목록/);
 });
