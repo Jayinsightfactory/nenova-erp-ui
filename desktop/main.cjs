@@ -1,5 +1,5 @@
 'use strict';
-const { applyWindowIdentity } = require('./windows-identity.cjs');
+const { appIdFor, applyWindowIdentity, repairTaskbarShortcuts } = require('./windows-identity.cjs');
 const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen, dialog, shell, Menu, safeStorage, net, Notification, clipboard } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -50,7 +50,7 @@ let aiBridge = null;
 const { createUpdater, createUpdateScheduler, MIN_FREE } = require('./updater.cjs');
 protocol.registerSchemesAsPrivileged([{ scheme: 'nenova-app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 app.setName('Nenova Desktop');
-app.setAppUserModelId('com.nenova.workspace');
+app.setAppUserModelId(appIdFor(app.isPackaged));
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', (_event, argv) => { if (argv.some(arg => /^nenova-notes:\/\/open\/?$/i.test(arg)) && !locked) { openNotesWindow(); return; } const w = ([...windows.values()][0]||createWindow()).win; if (w) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); } });
 
@@ -668,6 +668,7 @@ async function startAiBridge() {
 // ---------------------------------------------------------------------------
 app.whenReady().then(async () => {
   const enabled = app.isPackaged && process.platform === 'win32';
+  if (enabled) repairTaskbarShortcuts({ shell, appData: app.getPath('appData'), execPath: process.execPath, resourcesPath: process.resourcesPath });
   const engine = enabled ? require('electron-updater').autoUpdater : null;
   updater = createUpdater({ engine, enabled, enoughSpace: enoughUpdateSpace, prepareInstall: prepareUpdate, notify: () => broadcast() });
   updateScheduler = createUpdateScheduler({ updater, isReady: () => !locked && !!actor && !quitting, isOnline: () => net.isOnline() });
