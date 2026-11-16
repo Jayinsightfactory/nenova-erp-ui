@@ -2,7 +2,7 @@
 // 입고(AWB/인보이스) 관점 피벗: 행 = 주문차수 ▶ AWB ▶ 인보이스 / 열 = 농장 칩 / 값 = 입고총단가(USD)
 // + 칸추가: AWB/인보이스에 Claim·은행수수료 등 수기항목(텍스트+참조번호+금액, 음수 허용) 추가
 // + 정산서 엑셀: 농장별 [일자-No./거래처명/품목명(규격)/외화금액/차수·품목/인보이스넘버/결제일] + 농장 계/총계
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { useWeekInput, WeekInput } from '../../lib/useWeekInput';
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
 import {
@@ -12,6 +12,20 @@ import {
 
 const normAwb = (a) => String(a || '').replace(/[^0-9A-Za-z]/g, '');
 const fmt2 = n => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function totalsByFarm(rows, adjustments) {
+  const bills = new Map();
+  const extras = new Map();
+  for (const row of rows) {
+    const farm = row.farmName || '(농장미상)';
+    bills.set(farm, (bills.get(farm) ?? 0) + Number(row.inTotal || 0));
+  }
+  for (const row of adjustments) {
+    const farm = row.farmName || '(농장미상)';
+    extras.set(farm, (extras.get(farm) ?? 0) + Number(row.amount || 0));
+  }
+  return farm => (bills.get(farm) ?? 0) + (extras.get(farm) ?? 0);
+}
 
 export default function PivotImport() {
   const weekFromInput = useWeekInput('');
@@ -110,7 +124,7 @@ export default function PivotImport() {
   };
 
   const searchLive = search.trim().toLowerCase();
-  const matchesFilters = (farm, awb, billNo) => {
+  const matchesFilters = useCallback((farm, awb, billNo) => {
     if (selFarms.size > 0 && !selFarms.has(farm)) return false;
     if (!farmMatchesPaymentDay(farm, farmPaymentDays, paymentDayFilter)) return false;
     if (searchLive &&
@@ -118,11 +132,12 @@ export default function PivotImport() {
       !String(billNo || '').toLowerCase().includes(searchLive) &&
       !farm.toLowerCase().includes(searchLive)) return false;
     return true;
-  };
+  }, [selFarms, farmPaymentDays, paymentDayFilter, searchLive]);
   const visible = useMemo(() => rows.filter(r => matchesFilters(r.farmName || '(농장미상)', r.awb, r.billNo)),
-    [rows, selFarms, searchLive]); // eslint-disable-line react-hooks/exhaustive-deps
+    [rows, matchesFilters]);
   const visibleAdjs = useMemo(() => adjustments.filter(a => matchesFilters(a.farmName || '(농장미상)', a.awb, a.invoiceNo || a.refNo)),
-    [adjustments, selFarms, searchLive]); // eslint-disable-line react-hooks/exhaustive-deps
+    [adjustments, matchesFilters]);
+  const farmTotal = useMemo(() => totalsByFarm(visible, visibleAdjs), [visible, visibleAdjs]);
 
   const farmCols = useMemo(() => {
     const names = selFarms.size > 0
@@ -328,6 +343,7 @@ export default function PivotImport() {
                   : [...grouped.entries()].map(([wk, byAwb]) => {
                     const weekRows = [...byAwb.values()].flatMap(g => g.bills);
                     const weekAdjs = [...byAwb.values()].flatMap(g => g.adjs);
+                    const weekFarmTotal = totalsByFarm(weekRows, weekAdjs);
                     const weekTotal = weekRows.reduce((s, r) => s + Number(r.inTotal || 0), 0)
                       + weekAdjs.reduce((s, a) => s + Number(a.amount || 0), 0);
                     const bodyRowCount = weekRows.length + weekAdjs.length + byAwb.size + 1;
@@ -417,10 +433,7 @@ export default function PivotImport() {
                             {wk.replace(/^\d{4}-/, '')} 차수 합계
                           </td>
                           {farmCols.map(f => {
-                            const t = weekRows.filter(r => (r.farmName || '(농장미상)') === f)
-                              .reduce((s, r) => s + Number(r.inTotal || 0), 0)
-                              + weekAdjs.filter(a => (a.farmName || '(농장미상)') === f)
-                                .reduce((s, a) => s + Number(a.amount || 0), 0);
+                            const t = weekFarmTotal(f);
                             return <td key={f} style={{ ...cellNum, fontWeight: 700 }}>{t ? fmt2(t) : ''}</td>;
                           })}
                           <td style={{ ...cellNum, fontWeight: 800, background: 'var(--green-bg)' }}>{fmt2(weekTotal)}</td>
@@ -432,10 +445,7 @@ export default function PivotImport() {
                   <tr style={{ borderTop: '2px solid var(--border2)', background: 'var(--bg)' }}>
                     <td colSpan={5} style={{ fontWeight: 800, textAlign: 'right' }}>총 합계</td>
                     {farmCols.map(f => {
-                      const t = visible.filter(r => (r.farmName || '(농장미상)') === f)
-                        .reduce((s, r) => s + Number(r.inTotal || 0), 0)
-                        + visibleAdjs.filter(a => (a.farmName || '(농장미상)') === f)
-                          .reduce((s, a) => s + Number(a.amount || 0), 0);
+                      const t = farmTotal(f);
                       return <td key={f} style={{ ...cellNum, fontWeight: 700 }}>{t ? fmt2(t) : ''}</td>;
                     })}
                     <td style={{ ...cellNum, fontWeight: 900, background: 'var(--green-bg)' }}>{fmt2(grandTotal)}</td>

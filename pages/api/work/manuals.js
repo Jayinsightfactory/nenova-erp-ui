@@ -39,6 +39,17 @@ function handoverWithCaptures() {
       }));
     }
   } catch { /* 갱신본을 못 읽으면 글 단계만 보여 준다 */ }
+  // 강의형 설명 영상 목차(import-lectures): 영상 본체는 /api/work/manual-lecture?id= 로 따로 받는다
+  try {
+    const p = featureFilePath('import-lectures');
+    if (p && fs.existsSync(p)) {
+      const idx = JSON.parse(fs.readFileSync(p, 'utf8'));
+      h.manuals = h.manuals.map((m) => {
+        const l = idx.lectures?.[m.id];
+        return l && Array.isArray(l.chapters) ? { ...m, lecture: { seconds: l.seconds || null, chapters: l.chapters.map((c) => ({ title: String(c.title || ''), start: Number(c.start) || 0 })), madeAt: l.madeAt || idx.generatedAt || null } } : m;
+      });
+    }
+  } catch { /* 목차를 못 읽으면 영상 없이 보여 준다 */ }
   return h;
 }
 import { DEPARTMENTS, isManualAdmin, visibleManuals, getLayout, saveManualEdit, saveLayout } from '../../../lib/workManuals';

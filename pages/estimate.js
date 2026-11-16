@@ -1312,14 +1312,17 @@ function EstimateByWeek() {
 
   // ── 업체 검색 디바운스
   useEffect(() => {
+    const controller = new AbortController();
+    let live = true;
     if (!shouldRunCustomerSearch(custSearch, custPickedName.current)) {
       if (custSearch.length < 1) setCustList([]);
       return;
     }
     const seq = ++custReqSeq.current;
     const t = setTimeout(() => {
-      apiGet('/api/customers/search', { q: custSearch })
+      apiGet('/api/customers/search', { q: custSearch }, { signal: controller.signal })
         .then(d => {
+          if (!live) return;
           // 선택 이후이거나 더 새로운 검색이 시작됐으면 이 응답은 버린다.
           if (seq !== custReqSeq.current) return;
           setCustList(d.customers || []);
@@ -1327,7 +1330,7 @@ function EstimateByWeek() {
         })
         .catch(() => {});
     }, 300);
-    return () => clearTimeout(t);
+    return () => { live = false; clearTimeout(t); controller.abort(); };
   }, [custSearch]);
 
   // ── 품목 목록 로드 (모달 드롭다운용)

@@ -1,7 +1,7 @@
 const fs=require('fs'),path=require('path'),assert=require('node:assert/strict'),puppeteer=require('puppeteer-core');
 const {fixture}=require('./lib/shipment-field-fixture.cjs');
 const {createWorkflowGuideRecorder}=require('./lib/workflow-guide-recorder.cjs');
-const dry=process.argv.includes('--dry-run'),base='http://localhost:33241';
+const dry=process.argv.includes('--dry-run'),base=process.env.GUIDE_BASE_URL||'http://localhost:33241';
 (async()=>{const f=await fixture();fs.mkdirSync('.verify/field-volume',{recursive:true});const input=path.resolve('.verify/field-volume/input.xlsx');fs.writeFileSync(input,f.input);
 const browser=await puppeteer.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--disable-dev-shm-usage']});
 try{const context=await browser.createBrowserContext({downloadBehavior:{policy:'allow',downloadPath:path.resolve('.verify/field-volume')}});await context.setCookie({name:'nenovaToken',value:require('jsonwebtoken').sign({userId:'fixture',authority:1,accountActive:true},'isolated-field-volume-fixture'),url:base});

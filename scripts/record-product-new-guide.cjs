@@ -80,6 +80,8 @@ async function main() {
       await say(text, 6500);
     };
     // 화면 요소에 녹화용 이름표만 붙인다(모양·동작은 그대로).
+    const tags = new Map();
+    const fresh = async selector => {if(await page.$(selector))return selector;const t=tags.get(selector);assert(t,`Missing guide target ${selector}`);return tag(...t);};
     const tag = async (id, finder, arg) => {
       const found = await page.evaluate((id, finder, arg) => {
         const byLabel = text => [...document.querySelectorAll('.modal .form-group')].find(g => g.querySelector('.form-label')?.innerText.trim().startsWith(text))?.querySelector('input,select');
@@ -88,9 +90,10 @@ async function main() {
         if (!node) return false; node.setAttribute('data-guide-id', id); return true;
       }, id, finder, arg);
       assert(found, `화면에서 찾지 못함: ${finder} ${arg}`);
-      return `[data-guide-id="${id}"]`;
+      const selector=`[data-guide-id="${id}"]`;tags.set(selector,[id,finder,arg]);return selector;
     };
     const focus = async (selector, dx = 0) => {
+      selector=await fresh(selector);
       await page.$eval(selector, n => n.scrollIntoView({ block: 'center', behavior: 'instant' }));
       const p = await page.$eval(selector, n => { const r = n.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
       if (p.y < 70) return mark(selector);
@@ -115,8 +118,8 @@ async function main() {
       if (rec) await rec.pause(3000);
     };
     const out = async (ms = 0) => { if (rec) { if (ms) await rec.pause(ms); await rec.unfocus(); } };
-    const type = async (selector, value) => { await page.click(selector); await page.type(selector, value, { delay: rec ? 140 : 0 }); if (rec) await rec.pause(1800); };
-    const choose = async (selector, value) => { await page.select(selector, value); if (rec) await rec.pause(1800); };
+    const type = async (selector, value) => { selector=await fresh(selector); await page.click(selector); await page.type(selector, value, { delay: rec ? 140 : 0 }); if (rec) await rec.pause(1800); };
+    const choose = async (selector, value) => { await page.select(await fresh(selector), value); if (rec) await rec.pause(1800); };
     const value = selector => page.$eval(selector, n => n.value);
 
     // 1. 이미 있는 품목인지 먼저 찾기
@@ -141,7 +144,7 @@ async function main() {
     await step('오른쪽 위 "＋ 신규" 버튼을 눌러 신규 품목 등록 창을 엽니다.');
     const add = await tag('add', 'button', '＋ 신규');
     await focus(add);
-    await page.click(add);
+    await page.click(await fresh(add));
     await page.waitForFunction(() => document.querySelector('.modal .modal-title')?.innerText.includes('신규 품목 등록'));
     await out();
     await say('"신규 품목 등록" 창이 열렸습니다. 위에서부터 차례로 채웁니다.\n품목명·꽃 종류·국가·단위는 반드시 넣어야 저장됩니다.', 2500);
@@ -163,7 +166,7 @@ async function main() {
     const display = await tag('display', 'label', '자연어명');
     await say('자연어명은 주문·견적 화면에 보이는 한글 이름입니다.\n"자동" 버튼으로 채운 뒤, 어색하면 직접 고칩니다.', 4500);
     await focus(auto);
-    await page.click(auto);
+    await page.click(await fresh(auto));
     if (rec) await rec.pause(2500);
     assert((await value(display)).length > 0, '자연어명이 자동으로 채워져야 함');
     await out();
@@ -210,7 +213,7 @@ async function main() {
     await step('입력한 값을 위에서부터 한 번 더 읽어 본 뒤 "저장"을 누릅니다.\n품목명·꽃 종류·국가·단위가 비어 있으면 저장되지 않습니다.');
     const save = await tag('save', 'button', '💾 저장');
     await focus(save);
-    await page.click(save);
+    await page.click(await fresh(save));
     await page.waitForFunction(() => !document.querySelector('.modal .modal-title'));
     await out();
     await page.waitForFunction(name => document.body.innerText.includes(name), {}, PRACTICE.name);

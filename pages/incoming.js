@@ -12,6 +12,7 @@ import { ReloadOutlined, UploadOutlined, DeleteOutlined, DownloadOutlined, Dashb
 import koKR from 'antd/locale/ko_KR';
 import dayjs from 'dayjs';
 import LatestArrivalReference from '../components/LatestArrivalReference.js';
+import WarehouseStockInvestigation from '../components/WarehouseStockInvestigation';
 import WarehouseCorrection from '../components/WarehouseCorrection.js';
 import { incomingWorkspaceHref } from '../lib/incomingWorkspaceNavigation.js';
 import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
@@ -22,6 +23,7 @@ const fmt = n => Number(n || 0).toLocaleString();
 
 export default function Warehouse({ embedded = false, active = true, onClose } = {}) {
   const { t } = useLang();
+  const [receiptView,setReceiptView]=useState('receipts');
   const [masters, setMasters] = useState([]);
   const [selectedKey, setSelectedKey] = useState(null);
   const [popup, setPopup] = useState(false);
@@ -266,6 +268,8 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   return (
     <ConfigProvider locale={koKR} theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorPrimary: '#1166BB', borderRadius: 6, fontSize: 12 } }}>
     <div>
+      <Space style={{marginBottom:8}}><Button type={receiptView==="receipts"?"primary":"default"} onClick={()=>setReceiptView("receipts")}>입고 원장</Button><Button type={receiptView==="investigation"?"primary":"default"} onClick={()=>setReceiptView("investigation")}>범인찾기</Button></Space>
+      {receiptView==="investigation" ? <WarehouseStockInvestigation/> : <>
       <Space wrap style={{ marginBottom: 6, background: '#fff', border: '1px solid var(--border)', padding: '6px 8px', width: '100%' }}>
         <Text type="secondary">업로드일자</Text>
         <DatePicker.RangePicker size="small" allowClear={false} value={[startDate ? dayjs(startDate) : null, endDate ? dayjs(endDate) : null]} onChange={(v) => { if (v && v[0] && v[1]) { setStartDate(v[0].format('YYYY-MM-DD')); setEndDate(v[1].format('YYYY-MM-DD')); } }} presets={[{ label: '최근 7일', value: [dayjs().subtract(7, 'day'), dayjs()] }, { label: '최근 30일', value: [dayjs().subtract(30, 'day'), dayjs()] }, { label: '최근 90일', value: [dayjs().subtract(90, 'day'), dayjs()] }]} />
@@ -415,6 +419,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
           </div>
         </div>
       )}
+      </>}
     </div>
     </ConfigProvider>
   );

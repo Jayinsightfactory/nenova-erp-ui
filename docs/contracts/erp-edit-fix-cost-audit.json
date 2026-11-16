@@ -11,6 +11,8 @@
     "pages/stock.js",
     "pages/ecount/dashboard.js",
     "pages/sales/status.js",
+    "pages/sales/revenue-management.js",
+    "pages/api/customers/search.js",
     "pages/m/estimate/index.js",
     "lib/chat/bizContext.js",
     "components/estimate/OrderRegisterDistributeModal.js",

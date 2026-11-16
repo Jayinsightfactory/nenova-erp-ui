@@ -11,6 +11,9 @@ function fixture(initial = { a: { prodKey: 1, manual: true, unknown: 'keep' } })
   let writes = 0;
   let gate = Promise.resolve();
   const q = async (statement, params = {}) => {
+    if (statement.includes('CASE WHEN Revision=@knownRevision')) return {
+      recordset: !marker || payload == null ? [] : [{ Revision: revision, Payload: params.knownRevision.value === revision ? null : payload }],
+    };
     if (statement.includes('WebMappingMigration')) return { recordset: marker ? [{ MigrationKey: 'order-mappings-v1' }] : [] };
     if (statement.includes('SELECT Payload, Revision')) return { recordset: payload == null ? [] : [{ Payload: payload, Revision: revision }] };
     if (statement.includes('SELECT Payload')) return { recordset: payload == null ? [] : [{ Payload: payload }] };
@@ -36,6 +39,9 @@ function fixture(initial = { a: { prodKey: 1, manual: true, unknown: 'keep' } })
 }
 
 const f = fixture();
+const initialSnapshot = await f.readMappingSnapshot(MAPPING_STORE_KEYS.products);
+assert.deepEqual(initialSnapshot.document.a.prodKey, 1);
+assert.equal(await f.readMappingSnapshot(MAPPING_STORE_KEYS.products, initialSnapshot), initialSnapshot);
 const read = await f.readMappingDocument(MAPPING_STORE_KEYS.products);
 read.a.prodKey = 999;
 assert.equal((await f.readMappingDocument(MAPPING_STORE_KEYS.products)).a.prodKey, 1);
@@ -44,6 +50,9 @@ const save = (key, value) => f.mutateMappingDocument(MAPPING_STORE_KEYS.products
   return { document: { ...document, [key]: value }, result: { saved: true, key } };
 });
 await Promise.all([save('b', { prodKey: 2 }), save('c', { prodKey: 3 })]);
+const refreshed = await f.readMappingSnapshot(MAPPING_STORE_KEYS.products, initialSnapshot);
+assert.equal(refreshed.revision, 3);
+assert.deepEqual(Object.keys(refreshed.document), ['a', 'b', 'c']);
 assert.deepEqual(Object.keys(await f.readMappingDocument(MAPPING_STORE_KEYS.products)), ['a', 'b', 'c']);
 assert.equal(f.state().revision, 3);
 const beforeNoop = f.state().writes;
@@ -52,6 +61,7 @@ const skipped = await f.mutateMappingDocument(MAPPING_STORE_KEYS.products, docum
 assert.equal(skipped.reason, 'manual-mapping-protected');
 assert.equal(f.state().writes, beforeNoop);
 f.setMarker(false);
+await assert.rejects(() => f.readMappingSnapshot(MAPPING_STORE_KEYS.products, refreshed));
 await assert.rejects(f.readMappingDocument(MAPPING_STORE_KEYS.products), /이전이 완료되지/);
 await assert.rejects(f.mutateMappingDocument(MAPPING_STORE_KEYS.products, () => ({})), /이전이 완료되지/);
 f.setMarker(true); f.setPayload(null);

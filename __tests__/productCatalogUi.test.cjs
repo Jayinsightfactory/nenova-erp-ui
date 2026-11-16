@@ -21,7 +21,7 @@ for(const selection of [[], ['카네이션']]) {
     .replace('const [selectedFlowers, setSelectedFlowers] = useState([]);',`const [selectedFlowers, setSelectedFlowers] = useState(${JSON.stringify(selection)});`)
     .replace('const [selectedCountry, setSelectedCountry] = useState(null);',`const [selectedCountry, setSelectedCountry] = useState('콜롬비아');`);
   const Page=load(source,name=>{
-    if(name==='react')return {...React,useEffect:()=>{},useState:initial=>{
+    if(name==='react')return {...React,useEffect:()=>{},useMemo:calculate=>calculate(),useState:initial=>{
       const index=cursor++;
       if(!(index in states))states[index]=initial;
       return [states[index],value=>{states[index]=typeof value==='function'?value(states[index]):value;}];
@@ -30,6 +30,7 @@ for(const selection of [[], ['카네이션']]) {
     if(name.endsWith('/i18n'))return {useLang:()=>({t:s=>s})};
     if(name.endsWith('/displayName'))return {suggestDisplayName:s=>s,getDisplayName:p=>p.ProdName,filterProducts:p=>p};
     if(name.endsWith('/productSearchRanking'))return {rankProductSearchOptions:(_,p)=>p};
+    if(name.endsWith('/useRankedProductSearch'))return {__esModule:true,default:()=>({results:[],loading:false})};
     if(name.endsWith('/exportUtils'))return {};
     if(name.endsWith('/WorkflowGuide'))return {__esModule:true,default:()=>null};
     if(name.endsWith('/ProductCatalogPhoto'))return {default:()=>null};

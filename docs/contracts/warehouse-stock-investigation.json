@@ -1,0 +1,52 @@
+{
+  "id": "warehouse-stock-investigation",
+  "title": "입고관리 범인찾기 읽기 전용",
+  "scope": [
+    "lib/warehouseStockInvestigation.js",
+    "components/WarehouseStockInvestigation.js",
+    "pages/api/warehouse/stock-investigation.js",
+    "pages/incoming.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "INVESTIGATE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "연도·차수·품목별 활성 입고와 입고 이력의 순증감 대조. 지정 작업일 현재고동기화 수량 일치는 별도 후보로 표시. 영업·견적·재고 모든 테이블 읽기 전용."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "동일 27-01의 2025/2026 분리, 삭제 후 미차감과 정상 차감 및 누락 이력 확인"
+  },
+  "requiredTestFiles": [
+    "__tests__/warehouseStockInvestigation.test.mjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/WarehouseCorrection.md",
+    "source": "FormWarehouseAdd.btnSave_Click CLI 재확인 및 운영 2026 27-01 입고이력 비교",
+    "methods": [
+      "FormWarehouseAdd.btnSave_Click",
+      "FormWarehouseView.GetDetail"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "Product",
+      "StockHistory"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

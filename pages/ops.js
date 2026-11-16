@@ -72,7 +72,7 @@ const SAMPLE_ALERTS = [
 ];
 
 function Badge({ kind, children }) {
-  const c = { sample: '#b9892b', real: '#2e7d4f', warn: '#b9892b', bad: '#b2403a', ok: '#2e7d4f' }[kind] || '#4a5568';
+  const c = { sample: '#8a6100', real: '#1f7a43', warn: '#8a6100', bad: '#b2332b', ok: '#1f7a43' }[kind] || '#4a5568';
   return <span className="badge" style={{ borderColor: c, color: c }}>{children}</span>;
 }
 const SampleTag = () => <Badge kind="sample">샘플 · 실데이터 아님</Badge>;
@@ -127,7 +127,7 @@ export default function Ops({ orbit, orbitQs, hasToken }) {
           <div className="embed-h"><h3>실제 전산 처리(Orbit)</h3><Badge kind="real">실데이터</Badge></div>
           {hasToken
             ? <iframe title="전산 실제 처리" src={src('/erp-work.html')} className="emb" />
-            : <p className="warn">Orbit 열람토큰이 없어 실데이터 화면을 띄우지 못했습니다(ORBIT_OWNER_TOKEN 미설정). 샘플만 표시합니다.</p>}
+            : <p className="warn">실제 자료를 아직 연결하지 못했습니다. 지금은 예시 값만 보여 줍니다.</p>}
         </section>
 
         {/* 4. 병목·이상 */}
@@ -155,7 +155,7 @@ export default function Ops({ orbit, orbitQs, hasToken }) {
         <div className="embed-h"><h3>전사 업무 통합본(Orbit)</h3><Badge kind="real">실데이터</Badge></div>
         {hasToken
           ? <iframe title="전사 업무 통합본" src={src('/work-unified.html')} className="emb" />
-          : <p className="warn">Orbit 열람토큰이 없어 실데이터 화면을 띄우지 못했습니다. 샘플만 표시합니다.</p>}
+          : <p className="warn">실제 자료를 아직 연결하지 못했습니다. 지금은 예시 값만 보여 줍니다.</p>}
       </section>
 
       {/* 5. 솔루션 판매 파이프라인 — 자리만 */}
@@ -178,55 +178,55 @@ export default function Ops({ orbit, orbitQs, hasToken }) {
       </footer>
 
       <style jsx>{`
-        .ops { background: #0d1117; color: #e6e9ee; min-height: 100vh; padding: 20px 24px 48px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        .ops { background: #f3f5f8; color: #1b2433; min-height: 100vh; padding: 20px 24px 48px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         .ops h1 { font-size: 24px; margin: 0 0 4px; font-weight: 700; }
-        .ops h1 .sub { font-size: 14px; color: #7fb3ff; font-weight: 500; margin-left: 8px; }
+        .ops h1 .sub { font-size: 14px; color: #2456c8; font-weight: 500; margin-left: 8px; }
         .ops h2 { font-size: 16px; margin: 0; }
-        .ops h3 { font-size: 13px; margin: 0; color: #c9ced6; }
-        .dim { color: #8b949e; }
-        .warn { color: #e0a33a; padding: 8px 0; }
-        .ops-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; border-bottom: 1px solid #222a35; padding-bottom: 14px; }
+        .ops h3 { font-size: 13px; margin: 0; color: #3a4558; }
+        .dim { color: #5b6678; }
+        .warn { color: #8a6100; padding: 8px 0; }
+        .ops-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; border-bottom: 1px solid #d9dee8; padding-bottom: 14px; }
         .ops-top p { margin: 0; font-size: 13px; }
         .ops-note { max-width: 440px; font-size: 12px; }
         .badge { display: inline-block; border: 1px solid; border-radius: 999px; padding: 1px 9px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-        .card { background: #131a24; border: 1px solid #222a35; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+        .card { background: #ffffff; border: 1px solid #d9dee8; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
         .card-h { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
         .card-h h2 { flex: 0 0 auto; }
         .grid2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
         @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
         .flow9 { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
-        .f9 { position: relative; flex: 1 1 0; min-width: 92px; background: #0d1117; border: 1px solid #263141; border-radius: 8px; padding: 10px 8px; text-align: center; }
-        .f9-step { width: 22px; height: 22px; line-height: 22px; margin: 0 auto 6px; border-radius: 50%; background: #1f2a3a; color: #7fb3ff; font-weight: 700; font-size: 12px; }
+        .f9 { position: relative; flex: 1 1 0; min-width: 92px; background: #f7f9fc; border: 1px solid #d9dee8; border-radius: 8px; padding: 10px 8px; text-align: center; }
+        .f9-step { width: 22px; height: 22px; line-height: 22px; margin: 0 auto 6px; border-radius: 50%; background: #e8eefb; color: #2456c8; font-weight: 700; font-size: 12px; }
         .f9-k { font-weight: 700; font-size: 14px; }
         .f9-dept { font-size: 11px; margin: 2px 0 6px; }
-        .f9-cnt { font-size: 12px; color: #7fb3ff; }
-        .f9-arw { position: absolute; right: -10px; top: 50%; transform: translateY(-50%); color: #3a4454; z-index: 1; font-size: 14px; }
+        .f9-cnt { font-size: 12px; color: #2456c8; }
+        .f9-arw { position: absolute; right: -10px; top: 50%; transform: translateY(-50%); color: #aeb7c5; z-index: 1; font-size: 14px; }
         .stat-row { display: flex; gap: 10px; margin-bottom: 12px; }
-        .stat { flex: 1; background: #0d1117; border: 1px solid #263141; border-radius: 8px; padding: 10px; text-align: center; }
-        .stat b { display: block; font-size: 22px; color: #7fb3ff; }
-        .stat span { font-size: 11px; color: #8b949e; }
+        .stat { flex: 1; background: #f7f9fc; border: 1px solid #d9dee8; border-radius: 8px; padding: 10px; text-align: center; }
+        .stat b { display: block; font-size: 22px; color: #2456c8; }
+        .stat span { font-size: 11px; color: #5b6678; }
         .ops-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
-        .ops-tbl th, .ops-tbl td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #222a35; }
-        .ops-tbl th { color: #8b949e; font-weight: 600; font-size: 12px; }
+        .ops-tbl th, .ops-tbl td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #d9dee8; }
+        .ops-tbl th { color: #5b6678; font-weight: 600; font-size: 12px; }
         .embed-h { display: flex; align-items: center; gap: 8px; margin: 6px 0 8px; }
-        .emb { width: 100%; height: 420px; border: 1px solid #222a35; border-radius: 8px; background: #fff; }
+        .emb { width: 100%; height: 420px; border: 1px solid #d9dee8; border-radius: 8px; background: #fff; }
         .alerts { display: flex; flex-direction: column; gap: 8px; }
-        .alert { display: flex; gap: 10px; align-items: flex-start; background: #0d1117; border: 1px solid #263141; border-radius: 8px; padding: 10px; }
+        .alert { display: flex; gap: 10px; align-items: flex-start; background: #f7f9fc; border: 1px solid #d9dee8; border-radius: 8px; padding: 10px; }
         .al-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; flex: 0 0 auto; }
         .a-warn .al-dot { background: #b9892b; } .a-bad .al-dot { background: #b2403a; } .a-ok .al-dot { background: #2e7d4f; }
         .al-t { font-weight: 600; font-size: 13px; }
         .depts { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 14px; }
-        .dept { background: #0d1117; border: 1px solid #263141; border-radius: 8px; padding: 12px; }
+        .dept { background: #f7f9fc; border: 1px solid #d9dee8; border-radius: 8px; padding: 12px; }
         .dept-h { display: flex; justify-content: space-between; font-weight: 700; font-size: 14px; margin-bottom: 4px; }
-        .dept-cnt { color: #7fb3ff; }
-        .dept-note { font-size: 12px; color: #c9ced6; margin-top: 6px; }
+        .dept-cnt { color: #2456c8; }
+        .dept-note { font-size: 12px; color: #3a4558; margin-top: 6px; }
         .soon { display: flex; gap: 14px; align-items: flex-start; }
         .soon-i { font-size: 34px; }
         .soon p { margin: 4px 0 12px; font-size: 13px; }
         .pipe { display: flex; gap: 8px; }
         .pipe-col { flex: 1; text-align: center; }
         .pipe-k { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
-        .pipe-box { border: 1px dashed #3a4454; border-radius: 6px; padding: 18px 6px; font-size: 12px; }
+        .pipe-box { border: 1px dashed #aeb7c5; border-radius: 6px; padding: 18px 6px; font-size: 12px; }
         .ops-foot { font-size: 12px; text-align: center; padding-top: 8px; }
       `}</style>
     </div>
