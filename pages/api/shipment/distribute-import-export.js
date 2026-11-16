@@ -1,4 +1,6 @@
 import fs from 'fs';
+import {readPalletSnapshots} from '../../../lib/shipmentImportAudit';
+import {addPalletSnapshots} from '../../../lib/shipmentPallet';
 import formidable from 'formidable';
 import { withAuth } from '../../../lib/auth';
 import { verifyFarmExport, exportFarmWorkbook } from '../../../lib/shipmentFarmWorkbook';
@@ -38,9 +40,12 @@ async function handler(req,res) {
       if(mode==='field-volume') {
         if(plan.kind!=='field-volume-v2')throw Object.assign(new Error('현장물량표를 생성하기 전에 다시 검증하세요.'),{statusCode:409});
         const {orderYear,orderWeek}=requireOrderYear(plan.week,plan.orderYear);
-        const scope=fieldVolumeSql(plan.products.map(p=>p.prodKey));
+        plan.includePrevious=field('includePrevious')!=='false';
+        const scope=fieldVolumeSql(plan.products.map(p=>p.prodKey),plan.includePrevious);
         const params={year:{type:sql.NVarChar,value:orderYear},major:{type:sql.NVarChar,value:orderWeek.split('-')[0]},minor:{type:sql.Int,value:Number(orderWeek.split('-')[1])}};
         const lines=await query(scope.lines,params),farms=await query(scope.farms,params);
+        const weeks=plan.includePrevious?Array.from({length:Number(orderWeek.slice(3))},(_,i)=>orderWeek.slice(0,3)+String(i+1).padStart(2,'0')):[orderWeek];
+        plan.pallets=addPalletSnapshots(...await Promise.all(weeks.map(w=>readPalletSnapshots(orderYear,w))));
         output=await createFieldVolumeWorkbook(plan,lines.recordset,farms.recordset);
       } else {
         if(mode || plan.kind)throw Object.assign(new Error('잘못된 다운로드 형식입니다.'),{statusCode:400});

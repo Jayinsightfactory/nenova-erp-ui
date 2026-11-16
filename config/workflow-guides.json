@@ -898,58 +898,53 @@
           "chapters": [
             {
               "scenario": "upload",
-              "title": "1. 파일 선택에서 물량표 엑셀을 업로드합니다",
-              "seconds": 0.128
-            },
-            {
-              "scenario": "upload",
-              "title": "1. 상단이 접혀 있거나 물량표를 생성 중이어도 파일 선택을 엽니다",
-              "seconds": 8.731
+              "title": "1. 물량표 모아 업로드에서 엑셀을 선택합니다",
+              "seconds": 0.239
             },
             {
               "scenario": "upload-only",
-              "title": "1. 파일 선택만으로 신형 현장물량표가 다운로드됩니다",
-              "seconds": 17.252
+              "title": "1. 저장된 품목을 체크하고 선택 품목 다운로드를 누릅니다",
+              "seconds": 9.008
             },
             {
               "scenario": "upload",
               "title": "1. 검증하기로 업체·품목·수량을 확인합니다",
-              "seconds": 26.378
+              "seconds": 18.149
             },
             {
               "scenario": "upload",
               "title": "1. 분배 적용 확인 후 저장합니다",
-              "seconds": 35.047
+              "seconds": 27.133
             },
             {
               "scenario": "farm",
               "title": "2. 카톡 내용을 붙여넣어 업체·품목·농장을 지정합니다",
-              "seconds": 43.616
+              "seconds": 35.983
             },
             {
               "scenario": "farm",
               "title": "2. 농장분배 합계와 대상 연결을 검증합니다",
-              "seconds": 53.756
+              "seconds": 46.392
             },
             {
               "scenario": "farm",
               "title": "2. 검증한 농장분배를 적용합니다",
-              "seconds": 62.433
+              "seconds": 55.262
             },
             {
               "scenario": "generate",
-              "title": "3. 신형 현장물량표 생성으로 결과 엑셀을 받습니다",
-              "seconds": 71.153
+              "title": "3. 1차 물량 합산을 풀고 2차 작업량을 다운로드합니다",
+              "seconds": 64.621
             },
             {
               "scenario": "review",
               "title": "4. 바로 생성 엑셀의 원본 수량을 확인합니다",
-              "seconds": 80.85
+              "seconds": 74.684
             },
             {
               "scenario": "review",
               "title": "4. 생성 엑셀의 인쇄 결과와 수량을 확인합니다",
-              "seconds": 86.924
+              "seconds": 80.783
             }
           ]
         }

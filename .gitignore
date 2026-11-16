@@ -133,3 +133,5 @@ scripts/bank-quick/_probe/
 
 /work/mixed-load/
 /data/runtime/server-logs/
+
+/data/shipment-field-uploads/
