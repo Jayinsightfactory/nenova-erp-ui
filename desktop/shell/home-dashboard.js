@@ -135,10 +135,9 @@
     if(changed||e.detail.calendar||e.detail.calendarWeek){paint();if(owner&&visible&&online)void company.load({month,week:weekAnchor,date:selected});}
   });
   window.homeDashboard={applyState(state){const previousVisible=visible,previousOnline=online,nextOwner='homeOwnerId'in state?String(state.homeOwnerId||''):owner,changed=nextOwner!==owner;
-    if(changed){owner=nextOwner;company.setOwner(owner);companyError='';generation++;calendarRead++;boardBusy=false;clearTimeout(timer);list.replaceChildren();days=[];selected=today();weekAnchor=selected;weekData=null;month=selected.slice(0,7);boardStatus.textContent=owner?'개발요청을 확인합니다.':'로그인 후 개발요청을 확인할 수 있습니다.';}
+    if(changed){monthOpen=true;weekOpen=true;owner=nextOwner;company.setOwner(owner);companyError='';generation++;calendarRead++;boardBusy=false;clearTimeout(timer);list.replaceChildren();days=[];selected=today();weekAnchor=selected;weekData=null;month=selected.slice(0,7);boardStatus.textContent=owner?'개발요청을 확인합니다.':'로그인 후 개발요청을 확인할 수 있습니다.';}
     if('menuOpen'in state)visible=!!state.menuOpen;if('online'in state)online=!!state.online;
     for(const b of [write,all,retry,webRequest].filter(Boolean))b.disabled=!owner||!online;if(changed||previousVisible!==visible||previousOnline!==online)paint();
-    if(visible&&(changed||!previousVisible)){setMonthOpen(true);setWeekOpen(true);}
     if(owner&&visible&&online&&(changed||!previousVisible||!previousOnline)){void loadBoard();void loadCalendar();}if(!visible||!online)clearTimeout(timer);
   }};
   const webRequest=document.getElementById('webRequestButton');webRequest?.addEventListener('click',()=>open('requests=new'));

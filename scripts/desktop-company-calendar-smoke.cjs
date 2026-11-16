@@ -10,7 +10,17 @@ const {fixture}=require('./desktop-task-schedule-smoke.cjs');
  assert.equal(await page.$eval(month,e=>e.getAttribute('aria-expanded')),'true');assert.equal(await page.$eval(week,e=>e.getAttribute('aria-expanded')),'true');
  await page.click(month);assert.equal(await page.$eval('#monthCalendarBody',e=>e.hidden),true);assert.equal(await page.$eval('#weekCalendarBody',e=>e.hidden),false);
  await page.evaluate(()=>window.fixtureEmit({menuOpen:true}));assert.equal(await page.$eval('#monthCalendarBody',e=>e.hidden),true,'same-state refresh preserves user collapse');
- await page.click(week);assert.equal(await page.$eval('#weekCalendarBody',e=>e.hidden),true);await page.evaluate(()=>{window.fixtureEmit({menuOpen:false});window.fixtureEmit({menuOpen:true});});assert.equal(await page.$eval('#monthCalendarBody',e=>e.hidden),false);assert.equal(await page.$eval('#weekCalendarBody',e=>e.hidden),false);
+ async function visitTaskAndReturn(monthHidden,weekHidden){
+   await page.evaluate(()=>{window.fixtureEmit({menuOpen:false});window.fixtureEmit({menuOpen:true});});
+   for(const [button,body,hidden] of [[month,'#monthCalendarBody',monthHidden],[week,'#weekCalendarBody',weekHidden]]){
+     assert.equal(await page.$eval(body,e=>e.hidden),hidden);
+     assert.equal(await page.$eval(button,e=>e.getAttribute('aria-expanded')),String(!hidden));
+   }
+ }
+ await visitTaskAndReturn(true,false);
+ await page.click(week);await visitTaskAndReturn(true,true);
+ await page.click(month);await visitTaskAndReturn(false,true);
+ await page.click(week);await visitTaskAndReturn(false,false);
  const personalBefore=app.calls.filter(c=>c.action==='homeWorkspace'&&c.payload?.method==='POST').length;
  const setField=(name,value)=>page.$eval('.company-form [name='+name+']',(e,value)=>{e.value=value;e.dispatchEvent(new Event('input',{bubbles:true}));},value);
  const submit=async()=>{await page.click('.company-form button[type=submit]');await page.waitForFunction(()=>!document.querySelector('.company-dialog').open);};
@@ -35,7 +45,9 @@ const {fixture}=require('./desktop-task-schedule-smoke.cjs');
  readonly=true;await page.reload();await page.waitForSelector(firstSelector);await page.click(firstSelector);await page.waitForSelector('.company-dialog[open]');assert.equal(await page.$eval('.company-form [name=color]',e=>e.disabled),true);assert.equal(await page.$eval('.company-form button[type=submit]',e=>e.hidden),true);assert.equal(await page.$eval('.company-dialog-actions button[type=button]',e=>e.hidden),true);await page.keyboard.press('Escape');readonly=false;await page.reload();await page.waitForSelector(firstSelector);
  await page.click('#companyCalendarButton');await page.type('.company-form [name=title]','보존할 초안');await page.keyboard.press('Escape');assert.equal(await page.$eval('.company-dialog',e=>e.open),true);assert.equal(await page.$eval('.company-confirm',e=>e.hidden),false);await page.click('.company-confirm button:last-child');assert.equal(await page.$eval('.company-form [name=title]',e=>e.value),'보존할 초안');await page.keyboard.press('Escape');await page.click('.company-confirm button:first-of-type');assert.equal(await page.$eval('.company-dialog',e=>e.open),false);
  for(const selector of [firstSelector,secondSelector]){await page.click(selector);await page.click('.company-dialog-actions button[type=button]');await page.click('.company-confirm button:first-of-type');await page.waitForFunction(()=>!document.querySelector('.company-dialog').open);}await page.waitForFunction(()=>!document.querySelector('.month-company'));assert.equal((await app.invoke('companyCalendar',{method:'GET',query:{month:app.date.slice(0,7)}})).events.length,0);
- await page.evaluate(()=>window.fixtureEmit({homeOwnerId:'',menuOpen:true}));assert.equal(await page.$eval('#companyCalendarButton',e=>e.disabled),true);assert.equal(await page.$eval('#webRequestButton',e=>e.disabled),true);
+ await page.click(month);await page.click(week);
+ await page.evaluate(()=>window.fixtureEmit({homeOwnerId:'',menuOpen:true}));
+ assert.equal(await page.$eval(month,e=>e.getAttribute('aria-expanded')),'true');assert.equal(await page.$eval(week,e=>e.getAttribute('aria-expanded')),'true');assert.equal(await page.$eval('#companyCalendarButton',e=>e.disabled),true);assert.equal(await page.$eval('#webRequestButton',e=>e.disabled),true);
  assert.equal(app.calls.filter(c=>c.action==='homeWorkspace'&&c.payload?.method==='POST').length,personalBefore,'no personal task mutations');assert.deepEqual(errors,[]);
  console.log('Company UI PASS: two individually selectable month titles, long title/four widths, preset Space/custom color, create/edit/reload persistence, read-only controls, Enter/Escape/focus/arrows, exact times, response-loss idempotency, failure draft, independent collapse, delete, owner clear, personal writes0, JS0');
  }finally{await browser.close();await app.close();}
