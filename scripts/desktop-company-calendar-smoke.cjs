@@ -54,6 +54,12 @@ const {fixture}=require('./desktop-task-schedule-smoke.cjs');
        height: rect(cell).height,
        date: fontSize('.calendar-date-number'), title: fontSize('.month-company'),
        slot: rect(first).height, hourSpacing: rect(second).top - rect(first).top,
+       shortActionsFit: [...document.querySelectorAll('.hw-task > button')].filter(e =>
+         ['수정','삭제'].includes(e.textContent.trim())).every(e => {
+           const text = document.createRange();
+           text.selectNodeContents(e);
+           return text.getClientRects().length === 1;
+         }),
        rightRail: rect(document.querySelector('.home-secondary')).left >= rect(document.querySelector('#workCalendar')).right,
        titlesFit: [...document.querySelectorAll('.month-company')].every(e => {
          const a = rect(e), b = rect(e.parentElement);
@@ -68,6 +74,7 @@ const {fixture}=require('./desktop-task-schedule-smoke.cjs');
    assert.equal(dimensions.slot, 72);
    assert.equal(dimensions.hourSpacing, 72);
    if (width >= 1280) assert.ok(dimensions.rightRail, 'Right-hand work list at ' + width);
+   if (width > 1000 && width <= 1750) assert.ok(dimensions.shortActionsFit, 'Readable task buttons at ' + width);
    await page.screenshot({path:path.resolve('.verify/company-home-' + width + '.png')});
  }
  await page.setViewport({width:1920,height:1080});const day='button.calendar-day[data-date="'+app.date+'"]';await page.focus(day);await page.keyboard.press('ArrowRight');assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('calendar-day')),true);await page.keyboard.press('ArrowLeft');assert.equal(await page.$eval(day,e=>document.activeElement===e),true);await page.keyboard.press('Enter');

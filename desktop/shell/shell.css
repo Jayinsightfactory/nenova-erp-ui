@@ -170,6 +170,11 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 }
 
 #workCalendar { min-width: 0; }
+/* Keep compact task actions readable while the calendar occupies the wider column. */
+@media (min-width: 1001px) and (max-width: 1750px) {
+  .home-secondary .hw-task { flex-wrap: wrap; }
+  .home-secondary .hw-task > button, .home-secondary .hw-task-meta { flex-shrink: 0; white-space: nowrap; }
+}
 #workCalendar .calendar-date-number { font-size: 25.5px; }
 #workCalendar .calendar-day[aria-current=date] .calendar-date-number { width: 38px; height: 38px; }
 #workCalendar .calendar-week span { font-size: 15px; }

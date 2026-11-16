@@ -20,7 +20,7 @@
     "desktop/shell/home-dashboard.js": "2fd98d0fb54ceaac1177c75f080a069b92cc47c8041f36b18ee09ee6d051364a",
     "desktop/shell/index.html": "5de8387192904ed233a5eda2280a03cb7b7d5a9affa45d7352cc51114993cf45",
     "desktop/shell/home-workspace.js": "11bbd85fe1094824f4163fab807ab387919fef73a4372cfa70a651ce8e0e7fd3",
-    "desktop/shell/shell.css": "d91382b15bfc1037d61985be2c892d72e3aaa322ec2ba7e2c9857e67d470274a",
+    "desktop/shell/shell.css": "28881fe5d4b8b1bf2f9432b514e205d2ecdd38ae145099714f54bd1eb46cf420",
     "desktop/shell/notes.html": "3b53fb8e13fb68eab773bb4bc66363e266c2ff538a4c7b51f871ad08dcd31a42",
     "desktop/shell/notes.js": "ab16235cf5724428388fb91a7d55eaea850f1d12fded08a20fe40d0bcce3559b",
     "desktop/shell/notes.css": "aa2f88e70a869d2989a3b07fc4723e21186ff514beda4023cfbbe80e37b57527",
@@ -569,6 +569,12 @@
       "file": "desktop/windows-identity.cjs",
       "change": "Trailing blank line removal and CRLF normalization only; executable content and captured UI unchanged",
       "confirmedBy": "parent agent"
+    },
+    "postCaptureResponsiveFix": {
+      "file": "desktop/shell/shell.css",
+      "range": "1001px through 1750px only; .home-secondary task actions",
+      "evidence": "actual synthetic fixture 8 tasks; 1001/1280/1584/1750 all short labels single line and no home overflow; 1920/390 before-after pixel identical with existing pulse animations paused; notes.html does not load shell.css",
+      "recordedViewportUnchanged": true
     }
   }
 }
