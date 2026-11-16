@@ -14,6 +14,23 @@ const helpers = source.slice(source.indexOf('const EMPTY_FORM'), source.indexOf(
 const ui = new Function('INVOICE_COST_FORMULAS', 'initialAuOriginalInputs', 'calculateAuOriginalCustoms', `${helpers}; return { applicableFormulas, applicableFormulaId, formulaLineFields, initialForm, payloadOf, editedForm, switchedFormulaForm, formulaPriceBasis, formulaGroupIds, formulaGroupFields, editedGroupForm, groupLabel, visibleLineFields };`)(registry, () => ({}), () => ({ total: null, missing: [] }));
 const doc = country => ({ reviewedMetadata: { country, transportMode: 'AIR' } });
 
+test('VN read-only form computes only missing costs from actual GW/CW, retaining explicit zero and approval inputs',async()=>{
+ const {calculateVnOriginalCustoms,VN_CUSTOMS_SOURCE}=await import('../lib/vnOriginalCostInputs.js');
+ const local=new Function('INVOICE_COST_FORMULAS','calculateVnOriginalCustoms','VN_CUSTOMS_SOURCE',`${helpers}; return {initialForm};`)(
+   {VN:{...registry.VN,freightIncluded:true}},calculateVnOriginalCustoms,VN_CUSTOMS_SOURCE);
+ const document={...doc('VN'),costStatus:'PREVIEW_ONLY',reviewedMetadata:{...doc('VN').reviewedMetadata,gw:164,cw:351}};
+ const lines=[{lineId:'a',prodKey:3074,currency:'USD'}];
+ assert.equal(local.initialForm(document,lines).customsTotalKRW,303460);
+ assert.equal(local.initialForm(document,lines).freightAmount,0);
+ document.reviewedMetadata.invoiceCostInput={customsTotalKRW:0,freightAmount:0};
+ assert.equal(local.initialForm(document,lines).customsTotalKRW,0);
+ delete document.reviewedMetadata.invoiceCostInput;
+ document.reviewedMetadata.gw=null;
+ assert.equal(local.initialForm(document,lines).customsTotalKRW,'');
+ document.costStatus='APPROVED';document.reviewedMetadata.gw=164;
+ assert.equal(local.initialForm(document,lines).customsTotalKRW,'');
+});
+
 test('AU freight-included form prepares only missing separate freight, preserves positive source/saved values',()=>{
  registry.AU={...descriptor('AU','AU','AIR',['tariffRate']),freightIncluded:true};
  const document=doc('AU'), lines=[{lineId:'a',currency:'AUD'}];

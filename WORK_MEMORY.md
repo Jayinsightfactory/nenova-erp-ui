@@ -3059,6 +3059,21 @@ pm run test:canon 통과.
 - 주문은 전체 결과를 검색하고 화면에 품목 100행씩 표시한다. 거래처 소계와 전체합계·내보내기는 전체 필터 결과로 계산한다. 수입·경영지원은 입력을 농장 목록에 한정해 중앙 정산·송금 화면의 재렌더를 없앤다.
 - 검색어: 운영 재검증 주문 목록 100행 페이지 전체 합계 CSV 경영지원 수입부 농장 검색 입력 지연
 
+## 2026-11-13 22시 수입부 베트남 중량·다운로드 간소화(미배포)
+- 베트남 국내운송을 고정99,000에서 현행 GW 차량조합으로 보완. 기존 CW백상과 분리, GW누락 시 CW대체 금지. 정확한 White8 원본37-1 참고5%만 자동 연결, 과거/저장0 보존.
+- 읽기전용 계산 다운로드의 반복 공식체크/미리보기 클릭 제거. 국가·운송/필수값/단위/금액 순수검증 및 서버digest 재검증 유지, ERP입고·원가승인 자동실행0. 기존 승인·원장은 불변.
+- #8108 캐시 재생 XLSX 및 Microsoft Excel GW/CW/판매가 변경→운송·원가·이익·합계/원복·수식오류0 검증. 대상132중114PASS18SKIP(선택private), 전체ERP/dnSpy/manifest218/write0API/최종webpack build PASS.
+- Desktop앱 연결만 확인; 수정코드 실제앱 국가별 다운로드·신규입고E2E·가이드영상·글씨겹침은 미검증. GitHub default token invalid로 PR/CI/배포 미실행, 정상 재인증 필요. 운영DB쓰기/추가유료AI0.
+- 상세 docs/work-sessions/2026-11-13_import-readonly-streamline.md. 이전 감사eb024990은 별도 보존, 병합완료 아님.
+검색어: import-streamline-1113 VN GW CW 303460 readOnlyInvoiceCostValidation GitHub인증만료
+
+## 2026-11-16 · 수입부 배포 재개 및 격리 페이지 다운로드
+- 최신 origin/master c0095f26 새 작업트리에 이전 수정 ce21cc28 통합. 작업기록 충돌은 양쪽 보존.
+- GitHub 인증은 정상 사용자 권한에서 성공. 제한 실행 환경의 invalid 표시만으로 인증 만료를 단정하지 말 것.
+- 합성 VN 입고자료·실제 Next 페이지·실제 서버 계산기를 연결한 격리 검증에서 환율 1400 수정 후 추가 체크/미리보기 없이 브라우저 XLSX 14,675바이트 저장 성공. download 1, blockedWrites 0. 실제 국가별 Desktop 신규입고 E2E와 구분.
+- 가이드 촬영·전체 ERP 회귀검사 진행 중. PR/배포 및 실제 Desktop 최종 검증은 아직 미완료. 운영 DB 수정 및 유료 AI 호출 없음.
+- 가이드 실제 페이지 촬영 43.3초, 1920×1080/100%, 3단계 번호·1.4배 확대·환율 입력·다운로드 포함. 시작/중간/끝 프레임 확인 및 registry/proof 검사 PASS. 전체 ERP 검사 중 packing 매칭 화면 30초 시간초과 1건은 단독 재검사 5/5 PASS(전체 묶음 성공으로 표기하지 않음).
+검색어: import-release-1116 GitHub sandbox 인증 정상 VN read-only XLSX 14675 가이드
 ## 2026-11-16 · 견적서관리 차수 총매출과 업체순
 - FormEstimateView.GetData의 최종 ORDER BY sl.CustKey를 실제 EXE dnSpy CLI에서 확인. 출고 목록의 기존 매출순과 업체 코드 오름차순을 전환한다.
 - 전체 거래처·요일 확정 견적 목록의 totalAmount를 합산한다. 읽기 전용 202646 probe 결과 60곳, 275,485,610원. 전년도 같은 차수 제외 및 음수 차감 회귀검사 추가.
