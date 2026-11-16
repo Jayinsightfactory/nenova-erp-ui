@@ -1,4 +1,4 @@
-// components/manuals/ImportHandover.js — /work/manuals 첫 화면 "수입부 인수인계 업무표".
+// components/manuals/ImportHandover.js — /work/manuals 첫 화면 "{부서} 인수인계 업무표".
 //   하루·주·월 업무표(아침에 출근해서 하는 순서대로) → 각 줄에서 새 기준 매뉴얼(6항목 + 가이드 영상)로 바로 들어간다.
 //   데이터: lib/importHandover.js(data/import-handover.json). 확정/추정과 근거 건수를 줄마다 표시한다.
 //   색은 /pm 토큰(var(--pm-*))만 — hex 금지(__tests__/importHandover.test.js). 버튼은 components/pm/ui 키트만.
@@ -15,6 +15,8 @@ export { evidenceText };
 
 const KINDS = [['daily', '하루'], ['weekly', '주'], ['monthly', '월'], ['trouble', '문제가 생겼을 때'], ['manuals', '매뉴얼 전체'], ['edu', '신입 교육'], ['todo', '남은 일 · 물어볼 것']];
 const WHEN_HEAD = { daily: '시간대', weekly: '요일', monthly: '시기' };
+// 받침이 있으면 「이」, 없으면 「가」 — 「수입부가」「영업지원이」
+const josaGa = (name) => { const c = String(name || '').trim().slice(-1).charCodeAt(0); return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 ? '이' : '가'; };
 const asArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 
 // 긴 글을 앞 2문장 + 나머지로 나눈다(문장이 3개를 넘을 때만). 괄호 안의 마침표에서는 끊지 않는다.
@@ -333,7 +335,7 @@ function ManualList({ data, onOpen }) {
       )}
       {data.rooms?.length > 0 && (
         <details className="fold"><summary>대화방 지도 ({data.rooms.length}) <small className="muted">어느 방에서 누구와 무슨 일을 하나</small></summary>
-          <div className="tblwrap"><table className="ihtbl"><thead><tr><th>방</th><th>상대</th><th>수입부가 하는 일</th><th>사내에서 같이</th><th>근거</th></tr></thead>
+          <div className="tblwrap"><table className="ihtbl"><thead><tr><th>방</th><th>상대</th><th>{data.dept}{josaGa(data.dept)} 하는 일</th><th>사내에서 같이</th><th>근거</th></tr></thead>
             <tbody>{data.rooms.map((r, i) => <tr key={i}><td><small className="muted">{r.app}</small><br /><b>{r.room}</b></td><td>{r.who}</td><td>{r.work}</td><td>{r.withDept || '-'}</td><td>{r.status ? <Status it={r} /> : null}</td></tr>)}</tbody></table></div>
         </details>
       )}
@@ -495,14 +497,15 @@ export default function ImportHandover({ data, me, initialManual }) {
   if (!data) return null;
   const manual = (data.manuals || []).find((m) => m.id === openId);
   const src = data.sourceSummary || [];
-  const tabLabel = KINDS.find(([k]) => k === kind)?.[1];
+  const kinds = KINDS.filter(([k]) => k !== 'edu' || data.education); // 신입 교육 자료가 없는 부서는 탭을 뺀다
+  const tabLabel = kinds.find(([k]) => k === kind)?.[1];
 
   return (
     <div className="pm ih" data-theme={theme} data-look={LOOK_CLEAR}>
       <PmUiStyles />
       <style dangerouslySetInnerHTML={{ __html: css + lookClearCss }} />
-      <section aria-label="수입부 인수인계 업무표" ref={secRef}>
-        <h2>수입부 인수인계 업무표 <small className="muted">하루 · 주 · 월 — 아침에 출근해서 하는 순서대로</small></h2>
+      <section aria-label={`${data.dept} 인수인계 업무표`} ref={secRef}>
+        <h2>{data.dept} 인수인계 업무표 <small className="muted">하루 · 주 · 월 — 아침에 출근해서 하는 순서대로</small></h2>
         {!manual && (
           <div className="howto">
             <h3>이 화면 쓰는 법</h3>
@@ -520,11 +523,11 @@ export default function ImportHandover({ data, me, initialManual }) {
         )}
         {manual ? <ManualView key={manual.id} manual={manual} manuals={data.manuals} onBack={back} onOpen={open} blurred={data.captureInfo?.clarity !== 'clear'} /> : (
           <>
-            <Tabs label="업무표 보기" items={KINDS} value={kind} onChange={setKind} />
+            <Tabs label="업무표 보기" items={kinds} value={kind} onChange={setKind} />
             <h3 className="sr">{tabLabel}</h3>
             {kind === 'manuals' && <ManualList data={data} onOpen={open} />}
             {kind === 'trouble' && <Trouble data={data} onOpen={open} />}
-            {kind === 'edu' && <ImportEducation data={data.education} />}
+            {kind === 'edu' && data.education && <ImportEducation data={data.education} />}
             {kind === 'todo' && <Todo data={data} />}
             {kind === 'weekly' && <CountryCalendar calendar={data.countryCalendar} manuals={data.manuals} onOpen={open} today={today} />}
             {kind === 'daily' && <ImportWeekday weekday={data.weekday} schedule={data.schedule} calendar={data.countryCalendar} manuals={data.manuals} onOpen={open} wd={wd} onPick={setWd} today={today} />}
