@@ -40,7 +40,8 @@
   "requiredTestFiles": [
     "__tests__/companyCalendar.test.js",
     "desktop/tests/company-calendar.test.cjs",
-    "scripts/desktop-company-calendar-smoke.cjs"
+    "scripts/desktop-company-calendar-smoke.cjs",
+    "scripts/desktop-home-search-weekly-smoke.cjs"
   ],
   "requiredCommands": [
     "node --test __tests__/companyCalendar.test.js desktop/tests/company-calendar.test.cjs",
@@ -73,5 +74,14 @@
     "color": "Optional six-digit #RRGGBB input, persisted and returned as lowercase #rrggbb. Omitted create or legacy colorless record uses #267b4c. Omitted update preserves the saved color for older clients.",
     "storage": "Additive event.color in the existing schemaVersion 1 JSON file; no SQL or schema migration. Reads do not rewrite legacy records.",
     "safety": "Existing author/admin permissions, revision CAS, actor-scoped request replay and atomic publication remain in force for color edits."
+  },
+  "weeklySeries": {
+    "input": "Optional weekly:{endDate,deadline,inclusive,resetDate}; date is the first range start and endDate is 0-6 days later. inclusive defaults false (deadline itself excluded); true includes deadline. Last range is clipped at the deadline. Optional ISO resetDate must be after date and no later than deadline.",
+    "ordinal": "Title must contain exactly one ASCII [0-9]+차 ordinal. Its starting value and final weekly value must be positive safe integers (1..9007199254740991), and every rendered title fits 120 characters. Leading zero width is retained. No duplicate startNumber field.",
+    "storage": "One series UUID and original fields in existing schemaVersion 1 JSON; no per-day rows or SQL migration. Only requested month/week/date day union is projected; selected date and existing 1000-event/IPC byte limits remain in force.",
+    "projection": "Each occurrence has series id, actual date, incremented title, color, times and edit permission. weekly:{startDate,endDate,deadline,inclusive,resetDate?,title} contains the original series fields for whole-series editing. UI render identity is id + date.",
+    "edits": "Series update and delete require recurringEdit:true, otherwise 409 even for authorized older clients. Series update requires weekly fields; conversion between single events and series is rejected with 409. Author/admin, revision CAS and actor-scoped idempotent replay remain unchanged.",
+    "reset": "resetWeek=ceil((resetDate-startDate)/7). That weekly range begins a new cycle at ordinal 1 independent of the original title's start number. A mid-range reset date never splits its current range; the next range start resets instead. The reset range start must actually occur before the exclusive deadline or on/before an inclusive deadline; otherwise reject 400. Omission preserves uninterrupted ordinals. Maximum ordinal/title length is checked before and after the reset.",
+    "crossYearExample": "Start 2026-11-25..27 with 1차 and resetDate 2027-01-06: 2026-12-30..2027-01-01 stays 6차, 2027-01-06..08 becomes 1차, 2027-01-13..15 becomes 2차. No resetDate: 2027-01-06 remains 7차."
   }
 }

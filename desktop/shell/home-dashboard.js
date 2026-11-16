@@ -70,7 +70,7 @@
       const top=el('span','calendar-date-top');top.append(el('span','calendar-date-number',String(d)));if(data?.total)top.append(el('small','',data.done+'/'+data.total));b.append(top);
       for(const event of sharedByDate.get(date)||[]){
         const common=btn(event.title,()=>company.openEvent(event),'month-company');
-        common.dataset.eventId=event.id;common.dataset.focus='month-event-'+event.id;
+        common.dataset.eventId=event.id;common.dataset.focus='month-event-'+event.id+'-'+date;
         common.title=event.title+' · '+(event.startTime||'시간 미정')+' · 회사 공통 일정';common.setAttribute('aria-label',common.title);
         window.NenovaCompanyCalendar.applyColor(common,event.color);cell.append(common);
       }
