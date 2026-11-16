@@ -1,0 +1,11 @@
+{
+ "id":"invoice-receipt-comparison",
+ "title":"입고 전 원본 품목·박스·단·송이 확대 대조",
+ "scope":["lib/invoiceReceiptComparison.js","components/import-tools/InvoiceReceiptComparison.js","components/import-tools/InvoiceTotalEvidence.js"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "actions":[{"name":"VIEW_SOURCE_QUANTITY","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","notes":"클라이언트 로컬 원본만 확대. sourceFields가 지목한 정확한 수량 근거만 사용하고 없으면 품목행 기준임을 명시. 좌표/근거 없음을 일치로 승격하지 않음. 기존 총액 확인·서버 preview/commit 정책은 보존."}],
+ "crossYearFixture":{"required":true,"description":"명시 문서와 lineId만 사용하며 동일 차수의 다른 연도·문서 검색/네트워크 요청 없음."},
+ "requiredTestFiles":["__tests__/invoiceReceiptComparison.test.js","__tests__/invoiceAmountReview.test.js"],
+ "requiredCommands":["node --test __tests__/invoiceReceiptComparison.test.js","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"기존 실제 dnSpy MakeTempTable의 박스/단/송이 분리 원문 계약 보존. 신규 SQL·수량 환산·ERP 쓰기 없음.","methods":["ExcelLoadingPackingList.MakeTempTable"],"tables":["WarehouseMaster","WarehouseDetail"]}
+}
