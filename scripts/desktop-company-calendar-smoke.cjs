@@ -40,7 +40,43 @@ const {fixture}=require('./desktop-task-schedule-smoke.cjs');
  assert.equal(await page.$eval(secondSelector,e=>e.textContent.includes('긴 제목')) ,true);assert.equal(await page.$eval(secondSelector,e=>e.style.getPropertyValue('--company-color')),'#b45309');
  assert.equal(await page.$eval(firstSelector,e=>e.parentElement===document.querySelector('button.month-company[data-event-id="'+e.dataset.eventId+'"]')?.parentElement&&e.parentElement.querySelectorAll('button.month-company').length===2),true);
  await page.focus(secondSelector);await page.keyboard.press('Enter');await page.waitForSelector('.company-dialog[open]');assert.equal(await page.$eval('.company-form [name=title]',e=>e.value),longTitle);assert.equal(await page.$eval('.company-form [name=color]',e=>e.value),'#b45309');await page.keyboard.press('Escape');assert.equal(await page.$eval('.company-dialog',e=>e.open),false);assert.equal(await page.$eval(secondSelector,e=>document.activeElement===e),true,'Escape returns focus to individual month event');
- for(const width of [1920,1280,800,390]){await page.setViewport({width,height:1080});await page.$eval('#home',e=>e.scrollTop=0);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'no page overflow '+width);assert.equal(await page.$$eval('.month-company',rows=>rows.every(e=>{const a=e.getBoundingClientRect(),b=e.parentElement.getBoundingClientRect();return a.left>=b.left-1&&a.right<=b.right+1;})),true,'titles remain in their own cells '+width);await page.screenshot({path:path.resolve('.verify/company-home-'+width+'.png')});}
+ for (const width of [1920, 1280, 1024, 800, 390]) {
+   await page.setViewport({width, height:1080});
+   await page.$eval('#home', e => e.scrollTop = 0);
+   const dimensions = await page.evaluate(() => {
+     const home = document.querySelector('#home');
+     const cell = document.querySelector('.calendar-cell');
+     const [first, second] = document.querySelectorAll('.week-slot');
+     const rect = element => element.getBoundingClientRect();
+     const fontSize = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
+     return {
+       fits: home.scrollWidth <= home.clientWidth && document.documentElement.scrollWidth <= innerWidth,
+       height: rect(cell).height,
+       date: fontSize('.calendar-date-number'), title: fontSize('.month-company'),
+       slot: rect(first).height, hourSpacing: rect(second).top - rect(first).top,
+       shortActionsFit: [...document.querySelectorAll('.hw-task > button')].filter(e =>
+         ['수정','삭제'].includes(e.textContent.trim())).every(e => {
+           const text = document.createRange();
+           text.selectNodeContents(e);
+           return text.getClientRects().length === 1;
+         }),
+       rightRail: rect(document.querySelector('.home-secondary')).left >= rect(document.querySelector('#workCalendar')).right,
+       titlesFit: [...document.querySelectorAll('.month-company')].every(e => {
+         const a = rect(e), b = rect(e.parentElement);
+         return a.left >= b.left - 1 && a.right <= b.right + 1;
+       })
+     };
+   });
+   assert.ok(dimensions.fits && dimensions.titlesFit, 'No horizontal overflow at ' + width);
+   assert.ok(dimensions.height >= (width <= 600 ? 144 : 243));
+   assert.equal(dimensions.date, width <= 600 ? 17 : 25.5);
+   assert.equal(dimensions.title, width <= 600 ? 12 : 18);
+   assert.equal(dimensions.slot, 72);
+   assert.equal(dimensions.hourSpacing, 72);
+   if (width >= 1280) assert.ok(dimensions.rightRail, 'Right-hand work list at ' + width);
+   if (width > 1000 && width <= 1750) assert.ok(dimensions.shortActionsFit, 'Readable task buttons at ' + width);
+   await page.screenshot({path:path.resolve('.verify/company-home-' + width + '.png')});
+ }
  await page.setViewport({width:1920,height:1080});const day='button.calendar-day[data-date="'+app.date+'"]';await page.focus(day);await page.keyboard.press('ArrowRight');assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('calendar-day')),true);await page.keyboard.press('ArrowLeft');assert.equal(await page.$eval(day,e=>document.activeElement===e),true);await page.keyboard.press('Enter');
  readonly=true;await page.reload();await page.waitForSelector(firstSelector);await page.click(firstSelector);await page.waitForSelector('.company-dialog[open]');assert.equal(await page.$eval('.company-form [name=color]',e=>e.disabled),true);assert.equal(await page.$eval('.company-form button[type=submit]',e=>e.hidden),true);assert.equal(await page.$eval('.company-dialog-actions button[type=button]',e=>e.hidden),true);await page.keyboard.press('Escape');readonly=false;await page.reload();await page.waitForSelector(firstSelector);
  await page.click('#companyCalendarButton');await page.type('.company-form [name=title]','보존할 초안');await page.keyboard.press('Escape');assert.equal(await page.$eval('.company-dialog',e=>e.open),true);assert.equal(await page.$eval('.company-confirm',e=>e.hidden),false);await page.click('.company-confirm button:last-child');assert.equal(await page.$eval('.company-form [name=title]',e=>e.value),'보존할 초안');await page.keyboard.press('Escape');await page.click('.company-confirm button:first-of-type');assert.equal(await page.$eval('.company-dialog',e=>e.open),false);

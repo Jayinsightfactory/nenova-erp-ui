@@ -102,17 +102,18 @@
     const allDay=el('div','week-allday');allDay.append(el('span','week-zone','시간 미정'));
     for(const date of dates){const col=el('div','week-allday-items');const unscheduled=data.find(d=>d.date===date)?.tasks.filter(t=>!t.startTime)||[];for(const task of unscheduled.slice(0,3)){const b=btn(task.title,()=>task.company?company.openEvent(task):choose(date),'week-unscheduled'+(task.company?' is-company':'')+(task.done?' is-done':''));if(task.company)window.NenovaCompanyCalendar.applyColor(b,task.color);b.title=task.title+(task.company?' · 회사 공통 일정':'');b.dataset.focus=task.id+date;col.append(b);}if(unscheduled.length>3)col.append(btn('＋ '+(unscheduled.length-3)+'건',()=>unscheduled.slice(3).some(task=>task.company)?company.open(date):choose(date),'week-unscheduled'));allDay.append(col);}
     const timed=data.flatMap(d=>d.tasks.filter(t=>t.startTime));const earliest=Math.min(8*60,...timed.map(t=>Math.floor(minutes(t.startTime)/60)*60)),latest=Math.min(1440,Math.max(19*60,...timed.map(t=>Math.ceil((t.endTime?minutes(t.endTime):minutes(t.startTime)+60)/60)*60)));
-    const height=(latest-earliest)*.8,body=el('div','week-body'),axis=el('div','week-axis');body.style.height=(height+24)+'px';
-    for(let value=earliest;value<=latest;value+=60){const label=el('span','',timeLabel(value));label.style.top=(value-earliest)*.8+'px';axis.append(label);}body.append(axis);
+    const hourHeight=72, pixelsPerMinute=hourHeight/60;
+    const height=(latest-earliest)*pixelsPerMinute,body=el('div','week-body'),axis=el('div','week-axis');body.style.height=(height+24)+'px';
+    for(let value=earliest;value<=latest;value+=60){const label=el('span','',timeLabel(value));label.style.top=(value-earliest)*pixelsPerMinute+'px';axis.append(label);}body.append(axis);
     for(const date of dates){
       const col=el('div','week-column');if(date===today())col.classList.add('is-today');
-      for(let value=earliest;value<latest;value+=60){const add=btn('',()=>window.homeWorkspace?.beginAt(date,timeLabel(value)),'week-slot');add.style.top=(value-earliest)*.8+'px';add.style.height='48px';add.dataset.focus='slot-'+date+'-'+value;add.setAttribute('aria-label',date+' '+timeLabel(value)+' 업무 추가');add.disabled=!owner||!valid(date);add.tabIndex=value===earliest?0:-1;
+      for(let value=earliest;value<latest;value+=60){const add=btn('',()=>window.homeWorkspace?.beginAt(date,timeLabel(value)),'week-slot');add.style.top=(value-earliest)*pixelsPerMinute+'px';add.style.height=hourHeight+'px';add.dataset.focus='slot-'+date+'-'+value;add.setAttribute('aria-label',date+' '+timeLabel(value)+' 업무 추가');add.disabled=!owner||!valid(date);add.tabIndex=value===earliest?0:-1;
         add.onkeydown=e=>{const delta={ArrowUp:-60,ArrowDown:60}[e.key];if(delta===undefined)return;e.preventDefault();const target=col.querySelector('[data-focus="slot-'+date+'-'+(value+delta)+'"]');if(target){add.tabIndex=-1;target.tabIndex=0;target.focus();}};col.append(add);}
       for(const item of layoutEvents(data.find(d=>d.date===date)?.tasks.filter(t=>t.startTime)||[])){
         const {task}=item,b=btn('',()=>task.company?company.openEvent(task):choose(date),'week-event'+(task.company?' is-company':'')+(task.done?' is-done':''));b.dataset.focus=task.id+date;b.dataset.taskId=task.id;
         if(task.company)window.NenovaCompanyCalendar.applyColor(b,task.color);
         else b.dataset.color=String([...task.id].reduce((sum,c)=>sum+c.charCodeAt(0),0)%5);
-        b.style.top=(item.start-earliest)*.8+'px';b.style.height=Math.max(22,(Math.min(item.end,latest)-item.start)*.8-3)+'px';b.style.left='calc('+item.lane/item.columns*100+'% + 3px)';b.style.width='calc('+100/item.columns+'% - 6px)';
+        b.style.top=(item.start-earliest)*pixelsPerMinute+'px';b.style.height=Math.max(22,(Math.min(item.end,latest)-item.start)*pixelsPerMinute-3)+'px';b.style.left='calc('+item.lane/item.columns*100+'% + 3px)';b.style.width='calc('+100/item.columns+'% - 6px)';
         b.append(el('strong','',task.title),el('small','',task.startTime+(task.endTime?' – '+task.endTime:' · 종료 미정')));b.title=date+' '+task.startTime+(task.endTime?'–'+task.endTime:' (종료 미정 · 기본 표시 1시간)')+' '+task.title+(task.done?' · 완료':'');b.setAttribute('aria-label',b.title+(task.company?' · 공통 일정 보기':' · 오른쪽 업무에서 확인'));col.append(b);
       }
       const more=data.find(d=>d.date===date)?.more;if(more){const b=btn('추가 '+more+'건 · 일별 보기',()=>choose(date),'week-more');col.append(b);}body.append(col);
