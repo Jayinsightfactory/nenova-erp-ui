@@ -3,6 +3,7 @@ import { auInvoiceTariffDefault } from '../../lib/auInvoiceTariffDefaults.js';
 import { vnInvoiceTariffDefault } from '../../lib/vnOriginalCostInputs.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview';
 import styles from '../../styles/NativeReceiptCost.module.css';
+import WorkflowGuide from '../WorkflowGuide';
 
 // 원산지 → 매입 통화(운송은 항공 기본). 콜롬비아·에콰도르·미국 USD, 호주 AUD.
 // 중국은 운송이 두 가지라 자동 적용하지 않고 기존처럼 직접 선택한다. 그 외 나라도 마찬가지.
@@ -73,6 +74,7 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
           lineInputs: (data.automatic?.input?.lineInputs || data.document.reviewedMetadata.invoiceCostInput.lineInputs).map(line => ({ ...line, ...(tariffDefaults[line.lineId] ? { tariffRate: tariffDefaults[line.lineId].tariffRate } : {}) })) } } };
   }
   return <section className={styles.panel} aria-label="기존 입고자료 원가 계산">
+    <WorkflowGuide workflowId="invoice-cost-readonly" initialRole="수입부" />
     <header className={styles.header}><div><small>입고자료로 바로 계산 · 원장 변경 없음</small><h3>{data?.source.farmName || '입고자료 조회'} <span>{orderYear} / {orderWeek}</span></h3>
       <p>송장 {data?.source.invoiceNo || '—'} · 입고 #{warehouseKey} · {data?.source.lines.length ?? '—'}품목</p></div><button type="button" onClick={onClose}>목록으로</button></header>
     {error && <p role="alert">{error}</p>}

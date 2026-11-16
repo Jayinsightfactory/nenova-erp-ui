@@ -3066,3 +3066,11 @@ pm run test:canon 통과.
 - Desktop앱 연결만 확인; 수정코드 실제앱 국가별 다운로드·신규입고E2E·가이드영상·글씨겹침은 미검증. GitHub default token invalid로 PR/CI/배포 미실행, 정상 재인증 필요. 운영DB쓰기/추가유료AI0.
 - 상세 docs/work-sessions/2026-11-13_import-readonly-streamline.md. 이전 감사eb024990은 별도 보존, 병합완료 아님.
 검색어: import-streamline-1113 VN GW CW 303460 readOnlyInvoiceCostValidation GitHub인증만료
+
+## 2026-11-16 · 수입부 배포 재개 및 격리 페이지 다운로드
+- 최신 origin/master c0095f26 새 작업트리에 이전 수정 ce21cc28 통합. 작업기록 충돌은 양쪽 보존.
+- GitHub 인증은 정상 사용자 권한에서 성공. 제한 실행 환경의 invalid 표시만으로 인증 만료를 단정하지 말 것.
+- 합성 VN 입고자료·실제 Next 페이지·실제 서버 계산기를 연결한 격리 검증에서 환율 1400 수정 후 추가 체크/미리보기 없이 브라우저 XLSX 14,675바이트 저장 성공. download 1, blockedWrites 0. 실제 국가별 Desktop 신규입고 E2E와 구분.
+- 가이드 촬영·전체 ERP 회귀검사 진행 중. PR/배포 및 실제 Desktop 최종 검증은 아직 미완료. 운영 DB 수정 및 유료 AI 호출 없음.
+- 가이드 실제 페이지 촬영 43.3초, 1920×1080/100%, 3단계 번호·1.4배 확대·환율 입력·다운로드 포함. 시작/중간/끝 프레임 확인 및 registry/proof 검사 PASS. 전체 ERP 검사 중 packing 매칭 화면 30초 시간초과 1건은 단독 재검사 5/5 PASS(전체 묶음 성공으로 표기하지 않음).
+검색어: import-release-1116 GitHub sandbox 인증 정상 VN read-only XLSX 14675 가이드
