@@ -20,9 +20,12 @@ if(!proof.printPreviewZoom){
  fs.writeFileSync('.verify/field-volume/caption-raw.txt','4. 바로 생성: 원본 돈셀 3 · 입고 5 · 재고 1\n이전차수 분배 미포함 · 업로드 원본 기준');
  const enable=`between(t,${start},${proof.duration-7.2})`,font="fontfile='C\\:/Windows/Fonts/malgun.ttf'";
  const weight=`(1-cos(PI*max(0,min(1,min((it-${start})/1.2,(${proof.duration}-it)/1.2)))))/2`;
- const filter=`zoompan=z='1+(${weight})':x='max(0,min(iw-iw/zoom,195*(${weight})))':y=0:d=1:s=1920x1080:fps=20,drawbox=x=0:y=955:w=1920:h=125:color=0x102847@0.95:t=fill:enable='${enable}',drawtext=${font}:textfile=.verify/field-volume/caption-raw.txt:fontcolor=white:fontsize=28:line_spacing=10:x=40:y=975:enable='${enable}'`;
+ // The measured source table ends near x=1350. A 1.35x top-left crop keeps
+ // the product/name AND stock/remainder columns visible; 2x cut both edges.
+ // Keep the subtitle band outside the camera transform.
+ const filter=`split=2[base][print];[print]crop=1920:900:0:0,zoompan=z='1+.35*(${weight})':x=0:y=0:d=1:s=1920x900:fps=20[printzoom];[base][printzoom]overlay=0:0,drawbox=x=0:y=955:w=1920:h=125:color=0x102847@0.95:t=fill:enable='${enable}',drawtext=${font}:textfile=.verify/field-volume/caption-raw.txt:fontcolor=white:fontsize=28:line_spacing=10:x=40:y=975:enable='${enable}'`;
  execFileSync('ffmpeg',['-y','-loglevel','error','-i',dir+'/support.mp4','-vf',filter,'-an','-c:v','libx264','-preset','veryfast','-threads','2','-crf','22','-pix_fmt','yuv420p','-movflags','+faststart','.verify/field-volume/print-zoomed.mp4'],{stdio:'pipe'});
- fs.copyFileSync('.verify/field-volume/print-zoomed.mp4',dir+'/support.mp4');proof.printPreviewZoom={start,scale:2,x:195,y:0,source:'camera crop of actual captured Excel print page',transitionSeconds:1.2,returnsToFullFrame:true};delete proof.printPreviewCaption;
+ fs.copyFileSync('.verify/field-volume/print-zoomed.mp4',dir+'/support.mp4');proof.printPreviewZoom={start,scale:1.35,x:0,y:0,source:'camera crop of actual captured Excel print page; product/name and stock/remainder columns preserved',cameraBand:{x:0,y:0,width:1920,height:900},transitionSeconds:1.2,returnsToFullFrame:true};delete proof.printPreviewCaption;
 }
 if(proof.printPreviewCaption&&proof.videoSha256===hash(fs.readFileSync(dir+'/support.mp4')))return;
 fs.mkdirSync('.verify/field-volume',{recursive:true});fs.writeFileSync('.verify/field-volume/caption-last.txt','4. 돈셀(2) 3 /5: 이전 2 · 이번 3 · 당일합계 5\n요일색 · 입고 5 · 출고 3 · 재고 1 · 잔량 3 확인');fs.writeFileSync('.verify/field-volume/caption-step.txt','4 단계');
