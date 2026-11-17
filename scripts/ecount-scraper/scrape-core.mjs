@@ -20,6 +20,13 @@ export const DEFS = {
   //   검색 조건은 건드리지 않고 기본값으로 F8 → Excel(전체 결과, 페이지 무관)만 받는다. '일자-No.'/'전표번호' 칸의 '2026/10/20 -12' 를 sourceDateLabel 로 보낸다.
   saleQuery: { prgId: 'E040206', form: true, hash: '#menuType=MENUTREE_000004&menuSeq=MENUTREE_000492&groupSeq=MENUTREE_000030&prgId=E040206&depth=4', map: { sourceDateLabel: ['일자-No.', '일자'], custName: ['거래처명'], prodName: ['품목명'], amount: ['금액합계', '금액'], tradeType: ['거래유형'] }, numFields: ['amount'] },
   journal: { prgId: 'E010701', form: true, hash: '#menuType=MENUTREE_000001&menuSeq=MENUTREE_000098&groupSeq=MENUTREE_000016&prgId=E010701&depth=3', map: { sourceDateLabel: ['전표번호', '일자'], tradeType: ['거래유형'], amount: ['금액'], custName: ['거래처명'], memo: ['적요'] }, numFields: ['amount'] },
+  // 2026-11-17 사장님 결정: 직원이 쓰는 견적서조회·구매조회·구매현황 매일 수집 추가. 검색 조건(기간·진행상태 등)은 건드리지 않고 기본값 그대로 F8 → Excel 만 받는다.
+  //   머리글은 웹 워크벤치 화면 열 이름(QUOTE_COLUMNS·PURCHASE_COLUMNS·PURCHASE_STATUS_COLUMNS)과 업로드 별칭을 따랐다. 실제 엑셀 머리글은 미확인 → 첫 수집 로그로 확인 필요.
+  //   견적서조회 '진행상태'는 quoteStatus 로 보내지 않는다(값 어휘·근거 미확인). 원문만 statusText 로 Payload 에 남기고 웹 작업본에는 반영되지 않는다.
+  //   '금액합계'(구매조회)는 '외화금액합계'에도 부분일치하므로 화면 순서상 먼저 나오는 열이 잡힌다(금액합계 → 외화금액합계).
+  quote: { prgId: 'E040202', form: true, hash: '#menuType=MENUTREE_000004&menuSeq=MENUTREE_000487&groupSeq=MENUTREE_000030&prgId=E040202&depth=4', map: { sourceDateLabel: ['일자-No.', '일자'], custName: ['거래처명'], prodName: ['품목명(요약)', '품목명'], estimateTotal: ['견적금액합계', '견적합계', '금액합계'], statusText: ['진행상태'] }, numFields: ['estimateTotal'] },
+  purchase: { prgId: 'E040304', form: true, hash: '#menuType=MENUTREE_000004&menuSeq=MENUTREE_000511&groupSeq=MENUTREE_000031&prgId=E040304&depth=4', map: { sourceDateLabel: ['일자-No.', '일자'], custName: ['거래처명'], prodName: ['품목명(요약)', '품목명'], amountTotal: ['금액합계'], foreignTotal: ['외화금액합계'], exchangeRate: ['환율'] }, numFields: ['amountTotal', 'foreignTotal', 'exchangeRate'] },
+  buyStatus: { prgId: 'E040305', form: true, hash: '#menuType=MENUTREE_000004&menuSeq=MENUTREE_000513&groupSeq=MENUTREE_000031&prgId=E040305&depth=4', map: { sourceDateLabel: ['일자-No.', '일자'], custName: ['거래처명'], prodName: ['품목명(규격)', '품목명'], qty: ['수량'], boxQty: ['박스수량'], unitPrice: ['단가'], foreignAmount: ['외화금액'], supplyAmt: ['공급가액'], exchangeRate: ['환율'], total: ['합계'], weight: ['Weight', 'WEIGHT', '중량'] }, numFields: ['qty', 'boxQty', 'unitPrice', 'foreignAmount', 'supplyAmt', 'exchangeRate', 'total', 'weight'] },
 };
 const READONLY_PRGIDS = new Set(Object.values(DEFS).map(d => d.prgId));
 const WRITE_RE = /(save|insert|update|delete|remove|regist|modify|submit|\/ins\b|\/upd\b|\/del\b)/i;
@@ -95,7 +102,8 @@ export async function collectOne(page, base, ds) {
   await page.waitForTimeout(2800);
   if (isLoginPage(page)) throw new Error('LOGIN_EXPIRED');
   if (def.form) { await page.keyboard.press('F8').catch(() => {}); await page.waitForTimeout(3000); }
-  const dlP = page.waitForEvent('download', { timeout: ds === 'sales' ? 60000 : 15000 }).catch(() => null);
+  // 2026-11-16: Excel 이 새 창에서 내려받는 화면도 잡도록 page 가 아닌 context 단위로 다운로드를 기다린다. 판매현황은 6천 행 이상이라 로딩이 길어 대기 180초.
+  const dlP = page.context().waitForEvent('download', { timeout: ds === 'sales' ? 180000 : 15000 }).catch(() => null);
   let clicked = false;
   for (let attempt = 0; attempt < 4 && !clicked; attempt++) { if (attempt) await page.waitForTimeout(8000); // 2026-10-08: 그리드 로딩 지연·공지 팝업으로 Excel 버튼이 늦게 보이는 경우 재시도(10/9 야간 3회 '버튼 못 찾음' → 3회·8초로 확대)
   for (const f of [page, ...page.frames()]) {
@@ -106,7 +114,35 @@ export async function collectOne(page, base, ds) {
   }
   }
   if (!clicked) throw new Error('Excel 버튼 못 찾음');
-  const dl = await dlP;
+  // 2026-11-16: Excel 버튼이 선택 메뉴(Excel(데이터))를 여는 화면 — 다운로드가 바로 시작되지 않으면 그 메뉴의 데이터 항목을 눌러 내보낸다(조회 전용 내보내기).
+  await page.waitForTimeout(1500);
+  for (const f of [page, ...page.frames()]) {
+    try { const item = f.getByText(/^Excel\(데이터\)$/).first(); if (await item.isVisible({ timeout: 500 })) { await item.click({ timeout: 1500 }); break; } } catch {}
+  }
+  let dl = null;
+  if (ds === 'sales') { // 판매현황: 로딩 중 눌린 Excel 은 무시될 수 있어 45초마다 다시 누른다(최대 3회). 이미 받기 시작했으면 중복 클릭 안 함.
+    let done = false; dlP.then(() => { done = true; });
+    for (let r = 0; r < 4 && !done; r++) {
+      await Promise.race([dlP, page.waitForTimeout(45000)]);
+      if (done) break;
+      if (r === 1) { // 판매현황: Excel(화면)이 6천 행에서 안 내려가면 옆 ▲ 메뉴의 Excel(데이터)를 눌러 본다. 메뉴 항목을 못 찾으면 메뉴 캡처(sales-menu.png)를 남긴다(조회 전용).
+        try {
+          for (const f of [page, ...page.frames()]) {
+            const arrow = f.locator('button:has-text("Excel(화면)") + button, a:has-text("Excel(화면)") + a, button:has-text("Excel(화면)") ~ button').first();
+            if (await arrow.isVisible({ timeout: 500 })) {
+              await arrow.click({ timeout: 1500 }); await page.waitForTimeout(800);
+              const item = f.getByText(/Excel\(데이터\)/).first();
+              if (await item.isVisible({ timeout: 800 })) await item.click({ timeout: 1500 });
+              else { fs.mkdirSync(DL, { recursive: true }); await page.screenshot({ path: path.join(DL, 'sales-menu.png') }).catch(() => {}); }
+              break;
+            }
+          }
+        } catch {}
+      }
+      for (const f of [page, ...page.frames()]) { try { const b = f.getByRole?.('button', { name: /^Excel/i }).first(); if (b && await b.isVisible({ timeout: 500 })) { await b.click({ timeout: 1500 }); break; } } catch {} }
+    }
+  }
+  dl = await dlP;
   if (!dl) { // 2026-10-08 진단: 실패 시점 화면·보이는 팝업 텍스트를 남긴다(조회 전용, 아무것도 누르지 않음)
     fs.mkdirSync(DL, { recursive: true });
     const shot = path.join(DL, `${ds}-fail.png`); await page.screenshot({ path: shot, fullPage: false }).catch(() => {});
