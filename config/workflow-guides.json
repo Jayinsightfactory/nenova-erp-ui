@@ -995,7 +995,9 @@
         "cycle",
         "week",
         "review",
-        "download"
+        "download",
+        "eta",
+        "save"
       ],
       "guides": [
         {
@@ -1010,27 +1012,37 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.012
+              "seconds": 0.007
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.587
+              "seconds": 10.574
             },
             {
               "scenario": "week",
               "title": "3. 세부차수 조회",
-              "seconds": 21.183
+              "seconds": 21.141
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 31.828
+              "seconds": 31.69
             },
             {
               "scenario": "download",
-              "title": "5. 엑셀 다운로드",
-              "seconds": 42.941
+              "title": "5. 다운로드·ETA 창 열기",
+              "seconds": 42.739
+            },
+            {
+              "scenario": "eta",
+              "title": "6. ETA 날짜 입력",
+              "seconds": 53.305
+            },
+            {
+              "scenario": "save",
+              "title": "7. ETA 저장·엑셀 다운로드",
+              "seconds": 65.496
             }
           ]
         }

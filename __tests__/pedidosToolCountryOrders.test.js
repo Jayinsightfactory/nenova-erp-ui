@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
+import './countryOrderEta.test.js';
 import { createCountryOrderRequestGuard } from '../lib/countryOrderPedidosAdapter.js';
 import { buildCountryOrderMatrix, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities } from '../lib/countryOrderSource.js';
 import { formatPedidosQuantity } from '../lib/importPedidos.js';
@@ -100,13 +101,13 @@ test('quantity-zero cells and totals display blank while diagnostic zero and pro
   assert.match(ui, /formatCountryOrderStoredQuantities\(row.storedQuantities\)/);
 });
 
-test('UI keeps full export blocked but offers a partial export that excludes blocked products and still downloads', () => {
+test('UI requires all products resolved and never offers omitted-order downloads', () => {
   const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');
-  assert.match(ui, /excludeBlockedCountryOrderRows/);
+  assert.doesNotMatch(ui, /excludeBlockedCountryOrderRows|canGeneratePartial/);
   assert.match(ui, /const canGenerate = canExport && \(matrix.blockers.length === 0 \|\| Boolean\(manualState.matrix\)\)/);
   assert.match(ui, /applyCountryOrderManualQuantities\(matrix, manual\)/); assert.match(ui, /pedidos-manual-input/); assert.match(ui, /setManual\(\{\}\); invalidate\(setOrderWeek/);
-  assert.match(ui, /blockedRowCount < matrix.rows.length/);
-  assert.match(ui, /확인 필요 품목 \{blockedRowCount\}개 제외하고 생성/);
+  assert.match(ui, /확인 필요 품목을 제외한 다운로드는 허용하지 않습니다/);
+  assert.match(ui, /countryOrderSourceComplete\(response\)/);
   assert.match(ui, /sourceMode === 'erp' && !canExport/);
   assert.match(ui, /pedidos-row-blocked/);
 });
