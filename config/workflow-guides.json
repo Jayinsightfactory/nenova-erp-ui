@@ -1280,68 +1280,54 @@
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 32.6
+              "seconds": 32.2
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 41.8
+              "seconds": 41.4
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 68.4
+              "seconds": 68.2
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 89.6
+              "seconds": 89.4
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 118.2
+              "seconds": 117.8
             },
             {
               "scenario": "calendar",
               "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 128
+              "seconds": 127.2
             },
             {
               "scenario": "independent",
               "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 152.4
+              "seconds": 151.8
             },
             {
               "scenario": "company",
               "title": "9. 공통 일정 제목과 색상 등록·수정",
-              "seconds": 163.8
+              "seconds": 163.4
             },
             {
               "scenario": "collapse",
               "title": "10. 월간·주간 접기와 홈 다시 열기",
-              "seconds": 218.6
+              "seconds": 235.4
             },
             {
               "scenario": "weekly",
               "title": "11. 주차별 일정과 다음 주 차수 확인",
-              "seconds": 250.4
+              "seconds": 267.2
             }
           ]
-        }
-      ],
-      "videoWaivers": [
-        {
-          "file": "desktop/main.cjs",
-          "sha256": "06a0c272d0325cc7daea6afcc01cc4cd319097b9b9007f837d5b4d5e4a80e65e",
-          "reason": "앱 홈에 「수입 비행기 현황」 구역 추가(새 구역 한 칸과 조회 연결 몇 줄) — 오늘의 내 업무·달력·메모 등 기존 가이드의 조작 순서는 변경 없음",
-          "approvedBy": "사용자 지시 2026-11-17 (가이드 영상 제외 후 작업)"
-        },
-        {
-          "file": "desktop/shell/index.html",
-          "sha256": "3acc396c28d6306f5b40d33497dd8354d78fdc26fdb58ec937c4d07a13a6d637",
-          "reason": "앱 홈에 「수입 비행기 현황」 구역 추가(새 구역 한 칸과 조회 연결 몇 줄) — 오늘의 내 업무·달력·메모 등 기존 가이드의 조작 순서는 변경 없음",
-          "approvedBy": "사용자 지시 2026-11-17 (가이드 영상 제외 후 작업)"
         }
       ]
     }
