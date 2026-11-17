@@ -159,7 +159,7 @@ test('NL legacy alias still applies when no explicit ERP source identity exists'
   });
   assert.equal(result.products[0].name, targetName);
   assert.equal(result.products[0].viaAlias, true);
-  assert.equal(result.products[0].unmatched, undefined);
+  assert.equal(result.products[0].unmatched, false);
 });
 
 test('NL stale ERP alias stays unmatched instead of falling back to a valid dictionary target', async () => {
@@ -177,7 +177,7 @@ test('NL stale ERP alias stays unmatched instead of falling back to a valid dict
   });
   assert.equal(result.products[0].name, description);
   assert.equal(result.products[0].unmatched, true);
-  assert.equal(result.products[0].viaAlias, undefined);
+  assert.equal(result.products[0].viaAlias, false);
   assert.equal(result.pending.length + result.noMatches.length, 1);
 });
 

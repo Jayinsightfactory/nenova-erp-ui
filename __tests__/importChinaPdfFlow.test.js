@@ -94,13 +94,19 @@ test('actual private 41-1 PDF fixture extracts locally with zero network calls',
  assert.equal(sourceDraft.rows.filter(row=>row.auditMethod==='MACHINE_VERIFIED').length,99);
  assert.equal(sourceDraft.rows.filter(row=>row.confirmed).length,0,'Machine checks never impersonate human confirmation');
 });
-test('PDF receipt draft is blocked before source review; confirmed source retains quantities and GW without writes',async()=>{
+test('PDF receipt requires the next step and valid source values; quantities and GW survive optional source review',async()=>{
  const [,,packing,review]=await ready;
  const adapter=await import('../lib/importPackingReceiptAdapter.js');
  const hash='b'.repeat(64),inv={...invoice(),pdfSourceHash:hash,pdfReviewRequired:true};
  inv.products[0].gross_weight=3;
  inv.products[0].source_cells={gross_weight:{page:2,quote:'3.00',value:3}};
- await assert.rejects(()=>adapter.adaptPackingReceipts({invoices:[inv],country:'CN',fileName:'2025 41-1.pdf',sourceHash:hash}),/원본 PDF/);
+ const args={invoices:[inv],country:'CN',fileName:'2025 41-1.pdf',sourceHash:hash};
+ await assert.rejects(()=>adapter.adaptPackingReceipts(args),/품목 매칭 후 다음 단계/);
+ const valid=await adapter.adaptPackingReceipts({...args,reviewConfirmed:true});
+ assert.deepEqual([valid[0].lines[0].boxQuantity,valid[0].lines[0].bunchQuantity,valid[0].lines[0].stemQuantity,valid[0].lines[0].sourceEvidence.grossWeightKg],[1,2,8,3]);
+ const invalid=structuredClone(inv);invalid.products[0].total_stems=-1;
+ await assert.rejects(()=>adapter.adaptPackingReceipts({...args,invoices:[invalid],reviewConfirmed:true}));
+ await assert.rejects(()=>adapter.adaptPackingReceipts({...args,sourceHash:'c'.repeat(64),reviewConfirmed:true}));
  const draft=review.makePackingSourceReview(inv,'CN');draft.pdf={rendered:true,page:1};draft.rows.forEach(r=>r.confirmed=true);
  const confirmed=review.applyPackingSourceReview(inv,draft,'CN');
  const excel=packing.genChina(XLSX,confirmed,'41','1');
