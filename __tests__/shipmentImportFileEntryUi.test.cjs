@@ -42,9 +42,13 @@ test('actual page allows file selection while read waits; newer file owns downlo
   const f = fixture();
   try {
     f.select('first.xlsx');
+    assert.equal(f.calls.length,0);
+    f.button(f.render(),'물량표 바로 생성').props.onClick();
     assert.equal(f.calls.length, 1);
     assert.equal(f.button(f.render(), '파일 선택').props.disabled, false);
     f.select('second.xlsx');
+    assert.equal(f.calls.length,1);
+    f.button(f.render(),'물량표 바로 생성').props.onClick();
     assert.equal(f.calls.length, 2, 'new selection starts its own generation even while old downloading state was true');
     assert(f.calls[0].options.signal.aborted);
     await Promise.resolve(); await Promise.resolve();
@@ -70,7 +74,7 @@ test('2/5/10/20 mounted staff pages accept independent normal files while anothe
   for (const count of [2, 5, 10, 20]) {
     const screens = Array.from({ length: count }, () => fixture());
     try {
-      screens.forEach((screen, index) => screen.select(`staff-${index}.xlsx`));
+      screens.forEach((screen, index) => {screen.select(`staff-${index}.xlsx`);assert.equal(screen.calls.length,0);screen.button(screen.render(),'물량표 바로 생성').props.onClick();});
       assert(screens.every(screen => screen.calls.length === 1 && !screen.button(screen.render(), '파일 선택').props.disabled));
       // First staff's network request remains pending while everyone else finishes.
       screens.slice(1).forEach(screen => screen.calls[0].resolve({ ok: true, blob: async () => ({}) }));
@@ -94,7 +98,7 @@ test('collapsed upload header exposes a file picker while reading and observes t
 test('editing the farm note during a download suppresses the old result and releases the download button', async () => {
   const view=fixture();
   try {
-    view.select('draft.xlsx');view.editFarmText('새 메모');
+    view.select('draft.xlsx');view.button(view.render(),'물량표 바로 생성').props.onClick();view.editFarmText('새 메모');
     view.calls[0].resolve({ok:true,blob:async()=>({})});
     await new Promise(resolve=>setImmediate(resolve));
     assert.deepEqual(view.downloads,[]);
@@ -106,23 +110,23 @@ test('upload enables farm-only apply and field download before ERP quantity vali
   const view=fixture();
   try {
     view.select('46-02 장미 물량표.xlsx');
-    view.calls[0].resolve({ok:true,blob:async()=>({})});
+    assert.equal(view.calls.length,0);
     await new Promise(resolve=>setImmediate(resolve));
     const download=view.button(view.render(),'신형 물량표 다운로드');
     assert.equal(download.props.disabled,false);
     const farm=view.button(view.render(),'카톡 농장 적용');
     assert.equal(farm.props.disabled,false);
     const pending=farm.props.onClick();
-    assert.match(view.calls[1].url,/distribute-import-farms$/);
-    view.calls[1].resolve({ok:true,json:async()=>({success:true,changed:1})});
+    assert.match(view.calls[0].url,/distribute-import-farms$/);
+    view.calls[0].resolve({ok:true,json:async()=>({success:true,changed:1})});
     await pending;
     const exportPending=download.props.onClick();
-    assert.match(view.calls[2].url,/field-sources/);
-    view.calls[2].resolve({ok:true,json:async()=>({items:[{id:'r',revision:'1',filename:'46-02 장미 물량표.xlsx'}]})});
+    assert.match(view.calls[1].url,/field-sources/);
+    view.calls[1].resolve({ok:true,json:async()=>({items:[{id:'r',revision:'1',filename:'46-02 장미 물량표.xlsx'}]})});
     await new Promise(resolve=>setImmediate(resolve));
-    assert.match(view.calls[3].url,/field-sources/);
-    view.calls[3].resolve({ok:true,blob:async()=>({}),headers:{get:()=>null}});
+    assert.match(view.calls[2].url,/field-sources/);
+    view.calls[2].resolve({ok:true,blob:async()=>({}),headers:{get:()=>null}});
     await exportPending;
-    assert.equal(view.downloads.length,2);
+    assert.equal(view.downloads.length,1);
   } finally {view.cleanup();}
 });

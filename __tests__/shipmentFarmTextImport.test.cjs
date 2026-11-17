@@ -64,7 +64,8 @@ test('ambiguous product and farm stay blocked until explicit selection; cm never
   const entry={customer:'라움',product:'몬디알 60cm',family:'rose'};
   const a={...baseRow(),productLabel:'Mondial 50',prodName:'Mondial 50'},b={...baseRow(),key:'1|3',prodKey:3,productLabel:'Mondial 60',prodName:'Mondial 60'};
   assert.equal(text.matchFarmEntry(entry,[a,b]).prodKey,3);
-  assert.equal(text.matchFarmEntry({...entry,product:'몬디알'},[a,b]),null);
+  assert.equal(text.matchFarmEntry({...entry,product:'몬디알'},[a,b]),a);
+  assert.equal(text.matchFarmEntry({...entry,product:'몬디알'},[b]),null);
   assert.equal(text.matchFarmEntry({...entry,product:'몬디알'},[a,b],'1|2').prodKey,2);
 });
 test('locked farm snapshot: stale rejected, repeat target accepted; farm-only money/dates/order invariant',async()=>{
@@ -188,4 +189,13 @@ test('chat-only write locks the selected business key, preserves quantity and is
   qty=6;assert.equal(await store.applyChatFarms(q,preview),1);
   assert.equal(await store.applyChatFarms(q,preview),0);
   assert.equal(mutations.length,3);
+});
+
+test('starred rose heading, customer aliases and default 50cm and explicit lengths identify each distinct workbook row',()=>{
+  const parsed=text.parseFarmText('*장미 농장분배\n-꽃길\n몬디알화이트 20단(에스페)\n몬디알화이트 60cm 30단(나투)\n프리덤 30단(나투)');
+  assert.deepEqual(parsed.errors,[]);assert(parsed.entries.every(e=>e.family==='rose'));
+  const rows=['Mondial White 50','Mondial White 60','Freedom 50'].map((label,i)=>({...baseRow(),key:'1|'+i,productLabel:label,prodName:'ROSE / '+label+'cm',sourceCustomerLabels:['뒷길꽃길※']}));
+  assert.deepEqual(parsed.entries.map(e=>text.matchFarmEntry(e,rows)?.productLabel),rows.map(r=>r.productLabel));
+  assert.equal(text.matchFarmEntry(parsed.entries[0],rows),rows[0]);
+  for (const [label,name] of [['에스페','Esperance'],['밀라그로','Milagro'],['시르카시아','Circasia']])assert(text.farmNameMatches(label,{FarmName:name}));
 });
