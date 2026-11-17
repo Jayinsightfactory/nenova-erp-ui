@@ -9,6 +9,7 @@
     "lib/shipmentReplacementPlan.js",
     "pages/shipment/distribute-import.js",
     "pages/api/shipment/distribute-import-preview.js",
+    "pages/api/shipment/distribute-import-farms.js",
     "pages/api/shipment/distribute-import-export.js",
     "__tests__/shipmentFarmTextImport.test.cjs",
     "package.json",
