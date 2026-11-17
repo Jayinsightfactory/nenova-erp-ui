@@ -35,7 +35,8 @@ function fixture({ enabled = true, space = true, prepare = () => true } = {}) {
 test('fixed feed, manual-only download/install and strict artifact metadata', () => {
   assert.equal(require('../package.json').build.publish.url, FEED);
   const { engine } = fixture();
-  for (const key of ['autoDownload', 'autoInstallOnAppQuit', 'allowDowngrade', 'allowPrerelease']) assert.equal(engine[key], false);
+  for (const key of ['autoDownload', 'allowDowngrade', 'allowPrerelease']) assert.equal(engine[key], false);
+  assert.equal(engine.autoInstallOnAppQuit, true);
   assert(validInfo(info()));
   for (const url of ['https://evil.test/setup.exe', '../setup.exe', 'Nenova-Desktop-Setup-1.4.0-ia32.exe']) { const i = info(); i.files[0].url = url; assert(!validInfo(i)); }
   for (const change of [{size: 0}, {size: 9999999999}, {sha512: 'bad'}]) { const i = info(); Object.assign(i.files[0],change); assert(!validInfo(i)); }
@@ -67,25 +68,21 @@ test('automatic retries recover after failure and concurrent ticks issue one che
   f.engine.checkForUpdates = () => { checks++; return new Promise(resolve => { finish = resolve; }); };
   time++; const pending = scheduler.tick(); await scheduler.tick(true); await f.updater.check(); assert.equal(checks, 2);
   finish({ updateInfo: info() }); await pending;
-  assert.match(f.updater.getState().message, /업데이트가 필요합니다/);
-  assert.equal(f.installs.length, 0);
+  assert.equal(f.updater.getState().phase, 'installing');
+  assert.equal(f.installs.length, 1);
 });
 
-test('automatic checks and late errors preserve available, download progress and downloaded installer', async () => {
-  const f = fixture(); let time = 0, checks = 0, finish;
-  f.engine.checkForUpdates = async () => { checks++; return { updateInfo: info() }; };
-  const scheduler = createUpdateScheduler({ updater: f.updater, isReady: () => true, isOnline: () => true, now: () => time });
-  await scheduler.tick();
-  const available = f.updater.getState(); time += 7 * 60 * 60 * 1000;
-  await scheduler.tick(true); await f.updater.check(); f.engine.emit('error', Error('late'));
-  assert.deepEqual(f.updater.getState(), available); assert.equal(checks, 1);
-  f.engine.downloadUpdate = () => new Promise(resolve => { finish = resolve; });
-  const downloading = f.updater.download(); f.engine.emit('download-progress', { percent: 42 });
-  await scheduler.tick(true); await f.updater.check(); assert.equal(f.updater.getState().percent, 42);
-  finish(); await downloading;
-  const downloaded = f.updater.getState(); time += 7 * 60 * 60 * 1000;
-  await scheduler.tick(true); await f.updater.check(); f.engine.emit('error', Error('late'));
-  assert.deepEqual(f.updater.getState(), downloaded); assert.equal(checks, 1); assert.equal(f.installs.length, 0);
+test('login downloads once and a deferred restart remains staged for normal exit', async () => {
+  const f = fixture({ prepare: () => false });
+  let downloads = 0;
+  f.engine.downloadUpdate = async () => { downloads++; };
+  const scheduler = createUpdateScheduler({ updater: f.updater, isReady: () => true, isOnline: () => true });
+  await Promise.all([scheduler.tick(), scheduler.tick(true)]);
+  await scheduler.tick(true);
+  assert.equal(downloads, 1);
+  assert.equal(f.updater.getState().phase, 'downloaded');
+  assert.equal(f.engine.autoInstallOnAppQuit, true);
+  assert.equal(f.installs.length, 0);
 });
 test('check/download do not restart, explicit install approval required', async () => {
   let approved = false;

@@ -21,7 +21,7 @@ function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall })
   const fail = () => emit({ phase: 'error', message: '업데이트에 실패했습니다. 네트워크와 저장 공간을 확인한 뒤 다시 확인해 주세요.' });
   if (engine) {
     engine.autoDownload = false;
-    engine.autoInstallOnAppQuit = false;
+    engine.autoInstallOnAppQuit = true;
     engine.allowDowngrade = false;
     engine.allowPrerelease = false;
     engine.disableWebInstaller = true;
@@ -58,7 +58,7 @@ function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall })
         token = new CancellationToken();
         await engine.downloadUpdate(token);
         if (token.cancelled) { emit({ phase: 'available', message: '다운로드를 취소했습니다. 업무를 계속할 수 있습니다.' }); return; }
-        emit({ phase: 'downloaded', percent: 100, message: '다운로드 완료. 업무를 저장한 뒤 재시작하여 업데이트하세요.' });
+        emit({ phase: 'downloaded', percent: 100, message: '다운로드 완료. 지금 재시작하거나 앱을 종료하면 업데이트가 적용됩니다.' });
       } catch { if (token?.cancelled) emit({ phase: 'available', message: '다운로드를 취소했습니다. 업무를 계속할 수 있습니다.' }); else fail(); }
       finally { token = null; }
     },
@@ -90,7 +90,13 @@ function createUpdateScheduler({ updater, isReady, isOnline, now = Date.now }) {
       if (time < nextAt && !restored || time - lastAttempt < cooldown) return;
       if (!['idle', 'current', 'error'].includes(updater.getState().phase)) return;
       busy = true; lastAttempt = time; nextAt = time + interval;
-      try { await updater.check(); }
+      try {
+        await updater.check();
+        if (isReady() && isOnline() && updater.getState().phase === 'available') {
+          await updater.download();
+          if (isReady() && updater.getState().phase === 'downloaded') await updater.install();
+        }
+      }
       finally {
         if (updater.getState().phase === 'error') nextAt = now() + retry;
         busy = false;
