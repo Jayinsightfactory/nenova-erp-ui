@@ -377,6 +377,7 @@ test('keeps each original source line separate even when a formatter aggregated 
   assert.deepEqual(document.lines.map(line => line.lineAmount), [10, 20]);
   assert.deepEqual(document.lines.map(line => line.sourceEvidence.derivedFields.lineAmount.formula), ['stems × price', 'stems × price']);
   assert.deepEqual(document.lines.map(line => line.prodKey), [50, 50]);
+  assert.deepEqual(document.lines.map(line => line.sourceEvidence.invoiceCustomerCode), ['CL2', 'CL2']);
 });
 
 test('country source contracts preserve explicit quantities and record only deterministic derivations', async () => {

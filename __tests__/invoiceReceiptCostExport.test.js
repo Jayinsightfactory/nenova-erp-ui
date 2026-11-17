@@ -432,9 +432,13 @@ for (const [profileId, filename, count] of [
     }
     assert.ok((await exportCurrentInvoiceCost(h.args)).buffer); assert.equal(h.reads(), 2);
     if(profileId==='NL_ORIGINAL_V1'){
-      const base=h.args.queryFn;let reads=0;
-      h.args.queryFn=async(sql,params)=>{const result=await base(sql,params);if(sql.includes('nl-cost:readonly-customer-comparison')){
-        result.recordsets[1]=[{OrderYear:'2026',OrderWeek:'41-02',CustKey:533,ProdKey:1,ProdName:'CURRENT FLOWER 1',SteamQuantity:++reads===2?1:0}];}return result;};
+      h.f.document.lines.forEach(line=>{line.sourceEvidence={invoiceCustomerCode:'CL2'};});
+      const generate=h.args.generate;
+      h.args.generate=async value=>{
+        const bytes=generate?await generate(value):await createInvoiceCostWorkbook(value);
+        h.f.document.lines[0].sourceEvidence.invoiceCustomerCode='CL21';
+        return bytes;
+      };
       await assert.rejects(exportCurrentInvoiceCost(h.args),e=>e.code==='COST_EXPORT_CHANGED'&&/주광/.test(e.message));
     }
     h.f.revision.liveReceiptStatus = 'STALE'; await assert.rejects(exportCurrentInvoiceCost(h.args));

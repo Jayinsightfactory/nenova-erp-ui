@@ -1,4 +1,5 @@
 import test from 'node:test';
+import './nlInvoiceCustomerClassification.test.js';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import JSZip from 'jszip';
