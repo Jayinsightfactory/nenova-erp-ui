@@ -204,3 +204,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   #workCalendar .workspace-card-heading { flex-wrap: wrap; }
   #workCalendar .calendar-title-group h2 { font-size: 19px; }
 }
+
+.calendar-source-filters { display:flex; gap:6px; margin:4px 0 12px; flex-wrap:wrap; }
+.calendar-source-filters button { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; font-size:12px; }
+.calendar-source-filters button[aria-pressed=true] { color:#174eae; background:#edf3ff; border-color:#85aafa; }
+.calendar-new-badge { background:#d84242; color:white; border-radius:9px; padding:1px 6px; font-size:10px; }
+.calendar-new-badge[hidden] { display:none; }

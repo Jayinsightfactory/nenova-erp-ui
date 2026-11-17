@@ -10,6 +10,19 @@ import {mutatePersonalHome} from '../lib/personalHomeStore.js';
 const a={userId:'employee-A',accountActive:true},b={userId:'employee-B',accountActive:true},admin={userId:'nenovaSS3',accountActive:true};
 const query={month:'2026-11',week:'2026-11-13',date:'2026-11-13'};
 const create=(expectedRevision,extra={})=>({action:'create',expectedRevision,requestId:randomUUID(),title:'회사 회의',date:'2026-11-13',startTime:'09:30',endTime:'10:30',note:'공통 안내',...extra});
+test('new company additions notify outside the displayed period, updates and deletion keep the addition marker',()=>fixture(async root=>{
+ const first=await companyCalendar(a,query,create(0,{date:'2027-01-06'}),{root});
+ assert.equal(first.events.length,0);
+ assert.equal(first.latestAdditionRevision,1);
+ const future=await companyCalendar(a,{date:'2027-01-06'},null,{root});
+ const id=future.events[0].id;
+ const updated=await companyCalendar(a,query,{...create(1,{date:'2027-01-06'}),action:'update',id},{root});
+ assert.equal(updated.latestAdditionRevision,1);
+ const deleted=await companyCalendar(a,query,{action:'delete',id,expectedRevision:2,requestId:randomUUID()},{root});
+ assert.equal(deleted.latestAdditionRevision,1);
+ const next=await companyCalendar(b,query,create(3),{root});
+ assert.equal(next.latestAdditionRevision,4);
+}));
 async function fixture(run){const root=await fs.mkdtemp(path.join(os.tmpdir(),'nenova-company-'));try{await run(root);}finally{await fs.rm(root,{recursive:true,force:true});}}
 test('company event shares across employees; only author/admin edits, no creator identity leaks',()=>fixture(async root=>{
  let result=await companyCalendar(a,query,create(0),{root});const id=result.events[0].id;assert.equal(result.events[0].canEdit,true);
