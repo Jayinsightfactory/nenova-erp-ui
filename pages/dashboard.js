@@ -1,8 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { apiDelete, apiGet, apiPost } from '../lib/useApi';
 import { useLang } from '../lib/i18n';
 import { MENU_ITEMS, openPopup } from '../components/Layout';
+
+// 수입 비행기 현황 카드(브라우저에서만 그린다 — 현재 시각으로 위치를 계산하므로 서버 그림과 달라질 수 있다)
+const ImportFlightBoard = dynamic(() => import('../components/home/ImportFlightBoard'), { ssr: false });
 
 const fmt = n => Number(n || 0).toLocaleString();
 const DASHBOARD_MENU_PAGE = 'dashboard-menu';
@@ -284,6 +288,9 @@ export default function Dashboard() {
           <div className="kpi-sub">확정 대기</div>
         </div>
       </div>
+
+      {/* 수입 비행기 현황: 이슈·예측 위치 */}
+      <ImportFlightBoard />
 
       <div className="grid-2" style={{ gap: 4, marginBottom: 6 }}>
         {/* 지역별 매출 */}
