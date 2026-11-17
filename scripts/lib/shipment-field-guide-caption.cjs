@@ -28,7 +28,7 @@ if(!proof.printPreviewZoom){
  fs.copyFileSync('.verify/field-volume/print-zoomed.mp4',dir+'/support.mp4');proof.printPreviewZoom={start,scale:1.35,x:0,y:0,source:'camera crop of actual captured Excel print page; product/name and stock/remainder columns preserved',cameraBand:{x:0,y:0,width:1920,height:900},transitionSeconds:1.2,returnsToFullFrame:true};delete proof.printPreviewCaption;
 }
 if(proof.printPreviewCaption&&proof.videoSha256===hash(fs.readFileSync(dir+'/support.mp4')))return;
-fs.mkdirSync('.verify/field-volume',{recursive:true});fs.writeFileSync('.verify/field-volume/caption-last.txt','4. 돈셀(2) 3 /5: 이전 2 · 이번 3 · 당일합계 5\n요일색 · 입고 5 · 출고 3 · 재고 1 · 잔량 3 확인');fs.writeFileSync('.verify/field-volume/caption-step.txt','4 단계');
+fs.mkdirSync('.verify/field-volume',{recursive:true});fs.writeFileSync('.verify/field-volume/caption-last.txt','4. 1차 합산 해제 · 돈셀 이번 작업량 3\n요일색 · 입고 5 · 출고 3 · 재고 1 · 잔량 3 확인');fs.writeFileSync('.verify/field-volume/caption-step.txt','4 단계');
 const enable=`gte(t,${Math.max(0,proof.duration-7.2)})`,font="fontfile='C\\:/Windows/Fonts/malgun.ttf'";
 const filter=`drawbox=x=0:y=955:w=1920:h=125:color=0x102847@0.95:t=fill:enable='${enable}',drawtext=${font}:textfile=.verify/field-volume/caption-last.txt:fontcolor=white:fontsize=28:line_spacing=10:x=40:y=975:enable='${enable}',drawbox=x=1680:y=10:w=200:h=60:color=0x102847@0.95:t=fill:enable='${enable}',drawtext=${font}:textfile=.verify/field-volume/caption-step.txt:fontcolor=white:fontsize=30:x=1695:y=23:enable='${enable}'`;
 execFileSync('ffmpeg',['-y','-loglevel','error','-i',dir+'/support.mp4','-vf',filter,'-c:v','libx264','-preset','veryfast','-threads','2','-crf','22','-pix_fmt','yuv420p','-movflags','+faststart','.verify/field-volume/captioned.mp4'],{stdio:'pipe'});
