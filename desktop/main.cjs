@@ -560,8 +560,8 @@ async function verifyAccount(initial = false) {
   }
   for (const w of windows.values()) layout(w);
   broadcast();
-  void updateScheduler?.tick(changed);
   await accountFavorites();
+  void updateScheduler?.tick();
 }
 // --- AI 브리지(로컬 전용 제어 통로) ---------------------------------------
 // 기본 꺼짐. --ai-bridge 플래그 또는 NENOVA_AI_BRIDGE=1일 때만 127.0.0.1 HTTP 서버를 연다.
