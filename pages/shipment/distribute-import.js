@@ -353,6 +353,38 @@ export default function DistributeImport() {
     applyResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [applyResult?.running, applyResult?.appliedCount, applyResult?.skippedNoChangeCount]);
 
+  function workbookForm() {
+    const form = new FormData();
+    form.append('week', weekInput.value);
+    form.append('year', String(weekInput.value || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear()));
+    form.append('earlyImportMode', earlyImportMode);
+    form.append('file', file);
+    form.append('farmText', farmText);
+    form.append('farmOverrides', JSON.stringify(farmOverrides));
+    if (Object.keys(custOverridesRef.current).length) {
+      form.append('customerOverrides', JSON.stringify(custOverridesRef.current));
+    }
+    if (Object.keys(prodOverridesRef.current).length) {
+      form.append('productOverrides', JSON.stringify(prodOverridesRef.current));
+    }
+    return form;
+  }
+
+  async function applyChatFarms() {
+    if (!file || !weekInput.value || applying || pendingJob) return;
+    setApplying(true); setError(''); setMessage(''); setPreview(null);
+    try {
+      const res = await fetch('/api/shipment/distribute-import-farms', {method:'POST',body:workbookForm()});
+      const result = await res.json();
+      if (!res.ok) {
+        if (result.farmImport) setPreview({rows:result.rows, farmImport:result.farmImport});
+        throw Error(result.error || '농장 적용 실패');
+      }
+      setMessage(result.changed ? '농장분배 '+result.changed+'건 적용 완료' : '기존 농장분배와 일치합니다.');
+    } catch (e) { setError(e.message); }
+    finally { setApplying(false); }
+  }
+
   const handlePreview = async (options = {}) => {
     if (applying || preAligning) return;
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
@@ -369,19 +401,7 @@ export default function DistributeImport() {
     }
     if (!options.preserveApplyResult) setPreview(null);
     try {
-      const form = new FormData();
-      form.append('week', weekInput.value);
-      form.append('year', String(weekInput.value || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear()));
-      form.append('earlyImportMode', earlyImportMode);
-      form.append('file', file);
-      form.append('farmText', farmText);
-      form.append('farmOverrides', JSON.stringify(farmOverrides));
-      if (Object.keys(custOverridesRef.current).length) {
-        form.append('customerOverrides', JSON.stringify(custOverridesRef.current));
-      }
-      if (Object.keys(prodOverridesRef.current).length) {
-        form.append('productOverrides', JSON.stringify(prodOverridesRef.current));
-      }
+      const form = workbookForm();
       // 이번 검증에 실제로 보낸 override 스냅샷 — 검증 결과의 미매칭과 대조해
       // "지정했는데 반영 안 됨"(회귀)을 조용히 넘기지 않고 잡아낸다.
       const submittedOverrides = {
@@ -544,10 +564,20 @@ export default function DistributeImport() {
       if(currentArchive.current===archiveUrl)setMessage('원본 저장 완료 · 다운로드할 품목을 체크하세요.');
     }catch(e){setError(e.message);}finally{setSavingSources(false);}
   }
-  async function downloadChecked(){
+  async function downloadChecked({uploadCurrent=false}={}){
     setDownloading(true);setError('');
     try{
-      const selected=savedSources.filter(s=>checkedSources.includes(s.id));
+      let selected=savedSources.filter(s=>checkedSources.includes(s.id));
+      if(uploadCurrent){
+        const upload=new FormData();
+        upload.append('file',file);
+        const response=await fetch(archiveUrl,{method:'POST',body:upload});
+        const result=await response.json();
+        if(!response.ok)throw Error(result.error||'원본 저장 실패');
+        if(currentArchive.current!==archiveUrl)return;
+        setSavedSources(result.items);
+        selected=result.items.filter(item=>item.filename===file.name);
+      }
       const form=new FormData();
       if(isSecondRound)form.append('includePrevious',String(includePrevious));
       form.append('selection',JSON.stringify(selected.map(({id,revision})=>({id,revision}))));
@@ -1099,10 +1129,11 @@ export default function DistributeImport() {
               onClick={()=>{setFarmText(preview.drawingFarmText);setFarmOverrides({targets:{},farms:{}});invalidateFarmPreview();}}>엑셀 농장메모 불러오기</button>
             <span style={{marginLeft:8,fontSize:12}}>카톡 내용을 붙여넣거나, 엑셀 텍스트 상자의 농장메모를 불러온 뒤 검증하세요.</span>
             <p style={{fontSize:13,color:'#475569'}}>엑셀 수정 내역과 농장별 합계를 함께 검증합니다. 카톡 제목 차수와 관계없이 선택한 연도·차수에 적용합니다. 원본 표의 크기·여백·인쇄 설정을 유지하고 표 밖 빈 공간에 농장분배를 넣습니다.</p>
+            <button style={st.applyBtn} disabled={!file || !weekInput.value || applying || loading || preAligning || !!pendingJob} onClick={applyChatFarms}>카톡 농장 적용</button>{' '}
             <button style={st.primaryBtn} disabled={loading || applying || !file} onClick={()=>handlePreview()}>수정 내역 + 농장분배 검증</button>{' '}
             <button style={st.secondaryBtn} disabled={downloading || applying || loading || !!pendingJob || !preview?.exportPlan} onClick={()=>handleFarmDownload(false)}>{downloading?'다운로드 준비 중…':'검증된 엑셀 다운로드'}</button>{' '}
-            <button style={st.applyBtn} disabled={downloading || applying || loading || !!pendingJob || !preview?.fieldExportReady} onClick={()=>checkedSources.length?downloadChecked():handleFarmDownload(true)}>신형 현장물량표 생성</button>
-            <p style={{fontSize:13,color:'#475569'}}>1. 엑셀 업로드 분배 적용 → 2. 카톡 농장분배 검증·적용 → 3. 신형 현장물량표 생성. 저장된 결과가 검증값과 일치하면 생성할 수 있습니다. 품종(이전차수) 이번수량 /당일합계로 표시하며 요일색과 입고·출고·재고·잔량을 함께 출력합니다.</p>
+            <button style={st.applyBtn} disabled={downloading || applying || loading || savingSources || (!checkedSources.length && !/\.xlsx$/i.test(file?.name || ''))} onClick={()=>downloadChecked({uploadCurrent:!checkedSources.length})}>신형 물량표 다운로드</button>
+            <p style={{fontSize:13,color:'#475569'}}>농장 적용은 기존 출고의 농장배정만 저장합니다. 신형 물량표는 업로드 직후에도 받을 수 있습니다. 여러 품목을 합산하려면 저장된 물량표에서 품목을 체크하세요.</p>
             {preview?.fieldExportError && <p role="alert" style={{color:'#b91c1c'}}>현장물량표: {preview.fieldExportError}</p>}
             <span style={{marginLeft:10,fontSize:12}}>ERP 저장은 ‘적용’ 버튼으로 진행합니다.</span>
           </div>

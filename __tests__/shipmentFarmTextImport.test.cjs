@@ -163,3 +163,29 @@ test('blank-looking drawing cells are reserved; relative relationships and repea
   zip.file('xl/drawings/custom.xml',drawing.replaceAll('twoCellAnchor','oneCellAnchor'));
   const unsupported=await excel.planFarmWorkbook(await zip.generateAsync({type:'nodebuffer'}),[row]);assert.ok(unsupported.errors.length,'unknown anchoring never silently covered');
 });
+
+test('chat-only write locks the selected business key, preserves quantity and is retryable',async()=>{
+  const row={custKey:2,prodKey:3,farmBefore:[],farmAssignments:[{farmKey:4,shipmentQuantity:6}]};
+  const preview={orderYear:'2026',week:'46-02',rows:[row,{prodKey:99}]};
+  let actual=[],fixed=false,qty=6,mutations=[];
+  const q=async(sql,params)=>{
+    if(sql.includes('FROM ShipmentMaster')) {
+      assert.deepEqual([params.yr.value,params.wk.value,params.ck.value,params.pk.value],['2026','46-02',2,3]);
+      return {recordset:[{SdetailKey:8,OutQuantity:qty,DetailFix:fixed}]};
+    }
+    if(sql.startsWith('SELECT FarmKey,ShipmentQuantity'))return {recordset:actual};
+    if(sql.startsWith('SELECT DISTINCT')||sql.startsWith('SELECT f.FarmKey'))return {recordset:[{FarmKey:4,FarmCode:'A'}]};
+    assert.equal(params.dk.value,8);
+    mutations.push(sql);
+    if(sql.startsWith('DELETE FROM ShipmentFarm'))actual=[];
+    else if(sql.startsWith('INSERT INTO ShipmentFarm'))actual=[{FarmKey:params.fk.value,ShipmentQuantity:params.qty.value}];
+    else assert.match(sql,/^UPDATE ShipmentDetail SET Descr=/);
+    return {recordset:[]};
+  };
+  fixed=true;await assert.rejects(store.applyChatFarms(q,preview),/확정/);
+  fixed=false;qty=7;await assert.rejects(store.applyChatFarms(q,preview),/다릅니다/);
+  assert.equal(mutations.length,0);
+  qty=6;assert.equal(await store.applyChatFarms(q,preview),1);
+  assert.equal(await store.applyChatFarms(q,preview),0);
+  assert.equal(mutations.length,3);
+});

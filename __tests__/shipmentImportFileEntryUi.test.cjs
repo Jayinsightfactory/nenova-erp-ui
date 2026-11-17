@@ -101,3 +101,28 @@ test('editing the farm note during a download suppresses the old result and rele
     assert.equal(view.button(view.render(),'물량표 바로 생성').props.disabled,false);
   } finally { view.cleanup(); }
 });
+
+test('upload enables farm-only apply and field download before ERP quantity validation', async () => {
+  const view=fixture();
+  try {
+    view.select('46-02 장미 물량표.xlsx');
+    view.calls[0].resolve({ok:true,blob:async()=>({})});
+    await new Promise(resolve=>setImmediate(resolve));
+    const download=view.button(view.render(),'신형 물량표 다운로드');
+    assert.equal(download.props.disabled,false);
+    const farm=view.button(view.render(),'카톡 농장 적용');
+    assert.equal(farm.props.disabled,false);
+    const pending=farm.props.onClick();
+    assert.match(view.calls[1].url,/distribute-import-farms$/);
+    view.calls[1].resolve({ok:true,json:async()=>({success:true,changed:1})});
+    await pending;
+    const exportPending=download.props.onClick();
+    assert.match(view.calls[2].url,/field-sources/);
+    view.calls[2].resolve({ok:true,json:async()=>({items:[{id:'r',revision:'1',filename:'46-02 장미 물량표.xlsx'}]})});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.match(view.calls[3].url,/field-sources/);
+    view.calls[3].resolve({ok:true,blob:async()=>({}),headers:{get:()=>null}});
+    await exportPending;
+    assert.equal(view.downloads.length,2);
+  } finally {view.cleanup();}
+});
