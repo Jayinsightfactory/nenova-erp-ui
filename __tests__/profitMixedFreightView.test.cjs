@@ -1,4 +1,5 @@
 const assert=require('node:assert/strict');
+assert.ok(require('../lib/profitReportCalcHash.cjs').listFiles(require('node:path').resolve(__dirname,'..')).includes('lib/profitMixedFreightView.js'));
 (async()=>{
  const {mixedFreightDeltas,applyMixedFreightView,assertFreightConservationForCache}=await import('../lib/profitMixedFreightView.js');
  assert.throws(()=>assertFreightConservationForCache({forwardingReconciliation:{unmatchedRows:[{amount:10}]}}),{code:'PROFIT_FREIGHT_UNMAPPED'});
