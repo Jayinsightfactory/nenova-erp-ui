@@ -143,6 +143,8 @@ test('canonical loader projects frozen reads, never latest; source failure is di
     buildConfirmedPayload:async()=>({...saved,confirmed:{revisionNo:1},confirmedTotals:saved.totals}),
     loadProfitReportCalendar:async()=>[],resolveCurrentProfitWeek:()=>({orderYear:'2030',major:'44'}),resolvePreviousProfitWeek:()=>({orderYear:'2030',major:'43'}),
     readStoredProfitPayload:async()=>saved,manualInputManifest:{},unclassifiedDetailsByCategory:async()=>[],
+    latestSnapshots:async()=>new Map(),
+    autoForwardingByCountry:async()=>assert.fail('without recorded mixed freight gaps no live freight read is needed'),
     settlementScopeFence:async()=>assert.fail('frozen and confirmed calendar projections must not read the latest settlement fence'),
   };
   const load=new Function(...Object.keys(deps),`${body};return loadWeeklyReportPayload;`)(...Object.values(deps));
