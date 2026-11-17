@@ -1,4 +1,4 @@
-import { incomingProductLabel } from '../../lib/incomingProductLabel.js';
+import { incomingProductLabel, incomingOutputProductLabel } from '../../lib/incomingProductLabel.js';
 import { incomingDefectPrintNote } from '../../lib/incomingDefectPrintNote.js';
 import { manualHoldDescriptor, canSelectSupportDisposition } from '../../lib/defectManualHold.js';
 import DefectCostLookup from '../../components/DefectCostLookup';
@@ -2206,13 +2206,13 @@ export default function SalesDefectDeductionsPage() {
           <colgroup><col className="customer-col" />{activeTab !== 'incoming' && <col className="product-col" />}<col className="color-col" /><col className="quantity-col" /><col className="credit-col" /><col className="farm-col" /><col className="note-col" /></colgroup>
           <thead><tr><th>거래처</th>{activeTab !== 'incoming' && <th>품종</th>}<th>품명</th><th>차감수량</th><th aria-label="크레딧(수입부)">{activeTab === 'incoming' ? '✓' : '크레딧(수입부)'}</th><th>농장</th><th>비고</th></tr></thead>
           <tbody>{printRows.map((row, index) => <tr key={`print-${index}`}>
-            <td>{row?.customerName || ''}</td>
+            <td>{activeTab === 'incoming' && index > 0 && row?.customerName === printRows[index - 1]?.customerName ? '' : row?.customerName || ''}</td>
             {activeTab !== 'incoming' && <td>{row?.productName || ''}</td>}
-            <td>{activeTab === 'incoming' ? incomingProductLabel(row) : row?.colorName || ''}</td>
+            <td>{activeTab === 'incoming' ? incomingOutputProductLabel(row) : row?.colorName || ''}</td>
             <td>{printQuantity(row)}</td>
             <td>{row?.creditApplied ? '✓' : ''}</td>
             <td>{row?.farmName || ''}</td>
-            <td>{activeTab === 'incoming' ? incomingDefectPrintNote(row?.note, row?.managerName) : row?.note || ''}</td>
+            <td style={activeTab === 'incoming' && /kakao-defect:/i.test(row?.note) ? { whiteSpace: 'nowrap' } : undefined}>{activeTab === 'incoming' ? incomingDefectPrintNote(row?.note, row?.managerName) : row?.note || ''}</td>
           </tr>)}</tbody>
         </table>
       </div>
