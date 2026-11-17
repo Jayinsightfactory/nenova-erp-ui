@@ -501,8 +501,8 @@ assert.deepEqual(managerWb.worksheets.map((sheet) => sheet.name), ['전체품목
 assert.equal(managerWb.getWorksheet('전체품목').getCell('B6').value, '태림원예');
 assert.equal(managerWb.getWorksheet('김담당').getCell('B6').value, '태림원예');
 assert.equal(managerWb.getWorksheet('이담당').getCell('B6').value, '업체B');
-assert.equal(managerWb.getWorksheet('전체품목').getCell('F6').value, '콜롬비아 · CARNATION Hermes');
-assert.equal(managerWb.getWorksheet('이담당').getCell('F6').value, '중국 · ROSE / Laila');
+assert.equal(managerWb.getWorksheet('전체품목').getCell('F6').value, '콜 카네이션 Hermes');
+assert.equal(managerWb.getWorksheet('이담당').getCell('F6').value, '중 장미 Laila');
 assert.equal(managerWb.getWorksheet('김담당').getCell('B7').value, null);
 assert.equal(managerWb.getWorksheet('김담당').pageSetup.printArea, 'B1:K44');
 
@@ -511,7 +511,7 @@ for (const sheet of managerWb.worksheets) {
   assert.equal(sheet.getColumn('E').hidden, true);
   assert.ok(sheet.getColumn('I').width > sheet.getColumn('H').width);
 }
-assert.equal(managerWb.getWorksheet('전체품목').getCell('J6').value, '카-11월 2일 오전 9:10-김담당');
+assert.equal(managerWb.getWorksheet('전체품목').getCell('J6').value, '카-11/2 9:10 김담당');
 assert.equal(managerWb.getWorksheet('이담당').getCell('J6').value, null);
 
 const manyCustomers = Array.from({ length: 22 }, (_, index) => ({
