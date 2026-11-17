@@ -7,6 +7,10 @@
   const btn=(text,fn,cls='')=>{const n=el('button',cls,text);n.type='button';n.onclick=fn;return n;};
   const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
   let owner='',generation=0,visible=false,online=false,selected=today(),month=selected.slice(0,7),days=[],boardBusy=false,calendarRead=0,timer,weekAnchor=selected,weekData=null;
+  let showPersonal=true,showCompany=true,seenAddition=null;
+  const preferenceKey=()=> 'nenova-calendar-view-v1:'+encodeURIComponent(owner);
+  function saveView(){if(owner)try{localStorage.setItem(preferenceKey(),JSON.stringify({personal:showPersonal,company:showCompany,seen:seenAddition}));}catch{}}
+  function restoreView(){showPersonal=true;showCompany=true;seenAddition=null;try{const saved=JSON.parse(localStorage.getItem(preferenceKey()));if(saved){showPersonal=saved.personal!==false;showCompany=saved.company!==false;seenAddition=Number.isSafeInteger(saved.seen)&&saved.seen>=0?saved.seen:null;}}catch{}}
   let companyError='';const company=window.NenovaCompanyCalendar.create(message=>{companyError=message||'';if(window.homeDashboard)paint();});
   const open=(query)=>window.desktop.invoke('open',{url:'/pm?'+query,title:'개발요청 게시판'}).catch(e=>{boardStatus.textContent=e.message;});
   const head=el('div','workspace-card-heading'),title=el('h2','','개발요청 게시판'),actions=el('div','workspace-actions');
@@ -48,25 +52,41 @@
   const weeklyHeading=el('div','workspace-card-heading weekly-heading'),weekTitle=el('h3'),weekActions=el('div','workspace-actions');
   const weekPrev=btn('‹',()=>browseWeek(-1)),weekNext=btn('›',()=>browseWeek(1));weekPrev.setAttribute('aria-label','이전 주');weekNext.setAttribute('aria-label','다음 주');weekActions.append(weekPrev,weekNext,weekToggle);weeklyHeading.append(weekTitle,weekActions);
   const legend=el('p','calendar-week-hint','한국 시간 · 빈 시간 클릭으로 업무 추가 · 종료 미정은 1시간 칸으로 표시');
-  const calStatus=el('p','calendar-status');calStatus.setAttribute('role','status');calendar.append(calHead,monthView,monthHint,weeklyHeading,legend,weekScroll,calStatus);
+  const filters=el('div','calendar-source-filters');
+  filters.setAttribute('role','group');filters.setAttribute('aria-label','달력에 표시할 일정');
+  const personalFilter=btn('내 일정',()=>{showPersonal=!showPersonal;saveView();paint();});
+  personalFilter.id='calendarPersonalFilter';
+  const companyFilter=btn('',()=>{showCompany=!showCompany;if(showCompany&&company.latestAdditionRevision!==null)seenAddition=company.latestAdditionRevision;saveView();paint();});
+  companyFilter.id='calendarCompanyFilter';
+  const companyLabel=el('span','','회사 공통'),companyBadge=el('span','calendar-new-badge','새 일정');
+  companyBadge.setAttribute('role','status');companyFilter.append(companyLabel,companyBadge);filters.append(personalFilter,companyFilter);
+  function paintFilters(){
+    const latest=company.latestAdditionRevision;
+    if(latest!==null&&(seenAddition===null||showCompany&&visible&&!document.hidden&&(monthOpen||weekOpen))&&latest!==seenAddition){seenAddition=latest;saveView();}
+    const unread=latest!==null&&seenAddition!==null&&latest>seenAddition;
+    personalFilter.disabled=!owner;companyFilter.disabled=!owner;
+    personalFilter.setAttribute('aria-pressed',String(showPersonal));companyFilter.setAttribute('aria-pressed',String(showCompany));
+    companyBadge.hidden=!unread;companyFilter.setAttribute('aria-label','회사 공통'+(unread?' · 새 일정 있음':''));
+  }
+  const calStatus=el('p','calendar-status');calStatus.setAttribute('role','status');calendar.append(calHead,filters,monthView,monthHint,weeklyHeading,legend,weekScroll,calStatus);
   function setMonthOpen(value){monthOpen=value;monthView.hidden=!value;monthHint.hidden=!value;monthToggle.textContent=value?'접기 ▴':'열기 ▾';monthToggle.setAttribute('aria-expanded',String(value));}
   function setWeekOpen(value){weekOpen=value;weekScroll.hidden=!value;legend.hidden=!value;weekToggle.textContent=value?'접기 ▴':'열기 ▾';weekToggle.setAttribute('aria-expanded',String(value));}
   function paint(){
     prev.setAttribute('aria-label','이전 달');next.setAttribute('aria-label','다음 달');
     prev.disabled=!owner||month==='2000-01';next.disabled=!owner||month==='2100-12';now.disabled=!owner;
     weekPrev.disabled=!owner||!valid(shift(weekAnchor,-7));weekNext.disabled=!owner||!valid(shift(weekAnchor,7));
-    companyAdd.disabled=!owner||!online;setMonthOpen(monthOpen);setWeekOpen(weekOpen);paintMonth();paintWeek();
+    paintFilters();companyAdd.disabled=!owner||!online;setMonthOpen(monthOpen);setWeekOpen(weekOpen);paintMonth();paintWeek();
     calStatus.textContent=companyError?'회사 공통 일정: '+companyError:company.truncated?'회사 공통 일정이 많아 일부만 표시됩니다. 날짜를 선택해 공통 일정에서 확인하세요.':owner?'선택 '+selected+' · 일정 선택: 오른쪽 업무 확인 · 빈 시간 선택: 해당 시간에 추가':'로그인하면 개인 업무 일정을 확인할 수 있습니다.';
   }
   function paintMonth(){
     const [year,m]=month.split('-').map(Number),first=new Date(Date.UTC(year,m-1,1)).getUTCDay(),length=new Date(Date.UTC(year,m,0)).getUTCDate();
     const focused=grid.contains(document.activeElement)?document.activeElement.dataset:null;
     const sharedByDate=new Map();
-    for(const event of company.events){if(!sharedByDate.has(event.date))sharedByDate.set(event.date,[]);sharedByDate.get(event.date).push(event);}
+    for(const event of showCompany?company.events:[]){if(!sharedByDate.has(event.date))sharedByDate.set(event.date,[]);sharedByDate.get(event.date).push(event);}
     calTitle.textContent=year+'년 '+m+'월';grid.replaceChildren();
     for(let i=0;i<first;i++){const spacer=el('span','calendar-spacer');spacer.setAttribute('aria-hidden','true');grid.append(spacer);}
     for(let d=1;d<=length;d++){
-      const date=month+'-'+String(d).padStart(2,'0'),data=days.find(x=>x.date===date),cell=el('div','calendar-cell'),b=btn('',()=>choose(date),'calendar-day');b.dataset.date=date;cell.append(b);
+      const date=month+'-'+String(d).padStart(2,'0'),data=showPersonal?days.find(x=>x.date===date):null,cell=el('div','calendar-cell'),b=btn('',()=>choose(date),'calendar-day');b.dataset.date=date;cell.append(b);
       const top=el('span','calendar-date-top');top.append(el('span','calendar-date-number',String(d)));if(data?.total)top.append(el('small','',data.done+'/'+data.total));b.append(top);
       for(const event of sharedByDate.get(date)||[]){
         const common=btn(event.title,()=>company.openEvent(event),'month-company');
@@ -74,7 +94,7 @@
         common.title=event.title+' · '+(event.startTime||'시간 미정')+' · 회사 공통 일정';common.setAttribute('aria-label',common.title);
         window.NenovaCompanyCalendar.applyColor(common,event.color);cell.append(common);
       }
-      for(const task of data?.preview||[]){const item=el('span','month-task'+(task.done?' is-done':''),(task.startTime?task.startTime+' ':'')+task.title);item.title=task.title;cell.append(item);}if(data?.total>(data?.preview?.length||0)&&data?.preview?.length)cell.append(el('span','month-more','＋ '+(data.total-data.preview.length)+'건'));
+      for(const task of showPersonal?data?.preview||[]:[]){const item=el('span','month-task'+(task.done?' is-done':''),(task.startTime?task.startTime+' ':'')+task.title);item.title=task.title;cell.append(item);}if(data?.total>(data?.preview?.length||0)&&data?.preview?.length)cell.append(el('span','month-more','＋ '+(data.total-data.preview.length)+'건'));
       b.setAttribute('aria-label',date+(data?' · 개인 업무 '+data.total+'건, 완료 '+data.done+'건':''));b.setAttribute('aria-pressed',String(date===selected));
       if(date===today())b.setAttribute('aria-current','date');b.disabled=!owner;b.tabIndex=date===(selected.startsWith(month)?selected:month+'-01')?0:-1;
       b.onkeydown=e=>{const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-7,ArrowDown:7}[e.key];if(delta===undefined)return;e.preventDefault();const target=shift(date,delta);if(target.slice(0,7)!==month)return;grid.querySelectorAll('.calendar-day').forEach(n=>n.tabIndex=n.dataset.date===target?0:-1);grid.querySelector('[data-date="'+target+'"]')?.focus();};grid.append(cell);
@@ -90,7 +110,7 @@
     for(const item of entries){if(group.length&&item.start>=end)flush();let lane=lanes.findIndex(v=>v<=item.start);if(lane<0)lane=lanes.length;lanes[lane]=item.end;item.lane=lane;group.push(item);end=Math.max(...group.map(v=>v.end));}flush();return entries;
   }
   function paintWeek(){
-    const start=monday(weekAnchor),dates=Array.from({length:7},(_,i)=>shift(start,i)),data=dates.map(date=>{const own=weekData?.start===start?weekData.days.find(day=>day.date===date):null;return {date,tasks:[...(own?.tasks||[]),...company.events.filter(event=>event.date===date).map(event=>({...event,company:true}))],more:own?.more||0};});
+    const start=monday(weekAnchor),dates=Array.from({length:7},(_,i)=>shift(start,i)),data=dates.map(date=>{const own=weekData?.start===start?weekData.days.find(day=>day.date===date):null;return {date,tasks:[...(showPersonal?own?.tasks||[]:[]),...(showCompany?company.events:[]).filter(event=>event.date===date).map(event=>({...event,company:true}))],more:showPersonal?own?.more||0:0};});
     const focus=weekView.contains(document.activeElement)?document.activeElement.dataset.focus:null;
     weekTitle.textContent='주간 시간표 · '+start.slice(0,4)+'년 '+Number(start.slice(5,7))+'월 '+Number(start.slice(8))+'일 – '+Number(dates[6].slice(5,7))+'월 '+Number(dates[6].slice(8))+'일';weekView.replaceChildren();
     const header=el('div','week-header');header.append(el('span','week-zone','KST'));
@@ -136,7 +156,7 @@
     if(changed||e.detail.calendar||e.detail.calendarWeek){paint();if(owner&&visible&&online)void company.load({month,week:weekAnchor,date:selected});}
   });
   window.homeDashboard={applyState(state){const previousVisible=visible,previousOnline=online,nextOwner='homeOwnerId'in state?String(state.homeOwnerId||''):owner,changed=nextOwner!==owner;
-    if(changed){monthOpen=true;weekOpen=true;owner=nextOwner;company.setOwner(owner);companyError='';generation++;calendarRead++;boardBusy=false;clearTimeout(timer);list.replaceChildren();days=[];selected=today();weekAnchor=selected;weekData=null;month=selected.slice(0,7);boardStatus.textContent=owner?'개발요청을 확인합니다.':'로그인 후 개발요청을 확인할 수 있습니다.';}
+    if(changed){monthOpen=true;weekOpen=true;owner=nextOwner;restoreView();company.setOwner(owner);companyError='';generation++;calendarRead++;boardBusy=false;clearTimeout(timer);list.replaceChildren();days=[];selected=today();weekAnchor=selected;weekData=null;month=selected.slice(0,7);boardStatus.textContent=owner?'개발요청을 확인합니다.':'로그인 후 개발요청을 확인할 수 있습니다.';}
     if('menuOpen'in state)visible=!!state.menuOpen;if('online'in state)online=!!state.online;
     for(const b of [write,all,retry,webRequest].filter(Boolean))b.disabled=!owner||!online;if(changed||previousVisible!==visible||previousOnline!==online)paint();
     if(owner&&visible&&online&&(changed||!previousVisible||!previousOnline)){void loadBoard();void loadCalendar();}if(!visible||!online)clearTimeout(timer);

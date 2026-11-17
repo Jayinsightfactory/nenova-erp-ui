@@ -137,7 +137,7 @@
     dialog.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();tryClose();}});
     list.onkeydown=event=>{const rows=[...list.querySelectorAll('button')],at=rows.indexOf(document.activeElement),delta={ArrowUp:-1,ArrowDown:1}[event.key];if(at>=0&&delta!==undefined){event.preventDefault();rows[Math.max(0,Math.min(rows.length-1,at+delta))]?.focus();}};
     return {
-      get events(){return snapshot?.events||[];},get truncated(){return !!snapshot?.truncated;},load,
+      get events(){return snapshot?.events||[];},get latestAdditionRevision(){return snapshot?.latestAdditionRevision??null;},get truncated(){return !!snapshot?.truncated;},load,
       setOwner(value){if(owner===value)return;owner=value;epoch++;readId++;snapshot=null;pending=null;busy=false;editing=null;if(dialog.open)dialog.close();for(const [key,input]of Object.entries(fields))input.value=key==='color'?colorOf(null):'';syncColor();initial=fingerprint();list.replaceChildren();status.textContent='';report();onChange?.();},
       open(date,event=null){if(!owner)return;trigger=document.activeElement;day.value=date;listDate=date;edit(event,date);if(!dialog.open)dialog.showModal();showList();fields.title.focus();void load({...query,date});},
       openEvent(event){this.open(event.date,event);},
