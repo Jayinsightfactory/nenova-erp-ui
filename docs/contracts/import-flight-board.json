@@ -1,0 +1,61 @@
+{
+  "id": "import-flight-board",
+  "title": "홈 수입 비행기 현황(도착 공지 + 입고 기록 → 상태·예측 위치·이슈) 계약 — 읽기 전용",
+  "scope": [
+    "pages/api/import/flight-board.js",
+    "lib/importFlightNotice.js",
+    "lib/importFlightStatus.js",
+    "lib/importFlightBoard.js",
+    "lib/importScheduleFeed.js",
+    "lib/importFlightWorldPath.js",
+    "components/home/ImportFlightBoard.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "FLIGHT_BOARD_WAREHOUSE_SELECT_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "FLIGHT_BOARD_KAKAO_NOTICE_READ_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "입고 기록은 차수가 아니라 등록 시각(CreateDtm 최근 30일)과 운송장 번호(WarehouseMaster.OrderNo, 하이픈·공백 제거 11자리)로 묶으므로 해가 바뀌어도 OrderYear 필터 누락으로 섞이지 않는다. 도착 공지의 월·일은 게시 시각(한국 시간) 기준으로 연도를 정한다(연말 게시된 1월 도착 → 다음 해, 테스트 포함). isDeleted 는 WarehouseMaster 로만 거른다(WarehouseDetail 에는 없음). MSSQL 쓰기 없음, 파일 저장 없음."
+  },
+  "requiredTestFiles": [
+    "__tests__/importFlightNotice.test.js",
+    "__tests__/importFlightStatus.test.js",
+    "__tests__/importFlightBoard.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "nenova.exe 에는 없는 웹 전용 조회. ERP 테이블 side effect 없음(전부 SELECT). 운송장 번호는 FormWarehouse 입고 원장의 주문번호(OrderNo) 칸에 저장된 값을 읽기만 한다.",
+    "methods": [
+      "WarehouseMaster.OrderNo(운송장 번호) 존재 여부로 '입고 등록 끝' 판정(읽기)",
+      "WarehouseDetail.BoxQuantity 합계와 Product.FlowerName 으로 실린 품목 표시(읽기, 운임 품목 3100·3101·2182 제외)",
+      "카톡 도착 공지는 Orbit 읽기 통로(nenova-import-schedule-feed)에서 받아 해독만 한다 — ERP 등록 승인이 아님"
+    ],
+    "tables": [
+      "WarehouseMaster/WarehouseDetail (read)",
+      "Product (read)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

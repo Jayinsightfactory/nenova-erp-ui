@@ -170,4 +170,51 @@ assert.ok(mg[0].issues.includes('빌번호 아직 없음'));
 mg = mergeFlightNotices([m(T4, '2026-11-09T01:00:00Z')], { now: NOW });
 assert.ok(mg[0].issues.includes('편명 아직 없음'));
 
+// ── 실제 방에서 나온 글 모양(2026-11 수집분, 번호는 지어낸 값) ──
+// 괄호·AWB 낱말 없이 번호만 적힌 줄
+let rx = parseFlightNoticeMessage(m('* 46-1차 베트남*\n11월 11일 (수) 오전 06:30 도착 예정\n73812345675 6BOX\n서류는 확인되는대로 공유드리겠습니다', '2026-11-10T02:00:00Z'), { now: NOW });
+assert.equal(rx.length, 1);
+assert.equal(rx[0].awb, '73812345675');
+assert.equal(rx[0].box, 6);
+assert.equal(rx[0].arrivalTime, '06:30');
+assert.equal(rx[0].country, '베트남');
+// 번호를 3-4 4 로 띄어 쓴 모양 + 번호 매긴 머리줄
+rx = parseFlightNoticeMessage(m('중국 44-2차 스케줄 정리\n1. 44-2B 중국\n11월 2일 월요일 오후 12시 55분 도착예정\n999-1234 5675  CA401 88BOX\n2. 44-2A 중국\n11월 3일 화요일 오전 08시 50분 도착예정\n999-1234 5686  O3141  112BOX', '2026-11-01T02:00:00Z'), { now: NOW });
+assert.equal(rx.length, 2);
+assert.deepEqual(rx.map(f => f.weekLabel), ['44-2b', '44-2a']);
+assert.deepEqual(rx.map(f => f.awb), ['99912345675', '99912345686']);
+assert.deepEqual(rx.map(f => f.flight), ['CA401', 'O3141']);
+assert.deepEqual(rx.map(f => f.arrivalTime), ['12:55', '08:50']);
+// "내일" 같은 상대 날짜는 게시일(한국 날짜) 기준
+rx = parseFlightNoticeMessage(m('* 화요일 *\n46-3차 중국\n내일 (화) 오전 8시 30분 도착 예정\n921-12345675 ', '2026-11-09T06:00:00Z'), { now: NOW });
+assert.equal(rx.length, 1);
+assert.equal(rx[0].arrivalDate, '2026-11-10');
+assert.equal(rx[0].arrivalTime, '08:30');
+assert.equal(rx[0].awb, '92112345675');
+// 두 차수를 한 머리줄에 적은 사전 공지
+rx = parseFlightNoticeMessage(m('<중국 스케줄 > \n* 일요일 *\n45-3A, 45-3B차 중국 CLOUD\n11월 7일 (일)  오후 8시 50분 도착 예정 (A, B 모두)', '2026-11-06T06:00:00Z'), { now: NOW });
+assert.equal(rx.length, 1);
+assert.equal(rx[0].weekLabel, '45-3a');
+assert.equal(rx[0].itemLabel, '중국 CLOUD');
+assert.equal(rx[0].arrivalTime, '20:50');
+// 머리줄·도착·번호를 한 줄에 다 적은 공지
+rx = parseFlightNoticeMessage(m('<42주차 에콰도르 스케줄 > \n＊수요일＊ \n42-1차 에콰도르 (DELTA AIR LINES) 10월 21일(수) 04:15 도착 예정 (006-12345675 DL0027 10 BOX)', '2026-10-19T06:00:00Z'), { now: NOW });
+assert.equal(rx.length, 1);
+assert.equal(rx[0].country, '에콰도르');
+assert.equal(rx[0].airlineText, 'DELTA AIR LINES');
+assert.equal(rx[0].arrivalAt, '2026-10-21T04:15:00+09:00');
+assert.equal(rx[0].awb, '00612345675');
+assert.equal(rx[0].flight, 'DL0027');
+assert.equal(rx[0].box, 10);
+// 사전 공지 "46-2" 는 나중의 "46-2a" 운송장 공지에 합쳐진다
+let mw = mergeFlightNotices([
+  m('46-2 중국 CLOUD\n11월 15일 (일) 오전 8시 10분 도착 예정', '2026-11-13T01:00:00Z'),
+  m('46-2a차 중국 CLOUD (XIAMEN AIRLINES)\n11월 15일(일) 08:10 도착 예정\n(731-12345675 MF871 120 BOX)', '2026-11-14T01:00:00Z'),
+], { now: NOW });
+assert.equal(mw.length, 1);
+assert.equal(mw[0].awb, '73112345675');
+assert.equal(mw[0].mentions, 2);
+// 도착 공지가 아닌 대화 글은 편으로 읽지 않는다
+assert.equal(parseFlightNoticeMessage(m('스케줄 조회가 안되는데 혹시 해당건 도착예정 편기가 뭔지 알 수 있을까요?', '2026-11-10T02:00:00Z'), { now: NOW }).length, 0);
+
 console.log('importFlightNotice tests passed');
