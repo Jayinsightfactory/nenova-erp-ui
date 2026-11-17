@@ -41,10 +41,9 @@ const mark=async label=>{const b=await button(label);await b.evaluate(e=>{e.scro
 let rec;if(!dry)rec=await createWorkflowGuideRecorder(page,{workflowId:'shipment-field-volume',guideId:'support',title:'물량표 바로 생성 · 분배·농장 적용 후 생성',sourceFiles:['pages/shipment/distribute-import.js'],fixtureOnly:true});
 const step=async(n,scenario,title,selector,action)=>{if(rec){rec.chapter(scenario,`${n}. ${title}`);await rec.caption(`${n}. ${title}`);await rec.focus(selector,n);}console.log('step',n,title);await action();if(rec){await rec.pause(2800);await rec.unfocus();}};
 await page.waitForFunction(()=>document.querySelector('input[placeholder="22-01"]')?.value==='2026-46-02');
-await mark('물량표 모아 업로드');await step(1,'upload','물량표 모아 업로드에서 엑셀을 선택합니다','[data-field-focus]',async()=>{const chooser=page.waitForFileChooser();await(await button('물량표 모아 업로드')).click();await(await chooser).accept([input]);});
-await page.waitForSelector('fieldset input[type=checkbox]');
-await page.click('fieldset input[type=checkbox]');
-await mark('신형 물량표 다운로드');await step(1,'upload-only','저장된 품목을 체크하고 신형 물량표 다운로드를 누릅니다','[data-field-focus]',async()=>{await(await button('신형 물량표 다운로드')).click();});
+await mark('파일 선택');await step(1,'upload','파일 선택으로 물량표를 올립니다','[data-field-focus]',async()=>{const chooser=page.waitForFileChooser();await(await button('파일 선택')).click();await(await chooser).accept([input]);});
+await page.waitForFunction(()=>document.body.innerText.includes('파일 선택 완료'));assert.equal(downloads.length,0);assert.equal(rawExportCount,0);
+await mark('신형 물량표 다운로드');await step(1,'upload-only','원하는 시점에 신형 물량표 다운로드를 누릅니다','[data-field-focus]',async()=>{await(await button('신형 물량표 다운로드')).click();});
 await new Promise(r=>setTimeout(r,600));assert.equal(rawExportCount,1,JSON.stringify(errors));assert.equal(stage,0);assert.equal(previewCount,0);assert.deepEqual(fs.readFileSync('.verify/field-volume/input-신형현장물량표-업로드기준.xlsx'),f.rawOutput);
 const area='textarea[aria-label="농장분배 카톡 내용"]';await page.$eval(area,e=>e.scrollIntoView({block:'center'}));
 await step(2,'farm','카톡 내용을 붙여넣어 업체·품목·농장을 지정합니다',area,async()=>{await page.focus(area);await page.type(area,'-연습업체\n돈셀 3(연습농장)',{delay:90});});

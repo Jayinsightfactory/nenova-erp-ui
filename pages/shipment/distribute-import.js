@@ -862,7 +862,8 @@ export default function DistributeImport() {
               setProdOverridesState({});
               setUnmatchedModalOpen(false);
               if (/\.xlsx$/i.test(selectedFile.name)) {
-                if(archive)void saveSources(selectedFiles);else void handleFarmDownload(true, true, selectedFile, '');
+                setCheckedSources([]);
+                if(archive)void saveSources(selectedFiles);else setMessage('파일 선택 완료 · 농장 적용 또는 다운로드를 선택하세요.');
               }
             }}
           />
@@ -881,7 +882,7 @@ export default function DistributeImport() {
           <button style={st.primaryBtn} onClick={downloadChecked} disabled={!checkedSources.length||savingSources||loading||applying||downloading||!!pendingJob}>선택 품목 다운로드</button>
           <span style={st.fileName}>{file ? `${file.name} · 새 파일 내용 기준` : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
           <button style={st.primaryBtn} onClick={() => handleFarmDownload(true,true)} disabled={!file || !/\.xlsx$/i.test(file.name) || loading || applying || downloading || preAligning || !!pendingJob} title="원본 수량·요일색·입고·재고로 바로 생성합니다. 입력한 카톡 또는 엑셀 농장메모도 확인하며, 이전차수는 포함하지 않습니다.">{downloading ? '다운로드 준비 중...' : '물량표 바로 생성'}</button>
-          <span style={{fontSize:12,color:'#475569'}}>xlsx 선택 시 신형 현장물량표 자동 다운로드 · 카톡 입력 후 다시 생성 가능 · 원본 기준(이전차수 미포함)</span>
+          <span style={{fontSize:12,color:'#475569'}}>파일 선택 후 카톡 농장 적용 또는 신형 물량표 다운로드를 누르세요.</span>
           <button
             style={preAlignAvailable ? st.preAlignBtn : st.preAlignDisabledBtn}
             onClick={handlePreAlign}

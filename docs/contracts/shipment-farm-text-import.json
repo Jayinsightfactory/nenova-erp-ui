@@ -88,6 +88,7 @@
     ],
     "readOnly": true
   },
+  "roseMemoLength": "Use 50cm when the chat omits the rose length. Keep an explicitly named length. An ungraded cultivar may use its exact workbook name.",
   "printLayout": {
     "preserve": [
       "row heights",
