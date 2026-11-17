@@ -1,5 +1,9 @@
 # 국가별 발주서 조회 근거 — 2026-10-15
 
+## 2026-11-17 CL 공란 표시와 출력 보존
+- 실제 설치 EXE의 FormOrderView.GetData/ExportToXlsx를 dnSpy CLI로 재확인. ViewOrder의 OrderYear/OrderWeek 및 저장 BunchQuantity/SteamQuantity를 읽는다. CL 표시 유무는 주문수량의 자격 조건이 아니다.
+- 운영 읽기 대조: CO47-01 141품목/54업체 및 CO47-02 61품목/29업체 각각 공란코드4업체 포함해 XLSX 품목수·수량 보존. NL47-02 17품목/2020송이 보존. NL46-02의 일부업체 송이수 누락3품목은 부분제외 없이 전체보류 유지. 조회와 브라우저 파일 생성만 수행, ERP 쓰기0.
+
 ## 품목관리 단위와 저장 주문의 차이 재확인
 
 - 실제 설치 EXE를 `dnSpy.Console.exe --no-color -t FormProductAdd`로 다시 조회했다. 품목관리 출고단위는 `OutUnit`, 단당 송이 수는 `SteamOf1Bunch`, 박스당 단/송이 수는 `BunchOf1Box`/`SteamOf1Box`에 연결된다.

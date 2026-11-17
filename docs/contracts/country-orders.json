@@ -77,7 +77,7 @@
     "quantityReview": "Existing stem and bunch lines show original ERP quantity and accept file-only overrides, including zero. Every edit recalculates totals and invalidates old downloads. Missing required quantities keep their existing review path.",
     "selection": "Country buttons unlock explicit year/majorWeek. list=subweeks fetches available weeks only. Selecting the full orderWeek fetches its rows and exposes each valid workbook download.",
     "subweeks": "derive actual full OrderWeek values only; numeric subweek then exact suffix ordering; never invent 01 or 02",
-    "customerCode": "Customer.OrderCode by CustKey, never ViewOrder.OrderCode, CustCode or internal key fallback; missing code retained",
+    "customerCode": "Customer.OrderCode by CustKey. Blank CL is normal and emits no missing-code warning: display customer name, never invent a code, preserve every CustKey/product quantity. Shared collision-safe labels in matrix/export disambiguate duplicate names and real-code collisions by display-only CustKey suffix.",
     "customerIdentity": "ERP uses CustKey; duplicate OrderCode remains separate and gets display-only CustKey suffix",
     "uploadCustomerColumns": "preserve legacy Netherlands precedence: explicit <code> Total is the sole source when present; do not add same-code detail columns again; without Total, same-code detail columns are summed; prefix recognition must not change this",
     "productIdentity": "ERP uses ProdKey; uploaded duplicate product-name rows are summed per customer code with row-number warning instead of last-row overwrite",
