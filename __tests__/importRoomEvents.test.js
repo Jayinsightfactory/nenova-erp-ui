@@ -123,4 +123,17 @@ assert.equal(o.unlinked.length, 1);
 o = link([mk(AWB, '2026-11-17T09:00', '46-2차 중국 180-12345697 / 57CT')]);
 assert.equal(one(o, '180-12345697')[0].link, 'awb');
 
+// 도착한 뒤에만 생기는 글(소독)은 아직 도착하지 않은 편에 추정으로 붙이지 않는다
+{
+  const fl = [{ key: 'F1', awb: '992-12345675', weekLabel: '47-1', country: '콜롬비아', arriveAt: '2026-11-18T17:10:00+09:00', noticeMessageIds: ['n1'] }];
+  const msgs = [
+    { chatroom: '빌번호방', sender: 'a', message: 'x', created_at: '2026-11-17T01:20:00Z', external_message_id: 'n1' },
+    { chatroom: '빌번호방', sender: 'b', message: '금일 소독건입니다' + String.fromCharCode(10) + '2PLT 53box', created_at: '2026-11-17T01:54:00Z', external_message_id: 'e1' },
+  ];
+  const evs = extractRoomEvents([msgs[1]]);
+  const r = linkRoomEvents(evs, fl, { now: Date.parse('2026-11-17T12:00:00+09:00'), messages: msgs });
+  assert.equal(r.byFlight.size, 0, '내일 도착할 편에 오늘 소독 글을 붙이지 않는다');
+  assert.equal(r.unlinked.length, evs.length);
+}
+
 console.log('importRoomEvents tests passed');
