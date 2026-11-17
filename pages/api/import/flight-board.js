@@ -64,13 +64,15 @@ async function handler(req, res) {
   }
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET, POST'); return res.status(405).json({ success: false, error: 'GET, POST만 지원합니다.' }); }
   const now = Date.now();
+  // ?fresh=1 : 사용자가 「새로고침」을 눌렀을 때 — 보관해 둔 값을 건너뛰고 다시 읽는다.
+  const fresh = req.query?.fresh === '1';
   let feed = { messages: [], rooms: {}, fetchedAt: null };
   let feedError = null;
   const token = process.env.NENOVA_SALES_READ_TOKEN;
   if (!token) feedError = '카톡 도착 공지 조회 설정이 없습니다.';
   else {
     try {
-      feed = await readImportScheduleFeed(token, { days: 14, now });
+      feed = await readImportScheduleFeed(token, { days: 14, now, fresh });
       if (Object.values(feed.rooms).every(r => r.error)) feedError = '카톡 도착 공지를 불러오지 못했습니다.';
     } catch { feedError = '카톡 도착 공지를 불러오지 못했습니다.'; }
   }
@@ -88,12 +90,12 @@ async function handler(req, res) {
   const sources = { icn: { enabled: !!icnKey, ok: false }, customs: { enabled: !!unipassKey, ok: false } };
   if (icnKey) {
     const targets = first.flights.filter(f => f.flight && Date.parse(f.arriveAt) >= now - 3 * DAY && Date.parse(f.arriveAt) <= now + 6 * DAY).map(f => ({ flight: f.flight, arriveAt: f.arriveAt }));
-    try { icn = await readIcnFlights(icnKey, targets, { now }); sources.icn.ok = targets.length === 0 || [...icn.values()].some(Boolean); } catch { icn = new Map(); }
+    try { icn = await readIcnFlights(icnKey, targets, { now, fresh }); sources.icn.ok = targets.length === 0 || [...icn.values()].some(Boolean); } catch { icn = new Map(); }
   }
   if (unipassKey) {
     const targets = first.flights.filter(f => f.awb && Date.parse(f.arriveAt) - 12 * 3600000 <= now && now <= Date.parse(f.arriveAt) + 8 * DAY)
       .map(f => ({ awb: normalizeAwb(f.awb), year: new Date(Date.parse(f.arriveAt) + 9 * 3600000).getUTCFullYear() }));
-    try { customs = await readCustoms(unipassKey, targets, { now }); sources.customs.ok = targets.length === 0 || [...customs.values()].some(Boolean); } catch { customs = new Map(); }
+    try { customs = await readCustoms(unipassKey, targets, { now, fresh }); sources.customs.ok = targets.length === 0 || [...customs.values()].some(Boolean); } catch { customs = new Map(); }
   }
   let docsSent = {};
   try { docsSent = readDocsSent(); } catch { docsSent = {}; }
@@ -106,6 +108,7 @@ async function handler(req, res) {
     receipts: { ok: !receiptError, error: receiptError },
     ...board,
     sources,
+    refresh: { fresh, autoSeconds: 300, cacheSeconds: { notices: 60, airport: 600, customs: 600 } },
   });
 }
 

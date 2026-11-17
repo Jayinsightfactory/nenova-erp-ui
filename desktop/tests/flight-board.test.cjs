@@ -3,7 +3,8 @@ const fs=require('node:fs'),path=require('node:path');
 const {importFlightBoard,projectFlightBoard}=require('../flight-board.cjs');
 // 운송장 번호는 전부 지어낸 값이다.
 const flight=(over={})=>({key:'014-12345675',weekLabel:'46-2',country:'콜롬비아',itemLabel:'콜카장수국',airline:'AIR CANADA',awb:'014-12345675',flight:'AC063',box:597,arriveAt:'2026-11-18T05:20:00.000Z',timeAssumed:false,
-  status:'in_flight',statusLabel:'밴쿠버 경유지 대기(추정)',progress:0.45,via:{code:'YVR',name:'밴쿠버'},phase:'layover',note:'x',
+  status:'in_flight',statusLabel:'밴쿠버 경유지 대기(추정)',progress:0.45,via:{code:'YVR',name:'밴쿠버',lat:49.1947,lon:-123.1792},phase:'layover',note:'x',
+  origin:{code:'BOG',name:'보고타',assumed:false,lat:4.7016,lon:-74.1469},position:{lat:49.1947,lon:-123.1792},route:[{lat:4.7,lon:-74.1},{lat:30.123456,lon:-100},{lat:49.19,lon:-123.18},{lat:'x',lon:1},{lat:37.46,lon:126.44}],
   actual:{scheduledAt:'2026-11-18T08:10:00.000Z',estimatedAt:'2026-11-18T08:10:00.000Z',remark:null,delayMinutes:170},aircraft:{regNo:'C-FIVM',type:'789'},
   links:{aircraftTrack:'https://www.flightradar24.com/data/aircraft/c-fivm',flightTrack:'https://www.flightradar24.com/data/flights/ac63',flightSearch:'https://www.google.com/search?q=AC063'},
   checklist:{quarantine:{deadlineAt:'2026-11-19T00:00:00.000Z',slot:'오전'},steps:[{key:'awb',label:'빌번호',state:'done'},{key:'notice',label:'도착 공지',state:'done'},{key:'docs',label:'서류 전달',state:'due'},{key:'quarantine',label:'검역',state:'late'}]},
@@ -24,14 +25,16 @@ test('flight board keeps only safe summary fields and never forwards waybill num
   assert.equal(out.flights.length,2,'입고 등록 끝난 편은 뺀다');
   assert.equal(out.registeredCount,1);
   const f=out.flights[0];
-  assert.deepEqual(Object.keys(f).sort(),['alertCount','arriveAt','country','doneSteps','estimatedAt','flight','itemLabel','nextState','nextStep','progress','quarantineDeadlineAt','quarantineSlot','regNo','remark','status','statusLabel','timeAssumed','totalSteps','trackUrl','viaName','weekLabel'].sort());
-  assert.equal(f.viaName,'밴쿠버');assert.equal(f.regNo,'C-FIVM');assert.equal(f.progress,0.45);
+  assert.deepEqual(Object.keys(f).sort(),['alertCount','arriveAt','country','doneSteps','estimatedAt','flight','itemLabel','nextState','nextStep','origin','phase','position','route','via','progress','quarantineDeadlineAt','quarantineSlot','regNo','remark','status','statusLabel','timeAssumed','totalSteps','trackUrl','viaName','weekLabel'].sort());
+  assert.equal(f.viaName,'밴쿠버');assert.deepEqual(f.via,{name:'밴쿠버',lat:49.19,lon:-123.18});assert.deepEqual(f.origin,{name:'보고타',lat:4.7,lon:-74.15});assert.deepEqual(f.position,{lat:49.19,lon:-123.18});
+  assert.deepEqual(f.route,[[-74.1,4.7],[-100,30.12],[-123.18,49.19],[126.44,37.46]],'숫자가 아닌 점은 버리고 [경도,위도] 로');assert.equal(f.phase,'layover');
+  assert.deepEqual(out.destination,{name:'인천',lat:37.46,lon:126.44});assert.equal(f.regNo,'C-FIVM');assert.equal(f.progress,0.45);
   assert.equal(f.trackUrl,'https://www.flightradar24.com/data/aircraft/c-fivm','기체 번호 주소 우선');
   assert.equal(f.nextStep,'검역');assert.equal(f.nextState,'late','late 가 due 보다 먼저');
   assert.equal(f.doneSteps,2);assert.equal(f.totalSteps,4);assert.equal(f.alertCount,1);
   assert.equal(f.estimatedAt,'2026-11-18T08:10:00.000Z');assert.equal(f.quarantineSlot,'오전');
   const g=out.flights[1];
-  assert.equal(g.trackUrl,null);assert.equal(g.progress,null);assert.equal(g.nextStep,'');assert.equal(g.totalSteps,0);
+  assert.equal(g.trackUrl,null);assert.equal(g.via,null);assert.equal(g.progress,null);assert.equal(g.nextStep,'');assert.equal(g.totalSteps,0);
 });
 test('flight board bounds list sizes, text lengths and outside links',()=>{
   const many=projectFlightBoard(body({flights:Array.from({length:20},(_,i)=>flight({key:'k'+i})),todo:Array.from({length:20},()=>({key:'k',label:'가'.repeat(200),level:'amber',text:'나'.repeat(500)}))}));
@@ -49,7 +52,8 @@ test('flight board uses fixed GET, prevents stale-account responses and rejects 
   let current=true,unauthorized=0;
   const fetch=async(url,options)=>{assert.equal(url,'https://nenovaweb.com/api/import/flight-board');assert.equal(options.method,'GET');assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');return Response.json(body());};
   const ok=await importFlightBoard({owner:'a',fetch,isCurrent:()=>current});
-  assert.equal(ok.success,true);assert.equal(ok.ownerId,'a');assert.equal(ok.flights.length,2);
+  assert.equal(ok.success,true);
+  let asked='';await importFlightBoard({owner:'a',fresh:true,fetch:async url=>{asked=url;return Response.json(body());},isCurrent:()=>true});assert.equal(asked,'https://nenovaweb.com/api/import/flight-board?fresh=1','새로고침은 보관분을 건너뛰게 요청한다');assert.equal(ok.ownerId,'a');assert.equal(ok.flights.length,2);
   await assert.rejects(importFlightBoard({owner:'',fetch,isCurrent:()=>true}),/로그인/);
   await assert.rejects(importFlightBoard({owner:'a',fetch:async(...args)=>{const r=await fetch(...args);current=false;return r;},isCurrent:()=>current}),/계정/);
   await assert.rejects(importFlightBoard({owner:'a',fetch:async()=>new Response('',{status:401}),isCurrent:()=>true,onUnauthorized:()=>unauthorized++}),/로그인/);assert.equal(unauthorized,1);
@@ -68,7 +72,14 @@ test('desktop wires the flight board action, shell file and package list',()=>{
   const html=read('shell/index.html');
   assert.match(html,/<section id="flightBoard" class="workspace-card"[^>]*hidden><\/section>/);
   assert.ok(html.indexOf('./flight-board.js')>0&&html.indexOf('./flight-board.js')<html.indexOf('./shell.js'));
+  assert.ok(html.indexOf('id="flightBoard"')<html.indexOf('id="workCalendar"'),'비행기 현황이 달력보다 위');
+  assert.ok(main.includes("'flight-map-data.js'"));
+  assert.ok(html.indexOf('./flight-map-data.js')>0&&html.indexOf('./flight-map-data.js')<html.indexOf('./flight-board.js'));
+  const lib=fs.readFileSync(path.join(__dirname,'..','..','lib','importFlightWorldPath.js'),'utf8'),mapData=read('shell/flight-map-data.js');
+  const land=lib.slice(lib.indexOf("WORLD_LAND_PATH = '")+19,lib.lastIndexOf("';"));
+  assert.ok(land.length>40000&&mapData.includes(land),'앱 지도 윤곽은 웹과 같은 자료');
   assert.ok(JSON.parse(read('package.json')).build.files.includes('flight-board.cjs'),'설치본에 flight-board.cjs 포함');
   const shell=read('shell/flight-board.js');
+  assert.ok(shell.includes('접기 ▴')&&shell.includes('fresh:true'),'접기 버튼과 즉시 새로고침');
   assert.equal(/innerHTML|fetch\(|XMLHttpRequest/.test(shell),false,'셸은 직접 통신하거나 HTML 을 끼워 넣지 않는다');
 });

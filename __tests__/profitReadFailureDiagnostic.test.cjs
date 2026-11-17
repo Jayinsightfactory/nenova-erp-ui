@@ -28,12 +28,13 @@ test('getters/logger failures cannot replace source errors; hash matches exact e
  assert.equal(queryHash(sql),queryHash('SELECT a FROM t WHERE id IN (55,66)'));
 });
 async function fixture({failPhase,code='ECANCEL',timerFired=true,throwLogger=false}={}){
+ const {assertFreightConservationForCache}=await import('../lib/profitMixedFreightView.js');
  const {withErpReadContext:scope,currentErpReadContext:context}=await import('../lib/erpReadContext.js');
  const {shareLatestProfitRead:share}=await import('../lib/profitLatestInFlight.mjs');
  const error=Object.assign(Error('PRIVATE_SOURCE'),{code}),logs=[],timers=[];let creates=0,cancels=0,fences=0;
  const pool={size:1,borrowed:1,available:0,pending:0,request(){return {input(){return this;},cancel(){cancels++;},async query(statement){if(statement==='SELECT fence')fences++;if(statement==='SELECT '+failPhase||(failPhase==='postFence'&&statement==='SELECT fence'&&fences===2)){if(timerFired)timers.at(-1).fn();throw error;}return {recordset:[]};}};}};
  const q=statement=>context().query('SELECT '+statement);
- const deps={currentErpReadContext:context,shareLatestProfitRead:share,getPool:async()=>pool,withErpReadContext:scope,createProfitReadFailureDiagnostic:options=>{creates++;return create({...options,log:line=>{if(throwLogger)throw Error('PRIVATE_LOGGER');logs.push(line);}});},
+ const deps={assertFreightConservationForCache,currentErpReadContext:context,shareLatestProfitRead:share,getPool:async()=>pool,withErpReadContext:scope,createProfitReadFailureDiagnostic:options=>{creates++;return create({...options,log:line=>{if(throwLogger)throw Error('PRIVATE_LOGGER');logs.push(line);}});},
   previousReportPeriod:async(year)=>({orderYear:year,major:'43'}),loadSourceFingerprints:async()=>{await q('fence');return {map:new Map()};},latestProfitInvoiceFence:async()=>0,settlementScopeFence:async()=> 'fixture-settlement-digest',materializeProfitPayload:v=>v,
   loadReportData:async major=>{await q(major==='44'?'current':'prior');return {rows:[],totals:{C:0}};},applyTemplateDutyToReport:async raw=>{await q('duty');return raw;},
   clearTemplateDutyCache:()=>{},finalizeProfitCachePayload:async(raw,options)=>({...await options.finalize(),cacheSourcePayload:raw}),
