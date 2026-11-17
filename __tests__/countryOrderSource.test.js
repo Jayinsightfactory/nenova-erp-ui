@@ -93,7 +93,7 @@ test('missing raw source totals remain unknown and block; conflict basis fails r
   assert.throws(() => buildCountryOrderMatrix(response([native, { ...native, SteamOf1Bunch: 5 }]), '42-01'), /환산기준이 서로 다릅니다/);
 });
 
-test('blocked products are flagged per row and can be excluded for a partial export without conversion', async () => {
+test('blocked products remain visible and partial exports cannot omit them', async () => {
   const { excludeBlockedCountryOrderRows } = await import('../lib/countryOrderSource.js');
   const { generatePedidosFromMatrix } = await import('../lib/importPedidos.js');
   const matrix = buildCountryOrderMatrix(response([row, { ...row, ProdKey: 2990, ProdName: 'missing', OutQuantity: 0, BunchQuantity: 120, SteamQuantity: 0, SteamOf1Bunch: 0 }]), '42-01');
@@ -106,9 +106,7 @@ test('blocked products are flagged per row and can be excluded for a partial exp
   assert.equal(partial.excludedRows.length, 1); assert.equal(partial.excludedRows[0].prodKey, 2990);
   assert.match(partial.warnings.at(-1), /^EXCLUDED_BLOCKED_ROWS: missing \[ProdKey:2990\]/);
   assert.equal(matrix.rows.length, 2, 'original matrix untouched');
-  const outputs = generatePedidosFromMatrix(partial);
-  assert.equal(outputs.length, 1); assert.equal(outputs[0].itemCount, 1); assert.equal(outputs[0].totalQuantity, 200);
-  assert.ok(outputs[0].warnings.some(w => w.startsWith('EXCLUDED_BLOCKED_ROWS')));
+  assert.throws(() => generatePedidosFromMatrix(partial), /주문 품목을 제외한/);
   assert.throws(() => excludeBlockedCountryOrderRows(buildCountryOrderMatrix(response([{ ...row, ProdKey: 2990, ProdName: 'missing', OutQuantity: 0, BunchQuantity: 120, SteamQuantity: 0, SteamOf1Bunch: 0 }]), '42-01')), /남는 품목이 없습니다/);
   assert.throws(() => generatePedidosFromMatrix(matrix), /발주서 생성 차단/);
 });

@@ -1,7 +1,8 @@
 import WorkflowGuide from '../WorkflowGuide';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PEDIDOS_COUNTRIES, generatePedidos, generatePedidosFromMatrix, formatPedidosQuantity, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
-import { reviewCountryOrderQuantities, buildCountryOrderMatrix, excludeBlockedCountryOrderRows, applyCountryOrderManualQuantities, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities, buildCountryOrderProductSnapshot, suggestCountryOrderProductFactors } from '../../lib/countryOrderSource';
+import { reviewCountryOrderQuantities, buildCountryOrderMatrix, applyCountryOrderManualQuantities, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities, buildCountryOrderProductSnapshot, suggestCountryOrderProductFactors } from '../../lib/countryOrderSource';
+import { COUNTRY_ORDER_ETA_STORAGE, countryOrderEtaDefault, countryOrderSourceComplete, formatCountryOrderEta, withCountryOrderEta } from '../../lib/countryOrderEta';
 import { createCountryOrderRequestGuard } from '../../lib/countryOrderPedidosAdapter';
 import { importCountryLabel, importUnitLabel, importColumnLabel } from '../../lib/importToolsDisplay';
 
@@ -31,13 +32,26 @@ export default function PedidosTool({ active = true }) {
   // "품목관리에 변경하시겠습니까?" dialog: per blocked row, editable Product factors (1단송이 / 1박스단수 / 1박스송이) saved via /api/master/products-bulk.
   const [productDialog, setProductDialog] = useState(null); // { items: [{ row, snapshot, suggestion, drafts }], saving, error }
   const [productSaved, setProductSaved] = useState('');
+  const [etaDialog, setEtaDialog] = useState(null);
+  const etaModal = useRef(null);
+  const etaOpener = useRef(null);
+  const downloading = useRef(false);
+
+  function closeEta() {
+    setEtaDialog(null);
+    requestAnimationFrame(() => etaOpener.current?.isConnected && etaOpener.current.focus());
+  }
+  useEffect(() => {
+    if (etaDialog) etaModal.current?.querySelector('input')?.focus();
+  }, [Boolean(etaDialog)]);
 
   function clearResults() {
     contextGeneration.current += 1;
+    setEtaDialog(null);
     setResults(null); setContext(null); setError(''); setDownloaded(''); setBusy(false);
   }
   function setManualQuantity(rowKey, custKey, value) {
-    setResults(null); setContext(null); setDownloaded('');
+    clearResults();
     setManual(current => ({ ...current, [rowKey]: { ...(current[rowKey] ?? {}), [custKey]: value } }));
   }
   function invalidate(setter, value) {
@@ -108,7 +122,8 @@ export default function PedidosTool({ active = true }) {
   const matrix = review.matrix ?? original;
   const selectedCycle = cycles.find(cycle => cycle.key === cycleKey);
   const matchesScope = Boolean(matrix && response?.scope?.scopeKey === `${country}/${selectedCycle?.key}` && matrix.scope.country === country && matrix.scope.year === selectedCycle?.year && matrix.scope.orderWeek === orderWeek);
-  const canExport = active && !loading && !busy && matchesScope && !review.error;
+  const sourceComplete = countryOrderSourceComplete(response);
+  const canExport = active && !loading && !busy && matchesScope && !review.error && sourceComplete;
   const blockedRowCount = matrix ? matrix.rows.filter(row => row.blocked).length : 0;
   // Blocked products can be completed by typing the missing quantity in the web; it goes to the file only, never to ERP.
   const manualState = useMemo(() => {
@@ -118,8 +133,6 @@ export default function PedidosTool({ active = true }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matrix, manual]);
   const canGenerate = canExport && (matrix.blockers.length === 0 || Boolean(manualState.matrix));
-  // Blocked products never get a converted quantity; the rest of the order can still be downloaded without them.
-  const canGeneratePartial = canExport && matrix.blockers.length > 0 && blockedRowCount > 0 && blockedRowCount < matrix.rows.length;
 
   useEffect(() => {
     if (!canExport || matrix.blockers.length) return;
@@ -182,14 +195,13 @@ export default function PedidosTool({ active = true }) {
     } catch (err) { setProductDialog({ ...productDialog, saving: false, error: `${err.message} 품목관리는 저장되지 않았습니다.` }); }
   }
 
-  function convertMatrix(excludeBlocked = false) {
+  function convertMatrix() {
     clearResults();
-    if (excludeBlocked ? !canGeneratePartial : !canGenerate) return;
+    if (!canGenerate) return;
     try {
-      const source = excludeBlocked ? excludeBlockedCountryOrderRows(matrix) : (matrix.blockers.length ? manualState.matrix : matrix);
+      const source = matrix.blockers.length ? manualState.matrix : matrix;
       const outputs = generatePedidosFromMatrix(source);
-      const excludedNames = (source.excludedRows ?? []).map(row => row.name);
-      setContext({ country, year: matrix.scope.year, week: orderWeek, sourceName: excludedNames.length ? `전산 원주문 (읽기 전용) · 확인 필요 품목 ${excludedNames.length}개 제외: ${excludedNames.join(', ')}` : '전산 원주문 (읽기 전용)' }); setResults(outputs);
+      setContext({ country, year: matrix.scope.year, week: orderWeek, sourceName: '전산 원주문 (읽기 전용)' }); setResults(outputs);
     } catch (err) { setError(err.message || '발주서 생성에 실패했습니다.'); }
   }
 
@@ -215,16 +227,37 @@ export default function PedidosTool({ active = true }) {
 
   function download(output) {
     if (!active || loading || busy || !results?.includes(output) || (sourceMode === 'erp' && !canExport)) return;
+    etaOpener.current = document.activeElement;
+    downloading.current = false;
+    const cycle = cycles.find(item => Number(item.year) === Number(context.year) && item.majorWeek === context.week.split('-')[0].padStart(2, '0'));
+    const scope = { year: context.year, week: context.week, cycleStart: cycle?.startDate ?? null };
+    let saved = null, storageError = '';
+    try { saved = JSON.parse(localStorage.getItem(COUNTRY_ORDER_ETA_STORAGE) || '{}')[country]; }
+    catch { storageError = '저장된 ETA 기본값을 읽지 못했습니다. 날짜를 선택하세요.'; }
+    setEtaDialog({ output, generation: contextGeneration.current, scope, date: countryOrderEtaDefault(saved, scope), error: storageError });
+  }
+
+  function confirmEta(event) {
+    event.preventDefault();
+    if (downloading.current || !etaDialog || etaDialog.generation !== contextGeneration.current || !active || loading || busy || !results?.includes(etaDialog.output) || (sourceMode === 'erp' && !canExport)) return;
+    downloading.current = true;
+    const { output, date, scope } = etaDialog;
     setError('');
     let url;
     try {
-      const bytes = serializePedidosWorkbook(output.workbook);
+      const bytes = serializePedidosWorkbook(withCountryOrderEta(output.workbook, context.week, date));
+      let defaults;
+      try { defaults = JSON.parse(localStorage.getItem(COUNTRY_ORDER_ETA_STORAGE) || '{}'); }
+      catch { defaults = {}; }
+      if (!defaults || typeof defaults !== 'object' || Array.isArray(defaults)) defaults = {};
+      localStorage.setItem(COUNTRY_ORDER_ETA_STORAGE, JSON.stringify({ ...defaults, [country]: { ...scope, date } }));
       url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const anchor = document.createElement('a');
       anchor.href = url; anchor.download = output.filename;
       document.body.appendChild(anchor); anchor.click(); anchor.remove();
-      setDownloaded(`${output.filename} 다운로드를 요청했습니다.`);
-    } catch (err) { setError(`다운로드 실패: ${err.message}`); }
+      setDownloaded(`${output.filename} · ${formatCountryOrderEta(date)} 다운로드를 요청했습니다.`);
+      closeEta();
+    } catch (err) { downloading.current = false; setEtaDialog(current => current && ({ ...current, error: `다운로드 실패: ${err.message}` })); }
     finally { if (url) window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
   }
 
@@ -248,16 +281,17 @@ export default function PedidosTool({ active = true }) {
       }}>{subweek.orderWeek}차</button>)}</div></>}
       <div className="pedidos-auto-actions">
         {results?.length ? results.map(output => <button key={output.filename} type="button" onClick={() => download(output)}>{output.filename} 다운로드</button>) : <button type="button" disabled>엑셀 다운로드</button>}
-        {matrix?.blockers.length > 0 && <><button type="button" disabled={!canGenerate} onClick={requestGenerate}>미리보기 생성</button><button type="button" className="pedidos-partial" disabled={!canGeneratePartial} onClick={() => convertMatrix(true)}>확인 필요 품목 {blockedRowCount}개 제외하고 생성</button></>}
+        {matrix?.blockers.length > 0 && <button type="button" disabled={!canGenerate} onClick={requestGenerate}>미리보기 생성</button>}
         <button type="button" className="pedidos-secondary" disabled={loading} onClick={() => { requestGuard.current.invalidate(); clearResults(); setResponse(null); setReload(value => value + 1); }}>다시 조회</button>
         <span role="status">{loading ? (orderWeek ? '전산 원주문 조회 중…' : '차수 목록 조회 중…') : !country ? '국가를 선택하세요.' : !cycleKey ? '차수를 선택하세요.' : !orderWeek ? (subweeks.length ? '세부차수를 선택하면 주문을 조회합니다.' : '선택 범위에 주문 없음') : ''}</span>
       </div>
       {review.error && <p className="pedidos-error" role="alert">{review.error}</p>}
+      {response && !sourceComplete && <p className="pedidos-error" role="alert">원주문 누락 점검을 통과하지 못했습니다. 조회되지 않은 활성 주문이 있거나 점검 결과가 없습니다. 누락 방지를 위해 다운로드를 중단했습니다. 관리자 확인 후 다시 조회하세요.</p>}
       {matrixState.error && <p role="alert" className="pedidos-error">{matrixState.error}</p>}
       {matrix && <>
         <p className="pedidos-note">{matrix.scope.year}년 {matrix.scope.orderWeek}차 · 품목 {matrix.rows.length}개 · 업체 {matrix.customers.length}개 · 송이·단 수량을 확인하고 필요하면 업체별 입력칸에서 수정하세요. 합계와 엑셀에 반영되며 전산 원주문은 유지됩니다.</p>
         <p className="pedidos-note">품목관리 기준은 현재 품목 설정이며 참고용입니다. 저장 주문수량은 선택 연도·차수의 원본 값입니다. 기준을 표시해도 발주서 수량을 다시 환산하지 않습니다.</p>
-        {matrix.blockers.length > 0 && <div role="alert" className="pedidos-error"><strong>⚠ 수량 오류 {blockedRowCount}건 · 입력 전까지 발주서 생성 불가</strong><p>아래 표의 주황색 행에 {country === 'Netherlands' ? '송이' : '발주서 단위'} 수량을 직접 입력하면 [미리보기 생성]이 열립니다. 입력값은 발주서 파일에만 쓰이고 전산 원주문은 바뀌지 않으므로 전산에서도 수정하세요. 입력 없이 진행하려면 [확인 필요 품목 제외하고 생성]을 누르세요.</p>{manualState.error && <p className="pedidos-manual-state">{manualState.error}</p>}{country === 'Netherlands' && <p>저장 단 수량이 있어도 저장 송이 수량이 0이면 송이 수량을 확인해야 합니다. 표시된 0을 단 수량이나 품목관리 기준으로 자동 보정하지 않습니다.</p>}<ul>{matrix.blockers.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
+        {matrix.blockers.length > 0 && <div role="alert" className="pedidos-error"><strong>⚠ 수량 오류 {blockedRowCount}건 · 입력 전까지 발주서 생성 불가</strong><p>아래 표의 주황색 행에 {country === 'Netherlands' ? '송이' : '발주서 단위'} 수량을 직접 입력하면 [미리보기 생성]이 열립니다. 입력값은 발주서 파일에만 쓰이고 전산 원주문은 바뀌지 않으므로 전산에서도 수정하세요. 주문 누락 방지를 위해 확인 필요 품목을 제외한 다운로드는 허용하지 않습니다.</p>{manualState.error && <p className="pedidos-manual-state">{manualState.error}</p>}{country === 'Netherlands' && <p>저장 단 수량이 있어도 저장 송이 수량이 0이면 송이 수량을 확인해야 합니다. 표시된 0을 단 수량이나 품목관리 기준으로 자동 보정하지 않습니다.</p>}<ul>{matrix.blockers.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
         {matrix.warnings.length > 0 && <div className="pedidos-warning"><strong>확인 필요</strong><ul>{matrix.warnings.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
         <div className="pedidos-preview pedidos-matrix" tabIndex={0} role="region" aria-label="전산 품목별 업체 원수량 행렬"><table>
           <thead><tr><th scope="col">품목</th><th scope="col">품목관리 기준</th><th scope="col">발주서 단위</th><th scope="col">저장 주문수량</th>{matrix.customers.map(customer => <th scope="col" key={customer.key} title={`${customer.name} · ${customer.key}`}>{customer.label}</th>)}<th scope="col">합계</th></tr></thead>
@@ -333,6 +367,24 @@ export default function PedidosTool({ active = true }) {
       </article>)}
       <p className="pedidos-note">변경량(Cambios)은 빈칸으로 유지됩니다. 다운로드 파일에는 원본 수식과 초기 계산값이 포함되며, 엑셀에서 편집하면 자동 재계산됩니다. 저장 위치는 브라우저 설정을 따릅니다.</p>
     </div>}
+    {etaDialog && active && <div className="pedidos-backdrop"><form ref={etaModal} role="dialog" aria-modal="true" aria-labelledby="pedidos-eta-title" className="pedidos-dialog" onSubmit={confirmEta} onKeyDown={event => {
+      if (event.key === 'Escape') { event.preventDefault(); closeEta(); }
+      if (event.key === 'Tab') {
+        const fields = [...etaModal.current.querySelectorAll('input, button')].filter(field => !field.disabled);
+        const first = fields[0], last = fields[fields.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    }}>
+      <h3 id="pedidos-eta-title">ETA 입력</h3>
+      <p>{importCountryLabel(country)} · {context?.year}/{context?.week} · {etaDialog.output.filename}</p>
+      <label>달력에서 날짜 선택<input type="date" min="1900-01-01" max="9999-12-31" value={/^\d{4}-\d{2}-\d{2}$/.test(etaDialog.date) ? etaDialog.date : ''} onChange={event => setEtaDialog(current => ({ ...current, date: event.target.value, error: '' }))} /></label>
+      <label>ETA 직접 입력<input type="text" inputMode="numeric" placeholder="2026-11-16" value={etaDialog.date} onChange={event => setEtaDialog(current => ({ ...current, date: event.target.value, error: '' }))} /></label>
+      <p className="pedidos-note">국가별 기본값은 이 PC·브라우저에 저장됩니다. 다음 주차는 7일 증가하고 같은 주의 세부차수는 유지합니다. 전산 주문은 변경하지 않습니다.</p>
+      <p aria-live="polite">{(() => { try { return `Semana ${context?.week}차 ${formatCountryOrderEta(etaDialog.date)}`; } catch { return '달력에서 선택하거나 YYYY-MM-DD 형식으로 입력하세요.'; } })()}</p>
+      {etaDialog.error && <p role="alert" className="pedidos-error">{etaDialog.error}</p>}
+      <div className="pedidos-dialog-actions"><button type="submit">ETA 저장·엑셀 다운로드</button><button type="button" className="pedidos-secondary" onClick={closeEta}>취소</button></div>
+    </form></div>}
     <style jsx>{`
       .pedidos-tool { width: 100%; min-width: 0; color: #172b4d; font-size:14px; line-height:1.5; }
       .pedidos-source, .pedidos-cycles, .pedidos-subweeks, .pedidos-auto-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
@@ -347,7 +399,6 @@ export default function PedidosTool({ active = true }) {
       .pedidos-matrix tbody th { top:auto; text-align:left; }
       .pedidos-matrix td { text-align:right; }
       .pedidos-matrix .pedidos-unit-basis, .pedidos-matrix .pedidos-stored-quantities { min-width:180px; max-width:280px; white-space:normal; text-align:left; overflow-wrap:anywhere; }
-      .pedidos-partial { background:#b45309; }
       .pedidos-backdrop { position:fixed; inset:0; background:rgba(15,23,42,.45); display:flex; align-items:center; justify-content:center; z-index:1000; padding:16px; }
       .pedidos-dialog { background:white; border-radius:12px; padding:20px 22px; width:min(720px, 100%); max-height:calc(100vh - 40px); overflow:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); }
       .pedidos-dialog h3 { margin:0 0 8px; font-size:18px; } .pedidos-dialog > p { color:#54657d; margin:0 0 12px; }
