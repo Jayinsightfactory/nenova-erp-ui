@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
 import './countryOrderEta.test.js';
+import './importKakaoAdditions.test.mjs';
 import './countryOrderPresentation.test.js';
 import { createCountryOrderRequestGuard } from '../lib/countryOrderPedidosAdapter.js';
 import { buildCountryOrderMatrix, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities } from '../lib/countryOrderSource.js';

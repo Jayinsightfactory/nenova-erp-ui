@@ -1,3 +1,4 @@
+import KakaoAdditions from './KakaoAdditions';
 import WorkflowGuide from '../WorkflowGuide';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PEDIDOS_COUNTRIES, generatePedidos, formatPedidosQuantity, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
@@ -285,6 +286,7 @@ export default function PedidosTool({ active = true }) {
   return <section className="pedidos-tool" aria-label="국가별 발주서 파일 변환">
     <div className="pedidos-heading"><div><h2>국가별 발주서</h2><p>전산 원주문 또는 Excel 원본을 기존 국가별 양식으로 내려받으세요.</p></div><span className="pedidos-free">전산 읽기 전용 · 원장 변경 없음</span></div>
     <WorkflowGuide workflowId="import-country-orders" />
+    <div className="pedidos-split"><div className="pedidos-primary">
     <div className="pedidos-source" role="group" aria-label="발주 수량 원천">
       <button type="button" aria-pressed={sourceMode === 'erp'} onClick={() => changeSource('erp')}>전산에서 자동 불러오기</button>
       <button type="button" aria-pressed={sourceMode === 'upload'} onClick={() => changeSource('upload')}>Excel 원본 업로드</button>
@@ -352,6 +354,7 @@ export default function PedidosTool({ active = true }) {
     </form>}
     <p className="pedidos-note">주문·입고·재고에 자동 등록되지 않습니다. 수량 0은 화면·Excel에서 빈칸으로 표시하며 숫자와 수식은 보존합니다. 원인 확인용 저장수량 진단의 0은 표시합니다.</p>
     <details className="pedidos-guide"><summary>지원 양식과 변환 기준 보기</summary><p>기존 양식은 활성 시트(없으면 첫 시트)를 읽습니다. 중국 행렬은 수량원본과 구조화 시트의 업체키·품목키·숫자 수량을 사용하며 선택 연도·차수를 확인합니다. 파일명·시트명은 차수 기준으로 유지합니다. 차수의 공백·구두점은 원본 규칙대로 제거됩니다.</p></details>
+    </div>{active && <KakaoAdditions/>}</div>
     {busy && <p role="status">Excel을 읽고 발주서를 생성하고 있습니다…</p>}
     {error && <p role="alert" className="pedidos-error">{countryOrderIssue(error)}</p>}
     {downloaded && <p role="status">{downloaded}</p>}
@@ -418,6 +421,8 @@ export default function PedidosTool({ active = true }) {
       .pedidos-tool button[aria-pressed="true"] { background:#2457c5; color:white; border-color:#2457c5; }
       .pedidos-cycles button { flex:1 1 145px; white-space:normal; }
       .pedidos-cycles small { display:block; font-weight:400; }
+      .pedidos-split {display:grid;grid-template-columns:minmax(0,3fr) minmax(330px,2fr);gap:18px}.pedidos-primary{min-width:0}
+      @media(max-width:950px){.pedidos-split{grid-template-columns:minmax(0,1fr)}}
       .pedidos-country { max-width:260px; margin:12px 0; }
       .pedidos-auto-actions span { color:#54657d; }
       .pedidos-matrix th:first-child { position:sticky; left:0; min-width:220px; white-space:nowrap; background:#eef2f7; z-index:2; }
