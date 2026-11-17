@@ -117,4 +117,26 @@ assert.equal(feed.rooms['스케줄방'].error, null);
 assert.ok(feed.rooms['스케줄방'].count >= 2);
 assert.ok(feed.messages.every(m => m.chatroom !== '다른방'));
 
+// ── 공지와 공항 자료가 크게 어긋나면(같은 편명의 다른 날 비행기) 공항 시각으로 '비행 중'이라고 하지 않는다 ──
+{
+  const t = Date.parse('2026-11-17T17:30:00+09:00');
+  const m = [msg('z1', '스케줄방', '2026-11-17T01:15:00Z', ['< 콜롬비아 스케줄 변경 >', '47-1차 콜수국 (KALITTA)', '11월 18일(수) 17:10 도착 예정', '(992-12345675 K4254 480 BOX)'].join(String.fromCharCode(10)))];
+  const far = new Map([['K4254', { scheduledAt: '2026-11-17T22:30:00+09:00', estimatedAt: '2026-11-17T22:30:00+09:00', remark: null, airportCode: 'CVG', airportName: '신시내티', cargo: true, flightId: 'K4254', aircraftRegNo: 'N773CK', aircraftType: '77L' }]]);
+  const b1 = buildFlightBoard({ messages: m, receipts: new Map(), now: t, icn: far });
+  const f1 = b1.flights[0];
+  assert.equal(f1.via.code, 'CVG', '경유지는 공항 자료의 출발 공항');
+  assert.equal(f1.phase, 'layover', '공지 도착(11/18 17:10) 기준으로는 마지막 비행기가 아직 뜨지 않았다');
+  assert.ok(/신시내티 경유지 대기/.test(f1.statusLabel), f1.statusLabel);
+  assert.ok(!/비행 중/.test(f1.statusLabel));
+  assert.ok(/공지 시각 기준/.test(f1.note), f1.note);
+  assert.ok(f1.alerts.some(a => /공항 예정 시각이 공지와 다름/.test(a.text)), '어긋남은 경고로 보인다');
+  // 공지와 공항 자료가 3시간 안이면 공항 시각으로 계산하고, 비행 중이어도 예측이라고 적는다
+  const near = new Map([['K4254', { scheduledAt: '2026-11-18T18:00:00+09:00', estimatedAt: '2026-11-18T18:00:00+09:00', remark: null, airportCode: 'CVG', airportName: '신시내티', cargo: true, flightId: 'K4254' }]]);
+  const b2 = buildFlightBoard({ messages: [msg('z2', '스케줄방', '2026-11-17T01:15:00Z', ['47-1차 콜수국 (KALITTA)', '11월 18일(수) 17:10 도착 예정', '(992-12345675 K4254 480 BOX)'].join(String.fromCharCode(10)))], receipts: new Map(), now: Date.parse('2026-11-18T12:00:00+09:00'), icn: near });
+  const f2 = b2.flights[0];
+  assert.equal(f2.phase, 'leg2');
+  assert.ok(f2.statusLabel.includes('신시내티 → 인천 비행 중(예측)'), f2.statusLabel);
+  assert.ok(/공항 일정 기준/.test(f2.note), f2.note);
+}
+
 console.log('importFlightBoard tests passed');
