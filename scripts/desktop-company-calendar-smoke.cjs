@@ -40,7 +40,9 @@ const {fixture}=require('./desktop-task-schedule-smoke.cjs');
  assert.equal(await page.$eval(secondSelector,e=>e.textContent.includes('긴 제목')) ,true);assert.equal(await page.$eval(secondSelector,e=>e.style.getPropertyValue('--company-color')),'#b45309');
  assert.equal(await page.$eval(firstSelector,e=>e.parentElement===document.querySelector('button.month-company[data-event-id="'+e.dataset.eventId+'"]')?.parentElement&&e.parentElement.querySelectorAll('button.month-company').length===2),true);
  await page.focus(secondSelector);await page.keyboard.press('Enter');await page.waitForSelector('.company-dialog[open]');assert.equal(await page.$eval('.company-form [name=title]',e=>e.value),longTitle);assert.equal(await page.$eval('.company-form [name=color]',e=>e.value),'#b45309');await page.keyboard.press('Escape');assert.equal(await page.$eval('.company-dialog',e=>e.open),false);assert.equal(await page.$eval(secondSelector,e=>document.activeElement===e),true,'Escape returns focus to individual month event');
- for (const width of [1920, 1280, 1024, 800, 390]) {
+ // The wide calendar in 1.3.28 measured 1403, 1147, 898, 642 and 772px at these desktop widths.
+ const calendarWidths = {1920:1122, 1584:918, 1280:718, 1024:514, 800:618, 390:370};
+ for (const width of [1920, 1584, 1280, 1024, 800, 390]) {
    await page.setViewport({width, height:1080});
    await page.$eval('#home', e => e.scrollTop = 0);
    const dimensions = await page.evaluate(() => {
@@ -51,8 +53,10 @@ const {fixture}=require('./desktop-task-schedule-smoke.cjs');
      const fontSize = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
      return {
        fits: home.scrollWidth <= home.clientWidth && document.documentElement.scrollWidth <= innerWidth,
-       height: rect(cell).height,
+       height: rect(cell).height, minimumHeight: parseFloat(getComputedStyle(cell).minHeight),
+       cardWidth: Math.round(rect(document.querySelector('#workCalendar')).width),
        date: fontSize('.calendar-date-number'), title: fontSize('.month-company'),
+       weekday: fontSize('.calendar-week span'), task: fontSize('.month-task'), month: fontSize('.calendar-title-group h2'),
        slot: rect(first).height, hourSpacing: rect(second).top - rect(first).top,
        shortActionsFit: [...document.querySelectorAll('.hw-task > button')].filter(e =>
          ['수정','삭제'].includes(e.textContent.trim())).every(e => {
@@ -68,9 +72,14 @@ const {fixture}=require('./desktop-task-schedule-smoke.cjs');
      };
    });
    assert.ok(dimensions.fits && dimensions.titlesFit, 'No horizontal overflow at ' + width);
-   assert.ok(dimensions.height >= (width <= 600 ? 144 : 243));
-   assert.equal(dimensions.date, width <= 600 ? 17 : 25.5);
-   assert.equal(dimensions.title, width <= 600 ? 12 : 18);
+   assert.ok(Math.abs(dimensions.cardWidth - calendarWidths[width]) <= 1, 'Calendar width at ' + width);
+   assert.equal(dimensions.minimumHeight, width <= 600 ? 144 : 194.4);
+   assert.ok(dimensions.height >= dimensions.minimumHeight - 0.02);
+   assert.equal(dimensions.date, width <= 600 ? 17 : 15.3);
+   assert.equal(dimensions.title, width <= 600 ? 12 : 10.8);
+   assert.equal(dimensions.weekday, width <= 600 ? 11 : 9);
+   assert.equal(dimensions.task, width <= 600 ? 11 : 9);
+   assert.equal(dimensions.month, width <= 600 ? 19 : 14.4);
    assert.equal(dimensions.slot, 72);
    assert.equal(dimensions.hourSpacing, 72);
    if (width >= 1280) assert.ok(dimensions.rightRail, 'Right-hand work list at ' + width);
