@@ -1669,8 +1669,20 @@ export default function SalesDefectDeductionsPage() {
     () => sortIncomingRows(incomingRows, incomingGroupMode),
     [incomingRows, incomingGroupMode],
   );
-  const printSourceRows = activeTab === 'incoming' ? displayedIncomingRows.map(({ row }) => row) : rows;
-  const printRows = Array.from({ length: Math.max(printSourceRows.length, 39) }, (_, index) => printSourceRows[index] || null);
+  const printSections = useMemo(() => {
+    if (activeTab !== 'incoming') {
+      const paddedRows = Array.from({ length: Math.max(rows.length, 39) }, (_, index) => rows[index] || null);
+      return [{ manager: currentUser?.userName || '', items: paddedRows }];
+    }
+    const groups = new Map();
+    for (const { row } of displayedIncomingRows) {
+      const manager = row.managerName?.trim() || '담당자 미지정';
+      if (!groups.has(manager)) groups.set(manager, []);
+      groups.get(manager).push(row);
+    }
+    return Array.from(groups, ([manager, items]) => ({ manager, items }))
+      .sort((a, b) => a.manager.localeCompare(b.manager, 'ko'));
+  }, [activeTab, currentUser?.userName, displayedIncomingRows, rows]);
   const printQuantity = (row) => {
     if (!row || row.quantity == null || row.quantity === '') return '';
     const quantity = Number(row.quantity);
@@ -2198,15 +2210,16 @@ export default function SalesDefectDeductionsPage() {
       </div>}
 
       <div className="printOnly print-form" aria-hidden="true">
+        {printSections.map(({ manager, items }) => <section className="manager-print-section" key={manager}>
         <div className="print-top">
           <div className="print-title">{year}년 ( {week} )차 차감 내역</div>
-            <table className="print-approval"><tbody><tr><th>담당자</th><th>차장</th><th>이사</th></tr><tr><td>{activeTab === 'incoming' ? '수입부' : (currentUser?.userName || '')}</td><td></td><td></td></tr></tbody></table>
+            <table className="print-approval"><tbody><tr><th>담당자</th><th>차장</th><th>이사</th></tr><tr><td>{manager}</td><td></td><td></td></tr></tbody></table>
         </div>
         <table className={`print-table ${activeTab === 'incoming' ? 'incoming-print' : ''}`}>
           <colgroup><col className="customer-col" />{activeTab !== 'incoming' && <col className="product-col" />}<col className="color-col" /><col className="quantity-col" /><col className="credit-col" /><col className="farm-col" /><col className="note-col" /></colgroup>
           <thead><tr><th>거래처</th>{activeTab !== 'incoming' && <th>품종</th>}<th>품명</th><th>차감수량</th><th aria-label="크레딧(수입부)">{activeTab === 'incoming' ? '✓' : '크레딧(수입부)'}</th><th>농장</th><th>비고</th></tr></thead>
-          <tbody>{printRows.map((row, index) => <tr key={`print-${index}`}>
-            <td>{activeTab === 'incoming' && index > 0 && row?.customerName === printRows[index - 1]?.customerName ? '' : row?.customerName || ''}</td>
+          <tbody>{items.map((row, index) => <tr key={`print-${index}`}>
+            <td>{activeTab === 'incoming' && index > 0 && row?.customerName === items[index - 1]?.customerName ? '' : row?.customerName || ''}</td>
             {activeTab !== 'incoming' && <td>{row?.productName || ''}</td>}
             <td>{activeTab === 'incoming' ? incomingOutputProductLabel(row) : row?.colorName || ''}</td>
             <td>{printQuantity(row)}</td>
@@ -2215,6 +2228,7 @@ export default function SalesDefectDeductionsPage() {
             <td style={activeTab === 'incoming' && /kakao-defect:/i.test(row?.note) ? { whiteSpace: 'nowrap' } : undefined}>{activeTab === 'incoming' ? incomingDefectPrintNote(row?.note, row?.managerName) : row?.note || ''}</td>
           </tr>)}</tbody>
         </table>
+        </section>)}
       </div>
       <style jsx>{`
         .sales-defect-page { width: 100%; min-width: 0; }
@@ -2446,6 +2460,7 @@ export default function SalesDefectDeductionsPage() {
         .empty-row-cell { padding: 24px !important; text-align: center; color: #64748b; }
         .empty-row-content { display: inline-flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
         .printOnly { display: none; }
+        .manager-print-section + .manager-print-section { break-before: page; page-break-before: always; }
         .print-form { color: #111; background: #fff; font-family: Arial, sans-serif; }
         .print-top { display: grid; grid-template-columns: 1fr 210px; align-items: stretch; border: 1px solid #111; margin-bottom: 0; }
         .print-title { display: flex; align-items: center; justify-content: center; min-height: 54px; font-size: 20px; font-weight: 700; }
