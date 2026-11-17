@@ -37,6 +37,12 @@ const STEP_STYLE = {
   late: { bg: '#ffe3e3', ink: '#b02a2a', mark: '⚠ ' },
   na: { bg: 'transparent', ink: '#868e96', mark: '', dashed: true },
 };
+const ROOM_LEVEL_COLOR = { red: '#b02a2a', amber: '#b07500' };
+const roomColor = level => ROOM_LEVEL_COLOR[level] || 'var(--text3)';
+function roomLine(e) {
+  const p = kstParts(e?.at);
+  return p ? `${p.mo}/${p.day} ${p.hh}:${p.mm}` : '';
+}
 function delayView(actual) {
   const m = Number(actual?.delayMinutes);
   if (!Number.isFinite(m) || Math.abs(m) < 30) return null;
@@ -58,6 +64,7 @@ function FlightStrip({ f, faded, busy, onToggleDocs }) {
   const steps = Array.isArray(f.checklist?.steps) ? f.checklist.steps : [];
   if (steps.length === 0) return null;
   const q = quarantineView(f.checklist, steps);
+  const latest = Array.isArray(f.roomEvents) && f.roomEvents.length ? f.roomEvents[0] : null;
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 3, fontSize: 10.5, opacity: faded ? 0.7 : 1 }}>
       {steps.map((st, i) => {
@@ -81,6 +88,11 @@ function FlightStrip({ f, faded, busy, onToggleDocs }) {
         );
       })}
       {q && <span style={{ marginLeft: 'auto', color: q.color, fontSize: 10.5 }}>{q.text}</span>}
+      {latest && (
+        <span title={latest.text} style={{ marginLeft: q ? 6 : 'auto', color: roomColor(latest.level), fontSize: 10 }}>
+          최근: {latest.room} {latest.label} {roomLine(latest)}
+        </span>
+      )}
     </div>
   );
 }
@@ -171,6 +183,7 @@ export default function ImportFlightBoard() {
   const [selectedKey, setSelectedKey] = useState('');
   const [showDone, setShowDone] = useState(false);
   const [busyAwb, setBusyAwb] = useState('');
+  const [showRoomNews, setShowRoomNews] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -210,6 +223,7 @@ export default function ImportFlightBoard() {
   const todo = Array.isArray(data?.todo) ? data.todo : [];
   const todoRed = s.red ?? todo.filter(t => t.level === 'red').length;
   const todoAmber = s.amber ?? todo.filter(t => t.level !== 'red').length;
+  const roomNews = Array.isArray(data?.roomNews) ? data.roomNews : [];
 
   return (
     <div className="card" style={{ marginBottom: 6 }} data-testid="import-flight-board">
@@ -256,6 +270,19 @@ export default function ImportFlightBoard() {
             </div>
           )}
 
+          {roomNews.length > 0 && (
+            <div style={{ marginBottom: 8, fontSize: 11, color: 'var(--text3)' }}>
+              <span style={{ cursor: 'pointer' }} onClick={() => setShowRoomNews(v => !v)}>
+                {showRoomNews ? '▾' : '▸'} 어느 비행기인지 못 붙인 방 글 {roomNews.length}건
+              </span>
+              {showRoomNews && roomNews.map((e, i) => (
+                <div key={`rn-${i}`} style={{ lineHeight: 1.6, color: roomColor(e.level) }}>
+                  {roomLine(e)} · {e.room} · {e.label} — {e.text}
+                </div>
+              ))}
+            </div>
+          )}
+
           {data.issues?.length > 0 && (
             <div style={{ border: '1px solid #dee2e6', background: '#f8f9fa', borderRadius: 6, padding: '6px 10px', marginBottom: 8 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#495057', marginBottom: 2 }}>공지에서 바뀐 것</div>
@@ -297,6 +324,17 @@ export default function ImportFlightBoard() {
                   {(selected.checklist?.steps || []).some(st => st.at) && (
                     <div style={{ color: 'var(--text3)' }}>
                       {selected.checklist.steps.filter(st => st.at).map(st => `${st.label} ${shortTime(st.at)}`).join(' · ')}
+                    </div>
+                  )}
+                  {(selected.roomEvents || []).length > 0 && (
+                    <div style={{ marginTop: 2 }}>
+                      <div style={{ fontWeight: 700 }}>방에서 온 소식</div>
+                      {selected.roomEvents.map((e, i) => (
+                        <div key={`re-${i}`} style={{ color: roomColor(e.level), lineHeight: 1.6 }}>
+                          {roomLine(e)} · [{e.room}] {e.label} — {e.text}
+                          {e.guessed && <span style={{ color: 'var(--text3)', fontSize: 10, marginLeft: 4 }}>추정 연결</span>}
+                        </div>
+                      ))}
                     </div>
                   )}
                   {(selected.alerts || []).map((a, i) => <div key={`al-${i}`} style={{ color: a.level === 'red' ? '#b02a2a' : '#b07500' }}>⚠ {a.text}</div>)}

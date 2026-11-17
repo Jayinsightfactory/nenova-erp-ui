@@ -67,6 +67,30 @@ assert.equal(board.issues.length, board.flights.reduce((n, f) => n + f.issues.le
 // 비행 중인 편이 맨 위
 assert.equal(board.flights[0].status, 'in_flight');
 
+// 방 글 연결: 선율방 서류 요청·빌번호방 수량 글이 편에 붙고, 못 붙인 위험 글은 roomNews 로
+{
+  const rmsgs = [
+    ...messages,
+    msg('r1', '네노바&선율방', '2026-11-16T10:30:00Z', '46-2차 네덜란드\n상기 9농장 서류 요청 드립니다'),
+    msg('r2', '빌번호방', '2026-11-16T11:00:00Z', '180-12345697 / 57CT\n수량 맞습니다'),
+    msg('r3', '네노바&선율방', '2026-11-16T12:00:00Z', '어느 편인지 모를 글 LMO 부기가 없습니다'),
+    msg('r4', '네노바&선율방', '2026-11-10T11:30:00Z', '어느 편인지 모를 글 LMO 부기가 없습니다'),
+  ];
+  const b2 = buildFlightBoard({ messages: rmsgs, receipts, now });
+  const nl2 = b2.flights.find(f => f.key === '18012345697');
+  assert.ok(nl2.noticeMessageIds.includes('c1'));
+  assert.ok(nl2.roomEvents.length >= 2 && nl2.roomEvents.length <= 8);
+  assert.deepEqual(Object.keys(nl2.roomEvents[0]).sort(), ['at', 'guessed', 'label', 'level', 'room', 'text', 'type']);
+  assert.ok(Date.parse(nl2.roomEvents[0].at) >= Date.parse(nl2.roomEvents[1].at), '최근 것부터');
+  assert.ok(nl2.roomEvents.some(e => e.type === 'docs_request' && e.room === '선율'));
+  assert.equal(nl2.checklist.steps.find(s => s.key === 'docs').state, 'late');
+  assert.ok(nl2.alerts.some(a => a.level === 'red' && a.text.startsWith('선율이 서류를 요청함')));
+  assert.ok(b2.todo.some(t => t.key === '18012345697' && t.text.startsWith('선율이 서류를 요청함')));
+  assert.equal(b2.roomNews.length, 1, '붙이지 못한 위험 글 중 48시간 안의 것만');
+  assert.equal(b2.roomNews[0].type, 'lmo');
+  assert.equal(board.roomNews.length, 0);
+}
+
 // 공지도 입고 기록도 없으면 빈 목록
 const empty = buildFlightBoard({ messages: [], receipts: new Map(), now });
 assert.deepEqual(empty.flights, []);
