@@ -17,7 +17,8 @@ if(url.pathname==='/api/shipment/distribute-import-preview'){
 previewCount++;const farmInput=await req.fetchPostData()||'';
 const hasFarm=farmInput.includes('연습농장'),r={...f.row,currentOutQty:stage>0?3:0,shipmentDiffQty:stage>0?0:3,needsShipmentApply:stage===0||(hasFarm&&stage<2),farmChanged:hasFarm&&stage<2,farmText:hasFarm?'연습농장 3':'',farmAssignments:hasFarm?[{farmKey:4,shipmentQuantity:3}]:undefined,farmBefore:stage>=2?[{farmKey:4,shipmentQuantity:3}]:[],farmBeforeText:stage>=2?'연습농장 3':''};
 data={success:true,orderYear:'2026',week:'46-02',rows:[r],applyRows:r.needsShipmentApply?[r]:[],changedRows:[],unmatched:[],summaryByCustomer:[],replacementCategories:['연습카네이션'],replacementScopeLabels:['연습카네이션'],replacementProductKeys:[2],replacementPlan:'fixture',exportPlan:'fixture-original',fieldExportPlan:'fixture-field',fieldExportReady:stage>=2&&!r.farmChanged,fieldExportError:'',drawingFarmText:'-연습업체\n돈셀 3(연습농장)',farmImport:{errors:[],reviews:[],changedCount:r.farmChanged?1:0,layoutErrors:[]},earlyImport:{mode:'ALREADY_EXCLUDED',fingerprint:'fixture',scope:[]},totals:{rows:1,uploadQty:3},logs:['연습 물량표 검증 완료']};}
-if(url.pathname==='/api/shipment/distribute-import-apply'){stage++;data={success:true,appliedCount:1,shipmentChangedCount:1,orderCreatedCount:0,orderUpdatedCount:0,shipmentDeletedCount:0,skippedNoChangeCount:0,verification:{checked:1,mismatchCount:0},appliedRows:[{custName:'연습업체',prodName:'돈셀',beforeQty:stage===1?0:3,afterQty:3,shipmentChanged:stage===1,farmChanged:stage===2}],logs:['연습 자료 적용 완료']};}
+if(url.pathname==='/api/shipment/distribute-import-farms'){assert.equal(stage,0);assert((await req.fetchPostData()).includes('연습농장'));stage=2;data={success:true,changed:1};}
+if(url.pathname==='/api/shipment/distribute-import-apply')throw Error('독립 작업에서 주문분배 API 호출');
 if(url.pathname==='/api/shipment/field-sources'){
  const item={id:'fixture:carnation',revision:'fixture',label:'카네이션',filename:'input.xlsx'};
  const body=req.method()==='POST'?(await req.fetchPostData()||''):'';
@@ -43,21 +44,14 @@ await page.waitForFunction(()=>document.querySelector('input[placeholder="22-01"
 await mark('물량표 모아 업로드');await step(1,'upload','물량표 모아 업로드에서 엑셀을 선택합니다','[data-field-focus]',async()=>{const chooser=page.waitForFileChooser();await(await button('물량표 모아 업로드')).click();await(await chooser).accept([input]);});
 await page.waitForSelector('fieldset input[type=checkbox]');
 await page.click('fieldset input[type=checkbox]');
-await mark('선택 품목 다운로드');await step(1,'upload-only','저장된 품목을 체크하고 선택 품목 다운로드를 누릅니다','[data-field-focus]',async()=>{await(await button('선택 품목 다운로드')).click();});
+await mark('신형 물량표 다운로드');await step(1,'upload-only','저장된 품목을 체크하고 신형 물량표 다운로드를 누릅니다','[data-field-focus]',async()=>{await(await button('신형 물량표 다운로드')).click();});
 await new Promise(r=>setTimeout(r,600));assert.equal(rawExportCount,1,JSON.stringify(errors));assert.equal(stage,0);assert.equal(previewCount,0);assert.deepEqual(fs.readFileSync('.verify/field-volume/input-신형현장물량표-업로드기준.xlsx'),f.rawOutput);
-await page.select('select','ALREADY_EXCLUDED');
-await mark('검증하기');await step(1,'upload','검증하기로 업체·품목·수량을 확인합니다','[data-field-focus]',async()=>{await(await button('검증하기')).click();await page.waitForFunction(()=>document.body.innerText.includes('연습업체'));});
-assert.equal(await(await button('신형 현장물량표 생성')).evaluate(e=>e.disabled),true);
-await mark('승인 후 주문등록+분배');await step(1,'upload','분배 적용 확인 후 저장합니다','[data-field-focus]',async()=>{await(await button('승인 후 주문등록+분배')).click();await page.waitForFunction(()=>document.body.innerText.includes('적용 완료:'));});
-if(await page.$('[role=dialog]'))await(await button('닫기')).click();
 const area='textarea[aria-label="농장분배 카톡 내용"]';await page.$eval(area,e=>e.scrollIntoView({block:'center'}));
 await step(2,'farm','카톡 내용을 붙여넣어 업체·품목·농장을 지정합니다',area,async()=>{await page.focus(area);await page.type(area,'-연습업체\n돈셀 3(연습농장)',{delay:90});});
-assert.equal(await(await button('신형 현장물량표 생성')).evaluate(e=>e.disabled),true);
-await mark('수정 내역 + 농장분배 검증');await step(2,'farm','농장분배 합계와 대상 연결을 검증합니다','[data-field-focus]',async()=>{await(await button('수정 내역 + 농장분배 검증')).click();await page.waitForFunction(()=>document.body.innerText.includes('농장분배 변경 1건'));});
-await mark('승인 후 주문등록+분배');await step(2,'farm','검증한 농장분배를 적용합니다','[data-field-focus]',async()=>{await(await button('승인 후 주문등록+분배')).click();await page.waitForFunction(()=>!document.querySelector('textarea')?.disabled);});
-if(await page.$('[role=dialog]'))await(await button('닫기')).click();await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='신형 현장물량표 생성'&&!b.disabled));
+await mark('카톡 농장 적용');await step(2,'farm','카톡 농장 적용으로 기존 출고의 농장만 저장합니다','[data-field-focus]',async()=>{await(await button('카톡 농장 적용')).click();await page.waitForFunction(()=>document.body.innerText.includes('농장분배 1건 적용 완료'));});
+assert.equal(previewCount,0);
 const combine=await page.waitForSelector('label:has(input[type=checkbox]):not(fieldset label) input[type=checkbox]');assert(await combine.evaluate(el=>el.checked));await combine.click();
-await mark('신형 현장물량표 생성');await step(3,'generate','1차 물량 합산을 풀고 2차 작업량을 다운로드합니다','[data-field-focus]',async()=>{const b=await button('신형 현장물량표 생성');await b.focus();await page.keyboard.press('Tab');await page.keyboard.down('Shift');await page.keyboard.press('Tab');await page.keyboard.up('Shift');assert(await b.evaluate(e=>e===document.activeElement));await page.keyboard.press('Enter');await page.waitForFunction(()=>![...document.querySelectorAll('button')].some(b=>b.textContent.includes('다운로드 준비')));});
+await mark('신형 물량표 다운로드');await step(3,'generate','1차 물량 합산을 풀고 2차 작업량을 다운로드합니다','[data-field-focus]',async()=>{const b=await button('신형 물량표 다운로드');await b.focus();await page.keyboard.press('Tab');await page.keyboard.down('Shift');await page.keyboard.press('Tab');await page.keyboard.up('Shift');assert(await b.evaluate(e=>e===document.activeElement));await page.keyboard.press('Enter');await page.waitForFunction(()=>![...document.querySelectorAll('button')].some(b=>b.textContent.includes('다운로드 준비')));});
 await new Promise(r=>setTimeout(r,600));assert.equal(exportCount,1);assert.equal(stage,2);const downloaded=path.resolve('.verify/field-volume/input-신형현장물량표.xlsx');assert(fs.existsSync(downloaded),'actual downloaded workbook missing');assert.deepEqual(fs.readFileSync(downloaded),f.currentOutput);
 await page.screenshot({path:'.verify/field-volume/page-1920.png',fullPage:true});
 await page.goto(base+'/__raw-print.png',{waitUntil:'networkidle0'});await page.waitForSelector('img');await page.$eval('img',img=>{img.style.width='3200px';img.style.maxWidth='none';img.style.height='auto';document.body.style.margin='0';document.body.style.background='white';});if(rec){await rec.restoreOverlay();rec.chapter('review','4. 바로 생성 엑셀의 원본 수량을 확인합니다');await rec.caption('4. 바로 생성 결과: 원본 돈셀 3 · 입고 5 · 재고 1\n이전차수 분배는 포함하지 않습니다.');await rec.pause(5500);}

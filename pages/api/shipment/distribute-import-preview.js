@@ -9,7 +9,8 @@ import { requireEarlyImportMode } from '../../../lib/weekdayEarlyShipmentImport'
 import { palletSnapshot } from '../../../lib/shipmentPallet';
 import { createReplacementPlan } from '../../../lib/shipmentReplacementPlan.js';
 import { mirrorWebUpload } from '../../../lib/workDrive';
-import { buildFarmImportPreview } from '../../../lib/shipmentFarmImport';
+import { withTransaction } from '../../../lib/db';
+import { applyChatFarms, buildFarmImportPreview } from '../../../lib/shipmentFarmImport';
 import { planFarmWorkbook, signFarmExport } from '../../../lib/shipmentFarmWorkbook';
 import { fieldVolumePlan, farmWorkbookReadiness } from '../../../lib/shipmentFieldVolume';
 import { readFarmDrawingText } from '../../../lib/shipmentFarmDrawing';
@@ -19,7 +20,7 @@ export const config = {
   api: { bodyParser: false },
 };
 
-async function handler(req, res) {
+export async function processWorkbook(req, res, farmOnly) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
 
   const form = formidable({
@@ -89,7 +90,14 @@ async function handler(req, res) {
     const original = fs.readFileSync(file.filepath);
     const isXlsx = /\.xlsx$/i.test(file.originalFilename || '');
     const drawingFarmText = isXlsx && !workbook.Sheets[FARM_SHEET] ? await readFarmDrawingText(original) : '';
-    await buildFarmImportPreview({ XLSX, workbook, preview, text: farmText, overrides: farmOverrides });
+    await buildFarmImportPreview({ XLSX, workbook, preview, text: farmOnly ? farmText.trim() || drawingFarmText : farmText, overrides: farmOverrides, farmOnly });
+    if (farmOnly) {
+      if (preview.farmImport.errors.length) return res.status(409).json({
+        success:false, error:preview.farmImport.errors[0].message, farmImport:preview.farmImport, rows:preview.rows,
+      });
+      const changed = await withTransaction(q => applyChatFarms(q,preview));
+      return res.json({success:true,changed});
+    }
     const exportLayout = isXlsx ? await planFarmWorkbook(original, preview.rows) : {
       entries: [], patches: [], errors: preview.rows.some(r=>r.farmSource) ? ['농장분배 원본 보존 다운로드는 .xlsx 파일을 사용하세요.'] : [],
     };
@@ -125,4 +133,4 @@ async function handler(req, res) {
   }
 }
 
-export default withAuth(handler);
+export default withAuth((req,res) => processWorkbook(req,res,false));
