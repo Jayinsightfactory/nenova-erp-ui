@@ -61,12 +61,14 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
       {routes.map(r => (
         <path key={r.code} d={r.d} fill="none" stroke="#5b8fd1" strokeWidth="1" strokeDasharray={r.via ? '3 3' : undefined} opacity="0.75" />
       ))}
-      {routes.map(r => {
+      {routes.map((r, i) => {
         const p = projectLonLat(r.lon, r.lat);
+        // 보고타·메데진처럼 가까운 출발지의 이름이 겹치지 않게 위·아래로 번갈아 적는다
+        const below = i % 2 === 1;
         return (
           <g key={`o-${r.code}`}>
             <circle cx={p.x} cy={p.y} r="2.6" fill="#fff" stroke="#3b6fb5" strokeWidth="1" />
-            <text x={p.x + 4} y={p.y - 4} fontSize="8" fill="#33475b">{r.name}</text>
+            <text x={p.x + 4} y={below ? p.y + 10 : p.y - 4} fontSize="8" fill="#33475b" stroke="#eef4fa" strokeWidth="2" paintOrder="stroke">{r.name}</text>
           </g>
         );
       })}
