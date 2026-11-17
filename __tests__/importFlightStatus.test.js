@@ -121,4 +121,21 @@ assert.equal(AWB_PREFIX_AIRLINE['160'], '캐세이퍼시픽');
   assert.equal(planRoute(fl, { now: Date.now(), icn: { airportCode: 'ZZZ', estimatedAt: '2026-11-18T16:50:00+09:00' } }), null);
 }
 
+// ── 기체 등록번호로 「실제 위치」 열기 ──
+{
+  const { formatRegistration, aircraftLink } = await import('../lib/importFlightStatus.js');
+  assert.equal(formatRegistration('HL7436'), 'HL7436', '한국은 줄표 없음');
+  assert.equal(formatRegistration('BHPQ'), 'B-HPQ', '홍콩·중국');
+  assert.equal(formatRegistration('CFIVM'), 'C-FIVM', '캐나다');
+  assert.equal(formatRegistration('N702GT'), 'N702GT', '미국은 줄표 없음');
+  assert.equal(formatRegistration('XAGGL'), 'XA-GGL', '멕시코');
+  assert.equal(formatRegistration('A7BFA'), 'A7-BFA', '카타르');
+  assert.equal(formatRegistration('b-hpq'), 'B-HPQ', '이미 줄표가 있어도 같은 결과');
+  assert.equal(formatRegistration(''), '');
+  assert.equal(formatRegistration('X'), '');
+  assert.equal(aircraftLink('HL7436'), 'https://www.flightradar24.com/data/aircraft/hl7436');
+  assert.equal(aircraftLink('BHPQ'), 'https://www.flightradar24.com/data/aircraft/b-hpq');
+  assert.equal(aircraftLink(''), null);
+}
+
 console.log('importFlightStatus tests passed');

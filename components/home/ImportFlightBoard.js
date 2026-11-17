@@ -397,8 +397,8 @@ export default function ImportFlightBoard() {
                       </td>
                       <td><StatusChip f={f} /></td>
                       <td onClick={e => e.stopPropagation()}>
-                        {f.links?.flightTrack
-                          ? <a href={f.links.flightTrack} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--blue)', whiteSpace: 'nowrap' }}>실제 위치 ↗</a>
+                        {(f.links?.aircraftTrack || f.links?.flightTrack)
+                          ? <a href={f.links.aircraftTrack || f.links.flightTrack} target="_blank" rel="noopener noreferrer" title={f.aircraft?.regNo ? `기체 ${f.aircraft.regNo}${f.aircraft.type ? ` (${f.aircraft.type})` : ''} — 그 비행기의 실제 위치를 엽니다` : '편명으로 실제 위치를 엽니다(기체 번호는 공항 자료가 잡히면 표시)'} style={{ color: 'var(--blue)', whiteSpace: 'nowrap' }}>실제 위치 ↗{f.aircraft?.regNo ? <span style={{ display: 'block', fontSize: 10, color: 'var(--text3)' }}>기체 {f.aircraft.regNo}</span> : null}</a>
                           : <span style={{ color: 'var(--text3)' }}>-</span>}
                       </td>
                     </tr>
