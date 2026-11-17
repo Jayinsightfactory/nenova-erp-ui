@@ -3216,3 +3216,11 @@ pm run test:canon 통과.
 
 2026-11-17 담당자별 수입부 인쇄표를 업체별 tbody로 묶어 페이지 끝 분할 방지. 계속 문구 없음.
 검색어: 알파플라워 업체 단위 페이지 나눔
+
+## 2026-11-17 데스크톱 앱 홈에 「수입 비행기 현황」 구역 (앱 1.3.30)
+- 요청/원인: 사장님 — 데스크톱 앱 홈에서는 비행기 현황이 안 보임(웹 홈 카드만 있었음). 정식 구역으로, 가이드 영상은 제외하고 작업.
+- 구현: `desktop/flight-board.cjs`(로그인 세션으로 `/api/import/flight-board` 고정 GET, 홈에 필요한 칸만 추림 — 운송장 번호·방 글·품목은 넘기지 않음), `desktop/shell/flight-board.js`(`#requestBoard` 아래 구역: 요약 칩·지금 확인할 것·편별 상태/경유지/도착/검역 마감/다음 할 일·「실제 위치」·「지도·상세 보기」=웹 홈 탭), `preload.cjs` 동작 이름 1개, `main.cjs` 조회 1건·작업 기록 제외·셸 파일 목록, `index.html` 자리 1칸과 불러오기 1줄, `package.json` 묶음 파일·버전 1.3.30.
+- 가이드 영상: 다시 찍지 않음. `config/workflow-guides.json` `desktop-task-schedule` 에 `videoWaivers` 2건(main.cjs·index.html, 사용자 지시 2026-11-17). 이후 이 두 파일을 또 고치면 면제가 풀린다.
+- 검증: `desktop/tests/flight-board.test.cjs` 4개 통과(번호 미전달·상한·바깥 주소 제한·계정 바뀐 응답 차단·연결 지점). 가이드 검사 통과. 셸 파일을 그대로 서빙하고 가짜 `window.desktop` 으로 구역 렌더·버튼 동작·좁은 폭 넘침 없음 확인.
+- 미검증: 설치본에서 실제 로그인 상태로 조회되는지(앱 새 버전 설치 뒤 확인), `updater.test.cjs` 5개는 이 작업 폴더(desktop/node_modules 없음)에서만 실패 — 본편 `package.json` 으로 돌려도 같아 환경 문제로 판단, CI 결과로 확인.
+- 검색어: 데스크톱 앱 홈 수입 비행기 현황 flight-board importFlightBoard videoWaivers 1.3.30
