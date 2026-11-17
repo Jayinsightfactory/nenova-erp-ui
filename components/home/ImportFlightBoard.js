@@ -203,9 +203,9 @@ export default function ImportFlightBoard() {
   const [busyAwb, setBusyAwb] = useState('');
   const [showRoomNews, setShowRoomNews] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (fresh = false) => {
     try {
-      const d = await apiGet('/api/import/flight-board');
+      const d = await apiGet(fresh ? '/api/import/flight-board?fresh=1' : '/api/import/flight-board');
       setData(d);
       setErr('');
     } catch (e) {
@@ -253,7 +253,7 @@ export default function ImportFlightBoard() {
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text3)' }}>
           {data?.generatedAt ? `${shortTime(data.generatedAt)} 기준` : ''}
         </span>
-        <button type="button" className="btn btn-sm" onClick={() => { setLoading(true); load(); }} disabled={loading}>새로고침</button>
+        <button type="button" className="btn btn-sm" onClick={() => { setLoading(true); load(true); }} disabled={loading}>새로고침</button>
       </div>
 
       {loading && !data && <div className="skeleton" style={{ height: 120, margin: 8 }} />}

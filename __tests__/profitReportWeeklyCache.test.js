@@ -35,6 +35,7 @@ async function main(){
   let live=0, reads=0, confirm=null,diagnostics=0,settlementVersion=0,changeSettlement=false;
   const scopeFixture={dateOnly:'2026-10-28',orderYearWeek:'202644'};
   const dependencies={
+    ...(await import('../lib/profitMixedFreightView.js')),
     estimateCalendarEvidenceByCategory:async(m,y)=>({orderYear:y,major:m,byCategory:{}}),applyProfitEstimateCalendarView:p=>p,
     ...policy,materializeProfitPayload:C.materializeProfitPayload,
     currentErpReadContext:()=>true,loadSourceFingerprints:async()=>({map:new Map()}),
@@ -72,6 +73,9 @@ async function main(){
   const beforeCacheReads=live,completed=await cacheLoader.saveProfitReportCache({orderYear:'2026',major:'44'});
   assert.equal(live-beforeCacheReads,2,'current and prior raw SQL are both refreshed before finalization');
   assert.equal(clears,1);assert.equal(completed.cacheFinalizationVersion,1);assert.equal(completed.cacheSourcePayload.major,'44');assert.equal(completed.financialReadPolicy.frozen,true);
+  raw.forwardingReconciliation={unmatchedRows:[{amount:1}]};
+  await assert.rejects(cacheLoader.saveProfitReportCache({orderYear:'2026',major:'44'}),e=>e.code==='PROFIT_FREIGHT_UNMAPPED');
+  delete raw.forwardingReconciliation;
   const confirmBody=api.slice(api.indexOf('async function buildConfirmedPayload'),api.indexOf('export async function currentProfitPeriod'));
   assert.doesNotMatch(confirmBody,/loadManual\(|currencyRates\(|unclassifiedDetailsByCategory\(/);
 

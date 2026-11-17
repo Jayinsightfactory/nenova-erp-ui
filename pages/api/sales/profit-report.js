@@ -45,6 +45,8 @@ import {settlementScopeFence} from '../../../lib/customsSettlementEvidence.js';
 import {shareLatestProfitRead} from '../../../lib/profitLatestInFlight.mjs';
 import {createProfitReadFailureDiagnostic} from '../../../lib/profitReadFailureDiagnostic.cjs';
 import {applyProfitEstimateCalendarView} from '../../../lib/profitEstimateCalendarView.js';
+import { mixedFreightDeltas, applyMixedFreightView, assertFreightConservationForCache } from '../../../lib/profitMixedFreightView.js';
+import { autoForwardingByCountry } from '../../../lib/customsForwarding.js';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -697,7 +699,18 @@ async function frozenEstimateCalendarView(payload,major,orderYear) {
   let evidence;
   try { evidence=await estimateCalendarEvidenceByCategory(major,orderYear); }
   catch { evidence={orderYear:String(orderYear),major:String(major),failed:true}; }
-  return applyProfitEstimateCalendarView(payload,evidence,{orderYear,major});
+  const calendarView=applyProfitEstimateCalendarView(payload,evidence,{orderYear,major});
+  const hasMissing=p=>p?.forwardingReconciliation?.unmatchedRows?.length>0;
+  if(!hasMissing(payload)&&!payload.rows?.some(r=>r.inventoryValuation?.begin?.method==='category_average'))return calendarView;
+  const previous=await previousReportPeriod(orderYear,major);
+  const prior=(await latestSnapshots(previous.orderYear,[previous.major])).get(previous.major)?.payload;
+  if(!hasMissing(payload)&&!hasMissing(prior))return calendarView;
+  const currentLedger=hasMissing(payload)?(await autoForwardingByCountry(major,orderYear)).ledger:null;
+  const priorLedger=hasMissing(prior)?(await autoForwardingByCountry(previous.major,previous.orderYear)).ledger:null;
+  const currentDelta=mixedFreightDeltas(payload,currentLedger,{orderYear,major});
+  const previousDelta=mixedFreightDeltas(prior,priorLedger,{orderYear:previous.orderYear,major:previous.major});
+  for(const [category,delta]of Object.entries(previousDelta))delta.originalF=prior.rows.find(r=>r.category===category).calc.F;
+  return applyMixedFreightView(calendarView,currentDelta,previousDelta,currentLedger);
 }
 async function previousReportPeriod(orderYear,major){
   if(Number(major)>1)return {orderYear:String(orderYear),major:String(Number(major)-1).padStart(2,'0')};
@@ -727,6 +740,7 @@ async function loadCoherentLatestReport(major,orderYear,{forCache=false}={}){
       diagnostic?.sourceChanged(before,after,years);
       throw Object.assign(new Error('조회 중 원천이 변경되었습니다. 다시 조회하세요.'),{code:'PROFIT_SOURCES_CHANGED',statusCode:409});
     }
+    if(forCache)assertFreightConservationForCache(raw);
     return forCache?finalizeProfitCachePayload(raw,{orderYear,major,finalize:async()=>result}):result;
   };
   if(currentErpReadContext())return work();
