@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import XLSX from 'xlsx-js-style';
 import { generatePedidos, generatePedidosFromMatrix, readPedidosWorkbook, serializePedidosWorkbook } from '../lib/importPedidos.js';
 import { prepareCountryOrderPedidos } from '../lib/countryOrderPedidosAdapter.js';
+import { buildCountryOrderMatrix, COUNTRY_ORDER_COUNTRIES } from '../lib/countryOrderSource.js';
 const matrix = (country = 'Netherlands', unit = 'stems') => ({ source: 'erp', scope: { country, year: 2026, orderWeek: '42-01' }, customers: [{ key: '1', code: 'CL21', name: '업체', label: 'CL21' }], rows: [{ key: `10|${unit}`, prodKey: 10, name: 'Tulip A', flower: '장미', unit, quantities: { 1: 200 }, total: 200 }], warnings: [], blockers: [] });
 const workbook = rows => { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Source'); return wb; };
 
@@ -24,8 +25,35 @@ test('duplicate customer codes, missing code and duplicate product names stay se
   input.rows.push({ ...input.rows[0], key: '11|stems', prodKey: 11, quantities: { 1: 20, 2: 30, 3: 0 }, total: 50 });
   const output = generatePedidosFromMatrix(input)[0];
   assert.equal(output.itemCount, 2); assert.equal(output.totalQuantity, 250);
-  assert.deepEqual(output.cls, ['CL21 [CustKey:1]', 'cl21 [CustKey:2]', '코드미등록 [CustKey:3]']);
+  assert.deepEqual(output.cls, ['CL21 [CustKey:1]', 'cl21 [CustKey:2]', '코드 없음']);
   assert.match(output.preview.rows[0][0], /ProdKey:10/); assert.match(output.preview.rows[1][0], /ProdKey:11/);
+});
+
+test('five non-CL customers retain every product and converted stem cell through XLSX roundtrip', () => {
+  const customers = [[686,'양재동'],[340,'다원플라워'],[420,'성남원예'],[690,'호텔여분'],[584,'주식회사 코벤트원예']];
+  for (const country of Object.keys(COUNTRY_ORDER_COUNTRIES)) {
+    const raw = customers.flatMap(([CustKey,CustName], i) => [1,2].map(n => ({OrderYear:2026,OrderWeek:'47-02',CustKey,CustName,CustOrderCode:'',ProdKey:n,ProdName:n===1?'Alpha':'Beta',FlowerName:'장미',CounName:COUNTRY_ORDER_COUNTRIES[country],OutUnit:'단',OutQuantity:(i+1)*n,BunchQuantity:(i+1)*n,SteamQuantity:(i+1)*n*10,BoxQuantity:0,SteamOf1Bunch:10})));
+    const response={success:true,readOnly:true,scope:{country,counName:COUNTRY_ORDER_COUNTRIES[country],year:2026,majorWeek:'47',scopeKey:`${country}/2026/47`},subweeks:[{orderWeek:'47-02'}],rows:[...raw,{...raw[0],OrderYear:2025,SteamQuantity:99999}],warnings:[]};
+    const input=buildCountryOrderMatrix(response,'47-02');
+    assert.equal(input.customers.length,5);assert.equal(input.rows.length,2);assert.deepEqual(input.warnings,[]);assert.deepEqual(input.blockers,[]);
+    const outputs=generatePedidosFromMatrix(input);
+    assert.equal(outputs.reduce((sum,out)=>sum+out.itemCount,0),2);
+    assert.equal(outputs.reduce((sum,out)=>sum+out.totalQuantity,0),['Netherlands','Ecuador','Vietnam'].includes(country)?450:45);
+    const saved=readPedidosWorkbook(serializePedidosWorkbook(outputs[0].workbook));
+    const sheet=saved.Sheets[saved.SheetNames[0]];
+    if(country==='Netherlands'||country==='China'){
+      const header=XLSX.utils.sheet_to_json(sheet,{header:1,raw:true})[2];
+      for(const [key,name]of customers){const col=header.indexOf(name);assert.ok(col>0);for(let n=1;n<=2;n++){assert.equal(sheet[XLSX.utils.encode_cell({r:n+2,c:col})].v,input.rows.find(r=>r.prodKey===n).quantities[String(key)]);}}
+    }
+    assert.ok(!JSON.stringify(outputs[0].preview).includes('코드미등록'));
+  }
+});
+
+test('blank-code names colliding with each other or real codes never merge customer columns',()=>{
+  const input=matrix();input.customers=[{key:'1',code:'',name:'CL21'},{key:'2',code:'CL21',name:'other'},{key:'3',code:'',name:'CL21'}];
+  input.rows[0].quantities={1:50,2:60,3:90};
+  const out=generatePedidosFromMatrix(input)[0];assert.equal(out.cls.length,3);assert.equal(out.totalQuantity,200);
+  assert.deepEqual(out.cls,['CL21 [CustKey:1]','CL21 [CustKey:2]','CL21 [CustKey:3]']);
 });
 
 test('export rejects blockers, wrong provenance, invalid identity, nonfinite quantity and mismatched totals', () => {

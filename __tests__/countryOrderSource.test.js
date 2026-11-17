@@ -15,9 +15,10 @@ test('customer and product identities never merge by code or name, missing code 
   const matrix = buildCountryOrderMatrix(response([row, { ...row, CustKey: 2, ProdKey: 2 }, { ...row, CustKey: 3, CustOrderCode: '' }, { ...row, CustKey: 4, CustOrderCode: 'OTHER' }]), '42-01');
   assert.equal(matrix.customers.length, 4); assert.equal(matrix.rows.length, 2);
   assert.equal(matrix.customers.find(c => c.key === '1').label, 'CL21 [CustKey:1]');
-  assert.equal(matrix.customers.find(c => c.key === '3').code, ''); assert.match(matrix.customers.find(c => c.key === '3').label, /코드미등록/);
+  assert.equal(matrix.customers.find(c => c.key === '3').code, ''); assert.match(matrix.customers.find(c => c.key === '3').label, /업체/);
   assert.ok(matrix.rows.every(r => r.label.includes('[ProdKey:')));
-  for (const code of ['MISSING_CUSTOMER_CODE', 'DUPLICATE_CUSTOMER_CODE', 'DUPLICATE_PRODUCT_NAME', 'UNRECOGNIZED_CUSTOMER_CODE']) assert.ok(matrix.warnings.some(w => w.startsWith(code)));
+  assert.ok(!matrix.warnings.some(w => w.startsWith('MISSING_CUSTOMER_CODE')));
+  for (const code of ['DUPLICATE_CUSTOMER_CODE', 'DUPLICATE_PRODUCT_NAME', 'UNRECOGNIZED_CUSTOMER_CODE']) assert.ok(matrix.warnings.some(w => w.startsWith(code)));
   assert.equal(matrix.rows.find(r => r.prodKey === 2).quantities['1'], 0);
 });
 test('prior-year same-week and other actual subweek excluded, exact business key cells summed', () => {
