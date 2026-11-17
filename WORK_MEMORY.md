@@ -3170,3 +3170,12 @@ pm run test:canon 통과.
 - 다운로드 전 ETA 달력/직접입력, 국가별 이 PC 브라우저 기본값 저장. PeriodDay 시작일+7일 최초 기본값, 저장 후 실제 차수 시작일 차이만큼 이동하며 같은 주 세부차수는 유지. A1 날짜·영문 요일과 제목 행높이만 변경하고 수량·수식 보존.
 - 표적81 PASS/선택적 private3 SKIP. 로컬 실제 Chrome 합성API에서 직접 날짜입력·달력값 동기화·기본값 재호출·Escape·xlsx 저장과 140송이/ETA 제목 재열기 확인. 7단계76초 가이드(1920×1080/100%, 번호·줌·입력·결과) 및 실제 플레이어 MP4/목차/한국어 자막/390px 확인. 첫/중간/끝 프레임 확인. 전체 ERP 회귀·dnSpy·manifest221·변경API0 쓰기가드·정식 webpack build PASS. 제한 환경의 자식 프로세스 비정상 종료는 정상 권한 재실행 통과. 배포 진행 전. 운영 자료 누락 전체 이력 검증 및 데스크톱 파일 자동 열기는 미검증/미구현.
 검색어: 국가별 발주서 ETA Semana 달력 직접입력 기본값 다음주 누락방지 HIDDEN_NATIVE_ORDERS
+
+## 2026-11-17 홈 「수입 비행기 현황」 카드(도착 공지 자동 읽기·예측 지도·이슈)
+- 요청/원인: 사장님 — 수입 비행기를 세계지도에 표시, 빌번호가 확인되면 자동 최신화, 출발 전/출발함 분류, 비행기 이슈를 누구나 홈에서 바로 확인. 우리 지도는 예측 위치, 실제 위치는 버튼으로. 유료 서비스는 쓰지 않음.
+- 사전 확인(읽기 전용): 운송장 번호는 `WarehouseMaster.OrderNo`(39~46차 653건 중 644건이 11자리). 도착 시각·편명은 전산에 없고 카톡 도착 공지(스케줄방·빌번호방·네노바&선율방)에만 있음. 출발 공항·시각·경유지 칸은 어디에도 없음. `WebFlightScheduleBox` 477줄은 10-07 한 번 적재 후 멈춤(코드는 본편 미반영 브랜치). 콜롬비아는 도착 1~3일 전에 입고 등록됨.
+- 구현: mindmap-viewer 96번 수정안(읽기 통로 `GET /api/kakao/nenova-import-schedule-feed`, 방 3개 고정, 기존 읽기 토큰) 배포. 네노바웹 1782번 수정안 — `lib/importFlightNotice.js`(공지 해독·운송장 기준 합치기·이슈), `lib/importFlightStatus.js`(출발 전/비행 중/도착/입고 등록 끝, 대권 예측 위치), `lib/importFlightBoard.js`, `lib/importScheduleFeed.js`, `pages/api/import/flight-board.js`(SELECT 만), `components/home/ImportFlightBoard.js`, `pages/dashboard.js` 에 카드 1개, 계약 `docs/contracts/import-flight-board.json`. 세계지도 윤곽은 world-atlas 2.0.2 land-110m(ISC) 을 한 번 변환한 정적 자료(새 패키지·외부 키 없음).
+- 검증: 테스트 3개(`importFlightNotice`·`importFlightStatus`·`importFlightBoard`) 통과, 계약·쓰기 금지·가이드 영상·화면틀·정본 검사 통과. 실제 카톡 30일 사본+전산 입고 기록 조립: 43~46차 전산 운송장 49장 중 35장 해독. 로컬 화면에서 카드·지도·편 선택·모바일 폭 확인.
+- 미검증: 운영 서버에서 읽기 통로 실제 응답(운영 토큰은 서버에만 있음), 외부 추적 화면 주소가 화물 전용편에서도 열리는지, 남미 소요 시간 가정(콜롬비아 52시간·에콰도르 48시간)의 정확도. 중국 해상은 제외.
+- 함정: 콜롬비아는 도착 전에 입고 등록되므로 "등록됨=도착"으로 보면 안 됨(도착 예정 시각 전에는 일정으로 분류). 공지 글 모양이 다양함(번호만 적힌 줄, "내일 도착", 한 줄 공지, 두 차수 한 머리줄) — 새 모양은 테스트에 글 틀을 추가하고 고칠 것.
+- 검색어: 수입 비행기 현황 화물 위치 지도 도착 공지 빌번호 운송장 AWB 편명 스케줄방 flight-board importFlightNotice nenova-import-schedule-feed 예측 위치
