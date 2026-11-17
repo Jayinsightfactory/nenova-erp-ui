@@ -100,6 +100,12 @@ test('archived selection reopens by year, replaces the same source and scopes sa
   assert.equal(b.worksheets[0].getCell('A4').text,'총합계');
   assert.match(b.worksheets[0].getCell('C6').text,/카네이션 .*빠렛/);
   assert.doesNotMatch(b.worksheets[0].getCell('C6').text,/장미|수국/);
+  const stale=await store.downloadSelection(year,week,selection,[],null,async () => {throw Object.assign(Error('분배 변경'),{code:'FIELD_VOLUME_STALE'});},false);
+  const source=await store.downloadSelection(year,week,selection,[],null,null,false);
+  const fallbackBook=new ExcelJS.Workbook(),sourceBook=new ExcelJS.Workbook();
+  await fallbackBook.xlsx.load(stale.output);await sourceBook.xlsx.load(source.output);
+  assert.deepEqual(fallbackBook.worksheets[0].getSheetValues(),sourceBook.worksheets[0].getSheetValues());
+  await assert.rejects(store.downloadSelection(year,week,selection,[],null,async()=>{throw Error('DB 실패');}),/DB 실패/);
   const currentOnly=await store.downloadSelection(year,week,selection,[],null,async saved=>{
     assert.equal(saved.includePrevious,false);
     assert.deepEqual(saved.pallets,original.pallets);
