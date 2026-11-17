@@ -1,10 +1,11 @@
 import WorkflowGuide from '../WorkflowGuide';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PEDIDOS_COUNTRIES, generatePedidos, generatePedidosFromMatrix, formatPedidosQuantity, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
+import { PEDIDOS_COUNTRIES, generatePedidos, formatPedidosQuantity, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
 import { reviewCountryOrderQuantities, buildCountryOrderMatrix, applyCountryOrderManualQuantities, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities, buildCountryOrderProductSnapshot, suggestCountryOrderProductFactors } from '../../lib/countryOrderSource';
 import { COUNTRY_ORDER_ETA_STORAGE, countryOrderEtaDefault, countryOrderSourceComplete, formatCountryOrderEta, withCountryOrderEta } from '../../lib/countryOrderEta';
 import { createCountryOrderRequestGuard } from '../../lib/countryOrderPedidosAdapter';
 import { importCountryLabel, importUnitLabel, importColumnLabel } from '../../lib/importToolsDisplay';
+import { countryOrderShortName, countryOrderGroup, countryOrderIssue, generateCompactCountryOrders } from '../../lib/countryOrderPresentation';
 
 // Native React, browser-only file conversion. Parent owns menu and shared storage.
 export default function PedidosTool({ active = true }) {
@@ -29,6 +30,19 @@ export default function PedidosTool({ active = true }) {
   const [downloaded, setDownloaded] = useState('');
   const [changes, setChanges] = useState({});
   const [manual, setManual] = useState({}); // { rowKey: { custKey: '150' } } — web-only quantities for blocked products
+  const [farms, setFarms] = useState(['Melody', 'CLOUD']);
+  const [farmSplit, setFarmSplit] = useState(false);
+  const [farmOptions, setFarmOptions] = useState([]);
+  const [farmSelection, setFarmSelection] = useState({});
+  const [expandedRows, setExpandedRows] = useState({});
+  useEffect(() => {
+    if (!active || country !== 'China') return;
+    const controller = new AbortController();
+    fetch('/api/master?entity=codes', { signal: controller.signal }).then(result => result.ok ? result.json() : null).then(body => {
+      if (!controller.signal.aborted) setFarmOptions((body?.farms ?? body?.data?.farms ?? []).map(farm => farm.FarmName).filter(Boolean));
+    }).catch(() => { /* Names remain directly editable; no ERP farm assignment is performed. */ });
+    return () => controller.abort();
+  }, [active, country]);
   // "품목관리에 변경하시겠습니까?" dialog: per blocked row, editable Product factors (1단송이 / 1박스단수 / 1박스송이) saved via /api/master/products-bulk.
   const [productDialog, setProductDialog] = useState(null); // { items: [{ row, snapshot, suggestion, drafts }], saving, error }
   const [productSaved, setProductSaved] = useState('');
@@ -76,7 +90,7 @@ export default function PedidosTool({ active = true }) {
   }
 
   useEffect(() => {
-    clearResults(); setResponse(null); setChanges({}); setManual({}); setProductDialog(null); setProductSaved('');
+    clearResults(); setResponse(null); setChanges({}); setManual({}); setFarmSelection({}); setExpandedRows({}); setProductDialog(null); setProductSaved('');
     if (!active || sourceMode !== 'erp') { requestGuard.current.invalidate(); setLoading(false); return; }
     const selected = cycles.find(cycle => cycle.key === cycleKey);
     const scopeKey = country && selected ? `${country}/${selected.key}` : null;
@@ -137,15 +151,21 @@ export default function PedidosTool({ active = true }) {
   useEffect(() => {
     if (!canExport || matrix.blockers.length) return;
     try {
-      const outputs = generatePedidosFromMatrix(matrix);
+      const outputs = generateCompactCountryOrders(matrix, { farms, selected: farmSelection, split: farmSplit });
       setContext({ country, year: matrix.scope.year, week: orderWeek, sourceName: '검토한 발주 수량' });
       setResults(outputs);
     } catch (err) { setResults(null); setError(err.message); }
-  }, [canExport, matrix, country, orderWeek]);
+  }, [canExport, matrix, country, orderWeek, farms, farmSelection, farmSplit]);
 
   function editQuantity(rowKey, customerKey, value) {
     clearResults();
     setChanges(current => ({ ...current, [rowKey]: { ...current[rowKey], [customerKey]: value } }));
+  }
+  function moveFarmSelection(event) {
+    if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    const fields = [...event.currentTarget.closest('table').querySelectorAll('input[type="checkbox"]:not(:disabled)')];
+    const target = fields[fields.indexOf(event.currentTarget) + (event.key === 'ArrowDown' ? 1 : -1)];
+    if (target) { event.preventDefault(); target.focus(); }
   }
   const PRODUCT_FACTOR_FIELDS = [['SteamOf1Bunch', '1단송이', 'steamOf1Bunch'], ['BunchOf1Box', '1박스단수', 'bunchOf1Box'], ['SteamOf1Box', '1박스송이', 'steamOf1Box']];
   function requestGenerate() {
@@ -200,7 +220,7 @@ export default function PedidosTool({ active = true }) {
     if (!canGenerate) return;
     try {
       const source = matrix.blockers.length ? manualState.matrix : matrix;
-      const outputs = generatePedidosFromMatrix(source);
+      const outputs = generateCompactCountryOrders(source, { farms, selected: farmSelection, split: farmSplit });
       setContext({ country, year: matrix.scope.year, week: orderWeek, sourceName: '전산 원주문 (읽기 전용)' }); setResults(outputs);
     } catch (err) { setError(err.message || '발주서 생성에 실패했습니다.'); }
   }
@@ -279,6 +299,12 @@ export default function PedidosTool({ active = true }) {
         if (orderWeek === subweek.orderWeek) return;
         requestGuard.current.invalidate(); setResponse(null); setManual({}); invalidate(setOrderWeek, subweek.orderWeek);
       }}>{subweek.orderWeek}차</button>)}</div></>}
+      {country === 'China' && orderWeek && <fieldset className="pedidos-farms"><legend>수신 농장별 파일 나누기</legend>
+        <p>기본값 Melody는 그대로 사용하거나 수정할 수 있습니다. 나누기를 켜면 체크한 품목은 농장 1, 나머지는 농장 2 파일에 들어갑니다. 전산 농장 배정은 변경하지 않습니다.</p>
+        <label className="pedidos-split-toggle"><input type="checkbox" checked={farmSplit} onChange={event => { clearResults(); setFarmSplit(event.target.checked); }} />농장별 파일로 나누기</label>
+        <div className="pedidos-fields">{farms.map((farm, index) => <label key={index}>농장 {index + 1}{index === 1 ? ' (미선택 품목)' : ''}<input type="text" list="pedidos-farm-names" value={farm} onChange={event => { clearResults(); setFarms(current => current.map((value, i) => i === index ? event.target.value : value)); }} /></label>)}</div>
+        <datalist id="pedidos-farm-names">{[...new Set(['Melody', 'HUBFRESH', 'CLOUD', ...farmOptions])].map(name => <option key={name} value={name} />)}</datalist>
+      </fieldset>}
       <div className="pedidos-auto-actions">
         {results?.length ? results.map(output => <button key={output.filename} type="button" onClick={() => download(output)}>{output.filename} 다운로드</button>) : <button type="button" disabled>엑셀 다운로드</button>}
         {matrix?.blockers.length > 0 && <button type="button" disabled={!canGenerate} onClick={requestGenerate}>미리보기 생성</button>}
@@ -291,23 +317,23 @@ export default function PedidosTool({ active = true }) {
       {matrix && <>
         <p className="pedidos-note">{matrix.scope.year}년 {matrix.scope.orderWeek}차 · 품목 {matrix.rows.length}개 · 업체 {matrix.customers.length}개 · 송이·단 수량을 확인하고 필요하면 업체별 입력칸에서 수정하세요. 합계와 엑셀에 반영되며 전산 원주문은 유지됩니다.</p>
         <p className="pedidos-note">품목관리 기준은 현재 품목 설정이며 참고용입니다. 저장 주문수량은 선택 연도·차수의 원본 값입니다. 기준을 표시해도 발주서 수량을 다시 환산하지 않습니다.</p>
-        {matrix.blockers.length > 0 && <div role="alert" className="pedidos-error"><strong>⚠ 수량 오류 {blockedRowCount}건 · 입력 전까지 발주서 생성 불가</strong><p>아래 표의 주황색 행에 {country === 'Netherlands' ? '송이' : '발주서 단위'} 수량을 직접 입력하면 [미리보기 생성]이 열립니다. 입력값은 발주서 파일에만 쓰이고 전산 원주문은 바뀌지 않으므로 전산에서도 수정하세요. 주문 누락 방지를 위해 확인 필요 품목을 제외한 다운로드는 허용하지 않습니다.</p>{manualState.error && <p className="pedidos-manual-state">{manualState.error}</p>}{country === 'Netherlands' && <p>저장 단 수량이 있어도 저장 송이 수량이 0이면 송이 수량을 확인해야 합니다. 표시된 0을 단 수량이나 품목관리 기준으로 자동 보정하지 않습니다.</p>}<ul>{matrix.blockers.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
-        {matrix.warnings.length > 0 && <div className="pedidos-warning"><strong>확인 필요</strong><ul>{matrix.warnings.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
+        {matrix.blockers.length > 0 && <div role="alert" className="pedidos-error"><strong>⚠ 수량 오류 {blockedRowCount}건 · 입력 전까지 발주서 생성 불가</strong><p>아래 표의 주황색 행에 {country === 'Netherlands' ? '송이' : '발주서 단위'} 수량을 직접 입력하면 [미리보기 생성]이 열립니다. 입력값은 발주서 파일에만 쓰이고 전산 원주문은 바뀌지 않으므로 전산에서도 수정하세요. 주문 누락 방지를 위해 확인 필요 품목을 제외한 다운로드는 허용하지 않습니다.</p>{manualState.error && <p className="pedidos-manual-state">{manualState.error}</p>}{country === 'Netherlands' && <p>저장 단 수량이 있어도 저장 송이 수량이 0이면 송이 수량을 확인해야 합니다. 표시된 0을 단 수량이나 품목관리 기준으로 자동 보정하지 않습니다.</p>}<ul>{matrix.blockers.map((message, index) => <li key={index}>{countryOrderIssue(message)}</li>)}</ul></div>}
+        {matrix.warnings.length > 0 && <div className="pedidos-warning"><strong>확인 필요</strong><ul>{matrix.warnings.map((message, index) => <li key={index}>{countryOrderIssue(message)}</li>)}</ul></div>}
         <div className="pedidos-preview pedidos-matrix" tabIndex={0} role="region" aria-label="전산 품목별 업체 원수량 행렬"><table>
-          <thead><tr><th scope="col">품목</th><th scope="col">품목관리 기준</th><th scope="col">발주서 단위</th><th scope="col">저장 주문수량</th>{matrix.customers.map(customer => <th scope="col" key={customer.key} title={`${customer.name} · ${customer.key}`}>{customer.label}</th>)}<th scope="col">합계</th></tr></thead>
-          <tbody>{matrix.rows.map(row => <tr key={row.key} className={row.blocked ? 'pedidos-row-blocked' : undefined}>
-            <th scope="row">{row.label ?? row.name}{row.blocked && <span className="pedidos-blocked-tag" title={row.blockers.join(' / ')}>확인 필요</span>}</th>
-            <td className="pedidos-unit-basis">{formatCountryOrderUnitBasis(row.unitBasis)}</td>
+          <thead><tr><th scope="col">품목 · 상세</th>{country === 'China' && <th scope="col">농장 1</th>}<th scope="col">단위</th>{matrix.customers.map(customer => <th scope="col" key={customer.key} title={`${customer.name} · ${customer.key}`}>{customer.label}</th>)}<th scope="col">합계</th></tr></thead>
+          <tbody>{[...matrix.rows].sort((a, b) => countryOrderGroup(matrix, a).localeCompare(countryOrderGroup(matrix, b), 'ko') || a.name.localeCompare(b.name, 'en')).map((row, index, rows) => <React.Fragment key={row.key}>
+            {(index === 0 || countryOrderGroup(matrix, rows[index - 1]) !== countryOrderGroup(matrix, row)) && <tr className="pedidos-group"><th colSpan={matrix.customers.length + (country === 'China' ? 4 : 3)}>{countryOrderGroup(matrix, row)}</th></tr>}
+            <tr className={row.blocked ? 'pedidos-row-blocked' : undefined}>
+            <th scope="row" title={row.label ?? row.name}><button type="button" className="pedidos-row-detail" aria-expanded={Boolean(expandedRows[row.key])} onClick={() => setExpandedRows(current => ({ ...current, [row.key]: !current[row.key] }))}>{expandedRows[row.key] ? '−' : '+'} {countryOrderShortName(row)}</button>{row.blocked && <span className="pedidos-blocked-tag" title={row.blockers.map(countryOrderIssue).join(' / ')}>확인 필요</span>}</th>
+            {country === 'China' && <td><input type="checkbox" disabled={!farmSplit} onKeyDown={moveFarmSelection} aria-label={`${row.name} 농장 1 ${farms[0]}`} checked={farmSelection[String(row.prodKey)] === true} onChange={event => { clearResults(); setFarmSelection(current => ({ ...current, [String(row.prodKey)]: event.target.checked })); }} /></td>}
             <td>{country === 'Netherlands' ? '스팀(송이)' : importUnitLabel(row.unit)}</td>
-            <td className="pedidos-stored-quantities"><span>{formatCountryOrderStoredQuantities(row.storedQuantities)}</span><details><summary>업체별 저장수량</summary><ul>{matrix.customers.map(customer => <li key={customer.key}><strong>{customer.label}</strong>: {Object.hasOwn(row.storedQuantitiesByCustomer ?? {}, customer.key) ? formatCountryOrderStoredQuantities(row.storedQuantitiesByCustomer?.[customer.key]) : '주문 없음'}</li>)}</ul></details></td>
             {matrix.customers.map(customer => <td key={customer.key}>{row.blocked && Object.hasOwn(row.storedQuantitiesByCustomer ?? {}, customer.key) && !(((row.originalQuantities ?? row.quantities)[customer.key] ?? 0) > 0)
               ? <input type="number" min="1" step="any" className="pedidos-manual-input" aria-label={`${row.label ?? row.name} ${customer.label} ${country === 'Netherlands' ? '송이' : importUnitLabel(row.unit)} 수량 입력`} placeholder={country === 'Netherlands' ? '송이 입력' : '수량 입력'} value={manual[row.key]?.[customer.key] ?? ''} onChange={event => setManualQuantity(row.key, customer.key, event.target.value)} />
               : ['stems', 'bunches'].includes(row.unit) && Object.hasOwn(row.storedQuantitiesByCustomer ?? {}, customer.key)
-                ? <label>전산 {(row.originalQuantities ?? row.quantities)[customer.key]} {importUnitLabel(row.unit)}
-                  <input type="number" min="0" step="any" className="pedidos-review-input" aria-label={`${row.label ?? row.name} ${customer.label} 발주 ${importUnitLabel(row.unit)} 수량`} value={changes[row.key]?.[customer.key] ?? row.quantities[customer.key]} onChange={event => editQuantity(row.key, customer.key, event.target.value)} /></label>
+                ? <input type="number" min="0" step="any" className="pedidos-review-input" title={`전산 ${(row.originalQuantities ?? row.quantities)[customer.key]} ${importUnitLabel(row.unit)}`} aria-label={`${row.label ?? row.name} ${customer.label} 발주 ${importUnitLabel(row.unit)} 수량`} value={changes[row.key]?.[customer.key] ?? row.quantities[customer.key]} onChange={event => editQuantity(row.key, customer.key, event.target.value)} />
                 : formatPedidosQuantity(row.quantities[customer.key] ?? 0)}</td>)}
             <td><strong>{row.blocked && manualState.matrix ? formatPedidosQuantity(manualState.matrix.rows.find(item => item.key === row.key).total) : formatPedidosQuantity(row.total)}</strong></td>
-          </tr>)}</tbody>
+          </tr>{expandedRows[row.key] && <tr><td colSpan={matrix.customers.length + (country === 'China' ? 4 : 3)} className="pedidos-detail-content"><strong>{row.name} · 품목번호 {row.prodKey}</strong><p>품목관리 기준: {formatCountryOrderUnitBasis(row.unitBasis)}</p><p>저장 주문수량: {formatCountryOrderStoredQuantities(row.storedQuantities)}</p><details><summary>업체별 저장수량</summary><ul>{matrix.customers.map(customer => <li key={customer.key}>{customer.label}: {Object.hasOwn(row.storedQuantitiesByCustomer ?? {}, customer.key) ? formatCountryOrderStoredQuantities(row.storedQuantitiesByCustomer[customer.key]) : '주문 없음'}</li>)}</ul></details></td></tr>}</React.Fragment>)}</tbody>
         </table></div>
       </>}
     </div> : <form onSubmit={convert}>
@@ -327,7 +353,7 @@ export default function PedidosTool({ active = true }) {
     <p className="pedidos-note">주문·입고·재고에 자동 등록되지 않습니다. 수량 0은 화면·Excel에서 빈칸으로 표시하며 숫자와 수식은 보존합니다. 원인 확인용 저장수량 진단의 0은 표시합니다.</p>
     <details className="pedidos-guide"><summary>지원 양식과 변환 기준 보기</summary><p>기존 양식은 활성 시트(없으면 첫 시트)를 읽습니다. 중국 행렬은 수량원본과 구조화 시트의 업체키·품목키·숫자 수량을 사용하며 선택 연도·차수를 확인합니다. 파일명·시트명은 차수 기준으로 유지합니다. 차수의 공백·구두점은 원본 규칙대로 제거됩니다.</p></details>
     {busy && <p role="status">Excel을 읽고 발주서를 생성하고 있습니다…</p>}
-    {error && <p role="alert" className="pedidos-error">{error}</p>}
+    {error && <p role="alert" className="pedidos-error">{countryOrderIssue(error)}</p>}
     {downloaded && <p role="status">{downloaded}</p>}
     {productSaved && <p role="status" className="pedidos-product-saved">{productSaved}</p>}
     {productDialog && <div className="pedidos-backdrop"><section role="dialog" aria-modal="true" aria-label="품목관리에 변경하시겠습니까?" className="pedidos-dialog">
@@ -356,7 +382,7 @@ export default function PedidosTool({ active = true }) {
           <button type="button" onClick={() => download(output)}>엑셀 다운로드</button>
         </div>
         {output.totalQuantity === 0 && <p role="status" className="pedidos-note">숫자 원본의 합계가 0입니다. 정상적인 0 수량 결과도 다운로드할 수 있습니다.</p>}
-        {output.warnings.length > 0 && <div className="pedidos-warning"><h5>확인 필요</h5><ul>{output.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul></div>}
+        {output.warnings.length > 0 && <div className="pedidos-warning"><h5>확인 필요</h5><ul>{output.warnings.map(warning => <li key={warning}>{countryOrderIssue(warning)}</li>)}</ul></div>}
         {output.itemCount > 0 && <details><summary>품목 미리보기 ({output.itemCount}개, 수식 계산값 표시)</summary>
           <div className="pedidos-preview" tabIndex={0} role="region" aria-label={`${output.filename} 품목 표`}>
             <table><colgroup>{output.preview.headers.map((_,i)=><col key={i} style={{width:i===0?320:120}}/>)}</colgroup><thead><tr>{output.preview.headers.map((header, i) => <th key={i} scope="col" title={String(header)}>{importColumnLabel(header)}</th>)}</tr></thead>
@@ -394,7 +420,16 @@ export default function PedidosTool({ active = true }) {
       .pedidos-cycles small { display:block; font-weight:400; }
       .pedidos-country { max-width:260px; margin:12px 0; }
       .pedidos-auto-actions span { color:#54657d; }
-      .pedidos-matrix th:first-child { position:sticky; left:0; min-width:300px; max-width:440px; white-space:normal; background:#eef2f7; z-index:2; }
+      .pedidos-matrix th:first-child { position:sticky; left:0; min-width:220px; white-space:nowrap; background:#eef2f7; z-index:2; }
+      .pedidos-matrix th, .pedidos-matrix td { padding:3px 7px; }
+      .pedidos-matrix .pedidos-row-detail { padding:2px 0; min-height:26px; background:transparent; color:#172b4d; font-weight:500; }
+      .pedidos-matrix input.pedidos-review-input { width:76px; padding:3px 5px; text-align:center; }
+      .pedidos-matrix input[type=checkbox] { width:18px; }
+      .pedidos-matrix .pedidos-group th { background:#dce7f4; font-weight:700; }
+      .pedidos-matrix .pedidos-detail-content { white-space:normal; text-align:left; background:#f4f7fb; padding:12px; }
+      .pedidos-farms { margin-bottom:12px; }
+      .pedidos-split-toggle { flex-direction:row; align-items:center; margin-bottom:8px; }
+      .pedidos-split-toggle input { width:18px; }
       .pedidos-matrix thead th:first-child { z-index:3; }
       .pedidos-matrix tbody th { top:auto; text-align:left; }
       .pedidos-matrix td { text-align:right; }

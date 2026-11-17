@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
 import './countryOrderEta.test.js';
+import './countryOrderPresentation.test.js';
 import { createCountryOrderRequestGuard } from '../lib/countryOrderPedidosAdapter.js';
 import { buildCountryOrderMatrix, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities } from '../lib/countryOrderSource.js';
 import { formatPedidosQuantity } from '../lib/importPedidos.js';
@@ -53,10 +54,11 @@ test('UI matrix is page-height, horizontally scrollable, sticky product/header, 
 
 test('UI distinguishes current product basis, output unit and saved quantities without converting them', () => {
   const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');
-  assert.match(ui, /<th scope="col">품목<\/th><th scope="col">품목관리 기준<\/th><th scope="col">발주서 단위<\/th><th scope="col">저장 주문수량<\/th>/);
+  assert.match(ui, /<th scope="col">품목 · 상세<\/th>/);
+  assert.match(ui, /expandedRows\[row.key\] && <tr>/);
   assert.match(ui, /formatCountryOrderUnitBasis\(row.unitBasis\)/);
   assert.match(ui, /formatCountryOrderStoredQuantities\(row.storedQuantities\)/);
-  assert.match(ui, /formatCountryOrderStoredQuantities\(row.storedQuantitiesByCustomer\?\.\[customer.key\]\)/);
+  assert.match(ui, /formatCountryOrderStoredQuantities\(row.storedQuantitiesByCustomer\[customer.key\]\)/);
   assert.match(ui, /Object.hasOwn\(row.storedQuantitiesByCustomer \?\? \{\}, customer.key\)/);
   assert.match(ui, /: '주문 없음'/);
   assert.match(ui, /품목관리 기준은 현재 품목 설정이며 참고용/);
