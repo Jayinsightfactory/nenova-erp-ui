@@ -8,9 +8,9 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
 import { apiGetExe } from '../../lib/exeParity/client.js';
-import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
+import { buildForwardOrderWeeks } from '../../lib/myCustomerOrderEntry';
 import { useLang } from '../../lib/i18n';
-import { useColumnResize } from '../../lib/useColumnResize';
+import { moveQuantityFocus } from '../../lib/orderQuantityFocus.mjs';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import useRankedProductSearch from '../../lib/useRankedProductSearch';
 
@@ -27,8 +27,13 @@ const sameKey = (a, b) => String(a || '') === String(b || '');
 export default function OrderNew() {
   const router = useRouter();
   const { t } = useLang(); // 언어 변경 시 자동 리렌더
-  const weekInput = useWeekInput('');
-  const [year] = useState(new Date().getFullYear().toString());
+  const weekChoices = useMemo(() => buildForwardOrderWeeks(new Date()), []);
+  const initialWeek = weekChoices.find(w => w.default) || weekChoices[0];
+  const [week, setWeek] = useState(initialWeek.week);
+  const [year, setYear] = useState(initialWeek.year);
+  const [collapsed, setCollapsed] = useState(false);
+  const [previousWeek, setPreviousWeek] = useState('');
+  const [reading, setReading] = useState(false);
 
   // 거래처 관련
   const [custSearch, setCustSearch] = useState('');
@@ -113,7 +118,7 @@ export default function OrderNew() {
         handleSave();
       } else if (e.key === 'Escape') {
         // ESC: 드롭다운 닫기 or 페이지 닫기
-        if (showCustDrop || showCustPanel) {
+        if (showOrderHistory || showHistory) { setShowOrderHistory(false); setShowHistory(false); } else if (showCustDrop || showCustPanel) {
           setShowCustDrop(false);
           setShowCustPanel(false);
         } else {
@@ -123,7 +128,7 @@ export default function OrderNew() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [showCustDrop, showCustPanel, selectedCust, weekInput.value, quantities]);
+  }, [showOrderHistory, showHistory, showCustDrop, showCustPanel, selectedCust, year, week, quantities, reading, saving]);
 
   // ── 거래처 검색 (300ms 디바운스)
   useEffect(() => {
@@ -315,7 +320,18 @@ export default function OrderNew() {
   const customerFavoriteKey = (custKey) =>
     customerFavorites.find(f => sameKey(f.custKey, custKey))?.favoriteKey;
 
+  function clearSelectionDraft() {
+    if (reading || saving) return false;
+    if (orderSummary.length && !window.confirm('입력 중인 수량을 지우고 선택을 변경할까요?')) return false;
+    setQuantities({}); setOrderMasterKey(null); setPreviousWeek('');
+    setExeGridMode(false);
+    setSuccessMsg(''); setErr('');
+    return true;
+  }
+
   const selectCustomer = (cust) => {
+    if (reading || saving || (!sameKey(cust?.CustKey, selectedCust?.CustKey) && !clearSelectionDraft())) return;
+    setCollapsed(true);
     setSelectedCust(cust);
     setCustSearch(cust?.CustName || '');
     setShowCustDrop(false);
@@ -354,6 +370,7 @@ export default function OrderNew() {
       [prodKey]: {
         ...(q[prodKey] || initQty()),
         [unit]: v,
+        displayName: prod?.DisplayName || q[prodKey]?.displayName,
         prodName:   prod?.ProdName   || q[prodKey]?.prodName   || '',
         counName:   prod?.CounName   || q[prodKey]?.counName   || '',
         flowerName: prod?.FlowerName || q[prodKey]?.flowerName || '',
@@ -387,6 +404,7 @@ export default function OrderNew() {
       const prod = prodList.find(p => p.ProdKey === parseInt(prodKey));
       return {
         ProdKey:    parseInt(prodKey),
+        DisplayName: prod?.DisplayName || q.displayName,
         ProdName:   prod?.ProdName   || q.prodName   || `품목#${prodKey}`,
         CounName:   prod?.CounName   || q.counName   || '',
         FlowerName: prod?.FlowerName || q.flowerName || '',
@@ -402,7 +420,7 @@ export default function OrderNew() {
   // ── 신규 (폼 초기화)
   const handleNew = () => {
     setSelectedCust(null); setCustSearch('');
-    setQuantities({}); weekInput.setValue('');
+    setQuantities({}); setWeek(initialWeek.week); setYear(initialWeek.year); setCollapsed(false); setPreviousWeek('');
     setGroupSearch(''); setProdSearch('');
     setCollapsedCountries(new Set());
     setSelectedGroup(null); setProdList([]); setErr(''); setSuccessMsg('');
@@ -413,17 +431,18 @@ export default function OrderNew() {
 
   // ── 조회 (거래처+차수 기준 기존 주문 로드)
   const handleSearch = async () => {
+    if (reading || saving) return;
     if (!selectedCust) { setErr('거래처를 선택하세요.'); return; }
-    if (!weekInput.value) { setErr('차수를 입력하세요.'); return; }
-    setErr('');
+    if (!week) { setErr('차수를 입력하세요.'); return; }
+    setErr(''); setReading(true);
     try {
-      const d = await apiGet('/api/orders', { custName: selectedCust.CustName, week: weekInput.value });
-      const found = d.orders?.[0];
+      const d = await apiGet('/api/orders', { custName: selectedCust.CustName, year, week });
+      const found = d.orders?.find(order => sameKey(order.custKey, selectedCust.CustKey) && String(order.year) === year && (order.week === week || order.week === year + '-' + week));
       if (!found || !found.items?.length) {
         setOrderMasterKey(null);
         setQuantities({});
         await loadExeAddGrids(0);
-        setSuccessMsg(`[${weekInput.value}] ${selectedCust.CustName} 기존 주문이 없습니다. 수량을 입력하세요.`);
+        setSuccessMsg(`[${week}] ${selectedCust.CustName} 기존 주문이 없습니다. 수량을 입력하세요.`);
         setTimeout(() => setSuccessMsg(''), 3000);
         return;
       }
@@ -461,16 +480,16 @@ export default function OrderNew() {
             counName:   item.counName   || '',
             flowerName: item.flowerName || '',
           };
-          if ((item.boxQty||0) > 0)   newQty[item.prodKey].box   = item.boxQty;
-          if ((item.bunchQty||0) > 0) newQty[item.prodKey].bunch = item.bunchQty;
-          if ((item.steamQty||0) > 0) newQty[item.prodKey].steam = item.steamQty;
+          if ((item.boxQty||0) > 0)   newQty[item.prodKey].box += Number(item.boxQty) || 0;
+          if ((item.bunchQty||0) > 0) newQty[item.prodKey].bunch += Number(item.bunchQty) || 0;
+          if ((item.steamQty||0) > 0) newQty[item.prodKey].steam += Number(item.steamQty) || 0;
         });
       }
       setQuantities(newQty);
       await loadExeAddGrids(mk || 0);
-      setSuccessMsg(`✅ [${weekInput.value}] 기존 주문 ${found.items.length}개 품목 로드됨`);
+      setSuccessMsg(`✅ [${week}] 기존 주문 ${found.items.length}개 품목 로드됨`);
       setTimeout(() => setSuccessMsg(''), 3000);
-    } catch(e) { setErr(e.message); }
+    } catch(e) { setErr(e.message); } finally { setReading(false); }
   };
 
   const normalizeTemplateItems = (items = []) => items
@@ -519,7 +538,7 @@ export default function OrderNew() {
   };
 
   const buildCurrentOrderTemplate = () => ({
-    week: weekInput.value || '작성중',
+    week: week || '작성중',
     items: orderSummary.map(p => {
       const q = quantities[p.ProdKey] || initQty();
       return {
@@ -537,21 +556,26 @@ export default function OrderNew() {
   // ── 지난 주문 불러오기 → 차수별 목록 모달
   const loadOrderHistory = async () => {
     if (!selectedCust) { alert('거래처를 먼저 선택하세요.'); return; }
-    setHistoryLoading(true);
+    setHistoryLoading(true); setReading(true);
     setShowOrderHistory(true);
     setHistoryTab('recent');
     try {
-      const d = await apiGet('/api/orders', { custName: selectedCust.CustName });
-      // 차수별 그룹핑 (같은 차수면 최신 1개만)
-      const weekMap = {};
-      (d.orders || []).forEach(order => {
-        if (!weekMap[order.week]) weekMap[order.week] = order;
-      });
-      const sorted = Object.values(weekMap).sort((a, b) => (b.week||'').localeCompare(a.week||''));
-      setOrderHistory(sorted);
+      const d = await apiGet('/api/orders/my-customers', { view: 'history', custKey: selectedCust.CustKey, year, week });
+      setOrderHistory(d.orders || []);
       await loadOrderTemplates(selectedCust);
     } catch(e) { setShowOrderHistory(false); alert(e.message); }
-    finally { setHistoryLoading(false); }
+    finally { setHistoryLoading(false); setReading(false); }
+  };
+
+  const loadPrevious = async () => {
+    if (!selectedCust || reading || saving) return;
+    if (orderSummary.length && !window.confirm('입력 중인 초안을 이전 차수 주문으로 바꿀까요?')) return;
+    setReading(true);
+    try {
+      const d = await apiGet('/api/orders/my-customers', { view: 'previous-order', custKey: selectedCust.CustKey, year, week, beforeWeek: previousWeek || week });
+      if (!d.order) { setErr('같은 연도에서 이 업체의 더 이전 주문이 없습니다.'); return; }
+      setErr(''); loadOrderToForm(d.order); setPreviousWeek(d.order.week);
+    } catch (e) { setErr(e.message); } finally { setReading(false); }
   };
 
   // ── 선택한 주문을 폼에 로드
@@ -560,16 +584,16 @@ export default function OrderNew() {
     (order.items || []).forEach(item => {
       if (!item.prodKey) return;
       if (!newQty[item.prodKey]) {
-        newQty[item.prodKey] = { box: 0, bunch: 0, steam: 0, prodName: item.prodName || '', counName: item.counName || '', flowerName: item.flowerName || '' };
+        newQty[item.prodKey] = { box: 0, bunch: 0, steam: 0, displayName: item.displayName, prodName: item.prodName || '', counName: item.counName || '', flowerName: item.flowerName || '' };
       }
       if ((item.boxQty||0)   > 0) newQty[item.prodKey].box   = item.boxQty;
-      if ((item.bunchQty||0) > 0) newQty[item.prodKey].bunch = item.bunchQty;
-      if ((item.steamQty||0) > 0) newQty[item.prodKey].steam = item.steamQty;
+      if ((item.bunchQty||0) > 0) newQty[item.prodKey].bunch += Number(item.bunchQty) || 0;
+      if ((item.steamQty||0) > 0) newQty[item.prodKey].steam += Number(item.steamQty) || 0;
       // 단위별 qty만 있을 때
       if (!(item.boxQty||item.bunchQty||item.steamQty)) {
-        if (item.unit === '박스') newQty[item.prodKey].box   = item.qty || 0;
-        else if (item.unit === '단') newQty[item.prodKey].bunch = item.qty || 0;
-        else if (item.unit === '송이') newQty[item.prodKey].steam = item.qty || 0;
+        if (item.unit === '박스') newQty[item.prodKey].box += Number(item.qty) || 0;
+        else if (item.unit === '단') newQty[item.prodKey].bunch += Number(item.qty) || 0;
+        else if (item.unit === '송이') newQty[item.prodKey].steam += Number(item.qty) || 0;
       }
     });
     setQuantities(newQty);
@@ -583,7 +607,7 @@ export default function OrderNew() {
     if (!selectedCust) { alert('거래처를 먼저 선택하세요.'); return; }
     const items = normalizeTemplateItems(order.items || []);
     if (items.length === 0) { alert('저장할 주문 수량이 없습니다.'); return; }
-    const favName = (name || `${order.week || weekInput.value || '작성중'} 주문`).trim();
+    const favName = (name || `${order.week || week || '작성중'} 주문`).trim();
     if (!favName) return;
     try {
       await apiPost('/api/favorites', {
@@ -592,7 +616,7 @@ export default function OrderNew() {
         filterData: JSON.stringify({
           custKey: selectedCust.CustKey,
           custName: selectedCust.CustName,
-          sourceWeek: order.week || weekInput.value || '',
+          sourceWeek: order.week || week || '',
           savedAt: new Date().toISOString().slice(0, 10),
           items,
         }),
@@ -608,7 +632,7 @@ export default function OrderNew() {
   const saveCurrentOrderTemplate = async () => {
     if (!selectedCust) { alert('거래처를 먼저 선택하세요.'); return; }
     if (orderSummary.length === 0) { alert('저장할 주문 수량이 없습니다.'); return; }
-    const name = prompt('저장할 주문 이름을 입력하세요.', `${weekInput.value || '작성중'} 주문`);
+    const name = prompt('저장할 주문 이름을 입력하세요.', `${week || '작성중'} 주문`);
     if (!name) return;
     await saveFavorite(buildCurrentOrderTemplate(), name);
   };
@@ -627,14 +651,14 @@ export default function OrderNew() {
   // ── 주문 변경 내역 조회
   const loadHistory = async () => {
     if (!selectedCust) { alert('거래처를 먼저 선택하세요.'); return; }
+    setReading(true);
     try {
       const d = await apiGet('/api/orders/history', {
-        custName: selectedCust.CustName,
-        week: weekInput.value
+        custNames: selectedCust.CustName, year, week
       });
       setHistory(d.history || []);
       setShowHistory(true);
-    } catch(e) { alert(e.message); }
+    } catch(e) { alert(e.message); } finally { setReading(false); }
   };
 
   // ── 삭제 (폼 초기화)
@@ -645,8 +669,9 @@ export default function OrderNew() {
 
   // ── 저장 → OrderMaster + OrderDetail (정식 테이블)
   const handleSave = async () => {
+    if (reading || saving) return;
     if (!selectedCust) { setErr('거래처를 선택하세요.'); return; }
-    if (!weekInput.value) { setErr('차수를 입력하세요.'); return; }
+    if (!week) { setErr('차수를 입력하세요.'); return; }
     if (orderSummary.length === 0) { setErr('주문 수량을 입력하세요.'); return; }
     setSaving(true); setErr('');
     try {
@@ -662,7 +687,7 @@ export default function OrderNew() {
       const result = await apiPost('/api/orders', {
         custKey: selectedCust.CustKey,
         custName: selectedCust.CustName,
-        week: weekInput.value,
+        week: week,
         year,
         orderCode: selectedCust.OrderCode || '',
         items,
@@ -670,7 +695,7 @@ export default function OrderNew() {
       // 저장 완료 모달 표시
       setSaveModal({
         custName:   selectedCust.CustName,
-        week:       weekInput.value,
+        week:       week,
         count:      result.results?.filter(r => r.status === 'OK').length || items.length,
         masterKey:  result.orderMasterKey,
         message:    result.message,
@@ -685,13 +710,17 @@ export default function OrderNew() {
       <div className={desktopUi.toolbar} style={{ background: 'var(--header-bg)', border: '1px solid var(--border2)', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
         <span style={{ fontWeight: 'bold', fontSize: 12, marginRight: 8 }}>▶ 주문 정보</span>
 
-        {/* 주문년도 */}
-        <span className="filter-label">주문년도</span>
-        <input className="filter-input" value={year} readOnly style={{ width: 52, background: '#E8E8E8' }} />
-
-        {/* 차수 - 자동 포맷 */}
-        <WeekInput weekInput={weekInput} label="차수" />
-
+        {collapsed ? <><strong>{year}년 {week} · {selectedCust?.Manager || '담당자 미지정'} · {selectedCust?.CustName}</strong>
+          <button className="btn btn-sm" disabled={reading || saving} aria-expanded={false} onClick={() => setCollapsed(false)}>펼치기</button></> : <>
+        <label>등록 차수 <select className="filter-select" value={year + '/' + week} disabled={reading || saving}
+          onChange={e => { if (!clearSelectionDraft()) return; const [y,w] = e.target.value.split('/'); setYear(y); setWeek(w); if (selectedCust) setCollapsed(true); }}>
+          <optgroup label="자주 쓰는 차수">{weekChoices.map(w => <option key={w.year+w.week} value={w.year+'/'+w.week}>{w.year}년 {w.week}</option>)}</optgroup>
+          {[...new Set([String(new Date().getFullYear()-1), String(new Date().getFullYear()), String(new Date().getFullYear()+1)])].map(y =>
+            <optgroup key={y} label={y+'년 전체 차수'}>{Array.from({length:52},(_,i) => Array.from({length:9},(_,j) => {
+              const w = String(i+1).padStart(2,'0')+'-0'+(j+1);
+              return weekChoices.some(choice => choice.year===y && choice.week===w) ? null : <option key={w} value={y+'/'+w}>{y}년 {w}</option>;
+            }))}</optgroup>)}
+        </select></label>
         {/* 거래처명 - 실시간 검색 드롭다운 */}
         <span className="filter-label">거래처명</span>
         <div style={{ position: 'relative', display: 'flex', gap: 4, alignItems: 'center' }} ref={dropRef}>
@@ -699,7 +728,7 @@ export default function OrderNew() {
             className="filter-input"
             placeholder="거래처 검색... (↑↓ 이동, Enter 선택)"
             value={custSearch}
-            onChange={e => { setCustSearch(e.target.value); setSelectedCust(null); setDropIdx(-1); }}
+            onChange={e => { if (selectedCust && !clearSelectionDraft()) return; setSelectedCust(null); setCustSearch(e.target.value); setDropIdx(-1); }}
             onFocus={() => custList.length > 0 && setShowCustDrop(true)}
             onKeyDown={e => {
               if (!showCustDrop || custList.length === 0) return;
@@ -728,7 +757,7 @@ export default function OrderNew() {
             title="담당자별 업체 선택 / 업체 즐겨찾기"
             style={{ height: 24, padding: '1px 8px', borderColor: showCustPanel ? 'var(--blue)' : undefined }}
           >
-            업체 선택
+            담당자 · 업체 선택
           </button>
           {/* 거래처 드롭다운 */}
           {showCustDrop && custList.length > 0 && (
@@ -818,20 +847,23 @@ export default function OrderNew() {
         <span className="filter-label">주문일자</span>
         <input type="date" className="filter-input" defaultValue={new Date().toISOString().slice(0,10)} style={{ width: 110 }} />
 
+        {selectedCust && <button className="btn btn-sm" aria-expanded={true} onClick={() => {setCustSearch(selectedCust.CustName);setCollapsed(true)}}>접기</button>}
+        </>}
         {/* 오른쪽 버튼들 */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-          <button className="btn btn-primary btn-sm" onClick={handleSearch} title="단축키: Ctrl+R">{t('조회')} [Ctrl+R]</button>
+          <button className="btn btn-primary btn-sm" disabled={saving || reading} onClick={handleSearch} title="단축키: Ctrl+R">{t('조회')} [Ctrl+R]</button>
           <button className="btn btn-sm" onClick={() => window.open('/orders/new?popup=1','신규주문등록','width=1280,height=820,left=100,top=100,resizable=yes,scrollbars=yes')} title="단축키: Ctrl+N">{t('신규')} [Ctrl+N]</button>
-          <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving} title="단축키: Ctrl+S">{saving ? t('저장')+'중...' : t('저장')+' [Ctrl+S]'}</button>
-          <button className="btn btn-danger btn-sm" onClick={handleDelete}>{t('삭제')} / Eliminar</button>
+          <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || reading} title="단축키: Ctrl+S">{saving ? t('저장')+'중...' : t('저장')+' [Ctrl+S]'}</button>
+          <button className="btn btn-danger btn-sm" disabled={saving || reading} onClick={handleDelete}>{t('삭제')} / Eliminar</button>
           <button className="btn btn-sm" onClick={() => window.opener ? window.close() : router.push('/orders')} title="단축키: ESC">{t('닫기')} [ESC]</button>
         </div>
       </div>
 
       {/* 두 번째 버튼 줄 */}
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderTop: 'none', padding: '3px 8px', display: 'flex', gap: 4, flexShrink: 0 }}>
-        <button className="btn btn-sm" onClick={loadOrderHistory}>📋 {t('지난 주문 불러오기')}</button>
-        <button className="btn btn-sm" onClick={loadHistory}>{t('주문 변경 내역 조회')}</button>
+        <button className="btn btn-sm" disabled={!selectedCust || reading || saving} onClick={loadPrevious}>{previousWeek ? '더 이전 차수 주문 불러오기' : '바로 이전 차수 주문 불러오기'}</button>
+        <button className="btn btn-sm" disabled={!selectedCust || reading || saving} onClick={loadOrderHistory}>과거·고정 주문</button>
+        <button className="btn btn-sm" disabled={!selectedCust || reading || saving} onClick={loadHistory}>{t('주문 변경 내역 조회')}</button>
       </div>
 
       {/* 알림 배너 */}
@@ -865,7 +897,7 @@ export default function OrderNew() {
                   </tr>
                   <tr>
                     <td style={{ padding: '6px 4px', color: 'var(--text3)' }}>주문번호</td>
-                    <td style={{ padding: '6px 4px', color: 'var(--text3)', fontSize: 11 }}>#{saveModal.masterKey} (테스트)</td>
+                    <td style={{ padding: '6px 4px', color: 'var(--text3)', fontSize: 11 }}>#{saveModal.masterKey}</td>
                   </tr>
                 </tbody>
               </table>
@@ -884,7 +916,7 @@ export default function OrderNew() {
       </div>
 
       {/* ── 3분할 메인 ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 340px', flex: 1, overflow: 'hidden', border: '1px solid var(--border2)', borderTop: 'none' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'clamp(155px, 12vw, 200px) minmax(0, 1fr) clamp(300px, 30vw, 540px)', flex: 1, overflow: 'hidden', border: '1px solid var(--border2)', borderTop: 'none' }}>
 
         {/* ══ 왼쪽: 품목 정보 (꽃 그룹별 합계) ══ */}
         <div style={{ borderRight: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1064,9 +1096,9 @@ export default function OrderNew() {
                   <th style={{ textAlign: 'right', width: 52, color: 'var(--blue)', background: '#E8F0FF' }}>단</th>
                   <th style={{ textAlign: 'right', width: 52, color: 'var(--blue)', background: '#E8F0FF' }}>송이</th>
                   {/* 총주문수량 */}
-                  <th style={{ textAlign: 'right', width: 52 }}>Box</th>
-                  <th style={{ textAlign: 'right', width: 52 }}>단</th>
-                  <th style={{ textAlign: 'right', width: 52 }}>송이</th>
+                  <th style={{ textAlign: 'right', width: 40 }}>Box</th>
+                  <th style={{ textAlign: 'right', width: 40 }}>단</th>
+                  <th style={{ textAlign: 'right', width: 40 }}>송이</th>
                 </tr>
                 {/* 헤더 그룹 표시 */}
                 <tr style={{ background: '#F0F0F0', fontSize: 10 }}>
@@ -1076,7 +1108,7 @@ export default function OrderNew() {
                   <td colSpan={3} style={{ textAlign: 'center', color: 'var(--text3)' }}>총주문수량</td>
                 </tr>
               </thead>
-              <tbody>
+              <tbody onKeyDown={moveQuantityFocus}>
                 {filteredProds.length === 0 ? (
                   <tr><td colSpan={13} style={{ textAlign: 'center', padding: 20, color: 'var(--text3)' }}>
                     {productSearch.error || (productSearch.loading ? '품목 검색 중…' : prodSearch.trim() ? '검색 결과가 없습니다.' : '품목을 선택해 주세요.')}
@@ -1103,7 +1135,7 @@ export default function OrderNew() {
                       <td style={{ textAlign: 'center' }}>
                         <input type="checkbox" checked={hasQty} readOnly style={{ width: 12, height: 12 }} />
                       </td>
-                      <td style={{ fontWeight: hasQty ? 'bold' : 'normal', color: hasQty ? '#996600' : 'var(--text1)', fontSize: 11 }}>
+                      <td style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', fontWeight: hasQty ? 'bold' : 'normal', color: hasQty ? '#996600' : 'var(--text1)', fontSize: 11 }}>
                         {p.DisplayName || p.ProdName}
                       </td>
                       <td style={{ color: 'var(--text3)', fontSize: 10 }}>{p.OutUnit}</td>
@@ -1119,7 +1151,7 @@ export default function OrderNew() {
                       {/* ── 입력수량: Box ── */}
                       <td style={{ background: '#E8F0FF', padding: '1px 2px' }}>
                         <input
-                          type="number" min={0} step={1}
+                          type="number" min={0} step={1} disabled={reading || saving}
                           value={q.box || ''}
                           onChange={e => setQty(p.ProdKey, 'box', e.target.value)}
                           onFocus={e => e.target.select()}
@@ -1130,7 +1162,7 @@ export default function OrderNew() {
                       {/* ── 입력수량: 단 ── */}
                       <td style={{ background: '#E8F0FF', padding: '1px 2px' }}>
                         <input
-                          type="number" min={0} step={1}
+                          type="number" min={0} step={1} disabled={reading || saving}
                           value={q.bunch || ''}
                           onChange={e => setQty(p.ProdKey, 'bunch', e.target.value)}
                           onFocus={e => e.target.select()}
@@ -1141,7 +1173,7 @@ export default function OrderNew() {
                       {/* ── 입력수량: 송이 ── */}
                       <td style={{ background: '#E8F0FF', padding: '1px 2px' }}>
                         <input
-                          type="number" min={0} step={1}
+                          type="number" min={0} step={1} disabled={reading || saving}
                           value={q.steam || ''}
                           onChange={e => setQty(p.ProdKey, 'steam', e.target.value)}
                           onFocus={e => e.target.select()}
@@ -1191,13 +1223,13 @@ export default function OrderNew() {
                 byGroup[key].totalSteam += (q.steam||0);
               });
               return (
-                <table className="tbl" style={{ minWidth: 340, fontSize: 11 }}>
+                <table className="tbl" style={{ tableLayout: 'fixed', fontSize: 11 }}>
                   <thead>
                     <tr>
-                      <th style={{ minWidth: 120 }}>{t('품목명')}</th>
-                      <th className="num" style={{ minWidth: 45 }}>Box</th>
-                      <th className="num" style={{ minWidth: 40 }}>{t('단')}</th>
-                      <th className="num" style={{ minWidth: 45 }}>{t('송이')}</th>
+                      <th>{t('품목명')}</th>
+                      <th className="num" style={{ width: 50 }}>Box</th>
+                      <th className="num" style={{ width: 68 }}>{t('단')}</th>
+                      <th className="num" style={{ width: 84 }}>{t('송이')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1209,7 +1241,7 @@ export default function OrderNew() {
                       </tr>,
                       ...g.items.map(p => (
                         <tr key={p.ProdKey}>
-                          <td style={{ fontSize:10, maxWidth:130, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.DisplayName || p.ProdName}</td>
+                          <td style={{ fontSize:10, whiteSpace:'normal', overflowWrap:'anywhere' }}>{p.DisplayName || p.ProdName}</td>
                           <td className="num" style={{ fontSize:10 }}>{p.q.box>0?p.q.box:''}</td>
                           <td className="num" style={{ fontSize:10 }}>{p.q.bunch>0?p.q.bunch:''}</td>
                           <td className="num" style={{ fontSize:10 }}>{p.q.steam>0?p.q.steam:''}</td>
@@ -1230,7 +1262,7 @@ export default function OrderNew() {
           {/* 하단 저장 버튼 */}
           {Object.values(quantities).some(q=>(q.box||0)+(q.bunch||0)+(q.steam||0)>0) && (
             <div style={{ padding: '4px 6px', borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
-              <button className="btn btn-primary" style={{ width: '100%', height: 24 }} onClick={handleSave} disabled={saving}>
+              <button className="btn btn-primary" style={{ width: '100%', height: 24 }} onClick={handleSave} disabled={saving || reading}>
                 {saving ? '저장 중... / Guardando' : `${t('저장')} (${orderSummary.length})`}
               </button>
             </div>
@@ -1383,7 +1415,7 @@ export default function OrderNew() {
         <div className="modal-overlay" onClick={() => setShowHistory(false)}>
           <div className="modal" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">■ 주문 변경 내역 — {selectedCust?.CustName} [{weekInput.value}]</span>
+              <span className="modal-title">■ 주문 변경 내역 — {selectedCust?.CustName} [{week}]</span>
               <button className="btn btn-sm" onClick={() => setShowHistory(false)}>닫기</button>
             </div>
             <div className="modal-body" style={{ padding: 0, maxHeight: 450, overflowY: 'auto' }}>

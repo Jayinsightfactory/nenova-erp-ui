@@ -1,0 +1,68 @@
+{
+  "id": "order-registration-grid",
+  "title": "주문등록 초안 셀 이동 및 주문 내역서 표시",
+  "scope": [
+    "pages/orders/new.js",
+    "lib/orderQuantityFocus.mjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "MOVE_QUANTITY_FOCUS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writes": [],
+      "rule": "Only focus changes; displayed row order and Box/bunch/stem column order. No quantity change at boundaries."
+    },
+    {
+      "name": "WRAP_ORDER_SUMMARY_NAME",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writes": [],
+      "rule": "Show the complete original product label, wrapping within the summary pane."
+    },
+    {
+      "name": "SELECT_ORDER_SCOPE_AND_RECALL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writes": [],
+      "rule": "Collapse on selection; reopen without clearing. Previous-order reads use exact customer/year/week and advance the exclusive beforeWeek cursor. Change history uses selected year/week and exact name."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "selectedYear": 2026,
+    "priorYear": 2025,
+    "sameWeek": "45-01",
+    "expectation": "Both years' orders remain unchanged: moving focus or wrapping a name sends no request. Same 45-01 in the prior year cannot be selected by the previous-order read or current order lookup."
+  },
+  "requiredTestFiles": [
+    "__tests__/orderQuantityFocus.test.mjs",
+    "scripts/order-registration-smoke.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormOrderAdd.md",
+    "source": "Nenova/FormOrderAdd.cs",
+    "methods": [
+      "btnSave_Click",
+      "UnitQuantity"
+    ],
+    "tables": [
+      "OrderMaster",
+      "OrderDetail",
+      "OrderHistory"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
