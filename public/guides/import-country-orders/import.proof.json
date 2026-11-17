@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-17T03:11:32.895Z",
+  "recordedAt": "2026-11-17T09:04:56.502Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 76.25,
+  "duration": 162.65,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "a1a661752666f26f4eb2570df0f62bc5159797d9559a34e1ed4335d37b59f43d",
-  "captionsSha256": "0d5c9faeddf303ca560ba180859211276a59ec130fc74186e05711e8ca8fd5a0",
+  "videoSha256": "ffb2f4a7ead07b5e4947efd1b2ee111a62e6ba8f4368b2a5632f7d027d86f62a",
+  "captionsSha256": "d577528917bdd0697dffa2a334b8dac4b50e02140ace1519f100331d63584493",
   "sourceHashes": {
-    "components/import-tools/PedidosTool.js": "5b1b1bc821b4fd9e7b5cfe1d9241a9c79a657b0a47d4055aced785bb3115863e"
+    "components/import-tools/PedidosTool.js": "2adef8b93ed4d94e27a117ed24cb70f16eef29aa36e63666b76c3b7a07bc8265"
   },
   "presentation": {
-    "numberedSteps": 7,
+    "numberedSteps": 15,
     "zoom": "post-capture-1.4x",
     "transitionSeconds": 1.2,
     "captionBand": "unscaled-bottom-180px",
@@ -28,52 +28,108 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 4.1322536,
+        "start": 4.143174700000001,
         "x": 394,
         "y": 718.0625,
-        "end": 10.352406999999996
+        "end": 10.3816968
       },
       {
         "number": 2,
-        "start": 14.7038107,
+        "start": 14.7392556,
         "x": 382.5,
         "y": 814.375,
-        "end": 20.921284399999998
+        "end": 20.975453700000003
       },
       {
         "number": 3,
-        "start": 25.249296799999996,
+        "start": 25.3311555,
         "x": 294.125,
         "y": 847.6875,
-        "end": 31.469888599999997
+        "end": 31.558285799999997
       },
       {
         "number": 4,
-        "start": 35.8029078,
-        "x": 1196.921875,
-        "y": 605.1875,
-        "end": 42.5253265
+        "start": 35.9189426,
+        "x": 594.53125,
+        "y": 621.1875,
+        "end": 42.625734900000005
       },
       {
         "number": 5,
-        "start": 46.86691379999999,
+        "start": 46.9597666,
         "x": 353.359375,
         "y": 558.6875,
-        "end": 53.091516299999995
+        "end": 53.17778990000001
       },
       {
         "number": 6,
-        "start": 57.42111779999999,
+        "start": 57.5057993,
         "x": 697,
         "y": 557.5,
-        "end": 65.28639580000001
+        "end": 65.3675821
       },
       {
         "number": 7,
-        "start": 69.6327093,
+        "start": 69.7060941,
         "x": 713.0546875,
         "y": 682,
-        "end": 75.8836494
+        "end": 75.95213820000001
+      },
+      {
+        "number": 8,
+        "start": 80.83586100000001,
+        "x": 716,
+        "y": 558.0625,
+        "end": 87.07733900000001
+      },
+      {
+        "number": 9,
+        "start": 91.4063861,
+        "x": 382.5,
+        "y": 814.375,
+        "end": 97.6393888
+      },
+      {
+        "number": 10,
+        "start": 101.96207670000001,
+        "x": 294.125,
+        "y": 847.6875,
+        "end": 108.1910661
+      },
+      {
+        "number": 11,
+        "start": 112.5403649,
+        "x": 343,
+        "y": 558.1875,
+        "end": 120.09994130000001
+      },
+      {
+        "number": 12,
+        "start": 124.4388971,
+        "x": 277,
+        "y": 558.6875,
+        "end": 130.66046699999998
+      },
+      {
+        "number": 13,
+        "start": 135.0041125,
+        "x": 510.046875,
+        "y": 620.1875,
+        "end": 141.248969
+      },
+      {
+        "number": 14,
+        "start": 145.62553839999998,
+        "x": 370.421875,
+        "y": 558.6875,
+        "end": 151.8449215
+      },
+      {
+        "number": 15,
+        "start": 156.2099747,
+        "x": 713.0546875,
+        "y": 682,
+        "end": 162.4494925
       }
     ]
   }

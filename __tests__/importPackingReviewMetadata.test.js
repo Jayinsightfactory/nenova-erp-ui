@@ -199,5 +199,5 @@ test('metadata issues move their editable section ahead of the three numeric rev
   const metadataFirst = component.indexOf('{showMetadataFirst && metadataSection}');
   const numericCards = component.indexOf('<div className={styles.fields}>', metadataFirst);
   assert.ok(metadataFirst >= 0 && numericCards > metadataFirst, 'issue metadata is rendered before GW/CW/freight inputs');
-  assert.match(component, /\{!showMetadataFirst && metadataSection\}/, 'metadata without issues keeps the existing later position');
+  assert.match(component, /\{!showMetadataFirst && <details><summary>송장 날짜·통화·총액 보기\/수정 \(선택\)<\/summary>\{metadataSection\}<\/details>\}/, 'metadata without issues remains editable inside optional details');
 });

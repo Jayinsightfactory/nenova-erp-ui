@@ -35,7 +35,9 @@ async function main(){
     if(url.pathname.endsWith('/country-orders')){
       const country=url.searchParams.get('country'),exact=url.searchParams.get('orderWeek');
       if(exact)details.push(exact);
-      data={success:true,readOnly:true,cycles,scope:country?{country,counName:'네덜란드',year:2026,majorWeek:'46',scopeKey:country+'/2026/46'}:null,subweeks:country?[week]:[],rows:exact?[row]:[],warnings:[],diagnostics:{hiddenOrderCount:0}};
+      const counName=country==='China'?'중국':'네덜란드';
+      const sourceRows=country==='China'?[{...row,CounName:counName,ProdName:'ROSE / 연습 화이트 50cm',FlowerName:'장미',OutUnit:'단',OutQuantity:15},{...row,CounName:counName,ProdKey:2,ProdName:'ROSE / 연습 핑크 50cm',FlowerName:'장미',OutUnit:'단',OutQuantity:10}]:[row];
+      data={success:true,readOnly:true,cycles,scope:country?{country,counName,year:2026,majorWeek:'46',scopeKey:country+'/2026/46'}:null,subweeks:country?[week]:[],rows:exact?sourceRows:[],warnings:[],diagnostics:{hiddenOrderCount:0}};
     }
     await req.respond({status:200,contentType:'application/json',body:JSON.stringify(data)});
   });
@@ -72,6 +74,28 @@ async function main(){
   await page.click(down);await page.waitForSelector('[aria-labelledby="pedidos-eta-title"]');
   assert.equal(await page.$eval('[aria-labelledby="pedidos-eta-title"] input[type="date"]',n=>n.value),'2026-11-16');
   await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('[aria-labelledby="pedidos-eta-title"]'));
+  const chinaIndex=await page.evaluate(()=>[...document.querySelectorAll('[aria-label="국가"] button')].findIndex(button=>button.textContent.includes('중국'))+1);
+  const farmSteps=[
+   ['china','중국 발주 조회','[aria-label="국가"] button:nth-child('+chinaIndex+')','중국을 선택하고 차수와 세부차수를 다시 선택합니다.'],
+   ['china-cycle','중국 차수 선택',cycle,'2026년 46차를 선택합니다.'],
+   ['china-week','중국 세부차수 선택',sub,'46-01차의 모든 품목과 업체 수량을 불러옵니다.'],
+   ['farm','기본 수신명 수정','.pedidos-farms input[type="text"]','기본값 Melody는 유지됩니다. 이번에는 HUBFRESH로 바꿉니다. 농장명을 검색하거나 직접 입력할 수 있습니다.'],
+   ['split','농장별 파일 나누기','.pedidos-split-toggle input','나누기를 켜면 농장 1에 체크한 품목과 미선택 품목의 파일이 나뉩니다. 기본 상태에서는 나누지 않습니다.'],
+   ['assign','농장 1 품목 선택','.pedidos-matrix input[aria-label="ROSE / 연습 화이트 50cm 농장 1 HUBFRESH"]','화이트 품목을 농장 1로 선택합니다. 체크한 품목 전체 업체 수량은 HUBFRESH, 나머지는 CLOUD 파일에 들어갑니다.'],
+   ['farm-download','농장별 파일 확인',down,'두 농장 파일이 따로 나타납니다. HUBFRESH 파일을 열어 ETA를 확인합니다.'],
+   ['farm-save','농장 파일 다운로드','[aria-labelledby="pedidos-eta-title"] button[type="submit"]','확인한 ETA로 다운로드합니다. 첫 시트는 업체별 발주표이며 뒤쪽에 기존 국가 양식도 보존됩니다.']];
+  for(const [offset,[scenario,label,selector,description]] of farmSteps.entries()){
+    await page.waitForSelector(selector,{visible:true});
+    await page.$eval(selector,node=>node.scrollIntoView({block:'center'}));
+    const number=steps.length+offset+1;rec.chapter(scenario,number+'. '+label);await rec.caption(number+'. '+label+' · '+description);await rec.pause(2300);await rec.focus(selector,number);
+    await page.focus(selector);
+    if(scenario==='farm'){assert.deepEqual(await page.$$eval('.pedidos-farms input[type="text"]',nodes=>nodes.map(node=>node.value)),['Melody','CLOUD']);await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');await page.keyboard.type('HUBFRESH',{delay:150});await page.keyboard.press('Tab');}
+    else await page.keyboard.press(['assign','split'].includes(scenario)?'Space':'Enter');
+    if(scenario==='assign')await page.waitForFunction(()=>document.querySelectorAll('.pedidos-auto-actions button').length>=3&&document.querySelector('.pedidos-auto-actions').textContent.includes('HUBFRESH')&&document.querySelector('.pedidos-auto-actions').textContent.includes('CLOUD'));
+    await rec.pause(2800);await rec.unfocus();
+  }
+  let farmFile;for(let n=0;n<50&&!farmFile;n++){farmFile=fs.readdirSync(downloadDir).find(name=>name.includes('HUBFRESH')&&name.endsWith('.xlsx'));if(!farmFile)await new Promise(resolve=>setTimeout(resolve,100));}
+  assert(farmFile,'farm download saved');const farmWb=XLSX.readFile(path.join(downloadDir,farmFile));assert.equal(farmWb.SheetNames[0],'업체별 발주');assert.equal(farmWb.Sheets['업체별 발주'].C5.v,15);
   const result=await rec.stop();stopped=true;
   if(!dry){workflow.guides[0].chapters=result.chapters;workflow.guides[0].status='ready';fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');}
   if(dry){
@@ -79,7 +103,7 @@ async function main(){
     await page.focus('#country-order-guide-test > summary');await page.keyboard.press('Enter');
     await page.$eval('#country-order-guide-test video',video=>{video.muted=true;return video.play();});
     await page.waitForFunction(()=>document.querySelector('#country-order-guide-test video').currentTime>.3);
-    const chapters=await page.$$('#country-order-guide-test nav button');assert.equal(chapters.length,7);
+    const chapters=await page.$$('#country-order-guide-test nav button');assert.equal(chapters.length,workflow.guides[0].chapters.length);
     await chapters[5].focus();await page.keyboard.press('Enter');
     assert(await page.$eval('#country-order-guide-test video',video=>video.currentTime>50));
     await page.$eval('#country-order-guide-test video',video=>{video.textTracks[0].mode='showing';});
@@ -87,7 +111,7 @@ async function main(){
     assert(await page.$eval('#country-order-guide-test video',video=>video.textTracks[0].language==='ko'));
     await page.setViewport({width:390,height:844});
     assert(await page.$eval('#country-order-guide-test video',video=>{const rect=video.getBoundingClientRect();return rect.width<=innerWidth;}));
-    console.log('PASS actual guide player MP4 playback, seven chapters, Korean captions, keyboard and 390px');
+    console.log('PASS actual guide player MP4 playback, registered chapters, Korean captions, keyboard and 390px');
   }
   console.log('PASS keyboard country/cycle/subweek, ETA manual/date sync, stored default, Escape, browser download, XLSX quantity140/title');
  }finally{await browser?.close();if(server.pid && server.exitCode===null) require('node:child_process').spawnSync('taskkill',['/PID',String(server.pid),'/T','/F'],{windowsHide:true});}
