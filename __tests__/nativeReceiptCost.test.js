@@ -6,6 +6,7 @@ import { readNativeCostSource, calculateNativeCost, nativeCostDocument } from '.
 import { createNativeCostWorkbook, createInvoiceCostWorkbook } from '../lib/invoiceReceiptCostExport.js';
 import { invoiceCostExportFixture } from './invoiceReceiptCostExport.test.js';
 import { createNativeCostHandler } from '../lib/nativeCostHttp.js';
+import { nlCompanyTemplateCost } from '../lib/nlCompanyTemplateCost.js';
 import './invoiceReceiptExpenses.test.js';
 import './receiptProductMatchClient.test.js';
 import './packingInvoiceTotals.test.js';
@@ -136,23 +137,25 @@ test('NL GET automatically prepares current quote and same-receipt defaults; quo
 
 test('NL native workbook retains template customs components and estimated warning',async()=>{
  const f=await fixture('NL_AMOUNT_V1');
- f.request.input={...f.request.input,customsTotalKRW:925506,expenseBasis:'ESTIMATED',estimateSource:'NL company template',
-  nlTemplateCosts:{bakSang:564006,handling:33000,quarantine:20000,domestic:90000,extra:220000,deduct:1500,kindCount:2,
-    selections:[{kind:'Tulip',originalName:'Tulip sample',stems:10,fobPerStem:.1,deductionKRW:1500}],excluded:[{kind:'Amerine'}]}};
+ f.source.lines.forEach((l,i)=>{l.originalName=i===2?'Amerine':'Tulip sample';});
+ const a=nlCompanyTemplateCost(f.source.lines.map((l,i)=>({...l,effectiveTariffRate:f.request.input.lineInputs[i].tariffRate})),
+  {gw:f.source.gw,freight:f.request.input.freightAmount,exchangeRate:f.request.input.exchangeRateKRW});
+ assert.equal(a.ready,true);
+ f.request.input={...f.request.input,customsTotalKRW:a.total,expenseBasis:'ESTIMATED',estimateSource:'NL company template',nlTemplateCosts:a.costs};
  const result=calculateNativeCost(f.source,f.request);
  const book=XLSX.read(await createNativeCostWorkbook(result),{cellStyles:true}),sheet=book.Sheets[book.SheetNames[0]];
  assert.match(sheet.B1.v,/미승인 계산본.*추정 통관비.*실제 청구액 아님/);
- assert.equal(sheet.Q6.v,564006);assert.equal(sheet.Q7.v,33000);assert.equal(sheet.Q8.v,20000);
- assert.equal(sheet.Q9.v,90000);assert.equal(sheet.S6.v,1500);assert.equal(sheet.S7.v,220000);
+ assert.equal(sheet.Q6.v,a.costs.bakSang);assert.equal(sheet.Q7.v,33000);assert.equal(sheet.Q8.v,20000);
+ assert.equal(sheet.Q9.v,90000);assert.equal(sheet.S6.v,a.costs.deduct);assert.equal(sheet.S7.v,220000);
  const original=book.Sheets['원본 양식 계산'];
- assert.equal(original.C9.v,2);assert.equal(original.Q8.v,20000);assert.equal(original.S6.v,1500);
- assert.equal(original.AC15.v,1500);assert.equal(original.AC16.v,0);
- assert.equal(original.AC15.f,'10*0.1*$C$7');
+ assert.equal(original.C9.v,2);assert.equal(original.Q8.v,20000);assert.equal(original.S6.v,a.costs.deduct);
+ assert.equal(original.AC15.v,a.costs.deduct);assert.equal(original.AC16.v,0);
+ assert.match(original.AC15.f,/MIN\(CE(?:15,CE16|16,CE15)\)/);
  assert.equal(original.AA17.v,'Gerbera');
  assert.match(original.AB17.v,/10송이.*미입고/);
  assert.equal(original.AC17.v,'-');
  assert.ok(Number(original['!ref'].match(/\d+$/)[0])>=61,'complete quarantine reference table is inside worksheet bounds');
- assert.match(original.AB15.v,/FOB 0\.10 EUR/);
+ assert.ok(original.AB15.f.includes('B15'));
  assert.ok(original['!cols'][26].width>=19); // AA: kind name
  assert.ok(original['!cols'][27].width>=96); // AB: full audit description
  assert.ok(original['!cols'][28].width>=22); // AC: deduction amount

@@ -12,7 +12,7 @@ test('uploaded NL invoice gets proposed template costs without a second manual c
   const r=nlInvoiceDraftTemplate(document,receipt,form);
   assert.equal(r.ready,true);assert.equal(r.costs.kindCount,1);
   assert.equal(r.costs.deduct,15000);
-  assert.equal(r.total,384000); // 100×460 + 33k + 10k + 90k + 220k - 15k
+  assert.equal(r.total,414000); // 100×460 + 33k + 10k + 90k + 220k + 15k
   assert.equal(JSON.stringify({document,receipt,form}),before);
 });
 

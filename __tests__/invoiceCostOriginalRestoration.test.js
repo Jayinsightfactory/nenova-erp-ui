@@ -6,7 +6,33 @@ import {invoiceCostExportFixture} from './invoiceReceiptCostExport.test.js';
 import {createInvoiceCostWorkbook} from '../lib/invoiceReceiptCostExport.js';
 import {RESTORED_COST_LAYOUTS} from '../lib/invoiceCostOriginalRestoration.js';
 import {INVOICE_COST_EXPORT_PROFILES} from '../lib/invoiceCostExportProfiles.js';
+import {nlCompanyTemplateCost} from '../lib/nlCompanyTemplateCost.js';
+import {previewInvoiceCost} from '../lib/invoiceReceiptCost.js';
 const XLSX=createRequire(import.meta.url)('xlsx');
+
+test('NL sample loss is added and cheapest selection uses an acyclic live formula ladder',async()=>{
+ const f=invoiceCostExportFixture(3,'NL_AMOUNT_V1'),input=f.snapshot.input;
+ f.document.lines.forEach((l,i)=>{l.originalName=`Tulip ${i}`;});
+ const lines=f.document.lines.map((l,i)=>({...l,effectiveTariffRate:input.lineInputs[i].tariffRate}));
+ const estimate=nlCompanyTemplateCost(lines,{gw:f.document.reviewedMetadata.gw,freight:input.freightAmount,exchangeRate:input.exchangeRateKRW});
+ assert.equal(estimate.ready,true);
+ input.customsTotalKRW=estimate.total;input.nlTemplateCosts=estimate.costs;input.expenseBasis='ESTIMATED';input.estimateSource=estimate.estimateSource;
+ const receipt=f.snapshot.receiptSnapshot.details.map((d,i)=>({...f.document.lines[i],...d,outUnit:f.revision.lines[i].unit}));
+ const calc=previewInvoiceCost({...f.document,costInput:input},receipt);
+ assert.equal(calc.status,'APPROVED');
+ f.revision.lines=calc.lines.map((l,i)=>({...l,wdetailKey:receipt[i].wdetailKey}));f.revision.totalCostKRW=calc.totals.totalCostKRW;
+ const before=JSON.stringify(f), bytes=await createInvoiceCostWorkbook(f),s=XLSX.read(bytes,{cellFormula:true}).Sheets['원본 양식 계산'];
+ assert.equal(JSON.stringify(f),before);
+ assert.equal(s.Q10.f,'SUM(Q6:Q9)+S6+S7');
+ assert.match(s.S6.f,/CE1-CD1/);assert.match(s.AC15.f,/MIN\(CE15,CE16,CE17\)/);
+ assert.match(s.AB15.f,/B15/);assert.match(s.AB15.f,/B16/);
+ assert.match(s.AZ15.f,/SUM\(\$Q\$6:\$Q\$9\)\+\$S\$7\+0/);
+ assert.match(s.BA15.f,/AZ\$1/);
+ for(let r=15;r<=17;r++)assert.doesNotMatch(s[`CE${r}`].f,/\bM\d+|\$?Q\$?10|\$?S\$?6/,'selection cannot depend on final landed cost');
+ assert.match(s.CE1.f,/F15/);assert.match(s.CE1.f,/F16/);
+ const xml=await(await JSZip.loadAsync(bytes)).file('xl/worksheets/sheet3.xml').async('string');
+ assert.match(xml,/dimension ref="A1:CE/);assert.match(xml,/min="52" max="83".*hidden="1"/);
+});
 for(const[id,p]of Object.entries(RESTORED_COST_LAYOUTS))test(`${id} original calculation restores sales/formulas/summary without historic input`,async()=>{
  const profile=INVOICE_COST_EXPORT_PROFILES[id],f=invoiceCostExportFixture(7,profile.formulaId),before=JSON.stringify(f);
  const bytes=await createInvoiceCostWorkbook(f),book=XLSX.read(bytes,{cellFormula:true,cellNF:true}),s=book.Sheets['원본 양식 계산'];

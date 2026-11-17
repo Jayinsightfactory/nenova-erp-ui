@@ -16,14 +16,14 @@ test('chooses cheapest landed line but deducts FOB times original sample stems',
   assert.equal(r.deduction,20000);assert.equal(JSON.stringify(lines),before);
 });
 
-test('missing original sample is disclosed as zero, while over-deduction blocks',()=>{
+test('missing original sample is zero; sample loss is added even above base customs',()=>{
   assert.equal(nlQuarantineKind({originalName:'Woolly bush'}),null);
   const noSample=nlQuarantineDeduction([{lineId:'x',originalName:'Woolly bush',stemQuantity:10,lineAmount:10,unitPrice:1,effectiveTariffRate:0}],
     {freight:0,exchangeRate:1000,customsBeforeDeduction:100000});
   assert.equal(noSample.ready,true);assert.equal(noSample.kindCount,1);assert.equal(noSample.deduction,0);
   assert.deepEqual(noSample.excluded.map(x=>x.kind),['Woolly']);
   assert.equal(nlQuarantineDeduction([{lineId:'t',originalName:'Tulip',stemQuantity:10,lineAmount:100,unitPrice:10,effectiveTariffRate:0}],
-    {freight:0,exchangeRate:1000,customsBeforeDeduction:1000}).ready,false);
+    {freight:0,exchangeRate:1000,customsBeforeDeduction:1000}).ready,true);
 });
 
 test('missing freight is not silently treated as zero',()=>{
@@ -71,4 +71,16 @@ test('selection follows landed stem cost even when cheaper FOB belongs to taxed 
   const r=nlQuarantineDeduction(rows,{freight:0,exchangeRate:1000,customsBeforeDeduction:20000});
   assert.equal(r.ready,true);assert.equal(r.selected[0].lineId,'untaxed');
   assert.equal(r.deduction,10000);
+});
+
+test('editing price changes the selected kind member without mutating prior results',()=>{
+ const lines=[
+  {lineId:'a',originalName:'Tulip Ninja',stemQuantity:150,lineAmount:52.5,unitPrice:.35,effectiveTariffRate:0},
+  {lineId:'b',originalName:'Tulip Alternative',stemQuantity:100,lineAmount:43,unitPrice:.43,effectiveTariffRate:0},
+ ];
+ const settings={freight:20,exchangeRate:1500,customsBeforeDeduction:100000};
+ const first=nlQuarantineDeduction(lines,settings);assert.equal(first.selected[0].lineId,'a');assert.equal(first.deduction,5250);
+ const next=nlQuarantineDeduction(lines.map(l=>l.lineId==='a'?{...l,unitPrice:1,lineAmount:150}:l),settings);
+ assert.equal(next.selected[0].lineId,'b');assert.equal(next.deduction,6450);
+ assert.equal(first.selected[0].lineId,'a');assert.equal(lines[0].lineAmount,52.5);
 });
