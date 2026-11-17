@@ -2492,6 +2492,8 @@ export default function SalesDefectDeductionsPage() {
           .sales-defect-page .printOnly { display: block !important; position: static; width: 100%; }
           .print-table thead { display: table-header-group; }
           .print-table tr, .print-top, .incoming-print tbody { break-inside: avoid; }
+          .print-form:has(.incoming-print) { color: #000; }
+          .print-form .incoming-print th { background: #fff !important; color: #000; }
           .print-table th { background: #c69700 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
