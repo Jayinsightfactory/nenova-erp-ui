@@ -19,7 +19,7 @@ npm run dist
 
 The shell uses sandboxed WebContentsView instances with no remote preload. Reparenting retains live pages. Only an authenticated same-account metadata snapshot is restored, with URL query allowlisting and Windows safeStorage encryption. Packaged builds enable cookie encryption. Desktop never replays ERP writes.
 
-At login, /api/desktop/bootstrap supplies every menu permitted for the authenticated account directly from components/Layout.js. Web deployments and new menus synchronize without reinstalling. Existing edited tabs remain open; save and refresh them to load updated page code. Version 1.0 users must install 1.1 once. Desktop binary updates still require a new installer. See docs/desktop/LOGIN_SYNC.md.
+At login, /api/desktop/bootstrap supplies every menu permitted for the authenticated account directly from components/Layout.js. Web deployments and new menus synchronize without reinstalling. Existing edited tabs remain open; save and refresh them to load updated page code. Version 1.0 users must install 1.1 once. From 1.3.32, login checks for a newer stable installer and downloads it automatically. Restart after saving, or defer installation until normal app exit. Earlier clients use their existing update button once. See docs/desktop/LOGIN_SYNC.md.
 
 Smoke tests intercept the entire HTTPS session and isolate userData/sessionData profiles. They send no requests to production. Restore tests use two Electron processes. Tests and development files are excluded from the installer.
 
