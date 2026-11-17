@@ -1,3 +1,4 @@
+import { incomingProductLabel } from '../../lib/incomingProductLabel.js';
 import { incomingDefectPrintNote } from '../../lib/incomingDefectPrintNote.js';
 import { manualHoldDescriptor, canSelectSupportDisposition } from '../../lib/defectManualHold.js';
 import DefectCostLookup from '../../components/DefectCostLookup';
@@ -1889,7 +1890,7 @@ export default function SalesDefectDeductionsPage() {
               <td>{row.managerName || '-'}</td>
               <td>{row.customerName || '-'}</td>
               <td>{row.productName || '-'}</td>
-              <td><span className="incoming-product-name">{[row.countryName, row.matchedProductDbName || row.matchedProductName || row.colorName].filter(Boolean).join(' · ') || row.colorName || '-'}</span></td>
+              <td><span className="incoming-product-name">{incomingProductLabel(row)}</span></td>
               <td>{printQuantity(row)}</td>
               <td>
                 <div className="lookup-inline">
@@ -2207,11 +2208,11 @@ export default function SalesDefectDeductionsPage() {
           <tbody>{printRows.map((row, index) => <tr key={`print-${index}`}>
             <td>{row?.customerName || ''}</td>
             {activeTab !== 'incoming' && <td>{row?.productName || ''}</td>}
-            <td>{row?.colorName || ''}</td>
+            <td>{activeTab === 'incoming' ? incomingProductLabel(row) : row?.colorName || ''}</td>
             <td>{printQuantity(row)}</td>
             <td>{row?.creditApplied ? '✓' : ''}</td>
             <td>{row?.farmName || ''}</td>
-            <td>{activeTab === 'incoming' ? incomingDefectPrintNote(row?.note) : row?.note || ''}</td>
+            <td>{activeTab === 'incoming' ? incomingDefectPrintNote(row?.note, row?.managerName) : row?.note || ''}</td>
           </tr>)}</tbody>
         </table>
       </div>

@@ -37,6 +37,7 @@
     "lib/salesDefectIncomingGroup.js",
     "lib/salesDefectDeductionExcel.js",
     "lib/incomingDefectPrintNote.js",
+    "lib/incomingProductLabel.js",
     "lib/productSearchRanking.js",
     "lib/orderImportMatch.js",
     "lib/orderImportUnits.js",
