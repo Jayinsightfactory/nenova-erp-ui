@@ -384,7 +384,7 @@ function command(w, action, p = {}) {
     case 'sync': verifyAccount().catch(() => {}); break;
     case 'companyCalendar': {const owner=actor,generation=authGeneration;return companyCalendarRequest({payload:p,owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
     case 'homeRequests': {const owner=actor,generation=authGeneration;return homeRequests({owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
-    case 'importFlightBoard': {const owner=actor,generation=authGeneration;return importFlightBoard({owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
+    case 'importFlightBoard': {const owner=actor,generation=authGeneration;return importFlightBoard({fresh:p?.fresh===true,owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
     case 'taskShortcut': return openTaskShortcut(p,w);
     case 'taskMenus': return {menus:locked?[]:menus};
     case 'open': openTab(w, p); break;
@@ -683,7 +683,7 @@ app.whenReady().then(async () => {
   protocol.handle('nenova-app', request => {
     const u = new URL(request.url);
     const name = u.pathname.slice(1);
-    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css','home-workspace.js','task-settings.js','task-controls.js','home-dashboard.js','flight-board.js','company-calendar.js','notes.html','notes.js','notes.css'].includes(name)) return new Response('Not found', { status: 404 });
+    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css','home-workspace.js','task-settings.js','task-controls.js','home-dashboard.js','flight-board.js','flight-map-data.js','company-calendar.js','notes.html','notes.js','notes.css'].includes(name)) return new Response('Not found', { status: 404 });
     return new Response(fs.readFileSync(path.join(__dirname, 'shell', name)), { headers: { 'content-type': name.endsWith('.html') ? 'text/html; charset=utf-8' : name.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8', 'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'" } });
   });
   webSession = session.fromPartition('persist:nenova-work');
