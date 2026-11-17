@@ -19,7 +19,7 @@ test('bootstrap waits for bounded DOM load, does not require network-idle, and r
 function manualWaitFunction(log=[]){
  const fs=require('node:fs'),source=fs.readFileSync(require('node:path').join(__dirname,'../scripts/ecount-scraper/daemon.mjs'),'utf8');
  const body=source.slice(source.indexOf('async function waitForLogin(page) {'),source.indexOf('\nasync function cycle('));
- return new Function('recovery','now','console',body+';return waitForLogin;')(require('../lib/ecountCollectorRecovery.cjs'),()=> 'fixture',{log:x=>log.push(x)});
+ return new Function('recovery','now','console','windowMode','loginWaiting',body+';return waitForLogin;')(require('../lib/ecountCollectorRecovery.cjs'),()=> 'fixture',{log:x=>log.push(x)},()=>{},false); // windowMode(창 표시/숨김)·loginWaiting 은 로그인 읽기 검사와 무관한 스텁
 }
 test('real login wait never reads credentials or clicks login; only a manual ERP navigation completes it',async()=>{
  const events=[],log=[];let current=LOGIN,turn=0;
