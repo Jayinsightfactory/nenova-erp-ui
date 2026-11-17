@@ -1672,15 +1672,18 @@ export default function SalesDefectDeductionsPage() {
   const printSections = useMemo(() => {
     if (activeTab !== 'incoming') {
       const paddedRows = Array.from({ length: Math.max(rows.length, 39) }, (_, index) => rows[index] || null);
-      return [{ manager: currentUser?.userName || '', items: paddedRows }];
+      return [{ manager: currentUser?.userName || '', customerGroups: [paddedRows] }];
     }
     const groups = new Map();
     for (const { row } of displayedIncomingRows) {
       const manager = row.managerName?.trim() || '담당자 미지정';
-      if (!groups.has(manager)) groups.set(manager, []);
-      groups.get(manager).push(row);
+      if (!groups.has(manager)) groups.set(manager, new Map());
+      const customers = groups.get(manager);
+      const customer = row.custKey || row.customerName;
+      if (!customers.has(customer)) customers.set(customer, []);
+      customers.get(customer).push(row);
     }
-    return Array.from(groups, ([manager, items]) => ({ manager, items }))
+    return Array.from(groups, ([manager, customers]) => ({ manager, customerGroups: Array.from(customers.values()) }))
       .sort((a, b) => a.manager.localeCompare(b.manager, 'ko'));
   }, [activeTab, currentUser?.userName, displayedIncomingRows, rows]);
   const printQuantity = (row) => {
@@ -2210,7 +2213,7 @@ export default function SalesDefectDeductionsPage() {
       </div>}
 
       <div className="printOnly print-form" aria-hidden="true">
-        {printSections.map(({ manager, items }) => <section className="manager-print-section" key={manager}>
+        {printSections.map(({ manager, customerGroups }) => <section className="manager-print-section" key={manager}>
         <div className="print-top">
           <div className="print-title">{year}년 ( {week} )차 차감 내역</div>
             <table className="print-approval"><tbody><tr><th>담당자</th><th>차장</th><th>이사</th></tr><tr><td>{manager}</td><td></td><td></td></tr></tbody></table>
@@ -2218,15 +2221,15 @@ export default function SalesDefectDeductionsPage() {
         <table className={`print-table ${activeTab === 'incoming' ? 'incoming-print' : ''}`}>
           <colgroup><col className="customer-col" />{activeTab !== 'incoming' && <col className="product-col" />}<col className="color-col" /><col className="quantity-col" /><col className="credit-col" /><col className="farm-col" /><col className="note-col" /></colgroup>
           <thead><tr><th>거래처</th>{activeTab !== 'incoming' && <th>품종</th>}<th>품명</th><th>차감수량</th><th aria-label="크레딧(수입부)">{activeTab === 'incoming' ? '✓' : '크레딧(수입부)'}</th><th>농장</th><th>비고</th></tr></thead>
-          <tbody>{items.map((row, index) => <tr key={`print-${index}`}>
-            <td>{activeTab === 'incoming' && index > 0 && row?.customerName === items[index - 1]?.customerName ? '' : row?.customerName || ''}</td>
+          {customerGroups.map((items, groupIndex) => <tbody key={groupIndex}>{items.map((row, index) => <tr key={`print-${index}`}>
+            <td>{activeTab === 'incoming' && index > 0 ? '' : row?.customerName || ''}</td>
             {activeTab !== 'incoming' && <td>{row?.productName || ''}</td>}
             <td>{activeTab === 'incoming' ? incomingOutputProductLabel(row) : row?.colorName || ''}</td>
             <td>{printQuantity(row)}</td>
             <td>{row?.creditApplied ? '✓' : ''}</td>
             <td>{row?.farmName || ''}</td>
             <td style={activeTab === 'incoming' && /kakao-defect:/i.test(row?.note) ? { whiteSpace: 'nowrap' } : undefined}>{activeTab === 'incoming' ? incomingDefectPrintNote(row?.note, row?.managerName) : row?.note || ''}</td>
-          </tr>)}</tbody>
+          </tr>)}</tbody>)}
         </table>
         </section>)}
       </div>
@@ -2488,7 +2491,7 @@ export default function SalesDefectDeductionsPage() {
           }
           .sales-defect-page .printOnly { display: block !important; position: static; width: 100%; }
           .print-table thead { display: table-header-group; }
-          .print-table tr, .print-top { break-inside: avoid; }
+          .print-table tr, .print-top, .incoming-print tbody { break-inside: avoid; }
           .print-table th { background: #c69700 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
