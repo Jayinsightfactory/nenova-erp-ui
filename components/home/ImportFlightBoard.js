@@ -1,7 +1,7 @@
 // 홈 "수입 비행기 현황" 카드 — 이슈 먼저, 그다음 예측 지도와 편별 목록.
 // 지도 위 위치는 실제 위치가 아니라 일정으로 계산한 예측이다(화면에 그대로 적는다).
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiGet } from '../../lib/useApi';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { apiGet, apiPost } from '../../lib/useApi';
 import { WORLD_VIEW, WORLD_LAND_PATH, projectLonLat } from '../../lib/importFlightWorldPath';
 
 const REFRESH_MS = 5 * 60 * 1000;
@@ -28,6 +28,61 @@ function arrivalText(f) {
 function shortTime(iso) {
   const p = kstParts(iso);
   return p ? `${p.mo}/${p.day} ${p.hh}:${p.mm}` : '';
+}
+
+const STEP_STYLE = {
+  done: { bg: '#e6f6ea', ink: '#1d6b33', mark: '✔ ' },
+  wait: { bg: '#f1f3f5', ink: '#868e96', mark: '' },
+  due: { bg: '#fff4d6', ink: '#8a5a00', mark: '⏳ ' },
+  late: { bg: '#ffe3e3', ink: '#b02a2a', mark: '⚠ ' },
+  na: { bg: 'transparent', ink: '#868e96', mark: '', dashed: true },
+};
+function delayView(actual) {
+  const m = Number(actual?.delayMinutes);
+  if (!Number.isFinite(m) || Math.abs(m) < 30) return null;
+  return { text: `${m > 0 ? '+' : '−'}${Math.abs(Math.round(m))}분`, color: m >= 60 ? '#b02a2a' : '#b07500' };
+}
+function quarantineView(cl, steps) {
+  const q = cl?.quarantine;
+  if (!q?.deadlineAt) return null;
+  if (steps.find(x => x.key === 'quarantine')?.state === 'done') return null;
+  const p = kstParts(q.deadlineAt);
+  if (!p) return null;
+  const left = Date.parse(q.deadlineAt) - Date.now();
+  const color = left < 0 ? '#b02a2a' : left <= 6 * 3600000 ? '#b07500' : 'var(--text3)';
+  return { text: `검역 신청 마감(예상) ${p.mo}/${p.day}(${p.dow}) ${p.hh}:${p.mm}${q.slot ? ` · ${q.slot}` : ''}`, color };
+}
+
+// 편별 진행 띠 — 빌번호부터 입고 등록까지 한 줄
+function FlightStrip({ f, faded, busy, onToggleDocs }) {
+  const steps = Array.isArray(f.checklist?.steps) ? f.checklist.steps : [];
+  if (steps.length === 0) return null;
+  const q = quarantineView(f.checklist, steps);
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 3, fontSize: 10.5, opacity: faded ? 0.7 : 1 }}>
+      {steps.map((st, i) => {
+        const sty = STEP_STYLE[st.state] || STEP_STYLE.wait;
+        const pillStyle = { display: 'inline-block', padding: '1px 7px', borderRadius: 10, fontSize: 10.5, lineHeight: 1.5, whiteSpace: 'nowrap', background: sty.bg, color: sty.ink, border: sty.dashed ? '1px dashed #adb5bd' : '1px solid transparent' };
+        const title = [st.note, st.at ? shortTime(st.at) : ''].filter(Boolean).join(' · ');
+        const isDocsBtn = st.key === 'docs' && f.awb && st.note !== '통관 진행으로 확인';
+        return (
+          <Fragment key={st.key || i}>
+            {i > 0 && <span style={{ color: '#adb5bd' }}>→</span>}
+            {isDocsBtn ? (
+              <button type="button" disabled={busy} title="선율에 서류를 보냈으면 눌러 표시합니다(다시 누르면 취소)"
+                onClick={e => { e.stopPropagation(); onToggleDocs(f, st.state !== 'done'); }}
+                style={{ ...pillStyle, cursor: busy ? 'default' : 'pointer', font: 'inherit', fontSize: 10.5 }}>
+                {st.state === 'done' ? '서류 전달 ✔' : '서류 전달함 표시'}
+              </button>
+            ) : (
+              <span title={title} style={pillStyle}>{sty.mark}{st.label}</span>
+            )}
+          </Fragment>
+        );
+      })}
+      {q && <span style={{ marginLeft: 'auto', color: q.color, fontSize: 10.5 }}>{q.text}</span>}
+    </div>
+  );
 }
 
 // 경로 점들을 SVG path 로. 지도 이음매(경도 -30)를 넘으면 선을 끊는다.
@@ -115,6 +170,7 @@ export default function ImportFlightBoard() {
   const [err, setErr] = useState('');
   const [selectedKey, setSelectedKey] = useState('');
   const [showDone, setShowDone] = useState(false);
+  const [busyAwb, setBusyAwb] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -133,17 +189,32 @@ export default function ImportFlightBoard() {
     return () => clearInterval(timer);
   }, [load]);
 
+  const toggleDocs = useCallback(async (f, sent) => {
+    setBusyAwb(f.awb);
+    try {
+      await apiPost('/api/import/flight-board', { awb: f.awb, sent });
+      await load();
+    } catch (e) {
+      setErr(e?.message || '서류 전달 표시를 저장하지 못했습니다.');
+    } finally {
+      setBusyAwb('');
+    }
+  }, [load]);
+
   const flights = data?.flights || [];
   const active = flights.filter(f => f.status !== 'registered');
   const done = flights.filter(f => f.status === 'registered');
   const shown = showDone ? flights : active;
   const selected = flights.find(f => f.key === selectedKey) || null;
   const s = data?.summary || {};
+  const todo = Array.isArray(data?.todo) ? data.todo : [];
+  const todoRed = s.red ?? todo.filter(t => t.level === 'red').length;
+  const todoAmber = s.amber ?? todo.filter(t => t.level !== 'red').length;
 
   return (
     <div className="card" style={{ marginBottom: 6 }} data-testid="import-flight-board">
       <div className="card-header" style={{ flexWrap: 'wrap', gap: 6 }}>
-        <span className="card-title">■ 수입 비행기 현황</span>
+        <span className="card-title">■ 수입 비행기 현황 · 스케줄 확인</span>
         <span style={{ fontSize: 11, color: 'var(--text3)' }}>
           지도 위 위치는 도착 공지 일정으로 계산한 <b>예측</b>입니다 · 실제 위치는 편별 「실제 위치」 버튼
         </span>
@@ -165,11 +236,29 @@ export default function ImportFlightBoard() {
               <span key={label} style={{ padding: '3px 10px', borderRadius: 12, background: st.bg, color: st.ink, fontWeight: 700 }}>{label} {fmt(n)}</span>
             ))}
             <span style={{ padding: '3px 10px', borderRadius: 12, background: s.issues ? '#ffe3e3' : '#f1f3f5', color: s.issues ? '#b02a2a' : '#6c757d', fontWeight: 700 }}>이슈 {fmt(s.issues)}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--text3)', alignSelf: 'center', display: 'inline-flex', gap: 8 }}>
+              <span title="인천공항 운항 정보">공항 자료 {data.sources?.icn?.enabled && data.sources?.icn?.ok ? '✔' : '–'}</span>
+              <span title="관세청 유니패스">통관 자료 {data.sources?.customs?.enabled && data.sources?.customs?.ok ? '✔' : '–'}</span>
+            </span>
           </div>
 
-          {data.issues?.length > 0 && (
+          {todo.length > 0 && (
             <div style={{ border: '1px solid #f3c2c2', background: '#fff5f5', borderRadius: 6, padding: '6px 10px', marginBottom: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#b02a2a', marginBottom: 2 }}>확인이 필요한 비행기</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#b02a2a', marginBottom: 2 }}>
+                지금 해야 할 것 <span style={{ fontWeight: 400, color: 'var(--text3)', marginLeft: 6 }}>빨강 {fmt(todoRed)} · 주황 {fmt(todoAmber)}</span>
+              </div>
+              {todo.slice(0, 10).map((t, i) => (
+                <div key={`${t.key}-${i}`} style={{ fontSize: 12, lineHeight: 1.6, cursor: 'pointer' }} onClick={() => setSelectedKey(t.key)}>
+                  <span style={{ color: t.level === 'red' ? '#d62828' : '#e08a00' }}>●</span> <b>{t.label}</b> — {t.text}
+                </div>
+              ))}
+              {todo.length > 10 && <div style={{ fontSize: 11, color: 'var(--text3)' }}>외 {todo.length - 10}건</div>}
+            </div>
+          )}
+
+          {data.issues?.length > 0 && (
+            <div style={{ border: '1px solid #dee2e6', background: '#f8f9fa', borderRadius: 6, padding: '6px 10px', marginBottom: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#495057', marginBottom: 2 }}>공지에서 바뀐 것</div>
               {data.issues.slice(0, 8).map((it, i) => (
                 <div key={`${it.key}-${i}`} style={{ fontSize: 12, lineHeight: 1.6, cursor: 'pointer' }} onClick={() => setSelectedKey(it.key)}>
                   <b>{it.label}</b> — {it.text}
@@ -200,7 +289,18 @@ export default function ImportFlightBoard() {
                       ? selected.contents.items.map(it => `${it.name} ${fmt(it.box)}박스`).join(' · ')
                       : `품목 내역 없음${selected.box ? ` (총 ${fmt(selected.box)}박스)` : ''} — 입고 등록 뒤 표시`}
                   </div>
-                  {selected.issues.map((t, i) => <div key={i} style={{ color: '#b02a2a' }}>⚠ {t}</div>)}
+                  {selected.actual && (
+                    <div>
+                      공항 예정 {shortTime(selected.actual.scheduledAt) || '-'} / 변경 {shortTime(selected.actual.estimatedAt) || '-'} / 상태 {selected.actual.remark || '-'}
+                    </div>
+                  )}
+                  {(selected.checklist?.steps || []).some(st => st.at) && (
+                    <div style={{ color: 'var(--text3)' }}>
+                      {selected.checklist.steps.filter(st => st.at).map(st => `${st.label} ${shortTime(st.at)}`).join(' · ')}
+                    </div>
+                  )}
+                  {(selected.alerts || []).map((a, i) => <div key={`al-${i}`} style={{ color: a.level === 'red' ? '#b02a2a' : '#b07500' }}>⚠ {a.text}</div>)}
+                  {(selected.issues || []).map((t, i) => <div key={i} style={{ color: '#b02a2a' }}>⚠ {t}</div>)}
                 </div>
               )}
             </div>
@@ -217,15 +317,27 @@ export default function ImportFlightBoard() {
                     </td></tr>
                   )}
                   {shown.map(f => (
-                    <tr key={f.key} onClick={() => setSelectedKey(f.key)} style={{ cursor: 'pointer', background: f.key === selectedKey ? '#f0f6ff' : undefined }}>
+                    <Fragment key={f.key}>
+                    <tr onClick={() => setSelectedKey(f.key)} style={{ cursor: 'pointer', background: f.key === selectedKey ? '#f0f6ff' : undefined }}>
                       <td>
                         <b>{f.weekLabel}</b> {f.country}
-                        {f.issues.length > 0 && <span title={f.issues.join('\n')} style={{ color: '#b02a2a', marginLeft: 4 }}>⚠</span>}
+                        {(f.issues || []).length > 0 && <span title={f.issues.join('\n')} style={{ color: '#b02a2a', marginLeft: 4 }}>⚠</span>}
                         <div style={{ fontSize: 10, color: 'var(--text3)' }}>{f.itemLabel}</div>
                       </td>
                       <td>{f.flight || <span style={{ color: '#b07500' }}>없음</span>}<div style={{ fontSize: 10, color: 'var(--text3)' }}>{f.awb || '빌번호 없음'}</div></td>
                       <td style={{ textAlign: 'right' }}>{f.box ? fmt(f.box) : '-'}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{arrivalText(f)}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        {arrivalText(f)}
+                        {f.actual?.estimatedAt && (() => {
+                          const dv = delayView(f.actual);
+                          return (
+                            <div style={{ fontSize: 10, color: 'var(--text3)' }}>
+                              공항 {shortTime(f.actual.estimatedAt)}{f.actual.remark ? ` ${f.actual.remark}` : ''}
+                              {dv && <b style={{ color: dv.color, marginLeft: 4 }}>{dv.text}</b>}
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td><StatusChip f={f} /></td>
                       <td onClick={e => e.stopPropagation()}>
                         {f.links?.flightTrack
@@ -233,6 +345,14 @@ export default function ImportFlightBoard() {
                           : <span style={{ color: 'var(--text3)' }}>-</span>}
                       </td>
                     </tr>
+                    {f.checklist?.steps?.length > 0 && (
+                      <tr onClick={() => setSelectedKey(f.key)} style={{ cursor: 'pointer', background: f.key === selectedKey ? '#f0f6ff' : undefined }}>
+                        <td colSpan={6} style={{ padding: '2px 8px 8px' }}>
+                          <FlightStrip f={f} faded={f.status === 'registered'} busy={busyAwb === f.awb} onToggleDocs={toggleDocs} />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
