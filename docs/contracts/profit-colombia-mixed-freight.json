@@ -1,0 +1,11 @@
+{
+  "id":"profit-colombia-mixed-freight",
+  "title":"콜롬비아 수국 혼적 운임 원천 보존과 읽기 전용 누락 복원",
+  "scope":["lib/customsForwarding.js","lib/profitMixedFreightView.js","pages/api/sales/profit-report.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"READ_MIXED_AWB_FREIGHT","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT only. Colombian four families plus hydrangea share existing GW/CW allocation pool. No invoice typo matching needed. Frozen view restores only recorded unmatched detail IDs with unchanged current SQL amounts, mixed-AWB evidence, category-average valuation and no manual overrides; prior corrected closing carries only to identical saved opening. No ERP, snapshot, confirmation, manual report, schema or EXE writes. All screen/month/XLSX consumers share loadWeeklyReportPayload."}],
+  "crossYearFixture":{"required":true,"description":"2025 same AWB/week cannot supply 2026 freight; mismatched amount, mixed-country context and manual zero are rejected."},
+  "requiredTestFiles":["__tests__/profitColombiaMixedFreight.test.cjs","__tests__/profitMixedFreightView.test.cjs"],
+  "requiredCommands":["node __tests__/profitColombiaMixedFreight.test.cjs","node __tests__/profitMixedFreightView.test.cjs","npm run test:erp-contract","npm run guard:erp-writes -- --changed-from origin/master","npm run verify:erp-change","npm run test:nenova-dnspy-evidence","npm run build"],
+  "dnspyEvidence":{"required":true,"record":"docs/plans/profit-colombia-mixed-freight-2026-11-17.md","source":"Actual dnSpy.Console.exe FormWarehouseView and SELECT-only 2026 all-week warehouse/snapshot probe","methods":["FormWarehouseView.GetData","FormWarehouseView.GetDetail"],"tables":["WarehouseMaster","WarehouseDetail","Product","ShipmentMaster","ShipmentDetail","Estimate","StockMaster","ProductStock","WebProfitReportSnapshot"]}
+}
