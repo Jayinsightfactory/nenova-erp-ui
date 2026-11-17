@@ -3,6 +3,7 @@ import {
   AIRPORTS, TRANSIT, originFor, greatCircleKm, greatCirclePoint, routePoints,
   classifyFlight, externalLinks, airlineName, AWB_PREFIX_AIRLINE,
 } from '../lib/importFlightStatus.js';
+import { planRoute, LAYOVER_HOURS_ASSUMED } from '../lib/importFlightStatus.js';
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`);
 
@@ -85,5 +86,39 @@ assert.equal(airlineName({ airlineText: 'Korean Air', awb: '99912345675' }), 'Ko
 assert.equal(airlineName({ airlineText: '', awb: '18012345675' }), '대한항공');
 assert.equal(airlineName({ awb: '' }), '');
 assert.equal(AWB_PREFIX_AIRLINE['160'], '캐세이퍼시픽');
+
+// ── 경유 노선: 공항 자료(인천행 마지막 비행기의 출발 공항·도착 시각)로 출발지 → 경유지 → 인천 두 구간 ──
+{
+  const fl = { country: '콜롬비아', itemLabel: '콜카장수국', awb: '01412345675' };
+  const icn = { airportCode: 'YVR', scheduledAt: '2026-11-18T17:10:00+09:00', estimatedAt: '2026-11-18T17:10:00+09:00' };
+  const at = (iso) => planRoute(fl, { now: Date.parse(iso), icn });
+  const lay = at('2026-11-18T03:00:00+09:00');
+  assert.equal(lay.via.code, 'YVR');
+  assert.equal(lay.via.name, '밴쿠버');
+  assert.equal(lay.phase, 'layover', '마지막 비행기 출발 전이고 첫 구간 도착 뒤 → 경유지 대기');
+  assert.equal(lay.status, 'in_flight');
+  assert.ok(/밴쿠버 경유지 대기/.test(lay.statusLabel));
+  assert.ok(Math.abs(lay.position.lat - 49.1947) < 0.01, '위치는 경유지');
+  assert.ok(lay.progress > 0.3 && lay.progress < 0.6, '전체 거리 중 첫 구간 비율');
+  const leg2 = at('2026-11-18T12:00:00+09:00');
+  assert.equal(leg2.phase, 'leg2');
+  assert.ok(/밴쿠버 → 인천 비행 중/.test(leg2.statusLabel));
+  assert.ok(leg2.progress > lay.progress && leg2.progress < 1);
+  const leg1 = at('2026-11-17T20:00:00+09:00');
+  assert.equal(leg1.phase, 'leg1');
+  assert.ok(leg1.progress > 0 && leg1.progress < lay.progress);
+  assert.equal(at('2026-11-15T00:00:00+09:00').phase, 'before_departure');
+  // 도착이 미뤄진 편은 마지막 비행기가 뜨기 전이면 경유지 대기로 본다
+  assert.equal(planRoute(fl, { now: Date.parse('2026-11-17T12:00:00+09:00'), icn, delayed: true }).phase, 'layover');
+  assert.equal(planRoute(fl, { now: Date.parse('2026-11-18T12:00:00+09:00'), icn, delayed: true }).phase, 'leg2');
+  assert.equal(at('2026-11-18T18:00:00+09:00').phase, 'arrived');
+  assert.ok(lay.route.length > 30, '출발지→경유지→인천 경로 점');
+  assert.ok(Date.parse(lay.lastLegDepartAt) < Date.parse(icn.estimatedAt));
+  assert.equal(LAYOVER_HOURS_ASSUMED, 6);
+  // 직항(출발 공항이 같음)·공항 자료 없음·모르는 공항 코드는 경유 계산을 하지 않는다
+  assert.equal(planRoute({ country: '네덜란드', itemLabel: '홀렉스', awb: '18012345675' }, { now: Date.now(), icn: { airportCode: 'AMS', estimatedAt: '2026-11-18T16:50:00+09:00' } }), null);
+  assert.equal(planRoute(fl, { now: Date.now(), icn: null }), null);
+  assert.equal(planRoute(fl, { now: Date.now(), icn: { airportCode: 'ZZZ', estimatedAt: '2026-11-18T16:50:00+09:00' } }), null);
+}
 
 console.log('importFlightStatus tests passed');

@@ -115,10 +115,19 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
     const seen = new Map();
     for (const f of flights) {
       if (!f.origin || !f.route?.length || f.status === 'registered') continue;
-      if (!seen.has(f.origin.code)) seen.set(f.origin.code, { code: f.origin.code, name: f.origin.name, lat: f.origin.lat, lon: f.origin.lon, d: routePath(f.route), via: /경유/.test(f.note || '') });
+      // 같은 출발지라도 경유지가 다르면 길이 다르다(출발지 → 경유지 → 인천)
+      const rk = `${f.origin.code}-${f.via?.code || ''}`;
+      if (!seen.has(rk)) seen.set(rk, { key: rk, code: f.origin.code, name: f.origin.name, lat: f.origin.lat, lon: f.origin.lon, d: routePath(f.route), via: /미확인/.test(f.note || '') });
     }
     return [...seen.values()];
   }, [flights]);
+  // 경유지(인천행 마지막 비행기가 떠나는 공항) 표시
+  const vias = useMemo(() => {
+    const seen = new Map();
+    for (const f of flights) if (f.via?.code && f.status !== 'registered' && !seen.has(f.via.code)) seen.set(f.via.code, f.via);
+    return [...seen.values()];
+  }, [flights]);
+  const origins = useMemo(() => { const m = new Map(); for (const r of routes) if (!m.has(r.code)) m.set(r.code, r); return [...m.values()]; }, [routes]);
   const dest = destination ? projectLonLat(destination.lon, destination.lat) : null;
   const planes = flights.filter(f => f.position && (f.status === 'in_flight' || f.status === 'before_departure'));
   return (
@@ -126,9 +135,9 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
       style={{ width: '100%', height: 'auto', display: 'block', background: '#eef4fa', borderRadius: 6, border: '1px solid #d7e0ea' }}>
       <path d={WORLD_LAND_PATH} fill="#d5dee8" stroke="#aebccb" strokeWidth="0.4" />
       {routes.map(r => (
-        <path key={r.code} d={r.d} fill="none" stroke="#5b8fd1" strokeWidth="1" strokeDasharray={r.via ? '3 3' : undefined} opacity="0.75" />
+        <path key={r.key} d={r.d} fill="none" stroke="#5b8fd1" strokeWidth="1" strokeDasharray={r.via ? '3 3' : undefined} opacity="0.75" />
       ))}
-      {routes.map((r, i) => {
+      {origins.map((r, i) => {
         const p = projectLonLat(r.lon, r.lat);
         // 보고타·메데진처럼 가까운 출발지의 이름이 겹치지 않게 위·아래로 번갈아 적는다
         const below = i % 2 === 1;
@@ -136,6 +145,15 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
           <g key={`o-${r.code}`}>
             <circle cx={p.x} cy={p.y} r="2.6" fill="#fff" stroke="#3b6fb5" strokeWidth="1" />
             <text x={p.x + 4} y={below ? p.y + 10 : p.y - 4} fontSize="8" fill="#33475b" stroke="#eef4fa" strokeWidth="2" paintOrder="stroke">{r.name}</text>
+          </g>
+        );
+      })}
+      {vias.map(v => {
+        const p = projectLonLat(v.lon, v.lat);
+        return (
+          <g key={`v-${v.code}`}>
+            <rect x={p.x - 2.6} y={p.y - 2.6} width="5.2" height="5.2" transform={`rotate(45 ${p.x} ${p.y})`} fill="#fff3bf" stroke="#e67700" strokeWidth="1" />
+            <text x={p.x + 5} y={p.y - 4} fontSize="8" fill="#8a4b00" stroke="#eef4fa" strokeWidth="2" paintOrder="stroke">{v.name}(경유)</text>
           </g>
         );
       })}
@@ -157,7 +175,7 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
             <text x={p.x} y={p.y + 2.6} fontSize="6.5" textAnchor="middle" fill="#fff" fontWeight="700">✈</text>
             {f.status === 'in_flight' && (
               <text x={p.x + 8} y={p.y + 3} fontSize="8" fontWeight="700" fill="#0b3d75" stroke="#eef4fa" strokeWidth="2" paintOrder="stroke">
-                {f.country} {Math.round((f.progress || 0) * 100)}%
+                {f.phase === 'layover' && f.via?.name ? `${f.country} · ${f.via.name} 대기` : `${f.country} ${Math.round((f.progress || 0) * 100)}%`}
               </text>
             )}
           </g>
@@ -307,7 +325,8 @@ export default function ImportFlightBoard() {
                   </div>
                   <div>항공사 {selected.airline || '-'} · 편명 {selected.flight || '아직 없음'} · 빌번호 {selected.awb || '아직 없음'}</div>
                   <div>
-                    {selected.origin ? `${selected.origin.name}${selected.origin.assumed ? '(출발 도시 추정)' : ''} → 인천` : '출발지 미확인'}
+                    {selected.origin ? `${selected.origin.name}${selected.origin.assumed ? '(출발 도시 추정)' : ''} → ${selected.via?.name ? `${selected.via.name}(경유) → ` : ''}인천` : '출발지 미확인'}
+                    {selected.lastLegDepartAt ? ` · 경유지 출발(공항 자료 기준) ${shortTime(selected.lastLegDepartAt)}` : ''}
                     {selected.departAtEstimated ? ` · 출발 예측 ${shortTime(selected.departAtEstimated)}` : ''} · 도착 예정 {arrivalText(selected)}
                   </div>
                   <div style={{ color: 'var(--text3)' }}>{selected.note}</div>
