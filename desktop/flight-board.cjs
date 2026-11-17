@@ -1,0 +1,56 @@
+'use strict';
+// 앱 홈 「수입 비행기 현황」: 로그인 세션으로 네노바웹 /api/import/flight-board 를 읽어 홈에 필요한 칸만 추려 넘긴다(읽기 전용).
+// 운송장 번호는 홈 요약에 필요 없어 넘기지 않는다.
+const {ORIGIN}=require('./policy.cjs');
+const clean=(value,max)=>typeof value==='string'?value.replace(/[\u0000-\u001f\u007f]/g,' ').slice(0,max):'';
+const iso=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))?new Date(value).toISOString():null;
+const count=value=>Number.isFinite(Number(value))&&Number(value)>=0?Math.min(Math.trunc(Number(value)),9999):0;
+const STATUS=['awaiting_awb','before_departure','in_flight','arrived','registered','unknown'];
+const trackUrl=links=>{
+  for(const key of ['aircraftTrack','flightTrack']){
+    const url=links&&typeof links[key]==='string'?links[key]:'';
+    if(url.length<=200&&/^https:\/\/www\.flightradar24\.com\/data\/(?:aircraft|flights)\/[a-z0-9-]{2,12}$/.test(url))return url;
+  }
+  return null;
+};
+function projectFlightBoard(data){
+  if(!data||typeof data!=='object'||!Array.isArray(data.flights)||data.flights.length>300)throw Error('수입 비행기 현황 형식을 확인하세요.');
+  const s=data.summary&&typeof data.summary==='object'?data.summary:{};
+  const todo=(Array.isArray(data.todo)?data.todo:[]).filter(t=>t&&['red','amber'].includes(t.level)&&typeof t.text==='string'&&t.text.trim())
+    .slice(0,8).map(t=>({label:clean(t.label,60),level:t.level,text:clean(t.text,160)}));
+  const rows=data.flights.filter(f=>f&&typeof f==='object'&&STATUS.includes(f.status));
+  const flights=rows.filter(f=>f.status!=='registered').slice(0,8).map(f=>{
+    const steps=Array.isArray(f.checklist?.steps)?f.checklist.steps.filter(x=>x&&typeof x==='object'):[];
+    const next=steps.find(x=>x.state==='late')||steps.find(x=>x.state==='due');
+    const progress=Number(f.progress);
+    return {
+      weekLabel:clean(f.weekLabel,12),country:clean(f.country,12),itemLabel:clean(f.itemLabel,40),
+      flight:clean(f.flight,12),statusLabel:clean(f.statusLabel,40),status:f.status,
+      progress:f.progress!==null&&f.progress!==undefined&&Number.isFinite(progress)?Math.max(0,Math.min(1,progress)):null,
+      viaName:clean(f.via?.name,20),arriveAt:iso(f.arriveAt),timeAssumed:f.timeAssumed===true,
+      estimatedAt:iso(f.actual?.estimatedAt),remark:clean(f.actual?.remark,12),
+      quarantineDeadlineAt:iso(f.checklist?.quarantine?.deadlineAt),quarantineSlot:clean(f.checklist?.quarantine?.slot,6),
+      regNo:clean(f.aircraft?.regNo,10),trackUrl:trackUrl(f.links),
+      alertCount:Array.isArray(f.alerts)?Math.min(f.alerts.length,99):0,
+      nextStep:next?clean(next.label,20):'',nextState:next?next.state:'',
+      doneSteps:steps.filter(x=>x.state==='done').length,totalSteps:Math.min(steps.length,20),
+    };
+  });
+  return {
+    generatedAt:iso(data.generatedAt),feedOk:data.feed?.ok===true,
+    sources:{icn:data.sources?.icn?.enabled===true&&data.sources?.icn?.ok===true,customs:data.sources?.customs?.enabled===true&&data.sources?.customs?.ok===true},
+    summary:{total:count(s.total),beforeDeparture:count(s.beforeDeparture),inFlight:count(s.inFlight),arrived:count(s.arrived),registered:count(s.registered),awaitingAwb:count(s.awaitingAwb),red:count(s.red),amber:count(s.amber)},
+    todo,flights,registeredCount:rows.filter(f=>f.status==='registered').length,
+  };
+}
+async function importFlightBoard({owner,fetch,isCurrent,onUnauthorized}) {
+  if(!owner||!isCurrent())throw Error('로그인이 필요합니다.');
+  const response=await fetch(ORIGIN+'/api/import/flight-board',{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(25000)});
+  if(!isCurrent())throw Error('계정이 변경되었습니다.');
+  if([401,403].includes(response.status)){onUnauthorized?.();throw Error('로그인을 다시 확인하세요.');}
+  if(!response.ok)throw Error('수입 비행기 현황을 불러오지 못했습니다.');
+  const raw=await response.text();if(!isCurrent())throw Error('계정이 변경되었습니다.');if(raw.length>2*1024*1024)throw Error('수입 비행기 현황이 너무 큽니다. 네노바 홈에서 확인하세요.');
+  let data;try{data=JSON.parse(raw);}catch{throw Error('수입 비행기 현황 응답을 확인하세요.');}if(data.success!==true)throw Error('수입 비행기 현황을 불러오지 못했습니다.');
+  return {success:true,ownerId:owner,...projectFlightBoard(data)};
+}
+module.exports={importFlightBoard,projectFlightBoard};
