@@ -2,6 +2,10 @@
   "id": "country-orders",
   "title": "수입부 국가별 발주서 ERP 자동조회와 기존 국가양식 생성",
   "scope": [
+    "pages/api/import/tools/kakao-additions.js",
+    "components/import-tools/KakaoAdditions.js",
+    "lib/importKakaoAdditions.js",
+    "__tests__/importKakaoAdditions.test.mjs",
     "pages/api/import/tools/country-orders.js",
     "lib/countryOrderSourceApi.js",
     "lib/countryOrderSource.js",
@@ -28,6 +32,7 @@
     "ProdKey"
   ],
   "actions": [
+    {"name":"IMPORT_ROOM_ADDITIONS_REVIEW","source":"nenovakakao dedicated review sheet, exact Seoul message date including year, request and item identity; checked positive quantities grouped by category, variety and unit. Clipboard only; no ERP access.","orderDetail":"preserve","shipmentDetail":"preserve","warehouseDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve"},
     {
       "name": "COUNTRY_ORDER_CALENDAR_READ",
       "source": "Asia/Seoul today inside PeriodDay WeekDay=5 range, current ERP main cycle plus next five actual rows",
@@ -248,6 +253,7 @@
     "WebProfitReport"
   ],
   "requiredTestFiles": [
+    "__tests__/importKakaoAdditions.test.mjs",
     "__tests__/countryOrderEta.test.js",
     "__tests__/countryOrderSourceApi.test.js",
     "__tests__/countryOrderSource.test.js",

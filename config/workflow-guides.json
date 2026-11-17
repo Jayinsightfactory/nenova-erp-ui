@@ -988,7 +988,8 @@
         "/import/tools"
       ],
       "sourceFiles": [
-        "components/import-tools/PedidosTool.js"
+        "components/import-tools/PedidosTool.js",
+        "components/import-tools/KakaoAdditions.js"
       ],
       "requiredScenarios": [
         "country",
@@ -997,7 +998,10 @@
         "review",
         "download",
         "eta",
-        "save"
+        "save",
+        "chat",
+        "sum",
+        "copy"
       ],
       "guides": [
         {
@@ -1012,77 +1016,92 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.008
+              "seconds": 0.007
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.608
+              "seconds": 10.582
             },
             {
               "scenario": "week",
               "title": "3. 세부차수 조회",
-              "seconds": 21.196
+              "seconds": 21.156
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 31.783
+              "seconds": 31.864
             },
             {
               "scenario": "download",
               "title": "5. 다운로드·ETA 창 열기",
-              "seconds": 42.844
+              "seconds": 42.937
             },
             {
               "scenario": "eta",
               "title": "6. ETA 날짜 입력",
-              "seconds": 53.387
+              "seconds": 53.59
             },
             {
               "scenario": "save",
               "title": "7. ETA 저장·엑셀 다운로드",
-              "seconds": 65.58
+              "seconds": 65.897
             },
             {
               "scenario": "china",
               "title": "8. 중국 발주 조회",
-              "seconds": 76.696
+              "seconds": 77.292
             },
             {
               "scenario": "china-cycle",
               "title": "9. 중국 차수 선택",
-              "seconds": 87.29
+              "seconds": 87.884
             },
             {
               "scenario": "china-week",
               "title": "10. 중국 세부차수 선택",
-              "seconds": 97.849
+              "seconds": 98.446
             },
             {
               "scenario": "farm",
               "title": "11. 기본 수신명 수정",
-              "seconds": 108.414
+              "seconds": 109.01
             },
             {
               "scenario": "split",
               "title": "12. 농장별 파일 나누기",
-              "seconds": 120.306
+              "seconds": 121.014
             },
             {
               "scenario": "assign",
               "title": "13. 농장 1 품목 선택",
-              "seconds": 130.873
+              "seconds": 131.617
             },
             {
               "scenario": "farm-download",
               "title": "14. 농장별 파일 확인",
-              "seconds": 141.472
+              "seconds": 142.221
             },
             {
               "scenario": "farm-save",
               "title": "15. 농장 파일 다운로드",
-              "seconds": 152.064
+              "seconds": 152.783
+            },
+            {
+              "scenario": "chat",
+              "title": "16. 카톡 원문 확인",
+              "seconds": 163.365
+            },
+            {
+              "scenario": "sum",
+              "title": "17. 추가분 합산",
+              "seconds": 173.91
+            },
+            {
+              "scenario": "copy",
+              "title": "18. 농장 전달용 복사",
+              "seconds": 184.481
             }
           ]
         }

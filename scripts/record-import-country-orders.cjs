@@ -32,6 +32,7 @@ async function main(){
     if(url.origin!==base)return req.abort();
     if(!url.pathname.startsWith('/api/'))return req.continue();
     let data={success:true,items:[],rows:[],products:[],data:[],value:null,revision:0,history:[],user};
+    if(url.pathname.endsWith('/kakao-additions')) data={messages:[{id:'sample',time:'오전 9:10',week:'46-01',text:'연습 업체 Moon Light 2박스 추가',items:[{key:'1',group:'콜롬비아수국',product:'Moon Light',customer:'연습 업체',quantity:'2',unit:'박스',status:'매칭'}]}]};
     if(url.pathname.endsWith('/country-orders')){
       const country=url.searchParams.get('country'),exact=url.searchParams.get('orderWeek');
       if(exact)details.push(exact);
@@ -96,6 +97,17 @@ async function main(){
   }
   let farmFile;for(let n=0;n<50&&!farmFile;n++){farmFile=fs.readdirSync(downloadDir).find(name=>name.includes('HUBFRESH')&&name.endsWith('.xlsx'));if(!farmFile)await new Promise(resolve=>setTimeout(resolve,100));}
   assert(farmFile,'farm download saved');const farmWb=XLSX.readFile(path.join(downloadDir,farmFile));assert.equal(farmWb.SheetNames[0],'업체별 발주');assert.equal(farmWb.Sheets['업체별 발주'].C5.v,15);
+  for(const [n,id,label,selector,caption,key] of [
+    [16,'chat','카톡 원문 확인','.kakao-additions details summary','작성일의 수입방 메시지를 열어 품종과 업체를 대조합니다.','Enter'],
+    [17,'sum','추가분 합산','.kakao-additions input[type="checkbox"]','이번에 전달할 추가분을 체크하면 품종 합계와 업체별 수량이 표시됩니다.','Space'],
+    [18,'copy','농장 전달용 복사','.kakao-additions .kakao-table + button','합계와 비고를 복사해 농장에 전달합니다.','Enter']
+  ]){
+    await page.waitForSelector(selector,{visible:true});
+    await page.$eval(selector,b=>b.scrollIntoView({block:'center'}));
+    rec.chapter(id,n+'. '+label);await rec.caption(n+'. '+label+' · '+caption);await rec.pause(2300);await rec.focus(selector,n);
+    await page.focus(selector);await page.keyboard.press(key);await rec.pause(2800);await rec.unfocus();
+  }
+  assert((await page.$eval('.kakao-table',el=>el.textContent)).includes('연습 업체 2'));
   const result=await rec.stop();stopped=true;
   if(!dry){workflow.guides[0].chapters=result.chapters;workflow.guides[0].status='ready';fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');}
   if(dry){
