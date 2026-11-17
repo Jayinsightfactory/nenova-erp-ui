@@ -2480,11 +2480,15 @@ export default function SalesDefectDeductionsPage() {
         .customer-col { width: 19%; } .product-col { width: 20%; } .color-col { width: 17%; }
         .quantity-col { width: 11%; } .credit-col { width: 13%; } .farm-col { width: 11%; } .note-col { width: 19%; }
         @media print {
-          :global(body *) { visibility: hidden !important; }
-          .sales-defect-page .printOnly, .sales-defect-page .printOnly * { visibility: visible !important; }
-          .sales-defect-page .printOnly { display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
-          :global(body) { margin: 0 !important; background: #fff !important; }
-          .print-form { width: 190mm; margin: 0 auto; }
+          @page { size: A4 portrait; margin: 10mm; }
+          :global(body:has(.sales-defect-page) *:not(:has(.print-form)):not(.print-form):not(.print-form *)) { display: none !important; }
+          :global(html:has(.sales-defect-page)), :global(body *:has(.print-form)), :global(body:has(.print-form)) {
+            display: block !important; position: static !important; height: auto !important; min-height: 0 !important;
+            max-height: none !important; width: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important;
+          }
+          .sales-defect-page .printOnly { display: block !important; position: static; width: 100%; }
+          .print-table thead { display: table-header-group; }
+          .print-table tr, .print-top { break-inside: avoid; }
           .print-table th { background: #c69700 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
