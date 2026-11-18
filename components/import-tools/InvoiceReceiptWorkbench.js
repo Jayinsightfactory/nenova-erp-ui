@@ -441,7 +441,7 @@ export default function InvoiceReceiptWorkbench({
     const timer = setTimeout(async () => {
       setFarmBusy(true);
       try {
-        const response = await fetch(`/api/import/receipts/auto-fill?lookup=farms&q=${encodeURIComponent(farmQuery.trim())}`, {
+        const response = await fetch(`/api/import/receipts/auto-fill?lookup=farms&q=${encodeURIComponent(farmQuery.trim())}&country=${encodeURIComponent(documentValue?.reviewedMetadata?.country||'')}&supplier=${encodeURIComponent(documentValue?.rawMetadata?.supplier||'')}`, {
           credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
         });
         const data = await readJson(response);
@@ -457,7 +457,7 @@ export default function InvoiceReceiptWorkbench({
       }
     }, 220);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [farmQuery, farmSearchAttempt]);
+  }, [farmQuery, farmSearchAttempt,documentValue?.reviewedMetadata?.country,documentValue?.rawMetadata?.supplier]);
 
   const scopeYear = documentValue?.orderYear || browseScope.orderYear;
   const scopeWeek = documentValue?.orderWeek || browseScope.orderWeek;
@@ -1370,9 +1370,10 @@ export default function InvoiceReceiptWorkbench({
         {farmError && <span role="alert">농장 검색 실패: {farmError}</span>}
         {!farmBusy && !farmError && farmQuery.trim() && farmOptions.length === 0 && <span role="status">일치하는 농장이 없습니다. 농장명의 일부로 다시 검색해 주세요.</span>}
         <button type="button" onClick={() => setFarmSearchAttempt(value => value + 1)} disabled={farmBusy}>농장 다시 검색</button>
-        {!farmBusy && !farmError && farmQuery.trim() && <div role="group" aria-label="농장 검색 결과">{farmOptions.map(farm => <button type="button" key={farm.FarmKey ? `farm:${farm.FarmKey}` : `receipt:${farm.WarehouseKey}`}
+        {!farmBusy && !farmError && <div role="group" aria-label="농장 검색 결과" onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;const buttons=[...event.currentTarget.querySelectorAll('button')],index=buttons.indexOf(event.target);if(index<0)return;event.preventDefault();buttons[event.key==='Home'?0:event.key==='End'?buttons.length-1:Math.max(0,Math.min(buttons.length-1,index+(event.key==='ArrowRight'?1:-1)))]?.focus();}}>{farmOptions.slice(0,farmQuery.trim()?50:8).map(farm => <button type="button" key={farm.FarmKey ? `farm:${farm.FarmKey}` : `receipt:${farm.WarehouseKey}`}
+          aria-pressed={farm.FarmKey?Number(documentValue.farmKey)===Number(farm.FarmKey):documentValue.reviewedMetadata.farmSourceWarehouseKey===farm.WarehouseKey}
           onClick={() => updateSelected(document => ({ ...document, farmKey: farm.FarmKey ?? null, reviewedMetadata: { ...document.reviewedMetadata, farmName: farm.FarmName, farmSourceWarehouseKey: farm.WarehouseKey ?? null } }))}>
-          {farm.FarmName} · {farm.FarmKey ? '농장 마스터' : '기존 입고 농장'} · 선택
+          {farm.FarmName} · {farm.FarmKey ? '농장 마스터' : '기존 입고 농장'} · 사용 {farm.UsageCount??'미확인'}건 · 선택·변경
         </button>)}</div>}
         <span role="status">{documentValue.farmKey || documentValue.reviewedMetadata.farmSourceWarehouseKey ? `선택된 농장: ${documentValue.reviewedMetadata.farmName || '저장 농장'}` : '농장 미선택 · 검색어 입력만으로 선택되지 않습니다. 검색 결과의 농장을 눌러 주세요.'}</span>
       </Field>

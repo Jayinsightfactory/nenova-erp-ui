@@ -4,6 +4,7 @@
 const fs = require('node:fs'), path = require('node:path'), net = require('node:net'), crypto = require('node:crypto'), assert = require('node:assert/strict');
 const { spawn } = require('node:child_process'), jwt = require('jsonwebtoken'), puppeteer = require('puppeteer-core');
 const { createWorkflowGuideRecorder } = require('./lib/workflow-guide-recorder.cjs');
+const {createPackingHistoryFixture}=require('./lib/packing-history-fixture.cjs');
 const dry = process.argv.includes('--dry-run'), root = process.cwd();
 const WORKFLOW = 'packing-list-from-invoice', GUIDE = 'import';
 
@@ -64,6 +65,7 @@ async function main() {
     await page.setCookie({ name: 'nenovaToken', value: jwt.sign({ userId: 'guide-import', userName: '연습 담당자', authority: 4, accountActive: true }, secret, { expiresIn: '1h' }), url: base });
     const cdp = await page.createCDPSession(); await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads, eventsEnabled: true });
 
+    const uploadHistory=createPackingHistoryFixture();
     let external = 0, parseCalls = 0, matchRevision = 0, matchValue = { version: 1, entries: [] }; const saved = [], otherApi = [];
     await page.setRequestInterception(true); page.on('request', req => {
       const u = new URL(req.url());
@@ -71,6 +73,7 @@ async function main() {
       if (!['127.0.0.1', 'localhost'].includes(u.hostname)) { external++; console.log('BLOCKED EXTERNAL', req.url().slice(0, 120)); return req.abort(); }
       if (!u.pathname.startsWith('/api/')) return req.continue();
       let body = { success: true, products: [], value: null, revision: 0, items: [], rows: [], history: [], data: [] }, status = 200;
+      const history=uploadHistory.handle(req);if(history)return req.respond({status:200,contentType:'application/json',body:JSON.stringify(history)});
       if (u.pathname === '/api/auth/me') body.user = { userId: 'guide-import', userName: '연습 담당자', authority: 4, deptName: '수입부', accountActive: true };
       if (u.pathname === '/api/import/tools/product-matches') {
         if (req.method() === 'POST') {
@@ -164,7 +167,9 @@ async function main() {
     const chooser = await chooserPromise; await chooser.accept([dummy]);
     await page.waitForFunction(n => document.body.innerText.includes(n), {}, FILE_NAME);
     await out();
-    await say('올리면 파일 이름과 크기가 나오고, 곧바로 읽기가 시작됩니다.\n읽기가 끝나면 아래 안내가 "DB 매칭 미리보기"로 바뀝니다.', 3000);
+    await say('처음 올린 파일은 분석 버튼으로 시작합니다. 같은 내용이면 저장 분석을 재사용합니다.\n내용이 바뀌면 기존 분석과 새 파일 중 사용할 것을 선택합니다.', 4000);
+    await page.waitForSelector('[data-testid="packing-analyze-selected"]');
+    await press('[data-testid="packing-analyze-selected"]');await out(2500);
     await page.evaluate(n => { [...document.querySelectorAll('div')].filter(d => d.innerText.includes(n) && d.innerText.includes('제거')).pop().setAttribute('data-guide-id', 'fileBox'); }, FILE_NAME);
     await focus('[data-guide-id="fileBox"]');
     await out();

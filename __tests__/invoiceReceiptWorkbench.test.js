@@ -15,16 +15,16 @@ const pageSource = fs.readFileSync(path.join(root, 'pages/import/tools.js'), 'ut
 
 test('farm lookup surfaces failures, rejects malformed responses, and ignores aborted results', async () => {
   const start = source.lastIndexOf('  useEffect(() => {', source.indexOf('lookup=farms'));
-  const end = source.indexOf('\n\n', source.indexOf('}, [farmQuery, farmSearchAttempt]);', start));
+  const end = source.indexOf('  const scopeYear', start);
   const effect = source.slice(start, end);
   for (const mode of ['success', 'failure', 'malformed', 'aborted']) {
     let timer, cleanup, options, error = '', busy;
     new Function('useEffect', 'AbortController', 'setTimeout', 'clearTimeout', 'fetch', 'readJson',
-      'farmQuery', 'farmSearchAttempt', 'setFarmBusy', 'setFarmError', 'setFarmOptions', effect)(
+      'farmQuery', 'farmSearchAttempt', 'documentValue', 'setFarmBusy', 'setFarmError', 'setFarmOptions', effect)(
       fn => { cleanup = fn(); }, AbortController, fn => { timer = fn; return 1; }, () => {},
       async url => { assert.match(url, /q=Premium/); if (mode === 'failure') throw Error('검색 서버 연결 실패'); return {}; },
       async () => mode === 'malformed' ? {} : { farms: [{ FarmKey: 12, FarmName: 'Premium Greens' }] },
-      'Premium', 0, value => { busy = value; }, value => { error = value; }, value => { options = value; });
+      'Premium', 0, {reviewedMetadata:{country:'AU'},rawMetadata:{supplier:'Premium Greens'}}, value => { busy = value; }, value => { error = value; }, value => { options = value; });
     if (mode === 'aborted') cleanup();
     await timer();
     if (mode === 'success') assert.equal(options[0].FarmKey, 12);

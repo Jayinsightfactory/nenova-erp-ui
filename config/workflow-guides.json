@@ -202,12 +202,19 @@
         "/import/tools"
       ],
       "sourceFiles": [
-        "components/import-tools/PackingListTool.js"
+        "components/import-tools/PackingListTool.js",
+        "lib/packingFileReuse.js",
+        "components/import-tools/SharedPackingHistory.js",
+        "lib/packingHistoryComparison.js",
+        "styles/ImportPacking.module.css"
       ],
       "requiredScenarios": [
         "select",
         "recover",
-        "review"
+        "review",
+        "reuse",
+        "changed",
+        "history"
       ],
       "guides": [
         {
@@ -246,7 +253,9 @@
         "/work/manuals?manual=packing-list-from-invoice"
       ],
       "sourceFiles": [
-        "components/import-tools/PackingListTool.js"
+        "components/import-tools/PackingListTool.js",
+        "lib/packingFileReuse.js",
+        "styles/ImportPacking.module.css"
       ],
       "requiredScenarios": [
         "select",

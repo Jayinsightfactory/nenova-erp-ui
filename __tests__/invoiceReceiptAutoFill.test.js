@@ -5,6 +5,18 @@ const source=()=>({orderYear:'2026',orderWeek:'44-01',farmKey:null,receiptStatus
   rawMetadata:{supplier:'CI FLORES BALVERDE SAS',invoiceDate:'2026-10-23',rawDate:'23OCT2026'},
   reviewedMetadata:{inputDate:'',farmName:'CI FLORES BALVERDE SAS'},lines:[{prodKey:866,boxQuantity:5,stemQuantity:150}]});
 const farms=[{FarmKey:41,FarmName:'Balverde'}];
+
+test('equivalent verified-country supplier uses most-used historical spelling, never unrelated popular farm',()=>{
+ const document={...source(),reviewedMetadata:{country:'CO'}};
+ const candidates=[{FarmKey:41,FarmName:'Balverde',CounName:'콜롬비아',UsageCount:2},
+  {FarmKey:null,WarehouseKey:7000,FarmName:'C.I Flores Balverde S.A.S',CounName:'콜롬비아',UsageCount:135},
+  {FarmKey:99,FarmName:'Balverde',CounName:'에콰도르',UsageCount:999},
+  {FarmKey:100,FarmName:'Unrelated',CounName:'콜롬비아',UsageCount:9999}];
+ const chosen=resolveInvoiceHeader(document,candidates).farm;
+ assert.equal(chosen.farmName,'C.I Flores Balverde S.A.S');assert.equal(chosen.farmSourceWarehouseKey,7000);assert.equal(chosen.farmKey,null);
+ assert.equal(resolveInvoiceHeader(document,candidates.filter(f=>f.CounName==='에콰도르')).farm,null);
+ const manual={document:{...document,farmKey:41},dirty:false};assert.equal(applyInvoiceHeader(manual,{farm:chosen}),manual);
+});
 test('weight evidence wins over absent/legacy values; CW never derives from GW/net',()=>{
  const invoice={gross_weight:0,net_weight:663.4,review_evidence:{gross_weight:{value:759.7,unit:'kg',quote:'GRSWGHT 759,70'},vol_weight:{value:null,unit:'kg'}}};
  assert.equal(packingWeight(invoice,'gw'),759.7);assert.equal(packingWeight(invoice,'cw'),null);

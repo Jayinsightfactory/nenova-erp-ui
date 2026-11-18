@@ -3444,3 +3444,11 @@ pm run test:canon 통과.
 - 주의/잠금: 촬영 진행은 stdout의 Guide chapter 로그만 읽는다. Puppeteer.connect의 기본 viewport가 기존 촬영 창을 줄이는 문제를 발견해 해당 촬영은 폐기했고, 별도 브라우저 연결을 제거한 최종 촬영과 화면 크기 고정 검사를 추가함. 공유 기본 체크아웃/다른 홈 비행기 Draft #1820 수정 금지. ERP·ECOUNT 쓰기 없음. 병합 후 해당 worktree 즉시 정리.
 - 회사 Drive 최종 원본(크기 검증): MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol / VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat / proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn. 기존 자료 유지·공개 공유 변경 없음.
 - 검색어: calendar 1.3.36 즐겨찾기 전체 접기 열기 공휴일 국가 선택 상세 수정 주차별 Jan6 고정 viewport 가이드 14단계
+
+## 2026-11-18 저장 분석 재사용·BALVERDE 대조 (구현 진행, 미배포)
+- 작업 위치: nenova-erp-ui / feat/analysis-reuse-1118 / C:/Users/USER/Documents/Codex/nw-cdx-analysis-reuse-1118 / PR 미생성.
+- 완료된 것: 동일 국가+SHA 저장 분석 즉시 복구, 이름 동일/내용 변경 시 기존본·새 분석·취소 선택, 서버 완료 cacheOnly 재사용(유료 fallback 금지). 이력 원본/보관분석의 행별 수량·단가·총액 비교 추가. 농장 exact 정규화+동일국가+유일 다빈도 과거명 우선 및 후보 클릭 수정. CO 원본 품종 기존 stemsPerBunchCO로 누락 단수 결정 환산, 명시값/송이/금액 보존.
+- 남은 할 일: 최신 origin/master 병합 전 코드 고정·커밋, 실제 로컬 UI farm/history 검증 및 가이드 갱신, 전체 ERP/dnSpy/manifest/write guard/정식 build·CI, squash·배포·운영 조회 스모크. 현재 가이드 proof는 소스 변경 전이므로 완료 취급 금지.
+- 검증 상태: 기존 reuse UI dry-run PASS(provider0·ERP쓰기0·외부0·mock분석2); 새 비교/reuse9 및 농장/검증/workbench43, adapter19 PASS. SQL SELECT-only 새 농장 후보221 및 Balverde→C.I Flores Balverde S.A.S 선택 확인. dnSpy 실제 EXE MakeTempTable FarmName=C2/단당송이 G열 확인. 최신 provisional build 첫 시도 EPERM, escalated 재시도 세션34096 진행 중(.verify/reuse-farm-next-build.log). 정식 npm build는 가이드 stale라 미완료.
+- 주의/잠금: 기존 46-02 송장25571 원본은6품목93QB/2790송이/2211로 운영8073과 일치. 사용자가 옳다고 제시한134박스3468은 다른 원본·버전 확인 필요(임의 덮어쓰기 금지). 원장5행 단수 공란 존재, 과거 보정0. 기존 농장명135건 vs 새 Balverde2건. .verify 원본/SQL 결과 비공개·커밋 금지. 추가 유료 분석0·운영 DB쓰기0. draft CLOUD PR1813 별도 작업, 기본 checkout/다른 worktree 수정 금지.
+- 검색어: packing reuse changed SHA cacheOnly BALVERDE 25571 8073 93 2790 2211 134 3468 farm UsageCount historical history comparison 단수 누락
