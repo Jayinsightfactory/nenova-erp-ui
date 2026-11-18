@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-18T07:32:31.299Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 34,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "ddb4177e6dbbca86e3ff9c90532a3de40b9e6df09f6b8fe9b5763acd1d7f8c26",
+  "captionsSha256": "5a69d395bc46333bb53543c984919e5a2a5037cba789cb357b06617f400bb3e0",
+  "sourceHashes": {
+    "components/PivotExePanel.js": "0507769d315ba9906c793c4a78161a3d2a1ba841d3da75dc9a211ea31aacae4f",
+    "components/ExePivotFieldArea.js": "4ec719c6aedaf05461572301fe245590cda04b652930fd5fe75c4170cc22dfab",
+    "components/ExePivotTheme.module.css": "593060e4a52d108767c35fc6e67b65ffdc851765c1b91659e8866613206fd62b",
+    "components/PivotExeControls.module.css": "959483336c79e389a7e019ecc280007ff1e586aafc05f843bde66c81ccb293de",
+    "components/PivotExeGrid.js": "49f34ab69fffa7c28c86e3a308b2cae75bd1cf396a3e86b86cf528c45d0d196e"
+  },
+  "presentation": {
+    "numberedSteps": 3,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 900
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 1.8272912000000006,
+        "x": 58.03125,
+        "y": 406,
+        "end": 5.231701900000001
+      },
+      {
+        "number": 2,
+        "start": 13.588939299999998,
+        "x": 140.09375,
+        "y": 406,
+        "end": 16.9915429
+      },
+      {
+        "number": 3,
+        "start": 24.211180499999998,
+        "x": 58.03125,
+        "y": 406,
+        "end": 27.6245457
+      }
+    ]
+  }
+}

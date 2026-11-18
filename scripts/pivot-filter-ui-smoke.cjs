@@ -32,10 +32,6 @@ const testids = {
   filterEditor: 'pivot-exe-filter-editor',
   collapseAll: 'pivot-exe-collapse-all',
   expandAll: 'pivot-exe-expand-all',
-  moveRow: 'pivot-exe-move-row',
-  moveColumn: 'pivot-exe-move-column',
-  moveValue: 'pivot-exe-move-value',
-  moveFilter: 'pivot-exe-move-filter',
   ...parseJsonEnv('PIVOT_EXE_SMOKE_TESTIDS'),
 };
 
@@ -193,17 +189,17 @@ function assert(condition, message) { if (!condition) throw new Error(message); 
 
     await page.waitForSelector('[data-testid="pivot-loading-overlay"]',{hidden:true,timeout:30000});
     // Recover a mutually restricted country/flower selection through visible controls.
-    await click(page,'pivot-exe-filter-CounName','country values');
+    await click(page,'pivot-exe-field-CounName','country values');
     await click(page,null,'deselect countries','전체 해제');
     await clickObservable(page,'콜롬비아');
     await click(page,null,'apply country','선택·순서 적용');
-    await click(page,'pivot-exe-filter-FlowerName','flower values');
+    await click(page,'pivot-exe-field-FlowerName','flower values');
     await click(page,null,'deselect flowers','전체 해제');
     await clickObservable(page,'수국');
     await click(page,null,'apply flower','선택·순서 적용');
-    await click(page,'pivot-exe-filter-CounName','locked country values');
+    await click(page,'pivot-exe-field-CounName','locked country values');
     await click(page,'pivot-reset-product-filters','release product filters');
-    await click(page,'pivot-exe-filter-CounName','country alternatives restored');
+    await click(page,'pivot-exe-field-CounName','country alternatives restored');
     assert((await page.$eval('[data-testid="pivot-exe-value-filter"]',n=>n.innerText)).includes('에콰도르'),'alternate country unavailable after reset');
     await click(page,null,'deselect countries','전체 해제');
     await clickObservable(page,'에콰도르');

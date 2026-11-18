@@ -3653,3 +3653,15 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
 4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(225건), `npx next build --webpack`(139 페이지, exit 0) 통과. 운영 브라우저 시각 확인은 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건(설계 문서 및 아키텍처 흐름도 UI 전용).
+
+## 2026-11-18 · PIVOT 직접 필터 버튼과 간소화한 필드 설정
+- 요약: 작은 hover 화살표/점 버튼을 없애고 필드명 전체(32px)를 값 필터로 사용. 14개 설정 버튼을 정렬·배치·순서 선택으로 정리. 체크박스 확대, 0개 선택 안내, 방향키/Enter/Escape/초점 복귀, 최종 화면 가이드 등록.
+- 근거: 사용자 2026 46-02 중국 빈 화면은 FlowerName=[] 상태였으며 같은 세션 읽기 조회 원본 1448/주문 538/중국 78행(표시 51) 복구 확인. 로컬 dnSpy FormQuantityPivot.GetData/ViewOrder/ViewWarehouse/ExportToXlsx 확인. 이번 변경은 조회 SQL·수량·차수 범위·내보내기 계산을 수정하지 않음.
+- 부작용 표: 필터/정렬/배치/숨김=브라우저 개인 화면 상태만 변경. OrderDetail, ShipmentDetail(Amount/Vat/isFix), ShipmentDate, ShipmentFarm, Warehouse, ProductStock, Estimate, WebProfitReport 보존. 별도 DB 보정 없음.
+- 메뉴 기준선: 적용=기존 shell/키보드/반응형/사용 가이드·한국어 자막·번호 목차. 해당 없음=새 메뉴·MSSQL 쓰기·Rust 핫패스(일반 React UI).
+- 검색어: PIVOT 46-02 중국 빈필터 FlowerName 직접필터 32px 정렬배치 pivot-direct-filters
+1. 작업 위치: nenova-erp-ui / codex/pivot-controls-1118 / Documents/Codex/2026-11-18/pi/work/nw-pivot-controls / PR 생성 예정.
+2. 완료된 것: ExePivotFieldArea/Theme, PivotExePanel/Controls/Grid, 계약, interaction 및 브라우저 smoke, workflow registry·34초 MP4·자막·proof.
+3. 남은 할 일: PR CI → squash merge → Cafe24 배포 및 운영 화면 확인 → worktree 정리.
+4. 검증 상태: test:erp-contract 전체, dnspy-evidence, erp-manifest(225), guard:erp-writes, webpack build, workflow-guides 통과. 완성 빌드 직접필터/국가·꽃 복구/키보드/1920·1280·390/영상 재생·목차·자막·다운로드 통과. 운영 배포는 아직 미검증.
+5. 주의/잠금: ERP API/SQL 변경 0. 기본 체크아웃의 다른 세션 수정 파일 보존. node_modules는 기본 체크아웃 연결이므로 삭제 시 junction만 제거.
