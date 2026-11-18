@@ -5,11 +5,20 @@ const fields = [['country','국가'],['group','품목군'],['week','차수'],['p
 const groupKey = row => [row.country||'국가 미상',row.group||'품목군 미상'].join(' · ');
 const weekKey = row => row.year+'/'+(row.week||'차수 미상');
 function ChoiceButtons({label, values, value, onChange, all}) {
+  const [expanded, setExpanded] = useState(false);
+  const limit = label === '차수' ? 5 : 6;
+  const choices = ['', ...values];
+  const compact = choices.slice(0, limit);
+  if (value && !compact.includes(value)) compact[compact.length - 1] = value;
+  const visible = expanded ? choices : compact;
   return <div className="kakao-choices" role="group" aria-label={label} onKeyDown={e=>{
     if(!['ArrowRight','ArrowLeft','ArrowDown','ArrowUp','Home','End'].includes(e.key))return;
     const buttons=[...e.currentTarget.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);
     if(index<0)return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(['ArrowLeft','ArrowUp'].includes(e.key)?-1:1)+buttons.length)%buttons.length;buttons[next].focus();
-  }}><strong>{label}</strong>{['',...values].map(v=><button key={v} type="button" aria-pressed={value===v} onClick={()=>onChange(v)}>{v||all}</button>)}</div>;
+  }}><strong>{label}</strong>{visible.map(v=><button key={v} type="button" aria-pressed={value===v} onClick={()=>onChange(v)}>{v||all}</button>)}
+    {choices.length > limit && <button type="button" className="kakao-more" aria-expanded={expanded}
+      onClick={()=>setExpanded(v=>!v)}>{expanded ? label+' 접기' : label+' 더 보기 ('+(choices.length-limit)+')'}</button>}
+  </div>;
 }
 function RecentReview() {
   const [feed,setFeed]=useState(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
@@ -17,6 +26,7 @@ function RecentReview() {
   const [week,setWeek]=useState(''),[group,setGroup]=useState(''),[focus,setFocus]=useState(null);
   const [showReview,setShowReview]=useState(false),[showAudit,setShowAudit]=useState(false),[auditQuery,setAuditQuery]=useState('');
   const [manual,setManual]=useState({});
+  const [openMessages,setOpenMessages]=useState({});
   const originalHeading=useRef(null),totalHeading=useRef(null);
   useEffect(()=>{
     if(!focus)return;
@@ -52,18 +62,40 @@ function RecentReview() {
   const shownTotals=selectedMessage?totals.filter(t=>t.sourceKeys.some(k=>messageKeys.has(k))):totals;
   const scopedMessages=messages.filter(m=>m.items.some(i=>inScope(view(i))));
   const shownMessages=selectedTotal?scopedMessages.filter(m=>m.items.some(i=>sourceKeys.has(i.key))):scopedMessages;
+  function matchTotal(key) {
+    const total = totals.find(item => item.key === key);
+    if (total) {
+      const contributors = new Set(total.sourceKeys);
+      setOpenMessages(previous => {
+        const next = {...previous};
+        for (const message of allMessages) {
+          if (message.items.some(item => contributors.has(item.key))) delete next[message.id];
+        }
+        return next;
+      });
+    }
+    setFocus({type:'total',key});
+  }
   const update=(key,patch)=>{setNotice('');setFocus(null);setEdits(prev=>({...prev,[key]:{...prev[key],...patch}}));};
   function addManual(m){
     const key=JSON.stringify(['manual',m.id,m.text]);
     setManual(prev=>({...prev,[m.id]:{...m,kind:'review',reason:'제외 원문에서 수동 검토',items:[{key,year:m.time.match(/^\d{4}/)?.[0]||'',product:'',quantity:'',unit:'',week:'',reviewReason:'원문과 대조 후 포함'}]}}));
+    setOpenMessages(previous => ({...previous,[m.id]:true}));
     setShowReview(true);setWeek('');setGroup('');setFocus(null);setNotice('검토 목록에 가져왔습니다. 품목·수량·단위·차수를 확인한 뒤 합산을 체크하세요.');
   }
   async function copy(){try{await navigator.clipboard.writeText(importTotalsText(totals));setNotice('전달용 합계를 복사했습니다.');}catch{setNotice('복사할 수 없습니다. 합계 표를 선택해 복사하세요.');}}
   function renderMessage(m){
     const visible=m.items.filter(i=>inScope(view(i)));
     if(selectedTotal&&!m.items.some(i=>sourceKeys.has(i.key)))return null;
-    return <details key={m.id} open className={'kakao-order-message '+(selectedMessage?.id===m.id||m.items.some(i=>sourceKeys.has(i.key))?'kakao-linked':'')}>
-      <summary>{m.time} · {m.kind==='review'?'검토 필요':'추가 발주'} · {m.text.split('\n')[0].slice(0,48)}</summary>
+    const linked=selectedMessage?.id===m.id||m.items.some(i=>sourceKeys.has(i.key));
+    const open=openMessages[m.id] ?? linked;
+    return <details key={m.id} open={open} className={'kakao-order-message '+(linked?'kakao-linked':'')}>
+      <summary onClick={event=>{
+        event.preventDefault();
+        setOpenMessages(previous=>({...previous,[m.id]:!open}));
+      }}><span>{m.text.split('\n')[0].slice(0,64)}</span>
+        <small>{m.time} · {m.kind==='review'?'검토 필요':'추가 발주'} · 품목 {visible.length}행</small>
+      </summary>
       <button type="button" className="kakao-match-source" aria-pressed={selectedMessage?.id===m.id} onClick={()=>setFocus({type:'message',id:m.id})}>이 원문의 합계 보기</button>
       {m.reason&&<p className="kakao-review-reason">{m.reason} · 확인 전 합계 제외</p>}
       <blockquote>{m.text}</blockquote>
@@ -71,7 +103,7 @@ function RecentReview() {
       {visible.map(base=>{const row=view(base);return <fieldset key={row.key} className={sourceKeys.has(row.key)?'kakao-linked':''}><legend><label><input type="checkbox" checked={!!row.checked} onChange={e=>update(row.key,{checked:e.target.checked})}/> {m.kind==='review'?'검토 후 합산':'합산'} · {row.product||'품종 확인'}</label></legend>
         {fields.map(([key,label])=><label key={key}>{label}<input value={row[key]||''} onChange={e=>update(row.key,{[key]:e.target.value})}/></label>)}
         <small>{row.checked?'합계에 포함':row.reviewReason||'합계에서 제외'}{row.note&&' · 요청: '+row.note}</small>
-        {row.checked&&validItem(row)&&<button type="button" onClick={()=>setFocus({type:'total',key:importTotalKey(row)})}>이 품종 원문 모아보기</button>}
+        {row.checked&&validItem(row)&&<button type="button" onClick={()=>matchTotal(importTotalKey(row))}>이 품종 원문 모아보기</button>}
       </fieldset>;})}
       {m.unparsed?.length>0&&<p>해석하지 못한 수량 행: {m.unparsed.join(' / ')}</p>}
       {manual[m.id]&&<button type="button" onClick={()=>setManual(prev=>({...prev,[m.id]:{...prev[m.id],items:[...prev[m.id].items,{key:JSON.stringify(['manual',m.id,m.text,prev[m.id].items.length]),year:m.time.match(/^\d{4}/)?.[0]||'',product:'',quantity:'',unit:'',week:'',reviewReason:'원문과 대조 후 포함'}]}}))}>품목 행 추가</button>}
@@ -113,7 +145,7 @@ function RecentReview() {
         {selectedMessage&&<p className="kakao-match-notice">선택 원문이 포함된 합계 {shownTotals.length}행 <button type="button" onClick={()=>setFocus(null)}>매칭 해제</button></p>}
         {invalid&&<p role="alert">합산할 행의 차수, 품종, 양수 수량과 단위를 확인하세요.</p>}
         {totals.length>0&&!invalid?<><div className="kakao-table"><table><thead><tr>{['차수 · 품목군','품종 / 원문 대조','수량','비고 (업체·수량)'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>
-          {shownTotals.map(r=><tr key={r.key} className={selectedTotal?.key===r.key||selectedMessage?'kakao-linked':''}><td>{r.year}/{r.week}차<br/>{groupKey(r)}</td><td><button type="button" className="kakao-match-total" aria-pressed={selectedTotal?.key===r.key} onClick={()=>setFocus({type:'total',key:r.key})}>{r.product}<small>원문 {r.sourceKeys.length}행 보기</small></button></td><td>{r.quantity} {r.unit}</td><td>{r.notes||'업체 미기재'}{r.requests&&<small><br/>요청: {r.requests}</small>}</td></tr>)}
+          {shownTotals.map(r=><tr key={r.key} className={selectedTotal?.key===r.key||selectedMessage?'kakao-linked':''}><td>{r.year}/{r.week}차<br/>{groupKey(r)}</td><td><button type="button" className="kakao-match-total" aria-pressed={selectedTotal?.key===r.key} onClick={()=>matchTotal(r.key)}>{r.product}<small>원문 {r.sourceKeys.length}행 보기</small></button></td><td className="kakao-quantity">{r.quantity} {r.unit}</td><td>{r.notes||'업체 미기재'}{r.requests&&<small><br/>요청: {r.requests}</small>}</td></tr>)}
         </tbody></table></div><button type="button" disabled={!!error} onClick={copy}>농장 전달용 복사</button><small>선택한 차수·품목군 전체 합계를 복사합니다.</small></>:!invalid&&feed&&<p role="status">현재 범위에 자동 합산할 추가 발주가 없습니다. 검토 필요 목록을 확인하세요.</p>}
       </section>
     </div>
@@ -127,5 +159,14 @@ export default function KakaoAdditions(){return <aside className="kakao-addition
 .kakao-additions fieldset{display:flex;flex-wrap:wrap;gap:6px;min-width:0;border:1px solid #cddbf0;margin:8px 0}.kakao-additions fieldset>label{display:grid;flex:1 1 90px}.kakao-additions input:not([type=checkbox]){width:100%;min-width:0;box-sizing:border-box;padding:6px;border:1px solid #bdcce4;border-radius:4px;font:inherit}
 .kakao-table{overflow-x:auto}.kakao-table table{width:100%;border-collapse:collapse;background:white}.kakao-table th,.kakao-table td{text-align:left;padding:7px;border-bottom:1px solid #cddbf0;overflow-wrap:anywhere}.kakao-additions small{display:block}.kakao-linked{background:#fff4d6!important;box-shadow:inset 3px 0 #e8a623}.kakao-match-notice{padding:8px;background:#fff4d6}.kakao-match-total{width:100%;text-align:left}.kakao-audit{margin-top:16px!important}
 .kakao-additions h4{scroll-margin-top:90px}
+.kakao-order-message>summary{color:#17365f;font-weight:600;padding:2px 0}
+.kakao-order-message>summary>span{overflow-wrap:anywhere}
+.kakao-order-message>summary small{font-weight:400;color:#536783;margin-top:2px;padding-left:14px}
+.kakao-order-message:not([open]){padding:7px 9px}
+.kakao-choices button{font-size:12px;padding:5px 8px;line-height:1.3}
+.kakao-choices .kakao-more{border-style:dashed}
+.kakao-table .kakao-quantity{white-space:nowrap;font-variant-numeric:tabular-nums}
+.kakao-table th,.kakao-table td{vertical-align:top}
+.kakao-match-total small{margin-top:3px}
 @media(max-width:1200px){.kakao-columns{grid-template-columns:minmax(0,1fr)}}
 `}</style></aside>;}
