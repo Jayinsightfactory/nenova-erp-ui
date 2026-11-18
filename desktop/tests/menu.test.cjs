@@ -43,3 +43,13 @@ test('writes deterministic JSON from the source without evaluating it', t => {
   assert.equal(firstText.includes('/private'), false);
   assert.equal(firstText.includes('/computed'), false);
 });
+
+test('invoice work and farm master share the canonical searchable desktop catalog',()=>{
+  const repo=path.resolve(__dirname,'../..'),source=fs.readFileSync(path.join(repo,'components/Layout.js'),'utf8');
+  const menu=JSON.parse(fs.readFileSync(path.join(repo,'desktop/menu.json'),'utf8'));
+  assert.deepEqual(menu,parseMenuSource(source));
+  const items=menu.flatMap(g=>g.items);
+  assert.equal(items.filter(i=>i.href==='/import/tools').length,1);
+  const farms=items.filter(i=>i.href==='/master/codes');assert.equal(farms.length,1);assert.match(farms[0].labelKey,/농장 마스터/);
+  assert.equal(farms[0].href,'/master/codes','stable URL preserves existing favorites');
+});

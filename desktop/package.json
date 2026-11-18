@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.40",
+  "version": "1.3.41",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "NENOVAKAKAO 완료 근거로 이슈를 정리하고, 지도 항공편 표시 겹침을 방지합니다."
+      "releaseNotes": "명세서·송장의 다른 농장명을 실제 DB 농장에 연결하고, 없는 농장은 농장 마스터에 명시 등록합니다. 메뉴에서 농장 마스터 검색과 즐겨찾기를 지원합니다. 기존 입고는 자동 정정하지 않습니다."
     },
     "extraResources": [
       {

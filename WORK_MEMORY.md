@@ -3654,6 +3654,13 @@ pm run test:canon 통과.
 4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(225건), `npx next build --webpack`(139 페이지, exit 0) 통과. 운영 브라우저 시각 확인은 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건(설계 문서 및 아키텍처 흐름도 UI 전용).
 
+## 2026-11-18 명세서·송장·DB 농장 연결 구현 단계
+- 검색어: manifest-farm-match 46-2 01441369974 ClassFarm IDENTITY 약칭 농장등록
+1. 작업 위치: fix/manifest-farm-match-1118 / C:/Users/USER/Documents/Codex/nw-cdx-manifest-farm-1118 / PR 미생성.
+2. 완료된 것: 명세서·송장 이름 차이를 미완료 review로 반환, 유일 HAWB/법인 표기 정규화 자동연결, 1:1 DB농장 선택 UI 및 실제 Farm마스터 명시등록 API/폼. 원본 수량·단가·공급자 보존, 입고 어댑터에 실제 선택키 전달.
+3. 남은 할 일: UI 최종 dry/가이드 녹화·플레이어, 전체 ERP 가드/정식 build, PR CI/배포·운영 읽기 스모크. 원본46-2 저장AI결과 재검증은 아직 미검증, 유료 재분석 금지.
+4. 검증 상태: 대상27건 PASS. 실제 dnSpy ClassFarm.Insert 및 운영 SELECT Farm 스키마/기존키 확인(쓰기0). 고정 loopback14339 폐기 DB에서 동시등록1건/중복차단/실패rollback/native필드readback/2025·2026 sentinel보존 PASS. UI 최초dry에서 입력 전체선택/단축키 시험 스크립트 보완, 최신dry 재확인 필요. 초기 로컬 build EPERM 및 JSX 오류 수정 후 provisional3 진행. sandbox의 기존 bash 기반 배포검사 실패는 escalated 필수검사에서 재확인.
+5. 주의/잠금: 운영 Farm/Customer/Warehouse/Stock 등 수정0, 추가 유료API0. 신규 등록은 직원의 명시 버튼만 Farm에1행 추가(배포 후 기능), Customer와 혼동 금지. .verify 원문/SQL연결 설정 커밋금지. 이 worktree의 manifest/farm 등록/가이드 파일만 수정, CLOUD PR1813 별도 보존.
 ## 2026-11-18 · PIVOT 직접 필터 버튼과 간소화한 필드 설정
 - 요약: 작은 hover 화살표/점 버튼을 없애고 필드명 전체(32px)를 값 필터로 사용. 14개 설정 버튼을 정렬·배치·순서 선택으로 정리. 체크박스 확대, 0개 선택 안내, 방향키/Enter/Escape/초점 복귀, 최종 화면 가이드 등록.
 - 근거: 사용자 2026 46-02 중국 빈 화면은 FlowerName=[] 상태였으며 같은 세션 읽기 조회 원본 1448/주문 538/중국 78행(표시 51) 복구 확인. 로컬 dnSpy FormQuantityPivot.GetData/ViewOrder/ViewWarehouse/ExportToXlsx 확인. 이번 변경은 조회 SQL·수량·차수 범위·내보내기 계산을 수정하지 않음.
@@ -3695,3 +3702,10 @@ pm run test:canon 통과.
 3. 남은 할 일: PR CI 통과 → squash master 병합 → Cafe24 배포 → 두 운영 화면/버전·SELECT-only 보존 확인 → worktree 정리.
 4. 검증 상태: 대상 행동/정책/UI·Chromium 합성API 저장 payload/키보드 스모크, dnSpy, manifest226, write scope, workflow-guide 변경범위, webpack1worker build 통과. 전체 ERP는 신규계약 enum 및 구형 문자열단언 정정 후 실패지점부터 본문/posthook 모두 exit0으로 완료(최초 단일 실행 exit0 아님). 최신 master 병합은 다른 세션 UI/desktop만이며 통합 CI에서 확인 예정. 운영 시험쓰기/직원 EXE GUI 전과정 미검증.
 5. 주의/잠금: 원본 f7cd/nenova-erp-ui의 수정 WORK_MEMORY/감사문서 보존. 중복·삭제헤더 자동보정 금지. manual-order 기존 stock 계산과 sales-paste stock보존 유지. UI 순서 불변이라 영상/desktop버전 신규 갱신 해당없음.
+## 2026-11-18 명세서 DB농장 연결 및 승인된 BALVERDE 기존 입고 보정 준비
+- 검색어: manifest-farm-match BALVERDE 8073 8162 25571 25587 OrderCode BunchQuantity SteamOf1Bunch Desktop1.3.41
+1. 작업 위치: fix/manifest-farm-match-1118 / Documents/Codex/nw-cdx-manifest-farm-1118 / PR 생성 단계.
+2. 완료: 이름만 다른 명세서/송장 1:1 실제 Farm 연결과 명시 Farm 마스터 등록, 원본 수량·가격 보존. Desktop 검색/즐겨찾기 URL 유지·1.3.41(상위1.3.40 보존), 세 가이드 실제촬영/Drive동일ID갱신. 보정 helper/전용script/contract/반례13검사 연결.
+3. 남은 일: 최종 build/플레이어→PR CI/squash→Cafe24 배포 후, 명시승인 `보정해줘` 범위의8073/8162만 백업·rollback rehearsal·CAS·보호지문·사후조회. Desktop CI 설치패키지·릴리스 및 worktree 정리. 운영 보정은 이 기록 시점0건.
+4. 검증: ERP전체 exit0, dnSpy, manifest227, writeguard, 기존packing하네스81/skip1, 신규대상13, Desktop단위/실제Electron검색·탭·즐겨찾기스모크 PASS. 첫최종build PASS후 상위master/키보드탭 병합 최종build 진행. 신규영상69.3초·기존2편 및 소스해시검사 PASS. 46CI는 저장SHA와일치,47CI 독립PDF확보 미검증(저장원본행/packing근거 확인).
+5. 주의/잠금: 원본134박스/USD3468은신원불명으로 덮지않음. 보정최대11행의 빈OrderCode 및9쌍NULL단수/단당송이만; 수량·단가·금액·재고·확정/SP 변경금지. 일반수정API의 상세삭제/재INSERT사용금지. .verify의백업/접속설정/업무원문커밋금지. node_modules두junction은대상삭제없이링크만정리. 최종배포/보정결과는PR검증댓글에기록.
