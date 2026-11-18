@@ -1471,6 +1471,14 @@
             }
           ]
         }
+      ],
+      "videoWaivers": [
+        {
+          "file": "desktop/shell/shell.js",
+          "sha256": "604681a1bb22ff1f337c8f82188380734bcc7b7dd9ee1f675f1f35fa6cc3fe22",
+          "reason": "앱 업데이트 필요 시 붉은색 강조 표시 및 PM 라이브 확인 패널 버튼(오류관제 열기·흐름도) 구성 변경 — 오늘의 내 업무·시간표·메모장·달력 11단계 가이드 조작 순서는 변경 없음",
+          "approvedBy": "2026-11-18 UI 강조·버튼 표시 변경 (desktop-task-schedule-smoke --dry-run 11장 검증 통과)"
+        }
       ]
     }
   ]
