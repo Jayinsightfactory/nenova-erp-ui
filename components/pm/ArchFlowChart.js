@@ -422,6 +422,69 @@ const SOLUTION_BLUEPRINTS = [
   },
 ];
 
+const DEVICE_SUITE_SURFACES = [
+  { key: 's1', title: '1. 현장 수집면', detail: 'Phone Harness · Nenova Kakao' },
+  { key: 's2', title: '2. 브릿지 · 허브', detail: 'Device Hub · 데스크톱 사이드카' },
+  { key: 's3', title: '3. 지능형 매칭', detail: 'Hermes 오케스트레이터' },
+  { key: 's4', title: '4. 승인 게이트', detail: '네노바웹 승인 큐(WebDeviceWorkQueue)' },
+  { key: 's5', title: '5. 시스템 원장', detail: 'ERP 원장' },
+];
+
+const DEVICE_SUITE_SESSIONS = [
+  {
+    id: 's1_phone_hub',
+    no: '세션 1',
+    badge: '모바일 관제 · 실행',
+    tone: 'accent',
+    title: 'Phone Harness & Device Hub',
+    stack: 'VKCOM/devicehub · phone-harness · RapidOCR',
+    role: 'VKCOM/devicehub(30~40fps 웹 화면 확인·Lease 독점 잠금·remoteConnectUrl) + phone-harness(Android adb uiautomator dump + Windows 로컬 RapidOCR 실행 계층)',
+    coreArch: 'Android 11~14 공용폰·서브폰 표준화, FLAG_SECURE·보안키패드 시 Lease 반납 → 사람 10초 웹 개입(WAITING_HUMAN) → 에이전트 재개',
+    safetyGuard: '패키지 화이트리스트(위챗 열람·카메라·SMS) 외 차단, 고위험 텍스트(송금·이체·결제·전송·보내기·삭제) 감지 시 즉시 Abort, 1대 카나리 48~72시간 검증 후 확대',
+    schemaAndItems: 'WebDeviceLease(TTL 120~300초 독점) · 위챗 해외 농장 단톡방 단가표·물량 수집(답장·송금 클릭 원천 차단 Read-Only), 창고 현장 스마트폰 촬영본 즉시 adb pull → 입고 매칭 초안 생성',
+    rolloutStage: 'Phase 1 · 사무실 카나리 공용폰 1대 + 창고 Wi-Fi ADB 촬영폰 1대 연결 및 30fps 원격 개입 검증',
+  },
+  {
+    id: 's2_kakao_bridge',
+    no: '세션 2',
+    badge: '메신저 이중화',
+    tone: 'ok',
+    title: 'Nenova Kakao & 메신저 이중화',
+    stack: 'nenovakakao · kakao_messages · dedup_key',
+    role: '수집(Inbound)은 PC nenovakakao + 모바일 공기계 Dual-Path 무중단 이중화, 발송(Outbound)은 검증된 PC 단일 마스터 유지',
+    coreArch: 'kakao_messages dedup_key = sha256(norm_room|norm_sender|minute_bucket|body_hash|idx) 및 ON CONFLICT DO UPDATE로 모바일 원본 사진 URL(media_urls) 무중복 병합',
+    safetyGuard: '지정 업무방 화이트리스트(영업방·수입방·수입불량방 등)만 수집해 개인 1:1방 수집 원천 금지, 모바일 Outbound 차단, 09:00 보고 --dry-run 및 승인 게이트 준수',
+    schemaAndItems: 'kakao_messages(channel, dedup_key, media_urls) · 수입방·위챗 발주/취소 원문 실시간 차수·품목군 대조 연결, 영업 불량 사진 즉시 확보 후 승인 시 WebSalesDefectDeduction DRAFT 적재',
+    rolloutStage: 'Phase 1~2 · PC/모바일 dedup_key 일치율 검증 및 /incoming/kakao-summary DB 피드 · 불량 검토 대기열 연결',
+  },
+  {
+    id: 's3_desktop_hub',
+    no: '세션 3',
+    badge: '데스크톱 로컬 브릿지',
+    tone: 'warn',
+    title: '데스크톱앱 로컬 디바이스 브릿지',
+    stack: 'Electron · nenova-device-sidecar.exe · WSS 역터널',
+    role: 'app.asar 외부 선택형 사이드카(nenova-device-sidecar.exe + 경량 adb)가 USB/LAN 폰을 자동 인식해 main.cjs 아웃바운드 WSS 역터널(wss://nenovaweb.com/api/device-hub/tunnel)로 중계(포트포워딩 불필요)',
+    coreArch: '가이드 영상 해시 보호를 위해 shell.css·index.html 무변경 상태로 #pmLivePanel 하단에 기기 상태 카드 동적 마운트, 일반 사무직 PC에는 미설치(용량 영향 0)',
+    safetyGuard: '127.0.0.1 루프백 + 32B Bearer 토큰 + icacls ACL 격리, lockAccount() 시 터널 즉시 차단, 초안 삽입만 허용(저장·확정 클릭 원천 차단)',
+    schemaAndItems: 'data/runtime/device-hub-status.json · 홈 화면에서 수입부 공용폰 온라인 · 승인 대기 1건 확인 및 원클릭 화면 보기, 모바일 촬영 송장·파손 사진이 활성 탭 [data-device-draft] 초안 슬롯으로 즉시 전달',
+    rolloutStage: 'Phase 1~2 · bootstrap deviceBridge 카나리 1대 활성 → USB/Wi-Fi 자동 페어링 및 초안 슬롯 실측',
+  },
+  {
+    id: 's4_web_solution',
+    no: '세션 4',
+    badge: '웹 스키마 · 상용화',
+    tone: 'err',
+    title: '네노바웹 스키마 & 상용 솔루션 패키지',
+    stack: 'WebDeviceNode · WebDeviceLease · WebDeviceWorkQueue',
+    role: 'Tier 2 신규 스키마(WebDeviceNode, WebDeviceLease, WebDeviceWorkQueue) + Tier 3 런타임 피드(data/runtime/device-hub-status.json) + NOWLINK / MOYI 상용 패키지화',
+    coreArch: 'ApprovedBy <> ProposedBy 승인 게이트와 ExpectedSnapshotJson 검증을 통과해야만 Tier 1 ERP 원장에 반영(원장 직접 오염 원천 차단)',
+    safetyGuard: 'GET 경로 런타임 DDL 금지(assertWebSchemaContract), IdempotencyKey 중복 차단, 타임아웃 시 FAILED_UNKNOWN 동결로 이중 발주 방지',
+    schemaAndItems: '① 위챗 콜롬비아 장미 프리덤 50cm 5박스 추가 발주 → WebDeviceWorkQueue(DRAFT→APPROVED) → OrderDetail 100단 반영 / ② 창고폰 네덜란드 수국 그린 파손 15송이 사진 → WebSalesDefectDeduction(DRAFT) → 승인 시 Estimate 음수 차감',
+    rolloutStage: 'Phase 3~4 · 승인형 원장 반영 20건+ 무사고 검증 후 workspace_id 테넌트 격리 · Watch/Build/Team + Device Add-on 패키지 출시',
+  },
+];
+
 export default function ArchFlowChart({
   timesave = null,
   workflows = null,
@@ -433,6 +496,7 @@ export default function ArchFlowChart({
   const [selectedId, setSelectedId] = useState('pipeline');
   const [schemaView, setSchemaView] = useState('all');
   const [blueprintId, setBlueprintId] = useState('master');
+  const [suiteSessionId, setSuiteSessionId] = useState('s1_phone_hub');
   const [liveTs, setLiveTs] = useState(timesave);
   const [liveWf, setLiveWf] = useState(workflows);
 
@@ -478,6 +542,7 @@ export default function ArchFlowChart({
     : null;
   const visibleLayers = schemaView === 'all' ? SCHEMA_LAYERS : SCHEMA_LAYERS.filter((layer) => layer.id === schemaView);
   const activeBlueprint = SOLUTION_BLUEPRINTS.find((bp) => bp.id === blueprintId) || SOLUTION_BLUEPRINTS[0];
+  const activeSuiteSession = DEVICE_SUITE_SESSIONS.find((s) => s.id === suiteSessionId) || DEVICE_SUITE_SESSIONS[0];
 
   return (
     <section className={`arch-root ${compact ? 'is-compact' : ''}`} aria-label="자가발전 솔루션 아키텍처 흐름도">
@@ -892,6 +957,92 @@ export default function ArchFlowChart({
             </div>
           </div>
         </div>
+      </section>
+
+      {/* 멀티 디바이스 작업화 솔루션 및 부류별 세션 설계 */}
+      <section
+        className="arch-device-suite"
+        data-testid="arch-device-suite-section"
+        aria-label="멀티 디바이스 작업화 솔루션 및 부류별 세션 설계"
+      >
+        <div className="arch-schema-head">
+          <div>
+            <div className="arch-eyebrow">MULTI-DEVICE WORK SUITE · 5-SURFACE ARCHITECTURE</div>
+            <h3>멀티 디바이스 작업화 솔루션 · 부류별(세션 1~4) 통합 설계</h3>
+            <p className="arch-lede">
+              모바일 공용폰·PC 카톡·데스크톱 사이드카에서 올라오는 비정형 업무를 원장 직접 오염 없이
+              <code>WebDeviceWorkQueue</code> 승인 게이트로 연결하는 5-Surface 통합 구조입니다.
+            </p>
+          </div>
+          <div className="arch-bp-pill-wrap">
+            <Badge tone="plain">5-Surface · 4개 세션 선택 조회</Badge>
+          </div>
+        </div>
+
+        <div className="arch-suite-flow" role="region" aria-label="5-Surface 연결 흐름 바">
+          {DEVICE_SUITE_SURFACES.map((surface, idx) => (
+            <div key={surface.key} className="arch-suite-flow-item">
+              <div className="arch-suite-flow-box">
+                <b>{surface.title}</b>
+                <span>{surface.detail}</span>
+              </div>
+              {idx < DEVICE_SUITE_SURFACES.length - 1 && (
+                <span className="arch-hermes-arrow" aria-hidden="true">➔</span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="arch-bp-grid" role="group" aria-label="부류별 세션 설계 선택">
+          {DEVICE_SUITE_SESSIONS.map((sess) => {
+            const active = sess.id === activeSuiteSession.id;
+            return (
+              <SelectCard
+                key={sess.id}
+                on={active}
+                pressed={active}
+                className={`arch-loop-card arch-bp-card tone-${sess.tone} ${active ? 'is-on' : ''}`}
+                onClick={() => setSuiteSessionId(sess.id)}
+              >
+                <div className="arch-loop-top">
+                  <span className="arch-loop-no">{sess.no}</span>
+                  <Badge className="arch-loop-badge" tone={sess.tone === 'err' ? 'warn' : 'plain'}>{sess.badge}</Badge>
+                </div>
+                <div className="arch-loop-title">{sess.title}</div>
+                <code className="arch-bp-tables">{sess.stack}</code>
+              </SelectCard>
+            );
+          })}
+        </div>
+
+        <article className="arch-suite-detail" aria-live="polite">
+          <div className="arch-detail-head">
+            <div>
+              <span className="arch-detail-pill">{activeSuiteSession.no} · {activeSuiteSession.badge}</span>
+              <h4>{activeSuiteSession.title}</h4>
+              <p>{activeSuiteSession.role}</p>
+            </div>
+          </div>
+
+          <div className="arch-suite-grid">
+            <div className="arch-bp-sum-card">
+              <b>핵심 구조</b>
+              <span>{activeSuiteSession.coreArch}</span>
+            </div>
+            <div className="arch-bp-sum-card tone-guard">
+              <b>안전 가드</b>
+              <span>{activeSuiteSession.safetyGuard}</span>
+            </div>
+            <div className="arch-bp-sum-card tone-solution">
+              <b>스키마 · 품목 작업화 예시</b>
+              <span>{activeSuiteSession.schemaAndItems}</span>
+            </div>
+            <div className="arch-bp-sum-card">
+              <b>도입 단계</b>
+              <span>{activeSuiteSession.rolloutStage}</span>
+            </div>
+          </div>
+        </article>
       </section>
 
       <style jsx>{`
@@ -1644,11 +1795,84 @@ export default function ArchFlowChart({
           color: var(--arch-ok);
           min-width: 200px;
         }
+        .arch-device-suite {
+          background: var(--arch-surface);
+          border: 1px solid var(--arch-line);
+          border-radius: 12px;
+          padding: 16px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .arch-suite-flow {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
+          background: var(--arch-surface-2);
+          border: 1px solid var(--arch-line);
+          border-radius: 10px;
+          padding: 10px 12px;
+        }
+        .arch-suite-flow-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex: 1 1 180px;
+          min-width: 0;
+        }
+        .arch-suite-flow-box {
+          flex: 1 1 auto;
+          min-width: 0;
+          background: var(--arch-surface);
+          border: 1px solid var(--arch-line);
+          border-top: 2px solid var(--arch-accent);
+          border-radius: 8px;
+          padding: 7px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .arch-suite-flow-box b {
+          font-size: 11px;
+          color: var(--arch-accent);
+        }
+        .arch-suite-flow-box span {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--arch-ink);
+          line-height: 1.35;
+        }
+        .arch-suite-detail {
+          background: var(--arch-surface-2);
+          border: 1px solid var(--arch-line);
+          border-radius: 10px;
+          padding: 14px 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .arch-suite-detail h4 {
+          margin: 0 0 4px;
+          font-size: 15.5px;
+          color: var(--arch-ink);
+        }
+        .arch-suite-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .arch-bp-sum-card.tone-guard {
+          border-left: 3px solid var(--arch-warn);
+        }
+        .arch-bp-sum-card.tone-guard b {
+          color: var(--arch-warn);
+        }
         @media (max-width: 1040px) {
           .arch-nodes, .arch-loops-grid, .arch-bp-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
-          .arch-bp-summary {
+          .arch-bp-summary, .arch-suite-grid {
             grid-template-columns: 1fr;
           }
           .arch-schema-flow {
