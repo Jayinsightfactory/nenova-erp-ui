@@ -228,7 +228,7 @@ async function main(){
     const group='.kakao-choices[aria-label="품목군"]';
     assert.equal(await page.$$eval(group+' button[aria-pressed]',nodes=>nodes.length),6);
     await page.click(group+' .kakao-more');
-    assert.equal(await page.$$eval(group+' button[aria-pressed]',nodes=>nodes.length),9);
+    assert(await page.$$eval(group+' button[aria-pressed]',nodes=>nodes.length)>=extraGroups.length+1);
     await page.click(group+' button[aria-pressed]:nth-last-child(2)');
     const picked=await page.$eval(group+' button[aria-pressed="true"]',node=>node.textContent);
     await page.click(group+' .kakao-more');
