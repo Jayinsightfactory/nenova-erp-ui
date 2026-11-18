@@ -3,7 +3,7 @@
 import { withAuth } from '../../../lib/auth';
 import { applyProfitReportColombiaRates } from '../../../lib/profitReportCustomsPolicy';
 import { requireOrderYear } from '../../../lib/orderUtils';
-import { loadSettlementEvidence, settlementCountryRow, settlementColombiaRow } from '../../../lib/customsSettlementEvidence';
+import { loadSettlementEvidence, settlementCountryRow, settlementColombiaRow, settlementCountryValues, settlementColombiaValues } from '../../../lib/customsSettlementEvidence';
 import { resolveCountryWeight, resolveColombiaWeight, isHistoricalWeightScope, assertInboundWeightUnchanged } from '../../../lib/customsWeightPolicy';
 import {
   COUNTRY_CATEGORIES, COLOMBIA_POOLED_HYDRANGEA,
@@ -65,7 +65,7 @@ export default withAuth(async function handler(req, res) {
         return {
           category: cat,
           saved: originalRow,
-          settlement: row !== originalRow ? { revision: settlement.revision, source: 'sun_yul_settlement_file', values: Object.fromEntries(['01','02'].flatMap(phase => Object.entries(settlement.values?.[`country|${cat}|${phase}`] || {}))) } : null,
+          settlement: row !== originalRow ? { revision: settlement.revision, source: 'sun_yul_settlement_file', values: settlementCountryValues(originalRow,settlement,cat) } : null,
           effectiveRow: resolved.row,
           weightSource: resolved.weight.source,
           historical,                                // 원본 엑셀 구성요소(저장값이 없을 때만 채워짐)
@@ -79,6 +79,7 @@ export default withAuth(async function handler(req, res) {
       });
 
       const colombiaOut = colombia.map((c, i) => {
+        const settlementValues=settlementColombiaValues(c.row,settlement,c.orderWeek);
         const gwDef = autoGw.colombia?.[c.orderWeek];
         const hydBoxes = Number(gwDef?.hydrangeaBoxes) || 0;
         const boxQty = hydBoxes > 0 ? { ...c.boxQty, [COLOMBIA_POOLED_HYDRANGEA]: hydBoxes } : c.boxQty;
@@ -90,7 +91,7 @@ export default withAuth(async function handler(req, res) {
         return {
           orderWeek: c.orderWeek,
           saved: c.row,
-          settlement: settlement.values?.[`colombia|${c.orderWeek}`] ? { revision: settlement.revision, source: 'sun_yul_settlement_file', values: settlement.values[`colombia|${c.orderWeek}`] } : null,
+          settlement: Object.keys(settlementValues).length ? { revision: settlement.revision, source: 'sun_yul_settlement_file', values: settlementValues } : null,
           effectiveRow: resolved.row,
           weight: resolved.weight,
           historical,
