@@ -233,6 +233,7 @@ async function main(){
     const picked=await page.$eval(group+' button[aria-pressed="true"]',node=>node.textContent);
     await page.click(group+' .kakao-more');
     assert.equal(await page.$eval(group+' button[aria-pressed="true"]',node=>node.textContent),picked);
+    await page.click(group+' button[aria-pressed]:first-of-type');
     assert.equal(await page.$eval('.kakao-quantity',node=>getComputedStyle(node).whiteSpace),'nowrap');
     console.log('PASS compact filters retain hidden selection and quantities never wrap');
     await page.evaluate(title=>{const heading=[...document.querySelectorAll('h3')].find(node=>node.textContent===title);if(!heading)throw Error('Guide heading missing');heading.closest('details').id='country-order-guide-test';},workflow.title);
