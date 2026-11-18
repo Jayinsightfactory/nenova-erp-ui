@@ -20,6 +20,36 @@ const { Text } = Typography;
 
 const fmt = n => Number(n || 0).toLocaleString();
 
+function ReceiptDetailScroll({tableRoot}) {
+  const bar = useRef(null);
+  useEffect(() => {
+    const scroller = tableRoot.current?.querySelector('.ant-table-content');
+    const track = bar.current;
+    const grid = scroller?.querySelector('table');
+    if (!track || !grid) return;
+    const measure = () => {
+      track.firstElementChild.style.width = `${track.clientWidth + scroller.scrollWidth - scroller.clientWidth}px`;
+      track.scrollLeft = scroller.scrollLeft;
+    };
+    const readTable = () => { track.scrollLeft = scroller.scrollLeft; };
+    const readBar = () => { scroller.scrollLeft = track.scrollLeft; };
+    const observer = new ResizeObserver(measure);
+    observer.observe(grid);
+    observer.observe(scroller);
+    track.addEventListener('scroll', readBar);
+    scroller.addEventListener('scroll', readTable);
+    measure();
+    return () => {
+      observer.disconnect();
+      track.removeEventListener('scroll', readBar);
+      scroller.removeEventListener('scroll', readTable);
+    };
+  }, [tableRoot]);
+  return <div ref={bar} role="region" tabIndex={0} aria-label="입고 상세 열 좌우 이동"
+    style={{overflowX:'scroll',overflowY:'hidden',height:18,marginBottom:4,background:'#edf4fa'}}>
+    <div style={{height:1}} />
+  </div>;
+}
 
 export default function Warehouse({ embedded = false, active = true, onClose } = {}) {
   const { t } = useLang();
@@ -52,7 +82,10 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const [weekFilter, setWeekFilter] = useState('');
   const [recentFarms, setRecentFarms] = useState([]);
   const [masterSearch, setMasterSearch] = useState('');
+  const [farmSearch, setFarmSearch] = useState('');
   const [detailSearch, setDetailSearch] = useState('');
+  const [showLatestDetails, setShowLatestDetails] = useState(false);
+  const detailTableRoot = useRef(null);
   const urlApplied = useRef(false);
   const fileRef = useRef();
   const loadSeq = useRef(0);
@@ -107,6 +140,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const selectMaster = (wk) => {
     const seq = ++detailSeq.current;
     setSelectedKey(wk);
+    setDetails([]);
     const fm = (masters.find(m => m.WarehouseKey === wk) || {}).FarmName;
     if (fm) { const next = [fm, ...recentFarms.filter(f => f !== fm)].slice(0, 6); setRecentFarms(next); try { localStorage.setItem('incoming.recentFarms', JSON.stringify(next)); } catch {} }
     setDetailLoading(true);
@@ -144,9 +178,11 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   // 정렬은 antd Table sorter로 이동(2026-09-22); sortKey/sortDir는 필터 정렬 기본값에만 사용
 
   const filteredMasters = useMemo(() => {
-    const q = masterSearch.toLowerCase();
+    const q = masterSearch.trim().toLowerCase();
+    const farmQuery = farmSearch.trim().normalize('NFKC').toLowerCase();
     const list = masters.filter(m => {
       if (farmFilter && m.FarmName !== farmFilter) return false;
+      if (farmQuery && !String(m.FarmName ?? '').normalize('NFKC').toLowerCase().includes(farmQuery)) return false;
       if (weekFilter && m.OrderWeek !== weekFilter) return false;
       if (!q) return true;
       return (m.FarmName||'').toLowerCase().includes(q) ||
@@ -156,7 +192,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
     });
     const val = (m) => { const v = m[sortKey]; return v == null ? '' : v; };
     return list.sort((a, b) => { const x = val(a), y = val(b); if (typeof x === 'number' && typeof y === 'number') return (x - y) * sortDir; return String(x).localeCompare(String(y), 'ko') * sortDir; });
-  }, [masters, masterSearch, farmFilter, weekFilter, sortKey, sortDir]);
+  }, [masters, masterSearch, farmFilter, farmSearch, weekFilter, sortKey, sortDir]);
 
   // 농장/차수를 고르면 첫 원장을 자동 선택해 상세까지 한 번에
   useEffect(() => {
@@ -297,8 +333,8 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
       {successMsg && <Alert type="success" showIcon message={successMsg} style={{ marginBottom: 6 }} />}
       <Alert type="info" showIcon style={{ marginBottom: 6 }} message={<span>nenova.exe와 동일한 <b>Packing 엑셀(.xlsx/.xls)</b>만 업로드합니다. 품목 하나라도 정확히 일치하지 않으면 전체 저장이 취소됩니다.</span>} />
 
-      <Row gutter={6} wrap={false} style={{ alignItems: 'flex-start' }}>
-        <Col flex="1 1 0" style={{ minWidth: 0 }}>
+      <Row gutter={[6,6]} style={{ alignItems: 'flex-start' }}>
+        <Col xs={24} lg={13} style={{ minWidth: 0 }}>
           <Card size="small" title={<Space><Text strong>입고 원장 목록</Text><Text type="secondary">{filteredMasters.length}/{masters.length}건</Text>{recentFarms.length > 0 && <Space size={4}><Text type="secondary" style={{ fontSize: 11 }}>최근</Text>{recentFarms.map((f) => <Tag.CheckableTag key={f} checked={farmFilter === f} onChange={() => setFarmFilter(farmFilter === f ? '' : f)}>{f}</Tag.CheckableTag>)}</Space>}</Space>}>
             <Table size="small" rowKey="WarehouseKey" loading={loading} dataSource={filteredMasters} scroll={{ x: 1000 }} pagination={{ pageSize: 50, size: 'small', showSizeChanger: true, pageSizeOptions: [50, 100, 500], showTotal: (n) => `${n}건` }}
               rowClassName={(m) => (selectedKey === m.WarehouseKey ? 'ant-table-row-selected' : '')} onRow={(m) => ({ tabIndex: 0, 'aria-selected': selectedKey === m.WarehouseKey, onClick: () => selectMaster(m.WarehouseKey), onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectMaster(m.WarehouseKey); } if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); (e.key === 'ArrowDown' ? e.currentTarget.nextElementSibling : e.currentTarget.previousElementSibling)?.focus(); } }, style: { cursor: 'pointer' } })}
@@ -306,7 +342,14 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
               columns={[
                 { title: '주문년도', dataIndex: 'OrderYear', width: 80, sorter: (a, b) => String(a.OrderYear).localeCompare(String(b.OrderYear)) },
                 { title: '차수', dataIndex: 'OrderWeek', width: 70, sorter: (a, b) => String(a.OrderWeek).localeCompare(String(b.OrderWeek)), render: (v) => <Text strong>{v}</Text> },
-                { title: '농장명', dataIndex: 'FarmName', ellipsis: true, sorter: (a, b) => String(a.FarmName || '').localeCompare(String(b.FarmName || ''), 'ko'), filterSearch: true, filters: farmOptions.map((f) => ({ text: f, value: f })), onFilter: (v, r) => r.FarmName === v },
+                { title: <div>
+                    <div onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
+                      <Input size="small" allowClear aria-label="농장명 검색" placeholder="농장명 검색" value={farmSearch} onChange={event => setFarmSearch(event.target.value)} />
+                    </div>
+                    <span>농장명</span>
+                  </div>, dataIndex: 'FarmName', width: 200,
+                  render: name => <span style={{overflowWrap:'anywhere',whiteSpace:'normal'}}>{name || '미기재'}</span>,
+                  sorter: (a, b) => String(a.FarmName || '').localeCompare(String(b.FarmName || ''), 'ko'), filterSearch: true, filters: farmOptions.map((f) => ({ text: f, value: f })), onFilter: (v, r) => r.FarmName === v },
                 { title: '인보이스', dataIndex: 'InvoiceNo', width: 110, ellipsis: true, render: (v) => <Text type="secondary" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
                 { title: 'AWB', dataIndex: 'AWB', width: 120, ellipsis: true, render: (v) => <Text type="secondary" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
                 { title: '입력일자', dataIndex: 'InputDate', width: 100, render: value => <span style={{ whiteSpace: 'nowrap' }} title={value == null ? '' : String(value)}>{incomingDateLabel(value)}</span>, sorter: (a, b) => String(a.InputDate || '').localeCompare(String(b.InputDate || '')), defaultSortOrder: 'descend' },
@@ -319,7 +362,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
               ]} />
           </Card>
         </Col>
-        <Col flex="0 0 46%" style={{ minWidth: 0 }}>
+        <Col xs={24} lg={11} style={{ minWidth: 0 }}>
           <Card size="small" title={<Space><Text strong>입고 상세 목록</Text>{selected && <Tag color="blue">{selected.FarmName} · {selected.InvoiceNo}</Tag>}</Space>} extra={selectedKey && <Input.Search size="small" allowClear placeholder="품목명·주문코드" value={detailSearch} onChange={(e) => setDetailSearch(e.target.value)} style={{ width: 180 }} />}>
             {selectedKey && <div style={{ marginBottom: 8 }} role="status">
               {invoiceExpenses?.warning && <Alert type="warning" showIcon message={invoiceExpenses.warning} />}
@@ -329,7 +372,14 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
                 <Space wrap><Tag color={invoiceCosts?.status === 'STALE' ? 'orange' : 'default'}>{invoiceCosts?.status === 'STALE' ? '원장 변경 · 원가 재검토 필요' : '도착원가 미확정'}</Tag><Text type="secondary">미확정값을 0원으로 표시하지 않습니다.</Text></Space>}
             </div>}
             {!selectedKey ? <Empty description="원장을 선택하세요" /> : (
-              <Table size="small" rowKey={(d, i) => d.WdetailKey ?? i} loading={detailLoading} dataSource={filteredDetails} pagination={false} scroll={{ x: 1450 }}
+              <div ref={detailTableRoot}>
+              <label style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
+                <input type="checkbox" checked={showLatestDetails} onChange={event => setShowLatestDetails(event.target.checked)} />
+                최신원가 참고 상세 보기
+              </label>
+              <ReceiptDetailScroll tableRoot={detailTableRoot} />
+              <ConfigProvider theme={{components:{Table:{cellPaddingBlockSM:4,cellPaddingInlineSM:6}}}}>
+              <Table size="small" rowKey={(d, i) => d.WdetailKey ?? i} loading={detailLoading} dataSource={filteredDetails} pagination={false} scroll={{ x: showLatestDetails ? 1580 : 1460 }}
                 summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={5}><Text strong>합계</Text></Table.Summary.Cell>{['BoxQuantity', 'BunchQuantity', 'SteamQuantity'].map((k, i) => <Table.Summary.Cell key={k} index={5 + i} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b[k] || 0), 0))}</Text></Table.Summary.Cell>)}<Table.Summary.Cell index={8} /><Table.Summary.Cell index={9} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.총액 || 0), 0))}</Text></Table.Summary.Cell></Table.Summary.Row></Table.Summary>}
                 columns={[
                   { title: '주문코드', dataIndex: '주문코드', width: 90, render: (v) => <Text style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
@@ -350,10 +400,12 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
                   { title: '단가', dataIndex: '단가', align: 'right', width: 70, render: fmt },
                   { title: '출하단가', dataIndex: '총액', align: 'right', width: 80, render: fmt },
                   { title: '실제 도착원가', key: 'actualCost', align: 'right', width: 140, render: (_, d) => renderCost(d, actualCostByDetail) },
-                  { title: '최신 원가 참고 (당시 원가 유지)', key: 'latestArrival', width: 230, render: (_, d) => <LatestArrivalReference state={latestArrival} item={{prodKey:d.ProdKey,unit:''}} /> },
+                  { title: showLatestDetails ? '최신 원가 참고' : '최신 원가 최고가', key: 'latestArrival', width: showLatestDetails ? 230 : 120, render: (_, d) => <LatestArrivalReference state={latestArrival} item={{prodKey:d.ProdKey,unit:''}} highestOnly={!showLatestDetails} /> },
                   { title: '도착원가 합계', key: 'actualCostTotal', align: 'right', width: 140, render: (_, d) => renderCost(d, actualCostByDetail, true) },
                   { title: '95% 예상·비교', key: 'expectedCost', align: 'right', width: 140, render: (_, d) => renderCost(d, expectedCostByDetail) },
                 ]} />
+              </ConfigProvider>
+              </div>
             )}
           </Card>
         </Col>
