@@ -3382,3 +3382,12 @@ pm run test:canon 통과.
 3. 남은 할 일: PR CI전체검증→squash병합→Cafe24배포→운영검색/후보읽기스모크→worktree즉시정리.
 4. 검증 상태: 로컬필수검증·정식빌드·실제플레이어PASS, PR CI/운영반영은아직미검증.
 5. 주의/잠금: 농장마스터신규등록·운영입고저장없음. 원본코드는GitHub PR로보관,검증된영상은Drive폴더18JFwztrSWniR1yctBdaewBATvBev7NGb.
+
+## 2026-11-18 수입 비행기 현황 표·버튼·메뉴 수정안 (미배포)
+- 요약: 실제 앱 1.3.34 화면 확인. 새로고침의 공통 margin-top 7px가 버튼 단차 원인. 제목 우측 버튼 정렬, 번호/이슈/상세 표, 차수·국가·편명 이슈열 제거, 동일 편/문장 중복 제거, 지도 우측 상세 선택 시 목록 숨김, 공항 최신 예정 1회 표시, 수입부 메뉴 등록.
+- 검색어: 수입 비행기 현황 번호 이슈 표 새로고침 확대 접기 flight-presentation
+1. 작업 위치: nenova-erp-ui / codex/import-flight-layout / C:/Users/USER/.codex/worktrees/c027/nenova-erp-ui/nw-cdx-flight / draft PR 예정.
+2. 완료된 것: components/Layout.js, components/home/ImportFlightBoard.js, desktop/shell/flight-board.js, flight-presentation.js, shell.css, index.html, desktop/menu.json, 계약 및 presentation 회귀2건. 신규 SQL/API/원장쓰기 없음; Order/Shipment/Stock/Estimate/WebProfitReport 전부 보존.
+3. 남은 할 일: 확대 React 화면 실브라우저·작은화면·키보드 회귀, 가이드 실제 재촬영/Drive/플레이어, 전체 gate 재실행, desktop 버전 발행, CI/squash/Cafe24/운영스모크. 현 버전 설치본 업데이트/직원PC 재시작 금지. 빌드가 막혀 미배포.
+4. 검증 상태: 대상 desktop6 + presentation2 통과, SWC JSX parse, 직접manifest224/dnSpy/write guard 통과. Chrome 합성자료 1920폭 표/번호8건/펼치기/Enter접기/버튼높이 확인. 전체 ERP/manifest npm lifecycle은 Windows Bash NtCreateDirectoryObject ACCESS_DENIED 및 Chrome launch 실패. npm build는 desktop-flight-popup 가이드 source mismatch로 차단. 전체 gate/영상/운영 미검증.
+5. 주의/잠금: 본 worktree 비행기 표시 파일만 작업. 가이드 해시만 바꿔 우회하지 말 것. 다른 편·다른연도 같은 문구는 병합하지 않음. 메뉴 baseline: 반응형/키보드/단일기존전용화면틀 적용, 대량쓰기 해당없음, 가이드 미완료. desktop/menu.json은 canonical Layout 동기화로 기존 누락메뉴도 복구됨.

@@ -3,6 +3,7 @@
   'use strict';
   const root=document.getElementById('flightBoard');
   if(!root||!window.desktop)return;
+  const {issueRows,shortIssue}=window.NenovaFlightPresentation;
   const SVG='http://www.w3.org/2000/svg',world=window.NenovaWorldMap||null;
   const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
   const css=(n,style)=>{Object.assign(n.style,style);return n;};
@@ -75,15 +76,20 @@
     const s=data.summary||{},issues=data.issueTotal??((s.red||0)+(s.amber||0));
     chips.append(chip(`비행 중 ${s.inFlight||0}`,COLORS.in_flight),chip(`출발 전 ${s.beforeDeparture||0}`,COLORS.before_departure),chip(`빌번호 대기 ${s.awaitingAwb||0}`,COLORS.awaiting_awb),chip(`도착·입고 대기 ${s.arrived||0}`,COLORS.arrived),
       chip(`확인 필요 ${issues}`,issues?(s.red?COLORS.red:COLORS.amber):COLORS.gray));
-    const todo=data.todo||[];
+    const todo=issueRows(data.todo||[]);
     if(todo.length){
       todoBox.hidden=false;todoBox.append(css(el('strong','','홈에서 확인할 이슈 '+(data.issueTotal??todo.length)+'건'),{display:'block',color:'#b02a2a',fontSize:'12.5px'}));
-      for(const t of (showAllIssues?todo:todo.slice(0,5))){
-        const row=el('div'),dot=css(el('span','','● '),{color:t.level==='red'?'#d6336c':'#e67700'});
-        row.append(dot,css(el('b','',t.label),{fontWeight:'700'}),document.createTextNode(` — ${t.text}`));
-        if(t.viewId){const go=btn('상세내역',()=>open(t.viewId));css(go,{marginLeft:'8px',fontSize:'11px'});row.append(go);}
-        todoBox.append(row);
+      const table=el('table','flight-issue-table'),thead=el('thead'),header=el('tr'),tbody=el('tbody');
+      table.setAttribute('aria-label','확인할 이슈');
+      for(const label of ['번호','이슈','상세']){const th=el('th','',label);th.scope='col';header.append(th);}
+      thead.append(header);table.append(thead,tbody);
+      for(const [i,t] of (showAllIssues?todo:todo.slice(0,5)).entries()){
+        const row=el('tr'),number=el('td','',String(i+1)),text=el('td','',shortIssue(t.text)),action=el('td');
+        number.style.color=t.level==='red'?'#b02a2a':'#9a6100';text.title=t.text;
+        if(t.viewId){const go=btn('상세',()=>open(t.viewId));go.setAttribute('aria-label','이슈 '+(i+1)+' 상세');action.append(go);}
+        row.append(number,text,action);tbody.append(row);
       }
+      todoBox.append(table);
       if(todo.length>5){
         const more=btn(showAllIssues?'이슈 접기':'이슈 '+todo.length+'건 모두 보기',()=>{showAllIssues=!showAllIssues;paint(last);document.getElementById('flightIssueToggle')?.focus();});
         more.id='flightIssueToggle';more.setAttribute('aria-expanded',String(showAllIssues));todoBox.append(more);
@@ -105,9 +111,9 @@
       const timing=css(el('div','flight-times'),{flexBasis:'100%',fontSize:'11.5px',color:'#526981'});
       const values=[];
       if(f.departAtEstimated)values.push('출발 예측 '+when(f.departAtEstimated,true));
-      values.push(f.scheduledAt?'STA 인천공항 예정 '+when(f.scheduledAt,true):'STA 인천공항 예정 확인 중');
-      if(f.estimatedAt)values.push('인천공항 변경 예정 '+when(f.estimatedAt,true));
-      values.push('인천공항 상태 '+(f.remark||'확인 중'));timing.textContent=values.join(' · ');row.append(timing);
+      if(!f.estimatedAt)values.push(f.scheduledAt?'공항 예정 '+when(f.scheduledAt,true):'공항 예정 확인 중');
+      if(f.estimatedAt)values.push('공항 최신 예정 '+when(f.estimatedAt,true));
+      if(f.remark&&!f.statusLabel.includes(f.remark))values.push('공항 상태 '+f.remark);timing.textContent=values.join(' · ');row.append(timing);
       if(f.quarantineDeadlineAt){const past=Date.parse(f.quarantineDeadlineAt)<Date.now();row.append(css(el('span','',`검역 마감(예상) ${when(f.quarantineDeadlineAt)}${f.quarantineSlot?` ${f.quarantineSlot}`:''}`),{color:past?'#b02a2a':'#495057',fontSize:'11.5px'}));}
       if(f.nextStep)row.append(chip(`${f.nextState==='late'?'⚠':'⏳'} ${f.nextStep}`,f.nextState==='late'?COLORS.red:COLORS.amber));
       if(f.trackUrl){

@@ -4,6 +4,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { apiGet, apiPost } from '../../lib/useApi';
 import { WORLD_VIEW, WORLD_LAND_PATH, projectLonLat } from '../../lib/importFlightWorldPath';
 
+const { issueRows, shortIssue } = require('../../desktop/shell/flight-presentation');
+
 const REFRESH_MS = 5 * 60 * 1000;
 const STATUS_STYLE = {
   in_flight: { bg: '#e3f0ff', ink: '#0b57a4', dot: '#1668c7' },
@@ -253,7 +255,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
   return (
     <div className="card" style={{ marginBottom: 6 }} data-testid="import-flight-board">
       <div className="card-header" style={{ flexWrap: 'wrap', gap: 6 }}>
-        <span className="card-title">■ 수입 비행기 현황 · 스케줄 확인</span>
+        <span className="card-title">수입 비행기 현황</span>
         <span style={{ fontSize: 11, color: 'var(--text3)' }}>
           지도 위 위치는 도착 공지 일정으로 계산한 <b>예측</b>입니다 · 실제 위치는 편별 「실제 위치」 버튼
         </span>
@@ -284,18 +286,20 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
             </span>
           </div>
 
-          {todo.length > 0 && (
-            <div style={{ border: '1px solid #f3c2c2', background: '#fff5f5', borderRadius: 6, padding: '6px 10px', marginBottom: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#b02a2a', marginBottom: 2 }}>
-                지금 해야 할 것 <span style={{ fontWeight: 400, color: 'var(--text3)', marginLeft: 6 }}>빨강 {fmt(todoRed)} · 주황 {fmt(todoAmber)}</span>
-              </div>
-              {todo.slice(0, 10).map((t, i) => (
-                <div key={`${t.key}-${i}`} style={{ fontSize: 12, lineHeight: 1.6, cursor: 'pointer' }} onClick={() => setSelectedKey(t.key)}>
-                  <span style={{ color: t.level === 'red' ? '#d62828' : '#e08a00' }}>●</span> <b>{t.label}</b> — {t.text}
-                </div>
-              ))}
-              {todo.length > 10 && <div style={{ fontSize: 11, color: 'var(--text3)' }}>외 {todo.length - 10}건</div>}
-            </div>
+          {issues.length > 0 && (
+            <section className="flight-issues" aria-label="확인할 이슈">
+              <h3>확인할 이슈 {issues.length}건</h3>
+              <table className="flight-issue-table">
+                <thead><tr><th scope="col">번호</th><th scope="col">이슈</th><th scope="col">상세</th></tr></thead>
+                <tbody>{issues.map((it, i) => (
+                  <tr key={JSON.stringify([it.key, it.text])}>
+                    <td style={{ color: it.level === 'red' ? '#b02a2a' : '#8a5a00' }}>{i + 1}</td>
+                    <td title={it.text}>{shortIssue(it.text)}</td>
+                    <td><button type="button" className="btn btn-sm" aria-label={'이슈 ' + (i + 1) + ' 상세'} onClick={() => setSelectedKey(it.key)}>상세</button></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </section>
           )}
 
           {roomNews.length > 0 && (
@@ -311,21 +315,11 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
             </div>
           )}
 
-          {data.issues?.length > 0 && (
-            <div style={{ border: '1px solid #dee2e6', background: '#f8f9fa', borderRadius: 6, padding: '6px 10px', marginBottom: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#495057', marginBottom: 2 }}>공지에서 바뀐 것</div>
-              {data.issues.slice(0, 8).map((it, i) => (
-                <div key={`${it.key}-${i}`} style={{ fontSize: 12, lineHeight: 1.6, cursor: 'pointer' }} onClick={() => setSelectedKey(it.key)}>
-                  <b>{it.label}</b> — {it.text}
-                </div>
-              ))}
-              {data.issues.length > 8 && <div style={{ fontSize: 11, color: 'var(--text3)' }}>외 {data.issues.length - 8}건은 아래 목록에서 확인</div>}
-            </div>
-          )}
-
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 1fr)', gap: 8, alignItems: 'start' }} className="import-flight-grid">
             <div>
               <FlightMap flights={flights} destination={data.destination} selectedKey={selectedKey} onSelect={setSelectedKey} />
+            </div>
+            <div style={{ minWidth: 0, overflowX: 'auto' }}>
               {selected && (
                 <div data-testid="flight-selected-detail" style={{ marginTop: 6, border: '1px solid #d7e0ea', borderRadius: 6, padding: '6px 10px', fontSize: 12, lineHeight: 1.7 }}>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -347,7 +341,8 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                   </div>
                   {selected.actual && (
                     <div>
-                      인천공항 운항 정보 · 도착 예정 {shortTime(selected.actual.scheduledAt) || '-'} / 변경 {shortTime(selected.actual.estimatedAt) || '-'} / 상태 {selected.actual.remark || '-'}
+                      인천공항 최신 예정 {shortTime(selected.actual.estimatedAt || selected.actual.scheduledAt) || '-'}
+                      {selected.actual.remark && !selected.statusLabel.includes(selected.actual.remark) ? ` · ${selected.actual.remark}` : ''}
                     </div>
                   )}
                   {(selected.checklist?.steps || []).some(st => st.at) && (
@@ -366,14 +361,12 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                       ))}
                     </div>
                   )}
-                  {(selected.alerts || []).map((a, i) => <div key={`al-${i}`} style={{ color: a.level === 'red' ? '#b02a2a' : '#b07500' }}>⚠ {a.text}</div>)}
-                  {(selected.issues || []).map((t, i) => <div key={i} style={{ color: '#b02a2a' }}>⚠ {t}</div>)}
                 </div>
               )}
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-              <table className="tbl" style={{ fontSize: 12 }}>
+              <table className="tbl" style={{ fontSize: 12 }} hidden={!!selected}>
                 <thead>
                   <tr><th>차수·나라</th><th>편명</th><th>박스</th><th>도착 예정</th><th>상태</th><th>실제 위치</th></tr>
                 </thead>
@@ -440,6 +433,13 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
         </div>
       )}
       <style jsx>{`
+
+        .flight-issues { border: 1px solid #f3c2c2; background: #fff5f5; border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; }
+        .flight-issues h3 { margin: 0 0 6px; font-size: 14px; color: #b02a2a; }
+        .flight-issue-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; text-align: left; }
+        .flight-issue-table th, .flight-issue-table td { padding: 6px; border-bottom: 1px solid #eedddd; vertical-align: top; overflow-wrap: anywhere; }
+        .flight-issue-table th:first-child { width: 44px; }
+        .flight-issue-table th:last-child { width: 62px; }
         @media (max-width: 900px) {
           :global(.import-flight-grid) { grid-template-columns: minmax(0, 1fr) !important; }
         }
