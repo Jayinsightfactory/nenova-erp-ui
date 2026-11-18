@@ -3311,3 +3311,12 @@ pm run test:canon 통과.
 - 검증 상태: desktop67/67, 네이티브 Electron·홈·반응형·키보드·플레이어, ERP 계약·dnSpy·manifest·쓰기 보호·가이드·webpack 빌드 통과. 운영 및 직원 PC 설치는 미검증. 빌드의 기존 workDrivePairsAsync 동적 의존성/이카운트 페이지 데이터 크기 경고는 이번 변경 대상 밖.
 - 주의/잠금: 원장·입고·재고·견적·매출 쓰기 변경 없음. 해외 STD·ATD 및 FR24 API 추가 연동 없음. 직원 PC 업무 중 재시작 금지.
 - 검색어: 1.3.34 비행기 확대 창 상단 즐겨찾기 홈 이슈 인천공항 도착 시간 가이드 검증 배포 인계
+
+## 2026-11-18 · 견적 품목명 열 너비 복구
+- fixed table에서 td min-width가 열 너비를 결정하지 못해 균등폭으로 축소됨. 첫 행 th 품목명280px·단위64px·출고일88px 지정. 기준선 적용: 읽기성·기존 키보드/원장 보존, 가로스크롤. 예외: 사용자가 이번 영상 재촬영 제외 승인.
+- 위치: nenova-erp-ui / codex/estimate-width-1118 / nw-cdx-estimate-width-1118 / PR 생성 예정
+- 완료: styles/globals.css, 견적 계약, 영상 제외 기록
+- 남은 일: CI·배포·실브라우저 운영 확인
+- 검증: Chrome 1920/1280 품목명280px 및 페이지 가로넘침 없음 통과, 운영 미검증
+- 주의/잠금: 이 브랜치 globals.css 작업
+- 검색어: 견적 품목명 열 너비 fixed table 280px
