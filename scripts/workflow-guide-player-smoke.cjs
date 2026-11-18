@@ -2,6 +2,9 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), net = req
 const { spawn } = require('node:child_process');
 const jwt = require('jsonwebtoken'), puppeteer = require('puppeteer-core');
 async function main() {
+  const targetId=process.env.GUIDE_WORKFLOW_ID;
+  const target=targetId?require('../config/workflow-guides.json').workflows.find(w=>w.id===targetId):null;
+  if(targetId&&!target)throw Error('Unknown guide workflow');
   const listener = net.createServer(); await new Promise(resolve => listener.listen(0, '127.0.0.1', resolve)); const port = listener.address().port; await new Promise(resolve => listener.close(resolve));
   const secret = crypto.randomUUID(), base = `http://127.0.0.1:${port}`;
   const server = spawn(process.execPath, [require.resolve('next/dist/bin/next'), 'start', '-p', String(port)], { env: { ...process.env, DB_SERVER: '', JWT_SECRET: secret }, stdio: 'ignore', windowsHide: true }); let browser;
@@ -21,19 +24,20 @@ async function main() {
       const data = { success: true, user, items: [], rows: [], data: [], products: [], countries: [], records: [], history: [], references: [], options: [], masters: [], requests: [], permissions: { request: true, review: true }, value: null, revision: 0 };
       return request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
     });
-    await page.goto(base + '/import/tools?tab=incoming', { waitUntil: 'networkidle0' });
-    await page.evaluate(()=>{const title=[...document.querySelectorAll('h3')].find(n=>n.textContent==='입고 수정 요청과 검토·확정');assertRoot(title);function assertRoot(n){if(!n)throw Error('Incoming guide missing');n.closest('details').id='guide-player-target';}});
+    await page.goto(base + (target?'/import/tools':'/import/tools?tab=incoming'), { waitUntil: 'networkidle0' });
+    if(targetId==='invoice-farm-history')await page.click('button[aria-controls="import-panel-history"]');
+    await page.evaluate(titleText=>{const title=[...document.querySelectorAll('h3')].find(n=>n.textContent===titleText);if(!title)throw Error('Guide missing');title.closest('details').id='guide-player-target';},target?.title||'입고 수정 요청과 검토·확정');
     const summary = await page.$('#guide-player-target > summary');
     assert(summary, 'Guide entry missing'); await summary.focus(); await page.keyboard.press('Enter');
     await page.waitForSelector('#guide-player-target video'); assert(await page.$eval('#guide-player-target video', video => video.paused));
-    for (const role of ['수입부', '영업지원']) {
-      const button = await page.evaluateHandle(role => [...document.querySelector('#guide-player-target').querySelectorAll('button')].find(node => node.textContent === `${role}용`), role); await button.asElement().focus(); await page.keyboard.press('Space');
+    for (const role of target?[...new Set(target.guides.map(g=>g.role))]:['수입부', '영업지원']) {
+      const button = await page.evaluateHandle(role => [...document.querySelector('#guide-player-target').querySelectorAll('button')].find(node => node.textContent === `${role}용`), role); if(button.asElement()){await button.asElement().focus(); await page.keyboard.press('Space');}
       await page.waitForFunction(role => document.querySelector('#guide-player-target video')?.getAttribute('aria-label').startsWith(role), {}, role);
       await page.$eval('#guide-player-target video', video => { video.muted = true; return video.play(); });
       await page.waitForFunction(() => document.querySelector('#guide-player-target video').currentTime > .3, { timeout: 15000 });
       await page.$eval('#guide-player-target video', video => video.pause());
       await page.$eval('#guide-player-target video', video => { video.textTracks[0].mode = 'showing'; });
-      const chapters = await page.$$(`#guide-player-target nav[aria-label="${role} 영상 목차"] button`); assert.equal(chapters.length, role==='수입부'?5:3);
+      const chapters = await page.$$(`#guide-player-target nav[aria-label="${role} 영상 목차"] button`); assert.equal(chapters.length,target?target.guides.find(g=>g.role===role).chapters.length:role==='수입부'?5:3);
       await chapters[1].focus(); await page.keyboard.press('Enter');
       assert(await page.$eval('#guide-player-target video', video => video.currentTime > 1 && video.paused));
       await page.waitForFunction(() => { const video = document.querySelector('#guide-player-target video'); return !video.seeking && video.readyState >= 2; });
@@ -48,7 +52,7 @@ async function main() {
     await page.screenshot({ path: '.verify/workflow-guide-player-mobile.png' });
     await page.$eval('#guide-player-target video', video => video.play()); await summary.focus(); await page.keyboard.press('Enter');
     await page.waitForFunction(() => document.querySelector('#guide-player-target video').paused);
-    assert.deepEqual(errors, []); assert(assets.length >= 4); assert(assets.every(asset => [200, 206, 304].includes(asset.status)));
+    assert.deepEqual(errors, []); assert(assets.length >= (target?2:4)); assert(assets.every(asset => [200, 206, 304].includes(asset.status)));
     assert(writes.every(url => !url.startsWith('/api/warehouse')), 'Guide must not submit ERP requests');
     console.log('PASS guide player: keyboard open/roles/chapters, actual MP4 playback, Korean VTT, download, collapse pause, 1920/390; all APIs synthetic');
   } finally { await browser?.close(); server.kill(); }

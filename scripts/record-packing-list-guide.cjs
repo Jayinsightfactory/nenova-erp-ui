@@ -4,6 +4,7 @@
 const fs = require('node:fs'), path = require('node:path'), net = require('node:net'), crypto = require('node:crypto'), assert = require('node:assert/strict');
 const { spawn } = require('node:child_process'), jwt = require('jsonwebtoken'), puppeteer = require('puppeteer-core');
 const { createWorkflowGuideRecorder } = require('./lib/workflow-guide-recorder.cjs');
+const {createPackingHistoryFixture}=require('./lib/packing-history-fixture.cjs');
 const dry = process.argv.includes('--dry-run'), root = process.cwd();
 const WORKFLOW = 'packing-list-from-invoice', GUIDE = 'import';
 
@@ -49,6 +50,8 @@ async function main() {
   const invoice = { farm: '연습 농장', supplier: '연습 농장', invoice: INVOICE_NO, currency: 'USD', date: '2026-11-06', invoice_total: TOTAL_USD, freight_total: 0,
     products: LINES.map((l, i) => ({ description: l[0], pcs: l[1], steam_box: l[2], bunch_st: l[3], total_stems: l[1] * l[2], u_price: l[4], t_price: money(l[1] * l[2] * l[4]), stem_length: l[5] || undefined, source_page: 1, source_row: i + 1 })) };
   const payload = { content: [{ type: 'text', text: JSON.stringify({ invoices: [invoice] }) }], stop_reason: 'end_turn', source: 'ai' };
+  const {resolveInvoiceHeader,rankedInvoiceFarmSources}=await import('../lib/invoiceReceiptAutoFill.js');
+  const farmChoices=[{FarmKey:null,WarehouseKey:7001,FarmName:'CI FLORES 연습농장 SAS',CounName:'콜롬비아',UsageCount:135},{FarmKey:77,FarmName:'연습 농장',CounName:'콜롬비아',UsageCount:2}];
 
   const listener = net.createServer(); await new Promise(r => listener.listen(0, '127.0.0.1', r));
   const port = listener.address().port; await new Promise(r => listener.close(r));
@@ -64,6 +67,7 @@ async function main() {
     await page.setCookie({ name: 'nenovaToken', value: jwt.sign({ userId: 'guide-import', userName: '연습 담당자', authority: 4, accountActive: true }, secret, { expiresIn: '1h' }), url: base });
     const cdp = await page.createCDPSession(); await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads, eventsEnabled: true });
 
+    const uploadHistory=createPackingHistoryFixture();
     let external = 0, parseCalls = 0, matchRevision = 0, matchValue = { version: 1, entries: [] }; const saved = [], otherApi = [];
     await page.setRequestInterception(true); page.on('request', req => {
       const u = new URL(req.url());
@@ -71,7 +75,12 @@ async function main() {
       if (!['127.0.0.1', 'localhost'].includes(u.hostname)) { external++; console.log('BLOCKED EXTERNAL', req.url().slice(0, 120)); return req.abort(); }
       if (!u.pathname.startsWith('/api/')) return req.continue();
       let body = { success: true, products: [], value: null, revision: 0, items: [], rows: [], history: [], data: [] }, status = 200;
+      const history=uploadHistory.handle(req);if(history)return req.respond({status:200,contentType:'application/json',body:JSON.stringify(history)});
       if (u.pathname === '/api/auth/me') body.user = { userId: 'guide-import', userName: '연습 담당자', authority: 4, deptName: '수입부', accountActive: true };
+      if(u.pathname==='/api/import/receipts/auto-fill')body=req.method()==='POST'
+        ?{success:true,resolution:resolveInvoiceHeader(JSON.parse(req.postData()),farmChoices)}
+        :{success:true,farms:rankedInvoiceFarmSources(farmChoices,u.searchParams.get('supplier'),'CO')};
+      if(req.method()==='GET'&&/^\/api\/import\/receipts\/[a-f0-9-]{36}$/.test(u.pathname)){status=404;body={success:false,code:'INVOICE_DOCUMENT_NOT_FOUND',error:'연습 문서 최초 준비'};}
       if (u.pathname === '/api/import/tools/product-matches') {
         if (req.method() === 'POST') {
           const b = JSON.parse(req.postData() || '{}'); assert.equal(b.expectedRevision, matchRevision);
@@ -91,7 +100,7 @@ async function main() {
     console.log('page ready', new URL(page.url()).pathname);
     await page.screenshot({ path: '.verify/packing-list-guide-start.png' });
 
-    const rec = dry ? null : await createWorkflowGuideRecorder(page, { workflowId: WORKFLOW, guideId: GUIDE, title: '패킹리스트 만들기', sourceFiles: workflow.sourceFiles, fixtureOnly: true });
+    const rec = dry ? null : await createWorkflowGuideRecorder(page, { workflowId: WORKFLOW, guideId: GUIDE, title: '패킹리스트 만들기', sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset:'veryfast' });
     let number = 0, shotNo = 0;
     const say = async (text, ms = 6000) => {
       const lines = String(text).split('\n'); assert(lines.length <= 2 && lines.every(l => l.length <= 54), `자막은 2줄·줄당 54자 이하: ${text}`);
@@ -117,7 +126,7 @@ async function main() {
     // 표가 화면 맨 아래쪽에 있으면 가운데로 올릴 수 없다 → 화면에 보이지 않는 여백만 아래에 둔다(내용·동작은 그대로).
     await page.evaluate(() => { const s = document.createElement('div'); s.id = 'guide-bottom-space'; s.style.cssText = 'height:700px;flex:none'; document.body.append(s); });
     // 입고 작업 화면은 이 영상의 범위 밖이고 연습 자료로는 채울 수 없어, 녹화 중에는 그 영역의 내용을 비워 둔다.
-    await page.addStyleTag({ content: '#packing-receipt-stage > * { visibility: hidden !important; }' });
+    if(!dry)await page.addStyleTag({ content: '#packing-receipt-stage > * { visibility: hidden !important; }' });
     // 확대 대상: 화면 y 70~900 안, 확대창(약 1370×590) 안에 들어와야 글자가 잘리지 않는다.
     // 읽는 칸은 마우스 표시를 칸 바깥 옆으로 비켜 두고, 누를 버튼은 글자가 없는 가장자리를 누른다.
     const focus = async (selector, { click = false, fx = 0.9, fy = 0.5 } = {}) => {
@@ -164,7 +173,8 @@ async function main() {
     const chooser = await chooserPromise; await chooser.accept([dummy]);
     await page.waitForFunction(n => document.body.innerText.includes(n), {}, FILE_NAME);
     await out();
-    await say('올리면 파일 이름과 크기가 나오고, 곧바로 읽기가 시작됩니다.\n읽기가 끝나면 아래 안내가 "DB 매칭 미리보기"로 바뀝니다.', 3000);
+    await say('처음 올린 파일은 자동 분석합니다. 같은 내용이면 저장 분석을 재사용합니다.\n같은 이름의 변경본만 기존 분석과 새 파일 중 선택합니다.', 4000);
+    await out(2500);
     await page.evaluate(n => { [...document.querySelectorAll('div')].filter(d => d.innerText.includes(n) && d.innerText.includes('제거')).pop().setAttribute('data-guide-id', 'fileBox'); }, FILE_NAME);
     await focus('[data-guide-id="fileBox"]');
     await out();
@@ -236,6 +246,16 @@ async function main() {
     await step('미확인 품종을 모두 연결하자 화면이 「입고 작업」으로 넘어갔습니다.\n엑셀을 받으려면 위쪽 「파일 · 품목 매칭」 탭으로 돌아옵니다.', 7000);
     await press(await tag('backTab', 'button', '파일 · 품목 매칭'), { fx: 0.95, fy: 0.5 });
     await downloadReady();
+    if(dry){
+      await page.click('[data-testid="packing-receipt-prepare"]');
+      const receiptTab=await page.evaluateHandle(()=>[...document.querySelectorAll('nav[aria-label="인보이스 작업 선택"] button')].find(button=>button.innerText.includes('입고 작업')));await receiptTab.asElement().click();
+      const group='[data-testid="invoice-receipt-workbench"] [aria-label="농장 검색 결과"]';try{await page.waitForSelector(`${group} button`,{timeout:15000});}catch(error){console.log('WORKBENCH',await page.evaluate(()=>document.querySelector('#packing-receipt-stage')?.innerText));await page.screenshot({path:'.verify/farm-workbench-missing.png'});throw error;}
+      await page.waitForFunction(()=>document.querySelector('[data-testid="invoice-receipt-workbench"]')?.innerText.includes('선택된 농장: CI FLORES 연습농장 SAS'));
+      await page.click(`${group} button:last-child`);await page.waitForFunction(()=>document.querySelector('[data-testid="invoice-receipt-workbench"]')?.innerText.includes('선택된 농장: 연습 농장'));
+      await page.click(`${group} button:first-child`);assert.equal(await page.$eval(`${group} button:first-child`,n=>n.getAttribute('aria-pressed')),'true');
+      console.log('PASS actual workbench: source farm auto-fill and one-click change');
+      const uploadTab=await page.evaluateHandle(()=>[...document.querySelectorAll('nav[aria-label="인보이스 작업 선택"] button')].find(button=>button.innerText.includes('파일 · 품목 매칭')));await uploadTab.asElement().click();
+    }
     await out();
     const text5 = await pageText();
     assert(!text5.includes('합계 불일치') && !text5.includes('합계가 인보이스와 불일치'), '합계 불일치 안내가 없어야 함');

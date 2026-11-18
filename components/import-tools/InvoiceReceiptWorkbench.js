@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
 import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoiceReceiptAutoFill.js';
+import InvoiceFarmChoices from './InvoiceFarmChoices.js';
 import { resumeReceiptSource, readExistingReceiptSource, draftConflictMessage } from '../../lib/invoiceReceiptSourceResume.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
 import SharedAwbCostReview from './SharedAwbCostReview.js';
@@ -400,7 +401,7 @@ export default function InvoiceReceiptWorkbench({
           method: 'POST', credentials: 'same-origin', headers: jsonHeaders,
           body: JSON.stringify({orderYear:document.orderYear,farmKey:document.farmKey,
             rawMetadata:{supplier:document.rawMetadata?.supplier,invoiceDate:document.rawMetadata?.invoiceDate,rawDate:document.rawMetadata?.rawDate},
-            reviewedMetadata:{farmName:document.reviewedMetadata?.farmName,inputDate:document.reviewedMetadata?.inputDate,awb:document.reviewedMetadata?.awb,transportMode:document.reviewedMetadata?.transportMode}}),
+            reviewedMetadata:{farmName:document.reviewedMetadata?.farmName,country:document.reviewedMetadata?.country,farmSourceWarehouseKey:document.reviewedMetadata?.farmSourceWarehouseKey,inputDate:document.reviewedMetadata?.inputDate,awb:document.reviewedMetadata?.awb,transportMode:document.reviewedMetadata?.transportMode}}),
         }));
         return applyInvoiceHeader(record, data.resolution);
       }));
@@ -441,7 +442,7 @@ export default function InvoiceReceiptWorkbench({
     const timer = setTimeout(async () => {
       setFarmBusy(true);
       try {
-        const response = await fetch(`/api/import/receipts/auto-fill?lookup=farms&q=${encodeURIComponent(farmQuery.trim())}`, {
+        const response = await fetch(`/api/import/receipts/auto-fill?lookup=farms&q=${encodeURIComponent(farmQuery.trim())}&country=${encodeURIComponent(documentValue?.reviewedMetadata?.country||'')}&supplier=${encodeURIComponent(documentValue?.rawMetadata?.supplier||'')}`, {
           credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
         });
         const data = await readJson(response);
@@ -457,7 +458,7 @@ export default function InvoiceReceiptWorkbench({
       }
     }, 220);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [farmQuery, farmSearchAttempt]);
+  }, [farmQuery, farmSearchAttempt,documentValue?.reviewedMetadata?.country,documentValue?.rawMetadata?.supplier]);
 
   const scopeYear = documentValue?.orderYear || browseScope.orderYear;
   const scopeWeek = documentValue?.orderWeek || browseScope.orderWeek;
@@ -1370,10 +1371,8 @@ export default function InvoiceReceiptWorkbench({
         {farmError && <span role="alert">농장 검색 실패: {farmError}</span>}
         {!farmBusy && !farmError && farmQuery.trim() && farmOptions.length === 0 && <span role="status">일치하는 농장이 없습니다. 농장명의 일부로 다시 검색해 주세요.</span>}
         <button type="button" onClick={() => setFarmSearchAttempt(value => value + 1)} disabled={farmBusy}>농장 다시 검색</button>
-        {!farmBusy && !farmError && farmQuery.trim() && <div role="group" aria-label="농장 검색 결과">{farmOptions.map(farm => <button type="button" key={farm.FarmKey ? `farm:${farm.FarmKey}` : `receipt:${farm.WarehouseKey}`}
-          onClick={() => updateSelected(document => ({ ...document, farmKey: farm.FarmKey ?? null, reviewedMetadata: { ...document.reviewedMetadata, farmName: farm.FarmName, farmSourceWarehouseKey: farm.WarehouseKey ?? null } }))}>
-          {farm.FarmName} · {farm.FarmKey ? '농장 마스터' : '기존 입고 농장'} · 선택
-        </button>)}</div>}
+        {!farmBusy&&!farmError&&<InvoiceFarmChoices farms={farmOptions} selected={documentValue} searching={Boolean(farmQuery.trim())}
+          onSelect={farm=>updateSelected(document=>({...document,farmKey:farm.FarmKey??null,reviewedMetadata:{...document.reviewedMetadata,farmName:farm.FarmName,farmSourceWarehouseKey:farm.WarehouseKey??null}}))}/>} 
         <span role="status">{documentValue.farmKey || documentValue.reviewedMetadata.farmSourceWarehouseKey ? `선택된 농장: ${documentValue.reviewedMetadata.farmName || '저장 농장'}` : '농장 미선택 · 검색어 입력만으로 선택되지 않습니다. 검색 결과의 농장을 눌러 주세요.'}</span>
       </Field>
       <Field label={farmBusy ? '농장 검색 중…' : '농장 선택'} wide><select value={documentValue.farmKey ?? (documentValue.reviewedMetadata.farmSourceWarehouseKey ? `receipt:${documentValue.reviewedMetadata.farmSourceWarehouseKey}` : '')} onChange={event => {

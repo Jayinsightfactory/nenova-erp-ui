@@ -2,6 +2,58 @@
   "version": 1,
   "workflows": [
     {
+      "id": "invoice-farm-history",
+      "title": "농장 자동 선택·수정과 업로드 이력 대조",
+      "entryPaths": [
+        "/import/tools"
+      ],
+      "sourceFiles": [
+        "components/import-tools/InvoiceFarmChoices.js",
+        "components/import-tools/SharedPackingHistory.js",
+        "lib/invoiceReceiptAutoFill.js",
+        "lib/packingHistoryComparison.js"
+      ],
+      "requiredScenarios": [
+        "automatic",
+        "change",
+        "search",
+        "compare"
+      ],
+      "guides": [
+        {
+          "id": "import",
+          "role": "수입부",
+          "title": "농장 후보 변경·원본 수량 금액 비교",
+          "status": "ready",
+          "src": "/guides/invoice-farm-history/import.mp4",
+          "captions": "/guides/invoice-farm-history/import.ko.vtt",
+          "proof": "/guides/invoice-farm-history/import.proof.json",
+          "chapters": [
+            {
+              "scenario": "automatic",
+              "title": "1. 같은 공급자·국가에서 사용 이력이 많은 농장이 자동 선택됩니다.",
+              "seconds": 0.016
+            },
+            {
+              "scenario": "change",
+              "title": "2. 다른 후보를 눌러 선택을 변경하고 선택된 농장명을 확인합니다.",
+              "seconds": 9.904
+            },
+            {
+              "scenario": "search",
+              "title": "3. 농장명을 입력하면 후보를 좁혀 다시 선택할 수 있습니다.",
+              "seconds": 19.824
+            },
+            {
+              "scenario": "compare",
+              "title": "4. 이력에서 수량·금액 대조를 눌러 원본과 보관 분석을 비교합니다.",
+              "seconds": 31.044
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "receipt-source-comparison",
       "title": "입고 전 원본·품목·수량 대조",
       "entryPaths": [
@@ -202,12 +254,19 @@
         "/import/tools"
       ],
       "sourceFiles": [
-        "components/import-tools/PackingListTool.js"
+        "components/import-tools/PackingListTool.js",
+        "lib/packingFileReuse.js",
+        "components/import-tools/SharedPackingHistory.js",
+        "lib/packingHistoryComparison.js",
+        "styles/ImportPacking.module.css"
       ],
       "requiredScenarios": [
         "select",
         "recover",
-        "review"
+        "review",
+        "reuse",
+        "changed",
+        "history"
       ],
       "guides": [
         {
@@ -227,12 +286,27 @@
             {
               "scenario": "recover",
               "title": "2. 원본 PDF 선택 · 처음 올린 PDF는 Claude로 분석하고 저장 결과는 재사용합니다.",
-              "seconds": 12.205
+              "seconds": 12.219
             },
             {
               "scenario": "review",
               "title": "3. 미매칭 확인 · 원본 품목을 눌러 전산 품목을 검색하고 선택합니다.",
-              "seconds": 24.5
+              "seconds": 25.887
+            },
+            {
+              "scenario": "reuse",
+              "title": "4. 기존 분석 재사용 · 파일을 다시 올리지 않고 저장 분석에서 바로 이어갑니다.",
+              "seconds": 69.614
+            },
+            {
+              "scenario": "changed",
+              "title": "5. 변경본 선택 · 내용이 다른 파일은 기존 분석과 새 파일 분석 중 선택합니다.",
+              "seconds": 99.906
+            },
+            {
+              "scenario": "history",
+              "title": "6. 업로드 이력 · 원본과 보관 분석의 수량·금액을 비교합니다.",
+              "seconds": 141.636
             }
           ]
         }
@@ -246,7 +320,9 @@
         "/work/manuals?manual=packing-list-from-invoice"
       ],
       "sourceFiles": [
-        "components/import-tools/PackingListTool.js"
+        "components/import-tools/PackingListTool.js",
+        "lib/packingFileReuse.js",
+        "styles/ImportPacking.module.css"
       ],
       "requiredScenarios": [
         "select",
@@ -268,27 +344,27 @@
             {
               "scenario": "select",
               "title": "1. 나라 고르기",
-              "seconds": 0.013
+              "seconds": 0.003
             },
             {
               "scenario": "upload",
               "title": "2. 인보이스 PDF 올리기",
-              "seconds": 25.638
+              "seconds": 25.671
             },
             {
               "scenario": "verify",
               "title": "3. 읽힌 농장·인보이스 번호·수량·합계 확인",
-              "seconds": 58.675
+              "seconds": 63.669
             },
             {
               "scenario": "match",
               "title": "4. 미확인 품종을 전산 품목에 연결",
-              "seconds": 91.275
+              "seconds": 96.318
             },
             {
               "scenario": "download",
               "title": "5. 합계 확인하고 엑셀 내려받기",
-              "seconds": 188.105
+              "seconds": 193.652
             }
           ]
         }

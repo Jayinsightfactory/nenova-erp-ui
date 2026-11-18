@@ -1,7 +1,7 @@
 import { withAuth } from '../../../../lib/auth';
 import { query } from '../../../../lib/db';
 import { canManageInvoiceReceipt } from '../../../../lib/invoiceReceiptAccess';
-import { resolveInvoiceHeader } from '../../../../lib/invoiceReceiptAutoFill';
+import { resolveInvoiceHeader, rankedInvoiceFarmSources } from '../../../../lib/invoiceReceiptAutoFill';
 import { listInvoiceFarmSources } from '../../../../lib/invoiceFarmSource.js';
 
 export function createInvoiceHeaderHandler({queryFn=query}={}) {
@@ -12,7 +12,8 @@ export function createInvoiceHeaderHandler({queryFn=query}={}) {
       try {
         const q=String(req.query?.q||'').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
         const farms=await listInvoiceFarmSources(queryFn);
-        return res.status(200).json({success:true,farms:farms.filter(f=>f.FarmName.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'').includes(q)).slice(0,50)});
+        const ranked=rankedInvoiceFarmSources(farms,String(req.query?.supplier||req.query?.q||''),String(req.query?.country||''));
+        return res.status(200).json({success:true,farms:ranked.filter(f=>!q||f.FarmName.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'').includes(q)).slice(0,50)});
       }catch{return res.status(503).json({success:false,error:'농장 검색에 실패했습니다. 입력을 유지하고 다시 검색해 주세요.'});}
     }
     if(req.method!=='POST'){res.setHeader('Allow','GET, POST');return res.status(405).json({success:false,error:'GET, POST만 허용됩니다.'});}

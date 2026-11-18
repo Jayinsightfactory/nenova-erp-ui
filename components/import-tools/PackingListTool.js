@@ -1,7 +1,8 @@
 import styles from '../../styles/ImportPacking.module.css';
 import WorkflowGuide from '../WorkflowGuide';
 import { blockingPackingIssues } from '../../lib/packingReceiptDatePolicy.js';
-import {createPackingHistoryClient} from '../../lib/packingSharedHistoryClient.js';
+import {createPackingHistoryClient,loadPackingHistory} from '../../lib/packingSharedHistoryClient.js';
+import {packingFileReuse,analyzedPackingUploads,readCompletedPackingAnalysis} from '../../lib/packingFileReuse.js';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import PackingResults from './PackingResults.js';
 import { packingReceiptMatchState, effectivePackingMatchReview } from '../../lib/packingReceiptMatchState.js';
@@ -949,6 +950,15 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const t = { ...I18N[lang] || I18N.ko, ...packingText(lang) };
   const changeLang = setLang;
   const [file, setFile] = useState(null);
+  const [fileChoice,setFileChoice]=useState(null);
+  const [selectingFile,setSelectingFile]=useState(false);
+  const [historyOpen,setHistoryOpen]=useState(false);
+  const [historyRows,setHistoryRows]=useState([]);
+  const [historySearch,setHistorySearch]=useState('');
+  const [historyError,setHistoryError]=useState('');
+  const fileChoiceRef=useRef(null);
+  const reusableExtraction=useRef(null);
+  useEffect(()=>{if(fileChoice)fileChoiceRef.current?.focus();},[fileChoice]);
   const [invoiceUploadDate, setInvoiceUploadDate] = useState('');
   const [audMarketRate, setAudMarketRate] = useState(null);
   const [audMarketRateError, setAudMarketRateError] = useState('');
@@ -1147,41 +1157,45 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     if (sharedRestore && savedWork === sharedRestore.snapshot) sharedRestoreButton.current?.focus();
   }, [sharedRestore, savedWork]);
 
-  const restoreWork = async () => {
-    if (!savedWork || (!workReady && savedWork !== sharedRestore?.snapshot) || savingRef.current || processingRef.current) return;
+  const restoreWork = async (options) => {
+    const work=options?.snapshot||savedWork;
+    if (!work || (!options?.snapshot && !workReady && work !== sharedRestore?.snapshot) || savingRef.current || processingRef.current) return;
     processingRef.current = true; setRestoringWork(true); setWorkError('');
     const version = ++readerVersion.current;
     try {
       const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
       const account = await response.json();
       if (!response.ok || !account.success || String(account.user?.userId) !== String(userId)) throw new Error('로그인 계정이 변경되었습니다. 페이지를 새로고침하세요.');
-      const restoredFile = new File([savedWork.file], savedWork.fileName, { type: savedWork.fileType, lastModified: savedWork.lastModified });
+      const restoredFile = new File([work.file], work.fileName, { type: work.fileType, lastModified: work.lastModified });
       const [freshErp, records, hash, base64] = await Promise.all([
         requestErpMatches(), readPackingRecords(storage), sha256File(restoredFile),
         new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1]); reader.onerror = () => reject(new Error('보관된 원본 파일을 읽을 수 없습니다.')); reader.readAsDataURL(restoredFile); }),
       ]);
       if (readerVersion.current !== version) return;
-      const extraction = savedWork.lastExtraction;
+      const extraction = work.lastExtraction;
       if (!extraction?.result?.invoices?.length || !extraction?.sourceInvoices?.length) {
-        resetResults(); setCountry(savedWork.country); setDateYear(savedWork.dateYear || ''); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
+        resetResults(); setCountry(work.country); setDateYear(work.dateYear || ''); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
         setErpMatches(freshErp); setAliases(records.aliases); setLatestShared(false); setSavedWork(null);
         setStatus({type:'info',msg:'원본 파일을 복구했습니다. 분석을 실행한 뒤 매칭을 확인하세요. 입고는 등록하지 않았습니다.'});
         return;
       }
       if (extraction.sourceHash !== hash) throw new Error('원본 파일과 분석 근거가 일치하지 않습니다. 다시 분석하세요.');
       if (/\.pdf$/i.test(restoredFile.name) && [...extraction.sourceInvoices, ...extraction.result.invoices].some(invoice => invoice.pdfSourceHash !== hash)) throw new Error('원본 파일과 분석 근거가 일치하지 않습니다. 다시 분석하세요.');
-      let confirmed = savedWork.reviewConfirmed;
+      let confirmed = work.reviewConfirmed;
       if (confirmed && /\.pdf$/i.test(restoredFile.name)) {
-        try { extraction.result.invoices.forEach(invoice => assertPackingSourceValues(invoice, savedWork.country)); }
+        try { extraction.result.invoices.forEach(invoice => assertPackingSourceValues(invoice, work.country)); }
         catch { confirmed = false; }
       }
-      setCountry(savedWork.country); setDateYear(savedWork.dateYear || ''); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
-      setLastExtraction({ ...extraction, sourceHash: hash }); setReviewRows(savedWork.reviewRows || makePackingReviewRows(extraction.sourceInvoices, savedWork.country));
+      autoAnalysisFile.current=null;
+      setFileChoice(null);setHistoryOpen(false);
+      setAwbFile(null);setAwbPdfBase64('');setAwbSourceHash('');setAwbValues(null);setAwbManualFields([]);setAwbReviewed(false);
+      setCountry(work.country); setDateYear(work.dateYear || ''); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
+      setLastExtraction({ ...extraction, sourceHash: hash }); setReviewRows(work.reviewRows || makePackingReviewRows(extraction.sourceInvoices, work.country));
       setReviewConfirmed(confirmed); setReviewOpen(false); setReviewRevision(value => value + 1);
-      setLegacyReviewData(savedWork.legacyReviewData); setLegacyPackingReviewRequired(savedWork.legacyPackingReviewRequired);
-      setExtractionSource(savedWork.extractionSource); setErpMatches(freshErp); setAliases(records.aliases); setLatestShared(false);
+      setLegacyReviewData(work.legacyReviewData); setLegacyPackingReviewRequired(work.legacyPackingReviewRequired);
+      setExtractionSource('저장 분석 재사용 · API 호출 없음'); setErpMatches(freshErp); setAliases(records.aliases); setLatestShared(false);
       setExcels([]); setGenerated({}); setGeneratedErp(null);
-      setMatchPreview(buildPackingMatchPreview({ invoices: extraction.result.invoices, country: savedWork.country, aliases: records.aliases, erpMatches: freshErp }));
+      setMatchPreview(buildPackingMatchPreview({ invoices: extraction.result.invoices, country: work.country, aliases: records.aliases, erpMatches: freshErp }));
       setScrollMatchPreview(true); setSavedWork(null);
       setStatus({ type: 'info', msg: '보관한 작업을 복구하고 최신 팀 매칭을 다시 적용했습니다. 입고 업로드는 별도로 승인해야 합니다.' });
     } catch (error) { setWorkError(`작업 복구 실패: ${error.message}`); }
@@ -1235,6 +1249,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     invoiceUploadDate, awbFile, awbSourceHash, awbReview, awbReviewed, awbManualFields, audMarketRate, audMarketRateError]);
 
   const resetResults = () => {
+    setFileChoice(null);setSelectingFile(false);setHistoryOpen(false);setHistoryError('');
     receiptIntent.current = false;
     setMatchTarget(null);setMatchError('');
     setReviewRows(null); setReviewOpen(false); setReviewConfirmed(false);
@@ -1412,6 +1427,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const autoAnalysisFile = useRef(null);
   const autoPreparedSources = useRef(new WeakSet());
   const handleAwbFile = async f => {
+    if(fileChoice||selectingFile)return;
     if (!f || processingRef.current || savingRef.current) return;
     if (!file) { setStatus({ type: 'error', msg: '인보이스를 먼저 선택한 뒤 해당 인보이스의 AWB를 올리세요.' }); return; }
     if (f.size > PACKING_PDF_MAX_BYTES || !/\.pdf$/i.test(f.name) || (f.type && f.type !== 'application/pdf')) {
@@ -1432,9 +1448,65 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setStatus({ type: 'info', msg: '인보이스와 AWB를 함께 분석합니다. GW·CW는 AWB 원문 대조를 확인하세요.' });
     } catch (error) { setStatus({ type: 'error', msg: error.message }); }
   };
+  const readUploadHistory=async()=>{
+    const response=await fetch('/api/import/tools/upload-history',{credentials:'same-origin',cache:'no-store'});
+    const data=await response.json();
+    if(!response.ok||!data.success||!Array.isArray(data.rows))throw Error(data.error||'업로드 이력을 확인하지 못했습니다. 자동 분석하지 않습니다. 다시 시도하세요.');
+    return data.rows;
+  };
+  const cancelFileChoice=()=>{
+    ++readerVersion.current;autoAnalysisFile.current=null;setFileChoice(null);
+    setStatus({type:'info',msg:'새 파일 선택을 취소했습니다. 기존 작업은 그대로 유지됩니다.'});
+    toolRoot.current?.querySelector('[role="button"][aria-label*="인보이스"]')?.focus();
+  };
+  const restoreAnalyzedUpload=async(row,version=++readerVersion.current)=>{
+    if(processingRef.current||savingRef.current)return;
+    autoAnalysisFile.current=null;setSelectingFile(true);setHistoryError('');
+    try{
+      const snapshot=await loadPackingHistory(row.id);
+      if(readerVersion.current!==version)return;
+      if(snapshot.country!==country||snapshot.lastExtraction?.sourceHash!==row.sourceHash
+        ||!snapshot.lastExtraction?.result?.invoices?.length||!snapshot.lastExtraction?.sourceInvoices?.length)
+        throw Error('저장 분석과 원본·국가가 일치하지 않습니다. 자동 재분석하지 않습니다.');
+      setSelectingFile(false);
+      await restoreWork({snapshot});
+    }catch(error){if(readerVersion.current===version){setHistoryError(error.message);setStatus({type:'error',msg:`저장 분석 불러오기 실패: ${error.message} · 현재 작업을 유지합니다.`});}}
+    finally{if(readerVersion.current===version)setSelectingFile(false);}
+  };
+  const showAnalyzedUploads=async()=>{
+    const version=readerVersion.current;
+    setHistoryOpen(true);setHistoryError('');setSelectingFile(true);
+    try{const rows=await readUploadHistory();if(readerVersion.current===version)setHistoryRows(analyzedPackingUploads(rows,country));}
+    catch(error){if(readerVersion.current===version)setHistoryError(error.message);}
+    finally{if(readerVersion.current===version)setSelectingFile(false);}
+  };
+  const acceptSelectedFile=(f,version,cached=null,base64=null)=>{
+    if(readerVersion.current!==version||processingRef.current||savingRef.current)return;
+    setFileChoice(null);setHistoryOpen(false);
+    setPdfBase64(null); resetResults(); setStatus(null); setFile(null);
+    const uploadDate = seoulCalendarDate();
+    setInvoiceUploadDate(uploadDate);
+    setAudMarketRate(null); setAudMarketRateError('');
+    if (country === 'AU') {
+      fetch(`/api/import/receipts/aud-exchange-rate?date=${encodeURIComponent(uploadDate)}`, { credentials: 'same-origin', cache: 'no-store' })
+        .then(async response => { const data = await response.json(); if (!response.ok || !data?.success) throw new Error(data?.error || 'AUD 환율을 조회하지 못했습니다.'); return data; })
+        .then(data => {if(readerVersion.current===version)setAudMarketRate(data);})
+        .catch(error => {if(readerVersion.current===version)setAudMarketRateError(error.message);});
+    }
+    setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
+    autoAnalysisFile.current = autoAnalyze ? f : null;
+    reusableExtraction.current=cached?{file:f,data:cached}:null;
+    setFile(f);
+    if(base64){setPdfBase64(base64);return;}
+    const reader = new FileReader();
+    reader.onload = () => {if (readerVersion.current === version) setPdfBase64(String(reader.result).split(',')[1]);};
+    reader.onerror = () => {if (readerVersion.current === version) setStatus({ type: 'error', msg: '선택한 원본 파일을 읽지 못했습니다.' });};
+    reader.readAsDataURL(f);
+  };
   const handleFile = async (f) => {
     if (!f || processingRef.current || savingRef.current) return;
     const version = ++readerVersion.current;
+    autoAnalysisFile.current=null;setFileChoice(null);
     const isChinaExcel = country === 'CN' && /\.xlsx$/i.test(f.name);
     if (f.size > (isChinaExcel ? CHINA_INVOICE_MAX_BYTES : PACKING_PDF_MAX_BYTES)) {
       setStatus({ type: 'error', msg: isChinaExcel ? '중국 인보이스 Excel은 최대 50MiB까지 지원합니다.' : t.pdfLimit });
@@ -1444,36 +1516,28 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setStatus({ type: 'error', msg: country === 'CN' ? '중국 인보이스는 PDF 또는 XLSX 파일을 선택하세요.' : t.pdfOnly });
       return;
     }
-    if (autoAnalyze) try {
+    if (autoAnalyze) {setSelectingFile(true);try {
       const sourceHash = await sha256File(f);
-      const response = await fetch('/api/import/tools/upload-history', {credentials:'same-origin',cache:'no-store'});
-      const data = await response.json();
+      const rows=await readUploadHistory();
       if (readerVersion.current !== version) return;
-      if (!response.ok || !data.success || !Array.isArray(data.rows)) throw new Error(data.error || '업로드 이력을 확인하지 못했습니다. 다시 시도하세요.');
-      const previous = data.rows.find(row => row.sourceHash === sourceHash && row.country === country);
-      if (previous && !toolRoot.current?.ownerDocument?.defaultView?.confirm('이미 업로드한 파일입니다. 최신 공용 매칭으로 재검증할까요? 기존 입고는 중복 등록하지 않습니다.')) return;
+      const reuse=packingFileReuse(rows,{country,sourceHash,fileName:f.name});
+      setHistoryRows(reuse.analyzed);
+      if(reuse.exact){setSelectingFile(false);await restoreAnalyzedUpload(reuse.exact,version);return;}
+      let base64=null;
+      if(!isChinaExcel&&country!=='AU'){
+        base64=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('원본 파일을 읽지 못했습니다.'));reader.readAsDataURL(f);});
+        if(readerVersion.current!==version)return;
+        const cached=await readCompletedPackingAnalysis({country,pdfBase64:base64});
+        if(readerVersion.current!==version)return;
+        if(cached){setSelectingFile(false);acceptSelectedFile(f,version,cached,base64);return;}
+      }
+      if(!reuse.previous){acceptSelectedFile(f,version,null,base64);return;}
+      setFileChoice({file:f,sourceHash,previous:reuse.previous,version});
+      setStatus({type:'info',msg:'파일명은 같지만 내용이 달라졌습니다. 사용할 분석을 선택하세요.'});
+      return;
     } catch (error) { if (readerVersion.current === version) setStatus({type:'error',msg:error.message}); return; }
-    setPdfBase64(null); resetResults(); setStatus(null); setFile(null);
-    const uploadDate = seoulCalendarDate();
-    setInvoiceUploadDate(uploadDate);
-    setAudMarketRate(null); setAudMarketRateError('');
-    if (country === 'AU') {
-      fetch(`/api/import/receipts/aud-exchange-rate?date=${encodeURIComponent(uploadDate)}`, { credentials: 'same-origin', cache: 'no-store' })
-        .then(async response => { const data = await response.json(); if (!response.ok || !data?.success) throw new Error(data?.error || 'AUD 환율을 조회하지 못했습니다.'); return data; })
-        .then(data => setAudMarketRate(data))
-        .catch(error => setAudMarketRateError(error.message));
-    }
-    setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
-    autoAnalysisFile.current = autoAnalyze ? f : null;
-    setFile(f);
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (readerVersion.current === version) setPdfBase64(String(reader.result).split(',')[1]);
-    };
-    reader.onerror = () => {
-      if (readerVersion.current === version) setStatus({ type: 'error', msg: isChinaExcel ? '중국 인보이스 Excel 파일을 읽지 못했습니다.' : t.pdfReadError });
-    };
-    reader.readAsDataURL(f);
+    finally{if(readerVersion.current===version)setSelectingFile(false);}}
+    acceptSelectedFile(f,version);
   };
 
   const onDrop = (e) => {
@@ -1679,6 +1743,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     finally{processingRef.current=false;setProcessing(false);}
   };
   const process = async (allowAI = true, retryJobId = null) => {
+    if(fileChoice||selectingFile)return;
     // PDF uploads use Claude after checking durable results. Failed jobs require
     // the separate explicit retry action; OCR is not an automatic fallback.
     if (!pdfBase64 || !xlsxLib || !sharedReady || savingRef.current || processingRef.current || catalogParsing) return;
@@ -1709,7 +1774,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if(!isCurrent())return;
       setErpMatches(freshErp);setAliases(freshRecords.aliases);setLatestShared(false);
       let extraction;
-      if (country === 'CN' && /\.xlsx$/i.test(file.name)) {
+      if(reusableExtraction.current?.file===file){
+        extraction={data:reusableExtraction.current.data,source:'cache'};reusableExtraction.current=null;
+      } else if (country === 'CN' && /\.xlsx$/i.test(file.name)) {
         try {
           extraction = { source: 'local', data: parseChinaInvoiceWorkbook(xlsxLib, pdfBase64) };
         } catch (modernError) {
@@ -2195,7 +2262,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
 
         {screen === 'upload' && cfg && (
           <>
-            <button onClick={() => setScreen('country')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#526580', cursor: 'pointer', border: 'none', background: 'none', padding: 0, marginBottom: '1.25rem' }}>{t.back}</button>
+            <button data-testid="packing-country-back" onClick={() => {++readerVersion.current;autoAnalysisFile.current=null;setFileChoice(null);setSelectingFile(false);setHistoryOpen(false);setScreen('country');}} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#526580', cursor: 'pointer', border: 'none', background: 'none', padding: 0, marginBottom: '1.25rem' }}>{t.back}</button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               <span style={{ fontSize: 24 }}>{cfg[0]}</span>
               <div>
@@ -2203,6 +2270,24 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 <div style={{ fontSize: 13, color: '#526580' }}>{cfg[2]}</div>
               </div>
             </div>
+            <section className={styles.reusePanel} aria-label="저장 분석 불러오기">
+              <div className={styles.reuseHeading}>
+                <div><strong>이미 분석한 파일은 바로 이어서 작업</strong><p>파일을 다시 고르면 내용 해시로 확인합니다. 저장 분석 불러오기는 AI 호출 없이 최신 매칭을 적용합니다.</p></div>
+                <button type="button" data-testid="packing-history-open" aria-expanded={historyOpen} disabled={processing||saving||restoringWork||selectingFile}
+                  onClick={()=>historyOpen?setHistoryOpen(false):showAnalyzedUploads()}>{historyOpen?'목록 닫기':'기존 분석 불러오기'}</button>
+              </div>
+              {historyOpen&&<div>
+                <label className={styles.reuseSearch}>보관된 파일명 검색<input aria-label="보관된 파일명 검색" value={historySearch} onChange={e=>setHistorySearch(e.target.value)}/></label>
+                <div className={styles.reuseList}>
+                  {historyRows.filter(r=>r.country===country&&r.fileName.toLocaleLowerCase().includes(historySearch.toLocaleLowerCase())).slice(0,30).map(row=><button type="button" key={row.id} data-testid="packing-history-resume" disabled={processing||saving||restoringWork||selectingFile} onClick={()=>restoreAnalyzedUpload(row)}>
+                    <span>{row.fileName}</span><small>{Number.isFinite(Date.parse(row.at))?new Date(row.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'저장 시각 미확인'} · 바로 이어서 작업</small>
+                  </button>)}
+                </div>
+                {!selectingFile&&!historyRows.some(r=>r.country===country&&r.fileName.toLocaleLowerCase().includes(historySearch.toLocaleLowerCase()))&&<p>선택한 국가에 해당하는 저장 분석이 없습니다.</p>}
+              </div>}
+              {selectingFile&&<p role="status">원본 해시·저장 분석 확인 중… 새 AI 분석은 실행하지 않습니다.</p>}
+              {historyError&&<p role="alert">{historyError}</p>}
+            </section>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{country === 'CN' ? '중국 인보이스 업로드 (Excel · PDF)' : t.uploadLabel}</div>
             <div role="button" tabIndex={0} aria-label={country === 'CN' ? '중국 인보이스 업로드 (Excel · PDF)' : t.uploadLabel} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileRef.current?.click(); } }} onClick={() => fileRef.current?.click()}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -2214,6 +2299,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
               <div style={{ fontSize: 14, color: '#526580' }}><strong style={{ color: '#172b4d' }}>{t.uploadClick}</strong> {t.uploadDrag}</div>
               <div style={{ fontSize: 13, marginTop: 4, color: '#526580' }}>{country === 'CN' ? 'PDF 20MiB / Excel 50MiB · 예: 41-1 중국 해상 ci1.xlsx' : <>PDF · 20MiB · {t.uploadHint} <code style={{ background: '#edf2f8', padding: '1px 5px', borderRadius: 3 }}>16-2 Hortensias.pdf</code>)</>}</div>
             </div>
+            {fileChoice&&<section className={styles.reusePanel} aria-label="새 파일 분석 선택" data-testid="packing-file-choice" onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();cancelFileChoice();}}}>
+              <h3 ref={fileChoiceRef} tabIndex={-1}>{fileChoice.previous?'내용이 변경된 파일입니다':'새 파일 분석을 선택하세요'}</h3>
+              <p><strong>{fileChoice.file.name}</strong> · {(fileChoice.file.size/1024).toFixed(0)} KB</p>
+              <p>{fileChoice.previous?'같은 이름의 이전 분석과 파일 내용이 다릅니다. 이전 분석을 사용하거나 선택한 새 파일만 분석할 수 있습니다.':'동일한 내용의 저장 분석을 찾지 못했습니다. 처음 올린 파일도 분석 버튼을 누르기 전에는 AI를 호출하지 않습니다.'}</p>
+              <div className={styles.reuseActions}>
+                {fileChoice.previous&&<button type="button" data-testid="packing-reuse-previous" disabled={processing||saving||selectingFile||restoringWork} onClick={()=>restoreAnalyzedUpload(fileChoice.previous)}>기존 분석으로 이어서 · 추가 비용 없음</button>}
+                <button type="button" className={styles.reusePrimary} data-testid="packing-analyze-selected" disabled={processing||saving||selectingFile||restoringWork} onClick={()=>acceptSelectedFile(fileChoice.file,fileChoice.version)}>{country==='CN'&&/\.xlsx$/i.test(fileChoice.file.name)?'선택한 Excel 읽기 · API 호출 없음':'선택한 새 파일 분석 · API 비용 발생 가능'}</button>
+                <button type="button" data-testid="packing-file-cancel" onClick={cancelFileChoice}>취소 · 기존 작업 유지</button>
+              </div>
+            </section>}
             {file && (
               <div style={{ marginTop: 10, background: '#f4f7fb', border: '1px solid #dce4ef', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
@@ -2277,7 +2372,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
               </div>}
             </section>}
             <p className={styles.notice} role="note" style={{ fontSize: 13, color: '#526580', marginTop: 12 }}>{country === 'CN' ? 'Excel은 코드 분석으로 처리합니다. Total of Flower Material은 단수, Stems는 송이수, Unit Price는 단당 단가로 읽습니다. PDF는 Claude API로 분석합니다. 입고등록 전 ERP 원장은 변경하지 않습니다.' : t.pdfNotice}</p>
-            <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {!fileChoice&&!selectingFile&&<div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib || (country === 'AU' && !awbPdfBase64)} title={country === 'AU' && !awbPdfBase64 ? '호주 인보이스와 AWB PDF를 모두 선택해야 합니다.' : undefined} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 'pointer' : 'not-allowed', border: '1px solid #2457c5', background: '#2457c5', color: '#fff', opacity: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 1 : 0.35 }}>
                 {processing ? t.processing : t.generate}
               </button>
@@ -2286,7 +2381,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 if (pdfRetryJobId && !toolRoot.current?.ownerDocument?.defaultView?.confirm('이전 분석의 결과가 불명확하여 추가 비용이 발생할 수 있습니다. 같은 파일을 새로 AI 분석할까요?')) return;
                 return process(true,pdfRetryJobId);
               }} disabled={processing || (country === 'AU' && !awbPdfBase64)} title={country === 'AU' && !awbPdfBase64 ? '호주 인보이스와 AWB PDF를 모두 선택해야 합니다.' : undefined} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #b67b12',background:'#fff4d6',fontWeight:600}}>{pdfRetryJobId?'새로 AI 분석 (추가 비용 확인)':t.aiAnalyze}</button>}
-            </div>
+            </div>}
             <div className={styles.modeBadge}>{country==='CN'&&/\.xlsx$/i.test(file?.name||'')?'엑셀 코드 분석 · API 호출 없음':t.localMode}</div>
             {extractionSource&&<p className={styles.sourceBadge} role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}
             {lastExtraction?.result?.free_ocr_review_issues?.length>0&&<div role="status" style={{padding:12,border:'1px solid #e2b459',background:'#fff8e9',borderRadius:8}}>

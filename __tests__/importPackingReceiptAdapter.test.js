@@ -3,6 +3,15 @@ const test = require('node:test');
 
 const ready = import('../lib/importPackingReceiptAdapter.js');
 const sourceReviewReady = import('../lib/importPackingSourceReview.js');
+test('Colombia Hydrangea missing bunch quantity follows existing packing family rule without changing invoice amount',async()=>{
+ const adapter=await ready;
+ const input={country:'CO',fileName:'2026_46-02_CO.xlsx',sourceHash:'a'.repeat(64),invoices:[{invoice:'25571',currency:'USD',date:'2026/11/10',products:[{description:'Hydrangea White',pcs:50,total_stems:1500,u_price:.7,t_price:1050}]}]};
+ const [document]=await adapter.adaptPackingReceipts(input);
+ assert.equal(document.lines[0].bunchQuantity,1500);assert.equal(document.lines[0].stemQuantity,1500);assert.equal(document.lines[0].lineAmount,1050);
+ assert.equal(document.lines[0].sourceEvidence.derivedFields.bunchQuantity.operands.stemsPerBunch,1);
+ input.invoices[0].products[0].total_bunch=0;
+ assert.equal((await adapter.adaptPackingReceipts(input))[0].lines[0].bunchQuantity,0);
+});
 test('receipt payload scope always uses strings without inventing a missing year', async () => {
   const {toReceiptDraftPayload} = await ready;
   for (const orderYear of [undefined, null, '', 2026, '2025']) {
