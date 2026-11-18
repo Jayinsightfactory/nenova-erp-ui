@@ -32,6 +32,10 @@ assert.ok(f.history.length >= 2);
 // Receipt of documents does not prove quantities corrected; explicit correction does.
 f=target(build([msg(rooms[2],'18T14:00','47-1차 콜수국 수량 정정 완료했습니다'),msg(rooms[1],'18T14:01','99212345675 적하 수정 완료했습니다')]));
 assert.equal(f.alerts.length,0);
+for (const text of ['서류 수령 완료 안됐습니다', '서류 전달 완료했나요?', '수량 일치 확인 바랍니다', '적하 수정 완료됐나요?']) {
+  const events = extractRoomEvents([msg(text.includes('적하') ? rooms[1] : rooms[2], '18T14:00', '99212345675 ' + text)]);
+  assert.ok(!events.some(e => ['docs_received','docs_sent','qty_resolved','manifest_resolved'].includes(e.type)), text);
+}
 f=target(build([msg(rooms[2],'18T14:00','47-1차 콜수국 수량 수정 부탁드립니다')]));
 assert.ok(f.alerts.some(a=>/수량 대조/.test(a.text)));
 f=target(build([msg(rooms[2],'18T14:00','47-1차 콜수국 서류 재전달 부탁드립니다')]));
