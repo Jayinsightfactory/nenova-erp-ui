@@ -567,9 +567,12 @@ async function runDelayedAuthLayoutRegression(browser) {
     const before = await page.$eval('table', node => node.innerText);
     failNextRawData = true;
     const rangeSelects = await page.$$('[data-testid="pivot-exe-toolbar"] select');
+    await rangeSelects[0].select('37-02');
     await rangeSelects[1].select('37-02');
     await waitFor(() => saw503, '503 race response');
     await page.waitForSelector('[data-testid="pivot-exe-error"]');
+    await page.waitForSelector('[data-testid="pivot-exe-grid"]',{visible:true});
+    await page.waitForSelector('[data-testid="pivot-loading-overlay"]',{hidden:true});
     const after = await page.$eval('table', node => node.innerText);
     assert(after === before, 'last good data was not preserved after scope-changing 503');
 

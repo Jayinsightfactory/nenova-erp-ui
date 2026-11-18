@@ -3665,3 +3665,4 @@ pm run test:canon 통과.
 3. 남은 할 일: PR CI → squash merge → Cafe24 배포 및 운영 화면 확인 → worktree 정리.
 4. 검증 상태: test:erp-contract 전체, dnspy-evidence, erp-manifest(225), guard:erp-writes, webpack build, workflow-guides 통과. 완성 빌드 직접필터/국가·꽃 복구/키보드/1920·1280·390/영상 재생·목차·자막·다운로드 통과. 운영 배포는 아직 미검증.
 5. 주의/잠금: ERP API/SQL 변경 0. 기본 체크아웃의 다른 세션 수정 파일 보존. node_modules는 기본 체크아웃 연결이므로 삭제 시 junction만 제거.
+- 추가 검증: 기존 종합 브라우저 smoke에서 필드 drag/drop·빈 선택·AST·정렬·표시·크기·즐겨찾기 CRUD(격리 fixture)·팝업·가로 스크롤·XLSX 다운로드 단계 통과. 503 오류 주입 뒤 표 보존 검사는 실패: 기준 c30ad26f의 동일한 usePivotExeCalculation 활성 조건(!dirty && !error)이 기존 표를 숨김. 이번 UI 패치 전부터 존재하는 별도 알려진 제한이며 전체 smoke 통과로 표시하지 않는다. 실패 단언을 유지하고 테스트의 현행 셀렉터·로딩 대기·현재 차수 역순 조건만 갱신. PR #1838.
