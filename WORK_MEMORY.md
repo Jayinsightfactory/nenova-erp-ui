@@ -3542,3 +3542,15 @@ pm run test:canon 통과.
 3. 남은 할 일: PR #1827 CI 통과 확인 → squash 머지 → worktree 정리.
 4. 검증 상태: `archFlowChart`, `workflowReview`, `workFeatureData`, `test:pm`(47파일 no-hex, 9파일 ui-kit, boundary), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `erp-manifest(224)`, `npx next build --webpack` 통과. PR CI 및 운영 반영 확인 진행 중.
 5. 주의/잠금: MSSQL 원장·마이그레이션·API 쓰기 변경 0건(문서화된 스키마 읽기 시각화만 추가). `pages/pm.js` 및 데스크톱 파일 미수정. worktree 정리 시 `cmd /c rmdir`로 `node_modules` junction만 먼저 해제할 것.
+
+## 2026-11-18 · 지도와 항공편별 이슈 연결 개편 (검증 중)
+- 사용자 목적: 큰 독립 이슈표를 없애고 지도 번호·경로와 옆 항공편/이슈를 연결, 우선 처리편부터 표시. 기본 이슈 2줄, 선택하면 상세와 나머지 이슈 표시. 가이드영상은 사용자 명시 제외.
+- 경계: 기존 조회 API/SQL 변경 없음. Order/Shipment/Warehouse/Stock/Estimate/WebProfitReport 원장 보존. 기존 명시적 서류 전달 표시만 유지. 원문 시간 확인은 자료 출처·운항일을 대조하며 미확인을 처리완료로 단정하지 않는다.
+- 정기 확인: automation-2, 한국 시간 매일 09·12·15·18시(주말 포함), 이 채팅에서 연결페이지 조회 결과 보고. ERP에 자동 기록하는 기능이 아님.
+- 검색어: flight-linked-board 지도 카드 연결 우선항공편 STA 정기확인 automation-2 Desktop1.3.38
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/flight-linked-board / nw-cdx-flight-linked / PR 생성 전.
+2. 완료된 것: ImportFlightBoard.js, desktop flight-board renderer/projector, 계약/교차연도·우선순위 테스트, Desktop1.3.38 준비.
+3. 남은 할 일: 필수검사·빌드 → PR CI/머지 → Cafe24 및 앱 공개 → 설치앱 스모크 확인.
+4. 검증 상태: 대상 9건 통과, 로컬 브라우저 홈/확대 화면 지도→카드 및 카드→지도 연결 확인. 전체검사 진행 중; 운영 반영 미검증.
+5. 주의/잠금: 본 worktree만 수정. 다른 수입방 PR #1828과 별도 작업. 영상 신규 제작/갱신 안 함.
+- 검증 갱신: ERP 계약·dnSpy 근거·manifest·쓰기 가드·workflow 가이드 검사 및 npm run build 통과. Desktop 단위 71건, 항공편 대상 9건 통과. 설치본 소스 검사에 flight-board.cjs 추가; CI에서 설치본 검증 예정.
