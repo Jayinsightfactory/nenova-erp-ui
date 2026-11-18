@@ -16,6 +16,9 @@ assert.match(comp, /분배.*주문등록/, '왕복 우회동작(A→B→A) 흡�
 for (const tbl of ['OrderMaster', 'OrderDetail', 'ShipmentMaster', 'ShipmentDetail', 'WarehouseMaster', 'ViewShipment', 'WebProfitReport', 'assertWebSchemaContract', 'data/runtime', 'work-feature-workflows.json', 'adoption-ledger.json']) {
   assert.ok(comp.includes(tbl), `ArchFlowChart must include schema reference: ${tbl}`);
 }
+for (const hermesToken of ['arch-hermes-section', 'NousResearch/hermes-agent', 'hermes-manager.js', 'Session Rescue', 'Trajectory Compressor', 'Procedural Skill']) {
+  assert.ok(comp.includes(hermesToken), `ArchFlowChart must include Hermes orchestration reference: ${hermesToken}`);
+}
 assert.doesNotMatch(comp, /감시|추적|모니터링/, '작업자 노출 문구에 감시·추적·모니터링 금지');
 assert.doesNotMatch(comp, /<button[\s>]/, 'PM UI 키트 규칙: raw <button> 금지');
 

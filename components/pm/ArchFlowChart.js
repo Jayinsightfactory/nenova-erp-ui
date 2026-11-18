@@ -252,6 +252,49 @@ const SCHEMA_INVARIANTS = [
   { key: '런타임 JSON 무중단 교체', rule: 'lib/workFeatureData.saveFeatureFile(): 이름/상한(30MB·2MB)/JSON 검증 후 .tmp→renameSync 원자 교체' },
 ];
 
+const HERMES_MODULES = [
+  {
+    id: 'fallback',
+    metric: 'Claude ↔ Codex',
+    tone: 'accent',
+    title: '다중 에이전트 쿼터 폴백 라우터 (Multi-Provider Fallback)',
+    source: 'hermes-manager.js · selectRunner()',
+    detail: 'claude.exe 사용량 홀드(quota-hold)나 rate_limit 오류 발생 시 대기 중단 없이 codex.exe 폴백 경로로 자동 전환 배정합니다.',
+  },
+  {
+    id: 'rescue',
+    metric: 'JSONL 무손실 인계',
+    tone: 'warn',
+    title: '세션 구조 · 계보 인계 (Session Rescue & Lineage Adoption)',
+    source: '~/.orbit/hermes-rescue/*.jsonl · adoptLineage()',
+    detail: '중단·타임아웃·미완료 종료 세션을 즉시 JSONL로 보존하고, 재개 에이전트 프롬프트에 직전 PR/CHECK 문맥을 자동 인계합니다.',
+  },
+  {
+    id: 'compress',
+    metric: '워커 로그 91.1% 압축',
+    tone: 'ok',
+    title: '중간 턴 궤적 압축기 (Trajectory Compressor)',
+    source: 'hermes-manager.js · compressTrajectory()',
+    detail: '초기 지시(Head)와 최종 판정·VERDICT(Tail)는 보존하고 중간 대용량 로그를 요약 압축(실측 Orbit 워커 91.1% · 조사관 최대 32.8% 단축).',
+  },
+  {
+    id: 'skills',
+    metric: '97/97 SKILL.md',
+    tone: 'accent',
+    title: '절차 스킬 자가 합성 (Procedural Skill Synthesis)',
+    source: 'hermes-skills/<id>/SKILL.md · syncSkills()',
+    detail: '조사관이 해결한 playbooks.json 학습 카드 97건을 agentskills.io 표준 SKILL.md 절차 문서로 73ms 내 자동 변환·축적합니다.',
+  },
+  {
+    id: 'lease',
+    metric: '20분 정체 회수',
+    tone: 'err',
+    title: '진행 임대 점검 (Phase-Lease Watchdog)',
+    source: 'hermes-manager.js · checkWatchdogLeases()',
+    detail: '실행 중 에이전트의 로그 갱신 임대(20분) 및 최대 런타임(2시간)을 주기 점검하여 멈춘 작업을 회수하고 후속 인계를 트리거합니다.',
+  },
+];
+
 export default function ArchFlowChart({
   timesave = null,
   workflows = null,
@@ -378,7 +421,7 @@ export default function ArchFlowChart({
           <polygon points="84,12 90,2 96,12" fill="currentColor" />
         </svg>
         <div className="arch-feedback-label">
-          닫힌 피드백 루프(Closed Loop): 반영 후 실측 단축 시간(timesave) · 확증% 변화 · 오류 로그를 다음 관측 주기에 즉시 재투입
+          닫힌 피드백 루프(Closed Loop · Hermes 오케스트레이션): 반영 후 실측 단축 시간(timesave) · 확증% 변화 · SKILL.md 학습 자산을 다음 주기에 재투입
         </div>
       </div>
 
@@ -473,6 +516,56 @@ export default function ArchFlowChart({
           </div>
         )}
       </article>
+
+      {/* Hermes 에이전트 관리 · 자가학습 오케스트레이션 계층 */}
+      <section className="arch-hermes" data-testid="arch-hermes-section" aria-label="Hermes 에이전트 관리 및 자가학습 오케스트레이션">
+        <div className="arch-schema-head">
+          <div>
+            <div className="arch-eyebrow">AGENT ORCHESTRATION &amp; CLOSED LEARNING LOOP · NousResearch/hermes-agent</div>
+            <h3>Hermes 에이전트 관리 · 자가학습 오케스트레이션 (<code>hermes-manager.js</code>)</h3>
+            <p className="arch-lede">
+              Claude · Codex · Antigravity 3-툴과 PM 조사관 루프를 하나로 묶어 한도 폴백, 세션 JSONL 인계, 궤적 압축, 절차 스킬 자동 합성을 수행합니다.
+            </p>
+          </div>
+          <div className="arch-hermes-badges">
+            <Badge tone="plain">
+              활성 엔진: {office?.hermes?.activeProvider || 'claude'}
+              {office?.hermes?.fallbackReady !== false ? ' (codex 폴백 대기)' : ''}
+            </Badge>
+            <Badge tone="plain">
+              합성 스킬: {office?.hermes?.skillsSynced ?? 97}건 SKILL.md
+            </Badge>
+            <Badge tone="plain">
+              압축 평균: {office?.hermes?.avgCompressionPct ?? 91.1}%
+            </Badge>
+          </div>
+        </div>
+
+        <div className="arch-hermes-flow" role="region" aria-label="Hermes 에이전트 관리 흐름">
+          <span><b>1. 실행 라우팅</b> <code>selectRunner</code> (Claude ↔ Codex)</span>
+          <span className="arch-hermes-arrow" aria-hidden="true">→</span>
+          <span><b>2. 진행 임대 점검</b> <code>checkWatchdogLeases</code></span>
+          <span className="arch-hermes-arrow" aria-hidden="true">→</span>
+          <span><b>3. 중단 구조/인계</b> <code>Session Rescue → Lineage</code></span>
+          <span className="arch-hermes-arrow" aria-hidden="true">→</span>
+          <span><b>4. 궤적 압축</b> <code>Head/Tail 보호</code></span>
+          <span className="arch-hermes-arrow" aria-hidden="true">→</span>
+          <span><b>5. 스킬 자가합성</b> <code>97 CARD → SKILL.md</code></span>
+        </div>
+
+        <div className="arch-hermes-grid">
+          {HERMES_MODULES.map((mod) => (
+            <div key={mod.id} className={`arch-hermes-card tone-${mod.tone}`}>
+              <div className="arch-hermes-top">
+                <span className="arch-detail-pill">{mod.metric}</span>
+                <code>{mod.source}</code>
+              </div>
+              <div className="arch-hermes-title">{mod.title}</div>
+              <p className="arch-hermes-desc">{mod.detail}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* SQL 원장 & 네노바웹 3계층 데이터 스키마 구조도 */}
       <section className="arch-schema" aria-label="SQL 원장 및 네노바웹 데이터 스키마 구조도">
@@ -930,6 +1023,81 @@ export default function ArchFlowChart({
         .arch-live-chip span {
           color: var(--arch-ok);
           font-size: 11.5px;
+        }
+        .arch-hermes {
+          background: var(--arch-surface);
+          border: 1px solid var(--arch-line);
+          border-radius: 12px;
+          padding: 16px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .arch-hermes-badges {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          align-items: center;
+        }
+        .arch-hermes-flow {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
+          background: var(--arch-surface-2);
+          border: 1px solid var(--arch-line);
+          border-radius: 8px;
+          padding: 10px 12px;
+          font-size: 12px;
+        }
+        .arch-hermes-flow code, .arch-hermes-top code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 11px;
+          background: color-mix(in srgb, var(--arch-bg) 75%, transparent);
+          border: 1px solid var(--arch-line);
+          border-radius: 4px;
+          padding: 1px 5px;
+          color: var(--arch-accent);
+        }
+        .arch-hermes-arrow {
+          color: var(--arch-accent);
+          font-weight: 700;
+        }
+        .arch-hermes-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          gap: 10px;
+        }
+        .arch-hermes-card {
+          background: var(--arch-surface-2);
+          border: 1px solid var(--arch-line);
+          border-top: 3px solid var(--arch-accent);
+          border-radius: 10px;
+          padding: 11px 13px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .arch-hermes-card.tone-ok { border-top-color: var(--arch-ok); }
+        .arch-hermes-card.tone-warn { border-top-color: var(--arch-warn); }
+        .arch-hermes-card.tone-err { border-top-color: var(--arch-err); }
+        .arch-hermes-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .arch-hermes-title {
+          font-weight: 700;
+          font-size: 13px;
+          color: var(--arch-ink);
+        }
+        .arch-hermes-desc {
+          margin: 0;
+          font-size: 12px;
+          line-height: 1.5;
+          color: var(--arch-muted);
         }
         .arch-schema {
           background: var(--arch-surface);

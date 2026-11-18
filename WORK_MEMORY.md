@@ -3561,3 +3561,12 @@ pm run test:canon 통과.
 4. 검증 상태: 대상 9건 통과, 로컬 브라우저 홈/확대 화면 지도→카드 및 카드→지도 연결 확인. 전체검사 진행 중; 운영 반영 미검증.
 5. 주의/잠금: 본 worktree만 수정. 다른 수입방 PR #1828과 별도 작업. 영상 신규 제작/갱신 안 함.
 - 검증 갱신: ERP 계약·dnSpy 근거·manifest·쓰기 가드·workflow 가이드 검사 및 npm run build 통과. Desktop 단위 71건, 항공편 대상 9건 통과. 설치본 소스 검사에 flight-board.cjs 추가; CI에서 설치본 검증 예정.
+
+## 2026-11-18 · Hermes 에이전트 관리 · 자가학습 오케스트레이션 계층 아키텍처 반영
+- 요약: GitHub `NousResearch/hermes-agent`를 로컬 PM(`C:\Users\USER\nenova-pm\hermes-manager.js`, `pm.js`, `office-feed.js`)과 기술/도입 레이더에 통합·업로드하고, `/my-work?tab=arch` `ArchFlowChart.js`에 Hermes 에이전트 오케스트레이션 계층(`selectRunner`, `Session Rescue`, `Trajectory Compressor`, `Procedural Skill`, `Phase-Lease Watchdog`) 섹션을 추가.
+- 검색어: hermes NousResearch hermes-manager session_rescue trajectory_compressor procedural_skill ArchFlowChart
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-hermes-agent-layer` / `C:\Users\USER\nw-agy-hermes-arch` / PR #1830 + `C:\Users\USER\nenova-pm`.
+2. 완료된 것: `components/pm/ArchFlowChart.js`에 `data-testid="arch-hermes-section"` Hermes 5대 관리 모듈·흐름 바 추가, `__tests__/archFlowChart.test.js` 계약 단언 추가. `nenova-pm`에 `hermes-manager.js` 구축, 97/97 `SKILL.md` 동기화, Orbit 워커 로그 91.1% 압축 실측, `tech-radar` 및 `adoption-ledger` 200 ok 업로드 완료.
+3. 남은 할 일: `origin/master` 머지 충돌 해소 후 CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
+4. 검증 상태: `archFlowChart`, `workflowReview`, `pmUiKit`, `pmNoHexColor`, `test:pm`, `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack` 통과. `codex.exe` 장기 조사관 1회 실제 폴백 완결은 다음 `quota-hold` 전환 시 미검증.
+5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건. `C:\Users\USER\nenova-pm` 원본 수정 파일 `pm.js`, `office-feed.js`, `radar-pilot-state.json`, `tech-radar.json`, `adoption-ledger.json` 모두 `.bak-1118` 백업 보존 완료.
