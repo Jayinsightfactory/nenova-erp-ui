@@ -1285,6 +1285,63 @@
       ]
     },
     {
+      "id": "desktop-flight-popup",
+      "title": "데스크톱 수입 비행기 확대 지도·상세내역",
+      "entryPaths": [
+        "/desktop-flight"
+      ],
+      "sourceFiles": [
+        "desktop/flight-popup.cjs",
+        "desktop/flight-board.cjs",
+        "desktop/preload.cjs",
+        "desktop/shell/flight-board.js",
+        "components/home/ImportFlightBoard.js",
+        "pages/desktop-flight.js",
+        "pages/api/import/flight-board.js",
+        "pages/_app.js",
+        "desktop/shell/index.html"
+      ],
+      "requiredScenarios": [
+        "home",
+        "map",
+        "detail",
+        "switch"
+      ],
+      "guides": [
+        {
+          "id": "staff",
+          "role": "직원",
+          "title": "확대 지도와 선택한 항공편 상세내역",
+          "status": "ready",
+          "src": "/guides/desktop-flight-popup/staff.mp4",
+          "captions": "/guides/desktop-flight-popup/staff.ko.vtt",
+          "proof": "/guides/desktop-flight-popup/staff.proof.json",
+          "chapters": [
+            {
+              "scenario": "home",
+              "title": "1. 상단 즐겨찾기와 비행기 이슈 확인",
+              "seconds": 0
+            },
+            {
+              "scenario": "map",
+              "title": "2. 확대 지도와 편별 목록 확인",
+              "seconds": 21.8
+            },
+            {
+              "scenario": "detail",
+              "title": "3. 항공편을 선택해 상세내역 확인",
+              "seconds": 39.073
+            },
+            {
+              "scenario": "switch",
+              "title": "4. 같은 창에서 다른 편 확인",
+              "seconds": 58
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "desktop-task-schedule",
       "title": "오늘의 내 업무 · 시간과 바로가기",
       "entryPaths": [
@@ -1339,68 +1396,54 @@
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 32.2
+              "seconds": 38.8
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 41.4
+              "seconds": 49.4
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 68.2
+              "seconds": 77.8
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 89.4
+              "seconds": 99.2
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 117.8
+              "seconds": 127.8
             },
             {
               "scenario": "calendar",
               "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 127.2
+              "seconds": 137.2
             },
             {
               "scenario": "independent",
               "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 151.8
+              "seconds": 161.8
             },
             {
               "scenario": "company",
               "title": "9. 공통 일정 제목과 색상 등록·수정",
-              "seconds": 163.4
+              "seconds": 173.4
             },
             {
               "scenario": "collapse",
               "title": "10. 월간·주간 접기와 홈 다시 열기",
-              "seconds": 235.4
+              "seconds": 248.4
             },
             {
               "scenario": "weekly",
               "title": "11. 주차별 일정과 다음 주 차수 확인",
-              "seconds": 267.2
+              "seconds": 281
             }
           ]
-        }
-      ],
-      "videoWaivers": [
-        {
-          "file": "desktop/main.cjs",
-          "sha256": "1ff7f5f42c5c6c0afa79527ce2ead85639dff60f2d55a3a82f2a784daf656ce2",
-          "reason": "앱 홈 「수입 비행기 현황」 구역을 맨 위로 옮기고 지도·접기·즉시 새로고침 추가(구역 자리 이동과 연결 몇 줄) — 오늘의 내 업무·달력·메모 등 기존 가이드의 조작 순서는 변경 없음",
-          "approvedBy": "사용자 지시 2026-11-17 (가이드 영상 제외 후 작업)"
-        },
-        {
-          "file": "desktop/shell/index.html",
-          "sha256": "b72276da5f6d7472429322f48d05e1a8c8e476fbd7838a144f18f45f0193b2b9",
-          "reason": "앱 홈 「수입 비행기 현황」 구역을 맨 위로 옮기고 지도·접기·즉시 새로고침 추가(구역 자리 이동과 연결 몇 줄) — 오늘의 내 업무·달력·메모 등 기존 가이드의 조작 순서는 변경 없음",
-          "approvedBy": "사용자 지시 2026-11-17 (가이드 영상 제외 후 작업)"
         }
       ]
     }

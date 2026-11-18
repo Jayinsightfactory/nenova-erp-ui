@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-18T00:45:36.267Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 73.4,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "10d50edd50aa17305c597d208e6d59fd218d78db2acd26376c9a15604ebf48e2",
+  "captionsSha256": "4d33a220e1b3dc58b31bf6d5f9fec6e9d32d2b447e989ac3d364170396900f94",
+  "sourceHashes": {
+    "desktop/flight-popup.cjs": "7c3ffb4f39d29c8d43afaf224782a294274362eb1edc86b5de6b7ae5eedc7a68",
+    "desktop/flight-board.cjs": "5ae2fe97f2b44e20c7e7dee0489c4df7e3151ec017de98eefc5345de5227fdd9",
+    "desktop/preload.cjs": "294e04ca323439d0747de91597ec6944e5323f49ab6f36b651234029d6370560",
+    "desktop/shell/flight-board.js": "f635f602481374ddc2614532b08e15fa8d055821804de534c981a03dfa6b010b",
+    "components/home/ImportFlightBoard.js": "05da02598637216e1530b640ed30d80e49070628e8e3978839fe9e35f33e31c5",
+    "pages/desktop-flight.js": "30ebc42ee296cea9eefacb8a2d9fe63af05c12e8ea78f162208369c5fb7bca44",
+    "pages/api/import/flight-board.js": "498603b952a0471f2ad7cb18f98f88cd5e3f3cf00a91aebdfb1117aa4deded31",
+    "pages/_app.js": "152c11ecfd13c10d65257434e243f27c7f4504c66a502627b57e7de15ec20121",
+    "desktop/shell/index.html": "88b2d825b098f3cf327aa6a472bf2b1da386dfab121e958704c6336afe32ff40"
+  },
+  "presentation": {
+    "numberedSteps": 4,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 1.9367927695560256,
+        "x": 105,
+        "y": 252.390625,
+        "end": 7.179319797040169
+      },
+      {
+        "number": 1,
+        "start": 9.25629103476651,
+        "x": 585.0859375,
+        "y": 538.953125,
+        "end": 14.400194099979426
+      },
+      {
+        "number": 1,
+        "start": 16.46588688747171,
+        "x": 116.6328125,
+        "y": 624.6171875,
+        "end": 21.596820473153674
+      },
+      {
+        "number": 2,
+        "start": 25.77436870818786,
+        "x": 321.5390625,
+        "y": 759.359375,
+        "end": 30.43877554679581
+      },
+      {
+        "number": 2,
+        "start": 32.846813142926294,
+        "x": 543.109375,
+        "y": 517.09375,
+        "end": 38.86028368389205
+      },
+      {
+        "number": 3,
+        "start": 41.243610441811846,
+        "x": 803.15625,
+        "y": 701.515625,
+        "end": 45.66328830383275
+      },
+      {
+        "number": 3,
+        "start": 51.41184580487805,
+        "x": 543.109375,
+        "y": 787.6640625,
+        "end": 57.790922417383435
+      },
+      {
+        "number": 4,
+        "start": 59.817103168561225,
+        "x": 1480.1015625,
+        "y": 396,
+        "end": 65.25956630204612
+      },
+      {
+        "number": 4,
+        "start": 67.27233639883079,
+        "x": 543.109375,
+        "y": 777.46875,
+        "end": 73.19260736472881
+      }
+    ],
+    "timing": {
+      "mode": "fresh-raw-caption-frame-anchors",
+      "wallEndSeconds": 72.983,
+      "videoEndSeconds": 73.4,
+      "anchors": [
+        {
+          "wall": 0,
+          "video": 0
+        },
+        {
+          "wall": 7.095,
+          "video": 7.4
+        },
+        {
+          "wall": 21.678,
+          "video": 21.8
+        },
+        {
+          "wall": 30.557,
+          "video": 31
+        },
+        {
+          "wall": 38.82,
+          "video": 39.4
+        },
+        {
+          "wall": 53.17,
+          "video": 53.6
+        },
+        {
+          "wall": 57.588,
+          "video": 58
+        },
+        {
+          "wall": 72.983,
+          "video": 73.4
+        }
+      ],
+      "verifiedFrameRate": 5,
+      "retimedAt": "2026-11-18T00:46:13.101Z",
+      "rawCaptureSha256": "4bb03a36ee7231940a56d5c2224e4d5468731a5557bf60948a08436ef75b9a17"
+    }
+  }
+}

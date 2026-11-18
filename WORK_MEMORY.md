@@ -3262,3 +3262,27 @@ pm run test:canon 통과.
 - nenovakakao 수입방 주문검토 시트에서 작성일(연도 포함)로 원문을 조회한다. 선택한 행을 품목군·품종·단위별로 합산하고 비고에는 업체명 또는 CL별 수량을 표시한다. 업체 미기재 수량도 총량에 포함한다. 검토와 복사는 브라우저에서만 수행하며 ERP와 시트에 쓰지 않는다.
 - 실제 시트 헤더와 당일 동기화 확인. 연도 분리·업체 비고·단위별 합계 fixture 및 키보드 조작·가이드 재생 확인. 생산 환경 로그인 화면은 작성 시점 미검증.
 - 검색어: 국가별 발주서 수입방 카톡 추가발주 콜롬비아수국 Moon Light 농장 전달용 업체 CL
+
+### 2026-11-18 수입 비행기 확대 창 구현 단계 완료
+- 작업 위치: nenova-erp-ui / codex/flight-desktop-popup-1118 / work/nw-flight-popup-1118 / PR 생성 전.
+- 완료된 것: 전용 네이티브 확대 창, 지도·편별 상세 연결, 창 재사용과 선택 ID, 실제 Electron·반응형·가이드 검증. 1차 가이드와 자막은 회사 Drive에 보관했다.
+- 남은 할 일: 사용자 추가 요청인 홈 시간 기준(STD·ATD·STA) 설명·이슈 노출과 상단 즐겨찾기 이동을 반영하고 최종 가이드·CI·배포를 진행한다.
+- 검증 상태: native/unit5, 실제 창 재사용·재열기·선택/390px, 화면틀58, 가이드 검증 통과. 운영 신규 창과 직원 PC 설치는 미검증.
+- 주의/잠금: 이 작업트리의 desktop/main.cjs, desktop/shell/flight-board.js, desktop/shell/index.html, config/workflow-guides.json은 본 작업에서 수정 중.
+- 검색어: 수입 비행기 데스크톱 확대 창 지도 상세 STD ATD STA 홈 이슈 즐겨찾기 상단 인계
+
+### 2026-11-18 홈 이슈·즐겨찾기 추가 구현 단계 완료
+- 작업 위치: nenova-erp-ui / codex/flight-desktop-popup-1118 / work/nw-flight-popup-1118 / PR 생성 전.
+- 완료된 것: 상단 즐겨찾기 이동, 홈의 지연·공지 변경 이슈 펼치기, 인천공항 예정·변경·상태와 공지 시간 분리. STD·ATD 미수신/출발·위치 예측 기준 명시.
+- 남은 할 일: 기존 홈 가이드 최종 재촬영 완료·필수 검사·PR·CI·Cafe24/Windows 안정판 공개.
+- 검증 상태: 단위6, 실제 Electron 창 재사용/선택/재열기, 즐겨찾기 탭 열기/홈 이슈 펼치기/390·800·1440px, 비행기 4단계 가이드 재생 통과. 직원 PC 설치는 미검증.
+- 주의/잠금: 동일 작업트리 desktop 및 가이드 파일은 배포 준비 중. 실제 PC 재시작 금지(업무 중, 배포만 요청).
+- 검색어: 홈 이슈 모두 보기 인천공항 STA STD ATD 미수신 예측 출발 즐겨찾기 상단 1.3.34
+
+### 2026-11-18 비행기·홈 변경 배포 전 검증 완료
+- 작업 위치: nenova-erp-ui / codex/flight-desktop-popup-1118 / work/nw-flight-popup-1118 / PR 생성 준비.
+- 완료된 것: 앱 1.3.34 기능 및 실제 화면 가이드 4/11단계, 한국어 자막·목차·최종 프레임 검증. 회사 Drive 보관 비행기 1V7TIPQLJ3T8agKiInTlMc7JKT7W2Tebg / 홈 167ZuGiC6YKAs7XuY0bLGcmIeyn7av89V / 홈 최종 proof 17jVTfACtfhj_0A5p-eDolM5GYrlGTdmB. 영상 크기 확인 7825302 / 25874409 bytes.
+- 남은 할 일: 최신 master 병합, CI 통과 후 squash, Cafe24 및 Windows 1.3.34 공개·운영 읽기 검증.
+- 검증 상태: desktop67/67, 네이티브 Electron·홈·반응형·키보드·플레이어, ERP 계약·dnSpy·manifest·쓰기 보호·가이드·webpack 빌드 통과. 운영 및 직원 PC 설치는 미검증. 빌드의 기존 workDrivePairsAsync 동적 의존성/이카운트 페이지 데이터 크기 경고는 이번 변경 대상 밖.
+- 주의/잠금: 원장·입고·재고·견적·매출 쓰기 변경 없음. 해외 STD·ATD 및 FR24 API 추가 연동 없음. 직원 PC 업무 중 재시작 금지.
+- 검색어: 1.3.34 비행기 확대 창 상단 즐겨찾기 홈 이슈 인천공항 도착 시간 가이드 검증 배포 인계

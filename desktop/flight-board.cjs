@@ -1,10 +1,13 @@
 'use strict';
+const {createHash}=require('node:crypto');
 // 앱 홈 「수입 비행기 현황」: 로그인 세션으로 네노바웹 /api/import/flight-board 를 읽어 홈에 필요한 칸만 추려 넘긴다(읽기 전용).
 // 운송장 번호는 홈 요약에 필요 없어 넘기지 않는다.
 const {ORIGIN}=require('./policy.cjs');
 const clean=(value,max)=>typeof value==='string'?value.replace(/[\u0000-\u001f\u007f]/g,' ').slice(0,max):'';
 const iso=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))?new Date(value).toISOString():null;
 const count=value=>Number.isFinite(Number(value))&&Number(value)>=0?Math.min(Math.trunc(Number(value)),9999):0;
+const flightViewId=key=>createHash('sha256').update(String(key||'')).digest('hex');
+const issueText=value=>clean(value,160).replace(/\b\d{3}[- ]?\d{8}\b/g,'운송장');
 // 지도용 좌표: 숫자 범위만 통과시킨다.
 const point=p=>p&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon))&&Math.abs(Number(p.lat))<=90&&Math.abs(Number(p.lon))<=360?{lat:Math.round(Number(p.lat)*100)/100,lon:Math.round(Number(p.lon)*100)/100}:null;
 const place=p=>{const at=point(p);return at?{name:clean(p.name,20),...at}:null;};
@@ -20,19 +23,32 @@ const trackUrl=links=>{
 function projectFlightBoard(data){
   if(!data||typeof data!=='object'||!Array.isArray(data.flights)||data.flights.length>300)throw Error('수입 비행기 현황 형식을 확인하세요.');
   const s=data.summary&&typeof data.summary==='object'?data.summary:{};
-  const todo=(Array.isArray(data.todo)?data.todo:[]).filter(t=>t&&['red','amber'].includes(t.level)&&typeof t.text==='string'&&t.text.trim())
-    .slice(0,8).map(t=>({label:clean(t.label,60),level:t.level,text:clean(t.text,160)}));
+  const candidates=[
+    ...(Array.isArray(data.todo)?data.todo:[]),
+    ...(Array.isArray(data.issues)?data.issues:[]).map(t=>({...t,level:'amber'}))
+  ];
+  const seen=new Set(),issues=[];
+  for(const entry of candidates){
+    if(!entry||!['red','amber'].includes(entry.level)||typeof entry.text!=='string'||!entry.text.trim())continue;
+    const key=String(entry.key||'')+'\0'+entry.text;
+    if(seen.has(key))continue;
+    seen.add(key);
+    issues.push({label:issueText(entry.label).slice(0,60),level:entry.level,text:issueText(entry.text),viewId:entry.key?flightViewId(entry.key):''});
+  }
+  issues.sort((a,b)=>(a.level==='red'?0:1)-(b.level==='red'?0:1));
+  const todo=issues.slice(0,40);
   const rows=data.flights.filter(f=>f&&typeof f==='object'&&STATUS.includes(f.status));
   const flights=rows.filter(f=>f.status!=='registered').slice(0,8).map(f=>{
     const steps=Array.isArray(f.checklist?.steps)?f.checklist.steps.filter(x=>x&&typeof x==='object'):[];
     const next=steps.find(x=>x.state==='late')||steps.find(x=>x.state==='due');
     const progress=Number(f.progress);
     return {
-      weekLabel:clean(f.weekLabel,12),country:clean(f.country,12),itemLabel:clean(f.itemLabel,40),
+      viewId:flightViewId(f.key),weekLabel:clean(f.weekLabel,12),country:clean(f.country,12),itemLabel:clean(f.itemLabel,40),
       flight:clean(f.flight,12),statusLabel:clean(f.statusLabel,40),status:f.status,
       progress:f.progress!==null&&f.progress!==undefined&&Number.isFinite(progress)?Math.max(0,Math.min(1,progress)):null,
       viaName:clean(f.via?.name,20),origin:place(f.origin),via:place(f.via),position:point(f.position),route:routeLine(f.route),phase:clean(f.phase,20),arriveAt:iso(f.arriveAt),timeAssumed:f.timeAssumed===true,
       estimatedAt:iso(f.actual?.estimatedAt),remark:clean(f.actual?.remark,12),
+      scheduledAt:iso(f.actual?.scheduledAt),departAtEstimated:iso(f.departAtEstimated),
       quarantineDeadlineAt:iso(f.checklist?.quarantine?.deadlineAt),quarantineSlot:clean(f.checklist?.quarantine?.slot,6),
       regNo:clean(f.aircraft?.regNo,10),trackUrl:trackUrl(f.links),
       alertCount:Array.isArray(f.alerts)?Math.min(f.alerts.length,99):0,
@@ -45,7 +61,7 @@ function projectFlightBoard(data){
     sources:{icn:data.sources?.icn?.enabled===true&&data.sources?.icn?.ok===true,customs:data.sources?.customs?.enabled===true&&data.sources?.customs?.ok===true},
     summary:{total:count(s.total),beforeDeparture:count(s.beforeDeparture),inFlight:count(s.inFlight),arrived:count(s.arrived),registered:count(s.registered),awaitingAwb:count(s.awaitingAwb),red:count(s.red),amber:count(s.amber)},
     destination:place(data.destination)||{name:'인천',lat:37.46,lon:126.44},
-    todo,flights,registeredCount:rows.filter(f=>f.status==='registered').length,
+    todo,issueTotal:issues.length,flights,registeredCount:rows.filter(f=>f.status==='registered').length,
   };
 }
 async function importFlightBoard({owner,fetch,isCurrent,onUnauthorized,fresh=false}) {
