@@ -71,15 +71,14 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
   'use strict';
   if(typeof document==='undefined')return;
   const root=document.getElementById('flightBoard');
-  if (root) {
-    const layout = document.createElement('style');
-    layout.textContent = `@media (min-width: 1001px) {
-      .home-columns:has(#flightBoard:not([hidden])) { grid-template-columns: minmax(0, 1fr) clamp(258px, 18%, 350px); }
-      .home-columns:has(#flightBoard:not([hidden])) .home-secondary .hw-task { flex-wrap: wrap; }
-    }`;
-    document.head.append(layout);
-  }
   if(!root||!window.desktop)return;
+  const columns = root.closest('.home-columns');
+  const wideHome = window.matchMedia('(min-width: 1001px)');
+  const layoutHome = () => {
+    if (columns) columns.style.gridTemplateColumns = wideHome.matches && !root.hidden
+      ? 'minmax(0, 1fr) clamp(258px, 18%, 350px)' : '';
+  };
+  wideHome.addEventListener('change', layoutHome);
   const {issueRows,shortIssue,linkedFlights,nextAction,placeMarkers}=flightPresentation;
   const SVG='http://www.w3.org/2000/svg',world=window.NenovaWorldMap||null;
   const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
@@ -256,7 +255,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
     const previousVisible=visible,previousOnline=online,nextOwner='homeOwnerId'in state?String(state.homeOwnerId||''):owner,changed=nextOwner!==owner;
     if(changed){owner=nextOwner;generation++;busy=false;loaded=false;last=null;selectedViewId='';clearTimeout(timer);clear();status.textContent=owner?'수입 비행기 현황을 확인합니다.':'로그인 후 수입 비행기 현황을 확인할 수 있습니다.';}
     if('menuOpen'in state)visible=!!state.menuOpen;if('online'in state)online=!!state.online;
-    root.hidden=!owner;for(const b of [detail,retry])b.disabled=!owner||!online;
+    root.hidden=!owner;layoutHome();for(const b of [detail,retry])b.disabled=!owner||!online;
     if(owner&&visible&&online&&(changed||!previousVisible||!previousOnline))void load(false);
     if((changed||!visible||!online)&&mapDialog.open)mapDialog.close();
     if(!visible||!online)clearTimeout(timer);
