@@ -3475,3 +3475,14 @@ pm run test:canon 통과.
 - 주의/잠금: 촬영 진행은 stdout의 Guide chapter 로그만 읽는다. Puppeteer.connect의 기본 viewport가 기존 촬영 창을 줄이는 문제를 발견해 해당 촬영은 폐기했고, 별도 브라우저 연결을 제거한 최종 촬영과 화면 크기 고정 검사를 추가함. 공유 기본 체크아웃/다른 홈 비행기 Draft #1820 수정 금지. ERP·ECOUNT 쓰기 없음. 병합 후 해당 worktree 즉시 정리.
 - 회사 Drive 최종 원본(크기 검증): MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol / VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat / proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn. 기존 자료 유지·공개 공유 변경 없음.
 - 검색어: calendar 1.3.36 즐겨찾기 전체 접기 열기 공휴일 국가 선택 상세 수정 주차별 Jan6 고정 viewport 가이드 14단계
+
+## 2026-11-18 수입방 최근 발주일 기준 수정 진행
+- 사용자 명시: 기본2일=오늘·어제가 아니라 발주가 있는 최근2일. 최신 수집 시각과 발주일을 구분한다.
+- 검색어: 카톡 최근2일 발주일 빈합계 readLatestOrderImports 기존대로 더글라스200
+1. 작업 위치: nenova-erp-ui / codex/import-kakao-review-fix / nw-cdx-kakao-review / PR예정.
+2. 완료된 것: 전체원문 선분류→실제발주 최신2일 선택→이후취소검토 유지, 화면 날짜 설명, 기존주문200 유지 표시(추가수량 합산0), 단위/API/교차연도·조용한날·취소 회귀.
+3. 남은 할 일: 가이드 최종촬영·필수전체검증·PR·병합·Cafe24배포·운영 합계 확인.
+4. 검증 상태: 표적 원문/API/날짜 회귀 및 실제브라우저 dry-run PASS, 가이드/전체ERP/build 진행중. 운영 미검증.
+5. 주의/잠금: 본 worktree만 수정. MSSQL·ERP원장·카톡발송0. 원문을 로컬 파일로 보관하지 않음. 취소 연결 불명은 자동차감하지 않음.
+- 가이드 최종195.9초/18단계/1920×1080 촬영 및 처음·중간·마지막/복사토스트 프레임 확인. 회사Drive MP4 16_cXEsNvgLZ4owkaX3jzIQOTfxmpfJAv / VTT 1qYvb8hAwlJOuU6j1JkiEspqF8PuccGRK.
+- 전체ERP 첫 실행에서 기존 PDF 동시잠금 테스트1건 JOB_STORAGE_BUSY 발생; 해당 파일 단독 재검증 PASS, 전체 재검증 진행중. 카톡 원문/API/최근발주일 및 브라우저 회귀 PASS.
