@@ -3270,3 +3270,12 @@ pm run test:canon 통과.
 3. 남은 할 일 — PR CI, squash 병합, Cafe24 배포와 운영 브라우저 검증, 작업트리 정리.
 4. 검증 상태 — 최근순·교차연도 단위검사, 계약 manifest, dnSpy 근거, 쓰기 범위 통과. 최종 배포 미검증.
 5. 주의/잠금 — 이 작업트리의 주문등록 파일은 본 세션에서 검증 중. 원장/API SQL 쓰기 변경 없음.
+
+## 2026-11-18 수입방 카톡 최근 이틀 자동 조회
+- 요약: 날짜 선택을 제거하고 서울 오늘·어제를 기본 조회한다. 원문은 펼친 상태에서 메시지 시각 최신순으로 표시하고 1분마다 갱신한다. 재조회 시 체크·수량 편집은 유지한다.
+- 검색어: 수입방 카톡 날짜 최근2일 오늘 어제 자동조회 최신순 자정 원문없음
+1. 작업 위치: nenova-erp-ui / codex/import-room-load-fix / nw-cdx-import-room-load / PR은 해당 브랜치로 조회.
+2. 완료된 것: KakaoAdditions, importKakaoAdditions, kakao-additions API, 교차연도·오전오후 정렬 회귀, 국가별 발주서 가이드 갱신. 매뉴얼 Drive 파일 1zNYTrWJP4XP5D0pAxzM16YeKg4huzY75, 자막 1hOzuNt6bxv8oWzy38QGPy30WnOJ-z9DE 보관.
+3. 남은 할 일: 최종 빌드·CI 후 병합·Cafe24 배포·운영 원문 확인, worktree 정리. 최종 결과는 PR 및 배포 실행에 기록.
+4. 검증 상태: ERP 전체 계약, 표적 18 tests, 실제 브라우저 날짜칸 제거·원문 펼침·재조회 선택유지, 최종 영상 재생·자막·모바일 통과. 기록 시점 운영 수정본 미검증.
+5. 주의/잠금: 이 작업트리의 국가별 발주서 컴포넌트·가이드 수정 중. ERP DB와 수입방 시트 쓰기 없음.

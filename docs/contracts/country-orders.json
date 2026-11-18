@@ -32,7 +32,7 @@
     "ProdKey"
   ],
   "actions": [
-    {"name":"IMPORT_ROOM_ADDITIONS_REVIEW","source":"nenovakakao dedicated review sheet, exact Seoul message date including year, request and item identity; checked positive quantities grouped by category, variety and unit. Clipboard only; no ERP access.","orderDetail":"preserve","shipmentDetail":"preserve","warehouseDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve"},
+    {"name":"IMPORT_ROOM_ADDITIONS_REVIEW","source":"nenovakakao dedicated review sheet, default Seoul today and yesterday, ordered by message timestamp including year; explicit legacy day query remains supported, request and item identity; checked positive quantities grouped by category, variety and unit. Clipboard only; no ERP access.","orderDetail":"preserve","shipmentDetail":"preserve","warehouseDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve"},
     {
       "name": "COUNTRY_ORDER_CALENDAR_READ",
       "source": "Asia/Seoul today inside PeriodDay WeekDay=5 range, current ERP main cycle plus next five actual rows",
@@ -193,6 +193,7 @@
     "description": "2025/42-01 and 2026/42-01 coexist but an explicit 2026/42 request returns only 2026; a current 2026/52 calendar continues through actual 2027 rows without OrderWeek-only matching"
   },
   "positiveFixtures": [
+    "Import room defaults to Seoul today and yesterday, sorts AM/PM timestamps newest first, and crosses December/January safely",
     "Asia/Seoul 2026-10-15 resolves to ERP 2026/42 and buttons 42 through 47",
     "Netherlands OutUnit bunch with stored BunchQuantity 20 and SteamQuantity 200 exports 200 stems",
     "Netherlands OutUnit stem with stored SteamQuantity 150 exports 150 stems",
@@ -203,6 +204,7 @@
     "Unsorted mixed-case product names export A-Z in all country workbooks with quantities and formulas attached to the original product"
   ],
   "nearMissFixtures": [
+    "Import room excludes older-than-yesterday, future and prior-year messages; no recent rows exposes latest collected timestamp",
     "same OrderWeek in prior year is excluded",
     "positive Netherlands bunch quantity with SteamQuantity zero remains visible and blocks export",
     "duplicate Customer.OrderCode with different CustKey does not merge",
