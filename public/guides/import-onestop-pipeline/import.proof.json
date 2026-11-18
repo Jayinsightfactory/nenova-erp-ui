@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-18T09:36:24.583Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 61.75,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "c1d6083ee0384ed70729000b0086313dc6f8d24e8991f294cafbfd48a9fb8869",
+  "captionsSha256": "b58293a83427cca8eb812ec0928a79566d725ffce5316ecb63bba3237e10065d",
+  "sourceHashes": {
+    "pages/import/pipeline.js": "476858944389ba66e00d69f4768d87a5cec8e0fbd35f6f789b4a0a3001708c73",
+    "components/import-tools/ImportOneStopPipeline.js": "84af229ade3153eb305b21de5a92e6c9cfcee50a011d79a2a993d2aa2c94474e",
+    "lib/importOneStopPipeline.js": "70feda84974f0e4fffdce0ca455d7aa0cbf3b74e89eb964cf0dc8537517ac23a",
+    "styles/ImportOneStopPipeline.module.css": "2f3f1de2d3ae86096d0fecff9c980575b01cc57795e54ecc9a1b6f7da1fe8ebc"
+  },
+  "presentation": {
+    "numberedSteps": 4,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 3.3584019,
+        "x": 699.453125,
+        "y": 247.046875,
+        "end": 9.059725499999999
+      },
+      {
+        "number": 2,
+        "start": 14.6097111,
+        "x": 729.25,
+        "y": 424.546875,
+        "end": 20.4922654
+      },
+      {
+        "number": 3,
+        "start": 26.064249,
+        "x": 1190.75,
+        "y": 424.546875,
+        "end": 31.909136999999998
+      },
+      {
+        "number": 4,
+        "start": 37.4737503,
+        "x": 1652.25,
+        "y": 424.546875,
+        "end": 42.2362658
+      },
+      {
+        "number": 4,
+        "start": 45.7776535,
+        "x": 455.09375,
+        "y": 539.546875,
+        "end": 51.5840348
+      },
+      {
+        "number": 4,
+        "start": 55.041928799999994,
+        "x": 107.7890625,
+        "y": 747.046875,
+        "end": 59.538319400000006
+      }
+    ]
+  }
+}

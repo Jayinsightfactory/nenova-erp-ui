@@ -50,6 +50,10 @@ test('invoice work and farm master share the canonical searchable desktop catalo
   assert.deepEqual(menu,parseMenuSource(source));
   const items=menu.flatMap(g=>g.items);
   assert.equal(items.filter(i=>i.href==='/import/tools').length,1);
+  const pipeline=items.filter(i=>i.href==='/import/pipeline');
+  assert.equal(pipeline.length,1);
+  assert.equal(pipeline[0].labelKey,'수입 원스톱 파이프라인(인보이스→원가→공유)');
+  assert.equal(pipeline[0].popup,false);
   const farms=items.filter(i=>i.href==='/master/codes');assert.equal(farms.length,1);assert.match(farms[0].labelKey,/농장 마스터/);
   assert.equal(farms[0].href,'/master/codes','stable URL preserves existing favorites');
 });
