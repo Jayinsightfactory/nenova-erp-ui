@@ -3602,6 +3602,13 @@ pm run test:canon 통과.
 4. 검증 상태: `archFlowChart`, `workflowReview`, `pmUiKit`, `pmNoHexColor`, `test:pm`, `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack` 통과. `codex.exe` 장기 조사관 1회 실제 폴백 완결은 다음 `quota-hold` 전환 시 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건. `C:\Users\USER\nenova-pm` 원본 수정 파일 `pm.js`, `office-feed.js`, `radar-pilot-state.json`, `tech-radar.json`, `adoption-ledger.json` 모두 `.bak-1118` 백업 보존 완료.
 
+## 2026-11-18 저장 분석 재사용·농장 대조 PR1831 병합 인계
+- 검색어: PR1831 5a8641aa BALVERDE 25571 8073 PDF_ANALYSIS_ACTIVE 44247641364
+1. 작업 위치: nenova-erp-ui / 기능 PR1831 squash 5a8641aa847533287cb797d70c789b5335c42870. 기능 worktree 정리 완료. 이 후속 기록은 docs/import-reuse-deployed-1118.
+2. 완료된 것: 동일 국가/SHA 완료 분석 즉시 재사용, 변경본 선택, 최초 자동 분석 유지, farm country 전달 및 다빈도 역사명 제안/원클릭 수정, 이력 원본·보관분석 수량·단가·금액 대조, CO 누락 단수 표준환산. 최종 3개 가이드/자막/목차 및 Drive 백업 완료.
+3. 남은 할 일: Cafe24 run44247641364 최초 시도는 진행 중 PDF 8/9(490초)를 보호해 PDF_ANALYSIS_ACTIVE로 중단. 기존 앱 유지, 실패 job 재시도 시작. 배포 성공 및 버전/실브라우저 표시 확인 전 운영 반영 완료로 주장 금지.
+4. 검증 상태: 전체 ERP/dnSpy/manifest/write guard/정식 build 및 PR CI44246536164 PASS. 합성 실제 전체 UI에서 재사용·변경본·취소·키보드·농장 변경·Excel 다운로드 PASS(provider0/운영쓰기0). 운영 ping200, 브라우저 기존7223a170 확인. 실제 유료분석/운영 입고 쓰기 E2E는 실행하지 않음.
+5. 주의/잠금: 추가 유료분석0, 운영 업무 데이터 수정0. 원본 송장25571은93QB/2790송이/USD2211이며 운영8073과 일치. 사용자 첫 캡처134박스/USD3468의 원본 신원은 미확인. 기존8073의 단수 공란5행 보정하지 않음. 진행 중 PDF 작업 취소/재호출/보호장치 우회 금지. CLOUD PR1813 및 다른 세션 worktree 보존.
 
 ## 2026-11-18 · 아키텍처 흐름도에 솔루션화 업무별 스키마 설계 청사진 & 실제 품목 데이터 예시 추가
 - 요약: `/my-work?tab=arch` (`ArchFlowChart.js`)에 타 업종 상용 솔루션 확장을 위한 4대 핵심 업무(`master` 기준정보·다중단위, `order_ship` 주차 주문·출고 분배·우회흡수, `import_cost` 수입 인보이스·운임배부·도착원가, `stock_profit` 차수 재고 스냅샷·불량차감·주간손익)별 스키마 설계 원리, 업종 치환 공식, 실제 품목(`콜롬비아 장미 프리덤 50cm`, `네덜란드 수국 매지컬 그린`, `유오디아 블랙잭`) 저장 예시 표(`data-testid="arch-solution-blueprints"`)를 추가.
