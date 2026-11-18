@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-18T09:32:38.478Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 74.5,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "fb5b022865a35a64a1d4bec26e92e5f72b3b21b5d8834303bd0cc46aa411578a",
+  "captionsSha256": "d3298692f973b93f55303d1b6203eb0edfa3b480b4454bff34e70cb18c43a445",
+  "sourceHashes": {
+    "pages/shipment/quick-absorb.js": "5f1e3f2919f530209da9904faca64d2439fcd09f2f74cd785c8637b355072b18",
+    "lib/distributeOrderAbsorb.js": "09e083162e19feb79164190e44bcae10bb8ca846d3f3d5dd29e1ecd54f19f5bc"
+  },
+  "presentation": {
+    "numberedSteps": 4,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 6.8805372999999985,
+        "x": 960,
+        "y": 168.546875,
+        "end": 10.290372699999997
+      },
+      {
+        "number": 1,
+        "start": 13.307752999999998,
+        "x": 236.5234375,
+        "y": 237.546875,
+        "end": 16.9738001
+      },
+      {
+        "number": 2,
+        "start": 26.5910297,
+        "x": 744.71875,
+        "y": 267.046875,
+        "end": 30.065266299999994
+      },
+      {
+        "number": 2,
+        "start": 32.9557418,
+        "x": 890.578125,
+        "y": 308.546875,
+        "end": 36.5912944
+      },
+      {
+        "number": 3,
+        "start": 46.8064143,
+        "x": 1729.0234375,
+        "y": 329.265625,
+        "end": 50.2361923
+      },
+      {
+        "number": 3,
+        "start": 53.0882333,
+        "x": 1373.078125,
+        "y": 380.265625,
+        "end": 56.665358000000005
+      },
+      {
+        "number": 3,
+        "start": 59.6281442,
+        "x": 1214.609375,
+        "y": 649.765625,
+        "end": 63.11771900000001
+      },
+      {
+        "number": 3,
+        "start": 66.0179963,
+        "x": 1308.8671875,
+        "y": 702.265625,
+        "end": 69.73783990000001
+      }
+    ]
+  }
+}
