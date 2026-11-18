@@ -3382,6 +3382,17 @@ pm run test:canon 통과.
 4. 검증 상태: raw fixture 수국30+10=40, 카네이션 MoonLight1+2+1=4, 루스커스3, 23품목1445송이, CL/단위/차수/연도/취소/중복/음수/총수량 구분 및 실제 GET 권한/날짜/조회범위 통과. 실제 Chrome 필터/자동합계/일반대화·중복제외/검토/갱신/키보드/390px dry 통과. 실제 수집본1711개 요청 원문 메모리 분석: addition276/review310/excluded1125 (중복제거·연관취소처리 전 분류 통계, 정확도 전수 수동검증 아님). 최근2일31개 원문 모두 일반대화 제외로 분류. 전체 gate/운영 미검증.
 5. 주의/잠금: 본 작업트리 카톡 관련 파일/국가별발주서 recorder와 가이드만. ERP DB 접근/쓰기 및 카톡발송0. 원문/작성자 개인정보를 로컬 파일에 저장하지 않고 메모리에서 분석. 사진내품목/불명확문맥/단위미상은 확인 필요로 남김.
 - 검색어: 카톡 원문 선별 classifyImportFeed analyzeImportMessage 수국 40 1445 st 스템 중복 취소 검토
+## 2026-11-18 · PDF 분석 중단 원인 진단과 배포 보호 (PR1818)
+- 실제 읽기 전용 진단44220341313: 최근30분 memory restart0, 최근7일 OOM0. 11:02:24.859KST web process 시작. 배포44216051551은10:36:42,44217840381은10:49:45 완료.
+- 추가 진단44220969702/44221499539: 10:42:45→10:52:47 실패9구간 중5완료, 정확한 owner-dead 메세지 interruptedOwner=true. 해당 분석은10:49배포와 중첩한다. 10:53:27→10:57:47 성공6/6·260초. 다른 단일구간 실패3건은 interruptedOwner=false로 별개이며 상세원인 미검증. 성공6구간은 재분석 불필요; 실패5구간 보존. 원본/응답/계정/자격정보 출력0.
+- 확인된 구조결함: Next web process 안에서 provider job 실행하지만 deploy PM2 reload에 in-flight 분석 확인 없음. 새 global OS mutex로 startPackingPdfJob admission과 build swap+reload를 직렬화하고 alive RUNNING이 있으면 배포만 중단한다. 파일/완료구간/ERP원장 수정0, provider 재시도0. deadline 경과·unknown PID도 보호, dead owner는 기록 보존.
+- 표적121검사120PASS/1SKIP, API·배포가드17PASS, 배포/브라우저 표적27PASS(초기 sandbox GitBash/Chrome 실패 후 elevated 동일검사 통과), 신규가드7PASS, manifest224/쓰기scope/dnSpy 통과. 전체 test:erp-contract 및 PR Linux build/CI 실행 중이며 최종통과·배포는 아직 미검증.
+- 검색어: PDF 분석 중단 owner dead 5/9 6/6 260초 602초 배포 PM2 reload lifecycle mutex PR1818
+1. 작업 위치: nenova-erp-ui / fix/pdf-lifecycle-1118 / C:/Users/USER/Documents/Codex/nw-cdx-pdf-lifecycle-1118 / PR1818. CLOUD PR1813 작업트리와 분리.
+2. 완료된 것: lib/packingPdfLifecycle.cjs, importTeamPdfJobs admission 보호, scripts/guard-pdf-deploy.cjs, 익명 상태 진단, deploy workflow 보호·진단 연결, 전용회귀·계약·계획. 운영DB/서비스 설정/추가유료분석 변경0.
+3. 남은 할 일: 전체ERP검사·Linux CI/webpack 확인→활성분석 없는 최초 rollout→코드 배포·ping/분석 캐시 읽기 스모크. 기존파일 즉시불러오기/변경본 선택 재분석 UI 요청은 아직 미구현. 실패9구간은 완료5구간 유지한 명시재시도만 허용, 추가비용 동의 없이 재분석 금지.
+4. 검증 상태: 원인 owner-dead 및 배포중첩 실측, 신규 보호장치 실행형 표적 통과. 개별작업/배포상세로그 정확한 kill순간·단일구간3실패·현재앱복구·최종CI·배포 미검증. 성공6/6은 실제서버분석 기록이지 입고/원가E2E 통과가 아님.
+5. 주의/잠금: 본 worktree 독점. 최초 구버전은 global admission mutex가 없으므로 직원 분석 완료후 설치해야 함. PM2/OOM/OS강제종료 전부를 이가드가 방지하는 것은 아님. 운영입고·원가·재고 저장 금지. 별도 CLOUD PR1813 및 다른세션 PR1817 소스 건드리지 않음.
 ## 2026-11-18 농장 검색 최종 로컬 검증
 - 최신master f92f04dad 통합후정식 npm build(prebuild영상검사포함) exit0. 갱신목차/영상의실제플레이어재생1920/390재통과. 변경manifest224/dnSpy/쓰기guard통과. 전체ERP는앞선소스에서pre/core/post통과했고최신통합본전체는PR CI에서재확인예정.
 - 검색어: 입고 농장검색 최종빌드 통과 Faguaflowers Intl LLC guide452.15 280.8
@@ -3393,3 +3404,7 @@ pm run test:canon 통과.
 - 원문 분석 수치 정정: 위1711에는 빈 기록1개가 포함되어 실제 비어있지 않은 원문은1710개(addition276/review310/excluded1124)다. 전체는 자동 분류 결과이며 전수 수동정답률이 아님. 11/5 CL38의23품목은 원문 대조1445송이 확인.
 - 가이드 최종: 195.75초 18단계, 1920×1080/100%, 처음·중간·끝 프레임에서 번호/줌/자막/자동합계4/복사확인. 회사Drive MP4 1eJ6gs7vK6n2CszZ3iuThQPow2roNET1R / VTT 1ZYHM4gCvwfOpGonlly089p3cb8utFCHG 보관.
 - 최종 로컬 검증 완료: test:erp-contract(내부 dnSpy 포함), test:workflow-guides 및 changed-source 가이드 검사, manifest/write guard, 최종 production build 모두 통과. 최종 번들에 relatedChanges 포함 확인. 마지막 보완은 원문분석/API 회귀 재통과 및 실제 Chrome 신규 취소수신→이전 포함 무효화 통과. 국가·품목군 필터/일반카톡·중복제외/업체비고/복사/제외·재조회/390px 패널·가이드 플레이어 검증 통과. 운영은 배포 후 확인 예정.
+
+### PR1818 통합 검증 진행
+- 전체 로컬 test:erp-contract·webpack exit0, 기능커밋8643cf34 Linux CI44221462738 전체·webpack PASS. 배포44217840381 원로그에서10:48:54.193KST reloadProcessId 확인(실패9구간 실행중). 최신master70a890a2 통합은 WORK_MEMORY append 충돌 양쪽 보존만 수동 해결, package.json 자동병합. 최신통합 CI·운영배포는 미검증.
+- 검색어: PDF lifecycle 1818 10:48:54 reload 70a890a2 통합 검증
