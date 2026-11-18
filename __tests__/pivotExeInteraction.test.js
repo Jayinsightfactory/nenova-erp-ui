@@ -94,7 +94,7 @@ assert.match(panelSource, /필드 버튼 전체를 마우스로 잡아/, 'EXE �
 const areaSource = fs.readFileSync(new URL('../components/ExePivotFieldArea.js', import.meta.url), 'utf8');
 assert.match(areaSource, /pivot-exe-drop-marker/, '드롭할 정확한 삽입 위치를 안내선으로 표시한다');
 assert.doesNotMatch(panelSource, />⇄<\/button>/, '별도 이동 아이콘을 주 조작으로 노출하지 않는다');
-assert.match(panelSource, /오른쪽.*실제 값 필터/, '필드 오른쪽 화살표가 실제 값 목록을 연다는 안내를 표시한다');
+assert.match(panelSource, /필드명을 클릭하면 실제 값 필터/, '필드명 직접 클릭으로 값 목록을 연다는 안내를 표시한다');
 assert.match(panelSource, /체크한 값과 지정한 순서를 피벗 행·열 및 엑셀에 적용합니다/, '값 선택과 순서의 적용 범위를 명확히 안내한다');
 assert.match(panelSource, /선택·순서 적용/, '순서 초안은 명시 적용한다');
 assert.match(panelSource, /zone === 'filters' \? openValueFilter : openFieldMenu/, '필터 영역의 기본 버튼은 실제 값 선택창을 바로 연다');

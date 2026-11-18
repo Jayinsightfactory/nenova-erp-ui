@@ -82,6 +82,14 @@ test('current Layout menu yields complete menus for each permitted identity', ()
   const member = buildDesktopBootstrap(canonical, { userId: 'nenovaSS2' }, 'v1');
   const other = buildDesktopBootstrap(canonical, { userId: 'sales01' }, 'v1');
   assert.ok(owner.menus.flatMap(group => group.items).some(item => item.href === '/integrations/moyi-drive'));
+  for (const href of ['/my-work', '/my-work?tab=arch', '/my-work?tab=suite-sim', '/my-work?tab=radar', '/my-work?tab=proposals']) {
+    assert.ok(owner.menus.flatMap(group => group.items).some(item => item.href === href), `owner receives ${href}`);
+  }
   assert.ok(member.menus.flatMap(group => group.items).some(item => item.href === '/my-work?tab=mine'));
+  assert.ok(member.menus.flatMap(group => group.items).some(item => item.href === '/my-work?tab=arch&view=staff'));
+  for (const adminHref of ['/my-work?tab=arch', '/my-work?tab=suite-sim', '/my-work?tab=radar', '/my-work?tab=proposals']) {
+    assert.ok(!member.menus.flatMap(group => group.items).some(item => item.href === adminHref), `member does not receive ${adminHref}`);
+  }
   assert.ok(!other.menus.flatMap(group => group.items).some(item => item.href === '/my-work?tab=mine'));
+  assert.ok(!other.menus.flatMap(group => group.items).some(item => item.href === '/my-work?tab=arch&view=staff'));
 });

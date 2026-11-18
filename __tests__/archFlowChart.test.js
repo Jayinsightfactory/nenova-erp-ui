@@ -38,12 +38,15 @@ for (const sessId of ['s1_phone_hub', 's2_kakao_bridge', 's3_desktop_hub', 's4_w
 for (const rustToken of ['arch-rust-hotpaths', 'hermes-core.exe', 'nenova-device-sidecar.exe', 'Rust']) {
   assert.ok(comp.includes(rustToken), `ArchFlowChart must include Rust hotpath token: ${rustToken}`);
 }
+assert.ok(comp.includes("onSelectTab('suite-sim')") && comp.includes('통합 모션 시뮬레이션 열기 ↗'), 'ArchFlowChart must link to suite-sim');
 assert.doesNotMatch(comp, /감시|추적|모니터링/, '작업자 노출 문구에 감시·추적·모니터링 금지');
 assert.doesNotMatch(comp, /<button[\s>]/, 'PM UI 키트 규칙: raw <button> 금지');
 
 const myWork = read('pages/my-work.js');
 assert.match(myWork, /\{ id: 'arch', label: '아키텍처 흐름도' \}/);
+assert.match(myWork, /\{ id: 'suite-sim', label: '통합 솔루션 시뮬레이션' \}/);
 assert.match(myWork, /tab === 'arch' && <ArchFlowChart/);
+assert.match(myWork, /tab === 'suite-sim' && !mineOnly && <SolutionSuiteSimulator/);
 assert.match(myWork, /router\.query\?\.tab/);
 
 const shell = read('desktop/shell/shell.js');
@@ -53,5 +56,17 @@ assert.match(shell, /pmOpenButton\.textContent = '오류관제 열기'/);
 assert.match(shell, /pmArchButton\.id = 'pmArchButton'/);
 assert.match(shell, /pmArchButton\.textContent = '흐름도'/);
 assert.match(shell, /url: '\/my-work\?tab=arch'/);
+assert.match(shell, /pmSimButton\.id = 'pmSimButton'/);
+assert.match(shell, /pmSimButton\.textContent = '시뮬레이션'/);
+assert.match(shell, /url: '\/my-work\?tab=suite-sim'/);
+assert.match(shell, /pmRadarButton\.id = 'pmRadarButton'/);
+assert.match(shell, /pmRadarButton\.textContent = '도입레이더'/);
+assert.match(shell, /url: '\/my-work\?tab=radar'/);
+
+const layout = read('components/Layout.js');
+assert.match(layout, /href: '\/my-work\?tab=arch'/);
+assert.match(layout, /href: '\/my-work\?tab=suite-sim'/);
+assert.match(layout, /href: '\/my-work\?tab=radar'/);
+assert.match(layout, /href: '\/my-work\?tab=proposals'/);
 
 console.log('archFlowChart contract tests passed');

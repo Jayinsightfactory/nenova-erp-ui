@@ -15,6 +15,7 @@ import { pivotIncomingSelections } from '../lib/pivotExeWeekGrouping';
 import { usePivotExeCalculation } from '../lib/usePivotExeCalculation';
 import PivotLoadingOverlay from './PivotLoadingOverlay';
 import controls from './PivotExeControls.module.css';
+import WorkflowGuide from './WorkflowGuide';
 import { pivotLinkedValues, applyLinkedPivotSelection, clearPivotProductSelections, PIVOT_PRODUCT_FILTER_FIELDS } from '../lib/pivotLinkedFilters';
 import { applyPivotValueSelection, createPivotHeaderHeightResizeSession, createPivotLayoutHistory, createPivotPreferenceWriter, createPivotResizeSession, describePivotValueSelection, movePivotField, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction';
 
@@ -76,21 +77,19 @@ function FieldMenu({ field, aggregation, sort, popupRef, position, onAggregation
   const move = (zone) => { onMove(field.id, zone); onClose(); };
   return <div ref={popupRef} data-testid="pivot-exe-field-menu" role="dialog" aria-label={`${field.label} 메뉴`} style={{...menuStyle,...position,visibility:position?'visible':'hidden'}} onClick={(event) => event.stopPropagation()}>
     <div style={{display:'flex',justifyContent:'space-between',gap:8}}><b style={{fontSize:12}}>{field.label}</b><small style={{color:'#607089'}}>정렬 {sort === 'asc' ? '▲' : sort === 'desc' ? '▼' : '—'}</small></div>
-    <div style={menuGrid}>
-      <button onClick={(event) => onFilter(field.id, event)}>값 필터…</button><button onClick={() => { onSort(field.id, 'asc'); onClose(); }}>오름차순</button>
-      <button onClick={() => { onSort(field.id, 'desc'); onClose(); }}>내림차순</button><button onClick={() => { onSort(field.id, null); onClose(); }}>정렬 해제</button>
-      <button data-testid="pivot-exe-move-row" onClick={() => move('rows')}>세로 행으로 이동</button><button data-testid="pivot-exe-move-column" onClick={() => move('cols')}>가로 열로 이동</button>
-      <button data-testid="pivot-exe-move-value" onClick={() => move('values')}>값으로 이동{field.numeric ? '' : ' (개수)'}</button><button data-testid="pivot-exe-move-filter" onClick={() => move('filters')}>필터로 이동</button>
-      <button onClick={() => onReorder(field.id, 'first')}>처음</button><button onClick={() => onReorder(field.id, 'prev')}>이전</button>
-      <button onClick={() => onReorder(field.id, 'next')}>다음</button><button onClick={() => onReorder(field.id, 'last')}>끝</button>
-      <button onClick={() => onBestFit(field.id)}>너비 자동맞춤</button><button onClick={() => { onHide(field.id); onClose(); }}>숨김</button>
+    <div className={controls.fieldSettings}>
+      <button autoFocus onClick={(event) => onFilter(field.id, event)}>필터 값 선택</button>
+      <label>정렬<select aria-label="필드 정렬" value={sort || ''} onChange={event=>{onSort(field.id,event.target.value || null);onClose();}}><option value="">기본 순서</option><option value="asc">오름차순</option><option value="desc">내림차순</option></select></label>
+      <label>배치 위치<select aria-label="필드 배치 위치" value="" onChange={event=>move(event.target.value)}><option value="" disabled>이동할 영역 선택</option><option value="rows">세로 행</option><option value="cols">가로 열</option><option value="values">값{field.numeric ? '' : ' (개수)'}</option><option value="filters">필터</option></select></label>
+      <label>필드 순서<select aria-label="필드 순서" value="" onChange={event=>{onReorder(field.id,event.target.value);onClose();}}><option value="" disabled>이동할 위치 선택</option><option value="first">처음</option><option value="prev">이전</option><option value="next">다음</option><option value="last">끝</option></select></label>
+      <div><button onClick={()=>{onBestFit(field.id);onClose();}}>너비 자동맞춤</button><button onClick={()=>{onHide(field.id);onClose();}}>필드 숨기기</button></div>
     </div>
     {aggregation && <label style={{display:'block',fontSize:11,marginTop:7}}>집계 <select value={aggregation} onChange={(event)=>onAggregation(field.id,event.target.value)}>{field.numeric && <><option value="sum">합계</option><option value="avg">평균</option>{field.weightField && <option value="weightedavg">수량가중평균</option>}<option value="min">최소</option><option value="max">최대</option></>}<option value="count">개수</option></select></label>}
     <button style={{width:'100%',marginTop:5}} onClick={onClose}>닫기</button>
   </div>;
 }
 
-function FilterValueDialog({ field, values, selected, valueOrder, sort, rawValue, rawValues, popupRef, position, onApply, onClear, onResetProduct, onClose }) {
+function FilterValueDialog({ field, values, selected, valueOrder, sort, rawValue, rawValues, popupRef, position, onApply, onClear, onResetProduct, onSettings, onClose }) {
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState(() => new Set(Array.isArray(selected) ? selected : values));
   const unavailable = [...draft].filter(value => !values.includes(value));
@@ -107,9 +106,20 @@ function FilterValueDialog({ field, values, selected, valueOrder, sort, rawValue
     setDraftSort(null);
   };
   const toggle = (value) => setDraft((previous) => { const next = new Set(previous); next.has(value) ? next.delete(value) : next.add(value); return next; });
-  return <section ref={popupRef} data-testid="pivot-exe-value-filter" role="dialog" aria-label={`${field.label} 값 필터`} style={{...valueFilterStyle,...position,visibility:position?'visible':'hidden'}} onClick={(event) => event.stopPropagation()}>
+  const navigateValues = (event) => {
+    if (event.target.type !== 'checkbox') return;
+    if (event.key === 'Enter') { event.preventDefault(); event.target.click(); return; }
+    if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    const items = [...event.currentTarget.querySelectorAll('input[type="checkbox"]')];
+    const index = items.indexOf(event.target);
+    items[(index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+  };
+  return <section ref={popupRef} onKeyDown={navigateValues} className={controls.valueDialog} data-testid="pivot-exe-value-filter" role="dialog" aria-label={`${field.label} 값 필터`} style={{...valueFilterStyle,...position,visibility:position?'visible':'hidden'}} onClick={(event) => event.stopPropagation()}>
     <div style={popupHeaderStyle}><b>{field.label}에서 표시할 값</b><button type="button" aria-label="닫기" onClick={onClose}>×</button></div>
     <div style={{fontSize:12,color:'#52647a',marginBottom:7}}>다른 필터 조건에 맞는 값만 표시합니다. 이 항목의 기존 선택은 후보 제한에서 제외하며 고급 조건은 유지합니다. 체크한 값과 지정한 순서를 피벗 행·열 및 엑셀에 적용합니다. 검색은 후보만 좁힙니다. 적용하면 필터가 켜집니다.</div>
+    <button type="button" onClick={onSettings}>정렬·배치 설정</button>
+    {draft.size === 0 && <p role="status" className={controls.emptySelection}>선택한 값이 없어 적용하면 표가 비게 됩니다. 표시할 값을 체크하세요.</p>}
     {onResetProduct && <button type="button" data-testid="pivot-reset-product-filters" onClick={onResetProduct} title="국가·꽃·품목명·색상 선택을 함께 해제합니다. 다른 필터와 고급 조건은 유지합니다.">국가·품종·품목 선택 초기화</button>}
     {unavailable.length > 0 && <div role="status" data-testid="pivot-linked-unavailable" style={{padding:8,marginBottom:7,background:'#fff4d6',color:'#734600',fontSize:12}}>현재 다른 조건과 맞지 않는 기존 선택 {unavailable.length}개입니다. 자동으로 삭제하지 않습니다.
       <div style={{maxHeight:100,overflow:'auto'}}>{unavailable.map(value=><label key={value} style={{display:'block'}}><input type="checkbox" checked onChange={()=>toggle(value)} />{cleanText(value)}</label>)}</div>
@@ -220,12 +230,12 @@ export default function PivotExePanel() {
   const autoQueryTimer = useRef(null);
   const preferenceWriter = useRef(null);
   const cancelResize = useRef(null);
-  const closeFieldMenu = useCallback(() => setFieldMenu(null), []);
+  const closeFieldMenu = useCallback(() => { setFieldMenu(previous => { previous?.anchor?.focus?.(); return null; }); }, []);
   const resetAllFilters = () => {
     setSelections({}); setAst(EMPTY_AST()); setDraftAst(EMPTY_AST()); setFilterActive(true);
     setFilterField(null); setFilterOpen(false); setCollapsedRows(new Set()); setCollapsedCols(new Set());
   };
-  const closeValueFilter = useCallback(() => setFilterField(null), []);
+  const closeValueFilter = useCallback(() => { setFilterField(previous => { previous?.anchor?.focus?.(); return null; }); }, []);
   const [fieldMenuRef, fieldMenuPosition] = useAnchoredPopup(Boolean(fieldMenu), fieldMenu?.anchor, closeFieldMenu);
   const [valueFilterRef, valueFilterPosition] = useAnchoredPopup(Boolean(filterField), filterField?.anchor, closeValueFilter);
   const applyView = useCallback((input) => {
@@ -472,7 +482,7 @@ export default function PivotExePanel() {
   }, []);
   // DevExpress field area props for PivotExeGrid (filters/values/cols/rows live inside the grid header).
   const zoneArea = (zone,label,hint) => ({
-    zone, label, emptyText: `여기에 필드를 놓으세요 (${hint})`,
+    zone, label, directFilter: true, emptyText: `여기에 필드를 놓으세요 (${hint})`,
     items: zones[zone], fieldsById: BY_ID, sorts, valueFilterStates, draggedField, dropTarget,
     onDragStart: (id, fromZone, index) => { setDraggedField(id); setDropTarget({zone:fromZone,index}); },
     onDragOverItem: (targetZone, index) => setDropTarget((previous) => previous?.zone === targetZone && previous.index === index ? previous : {zone:targetZone,index}),
@@ -524,7 +534,8 @@ export default function PivotExePanel() {
       {successRange && <><button data-testid="pivot-exe-expand-all" className="btn btn-sm" onClick={()=>{setCollapsedRows(new Set());setCollapsedCols(new Set());}}>모두 펼침</button><button data-testid="pivot-exe-collapse-all" className="btn btn-sm" onClick={()=>{setCollapsedRows(getPivotExeGroupKeys(pivotModel,'row'));setCollapsedCols(getPivotExeGroupKeys(pivotModel,'column'));}}>모두 접기</button></>}
     </div>
     <PivotArrivalFxControls rates={arrivalFxRates} onApply={setArrivalFxRates} disabled={busy || Boolean(dirty) || !successRange} rows={rows} />
-    <details className={controls.help}><summary>사용 방법 · 버튼을 끌어 배치 / 오른쪽 ▾로 필터</summary>nenova.exe처럼 <b>필드 버튼 전체를 마우스로 잡아</b> 표 머리글의 원하는 영역에 놓으세요. <b>필터는 맨 위, 값은 왼쪽 위, 열은 위쪽, 행은 왼쪽</b>입니다. 행·열 필드 버튼을 클릭하면 정렬이 바뀌고, 오른쪽 클릭(또는 Shift+F10)으로 메뉴를 엽니다. 파란 삽입선이 실제 위치를 표시하며 오른쪽 <b>▾</b>는 실제 값 필터입니다.</details>
+    <WorkflowGuide workflowId="pivot-direct-filters" />
+    <details className={controls.help}><summary>사용 방법 · 필드명을 눌러 필터 / 끌어서 배치</summary>nenova.exe처럼 <b>필드 버튼 전체를 마우스로 잡아</b> 표 머리글의 원하는 영역에 놓으세요. <b>필터는 맨 위, 값은 왼쪽 위, 열은 위쪽, 행은 왼쪽</b>입니다. 국가·꽃 등 필드명을 클릭하면 실제 값 필터가 바로 열립니다. 오른쪽 필터 표시로 선택 상태를 확인하세요. 정렬·배치는 필터 창의 설정에서 바꾸며 Shift+F10으로도 설정을 엽니다. 파란 삽입선이 실제 위치를 표시합니다.</details>
     <div role="group" aria-label="차수 표시 방식" style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',margin:'6px 0'}}>
       <button className={`btn btn-sm ${weekGrouping==='subweek'?'btn-primary':''}`} aria-pressed={weekGrouping==='subweek'} onClick={()=>changeWeekGrouping('subweek')}>세부차수 보기</button>
       <button className={`btn btn-sm ${weekGrouping==='main'?'btn-primary':''}`} aria-pressed={weekGrouping==='main'} onClick={()=>changeWeekGrouping('main')}>메인차수 합산</button>
@@ -566,7 +577,7 @@ export default function PivotExePanel() {
     </div>
     </section>
     {fieldMenu && <FieldMenu field={BY_ID[fieldMenu.id]} aggregation={zones.values.find((value)=>value.id===fieldMenu.id)?.aggregation} sort={sorts[fieldMenu.id]} popupRef={fieldMenuRef} position={fieldMenuPosition} onAggregation={(id,aggregation)=>setZones((previous)=>({...previous,values:previous.values.map((value)=>value.id===id?{...value,aggregation}:value)}))} onClose={closeFieldMenu} onMove={moveField} onHide={hideField} onSort={(id,direction)=>{setValueOrders((previous)=>{const next={...previous};delete next[id];return next;});setSorts((previous)=>{const next={...previous}; if (direction) next[id]=direction; else delete next[id]; return next;});}} onBestFit={bestFit} onFilter={(id,event)=>openValueFilter(id,event,fieldMenu.anchor)} onReorder={reorder} />}
-{filterField && <FilterValueDialog key={filterField.id} field={BY_ID[filterField.id]} values={linkedValues} selected={selections[filterField.id]} valueOrder={valueOrders[filterField.id]} sort={sorts[filterField.id]} rawValue={rawOrderValue} rawValues={rawOrderValues} popupRef={valueFilterRef} position={valueFilterPosition} onClose={closeValueFilter} onResetProduct={PIVOT_PRODUCT_FILTER_FIELDS.includes(filterField.id) ? ()=>{setSelections(clearPivotProductSelections);closeValueFilter();} : undefined} onClear={()=>{setSelections((previous)=>{const next={...previous}; delete next[filterField.id]; return next;});closeValueFilter();}} onApply={(accepted,order,direction)=>{setFilterActive(true);setSelections((previous)=>applyLinkedPivotSelection(previous,filterField.id,accepted,valuesByField[filterField.id] || []));setValueOrders((previous)=>{const next={...previous};if(order.length) next[filterField.id]=order;else delete next[filterField.id];return next;});setSorts((previous)=>{const next={...previous};if(direction) next[filterField.id]=direction;else delete next[filterField.id];return next;});closeValueFilter();}} />}
+{filterField && <FilterValueDialog key={filterField.id} field={BY_ID[filterField.id]} values={linkedValues} selected={selections[filterField.id]} valueOrder={valueOrders[filterField.id]} sort={sorts[filterField.id]} rawValue={rawOrderValue} rawValues={rawOrderValues} popupRef={valueFilterRef} position={valueFilterPosition} onClose={closeValueFilter} onSettings={()=>{const anchor=filterField.anchor;setFilterField(null);setFieldMenu({id:filterField.id,anchor});}} onResetProduct={PIVOT_PRODUCT_FILTER_FIELDS.includes(filterField.id) ? ()=>{setSelections(clearPivotProductSelections);closeValueFilter();} : undefined} onClear={()=>{setSelections((previous)=>{const next={...previous}; delete next[filterField.id]; return next;});closeValueFilter();}} onApply={(accepted,order,direction)=>{setFilterActive(true);setSelections((previous)=>applyLinkedPivotSelection(previous,filterField.id,accepted,valuesByField[filterField.id] || []));setValueOrders((previous)=>{const next={...previous};if(order.length) next[filterField.id]=order;else delete next[filterField.id];return next;});setSorts((previous)=>{const next={...previous};if(direction) next[filterField.id]=direction;else delete next[filterField.id];return next;});closeValueFilter();}} />}
     {fieldList && <FieldList zones={zones} hidden={hidden} onClose={()=>setFieldList(false)} onMove={moveField} onHide={hideField} />}
     {filterOpen && <Modal title="전체 필터 편집" onClose={()=>setFilterOpen(false)} width={760}><p style={{marginTop:0,fontSize:11,color:'#667'}}>AND / OR / NOT 조건을 안전한 데이터 비교로 적용합니다. 적용하면 필터가 켜집니다. 코드나 SQL은 실행하지 않습니다.</p><AstEditor ast={draftAst} setAst={setDraftAst} /><ModalButtons onCancel={()=>setFilterOpen(false)} onApply={()=>{setAst(draftAst);setFilterActive(true);setFilterOpen(false);}} /></Modal>}
     <style jsx>{`
@@ -608,7 +619,6 @@ const favoriteRowStyle={display:'flex',gap:5,alignItems:'flex-start',flexWrap:'w
 const menuStyle={position:'fixed',zIndex:1000,width:260,padding:9,background:'#fff',border:'1px solid #93a5bb',boxShadow:'0 5px 18px #0003',borderRadius:4};
 const valueFilterStyle={position:'fixed',zIndex:1000,width:360,maxWidth:'calc(100vw - 16px)',padding:9,background:'#fff',border:'1px solid #93a5bb',boxShadow:'0 5px 18px #0003',borderRadius:4};
 const popupHeaderStyle={display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:7,fontSize:12};
-const menuGrid={display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,marginTop:7};
 const overlayStyle={position:'fixed',inset:0,zIndex:2000,background:'rgba(0,0,0,.36)',display:'flex',alignItems:'center',justifyContent:'center',padding:12};
 const modalStyle={background:'#fff',maxWidth:'calc(100vw - 24px)',maxHeight:'calc(100vh - 24px)',display:'flex',flexDirection:'column',boxShadow:'0 10px 35px #0005',borderRadius:5};
 const modalHeader={display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 12px',background:'#e7edf5',borderBottom:'1px solid #ccd6e3'};

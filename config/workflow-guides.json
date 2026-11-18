@@ -1623,6 +1623,14 @@
             }
           ]
         }
+      ],
+      "videoWaivers": [
+        {
+          "file": "desktop/shell/shell.js",
+          "sha256": "1bc2d48d25a2a8ac7172ad7b09ba905023520509be96681d70564da9d523fff7",
+          "reason": "관리자 전용 PM 라이브 확인 패널에 시뮬레이션·도입레이더 바로가기 버튼 추가 — 일반 직원 홈 오늘의 내 업무·시간표·메모장·달력 14단계 가이드 화면 및 조작 순서는 변경 없음",
+          "approvedBy": "사용자"
+        }
       ]
     },
     {
@@ -1664,6 +1672,53 @@
               "scenario": "close",
               "title": "3. 대조와 알림 닫기",
               "seconds": 38.489
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pivot-direct-filters",
+      "title": "피벗 필터 선택과 배치 설정",
+      "entryPaths": [
+        "/stats/pivot"
+      ],
+      "sourceFiles": [
+        "components/PivotExePanel.js",
+        "components/ExePivotFieldArea.js",
+        "components/ExePivotTheme.module.css",
+        "components/PivotExeControls.module.css",
+        "components/PivotExeGrid.js"
+      ],
+      "requiredScenarios": [
+        "country",
+        "empty",
+        "settings"
+      ],
+      "guides": [
+        {
+          "id": "user",
+          "role": "공통",
+          "title": "국가 필터·빈 선택 복구·정렬과 배치",
+          "status": "ready",
+          "src": "/guides/pivot-direct-filters/user.mp4",
+          "captions": "/guides/pivot-direct-filters/user.ko.vtt",
+          "proof": "/guides/pivot-direct-filters/user.proof.json",
+          "chapters": [
+            {
+              "scenario": "country",
+              "title": "1. 국가 버튼을 눌러 중국만 선택하고 적용합니다.",
+              "seconds": 0
+            },
+            {
+              "scenario": "empty",
+              "title": "2. 꽃 전체 해제는 0행입니다. 전체 선택으로 복구한 뒤 적용합니다.",
+              "seconds": 11.764
+            },
+            {
+              "scenario": "settings",
+              "title": "3. 필터 창의 정렬·배치 설정에서 필요한 옵션만 선택합니다.",
+              "seconds": 22.395
             }
           ]
         }

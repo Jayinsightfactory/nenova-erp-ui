@@ -3653,3 +3653,35 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
 4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(225건), `npx next build --webpack`(139 페이지, exit 0) 통과. 운영 브라우저 시각 확인은 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건(설계 문서 및 아키텍처 흐름도 UI 전용).
+
+## 2026-11-18 · PIVOT 직접 필터 버튼과 간소화한 필드 설정
+- 요약: 작은 hover 화살표/점 버튼을 없애고 필드명 전체(32px)를 값 필터로 사용. 14개 설정 버튼을 정렬·배치·순서 선택으로 정리. 체크박스 확대, 0개 선택 안내, 방향키/Enter/Escape/초점 복귀, 최종 화면 가이드 등록.
+- 근거: 사용자 2026 46-02 중국 빈 화면은 FlowerName=[] 상태였으며 같은 세션 읽기 조회 원본 1448/주문 538/중국 78행(표시 51) 복구 확인. 로컬 dnSpy FormQuantityPivot.GetData/ViewOrder/ViewWarehouse/ExportToXlsx 확인. 이번 변경은 조회 SQL·수량·차수 범위·내보내기 계산을 수정하지 않음.
+- 부작용 표: 필터/정렬/배치/숨김=브라우저 개인 화면 상태만 변경. OrderDetail, ShipmentDetail(Amount/Vat/isFix), ShipmentDate, ShipmentFarm, Warehouse, ProductStock, Estimate, WebProfitReport 보존. 별도 DB 보정 없음.
+- 메뉴 기준선: 적용=기존 shell/키보드/반응형/사용 가이드·한국어 자막·번호 목차. 해당 없음=새 메뉴·MSSQL 쓰기·Rust 핫패스(일반 React UI).
+- 검색어: PIVOT 46-02 중국 빈필터 FlowerName 직접필터 32px 정렬배치 pivot-direct-filters
+1. 작업 위치: nenova-erp-ui / codex/pivot-controls-1118 / Documents/Codex/2026-11-18/pi/work/nw-pivot-controls / PR 생성 예정.
+2. 완료된 것: ExePivotFieldArea/Theme, PivotExePanel/Controls/Grid, 계약, interaction 및 브라우저 smoke, workflow registry·34초 MP4·자막·proof.
+3. 남은 할 일: PR CI → squash merge → Cafe24 배포 및 운영 화면 확인 → worktree 정리.
+4. 검증 상태: test:erp-contract 전체, dnspy-evidence, erp-manifest(225), guard:erp-writes, webpack build, workflow-guides 통과. 완성 빌드 직접필터/국가·꽃 복구/키보드/1920·1280·390/영상 재생·목차·자막·다운로드 통과. 운영 배포는 아직 미검증.
+5. 주의/잠금: ERP API/SQL 변경 0. 기본 체크아웃의 다른 세션 수정 파일 보존. node_modules는 기본 체크아웃 연결이므로 삭제 시 junction만 제거.
+- 추가 검증: 기존 종합 브라우저 smoke에서 필드 drag/drop·빈 선택·AST·정렬·표시·크기·즐겨찾기 CRUD(격리 fixture)·팝업·가로 스크롤·XLSX 다운로드 단계 통과. 503 오류 주입 뒤 표 보존 검사는 실패: 기준 c30ad26f의 동일한 usePivotExeCalculation 활성 조건(!dirty && !error)이 기존 표를 숨김. 이번 UI 패치 전부터 존재하는 별도 알려진 제한이며 전체 smoke 통과로 표시하지 않는다. 실패 단언을 유지하고 테스트의 현행 셀렉터·로딩 대기·현재 차수 역순 조건만 갱신. PR #1838.
+
+
+## 2026-11-18 · 통합 솔루션 모션그래픽 · 3D 블루프린트 · 실제 작업캡처 시뮬레이션 페이지(`/my-work?tab=suite-sim`) 구축
+- 요약: `MOYI 모바일 앱` · `Phone Harness` · `Device Hub` · `Rust 사이드카/hermes-core` · `Nenova Kakao` · `Hermes AI` · `네노바웹 ERP 원장`을 결합한 관리자(`nenovaSS3`) 전용 **「통합 솔루션 시뮬레이션」** 탭(`/my-work?tab=suite-sim`)을 신설. 3D 아이소메트릭 CAD 도면 3종(`public/images/solution-sim/*.jpg`), Archify 검증 인터랙티브 트레이스 설계도(`data/moyi-full-suite-blueprint.html`), 6단계 발광 패킷 SVG 모션그래픽 플레이어 + 인터랙티브 MOYI 승인 폰 목업, 실제 직원 Orbit 캡처(`/api/work/orbit-thumbs` 바운딩박스·수작업 시간 대조)를 단일 스튜디오에 통합.
+- 검색어: suite-sim SolutionSuiteSimulator 통합솔루션시뮬레이션 PhoneHarness DeviceHub MOYI앱 orbit-thumbs moyi-full-suite-blueprint
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/moyi-device-suite-simulator` / `C:\Users\USER\nw-agy-suite-sim` (세션 M1·M2·M3 분리 제작).
+2. 완료된 것: `components/work/SolutionSuiteSimulator.js` 신설, `pages/my-work.js` `suite-sim` 탭 연결(`!mineOnly` 게이트), `pages/api/my-work/feature.js` `suite-blueprint-html` 권한 검증 서빙 추가, `components/pm/ArchFlowChart.js` 바로가기 버튼 추가, 3D 블루프린트 이미지 3종·Archify 인터랙티브 HTML 등재 및 `solutionSuiteSimulator.test.js` 작성.
+3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
+4. 검증 상태: `solutionSuiteSimulator`(SSR·권한 404/200·좌표·에셋), `archFlowChart`, `workflowReview`, `test:pm`(frozen 31 유지, no-hex 47, ui-kit 9), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(225건), `npx next build --webpack`(139 페이지, exit 0) 통과. 운영 배포 후 라이브 Orbit 토큰 상태에서의 실브라우저 렌더링은 별도 미검증.
+5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건, `mineOnly`(일반 직원 계정)에는 탭 및 도면 API 모두 노출되지 않음(`404` 은닉 유지).
+
+## 2026-11-18 · 네노바 데스크톱앱(v1.3.40) 전 기능 연결 — 메뉴 카탈로그 · 홈 PM 바로가기 · Electron Smoke 검증
+- 요약: 데스크톱앱(`desktop/package.json`·`desktop/package-lock.json` `1.3.40` 갱신)과 네노바웹 카탈로그(`components/Layout.js`)를 연동해 관리자(`nenovaSS3`) 전용 5종 메뉴(`/my-work`, `?tab=arch`, `?tab=suite-sim`, `?tab=radar`, `?tab=proposals`) 및 일반 직원(`WORKFLOW_OWNERS` 중 비관리자) 전용 「솔루션 아키텍처 흐름도」(`/my-work?tab=arch&view=staff`)를 추가하고, `desktop/shell/shell.js` 홈 `PM 라이브 확인` 액션바에 `시뮬레이션`(`#pmSimButton`)·`도입레이더`(`#pmRadarButton`) 버튼을 추가.
+- 검색어: desktop 1.3.40 Layout.js shell.js pmSimButton pmRadarButton suite-sim radar proposals ElectronSmoke
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/desktop-connect-all-features` / `C:\Users\USER\nw-agy-desktop-connect` (세션 D1·D2·D3 분리 실행).
+2. 완료된 것: `components/Layout.js` 메뉴 5종 + 직원 흐름도 메뉴 추가, `desktop/shell/shell.js` 홈 PM 바로가기(`시뮬레이션`·`도입레이더`) 추가, `desktop/package.json`·`desktop/package-lock.json` `1.3.40` 버전 갱신, `config/workflow-guides.json` `videoWaivers`(`shell.js` SHA-256) 등록, `desktop/scripts/smoke.cjs`·`__tests__/archFlowChart.test.js`·`__tests__/desktopBootstrap.test.mjs`·`__tests__/solutionSuiteSimulator.test.js` 단언 보강.
+3. 남은 할 일: PR 생성 → CI `verify`·데스크톱 체크 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir` junction 선행) → 필요 시 데스크톱 `1.3.40` 릴리스 빌드/배포.
+4. 검증 상태: 실제 Electron smoke(`test:smoke` 72/72) 및 `next build` 포함 11개 전체 검증 통과(세션 D2). 실배포 서버 연동 및 `1.3.40` 설치 패키지 실PC 구동은 미검증.
+5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건, 관리자 전용 5종 메뉴는 `userIds: ['nenovaSS3']` 게이트 유지, `videoWaivers`는 일반 직원 14단계 홈 가이드 미변경 사유 명시.

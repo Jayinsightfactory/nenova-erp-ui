@@ -32,10 +32,6 @@ const testids = {
   filterEditor: 'pivot-exe-filter-editor',
   collapseAll: 'pivot-exe-collapse-all',
   expandAll: 'pivot-exe-expand-all',
-  moveRow: 'pivot-exe-move-row',
-  moveColumn: 'pivot-exe-move-column',
-  moveValue: 'pivot-exe-move-value',
-  moveFilter: 'pivot-exe-move-filter',
   ...parseJsonEnv('PIVOT_EXE_SMOKE_TESTIDS'),
 };
 
@@ -99,6 +95,7 @@ async function clickObservable(page, observableText) {
   await page.mouse.click(box.x, box.y);
 }
 async function click(page, value, label, observableText = null) {
+  await page.waitForSelector('[data-testid="pivot-loading-overlay"]',{hidden:true});
   if (value) {
     const sel = selector(value);
     const found = await page.waitForSelector(sel, { visible: true, timeout: 1000 }).catch(() => null);
@@ -110,6 +107,7 @@ async function click(page, value, label, observableText = null) {
     await clickObservable(page, observableText);
   } else throw new Error(`No supplied testid or observable label for ${label || 'control'}`);
   await delay(100);
+  await page.waitForSelector('[data-testid="pivot-loading-overlay"]',{hidden:true});
   return label || value;
 }
 async function text(page) { return page.$eval('body', node => String(node.innerText || '').replace(/\s+/g, ' ').trim()); }
@@ -331,6 +329,8 @@ async function runDelayedAuthLayoutRegression(browser) {
         source.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: transfer }));
       }, { fieldId: field, destination: zoneId });
       await waitFor(() => page.$eval(`[data-testid="${zoneId}"]`, (node, fieldId) => Boolean(node.querySelector(`[data-testid="pivot-exe-field-${fieldId}"]`)), field), `${field} drop into ${zone}`);
+      await page.waitForSelector('[data-testid="pivot-exe-grid"]',{visible:true});
+      await page.waitForSelector('[data-testid="pivot-loading-overlay"]',{hidden:true});
       assert(rawDataReads === beforeReads, `dragging ${field} into ${zone} unexpectedly fetched raw data`);
     };
     await dropField('CustName', 'rows', 'pivot-exe-zone-rows');
@@ -369,11 +369,12 @@ async function runDelayedAuthLayoutRegression(browser) {
       await click(page, testids.recursiveFilterApply, 'recursive AST apply');
     }
 
+    await page.waitForSelector('[data-testid="pivot-exe-grid"]',{visible:true});
+    await page.waitForSelector('[data-testid="pivot-loading-overlay"]',{hidden:true});
     // Exercise the actual visible filter controls, not just optional test manifests.
-    // 2026-11-04 DevExpress 조작법: 필드 버튼 클릭=정렬, 메뉴는 hover 시 ⋯(pivot-exe-menu-*) 또는 우클릭.
-    await page.hover('[data-testid="pivot-exe-field-CounName"]');
-    await click(page, 'pivot-exe-menu-CounName', 'country menu');
-    await click(page, null, 'value filter', '값 필터…');
+    // Field name directly opens the value picker.
+    await click(page, 'pivot-exe-field-CounName', 'country values');
+    await page.waitForSelector('[data-testid="pivot-exe-value-filter"]',{visible:true});
     await click(page, null, 'clear values', '전체 해제');
     await click(page, null, 'apply empty selection', '선택·순서 적용');
     assert((await text(page)).includes('표시할 데이터가 없습니다.'), 'empty filter must show no rows');
@@ -391,15 +392,23 @@ async function runDelayedAuthLayoutRegression(browser) {
     assert((await page.$$eval('tbody tr', nodes => nodes.length)) < expandedRows, 'collapse did not reduce visible rows');
     await click(page, testids.expandAll, 'expand all', '모두 펼침');
     assert((await page.$$eval('tbody tr', nodes => nodes.length)) === expandedRows, 'expand did not restore rows');
-    await click(page, 'pivot-exe-field-CounName', 'sort ascending by header click');
+    await page.waitForSelector('[data-testid="pivot-loading-overlay"]',{hidden:true});
+    await page.click('[data-testid="pivot-exe-field-CounName"]',{button:'right'});
+    await page.waitForSelector('[aria-label="필드 정렬"]',{visible:true});
+    await page.select('[aria-label="필드 정렬"]','asc'); await delay(300);
     assert((await page.$eval('table tbody tr th', node => node.textContent)).includes('에콰도르'), 'ascending country order not applied');
     assert((await page.$eval('[data-testid="pivot-exe-field-CounName"]', node => node.textContent)).includes('▲'), 'ascending indicator missing');
-    await click(page, 'pivot-exe-field-CounName', 'sort descending by second header click');
+    await page.waitForSelector('[data-testid="pivot-loading-overlay"]',{hidden:true});
+    await page.click('[data-testid="pivot-exe-field-CounName"]',{button:'right'});
+    await page.waitForSelector('[aria-label="필드 정렬"]',{visible:true});
+    await page.select('[aria-label="필드 정렬"]','desc'); await delay(300);
     assert((await page.$eval('table tbody tr th', node => node.textContent)).includes('콜롬비아'), 'descending country order not applied');
     assert((await page.$eval('[data-testid="pivot-exe-field-CounName"]', node => node.textContent)).includes('▼'), 'descending indicator missing');
     await page.hover('[data-testid="pivot-exe-field-CounName"]');
-    await click(page, 'pivot-exe-menu-CounName', 'open clear sort');
-    await click(page, null, 'clear sort', '정렬 해제');
+    await page.waitForSelector('[data-testid="pivot-loading-overlay"]',{hidden:true});
+    await page.click('[data-testid="pivot-exe-field-CounName"]',{button:'right'});
+    await page.waitForSelector('[aria-label="필드 정렬"]',{visible:true});
+    await page.select('[aria-label="필드 정렬"]',''); await delay(300);
 
     // Grouped headers, true cell grid and display-only precision.
     assert((await page.$$eval('table thead tr', nodes => nodes.length)) >= 3, 'column headers must be hierarchical');
@@ -508,15 +517,17 @@ async function runDelayedAuthLayoutRegression(browser) {
 
     for (const width of [1920,1366]) {
       await page.setViewport({width,height:width===1920?1080:768,deviceScaleFactor:1});
+      await delay(500);
       await page.hover('[data-testid="pivot-exe-field-ListType"]');
-      await click(page,'pivot-exe-filter-ListType','anchored type filter');
+      await click(page,'pivot-exe-field-ListType','anchored type filter');
+      await delay(300);
       const bounds = await page.evaluate(() => {
-        const anchor=document.querySelector('[data-testid="pivot-exe-filter-ListType"]').getBoundingClientRect();
+        const anchor=document.querySelector('[data-testid="pivot-exe-field-ListType"]').getBoundingClientRect();
         const popup=document.querySelector('[data-testid="pivot-exe-value-filter"]').getBoundingClientRect();
-        return {ax:anchor.left,ay:anchor.bottom,x:popup.left,y:popup.top,right:popup.right,bottom:popup.bottom,w:innerWidth,h:innerHeight};
+        return {ax:anchor.left,ay:anchor.bottom,at:anchor.top,x:popup.left,y:popup.top,right:popup.right,bottom:popup.bottom,w:innerWidth,h:innerHeight};
       });
       assert(bounds.x>=0 && bounds.y>=0 && bounds.right<=bounds.w && bounds.bottom<=bounds.h, `filter outside ${width} viewport`);
-      assert(Math.abs(bounds.x-bounds.ax)<350 && Math.abs(bounds.y-bounds.ay)<350, 'filter popup detached from clicked field');
+      assert(Math.abs(bounds.x-bounds.ax)<350 && Math.min(Math.abs(bounds.y-bounds.ay),Math.abs(bounds.bottom-bounds.at))<350, `filter popup detached from clicked field: ${JSON.stringify(bounds)}`);
       await page.screenshot({path:path.resolve(`outputs/pivot-exe-filter-${width}.png`),fullPage:false});
       await page.keyboard.press('Escape');
       assert(!(await page.$('[data-testid="pivot-exe-value-filter"]')), 'Escape did not close filter');
@@ -524,7 +535,7 @@ async function runDelayedAuthLayoutRegression(browser) {
     await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});
     // DevExpress 배치: 필터 영역이 맨 위, 값 영역은 행 영역 위·열 영역 왼쪽, 행 영역은 표 본문 바로 위 왼쪽.
     const wideLayout = await page.evaluate(() => {
-      const rect = (zone) => document.querySelector(`[data-testid="pivot-exe-zone-${zone}"]`)?.getBoundingClientRect();
+      const rect = (zone) => document.querySelector(`[data-testid="pivot-exe-zone-${zone}"]`)?.getBoundingClientRect().toJSON();
       const f = rect('filters'), v = rect('values'), c = rect('cols'), r = rect('rows');
       return f && v && c && r ? { f, v, c, r } : null;
     });
@@ -555,10 +566,13 @@ async function runDelayedAuthLayoutRegression(browser) {
     // Scope-changing race: the first good response must survive a later 503.
     const before = await page.$eval('table', node => node.innerText);
     failNextRawData = true;
-    const rangeSelects = await page.$$('main > div:first-child select');
+    const rangeSelects = await page.$$('[data-testid="pivot-exe-toolbar"] select');
+    await rangeSelects[0].select('37-02');
     await rangeSelects[1].select('37-02');
     await waitFor(() => saw503, '503 race response');
     await page.waitForSelector('[data-testid="pivot-exe-error"]');
+    await page.waitForSelector('[data-testid="pivot-exe-grid"]',{visible:true});
+    await page.waitForSelector('[data-testid="pivot-loading-overlay"]',{hidden:true});
     const after = await page.$eval('table', node => node.innerText);
     assert(after === before, 'last good data was not preserved after scope-changing 503');
 

@@ -14,3 +14,12 @@
 .drag:hover .tool, .drag:focus-within .tool, .tool[data-active='true'] { display: inline-flex; }
 .tool[data-active='true'] { color: #1558a6; background: linear-gradient(to bottom, #f3f8ff, #d6e6fa); }
 .marker { display: inline-block; align-self: stretch; flex: 0 0 auto; min-height: 22px; width: 3px; margin: 0 1px; border-radius: 2px; background: #1266d3; box-shadow: 0 0 0 1px #fff; }
+
+/* Statistics uses one stable direct filter target; other pivot screens retain their controls. */
+.direct { min-height: 36px; gap: 4px; }
+.direct .drag { height: 32px; max-width: 100%; }
+.direct .field { height: 32px; min-width: 64px; max-width: 100%; padding: 0 8px; gap: 7px; border-radius: 5px; font-size: 12px; cursor: pointer; background: #fff; }
+.direct .field > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.direct .field[data-active='true'] { border-color: #2563eb; background: #eaf2ff; color: #174b98; }
+.direct .field:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+.filterLabel { flex: 0 0 auto; font-size: 11px; color: #52647a; }
