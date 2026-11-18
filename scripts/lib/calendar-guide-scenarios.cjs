@@ -1,0 +1,34 @@
+'use strict';
+const assert=require('node:assert/strict');
+module.exports=async function calendarGuide({page,app,recorder,dry}){
+ const fill=async(selector,value,number,caption)=>{
+  await recorder.caption(caption);await recorder.focus(selector,number);
+  await page.$eval(selector,(e,value)=>{e.value=value;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));},value);
+  await recorder.pause(1500);await recorder.unfocus();
+ };
+ recorder.chapter('holidays','12. 국가를 선택해 공휴일 표시');
+ await recorder.caption('12. 국가를 선택해 공휴일 표시 · 달력 제목 오른쪽의 달력 설정을 누릅니다.');await recorder.pause(1800);await recorder.focus('#calendarSettingsButton',12);await page.click('#calendarSettingsButton');await recorder.unfocus();
+ await recorder.caption('12. 국가를 선택해 공휴일 표시 · 한국과 11개국 중 표시할 나라를 선택합니다. 여기서는 중국, 네덜란드, 미국을 추가합니다.');await recorder.focus('.holiday-country-options',12);
+ for(const code of ['CN','NL','US'])await page.click('input[name=holidayCountry][value='+code+']');await recorder.pause(1800);await recorder.unfocus();
+ await recorder.caption('12. 국가를 선택해 공휴일 표시 · 나라별 색상도 고를 수 있습니다. 중국의 대체근무일 표시는 따로 선택합니다.');await recorder.focus('.holiday-makeup-option',12);await page.click('.holiday-makeup-option input');await recorder.pause(1800);await recorder.unfocus();
+ await recorder.caption('12. 국가를 선택해 공휴일 표시 · 설정 저장을 누르면 선택한 나라만 월간과 주간에 표시됩니다. 선택은 이 PC의 계정별로 기억합니다.');await recorder.focus('.holiday-settings-dialog .workspace-primary',12);await page.click('.holiday-settings-dialog .workspace-primary');await recorder.unfocus();
+ const newYear='.calendar-cell:has([data-date="2027-01-01"])';await page.waitForSelector(newYear+' .calendar-holiday');await recorder.caption('12. 국가를 선택해 공휴일 표시 · 공휴일은 현지 날짜 기준입니다. 같은 날 여러 나라가 쉬면 공휴일 더보기를 눌러 모두 확인합니다.');await recorder.focus(newYear+' .calendar-holiday-more',12);await page.click(newYear+' .calendar-holiday-more');await recorder.pause(2200);await recorder.unfocus();
+ await recorder.focus('.holiday-detail-dialog',12);await recorder.caption('12. 국가를 선택해 공휴일 표시 · 국가명과 공휴일 이름을 한글로 확인합니다. 공휴일 자체를 고치는 대신 그 날짜에 별도 업무 일정을 추가할 수 있습니다.');await recorder.pause(2200);await recorder.unfocus();await page.keyboard.press('Escape');
+ recorder.chapter('eventDetails','13. 저장된 일정의 상세 정보 수정');
+ const event='.calendar-cell:has([data-date="2027-01-06"]) .month-company';await recorder.caption('13. 저장된 일정의 상세 정보 수정 · 달력에 저장된 제목을 누르면 상세 입력창이 바로 열립니다.');await recorder.focus(event,13);await page.click(event);await recorder.unfocus();
+ await recorder.caption('13. 저장된 일정의 상세 정보 수정 · 기존 주차별 설정은 접혀 있으며 그대로 보존됩니다. 펼치면 마감과 새 1차 기준일을 다시 확인할 수 있습니다.');await recorder.focus('.company-weekly-options>summary',13);await page.click('.company-weekly-options>summary');assert.equal(await page.$eval('[name=weeklyResetDate]',e=>e.value),'2027-01-06');await recorder.pause(2000);await recorder.unfocus();await page.click('.company-weekly-options>summary');
+ await fill('.company-form [name=startTime]','09:00',13,'13. 저장된 일정의 상세 정보 수정 · 시작 시간을 오전 9시로 입력합니다. 모든 시간은 한국 시간입니다.');
+ await fill('.company-form [name=location]','연습 회의실',13,'13. 저장된 일정의 상세 정보 수정 · 장소를 입력합니다.');
+ await fill('.company-form [name=attendees]','담당자 연습',13,'13. 저장된 일정의 상세 정보 수정 · 참석자는 참고용 메모이며 초대나 메시지를 발송하지 않습니다.');
+ await fill('.company-form [name=visibility]','private',13,'13. 저장된 일정의 상세 정보 수정 · 공개 범위를 나만 보기로 선택합니다. 회사 공통과 개인 공개 범위를 구분합니다.');
+ await fill('.company-form [name=reminderMinutes]','10',13,'13. 저장된 일정의 상세 정보 수정 · 홈 알림을 10분 전으로 선택합니다. 조회 중인 일정에 한해 홈을 열어 둔 동안 배너로 알려 줍니다.');
+ await fill('.company-form [name=note]','일정 상세 입력 연습입니다.',13,'13. 저장된 일정의 상세 정보 수정 · 메모를 입력하고 상단의 전체 저장을 누릅니다. 주차별 일정은 이 시리즈 전체에 반영됩니다.');
+ await recorder.focus('#companyCalendarSave',13);await page.click('#companyCalendarSave');await page.waitForFunction(()=>!document.querySelector('.company-dialog').open);await recorder.unfocus();await page.waitForSelector(event+'.is-private');
+ await recorder.caption('13. 저장된 일정의 상세 정보 수정 · 같은 일정이 내 달력에 유지되고 주차별 차수도 그대로입니다.');await recorder.focus(event,13);await recorder.pause(1800);await recorder.unfocus();
+ recorder.chapter('personalDetails','14. 개인 업무도 달력에서 바로 수정');
+ const own='.calendar-cell:has([data-date="2027-01-06"]) button.month-task';await recorder.caption('14. 개인 업무도 달력에서 바로 수정 · 개인 업무 제목도 눌러 상세 입력창을 엽니다.');await recorder.focus(own,14);await page.click(own);await page.waitForSelector('.calendar-task-dialog[open]');await recorder.unfocus();
+ await fill('.calendar-task-dialog [name=title]','개인 업무 메모 확인',14,'14. 개인 업무도 달력에서 바로 수정 · 업무 제목을 수정합니다. 기존 매일·매주·매월 반복과 바로가기 설정을 함께 유지합니다.');
+ await fill('.calendar-task-dialog [name=detail_note]','개인 업무 메모 저장 연습',14,'14. 개인 업무도 달력에서 바로 수정 · 개인 메모를 입력합니다. 이 업무는 본인에게만 표시됩니다.');
+ await recorder.caption('14. 개인 업무도 달력에서 바로 수정 · 상단 저장을 누르면 선택한 업무가 갱신됩니다. 반복 기준 변경은 안내된 다음날부터 적용됩니다.');await recorder.focus('.calendar-task-dialog button[type=submit]',14);await page.click('.calendar-task-dialog button[type=submit]');await page.waitForFunction(()=>!document.querySelector('.calendar-task-dialog').open);await recorder.unfocus();
+ await page.waitForFunction(()=>Array.from(document.querySelectorAll('button.month-task')).some(e=>e.textContent.includes('개인 업무 메모 확인')));await recorder.caption('14. 개인 업무도 달력에서 바로 수정 · 달력에서 수정된 제목을 확인합니다.');await recorder.focus(own,14);await recorder.pause(2000);await recorder.unfocus();
+};

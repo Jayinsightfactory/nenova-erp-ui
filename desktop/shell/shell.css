@@ -142,6 +142,59 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .company-weekly-dates { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
 .company-weekly-dates label:has([name=weeklyResetDate]) { grid-column: 1 / -1; }
 .company-reset-help { font-size: 11px; color: #5c7084; }
+.company-dialog { width: min(760px,calc(100vw - 28px)); max-height: calc(100vh - 100px); padding: 26px; background: #fff; }
+.company-dialog-heading { padding-bottom: 12px; border-bottom: 1px solid #e7edf5; }
+.company-form { border: 0; margin-top: 12px; gap: 16px; }
+.company-form input[name=title] { font-size: 23px; line-height: 1.4; font-weight: 700; border: 0; border-bottom: 2px solid #e5edf8; border-radius: 0; padding: 9px 2px; }
+.company-dialog select { min-width: 0; width: 100%; border: 1px solid #cbd9e9; border-radius: 7px; padding: 8px; background: #fff; color: #23415f; font: inherit; font-size: 13px; }
+.company-form .company-dialog-actions { position: sticky; bottom: -26px; margin: 2px -4px -4px; padding: 14px 4px; border-top: 1px solid #e8eef7; background: #fff; z-index: 3; }
+.company-form .company-dialog-actions button:first-child { color:#ad3b3b; border-color:#ecd0d0; }
+.company-dialog-heading { position:sticky; top:-26px; padding:10px 0; z-index:4; background:white; }
+.company-header-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.company-header-actions button[type=submit] { background:#1763e8; border-color:#1763e8; color:white; min-width:66px; }
+.company-reminder-help { grid-column: 1/-1; color: #75869a; line-height: 1.5; }
+.company-date-summary { color:#4d6784; font-size:13px; margin:8px 0 14px; }
+.company-weekly-options { grid-column:1/-1; border:1px solid #d6e3f6; border-radius:8px; padding:10px; background:#f7faff; }
+.company-weekly-options>summary { font-size:13px; color:#315277; cursor:pointer; }
+.company-weekly-options .company-weekly-fields { border:0; padding:10px 0 0; }
+.calendar-holiday-summary { color: #6b7e95; font-size: 11px; line-height: 1.5; margin: 2px 0 12px; }
+.calendar-cell button.month-task,.calendar-cell button.calendar-holiday,.calendar-cell button.calendar-holiday-more { position: relative; z-index: 1; pointer-events: auto; }
+#workCalendar button.month-task { border: 0; padding: 3px 5px; text-align: left; color: var(--task-color,#30588e); background: color-mix(in srgb,var(--task-color,#537de2) 10%,white); border-left: 2px solid var(--task-color,#537de2); }
+.calendar-holiday { display: block; width: 100%; min-width: 0; text-align: left; border: 0; border-left: 2px solid var(--holiday-color); color: var(--holiday-color); background: color-mix(in srgb,var(--holiday-color) 9%,white); border-radius: 4px; padding: 3px 5px; font-size: 10px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calendar-holiday.is-workday { border-left-style: dashed; color: #60748c; background: #f1f5f9; }
+.calendar-holiday-more { border: 0; background: none; color: #617993; text-align: left; font-size: 10px; padding: 2px; }
+.holiday-selection-actions { display: flex; gap: 7px; margin: 14px 0; }
+.holiday-country-options { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 16px; }
+.holiday-country-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid #e1e9f4; border-radius: 9px; }
+.holiday-country-row label,.holiday-makeup-option { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.holiday-country-row input[type=color] { width: 28px; height: 28px; padding: 2px; flex: 0 0 auto; }
+.holiday-country-row input[type=checkbox],.holiday-makeup-option input { accent-color: #2563eb; width: 16px; height: 16px; padding: 0; }
+.holiday-makeup-option { margin: 16px 0; }
+.holiday-detail-row { display: grid; gap: 4px; padding: 9px 0; border-bottom: 1px solid #e9eff6; line-height: 1.5; }
+.holiday-detail-row small { color: #7890aa; }
+.calendar-reminders { padding: 12px; background: #fff7e9; border: 1px solid #f1ce8f; border-radius: 10px; margin-bottom: 12px; }
+.calendar-reminder { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 5px; }
+.calendar-reminder button { padding: 6px; border-radius: 5px; background: white; border: 1px solid #ead8b7; color: #775721; text-align: left; }
+.calendar-task-dialog .hw-edit { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.calendar-task-dialog { width:min(760px,calc(100vw - 28px)); max-height:calc(100vh - 100px); box-sizing:border-box; overflow-y:auto; padding:26px; border:1px solid #d6e2ef; border-radius:14px; color:#23415f; background:white; box-shadow:0 20px 80px #173b6633; font-family:inherit; }
+.calendar-task-dialog::backdrop { background:#112a4c55; }
+.calendar-task-dialog input,.calendar-task-dialog textarea,.calendar-task-dialog select { min-width:0; max-width:100%; border:1px solid #cbd9e9; border-radius:7px; padding:8px; color:#23415f; background:white; font:inherit; font-size:13px; }
+.calendar-task-dialog button { padding:7px 11px; border:1px solid #cbd9e9; border-radius:7px; background:white; color:#34516f; font:inherit; font-size:13px; }
+.calendar-task-dialog :focus-visible { outline:2px solid #2370eb; outline-offset:2px; }
+.calendar-edit-status { color:#986521; font-size:12px; line-height:1.6; }
+.calendar-task-dialog [hidden] { display:none!important; }
+.calendar-task-dialog .hw-edit>input[name=title] { font-size: 23px; font-weight: 700; padding: 10px; }
+.calendar-task-dialog .hw-edit>input[name=startDate] { max-width: 220px; }
+.calendar-detail-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.calendar-detail-fields label { display: grid; gap: 6px; font-size: 12px; color: #657e99; }
+.calendar-detail-fields label:has(textarea) { grid-column: 1/-1; }
+.calendar-task-dialog textarea { min-height: 90px; resize: vertical; }
+.calendar-task-dialog .hw-edit>button { min-height: 36px; }
+.calendar-task-dialog .hw-edit>button[type=submit] { background: #1763e8; color: #fff; }
+.calendar-edit-actions { position:sticky; bottom:-26px; display:flex; justify-content:flex-end; gap:8px; padding:14px 0; background:#fff; border-top:1px solid #e8eef7; z-index:3; }
+.calendar-task-dialog .calendar-edit-actions button[type=submit] { background:#1763e8; color:#fff; border-color:#1763e8; min-width:80px; }
+.company-dialog [hidden],.calendar-reminders[hidden] { display: none!important; }
+@media(max-width:600px){.company-dialog{padding:16px}.company-form .company-dialog-actions{bottom:-16px}.holiday-country-options{gap:8px;grid-template-columns:1fr}.calendar-detail-fields{grid-template-columns:1fr}}
 .company-form label.company-weekly-inclusive { display: flex; align-items: center; gap: 6px; margin: 8px 0; }
 .company-weekly-preview { padding: 9px; border-radius: 6px; background: white; color: #3e5874; font-size: 11px; line-height: 1.5; }
 .company-weekly-example { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; margin-top: 4px; }
@@ -175,14 +228,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   .home-columns {
     --home-column-gap: 20px;
     column-gap: var(--home-column-gap);
-    grid-template-columns: minmax(0, calc((100% - clamp(340px, 24%, 464px) - var(--home-column-gap)) * .8)) minmax(0, 1fr);
+    grid-template-columns: minmax(0, calc((100% - clamp(340px, 24%, 464px) - var(--home-column-gap)) * .96)) minmax(0, 1fr);
   }
 }
 @media (min-width: 1001px) and (max-width: 1350px) {
   .home-columns { --home-column-gap: 14px; }
 }
 @media (min-width: 601px) and (max-width: 1000px) {
-  #workCalendar { width: 80%; justify-self: center; }
+  #workCalendar { width: 96%; justify-self: center; }
 }
 /* Keep compact task actions readable while the calendar occupies the wider column. */
 @media (min-width: 1001px) and (max-width: 1750px) {
@@ -210,3 +263,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .calendar-source-filters button[aria-pressed=true] { color:#174eae; background:#edf3ff; border-color:#85aafa; }
 .calendar-new-badge { background:#d84242; color:white; border-radius:9px; padding:1px 6px; font-size:10px; }
 .calendar-new-badge[hidden] { display:none; }
+
+.calendar-edit-confirm{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px;background:#fff5e4;border:1px solid #e9d7b4;border-radius:7px;font-size:12px}
+
+.favorites-toggle{margin-inline-start:auto;border:1px solid #cbd9e9;border-radius:7px;padding:6px 11px;background:#fff;color:#34516f;font-size:12px;white-space:nowrap}.favorites-list[hidden]{display:none!important}
