@@ -12,19 +12,24 @@ const workflowSource = fs.readFileSync(path.join(root, 'lib/invoiceReceiptWorkfl
 const css = fs.readFileSync(path.join(root, 'styles/InvoiceReceipt.module.css'), 'utf8');
 const packingSource = fs.readFileSync(path.join(root, 'components/import-tools/PackingListTool.js'), 'utf8');
 const pageSource = fs.readFileSync(path.join(root, 'pages/import/tools.js'), 'utf8');
+test('farm header lookup carries source country and explicit historical farm selection',()=>{
+ const header=source.slice(source.indexOf("const data = await readJson(await fetch('/api/import/receipts/auto-fill'"),source.indexOf('return applyInvoiceHeader(record, data.resolution)'));
+ assert.match(header,/country:document\.reviewedMetadata\?\.country/);
+ assert.match(header,/farmSourceWarehouseKey:document\.reviewedMetadata\?\.farmSourceWarehouseKey/);
+});
 
 test('farm lookup surfaces failures, rejects malformed responses, and ignores aborted results', async () => {
   const start = source.lastIndexOf('  useEffect(() => {', source.indexOf('lookup=farms'));
-  const end = source.indexOf('\n\n', source.indexOf('}, [farmQuery, farmSearchAttempt]);', start));
+  const end = source.indexOf('  const scopeYear', start);
   const effect = source.slice(start, end);
   for (const mode of ['success', 'failure', 'malformed', 'aborted']) {
     let timer, cleanup, options, error = '', busy;
     new Function('useEffect', 'AbortController', 'setTimeout', 'clearTimeout', 'fetch', 'readJson',
-      'farmQuery', 'farmSearchAttempt', 'setFarmBusy', 'setFarmError', 'setFarmOptions', effect)(
+      'farmQuery', 'farmSearchAttempt', 'documentValue', 'setFarmBusy', 'setFarmError', 'setFarmOptions', effect)(
       fn => { cleanup = fn(); }, AbortController, fn => { timer = fn; return 1; }, () => {},
       async url => { assert.match(url, /q=Premium/); if (mode === 'failure') throw Error('검색 서버 연결 실패'); return {}; },
       async () => mode === 'malformed' ? {} : { farms: [{ FarmKey: 12, FarmName: 'Premium Greens' }] },
-      'Premium', 0, value => { busy = value; }, value => { error = value; }, value => { options = value; });
+      'Premium', 0, {reviewedMetadata:{country:'AU'},rawMetadata:{supplier:'Premium Greens'}}, value => { busy = value; }, value => { error = value; }, value => { options = value; });
     if (mode === 'aborted') cleanup();
     await timer();
     if (mode === 'success') assert.equal(options[0].FarmKey, 12);

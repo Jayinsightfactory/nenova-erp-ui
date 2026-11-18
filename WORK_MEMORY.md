@@ -3495,6 +3495,13 @@ pm run test:canon 통과.
 - 회사 Drive 최종 원본(크기 검증): MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol / VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat / proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn. 기존 자료 유지·공개 공유 변경 없음.
 - 검색어: calendar 1.3.36 즐겨찾기 전체 접기 열기 공휴일 국가 선택 상세 수정 주차별 Jan6 고정 viewport 가이드 14단계
 
+## 2026-11-18 저장 분석 재사용·BALVERDE 대조 (구현 진행, 미배포)
+- 작업 위치: nenova-erp-ui / feat/analysis-reuse-1118 / C:/Users/USER/Documents/Codex/nw-cdx-analysis-reuse-1118 / PR 미생성.
+- 완료된 것: 동일 국가+SHA 저장 분석 즉시 복구, 이름 동일/내용 변경 시 기존본·새 분석·취소 선택, 서버 완료 cacheOnly 재사용(유료 fallback 금지). 이력 원본/보관분석의 행별 수량·단가·총액 비교 추가. 농장 exact 정규화+동일국가+유일 다빈도 과거명 우선 및 후보 클릭 수정. CO 원본 품종 기존 stemsPerBunchCO로 누락 단수 결정 환산, 명시값/송이/금액 보존.
+- 남은 할 일: 최신 origin/master 병합 전 코드 고정·커밋, 실제 로컬 UI farm/history 검증 및 가이드 갱신, 전체 ERP/dnSpy/manifest/write guard/정식 build·CI, squash·배포·운영 조회 스모크. 현재 가이드 proof는 소스 변경 전이므로 완료 취급 금지.
+- 검증 상태: 기존 reuse UI dry-run PASS(provider0·ERP쓰기0·외부0·mock분석2); 새 비교/reuse9 및 농장/검증/workbench43, adapter19 PASS. SQL SELECT-only 새 농장 후보221 및 Balverde→C.I Flores Balverde S.A.S 선택 확인. dnSpy 실제 EXE MakeTempTable FarmName=C2/단당송이 G열 확인. 최신 provisional build 첫 시도 EPERM, escalated 재시도 세션34096 진행 중(.verify/reuse-farm-next-build.log). 정식 npm build는 가이드 stale라 미완료.
+- 주의/잠금: 기존 46-02 송장25571 원본은6품목93QB/2790송이/2211로 운영8073과 일치. 사용자가 옳다고 제시한134박스3468은 다른 원본·버전 확인 필요(임의 덮어쓰기 금지). 원장5행 단수 공란 존재, 과거 보정0. 기존 농장명135건 vs 새 Balverde2건. .verify 원본/SQL 결과 비공개·커밋 금지. 추가 유료 분석0·운영 DB쓰기0. draft CLOUD PR1813 별도 작업, 기본 checkout/다른 worktree 수정 금지.
+- 검색어: packing reuse changed SHA cacheOnly BALVERDE 25571 8073 93 2790 2211 134 3468 farm UsageCount historical history comparison 단수 누락
 ## 2026-11-18 수입 비행기 현황 최종 테스트만 완료
 - 작업 위치: nenova-erp-ui / codex/import-flight-layout / C:/Users/USER/.codex/worktrees/c027/nenova-erp-ui/nw-cdx-flight / Draft PR #1820.
 - 완료된 것: 버튼 3개 동일 y=41px·높이32px 최종 브라우저 확인. 번호/이슈/상세 표, 짧은 문구·중복 제거, 지도 옆 단일 상세, 키보드 이동·Escape 복귀, 수입부 메뉴 단일 등록 확인. 테스트 중 issues 변수 누락과 뒤로가기 누락 수정. 공통 표시 함수는 기존 flight-board.js에 통합하여 데스크톱 프로토콜 허용 파일 유지.
@@ -3524,6 +3531,30 @@ pm run test:canon 통과.
 - 회사 Drive 최종 원본: MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol (514.3초/42,948,556bytes), VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat (12,846bytes), proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn (18,775bytes). 14단계/자막76개 프레임 대조·대표 장면 육안 확인. 과거1.3.35 자료는 미공개 초안이며 최종 근거 아님.
 - 검색어: deployed calendar 1.3.36 f1bc55db 즐겨찾기 전체 접기 열기 달력 가로20% 공휴일12개국 상세 편집 주차별 유지 운영 검증 공개 피드 직원PC 재시작 안함
 
+## 2026-11-18 분석 재사용·농장/이력 UI 검증 단계
+- 작업 위치: feat/analysis-reuse-1118 / C:/Users/USER/Documents/Codex/nw-cdx-analysis-reuse-1118 / 구현4f0a6567 + master 통합fc1b54c2, PR 아직 없음.
+- 완료된 것: InvoiceFarmChoices 공용 실제 후보 UI로 추출, 자동 선택 후 원클릭 변경/검색·키보드 이동. SharedPackingHistory 읽기 대조에 전체 품목명 줄바꿈/원본·보관값별 수량·통화·단가/총액, 초점 이동/복귀. 실제 전체 로컬 페이지 reuse dry 재통과, 신규 farm/history 실제 컴포넌트 브라우저390px 통과. 신규4단계 번호/줌/입력/선택/대조 영상 최종47.8초 촬영 및 처음/끝 프레임 육안 확인.
+- 남은 할 일: 순차 세션57412의 locked UI build→reuse dry→reuse 영상→packing-list dry/영상 완료 확인. 로그 .verify/reuse-locked-ui-build.log / reuse-locked-ui-dry.log / reuse-guide-record.log / packing-list-dry.log / packing-list-record.log. 이후 영상 프레임/플레이어/Drive, 전체ERP·정식npm build·CI·PR/squash·배포·운영조회. UI소스 변경 시 해당 가이드 재촬영 필요. 운영입고/AI 실행 금지.
+- 검증 상태: 최종 대상51/정책13, manifest225, write guard(API1), dnSpy PASS. 앞선 통합 Next webpack build 통과. 새 farm 영상은 최종 첫버튼 확대 잘림·표 품목 줄임표를 고쳐 재촬영했고 프레임 재확인. 전체ERP/최종 정식build/배포 미완료.
+- 주의/잠금: 57412가 빌드/녹화 중이므로 소스 병합·런타임 수정 금지. 원본·SQL probe .verify 비공개 커밋 금지. 추가paid0/운영DB쓰기0. 신규 영상 Drive MP4 1xJ-XirPUL-ArqoJ7FDtlHD6Ksz3sGkE0(2,243,629바이트 metadata일치), VTT13jnsLX0r42La7gxTEpDRmgHcIaWWzvO9, proof1-JwlJhfwE6iteIsO2hP3qvqD9xnGA8eS; 공유 설정 변경0.
+- 검색어: analysis reuse BALVERDE farm history invoice-farm-history video 57412 locked UI build fc1b54c2
+
+## 2026-11-18 실제 입고 화면 연결·최초 자동 분석 회귀 보완 (계속, 미배포)
+- 작업 위치: feat/analysis-reuse-1118 / C:/Users/USER/Documents/Codex/nw-cdx-analysis-reuse-1118 / PR 미생성, 최신 미커밋 변경 있음.
+- 완료된 것: 실제 Workbench auto-fill POST의 country 및 farmSourceWarehouseKey 누락 수정. 정상404/INVOICE_DOCUMENT_NOT_FOUND mock과 packing-receipt-prepare 순서로 실제 페이지 농장 자동 historical 선택→master 변경→historical 재선택→Excel59,066bytes 다운로드 PASS(.verify/farm-country-integrated-dry.log). 동률 후보 자동 선택 금지/유효 수동 historical 선택 재차단 금지. 보관 매칭명 부재를 공용 미매칭으로 오표시하지 않음.
+- 남은 할 일: 순차 세션13491: .verify/reuse-auto-release-build.log→reuse-auto-release-dry.log→packing-auto-release-dry.log→reuse-auto-release-guide.log→packing-auto-release-guide.log→reuse-full-erp-final.log. 최초 파일 자동 분석 복원 이후 최종 소스로 새로 빌드/촬영 중. 종료 후 가이드 프레임/플레이어/Drive, 정식npm build·CI·PR·squash·deploy·운영 조회 확인 필요. UI 소스 더 바꾸면 가이드가 다시 stale 되므로 수정 전 대상 실패부터 확인.
+- 검증 상태: 최초 전체ERP가 importPackingHardening의 autoAnalyze 3개에서 실패했음(숨기지 않음). 최초 새파일에 분석 선택을 추가한 것이 기존 자동 분석 계약과 달라 `!reuse.previous`는 기존 자동 실행으로 복원. 기존 이름 변경본만 선택. harness에 upload-history 빈 결과/신규 helper·cache miss을 주입한 뒤 실제 component hardening80 PASS/기존skip1. 국가 projection·farm 대상31/16 PASS. 최초/중간 영상들은 최종 완료 근거가 아님.
+- 주의/잠금: 추가 유료0/운영DB쓰기0. .verify는 비공개·커밋 금지. 기록된 Guide 비용은 전부 synthetic/mock다. 코드4f0a6567+master통합fc1b54c2 외 최신 코드/영상은 미커밋. 마지막 Drive 중간본: farm1STUrghYQA95LNHGkhhidnKOvT-NXHFeL, reuse1z8tfL0Qubxtvkw434biA2XG-RpnWybD2, packing1k1ik-neVPoZCugOYvegkuXNKHusaGEJ4. 최초 자동 분석 UI 수정으로 reuse/packing은 다시 촬영·업로드해야 하며 과거 upload 링크를 최종본으로 안내하지 않는다. Farm 영상 source hash도 최종 guard 확인 필요.
+- 검색어: 13491 first upload autoAnalyze regression hardening80 country projection farmSourceWarehouseKey invoice-farm-history 46-02 BALVERDE 미배포
+
+## 2026-11-18 저장 분석·농장·이력 최종 로컬 검증 완료 (배포 전)
+- 작업 위치: feat/analysis-reuse-1118 / C:/Users/USER/Documents/Codex/nw-cdx-analysis-reuse-1118 / 소스153da46d, PR 생성 직전.
+- 완료된 것: 최초 자동 분석 유지·동일 SHA 즉시 복구·변경본 선택, 농장 동일국가/동일공급자 다빈도 제안/동률 수동선택/수동 수정, auto-fill 국가/역사PK 전달, CO 누락 단수 표준 환산 및 이력 품목별 수량·단가·통화별 합계 비교. 최종4/6/5단계 영상47.9/167.15/261.7초 촬영, 실제 처음/중간/끝+최종결과 프레임 확인, 번호/줌/입력/선택/결과·글씨 겹침 확인.
+- 남은 할 일: 최신 master7223a170(다른 세션의 Desktop1.3.37/카카오/견적/업무흐름 변경) 보존 통합 후 최종 CI·PR squash·배포·운영 조회. 기록/가이드 외 실제 UI 소스는 고정. 통합 후 변경 없는 대상 전체 검증을 무의미하게 반복하지 않되 최종 CI의 통합 소스 검사/빌드는 반드시 통과해야 함.
+- 검증 상태: 실제 전체 페이지 최초자동/재사용/변경선택/해시·오래된응답·키보드·390px·매칭유지 PASS, 실제 Workbench 농장 자동 선택·변경 및 Excel다운로드 PASS(외부0·운영쓰기0·provider0). npm run test:erp-contract 전체 exit0(.verify/reuse-full-erp-final.log), 정식 npm build exit0(.verify/reuse-formal-build.log), manifest225/write scope/dnSpy PASS, 가이드24업무25영상 source hash PASS. Farm/reuse 플레이어 실제MP4·한글자막·목차·키보드·닫기pause·1920/390 PASS. 첫 전체검사의3회귀는 최초 자동분석 복원/캐시 fixture 보완 뒤 해소됨.
+- 주의/잠금: 추가 유료분석0·운영DB쓰기0. 기존8073은 원본25571의93QB/2790송이/2211과 일치하며 원장 보정 금지. 새 기능은 이후 준비/명시 승인 경로에만 적용. .verify 영업 원문/SQL probe 커밋 금지, 공유 node_modules junction 정리 시 원본 타 작업트리 삭제 금지. Draft CLOUD PR1813 별도.
+- 최종 Drive: Farm MP4 1STUrghYQA95LNHGkhhidnKOvT-NXHFeL(2,268,982bytes), VTT1jLVOlgbQLzxJX4OKjk47Za--G9WtV17h, proof1zhZDI5nHygqhxsE7o-Ue14OtyJi0rRgW. Reuse MP4 1Ame4wcX8i_UO4BYb-xv1C4tJJbRGvqoA(13,051,750), VTT1T_4BGZ_Kis0OGyxucNNTlaQ-WATKcbGf, proof1pirqXv0ebPxdWS0xEWz-cJfmoaiiiQJ3. Packing MP4 155LF-n0Ty0Jh6tJovQ1KakU9r624SpJd(13,653,998), VTT1b38kUrHSbC815I3_mrhrmgNU7a4YPl1w, proof1HwSLtQMDYnbOXdZrWAwTfg0XhWsOYOB0. 三MP4 metadata 크기 일치, 이전 중간 업로드들은 최종 근거가 아님.
+- 검색어: BALVERDE 25571 auto reuse final guide first upload historical farm country 153da46d local ERP build PASS
 ## 2026-11-18 수입방 3영역 대조 UI 작업
 - 검색어: 카톡 25% 중앙원문 우측합계 차수 품목군 버튼 sourceKeys audit 누락확인
 1. 작업 위치: nenova-erp-ui / codex/import-kakao-match-layout / nw-cdx-kakao-match / PR예정.
@@ -3579,3 +3610,12 @@ pm run test:canon 통과.
 3. 남은 할 일: PR CI → squash 병합 → Cafe24 배포 → Windows 공개·설치 앱 확인.
 4. 검증 상태: 운영 원문 메모리 재생 K4254 미해결 2건·AC063 서류 완료, 대상 17검사 및 Desktop71건, ERP 전체계약·dnSpy·manifest224·쓰기 가드·workflow guide·운영 build 통과. 배포/설치앱은 미검증.
 5. 주의/잠금: 다른 worktree 미수정, 원문 원본·개인정보 저장 없음. 사진/모호한 답글은 완료 근거 제외. 영상 제외는 사용자 명시 지시.
+
+## 2026-11-18 · 아키텍처 흐름도에 솔루션화 업무별 스키마 설계 청사진 & 실제 품목 데이터 예시 추가
+- 요약: `/my-work?tab=arch` (`ArchFlowChart.js`)에 타 업종 상용 솔루션 확장을 위한 4대 핵심 업무(`master` 기준정보·다중단위, `order_ship` 주차 주문·출고 분배·우회흡수, `import_cost` 수입 인보이스·운임배부·도착원가, `stock_profit` 차수 재고 스냅샷·불량차감·주간손익)별 스키마 설계 원리, 업종 치환 공식, 실제 품목(`콜롬비아 장미 프리덤 50cm`, `네덜란드 수국 매지컬 그린`, `유오디아 블랙잭`) 저장 예시 표(`data-testid="arch-solution-blueprints"`)를 추가.
+- 검색어: 솔루션화 스키마 설계 청사진 SOLUTION_BLUEPRINTS arch-solution-blueprints 콜롬비아장미프리덤 네덜란드수국 유오디아블랙잭 ArchFlowChart
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-solution-schema-examples` / `C:\Users\USER\nw-agy-arch-domain-schema` (하위 세션 `code-worker` `flash` 구현).
+2. 완료된 것: `components/pm/ArchFlowChart.js`에 4대 업무 스키마 블루프린트 선택 카드·3칸 설계 공식 요약 바·실제 품목 데이터 예시 테이블 추가, `__tests__/archFlowChart.test.js` 검증 단언 추가. 전역 규칙(`shared-rules.md`, `SHARED_AGENT_RULES.md`)에 기능별 하위 세션(`invoke_subagent`) + 모델 자동 배정 원칙 영구 반영.
+3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
+4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(224건), `npx next build --webpack` 모두 통과. 운영 배포 후 브라우저 시각 확인은 별도 미수행(미검증).
+5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건(UI 설명·청사진 섹션 전용).

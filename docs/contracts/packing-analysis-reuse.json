@@ -1,0 +1,12 @@
+{
+ "id":"packing-analysis-reuse",
+ "title":"동일 원본 저장 분석 즉시 복구·변경본 명시 재분석 선택",
+ "scope":["components/import-tools/InvoiceFarmChoices.js","scripts/record-invoice-farm-guide.cjs","lib/packingFileReuse.js","lib/packingHistoryComparison.js","components/import-tools/SharedPackingHistory.js","lib/packingSharedHistoryClient.js","components/import-tools/PackingListTool.js","styles/ImportPacking.module.css","scripts/record-packing-free-ocr-guide.cjs","scripts/record-packing-list-guide.cjs","scripts/lib/packing-history-fixture.cjs"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "analysisIdentity":["Country","SourceSha256","UploadRevisionId"],
+ "actions":[{"name":"RESTORE_ANALYZED_SOURCE","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","notes":"보관 원본 SHA 검증·기존 분석 결과/원래 연도 복구·최신 매칭 조회만. AI/ERP commit 호출0. 내용변경은 기존본/새파일 명시 선택 전 AI0. 실패/취소/오래된 응답에서 자동 유료 fallback 금지. 기존 명시 입고 저장 절차 불변."}],
+ "crossYearFixture":{"required":true,"description":"2025/2026 같은 차수 파일명이라도 내용 SHA가 달라야 변경본. 같은 내용의 이름변경은 저장 원본연도/차수 그대로 복구하며 현재연도로 바꾸지 않는다."},
+ "requiredTestFiles":["__tests__/packingHistoryComparison.test.js","__tests__/packingFileReuse.test.js","__tests__/packingWorkDraft.test.js","__tests__/packingSharedHistory.test.js","scripts/record-packing-free-ocr-guide.cjs"],
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","ProductStock"],"source":"기존 입고·재고 writer SQL/값/저장 확인은 변경하지 않는다. 웹 저장 분석 선택만 변경, 운영ERP검증 저장 금지."},
+ "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

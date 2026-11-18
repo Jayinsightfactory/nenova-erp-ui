@@ -295,6 +295,133 @@ const HERMES_MODULES = [
   },
 ];
 
+const SOLUTION_BLUEPRINTS = [
+  {
+    id: 'master',
+    no: '01',
+    badge: '기준정보 설계',
+    tone: 'accent',
+    title: '품목 · 다중 포장단위 · 거래처별 단가 관리',
+    tables: 'Product · Flower · Country · Farm · CustomerProdCost',
+    whenToUse: '박스·단·송이처럼 다단계 포장 단위를 함께 쓰고, 견적서 영문명과 웹 한글명·거래처 전용 단가를 분리 관리할 때',
+    designRule: '품목 마스터(환산계수 BunchOf1Box·SteamOf1Box 고정) + 분류 기본값(Flower 무게·부피·관세 fallback) + 거래처×품목 단가표(CustKey+ProdKey) 3단 분리',
+    solutionMap: '화훼(국가·농장 · 박스/단/송이) ➔ 식자재·유통(원산지·공급사 · 박스/내포장팩/낱개EA) · 공산품(제조사 · 카톤/묶음/피스)',
+    examples: [
+      {
+        item: '콜롬비아 장미 프리덤 50cm',
+        tableKey: 'Product (ProdKey=1042)',
+        values: "ProdName='ROSE FREEDOM 50CM'(견적 고정), DisplayName='콜롬비아 장미 프리덤 50'(웹 표시), OutUnit='단', BunchOf1Box=20, SteamOf1Box=500, BoxWeight=14.5, TariffRate=0.25",
+        point: '1박스=20단=500송이 비율을 마스터에 고정해 전 화면 환산 기준으로 사용',
+      },
+      {
+        item: '네덜란드 수국 매지컬 그린',
+        tableKey: 'Product (ProdKey=2218)',
+        values: "ProdName='HYDRANGEA MAGICAL GREEN', DisplayName='네덜란드 수국 그린', OutUnit='송이', BunchOf1Box=1, SteamOf1Box=30, BoxCBM=0.085",
+        point: '부피(CBM) 기준 운임 배부 품목은 BoxCBM 필드로 원가 엔진과 연결',
+      },
+      {
+        item: '유오디아 블랙잭',
+        tableKey: 'CustomerProdCost (AutoKey · ProdKey=2226)',
+        values: "OutUnit='박스', BunchOf1Box=10, SteamOf1Box=100 + CustKey=305 전용 단가 90,909원(VAT 9,091원)",
+        point: '기본 품목 마스터를 복제하지 않고 거래처별 계약 단가만 교차 테이블로 분리',
+      },
+    ],
+  },
+  {
+    id: 'order_ship',
+    no: '02',
+    badge: '주문·출고 설계',
+    tone: 'ok',
+    title: '주차별 주문 · 출고 분배 · 미등록 주문 자동흡수',
+    tables: 'OrderMaster → OrderDetail · ShipmentMaster → ShipmentDetail',
+    whenToUse: '차수(OrderYear+OrderWeek) 단위로 예약을 받고 실물 도착 물량을 거래처별로 배분·확정(isFix=1)해 매출로 집계할 때',
+    designRule: '주문 상세는 3단위 동시 환산 저장(조회 시 OutUnit CASE WHEN 1개 선택), 출고 상세는 OutQuantity 단일값 저장(재환산 금지) + 상위 ShipmentMaster.CustKey 기준 귀속',
+    solutionMap: '화훼 차수 분배 ➔ 청과·수산 경매 물량 배분 · 의류 시즌 프리오더 할당 · B2B 도매 차수 출고',
+    examples: [
+      {
+        item: '[주문] 콜롬비아 장미 프리덤 50 (2박스 주문)',
+        tableKey: "OrderDetail (OrderWeek='46-01', ProdKey=1042)",
+        values: 'BoxQuantity=2, BunchQuantity=40, SteamQuantity=1000, UnitPrice=12000, Amount=480000',
+        point: "OutUnit='단'이므로 조회 시 40단만 선택 표시(3종 합산 금지)",
+      },
+      {
+        item: '[분배] 콜롬비아 장미 프리덤 50 (35단 실배정)',
+        tableKey: 'ShipmentMaster(7071) → ShipmentDetail(SdetailKey=91820)',
+        values: 'sm.CustKey=305, sm.isFix=1(매출 확정), OutQuantity=35(단일값), BoxQuantity=1.75, BunchQuantity=35, SteamQuantity=875, sd.isFix=1',
+        point: 'ShipmentDetail은 isDeleted 컬럼이 없으며 OutQuantity를 다시 곱하지 않음',
+      },
+      {
+        item: '[우회흡수] 유오디아 블랙잭 1박스 미등록 업체 즉시 분배',
+        tableKey: '분배 저장 단일 트랜잭션 (Upsert)',
+        values: 'OrderMaster + OrderDetail(ProdKey=2226, Box=1) + 빈 ShipmentMaster 선행 생성 → ShipmentDetail(OutQuantity=1)',
+        point: '주문등록 화면을 다녀오는 A→B→A 왕복 없이 원장 헤더 계약을 원자적으로 충족',
+      },
+    ],
+  },
+  {
+    id: 'import_cost',
+    no: '03',
+    badge: '수입·원가 설계',
+    tone: 'warn',
+    title: '해외 인보이스 입고 · 운임 배부 · 도착원가 산출',
+    tables: 'WarehouseMaster/Detail · FreightCost/Detail · WebArrivalCostImport/Line',
+    whenToUse: '해외 송장(USD/EUR) 물량을 입고 잡고 항공·해상 운임과 관세·통관비를 중량(GW) 또는 부피(CBM) 비율로 배부해 단당 원가를 계산할 때',
+    designRule: '실물 입고 원장(Warehouse*)과 웹 원가 계산 리비전(WebArrivalCost*, IsCurrent=1 최신본)을 분리해 원장 훼손 없이 재업로드·비교 허용',
+    solutionMap: '화훼 항공·해상 직수입 ➔ 와인·육류·커피생두·전자부품 직수입 도매의 Landed Cost(도착원가) 정산',
+    examples: [
+      {
+        item: '[입고] 콜롬비아 장미 프리덤 50 (10박스 입고)',
+        tableKey: 'WarehouseMaster(512) → WarehouseDetail',
+        values: "FarmName='ELITE', InputDate='2026-11-16', ProdKey=1042, BoxQuantity=10, BunchQuantity=200, SteamQuantity=5000, TPrice=$1,800",
+        point: 'WarehouseDetail은 상위 WarehouseMaster.isDeleted=0 기준으로만 유효 행 판별',
+      },
+      {
+        item: '[운임배부] 프리덤 중량(GW) · 수국 부피(CBM)',
+        tableKey: 'FreightCost → FreightCostDetail',
+        values: "프리덤(WeightBasis='GW', 145kg × $6.0/kg + 관세 25%) / 수국 그린(WeightBasis='CBM', 0.085CBM 기준 배부)",
+        point: '품목 특성에 따라 중량·부피·금액 배부 기준을 스키마 컬럼으로 분기',
+      },
+      {
+        item: '[도착원가] 46-01차 콜롬비아 원가 확정본',
+        tableKey: 'WebArrivalCostImport → WebArrivalCostLine',
+        values: "OrderYear=2026, OrderWeek='46-01', CountryName='콜롬비아', IsCurrent=1 → 송이당 980원 / 단당 24,500원",
+        point: '재계산 시 이전 웹 리비전만 IsCurrent=0 처리하고 Product.Cost 자동 덮어쓰기 방지',
+      },
+    ],
+  },
+  {
+    id: 'stock_profit',
+    no: '04',
+    badge: '재고·정산 설계',
+    tone: 'err',
+    title: '차수 재고 스냅샷 · 불량 차감 · 주간 손익 마감',
+    tables: 'StockMaster · ProductStock · WebStockPriceEvidence · WebSalesDefectDeduction · Estimate',
+    whenToUse: '주차별 남은 재고 수량과 검증된 단가 근거로 매출이익을 확정하고, 파손·불량 클레임을 원장과 분리해 검토 후 차감할 때',
+    designRule: '차수 스냅샷 재고(ProductStock) + 검증된 단가 근거(EvidenceStatus=VERIFIED만 채택) + 불량 검토대장(승인 시에만 Estimate 반영) 3중 안전장치',
+    solutionMap: '화훼 주간 손익·클레임 ➔ 신선식품·화장품·의약외품 유통의 로트 재고평가·파손 차감·주간 마감',
+    examples: [
+      {
+        item: '[재고스냅샷] 네덜란드 수국 그린 잔량 90송이',
+        tableKey: 'StockMaster → ProductStock (StockKey=884)',
+        values: "OrderYear=2026, OrderWeek='46-01', ProdKey=2218, Stock=90",
+        point: '차수별 스냅샷 테이블로 보관해 전년도 동일 차수나 실시간 입출고와 섞이지 않음',
+      },
+      {
+        item: '[단가근거] 수국 그린 기말재고 평가단가',
+        tableKey: 'WebStockPriceEvidence',
+        values: "OrderYear=2026, MajorWeek=46, ProdKey=2218, EvidenceStatus='VERIFIED', VerifiedUnitCost=4200",
+        point: '미검증 상태일 때 임의 평균단가 추측을 막아 주간 매출이익 왜곡 원천 차단',
+      },
+      {
+        item: '[불량차감] 콜롬비아 장미 프리덤 50 줄기파손 2단',
+        tableKey: 'WebSalesDefectDeduction → Estimate',
+        values: "OrderYear=2026, OrderWeek='46-01', CustKey=305, ProdKey=1042, DefectQty=2단",
+        point: '웹 클레임 대장 접수와 실제 견적(Estimate) 음수 차감 실행을 분리해 오차감 방지',
+      },
+    ],
+  },
+];
+
 export default function ArchFlowChart({
   timesave = null,
   workflows = null,
@@ -305,6 +432,7 @@ export default function ArchFlowChart({
 }) {
   const [selectedId, setSelectedId] = useState('pipeline');
   const [schemaView, setSchemaView] = useState('all');
+  const [blueprintId, setBlueprintId] = useState('master');
   const [liveTs, setLiveTs] = useState(timesave);
   const [liveWf, setLiveWf] = useState(workflows);
 
@@ -349,6 +477,7 @@ export default function ArchFlowChart({
     ? office.tasks.filter((t) => /승인|3일|오류|실패|미완료/.test(String(t?.state || t?.title || ''))).length
     : null;
   const visibleLayers = schemaView === 'all' ? SCHEMA_LAYERS : SCHEMA_LAYERS.filter((layer) => layer.id === schemaView);
+  const activeBlueprint = SOLUTION_BLUEPRINTS.find((bp) => bp.id === blueprintId) || SOLUTION_BLUEPRINTS[0];
 
   return (
     <section className={`arch-root ${compact ? 'is-compact' : ''}`} aria-label="자가발전 솔루션 아키텍처 흐름도">
@@ -675,6 +804,94 @@ export default function ArchFlowChart({
             </div>
           </div>
         )}
+      </section>
+
+      {/* 솔루션화 업무별 스키마 설계 청사진 & 실제 품목 데이터 예시 */}
+      <section
+        className="arch-blueprints"
+        data-testid="arch-solution-blueprints"
+        aria-label="솔루션화 업무별 스키마 설계 및 품목 예시"
+      >
+        <div className="arch-schema-head">
+          <div>
+            <div className="arch-eyebrow">DOMAIN SCHEMA BLUEPRINTS &amp; REAL ITEM DATA</div>
+            <h3>솔루션화 업무별 스키마 설계 청사진 &amp; 실제 품목 데이터 예시</h3>
+            <p className="arch-lede">
+              화훼 ERP에서 검증된 기준정보·주문·수입·재고 테이블 설계를 타 업종 상용 솔루션으로도 바로 이식할 수 있도록
+              핵심 설계 원리·치환 공식·실제 품목 저장 예시를 업무별로 정리했습니다.
+            </p>
+          </div>
+          <div className="arch-bp-pill-wrap">
+            <Badge tone="plain">업종 치환 가능 4대 업무 모델</Badge>
+          </div>
+        </div>
+
+        <div className="arch-bp-grid" role="group" aria-label="솔루션화 업무별 스키마 시나리오 선택">
+          {SOLUTION_BLUEPRINTS.map((bp) => {
+            const active = bp.id === activeBlueprint.id;
+            return (
+              <SelectCard
+                key={bp.id}
+                on={active}
+                pressed={active}
+                className={`arch-loop-card arch-bp-card tone-${bp.tone} ${active ? 'is-on' : ''}`}
+                onClick={() => setBlueprintId(bp.id)}
+              >
+                <div className="arch-loop-top">
+                  <span className="arch-loop-no">BLUEPRINT {bp.no}</span>
+                  <Badge className="arch-loop-badge" tone={bp.tone === 'err' ? 'warn' : 'plain'}>{bp.badge}</Badge>
+                </div>
+                <div className="arch-loop-title">{bp.title}</div>
+                <code className="arch-bp-tables">{bp.tables}</code>
+              </SelectCard>
+            );
+          })}
+        </div>
+
+        <div className="arch-bp-detail" aria-live="polite">
+          <div className="arch-bp-summary">
+            <div className="arch-bp-sum-card">
+              <b>언제 이 스키마를 쓰는가</b>
+              <span>{activeBlueprint.whenToUse}</span>
+            </div>
+            <div className="arch-bp-sum-card">
+              <b>핵심 테이블 · 키 설계 공식</b>
+              <span>{activeBlueprint.designRule}</span>
+            </div>
+            <div className="arch-bp-sum-card tone-solution">
+              <b>타 업종 솔루션 치환 공식</b>
+              <span>{activeBlueprint.solutionMap}</span>
+            </div>
+          </div>
+
+          <div className="arch-bp-examples">
+            <div className="arch-live-title">
+              실제 품목 데이터 저장 예시 — {activeBlueprint.no} · {activeBlueprint.title}
+            </div>
+            <div className="arch-bp-table-wrap">
+              <table className="arch-bp-table">
+                <thead>
+                  <tr>
+                    <th scope="col">품목 예시</th>
+                    <th scope="col">저장 테이블 · 키</th>
+                    <th scope="col">실제 컬럼 · 저장값 예시</th>
+                    <th scope="col">솔루션 설계 포인트</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeBlueprint.examples.map((ex, idx) => (
+                    <tr key={`${activeBlueprint.id}-${idx}`}>
+                      <td data-label="품목 예시" className="arch-bp-cell-item">{ex.item}</td>
+                      <td data-label="저장 테이블 · 키" className="arch-bp-cell-key"><code>{ex.tableKey}</code></td>
+                      <td data-label="실제 컬럼 · 저장값 예시" className="arch-bp-cell-val"><code>{ex.values}</code></td>
+                      <td data-label="솔루션 설계 포인트" className="arch-bp-cell-pt">{ex.point}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </section>
 
       <style jsx>{`
@@ -1288,9 +1505,151 @@ export default function ArchFlowChart({
           color: var(--arch-warn);
           font-size: 12px;
         }
+        .arch-blueprints {
+          background: var(--arch-surface);
+          border: 1px solid var(--arch-line);
+          border-radius: 12px;
+          padding: 16px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .arch-bp-pill-wrap {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .arch-bp-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+        }
+        :global(.arch-bp-card) {
+          border-top: 3px solid var(--arch-accent) !important;
+        }
+        :global(.arch-bp-card.tone-ok) {
+          border-top-color: var(--arch-ok) !important;
+        }
+        :global(.arch-bp-card.tone-warn) {
+          border-top-color: var(--arch-warn) !important;
+        }
+        :global(.arch-bp-card.tone-err) {
+          border-top-color: var(--arch-err) !important;
+        }
+        .arch-bp-tables {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 11px;
+          color: var(--arch-accent);
+          background: color-mix(in srgb, var(--arch-bg) 75%, transparent);
+          border: 1px solid var(--arch-line);
+          border-radius: 5px;
+          padding: 3px 6px;
+          overflow-wrap: anywhere;
+          margin-top: auto;
+        }
+        .arch-bp-detail {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .arch-bp-summary {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .arch-bp-sum-card {
+          background: var(--arch-surface-2);
+          border: 1px solid var(--arch-line);
+          border-radius: 10px;
+          padding: 11px 13px;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+        .arch-bp-sum-card b {
+          font-size: 11.5px;
+          color: var(--arch-accent);
+        }
+        .arch-bp-sum-card.tone-solution {
+          border-left: 3px solid var(--arch-ok);
+        }
+        .arch-bp-sum-card.tone-solution b {
+          color: var(--arch-ok);
+        }
+        .arch-bp-sum-card span {
+          font-size: 12.5px;
+          line-height: 1.5;
+          color: var(--arch-ink);
+        }
+        .arch-bp-examples {
+          border-top: 1px solid var(--arch-line);
+          padding-top: 12px;
+        }
+        .arch-bp-table-wrap {
+          overflow-x: auto;
+          border: 1px solid var(--arch-line);
+          border-radius: 10px;
+          background: var(--arch-surface-2);
+        }
+        .arch-bp-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12.5px;
+          line-height: 1.5;
+        }
+        .arch-bp-table th,
+        .arch-bp-table td {
+          text-align: left;
+          vertical-align: top;
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--arch-line);
+        }
+        .arch-bp-table th {
+          font-size: 11.5px;
+          font-weight: 700;
+          color: var(--arch-muted);
+          background: color-mix(in srgb, var(--arch-bg) 55%, var(--arch-surface-2));
+          white-space: nowrap;
+        }
+        .arch-bp-table tbody tr:last-child td {
+          border-bottom: none;
+        }
+        .arch-bp-cell-item {
+          font-weight: 700;
+          color: var(--arch-ink);
+          min-width: 170px;
+        }
+        .arch-bp-cell-key {
+          min-width: 185px;
+        }
+        .arch-bp-cell-val {
+          min-width: 260px;
+        }
+        .arch-bp-cell-key code,
+        .arch-bp-cell-val code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 11.5px;
+          background: color-mix(in srgb, var(--arch-bg) 78%, transparent);
+          border: 1px solid var(--arch-line);
+          border-radius: 4px;
+          padding: 2px 6px;
+          color: var(--arch-accent);
+          display: inline-block;
+          overflow-wrap: anywhere;
+        }
+        .arch-bp-cell-val code {
+          color: var(--arch-ink);
+        }
+        .arch-bp-cell-pt {
+          color: var(--arch-ok);
+          min-width: 200px;
+        }
         @media (max-width: 1040px) {
-          .arch-nodes, .arch-loops-grid {
+          .arch-nodes, .arch-loops-grid, .arch-bp-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+          .arch-bp-summary {
+            grid-template-columns: 1fr;
           }
           .arch-schema-flow {
             grid-template-columns: 1fr;
@@ -1309,8 +1668,41 @@ export default function ArchFlowChart({
             display: none;
           }
         }
+        @media (max-width: 720px) {
+          .arch-bp-table thead {
+            display: none;
+          }
+          .arch-bp-table,
+          .arch-bp-table tbody,
+          .arch-bp-table tr,
+          .arch-bp-table td {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .arch-bp-table tr {
+            border-bottom: 1px solid var(--arch-line);
+            padding: 8px 0;
+          }
+          .arch-bp-table tr:last-child {
+            border-bottom: none;
+          }
+          .arch-bp-table td {
+            border-bottom: none;
+            padding: 4px 12px;
+            min-width: 0;
+          }
+          .arch-bp-table td::before {
+            content: attr(data-label);
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--arch-muted);
+            margin-bottom: 2px;
+          }
+        }
         @media (max-width: 640px) {
-          .arch-nodes, .arch-loops-grid {
+          .arch-nodes, .arch-loops-grid, .arch-bp-grid {
             grid-template-columns: 1fr;
           }
         }

@@ -1,21 +1,25 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-10T09:04:53.791Z",
+  "recordedAt": "2026-11-18T05:27:21.141Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 73.3,
+  "duration": 167.15,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "15c5eec722efa7bb449de9334da0e77f213723bae10a5a54a611022bf68b4c7f",
-  "captionsSha256": "fbf4332a732f49236304c3df0980bf56358538f699a29f41dbb98d3ac18b51d7",
+  "videoSha256": "ce686eb3f0b550e7e8446e5c5cb829a311e683d6831f62135e14b57520d48217",
+  "captionsSha256": "5b9fd6404d0bce7beda7bb314765790bc61bd2e21de406a1666a7337fa3c4aff",
   "sourceHashes": {
-    "components/import-tools/PackingListTool.js": "a429fa3bb6e47f0b7ff849692070ad43a3c2c79cb598a1ca3a1c8f2fc6220f65"
+    "components/import-tools/PackingListTool.js": "9b71ebcb1379f4f132130992cfe35cab43ae76d6ce75ab1fb55b54931f103be4",
+    "lib/packingFileReuse.js": "aeba1726bb68b4ede14f0821b9961b791402963630da097b1f2305eebfc1840f",
+    "components/import-tools/SharedPackingHistory.js": "b13f3a438864f488943b7549ba8b85d4f853aeb117a9dc212d6268aae884f257",
+    "lib/packingHistoryComparison.js": "f4c169ab63ace9034e435ff62326a8fe655b8478b278e0af781bc7dfd4db3ce2",
+    "styles/ImportPacking.module.css": "295faac2e6c82a98207df62b6c802a60c82ed86660b5be46984026792db6a210"
   },
   "presentation": {
-    "numberedSteps": 3,
+    "numberedSteps": 6,
     "zoom": "post-capture-1.4x",
     "transitionSeconds": 1.2,
     "captionBand": "unscaled-bottom-180px",
@@ -28,45 +32,108 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 8.5523931,
+        "start": 8.5473965,
         "x": 614.25,
         "y": 837.3828125,
-        "end": 11.999772199999999
+        "end": 12.015324
       },
       {
         "number": 2,
-        "start": 20.757236,
+        "start": 20.765829699999998,
         "x": 960,
         "y": 809.75,
-        "end": 24.291049299999997
+        "end": 24.2402917
       },
       {
         "number": 3,
-        "start": 33.0612706,
+        "start": 34.4409154,
         "x": 355.5234375,
         "y": 644.6875,
-        "end": 36.5055836
+        "end": 37.93058430000001
       },
       {
         "number": 3,
-        "start": 39.7612935,
+        "start": 41.2747869,
         "x": 960,
         "y": 525,
-        "end": 47.6839828
+        "end": 49.2828917
       },
       {
         "number": 3,
-        "start": 50.9041639,
+        "start": 52.5096746,
         "x": 960,
         "y": 585.59375,
-        "end": 54.3868171
+        "end": 56.066599700000005
       },
       {
         "number": 3,
-        "start": 64.1281008,
+        "start": 65.831639,
         "x": 1836.3125,
         "y": 553.59375,
-        "end": 67.54895900000001
+        "end": 69.2755521
+      },
+      {
+        "number": 4,
+        "start": 78.17661100000001,
+        "x": 1791.625,
+        "y": 553.5,
+        "end": 81.6064012
+      },
+      {
+        "number": 4,
+        "start": 84.85718780000002,
+        "x": 960,
+        "y": 554.3515625,
+        "end": 88.3161224
+      },
+      {
+        "number": 4,
+        "start": 96.0704089,
+        "x": 960,
+        "y": 553.75,
+        "end": 99.4869454
+      },
+      {
+        "number": 5,
+        "start": 108.4595056,
+        "x": 960,
+        "y": 553.75,
+        "end": 111.8704651
+      },
+      {
+        "number": 5,
+        "start": 119.1167678,
+        "x": 182.8359375,
+        "y": 553.5,
+        "end": 122.53923439999998
+      },
+      {
+        "number": 5,
+        "start": 125.77644879999998,
+        "x": 960,
+        "y": 553.75,
+        "end": 129.19337649999997
+      },
+      {
+        "number": 5,
+        "start": 136.97389919999998,
+        "x": 444.75,
+        "y": 553.5,
+        "end": 140.40997779999998
+      },
+      {
+        "number": 6,
+        "start": 150.1816857,
+        "x": 1096.46875,
+        "y": 224,
+        "end": 153.6496515
+      },
+      {
+        "number": 6,
+        "start": 156.88617969999999,
+        "x": 1644.9609375,
+        "y": 554,
+        "end": 160.30522629999996
       }
     ]
   }
