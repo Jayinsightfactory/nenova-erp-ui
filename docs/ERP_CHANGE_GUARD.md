@@ -1,5 +1,9 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-18 명세서 약칭·송장 법인명·DB 농장 연결
+
+문서의 다른 농장명을 송장 누락으로 단정하지 않는다. 유일한 송장번호/HAWB 또는 최소 법인 표기 동등성으로 연결하고, 미확정은 원본명·송장을 보존한 1:1 DB 후보 선택으로 해결한다. 실제 건수 차이·중복 연결·번호/HAWB 충돌은 계속 차단한다. 선택은 원본 SHA 작업에 보관하며 기존 원장명을 수정하지 않는다. 신규 Farm 등록은 별도 명시 버튼과 기존 수입부 권한, 활성 국가·중복 잠금·native IDENTITY·readback·rollback을 요구하며 Customer나 Warehouse/Stock/Estimate를 자동 생성하지 않는다. 근거 ClassFarmRegistration.md, 계획 manifest-farm-match-2026-11-18.md, 계약 manifest-farm-matching 및 실제 격리 SQL script 참조. 운영 원장 시험 쓰기 금지.
+
 ## 2026-11-14 홈 피드백 조회 시간
 
 홈은 연도별 피드백, 연결 원본, 최근 이벤트 세 건을 읽는다. 인박스 묶음은 불량 원본의 농장명, 단독 원본 표시는 농장 마스터 보완값을 사용한다. 홈 GET과 읽음 표시는 주문·출고·견적·재고·불량 원장을 보존한다. 표시용 이전 스냅샷으로 읽음 저장을 승인할 수 없다. 교차연도 원본과 빈 연도는 `desktopHomeWorkspace.test.cjs`에서 대조한다.
@@ -1244,3 +1248,7 @@ warehouse API가 부서명만 검사해 DeptName이 비어 있는 Authority4/7 �
 
 ## 2026-11-18 입고 수정 농장 후보 누락
 native select는검색기능이없고 Farm마스터전용조회가실제입고의Faguaflowers Intl LLC를누락했다. 검색은대소문자/공백무시표시필터,후보는공통 warehouseFarmChoicesSql로GET/preview/legacy저장/approval최종저장을통일한다. 기존활성입고의이름도허용하되삭제/동명중복마스터우회·가짜FarmKey·원장수량변경은금지한다. 원가/확정/재고/견적/매출가드는보존. 회귀 warehouseFarmChoices(.test.mjs/Sql.test.mjs),warehouseCorrectionSql,warehouse-farm-search-ui. 기존저장기능의그외결함을이변경이해결했다고주장하지않는다.
+
+## 2026-11-18 일반 주문·영업부 붙여넣기 빈 연결 헤더
+
+source=manual-order/sales-paste 주문 저장은 정확한 연도+세부차수+업체 전체 헤더를 UPDLOCK/HOLDLOCK으로 재검증한다. 0건만 빈 native 헤더 생성, 단일 활성은 변경 없이 재사용, 삭제/중복은409 전체 rollback. 다른 source·과거 원장 자동보정0. 주문과 헤더가 분리 commit되지 않으며 분배/날짜/농장/Estimate/손익 쓰기0. manual-order 재고 기존 계산, sales-paste 기존 보존. 기준은 order-native-empty-header/sales-paste-order 계약 및 실제 FormOrderAdd 근거. myCustomerOrderApi 실행 fixture가 교차연도·경계·재시도·원자성을 검사한다.

@@ -67,3 +67,9 @@ CLI: `C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.ex
 회귀검사: `__tests__/myCustomerOrderApi.test.js`의 신규/재시도/교차연도/삭제헤더/기존확정/실패rollback fixture 및 `docs/contracts/order-import-shipment-list.json`. 이후 신규 주문입력 source를 추가할 때 이 계약과 그 source의 부작용을 함께 검증한다.
 
 검색어: ShipmentMaster 연결헤더 GetShipmentMaster FormOrderAdd 44-01 빈출고헤더 주문수량보존 삭제헤더 중복헤더
+
+## 2026-11-18 일반 주문·영업부 붙여넣기 신규 저장
+
+사용자의 명시 지시로 `/orders/new`의 `source=manual-order`와 `source=sales-paste`도 주문 transaction에서 빈 헤더만 준비한다. 다른 source에는 확대하지 않는다. 공통 `resolveNativeOrderShipmentHeader`는 삭제 포함 전체 헤더를 정확한 연도·세부차수·업체로 잠가 0건만 생성하고, 단일 활성 헤더의 메타데이터/확정 상태는 그대로 재사용한다. 삭제 또는 중복 헤더는 409와 함께 주문·이력까지 rollback한다. 과거 중복/삭제 헤더 자동 보정은 하지 않는다.
+
+실제 분배·날짜·농장·확정·견적·매출은 생성하지 않는다. sales-paste 재고 보존과 manual-order 기존 재고 재계산 경로를 유지하며 새 재고조정은 추가하지 않는다. 신규 연결 헤더만으로 견적이나 매출이 발생하지 않는다.

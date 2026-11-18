@@ -1,5 +1,7 @@
 import styles from '../../styles/ImportPacking.module.css';
 import WorkflowGuide from '../WorkflowGuide';
+import PackingManifestFarmReview from './PackingManifestFarmReview.js';
+import {pendingManifestIssues} from '../../lib/packingManifestReconciliation.js';
 import { blockingPackingIssues } from '../../lib/packingReceiptDatePolicy.js';
 import {createPackingHistoryClient,loadPackingHistory} from '../../lib/packingSharedHistoryClient.js';
 import {packingFileReuse,analyzedPackingUploads,readCompletedPackingAnalysis} from '../../lib/packingFileReuse.js';
@@ -899,6 +901,7 @@ const isLegacyChinaInvoice = invoice => invoice?.source_format === 'china_legacy
     || invoice?.reviewStatus === LEGACY_CN_REVIEW_STATUS));
 function unresolvedExtractionIssues(invoices = [], result = null) {
   const issues = [
+    ...pendingManifestIssues(result),
     ...(Array.isArray(result?.extractionIssues) ? result.extractionIssues : []),
     ...(Array.isArray(result?.extraction_issues) ? result.extraction_issues : []),
     ...invoices.flatMap(invoice => [
@@ -2384,6 +2387,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             </div>}
             <div className={styles.modeBadge}>{country==='CN'&&/\.xlsx$/i.test(file?.name||'')?'엑셀 코드 분석 · API 호출 없음':t.localMode}</div>
             {extractionSource&&<p className={styles.sourceBadge} role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}
+            {lastExtraction?.result?.manifest_review&&<PackingManifestFarmReview key={`${country}:${lastExtraction.sourceHash}`} result={lastExtraction.result} country={country} onApply={result=>{
+              setLastExtraction(current=>({...current,result,sourceInvoices:result.invoices}));setExcels([]);setGenerated({});setGeneratedErp(null);setReviewConfirmed(false);
+              setStatus({type:'success',msg:'명세서·송장·DB 농장을 연결했습니다. 원본 수량·금액은 변경하지 않았습니다.'});
+            }}/>}
             {lastExtraction?.result?.free_ocr_review_issues?.length>0&&<div role="status" style={{padding:12,border:'1px solid #e2b459',background:'#fff8e9',borderRadius:8}}>
               <strong>원본 표기 확인 필요 · 나머지 품목은 계속 검토할 수 있습니다.</strong>
               {lastExtraction.result.free_ocr_review_issues.map((issue,index)=><p key={index}>{issue.invoice}: 명세서 {issue.manifest} / 송장 {issue.invoicePrinted} — 두 원문을 그대로 보존했습니다.</p>)}

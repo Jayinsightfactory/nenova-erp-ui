@@ -55,3 +55,11 @@ SELECT-only probe run32940568091: 2026/34-01 Cust317 Prod53 OrderDetail69516 Out
 
 ## 2026-11-09 업로드 업체 및 담당자 분배단가 화면
 실제 dnSpy.Console.exe --no-color -t FormOrderAdd 및 FormShipmentDistribution CLI 재실행. FormOrderAdd.btnSave_Click의 Master→Detail/빈 출고헤더, FormShipmentDistribution.GetCustomerList의 연도+차수+CustKey ViewOrder/ViewShipment 조인 확인. 신규 writer 없음. 파일의 참고 미우 시트가 본문보다 우선된 실제47차 원본 재현과 SELECT-only 키277/491/456 검증은 [기준표](../plans/upload-customer-distribution-2026-11-09.md). 단가 변경은 기존 update-cost만 호출하며 수량/확정/날짜/농장/Estimate/재고 writer 변경 없음. EXE GUI 미검증.
+
+## 2026-11-18 주문등록 빈 연결 헤더 재확인
+
+동일 EXE SHA256 FEDEA619A6E54D6CDD58802E0707DD51D06F5D46E883F53F00134E801AC62F79에 로컬 dnSpy CLI `--no-color -t FormOrderAdd`를 재실행했다. btnSave_Click는 삭제 필터 없이 연도+세부차수+업체의 전체 ShipmentMaster COUNT가0일 때 빈 헤더(isFix=false/isDeleted=false, OrderYearWeek=연도+대차수, EstimateName=대차수 종합견적서)를 주문 저장 목록에 포함한다. GetShipmentMaster는 이 헤더를 조회만 한다.
+
+사용자가 일반 신규 주문과 영업부 붙여넣기의 빈 헤더 준비를 명시 승인했다. 웹은 `manual-order`와 `sales-paste`에 공통 helper를 적용하며 단일 활성 헤더 재사용/삭제·중복409 전체 rollback으로 모호한 native 조회를 예방한다. 기존 업로드/호텔/내 업체 정책은 변경하지 않는다. 상세 분배/견적/매출 자동 생성0. manual-order 기존 native stock 계산 및 sales-paste stock 보존 유지.
+
+동일 업무키 읽기 전용 downstream 감사 및 한계는 [감사 기록](../SALES_PASTE_DOWNSTREAM_AUDIT_2026-11-18.md). 기존 식별 상세276, ViewOrder 누락0, 양수확정202의 견적/판매 기본조건 누락0, 미분배64를 자동 출고하지 않는다. 중복 헤더1업체는 보정하지 않는다. 실제 직원 EXE GUI 저장/분배/확정은 미검증. 실행 회귀는 myCustomerOrderApi.test.js의 두 source 신규/기존/교차연도/삭제/중복/실패 rollback fixture.

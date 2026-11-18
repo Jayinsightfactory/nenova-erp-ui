@@ -103,6 +103,14 @@ function makeDb(initial = baseState()) {
     }
     if (/usp_StockCalculation/i.test(text)) return { recordset: [] };
 
+    if (/SELECT ShipmentKey, isDeleted FROM ShipmentMaster/i.test(text)) {
+      assert.equal(transaction, true);
+      assert.match(text, /UPDLOCK, HOLDLOCK/);
+      assert.match(text, /OrderYear=@year AND OrderWeek=@wk/);
+      assert.doesNotMatch(text, /ISNULL\(isDeleted|TOP 1/i);
+      return { recordset: s.shipmentMasters.filter(x => x.CustKey === Number(p.ck)
+        && x.OrderYear === p.year && x.OrderWeek === p.wk) };
+    }
     if (/SELECT TOP 1 ShipmentKey FROM ShipmentMaster/i.test(text)) {
       assert.equal(transaction, true);
       assert.match(text, /UPDLOCK, HOLDLOCK/);
@@ -128,7 +136,7 @@ function makeDb(initial = baseState()) {
     }
     if (/FROM UserInfo/i.test(text)) return { recordset: [{ UserID: 'admin' }] };
 
-    if (/FROM OrderMaster WITH .*WHERE CustKey=@ck/i.test(text)) {
+    if (/FROM OrderMaster WITH [\s\S]*WHERE CustKey=@ck/i.test(text)) {
       const rows = s.masters.filter(x => Number(x.CustKey) === Number(p.ck) && x.OrderWeek === p.wk
         && (x.OrderYear === p.year || (['2025', '2024'].includes(String(p.year)) && !x.OrderYear)))
         .sort((a, b) => Number(a.isDeleted || 0) - Number(b.isDeleted || 0) || Number(a.OrderMasterKey) - Number(b.OrderMasterKey));
@@ -271,7 +279,7 @@ function loadCreateOrder(db, { source: sourceOverride, dependencies: dependencyO
   source = source.replace(/export\s*\{[^}]*\};?/g, '');
   const policySource = fs.readFileSync(path.join(process.cwd(), 'lib/myCustomerOrderWritePolicy.js'), 'utf8')
     .replace(/export\s+(?=const|function)/g, '');
-  const policy = new Function(`${policySource}\nreturn { MY_CUSTOMER_ORDER_MODE, assertMyCustomerExpectedCurrentQty, expandFinalSnapshotItems, isAbsoluteOrderMode, isFinalSnapshotOrderSource, isMyCustomerOrderSource, planMyCustomerOrderWrite, validateMyCustomerOrderWriteRequest };`)();
+  const policy = new Function(`${policySource}\nreturn { MY_CUSTOMER_ORDER_MODE, assertMyCustomerExpectedCurrentQty, expandFinalSnapshotItems, isAbsoluteOrderMode, isFinalSnapshotOrderSource, isMyCustomerOrderSource, planMyCustomerOrderWrite, resolveNativeOrderShipmentHeader, validateMyCustomerOrderWriteRequest };`)();
   const dependencies = {
     orderBatch: require('../lib/orderRegistrationBatch.cjs'),
     query: db.query,
@@ -559,7 +567,114 @@ async function main() {
     assert.ok(!db.writes.some(w => /ShipmentMaster|ShipmentDetail|ShipmentDate|ShipmentFarm|Estimate|WebProfitReport|ProductStock|StockMaster|StockHistory/i.test(w.sql)));
   }
 
-  console.log('my customer order API integration tests passed');
+  const salesBody = { source: 'sales-paste', custKey: 317, manager: 'admin', week: '32-01', year: '2026',
+    orderMode: 'ADD', ensureShipmentMaster: false,
+    items: [{ prodKey: 53, qty: 3, unit: '단', expectedCurrentQty: 2 }] };
+  const priorHeader = { ShipmentKey: 40, CustKey: 317, OrderYear: '2025', OrderWeek: '32-01', isDeleted: 0, isFix: 1 };
+  {
+    const sentinels = [priorHeader,
+      { ...priorHeader, ShipmentKey: 41, CustKey: 999, OrderYear: '2026' },
+      { ...priorHeader, ShipmentKey: 42, OrderYear: '2026', OrderWeek: '32-02' }];
+    const db = makeDb({ shipmentMasters: sentinels }); const createOrder = loadCreateOrder(db);
+    const response = await call(createOrder, db, salesBody);
+    assert.equal(response.statusCode, 201, JSON.stringify(response.payload));
+    assert.equal(detail(db, 53)[0].OutQuantity, 5);
+    assert.deepEqual(db.state.shipmentMasters.slice(0, 3), sentinels);
+    assert.equal(db.state.shipmentMasters.length, 4);
+    assert.equal(db.state.shipmentMasters[3].OrderYearWeek, '202632');
+    assert.equal(db.state.shipmentMasters[3].isFix, 0);
+    assert.equal(db.stockCalls.length, 0);
+    assert.deepEqual(db.state.shipmentDetails, []);
+    const after = clone(db.state);
+    const replay = await call(createOrder, db, salesBody);
+    assert.equal(replay.statusCode, 409, 'stale ADD retry cannot duplicate the order/header');
+    assert.deepEqual(db.state, after);
+    const second = await call(createOrder, db, { ...salesBody, items: [{ ...salesBody.items[0], expectedCurrentQty: 5 }] });
+    assert.equal(second.statusCode, 201, JSON.stringify(second.payload));
+    assert.equal(db.state.shipmentMasters.length, 4, 'a later legitimate ADD reuses header');
+  }
+  for (const isFix of [0, 1]) {
+    const header = { ...priorHeader, OrderYear: '2026', isFix, EstimateName: 'preserve', CreateID: 'native' };
+    const downstream = [{ CustKey: 317, OrderYear: '2026', OrderWeek: '32-01', ProdKey: 53,
+      OutQuantity: 1, Amount: 12345, Vat: 1234, isFix: 1, ShipmentDtm: '2026-08-01' }];
+    const db = makeDb({ shipmentMasters: [header], shipmentDetails: downstream });
+    const response = await call(loadCreateOrder(db), db, salesBody);
+    assert.equal(response.statusCode, 201, JSON.stringify(response.payload));
+    assert.equal(response.payload.shipmentMasterKey, 40);
+    assert.deepEqual(db.state.shipmentMasters, [header]);
+    assert.deepEqual(db.state.shipmentDetails, downstream);
+    assert.equal(db.stockCalls.length, 0);
+  }
+  for (const headers of [
+    [{ ...priorHeader, OrderYear: '2026', isDeleted: 1 }],
+    [{ ...priorHeader, OrderYear: '2026' }, { ...priorHeader, ShipmentKey: 41, OrderYear: '2026' }],
+    [{ ...priorHeader, OrderYear: '2026' }, { ...priorHeader, ShipmentKey: 41, OrderYear: '2026', isDeleted: 1 }],
+  ]) {
+    const db = makeDb({ masters: [], details: [], shipmentMasters: headers }); const before = clone(db.state);
+    const response = await call(loadCreateOrder(db), db, { ...salesBody, items: [{ ...salesBody.items[0], expectedCurrentQty: 0 }] });
+    assert.equal(response.statusCode, 409, JSON.stringify(response.payload));
+    assert.equal(response.payload.code, 'ORDER_SHIPMENT_HEADER_CONFLICT');
+    assert.deepEqual(db.state, before, 'header conflict rolls back even a staged new OrderMaster');
+    assert.equal(db.committed, false);
+  }
+  for (const failure of ['headerFailure', 'missingProduct']) {
+    const db = makeDb(); const before = clone(db.state);
+    if (failure === 'headerFailure') db.headerFailure = true;
+    const body = failure === 'missingProduct'
+      ? { ...salesBody, items: [...salesBody.items, { prodKey: 99999, qty: 1, unit: '단', expectedCurrentQty: 0 }] }
+      : salesBody;
+    const response = await call(loadCreateOrder(db), db, body);
+    assert.equal(response.statusCode, failure === 'headerFailure' ? 500 : 404, JSON.stringify(response.payload));
+    assert.deepEqual(db.state, before, 'header and all order/history mutations roll back together');
+    assert.equal(db.committed, false);
+  }
+
+  // The ordinary order-registration screen explicitly opts in; unmarked and
+  // special clients keep their separate policies and stock calculation path.
+  assert.match(fs.readFileSync(path.join(process.cwd(), 'pages/orders/new.js'), 'utf8'), /source: 'manual-order'/);
+  for (const headers of [[], [{ ...priorHeader, OrderYear: '2026', isFix: 1 }]]) {
+    const db = makeDb({ shipmentMasters: headers });
+    const response = await call(loadCreateOrder(db), db, { ...salesBody, source: 'manual-order' });
+    assert.equal(response.statusCode, 201, JSON.stringify(response.payload));
+    assert.equal(db.state.shipmentMasters.length, 1);
+    assert.equal(detail(db, 53)[0].OutQuantity, 5);
+    assert.deepEqual(db.state.shipmentDetails, []);
+    assert.equal(db.stockCalls.length, 1, 'retain ordinary order stock calculation, no new adjustment');
+    if (headers.length) assert.deepEqual(db.state.shipmentMasters, headers);
+  }
+  {
+    const db = makeDb({ shipmentMasters: [priorHeader], masters: [], details: [] });
+    const response = await call(loadCreateOrder(db), db, { ...salesBody, source: 'manual-order' });
+    assert.equal(response.statusCode, 201, JSON.stringify(response.payload));
+    assert.deepEqual(db.state.shipmentMasters[0], priorHeader);
+    assert.equal(db.state.shipmentMasters[1].OrderYear, '2026');
+    assert.equal(db.state.shipmentMasters[1].OrderYearWeek, '202632');
+    assert.equal(db.state.shipmentMasters[1].isFix, 0);
+  }
+  for (const headers of [
+    [{ ...priorHeader, OrderYear: '2026', isDeleted: 1 }],
+    [{ ...priorHeader, OrderYear: '2026' }, { ...priorHeader, ShipmentKey: 41, OrderYear: '2026' }],
+  ]) {
+    const db = makeDb({ masters: [], details: [], shipmentMasters: headers }); const before = clone(db.state);
+    const response = await call(loadCreateOrder(db), db, { ...salesBody, source: 'manual-order' });
+    assert.equal(response.statusCode, 409, JSON.stringify(response.payload));
+    assert.deepEqual(db.state, before);
+    assert.equal(db.stockCalls.length, 0);
+  }
+  {
+    const db = makeDb({ shipmentMasters: [priorHeader] }); db.headerFailure = true;
+    const before = clone(db.state);
+    const response = await call(loadCreateOrder(db), db, { ...salesBody, source: 'manual-order' });
+    assert.equal(response.statusCode, 500);
+    assert.deepEqual(db.state, before);
+  }
+  for (const source of [undefined, 'paste', 'hotel-miu-board']) {
+    const db = makeDb();
+    const response = await call(loadCreateOrder(db), db, { ...salesBody, source });
+    assert.equal(response.statusCode, 201, JSON.stringify(response.payload));
+    assert.deepEqual(db.state.shipmentMasters, [], 'do not broaden unrelated source policy');
+  }
+  console.log('my customer order API integration tests passed; native headers: both sources create/reuse, cross-year/customer/subweek, fixed metadata, stale replay, deleted/duplicate409, header/product failure rollback, downstream preservation');
 }
 
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });

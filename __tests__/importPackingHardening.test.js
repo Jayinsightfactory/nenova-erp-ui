@@ -179,6 +179,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/importPackingSourceReview.js': sourceReview,
     '../../lib/importPackingMatchPreview.js': matchPreview,
     '../../lib/packingMatchReview.js': matchReview,
+    '../../lib/packingManifestReconciliation.js': await import('../lib/packingManifestReconciliation.js'),
     '../../lib/packingWeekDate.js': require('../lib/packingWeekDate.js'),
     '../../lib/packingReceiptDatePolicy.js': require('../lib/packingReceiptDatePolicy.js'),
     '../../lib/packingReceiptMatchState.js': receiptMatchState,
