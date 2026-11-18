@@ -11,6 +11,7 @@ import fs from 'fs';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import MenuBackButton from '../components/MenuBackButton';
+import ArchFlowChart from '../components/pm/ArchFlowChart';
 import { verifyReqUser } from '../lib/auth';
 import { isOrbitReportViewer } from '../lib/orbitReportAccess';
 import { workflowOwnerOf } from '../lib/workFlowOwners';
@@ -947,9 +948,14 @@ function ProposalsTab() {
 }
 
 export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, mine = null, mineOnly = false }) {
+  const router = useRouter();
   const [tab, setTab] = useState(tab0);
-  const TABS = mineOnly ? [{ id: 'mine', label: '내 업무흐름' }] : [
+  const TABS = mineOnly ? [
+    { id: 'mine', label: '내 업무흐름' },
+    { id: 'arch', label: '아키텍처 흐름도' },
+  ] : [
     { id: 'pipeline', label: '업무 파이프라인' },
+    { id: 'arch', label: '아키텍처 흐름도' },
     { id: 'workflows', label: '업무 흐름' },
     { id: 'proposals', label: '기능 추가 후보 (시뮬레이션)' },
     { id: 'unified', label: '업무 통합본 (최신)' },
@@ -959,6 +965,10 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
     { id: 'orbit', label: 'Orbit 작업 데이터 전체' },
     { id: 'radar', label: '도입 레이더' }, // 관리자(isOrbitReportViewer) 전용 — mineOnly 목록에는 없음
   ];
+  useEffect(() => {
+    const qt = typeof router.query?.tab === 'string' ? router.query.tab : '';
+    if (qt && TABS.some((t) => t.id === qt)) setTab(qt);
+  }, [router.query?.tab, mineOnly]);
   return (
     <div className="wrap" data-my-work>
       <div className="bar">
@@ -970,6 +980,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
       </div>
       <div className="stage">
         {tab === 'mine' && <MyFlowTab mine={mine} />}
+        {tab === 'arch' && <ArchFlowChart onSelectTab={setTab} mineOnly={mineOnly} />}
         {tab === 'unified' && <iframe title="업무 통합본" src={orbit + '/work-unified.html' + orbitQs} />}
         {tab === 'erp' && <iframe title="전산 실제 처리" src={orbit + '/erp-work.html' + orbitQs} />}
         {tab === 'orbit' && <iframe title="Orbit 작업 데이터" src={orbit + '/my-work.html' + orbitQs} />}

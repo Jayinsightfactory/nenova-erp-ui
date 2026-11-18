@@ -3408,3 +3408,12 @@ pm run test:canon 통과.
 ### PR1818 통합 검증 진행
 - 전체 로컬 test:erp-contract·webpack exit0, 기능커밋8643cf34 Linux CI44221462738 전체·webpack PASS. 배포44217840381 원로그에서10:48:54.193KST reloadProcessId 확인(실패9구간 실행중). 최신master70a890a2 통합은 WORK_MEMORY append 충돌 양쪽 보존만 수동 해결, package.json 자동병합. 최신통합 CI·운영배포는 미검증.
 - 검색어: PDF lifecycle 1818 10:48:54 reload 70a890a2 통합 검증
+
+## 2026-11-18 · 네노바웹 `아키텍처 흐름도` 탭 · 데스크톱 앱 업데이트 붉은색 표시 & PM 버튼 개선 (`Desktop 1.3.35`)
+- 요약: `/my-work?tab=arch`에 4대 자가발전 루프(`데이터 디테일 자가발전`, `실시간 로그 관제·자가치유`, `연속 파이프라인 압축(인보이스→입고→도착원가→공유)`, `왕복 우회동작 흡수(분배 시 주문등록 자동생성)`) 인터랙티브 아키텍처 흐름도 탭을 추가하고, 데스크톱 셸에서 앱 업데이트 필요 시(`available`/`downloaded`) 패널·버튼·상태문구·상단 알림을 붉은색(`#d82f36`)으로 강조하며 `PM 라이브 확인`에 `오류관제 열기` + `흐름도` 버튼을 배치함.
+- 검색어: 아키텍처 흐름도 ArchFlowChart tab=arch 앱 업데이트 붉은색 오류관제 열기 흐름도 1.3.35
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-flow-and-pm-update` / `C:\Users\USER\nw-agy-arch-pm-update` / PR 생성 직전.
+2. 완료된 것: `components/pm/ArchFlowChart.js`, `pages/my-work.js`, `desktop/shell/shell.js`, `desktop/package.json`(1.3.35), `desktop/package-lock.json`, `desktop/scripts/smoke.cjs`, `config/workflow-guides.json`, `__tests__/archFlowChart.test.js`, `C:\Users\USER\nenova-work-features` 최신화 업로드(`workflows`/`simulations`/`adoption-ledger`/`unified`/`proposals`/`storyboards`/`timesave`).
+3. 남은 할 일: GitHub PR CI 통과 확인 → squash 머지 → worktree(`nw-agy-arch-pm-update`) 정리 → 운영 배포 후 실화면 확인.
+4. 검증 상태: `archFlowChart`, `workflowReview`, `workFeatureData`, `test:pm`, `test:workflow-guides`, `check-workflow-guides --changed-from origin/master`, `test:ui-layout`, `guard:erp-writes`, `erp-manifest(224)` 통과; `desktop` 단위 67/67 및 Electron `smoke.cjs` 통과; `npx next build --webpack` 성공. 운영 Cafe24/Windows 릴리스 실환경 반영은 머지·CI 후 확인 필요(미검증).
+5. 주의/잠금: MSSQL 원장 쓰기 변경 없음. `pages/pm.js` 및 `pm-control` 가이드 원본 미수정. `desktop-task-schedule`는 `--dry-run` 11장 검증 후 `videoWaivers`로 등록(향후 `shell.js` 추가 수정 시 재검증/갱신 필요).

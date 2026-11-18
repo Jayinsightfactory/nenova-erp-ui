@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.34",
+  "version": "1.3.35",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "수입 비행기 지도를 누르면 앱의 전용 확대 창이 열립니다. 상세내역은 선택한 항공편으로 연결하고 열린 창을 재사용합니다."
+      "releaseNotes": "앱 업데이트 필요 시 붉은색으로 표시하고, PM 라이브 확인에 오류관제 열기와 흐름도 버튼을 제공합니다."
     },
     "extraResources": [
       {
