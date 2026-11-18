@@ -3374,6 +3374,14 @@ pm run test:canon 통과.
 - 보관: 비행기 영상 https://drive.google.com/file/d/1V7TIPQLJ3T8agKiInTlMc7JKT7W2Tebg/view / 홈 영상 https://drive.google.com/file/d/167ZuGiC6YKAs7XuY0bLGcmIeyn7av89V/view / 최종 홈 proof 17jVTfACtfhj_0A5p-eDolM5GYrlGTdmB / 공개 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.34.
 - 검색어: 1.3.34 운영 완료 비행기 확대 지도 상세 인천공항 STA STD ATD 홈 이슈 즐겨찾기 상단 자동 업데이트 배포 인계
 
+## 2026-11-18 카톡 원문 선별·분류 재작업
+- 요약: 전체 카톡/기존 추출칸을 보여주던 구현을 사용자 정정에 맞게 원문 기반 발주 선별로 교체. 일반 문의/불량/사진 제외, 발주와 취소·변경·불명확 요청 분리. 원문 수량 우선, 업체/CL 문맥, 국가/품목군/연도/차수/단위 합계, 동일시각/작성자/원문 중복제거. 관련 취소가 있는 추가분도 검토로 이동. 농장요청 메모 보존.
+1. 작업 위치: nenova-erp-ui / codex/import-kakao-filter / nw-cdx-import-filter / PR 예정.
+2. 완료된 것: importKakaoOrderText 공통분석, 기존 reader/합계/API/화면/계약 및 원문형 recorder fixture. 기준은 docs/plans/import-kakao-filter-2026-11-18.md.
+3. 남은 할 일: 최신 master 통합 후 필수검증/최종가이드/PR/CI/배포/운영 확인.
+4. 검증 상태: raw fixture 수국30+10=40, 카네이션 MoonLight1+2+1=4, 루스커스3, 23품목1445송이, CL/단위/차수/연도/취소/중복/음수/총수량 구분 및 실제 GET 권한/날짜/조회범위 통과. 실제 Chrome 필터/자동합계/일반대화·중복제외/검토/갱신/키보드/390px dry 통과. 실제 수집본1711개 요청 원문 메모리 분석: addition276/review310/excluded1125 (중복제거·연관취소처리 전 분류 통계, 정확도 전수 수동검증 아님). 최근2일31개 원문 모두 일반대화 제외로 분류. 전체 gate/운영 미검증.
+5. 주의/잠금: 본 작업트리 카톡 관련 파일/국가별발주서 recorder와 가이드만. ERP DB 접근/쓰기 및 카톡발송0. 원문/작성자 개인정보를 로컬 파일에 저장하지 않고 메모리에서 분석. 사진내품목/불명확문맥/단위미상은 확인 필요로 남김.
+- 검색어: 카톡 원문 선별 classifyImportFeed analyzeImportMessage 수국 40 1445 st 스템 중복 취소 검토
 ## 2026-11-18 · PDF 분석 중단 원인 진단과 배포 보호 (PR1818)
 - 실제 읽기 전용 진단44220341313: 최근30분 memory restart0, 최근7일 OOM0. 11:02:24.859KST web process 시작. 배포44216051551은10:36:42,44217840381은10:49:45 완료.
 - 추가 진단44220969702/44221499539: 10:42:45→10:52:47 실패9구간 중5완료, 정확한 owner-dead 메세지 interruptedOwner=true. 해당 분석은10:49배포와 중첩한다. 10:53:27→10:57:47 성공6/6·260초. 다른 단일구간 실패3건은 interruptedOwner=false로 별개이며 상세원인 미검증. 성공6구간은 재분석 불필요; 실패5구간 보존. 원본/응답/계정/자격정보 출력0.
@@ -3393,6 +3401,9 @@ pm run test:canon 통과.
 3. 남은 할 일: PR CI전체검증→squash병합→Cafe24배포→운영검색/후보읽기스모크→worktree즉시정리.
 4. 검증 상태: 로컬필수검증·정식빌드·실제플레이어PASS, PR CI/운영반영은아직미검증.
 5. 주의/잠금: 농장마스터신규등록·운영입고저장없음. 원본코드는GitHub PR로보관,검증된영상은Drive폴더18JFwztrSWniR1yctBdaewBATvBev7NGb.
+- 원문 분석 수치 정정: 위1711에는 빈 기록1개가 포함되어 실제 비어있지 않은 원문은1710개(addition276/review310/excluded1124)다. 전체는 자동 분류 결과이며 전수 수동정답률이 아님. 11/5 CL38의23품목은 원문 대조1445송이 확인.
+- 가이드 최종: 195.75초 18단계, 1920×1080/100%, 처음·중간·끝 프레임에서 번호/줌/자막/자동합계4/복사확인. 회사Drive MP4 1eJ6gs7vK6n2CszZ3iuThQPow2roNET1R / VTT 1ZYHM4gCvwfOpGonlly089p3cb8utFCHG 보관.
+- 최종 로컬 검증 완료: test:erp-contract(내부 dnSpy 포함), test:workflow-guides 및 changed-source 가이드 검사, manifest/write guard, 최종 production build 모두 통과. 최종 번들에 relatedChanges 포함 확인. 마지막 보완은 원문분석/API 회귀 재통과 및 실제 Chrome 신규 취소수신→이전 포함 무효화 통과. 국가·품목군 필터/일반카톡·중복제외/업체비고/복사/제외·재조회/390px 패널·가이드 플레이어 검증 통과. 운영은 배포 후 확인 예정.
 
 ### PR1818 통합 검증 진행
 - 전체 로컬 test:erp-contract·webpack exit0, 기능커밋8643cf34 Linux CI44221462738 전체·webpack PASS. 배포44217840381 원로그에서10:48:54.193KST reloadProcessId 확인(실패9구간 실행중). 최신master70a890a2 통합은 WORK_MEMORY append 충돌 양쪽 보존만 수동 해결, package.json 자동병합. 최신통합 CI·운영배포는 미검증.
