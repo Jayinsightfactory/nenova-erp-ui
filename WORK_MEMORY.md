@@ -3374,6 +3374,25 @@ pm run test:canon 통과.
 - 보관: 비행기 영상 https://drive.google.com/file/d/1V7TIPQLJ3T8agKiInTlMc7JKT7W2Tebg/view / 홈 영상 https://drive.google.com/file/d/167ZuGiC6YKAs7XuY0bLGcmIeyn7av89V/view / 최종 홈 proof 17jVTfACtfhj_0A5p-eDolM5GYrlGTdmB / 공개 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.34.
 - 검색어: 1.3.34 운영 완료 비행기 확대 지도 상세 인천공항 STA STD ATD 홈 이슈 즐겨찾기 상단 자동 업데이트 배포 인계
 
+## 2026-11-18 카톡 원문 선별·분류 재작업
+- 요약: 전체 카톡/기존 추출칸을 보여주던 구현을 사용자 정정에 맞게 원문 기반 발주 선별로 교체. 일반 문의/불량/사진 제외, 발주와 취소·변경·불명확 요청 분리. 원문 수량 우선, 업체/CL 문맥, 국가/품목군/연도/차수/단위 합계, 동일시각/작성자/원문 중복제거. 관련 취소가 있는 추가분도 검토로 이동. 농장요청 메모 보존.
+1. 작업 위치: nenova-erp-ui / codex/import-kakao-filter / nw-cdx-import-filter / PR 예정.
+2. 완료된 것: importKakaoOrderText 공통분석, 기존 reader/합계/API/화면/계약 및 원문형 recorder fixture. 기준은 docs/plans/import-kakao-filter-2026-11-18.md.
+3. 남은 할 일: 최신 master 통합 후 필수검증/최종가이드/PR/CI/배포/운영 확인.
+4. 검증 상태: raw fixture 수국30+10=40, 카네이션 MoonLight1+2+1=4, 루스커스3, 23품목1445송이, CL/단위/차수/연도/취소/중복/음수/총수량 구분 및 실제 GET 권한/날짜/조회범위 통과. 실제 Chrome 필터/자동합계/일반대화·중복제외/검토/갱신/키보드/390px dry 통과. 실제 수집본1711개 요청 원문 메모리 분석: addition276/review310/excluded1125 (중복제거·연관취소처리 전 분류 통계, 정확도 전수 수동검증 아님). 최근2일31개 원문 모두 일반대화 제외로 분류. 전체 gate/운영 미검증.
+5. 주의/잠금: 본 작업트리 카톡 관련 파일/국가별발주서 recorder와 가이드만. ERP DB 접근/쓰기 및 카톡발송0. 원문/작성자 개인정보를 로컬 파일에 저장하지 않고 메모리에서 분석. 사진내품목/불명확문맥/단위미상은 확인 필요로 남김.
+- 검색어: 카톡 원문 선별 classifyImportFeed analyzeImportMessage 수국 40 1445 st 스템 중복 취소 검토
+## 2026-11-18 · PDF 분석 중단 원인 진단과 배포 보호 (PR1818)
+- 실제 읽기 전용 진단44220341313: 최근30분 memory restart0, 최근7일 OOM0. 11:02:24.859KST web process 시작. 배포44216051551은10:36:42,44217840381은10:49:45 완료.
+- 추가 진단44220969702/44221499539: 10:42:45→10:52:47 실패9구간 중5완료, 정확한 owner-dead 메세지 interruptedOwner=true. 해당 분석은10:49배포와 중첩한다. 10:53:27→10:57:47 성공6/6·260초. 다른 단일구간 실패3건은 interruptedOwner=false로 별개이며 상세원인 미검증. 성공6구간은 재분석 불필요; 실패5구간 보존. 원본/응답/계정/자격정보 출력0.
+- 확인된 구조결함: Next web process 안에서 provider job 실행하지만 deploy PM2 reload에 in-flight 분석 확인 없음. 새 global OS mutex로 startPackingPdfJob admission과 build swap+reload를 직렬화하고 alive RUNNING이 있으면 배포만 중단한다. 파일/완료구간/ERP원장 수정0, provider 재시도0. deadline 경과·unknown PID도 보호, dead owner는 기록 보존.
+- 표적121검사120PASS/1SKIP, API·배포가드17PASS, 배포/브라우저 표적27PASS(초기 sandbox GitBash/Chrome 실패 후 elevated 동일검사 통과), 신규가드7PASS, manifest224/쓰기scope/dnSpy 통과. 전체 test:erp-contract 및 PR Linux build/CI 실행 중이며 최종통과·배포는 아직 미검증.
+- 검색어: PDF 분석 중단 owner dead 5/9 6/6 260초 602초 배포 PM2 reload lifecycle mutex PR1818
+1. 작업 위치: nenova-erp-ui / fix/pdf-lifecycle-1118 / C:/Users/USER/Documents/Codex/nw-cdx-pdf-lifecycle-1118 / PR1818. CLOUD PR1813 작업트리와 분리.
+2. 완료된 것: lib/packingPdfLifecycle.cjs, importTeamPdfJobs admission 보호, scripts/guard-pdf-deploy.cjs, 익명 상태 진단, deploy workflow 보호·진단 연결, 전용회귀·계약·계획. 운영DB/서비스 설정/추가유료분석 변경0.
+3. 남은 할 일: 전체ERP검사·Linux CI/webpack 확인→활성분석 없는 최초 rollout→코드 배포·ping/분석 캐시 읽기 스모크. 기존파일 즉시불러오기/변경본 선택 재분석 UI 요청은 아직 미구현. 실패9구간은 완료5구간 유지한 명시재시도만 허용, 추가비용 동의 없이 재분석 금지.
+4. 검증 상태: 원인 owner-dead 및 배포중첩 실측, 신규 보호장치 실행형 표적 통과. 개별작업/배포상세로그 정확한 kill순간·단일구간3실패·현재앱복구·최종CI·배포 미검증. 성공6/6은 실제서버분석 기록이지 입고/원가E2E 통과가 아님.
+5. 주의/잠금: 본 worktree 독점. 최초 구버전은 global admission mutex가 없으므로 직원 분석 완료후 설치해야 함. PM2/OOM/OS강제종료 전부를 이가드가 방지하는 것은 아님. 운영입고·원가·재고 저장 금지. 별도 CLOUD PR1813 및 다른세션 PR1817 소스 건드리지 않음.
 ## 2026-11-18 농장 검색 최종 로컬 검증
 - 최신master f92f04dad 통합후정식 npm build(prebuild영상검사포함) exit0. 갱신목차/영상의실제플레이어재생1920/390재통과. 변경manifest224/dnSpy/쓰기guard통과. 전체ERP는앞선소스에서pre/core/post통과했고최신통합본전체는PR CI에서재확인예정.
 - 검색어: 입고 농장검색 최종빌드 통과 Faguaflowers Intl LLC guide452.15 280.8
@@ -3401,3 +3420,77 @@ pm run test:canon 통과.
 3. 남은 할 일: 비행기 화면 가이드 갱신/전체 검증/CI/병합/배포는 앞선 인계대로 미완료.
 4. 검증 상태: GitHub CLI 읽기·PR 쓰기 성공. connector 403 자체는 미해결이나 정상 CLI로 작업 가능.
 5. 주의/잠금: gh는 Windows keyring 접근 가능한 정상 사용자 권한으로 실행. 토큰 출력/파일저장 금지. PR은 Draft 유지.
+- 원문 분석 수치 정정: 위1711에는 빈 기록1개가 포함되어 실제 비어있지 않은 원문은1710개(addition276/review310/excluded1124)다. 전체는 자동 분류 결과이며 전수 수동정답률이 아님. 11/5 CL38의23품목은 원문 대조1445송이 확인.
+- 가이드 최종: 195.75초 18단계, 1920×1080/100%, 처음·중간·끝 프레임에서 번호/줌/자막/자동합계4/복사확인. 회사Drive MP4 1eJ6gs7vK6n2CszZ3iuThQPow2roNET1R / VTT 1ZYHM4gCvwfOpGonlly089p3cb8utFCHG 보관.
+- 최종 로컬 검증 완료: test:erp-contract(내부 dnSpy 포함), test:workflow-guides 및 changed-source 가이드 검사, manifest/write guard, 최종 production build 모두 통과. 최종 번들에 relatedChanges 포함 확인. 마지막 보완은 원문분석/API 회귀 재통과 및 실제 Chrome 신규 취소수신→이전 포함 무효화 통과. 국가·품목군 필터/일반카톡·중복제외/업체비고/복사/제외·재조회/390px 패널·가이드 플레이어 검증 통과. 운영은 배포 후 확인 예정.
+
+### PR1818 통합 검증 진행
+- 전체 로컬 test:erp-contract·webpack exit0, 기능커밋8643cf34 Linux CI44221462738 전체·webpack PASS. 배포44217840381 원로그에서10:48:54.193KST reloadProcessId 확인(실패9구간 실행중). 최신master70a890a2 통합은 WORK_MEMORY append 충돌 양쪽 보존만 수동 해결, package.json 자동병합. 최신통합 CI·운영배포는 미검증.
+- 검색어: PDF lifecycle 1818 10:48:54 reload 70a890a2 통합 검증
+
+
+## 2026-11-18 입고 수정 요청 연결 구현 단계
+- 요약: 사용자는 영업지원이 수정반영·재확정까지 처리하도록 선택. 직접 수정창 입력보존→기존approval요청전환, 품목·수량 직접요청 진입, 농장검색 아래 즉시목록, 기존견적서확정현황/취소연결, 전체상태/요청별감사이력 조회 추가. 운영8050 현재농장은이미Fagua로확인되어실제업무정정/요청생성하지않음.
+- 검색어: incoming-request-1118 요청등록 확정현황 품목수정 처리이력 검색아래목록
+1. 작업 위치: nenova-erp-ui / codex/incoming-request-1118 / nw-cdx-incoming-request-1118 / PR전.
+2. 완료된 것: components4종/API·Store SELECT만/계약2/회귀·가이드recorder갱신. SQL원장writer변경0.
+3. 남은 할 일: 전체ERP종료→고정UI촬영빌드→가이드dry/2역할촬영·Drive→정식빌드/필수가드→PR/CI/병합/Cafe24/운영스모크/정리.
+4. 검증 상태: 단위21/직접수정blocked→요청·품목입력·응답유실중복방지/농장검색PC390/manifest224/API쓰기guard통과. 전체ERP진행중;영상/배포미검증.
+5. 주의/잠금: 이worktree의입고UI·요청API·가이드파일은본세션작업중. 다른세션PR1813등수정금지,운영원장/확정취소실행없음.
+
+
+## 2026-11-18 최종 요청 재작성 검증 단계
+- 전체 ERP pre/core/post, dnSpy, manifest224, API쓰기guard 및 두역할 실제UI dry-run 통과. 1차 가이드 수입부511.05초/영업지원314.1초 완성 후 넓은 이력 summary 카메라왼쪽anchor 보완. 마지막 검증에서 완료된요청을같은창에서새로수정할때 submittedDraft ref재사용을 발견해 invalidate에서해제, UI회귀에서새create증가까지통과.
+- 검색어: incoming-request-1118 submittedDraft 새수정안 재사용 방지 anchorLeft 최종재촬영
+1. 작업 위치: codex/incoming-request-1118 / nw-cdx-incoming-request-1118 / PR전.
+2. 완료된 것: 4개추가요청구현/단위21/실제Chrome PC390/전체ERP/1차가이드2편. helper anchorLeft 옵션은기본값false로타가이드보존.
+3. 남은 할 일: session88410 최종source고정촬영build→최종2역할dry/재촬영(기존1차영상은최종완료로사용금지)→프레임/Drive/정식빌드/플레이어→PR/CI/배포/정리.
+4. 검증 상태: 업무검증통과; 최종UI코드1줄수정후촬영빌드중. 최종영상·정식빌드·운영미검증.
+5. 주의/잠금: 본worktree입고코드·가이드작업중. 운영API조회요청0건/#8050이미Fagua확인; 운영요청등록/원장수정/확정취소0. rawwebm은최종가이드검증·Drive보관뒤정리.
+## 2026-11-18 · 네노바웹 `아키텍처 흐름도` 탭 · 데스크톱 앱 업데이트 붉은색 표시 & PM 버튼 개선 (`Desktop 1.3.35`)
+- 요약: `/my-work?tab=arch`에 4대 자가발전 루프(`데이터 디테일 자가발전`, `실시간 로그 관제·자가치유`, `연속 파이프라인 압축(인보이스→입고→도착원가→공유)`, `왕복 우회동작 흡수(분배 시 주문등록 자동생성)`) 인터랙티브 아키텍처 흐름도 탭을 추가하고, 데스크톱 셸에서 앱 업데이트 필요 시(`available`/`downloaded`) 패널·버튼·상태문구·상단 알림을 붉은색(`#d82f36`)으로 강조하며 `PM 라이브 확인`에 `오류관제 열기` + `흐름도` 버튼을 배치함.
+- 검색어: 아키텍처 흐름도 ArchFlowChart tab=arch 앱 업데이트 붉은색 오류관제 열기 흐름도 1.3.35
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-flow-and-pm-update` / `C:\Users\USER\nw-agy-arch-pm-update` / PR 생성 직전.
+2. 완료된 것: `components/pm/ArchFlowChart.js`, `pages/my-work.js`, `desktop/shell/shell.js`, `desktop/package.json`(1.3.35), `desktop/package-lock.json`, `desktop/scripts/smoke.cjs`, `config/workflow-guides.json`, `__tests__/archFlowChart.test.js`, `C:\Users\USER\nenova-work-features` 최신화 업로드(`workflows`/`simulations`/`adoption-ledger`/`unified`/`proposals`/`storyboards`/`timesave`).
+3. 남은 할 일: GitHub PR CI 통과 확인 → squash 머지 → worktree(`nw-agy-arch-pm-update`) 정리 → 운영 배포 후 실화면 확인.
+4. 검증 상태: `archFlowChart`, `workflowReview`, `workFeatureData`, `test:pm`, `test:workflow-guides`, `check-workflow-guides --changed-from origin/master`, `test:ui-layout`, `guard:erp-writes`, `erp-manifest(224)` 통과; `desktop` 단위 67/67 및 Electron `smoke.cjs` 통과; `npx next build --webpack` 성공. 운영 Cafe24/Windows 릴리스 실환경 반영은 머지·CI 후 확인 필요(미검증).
+5. 주의/잠금: MSSQL 원장 쓰기 변경 없음. `pages/pm.js` 및 `pm-control` 가이드 원본 미수정. `desktop-task-schedule`는 `--dry-run` 11장 검증 후 `videoWaivers`로 등록(향후 `shell.js` 추가 수정 시 재검증/갱신 필요).
+
+## 2026-11-18 입고 요청 최종 검증·복구·영상 보관
+- 직접수정→입력보존 영업지원요청, 품목·수량 직접요청, 농장검색 아래 즉시목록, 기존견적서확정현황/취소링크, 요청전체상태와권한확인후audit조회 구현. 완료요청후새수정안은이전requestref초기화. 사용자선택은영업지원수정반영·필요재확정까지처리.
+- f321 sibling작업폴더와worktree등록이외부에서사라짐(원인미확정). 커밋5dab에서Documents새경로로복구·git worktree lock, 원격branch백업. 수입부최종Drive보관본을복원해영상sha/UI sourceHash일치확인. 목차는최종VTT의실제단계시작점으로복원(첫단계0초). 영업지원은복구source에서다시실촬영후외부캐시에먼저복사·Drive보관.
+- 최종가이드: 수입부505.4초/5단계 MP4/VTT/proof 45719916/11857/8964bytes; 영업지원314.9초/3단계 31090489/8272/5168bytes. 둘다1920x1080/100%, 번호/확대/입력/확인/이력, 첫·중간·끝프레임직접확인. sourceHash/영상sha일치. 실제플레이어PC390/1920의역할·목차·MP4·VTT·다운로드·접기정지통과.
+- 회사Drive 폴더18JFwztrSWniR1yctBdaewBATvBev7NGb. 수입부MP4 1eSIiymJ_pKC1AerPeNXafVB4UTYXSUMt / VTT 1Jhz-LcYSHI5E9lTd5kLvCQ8CaHg4X2yh / proof 1K4n9V5bwf9g4pQZqXt9J_dX1Amtv98wz. 영업지원MP4 1urRmcaxOBvKNZ83_AgdH9LaVwYfHLiX4 / VTT 1JfMxiK9QbtLE03o-i5pdK2tIbuojf9Pt / proof 1eHkAk8NGKBAmBjw665N3CQISNZjGbSi5. 업로드후metadata재조회로6파일크기일치확인(공유변경없음).
+- 구형incoming-approval-smoke는옛화면fixture/버튼명으로실패해실제현재가이드dry-run fixture로통일. dry에승인응답1회유실과동일operationId재시도검증을추가해두역할전체통과. 런타임UI/ERP writer변경아님.
+- 검색어: incoming-request-1118 농장검색 아래목록 품목수정 요청전환 확정현황 처리이력 외부정리복구 505.4 314.9
+1. 작업 위치: nenova-erp-ui / codex/incoming-request-1118 / C:/Users/USER/Documents/Codex/2026-11-18/work/nw-cdx-incoming-request-1118 (잠금) / PR전.
+2. 완료된 것: 기능4가지·계약/회귀/문서/최종영상2편/Drive6파일·최신master10cfbb522통합. 운영WK8050은이미Fagua,요청목록0건SELECT확인만수행.
+3. 남은 할 일: PR/전체CI→squash→worktree잠금해제·즉시정리→Cafe24→운영읽기브라우저스모크/최종인계.
+4. 검증 상태: 전체ERP pre/core/post(최신upstream통합전)exit0,최종단위21/legacy·검색PC390/manifest224/쓰기API1/dnSpy/가이드/정식npm build/실제플레이어/현재두역할UI+승인응답유실통과. 최신전체통합은PR CI에서확인. 운영배포미검증.
+5. 주의/잠금: 운영원장/실제요청등록/확정취소/DB DML·DDL0. Farm마스터추가없음. 외부정리재발방지로머지전worktree잠금유지. 공유node_modules는정리시junction만삭제,기존f321원본미추적진단자료보존.
+
+### 2026-11-18 홈 달력 공휴일·상세 편집 구현 단계
+- 작업 위치: nenova-erp-ui / codex/calendar-holidays-editor-1118 / C:/Users/USER/Documents/Codex/2026-11-12/new-chat/work/nw-calendar-holidays-1118 / PR 준비.
+- 완료된 것: 한국+요청11개국 공휴일·국가/색상 선택, 중국 2026·2027 정부 연휴·대체근무 보정, 개인/공통 일정 직접 상세 편집·비공개·조회 중 홈 알림, 주차별 마감/새1차 유지. 즐겨찾기 영역 전체 접기/열기, 달력 글씨 유지·가로20% 확대. 별도 직원 메시지·초대 발송 없음.
+- 남은 할 일: 최종 14단계 가이드·필수 검사·CI·Cafe24·Windows 1.3.35 공개 및 운영 조회 검증.
+- 검증 상태: 공휴일/상세/공통24 통과, 개인 반복/달력 포함 대상15 통과. 실제 Chrome 1920/800/390에서 저장·권한·응답유실 재시도·Escape·접기·가로폭·새해1/6 기준 검증. 운영 및 직원 PC 설치 미검증.
+- 주의/잠금: 본 작업트리 desktop/shell, lib/companyCalendarStore.js, lib/personalHomeStore.js, 가이드 소스 작업 중. 원장/SQL 쓰기 없음. 직원 PC 재시작 금지(업무 중, 배포만 요청 유지).
+- 검색어: 국가 공휴일 중국 콜롬비아 네덜란드 이탈리아 태국 베트남 일본 미국 에콰도르 에티오피아 호주 일정 상세 비공개 주차별 즐겨찾기 영역 접기 달력 가로20% 1.3.35
+
+## 2026-11-18 홈 달력 공휴일·상세 편집·즐겨찾기 전체 접기 최종 검증
+- 작업 위치: nenova-erp-ui / codex/calendar-holidays-editor-1118 / Documents/Codex/2026-11-12/new-chat/work/nw-calendar-holidays-1118 / PR 생성 전.
+- 완료된 것: 한국+요청 11개국 공휴일 선택·색상·중국 대체근무일, 회사/개인 일정 상세 편집·비공개 격리·홈 알림, 주차별 차수/1월 기준일 보존, 즐겨찾기 영역 전체 접기/열기(실제 업무 탭 유지), 달력 가로폭 20% 확대·기존 글씨 유지. 14단계 실제 가이드 516.8초/42,958,275바이트, 자막76개·프레임 기준 번호/줌/목차 정렬·대표 장면 육안 확인.
+- 남은 할 일: PR CI·squash, Cafe24 운영 읽기 확인, Windows 1.3.35 설치본 무결성/공개 피드 확인. 직원 PC는 업무 중이므로 재시작하지 않음.
+- 검증 상태: desktop67, test:erp-contract 전체, dnSpy evidence, ERP manifest224, write guard, workflow guides23/24, 변경 소스 해시, 실제 가이드 플레이어14목차/한글자막/키보드/닫기pause/다운로드/1920·390px/JS0, 웹 정식 build 통과. 앞선 실제 Chrome 공휴일·개인/회사 편집·너비·권한·CAS·재시도 회귀 통과. 운영/직원 PC 새버전은 아직 미검증.
+- 주의/잠금: 공유 기본 체크아웃 수정 금지. 녹화 소스/가이드 갱신 완료, 다른 홈 비행기 PR #1820은 별도 Draft 범위. ERP·ECOUNT 쓰기 없음. 완료 후 해당 worktree 즉시 정리.
+- 회사 Drive 원본 보관 확인(크기까지 검증): MP4 13ocnQfonbVqE-xpyauub2WqZdj_bx74h / VTT 10XNEf5jK8moFSbXzGSWNIRG7j4nCAjAd / proof 1z9G7axD2nivg10oiH5FcoP-QE-whLvhe. 기존 1.3.34 자료 유지, 공개 공유 설정 변경 없음.
+- 검색어: calendar holidays 1.3.35 즐겨찾기 전체 접기 열기 달력 가로폭 20% 공휴일 12개국 개인 일정 상세 주차별 기준일 14단계 가이드
+
+## 2026-11-18 Desktop 1.3.36 최종 통합·가이드 재검증
+- 작업 위치: nenova-erp-ui / codex/calendar-holidays-editor-1118 / Documents/Codex/2026-11-12/new-chat/work/nw-calendar-holidays-1118 / PR #1822.
+- 완료된 것: 선행 #1821의 Desktop 1.3.35 흐름도·업데이트 안내를 보존하고 이번 버전을 1.3.36으로 분리. 최종 소스로 14단계 실제 가이드 514.3초/42,948,556바이트 재촬영, 자막76개 실제 프레임 대조·번호/줌/목차·처음/상세/마지막 장면 확인. 1.3.35 촬영·Drive 자료는 미공개 초안이며 최종 배포 근거는 아래 1.3.36 자료임.
+- 남은 할 일: 최종 헤드 CI 재확인·squash, Cafe24 운영 읽기/가이드 재생, Windows 1.3.36 파일·공개 피드 검증. 직원 PC 재시작 금지(업무 중, 배포까지만 승인).
+- 검증 상태: 통합 뒤 desktop67 및 실제 Chrome 공휴일/즐겨찾기 전체접기/권한/개인상세/주차별/너비/작은화면 재통과. 최종 14단계 실제 촬영과 매 자막·강조 전1920x1080 고정 검사 통과. test:workflow-guides23/24 및 changed-from origin/master 소스 해시 통과. 이전 전체 ERP·dnSpy·manifest224·write guard·정식 build 통과; 최신 헤드 필수 CI는 아직 진행 전. 운영/직원PC 새버전은 미검증.
+- 주의/잠금: 촬영 진행은 stdout의 Guide chapter 로그만 읽는다. Puppeteer.connect의 기본 viewport가 기존 촬영 창을 줄이는 문제를 발견해 해당 촬영은 폐기했고, 별도 브라우저 연결을 제거한 최종 촬영과 화면 크기 고정 검사를 추가함. 공유 기본 체크아웃/다른 홈 비행기 Draft #1820 수정 금지. ERP·ECOUNT 쓰기 없음. 병합 후 해당 worktree 즉시 정리.
+- 회사 Drive 최종 원본(크기 검증): MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol / VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat / proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn. 기존 자료 유지·공개 공유 변경 없음.
+- 검색어: calendar 1.3.36 즐겨찾기 전체 접기 열기 공휴일 국가 선택 상세 수정 주차별 Jan6 고정 viewport 가이드 14단계

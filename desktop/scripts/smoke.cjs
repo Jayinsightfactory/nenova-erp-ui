@@ -442,9 +442,17 @@ async function run() {
   for (const [phase, label, disabled] of [['available', '앱 1.4.0 다운로드', false], ['downloading', '다운로드 42%', true], ['downloaded', '재시작하여 업데이트', false], ['unavailable', '앱 업데이트 확인', true]]) {
     shellContents.send('desktop:state', { appUpdate: { phase, version: '1.4.0', percent: 42, message: '검증 상태' } });
     await new Promise(r => setTimeout(r, 50));
-    const updateUi = await shellContents.executeJavaScript("({label:document.getElementById('appUpdateButton').textContent,disabled:document.getElementById('appUpdateButton').disabled,cancel:!document.getElementById('cancelUpdateButton').hidden,notice:!document.getElementById('appUpdateNotice').hidden,noticeLabel:document.getElementById('appUpdateNotice').getAttribute('aria-label')})");
+    const updateUi = await shellContents.executeJavaScript("({label:document.getElementById('appUpdateButton').textContent,disabled:document.getElementById('appUpdateButton').disabled,cancel:!document.getElementById('cancelUpdateButton').hidden,notice:!document.getElementById('appUpdateNotice').hidden,noticeLabel:document.getElementById('appUpdateNotice').getAttribute('aria-label'),btnBg:getComputedStyle(document.getElementById('appUpdateButton')).backgroundColor,noticeBg:getComputedStyle(document.getElementById('appUpdateNotice')).backgroundColor,panelBorder:getComputedStyle(document.querySelector('.app-update-panel')).borderTopColor,statusText:document.getElementById('appUpdateStatus').textContent})");
     assert.equal(updateUi.label, label); assert.equal(updateUi.disabled, disabled); assert.equal(updateUi.cancel, phase === 'downloading');
     assert.equal(updateUi.notice, ['available', 'downloaded'].includes(phase), 'update notice is visible in the compact tab bar without opening home');
+    if (phase === 'available' || phase === 'downloaded') {
+      assert.match(updateUi.btnBg, /rgb\(216, 47, 54\)/, 'update button turns red when update is needed');
+      assert.match(updateUi.noticeBg, /rgb\(216, 47, 54\)/, 'compact update notice turns red when update is needed');
+      assert.match(updateUi.panelBorder, /rgb\(216, 47, 54\)/, 'update panel border turns red when update is needed');
+      assert.match(updateUi.statusText, /업데이트 필요/);
+    } else {
+      assert.doesNotMatch(updateUi.btnBg, /rgb\(216, 47, 54\)/, 'update button clears red state when no update is needed');
+    }
     if (phase === 'available') {
       assert.match(updateUi.noticeLabel, /업데이트가 필요합니다/);
       const activeId = sourceWindow.activeId, count = main.tabs.size;
@@ -460,11 +468,19 @@ async function run() {
   await shellContents.executeJavaScript("window.dispatchEvent(new Event('online'))");
   assert.deepEqual({ activeId: sourceWindow.activeId, tabCount: main.tabs.size, menuOpen: sourceWindow.menuOpen }, beforeAutomaticUpdate);
   main.command(sourceWindow, 'menu', { open: true });
+  const pmButtons = await shellContents.executeJavaScript("({open:document.querySelector('#pmOpenButton')?.textContent,arch:document.querySelector('#pmArchButton')?.textContent})");
+  assert.deepEqual(pmButtons, { open: '오류관제 열기', arch: '흐름도' });
   await shellContents.executeJavaScript('document.querySelector("#pmOpenButton").click()');
   await waitFor(() => [...main.tabs.values()].some(tab => new URL(tab.url).pathname === '/pm'), 'PM monitoring button opens the PM office');
   const pmTab = [...main.tabs.values()].find(tab => new URL(tab.url).pathname === '/pm');
   assert.equal(pmTab.title, 'PM 진행·오류 관제');
   main.command(sourceWindow, 'close', { id: pmTab.id });
+  main.command(sourceWindow, 'menu', { open: true });
+  await shellContents.executeJavaScript('document.querySelector("#pmArchButton").click()');
+  await waitFor(() => [...main.tabs.values()].some(tab => { const u = new URL(tab.url); return u.pathname === '/my-work' && u.searchParams.get('tab') === 'arch'; }), 'PM arch button opens the architecture flowchart tab');
+  const archTab = [...main.tabs.values()].find(tab => { const u = new URL(tab.url); return u.pathname === '/my-work' && u.searchParams.get('tab') === 'arch'; });
+  assert.equal(archTab.title, '아키텍처 흐름도');
+  main.command(sourceWindow, 'close', { id: archTab.id });
   main.command(sourceWindow, 'menu', { open: false });
   main.command(sourceWindow, 'activate', { id: first.id });
   const compactFavorite = await shellContents.executeJavaScript(`(() => {

@@ -14,6 +14,12 @@
   let tabSignature = '';
   let renderedActiveId = null;
   let menuSignature = '';
+  let favoritesOwner='',favoritesOpen=true;
+  function favoritesPreference(){return 'nenova-favorites-open-v1:'+encodeURIComponent(favoritesOwner);}
+  function renderFavoritesVisibility(){
+    let toggle=$('favoritesToggle');if(!toggle){toggle=makeButton('favorites-toggle','','즐겨찾기 목록 접기/열기',()=>{favoritesOpen=!favoritesOpen;try{if(favoritesOwner)localStorage.setItem(favoritesPreference(),favoritesOpen?'1':'0');}catch{}renderFavoritesVisibility();});toggle.id='favoritesToggle';toggle.setAttribute('aria-controls','favoritesList');$('favoritesHeading').parentElement.append(toggle);}
+    $('favoritesList').hidden=!favoritesOpen;toggle.textContent=favoritesOpen?'접기 ▴':'열기 ▾';toggle.setAttribute('aria-expanded',String(favoritesOpen));toggle.disabled=!state.online;
+  }
   let searchCatalog = [], searchMatches = [], activeResult = -1;
   const searchKey = text => String(text || '').normalize('NFKC').toLocaleLowerCase('ko').replace(/\s+/g, '');
 
@@ -332,15 +338,36 @@
     $('syncButton').textContent = state.syncStatus === 'checking' ? '웹 메뉴 확인 중…' : '웹 메뉴 갱신';
     $('syncButton').title = state.webVersion ? `웹 메뉴·기능 확인 (${state.webVersion})` : '로그인 후 최신 웹 메뉴·기능을 확인합니다';
     const update = state.appUpdate || { phase: 'unavailable', message: '' };
+    const needUpdate = ['available', 'downloaded'].includes(update.phase);
     const updateNotice = $('appUpdateNotice');
-    updateNotice.hidden = !['available', 'downloaded'].includes(update.phase);
-    updateNotice.textContent = update.phase === 'downloaded' ? '업데이트 준비됨' : '업데이트 필요';
-    updateNotice.title = update.phase === 'downloaded' ? '다운로드 완료. 업데이트 안내 열기' : `업데이트가 필요합니다. 앱 ${update.version || ''} 안내 열기`;
+    updateNotice.hidden = !needUpdate;
+    updateNotice.textContent = update.phase === 'downloaded' ? '업데이트 준비됨' : '업데이트 하세요';
+    updateNotice.title = update.phase === 'downloaded' ? '다운로드 완료. 지금 업데이트하세요' : `업데이트가 필요합니다. 앱 ${update.version || ''} 지금 업데이트하세요`;
     updateNotice.setAttribute('aria-label', updateNotice.title);
-    $('appUpdateButton').disabled = ['unavailable', 'checking', 'downloading', 'installing'].includes(update.phase);
-    $('appUpdateButton').textContent = update.phase === 'available' ? `앱 ${update.version} 다운로드` : update.phase === 'downloaded' ? '재시작하여 업데이트' : update.phase === 'checking' ? '앱 업데이트 확인 중…' : update.phase === 'downloading' ? `다운로드 ${update.percent}%` : '앱 업데이트 확인';
+    updateNotice.style.background = needUpdate ? '#d82f36' : '';
+    updateNotice.style.borderColor = needUpdate ? '#b42318' : '';
+    updateNotice.style.color = needUpdate ? '#ffffff' : '';
+    updateNotice.style.fontWeight = needUpdate ? '700' : '';
+    const updatePanel = document.querySelector('.app-update-panel');
+    if (updatePanel) {
+      updatePanel.style.borderColor = needUpdate ? '#d82f36' : '';
+      updatePanel.style.background = needUpdate ? '#fff5f5' : '';
+      updatePanel.style.boxShadow = needUpdate ? '0 0 0 2px #d82f361f' : '';
+    }
+    const updateBtn = $('appUpdateButton');
+    updateBtn.disabled = ['unavailable', 'checking', 'downloading', 'installing'].includes(update.phase);
+    updateBtn.textContent = update.phase === 'available' ? `앱 ${update.version} 다운로드` : update.phase === 'downloaded' ? '재시작하여 업데이트' : update.phase === 'checking' ? '앱 업데이트 확인 중…' : update.phase === 'downloading' ? `다운로드 ${update.percent}%` : '앱 업데이트 확인';
+    updateBtn.style.background = needUpdate ? '#d82f36' : '';
+    updateBtn.style.borderColor = needUpdate ? '#b42318' : '';
+    updateBtn.style.color = needUpdate ? '#ffffff' : '';
+    updateBtn.style.fontWeight = needUpdate ? '700' : '';
     $('cancelUpdateButton').hidden = update.phase !== 'downloading';
-    $('appUpdateStatus').textContent = `앱 ${state.version || ''} · ${update.message || ''}`;
+    const updateStatusEl = $('appUpdateStatus');
+    updateStatusEl.textContent = needUpdate
+      ? `앱 ${state.version || ''} · 업데이트 필요 — 지금 업데이트하세요${update.message ? ` (${update.message})` : ''}`
+      : `앱 ${state.version || ''} · ${update.message || ''}`;
+    updateStatusEl.style.color = needUpdate ? '#c92a2a' : '';
+    updateStatusEl.style.fontWeight = needUpdate ? '700' : '';
     const releaseNotes = Array.isArray(update.releaseNotes) ? update.releaseNotes.filter(note => typeof note === 'string' && note.trim()).slice(0, 3) : [];
     const notes = releaseNotes.length ? releaseNotes : [
       '상단 홈 버튼을 알아보기 쉬운 집 모양으로 바꿨습니다.',
@@ -361,12 +388,13 @@
       select.add(new Option(windowItem.title || `업무 창 ${windowItem.id}`, windowItem.id));
     }
     select.disabled = !hasTab || select.options.length < 2;
-    renderTabs(); renderMenus();
+    renderTabs(); renderMenus();renderFavoritesVisibility();
   }
 
   function applyState(next) {
     if (!next || typeof next !== 'object') return;
     const wasMenuOpen = state.menuOpen;
+    if(Object.hasOwn(next,'homeOwnerId')&&String(next.homeOwnerId||'')!==favoritesOwner){favoritesOwner=String(next.homeOwnerId||'');favoritesOpen=true;try{favoritesOpen=localStorage.getItem(favoritesPreference())!=='0';}catch{}}
     if(next.menuOpen===false || (Object.hasOwn(next,'homeOwnerId') && next.homeOwnerId!==pmLive.owner)){ $('menuSearch').value='';dismissMenuResults(); }
     for (const key of ['appUpdate', 'windowId', 'activeId', 'menuOpen', 'toolsOpen', 'online', 'message', 'notice', 'version', 'syncStatus', 'webVersion', 'menuVersion']) if (Object.prototype.hasOwnProperty.call(next, key)) state[key] = next[key];
     for (const key of ['windows', 'tabs', 'favorites', 'menus']) if (Array.isArray(next[key])) state[key] = next[key];
@@ -440,9 +468,28 @@
     $('cancelUpdateButton').addEventListener('click', () => run('cancelUpdate'));
     $('syncButton').addEventListener('click', () => run('sync'));
     $('homeButton').addEventListener('click', () => setMenu(true, true));
-    $('pmOpenButton').addEventListener('click', () => {
+    const pmOpenButton = $('pmOpenButton');
+    pmOpenButton.textContent = '오류관제 열기';
+    pmOpenButton.addEventListener('click', () => {
       run('open', { url: '/pm', title: 'PM 진행·오류 관제' });
     });
+    const pmActions = document.createElement('div');
+    pmActions.className = 'pm-live-actions';
+    pmActions.style.display = 'flex';
+    pmActions.style.flexWrap = 'wrap';
+    pmActions.style.gap = '6px';
+    pmActions.style.alignItems = 'center';
+    const pmArchButton = document.createElement('button');
+    pmArchButton.id = 'pmArchButton';
+    pmArchButton.type = 'button';
+    pmArchButton.className = 'pm-open-button';
+    pmArchButton.textContent = '흐름도';
+    pmArchButton.title = '아키텍처 흐름도 열기';
+    pmArchButton.addEventListener('click', () => {
+      run('open', { url: '/my-work?tab=arch', title: '아키텍처 흐름도' });
+    });
+    pmOpenButton.replaceWith(pmActions);
+    pmActions.append(pmOpenButton, pmArchButton);
     $('menuButton').addEventListener('click', () => setMenu(!state.menuOpen, !state.menuOpen));
     $('toolsButton').addEventListener('click', () => run('tools'));
     $('compactFavoriteButton').addEventListener('click', () => { if (state.activeId) run('favorite', { id: state.activeId }); });

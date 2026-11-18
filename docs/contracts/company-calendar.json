@@ -41,7 +41,9 @@
     "__tests__/companyCalendar.test.js",
     "desktop/tests/company-calendar.test.cjs",
     "scripts/desktop-company-calendar-smoke.cjs",
-    "scripts/desktop-home-search-weekly-smoke.cjs"
+    "scripts/desktop-home-search-weekly-smoke.cjs",
+    "__tests__/calendarHolidayDetails.test.mjs",
+    "scripts/desktop-calendar-holidays-smoke.cjs"
   ],
   "requiredCommands": [
     "node --test __tests__/companyCalendar.test.js desktop/tests/company-calendar.test.cjs",
@@ -83,5 +85,12 @@
     "edits": "Series update and delete require recurringEdit:true, otherwise 409 even for authorized older clients. Series update requires weekly fields; conversion between single events and series is rejected with 409. Author/admin, revision CAS and actor-scoped idempotent replay remain unchanged.",
     "reset": "resetWeek=ceil((resetDate-startDate)/7). That weekly range begins a new cycle at ordinal 1 independent of the original title's start number. A mid-range reset date never splits its current range; the next range start resets instead. The reset range start must actually occur before the exclusive deadline or on/before an inclusive deadline; otherwise reject 400. Omission preserves uninterrupted ordinals. Maximum ordinal/title length is checked before and after the reset.",
     "crossYearExample": "Start 2026-11-25..27 with 1차 and resetDate 2027-01-06: 2026-12-30..2027-01-01 stays 6차, 2027-01-06..08 becomes 1차, 2027-01-13..15 becomes 2차. No resetDate: 2027-01-06 remains 7차."
+  },
+  "calendarDetails": {
+    "fields": "Validated additive details:{note,location,attendees,color,availability,reminderMinutes}; attendees are reference text, no invitations. Korean UI uses existing owner fences, CAS, same-request replay and atomic JSON publication. Reminders are in-home banners only while the home is visible and the occurrence is loaded.",
+    "privacy": "Company calendar visibility private is creator-only even for other administrators. Omitted legacy updates preserve privacy/details. Publishing a private event to company advances the addition marker. Personal tasks remain owner-scoped.",
+    "holidays": "Generated python-holidays 0.109 national data 2000-2100 plus official China 2026/2027 adjustments and Netherlands May5. No per-request network/calendar computation or SQL. Per-PC account country/color selections; local holiday dates are never shifted through KST. China makeup workdays optional. Regional and company-specific closures excluded.",
+    "weekly": "Existing one-series identity, deadline inclusion and resetDate behavior retained. Existing series opens collapsed advanced controls without changing their values.",
+    "focusedRead": "focusTaskId returns only the authenticated owner exact-date task and skips guidance/feedback DB calls. Calendar summaries contain minimal reminder/color metadata, never full notes/attendees."
   }
 }

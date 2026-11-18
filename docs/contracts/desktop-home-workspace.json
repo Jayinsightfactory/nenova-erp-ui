@@ -83,7 +83,9 @@
     "scripts/desktop-task-search-smoke.cjs",
     "__tests__/personalHomeCalendar.test.js",
     "desktop/tests/home-board.test.cjs",
-    "scripts/desktop-home-dashboard-smoke.cjs"
+    "scripts/desktop-home-dashboard-smoke.cjs",
+    "__tests__/calendarHolidayDetails.test.mjs",
+    "scripts/desktop-calendar-holidays-smoke.cjs"
   ],
   "requiredCommands": [
     "node __tests__/desktopHomeWorkspace.test.cjs",
@@ -131,5 +133,12 @@
   "recurringTaskDisplay": "Home and notes show one latest scheduled occurrence per rule. Earlier unfinished occurrences remain stored for history but do not accumulate or reappear after latest completion. Calendar and weekly views retain exact date occurrences; distinct rules are never merged by title.",
   "windowsIdentity": "Main windows set explicit Nenova taskbar AppUserModelID, relaunchDisplayName, relaunchCommand and a real external app-icon.ico. The ICO is copied as a builder extraResource, never handed to Windows as an asar path. Authentication failures activate the existing login view in its owner window.",
   "feedIsolation": "Guidance/quality reads have a 1500ms per-source deadline so slow SQL feedback cannot hold personal JSON task reads/writes past IPC transport deadlines. Pending shared quality loads still coalesce and may fill their cache later; a timeout returns explicit feedErrors and never authorizes an unknown read marker. Existing client last-good feed retention remains owner-scoped. Main bridge returns Korean retryable 503/504 transport results instead of raw Electron TimeoutError, preserving account-generation checks and input drafts.",
-  "performance": "Home reads one year-scoped SQL batch for cases, original sources, membership and recent events. Empty case years return immediately. The original farm fallback remains specific to the coverage anchor. No annual warehouse/statistics query or ERP writes. One 500ms I/O budget is shared by guidance/quality. Authorized displays can use a previously successful year snapshot for up to 90s while one refresh runs after 25s. Read markers require a fresh snapshot. Personal task records and read markers remain owner scoped. Authenticated GET returns workspace duration in Server-Timing."
+  "performance": "Home reads one year-scoped SQL batch for cases, original sources, membership and recent events. Empty case years return immediately. The original farm fallback remains specific to the coverage anchor. No annual warehouse/statistics query or ERP writes. One 500ms I/O budget is shared by guidance/quality. Authorized displays can use a previously successful year snapshot for up to 90s while one refresh runs after 25s. Read markers require a fresh snapshot. Personal task records and read markers remain owner scoped. Authenticated GET returns workspace duration in Server-Timing.",
+  "calendarDetails": {
+    "fields": "Validated additive details:{note,location,attendees,color,availability,reminderMinutes}; attendees are reference text, no invitations. Korean UI uses existing owner fences, CAS, same-request replay and atomic JSON publication. Reminders are in-home banners only while the home is visible and the occurrence is loaded.",
+    "privacy": "Company calendar visibility private is creator-only even for other administrators. Omitted legacy updates preserve privacy/details. Publishing a private event to company advances the addition marker. Personal tasks remain owner-scoped.",
+    "holidays": "Generated python-holidays 0.109 national data 2000-2100 plus official China 2026/2027 adjustments and Netherlands May5. No per-request network/calendar computation or SQL. Per-PC account country/color selections; local holiday dates are never shifted through KST. China makeup workdays optional. Regional and company-specific closures excluded.",
+    "weekly": "Existing one-series identity, deadline inclusion and resetDate behavior retained. Existing series opens collapsed advanced controls without changing their values.",
+    "focusedRead": "focusTaskId returns only the authenticated owner exact-date task and skips guidance/feedback DB calls. Calendar summaries contain minimal reminder/color metadata, never full notes/attendees."
+  }
 }

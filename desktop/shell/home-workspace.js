@@ -73,6 +73,16 @@
   });
   const viewBar=node('div','hw-viewbar'),listView=button('목록',()=>{timeline=false;renderTasks();}),timeView=button('시간표',()=>{timeline=true;expanded=true;renderTasks();});viewBar.append(listView,timeView);
   const rows = node('div', 'hw-rows');
+  let calendarPopup=false,calendarInitial='',calendarDetailInputs=null,calendarTaskTrigger=null,discardPending=false;
+  const editDialog=node('dialog','calendar-task-dialog'),editHeading=node('h2','','내 업무 상세 · 수정');editHeading.id='personalCalendarEditTitle';editDialog.setAttribute('aria-labelledby',editHeading.id);
+  const editHeader=node('div','company-dialog-heading'),editActions=node('div','company-header-actions');editHeader.append(editHeading,editActions);
+  const editBody=node('div'),editMessage=node('p','calendar-edit-status');editMessage.setAttribute('role','status');
+  const editRetry=button('같은 요청 다시 확인',()=>void sendPending()),editDiscard=button('저장 취소하고 최신 일정 보기',()=>{if(busy||!pending)return;discardPending=true;editConfirm.hidden=false;editConfirmNo.focus();});editRetry.hidden=editDiscard.hidden=true;
+  const editConfirm=node('div','calendar-edit-confirm'),editConfirmText=node('span','','변경 내용을 버리고 닫을까요?'),editConfirmYes=button('버리고 닫기',()=>{if(discardPending){pending=null;discardPending=false;}editing=null;editDraft=null;calendarPopup=false;renderTasks();void load();}),editConfirmNo=button('계속 수정',()=>{discardPending=false;editConfirm.hidden=true;editBody.querySelector('input')?.focus();});editConfirm.hidden=true;editConfirm.append(editConfirmText,editConfirmYes,editConfirmNo);
+  editDialog.append(editHeader,node('p','company-help','내 업무 · 나만 보기 · 한국 시간'),editBody,editMessage,editRetry,editDiscard,editConfirm);document.body.append(editDialog);
+  editDialog.addEventListener('cancel',e=>{e.preventDefault();editDialog.querySelector('[data-edit-cancel]')?.click();});
+  function editForm(){return calendarPopup?editBody.querySelector('.hw-edit'):rows.querySelector('.hw-edit');}
+  function closeCalendarEditor(){if(editDialog.open)editDialog.close();editBody.replaceChildren();editActions.replaceChildren();editConfirm.hidden=true;calendarDetailInputs=null;const target=calendarTaskTrigger;calendarTaskTrigger=null;if(target)document.querySelector('[data-focus="'+CSS.escape(target)+'"]')?.focus({preventScroll:true});}
   const more = button('전체 보기', () => { if (!expanded) { expanded = true; renderTasks(); } else if (snapshot?.nextOffset != null) void loadMore(); else { expanded = false; renderTasks(); } }); more.hidden = true;
   const progress=node('progress','hw-progress');progress.max=1;progress.value=0;progress.setAttribute('aria-label','업무 완료율');
   panel.append(heading,count,progress,tools,status,error,form,viewBar,rows,more); root.append(panel, feeds, feedDetail);
@@ -88,14 +98,14 @@
     select.addEventListener('change', () => { select.setCustomValidity(''); paint(); }); checks.forEach(c => c.addEventListener('change', () => select.setCustomValidity(''))); paint(); wrap.append(select, choices, monthlyHint);
     return { root: wrap, valid: () => { const ok = select.value !== 'weekly' || checks.some(c => c.checked); select.setCustomValidity(ok ? '' : '반복할 요일을 하나 이상 선택해 주세요.'); if (!ok) select.reportValidity(); return ok; }, get: () => select.value === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : select.value === 'weekly' ? checks.flatMap((c, i) => c.checked ? [i] : []) : [], frequency: () => select.value, reset: () => { select.value = 'once'; checks.forEach(c => c.checked = false); select.setCustomValidity(''); paint(); } };
   }
-  function setError(text) { errorText.textContent = text; error.hidden = !text; }
+  function setError(text) { errorText.textContent = text; error.hidden = !text;editMessage.textContent=text;editRetry.hidden=!pending;editDiscard.hidden=true; }
   function lock() { form.querySelectorAll('input,select,button').forEach(e => e.disabled = !owner || busy || !snapshot); date.disabled = busy || !owner; filter.disabled = busy || !owner; openNotes.disabled = !owner; downloadNotes.disabled = !owner; retry.disabled = busy; }
   function stamp(value) { if (!value) return ''; const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(d); }
-  function changeDate(value, auto = false) {
+  function changeDate(value, auto = false, read = true) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || busy) return false;
     if (editing || pending || input.value.trim() || addSettings.dirty()) { date.value = selectedDate; setError('작성 중인 업무를 저장하거나 수정 취소 후 날짜를 변경해 주세요. 추가 입력은 직접 지울 수 있습니다.'); return false; }
     selectedDate = value; followsToday = auto; date.value = value; expanded = false; confirmation = null;
-    snapshot = null; renderTasks(); void load(); return true;
+    snapshot = null; renderTasks(); if(read)void load(); return true;
   }
   date.addEventListener('change', () => changeDate(date.value)); filter.addEventListener('change', () => { expanded = false; renderTasks(); });
   input.addEventListener('input', draftSignal);settingsToggle.addEventListener('input',draftSignal);
@@ -105,6 +115,7 @@
   });
   function schedule() { clearTimeout(timer); if (owner && visible && online && !document.hidden) timer = setTimeout(() => void load(), Math.min(300000, 30000 * 2 ** failures)); }
   async function load() {
+    if(calendarPopup&&editing&&!pending){schedule();return;}
     clearTimeout(timer); if (!owner || !visible || !online || document.hidden || querying || busy) { schedule(); return; }
     if (followsToday && selectedDate !== today() && !editing && !pending && !input.value.trim()) { selectedDate = today(); date.value = selectedDate; snapshot = null; }
     const ticket = epoch, requestedDate = selectedDate, generation = ++readGeneration; querying = true;
@@ -132,7 +143,7 @@
     if (pending) { setError('이전 저장 결과를 먼저 다시 시도해 확인해 주세요. 입력은 유지됩니다.'); return; }
     const target = fields.taskId && snapshot.tasks.find(task => rowKey(task) === String(fields.taskId) + '|' + fields.date);
     pending = { command: { action, expectedRevision: snapshot.revision, requestId: crypto.randomUUID(), date: selectedDate, ...fields }, done,
-      baseline: target ? taskFingerprint(target) : null, retries: 0 };
+      baseline: target ? taskFingerprint(target) : null, fromCalendar:calendarPopup, retries: 0 };
     draftSignal();
     void sendPending();
   }
@@ -149,6 +160,7 @@
       busy = false; querying = false; await load();
     } catch (e) { if (ticket !== epoch) return; setError((e.conflict ? '다른 창에서 변경했습니다. 최신 자료를 읽고 입력은 유지합니다. ' : '') + (e.message || '저장 실패') + ' 다시 시도해 주세요.');
       if (e.conflict) {
+        editDiscard.hidden=false;
         busy = false; await load();
         if (pending === request && snapshot) {
           const current = request.command.taskId && snapshot.tasks.find(task => rowKey(task) === String(request.command.taskId) + '|' + request.command.date);
@@ -158,16 +170,18 @@
           }
         }
       }
-    } finally { if (ticket === epoch) { busy = false; lock(); renderTasks(); if (!pending && request.command.taskId && !editing) focusTask(request.command.taskId); draftSignal(); schedule(); if (retryUnchanged) queueMicrotask(() => void sendPending()); } }
+    } finally { if (ticket === epoch) { busy = false; lock(); renderTasks(); if (!pending && request.command.taskId && !editing && !request.fromCalendar) focusTask(request.command.taskId); draftSignal(); schedule(); if (retryUnchanged) queueMicrotask(() => void sendPending()); } }
   }
   function renderData() { status.textContent = '마지막 갱신 ' + stamp(snapshot.syncedAt) + ' · 홈 표시 중 30초마다 확인'; renderTasks(); renderFeeds(); lock(); }
   function rowKey(task) { return String(task.id) + '|' + (task.occurrenceDate || selectedDate); }
-  function taskFingerprint(task) { return JSON.stringify([task.title, task.startDate, task.weekdays, task.frequency, task.monthDay, task.occurrenceDate,task.startTime,task.endTime,task.shortcut, !!task.done, !!task.archived, !!task.stopped]); }
+  function taskFingerprint(task) { return JSON.stringify([task.title, task.startDate, task.weekdays, task.frequency, task.monthDay, task.occurrenceDate,task.startTime,task.endTime,task.shortcut,task.details, !!task.done, !!task.archived, !!task.stopped]); }
   function focusTask(id) { [...rows.querySelectorAll('.hw-task')].find(r => r.dataset.task.startsWith(String(id) + '|'))?.querySelector('button:not(:disabled),input:not(:disabled)')?.focus(); }
   function taskFields(task) { return { taskId: task.id, date: task.occurrenceDate || selectedDate }; }
   function renderTasks() {
-    if (editing && rows.querySelector('.hw-edit')) {try{captureEdit();}catch{ return; }}
-    const focusedEdit = rows.querySelector('.hw-edit')?.contains(document.activeElement) ? { name: document.activeElement.name, start: document.activeElement.selectionStart, end: document.activeElement.selectionEnd } : null;
+    if(calendarPopup&&editing&&editDialog.open&&editForm()){editForm().querySelectorAll('input,select,button,textarea').forEach(e=>e.disabled=busy||!!pending);editHeader.querySelectorAll('button').forEach(e=>e.disabled=busy||!!pending);editRetry.disabled=editDiscard.disabled=busy;draftSignal();return;}
+    if(!editing&&editDialog.open){calendarPopup=false;closeCalendarEditor();}
+    if (editing && editForm()) {try{captureEdit();}catch{ return; }}
+    const focusedEdit = editForm()?.contains(document.activeElement) ? { name: document.activeElement.name, start: document.activeElement.selectionStart, end: document.activeElement.selectionEnd } : null;
     rows.replaceChildren(); weekday.textContent = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'long' }).format(new Date(selectedDate + 'T12:00:00+09:00'));
     window.dispatchEvent(new CustomEvent('home-workspace-data',{detail:{owner,date:selectedDate,calendar:snapshot?.calendar,calendarWeek:snapshot?.calendarWeek}}));
     const all = snapshot?.tasks || []; const active = all.filter(t => !t.archived);
@@ -209,14 +223,23 @@
       content.append(button('＋ 이 시간에 업무 추가',()=>{settingsToggle.open=true;addSettings.setStart(time);input.focus();},'hw-slot-add'));slot.append(content);rows.append(slot);}
   }
   let editRepeat,editSettings;
-  function captureEdit() { const f = rows.querySelector('.hw-edit'); if (f) editDraft = { title: f.elements.title.value, startDate: f.elements.startDate.value, weekdays: editRepeat.get(), frequency: editRepeat.frequency(),...editSettings.get() }; }
+  function captureEdit() { const f = editForm(); if (f) editDraft = { ...editDraft,title: f.elements.title.value, startDate: f.elements.startDate.value, weekdays: editRepeat.get(), frequency: editRepeat.frequency(),...editSettings.get(),...(calendarDetailInputs?{details:window.NenovaTaskSettings.normalizeDetails(Object.fromEntries(Object.entries(calendarDetailInputs).map(([key,input])=>[key,key==='reminderMinutes'?(input.value===''?null:Number(input.value)):input.value])))}:{}) }; }
   function renderEdit(row, task) {
     const f = node('form', 'hw-edit'), text = node('input'), start = node('input'); text.name = 'title'; text.value = editDraft.title; text.required = true; text.maxLength = 300; text.setAttribute('aria-label', '업무 제목 수정'); start.type = 'date'; start.name = 'startDate'; start.value = editDraft.startDate; start.required = true; start.setAttribute('aria-label', '반복 시작일'); editRepeat = makeRepeat(editDraft.weekdays,editDraft.frequency);editSettings=window.NenovaTaskControls.create(editDraft,menuGroups);
-    const cancelEdit = () => { editing = null; editDraft = null; renderTasks(); rows.querySelector('[data-task="' + CSS.escape(rowKey(task)) + '"]>button')?.focus(); };
-    const save = node('button', 'hw-primary', '저장'); save.type = 'submit'; const cancel = button('취소', cancelEdit); f.append(text, start, editRepeat.root,editSettings.root, save, cancel,node('small','hw-muted','선택 업무는 즉시, 반복 설정은 다음날부터 반영됩니다.'));
+    const cancelEdit = () => {if(busy||pending)return;if(calendarPopup){captureEdit();if(JSON.stringify(editDraft)!==calendarInitial){editConfirm.hidden=false;editConfirmNo.focus();return;}} editing = null; editDraft = null; renderTasks(); rows.querySelector('[data-task="' + CSS.escape(rowKey(task)) + '"]>button')?.focus();void load(); };
+    const save = node('button', 'hw-primary', '저장'); save.type = 'submit'; const cancel = button('취소', cancelEdit);cancel.dataset.editCancel=''; f.append(text, start, editRepeat.root,editSettings.root);
+    if(calendarPopup){
+      calendarDetailInputs={};const details=editDraft.details||window.NenovaTaskSettings.normalizeDetails({}),group=node('div','calendar-detail-fields');
+      for(const [key,label,type,max] of [['location','장소','text',200],['attendees','참석자 · 참고용, 초대 발송 없음','text',500],['color','일정 색상','color'],['note','메모','textarea',2000]]){const wrap=node('label','',label),n=node(type==='textarea'?'textarea':'input');if(type!=='textarea')n.type=type;n.name='detail_'+key;n.value=details[key];if(max)n.maxLength=max;wrap.append(n);group.append(wrap);calendarDetailInputs[key]=n;}
+      for(const [key,label,options] of [['availability','일정 상태',[['busy','일정 있음'],['free','일정 없음']]],['reminderMinutes','홈 알림',[['','알림 없음'],['0','시작할 때'],['10','10분 전'],['30','30분 전'],['60','1시간 전'],['1440','하루 전']]]]){const wrap=node('label','',label),n=node('select');n.name='detail_'+key;for(const [v,t] of options)n.add(new Option(t,v));n.value=details[key]===null?'':String(details[key]);wrap.append(n);group.append(wrap);calendarDetailInputs[key]=n;}
+      f.append(group,node('small','company-help','홈 알림은 조회 중인 일정에 한해 앱 홈을 열어 둔 동안 표시됩니다.'));
+    }
+    f.append(node('small','hw-muted','선택 업무는 즉시, 반복 설정은 다음날부터 반영됩니다.'));
+    if(calendarPopup){f.id='personalCalendarForm';save.setAttribute('form',f.id);editActions.replaceChildren(cancel,save);}else f.append(save,cancel);
     f.querySelectorAll('input,select,button').forEach(e => e.disabled = busy);
     f.addEventListener('submit', e => { e.preventDefault();if(!editSettings.valid())return; captureEdit(); if (!editDraft.title.trim() || !editRepeat.valid()) return; mutate('update', { ...taskFields(task), ...editDraft, title: editDraft.title.trim() }, () => { editing = null; editDraft = null; }); });
-    f.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!busy) cancelEdit(); } }); row.append(f);
+    f.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!busy) cancelEdit(); } });
+    if(calendarPopup){editBody.replaceChildren(f);editMessage.textContent='';editRetry.hidden=editDiscard.hidden=true;if(!editDialog.open)editDialog.showModal();text.focus();}else row.append(f);
   }
   function renderFeeds() {
     const focused = document.activeElement?.dataset.feedControl; feeds.replaceChildren();
@@ -332,7 +355,13 @@
   setInterval(() => { if (!visible || document.hidden || detail) return; for (const lane of lanes) if (!lane.paused && !lane.hover && !lane.focus && (snapshot?.[lane.key]?.length || 0) > 1) lane.at = (lane.at + 1) % snapshot[lane.key].length; renderFeeds(); }, 8000);
   reduced.addEventListener('change', e => { if (e.matches) { lanes.forEach(l => l.paused = true); renderFeeds(); } });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void load(); else clearTimeout(timer); });
-  window.homeWorkspace = { selectDate:changeDate, beginAt(value,time){if(!changeDate(value,false))return false;settingsToggle.open=true;addSettings.setStart(time);input.focus();input.scrollIntoView({block:'center',behavior:reduced.matches?'instant':'smooth'});return true;}, applyState(next) {
+  window.homeWorkspace = { selectDate:changeDate, async editTask(value,id){
+    if(!online||!owner||!changeDate(value,false,false))return false;
+    const ticket=epoch,requestGeneration=++readGeneration;calendarTaskTrigger=document.activeElement?.dataset.focus||'month-task-'+id+'-'+value;
+    try{const result=await invoke({method:'GET',date:value,focusTaskId:id,calendarMonth:value.slice(0,7),calendarWeek:value,limit:200});if(ticket!==epoch||requestGeneration!==readGeneration||selectedDate!==value)return false;if(!result?.success||result.ownerId!==owner||!result.focusedTask)throw Error(result?.error||'이 날짜의 업무를 찾을 수 없습니다. 달력을 새로 확인하세요.');
+      snapshot=result;const task=result.focusedTask;snapshot.tasks=[...(result.tasks||[]).filter(t=>rowKey(t)!==rowKey(task)),task];calendarPopup=true;editing=rowKey(task);editDraft={title:task.title,startDate:task.startDate,weekdays:task.weekdays,frequency:task.frequency,...window.NenovaTaskSettings.normalize({},task),details:task.details||window.NenovaTaskSettings.normalizeDetails({})};calendarInitial=JSON.stringify(editDraft);renderEdit(node('div'),task);renderData();return true;
+    }catch(e){if(ticket===epoch)setError(e.message);return false;}
+  }, beginAt(value,time){if(!changeDate(value,false))return false;settingsToggle.open=true;addSettings.setStart(time);input.focus();input.scrollIntoView({block:'center',behavior:reduced.matches?'instant':'smooth'});return true;}, applyState(next) {
     if(Array.isArray(next.menus)){
       menuGroups=next.menus;addSettings.setMenus(menuGroups);const entries=new Map();
       for(const group of menuGroups)for(const item of group.items||[]){
