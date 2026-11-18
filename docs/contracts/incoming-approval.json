@@ -53,7 +53,14 @@
     "lib/incomingApprovalSimple.js",
     "__tests__/incomingApprovalSimple.test.mjs",
     "lib/warehouseCorrectionPolicy.js",
-    "__tests__/incomingApprovalSimpleDisplay.test.cjs"
+    "__tests__/incomingApprovalSimpleDisplay.test.cjs",
+    "lib/warehouseFarmChoices.js",
+    "components/WarehouseFarmSelect.js",
+    "__tests__/warehouseFarmChoices.test.mjs",
+    "__tests__/warehouseFarmChoicesSql.test.mjs",
+    "scripts/warehouse-farm-search-ui.cjs",
+    "scripts/record-incoming-approval-guides.cjs",
+    "config/workflow-guides.json"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -147,7 +154,9 @@
     "__tests__/incomingApprovalProfitSql.test.mjs",
     "__tests__/incomingApprovalStockAdjustment.test.mjs",
     "__tests__/incomingApprovalSimple.test.mjs",
-    "__tests__/incomingApprovalSimpleDisplay.test.cjs"
+    "__tests__/incomingApprovalSimpleDisplay.test.cjs",
+    "__tests__/warehouseFarmChoices.test.mjs",
+    "__tests__/warehouseFarmChoicesSql.test.mjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
@@ -165,5 +174,18 @@
     "sourceConcurrency": "Direct-edit requests require a server receipt sourceDigest from the open form; missing/stale source digest blocks draft preview, request creation and final writer. Every original source row remains present, including zero-quantity cancellations.",
     "importInputs": "PRODUCT preserves observed source packaging and purchase values as proposals, with proportional final quantity. ADD uses evidenced master packaging and only unambiguous same-receipt same-product purchase evidence; genuinely missing purchase values remain explicit exception inputs.",
     "distributionReview": "Always available modal for support review; explicit year/week filter and customer/product search; source and final quantities/costs, original/final detail fix, validated stock before/after. Existing fixed selected details temporarily unfix/write/refix inside receipt gate and same transaction; original unfixed state and unrelated headers/rows preserved. New replacement inherits source detail fix, never header fix; mixed source/destination fix states fail closed with APPROVAL_FIX_MERGE_CONFLICT. Explicit independent additions retain existing header policy. Product.Stock signed delta applied once; native cascade and full rollback retained."
+  },
+  "farmChoiceContract": {
+    "source": "active Farm plus existing active receipt FarmName without a Farm master; archived master names excluded",
+    "sharedHelper": "warehouseFarmChoicesSql",
+    "consumers": [
+      "GET choices",
+      "correction preview/locked save",
+      "approval read/locked final"
+    ],
+    "search": "case/whitespace insensitive substring; never auto-select or write",
+    "receiptOnlyName": "valid only as WarehouseMaster.FarmName, never synthesize FarmKey or distribution candidates",
+    "crossYear": "candidate names global; write scope remains WarehouseKey + explicit year/week",
+    "plan": "docs/plans/incoming-farm-search-2026-11-18.md"
   }
 }
