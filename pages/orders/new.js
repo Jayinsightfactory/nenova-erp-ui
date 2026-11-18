@@ -37,6 +37,8 @@ export default function OrderNew() {
   const expandSelectionRef = useRef(null);
   const initialScopeApplied = useRef(false);
   const [summaryEditingKey, setSummaryEditingKey] = useState(null);
+  const [summaryEditingUnit, setSummaryEditingUnit] = useState(null);
+  const [summaryInputText, setSummaryInputText] = useState('');
   const [previousWeek, setPreviousWeek] = useState('');
   const [reading, setReading] = useState(false);
 
@@ -1315,9 +1317,16 @@ export default function OrderNew() {
                               <input type="number" min={0} step="any" disabled={reading || saving}
                                 data-summary-product={p.ProdKey} data-summary-unit={unit}
                                 aria-label={(p.DisplayName || p.ProdName) + ' ' + label}
-                                value={p.q[unit] || ''} placeholder="0"
-                                onFocus={e => { setSummaryEditingKey(p.ProdKey); e.target.select(); }}
-                                onChange={e => setQty(p.ProdKey, unit, e.target.value)}
+                                value={summaryEditingKey === p.ProdKey && summaryEditingUnit === unit ? summaryInputText : p.q[unit] || ''} placeholder="0"
+                                onFocus={e => {
+                                  setSummaryEditingKey(p.ProdKey); setSummaryEditingUnit(unit);
+                                  setSummaryInputText(e.target.value); e.target.select();
+                                }}
+                                onChange={e => {
+                                  const text = e.target.value;
+                                  if (text !== '' && (!Number.isFinite(Number(text)) || Number(text) < 0)) return;
+                                  setSummaryInputText(text); setQty(p.ProdKey, unit, text);
+                                }}
                                 onBlur={e => {
                                   if (!e.currentTarget.closest('tr')?.contains(e.relatedTarget)) setSummaryEditingKey(null);
                                 }}
