@@ -3492,3 +3492,19 @@ pm run test:canon 통과.
 - 공개: https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.36 / 대상f1bc55db / 4assets 확인. 설치본111,953,212bytes, SHA256 69586d2dd2e1f82523698fe615c5bdc0184c8b0a8f7053eda1a40c1fc0337d7f, MZ/SHA512/blockmap 검증. 공개 latest.yml 버전1.3.36·검증된 원본과 동일, 공개 exe URL/바이트 크기 일치.
 - 회사 Drive 최종 원본: MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol (514.3초/42,948,556bytes), VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat (12,846bytes), proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn (18,775bytes). 14단계/자막76개 프레임 대조·대표 장면 육안 확인. 과거1.3.35 자료는 미공개 초안이며 최종 근거 아님.
 - 검색어: deployed calendar 1.3.36 f1bc55db 즐겨찾기 전체 접기 열기 달력 가로20% 공휴일12개국 상세 편집 주차별 유지 운영 검증 공개 피드 직원PC 재시작 안함
+
+## 2026-11-18 분석 재사용·농장/이력 UI 검증 단계
+- 작업 위치: feat/analysis-reuse-1118 / C:/Users/USER/Documents/Codex/nw-cdx-analysis-reuse-1118 / 구현4f0a6567 + master 통합fc1b54c2, PR 아직 없음.
+- 완료된 것: InvoiceFarmChoices 공용 실제 후보 UI로 추출, 자동 선택 후 원클릭 변경/검색·키보드 이동. SharedPackingHistory 읽기 대조에 전체 품목명 줄바꿈/원본·보관값별 수량·통화·단가/총액, 초점 이동/복귀. 실제 전체 로컬 페이지 reuse dry 재통과, 신규 farm/history 실제 컴포넌트 브라우저390px 통과. 신규4단계 번호/줌/입력/선택/대조 영상 최종47.8초 촬영 및 처음/끝 프레임 육안 확인.
+- 남은 할 일: 순차 세션57412의 locked UI build→reuse dry→reuse 영상→packing-list dry/영상 완료 확인. 로그 .verify/reuse-locked-ui-build.log / reuse-locked-ui-dry.log / reuse-guide-record.log / packing-list-dry.log / packing-list-record.log. 이후 영상 프레임/플레이어/Drive, 전체ERP·정식npm build·CI·PR/squash·배포·운영조회. UI소스 변경 시 해당 가이드 재촬영 필요. 운영입고/AI 실행 금지.
+- 검증 상태: 최종 대상51/정책13, manifest225, write guard(API1), dnSpy PASS. 앞선 통합 Next webpack build 통과. 새 farm 영상은 최종 첫버튼 확대 잘림·표 품목 줄임표를 고쳐 재촬영했고 프레임 재확인. 전체ERP/최종 정식build/배포 미완료.
+- 주의/잠금: 57412가 빌드/녹화 중이므로 소스 병합·런타임 수정 금지. 원본·SQL probe .verify 비공개 커밋 금지. 추가paid0/운영DB쓰기0. 신규 영상 Drive MP4 1xJ-XirPUL-ArqoJ7FDtlHD6Ksz3sGkE0(2,243,629바이트 metadata일치), VTT13jnsLX0r42La7gxTEpDRmgHcIaWWzvO9, proof1-JwlJhfwE6iteIsO2hP3qvqD9xnGA8eS; 공유 설정 변경0.
+- 검색어: analysis reuse BALVERDE farm history invoice-farm-history video 57412 locked UI build fc1b54c2
+
+## 2026-11-18 실제 입고 화면 연결·최초 자동 분석 회귀 보완 (계속, 미배포)
+- 작업 위치: feat/analysis-reuse-1118 / C:/Users/USER/Documents/Codex/nw-cdx-analysis-reuse-1118 / PR 미생성, 최신 미커밋 변경 있음.
+- 완료된 것: 실제 Workbench auto-fill POST의 country 및 farmSourceWarehouseKey 누락 수정. 정상404/INVOICE_DOCUMENT_NOT_FOUND mock과 packing-receipt-prepare 순서로 실제 페이지 농장 자동 historical 선택→master 변경→historical 재선택→Excel59,066bytes 다운로드 PASS(.verify/farm-country-integrated-dry.log). 동률 후보 자동 선택 금지/유효 수동 historical 선택 재차단 금지. 보관 매칭명 부재를 공용 미매칭으로 오표시하지 않음.
+- 남은 할 일: 순차 세션13491: .verify/reuse-auto-release-build.log→reuse-auto-release-dry.log→packing-auto-release-dry.log→reuse-auto-release-guide.log→packing-auto-release-guide.log→reuse-full-erp-final.log. 최초 파일 자동 분석 복원 이후 최종 소스로 새로 빌드/촬영 중. 종료 후 가이드 프레임/플레이어/Drive, 정식npm build·CI·PR·squash·deploy·운영 조회 확인 필요. UI 소스 더 바꾸면 가이드가 다시 stale 되므로 수정 전 대상 실패부터 확인.
+- 검증 상태: 최초 전체ERP가 importPackingHardening의 autoAnalyze 3개에서 실패했음(숨기지 않음). 최초 새파일에 분석 선택을 추가한 것이 기존 자동 분석 계약과 달라 `!reuse.previous`는 기존 자동 실행으로 복원. 기존 이름 변경본만 선택. harness에 upload-history 빈 결과/신규 helper·cache miss을 주입한 뒤 실제 component hardening80 PASS/기존skip1. 국가 projection·farm 대상31/16 PASS. 최초/중간 영상들은 최종 완료 근거가 아님.
+- 주의/잠금: 추가 유료0/운영DB쓰기0. .verify는 비공개·커밋 금지. 기록된 Guide 비용은 전부 synthetic/mock다. 코드4f0a6567+master통합fc1b54c2 외 최신 코드/영상은 미커밋. 마지막 Drive 중간본: farm1STUrghYQA95LNHGkhhidnKOvT-NXHFeL, reuse1z8tfL0Qubxtvkw434biA2XG-RpnWybD2, packing1k1ik-neVPoZCugOYvegkuXNKHusaGEJ4. 최초 자동 분석 UI 수정으로 reuse/packing은 다시 촬영·업로드해야 하며 과거 upload 링크를 최종본으로 안내하지 않는다. Farm 영상 source hash도 최종 guard 확인 필요.
+- 검색어: 13491 first upload autoAnalyze regression hardening80 country projection farmSourceWarehouseKey invoice-farm-history 46-02 BALVERDE 미배포

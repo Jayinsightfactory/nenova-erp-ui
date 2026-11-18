@@ -115,6 +115,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     FlowerName: product.flowerKr ?? '',
   })));
   const fetchStub = (url, options) => {
+    if(url.startsWith('/api/import/tools/upload-history'))return Promise.resolve({ok:true,status:200,json:async()=>({success:true,rows:[]})});
     if (url === '/api/import/tools/upload-history') return Promise.resolve({ok:true,status:200,json:async()=>({success:true,rows:[]})});
     if (url === '/api/auth/me') return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, user: { userId } }) });
     if (url.startsWith('/api/import/tools/product-matches')) {
@@ -183,6 +184,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/packingReceiptMatchState.js': receiptMatchState,
     '../../lib/packingWorkDraft.js': { ...packingWorkDraft, createPackingWorkDraftStore: () => workDraftStore },
     '../../lib/packingSharedHistoryClient.js': {createPackingHistoryClient: () => ({save: async () => ({id:'test-history'})})},
+    '../../lib/packingFileReuse.js': {...require('../lib/packingFileReuse.js'),readCompletedPackingAnalysis:async()=>null},
     './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
     './PackingResults.js': { default: PackingResultsStub, __esModule: true },
     './PackingMatchManager.js': { default: PackingMatchManagerStub, __esModule: true },

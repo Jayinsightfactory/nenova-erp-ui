@@ -58,11 +58,8 @@ async function main(){
   await step('recover','원본 PDF 선택 · 처음 올린 PDF는 Claude로 분석하고 저장 결과는 재사용합니다.');
   await focus('[role="button"][aria-label*="인보이스"]');
   const input=await page.$('input[type="file"][accept=".pdf"]');assert(input);await input.uploadFile(dummy);console.log('fixture selected');
-  await page.waitForSelector('[data-testid="packing-analyze-selected"]');
   await rec?.unfocus();
-  if(rec)await rec.caption('2. 분석 선택 · 저장 분석이 없으므로 새 파일 분석을 직접 선택합니다.\n이 버튼을 누르기 전에는 Claude API가 호출되지 않습니다.');
-  await focus('[data-testid="packing-analyze-selected"]');
-  assert.equal(paidCalls,0);await page.click('[data-testid="packing-analyze-selected"]');
+  if(rec)await rec.caption('2. 최초 파일은 자동 분석합니다. 같은 내용의 저장 분석은 바로 불러옵니다.\n같은 이름의 변경본만 기존 분석과 새 분석 중 선택합니다.');
   try{await page.waitForFunction(()=>document.body.innerText.includes('ROSE RED'));}catch(e){console.log((await page.evaluate(()=>document.body.innerText)).slice(-6000));throw e;}
   await rec?.unfocus();
   await step('review','미매칭 확인 · 원본 품목을 눌러 전산 품목을 검색하고 선택합니다.');
@@ -131,10 +128,10 @@ async function main(){
     // Late history responses cannot replace a newer file or another country.
     const awaitHeld=async()=>{for(let i=0;i<200&&!heldHistory;i++)await new Promise(r=>setTimeout(r,25));assert(heldHistory);};
     const release=async()=>{const h=heldHistory;heldHistory=null;await h.req.respond({status:200,contentType:'application/json',body:JSON.stringify(h.history)});await page.waitForNetworkIdle({idleTime:150});};
-    const racePdf=await PDFDocument.load(fs.readFileSync(changed));racePdf.setSubject('RACE UNIQUE');const race=path.join(changedDir,'46-1 race.pdf');fs.writeFileSync(race,await racePdf.save());
+    const racePdf=await PDFDocument.load(fs.readFileSync(changed));racePdf.setSubject('RACE UNIQUE');const race=path.join(changedDir,path.basename(dummy));fs.writeFileSync(race,await racePdf.save());
     holdHistory=true;await input.uploadFile(dummy);await awaitHeld();await input.uploadFile(race);
-    await page.waitForFunction(()=>document.querySelector('[data-testid="packing-file-choice"]')?.innerText.includes('46-1 race.pdf'));
-    await release();assert((await page.$eval('[data-testid="packing-file-choice"]',n=>n.innerText)).includes('46-1 race.pdf'));assert.equal(paidCalls,2);
+    await page.waitForFunction(name=>document.querySelector('[data-testid="packing-file-choice"]')?.innerText.includes(name),{},path.basename(race));
+    await release();assert((await page.$eval('[data-testid="packing-file-choice"]',n=>n.innerText)).includes(path.basename(race)));assert.equal(paidCalls,2);
     await page.focus('[data-testid="packing-file-cancel"]');await page.keyboard.press('Escape');await page.waitForSelector('[data-testid="packing-file-choice"]',{hidden:true});
     holdHistory=true;await input.uploadFile(dummy);await awaitHeld();await page.click('[data-testid="packing-country-back"]');await page.click('button[aria-label="네덜란드"]');await release();
     assert(!(await page.evaluate(()=>document.body.innerText)).includes('TRAINING-001'));assert.equal(paidCalls,2);

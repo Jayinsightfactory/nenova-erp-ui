@@ -1531,8 +1531,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         if(readerVersion.current!==version)return;
         if(cached){setSelectingFile(false);acceptSelectedFile(f,version,cached,base64);return;}
       }
+      if(!reuse.previous){acceptSelectedFile(f,version,null,base64);return;}
       setFileChoice({file:f,sourceHash,previous:reuse.previous,version});
-      setStatus({type:'info',msg:reuse.previous?'파일명은 같지만 내용이 달라졌습니다. 사용할 분석을 선택하세요.':'같은 내용의 저장 분석이 없습니다. 아래에서 새 파일 분석을 선택하세요.'});
+      setStatus({type:'info',msg:'파일명은 같지만 내용이 달라졌습니다. 사용할 분석을 선택하세요.'});
       return;
     } catch (error) { if (readerVersion.current === version) setStatus({type:'error',msg:error.message}); return; }
     finally{if(readerVersion.current===version)setSelectingFile(false);}}

@@ -17,6 +17,15 @@ test('equivalent verified-country supplier uses most-used historical spelling, n
  assert.equal(resolveInvoiceHeader(document,candidates.filter(f=>f.CounName==='에콰도르')).farm,null);
  const manual={document:{...document,farmKey:41},dirty:false};assert.equal(applyInvoiceHeader(manual,{farm:chosen}),manual);
 });
+test('equivalent most-used historical names tied in the same country require selection',()=>{
+ const document={...source(),reviewedMetadata:{country:'CO'}};
+ const result=resolveInvoiceHeader(document,[{FarmKey:41,FarmName:'Balverde',CounName:'콜롬비아',UsageCount:2},
+  {WarehouseKey:7000,FarmName:'CI Flores Balverde SAS',CounName:'콜롬비아',UsageCount:135},
+  {WarehouseKey:7001,FarmName:'Balverde Flowers SA',CounName:'콜롬비아',UsageCount:135}]);
+ assert.equal(result.farm,null);assert(result.issues.some(issue=>issue.code==='FARM_MATCH_REQUIRED'));
+ const manual={...document,reviewedMetadata:{...document.reviewedMetadata,farmName:'CI Flores Balverde SAS',farmSourceWarehouseKey:7000}};
+ assert(!resolveInvoiceHeader(manual,[]).issues.some(issue=>issue.code==='FARM_MATCH_REQUIRED'));
+});
 test('weight evidence wins over absent/legacy values; CW never derives from GW/net',()=>{
  const invoice={gross_weight:0,net_weight:663.4,review_evidence:{gross_weight:{value:759.7,unit:'kg',quote:'GRSWGHT 759,70'},vol_weight:{value:null,unit:'kg'}}};
  assert.equal(packingWeight(invoice,'gw'),759.7);assert.equal(packingWeight(invoice,'cw'),null);

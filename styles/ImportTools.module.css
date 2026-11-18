@@ -25,6 +25,8 @@
 .historyTable { border-collapse:separate; border-spacing:0; table-layout:fixed; width:960px; font-size:14px; }
 .historyTable th,.historyTable td { padding:11px 14px; border-bottom:1px solid #e4eaf2; white-space:nowrap; text-align:left; overflow:hidden; text-overflow:ellipsis; }
 .historyTable th { position:sticky; top:0; background:#f0f4fa; color:#425773; z-index:1; font-size:13px; }
+.comparison td {white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;min-width:75px}
+.comparison > button {min-height:36px;padding:7px 12px;border:1px solid #b9c8df;border-radius:7px;background:#fff;color:#24456e;font:inherit;font-weight:600;cursor:pointer}
 .historyTable tbody tr:hover { background:#edf4ff; }
 .uploadHistoryTable { width:100%; min-width:1080px; table-layout:auto; }
 .uploadHistoryTable td { white-space:normal; overflow:visible; text-overflow:clip; }

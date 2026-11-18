@@ -12,6 +12,11 @@ const workflowSource = fs.readFileSync(path.join(root, 'lib/invoiceReceiptWorkfl
 const css = fs.readFileSync(path.join(root, 'styles/InvoiceReceipt.module.css'), 'utf8');
 const packingSource = fs.readFileSync(path.join(root, 'components/import-tools/PackingListTool.js'), 'utf8');
 const pageSource = fs.readFileSync(path.join(root, 'pages/import/tools.js'), 'utf8');
+test('farm header lookup carries source country and explicit historical farm selection',()=>{
+ const header=source.slice(source.indexOf("const data = await readJson(await fetch('/api/import/receipts/auto-fill'"),source.indexOf('return applyInvoiceHeader(record, data.resolution)'));
+ assert.match(header,/country:document\.reviewedMetadata\?\.country/);
+ assert.match(header,/farmSourceWarehouseKey:document\.reviewedMetadata\?\.farmSourceWarehouseKey/);
+});
 
 test('farm lookup surfaces failures, rejects malformed responses, and ignores aborted results', async () => {
   const start = source.lastIndexOf('  useEffect(() => {', source.indexOf('lookup=farms'));

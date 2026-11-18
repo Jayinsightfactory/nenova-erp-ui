@@ -6,7 +6,7 @@
 |---|---|---|---|
 |같은 국가+SHA256 분석 존재|원본 해시 검증 후 저장 초안 복구, 최신 매칭 조회|호출0|모두 보존|
 |같은 이름이나 다른 SHA256|기존본 사용/선택한 새파일 분석/취소 선택|선택 전 호출0|모두 보존|
-|처음 보는 새파일|파일명·크기·비용 안내 후 분석 버튼|명시 선택 후 기존 API 경로|모두 보존|
+|처음 보는 새파일|기존 최초 업로드 자동 분석 유지|기존 autoAnalyze=true 경로 1회, 실패 자동 재시도 금지|모두 보존|
 |보관함에서 분석 선택|원본·결과 hash 대조 후 복구|호출0|모두 보존|
 |조회/복구 실패|현재 작업 유지, 자동 유료 fallback 금지|호출0|모두 보존|
 
@@ -35,3 +35,6 @@ ERP 저장 직전 확인/원장 변경은 기존 단계 유지(이번 변경 없
 - 콜롬비아 누락 단수는 원본 품종에 대한 기존 importPacking.stemsPerBunchCO 규칙만 사용해 결정적으로 환산한다. 인보이스 송이수·단가·금액/명시 단수(0 포함)를 바꾸지 않는다. 모르는 품종은 추정하지 않는다.
 - 실제 EXE CLI: dnSpy.Console.exe --no-color -t ExcelLoadingPackingList Nenova.exe 실행. MakeTempTable은 FarmName을 C2 그대로, SteamOf1Bunch를 G열 그대로 읽는다. 웹은 이전 입고의 canonical 이름/기존 packing 환산을 전달해야 하며 임의 FarmKey를 만들지 않는다.
 - SELECT-only 원본 대조: 2026/46-02/25571 원본 PDF 6품목·93 QB·2,790송이·2,211과 Warehouse8073이 일치. 사용자가 제시한 134박스/3,468은 다른 원본/버전 확인 필요. 기존 이름 C.I Flores Balverde S.A.S 사용135건(2025~2026), Balverde 2건. 운영 보정0. 새 후보 SQL 실조회221개 및 기존 이름 자동 선택 확인. 단수 공란은 5행 확인했으나 과거행을 수정하지 않는다.
+- 실제 전체 페이지 양성 경로에서 auto-fill POST가 country를 누락해 다빈도 선택이 적용되지 않는 반례를 발견했다. Workbench의 허용 필드 projection에 reviewedMetadata.country와 farmSourceWarehouseKey를 추가했다. packing-receipt-prepare 이후 실제 작업대에서 자동 historical 선택→master 클릭→historical 재선택 및 엑셀 다운로드까지 통과(.verify/farm-country-integrated-dry.log). 초기에 테스트가 최초 문서 조회에 잘못된200을 반환한 부분도 정상404/INVOICE_DOCUMENT_NOT_FOUND fixture로 정정했다.
+- 동률 다빈도 후보는 자동 확정하지 않는다. 이미 유효한 역사 PK/농장명을 직접 선택한 문서는 후보 재조회가 모호해도 농장 미선택으로 다시 차단하지 않는다. 최종 ERP transaction의 활성 source PK/name 재검증은 그대로 유지한다.
+- 이력의 보관 매칭명과 최신 공용 매칭은 별개다. 보관 이름 부재를 공용 매칭 삭제/미매칭으로 오표시하지 않으며 최신 공용 매칭은 불러올 때 조회한다.
