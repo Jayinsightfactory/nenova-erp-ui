@@ -1,5 +1,9 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-18 명세서 약칭·송장 법인명·DB 농장 연결
+
+문서의 다른 농장명을 송장 누락으로 단정하지 않는다. 유일한 송장번호/HAWB 또는 최소 법인 표기 동등성으로 연결하고, 미확정은 원본명·송장을 보존한 1:1 DB 후보 선택으로 해결한다. 실제 건수 차이·중복 연결·번호/HAWB 충돌은 계속 차단한다. 선택은 원본 SHA 작업에 보관하며 기존 원장명을 수정하지 않는다. 신규 Farm 등록은 별도 명시 버튼과 기존 수입부 권한, 활성 국가·중복 잠금·native IDENTITY·readback·rollback을 요구하며 Customer나 Warehouse/Stock/Estimate를 자동 생성하지 않는다. 근거 ClassFarmRegistration.md, 계획 manifest-farm-match-2026-11-18.md, 계약 manifest-farm-matching 및 실제 격리 SQL script 참조. 운영 원장 시험 쓰기 금지.
+
 ## 2026-11-14 홈 피드백 조회 시간
 
 홈은 연도별 피드백, 연결 원본, 최근 이벤트 세 건을 읽는다. 인박스 묶음은 불량 원본의 농장명, 단독 원본 표시는 농장 마스터 보완값을 사용한다. 홈 GET과 읽음 표시는 주문·출고·견적·재고·불량 원장을 보존한다. 표시용 이전 스냅샷으로 읽음 저장을 승인할 수 없다. 교차연도 원본과 빈 연도는 `desktopHomeWorkspace.test.cjs`에서 대조한다.

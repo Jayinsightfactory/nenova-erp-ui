@@ -178,7 +178,7 @@ export const MENU_ITEMS = [
       { href: '/master/customers', labelKey: '거래처관리',           popup: true },
       { href: '/master/products',  labelKey: '품목관리',             popup: true },
       { href: '/master/pricing',   labelKey: '업체별 품목 단가관리', popup: true },
-      { href: '/master/codes',     labelKey: '코드관리',             popup: true },
+      { href: '/master/codes',     labelKey: '코드관리 · 농장 마스터', popup: true },
       { href: '/admin/users',      labelKey: '사용자관리',           popup: true },
       { href: '/master/activity',  labelKey: '작업내역',             popup: true },
       { href: '/admin/category-overrides', labelKey: '🏷 세부카테고리', popup: true },

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
 import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoiceReceiptAutoFill.js';
 import InvoiceFarmChoices from './InvoiceFarmChoices.js';
+import FarmMasterRegistration from './FarmMasterRegistration.js';
 import { resumeReceiptSource, readExistingReceiptSource, draftConflictMessage } from '../../lib/invoiceReceiptSourceResume.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
 import SharedAwbCostReview from './SharedAwbCostReview.js';
@@ -1384,6 +1385,9 @@ export default function InvoiceReceiptWorkbench({
         ? <option value={`receipt:${documentValue.reviewedMetadata.farmSourceWarehouseKey}`}>{documentValue.reviewedMetadata.farmName} · 기존 입고 농장</option> : null}
       {farmOptions.map(farm => <option key={farm.FarmKey ?? `receipt:${farm.WarehouseKey}`} value={farm.FarmKey ?? `receipt:${farm.WarehouseKey}`}>{farm.FarmName} · {farm.FarmKey ? '농장 마스터' : '기존 입고 농장'}</option>)}</select></Field>
       <Field label="입고 메모" wide><input value={documentValue.reviewedMetadata.receiptNotes || ''} onChange={event => updateMetadata('receiptNotes', event.target.value)} /></Field>
+      <FarmMasterRegistration key={`farm-master:${documentValue.documentId}:${documentValue.reviewedMetadata.country}`} country={documentValue.reviewedMetadata.country} initialName={documentValue.rawMetadata?.supplier||''}
+        disabled={Boolean(busy)||Boolean(selected.pendingOperation)||Boolean(selected.recoveryRequired)||currentRevisionCommitted}
+        onCreated={farm=>updateSelected(document=>document.documentId!==documentValue.documentId||document.reviewedMetadata.country!==documentValue.reviewedMetadata.country?document:({...document,farmKey:farm.FarmKey,reviewedMetadata:{...document.reviewedMetadata,farmName:farm.FarmName,farmSourceWarehouseKey:null}}))}/>
     </div>
 
     {['NL', 'CN', 'TH'].includes(documentValue.reviewedMetadata?.country) && committedOperations.length === 0 && <p>이미 입고된 자료는 농장이 검색되지 않아도 초안을 저장한 뒤 ‘기존 입고 유지 · 원가만 연결’을 누르세요. 같은 연도·차수·송장과 품목·수량·금액을 대조하고, 연결할 농장과 입고일을 보여드립니다. 새 입고는 등록하지 않습니다.</p>}

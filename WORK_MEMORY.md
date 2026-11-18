@@ -3653,3 +3653,11 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
 4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(225건), `npx next build --webpack`(139 페이지, exit 0) 통과. 운영 브라우저 시각 확인은 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건(설계 문서 및 아키텍처 흐름도 UI 전용).
+
+## 2026-11-18 명세서·송장·DB 농장 연결 구현 단계
+- 검색어: manifest-farm-match 46-2 01441369974 ClassFarm IDENTITY 약칭 농장등록
+1. 작업 위치: fix/manifest-farm-match-1118 / C:/Users/USER/Documents/Codex/nw-cdx-manifest-farm-1118 / PR 미생성.
+2. 완료된 것: 명세서·송장 이름 차이를 미완료 review로 반환, 유일 HAWB/법인 표기 정규화 자동연결, 1:1 DB농장 선택 UI 및 실제 Farm마스터 명시등록 API/폼. 원본 수량·단가·공급자 보존, 입고 어댑터에 실제 선택키 전달.
+3. 남은 할 일: UI 최종 dry/가이드 녹화·플레이어, 전체 ERP 가드/정식 build, PR CI/배포·운영 읽기 스모크. 원본46-2 저장AI결과 재검증은 아직 미검증, 유료 재분석 금지.
+4. 검증 상태: 대상27건 PASS. 실제 dnSpy ClassFarm.Insert 및 운영 SELECT Farm 스키마/기존키 확인(쓰기0). 고정 loopback14339 폐기 DB에서 동시등록1건/중복차단/실패rollback/native필드readback/2025·2026 sentinel보존 PASS. UI 최초dry에서 입력 전체선택/단축키 시험 스크립트 보완, 최신dry 재확인 필요. 초기 로컬 build EPERM 및 JSX 오류 수정 후 provisional3 진행. sandbox의 기존 bash 기반 배포검사 실패는 escalated 필수검사에서 재확인.
+5. 주의/잠금: 운영 Farm/Customer/Warehouse/Stock 등 수정0, 추가 유료API0. 신규 등록은 직원의 명시 버튼만 Farm에1행 추가(배포 후 기능), Customer와 혼동 금지. .verify 원문/SQL연결 설정 커밋금지. 이 worktree의 manifest/farm 등록/가이드 파일만 수정, CLOUD PR1813 별도 보존.
