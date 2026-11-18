@@ -58,7 +58,9 @@
     "components/WarehouseFarmSelect.js",
     "__tests__/warehouseFarmChoices.test.mjs",
     "__tests__/warehouseFarmChoicesSql.test.mjs",
-    "scripts/warehouse-farm-search-ui.cjs"
+    "scripts/warehouse-farm-search-ui.cjs",
+    "scripts/record-incoming-approval-guides.cjs",
+    "config/workflow-guides.json"
   ],
   "businessIdentity": [
     "OrderYear",

@@ -3320,3 +3320,23 @@ pm run test:canon 통과.
 - 검증 상태: desktop67/67, 네이티브 Electron·홈·반응형·키보드·플레이어, ERP 계약·dnSpy·manifest·쓰기 보호·가이드·webpack 빌드 통과. 운영 및 직원 PC 설치는 미검증. 빌드의 기존 workDrivePairsAsync 동적 의존성/이카운트 페이지 데이터 크기 경고는 이번 변경 대상 밖.
 - 주의/잠금: 원장·입고·재고·견적·매출 쓰기 변경 없음. 해외 STD·ATD 및 FR24 API 추가 연동 없음. 직원 PC 업무 중 재시작 금지.
 - 검색어: 1.3.34 비행기 확대 창 상단 즐겨찾기 홈 이슈 인천공항 도착 시간 가이드 검증 배포 인계
+
+## 2026-11-18 입고 농장 검색 검증 완료·가이드 갱신 단계
+- 전체 ERP pre/core/post exit0, dnSpy 근거/변경manifest224/쓰기범위 guard 통과. 정식빌드는 안내영상 source hash 갱신 요구로prebuild차단됐으며 이 검사를 우회한 배포는 하지않음. 실제 화면검색·MSSQL통합은통과.
+- 기존 recorder에 농장검색 입력장면 추가. 개발서버HMR로녹화포커스오류발생해중단,고정UI촬영용직접webpack build exit0 후production화면farm dry-run통과. 현재고정화면에서수입부/영업지원전체가이드재촬영중(운영API전부fixture차단).
+- 검색어: incoming-farm-search-1118 가이드 sourcehash 빌드차단 고정화면 녹화 HMR
+1. 작업 위치: nenova-erp-ui / codex/incoming-farm-search-1118 / nw-cdx-incoming-farm-search-1118 / PR미생성.
+2. 완료된 것: 농장검색·공통후보·저장검증/6후보tests/33관련tests/실제MSSQL저장·승인/기존UI·PC모바일검색/전체ERP통과. 최신master통합1f010ca63,기준표4f3d3d3b8.
+3. 남은 할 일: session50827 가이드촬영종료→최종프레임/플레이어확인→Drive보관→정식npm build→PR/CI→squash/Cafe24/운영스모크→worktree정리.
+4. 검증 상태: 업무로직/전체ERP통과. 가이드완성/정식빌드/CI/배포는미검증. 고정촬영용빌드는배포완료판정아님.
+5. 주의/잠금: 녹화중components/IncomingCorrectionRequest.js,WarehouseCorrection.js,WarehouseFarmSelect.js,lib/warehouseFarmChoices.js 및workflow sourceFiles변경금지. config/workflow-guides와public/guides/incoming-approval은recorder가갱신중.
+
+## 2026-11-18 농장 검색 가이드·영상 검증 완료
+- 수입부452.15초/5단계,영업지원280.8초/3단계 실제고정UI 1920x1080/100% 재촬영. 검색입력→현재선택보존→명시선택 장면추가. 첫/검색/중간/끝7프레임직접확인,한국어번호/자막/조작대상가림없음. 실제플레이어 PC1920/모바일390 재생/역할/목차/VTT/다운로드/접기정지 통과. 운영API전부fixture/운영쓰기0.
+- Drive nenovabusiness1의 폴더 https://drive.google.com/drive/folders/18JFwztrSWniR1yctBdaewBATvBev7NGb 에 MP4/VTT/proof6파일보관,metadata재조회크기일치. 영상ID수입부1UpLyNQqYV6m5er-5XNFhSCcvN3kVJpWB/영업지원1hyD3LPyTmJSkWtOuNPwifGQt0VD4Kki1. rawwebm캐시정리,public배포자산은GitHub원본으로커밋후worktree정리예정.
+- 검색어: 농장검색 가이드452초 280초 Drive 18JFwztrSWniR1yctBdaewBATvBev7NGb
+1. 작업 위치: codex/incoming-farm-search-1118 / nw-cdx-incoming-farm-search-1118 / PR미생성.
+2. 완료된 것: 농장검색수정/전체ERP/격리MSSQL/영상2편/실제플레이어/Drive백업완료.
+3. 남은 할 일: 최신master통합→정식빌드/최종가드→PR/CI→병합/Cafe24/운영화면→worktree정리.
+4. 검증 상태: 업무/영상검증통과; 정식최종빌드/CI/배포 미검증.
+5. 주의/잠금: 본worktree농장선택파일과가이드config/public은이세션최종검증중. 운영DB쓰기/Farm마스터등록은범위밖.
