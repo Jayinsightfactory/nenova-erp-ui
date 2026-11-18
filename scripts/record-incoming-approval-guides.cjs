@@ -65,7 +65,8 @@ async function recordRole(browser, base, secret, role) {
       let data = { success: true, items: [], rows: [], data: [], products: [], countries: [], records: [], history: [], references: [], options: [], value: null, revision: 0 };
       if (u.pathname === '/api/products/search') data.products = products;
       if (u.pathname === '/api/auth/me') data.user = user;
-      if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,InvoiceNo:i?`GUIDE-${i+1}`:header.InvoiceNo}));
+      if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,FarmName:i?'다른 농장':header.FarmName,InvoiceNo:i?`GUIDE-${i+1}`:header.InvoiceNo}));
+      if (u.pathname === '/api/arrival-cost/latest') data.references = {'1|': [1000, 1350].map((cost,i)=>({cost,unit:'단',farm:`원가 농장 ${i+1}`,week:'45-01',orderYear:'2026',sourceKind:'INVOICE',referenceKey:String(i)}))};
       if (u.pathname === '/api/warehouse/9001') data.items = before;
       if (u.pathname === '/api/warehouse/correction') data = { success: true, draftOwner: user.userId, header, baselineDigest:'c'.repeat(64), details: before, farms: [{ FarmName: header.FarmName }, { FarmName: '연습농장 나' }], history: [] };
       if(u.pathname==='/api/warehouse/correction'&&r.method()==='POST')data={...previewFor(JSON.parse(r.postData())),canCommit:false,issues:[{message:'現在 차수에 확정된 품목이 있습니다. 영업지원에 수정 요청하세요.'.replace('現在','현재')}]};
@@ -150,7 +151,22 @@ async function recordRole(browser, base, secret, role) {
       stepNumber=index+1;console.log(`${dry?'CHECK':'RECORD'} ${role}: ${scenario}`);rec.chapter(scenario,`${stepNumber}. ${scenarioTitles[scenario]}`);
       if(isImport){
         if(scenario==='farm'){
-          await page.goto(`${base}/incoming?popup=1`,{waitUntil:'networkidle0'});await page.waitForSelector('[data-row-key="9001"]');await moveClick(await page.$('[data-row-key="9001"]'));await click('농장·품목 수정 / 파일 교체');await page.waitForSelector('dialog[open] select[aria-label="수정 농장"]');
+          await page.goto(`${base}/incoming?popup=1`,{waitUntil:'networkidle0'});
+          await page.waitForSelector('[data-row-key="9001"]');
+          await hold('농장명 바로 위 검색칸으로 농장을 찾고 전체 이름을 확인합니다.',4);
+          await fill('input[aria-label="농장명 검색"]','연습농장');
+          await page.waitForFunction(()=>document.querySelectorAll('tr[data-row-key]').length===1);
+          await moveClick(await page.$('[data-row-key="9001"]'));
+          const scrollBar = '[aria-label="입고 상세 열 좌우 이동"]';
+          await page.waitForFunction(()=>document.body.textContent.includes('1,350원/단'));
+          assert.equal(await page.evaluate(()=>document.body.textContent.includes('1,000원/단')),false);
+          await hold('상세 목록 상단 가로 막대로 오른쪽 원가 열을 엽니다. 기본은 최고가 한 건을 표시합니다.',5);
+          await page.$eval(scrollBar,node=>{node.scrollLeft=node.scrollWidth;});
+          await page.waitForFunction(()=>Array.from(document.querySelectorAll('.ant-table-content')).some(node=>node.scrollLeft>100));
+          await checkedLabel('최신원가 참고 상세 보기');
+          await page.waitForFunction(()=>document.body.textContent.includes('1,000원/단'));
+          await hold('최신원가 참고 상세 보기를 켜면 농장별 출처와 금액이 표시됩니다.',5);
+          await click('농장·품목 수정 / 파일 교체');await page.waitForSelector('dialog[open] select[aria-label="수정 농장"]');
           await hold('직접 수정창에서 농장 검색을 입력하면 바로 아래 목록이 펼쳐집니다. 정확한 농장을 선택합니다.',6);await fill('input[aria-label="농장 검색"]','연습농장 나');await select('select[aria-label="수정 농장"]','연습농장 나');await fill('input[aria-label="수정 사유"]','농장 오선택 정정 요청');await click('변경 내역 미리보기');
           await hold('확정된 품목 때문에 직접 수정이 막혀도 요청할 수 있습니다. 확정 현황 확인·취소는 같은 연도·차수의 기존 견적서 창을 엽니다.',7);await click('영업지원 요청으로 전환');await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='영업지원에 요청 등록'&&!b.disabled));
           await hold('입력한 농장·사유를 유지한 요청 내용을 확인합니다. 농장명만 변경하면 기존 확정·수량·금액을 보존합니다.',6);await click('영업지원에 요청 등록');await page.waitForFunction(()=>document.body.textContent.includes('영업지원에 수정 요청을 등록했습니다.'));await hold('요청 등록 완료를 확인합니다. 영업지원이 검토하고 수정 반영과 필요한 재확정까지 처리합니다.',6);await click('목록으로 돌아가기');await page.goto(`${base}/import/tools?tab=incoming&warehouseKey=9001&from=2026-10-01&to=2026-11-30`,{waitUntil:'networkidle0'});continue;

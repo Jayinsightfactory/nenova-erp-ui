@@ -13,6 +13,7 @@ import { useRouter } from 'next/router';
 import MenuBackButton from '../components/MenuBackButton';
 import ArchFlowChart from '../components/pm/ArchFlowChart';
 import SolutionSuiteSimulator from '../components/work/SolutionSuiteSimulator';
+import DeviceHubConsole from '../components/work/DeviceHubConsole';
 import { verifyReqUser } from '../lib/auth';
 import { isOrbitReportViewer } from '../lib/orbitReportAccess';
 import { workflowOwnerOf } from '../lib/workFlowOwners';
@@ -958,6 +959,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
     { id: 'pipeline', label: '업무 파이프라인' },
     { id: 'arch', label: '아키텍처 흐름도' },
     { id: 'suite-sim', label: '통합 솔루션 시뮬레이션' },
+    { id: 'devices', label: '디바이스 허브 관제' },
     { id: 'workflows', label: '업무 흐름' },
     { id: 'proposals', label: '기능 추가 후보 (시뮬레이션)' },
     { id: 'unified', label: '업무 통합본 (최신)' },
@@ -984,6 +986,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
         {tab === 'mine' && <MyFlowTab mine={mine} />}
         {tab === 'arch' && <ArchFlowChart onSelectTab={setTab} mineOnly={mineOnly} />}
         {tab === 'suite-sim' && !mineOnly && <SolutionSuiteSimulator orbit={orbit} orbitQs={orbitQs} />}
+        {tab === 'devices' && !mineOnly && <DeviceHubConsole onSelectTab={setTab} />}
         {tab === 'unified' && <iframe title="업무 통합본" src={orbit + '/work-unified.html' + orbitQs} />}
         {tab === 'erp' && <iframe title="전산 실제 처리" src={orbit + '/erp-work.html' + orbitQs} />}
         {tab === 'orbit' && <iframe title="Orbit 작업 데이터" src={orbit + '/my-work.html' + orbitQs} />}

@@ -32,11 +32,12 @@ for (const TZ of ['UTC', 'Asia/Seoul', 'America/Los_Angeles']) {
 }
 
 // Execute the actual mount initialization (no React render or network/DB needed).
-const page = fs.readFileSync(new URL('../pages/incoming.js', import.meta.url), 'utf8');
+const page = fs.readFileSync(new URL('../pages/incoming.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const marker = '  useEffect(() => {';
-const begin = page.indexOf(marker) + marker.length;
+const initialEffect = page.indexOf(marker + '\n    const d = new Date();');
+const begin = initialEffect + marker.length;
 const end = page.indexOf('  }, []);', begin);
-assert.ok(begin >= marker.length && end > begin, 'Find initial mount effect');
+assert.ok(initialEffect >= 0 && end > begin, 'Find the date initialization effect, independent of other components');
 const effect = page.slice(begin, end);
 const initialize = new Function('Date', 'window', 'localStorage', 'incomingQueryDateRange', 'setStartDate', 'setEndDate', 'setUploadMeta', 'setFarmFilter', 'setWeekFilter', 'setMasterSearch', 'setRecentFarms', 'urlApplied', 'setPopup', 'linkedWarehouse', effect);
 class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : [now])); } }
