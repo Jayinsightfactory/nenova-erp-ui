@@ -3636,3 +3636,13 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행). 후속 실행 단계에서 Phase 1(카나리 1대 읽기·관제 파일럿 및 `WebDeviceNode/Lease` 마이그레이션) 착수.
 4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack`(139 페이지, exit 0) 모두 통과. 실기기 ADB·WSS 역터널 72시간 부하 및 운영 브라우저 시각 확인은 미검증.
 5. 주의/잠금: MSSQL 원장·API·`nenovakakao`·`desktop` 코드 쓰기 0건(설계서 및 아키텍처 흐름도 UI 전용).
+
+
+## 2026-11-18 · Rust 고효율 핫패스 아키텍처 전환(hermes-core.exe · nenova-device-sidecar.exe) 및 흐름도 반영
+- 요약: 전역 3-툴 규칙에 Rust 3대 핫패스 자동 설계·적용 지침을 추가하고, 마스터 설계서(`docs/plans/unified-device-work-solution-2026-11-18.md`)와 아키텍처 흐름도(`ArchFlowChart.js`)에 `hermes-core.exe`(대용량 로그 압축·`dedup_key` SHA-256 가속 + JS Fallback), `nenova-device-sidecar.exe`(Rust/Tokio 단일 정적 바이너리, 3~5MB, 유휴 RAM 10MB 미만, 30fps 무지연 릴레이), `pHash` 바이트 필터 및 과잉 설계 방지 경계(`data-testid="arch-rust-hotpaths"`)를 반영.
+- 검색어: Rust hermes-core nenova-device-sidecar tokio pHash arch-rust-hotpaths ArchFlowChart
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-rust-hotpaths` / `C:\Users\USER\nw-agy-rust-arch` (세션 R1·R2·R3 분리 진행).
+2. 완료된 것: `docs/plans/unified-device-work-solution-2026-11-18.md` Rust 단일 바이너리 아키텍처 확정 반영, `components/pm/ArchFlowChart.js` `arch-rust-hotpaths` 3대 핫패스 카드·활성 배지(`office.hermes.rustAccelerator.enabled`)·경계 안내 추가, `__tests__/archFlowChart.test.js` 단언 추가.
+3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
+4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(225건), `npx next build --webpack`(139 페이지, exit 0) 통과. 운영 브라우저 시각 확인은 미검증.
+5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건(설계 문서 및 아키텍처 흐름도 UI 전용).

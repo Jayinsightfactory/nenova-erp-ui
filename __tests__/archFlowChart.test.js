@@ -35,6 +35,9 @@ for (const suiteToken of ['Phone Harness', 'Device Hub', 'Nenova Kakao', 'WebDev
 for (const sessId of ['s1_phone_hub', 's2_kakao_bridge', 's3_desktop_hub', 's4_web_solution']) {
   assert.match(comp, new RegExp(`id:\\s*'${sessId}'`), `ArchFlowChart must include device suite session ${sessId}`);
 }
+for (const rustToken of ['arch-rust-hotpaths', 'hermes-core.exe', 'nenova-device-sidecar.exe', 'Rust']) {
+  assert.ok(comp.includes(rustToken), `ArchFlowChart must include Rust hotpath token: ${rustToken}`);
+}
 assert.doesNotMatch(comp, /감시|추적|모니터링/, '작업자 노출 문구에 감시·추적·모니터링 금지');
 assert.doesNotMatch(comp, /<button[\s>]/, 'PM UI 키트 규칙: raw <button> 금지');
 

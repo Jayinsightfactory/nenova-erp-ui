@@ -18,11 +18,11 @@
         ▼  (USB/Wi-Fi ADB · Dual-Path dedup_key 병합)
 [Surface 2: 로컬 브릿지 & 기기 허브]
   • Device Hub (VKCOM/devicehub: 30~40fps minicap/minitouch · Lease 독점 잠금 · remoteConnectUrl)
-  • 데스크톱앱 사이드카 (nenova-device-sidecar.exe + 아웃바운드 WSS 역터널 · [data-device-draft] 전달)
+  • 데스크톱앱 사이드카 (nenova-device-sidecar.exe · Rust/Tokio 단일 바이너리 + 아웃바운드 WSS 역터널 + pHash 중복 프레임 필터 · [data-device-draft] 전달)
         │
         ▼  (정규화 이벤트 · 이미지/라벨 Pull)
 [Surface 3: 지능형 오케스트레이터 (Hermes)]
-  • hermes-manager.js + RapidOCR/VLM + shadow.js 기대값 대조 + 4대 자가발전 루프
+  • hermes-manager.js (+ hermes-core.exe Rust 로그 압축·해싱 가속, JS Fallback) + RapidOCR/VLM + shadow.js 기대값 대조 + 4대 자가발전 루프
   • CustKey / ProdKey / OutUnit(박스·단·송이) 매칭 → DRAFT 초안 생성
         │
         ▼  (Tier 3 실시간 JSON + Tier 2 MSSQL 스테이징)
@@ -40,8 +40,8 @@
 | Surface | 핵심 주체 | 통신 및 인증 | 핵심 책임 |
 |---|---|---|---|
 | **1. 수집면** | `Phone Harness` + `Nenova Kakao` | USB/Wi-Fi ADB, Windows UIA | 비정형 텍스트·사진·라벨 원문 확보(모바일은 읽기 전용) |
-| **2. 허브/브릿지** | `Device Hub` + `데스크톱 사이드카` | `remoteConnectUrl`, `127.0.0.1` + 32B Bearer, 아웃바운드 WSS | Lease 독점 잠금, 30~40fps 원격 개입, 제로 포트포워딩 릴레이 |
-| **3. 오케스트레이션** | `Hermes` (`hermes-manager.js`) | Service Token, `shadow.js` | 품목/거래처/3단위 환산, 기대값 검증, `SKILL.md` 학습 |
+| **2. 허브/브릿지** | `Device Hub` + `데스크톱 사이드카` (`Rust/Tokio`) | `remoteConnectUrl`, `127.0.0.1` + 32B Bearer, 아웃바운드 WSS | Lease 독점 잠금, 30~40fps 원격 개입, 제로 포트포워딩 릴레이, `pHash` 프레임 필터 |
+| **3. 오케스트레이션** | `Hermes` (`hermes-manager.js` + `hermes-core.exe`) | Service Token, `shadow.js` | 품목/거래처/3단위 환산, 기대값 검증, 대용량 로그 압축·해싱 가속, `SKILL.md` 학습 |
 | **4. 웹 관제·승인** | `네노바웹` (`/my-work`, `/sales/defect-deductions`) | `withAuth` JWT, `RowVersionNo` | 기기 원격 개입, 초안 비교·수정·승인, 감사 이력 기록 |
 | **5. ERP 원장** | `MSSQL` (`Order*`, `Shipment*`, `Estimate`) | `BEGIN TRAN` + `UPDLOCK, HOLDLOCK` | `safeNextKey()` 채번, 409 충돌 방어, 사후 재조회 영수증 |
 
@@ -56,7 +56,7 @@
 
 ### 부류 2 · Nenova Kakao & 메신저 이중화 (`nenovakakao` + `mindmap-viewer`)
 - **Dual-Path 수집 + Single-Master 발송**: 수집(Inbound)은 PC `nenovakakao`와 모바일 공기계 `Phone Harness`가 Active-Active로 이중화해 PC 잠금·창 가림·18시 사진 서랍(12장 제한) 병목을 해소하고, 발송(Outbound)은 `send_limits.json`·`verify_open_room` 가드가 검증된 **PC 단일 마스터**만 유지한다.
-- **결정론적 중복 제거 (`dedup_key`)**: PC와 모바일의 동일 메시지 중복 적재를 막기 위해 `kakao_messages`에 아래 계약 키와 유니크 인덱스(`uq_kakao_messages_dedup_key`)를 도입한다.
+- **결정론적 중복 제거 (`dedup_key`)**: PC와 모바일의 동일 메시지 중복 적재를 막기 위해 `kakao_messages`에 아래 계약 키와 유니크 인덱스(`uq_kakao_messages_dedup_key`)를 도입한다. 대량 해싱은 `hermes-core.exe`(Rust 네이티브 SHA-256 가속기 · Node.js 순수 Fallback 병행)로 처리한다.
   - `dedup_key = sha256(norm_room | norm_sender | minute_bucket(KST) | body_hash | occurrence_index)`
   - `ON CONFLICT (dedup_key) DO UPDATE` 및 ±1분 Soft Dedup으로 PC가 먼저 수집한 텍스트 행에 모바일이 즉시 확보한 고해상도 원본 사진(`media_urls`)만 무중복 병합한다.
 - **업무 직결 3대 흐름**:
@@ -64,10 +64,21 @@
   2. **불량/파손 사진 + 원문**: 검토 대기열(`PENDING_REVIEW`) 적재 → 작성자 카톡 승인 또는 웹 검토 후 `WebSalesDefectDeduction(DRAFT)` 저장.
   3. **09:00 일일 보고(`send_report.py`)**: 모바일 브릿지 요약 줄 추가 시에도 `--dry-run` 및 발송 전 승인 게이트(`KAKAO_REPORT_REQUIRE_APPROVAL`) 준수.
 
-### 부류 3 · 데스크톱앱 로컬 디바이스 브릿지 (`Electron` + 선택형 사이드카)
+### 부류 3 · 데스크톱앱 로컬 디바이스 브릿지 (`Electron` + Rust 단일 바이너리 사이드카)
 - **ASAR/Fuses 준수 아키텍처**: `onlyLoadAppFromAsar: true` 및 `runAsNode: false` 보안 제약 때문에 `adb.exe`와 `scrcpy`는 `app.asar` 외부의 **선택형 사이드카(`nenova-device-sidecar.exe`)**로 분리한다. 일반 사무직 PC에는 배포하지 않아 설치 용량과 시작 속도에 영향이 0이다.
+- **Rust + Tokio 고효율 단일 정적 바이너리 확정**: 기존 Node/Python 번들(80MB+, 유휴 RAM ~90MB, GC 스파이크) 대신 **Rust(`tokio` + `tokio-tungstenite` 아웃바운드 WSS 역터널 + `adb` TCP 소켓 직결 + `pHash` 중복 프레임 필터)** 단일 실행파일(약 3~5MB, 유휴 RAM 10MB 미만, 30~40fps 스트림 중 GC 멈춤 0ms)로 설계를 확정한다.
 - **제로 포트포워딩 아웃바운드 역터널**: 사이드카가 USB(`host:track-devices`) 및 동일 사내 Wi-Fi(`_adb-tls-connect._tcp` mDNS + ECDSA 챌린지) 단말을 자동 감지하면, `main.cjs`(`device-bridge-host.cjs`)가 `127.0.0.1` 루프백 + 32B Bearer 토큰 + `icacls` ACL로 통신한 뒤 `wss://nenovaweb.com/api/device-hub/tunnel` 아웃바운드 역터널로 중계한다. `lockAccount()` 시 터널을 즉시 절단한다.
 - **해시 무변경 홈 UI & 안전 초안 전달**: 가이드 영상 해시 정책(`shell.js:434`)을 지키기 위해 `shell.css`·`index.html` 수정 없이 `#pmLivePanel` 하단에 기기 상태 카드를 동적 마운트한다. 현장 촬영본·위챗 텍스트는 `?draftId=` URL 핸드오프 또는 활성 탭 `[data-device-draft]` 초안 슬롯에 **입력까지만** 주입하며 저장 버튼은 절대 누르지 않는다.
+
+### 부류 3-B · Rust 고효율 핫패스 아키텍처 전환 & JS/TS 경계 원칙
+1. **`nenova-device-sidecar.exe` (Rust + Tokio 단일 정적 바이너리)**:
+   - 기존 Node/Python 번들(80MB+, 유휴 RAM ~90MB, GC 스파이크) 대신 **Rust(`tokio` + `tokio-tungstenite` 아웃바운드 WSS 역터널 + `adb` TCP 소켓 직결 + `pHash` 중복 프레임 필터)** 단일 실행파일(약 3~5MB, 유휴 RAM 10MB 미만, 30~40fps 스트림 중 GC 멈춤 0ms)로 배포한다.
+   - `pHash` 중복 프레임 필터가 정지 화면 프레임을 바이트/해시 단계에서 즉시 차단해 비전 해독 토큰과 네트워크 대역폭을 절약한다.
+2. **`hermes-core.exe` (Rust 네이티브 로그 압축 · `dedup_key` 해싱 가속기)**:
+   - 수십 MB 워커 스풀 로그(`vision-spool.log` 등)의 Head/Tail 보존 궤적 압축과 `kakao_messages` Dual-Path `dedup_key` 대량 SHA-256 해싱을 Rust 단일 바이너리로 가속하되, Node.js 순수 Fallback을 병행해 바이너리 미설치 환경에서도 무중단 호환성을 보장한다.
+3. **Rust vs JS/TS 경계 원칙 (과잉 설계 방지)**:
+   - **Rust 담당**: 상주 사이드카(`nenova-device-sidecar.exe`), 대용량 바이트/로그 파싱·압축 및 대량 SHA-256 해싱(`hermes-core.exe`), 실시간 프레임 필터·릴레이 등 CPU·상주 메모리·단일 배포 이득이 확실한 핫패스.
+   - **JS/TS 유지**: 웹 UI(`Next.js/React`), 수시로 변하는 업무 규칙, 일반 MSSQL/Postgres 트랜잭션 API 등 개발·유지보수 생산성이 우선인 계층.
 
 ### 부류 4 · 네노바웹 스키마 & 실제 품목 E2E 흐름 (`Tier 2 Web*` + `Tier 3 JSON`)
 - **Tier 2 신규 MSSQL 스키마 (`dbo.WebDevice*`, 사전 마이그레이션 필수 · GET DDL 금지)**:
