@@ -3311,3 +3311,13 @@ pm run test:canon 통과.
 - 검증 상태: desktop67/67, 네이티브 Electron·홈·반응형·키보드·플레이어, ERP 계약·dnSpy·manifest·쓰기 보호·가이드·webpack 빌드 통과. 운영 및 직원 PC 설치는 미검증. 빌드의 기존 workDrivePairsAsync 동적 의존성/이카운트 페이지 데이터 크기 경고는 이번 변경 대상 밖.
 - 주의/잠금: 원장·입고·재고·견적·매출 쓰기 변경 없음. 해외 STD·ATD 및 FR24 API 추가 연동 없음. 직원 PC 업무 중 재시작 금지.
 - 검색어: 1.3.34 비행기 확대 창 상단 즐겨찾기 홈 이슈 인천공항 도착 시간 가이드 검증 배포 인계
+
+## 2026-11-18 수입방 추가 발주 자동 합산 보완
+- 요약: 체크해야만 합산되던 기본값을 수정. nenovakakao 추출 품목·양수 수량을 기본 포함하여 품목군/품종/단위별 합계, 비고 업체별 수량을 표시. 업체/CL 없는 수량도 포함. 취소·대체·보관 및 취소/수량변경 원문은 검토 후 수동 포함 가능. 별도 ERP/메시지 발송 없음.
+- 검색어: 수입방 자동합산 importItemView Moon Light 주광 미우 일신 최근2일
+1. 작업 위치: nenova-erp-ui / codex/import-kakao-auto-totals / nw-cdx-import-auto / PR 생성 예정.
+2. 완료된 것: lib/importKakaoAdditions.js, KakaoAdditions.js, 회귀 fixture/계약, 실제 UI 가이드 자동합계 설명. importItemView 공통 표시 기본값과 farmTotals 합계 사용.
+3. 남은 할 일: 전체 필수검증, PR/CI/머지, Cafe24 배포, 운영 브라우저 및 Drive 보관 확인.
+4. 검증 상태: 단위 fixture 합계4/비고1+2+1, 익명수량, 단위분리, 0/음수/취소 제외 통과. 실제 Chrome 최초 자동4 및 제외3/새로조회 유지, 다운로드/가이드 재생/390px 통과. 전체 gate 진행 중. 원천 최근2일 조회에서는 추출 수량행0; 실제 운영 주문 합산은 표본 부재로 미검증이며 품질/공지 원문 수량을 임의 발주로 만들지 않음.
+5. 주의/잠금: 본 브랜치 3개 기능 파일/계약/recorder 및 해당 가이드 자산만 수정. MSSQL, EXE, Estimate/ShipmentDetail/StockHistory/WebProfitReport 변경 없음. 다른 세션의 가이드 설정 및 WORK_MEMORY 항목 보존.
+- 단계 검증: test:erp-contract(내부 dnSpy 포함), changed-from origin/master manifest/write guard, build, test:workflow-guides 통과. MP4196.1초 1920x1080/100%의 처음·중간·마지막 실제 프레임과 자동4/복사 확인. 회사 Drive MP4 1q2jLwP8-_lUrr0kT57Wo4-FoBuENZ7dL / VTT 1hERjQe-XyjjXZqLOx0pnVoZvva9TQzgw 보관.
