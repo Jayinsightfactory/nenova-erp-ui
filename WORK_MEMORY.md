@@ -3345,3 +3345,15 @@ pm run test:canon 통과.
 - 주의/잠금: 운영 원장 쓰기 없음. 지도 위치·출발은 예측 표시, 인천공항 제공 시각은 별도 표시. 직원 PC 재시작 금지 유지. 기능 작업트리 잠금 해제, 인계 PR 병합 후 인계 작업트리도 즉시 정리.
 - 보관: 비행기 영상 https://drive.google.com/file/d/1V7TIPQLJ3T8agKiInTlMc7JKT7W2Tebg/view / 홈 영상 https://drive.google.com/file/d/167ZuGiC6YKAs7XuY0bLGcmIeyn7av89V/view / 최종 홈 proof 17jVTfACtfhj_0A5p-eDolM5GYrlGTdmB / 공개 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.34.
 - 검색어: 1.3.34 운영 완료 비행기 확대 지도 상세 인천공항 STA STD ATD 홈 이슈 즐겨찾기 상단 자동 업데이트 배포 인계
+
+## 2026-11-18 · PDF 분석 중단 원인 진단과 배포 보호 (PR1818)
+- 실제 읽기 전용 진단44220341313: 최근30분 memory restart0, 최근7일 OOM0. 11:02:24.859KST web process 시작. 배포44216051551은10:36:42,44217840381은10:49:45 완료.
+- 추가 진단44220969702/44221499539: 10:42:45→10:52:47 실패9구간 중5완료, 정확한 owner-dead 메세지 interruptedOwner=true. 해당 분석은10:49배포와 중첩한다. 10:53:27→10:57:47 성공6/6·260초. 다른 단일구간 실패3건은 interruptedOwner=false로 별개이며 상세원인 미검증. 성공6구간은 재분석 불필요; 실패5구간 보존. 원본/응답/계정/자격정보 출력0.
+- 확인된 구조결함: Next web process 안에서 provider job 실행하지만 deploy PM2 reload에 in-flight 분석 확인 없음. 새 global OS mutex로 startPackingPdfJob admission과 build swap+reload를 직렬화하고 alive RUNNING이 있으면 배포만 중단한다. 파일/완료구간/ERP원장 수정0, provider 재시도0. deadline 경과·unknown PID도 보호, dead owner는 기록 보존.
+- 표적121검사120PASS/1SKIP, API·배포가드17PASS, 배포/브라우저 표적27PASS(초기 sandbox GitBash/Chrome 실패 후 elevated 동일검사 통과), 신규가드7PASS, manifest224/쓰기scope/dnSpy 통과. 전체 test:erp-contract 및 PR Linux build/CI 실행 중이며 최종통과·배포는 아직 미검증.
+- 검색어: PDF 분석 중단 owner dead 5/9 6/6 260초 602초 배포 PM2 reload lifecycle mutex PR1818
+1. 작업 위치: nenova-erp-ui / fix/pdf-lifecycle-1118 / C:/Users/USER/Documents/Codex/nw-cdx-pdf-lifecycle-1118 / PR1818. CLOUD PR1813 작업트리와 분리.
+2. 완료된 것: lib/packingPdfLifecycle.cjs, importTeamPdfJobs admission 보호, scripts/guard-pdf-deploy.cjs, 익명 상태 진단, deploy workflow 보호·진단 연결, 전용회귀·계약·계획. 운영DB/서비스 설정/추가유료분석 변경0.
+3. 남은 할 일: 전체ERP검사·Linux CI/webpack 확인→활성분석 없는 최초 rollout→코드 배포·ping/분석 캐시 읽기 스모크. 기존파일 즉시불러오기/변경본 선택 재분석 UI 요청은 아직 미구현. 실패9구간은 완료5구간 유지한 명시재시도만 허용, 추가비용 동의 없이 재분석 금지.
+4. 검증 상태: 원인 owner-dead 및 배포중첩 실측, 신규 보호장치 실행형 표적 통과. 개별작업/배포상세로그 정확한 kill순간·단일구간3실패·현재앱복구·최종CI·배포 미검증. 성공6/6은 실제서버분석 기록이지 입고/원가E2E 통과가 아님.
+5. 주의/잠금: 본 worktree 독점. 최초 구버전은 global admission mutex가 없으므로 직원 분석 완료후 설치해야 함. PM2/OOM/OS강제종료 전부를 이가드가 방지하는 것은 아님. 운영입고·원가·재고 저장 금지. 별도 CLOUD PR1813 및 다른세션 PR1817 소스 건드리지 않음.
