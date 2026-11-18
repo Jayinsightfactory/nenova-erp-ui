@@ -3531,7 +3531,6 @@ pm run test:canon 통과.
 - 회사 Drive 최종 원본: MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol (514.3초/42,948,556bytes), VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat (12,846bytes), proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn (18,775bytes). 14단계/자막76개 프레임 대조·대표 장면 육안 확인. 과거1.3.35 자료는 미공개 초안이며 최종 근거 아님.
 - 검색어: deployed calendar 1.3.36 f1bc55db 즐겨찾기 전체 접기 열기 달력 가로20% 공휴일12개국 상세 편집 주차별 유지 운영 검증 공개 피드 직원PC 재시작 안함
 
-<<<<<<< HEAD
 ## 2026-11-18 분석 재사용·농장/이력 UI 검증 단계
 - 작업 위치: feat/analysis-reuse-1118 / C:/Users/USER/Documents/Codex/nw-cdx-analysis-reuse-1118 / 구현4f0a6567 + master 통합fc1b54c2, PR 아직 없음.
 - 완료된 것: InvoiceFarmChoices 공용 실제 후보 UI로 추출, 자동 선택 후 원클릭 변경/검색·키보드 이동. SharedPackingHistory 읽기 대조에 전체 품목명 줄바꿈/원본·보관값별 수량·통화·단가/총액, 초점 이동/복귀. 실제 전체 로컬 페이지 reuse dry 재통과, 신규 farm/history 실제 컴포넌트 브라우저390px 통과. 신규4단계 번호/줌/입력/선택/대조 영상 최종47.8초 촬영 및 처음/끝 프레임 육안 확인.
@@ -3556,7 +3555,6 @@ pm run test:canon 통과.
 - 주의/잠금: 추가 유료분석0·운영DB쓰기0. 기존8073은 원본25571의93QB/2790송이/2211과 일치하며 원장 보정 금지. 새 기능은 이후 준비/명시 승인 경로에만 적용. .verify 영업 원문/SQL probe 커밋 금지, 공유 node_modules junction 정리 시 원본 타 작업트리 삭제 금지. Draft CLOUD PR1813 별도.
 - 최종 Drive: Farm MP4 1STUrghYQA95LNHGkhhidnKOvT-NXHFeL(2,268,982bytes), VTT1jLVOlgbQLzxJX4OKjk47Za--G9WtV17h, proof1zhZDI5nHygqhxsE7o-Ue14OtyJi0rRgW. Reuse MP4 1Ame4wcX8i_UO4BYb-xv1C4tJJbRGvqoA(13,051,750), VTT1T_4BGZ_Kis0OGyxucNNTlaQ-WATKcbGf, proof1pirqXv0ebPxdWS0xEWz-cJfmoaiiiQJ3. Packing MP4 155LF-n0Ty0Jh6tJovQ1KakU9r624SpJd(13,653,998), VTT1b38kUrHSbC815I3_mrhrmgNU7a4YPl1w, proof1HwSLtQMDYnbOXdZrWAwTfg0XhWsOYOB0. 三MP4 metadata 크기 일치, 이전 중간 업로드들은 최종 근거가 아님.
 - 검색어: BALVERDE 25571 auto reuse final guide first upload historical farm country 153da46d local ERP build PASS
-=======
 ## 2026-11-18 수입방 3영역 대조 UI 작업
 - 검색어: 카톡 25% 중앙원문 우측합계 차수 품목군 버튼 sourceKeys audit 누락확인
 1. 작업 위치: nenova-erp-ui / codex/import-kakao-match-layout / nw-cdx-kakao-match / PR예정.
@@ -3603,4 +3601,3 @@ pm run test:canon 통과.
 3. 남은 할 일: `origin/master` 머지 충돌 해소 후 CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
 4. 검증 상태: `archFlowChart`, `workflowReview`, `pmUiKit`, `pmNoHexColor`, `test:pm`, `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack` 통과. `codex.exe` 장기 조사관 1회 실제 폴백 완결은 다음 `quota-hold` 전환 시 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건. `C:\Users\USER\nenova-pm` 원본 수정 파일 `pm.js`, `office-feed.js`, `radar-pilot-state.json`, `tech-radar.json`, `adoption-ledger.json` 모두 `.bak-1118` 백업 보존 완료.
->>>>>>> origin/master
