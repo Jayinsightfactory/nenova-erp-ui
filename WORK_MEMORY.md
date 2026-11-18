@@ -3744,11 +3744,29 @@ pm run test:canon 통과.
 4. 검증: 운영 11/18·17일, 17:49까지 178건 = 발주29·검토25·제외119·중복5. 원문77행과 집계65행 615단·295박스 일치, 제외대조124건. 실제 원문 변경/송신 없음.
 5. 주의: 가이드 회사 Drive 영상 186ndmhq2m89n9mdK39DDvrabJCjshaKY / 자막 1POUT3XBK1yclVMzAdalyUnMmzDzXorst / proof 1gMtT4FvhIQvObu05Dl-BKLlSkClC4KOQ. 원장 쓰기 없음.
 
+## 2026-11-18 업무 매뉴얼(/work/manuals) 통합 검색·지침 연계·관리자 브리핑 디벨롭
+- 요약: `/work/manuals`에 전 부서/부서별 빠른 키워드 검색, 원스톱·자동화 도구 바로가기 배지, `/operations-knowledge` 주의·이슈 지침 연계, 관리자(`nenovaSS3`) 전용 매뉴얼 커버리지·보완 브리핑 패널 추가.
+- 검색어: work manuals ManualSearchBar ManualAdminBriefing workManualsInsights operations-knowledge nenovaSS3 커버리지
+1. 작업 위치: nenova-erp-ui / feat/manuals-agent-insights / C:/Users/USER/nw-agy-p1-manuals / PR 생성·머지 진행.
+2. 완료된 것: `lib/workManualsInsights.js`, `components/manuals/ManualSearchBar.js`, `components/manuals/ManualAdminBriefing.js`, `components/manuals/ImportHandover.js`, `pages/api/work/manuals.js`, `pages/work/manuals.js`, `__tests__/workManualsUpgrade.test.js` 구현 및 검증; 기존 데스크톱 메뉴(`Layout.js`·`desktop/menu.json`) 연결 확인.
+3. 남은 할 일: PR CI 통과 → squash 머지 → worktree 정리(운영 화면 실접속 확인은 배포 후 후속).
+4. 검증 상태: `workManualsUpgrade.test.js`, `workflowReview.test.js`, `workManuals.test.js`, `desktop-knowledge-spacing-smoke.cjs`, `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack`(빌드 락 준수) 통과; 운영 라이브 배포 화면 실측은 미검증.
+5. 주의/잠금: 관리자 브리핑(`adminBriefing`)은 `isManualAdmin(nenovaSS3)`일 때만 API/UI 노출, 비관리자 비노출 유지. 작업자 노출 화면 금지어 부재 계약(`workManualsUpgrade.test.js`) 유지.
+
+## 2026-11-18 · NOWLINK · MOYI 업종별 상용 솔루션 시연 스튜디오 (`/demo/commercial-suite`)
+- 요약: 외부 고객사 시연용 100% 가상 샘플 기반 `NOWLINK · MOYI 업종별 상용 솔루션 시연 스튜디오`(`pages/demo/commercial-suite.js`, `lib/commercialSuiteDemo.js`) 구축. 4대 업종(`화훼 직수입 · 도매`, `신선 식자재 · 청과 유통`, `수입 와인 · 식음료 도매`, `의류 · 공산품 B2B 유통`) 실시간 `mapping.json` 치환 스위치, ① 3단위 품목 마스터·분배 테이블, ② Phone Harness + MOYI 승인 카드 시뮬레이터, ③ Landed Cost(도착원가) 자동 배부, ④ `Watch / Build / Team + Device Hub Add-on` 주간 시간 단축·월 요금제 ROI 계산기를 통합하고 `components/Layout.js`(`nenovaSS3` 전용)·사용 가이드(`public/guides/commercial-suite/staff.mp4`)까지 연결.
+- 검색어: commercial-suite NOWLINK MOYI mapping.json PhoneHarness LandedCost Watch Build Team DeviceHubAddOn
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/nowlink-commercial-demo-studio` / `C:\Users\USER\nw-agy-followup-d`
+2. 완료된 것: `lib/commercialSuiteDemo.js`, `pages/demo/commercial-suite.js`, `__tests__/commercialSuiteDemo.test.js`, `components/Layout.js` (`nenovaSS3` 전용 메뉴 추가 및 `desktop/scripts/generate-menu.cjs` 검증), `scripts/record-commercial-suite-guide.cjs` 및 `config/workflow-guides.json`·`public/guides/commercial-suite/*` 등록.
+3. 남은 할 일: PR CI 통과 및 squash 머지 후 worktree 정리, 운영 배포 후 실제 화면 점검.
+4. 검증 상태: `commercialSuiteDemo.test.js`, `workflowReview.test.js`, `test:ui-layout`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `guard:erp-writes`, `test:erp-manifest`, `desktopBootstrap.test.mjs`, `desktop/tests/menu.test.cjs`, `npx next build --webpack`(메모리 보호 빌드 락 적용) 모두 통과. 운영 배포 후 실제 화면 확인은 미검증.
+5. 주의/잠금: 100% 가상 시연 전용(사내 실명·실거래·계좌·MSSQL 연결 없음), 금지어(`감시`/`추적`/`모니터링`) 비포함 유지, 기존 `/demo/tenant-studio` 무수정.
+
 ## 2026-11-18 · 사장님 솔루션 마스터 목표 정본화 & 현실적 가능·불가능 판정 기준표 구축
 - 요약: `nenova-pm/product-vision` · `nowlink/docs` · `mindmap-viewer/docs` · `nenova-erp-ui/docs` · `~/.claude` 전역 작업/대화 기록을 전수 발굴해 `docs/SOLUTION_VISION_AND_FEASIBILITY.md` 정본 문서(Part 1 상용 목표 P0~P3 · NOWLINK Watch/Build/Team+Device · 실측/미검증 지표 / Part 2 즉시 자동·조건부·불가능·절대금지 및 2026-11-18 해결 전환·오진 교정 이력)를 작성하고, `/my-work?tab=arch` (`components/pm/ArchFlowChart.js`)에 필터형 인터랙티브 기준표(`data-testid="arch-vision-feasibility"`)와 `__tests__/archFlowChart.test.js` 검증 단언을 추가. `C:\Users\USER\nenova-pm\product-vision\goals.json`(.bak-1118 백업 보존)에 확장 목표(`g11~g16`)를 최신화하고 `office-feed.js` 업로드(`200 ok`) 확인.
 - 검색어: 솔루션목표 현실적가능 불가능 정본 SOLUTION_VISION_AND_FEASIBILITY arch-vision-feasibility goals.json NOWLINK PhoneHarness DeviceHub
-1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/solution-vision-feasibility` / `C:\Users\USER\nw-agy-p2-vision` (PR 생성 진행).
-2. 완료된 것: `docs/SOLUTION_VISION_AND_FEASIBILITY.md` 신규 작성, `components/pm/ArchFlowChart.js` `VISION_MASTER_STAGES`·`FEASIBILITY_ITEMS`·`data-testid="arch-vision-feasibility"` 섹션 추가, `__tests__/archFlowChart.test.js` 단언 추가, `C:\Users\USER\nenova-pm\product-vision\goals.json` 백업(.bak-1118)·확장(`g11~g16`) 및 `office-feed.js` 업로드(`200 ok`).
-3. 남은 할 일: PR 생성 → CI `verify` 통과 대기 → squash 머지 → `goals.json` `g16` 완료(100%) 최종 갱신 및 `office-feed.js` 재업로드 → `nw-agy-p2-vision` worktree(`cmd /c rmdir` junction 선행) 정리.
-4. 검증 상태: `archFlowChart.test.js`, `workflowReview.test.js`, `test:pm`(no-hex 47·ui-kit 9), `test:workflow-guides`(27/28), `test:ui-layout`(152페이지/108메뉴), `guard:erp-writes`, `test:erp-manifest`(228건), `npx next build --webpack`(139페이지, `.orbit/next-build.lock` 단독 빌드, exit 0) 모두 통과. 운영 배포 후 `/my-work?tab=arch` 실브라우저 렌더링은 머지 후 확인 필요(미검증).
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/solution-vision-feasibility` / `C:\Users\USER\nw-agy-p2-vision` (PR #1850).
+2. 완료된 것: `docs/SOLUTION_VISION_AND_FEASIBILITY.md` 신규 작성, `components/pm/ArchFlowChart.js` `VISION_MASTER_STAGES`·`FEASIBILITY_ITEMS`·`data-testid="arch-vision-feasibility"` 섹션 추가, `__tests__/archFlowChart.test.js` 단언 추가, `C:\Users\USER\nenova-pm\product-vision\goals.json` 백업(.bak-1118)·확장(`g11~g16`) 및 `office-feed.js` 업로드(`200 ok`), PR #1846/#1847 최신 `origin/master`(`fec7c9c0`) 병합.
+3. 남은 할 일: PR #1850 재동기화 CI `verify` 통과 대기 → squash 머지 → `goals.json` `g16` 완료(100%) 최종 갱신 및 `office-feed.js` 재업로드 → `nw-agy-p2-vision` worktree(`cmd /c rmdir` junction 선행) 정리.
+4. 검증 상태: `archFlowChart.test.js`, `workflowReview.test.js`, `test:pm`, `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack`(lock 적용) 재검증 통과. 운영 배포 후 `/my-work?tab=arch` 실브라우저 렌더링은 머지 후 확인 필요(미검증).
 5. 주의/잠금: MSSQL 원장·API·`pages/`·`desktop/shell/` 파일 변경 0건(기존 가이드 해시 무영향). `ArchFlowChart.js` 내 `#hex`·`<button`·금지어(`감시|추적|모니터링|절감시간`) 0건 정규식 검사 통과. `goals.json` `g01~g10` 기존 스키마·주차 수치·`goals.json.bak-1118` 보존됨.
