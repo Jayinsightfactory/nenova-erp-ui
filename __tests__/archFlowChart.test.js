@@ -19,6 +19,14 @@ for (const tbl of ['OrderMaster', 'OrderDetail', 'ShipmentMaster', 'ShipmentDeta
 for (const hermesToken of ['arch-hermes-section', 'NousResearch/hermes-agent', 'hermes-manager.js', 'Session Rescue', 'Trajectory Compressor', 'Procedural Skill']) {
   assert.ok(comp.includes(hermesToken), `ArchFlowChart must include Hermes orchestration reference: ${hermesToken}`);
 }
+assert.ok(comp.includes('arch-solution-blueprints'), 'ArchFlowChart must include arch-solution-blueprints section');
+assert.ok(comp.includes('SOLUTION_BLUEPRINTS'), 'ArchFlowChart must define SOLUTION_BLUEPRINTS');
+for (const bpId of ['master', 'order_ship', 'import_cost', 'stock_profit']) {
+  assert.match(comp, new RegExp(`id:\\s*'${bpId}'`), `ArchFlowChart must include blueprint ${bpId}`);
+}
+for (const itemExample of ['콜롬비아 장미 프리덤', '네덜란드 수국', '유오디아 블랙잭', '솔루션']) {
+  assert.ok(comp.includes(itemExample), `ArchFlowChart must include solution blueprint token: ${itemExample}`);
+}
 assert.doesNotMatch(comp, /감시|추적|모니터링/, '작업자 노출 문구에 감시·추적·모니터링 금지');
 assert.doesNotMatch(comp, /<button[\s>]/, 'PM UI 키트 규칙: raw <button> 금지');
 

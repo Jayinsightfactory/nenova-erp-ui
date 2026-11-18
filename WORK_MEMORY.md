@@ -3609,3 +3609,12 @@ pm run test:canon 통과.
 3. 남은 할 일: Cafe24 run44247641364 최초 시도는 진행 중 PDF 8/9(490초)를 보호해 PDF_ANALYSIS_ACTIVE로 중단. 기존 앱 유지, 실패 job 재시도 시작. 배포 성공 및 버전/실브라우저 표시 확인 전 운영 반영 완료로 주장 금지.
 4. 검증 상태: 전체 ERP/dnSpy/manifest/write guard/정식 build 및 PR CI44246536164 PASS. 합성 실제 전체 UI에서 재사용·변경본·취소·키보드·농장 변경·Excel 다운로드 PASS(provider0/운영쓰기0). 운영 ping200, 브라우저 기존7223a170 확인. 실제 유료분석/운영 입고 쓰기 E2E는 실행하지 않음.
 5. 주의/잠금: 추가 유료분석0, 운영 업무 데이터 수정0. 원본 송장25571은93QB/2790송이/USD2211이며 운영8073과 일치. 사용자 첫 캡처134박스/USD3468의 원본 신원은 미확인. 기존8073의 단수 공란5행 보정하지 않음. 진행 중 PDF 작업 취소/재호출/보호장치 우회 금지. CLOUD PR1813 및 다른 세션 worktree 보존.
+
+## 2026-11-18 · 아키텍처 흐름도에 솔루션화 업무별 스키마 설계 청사진 & 실제 품목 데이터 예시 추가
+- 요약: `/my-work?tab=arch` (`ArchFlowChart.js`)에 타 업종 상용 솔루션 확장을 위한 4대 핵심 업무(`master` 기준정보·다중단위, `order_ship` 주차 주문·출고 분배·우회흡수, `import_cost` 수입 인보이스·운임배부·도착원가, `stock_profit` 차수 재고 스냅샷·불량차감·주간손익)별 스키마 설계 원리, 업종 치환 공식, 실제 품목(`콜롬비아 장미 프리덤 50cm`, `네덜란드 수국 매지컬 그린`, `유오디아 블랙잭`) 저장 예시 표(`data-testid="arch-solution-blueprints"`)를 추가.
+- 검색어: 솔루션화 스키마 설계 청사진 SOLUTION_BLUEPRINTS arch-solution-blueprints 콜롬비아장미프리덤 네덜란드수국 유오디아블랙잭 ArchFlowChart
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-solution-schema-examples` / `C:\Users\USER\nw-agy-arch-domain-schema` (하위 세션 `code-worker` `flash` 구현).
+2. 완료된 것: `components/pm/ArchFlowChart.js`에 4대 업무 스키마 블루프린트 선택 카드·3칸 설계 공식 요약 바·실제 품목 데이터 예시 테이블 추가, `__tests__/archFlowChart.test.js` 검증 단언 추가. 전역 규칙(`shared-rules.md`, `SHARED_AGENT_RULES.md`)에 기능별 하위 세션(`invoke_subagent`) + 모델 자동 배정 원칙 영구 반영.
+3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
+4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(224건), `npx next build --webpack` 모두 통과. 운영 배포 후 브라우저 시각 확인은 별도 미수행(미검증).
+5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건(UI 설명·청사진 섹션 전용).
