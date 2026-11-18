@@ -1472,6 +1472,50 @@
           ]
         }
       ]
+    },
+    {
+      "id": "estimate-ledger-review",
+      "title": "원장 연결 알림 대조",
+      "entryPaths": [
+        "/estimate?year=2026&week=45"
+      ],
+      "sourceFiles": [
+        "components/EstimateLedgerAlerts.js",
+        "components/EstimateLedgerReview.js"
+      ],
+      "requiredScenarios": [
+        "open",
+        "review",
+        "close"
+      ],
+      "guides": [
+        {
+          "id": "sales-support",
+          "role": "영업지원",
+          "title": "신고·등록 이력·다른 번호 차감 대조",
+          "status": "ready",
+          "src": "/guides/estimate-ledger-review/sales-support.mp4",
+          "captions": "/guides/estimate-ledger-review/sales-support.ko.vtt",
+          "proof": "/guides/estimate-ledger-review/sales-support.proof.json",
+          "chapters": [
+            {
+              "scenario": "open",
+              "title": "1. 접힌 알림 펼치기",
+              "seconds": 0
+            },
+            {
+              "scenario": "review",
+              "title": "2. 신고와 견적 대조",
+              "seconds": 8.019
+            },
+            {
+              "scenario": "close",
+              "title": "3. 대조와 알림 닫기",
+              "seconds": 38.489
+            }
+          ]
+        }
+      ]
     }
   ]
 }
