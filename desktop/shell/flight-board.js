@@ -27,13 +27,15 @@ const flightPresentation = (() => {
       const steps = f.checklist?.steps || [];
       const urgent = flightIssues.some(it => it.level === 'red') || steps.some(st => st.state === 'late') || f.nextState === 'late';
       const needsCheck = flightIssues.length > 0 || steps.some(st => st.state === 'due') || !!f.nextStep;
-      const priority = f.status === 'registered' ? 3 : urgent ? 0 : needsCheck ? 1 : 2;
+      const priority = flightIssues.some(it => it.level === 'red') ? 0 : f.status === 'registered' ? (flightIssues.length ? 1 : 3) : urgent ? 0 : needsCheck ? 1 : 2;
       const nextStep = f.nextStep || (steps.find(st => st.state === 'late') || steps.find(st => st.state === 'due'))?.label || '';
       return { ...f, flightIssues, priority, nextStep, boardNumber: index + 1 };
     }).sort((a, b) => a.priority - b.priority || a.boardNumber - b.boardNumber);
   }
   function nextAction(issue) {
     const text = normalize(issue?.text || issue);
+    if (/적하 구분/.test(text)) return '마스터·하우스 적하 정정 여부 확인';
+    if (/수량 대조/.test(text)) return '인보이스·검역증 수량과 정정본 확인';
     if (/서류/.test(text)) return '서류 전달 여부 확인';
     if (/검역|검사 접수/.test(text)) return '검역 접수·마감 확인';
     if (/시각|도착 변경|지연/.test(text)) return '연결 페이지에서 운항일·도착 시각 확인';
@@ -109,7 +111,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
     const dest=data.destination;
     if(dest){const p=project(dest.lon,dest.lat);map.append(svg('circle',{cx:p.x,cy:p.y,r:'3.4',fill:'#d9480f',stroke:'#fff','stroke-width':'1'}),svg('text',{x:p.x+5,y:p.y+3,'font-size':'9','font-weight':'700',fill:'#b23c0a'},dest.name||'인천'));}
     for(const f of flights){
-      if(f.status==='registered')continue;
+      if(f.status==='registered'&&!f.flightIssues?.length)continue;
       const at=f.status==='arrived'?data.destination:f.status==='before_departure'?f.origin:(f.position||f.origin);if(!at)continue;
       const p=project(at.lon,at.lat),g=svg('g'),waiting=f.phase==='layover'&&f.via;
       const prefix=`${f.boardNumber}. ${f.flight||f.country} · `;
@@ -168,7 +170,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
     }
     const p=kst(data.generatedAt);
     status.textContent=flights.length?`${p?`${p.mo}/${p.day} ${p.hh}:${p.mm} 기준 · `:''}5분마다 자동으로 다시 읽습니다. 「새로고침」을 누르면 바로 다시 읽습니다.`:(data.feedOk?'지금 들어오는 비행기 공지가 없습니다.':'도착 공지를 읽지 못했습니다. 잠시 후 다시 확인해 주세요.');
-    const parts=[];if(data.registeredCount)parts.push(`입고 등록까지 끝난 편 ${data.registeredCount}건은 「확대 보기」에서 확인`);
+    const parts=(data.feedRooms||[]).map(r=>`${r.room}: 원문 ${when(r.latestMessageAt)} / 저장 ${when(r.latestImportedAt)}${r.error?' · 조회 실패':''}`);if(data.registeredCount)parts.push(`입고 등록까지 끝난 편 ${data.registeredCount}건은 「확대 보기」에서 확인`);
     parts.push(`인천공항 자료 ${data.sources?.icn?'✔':'–'} · 통관 자료 ${data.sources?.customs?'✔':'–'}`);foot.textContent=parts.join(' · ');
   }
   function selectFlight(id){selectedViewId=id;if(!last)return;paint(last);const card=[...list.children].find(n=>n.dataset.flightId===id);card?.focus();card?.scrollIntoView({block:'nearest',behavior:'smooth'});}

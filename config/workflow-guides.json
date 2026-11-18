@@ -1371,13 +1371,13 @@
       "videoWaivers": [
         {
           "file": "desktop/shell/flight-board.js",
-          "sha256": "4d7ccf5558ed53575bcb4181a4249cea27b1d0d62e8ba9689d05f4f48dd1539a",
+          "sha256": "589b03eabbd6be8ba9f80a94108e54463c0a3385b640405ee58a6242c0eaa410",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },
         {
           "file": "components/home/ImportFlightBoard.js",
-          "sha256": "42dd7aacca5bbc2aeb6323e3fc3ba2eb45f98b05791acddbf02bde01e073caa5",
+          "sha256": "665d2af2c1cd8f1cca5c737752c37e39a2570a1b28e9efe17ebc70147ce7f101",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },
@@ -1389,9 +1389,39 @@
         },
         {
           "file": "desktop/flight-board.cjs",
-          "sha256": "0ebefec5d26945db4db2417b65df38292815c84aecdfecb83de7eb3ecd735c1e",
+          "sha256": "685bede51dfdaf1b1f5bb9249769b3d416e2cbfe1201e544a68d7edfafa6e4aa",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 우선 처리 항공편 정렬을 포함한 이번 연결 화면 개편 영상 제외."
+        },
+        {
+          "file": "desktop/flight-popup.cjs",
+          "sha256": "7c3ffb4f39d29c8d43afaf224782a294274362eb1edc86b5de6b7ae5eedc7a68",
+          "reason": "사용자 명시: 비행기현황탭은 가이드영상필요없음. 2026-11-18 원문 기반 이슈 정합성 수정.",
+          "approvedBy": "사용자"
+        },
+        {
+          "file": "desktop/preload.cjs",
+          "sha256": "294e04ca323439d0747de91597ec6944e5323f49ab6f36b651234029d6370560",
+          "reason": "사용자 명시: 비행기현황탭은 가이드영상필요없음. 2026-11-18 원문 기반 이슈 정합성 수정.",
+          "approvedBy": "사용자"
+        },
+        {
+          "file": "pages/api/import/flight-board.js",
+          "sha256": "498603b952a0471f2ad7cb18f98f88cd5e3f3cf00a91aebdfb1117aa4deded31",
+          "reason": "사용자 명시: 비행기현황탭은 가이드영상필요없음. 2026-11-18 원문 기반 이슈 정합성 수정.",
+          "approvedBy": "사용자"
+        },
+        {
+          "file": "pages/_app.js",
+          "sha256": "152c11ecfd13c10d65257434e243f27c7f4504c66a502627b57e7de15ec20121",
+          "reason": "사용자 명시: 비행기현황탭은 가이드영상필요없음. 2026-11-18 원문 기반 이슈 정합성 수정.",
+          "approvedBy": "사용자"
+        },
+        {
+          "file": "desktop/shell/index.html",
+          "sha256": "88b2d825b098f3cf327aa6a472bf2b1da386dfab121e958704c6336afe32ff40",
+          "reason": "사용자 명시: 비행기현황탭은 가이드영상필요없음. 2026-11-18 원문 기반 이슈 정합성 수정.",
+          "approvedBy": "사용자"
         }
       ]
     },

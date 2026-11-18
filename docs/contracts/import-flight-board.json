@@ -58,7 +58,8 @@
     "__tests__/importFlightSources.test.js",
     "__tests__/importRoomEvents.test.js",
     "__tests__/erpContractManifest.test.js",
-    "desktop/tests/flight-presentation.test.cjs"
+    "desktop/tests/flight-presentation.test.cjs",
+    "__tests__/importFlightResolution.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -86,7 +87,8 @@
     "menu": "수입 비행기 현황",
     "issues": "No standalone issue table. Exact full-flight identity joins issues into each flight card. Urgent active flights first; registered flights collapsed.",
     "details": "Shared numbered map markers and cards; keyboard selection highlights route and expands the matching card. Unknown location is not invented.",
-    "sideEffects": "Presentation and existing public-source refresh only. SQL/API behavior unchanged; existing explicit docs flag action preserved.",
-    "scheduledCheck": "Codex thread automation automation-2, daily 09/12/15/18 Asia/Seoul including weekends; linked-page results reported in chat, not written to ERP."
+    "sideEffects": "Kakao original-message resolution, conservative airport-date matching and display only. Existing warehouse SELECT and explicit docs flag unchanged. All ERP ledgers preserved.",
+    "scheduledCheck": "Codex thread automation automation-2, daily 09/12/15/18 Asia/Seoul including weekends; linked-page results reported in chat, not written to ERP.",
+    "resolution": "Current schedule equivalence across rooms; explicit docs receipt resolves docs requests, not quantity discrepancies. Explicit correction resolves the corresponding issue. Guessed/approximate links never prove completion. ERP registration or 48h age never resolves an open operational request."
   }
 }

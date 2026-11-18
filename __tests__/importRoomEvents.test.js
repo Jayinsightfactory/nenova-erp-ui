@@ -8,7 +8,7 @@ let seq = 0;
 const msg = (room, iso, message) => ({ chatroom: room, sender: 's', message, created_at: iso, external_message_id: `m${++seq}` });
 const types = (room, text, iso = '2026-11-16T05:00:00Z') => extractRoomEvents([msg(room, iso, text)]).map((e) => e.type).sort();
 
-assert.equal(ROOM_EVENT_TYPES.length, 14);
+assert.equal(ROOM_EVENT_TYPES.length, 19);
 
 // 선율방 틀
 assert.deepEqual(types(SEON, '46-2차 태국 합격 나왔고 검사 아닙니다'), ['quarantine_pass']);
@@ -45,7 +45,7 @@ assert.deepEqual(types(AWB, '합격 나왔습니다'), []);
 assert.deepEqual(types(SEON, '오늘 반입 된거네요'), []);
 // 스케줄방 글·도착 공지 글 제외
 assert.deepEqual(types('스케줄방', '합격 나왔습니다'), []);
-assert.deepEqual(types(SEON, '46-2차 태국 (KOREAN AIR)\n11월 17일 (화) 06:55 도착 예정\n(180-12345686 KE652 10 BOX)\n합격'), []);
+assert.deepEqual(types(SEON, '46-2차 태국 (KOREAN AIR)\n11월 17일 (화) 06:55 도착 예정\n(180-12345686 KE652 10 BOX)\n합격'), ['quarantine_pass']);
 
 // 필드
 const ev = extractRoomEvents([msg(SEON, '2026-11-16T05:00:00Z', '46-2차 카장\n999-99999999 합격 나왔습니다\nB 차는 확인 중')])[0];
@@ -86,7 +86,7 @@ o = link([mk(SEON, '2026-11-17T09:00', '46-2차 합격 나왔습니다')]);
 assert.equal(one(o, '180-12345697').length, 1);
 assert.equal(one(o, '999-12345675').length, 1);
 assert.equal(one(o, '999-12345683').length, 1);
-assert.equal(one(o, '180-12345697')[0].link, 'week');
+assert.equal(one(o, '180-12345697')[0].link, 'ambiguous');
 o = link([mk(SEON, '2026-11-17T09:00', '46-2차 중국 합격 나왔습니다')]);
 assert.equal(one(o, '180-12345697').length, 0, '나라가 다르면 안 붙음');
 assert.equal(one(o, '999-12345675').length, 1);

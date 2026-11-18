@@ -138,7 +138,7 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
   }, [flights]);
   const origins = useMemo(() => { const m = new Map(); for (const r of routes) if (!m.has(r.code)) m.set(r.code, r); return [...m.values()]; }, [routes]);
   const dest = destination ? projectLonLat(destination.lon, destination.lat) : null;
-  const planes = flights.filter(f => f.status !== 'registered' && (f.position || f.origin || (f.status === 'arrived' && destination)));
+  const planes = flights.filter(f => (f.status !== 'registered' || f.flightIssues?.length) && (f.position || f.origin || (f.status === 'arrived' && destination)));
   return (
     <svg viewBox={`0 0 ${WORLD_VIEW.width} ${WORLD_VIEW.height}`} role="group" aria-label="수입 비행기 예측 위치 지도"
       style={{ width: '100%', height: 'auto', display: 'block', background: '#eef4fa', borderRadius: 6, border: '1px solid #d7e0ea' }}>
@@ -262,8 +262,8 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
   }, [data, initialViewId]);
   const issues = issueRows([...(data?.todo || []), ...(data?.issues || [])]);
   const ordered = linkedFlights(flights, issues);
-  const active = ordered.filter(f => f.status !== 'registered');
-  const done = ordered.filter(f => f.status === 'registered');
+  const active = ordered.filter(f => f.status !== 'registered' || f.flightIssues.length);
+  const done = ordered.filter(f => f.status === 'registered' && !f.flightIssues.length);
   const shown = showDone ? ordered : active;
   const selected = flights.find(f => f.key === selectedKey) || null;
   const s = data?.summary || {};
@@ -289,6 +289,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
       {loading && !data && <div className="skeleton" style={{ height: 120, margin: 8 }} />}
       {err && <div className="banner-err" style={{ margin: 8 }}>수입 비행기 현황을 불러오지 못했습니다: {err}</div>}
       {data && !data.feed?.ok && <div className="banner-err" style={{ margin: 8 }}>{data.feed?.error} 전산 입고 기록만 표시합니다.</div>}
+      {data?.feed?.rooms && <details style={{ padding: '4px 8px', fontSize: 12 }}><summary>카톡 원문 반영 시각 · NENOVAKAKAO</summary>{Object.entries(data.feed.rooms).map(([room, r]) => <div key={room}>{room}: 원문 {shortTime(r.latestMessageAt)} · 저장 {shortTime(r.latestImportedAt)} {r.error ? '· 조회 실패 — 완료 여부 확인 필요' : ''}</div>)}<div>원문 시각은 마지막 메시지 기준이며 수집기의 마지막 확인 시각과 다릅니다.</div></details>}
       {data && data.receipts && !data.receipts.ok && <div className="banner-err" style={{ margin: 8 }}>{data.receipts.error}</div>}
 
       {data && (
@@ -351,7 +352,8 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                     <div>실린 품목: {(f.contents?.items || []).map(it => `${it.name} ${fmt(it.box)}박스`).join(' · ') || '내역 없음'}</div>
                     <FlightStrip f={f} faded={f.status === 'registered'} busy={busyAwb === f.awb} onToggleDocs={toggleDocs} />
                     {f.note && <div style={{ color: 'var(--text3)' }}>{f.note}</div>}
-                    {(f.roomEvents || []).length > 0 && <details><summary>연결된 공지 원문</summary>{f.roomEvents.map((e,i) => <p key={i}>{roomLine(e)} · {e.room} · {e.text}{e.guessed ? ' (추정 연결)' : ''}</p>)}</details>}
+                    {(f.history || []).length > 1 && <details><summary>일정 변경 이력</summary>{f.history.map((h,i) => <p key={i}>{shortTime(h.postedAt)} 공지 → {shortTime(h.arrivalAt || h.arrivalDate)} · {h.box ?? '–'}박스</p>)}</details>}
+                    {(f.roomEvents || []).length > 0 && <details><summary>연결된 처리 원문·완료 근거</summary>{f.roomEvents.map((e,i) => <p key={i}>{roomLine(e)} · {e.room} · {e.text}{e.guessed ? ' (추정 연결)' : ''}</p>)}</details>}
                   </div>}
                 </article>;
               })}

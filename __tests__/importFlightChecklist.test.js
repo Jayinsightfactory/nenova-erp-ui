@@ -41,7 +41,7 @@ assert.equal(st(cl, 'docs').state, 'done');
 // 마감 2시간 이내 + 표시 없음 → late + 경고
 cl = buildChecklist(base(), { now: Date.parse(K('2026-11-19T07:00')) });
 assert.equal(st(cl, 'docs').state, 'late');
-assert.ok(texts(cl).some((t) => t.startsWith('검역 신청 마감(11/19 09:00 예상)이 임박')));
+assert.ok(texts(cl).some((t) => t.includes('예상 검역 마감 11/19 09:00')));
 
 // 공지 방
 cl = buildChecklist(base({ rooms: ['스케줄방', '빌번호방'] }), { now });
@@ -89,8 +89,8 @@ cl = buildChecklist(base({ status: 'arrived' }), { now: Date.parse(K('2026-11-18
 assert.equal(st(cl, 'quarantine').state, 'late');
 assert.ok(texts(cl).includes('검역 불합격'));
 cl = buildChecklist(base({ status: 'arrived' }), { now: Date.parse(K('2026-11-19T09:30')), customs: { found: true, manifestAt: K('2026-11-18T13:00') } });
-assert.equal(st(cl, 'quarantine').note, '검역 신청 마감이 지남');
-assert.ok(texts(cl).includes('검역 신청 마감이 지났는데 검사 접수가 안 보임'));
+assert.equal(st(cl, 'quarantine').note, '예상 마감 경과 — 접수 여부 확인 필요');
+assert.ok(!texts(cl).includes('검역 신청 마감이 지났는데 검사 접수가 안 보임'));
 
 // 반출 뒤 입고 등록 지연
 const rel = { ...cu, quarantinePassedAt: K('2026-11-19T09:00'), clearedAt: K('2026-11-19T12:00'), releasedAt: K('2026-11-19T13:00') };
@@ -124,8 +124,7 @@ const RE = (type, room, kst, text, extra = {}) => ({ type, room, at: K(kst), tex
 const rnow = Date.parse(K('2026-11-18T12:00'));
 const rb = (o) => base({ status: 'arrived', arriveAt: K('2026-11-18T08:00'), ...o });
 cl = buildChecklist(rb(), { now: rnow, roomEvents: [RE('quarantine_pass', SEON, '2026-11-18T10:00', '합격 나왔습니다', { guessed: true })] });
-assert.equal(st(cl, 'quarantine').state, 'done');
-assert.equal(st(cl, 'quarantine').note, '선율방 글 기준 (추정 연결)');
+assert.notEqual(st(cl, 'quarantine').state, 'done', '추정 연결로 완료 확정 금지');
 cl = buildChecklist(rb(), { now: rnow, roomEvents: [RE('quarantine_fail', SEON, '2026-11-18T10:00', '불합격')] });
 assert.equal(st(cl, 'quarantine').state, 'late');
 assert.equal(st(cl, 'quarantine').note, '불합격·폐기 글');
@@ -153,7 +152,7 @@ cl = buildChecklist(base(), { now: rnow, roomEvents: [req, RE('quarantine_pass',
 assert.ok(!texts(cl).some((t) => t.startsWith('선율이 서류를 요청함')));
 assert.notEqual(st(cl, 'docs').state, 'late');
 cl = buildChecklist(base(), { now: rnow, roomEvents: [req, RE('quarantine_plan', SEON, '2026-11-18T10:00', '오후 검역 진행됩니다')] });
-assert.ok(!texts(cl).some((t) => t.startsWith('선율이 서류를 요청함')));
+assert.ok(texts(cl).some((t) => t.startsWith('선율이 서류를 요청함')));
 cl = buildChecklist(base(), { now: rnow, docsSent: { at: K('2026-11-18T09:30'), by: 'u1' }, roomEvents: [req] });
 assert.equal(st(cl, 'docs').state, 'done');
 assert.ok(!texts(cl).some((t) => t.startsWith('선율이 서류를 요청함')));
@@ -167,15 +166,15 @@ cl = buildChecklist(base(), { now: rnow, roomEvents: [
   RE('arrival_late', '빌번호방', '2026-11-18T09:04', '입항이 늦어'), RE('docs_pending_staff', SEON, '2026-11-18T09:05', '아직 서류 못')] });
 const lv = (p) => cl.alerts.find((a) => a.text.startsWith(p));
 assert.equal(lv('일부만 입항·잔량 있음 (11/18 09:00): 999CT만 입항 잔량스케줄').level, 'red');
-assert.equal(lv('선율: 검역증과 인보이스 수량이 다르다고 함 (11/18 09:01)').level, 'red');
+assert.equal(lv('검역증·인보이스 수량 대조 필요 (11/18 09:01)').level, 'red');
 assert.equal(lv('선율: LMO 부기·검사 건 (11/18 09:02)').level, 'red');
 assert.equal(lv('세관 검사 걸림 (11/18 09:03)').level, 'amber');
 assert.equal(lv('입항·입고가 늦어진다는 글 (11/18 09:04)').level, 'amber');
 assert.equal(lv('서류를 아직 못 받았다는 글이 있음 (11/18 09:05)').level, 'amber');
 // 48시간 지난 사건은 경고 없음, 입고 끝난 편도 없음
 cl = buildChecklist(base(), { now: Date.parse(K('2026-11-21T12:00')), roomEvents: [RE('partial_arrival', '빌번호방', '2026-11-18T09:00', '잔량'), req] });
-assert.ok(!texts(cl).some((t) => /잔량|서류를 요청/.test(t)));
+assert.ok(texts(cl).some((t) => /잔량|서류를 요청/.test(t)), '48시간 경과만으로 미해결 요청을 숨기지 않는다');
 cl = buildChecklist(base({ status: 'registered', receipt: { registeredAt: K('2026-11-18T18:00') }, arriveAt: K('2026-11-18T08:00') }), { now: rnow, roomEvents: [RE('partial_arrival', '빌번호방', '2026-11-18T09:00', '잔량')] });
-assert.equal(cl.alerts.length, 0);
+assert.ok(texts(cl).some(t => /잔량/.test(t)), 'ERP 등록만으로 잔량 해결 확정 금지');
 
 console.log('importFlightChecklist tests passed');
