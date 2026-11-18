@@ -3475,3 +3475,13 @@ pm run test:canon 통과.
 - 주의/잠금: 촬영 진행은 stdout의 Guide chapter 로그만 읽는다. Puppeteer.connect의 기본 viewport가 기존 촬영 창을 줄이는 문제를 발견해 해당 촬영은 폐기했고, 별도 브라우저 연결을 제거한 최종 촬영과 화면 크기 고정 검사를 추가함. 공유 기본 체크아웃/다른 홈 비행기 Draft #1820 수정 금지. ERP·ECOUNT 쓰기 없음. 병합 후 해당 worktree 즉시 정리.
 - 회사 Drive 최종 원본(크기 검증): MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol / VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat / proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn. 기존 자료 유지·공개 공유 변경 없음.
 - 검색어: calendar 1.3.36 즐겨찾기 전체 접기 열기 공휴일 국가 선택 상세 수정 주차별 Jan6 고정 viewport 가이드 14단계
+
+## 2026-11-18 홈 달력·즐겨찾기 Desktop 1.3.36 공개 및 운영 검증 완료
+- 작업 위치: nenova-erp-ui / 운영 인계 codex/calendar-deployed-1118 / Documents/Codex/2026-11-12/new-chat/work/nw-calendar-deployed-1118 / 코드 PR #1822, merge f1bc55db84269f3bcfc9a934e4f29777fef0afd6. 코드 worktree는 병합 직후 정리 완료, 이 인계 worktree도 병합 후 즉시 정리.
+- 완료된 것: 즐겨찾기 영역 전체 접기/열기·계정별 유지(업무 탭 유지), 달력 가로20% 확대·기존 글씨 유지, 한국+요청11개국 공휴일 선택/색상/중국 선택형 대체근무일, 한국어 개인/공통 상세 편집·비공개·홈 알림·기존 주차별 차수/새해 기준일 보존. 선행 #1821 기능 보존. Cafe24 배포와 Desktop 1.3.36 공개/자동 업데이트 피드 확인 완료.
+- 남은 할 일: 배포 작업은 없음. 직원 PC는 업무 중이므로 재시작/설치 실행하지 않았으며 실제 PC 1.3.36 적용은 미검증. 사용자가 업무를 저장하고 나중에 업데이트 재시작하면 새 UI를 사용함.
+- 검증 상태: 최종 헤드39d50bcd의 Windows CI44232477871/ERP CI44232477932 및 Linux build 통과. 병합 커밋 Windows44233317367, Cafe2444233318559(실브라우저 hydration 포함) 성공. 운영 로그인+12개국 공휴일+중국2027-02-13연휴/02-14대체근무일 읽기 확인. 운영 /desktop-guide 실제 재생·14목차·한국어 자막·키보드 목차·닫기pause·다운로드·1920/390px·JS0 및 MP4/VTT SHA256 최종 근거와 일치. 운영 일정/업무 생성·수정·삭제 없음.
+- 주의/잠금: 직원 PC 재시작 금지 승인 유지. ERP·ECOUNT 원장 쓰기 없음. 가이드 진행은 stdout만 확인, Puppeteer.connect 기본 viewport 주의. 후속 공용 shell.js/css/index 변경 시 desktop-task-schedule의 실제 가이드 소스 일치도 함께 확인. 다른 PR/공유 기본 체크아웃 수정 없음. 이 PR은 WORK_MEMORY.md만 변경하므로 문서 병합의 Cafe24 자동 배포는 정확한 실행 ID를 확인해 취소하여 불필요한 운영 재시작을 방지.
+- 공개: https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.36 / 대상f1bc55db / 4assets 확인. 설치본111,953,212bytes, SHA256 69586d2dd2e1f82523698fe615c5bdc0184c8b0a8f7053eda1a40c1fc0337d7f, MZ/SHA512/blockmap 검증. 공개 latest.yml 버전1.3.36·검증된 원본과 동일, 공개 exe URL/바이트 크기 일치.
+- 회사 Drive 최종 원본: MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol (514.3초/42,948,556bytes), VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat (12,846bytes), proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn (18,775bytes). 14단계/자막76개 프레임 대조·대표 장면 육안 확인. 과거1.3.35 자료는 미공개 초안이며 최종 근거 아님.
+- 검색어: deployed calendar 1.3.36 f1bc55db 즐겨찾기 전체 접기 열기 달력 가로20% 공휴일12개국 상세 편집 주차별 유지 운영 검증 공개 피드 직원PC 재시작 안함
