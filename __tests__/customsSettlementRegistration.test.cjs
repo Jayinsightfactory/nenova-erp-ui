@@ -1,5 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
 const policy=require('../lib/customsSettlementPlan.cjs'),store=require('../lib/customsSettlementStore.cjs');
+require('./customsSettlementMissingCosts.test.cjs');
 const receipt=(id='TEST-001',awb='12312345678',net=100)=>({issuer:'SUNYUL',documentId:id,sourceHash:require('crypto').createHash('sha256').update(id).digest('hex'),awb,date:'2026-08-30',charges:[{code:'HANDLING',net,vat:net/10,total:net+net/10}],total:net+net/10,currency:'CNY',foreignAmount:100,grossWeight:1});
 const candidate=(major='35',awb='12312345678')=>({year:'2026',orderWeek:`${major}-01`,awb,matchId:`2026|${major}-01|${awb}`,targetKey:'country|중국|01',currency:'CNY',foreignAmount:100,grossWeight:1});
 const job=(receipts,major='35')=>({jobId:'00000000-0000-4000-8000-000000000001',year:'2026',major,status:'REVIEW_READY',files:receipts.map(r=>({sourceHash:r.sourceHash,status:'READY',receipt:r}))});
@@ -10,12 +11,13 @@ test('same-year exact matching automatically registers typed actual net/gross, w
   const result=await s.registerSettlementJob(j,{...s.options,automatic:true});assert.equal(result.registeredDocuments,1);assert.equal(result.erpWrites,0);assert.equal(JSON.stringify(saved),before);
   assert.equal((await store.readLedger(s.root,2026,35)).values['country|중국|01'].SunYul1_1,110);
 });
-test('real DB difference and ItemCount require confirmation, then file actual wins without changing DB',async()=>{
+test('existing DB zero stays authoritative while the full receipt is retained without SQL writes',async()=>{
   const s=await setup([candidate()],{'35':{'country|중국|01':{SunYul1_1:0}}}),j=job([receipt()]);
-  assert.equal((await s.registerSettlementJob(j,{...s.options,automatic:true})).registeredDocuments,0);
-  const review=await s.reviewSettlementRegistration(j,s.options);assert.equal(review.rows[0].status,'confirmation');
-  await assert.rejects(s.registerSettlementJob(j,{...s.options,reviewDigest:review.reviewDigest,confirmed:false}),/다시 확인/);
-  const result=await s.registerSettlementJob(j,{...s.options,selectedHashes:[j.files[0].sourceHash],reviewDigest:review.reviewDigest,confirmed:true});assert.equal(result.registeredDocuments,1);
+  const result=await s.registerSettlementJob(j,{...s.options,automatic:true});assert.equal(result.registeredDocuments,1);assert.equal(result.erpWrites,0);
+  const ledger=await store.readLedger(s.root,2026,35);
+  assert.equal(ledger.values['country|중국|01'].SunYul1_1,110);
+  const {settlementCountryRow}=await import('../lib/customsSettlementEvidence.js');
+  const saved={SunYul1_1:0};assert.equal(settlementCountryRow(saved,ledger,'중국'),saved);
 });
 test('active exact AWB outside ZIP scope is proposed and requires explicit destination confirmation',async()=>{
   const s=await setup([candidate('35')]),j=job([receipt()],'36');assert.equal((await s.registerSettlementJob(j,{...s.options,automatic:true})).registeredDocuments,0);
@@ -36,11 +38,11 @@ test('unchecked receipt stays unregistered and same declaration across changed s
   const result=await s.registerSettlementJob(j,{...s.options,selectedHashes,reviewDigest:r.reviewDigest,confirmed:true});assert.equal(result.registeredDocuments,1);assert.equal((await store.readLedger(s.root,2026,35)).documents.length,1);
   const again=await s.registerSettlementJob(job([a],'36'),{...s.options,automatic:true});assert.equal(again.registeredDocuments,0);assert.equal((await s.reviewSettlementRegistration(job([a],'36'),s.options)).rows[0].major,'35');
 });
-test('new actual source replaces whole split group once while preserving all file parts',async()=>{
+test('source never replaces an existing split group or ItemCount-derived fee',async()=>{
   const {settlementCountryRow,settlementColombiaRow}=await import('../lib/customsSettlementEvidence.js');
   const original={SunYul1_1:900,SunYul1_2:99},ledger={values:{'country|중국|01':{SunYul1_1:110,SunYul1_2:220,SunYul1_3:330},'colombia|35-01':{ActualQuarantineAgencyFee:0,HandlingFee:27000}}};
-  const row=settlementCountryRow(original,ledger,'중국');assert.equal(row.SunYul1,660);assert.equal(row.SunYul1_1,110);assert.equal(original.SunYul1_1,900);
-  assert.equal(settlementColombiaRow({ItemCount:4},ledger,'35-01').ActualQuarantineAgencyFee,0);
+  const row=settlementCountryRow(original,ledger,'중국');assert.equal(row,original);assert.equal(original.SunYul1_1,900);
+  const co=settlementColombiaRow({ItemCount:4},ledger,'35-01');assert.equal(co.ActualQuarantineAgencyFee,undefined);assert.equal(co.HandlingFee,27000);
 });
 test('AWB normalizes only separators, never guesses letters; prior year does not match',async()=>{
   assert.equal(policy.awbOf('180- 12345678\r\n'),'18012345678');assert.equal(policy.awbOf('18O-12345678'),null);

@@ -3,6 +3,7 @@
   "title": "선율 정산 ZIP 첫 페이지 실비 연결 — 파일 전용·기존 원장 보존",
   "scope": [
     "lib/customsSettlementPlan.cjs",
+    "lib/customsSettlementCostPolicy.cjs",
     "lib/customsSettlementParser.cjs",
     "lib/customsSettlementStore.cjs",
     "lib/customsSettlementZip.cjs",
@@ -54,7 +55,7 @@
       "name": "READ_MISSING_COST_OVERLAY",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Approved typed actual receipt source takes precedence in read-only calculation; existing DB bytes remain unchanged. Real conflicts/ItemCount require explicit review; no unauthenticated reinterpretation of legacy money. Import VAT excluded, country gross except Vietnam net, Colombia handling/actual agency net. Existing snapshots/confirmed report money preserved, past report refresh explicit user action. Replay requires explicit external evidence; live context cache and before/after file digest fence."
+      "sideEffect": "Existing DB values including explicit zero and complete split groups take precedence; ItemCount-derived agency cost is preserved. Only missing duty, handling/quarantine agency and explicitly named disinfection components use validated receipt evidence. Freight, warehouse, domestic transport and import VAT are never overlaid. Disinfection country gross/Colombia net; Vietnam handling net only. Full immutable receipt remains stored, but UI coverage contains only applied components. Existing snapshots/confirmed report money preserved, past report refresh explicit user action. Replay requires explicit external evidence; live context cache and before/after file digest fence."
     }
   ],
   "crossYearFixture": {
@@ -64,6 +65,7 @@
   "requiredTestFiles": [
     "__tests__/customsSettlement.test.cjs",
     "__tests__/customsSettlementRegistration.test.cjs",
+    "__tests__/customsSettlementMissingCosts.test.cjs",
     "__tests__/pnlUploadNginx.test.js"
   ],
   "dnspyEvidence": {

@@ -19,7 +19,7 @@ test('prior year, unknown AWB, ambiguous targets, and document mismatch reject',
   for (const mutate of [x => { x.candidates[0].year = 2025; }, x => { x.candidates[0].awb = '12399999999'; }, x => x.candidates.push({ ...x.candidates[0], targetKey: 'country|중국|01' }), x => x.receipts.push(doc('TEST-001', 200))]) { const x = base(); mutate(x); assert.ok(buildSettlementPlan(x).issues.length); }
 });
 test('explicit zero/manual preserved, equal covered, unknown charge blocked', () => {
-  for (const value of [0, 90]) assert.equal(buildSettlementPlan({ ...base(), saved: { [targetKey]: { SunYul1_1: value } } }).patches[0].status, 'conflict');
+  for (const value of [0, 90]) assert.equal(buildSettlementPlan({ ...base(), saved: { [targetKey]: { SunYul1_1: value } } }).patches[0].status, 'db_preserved');
   assert.equal(buildSettlementPlan({ ...base(), saved: { [targetKey]: { SunYul1_1: 110 } } }).patches[0].status, 'covered');
   assert.deepEqual(mergeOverlay({ SunYul1_1: 0 }, { SunYul1_1: 110 }), { SunYul1_1: 0 });
   assert.ok(buildSettlementPlan({ ...base(), mapping: {} }).issues.length);
@@ -53,6 +53,16 @@ test('first page parser verifies tax exception and excludes payment rows', () =>
   const result = parseSettlementPage(page,'a'.repeat(64)); assert.equal(result.total,79900); assert.equal(result.charges[0].net,0);
   assert.throws(()=>parseSettlementPage({...page,page:2},'a'.repeat(64)));
 });
+test('disinfection requires an explicit fifth fee row and full arithmetic, not agency relabeling',()=>{
+  const page=syntheticPage();
+  page.items.find(i=>i.str==='비용합계(a)').y=460;
+  page.items.find(i=>i.str==='79900').y=460;
+  page.items.find(i=>i.str==='79900').str='82100';
+  page.items.push({str:'방역비',x:90,y:480,width:10,height:8});
+  [2000,200,2200].forEach((value,i)=>page.items.push({str:String(value),x:[300,420,530][i],y:480,width:10,height:8}));
+  const parsed=parseSettlementPage(page,'a'.repeat(64));assert.equal(parsed.charges[4].code,'DISINFECTION');assert.equal(parsed.charges[4].total,2200);assert.equal(parsed.charges[3].code,'QUARANTINE_AGENCY');
+  page.items.find(i=>i.str==='방역비').str='기타비용';assert.throws(()=>parseSettlementPage(page,'a'.repeat(64)));
+});
 test('only unreadable fee VAT may be derived, with explicit provenance', () => {
   const page = syntheticPage(); page.items.find(i=>i.str==='2700').str='거700';
   assert.equal(parseSettlementPage(page,'a'.repeat(64)).charges[2].vatSource,'VAT_DERIVED_FROM_NET_TOTAL');
@@ -62,9 +72,9 @@ test('only unreadable fee VAT may be derived, with explicit provenance', () => {
 test('split manual second/third parts compare whole group; ItemCount 0 is protected', () => {
   const saved = {[targetKey]:{SunYul1_2:80,SunYul1_3:30}};
   assert.equal(buildSettlementPlan({...base(),saved}).patches[0].status,'covered');
-  saved[targetKey].SunYul1_3=31; assert.equal(buildSettlementPlan({...base(),saved}).patches[0].status,'conflict');
+  saved[targetKey].SunYul1_3=31; assert.equal(buildSettlementPlan({...base(),saved}).patches[0].status,'db_preserved');
   const x=base();x.candidates[0].targetKey='colombia|35-01';x.mapping={colombia:{HANDLING:{field:'ActualQuarantineAgencyFee',basis:'net'}}};x.saved={'colombia|35-01':{ItemCount:0}};
-  assert.ok(buildSettlementPlan(x).issues.some(i=>i.code==='ITEM_COUNT_CONFLICT'));
+  assert.equal(buildSettlementPlan(x).patches[0].status,'db_preserved');
 });
 test('later split extends file source total, duplicate ZIP/doc never re-adds', async () => {
   const first=buildSettlementPlan(base()); const input=base();input.applied=first.documents;input.receipts=[doc('TEST-002',200)];
@@ -101,7 +111,7 @@ test('replay bypass, explicit evidence snapshot, manual preservation and CO actu
   await context.withErpReadContext({queryFn:async()=>({recordset:[]})},async()=>{assert.equal((await evidence.loadSettlementEvidence(2026,35)).diagnostic,'SETTLEMENT_EXTERNAL_EVIDENCE_NOT_SUPPLIED');});
   const ledger={version:1,year:'2026',major:'35',revision:1,documents:buildSettlementPlan(base()).documents,history:[],values:{[targetKey]:{SunYul1_1:110}}};
   await context.withErpReadContext({queryFn:async()=>({recordset:[]}),externalEvidence:{'customs-settlement:2026:35':ledger}},async()=>{assert.equal(await evidence.loadSettlementEvidence(2026,35),await evidence.loadSettlementEvidence(2026,35));});
-  const original={SunYul1_2:99};assert.equal(evidence.settlementCountryRow(original,ledger,'태국').SunYul1_1,110);assert.equal(original.SunYul1_2,99);
+  const original={SunYul1_2:99};assert.equal(evidence.settlementCountryRow(original,ledger,'태국'),original);assert.equal(original.SunYul1_2,99);
   assert.equal(calc.computeColombiaCustomsTotal({ItemCount:4,ActualQuarantineAgencyFee:0},{QuarantinePerItemRate:10000}),0);
 });
 test('goods country matching ignores freight and prior year, shared CO stays one pool',async()=>{

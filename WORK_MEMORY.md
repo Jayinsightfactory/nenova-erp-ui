@@ -3311,3 +3311,11 @@ pm run test:canon 통과.
 - 검증 상태: desktop67/67, 네이티브 Electron·홈·반응형·키보드·플레이어, ERP 계약·dnSpy·manifest·쓰기 보호·가이드·webpack 빌드 통과. 운영 및 직원 PC 설치는 미검증. 빌드의 기존 workDrivePairsAsync 동적 의존성/이카운트 페이지 데이터 크기 경고는 이번 변경 대상 밖.
 - 주의/잠금: 원장·입고·재고·견적·매출 쓰기 변경 없음. 해외 STD·ATD 및 FR24 API 추가 연동 없음. 직원 PC 업무 중 재시작 금지.
 - 검색어: 1.3.34 비행기 확대 창 상단 즐겨찾기 홈 이슈 인천공항 도착 시간 가이드 검증 배포 인계
+
+### 2026-11-18 통관비 DB 우선·누락 항목만 보완
+- 작업 위치: nenova-erp-ui / codex/customs-missing-components / .codex-work/customs-missing-components / PR 준비.
+- 완료된 것: 공유 순수 정책으로 DB 0원·분할 그룹·ItemCount 보존, 누락 관세·통관/검역대행·별도 방역비만 파일 근거 적용. API 적용 범위와 UI 읽기 전용 범위를 일치시키고 정산 총액·운임·창고·국내운송 중복 반영 금지. 실제 dnSpy FormWarehouseView 및 2026/35·36 SELECT probe 기록은 docs/plans/customs-missing-components-2026-11-18.md.
+- 남은 할 일: 최종 안내 영상·PR·CI·배포·운영 읽기 확인. 과거 확정/저장 보고서는 자동 갱신하지 않음.
+- 검증 상태: 관련 회귀 37건, ERP manifest/쓰기 가드·dnSpy, 연습 API 실제 브라우저·가이드 플레이어 1920/390px 및 전체 verify:erp-change(계약·webpack 빌드) 통과. 실제 별도 방역비 5행 PDF 원본은 미검증(정형 합성 fixture 검증).
+- 주의/잠금: 운영 SQL DML/DDL/SP 실행 없음, 기존 ERP 원장·저장 보고서 보존. 다른 세션 dirty worktree 및 PR1813 수정 금지.
+- 검색어: 통관비 누락 DB 우선 explicit zero 분할 관세 방역비 검역대행 중복 방지 customs missing components

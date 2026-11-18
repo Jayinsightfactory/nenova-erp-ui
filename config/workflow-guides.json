@@ -128,17 +128,17 @@
             {
               "scenario": "review",
               "title": "2. 타차수·판독 보류 확인",
-              "seconds": 31.245
+              "seconds": 31.342
             },
             {
               "scenario": "link",
               "title": "3. 검토건 확인 후 등록",
-              "seconds": 57.587
+              "seconds": 57.7
             },
             {
               "scenario": "preserve",
               "title": "4. 중복 방지·과거 계산본 갱신 안내",
-              "seconds": 83.938
+              "seconds": 84.06
             }
           ]
         }
