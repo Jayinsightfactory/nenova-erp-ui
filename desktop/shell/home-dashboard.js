@@ -107,7 +107,7 @@
     prev.disabled=!owner||month==='2000-01';next.disabled=!owner||month==='2100-12';now.disabled=!owner;
     weekPrev.disabled=!owner||!valid(shift(weekAnchor,-7));weekNext.disabled=!owner||!valid(shift(weekAnchor,7));
     paintFilters();companyAdd.disabled=!owner||!online;holidaySettings.disabled=!owner;setMonthOpen(monthOpen);setWeekOpen(weekOpen);paintMonth();paintWeek();paintReminders();holidaySummary.textContent=holidayCountries.length?'공휴일 · '+holidayCountries.map(c=>countryNames[c]).join(', ')+' · 현지 날짜 기준':'공휴일 표시 꺼짐 · 달력 설정에서 국가를 선택하세요.';
-    calStatus.textContent=companyError?'회사 공통 일정: '+companyError:company.truncated?'회사 공통 일정이 많아 일부만 표시됩니다. 날짜를 선택해 공통 일정에서 확인하세요.':owner?'선택 '+selected+' · 일정 선택: 오른쪽 업무 확인 · 빈 시간 선택: 해당 시간에 추가':'로그인하면 개인 업무 일정을 확인할 수 있습니다.';
+    calStatus.textContent=companyError?'회사 공통 일정: '+companyError:company.truncated?'회사 공통 일정이 많아 일부만 표시됩니다. 날짜를 선택해 공통 일정에서 확인하세요.':owner?'선택 '+selected+' · 날짜 선택: 오른쪽 업무 · 제목 선택: 상세 수정 · 빈 시간: 업무 추가':'로그인하면 개인 업무 일정을 확인할 수 있습니다.';
   }
   function paintMonth(){
     const [year,m]=month.split('-').map(Number),first=new Date(Date.UTC(year,m-1,1)).getUTCDay(),length=new Date(Date.UTC(year,m,0)).getUTCDate();
@@ -166,7 +166,7 @@
         if(task.company)window.NenovaCompanyCalendar.applyColor(b,task.color);
         else if(task.details?.color){b.style.background='color-mix(in srgb, '+task.details.color+' 12%, white)';b.style.borderLeftColor=task.details.color;}else b.dataset.color=String([...task.id].reduce((sum,c)=>sum+c.charCodeAt(0),0)%5);
         b.style.top=(item.start-earliest)*pixelsPerMinute+'px';b.style.height=Math.max(22,(Math.min(item.end,latest)-item.start)*pixelsPerMinute-3)+'px';b.style.left='calc('+item.lane/item.columns*100+'% + 3px)';b.style.width='calc('+100/item.columns+'% - 6px)';
-        b.append(el('strong','',task.title),el('small','',task.startTime+(task.endTime?' – '+task.endTime:' · 종료 미정')));b.title=date+' '+task.startTime+(task.endTime?'–'+task.endTime:' (종료 미정 · 기본 표시 1시간)')+' '+task.title+(task.done?' · 완료':'');b.setAttribute('aria-label',b.title+(task.company?' · 공통 일정 보기':' · 오른쪽 업무에서 확인'));col.append(b);
+        b.append(el('strong','',task.title),el('small','',task.startTime+(task.endTime?' – '+task.endTime:' · 종료 미정')));b.title=date+' '+task.startTime+(task.endTime?'–'+task.endTime:' (종료 미정 · 기본 표시 1시간)')+' '+task.title+(task.done?' · 완료':'');b.setAttribute('aria-label',b.title+(task.company?' · 공통 일정 보기':' · 내 업무 상세 수정'));col.append(b);
       }
       const more=data.find(d=>d.date===date)?.more;if(more){const b=btn('추가 '+more+'건 · 일별 보기',()=>choose(date),'week-more');col.append(b);}body.append(col);
     }

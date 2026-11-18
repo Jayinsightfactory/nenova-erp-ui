@@ -1384,7 +1384,10 @@
         "independent",
         "company",
         "collapse",
-        "weekly"
+        "weekly",
+        "holidays",
+        "eventDetails",
+        "personalDetails"
       ],
       "guides": [
         {
@@ -1404,52 +1407,67 @@
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 38.8
+              "seconds": 45.6
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 49.4
+              "seconds": 55
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 77.8
+              "seconds": 81
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 99.2
+              "seconds": 102.2
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 127.8
+              "seconds": 130.8
             },
             {
               "scenario": "calendar",
               "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 137.2
+              "seconds": 140.6
             },
             {
               "scenario": "independent",
               "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 161.8
+              "seconds": 165
             },
             {
               "scenario": "company",
               "title": "9. 공통 일정 제목과 색상 등록·수정",
-              "seconds": 173.4
+              "seconds": 177
             },
             {
               "scenario": "collapse",
               "title": "10. 월간·주간 접기와 홈 다시 열기",
-              "seconds": 248.4
+              "seconds": 251.6
             },
             {
               "scenario": "weekly",
               "title": "11. 주차별 일정과 다음 주 차수 확인",
-              "seconds": 281
+              "seconds": 284.4
+            },
+            {
+              "scenario": "holidays",
+              "title": "12. 국가를 선택해 공휴일 표시",
+              "seconds": 372.4
+            },
+            {
+              "scenario": "eventDetails",
+              "title": "13. 저장된 일정의 상세 정보 수정",
+              "seconds": 415.2
+            },
+            {
+              "scenario": "personalDetails",
+              "title": "14. 개인 업무도 달력에서 바로 수정",
+              "seconds": 482.6
             }
           ]
         }

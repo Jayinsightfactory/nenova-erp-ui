@@ -59,7 +59,7 @@ async function run(){const app=await fixture({withFavorites:process.argv.include
  for(const width of [280,390]){await page.setViewport({width,height:690});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);}
  assert.deepEqual(errors,[]);console.log('Task UI PASS: actual home8/notes320px8, timeline-prefill, disk-save/reload, launch independent of completion, failed input retained, edit, Escape, 280/390px, JS0');
  if(process.argv.includes('--record')||process.argv.includes('--dry-run'))await record(page,app);
- }finally{await browser.close();await app.close();}}
+ }catch(error){console.error('Task guide failure:',error);throw error;}finally{await browser.close();await app.close();}}
 async function record(page,app){
  await app.reset();
  if(process.argv.includes('--dry-run'))await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);
