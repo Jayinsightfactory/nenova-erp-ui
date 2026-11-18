@@ -7438,3 +7438,11 @@ pm run test:canon 통과.
 3. 남은 할 일: 필수검사, PR CI, 머지, Cafe24와 설치본 배포 및 운영 확인.
 4. 검증 상태: 기존 지도 회귀 4건, 가이드, 전체 ERP 계약, dnSpy, manifest, 쓰기 가드와 빌드 통과. Chromium의 Desktop 셸 연습 지도 확대·Esc·마커 선택 통과. 최종 병합 검사와 운영 배포 미검증.
 5. 주의/잠금: 지도 표시만 변경. MSSQL·카톡 수집과 업무 상태 변경 없음. 기존 영상 면제 적용.
+
+## 2026-11-18 · 비행기 카드 운송·통관·입고 확인
+- 검색어: flight workflow NENOVAKAKAO 호주 47-01 WarehouseKey 인보이스 확인본 검역 시각
+1. 작업 위치: nenova-erp-ui / codex/flight-workflow-1118 / nw-flight-workflow / PR 준비.
+2. 완료된 것: 기본 운송 정보·업무 상태, 공지/입고/확인 송장 수량 분리, 신고/수리/반입/소독 상태, 호주 인천행 공식 출발공항 경로, 오늘의 업무 폭 축소.
+3. 남은 할 일: CI 및 운영 릴리스, 실제 화면 확인. 예시 편에는 웹 확인본 인보이스 연계 없음. 별도 원문 확인 필요.
+4. 검증: FormWarehouseView decompile에 OrderYear·OrderWeek·OrderNo·입고 라인 확인. 실제 DB SELECT에서 2026년 47-01 예시 편 입고 헤더 10건, 총 480박스, 연결 완료 인보이스 0건. 운영 NENOVAKAKAO 최근 14일 3방의 호주 언급 3건 모두 11/6 이전 운항 관련이며 활성 예정 확인 없음.
+5. 주의/잠금: WarehouseMaster·WarehouseDetail·Product 및 기존 권한 범위 내 WebInvoiceDocument/Operation/Line만 읽음. 주문/출고/출고일/농장배분/견적/매출·재고 원장 변경 없음. 최초 공지 수량, 입고 수량, 검토 인보이스 수량은 별도. 신규 영상 없음.
