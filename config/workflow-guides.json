@@ -1835,6 +1835,58 @@
       ]
     },
     {
+      "id": "import-onestop-pipeline",
+      "title": "수입 원스톱 파이프라인 (인보이스→입고→원가→공유)",
+      "entryPaths": [
+        "/import/pipeline"
+      ],
+      "sourceFiles": [
+        "pages/import/pipeline.js",
+        "components/import-tools/ImportOneStopPipeline.js",
+        "lib/importOneStopPipeline.js",
+        "styles/ImportOneStopPipeline.module.css"
+      ],
+      "requiredScenarios": [
+        "context",
+        "incoming",
+        "cost",
+        "share"
+      ],
+      "guides": [
+        {
+          "id": "import",
+          "role": "수입부",
+          "title": "연도·차수·국가 컨텍스트로 인보이스→입고→원가→공유 이어하기",
+          "status": "ready",
+          "src": "/guides/import-onestop-pipeline/import.mp4",
+          "captions": "/guides/import-onestop-pipeline/import.ko.vtt",
+          "proof": "/guides/import-onestop-pipeline/import.proof.json",
+          "chapters": [
+            {
+              "scenario": "context",
+              "title": "1. 상단 공통 바에서 연도·세부차수와 국가(콜롬비아)를 선택해 조회 기준을 맞춥니다.",
+              "seconds": 0.016
+            },
+            {
+              "scenario": "incoming",
+              "title": "2. 2단계 입고 업로드·검수 탭으로 이동해 발주·입고·분배 대조와 전산 입고 목록을 확인합니다.",
+              "seconds": 11.276
+            },
+            {
+              "scenario": "cost",
+              "title": "3. 3단계 도착원가 산출·확정 탭에서 승인된 실제 원가와 품목별 도착원가 반영 상태를 점검합니다.",
+              "seconds": 22.726
+            },
+            {
+              "scenario": "share",
+              "title": "4. 4단계 카톡 복사·드라이브 탭을 열어 보고 요약문 생성과 드라이브 연결로 이동합니다.",
+              "seconds": 34.137
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "shipment-quick-absorb",
       "title": "빠른 분배 · 미등록주문 통합입력",
       "entryPaths": [

@@ -195,6 +195,7 @@ export default function InvoiceReceiptWorkbench({
   excels = EMPTY_LIST, invoices = EMPTY_LIST, country = '', file = null, products = EMPTY_LIST, reviewConfirmed = false, truncated = false, packingActive = false, onMatchStateChange,
   awb = null, invoiceUploadDate = '', audMarketRate = null, audMarketRateError = '',
   workspaceMode: requestedWorkspaceMode, onWorkspaceModeChange,
+  initialOrderYear = '', initialOrderWeek = '', initialBrowseMode = '',
 }) {
   const [records, setRecords] = useState([]);
   const [localWorkspaceMode, setLocalWorkspaceMode] = useState('receipt');
@@ -225,19 +226,33 @@ export default function InvoiceReceiptWorkbench({
   const [copyOpen, setCopyOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [operationResult, setOperationResult] = useState(null);
-  const [browseYear, setBrowseYear] = useState('');
-  const [browseWeek, setBrowseWeek] = useState('');
-  const [browseScope, setBrowseScope] = useState({ orderYear: '', orderWeek: '' });
-  const [browseMode, setBrowseMode] = useState('documents');
+  const [browseYear, setBrowseYear] = useState(initialOrderYear || '');
+  const [browseWeek, setBrowseWeek] = useState(initialOrderWeek || '');
+  const [browseScope, setBrowseScope] = useState(() => {
+    if (initialOrderYear && initialOrderWeek) {
+      try { return normalizeWarehouseBrowse({ orderYear: initialOrderYear, orderWeek: initialOrderWeek }); } catch (_) {}
+    }
+    return { orderYear: '', orderWeek: '' };
+  });
+  const [browseMode, setBrowseMode] = useState(initialBrowseMode === 'warehouse' ? 'warehouse' : 'documents');
   const [browseInputError, setBrowseInputError] = useState('');
   const [nativeCostScope, setNativeCostScope] = useState(null);
   const [costSource,setCostSource] = useState('invoice');
   const [invoiceCostOpened,setInvoiceCostOpened] = useState(workspaceMode==='cost');
   useEffect(()=>{if(workspaceMode==='cost')setInvoiceCostOpened(true);},[workspaceMode]);
   useEffect(() => {
+    if (initialOrderYear && initialOrderWeek) {
+      try {
+        const scope = normalizeWarehouseBrowse({ orderYear: initialOrderYear, orderWeek: initialOrderWeek });
+        setBrowseYear(scope.orderYear); setBrowseWeek(scope.orderWeek);
+        setBrowseScope(scope); setBrowseInputError('');
+        if (initialBrowseMode === 'warehouse') setBrowseMode('warehouse');
+        return;
+      } catch (_) {}
+    }
     const [year, week, sequence] = getCurrentWeek().split('-');
     setBrowseYear(year); setBrowseWeek(`${week}-${sequence}`);
-  }, []);
+  }, [initialOrderYear, initialOrderWeek, initialBrowseMode]);
   function moveBrowseWeek(direction) {
     try {
       const current = normalizeWarehouseBrowse({ orderYear: browseYear, orderWeek: browseWeek });

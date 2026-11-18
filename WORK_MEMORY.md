@@ -3789,6 +3789,15 @@ pm run test:canon 통과.
 4. 검증 상태: `cargo test`(9/9), `upload-device-hub.js --no-upload`, `workFeatureData`, `deviceHubConsole`, `workflowReview`, `solutionSuiteSimulator`, `archFlowChart`, `desktopBootstrap`(5/5), `desktop/tests/menu.test.cjs`(3/3), `test:ui-layout`, `test:workflow-guides`(29 workflows·30 videos), `guard:erp-writes`, `test:erp-manifest`(229건), `test:pm`, `test:canon`, `npx next build --webpack`(139 페이지, `next-build.lock` 단독 락) 모두 통과. 배포 후 라이브 실단말 ADB 연결 및 실서버 `feature-data-ingest` 업로드는 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건, `mineOnly`(일반 직원 계정)에는 `devices` 탭 및 `/api/my-work/feature` 미노출(`404` 은닉 유지), UI·주석·테스트 내 3대 금지 표현 0건 유지(관제·점검·감지 표준 용어 사용).
 
+## 2026-11-18 · 수입 원스톱 파이프라인 (`인보이스 → 입고 → 도착원가 → 카톡복사·드라이브`) 통합 워크벤치 (`/import/pipeline`)
+- 요약: 수입부 실무 4단계(`1. 인보이스·패킹 확인` → `2. 입고관리 업로드·검수` → `3. 도착원가 산출·확정` → `4. 카톡 요약복사 & 드라이브 업로드`)를 단일 컨텍스트(`OrderYear`·`OrderWeek`·`Country`)로 엮은 `/import/pipeline` 워크벤치를 신설하고, 1920×1080 한국어 사용 가이드 영상과 네노바 데스크톱앱(`v1.3.45`) 카탈로그를 연결했다.
+- 검색어: import-onestop-pipeline pipeline.js ImportOneStopPipeline PackingListTool InvoiceReceiptWorkbench NativeReceiptCost SharedAwbCostReview InvoiceArrivalCostPanel work/drive moyi-drive Desktop1.3.45
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/import-onestop-pipeline` / `C:\Users\USER\nw-agy-followup-a` (PR #1852 생성·`origin/master` #1848/#1849/#1850/#1851/#1853 동기화·CI 검증·squash 머지 진행).
+2. 완료된 것: `lib/importOneStopPipeline.js`, `pages/import/pipeline.js`, `components/import-tools/ImportOneStopPipeline.js`, `styles/ImportOneStopPipeline.module.css`, `components/import-tools/InvoiceReceiptWorkbench.js`(초기 연도·차수 선택 동기화 prop 추가), `__tests__/importOneStopPipeline.test.js`, `components/Layout.js`·`desktop/menu.json`·`desktop/package.json`(`1.3.45`)·`desktop/package-lock.json`·`desktop/tests/menu.test.cjs`·`desktop/scripts/smoke.cjs`, `scripts/record-import-onestop-pipeline-guide.cjs`·`config/workflow-guides.json`·`public/guides/import-onestop-pipeline/*` 등록 및 동시 머지(#1848/#1849/#1850/#1851/#1853) 보존.
+3. 남은 할 일: PR #1852 최종 동기화 GitHub Actions `verify` / `desktop-windows` 통과 확인 → squash 머지 → worktree 및 junction 정리(운영 배포 후 라이브 화면 스모크는 후속).
+4. 검증 상태: `importOneStopPipeline.test.js`(5/5), `workflowReview.test.js`, `test:ui-layout`, `test:workflow-guides`·`check-workflow-guides.cjs`, `guard:erp-writes`, `test:erp-manifest`, `desktopBootstrap.test.mjs`, `test:nenova-dnspy-evidence`, `test:packing-team`, `test:import-team`, `test:erp-contract`, `desktop`(73/73 + Electron smoke/restore/exit), 가이드 녹화(61.75s)·프레임·플레이어 스모크, 메모리 락 webpack 빌드 통과. 운영 라이브 실측·실제 DB 쓰기는 미검증(읽기 집약 조회·합성 픽스처 검증).
+5. 주의/잠금: 기존 `Warehouse*`·`FreightCost*`·`WebArrivalCost*`·`Order*`·`Shipment*` 쓰기 API 및 SQL 수식 무변경, 카톡 자동 발송 금지(요약문 클립보드 복사·`.txt` 저장만 허용), `OrderYear`+`OrderWeek` 교차연도 분리 및 잠긴 가이드 원본 파일 무수정 유지.
+
 ## 2026-11-18 · 입고관리 농장 검색·상세 스크롤·최고가 배포
 - 검색어: 입고관리 농장명 잘림 열 검색 상세 여백 상단 가로 스크롤 최신원가 최고가 Desktop 1.3.44
 1. 작업 위치: nenova-erp-ui / codex/receipt-density-1118 / nw-receipt-density(정리 완료) / 기능 PR #1851, squash 37c76dfb. 인계 PR 브랜치 codex/receipt-verified-1118 / nw-receipt-verified.
