@@ -421,7 +421,7 @@ export default function PedidosTool({ active = true }) {
       .pedidos-tool button[aria-pressed="true"] { background:#2457c5; color:white; border-color:#2457c5; }
       .pedidos-cycles button { flex:1 1 145px; white-space:normal; }
       .pedidos-cycles small { display:block; font-weight:400; }
-      .pedidos-split {display:grid;grid-template-columns:minmax(0,3fr) minmax(330px,2fr);gap:18px}.pedidos-primary{min-width:0}
+      .pedidos-split {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,3fr);gap:18px;align-items:start}.pedidos-primary{min-width:0}
       @media(max-width:950px){.pedidos-split{grid-template-columns:minmax(0,1fr)}}
       .pedidos-country { max-width:260px; margin:12px 0; }
       .pedidos-auto-actions span { color:#54657d; }

@@ -95,3 +95,9 @@ test('desktop wires the flight board action, shell file and package list',()=>{
   assert.ok(shell.includes('접기 ▴')&&shell.includes('fresh:true'),'접기 버튼과 즉시 새로고침');
   assert.equal(/innerHTML|fetch\(|XMLHttpRequest/.test(shell),false,'셸은 직접 통신하거나 HTML 을 끼워 넣지 않는다');
 });
+
+test('urgent flight beyond the home limit is retained before truncation',()=>{
+ const rows=Array.from({length:12},(_,i)=>flight({key:'priority-'+i,flight:'FL'+i,checklist:null,alerts:[]}));
+ const out=projectFlightBoard(body({flights:rows,todo:[{key:'priority-11',level:'red',text:'도착 지연 확인'}]}));
+ assert.equal(out.flights.length,8);assert.equal(out.flights[0].flight,'FL11');assert.equal(out.todo[0].viewId,out.flights[0].viewId);
+});

@@ -13,7 +13,10 @@
     "lib/importFlightChecklist.js",
     "lib/importFlightDocsStore.js",
     "lib/importRoomEvents.js",
-    "components/home/ImportFlightBoard.js"
+    "components/home/ImportFlightBoard.js",
+    "desktop/shell/flight-board.js",
+    "pages/desktop-flight.js",
+    "desktop/flight-board.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -54,7 +57,8 @@
     "__tests__/importFlightChecklist.test.js",
     "__tests__/importFlightSources.test.js",
     "__tests__/importRoomEvents.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "desktop/tests/flight-presentation.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -77,5 +81,12 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
-  ]
+  ],
+  "presentation": {
+    "menu": "수입 비행기 현황",
+    "issues": "No standalone issue table. Exact full-flight identity joins issues into each flight card. Urgent active flights first; registered flights collapsed.",
+    "details": "Shared numbered map markers and cards; keyboard selection highlights route and expands the matching card. Unknown location is not invented.",
+    "sideEffects": "Presentation and existing public-source refresh only. SQL/API behavior unchanged; existing explicit docs flag action preserved.",
+    "scheduledCheck": "Codex thread automation automation-2, daily 09/12/15/18 Asia/Seoul including weekends; linked-page results reported in chat, not written to ERP."
+  }
 }

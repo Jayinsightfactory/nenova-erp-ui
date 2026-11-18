@@ -4,6 +4,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { apiGet, apiPost } from '../../lib/useApi';
 import { WORLD_VIEW, WORLD_LAND_PATH, projectLonLat } from '../../lib/importFlightWorldPath';
 
+const { issueRows, shortIssue, linkedFlights, nextAction } = require('../../desktop/shell/flight-board');
+
 const REFRESH_MS = 5 * 60 * 1000;
 const STATUS_STYLE = {
   in_flight: { bg: '#e3f0ff', ink: '#0b57a4', dot: '#1668c7' },
@@ -13,6 +15,13 @@ const STATUS_STYLE = {
   registered: { bg: '#eef0f2', ink: '#6c757d', dot: '#adb5bd' },
 };
 const fmt = n => Number(n || 0).toLocaleString();
+function moveTableFocus(event) {
+  if (!['ArrowDown', 'ArrowUp'].includes(event.key) || event.target.tagName !== 'BUTTON') return;
+  const buttons = [...event.currentTarget.querySelectorAll('[data-flight-select]')];
+  const index = buttons.indexOf(event.target);
+  const next = buttons[index + (event.key === 'ArrowDown' ? 1 : -1)];
+  if (next) { event.preventDefault(); next.focus(); }
+}
 
 function kstParts(iso) {
   const ms = Date.parse(iso);
@@ -129,14 +138,15 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
   }, [flights]);
   const origins = useMemo(() => { const m = new Map(); for (const r of routes) if (!m.has(r.code)) m.set(r.code, r); return [...m.values()]; }, [routes]);
   const dest = destination ? projectLonLat(destination.lon, destination.lat) : null;
-  const planes = flights.filter(f => f.position && (f.status === 'in_flight' || f.status === 'before_departure'));
+  const planes = flights.filter(f => f.status !== 'registered' && (f.position || f.origin || (f.status === 'arrived' && destination)));
   return (
-    <svg viewBox={`0 0 ${WORLD_VIEW.width} ${WORLD_VIEW.height}`} role="img" aria-label="수입 비행기 예측 위치 지도"
+    <svg viewBox={`0 0 ${WORLD_VIEW.width} ${WORLD_VIEW.height}`} role="group" aria-label="수입 비행기 예측 위치 지도"
       style={{ width: '100%', height: 'auto', display: 'block', background: '#eef4fa', borderRadius: 6, border: '1px solid #d7e0ea' }}>
       <path d={WORLD_LAND_PATH} fill="#d5dee8" stroke="#aebccb" strokeWidth="0.4" />
       {routes.map(r => (
         <path key={r.key} d={r.d} fill="none" stroke="#5b8fd1" strokeWidth="1" strokeDasharray={r.via ? '3 3' : undefined} opacity="0.75" />
       ))}
+      {flights.filter(f => f.key === selectedKey && f.route?.length).map(f => <path key={'selected-'+f.key} d={routePath(f.route)} fill="none" stroke="#145db4" strokeWidth="3" />)}
       {origins.map((r, i) => {
         const p = projectLonLat(r.lon, r.lat);
         // 보고타·메데진처럼 가까운 출발지의 이름이 겹치지 않게 위·아래로 번갈아 적는다
@@ -164,18 +174,18 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
         </g>
       )}
       {planes.map(f => {
-        const pos = f.status === 'before_departure' && f.origin ? { lat: f.origin.lat, lon: f.origin.lon } : f.position;
+        const pos = f.status === 'arrived' && destination ? destination : f.status === 'before_departure' && f.origin ? f.origin : (f.position || f.origin);
         const p = projectLonLat(pos.lon, pos.lat);
         const on = f.key === selectedKey;
         const st = STATUS_STYLE[f.status] || STATUS_STYLE.in_flight;
         return (
-          <g key={f.key} onClick={() => onSelect(f.key)} style={{ cursor: 'pointer' }}>
+          <g key={f.key} role="button" tabIndex={0} aria-label={`${f.boardNumber}번 ${f.country} ${f.flight || '편명 미확인'} 선택`} aria-pressed={on} onClick={event => onSelect(f.key, event)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(f.key, event); } }} style={{ cursor: 'pointer' }}>
             <title>{`${f.weekLabel}차 ${f.country} ${f.flight} — ${f.statusLabel}${f.progress != null ? ` 약 ${Math.round(f.progress * 100)}%` : ''}`}</title>
-            <circle cx={p.x} cy={p.y} r={on ? 7 : 5} fill={st.dot} stroke="#fff" strokeWidth="1.4" opacity="0.95" />
-            <text x={p.x} y={p.y + 2.6} fontSize="6.5" textAnchor="middle" fill="#fff" fontWeight="700">✈</text>
-            {f.status === 'in_flight' && (
+            <circle cx={p.x} cy={p.y} r={on ? 9 : 7} fill={st.dot} stroke="#fff" strokeWidth="1.4" opacity="0.95" />
+            <text x={p.x} y={p.y + 2.6} fontSize="6.5" textAnchor="middle" fill="#fff" fontWeight="700">{f.boardNumber}</text>
+            {(
               <text x={p.x + 8} y={p.y + 3} fontSize="8" fontWeight="700" fill="#0b3d75" stroke="#eef4fa" strokeWidth="2" paintOrder="stroke">
-                {f.phase === 'layover' && f.via?.name ? `${f.country} · ${f.via.name} 대기` : `${f.country} ${Math.round((f.progress || 0) * 100)}%`}
+                {`${f.boardNumber}. ${f.flight || f.country}${f.status === 'arrived' ? ' 도착' : f.status === 'before_departure' ? ' 출발 전' : ` ${Math.round((f.progress || 0) * 100)}%`}`}
               </text>
             )}
           </g>
@@ -200,6 +210,16 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [selectedKey, setSelectedKey] = useState('');
+  const detailRef = useRef(null);
+  const returnFocusRef = useRef(null);
+  const selectDetail = (key, event) => {
+    returnFocusRef.current = event?.currentTarget || null;
+    setSelectedKey(key);
+  };
+  useEffect(() => {
+    if (selectedKey) { const card = detailRef.current?.querySelector('[data-selected="true"]'); card?.focus(); card?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+    else returnFocusRef.current?.focus();
+  }, [selectedKey]);
   const [showDone, setShowDone] = useState(false);
   const [busyAwb, setBusyAwb] = useState('');
   const [showRoomNews, setShowRoomNews] = useState(false);
@@ -240,20 +260,20 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
     appliedViewId.current = initialViewId;
     if (flight) { setSelectedKey(flight.key); if (flight.status === 'registered') setShowDone(true); }
   }, [data, initialViewId]);
-  const active = flights.filter(f => f.status !== 'registered');
-  const done = flights.filter(f => f.status === 'registered');
-  const shown = showDone ? flights : active;
+  const issues = issueRows([...(data?.todo || []), ...(data?.issues || [])]);
+  const ordered = linkedFlights(flights, issues);
+  const active = ordered.filter(f => f.status !== 'registered');
+  const done = ordered.filter(f => f.status === 'registered');
+  const shown = showDone ? ordered : active;
   const selected = flights.find(f => f.key === selectedKey) || null;
   const s = data?.summary || {};
   const todo = Array.isArray(data?.todo) ? data.todo : [];
-  const todoRed = s.red ?? todo.filter(t => t.level === 'red').length;
-  const todoAmber = s.amber ?? todo.filter(t => t.level !== 'red').length;
   const roomNews = Array.isArray(data?.roomNews) ? data.roomNews : [];
 
   return (
     <div className="card" style={{ marginBottom: 6 }} data-testid="import-flight-board">
       <div className="card-header" style={{ flexWrap: 'wrap', gap: 6 }}>
-        <span className="card-title">■ 수입 비행기 현황 · 스케줄 확인</span>
+        <span className="card-title">수입 비행기 현황</span>
         <span style={{ fontSize: 11, color: 'var(--text3)' }}>
           지도 위 위치는 도착 공지 일정으로 계산한 <b>예측</b>입니다 · 실제 위치는 편별 「실제 위치」 버튼
         </span>
@@ -277,32 +297,18 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
             {[['비행 중', s.inFlight, STATUS_STYLE.in_flight], ['출발 전', s.beforeDeparture, STATUS_STYLE.before_departure], ['빌번호 대기', s.awaitingAwb, STATUS_STYLE.awaiting_awb], ['도착·입고 대기', s.arrived, STATUS_STYLE.arrived], ['입고 등록 끝', s.registered, STATUS_STYLE.registered]].map(([label, n, st]) => (
               <span key={label} style={{ padding: '3px 10px', borderRadius: 12, background: st.bg, color: st.ink, fontWeight: 700 }}>{label} {fmt(n)}</span>
             ))}
-            <span style={{ padding: '3px 10px', borderRadius: 12, background: s.issues ? '#ffe3e3' : '#f1f3f5', color: s.issues ? '#b02a2a' : '#6c757d', fontWeight: 700 }}>이슈 {fmt(s.issues)}</span>
+            <span style={{ padding: '3px 10px', borderRadius: 12, background: issues.length ? '#ffe3e3' : '#f1f3f5', color: issues.length ? '#b02a2a' : '#6c757d', fontWeight: 700 }}>이슈 {fmt(issues.length)}</span>
             <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--text3)', alignSelf: 'center', display: 'inline-flex', gap: 8 }}>
               <span title="인천공항 운항 정보">공항 자료 {data.sources?.icn?.enabled && data.sources?.icn?.ok ? '✔' : '–'}</span>
               <span title="관세청 유니패스">통관 자료 {data.sources?.customs?.enabled && data.sources?.customs?.ok ? '✔' : '–'}</span>
             </span>
           </div>
 
-          {todo.length > 0 && (
-            <div style={{ border: '1px solid #f3c2c2', background: '#fff5f5', borderRadius: 6, padding: '6px 10px', marginBottom: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#b02a2a', marginBottom: 2 }}>
-                지금 해야 할 것 <span style={{ fontWeight: 400, color: 'var(--text3)', marginLeft: 6 }}>빨강 {fmt(todoRed)} · 주황 {fmt(todoAmber)}</span>
-              </div>
-              {todo.slice(0, 10).map((t, i) => (
-                <div key={`${t.key}-${i}`} style={{ fontSize: 12, lineHeight: 1.6, cursor: 'pointer' }} onClick={() => setSelectedKey(t.key)}>
-                  <span style={{ color: t.level === 'red' ? '#d62828' : '#e08a00' }}>●</span> <b>{t.label}</b> — {t.text}
-                </div>
-              ))}
-              {todo.length > 10 && <div style={{ fontSize: 11, color: 'var(--text3)' }}>외 {todo.length - 10}건</div>}
-            </div>
-          )}
-
           {roomNews.length > 0 && (
             <div style={{ marginBottom: 8, fontSize: 11, color: 'var(--text3)' }}>
-              <span style={{ cursor: 'pointer' }} onClick={() => setShowRoomNews(v => !v)}>
+              <button type="button" className="btn btn-sm" onClick={() => setShowRoomNews(v => !v)}>
                 {showRoomNews ? '▾' : '▸'} 어느 비행기인지 못 붙인 방 글 {roomNews.length}건
-              </span>
+              </button>
               {showRoomNews && roomNews.map((e, i) => (
                 <div key={`rn-${i}`} style={{ lineHeight: 1.6, color: roomColor(e.level) }}>
                   {roomLine(e)} · {e.room} · {e.label} — {e.text}
@@ -311,136 +317,60 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
             </div>
           )}
 
-          {data.issues?.length > 0 && (
-            <div style={{ border: '1px solid #dee2e6', background: '#f8f9fa', borderRadius: 6, padding: '6px 10px', marginBottom: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#495057', marginBottom: 2 }}>공지에서 바뀐 것</div>
-              {data.issues.slice(0, 8).map((it, i) => (
-                <div key={`${it.key}-${i}`} style={{ fontSize: 12, lineHeight: 1.6, cursor: 'pointer' }} onClick={() => setSelectedKey(it.key)}>
-                  <b>{it.label}</b> — {it.text}
-                </div>
-              ))}
-              {data.issues.length > 8 && <div style={{ fontSize: 11, color: 'var(--text3)' }}>외 {data.issues.length - 8}건은 아래 목록에서 확인</div>}
+          <div className="import-flight-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12, alignItems: 'start' }}>
+            <div className="flight-map-panel">
+              <FlightMap flights={shown} destination={data.destination} selectedKey={selectedKey} onSelect={selectDetail} />
+              <p style={{ fontSize: 12, color: 'var(--text3)', margin: '6px 0' }}>지도 번호와 오른쪽 항공편이 연결됩니다. 위치는 일정 기반 예측이며, 위치 자료가 없는 편은 목록에서 확인하세요.</p>
+              <p style={{ fontSize: 12 }}>우선 확인 {active.filter(f => f.priority === 0).length}편 · 확인 필요 {active.filter(f => f.priority === 1).length}편 · 이슈 없는 편은 접어서 표시</p>
             </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 1fr)', gap: 8, alignItems: 'start' }} className="import-flight-grid">
-            <div>
-              <FlightMap flights={flights} destination={data.destination} selectedKey={selectedKey} onSelect={setSelectedKey} />
-              {selected && (
-                <div data-testid="flight-selected-detail" style={{ marginTop: 6, border: '1px solid #d7e0ea', borderRadius: 6, padding: '6px 10px', fontSize: 12, lineHeight: 1.7 }}>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <b>{selected.weekLabel}차 {selected.country} {selected.itemLabel}</b>
-                    <StatusChip f={selected} />
-                    <button type="button" className="btn btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setSelectedKey('')}>닫기</button>
-                  </div>
-                  <div>항공사 {selected.airline || '-'} · 편명 {selected.flight || '아직 없음'} · 빌번호 {selected.awb || '아직 없음'}</div>
-                  <div>
-                    {selected.origin ? `${selected.origin.name}${selected.origin.assumed ? '(출발 도시 추정)' : ''} → ${selected.via?.name ? `${selected.via.name}(경유) → ` : ''}인천` : '출발지 미확인'}
-                    {selected.lastLegDepartAt ? ` · 경유지 출발(공항 자료 기준) ${shortTime(selected.lastLegDepartAt)}` : ''}
-                    {selected.departAtEstimated ? ` · 출발 예측 ${shortTime(selected.departAtEstimated)}` : ''} · 도착 예정 {arrivalText(selected)}
-                  </div>
-                  <div style={{ color: 'var(--text3)' }}>{selected.note}</div>
-                  <div>
-                    실린 것({selected.contents.source} 기준{selected.contents.farms ? `, 농장 ${fmt(selected.contents.farms)}곳` : ''}): {selected.contents.items.length
-                      ? selected.contents.items.map(it => `${it.name} ${fmt(it.box)}박스`).join(' · ')
-                      : `품목 내역 없음${selected.box ? ` (총 ${fmt(selected.box)}박스)` : ''} — 입고 등록 뒤 표시`}
-                  </div>
-                  {selected.actual && (
-                    <div>
-                      인천공항 운항 정보 · 도착 예정 {shortTime(selected.actual.scheduledAt) || '-'} / 변경 {shortTime(selected.actual.estimatedAt) || '-'} / 상태 {selected.actual.remark || '-'}
-                    </div>
-                  )}
-                  {(selected.checklist?.steps || []).some(st => st.at) && (
-                    <div style={{ color: 'var(--text3)' }}>
-                      {selected.checklist.steps.filter(st => st.at).map(st => `${st.label} ${shortTime(st.at)}`).join(' · ')}
-                    </div>
-                  )}
-                  {(selected.roomEvents || []).length > 0 && (
-                    <div style={{ marginTop: 2 }}>
-                      <div style={{ fontWeight: 700 }}>방에서 온 소식</div>
-                      {selected.roomEvents.map((e, i) => (
-                        <div key={`re-${i}`} style={{ color: roomColor(e.level), lineHeight: 1.6 }}>
-                          {roomLine(e)} · [{e.room}] {e.label} — {e.text}
-                          {e.guessed && <span style={{ color: 'var(--text3)', fontSize: 10, marginLeft: 4 }}>추정 연결</span>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {(selected.alerts || []).map((a, i) => <div key={`al-${i}`} style={{ color: a.level === 'red' ? '#b02a2a' : '#b07500' }}>⚠ {a.text}</div>)}
-                  {(selected.issues || []).map((t, i) => <div key={i} style={{ color: '#b02a2a' }}>⚠ {t}</div>)}
-                </div>
-              )}
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table className="tbl" style={{ fontSize: 12 }}>
-                <thead>
-                  <tr><th>차수·나라</th><th>편명</th><th>박스</th><th>도착 예정</th><th>상태</th><th>실제 위치</th></tr>
-                </thead>
-                <tbody>
-                  {shown.length === 0 && (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: 18, color: 'var(--text3)' }}>
-                      {data.feed?.ok ? '지금 들어오는 비행기 공지가 없습니다' : '도착 공지를 읽지 못했습니다'}
-                    </td></tr>
-                  )}
-                  {shown.map(f => (
-                    <Fragment key={f.key}>
-                    <tr onClick={() => setSelectedKey(f.key)} style={{ cursor: 'pointer', background: f.key === selectedKey ? '#f0f6ff' : undefined }}>
-                      <td>
-                        <b>{f.weekLabel}</b> {f.country}
-                        {(f.issues || []).length > 0 && <span title={f.issues.join('\n')} style={{ color: '#b02a2a', marginLeft: 4 }}>⚠</span>}
-                        <div style={{ fontSize: 10, color: 'var(--text3)' }}>{f.itemLabel}</div>
-                      </td>
-                      <td>{f.flight || <span style={{ color: '#b07500' }}>없음</span>}<div style={{ fontSize: 10, color: 'var(--text3)' }}>{f.awb || '빌번호 없음'}</div></td>
-                      <td style={{ textAlign: 'right' }}>{f.box ? fmt(f.box) : '-'}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        {arrivalText(f)}
-                        {f.actual?.estimatedAt && (() => {
-                          const dv = delayView(f.actual);
-                          return (
-                            <div style={{ fontSize: 10, color: 'var(--text3)' }}>
-                              공항 {shortTime(f.actual.estimatedAt)}{f.actual.remark ? ` ${f.actual.remark}` : ''}
-                              {dv && <b style={{ color: dv.color, marginLeft: 4 }}>{dv.text}</b>}
-                            </div>
-                          );
-                        })()}
-                      </td>
-                      <td><StatusChip f={f} /></td>
-                      <td onClick={e => e.stopPropagation()}>
-                        {(f.links?.aircraftTrack || f.links?.flightTrack)
-                          ? <a href={f.links.aircraftTrack || f.links.flightTrack} target="_blank" rel="noopener noreferrer" title={f.aircraft?.regNo ? `기체 ${f.aircraft.regNo}${f.aircraft.type ? ` (${f.aircraft.type})` : ''} — 그 비행기의 실제 위치를 엽니다` : '편명으로 실제 위치를 엽니다(기체 번호는 공항 자료가 잡히면 표시)'} style={{ color: 'var(--blue)', whiteSpace: 'nowrap' }}>실제 위치 ↗{f.aircraft?.regNo ? <span style={{ display: 'block', fontSize: 10, color: 'var(--text3)' }}>기체 {f.aircraft.regNo}</span> : null}</a>
-                          : <span style={{ color: 'var(--text3)' }}>-</span>}
-                      </td>
-                    </tr>
-                    {f.checklist?.steps?.length > 0 && (
-                      <tr onClick={() => setSelectedKey(f.key)} style={{ cursor: 'pointer', background: f.key === selectedKey ? '#f0f6ff' : undefined }}>
-                        <td colSpan={6} style={{ padding: '2px 8px 8px' }}>
-                          <FlightStrip f={f} faded={f.status === 'registered'} busy={busyAwb === f.awb} onToggleDocs={toggleDocs} />
-                        </td>
-                      </tr>
-                    )}
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 4, fontSize: 11, color: 'var(--text3)', flexWrap: 'wrap' }}>
-                {done.length > 0 && (
-                  <button type="button" className="btn btn-sm" onClick={() => setShowDone(v => !v)}>
-                    {showDone ? '입고 등록 끝난 편 숨기기' : `입고 등록 끝난 편 ${done.length}건 보기`}
+            <div ref={detailRef} onKeyDown={moveTableFocus} aria-label="처리 순서별 항공편" style={{ minWidth: 0 }}>
+              {!shown.length && <p>지금 확인할 항공편이 없습니다.</p>}
+              {shown.map(f => {
+                const expanded = f.key === selectedKey;
+                const attention = f.priority < 2;
+                const track = f.links?.aircraftTrack || f.links?.flightTrack;
+                return <article key={f.key} tabIndex={-1} data-selected={expanded} data-testid="flight-card" onKeyDown={event => { if (event.key === 'Escape' && expanded) { event.stopPropagation(); setSelectedKey(''); } }} style={{ border: expanded ? '2px solid #1668c7' : '1px solid #d7e0ea', borderLeft: `4px solid ${f.priority === 0 ? '#b02a2a' : f.priority === 1 ? '#b07500' : '#aab8c8'}`, borderRadius: 8, padding: 10, marginBottom: 8, background: expanded ? '#f0f6ff' : '#fff', fontSize: 13, lineHeight: 1.6 }}>
+                  <button type="button" data-flight-select className="flight-select" aria-expanded={expanded} onClick={event => selectDetail(expanded ? '' : f.key, event)}>
+                    <b>{f.boardNumber}. {f.country} · {f.flight || '편명 미확인'}</b>
+                    <span>{f.priority === 0 ? '우선 확인' : f.priority === 1 ? '확인 필요' : f.status === 'registered' ? '입고 등록 끝' : '이슈 없음'} {expanded ? '▴' : '▾'}</span>
                   </button>
-                )}
-                {data.unannounced?.length > 0 && (
-                  <span title={data.unannounced.map(u => `${u.orderWeek} ${u.country} ${u.awb} ${fmt(u.boxes)}박스`).join('\n')}>
-                    최근 3일 입고 등록 중 도착 공지에서 못 찾은 빌번호 {data.unannounced.length}건
-                  </span>
-                )}
-              </div>
+                  <div><StatusChip f={f} /> <span>{f.weekLabel}차 · {f.itemLabel} · 공지 도착 {arrivalText(f)}</span></div>
+                  {(attention || expanded) && <>
+                    {f.flightIssues.length > 0 ? <ol className="flight-actions">{(expanded ? f.flightIssues : f.flightIssues.slice(0,2)).map(it => <li key={it.text}><span>{shortIssue(it.text)}</span><div className="flight-next">→ {nextAction(it)}</div></li>)}</ol> : <p style={{ margin: '4px 0', color: 'var(--text3)' }}>{f.nextStep ? `${f.nextStep} 확인` : '현재 연결된 이슈 없음'}</p>}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                      {!expanded && f.flightIssues.length > 2 && <button type="button" className="btn btn-sm" onClick={event => selectDetail(f.key,event)}>이슈 {f.flightIssues.length}건 모두 보기</button>}
+                      {track && <a href={track} target="_blank" rel="noopener noreferrer" className="btn btn-sm">시간·실제 위치 원문 ↗</a>}
+                      <button type="button" className="btn btn-sm" disabled={loading} onClick={() => { setLoading(true); load(true); }}>공항 자료 다시 확인</button>
+                    </div>
+                  </>}
+                  {expanded && <div data-testid="flight-selected-detail" style={{ borderTop: '1px solid #d7e0ea', marginTop: 8, paddingTop: 8 }}>
+                    <div>항공사 {f.airline || '미확인'} · 빌번호 {f.awb || '미확인'}</div>
+                    <div>{f.origin?.name || '출발지 미확인'} → {f.via?.name ? `${f.via.name}(경유) → ` : ''}인천</div>
+                    <div>공항 예정(STA) {shortTime(f.actual?.scheduledAt) || '미확인'}{f.actual?.estimatedAt ? ` · ${/도착/.test(f.actual.remark || "") ? "공항 도착 표시" : "공항 예상"} ${shortTime(f.actual.estimatedAt)}` : ''}</div>
+                    <div style={{ color: 'var(--text3)' }}>자료 읽음 {shortTime(data.generatedAt)} KST · 출처: 인천공항 자료 · 미확인은 미처리 확정이 아닙니다.</div>
+                    <div>실린 품목: {(f.contents?.items || []).map(it => `${it.name} ${fmt(it.box)}박스`).join(' · ') || '내역 없음'}</div>
+                    <FlightStrip f={f} faded={f.status === 'registered'} busy={busyAwb === f.awb} onToggleDocs={toggleDocs} />
+                    {f.note && <div style={{ color: 'var(--text3)' }}>{f.note}</div>}
+                    {(f.roomEvents || []).length > 0 && <details><summary>연결된 공지 원문</summary>{f.roomEvents.map((e,i) => <p key={i}>{roomLine(e)} · {e.room} · {e.text}{e.guessed ? ' (추정 연결)' : ''}</p>)}</details>}
+                  </div>}
+                </article>;
+              })}
+              {done.length > 0 && <button type="button" className="btn btn-sm" onClick={() => setShowDone(v => !v)}>{showDone ? '입고 등록 끝난 편 숨기기' : `입고 등록 끝난 편 ${done.length}건 보기`}</button>}
+              {data.unannounced?.length > 0 && <p>도착 공지에서 찾지 못한 입고 빌번호 {data.unannounced.length}건</p>}
             </div>
           </div>
         </div>
       )}
       <style jsx>{`
+
+        .flight-select { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; border: 0; background: transparent; text-align: left; color: #163957; font: inherit; cursor: pointer; padding: 0 0 5px; }
+        .flight-select:focus-visible { outline: 2px solid #1668c7; outline-offset: 3px; }
+        .flight-actions { margin: 6px 0; padding-left: 22px; }
+        .flight-actions li { margin: 4px 0; }
+        .flight-next { color: #526981; font-size: 12px; }
+        .flight-map-panel { position: sticky; top: 8px; }
         @media (max-width: 900px) {
+          .flight-map-panel { position: static; }
           :global(.import-flight-grid) { grid-template-columns: minmax(0, 1fr) !important; }
         }
       `}</style>

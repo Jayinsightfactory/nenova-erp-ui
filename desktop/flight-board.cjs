@@ -1,5 +1,6 @@
 'use strict';
 const {createHash}=require('node:crypto');
+const {linkedFlights}=require('./shell/flight-board');
 // 앱 홈 「수입 비행기 현황」: 로그인 세션으로 네노바웹 /api/import/flight-board 를 읽어 홈에 필요한 칸만 추려 넘긴다(읽기 전용).
 // 운송장 번호는 홈 요약에 필요 없어 넘기지 않는다.
 const {ORIGIN}=require('./policy.cjs');
@@ -38,7 +39,7 @@ function projectFlightBoard(data){
   issues.sort((a,b)=>(a.level==='red'?0:1)-(b.level==='red'?0:1));
   const todo=issues.slice(0,40);
   const rows=data.flights.filter(f=>f&&typeof f==='object'&&STATUS.includes(f.status));
-  const flights=rows.filter(f=>f.status!=='registered').slice(0,8).map(f=>{
+  const flights=linkedFlights(rows,candidates).filter(f=>f.status!=='registered').slice(0,8).map(f=>{
     const steps=Array.isArray(f.checklist?.steps)?f.checklist.steps.filter(x=>x&&typeof x==='object'):[];
     const next=steps.find(x=>x.state==='late')||steps.find(x=>x.state==='due');
     const progress=Number(f.progress);
