@@ -1024,92 +1024,92 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.014
+              "seconds": 0.016
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.608
+              "seconds": 10.617
             },
             {
               "scenario": "week",
               "title": "3. 세부차수 조회",
-              "seconds": 21.172
+              "seconds": 21.169
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 31.747
+              "seconds": 31.739
             },
             {
               "scenario": "download",
               "title": "5. 다운로드·ETA 창 열기",
-              "seconds": 42.864
+              "seconds": 42.833
             },
             {
               "scenario": "eta",
               "title": "6. ETA 날짜 입력",
-              "seconds": 53.532
+              "seconds": 53.41
             },
             {
               "scenario": "save",
               "title": "7. ETA 저장·엑셀 다운로드",
-              "seconds": 65.843
+              "seconds": 65.672
             },
             {
               "scenario": "china",
               "title": "8. 중국 발주 조회",
-              "seconds": 76.968
+              "seconds": 76.564
             },
             {
               "scenario": "china-cycle",
               "title": "9. 중국 차수 선택",
-              "seconds": 87.592
+              "seconds": 87.126
             },
             {
               "scenario": "china-week",
               "title": "10. 중국 세부차수 선택",
-              "seconds": 98.179
+              "seconds": 97.697
             },
             {
               "scenario": "farm",
               "title": "11. 기본 수신명 수정",
-              "seconds": 108.796
+              "seconds": 108.286
             },
             {
               "scenario": "split",
               "title": "12. 농장별 파일 나누기",
-              "seconds": 120.733
+              "seconds": 120.296
             },
             {
               "scenario": "assign",
               "title": "13. 농장 1 품목 선택",
-              "seconds": 131.329
+              "seconds": 130.867
             },
             {
               "scenario": "farm-download",
               "title": "14. 농장별 파일 확인",
-              "seconds": 141.984
+              "seconds": 141.466
             },
             {
               "scenario": "farm-save",
               "title": "15. 농장 파일 다운로드",
-              "seconds": 152.587
+              "seconds": 152.065
             },
             {
               "scenario": "chat",
               "title": "16. 최근 2일 카톡 확인",
-              "seconds": 163.202
+              "seconds": 162.797
             },
             {
               "scenario": "sum",
-              "title": "17. 추가분 자동 합계",
-              "seconds": 173.78
+              "title": "17. 품목군 선택·자동 합계",
+              "seconds": 173.374
             },
             {
               "scenario": "copy",
               "title": "18. 농장 전달용 복사",
-              "seconds": 184.341
+              "seconds": 183.988
             }
           ]
         }
@@ -1452,6 +1452,14 @@
               "seconds": 281
             }
           ]
+        }
+      ],
+      "videoWaivers": [
+        {
+          "file": "desktop/shell/shell.js",
+          "sha256": "604681a1bb22ff1f337c8f82188380734bcc7b7dd9ee1f675f1f35fa6cc3fe22",
+          "reason": "앱 업데이트 필요 시 붉은색 강조 표시 및 PM 라이브 확인 패널 버튼(오류관제 열기·흐름도) 구성 변경 — 오늘의 내 업무·시간표·메모장·달력 11단계 가이드 조작 순서는 변경 없음",
+          "approvedBy": "2026-11-18 UI 강조·버튼 표시 변경 (desktop-task-schedule-smoke --dry-run 11장 검증 통과)"
         }
       ]
     }
