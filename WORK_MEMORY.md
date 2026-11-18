@@ -3345,3 +3345,12 @@ pm run test:canon 통과.
 - 주의/잠금: 운영 원장 쓰기 없음. 지도 위치·출발은 예측 표시, 인천공항 제공 시각은 별도 표시. 직원 PC 재시작 금지 유지. 기능 작업트리 잠금 해제, 인계 PR 병합 후 인계 작업트리도 즉시 정리.
 - 보관: 비행기 영상 https://drive.google.com/file/d/1V7TIPQLJ3T8agKiInTlMc7JKT7W2Tebg/view / 홈 영상 https://drive.google.com/file/d/167ZuGiC6YKAs7XuY0bLGcmIeyn7av89V/view / 최종 홈 proof 17jVTfACtfhj_0A5p-eDolM5GYrlGTdmB / 공개 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.34.
 - 검색어: 1.3.34 운영 완료 비행기 확대 지도 상세 인천공항 STA STD ATD 홈 이슈 즐겨찾기 상단 자동 업데이트 배포 인계
+
+## 2026-11-18 카톡 원문 선별·분류 재작업
+- 요약: 전체 카톡/기존 추출칸을 보여주던 구현을 사용자 정정에 맞게 원문 기반 발주 선별로 교체. 일반 문의/불량/사진 제외, 발주와 취소·변경·불명확 요청 분리. 원문 수량 우선, 업체/CL 문맥, 국가/품목군/연도/차수/단위 합계, 동일시각/작성자/원문 중복제거. 관련 취소가 있는 추가분도 검토로 이동. 농장요청 메모 보존.
+1. 작업 위치: nenova-erp-ui / codex/import-kakao-filter / nw-cdx-import-filter / PR 예정.
+2. 완료된 것: importKakaoOrderText 공통분석, 기존 reader/합계/API/화면/계약 및 원문형 recorder fixture. 기준은 docs/plans/import-kakao-filter-2026-11-18.md.
+3. 남은 할 일: 최신 master 통합 후 필수검증/최종가이드/PR/CI/배포/운영 확인.
+4. 검증 상태: raw fixture 수국30+10=40, 카네이션 MoonLight1+2+1=4, 루스커스3, 23품목1445송이, CL/단위/차수/연도/취소/중복/음수/총수량 구분 및 실제 GET 권한/날짜/조회범위 통과. 실제 Chrome 필터/자동합계/일반대화·중복제외/검토/갱신/키보드/390px dry 통과. 실제 수집본1711개 요청 원문 메모리 분석: addition276/review310/excluded1125 (중복제거·연관취소처리 전 분류 통계, 정확도 전수 수동검증 아님). 최근2일31개 원문 모두 일반대화 제외로 분류. 전체 gate/운영 미검증.
+5. 주의/잠금: 본 작업트리 카톡 관련 파일/국가별발주서 recorder와 가이드만. ERP DB 접근/쓰기 및 카톡발송0. 원문/작성자 개인정보를 로컬 파일에 저장하지 않고 메모리에서 분석. 사진내품목/불명확문맥/단위미상은 확인 필요로 남김.
+- 검색어: 카톡 원문 선별 classifyImportFeed analyzeImportMessage 수국 40 1445 st 스템 중복 취소 검토

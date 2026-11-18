@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { validItem, farmTotals, importItemView } from '../../lib/importKakaoAdditions';
+import { validItem, farmTotals, importItemView, importTotalsText } from '../../lib/importKakaoAdditions';
 
-const fields = [['group','품목군'],['product','품종'],['quantity','수량'],['unit','단위'],['customer','업체 / CL']];
+const fields = [['country','국가'],['group','품목군'],['week','차수'],['product','품종'],['quantity','수량'],['unit','단위'],['customer','업체 / CL']];
 function RecentReview() {
   const [feed, setFeed] = useState(null);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
   const [edits, setEdits] = useState({});
   const [notice, setNotice] = useState('');
+  const [filter, setFilter] = useState('');
+  const [showReview,setShowReview]=useState(false);
   useEffect(() => {
     const controller = new AbortController();
     let pending = false;
@@ -39,15 +41,31 @@ function RecentReview() {
     };
   }, [retry]);
   const messages = feed?.messages || [];
+  const reviews = feed?.review || [];
+  const groupKey=row=>[row.country||'국가 미상',row.group||'품목군 미상'].join(' · ');
+  const groups=[...new Set([...messages,...reviews].flatMap(m=>m.items.map(groupKey)))].sort();
+  const activeFilter=groups.includes(filter)?filter:'';
   const view = row => importItemView(row, edits[row.key]);
   const update=(key,patch)=>{setNotice('');setEdits(prev=>({...prev,[key]:{...prev[key],...patch}}));};
-  const rows=(messages||[]).flatMap(m=>m.items.map(view));
-  const invalid=rows.some(r=>r.checked&&!validItem(r));
+  const rows=[...messages,...reviews].flatMap(m=>m.items.filter(r=>!activeFilter||groupKey(r)===activeFilter).map(view));
+  const invalid=rows.some(r=>r.checked&&(!validItem(r)||!r.unit||!/^\d{1,2}(?:-\d{1,2})?$/.test(r.week)));
   const totals=farmTotals(rows);
   async function copy() {
-    const lines=totals.map(r=>(r.group?r.group+' · ':'')+r.product+' '+r.quantity+r.unit+(r.notes?' ('+r.notes+')':''));
-    try { await navigator.clipboard.writeText(lines.join('\n')); setNotice('전달용 합계를 복사했습니다.'); }
+    try { await navigator.clipboard.writeText(importTotalsText(totals)); setNotice('전달용 합계를 복사했습니다.'); }
     catch {setNotice('복사할 수 없습니다. 합계 표를 선택해 복사하세요.');}
+  }
+  function renderMessage(m) {
+    const visible=m.items.filter(r=>!activeFilter||groupKey(r)===activeFilter);
+    if(activeFilter&&!visible.length)return null;
+    return <details key={m.id} open className="kakao-order-message"><summary>{m.time} · {m.kind==='review'?'검토 필요':'추가 발주'} · {m.text.split('\n')[0].slice(0,48)}</summary>
+      {m.reason&&<p className="kakao-review-reason">{m.reason} · 확인 전 합계 제외</p>}
+      <blockquote>{m.text}</blockquote>
+      {visible.map(base=>{const row=view(base);return <fieldset key={row.key}><legend><label><input type="checkbox" checked={!!row.checked} onChange={e=>update(row.key,{checked:e.target.checked})}/> {m.kind==='review'?'검토 후 합산':'합산'} · {row.product||'품종 확인'}</label></legend>
+        {fields.map(([key,label])=><label key={key}>{label}<input value={row[key]||''} onChange={e=>update(row.key,{[key]:e.target.value})}/></label>)}
+        <small>{row.checked?'합계에 포함':row.reviewReason||'합계에서 제외'}{row.note&&' · 요청: '+row.note}</small>
+      </fieldset>;})}
+      {m.unparsed?.length>0&&<p>해석하지 못한 수량 행: {m.unparsed.join(' / ')}</p>}
+    </details>;
   }
   return <>
     <p>최근 2일 · 오늘과 어제 · 최신 카톡순 · 1분마다 갱신</p>
@@ -55,21 +73,19 @@ function RecentReview() {
     {error && <p role="alert">{error}</p>}
     {!feed && !error && <p role="status">수입방 카톡을 불러오는 중…</p>}
     {feed && <p>{feed.from} ~ {feed.to}{feed.latest && ' · 최근 수집 원문 ' + feed.latest}</p>}
-    {feed && messages.length === 0 && <p role="status">최근 2일 동안 동기화된 원문이 없습니다.</p>}
-    <p>추출된 품목·수량을 자동 합산합니다. 업체 없는 수량도 포함합니다. 제외할 항목은 체크를 해제하세요.</p>
+    {feed?.stats&&<p className="kakao-counts">카톡 {feed.stats.scanned}건 분석 · 추가 발주 {feed.stats.selected}건 · 검토 {feed.stats.review}건 · 일반 대화 제외 {feed.stats.excluded}건 · 중복 제외 {feed.stats.duplicates}건</p>}
+    <p>발주에 해당하는 카톡만 선별해 원문의 품목·수량을 합산합니다. 업체 없는 수량도 포함하며, 취소·변경·조건부 요청은 검토로 분리합니다.</p>
+    {groups.length>0&&<label>국가 · 품목군 <select aria-label="카톡 국가·품목군" value={activeFilter} onChange={e=>{setFilter(e.target.value);setNotice('');}}><option value="">전체 발주</option>{groups.map(g=><option key={g}>{g}</option>)}</select></label>}
     <h4>농장 전달용 자동 합계</h4>
-    {invalid && <p role="alert">체크한 행의 품종과 양수 수량을 확인하세요.</p>}
-    {totals.length>0 && !invalid ? <><div className="kakao-table"><table><thead><tr>{['품목군','품종','수량','비고 (업체·수량)'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>
-      {totals.map(r=><tr key={r.key}><td>{r.group||'미분류'}</td><td>{r.product}</td><td>{r.quantity} {r.unit}</td><td>{r.notes}</td></tr>)}
-    </tbody></table></div><button type="button" onClick={copy}>농장 전달용 복사</button></> : !invalid && feed && <p role="status">현재 원문에서 합산할 추가 발주 품목·수량이 확인되지 않았습니다.</p>}
+    {invalid && <p role="alert">합산할 행의 차수(예: 46-01), 품종, 양수 수량과 단위를 확인하세요.</p>}
+    {totals.length>0 && !invalid ? <><div className="kakao-table"><table><thead><tr>{['국가·품목군 / 차수','품종','수량','비고 (업체·수량)'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>
+      {totals.map(r=><tr key={r.key}><td>{groupKey(r)}<br/>{r.year}/{r.week}차</td><td>{r.product}</td><td>{r.quantity} {r.unit}</td><td>{r.notes||'업체 미기재'}{r.requests&&<small><br/>요청: {r.requests}</small>}</td></tr>)}
+    </tbody></table></div><button type="button" disabled={!!error} onClick={copy}>농장 전달용 복사</button></> : !invalid && feed && <p role="status">현재 범위에 자동 합산할 추가 발주가 없습니다.{reviews.length>0?' 검토 필요 목록을 확인하세요.':''}</p>}
     <span role="status">{notice}</span>
-    <h4>수입방 원문 · {messages.length}건</h4>
-    {messages.map(m=><details key={m.id} open><summary>{m.time} {m.week && ' · '+m.week+'차'} · {m.text.split('\n')[0].slice(0,48)}</summary>
-      <blockquote>{m.text}</blockquote>
-      {m.items.map(base=>{const row=view(base);return <fieldset key={row.key}><legend><label><input type="checkbox" checked={!!row.checked} onChange={e=>update(row.key,{checked:e.target.checked})}/> 합산 · {row.product||'품종 직접 입력'}</label></legend>
-        {fields.map(([key,label])=><label key={key}>{label}<input value={row[key]} placeholder={key==='group'?'예: 콜롬비아수국':undefined} onChange={e=>update(row.key,{[key]:e.target.value})}/></label>)}
-        <small>{row.reviewReason || (validItem(row) ? (row.checked ? '합계에 포함' : '합계에서 제외') : '추출된 품목·수량 없음 · 원문 확인')}</small>
-      </fieldset>;})}</details>)}
+    <h4>선별된 추가 발주 원문 · {messages.filter(m=>!activeFilter||m.items.some(r=>groupKey(r)===activeFilter)).length}건</h4>
+    {messages.map(renderMessage)}
+    {reviews.length>0&&<><button type="button" aria-expanded={showReview} onClick={()=>setShowReview(v=>!v)}>검토 필요 {reviews.length}건 {showReview?'접기':'보기'}</button>
+      {showReview&&<section aria-label="카톡 발주 검토"><p>취소·대체·조건부 요청은 자동 합산하지 않습니다. 원문과 연결되는 발주를 확인한 뒤 필요한 행만 수정·체크하세요.</p>{reviews.map(renderMessage)}</section>}</>}
   </>;
 }
 export default function KakaoAdditions() {
