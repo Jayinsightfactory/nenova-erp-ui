@@ -3784,6 +3784,6 @@ pm run test:canon 통과.
 - 검색어: flight workflow NENOVAKAKAO Australian route 47-01 WarehouseKey 인보이스 수량 검역회차
 1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/flight-workflow-handoff-1118 / c027/nenova-erp-ui/nw-flight-workflow / #1849 squash 2172fd3c.
 2. 완료: 접힌 웹·Desktop 카드에 항공사·운송장·운송 구간·품목/공지/입고 수량·STA/ETA/작업 상태. 별도 검역·소독·수입신고 접수/수리 및 연결 송장 확인본. 홈 8편 상한 제거와 업무 폭 조정. Desktop 1.3.43 정식 공개, 최신 공개 latest.yml CI 자산 일치.
-3. 남은 일: Cafe24 최신 44281344645 및 운영 화면 확인 대기. #1849는 최신 37c76dfb 포함. 이 PC 설치 1.3.42.0, 사용자 업무 보호로 재시작하지 않음.
-4. 검증: FormWarehouseView decompile과 실제 2026/47-01 입고 SELECT(마스터 10건, 480박스, 연결 완료 인보이스 0건), 전체 계약·가이드·Linux CI 44277987222와 Windows CI 44277987689 통과. 1920px 연습 셸의 내 업무 폭 약 505→337px, 850px에서 세로 배치/가로 넘침 없음. 호주 최근 14일 NENOVAKAKAO 3개방 검색 11/6 이전 자료만, 브리즈번→인천 연습 노선 확인.
+3. 남은 일: 코드·웹 배포 완료. 설치된 앱은 1.3.42.0이며 앱 업데이트 확인으로 홈 변경 적용. 이 PC 앱 재시작과 1.3.43 실제 설치는 미검증.
+4. 검증: FormWarehouseView decompile과 실제 2026/47-01 입고 SELECT(마스터 10건, 480박스, 연결 완료 인보이스 0건), 전체 계약·가이드·Linux CI 44277987222와 Windows CI 44277987689 통과. 1920px 연습 셸의 내 업무 폭 약 505→337px, 850px에서 세로 배치/가로 넘침 없음. 호주 최근 14일 NENOVAKAKAO 3개방 검색 11/6 이전 자료만, 브리즈번→인천 연습 노선 확인. 최신 Cafe24 44282323692 (7eb1c050, #1849 포함) SSH 및 hydration 성공. 19:15 KST 앱 내 운영 웹 접힌 카드와 수량 상세 클릭 검증: K4254 공지·전산 수국 입고 각 480박스, 인보이스 확인본 미확인. 이전 운영 실행은 최신 master 교체로 중단 또는 대기열 교체.
 5. 주의/잠금: ERP/카톡 수집기 쓰기 없음. 예시 편 인보이스 원문 없음으로 확정할 수량 제한. 업무일·차수·정규화 AWB와 완료 문서 버전으로 조회, 기존 권한 유지. 소독은 원문 근거, 변경 검역 회차는 내부 예상. 설치본 SHA256 8e4126cef3398c6251dff233c65112f0513dc02f3b389d060157e62eab3744c2.
