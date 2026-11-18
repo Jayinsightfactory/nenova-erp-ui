@@ -3762,18 +3762,11 @@ pm run test:canon 통과.
 4. 검증 상태: `commercialSuiteDemo.test.js`, `workflowReview.test.js`, `test:ui-layout`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `guard:erp-writes`, `test:erp-manifest`, `desktopBootstrap.test.mjs`, `desktop/tests/menu.test.cjs`, `npx next build --webpack`(메모리 보호 빌드 락 적용) 모두 통과. 운영 배포 후 실제 화면 확인은 미검증.
 5. 주의/잠금: 100% 가상 시연 전용(사내 실명·실거래·계좌·MSSQL 연결 없음), 금지어(`감시`/`추적`/`모니터링`) 비포함 유지, 기존 `/demo/tenant-studio` 무수정.
 
-## 2026-11-18 · 입고관리 농장 검색·상세 가로 이동·최고가
-- 검색어: 입고관리 농장명 잘림 열 검색 상세 여백 상단 스크롤 최신원가 최고가 1.3.43
-1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/receipt-density-1118 / Documents/Codex/2026-11-12/new-chat/nw-receipt-density / PR 준비 중.
-2. 완료된 것: pages/incoming.js의 200px 농장명 줄바꿈·열 검색, 반응형 원장/상세, 상단 양방향 스크롤, 표 여백 축소, 최신원가 기본 최고가/상세 선택. Desktop 기존 입고관리 메뉴에서 동일 URL, 버전 1.3.43. 최고가는 같은 연도의 최신 차수에서 환산 가능한 동일 단위 KRW 기준의 엄격한 기존 판정 재사용.
-3. 남은 할 일: 양 역할 실제 가이드 녹화·재생·Drive 보관, 필수 검사·PR CI·squash·Cafe24 및 데스크톱 배포와 운영 읽기 확인.
-4. 검증 상태: 기존 최신원가 계약 4건 및 합성 Chrome /incoming?popup=1에서 검색 12→1, 상단 오른쪽 스크롤, 최고가 1,350원/단 기본 및 상세의 1,000원/단 노출 검증. 운영/직원 PC는 미검증.
-5. 주의/잠금: 행 선택·필터·원가 표시는 기존 GET만 사용. WarehouseMaster/Detail, 주문·출고·재고·확정 원가 및 다른 화면 저장 범위 불변. 촬영 중 instrumentation.js 임시 교체는 촬영 스크립트가 복구. 직원 PC 재시작 금지.
-
-## 2026-11-18 · 입고관리 UI 검증 및 가이드 보관
-- 검색어: receipt density farm search scroll highest reference 가이드 1.3.43
-1. 작업 위치: nenova-erp-ui / codex/receipt-density-1118 / nw-receipt-density / PR 등록 전.
-2. 완료된 것: 최신 기준선 통합, 수입부 5단계(44,837,729바이트)·영업지원 3단계(31,284,462바이트) 실제 화면 가이드 갱신. 회사 Drive 보관·크기 확인 수입부 MP4 1vZQaWpDTBeH0NNE_-c19HFYZcq-1VEdt, VTT 1p6wecWaZNa3lZsbrh5Rj-M6sxRNI-0E1, proof 1sfw6kA_bmELPBUOIQ8_NSP2yD1IZ_M8v. 영업지원 MP4 1kLR9otsruMFq-soiIXetteeROUDJN7mk, VTT 1aps34w8SPf2YBeVsBOkvQ7khXTlZIzBs, proof 16Nkgz8C_-IHYjvc5Tguhj3svaXYlqLbN.
-3. 남은 할 일: PR 필수 CI·squash, Cafe24/Windows 공개 배포, 운영 읽기 검증 및 정리.
-4. 검증 상태: 실제 Chrome 합성 경로, 최신원가 계약 4건, 정식 Next webpack 빌드, dnSpy, manifest 228, write guard(변경 API 0), 가이드(27흐름/28영상·변경 소스) 통과. 최종 CI와 운영은 미검증.
-5. 주의/잠금: 개발 서버 재로딩이 발생한 촬영은 폐기. 최종 증거는 합성자료 정식 로컬 서버 촬영. 공유 원장 쓰기 없음, 직원 PC 재시작 안 함.
+## 2026-11-18 · 사장님 솔루션 마스터 목표 정본화 & 현실적 가능·불가능 판정 기준표 구축
+- 요약: `nenova-pm/product-vision` · `nowlink/docs` · `mindmap-viewer/docs` · `nenova-erp-ui/docs` · `~/.claude` 전역 작업/대화 기록을 전수 발굴해 `docs/SOLUTION_VISION_AND_FEASIBILITY.md` 정본 문서(Part 1 상용 목표 P0~P3 · NOWLINK Watch/Build/Team+Device · 실측/미검증 지표 / Part 2 즉시 자동·조건부·불가능·절대금지 및 2026-11-18 해결 전환·오진 교정 이력)를 작성하고, `/my-work?tab=arch` (`components/pm/ArchFlowChart.js`)에 필터형 인터랙티브 기준표(`data-testid="arch-vision-feasibility"`)와 `__tests__/archFlowChart.test.js` 검증 단언을 추가. `C:\Users\USER\nenova-pm\product-vision\goals.json`(.bak-1118 백업 보존)에 확장 목표(`g11~g16`)를 최신화하고 `office-feed.js` 업로드(`200 ok`) 확인.
+- 검색어: 솔루션목표 현실적가능 불가능 정본 SOLUTION_VISION_AND_FEASIBILITY arch-vision-feasibility goals.json NOWLINK PhoneHarness DeviceHub
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/solution-vision-feasibility` / `C:\Users\USER\nw-agy-p2-vision` (PR #1850).
+2. 완료된 것: `docs/SOLUTION_VISION_AND_FEASIBILITY.md` 신규 작성, `components/pm/ArchFlowChart.js` `VISION_MASTER_STAGES`·`FEASIBILITY_ITEMS`·`data-testid="arch-vision-feasibility"` 섹션 추가, `__tests__/archFlowChart.test.js` 단언 추가, `C:\Users\USER\nenova-pm\product-vision\goals.json` 백업(.bak-1118)·확장(`g11~g16`) 및 `office-feed.js` 업로드(`200 ok`), PR #1846/#1847 최신 `origin/master`(`fec7c9c0`) 병합.
+3. 남은 할 일: PR #1850 재동기화 CI `verify` 통과 대기 → squash 머지 → `goals.json` `g16` 완료(100%) 최종 갱신 및 `office-feed.js` 재업로드 → `nw-agy-p2-vision` worktree(`cmd /c rmdir` junction 선행) 정리.
+4. 검증 상태: `archFlowChart.test.js`, `workflowReview.test.js`, `test:pm`, `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack`(lock 적용) 재검증 통과. 운영 배포 후 `/my-work?tab=arch` 실브라우저 렌더링은 머지 후 확인 필요(미검증).
+5. 주의/잠금: MSSQL 원장·API·`pages/`·`desktop/shell/` 파일 변경 0건(기존 가이드 해시 무영향). `ArchFlowChart.js` 내 `#hex`·`<button`·금지어(`감시|추적|모니터링|절감시간`) 0건 정규식 검사 통과. `goals.json` `g01~g10` 기존 스키마·주차 수치·`goals.json.bak-1118` 보존됨.

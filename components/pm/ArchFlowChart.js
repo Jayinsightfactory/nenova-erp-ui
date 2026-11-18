@@ -512,6 +512,216 @@ const RUST_HOTPATHS = [
   },
 ];
 
+const VISION_MASTER_STAGES = [
+  {
+    id: 'p0',
+    code: 'P0 · 사내 완성',
+    tone: 'accent',
+    title: '/pm 사내 자발 정착 & 핵심 자동화 폐루프',
+    gate: '직원 70% 이상 주 2회 자발 접속 · 4주 연속 (W45 27% · W46 0% · W47 55%)',
+    metrics: 'goals.json g01~g16 통합 관리 · Hermes 97/97 SKILL.md · Rust 389.5KB(3.04~4.36배 가속)',
+    nextAction: '보상 루프(g02) 단일 PC 의존 해소 · Phone Harness 카나리 1대 연결(g14)',
+  },
+  {
+    id: 'p1',
+    code: 'P1 · 파트너 멀티테넌트',
+    tone: 'ok',
+    title: 'NOWLINK Watch / Build / Team + Device Add-on 상용 입주',
+    gate: '유료 2개사 3개월 연속 유지(해지 0) + 보안 사고 0건',
+    metrics: '테넌트 가드 968/998 · 교차접근 60/60 · 실행계층 226/226(g15)',
+    nextAction: '코드서명 인증서(Trusted Signing/OV) · 클린 PC 설치 · 과금/DPA 확정',
+  },
+  {
+    id: 'p2',
+    code: 'P2 · 업종 라운지 · 번역',
+    tone: 'warn',
+    title: '회사 식별 차단 업종 라운지 · 직원 소유 프로필 · 글로벌 협업',
+    gate: '예시: 외부 비고객 직원 100명 + 주간 라운지 30세션 (P1 말 확정)',
+    metrics: '실명/익명 계정 분리 · 급여·인사평가 무관 명문화 · MOYI 채팅/번역 재사용',
+    nextAction: '라운지 PoC(g10) 사장님 결정 · 민감어 마스킹 PoC(g08) · 국내 원본 거주 강제',
+  },
+  {
+    id: 'p3',
+    code: 'P3 · 검증 레시피 마켓',
+    tone: 'err',
+    title: '원본 데이터 제외 · 검증 절차/자동화 레시피 거래소',
+    gate: '예시: 유료 레시피 거래 10건 + 분쟁 0건 · 법무 검토 선행 (P2 말 확정)',
+    metrics: '라이브 매뉴얼(60건/10명) · 골 파이프라인(shadow.js) 원형 확보',
+    nextAction: '타사 환경 재생 패키징(mapping.json 표준화) · 정산/판매 동의 체계 구축',
+  },
+];
+
+const FEASIBILITY_CATEGORIES = [
+  ['all', '전체 판정'],
+  ['auto', '즉시 자동 가능'],
+  ['conditional', '조건부 가능 (승인/우회)'],
+  ['blocked', '불가능 · 절대 금지'],
+  ['solved_today', '오늘 해결 전환'],
+];
+
+const FEASIBILITY_ITEMS = [
+  {
+    id: 'f_web_excel',
+    verdict: 'auto',
+    solvedToday: false,
+    domain: '웹 ERP · 엑셀',
+    title: '네노바웹 DOM 판독 · excel.check(G0) · shadow.js 모의검증',
+    reason: 'Chrome UIA 4,750/5,210개 요소 식별 및 엑셀 75/108 시트 산술 앵커 자동 확인 완료',
+    guardrail: '127.0.0.1 모의 서버 격리 · 원본 SHA-256 해시 보존 · 실서버 무접촉',
+    source: 'EXEC_PATH.md · orbit-app-readability',
+  },
+  {
+    id: 'f_dual_path',
+    verdict: 'auto',
+    solvedToday: true,
+    domain: '업무방 메신저',
+    title: 'Dual-Path(PC+모바일) 업무방 수신 & dedup_key 병합',
+    reason: '오늘 Phone Harness + Device Hub 설계로 PC 잠금·18시·12장 사진 서랍 공백 해소',
+    guardrail: '지정 업무방 화이트리스트 한정 · 모바일 Outbound 차단 · sha256 무중복 병합',
+    source: 'session-02 · unified-device-work-solution',
+  },
+  {
+    id: 'f_rust_hermes',
+    verdict: 'auto',
+    solvedToday: true,
+    domain: '로그 · AI 루프',
+    title: 'Rust 핫패스 압축/해싱 & Hermes 다중 에이전트 폴백',
+    reason: 'hermes-core.exe(389.5KB, 3.04~4.36배 가속) + Claude↔Codex 폴백·JSONL 인계 구현',
+    guardrail: 'JS Fallback 병행(HERMES_DISABLE_RUST=1) · 97/97 SKILL.md · 로그 91.1% 압축',
+    source: 'hermes-manager.js · hermes-core-rs',
+  },
+  {
+    id: 'f_sidecar_draft',
+    verdict: 'auto',
+    solvedToday: true,
+    domain: '데스크톱 브릿지',
+    title: 'Electron 외부 사이드카 WSS 역터널 & [data-device-draft] 초안 전달',
+    reason: '아웃바운드 WSS 역터널 + 해시 무변경 홈 카드로 포트포워딩·모바일→PC 단절 해소',
+    guardrail: '127.0.0.1 + 32B Bearer · lockAccount() 즉시 차단 · 저장/확정 버튼 자동 클릭 금지',
+    source: 'session-03 · Desktop v1.3.40',
+  },
+  {
+    id: 'f_tier2_tier3',
+    verdict: 'auto',
+    solvedToday: false,
+    domain: '웹 스테이징 · 보고',
+    title: 'Tier 2(Web*) · Tier 3 JSON 분리 저장 & 나에게 보내기 보고',
+    reason: '공유 원장을 건드리지 않고 도착원가/클레임/유출 이력 및 1,200자 본인 카톡 보고 가능',
+    guardrail: 'GET 런타임 DDL 금지 · .tmp→renameSync 원자 교체 · SELF_MEMO 수신자 고정',
+    source: 'assertWebSchemaContract · kakao-report-mcp',
+  },
+  {
+    id: 'f_erp_write',
+    verdict: 'conditional',
+    solvedToday: false,
+    domain: '공유 ERP 원장',
+    title: 'Tier 1 공유 원장 쓰기 (Order* · Shipment* · Estimate · Warehouse*)',
+    reason: 'nenova.exe와 DB 공유 — 부분확정·음수재고·전년도 차수 혼입 위험으로 무승인 쓰기 불가',
+    guardrail: 'OrderYear+OrderWeek+CustKey+ProdKey · ApprovedBy<>ProposedBy · 409 잠금 · verify:week',
+    source: 'WebDeviceWorkQueue · NENOVA_WEB_COMPATIBILITY',
+  },
+  {
+    id: 'f_exe_g5',
+    verdict: 'conditional',
+    solvedToday: false,
+    domain: '데스크톱 EXE(G5)',
+    title: 'nenova.exe (DevExpress WinForms) UI 제어 — 매회 승인 필수',
+    reason: 'UIA 클릭 히트테스트 0/9(무명 Pane) 및 자동 되돌리기 불가로 G5 최고 주의 등급 적용',
+    guardrail: '원본 해상도 VLM 판독 + 매 실행 사람 승인 필수 · 가능 시 네노바웹 API(G1)로 전환',
+    source: 'TERMS_AUTOMATION_NOTE · orbit-app-readability',
+  },
+  {
+    id: 'f_waiting_human',
+    verdict: 'conditional',
+    solvedToday: true,
+    domain: '모바일 보안화면',
+    title: 'FLAG_SECURE · 가상키패드 · 잠금 PIN · 위챗 슬라이더 대응',
+    reason: 'OS 보안 및 안티봇 게이트 자동 돌파 불가 → 오늘 Device Hub WAITING_HUMAN 흐름으로 해결',
+    guardrail: '에이전트 즉시 Lease 반납 → 30~40fps 웹 화면에서 담당자 10초 직접 해제 후 재개',
+    source: 'session-01 · WebDeviceLease',
+  },
+  {
+    id: 'f_wsl_finance',
+    verdict: 'conditional',
+    solvedToday: false,
+    domain: 'WSL2 · 금융/서명',
+    title: 'Windows Docker ADB, 하나은행 OTP·바로빌 인증서, Azure 서명',
+    reason: 'WSL2 USB 패스스루 불가 · 은행 보안모듈/공동인증서(-31100) · 제3백신 예외 API 부재',
+    guardrail: 'Host ADB(5037)/Edge Box · RapidOCR · 1회 OTP/간편조회 · Trusted Signing/OV · 수동 예외 보고',
+    source: 'CODE_SIGNING · BAROBILL_API · hana-bank',
+  },
+  {
+    id: 'f_chrome_store',
+    verdict: 'conditional',
+    solvedToday: false,
+    domain: '확장 · 앱스토어',
+    title: '비도메인 PC 웹 수집 & MOYI 스토어(iOS/Android/Web) 출시',
+    reason: '비AD PC Chrome 강제확장 무시 · iOS Android 문구 금지 · Play 12명×14일 · Web inverted 반전',
+    guardrail: 'UIA Document URL 판별 대체 · useInverted 플랫폼 분기 · OTA(eas update) 우선 배포',
+    source: 'orbit-chrome-ext-forcelist · moyi-store',
+  },
+  {
+    id: 'f_bank_auto',
+    verdict: 'blocked',
+    solvedToday: false,
+    domain: '재무 · 자금',
+    title: '은행 이체 자동실행 · 결제 · 급여/인사평가 · 무승인 원장 변경',
+    reason: '금전 사고·법적 책임 경계 위반 및 원장 되돌리기 불가 — 상용 약관·모든 계층에서 원천 제외',
+    guardrail: '조회·대사·초안(DRAFT) 생성만 허용, 실제 이체·결제·최종 확정은 사람이 직접 실행',
+    source: 'TERMS_AUTOMATION_NOTE · NOWLINK_PRODUCT_PLAN',
+  },
+  {
+    id: 'f_ecount_write',
+    verdict: 'blocked',
+    solvedToday: false,
+    domain: '회계 ERP(ECOUNT)',
+    title: '이카운트 쓰기(입력·수정·저장·삭제·전표) & OAPI 판매현황 Pull',
+    reason: '회계 원장 오염 위험으로 조회 전용 절대 준수; OAPI에 기간별 판매현황 조회 endpoint 미존재',
+    guardrail: 'prgId 화이트리스트+쓰기 abort 2중 가드 · 조회/엑셀 업로드 비교만(1건 TEST 삭제 검증 예외 제외)',
+    source: 'feedback-ecount-readonly · ecount-oapi',
+  },
+  {
+    id: 'f_captcha_av',
+    verdict: 'blocked',
+    solvedToday: false,
+    domain: '보안 · 안티봇',
+    title: '캡차 우회 · 은행 보안모듈 무력화 · 백신 탐지 회피 구현',
+    reason: '약관·법규 위반 및 백신 오탐 회피는 ISMS/PIA 탈락과 악성코드 판정("제품 자살") 직결',
+    guardrail: '공식 코드서명 · WAITING_HUMAN 사람 직접 입력 · IT 관리자 수동 예외 등록으로만 대응',
+    source: 'nenova-solution-architecture · DAEMON_SURVIVAL',
+  },
+  {
+    id: 'f_privacy_rooms',
+    verdict: 'blocked',
+    solvedToday: false,
+    domain: '개인정보 · 노무',
+    title: '개인방 수집(1:1/가족방) · 개인 웹 수집 · 직원 평가 어휘 · 라운지 역식별',
+    reason: '통신비밀·개인정보보호법 리스크 및 직원 거부감 유발(실명/회사 신원 역식별 원천 차단 필요)',
+    guardrail: '지정 업무방 화이트리스트 한정 · 직원 소유권 명문화 · 유출 이력은 관리자 전용 열람',
+    source: 'PLAN.md · nenova-privacy-gate · workflowReview',
+  },
+  {
+    id: 'f_os_limits',
+    verdict: 'blocked',
+    solvedToday: false,
+    domain: 'OS · 인프라 한계',
+    title: 'Windows 단독 iOS 미러링 · 카톡 PC UIA 읽기 · Drive 캡처 업로드 · Turbopack',
+    reason: 'macOS 15+/Xcode 필수 · 카톡 UIA 4개 한계 · Drive 403 OOM(502) · Turbopack hydration 전멸 · Drive 빌드 락',
+    guardrail: 'Android 11~14 표준화 · Phone Harness · Railway 스풀+CLI · webpack 고정 · 로컬 worktree 후 정리',
+    source: 'session-01 · server-oom · turbopack-outage',
+  },
+  {
+    id: 'f_sql_traps',
+    verdict: 'blocked',
+    solvedToday: false,
+    domain: 'SQL · 금융 자격',
+    title: 'ShipmentDetail/WarehouseDetail.isDeleted · autoStockAdd · 금결원 도매 단독가입',
+    reason: '상세 테이블에 isDeleted 컬럼 부재(SQL 500), autoStockAdd 재고 부풀림, 도매업 KSIC 46xxx 오픈뱅킹 미해당',
+    guardrail: '마스터(sm/wm) 필터 · STOCK_INTEGRITY_DESIGN 절차 준수 · 하나/신한 개별 채널 이용',
+    source: 'shipmentdetail-no-isdeleted · openbanking-kftc',
+  },
+];
+
 export default function ArchFlowChart({
   timesave = null,
   workflows = null,
@@ -524,6 +734,8 @@ export default function ArchFlowChart({
   const [schemaView, setSchemaView] = useState('all');
   const [blueprintId, setBlueprintId] = useState('master');
   const [suiteSessionId, setSuiteSessionId] = useState('s1_phone_hub');
+  const [visionPhaseId, setVisionPhaseId] = useState('p0');
+  const [feasibilityFilter, setFeasibilityFilter] = useState('all');
   const [liveTs, setLiveTs] = useState(timesave);
   const [liveWf, setLiveWf] = useState(workflows);
 
@@ -570,6 +782,16 @@ export default function ArchFlowChart({
   const visibleLayers = schemaView === 'all' ? SCHEMA_LAYERS : SCHEMA_LAYERS.filter((layer) => layer.id === schemaView);
   const activeBlueprint = SOLUTION_BLUEPRINTS.find((bp) => bp.id === blueprintId) || SOLUTION_BLUEPRINTS[0];
   const activeSuiteSession = DEVICE_SUITE_SESSIONS.find((s) => s.id === suiteSessionId) || DEVICE_SUITE_SESSIONS[0];
+  const activeVisionPhase = VISION_MASTER_STAGES.find((st) => st.id === visionPhaseId) || VISION_MASTER_STAGES[0];
+  const filteredFeasibility = FEASIBILITY_ITEMS.filter((item) => {
+    if (feasibilityFilter === 'all') return true;
+    if (feasibilityFilter === 'solved_today') return item.solvedToday;
+    return item.verdict === feasibilityFilter;
+  });
+  const autoCount = FEASIBILITY_ITEMS.filter((it) => it.verdict === 'auto').length;
+  const condCount = FEASIBILITY_ITEMS.filter((it) => it.verdict === 'conditional').length;
+  const blockedCount = FEASIBILITY_ITEMS.filter((it) => it.verdict === 'blocked').length;
+  const solvedTodayCount = FEASIBILITY_ITEMS.filter((it) => it.solvedToday).length;
 
   return (
     <section className={`arch-root ${compact ? 'is-compact' : ''}`} aria-label="자가발전 솔루션 아키텍처 흐름도">
@@ -1117,6 +1339,133 @@ export default function ArchFlowChart({
           <span>
             웹 UI(Next.js)·비즈니스 규칙·일반 SQL API는 생산성을 위해 JS/TS를 유지하고, CPU·상주 메모리·단일 배포 이득이 확실한 핫패스에만 Rust + JS Fallback을 자동 적용합니다.
           </span>
+        </div>
+      </section>
+
+      {/* 솔루션 마스터 목표 & 현실적 가능 · 불가능 판정 기준표 */}
+      <section
+        className="arch-vision-feasibility"
+        data-testid="arch-vision-feasibility"
+        aria-label="솔루션 마스터 목표 및 현실적 가능 · 불가능 판정 기준표"
+      >
+        <div className="arch-schema-head">
+          <div>
+            <div className="arch-eyebrow">MASTER SOLUTION VISION &amp; FEASIBILITY MATRIX</div>
+            <h3>솔루션 마스터 목표 &amp; 현실적 가능 · 불가능 판정 기준표</h3>
+            <p className="arch-lede">
+              사장님 제품 비전(P0~P3 · NOWLINK Watch/Build/Team)의 단계별 통과 관문과, 과거 작업·대화 데이터에서 검증한
+              즉시 자동 가능 · 조건부 가능 · 불가능(절대 금지) 경계 및 오늘 해결 전환 항목을 한눈에 대조합니다.
+            </p>
+          </div>
+          <div className="arch-hermes-badges">
+            <Badge tone="ok">즉시 자동 {autoCount}건</Badge>
+            <Badge tone="warn">조건부 {condCount}건</Badge>
+            <Badge tone="plain">불가능·금지 {blockedCount}건</Badge>
+            <Badge tone="plain">오늘 해결 {solvedTodayCount}건</Badge>
+          </div>
+        </div>
+
+        <div className="arch-bp-grid" role="group" aria-label="상용 솔루션 단계별 마스터 목표 선택">
+          {VISION_MASTER_STAGES.map((stage) => {
+            const active = stage.id === activeVisionPhase.id;
+            return (
+              <SelectCard
+                key={stage.id}
+                on={active}
+                pressed={active}
+                className={`arch-loop-card arch-bp-card tone-${stage.tone} ${active ? 'is-on' : ''}`}
+                onClick={() => setVisionPhaseId(stage.id)}
+              >
+                <div className="arch-loop-top">
+                  <span className="arch-loop-no">{stage.code}</span>
+                  <Badge className="arch-loop-badge" tone={stage.tone === 'ok' ? 'ok' : stage.tone === 'err' ? 'warn' : 'plain'}>
+                    관문 기준
+                  </Badge>
+                </div>
+                <div className="arch-loop-title">{stage.title}</div>
+                <div className="arch-loop-summary">{stage.gate}</div>
+              </SelectCard>
+            );
+          })}
+        </div>
+
+        <div className="arch-bp-summary" aria-live="polite">
+          <div className="arch-bp-sum-card">
+            <b>선택 단계 관문 ({activeVisionPhase.code})</b>
+            <span>{activeVisionPhase.gate}</span>
+          </div>
+          <div className="arch-bp-sum-card tone-solution">
+            <b>현재 확보 자산 · 실측 수치</b>
+            <span>{activeVisionPhase.metrics}</span>
+          </div>
+          <div className="arch-bp-sum-card tone-guard">
+            <b>다음 우선 착수 과제</b>
+            <span>{activeVisionPhase.nextAction}</span>
+          </div>
+        </div>
+
+        <div className="arch-vf-toolbar">
+          <div className="arch-live-title">
+            현실적 가능 · 조건부 · 불가능 판정 필터 ({filteredFeasibility.length} / {FEASIBILITY_ITEMS.length}건)
+          </div>
+          <div className="arch-schema-filters" role="group" aria-label="실현 가능성 분류 필터">
+            {FEASIBILITY_CATEGORIES.map(([id, label]) => (
+              <ToggleChip
+                key={id}
+                on={feasibilityFilter === id}
+                className={`arch-filter-chip ${feasibilityFilter === id ? 'is-active' : ''}`}
+                onClick={() => setFeasibilityFilter(id)}
+              >
+                {label}
+              </ToggleChip>
+            ))}
+          </div>
+        </div>
+
+        <div className="arch-bp-table-wrap">
+          <table className="arch-bp-table">
+            <thead>
+              <tr>
+                <th scope="col">판정 · 영역</th>
+                <th scope="col">대상 기능 · 기술 항목</th>
+                <th scope="col">판정 근거 및 제약 한계</th>
+                <th scope="col">허용 대안 · 안전 가드 · 출처</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredFeasibility.map((row) => {
+                const badgeLabel = row.verdict === 'auto'
+                  ? '즉시 자동 가능'
+                  : row.verdict === 'conditional'
+                    ? '조건부 가능'
+                    : '불가능 · 금지';
+                const badgeTone = row.verdict === 'auto'
+                  ? 'ok'
+                  : row.verdict === 'conditional'
+                    ? 'warn'
+                    : 'plain';
+                return (
+                  <tr key={row.id} className={`arch-vf-row is-${row.verdict}`}>
+                    <td data-label="판정 · 영역" className="arch-vf-cell-status">
+                      <div className="arch-vf-badges">
+                        <Badge tone={badgeTone}>{badgeLabel}</Badge>
+                        {row.solvedToday && (
+                          <Badge tone="plain">오늘 해결 전환</Badge>
+                        )}
+                      </div>
+                      <div className="arch-vf-domain">{row.domain}</div>
+                    </td>
+                    <td data-label="대상 기능 · 기술 항목" className="arch-bp-cell-item">{row.title}</td>
+                    <td data-label="판정 근거 및 제약 한계" className="arch-vf-cell-reason">{row.reason}</td>
+                    <td data-label="허용 대안 · 안전 가드 · 출처" className="arch-bp-cell-pt">
+                      <div>{row.guardrail}</div>
+                      <code className="arch-vf-src">{row.source}</code>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -1947,6 +2296,59 @@ export default function ArchFlowChart({
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 10px;
+        }
+        .arch-vision-feasibility {
+          background: var(--arch-surface);
+          border: 1px solid var(--arch-line);
+          border-radius: 12px;
+          padding: 16px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .arch-vf-toolbar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          border-top: 1px solid var(--arch-line);
+          padding-top: 12px;
+        }
+        .arch-vf-toolbar .arch-live-title {
+          margin-bottom: 0;
+        }
+        .arch-vf-cell-status {
+          min-width: 155px;
+        }
+        .arch-vf-badges {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-bottom: 4px;
+        }
+        .arch-vf-domain {
+          font-size: 11.5px;
+          font-weight: 700;
+          color: var(--arch-muted);
+        }
+        .arch-vf-cell-reason {
+          min-width: 240px;
+          color: var(--arch-ink);
+        }
+        .arch-vf-row.is-blocked .arch-bp-cell-item {
+          color: var(--arch-err);
+        }
+        .arch-vf-src {
+          display: inline-block;
+          margin-top: 4px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 11px;
+          color: var(--arch-accent);
+          background: color-mix(in srgb, var(--arch-bg) 75%, transparent);
+          border: 1px solid var(--arch-line);
+          border-radius: 4px;
+          padding: 1px 6px;
         }
         @media (max-width: 1040px) {
           .arch-nodes, .arch-loops-grid, .arch-bp-grid {
