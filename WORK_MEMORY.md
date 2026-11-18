@@ -3524,6 +3524,13 @@ pm run test:canon 통과.
 - 회사 Drive 최종 원본: MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol (514.3초/42,948,556bytes), VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat (12,846bytes), proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn (18,775bytes). 14단계/자막76개 프레임 대조·대표 장면 육안 확인. 과거1.3.35 자료는 미공개 초안이며 최종 근거 아님.
 - 검색어: deployed calendar 1.3.36 f1bc55db 즐겨찾기 전체 접기 열기 달력 가로20% 공휴일12개국 상세 편집 주차별 유지 운영 검증 공개 피드 직원PC 재시작 안함
 
+## 2026-11-18 수입방 3영역 대조 UI 작업
+- 검색어: 카톡 25% 중앙원문 우측합계 차수 품목군 버튼 sourceKeys audit 누락확인
+1. 작업 위치: nenova-erp-ui / codex/import-kakao-match-layout / nw-cdx-kakao-match / PR예정.
+2. 완료된 것: 25%생성영역·중앙원문·우측합계, 차수/품목군버튼, 합계기여행 sourceKeys 양방향매칭, audit=1 명시GET과 분류건수대조·제외원문검색·수동검토복구.
+3. 남은 할 일: 브라우저 회귀·가이드갱신·전체ERP/build/CI·배포·운영확인.
+4. 검증 상태: 표적 원문/API/합산/누락대조·수동검토순수함수 PASS; 실제브라우저 및 전체검증 진행중. 운영 미검증.
+5. 주의/잠금: 본worktree만 수정. 카톡방 자체 수집완전성·사진OCR 미확인 명시. 수집시트 GET/브라우저계산만, ERP쓰기/외부발송0. 타세션 비행기PR1820 최신master포함 유지.
 ## 2026-11-18 · 원장 연결 알림 기본 접힘과 신고·견적 대조
 - 위치: nenova-erp-ui / codex/ledger-review-1118 / C:/Users/USER/nw-cdx-ledger-review-1118 / PR 준비
 - 완료: 알림 기본 접힘, 대조 보기에서 최초 신고·현재 저장값·등록 변경 이력·현재 견적·다른번호 음수 견적. 원차수/적용차수·다른 신고 연결·수량/단가/단위 차이 표시, SELECT만. 가이드 3단계 영상·한국어 자막 제작.
@@ -3543,12 +3550,23 @@ pm run test:canon 통과.
 4. 검증 상태: `archFlowChart`, `workflowReview`, `workFeatureData`, `test:pm`(47파일 no-hex, 9파일 ui-kit, boundary), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `erp-manifest(224)`, `npx next build --webpack` 통과. PR CI 및 운영 반영 확인 진행 중.
 5. 주의/잠금: MSSQL 원장·마이그레이션·API 쓰기 변경 0건(문서화된 스키마 읽기 시각화만 추가). `pages/pm.js` 및 데스크톱 파일 미수정. worktree 정리 시 `cmd /c rmdir`로 `node_modules` junction만 먼저 해제할 것.
 
+## 2026-11-18 · 지도와 항공편별 이슈 연결 개편 (검증 중)
+- 사용자 목적: 큰 독립 이슈표를 없애고 지도 번호·경로와 옆 항공편/이슈를 연결, 우선 처리편부터 표시. 기본 이슈 2줄, 선택하면 상세와 나머지 이슈 표시. 가이드영상은 사용자 명시 제외.
+- 경계: 기존 조회 API/SQL 변경 없음. Order/Shipment/Warehouse/Stock/Estimate/WebProfitReport 원장 보존. 기존 명시적 서류 전달 표시만 유지. 원문 시간 확인은 자료 출처·운항일을 대조하며 미확인을 처리완료로 단정하지 않는다.
+- 정기 확인: automation-2, 한국 시간 매일 09·12·15·18시(주말 포함), 이 채팅에서 연결페이지 조회 결과 보고. ERP에 자동 기록하는 기능이 아님.
+- 검색어: flight-linked-board 지도 카드 연결 우선항공편 STA 정기확인 automation-2 Desktop1.3.38
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/flight-linked-board / nw-cdx-flight-linked / PR 생성 전.
+2. 완료된 것: ImportFlightBoard.js, desktop flight-board renderer/projector, 계약/교차연도·우선순위 테스트, Desktop1.3.38 준비.
+3. 남은 할 일: 필수검사·빌드 → PR CI/머지 → Cafe24 및 앱 공개 → 설치앱 스모크 확인.
+4. 검증 상태: 대상 9건 통과, 로컬 브라우저 홈/확대 화면 지도→카드 및 카드→지도 연결 확인. 전체검사 진행 중; 운영 반영 미검증.
+5. 주의/잠금: 본 worktree만 수정. 다른 수입방 PR #1828과 별도 작업. 영상 신규 제작/갱신 안 함.
+- 검증 갱신: ERP 계약·dnSpy 근거·manifest·쓰기 가드·workflow 가이드 검사 및 npm run build 통과. Desktop 단위 71건, 항공편 대상 9건 통과. 설치본 소스 검사에 flight-board.cjs 추가; CI에서 설치본 검증 예정.
 
 ## 2026-11-18 · Hermes 에이전트 관리 · 자가학습 오케스트레이션 계층 아키텍처 반영
 - 요약: GitHub `NousResearch/hermes-agent`를 로컬 PM(`C:\Users\USER\nenova-pm\hermes-manager.js`, `pm.js`, `office-feed.js`)과 기술/도입 레이더에 통합·업로드하고, `/my-work?tab=arch` `ArchFlowChart.js`에 Hermes 에이전트 오케스트레이션 계층(`selectRunner`, `Session Rescue`, `Trajectory Compressor`, `Procedural Skill`, `Phase-Lease Watchdog`) 섹션을 추가.
 - 검색어: hermes NousResearch hermes-manager session_rescue trajectory_compressor procedural_skill ArchFlowChart
-1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-hermes-agent-layer` / `C:\Users\USER\nw-agy-hermes-arch` (PR 예정) + `C:\Users\USER\nenova-pm`.
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-hermes-agent-layer` / `C:\Users\USER\nw-agy-hermes-arch` / PR #1830 + `C:\Users\USER\nenova-pm`.
 2. 완료된 것: `components/pm/ArchFlowChart.js`에 `data-testid="arch-hermes-section"` Hermes 5대 관리 모듈·흐름 바 추가, `__tests__/archFlowChart.test.js` 계약 단언 추가. `nenova-pm`에 `hermes-manager.js` 구축, 97/97 `SKILL.md` 동기화, Orbit 워커 로그 91.1% 압축 실측, `tech-radar` 및 `adoption-ledger` 200 ok 업로드 완료.
-3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
+3. 남은 할 일: `origin/master` 머지 충돌 해소 후 CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
 4. 검증 상태: `archFlowChart`, `workflowReview`, `pmUiKit`, `pmNoHexColor`, `test:pm`, `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack` 통과. `codex.exe` 장기 조사관 1회 실제 폴백 완결은 다음 `quota-hold` 전환 시 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건. `C:\Users\USER\nenova-pm` 원본 수정 파일 `pm.js`, `office-feed.js`, `radar-pilot-state.json`, `tech-radar.json`, `adoption-ledger.json` 모두 `.bak-1118` 백업 보존 완료.

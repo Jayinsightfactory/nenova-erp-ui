@@ -15,7 +15,8 @@
     "lib/importRoomEvents.js",
     "components/home/ImportFlightBoard.js",
     "desktop/shell/flight-board.js",
-    "pages/desktop-flight.js"
+    "pages/desktop-flight.js",
+    "desktop/flight-board.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -83,8 +84,9 @@
   ],
   "presentation": {
     "menu": "수입 비행기 현황",
-    "issues": "번호/이슈/상세; no week/country/flight columns; deduplicate by flight identity and exact normalized text",
-    "details": "Map alongside selected detail; airport latest ETA displayed once; prediction labels preserved",
-    "sideEffects": "Presentation only; all existing API requests and ERP ledger values preserved"
+    "issues": "No standalone issue table. Exact full-flight identity joins issues into each flight card. Urgent active flights first; registered flights collapsed.",
+    "details": "Shared numbered map markers and cards; keyboard selection highlights route and expands the matching card. Unknown location is not invented.",
+    "sideEffects": "Presentation and existing public-source refresh only. SQL/API behavior unchanged; existing explicit docs flag action preserved.",
+    "scheduledCheck": "Codex thread automation automation-2, daily 09/12/15/18 Asia/Seoul including weekends; linked-page results reported in chat, not written to ERP."
   }
 }
