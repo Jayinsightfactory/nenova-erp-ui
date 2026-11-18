@@ -3743,3 +3743,12 @@ pm run test:canon 통과.
 3. 남은 일: 카카오톡 PC 원본 자체 전량 도착과 사진 주문은 별도 대조 필요. 조회 범위는 수집 원문 기준.
 4. 검증: 운영 11/18·17일, 17:49까지 178건 = 발주29·검토25·제외119·중복5. 원문77행과 집계65행 615단·295박스 일치, 제외대조124건. 실제 원문 변경/송신 없음.
 5. 주의: 가이드 회사 Drive 영상 186ndmhq2m89n9mdK39DDvrabJCjshaKY / 자막 1POUT3XBK1yclVMzAdalyUnMmzDzXorst / proof 1gMtT4FvhIQvObu05Dl-BKLlSkClC4KOQ. 원장 쓰기 없음.
+
+## 2026-11-18 · NOWLINK · MOYI 업종별 상용 솔루션 시연 스튜디오 (`/demo/commercial-suite`)
+- 요약: 외부 고객사 시연용 100% 가상 샘플 기반 `NOWLINK · MOYI 업종별 상용 솔루션 시연 스튜디오`(`pages/demo/commercial-suite.js`, `lib/commercialSuiteDemo.js`) 구축. 4대 업종(`화훼 직수입 · 도매`, `신선 식자재 · 청과 유통`, `수입 와인 · 식음료 도매`, `의류 · 공산품 B2B 유통`) 실시간 `mapping.json` 치환 스위치, ① 3단위 품목 마스터·분배 테이블, ② Phone Harness + MOYI 승인 카드 시뮬레이터, ③ Landed Cost(도착원가) 자동 배부, ④ `Watch / Build / Team + Device Hub Add-on` 주간 시간 단축·월 요금제 ROI 계산기를 통합하고 `components/Layout.js`(`nenovaSS3` 전용)·사용 가이드(`public/guides/commercial-suite/staff.mp4`)까지 연결.
+- 검색어: commercial-suite NOWLINK MOYI mapping.json PhoneHarness LandedCost Watch Build Team DeviceHubAddOn
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/nowlink-commercial-demo-studio` / `C:\Users\USER\nw-agy-followup-d`
+2. 완료된 것: `lib/commercialSuiteDemo.js`, `pages/demo/commercial-suite.js`, `__tests__/commercialSuiteDemo.test.js`, `components/Layout.js` (`nenovaSS3` 전용 메뉴 추가 및 `desktop/scripts/generate-menu.cjs` 검증), `scripts/record-commercial-suite-guide.cjs` 및 `config/workflow-guides.json`·`public/guides/commercial-suite/*` 등록.
+3. 남은 할 일: PR CI 통과 및 squash 머지 후 worktree 정리, 운영 배포 후 실제 화면 점검.
+4. 검증 상태: `commercialSuiteDemo.test.js`, `workflowReview.test.js`, `test:ui-layout`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `guard:erp-writes`, `test:erp-manifest`, `desktopBootstrap.test.mjs`, `desktop/tests/menu.test.cjs`, `npx next build --webpack`(메모리 보호 빌드 락 적용) 모두 통과. 운영 배포 후 실제 화면 확인은 미검증.
+5. 주의/잠금: 100% 가상 시연 전용(사내 실명·실거래·계좌·MSSQL 연결 없음), 금지어(`감시`/`추적`/`모니터링`) 비포함 유지, 기존 `/demo/tenant-studio` 무수정.
