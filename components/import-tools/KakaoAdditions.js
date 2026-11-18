@@ -60,6 +60,7 @@ function RecentReview() {
     return <details key={m.id} open className="kakao-order-message"><summary>{m.time} · {m.kind==='review'?'검토 필요':'추가 발주'} · {m.text.split('\n')[0].slice(0,48)}</summary>
       {m.reason&&<p className="kakao-review-reason">{m.reason} · 확인 전 합계 제외</p>}
       <blockquote>{m.text}</blockquote>
+      {m.retained?.map((r,i)=><p key={i}>기존 주문 유지: {r.product} {r.quantity} {r.unit} · 새 추가 수량이 아니므로 합산하지 않습니다.</p>)}
       {visible.map(base=>{const row=view(base);return <fieldset key={row.key}><legend><label><input type="checkbox" checked={!!row.checked} onChange={e=>update(row.key,{checked:e.target.checked})}/> {m.kind==='review'?'검토 후 합산':'합산'} · {row.product||'품종 확인'}</label></legend>
         {fields.map(([key,label])=><label key={key}>{label}<input value={row[key]||''} onChange={e=>update(row.key,{[key]:e.target.value})}/></label>)}
         <small>{row.checked?'합계에 포함':row.reviewReason||'합계에서 제외'}{row.note&&' · 요청: '+row.note}</small>
@@ -68,11 +69,12 @@ function RecentReview() {
     </details>;
   }
   return <>
-    <p>최근 2일 · 오늘과 어제 · 최신 카톡순 · 1분마다 갱신</p>
+    <p>발주가 있는 최근 2일 · 최신 카톡순 · 1분마다 갱신</p>
     <button type="button" onClick={() => setRetry(value => value + 1)}>새로 조회</button>
     {error && <p role="alert">{error}</p>}
     {!feed && !error && <p role="status">수입방 카톡을 불러오는 중…</p>}
-    {feed && <p>{feed.from} ~ {feed.to}{feed.latest && ' · 최근 수집 원문 ' + feed.latest}</p>}
+    {feed && <p>{feed.orderDays ? (feed.orderDays.length ? '발주일: '+feed.orderDays.join(' · ') : '수집된 원문에 합산 가능한 발주가 없습니다.') : `${feed.from} ~ ${feed.to}`}{feed.latest && ' · 최근 수집 원문 ' + feed.latest}</p>}
+    {feed?.reviewThrough&&<p>선택된 발주일 이후 {feed.reviewThrough}까지의 취소·변경도 함께 확인합니다.</p>}
     {feed?.stats&&<p className="kakao-counts">카톡 {feed.stats.scanned}건 분석 · 추가 발주 {feed.stats.selected}건 · 검토 {feed.stats.review}건 · 일반 대화 제외 {feed.stats.excluded}건 · 중복 제외 {feed.stats.duplicates}건</p>}
     <p>발주에 해당하는 카톡만 선별해 원문의 품목·수량을 합산합니다. 업체 없는 수량도 포함하며, 취소·변경·조건부 요청은 검토로 분리합니다.</p>
     {groups.length>0&&<label>국가 · 품목군 <select aria-label="카톡 국가·품목군" value={activeFilter} onChange={e=>{setFilter(e.target.value);setNotice('');}}><option value="">전체 발주</option>{groups.map(g=><option key={g}>{g}</option>)}</select></label>}

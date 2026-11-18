@@ -7,9 +7,9 @@ const root=process.cwd(),paced=process.argv.includes('--paced-dry-run'),dry=proc
 async function main(){
  fs.mkdirSync('.verify',{recursive:true});
  const {classifyImportFeed}=await import('../lib/importKakaoOrderText.js');
- const sampleMessage=(id,text)=>({id,time:'2026년 11월 18일 오전 9:10',text,sender:'연습 담당자',items:[]});
+ const sampleMessage=(id,text)=>({id,time:id==='white'?'2026년 11월 12일 오전 9:10':'2026년 11월 18일 오전 9:10',text,sender:'연습 담당자',items:[]});
  const sampleMessages=[...['주광','미우','일신'].map((customer,i)=>sampleMessage(String(i),'46-1 콜 카네이션 발주 추가\n'+customer+'\nMoon Light '+[1,2,1][i]+'박스')),sampleMessage('white','46-1 콜 수국 발주 추가\n화이트 2박스'),sampleMessage('duplicate','46-1 콜 카네이션 발주 추가\n주광\nMoon Light 1박스'),sampleMessage('noise','이번에 온 3박스가 포장 불량입니다'),sampleMessage('cancel','46-1 콜 카네이션 발주 취소\n별도품종 1박스')];
- const sampleFeed=classifyImportFeed({from:'2026-11-17',to:'2026-11-18',latest:'2026년 11월 18일 오전 9:10',messages:sampleMessages});
+ const sampleFeed=classifyImportFeed({orderDays:['2026-11-18','2026-11-12'],reviewThrough:'2026-11-18',from:'2026-11-17',to:'2026-11-18',latest:'2026년 11월 18일 오전 9:10',messages:sampleMessages});
  const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8')),workflow=registry.workflows.find(w=>w.id==='import-country-orders');
  const listener=net.createServer();await new Promise(r=>listener.listen(0,'127.0.0.1',r));const port=listener.address().port;await new Promise(r=>listener.close(r));
  const base=`http://localhost:${port}`,secret=crypto.randomUUID(),log=fs.openSync('.verify/country-orders-guide-server.log','w');
@@ -102,7 +102,7 @@ async function main(){
   let farmFile;for(let n=0;n<50&&!farmFile;n++){farmFile=fs.readdirSync(downloadDir).find(name=>name.includes('HUBFRESH')&&name.endsWith('.xlsx'));if(!farmFile)await new Promise(resolve=>setTimeout(resolve,100));}
   assert(farmFile,'farm download saved');const farmWb=XLSX.readFile(path.join(downloadDir,farmFile));assert.equal(farmWb.SheetNames[0],'업체별 발주');assert.equal(farmWb.Sheets['업체별 발주'].C5.v,15);
   for(const [n,id,label,selector,caption,key] of [
-    [16,'chat','최근 2일 카톡 확인','.kakao-additions > button','최근 2일 원문을 분석해 추가 발주만 표시합니다. 일반 대화와 중복은 제외하고 취소는 검토로 분리합니다.','Enter'],
+    [16,'chat','최근 발주일 카톡 확인','.kakao-additions > button','오늘과 어제가 아니라 발주가 있는 최근 2일을 자동으로 찾습니다. 표시된 발주일을 확인하세요. 일반 대화와 중복은 제외하고 취소는 검토로 분리합니다.','Enter'],
     [17,'sum','품목군 선택·자동 합계','.kakao-additions select','콜롬비아 카네이션을 선택하면 Moon Light 4박스와 업체별 주광 1, 미우 2, 일신 1을 확인할 수 있습니다.',null],
     [18,'copy','농장 전달용 복사','.kakao-additions .kakao-table + button','합계와 비고를 복사해 농장에 전달합니다.','Enter']
   ]){
