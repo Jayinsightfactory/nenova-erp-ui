@@ -554,7 +554,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                       <tr key={row.category} data-customs-focus-key={row.category} style={{ background: isHistorical ? '#ecfdf5' : carried ? '#fff7ed' : '#fff', ...focusStyle(row.category) }}>
                         <td style={st.tdLabel}>
                           {row.category}
-                          {row.settlement && <div style={{ color: '#0369a1', fontSize: 11 }}>검산한 선율 ZIP 실제 원천 우선 · DB 원문 보존</div>}
+                          {row.settlement && <div style={{ color: '#0369a1', fontSize: 11 }}>선율 ZIP 누락 비용 보완 · 기존 DB 값 유지</div>}
                           {isHistorical && <span style={st.baselineBadge} title="운영 DB에 이 차수 입력 이력이 없어, 원본 '매출원가 양식' 엑셀의 구성요소(GW/관세/선율/월드운송료/방역)를 그대로 자동 적용 중입니다. 한 칸이라도 저장하면 이 행 전체가 저장값으로 바뀝니다.">원본 엑셀값</span>}
                         </td>
                         {COUNTRY_PHASES.map((phase) => {
@@ -619,6 +619,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                             <td key={f} style={st.tdNum}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
                                 <input style={st.cellInput} value={cur}
+                                  readOnly={settlementCoversCountryField(row,f)}
                                   onKeyDown={focusNextCustomsInput}
                                   title={isWorldFreight && Number(worldAuto) > 0 && row.worldFreightSource?.[f] !== 'manual_override'
                                     ? '입고 GW 기반 자동계산값 — 수정하면 수기 override로 저장됩니다' : undefined}

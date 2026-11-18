@@ -32,7 +32,7 @@
     "ProdKey"
   ],
   "actions": [
-    {"name":"IMPORT_ROOM_ADDITIONS_REVIEW","source":"nenovakakao dedicated review sheet, default Seoul today and yesterday, ordered by message timestamp including year; explicit legacy day query remains supported, request and item identity; checked positive quantities grouped by category, variety and unit. Clipboard only; no ERP access.","orderDetail":"preserve","shipmentDetail":"preserve","warehouseDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve"},
+    {"name":"IMPORT_ROOM_ADDITIONS_REVIEW","source":"nenovakakao dedicated review sheet, default Seoul today and yesterday, ordered by message timestamp including year; explicit legacy day query remains supported, request and item identity; valid positive extracted additions automatically included and grouped by category, variety and unit; customer-less quantities included, customer quantities listed in remarks; cancelled/superseded/archived and cancellation/change text require manual review; explicit exclusions persist on refresh. Clipboard only; no ERP access.","orderDetail":"preserve","shipmentDetail":"preserve","warehouseDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve"},
     {
       "name": "COUNTRY_ORDER_CALENDAR_READ",
       "source": "Asia/Seoul today inside PeriodDay WeekDay=5 range, current ERP main cycle plus next five actual rows",
@@ -193,6 +193,7 @@
     "description": "2025/42-01 and 2026/42-01 coexist but an explicit 2026/42 request returns only 2026; a current 2026/52 calendar continues through actual 2027 rows without OrderWeek-only matching"
   },
   "positiveFixtures": [
+    "Extracted Moon Light quantities 1+2+1 automatically total 4 with customer remarks; unnamed customer quantities count; matching customer repeated quantities combine; comma-formatted quantities normalize",
     "Import room defaults to Seoul today and yesterday, sorts AM/PM timestamps newest first, and crosses December/January safely",
     "Asia/Seoul 2026-10-15 resolves to ERP 2026/42 and buttons 42 through 47",
     "Netherlands OutUnit bunch with stored BunchQuantity 20 and SteamQuantity 200 exports 200 stems",
@@ -204,6 +205,7 @@
     "Unsorted mixed-case product names export A-Z in all country workbooks with quantities and formulas attached to the original product"
   ],
   "nearMissFixtures": [
+    "Explicit unchecked persists after refresh; blank product, zero, negative, cancelled/superseded/archived and cancellation text do not automatically count; units never mix",
     "Import room excludes older-than-yesterday, future and prior-year messages; no recent rows exposes latest collected timestamp",
     "same OrderWeek in prior year is excluded",
     "positive Netherlands bunch quantity with SteamQuantity zero remains visible and blocks export",

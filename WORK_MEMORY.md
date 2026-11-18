@@ -3280,6 +3280,15 @@ pm run test:canon 통과.
 4. 검증 상태: ERP 전체 계약, 표적 18 tests, 실제 브라우저 날짜칸 제거·원문 펼침·재조회 선택유지, 최종 영상 재생·자막·모바일 통과. 기록 시점 운영 수정본 미검증.
 5. 주의/잠금: 이 작업트리의 국가별 발주서 컴포넌트·가이드 수정 중. ERP DB와 수입방 시트 쓰기 없음.
 
+## 2026-11-18 입고 수정 농장 검색·기존 입고 농장 후보
+- 구현: 마스터에 없는 Faguaflowers Intl LLC는 기존 활성 입고에 저장되어 있음. FarmName 메타 선택을 활성 마스터+활성 입고명 공통 SQL로 조회/미리보기/legacy저장/승인 최종검증에 연결. 삭제·동명중복 마스터 우회/가짜FarmKey/임의농장생성 금지. 공통 검색 입력은 대소문자·공백무시 필터, 선택·초안·미리보기 보존.
+- 검증: 신규후보/검색5 tests, 실제MSSQL후보1 test, 관련33 tests, warehouseCorrectionSql의receipt-only농장 실제저장/재고·이력·cross-year보존, 기존승인SQL 전체통과. PC1920/모바일390 공통검색 및기존입고수정Chrome회귀통과. 운영SELECT canonical 후보1/FarmKeynull 확인, 운영쓰기0. 전체ERP/빌드/PR/배포는기록시점미검증.
+- 검색어: 입고수정 농장검색 Faguaflowers Intl LLC Farm마스터없음 warehouseFarmChoicesSql
+1. 작업 위치: nenova-erp-ui / codex/incoming-farm-search-1118 / C:/Users/USER/.codex/worktrees/f321/nw-cdx-incoming-farm-search-1118 / PR 미생성.
+2. 완료된 것: WarehouseFarmSelect·warehouseFarmChoices 추가, 두수정화면/warehouseCorrection/incomingApproval 공통후보 연결,계약·dnSpy·회귀추가. 승인SQL fixture 중복TariffRate추가는조건부로수정(운영스키마변경0).
+3. 남은 할 일: 최신master 통합→전체ERP/필수가드/빌드→PR/CI→squash→Cafe24/운영스모크→worktree정리.
+4. 검증 상태: 대상/실제MSSQL/PC·모바일Chrome 통과; 통합전체/운영배포 미검증.
+5. 주의/잠금: 이worktree의농장선택/입고수정/승인관련파일은본세션수정중. Farm마스터/ERP운영쓰기금지(이번범위).
 2026-11-18 주문등록 조회 옆 새창은 연도·차수·담당자를 전달하고 해당 담당자 업체 선택을 바로 연다. 주문내역서 Box/단/송이를 공유 초안에서 즉시 편집하며 가운데 목록·합계·명시 저장 payload를 동기화한다.
 검색어: 주문등록 새창 담당자 유지 차수 유지 주문내역서 바로 수량 수정
 1. 작업 위치 — nenova-erp-ui / codex/order-same-week-popup / f7cd/nw-cdx-order-popup / PR 생성 예정.
@@ -3312,6 +3321,41 @@ pm run test:canon 통과.
 - 주의/잠금: 원장·입고·재고·견적·매출 쓰기 변경 없음. 해외 STD·ATD 및 FR24 API 추가 연동 없음. 직원 PC 업무 중 재시작 금지.
 - 검색어: 1.3.34 비행기 확대 창 상단 즐겨찾기 홈 이슈 인천공항 도착 시간 가이드 검증 배포 인계
 
+## 2026-11-18 입고 농장 검색 검증 완료·가이드 갱신 단계
+- 전체 ERP pre/core/post exit0, dnSpy 근거/변경manifest224/쓰기범위 guard 통과. 정식빌드는 안내영상 source hash 갱신 요구로prebuild차단됐으며 이 검사를 우회한 배포는 하지않음. 실제 화면검색·MSSQL통합은통과.
+- 기존 recorder에 농장검색 입력장면 추가. 개발서버HMR로녹화포커스오류발생해중단,고정UI촬영용직접webpack build exit0 후production화면farm dry-run통과. 현재고정화면에서수입부/영업지원전체가이드재촬영중(운영API전부fixture차단).
+- 검색어: incoming-farm-search-1118 가이드 sourcehash 빌드차단 고정화면 녹화 HMR
+1. 작업 위치: nenova-erp-ui / codex/incoming-farm-search-1118 / nw-cdx-incoming-farm-search-1118 / PR미생성.
+2. 완료된 것: 농장검색·공통후보·저장검증/6후보tests/33관련tests/실제MSSQL저장·승인/기존UI·PC모바일검색/전체ERP통과. 최신master통합1f010ca63,기준표4f3d3d3b8.
+3. 남은 할 일: session50827 가이드촬영종료→최종프레임/플레이어확인→Drive보관→정식npm build→PR/CI→squash/Cafe24/운영스모크→worktree정리.
+4. 검증 상태: 업무로직/전체ERP통과. 가이드완성/정식빌드/CI/배포는미검증. 고정촬영용빌드는배포완료판정아님.
+5. 주의/잠금: 녹화중components/IncomingCorrectionRequest.js,WarehouseCorrection.js,WarehouseFarmSelect.js,lib/warehouseFarmChoices.js 및workflow sourceFiles변경금지. config/workflow-guides와public/guides/incoming-approval은recorder가갱신중.
+
+## 2026-11-18 농장 검색 가이드·영상 검증 완료
+- 수입부452.15초/5단계,영업지원280.8초/3단계 실제고정UI 1920x1080/100% 재촬영. 검색입력→현재선택보존→명시선택 장면추가. 첫/검색/중간/끝7프레임직접확인,한국어번호/자막/조작대상가림없음. 실제플레이어 PC1920/모바일390 재생/역할/목차/VTT/다운로드/접기정지 통과. 운영API전부fixture/운영쓰기0.
+- Drive nenovabusiness1의 폴더 https://drive.google.com/drive/folders/18JFwztrSWniR1yctBdaewBATvBev7NGb 에 MP4/VTT/proof6파일보관,metadata재조회크기일치. 영상ID수입부1UpLyNQqYV6m5er-5XNFhSCcvN3kVJpWB/영업지원1hyD3LPyTmJSkWtOuNPwifGQt0VD4Kki1. rawwebm캐시정리,public배포자산은GitHub원본으로커밋후worktree정리예정.
+- 검색어: 농장검색 가이드452초 280초 Drive 18JFwztrSWniR1yctBdaewBATvBev7NGb
+1. 작업 위치: codex/incoming-farm-search-1118 / nw-cdx-incoming-farm-search-1118 / PR미생성.
+2. 완료된 것: 농장검색수정/전체ERP/격리MSSQL/영상2편/실제플레이어/Drive백업완료.
+3. 남은 할 일: 최신master통합→정식빌드/최종가드→PR/CI→병합/Cafe24/운영화면→worktree정리.
+4. 검증 상태: 업무/영상검증통과; 정식최종빌드/CI/배포 미검증.
+5. 주의/잠금: 본worktree농장선택파일과가이드config/public은이세션최종검증중. 운영DB쓰기/Farm마스터등록은범위밖.
+### 2026-11-18 통관비 DB 우선·누락 항목만 보완
+- 작업 위치: nenova-erp-ui / codex/customs-missing-components / .codex-work/customs-missing-components / PR 준비.
+- 완료된 것: 공유 순수 정책으로 DB 0원·분할 그룹·ItemCount 보존, 누락 관세·통관/검역대행·별도 방역비만 파일 근거 적용. API 적용 범위와 UI 읽기 전용 범위를 일치시키고 정산 총액·운임·창고·국내운송 중복 반영 금지. 실제 dnSpy FormWarehouseView 및 2026/35·36 SELECT probe 기록은 docs/plans/customs-missing-components-2026-11-18.md.
+- 남은 할 일: 최종 안내 영상·PR·CI·배포·운영 읽기 확인. 과거 확정/저장 보고서는 자동 갱신하지 않음.
+- 검증 상태: 관련 회귀 37건, ERP manifest/쓰기 가드·dnSpy, 연습 API 실제 브라우저·가이드 플레이어 1920/390px 및 전체 verify:erp-change(계약·webpack 빌드) 통과. 실제 별도 방역비 5행 PDF 원본은 미검증(정형 합성 fixture 검증).
+- 주의/잠금: 운영 SQL DML/DDL/SP 실행 없음, 기존 ERP 원장·저장 보고서 보존. 다른 세션 dirty worktree 및 PR1813 수정 금지.
+- 검색어: 통관비 누락 DB 우선 explicit zero 분할 관세 방역비 검역대행 중복 방지 customs missing components
+## 2026-11-18 수입방 추가 발주 자동 합산 보완
+- 요약: 체크해야만 합산되던 기본값을 수정. nenovakakao 추출 품목·양수 수량을 기본 포함하여 품목군/품종/단위별 합계, 비고 업체별 수량을 표시. 업체/CL 없는 수량도 포함. 취소·대체·보관 및 취소/수량변경 원문은 검토 후 수동 포함 가능. 별도 ERP/메시지 발송 없음.
+- 검색어: 수입방 자동합산 importItemView Moon Light 주광 미우 일신 최근2일
+1. 작업 위치: nenova-erp-ui / codex/import-kakao-auto-totals / nw-cdx-import-auto / PR 생성 예정.
+2. 완료된 것: lib/importKakaoAdditions.js, KakaoAdditions.js, 회귀 fixture/계약, 실제 UI 가이드 자동합계 설명. importItemView 공통 표시 기본값과 farmTotals 합계 사용.
+3. 남은 할 일: 전체 필수검증, PR/CI/머지, Cafe24 배포, 운영 브라우저 및 Drive 보관 확인.
+4. 검증 상태: 단위 fixture 합계4/비고1+2+1, 익명수량, 단위분리, 0/음수/취소 제외 통과. 실제 Chrome 최초 자동4 및 제외3/새로조회 유지, 다운로드/가이드 재생/390px 통과. 전체 gate 진행 중. 원천 최근2일 조회에서는 추출 수량행0; 실제 운영 주문 합산은 표본 부재로 미검증이며 품질/공지 원문 수량을 임의 발주로 만들지 않음.
+5. 주의/잠금: 본 브랜치 3개 기능 파일/계약/recorder 및 해당 가이드 자산만 수정. MSSQL, EXE, Estimate/ShipmentDetail/StockHistory/WebProfitReport 변경 없음. 다른 세션의 가이드 설정 및 WORK_MEMORY 항목 보존.
+- 단계 검증: test:erp-contract(내부 dnSpy 포함), changed-from origin/master manifest/write guard, build, test:workflow-guides 통과. MP4196.1초 1920x1080/100%의 처음·중간·마지막 실제 프레임과 자동4/복사 확인. 회사 Drive MP4 1q2jLwP8-_lUrr0kT57Wo4-FoBuENZ7dL / VTT 1hERjQe-XyjjXZqLOx0pnVoZvva9TQzgw 보관.
 ## 2026-11-18 · 견적 품목명 열 너비 복구
 - fixed table에서 td min-width가 열 너비를 결정하지 못해 균등폭으로 축소됨. 첫 행 th 품목명280px·단위64px·출고일88px 지정. 기준선 적용: 읽기성·기존 키보드/원장 보존, 가로스크롤. 예외: 사용자가 이번 영상 재촬영 제외 승인.
 - 위치: nenova-erp-ui / codex/estimate-width-1118 / nw-cdx-estimate-width-1118 / PR 생성 예정
@@ -3329,6 +3373,16 @@ pm run test:canon 통과.
 - 주의/잠금: 운영 원장 쓰기 없음. 지도 위치·출발은 예측 표시, 인천공항 제공 시각은 별도 표시. 직원 PC 재시작 금지 유지. 기능 작업트리 잠금 해제, 인계 PR 병합 후 인계 작업트리도 즉시 정리.
 - 보관: 비행기 영상 https://drive.google.com/file/d/1V7TIPQLJ3T8agKiInTlMc7JKT7W2Tebg/view / 홈 영상 https://drive.google.com/file/d/167ZuGiC6YKAs7XuY0bLGcmIeyn7av89V/view / 최종 홈 proof 17jVTfACtfhj_0A5p-eDolM5GYrlGTdmB / 공개 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.34.
 - 검색어: 1.3.34 운영 완료 비행기 확대 지도 상세 인천공항 STA STD ATD 홈 이슈 즐겨찾기 상단 자동 업데이트 배포 인계
+
+## 2026-11-18 농장 검색 최종 로컬 검증
+- 최신master f92f04dad 통합후정식 npm build(prebuild영상검사포함) exit0. 갱신목차/영상의실제플레이어재생1920/390재통과. 변경manifest224/dnSpy/쓰기guard통과. 전체ERP는앞선소스에서pre/core/post통과했고최신통합본전체는PR CI에서재확인예정.
+- 검색어: 입고 농장검색 최종빌드 통과 Faguaflowers Intl LLC guide452.15 280.8
+1. 작업 위치: codex/incoming-farm-search-1118 / nw-cdx-incoming-farm-search-1118 / PR생성예정(브랜치로조회).
+2. 완료된 것: 검색/공통후보/서버최종검증/교차연도·실제MSSQL보존/가이드2편/Drive6파일/최종정식빌드.
+3. 남은 할 일: PR CI전체검증→squash병합→Cafe24배포→운영검색/후보읽기스모크→worktree즉시정리.
+4. 검증 상태: 로컬필수검증·정식빌드·실제플레이어PASS, PR CI/운영반영은아직미검증.
+5. 주의/잠금: 농장마스터신규등록·운영입고저장없음. 원본코드는GitHub PR로보관,검증된영상은Drive폴더18JFwztrSWniR1yctBdaewBATvBev7NGb.
+
 
 ### 2026-11-18 홈 달력 공휴일·상세 편집 구현 단계
 - 작업 위치: nenova-erp-ui / codex/calendar-holidays-editor-1118 / C:/Users/USER/Documents/Codex/2026-11-12/new-chat/work/nw-calendar-holidays-1118 / PR 준비.

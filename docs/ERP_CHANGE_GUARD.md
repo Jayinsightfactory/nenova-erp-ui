@@ -1241,3 +1241,6 @@ warehouse API가 부서명만 검사해 DeptName이 비어 있는 Authority4/7 �
 
 ## 2026-11-13 국가 옆 즐겨찾기 품종 버튼
 국가와 별도 farmFamily 표시필터를 두어 버튼으로 한 품종만 즉시 열고 국가 클릭으로 전체 복귀한다. 품목 클릭이 native prodGroup을 바꿔도 보기필터를 바꾸지 않는다. 전역검색 예외와 미저장 이동보호 유지. 분류는 CounName::FlowerName이며 원장/SQL/API 변경0. 계약 shipment-distribution-workspace, 계획 distribution-family-buttons-2026-11-13.md, navigation 단위/실브라우저 회귀 및 안내영상 참조.
+
+## 2026-11-18 입고 수정 농장 후보 누락
+native select는검색기능이없고 Farm마스터전용조회가실제입고의Faguaflowers Intl LLC를누락했다. 검색은대소문자/공백무시표시필터,후보는공통 warehouseFarmChoicesSql로GET/preview/legacy저장/approval최종저장을통일한다. 기존활성입고의이름도허용하되삭제/동명중복마스터우회·가짜FarmKey·원장수량변경은금지한다. 원가/확정/재고/견적/매출가드는보존. 회귀 warehouseFarmChoices(.test.mjs/Sql.test.mjs),warehouseCorrectionSql,warehouse-farm-search-ui. 기존저장기능의그외결함을이변경이해결했다고주장하지않는다.
