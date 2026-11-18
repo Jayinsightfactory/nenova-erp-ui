@@ -3653,3 +3653,11 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
 4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(225건), `npx next build --webpack`(139 페이지, exit 0) 통과. 운영 브라우저 시각 확인은 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건(설계 문서 및 아키텍처 흐름도 UI 전용).
+
+## 2026-11-18 · NENOVAKAKAO 비행기 이슈 실제 반영 완료
+- 검색어: NENOVAKAKAO flight-current-issues Desktop1.3.39 PR1834 PR1836 placeMarkers
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/flight-current-issues-deployed-1118 / c027/nenova-erp-ui/flight-fix (기록 push 후 정리) / #1834·#1836 병합.
+2. 완료된 것: 원문 기반 완료 판정, 현재 이슈만 유지, 지도 클릭 겹침 분리. 웹 최신 배포44254481216 성공, 실제 앱1.3.39 설치/화면 확인. docs/session-backups/2026-11-18_flight-current-issues.md 상세 인계.
+3. 남은 할 일: 개발·배포 없음. 사용자 입력 감지로 최종 Native 지도 클릭은 미검증; 운영 웹 마우스와 동일 Desktop 렌더러 브라우저 검증 통과.
+4. 검증 상태: ERP 계약·dnSpy·manifest·쓰기 가드·build·회귀·PR CI·Windows installer·운영 hydration 통과. 실제 웹 K4254/AC063 지도-상세 연결 확인. Native 홈 버튼 정렬·메뉴·버전·이슈3건 확인.
+5. 주의/잠금: ERP 원장·카톡 수집기 수정 없음. 원문/저장 시각은 수집기 건강 시각과 구분. 다른 작업트리 보존. 기존 정기확인 유지. 최종 설치 SHA256 e6b0f015d327a7f56ad7086ef9ccc5a00c05df8c30a1e9c842b886fca001ae5b.
