@@ -91,5 +91,5 @@
     "scheduledCheck": "Codex thread automation automation-2, daily 09/12/15/18 Asia/Seoul including weekends; linked-page results reported in chat, not written to ERP.",
     "resolution": "Current schedule equivalence across rooms; explicit docs receipt resolves docs requests, not quantity discrepancies. Explicit correction resolves the corresponding issue. Guessed/approximate links never prove completion. ERP registration or 48h age never resolves an open operational request."
   },
-  "mapSelection": "Nearby map label hit areas are separated with leader lines to the unchanged projected anchors; identity retains year/full key. Web and Desktop share placeMarkers."
+  "mapSelection": "Nearby map label hit areas are separated with leader lines to the unchanged projected anchors; identity retains year/full key. Web and Desktop share placeMarkers. Map background or the zoom button opens a map-only dialog. Marker selection in either view activates its flight card without opening the dialog."
 }

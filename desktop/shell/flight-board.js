@@ -109,11 +109,22 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
   // ── 지도: 태평양 중심 등장방형. 육지 윤곽은 flight-map-data.js(정적 자료). ──
   const project=(lon,lat)=>{const v=world.view;let l=lon;while(l<v.lon0)l+=360;while(l>=v.lon0+360)l-=360;return {x:(l-v.lon0)/v.lonSpan*v.width,y:(v.latMax-lat)/(v.latMax-v.latMin)*v.height};};
   const routeD=points=>{let d='',prev=null;for(const [lon,lat] of points||[]){const p=project(lon,lat),jump=prev!==null&&Math.abs(p.x-prev)>world.view.width/2;d+=`${prev===null||jump?'M':'L'}${p.x.toFixed(1)},${Math.max(2,Math.min(world.view.height-2,p.y)).toFixed(1)}`;prev=p.x;}return d;};
-  function paintMap(data){
-    mapBox.replaceChildren();
+  const mapDialog=css(el('dialog'),{width:'min(94vw,1440px)',maxHeight:'92vh',border:'1px solid #d7e0ea',borderRadius:'10px',padding:'14px',color:'#18334e',background:'#fff'});
+  mapDialog.setAttribute('aria-label','수입 비행기 지도 확대');
+  const mapDialogContent=el('div');
+  const mapDialogHead=css(el('div'),{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',marginBottom:'8px'});
+  mapDialogHead.append(el('strong','','수입 비행기 지도'),btn('닫기',()=>mapDialog.close()));
+  mapDialog.append(mapDialogHead,mapDialogContent,css(el('p','workspace-muted','지도 위치는 일정으로 계산한 예측입니다.'),{fontSize:'12px',margin:'8px 0 0'}));
+  root.append(mapDialog);
+  mapDialog.addEventListener('close',()=>{
+    mapDialogContent.replaceChildren();
+    if(!list.contains(document.activeElement))mapBox.querySelector('button')?.focus();
+  });
+  function renderMap(data,{onSelect,onEnlarge}={}){
     if(!world||!world.view||typeof world.land!=='string')return;
     const v=world.view,map=svg('svg',{viewBox:`0 0 ${v.width} ${v.height}`,role:'group','aria-label':'수입 비행기 예측 위치 지도'});
     css(map,{width:'100%',height:'auto',display:'block',background:'#eef4fa',borderRadius:'8px',border:'1px solid #d7e0ea'});
+    if(onEnlarge){map.style.cursor='zoom-in';map.onclick=onEnlarge;}
     map.append(svg('path',{d:world.land,fill:'#d5dee8',stroke:'#aebccb','stroke-width':'0.4'}));
     const flights=(data.flights||[]).filter(f=>f.origin);
     const routes=new Map(),origins=new Map(),vias=new Map();
@@ -140,11 +151,25 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       const label=prefix+(f.status==='before_departure'?`${f.country} 출발 전`:waiting?`${f.country} · ${f.via.name} 대기`:f.status==='arrived'?'도착':`${Math.round((f.progress||0)*100)}%`);
       g.append(svg('title',{},`${f.weekLabel}차 ${f.country} ${f.flight} — ${f.statusLabel}`),svg('circle',{cx:p.x,cy:p.y,r:f.viewId===selectedViewId?'9':'7',fill:f.priority===0?'#b02a2a':(DOT[f.status]||'#1668c7'),stroke:'#fff','stroke-width':'1.4'}),svg('text',{x:p.x,y:p.y+2.6,'font-size':'6.5','text-anchor':'middle',fill:'#fff','font-weight':'700'},String(f.boardNumber)),
         svg('text',{x:p.x+8,y:p.y+3,'font-size':'8','font-weight':'700',fill:'#0b3d75',stroke:'#eef4fa','stroke-width':'2','paint-order':'stroke'},label));
-      g.style.cursor='pointer';g.setAttribute('role','button');g.setAttribute('tabindex','0');g.setAttribute('aria-label',`${f.boardNumber}번 ${f.country} ${f.flight} 선택`);g.setAttribute('aria-pressed',String(f.viewId===selectedViewId));g.onclick=e=>{e.stopPropagation();selectFlight(f.viewId);};g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectFlight(f.viewId);}};
+      g.style.cursor='pointer';g.setAttribute('role','button');g.setAttribute('tabindex','0');g.setAttribute('aria-label',`${f.boardNumber}번 ${f.country} ${f.flight} 선택`);g.setAttribute('aria-pressed',String(f.viewId===selectedViewId));g.onclick=e=>{e.stopPropagation();onSelect(f.viewId);};g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onSelect(f.viewId);}};
       map.append(g);
     }
-    const enlarge=el('div');enlarge.append(map);
-    mapBox.append(enlarge,css(el('p','workspace-muted','지도 위 위치와 %는 일정으로 계산한 예측입니다. 실제 위치는 편별 「실제 위치」로 확인하세요.'),{fontSize:'11.5px',margin:'4px 0 0'}));
+    return map;
+  }
+  function paintMap(data){
+    mapBox.replaceChildren();
+    const renderExpanded=()=>renderMap(data,{onSelect:id=>{mapDialog.close();selectFlight(id);}});
+    const openMap=()=>{
+      if(mapDialog.open)return;
+      mapDialogContent.replaceChildren(renderExpanded());
+      mapDialog.showModal();
+    };
+    const map=renderMap(data,{onSelect:selectFlight,onEnlarge:openMap});
+    if(!map)return;
+    if(mapDialog.open)mapDialogContent.replaceChildren(renderExpanded());
+    const zoom=btn('지도 확대',openMap);
+    zoom.setAttribute('aria-haspopup','dialog');
+    mapBox.append(map,zoom,css(el('p','workspace-muted','지도 위 위치와 %는 일정으로 계산한 예측입니다. 실제 위치는 편별 「실제 위치」로 확인하세요.'),{fontSize:'11.5px',margin:'4px 0 0'}));
   }
   function paint(data){
     clear();last=data;
@@ -214,6 +239,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
     if('menuOpen'in state)visible=!!state.menuOpen;if('online'in state)online=!!state.online;
     root.hidden=!owner;for(const b of [detail,retry])b.disabled=!owner||!online;
     if(owner&&visible&&online&&(changed||!previousVisible||!previousOnline))void load(false);
+    if((changed||!visible||!online)&&mapDialog.open)mapDialog.close();
     if(!visible||!online)clearTimeout(timer);
   }
   setOpen(opened);
