@@ -1,0 +1,92 @@
+{
+  "id": "distribute-order-absorb",
+  "title": "빠른 출고분배 · 미등록 업체 주문 통합흡수 계약",
+  "scope": [
+    "lib/distributeOrderAbsorb.js",
+    "pages/shipment/quick-absorb.js",
+    "__tests__/distributeOrderAbsorb.test.js",
+    "docs/contracts/distribute-order-absorb.json",
+    "components/Layout.js",
+    "desktop/menu.json"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "policy": {
+    "roundTripRemoval": "기존 pages/shipment/distribute.js(가이드 해시 잠금)와 임의 SQL 쓰기 API를 수정/신설하지 않고 전용 화면 /shipment/quick-absorb에서 [주문상태 감지 → 표준 주문등록(manual-order) → 표준 출고분배(distribution-workspace)]를 한 화면 순차 게이트로 통합한다.",
+    "zeroOrderGuard": "미등록 업체(!hasActiveOrder)에 분배 수량 0 이하로 가짜 주문을 생성할 수 없으며, 명시적 확인 게이트(confirmGatePassed) 통과 전에는 어떤 원장 쓰기 API도 호출하지 않는다.",
+    "stepIsolation": "1단계 POST /api/orders가 실패하거나 verified=true가 아니면 2단계 POST /api/shipment/distribute를 절대 호출하지 않는다. 1단계 완료 후 2단계 실패 시 최신 상태를 재조회해 재시도 시 주문 중복 가산을 막는다.",
+    "existingOrderPreservation": "동일 OrderYear + OrderWeek + CustKey + ProdKey 활성 주문이 이미 존재하면 POST /api/orders를 호출하지 않고 OrderDetail을 그대로 보존한 채 출고분배만 갱신한다.",
+    "crossYearIsolation": "prior-year 동일 차수(예: 2025-45-01) 및 연도 미표기 행은 2026 상태 판정에서 완전히 배제한다."
+  },
+  "actions": [
+    {
+      "name": "ABSORB_UNREGISTERED_ORDER_AND_DISTRIBUTE",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "set-final-nonnegative",
+      "shipmentMaster": "prepare-empty-if-absent-or-reuse-single-active",
+      "shipmentDate": "sync-from-shipment-detail",
+      "shipmentFarm": "preserve",
+      "warehouse": "preserve",
+      "stock": "manual-order-existing-recalculation-only"
+    },
+    {
+      "name": "DISTRIBUTE_EXISTING_ORDER_PRESERVED",
+      "orderDetail": "preserve",
+      "shipmentDetail": "set-final-nonnegative",
+      "shipmentDate": "sync-or-delete-on-zero",
+      "shipmentFarm": "preserve",
+      "warehouse": "preserve",
+      "stock": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025-45-01 동일 업체·품목 주문이 존재해도 2026-45-01 선택 시 미등록 업체로 정확히 판별하며 2025 원장을 읽거나 덮어쓰지 않는다.",
+    "fixture": {
+      "selectedOrderYear": "2026",
+      "orderWeek": "45-01",
+      "priorYear": "2025",
+      "expectedIncludedYears": [
+        "2026"
+      ],
+      "expectedExcludedYears": [
+        "2025"
+      ]
+    }
+  },
+  "requiredTestFiles": [
+    "__tests__/distributeOrderAbsorb.test.js",
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/shipmentDetailWriteGuard.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs & FormOrderAdd.cs",
+    "methods": [
+      "FormOrderAdd.btnSave_Click",
+      "FormOrderAdd.UnitQuantity",
+      "FormShipmentDistribution.GetCustomerList",
+      "FormShipmentDistribution.btnSave_Click"
+    ],
+    "tables": [
+      "OrderMaster",
+      "OrderDetail",
+      "OrderHistory",
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate"
+    ]
+  },
+  "requiredCommands": [
+    "node __tests__/distributeOrderAbsorb.test.js",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master"
+  ]
+}

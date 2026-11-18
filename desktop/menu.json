@@ -188,6 +188,11 @@
         "popup": true
       },
       {
+        "href": "/shipment/quick-absorb",
+        "labelKey": "빠른 분배·미등록주문 통합입력",
+        "popup": false
+      },
+      {
         "href": "/shipment/distribute-import",
         "labelKey": "출고분배 엑셀업로드",
         "popup": false
