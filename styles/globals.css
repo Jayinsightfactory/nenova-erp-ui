@@ -109,7 +109,11 @@ body {
 .estimate-item-table { min-width:1140px; table-layout:fixed; }
 .estimate-item-table thead { position:sticky; top:0; z-index:12; }
 .estimate-item-table thead th { position:sticky; top:0; background:#edf3fa; box-shadow:0 1px 0 var(--border); }
-.estimate-item-table tbody td:nth-child(2) { min-width:220px; white-space:normal; overflow-wrap:anywhere; }
+/* Fixed-layout tables take column widths from the first row. Body min-width alone is ignored. */
+.estimate-item-table thead th:nth-child(2) { width:280px; min-width:280px; }
+.estimate-item-table thead th:nth-child(3) { width:64px; }
+.estimate-item-table thead th:nth-child(4) { width:88px; }
+.estimate-item-table tbody td:nth-child(2) { min-width:280px; white-space:normal; overflow-wrap:anywhere; }
 .estimate-item-table tbody td:last-child { min-width:100px; white-space:normal; }
 .estimate-item-table tfoot { position:sticky; bottom:0; z-index:11; background:#edf3fa; }
 @media(max-width:1100px){.estimate-split-panel{grid-template-columns:1fr}.estimate-item-scroll{max-height:65vh}}
