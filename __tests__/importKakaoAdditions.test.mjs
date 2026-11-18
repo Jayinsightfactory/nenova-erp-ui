@@ -11,3 +11,32 @@ assert.equal(farmTotals([...checked,{...checked[0],unit:'단'}]).length,2);
 assert.equal(farmTotals(m.items).length,0);assert.equal(validItem({...checked[0],quantity:-1}),false);
 assert.throws(()=>readImportDay([...vals,vals[1]],'2026-11-17'));assert.throws(()=>readImportDay([[]],'2026-11-17'));
 const named=row(1,'CL21',2);named[10]='콜 수국 Moon Light';assert.equal(readImportDay([headers,named],'2026-11-17')[0].items[0].group,'콜롬비아수국');assert.equal(readImportDay([headers,named],'2026-11-17')[0].items[0].customer,'CL21');
+
+const { readRecentImports } = await import('../lib/importKakaoAdditions.js');
+function message(id, date) {
+  const value = row(1, '', 1, date);
+  value[0] = id;
+  return value;
+}
+const recentRows = [headers,
+  message('morning','2026년 11월 17일 오전 11:30'),
+  message('today','2026-11-18 09:00:00'),
+  message('old','2026년 11월 16일 오후 11:59'),
+  message('evening','2026년 11월 17일 오후 7:08'),
+  message('noon','2026년 11월 17일 오후 12:00'),
+  message('midnight','2026년 11월 17일 오전 12:00'),
+  message('future','2026년 11월 19일 오전 9:00'),
+  message('prior-year','2025년 11월 18일 오전 9:00'),
+];
+const recent = readRecentImports(recentRows, new Date('2026-11-18T01:00:00Z'));
+assert.deepEqual(recent.messages.map(m => m.id), ['today','evening','noon','morning','midnight']);
+assert.equal(recent.from, '2026-11-17');
+assert.equal(recent.to, '2026-11-18');
+assert.equal(recent.latest, '2026-11-18 09:00:00');
+const rollover = readRecentImports([headers,message('yesterday','2026년 12월 31일 오후 11:59')],new Date('2026-12-31T15:01:00Z'));
+assert.equal(rollover.to,'2027-01-01');
+assert.equal(rollover.from,'2026-12-31');
+assert.equal(rollover.messages.length,1);
+const stale = readRecentImports([headers,message('stale','2026년 11월 15일 오후 1:00')],new Date('2026-11-18T01:00:00Z'));
+assert.equal(stale.messages.length,0);
+assert.equal(stale.latest,'2026년 11월 15일 오후 1:00');
