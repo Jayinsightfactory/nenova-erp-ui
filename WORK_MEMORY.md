@@ -3523,3 +3523,11 @@ pm run test:canon 통과.
 - 공개: https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.36 / 대상f1bc55db / 4assets 확인. 설치본111,953,212bytes, SHA256 69586d2dd2e1f82523698fe615c5bdc0184c8b0a8f7053eda1a40c1fc0337d7f, MZ/SHA512/blockmap 검증. 공개 latest.yml 버전1.3.36·검증된 원본과 동일, 공개 exe URL/바이트 크기 일치.
 - 회사 Drive 최종 원본: MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol (514.3초/42,948,556bytes), VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat (12,846bytes), proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn (18,775bytes). 14단계/자막76개 프레임 대조·대표 장면 육안 확인. 과거1.3.35 자료는 미공개 초안이며 최종 근거 아님.
 - 검색어: deployed calendar 1.3.36 f1bc55db 즐겨찾기 전체 접기 열기 달력 가로20% 공휴일12개국 상세 편집 주차별 유지 운영 검증 공개 피드 직원PC 재시작 안함
+
+## 2026-11-18 수입방 3영역 대조 UI 작업
+- 검색어: 카톡 25% 중앙원문 우측합계 차수 품목군 버튼 sourceKeys audit 누락확인
+1. 작업 위치: nenova-erp-ui / codex/import-kakao-match-layout / nw-cdx-kakao-match / PR예정.
+2. 완료된 것: 25%생성영역·중앙원문·우측합계, 차수/품목군버튼, 합계기여행 sourceKeys 양방향매칭, audit=1 명시GET과 분류건수대조·제외원문검색·수동검토복구.
+3. 남은 할 일: 브라우저 회귀·가이드갱신·전체ERP/build/CI·배포·운영확인.
+4. 검증 상태: 표적 원문/API/합산/누락대조·수동검토순수함수 PASS; 실제브라우저 및 전체검증 진행중. 운영 미검증.
+5. 주의/잠금: 본worktree만 수정. 카톡방 자체 수집완전성·사진OCR 미확인 명시. 수집시트 GET/브라우저계산만, ERP쓰기/외부발송0. 타세션 비행기PR1820 최신master포함 유지.

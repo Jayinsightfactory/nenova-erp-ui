@@ -9,6 +9,7 @@ async function main(){
  const {classifyImportFeed}=await import('../lib/importKakaoOrderText.js');
  const sampleMessage=(id,text)=>({id,time:id==='white'?'2026년 11월 12일 오전 9:10':'2026년 11월 18일 오전 9:10',text,sender:'연습 담당자',items:[]});
  const sampleMessages=[...['주광','미우','일신'].map((customer,i)=>sampleMessage(String(i),'46-1 콜 카네이션 발주 추가\n'+customer+'\nMoon Light '+[1,2,1][i]+'박스')),sampleMessage('white','46-1 콜 수국 발주 추가\n화이트 2박스'),sampleMessage('duplicate','46-1 콜 카네이션 발주 추가\n주광\nMoon Light 1박스'),sampleMessage('noise','이번에 온 3박스가 포장 불량입니다'),sampleMessage('cancel','46-1 콜 카네이션 발주 취소\n별도품종 1박스')];
+ sampleMessages.push(sampleMessage('missed','46-1 콜 수국 추가\n연습화이트 두 박스 부탁합니다.'));
  const sampleFeed=classifyImportFeed({orderDays:['2026-11-18','2026-11-12'],reviewThrough:'2026-11-18',from:'2026-11-17',to:'2026-11-18',latest:'2026년 11월 18일 오전 9:10',messages:sampleMessages});
  const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8')),workflow=registry.workflows.find(w=>w.id==='import-country-orders');
  const listener=net.createServer();await new Promise(r=>listener.listen(0,'127.0.0.1',r));const port=listener.address().port;await new Promise(r=>listener.close(r));
@@ -36,7 +37,7 @@ async function main(){
     if(url.origin!==base)return req.abort();
     if(!url.pathname.startsWith('/api/'))return req.continue();
     let data={success:true,items:[],rows:[],products:[],data:[],value:null,revision:0,history:[],user};
-    if(url.pathname.endsWith('/kakao-additions')) data=sampleFeed;
+    if(url.pathname.endsWith('/kakao-additions')) data=url.searchParams.get('audit')==='1'?{...sampleFeed,audit:classifyImportFeed({messages:sampleMessages},new Map(),{audit:true}).audit}:sampleFeed;
     if(url.pathname.endsWith('/country-orders')){
       const country=url.searchParams.get('country'),exact=url.searchParams.get('orderWeek');
       if(exact)details.push(exact);
@@ -102,22 +103,39 @@ async function main(){
   let farmFile;for(let n=0;n<50&&!farmFile;n++){farmFile=fs.readdirSync(downloadDir).find(name=>name.includes('HUBFRESH')&&name.endsWith('.xlsx'));if(!farmFile)await new Promise(resolve=>setTimeout(resolve,100));}
   assert(farmFile,'farm download saved');const farmWb=XLSX.readFile(path.join(downloadDir,farmFile));assert.equal(farmWb.SheetNames[0],'업체별 발주');assert.equal(farmWb.Sheets['업체별 발주'].C5.v,15);
   for(const [n,id,label,selector,caption,key] of [
-    [16,'chat','최근 발주일 카톡 확인','.kakao-additions > button','오늘과 어제가 아니라 발주가 있는 최근 2일을 자동으로 찾습니다. 표시된 발주일을 확인하세요. 일반 대화와 중복은 제외하고 취소는 검토로 분리합니다.','Enter'],
-    [17,'sum','품목군 선택·자동 합계','.kakao-additions select','콜롬비아 카네이션을 선택하면 Moon Light 4박스와 업체별 주광 1, 미우 2, 일신 1을 확인할 수 있습니다.',null],
-    [18,'copy','농장 전달용 복사','.kakao-additions .kakao-table + button','합계와 비고를 복사해 농장에 전달합니다.','Enter']
+    [16,'chat','최근 발주일 카톡 확인','.kakao-refresh','오늘과 어제가 아니라 발주가 있는 최근 2일을 자동으로 찾습니다. 표시된 발주일을 확인하세요. 일반 대화와 중복은 제외하고 취소는 검토로 분리합니다.','Enter'],
+    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','콜롬비아 카네이션을 선택하면 Moon Light 4박스와 업체별 주광 1, 미우 2, 일신 1을 확인할 수 있습니다.',null],
+    [18,'match-total','합계에서 원문 확인','.kakao-match-total','품종 버튼을 누르면 중앙에 이 합계에 포함된 원문만 나타납니다.','Enter'],
+    [19,'match-source','원문에서 합계 확인','.kakao-match-source','원문 버튼을 누르면 오른쪽에 이 원문이 기여한 합계를 표시합니다.','Enter'],
+    [20,'audit','제외 원문 대조','.kakao-audit > summary','분류 건수를 대조하고 제외 원문을 검색해 놓친 발주를 확인합니다. 카톡 자체 수집 누락과 사진은 별도 원본 대조가 필요합니다.','Enter'],
+    [21,'recover','누락 의심 발주 보완','[data-audit-id="missed"] > button','원문에서 두 박스를 확인한 뒤 품종·차수·수량·단위를 보완하고 합산을 체크합니다.','Enter'],
+    [22,'copy','농장 전달용 복사','.kakao-additions .kakao-table + button','합계와 비고를 복사해 농장에 전달합니다.','Enter']
   ]){
+    if(id==='copy'){await page.click('.kakao-originals > button[aria-expanded="true"]');await page.click('.kakao-choices[aria-label="품목군"] button:last-child');}
     await page.waitForSelector(selector,{visible:true});
     await page.$eval(selector,b=>b.scrollIntoView({block:'center'}));
     rec.chapter(id,n+'. '+label);await rec.caption(n+'. '+label+' · '+caption);await rec.pause(2300);await rec.focus(selector,n);
-    if(id==='sum')await page.select(selector,'콜롬비아 · 카네이션');if(key){await page.focus(selector);await page.keyboard.press(key);}await rec.pause(2800);await rec.unfocus();
+    if(id==='sum') { await page.focus('.kakao-choices[aria-label="차수"] button:last-child');await page.keyboard.press('Enter');await page.focus(selector);await page.keyboard.press('Enter'); }
+    if(id==='audit'){await page.focus('.kakao-match-notice button');await page.keyboard.press('Enter');}if(key){await page.focus(selector);await page.keyboard.press(key);}
+    if(id==='audit'){await page.waitForSelector('[data-audit-id="missed"]');await page.click('[data-audit-id="missed"] > summary');}
+    if(id==='recover'){
+      const recovered='[aria-label="카톡 발주 검토"] .kakao-order-message:last-child fieldset';
+      await page.waitForSelector(recovered);await page.$eval(recovered,n=>n.scrollIntoView({block:'center'}));await rec.unfocus();await rec.focus(recovered,n);
+      const inputs=await page.$$(recovered+' > label input');
+      for(const [i,value] of ['콜롬비아','수국','46-01','연습화이트','2','박스',''].entries()){await inputs[i].focus();await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');await page.keyboard.type(value,{delay:dry?0:90});}
+      assert.equal(await page.$eval(recovered+' input[type="checkbox"]',n=>n.checked),false);await page.focus(recovered+' input[type="checkbox"]');await page.keyboard.press('Space');
+      assert((await page.$eval('.kakao-table',n=>n.textContent)).includes('연습화이트'));console.log('PASS manual recovered order edit and include');
+    }
+    await rec.pause(2800);await rec.unfocus();
   }
   assert((await page.$eval('.kakao-table',el=>el.textContent)).includes('주광 1, 미우 2, 일신 1'));
+  await page.focus('.kakao-audit > summary');await page.keyboard.press('Enter');await page.waitForNetworkIdle();
   assert.equal(await page.$$eval('.kakao-order-message',nodes=>nodes.length),3);
   assert(!(await page.$eval('.kakao-additions',n=>n.textContent)).includes('이번에 온 3박스'));
   assert((await page.$eval('.kakao-counts',n=>n.textContent)).includes('중복 제외 1건'));
   assert.equal(await page.$('.kakao-additions input[type="date"]'),null);
   assert(await page.$eval('.kakao-additions details',node=>node.open));
-  await page.click('.kakao-additions > button');
+  await page.click('.kakao-refresh');
   await page.waitForNetworkIdle();
   assert(await page.$eval('.kakao-additions input[type="checkbox"]',node=>node.checked));
   assert((await page.$eval('.kakao-table',node=>node.textContent)).includes('주광 1, 미우 2, 일신 1'));
@@ -125,21 +143,34 @@ async function main(){
   assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'4 박스');
   await page.click('.kakao-additions input[type="checkbox"]');
   assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'3 박스');
-  await page.click('.kakao-additions > button');await page.waitForNetworkIdle();
+  await page.click('.kakao-refresh');await page.waitForNetworkIdle();
   assert.equal(await page.$eval('.kakao-additions input[type="checkbox"]',n=>n.checked),false);
   assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'3 박스');
   console.log('PASS initial automatic total4, customer remarks, manual exclusion3 preserved after refresh');
+  const layout=await page.evaluate(()=>{const box=s=>document.querySelector(s).getBoundingClientRect();return {ratio:box('.pedidos-primary').width/box('.pedidos-split').width,left:box('.pedidos-primary').x,center:box('.kakao-originals').x,right:box('.kakao-totals').x};});
+  assert(layout.ratio>.23&&layout.ratio<.26);assert(layout.left<layout.center&&layout.center<layout.right);
+  await page.click('.kakao-match-total');assert.equal(await page.$$eval('.kakao-order-message',n=>n.length),2);
+  await page.click('.kakao-match-source');assert.equal(await page.$$eval('.kakao-table tbody tr',n=>n.length),1);
+  await page.click('.kakao-match-notice button');
+  await page.click('.kakao-audit > summary');await page.waitForNetworkIdle();
+  assert((await page.$eval('.kakao-audit',n=>n.textContent)).includes('분류 건수 일치'));
+  assert((await page.$eval('.kakao-audit',n=>n.textContent)).includes('카톡방 전체의 수집 누락 여부는 확인되지 않았습니다'));
+  await page.click('.kakao-audit > summary');await page.waitForNetworkIdle();
+  console.log('PASS 25percent layout, week/category buttons, bidirectional contributors and opt-in omission audit');
   const result=await rec.stop();stopped=true;
-  await page.select('.kakao-additions select','');
-  const reviewButton=await page.$('.kakao-additions > button[aria-expanded]');await reviewButton.focus();await page.keyboard.press('Enter');
+  await page.click('.kakao-choices[aria-label="품목군"] button');
+  const reviewButton=await page.$('.kakao-originals > button[aria-expanded]');await reviewButton.focus();await page.keyboard.press('Enter');
   await page.waitForSelector('[aria-label="카톡 발주 검토"]');
   assert.equal(await page.$eval('[aria-label="카톡 발주 검토"] input[type="checkbox"]',n=>n.checked),false);
   assert((await page.$eval('[aria-label="카톡 발주 검토"]',n=>n.textContent)).includes('취소'));
   console.log('PASS raw classification, group filter, noise/duplicate exclusion and cancellation review UI');
+  const manualCheck='[aria-label="카톡 발주 검토"] .kakao-order-message:last-child input[type="checkbox"]';
+  assert.equal(await page.$eval(manualCheck,n=>n.checked),true);await page.click(manualCheck);
+  console.log('PASS recovered review survives closing audit and refresh');
   // A previously explicit inclusion must not survive a newly collected cancellation.
   await page.click('.kakao-additions input[type="checkbox"]');
   Object.assign(sampleFeed,classifyImportFeed({from:'2026-11-17',to:'2026-11-18',messages:[...sampleMessages,sampleMessage('new-cancel','46-1 콜 카네이션 발주 취소\nMoon Light 1박스')]}));
-  await page.click('.kakao-additions > button');await page.waitForNetworkIdle();
+  await page.click('.kakao-refresh');await page.waitForNetworkIdle();
   assert(!(await page.$eval('.kakao-table',n=>n.textContent)).includes('Moon Light'));
   assert(await page.$$eval('[aria-label="카톡 발주 검토"] input[type="checkbox"]',nodes=>nodes.length>=4&&nodes.every(n=>!n.checked)));
   console.log('PASS live refresh invalidates prior inclusion when a related cancellation arrives');
