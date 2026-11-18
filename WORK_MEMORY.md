@@ -3788,3 +3788,12 @@ pm run test:canon 통과.
 3. 남은 할 일: PR #1848 CI 통과 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행) → Cafe24 배포 후 `node C:\Users\USER\nenova-pm\upload-device-hub.js` 실서버 업로드 확인.
 4. 검증 상태: `cargo test`(9/9), `upload-device-hub.js --no-upload`, `workFeatureData`, `deviceHubConsole`, `workflowReview`, `solutionSuiteSimulator`, `archFlowChart`, `desktopBootstrap`(5/5), `desktop/tests/menu.test.cjs`(3/3), `test:ui-layout`, `test:workflow-guides`(29 workflows·30 videos), `guard:erp-writes`, `test:erp-manifest`(229건), `test:pm`, `test:canon`, `npx next build --webpack`(139 페이지, `next-build.lock` 단독 락) 모두 통과. 배포 후 라이브 실단말 ADB 연결 및 실서버 `feature-data-ingest` 업로드는 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건, `mineOnly`(일반 직원 계정)에는 `devices` 탭 및 `/api/my-work/feature` 미노출(`404` 은닉 유지), UI·주석·테스트 내 3대 금지 표현 0건 유지(관제·점검·감지 표준 용어 사용).
+
+## 2026-11-18 · 입고관리 농장 검색·상세 스크롤·최고가 배포
+- 검색어: 입고관리 농장명 잘림 열 검색 상세 여백 상단 가로 스크롤 최신원가 최고가 Desktop 1.3.44
+1. 작업 위치: nenova-erp-ui / codex/receipt-density-1118 / nw-receipt-density(정리 완료) / 기능 PR #1851, squash 37c76dfb. 인계 PR 브랜치 codex/receipt-verified-1118 / nw-receipt-verified.
+2. 완료된 것: pages/incoming.js에 농장명 200px 줄바꿈과 열 위 즉시 검색, 상세 행 여백 축소, 양방향 상단 가로 스크롤, 820px 상하 배치. 원가 상세 기본 OFF/동일 연도 최신 차수의 같은 단위 KRW 비교 최고가 한 건, ON은 기존 농장별 출처 상세. 1.3.44 공개 완료. 기존 웹·Desktop 메뉴의 /incoming 경로 사용.
+3. 남은 할 일: 서비스 배포 없음. 직원 PC는 재시작하지 않았으므로 실제 설치/기기 동작은 미검증. 계정에 1.3.43 등 설치돼도 같은 서버 화면을 엽니다.
+4. 검증 상태: 최신원가 계약 4건, 날짜 범위 회귀, 로컬 ERP 전체, manifest 228, dnSpy, write guard, webpack, 가이드 해시 및 27→28 흐름 검사 통과. 합성 Chrome 팝업에서 검색 12→1, 최고가 1,350원/단 한 건, 상세 전환, 오른쪽 스크롤 동기화, 키보드, 820px 및 실제 영상 재생 확인. #1851 필수 Windows 44280067178/ERP 44280067189 통과. 후속 기준선 7eb1c050에 #1851이 동일하게 포함되고 Cafe24 44282323692 성공. 운영 /incoming?popup=1 인증 조회에서 검색 입력, 원가 상세 기본 off, 상단 오른쪽 스크롤, 가이드 재생 검증. Windows 44282323814, 공개 latest.yml와 exe 111,956,169바이트 일치, SHA256 9ce281386338e7cd44367524f185e9b189ced390f414bc25d470a615644c492b.
+5. 주의/잠금: ERP·ECOUNT 원장 수정 없음, 운영에서는 GET/HEAD로 기능을 검증. 원가 단위 혼용/미확정 시 숫자를 단정하지 않음. 선행 #1849는 1.3.43, #1853·#1848은 동일 1.3.44 기준선으로 병합돼 최신 7eb1c050 검증 설치본을 한 번만 공개함. 문서 병합의 불필요한 Cafe24 재배포는 이 문서 SHA만 취소.
+- 회사 Drive 가이드 원본(크기 확인, 녹화 시 예약 버전 파일명 1.3.43, 최종 화면 및 소스 해시 일치): 수입부 MP4 1vZQaWpDTBeH0NNE_-c19HFYZcq-1VEdt / VTT 1p6wecWaZNa3lZsbrh5Rj-M6sxRNI-0E1 / proof 1sfw6kA_bmELPBUOIQ8_NSP2yD1IZ_M8v. 영업지원 MP4 1kLR9otsruMFq-soiIXetteeROUDJN7mk / VTT 1aps34w8SPf2YBeVsBOkvQ7khXTlZIzBs / proof 16Nkgz8C_-IHYjvc5Tguhj3svaXYlqLbN.
