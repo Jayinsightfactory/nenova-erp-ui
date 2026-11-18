@@ -359,7 +359,9 @@
         "pages/incoming.js",
         "pages/import/tools.js",
         "components/IncomingCorrectionRequest.js",
-        "lib/incomingApprovalSimple.js"
+        "lib/incomingApprovalSimple.js",
+        "components/WarehouseFarmSelect.js",
+        "lib/warehouseFarmChoices.js"
       ],
       "requiredScenarios": [
         "farm",
@@ -379,27 +381,27 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 7.01
+              "seconds": 7.017
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 74.063
+              "seconds": 87.161
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 162.845
+              "seconds": 176.335
             },
             {
               "scenario": "add",
               "title": "4. 기존 입고에 품목·수량 추가",
-              "seconds": 243.997
+              "seconds": 258.459
             },
             {
               "scenario": "cancel",
               "title": "5. 기존 입고의 품목·수량 취소",
-              "seconds": 355.168
+              "seconds": 370.666
             }
           ]
         },
@@ -415,17 +417,17 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.011
+              "seconds": 13.983
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 57.832
+              "seconds": 57.94
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 139.282
+              "seconds": 140.063
             }
           ]
         }

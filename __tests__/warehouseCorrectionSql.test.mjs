@@ -67,6 +67,16 @@ test('isolated SQL: real native gate + CALC, replacement/rollback/idempotency/cr
     const farm={warehouseKey:90,orderYear:'2026',orderWeek:'44-01',mode:'FARM',farmName:'Farm B'};
     const detailsBefore=JSON.stringify((await q('SELECT * FROM dbo.WarehouseDetail WHERE WarehouseKey=90')).recordset);
     await commit(await approve(farm));assert.equal(JSON.stringify((await q('SELECT * FROM dbo.WarehouseDetail WHERE WarehouseKey=90')).recordset),detailsBefore);
+    // A receipt-only name is valid metadata without adding a FarmKey or touching another year's receipt.
+    await q(`INSERT dbo.WarehouseMaster(WarehouseKey,OrderYear,OrderWeek,FarmName,InvoiceNo,OrderNo,InputDate,isDeleted) VALUES(91,N'2027',N'44-01',N'Faguaflowers Intl LLC',N'F',N'F','20271101',0)`);
+    const farmLedgers=async()=>JSON.stringify((await q('SELECT * FROM Product ORDER BY ProdKey; SELECT * FROM ProductStock ORDER BY StockKey,ProdKey; SELECT * FROM StockHistory ORDER BY StockHistoryKey; SELECT * FROM Farm ORDER BY FarmKey; SELECT * FROM WarehouseMaster WHERE WarehouseKey IN(89,91) ORDER BY WarehouseKey;')).recordsets);
+    const unchangedFarmLedgers=await farmLedgers();
+    await commit(await approve({...farm,farmName:'Faguaflowers Intl LLC'}));
+    assert.equal((await q('SELECT FarmName FROM WarehouseMaster WHERE WarehouseKey=90')).recordset[0].FarmName,'Faguaflowers Intl LLC');
+    assert.equal(await farmLedgers(),unchangedFarmLedgers,'receipt-only farm correction preserves stock/history/Farm and cross-year headers');
+    assert.equal(await snapshot(),protectedBefore);
+    await commit(await approve(farm));
+    await q('DELETE WarehouseMaster WHERE WarehouseKey=91');
     const back={...input,farmName:'Farm B',items:[{...input.items[0],prodName:'Flower A'}]};
     const all=async()=>JSON.stringify((await q('SELECT * FROM dbo.WarehouseMaster;SELECT * FROM dbo.WarehouseDetail;SELECT * FROM dbo.Product;SELECT * FROM dbo.ProductStock;SELECT * FROM dbo.StockHistory;SELECT * FROM dbo.SystemActionLog;SELECT * FROM dbo.NenovaStockWeekGate;')).recordsets);
     await q('UPDATE dbo.FixtureNativeCalcControl SET FailNext=1');const beforeFail=await all();await assert.rejects(()=>approve(back).then(commit));assert.equal(await all(),beforeFail);await q('UPDATE dbo.FixtureNativeCalcControl SET FailNext=0');
