@@ -27,6 +27,14 @@ for (const bpId of ['master', 'order_ship', 'import_cost', 'stock_profit']) {
 for (const itemExample of ['콜롬비아 장미 프리덤', '네덜란드 수국', '유오디아 블랙잭', '솔루션']) {
   assert.ok(comp.includes(itemExample), `ArchFlowChart must include solution blueprint token: ${itemExample}`);
 }
+assert.ok(comp.includes('arch-device-suite-section'), 'ArchFlowChart must include arch-device-suite-section');
+assert.ok(comp.includes('DEVICE_SUITE_SESSIONS'), 'ArchFlowChart must define DEVICE_SUITE_SESSIONS');
+for (const suiteToken of ['Phone Harness', 'Device Hub', 'Nenova Kakao', 'WebDeviceNode', 'WebDeviceLease', 'WebDeviceWorkQueue']) {
+  assert.ok(comp.includes(suiteToken), `ArchFlowChart must include device suite token: ${suiteToken}`);
+}
+for (const sessId of ['s1_phone_hub', 's2_kakao_bridge', 's3_desktop_hub', 's4_web_solution']) {
+  assert.match(comp, new RegExp(`id:\\s*'${sessId}'`), `ArchFlowChart must include device suite session ${sessId}`);
+}
 assert.doesNotMatch(comp, /감시|추적|모니터링/, '작업자 노출 문구에 감시·추적·모니터링 금지');
 assert.doesNotMatch(comp, /<button[\s>]/, 'PM UI 키트 규칙: raw <button> 금지');
 
