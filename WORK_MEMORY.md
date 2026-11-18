@@ -3718,3 +3718,11 @@ pm run test:canon 통과.
 3. 남은 할 일: 필수검사, PR CI, 머지, Cafe24와 설치본 배포 및 운영 확인.
 4. 검증 상태: 기존 지도 회귀 4건, 가이드, 전체 ERP 계약, dnSpy, manifest, 쓰기 가드와 빌드 통과. Chromium의 Desktop 셸 연습 지도 확대·Esc·마커 선택 통과. 최종 병합 검사와 운영 배포 미검증.
 5. 주의/잠금: 지도 표시만 변경. MSSQL·카톡 수집과 업무 상태 변경 없음. 기존 영상 면제 적용.
+
+## 2026-11-18 · 수입 비행기 지도 단독 확대 운영 반영
+- 검색어: 수입 비행기 지도 확대 flight-map-dialog Desktop1.3.42 PR1843
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/flight-map-zoom-1118 / nw-cdx-flight-map-zoom / #1843 squash 5b415dbd61179bcbf1223425b873968af2a715b5.
+2. 완료된 것: 기본 지도 배경·지도 확대 버튼 → 지도 전용 대화상자. 닫기·Esc, 지도 마커와 항공편 상세 연결. 기존 확대 보기 진입 유지. Desktop 1.3.42 공식 공개, Cafe24 run 44270064784.
+3. 남은 할 일: 이 PC 설치 앱 1.3.39는 재시작하지 않아 새 홈 UI 미검증. 사용 중인 창을 저장한 뒤 표준 앱 업데이트 경로로 설치할 수 있음.
+4. 검증 상태: 로컬 ERP 계약·dnSpy·manifest·쓰기 가드·빌드·가이드·Desktop 렌더러 Chromium 클릭 스모크 통과. 최종 verify 44268759984 및 Windows installer 44268760002 통과. 공개 latest.yml 동일. Cafe24 배포와 hydration 성공. 17:54 운영 실제 브라우저 배경 클릭, 마커 선택, 확대 버튼, Esc, 닫기 통과. 사용자 시각 증거 flight-map-zoom.jpg 저장.
+5. 주의/잠금: ERP, 카톡, 업무 표시 원본 쓰기 없음. 영상 면제 유지. 공식 Desktop 설치본 SHA256 866d21f8ff6dd9ac46d8d3891b7cff3ea31176e5f7cbf92fe2eed80c7ecc0425.
