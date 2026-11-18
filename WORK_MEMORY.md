@@ -3685,3 +3685,11 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 생성 → CI `verify`·데스크톱 체크 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir` junction 선행) → 필요 시 데스크톱 `1.3.40` 릴리스 빌드/배포.
 4. 검증 상태: 실제 Electron smoke(`test:smoke` 72/72) 및 `next build` 포함 11개 전체 검증 통과(세션 D2). 실배포 서버 연동 및 `1.3.40` 설치 패키지 실PC 구동은 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건, 관리자 전용 5종 메뉴는 `userIds: ['nenovaSS3']` 게이트 유지, `videoWaivers`는 일반 직원 14단계 홈 가이드 미변경 사유 명시.
+
+## 2026-11-18 · 수입 비행기 지도 단독 확대
+- 검색어: 수입 비행기 지도 확대 flight-map-dialog Desktop1.3.41
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/flight-map-zoom-1118 / nw-cdx-flight-map-zoom / PR 예정.
+2. 완료된 것: 웹 ImportFlightBoard와 Desktop flight-board에서 지도 영역 또는 지도 확대 버튼으로 지도만 크게 보기. 닫기·Esc 및 항공편 클릭 상세 연결. 전체 화면 버튼 보존.
+3. 남은 할 일: 필수검사, PR CI, 머지, Cafe24와 설치본 배포 및 운영 확인.
+4. 검증 상태: 기존 지도 선택 회귀 4건, 영상 가이드 게이트 통과. 실제 확대와 운영 배포는 검증 중.
+5. 주의/잠금: 지도 표시만 변경. MSSQL·카톡 수집과 업무 상태 변경 없음. 기존 영상 면제 적용.

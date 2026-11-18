@@ -119,7 +119,7 @@ function routePath(points) {
   return d;
 }
 
-function FlightMap({ flights, destination, selectedKey, onSelect }) {
+function FlightMap({ flights, destination, selectedKey, onSelect, onEnlarge }) {
   const routes = useMemo(() => {
     const seen = new Map();
     for (const f of flights) {
@@ -144,8 +144,8 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
     return { ...projectLonLat(pos.lon, pos.lat), f };
   }), WORLD_VIEW.width, WORLD_VIEW.height);
   return (
-    <svg viewBox={`0 0 ${WORLD_VIEW.width} ${WORLD_VIEW.height}`} role="group" aria-label="수입 비행기 예측 위치 지도"
-      style={{ width: '100%', height: 'auto', display: 'block', background: '#eef4fa', borderRadius: 6, border: '1px solid #d7e0ea' }}>
+    <svg viewBox={`0 0 ${WORLD_VIEW.width} ${WORLD_VIEW.height}`} role="group" aria-label="수입 비행기 예측 위치 지도" onClick={onEnlarge}
+      style={{ width: '100%', height: 'auto', display: 'block', background: '#eef4fa', borderRadius: 6, border: '1px solid #d7e0ea', cursor: onEnlarge ? 'zoom-in' : undefined }}>
       <path d={WORLD_LAND_PATH} fill="#d5dee8" stroke="#aebccb" strokeWidth="0.4" />
       {routes.map(r => (
         <path key={r.key} d={r.d} fill="none" stroke="#5b8fd1" strokeWidth="1" strokeDasharray={r.via ? '3 3' : undefined} opacity="0.75" />
@@ -184,7 +184,7 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
         return (
           <Fragment key={f.key}>
           {(p.x !== p.anchorX || p.y !== p.anchorY) && <line x1={p.anchorX} y1={p.anchorY} x2={p.x} y2={p.y} stroke="#667f99" strokeWidth="1" pointerEvents="none" />}
-          <g role="button" tabIndex={0} aria-label={`${f.boardNumber}번 ${f.country} ${f.flight || '편명 미확인'} 선택`} aria-pressed={on} onClick={event => onSelect(f.key, event)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(f.key, event); } }} style={{ cursor: 'pointer' }}>
+          <g role="button" tabIndex={0} aria-label={`${f.boardNumber}번 ${f.country} ${f.flight || '편명 미확인'} 선택`} aria-pressed={on} onClick={event => { event.stopPropagation(); onSelect(f.key, event); }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(f.key, event); } }} style={{ cursor: 'pointer' }}>
             <title>{`${f.weekLabel}차 ${f.country} ${f.flight} — ${f.statusLabel}${f.progress != null ? ` 약 ${Math.round(f.progress * 100)}%` : ''}`}</title>
             <circle cx={p.x} cy={p.y} r={on ? 9 : 7} fill={f.priority === 0 ? '#b02a2a' : st.dot} stroke={on ? '#0b3d75' : '#fff'} strokeWidth={on ? 2 : 1.4} opacity="0.95" />
             <text x={p.x} y={p.y + 2.6} fontSize="6.5" textAnchor="middle" fill="#fff" fontWeight="700">{f.boardNumber}</text>
@@ -217,6 +217,9 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
   const [err, setErr] = useState('');
   const [selectedKey, setSelectedKey] = useState('');
   const detailRef = useRef(null);
+  const mapDialog = useRef(null);
+  const mapZoomButton = useRef(null);
+  const openMap = () => mapDialog.current?.showModal();
   const returnFocusRef = useRef(null);
   const selectDetail = (key, event) => {
     returnFocusRef.current = event?.currentTarget || null;
@@ -326,7 +329,16 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
 
           <div className="import-flight-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12, alignItems: 'start' }}>
             <div className="flight-map-panel">
-              <FlightMap flights={shown} destination={data.destination} selectedKey={selectedKey} onSelect={selectDetail} />
+              <FlightMap flights={shown} destination={data.destination} selectedKey={selectedKey} onSelect={selectDetail} onEnlarge={openMap} />
+              <button ref={mapZoomButton} type="button" className="btn btn-sm" aria-haspopup="dialog" onClick={openMap}>지도 확대</button>
+              <dialog ref={mapDialog} className="flight-map-dialog" aria-label="수입 비행기 지도 확대" onClose={() => { if (!detailRef.current?.contains(document.activeElement)) mapZoomButton.current?.focus(); }}>
+                <div className="flight-map-dialog-header">
+                  <strong>수입 비행기 지도</strong>
+                  <button type="button" className="btn btn-sm" onClick={() => mapDialog.current.close()}>닫기</button>
+                </div>
+                <FlightMap flights={shown} destination={data.destination} selectedKey={selectedKey} onSelect={(key) => { mapDialog.current.close(); selectDetail(key, { currentTarget: mapZoomButton.current }); }} />
+                <p>지도 위치는 일정으로 계산한 예측입니다.</p>
+              </dialog>
               <p style={{ fontSize: 12, color: 'var(--text3)', margin: '6px 0' }}>지도 번호와 오른쪽 항공편이 연결됩니다. 위치는 일정 기반 예측이며, 위치 자료가 없는 편은 목록에서 확인하세요.</p>
               <p style={{ fontSize: 12 }}>우선 확인 {active.filter(f => f.priority === 0).length}편 · 확인 필요 {active.filter(f => f.priority === 1).length}편 · 이슈 없는 편은 접어서 표시</p>
             </div>
@@ -376,6 +388,10 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
         .flight-actions { margin: 6px 0; padding-left: 22px; }
         .flight-actions li { margin: 4px 0; }
         .flight-next { color: #526981; font-size: 12px; }
+        .flight-map-dialog { width: min(94vw, 1440px); max-height: 92vh; border: 1px solid #d7e0ea; border-radius: 10px; padding: 14px; color: #18334e; background: #fff; }
+        .flight-map-dialog::backdrop { background: rgb(13 33 54 / 58%); }
+        .flight-map-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+        .flight-map-dialog p { margin: 8px 0 0; font-size: 12px; }
         .flight-map-panel { position: sticky; top: 8px; }
         @media (max-width: 900px) {
           .flight-map-panel { position: static; }
