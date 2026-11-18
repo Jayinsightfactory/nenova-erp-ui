@@ -2,7 +2,7 @@
 const {createHash}=require('node:crypto');
 const {linkedFlights}=require('./shell/flight-board');
 // 앱 홈 「수입 비행기 현황」: 로그인 세션으로 네노바웹 /api/import/flight-board 를 읽어 홈에 필요한 칸만 추려 넘긴다(읽기 전용).
-// 운송장 번호는 홈 요약에 필요 없어 넘기지 않는다.
+// 카드에 필요한 운송장·수량만 넘기고 원문은 상세 화면에서 확인한다.
 const {ORIGIN}=require('./policy.cjs');
 const clean=(value,max)=>typeof value==='string'?value.replace(/[\u0000-\u001f\u007f]/g,' ').slice(0,max):'';
 const iso=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))?new Date(value).toISOString():null;
@@ -14,6 +14,13 @@ const point=p=>p&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon))
 const place=p=>{const at=point(p);return at?{name:clean(p.name,20),...at}:null;};
 const routeLine=list=>Array.isArray(list)?list.slice(0,80).map(point).filter(Boolean).map(p=>[p.lon,p.lat]):[];
 const STATUS=['awaiting_awb','before_departure','in_flight','arrived','registered','unknown'];
+const STEP_STATES = ['done', 'wait', 'due', 'late', 'unknown'];
+const quantity = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+const cargo = entry => entry ? {
+  boxes: quantity(entry.boxes),
+  items: Array.isArray(entry.items) ? entry.items.slice(0, 80).map(item => ({ name: clean(item?.name, 60), box: quantity(item?.box) })) : [],
+  registeredAt: iso(entry.registeredAt),
+} : null;
 const trackUrl=links=>{
   for(const key of ['aircraftTrack','flightTrack']){
     const url=links&&typeof links[key]==='string'?links[key]:'';
@@ -39,12 +46,16 @@ function projectFlightBoard(data){
   issues.sort((a,b)=>(a.level==='red'?0:1)-(b.level==='red'?0:1));
   const todo=issues.slice(0,40);
   const rows=data.flights.filter(f=>f&&typeof f==='object'&&STATUS.includes(f.status));
-  const flights=linkedFlights(rows,candidates).filter(f=>f.status!=='registered'||f.flightIssues.length).slice(0,8).map(f=>{
+  const flights=linkedFlights(rows,candidates).filter(f=>f.status!=='registered'||f.flightIssues.length).map(f=>{
     const steps=Array.isArray(f.checklist?.steps)?f.checklist.steps.filter(x=>x&&typeof x==='object'):[];
     const next=steps.find(x=>x.state==='late')||steps.find(x=>x.state==='due');
     const progress=Number(f.progress);
     return {
       viewId:flightViewId(f.key),weekLabel:clean(f.weekLabel,12),country:clean(f.country,12),itemLabel:clean(f.itemLabel,40),
+      airline:clean(f.airline,32),awb:/^\d{3}-?\d{8}$/.test(f.awb||'')?f.awb:'',
+      originAssumed:f.origin?.assumed===true,announcedCargo:cargo(f.announcedCargo),receivedCargo:cargo(f.receivedCargo),
+      steps:steps.filter(x=>STEP_STATES.includes(x.state)).slice(0,20).map(x=>({label:clean(x.label,30),state:x.state,at:iso(x.at)})),
+      quarantineSlotChanged:f.checklist?.quarantineSlotChanged===true,
       flight:clean(f.flight,12),statusLabel:clean(f.statusLabel,40),status:f.status,
       progress:f.progress!==null&&f.progress!==undefined&&Number.isFinite(progress)?Math.max(0,Math.min(1,progress)):null,
       viaName:clean(f.via?.name,20),origin:place(f.origin),via:place(f.via),position:point(f.position),route:routeLine(f.route),phase:clean(f.phase,20),arriveAt:iso(f.arriveAt),timeAssumed:f.timeAssumed===true,

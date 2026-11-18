@@ -15,10 +15,12 @@ assert.deepEqual(originFor({ country: '콜롬비아', itemLabel: '' }), { code: 
 assert.deepEqual(originFor({ country: '에콰도르' }), { code: 'UIO', assumed: false });
 assert.deepEqual(originFor({ country: '네덜란드' }), { code: 'AMS', assumed: false });
 assert.deepEqual(originFor({ country: '태국' }), { code: 'BKK', assumed: false });
-for (const [c, code] of [['중국', 'KMG'], ['호주', 'SYD'], ['미국', 'LAX'], ['베트남', 'SGN'], ['뉴질랜드', 'AKL']]) {
+for (const [c, code] of [['중국', 'KMG'], ['미국', 'LAX'], ['베트남', 'SGN'], ['뉴질랜드', 'AKL']]) {
   assert.deepEqual(originFor({ country: c }), { code, assumed: true });
 }
 assert.equal(originFor({ country: '기타' }), null);
+assert.equal(originFor({ country: '호주' }), null);
+assert.deepEqual(originFor({ country: '호주', airportOrigin: 'BNE' }), { code: 'BNE', assumed: false });
 assert.equal(TRANSIT.콜롬비아.hours, 52); assert.equal(TRANSIT.에콰도르.via, true);
 
 // 대권

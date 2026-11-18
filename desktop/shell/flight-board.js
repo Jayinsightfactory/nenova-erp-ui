@@ -72,6 +72,13 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
   if(typeof document==='undefined')return;
   const root=document.getElementById('flightBoard');
   if(!root||!window.desktop)return;
+  const columns = root.closest('.home-columns');
+  const wideHome = window.matchMedia('(min-width: 1001px)');
+  const layoutHome = () => {
+    if (columns) columns.style.gridTemplateColumns = wideHome.matches && !root.hidden
+      ? 'minmax(0, 1fr) clamp(258px, 18%, 350px)' : '';
+  };
+  wideHome.addEventListener('change', layoutHome);
   const {issueRows,shortIssue,linkedFlights,nextAction,placeMarkers}=flightPresentation;
   const SVG='http://www.w3.org/2000/svg',world=window.NenovaWorldMap||null;
   const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
@@ -100,7 +107,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
   const todoBox=css(el('div','flight-issues'),{border:'1px solid #f3c2c2',background:'#fff5f5',borderRadius:'8px',padding:'6px 10px',margin:'6px 0',fontSize:'12.5px',lineHeight:'1.65'});
   const split=css(el('div'),{display:'flex',flexWrap:'wrap',gap:'10px',alignItems:'flex-start'});
   const mapBox=css(el('div'),{flex:'1 1 420px',minWidth:'280px'});
-  const list=css(el('div'),{flex:'1 1 380px',minWidth:'280px',display:'flex',flexDirection:'column'});
+  const list=css(el('div'),{flex:'1 1 380px',minWidth:'280px',display:'flex',flexDirection:'column',maxHeight:'640px',overflowY:'auto'});
   const foot=css(el('p','workspace-muted'),{fontSize:'11.5px',margin:'6px 0 0'});
   const timingHelp=css(el('p','workspace-muted','STD(출발 예정)·ATD(실제 출발)는 미수신 · STA는 인천공항 도착 예정 · 출발과 지도 위치는 예측 기준'),{fontSize:'11.5px',margin:'4px 0'});
   split.append(mapBox,list);body.append(split,foot);root.append(head,status,chips,timingHelp,body);todoBox.hidden=true;
@@ -180,9 +187,6 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
     paintMap({...data,flights});
     for(const f of flights){
       const row=css(el('div'),{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'5px 10px',padding:'7px 2px',borderTop:'1px solid #e9ecef',fontSize:'12.5px'});
-      const name=css(el('span'),{minWidth:'140px'});name.append(css(el('b','',`${f.weekLabel} ${f.country}`),{fontWeight:'700'}),css(el('span','',f.itemLabel?` ${f.itemLabel}`:''),{color:'#868e96',fontSize:'11.5px'}));
-      const flight=css(el('span','',f.flight||'편명 없음'),{minWidth:'88px',color:f.flight?'#212529':'#b07500'});
-      if(f.regNo)flight.append(css(el('span','',` 기체 ${f.regNo}`),{color:'#868e96',fontSize:'11px'}));
       const pct=f.status==='in_flight'&&f.progress!==null&&!/대기/.test(f.statusLabel)?` ${Math.round(f.progress*100)}%`:'';
       const state=chip(`${f.statusLabel}${pct}`,COLORS[f.status]||COLORS.gray);
       const at=f.arriveAt;
@@ -193,22 +197,40 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       const choose=btn(`${f.boardNumber}. ${f.country} · ${f.flight||'편명 미확인'} ${selected?'▴':'▾'}`,()=>selectFlight(selected?'':f.viewId));
       choose.dataset.flightSelect='';choose.setAttribute('aria-expanded',String(selected));css(choose,{fontWeight:'700',textAlign:'left',flexBasis:'100%'});
       row.append(choose,state,arrive);
+      const line = (message) => css(el('div', '', message), { flexBasis: '100%', color: '#526981' });
+      row.append(
+        line(`항공사 ${f.airline || '미확인'} · 빌번호 ${f.awb || '미확인'}`),
+        line(`${f.origin?.name || '출발지 미확인'}${f.originAssumed ? ' (추정)' : ''} → ${f.viaName ? f.viaName + '(경유) → ' : ''}인천`),
+        line(`${f.weekLabel ? f.weekLabel + '차 · ' : ''}품목 ${f.itemLabel || '미확인'} · 운송 수량(공지) ${f.announcedCargo?.boxes != null ? f.announcedCargo.boxes + '박스' : '미확인'}`),
+      );
+      if (f.receivedCargo?.boxes != null) row.append(line(`전산 입고 합계 ${f.receivedCargo.boxes}박스`));
+      const stepList = css(el('div'), { display: 'flex', flexBasis: '100%', flexWrap: 'wrap', gap: '4px' });
+      const labels = {done:'확인', wait:'대기', due:'진행·확인 필요', late:'확인 필요', unknown:'미확인'};
+      for (const step of f.steps || []) {
+        const status = chip(`${step.label} ${labels[step.state]}`, step.state === 'done' ? COLORS.arrived : step.state === 'late' ? COLORS.red : step.state === 'due' ? COLORS.amber : COLORS.gray);
+        if (step.at) status.title = `확인 시각 ${when(step.at)}`;
+        stepList.append(status);
+      }
+      row.append(stepList, btn('인보이스·입고 수량 / 처리 근거', () => open(f.viewId)));
+      if (f.quarantineSlotChanged) row.append(line('공항 예상 시각 변경 · 검역 접수 가능 시간 확인'));
       if(f.priority<2||selected){
         const issues=el('ol');css(issues,{flexBasis:'100%',margin:'2px 0',paddingLeft:'22px'});
         for(const it of (selected?f.flightIssues:f.flightIssues.slice(0,2))){const item=el('li','',shortIssue(it.text));item.append(css(el('div','',`→ ${nextAction(it)}`),{color:'#526981',fontSize:'12px'}));issues.append(item);}
         row.append(issues);if(!selected&&f.flightIssues.length>2)row.append(btn(`이슈 ${f.flightIssues.length}건 모두 보기`,()=>selectFlight(f.viewId)));
       }
       row.onkeydown=e=>{if(e.key==='Escape'){selectFlight('');[...list.children].find(n=>n.dataset.flightId===f.viewId)?.querySelector('button')?.focus();}};
-      if(selected)row.append(name,flight,btn('상세·원문 확인',()=>open(f.viewId)));
 
       const timing=css(el('div','flight-times'),{flexBasis:'100%',fontSize:'11.5px',color:'#526981'});
       const values=[];
       if(f.departAtEstimated)values.push('출발 예측 '+when(f.departAtEstimated,true));
-      if(!f.estimatedAt)values.push(f.scheduledAt?'공항 예정 '+when(f.scheduledAt,true):'공항 예정 확인 중');
-      if(f.estimatedAt)values.push((/도착/.test(f.remark)?'공항 도착 표시 ':'공항 최신 예정 ')+when(f.estimatedAt,true));
-      if(f.remark&&!f.statusLabel.includes(f.remark))values.push('공항 상태 '+f.remark);timing.textContent=values.join(' · ');if(selected)row.append(timing);
-      if(selected&&f.quarantineDeadlineAt){const past=Date.parse(f.quarantineDeadlineAt)<Date.now();row.append(css(el('span','',`검역 마감(예상) ${when(f.quarantineDeadlineAt)}${f.quarantineSlot?` ${f.quarantineSlot}`:''}`),{color:past?'#b02a2a':'#495057',fontSize:'11.5px'}));}
-      if(!f.flightIssues.length&&f.nextStep)row.append(chip(`${f.nextState==='late'?'⚠':'⏳'} ${f.nextStep}`,f.nextState==='late'?COLORS.red:COLORS.amber));
+      values.push(f.scheduledAt?'공항 예정(STA) '+when(f.scheduledAt,true):'공항 예정 미확인');
+      if(f.estimatedAt)values.push((f.remark==='도착'?'공항 도착 표시 ':'공항 예상(ETA) ')+when(f.estimatedAt,true));
+      if(f.remark&&!f.statusLabel.includes(f.remark))values.push('공항 상태 '+f.remark);
+      timing.textContent=values.join(' · ');row.append(timing);
+      if(f.quarantineDeadlineAt && !(f.steps || []).some(step => step.label==='검역' && step.state==='done')){
+        const past=Date.parse(f.quarantineDeadlineAt)<Date.now();
+        row.append(css(el('span','',`검역 마감(예상) ${when(f.quarantineDeadlineAt)}${f.quarantineSlot?` ${f.quarantineSlot}`:''}`),{color:past?'#b02a2a':'#495057',fontSize:'11.5px'}));
+      }
       if(f.trackUrl&&(f.priority<2||selected)){
         const go=btn('시간·실제 위치 원문 ↗',async()=>{go.disabled=true;try{await window.desktop.invoke('taskShortcut',{shortcut:{kind:'web',target:f.trackUrl,label:'실제 위치'}});}catch(e){status.textContent=e.message||'실제 위치 화면을 열지 못했습니다.';}finally{go.disabled=false;}});
         css(go,{marginLeft:'auto'});row.append(go);
@@ -237,7 +259,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
     const previousVisible=visible,previousOnline=online,nextOwner='homeOwnerId'in state?String(state.homeOwnerId||''):owner,changed=nextOwner!==owner;
     if(changed){owner=nextOwner;generation++;busy=false;loaded=false;last=null;selectedViewId='';clearTimeout(timer);clear();status.textContent=owner?'수입 비행기 현황을 확인합니다.':'로그인 후 수입 비행기 현황을 확인할 수 있습니다.';}
     if('menuOpen'in state)visible=!!state.menuOpen;if('online'in state)online=!!state.online;
-    root.hidden=!owner;for(const b of [detail,retry])b.disabled=!owner||!online;
+    root.hidden=!owner;layoutHome();for(const b of [detail,retry])b.disabled=!owner||!online;
     if(owner&&visible&&online&&(changed||!previousVisible||!previousOnline))void load(false);
     if((changed||!visible||!online)&&mapDialog.open)mapDialog.close();
     if(!visible||!online)clearTimeout(timer);
