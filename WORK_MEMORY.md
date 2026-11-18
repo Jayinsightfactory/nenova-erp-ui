@@ -3279,3 +3279,27 @@ pm run test:canon 통과.
 3. 남은 할 일: 최종 빌드·CI 후 병합·Cafe24 배포·운영 원문 확인, worktree 정리. 최종 결과는 PR 및 배포 실행에 기록.
 4. 검증 상태: ERP 전체 계약, 표적 18 tests, 실제 브라우저 날짜칸 제거·원문 펼침·재조회 선택유지, 최종 영상 재생·자막·모바일 통과. 기록 시점 운영 수정본 미검증.
 5. 주의/잠금: 이 작업트리의 국가별 발주서 컴포넌트·가이드 수정 중. ERP DB와 수입방 시트 쓰기 없음.
+
+## 2026-11-18 · HUBFRESH 계산식 분리 착수·원본 시트 불일치 확인
+- 사용자 첨부 46-2 중국 원가자료.xlsx SHA256=25c1690b748e7ba4c8bf60c538790d40153bf4d34663a18bb4410a9d36231732 읽기 전용 분석. active ‘46-2 CLOUD cbm ’, HUBFRESH 이름은40-2/40-3/41-2. 사용자는HUBFRESH 기준이라고 지정했으므로 어느 시트가 새 기준인지 질문, 답변 전 금융 계산식 임의 변경 금지.
+- 최신46-2: 21개 품종, 품종별 상자규격/박스당 단수/단당 무게/세율. 운임AL=품종CBM비율, 통관T10=GW*460+33000+품종수*10000+국내운송비+기타40000+소독200000; 상세N=$T$11(통관비/총단수), CNF×1.03 후 원화환산·품종관세. 기존GW비례통관 보조표Y는 존재하지만 실제 상세N은균등단수 방식. 원본 AE 품종무게 일부 공란은 임의 0 대입 금지.
+- 검색어: HUBFRESH CLOUD 46-2 cbm 농장별 계산식 원본시트확인 25c1690b 21카테고리
+1. 작업 위치: nenova-erp-ui / feat/hubfresh-cost-1118 / C:/Users/USER/Documents/Codex/nw-cdx-hubfresh-1118 / PR 미생성.
+2. 완료된 것: 새 origin/master worktree, git상태·최근기록·열린PR 점검, 첨부원본 수식과 기존CN_AIR_WEIGHT_CBM_V1 비교. 제품코드 변경 없음.
+3. 남은 할 일: 사용자 기준시트 답변→ERP지침/계약 읽기→농장분리·수정가능 카테고리 버튼 UI·서버/Excel 동일 계산→격리 실제인보이스 입고/다운로드→가이드·CI·배포.
+4. 검증 상태: 원본 수식/셀 읽기만 완료. 실제 인보이스 업로드·입고등록·엑셀 재계산·배포 모두 미검증. 운영DB연결/수정 및 유료분석 없음.
+5. 주의/잠금: 새 worktree는 본 세션 전용. 기존수입부/다른농장 산식 건드리지 않음. 원본엑셀은 사용자소유로 보존, 로컬사본/업무문서 추가생성 없음.
+
+## 2026-11-18 · CLOUD CBM 계산·버튼 매칭 구현, 실제 CI 검증 대기
+- 사용자 정정 확정: 46-2 CLOUD cbm은 CLOUD에 적용. HUBFRESH 기존식 유지. chinaCloudCost에21품종·규격/단수/세율, CBM운임, 통관단수배분, CNF3%가산, 호접허가증300CNY 배분 구현. 원본값 수정/명시0 보존. 국내운송99000원은 원본 추정값일 뿐 모든 중량 고정요율로 선언하지 않음.
+- 미매칭만 기본 표시하는 CloudCostCategories, 전체 보기에서 기존 매칭 변경/해제, Tab/방향키 버튼 이동 추가. 품목명+전산명 카테고리 초안, 저장된 변경/해제 우선. 별도 CN_CLOUD_CBM_V1 registry/순수 서버검증/Excel출력 연결. 신규 CLOUD 구 항공식 혼용 거부; 과거 검증된 승인 스냅샷 출력만 역사식 유지.
+- 원본43품목2280단을 읽기전용 비교:43개 단위원가 전부 차이1e-6미만, 합계20094336.64221원. 생성 Excel은 수량/카테고리/FOB/환율/GW/운임/허가증/통관·판매·이익의 연동 수식 및 숫자 캐시 포함. 실제 Excel 재계산 증명은 아직 없음.
+- 표적211검사193PASS/0FAIL/18SKIP(이후 신규반례2개 추가한 CLOUD 단독8개 전부PASS). 직접 manifest225계약/쓰기scope guard 통과. npm build는 prebuild 사용가이드 갱신가드에서 정상 차단: invoice-cost-readonly/import 재촬영 필요. 최종 전체빌드·ERP 전체가드·CI·배포 미완료.
+- 받은 46-2 중국 CI.pdf는 원문2025-11-14/YUNNAN HENGGE/6품종/11220PCS/33419CNY로, 사용자도 ‘2025년 잘못준 파일’이라고 확인. 현재 2026 CLOUD 테스트에 사용/연도수정/농장강제연결 금지. 로컬 및 네노바 Google Drive 제한검색에서 올바른2026 46-2 CLOUD CI/AWB 미확보. Downloads/46-02_CLOUD.xlsx는 발주서여서 인보이스로 대체 금지.
+- 컴퓨터유즈 Excel창 활성화·읽기만 수행. 파일선택창 접근성인덱스/좌표와 실제초점 불일치로 사본열기 조작 중단, Esc로 창 닫음. 원본/운영DB/입고/재고/승인원가 수정0, 유료분석0. 실제앱 업로드·입고·다운로드/최종영상은 미검증.
+- 검색어: CLOUD CBM 1118 43품목2280단 20094336 CN_CLOUD_CBM_V1 카테고리버튼 2025잘못된CI
+1. 작업 위치: nenova-erp-ui / feat/hubfresh-cost-1118(브랜치명만 초기HUBFRESH, 실제기능CLOUD) / C:/Users/USER/Documents/Codex/nw-cdx-hubfresh-1118 / 검증 전 초안.
+2. 완료된 것: lib/chinaCloudCost.js·chinaCloudCostWorkbook.js, CloudCostCategories UI, cost engine/preview/export/profile/form 연결, 전용계약/계획/테스트/원본비교 스크립트. 실제인보이스/원본파일 private자료 커밋 금지.
+3. 남은 할 일: 올바른2026 CLOUD CI/AWB 수령→격리업로드/기존매칭/수량총액/입고 저장→카테고리수정→다운로드 실제UI/Excel재계산→사용가이드 녹화·Drive보관→전체가드·빌드·PR/CI·배포.
+4. 검증 상태: 원본원가43행정합/순수계산·예외·취소·기존식보존·수식캐시 표적 통과. 국가전체/실제입고E2E/Excel native/빌드/배포 모두 미검증. 현재상태를 배포완료로 말하지 않음.
+5. 주의/잠금: 이worktree 본 세션 전용. private/원본업무자료, 이전세션 작업트리와 source사용자파일 보존. data/generated 두파일은 build 자동생성 변경이므로 별도stash보관 후 코드PR에서 제외.
