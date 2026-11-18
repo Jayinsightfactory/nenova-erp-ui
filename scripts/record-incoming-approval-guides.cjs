@@ -50,6 +50,7 @@ function requestFixture(scenario, index) {
 }
 async function recordRole(browser, base, secret, role) {
   const isImport = role === 'import', requests = isImport ? [] : ['farm', 'product', 'quantity'].map(requestFixture);
+  let loseApproval=dry&&!isImport,lostApproval=null,replayedApproval=false;
   const page = await browser.newPage();page.setDefaultNavigationTimeout(120000);const errors = [], posts = [];
   let mainNavigations=0;page.on('framenavigated',frame=>{if(frame===page.mainFrame())mainNavigations++;});
   await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
@@ -67,11 +68,12 @@ async function recordRole(browser, base, secret, role) {
       if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,InvoiceNo:i?`GUIDE-${i+1}`:header.InvoiceNo}));
       if (u.pathname === '/api/warehouse/9001') data.items = before;
       if (u.pathname === '/api/warehouse/correction') data = { success: true, draftOwner: user.userId, header, baselineDigest:'c'.repeat(64), details: before, farms: [{ FarmName: header.FarmName }, { FarmName: '연습농장 나' }], history: [] };
+      if(u.pathname==='/api/warehouse/correction'&&r.method()==='POST')data={...previewFor(JSON.parse(r.postData())),canCommit:false,issues:[{message:'現在 차수에 확정된 품목이 있습니다. 영업지원에 수정 요청하세요.'.replace('現在','현재')}]};
       if (u.pathname === '/api/warehouse/invoice-costs') data.costs = null;
       if (u.pathname === '/api/warehouse/approval') {
         if (r.method() === 'GET') {
           const request = requests.find(item => item.requestId === Number(u.searchParams.get('requestId')));
-          data = request ? { success: true, permissions: { request: isImport, review: !isImport }, request, facts: factsFor(request) } : { success: true, permissions: { request: isImport, review: !isImport }, requests: requests.map(item => ({ RequestId: item.requestId, Status: item.status, RequestedBy: '수입부 연습', correction: item.correction, reason: item.reason, revision: item.revision })) };
+          data = request ? { success: true, permissions: { request: isImport, review: !isImport }, history:[{FromStatus:null,ToStatus:'draft',Note:request.reason,CreatedAt:'2026-11-18T09:00:00'},{FromStatus:'draft',ToStatus:'requested',Note:request.reason,CreatedAt:'2026-11-18T09:01:00'},...(request.status==='applied'?[{FromStatus:'requested',ToStatus:'applied',Note:'영업지원 검토 후 최종 반영',CreatedAt:'2026-11-18T09:02:00'}]:[])], request, facts: factsFor(request) } : { success: true, permissions: { request: isImport, review: !isImport }, requests: requests.map(item => ({ RequestId: item.requestId, Status: item.status, RequestedBy: '수입부 연습', correction: item.correction, reason: item.reason, revision: item.revision })) };
         } else {
           const body = JSON.parse(r.postData()); posts.push(body); const request = requests.find(item => item.requestId === body.requestId);
           if (body.action === 'draftPreview') data = previewFor(body.correction);
@@ -99,7 +101,9 @@ async function recordRole(browser, base, secret, role) {
               if (!acknowledged) { data.issues = [{ code:'APPROVAL_STOCK_SHORTAGE',message: '후속 차수에 5단이 부족합니다. 표시된 수량의 재고조정 동의가 필요합니다.' }]; delete data.financialSummary; }
             }
           }
-          if (body.action === 'approve') { assert(!isImport && body.confirmed); request.status = 'applied'; request.result = { warehouseKey: 9001, shipmentGroups: request.matching.rows?.length ? 1 : 0, stockProducts: previewFor(request.correction).scenario === 'farm' ? 0 : previewFor(request.correction).changes.length }; request.appliedAt = '2026-11-04 10:00'; request.evidence = { receiptChanges: previewFor(request.correction).changes }; }
+          if (body.action === 'approve') {
+            if(loseApproval){loseApproval=false;lostApproval=body;return await r.respond({status:409,contentType:'application/json',body:JSON.stringify({success:false,error:'응답 유실 재시도 검증'})});}
+            if(lostApproval&&!replayedApproval){assert.equal(body.operationId,lostApproval.operationId);assert.equal(body.requestId,lostApproval.requestId);replayedApproval=true;} assert(!isImport && body.confirmed); request.status = 'applied'; request.result = { warehouseKey: 9001, shipmentGroups: request.matching.rows?.length ? 1 : 0, stockProducts: previewFor(request.correction).scenario === 'farm' ? 0 : previewFor(request.correction).changes.length }; request.appliedAt = '2026-11-04 10:00'; request.evidence = { receiptChanges: previewFor(request.correction).changes }; }
         }
       }
       await r.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
@@ -107,7 +111,7 @@ async function recordRole(browser, base, secret, role) {
   });
   await page.goto(`${base}/import/tools?tab=incoming&warehouseKey=9001&from=2026-10-01&to=2026-11-30`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('nav[aria-label="입고 정정 처리 단계"]');
-  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},unfocus:async()=>{},stop: async () => null } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 수정 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true });
+  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},unfocus:async()=>{},stop: async () => null } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 수정 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset: 'fast' });
   let stepNumber=1,currentCaption='1. 조작할 위치를 확인합니다.';
   const hold = async (text, seconds = 5) => { currentCaption=`${stepNumber}. ${text.replace(/^\d+\. /,'')}`;await rec.caption(currentCaption); await rec.pause(seconds * 1000); };
   const focusTarget=async element=>{
@@ -116,7 +120,7 @@ async function recordRole(browser, base, secret, role) {
     const b=await element.boundingBox();assert(b&&b.y>=0&&b.y+b.height<=1080,'Guide target must be fully visible');
     // Bottom-edge controls cannot be centred by scrolling past the end of the real UI.
     // Keep the full view and move captions above them, rather than crop or conceal them.
-    await rec.focus('[data-incoming-guide-target="current"]',stepNumber,{staticHighlight:b.y+b.height/2<70||b.y+b.height/2>900});
+    await rec.focus('[data-incoming-guide-target="current"]',stepNumber,{staticHighlight:b.y+b.height/2<70||b.y+b.height/2>900,anchorLeft:b.width>1200,badgeLeft:1370});
   };
   const unfocusTarget=async()=>{await rec.unfocus();await page.evaluate(()=>document.querySelectorAll('[data-incoming-guide-target]').forEach(n=>delete n.dataset.incomingGuideTarget));};
   let pointer = { x: 40, y: 80 };
@@ -134,7 +138,7 @@ async function recordRole(browser, base, secret, role) {
     const element = await page.$(selector); assert(element, `Missing select: ${selector}`);
     await element.evaluate(node => node.scrollIntoView({ behavior: 'instant', block: 'center' })); const box = await element.boundingBox();
     await focusTarget(element);await movePointer(box.x + box.width / 2, box.y + box.height / 2); await element.focus(); await rec.pause(450);
-    await element.select(String(value)); await rec.pause(700); assert.equal(await element.evaluate(node => node.value), String(value), `Selection did not persist: ${selector}`);await unfocusTarget();
+    await element.select(String(value)); await rec.pause(700); if(selector==='select[aria-label="수정 방식"]'&&value==='PRODUCT'){await page.waitForSelector('select[aria-label="수정 종류"]');assert.equal(await page.$eval('select[aria-label="수정 종류"]',n=>n.value),'PRODUCT');}else assert.equal(await element.evaluate(node => node.value), String(value), `Selection did not persist: ${selector}`);await unfocusTarget();
   };
   const fill = async (selector, text) => { const element = await page.$(selector); assert(element, `Missing input: ${selector}`); await moveClick(element,true); await element.focus(); await page.keyboard.down('Control'); await page.keyboard.press('A'); await page.keyboard.up('Control'); await page.keyboard.press('Backspace'); await element.type(String(text), { delay: dry ? 0 : 60 }); await rec.pause(500); assert.equal(await element.evaluate(node => node.value), String(text), `Input did not replace value: ${selector}`);await unfocusTarget(); };
   const checkedLabel = async text => { const handle = await page.evaluateHandle(text => [...document.querySelectorAll('label')].find(label => label.textContent.includes(text))?.querySelector('input[type="checkbox"]'), text); assert(handle.asElement(), `Missing checkbox: ${text}`); await moveClick(handle.asElement()); await handle.dispose(); };
@@ -145,8 +149,14 @@ async function recordRole(browser, base, secret, role) {
     for(const [index,scenario] of (isImport?['farm','product','quantity','add','cancel']:['farm','product','quantity']).filter(s=>!onlyScenario||s===onlyScenario).entries()){
       stepNumber=index+1;console.log(`${dry?'CHECK':'RECORD'} ${role}: ${scenario}`);rec.chapter(scenario,`${stepNumber}. ${scenarioTitles[scenario]}`);
       if(isImport){
+        if(scenario==='farm'){
+          await page.goto(`${base}/incoming?popup=1`,{waitUntil:'networkidle0'});await page.waitForSelector('[data-row-key="9001"]');await moveClick(await page.$('[data-row-key="9001"]'));await click('농장·품목 수정 / 파일 교체');await page.waitForSelector('dialog[open] select[aria-label="수정 농장"]');
+          await hold('직접 수정창에서 농장 검색을 입력하면 바로 아래 목록이 펼쳐집니다. 정확한 농장을 선택합니다.',6);await fill('input[aria-label="농장 검색"]','연습농장 나');await select('select[aria-label="수정 농장"]','연습농장 나');await fill('input[aria-label="수정 사유"]','농장 오선택 정정 요청');await click('변경 내역 미리보기');
+          await hold('확정된 품목 때문에 직접 수정이 막혀도 요청할 수 있습니다. 확정 현황 확인·취소는 같은 연도·차수의 기존 견적서 창을 엽니다.',7);await click('영업지원 요청으로 전환');await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='영업지원에 요청 등록'&&!b.disabled));
+          await hold('입력한 농장·사유를 유지한 요청 내용을 확인합니다. 농장명만 변경하면 기존 확정·수량·금액을 보존합니다.',6);await click('영업지원에 요청 등록');await page.waitForFunction(()=>document.body.textContent.includes('영업지원에 수정 요청을 등록했습니다.'));await hold('요청 등록 완료를 확인합니다. 영업지원이 검토하고 수정 반영과 필요한 재확정까지 처리합니다.',6);await click('목록으로 돌아가기');await page.goto(`${base}/import/tools?tab=incoming&warehouseKey=9001&from=2026-10-01&to=2026-11-30`,{waitUntil:'networkidle0'});continue;
+        }
         await hold(`${index+1}. ${scenarioTitles[scenario]}\n선택 농장의 기존 입고 안에서 수정합니다.`,5);
-        await page.waitForSelector('[data-row-key="9001"]');await moveClick(await page.$('[data-row-key="9001"]'));await click('수입부 수정 요청');
+        await page.waitForSelector('[data-row-key="9001"]');await moveClick(await page.$('[data-row-key="9001"]'));if(scenario==='product'){await click('농장·품목 수정 / 파일 교체');await page.waitForSelector('select[aria-label="수정 방식"]');await select('select[aria-label="수정 방식"]','PRODUCT');}else await click('수입부 수정 요청');
         await page.waitForSelector('dialog[open] select[aria-label="수정 종류"]');
         if(scenario==='farm'){
           await hold('농장 검색칸에 농장명 일부를 입력합니다. 대소문자와 공백을 구분하지 않습니다.\n검색은 기존 선택을 바꾸지 않으며, 목록에서 정확한 농장을 선택합니다.',5);
@@ -225,13 +235,15 @@ async function recordRole(browser, base, secret, role) {
           await hold('명시 동의한 5단만 최종 확정 시 재고조정합니다.\n검산이 실패하면 입고·원가·손익을 포함해 함께 되돌립니다.',6);
         }
         await page.$eval('[aria-label="원가·손익 최종 검산"]',n=>n.scrollIntoView({block:'center'}));await hold('요약에서 원가·손익의 변경 금액을 확인합니다.\n세부 검산과 후속 재고는 필요한 경우 펼쳐 봅니다.',6);
-        await click('최종 확정');await page.waitForFunction(()=>document.querySelector('[aria-label="정정 요청 상세"]')?.textContent.includes('적용 완료'));
+        await click('최종 확정');if(dry&&lostApproval&&!replayedApproval){await page.waitForFunction(()=>document.body.textContent.includes('응답 유실 재시도 검증'));await click('같은 확정 결과 다시 확인');}await page.waitForFunction(()=>document.querySelector('[aria-label="정정 요청 상세"]')?.textContent.includes('적용 완료'));
         await hold('적용 완료 결과를 확인합니다.\n이미 발송한 견적서는 정정 내용으로 다시 발행하세요.',5);await click('요청 목록으로');
       }
     }
     if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
+    await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click('#1 열기');await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
     assert.deepEqual(errors, []);
-    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, onlyScenario?1:isImport?5:3);
+    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (onlyScenario?1:isImport?5:3)+(dry&&!isImport?1:0));
+    if(dry&&!isImport)assert(replayedApproval,'lost approval retry must reuse the same operation');
     const result = await rec.stop(); stopped = true;
     if (!dry) { const guide = workflow.guides.find(item => item.id === role); guide.status = 'ready'; guide.chapters = result.chapters; fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n'); }
     console.log(`PASS ${role}: actual UI ${dry ? 'dry run' : 'recording'}, farm/product/quantity, all APIs synthetic, ERP writes=0`);

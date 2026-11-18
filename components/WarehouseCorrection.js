@@ -10,10 +10,13 @@ async function api(url,body){
   const data=await response.json();if(!response.ok||!data.success)throw new Error(data.error||'요청에 실패했습니다.');return data;
 }
 export default function WarehouseCorrection(props){
-  return props.selected.approval ? <IncomingCorrectionRequest {...props}/> : <LegacyWarehouseCorrection {...props}/>;
+  const [productRequest,setProductRequest]=useState(null);
+  if(productRequest)return <IncomingCorrectionRequest {...props} selected={{...props.selected,initialCorrection:productRequest}}/>;
+  return props.selected.approval ? <IncomingCorrectionRequest {...props}/> : <LegacyWarehouseCorrection {...props} onProductRequest={setProductRequest}/>;
 }
-function LegacyWarehouseCorrection({selected,onClose,onSaved}){
-  const approval=selected.approval===true;
+function LegacyWarehouseCorrection({selected,onClose,onSaved,onProductRequest}){
+  const [approval,setApproval]=useState(false);
+  const submittedDraft=useRef(null);
   const dialog=useRef(null),busyRef=useRef(false),draftKey=useRef(null);
   const [data,setData]=useState(null),[mode,setMode]=useState('FARM'),[farmName,setFarmName]=useState('');
   const [file,setFile]=useState(null),[reason,setReason]=useState(''),[preview,setPreview]=useState(null),[confirmed,setConfirmed]=useState(false);
@@ -31,8 +34,8 @@ function LegacyWarehouseCorrection({selected,onClose,onSaved}){
   },[]);
   useEffect(()=>{
     if(!draftKey.current||!dirty||saved)return;
-    try{sessionStorage.setItem(draftKey.current,JSON.stringify({mode,farmName,file,reason}));}catch{}
-  },[mode,farmName,file,reason,saved,dirty]);
+    try{sessionStorage.setItem(draftKey.current,JSON.stringify({mode,farmName,file,reason,approval,pending}));}catch{}
+  },[mode,farmName,file,reason,saved,dirty,approval,pending]);
   useEffect(()=>{
     const before=e=>{if(dirty&&!saved||busyRef.current){e.preventDefault();e.returnValue='';}};
     const back=e=>{e.preventDefault();close();};
@@ -40,7 +43,7 @@ function LegacyWarehouseCorrection({selected,onClose,onSaved}){
     return()=>{window.removeEventListener('beforeunload',before);window.removeEventListener('nenova:menu-back-request',back);};
   });
   const close=()=>{if(busyRef.current)return;if(dirty&&!saved&&!window.confirm('입력 중인 수정안은 이 탭에 보관됩니다. 목록으로 돌아갈까요?'))return;onClose();};
-  const invalidate=()=>{setPreview(null);setConfirmed(false);setPending(null);setSaved(false);setError('');};
+  const invalidate=()=>{submittedDraft.current=null;setPreview(null);setConfirmed(false);setPending(null);setSaved(false);setError('');};
   const perform=async fn=>{if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('');try{await fn();}catch(e){setError(e.message);}finally{busyRef.current=false;setBusy(false);}};
   const readFile=event=>{
     const selectedFile=event.target.files?.[0];event.target.value='';if(!selectedFile)return;
@@ -53,11 +56,15 @@ function LegacyWarehouseCorrection({selected,onClose,onSaved}){
     });
   };
   const request=()=>({...scope,mode,farmName,...(mode==='REPLACE'?file:{})});
+  const handoff=()=>perform(async()=>{setApproval(true);setPreview(null);setConfirmed(false);const result=await api('/api/warehouse/approval',{action:'draftPreview',correction:request()});setPreview(result);});
   const inspect=()=>perform(async()=>{setPreview(null);setConfirmed(false);setPending(null);const result=await api(approval?'/api/warehouse/approval':'/api/warehouse/correction',approval?{correction:request(),action:'draftPreview'}:{...request(),action:'preview'});setPreview(result);});
   const save=()=>perform(async()=>{
     if(approval){
       const payload=pending||{action:selected.approvalDraft?'saveDraft':'create',correction:request(),reason,operationId:crypto.randomUUID(),...(selected.approvalDraft?{requestId:selected.approvalDraft.requestId,revision:selected.approvalDraft.revision}:{})};setPending(payload);
-      const created=await api('/api/warehouse/approval',payload);
+      const created=submittedDraft.current??await api('/api/warehouse/approval',payload);submittedDraft.current=created;
+      const current=await api(`/api/warehouse/approval?requestId=${created.requestId}`);
+      if(current.request.status==='draft')await api('/api/warehouse/approval',{action:'submit',requestId:created.requestId,revision:current.request.revision});
+      else if(current.request.status!=='requested')throw new Error('요청 상태가 바뀌었습니다. 입고 정정 업무에서 확인하세요.');
       setSaved(true);setPending(null);setPreview(null);setConfirmed(false);
       try{sessionStorage.removeItem(draftKey.current);}catch{}
       onSaved({...created,warehouseKey:scope.warehouseKey,approval:true});
@@ -71,36 +78,40 @@ function LegacyWarehouseCorrection({selected,onClose,onSaved}){
     onSaved(result);
     try{await load();}catch(e){setError(`저장은 완료됐지만 이력 재조회가 실패했습니다. 창을 닫고 다시 조회하세요. ${e.message}`);}
   });
-  const restore=()=>{invalidate();setMode(draft.mode);setFarmName(draft.farmName);setFile(draft.file);setReason(draft.reason);setDraft(null);};
+  const restore=()=>{invalidate();setMode(draft.mode);setFarmName(draft.farmName);setFile(draft.file);setReason(draft.reason);setApproval(draft.approval===true);setPending(draft.pending??null);setDraft(null);};
   return <dialog ref={dialog} aria-labelledby="correction-title" onCancel={e=>{e.preventDefault();close();}} style={{boxSizing:'border-box',width:'min(1060px, calc(100vw - 32px))',maxHeight:'90vh',overflowY:'auto',border:'1px solid #94a3b8',borderRadius:12,padding:24,color:'#172033',background:'#fff'}}>
     <style>{`.warehouse-correction button,.warehouse-correction input,.warehouse-correction select{font:inherit;padding:7px;margin:3px;max-width:100%;box-sizing:border-box}.warehouse-correction :focus-visible{outline:3px solid #2563eb;outline-offset:2px}.warehouse-correction table{border-collapse:collapse;width:max-content;min-width:100%}.warehouse-correction th,.warehouse-correction td{padding:7px 12px;border:1px solid #cbd5e1;max-width:280px;overflow-wrap:anywhere}.warehouse-correction label{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}.warehouse-correction fieldset{border:1px solid #cbd5e1;min-width:0;margin:12px 0}.warehouse-correction summary{cursor:pointer;padding:10px}`}</style>
     <div className="warehouse-correction">
       <h2 id="correction-title">{approval?'입고 수정 요청 작성':'입고 수정'} · #{scope.warehouseKey}</h2>
       <p>{scope.orderYear}년 {scope.orderWeek} · {selected.FarmName} · {selected.InvoiceNo||'인보이스 미기재'}</p>
-      <p>{approval?'수정 요청 초안을 저장합니다. 입고·분배·재고는 영업지원 최종 확정 전까지 바뀌지 않습니다.':'기존 입고를 수정합니다.'} 파일 교체는 파일 전체의 최종 수량을 적용합니다. 연도·차수·인보이스·AWB·입력일자와 운송비는 유지합니다.</p>
+      <p>{approval?'영업지원에 수정 요청을 등록합니다. 입고·분배·재고는 영업지원 최종 확정 전까지 바뀌지 않습니다.':'기존 입고를 수정합니다.'} 파일 교체는 파일 전체의 최종 수량을 적용합니다. 연도·차수·인보이스·AWB·입력일자와 운송비는 유지합니다.</p>
+      <p><a target="_blank" rel="noopener noreferrer" href={`/estimate?popup=1&openFixStatus=1&year=${encodeURIComponent(scope.orderYear)}&week=${encodeURIComponent(scope.orderWeek.slice(0,2))}`}>확정 현황 확인·취소 ↗</a> · 해당 연도·차수의 견적서 확정현황을 새 창에서 엽니다.</p>
       {error&&<p role="alert" style={{color:'#b91c1c',whiteSpace:'pre-wrap'}}>{error}</p>}
-      {saved&&<p role="status" style={{color:'#047857'}}>{approval?'초안을 저장했습니다. 입고 정정 업무의 수정 요청 탭에서 영업지원에 요청하세요.':'수정을 저장했습니다. 아래 수정 이력에서 결과를 확인할 수 있습니다.'}</p>}
+      {saved&&<p role="status" style={{color:'#047857'}}>{approval?'영업지원에 수정 요청을 등록했습니다. 영업지원이 검토 후 수정 반영과 필요한 재확정까지 처리합니다.':'수정을 저장했습니다. 아래 수정 이력에서 결과를 확인할 수 있습니다.'}</p>}
       {draft&&<p>이 탭에 보관한 수정안이 있습니다. <button disabled={busy} onClick={restore}>수정안 불러오기</button><button disabled={busy} onClick={()=>{try{sessionStorage.removeItem(draftKey.current);}catch{}setDraft(null);}}>보관안 삭제</button></p>}
       {!data?<p role="status">{error?'자료를 읽지 못했습니다. 창을 닫고 다시 열어주세요.':'기존 입고와 수정 이력 조회 중…'}</p>:<>
         <fieldset disabled={busy||!!pending}><legend>수정 내용</legend>
-          <label>수정 방식<select aria-label="수정 방식" value={mode} onChange={e=>{invalidate();setMode(e.target.value);setFile(null);}}><option value="FARM">농장만 수정</option><option value="REPLACE">수정 파일로 교체</option></select></label>
+          <label>수정 방식<select aria-label="수정 방식" value={mode} onChange={e=>{if(e.target.value==='PRODUCT'){onProductRequest({kind:'PRODUCT',reason});return;}invalidate();setMode(e.target.value);setFile(null);}}><option value="FARM">농장만 수정</option><option value="PRODUCT">품목·수량 수정 요청</option><option value="REPLACE">수정 파일로 교체</option></select></label>
           <WarehouseFarmSelect farms={data.farms} currentFarm={data.header.FarmName} value={farmName}
             onChange={name=>{invalidate();setFarmName(name);}} />
           {mode==='REPLACE'&&<p><label>수정 파킹 파일<input aria-label="수정 파킹 파일" type="file" accept=".xlsx,.xls" onChange={readFile}/></label>{file&&<span>{file.fileName} · {file.items.length}행</span>}</p>}
           <p><label style={{display:'flex'}}>수정 사유<input aria-label="수정 사유" maxLength={500} value={reason} onChange={e=>{setReason(e.target.value);setConfirmed(false);}} style={{flex:'1 1 240px',minWidth:0}} placeholder="예: 농장 선택 오류, 품목명 오입력 정정"/></label></p>
         </fieldset>
-        <button disabled={busy||!!pending||mode==='REPLACE'&&!file} onClick={inspect}>변경 내역 미리보기</button>
+        {!approval&&!saved&&<p><button disabled={busy||!!pending||mode==='REPLACE'&&!file} onClick={handoff}>영업지원 요청으로 전환</button><span>입력한 수정값과 사유를 유지합니다. 확정된 품목이 있어도 요청을 등록할 수 있습니다.</span></p>}
+        {approval&&<p role="status">영업지원 요청 작성 중입니다. 농장명만 변경하면 확정·수량·금액은 유지하며, 수량 변경에 필요한 확정 해제와 재확정은 영업지원 최종 반영에서 처리합니다.</p>}
+        <button disabled={busy||saved||!!pending||mode==='REPLACE'&&!file} onClick={inspect}>변경 내역 미리보기</button>
         {preview&&<section aria-label="수정 미리보기">
           <h3>농장: {preview.farmBefore} → {preview.farmAfter}</h3>
           {preview.issues.map((issue,i)=><p role="alert" key={i} style={{color:'#b91c1c'}}>{issue.message}{issue.blockers?.map((b,j)=><span key={j}> · {b.orderYear}/{b.orderWeek} {b.countryFlower}</span>)}</p>)}
           <div style={{overflowX:'auto'}}><table><caption>품목별 입고 최종 수량</caption><thead><tr><th>품목</th><th>단위</th><th>기존</th><th>수정 후</th><th>증감</th></tr></thead><tbody>{preview.changes.map(c=><tr key={c.prodKey}><td>{c.prodName}</td><td>{c.unit}</td><td>{fmt(c.before)}</td><td>{fmt(c.after)}</td><td>{c.delta>0?'+':''}{fmt(c.delta)}</td></tr>)}</tbody></table></div>
           <details><summary>전체 품목·수량·금액 변경 전후 보기</summary>{[['기존',preview.before],['수정 후',preview.after]].map(([label,list])=><div key={label} style={{overflowX:'auto'}}><table><caption>{label}</caption><thead><tr>{['품목','주문코드','박스','단','송이','출고단위수량','견적단위수량','단가','총액'].map(t=><th key={t}>{t}</th>)}</tr></thead><tbody>{list.map((d,i)=><tr key={i}><td>{d.ProdName||preview.changes.find(c=>c.prodKey===d.ProdKey)?.prodName||d.ProdKey}</td><td>{d.OrderCode}</td>{['BoxQuantity','BunchQuantity','SteamQuantity','OutQuantity','EstQuantity','UPrice','TPrice'].map(k=><td key={k}>{fmt(d[k])}</td>)}</tr>)}</tbody></table></div>)}</details>
-          {preview.canCommit&&<p><label><input type="checkbox" checked={confirmed} disabled={busy||!!pending} onChange={e=>setConfirmed(e.target.checked)}/>위 변경 내역과 기존 입고 교체를 확인했습니다.</label></p>}
+          {preview.canCommit&&!approval&&<p><label><input type="checkbox" checked={confirmed} disabled={busy||!!pending} onChange={e=>setConfirmed(e.target.checked)}/>위 변경 내역과 기존 입고 교체를 확인했습니다.</label></p>}
         </section>}
         {pending&&<p role="alert">저장 결과를 확인하지 못했습니다. 같은 작업번호로 다시 확인하면 중복 저장되지 않습니다.</p>}
-        <p><button disabled={busy||!pending&&(!preview?.canCommit||!confirmed||!reason.trim())} onClick={save}>{busy?'처리 중…':pending?'같은 저장 작업 다시 확인':approval?'수정 요청 초안 저장':'확인한 내용 저장'}</button>
-          {pending&&<button disabled={busy} onClick={()=>{setPending(null);setPreview(null);setConfirmed(false);setError('다시 미리보기를 실행해 현재 입고를 확인하세요.');}}>현재 입고 다시 검토</button>}
+        <p><button disabled={busy||saved||!pending&&(!preview?.canCommit||!approval&&!confirmed||!reason.trim())} onClick={save}>{busy?'처리 중…':pending?'같은 저장 작업 다시 확인':approval?'영업지원에 요청 등록':'확인한 내용 저장'}</button>
+          {pending&&!approval&&<button disabled={busy} onClick={()=>{setPending(null);setPreview(null);setConfirmed(false);setError('다시 미리보기를 실행해 현재 입고를 확인하세요.');}}>현재 입고 다시 검토</button>}
         </p>
+        {saved&&approval&&<p><a href="/import/tools?tab=incoming">입고 정정 업무에서 요청 확인</a></p>}
         <details><summary>수정 이력 ({data.history.length}건 · 최근 20건)</summary>{data.history.length?data.history.map((h,i)=><p key={i}>{new Date(h.at).toLocaleString('ko-KR')} · {h.mode==='FARM'?'농장 수정':'파일 교체'} · {h.reason} {h.fileName&&`(${h.fileName})`}</p>):<p>이 기능으로 저장한 수정 이력이 없습니다.</p>}</details>
       </>}
       <button disabled={busy} onClick={close}>목록으로 돌아가기</button>

@@ -2,7 +2,7 @@ import { withAuth, getJwtSecret } from '../../../lib/auth.js';
 import jwt from 'jsonwebtoken';
 import { query, withTransaction, sql } from '../../../lib/db.js';
 import { approvalPermissions, approvalError } from '../../../lib/incomingApprovalPolicy.js';
-import { listIncomingApprovals, readApproval, assertApprovalAccess, assertApprovalRevision, mutateIncomingApproval } from '../../../lib/incomingApprovalStore.js';
+import { listIncomingApprovals, readIncomingApprovalHistory, readApproval, assertApprovalAccess, assertApprovalRevision, mutateIncomingApproval } from '../../../lib/incomingApprovalStore.js';
 import { readIncomingApprovalFacts, incomingApprovalBaseline, previewIncomingApproval, commitIncomingApproval } from '../../../lib/incomingApproval.js';
 import { suggestedIncomingApprovalCostInputs } from '../../../lib/incomingApprovalCosts.js';
 
@@ -26,11 +26,12 @@ export default withAuth(async function handler(req, res) {
       if (!req.query.requestId) return res.json({ success: true, permissions, requests: await listIncomingApprovals(query, sql, req.user) });
       const row = await readApproval(query, sql, req.query.requestId);
       assertApprovalAccess(row, req.user);
+      const history=await readIncomingApprovalHistory(query,sql,row.RequestId);
       const terminal = ['applied','rejected','cancelled'].includes(row.Status);
       const facts = terminal ? { receipt:row.payload.baseline.receipt, receiptPlan:row.payload.baseline.receiptPlan,
         products:row.payload.baseline.products, masters:[],details:[],dates:[],farmAssignments:[],farms:[] }
         : await readIncomingApprovalFacts(query, sql, row.payload.correction);
-      return res.json({ success: true, permissions, request: { requestId: row.RequestId, status: row.Status, requestedBy: row.RequestedBy, ...row.payload },
+      return res.json({ success: true, permissions, history, request: { requestId: row.RequestId, status: row.Status, requestedBy: row.RequestedBy, ...row.payload },
         facts: { receipt:facts.receipt,receiptPlan:facts.receiptPlan,products:facts.products,masters:facts.masters,
           details:facts.details,dates:facts.dates,farmAssignments:facts.farmAssignments,farms:facts.farms,farmCandidates:facts.farmCandidates??{},
           receiptMappingSuggestions:facts.receiptMappingSuggestions??[],costFacts:facts.costFacts??null,

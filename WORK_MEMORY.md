@@ -3409,6 +3409,25 @@ pm run test:canon 통과.
 - 전체 로컬 test:erp-contract·webpack exit0, 기능커밋8643cf34 Linux CI44221462738 전체·webpack PASS. 배포44217840381 원로그에서10:48:54.193KST reloadProcessId 확인(실패9구간 실행중). 최신master70a890a2 통합은 WORK_MEMORY append 충돌 양쪽 보존만 수동 해결, package.json 자동병합. 최신통합 CI·운영배포는 미검증.
 - 검색어: PDF lifecycle 1818 10:48:54 reload 70a890a2 통합 검증
 
+
+## 2026-11-18 입고 수정 요청 연결 구현 단계
+- 요약: 사용자는 영업지원이 수정반영·재확정까지 처리하도록 선택. 직접 수정창 입력보존→기존approval요청전환, 품목·수량 직접요청 진입, 농장검색 아래 즉시목록, 기존견적서확정현황/취소연결, 전체상태/요청별감사이력 조회 추가. 운영8050 현재농장은이미Fagua로확인되어실제업무정정/요청생성하지않음.
+- 검색어: incoming-request-1118 요청등록 확정현황 품목수정 처리이력 검색아래목록
+1. 작업 위치: nenova-erp-ui / codex/incoming-request-1118 / nw-cdx-incoming-request-1118 / PR전.
+2. 완료된 것: components4종/API·Store SELECT만/계약2/회귀·가이드recorder갱신. SQL원장writer변경0.
+3. 남은 할 일: 전체ERP종료→고정UI촬영빌드→가이드dry/2역할촬영·Drive→정식빌드/필수가드→PR/CI/병합/Cafe24/운영스모크/정리.
+4. 검증 상태: 단위21/직접수정blocked→요청·품목입력·응답유실중복방지/농장검색PC390/manifest224/API쓰기guard통과. 전체ERP진행중;영상/배포미검증.
+5. 주의/잠금: 이worktree의입고UI·요청API·가이드파일은본세션작업중. 다른세션PR1813등수정금지,운영원장/확정취소실행없음.
+
+
+## 2026-11-18 최종 요청 재작성 검증 단계
+- 전체 ERP pre/core/post, dnSpy, manifest224, API쓰기guard 및 두역할 실제UI dry-run 통과. 1차 가이드 수입부511.05초/영업지원314.1초 완성 후 넓은 이력 summary 카메라왼쪽anchor 보완. 마지막 검증에서 완료된요청을같은창에서새로수정할때 submittedDraft ref재사용을 발견해 invalidate에서해제, UI회귀에서새create증가까지통과.
+- 검색어: incoming-request-1118 submittedDraft 새수정안 재사용 방지 anchorLeft 최종재촬영
+1. 작업 위치: codex/incoming-request-1118 / nw-cdx-incoming-request-1118 / PR전.
+2. 완료된 것: 4개추가요청구현/단위21/실제Chrome PC390/전체ERP/1차가이드2편. helper anchorLeft 옵션은기본값false로타가이드보존.
+3. 남은 할 일: session88410 최종source고정촬영build→최종2역할dry/재촬영(기존1차영상은최종완료로사용금지)→프레임/Drive/정식빌드/플레이어→PR/CI/배포/정리.
+4. 검증 상태: 업무검증통과; 최종UI코드1줄수정후촬영빌드중. 최종영상·정식빌드·운영미검증.
+5. 주의/잠금: 본worktree입고코드·가이드작업중. 운영API조회요청0건/#8050이미Fagua확인; 운영요청등록/원장수정/확정취소0. rawwebm은최종가이드검증·Drive보관뒤정리.
 ## 2026-11-18 · 네노바웹 `아키텍처 흐름도` 탭 · 데스크톱 앱 업데이트 붉은색 표시 & PM 버튼 개선 (`Desktop 1.3.35`)
 - 요약: `/my-work?tab=arch`에 4대 자가발전 루프(`데이터 디테일 자가발전`, `실시간 로그 관제·자가치유`, `연속 파이프라인 압축(인보이스→입고→도착원가→공유)`, `왕복 우회동작 흡수(분배 시 주문등록 자동생성)`) 인터랙티브 아키텍처 흐름도 탭을 추가하고, 데스크톱 셸에서 앱 업데이트 필요 시(`available`/`downloaded`) 패널·버튼·상태문구·상단 알림을 붉은색(`#d82f36`)으로 강조하며 `PM 라이브 확인`에 `오류관제 열기` + `흐름도` 버튼을 배치함.
 - 검색어: 아키텍처 흐름도 ArchFlowChart tab=arch 앱 업데이트 붉은색 오류관제 열기 흐름도 1.3.35
@@ -3418,6 +3437,18 @@ pm run test:canon 통과.
 4. 검증 상태: `archFlowChart`, `workflowReview`, `workFeatureData`, `test:pm`, `test:workflow-guides`, `check-workflow-guides --changed-from origin/master`, `test:ui-layout`, `guard:erp-writes`, `erp-manifest(224)` 통과; `desktop` 단위 67/67 및 Electron `smoke.cjs` 통과; `npx next build --webpack` 성공. 운영 Cafe24/Windows 릴리스 실환경 반영은 머지·CI 후 확인 필요(미검증).
 5. 주의/잠금: MSSQL 원장 쓰기 변경 없음. `pages/pm.js` 및 `pm-control` 가이드 원본 미수정. `desktop-task-schedule`는 `--dry-run` 11장 검증 후 `videoWaivers`로 등록(향후 `shell.js` 추가 수정 시 재검증/갱신 필요).
 
+## 2026-11-18 입고 요청 최종 검증·복구·영상 보관
+- 직접수정→입력보존 영업지원요청, 품목·수량 직접요청, 농장검색 아래 즉시목록, 기존견적서확정현황/취소링크, 요청전체상태와권한확인후audit조회 구현. 완료요청후새수정안은이전requestref초기화. 사용자선택은영업지원수정반영·필요재확정까지처리.
+- f321 sibling작업폴더와worktree등록이외부에서사라짐(원인미확정). 커밋5dab에서Documents새경로로복구·git worktree lock, 원격branch백업. 수입부최종Drive보관본을복원해영상sha/UI sourceHash일치확인. 목차는최종VTT의실제단계시작점으로복원(첫단계0초). 영업지원은복구source에서다시실촬영후외부캐시에먼저복사·Drive보관.
+- 최종가이드: 수입부505.4초/5단계 MP4/VTT/proof 45719916/11857/8964bytes; 영업지원314.9초/3단계 31090489/8272/5168bytes. 둘다1920x1080/100%, 번호/확대/입력/확인/이력, 첫·중간·끝프레임직접확인. sourceHash/영상sha일치. 실제플레이어PC390/1920의역할·목차·MP4·VTT·다운로드·접기정지통과.
+- 회사Drive 폴더18JFwztrSWniR1yctBdaewBATvBev7NGb. 수입부MP4 1eSIiymJ_pKC1AerPeNXafVB4UTYXSUMt / VTT 1Jhz-LcYSHI5E9lTd5kLvCQ8CaHg4X2yh / proof 1K4n9V5bwf9g4pQZqXt9J_dX1Amtv98wz. 영업지원MP4 1urRmcaxOBvKNZ83_AgdH9LaVwYfHLiX4 / VTT 1JfMxiK9QbtLE03o-i5pdK2tIbuojf9Pt / proof 1eHkAk8NGKBAmBjw665N3CQISNZjGbSi5. 업로드후metadata재조회로6파일크기일치확인(공유변경없음).
+- 구형incoming-approval-smoke는옛화면fixture/버튼명으로실패해실제현재가이드dry-run fixture로통일. dry에승인응답1회유실과동일operationId재시도검증을추가해두역할전체통과. 런타임UI/ERP writer변경아님.
+- 검색어: incoming-request-1118 농장검색 아래목록 품목수정 요청전환 확정현황 처리이력 외부정리복구 505.4 314.9
+1. 작업 위치: nenova-erp-ui / codex/incoming-request-1118 / C:/Users/USER/Documents/Codex/2026-11-18/work/nw-cdx-incoming-request-1118 (잠금) / PR전.
+2. 완료된 것: 기능4가지·계약/회귀/문서/최종영상2편/Drive6파일·최신master10cfbb522통합. 운영WK8050은이미Fagua,요청목록0건SELECT확인만수행.
+3. 남은 할 일: PR/전체CI→squash→worktree잠금해제·즉시정리→Cafe24→운영읽기브라우저스모크/최종인계.
+4. 검증 상태: 전체ERP pre/core/post(최신upstream통합전)exit0,최종단위21/legacy·검색PC390/manifest224/쓰기API1/dnSpy/가이드/정식npm build/실제플레이어/현재두역할UI+승인응답유실통과. 최신전체통합은PR CI에서확인. 운영배포미검증.
+5. 주의/잠금: 운영원장/실제요청등록/확정취소/DB DML·DDL0. Farm마스터추가없음. 외부정리재발방지로머지전worktree잠금유지. 공유node_modules는정리시junction만삭제,기존f321원본미추적진단자료보존.
 
 ### 2026-11-18 홈 달력 공휴일·상세 편집 구현 단계
 - 작업 위치: nenova-erp-ui / codex/calendar-holidays-editor-1118 / C:/Users/USER/Documents/Codex/2026-11-12/new-chat/work/nw-calendar-holidays-1118 / PR 준비.
@@ -3452,3 +3483,12 @@ pm run test:canon 통과.
 - 검증 상태: 기존 reuse UI dry-run PASS(provider0·ERP쓰기0·외부0·mock분석2); 새 비교/reuse9 및 농장/검증/workbench43, adapter19 PASS. SQL SELECT-only 새 농장 후보221 및 Balverde→C.I Flores Balverde S.A.S 선택 확인. dnSpy 실제 EXE MakeTempTable FarmName=C2/단당송이 G열 확인. 최신 provisional build 첫 시도 EPERM, escalated 재시도 세션34096 진행 중(.verify/reuse-farm-next-build.log). 정식 npm build는 가이드 stale라 미완료.
 - 주의/잠금: 기존 46-02 송장25571 원본은6품목93QB/2790송이/2211로 운영8073과 일치. 사용자가 옳다고 제시한134박스3468은 다른 원본·버전 확인 필요(임의 덮어쓰기 금지). 원장5행 단수 공란 존재, 과거 보정0. 기존 농장명135건 vs 새 Balverde2건. .verify 원본/SQL 결과 비공개·커밋 금지. 추가 유료 분석0·운영 DB쓰기0. draft CLOUD PR1813 별도 작업, 기본 checkout/다른 worktree 수정 금지.
 - 검색어: packing reuse changed SHA cacheOnly BALVERDE 25571 8073 93 2790 2211 134 3468 farm UsageCount historical history comparison 단수 누락
+## 2026-11-18 홈 달력·즐겨찾기 Desktop 1.3.36 공개 및 운영 검증 완료
+- 작업 위치: nenova-erp-ui / 운영 인계 codex/calendar-deployed-1118 / Documents/Codex/2026-11-12/new-chat/work/nw-calendar-deployed-1118 / 코드 PR #1822, merge f1bc55db84269f3bcfc9a934e4f29777fef0afd6. 코드 worktree는 병합 직후 정리 완료, 이 인계 worktree도 병합 후 즉시 정리.
+- 완료된 것: 즐겨찾기 영역 전체 접기/열기·계정별 유지(업무 탭 유지), 달력 가로20% 확대·기존 글씨 유지, 한국+요청11개국 공휴일 선택/색상/중국 선택형 대체근무일, 한국어 개인/공통 상세 편집·비공개·홈 알림·기존 주차별 차수/새해 기준일 보존. 선행 #1821 기능 보존. Cafe24 배포와 Desktop 1.3.36 공개/자동 업데이트 피드 확인 완료.
+- 남은 할 일: 배포 작업은 없음. 직원 PC는 업무 중이므로 재시작/설치 실행하지 않았으며 실제 PC 1.3.36 적용은 미검증. 사용자가 업무를 저장하고 나중에 업데이트 재시작하면 새 UI를 사용함.
+- 검증 상태: 최종 헤드39d50bcd의 Windows CI44232477871/ERP CI44232477932 및 Linux build 통과. 병합 커밋 Windows44233317367, Cafe2444233318559(실브라우저 hydration 포함) 성공. 운영 로그인+12개국 공휴일+중국2027-02-13연휴/02-14대체근무일 읽기 확인. 운영 /desktop-guide 실제 재생·14목차·한국어 자막·키보드 목차·닫기pause·다운로드·1920/390px·JS0 및 MP4/VTT SHA256 최종 근거와 일치. 운영 일정/업무 생성·수정·삭제 없음.
+- 주의/잠금: 직원 PC 재시작 금지 승인 유지. ERP·ECOUNT 원장 쓰기 없음. 가이드 진행은 stdout만 확인, Puppeteer.connect 기본 viewport 주의. 후속 공용 shell.js/css/index 변경 시 desktop-task-schedule의 실제 가이드 소스 일치도 함께 확인. 다른 PR/공유 기본 체크아웃 수정 없음. 이 PR은 WORK_MEMORY.md만 변경하므로 문서 병합의 Cafe24 자동 배포는 정확한 실행 ID를 확인해 취소하여 불필요한 운영 재시작을 방지.
+- 공개: https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.36 / 대상f1bc55db / 4assets 확인. 설치본111,953,212bytes, SHA256 69586d2dd2e1f82523698fe615c5bdc0184c8b0a8f7053eda1a40c1fc0337d7f, MZ/SHA512/blockmap 검증. 공개 latest.yml 버전1.3.36·검증된 원본과 동일, 공개 exe URL/바이트 크기 일치.
+- 회사 Drive 최종 원본: MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol (514.3초/42,948,556bytes), VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat (12,846bytes), proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn (18,775bytes). 14단계/자막76개 프레임 대조·대표 장면 육안 확인. 과거1.3.35 자료는 미공개 초안이며 최종 근거 아님.
+- 검색어: deployed calendar 1.3.36 f1bc55db 즐겨찾기 전체 접기 열기 달력 가로20% 공휴일12개국 상세 편집 주차별 유지 운영 검증 공개 피드 직원PC 재시작 안함

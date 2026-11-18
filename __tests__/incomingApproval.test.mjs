@@ -83,3 +83,10 @@ test('duplicates, unrelated products, broken date totals and wrong source master
   assert.throws(() => plan([row({})], facts), { code: 'APPROVAL_DATE_TOTAL' });
   assert.throws(() => plan([row({ shipmentKey: 999 })]), { code: 'APPROVAL_TARGET_MISSING' });
 });
+
+
+test('request history is bounded to the authorized request id, rejects invalid ids',async()=>{
+  const {readIncomingApprovalHistory}=await import('../lib/incomingApprovalStore.js');const calls=[];
+  const q=async(text,params)=>{calls.push({text,params});return {recordset:[{FromStatus:'draft',ToStatus:'requested',Note:'농장 변경'}]}};
+  const result=await readIncomingApprovalHistory(q,{Int:'int'},7);assert.equal(result[0].ToStatus,'requested');assert.equal(calls[0].params.id.value,7);assert.match(calls[0].text,/WHERE RequestId=@id/);assert.match(calls[0].text,/TOP\(200\)/);await assert.rejects(readIncomingApprovalHistory(q,{Int:'int'},'7 OR 1=1'));assert.equal(calls.length,1);
+});
