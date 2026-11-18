@@ -1,6 +1,15 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { issueRows, shortIssue, linkedFlights, nextAction } = require('../shell/flight-board');
+const { issueRows, shortIssue, linkedFlights, nextAction, placeMarkers } = require('../shell/flight-board');
+
+test('nearby flight labels stay separately clickable without moving their projected anchors', () => {
+  const points = [{x:320,y:90,id:'2026-K4254'}, {x:328,y:88,id:'2026-AC063'}, {x:320,y:90,id:'2025-K4254'}, {x:719,y:271,id:'edge'}];
+  const result = placeMarkers(points);
+  assert.deepEqual(result.map(p=>[p.id,p.anchorX,p.anchorY]),points.map(p=>[p.id,p.x,p.y]));
+  for(let i=0;i<result.length;i++)for(let j=i+1;j<result.length;j++)assert.ok(Math.abs(result[i].x-result[j].x)>=160||Math.abs(result[i].y-result[j].y)>=22);
+  assert.ok(result.every(p=>p.x>=12&&p.x<=570&&p.y>=12&&p.y<=260));
+  assert.deepEqual(placeMarkers(points),result);
+});
 
 test('flight cards attach exact year identities and prioritize urgent work without mutating source', () => {
   const flights = [{key:'2025-A',status:'in_flight'}, {key:'2026-A',status:'arrived'}, {key:'done',status:'registered'}, {viewId:'hashed',status:'before_departure'}];

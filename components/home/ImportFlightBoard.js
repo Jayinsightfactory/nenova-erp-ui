@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { apiGet, apiPost } from '../../lib/useApi';
 import { WORLD_VIEW, WORLD_LAND_PATH, projectLonLat } from '../../lib/importFlightWorldPath';
 
-const { issueRows, shortIssue, linkedFlights, nextAction } = require('../../desktop/shell/flight-board');
+const { issueRows, shortIssue, linkedFlights, nextAction, placeMarkers } = require('../../desktop/shell/flight-board');
 
 const REFRESH_MS = 5 * 60 * 1000;
 const STATUS_STYLE = {
@@ -139,6 +139,10 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
   const origins = useMemo(() => { const m = new Map(); for (const r of routes) if (!m.has(r.code)) m.set(r.code, r); return [...m.values()]; }, [routes]);
   const dest = destination ? projectLonLat(destination.lon, destination.lat) : null;
   const planes = flights.filter(f => (f.status !== 'registered' || f.flightIssues?.length) && (f.position || f.origin || (f.status === 'arrived' && destination)));
+  const markers = placeMarkers(planes.map(f => {
+    const pos = f.status === 'arrived' && destination ? destination : f.status === 'before_departure' && f.origin ? f.origin : (f.position || f.origin);
+    return { ...projectLonLat(pos.lon, pos.lat), f };
+  }), WORLD_VIEW.width, WORLD_VIEW.height);
   return (
     <svg viewBox={`0 0 ${WORLD_VIEW.width} ${WORLD_VIEW.height}`} role="group" aria-label="수입 비행기 예측 위치 지도"
       style={{ width: '100%', height: 'auto', display: 'block', background: '#eef4fa', borderRadius: 6, border: '1px solid #d7e0ea' }}>
@@ -173,15 +177,16 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
           <text x={dest.x + 5} y={dest.y + 3} fontSize="9" fontWeight="700" fill="#b23c0a">인천</text>
         </g>
       )}
-      {planes.map(f => {
-        const pos = f.status === 'arrived' && destination ? destination : f.status === 'before_departure' && f.origin ? f.origin : (f.position || f.origin);
-        const p = projectLonLat(pos.lon, pos.lat);
+      {markers.map(p => {
+        const f = p.f;
         const on = f.key === selectedKey;
         const st = STATUS_STYLE[f.status] || STATUS_STYLE.in_flight;
         return (
-          <g key={f.key} role="button" tabIndex={0} aria-label={`${f.boardNumber}번 ${f.country} ${f.flight || '편명 미확인'} 선택`} aria-pressed={on} onClick={event => onSelect(f.key, event)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(f.key, event); } }} style={{ cursor: 'pointer' }}>
+          <Fragment key={f.key}>
+          {(p.x !== p.anchorX || p.y !== p.anchorY) && <line x1={p.anchorX} y1={p.anchorY} x2={p.x} y2={p.y} stroke="#667f99" strokeWidth="1" pointerEvents="none" />}
+          <g role="button" tabIndex={0} aria-label={`${f.boardNumber}번 ${f.country} ${f.flight || '편명 미확인'} 선택`} aria-pressed={on} onClick={event => onSelect(f.key, event)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(f.key, event); } }} style={{ cursor: 'pointer' }}>
             <title>{`${f.weekLabel}차 ${f.country} ${f.flight} — ${f.statusLabel}${f.progress != null ? ` 약 ${Math.round(f.progress * 100)}%` : ''}`}</title>
-            <circle cx={p.x} cy={p.y} r={on ? 9 : 7} fill={st.dot} stroke="#fff" strokeWidth="1.4" opacity="0.95" />
+            <circle cx={p.x} cy={p.y} r={on ? 9 : 7} fill={f.priority === 0 ? '#b02a2a' : st.dot} stroke={on ? '#0b3d75' : '#fff'} strokeWidth={on ? 2 : 1.4} opacity="0.95" />
             <text x={p.x} y={p.y + 2.6} fontSize="6.5" textAnchor="middle" fill="#fff" fontWeight="700">{f.boardNumber}</text>
             {(
               <text x={p.x + 8} y={p.y + 3} fontSize="8" fontWeight="700" fill="#0b3d75" stroke="#eef4fa" strokeWidth="2" paintOrder="stroke">
@@ -189,6 +194,7 @@ function FlightMap({ flights, destination, selectedKey, onSelect }) {
               </text>
             )}
           </g>
+          </Fragment>
         );
       })}
     </svg>
