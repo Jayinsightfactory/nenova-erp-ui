@@ -3554,3 +3554,27 @@ pm run test:canon 통과.
 4. 검증 상태: 대상 9건 통과, 로컬 브라우저 홈/확대 화면 지도→카드 및 카드→지도 연결 확인. 전체검사 진행 중; 운영 반영 미검증.
 5. 주의/잠금: 본 worktree만 수정. 다른 수입방 PR #1828과 별도 작업. 영상 신규 제작/갱신 안 함.
 - 검증 갱신: ERP 계약·dnSpy 근거·manifest·쓰기 가드·workflow 가이드 검사 및 npm run build 통과. Desktop 단위 71건, 항공편 대상 9건 통과. 설치본 소스 검사에 flight-board.cjs 추가; CI에서 설치본 검증 예정.
+
+## 2026-11-18 · 지도/항공편 연결 PR 병합·배포 진행
+- PR #1829 squash merge: 43db0432bbc0d62343f93ce4ba660a6dbc538937. PR verify 및 Windows installer CI 통과. 병합 master의 Windows CI도 통과.
+- 설치 파일 1.3.38(111954335 bytes) MZ/SHA512/latest.yml 크기/SHA256 검증 통과. 검증 PR source와 merge source의 desktop 및 ImportFlightBoard 차이 없음. 릴리스 초안 준비, Cafe24 배포 run44244735793 진행.
+- 추가 화면 검증: 390px 가로 넘침 없음, Enter 펼침 및 Escape 접기/포커스 복귀 확인. 로컬 검증 서버 종료.
+- 검색어: PR1829 43db0432b flight-linked-deployed-1118 1.3.38
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/flight-linked-deployed-1118 / nw-cdx-flight-linked / PR #1829(병합).
+2. 완료된 것: 코드·계약·테스트·빌드·PR CI 및 병합, 설치 파일 무결성 검증.
+3. 남은 할 일: Cafe24 완료→릴리스 공개→실제 앱 업데이트/스모크→worktree 정리.
+4. 검증 상태: 로컬/PR/master Windows 검증 통과. 운영 새 화면/실제 1.3.38 설치는 아직 미검증.
+5. 주의/잠금: 새 코드는 master 반영, 현재 브랜치는 인계 기록용. 업무 원장 쓰기 없음. 자동 확인은 채팅 보고용 automation-2.
+- 배포 갱신: Cafe24 run44244735793 성공(ERP/webpack/전송/SSH/실브라우저 hydration 모두 통과), master ERP guard44244735524 성공. desktop-v1.3.38 공개 완료. 실제 PC 앱의 1.3.38 업데이트 조회·다운로드 시작 확인.
+
+## 2026-11-18 · 실제 앱 1.3.38 반영 완료
+- 실제 PC 앱 업데이트 UI로 다운로드·재시작 후 앱/현재/배포 버전 모두 1.3.38 표시 확인. 기존 업무 탭 복원 확인.
+- 홈: 큰 이슈표 제거, 정렬된 3개 항공편 카드와 번호 지도 표시, 지도 AC063 선택 시 해당 카드 펼침/다른 카드 접힘/경로 강조 확인. 새로고침·확대 보기·접기 정렬 확인.
+- 운영 확대창 https://nenovaweb.com/desktop-flight: 우선 확인 1편·확인 필요 2편, 완료편 접힘, 선택 KE048 경로/카드 동시 강조와 STA·공항 예상 구분 확인. 수입 비행기 현황 메뉴와 탭명 존재 확인. 원문 링크는 제공되며 사용자 요청/정기 확인 때 조회; 이번 검증에서 항공사 원문 시각 자체를 대조했다고 주장하지 않음.
+- 증거: 사용자 작업 공간 flight-linked-production.png. 업무 원장/서류 전달 상태 수정 없음. 영상 신규 제작 없음.
+- 검색어: 실제앱1.3.38 지도카드연결 PR1829 Cafe2444244735793 automation-2
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/flight-linked-deployed-1118 / nw-cdx-flight-linked / PR #1829 병합 43db0432b.
+2. 완료된 것: 코드·테스트·빌드·PR CI·master CI·Cafe24·릴리스 공개·실제 설치앱 업데이트와 화면 확인 완료.
+3. 남은 할 일: 기능 배포 작업 없음. 매일 KST 09/12/15/18(주말 포함) automation-2가 원문 확인 결과를 이 채팅에 보고; ERP 자동 기록 아님.
+4. 검증 상태: 대상9/Desktop71/ERP/dnSpy/manifest/write guard/guide/build 통과, CI 및 운영 hydration 통과, 390px·키보드·실제 앱/확대 화면 스모크 통과. 외부 항공사 페이지 현시점 운항일/STA 별도 대조는 미실행.
+5. 주의/잠금: 인계 기록 브랜치 원격 보존 후 완료 worktree 정리. 추가 잠금 없음. ECOUNT/ERP 원장 쓰기 없음.
