@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { MENU_PAGE_RESET_EVENT } from '../lib/menuNavigationHistory';
 
 const NO_LAYOUT = [
+  '/desktop-flight',
   '/login',
   '/',
   '/shipment/week-pivot',

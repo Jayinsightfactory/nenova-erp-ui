@@ -2,6 +2,7 @@
 // 카톡 도착 공지(스케줄방·빌번호방·네노바&선율방)를 읽어 비행기(운송장) 단위로 묶고,
 // 전산 입고 기록(WarehouseMaster.OrderNo = 운송장 번호)과 맞춰 상태·예측 위치·이슈를 돌려준다.
 // 위치는 실제 위치가 아니라 일정으로 계산한 예측이다. DB 는 SELECT 만 한다.
+import { createHash } from 'node:crypto';
 import { withAuth } from '../../../lib/auth';
 import { query } from '../../../lib/db';
 import { normalizeAwb } from '../../../lib/importFlightNotice';
@@ -107,6 +108,7 @@ async function handler(req, res) {
     feed: { ok: !feedError, error: feedError, rooms: feed.rooms, fetchedAt: feed.fetchedAt },
     receipts: { ok: !receiptError, error: receiptError },
     ...board,
+    flights:board.flights.map(f=>({...f,viewId:createHash('sha256').update(String(f.key||'')).digest('hex')})),
     sources,
     refresh: { fresh, autoSeconds: 300, cacheSeconds: { notices: 60, airport: 600, customs: 600 } },
   });
