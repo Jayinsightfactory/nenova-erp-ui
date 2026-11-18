@@ -50,6 +50,7 @@ function requestFixture(scenario, index) {
 }
 async function recordRole(browser, base, secret, role) {
   const isImport = role === 'import', requests = isImport ? [] : ['farm', 'product', 'quantity'].map(requestFixture);
+  let loseApproval=dry&&!isImport,lostApproval=null,replayedApproval=false;
   const page = await browser.newPage();page.setDefaultNavigationTimeout(120000);const errors = [], posts = [];
   let mainNavigations=0;page.on('framenavigated',frame=>{if(frame===page.mainFrame())mainNavigations++;});
   await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
@@ -100,7 +101,9 @@ async function recordRole(browser, base, secret, role) {
               if (!acknowledged) { data.issues = [{ code:'APPROVAL_STOCK_SHORTAGE',message: '후속 차수에 5단이 부족합니다. 표시된 수량의 재고조정 동의가 필요합니다.' }]; delete data.financialSummary; }
             }
           }
-          if (body.action === 'approve') { assert(!isImport && body.confirmed); request.status = 'applied'; request.result = { warehouseKey: 9001, shipmentGroups: request.matching.rows?.length ? 1 : 0, stockProducts: previewFor(request.correction).scenario === 'farm' ? 0 : previewFor(request.correction).changes.length }; request.appliedAt = '2026-11-04 10:00'; request.evidence = { receiptChanges: previewFor(request.correction).changes }; }
+          if (body.action === 'approve') {
+            if(loseApproval){loseApproval=false;lostApproval=body;return await r.respond({status:409,contentType:'application/json',body:JSON.stringify({success:false,error:'응답 유실 재시도 검증'})});}
+            if(lostApproval&&!replayedApproval){assert.equal(body.operationId,lostApproval.operationId);assert.equal(body.requestId,lostApproval.requestId);replayedApproval=true;} assert(!isImport && body.confirmed); request.status = 'applied'; request.result = { warehouseKey: 9001, shipmentGroups: request.matching.rows?.length ? 1 : 0, stockProducts: previewFor(request.correction).scenario === 'farm' ? 0 : previewFor(request.correction).changes.length }; request.appliedAt = '2026-11-04 10:00'; request.evidence = { receiptChanges: previewFor(request.correction).changes }; }
         }
       }
       await r.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
@@ -232,14 +235,15 @@ async function recordRole(browser, base, secret, role) {
           await hold('명시 동의한 5단만 최종 확정 시 재고조정합니다.\n검산이 실패하면 입고·원가·손익을 포함해 함께 되돌립니다.',6);
         }
         await page.$eval('[aria-label="원가·손익 최종 검산"]',n=>n.scrollIntoView({block:'center'}));await hold('요약에서 원가·손익의 변경 금액을 확인합니다.\n세부 검산과 후속 재고는 필요한 경우 펼쳐 봅니다.',6);
-        await click('최종 확정');await page.waitForFunction(()=>document.querySelector('[aria-label="정정 요청 상세"]')?.textContent.includes('적용 완료'));
+        await click('최종 확정');if(dry&&lostApproval&&!replayedApproval){await page.waitForFunction(()=>document.body.textContent.includes('응답 유실 재시도 검증'));await click('같은 확정 결과 다시 확인');}await page.waitForFunction(()=>document.querySelector('[aria-label="정정 요청 상세"]')?.textContent.includes('적용 완료'));
         await hold('적용 완료 결과를 확인합니다.\n이미 발송한 견적서는 정정 내용으로 다시 발행하세요.',5);await click('요청 목록으로');
       }
     }
     if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
     await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click('#1 열기');await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
     assert.deepEqual(errors, []);
-    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, onlyScenario?1:isImport?5:3);
+    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (onlyScenario?1:isImport?5:3)+(dry&&!isImport?1:0));
+    if(dry&&!isImport)assert(replayedApproval,'lost approval retry must reuse the same operation');
     const result = await rec.stop(); stopped = true;
     if (!dry) { const guide = workflow.guides.find(item => item.id === role); guide.status = 'ready'; guide.chapters = result.chapters; fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n'); }
     console.log(`PASS ${role}: actual UI ${dry ? 'dry run' : 'recording'}, farm/product/quantity, all APIs synthetic, ERP writes=0`);

@@ -3436,3 +3436,16 @@ pm run test:canon 통과.
 3. 남은 할 일: GitHub PR CI 통과 확인 → squash 머지 → worktree(`nw-agy-arch-pm-update`) 정리 → 운영 배포 후 실화면 확인.
 4. 검증 상태: `archFlowChart`, `workflowReview`, `workFeatureData`, `test:pm`, `test:workflow-guides`, `check-workflow-guides --changed-from origin/master`, `test:ui-layout`, `guard:erp-writes`, `erp-manifest(224)` 통과; `desktop` 단위 67/67 및 Electron `smoke.cjs` 통과; `npx next build --webpack` 성공. 운영 Cafe24/Windows 릴리스 실환경 반영은 머지·CI 후 확인 필요(미검증).
 5. 주의/잠금: MSSQL 원장 쓰기 변경 없음. `pages/pm.js` 및 `pm-control` 가이드 원본 미수정. `desktop-task-schedule`는 `--dry-run` 11장 검증 후 `videoWaivers`로 등록(향후 `shell.js` 추가 수정 시 재검증/갱신 필요).
+
+## 2026-11-18 입고 요청 최종 검증·복구·영상 보관
+- 직접수정→입력보존 영업지원요청, 품목·수량 직접요청, 농장검색 아래 즉시목록, 기존견적서확정현황/취소링크, 요청전체상태와권한확인후audit조회 구현. 완료요청후새수정안은이전requestref초기화. 사용자선택은영업지원수정반영·필요재확정까지처리.
+- f321 sibling작업폴더와worktree등록이외부에서사라짐(원인미확정). 커밋5dab에서Documents새경로로복구·git worktree lock, 원격branch백업. 수입부최종Drive보관본을복원해영상sha/UI sourceHash일치확인. 목차는최종VTT의실제단계시작점으로복원(첫단계0초). 영업지원은복구source에서다시실촬영후외부캐시에먼저복사·Drive보관.
+- 최종가이드: 수입부505.4초/5단계 MP4/VTT/proof 45719916/11857/8964bytes; 영업지원314.9초/3단계 31090489/8272/5168bytes. 둘다1920x1080/100%, 번호/확대/입력/확인/이력, 첫·중간·끝프레임직접확인. sourceHash/영상sha일치. 실제플레이어PC390/1920의역할·목차·MP4·VTT·다운로드·접기정지통과.
+- 회사Drive 폴더18JFwztrSWniR1yctBdaewBATvBev7NGb. 수입부MP4 1eSIiymJ_pKC1AerPeNXafVB4UTYXSUMt / VTT 1Jhz-LcYSHI5E9lTd5kLvCQ8CaHg4X2yh / proof 1K4n9V5bwf9g4pQZqXt9J_dX1Amtv98wz. 영업지원MP4 1urRmcaxOBvKNZ83_AgdH9LaVwYfHLiX4 / VTT 1JfMxiK9QbtLE03o-i5pdK2tIbuojf9Pt / proof 1eHkAk8NGKBAmBjw665N3CQISNZjGbSi5. 업로드후metadata재조회로6파일크기일치확인(공유변경없음).
+- 구형incoming-approval-smoke는옛화면fixture/버튼명으로실패해실제현재가이드dry-run fixture로통일. dry에승인응답1회유실과동일operationId재시도검증을추가해두역할전체통과. 런타임UI/ERP writer변경아님.
+- 검색어: incoming-request-1118 농장검색 아래목록 품목수정 요청전환 확정현황 처리이력 외부정리복구 505.4 314.9
+1. 작업 위치: nenova-erp-ui / codex/incoming-request-1118 / C:/Users/USER/Documents/Codex/2026-11-18/work/nw-cdx-incoming-request-1118 (잠금) / PR전.
+2. 완료된 것: 기능4가지·계약/회귀/문서/최종영상2편/Drive6파일·최신master10cfbb522통합. 운영WK8050은이미Fagua,요청목록0건SELECT확인만수행.
+3. 남은 할 일: PR/전체CI→squash→worktree잠금해제·즉시정리→Cafe24→운영읽기브라우저스모크/최종인계.
+4. 검증 상태: 전체ERP pre/core/post(최신upstream통합전)exit0,최종단위21/legacy·검색PC390/manifest224/쓰기API1/dnSpy/가이드/정식npm build/실제플레이어/현재두역할UI+승인응답유실통과. 최신전체통합은PR CI에서확인. 운영배포미검증.
+5. 주의/잠금: 운영원장/실제요청등록/확정취소/DB DML·DDL0. Farm마스터추가없음. 외부정리재발방지로머지전worktree잠금유지. 공유node_modules는정리시junction만삭제,기존f321원본미추적진단자료보존.
