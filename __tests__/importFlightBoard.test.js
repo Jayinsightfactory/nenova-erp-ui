@@ -21,11 +21,12 @@ const messages = [
   msg('e1', '스케줄방', '2026-11-12T04:00:00Z', '46-1차 미국 (KOREAN AIR)\n11월 14일 (토) 04:00 도착 예정'),
 ];
 const receipts = new Map([
-  ['01412345675', { registeredAt: '2026-11-16T08:25:00+09:00', orderWeek: '46-02', masters: 20, farms: 18, boxes: 597, country: '콜롬비아', items: [{ name: '카네이션', box: 300 }, { name: '장미', box: 297 }] }],
-  ['18012345686', { registeredAt: '2026-11-16T09:10:00+09:00', orderWeek: '46-02', masters: 1, farms: 1, boxes: 10, country: '태국', items: [{ name: '덴파레', box: 10 }] }],
-  ['99912345675', { registeredAt: '2026-11-16T10:00:00+09:00', orderWeek: '46-02', masters: 1, farms: 1, boxes: 30, country: '중국', items: [] }],
+  ['01412345675|2026|46-2', { registeredAt: '2026-11-16T08:25:00+09:00', orderWeek: '46-02', masters: 20, farms: 18, boxes: 597, country: '콜롬비아', items: [{ name: '카네이션', box: 300 }, { name: '장미', box: 297 }] }],
+  ['18012345686|2026|46-2', { registeredAt: '2026-11-16T09:10:00+09:00', orderWeek: '46-02', masters: 1, farms: 1, boxes: 10, country: '태국', items: [{ name: '덴파레', box: 10 }] }],
+  ['99912345675|2026|46-2', { registeredAt: '2026-11-16T10:00:00+09:00', orderWeek: '46-02', masters: 1, farms: 1, boxes: 30, country: '중국', items: [] }],
 ]);
 
+receipts.set('01412345675|2025|46-2', { ...receipts.get('01412345675|2026|46-2'), registeredAt: '2025-11-16T08:25:00+09:00', boxes: 999 });
 const board = buildFlightBoard({ messages, receipts, now });
 const by = key => board.flights.find(f => f.key === key);
 

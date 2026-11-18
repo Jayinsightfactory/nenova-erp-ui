@@ -7,47 +7,84 @@ import { withAuth } from '../../../lib/auth';
 import { query } from '../../../lib/db';
 import { normalizeAwb } from '../../../lib/importFlightNotice';
 import { readImportScheduleFeed } from '../../../lib/importScheduleFeed';
-import { buildFlightBoard } from '../../../lib/importFlightBoard';
+import { buildFlightBoard, receiptIdentity } from '../../../lib/importFlightBoard';
 import { readIcnFlights } from '../../../lib/importFlightIcn';
 import { readCustoms } from '../../../lib/importFlightCustoms';
 import { readDocsSent, setDocsSent } from '../../../lib/importFlightDocsStore';
+import { canManageInvoiceReceipt } from '../../../lib/invoiceReceiptAccess';
 
-async function readReceipts() {
+async function readReceipts(includeInvoice) {
   // 최근 30일 안에 등록된 입고 기록을 운송장 번호로 묶는다. WarehouseDetail 에는 isDeleted 칸이 없다(마스터로만 거름).
   const masters = await query(`
     SELECT REPLACE(REPLACE(m.OrderNo,'-',''),' ','') AS Awb,
            MIN(CONVERT(varchar(19), m.CreateDtm, 120)) AS RegAt,
-           MIN(m.OrderWeek) AS OrderWeek,
+           m.OrderYear, m.OrderWeek,
            COUNT(DISTINCT m.WarehouseKey) AS Masters,
            COUNT(DISTINCT m.FarmName) AS Farms
     FROM WarehouseMaster m
     WHERE ISNULL(m.isDeleted,0)=0 AND m.CreateDtm >= DATEADD(day,-30,GETDATE()) AND ISNULL(m.OrderNo,'')<>''
-    GROUP BY REPLACE(REPLACE(m.OrderNo,'-',''),' ','')`);
+    GROUP BY REPLACE(REPLACE(m.OrderNo,'-',''),' ',''), m.OrderYear, m.OrderWeek`);
   const items = await query(`
     SELECT REPLACE(REPLACE(m.OrderNo,'-',''),' ','') AS Awb,
-           ISNULL(p.CounName,'') AS CounName, ISNULL(p.FlowerName,'') AS FlowerName,
+           m.OrderYear, m.OrderWeek, ISNULL(p.CounName,'') AS CounName, ISNULL(p.FlowerName,'') AS FlowerName,
            SUM(ISNULL(d.BoxQuantity,0)) AS Boxes, COUNT(*) AS Lines
     FROM WarehouseMaster m
     JOIN WarehouseDetail d ON d.WarehouseKey = m.WarehouseKey
     JOIN Product p ON p.ProdKey = d.ProdKey
     WHERE ISNULL(m.isDeleted,0)=0 AND m.CreateDtm >= DATEADD(day,-30,GETDATE()) AND ISNULL(m.OrderNo,'')<>''
       AND d.ProdKey NOT IN (3100,3101,2182)
-    GROUP BY REPLACE(REPLACE(m.OrderNo,'-',''),' ',''), ISNULL(p.CounName,''), ISNULL(p.FlowerName,'')`);
+    GROUP BY REPLACE(REPLACE(m.OrderNo,'-',''),' ',''), m.OrderYear, m.OrderWeek, ISNULL(p.CounName,''), ISNULL(p.FlowerName,'')`);
   const map = new Map();
   for (const r of masters.recordset) {
     const awb = normalizeAwb(r.Awb);
-    if (!awb) continue;
+    const key = receiptIdentity(awb, r.OrderYear, r.OrderWeek);
+    if (!key) continue;
     // RegAt 은 서버(한국 시간) 문자열 — node Date 로 읽으면 9시간 밀리므로 문자열에 오프셋을 붙인다.
-    map.set(awb, { registeredAt: `${String(r.RegAt).replace(' ', 'T')}+09:00`, orderWeek: r.OrderWeek, masters: r.Masters, farms: r.Farms, boxes: 0, country: '', items: [] });
+    map.set(key, { awb, registeredAt: `${String(r.RegAt).replace(' ', 'T')}+09:00`, orderYear: r.OrderYear, orderWeek: r.OrderWeek, masters: r.Masters, farms: r.Farms, boxes: 0, country: '', items: [] });
   }
   for (const r of items.recordset) {
-    const rec = map.get(normalizeAwb(r.Awb));
+    const rec = map.get(receiptIdentity(normalizeAwb(r.Awb), r.OrderYear, r.OrderWeek));
     if (!rec) continue;
     rec.boxes += Number(r.Boxes) || 0;
     if (!rec.country && r.CounName) rec.country = r.CounName;
     rec.items.push({ name: r.FlowerName || '기타', box: Number(r.Boxes) || 0, lines: r.Lines });
   }
   for (const rec of map.values()) rec.items.sort((a, b) => b.box - a.box);
+  if (includeInvoice) {
+    // Only revisions tied to committed receipt operations are eligible. The policy
+    // matches the import invoice screen; generic flight-board access grants no invoice access.
+    try {
+      const committed = await query(`
+        WITH Candidates AS (
+          SELECT o.DocumentId, o.DocumentRevision, m.WarehouseKey,
+                 REPLACE(REPLACE(m.OrderNo,'-',''),' ','') AS Awb,
+                 m.OrderYear, m.OrderWeek,
+                 ROW_NUMBER() OVER (PARTITION BY o.DocumentId ORDER BY o.DocumentRevision DESC, o.CompletedAt DESC, o.OperationId DESC) AS Position
+          FROM dbo.WebInvoiceOperation o
+          JOIN dbo.WebInvoiceDocument d ON d.DocumentId=o.DocumentId
+          JOIN dbo.WarehouseMaster m ON m.WarehouseKey=o.WarehouseKey
+            AND m.OrderYear=d.OrderYear AND m.OrderWeek=d.OrderWeek
+          WHERE o.Status=N'COMMITTED' AND ISNULL(m.isDeleted,0)=0
+            AND m.CreateDtm >= DATEADD(day,-30,GETDATE()) AND ISNULL(m.OrderNo,'')<>''
+            AND NOT EXISTS (
+              SELECT 1 FROM dbo.WebInvoiceOperation other
+              JOIN dbo.WarehouseMaster alt ON alt.WarehouseKey=other.WarehouseKey
+              WHERE other.DocumentId=o.DocumentId AND other.Status=N'COMMITTED' AND ISNULL(alt.isDeleted,0)=0
+                AND (ISNULL(alt.OrderYear,'')<>m.OrderYear OR ISNULL(alt.OrderWeek,'')<>m.OrderWeek
+                  OR REPLACE(REPLACE(ISNULL(alt.OrderNo,''),'-',''),' ','')<>REPLACE(REPLACE(m.OrderNo,'-',''),' ',''))
+            )
+        )
+        SELECT c.Awb, c.OrderYear, c.OrderWeek, l.OriginalName, l.BoxQuantity, l.BunchQuantity, l.StemQuantity
+        FROM Candidates c
+        JOIN dbo.WebInvoiceLine l ON l.DocumentId=c.DocumentId AND l.Revision=c.DocumentRevision
+        WHERE c.Position=1`);
+      for (const row of committed.recordset || []) {
+        const receipt = map.get(receiptIdentity(normalizeAwb(row.Awb), row.OrderYear, row.OrderWeek));
+        if (!receipt) continue;
+        (receipt.invoices ||= []).push({ name: row.OriginalName, boxes: row.BoxQuantity, bunches: row.BunchQuantity, stems: row.StemQuantity });
+      }
+    } catch { /* Invoice storage can be unavailable while the warehouse ledger remains readable. */ }
+  }
   return map;
 }
 
@@ -79,7 +116,7 @@ async function handler(req, res) {
   }
   let receipts = new Map();
   let receiptError = null;
-  try { receipts = await readReceipts(); } catch { receiptError = '전산 입고 기록을 불러오지 못했습니다.'; }
+  try { receipts = await readReceipts(canManageInvoiceReceipt(req.user)); } catch { receiptError = '전산 입고 기록을 불러오지 못했습니다.'; }
 
   // 1차 편 목록 → 공항·통관 조회 대상 선별 → 다시 조립. 외부 조회 실패는 그 부분만 건너뛴다.
   const first = buildFlightBoard({ messages: feed.messages, receipts, now });
