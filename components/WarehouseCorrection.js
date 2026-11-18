@@ -1,3 +1,4 @@
+import WarehouseFarmSelect from './WarehouseFarmSelect.js';
 import { useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import IncomingCorrectionRequest from './IncomingCorrectionRequest.js';
@@ -83,9 +84,8 @@ function LegacyWarehouseCorrection({selected,onClose,onSaved}){
       {!data?<p role="status">{error?'자료를 읽지 못했습니다. 창을 닫고 다시 열어주세요.':'기존 입고와 수정 이력 조회 중…'}</p>:<>
         <fieldset disabled={busy||!!pending}><legend>수정 내용</legend>
           <label>수정 방식<select aria-label="수정 방식" value={mode} onChange={e=>{invalidate();setMode(e.target.value);setFile(null);}}><option value="FARM">농장만 수정</option><option value="REPLACE">수정 파일로 교체</option></select></label>
-          <label>농장<select aria-label="수정 농장" value={farmName} onChange={e=>{invalidate();setFarmName(e.target.value);}}>
-            {[...new Set([data.header.FarmName,farmName,...data.farms.map(f=>f.FarmName)])].map(name=><option key={name} value={name}>{name}</option>)}
-          </select></label>
+          <WarehouseFarmSelect farms={data.farms} currentFarm={data.header.FarmName} value={farmName}
+            onChange={name=>{invalidate();setFarmName(name);}} />
           {mode==='REPLACE'&&<p><label>수정 파킹 파일<input aria-label="수정 파킹 파일" type="file" accept=".xlsx,.xls" onChange={readFile}/></label>{file&&<span>{file.fileName} · {file.items.length}행</span>}</p>}
           <p><label style={{display:'flex'}}>수정 사유<input aria-label="수정 사유" maxLength={500} value={reason} onChange={e=>{setReason(e.target.value);setConfirmed(false);}} style={{flex:'1 1 240px',minWidth:0}} placeholder="예: 농장 선택 오류, 품목명 오입력 정정"/></label></p>
         </fieldset>

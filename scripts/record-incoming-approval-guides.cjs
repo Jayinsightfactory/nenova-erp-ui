@@ -148,7 +148,11 @@ async function recordRole(browser, base, secret, role) {
         await hold(`${index+1}. ${scenarioTitles[scenario]}\n선택 농장의 기존 입고 안에서 수정합니다.`,5);
         await page.waitForSelector('[data-row-key="9001"]');await moveClick(await page.$('[data-row-key="9001"]'));await click('수입부 수정 요청');
         await page.waitForSelector('dialog[open] select[aria-label="수정 종류"]');
-        if(scenario==='farm')await select('select[aria-label="변경 농장"]','연습농장 나');
+        if(scenario==='farm'){
+          await hold('농장 검색칸에 농장명 일부를 입력합니다. 대소문자와 공백을 구분하지 않습니다.\n검색은 기존 선택을 바꾸지 않으며, 목록에서 정확한 농장을 선택합니다.',5);
+          await fill('input[aria-label="농장 검색"]','연습농장 나');
+          await select('select[aria-label="변경 농장"]','연습농장 나');
+        }
         else{
           await select('select[aria-label="수정 종류"]',{product:'PRODUCT',quantity:'QUANTITY',add:'ADD',cancel:'CANCEL'}[scenario]);
           if(scenario==='product'){
