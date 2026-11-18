@@ -17,7 +17,7 @@ const OUTPUT = path.resolve(__dirname, '..', 'test-output');
 let dialogAnswer = 1;
 let accountActor = 'desktop-test';
 let bootstrapOverride = null;
-const importFarmMenus=require('../menu.json').flatMap(group=>group.items).filter(item=>['/import/tools','/master/codes'].includes(item.href));
+const importFarmMenus=require('../menu.json').flatMap(group=>group.items).filter(item=>['/import/tools','/import/pipeline','/master/codes'].includes(item.href));
 let holdAccountBAuth = false;
 let accountBAuthStarted = false;
 let releaseAccountBAuth;
@@ -439,10 +439,10 @@ async function run() {
   assert.equal(first.view.getBounds().height, 1036, 'compact tab workspace uses the remaining 1036px');
   const shellContents = sourceWindow.win.webContents;
   // Search/open/favorite the actual canonical import and Farm-master entries.
-  assert.equal(importFarmMenus.length,2);
+  assert.equal(importFarmMenus.length,3);
   for(const item of importFarmMenus){
     main.command(sourceWindow,'menu',{open:true});
-    await shellContents.executeJavaScript(`(()=>{const input=document.querySelector('#menuSearch');input.focus();input.value=${JSON.stringify(item.href==='/master/codes'?'농장 마스터':'수입부 업무도구')};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    await shellContents.executeJavaScript(`(()=>{const input=document.querySelector('#menuSearch');input.focus();input.value=${JSON.stringify(item.href==='/master/codes'?'농장 마스터':item.href==='/import/pipeline'?'수입 원스톱 파이프라인':'수입부 업무도구')};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
     await waitFor(()=>shellContents.executeJavaScript("document.querySelectorAll('#menuSearchResults [role=option]').length===1"),'canonical import/farm search');
     await shellContents.executeJavaScript("document.querySelector('#menuSearchResults [role=option]').click()");
     await waitFor(()=>[...main.tabs.values()].some(tab=>new URL(tab.url).pathname===item.href),'canonical work tab opened');
