@@ -20,11 +20,15 @@ const w = require(modPath);
 // runtime 없으면 저장소 스냅샷 경로
 assert.strictEqual(w.featureFilePath('storyboards'), path.join(tmp, 'data', 'work-feature-storyboards.json'));
 assert.strictEqual(w.featureFilePath('../../etc/passwd'), null, '허용 이름만');
-assert.deepStrictEqual([...w.FEATURE_NAMES], ['proposals', 'storyboards', 'workflows', 'simulations', 'adoption-ledger', 'self-tune-report', 'pm-office', 'timesave', 'tech-radar', 'manual-routines', 'live-pipelines', 'import-triggers', 'import-captures', 'import-lectures']);
+assert.deepStrictEqual([...w.FEATURE_NAMES], ['proposals', 'storyboards', 'workflows', 'simulations', 'adoption-ledger', 'self-tune-report', 'pm-office', 'timesave', 'tech-radar', 'manual-routines', 'live-pipelines', 'import-triggers', 'import-captures', 'import-lectures', 'device-hub-status']);
 // pm-office: 2MB 상한·generatedAt 필수·runtime 저장
 assert.strictEqual(w.saveFeatureFile('pm-office', Buffer.from(JSON.stringify({ generatedAt: 'x', pad: 'a'.repeat(2 * 1024 * 1024) }))).status, 413);
 assert.ok(w.saveFeatureFile('pm-office', Buffer.from(JSON.stringify({ generatedAt: '2026-11-02T00:00:00Z', agents: [] }))).ok);
 assert.strictEqual(w.featureFilePath('pm-office'), path.join(tmp, 'data', 'runtime', 'work-feature-pm-office.json'));
+// device-hub-status: 2MB 상한·generatedAt 필수·runtime 저장
+assert.strictEqual(w.saveFeatureFile('device-hub-status', Buffer.from(JSON.stringify({ generatedAt: 'x', pad: 'a'.repeat(2 * 1024 * 1024) }))).status, 413);
+assert.ok(w.saveFeatureFile('device-hub-status', Buffer.from(JSON.stringify({ generatedAt: '2026-11-18T09:00:00Z', readOnlyEnforced: true, devices: [], leases: [] }))).ok);
+assert.strictEqual(w.featureFilePath('device-hub-status'), path.join(tmp, 'data', 'runtime', 'work-feature-device-hub-status.json'));
 // 도입 레이더 장부: 파일명 adoption-ledger.json, updatedAt 만 있어도 받는다
 assert.strictEqual(w.featureFilePath('adoption-ledger'), path.join(tmp, 'data', 'adoption-ledger.json'));
 assert.strictEqual(w.saveFeatureFile('adoption-ledger', Buffer.from('{"days":[]}')).status, 400, 'adoption-ledger 는 updatedAt 필수');

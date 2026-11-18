@@ -38,6 +38,7 @@ export const MENU_ITEMS = [
       { href: '/my-work', labelKey: '내 작업 데이터(통합본·파이프라인)', popup: true, userIds: ['nenovaSS3'] },
       { href: '/my-work?tab=arch', labelKey: '아키텍처 흐름도(스키마·Hermes·Rust)', popup: true, userIds: ['nenovaSS3'] },
       { href: '/my-work?tab=suite-sim', labelKey: '통합 솔루션 시뮬레이션(MOYI·Device Hub)', popup: true, userIds: ['nenovaSS3'] },
+      { href: '/my-work?tab=devices', labelKey: '디바이스 허브 관제(Phone Harness)', popup: true, userIds: ['nenovaSS3'] },
       { href: '/demo/commercial-suite', labelKey: '상용 솔루션 업종별 시연 스튜디오(NOWLINK)', popup: false, userIds: ['nenovaSS3'] },
       { href: '/my-work?tab=radar', labelKey: '도입 레이더(기술 파일럿·채택 장부)', popup: true, userIds: ['nenovaSS3'] },
       { href: '/my-work?tab=proposals', labelKey: '기능 추가 후보(수작업↔자동화 비교)', popup: true, userIds: ['nenovaSS3'] },
