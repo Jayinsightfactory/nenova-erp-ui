@@ -14,6 +14,12 @@
   let tabSignature = '';
   let renderedActiveId = null;
   let menuSignature = '';
+  let favoritesOwner='',favoritesOpen=true;
+  function favoritesPreference(){return 'nenova-favorites-open-v1:'+encodeURIComponent(favoritesOwner);}
+  function renderFavoritesVisibility(){
+    let toggle=$('favoritesToggle');if(!toggle){toggle=makeButton('favorites-toggle','','즐겨찾기 목록 접기/열기',()=>{favoritesOpen=!favoritesOpen;try{if(favoritesOwner)localStorage.setItem(favoritesPreference(),favoritesOpen?'1':'0');}catch{}renderFavoritesVisibility();});toggle.id='favoritesToggle';toggle.setAttribute('aria-controls','favoritesList');$('favoritesHeading').parentElement.append(toggle);}
+    $('favoritesList').hidden=!favoritesOpen;toggle.textContent=favoritesOpen?'접기 ▴':'열기 ▾';toggle.setAttribute('aria-expanded',String(favoritesOpen));toggle.disabled=!state.online;
+  }
   let searchCatalog = [], searchMatches = [], activeResult = -1;
   const searchKey = text => String(text || '').normalize('NFKC').toLocaleLowerCase('ko').replace(/\s+/g, '');
 
@@ -361,12 +367,13 @@
       select.add(new Option(windowItem.title || `업무 창 ${windowItem.id}`, windowItem.id));
     }
     select.disabled = !hasTab || select.options.length < 2;
-    renderTabs(); renderMenus();
+    renderTabs(); renderMenus();renderFavoritesVisibility();
   }
 
   function applyState(next) {
     if (!next || typeof next !== 'object') return;
     const wasMenuOpen = state.menuOpen;
+    if(Object.hasOwn(next,'homeOwnerId')&&String(next.homeOwnerId||'')!==favoritesOwner){favoritesOwner=String(next.homeOwnerId||'');favoritesOpen=true;try{favoritesOpen=localStorage.getItem(favoritesPreference())!=='0';}catch{}}
     if(next.menuOpen===false || (Object.hasOwn(next,'homeOwnerId') && next.homeOwnerId!==pmLive.owner)){ $('menuSearch').value='';dismissMenuResults(); }
     for (const key of ['appUpdate', 'windowId', 'activeId', 'menuOpen', 'toolsOpen', 'online', 'message', 'notice', 'version', 'syncStatus', 'webVersion', 'menuVersion']) if (Object.prototype.hasOwnProperty.call(next, key)) state[key] = next[key];
     for (const key of ['windows', 'tabs', 'favorites', 'menus']) if (Array.isArray(next[key])) state[key] = next[key];

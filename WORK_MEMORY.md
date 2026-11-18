@@ -3329,3 +3329,11 @@ pm run test:canon 통과.
 - 주의/잠금: 운영 원장 쓰기 없음. 지도 위치·출발은 예측 표시, 인천공항 제공 시각은 별도 표시. 직원 PC 재시작 금지 유지. 기능 작업트리 잠금 해제, 인계 PR 병합 후 인계 작업트리도 즉시 정리.
 - 보관: 비행기 영상 https://drive.google.com/file/d/1V7TIPQLJ3T8agKiInTlMc7JKT7W2Tebg/view / 홈 영상 https://drive.google.com/file/d/167ZuGiC6YKAs7XuY0bLGcmIeyn7av89V/view / 최종 홈 proof 17jVTfACtfhj_0A5p-eDolM5GYrlGTdmB / 공개 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.34.
 - 검색어: 1.3.34 운영 완료 비행기 확대 지도 상세 인천공항 STA STD ATD 홈 이슈 즐겨찾기 상단 자동 업데이트 배포 인계
+
+### 2026-11-18 홈 달력 공휴일·상세 편집 구현 단계
+- 작업 위치: nenova-erp-ui / codex/calendar-holidays-editor-1118 / C:/Users/USER/Documents/Codex/2026-11-12/new-chat/work/nw-calendar-holidays-1118 / PR 준비.
+- 완료된 것: 한국+요청11개국 공휴일·국가/색상 선택, 중국 2026·2027 정부 연휴·대체근무 보정, 개인/공통 일정 직접 상세 편집·비공개·조회 중 홈 알림, 주차별 마감/새1차 유지. 즐겨찾기 영역 전체 접기/열기, 달력 글씨 유지·가로20% 확대. 별도 직원 메시지·초대 발송 없음.
+- 남은 할 일: 최종 14단계 가이드·필수 검사·CI·Cafe24·Windows 1.3.35 공개 및 운영 조회 검증.
+- 검증 상태: 공휴일/상세/공통24 통과, 개인 반복/달력 포함 대상15 통과. 실제 Chrome 1920/800/390에서 저장·권한·응답유실 재시도·Escape·접기·가로폭·새해1/6 기준 검증. 운영 및 직원 PC 설치 미검증.
+- 주의/잠금: 본 작업트리 desktop/shell, lib/companyCalendarStore.js, lib/personalHomeStore.js, 가이드 소스 작업 중. 원장/SQL 쓰기 없음. 직원 PC 재시작 금지(업무 중, 배포만 요청 유지).
+- 검색어: 국가 공휴일 중국 콜롬비아 네덜란드 이탈리아 태국 베트남 일본 미국 에콰도르 에티오피아 호주 일정 상세 비공개 주차별 즐겨찾기 영역 접기 달력 가로20% 1.3.35
