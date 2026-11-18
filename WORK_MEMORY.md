@@ -3523,3 +3523,13 @@ pm run test:canon 통과.
 - 공개: https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.36 / 대상f1bc55db / 4assets 확인. 설치본111,953,212bytes, SHA256 69586d2dd2e1f82523698fe615c5bdc0184c8b0a8f7053eda1a40c1fc0337d7f, MZ/SHA512/blockmap 검증. 공개 latest.yml 버전1.3.36·검증된 원본과 동일, 공개 exe URL/바이트 크기 일치.
 - 회사 Drive 최종 원본: MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol (514.3초/42,948,556bytes), VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat (12,846bytes), proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn (18,775bytes). 14단계/자막76개 프레임 대조·대표 장면 육안 확인. 과거1.3.35 자료는 미공개 초안이며 최종 근거 아님.
 - 검색어: deployed calendar 1.3.36 f1bc55db 즐겨찾기 전체 접기 열기 달력 가로20% 공휴일12개국 상세 편집 주차별 유지 운영 검증 공개 피드 직원PC 재시작 안함
+
+## 2026-11-18 · 원장 연결 알림 기본 접힘과 신고·견적 대조
+- 위치: nenova-erp-ui / codex/ledger-review-1118 / C:/Users/USER/nw-cdx-ledger-review-1118 / PR 준비
+- 완료: 알림 기본 접힘, 대조 보기에서 최초 신고·현재 저장값·등록 변경 이력·현재 견적·다른번호 음수 견적. 원차수/적용차수·다른 신고 연결·수량/단가/단위 차이 표시, SELECT만. 가이드 3단계 영상·한국어 자막 제작.
+- 남은 일: 전체 필수검사·빌드 완료 후 PR/병합/Cafe24 배포/운영 스모크.
+- 검증: 대상10검사 및 운영45차16건 조회(후보95행), 합성 브라우저1920/1280/390 접힘·대조·Esc·조회실패·가이드 재생/자막/목차 통과. 전체 게이트/빌드/배포 미검증.
+- 주의/잠금: 현재 작업트리의 알림 관련 파일만 변경. acba의 조사기록·45차CSV 보존. 카톡 원문 자체는 DB에 없어 최초 저장 신고와 구분 표시. 후보를 동일 신고나 재차감 승인으로 판정하지 않음.
+- 검색어: 원장연결알림 기본접힘 대조보기 최초신고 등록이력 다른번호 차감 estimateLedgerReview
+
+- 2026-11-18 대조 기능 검증 갱신: 전체 test:erp-contract exit0, dnSpy/manifest/쓰기범위/가이드 검사 통과. 최신 master 병합 후 빌드 진행. 대상 회귀11건 통과. 영상41.55초 및 자막 업무 Drive 백업 완료(영상 1ZKD-gnWOa3sLCigP5Xe-6faTgrzL6q5Z, 자막 1DBrn7ItyB_UpM0AVhmWoTwzs0uZsDyzW).
