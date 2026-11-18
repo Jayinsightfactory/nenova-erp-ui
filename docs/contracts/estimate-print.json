@@ -16,9 +16,15 @@
     "__tests__/estimateManagerFilter.test.js",
     "__tests__/estimatePrintContract.test.js",
     "__tests__/estimatePrintTypography.test.js",
-    "__tests__/estimateInvariants.test.js"
+    "__tests__/estimateInvariants.test.js",
+    "styles/globals.css"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "actions": [
     {
       "name": "ESTIMATE_PRINT_READ",
@@ -70,7 +76,10 @@
     }
   ],
   "crossYearFixture": {
-    "weekSalesExample": {"selected":"202646","excluded":"202546"},
+    "weekSalesExample": {
+      "selected": "202646",
+      "excluded": "202546"
+    },
     "required": true,
     "description": "같은 대차수라도 OrderYear가 다른 원장을 섞지 않고, 선택한 OrderYearWeek·CustKey의 EXE 인쇄 SQL 결과만 출력한다. 정상출고는 ViewShipment·ViewOrder·ShipmentDate·PeriodDay·DetailFix=1·EstQuantity>0, 차감은 같은 차수 Estimate를 사용한다."
   },
@@ -111,5 +120,6 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
-  ]
+  ],
+  "listColumnWidths": "품목명은 fixed table 첫 행에서 280px, 단위64px, 출고일자88px. 기존 교차연도 조회 및 원장 보존. 1920/1280 Chrome 검증."
 }

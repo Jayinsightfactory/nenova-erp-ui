@@ -40,3 +40,26 @@ assert.equal(rollover.messages.length,1);
 const stale = readRecentImports([headers,message('stale','2026년 11월 15일 오후 1:00')],new Date('2026-11-18T01:00:00Z'));
 assert.equal(stale.messages.length,0);
 assert.equal(stale.latest,'2026년 11월 15일 오후 1:00');
+const { importItemView } = await import('../lib/importKakaoAdditions.js');
+const autoRows = m.items.map(item => importItemView(item));
+assert.equal(farmTotals(autoRows)[0].quantity, 4);
+assert.equal(farmTotals(autoRows)[0].notes, '주광 1, 미우 2, 일신 1');
+assert.equal(farmTotals([importItemView(m.items[0],{checked:false}),...autoRows.slice(1)])[0].quantity,3);
+assert.equal(farmTotals([importItemView(m.items[0],{quantity:'3'}),...autoRows.slice(1)])[0].quantity,6);
+assert.equal(farmTotals([...autoRows,importItemView({...m.items[0],customer:'',quantity:'2'})])[0].quantity,6);
+assert.equal(importItemView({...m.items[0],product:''}).checked,false);
+assert.equal(importItemView({...m.items[0],reviewReason:'취소·변경 내용 확인 필요'}).checked,false);
+const cancelled = row(1,'업체',2); cancelled[17]='Moon Light 2박스 취소'; cancelled[15]='hold';
+assert.equal(importItemView(readImportDay([headers,cancelled],'2026-11-17')[0].items[0]).checked,false);
+const comma = row(1,'업체','1,000');
+assert.equal(importItemView(readImportDay([headers,comma],'2026-11-17')[0].items[0]).quantity,'1000');
+assert.equal(farmTotals([importItemView({...m.items[0],product:'moon light'}),...autoRows.slice(1)])[0].quantity,4);
+for (const status of ['cancelled_wrong_contact','superseded_test_restart','archived_previous_scope']) {
+  const inactive = row(1,'업체',2); inactive[15]=status;
+  const item=readImportDay([headers,inactive],'2026-11-17')[0].items[0];
+  assert.equal(importItemView(item).checked,false);
+  assert.equal(importItemView(item,{checked:true}).checked,true);
+}
+assert.equal(importItemView({...m.items[0],quantity:'0'}).checked,false);
+assert.equal(importItemView({...m.items[0],quantity:'-1'}).checked,false);
+assert.equal(farmTotals([importItemView(m.items[0]),importItemView({...m.items[0],quantity:'2'})])[0].notes,'주광 3');
