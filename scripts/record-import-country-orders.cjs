@@ -136,6 +136,13 @@ async function main(){
   assert.equal(await page.$eval('[aria-label="카톡 발주 검토"] input[type="checkbox"]',n=>n.checked),false);
   assert((await page.$eval('[aria-label="카톡 발주 검토"]',n=>n.textContent)).includes('취소'));
   console.log('PASS raw classification, group filter, noise/duplicate exclusion and cancellation review UI');
+  // A previously explicit inclusion must not survive a newly collected cancellation.
+  await page.click('.kakao-additions input[type="checkbox"]');
+  Object.assign(sampleFeed,classifyImportFeed({from:'2026-11-17',to:'2026-11-18',messages:[...sampleMessages,sampleMessage('new-cancel','46-1 콜 카네이션 발주 취소\nMoon Light 1박스')]}));
+  await page.click('.kakao-additions > button');await page.waitForNetworkIdle();
+  assert(!(await page.$eval('.kakao-table',n=>n.textContent)).includes('Moon Light'));
+  assert(await page.$$eval('[aria-label="카톡 발주 검토"] input[type="checkbox"]',nodes=>nodes.length>=4&&nodes.every(n=>!n.checked)));
+  console.log('PASS live refresh invalidates prior inclusion when a related cancellation arrives');
   if(!dry){workflow.guides[0].chapters=result.chapters;workflow.guides[0].status='ready';fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');}
   if(dry){
     await page.evaluate(title=>{const heading=[...document.querySelectorAll('h3')].find(node=>node.textContent===title);if(!heading)throw Error('Guide heading missing');heading.closest('details').id='country-order-guide-test';},workflow.title);
@@ -149,6 +156,7 @@ async function main(){
     await page.waitForFunction(()=>document.querySelector('#country-order-guide-test video track').readyState===2);
     assert(await page.$eval('#country-order-guide-test video',video=>video.textTracks[0].language==='ko'));
     await page.setViewport({width:390,height:844});
+    assert(await page.$eval('.kakao-additions',node=>{const r=node.getBoundingClientRect();return r.width<=innerWidth&&r.left>=0&&r.right<=innerWidth+1;}));
     assert(await page.$eval('#country-order-guide-test video',video=>{const rect=video.getBoundingClientRect();return rect.width<=innerWidth;}));
     console.log('PASS actual guide player MP4 playback, registered chapters, Korean captions, keyboard and 390px');
   }

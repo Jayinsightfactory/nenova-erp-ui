@@ -3390,3 +3390,6 @@ pm run test:canon 통과.
 3. 남은 할 일: PR CI전체검증→squash병합→Cafe24배포→운영검색/후보읽기스모크→worktree즉시정리.
 4. 검증 상태: 로컬필수검증·정식빌드·실제플레이어PASS, PR CI/운영반영은아직미검증.
 5. 주의/잠금: 농장마스터신규등록·운영입고저장없음. 원본코드는GitHub PR로보관,검증된영상은Drive폴더18JFwztrSWniR1yctBdaewBATvBev7NGb.
+- 원문 분석 수치 정정: 위1711에는 빈 기록1개가 포함되어 실제 비어있지 않은 원문은1710개(addition276/review310/excluded1124)다. 전체는 자동 분류 결과이며 전수 수동정답률이 아님. 11/5 CL38의23품목은 원문 대조1445송이 확인.
+- 가이드 최종: 195.75초 18단계, 1920×1080/100%, 처음·중간·끝 프레임에서 번호/줌/자막/자동합계4/복사확인. 회사Drive MP4 1eJ6gs7vK6n2CszZ3iuThQPow2roNET1R / VTT 1ZYHM4gCvwfOpGonlly089p3cb8utFCHG 보관.
+- 최종 로컬 검증 완료: test:erp-contract(내부 dnSpy 포함), test:workflow-guides 및 changed-source 가이드 검사, manifest/write guard, 최종 production build 모두 통과. 최종 번들에 relatedChanges 포함 확인. 마지막 보완은 원문분석/API 회귀 재통과 및 실제 Chrome 신규 취소수신→이전 포함 무효화 통과. 국가·품목군 필터/일반카톡·중복제외/업체비고/복사/제외·재조회/390px 패널·가이드 플레이어 검증 통과. 운영은 배포 후 확인 예정.

@@ -51,6 +51,11 @@ assert.equal(parse('38-1 태국 발주 추가\nCL10\n봉지덴파레 화이트 1
 assert.equal(parse('46-1 콜 수국 발주 추가\n화이트 -1박스').kind,'review');
 const changedFeed=classifyImportFeed({messages:[message(a),message('46-1 콜 수국 발주 취소\n화이트 3박스','cancel')]});
 assert.equal(changedFeed.messages.length,0);assert.equal(changedFeed.review.length,2);
+const beforeCancel=classifyImportFeed({messages:[message(a)]}).messages[0].items[0];
+const afterCancel=changedFeed.review.find(m=>m.id==='a').items[0];
+const oldEdits={[beforeCancel.key]:{checked:true}};
+assert.notEqual(afterCancel.key,beforeCancel.key);assert.equal(importItemView(afterCancel,oldEdits[afterCancel.key]).checked,false);
+assert.equal(classifyImportFeed({messages:[message(a),message('46-1 콜 수국 발주 취소\n화이트 3박스','cancel')]}).review.find(m=>m.id==='a').items[0].key,afterCancel.key);
 assert.equal(parse('46-1 루스커스 발주 추가\n루스커스 70cm 3박스').items[0].product,'루스커스 70cm');
 assert.equal(parse('그럼 43-2 클라우드로 600스팀 60박스 부탁드립니다.').kind,'review');
 assert.equal(parse('이색상 품목명 확인부탁드립니다\n45-3차에 10단 추가하려고합니다.').kind,'review');
