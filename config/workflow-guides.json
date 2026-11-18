@@ -1160,112 +1160,112 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.006
+              "seconds": 0.012
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.578
+              "seconds": 10.582
             },
             {
               "scenario": "week",
-              "title": "3. 세부차수 조회",
-              "seconds": 21.143
+              "title": "3. 세부차수 미리보기",
+              "seconds": 21.288
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 31.715
+              "seconds": 32.007
             },
             {
               "scenario": "download",
               "title": "5. 다운로드·ETA 창 열기",
-              "seconds": 42.755
+              "seconds": 43.134
             },
             {
               "scenario": "eta",
               "title": "6. ETA 날짜 입력",
-              "seconds": 53.325
+              "seconds": 53.74
             },
             {
               "scenario": "save",
               "title": "7. ETA 저장·엑셀 다운로드",
-              "seconds": 65.514
+              "seconds": 66.053
             },
             {
               "scenario": "china",
               "title": "8. 중국 발주 조회",
-              "seconds": 76.725
+              "seconds": 76.85
             },
             {
               "scenario": "china-cycle",
               "title": "9. 중국 차수 선택",
-              "seconds": 87.32
+              "seconds": 87.418
             },
             {
               "scenario": "china-week",
               "title": "10. 중국 세부차수 선택",
-              "seconds": 97.889
+              "seconds": 98.241
             },
             {
               "scenario": "farm",
               "title": "11. 기본 수신명 수정",
-              "seconds": 108.453
+              "seconds": 108.872
             },
             {
               "scenario": "split",
               "title": "12. 농장별 파일 나누기",
-              "seconds": 120.884
+              "seconds": 120.865
             },
             {
               "scenario": "assign",
               "title": "13. 농장 1 품목 선택",
-              "seconds": 131.436
+              "seconds": 131.475
             },
             {
               "scenario": "farm-download",
               "title": "14. 농장별 파일 확인",
-              "seconds": 142.015
+              "seconds": 142.078
             },
             {
               "scenario": "farm-save",
               "title": "15. 농장 파일 다운로드",
-              "seconds": 152.578
+              "seconds": 152.648
             },
             {
               "scenario": "chat",
               "title": "16. 최근 발주일 카톡 확인",
-              "seconds": 163.155
+              "seconds": 163.281
             },
             {
               "scenario": "sum",
               "title": "17. 차수·품목군 버튼 선택",
-              "seconds": 173.713
+              "seconds": 173.831
             },
             {
               "scenario": "match-total",
               "title": "18. 합계에서 원문 확인",
-              "seconds": 184.275
+              "seconds": 184.378
             },
             {
               "scenario": "match-source",
               "title": "19. 원문에서 합계 확인",
-              "seconds": 194.845
+              "seconds": 194.926
             },
             {
               "scenario": "audit",
               "title": "20. 제외 원문 대조",
-              "seconds": 205.388
+              "seconds": 205.482
             },
             {
               "scenario": "recover",
               "title": "21. 누락 의심 발주 보완",
-              "seconds": 216.012
+              "seconds": 216.264
             },
             {
               "scenario": "copy",
               "title": "22. 농장 전달용 복사",
-              "seconds": 234.064
+              "seconds": 234.466
             }
           ]
         }
@@ -1779,6 +1779,56 @@
               "scenario": "settings",
               "title": "3. 필터 창의 정렬·배치 설정에서 필요한 옵션만 선택합니다.",
               "seconds": 22.395
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "commercial-suite",
+      "title": "NOWLINK · MOYI 업종별 상용 솔루션 시연 스튜디오",
+      "entryPaths": [
+        "/demo/commercial-suite"
+      ],
+      "sourceFiles": [
+        "pages/demo/commercial-suite.js",
+        "lib/commercialSuiteDemo.js"
+      ],
+      "requiredScenarios": [
+        "industry",
+        "units",
+        "approve",
+        "roi"
+      ],
+      "guides": [
+        {
+          "id": "staff",
+          "role": "시연담당",
+          "title": "업종 실시간 치환부터 3단위 환산·MOYI 승인·ROI 산정",
+          "status": "ready",
+          "src": "/guides/commercial-suite/staff.mp4",
+          "captions": "/guides/commercial-suite/staff.ko.vtt",
+          "proof": "/guides/commercial-suite/staff.proof.json",
+          "chapters": [
+            {
+              "scenario": "industry",
+              "title": "1. 업종 실시간 전환",
+              "seconds": 0.326
+            },
+            {
+              "scenario": "units",
+              "title": "2. 3단위 발주 수량 조정",
+              "seconds": 13.455
+            },
+            {
+              "scenario": "approve",
+              "title": "3. MOYI 원터치 승인 실행",
+              "seconds": 26.589
+            },
+            {
+              "scenario": "roi",
+              "title": "4. 월 요금제 및 ROI 확인",
+              "seconds": 39.806
             }
           ]
         }
