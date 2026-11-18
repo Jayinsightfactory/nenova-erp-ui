@@ -17,6 +17,7 @@
     rows.push({createdAt:iso(r.createdAt),updatedAt:iso(r.updatedAt),providerStartedAt:iso(r.providerAttemptStartedAt),
      status:['RUNNING','SUCCEEDED','FAILED'].includes(r.status)?r.status:'UNKNOWN',ownerAlive,
      errorCode:r.error?.code==='PDF_ANALYSIS_UNCERTAIN'?'PDF_ANALYSIS_UNCERTAIN':r.error?'OTHER':null,
+     interruptedOwner:r.error?.message==='PDF 분석 작업이 중단되어 호출 결과를 확인할 수 없습니다. 재호출하지 않습니다. 추가 비용을 확인하고 재시도하세요.',
      completed:(r.chunks||[]).filter(c=>c?.status==='SUCCEEDED').length,total:r.chunkProgress?.total??null,
      elapsedSeconds:Number.isFinite(r.createdAt)?Math.round(((r.status==='RUNNING'?now:r.updatedAt)-r.createdAt)/1000):null});
    }
