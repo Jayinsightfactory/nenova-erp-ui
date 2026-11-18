@@ -3693,6 +3693,15 @@ pm run test:canon 통과.
 4. 검증 상태: 실제 Electron smoke(`test:smoke` 72/72) 및 `next build` 포함 11개 전체 검증 통과(세션 D2). 실배포 서버 연동 및 `1.3.40` 설치 패키지 실PC 구동은 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건, 관리자 전용 5종 메뉴는 `userIds: ['nenovaSS3']` 게이트 유지, `videoWaivers`는 일반 직원 14단계 홈 가이드 미변경 사유 명시.
 
+
+## 2026-11-18 · 일반 주문·영업부 붙여넣기 EXE 빈 출고 연결 헤더
+- 요약: 사용자 명시 지시로 manual-order/sales-paste 저장에 빈 ShipmentMaster 준비만 허용. 분배/날짜/농장/견적/매출 자동생성0, 과거 보정0. 상세 기준·부작용·메뉴 기준선은 docs/work-sessions/2026-11-18_order-native-empty-header.md.
+- 검색어: manual-order sales-paste ORDER_SHIPMENT_HEADER_CONFLICT 빈헤더 resolveNativeOrderShipmentHeader FormOrderAdd
+1. 작업 위치: nenova-erp-ui / codex/sales-paste-empty-header / f7cd/nw-cdx-sales-header / PR 준비.
+2. 완료된 것: orders/new payload source 명시, orders API exact year/week/customer 전체헤더 잠금 및 공통 helper, 0건 생성/단일활성 재사용/삭제·중복409 전체 rollback, 두 source 행동 회귀·계약·실제 dnSpy 및 감사 기록. 기존 desktop 두 메뉴 연결 확인.
+3. 남은 할 일: PR CI 통과 → squash master 병합 → Cafe24 배포 → 두 운영 화면/버전·SELECT-only 보존 확인 → worktree 정리.
+4. 검증 상태: 대상 행동/정책/UI·Chromium 합성API 저장 payload/키보드 스모크, dnSpy, manifest226, write scope, workflow-guide 변경범위, webpack1worker build 통과. 전체 ERP는 신규계약 enum 및 구형 문자열단언 정정 후 실패지점부터 본문/posthook 모두 exit0으로 완료(최초 단일 실행 exit0 아님). 최신 master 병합은 다른 세션 UI/desktop만이며 통합 CI에서 확인 예정. 운영 시험쓰기/직원 EXE GUI 전과정 미검증.
+5. 주의/잠금: 원본 f7cd/nenova-erp-ui의 수정 WORK_MEMORY/감사문서 보존. 중복·삭제헤더 자동보정 금지. manual-order 기존 stock 계산과 sales-paste stock보존 유지. UI 순서 불변이라 영상/desktop버전 신규 갱신 해당없음.
 ## 2026-11-18 명세서 DB농장 연결 및 승인된 BALVERDE 기존 입고 보정 준비
 - 검색어: manifest-farm-match BALVERDE 8073 8162 25571 25587 OrderCode BunchQuantity SteamOf1Bunch Desktop1.3.41
 1. 작업 위치: fix/manifest-farm-match-1118 / Documents/Codex/nw-cdx-manifest-farm-1118 / PR 생성 단계.

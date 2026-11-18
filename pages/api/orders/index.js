@@ -24,6 +24,7 @@ import {
   isMyCustomerOrderSource,
   MY_CUSTOMER_ORDER_MODE,
   planMyCustomerOrderWrite,
+  resolveNativeOrderShipmentHeader,
   validateMyCustomerOrderWriteRequest,
 } from '../../../lib/myCustomerOrderWritePolicy.js';
 import { allowHotelMiuMissingCancel, resolveHotelMiuOverflowCancel } from '../../../lib/hotelMiuIntake.js';
@@ -413,11 +414,12 @@ async function createOrder(req, res) {
   const isMyCustomerSource = myCustomerPolicy.isMyCustomerSource;
   const isFinalSnapshotSource = isFinalSnapshotOrderSource(source);
   const isSalesPasteSource = String(source || '').trim().toLowerCase() === 'sales-paste';
+  const needsNativeOrderHeader = isSalesPasteSource || String(source || '').trim().toLowerCase() === 'manual-order';
   const orderMode = myCustomerPolicy.orderMode;
   const writeItems = isMyCustomerSource ? myCustomerPolicy.items : items;
-  // 업로드 최종본은 EXE FormOrderAdd처럼 빈 출고 헤더를 함께 준비한다.
-  // 수량/날짜/농장/확정은 생성하지 않는다. 내 업체·영업 붙여넣기의 별도 계약은 유지한다.
-  const ensureShipmentMaster = isFinalSnapshotSource || (!isMyCustomerSource
+  // 일반 주문·영업 붙여넣기·업로드 최종본은 EXE FormOrderAdd처럼 빈 연결 헤더만 준비한다.
+  // 수량/날짜/농장/확정/견적/재고는 생성하지 않는다. 다른 source 계약은 유지한다.
+  const ensureShipmentMaster = isFinalSnapshotSource || needsNativeOrderHeader || (!isMyCustomerSource
     && (String(source || '').toLowerCase() === 'raum-pnl' || req.body?.ensureShipmentMaster === true));
   const isDelta = true; // 웹/붙여넣기 주문등록은 기존 수량을 덮어쓰지 않고 항상 가산한다.
   const historyDescr = isFinalSnapshotSource ? '업로드 주문등록 최종본' : isSalesPasteSource ? '영업부 붙여넣기 주문등록' : String(source || '').toLowerCase() === 'paste' ? '붙여넣기 주문등록' : '주문등록';
@@ -586,17 +588,23 @@ async function createOrder(req, res) {
       let ensuredShipmentMasterKey = null;
       if (ensureShipmentMaster) {
         const existingShipment = await tQuery(
-          `SELECT TOP 1 ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
-            WHERE CustKey=@ck AND OrderYear=@year AND OrderWeek=@wk AND ISNULL(isDeleted,0)=0
-            ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
+          needsNativeOrderHeader
+            ? `SELECT ShipmentKey, isDeleted FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+                WHERE CustKey=@ck AND OrderYear=@year AND OrderWeek=@wk`
+            : `SELECT TOP 1 ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+                WHERE CustKey=@ck AND OrderYear=@year AND OrderWeek=@wk AND ISNULL(isDeleted,0)=0
+                ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
           {
             ck: { type: sql.Int, value: resolvedCustKey },
             year: { type: sql.NVarChar, value: orderYear },
             wk: { type: sql.NVarChar, value: orderWeek },
           }
         );
-        if (existingShipment.recordset[0]) {
-          ensuredShipmentMasterKey = existingShipment.recordset[0].ShipmentKey;
+        const existingShipmentKey = needsNativeOrderHeader
+          ? resolveNativeOrderShipmentHeader(existingShipment.recordset)
+          : existingShipment.recordset[0]?.ShipmentKey;
+        if (existingShipmentKey) {
+          ensuredShipmentMasterKey = existingShipmentKey;
         } else {
           ensuredShipmentMasterKey = await tryInsertWithRetry(tQuery, 'ShipmentMaster', 'ShipmentKey', async (newShipmentKey) => {
             const cols = ['ShipmentKey', 'CustKey', 'OrderYear', 'OrderWeek'];

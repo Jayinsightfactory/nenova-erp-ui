@@ -43,9 +43,10 @@
     "matching": "normalize line-ending backslash delimiters before parsing so every quantity row is retained; normalize explicit 대 and st (case-insensitive, with or without whitespace) to canonical 송이 without changing the numeric quantity, so 5대 and 5st both mean exactly 5송이 across upload, rule parsing, LLM result normalization, quantity-line counting, and product-name cleanup; use accuracy-first claude-sonnet-4-5 (ORDER_PASTE_LLM_MODEL override allowed) and compare LLM/rule item coverage against the explicit quantity-line count, preferring LLM on an equally complete result and rules when LLM over-produces; ERP Product spellings and confirmed aliases must feed the LLM candidate query (including ALSTROMERIA Dubai/Fifi/Whistler). Korean typos use token-level Hangul jamo similarity only inside the existing country, flower-family, and size/spec safeguards; ambiguous near-top candidates remain manual review instead of auto-selection. Explicit pasted box/bunch/stem units must survive LLM parsing instead of being replaced by inferred Product defaults; return parseSource/count/model diagnostics and show the unaggregated AI-recognized customer/item/quantity/match rows in a persistent side preview; at 1920x1080 prioritize the analysis width over the current-order sidebar, label pasted source and ERP match inside every row, keep input/matched names readable, and show three ranked candidates as full-width vertical buttons with up to two text lines so the table fits without horizontal scrolling; below 1400px move the status sidebar under the matching workspace; persist a clicked candidate through the existing mapping-only API; a More button opens a search field plus the remaining ranked /api/products/search candidates and each result also applies immediately; each row keeps the analyzed default unit selected, always exposes box/bunch/stem choices, recalculates current/final display in Product.OutUnit after a valid unit change, and visibly blocks the whole write as unconvertible when Product conversion factors are missing; record analyze start/success/failure to AppLog category sales-paste-analysis without raw order text; unmatched, nonpositive, mixed-unit, or unconvertible rows block the whole write",
     "currentOrder": "exact OrderYear + OrderWeek + CustKey product quantities load before analysis and reload after verified commit; changed products appear first in the current-order panel with red before-to-after quantity and delta highlighting, and the last verified change remains visible after commit",
     "write": "source=sales-paste uses my-customer optimistic-lock ADD policy and post-write ViewOrder verification; the visible live operation log records start, DB request, per-row server results, reload, completion, and failure while the button operation is running",
-    "stock": "ADD retains the existing FormOrderAdd-compatible stock calculation/warning path; it must not perform a direct manual stock adjustment",
-    "forbidden": "never call shipment adjust/distribute APIs and never create or update ShipmentMaster, ShipmentDetail, ShipmentDate, ShipmentFarm, Estimate or profit ledgers",
-    "localAnalysis": "2026-11-04: before full model parse, strict complete explicit-unit rules may return rules-local. Existing common ranker, full review fallback, unit safeguards, immutable source fields and ledger writes unchanged. analysisModel=local-rules only if no provider call; analysisPerformance contains attempts/tokens/elapsed. See paste-ai-match-review contract."
+    "stock": "Preserve existing sales-paste order-only policy: no stock calculation or manual stock adjustment.",
+    "forbidden": "Only an empty ShipmentMaster may be created with the order transaction. Never call distribution APIs or write ShipmentDetail, ShipmentDate, ShipmentFarm, Estimate, profit or stock ledgers.",
+    "localAnalysis": "2026-11-04: before full model parse, strict complete explicit-unit rules may return rules-local. Existing common ranker, full review fallback, unit safeguards, immutable source fields and ledger writes unchanged. analysisModel=local-rules only if no provider call; analysisPerformance contains attempts/tokens/elapsed. See paste-ai-match-review contract.",
+    "shipmentHeader": "Exact OrderYear+OrderWeek+CustKey, UPDLOCK/HOLDLOCK includes deleted headers. Zero => create empty native header; one active => reuse without mutation; deleted or multiple => 409 and rollback order/header/history. OrderYearWeek=year+major. Explicit false cannot bypass source policy."
   },
   "actions": [
     {
@@ -71,8 +72,8 @@
       "orderMaster": "create-or-reuse-current-year-week-customer",
       "orderDetail": "create-positive",
       "orderHistory": "create",
-      "stock": "existing native order-add recalculation only",
-      "shipmentMaster": "preserve",
+      "stock": "preserve",
+      "shipmentMaster": "create-empty-if-entirely-absent-or-reuse-single-active; conflict-rolls-back",
       "shipmentDetail": "preserve",
       "shipmentDate": "preserve",
       "shipmentFarm": "preserve",
@@ -90,7 +91,8 @@
     "__tests__/salesPasteOrder.test.js",
     "__tests__/salesPasteOrderUi.test.js",
     "__tests__/myCustomerOrderWritePolicy.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/myCustomerOrderApi.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -105,7 +107,8 @@
       "Customer",
       "OrderMaster",
       "OrderDetail",
-      "OrderHistory"
+      "OrderHistory",
+      "ShipmentMaster"
     ]
   },
   "requiredCommands": [
@@ -116,7 +119,6 @@
     "npm run build"
   ],
   "preserves": [
-    "ShipmentMaster",
     "ShipmentDetail",
     "ShipmentDate",
     "ShipmentFarm",

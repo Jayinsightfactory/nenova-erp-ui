@@ -1,0 +1,67 @@
+{
+  "id": "order-native-empty-header",
+  "title": "일반 주문등록 및 영업부 붙여넣기 빈 출고 연결 헤더",
+  "scope": [
+    "pages/orders/new.js",
+    "pages/api/orders/index.js",
+    "lib/myCustomerOrderWritePolicy.js",
+    "__tests__/myCustomerOrderApi.test.js",
+    "docs/contracts/order-native-empty-header.json"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "criteriaLedger": {
+    "source": "/orders/new explicitly sends manual-order; sales-paste opts in on server; unmarked and special sources retain existing policy",
+    "header": "resolveNativeOrderShipmentHeader on exact year/week/customer under UPDLOCK/HOLDLOCK including deleted rows; 0 create, 1 active reuse untouched, deleted or duplicates 409 rollback",
+    "values": "isFix=0,isDeleted=0,OrderYearWeek=year+major, native EstimateName, existing safe key retry and KeyNumbering sync",
+    "stock": "manual-order retains existing native order recalculation; sales-paste preserves stock; no manual adjustment added"
+  },
+  "actions": [
+    {
+      "name": "SAVE_ORDER_WITH_EMPTY_NATIVE_HEADER",
+      "orderMaster": "create-or-reuse-exact-key",
+      "orderDetail": "create-positive",
+      "orderHistory": "existing-history",
+      "shipmentMaster": "create-empty-if-entirely-absent-or-reuse-single-active",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "stock": "existing-source-policy; no-manual-adjustment"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025 same week/customer header cannot satisfy 2026; other customer/subweek preserved. Header conflicts or failures roll back orders/history."
+  },
+  "requiredTestFiles": [
+    "__tests__/myCustomerOrderApi.test.js",
+    "__tests__/salesPasteOrderUi.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormOrderAdd.md",
+    "source": "FormOrderAdd.btnSave_Click and FormShipmentDistribution.GetShipmentMaster",
+    "methods": [
+      "btnSave_Click"
+    ],
+    "tables": [
+      "OrderMaster",
+      "OrderDetail",
+      "OrderHistory",
+      "ShipmentMaster"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}
