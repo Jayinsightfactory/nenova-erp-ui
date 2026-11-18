@@ -17,6 +17,7 @@ const OUTPUT = path.resolve(__dirname, '..', 'test-output');
 let dialogAnswer = 1;
 let accountActor = 'desktop-test';
 let bootstrapOverride = null;
+const importFarmMenus=require('../menu.json').flatMap(group=>group.items).filter(item=>['/import/tools','/master/codes'].includes(item.href));
 let holdAccountBAuth = false;
 let accountBAuthStarted = false;
 let releaseAccountBAuth;
@@ -180,7 +181,7 @@ function installFixtureProtocol() {
       }
       return Response.json(bootstrapOverride || {
         success: true, schemaVersion: 1, user: { userId: bootstrapActor }, webVersion: 'web-1',
-        menuVersion: (bootstrapActor === 'desktop-test-b' ? 'd' : 'a').repeat(64), menus: [{ group: '업무', items: [{ href: '/test/fixture', labelKey: 'fixture', popup: false }] }],
+        menuVersion: (bootstrapActor === 'desktop-test-b' ? 'd' : 'a').repeat(64), menus: [{ group: '업무', items: [{ href: '/test/fixture', labelKey: 'fixture', popup: false },...importFarmMenus] }],
       });
     }
     if (url.pathname.startsWith('/api/')) return Response.json({ success: true, data: [] });
@@ -437,6 +438,22 @@ async function run() {
   assert.equal(first.view.getBounds().y, 44, 'compact tab workspace starts below the 44px tab bar');
   assert.equal(first.view.getBounds().height, 1036, 'compact tab workspace uses the remaining 1036px');
   const shellContents = sourceWindow.win.webContents;
+  // Search/open/favorite the actual canonical import and Farm-master entries.
+  assert.equal(importFarmMenus.length,2);
+  for(const item of importFarmMenus){
+    main.command(sourceWindow,'menu',{open:true});
+    await shellContents.executeJavaScript(`(()=>{const input=document.querySelector('#menuSearch');input.focus();input.value=${JSON.stringify(item.href==='/master/codes'?'농장 마스터':'수입부 업무도구')};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    await waitFor(()=>shellContents.executeJavaScript("document.querySelectorAll('#menuSearchResults [role=option]').length===1"),'canonical import/farm search');
+    await shellContents.executeJavaScript("document.querySelector('#menuSearchResults [role=option]').click()");
+    await waitFor(()=>[...main.tabs.values()].some(tab=>new URL(tab.url).pathname===item.href),'canonical work tab opened');
+    const work=[...main.tabs.values()].find(tab=>new URL(tab.url).pathname===item.href);await waitFor(()=>!work.loading,'canonical work page loaded');assert.equal(work.title,item.labelKey);
+    await shellContents.executeJavaScript("document.querySelector('#compactFavoriteButton').click()");
+    await waitFor(()=>main.snapshot().favorites.some(f=>new URL(f.url).pathname===item.href),'canonical work favorite saved');
+    await shellContents.executeJavaScript("document.querySelector('#compactFavoriteButton').click()");
+    await waitFor(()=>!main.snapshot().favorites.some(f=>new URL(f.url).pathname===item.href),'canonical work favorite cleanup');
+    const previous=dialogAnswer;dialogAnswer=0;try{await main.command(sourceWindow,'close',{id:work.id});await waitFor(()=>!main.tabs.has(work.id),'canonical work tab cleanup');}finally{dialogAnswer=previous;}
+  }
+  main.command(sourceWindow,'activate',{id:first.id});main.command(sourceWindow,'menu',{open:false});
   await verifyHomeBridge(shellContents);
   await verifyHomeUi(shellContents, sourceWindow);
   for (const [phase, label, disabled] of [['available', '앱 1.4.0 다운로드', false], ['downloading', '다운로드 42%', true], ['downloaded', '재시작하여 업데이트', false], ['unavailable', '앱 업데이트 확인', true]]) {

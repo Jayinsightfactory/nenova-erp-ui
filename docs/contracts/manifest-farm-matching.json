@@ -1,0 +1,10 @@
+{
+ "id":"manifest-farm-matching","title":"명세서·송장·DB 농장 연결과 명시 마스터 등록",
+ "scope":["lib/packingManifestReconciliation.js","lib/farmMasterRegistration.js","pages/api/master/farms.js","components/import-tools/PackingManifestFarmReview.js","components/import-tools/FarmMasterRegistration.js","components/import-tools/PackingListTool.js","components/import-tools/InvoiceReceiptWorkbench.js","lib/importPackingPdfChunks.js","lib/importPackingReceiptAdapter.js","pages/master/codes.js"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "actions":[{"name":"MATCH_MANIFEST_FARM","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","notes":"원본 SHA 내 명세서와 송장을 1:1 연결하고 실제 DB 농장 키를 초안에 전달. 원본 수량·가격·공급자 보존. 최종 기존 입고 writer 재검증 유지."},{"name":"CREATE_FARM_MASTER","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","notes":"canManageInvoiceReceipt + 명시 confirmed=true, 활성 Country·동국가 중복/삭제 농장 잠금 검증 후 Farm 1행 INSERT만. 실제 native IDENTITY PK와 필드 보존. Estimate/WebProfitReport/SP 불변."}],
+ "crossYearFixture":{"required":true,"description":"Farm은 연도 독립. 2025/2026 동일 차수도 입고·재고·견적 조회/쓰기 없음. 파일 연결은 sourceHash와 원문 HAWB/송장 식별을 보존."},
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/ClassFarmRegistration.md","source":"실제 dnSpy ClassFarm.Insert 및 운영 SELECT-only IDENTITY/필드 확인, 고정 loopback SQL 동시등록·중복·rollback·native readback 시험","methods":["ClassFarm.Select","ClassFarm.Insert"],"tables":["Farm","Country"]},
+ "requiredTestFiles":["__tests__/packingManifestReconciliation.test.js","__tests__/farmMasterRegistration.test.js","__tests__/importPackingPdfChunks.test.js"],
+ "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}
