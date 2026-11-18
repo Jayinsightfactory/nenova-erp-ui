@@ -1833,6 +1833,56 @@
           ]
         }
       ]
+    },
+    {
+      "id": "shipment-quick-absorb",
+      "title": "빠른 분배 · 미등록주문 통합입력",
+      "entryPaths": [
+        "/shipment/quick-absorb"
+      ],
+      "sourceFiles": [
+        "pages/shipment/quick-absorb.js",
+        "lib/distributeOrderAbsorb.js"
+      ],
+      "requiredScenarios": [
+        "scope",
+        "detect",
+        "absorb",
+        "result"
+      ],
+      "guides": [
+        {
+          "id": "support",
+          "role": "영업지원",
+          "title": "미등록 업체 감지부터 선행 주문등록·출고분배 일괄 반영까지",
+          "status": "ready",
+          "src": "/guides/shipment-quick-absorb/support.mp4",
+          "captions": "/guides/shipment-quick-absorb/support.ko.vtt",
+          "proof": "/guides/shipment-quick-absorb/support.proof.json",
+          "chapters": [
+            {
+              "scenario": "scope",
+              "title": "1. 차수·품목 선택",
+              "seconds": 0
+            },
+            {
+              "scenario": "detect",
+              "title": "2. 미등록 업체 감지",
+              "seconds": 20.416
+            },
+            {
+              "scenario": "absorb",
+              "title": "3. 환산 확인 및 선행 주문 승인",
+              "seconds": 40.65
+            },
+            {
+              "scenario": "result",
+              "title": "4. 분배 반영 결과 확인",
+              "seconds": 69.941
+            }
+          ]
+        }
+      ]
     }
   ]
 }
