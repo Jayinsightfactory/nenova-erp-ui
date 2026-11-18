@@ -1,6 +1,6 @@
 // 홈 "수입 비행기 현황" 카드 — 이슈 먼저, 그다음 예측 지도와 편별 목록.
 // 지도 위 위치는 실제 위치가 아니라 일정으로 계산한 예측이다(화면에 그대로 적는다).
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { WORLD_VIEW, WORLD_LAND_PATH, projectLonLat } from '../../lib/importFlightWorldPath';
 
@@ -194,7 +194,8 @@ function StatusChip({ f }) {
   );
 }
 
-export default function ImportFlightBoard() {
+export default function ImportFlightBoard({ initialViewId = '' }) {
+  const appliedViewId = useRef('');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -233,6 +234,12 @@ export default function ImportFlightBoard() {
   }, [load]);
 
   const flights = data?.flights || [];
+  useEffect(() => {
+    if (!initialViewId || appliedViewId.current === initialViewId || !data) return;
+    const flight = (data.flights || []).find(f => f.viewId === initialViewId);
+    appliedViewId.current = initialViewId;
+    if (flight) { setSelectedKey(flight.key); if (flight.status === 'registered') setShowDone(true); }
+  }, [data, initialViewId]);
   const active = flights.filter(f => f.status !== 'registered');
   const done = flights.filter(f => f.status === 'registered');
   const shown = showDone ? flights : active;
@@ -256,6 +263,9 @@ export default function ImportFlightBoard() {
         <button type="button" className="btn btn-sm" onClick={() => { setLoading(true); load(true); }} disabled={loading}>새로고침</button>
       </div>
 
+      {initialViewId && data && !flights.some(f => f.viewId === initialViewId) && (
+        <p role="status" style={{ padding: 12 }}>선택한 비행기는 최신 목록에서 찾을 수 없습니다. 아래 전체 현황을 확인해 주세요.</p>
+      )}
       {loading && !data && <div className="skeleton" style={{ height: 120, margin: 8 }} />}
       {err && <div className="banner-err" style={{ margin: 8 }}>수입 비행기 현황을 불러오지 못했습니다: {err}</div>}
       {data && !data.feed?.ok && <div className="banner-err" style={{ margin: 8 }}>{data.feed?.error} 전산 입고 기록만 표시합니다.</div>}
@@ -317,7 +327,7 @@ export default function ImportFlightBoard() {
             <div>
               <FlightMap flights={flights} destination={data.destination} selectedKey={selectedKey} onSelect={setSelectedKey} />
               {selected && (
-                <div style={{ marginTop: 6, border: '1px solid #d7e0ea', borderRadius: 6, padding: '6px 10px', fontSize: 12, lineHeight: 1.7 }}>
+                <div data-testid="flight-selected-detail" style={{ marginTop: 6, border: '1px solid #d7e0ea', borderRadius: 6, padding: '6px 10px', fontSize: 12, lineHeight: 1.7 }}>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                     <b>{selected.weekLabel}차 {selected.country} {selected.itemLabel}</b>
                     <StatusChip f={selected} />
@@ -337,7 +347,7 @@ export default function ImportFlightBoard() {
                   </div>
                   {selected.actual && (
                     <div>
-                      공항 예정 {shortTime(selected.actual.scheduledAt) || '-'} / 변경 {shortTime(selected.actual.estimatedAt) || '-'} / 상태 {selected.actual.remark || '-'}
+                      인천공항 운항 정보 · 도착 예정 {shortTime(selected.actual.scheduledAt) || '-'} / 변경 {shortTime(selected.actual.estimatedAt) || '-'} / 상태 {selected.actual.remark || '-'}
                     </div>
                   )}
                   {(selected.checklist?.steps || []).some(st => st.at) && (

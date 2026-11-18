@@ -84,6 +84,7 @@ async function record(page,app){
  await page.click('#add button[type=submit]');await page.waitForFunction(()=>!document.querySelector('#editor').open);await recorder.unfocus();await recorder.caption('5. 메뉴를 검색해 바로가기 연결 · 저장된 목록에서 주광 견적서 바로가기를 확인합니다.');await recorder.pause(2200);
  await step('launch','6. 바로가기와 완료를 따로 사용','.task-go',async()=>{await page.click('.task-go');await recorder.caption('6. 바로가기와 완료를 따로 사용 · 메뉴를 열어도 완료 체크는 바뀌지 않습니다. 연습 화면이라 실제 ERP 이동은 하지 않습니다.');await page.click('.task input');await page.waitForFunction(()=>document.querySelector('.task input').checked);});
  await page.goto(app.base+'/index.html');await page.waitForSelector('.week-event');await recorder.restoreOverlay();
+ await page.$eval('.calendar-day[data-date="'+app.date+'"]',e=>e.scrollIntoView({block:'center'}));
  await step('calendar','7. 월간 달력과 하단 주간 시간표','.calendar-day[data-date="'+app.date+'"]',async()=>{await page.click('.calendar-day[data-date="'+app.date+'"]');await recorder.caption('7. 월간 달력과 하단 주간 시간표 · 월간 달력이 기본입니다. 날짜를 선택하면 아래 해당 주 시간표와 오른쪽 업무가 함께 바뀝니다.');});
  await recorder.caption('7. 월간 달력과 하단 주간 시간표 · 빈 12:00 칸을 눌러 그 시간의 업무를 입력합니다.');await recorder.pause(1800);
  await page.$eval('[aria-label="'+app.date+' 12:00 업무 추가"]',e=>e.scrollIntoView({block:'center'}));await recorder.pause(600);

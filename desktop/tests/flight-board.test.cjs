@@ -25,7 +25,7 @@ test('flight board keeps only safe summary fields and never forwards waybill num
   assert.equal(out.flights.length,2,'입고 등록 끝난 편은 뺀다');
   assert.equal(out.registeredCount,1);
   const f=out.flights[0];
-  assert.deepEqual(Object.keys(f).sort(),['alertCount','arriveAt','country','doneSteps','estimatedAt','flight','itemLabel','nextState','nextStep','origin','phase','position','route','via','progress','quarantineDeadlineAt','quarantineSlot','regNo','remark','status','statusLabel','timeAssumed','totalSteps','trackUrl','viaName','weekLabel'].sort());
+  assert.deepEqual(Object.keys(f).sort(),['scheduledAt','departAtEstimated','viewId','alertCount','arriveAt','country','doneSteps','estimatedAt','flight','itemLabel','nextState','nextStep','origin','phase','position','route','via','progress','quarantineDeadlineAt','quarantineSlot','regNo','remark','status','statusLabel','timeAssumed','totalSteps','trackUrl','viaName','weekLabel'].sort());
   assert.equal(f.viaName,'밴쿠버');assert.deepEqual(f.via,{name:'밴쿠버',lat:49.19,lon:-123.18});assert.deepEqual(f.origin,{name:'보고타',lat:4.7,lon:-74.15});assert.deepEqual(f.position,{lat:49.19,lon:-123.18});
   assert.deepEqual(f.route,[[-74.1,4.7],[-100,30.12],[-123.18,49.19],[126.44,37.46]],'숫자가 아닌 점은 버리고 [경도,위도] 로');assert.equal(f.phase,'layover');
   assert.deepEqual(out.destination,{name:'인천',lat:37.46,lon:126.44});assert.equal(f.regNo,'C-FIVM');assert.equal(f.progress,0.45);
@@ -37,8 +37,8 @@ test('flight board keeps only safe summary fields and never forwards waybill num
   assert.equal(g.trackUrl,null);assert.equal(g.via,null);assert.equal(g.progress,null);assert.equal(g.nextStep,'');assert.equal(g.totalSteps,0);
 });
 test('flight board bounds list sizes, text lengths and outside links',()=>{
-  const many=projectFlightBoard(body({flights:Array.from({length:20},(_,i)=>flight({key:'k'+i})),todo:Array.from({length:20},()=>({key:'k',label:'가'.repeat(200),level:'amber',text:'나'.repeat(500)}))}));
-  assert.equal(many.flights.length,8);assert.equal(many.todo.length,8);
+  const many=projectFlightBoard(body({flights:Array.from({length:20},(_,i)=>flight({key:'k'+i})),todo:Array.from({length:60},(_,i)=>({key:'k'+i,label:'가'.repeat(200),level:'amber',text:'나'.repeat(500)}))}));
+  assert.equal(many.flights.length,8);assert.equal(many.todo.length,40);
   assert.equal(many.todo[0].label.length,60);assert.equal(many.todo[0].text.length,160);
   for(const bad of ['https://evil.example/data/aircraft/x','http://www.flightradar24.com/data/aircraft/n773ck','https://www.flightradar24.com/data/aircraft/../x','javascript:alert(1)'])
     assert.equal(projectFlightBoard(body({flights:[flight({links:{aircraftTrack:bad,flightTrack:bad}})]})).flights[0].trackUrl,null,bad);
@@ -47,6 +47,18 @@ test('flight board bounds list sizes, text lengths and outside links',()=>{
   assert.equal(projectFlightBoard(body({flights:[flight({progress:7})]})).flights[0].progress,1);
   assert.throws(()=>projectFlightBoard({flights:Array(301).fill({})}));
   assert.throws(()=>projectFlightBoard({}));
+});
+
+test('home exposes airport arrival times and deduplicated issues with a safe desktop detail target',()=>{
+  const issue={key:'014-12345675',label:'항공편 확인',level:'red',text:'운송장 014-12345675 변경 확인'};
+  const out=projectFlightBoard(body({todo:[issue],issues:[{...issue,level:undefined},{key:issue.key,label:'항공편 확인',text:'도착 공지 시간 변경'}]}));
+  assert.equal(out.issueTotal,2);
+  assert.equal(out.todo[0].level,'red');
+  assert.equal(out.todo[0].viewId,out.flights[0].viewId);
+  assert.equal(out.todo[0].text.includes('12345675'),false);
+  assert.equal(out.flights[0].scheduledAt,'2026-11-18T08:10:00.000Z');
+  assert.equal(out.flights[0].estimatedAt,'2026-11-18T08:10:00.000Z');
+  assert.equal(out.flights[0].departAtEstimated,null);
 });
 test('flight board uses fixed GET, prevents stale-account responses and rejects unauthorized',async()=>{
   let current=true,unauthorized=0;

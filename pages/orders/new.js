@@ -8,6 +8,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
 import { apiGetExe } from '../../lib/exeParity/client.js';
+import { requireOrderYear } from '../../lib/orderUtils';
 import { sortRecentOrderCustomers } from '../../lib/orderCustomerRecency.mjs';
 import { buildForwardOrderWeeks } from '../../lib/myCustomerOrderEntry';
 import { useLang } from '../../lib/i18n';
@@ -34,6 +35,10 @@ export default function OrderNew() {
   const [year, setYear] = useState(initialWeek.year);
   const [collapsed, setCollapsed] = useState(false);
   const expandSelectionRef = useRef(null);
+  const initialScopeApplied = useRef(false);
+  const [summaryEditingKey, setSummaryEditingKey] = useState(null);
+  const [summaryEditingUnit, setSummaryEditingUnit] = useState(null);
+  const [summaryInputText, setSummaryInputText] = useState('');
   const [previousWeek, setPreviousWeek] = useState('');
   const [reading, setReading] = useState(false);
 
@@ -101,6 +106,29 @@ export default function OrderNew() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // Apply the new-window scope once after Next.js has hydrated its query.
+  useEffect(() => {
+    if (!router.isReady || initialScopeApplied.current) return;
+    initialScopeApplied.current = true;
+    if (router.query.selectCustomer !== '1') return;
+    try {
+      const scope = requireOrderYear(router.query.week, router.query.year);
+      setYear(scope.orderYear);
+      setWeek(scope.orderWeek);
+      setCustMgr(typeof router.query.manager === 'string' ? router.query.manager : '');
+      setCollapsed(false);
+      setShowCustPanel(true);
+    } catch {
+      setErr('새창의 연도와 차수를 확인해 주세요.');
+    }
+  }, [router.isReady, router.query]);
+
+  const openSameWeekWindow = () => {
+    const params = new URLSearchParams({ popup: '1', year, week, manager: selectedCust?.Manager || custMgr, selectCustomer: '1' });
+    window.open('/orders/new?' + params.toString(), '_blank',
+      'width=1280,height=820,left=100,top=100,resizable=yes,scrollbars=yes');
+  };
 
   // ── 전역 단축키 (브라우저 기본 단축키와 충돌 없는 Ctrl 조합)
   // Ctrl+R=조회, Ctrl+N=신규, Ctrl+S=저장, ESC=닫기
@@ -380,7 +408,8 @@ export default function OrderNew() {
 
   // ── 수량 변경 핸들러
   const setQty = (prodKey, unit, val) => {
-    const v = parseFloat(val) || 0;
+    const v = val === '' ? 0 : Number(val);
+    if (!Number.isFinite(v) || v < 0) return;
     // 품목 정보도 함께 저장 (주문내역서 표시용)
     const prod = prodList.find(p => p.ProdKey === prodKey);
     setQuantities(q => ({
@@ -415,8 +444,8 @@ export default function OrderNew() {
   }, {})).sort((a, b) => a.country.localeCompare(b.country));
 
   // ── 주문 내역서 — quantities에서 직접 계산 (prodList 불필요)
-  const orderSummary = Object.entries(quantities)
-    .filter(([, q]) => (q.box||0) > 0 || (q.bunch||0) > 0 || (q.steam||0) > 0)
+  const summaryRows = Object.entries(quantities)
+    .filter(([prodKey, q]) => Number(prodKey) === summaryEditingKey || q.box > 0 || q.bunch > 0 || q.steam > 0)
     .map(([prodKey, q]) => {
       // prodList에서 찾되 없으면 quantities에 저장된 정보 사용
       const prod = prodList.find(p => p.ProdKey === parseInt(prodKey));
@@ -429,6 +458,12 @@ export default function OrderNew() {
         OutUnit:    prod?.OutUnit    || '',
       };
     });
+
+  // Keep a temporarily empty row mounted while its quantity is being replaced.
+  const orderSummary = summaryRows.filter(p => {
+    const q = quantities[p.ProdKey];
+    return q.box > 0 || q.bunch > 0 || q.steam > 0;
+  });
 
   // ── 총 합계
   const totalQty = Object.values(quantities).reduce((a, q) => {
@@ -884,6 +919,7 @@ export default function OrderNew() {
         {/* 오른쪽 버튼들 */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
           <button className="btn btn-primary btn-sm" disabled={saving || reading} onClick={handleSearch} title="단축키: Ctrl+R">{t('조회')} [Ctrl+R]</button>
+          <button className="btn btn-sm" onClick={openSameWeekWindow} title="현재 차수로 새 창을 열어 다른 업체 선택">새창</button>
           <button className="btn btn-sm" onClick={() => window.open('/orders/new?popup=1','신규주문등록','width=1280,height=820,left=100,top=100,resizable=yes,scrollbars=yes')} title="단축키: Ctrl+N">{t('신규')} [Ctrl+N]</button>
           <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || reading} title="단축키: Ctrl+S">{saving ? t('저장')+'중...' : t('저장')+' [Ctrl+S]'}</button>
           <button className="btn btn-danger btn-sm" disabled={saving || reading} onClick={handleDelete}>{t('삭제')} / Eliminar</button>
@@ -1239,13 +1275,13 @@ export default function OrderNew() {
           </div>
           {/* 내역 테이블 — 가로+세로 스크롤 */}
           <div style={{ overflow: 'auto', flex: 1 }}>
-            {orderSummary.length === 0 ? (
+            {summaryRows.length === 0 ? (
               <div style={{ color: 'var(--text3)', textAlign: 'center', marginTop: 40, fontSize: 12 }}>
                 수량을 입력하면 표시됩니다
               </div>
             ) : (() => {
               const byGroup = {};
-              orderSummary.forEach(p => {
+              summaryRows.forEach(p => {
                 const key = p.CounName + p.FlowerName;
                 if (!byGroup[key]) byGroup[key] = { label: key, items: [], totalBox:0, totalBunch:0, totalSteam:0 };
                 const q = quantities[p.ProdKey] || initQty();
@@ -1264,7 +1300,7 @@ export default function OrderNew() {
                       <th className="num" style={{ width: 84 }}>{t('송이')}</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody onKeyDown={moveQuantityFocus}>
                     {Object.values(byGroup).map(g => ([
                       <tr key={g.label+'_h'} style={{ background: '#E8F0FF' }}>
                         <td colSpan={4} style={{ fontWeight:'bold', color:'var(--blue)', fontSize:11 }}>
@@ -1274,9 +1310,32 @@ export default function OrderNew() {
                       ...g.items.map(p => (
                         <tr key={p.ProdKey}>
                           <td style={{ fontSize:10, whiteSpace:'normal', overflowWrap:'anywhere' }}>{p.DisplayName || p.ProdName}</td>
-                          <td className="num" style={{ fontSize:10 }}>{p.q.box>0?p.q.box:''}</td>
-                          <td className="num" style={{ fontSize:10 }}>{p.q.bunch>0?p.q.bunch:''}</td>
-                          <td className="num" style={{ fontSize:10 }}>{p.q.steam>0?p.q.steam:''}</td>
+                          {[
+                            ['box', 'Box'], ['bunch', '단'], ['steam', '송이'],
+                          ].map(([unit, label]) => (
+                            <td key={unit} className="num" style={{ padding: '1px 2px' }}>
+                              <input type="number" min={0} step="any" disabled={reading || saving}
+                                data-summary-product={p.ProdKey} data-summary-unit={unit}
+                                aria-label={(p.DisplayName || p.ProdName) + ' ' + label}
+                                value={summaryEditingKey === p.ProdKey && summaryEditingUnit === unit ? summaryInputText : p.q[unit] || ''} placeholder="0"
+                                onFocus={e => {
+                                  setSummaryEditingKey(p.ProdKey); setSummaryEditingUnit(unit);
+                                  setSummaryInputText(e.target.value); e.target.select();
+                                }}
+                                onChange={e => {
+                                  const text = e.target.value;
+                                  if (text !== '' && (!Number.isFinite(Number(text)) || Number(text) < 0)) return;
+                                  setSummaryInputText(text); setQty(p.ProdKey, unit, text);
+                                }}
+                                onBlur={e => {
+                                  if (!e.currentTarget.closest('tr')?.contains(e.relatedTarget)) setSummaryEditingKey(null);
+                                }}
+                                style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', height: 22,
+                                  textAlign: 'right', fontSize: 11, border: '1px solid var(--border2)',
+                                  background: '#fff', fontFamily: 'var(--mono)' }}
+                              />
+                            </td>
+                          ))}
                         </tr>
                       )),
                       <tr key={g.label+'_t'} style={{ background:'#F0F4FF', fontWeight:'bold' }}>

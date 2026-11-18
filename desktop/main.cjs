@@ -10,6 +10,8 @@ const { launchTaskShortcut }=require('./task-launcher.cjs');
 const {closeMainAction}=require('./lifecycle.cjs');
 const {homeRequests}=require('./home-board.cjs');
 const {importFlightBoard}=require('./flight-board.cjs');
+const {createFlightPopup}=require('./flight-popup.cjs');
+let flightPopup;
 const {companyCalendarRequest}=require('./company-calendar.cjs');
 const { homeWorkspaceRequest } = require('./home-workspace.cjs');
 const { pmLiveStatus } = require('./pm-live.cjs');
@@ -384,6 +386,10 @@ function command(w, action, p = {}) {
     case 'sync': verifyAccount().catch(() => {}); break;
     case 'companyCalendar': {const owner=actor,generation=authGeneration;return companyCalendarRequest({payload:p,owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
     case 'homeRequests': {const owner=actor,generation=authGeneration;return homeRequests({owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
+    case 'flightPopup': {
+      if(locked||!actor)throw Error('로그인을 다시 확인하세요.');
+      return flightPopup.open(p.viewId||'');
+    }
     case 'importFlightBoard': {const owner=actor,generation=authGeneration;return importFlightBoard({fresh:p?.fresh===true,owner:locked?'':owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;}});}
     case 'taskShortcut': return openTaskShortcut(p,w);
     case 'taskMenus': return {menus:locked?[]:menus};
@@ -687,6 +693,11 @@ app.whenReady().then(async () => {
     return new Response(fs.readFileSync(path.join(__dirname, 'shell', name)), { headers: { 'content-type': name.endsWith('.html') ? 'text/html; charset=utf-8' : name.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8', 'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'" } });
   });
   webSession = session.fromPartition('persist:nenova-work');
+  flightPopup=createFlightPopup({BrowserWindow,session:webSession,screen,appDir:__dirname,
+    onCreate:win=>{auxiliary.add(win);win.on('closed',()=>auxiliary.delete(win));},
+    setIdentity:win=>applyWindowIdentity(win,{packaged:app.isPackaged,execPath:process.execPath,resourcesPath:process.resourcesPath,appDir:__dirname}),
+    openLink:async(url,win)=>{const target=trustedUrl(url);if(target){const w=[...windows.values()][0];if(w)command(w,'open',{url:target});}else await openExternal({win},url);}
+  });
   const desktopUa = webSession.getUserAgent();
   webSession.setUserAgent(`${desktopUa.replace(/\bNenovaDesktop\/[\d.]+\b/g, '').trim()} NenovaDesktop/${require('./package.json').version}`);
   const activityPath = path.join(app.getPath('userData'), 'activity.encrypted');
