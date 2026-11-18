@@ -3626,3 +3626,13 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
 4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(224건), `npx next build --webpack` 모두 통과. 운영 배포 후 브라우저 시각 확인은 별도 미수행(미검증).
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건(UI 설명·청사진 섹션 전용).
+
+
+## 2026-11-18 · 멀티-디바이스 작업화 솔루션(Phone Harness · Device Hub · 데스크톱앱 · Nenova Kakao · 네노바웹) 통합 설계 및 흐름도 부류별 세션 보드 추가
+- 요약: 부류별 분리 하위 세션(세션 1~5)으로 `phone-harness`+`VKCOM/devicehub`, `nenovakakao` Dual-Path 이중화(`dedup_key`), Electron 선택형 사이드카(`nenova-device-sidecar.exe`) 역터널, 네노바웹 스키마(`WebDeviceNode`/`WebDeviceLease`/`WebDeviceWorkQueue`)·`NOWLINK/MOYI` 상용 패키지를 설계해 `docs/plans/unified-device-work-solution-2026-11-18.md`로 정리하고, `/my-work?tab=arch` (`ArchFlowChart.js`)에 부류(세션)별 선택 보드(`data-testid="arch-device-suite-section"`)를 추가.
+- 검색어: PhoneHarness DeviceHub VKCOM nenovakakao dedup_key WebDeviceNode WebDeviceLease WebDeviceWorkQueue arch-device-suite-section NOWLINK
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-device-hub-suite` / `C:\Users\USER\nw-agy-device-suite` (세션 1~5 분리 기획·구현).
+2. 완료된 것: `docs/plans/unified-device-work-solution-2026-11-18.md` 마스터 설계서 작성, `components/pm/ArchFlowChart.js`에 5-Surface 연결 바 및 4대 부류 세션 전환 보드(`s1_phone_hub`~`s4_web_solution`) 추가, `__tests__/archFlowChart.test.js` 계약 단언 추가.
+3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행). 후속 실행 단계에서 Phase 1(카나리 1대 읽기·관제 파일럿 및 `WebDeviceNode/Lease` 마이그레이션) 착수.
+4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack`(139 페이지, exit 0) 모두 통과. 실기기 ADB·WSS 역터널 72시간 부하 및 운영 브라우저 시각 확인은 미검증.
+5. 주의/잠금: MSSQL 원장·API·`nenovakakao`·`desktop` 코드 쓰기 0건(설계서 및 아키텍처 흐름도 UI 전용).
