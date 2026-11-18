@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.43",
+  "version": "1.3.44",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "출고분배 중 미등록 업체 주문을 한 화면에서 안전하게 선행 등록·분배하는 '빠른 분배·미등록주문 통합입력' 메뉴를 추가했습니다. 기존 수입 비행기 지도 확대 및 농장 연결 기능을 포함합니다."
+      "releaseNotes": "출고분배 중 미등록 업체 주문을 한 화면에서 안전하게 선행 등록·분배하는 '빠른 분배·미등록주문 통합입력' 메뉴를 추가했습니다. 수입 비행기 카드의 운송·통관·입고 진행 표시를 포함합니다."
     },
     "extraResources": [
       {

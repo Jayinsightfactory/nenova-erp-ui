@@ -1507,13 +1507,13 @@
       "videoWaivers": [
         {
           "file": "desktop/shell/flight-board.js",
-          "sha256": "d7278aaeb903aeaabfa19b1388bcd0be3414cf361815530569c39017f54252ac",
+          "sha256": "d0921582dd94143dc999c060e8b2e1ccc18cab7d684a4458232c3ceef4cc06dc",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },
         {
           "file": "components/home/ImportFlightBoard.js",
-          "sha256": "08dfb7e637a3b7c9da5b6d10d1e8e392e55693679fb36072259301840436c631",
+          "sha256": "d0614dd68c65743437d0fa11fade21498b41d927a324faf67a1eb69e6a5dd22d",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },
@@ -1525,7 +1525,7 @@
         },
         {
           "file": "desktop/flight-board.cjs",
-          "sha256": "685bede51dfdaf1b1f5bb9249769b3d416e2cbfe1201e544a68d7edfafa6e4aa",
+          "sha256": "2ff2a5ffbd47f93a2406cd23597602a70ab608b49ba92a18fb57014bfeb1365a",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 우선 처리 항공편 정렬을 포함한 이번 연결 화면 개편 영상 제외."
         },
@@ -1543,7 +1543,7 @@
         },
         {
           "file": "pages/api/import/flight-board.js",
-          "sha256": "498603b952a0471f2ad7cb18f98f88cd5e3f3cf00a91aebdfb1117aa4deded31",
+          "sha256": "e5fa5ced1274250b3f35df34e2ab335e72ae195af9413f7a5f18cf143f952213",
           "reason": "사용자 명시: 비행기현황탭은 가이드영상필요없음. 2026-11-18 원문 기반 이슈 정합성 수정.",
           "approvedBy": "사용자"
         },

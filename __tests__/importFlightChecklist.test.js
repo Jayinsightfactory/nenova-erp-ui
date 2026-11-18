@@ -25,7 +25,7 @@ const st = (cl, k) => cl.steps.find((s) => s.key === k);
 const texts = (cl) => cl.alerts.map((a) => a.text);
 
 let cl = buildChecklist(base(), { now, icn: null, customs: null, docsSent: null, siblings: 0 });
-assert.deepEqual(cl.steps.map((s) => s.key), ['awb', 'notice', 'docs', 'departed', 'arrived', 'manifest', 'quarantine', 'cleared', 'released', 'receipt']);
+assert.deepEqual(cl.steps.map((s) => s.key), ['awb', 'notice', 'docs', 'departed', 'arrived', 'manifest', 'bonded', 'quarantine', 'fumigation', 'declared', 'cleared', 'released', 'receipt']);
 assert.equal(cl.customsAvailable, false);
 assert.equal(st(cl, 'awb').state, 'done');
 assert.equal(st(cl, 'notice').state, 'done');
@@ -114,7 +114,7 @@ const b = buildFlightBoard({ messages: msgs, receipts: new Map(), now, icn: new 
 const f = b.flights[0];
 assert.equal(f.arriveAt, new Date(K('2026-11-18T14:20')).toISOString(), '편의 arriveAt 은 공지 값 유지');
 assert.equal(f.actual.estimatedAt, K('2026-11-18T16:00'));
-assert.ok(Array.isArray(f.alerts) && f.checklist.steps.length === 10);
+assert.ok(Array.isArray(f.alerts) && f.checklist.steps.length === 13);
 assert.ok(b.todo.length >= 1 && b.todo[0].level === 'red');
 assert.equal(b.summary.red + b.summary.amber, b.todo.length);
 assert.ok(!f.issues.some((t) => t.includes('선율방에 없음')), 'issues 에는 경고를 섞지 않는다');
