@@ -25,6 +25,7 @@
     "docs/exe-golden/CountryOrders.md",
     "docs/plans/country-orders-2026-10-15.md",
     "lib/importKakaoOrderText.js",
+    "lib/importKakaoArchive.js",
     "__tests__/importKakaoOrderText.test.mjs",
     "docs/plans/import-kakao-filter-2026-11-18.md"
   ],
@@ -37,7 +38,7 @@
   "actions": [
     {
       "name": "IMPORT_ROOM_ADDITIONS_REVIEW",
-      "source": "nenovakakao raw message text analyzed by classifyImportFeed/analyzeImportMessage; latest two actual order dates through Seoul today via readLatestOrderImports, with later cancellation review; newest first. Only additions and separate relevant review requests returned; explicit additions with independently parsed complete rows and unit-missing rows include only the complete rows by default; cancellation, conditional and unparsed quantity messages remain in review; general messages removed. Raw quantities override empty/incorrect pre-extracted quantity cells; CL/customer headings local to message. Same sender/time/normalized text dedup, deleted snapshot review. Totals segregate year/week/country/category/product/unit; unnamed quantities included. Browser edits and clipboard only; no ERP access. Optional audit=1 returns excluded/duplicate source text and reasons to the same authenticated role; default excludes it. Count reconciliation covers collected Sheet messages only, not source Kakao completeness. Manual review is browser-local and unchecked until verified.",
+      "source": "fixed nenovakakao 수입방 raw archive GET using the existing server credential and original external identity; review sheet provides customer aliases only; latest two actual order dates via latestImportFeed through Seoul today (up to 31 days), with later cancellation review; newest first. Only additions and separate relevant review requests returned; explicit additions with independently parsed complete rows and unit-missing rows include only the complete rows by default; cancellation, conditional and unparsed quantity messages remain in review; general messages removed. Raw quantities override empty/incorrect pre-extracted quantity cells; CL/customer headings local to message. Same sender/time/normalized text dedup, deleted snapshot review. Totals segregate year/week/country/category/product/unit; unnamed quantities included. Browser edits and clipboard only; no ERP access. Optional audit=1 returns excluded/duplicate source text and reasons to the same authenticated role; default excludes it. Count reconciliation covers collected archive messages only, not source Kakao completeness. Manual review is browser-local and unchecked until verified.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "warehouseDetail": "preserve",
