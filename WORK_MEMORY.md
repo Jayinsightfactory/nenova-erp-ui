@@ -3391,3 +3391,4 @@ pm run test:canon 통과.
 3. 남은 할 일: 확대 React 화면 실브라우저·작은화면·키보드 회귀, 가이드 실제 재촬영/Drive/플레이어, 전체 gate 재실행, desktop 버전 발행, CI/squash/Cafe24/운영스모크. 현 버전 설치본 업데이트/직원PC 재시작 금지. 빌드가 막혀 미배포.
 4. 검증 상태: 대상 desktop6 + presentation2 통과, SWC JSX parse, 직접manifest224/dnSpy/write guard 통과. Chrome 합성자료 1920폭 표/번호8건/펼치기/Enter접기/버튼높이 확인. 전체 ERP/manifest npm lifecycle은 Windows Bash NtCreateDirectoryObject ACCESS_DENIED 및 Chrome launch 실패. npm build는 desktop-flight-popup 가이드 source mismatch로 차단. 전체 gate/영상/운영 미검증.
 5. 주의/잠금: 본 worktree 비행기 표시 파일만 작업. 가이드 해시만 바꿔 우회하지 말 것. 다른 편·다른연도 같은 문구는 병합하지 않음. 메뉴 baseline: 반응형/키보드/단일기존전용화면틀 적용, 대량쓰기 해당없음, 가이드 미완료. desktop/menu.json은 canonical Layout 동기화로 기존 누락메뉴도 복구됨.
+- 후속 상태: 커밋 c790ee386 및 codex/import-flight-layout 원격 push 완료. GitHub 연결 도구 PR 생성은 403 Resource not accessible by integration, gh CLI는 401로 실패. PR 미생성/병합·배포 없음. GitHub 권한 복구 후 해당 브랜치 Draft PR 생성부터 재개.
