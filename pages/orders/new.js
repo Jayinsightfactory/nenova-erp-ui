@@ -8,6 +8,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
 import { apiGetExe } from '../../lib/exeParity/client.js';
+import { sortRecentOrderCustomers } from '../../lib/orderCustomerRecency.mjs';
 import { buildForwardOrderWeeks } from '../../lib/myCustomerOrderEntry';
 import { useLang } from '../../lib/i18n';
 import { moveQuantityFocus } from '../../lib/orderQuantityFocus.mjs';
@@ -32,6 +33,7 @@ export default function OrderNew() {
   const [week, setWeek] = useState(initialWeek.week);
   const [year, setYear] = useState(initialWeek.year);
   const [collapsed, setCollapsed] = useState(false);
+  const expandSelectionRef = useRef(null);
   const [previousWeek, setPreviousWeek] = useState('');
   const [reading, setReading] = useState(false);
 
@@ -146,9 +148,18 @@ export default function OrderNew() {
 
   // ── 담당자별 거래처 패널용 전체 목록 + 즐겨찾기
   useEffect(() => {
-    apiGet('/api/master', { entity: 'customers' })
-      .then(d => setAllCusts(d.data || []))
-      .catch(() => {});
+    Promise.all([
+      apiGet('/api/master', { entity: 'customers' }),
+      apiGet('/api/orders/my-customers'),
+    ]).then(([master, recent]) => {
+      const recentByKey = new Map((recent.customers || []).map(c => [String(c.CustKey), c]));
+      const customers = (master.data || []).map(customer => {
+        const history = recentByKey.get(String(customer.CustKey));
+        return { ...customer, LastOrderDtm: history?.LastOrderDtm };
+      });
+      setAllCusts(sortRecentOrderCustomers(customers));
+    })
+      .catch(() => setErr('최근 주문 기준 업체 목록을 불러오지 못했습니다. 페이지를 다시 열어 주세요.'));
     loadCustomerFavorites();
   }, []);
 
@@ -269,16 +280,16 @@ export default function OrderNew() {
   const filteredProds = searchInWorker ? productSearch.results : smallList;
 
   const custMgrList = useMemo(() => (
-    [...new Set(allCusts.map(c => c.Manager || '미지정'))].sort((a, b) => a.localeCompare(b, 'ko'))
+    [...new Set(allCusts.map(c => c.Manager || '미지정'))]
   ), [allCusts]);
 
   const favoriteCustomers = useMemo(() => (
-    customerFavorites
+    sortRecentOrderCustomers(customerFavorites
       .map(f => {
         const c = allCusts.find(cust => sameKey(cust.CustKey, f.custKey));
         return c ? { ...c, favoriteKey: f.favoriteKey, favName: f.name } : null;
       })
-      .filter(Boolean)
+      .filter(Boolean))
   ), [allCusts, customerFavorites]);
 
   const filteredPanelCusts = useMemo(() => {
@@ -293,9 +304,7 @@ export default function OrderNew() {
         shortCustName(c).toLowerCase().includes(q)
       );
     }
-    return [...list]
-      .sort((a, b) => `${a.CustArea || ''}${a.CustName || ''}`.localeCompare(`${b.CustArea || ''}${b.CustName || ''}`, 'ko'))
-      .slice(0, 120);
+    return list;
   }, [allCusts, custMgr, custPanelSearch]);
 
   const loadCustomerFavorites = async () => {
@@ -327,6 +336,15 @@ export default function OrderNew() {
     setExeGridMode(false);
     setSuccessMsg(''); setErr('');
     return true;
+  }
+
+  function selectOrderWeek(nextYear, nextWeek) {
+    if (reading || saving) return;
+    if ((nextYear !== year || nextWeek !== week) && !clearSelectionDraft()) return;
+    setYear(nextYear);
+    setWeek(nextWeek);
+    setCollapsed(true);
+    requestAnimationFrame(() => expandSelectionRef.current?.focus());
   }
 
   const selectCustomer = (cust) => {
@@ -710,17 +728,31 @@ export default function OrderNew() {
       <div className={desktopUi.toolbar} style={{ background: 'var(--header-bg)', border: '1px solid var(--border2)', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
         <span style={{ fontWeight: 'bold', fontSize: 12, marginRight: 8 }}>▶ 주문 정보</span>
 
-        {collapsed ? <><strong>{year}년 {week} · {selectedCust?.Manager || '담당자 미지정'} · {selectedCust?.CustName}</strong>
-          <button className="btn btn-sm" disabled={reading || saving} aria-expanded={false} onClick={() => setCollapsed(false)}>펼치기</button></> : <>
-        <label>등록 차수 <select className="filter-select" value={year + '/' + week} disabled={reading || saving}
-          onChange={e => { if (!clearSelectionDraft()) return; const [y,w] = e.target.value.split('/'); setYear(y); setWeek(w); if (selectedCust) setCollapsed(true); }}>
-          <optgroup label="자주 쓰는 차수">{weekChoices.map(w => <option key={w.year+w.week} value={w.year+'/'+w.week}>{w.year}년 {w.week}</option>)}</optgroup>
+        {collapsed ? <><strong>{year}년 {week} · {selectedCust?.Manager || '담당자 미지정'} · {selectedCust?.CustName || '업체를 선택해 주세요'}</strong>
+          <button ref={expandSelectionRef} className="btn btn-sm" disabled={reading || saving} aria-expanded={false} onClick={() => setCollapsed(false)}>펼치기</button></> : <>
+        <div role="group" aria-label="등록 차수" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, width: '100%' }}>
+          <strong style={{ marginRight: 4 }}>등록 차수</strong>
+          {weekChoices.map(choice => (
+            <button type="button" key={choice.year + choice.week} className="btn btn-sm"
+              disabled={reading || saving} aria-pressed={year === choice.year && week === choice.week}
+              style={year === choice.year && week === choice.week ? { background: 'var(--blue)', color: '#fff' } : undefined}
+              onClick={() => selectOrderWeek(choice.year, choice.week)}>
+              {choice.year !== String(new Date().getFullYear()) ? choice.year + '년 ' : ''}{choice.label}
+            </button>
+          ))}
+          <details>
+            <summary style={{ cursor: 'pointer' }}>다른 차수</summary>
+            <label>전체 차수 <select className="filter-select" value={year + '/' + week} disabled={reading || saving}
+              onChange={e => { const [y, w] = e.target.value.split('/'); selectOrderWeek(y, w); }}>
+              {weekChoices.map(choice => <option key={choice.year + choice.week} value={choice.year + '/' + choice.week}>{choice.year}년 {choice.week}</option>)}
           {[...new Set([String(new Date().getFullYear()-1), String(new Date().getFullYear()), String(new Date().getFullYear()+1)])].map(y =>
             <optgroup key={y} label={y+'년 전체 차수'}>{Array.from({length:52},(_,i) => Array.from({length:9},(_,j) => {
               const w = String(i+1).padStart(2,'0')+'-0'+(j+1);
               return weekChoices.some(choice => choice.year===y && choice.week===w) ? null : <option key={w} value={y+'/'+w}>{y}년 {w}</option>;
             }))}</optgroup>)}
-        </select></label>
+            </select></label>
+          </details>
+        </div>
         {/* 거래처명 - 실시간 검색 드롭다운 */}
         <span className="filter-label">거래처명</span>
         <div style={{ position: 'relative', display: 'flex', gap: 4, alignItems: 'center' }} ref={dropRef}>
