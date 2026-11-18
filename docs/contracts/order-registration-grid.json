@@ -3,7 +3,8 @@
   "title": "주문등록 초안 셀 이동 및 주문 내역서 표시",
   "scope": [
     "pages/orders/new.js",
-    "lib/orderQuantityFocus.mjs"
+    "lib/orderQuantityFocus.mjs",
+    "lib/orderCustomerRecency.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -43,7 +44,8 @@
   },
   "requiredTestFiles": [
     "__tests__/orderQuantityFocus.test.mjs",
-    "scripts/order-registration-smoke.cjs"
+    "scripts/order-registration-smoke.cjs",
+    "__tests__/orderCustomerRecency.test.mjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -64,5 +66,19 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
-  ]
+  ],
+  "customerOrdering": {
+    "source": "GET /api/orders/my-customers LastOrderDtm (latest active OrderMaster.OrderDtm)",
+    "customer": "descending last order date, null last, equal dates by name then key",
+    "manager": "first occurrence in recency-sorted customers = latest order among assigned customers",
+    "favorites": "same recency comparator",
+    "writes": []
+  },
+  "weekSelection": {
+    "primary": "visible buildForwardOrderWeeks buttons",
+    "selection": "collapse immediately, including before customer selection; focus reopen button",
+    "otherWeeks": "existing complete year/week dropdown under Other weeks",
+    "sameSelection": "preserve draft",
+    "differentSelection": "existing draft confirmation"
+  }
 }
