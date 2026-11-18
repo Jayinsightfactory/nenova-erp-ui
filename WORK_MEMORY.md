@@ -3523,3 +3523,11 @@ pm run test:canon 통과.
 - 공개: https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.36 / 대상f1bc55db / 4assets 확인. 설치본111,953,212bytes, SHA256 69586d2dd2e1f82523698fe615c5bdc0184c8b0a8f7053eda1a40c1fc0337d7f, MZ/SHA512/blockmap 검증. 공개 latest.yml 버전1.3.36·검증된 원본과 동일, 공개 exe URL/바이트 크기 일치.
 - 회사 Drive 최종 원본: MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol (514.3초/42,948,556bytes), VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat (12,846bytes), proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn (18,775bytes). 14단계/자막76개 프레임 대조·대표 장면 육안 확인. 과거1.3.35 자료는 미공개 초안이며 최종 근거 아님.
 - 검색어: deployed calendar 1.3.36 f1bc55db 즐겨찾기 전체 접기 열기 달력 가로20% 공휴일12개국 상세 편집 주차별 유지 운영 검증 공개 피드 직원PC 재시작 안함
+
+## 2026-11-18 수입 비행기 현황 운영 배포 완료
+- 작업 위치: nenova-erp-ui / codex/flight-deployed-1118 / C:/Users/USER/.codex/worktrees/c027/nenova-erp-ui/nw-cdx-flight / 기능 PR #1820, merge1717dd04e589416c96503464c5661b024669922d.
+- 완료된 것: 버튼 동일 정렬·번호/이슈/상세 표·지도 옆 단일 상세·수입부 메뉴/탭명 통일. Cafe24 배포44239380197 성공, Desktop1.3.37 공개 및 latest 피드 확인. 사용자의 실제 앱 반영 지시로 테스트 전용 보류 해제. 가이드 영상 제외 유지.
+- 남은 할 일: 이 PC 설치 앱1.3.37 적용 확인. 창이 최소화됐으며 사용자 입력 감지로 제어가 막혀 사용자에게 앱 열기·업무 저장 완료 여부 요청. 강제 종료/설치하지 않음. 직원 전체 PC 적용은 미검증.
+- 검증 상태: 최종 PR CI Windows44238683894/ERP44238684017 통과, master Windows44239380189/ERP44239380579 통과. 기존 전체 로컬 검사·desktop69/69·정식 빌드 PASS. 운영 실제 데이터 이슈11건 번호표 및 지도 오른쪽 상세 확인. 공개 latest.yml1.3.37/SHA512 일치. 설치파일111953867bytes/SHA256 3c2ddc8dca14c38a409a225556196eda4b185828b68f30aeb1e1308ec16d9e67. 배포된 desktop 소스는 검증 CI7473ca1b0과 병합1717dd04e 사이 diff 없음.
+- 주의/잠금: ERP 원장 쓰기 없음. 영상 신규 제작 없음. 공개 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.37 . 홈 버튼은 설치 앱 재시작/업데이트 후 적용되므로 웹 배포만으로 설치 완료라고 표현하지 않음. 최종 인계 후 worktree 정리.
+- 검색어: deployed flight 1.3.37 1820 1717dd04 버튼 정렬 이슈 번호표 지도 상세 운영 검증 설치PC 미검증
