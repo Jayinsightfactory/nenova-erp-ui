@@ -1244,3 +1244,7 @@ warehouse API가 부서명만 검사해 DeptName이 비어 있는 Authority4/7 �
 
 ## 2026-11-18 입고 수정 농장 후보 누락
 native select는검색기능이없고 Farm마스터전용조회가실제입고의Faguaflowers Intl LLC를누락했다. 검색은대소문자/공백무시표시필터,후보는공통 warehouseFarmChoicesSql로GET/preview/legacy저장/approval최종저장을통일한다. 기존활성입고의이름도허용하되삭제/동명중복마스터우회·가짜FarmKey·원장수량변경은금지한다. 원가/확정/재고/견적/매출가드는보존. 회귀 warehouseFarmChoices(.test.mjs/Sql.test.mjs),warehouseCorrectionSql,warehouse-farm-search-ui. 기존저장기능의그외결함을이변경이해결했다고주장하지않는다.
+
+## 2026-11-18 일반 주문·영업부 붙여넣기 빈 연결 헤더
+
+source=manual-order/sales-paste 주문 저장은 정확한 연도+세부차수+업체 전체 헤더를 UPDLOCK/HOLDLOCK으로 재검증한다. 0건만 빈 native 헤더 생성, 단일 활성은 변경 없이 재사용, 삭제/중복은409 전체 rollback. 다른 source·과거 원장 자동보정0. 주문과 헤더가 분리 commit되지 않으며 분배/날짜/농장/Estimate/손익 쓰기0. manual-order 재고 기존 계산, sales-paste 기존 보존. 기준은 order-native-empty-header/sales-paste-order 계약 및 실제 FormOrderAdd 근거. myCustomerOrderApi 실행 fixture가 교차연도·경계·재시도·원자성을 검사한다.

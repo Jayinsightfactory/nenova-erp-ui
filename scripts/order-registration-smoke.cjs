@@ -94,6 +94,7 @@ const puppeteer = require('puppeteer-core');
     await btn('Ctrl+S'); await page.waitForFunction(()=>document.body.innerText.includes('주문이 저장되었습니다.'));
     assert.ok(saved.items.some(i=>i.prodKey===1 && i.qty===7 && i.unit==='박스'));
     assert.ok(saved.items.some(i=>i.prodKey===1 && i.qty===0.5 && i.unit==='단'));
+    assert.equal(saved.source, 'manual-order', 'ordinary save explicitly prepares its native empty header');
     assert.ok(saved.items.some(i=>i.prodKey===99 && i.qty===3 && i.unit==='단'));
     await click('.modal button','확인');
     await btn('과거·고정 주문'); await click('.modal button','닫기');

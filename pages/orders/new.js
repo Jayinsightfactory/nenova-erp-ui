@@ -738,6 +738,7 @@ export default function OrderNew() {
       });
 
       const result = await apiPost('/api/orders', {
+        source: 'manual-order',
         custKey: selectedCust.CustKey,
         custName: selectedCust.CustName,
         week: week,
