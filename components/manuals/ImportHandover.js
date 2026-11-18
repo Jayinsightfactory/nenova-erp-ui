@@ -10,6 +10,7 @@ import { LOOK_CLEAR, lookClearCss } from '../../lib/pmLookClear';
 import WorkflowGuide from '../WorkflowGuide';
 import ImportEducation from './ImportEducation';
 import ImportWeekday, { DAYS, ManualBtn, Status, evidenceText, mediaOf } from './ImportWeekday';
+import { extractManualCautions, matchKnowledgeForContext, resolveToolShortcuts } from '../../lib/workManualsInsights';
 
 export { evidenceText };
 
@@ -169,12 +170,15 @@ function Zoom({ img, onClose }) {
 const TOC = [['why', '① 왜·언제'], ['prep', '② 준비'], ['steps', '③ 따라 하기'], ['check', '④ 확인'], ['pit', '⑤ 자주 틀리는 곳'], ['next', '⑥ 다음 일']];
 const goTo = (id) => document.getElementById(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
 
-function ManualView({ manual, manuals, onBack, onOpen, blurred }) {
+function ManualView({ manual, manuals, knowledge = [], deptId = '', onBack, onOpen, blurred }) {
   const [zoom, setZoom] = useState(null);
   const closeZoom = useCallback(() => setZoom(null), []);
   const titleRef = useRef(null);
   useEffect(() => { titleRef.current?.scrollIntoView?.({ block: 'start' }); }, []);
   const nextLinks = (manuals || []).filter((m) => m.id !== manual.id && manual.next.includes(m.title));
+  const shortcuts = useMemo(() => resolveToolShortcuts(manual, { limit: 5 }), [manual]);
+  const linkedKnowledge = useMemo(() => matchKnowledgeForContext({ knowledgeItems: knowledge, deptId, manual, limit: 3 }), [knowledge, deptId, manual]);
+  const stepCautions = useMemo(() => extractManualCautions(manual).slice(0, 4), [manual]);
   // 바로 앞 단계와 같은 그림이면 반복하지 않는다 — 몇 단계 그림과 같은지 센다.
   const sameAs = [];
   manual.steps.forEach((s, i) => {
@@ -193,6 +197,44 @@ function ManualView({ manual, manuals, onBack, onOpen, blurred }) {
         <p className="openq">이 매뉴얼에는 아직 확정되지 않은 것이 {nOpen}가지 있습니다 — <Button size="sm" variant="secondary" onClick={() => goTo('mn-open')}>보기</Button></p>
       )}
       {manual.practicedBy?.length > 0 && <p className="muted"><small>이 일을 해 본 사람(모르면 물어볼 사람): {manual.practicedBy.join(', ')} · 쓰는 화면: {(manual.screens || []).join(', ')}</small></p>}
+      {shortcuts.length > 0 && (
+        <div className="chips mtools" role="group" aria-label="관련 원스톱 및 자동화 도구 바로가기">
+          {shortcuts.map((sc) => (
+            <a key={sc.href} className="pmk pmk-chip mtool-link" href={sc.href}>
+              <Badge tone={sc.kind === 'auto' ? 'ok' : 'plain'}>{sc.kind === 'auto' ? '자동화' : '원스톱'}</Badge>
+              <span>{sc.label}</span>
+            </a>
+          ))}
+        </div>
+      )}
+      {(linkedKnowledge.length > 0 || stepCautions.length > 0) && (
+        <div className="box mcaution" role="region" aria-label="핵심 주의 지침 및 운영 지침 연계">
+          <div className="mcaution-head">
+            <b>핵심 주의 지침</b>
+            <a href="/operations-knowledge">주의·이슈 지침 전체 보기 →</a>
+          </div>
+          {linkedKnowledge.length > 0 && (
+            <ul>
+              {linkedKnowledge.map((k) => (
+                <li key={k.id}>
+                  <Badge tone={k.priority === 'IMPORTANT' ? 'err' : k.status === 'CURRENT' ? 'ok' : 'est'}>
+                    {k.priority === 'IMPORTANT' ? '중요 지침' : k.statusLabel}
+                  </Badge>{' '}
+                  <a href={`/operations-knowledge?itemId=${encodeURIComponent(k.id)}`}><b>{k.title}</b></a>
+                  {k.caution || k.action ? <> — {k.caution || k.action}</> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+          {stepCautions.length > 0 && (
+            <ul>
+              {stepCautions.map((c, idx) => (
+                <li key={idx}><Badge tone="est">{c.kind}</Badge> <b>{c.title}</b>{c.detail ? ` → ${c.detail}` : ''}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       <nav className="toc" aria-label="매뉴얼 목차">
         {TOC.map(([k, l]) => <Button key={k} size="sm" variant="secondary" onClick={() => goTo(`mn-${k}`)}>{l}</Button>)}
       </nav>
@@ -455,7 +497,7 @@ function Todo({ data }) {
 
 const withoutManual = () => { const u = new URL(window.location.href); u.searchParams.delete('manual'); return u; };
 
-export default function ImportHandover({ data, me, initialManual }) {
+export default function ImportHandover({ data, me, initialManual, knowledge = [], deptId = '' }) {
   const [theme, setTheme] = useState('B');
   const [kind, setKind] = useState('daily');
   const [openId, setOpenId] = useState(initialManual || null);
@@ -521,7 +563,7 @@ export default function ImportHandover({ data, me, initialManual }) {
             </details>
           </div>
         )}
-        {manual ? <ManualView key={manual.id} manual={manual} manuals={data.manuals} onBack={back} onOpen={open} blurred={data.captureInfo?.clarity !== 'clear'} /> : (
+        {manual ? <ManualView key={manual.id} manual={manual} manuals={data.manuals} knowledge={knowledge} deptId={deptId} onBack={back} onOpen={open} blurred={data.captureInfo?.clarity !== 'clear'} /> : (
           <>
             <Tabs label="업무표 보기" items={kinds} value={kind} onChange={setKind} />
             <h3 className="sr">{tabLabel}</h3>
@@ -606,6 +648,10 @@ export default function ImportHandover({ data, me, initialManual }) {
         .ih .wk .wkitems { list-style: none; margin: 0; padding: 0; line-height: 1.9; }
         .ih .wk .wktbl td:first-child { white-space: nowrap; width: 90px; }
         .ih .mhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .ih .mtool-link { text-decoration: none; gap: 5px; }
+        .ih .mcaution { margin: 8px 0; }
+        .ih .mcaution-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding-top: 4px; font-size: 13px; }
+        .ih .mcaution-head a, .ih .mcaution li a { color: var(--pm-link); text-decoration: underline; }
         .ih .openq { background: var(--pm-est-bg); color: var(--pm-est-ink); border-radius: var(--pm-radius); padding: 6px 10px; }
         .ih .toc { position: sticky; top: 0; z-index: 5; display: flex; gap: 6px; overflow-x: auto; padding: 8px 0; margin: 8px 0; background: var(--pm-surface); border-bottom: 1px solid var(--pm-line); }
         .ih .toc .pmk-btn { flex: none; white-space: nowrap; }

@@ -1,13 +1,15 @@
 // pages/work/manuals.js
 // 부서별 업무 매뉴얼 — 부서=폴더, 업무=아이콘. 홈 화면처럼 빈칸 없이 붙고 끌어서 순서를 바꾼다.
 // 열람: 사장님(nenovaSS3) 전체 / 직원 본인 매뉴얼만 (API에서 거름). 저장소는 웹 전용 JSON(lib/workManuals.js).
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Notice, PmUiStyles, Skeleton, ToggleChip } from '../../components/pm/ui';
 import { allThemesCss } from '../../lib/pmThemes';
 import { LOOK_CLEAR, lookClearCss } from '../../lib/pmLookClear';
 import RoutineManual from '../../components/manuals/RoutineManual';
 import LivePipelineManual from '../../components/manuals/LivePipelineManual';
 import ImportHandover from '../../components/manuals/ImportHandover';
+import ManualSearchBar from '../../components/manuals/ManualSearchBar';
+import ManualAdminBriefing from '../../components/manuals/ManualAdminBriefing';
 
 const TINTS = ['#2F6FEB', '#1E8E5A', '#C2410C', '#7C3AED', '#0E7490', '#B45309'];
 const STATUS = {
@@ -168,6 +170,8 @@ export default function WorkManualsPage() {
   const [deptParam, setDeptParam] = useState(null); // ?dept=<id> — 처음 보여 줄 부서
   const [deptPick, setDeptPick] = useState(null); // 사람이 단추로 고른 부서
   const [view, setView] = useState('routine'); // routine=부서별 신입 루틴(기본) / drafts=직원별 절차 초안 / live=라이브 매뉴얼(단계 캡처 재생)
+  const [foldOpen, setFoldOpen] = useState(false);
+  const foldRef = useRef(null);
 
   useEffect(() => { try { const q = new URLSearchParams(window.location.search); setManualParam(q.get('manual')); setDeptParam(q.get('dept')); } catch { /* 주소 읽기 실패 — 업무표부터 */ } }, []);
   const [busy, setBusy] = useState(false);
@@ -230,6 +234,23 @@ export default function WorkManualsPage() {
     setDeptPick(id); setManualParam(null);
     try { const u = new URL(window.location.href); u.searchParams.set('dept', id); u.searchParams.delete('manual'); window.history.replaceState({}, '', u); } catch { /* 주소를 못 바꿔도 화면은 바뀐다 */ }
   };
+  const openSearchManual = (targetDeptId, targetManualId) => {
+    if (targetDeptId && byId(targetDeptId)) setDeptPick(targetDeptId);
+    setManualParam(targetManualId || null);
+    setView('routine');
+    try {
+      const u = new URL(window.location.href);
+      if (targetDeptId && byId(targetDeptId)) u.searchParams.set('dept', targetDeptId);
+      if (targetManualId) u.searchParams.set('manual', targetManualId);
+      else u.searchParams.delete('manual');
+      window.history.replaceState({}, '', u);
+    } catch { /* 주소 동기화 생략 */ }
+  };
+  const openFoldView = (nextView) => {
+    setView(nextView);
+    setFoldOpen(true);
+    setTimeout(() => foldRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 40);
+  };
   const deptBar = (
     <div className="pm wm-dept" data-theme="B" data-look={LOOK_CLEAR}>
       <PmUiStyles />
@@ -237,12 +258,26 @@ export default function WorkManualsPage() {
       <div className="wm-dept-chips" role="group" aria-label="부서 선택">
         {handovers.map((h) => <ToggleChip key={h.id} on={h.id === curDept.id} onClick={() => pickDept(h.id)}>{h.name}</ToggleChip>)}
       </div>
+      <ManualSearchBar
+        handovers={handovers}
+        curDept={curDept}
+        knowledge={data.knowledge || []}
+        drafts={data.manuals || []}
+        routines={data.routines}
+        onOpenManual={openSearchManual}
+        onOpenDrafts={() => openFoldView('drafts')}
+        onOpenLive={() => setView('live')}
+        onOpenRoutines={() => openFoldView('routine')}
+      />
+      {data.isAdmin && data.adminBriefing && (
+        <ManualAdminBriefing isAdmin={data.isAdmin} briefing={data.adminBriefing} />
+      )}
       {!curDept.ready && <Notice tone="info" title="이 부서의 인수인계 자료는 준비 중입니다">자료가 올라오면 이 자리에 업무표와 매뉴얼이 나옵니다.</Notice>}
     </div>
   );
-  const handover = <>{deptBar}{curDept.ready && <ImportHandover key={curDept.id} data={curDept.data} me={data.me} initialManual={hasManual(curDept, manualParam) ? manualParam : null} />}</>;
+  const handover = <>{deptBar}{curDept.ready && <ImportHandover key={curDept.id} data={curDept.data} me={data.me} initialManual={hasManual(curDept, manualParam) ? manualParam : null} knowledge={data.knowledge || []} deptId={curDept.id} />}</>;
   const foldCss = <style jsx global>{waitCss}</style>;
-  if (view === 'routine' && data.routines) return <>{handover}{foldCss}<details className="wm-fold"><summary>다른 부서 업무 기록 보기</summary><RoutineManual routines={data.routines} me={data.me} onConfirm={confirmRoutine} onSwitch={() => setView('drafts')} onLive={() => setView('live')} /></details></>;
+  if (view === 'routine' && data.routines) return <>{handover}{foldCss}<details ref={foldRef} open={foldOpen} onToggle={(e) => setFoldOpen(e.currentTarget.open)} className="wm-fold"><summary>다른 부서 업무 기록 보기</summary><RoutineManual routines={data.routines} me={data.me} onConfirm={confirmRoutine} onSwitch={() => setView('drafts')} onLive={() => setView('live')} /></details></>;
 
   const depts = ordered(data.departments, layout.home, (d) => d.id);
   const dept = data.departments.find((d) => d.id === deptId);
@@ -252,7 +287,7 @@ export default function WorkManualsPage() {
   return (
     <>
     {handover}{foldCss}
-    <details className="wm-fold"><summary>다른 부서 업무 기록 보기</summary>
+    <details ref={foldRef} open={foldOpen} onToggle={(e) => setFoldOpen(e.currentTarget.open)} className="wm-fold"><summary>다른 부서 업무 기록 보기</summary>
     <div className="wm">
       <div className="top">
         {dept ? (

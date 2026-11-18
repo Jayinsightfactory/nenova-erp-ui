@@ -3744,6 +3744,15 @@ pm run test:canon 통과.
 4. 검증: 운영 11/18·17일, 17:49까지 178건 = 발주29·검토25·제외119·중복5. 원문77행과 집계65행 615단·295박스 일치, 제외대조124건. 실제 원문 변경/송신 없음.
 5. 주의: 가이드 회사 Drive 영상 186ndmhq2m89n9mdK39DDvrabJCjshaKY / 자막 1POUT3XBK1yclVMzAdalyUnMmzDzXorst / proof 1gMtT4FvhIQvObu05Dl-BKLlSkClC4KOQ. 원장 쓰기 없음.
 
+## 2026-11-18 업무 매뉴얼(/work/manuals) 통합 검색·지침 연계·관리자 브리핑 디벨롭
+- 요약: `/work/manuals`에 전 부서/부서별 빠른 키워드 검색, 원스톱·자동화 도구 바로가기 배지, `/operations-knowledge` 주의·이슈 지침 연계, 관리자(`nenovaSS3`) 전용 매뉴얼 커버리지·보완 브리핑 패널 추가.
+- 검색어: work manuals ManualSearchBar ManualAdminBriefing workManualsInsights operations-knowledge nenovaSS3 커버리지
+1. 작업 위치: nenova-erp-ui / feat/manuals-agent-insights / C:/Users/USER/nw-agy-p1-manuals / PR 생성·머지 진행.
+2. 완료된 것: `lib/workManualsInsights.js`, `components/manuals/ManualSearchBar.js`, `components/manuals/ManualAdminBriefing.js`, `components/manuals/ImportHandover.js`, `pages/api/work/manuals.js`, `pages/work/manuals.js`, `__tests__/workManualsUpgrade.test.js` 구현 및 검증; 기존 데스크톱 메뉴(`Layout.js`·`desktop/menu.json`) 연결 확인.
+3. 남은 할 일: PR CI 통과 → squash 머지 → worktree 정리(운영 화면 실접속 확인은 배포 후 후속).
+4. 검증 상태: `workManualsUpgrade.test.js`, `workflowReview.test.js`, `workManuals.test.js`, `desktop-knowledge-spacing-smoke.cjs`, `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack`(빌드 락 준수) 통과; 운영 라이브 배포 화면 실측은 미검증.
+5. 주의/잠금: 관리자 브리핑(`adminBriefing`)은 `isManualAdmin(nenovaSS3)`일 때만 API/UI 노출, 비관리자 비노출 유지. 작업자 노출 화면 금지어 부재 계약(`workManualsUpgrade.test.js`) 유지.
+
 ## 2026-11-18 · 입고관리 농장 검색·상세 가로 이동·최고가
 - 검색어: 입고관리 농장명 잘림 열 검색 상세 여백 상단 스크롤 최신원가 최고가 1.3.43
 1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/receipt-density-1118 / Documents/Codex/2026-11-12/new-chat/nw-receipt-density / PR 준비 중.
