@@ -3417,3 +3417,12 @@ pm run test:canon 통과.
 - 검증 상태: 공휴일/상세/공통24 통과, 개인 반복/달력 포함 대상15 통과. 실제 Chrome 1920/800/390에서 저장·권한·응답유실 재시도·Escape·접기·가로폭·새해1/6 기준 검증. 운영 및 직원 PC 설치 미검증.
 - 주의/잠금: 본 작업트리 desktop/shell, lib/companyCalendarStore.js, lib/personalHomeStore.js, 가이드 소스 작업 중. 원장/SQL 쓰기 없음. 직원 PC 재시작 금지(업무 중, 배포만 요청 유지).
 - 검색어: 국가 공휴일 중국 콜롬비아 네덜란드 이탈리아 태국 베트남 일본 미국 에콰도르 에티오피아 호주 일정 상세 비공개 주차별 즐겨찾기 영역 접기 달력 가로20% 1.3.35
+
+## 2026-11-18 홈 달력 공휴일·상세 편집·즐겨찾기 전체 접기 최종 검증
+- 작업 위치: nenova-erp-ui / codex/calendar-holidays-editor-1118 / Documents/Codex/2026-11-12/new-chat/work/nw-calendar-holidays-1118 / PR 생성 전.
+- 완료된 것: 한국+요청 11개국 공휴일 선택·색상·중국 대체근무일, 회사/개인 일정 상세 편집·비공개 격리·홈 알림, 주차별 차수/1월 기준일 보존, 즐겨찾기 영역 전체 접기/열기(실제 업무 탭 유지), 달력 가로폭 20% 확대·기존 글씨 유지. 14단계 실제 가이드 516.8초/42,958,275바이트, 자막76개·프레임 기준 번호/줌/목차 정렬·대표 장면 육안 확인.
+- 남은 할 일: PR CI·squash, Cafe24 운영 읽기 확인, Windows 1.3.35 설치본 무결성/공개 피드 확인. 직원 PC는 업무 중이므로 재시작하지 않음.
+- 검증 상태: desktop67, test:erp-contract 전체, dnSpy evidence, ERP manifest224, write guard, workflow guides23/24, 변경 소스 해시, 실제 가이드 플레이어14목차/한글자막/키보드/닫기pause/다운로드/1920·390px/JS0, 웹 정식 build 통과. 앞선 실제 Chrome 공휴일·개인/회사 편집·너비·권한·CAS·재시도 회귀 통과. 운영/직원 PC 새버전은 아직 미검증.
+- 주의/잠금: 공유 기본 체크아웃 수정 금지. 녹화 소스/가이드 갱신 완료, 다른 홈 비행기 PR #1820은 별도 Draft 범위. ERP·ECOUNT 쓰기 없음. 완료 후 해당 worktree 즉시 정리.
+- 회사 Drive 원본 보관 확인(크기까지 검증): MP4 13ocnQfonbVqE-xpyauub2WqZdj_bx74h / VTT 10XNEf5jK8moFSbXzGSWNIRG7j4nCAjAd / proof 1z9G7axD2nivg10oiH5FcoP-QE-whLvhe. 기존 1.3.34 자료 유지, 공개 공유 설정 변경 없음.
+- 검색어: calendar holidays 1.3.35 즐겨찾기 전체 접기 열기 달력 가로폭 20% 공휴일 12개국 개인 일정 상세 주차별 기준일 14단계 가이드
