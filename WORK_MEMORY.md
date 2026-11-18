@@ -3392,3 +3392,12 @@ pm run test:canon 통과.
 4. 검증 상태: 대상 desktop6 + presentation2 통과, SWC JSX parse, 직접manifest224/dnSpy/write guard 통과. Chrome 합성자료 1920폭 표/번호8건/펼치기/Enter접기/버튼높이 확인. 전체 ERP/manifest npm lifecycle은 Windows Bash NtCreateDirectoryObject ACCESS_DENIED 및 Chrome launch 실패. npm build는 desktop-flight-popup 가이드 source mismatch로 차단. 전체 gate/영상/운영 미검증.
 5. 주의/잠금: 본 worktree 비행기 표시 파일만 작업. 가이드 해시만 바꿔 우회하지 말 것. 다른 편·다른연도 같은 문구는 병합하지 않음. 메뉴 baseline: 반응형/키보드/단일기존전용화면틀 적용, 대량쓰기 해당없음, 가이드 미완료. desktop/menu.json은 canonical Layout 동기화로 기존 누락메뉴도 복구됨.
 - 후속 상태: 커밋 c790ee386 및 codex/import-flight-layout 원격 push 완료. GitHub 연결 도구 PR 생성은 403 Resource not accessible by integration, gh CLI는 401로 실패. PR 미생성/병합·배포 없음. GitHub 권한 복구 후 해당 브랜치 Draft PR 생성부터 재개.
+
+## 2026-11-18 GitHub 권한 오류 원인 확인 및 PR 생성 복구
+- 요약: 이전 gh 401은 계정 만료가 아니라 제한 실행 환경에서 Windows keyring 접근 실패. 정상 사용자 권한 gh auth status/API/PR 생성 성공. 연결 도구의 403은 별도 integration 권한이며 설정 변경 없이 gh 경로 사용. 앞선 '인증 만료' 설명 정정.
+- 검색어: GitHub 401 403 keyring sandbox require_escalated PR1820
+1. 작업 위치: nenova-erp-ui / codex/import-flight-layout / nw-cdx-flight / PR #1820.
+2. 완료된 것: 기존 Jayinsightfactory 인증 확인, 저장소 PR 조회 및 Draft PR 생성 성공. 자격증명 변경·권한 확대 없음.
+3. 남은 할 일: 비행기 화면 가이드 갱신/전체 검증/CI/병합/배포는 앞선 인계대로 미완료.
+4. 검증 상태: GitHub CLI 읽기·PR 쓰기 성공. connector 403 자체는 미해결이나 정상 CLI로 작업 가능.
+5. 주의/잠금: gh는 Windows keyring 접근 가능한 정상 사용자 권한으로 실행. 토큰 출력/파일저장 금지. PR은 Draft 유지.
