@@ -126,5 +126,20 @@
     "receiptOnlyName": "valid only as WarehouseMaster.FarmName, never synthesize FarmKey or distribution candidates",
     "crossYear": "candidate names global; write scope remains WarehouseKey + explicit year/week",
     "plan": "docs/plans/incoming-farm-search-2026-11-18.md"
+  },
+  "requestHandoff": {
+    "entry": "직접 수정→영업지원 요청으로 전환",
+    "preserves": [
+      "WarehouseKey",
+      "OrderYear",
+      "OrderWeek",
+      "mode",
+      "farmName",
+      "items",
+      "reason"
+    ],
+    "writeBeforeApproval": "기존 approval create/submit만 사용; ERP 원장 변경 없음",
+    "fixedShipment": "요청 등록을 막지 않음; 농장-only 확정 보존, 수량변경은 기존 최종승인 원자 처리",
+    "retry": "동일 operationId 생성 재확인, 생성된 draft의 현재 revision으로 submit"
   }
 }

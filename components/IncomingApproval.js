@@ -71,7 +71,7 @@ export default function IncomingApproval({ children, active = true }) {
     change({ ...matching, rows: checked ? [...matching.rows, { sdateKey: d.SdateKey, shipmentKey: detail.ShipmentKey, prodKey: detail.ProdKey, quantity: d.ShipmentQuantity, cost: d.Cost, date: d.DateText, createOrder: false }] : matching.rows.filter(r => r.sdateKey !== d.SdateKey) });
   };
   const patchRow = (index, patch) => change({ ...matching, rows: matching.rows.map((r, i) => i === index ? { ...r, ...patch } : r) });
-  const visible = list.filter(r => tab === 'review' ? r.Status === 'requested' : tab === 'history' ? ['applied', 'rejected', 'cancelled'].includes(r.Status) : ['draft', 'requested'].includes(r.Status));
+  const visible = list.filter(r => tab === 'review' ? r.Status === 'requested' : tab === 'history' ? true : ['draft', 'requested'].includes(r.Status));
   const issueCodes=(preview?.issues??[]).map(i=>i.code??'').join(' ');
   const generalProblem=issueCodes.includes('PREPARATION_FAILED');
   const distributionProblem=generalProblem||/STOCK|FARM_|ORDER|DATE|DISTRIBUTION/.test(issueCodes);
@@ -94,14 +94,16 @@ export default function IncomingApproval({ children, active = true }) {
     {!data ? <>
       <h3>{tab === 'request' ? '수입부 수정 요청' : tab === 'review' ? '영업지원 검토·확정' : '처리 이력'}</h3>
       <p className="notice">수입부는 수정값과 사유를 요청합니다. 영업지원은 영향 차수별 분배를 확인·수정하고 최종 확정합니다.</p>
+      {tab==='history'&&<p>요청 등록부터 검토·반영·반려·취소까지 표시합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인하세요.</p>}
       <button disabled={busy} onClick={() => run(refresh)}>요청 목록 새로고침</button>
-      <div className="scroll"><table><caption>입고 정정 요청 · 최근 200건</caption><thead><tr><th>요청</th><th>연도·차수</th><th>입고</th><th>상태</th><th>사유</th><th>요청자</th></tr></thead><tbody>{visible.map(r => <tr key={r.RequestId}><td><button disabled={busy} onClick={() => run(() => open(r.RequestId))}>#{r.RequestId} 열기</button></td><td>{r.correction.orderYear} / {r.correction.orderWeek}</td><td>#{r.correction.warehouseKey}</td><td>{r.reviewing && r.Status === 'requested' ? '검토 중' : labels[r.Status]}</td><td>{r.reason}</td><td>{r.RequestedBy}</td></tr>)}</tbody></table></div>
+      <div className="scroll"><table><caption>입고 정정 요청 · 최근 200건</caption><thead><tr><th>요청</th><th>연도·차수</th><th>입고</th><th>상태</th><th>사유</th><th>요청자</th><th>최근 처리 시각</th></tr></thead><tbody>{visible.map(r => <tr key={r.RequestId}><td><button disabled={busy} onClick={() => run(() => open(r.RequestId))}>#{r.RequestId} 열기</button></td><td>{r.correction.orderYear} / {r.correction.orderWeek}</td><td>#{r.correction.warehouseKey}</td><td>{r.reviewing && r.Status === 'requested' ? '검토 중' : labels[r.Status]}</td><td>{r.reason}</td><td>{r.RequestedBy}</td><td>{r.UpdatedAt?new Date(r.UpdatedAt).toLocaleString('ko-KR'):'—'}</td></tr>)}</tbody></table></div>
       {!visible.length && <p>해당 요청이 없습니다.</p>}
       {tab === 'request' && <section><h3>새 요청 작성</h3><p>아래 입고를 선택하고 ‘수입부 수정 요청’을 누르세요.</p>{children}</section>}
     </> : <section ref={detailRef} tabIndex={-1} aria-label="정정 요청 상세">
       <button disabled={busy} onClick={() => { if (canLeave()) { setData(null); setDirty(false); setPending(null); } }}>요청 목록으로</button>
+      <details><summary>요청 처리 이력 ({data.history?.length??0}건)</summary>{data.history?.length?<ol>{data.history.map((event,i)=><li key={i}>{new Date(event.CreatedAt).toLocaleString('ko-KR')} · {labels[event.FromStatus]??'작성'} → {labels[event.ToStatus]??event.ToStatus} · {event.Note}</li>)}</ol>:<p>등록된 처리 이력이 없습니다.</p>}</details>
       <h3>요청 #{request.requestId} · {labels[request.status]} · {request.correction.orderYear}/{request.correction.orderWeek}</h3>
-      <p>{request.reason}</p><p>농장 {request.baseline.receipt.header.FarmName} → {request.correction.farmName}</p>
+      <p><a target="_blank" rel="noopener noreferrer" href={`/estimate?popup=1&openFixStatus=1&year=${encodeURIComponent(request.correction.orderYear)}&week=${encodeURIComponent(request.correction.orderWeek.slice(0,2))}`}>확정 현황 확인·취소 ↗</a></p><p>{request.reason}</p><p>농장 {request.baseline.receipt.header.FarmName} → {request.correction.farmName}</p>
       <div className="scroll"><table><caption>입고 최종 수량</caption><thead><tr><th>품목</th><th>단위</th><th>현재</th><th>수정 후</th><th>차이</th></tr></thead><tbody>{(request.evidence?.receiptChanges ?? facts.receiptPlan.changes).map(c => <tr key={c.prodKey}><td>{c.prodName}</td><td>{c.unit}</td><td>{fmt(c.before)}</td><td>{fmt(c.after)}</td><td>{fmt(c.delta)}</td></tr>)}</tbody></table></div>
       {request.status === 'draft' && permissions.request && <button disabled={busy} onClick={() => action('submit')}>영업지원에 수정 요청</button>}
       {request.status === 'draft' && permissions.request && <button disabled={busy} onClick={() => setEditDraft(true)}>초안 수정</button>}
