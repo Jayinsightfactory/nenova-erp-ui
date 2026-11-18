@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { analyzeImportMessage, classifyImportFeed, importCustomerAliases, readLatestOrderImports } from '../lib/importKakaoOrderText.js';
+import { analyzeImportMessage, classifyImportFeed, importCustomerAliases, readLatestOrderImports, latestImportFeed } from '../lib/importKakaoOrderText.js';
 import { readRecentImports, importItemView, farmTotals, importTotalsText } from '../lib/importKakaoAdditions.js';
 const message=(text,id='a',time='2026년 11월 18일 오전 9:00')=>({id,time,text,sender:'fixture',items:[]});
 const parse=text=>analyzeImportMessage(message(text));
@@ -67,10 +67,14 @@ const flowerLines=['Astilbe Europa 50','Astilbe Washington 100','Clematis Amazin
 const many=parse('45-2차 네덜란드 발주 추가\nETA 11월 8일 일요일\nCL38\n'+flowerLines.map(s=>s+'스템').join('\n'));
 assert.equal(many.kind,'addition');assert.equal(many.items.length,23);assert.equal(many.items.reduce((n,r)=>n+Number(r.quantity),0),1445);assert(many.items.every(r=>r.group&&r.customer==='CL38'&&r.unit==='송이'));
 
-// Execute the actual route with a sheet-only dependency stub: no DB or external writes.
+// Execute the actual route with archive and sheet dependency stubs: no DB or external writes.
 const routeSource=fs.readFileSync(new URL('../pages/api/import/tools/kakao-additions.js',import.meta.url),'utf8').replace(/^import .*;\r?$/gm,'').replace('export default withAuth(','return withAuth(');
 let sheetReads=0;
-const route=new Function('withAuth','canManageInvoiceReceipt','getKakaoSheetId','readSheetValues','readImportDay','readRecentImports','classifyImportFeed','importCustomerAliases','readLatestOrderImports',routeSource)(fn=>fn,user=>user.allowed,()=> 'fixture',async()=>{sheetReads++;return [header,sheetRow('raw',a,'2026년 11월 18일 오전 9:00'),sheetRow('info','사진 3장','2026년 11월 18일 오전 9:01')];},(await import('../lib/importKakaoAdditions.js')).readImportDay,readRecentImports,classifyImportFeed,importCustomerAliases,readLatestOrderImports);
+const {offsetImportDay,readImportArchive}=await import('../lib/importKakaoArchive.js');
+const route=new Function('withAuth','canManageInvoiceReceipt','getKakaoSheetId','readSheetValues','todaySeoul','classifyImportFeed','importCustomerAliases','latestImportFeed','offsetImportDay','readImportArchive',routeSource)(
+  fn=>fn,user=>user.allowed,()=> 'fixture',async()=>{sheetReads++;return [header];},
+  ()=> '2026-11-18',classifyImportFeed,importCustomerAliases,latestImportFeed,offsetImportDay,
+  async(from,through)=>through==='2026-11-18'?[message('사진 3장','info','2026년 11월 18일 오전 9:01'), message(a,'archive:raw')]:[]);
 const call=async(method='GET',allowed=true,day='2026-11-18')=>{const res={code:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(code){this.code=code;return this;},end(){return this;},json(body){this.body=body;return this;}};await route({method,user:{allowed},query:{day}},res);return res;};
 const success=await call();assert.equal(success.body.messages.length,1);assert.equal(success.body.stats.excluded,1);assert.equal(success.body.messages[0].items[0].quantity,'30');assert(!('sender' in success.body.messages[0]));
 assert.equal((await call('POST')).code,405);assert.equal((await call('GET',false)).code,403);assert.equal((await call('GET',true,'2026-02-30')).code,400);assert.equal(sheetReads,1);
@@ -119,3 +123,41 @@ const auditRes={setHeader(){},json(body){this.body=body;return this;}};
 await route({method:'GET',user:{allowed:true},query:{day:'2026-11-18',audit:'1'}},auditRes);
 assert.equal(auditRes.body.audit.length,1);
 console.log('PASS opt-in omission audit, privacy, count reconciliation, exact contributors and manual review refresh');
+const mixedUnits = '45-2 네덜란드 발주 추가\n연습수국 2\n연습장미 60cm 100스팀';
+const mixedFeed = classifyImportFeed({messages:[message(mixedUnits)]});
+assert.equal(mixedFeed.stats.selected, 1);
+assert.equal(mixedFeed.stats.review, 0);
+assert.equal(mixedFeed.messages[0].items.filter(i=>i.reviewReason==='단위 확인 필요').length, 1);
+assert.deepEqual(totals([message(mixedUnits)]).map(r=>[r.quantity,r.unit]),[[100,'송이']]);
+assert.deepEqual(totals([message(mixedUnits),message(mixedUnits,'prior','2025년 11월 18일 오전 9:00')]).map(r=>r.year),['2025','2026']);
+assert.equal(parse(mixedUnits+'\n추가 취소합니다').kind,'review');
+assert.equal(parse(mixedUnits+'\n가격 확인 부탁').kind,'review');
+
+const priorToken = process.env.ORBIT_OWNER_TOKEN;
+process.env.ORBIT_OWNER_TOKEN = 'fixture-only';
+try {
+  const start = '2026-12-31T15:00:00.000Z';
+  const stamp = '2026-12-31T15:03:00.000Z';
+  const row = (id, source='nenovakakao') => ({external_message_id:String(id),source,chatroom:'수입방',created_at:stamp,sender:'fixture',message:a});
+  const first = Array.from({length:1000},(_,i)=>row(i));
+  let calls = 0;
+  const loaded = await readImportArchive('2027-01-01','2027-01-01',async(url,init)=>{
+    calls++;
+    assert.equal(url.pathname,'/api/kakao/messages');
+    assert.equal(url.searchParams.get('chatroom'),'수입방');
+    assert.equal(url.searchParams.get('startDate'),start);
+    assert.equal(init.redirect,'error');
+    assert.equal(init.headers.Authorization,'Bearer fixture-only');
+    return {ok:true,json:async()=>({ok:true,total:1001,messages:calls===1?first:[row(1000,'other-source')]})};
+  });
+  assert.equal(calls,2);
+  assert.equal(loaded.length,1000);
+  assert.match(loaded[0].id,/^archive:[a-f0-9]{64}$/);
+  assert.equal(loaded[0].time,'2027년 1월 1일 오전 12:03');
+  await assert.rejects(readImportArchive('2027-01-01','2027-01-01',async()=>({ok:true,json:async()=>({ok:true,total:2,messages:[row(1),row(1)]})})),/identity mismatch/);
+  await assert.rejects(readImportArchive('2027-01-01','2027-01-01',async()=>({ok:true,json:async()=>({ok:true,total:1,messages:[{...row(1),chatroom:'다른 방'}]})})),/identity mismatch/);
+  await assert.rejects(readImportArchive('2027-01-01','2027-01-01',async()=>({ok:true,json:async()=>({ok:true,total:2,messages:[row(1)]})})),/archive incomplete/);
+} finally {
+  if (priorToken === undefined) delete process.env.ORBIT_OWNER_TOKEN;
+  else process.env.ORBIT_OWNER_TOKEN = priorToken;
+}
