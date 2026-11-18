@@ -42,7 +42,28 @@ const flightPresentation = (() => {
     if (/공지|공유/.test(text)) return '원문 대조 후 공유 여부 확인';
     return '관련 자료 확인';
   }
-  return { issueRows, shortIssue, linkedFlights, nextAction };
+  // Keep labels/click targets separate; retain the projected anchor for leader lines.
+  function placeMarkers(points, width = 720, height = 272) {
+    const placed = [];
+    return points.map(point => {
+      const x = Math.max(12, Math.min(width - 150, point.x));
+      const y = Math.max(12, Math.min(height - 12, point.y));
+      const candidates = [];
+      for (let cx = 12; cx <= width - 150; cx += 160) {
+        for (let cy = 12; cy <= height - 12; cy += 24) candidates.push({ x: cx, y: cy });
+      }
+      for (let step = -Math.ceil(height / 24); step <= Math.ceil(height / 24); step++) {
+        const cy = y + step * 24;
+        if (cy >= 12 && cy <= height - 12) candidates.push({ x, y: cy });
+      }
+      candidates.unshift({ x, y });
+      candidates.sort((a,b) => Math.hypot(a.x-x,a.y-y) - Math.hypot(b.x-x,b.y-y));
+      const p = candidates.find(p => placed.every(q => Math.abs(p.x-q.x) >= 160 || Math.abs(p.y-q.y) >= 22)) || { x, y };
+      placed.push(p);
+      return { ...point, ...p, anchorX: point.x, anchorY: point.y };
+    });
+  }
+  return { issueRows, shortIssue, linkedFlights, nextAction, placeMarkers };
 })();
 if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
 /* 앱 홈 맨 위 「수입 비행기 현황」: 지도와 편별 상태. 메인 프로세스가 추려 준 읽기 전용 요약만 그린다(스타일은 CSP 때문에 JS 로 준다). */
@@ -51,7 +72,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
   if(typeof document==='undefined')return;
   const root=document.getElementById('flightBoard');
   if(!root||!window.desktop)return;
-  const {issueRows,shortIssue,linkedFlights,nextAction}=flightPresentation;
+  const {issueRows,shortIssue,linkedFlights,nextAction,placeMarkers}=flightPresentation;
   const SVG='http://www.w3.org/2000/svg',world=window.NenovaWorldMap||null;
   const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
   const css=(n,style)=>{Object.assign(n.style,style);return n;};
@@ -110,10 +131,11 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
     for(const w of vias.values()){const p=project(w.lon,w.lat);map.append(svg('rect',{x:p.x-2.6,y:p.y-2.6,width:'5.2',height:'5.2',transform:`rotate(45 ${p.x} ${p.y})`,fill:'#fff3bf',stroke:'#e67700','stroke-width':'1'}),svg('text',{x:p.x+5,y:p.y-4,'font-size':'8',fill:'#8a4b00',stroke:'#eef4fa','stroke-width':'2','paint-order':'stroke'},`${w.name}(경유)`));}
     const dest=data.destination;
     if(dest){const p=project(dest.lon,dest.lat);map.append(svg('circle',{cx:p.x,cy:p.y,r:'3.4',fill:'#d9480f',stroke:'#fff','stroke-width':'1'}),svg('text',{x:p.x+5,y:p.y+3,'font-size':'9','font-weight':'700',fill:'#b23c0a'},dest.name||'인천'));}
-    for(const f of flights){
-      if(f.status==='registered'&&!f.flightIssues?.length)continue;
-      const at=f.status==='arrived'?data.destination:f.status==='before_departure'?f.origin:(f.position||f.origin);if(!at)continue;
-      const p=project(at.lon,at.lat),g=svg('g'),waiting=f.phase==='layover'&&f.via;
+    const markerPoints=flights.flatMap(f=>{const at=f.status==='arrived'?data.destination:f.status==='before_departure'?f.origin:(f.position||f.origin);return at&&(f.status!=='registered'||f.flightIssues?.length)?[{...project(at.lon,at.lat),f}]:[];});
+    for(const p of placeMarkers(markerPoints,v.width,v.height)){
+      const f=p.f;
+      const g=svg('g'),waiting=f.phase==='layover'&&f.via;
+      if(p.x!==p.anchorX||p.y!==p.anchorY)map.append(svg('line',{x1:p.anchorX,y1:p.anchorY,x2:p.x,y2:p.y,stroke:'#667f99','stroke-width':'1','pointer-events':'none'}));
       const prefix=`${f.boardNumber}. ${f.flight||f.country} · `;
       const label=prefix+(f.status==='before_departure'?`${f.country} 출발 전`:waiting?`${f.country} · ${f.via.name} 대기`:f.status==='arrived'?'도착':`${Math.round((f.progress||0)*100)}%`);
       g.append(svg('title',{},`${f.weekLabel}차 ${f.country} ${f.flight} — ${f.statusLabel}`),svg('circle',{cx:p.x,cy:p.y,r:f.viewId===selectedViewId?'9':'7',fill:f.priority===0?'#b02a2a':(DOT[f.status]||'#1668c7'),stroke:'#fff','stroke-width':'1.4'}),svg('text',{x:p.x,y:p.y+2.6,'font-size':'6.5','text-anchor':'middle',fill:'#fff','font-weight':'700'},String(f.boardNumber)),

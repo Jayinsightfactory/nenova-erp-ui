@@ -3626,3 +3626,11 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
 4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(224건), `npx next build --webpack` 모두 통과. 운영 배포 후 브라우저 시각 확인은 별도 미수행(미검증).
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건(UI 설명·청사진 섹션 전용).
+
+## 2026-11-18 · 비행기 운영 스모크 지도 클릭 보완
+- 검색어: flight-map-selection placeMarkers 지도 겹침 Desktop1.3.39
+1. 작업 위치: codex/flight-map-selection-1118 / c027/nenova-erp-ui/flight-fix / 후속 PR 준비.
+2. 완료: #1834 운영 반영, 이슈11→3 확인. 인천 근접 두 지도 표시 클릭 겹침 발견, 공통 배치 함수와 원래 위치 연결선 추가.
+3. 남은 일: 후속 필수검사/CI/배포 → 비공개 1.3.39 설치 자산 교체·공개 → 설치 앱 확인.
+4. 검증: 근접·교차연도·경계 회귀4건, 합성 실제 브라우저 마우스 양방향 선택 통과. 전체 검사 진행 중.
+5. 주의: 원본 좌표·업무 상태·SQL 불변. 기존 1.3.39 릴리스는 아직 draft이며 공개 전 새 설치 자산으로 교체해야 함.
