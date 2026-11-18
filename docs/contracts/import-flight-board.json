@@ -13,7 +13,9 @@
     "lib/importFlightChecklist.js",
     "lib/importFlightDocsStore.js",
     "lib/importRoomEvents.js",
-    "components/home/ImportFlightBoard.js"
+    "components/home/ImportFlightBoard.js",
+    "desktop/shell/flight-board.js",
+    "pages/desktop-flight.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -54,7 +56,8 @@
     "__tests__/importFlightChecklist.test.js",
     "__tests__/importFlightSources.test.js",
     "__tests__/importRoomEvents.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "desktop/tests/flight-presentation.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -77,5 +80,11 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
-  ]
+  ],
+  "presentation": {
+    "menu": "수입 비행기 현황",
+    "issues": "번호/이슈/상세; no week/country/flight columns; deduplicate by flight identity and exact normalized text",
+    "details": "Map alongside selected detail; airport latest ETA displayed once; prediction labels preserved",
+    "sideEffects": "Presentation only; all existing API requests and ERP ledger values preserved"
+  }
 }
