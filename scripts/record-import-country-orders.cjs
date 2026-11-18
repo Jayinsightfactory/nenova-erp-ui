@@ -32,7 +32,7 @@ async function main(){
     if(url.origin!==base)return req.abort();
     if(!url.pathname.startsWith('/api/'))return req.continue();
     let data={success:true,items:[],rows:[],products:[],data:[],value:null,revision:0,history:[],user};
-    if(url.pathname.endsWith('/kakao-additions')) data={from:'2026-11-17',to:'2026-11-18',latest:'2026년 11월 18일 오전 9:10',messages:[{id:'sample',time:'오전 9:10',week:'46-01',text:'연습 업체 Moon Light 2박스 추가',items:[{key:'1',group:'콜롬비아수국',product:'Moon Light',customer:'연습 업체',quantity:'2',unit:'박스',status:'매칭'}]}]};
+    if(url.pathname.endsWith('/kakao-additions')) data={from:'2026-11-17',to:'2026-11-18',latest:'2026년 11월 18일 오전 9:10',messages:[{id:'sample',time:'오전 9:10',week:'46-01',text:'연습자료: Moon Light 주광 1, 미우 2, 일신 1박스 추가',items:[['주광','1'],['미우','2'],['일신','1']].map(([customer,quantity],index)=>({key:String(index+1),group:'콜롬비아수국',product:'Moon Light',customer,quantity,unit:'박스',status:'매칭'}))}]};
     if(url.pathname.endsWith('/country-orders')){
       const country=url.searchParams.get('country'),exact=url.searchParams.get('orderWeek');
       if(exact)details.push(exact);
@@ -99,22 +99,29 @@ async function main(){
   assert(farmFile,'farm download saved');const farmWb=XLSX.readFile(path.join(downloadDir,farmFile));assert.equal(farmWb.SheetNames[0],'업체별 발주');assert.equal(farmWb.Sheets['업체별 발주'].C5.v,15);
   for(const [n,id,label,selector,caption,key] of [
     [16,'chat','최근 2일 카톡 확인','.kakao-additions > button','오늘과 어제의 카톡을 최신순으로 자동 표시합니다. 새로 조회해도 선택한 추가분은 유지됩니다.','Enter'],
-    [17,'sum','추가분 합산','.kakao-additions input[type="checkbox"]','이번에 전달할 추가분을 체크하면 품종 합계와 업체별 수량이 표시됩니다.','Space'],
+    [17,'sum','추가분 자동 합계','.kakao-table','Moon Light 총 4박스와 비고의 주광 1, 미우 2, 일신 1을 확인합니다. 품목과 수량은 자동 합산됩니다.',null],
     [18,'copy','농장 전달용 복사','.kakao-additions .kakao-table + button','합계와 비고를 복사해 농장에 전달합니다.','Enter']
   ]){
     await page.waitForSelector(selector,{visible:true});
     await page.$eval(selector,b=>b.scrollIntoView({block:'center'}));
     rec.chapter(id,n+'. '+label);await rec.caption(n+'. '+label+' · '+caption);await rec.pause(2300);await rec.focus(selector,n);
-    await page.focus(selector);await page.keyboard.press(key);await rec.pause(2800);await rec.unfocus();
+    if(key){await page.focus(selector);await page.keyboard.press(key);}await rec.pause(2800);await rec.unfocus();
   }
-  assert((await page.$eval('.kakao-table',el=>el.textContent)).includes('연습 업체 2'));
+  assert((await page.$eval('.kakao-table',el=>el.textContent)).includes('주광 1, 미우 2, 일신 1'));
   assert.equal(await page.$('.kakao-additions input[type="date"]'),null);
   assert(await page.$eval('.kakao-additions details',node=>node.open));
   await page.click('.kakao-additions > button');
   await page.waitForNetworkIdle();
   assert(await page.$eval('.kakao-additions input[type="checkbox"]',node=>node.checked));
-  assert((await page.$eval('.kakao-table',node=>node.textContent)).includes('연습 업체 2'));
+  assert((await page.$eval('.kakao-table',node=>node.textContent)).includes('주광 1, 미우 2, 일신 1'));
 
+  assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'4 박스');
+  await page.click('.kakao-additions input[type="checkbox"]');
+  assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'3 박스');
+  await page.click('.kakao-additions > button');await page.waitForNetworkIdle();
+  assert.equal(await page.$eval('.kakao-additions input[type="checkbox"]',n=>n.checked),false);
+  assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'3 박스');
+  console.log('PASS initial automatic total4, customer remarks, manual exclusion3 preserved after refresh');
   const result=await rec.stop();stopped=true;
   if(!dry){workflow.guides[0].chapters=result.chapters;workflow.guides[0].status='ready';fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');}
   if(dry){
