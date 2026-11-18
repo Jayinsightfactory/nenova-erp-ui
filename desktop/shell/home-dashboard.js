@@ -8,9 +8,12 @@
   const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
   let owner='',generation=0,visible=false,online=false,selected=today(),month=selected.slice(0,7),days=[],boardBusy=false,calendarRead=0,timer,weekAnchor=selected,weekData=null;
   let showPersonal=true,showCompany=true,seenAddition=null;
+  const countryNames={KR:'한국',CO:'콜롬비아',CN:'중국',NL:'네덜란드',IT:'이탈리아',TH:'태국',VN:'베트남',JP:'일본',US:'미국',EC:'에콰도르',ET:'에티오피아',AU:'호주'};
+  const countryDefaults={KR:'#be365c',CO:'#a16a10',CN:'#c43c31',NL:'#b85d16',IT:'#27825a',TH:'#7254b3',VN:'#ad4b49',JP:'#b04c79',US:'#3e64ab',EC:'#8a7113',ET:'#38734c',AU:'#247e91'};
+  let holidayCountries=['KR'],holidayColors={...countryDefaults},showMakeupDays=false;
   const preferenceKey=()=> 'nenova-calendar-view-v1:'+encodeURIComponent(owner);
-  function saveView(){if(owner)try{localStorage.setItem(preferenceKey(),JSON.stringify({personal:showPersonal,company:showCompany,seen:seenAddition}));}catch{}}
-  function restoreView(){showPersonal=true;showCompany=true;seenAddition=null;try{const saved=JSON.parse(localStorage.getItem(preferenceKey()));if(saved){showPersonal=saved.personal!==false;showCompany=saved.company!==false;seenAddition=Number.isSafeInteger(saved.seen)&&saved.seen>=0?saved.seen:null;}}catch{}}
+  function saveView(){if(owner)try{localStorage.setItem(preferenceKey(),JSON.stringify({personal:showPersonal,company:showCompany,seen:seenAddition,holidayCountries,holidayColors,showMakeupDays}));}catch{}}
+  function restoreView(){showPersonal=true;showCompany=true;seenAddition=null;holidayCountries=['KR'];holidayColors={...countryDefaults};showMakeupDays=false;try{const saved=JSON.parse(localStorage.getItem(preferenceKey()));if(saved){showPersonal=saved.personal!==false;showCompany=saved.company!==false;seenAddition=Number.isSafeInteger(saved.seen)&&saved.seen>=0?saved.seen:null;if(Array.isArray(saved.holidayCountries))holidayCountries=[...new Set(saved.holidayCountries.filter(c=>Object.hasOwn(countryNames,c)))];for(const code of Object.keys(countryNames))if(/^#[a-f0-9]{6}$/i.test(saved.holidayColors?.[code]))holidayColors[code]=saved.holidayColors[code];showMakeupDays=saved.showMakeupDays===true;}}catch{}}
   let companyError='';const company=window.NenovaCompanyCalendar.create(message=>{companyError=message||'';if(window.homeDashboard)paint();});
   const open=(query)=>window.desktop.invoke('open',{url:'/pm?'+query,title:'개발요청 게시판'}).catch(e=>{boardStatus.textContent=e.message;});
   const head=el('div','workspace-card-heading'),title=el('h2','','개발요청 게시판'),actions=el('div','workspace-actions');
@@ -41,10 +44,11 @@
   const valid=date=>date>='2000-01-01'&&date<='2100-12-31';
   const calHead=el('div','workspace-card-heading'),calTitle=el('h2'),calActions=el('div','workspace-actions');
   const prev=btn('‹',()=>browse(-1)),next=btn('›',()=>browse(1)),now=btn('오늘',()=>choose(today()));
-  now.id='calendarToday';
+  now.id='calendarToday';prev.id='calendarPreviousMonth';next.id='calendarNextMonth';
   const companyAdd=btn('＋ 회사 공통 일정',()=>company.open(selected),'workspace-primary');companyAdd.id='companyCalendarButton';
+  const holidaySettings=btn('달력 설정',()=>openHolidaySettings());holidaySettings.id='calendarSettingsButton';
   const monthToggle=btn('접기 ▴',()=>setMonthOpen(!monthOpen)),weekToggle=btn('접기 ▴',()=>setWeekOpen(!weekOpen));let monthOpen=true,weekOpen=true;
-  const calTitleGroup=el('div','calendar-title-group');calTitleGroup.append(calTitle,companyAdd);calActions.append(prev,next,now,monthToggle);calHead.append(calTitleGroup,calActions);
+  const calTitleGroup=el('div','calendar-title-group');calTitleGroup.append(calTitle,companyAdd);calActions.append(holidaySettings,prev,next,now,monthToggle);calHead.append(calTitleGroup,calActions);
   const monthView=el('div','calendar-month-view'),week=el('div','calendar-week');for(const name of ['일','월','화','수','목','금','토'])week.append(el('span','',name));
   const grid=el('div','calendar-grid');grid.setAttribute('role','group');grid.setAttribute('aria-label','날짜 선택 · 방향키 이동');monthView.append(week,grid);monthView.id='monthCalendarBody';monthToggle.setAttribute('aria-controls',monthView.id);
   const monthHint=el('p','calendar-month-hint','날짜를 선택하면 아래 주간 시간표와 오른쪽 업무가 함께 바뀝니다. 숫자는 완료 / 전체 업무입니다.');
@@ -68,33 +72,61 @@
     personalFilter.setAttribute('aria-pressed',String(showPersonal));companyFilter.setAttribute('aria-pressed',String(showCompany));
     companyBadge.hidden=!unread;companyFilter.setAttribute('aria-label','회사 공통'+(unread?' · 새 일정 있음':''));
   }
-  const calStatus=el('p','calendar-status');calStatus.setAttribute('role','status');calendar.append(calHead,filters,monthView,monthHint,weeklyHeading,legend,weekScroll,calStatus);
+  const holidaySummary=el('p','calendar-holiday-summary'),alerts=el('div','calendar-reminders');alerts.hidden=true;alerts.setAttribute('aria-label','일정 홈 알림');let alertSignature='';
+  const calStatus=el('p','calendar-status');calStatus.setAttribute('role','status');calendar.append(calHead,filters,holidaySummary,alerts,monthView,monthHint,weeklyHeading,legend,weekScroll,calStatus);
+  const settingsDialog=el('dialog','company-dialog holiday-settings-dialog'),settingsTitle=el('h2','','달력 설정');settingsTitle.id='holidaySettingsTitle';settingsDialog.setAttribute('aria-labelledby',settingsTitle.id);
+  const countryRows=el('div','holiday-country-options'),countryInputs={},countryColorInputs={};
+  for(const [code,name] of Object.entries(countryNames)){const row=el('div','holiday-country-row'),label=el('label'),input=el('input'),color=el('input');input.type='checkbox';input.value=code;input.name='holidayCountry';label.append(input,document.createTextNode(name));color.type='color';color.setAttribute('aria-label',name+' 공휴일 색상');countryInputs[code]=input;countryColorInputs[code]=color;row.append(label,color);countryRows.append(row);}
+  const makeupLabel=el('label','holiday-makeup-option'),makeup=el('input');makeup.type='checkbox';makeupLabel.append(makeup,document.createTextNode('중국 대체근무일도 표시'));
+  const cancelSettings=()=>{settingsDialog.close();holidaySettings.focus();};
+  const settingsActions=el('div','company-dialog-actions');settingsActions.append(btn('취소',cancelSettings),btn('설정 저장',()=>{holidayCountries=Object.keys(countryNames).filter(c=>countryInputs[c].checked);holidayColors=Object.fromEntries(Object.keys(countryNames).map(c=>[c,countryColorInputs[c].value]));showMakeupDays=makeup.checked;saveView();paint();cancelSettings();},'workspace-primary'));
+  const allCountries=el('div','holiday-selection-actions');allCountries.append(btn('모두 선택',()=>Object.values(countryInputs).forEach(n=>n.checked=true)),btn('모두 해제',()=>Object.values(countryInputs).forEach(n=>n.checked=false)));
+  settingsDialog.append(settingsTitle,el('p','company-help','표시할 국가와 색상을 선택하세요. 이 PC의 로그인 계정별로 기억합니다.'),allCountries,countryRows,makeupLabel,el('p','company-help','전국 공휴일 기준 · 미국·호주 등의 지역별 휴일과 업체별 휴무는 포함하지 않습니다. 중국 휴무 조정은 2026·2027년 정부 공지를 반영하며, 다른 연도는 기본 공휴일 규칙을 표시합니다. 종교 휴일의 예정일은 현지 확정에 따라 바뀔 수 있습니다.'),settingsActions);document.body.append(settingsDialog);
+  settingsDialog.addEventListener('cancel',e=>{e.preventDefault();cancelSettings();});
+  function openHolidaySettings(){if(!owner)return;for(const code of Object.keys(countryNames)){countryInputs[code].checked=holidayCountries.includes(code);countryColorInputs[code].value=holidayColors[code];}makeup.checked=showMakeupDays;settingsDialog.showModal();countryInputs.KR.focus();}
+  const holidayDialog=el('dialog','company-dialog holiday-detail-dialog'),holidayDialogTitle=el('h2','','공휴일 정보'),holidayDetails=el('div');holidayDialogTitle.id='holidayDetailTitle';holidayDialog.setAttribute('aria-labelledby',holidayDialogTitle.id);let holidayTrigger=null,holidayDate='';
+  const holidayClose=()=>{holidayDialog.close();holidayTrigger?.focus();};const holidayActions=el('div','company-dialog-actions');holidayActions.append(btn('닫기',holidayClose),btn('이 날짜에 일정 추가',()=>{holidayDialog.close();company.open(holidayDate);},'workspace-primary'));holidayDialog.append(holidayDialogTitle,holidayDetails,holidayActions);document.body.append(holidayDialog);holidayDialog.addEventListener('cancel',e=>{e.preventDefault();holidayClose();});
+  function holidaysOn(date){return (company.holidays?.entries||[]).filter(h=>h.date===date&&holidayCountries.includes(h.country)&&(h.kind!=='workday'||showMakeupDays));}
+  function openHoliday(date){holidayDate=date;holidayTrigger=document.activeElement;holidayDetails.replaceChildren(el('p','',new Intl.DateTimeFormat('ko-KR',{dateStyle:'full',timeZone:'Asia/Seoul'}).format(new Date(date+'T12:00:00+09:00'))));for(const h of holidaysOn(date)){const row=el('p','holiday-detail-row');row.append(el('strong','',countryNames[h.country]+' · '+h.name),el('small','',h.originalName));holidayDetails.append(row);}holidayDetails.append(el('p','company-help','공휴일은 해당 국가의 현지 날짜 기준입니다. 기준 자료 확인일 '+(company.holidays?.reviewedAt||'확인 중')+' · 공휴일 자료는 직접 수정하지 않으며, 별도 업무 일정은 추가할 수 있습니다.'));holidayDialog.showModal();}
+  function holidayButton(h,date){const button=btn(countryNames[h.country]+' · '+h.name,()=>openHoliday(date),'calendar-holiday'+(h.kind==='workday'?' is-workday':''));button.dataset.country=h.country;button.style.setProperty('--holiday-color',holidayColors[h.country]);button.title=countryNames[h.country]+' · '+h.name+' · 현지 날짜 '+date;return button;}
+  const visibleEvents=()=>company.events.filter(event=>event.visibility==='private'?showPersonal:showCompany);
+  function paintReminders(){
+    if(!owner||!visible||document.hidden)return;
+    let dismissed=[];const key='nenova-calendar-reminders:'+encodeURIComponent(owner);try{dismissed=JSON.parse(localStorage.getItem(key))||[];if(!Array.isArray(dismissed))dismissed=[];}catch{}
+    const own=(showPersonal?weekData?.days||[]:[]).flatMap(day=>(day.tasks||[]).map(t=>({...t,date:day.date}))),stamp=Date.now();
+    const due=[...visibleEvents().map(event=>({...event,managed:true})),...own].filter(event=>event.startTime&&!event.done&&Number.isInteger(event.details?.reminderMinutes)).map(event=>({...event,at:Date.parse(event.date+'T'+event.startTime+':00+09:00')})).filter(event=>stamp>=event.at-event.details.reminderMinutes*60000&&stamp<event.at+600000).map(event=>({...event,key:event.id+'|'+event.date+'|'+event.startTime+'|'+event.details.reminderMinutes})).filter(event=>!dismissed.includes(event.key));
+    const signature=JSON.stringify(due.map(e=>[e.key,e.title]));if(signature===alertSignature)return;alertSignature=signature;alerts.replaceChildren();alerts.hidden=!due.length;if(!due.length)return;alerts.append(el('strong','','일정 홈 알림'));
+    for(const event of due.slice(0,5)){const row=el('div','calendar-reminder');row.append(btn(event.startTime+' · '+event.title,()=>event.managed?company.openEvent(event):window.homeWorkspace?.editTask(event.date,event.id)),btn('확인',()=>{dismissed.push(event.key);try{localStorage.setItem(key,JSON.stringify(dismissed.slice(-100)));}catch{}alertSignature='';paintReminders();}));alerts.append(row);}
+    if(due.length>5)alerts.append(el('small','',String(due.length-5)+'건의 알림이 더 있습니다. 위 알림을 확인하면 이어서 표시됩니다.'));
+  }
+  setInterval(paintReminders,30000);
   function setMonthOpen(value){monthOpen=value;monthView.hidden=!value;monthHint.hidden=!value;monthToggle.textContent=value?'접기 ▴':'열기 ▾';monthToggle.setAttribute('aria-expanded',String(value));}
   function setWeekOpen(value){weekOpen=value;weekScroll.hidden=!value;legend.hidden=!value;weekToggle.textContent=value?'접기 ▴':'열기 ▾';weekToggle.setAttribute('aria-expanded',String(value));}
   function paint(){
     prev.setAttribute('aria-label','이전 달');next.setAttribute('aria-label','다음 달');
     prev.disabled=!owner||month==='2000-01';next.disabled=!owner||month==='2100-12';now.disabled=!owner;
     weekPrev.disabled=!owner||!valid(shift(weekAnchor,-7));weekNext.disabled=!owner||!valid(shift(weekAnchor,7));
-    paintFilters();companyAdd.disabled=!owner||!online;setMonthOpen(monthOpen);setWeekOpen(weekOpen);paintMonth();paintWeek();
-    calStatus.textContent=companyError?'회사 공통 일정: '+companyError:company.truncated?'회사 공통 일정이 많아 일부만 표시됩니다. 날짜를 선택해 공통 일정에서 확인하세요.':owner?'선택 '+selected+' · 일정 선택: 오른쪽 업무 확인 · 빈 시간 선택: 해당 시간에 추가':'로그인하면 개인 업무 일정을 확인할 수 있습니다.';
+    paintFilters();companyAdd.disabled=!owner||!online;holidaySettings.disabled=!owner;setMonthOpen(monthOpen);setWeekOpen(weekOpen);paintMonth();paintWeek();paintReminders();holidaySummary.textContent=holidayCountries.length?'공휴일 · '+holidayCountries.map(c=>countryNames[c]).join(', ')+' · 현지 날짜 기준':'공휴일 표시 꺼짐 · 달력 설정에서 국가를 선택하세요.';
+    calStatus.textContent=companyError?'회사 공통 일정: '+companyError:company.truncated?'회사 공통 일정이 많아 일부만 표시됩니다. 날짜를 선택해 공통 일정에서 확인하세요.':owner?'선택 '+selected+' · 날짜 선택: 오른쪽 업무 · 제목 선택: 상세 수정 · 빈 시간: 업무 추가':'로그인하면 개인 업무 일정을 확인할 수 있습니다.';
   }
   function paintMonth(){
     const [year,m]=month.split('-').map(Number),first=new Date(Date.UTC(year,m-1,1)).getUTCDay(),length=new Date(Date.UTC(year,m,0)).getUTCDate();
     const focused=grid.contains(document.activeElement)?document.activeElement.dataset:null;
     const sharedByDate=new Map();
-    for(const event of showCompany?company.events:[]){if(!sharedByDate.has(event.date))sharedByDate.set(event.date,[]);sharedByDate.get(event.date).push(event);}
+    for(const event of visibleEvents()){if(!sharedByDate.has(event.date))sharedByDate.set(event.date,[]);sharedByDate.get(event.date).push(event);}
     calTitle.textContent=year+'년 '+m+'월';grid.replaceChildren();
     for(let i=0;i<first;i++){const spacer=el('span','calendar-spacer');spacer.setAttribute('aria-hidden','true');grid.append(spacer);}
     for(let d=1;d<=length;d++){
       const date=month+'-'+String(d).padStart(2,'0'),data=showPersonal?days.find(x=>x.date===date):null,cell=el('div','calendar-cell'),b=btn('',()=>choose(date),'calendar-day');b.dataset.date=date;cell.append(b);
       const top=el('span','calendar-date-top');top.append(el('span','calendar-date-number',String(d)));if(data?.total)top.append(el('small','',data.done+'/'+data.total));b.append(top);
+      const holidays=holidaysOn(date);for(const h of holidays.slice(0,3))cell.append(holidayButton(h,date));if(holidays.length>3)cell.append(btn('공휴일 외 '+(holidays.length-3)+'건',()=>openHoliday(date),'calendar-holiday-more'));
       for(const event of sharedByDate.get(date)||[]){
         const common=btn(event.title,()=>company.openEvent(event),'month-company');
         common.dataset.eventId=event.id;common.dataset.focus='month-event-'+event.id+'-'+date;
-        common.title=event.title+' · '+(event.startTime||'시간 미정')+' · 회사 공통 일정';common.setAttribute('aria-label',common.title);
+        common.title=event.title+' · '+(event.startTime||'시간 미정')+' · '+(event.visibility==='private'?'나만 보기':'회사 공통 일정');common.setAttribute('aria-label',common.title);if(event.visibility==='private')common.classList.add('is-private');
         window.NenovaCompanyCalendar.applyColor(common,event.color);cell.append(common);
       }
-      for(const task of showPersonal?data?.preview||[]:[]){const item=el('span','month-task'+(task.done?' is-done':''),(task.startTime?task.startTime+' ':'')+task.title);item.title=task.title;cell.append(item);}if(data?.total>(data?.preview?.length||0)&&data?.preview?.length)cell.append(el('span','month-more','＋ '+(data.total-data.preview.length)+'건'));
+      for(const task of showPersonal?data?.preview||[]:[]){const item=btn((task.startTime?task.startTime+' ':'')+task.title,()=>window.homeWorkspace?.editTask(date,task.id),'month-task'+(task.done?' is-done':''));item.dataset.focus='month-task-'+task.id+'-'+date;item.title=task.title+' · 내 업무 수정';if(task.details?.color)item.style.setProperty('--task-color',task.details.color);cell.append(item);}if(data?.total>(data?.preview?.length||0)&&data?.preview?.length)cell.append(el('span','month-more','＋ '+(data.total-data.preview.length)+'건'));
       b.setAttribute('aria-label',date+(data?' · 개인 업무 '+data.total+'건, 완료 '+data.done+'건':''));b.setAttribute('aria-pressed',String(date===selected));
       if(date===today())b.setAttribute('aria-current','date');b.disabled=!owner;b.tabIndex=date===(selected.startsWith(month)?selected:month+'-01')?0:-1;
       b.onkeydown=e=>{const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-7,ArrowDown:7}[e.key];if(delta===undefined)return;e.preventDefault();const target=shift(date,delta);if(target.slice(0,7)!==month)return;grid.querySelectorAll('.calendar-day').forEach(n=>n.tabIndex=n.dataset.date===target?0:-1);grid.querySelector('[data-date="'+target+'"]')?.focus();};grid.append(cell);
@@ -110,7 +142,7 @@
     for(const item of entries){if(group.length&&item.start>=end)flush();let lane=lanes.findIndex(v=>v<=item.start);if(lane<0)lane=lanes.length;lanes[lane]=item.end;item.lane=lane;group.push(item);end=Math.max(...group.map(v=>v.end));}flush();return entries;
   }
   function paintWeek(){
-    const start=monday(weekAnchor),dates=Array.from({length:7},(_,i)=>shift(start,i)),data=dates.map(date=>{const own=weekData?.start===start?weekData.days.find(day=>day.date===date):null;return {date,tasks:[...(showPersonal?own?.tasks||[]:[]),...(showCompany?company.events:[]).filter(event=>event.date===date).map(event=>({...event,company:true}))],more:showPersonal?own?.more||0:0};});
+    const start=monday(weekAnchor),dates=Array.from({length:7},(_,i)=>shift(start,i)),data=dates.map(date=>{const own=weekData?.start===start?weekData.days.find(day=>day.date===date):null;return {date,tasks:[...(showPersonal?own?.tasks||[]:[]),...visibleEvents().filter(event=>event.date===date).map(event=>({...event,company:true}))],more:showPersonal?own?.more||0:0};});
     const focus=weekView.contains(document.activeElement)?document.activeElement.dataset.focus:null;
     weekTitle.textContent='주간 시간표 · '+start.slice(0,4)+'년 '+Number(start.slice(5,7))+'월 '+Number(start.slice(8))+'일 – '+Number(dates[6].slice(5,7))+'월 '+Number(dates[6].slice(8))+'일';weekView.replaceChildren();
     const header=el('div','week-header');header.append(el('span','week-zone','KST'));
@@ -120,7 +152,7 @@
       b.onkeydown=e=>{const delta={ArrowLeft:-1,ArrowRight:1}[e.key];if(delta===undefined)return;e.preventDefault();weekView.querySelector('[data-focus="day-'+shift(date,delta)+'"]')?.focus();};header.append(b);
     }
     const allDay=el('div','week-allday');allDay.append(el('span','week-zone','시간 미정'));
-    for(const date of dates){const col=el('div','week-allday-items');const unscheduled=data.find(d=>d.date===date)?.tasks.filter(t=>!t.startTime)||[];for(const task of unscheduled.slice(0,3)){const b=btn(task.title,()=>task.company?company.openEvent(task):choose(date),'week-unscheduled'+(task.company?' is-company':'')+(task.done?' is-done':''));if(task.company)window.NenovaCompanyCalendar.applyColor(b,task.color);b.title=task.title+(task.company?' · 회사 공통 일정':'');b.dataset.focus=task.id+date;col.append(b);}if(unscheduled.length>3)col.append(btn('＋ '+(unscheduled.length-3)+'건',()=>unscheduled.slice(3).some(task=>task.company)?company.open(date):choose(date),'week-unscheduled'));allDay.append(col);}
+    for(const date of dates){const col=el('div','week-allday-items');const holidays=holidaysOn(date);for(const h of holidays.slice(0,2))col.append(holidayButton(h,date));if(holidays.length>2)col.append(btn('공휴일 '+holidays.length+'건 보기',()=>openHoliday(date),'calendar-holiday-more'));const unscheduled=data.find(d=>d.date===date)?.tasks.filter(t=>!t.startTime)||[];for(const task of unscheduled.slice(0,3)){const b=btn(task.title,()=>task.company?company.openEvent(task):window.homeWorkspace?.editTask(date,task.id),'week-unscheduled'+(task.company?' is-company':'')+(task.done?' is-done':''));if(task.company)window.NenovaCompanyCalendar.applyColor(b,task.color);b.title=task.title+(task.company?' · 회사 공통 일정':'');b.dataset.focus=task.id+date;col.append(b);}if(unscheduled.length>3)col.append(btn('＋ '+(unscheduled.length-3)+'건',()=>unscheduled.slice(3).some(task=>task.company)?company.open(date):choose(date),'week-unscheduled'));allDay.append(col);}
     const timed=data.flatMap(d=>d.tasks.filter(t=>t.startTime));const earliest=Math.min(8*60,...timed.map(t=>Math.floor(minutes(t.startTime)/60)*60)),latest=Math.min(1440,Math.max(19*60,...timed.map(t=>Math.ceil((t.endTime?minutes(t.endTime):minutes(t.startTime)+60)/60)*60)));
     const hourHeight=72, pixelsPerMinute=hourHeight/60;
     const height=(latest-earliest)*pixelsPerMinute,body=el('div','week-body'),axis=el('div','week-axis');body.style.height=(height+24)+'px';
@@ -132,9 +164,9 @@
       for(const item of layoutEvents(data.find(d=>d.date===date)?.tasks.filter(t=>t.startTime)||[])){
         const {task}=item,b=btn('',()=>task.company?company.openEvent(task):choose(date),'week-event'+(task.company?' is-company':'')+(task.done?' is-done':''));b.dataset.focus=task.id+date;b.dataset.taskId=task.id;
         if(task.company)window.NenovaCompanyCalendar.applyColor(b,task.color);
-        else b.dataset.color=String([...task.id].reduce((sum,c)=>sum+c.charCodeAt(0),0)%5);
+        else if(task.details?.color){b.style.background='color-mix(in srgb, '+task.details.color+' 12%, white)';b.style.borderLeftColor=task.details.color;}else b.dataset.color=String([...task.id].reduce((sum,c)=>sum+c.charCodeAt(0),0)%5);
         b.style.top=(item.start-earliest)*pixelsPerMinute+'px';b.style.height=Math.max(22,(Math.min(item.end,latest)-item.start)*pixelsPerMinute-3)+'px';b.style.left='calc('+item.lane/item.columns*100+'% + 3px)';b.style.width='calc('+100/item.columns+'% - 6px)';
-        b.append(el('strong','',task.title),el('small','',task.startTime+(task.endTime?' – '+task.endTime:' · 종료 미정')));b.title=date+' '+task.startTime+(task.endTime?'–'+task.endTime:' (종료 미정 · 기본 표시 1시간)')+' '+task.title+(task.done?' · 완료':'');b.setAttribute('aria-label',b.title+(task.company?' · 공통 일정 보기':' · 오른쪽 업무에서 확인'));col.append(b);
+        b.append(el('strong','',task.title),el('small','',task.startTime+(task.endTime?' – '+task.endTime:' · 종료 미정')));b.title=date+' '+task.startTime+(task.endTime?'–'+task.endTime:' (종료 미정 · 기본 표시 1시간)')+' '+task.title+(task.done?' · 완료':'');b.setAttribute('aria-label',b.title+(task.company?' · 공통 일정 보기':' · 내 업무 상세 수정'));col.append(b);
       }
       const more=data.find(d=>d.date===date)?.more;if(more){const b=btn('추가 '+more+'건 · 일별 보기',()=>choose(date),'week-more');col.append(b);}body.append(col);
     }
@@ -156,7 +188,7 @@
     if(changed||e.detail.calendar||e.detail.calendarWeek){paint();if(owner&&visible&&online)void company.load({month,week:weekAnchor,date:selected});}
   });
   window.homeDashboard={applyState(state){const previousVisible=visible,previousOnline=online,nextOwner='homeOwnerId'in state?String(state.homeOwnerId||''):owner,changed=nextOwner!==owner;
-    if(changed){monthOpen=true;weekOpen=true;owner=nextOwner;restoreView();company.setOwner(owner);companyError='';generation++;calendarRead++;boardBusy=false;clearTimeout(timer);list.replaceChildren();days=[];selected=today();weekAnchor=selected;weekData=null;month=selected.slice(0,7);boardStatus.textContent=owner?'개발요청을 확인합니다.':'로그인 후 개발요청을 확인할 수 있습니다.';}
+    if(changed){if(settingsDialog.open)settingsDialog.close();if(holidayDialog.open)holidayDialog.close();alertSignature='';alerts.replaceChildren();alerts.hidden=true;monthOpen=true;weekOpen=true;owner=nextOwner;restoreView();company.setOwner(owner);companyError='';generation++;calendarRead++;boardBusy=false;clearTimeout(timer);list.replaceChildren();days=[];selected=today();weekAnchor=selected;weekData=null;month=selected.slice(0,7);boardStatus.textContent=owner?'개발요청을 확인합니다.':'로그인 후 개발요청을 확인할 수 있습니다.';}
     if('menuOpen'in state)visible=!!state.menuOpen;if('online'in state)online=!!state.online;
     for(const b of [write,all,retry,webRequest].filter(Boolean))b.disabled=!owner||!online;if(changed||previousVisible!==visible||previousOnline!==online)paint();
     if(owner&&visible&&online&&(changed||!previousVisible||!previousOnline)){void loadBoard();void loadCalendar();}if(!visible||!online)clearTimeout(timer);

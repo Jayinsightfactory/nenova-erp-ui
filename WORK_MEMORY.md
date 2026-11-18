@@ -3449,3 +3449,29 @@ pm run test:canon 통과.
 3. 남은 할 일: PR/전체CI→squash→worktree잠금해제·즉시정리→Cafe24→운영읽기브라우저스모크/최종인계.
 4. 검증 상태: 전체ERP pre/core/post(최신upstream통합전)exit0,최종단위21/legacy·검색PC390/manifest224/쓰기API1/dnSpy/가이드/정식npm build/실제플레이어/현재두역할UI+승인응답유실통과. 최신전체통합은PR CI에서확인. 운영배포미검증.
 5. 주의/잠금: 운영원장/실제요청등록/확정취소/DB DML·DDL0. Farm마스터추가없음. 외부정리재발방지로머지전worktree잠금유지. 공유node_modules는정리시junction만삭제,기존f321원본미추적진단자료보존.
+
+### 2026-11-18 홈 달력 공휴일·상세 편집 구현 단계
+- 작업 위치: nenova-erp-ui / codex/calendar-holidays-editor-1118 / C:/Users/USER/Documents/Codex/2026-11-12/new-chat/work/nw-calendar-holidays-1118 / PR 준비.
+- 완료된 것: 한국+요청11개국 공휴일·국가/색상 선택, 중국 2026·2027 정부 연휴·대체근무 보정, 개인/공통 일정 직접 상세 편집·비공개·조회 중 홈 알림, 주차별 마감/새1차 유지. 즐겨찾기 영역 전체 접기/열기, 달력 글씨 유지·가로20% 확대. 별도 직원 메시지·초대 발송 없음.
+- 남은 할 일: 최종 14단계 가이드·필수 검사·CI·Cafe24·Windows 1.3.35 공개 및 운영 조회 검증.
+- 검증 상태: 공휴일/상세/공통24 통과, 개인 반복/달력 포함 대상15 통과. 실제 Chrome 1920/800/390에서 저장·권한·응답유실 재시도·Escape·접기·가로폭·새해1/6 기준 검증. 운영 및 직원 PC 설치 미검증.
+- 주의/잠금: 본 작업트리 desktop/shell, lib/companyCalendarStore.js, lib/personalHomeStore.js, 가이드 소스 작업 중. 원장/SQL 쓰기 없음. 직원 PC 재시작 금지(업무 중, 배포만 요청 유지).
+- 검색어: 국가 공휴일 중국 콜롬비아 네덜란드 이탈리아 태국 베트남 일본 미국 에콰도르 에티오피아 호주 일정 상세 비공개 주차별 즐겨찾기 영역 접기 달력 가로20% 1.3.35
+
+## 2026-11-18 홈 달력 공휴일·상세 편집·즐겨찾기 전체 접기 최종 검증
+- 작업 위치: nenova-erp-ui / codex/calendar-holidays-editor-1118 / Documents/Codex/2026-11-12/new-chat/work/nw-calendar-holidays-1118 / PR 생성 전.
+- 완료된 것: 한국+요청 11개국 공휴일 선택·색상·중국 대체근무일, 회사/개인 일정 상세 편집·비공개 격리·홈 알림, 주차별 차수/1월 기준일 보존, 즐겨찾기 영역 전체 접기/열기(실제 업무 탭 유지), 달력 가로폭 20% 확대·기존 글씨 유지. 14단계 실제 가이드 516.8초/42,958,275바이트, 자막76개·프레임 기준 번호/줌/목차 정렬·대표 장면 육안 확인.
+- 남은 할 일: PR CI·squash, Cafe24 운영 읽기 확인, Windows 1.3.35 설치본 무결성/공개 피드 확인. 직원 PC는 업무 중이므로 재시작하지 않음.
+- 검증 상태: desktop67, test:erp-contract 전체, dnSpy evidence, ERP manifest224, write guard, workflow guides23/24, 변경 소스 해시, 실제 가이드 플레이어14목차/한글자막/키보드/닫기pause/다운로드/1920·390px/JS0, 웹 정식 build 통과. 앞선 실제 Chrome 공휴일·개인/회사 편집·너비·권한·CAS·재시도 회귀 통과. 운영/직원 PC 새버전은 아직 미검증.
+- 주의/잠금: 공유 기본 체크아웃 수정 금지. 녹화 소스/가이드 갱신 완료, 다른 홈 비행기 PR #1820은 별도 Draft 범위. ERP·ECOUNT 쓰기 없음. 완료 후 해당 worktree 즉시 정리.
+- 회사 Drive 원본 보관 확인(크기까지 검증): MP4 13ocnQfonbVqE-xpyauub2WqZdj_bx74h / VTT 10XNEf5jK8moFSbXzGSWNIRG7j4nCAjAd / proof 1z9G7axD2nivg10oiH5FcoP-QE-whLvhe. 기존 1.3.34 자료 유지, 공개 공유 설정 변경 없음.
+- 검색어: calendar holidays 1.3.35 즐겨찾기 전체 접기 열기 달력 가로폭 20% 공휴일 12개국 개인 일정 상세 주차별 기준일 14단계 가이드
+
+## 2026-11-18 Desktop 1.3.36 최종 통합·가이드 재검증
+- 작업 위치: nenova-erp-ui / codex/calendar-holidays-editor-1118 / Documents/Codex/2026-11-12/new-chat/work/nw-calendar-holidays-1118 / PR #1822.
+- 완료된 것: 선행 #1821의 Desktop 1.3.35 흐름도·업데이트 안내를 보존하고 이번 버전을 1.3.36으로 분리. 최종 소스로 14단계 실제 가이드 514.3초/42,948,556바이트 재촬영, 자막76개 실제 프레임 대조·번호/줌/목차·처음/상세/마지막 장면 확인. 1.3.35 촬영·Drive 자료는 미공개 초안이며 최종 배포 근거는 아래 1.3.36 자료임.
+- 남은 할 일: 최종 헤드 CI 재확인·squash, Cafe24 운영 읽기/가이드 재생, Windows 1.3.36 파일·공개 피드 검증. 직원 PC 재시작 금지(업무 중, 배포까지만 승인).
+- 검증 상태: 통합 뒤 desktop67 및 실제 Chrome 공휴일/즐겨찾기 전체접기/권한/개인상세/주차별/너비/작은화면 재통과. 최종 14단계 실제 촬영과 매 자막·강조 전1920x1080 고정 검사 통과. test:workflow-guides23/24 및 changed-from origin/master 소스 해시 통과. 이전 전체 ERP·dnSpy·manifest224·write guard·정식 build 통과; 최신 헤드 필수 CI는 아직 진행 전. 운영/직원PC 새버전은 미검증.
+- 주의/잠금: 촬영 진행은 stdout의 Guide chapter 로그만 읽는다. Puppeteer.connect의 기본 viewport가 기존 촬영 창을 줄이는 문제를 발견해 해당 촬영은 폐기했고, 별도 브라우저 연결을 제거한 최종 촬영과 화면 크기 고정 검사를 추가함. 공유 기본 체크아웃/다른 홈 비행기 Draft #1820 수정 금지. ERP·ECOUNT 쓰기 없음. 병합 후 해당 worktree 즉시 정리.
+- 회사 Drive 최종 원본(크기 검증): MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol / VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat / proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn. 기존 자료 유지·공개 공유 변경 없음.
+- 검색어: calendar 1.3.36 즐겨찾기 전체 접기 열기 공휴일 국가 선택 상세 수정 주차별 Jan6 고정 viewport 가이드 14단계

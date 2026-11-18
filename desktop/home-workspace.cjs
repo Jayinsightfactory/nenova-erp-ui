@@ -19,6 +19,7 @@ function requestOptions(payload, owner) {
   const url = new URL(ROUTE, ORIGIN);
   const options = { method, credentials: 'include', cache: 'no-store', redirect: 'error', headers: { Origin: ORIGIN } };
   if (method === 'GET') {
+    if(payload.focusTaskId!==undefined){if(typeof payload.focusTaskId!=='string'||!/^[a-f0-9-]{36}$/i.test(payload.focusTaskId))return fail('개인 일정 번호를 확인하세요.');url.searchParams.set('focusTaskId',payload.focusTaskId);}
     url.searchParams.set('expectedOwnerId', owner);
     if(payload.calendarWeek!==undefined)url.searchParams.set('calendarWeek',dateValue(payload.calendarWeek));
     if(payload.calendarMonth!==undefined){if(typeof payload.calendarMonth!=='string'||!/^(?:20\d{2}|2100)-(?:0[1-9]|1[0-2])$/.test(payload.calendarMonth))return fail('달력의 연월을 확인하세요.');url.searchParams.set('calendarMonth',payload.calendarMonth);}
@@ -54,6 +55,7 @@ function requestOptions(payload, owner) {
       if(command.shortcut!==undefined)normalize({shortcut:command.shortcut});
     }
     if (command.done !== undefined) { if (typeof command.done !== 'boolean') return fail('완료 상태를 확인하세요.'); body.done = command.done; }
+    if(command.details!==undefined)body.details=require('./shell/task-settings.js').normalizeDetails(command.details);
     options.headers['Content-Type'] = 'application/json';
     options.body = JSON.stringify(body);
   }
