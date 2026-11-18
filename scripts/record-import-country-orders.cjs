@@ -221,6 +221,20 @@ async function main(){
     await reopened.click('.pedidos-preview-heading button');
     await page.waitForSelector('.pedidos-primary button[aria-pressed="true"]');
     console.log('PASS native popup editing/reopen/download, 1572px three panels and close');
+    const extraGroups=['수선화','튤립','히야신스','안시리움','장미','카라','거베라','루스커스'];
+    Object.assign(sampleFeed, classifyImportFeed({from:'2026-11-17',to:'2026-11-18',
+      messages:extraGroups.map((name,index)=>sampleMessage('extra-'+index,'46-1 네덜란드 '+name+' 발주 추가\n연습품종 12송이'))}));
+    await page.click('.kakao-refresh');await page.waitForNetworkIdle();
+    const group='.kakao-choices[aria-label="품목군"]';
+    assert.equal(await page.$$eval(group+' button[aria-pressed]',nodes=>nodes.length),6);
+    await page.click(group+' .kakao-more');
+    assert.equal(await page.$$eval(group+' button[aria-pressed]',nodes=>nodes.length),9);
+    await page.click(group+' button[aria-pressed]:nth-last-child(2)');
+    const picked=await page.$eval(group+' button[aria-pressed="true"]',node=>node.textContent);
+    await page.click(group+' .kakao-more');
+    assert.equal(await page.$eval(group+' button[aria-pressed="true"]',node=>node.textContent),picked);
+    assert.equal(await page.$eval('.kakao-quantity',node=>getComputedStyle(node).whiteSpace),'nowrap');
+    console.log('PASS compact filters retain hidden selection and quantities never wrap');
     await page.evaluate(title=>{const heading=[...document.querySelectorAll('h3')].find(node=>node.textContent===title);if(!heading)throw Error('Guide heading missing');heading.closest('details').id='country-order-guide-test';},workflow.title);
     await page.focus('#country-order-guide-test > summary');await page.keyboard.press('Enter');
     await page.$eval('#country-order-guide-test video',video=>{video.muted=true;return video.play();});
