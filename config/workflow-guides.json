@@ -1447,7 +1447,7 @@
       "videoWaivers": [
         {
           "file": "desktop/shell/flight-board.js",
-          "sha256": "c0b73dac808c95cfef82e80bbb1967785f86958ee2749205fd268186d9ac6893",
+          "sha256": "d7278aaeb903aeaabfa19b1388bcd0be3414cf361815530569c39017f54252ac",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },

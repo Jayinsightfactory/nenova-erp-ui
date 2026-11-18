@@ -239,6 +239,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
     if('menuOpen'in state)visible=!!state.menuOpen;if('online'in state)online=!!state.online;
     root.hidden=!owner;for(const b of [detail,retry])b.disabled=!owner||!online;
     if(owner&&visible&&online&&(changed||!previousVisible||!previousOnline))void load(false);
+    if((changed||!visible||!online)&&mapDialog.open)mapDialog.close();
     if(!visible||!online)clearTimeout(timer);
   }
   setOpen(opened);
