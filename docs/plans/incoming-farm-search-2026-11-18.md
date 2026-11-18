@@ -2,7 +2,7 @@
 
 구현 전 근거: 실제 dnSpy CLI ClassWarehouseMaster.Update는 FarmKey가 아니라 WarehouseMaster.FarmName 문자열을 저장한다. FormWarehouseView.GetData는 wm.FarmName을 읽고 isDeleted=0을 필터한다. 운영 SELECT: Farm 활성87개, Fagua/Inti 검색결과0; WarehouseMaster에는 Fagua Flowers와 Faguaflowers Intl LLC가 존재한다. 다른 조직의 동명 여부나 자동 별칭을 추정하지 않는다.
 
-기준: Farm 활성 이름과 활성 WarehouseMaster에서 이미 사용한 이름을 합친 공통 후보. 동일 이름의 Farm 마스터가 있으면 그 마스터의 활성/삭제 상태를 우선하며 삭제 마스터를 과거 입고로 되살리지 않는다. 후보는 연도/차수와 무관한 이름 목록이며 수정 대상은 기존 WarehouseKey+명시연도+차수 범위다. 현재 원장명/복원 초안명은 화면 값 보존용이며 후보 밖 새 이름은 미리보기와 저장에서 차단한다.
+기준: Farm 활성 이름과 활성 WarehouseMaster에서 이미 사용한 이름을 합친 공통 후보. 동일 이름의 Farm 마스터가 있으면 그 마스터의 활성/삭제 상태를 우선하며 삭제 마스터를 과거 입고로 되살리지 않는다. 후보는 연도/차수와 무관한 이름 목록이며 수정 대상은 기존 WarehouseKey+명시연도+차수 범위다. 현재 원장명/복원 초안명은 화면 값 보존용이며 후보 밖 새 이름은 미리보기와 저장에서 차단한다. FarmName의 기존 normalizedCorrection 규칙(좌우 trim/최대100자)에 맞지 않는 이름은 후보에서 제외하며, 마스터의 동명 활성 FarmKey가 둘 이상이면 후보에서 제외한다. 정식 선택값은 원문 그대로이고 DB 후보의 binary 이름 비교와 서버 JS exact equality를 유지한다.
 
 FarmKey 없는 입고 이름은 입고의 FarmName 메타 수정만 허용한다. ShipmentFarm 배정 후보는 계속 실제 활성 FarmKey만 사용하며 가짜 키·농장 마스터·별칭을 만들지 않는다. 실제 운영 명칭 Faguaflowers Intl LLC를 그대로 선택한다. 사용자 입력 INTI를 임의로 정식 명칭으로 등록하지 않는다.
 
