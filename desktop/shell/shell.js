@@ -488,8 +488,26 @@
     pmArchButton.addEventListener('click', () => {
       run('open', { url: '/my-work?tab=arch', title: '아키텍처 흐름도' });
     });
+    const pmSimButton = document.createElement('button');
+    pmSimButton.id = 'pmSimButton';
+    pmSimButton.type = 'button';
+    pmSimButton.className = 'pm-open-button';
+    pmSimButton.textContent = '시뮬레이션';
+    pmSimButton.title = '통합 솔루션 모션·실캡처 시뮬레이션 열기';
+    pmSimButton.addEventListener('click', () => {
+      run('open', { url: '/my-work?tab=suite-sim', title: '통합 솔루션 시뮬레이션' });
+    });
+    const pmRadarButton = document.createElement('button');
+    pmRadarButton.id = 'pmRadarButton';
+    pmRadarButton.type = 'button';
+    pmRadarButton.className = 'pm-open-button';
+    pmRadarButton.textContent = '도입레이더';
+    pmRadarButton.title = '도입·기술 레이더 열기';
+    pmRadarButton.addEventListener('click', () => {
+      run('open', { url: '/my-work?tab=radar', title: '도입·기술 레이더' });
+    });
     pmOpenButton.replaceWith(pmActions);
-    pmActions.append(pmOpenButton, pmArchButton);
+    pmActions.append(pmOpenButton, pmArchButton, pmSimButton, pmRadarButton);
     $('menuButton').addEventListener('click', () => setMenu(!state.menuOpen, !state.menuOpen));
     $('toolsButton').addEventListener('click', () => run('tools'));
     $('compactFavoriteButton').addEventListener('click', () => { if (state.activeId) run('favorite', { id: state.activeId }); });
