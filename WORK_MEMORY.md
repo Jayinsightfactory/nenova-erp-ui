@@ -3744,10 +3744,11 @@ pm run test:canon 통과.
 4. 검증: 운영 11/18·17일, 17:49까지 178건 = 발주29·검토25·제외119·중복5. 원문77행과 집계65행 615단·295박스 일치, 제외대조124건. 실제 원문 변경/송신 없음.
 5. 주의: 가이드 회사 Drive 영상 186ndmhq2m89n9mdK39DDvrabJCjshaKY / 자막 1POUT3XBK1yclVMzAdalyUnMmzDzXorst / proof 1gMtT4FvhIQvObu05Dl-BKLlSkClC4KOQ. 원장 쓰기 없음.
 
-## 2026-11-18 · 비행기 카드 운송·통관·입고 확인
-- 검색어: flight workflow NENOVAKAKAO 호주 47-01 WarehouseKey 인보이스 확인본 검역 시각
-1. 작업 위치: nenova-erp-ui / codex/flight-workflow-1118 / nw-flight-workflow / PR 준비.
-2. 완료된 것: 기본 운송 정보·업무 상태, 공지/입고/확인 송장 수량 분리, 신고/수리/반입/소독 상태, 호주 인천행 공식 출발공항 경로, 오늘의 업무 폭 축소.
-3. 남은 할 일: CI 및 운영 릴리스, 실제 화면 확인. 예시 편에는 웹 확인본 인보이스 연계 없음. 별도 원문 확인 필요.
-4. 검증: FormWarehouseView decompile에 OrderYear·OrderWeek·OrderNo·입고 라인 확인. 실제 DB SELECT에서 2026년 47-01 예시 편 입고 헤더 10건, 총 480박스, 연결 완료 인보이스 0건. 운영 NENOVAKAKAO 최근 14일 3방의 호주 언급 3건 모두 11/6 이전 운항 관련이며 활성 예정 확인 없음.
-5. 주의/잠금: WarehouseMaster·WarehouseDetail·Product 및 기존 권한 범위 내 WebInvoiceDocument/Operation/Line만 읽음. 주문/출고/출고일/농장배분/견적/매출·재고 원장 변경 없음. 최초 공지 수량, 입고 수량, 검토 인보이스 수량은 별도. 신규 영상 없음.
+## 2026-11-18 업무 매뉴얼(/work/manuals) 통합 검색·지침 연계·관리자 브리핑 디벨롭
+- 요약: `/work/manuals`에 전 부서/부서별 빠른 키워드 검색, 원스톱·자동화 도구 바로가기 배지, `/operations-knowledge` 주의·이슈 지침 연계, 관리자(`nenovaSS3`) 전용 매뉴얼 커버리지·보완 브리핑 패널 추가.
+- 검색어: work manuals ManualSearchBar ManualAdminBriefing workManualsInsights operations-knowledge nenovaSS3 커버리지
+1. 작업 위치: nenova-erp-ui / feat/manuals-agent-insights / C:/Users/USER/nw-agy-p1-manuals / PR 생성·머지 진행.
+2. 완료된 것: `lib/workManualsInsights.js`, `components/manuals/ManualSearchBar.js`, `components/manuals/ManualAdminBriefing.js`, `components/manuals/ImportHandover.js`, `pages/api/work/manuals.js`, `pages/work/manuals.js`, `__tests__/workManualsUpgrade.test.js` 구현 및 검증; 기존 데스크톱 메뉴(`Layout.js`·`desktop/menu.json`) 연결 확인.
+3. 남은 할 일: PR CI 통과 → squash 머지 → worktree 정리(운영 화면 실접속 확인은 배포 후 후속).
+4. 검증 상태: `workManualsUpgrade.test.js`, `workflowReview.test.js`, `workManuals.test.js`, `desktop-knowledge-spacing-smoke.cjs`, `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack`(빌드 락 준수) 통과; 운영 라이브 배포 화면 실측은 미검증.
+5. 주의/잠금: 관리자 브리핑(`adminBriefing`)은 `isManualAdmin(nenovaSS3)`일 때만 API/UI 노출, 비관리자 비노출 유지. 작업자 노출 화면 금지어 부재 계약(`workManualsUpgrade.test.js`) 유지.
