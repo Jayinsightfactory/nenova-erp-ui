@@ -3761,3 +3761,12 @@ pm run test:canon 통과.
 3. 남은 할 일: PR CI 통과 및 squash 머지 후 worktree 정리, 운영 배포 후 실제 화면 점검.
 4. 검증 상태: `commercialSuiteDemo.test.js`, `workflowReview.test.js`, `test:ui-layout`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `guard:erp-writes`, `test:erp-manifest`, `desktopBootstrap.test.mjs`, `desktop/tests/menu.test.cjs`, `npx next build --webpack`(메모리 보호 빌드 락 적용) 모두 통과. 운영 배포 후 실제 화면 확인은 미검증.
 5. 주의/잠금: 100% 가상 시연 전용(사내 실명·실거래·계좌·MSSQL 연결 없음), 금지어(`감시`/`추적`/`모니터링`) 비포함 유지, 기존 `/demo/tenant-studio` 무수정.
+
+## 2026-11-18 · 사장님 솔루션 마스터 목표 정본화 & 현실적 가능·불가능 판정 기준표 구축
+- 요약: `nenova-pm/product-vision` · `nowlink/docs` · `mindmap-viewer/docs` · `nenova-erp-ui/docs` · `~/.claude` 전역 작업/대화 기록을 전수 발굴해 `docs/SOLUTION_VISION_AND_FEASIBILITY.md` 정본 문서(Part 1 상용 목표 P0~P3 · NOWLINK Watch/Build/Team+Device · 실측/미검증 지표 / Part 2 즉시 자동·조건부·불가능·절대금지 및 2026-11-18 해결 전환·오진 교정 이력)를 작성하고, `/my-work?tab=arch` (`components/pm/ArchFlowChart.js`)에 필터형 인터랙티브 기준표(`data-testid="arch-vision-feasibility"`)와 `__tests__/archFlowChart.test.js` 검증 단언을 추가. `C:\Users\USER\nenova-pm\product-vision\goals.json`(.bak-1118 백업 보존)에 확장 목표(`g11~g16`)를 최신화하고 `office-feed.js` 업로드(`200 ok`) 확인.
+- 검색어: 솔루션목표 현실적가능 불가능 정본 SOLUTION_VISION_AND_FEASIBILITY arch-vision-feasibility goals.json NOWLINK PhoneHarness DeviceHub
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/solution-vision-feasibility` / `C:\Users\USER\nw-agy-p2-vision` (PR #1850).
+2. 완료된 것: `docs/SOLUTION_VISION_AND_FEASIBILITY.md` 신규 작성, `components/pm/ArchFlowChart.js` `VISION_MASTER_STAGES`·`FEASIBILITY_ITEMS`·`data-testid="arch-vision-feasibility"` 섹션 추가, `__tests__/archFlowChart.test.js` 단언 추가, `C:\Users\USER\nenova-pm\product-vision\goals.json` 백업(.bak-1118)·확장(`g11~g16`) 및 `office-feed.js` 업로드(`200 ok`), PR #1846/#1847 최신 `origin/master`(`fec7c9c0`) 병합.
+3. 남은 할 일: PR #1850 재동기화 CI `verify` 통과 대기 → squash 머지 → `goals.json` `g16` 완료(100%) 최종 갱신 및 `office-feed.js` 재업로드 → `nw-agy-p2-vision` worktree(`cmd /c rmdir` junction 선행) 정리.
+4. 검증 상태: `archFlowChart.test.js`, `workflowReview.test.js`, `test:pm`, `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack`(lock 적용) 재검증 통과. 운영 배포 후 `/my-work?tab=arch` 실브라우저 렌더링은 머지 후 확인 필요(미검증).
+5. 주의/잠금: MSSQL 원장·API·`pages/`·`desktop/shell/` 파일 변경 0건(기존 가이드 해시 무영향). `ArchFlowChart.js` 내 `#hex`·`<button`·금지어(`감시|추적|모니터링|절감시간`) 0건 정규식 검사 통과. `goals.json` `g01~g10` 기존 스키마·주차 수치·`goals.json.bak-1118` 보존됨.
