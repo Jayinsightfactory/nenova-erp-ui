@@ -3753,6 +3753,15 @@ pm run test:canon 통과.
 4. 검증 상태: `workManualsUpgrade.test.js`, `workflowReview.test.js`, `workManuals.test.js`, `desktop-knowledge-spacing-smoke.cjs`, `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack`(빌드 락 준수) 통과; 운영 라이브 배포 화면 실측은 미검증.
 5. 주의/잠금: 관리자 브리핑(`adminBriefing`)은 `isManualAdmin(nenovaSS3)`일 때만 API/UI 노출, 비관리자 비노출 유지. 작업자 노출 화면 금지어 부재 계약(`workManualsUpgrade.test.js`) 유지.
 
+## 2026-11-18 · NOWLINK · MOYI 업종별 상용 솔루션 시연 스튜디오 (`/demo/commercial-suite`)
+- 요약: 외부 고객사 시연용 100% 가상 샘플 기반 `NOWLINK · MOYI 업종별 상용 솔루션 시연 스튜디오`(`pages/demo/commercial-suite.js`, `lib/commercialSuiteDemo.js`) 구축. 4대 업종(`화훼 직수입 · 도매`, `신선 식자재 · 청과 유통`, `수입 와인 · 식음료 도매`, `의류 · 공산품 B2B 유통`) 실시간 `mapping.json` 치환 스위치, ① 3단위 품목 마스터·분배 테이블, ② Phone Harness + MOYI 승인 카드 시뮬레이터, ③ Landed Cost(도착원가) 자동 배부, ④ `Watch / Build / Team + Device Hub Add-on` 주간 시간 단축·월 요금제 ROI 계산기를 통합하고 `components/Layout.js`(`nenovaSS3` 전용)·사용 가이드(`public/guides/commercial-suite/staff.mp4`)까지 연결.
+- 검색어: commercial-suite NOWLINK MOYI mapping.json PhoneHarness LandedCost Watch Build Team DeviceHubAddOn
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/nowlink-commercial-demo-studio` / `C:\Users\USER\nw-agy-followup-d`
+2. 완료된 것: `lib/commercialSuiteDemo.js`, `pages/demo/commercial-suite.js`, `__tests__/commercialSuiteDemo.test.js`, `components/Layout.js` (`nenovaSS3` 전용 메뉴 추가 및 `desktop/scripts/generate-menu.cjs` 검증), `scripts/record-commercial-suite-guide.cjs` 및 `config/workflow-guides.json`·`public/guides/commercial-suite/*` 등록.
+3. 남은 할 일: PR CI 통과 및 squash 머지 후 worktree 정리, 운영 배포 후 실제 화면 점검.
+4. 검증 상태: `commercialSuiteDemo.test.js`, `workflowReview.test.js`, `test:ui-layout`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `guard:erp-writes`, `test:erp-manifest`, `desktopBootstrap.test.mjs`, `desktop/tests/menu.test.cjs`, `npx next build --webpack`(메모리 보호 빌드 락 적용) 모두 통과. 운영 배포 후 실제 화면 확인은 미검증.
+5. 주의/잠금: 100% 가상 시연 전용(사내 실명·실거래·계좌·MSSQL 연결 없음), 금지어(`감시`/`추적`/`모니터링`) 비포함 유지, 기존 `/demo/tenant-studio` 무수정.
+
 ## 2026-11-18 · Phone Harness + Device Hub Phase 1 실시간 기기 관제판(`/my-work?tab=devices`) 및 Rust 사이드카 연동
 - 요약: `lib/workFeatureData.js`에 `device-hub-status`(2MB 상한)를 등록하고 관리자(`nenovaSS3`, `!mineOnly`) 전용 **「디바이스 허브 관제 (Phase 1)」** 컴포넌트(`components/work/DeviceHubConsole.js`)를 `/my-work?tab=devices` 및 데스크톱앱 `연동` 메뉴(`components/Layout.js`)에 연결함. 로컬 `C:\Users\USER\nenova-pm\bin\nenova-device-sidecar.exe`(402.5 KB, 순수 Rust `std`) 및 `upload-device-hub.js`와 연동 가능하며, 업로드 전 카나리 온보딩 가이드·체크리스트·시뮬레이션 미리보기·1ms 미만 킬스위치 점검기를 제공함.
 - 검색어: device-hub-status DeviceHubConsole devices nenova-device-sidecar.exe PhoneHarness DeviceHub WAITING_HUMAN ReadOnly
