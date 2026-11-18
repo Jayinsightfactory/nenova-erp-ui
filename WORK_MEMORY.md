@@ -3298,7 +3298,7 @@ pm run test:canon 통과.
 - 받은 46-2 중국 CI.pdf는 원문2025-11-14/YUNNAN HENGGE/6품종/11220PCS/33419CNY로, 사용자도 ‘2025년 잘못준 파일’이라고 확인. 현재 2026 CLOUD 테스트에 사용/연도수정/농장강제연결 금지. 로컬 및 네노바 Google Drive 제한검색에서 올바른2026 46-2 CLOUD CI/AWB 미확보. Downloads/46-02_CLOUD.xlsx는 발주서여서 인보이스로 대체 금지.
 - 컴퓨터유즈 Excel창 활성화·읽기만 수행. 파일선택창 접근성인덱스/좌표와 실제초점 불일치로 사본열기 조작 중단, Esc로 창 닫음. 원본/운영DB/입고/재고/승인원가 수정0, 유료분석0. 실제앱 업로드·입고·다운로드/최종영상은 미검증.
 - 검색어: CLOUD CBM 1118 43품목2280단 20094336 CN_CLOUD_CBM_V1 카테고리버튼 2025잘못된CI
-1. 작업 위치: nenova-erp-ui / feat/hubfresh-cost-1118(브랜치명만 초기HUBFRESH, 실제기능CLOUD) / C:/Users/USER/Documents/Codex/nw-cdx-hubfresh-1118 / 검증 전 초안.
+1. 작업 위치: nenova-erp-ui / feat/hubfresh-cost-1118(브랜치명만 초기HUBFRESH, 실제기능CLOUD) / C:/Users/USER/Documents/Codex/nw-cdx-hubfresh-1118 / 초안 PR #1813, 코드09d7228c. 검증 전 병합·배포 금지.
 2. 완료된 것: lib/chinaCloudCost.js·chinaCloudCostWorkbook.js, CloudCostCategories UI, cost engine/preview/export/profile/form 연결, 전용계약/계획/테스트/원본비교 스크립트. 실제인보이스/원본파일 private자료 커밋 금지.
 3. 남은 할 일: 올바른2026 CLOUD CI/AWB 수령→격리업로드/기존매칭/수량총액/입고 저장→카테고리수정→다운로드 실제UI/Excel재계산→사용가이드 녹화·Drive보관→전체가드·빌드·PR/CI·배포.
 4. 검증 상태: 원본원가43행정합/순수계산·예외·취소·기존식보존·수식캐시 표적 통과. 국가전체/실제입고E2E/Excel native/빌드/배포 모두 미검증. 현재상태를 배포완료로 말하지 않음.
