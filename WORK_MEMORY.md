@@ -3743,3 +3743,12 @@ pm run test:canon 통과.
 3. 남은 일: 카카오톡 PC 원본 자체 전량 도착과 사진 주문은 별도 대조 필요. 조회 범위는 수집 원문 기준.
 4. 검증: 운영 11/18·17일, 17:49까지 178건 = 발주29·검토25·제외119·중복5. 원문77행과 집계65행 615단·295박스 일치, 제외대조124건. 실제 원문 변경/송신 없음.
 5. 주의: 가이드 회사 Drive 영상 186ndmhq2m89n9mdK39DDvrabJCjshaKY / 자막 1POUT3XBK1yclVMzAdalyUnMmzDzXorst / proof 1gMtT4FvhIQvObu05Dl-BKLlSkClC4KOQ. 원장 쓰기 없음.
+
+## 2026-11-18 · Phone Harness + Device Hub Phase 1 실시간 기기 관제판(`/my-work?tab=devices`) 및 Rust 사이드카 연동
+- 요약: `lib/workFeatureData.js`에 `device-hub-status`(2MB 상한)를 등록하고 관리자(`nenovaSS3`, `!mineOnly`) 전용 **「디바이스 허브 관제 (Phase 1)」** 컴포넌트(`components/work/DeviceHubConsole.js`)를 `/my-work?tab=devices` 및 데스크톱앱 `연동` 메뉴(`components/Layout.js`)에 연결함. 로컬 `C:\Users\USER\nenova-pm\bin\nenova-device-sidecar.exe`(402.5 KB, 순수 Rust `std`) 및 `upload-device-hub.js`와 연동 가능하며, 업로드 전 카나리 온보딩 가이드·체크리스트·시뮬레이션 미리보기·1ms 미만 킬스위치 점검기를 제공함.
+- 검색어: device-hub-status DeviceHubConsole devices nenova-device-sidecar.exe PhoneHarness DeviceHub WAITING_HUMAN ReadOnly
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/device-hub-phase1-console` / `C:\Users\USER\nw-agy-followup-c` (외부 사이드카: `C:\Users\USER\nenova-pm\device-sidecar-rs`, `bin\nenova-device-sidecar.exe`).
+2. 완료된 것: `lib/workFeatureData.js`(`device-hub-status` + 2MB 상한), `components/work/DeviceHubConsole.js`(실시간 조회·카나리 온보딩·USB/Wi-Fi·Read-Only·Lease·`WAITING_HUMAN` 10초 원격 개입 안내·킬스위치 점검기·금지어 차단), `pages/my-work.js`(`devices` 탭 `!mineOnly` 게이트), `components/Layout.js`(`연동` 그룹 `nenovaSS3` 전용 메뉴 추가), `__tests__/deviceHubConsole.test.js`·`__tests__/workFeatureData.test.js`·`__tests__/desktopBootstrap.test.mjs` 보강.
+3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행) → Cafe24 배포 후 `node C:\Users\USER\nenova-pm\upload-device-hub.js` 실서버 업로드 확인.
+4. 검증 상태: `cargo test`(9/9), `upload-device-hub.js --no-upload`, `workFeatureData`, `deviceHubConsole`, `workflowReview`, `solutionSuiteSimulator`, `archFlowChart`, `desktopBootstrap`(5/5), `desktop/tests/menu.test.cjs`(3/3), `test:ui-layout`, `test:workflow-guides`(27 workflows·28 videos), `guard:erp-writes`, `test:erp-manifest`(228건), `test:pm`, `test:canon`, `npx next build --webpack`(139 페이지, `next-build.lock` 단독 락) 모두 통과. 배포 후 라이브 실단말 ADB 연결 및 실서버 `feature-data-ingest` 업로드는 미검증.
+5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건, `mineOnly`(일반 직원 계정)에는 `devices` 탭 및 `/api/my-work/feature` 미노출(`404` 은닉 유지), UI·주석·테스트 내 3대 금지 표현 0건 유지(관제·점검·감지 표준 용어 사용).
