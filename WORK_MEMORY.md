@@ -3397,3 +3397,23 @@ pm run test:canon 통과.
 ### PR1818 통합 검증 진행
 - 전체 로컬 test:erp-contract·webpack exit0, 기능커밋8643cf34 Linux CI44221462738 전체·webpack PASS. 배포44217840381 원로그에서10:48:54.193KST reloadProcessId 확인(실패9구간 실행중). 최신master70a890a2 통합은 WORK_MEMORY append 충돌 양쪽 보존만 수동 해결, package.json 자동병합. 최신통합 CI·운영배포는 미검증.
 - 검색어: PDF lifecycle 1818 10:48:54 reload 70a890a2 통합 검증
+
+
+## 2026-11-18 입고 수정 요청 연결 구현 단계
+- 요약: 사용자는 영업지원이 수정반영·재확정까지 처리하도록 선택. 직접 수정창 입력보존→기존approval요청전환, 품목·수량 직접요청 진입, 농장검색 아래 즉시목록, 기존견적서확정현황/취소연결, 전체상태/요청별감사이력 조회 추가. 운영8050 현재농장은이미Fagua로확인되어실제업무정정/요청생성하지않음.
+- 검색어: incoming-request-1118 요청등록 확정현황 품목수정 처리이력 검색아래목록
+1. 작업 위치: nenova-erp-ui / codex/incoming-request-1118 / nw-cdx-incoming-request-1118 / PR전.
+2. 완료된 것: components4종/API·Store SELECT만/계약2/회귀·가이드recorder갱신. SQL원장writer변경0.
+3. 남은 할 일: 전체ERP종료→고정UI촬영빌드→가이드dry/2역할촬영·Drive→정식빌드/필수가드→PR/CI/병합/Cafe24/운영스모크/정리.
+4. 검증 상태: 단위21/직접수정blocked→요청·품목입력·응답유실중복방지/농장검색PC390/manifest224/API쓰기guard통과. 전체ERP진행중;영상/배포미검증.
+5. 주의/잠금: 이worktree의입고UI·요청API·가이드파일은본세션작업중. 다른세션PR1813등수정금지,운영원장/확정취소실행없음.
+
+
+## 2026-11-18 최종 요청 재작성 검증 단계
+- 전체 ERP pre/core/post, dnSpy, manifest224, API쓰기guard 및 두역할 실제UI dry-run 통과. 1차 가이드 수입부511.05초/영업지원314.1초 완성 후 넓은 이력 summary 카메라왼쪽anchor 보완. 마지막 검증에서 완료된요청을같은창에서새로수정할때 submittedDraft ref재사용을 발견해 invalidate에서해제, UI회귀에서새create증가까지통과.
+- 검색어: incoming-request-1118 submittedDraft 새수정안 재사용 방지 anchorLeft 최종재촬영
+1. 작업 위치: codex/incoming-request-1118 / nw-cdx-incoming-request-1118 / PR전.
+2. 완료된 것: 4개추가요청구현/단위21/실제Chrome PC390/전체ERP/1차가이드2편. helper anchorLeft 옵션은기본값false로타가이드보존.
+3. 남은 할 일: session88410 최종source고정촬영build→최종2역할dry/재촬영(기존1차영상은최종완료로사용금지)→프레임/Drive/정식빌드/플레이어→PR/CI/배포/정리.
+4. 검증 상태: 업무검증통과; 최종UI코드1줄수정후촬영빌드중. 최종영상·정식빌드·운영미검증.
+5. 주의/잠금: 본worktree입고코드·가이드작업중. 운영API조회요청0건/#8050이미Fagua확인; 운영요청등록/원장수정/확정취소0. rawwebm은최종가이드검증·Drive보관뒤정리.

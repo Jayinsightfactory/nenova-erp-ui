@@ -43,7 +43,7 @@ function LegacyWarehouseCorrection({selected,onClose,onSaved,onProductRequest}){
     return()=>{window.removeEventListener('beforeunload',before);window.removeEventListener('nenova:menu-back-request',back);};
   });
   const close=()=>{if(busyRef.current)return;if(dirty&&!saved&&!window.confirm('입력 중인 수정안은 이 탭에 보관됩니다. 목록으로 돌아갈까요?'))return;onClose();};
-  const invalidate=()=>{setPreview(null);setConfirmed(false);setPending(null);setSaved(false);setError('');};
+  const invalidate=()=>{submittedDraft.current=null;setPreview(null);setConfirmed(false);setPending(null);setSaved(false);setError('');};
   const perform=async fn=>{if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('');try{await fn();}catch(e){setError(e.message);}finally{busyRef.current=false;setBusy(false);}};
   const readFile=event=>{
     const selectedFile=event.target.files?.[0];event.target.value='';if(!selectedFile)return;

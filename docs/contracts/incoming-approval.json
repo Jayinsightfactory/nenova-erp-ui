@@ -60,7 +60,8 @@
     "__tests__/warehouseFarmChoicesSql.test.mjs",
     "scripts/warehouse-farm-search-ui.cjs",
     "scripts/record-incoming-approval-guides.cjs",
-    "config/workflow-guides.json"
+    "config/workflow-guides.json",
+    "scripts/lib/workflow-guide-recorder.cjs"
   ],
   "businessIdentity": [
     "OrderYear",

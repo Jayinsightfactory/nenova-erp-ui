@@ -72,7 +72,7 @@ async function recordRole(browser, base, secret, role) {
       if (u.pathname === '/api/warehouse/approval') {
         if (r.method() === 'GET') {
           const request = requests.find(item => item.requestId === Number(u.searchParams.get('requestId')));
-          data = request ? { success: true, permissions: { request: isImport, review: !isImport }, history:[{FromStatus:null,ToStatus:'draft',Note:request.reason,CreatedAt:'2026-11-18T09:00:00'},{FromStatus:'draft',ToStatus:'requested',Note:request.reason,CreatedAt:'2026-11-18T09:01:00'}], request, facts: factsFor(request) } : { success: true, permissions: { request: isImport, review: !isImport }, requests: requests.map(item => ({ RequestId: item.requestId, Status: item.status, RequestedBy: '수입부 연습', correction: item.correction, reason: item.reason, revision: item.revision })) };
+          data = request ? { success: true, permissions: { request: isImport, review: !isImport }, history:[{FromStatus:null,ToStatus:'draft',Note:request.reason,CreatedAt:'2026-11-18T09:00:00'},{FromStatus:'draft',ToStatus:'requested',Note:request.reason,CreatedAt:'2026-11-18T09:01:00'},...(request.status==='applied'?[{FromStatus:'requested',ToStatus:'applied',Note:'영업지원 검토 후 최종 반영',CreatedAt:'2026-11-18T09:02:00'}]:[])], request, facts: factsFor(request) } : { success: true, permissions: { request: isImport, review: !isImport }, requests: requests.map(item => ({ RequestId: item.requestId, Status: item.status, RequestedBy: '수입부 연습', correction: item.correction, reason: item.reason, revision: item.revision })) };
         } else {
           const body = JSON.parse(r.postData()); posts.push(body); const request = requests.find(item => item.requestId === body.requestId);
           if (body.action === 'draftPreview') data = previewFor(body.correction);
@@ -117,7 +117,7 @@ async function recordRole(browser, base, secret, role) {
     const b=await element.boundingBox();assert(b&&b.y>=0&&b.y+b.height<=1080,'Guide target must be fully visible');
     // Bottom-edge controls cannot be centred by scrolling past the end of the real UI.
     // Keep the full view and move captions above them, rather than crop or conceal them.
-    await rec.focus('[data-incoming-guide-target="current"]',stepNumber,{staticHighlight:b.y+b.height/2<70||b.y+b.height/2>900});
+    await rec.focus('[data-incoming-guide-target="current"]',stepNumber,{staticHighlight:b.y+b.height/2<70||b.y+b.height/2>900,anchorLeft:b.width>1200});
   };
   const unfocusTarget=async()=>{await rec.unfocus();await page.evaluate(()=>document.querySelectorAll('[data-incoming-guide-target]').forEach(n=>delete n.dataset.incomingGuideTarget));};
   let pointer = { x: 40, y: 80 };
@@ -135,7 +135,7 @@ async function recordRole(browser, base, secret, role) {
     const element = await page.$(selector); assert(element, `Missing select: ${selector}`);
     await element.evaluate(node => node.scrollIntoView({ behavior: 'instant', block: 'center' })); const box = await element.boundingBox();
     await focusTarget(element);await movePointer(box.x + box.width / 2, box.y + box.height / 2); await element.focus(); await rec.pause(450);
-    await element.select(String(value)); await rec.pause(700); assert.equal(await element.evaluate(node => node.value), String(value), `Selection did not persist: ${selector}`);await unfocusTarget();
+    await element.select(String(value)); await rec.pause(700); if(selector==='select[aria-label="수정 방식"]'&&value==='PRODUCT'){await page.waitForSelector('select[aria-label="수정 종류"]');assert.equal(await page.$eval('select[aria-label="수정 종류"]',n=>n.value),'PRODUCT');}else assert.equal(await element.evaluate(node => node.value), String(value), `Selection did not persist: ${selector}`);await unfocusTarget();
   };
   const fill = async (selector, text) => { const element = await page.$(selector); assert(element, `Missing input: ${selector}`); await moveClick(element,true); await element.focus(); await page.keyboard.down('Control'); await page.keyboard.press('A'); await page.keyboard.up('Control'); await page.keyboard.press('Backspace'); await element.type(String(text), { delay: dry ? 0 : 60 }); await rec.pause(500); assert.equal(await element.evaluate(node => node.value), String(text), `Input did not replace value: ${selector}`);await unfocusTarget(); };
   const checkedLabel = async text => { const handle = await page.evaluateHandle(text => [...document.querySelectorAll('label')].find(label => label.textContent.includes(text))?.querySelector('input[type="checkbox"]'), text); assert(handle.asElement(), `Missing checkbox: ${text}`); await moveClick(handle.asElement()); await handle.dispose(); };
@@ -237,7 +237,7 @@ async function recordRole(browser, base, secret, role) {
       }
     }
     if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
-    await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click('#1 열기');await click('요청 처리 이력 (2건)');await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
+    await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click('#1 열기');await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
     assert.deepEqual(errors, []);
     assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, onlyScenario?1:isImport?5:3);
     const result = await rec.stop(); stopped = true;

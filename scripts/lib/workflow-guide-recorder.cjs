@@ -88,15 +88,15 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
     fs.writeFileSync(proofFile, JSON.stringify(proof, null, 2) + '\n');
     return { chapters, duration, mp4, captions, proofFile };
   }
-  async function focus(selector, number, { staticHighlight = false, badgeLeft = 20 } = {}) {
+  async function focus(selector, number, { staticHighlight = false, badgeLeft = 20, anchorLeft = false } = {}) {
     if (!await page.$('#nenova-guide-capture')) await page.evaluate(installOverlay, title);
-    const box = await page.$eval(selector, (node, {number,badgeLeft}) => {
+    const box = await page.$eval(selector, (node, {number,badgeLeft,anchorLeft}) => {
       const r=node.getBoundingClientRect(), host=document.getElementById('nenova-guide-capture');
       const mark=document.createElement('div'); mark.dataset.guideFocus='true';
       mark.style.cssText=`position:fixed;left:${r.left-6}px;top:${r.top-6}px;width:${r.width+12}px;height:${r.height+12}px;border:4px solid #f59e0b;border-radius:8px;box-sizing:border-box`;
       const badge=document.createElement('div');badge.dataset.guideFocus='true';badge.textContent=`${number} 단계`;badge.style.cssText=`position:fixed;left:${badgeLeft}px;top:10px;background:#12335b;color:white;border:3px solid #f59e0b;border-radius:12px;padding:5px 15px;font-size:26px;font-weight:bold`;host.append(badge,mark);
-      return {x:r.x+r.width/2,y:r.y+r.height/2};
-    }, {number,badgeLeft});
+      return {x:r.x+(anchorLeft?Math.min(220,r.width/2):r.width/2),y:r.y+r.height/2};
+    }, {number,badgeLeft,anchorLeft});
     if (!staticHighlight && (!Number.isFinite(box.x) || !Number.isFinite(box.y) || box.x < 0 || box.x > 1920 || box.y < (includeHeader ? 0 : 70) || box.y > 900)) throw Error(`Guide target outside capture band: ${selector} ${JSON.stringify(box)}`);
     if(staticHighlight)await page.evaluate(()=>{const c=document.querySelector('[data-guide-caption]');c.style.bottom='auto';c.style.top='80px';});
     await new Promise(r=>setTimeout(r,1800));if(!staticHighlight){activeShot={number,start:elapsed(),...box};focusShots.push(activeShot);}
