@@ -485,8 +485,8 @@ async function run() {
   await shellContents.executeJavaScript("window.dispatchEvent(new Event('online'))");
   assert.deepEqual({ activeId: sourceWindow.activeId, tabCount: main.tabs.size, menuOpen: sourceWindow.menuOpen }, beforeAutomaticUpdate);
   main.command(sourceWindow, 'menu', { open: true });
-  const pmButtons = await shellContents.executeJavaScript("({open:document.querySelector('#pmOpenButton')?.textContent,arch:document.querySelector('#pmArchButton')?.textContent})");
-  assert.deepEqual(pmButtons, { open: '오류관제 열기', arch: '흐름도' });
+  const pmButtons = await shellContents.executeJavaScript("({open:document.querySelector('#pmOpenButton')?.textContent,arch:document.querySelector('#pmArchButton')?.textContent,sim:document.querySelector('#pmSimButton')?.textContent,radar:document.querySelector('#pmRadarButton')?.textContent})");
+  assert.deepEqual(pmButtons, { open: '오류관제 열기', arch: '흐름도', sim: '시뮬레이션', radar: '도입레이더' });
   await shellContents.executeJavaScript('document.querySelector("#pmOpenButton").click()');
   await waitFor(() => [...main.tabs.values()].some(tab => new URL(tab.url).pathname === '/pm'), 'PM monitoring button opens the PM office');
   const pmTab = [...main.tabs.values()].find(tab => new URL(tab.url).pathname === '/pm');
@@ -498,6 +498,18 @@ async function run() {
   const archTab = [...main.tabs.values()].find(tab => { const u = new URL(tab.url); return u.pathname === '/my-work' && u.searchParams.get('tab') === 'arch'; });
   assert.equal(archTab.title, '아키텍처 흐름도');
   main.command(sourceWindow, 'close', { id: archTab.id });
+  main.command(sourceWindow, 'menu', { open: true });
+  await shellContents.executeJavaScript('document.querySelector("#pmSimButton").click()');
+  await waitFor(() => [...main.tabs.values()].some(tab => { const u = new URL(tab.url); return u.pathname === '/my-work' && u.searchParams.get('tab') === 'suite-sim'; }), 'PM sim button opens the solution suite simulation tab');
+  const simTab = [...main.tabs.values()].find(tab => { const u = new URL(tab.url); return u.pathname === '/my-work' && u.searchParams.get('tab') === 'suite-sim'; });
+  assert.equal(simTab.title, '통합 솔루션 시뮬레이션');
+  main.command(sourceWindow, 'close', { id: simTab.id });
+  main.command(sourceWindow, 'menu', { open: true });
+  await shellContents.executeJavaScript('document.querySelector("#pmRadarButton").click()');
+  await waitFor(() => [...main.tabs.values()].some(tab => { const u = new URL(tab.url); return u.pathname === '/my-work' && u.searchParams.get('tab') === 'radar'; }), 'PM radar button opens the adoption radar tab');
+  const radarTab = [...main.tabs.values()].find(tab => { const u = new URL(tab.url); return u.pathname === '/my-work' && u.searchParams.get('tab') === 'radar'; });
+  assert.equal(radarTab.title, '도입·기술 레이더');
+  main.command(sourceWindow, 'close', { id: radarTab.id });
   main.command(sourceWindow, 'menu', { open: false });
   main.command(sourceWindow, 'activate', { id: first.id });
   const compactFavorite = await shellContents.executeJavaScript(`(() => {

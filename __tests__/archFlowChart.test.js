@@ -56,5 +56,17 @@ assert.match(shell, /pmOpenButton\.textContent = '오류관제 열기'/);
 assert.match(shell, /pmArchButton\.id = 'pmArchButton'/);
 assert.match(shell, /pmArchButton\.textContent = '흐름도'/);
 assert.match(shell, /url: '\/my-work\?tab=arch'/);
+assert.match(shell, /pmSimButton\.id = 'pmSimButton'/);
+assert.match(shell, /pmSimButton\.textContent = '시뮬레이션'/);
+assert.match(shell, /url: '\/my-work\?tab=suite-sim'/);
+assert.match(shell, /pmRadarButton\.id = 'pmRadarButton'/);
+assert.match(shell, /pmRadarButton\.textContent = '도입레이더'/);
+assert.match(shell, /url: '\/my-work\?tab=radar'/);
+
+const layout = read('components/Layout.js');
+assert.match(layout, /href: '\/my-work\?tab=arch'/);
+assert.match(layout, /href: '\/my-work\?tab=suite-sim'/);
+assert.match(layout, /href: '\/my-work\?tab=radar'/);
+assert.match(layout, /href: '\/my-work\?tab=proposals'/);
 
 console.log('archFlowChart contract tests passed');

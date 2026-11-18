@@ -3683,3 +3683,12 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
 4. 검증 상태: `solutionSuiteSimulator`(SSR·권한 404/200·좌표·에셋), `archFlowChart`, `workflowReview`, `test:pm`(frozen 31 유지, no-hex 47, ui-kit 9), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(225건), `npx next build --webpack`(139 페이지, exit 0) 통과. 운영 배포 후 라이브 Orbit 토큰 상태에서의 실브라우저 렌더링은 별도 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건, `mineOnly`(일반 직원 계정)에는 탭 및 도면 API 모두 노출되지 않음(`404` 은닉 유지).
+
+## 2026-11-18 · 네노바 데스크톱앱(v1.3.40) 전 기능 연결 — 메뉴 카탈로그 · 홈 PM 바로가기 · Electron Smoke 검증
+- 요약: 데스크톱앱(`desktop/package.json`·`desktop/package-lock.json` `1.3.40` 갱신)과 네노바웹 카탈로그(`components/Layout.js`)를 연동해 관리자(`nenovaSS3`) 전용 5종 메뉴(`/my-work`, `?tab=arch`, `?tab=suite-sim`, `?tab=radar`, `?tab=proposals`) 및 일반 직원(`WORKFLOW_OWNERS` 중 비관리자) 전용 「솔루션 아키텍처 흐름도」(`/my-work?tab=arch&view=staff`)를 추가하고, `desktop/shell/shell.js` 홈 `PM 라이브 확인` 액션바에 `시뮬레이션`(`#pmSimButton`)·`도입레이더`(`#pmRadarButton`) 버튼을 추가.
+- 검색어: desktop 1.3.40 Layout.js shell.js pmSimButton pmRadarButton suite-sim radar proposals ElectronSmoke
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/desktop-connect-all-features` / `C:\Users\USER\nw-agy-desktop-connect` (세션 D1·D2·D3 분리 실행).
+2. 완료된 것: `components/Layout.js` 메뉴 5종 + 직원 흐름도 메뉴 추가, `desktop/shell/shell.js` 홈 PM 바로가기(`시뮬레이션`·`도입레이더`) 추가, `desktop/package.json`·`desktop/package-lock.json` `1.3.40` 버전 갱신, `config/workflow-guides.json` `videoWaivers`(`shell.js` SHA-256) 등록, `desktop/scripts/smoke.cjs`·`__tests__/archFlowChart.test.js`·`__tests__/desktopBootstrap.test.mjs`·`__tests__/solutionSuiteSimulator.test.js` 단언 보강.
+3. 남은 할 일: PR 생성 → CI `verify`·데스크톱 체크 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir` junction 선행) → 필요 시 데스크톱 `1.3.40` 릴리스 빌드/배포.
+4. 검증 상태: 실제 Electron smoke(`test:smoke` 72/72) 및 `next build` 포함 11개 전체 검증 통과(세션 D2). 실배포 서버 연동 및 `1.3.40` 설치 패키지 실PC 구동은 미검증.
+5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건, 관리자 전용 5종 메뉴는 `userIds: ['nenovaSS3']` 게이트 유지, `videoWaivers`는 일반 직원 14단계 홈 가이드 미변경 사유 명시.

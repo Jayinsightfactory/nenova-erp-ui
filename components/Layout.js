@@ -35,9 +35,14 @@ export const MENU_ITEMS = [
       { href: '/integrations/moyi', labelKey: 'MOYI 보고 연동', popup: false },
       { href: '/integrations/moyi-drive', labelKey: 'MOYI Drive 관리', popup: false, userIds: ['nenovaSS3'] },
       { href: '/admin/orbit-report', labelKey: '직원 업무 심화 리포트', popup: true, userIds: ['nenovaSS3'] },
-      { href: '/my-work', labelKey: '내 작업 데이터(통합본·기능 후보)', popup: true, userIds: ['nenovaSS3'] },
+      { href: '/my-work', labelKey: '내 작업 데이터(통합본·파이프라인)', popup: true, userIds: ['nenovaSS3'] },
+      { href: '/my-work?tab=arch', labelKey: '아키텍처 흐름도(스키마·Hermes·Rust)', popup: true, userIds: ['nenovaSS3'] },
+      { href: '/my-work?tab=suite-sim', labelKey: '통합 솔루션 시뮬레이션(MOYI·Device Hub)', popup: true, userIds: ['nenovaSS3'] },
+      { href: '/my-work?tab=radar', labelKey: '도입 레이더(기술 파일럿·채택 장부)', popup: true, userIds: ['nenovaSS3'] },
+      { href: '/my-work?tab=proposals', labelKey: '기능 추가 후보(수작업↔자동화 비교)', popup: true, userIds: ['nenovaSS3'] },
       { href: '/ops', labelKey: '운영 관제 / Operaciones', popup: true, userIds: ['nenovaSS3'] },
       { href: '/my-work?tab=mine', labelKey: '내 업무흐름 확인', popup: true, userIds: Object.keys(WORKFLOW_OWNERS).filter((id) => id !== 'nenovaSS3') },
+      { href: '/my-work?tab=arch&view=staff', labelKey: '솔루션 아키텍처 흐름도', popup: true, userIds: Object.keys(WORKFLOW_OWNERS).filter((id) => id !== 'nenovaSS3') },
     ]
   },
   {
