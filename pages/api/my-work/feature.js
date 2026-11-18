@@ -5,7 +5,9 @@
 //   GET ?name=proposals|workflows|simulations      → 파일 전체
 //   GET ?name=storyboards&who=&b=&s=               → 선택한 직원·제안·세션 장면만(+ 직원 목차)
 //   GET ?name=adoption-ledger                      → 도입 레이더 장부(data/runtime/adoption-ledger.json). 브라우저 캐시 5분(하루 1회 갱신 파일)
+//   GET ?name=suite-blueprint-html                 → 통합 솔루션 Archify 인터랙티브 HTML 도면(text/html)
 import fs from 'fs';
+import path from 'path';
 import { verifyReqUser } from '../../../lib/auth';
 import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
 import { featureFilePath, FEATURE_NAMES } from '../../../lib/workFeatureData';
@@ -18,6 +20,16 @@ function readFeature(name) {
     const key = f + '|' + fs.statSync(f).mtimeMs;
     if (_cache[name]?.key !== key) _cache[name] = { key, data: JSON.parse(fs.readFileSync(f, 'utf8')) };
     return _cache[name].data;
+  } catch { return null; }
+}
+
+let _blueprintCache = { key: '', html: '' };
+function readBlueprintHtml() {
+  const f = path.join(process.cwd(), 'data', 'moyi-full-suite-blueprint.html');
+  try {
+    const key = f + '|' + fs.statSync(f).mtimeMs;
+    if (_blueprintCache.key !== key) _blueprintCache = { key, html: fs.readFileSync(f, 'utf8') };
+    return _blueprintCache.html;
   } catch { return null; }
 }
 
@@ -41,6 +53,14 @@ export default async function handler(req, res) {
   if (!isOrbitReportViewer(user)) return res.status(404).json({ success: false, error: 'Not found' });
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'GET only' });
   const name = String(req.query.name || '');
+  if (name === 'suite-blueprint-html') {
+    const html = readBlueprintHtml();
+    if (!html) return res.status(404).json({ success: false, error: 'Blueprint HTML not found' });
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    return res.status(200).send(html);
+  }
   if (!FEATURE_NAMES.includes(name)) return res.status(400).json({ success: false, error: 'name 은 ' + FEATURE_NAMES.join('|') });
   res.setHeader('Cache-Control', name === 'adoption-ledger' ? 'private, max-age=300' : 'private, no-store');
   const full = readFeature(name);

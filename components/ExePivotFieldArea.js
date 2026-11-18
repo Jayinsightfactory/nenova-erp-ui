@@ -11,7 +11,7 @@ const DRAG_TYPE = 'application/x-nenova-pivot-field';
  */
 export default function ExePivotFieldArea({
   zone, items = [], fieldsById = {}, sorts = {}, valueFilterStates = {}, draggedField = null, dropTarget = null,
-  label, emptyText, style, className,
+  label, emptyText, style, className, directFilter = false,
   onDragStart, onDragOverItem, onDropZone, onDragEnd, onClickField, onFilter, onContextMenu, onSort,
 }) {
   const entries = items.map((item) => (typeof item === 'string' ? { id:item } : item)).filter((item) => item && fieldsById[item.id]);
@@ -30,7 +30,7 @@ export default function ExePivotFieldArea({
     aria-label={`${label || zone} 필드 영역`}
     data-dragging={draggedField ? 'true' : 'false'}
     data-drop-active={insertionAt >= 0 ? 'true' : 'false'}
-    className={`${theme.area}${className ? ` ${className}` : ''}`}
+    className={`${theme.area}${directFilter ? ` ${theme.direct}` : ''}${className ? ` ${className}` : ''}`}
     style={style}
     onDragEnter={overZone}
     onDragOver={overZone}
@@ -66,16 +66,19 @@ export default function ExePivotFieldArea({
             data-testid={`pivot-exe-field-${id}`}
             data-zone={zone}
             className={theme.field}
-            title={sortable ? `${field.label} · 클릭: 정렬 전환 · 오른쪽 클릭/Shift+F10: 메뉴` : zone === 'filters' ? `${field.label} 값 선택: ${filterState.label}` : `${field.label} 설정`}
+            title={directFilter && zone !== 'values' ? `${field.label} 필터: ${filterState.label} · 클릭하여 선택` : sortable ? `${field.label} · 클릭: 정렬 전환 · 오른쪽 클릭/Shift+F10: 메뉴` : zone === 'filters' ? `${field.label} 값 선택: ${filterState.label}` : `${field.label} 설정`}
+            aria-haspopup={directFilter ? 'dialog' : undefined}
+            data-active={filterState.active ? 'true' : 'false'}
             aria-sort={sortable ? (sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : 'none') : undefined}
-            onClick={(event) => { if (sortable) onSort?.(id, sort === 'asc' ? 'desc' : 'asc', event); else onClickField?.(id, event); }}
+            onClick={(event) => { if (directFilter && zone !== 'values') onFilter?.(id, event); else if (sortable) onSort?.(id, sort === 'asc' ? 'desc' : 'asc', event); else onClickField?.(id, event); }}
             onKeyDown={(event) => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) openMenu(id, event); }}
           >
             <span>{field.label}</span>
             {zone === 'values' && <small className={theme.aggregate}>{SUMMARY_LABELS[aggregation] || aggregation || ''}</small>}
+            {directFilter && zone !== 'values' && <span className={theme.filterLabel}>{filterState.active ? (filterState.selectedCount === 0 ? '0개' : '선택') : '필터'} ▾</span>}
             {sortable && sort && <span className={theme.sort} aria-hidden="true">{sort === 'asc' ? '▲' : '▼'}</span>}
           </button>
-          <button
+          {!directFilter && <button
             type="button"
             draggable={false}
             data-testid={`pivot-exe-filter-${id}`}
@@ -84,8 +87,8 @@ export default function ExePivotFieldArea({
             title={`${field.label}에서 표시할 값${filterState.active ? `: ${filterState.label}` : ''}`}
             aria-label={`${field.label} 값 필터`}
             onClick={(event) => { event.stopPropagation(); onFilter?.(id, event); }}
-          >▾</button>
-          <button
+          >▾</button>}
+          {!directFilter && <button
             type="button"
             draggable={false}
             data-testid={`pivot-exe-menu-${id}`}
@@ -93,7 +96,7 @@ export default function ExePivotFieldArea({
             title={`${field.label} 메뉴`}
             aria-label={`${field.label} 메뉴`}
             onClick={(event) => openMenu(id, event)}
-          >⋯</button>
+          >⋯</button>}
         </span>
       </span>;
     })}
