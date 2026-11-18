@@ -1783,6 +1783,56 @@
           ]
         }
       ]
+    },
+    {
+      "id": "commercial-suite",
+      "title": "NOWLINK · MOYI 업종별 상용 솔루션 시연 스튜디오",
+      "entryPaths": [
+        "/demo/commercial-suite"
+      ],
+      "sourceFiles": [
+        "pages/demo/commercial-suite.js",
+        "lib/commercialSuiteDemo.js"
+      ],
+      "requiredScenarios": [
+        "industry",
+        "units",
+        "approve",
+        "roi"
+      ],
+      "guides": [
+        {
+          "id": "staff",
+          "role": "시연담당",
+          "title": "업종 실시간 치환부터 3단위 환산·MOYI 승인·ROI 산정",
+          "status": "ready",
+          "src": "/guides/commercial-suite/staff.mp4",
+          "captions": "/guides/commercial-suite/staff.ko.vtt",
+          "proof": "/guides/commercial-suite/staff.proof.json",
+          "chapters": [
+            {
+              "scenario": "industry",
+              "title": "1. 업종 실시간 전환",
+              "seconds": 0.326
+            },
+            {
+              "scenario": "units",
+              "title": "2. 3단위 발주 수량 조정",
+              "seconds": 13.455
+            },
+            {
+              "scenario": "approve",
+              "title": "3. MOYI 원터치 승인 실행",
+              "seconds": 26.589
+            },
+            {
+              "scenario": "roi",
+              "title": "4. 월 요금제 및 ROI 확인",
+              "seconds": 39.806
+            }
+          ]
+        }
+      ]
     }
   ]
 }
