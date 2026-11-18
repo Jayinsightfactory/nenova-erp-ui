@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { analyzeImportMessage, classifyImportFeed, importCustomerAliases } from '../lib/importKakaoOrderText.js';
+import { analyzeImportMessage, classifyImportFeed, importCustomerAliases, readLatestOrderImports } from '../lib/importKakaoOrderText.js';
 import { readRecentImports, importItemView, farmTotals, importTotalsText } from '../lib/importKakaoAdditions.js';
 const message=(text,id='a',time='2026년 11월 18일 오전 9:00')=>({id,time,text,sender:'fixture',items:[]});
 const parse=text=>analyzeImportMessage(message(text));
@@ -70,8 +70,34 @@ assert.equal(many.kind,'addition');assert.equal(many.items.length,23);assert.equ
 // Execute the actual route with a sheet-only dependency stub: no DB or external writes.
 const routeSource=fs.readFileSync(new URL('../pages/api/import/tools/kakao-additions.js',import.meta.url),'utf8').replace(/^import .*;\r?$/gm,'').replace('export default withAuth(','return withAuth(');
 let sheetReads=0;
-const route=new Function('withAuth','canManageInvoiceReceipt','getKakaoSheetId','readSheetValues','readImportDay','readRecentImports','classifyImportFeed','importCustomerAliases',routeSource)(fn=>fn,user=>user.allowed,()=> 'fixture',async()=>{sheetReads++;return [header,sheetRow('raw',a,'2026년 11월 18일 오전 9:00'),sheetRow('info','사진 3장','2026년 11월 18일 오전 9:01')];},(await import('../lib/importKakaoAdditions.js')).readImportDay,readRecentImports,classifyImportFeed,importCustomerAliases);
+const route=new Function('withAuth','canManageInvoiceReceipt','getKakaoSheetId','readSheetValues','readImportDay','readRecentImports','classifyImportFeed','importCustomerAliases','readLatestOrderImports',routeSource)(fn=>fn,user=>user.allowed,()=> 'fixture',async()=>{sheetReads++;return [header,sheetRow('raw',a,'2026년 11월 18일 오전 9:00'),sheetRow('info','사진 3장','2026년 11월 18일 오전 9:01')];},(await import('../lib/importKakaoAdditions.js')).readImportDay,readRecentImports,classifyImportFeed,importCustomerAliases,readLatestOrderImports);
 const call=async(method='GET',allowed=true,day='2026-11-18')=>{const res={code:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(code){this.code=code;return this;},end(){return this;},json(body){this.body=body;return this;}};await route({method,user:{allowed},query:{day}},res);return res;};
 const success=await call();assert.equal(success.body.messages.length,1);assert.equal(success.body.stats.excluded,1);assert.equal(success.body.messages[0].items[0].quantity,'30');assert(!('sender' in success.body.messages[0]));
 assert.equal((await call('POST')).code,405);assert.equal((await call('GET',false)).code,403);assert.equal((await call('GET',true,'2026-02-30')).code,400);assert.equal(sheetReads,1);
 console.log('PASS actual GET route raw analysis, noise filtering, authorization, date and read-only guards');
+const now=new Date('2026-11-18T01:00:00Z');
+const history=[header,
+ sheetRow('first',a,'2026년 11월 12일 오후 2:00'),
+ sheetRow('second',b,'2026년 11월 5일 오후 3:00'),
+ sheetRow('older',a,'2026년 11월 4일 오후 3:00'),
+ sheetRow('future',a,'2026년 11월 19일 오후 3:00'),
+ sheetRow('noise','사진 3장','2026년 11월 18일 오전 9:01')];
+const latestOrders=readLatestOrderImports(history,now);
+assert.deepEqual(latestOrders.orderDays,['2026-11-12','2026-11-05']);
+assert.deepEqual(latestOrders.messages.map(m=>m.id),['first','second']);
+assert.equal(latestOrders.reviewThrough,'2026-11-18');
+assert.equal(farmTotals(latestOrders.messages.flatMap(m=>m.items.map(i=>importItemView(i))))[0].quantity,40);
+const canceledHistory=readLatestOrderImports([...history,sheetRow('later-cancel','46-1 콜 수국 발주 취소\n화이트 1박스','2026년 11월 18일 오전 9:02')],now);
+assert.equal(canceledHistory.messages.length,0);
+assert(canceledHistory.review.some(m=>m.id==='later-cancel'));
+assert.deepEqual(readLatestOrderImports([header,sheetRow('info','사진','2026년 11월 18일 오전 9:00')],now).orderDays,[]);
+const crossYear=readLatestOrderImports([header,sheetRow('dec',a,'2026년 12월 30일 오전 9:00'),sheetRow('jan',a,'2027년 1월 2일 오후 1:00')],new Date('2027-01-04T01:00:00Z'));
+assert.deepEqual(crossYear.orderDays,['2027-01-02','2026-12-30']);
+assert.equal(farmTotals(crossYear.messages.flatMap(m=>m.items.map(i=>importItemView(i)))).length,2);
+const retained=parse('ETA 11월 23일 월요일\n기존대로 더글라스 200박스만 받겠습니다.\n오늘 추가한 내용은 취소해주세요');
+assert.equal(retained.kind,'review');assert.equal(retained.items.length,0);assert.equal(retained.unparsed.length,0);
+assert.deepEqual(retained.retained,[{product:'더글라스',quantity:'200',unit:'박스'}]);
+const defaultRes={setHeader(){},json(body){this.body=body;return this;}};
+await route({method:'GET',user:{allowed:true},query:{}},defaultRes);
+assert.deepEqual(defaultRes.body.orderDays,['2026-11-18']);
+console.log('PASS latest two actual order dates, quiet days, future exclusion, later cancellation, cross-year, retained quantities and default API');
