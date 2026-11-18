@@ -357,6 +357,11 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                   <div>항공사 {f.airline || '미확인'} · 빌번호 {f.awb || '미확인'}</div>
                   <div>{f.origin?.name || '출발지 미확인'}{f.origin?.assumed ? ' (추정)' : ''} → {f.via?.name ? `${f.via.name}(경유) → ` : ''}인천</div>
                   <div>
+                    {f.departAtEstimated && <>출발 예측 {shortTime(f.departAtEstimated)} · </>}
+                    공항 예정(STA) {shortTime(f.actual?.scheduledAt) || '미확인'}
+                    {f.actual?.estimatedAt && <> · {f.actual.remark === '도착' ? '공항 도착 표시' : '공항 예상(ETA)'} {shortTime(f.actual.estimatedAt)}</>}
+                  </div>
+                  <div>
                     운송 수량(공지): {f.announcedCargo?.boxes != null ? `${fmt(f.announcedCargo.boxes)}박스` : '미확인'}
                     {f.receivedCargo && <> · 전산 입고 합계 {fmt(f.receivedCargo.boxes)}박스</>}
                   </div>
@@ -385,7 +390,6 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                     </div>
                   </>}
                   {expanded && <div data-testid="flight-selected-detail" style={{ borderTop: '1px solid #d7e0ea', marginTop: 8, paddingTop: 8 }}>
-                    <div>공항 예정(STA) {shortTime(f.actual?.scheduledAt) || '미확인'}{f.actual?.estimatedAt ? ` · ${/도착/.test(f.actual.remark || "") ? "공항 도착 표시" : "공항 예상"} ${shortTime(f.actual.estimatedAt)}` : ''}</div>
                     <div style={{ color: 'var(--text3)' }}>자료 읽음 {shortTime(data.generatedAt)} KST · 출처: 인천공항 자료 · 미확인은 미처리 확정이 아닙니다.</div>
                     {f.note && <div style={{ color: 'var(--text3)' }}>{f.note}</div>}
                     {(f.history || []).length > 1 && <details><summary>일정 변경 이력</summary>{f.history.map((h,i) => <p key={i}>{shortTime(h.postedAt)} 공지 → {shortTime(h.arrivalAt || h.arrivalDate)} · {h.box ?? '–'}박스</p>)}</details>}

@@ -223,10 +223,14 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       const timing=css(el('div','flight-times'),{flexBasis:'100%',fontSize:'11.5px',color:'#526981'});
       const values=[];
       if(f.departAtEstimated)values.push('출발 예측 '+when(f.departAtEstimated,true));
-      if(!f.estimatedAt)values.push(f.scheduledAt?'공항 예정 '+when(f.scheduledAt,true):'공항 예정 확인 중');
-      if(f.estimatedAt)values.push((/도착/.test(f.remark)?'공항 도착 표시 ':'공항 최신 예정 ')+when(f.estimatedAt,true));
-      if(f.remark&&!f.statusLabel.includes(f.remark))values.push('공항 상태 '+f.remark);timing.textContent=values.join(' · ');if(selected)row.append(timing);
-      if(selected&&f.quarantineDeadlineAt){const past=Date.parse(f.quarantineDeadlineAt)<Date.now();row.append(css(el('span','',`검역 마감(예상) ${when(f.quarantineDeadlineAt)}${f.quarantineSlot?` ${f.quarantineSlot}`:''}`),{color:past?'#b02a2a':'#495057',fontSize:'11.5px'}));}
+      values.push(f.scheduledAt?'공항 예정(STA) '+when(f.scheduledAt,true):'공항 예정 미확인');
+      if(f.estimatedAt)values.push((f.remark==='도착'?'공항 도착 표시 ':'공항 예상(ETA) ')+when(f.estimatedAt,true));
+      if(f.remark&&!f.statusLabel.includes(f.remark))values.push('공항 상태 '+f.remark);
+      timing.textContent=values.join(' · ');row.append(timing);
+      if(f.quarantineDeadlineAt && !(f.steps || []).some(step => step.label==='검역' && step.state==='done')){
+        const past=Date.parse(f.quarantineDeadlineAt)<Date.now();
+        row.append(css(el('span','',`검역 마감(예상) ${when(f.quarantineDeadlineAt)}${f.quarantineSlot?` ${f.quarantineSlot}`:''}`),{color:past?'#b02a2a':'#495057',fontSize:'11.5px'}));
+      }
       if(f.trackUrl&&(f.priority<2||selected)){
         const go=btn('시간·실제 위치 원문 ↗',async()=>{go.disabled=true;try{await window.desktop.invoke('taskShortcut',{shortcut:{kind:'web',target:f.trackUrl,label:'실제 위치'}});}catch(e){status.textContent=e.message||'실제 위치 화면을 열지 못했습니다.';}finally{go.disabled=false;}});
         css(go,{marginLeft:'auto'});row.append(go);

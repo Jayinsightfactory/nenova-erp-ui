@@ -1507,13 +1507,13 @@
       "videoWaivers": [
         {
           "file": "desktop/shell/flight-board.js",
-          "sha256": "cacd00a96107a72e479e87e8f248de71dd732c35136055ab0bd2e51038d7b7bb",
+          "sha256": "d0921582dd94143dc999c060e8b2e1ccc18cab7d684a4458232c3ceef4cc06dc",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },
         {
           "file": "components/home/ImportFlightBoard.js",
-          "sha256": "967760fe653a8c2865c0fcbe98a5d66c9740756253bb7107b652713915a6151d",
+          "sha256": "d0614dd68c65743437d0fa11fade21498b41d927a324faf67a1eb69e6a5dd22d",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },
