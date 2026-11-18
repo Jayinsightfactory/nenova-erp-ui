@@ -93,3 +93,31 @@ test('2026-11-17 수집기 map 키는 업로드가 쓰는 허용 필드와 일�
   const b=policy.sanitizeRows('buyStatus',[{sourceDateLabel:'2026/11/03 -3',qty:2,boxQty:1,unitPrice:10,foreignAmount:0,supplyAmt:20,exchangeRate:1,total:20,weight:3.5,isSubtotal:false},{sourceDateLabel:'',qty:1,total:5,isSubtotal:false}]);
   assert.deepEqual([b[0].refDate,b[0].weight,b[0].total],['2026-11-03','3.5','20']);assert.equal(b[1].refDate,null);
 });
+
+test('2026-11-18 quote 0행("등록된 데이터가 없습니다.")은 emptyOk 로 파싱하고 buyStatus 거래처 오클릭(text=Excel)을 막는다', async()=>{
+  const XLSX=require('xlsx');
+  const {DEFS,parseExcel}=await import('../scripts/ecount-scraper/scrape-core.mjs');
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([
+    ['회사명 : (주) 네노바 / 2026/10/19  ~ 2026/12/18'],
+    ['일자-No.','최초작성일자','거래처명','품목명(요약)','견적금액합계','비고','진행상태','생성한전표','인쇄'],
+    ['등록된 데이터가 없습니다.']
+  ]);
+  XLSX.utils.book_append_sheet(wb,ws,'Sheet1');
+  const buf=XLSX.write(wb,{type:'buffer',bookType:'xlsx'});
+  const parsed=parseExcel(buf,DEFS.quote);
+  assert.equal(parsed.emptyOk,true);assert.equal(parsed.parseFailed,false);
+  assert.equal(parsed.rows.length,0);assert.equal(parsed.screenTotal,0);
+  assert.equal(parsed.periodFrom,'2026-10-19');assert.equal(parsed.periodTo,'2026-12-18');
+
+  const badWb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(badWb,XLSX.utils.aoa_to_sheet([['제목없음'],['오류페이지']]),'Sheet1');
+  const badParsed=parseExcel(XLSX.write(badWb,{type:'buffer',bookType:'xlsx'}),DEFS.quote);
+  assert.equal(badParsed.parseFailed,true);assert.ok(!badParsed.emptyOk);
+
+  const core=read('scripts/ecount-scraper/scrape-core.mjs');
+  assert.ok(!core.includes("locator?.('text=Excel')"),'거래처명 Excel 오클릭 방지');
+  assert.match(core,/Excel\(화면\)/);
+  assert.match(core,/ds === 'sales' \|\| ds === 'buyStatus'/);
+  assert.match(read('scripts/ecount-scraper/daemon.mjs'),/!data\.rows\.length && !data\.emptyOk/);
+});

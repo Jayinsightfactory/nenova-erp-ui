@@ -53,7 +53,7 @@ async function cycle(page, getBase, recoverSession) {
   for (const ds of Object.keys(DEFS)) {
     try {
       const data = await recovery.withSessionRecovery(()=>sourceRead(()=>collectOne(page, getBase(), ds)), recoverSession);
-      if (!data.rows.length) { console.log(`  [${ds}] 0행(파싱실패)`); continue; }
+      if (!data.rows.length && !data.emptyOk) { console.log(`  [${ds}] 0행(파싱실패)`); continue; }
       const r = await postIngest(NENOVA, COOKIE, ds, data);
       console.log(`  [${ds}] rows=${data.rows.length} 합계=${data.screenTotal ?? '?'} → ${r.success ? `${r.status} ${r.score}점 #${r.snapshotKey}` : '전송실패:' + r.error}`);
     } catch (e) {
