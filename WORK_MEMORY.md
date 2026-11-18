@@ -3311,3 +3311,12 @@ pm run test:canon 통과.
 - 검증 상태: desktop67/67, 네이티브 Electron·홈·반응형·키보드·플레이어, ERP 계약·dnSpy·manifest·쓰기 보호·가이드·webpack 빌드 통과. 운영 및 직원 PC 설치는 미검증. 빌드의 기존 workDrivePairsAsync 동적 의존성/이카운트 페이지 데이터 크기 경고는 이번 변경 대상 밖.
 - 주의/잠금: 원장·입고·재고·견적·매출 쓰기 변경 없음. 해외 STD·ATD 및 FR24 API 추가 연동 없음. 직원 PC 업무 중 재시작 금지.
 - 검색어: 1.3.34 비행기 확대 창 상단 즐겨찾기 홈 이슈 인천공항 도착 시간 가이드 검증 배포 인계
+
+### 2026-11-18 비행기·홈 1.3.34 운영 배포 완료 인계
+- 작업 위치: nenova-erp-ui / 기능 PR #1811 / 병합 bc00257c2d0bd1a3d92b70052840bf32dc51272d / codex/flight-desktop-popup-1118 작업트리 병합 직후 정리 / 인계 codex/flight-popup-handoff-1118.
+- 완료된 것: 앱 전용 지도·편별 상세 확대 창(재사용), 홈 이슈 펼치기와 인천공항 시간·상태·공지/예측 구분, 환영 문구 아래 즐겨찾기. Cafe24 배포 44214345522, Windows 빌드 44214345520, 안정판 desktop-v1.3.34 공개. 최종 MP4·VTT·proof 회사 Drive 보관 완료.
+- 남은 할 일: 직원 PC 업무 종료 후 정상 종료·다음 실행에서 업데이트 적용 확인. 업무 중 요청에 따라 PC 재시작/설치 실행은 하지 않음. FR24 API 신규 연결과 해외 STD·ATD 수신은 이번 범위 밖.
+- 검증 상태: desktop67/67, 실제 native Electron 창/선택/재사용/재열기·홈·반응형·키보드, ERP 필수 검사·빌드·Windows/Linux CI, 실제 운영 로그인/항공편 GET/확대 페이지/지도·상세/최종 가이드 자막·영상 재생 통과. 운영 5편 중 3편 인천공항 운항 정보 연결 확인(나머지는 연결 미확인). 설치 파일과 공개 피드 무결성 일치. 직원 PC 설치 적용은 미검증.
+- 주의/잠금: 운영 원장 쓰기 없음. 지도 위치·출발은 예측 표시, 인천공항 제공 시각은 별도 표시. 직원 PC 재시작 금지 유지. 기능 작업트리 잠금 해제, 인계 PR 병합 후 인계 작업트리도 즉시 정리.
+- 보관: 비행기 영상 https://drive.google.com/file/d/1V7TIPQLJ3T8agKiInTlMc7JKT7W2Tebg/view / 홈 영상 https://drive.google.com/file/d/167ZuGiC6YKAs7XuY0bLGcmIeyn7av89V/view / 최종 홈 proof 17jVTfACtfhj_0A5p-eDolM5GYrlGTdmB / 공개 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.34.
+- 검색어: 1.3.34 운영 완료 비행기 확대 지도 상세 인천공항 STA STD ATD 홈 이슈 즐겨찾기 상단 자동 업데이트 배포 인계
