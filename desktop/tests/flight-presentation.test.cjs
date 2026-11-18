@@ -4,12 +4,12 @@ const { issueRows, shortIssue, linkedFlights, nextAction } = require('../shell/f
 
 test('flight cards attach exact year identities and prioritize urgent work without mutating source', () => {
   const flights = [{key:'2025-A',status:'in_flight'}, {key:'2026-A',status:'arrived'}, {key:'done',status:'registered'}, {viewId:'hashed',status:'before_departure'}];
-  const rows = [{key:'2026-A',level:'red',text:'서류 전달 미확인'}, {key:'done',level:'red',text:'과거 공지'}, {viewId:'hashed',level:'amber',text:'시각 확인'}];
+  const rows = [{key:'2026-A',level:'red',text:'서류 전달 미확인'}, {key:'done',level:'red',text:'미해결 적하 구분'}, {viewId:'hashed',level:'amber',text:'시각 확인'}];
   const before = JSON.stringify({flights,rows});
   const out = linkedFlights(flights,rows);
-  assert.deepEqual(out.map(f=>f.key || f.viewId), ['2026-A','hashed','2025-A','done']);
-  assert.deepEqual(out.map(f=>f.boardNumber), [2,4,1,3]);
-  assert.equal(out[2].flightIssues.length,0);
+  assert.deepEqual(out.map(f=>f.key || f.viewId), ['2026-A','done','hashed','2025-A']);
+  assert.deepEqual(out.map(f=>f.boardNumber), [2,3,4,1]);
+  assert.equal(out[3].flightIssues.length,0);
   assert.equal(out[0].flightIssues[0].text,'서류 전달 미확인');
   assert.equal(JSON.stringify({flights,rows}),before);
   assert.equal(nextAction(rows[0]),'서류 전달 여부 확인');

@@ -3602,6 +3602,14 @@ pm run test:canon 통과.
 4. 검증 상태: `archFlowChart`, `workflowReview`, `pmUiKit`, `pmNoHexColor`, `test:pm`, `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack` 통과. `codex.exe` 장기 조사관 1회 실제 폴백 완결은 다음 `quota-hold` 전환 시 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건. `C:\Users\USER\nenova-pm` 원본 수정 파일 `pm.js`, `office-feed.js`, `radar-pilot-state.json`, `tech-radar.json`, `adoption-ledger.json` 모두 `.bak-1118` 백업 보존 완료.
 
+## 2026-11-18 · NENOVAKAKAO 원문 기반 현재 비행기 이슈
+- 요약: 운영 원문 읽기 전용 대조. 최신 공지 재공유·명시 서류 수령 완료 반영, 전날 동일 편명 오연결 제외, 수량·적하 미해결 업무 유지. Desktop 1.3.39.
+- 검색어: NENOVAKAKAO flight-current-issues docs_received qty_mismatch manifest_issue Desktop1.3.39
+1. 작업 위치: nenova-erp-ui / codex/flight-current-issues-1118 / c027/nenova-erp-ui/flight-fix / PR 생성 전.
+2. 완료된 것: lib/importFlight*, importRoomEvents, importScheduleFeed, Web/Desktop 카드·원문시각, 계약 및 회귀검사. SQL/API/수집기 쓰기 변경 없음.
+3. 남은 할 일: PR CI → squash 병합 → Cafe24 배포 → Windows 공개·설치 앱 확인.
+4. 검증 상태: 운영 원문 메모리 재생 K4254 미해결 2건·AC063 서류 완료, 대상 17검사 및 Desktop71건, ERP 전체계약·dnSpy·manifest224·쓰기 가드·workflow guide·운영 build 통과. 배포/설치앱은 미검증.
+5. 주의/잠금: 다른 worktree 미수정, 원문 원본·개인정보 저장 없음. 사진/모호한 답글은 완료 근거 제외. 영상 제외는 사용자 명시 지시.
 ## 2026-11-18 저장 분석 재사용·농장 대조 PR1831 병합 인계
 - 검색어: PR1831 5a8641aa BALVERDE 25571 8073 PDF_ANALYSIS_ACTIVE 44247641364
 1. 작업 위치: nenova-erp-ui / 기능 PR1831 squash 5a8641aa847533287cb797d70c789b5335c42870. 기능 worktree 정리 완료. 이 후속 기록은 docs/import-reuse-deployed-1118.

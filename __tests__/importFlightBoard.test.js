@@ -80,7 +80,7 @@ assert.equal(board.flights[0].status, 'in_flight');
   const nl2 = b2.flights.find(f => f.key === '18012345697');
   assert.ok(nl2.noticeMessageIds.includes('c1'));
   assert.ok(nl2.roomEvents.length >= 2 && nl2.roomEvents.length <= 8);
-  assert.deepEqual(Object.keys(nl2.roomEvents[0]).sort(), ['at', 'guessed', 'label', 'level', 'room', 'text', 'type']);
+  assert.deepEqual(Object.keys(nl2.roomEvents[0]).sort(), ['at', 'guessed', 'label', 'level', 'link', 'messageId', 'room', 'text', 'type']);
   assert.ok(Date.parse(nl2.roomEvents[0].at) >= Date.parse(nl2.roomEvents[1].at), '최근 것부터');
   assert.ok(nl2.roomEvents.some(e => e.type === 'docs_request' && e.room === '선율'));
   assert.equal(nl2.checklist.steps.find(s => s.key === 'docs').state, 'late');
@@ -129,7 +129,7 @@ assert.ok(feed.messages.every(m => m.chatroom !== '다른방'));
   assert.ok(/신시내티 경유지 대기/.test(f1.statusLabel), f1.statusLabel);
   assert.ok(!/비행 중/.test(f1.statusLabel));
   assert.ok(/공지 시각 기준/.test(f1.note), f1.note);
-  assert.ok(f1.alerts.some(a => /공항 예정 시각이 공지와 다름/.test(a.text)), '어긋남은 경고로 보인다');
+  assert.equal(f1.actual, null, '다른 운항일 자료로 도착·검역마감·이슈를 만들지 않는다');
   // 공지와 공항 자료가 3시간 안이면 공항 시각으로 계산하고, 비행 중이어도 예측이라고 적는다
   const near = new Map([['K4254', { scheduledAt: '2026-11-18T18:00:00+09:00', estimatedAt: '2026-11-18T18:00:00+09:00', remark: null, airportCode: 'CVG', airportName: '신시내티', cargo: true, flightId: 'K4254' }]]);
   const b2 = buildFlightBoard({ messages: [msg('z2', '스케줄방', '2026-11-17T01:15:00Z', ['47-1차 콜수국 (KALITTA)', '11월 18일(수) 17:10 도착 예정', '(992-12345675 K4254 480 BOX)'].join(String.fromCharCode(10)))], receipts: new Map(), now: Date.parse('2026-11-18T12:00:00+09:00'), icn: near });

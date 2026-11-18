@@ -39,7 +39,7 @@ function projectFlightBoard(data){
   issues.sort((a,b)=>(a.level==='red'?0:1)-(b.level==='red'?0:1));
   const todo=issues.slice(0,40);
   const rows=data.flights.filter(f=>f&&typeof f==='object'&&STATUS.includes(f.status));
-  const flights=linkedFlights(rows,candidates).filter(f=>f.status!=='registered').slice(0,8).map(f=>{
+  const flights=linkedFlights(rows,candidates).filter(f=>f.status!=='registered'||f.flightIssues.length).slice(0,8).map(f=>{
     const steps=Array.isArray(f.checklist?.steps)?f.checklist.steps.filter(x=>x&&typeof x==='object'):[];
     const next=steps.find(x=>x.state==='late')||steps.find(x=>x.state==='due');
     const progress=Number(f.progress);
@@ -59,6 +59,7 @@ function projectFlightBoard(data){
   });
   return {
     generatedAt:iso(data.generatedAt),feedOk:data.feed?.ok===true,
+    feedRooms:Object.entries(data.feed?.rooms||{}).slice(0,3).map(([room,r])=>({room:clean(room,20),latestMessageAt:iso(r?.latestMessageAt),latestImportedAt:iso(r?.latestImportedAt),error:!!r?.error})),
     sources:{icn:data.sources?.icn?.enabled===true&&data.sources?.icn?.ok===true,customs:data.sources?.customs?.enabled===true&&data.sources?.customs?.ok===true},
     summary:{total:count(s.total),beforeDeparture:count(s.beforeDeparture),inFlight:count(s.inFlight),arrived:count(s.arrived),registered:count(s.registered),awaitingAwb:count(s.awaitingAwb),red:count(s.red),amber:count(s.amber)},
     destination:place(data.destination)||{name:'인천',lat:37.46,lon:126.44},
