@@ -3601,3 +3601,13 @@ pm run test:canon 통과.
 3. 남은 할 일: `origin/master` 머지 충돌 해소 후 CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
 4. 검증 상태: `archFlowChart`, `workflowReview`, `pmUiKit`, `pmNoHexColor`, `test:pm`, `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`, `npx next build --webpack` 통과. `codex.exe` 장기 조사관 1회 실제 폴백 완결은 다음 `quota-hold` 전환 시 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건. `C:\Users\USER\nenova-pm` 원본 수정 파일 `pm.js`, `office-feed.js`, `radar-pilot-state.json`, `tech-radar.json`, `adoption-ledger.json` 모두 `.bak-1118` 백업 보존 완료.
+
+
+## 2026-11-18 · 아키텍처 흐름도에 솔루션화 업무별 스키마 설계 청사진 & 실제 품목 데이터 예시 추가
+- 요약: `/my-work?tab=arch` (`ArchFlowChart.js`)에 타 업종 상용 솔루션 확장을 위한 4대 핵심 업무(`master` 기준정보·다중단위, `order_ship` 주차 주문·출고 분배·우회흡수, `import_cost` 수입 인보이스·운임배부·도착원가, `stock_profit` 차수 재고 스냅샷·불량차감·주간손익)별 스키마 설계 원리, 업종 치환 공식, 실제 품목(`콜롬비아 장미 프리덤 50cm`, `네덜란드 수국 매지컬 그린`, `유오디아 블랙잭`) 저장 예시 표(`data-testid="arch-solution-blueprints"`)를 추가.
+- 검색어: 솔루션화 스키마 설계 청사진 SOLUTION_BLUEPRINTS arch-solution-blueprints 콜롬비아장미프리덤 네덜란드수국 유오디아블랙잭 ArchFlowChart
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-solution-schema-examples` / `C:\Users\USER\nw-agy-arch-domain-schema` (하위 세션 `code-worker` `flash` 구현).
+2. 완료된 것: `components/pm/ArchFlowChart.js`에 4대 업무 스키마 블루프린트 선택 카드·3칸 설계 공식 요약 바·실제 품목 데이터 예시 테이블 추가, `__tests__/archFlowChart.test.js` 검증 단언 추가. 전역 규칙(`shared-rules.md`, `SHARED_AGENT_RULES.md`)에 기능별 하위 세션(`invoke_subagent`) + 모델 자동 배정 원칙 영구 반영.
+3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
+4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(224건), `npx next build --webpack` 모두 통과. 운영 배포 후 브라우저 시각 확인은 별도 미수행(미검증).
+5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건(UI 설명·청사진 섹션 전용).
