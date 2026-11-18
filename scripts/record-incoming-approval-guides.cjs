@@ -108,7 +108,7 @@ async function recordRole(browser, base, secret, role) {
   });
   await page.goto(`${base}/import/tools?tab=incoming&warehouseKey=9001&from=2026-10-01&to=2026-11-30`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('nav[aria-label="입고 정정 처리 단계"]');
-  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},unfocus:async()=>{},stop: async () => null } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 수정 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true });
+  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},unfocus:async()=>{},stop: async () => null } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 수정 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset: 'fast' });
   let stepNumber=1,currentCaption='1. 조작할 위치를 확인합니다.';
   const hold = async (text, seconds = 5) => { currentCaption=`${stepNumber}. ${text.replace(/^\d+\. /,'')}`;await rec.caption(currentCaption); await rec.pause(seconds * 1000); };
   const focusTarget=async element=>{
@@ -117,7 +117,7 @@ async function recordRole(browser, base, secret, role) {
     const b=await element.boundingBox();assert(b&&b.y>=0&&b.y+b.height<=1080,'Guide target must be fully visible');
     // Bottom-edge controls cannot be centred by scrolling past the end of the real UI.
     // Keep the full view and move captions above them, rather than crop or conceal them.
-    await rec.focus('[data-incoming-guide-target="current"]',stepNumber,{staticHighlight:b.y+b.height/2<70||b.y+b.height/2>900,anchorLeft:b.width>1200});
+    await rec.focus('[data-incoming-guide-target="current"]',stepNumber,{staticHighlight:b.y+b.height/2<70||b.y+b.height/2>900,anchorLeft:b.width>1200,badgeLeft:1370});
   };
   const unfocusTarget=async()=>{await rec.unfocus();await page.evaluate(()=>document.querySelectorAll('[data-incoming-guide-target]').forEach(n=>delete n.dataset.incomingGuideTarget));};
   let pointer = { x: 40, y: 80 };

@@ -25,7 +25,7 @@ function cameraFilters(focusShots, includeHeader = false) {
 
 // Reusable real Chrome capture. The caller serves the tested UI and intercepts every API
 // with synthetic fixtures. This module deliberately refuses a production browser URL.
-async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflowId, guideId, title, sourceFiles, outputDir, fixtureOnly, includeHeader = false, ffmpegPath = 'ffmpeg', ffprobePath = 'ffprobe' }) {
+async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflowId, guideId, title, sourceFiles, outputDir, fixtureOnly, includeHeader = false, ffmpegPath = 'ffmpeg', ffprobePath = 'ffprobe', encodingPreset = 'medium' }) {
   if (fixtureOnly !== true || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(page.url()).hostname)) throw Error('Guide recording requires a local synthetic fixture page');
   if (!/^[a-z0-9-]+$/.test(workflowId) || !/^[a-z0-9-]+$/.test(guideId)) throw Error('Invalid guide identity');
   if (!sourceFiles?.length) throw Error('Guide sourceFiles required');
@@ -76,7 +76,7 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
     // Optional editorial zoom: source browser remains 1920x1080 / 100% throughout.
     // Keep the original lower caption band outside the zoomed picture.
     const filters = cameraFilters(focusShots, includeHeader);
-    execFileSync(ffmpegPath, ['-y', '-hide_banner', '-loglevel', 'error', '-i', raw, ...filters, '-an', '-c:v', 'libx264', '-preset', 'medium', '-threads', '2', '-crf', '23', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4], { windowsHide: true, timeout: 300000 });
+    execFileSync(ffmpegPath, ['-y', '-hide_banner', '-loglevel', 'error', '-i', raw, ...filters, '-an', '-c:v', 'libx264', '-preset', encodingPreset, '-threads', '2', '-crf', '23', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4], { windowsHide: true, timeout: 300000 });
     const probe = JSON.parse(execFileSync(ffprobePath, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height,avg_frame_rate:format=duration', '-of', 'json', mp4], { encoding: 'utf8', windowsHide: true }));
     const stream = probe.streams[0], duration = Number(probe.format.duration);
     const fps = stream.avg_frame_rate.split('/').map(Number).reduce((a, b) => a / b);
