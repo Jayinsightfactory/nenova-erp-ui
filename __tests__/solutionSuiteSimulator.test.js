@@ -197,6 +197,15 @@ assert.match(step5ArchifyHtml, /\/api\/work\/orbit-thumbs\?img=rec-101/, '실작
 assert.match(step5ArchifyHtml, /left:12%;top:24%;width:40%;height:20%/, 'steps[].box 천분율 좌표 -> % 바운딩박스 변환 렌더링');
 assert.match(step5ArchifyHtml, /프리덤 100단/, '바운딩박스 라벨 렌더링');
 
+// 6) 데스크톱 셸(shell.js) · 데스크톱 메뉴(Layout.js) 연결 계약
+const shellSrc = read('desktop/shell/shell.js');
+assert.match(shellSrc, /pmSimButton\.id = 'pmSimButton'/);
+assert.match(shellSrc, /url: '\/my-work\?tab=suite-sim'/);
+assert.match(shellSrc, /pmRadarButton\.id = 'pmRadarButton'/);
+assert.match(shellSrc, /url: '\/my-work\?tab=radar'/);
+const layoutSrc = read('components/Layout.js');
+assert.match(layoutSrc, /href: '\/my-work\?tab=suite-sim'[\s\S]*userIds:\s*\['nenovaSS3'\]/);
+
 runApiTests()
   .then(() => {
     console.log('solutionSuiteSimulator contract & SSR tests passed');
