@@ -13,6 +13,9 @@ for (const loopId of ['detail', 'heal', 'pipeline', 'roundtrip']) {
 }
 assert.match(comp, /인보이스.*입고.*도착원가/, '연속 파이프라인 압축 사례 포함');
 assert.match(comp, /분배.*주문등록/, '왕복 우회동작(A→B→A) 흡수 설계 사례 포함');
+for (const tbl of ['OrderMaster', 'OrderDetail', 'ShipmentMaster', 'ShipmentDetail', 'WarehouseMaster', 'ViewShipment', 'WebProfitReport', 'assertWebSchemaContract', 'data/runtime', 'work-feature-workflows.json', 'adoption-ledger.json']) {
+  assert.ok(comp.includes(tbl), `ArchFlowChart must include schema reference: ${tbl}`);
+}
 assert.doesNotMatch(comp, /감시|추적|모니터링/, '작업자 노출 문구에 감시·추적·모니터링 금지');
 assert.doesNotMatch(comp, /<button[\s>]/, 'PM UI 키트 규칙: raw <button> 금지');
 

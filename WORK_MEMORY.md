@@ -3533,3 +3533,12 @@ pm run test:canon 통과.
 - 검색어: 원장연결알림 기본접힘 대조보기 최초신고 등록이력 다른번호 차감 estimateLedgerReview
 
 - 2026-11-18 대조 기능 검증 갱신: 전체 test:erp-contract exit0, dnSpy/manifest/쓰기범위/가이드 검사 통과. 최신 master 병합 후 빌드 진행. 대상 회귀11건 통과. 영상41.55초 및 자막 업무 Drive 백업 완료(영상 1ZKD-gnWOa3sLCigP5Xe-6faTgrzL6q5Z, 자막 1DBrn7ItyB_UpM0AVhmWoTwzs0uZsDyzW).
+
+## 2026-11-18 · 아키텍처 흐름도에 SQL 원장 & 웹 데이터 3계층 스키마 구조도 추가
+- 요약: `/my-work?tab=arch`의 `ArchFlowChart.js`에 공유 MSSQL ERP 원장(`Customer`/`Product`/`OrderMaster`/`OrderDetail`/`ShipmentMaster`/`ShipmentDetail`/`WarehouseMaster`/`WarehouseDetail`/`FreightCost`/`ProductStock`), 웹 전용 `Web*` SQL 스키마(`assertWebSchemaContract`, `WebProfitReport`/`WebRaumPnl`/`WebSalesDefectDeduction`/`WebChinaVolumeBoard`/`WebPreShipment`/`WebInvoice*`/`WebMappingStore`/`WebWorkflowReview`), 런타임 JSON(`data/runtime/*.json`) 3계층 구조도와 필터·불변 가드 요약표를 추가.
+- 검색어: 아키텍처 스키마 구조도 MSSQL OrderMasterKey ShipmentKey SdetailKey assertWebSchemaContract data/runtime ArchFlowChart
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-sql-web-schema` / `C:\Users\USER\nw-agy-arch-schema` / PR #1827.
+2. 완료된 것: `components/pm/ArchFlowChart.js` 3계층 스키마 다이어그램·필터·상세 카드·불변 가드(Invariants) 섹션 추가, `__tests__/archFlowChart.test.js` 스키마 계약 단언 추가.
+3. 남은 할 일: PR #1827 CI 통과 확인 → squash 머지 → worktree 정리.
+4. 검증 상태: `archFlowChart`, `workflowReview`, `workFeatureData`, `test:pm`(47파일 no-hex, 9파일 ui-kit, boundary), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `erp-manifest(224)`, `npx next build --webpack` 통과. PR CI 및 운영 반영 확인 진행 중.
+5. 주의/잠금: MSSQL 원장·마이그레이션·API 쓰기 변경 0건(문서화된 스키마 읽기 시각화만 추가). `pages/pm.js` 및 데스크톱 파일 미수정. worktree 정리 시 `cmd /c rmdir`로 `node_modules` junction만 먼저 해제할 것.

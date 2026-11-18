@@ -2,7 +2,7 @@
 // 자가발전형 직원 업무 분석 · 자동화 솔루션 아키텍처 흐름도 (/my-work?tab=arch 및 /pm 공용).
 // 규칙: __tests__/pmNoHexColor.test.js(#hex 금지) · __tests__/pmUiKit.test.js(UI 키트 사용) · __tests__/workflowReview.test.js(금지어 미사용) 준수.
 import { useEffect, useState } from 'react';
-import { Badge, Button, SelectCard } from './ui';
+import { Badge, Button, SelectCard, ToggleChip } from './ui';
 
 const LOOPS = [
   {
@@ -115,6 +115,143 @@ const PIPELINE_NODES = [
   { key: 'deploy', label: '4. 웹·앱 반영 & 실측', sub: '네노바웹 · 데스크톱 · 시간 단축 재계측' },
 ];
 
+const SCHEMA_LAYERS = [
+  {
+    id: 'erp',
+    badge: 'Tier 1 · MSSQL 공유 원장',
+    tone: 'accent',
+    title: '전산(nenova.exe) ↔ 네노바웹 공유 ERP 스키마',
+    rule: 'dnSpy · SQL 원장 정본 일치 필수 | 복합 업무키: OrderYear + OrderWeek + CustKey + ProdKey | SELECT 시 ISNULL(isDeleted,0)=0 적용',
+    tables: [
+      {
+        name: 'Customer · Product · Flower · Country · Farm',
+        pk: 'CustKey / ProdKey / FarmKey / CounKey',
+        fk: 'Customer.CounKey, Product.FlowerName / CounName / FarmName',
+        cols: 'ProdName(견적 고정), DisplayName(웹 표시), OutUnit(박스/단/송이), BunchOf1Box, SteamOf1Box, BoxWeight, BoxCBM, TariffRate',
+        note: 'OutUnit이 수량 환산 기준. CustomerProdCost(AutoKey)는 CustKey+ProdKey 단가 연결.',
+      },
+      {
+        name: 'OrderMaster → OrderDetail · OrderHistory · ViewOrder',
+        pk: 'OrderMasterKey / OrderDetailKey',
+        fk: 'CustKey, OrderMasterKey, ProdKey (OrderKey 컬럼 없음)',
+        cols: 'OrderWeek(NN-NN), OrderDate, BoxQuantity / BunchQuantity / SteamQuantity(3종 모두 환산 저장), UnitPrice, Amount, Vat, isDeleted',
+        note: 'OrderDetail 조회 시 Product.OutUnit CASE WHEN으로 1종 수량만 선택(3종 합산 금지).',
+      },
+      {
+        name: 'ShipmentMaster → ShipmentDetail · ShipmentFarm · ViewShipment',
+        pk: 'ShipmentKey / SdetailKey (소문자 d)',
+        fk: 'CustKey(Master 기준), ShipmentKey, ProdKey (ShipmentMasterKey 없음)',
+        cols: 'sm.isFix(1=매출 확정), OutQuantity(단일값·재환산 금지), EstQuantity, Box/Bunch/SteamQuantity(단일공식), Amount, Cost, Vat, Descr, sd.isFix(DetailFix)',
+        note: 'ShipmentDetail에는 isDeleted 컬럼 없음(쿼리 금지). sd.CustKey NULL 정상이며 ViewShipment는 sm.CustKey 기준.',
+      },
+      {
+        name: 'WarehouseMaster → WarehouseDetail · FreightCost · FreightCostDetail',
+        pk: 'WarehouseKey / WdetailKey / FreightKey / DetailKey',
+        fk: 'ProdKey, FreightCost.WarehouseKey(활성 1건), WarehouseDetailKey',
+        cols: 'FarmName, InputDate, Box/Bunch/SteamQuantity, OutQuantity, EstQuantity, TPrice, WeightBasis(GW|CBM), ArrivalPerStem/Bunch',
+        note: 'WarehouseDetail에도 isDeleted 컬럼 없음(WarehouseMaster.isDeleted=0으로만 필터).',
+      },
+      {
+        name: 'ProductStock · StockMaster · StockHistory · Estimate · FarmCredit',
+        pk: 'StockKey / StockMasterKey / EstimateKey / CreditKey',
+        fk: 'OrderYear + OrderWeek, ProdKey, CustKey, ShipmentKey',
+        cols: 'ProductStock.Stock(usp_StockCalculation 차수 스냅샷), StockMaster.isFix(0|1|2), FarmCredit(FarmName, OrderWeek, CreditUSD)',
+        note: '매출·재고 계산은 OrderYear 포함 차수 단위로 격리(전년도 동일 차수 혼입 금지).',
+      },
+    ],
+  },
+  {
+    id: 'web',
+    badge: 'Tier 2 · MSSQL 웹 전용(Web*)',
+    tone: 'ok',
+    title: '네노바웹 전용 확장 스키마 (assertWebSchemaContract)',
+    rule: 'nenova.exe 원장·SP 무변경 원칙 | GET 경로에서 CREATE/ALTER 런타임 DDL 금지 · 사전 마이그레이션 존재 검증만 수행',
+    tables: [
+      {
+        name: 'WebProfitReport · WebCustoms* · WebStockPriceEvidence · ProfitWorkbookSnapshot*',
+        pk: 'OrderYear + MajorWeek (+ ColKey/Category/SnapshotKey)',
+        fk: 'assertWebSchemaContract: profit-report-inputs@2, profit-report-customs@3, profit-workbook@1',
+        cols: 'WebCustomsRateConfig, WebCustomsWeekly, WebColombiaWeekly, WebForwardingWeekly, WebCustomsRateHistory, SnapshotRow(DataJson/ManualJson)',
+        note: '재고 단가는 EvidenceStatus=VERIFIED 행만 사용하며 Product.Cost·도착원가 평균 fallback 금지.',
+      },
+      {
+        name: 'WebArrivalCostImport · WebArrivalCostLine · WebArrivalCostHistory',
+        pk: 'OrderYear + OrderWeek + CountryName (IsCurrent revision)',
+        fk: 'ProdKey, FarmKey 매칭 스냅샷',
+        cols: 'WeightBasis/배분기준(SOURCE|WEIGHT|VOLUME|VALUE|EQUAL), IsCurrent(0|1), 원본·선택 원가, 환율/GW/CW',
+        note: '재업로드 시 이전 웹 행만 IsCurrent=0 처리. Product.Cost·Order·Shipment·Estimate 자동 변경 없음.',
+      },
+      {
+        name: 'WebRaumPnl · WebRaumPnlItem · WebRaumCostPrice · WebPnlHotel* · WebRaumPnlSpecialNote',
+        pk: 'PartnerCode(hotel_*) / PnlKey / ItemKey',
+        fk: 'OrderYear + MajorWeek + PartnerCode (CustKey 매핑은 WebPnlHotelCustomerMap)',
+        cols: 'CostPrice, CostSource, SalePrice, ProdKey, Revision(낙관적 동시성 잠금 409), NoteText',
+        note: '라움·초이문 공통 매입단가 공유, 신라는 독립 스냅샷·Revision 잠금 검증.',
+      },
+      {
+        name: 'WebSalesDefectDeduction* · WebFarmQuality* · WebPreShipment* · WebChinaVolume*',
+        pk: 'DeductionKey / CaseKey / PlanKey / BoardKey',
+        fk: 'OrderYear + OrderWeek + CustKey + ProdKey (명시 등록 시에만 Estimate 연결)',
+        cols: 'WebSalesCarryoverApplication, WebFarmQualityInbox, WebPreShipmentSchedule/Allocation, WebChinaVolumeProductMap, RowVersion',
+        note: '웹 작업본 저장만으로는 Order/Shipment/Stock 원장을 변경하지 않고 명시 실행·계약 경로로만 연결.',
+      },
+      {
+        name: 'WebImportFarmPaymentDay · WebInvoice* · WebMappingStore · WebWorkflowReview',
+        pk: 'FarmName / DocumentKey / StoreKey / ReviewKey',
+        fk: 'OrderYear · WarehouseKey(인보이스) · ErpUserId(본인 확인)',
+        cols: 'PaymentDay(5|15|25|30), WebInvoiceCostRevision/Line, MappingPayload+Revision, Verdict(ok|fix|reject)',
+        note: 'WebWorkflowReview·WebMappingStore는 문서/계정 경계 안에서 트랜잭션 잠금으로만 갱신.',
+      },
+    ],
+  },
+  {
+    id: 'runtime',
+    badge: 'Tier 3 · 파일 JSON 스키마',
+    tone: 'warn',
+    title: '자가발전 · PM 관제 런타임 JSON 저장소 (data/runtime/*.json)',
+    rule: 'MSSQL 무관 파일 전용 계층 | POST /api/work/feature-data-ingest → .tmp 쓰기 → fs.renameSync 원자 교체 → data/runtime 우선 조회',
+    tables: [
+      {
+        name: 'work-feature-workflows.json (workflows) · adoption-ledger.json (adoption-ledger)',
+        pk: 'name=workflows | adoption-ledger',
+        fk: 'generatedAt / updatedAt(ISO 시각) + person.name',
+        cols: 'people[].workflows[{ name, stage, trigger, stepsDetail, frequency, tools, pitfalls }], days[], 확증%, 근거건수(전산/파일/카톡)',
+        note: '/my-work 업무 파이프라인·업무 흐름·도입 레이더 및 일반 직원 ?tab=mine 본문 데이터.',
+      },
+      {
+        name: 'work-feature-proposals.json (proposals) · work-feature-simulations.json (simulations)',
+        pk: 'name=proposals | simulations',
+        fk: 'workflowRefs · menu · person.name',
+        cols: 'proposals.rows[{ observed, proposal, menu }], items[{ before.steps, after.screen, after.steps, savingPerWeekMin }]',
+        note: '기능 추가 후보(시뮬레이션) 탭에서 개선 전/후 단계별 단축 분(minute) 비교 구동.',
+      },
+      {
+        name: 'work-feature-storyboards.json (storyboards) · work-feature-timesave.json (timesave)',
+        pk: 'name=storyboards (28MB 예산 상한) | timesave (2MB 상한)',
+        fk: 'who · session timestamp · corridor stage',
+        cols: 'sessions[{ frames, captures, clicksTotal, erp }], corridor.perPerson, features[{ title, saveHoursPerWeek, menu }]',
+        note: '캡처식 워크플로우 근거 장면과 /pm · 아키텍처 흐름도의 주간 시간 단축 계기판 공급.',
+      },
+      {
+        name: 'work-feature-pm-office.json (pm-office) · manual-routines · live-pipelines · tech-radar',
+        pk: 'name=pm-office (2MB 상한) | tech-radar (4MB) | import-lecture-<id>',
+        fk: 'agents[].id · staff[].name · workLog',
+        cols: 'agents, staff, tasks(미해결 오류 판정 pmUnresolved), workLog(부서간 넘김 사슬), live-pipelines',
+        note: 'GET /api/pm/office 및 데스크톱 홈 「PM 라이브 확인」에 미해결 오류 제목 실시간 전달.',
+      },
+    ],
+  },
+];
+
+const SCHEMA_INVARIANTS = [
+  { key: 'PK 명명 고정', rule: 'OrderMasterKey (OrderKey 불가) · ShipmentKey (ShipmentMasterKey 불가) · SdetailKey (소문자 d)' },
+  { key: '삭제 행 필터 분리', rule: 'Order*/Product/Customer 등은 ISNULL(isDeleted,0)=0, 반면 ShipmentDetail·WarehouseDetail은 컬럼 자체가 없음' },
+  { key: '수량 환산 비대칭 주의', rule: 'OrderDetail 읽기는 OutUnit CASE WHEN 1개만 선택; ShipmentDetail OutQuantity는 단일값(추가 환산 금지)' },
+  { key: '연도·확정 격리', rule: '업무키는 항상 OrderYear+OrderWeek+CustKey+ProdKey; 품종 확정은 ViewShipment.DetailFix(=sd.isFix) 기준' },
+  { key: 'PK 채번·웹 스키마', rule: 'ERP 쓰기는 safeNextKey() UPDLOCK·HOLDLOCK 채번; Web* 테이블은 GET 런타임 DDL 금지(assertWebSchemaContract)' },
+  { key: '런타임 JSON 무중단 교체', rule: 'lib/workFeatureData.saveFeatureFile(): 이름/상한(30MB·2MB)/JSON 검증 후 .tmp→renameSync 원자 교체' },
+];
+
 export default function ArchFlowChart({
   timesave = null,
   workflows = null,
@@ -124,6 +261,7 @@ export default function ArchFlowChart({
   compact = false,
 }) {
   const [selectedId, setSelectedId] = useState('pipeline');
+  const [schemaView, setSchemaView] = useState('all');
   const [liveTs, setLiveTs] = useState(timesave);
   const [liveWf, setLiveWf] = useState(workflows);
 
@@ -167,6 +305,7 @@ export default function ArchFlowChart({
   const unresolvedCount = Array.isArray(office?.tasks)
     ? office.tasks.filter((t) => /승인|3일|오류|실패|미완료/.test(String(t?.state || t?.title || ''))).length
     : null;
+  const visibleLayers = schemaView === 'all' ? SCHEMA_LAYERS : SCHEMA_LAYERS.filter((layer) => layer.id === schemaView);
 
   return (
     <section className={`arch-root ${compact ? 'is-compact' : ''}`} aria-label="자가발전 솔루션 아키텍처 흐름도">
@@ -334,6 +473,116 @@ export default function ArchFlowChart({
           </div>
         )}
       </article>
+
+      {/* SQL 원장 & 네노바웹 3계층 데이터 스키마 구조도 */}
+      <section className="arch-schema" aria-label="SQL 원장 및 네노바웹 데이터 스키마 구조도">
+        <div className="arch-schema-head">
+          <div>
+            <div className="arch-eyebrow">DATABASE &amp; DATA SCHEMA ARCHITECTURE</div>
+            <h3>SQL 원장 &amp; 네노바웹 3계층 데이터 스키마 구조도</h3>
+            <p className="arch-lede">
+              전산(nenova.exe)과 공유하는 <b>MSSQL 핵심 원장</b>, 웹 확장을 격리 저장하는 <b>Web* 전용 SQL 스키마</b>,
+              그리고 자가발전 분석·PM 관제가 사용하는 <b>data/runtime/*.json</b> 계층의 키·관계·불변 가드를 한눈에 보여줍니다.
+            </p>
+          </div>
+          <div className="arch-schema-filters" role="group" aria-label="스키마 계층 필터">
+            {[
+              ['all', '전체 구조'],
+              ['erp', '공유 MSSQL 원장'],
+              ['web', '웹 전용 MSSQL (Web*)'],
+              ['runtime', '런타임 JSON (data/runtime)'],
+              ['invariants', '불변 가드 규칙'],
+            ].map(([id, label]) => (
+              <ToggleChip
+                key={id}
+                on={schemaView === id}
+                className={`arch-filter-chip ${schemaView === id ? 'is-active' : ''}`}
+                onClick={() => setSchemaView(id)}
+              >
+                {label}
+              </ToggleChip>
+            ))}
+          </div>
+        </div>
+
+        {/* 3계층 관계 ER/데이터 흐름도 */}
+        <div className="arch-schema-flow" role="region" aria-label="3계층 데이터 흐름 및 테이블 관계도">
+          <div className="arch-sf-box tone-accent">
+            <b>Tier 1 · 공유 MSSQL ERP 원장</b>
+            <code>Customer(CustKey) ──▶ OrderMaster(OrderMasterKey) ──▶ OrderDetail</code>
+            <code>Product(ProdKey) ────▶ ShipmentMaster(ShipmentKey) ─▶ ShipmentDetail(SdetailKey)</code>
+            <code>WarehouseMaster(WarehouseKey) ─▶ WarehouseDetail(WdetailKey) · FreightCost</code>
+            <small>모든 업무 쓰기는 OrderYear + OrderWeek + CustKey + ProdKey · dnSpy 정본 준수</small>
+          </div>
+          <div className="arch-sf-bridge" aria-hidden="true">
+            <span>읽기 참조(JOIN) /</span>
+            <span>명시 계약 쓰기 ⇄</span>
+          </div>
+          <div className="arch-sf-box tone-ok">
+            <b>Tier 2 · 웹 전용 MSSQL (Web*)</b>
+            <code>WebProfitReport · WebCustoms* · WebStockPriceEvidence</code>
+            <code>WebRaumPnl / Item · WebSalesDefectDeduction* · WebChinaVolume*</code>
+            <code>WebPreShipment* · WebInvoice* · WebMappingStore · WebWorkflowReview</code>
+            <small>GET 시 assertWebSchemaContract 읽기 검증 전용(런타임 DDL 금지)</small>
+          </div>
+          <div className="arch-sf-bridge" aria-hidden="true">
+            <span>전산·웹 로그 대조 →</span>
+            <span>산출물 업로드 ⇄</span>
+          </div>
+          <div className="arch-sf-box tone-warn">
+            <b>Tier 3 · 런타임 JSON (data/runtime)</b>
+            <code>POST /api/work/feature-data-ingest (.tmp → renameSync)</code>
+            <code>workflows · proposals · simulations · storyboards · timesave</code>
+            <code>adoption-ledger.json · pm-office · live-pipelines · tech-radar</code>
+            <small>MSSQL 무관 원자적 파일 저장 · GET /api/my-work/feature · /api/pm/office 공급</small>
+          </div>
+        </div>
+
+        {/* 선택한 계층의 상세 스키마 카드 */}
+        {schemaView !== 'invariants' && (
+          <div className="arch-schema-layers">
+            {visibleLayers.map((layer) => (
+              <div key={layer.id} className={`arch-layer-card tone-${layer.tone}`}>
+                <div className="arch-layer-head">
+                  <div>
+                    <span className="arch-detail-pill">{layer.badge}</span>
+                    <h4>{layer.title}</h4>
+                  </div>
+                  <div className="arch-layer-rule">{layer.rule}</div>
+                </div>
+                <div className="arch-tables-grid">
+                  {layer.tables.map((tbl) => (
+                    <div key={tbl.name} className="arch-tbl">
+                      <div className="arch-tbl-name">{tbl.name}</div>
+                      <div className="arch-tbl-keys">
+                        <span><b>PK</b> <code>{tbl.pk}</code></span>
+                        <span><b>FK/연결</b> <code>{tbl.fk}</code></span>
+                      </div>
+                      <div className="arch-tbl-cols"><b>주요 컬럼:</b> <code>{tbl.cols}</code></div>
+                      <div className="arch-tbl-note">{tbl.note}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 핵심 SQL & 스키마 불변 가드 요약 */}
+        {(schemaView === 'all' || schemaView === 'invariants') && (
+          <div className="arch-invariants">
+            <div className="arch-live-title">핵심 SQL · 스키마 불변 가드 (Invariants · docs/DB_STRUCTURE.md 기준)</div>
+            <div className="arch-inv-grid">
+              {SCHEMA_INVARIANTS.map((item) => (
+                <div key={item.key} className="arch-inv-item">
+                  <b>{item.key}</b>
+                  <span>{item.rule}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       <style jsx>{`
         .arch-root {
@@ -682,9 +931,205 @@ export default function ArchFlowChart({
           color: var(--arch-ok);
           font-size: 11.5px;
         }
+        .arch-schema {
+          background: var(--arch-surface);
+          border: 1px solid var(--arch-line);
+          border-radius: 12px;
+          padding: 16px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .arch-schema-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 14px;
+          flex-wrap: wrap;
+        }
+        .arch-schema-head h3 {
+          margin: 0 0 4px;
+          font-size: 17px;
+        }
+        .arch-schema-filters {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        :global(.arch-filter-chip) {
+          background: var(--arch-surface-2) !important;
+          color: var(--arch-muted) !important;
+          border: 1px solid var(--arch-line) !important;
+          border-radius: 999px !important;
+          padding: 5px 11px !important;
+          font: inherit;
+          font-size: 12px !important;
+          font-weight: 600 !important;
+          cursor: pointer;
+        }
+        :global(.arch-filter-chip.is-active) {
+          background: color-mix(in srgb, var(--arch-accent) 18%, var(--arch-surface)) !important;
+          color: var(--arch-ink) !important;
+          border-color: var(--arch-accent) !important;
+          font-weight: 700 !important;
+        }
+        .arch-schema-flow {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+          gap: 8px;
+          align-items: stretch;
+        }
+        .arch-sf-box {
+          background: var(--arch-surface-2);
+          border: 1px solid var(--arch-line);
+          border-top: 3px solid var(--arch-accent);
+          border-radius: 10px;
+          padding: 10px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          min-width: 0;
+        }
+        .arch-sf-box.tone-ok { border-top-color: var(--arch-ok); }
+        .arch-sf-box.tone-warn { border-top-color: var(--arch-warn); }
+        .arch-sf-box b {
+          font-size: 13px;
+          color: var(--arch-ink);
+        }
+        .arch-sf-box code, .arch-tbl code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 11px;
+          background: color-mix(in srgb, var(--arch-bg) 75%, transparent);
+          border: 1px solid var(--arch-line);
+          border-radius: 4px;
+          padding: 2px 6px;
+          color: var(--arch-accent);
+          overflow-wrap: anywhere;
+        }
+        .arch-sf-box small {
+          font-size: 11px;
+          color: var(--arch-muted);
+          line-height: 1.4;
+          margin-top: auto;
+        }
+        .arch-sf-bridge {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          gap: 2px;
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--arch-muted);
+          white-space: nowrap;
+        }
+        .arch-schema-layers {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .arch-layer-card {
+          background: var(--arch-surface-2);
+          border: 1px solid var(--arch-line);
+          border-left: 4px solid var(--arch-accent);
+          border-radius: 10px;
+          padding: 12px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .arch-layer-card.tone-ok { border-left-color: var(--arch-ok); }
+        .arch-layer-card.tone-warn { border-left-color: var(--arch-warn); }
+        .arch-layer-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .arch-layer-head h4 {
+          margin: 0;
+          font-size: 15px;
+        }
+        .arch-layer-rule {
+          font-size: 11.5px;
+          color: var(--arch-muted);
+        }
+        .arch-tables-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 10px;
+        }
+        .arch-tbl {
+          background: var(--arch-surface);
+          border: 1px solid var(--arch-line);
+          border-radius: 8px;
+          padding: 10px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          font-size: 12px;
+        }
+        .arch-tbl-name {
+          font-weight: 700;
+          font-size: 13px;
+          color: var(--arch-ink);
+        }
+        .arch-tbl-keys {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .arch-tbl-keys b, .arch-tbl-cols b {
+          color: var(--arch-muted);
+          font-size: 11px;
+          margin-right: 4px;
+        }
+        .arch-tbl-cols {
+          line-height: 1.5;
+        }
+        .arch-tbl-note {
+          font-size: 11.5px;
+          color: var(--arch-ok);
+          line-height: 1.45;
+          margin-top: auto;
+          padding-top: 4px;
+          border-top: 1px dashed var(--arch-line);
+        }
+        .arch-invariants {
+          border-top: 1px solid var(--arch-line);
+          padding-top: 12px;
+        }
+        .arch-inv-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 8px;
+        }
+        .arch-inv-item {
+          background: var(--arch-surface-2);
+          border: 1px solid var(--arch-line);
+          border-radius: 8px;
+          padding: 8px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          font-size: 12px;
+          line-height: 1.45;
+        }
+        .arch-inv-item b {
+          color: var(--arch-warn);
+          font-size: 12px;
+        }
         @media (max-width: 1040px) {
           .arch-nodes, .arch-loops-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+          .arch-schema-flow {
+            grid-template-columns: 1fr;
+          }
+          .arch-sf-bridge {
+            flex-direction: row;
+            justify-content: flex-start;
           }
           .arch-arrow, .arch-feedback-svg {
             display: none;
