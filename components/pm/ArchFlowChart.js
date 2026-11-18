@@ -1003,6 +1003,11 @@ export default function ArchFlowChart({
           </div>
           <div className="arch-bp-pill-wrap">
             <Badge tone="plain">5-Surface · 4개 세션 선택 조회</Badge>
+            {!mineOnly && onSelectTab && (
+              <Button className="arch-jump-btn" variant="primary" size="sm" onClick={() => onSelectTab('suite-sim')}>
+                통합 모션 시뮬레이션 열기 ↗
+              </Button>
+            )}
           </div>
         </div>
 
