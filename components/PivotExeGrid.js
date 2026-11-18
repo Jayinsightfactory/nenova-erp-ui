@@ -128,12 +128,13 @@ const PivotExeGrid = memo(function PivotExeGrid({
   const axisHeaderRows = useMemo(() => structure.headerRows.slice(0, -1), [structure.headerRows]);
   const measureHeaderRow = structure.headerRows[structure.headerRows.length - 1] || [];
   const showMeasureRow = structure.measures.length >= 2;
+  const fieldAreaHeight = fieldAreas?.rows?.directFilter ? 36 : FIELD_AREA_ROW_HEIGHT;
   const headerHeights = useMemo(() => [
-    FIELD_AREA_ROW_HEIGHT,
-    FIELD_AREA_ROW_HEIGHT,
+    fieldAreaHeight,
+    fieldAreaHeight,
     ...axisHeaderRows.map((_, level) => structure.columnFields[level] === 'CustName' ? Math.max(18, Math.min(120, Number(custHeaderHeight) || 24)) : dimensions.rowHeight),
     ...(showMeasureRow ? [dimensions.rowHeight] : []),
-  ], [axisHeaderRows, showMeasureRow, structure.columnFields, custHeaderHeight, dimensions.rowHeight]);
+  ].map((height, index, all) => fieldAreas?.rows?.directFilter && index === all.length - 1 ? Math.max(height, fieldAreaHeight) : height), [axisHeaderRows, showMeasureRow, structure.columnFields, custHeaderHeight, dimensions.rowHeight, fieldAreaHeight, fieldAreas?.rows?.directFilter]);
   const headerOffsets = useMemo(() => headerHeights.map((_, level) => headerHeights.slice(0, level).reduce((sum, height) => sum + height, 0)), [headerHeights]);
   const totalHeaderHeight = headerHeights.reduce((sum, height) => sum + height, 0);
   const onToggleRowRef = useRef(onToggleRow);
@@ -214,7 +215,7 @@ const PivotExeGrid = memo(function PivotExeGrid({
   const rightHeaderRows = [...axisHeaderRows.map((cells, level) => ({ cells, index: level + 2 })), ...(showMeasureRow ? [{ cells: measureHeaderRow, index: axisHeaderRows.length + 2 }] : [])];
   const lastAxisHeaderIndex = axisHeaderRows.length + 1;
   // The visible width keeps filter/column field buttons in view while the table scrolls sideways.
-  const visibleAreaWidth = viewport.clientWidth ? Math.max(120, viewport.clientWidth - 2) : undefined;
+  const visibleAreaWidth = viewport.clientWidth ? Math.max(120, Math.min(tableWidth, viewport.clientWidth - 2)) : undefined;
   const renderArea = (zone, extraStyle) => fieldAreas?.[zone] ? <ExePivotFieldArea {...fieldAreas[zone]} zone={zone} style={{ ...fieldAreas[zone].style, ...extraStyle }} /> : null;
   const rowResizeHandles = dimensions.rowWidths.map((field, fieldIndex) => <span key={`resize-${field.id}`} className={styles.resizeHandle} style={{ left: dimensions.stickyOffsets[fieldIndex] + field.width - 4, right: 'auto' }} title={`${field.label} 열 너비 조절 · 두 번 클릭하면 자동맞춤`} onMouseDown={(event) => { event.preventDefault(); onResize?.(field.id, event.clientX, field.width); }} onDoubleClick={(event) => { event.preventDefault(); onBestFit?.(field.id); }} />);
 

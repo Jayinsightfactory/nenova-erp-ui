@@ -30,3 +30,13 @@
 @media (max-width: 760px) {
   .deck { grid-template-columns: minmax(0, 1fr) !important; grid-template-areas: 'filters' 'rows' 'cols' 'values' !important; }
 }
+
+.fieldSettings { display: grid; gap: 10px; margin-top: 12px; }
+.fieldSettings label { display: grid; grid-template-columns: 66px 1fr; align-items: center; gap: 8px; font-size: 13px; }
+.fieldSettings > div { display: flex; gap: 8px; }
+.fieldSettings button, .fieldSettings select, .valueDialog button { min-height: 32px; padding: 5px 9px; border: 1px solid #bcc9d8; border-radius: 5px; background: #fff; color: #273b53; cursor: pointer; }
+.fieldSettings select { width: 100%; }
+.valueDialog label { min-height: 32px; align-items: center; cursor: pointer; }
+.valueDialog input[type='checkbox'] { width: 18px; height: 18px; flex-shrink: 0; accent-color: #2563eb; }
+.valueDialog button:focus-visible, .fieldSettings button:focus-visible, .fieldSettings select:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.emptySelection { padding: 8px; font-size: 12px; line-height: 1.5; background: #fff4d6; color: #734600; border-radius: 5px; }

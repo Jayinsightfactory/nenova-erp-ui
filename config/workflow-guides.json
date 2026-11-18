@@ -1668,6 +1668,53 @@
           ]
         }
       ]
+    },
+    {
+      "id": "pivot-direct-filters",
+      "title": "피벗 필터 선택과 배치 설정",
+      "entryPaths": [
+        "/stats/pivot"
+      ],
+      "sourceFiles": [
+        "components/PivotExePanel.js",
+        "components/ExePivotFieldArea.js",
+        "components/ExePivotTheme.module.css",
+        "components/PivotExeControls.module.css",
+        "components/PivotExeGrid.js"
+      ],
+      "requiredScenarios": [
+        "country",
+        "empty",
+        "settings"
+      ],
+      "guides": [
+        {
+          "id": "user",
+          "role": "공통",
+          "title": "국가 필터·빈 선택 복구·정렬과 배치",
+          "status": "ready",
+          "src": "/guides/pivot-direct-filters/user.mp4",
+          "captions": "/guides/pivot-direct-filters/user.ko.vtt",
+          "proof": "/guides/pivot-direct-filters/user.proof.json",
+          "chapters": [
+            {
+              "scenario": "country",
+              "title": "1. 국가 버튼을 눌러 중국만 선택하고 적용합니다.",
+              "seconds": 0
+            },
+            {
+              "scenario": "empty",
+              "title": "2. 꽃 전체 해제는 0행입니다. 전체 선택으로 복구한 뒤 적용합니다.",
+              "seconds": 11.764
+            },
+            {
+              "scenario": "settings",
+              "title": "3. 필터 창의 정렬·배치 설정에서 필요한 옵션만 선택합니다.",
+              "seconds": 22.395
+            }
+          ]
+        }
+      ]
     }
   ]
 }
