@@ -354,6 +354,33 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                     <span>{f.priority === 0 ? '우선 확인' : f.priority === 1 ? '확인 필요' : f.status === 'registered' ? '입고 등록 끝' : '이슈 없음'} {expanded ? '▴' : '▾'}</span>
                   </button>
                   <div><StatusChip f={f} /> <span>{f.weekLabel}차 · {f.itemLabel} · 공지 도착 {arrivalText(f)}</span></div>
+                  <div>항공사 {f.airline || '미확인'} · 빌번호 {f.awb || '미확인'}</div>
+                  <div>{f.origin?.name || '출발지 미확인'}{f.origin?.assumed ? ' (추정)' : ''} → {f.via?.name ? `${f.via.name}(경유) → ` : ''}인천</div>
+                  <div>
+                    {f.departAtEstimated && <>출발 예측 {shortTime(f.departAtEstimated)} · </>}
+                    공항 예정(STA) {shortTime(f.actual?.scheduledAt) || '미확인'}
+                    {f.actual?.estimatedAt && <> · {f.actual.remark === '도착' ? '공항 도착 표시' : '공항 예상(ETA)'} {shortTime(f.actual.estimatedAt)}</>}
+                  </div>
+                  <div>
+                    운송 수량(공지): {f.announcedCargo?.boxes != null ? `${fmt(f.announcedCargo.boxes)}박스` : '미확인'}
+                    {f.receivedCargo && <> · 전산 입고 합계 {fmt(f.receivedCargo.boxes)}박스</>}
+                  </div>
+                  {!!f.announcedCargo?.items?.length && <div>공지 품목: {f.announcedCargo.items.map(item => `${item.name} ${fmt(item.box)}박스`).join(' · ')}</div>}
+                  <FlightStrip f={f} busy={busyAwb === f.awb} onToggleDocs={toggleDocs} />
+                  {f.checklist?.quarantineSlotChanged && <div>공항 예상 시각 변경으로 검역 예정 회차가 달라질 수 있습니다. 접수 가능 시간을 확인하세요.</div>}
+                  <details>
+                    <summary>인보이스·전산 입고 수량 확인</summary>
+                    <div>인보이스 확인본: {f.invoiceCargo?.length ? '입고 등록과 연결된 인보이스의 확인 수량' : '조회 가능한 입고 연결 수량 미확인'}</div>
+                    {(f.invoiceCargo || []).map((item, i) => <div key={i}>{item.name} · {[[item.boxes, '박스'], [item.bunches, '단'], [item.stems, '줄기']].filter(([value]) => value != null).map(([value, unit]) => `${fmt(value)}${unit}`).join(' · ') || '수량 미확인'}</div>)}
+                    <div>전산 입고: {f.receivedCargo ? `${fmt(f.receivedCargo.boxes)}박스 · 등록 ${shortTime(f.receivedCargo.registeredAt)}` : '일치하는 빌번호 입고 기록 없음'}</div>
+                    {(f.receivedCargo?.items || []).map((item, i) => <div key={i}>{item.name} · {fmt(item.box)}박스</div>)}
+                  </details>
+                  <details>
+                    <summary>수입신고·검역·소독 처리 근거</summary>
+                    {(f.checklist?.steps || []).filter(s => ['manifest','bonded','quarantine','fumigation','declared','cleared','released','receipt'].includes(s.key)).map(s => (
+                      <div key={s.key}>{s.label} · {s.state === 'done' ? '확인' : s.state === 'due' ? '진행·확인 필요' : '미확인'}{s.at ? ` · ${shortTime(s.at)}` : ''}{s.note ? ` · ${s.note}` : ''}</div>
+                    ))}
+                  </details>
                   {(attention || expanded) && <>
                     {f.flightIssues.length > 0 ? <ol className="flight-actions">{(expanded ? f.flightIssues : f.flightIssues.slice(0,2)).map(it => <li key={it.text}><span>{shortIssue(it.text)}</span><div className="flight-next">→ {nextAction(it)}</div></li>)}</ol> : <p style={{ margin: '4px 0', color: 'var(--text3)' }}>{f.nextStep ? `${f.nextStep} 확인` : '현재 연결된 이슈 없음'}</p>}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
@@ -363,12 +390,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                     </div>
                   </>}
                   {expanded && <div data-testid="flight-selected-detail" style={{ borderTop: '1px solid #d7e0ea', marginTop: 8, paddingTop: 8 }}>
-                    <div>항공사 {f.airline || '미확인'} · 빌번호 {f.awb || '미확인'}</div>
-                    <div>{f.origin?.name || '출발지 미확인'} → {f.via?.name ? `${f.via.name}(경유) → ` : ''}인천</div>
-                    <div>공항 예정(STA) {shortTime(f.actual?.scheduledAt) || '미확인'}{f.actual?.estimatedAt ? ` · ${/도착/.test(f.actual.remark || "") ? "공항 도착 표시" : "공항 예상"} ${shortTime(f.actual.estimatedAt)}` : ''}</div>
                     <div style={{ color: 'var(--text3)' }}>자료 읽음 {shortTime(data.generatedAt)} KST · 출처: 인천공항 자료 · 미확인은 미처리 확정이 아닙니다.</div>
-                    <div>실린 품목: {(f.contents?.items || []).map(it => `${it.name} ${fmt(it.box)}박스`).join(' · ') || '내역 없음'}</div>
-                    <FlightStrip f={f} faded={f.status === 'registered'} busy={busyAwb === f.awb} onToggleDocs={toggleDocs} />
                     {f.note && <div style={{ color: 'var(--text3)' }}>{f.note}</div>}
                     {(f.history || []).length > 1 && <details><summary>일정 변경 이력</summary>{f.history.map((h,i) => <p key={i}>{shortTime(h.postedAt)} 공지 → {shortTime(h.arrivalAt || h.arrivalDate)} · {h.box ?? '–'}박스</p>)}</details>}
                     {(f.roomEvents || []).length > 0 && <details><summary>연결된 처리 원문·완료 근거</summary>{f.roomEvents.map((e,i) => <p key={i}>{roomLine(e)} · {e.room} · {e.text}{e.guessed ? ' (추정 연결)' : ''}</p>)}</details>}

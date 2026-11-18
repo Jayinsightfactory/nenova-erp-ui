@@ -44,11 +44,16 @@
       "name": "FLIGHT_BOARD_DOCS_SENT_FILE_STORE_NO_SQL_WRITE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "FLIGHT_BOARD_AUTHORIZED_COMMITTED_INVOICE_SELECT_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
     }
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "입고 기록은 차수가 아니라 등록 시각(CreateDtm 최근 30일)과 운송장 번호(WarehouseMaster.OrderNo, 하이픈·공백 제거 11자리)로 묶으므로 해가 바뀌어도 OrderYear 필터 누락으로 섞이지 않는다. 도착 공지의 월·일은 게시 시각(한국 시간) 기준으로 연도를 정한다(연말 게시된 1월 도착 → 다음 해, 테스트 포함). isDeleted 는 WarehouseMaster 로만 거른다(WarehouseDetail 에는 없음). MSSQL 쓰기 없음. 파일 저장은 서류 전달 표시(data/runtime/import-flight-docs.json)뿐."
+    "description": "입고 기록은 정규화한 AWB와 업무연도·세부차수로 묶는다. 같은 AWB의 전년도/차수 데이터를 사용할 수 없다. 인보이스 확인본은 수입부 기존 권한과 WarehouseKey/업무연도/세부차수/완료된 문서 revision으로 연결한다."
   },
   "requiredTestFiles": [
     "__tests__/importFlightNotice.test.js",
@@ -74,7 +79,8 @@
     ],
     "tables": [
       "WarehouseMaster/WarehouseDetail (read)",
-      "Product (read)"
+      "Product (read)",
+      "WebInvoiceOperation/WebInvoiceDocument/WebInvoiceLine (authorized read only)"
     ]
   },
   "requiredCommands": [
@@ -86,7 +92,7 @@
   "presentation": {
     "menu": "수입 비행기 현황",
     "issues": "No standalone issue table. Exact full-flight identity joins issues into each flight card. Urgent active flights first; registered flights collapsed.",
-    "details": "Shared numbered map markers and cards; keyboard selection highlights route and expands the matching card. Unknown location is not invented.",
+    "details": "Shared numbered map markers and cards; keyboard selection highlights route and expands the matching card. Unknown location is not invented. Airline, waybill, cargo notice and step states appear without expansion. Registered receipt quantities and reviewed invoice revision quantities retain their separate sources and units.",
     "sideEffects": "Kakao original-message resolution, conservative airport-date matching and display only. Existing warehouse SELECT and explicit docs flag unchanged. All ERP ledgers preserved.",
     "scheduledCheck": "Codex thread automation automation-2, daily 09/12/15/18 Asia/Seoul including weekends; linked-page results reported in chat, not written to ERP.",
     "resolution": "Current schedule equivalence across rooms; explicit docs receipt resolves docs requests, not quantity discrepancies. Explicit correction resolves the corresponding issue. Guessed/approximate links never prove completion. ERP registration or 48h age never resolves an open operational request."
