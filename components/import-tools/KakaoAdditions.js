@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { validItem, farmTotals } from '../../lib/importKakaoAdditions';
+import { validItem, farmTotals, importItemView } from '../../lib/importKakaoAdditions';
 
 const fields = [['group','품목군'],['product','품종'],['quantity','수량'],['unit','단위'],['customer','업체 / CL']];
 function RecentReview() {
@@ -39,7 +39,7 @@ function RecentReview() {
     };
   }, [retry]);
   const messages = feed?.messages || [];
-  const view = row=>({...row,...edits[row.key]});
+  const view = row => importItemView(row, edits[row.key]);
   const update=(key,patch)=>{setNotice('');setEdits(prev=>({...prev,[key]:{...prev[key],...patch}}));};
   const rows=(messages||[]).flatMap(m=>m.items.map(view));
   const invalid=rows.some(r=>r.checked&&!validItem(r));
@@ -56,19 +56,19 @@ function RecentReview() {
     {!feed && !error && <p role="status">수입방 카톡을 불러오는 중…</p>}
     {feed && <p>{feed.from} ~ {feed.to}{feed.latest && ' · 최근 수집 원문 ' + feed.latest}</p>}
     {feed && messages.length === 0 && <p role="status">최근 2일 동안 동기화된 원문이 없습니다.</p>}
-    <p>원문에서 이번에 추가할 항목을 체크하세요. 업체가 없으면 비워 두세요.</p>
-    <h4>농장 전달용 합계</h4>
+    <p>추출된 품목·수량을 자동 합산합니다. 업체 없는 수량도 포함합니다. 제외할 항목은 체크를 해제하세요.</p>
+    <h4>농장 전달용 자동 합계</h4>
     {invalid && <p role="alert">체크한 행의 품종과 양수 수량을 확인하세요.</p>}
     {totals.length>0 && !invalid ? <><div className="kakao-table"><table><thead><tr>{['품목군','품종','수량','비고 (업체·수량)'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>
       {totals.map(r=><tr key={r.key}><td>{r.group||'미분류'}</td><td>{r.product}</td><td>{r.quantity} {r.unit}</td><td>{r.notes}</td></tr>)}
-    </tbody></table></div><button type="button" onClick={copy}>농장 전달용 복사</button></> : !invalid && <p>항목을 선택하면 품종별 합계가 표시됩니다.</p>}
+    </tbody></table></div><button type="button" onClick={copy}>농장 전달용 복사</button></> : !invalid && feed && <p role="status">현재 원문에서 합산할 추가 발주 품목·수량이 확인되지 않았습니다.</p>}
     <span role="status">{notice}</span>
     <h4>수입방 원문 · {messages.length}건</h4>
     {messages.map(m=><details key={m.id} open><summary>{m.time} {m.week && ' · '+m.week+'차'} · {m.text.split('\n')[0].slice(0,48)}</summary>
       <blockquote>{m.text}</blockquote>
       {m.items.map(base=>{const row=view(base);return <fieldset key={row.key}><legend><label><input type="checkbox" checked={!!row.checked} onChange={e=>update(row.key,{checked:e.target.checked})}/> 합산 · {row.product||'품종 직접 입력'}</label></legend>
         {fields.map(([key,label])=><label key={key}>{label}<input value={row[key]} placeholder={key==='group'?'예: 콜롬비아수국':undefined} onChange={e=>update(row.key,{[key]:e.target.value})}/></label>)}
-        <small>{row.status}</small>
+        <small>{row.reviewReason || (validItem(row) ? (row.checked ? '합계에 포함' : '합계에서 제외') : '추출된 품목·수량 없음 · 원문 확인')}</small>
       </fieldset>;})}</details>)}
   </>;
 }

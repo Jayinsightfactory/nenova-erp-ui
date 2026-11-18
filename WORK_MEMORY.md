@@ -3340,3 +3340,29 @@ pm run test:canon 통과.
 3. 남은 할 일: 최신master통합→정식빌드/최종가드→PR/CI→병합/Cafe24/운영화면→worktree정리.
 4. 검증 상태: 업무/영상검증통과; 정식최종빌드/CI/배포 미검증.
 5. 주의/잠금: 본worktree농장선택파일과가이드config/public은이세션최종검증중. 운영DB쓰기/Farm마스터등록은범위밖.
+## 2026-11-18 수입방 추가 발주 자동 합산 보완
+- 요약: 체크해야만 합산되던 기본값을 수정. nenovakakao 추출 품목·양수 수량을 기본 포함하여 품목군/품종/단위별 합계, 비고 업체별 수량을 표시. 업체/CL 없는 수량도 포함. 취소·대체·보관 및 취소/수량변경 원문은 검토 후 수동 포함 가능. 별도 ERP/메시지 발송 없음.
+- 검색어: 수입방 자동합산 importItemView Moon Light 주광 미우 일신 최근2일
+1. 작업 위치: nenova-erp-ui / codex/import-kakao-auto-totals / nw-cdx-import-auto / PR 생성 예정.
+2. 완료된 것: lib/importKakaoAdditions.js, KakaoAdditions.js, 회귀 fixture/계약, 실제 UI 가이드 자동합계 설명. importItemView 공통 표시 기본값과 farmTotals 합계 사용.
+3. 남은 할 일: 전체 필수검증, PR/CI/머지, Cafe24 배포, 운영 브라우저 및 Drive 보관 확인.
+4. 검증 상태: 단위 fixture 합계4/비고1+2+1, 익명수량, 단위분리, 0/음수/취소 제외 통과. 실제 Chrome 최초 자동4 및 제외3/새로조회 유지, 다운로드/가이드 재생/390px 통과. 전체 gate 진행 중. 원천 최근2일 조회에서는 추출 수량행0; 실제 운영 주문 합산은 표본 부재로 미검증이며 품질/공지 원문 수량을 임의 발주로 만들지 않음.
+5. 주의/잠금: 본 브랜치 3개 기능 파일/계약/recorder 및 해당 가이드 자산만 수정. MSSQL, EXE, Estimate/ShipmentDetail/StockHistory/WebProfitReport 변경 없음. 다른 세션의 가이드 설정 및 WORK_MEMORY 항목 보존.
+- 단계 검증: test:erp-contract(내부 dnSpy 포함), changed-from origin/master manifest/write guard, build, test:workflow-guides 통과. MP4196.1초 1920x1080/100%의 처음·중간·마지막 실제 프레임과 자동4/복사 확인. 회사 Drive MP4 1q2jLwP8-_lUrr0kT57Wo4-FoBuENZ7dL / VTT 1hERjQe-XyjjXZqLOx0pnVoZvva9TQzgw 보관.
+## 2026-11-18 · 견적 품목명 열 너비 복구
+- fixed table에서 td min-width가 열 너비를 결정하지 못해 균등폭으로 축소됨. 첫 행 th 품목명280px·단위64px·출고일88px 지정. 기준선 적용: 읽기성·기존 키보드/원장 보존, 가로스크롤. 예외: 사용자가 이번 영상 재촬영 제외 승인.
+- 위치: nenova-erp-ui / codex/estimate-width-1118 / nw-cdx-estimate-width-1118 / PR 생성 예정
+- 완료: styles/globals.css, 견적 계약, 영상 제외 기록
+- 남은 일: CI·배포·실브라우저 운영 확인
+- 검증: Chrome 1920/1280 품목명280px 및 페이지 가로넘침 없음 통과, 운영 미검증
+- 주의/잠금: 이 브랜치 globals.css 작업
+- 검색어: 견적 품목명 열 너비 fixed table 280px
+
+### 2026-11-18 비행기·홈 1.3.34 운영 배포 완료 인계
+- 작업 위치: nenova-erp-ui / 기능 PR #1811 / 병합 bc00257c2d0bd1a3d92b70052840bf32dc51272d / codex/flight-desktop-popup-1118 작업트리 병합 직후 정리 / 인계 codex/flight-popup-handoff-1118.
+- 완료된 것: 앱 전용 지도·편별 상세 확대 창(재사용), 홈 이슈 펼치기와 인천공항 시간·상태·공지/예측 구분, 환영 문구 아래 즐겨찾기. Cafe24 배포 44214345522, Windows 빌드 44214345520, 안정판 desktop-v1.3.34 공개. 최종 MP4·VTT·proof 회사 Drive 보관 완료.
+- 남은 할 일: 직원 PC 업무 종료 후 정상 종료·다음 실행에서 업데이트 적용 확인. 업무 중 요청에 따라 PC 재시작/설치 실행은 하지 않음. FR24 API 신규 연결과 해외 STD·ATD 수신은 이번 범위 밖.
+- 검증 상태: desktop67/67, 실제 native Electron 창/선택/재사용/재열기·홈·반응형·키보드, ERP 필수 검사·빌드·Windows/Linux CI, 실제 운영 로그인/항공편 GET/확대 페이지/지도·상세/최종 가이드 자막·영상 재생 통과. 운영 5편 중 3편 인천공항 운항 정보 연결 확인(나머지는 연결 미확인). 설치 파일과 공개 피드 무결성 일치. 직원 PC 설치 적용은 미검증.
+- 주의/잠금: 운영 원장 쓰기 없음. 지도 위치·출발은 예측 표시, 인천공항 제공 시각은 별도 표시. 직원 PC 재시작 금지 유지. 기능 작업트리 잠금 해제, 인계 PR 병합 후 인계 작업트리도 즉시 정리.
+- 보관: 비행기 영상 https://drive.google.com/file/d/1V7TIPQLJ3T8agKiInTlMc7JKT7W2Tebg/view / 홈 영상 https://drive.google.com/file/d/167ZuGiC6YKAs7XuY0bLGcmIeyn7av89V/view / 최종 홈 proof 17jVTfACtfhj_0A5p-eDolM5GYrlGTdmB / 공개 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.34.
+- 검색어: 1.3.34 운영 완료 비행기 확대 지도 상세 인천공항 STA STD ATD 홈 이슈 즐겨찾기 상단 자동 업데이트 배포 인계

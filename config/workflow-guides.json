@@ -453,6 +453,12 @@
           "sha256": "6b55772afa0ce2a43f161ab1201e225c3f85596cea613dbf7517e16fc9c20745",
           "reason": "견적 목록 상단 차수 총매출 및 업체순 버튼 추가. 이번 변경의 영상 재촬영 제외.",
           "approvedBy": "사용자 명시 답변 2026-11-16: 이번 변경만 영상 재촬영 제외"
+        },
+        {
+          "file": "styles/globals.css",
+          "sha256": "cf1ec13e908a271cbab3fea96dbb155d8e5df9eb680e0db43f8013946a49b01b",
+          "reason": "견적 목록 품목명 열 너비 복구. 기존 업무 조작 순서 유지.",
+          "approvedBy": "사용자 명시 답변 2026-11-18: 이번 복구만 재촬영 제외"
         }
       ],
       "title": "견적서 관리",
@@ -1018,92 +1024,92 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.009
+              "seconds": 0.014
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.583
+              "seconds": 10.608
             },
             {
               "scenario": "week",
               "title": "3. 세부차수 조회",
-              "seconds": 21.212
+              "seconds": 21.172
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 31.77
+              "seconds": 31.747
             },
             {
               "scenario": "download",
               "title": "5. 다운로드·ETA 창 열기",
-              "seconds": 42.961
+              "seconds": 42.864
             },
             {
               "scenario": "eta",
               "title": "6. ETA 날짜 입력",
-              "seconds": 53.553
+              "seconds": 53.532
             },
             {
               "scenario": "save",
               "title": "7. ETA 저장·엑셀 다운로드",
-              "seconds": 65.786
+              "seconds": 65.843
             },
             {
               "scenario": "china",
               "title": "8. 중국 발주 조회",
-              "seconds": 76.637
+              "seconds": 76.968
             },
             {
               "scenario": "china-cycle",
               "title": "9. 중국 차수 선택",
-              "seconds": 87.198
+              "seconds": 87.592
             },
             {
               "scenario": "china-week",
               "title": "10. 중국 세부차수 선택",
-              "seconds": 97.795
+              "seconds": 98.179
             },
             {
               "scenario": "farm",
               "title": "11. 기본 수신명 수정",
-              "seconds": 108.372
+              "seconds": 108.796
             },
             {
               "scenario": "split",
               "title": "12. 농장별 파일 나누기",
-              "seconds": 120.29
+              "seconds": 120.733
             },
             {
               "scenario": "assign",
               "title": "13. 농장 1 품목 선택",
-              "seconds": 130.88
+              "seconds": 131.329
             },
             {
               "scenario": "farm-download",
               "title": "14. 농장별 파일 확인",
-              "seconds": 141.5
+              "seconds": 141.984
             },
             {
               "scenario": "farm-save",
               "title": "15. 농장 파일 다운로드",
-              "seconds": 152.101
+              "seconds": 152.587
             },
             {
               "scenario": "chat",
               "title": "16. 최근 2일 카톡 확인",
-              "seconds": 162.699
+              "seconds": 163.202
             },
             {
               "scenario": "sum",
-              "title": "17. 추가분 합산",
-              "seconds": 173.278
+              "title": "17. 추가분 자동 합계",
+              "seconds": 173.78
             },
             {
               "scenario": "copy",
               "title": "18. 농장 전달용 복사",
-              "seconds": 183.83
+              "seconds": 184.341
             }
           ]
         }
