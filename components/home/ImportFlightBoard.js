@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { apiGet, apiPost } from '../../lib/useApi';
 import { WORLD_VIEW, WORLD_LAND_PATH, projectLonLat } from '../../lib/importFlightWorldPath';
 
-const { issueRows, shortIssue } = require('../../desktop/shell/flight-presentation');
+const { issueRows, shortIssue } = require('../../desktop/shell/flight-board');
 
 const REFRESH_MS = 5 * 60 * 1000;
 const STATUS_STYLE = {
@@ -15,6 +15,13 @@ const STATUS_STYLE = {
   registered: { bg: '#eef0f2', ink: '#6c757d', dot: '#adb5bd' },
 };
 const fmt = n => Number(n || 0).toLocaleString();
+function moveTableFocus(event) {
+  if (!['ArrowDown', 'ArrowUp'].includes(event.key) || event.target.tagName !== 'BUTTON') return;
+  const buttons = [...event.currentTarget.querySelectorAll('tbody button')];
+  const index = buttons.indexOf(event.target);
+  const next = buttons[index + (event.key === 'ArrowDown' ? 1 : -1)];
+  if (next) { event.preventDefault(); next.focus(); }
+}
 
 function kstParts(iso) {
   const ms = Date.parse(iso);
@@ -202,6 +209,16 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [selectedKey, setSelectedKey] = useState('');
+  const detailRef = useRef(null);
+  const returnFocusRef = useRef(null);
+  const selectDetail = (key, event) => {
+    returnFocusRef.current = event?.currentTarget || null;
+    setSelectedKey(key);
+  };
+  useEffect(() => {
+    if (selectedKey) detailRef.current?.focus();
+    else returnFocusRef.current?.focus();
+  }, [selectedKey]);
   const [showDone, setShowDone] = useState(false);
   const [busyAwb, setBusyAwb] = useState('');
   const [showRoomNews, setShowRoomNews] = useState(false);
@@ -248,8 +265,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
   const selected = flights.find(f => f.key === selectedKey) || null;
   const s = data?.summary || {};
   const todo = Array.isArray(data?.todo) ? data.todo : [];
-  const todoRed = s.red ?? todo.filter(t => t.level === 'red').length;
-  const todoAmber = s.amber ?? todo.filter(t => t.level !== 'red').length;
+  const issues = issueRows([...todo, ...(data?.issues || [])]);
   const roomNews = Array.isArray(data?.roomNews) ? data.roomNews : [];
 
   return (
@@ -279,7 +295,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
             {[['비행 중', s.inFlight, STATUS_STYLE.in_flight], ['출발 전', s.beforeDeparture, STATUS_STYLE.before_departure], ['빌번호 대기', s.awaitingAwb, STATUS_STYLE.awaiting_awb], ['도착·입고 대기', s.arrived, STATUS_STYLE.arrived], ['입고 등록 끝', s.registered, STATUS_STYLE.registered]].map(([label, n, st]) => (
               <span key={label} style={{ padding: '3px 10px', borderRadius: 12, background: st.bg, color: st.ink, fontWeight: 700 }}>{label} {fmt(n)}</span>
             ))}
-            <span style={{ padding: '3px 10px', borderRadius: 12, background: s.issues ? '#ffe3e3' : '#f1f3f5', color: s.issues ? '#b02a2a' : '#6c757d', fontWeight: 700 }}>이슈 {fmt(s.issues)}</span>
+            <span style={{ padding: '3px 10px', borderRadius: 12, background: issues.length ? '#ffe3e3' : '#f1f3f5', color: issues.length ? '#b02a2a' : '#6c757d', fontWeight: 700 }}>이슈 {fmt(issues.length)}</span>
             <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--text3)', alignSelf: 'center', display: 'inline-flex', gap: 8 }}>
               <span title="인천공항 운항 정보">공항 자료 {data.sources?.icn?.enabled && data.sources?.icn?.ok ? '✔' : '–'}</span>
               <span title="관세청 유니패스">통관 자료 {data.sources?.customs?.enabled && data.sources?.customs?.ok ? '✔' : '–'}</span>
@@ -289,13 +305,13 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
           {issues.length > 0 && (
             <section className="flight-issues" aria-label="확인할 이슈">
               <h3>확인할 이슈 {issues.length}건</h3>
-              <table className="flight-issue-table">
+              <table className="flight-issue-table" onKeyDown={moveTableFocus}>
                 <thead><tr><th scope="col">번호</th><th scope="col">이슈</th><th scope="col">상세</th></tr></thead>
                 <tbody>{issues.map((it, i) => (
                   <tr key={JSON.stringify([it.key, it.text])}>
                     <td style={{ color: it.level === 'red' ? '#b02a2a' : '#8a5a00' }}>{i + 1}</td>
                     <td title={it.text}>{shortIssue(it.text)}</td>
-                    <td><button type="button" className="btn btn-sm" aria-label={'이슈 ' + (i + 1) + ' 상세'} onClick={() => setSelectedKey(it.key)}>상세</button></td>
+                    <td><button type="button" className="btn btn-sm" aria-label={'이슈 ' + (i + 1) + ' 상세'} onClick={event => selectDetail(it.key, event)}>상세</button></td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -321,7 +337,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
             </div>
             <div style={{ minWidth: 0, overflowX: 'auto' }}>
               {selected && (
-                <div data-testid="flight-selected-detail" style={{ marginTop: 6, border: '1px solid #d7e0ea', borderRadius: 6, padding: '6px 10px', fontSize: 12, lineHeight: 1.7 }}>
+                <div ref={detailRef} tabIndex={-1} onKeyDown={event => { if (event.key === 'Escape') setSelectedKey(''); }} data-testid="flight-selected-detail" style={{ marginTop: 6, border: '1px solid #d7e0ea', borderRadius: 6, padding: '6px 10px', fontSize: 12, lineHeight: 1.7 }}>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                     <b>{selected.weekLabel}차 {selected.country} {selected.itemLabel}</b>
                     <StatusChip f={selected} />
@@ -366,7 +382,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-              <table className="tbl" style={{ fontSize: 12 }} hidden={!!selected}>
+              <table className="tbl" style={{ fontSize: 12 }} hidden={!!selected} onKeyDown={moveTableFocus}>
                 <thead>
                   <tr><th>차수·나라</th><th>편명</th><th>박스</th><th>도착 예정</th><th>상태</th><th>실제 위치</th></tr>
                 </thead>
@@ -380,7 +396,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                     <Fragment key={f.key}>
                     <tr onClick={() => setSelectedKey(f.key)} style={{ cursor: 'pointer', background: f.key === selectedKey ? '#f0f6ff' : undefined }}>
                       <td>
-                        <b>{f.weekLabel}</b> {f.country}
+                        <button type="button" className="btn btn-sm" onClick={event => { event.stopPropagation(); selectDetail(f.key, event); }}><b>{f.weekLabel}</b> {f.country} 상세</button>
                         {(f.issues || []).length > 0 && <span title={f.issues.join('\n')} style={{ color: '#b02a2a', marginLeft: 4 }}>⚠</span>}
                         <div style={{ fontSize: 10, color: 'var(--text3)' }}>{f.itemLabel}</div>
                       </td>

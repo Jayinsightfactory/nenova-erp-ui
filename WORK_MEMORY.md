@@ -3494,3 +3494,11 @@ pm run test:canon 통과.
 - 주의/잠금: 촬영 진행은 stdout의 Guide chapter 로그만 읽는다. Puppeteer.connect의 기본 viewport가 기존 촬영 창을 줄이는 문제를 발견해 해당 촬영은 폐기했고, 별도 브라우저 연결을 제거한 최종 촬영과 화면 크기 고정 검사를 추가함. 공유 기본 체크아웃/다른 홈 비행기 Draft #1820 수정 금지. ERP·ECOUNT 쓰기 없음. 병합 후 해당 worktree 즉시 정리.
 - 회사 Drive 최종 원본(크기 검증): MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol / VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat / proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn. 기존 자료 유지·공개 공유 변경 없음.
 - 검색어: calendar 1.3.36 즐겨찾기 전체 접기 열기 공휴일 국가 선택 상세 수정 주차별 Jan6 고정 viewport 가이드 14단계
+
+## 2026-11-18 수입 비행기 현황 최종 테스트만 완료
+- 작업 위치: nenova-erp-ui / codex/import-flight-layout / C:/Users/USER/.codex/worktrees/c027/nenova-erp-ui/nw-cdx-flight / Draft PR #1820.
+- 완료된 것: 버튼 3개 동일 y=41px·높이32px 최종 브라우저 확인. 번호/이슈/상세 표, 짧은 문구·중복 제거, 지도 옆 단일 상세, 키보드 이동·Escape 복귀, 수입부 메뉴 단일 등록 확인. 테스트 중 issues 변수 누락과 뒤로가기 누락 수정. 공통 표시 함수는 기존 flight-board.js에 통합하여 데스크톱 프로토콜 허용 파일 유지.
+- 남은 할 일: 사용자 요청은 우선 테스트만. 커밋/PR 갱신·병합·Cafe24/설치본 배포는 진행하지 않음. 다음 배포 시 최신 master/버전 충돌 확인. 현재 최종 수정은 이 worktree에 보존.
+- 검증 상태: 전체 test:erp-contract exit0, desktop 69/69, dnSpy evidence, manifest224, ERP write guard, guide waiver 검사, 정식 npm build 및 빌드 서버 화면 확인 통과. 1920/390px·키보드 검증 통과. 운영 설치본 반영은 미검증·미배포. 로컬 서버 종료.
+- 주의/잠금: 사용자 명시로 비행기현황 가이드 영상 갱신 불필요. config/workflow-guides.json에 해당 소스만 owner waiver 기록; 신규 촬영 완료 주장 없음. 버전1.3.37은 준비값이며 미출시. 공유 기본 체크아웃·다른 세션 파일 수정 금지, 미병합 worktree 유지.
+- 검색어: 수입 비행기 현황 테스트만 버튼 정렬 번호 이슈 표 지도 상세 1820 video waiver 미배포 69 tests

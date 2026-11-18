@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { issueRows, shortIssue } = require('../shell/flight-presentation');
+const { issueRows, shortIssue } = require('../shell/flight-board');
 
 test('same issue merges within a flight, preserves year/flight identity and urgent level', () => {
   const rows = issueRows([

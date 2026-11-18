@@ -14,7 +14,6 @@
     "lib/importFlightDocsStore.js",
     "lib/importRoomEvents.js",
     "components/home/ImportFlightBoard.js",
-    "desktop/shell/flight-presentation.js",
     "desktop/shell/flight-board.js",
     "pages/desktop-flight.js"
   ],
