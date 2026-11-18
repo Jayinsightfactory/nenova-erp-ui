@@ -3435,3 +3435,12 @@ pm run test:canon 통과.
 - 주의/잠금: 공유 기본 체크아웃 수정 금지. 녹화 소스/가이드 갱신 완료, 다른 홈 비행기 PR #1820은 별도 Draft 범위. ERP·ECOUNT 쓰기 없음. 완료 후 해당 worktree 즉시 정리.
 - 회사 Drive 원본 보관 확인(크기까지 검증): MP4 13ocnQfonbVqE-xpyauub2WqZdj_bx74h / VTT 10XNEf5jK8moFSbXzGSWNIRG7j4nCAjAd / proof 1z9G7axD2nivg10oiH5FcoP-QE-whLvhe. 기존 1.3.34 자료 유지, 공개 공유 설정 변경 없음.
 - 검색어: calendar holidays 1.3.35 즐겨찾기 전체 접기 열기 달력 가로폭 20% 공휴일 12개국 개인 일정 상세 주차별 기준일 14단계 가이드
+
+## 2026-11-18 Desktop 1.3.36 최종 통합·가이드 재검증
+- 작업 위치: nenova-erp-ui / codex/calendar-holidays-editor-1118 / Documents/Codex/2026-11-12/new-chat/work/nw-calendar-holidays-1118 / PR #1822.
+- 완료된 것: 선행 #1821의 Desktop 1.3.35 흐름도·업데이트 안내를 보존하고 이번 버전을 1.3.36으로 분리. 최종 소스로 14단계 실제 가이드 514.3초/42,948,556바이트 재촬영, 자막76개 실제 프레임 대조·번호/줌/목차·처음/상세/마지막 장면 확인. 1.3.35 촬영·Drive 자료는 미공개 초안이며 최종 배포 근거는 아래 1.3.36 자료임.
+- 남은 할 일: 최종 헤드 CI 재확인·squash, Cafe24 운영 읽기/가이드 재생, Windows 1.3.36 파일·공개 피드 검증. 직원 PC 재시작 금지(업무 중, 배포까지만 승인).
+- 검증 상태: 통합 뒤 desktop67 및 실제 Chrome 공휴일/즐겨찾기 전체접기/권한/개인상세/주차별/너비/작은화면 재통과. 최종 14단계 실제 촬영과 매 자막·강조 전1920x1080 고정 검사 통과. test:workflow-guides23/24 및 changed-from origin/master 소스 해시 통과. 이전 전체 ERP·dnSpy·manifest224·write guard·정식 build 통과; 최신 헤드 필수 CI는 아직 진행 전. 운영/직원PC 새버전은 미검증.
+- 주의/잠금: 촬영 진행은 stdout의 Guide chapter 로그만 읽는다. Puppeteer.connect의 기본 viewport가 기존 촬영 창을 줄이는 문제를 발견해 해당 촬영은 폐기했고, 별도 브라우저 연결을 제거한 최종 촬영과 화면 크기 고정 검사를 추가함. 공유 기본 체크아웃/다른 홈 비행기 Draft #1820 수정 금지. ERP·ECOUNT 쓰기 없음. 병합 후 해당 worktree 즉시 정리.
+- 회사 Drive 최종 원본(크기 검증): MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol / VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat / proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn. 기존 자료 유지·공개 공유 변경 없음.
+- 검색어: calendar 1.3.36 즐겨찾기 전체 접기 열기 공휴일 국가 선택 상세 수정 주차별 Jan6 고정 viewport 가이드 14단계

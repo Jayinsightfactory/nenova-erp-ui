@@ -1407,77 +1407,69 @@
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 45.6
+              "seconds": 48.397
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 55
+              "seconds": 57.597
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 81
+              "seconds": 83.399
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 102.2
+              "seconds": 104.599
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 130.8
+              "seconds": 133.199
             },
             {
               "scenario": "calendar",
               "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 140.6
+              "seconds": 142.799
             },
             {
               "scenario": "independent",
               "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 165
+              "seconds": 167.199
             },
             {
               "scenario": "company",
               "title": "9. 공통 일정 제목과 색상 등록·수정",
-              "seconds": 177
+              "seconds": 178.799
             },
             {
               "scenario": "collapse",
               "title": "10. 월간·주간 접기와 홈 다시 열기",
-              "seconds": 251.6
+              "seconds": 251.399
             },
             {
               "scenario": "weekly",
               "title": "11. 주차별 일정과 다음 주 차수 확인",
-              "seconds": 284.4
+              "seconds": 283.195
             },
             {
               "scenario": "holidays",
               "title": "12. 국가를 선택해 공휴일 표시",
-              "seconds": 372.4
+              "seconds": 370.199
             },
             {
               "scenario": "eventDetails",
               "title": "13. 저장된 일정의 상세 정보 수정",
-              "seconds": 415.2
+              "seconds": 412.799
             },
             {
               "scenario": "personalDetails",
               "title": "14. 개인 업무도 달력에서 바로 수정",
-              "seconds": 482.6
+              "seconds": 480.199
             }
           ]
-        }
-      ],
-      "videoWaivers": [
-        {
-          "file": "desktop/shell/shell.js",
-          "sha256": "604681a1bb22ff1f337c8f82188380734bcc7b7dd9ee1f675f1f35fa6cc3fe22",
-          "reason": "앱 업데이트 필요 시 붉은색 강조 표시 및 PM 라이브 확인 패널 버튼(오류관제 열기·흐름도) 구성 변경 — 오늘의 내 업무·시간표·메모장·달력 11단계 가이드 조작 순서는 변경 없음",
-          "approvedBy": "2026-11-18 UI 강조·버튼 표시 변경 (desktop-task-schedule-smoke --dry-run 11장 검증 통과)"
         }
       ]
     }
