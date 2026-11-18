@@ -21,8 +21,8 @@ export default function Codes() {
 
   return (
     <div>
-      <div className="tabs">
-        {tabs.map((t, i) => <div key={t} className={`tab-item ${tab === i ? 'active' : ''}`} onClick={() => setTab(i)}>{['🌍', '🌸', '🌾'][i]} {t}</div>)}
+      <div className="tabs" role="tablist" aria-label="기준정보 종류" onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;const index=event.key==='Home'?0:event.key==='End'?2:(tab+(event.key==='ArrowRight'?1:2))%3;event.preventDefault();setTab(index);event.currentTarget.querySelectorAll('[role="tab"]')[index]?.focus();}}>
+        {tabs.map((t, i) => <button type="button" role="tab" aria-selected={tab===i} tabIndex={tab===i?0:-1} key={t} className={`tab-item ${tab === i ? 'active' : ''}`} onClick={() => setTab(i)}>{['🌍', '🌸', '🌾'][i]} {t}</button>)}
       </div>
       <div className="card">
         <div className="card-header">

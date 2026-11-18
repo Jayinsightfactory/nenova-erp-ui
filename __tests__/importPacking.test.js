@@ -290,6 +290,7 @@ async function main() {
       '../../lib/importPackingMatchPreview.js': matchPreview,
       '../../lib/packingValidationIssues.js': require('../lib/packingValidationIssues.js'),
       '../../lib/packingMatchReview.js': matchReview,
+      '../../lib/packingManifestReconciliation.js': await import('../lib/packingManifestReconciliation.js'),
       '../../lib/packingWeekDate.js': require('../lib/packingWeekDate.js'),
       '../../lib/packingReceiptDatePolicy.js': require('../lib/packingReceiptDatePolicy.js'),
       '../../lib/packingReceiptMatchState.js': receiptMatchState,

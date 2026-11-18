@@ -35,27 +35,27 @@
             {
               "scenario": "issues",
               "title": "1. 이름이 다른 항목만 확인합니다. 자동 연결도 전체 보기에서 수정할 수 있습니다.",
-              "seconds": 0.013
+              "seconds": 0.014
             },
             {
               "scenario": "existing",
               "title": "2. 명세서에 해당하는 송장을 선택하고 기존 DB 농장을 누릅니다.",
-              "seconds": 9.883
+              "seconds": 9.86
             },
             {
               "scenario": "register",
               "title": "3. DB에 없는 농장만 이름과 국가를 확인해 마스터에 등록합니다.",
-              "seconds": 21.581
+              "seconds": 21.544
             },
             {
               "scenario": "apply",
               "title": "4. 연결을 적용하면 현재 DB 후보와 송장 중복을 다시 확인합니다.",
-              "seconds": 45.739
+              "seconds": 45.59
             },
             {
               "scenario": "result",
               "title": "5. 연결 완료와 원본 수량·금액이 유지된 결과를 확인합니다.",
-              "seconds": 55.614
+              "seconds": 55.486
             }
           ]
         }

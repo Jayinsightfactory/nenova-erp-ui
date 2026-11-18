@@ -1,22 +1,22 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-18T07:54:42.114Z",
+  "recordedAt": "2026-11-18T08:14:42.159Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 69.45,
+  "duration": 69.3,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "f7fcd7066fa5d4fc85934d28fd27947a61aeaaa4b51e562d757f9ebe6205e709",
-  "captionsSha256": "196c10efd113a6fb1f07f994c41708849ec442073fc79632e668345f93c1bdd7",
+  "videoSha256": "b889c417d63a333590016f5565a5c23f3fccacb40d794ccff7062d4c1ad96086",
+  "captionsSha256": "18e777a6dd50464b4b6cdba256f03c95d67e79464c584f57eff3eee8328aaac0",
   "sourceHashes": {
     "components/import-tools/PackingManifestFarmReview.js": "f585087dd9ac3a673f8098b5dd581871732b63383a0c3dde9aa019433bd2857a",
     "components/import-tools/FarmMasterRegistration.js": "1b1ebb1e3711f1da8489a41d346fdb9705fb2b2532d4c2f805f3d0c98bbed97d",
     "components/import-tools/InvoiceFarmChoices.js": "fb4f58c3d28f9560bae5c07666b90a6b62393a7443a4780759e7f518959570a0",
     "lib/packingManifestReconciliation.js": "58fadbe47d572318083da50331c27616d55c040e4ef573e2af19dd240139be4a",
-    "pages/master/codes.js": "f05fd3624efe63a9bb25e2d325d15a22f0f5227657403347db5c3afc5152d39c"
+    "pages/master/codes.js": "c4373042087d7681bcf2daa25efdca3d2a76ba6e415f5689068f133db5a4730e"
   },
   "presentation": {
     "numberedSteps": 5,
@@ -32,45 +32,45 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 3.6468065,
+        "start": 3.6314338000000004,
         "x": 142.671875,
         "y": 506.5,
-        "end": 9.664231499999998
+        "end": 9.6455535
       },
       {
         "number": 2,
-        "start": 13.505929199999999,
+        "start": 13.482464699999998,
         "x": 292.1875,
         "y": 539.5,
-        "end": 21.365766299999997
+        "end": 21.325900400000002
       },
       {
         "number": 3,
-        "start": 25.2151393,
+        "start": 25.1675119,
         "x": 292.1875,
         "y": 539.5,
-        "end": 31.2865222
+        "end": 31.218720100000002
       },
       {
         "number": 3,
-        "start": 33.3070766,
+        "start": 33.239262000000004,
         "x": 265.0625,
         "y": 518.5,
-        "end": 45.525379
+        "end": 45.3799661
       },
       {
         "number": 4,
-        "start": 49.3561442,
+        "start": 49.2034176,
         "x": 163.4609375,
         "y": 697.5,
-        "end": 55.4076904
+        "end": 55.257540000000006
       },
       {
         "number": 5,
-        "start": 59.2425616,
+        "start": 59.114880400000004,
         "x": 194.8828125,
         "y": 312.5,
-        "end": 69.25156140000001
+        "end": 69.1255555
       }
     ]
   }

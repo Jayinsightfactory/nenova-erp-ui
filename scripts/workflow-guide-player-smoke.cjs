@@ -22,13 +22,15 @@ async function main() {
       if (!url.pathname.startsWith('/api/')) return request.continue();
       if (request.method() !== 'GET') writes.push(url.pathname);
       const data = { success: true, user, items: [], rows: [], data: [], products: [], countries: [], records: [], history: [], references: [], options: [], masters: [], requests: [], permissions: { request: true, review: true }, value: null, revision: 0 };
+      if(targetId==='packing-list-from-invoice'&&url.pathname==='/api/work/manuals'){data.handover=require('../data/import-handover.json');data.me=user;data.departments=[];data.manuals=[];}
       return request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
     });
-    await page.goto(base + (target?'/import/tools':'/import/tools?tab=incoming'), { waitUntil: 'networkidle0' });
+    await page.goto(base + (targetId==='packing-list-from-invoice'?'/work/manuals?manual=packing-list-from-invoice':targetId==='manifest-farm-matching'?'/master/codes':target?'/import/tools':'/import/tools?tab=incoming'), { waitUntil: 'networkidle0' });
     if(targetId==='invoice-farm-history')await page.click('button[aria-controls="import-panel-history"]');
-    await page.evaluate(titleText=>{const title=[...document.querySelectorAll('h3')].find(n=>n.textContent===titleText);if(!title)throw Error('Guide missing');title.closest('details').id='guide-player-target';},target?.title||'입고 수정 요청과 검토·확정');
+    if(targetId==='manifest-farm-matching'){await page.focus('[role="tab"][aria-selected="true"]');await page.keyboard.press('End');assert.equal(await page.$eval('[role="tab"][aria-selected="true"]',node=>node.textContent.trim()),'🌾 농장');}
+    await page.evaluate(titleText=>{const title=[...document.querySelectorAll('h3')].find(n=>n.textContent===titleText&&n.closest('details'));if(!title)throw Error('Guide missing');title.closest('details').id='guide-player-target';},target?.title||'입고 수정 요청과 검토·확정');
     const summary = await page.$('#guide-player-target > summary');
-    assert(summary, 'Guide entry missing'); await summary.focus(); await page.keyboard.press('Enter');
+    assert(summary, 'Guide entry missing'); await summary.focus(); if(!await page.$eval('#guide-player-target',details=>details.open))await page.keyboard.press('Enter');
     await page.waitForSelector('#guide-player-target video'); assert(await page.$eval('#guide-player-target video', video => video.paused));
     for (const role of target?[...new Set(target.guides.map(g=>g.role))]:['수입부', '영업지원']) {
       const button = await page.evaluateHandle(role => [...document.querySelector('#guide-player-target').querySelectorAll('button')].find(node => node.textContent === `${role}용`), role); if(button.asElement()){await button.asElement().focus(); await page.keyboard.press('Space');}

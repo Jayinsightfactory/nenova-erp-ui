@@ -17,7 +17,7 @@
     "pretest:estimate-delete": "node --test __tests__/estimateLedgerAlerts.test.cjs __tests__/estimateDuplicateWriteGuard.test.js && node --test __tests__/estimateLedgerReview.test.cjs",
     "test:packing-team": "node --test __tests__/auAwbFlow.test.cjs __tests__/packingMatchManager.test.js __tests__/packingWorkDraft.test.js __tests__/packingSimilarRanking.test.js __tests__/packingTeamMatching.test.js __tests__/invoiceReceiptChinaAirCost.test.js __tests__/invoiceArrivalCostPanel.test.js __tests__/importChinaInvoice.test.js __tests__/invoiceReceiptWorkbench.test.js __tests__/invoiceCostOnlyWorkflow.test.js __tests__/invoiceWarehouseBrowse.test.js __tests__/packingReceiptMatchState.test.js __tests__/invoiceMatchAssist.test.js __tests__/codeOnlyDeployment.test.cjs",
     "test:invoice-receipt": "node --test __tests__/invoiceReceiptReconciliation.test.js",
-    "test:manifest-farm": "node --test __tests__/packingManifestReconciliation.test.js __tests__/farmMasterRegistration.test.js",
+    "test:manifest-farm": "node --test __tests__/packingManifestReconciliation.test.js __tests__/farmMasterRegistration.test.js __tests__/balverdeReceiptFieldRepair.test.js",
     "prebuild": "node scripts/generate-menu-development-history.cjs && node scripts/generate-full-development-history.cjs && npm run test:full-development-history && npm run test:workflow-guides",
     "test:menu-development-history": "node --test __tests__/menuDevelopmentHistory.test.js",
     "test:full-development-history": "node --test __tests__/fullDevelopmentHistory.test.js __tests__/developmentJourney.test.js __tests__/developmentPurposeStories.test.js __tests__/developmentStoryVisuals.test.js __tests__/menuDevelopmentDefaults.test.js",
