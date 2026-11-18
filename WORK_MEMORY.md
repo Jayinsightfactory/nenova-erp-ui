@@ -3531,3 +3531,21 @@ pm run test:canon 통과.
 3. 남은 할 일: 브라우저 회귀·가이드갱신·전체ERP/build/CI·배포·운영확인.
 4. 검증 상태: 표적 원문/API/합산/누락대조·수동검토순수함수 PASS; 실제브라우저 및 전체검증 진행중. 운영 미검증.
 5. 주의/잠금: 본worktree만 수정. 카톡방 자체 수집완전성·사진OCR 미확인 명시. 수집시트 GET/브라우저계산만, ERP쓰기/외부발송0. 타세션 비행기PR1820 최신master포함 유지.
+## 2026-11-18 · 원장 연결 알림 기본 접힘과 신고·견적 대조
+- 위치: nenova-erp-ui / codex/ledger-review-1118 / C:/Users/USER/nw-cdx-ledger-review-1118 / PR 준비
+- 완료: 알림 기본 접힘, 대조 보기에서 최초 신고·현재 저장값·등록 변경 이력·현재 견적·다른번호 음수 견적. 원차수/적용차수·다른 신고 연결·수량/단가/단위 차이 표시, SELECT만. 가이드 3단계 영상·한국어 자막 제작.
+- 남은 일: 전체 필수검사·빌드 완료 후 PR/병합/Cafe24 배포/운영 스모크.
+- 검증: 대상10검사 및 운영45차16건 조회(후보95행), 합성 브라우저1920/1280/390 접힘·대조·Esc·조회실패·가이드 재생/자막/목차 통과. 전체 게이트/빌드/배포 미검증.
+- 주의/잠금: 현재 작업트리의 알림 관련 파일만 변경. acba의 조사기록·45차CSV 보존. 카톡 원문 자체는 DB에 없어 최초 저장 신고와 구분 표시. 후보를 동일 신고나 재차감 승인으로 판정하지 않음.
+- 검색어: 원장연결알림 기본접힘 대조보기 최초신고 등록이력 다른번호 차감 estimateLedgerReview
+
+- 2026-11-18 대조 기능 검증 갱신: 전체 test:erp-contract exit0, dnSpy/manifest/쓰기범위/가이드 검사 통과. 최신 master 병합 후 빌드 진행. 대상 회귀11건 통과. 영상41.55초 및 자막 업무 Drive 백업 완료(영상 1ZKD-gnWOa3sLCigP5Xe-6faTgrzL6q5Z, 자막 1DBrn7ItyB_UpM0AVhmWoTwzs0uZsDyzW).
+
+## 2026-11-18 · 아키텍처 흐름도에 SQL 원장 & 웹 데이터 3계층 스키마 구조도 추가
+- 요약: `/my-work?tab=arch`의 `ArchFlowChart.js`에 공유 MSSQL ERP 원장(`Customer`/`Product`/`OrderMaster`/`OrderDetail`/`ShipmentMaster`/`ShipmentDetail`/`WarehouseMaster`/`WarehouseDetail`/`FreightCost`/`ProductStock`), 웹 전용 `Web*` SQL 스키마(`assertWebSchemaContract`, `WebProfitReport`/`WebRaumPnl`/`WebSalesDefectDeduction`/`WebChinaVolumeBoard`/`WebPreShipment`/`WebInvoice*`/`WebMappingStore`/`WebWorkflowReview`), 런타임 JSON(`data/runtime/*.json`) 3계층 구조도와 필터·불변 가드 요약표를 추가.
+- 검색어: 아키텍처 스키마 구조도 MSSQL OrderMasterKey ShipmentKey SdetailKey assertWebSchemaContract data/runtime ArchFlowChart
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-sql-web-schema` / `C:\Users\USER\nw-agy-arch-schema` / PR #1827.
+2. 완료된 것: `components/pm/ArchFlowChart.js` 3계층 스키마 다이어그램·필터·상세 카드·불변 가드(Invariants) 섹션 추가, `__tests__/archFlowChart.test.js` 스키마 계약 단언 추가.
+3. 남은 할 일: PR #1827 CI 통과 확인 → squash 머지 → worktree 정리.
+4. 검증 상태: `archFlowChart`, `workflowReview`, `workFeatureData`, `test:pm`(47파일 no-hex, 9파일 ui-kit, boundary), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `erp-manifest(224)`, `npx next build --webpack` 통과. PR CI 및 운영 반영 확인 진행 중.
+5. 주의/잠금: MSSQL 원장·마이그레이션·API 쓰기 변경 0건(문서화된 스키마 읽기 시각화만 추가). `pages/pm.js` 및 데스크톱 파일 미수정. worktree 정리 시 `cmd /c rmdir`로 `node_modules` junction만 먼저 해제할 것.

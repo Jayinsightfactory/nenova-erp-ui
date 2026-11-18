@@ -52,7 +52,7 @@ test('GET API is authenticated, no-cache and cannot execute other methods',async
 test('UI has scoped refresh, stale completion cancellation, keyboard details, explicit limits and no repair action',()=>{
  const ui=fs.readFileSync('components/EstimateLedgerAlerts.js','utf8');
  assert.match(ui,/if\(active\)setState/);assert.match(ui,/active=false/);assert.match(ui,/state.key===key/);
- assert.match(ui,/<details open>/);assert.match(ui,/type="button"/);assert.match(ui,/no-print/);
+ assert.match(ui,/useState\(false\)/);assert.match(ui,/aria-expanded/);assert.match(ui,/type="button"/);assert.match(ui,/no-print/);
  assert.match(ui,/削除|삭제자·삭제 시각은 추측하지 않습니다/);assert.doesNotMatch(ui,/apiPost|apiDelete|dangerouslySetInnerHTML/);
  const page=fs.readFileSync('pages/estimate.js','utf8');
  assert.match(page,/setLedgerAlertScope\(\{year:scope.year,week:scope.week/);
