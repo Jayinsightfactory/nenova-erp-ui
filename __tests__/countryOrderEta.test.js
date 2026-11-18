@@ -4,8 +4,8 @@ import { countryOrderEtaDefault, formatCountryOrderEta, parseCountryOrderEta, wi
 import { generatePedidosFromMatrix, serializePedidosWorkbook, readPedidosWorkbook } from '../lib/importPedidos.js';
 
 test('ETA exact English weekday, strict actual date and leap year', () => {
-  assert.equal(formatCountryOrderEta('2026-11-16'), 'ETA (2026,11,16 Monday)');
-  assert.equal(formatCountryOrderEta('2028-02-29'), 'ETA (2028,2,29 Tuesday)');
+  assert.equal(formatCountryOrderEta('2026-11-16'), 'ETA (2026-11-16 Monday)');
+  assert.equal(formatCountryOrderEta('2028-02-29'), 'ETA (2028-02-29 Tuesday)');
   for (const date of ['', null, '2026-2-3', '2026-02-29', '2026-11-31', '2026-00-00', '10000-01-01', '1899-01-01']) assert.throws(() => parseCountryOrderEta(date));
 });
 test('country-local saved anchor advances actual ERP calendar, not ISO or minor week', () => {
@@ -34,7 +34,7 @@ test('all seven country Excel outputs keep every non-title value/formula/style a
       assert.equal(JSON.stringify(output.workbook), before);
       const original = readPedidosWorkbook(serializePedidosWorkbook(output.workbook)), reopened = readPedidosWorkbook(serializePedidosWorkbook(changed));
       for (const name of original.SheetNames) {
-        assert.match(reopened.Sheets[name].A1.v, /Semana 46-01차 ETA \(2026,11,16 Monday\)$/);
+        assert.match(reopened.Sheets[name].A1.v, /Semana 46-01차 ETA \(2026-11-16 Monday\)$/);
         for (const [key, value] of Object.entries(original.Sheets[name])) if (!['A1','!rows'].includes(key)) assert.deepEqual(reopened.Sheets[name][key], value, `${country}/${key}`);
         assert.equal(changed.Sheets[name]['!rows'][0].hpt, 60);
       }
