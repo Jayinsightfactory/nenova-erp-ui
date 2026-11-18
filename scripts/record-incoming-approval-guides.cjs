@@ -67,11 +67,12 @@ async function recordRole(browser, base, secret, role) {
       if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,InvoiceNo:i?`GUIDE-${i+1}`:header.InvoiceNo}));
       if (u.pathname === '/api/warehouse/9001') data.items = before;
       if (u.pathname === '/api/warehouse/correction') data = { success: true, draftOwner: user.userId, header, baselineDigest:'c'.repeat(64), details: before, farms: [{ FarmName: header.FarmName }, { FarmName: '연습농장 나' }], history: [] };
+      if(u.pathname==='/api/warehouse/correction'&&r.method()==='POST')data={...previewFor(JSON.parse(r.postData())),canCommit:false,issues:[{message:'現在 차수에 확정된 품목이 있습니다. 영업지원에 수정 요청하세요.'.replace('現在','현재')}]};
       if (u.pathname === '/api/warehouse/invoice-costs') data.costs = null;
       if (u.pathname === '/api/warehouse/approval') {
         if (r.method() === 'GET') {
           const request = requests.find(item => item.requestId === Number(u.searchParams.get('requestId')));
-          data = request ? { success: true, permissions: { request: isImport, review: !isImport }, request, facts: factsFor(request) } : { success: true, permissions: { request: isImport, review: !isImport }, requests: requests.map(item => ({ RequestId: item.requestId, Status: item.status, RequestedBy: '수입부 연습', correction: item.correction, reason: item.reason, revision: item.revision })) };
+          data = request ? { success: true, permissions: { request: isImport, review: !isImport }, history:[{FromStatus:null,ToStatus:'draft',Note:request.reason,CreatedAt:'2026-11-18T09:00:00'},{FromStatus:'draft',ToStatus:'requested',Note:request.reason,CreatedAt:'2026-11-18T09:01:00'}], request, facts: factsFor(request) } : { success: true, permissions: { request: isImport, review: !isImport }, requests: requests.map(item => ({ RequestId: item.requestId, Status: item.status, RequestedBy: '수입부 연습', correction: item.correction, reason: item.reason, revision: item.revision })) };
         } else {
           const body = JSON.parse(r.postData()); posts.push(body); const request = requests.find(item => item.requestId === body.requestId);
           if (body.action === 'draftPreview') data = previewFor(body.correction);
@@ -145,8 +146,14 @@ async function recordRole(browser, base, secret, role) {
     for(const [index,scenario] of (isImport?['farm','product','quantity','add','cancel']:['farm','product','quantity']).filter(s=>!onlyScenario||s===onlyScenario).entries()){
       stepNumber=index+1;console.log(`${dry?'CHECK':'RECORD'} ${role}: ${scenario}`);rec.chapter(scenario,`${stepNumber}. ${scenarioTitles[scenario]}`);
       if(isImport){
+        if(scenario==='farm'){
+          await page.goto(`${base}/incoming?popup=1`,{waitUntil:'networkidle0'});await page.waitForSelector('[data-row-key="9001"]');await moveClick(await page.$('[data-row-key="9001"]'));await click('농장·품목 수정 / 파일 교체');await page.waitForSelector('dialog[open] select[aria-label="수정 농장"]');
+          await hold('직접 수정창에서 농장 검색을 입력하면 바로 아래 목록이 펼쳐집니다. 정확한 농장을 선택합니다.',6);await fill('input[aria-label="농장 검색"]','연습농장 나');await select('select[aria-label="수정 농장"]','연습농장 나');await fill('input[aria-label="수정 사유"]','농장 오선택 정정 요청');await click('변경 내역 미리보기');
+          await hold('확정된 품목 때문에 직접 수정이 막혀도 요청할 수 있습니다. 확정 현황 확인·취소는 같은 연도·차수의 기존 견적서 창을 엽니다.',7);await click('영업지원 요청으로 전환');await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='영업지원에 요청 등록'&&!b.disabled));
+          await hold('입력한 농장·사유를 유지한 요청 내용을 확인합니다. 농장명만 변경하면 기존 확정·수량·금액을 보존합니다.',6);await click('영업지원에 요청 등록');await page.waitForFunction(()=>document.body.textContent.includes('영업지원에 수정 요청을 등록했습니다.'));await hold('요청 등록 완료를 확인합니다. 영업지원이 검토하고 수정 반영과 필요한 재확정까지 처리합니다.',6);await click('목록으로 돌아가기');await page.goto(`${base}/import/tools?tab=incoming&warehouseKey=9001&from=2026-10-01&to=2026-11-30`,{waitUntil:'networkidle0'});continue;
+        }
         await hold(`${index+1}. ${scenarioTitles[scenario]}\n선택 농장의 기존 입고 안에서 수정합니다.`,5);
-        await page.waitForSelector('[data-row-key="9001"]');await moveClick(await page.$('[data-row-key="9001"]'));await click('수입부 수정 요청');
+        await page.waitForSelector('[data-row-key="9001"]');await moveClick(await page.$('[data-row-key="9001"]'));if(scenario==='product'){await click('농장·품목 수정 / 파일 교체');await page.waitForSelector('select[aria-label="수정 방식"]');await select('select[aria-label="수정 방식"]','PRODUCT');}else await click('수입부 수정 요청');
         await page.waitForSelector('dialog[open] select[aria-label="수정 종류"]');
         if(scenario==='farm'){
           await hold('농장 검색칸에 농장명 일부를 입력합니다. 대소문자와 공백을 구분하지 않습니다.\n검색은 기존 선택을 바꾸지 않으며, 목록에서 정확한 농장을 선택합니다.',5);
@@ -230,6 +237,7 @@ async function recordRole(browser, base, secret, role) {
       }
     }
     if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
+    await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click('#1 열기');await click('요청 처리 이력 (2건)');await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
     assert.deepEqual(errors, []);
     assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, onlyScenario?1:isImport?5:3);
     const result = await rec.stop(); stopped = true;
