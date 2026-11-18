@@ -485,6 +485,33 @@ const DEVICE_SUITE_SESSIONS = [
   },
 ];
 
+const RUST_HOTPATHS = [
+  {
+    id: 'hermes_core',
+    metric: '단일 정적 바이너리 · JS Fallback',
+    tone: 'accent',
+    title: 'hermes-core.exe (PM 대용량 로그 압축 · 해싱 가속기)',
+    source: 'hermes-core.exe · JS Fallback 내장',
+    detail: '수십 MB 스풀·데몬 로그의 Head/Tail 보존 압축 및 dedup_key SHA-256 대량 해싱을 단일 정적 바이너리(JS Fallback 내장)로 고속 처리합니다.',
+  },
+  {
+    id: 'device_sidecar',
+    metric: '3~5MB · 유휴 RAM < 10MB',
+    tone: 'ok',
+    title: 'nenova-device-sidecar.exe (데스크톱 로컬 디바이스 브릿지 · Rust/Tokio)',
+    source: 'tokio · tokio-tungstenite · adb TCP',
+    detail: '직원 PC에 80MB 런타임 없이 수 MB 단일 .exe로 배포되어 adb 감지·scrcpy 30fps 역터널 릴레이·유휴 메모리 10MB 미만을 유지합니다.',
+  },
+  {
+    id: 'phash_filter',
+    metric: '토큰 · 대역폭 절약',
+    tone: 'warn',
+    title: '캡처 · 스트림 바이트 필터 (pHash · 중복 프레임 차단)',
+    source: 'pHash byte/hash pre-filter',
+    detail: '화면 변화가 없는 정지 프레임을 바이트/해시 단계에서 즉시 걸러 비전 해독 토큰과 네트워크 대역폭을 절약합니다.',
+  },
+];
+
 export default function ArchFlowChart({
   timesave = null,
   workflows = null,
@@ -1043,6 +1070,49 @@ export default function ArchFlowChart({
             </div>
           </div>
         </article>
+      </section>
+
+      {/* Rust 고효율 핫패스 자동 가속 계층 */}
+      <section
+        className="arch-hermes arch-rust-hotpaths"
+        data-testid="arch-rust-hotpaths"
+        aria-label="Rust 고효율 핫패스 자동 가속 계층"
+      >
+        <div className="arch-schema-head">
+          <div>
+            <div className="arch-eyebrow">RUST NATIVE HOTPATHS · ZERO-RUNTIME SINGLE BINARY</div>
+            <h3>Rust 고효율 핫패스 자동 가속 계층 (<code>hermes-core.exe</code> · <code>nenova-device-sidecar.exe</code>)</h3>
+            <p className="arch-lede">
+              상주 사이드카·대용량 스풀 로그 압축·실시간 프레임 필터만 단일 정적 Rust 바이너리로 전환해 80MB 런타임 부담과 GC 멈춤을 제거합니다.
+            </p>
+          </div>
+          <div className="arch-hermes-badges">
+            <Badge tone={office?.hermes?.rustAccelerator?.enabled ? 'ok' : 'plain'}>
+              {office?.hermes?.rustAccelerator?.enabled ? 'Rust 가속 활성' : 'Rust 핫패스 설계·적용'}
+            </Badge>
+            <Badge tone="plain">JS Fallback 자동 호환</Badge>
+          </div>
+        </div>
+
+        <div className="arch-rust-grid">
+          {RUST_HOTPATHS.map((hp) => (
+            <div key={hp.id} className={`arch-hermes-card tone-${hp.tone}`}>
+              <div className="arch-hermes-top">
+                <span className="arch-detail-pill">{hp.metric}</span>
+                <code>{hp.source}</code>
+              </div>
+              <div className="arch-hermes-title">{hp.title}</div>
+              <p className="arch-hermes-desc">{hp.detail}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="arch-bp-sum-card tone-solution">
+          <b>과잉 설계 방지 경계 (Rust vs JS/TS)</b>
+          <span>
+            웹 UI(Next.js)·비즈니스 규칙·일반 SQL API는 생산성을 위해 JS/TS를 유지하고, CPU·상주 메모리·단일 배포 이득이 확실한 핫패스에만 Rust + JS Fallback을 자동 적용합니다.
+          </span>
+        </div>
       </section>
 
       <style jsx>{`
@@ -1868,11 +1938,16 @@ export default function ArchFlowChart({
         .arch-bp-sum-card.tone-guard b {
           color: var(--arch-warn);
         }
+        .arch-rust-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
         @media (max-width: 1040px) {
           .arch-nodes, .arch-loops-grid, .arch-bp-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
-          .arch-bp-summary, .arch-suite-grid {
+          .arch-bp-summary, .arch-suite-grid, .arch-rust-grid {
             grid-template-columns: 1fr;
           }
           .arch-schema-flow {
