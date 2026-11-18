@@ -3653,3 +3653,13 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
 4. 검증 상태: `archFlowChart`, `workflowReview`, `test:pm`(no-hex 47파일, ui-kit 9파일), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(225건), `npx next build --webpack`(139 페이지, exit 0) 통과. 운영 브라우저 시각 확인은 미검증.
 5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건(설계 문서 및 아키텍처 흐름도 UI 전용).
+
+
+## 2026-11-18 · 통합 솔루션 모션그래픽 · 3D 블루프린트 · 실제 작업캡처 시뮬레이션 페이지(`/my-work?tab=suite-sim`) 구축
+- 요약: `MOYI 모바일 앱` · `Phone Harness` · `Device Hub` · `Rust 사이드카/hermes-core` · `Nenova Kakao` · `Hermes AI` · `네노바웹 ERP 원장`을 결합한 관리자(`nenovaSS3`) 전용 **「통합 솔루션 시뮬레이션」** 탭(`/my-work?tab=suite-sim`)을 신설. 3D 아이소메트릭 CAD 도면 3종(`public/images/solution-sim/*.jpg`), Archify 검증 인터랙티브 트레이스 설계도(`data/moyi-full-suite-blueprint.html`), 6단계 발광 패킷 SVG 모션그래픽 플레이어 + 인터랙티브 MOYI 승인 폰 목업, 실제 직원 Orbit 캡처(`/api/work/orbit-thumbs` 바운딩박스·수작업 시간 대조)를 단일 스튜디오에 통합.
+- 검색어: suite-sim SolutionSuiteSimulator 통합솔루션시뮬레이션 PhoneHarness DeviceHub MOYI앱 orbit-thumbs moyi-full-suite-blueprint
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/moyi-device-suite-simulator` / `C:\Users\USER\nw-agy-suite-sim` (세션 M1·M2·M3 분리 제작).
+2. 완료된 것: `components/work/SolutionSuiteSimulator.js` 신설, `pages/my-work.js` `suite-sim` 탭 연결(`!mineOnly` 게이트), `pages/api/my-work/feature.js` `suite-blueprint-html` 권한 검증 서빙 추가, `components/pm/ArchFlowChart.js` 바로가기 버튼 추가, 3D 블루프린트 이미지 3종·Archify 인터랙티브 HTML 등재 및 `solutionSuiteSimulator.test.js` 작성.
+3. 남은 할 일: PR 생성 → CI `verify` 통과 확인 → squash 머지 → worktree 정리(`cmd /c rmdir node_modules` 선행).
+4. 검증 상태: `solutionSuiteSimulator`(SSR·권한 404/200·좌표·에셋), `archFlowChart`, `workflowReview`, `test:pm`(frozen 31 유지, no-hex 47, ui-kit 9), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:erp-manifest`(225건), `npx next build --webpack`(139 페이지, exit 0) 통과. 운영 배포 후 라이브 Orbit 토큰 상태에서의 실브라우저 렌더링은 별도 미검증.
+5. 주의/잠금: MSSQL 원장·API 쓰기 변경 0건, `mineOnly`(일반 직원 계정)에는 탭 및 도면 API 모두 노출되지 않음(`404` 은닉 유지).
