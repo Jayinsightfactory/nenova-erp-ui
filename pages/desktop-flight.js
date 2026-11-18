@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import ImportFlightBoard from '../components/home/ImportFlightBoard';
 import WorkflowGuide from '../components/WorkflowGuide';
+import MenuBackButton from '../components/MenuBackButton';
 
 export default function DesktopFlight() {
   const router = useRouter();
@@ -10,6 +11,7 @@ export default function DesktopFlight() {
   return (
     <main className="desktop-flight-view">
       <Head><title>수입 비행기 현황 · 네노바</title></Head>
+      <div style={{ marginBottom: 8 }}><MenuBackButton /></div>
       <ImportFlightBoard initialViewId={viewId} />
       <WorkflowGuide workflowId="desktop-flight-popup" />
       <style jsx>{`

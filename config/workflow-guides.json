@@ -1024,92 +1024,92 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.016
+              "seconds": 0.01
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.617
+              "seconds": 10.592
             },
             {
               "scenario": "week",
               "title": "3. 세부차수 조회",
-              "seconds": 21.169
+              "seconds": 21.17
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 31.739
+              "seconds": 31.745
             },
             {
               "scenario": "download",
               "title": "5. 다운로드·ETA 창 열기",
-              "seconds": 42.833
+              "seconds": 42.896
             },
             {
               "scenario": "eta",
               "title": "6. ETA 날짜 입력",
-              "seconds": 53.41
+              "seconds": 53.496
             },
             {
               "scenario": "save",
               "title": "7. ETA 저장·엑셀 다운로드",
-              "seconds": 65.672
+              "seconds": 66.119
             },
             {
               "scenario": "china",
               "title": "8. 중국 발주 조회",
-              "seconds": 76.564
+              "seconds": 77.023
             },
             {
               "scenario": "china-cycle",
               "title": "9. 중국 차수 선택",
-              "seconds": 87.126
+              "seconds": 87.598
             },
             {
               "scenario": "china-week",
               "title": "10. 중국 세부차수 선택",
-              "seconds": 97.697
+              "seconds": 98.174
             },
             {
               "scenario": "farm",
               "title": "11. 기본 수신명 수정",
-              "seconds": 108.286
+              "seconds": 108.735
             },
             {
               "scenario": "split",
               "title": "12. 농장별 파일 나누기",
-              "seconds": 120.296
+              "seconds": 120.65
             },
             {
               "scenario": "assign",
               "title": "13. 농장 1 품목 선택",
-              "seconds": 130.867
+              "seconds": 131.211
             },
             {
               "scenario": "farm-download",
               "title": "14. 농장별 파일 확인",
-              "seconds": 141.466
+              "seconds": 141.805
             },
             {
               "scenario": "farm-save",
               "title": "15. 농장 파일 다운로드",
-              "seconds": 152.065
+              "seconds": 152.374
             },
             {
               "scenario": "chat",
-              "title": "16. 최근 2일 카톡 확인",
-              "seconds": 162.797
+              "title": "16. 최근 발주일 카톡 확인",
+              "seconds": 162.987
             },
             {
               "scenario": "sum",
               "title": "17. 품목군 선택·자동 합계",
-              "seconds": 173.374
+              "seconds": 173.54
             },
             {
               "scenario": "copy",
               "title": "18. 농장 전달용 복사",
-              "seconds": 183.988
+              "seconds": 184.1
             }
           ]
         }
@@ -1346,6 +1346,26 @@
               "seconds": 58
             }
           ]
+        }
+      ],
+      "videoWaivers": [
+        {
+          "file": "desktop/shell/flight-board.js",
+          "sha256": "38224a1a270d535e88af73645b17f19a5c13d42d8206d00ffe782e446498783b",
+          "approvedBy": "owner",
+          "reason": "2026-11-18 사용자 명시: 우선 테스트만, 비행기현황탭은 가이드영상필요없음. 이번 표시 변경 영상 갱신 제외; 신규 촬영 완료 주장 없음."
+        },
+        {
+          "file": "components/home/ImportFlightBoard.js",
+          "sha256": "80f39fe3d9b89ca7e665850833836d41577bc6046eb87f9636f22740fc0295a3",
+          "approvedBy": "owner",
+          "reason": "2026-11-18 사용자 명시: 우선 테스트만, 비행기현황탭은 가이드영상필요없음. 이번 표시 변경 영상 갱신 제외; 신규 촬영 완료 주장 없음."
+        },
+        {
+          "file": "pages/desktop-flight.js",
+          "sha256": "a9ad0c2469b6aaeeb99bc18ec5f9ef17b81d638e0bc9a17a5d22e7ebe9427c41",
+          "approvedBy": "owner",
+          "reason": "2026-11-18 사용자 명시: 우선 테스트만, 비행기현황탭은 가이드영상필요없음. 이번 표시 변경 영상 갱신 제외; 신규 촬영 완료 주장 없음."
         }
       ]
     },

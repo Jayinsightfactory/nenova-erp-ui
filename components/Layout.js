@@ -70,6 +70,7 @@ export const MENU_ITEMS = [
     items: [
       { href: '/import',              labelKey: '수입부 통합',   popup: false },
       { href: '/import/tools',        labelKey: '수입부 업무도구', popup: false },
+      { href: '/desktop-flight',      labelKey: '수입 비행기 현황', popup: false },
       { href: '/import/finance',      labelKey: '경영지원 통합(송금·채권)', popup: false },
       { href: '/import/freight-calc', labelKey: 'AWB 운임 계산기', popup: false },
     ]

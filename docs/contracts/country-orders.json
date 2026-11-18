@@ -37,7 +37,7 @@
   "actions": [
     {
       "name": "IMPORT_ROOM_ADDITIONS_REVIEW",
-      "source": "nenovakakao raw message text analyzed by classifyImportFeed/analyzeImportMessage; recent Seoul today/yesterday newest first. Only additions and separate relevant review requests returned; general messages removed. Raw quantities override empty/incorrect pre-extracted quantity cells; CL/customer headings local to message. Same sender/time/normalized text dedup, deleted snapshot review. Totals segregate year/week/country/category/product/unit; unnamed quantities included. Browser edits and clipboard only; no ERP access.",
+      "source": "nenovakakao raw message text analyzed by classifyImportFeed/analyzeImportMessage; latest two actual order dates through Seoul today via readLatestOrderImports, with later cancellation review; newest first. Only additions and separate relevant review requests returned; general messages removed. Raw quantities override empty/incorrect pre-extracted quantity cells; CL/customer headings local to message. Same sender/time/normalized text dedup, deleted snapshot review. Totals segregate year/week/country/category/product/unit; unnamed quantities included. Browser edits and clipboard only; no ERP access.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "warehouseDetail": "preserve",
@@ -207,7 +207,7 @@
   },
   "positiveFixtures": [
     "Extracted Moon Light quantities 1+2+1 automatically total 4 with customer remarks; unnamed customer quantities count; matching customer repeated quantities combine; comma-formatted quantities normalize",
-    "Import room defaults to Seoul today and yesterday, sorts AM/PM timestamps newest first, and crosses December/January safely",
+    "Import room defaults to the latest two distinct dates containing actual orders on or before Seoul today, not calendar today/yesterday; includes subsequent cancellation review; newest first and cross-year safe",
     "Asia/Seoul 2026-10-15 resolves to ERP 2026/42 and buttons 42 through 47",
     "Netherlands OutUnit bunch with stored BunchQuantity 20 and SteamQuantity 200 exports 200 stems",
     "Netherlands OutUnit stem with stored SteamQuantity 150 exports 150 stems",
@@ -220,7 +220,7 @@
   ],
   "nearMissFixtures": [
     "Explicit unchecked persists after refresh; blank product, zero, negative, cancelled/superseded/archived and cancellation text do not automatically count; units never mix",
-    "Import room excludes older-than-yesterday, future and prior-year messages; no recent rows exposes latest collected timestamp",
+    "Import room skips quiet dates and future messages, retains original source year, limits orders to latest two order dates and preserves subsequent cancellation review; no orders exposes latest collected timestamp",
     "same OrderWeek in prior year is excluded",
     "positive Netherlands bunch quantity with SteamQuantity zero remains visible and blocks export",
     "duplicate Customer.OrderCode with different CustKey does not merge",

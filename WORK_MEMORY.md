@@ -3401,6 +3401,25 @@ pm run test:canon 통과.
 3. 남은 할 일: PR CI전체검증→squash병합→Cafe24배포→운영검색/후보읽기스모크→worktree즉시정리.
 4. 검증 상태: 로컬필수검증·정식빌드·실제플레이어PASS, PR CI/운영반영은아직미검증.
 5. 주의/잠금: 농장마스터신규등록·운영입고저장없음. 원본코드는GitHub PR로보관,검증된영상은Drive폴더18JFwztrSWniR1yctBdaewBATvBev7NGb.
+
+## 2026-11-18 수입 비행기 현황 표·버튼·메뉴 수정안 (미배포)
+- 요약: 실제 앱 1.3.34 화면 확인. 새로고침의 공통 margin-top 7px가 버튼 단차 원인. 제목 우측 버튼 정렬, 번호/이슈/상세 표, 차수·국가·편명 이슈열 제거, 동일 편/문장 중복 제거, 지도 우측 상세 선택 시 목록 숨김, 공항 최신 예정 1회 표시, 수입부 메뉴 등록.
+- 검색어: 수입 비행기 현황 번호 이슈 표 새로고침 확대 접기 flight-presentation
+1. 작업 위치: nenova-erp-ui / codex/import-flight-layout / C:/Users/USER/.codex/worktrees/c027/nenova-erp-ui/nw-cdx-flight / draft PR 예정.
+2. 완료된 것: components/Layout.js, components/home/ImportFlightBoard.js, desktop/shell/flight-board.js, flight-presentation.js, shell.css, index.html, desktop/menu.json, 계약 및 presentation 회귀2건. 신규 SQL/API/원장쓰기 없음; Order/Shipment/Stock/Estimate/WebProfitReport 전부 보존.
+3. 남은 할 일: 확대 React 화면 실브라우저·작은화면·키보드 회귀, 가이드 실제 재촬영/Drive/플레이어, 전체 gate 재실행, desktop 버전 발행, CI/squash/Cafe24/운영스모크. 현 버전 설치본 업데이트/직원PC 재시작 금지. 빌드가 막혀 미배포.
+4. 검증 상태: 대상 desktop6 + presentation2 통과, SWC JSX parse, 직접manifest224/dnSpy/write guard 통과. Chrome 합성자료 1920폭 표/번호8건/펼치기/Enter접기/버튼높이 확인. 전체 ERP/manifest npm lifecycle은 Windows Bash NtCreateDirectoryObject ACCESS_DENIED 및 Chrome launch 실패. npm build는 desktop-flight-popup 가이드 source mismatch로 차단. 전체 gate/영상/운영 미검증.
+5. 주의/잠금: 본 worktree 비행기 표시 파일만 작업. 가이드 해시만 바꿔 우회하지 말 것. 다른 편·다른연도 같은 문구는 병합하지 않음. 메뉴 baseline: 반응형/키보드/단일기존전용화면틀 적용, 대량쓰기 해당없음, 가이드 미완료. desktop/menu.json은 canonical Layout 동기화로 기존 누락메뉴도 복구됨.
+- 후속 상태: 커밋 c790ee386 및 codex/import-flight-layout 원격 push 완료. GitHub 연결 도구 PR 생성은 403 Resource not accessible by integration, gh CLI는 401로 실패. PR 미생성/병합·배포 없음. GitHub 권한 복구 후 해당 브랜치 Draft PR 생성부터 재개.
+
+## 2026-11-18 GitHub 권한 오류 원인 확인 및 PR 생성 복구
+- 요약: 이전 gh 401은 계정 만료가 아니라 제한 실행 환경에서 Windows keyring 접근 실패. 정상 사용자 권한 gh auth status/API/PR 생성 성공. 연결 도구의 403은 별도 integration 권한이며 설정 변경 없이 gh 경로 사용. 앞선 '인증 만료' 설명 정정.
+- 검색어: GitHub 401 403 keyring sandbox require_escalated PR1820
+1. 작업 위치: nenova-erp-ui / codex/import-flight-layout / nw-cdx-flight / PR #1820.
+2. 완료된 것: 기존 Jayinsightfactory 인증 확인, 저장소 PR 조회 및 Draft PR 생성 성공. 자격증명 변경·권한 확대 없음.
+3. 남은 할 일: 비행기 화면 가이드 갱신/전체 검증/CI/병합/배포는 앞선 인계대로 미완료.
+4. 검증 상태: GitHub CLI 읽기·PR 쓰기 성공. connector 403 자체는 미해결이나 정상 CLI로 작업 가능.
+5. 주의/잠금: gh는 Windows keyring 접근 가능한 정상 사용자 권한으로 실행. 토큰 출력/파일저장 금지. PR은 Draft 유지.
 - 원문 분석 수치 정정: 위1711에는 빈 기록1개가 포함되어 실제 비어있지 않은 원문은1710개(addition276/review310/excluded1124)다. 전체는 자동 분류 결과이며 전수 수동정답률이 아님. 11/5 CL38의23품목은 원문 대조1445송이 확인.
 - 가이드 최종: 195.75초 18단계, 1920×1080/100%, 처음·중간·끝 프레임에서 번호/줌/자막/자동합계4/복사확인. 회사Drive MP4 1eJ6gs7vK6n2CszZ3iuThQPow2roNET1R / VTT 1ZYHM4gCvwfOpGonlly089p3cb8utFCHG 보관.
 - 최종 로컬 검증 완료: test:erp-contract(내부 dnSpy 포함), test:workflow-guides 및 changed-source 가이드 검사, manifest/write guard, 최종 production build 모두 통과. 최종 번들에 relatedChanges 포함 확인. 마지막 보완은 원문분석/API 회귀 재통과 및 실제 Chrome 신규 취소수신→이전 포함 무효화 통과. 국가·품목군 필터/일반카톡·중복제외/업체비고/복사/제외·재조회/390px 패널·가이드 플레이어 검증 통과. 운영은 배포 후 확인 예정.
@@ -3476,6 +3495,25 @@ pm run test:canon 통과.
 - 회사 Drive 최종 원본(크기 검증): MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol / VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat / proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn. 기존 자료 유지·공개 공유 변경 없음.
 - 검색어: calendar 1.3.36 즐겨찾기 전체 접기 열기 공휴일 국가 선택 상세 수정 주차별 Jan6 고정 viewport 가이드 14단계
 
+## 2026-11-18 수입 비행기 현황 최종 테스트만 완료
+- 작업 위치: nenova-erp-ui / codex/import-flight-layout / C:/Users/USER/.codex/worktrees/c027/nenova-erp-ui/nw-cdx-flight / Draft PR #1820.
+- 완료된 것: 버튼 3개 동일 y=41px·높이32px 최종 브라우저 확인. 번호/이슈/상세 표, 짧은 문구·중복 제거, 지도 옆 단일 상세, 키보드 이동·Escape 복귀, 수입부 메뉴 단일 등록 확인. 테스트 중 issues 변수 누락과 뒤로가기 누락 수정. 공통 표시 함수는 기존 flight-board.js에 통합하여 데스크톱 프로토콜 허용 파일 유지.
+- 남은 할 일: 사용자 요청은 우선 테스트만. 커밋/PR 갱신·병합·Cafe24/설치본 배포는 진행하지 않음. 다음 배포 시 최신 master/버전 충돌 확인. 현재 최종 수정은 이 worktree에 보존.
+- 검증 상태: 전체 test:erp-contract exit0, desktop 69/69, dnSpy evidence, manifest224, ERP write guard, guide waiver 검사, 정식 npm build 및 빌드 서버 화면 확인 통과. 1920/390px·키보드 검증 통과. 운영 설치본 반영은 미검증·미배포. 로컬 서버 종료.
+- 주의/잠금: 사용자 명시로 비행기현황 가이드 영상 갱신 불필요. config/workflow-guides.json에 해당 소스만 owner waiver 기록; 신규 촬영 완료 주장 없음. 버전1.3.37은 준비값이며 미출시. 공유 기본 체크아웃·다른 세션 파일 수정 금지, 미병합 worktree 유지.
+- 검색어: 수입 비행기 현황 테스트만 버튼 정렬 번호 이슈 표 지도 상세 1820 video waiver 미배포 69 tests
+
+
+## 2026-11-18 수입방 최근 발주일 기준 수정 진행
+- 사용자 명시: 기본2일=오늘·어제가 아니라 발주가 있는 최근2일. 최신 수집 시각과 발주일을 구분한다.
+- 검색어: 카톡 최근2일 발주일 빈합계 readLatestOrderImports 기존대로 더글라스200
+1. 작업 위치: nenova-erp-ui / codex/import-kakao-review-fix / nw-cdx-kakao-review / PR예정.
+2. 완료된 것: 전체원문 선분류→실제발주 최신2일 선택→이후취소검토 유지, 화면 날짜 설명, 기존주문200 유지 표시(추가수량 합산0), 단위/API/교차연도·조용한날·취소 회귀.
+3. 남은 할 일: 가이드 최종촬영·필수전체검증·PR·병합·Cafe24배포·운영 합계 확인.
+4. 검증 상태: 표적 원문/API/날짜 회귀 및 실제브라우저 dry-run PASS, 가이드/전체ERP/build 진행중. 운영 미검증.
+5. 주의/잠금: 본 worktree만 수정. MSSQL·ERP원장·카톡발송0. 원문을 로컬 파일로 보관하지 않음. 취소 연결 불명은 자동차감하지 않음.
+- 가이드 최종195.9초/18단계/1920×1080 촬영 및 처음·중간·마지막/복사토스트 프레임 확인. 회사Drive MP4 16_cXEsNvgLZ4owkaX3jzIQOTfxmpfJAv / VTT 1qYvb8hAwlJOuU6j1JkiEspqF8PuccGRK.
+- 전체ERP 첫 실행에서 기존 PDF 동시잠금 테스트1건 JOB_STORAGE_BUSY 발생; 해당 파일 단독 재검증 PASS, 전체 재검증 진행중. 카톡 원문/API/최근발주일 및 브라우저 회귀 PASS.
 ## 2026-11-18 홈 달력·즐겨찾기 Desktop 1.3.36 공개 및 운영 검증 완료
 - 작업 위치: nenova-erp-ui / 운영 인계 codex/calendar-deployed-1118 / Documents/Codex/2026-11-12/new-chat/work/nw-calendar-deployed-1118 / 코드 PR #1822, merge f1bc55db84269f3bcfc9a934e4f29777fef0afd6. 코드 worktree는 병합 직후 정리 완료, 이 인계 worktree도 병합 후 즉시 정리.
 - 완료된 것: 즐겨찾기 영역 전체 접기/열기·계정별 유지(업무 탭 유지), 달력 가로20% 확대·기존 글씨 유지, 한국+요청11개국 공휴일 선택/색상/중국 선택형 대체근무일, 한국어 개인/공통 상세 편집·비공개·홈 알림·기존 주차별 차수/새해 기준일 보존. 선행 #1821 기능 보존. Cafe24 배포와 Desktop 1.3.36 공개/자동 업데이트 피드 확인 완료.
