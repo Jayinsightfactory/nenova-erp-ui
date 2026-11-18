@@ -3321,3 +3321,11 @@ pm run test:canon 통과.
 4. 검증 상태: 단위 fixture 합계4/비고1+2+1, 익명수량, 단위분리, 0/음수/취소 제외 통과. 실제 Chrome 최초 자동4 및 제외3/새로조회 유지, 다운로드/가이드 재생/390px 통과. 전체 gate 진행 중. 원천 최근2일 조회에서는 추출 수량행0; 실제 운영 주문 합산은 표본 부재로 미검증이며 품질/공지 원문 수량을 임의 발주로 만들지 않음.
 5. 주의/잠금: 본 브랜치 3개 기능 파일/계약/recorder 및 해당 가이드 자산만 수정. MSSQL, EXE, Estimate/ShipmentDetail/StockHistory/WebProfitReport 변경 없음. 다른 세션의 가이드 설정 및 WORK_MEMORY 항목 보존.
 - 단계 검증: test:erp-contract(내부 dnSpy 포함), changed-from origin/master manifest/write guard, build, test:workflow-guides 통과. MP4196.1초 1920x1080/100%의 처음·중간·마지막 실제 프레임과 자동4/복사 확인. 회사 Drive MP4 1q2jLwP8-_lUrr0kT57Wo4-FoBuENZ7dL / VTT 1hERjQe-XyjjXZqLOx0pnVoZvva9TQzgw 보관.
+## 2026-11-18 · 견적 품목명 열 너비 복구
+- fixed table에서 td min-width가 열 너비를 결정하지 못해 균등폭으로 축소됨. 첫 행 th 품목명280px·단위64px·출고일88px 지정. 기준선 적용: 읽기성·기존 키보드/원장 보존, 가로스크롤. 예외: 사용자가 이번 영상 재촬영 제외 승인.
+- 위치: nenova-erp-ui / codex/estimate-width-1118 / nw-cdx-estimate-width-1118 / PR 생성 예정
+- 완료: styles/globals.css, 견적 계약, 영상 제외 기록
+- 남은 일: CI·배포·실브라우저 운영 확인
+- 검증: Chrome 1920/1280 품목명280px 및 페이지 가로넘침 없음 통과, 운영 미검증
+- 주의/잠금: 이 브랜치 globals.css 작업
+- 검색어: 견적 품목명 열 너비 fixed table 280px
