@@ -6,9 +6,12 @@
 // routines: 부서별 신입 루틴(하루·주간·월간·메일·넘김·현장팀). 관찰 패턴 집계라 로그인 직원 전원 열람(신입 온보딩용).
 import { withAuth } from '../../../lib/auth';
 import { getRoutines, confirmRoutineItem } from '../../../lib/workManualRoutines';
+import { listLivePipelines } from '../../../lib/workLivePipelines';
 import fs from 'fs';
 import { importHandoverForView, handoverForView, HANDOVER_DEPTS } from '../../../lib/importHandover';
 import { featureFilePath } from '../../../lib/workFeatureData';
+import { readKnowledge } from '../../../lib/operationsKnowledgeStore';
+import { summarizeKnowledgeItems, buildAdminBriefing } from '../../../lib/workManualsInsights';
 
 // 계기 사슬: 사장님 PC 의 매일 분석이 올린 갱신본(import-triggers)이 있으면 그것으로 바꿔 끼운다.
 function handoverWithLiveTriggers() {
@@ -65,24 +68,52 @@ function handoversAll(importOne) {
     return { id: d.id, name: d.name, ready: !!data, data: data || null };
   });
 }
-import { DEPARTMENTS, isManualAdmin, visibleManuals, getLayout, saveManualEdit, saveLayout } from '../../../lib/workManuals';
+import { DEPARTMENTS, isManualAdmin, allManuals, visibleManuals, getLayout, saveManualEdit, saveLayout } from '../../../lib/workManuals';
+
+async function loadSafeKnowledge() {
+  try {
+    const snap = await readKnowledge();
+    return summarizeKnowledgeItems(snap);
+  } catch {
+    return [];
+  }
+}
+
+export async function buildWorkManualsPayload(user) {
+  const handover = handoverWithCaptures();
+  const handovers = handoversAll(handover);
+  const routines = getRoutines();
+  const isAdmin = isManualAdmin(user);
+  const knowledge = await loadSafeKnowledge();
+  const payload = {
+    success: true,
+    myDept: user.deptName || null,
+    isAdmin,
+    me: user.userName || user.userId,
+    departments: DEPARTMENTS,
+    manuals: visibleManuals(user),
+    layout: getLayout(user),
+    routines,
+    handover,
+    handovers,
+    knowledge,
+  };
+  if (isAdmin) {
+    payload.adminBriefing = buildAdminBriefing({
+      handovers,
+      allManuals: allManuals(),
+      routines,
+      livePipelines: listLivePipelines(),
+      knowledgeItems: knowledge,
+    });
+  }
+  return payload;
+}
 
 export default withAuth(async function handler(req, res) {
   const user = req.user;
   if (req.method === 'GET') {
-    const handover = handoverWithCaptures();
-    return res.status(200).json({
-      success: true,
-      myDept: user.deptName || null,
-      isAdmin: isManualAdmin(user),
-      me: user.userName || user.userId,
-      departments: DEPARTMENTS,
-      manuals: visibleManuals(user),
-      layout: getLayout(user),
-      routines: getRoutines(),
-      handover,
-      handovers: handoversAll(handover),
-    });
+    return res.status(200).json(await buildWorkManualsPayload(user));
   }
   if (req.method === 'POST') {
     const body = req.body || {};
