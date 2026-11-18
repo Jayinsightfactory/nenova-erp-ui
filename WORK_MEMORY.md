@@ -3523,3 +3523,12 @@ pm run test:canon 통과.
 - 공개: https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.36 / 대상f1bc55db / 4assets 확인. 설치본111,953,212bytes, SHA256 69586d2dd2e1f82523698fe615c5bdc0184c8b0a8f7053eda1a40c1fc0337d7f, MZ/SHA512/blockmap 검증. 공개 latest.yml 버전1.3.36·검증된 원본과 동일, 공개 exe URL/바이트 크기 일치.
 - 회사 Drive 최종 원본: MP4 1EzpCEW4KYlMa7ujhwfb_-tAhNM9py8Ol (514.3초/42,948,556bytes), VTT 1UTlQzIs31DrBXkk1omKxrq5M6FeRLcat (12,846bytes), proof 161rAWlMO4xg4gHkTqFaZEse0_BZGzwkn (18,775bytes). 14단계/자막76개 프레임 대조·대표 장면 육안 확인. 과거1.3.35 자료는 미공개 초안이며 최종 근거 아님.
 - 검색어: deployed calendar 1.3.36 f1bc55db 즐겨찾기 전체 접기 열기 달력 가로20% 공휴일12개국 상세 편집 주차별 유지 운영 검증 공개 피드 직원PC 재시작 안함
+
+## 2026-11-18 · 아키텍처 흐름도에 SQL 원장 & 웹 데이터 3계층 스키마 구조도 추가
+- 요약: `/my-work?tab=arch`의 `ArchFlowChart.js`에 공유 MSSQL ERP 원장(`Customer`/`Product`/`OrderMaster`/`OrderDetail`/`ShipmentMaster`/`ShipmentDetail`/`WarehouseMaster`/`WarehouseDetail`/`FreightCost`/`ProductStock`), 웹 전용 `Web*` SQL 스키마(`assertWebSchemaContract`, `WebProfitReport`/`WebRaumPnl`/`WebSalesDefectDeduction`/`WebChinaVolumeBoard`/`WebPreShipment`/`WebInvoice*`/`WebMappingStore`/`WebWorkflowReview`), 런타임 JSON(`data/runtime/*.json`) 3계층 구조도와 필터·불변 가드 요약표를 추가.
+- 검색어: 아키텍처 스키마 구조도 MSSQL OrderMasterKey ShipmentKey SdetailKey assertWebSchemaContract data/runtime ArchFlowChart
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/arch-sql-web-schema` / `C:\Users\USER\nw-agy-arch-schema` / PR 생성 예정.
+2. 완료된 것: `components/pm/ArchFlowChart.js` 3계층 스키마 다이어그램·필터·상세 카드·불변 가드(Invariants) 섹션 추가, `__tests__/archFlowChart.test.js` 스키마 계약 단언 추가.
+3. 남은 할 일: `next build --webpack` 확인 후 PR 생성 → CI 통과 확인 → squash 머지 → worktree 정리.
+4. 검증 상태: `archFlowChart`, `workflowReview`, `workFeatureData`, `test:pm`(47파일 no-hex, 9파일 ui-kit, boundary), `test:workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `erp-manifest(224)` 통과. `next build --webpack` 및 PR CI/운영 반영은 확인 진행 중(미검증).
+5. 주의/잠금: MSSQL 원장·마이그레이션·API 쓰기 변경 0건(문서화된 스키마 읽기 시각화만 추가). `pages/pm.js` 및 데스크톱 파일 미수정. worktree 정리 시 `cmd /c rmdir`로 `node_modules` junction만 먼저 해제할 것.
