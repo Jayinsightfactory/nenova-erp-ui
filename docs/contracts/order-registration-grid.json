@@ -80,5 +80,33 @@
     "otherWeeks": "existing complete year/week dropdown under Other weeks",
     "sameSelection": "preserve draft",
     "differentSelection": "existing draft confirmation"
+  },
+  "sameWeekNewWindow": {
+    "placement": "immediately after Search",
+    "target": "new independent window for every click",
+    "query": [
+      "popup=1",
+      "year",
+      "week",
+      "selectCustomer=1",
+      "manager"
+    ],
+    "initialization": "once on router ready; requireOrderYear validates exact year/week; customer picker open and focused; preserve selected customer manager or current manager filter",
+    "draft": "new customer and empty quantity draft in child; parent preserved",
+    "erpWrites": []
+  },
+  "summaryQuantityEditing": {
+    "units": [
+      "box",
+      "bunch",
+      "steam"
+    ],
+    "source": "shared quantities and setQty",
+    "immediate": "loaded items editable without selecting their group; totals/catalog inputs update together",
+    "empty": "keep focused row until editing ends; blank draft represents zero",
+    "zero": "excluded from positive submission items",
+    "invalid": "negative/non-finite rejected",
+    "keyboard": "four arrows skip group headings/subtotals",
+    "writes": "only existing explicit Save sends request"
   }
 }
