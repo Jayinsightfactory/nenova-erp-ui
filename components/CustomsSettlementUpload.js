@@ -3,8 +3,8 @@ import WorkflowGuide from './WorkflowGuide';
 import {readSettlementResponse} from '../lib/customsSettlementHttp';
 const format=n=>n==null?'미확인':Number(n).toLocaleString();
 const targetLabel=key=>{const [kind,name,phase]=String(key||'').split('|');return kind==='country'?`${name} ${Number(phase)}차`:kind==='colombia'?`콜롬비아 공동비용 ${name}`:'';};
-const fieldLabel=f=>/^Customs[12]_/.test(f)||f==='CustomsFee'?'관세':/^SunYul[12]_/.test(f)?'통관·검역대행':f==='HandlingFee'?'통관수수료(공급가)':'검역대행(공급가)';
-const chargeLabel={DUTY:'관세',IMPORT_VAT:'수입 부가세(비용 제외)',HANDLING:'통관수수료',QUARANTINE_AGENCY:'검역대행'};
+const fieldLabel=f=>/^Customs[12]_/.test(f)||f==='CustomsFee'?'관세':/^Quarantine[12]$/.test(f)||f==='DisinfectFee'?'방역비':/^SunYul[12]_/.test(f)?'통관·검역대행':f==='HandlingFee'?'통관수수료(공급가)':'검역대행(공급가)';
+const chargeLabel={DUTY:'관세',IMPORT_VAT:'수입 부가세(비용 제외)',HANDLING:'통관수수료',QUARANTINE_AGENCY:'검역대행',DISINFECTION:'방역비'};
 export default function CustomsSettlementUpload({year,major,onLinked}){
   const [job,setJob]=useState(null),[review,setReview]=useState(null),[selected,setSelected]=useState([]),[links,setLinks]=useState({});
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[confirmed,setConfirmed]=useState(false),[dirty,setDirty]=useState(false),[worker,setWorker]=useState(null);
@@ -38,7 +38,7 @@ export default function CustomsSettlementUpload({year,major,onLinked}){
   return <section aria-label="선율 정산 ZIP 연결" style={{border:'1px solid #cbd5e1',borderRadius:8,padding:16,marginBottom:16,background:'#f8fafc'}}>
     <h3 style={{marginTop:0}}>관세법인 선율 정산 ZIP 자동등록</h3>
     <p>{year}년 정산서를 판독한 뒤 실제 활성 입고의 AWB·차수에 연결합니다. ZIP명은 귀속 근거가 아닙니다. 선택 {major}차와 다른 차수나 합산 입고는 확인이 필요합니다.</p>
-    <p>검산된 실제 원천은 공급가·VAT를 구분하여 계산에 우선 사용합니다. 기존 DB 입력·입고·출고·재고는 변경하지 않습니다. 수입 부가세는 비용에서 제외하고 검역대행을 한국방역비에 중복 등록하지 않습니다.</p>
+    <p>기존 DB 비용과 계산식은 유지하고 비어 있는 관세·수수료·별도 방역비만 정산서로 보완합니다. DB의 0원도 보존합니다. 수입 부가세는 비용에서 제외하고 검역대행과 방역비를 중복 반영하지 않습니다.</p>
     <label>정산 PDF가 들어 있는 ZIP <input ref={input} type="file" accept=".zip,application/zip" disabled={busy} onChange={upload}/></label>
     <p>각 PDF 첫 1페이지만 판독합니다. 같은 페이지 확대 재판독·식별번호 작은 영역 보완만 수행하며 뒤 페이지 전체 판독·유료 분석은 하지 않습니다.</p>
     <WorkflowGuide workflowId="customs-settlement-zip"/>
@@ -61,11 +61,11 @@ export default function CustomsSettlementUpload({year,major,onLinked}){
       </tbody></table></div>
       {needs.length>0&&<button type="button" disabled={busy||pending||!selected.length} onClick={()=>run('preview')}>검토 선택건 귀속·금액 재검증</button>}
     </>}
-    {review?.groups?.map(group=><div key={group.major}><h4>{group.year}년 {group.major}차 실제 원천</h4>{group.plan.patches.map((p,i)=><p key={i}>{targetLabel(p.targetKey)} · {fieldLabel(p.field)}: DB 원문 {format(p.current)}원 / 실제 원천 {format(p.amount)}원{p.basis==='gross'?`(VAT 포함, 비용 공급가 ${format(p.netAmount)}원)`:'(공급가 또는 세금)'} · {({covered:'기존 동일액·실제 원천 보존',basis_reconciled:'원문 net/gross 표현 차이 검산 일치',link:'등록 가능',conflict:'차액 확인 후 실제 원천 우선'})[p.status]}</p>)}</div>)}
+    {review?.groups?.map(group=><div key={group.major}><h4>{group.year}년 {group.major}차 실제 원천</h4>{group.plan.patches.map((p,i)=><p key={i}>{targetLabel(p.targetKey)} · {fieldLabel(p.field)}: DB 원문 {format(p.current)}원 / 실제 원천 {format(p.amount)}원{p.basis==='gross'?`(VAT 포함, 비용 공급가 ${format(p.netAmount)}원)`:'(공급가 또는 세금)'} · {({covered:'기존 동일액·실제 원천 보존',basis_reconciled:'원문 net/gross 표현 차이 검산 일치',link:'등록 가능',db_preserved:'DB 기존값 유지·중복 반영 안 함',conflict:'원천 확인 필요'})[p.status]}</p>)}</div>)}
     {needs.length>0&&review?.groups?.some(g=>g.plan.documents.some(d=>d.status==='new'))&&<div>
-      <label><input aria-label="검토 원천 우선 반영 확인" type="checkbox" disabled={busy||pending||dirty} checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> 귀속·금액·차이를 확인했으며 DB 원문을 보존하고 실제 정산 원천을 우선 사용합니다. 저장 매출자료는 직접 갱신합니다.</label>{' '}
+      <label><input aria-label="검토 누락 비용 보완 확인" type="checkbox" disabled={busy||pending||dirty} checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> 귀속·금액·차이를 확인했으며 기존 DB 비용을 유지하고 비어 있는 비용만 정산서로 보완합니다. 저장 매출자료는 직접 갱신합니다.</label>{' '}
       <button type="button" disabled={busy||pending||dirty||!confirmed} onClick={()=>run('apply')}>확인한 검토건 등록</button>
     </div>}
-    <p>정산서가 증명하는 관세·통관수수료·검역대행만 등록합니다. 별도 증빙이 없는 백상창고료·국내운송·한국방역 지출까지 100% 인증하지 않습니다. 원천 등록과 「계산본 생성·갱신」은 별개입니다.</p>
+    <p>관세·통관/검역대행 수수료·별도 확인된 방역비 중 DB에 없는 항목만 적용합니다. 창고료·운임·국내운송은 기존 DB와 수식을 유지하며 정산서 총액을 다시 더하지 않습니다. 원천 등록과 「계산본 생성·갱신」은 별개입니다.</p>
   </section>;
 }
