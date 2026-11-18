@@ -74,10 +74,17 @@ function colIndexByLabel(headerRow, labels) {
   for (const [field, cands] of Object.entries(labels)) for (const lbl of cands) { const j = cells.findIndex(c => c.includes(lbl.replace(/\s+/g, ''))); if (j >= 0) { idx[field] = j; break; } }
   return idx;
 }
-function parseExcel(buf, def) {
+function parsePeriodHeader(aoa) {
+  const s = String(aoa?.[0]?.[0] ?? '');
+  const m = s.match(/(\d{4}\/\d{2}\/\d{2})\s*~\s*(\d{4}\/\d{2}\/\d{2})/);
+  if (!m) return {};
+  return { periodFrom: m[1].replace(/\//g, '-'), periodTo: m[2].replace(/\//g, '-') };
+}
+export function parseExcel(buf, def) {
   const wb = XLSX.read(buf, { type: 'buffer' });
   const aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
-  const hr = findHeaderRow(aoa, def.map); if (hr < 0) return { rows: [], screenTotal: null };
+  const period = parsePeriodHeader(aoa);
+  const hr = findHeaderRow(aoa, def.map); if (hr < 0) return { rows: [], screenTotal: null, parseFailed: true, ...period };
   const idx = colIndexByLabel(aoa[hr], def.map);
   const rows = []; let screenTotal = null;
   for (let i = hr + 1; i < aoa.length; i++) {
@@ -90,7 +97,9 @@ function parseExcel(buf, def) {
     o.isSubtotal = (o.custCode && /계$/.test(codeStr)) || (/계$/.test(first) && !o.custCode);
     if (Object.entries(o).some(([k, v]) => def.numFields.includes(k) && v !== 0) || o.custName || o.custCode) rows.push(o);
   }
-  return { rows, screenTotal };
+  const bodyText = aoa.slice(hr + 1).map(r => r.map(x => String(x ?? '')).join(' ')).join(' ');
+  const emptyOk = rows.length === 0 && /등록된\s*데이터가\s*없습니다|데이터가\s*없습니다/.test(bodyText);
+  return { rows, screenTotal: emptyOk ? 0 : screenTotal, emptyOk, parseFailed: false, ...period };
 }
 
 // 한 화면 수집(Excel 내보내기). base=ensureBooted 가 준 세션포함 URL. 로그인 만료면 throw.
@@ -102,12 +111,12 @@ export async function collectOne(page, base, ds) {
   await page.waitForTimeout(2800);
   if (isLoginPage(page)) throw new Error('LOGIN_EXPIRED');
   if (def.form) { await page.keyboard.press('F8').catch(() => {}); await page.waitForTimeout(3000); }
-  // 2026-11-16: Excel 이 새 창에서 내려받는 화면도 잡도록 page 가 아닌 context 단위로 다운로드를 기다린다. 판매현황은 6천 행 이상이라 로딩이 길어 대기 180초.
-  const dlP = page.context().waitForEvent('download', { timeout: ds === 'sales' ? 180000 : 15000 }).catch(() => null);
+  // 2026-11-16: Excel 이 새 창에서 내려받는 화면도 잡도록 page 가 아닌 context 단위로 다운로드를 기다린다. 판매현황/구매현황은 로딩이 길 수 있어 대기 180초.
+  const dlP = page.context().waitForEvent('download', { timeout: (ds === 'sales' || ds === 'buyStatus') ? 180000 : 30000 }).catch(() => null);
   let clicked = false;
   for (let attempt = 0; attempt < 4 && !clicked; attempt++) { if (attempt) await page.waitForTimeout(8000); // 2026-10-08: 그리드 로딩 지연·공지 팝업으로 Excel 버튼이 늦게 보이는 경우 재시도(10/9 야간 3회 '버튼 못 찾음' → 3회·8초로 확대)
   for (const f of [page, ...page.frames()]) {
-    for (const loc of [f.getByRole?.('button', { name: /^Excel$/i }), f.locator?.('button:has-text("Excel")'), f.locator?.('a:has-text("Excel")'), f.locator?.('text=Excel')]) {
+    for (const loc of [f.getByRole?.('button', { name: /^Excel(\(화면\))?$/i }), f.locator?.('button:has-text("Excel(화면)"), button:has-text("Excel")'), f.locator?.('a:has-text("Excel(화면)"), a:has-text("Excel")')]) {
       try { if (loc && await loc.first().isVisible({ timeout: 700 })) { await loc.first().click({ timeout: 1500 }); clicked = true; break; } } catch {}
     }
     if (clicked) break;
@@ -120,7 +129,7 @@ export async function collectOne(page, base, ds) {
     try { const item = f.getByText(/^Excel\(데이터\)$/).first(); if (await item.isVisible({ timeout: 500 })) { await item.click({ timeout: 1500 }); break; } } catch {}
   }
   let dl = null;
-  if (ds === 'sales') { // 판매현황: 로딩 중 눌린 Excel 은 무시될 수 있어 45초마다 다시 누른다(최대 3회). 이미 받기 시작했으면 중복 클릭 안 함.
+  if (ds === 'sales' || ds === 'buyStatus') { // 판매현황·구매현황: 로딩 중 눌린 Excel 은 무시될 수 있어 45초마다 다시 누른다(최대 3회). 이미 받기 시작했으면 중복 클릭 안 함.
     let done = false; dlP.then(() => { done = true; });
     for (let r = 0; r < 4 && !done; r++) {
       await Promise.race([dlP, page.waitForTimeout(45000)]);
@@ -133,7 +142,7 @@ export async function collectOne(page, base, ds) {
               await arrow.click({ timeout: 1500 }); await page.waitForTimeout(800);
               const item = f.getByText(/Excel\(데이터\)/).first();
               if (await item.isVisible({ timeout: 800 })) await item.click({ timeout: 1500 });
-              else { fs.mkdirSync(DL, { recursive: true }); await page.screenshot({ path: path.join(DL, 'sales-menu.png') }).catch(() => {}); }
+              else { fs.mkdirSync(DL, { recursive: true }); await page.screenshot({ path: path.join(DL, `${ds}-menu.png`) }).catch(() => {}); }
               break;
             }
           }
@@ -152,8 +161,8 @@ export async function collectOne(page, base, ds) {
   }
   fs.mkdirSync(DL, { recursive: true });
   const file = path.join(DL, `${ds}.xlsx`); await dl.saveAs(file);
-  const { rows, screenTotal } = parseExcel(fs.readFileSync(file), def);
-  return { rows, screenTotal, screenRowCnt: rows.filter(r => !r.isSubtotal).length };
+  const { rows, screenTotal, emptyOk, parseFailed, periodFrom, periodTo } = parseExcel(fs.readFileSync(file), def);
+  return { rows, screenTotal, screenRowCnt: rows.filter(r => !r.isSubtotal).length, emptyOk, parseFailed, ...(periodFrom && periodTo ? { periodFrom, periodTo } : {}) };
 }
 
 // auth: 토큰(권장, 상주 데몬) 또는 로그인쿠키. 토큰이 있으면 Authorization 헤더로 전송.
