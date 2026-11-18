@@ -3531,3 +3531,5 @@ pm run test:canon 통과.
 - 검증: 대상10검사 및 운영45차16건 조회(후보95행), 합성 브라우저1920/1280/390 접힘·대조·Esc·조회실패·가이드 재생/자막/목차 통과. 전체 게이트/빌드/배포 미검증.
 - 주의/잠금: 현재 작업트리의 알림 관련 파일만 변경. acba의 조사기록·45차CSV 보존. 카톡 원문 자체는 DB에 없어 최초 저장 신고와 구분 표시. 후보를 동일 신고나 재차감 승인으로 판정하지 않음.
 - 검색어: 원장연결알림 기본접힘 대조보기 최초신고 등록이력 다른번호 차감 estimateLedgerReview
+
+- 2026-11-18 대조 기능 검증 갱신: 전체 test:erp-contract exit0, dnSpy/manifest/쓰기범위/가이드 검사 통과. 최신 master 병합 후 빌드 진행. 대상 회귀11건 통과. 영상41.55초 및 자막 업무 Drive 백업 완료(영상 1ZKD-gnWOa3sLCigP5Xe-6faTgrzL6q5Z, 자막 1DBrn7ItyB_UpM0AVhmWoTwzs0uZsDyzW).
