@@ -3751,3 +3751,11 @@ pm run test:canon 통과.
 3. 남은 할 일: 양 역할 실제 가이드 녹화·재생·Drive 보관, 필수 검사·PR CI·squash·Cafe24 및 데스크톱 배포와 운영 읽기 확인.
 4. 검증 상태: 기존 최신원가 계약 4건 및 합성 Chrome /incoming?popup=1에서 검색 12→1, 상단 오른쪽 스크롤, 최고가 1,350원/단 기본 및 상세의 1,000원/단 노출 검증. 운영/직원 PC는 미검증.
 5. 주의/잠금: 행 선택·필터·원가 표시는 기존 GET만 사용. WarehouseMaster/Detail, 주문·출고·재고·확정 원가 및 다른 화면 저장 범위 불변. 촬영 중 instrumentation.js 임시 교체는 촬영 스크립트가 복구. 직원 PC 재시작 금지.
+
+## 2026-11-18 · 입고관리 UI 검증 및 가이드 보관
+- 검색어: receipt density farm search scroll highest reference 가이드 1.3.43
+1. 작업 위치: nenova-erp-ui / codex/receipt-density-1118 / nw-receipt-density / PR 등록 전.
+2. 완료된 것: 최신 기준선 통합, 수입부 5단계(44,837,729바이트)·영업지원 3단계(31,284,462바이트) 실제 화면 가이드 갱신. 회사 Drive 보관·크기 확인 수입부 MP4 1vZQaWpDTBeH0NNE_-c19HFYZcq-1VEdt, VTT 1p6wecWaZNa3lZsbrh5Rj-M6sxRNI-0E1, proof 1sfw6kA_bmELPBUOIQ8_NSP2yD1IZ_M8v. 영업지원 MP4 1kLR9otsruMFq-soiIXetteeROUDJN7mk, VTT 1aps34w8SPf2YBeVsBOkvQ7khXTlZIzBs, proof 16Nkgz8C_-IHYjvc5Tguhj3svaXYlqLbN.
+3. 남은 할 일: PR 필수 CI·squash, Cafe24/Windows 공개 배포, 운영 읽기 검증 및 정리.
+4. 검증 상태: 실제 Chrome 합성 경로, 최신원가 계약 4건, 정식 Next webpack 빌드, dnSpy, manifest 228, write guard(변경 API 0), 가이드(27흐름/28영상·변경 소스) 통과. 최종 CI와 운영은 미검증.
+5. 주의/잠금: 개발 서버 재로딩이 발생한 촬영은 폐기. 최종 증거는 합성자료 정식 로컬 서버 촬영. 공유 원장 쓰기 없음, 직원 PC 재시작 안 함.
