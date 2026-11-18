@@ -7,7 +7,9 @@ const selected={WarehouseKey:90,OrderYear:'2026',OrderWeek:'44-01',FarmName:'Far
 const detail={ProdKey:1,ProdName:'Flower A',OrderCode:'C',BoxQuantity:1,BunchQuantity:10,SteamQuantity:100,OutQuantity:10,EstQuantity:100,UPrice:1,TPrice:100};
 let commits=0,failCommit=false,blocked=false;
 const bundle=`const parser={exports:{}};((module,exports,require)=>{${compile('lib/warehousePackingImport.js')}})(parser,parser.exports,()=>{});
-const component={exports:{}};((module,exports,require)=>{${compile('components/WarehouseCorrection.js')}})(component,component.exports,id=>id==='react'?React:id==='xlsx'?XLSX:parser.exports);
+const choices={exports:{}};((module,exports,require)=>{${compile('lib/warehouseFarmChoices.js')}})(choices,choices.exports,()=>{});
+const farmSelect={exports:{}};((module,exports,require)=>{${compile('components/WarehouseFarmSelect.js')}})(farmSelect,farmSelect.exports,id=>id==='react'?React:choices.exports);
+const component={exports:{}};((module,exports,require)=>{${compile('components/WarehouseCorrection.js')}})(component,component.exports,id=>id==='react'?React:id==='xlsx'?XLSX:id.includes('WarehouseFarmSelect')?farmSelect.exports:parser.exports);
 function App(){const [open,setOpen]=React.useState(false);return React.createElement(React.Fragment,null,React.createElement('button',{id:'open',onClick:()=>setOpen(true)},'수정 열기'),open&&React.createElement(component.exports.default,{selected:${JSON.stringify(selected)},onClose:()=>setOpen(false),onSaved:()=>{window.saved=(window.saved||0)+1;}}));}ReactDOM.createRoot(document.getElementById('app')).render(React.createElement(App));`;
 const server=http.createServer(async(req,res)=>{
   const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};

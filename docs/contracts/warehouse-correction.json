@@ -16,7 +16,12 @@
     "__tests__/warehouseCorrectionSql.test.mjs",
     "scripts/warehouse-correction-ui-smoke.cjs",
     "package.json",
-    "__tests__/fixtures/warehouseCorrectionNative.sql"
+    "__tests__/fixtures/warehouseCorrectionNative.sql",
+    "lib/warehouseFarmChoices.js",
+    "components/WarehouseFarmSelect.js",
+    "__tests__/warehouseFarmChoices.test.mjs",
+    "__tests__/warehouseFarmChoicesSql.test.mjs",
+    "scripts/warehouse-farm-search-ui.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -98,7 +103,9 @@
   },
   "requiredTestFiles": [
     "__tests__/warehouseCorrection.test.mjs",
-    "__tests__/warehouseCorrectionSql.test.mjs"
+    "__tests__/warehouseCorrectionSql.test.mjs",
+    "__tests__/warehouseFarmChoices.test.mjs",
+    "__tests__/warehouseFarmChoicesSql.test.mjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
@@ -106,5 +113,18 @@
     "npm run test:erp-manifest -- --changed-from HEAD^",
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
-  ]
+  ],
+  "farmChoiceContract": {
+    "source": "active Farm plus existing active receipt FarmName without a Farm master; archived master names excluded",
+    "sharedHelper": "warehouseFarmChoicesSql",
+    "consumers": [
+      "GET choices",
+      "correction preview/locked save",
+      "approval read/locked final"
+    ],
+    "search": "case/whitespace insensitive substring; never auto-select or write",
+    "receiptOnlyName": "valid only as WarehouseMaster.FarmName, never synthesize FarmKey or distribution candidates",
+    "crossYear": "candidate names global; write scope remains WarehouseKey + explicit year/week",
+    "plan": "docs/plans/incoming-farm-search-2026-11-18.md"
+  }
 }

@@ -3279,3 +3279,13 @@ pm run test:canon 통과.
 3. 남은 할 일: 최종 빌드·CI 후 병합·Cafe24 배포·운영 원문 확인, worktree 정리. 최종 결과는 PR 및 배포 실행에 기록.
 4. 검증 상태: ERP 전체 계약, 표적 18 tests, 실제 브라우저 날짜칸 제거·원문 펼침·재조회 선택유지, 최종 영상 재생·자막·모바일 통과. 기록 시점 운영 수정본 미검증.
 5. 주의/잠금: 이 작업트리의 국가별 발주서 컴포넌트·가이드 수정 중. ERP DB와 수입방 시트 쓰기 없음.
+
+## 2026-11-18 입고 수정 농장 검색·기존 입고 농장 후보
+- 구현: 마스터에 없는 Faguaflowers Intl LLC는 기존 활성 입고에 저장되어 있음. FarmName 메타 선택을 활성 마스터+활성 입고명 공통 SQL로 조회/미리보기/legacy저장/승인 최종검증에 연결. 삭제·동명중복 마스터 우회/가짜FarmKey/임의농장생성 금지. 공통 검색 입력은 대소문자·공백무시 필터, 선택·초안·미리보기 보존.
+- 검증: 신규후보/검색5 tests, 실제MSSQL후보1 test, 관련33 tests, warehouseCorrectionSql의receipt-only농장 실제저장/재고·이력·cross-year보존, 기존승인SQL 전체통과. PC1920/모바일390 공통검색 및기존입고수정Chrome회귀통과. 운영SELECT canonical 후보1/FarmKeynull 확인, 운영쓰기0. 전체ERP/빌드/PR/배포는기록시점미검증.
+- 검색어: 입고수정 농장검색 Faguaflowers Intl LLC Farm마스터없음 warehouseFarmChoicesSql
+1. 작업 위치: nenova-erp-ui / codex/incoming-farm-search-1118 / C:/Users/USER/.codex/worktrees/f321/nw-cdx-incoming-farm-search-1118 / PR 미생성.
+2. 완료된 것: WarehouseFarmSelect·warehouseFarmChoices 추가, 두수정화면/warehouseCorrection/incomingApproval 공통후보 연결,계약·dnSpy·회귀추가. 승인SQL fixture 중복TariffRate추가는조건부로수정(운영스키마변경0).
+3. 남은 할 일: 최신master 통합→전체ERP/필수가드/빌드→PR/CI→squash→Cafe24/운영스모크→worktree정리.
+4. 검증 상태: 대상/실제MSSQL/PC·모바일Chrome 통과; 통합전체/운영배포 미검증.
+5. 주의/잠금: 이worktree의농장선택/입고수정/승인관련파일은본세션수정중. Farm마스터/ERP운영쓰기금지(이번범위).
