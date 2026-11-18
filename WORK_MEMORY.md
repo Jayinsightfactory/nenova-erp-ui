@@ -3312,6 +3312,15 @@ pm run test:canon 통과.
 - 주의/잠금: 원장·입고·재고·견적·매출 쓰기 변경 없음. 해외 STD·ATD 및 FR24 API 추가 연동 없음. 직원 PC 업무 중 재시작 금지.
 - 검색어: 1.3.34 비행기 확대 창 상단 즐겨찾기 홈 이슈 인천공항 도착 시간 가이드 검증 배포 인계
 
+## 2026-11-18 · 견적 품목명 열 너비 복구
+- fixed table에서 td min-width가 열 너비를 결정하지 못해 균등폭으로 축소됨. 첫 행 th 품목명280px·단위64px·출고일88px 지정. 기준선 적용: 읽기성·기존 키보드/원장 보존, 가로스크롤. 예외: 사용자가 이번 영상 재촬영 제외 승인.
+- 위치: nenova-erp-ui / codex/estimate-width-1118 / nw-cdx-estimate-width-1118 / PR 생성 예정
+- 완료: styles/globals.css, 견적 계약, 영상 제외 기록
+- 남은 일: CI·배포·실브라우저 운영 확인
+- 검증: Chrome 1920/1280 품목명280px 및 페이지 가로넘침 없음 통과, 운영 미검증
+- 주의/잠금: 이 브랜치 globals.css 작업
+- 검색어: 견적 품목명 열 너비 fixed table 280px
+
 ### 2026-11-18 비행기·홈 1.3.34 운영 배포 완료 인계
 - 작업 위치: nenova-erp-ui / 기능 PR #1811 / 병합 bc00257c2d0bd1a3d92b70052840bf32dc51272d / codex/flight-desktop-popup-1118 작업트리 병합 직후 정리 / 인계 codex/flight-popup-handoff-1118.
 - 완료된 것: 앱 전용 지도·편별 상세 확대 창(재사용), 홈 이슈 펼치기와 인천공항 시간·상태·공지/예측 구분, 환영 문구 아래 즐겨찾기. Cafe24 배포 44214345522, Windows 빌드 44214345520, 안정판 desktop-v1.3.34 공개. 최종 MP4·VTT·proof 회사 Drive 보관 완료.
