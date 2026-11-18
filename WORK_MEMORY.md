@@ -3366,3 +3366,12 @@ pm run test:canon 통과.
 - 주의/잠금: 운영 원장 쓰기 없음. 지도 위치·출발은 예측 표시, 인천공항 제공 시각은 별도 표시. 직원 PC 재시작 금지 유지. 기능 작업트리 잠금 해제, 인계 PR 병합 후 인계 작업트리도 즉시 정리.
 - 보관: 비행기 영상 https://drive.google.com/file/d/1V7TIPQLJ3T8agKiInTlMc7JKT7W2Tebg/view / 홈 영상 https://drive.google.com/file/d/167ZuGiC6YKAs7XuY0bLGcmIeyn7av89V/view / 최종 홈 proof 17jVTfACtfhj_0A5p-eDolM5GYrlGTdmB / 공개 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.34.
 - 검색어: 1.3.34 운영 완료 비행기 확대 지도 상세 인천공항 STA STD ATD 홈 이슈 즐겨찾기 상단 자동 업데이트 배포 인계
+
+## 2026-11-18 농장 검색 최종 로컬 검증
+- 최신master f92f04dad 통합후정식 npm build(prebuild영상검사포함) exit0. 갱신목차/영상의실제플레이어재생1920/390재통과. 변경manifest224/dnSpy/쓰기guard통과. 전체ERP는앞선소스에서pre/core/post통과했고최신통합본전체는PR CI에서재확인예정.
+- 검색어: 입고 농장검색 최종빌드 통과 Faguaflowers Intl LLC guide452.15 280.8
+1. 작업 위치: codex/incoming-farm-search-1118 / nw-cdx-incoming-farm-search-1118 / PR생성예정(브랜치로조회).
+2. 완료된 것: 검색/공통후보/서버최종검증/교차연도·실제MSSQL보존/가이드2편/Drive6파일/최종정식빌드.
+3. 남은 할 일: PR CI전체검증→squash병합→Cafe24배포→운영검색/후보읽기스모크→worktree즉시정리.
+4. 검증 상태: 로컬필수검증·정식빌드·실제플레이어PASS, PR CI/운영반영은아직미검증.
+5. 주의/잠금: 농장마스터신규등록·운영입고저장없음. 원본코드는GitHub PR로보관,검증된영상은Drive폴더18JFwztrSWniR1yctBdaewBATvBev7NGb.
