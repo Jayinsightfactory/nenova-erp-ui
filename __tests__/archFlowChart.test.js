@@ -39,8 +39,30 @@ for (const rustToken of ['arch-rust-hotpaths', 'hermes-core.exe', 'nenova-device
   assert.ok(comp.includes(rustToken), `ArchFlowChart must include Rust hotpath token: ${rustToken}`);
 }
 assert.ok(comp.includes("onSelectTab('suite-sim')") && comp.includes('통합 모션 시뮬레이션 열기 ↗'), 'ArchFlowChart must link to suite-sim');
+assert.ok(comp.includes('arch-vision-feasibility'), 'ArchFlowChart must include arch-vision-feasibility section');
+assert.ok(comp.includes('VISION_MASTER_STAGES') && comp.includes('FEASIBILITY_ITEMS'), 'ArchFlowChart must define vision stages and feasibility matrix');
+for (const phaseId of ['p0', 'p1', 'p2', 'p3']) {
+  assert.match(comp, new RegExp(`id:\\s*'${phaseId}'`), `ArchFlowChart must include vision phase ${phaseId}`);
+}
+for (const vfToken of [
+  '즉시 자동 가능',
+  '조건부 가능',
+  '불가능 · 절대 금지',
+  '오늘 해결 전환',
+  '은행 이체 자동실행',
+  '이카운트 쓰기',
+  '캡차 우회',
+  '개인방 수집',
+  'Windows 단독 iOS 미러링',
+  'WAITING_HUMAN',
+  'Dual-Path',
+]) {
+  assert.ok(comp.includes(vfToken), `ArchFlowChart must include feasibility token: ${vfToken}`);
+}
 assert.doesNotMatch(comp, /감시|추적|모니터링/, '작업자 노출 문구에 감시·추적·모니터링 금지');
+assert.doesNotMatch(comp, /절감시간/, '합성어 절감시간 금지');
 assert.doesNotMatch(comp, /<button[\s>]/, 'PM UI 키트 규칙: raw <button> 금지');
+assert.ok(fs.existsSync(path.join(root, 'docs', 'SOLUTION_VISION_AND_FEASIBILITY.md')), 'docs/SOLUTION_VISION_AND_FEASIBILITY.md 정본 문서 필수');
 
 const myWork = read('pages/my-work.js');
 assert.match(myWork, /\{ id: 'arch', label: '아키텍처 흐름도' \}/);
