@@ -4100,3 +4100,11 @@ pm run test:canon 통과.
 4. 검증 상태: `gabrielProfitAgi.test.js`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `test:ui-layout`, `guard:erp-writes -- --changed-from origin/master`, `test:pm`, `npx next build --webpack`(`next-build.lock`), `record-gabriel-agi-guide.cjs`(`--dry-run` · 실녹화 · `--player-smoke`) 및 1920px·390px 실렌더링 스크린샷 육안 검수 PASS (운영 DB 쓰기 0건, 합성 픽스처 검증).
 5. 주의/잠금: 타 워커 담당 파일(`pages/pm.js`, `pages/work/manuals.js`, `ImportOneStopPipeline.js`, `CeoCommandHub.js`, `TechRadarWorkbench.js`, `ArchFlowChart.js`, `SolutionSuiteSimulator.js`, `pages/api/**`) 및 `workflow-guides.json` 타 워크플로우 항목 무수정 보존.
 검색어: GabrielProfitAgiWorkbench gabriel-purpose-callout gabriel-lever-purpose-callout gabriel-lever-svg-diagram gabriel-trace-auto-toggle stroke-dashoffset prefers-reduced-motion Purpose-First
+
+## 2026-11-19 수입 비행기 제목 통관 상태
+- 작업 위치: PR #1889, master 6c3a62ad, 작업트리 nw-flight-customs.
+- 완료: 웹·Desktop 카드 제목 옆 실제 유니패스 신고 수리와 반출 상태 요약. 동일 AWB·연도 캐시 분리, 10분 넘은 자료/오류/완료는 대기 표시 제외. Cafe24 44498214084와 Desktop 1.3.63 공식 공개.
+- 남은 일: 사용자 PC 1.3.63 설치·재시작 미검증, 확인 당시 1.3.60.
+- 검증: 상태 회귀와 Electron 실제 카드, Linux/Windows CI, 설치 SHA 및 공개 latest.yml 동일. 인증 운영 웹 18:47 KST K4254 수리 완료·반출 미확인, 접수 16:38/수리 18:17 및 상세 유지.
+- 주의/잠금: 유니패스에서 직접 확인된 미반출만 표시. ERP나 운영 수집기 쓰기 없음, 파일 잠금 없음.
+검색어: 수입 비행기 제목 통관 현황 K4254 수입신고 수리 완료 반출 미확인 유니패스 Desktop 1.3.63
