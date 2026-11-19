@@ -4028,3 +4028,10 @@ pm run test:canon 통과.
 4. 검증 상태: `npm run test:pm`(31개 스위트), `npm run test:workflow-guides`(33 workflows/34 videos), `node scripts/check-workflow-guides.cjs --changed-from origin/master`, `npm run test:ui-layout`, `npm run guard:erp-writes -- --changed-from origin/master`, `npm run test:erp-manifest -- --changed-from origin/master`, `npx next build --webpack`, `scripts/pm-control-smoke.cjs --record`(1920/1280/390, JS오류0/쓰기0, 실제 MP4 프레임 시각 검수) PASS. 실운영 DB·운영 브라우저는 미검증(합성 픽스처 검증, 원장 쓰기 0건).
 5. 주의/잠금: 병렬 세션 `UI-2`/`UI-3` 경계(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`, `components/work/SolutionSuiteSimulator.js`, `desktop/package.json`, `pages/pm/radar.js`, `lib/pmTechRadarSim.js`, `lib/pmRadarPlanTokens.js`, `pages/api/**`) 무수정. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·#hex·raw `<button>` 0건 유지.
 검색어: pm-control anti-ai-slop 오류관제 pages/pm pmThemes pmLookClear ControlGuide tabular-nums linear-gradient box-shadow PR1879
+
+### 2026-11-19 — A3 행 안쪽 여백 축소
+1. 작업 위치: codex/tight-rows / work/tight-rows / PR 준비.
+2. 완료: 실제 셀폭 줄계산 유지, 14.5pt 줄높이+4pt 여유, 최소18.5pt.
+3. 남음: 전체검사 종료·PR·배포.
+4. 검증: 대상38PASS, Excel PDF 체리오3줄/돈셀7줄 마지막줄 확인. 높이3579→3156pt, A3 4쪽 유지.
+5. 주의: ERP원장쓰기0. 검색어 tight A3 shipmentFieldCompact row height
