@@ -1,10 +1,34 @@
 // __tests__/archFlowChart.test.js — /my-work '아키텍처 흐름도' 탭, /pm 아키텍처 토글, 데스크톱 셸 업데이트/PM 버튼 계약 검사.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const Module = require('node:module');
 const path = require('node:path');
+const React = require('react');
+const { renderToStaticMarkup } = require('react-dom/server');
+const { transformSync } = require('next/dist/build/swc');
 
 const root = process.cwd();
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
+
+function compile(rel, customRequire) {
+  const filename = path.join(root, rel);
+  const mod = new Module(filename, module);
+  mod.filename = filename;
+  mod.paths = Module._nodeModulePaths(path.dirname(filename));
+  const baseRequire = Module.createRequire(filename);
+  mod.require = (id) => (customRequire ? customRequire(id, baseRequire) : baseRequire(id));
+  const { code } = transformSync(fs.readFileSync(filename, 'utf8'), {
+    filename,
+    jsc: {
+      parser: { syntax: 'ecmascript', jsx: true },
+      target: 'es2022',
+      transform: { react: { runtime: 'automatic' } },
+    },
+    module: { type: 'commonjs' },
+  });
+  mod._compile(code, filename);
+  return mod.exports;
+}
 
 const comp = read('components/pm/ArchFlowChart.js');
 assert.match(comp, /export default function ArchFlowChart/);
@@ -62,7 +86,36 @@ for (const vfToken of [
 assert.doesNotMatch(comp, /감시|추적|모니터링/, '작업자 노출 문구에 감시·추적·모니터링 금지');
 assert.doesNotMatch(comp, /절감시간/, '합성어 절감시간 금지');
 assert.doesNotMatch(comp, /<button[\s>]/, 'PM UI 키트 규칙: raw <button> 금지');
+assert.doesNotMatch(comp, /#[0-9a-fA-F]{3,8}\b/, 'PM 색 가드: #hex 하드코딩 금지');
+assert.doesNotMatch(comp, /rgb\(\s*14\s*,\s*16\s*,\s*22\s*\)/, 'Anti-AI Slop: 구형 다크 배경 rgb(14,16,22) 금지');
+assert.doesNotMatch(comp, /linear-gradient|radial-gradient/i, 'Anti-AI Slop: 그라디언트 장식 금지');
+assert.doesNotMatch(comp, /[\u{1F300}-\u{1FAFF}]/u, 'Anti-AI Slop: 장식용 이모지 금지');
+assert.ok(comp.includes('tabular-nums'), 'ArchFlowChart tabular-nums 고정폭 정렬 필수');
+assert.ok(comp.includes('prefers-reduced-motion'), 'ArchFlowChart prefers-reduced-motion 준수 필수');
+assert.ok(comp.includes('rgb(248, 250, 252)'), 'ArchFlowChart 에디토리얼 라이트 배경 토큰 필수');
 assert.ok(fs.existsSync(path.join(root, 'docs', 'SOLUTION_VISION_AND_FEASIBILITY.md')), 'docs/SOLUTION_VISION_AND_FEASIBILITY.md 정본 문서 필수');
+
+// SSR 렌더링 및 버튼 PM UI 키트 준수 검증
+const ArchFlowChartComp = compile('components/pm/ArchFlowChart.js', (id, baseReq) => {
+  if (id === './ui') return compile('components/pm/ui.js');
+  return baseReq(id);
+}).default;
+const archSsrHtml = renderToStaticMarkup(React.createElement(ArchFlowChartComp, { onSelectTab: () => {}, mineOnly: false }));
+for (const tid of [
+  'data-testid="arch-flow-chart"',
+  'data-testid="arch-hermes-section"',
+  'data-testid="arch-solution-blueprints"',
+  'data-testid="arch-device-suite-section"',
+  'data-testid="arch-rust-hotpaths"',
+  'data-testid="arch-vision-feasibility"',
+]) {
+  assert.ok(archSsrHtml.includes(tid), `ArchFlowChart SSR 누락: ${tid}`);
+}
+for (const m of archSsrHtml.matchAll(/<button\b([^>]*)>/g)) {
+  assert.match(m[1], /\bpmk\b/, `ArchFlowChart SSR 모든 버튼은 pmk 키트여야 함: ${m[0]}`);
+}
+assert.doesNotMatch(archSsrHtml, /감시|추적|모니터링|절감시간/);
+assert.ok(archSsrHtml.includes('통합 모션 시뮬레이션 열기 ↗'));
 
 const myWork = read('pages/my-work.js');
 assert.match(myWork, /\{ id: 'arch', label: '아키텍처 흐름도' \}/);

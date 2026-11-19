@@ -1921,7 +1921,7 @@ export default function SalesDefectDeductionsPage() {
               <td><input className="input cell incoming-note-input" value={valueOf(row, 'note') === '소량' ? '' : valueOf(row, 'note')} placeholder="비고" onChange={(e) => updateIncomingRow(sourceIndex, { note: e.target.value, importConfirmed: false })} /></td>
               <td>
                 {row.importConfirmed ? <button type="button" className="btn btn-xs" onClick={() => cancelIncomingRow(sourceIndex)} disabled={managementMode || managementBusy || incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정 취소'}</button> : <button type="button" className="btn btn-primary btn-xs" onClick={() => confirmIncomingRow(sourceIndex)} disabled={managementMode || managementBusy || incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정'}</button>}
-                <div className={row.importConfirmed ? 'incoming-confirmed' : 'incoming-pending'}>{row.importConfirmed ? `확정${row.importConfirmedByName || row.importConfirmedBy ? ` · ${row.importConfirmedByName || row.importConfirmedBy}` : ''}` : '확인 필요'}</div>
+                <div className={row.importConfirmed ? 'incoming-confirmed' : 'incoming-pending'}>{row.importConfirmed ? `확정${row.importConfirmedByName || row.importConfirmedBy ? ` · ${row.importConfirmedByName || row.importConfirmedBy}` : ''}` : row.importReviewRequired ? '보완 요청 있음' : !row.farmName ? '농장 선택 필요' : '수입부 확정 대기'}</div>
               </td>
               </tr>
             </Fragment>)}
@@ -2111,7 +2111,7 @@ export default function SalesDefectDeductionsPage() {
                     <input data-defect-field={`colorName-${index}`} className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => handleLookupChange(index, 'product', 'colorName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'product', `${row.productName || ''} ${e.currentTarget.value}`.trim(), 'quantity')} />
                     <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product')}>품명</button>
                   </div>
-                  {row.prodKey ? <div className="web-meta">{row.matchedProductDbName || row.matchedProductName}</div> : <div className="match-warn">전산 품목을 검색해 선택하세요.</div>}
+                  {row.prodKey ? <div className="web-meta">{row.matchedProductDbName || row.matchedProductName || incomingProductLabel(row)}</div> : <div className="match-warn">전산 품목을 검색해 선택하세요.</div>}
                 </td>
                 <td>
                   <input data-defect-field={`quantity-${index}`} className="input cell qty" type="number" min="0" value={valueOf(row, 'quantity')} onChange={(e) => changeText(index, 'quantity', e.target.value)} onKeyDown={handleQuantityKeyDown} />
@@ -2255,6 +2255,7 @@ export default function SalesDefectDeductionsPage() {
         .incoming-grid { width: 100%; min-width: 0; table-layout: fixed; font-size: 12px; }
         .incoming-grid th, .incoming-grid td { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
         .incoming-grid td { vertical-align: middle; }
+        .incoming-grid th, .incoming-grid td { padding: 4px 6px; }
         .incoming-product-name { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
         .incoming-farm-input { min-width: 0; }
         .incoming-check-choice { display: inline-flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; cursor: pointer; }
