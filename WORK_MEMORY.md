@@ -3865,3 +3865,11 @@ pm run test:canon 통과.
 3. 남은 할 일: b3a59f88 통합 변경 대상 검사·Desktop50 CI·최종빌드 확인 후 PR ready/CI전부통과 squash, Cafe24 정확SHA 또는 포함successor 배포·운영읽기전용UI, Desktop50 검증릴리스 및 merged worktree 링크만 해제 후 정리. 최종결과는 PR댓글에 기록해 docs만 재배포하지 않는다.
 4. 검증 상태: 직원 계정의 실제 저장원응답 무료재검증과 전체송장 입고성공은 미검증. 원본PDF와 오류는 실제운영읽기전용 확인, 수정UI·수량금액0차이·초안·회귀는 격리fixture검증. 새 유료호출/운영ERP쓰기/직원앱설치0.
 5. 주의/잠금: 다른Desktop49 draft/기존자산 덮어쓰기 금지. 이전 nw-cdx-receipt-presave-1118 감사작업 보존, OrderCode사전검증/농장별칭/문제로그확장 구현완료 주장금지(설계만). 원본민감PDF·직원raw응답 커밋금지. node_modules junction은 대상삭제 없이 링크만 정리.
+
+## 2026-11-19 · PR1861 마지막 통합·Desktop1.3.51
+검색어: PR1861 47-02 원본대조 Desktop1.3.51
+1. 위치: fix/co4702-summary-1119 / nw-cdx-co4702-summary-1119 / PR1861. origin2b0b9713 통합, 타작업 Desktop50과 기존49를 보존하고 이번51 예약.
+2. 완료: 기능·가이드·Drive·실제 수정전/수정/결과 캡처와 필수ERP·dnSpy·manifest·쓰기guard·build·Desktop74/실Electron·플레이어3편 PASS. upstream 추가 변경별 대상회귀도 PASS. 업무도구 원본대조 메뉴/검색/즐겨찾기 기존URL 유지.
+3. 남은 일: 최신통합 CI 전부통과 후 squash·Cafe24 포함SHA배포·운영읽기전용스모크·Desktop51 검증릴리스·현재worktree 링크만정리. 실제 최종배포/릴리스 결과는 PR1861 댓글에 기록.
+4. 미검증: 직원자신 저장응답 재검증/전체송장입고성공, 실제PC 설치·제거. 운영DB쓰기/유료추가분석/직원앱재시작0. 이번 review는 격리합성fixture와 원본PDF 읽기검증을 구분한다.
+5. 잠금: 다른 릴리스/원장/농장마스터/과거입고 변경금지. 이전 감사 worktree 보존. 원본PDF·인증정보 커밋금지. canonical node_modules junction 대상삭제금지.

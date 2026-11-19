@@ -218,3 +218,37 @@ assert.equal(mw[0].mentions, 2);
 assert.equal(parseFlightNoticeMessage(m('스케줄 조회가 안되는데 혹시 해당건 도착예정 편기가 뭔지 알 수 있을까요?', '2026-11-10T02:00:00Z'), { now: NOW }).length, 0);
 
 console.log('importFlightNotice tests passed');
+
+
+{
+  const before = m('47차 미국\nETA 11월 19일 오전 4시 도착 예정\nKE048 18012345675 170박스', '2026-11-17T13:38:00Z');
+  const after = m('47-1차 미국\n11월 19일 05:20 도착 예정\n(180-12345675 KE048 170 BOX)', '2026-11-18T04:35:00Z');
+  const only = mergeFlightNotices([before], { now: NOW });
+  assert.equal(only.length, 1);
+  assert.equal(only[0].flight, 'KE048');
+  assert.equal(only[0].weekMajor, 47);
+  assert.equal(only[0].weekLabel, '');
+  assert.equal(only[0].arrivalAt, '2026-11-19T04:00:00+09:00');
+  const same = mergeFlightNotices([after, before], { now: NOW });
+  assert.equal(same.length, 1);
+  assert.equal(same[0].weekLabel, '47-1');
+  assert.equal(same[0].arrivalAt, '2026-11-19T05:20:00+09:00');
+  assert.equal(same[0].history.length, 2);
+  for (const early of [
+    {...before, message: before.message.replace('KE048', 'KE049')},
+    {...before, message: before.message.replace('11월 19일', '11월 20일')},
+    {...before, message: before.message.replace('47차', '46차')},
+  ]) {
+    const different = mergeFlightNotices([early, after], { now: NOW });
+    assert.equal(different.length, 1);
+    assert.equal(different[0].history.length, 1);
+  }
+  for (const ambiguous of [
+    {...before, timestamp_approximate: true},
+    {...before, chatroom: '빌번호방'},
+    {...before, message: before.message.replace('오전 4시 ', '')},
+    {...before, message: before.message.replace('미국', '이번 건')},
+    {...before, message: before.message.replace('도착 예정', '도착 예정 문의')},
+    {...before, message: before.message.replace('18012345675 ', '')},
+  ]) assert.equal(parseFlightNoticeMessage(ambiguous, { now: NOW }).length, 0);
+}
