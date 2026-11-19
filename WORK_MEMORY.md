@@ -4004,3 +4004,11 @@ pm run test:canon 통과.
 4. 검증 상태: dnSpy CLI 및 운영 SELECT, 격리 실제 MSSQL 호주 단독·정상/오류 AWB·중복·교차연도, 콜롬비아 실제 PDF/재현 분석 8행·27박스·405단·8,100송이·USD 1,741.50 검증. 브라우저 직접 입고 및 모의 재조회 완료 확인, 브라우저/데스크톱 UA 같은 입고 재진입, Electron smoke 통과. 기존 직원 응답 복구 및 실제 Windows Excel 저장창은 미검증.
 5. 주의/잠금: 운영 입고·원가 데이터와 유료 분석 변경 없음. 기존 SQL writer, 재고·입고 readback, 원가 명시 승인 보존.
 검색어: invoice-only-receipt AWB optional packing receipt PENDING 18065 47-02 Desktop1.3.58 PR1875
+
+## 2026-11-19 — 국가별 발주서 불변 이력·카톡/등록 대조 착수 (Carver)
+1. 작업 위치: fix/country-po-1119 / C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119 / origin/master 4ae7fbee / PR 아직 없음.
+2. 완료된 것: 지침·사용량·ERP 가드/계약 검토, 실제 dnSpy FormOrderView/ClassOrderHistory 재실행. SELECT 중국2026/47-02 61행16업체38품목(2270단+86송이), 2025동일차수27행 확인. 대조 순수정책·불변 파일 저장 코어·상세/OrderHistory SELECT helper와 계획/계약 작성.
+3. 남은 할 일: 실제 카톡 동일건 확인, 보관 API와 화면 연결/서버 재검증·권한·동시성 보강, 기존 ETA 보존, Desktop 메뉴/버전·실제 격리 저장창/Excel/전달체크 재진입 hash, 필수 full gates/PR/CI/squash/Cafe24/release/읽기 smoke/정리. 아직 배포 후보 아님.
+4. 검증 상태: 최초 대조7+보관1+조회2=10PASS; 이후 전달 후 미등록분 carry/후속등록 소진 회귀 추가해 대조8PASS. UI/실제XLSX/공유API/전체 ERP·빌드·CI·배포는 미검증. 운영 SELECT만, 쓰기/실제 전달/유료 호출0.
+5. 주의/잠금: Carver 단독 작업트리. canonical dirty 및 기존 다른 작업트리 보존. 신규 helper들은 아직 런타임 API/화면에 연결하지 않았음. 저장 코어는 기존 private data/runtime 파일 인프라 재사용 설계, 운영 경로·내구성 최종 확인 전 완료 주장 금지.
+검색어: country-po-1119 countryOrderReconciliation countryOrderHistoryStore countryOrderEvidenceApi 47-02 중국 CARRY_PENDING

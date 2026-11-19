@@ -1,0 +1,32 @@
+{
+  "id": "country-order-history",
+  "title": "국가별 발주서 불변 원본과 전달 기준 대조",
+  "scope": ["pages/api/import/tools/country-order-history.js", "components/import-tools/CountryOrderEvidenceReview.js", "components/import-tools/PedidosTool.js", "lib/countryOrderHistoryApi.js", "lib/countryOrderReconciliation.js", "lib/countryOrderHistoryStore.js", "lib/countryOrderEvidenceApi.js", "__tests__/countryOrderReconciliation.test.js", "__tests__/countryOrderHistoryStore.test.js", "__tests__/countryOrderEvidenceApi.test.js", "__tests__/countryOrderHistoryApi.test.js", "scripts/country-order-fixture-server.cjs", "desktop/scripts/country-order-native.cjs", "docs/plans/country-order-history-2026-11-19.md"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "additionalBusinessIdentity": ["country", "unit", "OrderDetailKey", "sourceKey", "batchId"],
+  "actions": [
+    {"name":"RECONCILE_PREVIEW","orderDetail":"preserve","shipmentDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","webFiles":"none"},
+    {"name":"ARCHIVE_DOWNLOAD","orderDetail":"preserve","shipmentDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","webFiles":"append immutable xlsx and row snapshot; same signed preview operation replays identical bytes"},
+    {"name":"EXPLICIT_DELIVERY","orderDetail":"preserve","shipmentDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","webFiles":"append first delivery timestamp only; all batch files required before becoming whole-country baseline"},
+    {"name":"ORIGINAL_REDOWNLOAD","orderDetail":"preserve","shipmentDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","webFiles":"read only; verify original hash, never regenerate from current ERP"}
+  ],
+  "readPolicy": "SELECT-only native ViewOrder and OrderHistory with exact country/year/full week. Native server offset +540 must be verified before interpreting GETDATE history. Hidden native orders block all export. No paid analysis or automatic retries.",
+  "criteriaLedger": {
+    "identity":"country + OrderYear + exact OrderWeek + CustKey + ProdKey + native unit; sourceKey and native history/detail IDs distinguish equal-quantity separate orders",
+    "default":"all current ERP cells are preserved; chat inclusion is opt-in; analysis summary starts collapsed; first baseline with no chat is valid, unknown historical baseline cannot prove an addition",
+    "threeTimes":"last complete delivered batch ERP snapshot, original chat timestamp, current native detail/history timestamp; current product factors never invent historical quantity",
+    "review":"partial110 for chat20, missing timestamps, change/cancel, stale fingerprint, wrong year/country/unit, reused native event and native-total disagreement block export",
+    "pending":"already delivered but unregistered chat is carried forward once until a unique explicit native event consumes it; it must not disappear on app reentry",
+    "generation":"scope selection reads only; explicit preview generates with the same reconciliation helper as archive; native snapshot and delivery-baseline fingerprints are revalidated under scope owner lock",
+    "archive":"private existing data/runtime file infrastructure; no DB schema; create-only xlsx and JSON via flush/link; separate first-delivery event; scope lock uses existing dead-owner-safe helper",
+    "authorization":"active canManageInvoiceReceipt team, no service identity; same authority for shared list, read, preview, archive and delivery; raw file paths and credentials are never returned",
+    "legacy":"existing ETA, country worksheets/formulas, farm partition and explicit file-only quantity review remain; direct quantity override plus chat inclusion requires separate review",
+    "desktop":"same stable /import/tools menu URL, searchable label and favorite identity, 1.3.59 source version; isolated real main/shell session intercepts all network to loopback, production policy remains unchanged"
+  },
+  "writes": [],
+  "preserves": ["OrderMaster", "OrderDetail", "OrderHistory", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "WarehouseMaster", "WarehouseDetail", "ProductStock", "StockHistory", "Estimate", "WebProfitReport"],
+  "crossYearFixture": {"required":true,"description":"2025/47-02 and 2026/47-02 plus China and Colombia coexist; only exact country/year/week participates"},
+  "requiredTestFiles": ["__tests__/countryOrderReconciliation.test.js", "__tests__/countryOrderHistoryStore.test.js", "__tests__/countryOrderEvidenceApi.test.js", "__tests__/countryOrderHistoryApi.test.js"],
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/CountryOrders.md","source":"installed Nenova.exe FormOrderView.GetData; 2026-11-19 direct SELECT before implementation","methods":["FormOrderView.GetData"],"tables":["ViewOrder","OrderMaster","OrderDetail","OrderHistory","Customer","Product"]}
+}

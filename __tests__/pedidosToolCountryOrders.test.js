@@ -41,8 +41,10 @@ test('Pedidos UI wires read-only auto source, exact year/week, hidden-tab gate a
   assert.match(ui, /generation !== contextGeneration.current/); assert.match(ui, /!results\?\.includes\(output\)/);
   for (const handler of ['changeSource', 'changeCountry', 'changeCycle']) assert.match(ui, new RegExp(`function ${handler}[^]*?requestGuard.current.invalidate\\(\\)`));
   assert.match(ui, /invalidate\(setOrderWeek, subweek.orderWeek\)/); assert.match(ui, /invalidate\(setFile/);
-  // The only write is the explicit, audited Product factor save through the existing bulk API (user confirms in a dialog); country-orders stays GET-only.
-  assert.deepEqual([...ui.matchAll(/fetch\('([^']+)',\s*\{[^}]*method:\s*'(POST|PUT|PATCH|DELETE)'/g)].map(m => `${m[2]} ${m[1]}`), ['POST /api/master/products-bulk']);
+  // Native Product save remains explicit. New POSTs only preview/archive the file;
+  // country-orders remains GET-only and the isolated history API regression proves preservation.
+  assert.deepEqual([...ui.matchAll(/fetch\('([^']+)',\s*\{[^}]*method:\s*'(POST|PUT|PATCH|DELETE)'/g)].map(m => `${m[2]} ${m[1]}`), ['POST /api/master/products-bulk','POST /api/import/tools/country-order-history','POST /api/import/tools/country-order-history']);
+  assert.doesNotMatch(ui,/useEffect\(\(\) => \{\s*if \(!canExport \|\| matrix.blockers.length\) return;\s*try \{\s*const outputs = generateCompactCountryOrders/);
 });
 test('UI matrix is page-height, horizontally scrollable, sticky product/header, native keyboard controls and focus', () => {
   const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');

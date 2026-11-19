@@ -1,5 +1,17 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-19 국가별 발주서 원본·전달 기준
+
+국가/연도/세부차수 선택은 조회만 하고 명시 미리보기 후 실제 직렬화 Excel과 행 snapshot을
+서버 private runtime에 create-only 보관한다. 다운로드 요청·OS 저장·농장 전달은 별도 상태다.
+마지막 전체 전달본, 카톡 원문 시각, native 상세/주문수량 변경을 country/year/week/customer/product/unit
+및 고유 source/history/detail 키로 대조한다. 동일수량만으로 중복을 지우거나 ERP 전체를 누락하지 않는다.
+부분110, 정정/취소·모호한 시각, 전후연도/타국/단위, 중복 이벤트 할당은 검토로 보류한다.
+전달한 미등록분은 재진입에도1회 유지하며 후속 native 등록 근거가 확인된 경우만 carry를 소진한다.
+농장·단위 분리 세트 전체 전달 전에는 전체 기준본으로 승격하지 않는다. 원본 재다운로드는 현재
+ERP 재생성이 아니라 저장 bytes/hash를 검증한다. 모든 ERP/Stock/Estimate/WebProfit 원장 보존.
+계약 country-order-history 및 countryOrderReconciliation/HistoryStore/HistoryApi/EvidenceApi 회귀 참조.
+
 ## 2026-11-19 인보이스 단독 입고 및 후속 원가
 
 인보이스 품목·원문 금액·농장·연도·차수 대조를 통과하면 AWB 없이 기존 입고 writer로 저장할 수 있다. 확인된 운송장 데이터만 선택 반영하고, 누락 중량·운임단가·서류비는 NULL로 남긴다. 입고 readback 완료 후 원가 API는 사용자 선택에서만 시작한다. 입고관리와 데스크톱 복원은 명시 연도·차수·WarehouseKey를 재사용한다. 중복 operation, 교차연도, 실제 입고 수치·재고 readback의 기준은 기존 writer를 따른다. 근거 `plans/invoice-only-receipt-2026-11-19.md`, 계약 `invoice-only-receipt`, 테스트 `NENOVA_INVOICE_ONLY_E2E` 및 `invoiceReceiptCostRoute.test.mjs`.
