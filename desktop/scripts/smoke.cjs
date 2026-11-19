@@ -154,6 +154,16 @@ function installFixtureProtocol() {
       return Response.json({success:true,acceptedIds:body.events.map(event=>event.id)});
     }
     if(url.pathname==='/api/desktop/company-calendar')return Response.json({success:true,schemaVersion:1,ownerId:accountActor,revision:0,events:[]});
+    if (url.pathname === '/api/import/flight-board' && request.method === 'GET') {
+      return Response.json({
+        success: true,
+        flights: [{
+          key: 'flight-fixture', number: 1, weekLabel: '47-1', country: '콜롬비아', displayName: '콜롬비아 수국 47-1',
+          itemLabel: '콜수국', airline: 'KALITTA', flight: 'K4254', status: 'in_flight', statusLabel: '비행 중',
+        }],
+        summary: { total: 1, inFlight: 1 },
+      });
+    }
     if(url.pathname==='/api/pm/staff-requests')return Response.json({success:true,requests:[]});
     if (url.pathname === PM_OFFICE_ROUTE && request.method === 'GET') {
       return Response.json({ success: true, ageSec: 15, receivedAt: new Date().toISOString(), unresolved: [{ id: 'fixture', title: '시험 PC 화면 해독이 3시간 넘게 멈춤', since: '1일째', todo: '사장님 확인 필요' }], data: {
@@ -456,13 +466,15 @@ async function run() {
   main.command(sourceWindow,'activate',{id:first.id});main.command(sourceWindow,'menu',{open:false});
   await verifyHomeBridge(shellContents);
   await verifyHomeUi(shellContents, sourceWindow);
+  await waitFor(() => shellContents.executeJavaScript("document.querySelector('[data-flight-select]')?.textContent.includes('콜롬비아 수국 47-1') === true"), 'flight card displays the API cargo title');
   for (const [phase, label, disabled] of [['available', '앱 1.4.0 다운로드', false], ['downloading', '다운로드 42%', true], ['downloaded', '재시작하여 업데이트', false], ['unavailable', '앱 업데이트 확인', true]]) {
     // Account and tab events also publish state. Capture this fixture render when it arrives.
     await shellContents.executeJavaScript(`(() => {
       const status = document.getElementById('appUpdateStatus');
       window.__updateUiProbe = new Promise(resolve => {
         const observer = new MutationObserver(() => {
-          if (!status.textContent.includes('검증 상태')) return;
+          const fixtureMessage = ${JSON.stringify("검증 상태 " + phase)};
+          if (!status.textContent.endsWith(fixtureMessage) && !status.textContent.endsWith(fixtureMessage + ')')) return;
           observer.disconnect();
           resolve(({label:document.getElementById('appUpdateButton').textContent,disabled:document.getElementById('appUpdateButton').disabled,cancel:!document.getElementById('cancelUpdateButton').hidden,notice:!document.getElementById('appUpdateNotice').hidden,noticeLabel:document.getElementById('appUpdateNotice').getAttribute('aria-label'),btnBg:getComputedStyle(document.getElementById('appUpdateButton')).backgroundColor,noticeBg:getComputedStyle(document.getElementById('appUpdateNotice')).backgroundColor,panelBorder:getComputedStyle(document.querySelector('.app-update-panel')).borderTopColor,statusText:document.getElementById('appUpdateStatus').textContent}));
         });
@@ -470,7 +482,7 @@ async function run() {
         setTimeout(() => { observer.disconnect(); resolve(null); }, 3000);
       });
     })()`);
-    shellContents.send('desktop:state', { appUpdate: { phase, version: '1.4.0', percent: 42, message: '검증 상태' } });
+    shellContents.send('desktop:state', { appUpdate: { phase, version: '1.4.0', percent: 42, message: `검증 상태 ${phase}` } });
     const updateUi = await shellContents.executeJavaScript('window.__updateUiProbe');
     assert.ok(updateUi, `update fixture rendered for ${phase}`);
     assert.equal(updateUi.label, label); assert.equal(updateUi.disabled, disabled); assert.equal(updateUi.cancel, phase === 'downloading');
