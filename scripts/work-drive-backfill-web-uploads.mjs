@@ -7,17 +7,116 @@
 // 실행(앱 루트, 운영은 컨테이너/서버 안에서):  node scripts/work-drive-backfill-web-uploads.mjs [--dry-run]
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { register } from 'node:module';
-import { pathToFileURL } from 'node:url';
 
 // lib/*.js 는 Next 전용으로 확장자 없는 상대 import('./workManuals')를 쓰므로, 노드에서 직접 읽을 수 있게 확장자를 붙여 주는 로더를 건다.
 register('./work-drive-esm-loader.mjs', import.meta.url);
 
 const dry = process.argv.includes('--dry-run');
 const root = path.join(process.cwd(), 'data', 'runtime', 'import-team', 'packing-uploads');
-const { mirrorWebUpload } = await import('../lib/workDrive.js');
+const { classify, FILE_MAX, ingestFile, mirrorWebUpload, WEB_UPLOAD_EVENT, WEB_UPLOAD_HOST, webUploaderName } = await import('../lib/workDrive.js');
+const { workflowOwnerOf } = await import('../lib/workFlowOwners.js');
 
 const recDir = path.join(root, 'records');
+const args = process.argv.slice(2);
+if (args.length === 1 && args[0] === '--audit') {
+  try {
+    console.log(JSON.stringify(auditArchives()));
+  } catch {
+    console.log(JSON.stringify({ status: 'unverified' }));
+    process.exitCode = 1;
+  }
+  process.exit(process.exitCode || 0);
+}
+const shaArg = args.find(arg => arg.startsWith('--sha='));
+if (shaArg) {
+  const sha = shaArg.slice('--sha='.length);
+  let status;
+  try {
+    status = /^[a-f0-9]{64}$/.test(sha) && args.length <= 2 && args.every(arg => [shaArg, '--apply', '--dry-run'].includes(arg))
+      && args.filter(arg => arg === shaArg).length === 1
+      ? recoverOne(sha, args.includes('--apply')) : 'invalid-arguments';
+  } catch {
+    status = 'unverified';
+  }
+  console.log(JSON.stringify({ status }));
+  process.exit(['ready', 'already-indexed', 'restored'].includes(status) ? 0 : 1);
+}
+if (args.some(arg => arg !== '--dry-run')) {
+  console.log(JSON.stringify({ status: 'invalid-arguments' }));
+  process.exit(1);
+}
+
+// This path is for private maintenance. It uses the same web ingest attribution
+// and ACL, and never prints arguments, source metadata, or underlying errors.
+function indexByHash() {
+  const index = fs.readFileSync(path.join(process.cwd(), 'data', 'drive', 'index.jsonl'), 'utf8');
+  const states = new Map();
+  for (const line of index.split('\n')) {
+    if (!line.trim()) continue;
+    const row = JSON.parse(line);
+    if (row.type === 'download' || !row.sha) continue;
+    const current = states.get(row.sha);
+    states.set(row.sha, current === 'protected-index-entry' || row.deleted || row.egressSnapshot
+      ? 'protected-index-entry' : 'already-indexed');
+  }
+  return states;
+}
+
+function archiveRecords() {
+  return fs.readdirSync(recDir).filter(name => name.endsWith('.json'))
+    .map(name => JSON.parse(fs.readFileSync(path.join(recDir, name), 'utf8')))
+    .filter(record => /^[a-f0-9]{64}$/.test(record.sourceHash || ''));
+}
+
+function auditArchives() {
+  const index = indexByHash();
+  const sources = new Map();
+  const records = archiveRecords();
+  for (const record of records) {
+    if (!sources.has(record.sourceHash)) sources.set(record.sourceHash, []);
+    sources.get(record.sourceHash).push(record);
+  }
+  const states = { 'already-indexed': 0, 'protected-index-entry': 0, ready: 0, 'ownership-unverified': 0,
+    'access-unverified': 0, 'invalid-source': 0, unverified: 0 };
+  for (const [sha, group] of sources) {
+    let status;
+    try { status = recoverOne(sha, false, index, group); }
+    catch { status = 'unverified'; }
+    states[status]++;
+  }
+  return { status: 'audited', records: records.length, uniqueSources: sources.size, states };
+}
+
+function recoverOne(sha, apply, index = indexByHash(), records = archiveRecords().filter(record => record.sourceHash === sha)) {
+  if (index.has(sha)) return index.get(sha);
+  if (!records.length) return 'source-record-missing';
+  const [{ actor, at, snapshot }] = records.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  const filename = snapshot?.fileName;
+  if (!actor || !workflowOwnerOf({ userId: actor }) || !filename || records.some(record => record.actor !== actor || record.snapshot?.fileName !== filename)) {
+    return 'ownership-unverified';
+  }
+  const userName = webUploaderName(actor);
+  const classification = classify({ filename, userName, hostname: WEB_UPLOAD_HOST });
+  if (!classification.dept || classification.stage !== '입고' || classification.sensitive || !/\.pdf$/i.test(filename)) {
+    return 'access-unverified';
+  }
+  const sourceFile = path.join(root, 'files', sha);
+  const stat = fs.lstatSync(sourceFile);
+  if (!stat.isFile() || stat.size < 1024 || stat.size > FILE_MAX) return 'invalid-source';
+  const buffer = fs.readFileSync(sourceFile);
+  if (buffer.length !== stat.size || buffer.subarray(0, 5).toString() !== '%PDF-' || createHash('sha256').update(buffer).digest('hex') !== sha) {
+    return 'invalid-source';
+  }
+  if (!apply) return 'ready';
+
+  const source = 'import/packing-list';
+  const result = ingestFile({ buffer, filename, userName, hostname: WEB_UPLOAD_HOST, dir: source, mtime: at || null, eventType: WEB_UPLOAD_EVENT, source });
+  if (!result.ok) return 'write-failed';
+  return result.duplicate ? 'already-indexed' : 'restored';
+}
+
 if (!fs.existsSync(recDir)) { console.log(`records 폴더 없음: ${recDir} — 소급할 업로드가 없습니다.`); process.exit(0); }
 const names = fs.readdirSync(recDir).filter((n) => n.endsWith('.json')).sort();
 const seen = new Set();

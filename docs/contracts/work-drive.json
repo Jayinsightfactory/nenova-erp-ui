@@ -28,6 +28,8 @@
     "pages/api/sales/profit-report-excel-audit.js",
     "pages/api/raum/pnl-import.js",
     "scripts/work-drive-backfill-web-uploads.mjs",
+    "__tests__/workDriveBackfillOne.test.cjs",
+    ".github/workflows/drive-backfill-web-uploads.yml",
     "lib/workDrivePairsAsync.cjs",
     "lib/workDrivePairsWorker.cjs",
     "__tests__/workDrivePairsWorker.test.cjs",
@@ -97,6 +99,7 @@
     "__tests__/workDrivePairs.test.js",
     "__tests__/erpContractManifest.test.js",
     "__tests__/packingSharedHistory.test.js",
+    "__tests__/workDriveBackfillOne.test.cjs",
     "__tests__/workDriveIngestIndex.test.cjs",
     "__tests__/workDriveIngestWorker.test.cjs",
     "__tests__/serverWorkTelemetry.test.cjs",
@@ -128,6 +131,7 @@
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
   ],
+  "singleWebRecovery": "The public Actions workflow performs a read-only audit of archived web sources against the raw work-drive index and emits aggregate states only. Private maintenance can preflight an exact archived web PDF SHA-256 and explicitly apply it using the original recorded web uploader and canonical drive classification. Existing index entries, including deleted and egress entries, prevent restoration. Ambiguous uploader or filename, unknown ownership, sensitive or non-incoming classifications, and unverified bytes prevent writes. The single-source command reports status only and uses the normal locked ingest for idempotency. No SQL.",
   "pairWorker": "The authenticated ingest endpoint admits two concurrent bodies per web process and holds at most 24 additional connections for 15 seconds before Retry-After. A separate low-priority child stores the original and index; a bounded, recoverable on-disk intent precedes new invoice/result writes. Pair analysis runs in another supervised child and is no longer awaited by upload; its atomic output and admin recompute format are unchanged. Automatic jobs request an acknowledgment only, so the web process need not receive the full saved pair document. Worker processes receive no ERP credentials. Remit parsing runs in the child, legacy SQL import is awaited before 200 as before. Contended mirrors can spool locally; overload remains explicit.",
   "requiredTests": [
     "__tests__/workDrivePairsWorker.test.cjs"

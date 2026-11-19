@@ -160,8 +160,13 @@ function installFixtureProtocol() {
         flights: [{
           key: 'flight-fixture', number: 1, weekLabel: '47-1', country: '콜롬비아', displayName: '콜롬비아 수국 47-1',
           itemLabel: '콜수국', airline: 'KALITTA', flight: 'K4254', status: 'in_flight', statusLabel: '비행 중',
+          origin: { name: '메데진', lat: 6.16, lon: -75.42 },
+        }, {
+          key: 'registered-fixture', weekLabel: '47-1', country: '미국', flight: 'KE048', status: 'registered', statusLabel: '입고 등록 끝',
+          origin: { name: '로스앤젤레스', lat: 33.94, lon: -118.40 }, position: { lat: 37.46, lon: 126.44 },
         }],
-        summary: { total: 1, inFlight: 1 },
+        todo: [{ key: 'registered-fixture', text: '인보이스 수량 확인', level: 'red' }],
+        summary: { total: 2, inFlight: 1, registered: 1 },
       });
     }
     if(url.pathname==='/api/pm/staff-requests')return Response.json({success:true,requests:[]});
@@ -467,6 +472,8 @@ async function run() {
   await verifyHomeBridge(shellContents);
   await verifyHomeUi(shellContents, sourceWindow);
   await waitFor(() => shellContents.executeJavaScript("document.querySelector('[data-flight-select]')?.textContent.includes('콜롬비아 수국 47-1') === true"), 'flight card displays the API cargo title');
+  await waitFor(() => shellContents.executeJavaScript("document.body.textContent.includes('도착 후 확인') && [...document.querySelectorAll('svg [role=button]')].some(n => n.getAttribute('aria-label')?.includes('K4254'))"), 'current flight marker and post-arrival work are shown');
+  assert.equal(await shellContents.executeJavaScript("[...document.querySelectorAll('svg [role=button]')].some(n => n.getAttribute('aria-label')?.includes('KE048'))"), false, 'registered arrival with open work has no map marker');
   for (const [phase, label, disabled] of [['available', '앱 1.4.0 다운로드', false], ['downloading', '다운로드 42%', true], ['downloaded', '재시작하여 업데이트', false], ['unavailable', '앱 업데이트 확인', true]]) {
     // Account and tab events also publish state. Capture this fixture render when it arrives.
     await shellContents.executeJavaScript(`(() => {

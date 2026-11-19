@@ -171,3 +171,10 @@ test('print inventory suffix stays open for memo, uniform body font and top alig
  assert.equal(cell.alignment.vertical,'top');assert.notEqual(cell.alignment.shrinkToFit,true);
  assert(cell.value.richText.every(r=>r.font.size===10&&r.text.length>0));assert.equal(ws.getCell('A3').font.size,10);assert(ws.getRow(3).height>=24);
 });
+test('row fit uses actual merged width and longest rich text lane',()=>{
+ const {fitFieldRow}=load('shipmentFieldCompact'),wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('test');
+ [30,2,20,20,20,7,7,7,7].forEach((w,i)=>ws.getColumn(i+1).width=w);
+ ws.getCell('C1').value={richText:[{text:'일요일 업체1\n목요일 업체2\n금요일 업체3'}]};ws.mergeCells('C1:E1');fitFieldRow(ws,1,9);assert(ws.getRow(1).height>=56);
+ ws.getCell('C2').value='짧음';ws.getCell('D2').value={richText:[{text:'긴품종'.repeat(35)}]};fitFieldRow(ws,2,9);assert(ws.getRow(2).height>ws.getRow(1).height);
+ const narrow=ws.getRow(2).height;ws.getColumn(4).width=60;fitFieldRow(ws,2,9);assert(ws.getRow(2).height<narrow);
+});
