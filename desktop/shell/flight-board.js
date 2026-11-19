@@ -185,9 +185,10 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
   function paint(data){
     clear();last=data;
     const s=data.summary||{},issues=data.issueTotal??((s.red||0)+(s.amber||0));
-    chips.append(chip(`비행 중 ${s.inFlight||0}`,COLORS.in_flight),chip(`출발 전 ${s.beforeDeparture||0}`,COLORS.before_departure),chip(`빌번호 대기 ${s.awaitingAwb||0}`,COLORS.awaiting_awb),chip(`도착·입고 대기 ${s.arrived||0}`,COLORS.arrived),
-      chip(`확인 필요 ${issues}`,issues?(s.red?COLORS.red:COLORS.amber):COLORS.gray));
     const flights=linkedFlights(data.flights||[],data.todo||[]);
+    const attention = flights.filter(f => f.priority < 2).length;
+    chips.append(chip(`비행 중 ${s.inFlight||0}`,COLORS.in_flight),chip(`출발 전 ${s.beforeDeparture||0}`,COLORS.before_departure),chip(`빌번호 대기 ${s.awaitingAwb||0}`,COLORS.awaiting_awb),chip(`도착·입고 대기 ${s.arrived||0}`,COLORS.arrived),
+      chip(`확인 필요 ${attention}편 · 이슈 ${issues}건`,issues?(s.red?COLORS.red:COLORS.amber):COLORS.gray));
     paintMap({...data,flights});
     list.setAttribute('aria-label', `처리 순서별 항공편 ${flights.length}편`);
     if (flights.length > 3) list.append(css(el('div', '', `전체 ${flights.length}편 · 우선 처리 순`), {fontSize:'11.5px', marginBottom:'5px', color:'#526981'}));
@@ -200,23 +201,25 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       const selected=f.viewId===selectedViewId;
       row.dataset.flightId=f.viewId;row.tabIndex=-1;
       css(row,{border:'1px solid #d7e0ea',borderLeft:`4px solid ${f.priority===0?'#b02a2a':f.priority===1?'#b07500':'#aab8c8'}`,borderRadius:'8px',padding:'8px',marginBottom:'8px',background:selected?'#f0f6ff':'#fff'});
-      const choose=btn(`${f.boardNumber}. ${f.country} · ${f.flight||'편명 미확인'} ${selected?'▴':'▾'}`,()=>selectFlight(selected?'':f.viewId));
+      const title = f.displayName || `${f.country} · ${f.flight || '편명 미확인'}`;
+      const choose=btn(`${f.boardNumber}. ${title} ${selected?'▴':'▾'}`,()=>selectFlight(selected?'':f.viewId));
       choose.dataset.flightSelect='';choose.setAttribute('aria-expanded',String(selected));css(choose,{fontWeight:'700',textAlign:'left',flexBasis:'100%'});
       const steps = f.steps || [];
       const finished = steps.filter(step => step.state === 'done').length;
       row.append(choose,state);
       if (!selected) {
         const quantity = f.receivedCargo?.boxes ?? f.announcedCargo?.boxes;
-        const cargo = [f.itemLabel, quantity != null ? `${f.receivedCargo?.boxes != null ? '입고' : '공지'} ${quantity}박스` : ''].filter(Boolean).join(' · ');
+        const cargo = [f.displayName ? null : f.itemLabel, quantity != null ? `${f.receivedCargo?.boxes != null ? '입고' : '공지'} ${quantity}박스` : ''].filter(Boolean).join(' · ');
         if (cargo) row.append(css(el('span','',cargo),{overflowWrap:'anywhere',minWidth:'0'}));
         if (steps.length) row.append(css(el('span','',`처리 ${finished}/${steps.length} 완료`),{color:'#526981'}));
       } else row.append(arrive);
       const line = (message) => css(el('div', '', message), { flexBasis: '100%', color: '#526981' });
       if (selected) row.append(
-        line(`항공사 ${f.airline || '미확인'} · 빌번호 ${f.awb || '미확인'}`),
+        line(`${f.displayName && f.flight ? `편명 ${f.flight} · ` : ''}항공사 ${f.airline || '미확인'} · 빌번호 ${f.awb || '미확인'}`),
         line(`${f.origin?.name || '출발지 미확인'}${f.originAssumed ? ' (추정)' : ''} → ${f.viaName ? f.viaName + '(경유) → ' : ''}인천`),
         line(`${f.weekLabel ? f.weekLabel + '차 · ' : ''}품목 ${f.itemLabel || '미확인'} · 운송 수량(공지) ${f.announcedCargo?.boxes != null ? f.announcedCargo.boxes + '박스' : '미확인'}`),
       );
+      if (selected && f.extraTitleItems?.length) row.append(line(`품목 전체 ${f.extraTitleItems.join(' · ')}`));
       if (selected && f.receivedCargo?.boxes != null) row.append(line(`전산 입고 합계 ${f.receivedCargo.boxes}박스`));
       const stepList = css(el('div'), { display: 'flex', flexBasis: '100%', flexWrap: 'wrap', gap: '4px' });
       const labels = {done:'확인', wait:'대기', due:'진행·확인 필요', late:'확인 필요', unknown:'미확인'};
@@ -260,7 +263,9 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
     }
     const p=kst(data.generatedAt);
     status.textContent=flights.length?`${p?`${p.mo}/${p.day} ${p.hh}:${p.mm} 기준 · `:''}5분마다 자동으로 다시 읽습니다. 「새로고침」을 누르면 바로 다시 읽습니다.`:(data.feedOk?'지금 들어오는 비행기 공지가 없습니다.':'도착 공지를 읽지 못했습니다. 잠시 후 다시 확인해 주세요.');
-    const parts=(data.feedRooms||[]).map(r=>`${r.room}: 원문 ${when(r.latestMessageAt)} / 저장 ${when(r.latestImportedAt)}${r.error?' · 조회 실패':''}`);if(data.registeredCount)parts.push(`입고 등록까지 끝난 편 ${data.registeredCount}건은 「확대 보기」에서 확인`);
+    const parts=(data.feedRooms||[]).map(r=>`${r.room}: 원문 ${when(r.latestMessageAt)} / 저장 ${when(r.latestImportedAt)}${r.error?' · 조회 실패':''}`);
+    const hiddenRegistered = Math.max(0, (data.registeredCount || 0) - flights.filter(f => f.status === 'registered').length);
+    if (hiddenRegistered) parts.push(`이슈 없는 입고 완료 ${hiddenRegistered}편은 「확대 보기」에서 확인`);
     parts.push(`인천공항 자료 ${data.sources?.icn?'✔':'–'} · 통관 자료 ${data.sources?.customs?'✔':'–'}`);foot.textContent=parts.join(' · ');
   }
   function selectFlight(id){selectedViewId=id;if(!last)return;paint(last);const card=[...list.children].find(n=>n.dataset.flightId===id);card?.focus();card?.scrollIntoView({block:'nearest'});}
