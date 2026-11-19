@@ -4043,3 +4043,11 @@ pm run test:canon 통과.
 4. 검증 상태: 신규14 PASS, Desktop unit75/menu3 PASS, manifest233/write scope1API/dnSpy PASS, provisional webpack2회 PASS. 전체 ERP는 기존 codeOnlyDeployment Bash2건3221225794 실패 후 단독15건 재검증 PASS(전체 재통과 미완료). 정식 build는 오래된 PedidosTool 가이드 hash에서 실패. 실제 중국2026/47-02 SELECT61행=2270단+86송이; 실제 카톡 연결 조회 불가여서 동일사건 입증 미검증. fixture는 별도 명시.
 5. 주의/잠금: Carver 단독 worktree 유지. CUA 사용자 입력충돌/최소화/coordinate input geometry unavailable, 겹친 타 앱 화면은 캡처증거로 저장하지 않음. 네이티브 저장 버튼 클릭·Excel 확인 미완료. 운영 ERP/전달체크/유료분석0. node_modules 두 junction은 canonical 대상 재귀삭제 금지. .verify private probe/로그·임시 원본은 커밋 금지, 생성 출력2개는 해시 검증 백업 후에만 복원함.
 검색어: country-po-1119 Carver countryOrderHistory China2026 47-02 Desktop1.3.60 native-save-blocked immutable-XLSX CARRY_PENDING
+
+## 2026-11-19 · 실검증 범위 중국2026/46-02 정정 / 실제 두 원본 대조
+1. 작업 위치: nenova-erp-ui / fix/country-po-1119 / C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119 / Draft PR1883 유지. 이전47-02 일반 테스트·기록 보존, 46-02 실자료로 재표기하지 않음.
+2. 완료된 것: 46-02 새 SELECT-only 두번읽기78상세/17업체/47품목=2563단+80송이, 주문수량이력89건 확보. Downloads 실제46-02_CLOUD(35137bytes,2518단+80송이)와 Melody(14446bytes,45단)의 첫 '업체별 발주' 시트78개 셀을 현재 ERP와 대조: 수량차이0/파일간중복셀0/품목키모호0/행합계차이0. 기존 국가양식 시트는 중복 합산하지 않음. 원본bytes 수정없음·SHA plan에 보존.
+3. 남은 할 일: 실제 해당 카톡 추가 원문·유일 등록 근거·최초 다운로드/전달 기준 확보, 실제 Desktop 격리 전달체크→원본 재열기/재다운로드·hash/셀·네이티브 저장/캡처, 기존 가이드/필수gates/CI/배포. 파일 생성시각을 다운로드·전달시각으로 오인 금지. 운영 주문/농장전달 쓰기 금지.
+4. 검증 상태: 새46-02 원천실패→오류·생성0 회귀 포함15건 PASS. 카톡archive 자격 없음·별칭조회실패는 unavailable, 메시지수null. 최초 다운로드/전달 및 실제 카톡↔등록 중복 여부 미확인(0건 아님). 운영 브라우저2회시간초과, 실제Desktop 읽기는 가능하나 탭클릭 coordinate input geometry unavailable 지속. 설치앱1.3.60 관찰은 타배포 버전이며 PR1883 배포 증거 아님. 실제 클릭/캡처·새 배포 미완료.
+5. 주의/잠금: private .verify/probe-country-4602.cjs, country-4602-readonly.json, compare-country-4602.cjs, country-4602-file-comparison.json은 원문/상세키를 포함하여 커밋 금지. 원본 Downloads 두 파일 보존. 일반 기능 소스 불변, 회귀테스트·plan만 추가. Carver 단독 worktree와 junction 경계 유지.
+검색어: China2026 46-02 Carver PR1883 CLOUD2518 Melody45 2563단80송이 unavailable-not-zero actual-original-readonly

@@ -44,3 +44,20 @@ test('actual generator→immutable XLSX→explicit delivery→reopen same bytes;
     const denied=response();await handler({method:'POST',user:{userId:'sales'},body:request},denied);assert.equal(denied.code,403);
   }finally{assert.ok(path.resolve(root).startsWith(path.resolve(os.tmpdir())+path.sep));await fs.rm(root,{recursive:true,force:true});}
 });
+
+test('China 2026/46-02 unavailable chat source is an error, never a healthy zero or downloadable preview',async()=>{
+  const actualScope={country:'China',year:2026,orderWeek:'46-02'};let generated=0;
+  const handler=createCountryOrderHistoryHandler({
+    store:{list:async()=>[],withScopeLock:async(_scope,operation)=>operation()},secret:'test-only',canAccess:()=>true,
+    readCurrent:async incoming=>{assert.deepEqual(incoming,actualScope);return{queriedAt:'2026-11-19T08:00:00Z',matrix:{scope:actualScope,customers:[],rows:[]},details:[],events:[]};},
+    readMessages:async()=>{throw Error('private upstream failure must not leak');},
+    generate:()=>{generated++;return[];}
+  });
+  for(const method of ['GET','POST']){
+    const res=response();await handler({method,user:{userId:'fixture'},query:actualScope,body:{action:'preview',scope:actualScope,selections:[]}},res);
+    assert.equal(res.code,500);assert.equal(res.body.code,'COUNTRY_ORDER_HISTORY_UNAVAILABLE');
+    assert.equal(Object.hasOwn(res.body,'messages'),false);assert.equal(Object.hasOwn(res.body,'outputs'),false);
+    assert.doesNotMatch(res.body.error,/private upstream/);
+  }
+  assert.equal(generated,0);
+});
