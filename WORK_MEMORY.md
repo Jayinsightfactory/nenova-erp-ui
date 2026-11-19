@@ -3815,6 +3815,33 @@ pm run test:canon 통과.
 - 주의/잠금: acba 기존 dirty WORK_MEMORY.md·45차CSV 보존. 판매스냅샷은 차수 전체 기록이며 엑셀다운로드/이카운트입력 증거 아님. 현재45차 판매등록확정 미기록.
 - 검색어: 원장 연결 알림 달력 최초 현재 신고 판매등록 날짜 REG_CONFIRM 견적 변경 이력 양식 1.3.46
 
+## 2026-11-19 현장물량표 요일 세로·업체 품종 요약
+- 요약: 품종명1회·한 셀 유지, 요일마다 새 줄. 하단 요일·지역 제목 오른쪽 업체총량(품종수량,...) 추가. 빠렛 옆 스냅샷 실제 박스수, 단일시트 A3가로. 기존1차합산·환산·입출재잔 수식 보존, SQL/API/UI 조작 변경0.
+1. 작업 위치: nenova-erp-ui / codex/field-calendar-1119 / Documents/Codex/2026-11-13/new-chat/work/nw-calendar / PR 생성 후 CI·자동 squash·Cafe24 확인 예정.
+2. 완료된 것: lib/shipmentFieldVolume.js, lib/shipmentPallet.js, 표적검사·계약/기준표·세션Q&A 갱신. 기존 Layout 및 desktop/menu.json 연결 확인. 실제46-02 원본4종 XLSX/PDF와 ZIP은 outputs에 보존.
+3. 남은 할 일: PR CI·squash 머지·Cafe24 배포·운영 버전/다운로드 확인 후 작업트리 정리. 배포 결과는 PR/Actions가 정본.
+4. 검증 상태: 최종 표적34·전체 ERP계약·manifest229·dnSpy·쓰기guard·전체 workflow-guides·정식 webpack build PASS. 초기 격리셸 bash 초기화/빌드 EPERM은 정상권한 재검증으로 통과. 실제Excel 읽기전용 인쇄4종 모두A3가로1페이지 및 전체 시각확인. 운영SELECT-only2025/2026동일46-02 범위 확인. 운영쓰기0; 배포 후 실제운영 다운로드는 아직 미검증.
+5. 주의/잠금: 기본 checkout dirty 및 타 세션 작업트리 보존. 새메뉴/데스크톱패키지/영상 조작순서 변경 없음. 카네이션45박스=1.1빠렛(기존40박스 기준), 장미일반10/Snowflake25단 환산 그대로; 빠렛에서 박스 역산 금지.
+검색어: field-calendar 요일 세로 현장물량표 업체 품종요약 빠렛 박스 A3 landscape
+
+## 2026-11-19 하단 요일별 독립구역 로컬 수정
+검색어: vertical-footer 46-01 카네이션 merged weekday fieldCultivarDisplay
+1. 작업 위치: nenova-erp-ui / codex/vertical-footer / Documents/Codex/2026-11-13/new-chat/work/vertical-footer / PR 없음.
+2. 완료: shipmentFieldVolume.js 하단만 요일 독립 헤더+지역요약 세로 그룹, 기존 farm 별칭 기반7개 한글표시·unknown원문보존. 본문 배치·총합수식 유지. 계약과 대상시험 갱신.
+3. 남은 일: 실제 인쇄시각·필수전체gate·인계커밋·PR/CI/병합/배포. 기본 격리셸에서401이나 정상권한 gh api user/PR목록 성공; 계정만료아님, 재로그인불필요.
+4. 검증: 대상35/35 PASS, 실제46-01카네이션 파싱/생성 PASS. Excel A3가로4쪽 PDF·하단시각 확인. 전체gate·운영 진행중.
+5. 주의/잠금: 이 작업트리3개 변경파일 보존. ERP/DB쓰기0. 출력샘플은 new-chat/outputs/46-01 카네이션 하단요일 세로.xlsx.
+
+- 후속: 정식 webpack build exit0, manifest229/dnSpy/쓰기guard PASS. 실제 원본46-01 샘플·원본팔렛스냅샷 병기·Excel A3가로4쪽 PDF 및 footer 시각확인 PASS. 전체ERP/CI/배포 진행중.
+- 한글 후속: 기존 lib/displayName.js suggestDisplayName canonical 재사용, 알려진7개 별칭 우선. 한글변환 없는 미등록 이름은 원문유지. 대상35 PASS. 최종 SHA CI 재검증 필요.
+## 2026-11-19 입고 원장 인보이스·AWB 열 검색
+1. 작업 위치: nenova-erp-ui / codex/incoming-number-search / work/nw-cdx-incoming-number-search / PR 생성 전.
+2. 완료된 것: pages/incoming.js의 원장 표에 인보이스·AWB 검색 추가. 세 검색은 AND, AWB는 공백·하이픈 무시, 입력 즉시 기존 조회 결과에서 필터. 데스크톱 기존 /incoming 메뉴 연결 확인, 설치본 1.3.48 준비.
+3. 남은 할 일: 로컬 정식 빌드, 두 역할 가이드 실제 검증/갱신, CI·squash·Cafe24 운영 조회·Windows 배포 및 작업트리 정리.
+4. 검증 상태: 정식 webpack 빌드·Chrome 두 역할 합성 dry-run·실제 2편 촬영과 회사 Drive 6파일 업로드 통과. CI·운영·직원 PC는 미검증.
+5. 주의/잠금: 원장/API/SQL·원가·정렬 변경 없음. 기존 체크아웃 보존. 직원 PC 재시작 없음.
+검색어: 입고관리 인보이스 번호 AWB 농장명 열 검색 normalizeAwbSearch
+
 ## 2026-11-19 · 원장 연결 알림 기록 달력 배포 완료
 - 위치: nenova-erp-ui / codex/ledger-calendar-1119 / 완료 worktree 정리 / PR1855, merge3da8f29783a0ff6b19b9a6cf754cfb5372712adf.
 - 완료: 최초/현재 신고·등록변경·차수 판매스냅샷 실제 날짜 달력, 미기록 날짜 비추정. 가이드66.4초·자막·목차, desktop1.3.46 릴리스와 feed/설치파일SHA512 확인.

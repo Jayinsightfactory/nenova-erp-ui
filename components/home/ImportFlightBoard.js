@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { apiGet, apiPost } from '../../lib/useApi';
 import { WORLD_VIEW, WORLD_LAND_PATH, projectLonLat } from '../../lib/importFlightWorldPath';
 
-const { issueRows, shortIssue, linkedFlights, nextAction, placeMarkers } = require('../../desktop/shell/flight-board');
+const { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers } = require('../../desktop/shell/flight-board');
 
 const REFRESH_MS = 5 * 60 * 1000;
 const STATUS_STYLE = {
@@ -185,7 +185,7 @@ function FlightMap({ flights, destination, selectedKey, onSelect, onEnlarge }) {
           <Fragment key={f.key}>
           {(p.x !== p.anchorX || p.y !== p.anchorY) && <line x1={p.anchorX} y1={p.anchorY} x2={p.x} y2={p.y} stroke="#667f99" strokeWidth="1" pointerEvents="none" />}
           <g role="button" tabIndex={0} aria-label={`${f.boardNumber}번 ${f.country} ${f.flight || '편명 미확인'} 선택`} aria-pressed={on} onClick={event => { event.stopPropagation(); onSelect(f.key, event); }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(f.key, event); } }} style={{ cursor: 'pointer' }}>
-            <title>{`${f.weekLabel}차 ${f.country} ${f.flight} — ${f.statusLabel}${f.progress != null ? ` 약 ${Math.round(f.progress * 100)}%` : ''}`}</title>
+            <title>{`${f.weekLabel ? f.weekLabel + '차' : '차수 미확인'} ${f.country} ${f.flight} — ${f.statusLabel}${f.progress != null ? ` 약 ${Math.round(f.progress * 100)}%` : ''}`}</title>
             <circle cx={p.x} cy={p.y} r={on ? 9 : 7} fill={f.priority === 0 ? '#b02a2a' : st.dot} stroke={on ? '#0b3d75' : '#fff'} strokeWidth={on ? 2 : 1.4} opacity="0.95" />
             <text x={p.x} y={p.y + 2.6} fontSize="6.5" textAnchor="middle" fill="#fff" fontWeight="700">{f.boardNumber}</text>
             {(
@@ -226,7 +226,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
     setSelectedKey(key);
   };
   useEffect(() => {
-    if (selectedKey) { const card = detailRef.current?.querySelector('[data-selected="true"]'); card?.focus(); card?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+    if (selectedKey) { const card = detailRef.current?.querySelector('[data-selected="true"]'); card?.focus(); card?.scrollIntoView({ block: 'nearest' }); }
     else returnFocusRef.current?.focus();
   }, [selectedKey]);
   const [showDone, setShowDone] = useState(false);
@@ -347,14 +347,20 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
               {shown.map(f => {
                 const expanded = f.key === selectedKey;
                 const attention = f.priority < 2;
+                const steps = f.checklist?.steps || [];
+                const deadline = quarantineView(f.checklist, steps);
+                const quantity = f.receivedCargo?.boxes ?? f.announcedCargo?.boxes;
                 const track = f.links?.aircraftTrack || f.links?.flightTrack;
                 return <article key={f.key} tabIndex={-1} data-selected={expanded} data-testid="flight-card" onKeyDown={event => { if (event.key === 'Escape' && expanded) { event.stopPropagation(); setSelectedKey(''); } }} style={{ border: expanded ? '2px solid #1668c7' : '1px solid #d7e0ea', borderLeft: `4px solid ${f.priority === 0 ? '#b02a2a' : f.priority === 1 ? '#b07500' : '#aab8c8'}`, borderRadius: 8, padding: 10, marginBottom: 8, background: expanded ? '#f0f6ff' : '#fff', fontSize: 13, lineHeight: 1.6 }}>
                   <button type="button" data-flight-select className="flight-select" aria-expanded={expanded} onClick={event => selectDetail(expanded ? '' : f.key, event)}>
-                    <b>{f.boardNumber}. {f.country} · {f.flight || '편명 미확인'}</b>
+                    <b>{f.boardNumber}. {f.displayName || `${f.country} · ${f.flight || '편명 미확인'}`}</b>
                     <span>{f.priority === 0 ? '우선 확인' : f.priority === 1 ? '확인 필요' : f.status === 'registered' ? '입고 등록 끝' : '이슈 없음'} {expanded ? '▴' : '▾'}</span>
                   </button>
-                  <div><StatusChip f={f} /> <span>{f.weekLabel}차 · {f.itemLabel} · 공지 도착 {arrivalText(f)}</span></div>
-                  <div>항공사 {f.airline || '미확인'} · 빌번호 {f.awb || '미확인'}</div>
+                  <div className="flight-compact-summary"><StatusChip f={f} /> <span>{!f.displayName && (f.itemLabel || f.country)}{quantity != null && `${f.displayName ? '' : ' · '}${f.receivedCargo?.boxes != null ? '입고' : '공지'} ${fmt(quantity)}박스`}</span>{!expanded && steps.length > 0 && <span>처리 {steps.filter(step => step.state === 'done').length}/{steps.length} 완료</span>}</div>
+                  {!expanded && deadline && <div style={{ color: deadline.color }}>{deadline.text}</div>}
+                  {expanded && <>
+                  <div>{f.weekLabel ? f.weekLabel + '차' : '차수 미확인'} · 공지 도착 {arrivalText(f)}</div>
+                  <div>{f.displayName && f.flight && <>편명 {f.flight} · </>}항공사 {f.airline || '미확인'} · 빌번호 {f.awb || '미확인'}</div>
                   <div>{f.origin?.name || '출발지 미확인'}{f.origin?.assumed ? ' (추정)' : ''} → {f.via?.name ? `${f.via.name}(경유) → ` : ''}인천</div>
                   <div>
                     {f.departAtEstimated && <>출발 예측 {shortTime(f.departAtEstimated)} · </>}
@@ -365,6 +371,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                     운송 수량(공지): {f.announcedCargo?.boxes != null ? `${fmt(f.announcedCargo.boxes)}박스` : '미확인'}
                     {f.receivedCargo && <> · 전산 입고 합계 {fmt(f.receivedCargo.boxes)}박스</>}
                   </div>
+                  {!!f.extraTitleItems?.length && <div>품목 전체: {f.extraTitleItems.join(' · ')}</div>}
                   {!!f.announcedCargo?.items?.length && <div>공지 품목: {f.announcedCargo.items.map(item => `${item.name} ${fmt(item.box)}박스`).join(' · ')}</div>}
                   <FlightStrip f={f} busy={busyAwb === f.awb} onToggleDocs={toggleDocs} />
                   {f.checklist?.quarantineSlotChanged && <div>공항 예상 시각 변경으로 검역 예정 회차가 달라질 수 있습니다. 접수 가능 시간을 확인하세요.</div>}
@@ -381,12 +388,13 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                       <div key={s.key}>{s.label} · {s.state === 'done' ? '확인' : s.state === 'due' ? '진행·확인 필요' : '미확인'}{s.at ? ` · ${shortTime(s.at)}` : ''}{s.note ? ` · ${s.note}` : ''}</div>
                     ))}
                   </details>
+                  </>}
                   {(attention || expanded) && <>
-                    {f.flightIssues.length > 0 ? <ol className="flight-actions">{(expanded ? f.flightIssues : f.flightIssues.slice(0,2)).map(it => <li key={it.text}><span>{shortIssue(it.text)}</span><div className="flight-next">→ {nextAction(it)}</div></li>)}</ol> : <p style={{ margin: '4px 0', color: 'var(--text3)' }}>{f.nextStep ? `${f.nextStep} 확인` : '현재 연결된 이슈 없음'}</p>}
+                    {f.flightIssues.length > 0 ? <ol className="flight-actions">{(expanded ? f.flightIssues : f.flightIssues.slice(0,2)).map(it => <li key={it.text}><span>{expanded ? shortIssue(it.text) : compactIssue(it)}</span>{expanded && <div className="flight-next">→ {nextAction(it)}</div>}</li>)}</ol> : <p style={{ margin: '4px 0', color: 'var(--text3)' }}>{f.nextStep ? `${f.nextStep} 확인` : '현재 연결된 이슈 없음'}</p>}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
                       {!expanded && f.flightIssues.length > 2 && <button type="button" className="btn btn-sm" onClick={event => selectDetail(f.key,event)}>이슈 {f.flightIssues.length}건 모두 보기</button>}
-                      {track && <a href={track} target="_blank" rel="noopener noreferrer" className="btn btn-sm">시간·실제 위치 원문 ↗</a>}
-                      <button type="button" className="btn btn-sm" disabled={loading} onClick={() => { setLoading(true); load(true); }}>공항 자료 다시 확인</button>
+                      {expanded && track && <a href={track} target="_blank" rel="noopener noreferrer" className="btn btn-sm">시간·실제 위치 원문 ↗</a>}
+                      {expanded && <button type="button" className="btn btn-sm" disabled={loading} onClick={() => { setLoading(true); load(true); }}>공항 자료 다시 확인</button>}
                     </div>
                   </>}
                   {expanded && <div data-testid="flight-selected-detail" style={{ borderTop: '1px solid #d7e0ea', marginTop: 8, paddingTop: 8 }}>
@@ -404,6 +412,8 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
         </div>
       )}
       <style jsx>{`
+        .flight-compact-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; overflow-wrap: anywhere; }
+        article[data-testid="flight-card"] { font-variant-numeric: tabular-nums; }
 
         .flight-select { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; border: 0; background: transparent; text-align: left; color: #163957; font: inherit; cursor: pointer; padding: 0 0 5px; }
         .flight-select:focus-visible { outline: 2px solid #1668c7; outline-offset: 3px; }

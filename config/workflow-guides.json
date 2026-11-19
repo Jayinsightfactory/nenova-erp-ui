@@ -517,27 +517,27 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 7.015
+              "seconds": 7.026
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 131.653
+              "seconds": 145.791
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 229.821
+              "seconds": 242.085
             },
             {
               "scenario": "add",
               "title": "4. 기존 입고에 품목·수량 추가",
-              "seconds": 312.501
+              "seconds": 323.604
             },
             {
               "scenario": "cancel",
               "title": "5. 기존 입고의 품목·수량 취소",
-              "seconds": 425.328
+              "seconds": 436.354
             }
           ]
         },
@@ -553,17 +553,17 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.438
+              "seconds": 14.003
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 59.23
+              "seconds": 57.886
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 142.425
+              "seconds": 139.428
             }
           ]
         }
@@ -1507,13 +1507,13 @@
       "videoWaivers": [
         {
           "file": "desktop/shell/flight-board.js",
-          "sha256": "d0921582dd94143dc999c060e8b2e1ccc18cab7d684a4458232c3ceef4cc06dc",
+          "sha256": "d43e9570f5a07bc99a6eb535c6fbafd45e25cd116d1a3263f0f83961da77790b",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },
         {
           "file": "components/home/ImportFlightBoard.js",
-          "sha256": "d0614dd68c65743437d0fa11fade21498b41d927a324faf67a1eb69e6a5dd22d",
+          "sha256": "95bb6a4f8ba86cf0c903b084028a06244d4f34708a0af00faa7b76f1fd319829",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },
@@ -1525,7 +1525,7 @@
         },
         {
           "file": "desktop/flight-board.cjs",
-          "sha256": "2ff2a5ffbd47f93a2406cd23597602a70ab608b49ba92a18fb57014bfeb1365a",
+          "sha256": "9382b80223365218cac5100a7503d615336454c5a225f05838646fe16c5e43fc",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 우선 처리 항공편 정렬을 포함한 이번 연결 화면 개편 영상 제외."
         },

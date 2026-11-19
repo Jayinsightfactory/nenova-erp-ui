@@ -42,6 +42,10 @@ const flightPresentation = (() => {
     if (/공지|공유/.test(text)) return '원문 대조 후 공유 여부 확인';
     return '관련 자료 확인';
   }
+  function compactIssue(issue) {
+    const action = nextAction(issue);
+    return action === '관련 자료 확인' ? shortIssue(issue?.text || issue) : action;
+  }
   // Keep labels/click targets separate; retain the projected anchor for leader lines.
   function placeMarkers(points, width = 720, height = 272) {
     const placed = [];
@@ -63,7 +67,7 @@ const flightPresentation = (() => {
       return { ...point, ...p, anchorX: point.x, anchorY: point.y };
     });
   }
-  return { issueRows, shortIssue, linkedFlights, nextAction, placeMarkers };
+  return { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers };
 })();
 if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
 /* 앱 홈 맨 위 「수입 비행기 현황」: 지도와 편별 상태. 메인 프로세스가 추려 준 읽기 전용 요약만 그린다(스타일은 CSP 때문에 JS 로 준다). */
@@ -79,7 +83,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       ? 'minmax(0, 1fr) clamp(258px, 18%, 350px)' : '';
   };
   wideHome.addEventListener('change', layoutHome);
-  const {issueRows,shortIssue,linkedFlights,nextAction,placeMarkers}=flightPresentation;
+  const {issueRows,shortIssue,linkedFlights,nextAction,compactIssue,placeMarkers}=flightPresentation;
   const SVG='http://www.w3.org/2000/svg',world=window.NenovaWorldMap||null;
   const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
   const css=(n,style)=>{Object.assign(n.style,style);return n;};
@@ -181,12 +185,15 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
   function paint(data){
     clear();last=data;
     const s=data.summary||{},issues=data.issueTotal??((s.red||0)+(s.amber||0));
-    chips.append(chip(`비행 중 ${s.inFlight||0}`,COLORS.in_flight),chip(`출발 전 ${s.beforeDeparture||0}`,COLORS.before_departure),chip(`빌번호 대기 ${s.awaitingAwb||0}`,COLORS.awaiting_awb),chip(`도착·입고 대기 ${s.arrived||0}`,COLORS.arrived),
-      chip(`확인 필요 ${issues}`,issues?(s.red?COLORS.red:COLORS.amber):COLORS.gray));
     const flights=linkedFlights(data.flights||[],data.todo||[]);
+    const attention = flights.filter(f => f.priority < 2).length;
+    chips.append(chip(`비행 중 ${s.inFlight||0}`,COLORS.in_flight),chip(`출발 전 ${s.beforeDeparture||0}`,COLORS.before_departure),chip(`빌번호 대기 ${s.awaitingAwb||0}`,COLORS.awaiting_awb),chip(`도착·입고 대기 ${s.arrived||0}`,COLORS.arrived),
+      chip(`확인 필요 ${attention}편 · 이슈 ${issues}건`,issues?(s.red?COLORS.red:COLORS.amber):COLORS.gray));
     paintMap({...data,flights});
+    list.setAttribute('aria-label', `처리 순서별 항공편 ${flights.length}편`);
+    if (flights.length > 3) list.append(css(el('div', '', `전체 ${flights.length}편 · 우선 처리 순`), {fontSize:'11.5px', marginBottom:'5px', color:'#526981'}));
     for(const f of flights){
-      const row=css(el('div'),{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'5px 10px',padding:'7px 2px',borderTop:'1px solid #e9ecef',fontSize:'12.5px'});
+      const row=css(el('div'),{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'5px 10px',fontSize:'12.5px',fontVariantNumeric:'tabular-nums'});
       const pct=f.status==='in_flight'&&f.progress!==null&&!/대기/.test(f.statusLabel)?` ${Math.round(f.progress*100)}%`:'';
       const state=chip(`${f.statusLabel}${pct}`,COLORS[f.status]||COLORS.gray);
       const at=f.arriveAt;
@@ -194,16 +201,26 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       const selected=f.viewId===selectedViewId;
       row.dataset.flightId=f.viewId;row.tabIndex=-1;
       css(row,{border:'1px solid #d7e0ea',borderLeft:`4px solid ${f.priority===0?'#b02a2a':f.priority===1?'#b07500':'#aab8c8'}`,borderRadius:'8px',padding:'8px',marginBottom:'8px',background:selected?'#f0f6ff':'#fff'});
-      const choose=btn(`${f.boardNumber}. ${f.country} · ${f.flight||'편명 미확인'} ${selected?'▴':'▾'}`,()=>selectFlight(selected?'':f.viewId));
+      const title = f.displayName || `${f.country} · ${f.flight || '편명 미확인'}`;
+      const choose=btn(`${f.boardNumber}. ${title} ${selected?'▴':'▾'}`,()=>selectFlight(selected?'':f.viewId));
       choose.dataset.flightSelect='';choose.setAttribute('aria-expanded',String(selected));css(choose,{fontWeight:'700',textAlign:'left',flexBasis:'100%'});
-      row.append(choose,state,arrive);
+      const steps = f.steps || [];
+      const finished = steps.filter(step => step.state === 'done').length;
+      row.append(choose,state);
+      if (!selected) {
+        const quantity = f.receivedCargo?.boxes ?? f.announcedCargo?.boxes;
+        const cargo = [f.displayName ? null : f.itemLabel, quantity != null ? `${f.receivedCargo?.boxes != null ? '입고' : '공지'} ${quantity}박스` : ''].filter(Boolean).join(' · ');
+        if (cargo) row.append(css(el('span','',cargo),{overflowWrap:'anywhere',minWidth:'0'}));
+        if (steps.length) row.append(css(el('span','',`처리 ${finished}/${steps.length} 완료`),{color:'#526981'}));
+      } else row.append(arrive);
       const line = (message) => css(el('div', '', message), { flexBasis: '100%', color: '#526981' });
-      row.append(
-        line(`항공사 ${f.airline || '미확인'} · 빌번호 ${f.awb || '미확인'}`),
+      if (selected) row.append(
+        line(`${f.displayName && f.flight ? `편명 ${f.flight} · ` : ''}항공사 ${f.airline || '미확인'} · 빌번호 ${f.awb || '미확인'}`),
         line(`${f.origin?.name || '출발지 미확인'}${f.originAssumed ? ' (추정)' : ''} → ${f.viaName ? f.viaName + '(경유) → ' : ''}인천`),
-        line(`${f.weekLabel ? f.weekLabel + '차 · ' : ''}품목 ${f.itemLabel || '미확인'} · 운송 수량(공지) ${f.announcedCargo?.boxes != null ? f.announcedCargo.boxes + '박스' : '미확인'}`),
+        line(`${f.weekLabel ? f.weekLabel + '차 · ' : '차수 미확인 · '}품목 ${f.itemLabel || '미확인'} · 운송 수량(공지) ${f.announcedCargo?.boxes != null ? f.announcedCargo.boxes + '박스' : '미확인'}`),
       );
-      if (f.receivedCargo?.boxes != null) row.append(line(`전산 입고 합계 ${f.receivedCargo.boxes}박스`));
+      if (selected && f.extraTitleItems?.length) row.append(line(`품목 전체 ${f.extraTitleItems.join(' · ')}`));
+      if (selected && f.receivedCargo?.boxes != null) row.append(line(`전산 입고 합계 ${f.receivedCargo.boxes}박스`));
       const stepList = css(el('div'), { display: 'flex', flexBasis: '100%', flexWrap: 'wrap', gap: '4px' });
       const labels = {done:'확인', wait:'대기', due:'진행·확인 필요', late:'확인 필요', unknown:'미확인'};
       for (const step of f.steps || []) {
@@ -211,12 +228,19 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
         if (step.at) status.title = `확인 시각 ${when(step.at)}`;
         stepList.append(status);
       }
-      row.append(stepList, btn('인보이스·입고 수량 / 처리 근거', () => open(f.viewId)));
+      if (selected) row.append(stepList, btn('인보이스·입고 수량 / 처리 근거', () => open(f.viewId)));
       if (f.quarantineSlotChanged) row.append(line('공항 예상 시각 변경 · 검역 접수 가능 시간 확인'));
       if(f.priority<2||selected){
         const issues=el('ol');css(issues,{flexBasis:'100%',margin:'2px 0',paddingLeft:'22px'});
-        for(const it of (selected?f.flightIssues:f.flightIssues.slice(0,2))){const item=el('li','',shortIssue(it.text));item.append(css(el('div','',`→ ${nextAction(it)}`),{color:'#526981',fontSize:'12px'}));issues.append(item);}
-        row.append(issues);if(!selected&&f.flightIssues.length>2)row.append(btn(`이슈 ${f.flightIssues.length}건 모두 보기`,()=>selectFlight(f.viewId)));
+        for (const it of (selected ? f.flightIssues : f.flightIssues.slice(0, 2))) {
+          const action = nextAction(it);
+          const item = css(el('li', '', selected ? shortIssue(it.text) : compactIssue(it)), {overflowWrap:'anywhere'});
+          if (selected) item.append(css(el('div', '', `→ ${action}`), {color:'#526981',fontSize:'12px'}));
+          issues.append(item);
+        }
+        if (!f.flightIssues.length && f.nextStep) issues.append(el('li', '', `${f.nextStep} 확인`));
+        if (issues.children.length) row.append(issues);
+        if (!selected && f.flightIssues.length > 2) row.append(btn(`이슈 ${f.flightIssues.length}건 모두 보기`, () => selectFlight(f.viewId)));
       }
       row.onkeydown=e=>{if(e.key==='Escape'){selectFlight('');[...list.children].find(n=>n.dataset.flightId===f.viewId)?.querySelector('button')?.focus();}};
 
@@ -226,12 +250,12 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       values.push(f.scheduledAt?'공항 예정(STA) '+when(f.scheduledAt,true):'공항 예정 미확인');
       if(f.estimatedAt)values.push((f.remark==='도착'?'공항 도착 표시 ':'공항 예상(ETA) ')+when(f.estimatedAt,true));
       if(f.remark&&!f.statusLabel.includes(f.remark))values.push('공항 상태 '+f.remark);
-      timing.textContent=values.join(' · ');row.append(timing);
+      timing.textContent=values.join(' · ');if(selected)row.append(timing);
       if(f.quarantineDeadlineAt && !(f.steps || []).some(step => step.label==='검역' && step.state==='done')){
         const past=Date.parse(f.quarantineDeadlineAt)<Date.now();
         row.append(css(el('span','',`검역 마감(예상) ${when(f.quarantineDeadlineAt)}${f.quarantineSlot?` ${f.quarantineSlot}`:''}`),{color:past?'#b02a2a':'#495057',fontSize:'11.5px'}));
       }
-      if(f.trackUrl&&(f.priority<2||selected)){
+      if(f.trackUrl&&selected){
         const go=btn('시간·실제 위치 원문 ↗',async()=>{go.disabled=true;try{await window.desktop.invoke('taskShortcut',{shortcut:{kind:'web',target:f.trackUrl,label:'실제 위치'}});}catch(e){status.textContent=e.message||'실제 위치 화면을 열지 못했습니다.';}finally{go.disabled=false;}});
         css(go,{marginLeft:'auto'});row.append(go);
       }
@@ -239,10 +263,12 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
     }
     const p=kst(data.generatedAt);
     status.textContent=flights.length?`${p?`${p.mo}/${p.day} ${p.hh}:${p.mm} 기준 · `:''}5분마다 자동으로 다시 읽습니다. 「새로고침」을 누르면 바로 다시 읽습니다.`:(data.feedOk?'지금 들어오는 비행기 공지가 없습니다.':'도착 공지를 읽지 못했습니다. 잠시 후 다시 확인해 주세요.');
-    const parts=(data.feedRooms||[]).map(r=>`${r.room}: 원문 ${when(r.latestMessageAt)} / 저장 ${when(r.latestImportedAt)}${r.error?' · 조회 실패':''}`);if(data.registeredCount)parts.push(`입고 등록까지 끝난 편 ${data.registeredCount}건은 「확대 보기」에서 확인`);
+    const parts=(data.feedRooms||[]).map(r=>`${r.room}: 원문 ${when(r.latestMessageAt)} / 저장 ${when(r.latestImportedAt)}${r.error?' · 조회 실패':''}`);
+    const hiddenRegistered = Math.max(0, (data.registeredCount || 0) - flights.filter(f => f.status === 'registered').length);
+    if (hiddenRegistered) parts.push(`이슈 없는 입고 완료 ${hiddenRegistered}편은 「확대 보기」에서 확인`);
     parts.push(`인천공항 자료 ${data.sources?.icn?'✔':'–'} · 통관 자료 ${data.sources?.customs?'✔':'–'}`);foot.textContent=parts.join(' · ');
   }
-  function selectFlight(id){selectedViewId=id;if(!last)return;paint(last);const card=[...list.children].find(n=>n.dataset.flightId===id);card?.focus();card?.scrollIntoView({block:'nearest',behavior:'smooth'});}
+  function selectFlight(id){selectedViewId=id;if(!last)return;paint(last);const card=[...list.children].find(n=>n.dataset.flightId===id);card?.focus();card?.scrollIntoView({block:'nearest'});}
   list.onkeydown=e=>{if(!['ArrowDown','ArrowUp'].includes(e.key)||!e.target.hasAttribute('data-flight-select'))return;const buttons=[...list.querySelectorAll('[data-flight-select]')],i=buttons.indexOf(e.target),next=buttons[i+(e.key==='ArrowDown'?1:-1)];if(next){e.preventDefault();next.focus();}};
   async function load(fresh){
     if(!owner||!visible||!online||busy||document.hidden)return;
