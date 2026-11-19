@@ -3834,3 +3834,11 @@ pm run test:canon 통과.
 
 - 후속: 정식 webpack build exit0, manifest229/dnSpy/쓰기guard PASS. 실제 원본46-01 샘플·원본팔렛스냅샷 병기·Excel A3가로4쪽 PDF 및 footer 시각확인 PASS. 전체ERP/CI/배포 진행중.
 - 한글 후속: 기존 lib/displayName.js suggestDisplayName canonical 재사용, 알려진7개 별칭 우선. 한글변환 없는 미등록 이름은 원문유지. 대상35 PASS. 최종 SHA CI 재검증 필요.
+## 2026-11-19 입고 원장 인보이스·AWB 열 검색
+1. 작업 위치: nenova-erp-ui / codex/incoming-number-search / work/nw-cdx-incoming-number-search / PR 생성 전.
+2. 완료된 것: pages/incoming.js의 원장 표에 인보이스·AWB 검색 추가. 세 검색은 AND, AWB는 공백·하이픈 무시, 입력 즉시 기존 조회 결과에서 필터. 데스크톱 기존 /incoming 메뉴 연결 확인, 설치본 1.3.48 준비.
+3. 남은 할 일: 로컬 정식 빌드, 두 역할 가이드 실제 검증/갱신, CI·squash·Cafe24 운영 조회·Windows 배포 및 작업트리 정리.
+4. 검증 상태: 정식 webpack 빌드·Chrome 두 역할 합성 dry-run·실제 2편 촬영과 회사 Drive 6파일 업로드 통과. CI·운영·직원 PC는 미검증.
+5. 주의/잠금: 원장/API/SQL·원가·정렬 변경 없음. 기존 체크아웃 보존. 직원 PC 재시작 없음.
+검색어: 입고관리 인보이스 번호 AWB 농장명 열 검색 normalizeAwbSearch
+
