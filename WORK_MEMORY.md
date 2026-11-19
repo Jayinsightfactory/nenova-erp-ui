@@ -3942,6 +3942,14 @@ pm run test:canon 통과.
 5. 주의/잠금: 병렬 세션 `세션 G3`(`Layout.js`, `pages/my-work.js`, `desktop/menu.json`, `desktop/package.json`) 무충돌 경계 준수, `/pm` 컴포넌트 `#hex`/raw `<button>`/금지어(`감시`/`추적`/`모니터링`/`절감시간`)/이모지 0건 유지.
 검색어: TechRadarWorkbench pmRadarPlanTokens 시안A 시안B 시안C 동시비교 가브리엘AGI gabriel-import-profit-agi SIM_PRESETS 매트카본
 
+## 2026-11-19 · 가브리엘 수입·원가·이익 최적화 AGI 워크벤치 구축 & 데스크톱앱 연결
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/gabriel-import-profit-agi` / `C:\Users\USER\nw-agy-gabriel-agi` (PR 생성·CI 통과·squash 머지 후 worktree 정리 예정)
+2. 완료된 것: `lib/gabrielProfitAgi.js` (Observe→Diagnose→Counterfactual Simulate→Propose 4단계 추론, AWB 중량 계단·박스 채움률·FOB 교차 소싱·마진 침식 방어·미회수 Credit Note·가브리엘 수입 속도 루틴 5대 레버 엔진, 환율 스트레스 래더, 사장님 보고 브리핑 생성), `components/import-tools/GabrielProfitAgiWorkbench.js` · `styles/GabrielProfitAgi.module.css` (시안 A 레버 분해 & 고밀도 원장 · 시안 B 마진×물량 2×2 매트릭스 & 반사실 드로어 · 시안 C 매트 카본 수익 관제 콘솔 실시간 전환 및 Anti-AI Slop 1px·`tabular-nums` 준수), `pages/import/gabriel-agi.js` (`/import/gabriel-agi` 인증 페이지 + `<WorkflowGuide />`), `pages/my-work.js` (관리자 전용 `gabriel-agi` 탭 연동), `components/Layout.js` · `desktop/menu.json` · `desktop/package.json`(`1.3.55`) · `desktop/tests/menu.test.cjs` 데스크톱 연결, `scripts/record-gabriel-agi-guide.cjs` 및 `public/guides/gabriel-import-profit-agi/import.{mp4,ko.vtt,proof.json}` + `config/workflow-guides.json` 가이드 등록, `__tests__/gabrielProfitAgi.test.js` 작성.
+3. 남은 할 일: PR 생성, CI(`verify`·`installer`) 통과 확인, squash 머지 및 worktree/junction 정리.
+4. 검증 상태: `gabrielProfitAgi.test.js`, `techRadarSimulator.test.js`, `test:ui-layout`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `guard:erp-writes --changed-from origin/master` (변경 API 0건), `test:erp-manifest --changed-from origin/master`, `test:pm`, `adoptionRadar.test.js`, `desktopBootstrap.test.mjs`, `desktop/tests/menu.test.cjs`, `npm --prefix desktop test`(74건), `npm --prefix desktop run test:smoke`(Electron 스모크), `record-gabriel-agi-guide.cjs` (`--dry-run`·실녹화·`--player-smoke` 1920/390·MP4/한국어 VTT 재생), `npx next build --webpack` PASS. 실운영 DB·운영 브라우저는 미연결(읽기 전용 GET + 합성 픽스처 검증, 원장 쓰기 0건).
+5. 주의/잠금: `pages/api/**` 무수정, `TechRadarWorkbench.js`·`pmTechRadarSim.js`·`pages/pm/radar.js` 무수정, `config/workflow-guides.json` 기존 잠금 파일 무수정, 금지어(`감시`·`추적`·`모니터링`·`절감시간`) 및 장식 이모지 0건 유지.
+검색어: 가브리엘 gabriel-import-profit-agi GabrielProfitAgiWorkbench gabrielProfitAgi 시안A 시안B 시안C AWB계단 FOB차익 크레딧회수 Desktop1.3.55
+
 ### 2026-11-19 — 신형물량표 입출재잔 인라인·요일 가로칸
 1. 작업 위치: codex/compact-inline / work/compact-inline / PR 준비.
 2. 완료된 것: packed 품종 입출재잔 강제 줄바꿈 제거, 두요일을 같은 행 인접셀 배치. DB/API 쓰기 변경 없음.
