@@ -4020,3 +4020,11 @@ pm run test:canon 통과.
 4. 검증 상태: `archFlowChart.test.js`, `adoptionRadar.test.js`, `techRadarSimulator.test.js`, `gabrielProfitAgi.test.js`, `deviceHubConsole.test.js`, `solutionSuiteSimulator.test.js`, `workflowReview.test.js`, `workFeatureData.test.js`, `desktop-my-work-scroll-smoke.cjs`, `test:pm`, `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes --changed-from origin/master`, `test:erp-manifest --changed-from origin/master`, Puppeteer headless Chromium 렌더링/오버플로우 검증(1440/390) 및 `npx next build --webpack` PASS; 실운영 인증 세션의 수동 브라우저 클릭은 미검증(MSSQL 쓰기 0건).
 5. 주의/잠금: 병렬 세션 `UI-1`(`pages/pm.js`, `lib/pmThemes.js`, `ControlGuide.js`, `Grow.js`, `workflow-guides.json`)·`UI-3`(`SolutionSuiteSimulator.js`, `desktop/package.json`)·`pages/api/**` 무수정 준수; `DeviceHubConsole`은 라이트 스테이지 위 `.dhc-root` 다크 프레임 보존.
 검색어: my-work 도입레이더 흐름도 ArchFlowChart TechRadarWorkbench mode-clear Anti-AI-Slop 에디토리얼라이트 쉘 PR1878
+
+## 2026-11-19 · 중국 운송수단별 손익 참고 내역 (구현 단계)
+1. 작업 위치: nenova-erp-ui / codex/china-profit-transport / .codex-work/china-transport / PR 미생성.
+2. 완료된 것: 중국 합계 불변 읽기 전용 HUBFRESH 배·Cloudland 비행기·미배정 분해, 실제 농장배정 우선·당차 동일품목 입고비율, 공통비/원가 미확인/저장본 차액 미배정, 0원 운임 경고, 기존 데스크톱 보고서 메뉴 연결(1.3.60).
+3. 남은 할 일: 최신 master 병합, PR/CI/배포 및 운영44 스모크. 아직 배포하지 않음.
+4. 검증 상태: 새 정책/API 회귀, 합성 UI dry-run/녹화, 실제 dnSpy, 44/46 SELECT-only(468/474쿼리), manifest233/변경API쓰기 가드/dnSpy/desktop menu PASS. 전체계약 첫 실행은 샌드박스 Git Bash 초기화 차단; 해당 모의테스트16개 일반환경 재검사 및 최종 npm run verify:erp-change(전체 계약/가드/build) PASS. 가이드 최종 프레임·실제 MP4/한국어 VTT/키보드·목차·1920/390 플레이어 PASS. 원장 쓰기0.
+5. 주의/잠금: lib/profitChinaTransport*, ProfitChinaTransport*, report UI/가이드·desktop 버전은 이 브랜치 담당. 원가 미확인을0원 확정으로 해석하지 않음. 운영 DB·과거/확정 snapshot 및44 태국·수국 비용 입력은 수정 금지.
+검색어: 중국 HUBFRESH Cloudland 배 비행기 미배정 당차입고비율 합계보존 china-profit-transport

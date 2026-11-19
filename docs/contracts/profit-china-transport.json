@@ -1,0 +1,12 @@
+{
+  "id": "profit-china-transport",
+  "title": "중국 합계 보존 운송수단별 읽기 전용 분해",
+  "scope": ["lib/profitChinaTransport.mjs", "lib/profitChinaTransportData.js", "pages/api/sales/profit-china-transport.js", "components/ProfitChinaTransport.js", "components/ProfitChinaTransport.module.css", "lib/profitReport.js", "pages/sales/profit-report.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name":"READ_CHINA_TRANSPORT","orderDetail":"preserve","shipmentDetail":"preserve","erpLedgerWrite":"forbidden","sideEffect":"SELECT only; actual farm first, otherwise same-product current-period incoming quantity ratio; no incoming means unassigned. Parent financial values and snapshots unchanged; shared costs and reconciliation residuals unassigned; zero and missing freight visible."}],
+  "crossYearFixture": {"required":true,"description":"2025/2026 identical major weeks do not mix; omitted/invalid year refused before SQL."},
+  "requiredTestFiles": ["__tests__/profitChinaTransport.test.mjs", "__tests__/profitChinaTransportApi.test.cjs"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormProfitReport.md","source":"Actual dnSpy CLI ClassShipmentFarm and FormWarehouseView plus SELECT-only 2026/44 recorded in docs/plans/profit-china-transport-2026-11-19.md","methods":["ClassShipmentFarm.SdetailKey/FarmKey/ShipmentQuantity","FormWarehouseView.GetData/GetDetail"],"tables":["ShipmentMaster","ShipmentDetail","ShipmentFarm","Farm","WarehouseMaster","WarehouseDetail","ProductStock","StockMaster"]},
+  "preserves":["OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail","ShipmentDate","ShipmentFarm","WarehouseMaster","WarehouseDetail","ProductStock","StockHistory","Estimate","WebProfitReport","WebProfitReportSnapshot","WebProfitReportConfirm"],
+  "requiredCommands":["node __tests__/profitChinaTransport.test.mjs","node __tests__/profitChinaTransportApi.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}
