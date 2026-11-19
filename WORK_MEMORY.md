@@ -3831,3 +3831,19 @@ pm run test:canon 통과.
 3. 남은 할 일: 최종코드리뷰/단계별실브라우저캡처/신규가이드최종재녹화(마지막helper변경 후해시갱신 필요)/기존PackingListTool가이드2개재녹화/Drive백업/Desktop테스트·실스모크/최신master정합/필수전체게이트/PR CI squash/Cafe24 및Desktop릴리스/운영읽기전용스모크/정리.
 4. 검증 상태: 초기구형순수수정 ERP전체PASS이나 현재신규UI 최종게이트아님. 신규리뷰합성PDF 실제브라우저dry+record PASS(8행/1741.5/차이0/provider0/prod0); importHardening81PASS1skip, adapter+review24PASS. 임시Next build완료(세션44612최종결과확인). 직원저장원응답은SSH인증거부로미조회, 실제운영작업의무료재검증과전체송장성공은미검증. 신규가이드1차영상생성됐으나helper최근수정으로재녹화필요.
 5. 주의/잠금: 운영DB쓰기·유료분석·다른계정job소유범위우회금지. 불완전구간/진짜manifest건수/중복/HAWBconflict hard block보존. canonicaldirty절대수정금지. node_modules는canonicaljunction(삭제는링크만). sourceAmountReview원본/전후이력보존. 운영오류캡처는C:/Users/USER/Documents/Codex/2026-11-19-invoice-incident,업무PDF는Downloads에있으며git커밋금지.
+## 2026-11-19 입고 원장 인보이스·AWB 열 검색
+1. 작업 위치: nenova-erp-ui / codex/incoming-number-search / work/nw-cdx-incoming-number-search / PR 생성 전.
+2. 완료된 것: pages/incoming.js의 원장 표에 인보이스·AWB 검색 추가. 세 검색은 AND, AWB는 공백·하이픈 무시, 입력 즉시 기존 조회 결과에서 필터. 데스크톱 기존 /incoming 메뉴 연결 확인, 설치본 1.3.48 준비.
+3. 남은 할 일: 로컬 정식 빌드, 두 역할 가이드 실제 검증/갱신, CI·squash·Cafe24 운영 조회·Windows 배포 및 작업트리 정리.
+4. 검증 상태: 정식 webpack 빌드·Chrome 두 역할 합성 dry-run·실제 2편 촬영과 회사 Drive 6파일 업로드 통과. CI·운영·직원 PC는 미검증.
+5. 주의/잠금: 원장/API/SQL·원가·정렬 변경 없음. 기존 체크아웃 보존. 직원 PC 재시작 없음.
+검색어: 입고관리 인보이스 번호 AWB 농장명 열 검색 normalizeAwbSearch
+
+
+## 2026-11-19 · 원본 대조 검토 최신 master 통합 체크포인트
+- 검색어: co4702-summary f94aa914 Desktop1.3.49 packing-amount-review
+1. 작업 위치: fix/co4702-summary-1119 / nw-cdx-co4702-summary-1119 / 체크포인트f94aa914 / origin0055590e 통합.
+2. 완료된 것: 검토UI·무료재검증연결·초안보존·소계제외복원·전후이력 및메뉴검색구현. 최종신규가이드78.6초/기존2편 재촬영과가이드검사31workflow32video PASS. 실제CUA before/edit/after캡처확보. upstream입고검색·비행기UI·가이드변경 모두보존. upstream48다음Desktop49로변경.
+3. 남은 할 일: 통합후최종ERP/dnSpy/manifest/write/build/desktop smoke/player, Drive기존영상백업검증, PR CI squash와운영·릴리스검증. 직원own계정원응답재검증 미완료.
+4. 검증 상태: 격리검토dry/mobile/keyboard 및실제CUA조작PASS(provider0/prod0), source/adapter24PASS, hardening81PASS1skip, ownerdraft9PASS, desktop73PASS·실Electron smokePASS(통합전). 두 임시Next buildPASS. 통합후최종검사는아직미검증.
+5. 주의/잠금: 운영DB쓰기·유료재분석·타계정job범위우회없음. sourcePDF/직원raw응답git금지. junction대상삭제금지. 가이드신규Drive mp4 1M5EQ0HFhktIanNLe2C5IenpEvUeT8MKG/vtt11NbxzmnSWcdA2UHKSldp15SqfSEl5NQQ/proof1kkRcncqMRhdAvnzRrEVLsSPQsAPkf8MH,최종덮어쓰기완료(독립메타데이터재확인예정).

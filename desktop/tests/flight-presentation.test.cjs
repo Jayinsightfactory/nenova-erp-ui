@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { issueRows, shortIssue, linkedFlights, nextAction, placeMarkers } = require('../shell/flight-board');
+const { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers } = require('../shell/flight-board');
 
 test('nearby flight labels stay separately clickable without moving their projected anchors', () => {
   const points = [{x:320,y:90,id:'2026-K4254'}, {x:328,y:88,id:'2026-AC063'}, {x:320,y:90,id:'2025-K4254'}, {x:719,y:271,id:'edge'}];
@@ -42,4 +42,9 @@ test('short wording preserves times and uncertain evidence', () => {
   assert.equal(shortIssue('공항 예정 시각이 공지와 다름: 14:20 → 16:30'), '도착 시각 불일치: 14:20 → 16:30');
   assert.equal(shortIssue('서류 전달 표시 없음'), '서류 전달 미확인');
   assert.equal(shortIssue('검역 신청 마감(11/18 09:00 예상)이 지남'), '검역 신청 마감(11/18 09:00 예상)이 지남');
+});
+
+test('compact actions retain issue-specific instructions and unknown issue facts', () => {
+  assert.equal(compactIssue({text:'검역증·인보이스 수량 대조 필요 (11/17 18:03)'}), '인보이스·검역증 수량과 정정본 확인');
+  assert.equal(compactIssue({text:'편명 아직 없음'}), '편명 아직 없음');
 });
