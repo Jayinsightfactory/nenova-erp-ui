@@ -4116,3 +4116,11 @@ pm run test:canon 통과.
 4. 검증: 대상21PASS, JSX Babel구문2파일PASS, ERP manifest234PASS, changed API write guard1PASS. 실제 Desktop com.nenova.workspace 창78579022 복원/AX조회 성공했으나 수입부 탭 클릭 `coordinate input geometry is unavailable` 재발. 네이티브 저장창/Excel열기/민감정보없는 캡처 미검증. 운영DB/유료분석0.
 5. 잠금: root node_modules junction 대상 삭제금지, .verify 비공개. 기존 사용자 Excel·Desktop 탭/설정/업무자료 보존. 새API는 미배포이고 새화면 성공캡처 없음.
 검색어: colombia-week-cost desktop geometry unavailable manifest234 writeguard1 21PASS native-save-unverified
+
+### 2026-11-19 Colombia PR1896 draft — deployment held, evidence preserved
+1. 위치: `fix/co-arrival-week-1119` / `C:/Users/USER/Documents/Codex/nw-cdx-co-arrival-week-1119` / https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1896 / implementation4d6b931a.
+2. 완료: 계산/전체차수 source/단일양식 XLSX/불변원본/API/UI 코드를 GitHub 초안에 보존. China PR1883 독립 유지. 운영 DB 쓰기·유료분석 없음.
+3. 남음: 독립 Excel 및 격리 Desktop 실제 저장·열기 캡처, UI 실행회귀, 가이드 필수게이트 충족, Desktop 메뉴/버전, 최신master병합, 전체ERP/빌드/CI와 배포/읽기스모크. 실제 검증 전 완료 보고·머지 금지.
+4. 검증: 대상21·JSX2·manifest234·writeguard1 PASS. `npm run build` prebuild에서 `shared-awb-cost/import: SharedAwbCostReview.js 변경 후 가이드를 다시 촬영하세요`로 중단(Next compile 미실행). Desktop AX 조회 성공/탭 클릭 geometry unavailable. 네이티브 저장·Excel 재계산·캡처·배포는 미검증.
+5. 주의: draft PR1896을 CI초록만으로 머지하지 말고 위 실제 검증 선행. root dependency junction/사용자 기존앱/China worktree/원본업무문서 보존. prebuild가 만든 두 data/generated 변경만 HEAD로 복구했으며 소스 변경은 전부 보존.
+검색어: PR1896 4d6b931a Colombia 46-02 build-guide-block desktop-geometry-block not-deployed
