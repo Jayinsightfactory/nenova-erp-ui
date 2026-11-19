@@ -4012,3 +4012,27 @@ pm run test:canon 통과.
 4. 검증 상태: `solutionSuiteSimulator.test.js`, `techRadarSimulator.test.js`, `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes --changed-from origin/master`, `test:erp-manifest --changed-from origin/master`, `test:pm`, `desktopBootstrap.test.mjs`, `desktop/tests/menu.test.cjs`, `npm --prefix desktop test`(75건), `archFlowChart.test.js`, `npx next build --webpack` 실행 검증 완료. 실운영 브라우저/실DB는 미연결(SSR + 오프라인 API/목업 픽스처 검증).
 5. 주의/잠금: 병렬 세션 `UI-1`(`pages/pm.js`, `lib/pmThemes.js`, `config/workflow-guides.json`)·`UI-2`(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`)·`Layout.js`·`pages/api/**` 무수정 경계 유지. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·이모지·네온 hex·gradient 0건 유지.
 검색어: suite-sim SolutionSuiteSimulator Anti-AI-Slop SwissEngineering PalantirLight tabular-nums Desktop1.3.59
+
+## 2026-11-19 불량차감 수량 분리 요청
+- 검색어: 불량차감, 클레임용수량, 견적용수량, 담당자 바로가기, 로딩, 크레딧수량
+1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity / PR 없음.
+2. 완료 · 영업 담당자 선택 강조와 크레딧 크기, 지원 조회 진행 표시를 작업트리에 반영.
+3. 남음 · 클레임·견적 수량 저장/검증/인쇄, 비고·품목·확인 사유 개선, PR과 배포.
+4. 검증 · git diff --check. 빌드·DB 읽기 전용 probe·데스크톱 실화면 미검증.
+5. 주의 · 이 작업트리 미커밋 상태. 견적 수량을 기존 원문 수량/누락 식별키에 덮어쓰지 말 것.
+
+## 2026-11-19 별도 견적 수량 저장
+- 검색어: EstimateQuantity, 클레임용수량, 견적용수량, saveDraftRows, 기존 NULL
+1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity / PR 없음.
+2. 완료 · 별도 nullable SQL 컬럼 마이그레이션, 영업 입력, 서버 검증 및 INSERT/UPDATE, 조회 응답, 연결된 수기 견적 동기화.
+3. 남음 · 신규 견적 등록 및 조회/충돌 경로 전체 반영, 수입부·인쇄, 필수 검증 후 스키마 선적용 및 배포.
+4. 검증 · 수량 분리/누락/0/소수점 단위 테스트와 node 문법 검사 통과. 전체 테스트는 exceljs 미설치로 실행 실패. 운영 DB probe는 기존 원문 보호만 통과.
+5. 주의 · 운영 스키마 미적용. 원문 검증·누락에서 Quantity 유지. 신규 등록 전까지 기능 미배포.
+
+## 2026-11-19 견적 등록 수량 및 수입부 출력 연결
+- 검색어: registrationQuantity, EstimateQuantity, 크레딧수량, 견적서수량, 분할 등록.
+1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity.
+2. 완료 · 저장 수량을 목록·사전검증·미리보기·중복·Estimate 쓰기에서 사용. 원문 수량 유지. 수입부 화면과 인쇄에 두 수량 추가, 카톡 비고 표시 변경.
+3. 남음 · 스키마 선적용, 전체 검증, 운영 배포와 실제 데스크톱 확인.
+4. 검증 · Excel 의존성 설치 후 불량차감·등록확정·자동수집 회귀 통과. Windows 배포 스크립트 검사에서 PM2 restart 출력 실패. 운영 Estimate 쓰기 미검증.
+5. 주의 · 스키마 없는 서버를 먼저 배포하면 저장 쿼리가 실패한다. 운영 업무행 수정 금지.

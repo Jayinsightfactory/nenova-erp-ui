@@ -511,7 +511,7 @@ for (const sheet of managerWb.worksheets) {
   assert.equal(sheet.getColumn('E').hidden, true);
   assert.ok(sheet.getColumn('I').width > sheet.getColumn('H').width);
 }
-assert.equal(managerWb.getWorksheet('전체품목').getCell('J6').value, '카-11/2 9:10 김담당');
+assert.equal(managerWb.getWorksheet('전체품목').getCell('J6').value, '김담당 카11-2,09:10');
 assert.equal(managerWb.getWorksheet('이담당').getCell('J6').value, null);
 
 const manyCustomers = Array.from({ length: 22 }, (_, index) => ({
@@ -843,3 +843,9 @@ for (const patch of [{ Status: 'COMPLETED' }, { EstimateKey: 123 }, { RemainingQ
   await assert.rejects(() => saveManualCost(savePayload, stageCostTransaction(false, { ...txRow, ...patch })));
 }
 console.log('sales defect deduction tests passed');
+
+assert.equal(normalizeDeductionRow({ quantity: 14 }).estimateQuantity, null);
+assert.equal(normalizeDeductionRow({ quantity: 14, estimateQuantity: '2.5' }).estimateQuantity, 2.5);
+assert.equal(normalizeDeductionRow({ quantity: 14, estimateQuantity: '2.5' }).quantity, 14);
+assert.throws(() => normalizeDeductionRow({ quantity: 14, estimateQuantity: 0 }), /견적용수량/);
+assert.throws(() => normalizeDeductionRow({ quantity: 14, estimateQuantity: '1.00001' }), /견적용수량/);
