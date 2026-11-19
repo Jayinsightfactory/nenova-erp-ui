@@ -263,6 +263,7 @@ async function main() {
       if (item.search) {
         await say('같은 행의 「검색」을 누르고 품목명 일부를 입력합니다.', 3500);
         await press(toggle);
+        await out();
         const box = `[aria-label="${item.desc} 같은 국가 품목 검색"]`;
         await focus(box, { click: true, fx: 0.97 }); await page.click(box); await page.type(box, item.search, { delay: rec ? 140 : 0 });
         assert(await page.$eval(box, input => document.activeElement === input && Boolean(input.closest('tr')?.querySelector('[data-testid="packing-inline-search"]'))));
@@ -279,6 +280,7 @@ async function main() {
         await checkTypography(candidate, 13.5);
         await checkTypography(candidate+' small', 12.5);
         await focus(candidate);
+        await out();
         if (dry) await page.screenshot({path:'.verify/invoice-match-default.png'});
         if (dry) {
           await page.click(candidate);
@@ -401,6 +403,7 @@ async function main() {
     await page.waitForSelector('[data-testid="invoice-receipt-workbench"]', { visible: true });
     await out(1250);
     await press(await tag('registerReceipt', 'button', '입고 업로드(저장)'));
+    await out();
     const amount = '[aria-label="입고 금액 대조"]';
     await page.waitForSelector(amount + ' input[type="checkbox"]:enabled', { visible: true, timeout: 30000 });
     await say('원본과 입고 예정 품목·수량·통화·총금액을 대조합니다.\n합계가 맞으면 확인을 체크하고 입고 등록을 누릅니다.', 3200);
