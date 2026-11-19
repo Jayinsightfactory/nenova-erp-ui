@@ -450,6 +450,27 @@ async function testInvoiceOnlyAustralia(pool, writer, documents, costs) {
   assert.equal(verifyReceiptDocument(saved).warehouseKey,result.warehouseKey);
   const cost = await costs.readInvoiceCosts({queryFn:ctx.queryFn,types:sql,warehouseKey:result.warehouseKey});
   assert.equal(cost?.currentActual ?? null,null);
+
+  const verifiedAwbId = crypto.randomUUID();
+  await insertDocument(pool, verifiedAwbId, 'AU-VERIFIED-AWB');
+  const awbHash = 'a'.repeat(64), awb = '081-63688774';
+  const evidence = {source:'AWB_PDF',sourceHash:awbHash,unit:'kg'};
+  const attachedMeta = { ...meta, awb, gw:805, cw:805, freightRate:1.25, docFee:2, freightCurrency:'USD',
+    awbReviewed:true, weightSourceEvidence:{gw:evidence,cw:evidence},
+    awbAttachment:{source:'AWB_PDF',sourceHash:awbHash,fileName:'fixture-awb.pdf',
+      awb,reviewed:true,packageCount:3,grossWeightKg:805,chargeableWeightKg:805},
+  };
+  await query(pool,`UPDATE dbo.WebInvoiceDocument SET ReviewedMetadataJson=@meta WHERE DocumentId=@id;
+    UPDATE dbo.WebInvoiceLine SET BoxQuantity=[LineNo] WHERE DocumentId=@id;`,{
+    id:{type:sql.UniqueIdentifier,value:verifiedAwbId},meta:{type:sql.NVarChar,value:JSON.stringify(attachedMeta)},
+  });
+  const attachedPreview = await ctx.preview(verifiedAwbId);
+  assert.equal(attachedPreview.canCommit,true,JSON.stringify(attachedPreview.issues));
+  const attached = await commitArgs(ctx,verifiedAwbId,crypto.randomUUID(),crypto.randomUUID(),attachedPreview.baselineDigest);
+  assert.equal(attached.costStatus,'PENDING');
+  const attachedHeader = (await query(pool,`SELECT OrderNo, GrossWeight, ChargeableWeight, FreightRateUSD, DocFeeUSD
+    FROM dbo.WarehouseMaster WHERE WarehouseKey=@key;`,{key:{type:sql.Int,value:attached.warehouseKey}})).recordset[0];
+  assert.deepEqual(attachedHeader,{OrderNo:awb,GrossWeight:805,ChargeableWeight:805,FreightRateUSD:1.25,DocFeeUSD:2});
   assert.deepEqual(await protectedSnapshot(pool),protectedBefore);
   console.log('ok - AU invoice-only, AWB mismatch, cost pending, cross-year, exact readback and duplicate replay');
 }

@@ -1,5 +1,9 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-19 인보이스 단독 입고 및 후속 원가
+
+인보이스 품목·원문 금액·농장·연도·차수 대조를 통과하면 AWB 없이 기존 입고 writer로 저장할 수 있다. 확인된 운송장 데이터만 선택 반영하고, 누락 중량·운임단가·서류비는 NULL로 남긴다. 입고 readback 완료 후 원가 API는 사용자 선택에서만 시작한다. 입고관리와 데스크톱 복원은 명시 연도·차수·WarehouseKey를 재사용한다. 중복 operation, 교차연도, 실제 입고 수치·재고 readback의 기준은 기존 writer를 따른다. 근거 `plans/invoice-only-receipt-2026-11-19.md`, 계약 `invoice-only-receipt`, 테스트 `NENOVA_INVOICE_ONLY_E2E` 및 `invoiceReceiptCostRoute.test.mjs`.
+
 ## 2026-11-19 콜롬비아47-02 AYURA 집계행
 
 원본 SHA b2176913b2a9f15d3e33354a0b4ad0e4f9956db8919c1f7de38947a6cf3a548c/송장18065의6쪽8상품(27HB/8100송이/USD1741.5)과7쪽 관세집계1행은 같은 상품이다. 합계가2배라는 이유만으로 행을 삭제하지 않는다. 최신 사용자 지시에 따라 자동복구가 아니라 완결 추출의 금액 불일치를 검토 전용으로 보존한다. 로컬PDF 근거쪽·원본SHA·사유·명시확인·수량×단가/총액 검산 후 수정/제외/복원만 기존흐름에 적용하고 원본행·전후값·이력은 source_amount_review로 보존한다. saved response 무료 재검증도 같은 merge/helper와 UI로 연결한다. 불완전구간·진짜manifest건수·중복·HAWB충돌은 차단유지. 실제 직원 응답 재검증 전 전체업로드 성공을 주장하지 않는다. 운영ERP쓰기/유료재분석0. 근거 co4702-summary-recovery-2026-11-19.md, 회귀 co4702Summary.test.mjs.

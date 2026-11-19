@@ -895,7 +895,7 @@ test('explicit ERP refresh after generation invalidates old workbook but retains
   const retainedMatchRows = results.props.excels[0].products.map(row => row.matchingDescription);
   const postsBeforePrepare = h.erpRequests.filter(request => request.options?.method === 'POST').length;
   prepare = h.nodes('button').find(node => node.props['data-testid'] === 'packing-receipt-prepare');
-  assert.equal(text(prepare), '다음 · 입고 준비');
+  assert.equal(text(prepare), '입고 업로드로 이동');
   prepare.props.onClick(); await h.refresh();
   results = flatten(h.tree).find(node => node.type === h.components.PackingResultsStub);
   assert.equal(results.props.previewOnly, false, 'confirmed CTA rebuilds without reopening source review');
