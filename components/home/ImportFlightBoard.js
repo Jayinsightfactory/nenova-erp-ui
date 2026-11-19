@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { apiGet, apiPost } from '../../lib/useApi';
 import { WORLD_VIEW, WORLD_LAND_PATH, projectLonLat } from '../../lib/importFlightWorldPath';
 
-const { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers } = require('../../desktop/shell/flight-board');
+const { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers, afterArrival, onFlightMap } = require('../../desktop/shell/flight-board');
 
 const REFRESH_MS = 5 * 60 * 1000;
 const STATUS_STYLE = {
@@ -273,7 +273,10 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
   const ordered = linkedFlights(flights, issues);
   const active = ordered.filter(f => f.status !== 'registered' || f.flightIssues.length);
   const done = ordered.filter(f => f.status === 'registered' && !f.flightIssues.length);
-  const shown = showDone ? ordered : active;
+  const pending = active.filter(f => !afterArrival(f));
+  const arrived = active.filter(afterArrival);
+  const mapped = pending.filter(onFlightMap);
+  const shown = [...pending, ...arrived, ...(showDone ? done : [])];
   const selected = flights.find(f => f.key === selectedKey) || null;
   const s = data?.summary || {};
   const todo = Array.isArray(data?.todo) ? data.todo : [];
@@ -329,17 +332,18 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
 
           <div className="import-flight-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12, alignItems: 'start' }}>
             <div className="flight-map-panel">
-              <FlightMap flights={shown} destination={data.destination} selectedKey={selectedKey} onSelect={selectDetail} onEnlarge={openMap} />
+              <FlightMap flights={mapped} destination={data.destination} selectedKey={selectedKey} onSelect={selectDetail} onEnlarge={openMap} />
               <button ref={mapZoomButton} type="button" className="btn btn-sm" aria-haspopup="dialog" onClick={openMap}>지도 확대</button>
               <dialog ref={mapDialog} className="flight-map-dialog" aria-label="수입 비행기 지도 확대" onClose={() => { if (!detailRef.current?.contains(document.activeElement)) mapZoomButton.current?.focus(); }}>
                 <div className="flight-map-dialog-header">
                   <strong>수입 비행기 지도</strong>
                   <button type="button" className="btn btn-sm" onClick={() => mapDialog.current.close()}>닫기</button>
                 </div>
-                <FlightMap flights={shown} destination={data.destination} selectedKey={selectedKey} onSelect={(key) => { mapDialog.current.close(); selectDetail(key, { currentTarget: mapZoomButton.current }); }} />
+                <FlightMap flights={mapped} destination={data.destination} selectedKey={selectedKey} onSelect={(key) => { mapDialog.current.close(); selectDetail(key, { currentTarget: mapZoomButton.current }); }} />
                 <p>지도 위치는 일정으로 계산한 예측입니다.</p>
               </dialog>
               <p style={{ fontSize: 12, color: 'var(--text3)', margin: '6px 0' }}>지도 번호와 오른쪽 항공편이 연결됩니다. 위치는 일정 기반 예측이며, 위치 자료가 없는 편은 목록에서 확인하세요.</p>
+              {!mapped.length && <p>지도에 표시할 운항편이 없습니다.</p>}
               <p style={{ fontSize: 12 }}>우선 확인 {active.filter(f => f.priority === 0).length}편 · 확인 필요 {active.filter(f => f.priority === 1).length}편 · 이슈 없는 편은 접어서 표시</p>
             </div>
             <div ref={detailRef} onKeyDown={moveTableFocus} aria-label="처리 순서별 항공편" style={{ minWidth: 0 }}>
@@ -351,7 +355,9 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                 const deadline = quarantineView(f.checklist, steps);
                 const quantity = f.receivedCargo?.boxes ?? f.announcedCargo?.boxes;
                 const track = f.links?.aircraftTrack || f.links?.flightTrack;
-                return <article key={f.key} tabIndex={-1} data-selected={expanded} data-testid="flight-card" onKeyDown={event => { if (event.key === 'Escape' && expanded) { event.stopPropagation(); setSelectedKey(''); } }} style={{ border: expanded ? '2px solid #1668c7' : '1px solid #d7e0ea', borderLeft: `4px solid ${f.priority === 0 ? '#b02a2a' : f.priority === 1 ? '#b07500' : '#aab8c8'}`, borderRadius: 8, padding: 10, marginBottom: 8, background: expanded ? '#f0f6ff' : '#fff', fontSize: 13, lineHeight: 1.6 }}>
+                return <Fragment key={f.key}>
+                  {f === arrived[0] && <h3 style={{ margin: '0 0 6px', fontSize: 13 }}>도착 후 확인</h3>}
+                  <article tabIndex={-1} data-selected={expanded} data-testid="flight-card" onKeyDown={event => { if (event.key === 'Escape' && expanded) { event.stopPropagation(); setSelectedKey(''); } }} style={{ border: expanded ? '2px solid #1668c7' : '1px solid #d7e0ea', borderLeft: `4px solid ${f.priority === 0 ? '#b02a2a' : f.priority === 1 ? '#b07500' : '#aab8c8'}`, borderRadius: 8, padding: 10, marginBottom: 8, background: expanded ? '#f0f6ff' : '#fff', fontSize: 13, lineHeight: 1.6 }}>
                   <button type="button" data-flight-select className="flight-select" aria-expanded={expanded} onClick={event => selectDetail(expanded ? '' : f.key, event)}>
                     <b>{f.boardNumber}. {f.displayName || `${f.country} · ${f.flight || '편명 미확인'}`}</b>
                     <span>{f.priority === 0 ? '우선 확인' : f.priority === 1 ? '확인 필요' : f.status === 'registered' ? '입고 등록 끝' : '이슈 없음'} {expanded ? '▴' : '▾'}</span>
@@ -403,7 +409,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                     {(f.history || []).length > 1 && <details><summary>일정 변경 이력</summary>{f.history.map((h,i) => <p key={i}>{shortTime(h.postedAt)} 공지 → {shortTime(h.arrivalAt || h.arrivalDate)} · {h.box ?? '–'}박스</p>)}</details>}
                     {(f.roomEvents || []).length > 0 && <details><summary>연결된 처리 원문·완료 근거</summary>{f.roomEvents.map((e,i) => <p key={i}>{roomLine(e)} · {e.room} · {e.text}{e.guessed ? ' (추정 연결)' : ''}</p>)}</details>}
                   </div>}
-                </article>;
+                </article></Fragment>;
               })}
               {done.length > 0 && <button type="button" className="btn btn-sm" onClick={() => setShowDone(v => !v)}>{showDone ? '입고 등록 끝난 편 숨기기' : `입고 등록 끝난 편 ${done.length}건 보기`}</button>}
               {data.unannounced?.length > 0 && <p>도착 공지에서 찾지 못한 입고 빌번호 {data.unannounced.length}건</p>}
