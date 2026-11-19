@@ -1,0 +1,162 @@
+{
+  "id": "estimate-change-history",
+  "title": "네노바 견적 변경 이력과 다운로드 기준 불변 기록",
+  "scope": [
+    "pages/estimate-change-history.js",
+    "components/EstimateChangeHistory.js",
+    "components/EstimateHistoryRowLink.js",
+    "pages/api/estimate/change-history.js",
+    "pages/estimate.js",
+    "lib/exeEstimateViewSql.js",
+    "lib/estimateChangeHistory.js",
+    "lib/estimateChangeHistoryCore.cjs",
+    "lib/estimateChangeHistoryStore.cjs",
+    "lib/estimateChangeHistoryWorkbook.cjs",
+    "lib/estimateExportCapture.js",
+    "components/EstimateLedgerReview.js",
+    "lib/estimateLedgerReview.js",
+    "lib/estimateLedgerCalendar.js",
+    ".github/workflows/deploy.yml",
+    "components/EstimateHistoryTools.js",
+    "lib/estimateChangeRequestRows.cjs",
+    "lib/estimateChangeWorkbookPreview.js",
+    "pages/api/estimate/ledger-alerts.js",
+    "styles/EstimateChangeHistory.module.css",
+    "components/Layout.js",
+    "desktop/menu.json",
+    "desktop/package.json",
+    "desktop/package-lock.json",
+    "public/templates/estimate-change-request.xlsx",
+    "scripts/build-estimate-change-template.mjs",
+    "lib/estimateChangeHistorySales.js",
+    "components/EstimateHistoryImpact.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "READ_SOURCE_HISTORY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "webOnly": "SELECT-only EXE source and private immutable web records"
+    },
+    {
+      "name": "CAPTURE_EXPORT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "webOnly": "SELECT-only unchanged EXE aggregate and physical rows; private immutable snapshot"
+    },
+    {
+      "name": "DOWNLOAD_REQUESTED",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "webOnly": "append web event; not proof of saved file or ECOUNT upload"
+    },
+    {
+      "name": "CONFIRM_UPLOAD_DATE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "webOnly": "append staff-declared date and server actor/time, no ECOUNT write"
+    },
+    {
+      "name": "RECORD_CHANGE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "webOnly": "append explicit before/after quantity/cost and reason, no ERP edit"
+    },
+    {
+      "name": "EXPORT_REQUEST_FORM",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "webOnly": "selected immutable records only; 2 changed fields => 2 output rows"
+    },
+    {
+      "name": "HISTORICAL_MANUAL_AND_LATE_LINK",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "webOnly": "Missing capture/upload/changed date/native row accepted for explicitly historical manual entry; later link is additive and never derives or replaces past numbers."
+    },
+    {
+      "name": "PROPOSAL_BASELINE_AND_FORECAST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "webOnly": "SELECT canonical GetData all weekdays stored Amount+Vat, immutable pre-application baseline; unique physical-row chain forecast; historical totals require explicit old provenance, never current retroactive totals"
+    },
+    {
+      "name": "CONFIRM_WORKFLOW_PROGRESS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "webOnly": "Explicit manual report/ECOUNT/native completion confirmations append actor/time/date; output never completes stages; native confirmation stores separate observed snapshot and forecast difference"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 same major cannot mix source/capture/record; distinct SdateKey rows remain independent across same product and dates; zero preserved and missing unknown."
+  },
+  "requiredTestFiles": [
+    "__tests__/estimateChangeHistory.test.cjs",
+    "__tests__/estimateChangeHistoryStore.test.cjs",
+    "__tests__/estimateChangeHistoryWorkbook.test.cjs",
+    "__tests__/estimateChangeHistorySales.test.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/plans/estimate-change-history-implementation-2026-11-19.md",
+    "source": "Local actual FormEstimateView and ClassShipmentDate decompile plus SELECT-only 2026/45 probe",
+    "methods": [
+      "FormEstimateView.GetExcelDetail",
+      "FormEstimateView.GetDetail",
+      "ClassShipmentDate.Update"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "Estimate",
+      "ViewShipment",
+      "ViewOrder",
+      "Product",
+      "PeriodDay"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build",
+    "npm run test:workflow-guides"
+  ],
+  "physicalIdentity": [
+    "ShipmentDate.SdateKey",
+    "Estimate.EstimateKey"
+  ]
+}
