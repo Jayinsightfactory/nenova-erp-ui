@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.61",
+  "version": "1.3.62",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "최소화한 앱을 다시 열면 수입 비행기 현황을 확인하고 5분 자동 갱신을 이어갑니다."
+      "releaseNotes": "통합 솔루션 시뮬레이터 SVG 직교 버스·공용폰 3열 DOM OCR·마스터-디테일 캡처 뷰어 및 한글 고딕 가독성 교정"
     },
     "extraResources": [
       {

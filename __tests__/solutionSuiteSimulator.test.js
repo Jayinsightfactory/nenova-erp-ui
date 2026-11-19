@@ -132,6 +132,13 @@ assert.ok(!simSrc.includes('➔'), 'Anti-AI Slop: 장식 화살표(➔) 금지')
 assert.doesNotMatch(simSrc, /[🚀✨💡🔥🎯🌐🛰️🧪✅🔁⏳📍📦🔍⏸▶◀↺⚡]/u, 'Anti-AI Slop: 장식 이모지·제어 기호 금지');
 assert.ok(simSrc.includes('tabular-nums'), '고정폭 숫자(tabular-nums) 적용 필수');
 assert.ok(simSrc.includes('prefers-reduced-motion'), 'prefers-reduced-motion 존중 필수');
+assert.doesNotMatch(simSrc, /ui-monospace/, 'Windows 한글 굴림/돋움 폴백 방지를 위해 ui-monospace 사용 금지');
+assert.ok(simSrc.includes("'Pretendard Variable'") && simSrc.includes("'Malgun Gothic'"), '한글 고딕 폰트 스택 적용 필수');
+assert.doesNotMatch(simSrc, /sim-ocr-box|scanBoxes/, '공용폰 텍스트 위 절대좌표 점선 OCR 박스 오버레이 금지');
+assert.ok(simSrc.includes('sim-ocr-token') && simSrc.includes('sim-line-gutter'), '3열 DOM Grid 인라인 OCR 토큰·우측 거터 구조 필수');
+assert.ok(simSrc.includes('word-break: keep-all') && simSrc.includes('white-space: nowrap'), 'KV 라벨 한글 단어 쪼개짐 방지 필수');
+assert.match(myWorkSrc, /\.bar-tabs\{[^}]*flex-wrap:nowrap[^}]*overflow-x:auto/, '상단 탭바 단일 행 유지(줄바꿈 금지)');
+assert.ok(simSrc.includes('sim-capture-workbench') && simSrc.includes('sim-box-legend') && simSrc.includes('sim-cap-row'), '하단 전체 폭 마스터-디테일 캡처 검수 워크벤치 필수');
 for (const apiPath of [
   '/api/my-work/feature?name=workflows',
   '/api/my-work/feature?name=simulations',
@@ -148,6 +155,12 @@ const SimulatorComp = compile('components/work/SolutionSuiteSimulator.js').defau
 const ssrHtml = renderToStaticMarkup(React.createElement(SimulatorComp, { orbit: 'https://orbit.example', orbitQs: '' }));
 assert.match(ssrHtml, /data-testid="solution-suite-simulator"/);
 assert.match(ssrHtml, /viewBox="0 0 980 340"/);
+assert.ok(
+  ssrHtml.indexOf('id="sim-edge-2"') > 0 && ssrHtml.indexOf('class="sim-bus-badge"') > ssrHtml.indexOf('id="sim-edge-2"'),
+  'SVG 연결선(sim-edge-2) 이후 최상위 레이어에 중앙 버스 배지(sim-bus-badge) 배치 필수'
+);
+assert.match(ssrHtml, /class="sim-capture-workbench"/, '전체 폭 마스터-디테일 캡처 워크벤치 렌더링');
+assert.doesNotMatch(ssrHtml, /sim-ocr-box/, 'SSR HTML에 절대좌표 OCR 오버레이 미포함');
 assert.match(ssrHtml, /수작업 18\.5분 → 자동화\+MOYI 승인 14초 · 98\.7% 단축/);
 assert.match(ssrHtml, /tabular-nums/);
 assert.doesNotMatch(ssrHtml, /linear-gradient|radial-gradient/i);
@@ -218,7 +231,8 @@ assert.match(step5ArchifyHtml, />MOYI 승인 실행</, 'Step 5 에서 인터랙�
 assert.match(step5ArchifyHtml, /<iframe[^>]+title="통합 솔루션 인터랙티브 설계도"[^>]+src="\/api\/my-work\/feature\?name=suite-blueprint-html/, 'Archify 탭 iframe 렌더링');
 assert.match(step5ArchifyHtml, /\/api\/work\/orbit-thumbs\?img=rec-101/, '실작업 기록 캡처 이미지 렌더링');
 assert.match(step5ArchifyHtml, /left:12%;top:24%;width:40%;height:20%/, 'steps[].box 천분율 좌표 -> % 바운딩박스 변환 렌더링');
-assert.match(step5ArchifyHtml, /프리덤 100단/, '바운딩박스 라벨 렌더링');
+assert.match(step5ArchifyHtml, /class="sim-ai-no"[^>]*>1</, '이미지 위에는 번호 배지(1,2,3)만 표시');
+assert.match(step5ArchifyHtml, /class="sim-box-legend"[\s\S]*프리덤 100단/, '우측 해설 리스트에 바운딩박스 라벨 렌더링');
 
 const blueprintsHtml = overrideByInit({ trace: 'blueprints' });
 for (const imgPath of [
