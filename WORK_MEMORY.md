@@ -3988,3 +3988,11 @@ pm run test:canon 통과.
 4. 검증 상태: `gabrielProfitAgi.test.js`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `test:ui-layout`, `guard:erp-writes --changed-from origin/master`(API 0건), `test:erp-manifest --changed-from origin/master`, `test:pm`, `desktopBootstrap.test.mjs`, `desktop/tests/menu.test.cjs`, `npm --prefix desktop test`(74건), `record-gabriel-agi-guide.cjs`(`--dry-run`·실녹화·`--player-smoke` 1920/390·MP4/한국어 VTT 재생), `npx next build --webpack` PASS. 실운영 DB·운영 브라우저는 미연결(읽기 전용 GET + 합성 픽스처 검증, 원장 쓰기 0건).
 5. 주의/잠금: 병렬 세션 `세션 L3` 경계(`components/pm/TechRadarWorkbench.js`, `lib/pmTechRadarSim.js`, `lib/pmRadarPlanTokens.js`, `__tests__/techRadarSimulator.test.js`) 및 `pages/api/**` 무수정. 금지어(`감시`·`추적`·`모니터링`·`절감시간`) 및 장식 이모지·그라디언트 0건 유지.
 검색어: 가브리엘10대레버 gabriel-agi L1-L10 dataBasis 4원천 4부서업무 뷰ALL A·B·C동시모드 연속구현큐 Desktop1.3.56
+
+### 2026-11-19 — 현장물량표 자동 행 높이
+- 검색어: auto-height fitFieldRow 체리오 돈셀 richText merged width
+1. 작업 위치: codex/auto-height / work/auto-height / PR 예정.
+2. 완료: 최종 병합 폭·열 폭·richText 전체 줄 수로 행별 최대 높이 계산, 숨김 숫자열 제외.
+3. 남은 일: PR CI 성공 후 병합·배포 확인.
+4. 검증: 대상38건, 실제46-01 Excel PDF 체리오3줄/돈셀7줄 잘림없음. 전체ERP/빌드 진행.
+5. 주의: 원장 쓰기 없음, 출력물과 공유 node_modules 보존.
