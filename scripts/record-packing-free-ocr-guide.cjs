@@ -71,8 +71,10 @@ async function main(){
   assert.equal(matchRevision,1);assert.equal(matchValue.entries[0].prodKey,99001);
   if(rec){await rec.caption('3. 저장 결과 확인 · 선택 즉시 창이 닫히고 팀 공용 매칭에 저장됩니다.\n원본 표기 차이는 별도 확인 대상으로 남으며 매칭만으로 입고되지 않습니다.');await rec.pause(6500);}
   await page.waitForFunction(()=>document.body.innerText.includes('팀 공용 수동 1'));
-  if(rec)await rec.caption('3. 전체 보기로 저장된 품목을 다시 확인합니다.\n확인 필요만 보기에서는 해결된 행이 숨겨지지만 매칭은 유지됩니다.');
-  await focus('[data-testid="packing-results-view-toggle"]');await page.click('[data-testid="packing-results-view-toggle"]');await rec?.unfocus();
+  if(rec)await rec.caption('3. 저장한 품목이 전체 목록 맨 위에 표시됩니다.\n확인 필요만 보기로 남은 품목을 볼 수 있습니다.');
+  await focus('[data-testid="packing-results-view-toggle"]');await page.click('[data-testid="packing-results-view-toggle"]');
+  await page.waitForFunction(()=>!document.querySelector('[data-testid="packing-results"]')?.innerText.includes('ROSE RED TRAINING'));
+  await page.click('[data-testid="packing-results-view-toggle"]');await rec?.unfocus();
   await page.waitForFunction(()=>document.body.innerText.includes('ROSE RED TRAINING'));
   await page.screenshot({path:'.verify/packing-guide-result.png'});
   assert.equal(freeCalls,0);assert.equal(paidCalls,1); // intercepted synthetic request, not a provider call
