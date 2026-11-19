@@ -3806,3 +3806,11 @@ pm run test:canon 통과.
 4. 검증 상태: 최신원가 계약 4건, 날짜 범위 회귀, 로컬 ERP 전체, manifest 228, dnSpy, write guard, webpack, 가이드 해시 및 27→28 흐름 검사 통과. 합성 Chrome 팝업에서 검색 12→1, 최고가 1,350원/단 한 건, 상세 전환, 오른쪽 스크롤 동기화, 키보드, 820px 및 실제 영상 재생 확인. #1851 필수 Windows 44280067178/ERP 44280067189 통과. 후속 기준선 7eb1c050에 #1851이 동일하게 포함되고 Cafe24 44282323692 성공. 운영 /incoming?popup=1 인증 조회에서 검색 입력, 원가 상세 기본 off, 상단 오른쪽 스크롤, 가이드 재생 검증. Windows 44282323814, 공개 latest.yml와 exe 111,956,169바이트 일치, SHA256 9ce281386338e7cd44367524f185e9b189ced390f414bc25d470a615644c492b.
 5. 주의/잠금: ERP·ECOUNT 원장 수정 없음, 운영에서는 GET/HEAD로 기능을 검증. 원가 단위 혼용/미확정 시 숫자를 단정하지 않음. 선행 #1849는 1.3.43, #1853·#1848은 동일 1.3.44 기준선으로 병합돼 최신 7eb1c050 검증 설치본을 한 번만 공개함. 문서 병합의 불필요한 Cafe24 재배포는 이 문서 SHA만 취소.
 - 회사 Drive 가이드 원본(크기 확인, 녹화 시 예약 버전 파일명 1.3.43, 최종 화면 및 소스 해시 일치): 수입부 MP4 1vZQaWpDTBeH0NNE_-c19HFYZcq-1VEdt / VTT 1p6wecWaZNa3lZsbrh5Rj-M6sxRNI-0E1 / proof 1sfw6kA_bmELPBUOIQ8_NSP2yD1IZ_M8v. 영업지원 MP4 1kLR9otsruMFq-soiIXetteeROUDJN7mk / VTT 1aps34w8SPf2YBeVsBOkvQ7khXTlZIzBs / proof 16Nkgz8C_-IHYjvc5Tguhj3svaXYlqLbN.
+
+## 2026-11-19 · 원장 연결 알림 기록 달력 (검증 완료, 배포 진행)
+- 위치: nenova-erp-ui / codex/ledger-calendar-1119 / C:/Users/USER/nw-cdx-ledger-calendar-1119 / PR 생성 예정.
+- 완료: 최초/현재 신고·등록변경·차수 판매스냅샷 실제 날짜 달력, 원차수/적용차수 분리, 미기록 날짜 비추정. desktop1.3.46·기존 /estimate 연결. 별도 변경이력 메뉴는 요청 범위대로 양식분석/설계만 docs/plans/estimate-change-history-design-2026-11-19.md 기록.
+- 남은 일: PR/CI 성공 확인 후 squash 병합·Cafe24 배포·운영 읽기전용 스모크·작업트리 정리.
+- 검증: 대상14·전체ERP계약·dnSpy·manifest229·쓰기범위·정식webpack빌드·desktop73/Electron smoke 통과. 브라우저1920/1280/390·달력 방향키·Esc·실패·가이드 재생 통과. 가이드66.4초 한국어자막/목차/첫중끝프레임/해시 확인, Drive 영상1QqliZgJIwSizKXqmLGVv1CNC1SIuti7U/자막1_ETgzM-q9OXf833URfleGnM1njNkzljV. 운영 SELECT 신고이력3/판매스냅샷10/확정0, 쓰기0. 배포 후 스모크는 미검증.
+- 주의/잠금: acba 기존 dirty WORK_MEMORY.md·45차CSV 보존. 판매스냅샷은 차수 전체 기록이며 엑셀다운로드/이카운트입력 증거 아님. 현재45차 판매등록확정 미기록.
+- 검색어: 원장 연결 알림 달력 최초 현재 신고 판매등록 날짜 REG_CONFIRM 견적 변경 이력 양식 1.3.46

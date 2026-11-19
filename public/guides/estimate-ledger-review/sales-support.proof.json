@@ -1,19 +1,20 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-18T04:41:58.230Z",
+  "recordedAt": "2026-11-19T00:25:26.950Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 41.55,
+  "duration": 66.4,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "7f9c74aa7810c4cec06a94b2bbb74b7da31610068fe847a674cc3b3726ad8c19",
-  "captionsSha256": "795fe4636e4448525228536a6a3a1a3496a24a6a8d34eeab16f20e681002b1f3",
+  "videoSha256": "101d18de53f7c1df2760b64a3c4cb9343166f9a70b1c82f760fd963b307301b6",
+  "captionsSha256": "0bcc1ca6da4d30664a92330d40cac197673b1d78a2ee01b86692c80bdc82dc33",
   "sourceHashes": {
     "components/EstimateLedgerAlerts.js": "abf3302c65102ae8ac18cab1c84797f2454744280626db2de62c7e042fce02e2",
-    "components/EstimateLedgerReview.js": "d2217c3e25622d7a504e3db7c7c9b7f3b2d9aae4f00b7ca19e04a95c83573b62"
+    "components/EstimateLedgerReview.js": "34c05e883f0de1980545bf1efc0d3db7e55c1d51afe70eabcb11fa0b21ec270d",
+    "lib/estimateLedgerCalendar.js": "bf27f773f85240b95cabe1d1cc8a599b6a181167c1198bb6277d3242cb0a304a"
   },
   "presentation": {
     "numberedSteps": 3,
@@ -29,31 +30,45 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 1.8450311999999995,
+        "start": 1.8257712000000001,
         "x": 358.40625,
         "y": 259.546875,
-        "end": 5.2932173
+        "end": 5.269076
       },
       {
         "number": 2,
-        "start": 9.8396566,
+        "start": 9.802166000000001,
         "x": 1719.5,
         "y": 389.09375,
-        "end": 13.278638299999999
+        "end": 13.329832699999999
       },
       {
         "number": 2,
-        "start": 19.854281600000004,
+        "start": 19.886497,
+        "x": 421.875,
+        "y": 545.09375,
+        "end": 28.6778481
+      },
+      {
+        "number": 2,
+        "start": 34.2270467,
         "x": 1060,
         "y": 584.59375,
-        "end": 23.313684699999996
+        "end": 37.6686314
       },
       {
         "number": 2,
-        "start": 29.8682854,
+        "start": 44.2157863,
         "x": 1060,
         "y": 652.59375,
-        "end": 38.287265600000005
+        "end": 52.6212894
+      },
+      {
+        "number": 3,
+        "start": 54.6550218,
+        "x": 486.546875,
+        "y": 438.09375,
+        "end": 58.0969857
       }
     ]
   }
