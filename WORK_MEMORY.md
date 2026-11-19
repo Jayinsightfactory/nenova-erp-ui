@@ -4067,3 +4067,12 @@ pm run test:canon 통과.
 5. 주의 · 스키마 없는 서버를 먼저 배포하면 저장 쿼리가 실패한다. 운영 업무행 수정 금지.
 
 - 2026-11-19 운영 스키마: 사용자 승인으로 EstimateQuantity decimal(18,4) NULL 및 양수 CHECK 적용. 읽기 전용 확인에서 제약 활성·신뢰 확인. PR #1880 재검증 및 배포 대기.
+
+
+## 2026-11-19 통합 솔루션 시뮬레이터 SVG 선-글자 관통 · 공용폰 OCR 겹침 · 마스터-디테일 캡처 뷰어 · 한글 고딕 교정
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/simulator-svg-ocr-overlap` / `C:\Users\USER\nw-agy-fix-overlap` (PR 생성·CI 통과 후 squash 머지 및 정리)
+2. 완료된 것: `components/work/SolutionSuiteSimulator.js`(좌측 아키텍처 트레이스 SVG `03→04` 직교 버스 `y=144` 및 하단 독립 배지 레인 `y=166..196` 최상위 DOM 분리·화살표 마커, 공용폰 스냅샷 절대좌표 `.sim-ocr-box` 전면 폐기 후 3열 DOM Grid 인라인 하이라이트+우측 주석 거터 전환, `.sim-kv-row dt` `keep-all`/`nowrap` 및 폭 `162px` 보정, 좌측 `60%`에 `EXECUTION TRACE`+`5열 실행 로그 원장` 통합해 좌우 높이 균형화, `실제 작업 캡처 & 실측 대조`를 하단 `100%` `62:38` 마스터-디테일 뷰어로 독립 및 이미지 위 텍스트 대신 꼭짓점 번호 배지·우측 해설 리스트·전체 제목 가로 목록 구현, `ui-monospace` 제거 후 `Pretendard`/`Malgun Gothic`+`tabular-nums`·`12.5~14.5px` 고대비 적용), `pages/my-work.js`(`.bar-tabs` `flex-wrap: nowrap; overflow-x: auto` 단일 행 유지 및 불투명 배경, 고딕 서체 적용), `__tests__/solutionSuiteSimulator.test.js` 회귀 가드 보강, `desktop/package.json`·`desktop/package-lock.json` `1.3.62` 패치 업(`origin/master` 선행 `1.3.61` 이후 패치).
+3. 남은 할 일: PR 생성 · CI(`verify` · `installer`) 통과 대기 · squash 머지 · worktree/junction 정리.
+4. 검증 상태: `solutionSuiteSimulator.test.js`, `adoptionRadar.test.js`, `techRadarSimulator.test.js`, `archFlowChart.test.js`, `test:pm`, `test:ui-layout`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `guard:erp-writes --changed-from origin/master`, `test:erp-manifest --changed-from origin/master`, `desktop test`(75건), `npx next build --webpack`, Headless Chromium `1920×1080`·`1440×900` 실렌더링 기하·스크린샷 육안 검수 PASS (운영 서버 실데이터·DB 쓰기 0건, 캡처/API는 로컬 합성 픽스처 검증).
+5. 주의/잠금: 병렬 세션 `세션 Fix-Font` 전담 파일(`data/moyi-full-suite-blueprint.html`, `components/pm/TechRadarWorkbench.js`, `components/pm/ArchFlowChart.js`, `components/pm/ui.js`) 및 `GabrielProfitAgiWorkbench.js`, `pages/api/**` 무수정 유지.
+검색어: SolutionSuiteSimulator sim-bus-badge sim-ocr-token sim-line-gutter sim-capture-workbench Pretendard Malgun-Gothic bar-tabs Desktop-1.3.62
