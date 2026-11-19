@@ -75,7 +75,7 @@ export default function ShipmentStatement(){
   <ShipmentStatementSelectors year={year} week={week} customers={customers} manager={manager} customer={customer} busy={busy} onYear={value=>changeScope(setYear,value)} onWeek={value=>changeScope(setWeek,value)} onLoad={list} onManager={changeManager} onCustomer={open}/>
   {error&&<div role="alert" className={styles.error}>{error}</div>}<p role="status" aria-live="polite">{busy?'처리 중…':message}</p>
   {data&&<>
-   <section className={styles.panel}><div className={styles.controls}><h2>{data.source.customer.name} · {data.source.scope.year}년 {data.source.scope.week}차</h2>
+   <section className={styles.panel}><div className={styles.controls}><h2>{selection.customerDisplayName(data.source.customer.name)} · {data.source.scope.year}년 {data.source.scope.week}차</h2>
     <label>기본 출고요일<select aria-label="기본 출고요일" value={draft.defaultDay} disabled={busy||stale} onChange={e=>chooseDay(e.target.value)}>{core.DAYS.map(d=><option key={d}>{d}</option>)}</select></label>
     <button className={styles.primary} aria-label="작성내용 저장" disabled={busy||!valid} onClick={()=>save(false)}>저장</button>
     <button disabled={busy} onClick={()=>open(customer)}>다시 불러오기</button>

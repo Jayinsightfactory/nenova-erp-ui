@@ -27,6 +27,12 @@
   ],
   "actions": [
     {
+      "name": "SEARCH_AND_DISPLAY_FSO_CUSTOMER_ALIAS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "webOnly": "The statement selector resolves 플로르아름(fso) and the original FSO customer name within the currently loaded company list. The original CustKey, manager, favorite identity, source data and export are preserved."
+    },
+    {
       "name": "READ_ALL_SUBWEEKS",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
