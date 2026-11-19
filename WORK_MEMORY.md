@@ -4036,6 +4036,14 @@ pm run test:canon 통과.
 5. 주의/잠금: 병렬 세션 `UI-2`/`UI-3` 경계(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`, `components/work/SolutionSuiteSimulator.js`, `desktop/package.json`, `pages/pm/radar.js`, `lib/pmTechRadarSim.js`, `lib/pmRadarPlanTokens.js`, `pages/api/**`) 무수정. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·#hex·raw `<button>` 0건 유지.
 검색어: pm-control anti-ai-slop 오류관제 pages/pm pmThemes pmLookClear ControlGuide tabular-nums linear-gradient box-shadow PR1879
 
+## 2026-11-19 · Carver 콜롬비아46-02 차수 통합 원가 별도 착수
+1. 작업 위치: nenova-erp-ui / fix/co-arrival-week-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co-arrival-week-1119 / origin/master29f275c5, PR아직없음. 중국 발주서 PR1883/worktree는 취소/변경 없이 별도 보존.
+2. 완료된 것: 사용자확정 단일현재차수원가시트/일반꽃+수국/다중AWB격리/공유통관1회/버전보존 계획·contract작성. 실제dnSpy FormWarehouseView 재실행, exact2026/46-02 readonly source22입고94상품(수국25/카네26/장미24/알스19), 같은AWB01441369974. 신규순수 week계산 및 전체입고 source helper구현, 기존 개별/공동AWB/원장 코드 불변.
+3. 남은 할 일: 실제 비용전표/AWB근거 자동연결 및 모호 비용행만확인 UI, 단일기존양식 시트(요약/AWB별시트금지) 생성·수식/독립재계산·불변버전보관, serverAPI/기존Desktop메뉴연결/버전·실제격리native저장·Excel재열기/캡처, 가이드/필수gates/PR·CI·squash·배포readonly smoke. 미완료 코드이며 배포금지.
+4. 검증 상태: 신규계산5/source4=9건PASS. 다중AWB운임독립·중복CW거부·동일증빙중복1회/별개동액보존·공유통관1회·늦은수국새지문·양연도/타국/모호행검증. 운영조회에서 비용참고6행: 전표8109 운임13651.92+85.88/GW3942/CW4824, 별도송장15+15귀속미확인. 실제원가·다운로드·수식재계산·Desktop·CI·배포 미검증. 운영DB쓰기0/유료분석0.
+5. 주의/잠금: Carver단독 새worktree. private .verify/CO probe/raw receipts/EXE소스 커밋금지. root node_modules는canonical junction(대상재귀삭제금지), desktopjunction아직없음. 기존국가/과거원가·중국작업·기존 비용수식/원장 보존. sourceReady는원천완전성만 뜻하며 비용확정/다운로드승인이 아님.
+검색어: Carver co-arrival-week-1119 Colombia46-02 colombiaWeekCost one-sheet multiAWB shared-customs hydrangea25
+
 ### 2026-11-19 — A3 행 안쪽 여백 축소
 1. 작업 위치: codex/tight-rows / work/tight-rows / PR 준비.
 2. 완료: 실제 셀폭 줄계산 유지, 14.5pt 줄높이+4pt 여유, 최소18.5pt.
