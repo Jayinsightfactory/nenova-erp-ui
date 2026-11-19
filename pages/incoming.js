@@ -20,6 +20,19 @@ const { Text } = Typography;
 
 const fmt = n => Number(n || 0).toLocaleString();
 
+const normalizeLedgerSearch = value => String(value ?? '').normalize('NFKC').toLowerCase();
+const normalizeAwbSearch = value => normalizeLedgerSearch(value).replace(/[\s\p{Dash_Punctuation}]+/gu, '');
+
+function LedgerSearchHeading({ label, value, onChange }) {
+  const searchLabel = `${label} 검색`;
+  return <div>
+    <div onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
+      <Input size="small" allowClear aria-label={searchLabel} placeholder={searchLabel} value={value} onChange={event => onChange(event.target.value)} />
+    </div>
+    <span>{label}</span>
+  </div>;
+}
+
 function ReceiptDetailScroll({tableRoot}) {
   const bar = useRef(null);
   useEffect(() => {
@@ -83,6 +96,8 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const [recentFarms, setRecentFarms] = useState([]);
   const [masterSearch, setMasterSearch] = useState('');
   const [farmSearch, setFarmSearch] = useState('');
+  const [invoiceSearch, setInvoiceSearch] = useState('');
+  const [awbSearch, setAwbSearch] = useState('');
   const [detailSearch, setDetailSearch] = useState('');
   const [showLatestDetails, setShowLatestDetails] = useState(false);
   const detailTableRoot = useRef(null);
@@ -180,9 +195,13 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const filteredMasters = useMemo(() => {
     const q = masterSearch.trim().toLowerCase();
     const farmQuery = farmSearch.trim().normalize('NFKC').toLowerCase();
+    const invoiceQuery = normalizeLedgerSearch(invoiceSearch).trim();
+    const awbQuery = normalizeAwbSearch(awbSearch);
     const list = masters.filter(m => {
       if (farmFilter && m.FarmName !== farmFilter) return false;
       if (farmQuery && !String(m.FarmName ?? '').normalize('NFKC').toLowerCase().includes(farmQuery)) return false;
+      if (invoiceQuery && !normalizeLedgerSearch(m.InvoiceNo).includes(invoiceQuery)) return false;
+      if (awbQuery && !normalizeAwbSearch(m.AWB).includes(awbQuery)) return false;
       if (weekFilter && m.OrderWeek !== weekFilter) return false;
       if (!q) return true;
       return (m.FarmName||'').toLowerCase().includes(q) ||
@@ -192,7 +211,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
     });
     const val = (m) => { const v = m[sortKey]; return v == null ? '' : v; };
     return list.sort((a, b) => { const x = val(a), y = val(b); if (typeof x === 'number' && typeof y === 'number') return (x - y) * sortDir; return String(x).localeCompare(String(y), 'ko') * sortDir; });
-  }, [masters, masterSearch, farmFilter, farmSearch, weekFilter, sortKey, sortDir]);
+  }, [masters, masterSearch, farmFilter, farmSearch, invoiceSearch, awbSearch, weekFilter, sortKey, sortDir]);
 
   // 농장/차수를 고르면 첫 원장을 자동 선택해 상세까지 한 번에
   useEffect(() => {
@@ -342,16 +361,11 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
               columns={[
                 { title: '주문년도', dataIndex: 'OrderYear', width: 80, sorter: (a, b) => String(a.OrderYear).localeCompare(String(b.OrderYear)) },
                 { title: '차수', dataIndex: 'OrderWeek', width: 70, sorter: (a, b) => String(a.OrderWeek).localeCompare(String(b.OrderWeek)), render: (v) => <Text strong>{v}</Text> },
-                { title: <div>
-                    <div onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
-                      <Input size="small" allowClear aria-label="농장명 검색" placeholder="농장명 검색" value={farmSearch} onChange={event => setFarmSearch(event.target.value)} />
-                    </div>
-                    <span>농장명</span>
-                  </div>, dataIndex: 'FarmName', width: 200,
+                { title: <LedgerSearchHeading label="농장명" value={farmSearch} onChange={setFarmSearch} />, dataIndex: 'FarmName', width: 200,
                   render: name => <span style={{overflowWrap:'anywhere',whiteSpace:'normal'}}>{name || '미기재'}</span>,
                   sorter: (a, b) => String(a.FarmName || '').localeCompare(String(b.FarmName || ''), 'ko'), filterSearch: true, filters: farmOptions.map((f) => ({ text: f, value: f })), onFilter: (v, r) => r.FarmName === v },
-                { title: '인보이스', dataIndex: 'InvoiceNo', width: 110, ellipsis: true, render: (v) => <Text type="secondary" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
-                { title: 'AWB', dataIndex: 'AWB', width: 120, ellipsis: true, render: (v) => <Text type="secondary" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
+                { title: <LedgerSearchHeading label="인보이스" value={invoiceSearch} onChange={setInvoiceSearch} />, dataIndex: 'InvoiceNo', width: 110, ellipsis: true, render: (v) => <Text type="secondary" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
+                { title: <LedgerSearchHeading label="AWB" value={awbSearch} onChange={setAwbSearch} />, dataIndex: 'AWB', width: 120, ellipsis: true, render: (v) => <Text type="secondary" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
                 { title: '입력일자', dataIndex: 'InputDate', width: 100, render: value => <span style={{ whiteSpace: 'nowrap' }} title={value == null ? '' : String(value)}>{incomingDateLabel(value)}</span>, sorter: (a, b) => String(a.InputDate || '').localeCompare(String(b.InputDate || '')), defaultSortOrder: 'descend' },
                 { title: '박스', dataIndex: 'totalBox', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalBox || 0) - (b.totalBox || 0) },
                 { title: '단', dataIndex: 'totalBunch', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalBunch || 0) - (b.totalBunch || 0) },

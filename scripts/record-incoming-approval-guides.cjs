@@ -12,7 +12,7 @@ const workflow = registry.workflows.find(item => item.id === 'incoming-approval'
 const clone = value => JSON.parse(JSON.stringify(value));
 const products = [{ ProdKey: 1, ProdName: '장미 레드 50' }, { ProdKey: 2, ProdName: '장미 핑크 50' }].map(product => ({ ...product, OutUnit: '단', EstUnit: '단', isDeleted: false, BunchOf1Box: 10, SteamOf1Bunch: 10, SteamOf1Box: 100 }));
 const docId = '11111111-1111-8111-8111-111111111111', lineId = '44444444-4444-8444-8444-444444444444';
-const header = { WarehouseKey: 9001, OrderYear: '2026', OrderWeek: '45-01', FarmName: '연습농장 가', InvoiceNo: 'GUIDE-001', AWB: '연습용', InputDate: '2026-11-05', UploadDtm: '2026-11-05', totalBox: 10, totalBunch: 100, totalSteam: 1000, GrossWeight: 20, ChargeableWeight: 20, FreightRateUSD: 2 };
+const header = { WarehouseKey: 9001, OrderYear: '2026', OrderWeek: '45-01', FarmName: '연습농장 가', InvoiceNo: 'GUIDE-001', AWB: '000-1234 5678', InputDate: '2026-11-05', UploadDtm: '2026-11-05', totalBox: 10, totalBunch: 100, totalSteam: 1000, GrossWeight: 20, ChargeableWeight: 20, FreightRateUSD: 2 };
 const before = [{ WdetailKey: 101, ProdKey: 1, ProdName: products[0].ProdName, OrderCode: '연습', BoxQuantity: 10, BunchQuantity: 100, SteamQuantity: 1000, SteamOf1Box:100, SteamOf1Bunch:10, OutQuantity: 100, EstQuantity: 100, UPrice: 1, TPrice: 100, 주문코드: '연습', 단위: '단', 단송이: 10, 박스송이: 100, 단가: 1, 총액: 100 }];
 const scenarioTitles = { farm: '농장만 수정', product: '품목·수량 함께 변경', quantity: '수량만 변경·부족 문제 해결',add:'기존 입고에 품목·수량 추가',cancel:'기존 입고의 품목·수량 취소' };
 
@@ -153,9 +153,25 @@ async function recordRole(browser, base, secret, role) {
         if(scenario==='farm'){
           await page.goto(`${base}/incoming?popup=1`,{waitUntil:'networkidle0'});
           await page.waitForSelector('[data-row-key="9001"]');
-          await hold('농장명 바로 위 검색칸으로 농장을 찾고 전체 이름을 확인합니다.',4);
+          await hold('농장명·인보이스·AWB 열 위에서 각각 검색할 수 있습니다. 여러 칸을 채우면 모든 조건과 일치하는 건만 표시됩니다.',4);
+          await fill('input[aria-label="인보이스 검색"]','guide-001');
+          await page.waitForFunction(()=>document.querySelectorAll('tr[data-row-key]').length===1);
+          await fill('input[aria-label="AWB 검색"]','12345678');
+          await page.waitForSelector('[data-row-key="9001"]');
           await fill('input[aria-label="농장명 검색"]','연습농장');
           await page.waitForFunction(()=>document.querySelectorAll('tr[data-row-key]').length===1);
+          if (dry) {
+            await fill('input[aria-label="AWB 검색"]', '99999999');
+            await page.waitForFunction(() => !document.querySelector('[data-row-key="9001"]'));
+            await page.setViewport({width: 820, height: 900});
+            await page.focus('input[aria-label="AWB 검색"]');
+            await page.keyboard.down('Control');
+            await page.keyboard.press('a');
+            await page.keyboard.up('Control');
+            await page.keyboard.type('000-1234 5678');
+            await page.waitForSelector('[data-row-key="9001"]');
+            await page.setViewport({width: 1920, height: 1080});
+          }
           await moveClick(await page.$('[data-row-key="9001"]'));
           const scrollBar = '[aria-label="입고 상세 열 좌우 이동"]';
           await page.waitForFunction(()=>document.body.textContent.includes('1,350원/단'));

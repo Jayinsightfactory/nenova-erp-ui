@@ -3823,3 +3823,12 @@ pm run test:canon 통과.
 4. 검증 상태: 최종 표적34·전체 ERP계약·manifest229·dnSpy·쓰기guard·전체 workflow-guides·정식 webpack build PASS. 초기 격리셸 bash 초기화/빌드 EPERM은 정상권한 재검증으로 통과. 실제Excel 읽기전용 인쇄4종 모두A3가로1페이지 및 전체 시각확인. 운영SELECT-only2025/2026동일46-02 범위 확인. 운영쓰기0; 배포 후 실제운영 다운로드는 아직 미검증.
 5. 주의/잠금: 기본 checkout dirty 및 타 세션 작업트리 보존. 새메뉴/데스크톱패키지/영상 조작순서 변경 없음. 카네이션45박스=1.1빠렛(기존40박스 기준), 장미일반10/Snowflake25단 환산 그대로; 빠렛에서 박스 역산 금지.
 검색어: field-calendar 요일 세로 현장물량표 업체 품종요약 빠렛 박스 A3 landscape
+
+## 2026-11-19 입고 원장 인보이스·AWB 열 검색
+1. 작업 위치: nenova-erp-ui / codex/incoming-number-search / work/nw-cdx-incoming-number-search / PR 생성 전.
+2. 완료된 것: pages/incoming.js의 원장 표에 인보이스·AWB 검색 추가. 세 검색은 AND, AWB는 공백·하이픈 무시, 입력 즉시 기존 조회 결과에서 필터. 데스크톱 기존 /incoming 메뉴 연결 확인, 설치본 1.3.48 준비.
+3. 남은 할 일: 로컬 정식 빌드, 두 역할 가이드 실제 검증/갱신, CI·squash·Cafe24 운영 조회·Windows 배포 및 작업트리 정리.
+4. 검증 상태: 정식 webpack 빌드·Chrome 두 역할 합성 dry-run·실제 2편 촬영과 회사 Drive 6파일 업로드 통과. CI·운영·직원 PC는 미검증.
+5. 주의/잠금: 원장/API/SQL·원가·정렬 변경 없음. 기존 체크아웃 보존. 직원 PC 재시작 없음.
+검색어: 입고관리 인보이스 번호 AWB 농장명 열 검색 normalizeAwbSearch
+
