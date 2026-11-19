@@ -3824,6 +3824,16 @@ pm run test:canon 통과.
 5. 주의/잠금: 기본 checkout dirty 및 타 세션 작업트리 보존. 새메뉴/데스크톱패키지/영상 조작순서 변경 없음. 카네이션45박스=1.1빠렛(기존40박스 기준), 장미일반10/Snowflake25단 환산 그대로; 빠렛에서 박스 역산 금지.
 검색어: field-calendar 요일 세로 현장물량표 업체 품종요약 빠렛 박스 A3 landscape
 
+## 2026-11-19 하단 요일별 독립구역 로컬 수정
+검색어: vertical-footer 46-01 카네이션 merged weekday fieldCultivarDisplay
+1. 작업 위치: nenova-erp-ui / codex/vertical-footer / Documents/Codex/2026-11-13/new-chat/work/vertical-footer / PR 없음.
+2. 완료: shipmentFieldVolume.js 하단만 요일 독립 헤더+지역요약 세로 그룹, 기존 farm 별칭 기반7개 한글표시·unknown원문보존. 본문 배치·총합수식 유지. 계약과 대상시험 갱신.
+3. 남은 일: 실제 인쇄시각·필수전체gate·인계커밋·PR/CI/병합/배포. 기본 격리셸에서401이나 정상권한 gh api user/PR목록 성공; 계정만료아님, 재로그인불필요.
+4. 검증: 대상35/35 PASS, 실제46-01카네이션 파싱/생성 PASS. Excel A3가로4쪽 PDF·하단시각 확인. 전체gate·운영 진행중.
+5. 주의/잠금: 이 작업트리3개 변경파일 보존. ERP/DB쓰기0. 출력샘플은 new-chat/outputs/46-01 카네이션 하단요일 세로.xlsx.
+
+- 후속: 정식 webpack build exit0, manifest229/dnSpy/쓰기guard PASS. 실제 원본46-01 샘플·원본팔렛스냅샷 병기·Excel A3가로4쪽 PDF 및 footer 시각확인 PASS. 전체ERP/CI/배포 진행중.
+- 한글 후속: 기존 lib/displayName.js suggestDisplayName canonical 재사용, 알려진7개 별칭 우선. 한글변환 없는 미등록 이름은 원문유지. 대상35 PASS. 최종 SHA CI 재검증 필요.
 ## 2026-11-19 입고 원장 인보이스·AWB 열 검색
 1. 작업 위치: nenova-erp-ui / codex/incoming-number-search / work/nw-cdx-incoming-number-search / PR 생성 전.
 2. 완료된 것: pages/incoming.js의 원장 표에 인보이스·AWB 검색 추가. 세 검색은 AND, AWB는 공백·하이픈 무시, 입력 즉시 기존 조회 결과에서 필터. 데스크톱 기존 /incoming 메뉴 연결 확인, 설치본 1.3.48 준비.
