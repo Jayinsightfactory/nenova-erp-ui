@@ -75,6 +75,7 @@ async function main() {
     const uploadHistory=createPackingHistoryFixture();
     let external = 0, parseCalls = 0, matchRevision = 0, matchValue = { version: 1, entries: [] }; const saved = [], otherApi = [];
     let receiptDocument = null, receiptCommits = 0;
+    let rejectMatchOnce = dry;
     const baselineDigest = 'b'.repeat(64), warehouseKey = 91001;
     await page.setRequestInterception(true); page.on('request', req => {
       const u = new URL(req.url());
@@ -120,6 +121,10 @@ async function main() {
       }
       if (u.pathname === '/api/import/tools/product-matches') {
         if (req.method() === 'POST') {
+          if (rejectMatchOnce) {
+            rejectMatchOnce = false;
+            return req.respond({status:503,contentType:'application/json',body:JSON.stringify({success:false,error:'연습 매칭 저장 실패'})});
+          }
           const b = JSON.parse(req.postData() || '{}'); assert.equal(b.expectedRevision, matchRevision);
           matchValue = upsertPackingErpMatch(matchValue, b, ERP); matchRevision++; saved.push(b);
         }
@@ -263,6 +268,12 @@ async function main() {
         assert(automatic.asElement(), '90% 이상 단독 후보를 기본 선택으로 표시해야 합니다');
         assert.equal(await page.$eval(cand, button => button.getAttribute('aria-pressed')), 'true');
         if (dry) await page.screenshot({path:'.verify/invoice-match-default.png'});
+        if (dry) {
+          await automatic.asElement().click();
+          await page.waitForFunction(() => document.querySelector('[data-testid="packing-match-dialog"]')?.textContent.includes('연습 매칭 저장 실패'));
+          assert.equal(matchRevision, 0);
+          assert(![...uploadHistory.records.values()].some(record => record.snapshot.matchingReviewed === true));
+        }
         await say('이름 점수가 90% 이상인 단독 1위는 기본 선택으로 표시됩니다.\n품목을 확인하고 「기본 선택 저장」을 누릅니다.', 3500);
         await press(await tag('saveDefault', 'button', '기본 선택 저장'), { fx: 0.97, fy: 0.5 });
       } else {
@@ -284,6 +295,12 @@ async function main() {
     }
     // 마지막 줄을 연결하면 앱이 스스로 「입고 작업」 화면으로 넘어간다(입고 단계 자체는 이 영상의 범위 밖).
     await page.waitForFunction(() => [...document.querySelectorAll('nav[aria-label="인보이스 작업 선택"] button')].find(b => b.innerText.includes('입고 작업'))?.getAttribute('aria-pressed') === 'true');
+    const historyDeadline = Date.now() + 8000;
+    while (![...uploadHistory.records.values()].some(record => record.snapshot.matchingReviewed === true) && Date.now() < historyDeadline) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert([...uploadHistory.records.values()].some(record => record.snapshot.matchingReviewed === true),
+      '명시 매칭 후 자동 입고 전환에서도 같은 원본에 확인 이력을 보존해야 합니다');
     await new Promise(r => setTimeout(r, 1800)); // 앱이 입고 작업 위치로 부드럽게 스크롤하는 동안 기다린다
     await page.evaluate(() => window.scrollTo(0, 0));
     await new Promise(r => setTimeout(r, 500));
@@ -297,8 +314,12 @@ async function main() {
       const receiptTab=await page.evaluateHandle(()=>[...document.querySelectorAll('nav[aria-label="인보이스 작업 선택"] button')].find(button=>button.innerText.includes('입고 작업')));await receiptTab.asElement().click();
       const group='[data-testid="invoice-receipt-workbench"] [aria-label="농장 검색 결과"]';try{await page.waitForSelector(`${group} button`,{timeout:15000});}catch(error){console.log('WORKBENCH',await page.evaluate(()=>document.querySelector('#packing-receipt-stage')?.innerText));await page.screenshot({path:'.verify/farm-workbench-missing.png'});throw error;}
       await page.waitForFunction(()=>document.querySelector('[data-testid="invoice-receipt-workbench"]')?.innerText.includes('선택된 농장: CI FLORES 연습농장 SAS'));
-      await page.click(`${group} button:last-child`);await page.waitForFunction(()=>document.querySelector('[data-testid="invoice-receipt-workbench"]')?.innerText.includes('선택된 농장: 연습 농장'));
-      await page.click(`${group} button:first-child`);assert.equal(await page.$eval(`${group} button:first-child`,n=>n.getAttribute('aria-pressed')),'true');
+      const alternative = await page.waitForSelector(`${group} button:last-child:not(:disabled)`, {visible:true});
+      await alternative.click();
+      await page.waitForFunction(()=>document.querySelector('[data-testid="invoice-receipt-workbench"]')?.innerText.includes('선택된 농장: 연습 농장'));
+      const original = await page.waitForSelector(`${group} button:first-child:not(:disabled)`, {visible:true});
+      await original.click();
+      assert.equal(await page.$eval(`${group} button:first-child`,n=>n.getAttribute('aria-pressed')),'true');
       console.log('PASS actual workbench: source farm auto-fill and one-click change');
       const uploadTab=await page.evaluateHandle(()=>[...document.querySelectorAll('nav[aria-label="인보이스 작업 선택"] button')].find(button=>button.innerText.includes('인보이스 업로드')));await uploadTab.asElement().click();
     }
