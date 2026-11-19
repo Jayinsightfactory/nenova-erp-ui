@@ -1,11 +1,35 @@
-// __tests__/adoptionRadar.test.js — /my-work '도입 레이더' 탭: 관리자(isOrbitReportViewer) 에게만 노출·읽기, 파일 전용(MSSQL 무관).
-// 실행: node __tests__/adoptionRadar.test.js  (DB 불필요, 소스 문자열 + 접근 판별 함수만 검사)
+// __tests__/adoptionRadar.test.js — /my-work '도입 레이더' 탭: 관리자(isOrbitReportViewer) 에게만 노출·읽기, 파일 전용(MSSQL 무관) + 에디토리얼 라이트 쉘 검증.
+// 실행: node __tests__/adoptionRadar.test.js  (DB 불필요, 소스 문자열 + 접근 판별 함수 + SSR 검사)
 const assert = require('assert');
 const fs = require('fs');
+const Module = require('module');
 const path = require('path');
+const React = require('react');
+const { renderToStaticMarkup } = require('react-dom/server');
+const { transformSync } = require('next/dist/build/swc');
 
 const cwd = process.cwd();
 const read = (p) => fs.readFileSync(path.join(cwd, p), 'utf8');
+
+function compile(rel, customRequire) {
+  const filename = path.join(cwd, rel);
+  const mod = new Module(filename, module);
+  mod.filename = filename;
+  mod.paths = Module._nodeModulePaths(path.dirname(filename));
+  const baseRequire = Module.createRequire(filename);
+  mod.require = (id) => (customRequire ? customRequire(id, baseRequire) : baseRequire(id));
+  const { code } = transformSync(fs.readFileSync(filename, 'utf8'), {
+    filename,
+    jsc: {
+      parser: { syntax: 'ecmascript', jsx: true },
+      target: 'es2022',
+      transform: { react: { runtime: 'automatic' } },
+    },
+    module: { type: 'commonjs' },
+  });
+  mod._compile(code, filename);
+  return mod.exports;
+}
 
 // 1) 관리자 판별: 기존 lib/orbitReportAccess 그대로 재사용(새 권한 체계 없음)
 const accessSrc = read('lib/orbitReportAccess.js').replace(/^export (const|function) /gm, '$1 ') + '\nmodule.exports = { ORBIT_REPORT_USER_IDS, isOrbitReportViewer };';
@@ -45,4 +69,56 @@ assert.ok(/name === 'adoption-ledger' \? 'adoption-ledger\.json'/.test(lib), '�
 // 5) 런타임 파일은 git 미추적
 assert.ok(/^data\/runtime\/$/m.test(read('.gitignore')), '.gitignore data/runtime/');
 
-console.log('adoptionRadar tests passed: 관리자 판별 재사용·탭 비노출·API 게이트·캐시·파일 전용');
+// 6) 에디토리얼 라이트 쉘 · 도입레이더 정화 검증 (구형 다크 껍데기 제거 + mode="clear" + 아카이브 기본 접힘)
+assert.ok(/<TechRadarWorkbench[\s\S]*mode="clear"[\s\S]*initialPlanMode="A"/.test(page), '도입레이더는 첫 화면에 mode="clear" initialPlanMode="A" 로 즉시 렌더');
+assert.ok(!/<TechRadarWorkbench[\s\S]*mode="dark"/.test(page), '도입레이더는 기본 dark 강제 금지');
+assert.ok(page.includes('원장 로우데이터 및 일별 자가조율 로그 열람'), '구형 원장/자가수정 로그는 접이식 아카이브로 수납');
+assert.doesNotMatch(page, /#0e1016|#12151c|#171a21|#1f2430|#58a6ff/i, 'pages/my-work.js 구형 다크 쉘 잔재 제거 필수');
+assert.doesNotMatch(page, /linear-gradient|radial-gradient/i, 'Anti-AI Slop: 그라디언트 장식 금지');
+assert.doesNotMatch(page, /감시|추적|모니터링|절감시간/, '금지어 포함 금지');
+assert.ok(page.includes('prefers-reduced-motion'), 'prefers-reduced-motion 준수 필수');
+assert.ok(page.includes('tabular-nums'), 'tabular-nums 고정폭 숫자 정렬 필수');
+
+// 7) SSR 검증: ?tab=radar 진입 시 TechRadarWorkbench(clear/A) 최상단 노출, 구형 SelfTuneReport/원장 기본 비노출
+const pmUiMod = compile('components/pm/ui.js');
+const pmSimMod = compile('lib/pmTechRadarSim.js');
+const pmTokensMod = compile('lib/pmRadarPlanTokens.js');
+const trwMod = compile('components/pm/TechRadarWorkbench.js', (id, baseReq) => {
+  if (id === './ui') return pmUiMod;
+  if (id === '../../lib/pmTechRadarSim') return pmSimMod;
+  if (id === '../../lib/pmRadarPlanTokens') return pmTokensMod;
+  return baseReq(id);
+});
+const archMod = compile('components/pm/ArchFlowChart.js', (id, baseReq) => {
+  if (id === './ui') return pmUiMod;
+  return baseReq(id);
+});
+const MyWorkPage = compile('pages/my-work.js', (id, baseReq) => {
+  if (id === 'next/router') return { useRouter: () => ({ query: { tab: 'radar' }, isReady: true, push: () => {} }) };
+  if (id === '../components/MenuBackButton') return () => React.createElement('button', { type: 'button', className: 'nv-back' }, '뒤로가기');
+  if (id === '../components/pm/ArchFlowChart') return archMod;
+  if (id === '../components/pm/TechRadarWorkbench') return trwMod;
+  if (id === '../components/import-tools/GabrielProfitAgiWorkbench') return () => null;
+  if (id === '../components/work/SolutionSuiteSimulator') return () => null;
+  if (id === '../components/work/DeviceHubConsole') return () => null;
+  if (id === '../lib/auth') return { verifyReqUser: async () => null };
+  if (id === '../lib/orbitReportAccess') return compile('lib/orbitReportAccess.js');
+  if (id === '../lib/workFlowOwners') return { workflowOwnerOf: () => null };
+  if (id === '../lib/workFeatureData') return compile('lib/workFeatureData.js');
+  return baseReq(id);
+}).default;
+
+const radarPageHtml = renderToStaticMarkup(React.createElement(MyWorkPage, { userId: 'nenovaSS3', orbit: 'https://orbit.example', tab: 'radar', mineOnly: false }));
+assert.ok(radarPageHtml.includes('data-testid="tech-radar-workbench"'), 'radar 탭 첫 화면에 TechRadarWorkbench 렌더링');
+assert.ok(radarPageHtml.includes('data-wb-mode="clear"'), 'radar 탭 clear 모드 전달 확인');
+assert.ok(radarPageHtml.includes('data-plan-mode="A"'), 'radar 탭 기본 시안 A 렌더링');
+assert.ok(radarPageHtml.includes('data-testid="radar-ledger-archive"'), '원장 아카이브 섹션 렌더링');
+assert.ok(radarPageHtml.includes('aria-expanded="false"'), '원장 아카이브 기본 접힘 상태');
+assert.ok(!radarPageHtml.includes('도입 장부 상세 원장'), '기본 화면에서 구형 원장 테이블 숨김');
+assert.ok(!radarPageHtml.includes('자가수정 보고'), '기본 화면에서 구형 자가수정 보고 숨김');
+
+const archPageHtml = renderToStaticMarkup(React.createElement(MyWorkPage, { userId: 'nenovaSS3', orbit: 'https://orbit.example', tab: 'arch', mineOnly: false }));
+assert.ok(archPageHtml.includes('data-testid="arch-flow-chart"'), 'arch 탭 ArchFlowChart 렌더링');
+assert.ok(!archPageHtml.includes('#0e1016'), '에디토리얼 라이트 쉘에 구형 다크 색 미포함');
+
+console.log('adoptionRadar tests passed: 관리자 판별 재사용·탭 비노출·API 게이트·캐시·파일 전용·에디토리얼 라이트 쉘·SSR');
