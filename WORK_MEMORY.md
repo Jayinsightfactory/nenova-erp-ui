@@ -3873,3 +3873,11 @@ pm run test:canon 통과.
 3. 남은 일: 최신통합 CI 전부통과 후 squash·Cafe24 포함SHA배포·운영읽기전용스모크·Desktop51 검증릴리스·현재worktree 링크만정리. 실제 최종배포/릴리스 결과는 PR1861 댓글에 기록.
 4. 미검증: 직원자신 저장응답 재검증/전체송장입고성공, 실제PC 설치·제거. 운영DB쓰기/유료추가분석/직원앱재시작0. 이번 review는 격리합성fixture와 원본PDF 읽기검증을 구분한다.
 5. 잠금: 다른 릴리스/원장/농장마스터/과거입고 변경금지. 이전 감사 worktree 보존. 원본PDF·인증정보 커밋금지. canonical node_modules junction 대상삭제금지.
+
+## 2026-11-19 · 사용자 우선순위: 영상 유예·업로드부터 원가까지 실기능 우선
+검색어: PR1861 amount-review stale INVOICE_TOTAL_MISMATCH E2E AWB
+1. 위치: fix/co4702-summary-1119 / nw-cdx-co4702-summary-1119 / PR1861 / Desktop51 예약 draft 보존.
+2. 완료: 실제47-2 PDF를 루프백 일회용SQL DB·실제웹UI에 업로드해 재현응답 검토/금액수정/소계제외복원 검증. 적용 후 이전3483 검증오류가 잔존하는 실제 통합 버그 발견·수정, 정상화 재계산 회귀6PASS. 다른 통화·날짜 문제는 보존. 사용자 명시 영상유예를 정확 helper해시 videoWaiver로 등록(검사기 우회/촬영완료 가장 없음).
+3. 남은 일: 배포용 빌드로 격리 입고등록·동일요청재시도/새중복방지·같은WarehouseKey 도착원가엑셀 다운로드 검증, 인보이스+AWB 동시 첨부 국가의 기존흐름 검사, 필수CI·가드·배포·운영읽기전용스모크. 추가촬영/백업은 유예.
+4. 검증: 원본PDF SHA검증, 직원저장응답은 미확보(재현응답과 구분). 첫격리test는 입고전 잔존오류로중단, 다음 dev서버 PDF worker오류로중단하여 각 일회용DB정리. 입고·원가통합 성공은 아직 미검증. 운영DB쓰기/유료분석0.
+5. 잠금: 루프백127.0.0.1:14339/일회용NenovaInvoiceFixture만쓰기. 원본PDF git금지, 운영Farm/과거입고 변경금지. 현재 scripts/test-packing-amount-receipt-local.cjs는 실제 writer/원가 서버용 격리회귀이며 운영API배포코드아님.

@@ -4,6 +4,7 @@
     {
       "id": "packing-amount-review",
       "title": "인보이스 원본 대조·금액 수정·소계 제외와 복원",
+      "videoWaivers": [{"file":"lib/packingAmountReview.js","sha256":"ae1de28a4e58db6dc5d75d8cf9bd57190d4f7e4d1390bbfe2a9cfef549fad5c5","approvedBy":"owner","reason":"2026-11-19 사용자 명시: 추가촬영·백업 유예, 업로드→수정적용→격리입고→같은입고 원가다운로드·필수CI·배포 우선. 화면은 동일하며 적용 후 기존 금액검증 재계산만 수정. 기존영상 재촬영 완료 주장 없음."}],
       "entryPaths": [
         "/import/tools"
       ],

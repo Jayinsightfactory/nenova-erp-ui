@@ -9,7 +9,7 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
  const publicPort=Number(process.env.NENOVA_NATIVE_UI_PORT||19422);
  assert.ok(Number.isSafeInteger(publicPort)&&publicPort>=19422&&publicPort<=65534);
  const internalPort=publicPort-1;
- const child=spawn(process.execPath,[require.resolve('next/dist/bin/next'),'start','--hostname','127.0.0.1','-p',String(internalPort)],{cwd:root,env,stdio:'ignore',windowsHide:true});
+ const child=spawn(process.execPath,[require.resolve('next/dist/bin/next'),...(process.env.NENOVA_NATIVE_FIXTURE_DEV==='1'?['dev','--webpack']:['start']),'--hostname','127.0.0.1','-p',String(internalPort)],{cwd:root,env,stdio:'ignore',windowsHide:true});
  const token=require('jsonwebtoken').sign({userId:'invoice-fixture',authority:1,accountActive:true},secret,{expiresIn:'4h'});
  const {appendUploadIssue}=await import('../lib/invoiceUploadIssue.js');
  const costs=await import('../lib/invoiceReceiptCost.js');
@@ -17,7 +17,7 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
  const {appendInvoiceReceiptStageEvent}=await import('../lib/invoiceReceiptStageLog.js');
  const {readInvoiceReceiptEligibility}=await import('../lib/invoiceReceiptEligibility.js');
  const {WAREHOUSE_BOX_SQL,boxSummaryYear}=await import('../lib/warehouseBoxSummary.js');
- let stop;const done=new Promise(r=>stop=r);const events=[];const shared=new Map();
+ let stop;const done=new Promise(r=>stop=r);const events=[];const shared=new Map();const receiptRequests=[];
  const server=http.createServer(async(req,res)=>{
   const u=new URL(req.url,'http://127.0.0.1:'+publicPort),route=u.pathname,method=req.method;
   const send=(v,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(v));};
@@ -40,8 +40,10 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
     d={...cachedAnalysis.ai,source:'cache',cacheSaved:true};
    }
    else if(route==='/api/import/receipts/live-exchange-rate'&&method==='GET'){
+    if(cachedAnalysis?.testRate)d={success:true,...cachedAnalysis.testRate};else{
     const {fetchLiveInvoiceRate}=await import('../lib/invoiceLiveExchangeRate.js');
     d={success:true,...await fetchLiveInvoiceRate(u.searchParams.get('currency'))};
+    }
    }
    else if(route==='/api/arrival-cost')d={success:true,farms};
    else if(route==='/api/import/receipts/auto-fill'){
@@ -76,7 +78,7 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
    else if(route==='/api/import/receipts/drafts'&&method==='POST')d={success:true,document:await documents.saveInvoiceDraft({withTransactionFn:ctx.withTransactionFn,types:sql,input:body,actor:'invoice-fixture'})};
    else if(route==='/api/import/receipts/eligibility')d={success:true,eligibility:await readInvoiceReceiptEligibility({queryFn:ctx.queryFn,types:sql,...body})};
    else if(route.startsWith('/api/import/receipts/')&&route.endsWith('/preview'))d={success:true,preview:await writer.previewInvoiceReceipt({queryFn:ctx.queryFn,types:sql,documentId:id,revision:body.revision})};
-   else if(route.startsWith('/api/import/receipts/')&&route.endsWith('/commit'))d={success:true,result:await ctx.create({...body,documentId:id,actor:'invoice-fixture'})};
+   else if(route.startsWith('/api/import/receipts/')&&route.endsWith('/commit')){const args={...body,documentId:id,actor:'invoice-fixture'};d={success:true,result:await ctx.create(args)};receiptRequests.push({args,result:d.result});}
    else if(route.startsWith('/api/import/receipts/')&&route.endsWith('/cost-revisions'))d={success:true,cost:await costs.saveInvoiceCostRevision({withTransactionFn:ctx.withTransactionFn,types:sql,documentId:id,revision:body.revision,actor:'invoice-fixture',input:body.input,reason:body.reason})};
    else if(route==='/api/warehouse/invoice-costs'){
     const {readInvoiceReceiptExpenses}=await import('../lib/invoiceReceiptExpenses.js');
@@ -94,5 +96,6 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
  try{for(let i=0;i<100;i++){try{await fetch('http://127.0.0.1:'+internalPort);break;}catch{}await new Promise(r=>setTimeout(r,300));}
   await new Promise((r,j)=>server.once('error',j).listen(publicPort,'127.0.0.1',r));console.log('NATIVE_UI_READY http://127.0.0.1:19422/import/tools?popup=1');await done;
   assert.deepEqual(await protectedSnapshot(pool),protectedBefore);console.log('PROTECTED_ORDER_SHIPMENT_UNCHANGED');
+  return {events,receiptRequests};
  }finally{server.closeAllConnections();await new Promise(r=>server.close(r));child.kill();}
 };

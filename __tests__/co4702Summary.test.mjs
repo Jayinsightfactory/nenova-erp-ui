@@ -1,6 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {mergePackingChunks} from '../lib/importPackingPdfChunks.js';
 import {packingAmountIssues,invoiceAmountState,applyPackingAmountReview,suspectedSummaryRows} from '../lib/packingAmountReview.js';
+import {parsePackingResponse} from '../lib/importPackingResponse.js';
+import {packingValidationIssues} from '../lib/packingValidationIssues.js';
 const sourceHash='b2176913b2a9f15d3e33354a0b4ad0e4f9956db8919c1f7de38947a6cf3a548c';
 function invoice(){const boxes=[1,2,2,3,14,3,1,1];return {supplier:'AYURA SAS',invoice:'18065',currency:'USD',invoice_total:1741.5,freight_total:0,
  products:[...boxes.map((pcs,i)=>({description:'CARNATION fixture variety '+i,pcs,total_stems:pcs*300,u_price:.215,t_price:pcs*64.5,source_page:6})),{description:'CARNATION CARNATION CARNATION',pcs:27,total_stems:8100,u_price:.215,t_price:1741.5,source_page:7}]};}
@@ -37,4 +39,14 @@ test('invalid/missing/zero and unbalanced edits stay blocked; arbitrary fields f
 test('normal invoices do not require review; issues cannot be cleared by spoofed status',()=>{
  const result=fixture();result.invoices[0].products.pop();assert.equal(packingAmountIssues(result).length,0);
  const pending=fixture();pending.extractionIssues=[];pending.amount_review_country=null;assert.equal(packingAmountIssues(pending).length,1);
+});
+
+test('actual parsed response revalidates edited totals without retaining the old double-count issue',()=>{
+ const input=fixture();input.invoices[0].extractionIssues=[{code:'CURRENCY_REVIEW_REQUIRED',field:'currency',message:'must remain'}];
+ const parsed=parsePackingResponse({content:[{type:'text',text:JSON.stringify(input)}],stop_reason:'end_turn'},'CO').result;
+ assert(packingValidationIssues(parsed.invoices,'CO').some(i=>i.code==='INVOICE_TOTAL_MISMATCH'));
+ const out=applyPackingAmountReview(parsed,approved(),{sourceHash,visitedPages:[7]});
+ assert(!packingValidationIssues(out.invoices,'CO').some(i=>i.code==='INVOICE_TOTAL_MISMATCH'));
+ assert(out.invoices[0].extractionIssues.some(i=>i.code==='CURRENCY_REVIEW_REQUIRED'));
+ assert.equal(out.invoices[0].source_amount_review.excludedRows.length,1);
 });
