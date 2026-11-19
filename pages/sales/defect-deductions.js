@@ -1748,8 +1748,8 @@ export default function SalesDefectDeductionsPage() {
         {activeTab === 'carryover' && <span className="incoming-tab-help">수입부 컨펌 완료 건만 선택할 수 있고, 해당 차수 판매행이 없는 건은 미처리로 남아 다음 차수에 재시도합니다.</span>}
       </div>
 
-      {activeTab === 'sales' && <div className="card manager-home-card">
-        <div className="manager-home-title">담당자 바로가기</div>
+      {activeTab === 'sales' && <div className={`card manager-home-card ${!manager ? "manager-home-attention" : ""}`}>
+        <div className="manager-home-title">담당자 바로가기{!manager && <small className="manager-home-hint">담당자를 선택해야 조회 가능합니다</small>}</div>
         <div className="manager-home-buttons">
           {managerQuickOptions.map((item) => (
             <button
@@ -1897,16 +1897,17 @@ export default function SalesDefectDeductionsPage() {
         <div className="defect-grid-scroll incoming-grid-scroll">
           <table className="data-table defect-grid incoming-grid" onFocusCapture={handleGridFocusCapture}>
             <colgroup><col style={{ width: '3%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '8%' }} /><col style={{ width: '19%' }} /><col style={{ width: '7%' }} /><col style={{ width: '15%' }} /><col style={{ width: '6%' }} /><col style={{ width: '6%' }} /><col style={{ width: '10%' }} /><col style={{ width: '7%' }} /></colgroup>
-            <thead><tr><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>농장 검색/선택</th><th>크레딧 가능</th><th>보완 필요</th><th>비고</th><th>확정</th></tr></thead>
+            <thead><tr><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>크레딧수량</th><th>견적서수량</th><th>농장 검색/선택</th><th>크레딧 가능</th><th>보완 필요</th><th>비고</th><th>확정</th></tr></thead>
             <tbody>{displayedIncomingRows.map(({ row, sourceIndex, displayIndex, isGroupStart, isCountryStart, groupLabel, countryLabel }) => <Fragment key={row.deductionKey || `incoming-${sourceIndex}`}>
-              {incomingGroupMode === 'product' && isCountryStart && <tr className="incoming-country-divider"><td colSpan="11"><strong>{countryLabel}</strong><span>국가별 품종</span></td></tr>}
+              {incomingGroupMode === 'product' && isCountryStart && <tr className="incoming-country-divider"><td colSpan="12"><strong>{countryLabel}</strong><span>국가별 품종</span></td></tr>}
               <tr className={`defect-row ${isGroupStart ? 'incoming-group-start' : ''}`} data-group-label={groupLabel}>
               <td>{displayIndex + 1}{managementMode && managementAllowed && ['incoming', 'support'].includes(activeTab) && <><label className="defect-select-hit management-select-hit" {...selectionZoneProps('incoming-manage', Number(row.deductionKey), managementSelected, setManagementSelected)}><input type="checkbox" aria-label={`${row.customerName} 정리 선택`} checked={managementSelected.has(Number(row.deductionKey))} disabled={managementLoading} onChange={() => toggleManagement(Number(row.deductionKey))} /></label><button type="button" className="btn btn-xs" disabled={managementLoading} onClick={() => openManagementEdit(row)}>수정</button></>}</td>
               <td>{row.managerName || '-'}</td>
               <td>{row.customerName || '-'}</td>
               <td>{row.productName || '-'}</td>
               <td><span className="incoming-product-name">{incomingProductLabel(row)}</span></td>
-              <td>{printQuantity(row)}</td>
+              <td>{row.creditApplied ? printQuantity(row) : '-'}</td>
+              <td>{printQuantity({ ...row, quantity: row.estimateQuantity ?? row.quantity })}</td>
               <td>
                 <div className="lookup-inline">
                   <input data-defect-field={`incoming-farm-${sourceIndex}`} className="input cell incoming-farm-input" value={valueOf(row, 'farmName')} onChange={(e) => { updateIncomingRow(sourceIndex, { farmName: e.target.value, farmKey: null, importConfirmed: false }); if (e.target.value.trim()) openLookup(sourceIndex, 'farm', e.target.value, 'incoming'); else closeLookup(); }} onKeyDown={(e) => handleLookupKeyDown(e, sourceIndex, 'farm', e.currentTarget.value, null, 'incoming')} />
@@ -1917,14 +1918,14 @@ export default function SalesDefectDeductionsPage() {
               </td>
               <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateIncomingRow(sourceIndex, { creditApplied: e.target.checked, importConfirmed: false })} /> 가능</label></td>
               <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.importReviewRequired} onChange={(e) => updateIncomingRow(sourceIndex, { importReviewRequired: e.target.checked, importConfirmed: false })} /> 필요</label></td>
-              <td><input className="input cell incoming-note-input" value={valueOf(row, 'note')} placeholder="비고" onChange={(e) => updateIncomingRow(sourceIndex, { note: e.target.value, importConfirmed: false })} /></td>
+              <td><input className="input cell incoming-note-input" value={valueOf(row, 'note') === '소량' ? '' : valueOf(row, 'note')} placeholder="비고" onChange={(e) => updateIncomingRow(sourceIndex, { note: e.target.value, importConfirmed: false })} /></td>
               <td>
                 {row.importConfirmed ? <button type="button" className="btn btn-xs" onClick={() => cancelIncomingRow(sourceIndex)} disabled={managementMode || managementBusy || incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정 취소'}</button> : <button type="button" className="btn btn-primary btn-xs" onClick={() => confirmIncomingRow(sourceIndex)} disabled={managementMode || managementBusy || incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정'}</button>}
-                <div className={row.importConfirmed ? 'incoming-confirmed' : 'incoming-pending'}>{row.importConfirmed ? `확정${row.importConfirmedByName || row.importConfirmedBy ? ` · ${row.importConfirmedByName || row.importConfirmedBy}` : ''}` : '확인 필요'}</div>
+                <div className={row.importConfirmed ? 'incoming-confirmed' : 'incoming-pending'}>{row.importConfirmed ? `확정${row.importConfirmedByName || row.importConfirmedBy ? ` · ${row.importConfirmedByName || row.importConfirmedBy}` : ''}` : row.importReviewRequired ? '보완 요청 있음' : !row.farmName ? '농장 선택 필요' : '수입부 확정 대기'}</div>
               </td>
               </tr>
             </Fragment>)}
-            {!incomingRows.length && <tr><td colSpan="11" className="empty-row-cell">선택한 차수의 저장된 불량 차감이 없습니다.</td></tr>}
+            {!incomingRows.length && <tr><td colSpan="12" className="empty-row-cell">선택한 차수의 저장된 불량 차감이 없습니다.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1959,9 +1960,10 @@ export default function SalesDefectDeductionsPage() {
             </button>;
           })}
         </div>}
-        <div className="defect-grid-scroll support-grid-scroll">
+        {activeTab === "support" && supportLoading && <div className="support-loading" role="status"><progress aria-label="등록 대상 조회 진행 중" />등록 대상과 견적 상태를 불러오는 중…</div>}
+        <div className="defect-grid-scroll support-grid-scroll" aria-busy={supportLoading}>
           <table className={`data-table defect-grid support-grid ${activeTab === 'support' ? 'support-compact' : ''}`}>
-            <thead><tr><th><label className="defect-select-hit"><input type="checkbox" aria-label={activeTab === 'support' ? '보류 이동·해제 항목 전체 선택' : '등록 가능 항목 전체 선택'} checked={activeTab === 'support' ? supportVisibleAllSelected : supportAllSelected} disabled={managementMode || managementBusy || supportLoading || supportRegistering || (activeTab === 'support' ? !supportVisibleSelectable.length : !supportSelectableKeys.length)} onChange={activeTab === 'support' ? toggleSupportVisible : toggleAllSupport} /></label></th><th>{activeTab === 'support' && supportListMode === 'held' ? '불량 차수' : 'No'}</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>불량차감</th></tr></thead>
+            <thead><tr><th><label className="defect-select-hit"><input type="checkbox" aria-label={activeTab === 'support' ? '보류 이동·해제 항목 전체 선택' : '등록 가능 항목 전체 선택'} checked={activeTab === 'support' ? supportVisibleAllSelected : supportAllSelected} disabled={managementMode || managementBusy || supportLoading || supportRegistering || (activeTab === 'support' ? !supportVisibleSelectable.length : !supportSelectableKeys.length)} onChange={activeTab === 'support' ? toggleSupportVisible : toggleAllSupport} /></label></th><th>{activeTab === 'support' && supportListMode === 'held' ? '불량 차수' : 'No'}</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '견적서 수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>불량차감</th></tr></thead>
             <tbody>{visibleSupportRows.map((row, index) => {
               const key = Number(row.deductionKey);
               const checkable = !managementMode && !managementBusy && !supportLoading && !supportRegistering && isSupportCheckable(row);
@@ -1978,9 +1980,9 @@ export default function SalesDefectDeductionsPage() {
                 <td>{row.customerName || '-'}<DefectInputSource row={row} /></td>
                 <td title={productDisplay.fullName}>{productDisplay.category || '-'}</td>
                 <td title={productDisplay.fullName}><span className="support-product-name">{productDisplay.name || '-'}</span></td>
-                <td>{activeTab === 'carryover' ? `${fmt(row.originalQuantity)} / ${fmt(row.remainingQuantity)}${row.sourceUnit || ''}` : printQuantity(row)}</td>
+                <td>{activeTab === 'carryover' ? `${fmt(row.originalQuantity)} / ${fmt(row.remainingQuantity)}${row.sourceUnit || ''}` : printQuantity({ ...row, quantity: row.isCarryoverLedger ? Math.min(row.remainingQuantity, row.estimateQuantity ?? row.quantity) : row.estimateQuantity ?? row.quantity })}</td>
                 <td className="support-cost-cell">
-                  {row.distributionCost ? <><strong>{fmt(row.distributionCost)}원</strong>{row.distributionCostOrderWeek && <small>({row.distributionCostOrderWeek})</small>}</> : <span className="support-cost-missing">확인 필요</span>}
+                  {row.distributionCost ? <><strong>{fmt(row.distributionCost)}원</strong>{row.distributionCostOrderWeek && <small>({row.distributionCostOrderWeek})</small>}</> : <span className="support-cost-missing">분배단가 확인 필요</span>}
                   {activeTab === 'support' && row.manualCostEditable && (row.manualCost || !row.distributionCost) && <button type="button" className="btn btn-xs support-manual-cost-button" onClick={() => openManualCost(row)} disabled={supportLoading || manualCostSaving}>{row.manualCost ? '수정' : '단가 직접입력'}</button>}
                 </td>
                 <td>{row.farmName || '-'}</td>
@@ -2029,8 +2031,8 @@ export default function SalesDefectDeductionsPage() {
         <table className="data-table defect-grid" onFocusCapture={handleGridFocusCapture} style={{ minWidth: 1770, fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 58 }} /><col style={{ width: 42 }} /><col style={{ width: 82 }} />
-            <col style={{ width: 190 }} /><col style={{ width: 245 }} /><col style={{ width: 285 }} />
-            <col style={{ width: 145 }} /><col style={{ width: 62 }} /><col style={{ width: 180 }} />
+            <col style={{ width: 190 }} /><col style={{ width: 135 }} /><col style={{ width: 285 }} />
+            <col style={{ width: 145 }} /><col style={{ width: 105 }} /><col style={{ width: 62 }} /><col style={{ width: 180 }} />
             <col style={{ width: 180 }} /><col style={{ width: 150 }} /><col style={{ width: 160 }} />
           </colgroup>
           <thead><tr>
@@ -2039,7 +2041,7 @@ export default function SalesDefectDeductionsPage() {
                 <input type="checkbox" aria-label="영업 입력 전체 선택" checked={displayedSalesRows.length > 0 && displayedSalesRows.every(({ sourceIndex }) => selected.has(sourceIndex))} disabled={loading || saving} onChange={toggleAll} />
               </label>
             </th>
-            <th className="defect-header">No</th><th className="defect-header">담당자</th><th className="defect-header">거래처</th><th className="defect-header">품종</th><th className="defect-header">품명</th><th className="defect-header">차감수량</th><th className="defect-header">크레딧</th><th className="defect-header">농장</th><th className="defect-header">비고</th><th className="defect-header">이전/최근 분배단가</th><th className="defect-header">견적서관리 등록</th>
+            <th className="defect-header">No</th><th className="defect-header">담당자</th><th className="defect-header">거래처</th><th className="defect-header">품종</th><th className="defect-header">품명</th><th className="defect-header">클레임용수량</th><th className="defect-header">견적용수량</th><th className="defect-header">크레딧</th><th className="defect-header">농장</th><th className="defect-header">비고</th><th className="defect-header">이전/최근 분배단가</th><th className="defect-header">견적서관리 등록</th>
           </tr></thead>
           <tbody>
             {displayedSalesRows.map(({ row, sourceIndex, displayIndex }) => {
@@ -2109,6 +2111,7 @@ export default function SalesDefectDeductionsPage() {
                     <input data-defect-field={`colorName-${index}`} className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => handleLookupChange(index, 'product', 'colorName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'product', `${row.productName || ''} ${e.currentTarget.value}`.trim(), 'quantity')} />
                     <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product')}>품명</button>
                   </div>
+                  {row.prodKey ? <div className="web-meta">{row.matchedProductDbName || row.matchedProductName || incomingProductLabel(row)}</div> : <div className="match-warn">전산 품목을 검색해 선택하세요.</div>}
                 </td>
                 <td>
                   <input data-defect-field={`quantity-${index}`} className="input cell qty" type="number" min="0" value={valueOf(row, 'quantity')} onChange={(e) => changeText(index, 'quantity', e.target.value)} onKeyDown={handleQuantityKeyDown} />
@@ -2138,7 +2141,8 @@ export default function SalesDefectDeductionsPage() {
                     </div>
                   </div>
                 </td>
-                <td style={{ textAlign: 'center' }}><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateRow(index, { creditApplied: e.target.checked })} /></td>
+                <td><input className="input cell qty" aria-label="견적용수량" type="number" min="0.0001" step="0.0001" value={row.estimateQuantity ?? row.quantity ?? ""} onChange={(event) => changeText(index, "estimateQuantity", event.target.value)} /></td>
+                <td style={{ textAlign: 'center' }}><input className="sales-credit-checkbox" type="checkbox" aria-label="크레딧 적용" checked={!!row.creditApplied} onChange={(e) => updateRow(index, { creditApplied: e.target.checked })} /></td>
                 <td>
                   <div className="lookup-inline">
                     <input className="input cell" value={valueOf(row, 'farmName')} onChange={(e) => changeText(index, 'farmName', e.target.value)} />
@@ -2148,7 +2152,6 @@ export default function SalesDefectDeductionsPage() {
                 </td>
                 <td>
                   <input className="input cell" value={valueOf(row, 'note')} onChange={(e) => changeText(index, 'note', e.target.value)} />
-                  {row.matchedProductDbName && <div className="web-meta">전산 품명: {row.matchedProductDbName}</div>}
                   {pf?.cost > 0 && <div className="web-meta">분배단가: {fmt(pf.cost)}원 ({pf.costOrderWeek || '이전차수'})</div>}
                 </td>
                 <td style={{ whiteSpace: 'nowrap', color: pf?.error ? '#b91c1c' : '#334155' }}>
@@ -2158,7 +2161,7 @@ export default function SalesDefectDeductionsPage() {
                 <td style={{ whiteSpace: 'nowrap' }}><span style={{ color: row.status === 'REGISTERED' ? '#166534' : '#64748b' }}>{statusText(row)}</span></td>
               </tr>;
             })}
-            <tr><td colSpan="12" className="empty-row-cell">
+            <tr><td colSpan="13" className="empty-row-cell">
               <div className="empty-row-content">
                 {!rows.length && <span>엑셀을 업로드하거나 아래 버튼으로 입력행을 추가하세요.</span>}
                 <button type="button" data-defect-action="empty-row-add" className="btn btn-primary" onKeyDown={handleEmptyRowAddKeyDown} onClick={() => openAddModeMenu(rows.length - 1)}>＋ 빈 행 추가</button>
@@ -2220,13 +2223,13 @@ export default function SalesDefectDeductionsPage() {
         </div>
         <table className={`print-table ${activeTab === 'incoming' ? 'incoming-print' : ''}`}>
           <colgroup><col className="customer-col" />{activeTab !== 'incoming' && <col className="product-col" />}<col className="color-col" /><col className="quantity-col" /><col className="credit-col" /><col className="farm-col" /><col className="note-col" /></colgroup>
-          <thead><tr><th>거래처</th>{activeTab !== 'incoming' && <th>품종</th>}<th>품명</th><th>차감수량</th><th aria-label="크레딧(수입부)">{activeTab === 'incoming' ? '✓' : '크레딧(수입부)'}</th><th>농장</th><th>비고</th></tr></thead>
+          <thead><tr><th>거래처</th>{activeTab !== 'incoming' && <th>품종</th>}<th>품명</th><th>{activeTab === 'incoming' ? '크레딧수량' : '차감수량'}</th><th>{activeTab === 'incoming' ? '견적서수량' : '크레딧(수입부)'}</th><th>농장</th><th>비고</th></tr></thead>
           {customerGroups.map((items, groupIndex) => <tbody key={groupIndex}>{items.map((row, index) => <tr key={`print-${index}`}>
             <td>{activeTab === 'incoming' && index > 0 ? '' : row?.customerName || ''}</td>
             {activeTab !== 'incoming' && <td>{row?.productName || ''}</td>}
             <td>{activeTab === 'incoming' ? incomingOutputProductLabel(row) : row?.colorName || ''}</td>
-            <td>{printQuantity(row)}</td>
-            <td>{row?.creditApplied ? '✓' : ''}</td>
+            <td>{activeTab !== 'incoming' || row?.creditApplied ? printQuantity(row) : ''}</td>
+            <td>{activeTab === 'incoming' ? printQuantity({ ...row, quantity: row.estimateQuantity ?? row.quantity }) : row?.creditApplied ? '✓' : ''}</td>
             <td>{row?.farmName || ''}</td>
             <td style={activeTab === 'incoming' && /kakao-defect:/i.test(row?.note) ? { whiteSpace: 'nowrap' } : undefined}>{activeTab === 'incoming' ? incomingDefectPrintNote(row?.note, row?.managerName) : row?.note || ''}</td>
           </tr>)}</tbody>)}
@@ -2252,6 +2255,7 @@ export default function SalesDefectDeductionsPage() {
         .incoming-grid { width: 100%; min-width: 0; table-layout: fixed; font-size: 12px; }
         .incoming-grid th, .incoming-grid td { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
         .incoming-grid td { vertical-align: middle; }
+        .incoming-grid th, .incoming-grid td { padding: 4px 6px; }
         .incoming-product-name { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
         .incoming-farm-input { min-width: 0; }
         .incoming-check-choice { display: inline-flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; cursor: pointer; }
@@ -2292,6 +2296,12 @@ export default function SalesDefectDeductionsPage() {
         .sales-summary-state-warn { color: #b45309; font-weight: 700; }
         .sales-summary-state-reset { color: #64748b; }
         .manager-home-card { display: flex; align-items: center; gap: 12px; padding: 9px 10px; margin: 8px 0; }
+        .manager-home-attention { border: 2px solid #2563eb; }
+        .manager-home-hint { display: block; margin-top: 3px; font-size: 12px; }
+        .sales-credit-checkbox { width: 24px; height: 24px; margin: 0; cursor: pointer; }
+        .support-loading { display: flex; gap: 8px; align-items: center; padding: 8px 12px; font-size: 13px; }
+        .support-loading progress { width: 68px; }
+        @media (prefers-reduced-motion: reduce) { .support-loading progress { display: none; } }
         .manager-home-title { font-weight: 800; white-space: nowrap; color: #1e3a8a; }
         .manager-home-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
         .manager-home-button { min-width: 82px; }
@@ -2475,7 +2485,7 @@ export default function SalesDefectDeductionsPage() {
         .incoming-print td { white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; height: auto; }
         .incoming-print tr { break-inside: avoid; }
         .incoming-print .customer-col { width: 16%; } .incoming-print .color-col { width: 34%; }
-        .incoming-print .quantity-col { width: 10%; } .incoming-print .credit-col { width: 4%; }
+        .incoming-print .quantity-col { width: 10%; } .incoming-print .credit-col { width: 10%; }
         .incoming-print .farm-col { width: 20%; } .incoming-print .note-col { width: 16%; }
         .incoming-print td:nth-child(4), .incoming-print th:nth-child(4) { padding-inline: 1px; text-align: center; }
         .print-table th { background: #c69700; font-weight: 700; text-align: center; }

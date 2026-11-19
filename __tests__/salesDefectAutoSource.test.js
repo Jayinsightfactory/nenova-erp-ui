@@ -299,7 +299,7 @@ await import('./defectPermanentOmission.test.js');
 await import('./defectSupportPending.test.js');
 
 // Two source weeks selected into one target: the second identical claim must not roll back the first.
-for (const key of [201,202,203]) registerRows.set(key,{...manualDbRow,DeductionKey:key,OrderWeek:key===202?'40':'41',Quantity:key===203?4:3,RemainingQuantity:key===203?4:3,EstimateKey:null,Status:'DRAFT'});
+for (const key of [201,202,203]) registerRows.set(key,{...manualDbRow,DeductionKey:key,OrderWeek:key===202?'40':'41',Quantity:key===203?14:10,EstimateQuantity:key===203?4:3,RemainingQuantity:key===203?14:10,EstimateKey:null,Status:'DRAFT'});
 const created=[]; const skippedWrites=[];
 const duplicateBatchQuery=async(statement,params={})=>{
  const source=String(statement);
@@ -313,5 +313,5 @@ assert.deepEqual(sameBatchResult.registered.map(r=>r.deductionKey),[201,203]);
 assert.equal(sameBatchResult.skipped[0].deductionKey,202);
 assert.equal(sameBatchResult.skipped[0].errorCode,'EXISTING_ESTIMATE');
 assert.ok(!skippedWrites.includes(202),'duplicate has no override, ledger or history writes');
-assert.equal(created.length,2,'different quantity remains registerable');
+assert.deepEqual(created.map(row => row.Quantity), [-3, -4], 'stored estimate quantities reach Estimate INSERT and determine duplicate identity');
 console.log('same-transaction duplicate: normal rows commit, duplicate skipped without writes, different quantity registers');
