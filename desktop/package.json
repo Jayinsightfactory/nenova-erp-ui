@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "수입 원스톱 파이프라인(인보이스→입고→원가→카톡 요약복사·드라이브 공유) 메뉴를 추가하고, 빠른 분배·미등록주문 통합입력 및 수입 비행기 근거 표시를 함께 포함합니다."
+      "releaseNotes": "수입 비행기 카드에 지금 처리할 일과 마감을 먼저 표시하고 상세 근거를 접었습니다."
     },
     "extraResources": [
       {
