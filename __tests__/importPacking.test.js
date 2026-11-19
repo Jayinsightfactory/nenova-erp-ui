@@ -280,6 +280,7 @@ async function main() {
       return digest;
     };
     const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, '../../lib/importPacking.js': packing, '../../lib/importPackingState.js': state,
+      '../../styles/ImportReviewTypography.module.css': { scope: 'reviewTypographyScope' },
       '../../lib/importPackingResponse.js': response, '../../lib/importAwbFields.js': awbFields,
       '../../lib/invoiceSupplierEvidence.js': await import('../lib/invoiceSupplierEvidence.js'),
       '../../lib/importPackingExtractClient.js': extractionMock, '../../lib/importPackingReview.js': review,
