@@ -4029,6 +4029,12 @@ pm run test:canon 통과.
 5. 주의/잠금: 병렬 세션 `UI-2`/`UI-3` 경계(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`, `components/work/SolutionSuiteSimulator.js`, `desktop/package.json`, `pages/pm/radar.js`, `lib/pmTechRadarSim.js`, `lib/pmRadarPlanTokens.js`, `pages/api/**`) 무수정. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·#hex·raw `<button>` 0건 유지.
 검색어: pm-control anti-ai-slop 오류관제 pages/pm pmThemes pmLookClear ControlGuide tabular-nums linear-gradient box-shadow PR1879
 
+### 2026-11-19 — A3 행 안쪽 여백 축소
+1. 작업 위치: codex/tight-rows / work/tight-rows / PR 준비.
+2. 완료: 실제 셀폭 줄계산 유지, 14.5pt 줄높이+4pt 여유, 최소18.5pt.
+3. 남음: 전체검사 종료·PR·배포.
+4. 검증: 대상38PASS, Excel PDF 체리오3줄/돈셀7줄 마지막줄 확인. 높이3579→3156pt, A3 4쪽 유지.
+5. 주의: ERP원장쓰기0. 검색어 tight A3 shipmentFieldCompact row height
 ## 2026-11-19 불량차감 수량 분리 요청
 - 검색어: 불량차감, 클레임용수량, 견적용수량, 담당자 바로가기, 로딩, 크레딧수량
 1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity / PR 없음.
