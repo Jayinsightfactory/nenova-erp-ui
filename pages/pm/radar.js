@@ -13,7 +13,9 @@ export async function getServerSideProps({ req, res, resolvedUrl, query }) {
   if (!user) return { redirect: { destination: '/login?next=' + encodeURIComponent(resolvedUrl || '/pm/radar'), permanent: false } };
   const rawPlan = String(query?.plan || '').toUpperCase();
   const initialPlanMode = ['A', 'B', 'C', 'ALL'].includes(rawPlan) ? rawPlan : 'A';
-  return { props: { initialPlanMode } };
+  const rawDept = String(query?.dept || '').toLowerCase();
+  const initialDepartment = ['all', 'import', 'sales', 'warehouse', 'finance'].includes(rawDept) ? rawDept : 'all';
+  return { props: { initialPlanMode, initialDepartment } };
 }
 
 const ACTIONS = ['바로 시험', '관찰', '참고'];
@@ -166,7 +168,7 @@ function SmallCard({ x, i }) {
   );
 }
 
-export default function TechRadar({ initialPlanMode = 'A' }) {
+export default function TechRadar({ initialPlanMode = 'A', initialDepartment = 'all' }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
   const [pageView, setPageView] = useState('workbench'); // 'workbench' | 'cards'
@@ -318,8 +320,9 @@ export default function TechRadar({ initialPlanMode = 'A' }) {
           mode="clear"
           standaloneUiStyles={false}
           initialPlanMode={initialPlanMode}
+          initialDepartment={initialDepartment}
           title="전 직원 기술 레이더 · 시안 A·B·C 라이브 시뮬레이터"
-          subtitle="시안 A(에디토리얼 레이더) · 시안 B(2×2 매트릭스·드로어) · 시안 C(카본 다크 콘솔) 및 3종 동시 비교 모드에서 도입 전/후 변화를 확인합니다."
+          subtitle="시안 A·B·C 및 3종 동시 비교 모드에서 상황·시각 흐름·데이터 4원천·부서별 실행 업무와 연속 구현 파이프라인을 확인합니다."
         />
       )}
 

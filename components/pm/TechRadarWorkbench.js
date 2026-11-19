@@ -5,18 +5,25 @@
 // - 시안 C (Palantir Foundry × Raycast Pro): 매트 카본 다크 콘솔 · 키보드 단축키(J/K, 1/2/3/4, B, Space) · 4단계 링 파이프라인 · 전술 패킷 트레이스 · 도메인별 마스터 원장
 // - A·B·C 3종 동시 비교(ALL): 통합 마스터 컨트롤 바 + 동일 선택 기술·스텝으로 3개 시안 뷰포트 실시간 동시 구동
 // 가드 준수: components/pm/ui.js 키트만 사용(raw button 금지) · hex 색 직접 작성 금지(rgb/rgba/CSS변수만) · 금지어 및 이모지 0건.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, EmptyState, LinkButton, PmUiStyles, SelectCard, Tabs, ToggleChip } from './ui';
 import {
   RADAR_QUADRANTS,
   RADAR_RINGS,
   PIPELINE_STAGES,
   MATRIX_ZONES,
+  RADAR_DEPARTMENTS,
+  BUILD_PIPELINE_STAGES,
   SIM_PRESETS,
+  CONTINUOUS_BUILD_PIPELINE,
   normalizeRadarCatalog,
   computePolarCoordinates,
   computeMatrixCoordinates,
   resolvePresetTarget,
+  normalizeDeptFilter,
+  getItemDepartments,
+  deriveNextBuildItems,
+  summarizeBuildPipeline,
   simulateRadarItem,
   buildWorkbenchSummary,
 } from '../../lib/pmTechRadarSim';
@@ -24,6 +31,7 @@ import { RADAR_PLAN_MODES, getPlanTokenVars } from '../../lib/pmRadarPlanTokens'
 
 const RING_LABELS = Object.fromEntries(RADAR_RINGS.map((r) => [r.id, r]));
 const QUAD_LABELS = Object.fromEntries(RADAR_QUADRANTS.map((q) => [q.id, q]));
+const DEPT_MAP = Object.fromEntries(RADAR_DEPARTMENTS.map((d) => [d.id, d]));
 
 const fmtStars = (n) => {
   const num = Number(n) || 0;
@@ -33,11 +41,24 @@ const fmtStars = (n) => {
 
 const fmtBlipNo = (n) => String(Number(n) || 0).padStart(2, '0');
 
+const clipText = (str, max = 30) => {
+  const s = String(str || '').trim();
+  if (!s) return '-';
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+};
+
 const ringColorVar = (ring) => {
   if (ring === 'adopt') return 'var(--trw-ok)';
   if (ring === 'trial') return 'var(--trw-accent)';
   if (ring === 'assess') return 'var(--trw-warn)';
   return 'var(--trw-muted)';
+};
+
+const buildStatusToneClass = (status) => {
+  if (status === 'LIVE') return 'trw-mini-ok';
+  if (status === 'PILOT') return 'trw-mini-accent';
+  if (status === 'READY') return 'trw-mini-warn';
+  return '';
 };
 
 export default function TechRadarWorkbench({
@@ -48,21 +69,28 @@ export default function TechRadarWorkbench({
   standaloneUiStyles = false,
   onOpenSuiteSim = null,
   initialPlanMode = 'A',
+  initialDepartment = 'all',
   title = '도입 · 기술 레이더 & 실설계 도입 시뮬레이터',
-  subtitle = '시안 A(에디토리얼 레이더) · 시안 B(2×2 매트릭스·드로어) · 시안 C(카본 다크 콘솔) · 3종 동시 비교 및 가브리엘 수입 원가·이익 AGI 시뮬레이션',
+  subtitle = '시안 A(에디토리얼 레이더) · 시안 B(2×2 매트릭스·드로어) · 시안 C(카본 다크 콘솔) · 3종 동시 비교 및 부서·데이터 기준 · 연속 구현 파이프라인',
 }) {
   const safeInitialPlan = ['A', 'B', 'C', 'ALL'].includes(initialPlanMode) ? initialPlanMode : 'A';
   const [planMode, setPlanMode] = useState(safeInitialPlan);
+  const [deptFilter, setDeptFilter] = useState(() => normalizeDeptFilter(initialDepartment));
+  const [buildStageFilter, setBuildStageFilter] = useState('all');
   const [quadFilter, setQuadFilter] = useState('');
   const [ringFilter, setRingFilter] = useState('');
   const [query, setQuery] = useState('');
   const [showAllPoints, setShowAllPoints] = useState(false);
   const [selectedName, setSelectedName] = useState('');
   const [activePresetId, setActivePresetId] = useState('');
+  const [activeBuildId, setActiveBuildId] = useState('');
+  const [copiedBuildId, setCopiedBuildId] = useState('');
+  const [previewBriefId, setPreviewBriefId] = useState('');
   const [simMode, setSimMode] = useState('simulated'); // 'baseline' | 'simulated'
   const [playing, setPlaying] = useState(false);
   const [stepIdx, setStepIdx] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const copyTimerRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return undefined;
@@ -79,6 +107,10 @@ export default function TechRadarWorkbench({
     return undefined;
   }, []);
 
+  useEffect(() => () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+  }, []);
+
   const allItems = useMemo(
     () => normalizeRadarCatalog({ ledger, techRadar, adminMode: Boolean(isAdmin) }),
     [ledger, techRadar, isAdmin]
@@ -88,6 +120,14 @@ export default function TechRadarWorkbench({
     () => buildWorkbenchSummary(allItems, Boolean(isAdmin)),
     [allItems, isAdmin]
   );
+
+  const itemDeptsMap = useMemo(() => {
+    const m = new Map();
+    for (const item of allItems) {
+      m.set(item.name, getItemDepartments(item));
+    }
+    return m;
+  }, [allItems]);
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -112,17 +152,46 @@ export default function TechRadarWorkbench({
     });
   }, [allItems, quadFilter, ringFilter, query]);
 
+  const deptMatchedCatalogCount = useMemo(() => {
+    if (deptFilter === 'all') return filteredItems.length;
+    return filteredItems.filter((item) => (itemDeptsMap.get(item.name) || []).includes(deptFilter)).length;
+  }, [filteredItems, deptFilter, itemDeptsMap]);
+
+  const deptScopedBuildItems = useMemo(
+    () => deriveNextBuildItems({ dept: deptFilter, stage: 'all', query }),
+    [deptFilter, query]
+  );
+
+  const filteredBuildItems = useMemo(
+    () => deriveNextBuildItems({ dept: deptFilter, stage: buildStageFilter, query }),
+    [deptFilter, buildStageFilter, query]
+  );
+
+  const buildSummary = useMemo(
+    () => summarizeBuildPipeline(deptScopedBuildItems),
+    [deptScopedBuildItems]
+  );
+
+  const activeBuildItem = useMemo(
+    () => (activeBuildId ? CONTINUOUS_BUILD_PIPELINE.find((b) => b.id === activeBuildId) || null : null),
+    [activeBuildId]
+  );
+
   const activePreset = useMemo(
     () => (activePresetId ? resolvePresetTarget(activePresetId, allItems) : null),
     [activePresetId, allItems]
   );
 
   const selectedItem = useMemo(() => {
+    if (activeBuildItem) {
+      const linkedPreset = resolvePresetTarget(activeBuildItem.linkedScenarioId, allItems);
+      if (linkedPreset?.item) return linkedPreset.item;
+    }
     if (activePreset?.item) return activePreset.item;
     if (!filteredItems.length) return allItems[0] || null;
     const found = filteredItems.find((x) => x.name === selectedName);
     return found || filteredItems[0];
-  }, [activePreset, filteredItems, allItems, selectedName]);
+  }, [activeBuildItem, activePreset, filteredItems, allItems, selectedName]);
 
   const plotItems = useMemo(() => {
     if (showAllPoints || filteredItems.length <= 32) return filteredItems;
@@ -137,8 +206,12 @@ export default function TechRadarWorkbench({
   const matrixPoints = useMemo(() => computeMatrixCoordinates(plotItems), [plotItems]);
 
   const sim = useMemo(
-    () => simulateRadarItem(selectedItem, { scenarioId: activePreset?.scenarioId || '' }),
-    [selectedItem, activePreset]
+    () =>
+      simulateRadarItem(selectedItem, {
+        scenarioId: activeBuildItem?.linkedScenarioId || activePreset?.scenarioId || '',
+        buildItemId: activeBuildId,
+      }),
+    [selectedItem, activePreset, activeBuildItem, activeBuildId]
   );
 
   useEffect(() => {
@@ -155,6 +228,7 @@ export default function TechRadarWorkbench({
   const selectItem = useCallback(
     (item, startSim = false) => {
       if (!item) return;
+      setActiveBuildId('');
       setActivePresetId('');
       setSelectedName(item.name);
       setStepIdx(0);
@@ -170,6 +244,7 @@ export default function TechRadarWorkbench({
     (preset, startSim = false) => {
       if (!preset) return;
       const resolved = resolvePresetTarget(preset.id, allItems);
+      setActiveBuildId('');
       setActivePresetId(preset.id);
       if (resolved.item) setSelectedName(resolved.item.name);
       setStepIdx(0);
@@ -181,7 +256,68 @@ export default function TechRadarWorkbench({
     [allItems, reducedMotion]
   );
 
+  const playBuildItemSimulation = useCallback(
+    (buildItem) => {
+      if (!buildItem) return;
+      const resolved = resolvePresetTarget(buildItem.linkedScenarioId, allItems);
+      setActivePresetId('');
+      setActiveBuildId(buildItem.id);
+      if (resolved.item) setSelectedName(resolved.item.name);
+      setPlanMode('ALL');
+      setSimMode('simulated');
+      setStepIdx(0);
+      if (!reducedMotion) setPlaying(true);
+      if (typeof document !== 'undefined') {
+        const targetEl = document.querySelector('[data-testid="radar-all-master-controls"]');
+        if (targetEl && typeof targetEl.scrollIntoView === 'function') {
+          targetEl.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'nearest' });
+        }
+      }
+    },
+    [allItems, reducedMotion]
+  );
+
+  const copyAgentBrief = useCallback((buildItem) => {
+    if (!buildItem) return;
+    const text = buildItem.agentBriefText || '';
+    const markCopied = () => {
+      setCopiedBuildId(buildItem.id);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopiedBuildId(''), 3000);
+    };
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(text).then(markCopied).catch(() => {
+          setPreviewBriefId(buildItem.id);
+          markCopied();
+        });
+        return;
+      }
+      if (typeof document !== 'undefined') {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+        } catch {
+          // ignore execCommand failure in restricted environments
+        }
+        document.body.removeChild(ta);
+      }
+      markCopied();
+    } catch {
+      setPreviewBriefId(buildItem.id);
+      markCopied();
+    }
+  }, []);
+
   const clearFilters = () => {
+    setDeptFilter('all');
+    setBuildStageFilter('all');
     setQuadFilter('');
     setRingFilter('');
     setQuery('');
@@ -246,10 +382,15 @@ export default function TechRadarWorkbench({
     [planMode]
   );
 
-  const rootStyle = useMemo(() => {
-    if (planMode === 'ALL') return undefined;
-    return getPlanTokenVars(planMode);
-  }, [planMode]);
+  const activeDeptInfo = useMemo(
+    () => DEPT_MAP[deptFilter] || RADAR_DEPARTMENTS[0],
+    [deptFilter]
+  );
+
+  const rootStyle = useMemo(
+    () => getPlanTokenVars(planMode, mode),
+    [planMode, mode]
+  );
 
   const visibleLinks = useMemo(
     () => (sim.links || []).filter((lnk) => !lnk.adminOnly || isAdmin),
@@ -409,6 +550,7 @@ export default function TechRadarWorkbench({
         {polarPoints.map((pt) => {
           const active = selectedItem?.name === pt.name;
           const isNew = Boolean(pt.item?.isNewRound || pt.item?._new);
+          const deptMatch = deptFilter === 'all' || (itemDeptsMap.get(pt.name) || []).includes(deptFilter);
           const color = ringColorVar(pt.ring);
           const labelNo = fmtBlipNo(pt.blipNo);
           return (
@@ -416,6 +558,7 @@ export default function TechRadarWorkbench({
               key={pt.name}
               transform={`translate(${pt.x}, ${pt.y})`}
               className={`trw-blip ${active ? 'is-active' : ''}`}
+              opacity={active || deptMatch ? 1 : 0.36}
               role="button"
               tabIndex={0}
               aria-label={`${labelNo}번 ${pt.name} (${RING_LABELS[pt.ring]?.code || pt.ring})`}
@@ -504,6 +647,7 @@ export default function TechRadarWorkbench({
           const cx = 58 + (pt.readiness / 100) * 558;
           const cy = 366 - (pt.impact / 100) * 334;
           const active = selectedItem?.name === pt.name;
+          const deptMatch = deptFilter === 'all' || (itemDeptsMap.get(pt.name) || []).includes(deptFilter);
           const color = ringColorVar(pt.ring);
           const labelNo = fmtBlipNo(pt.blipNo);
           return (
@@ -511,6 +655,7 @@ export default function TechRadarWorkbench({
               key={pt.name}
               transform={`translate(${cx.toFixed(1)}, ${cy.toFixed(1)})`}
               className={`trw-blip ${active ? 'is-active' : ''}`}
+              opacity={active || deptMatch ? 1 : 0.36}
               role="button"
               tabIndex={0}
               aria-label={`${labelNo}번 ${pt.name} 준비도 ${pt.readiness} 임팩트 ${pt.impact}`}
@@ -712,12 +857,14 @@ export default function TechRadarWorkbench({
               <tbody>
                 {filteredItems.map((item) => {
                   const active = selectedItem?.name === item.name && !activePresetId;
+                  const deptMatch = deptFilter !== 'all' && (itemDeptsMap.get(item.name) || []).includes(deptFilter);
                   return (
-                    <tr key={item.name} className={active ? 'is-active' : ''}>
+                    <tr key={item.name} className={`${active ? 'is-active' : ''} ${deptMatch ? 'is-dept-match' : ''}`}>
                       <td className="trw-num">{fmtBlipNo(item.blipNo)}</td>
                       <td>
                         <div className="trw-repo-cell">
                           <b>{item.name}</b>
+                          {deptMatch && <Badge className="trw-mini-accent">부서직결</Badge>}
                           {(item.isNewRound || item._new) && <Badge className="trw-mini-accent">▲ 신규</Badge>}
                           {item.inUse && <Badge className="trw-mini-ok">사용중</Badge>}
                           {item.needsApproval && <Badge className="trw-mini-warn">결정대기</Badge>}
@@ -877,11 +1024,15 @@ export default function TechRadarWorkbench({
               <tbody>
                 {matrixPoints.map((pt) => {
                   const active = selectedItem?.name === pt.name && !activePresetId;
+                  const deptMatch = deptFilter !== 'all' && (itemDeptsMap.get(pt.name) || []).includes(deptFilter);
                   return (
-                    <tr key={pt.name} className={active ? 'is-active' : ''}>
+                    <tr key={pt.name} className={`${active ? 'is-active' : ''} ${deptMatch ? 'is-dept-match' : ''}`}>
                       <td className="trw-num">{fmtBlipNo(pt.blipNo)}</td>
                       <td>
-                        <LinkButton onClick={() => selectItem(pt.item, true)}>{pt.name}</LinkButton>
+                        <div className="trw-repo-cell">
+                          <LinkButton onClick={() => selectItem(pt.item, true)}>{pt.name}</LinkButton>
+                          {deptMatch && <Badge className="trw-mini-accent">부서직결</Badge>}
+                        </div>
                       </td>
                       <td className="trw-num">{pt.readiness}</td>
                       <td className="trw-num">{pt.impact}</td>
@@ -1102,13 +1253,15 @@ export default function TechRadarWorkbench({
                 <tbody>
                   {grp.items.map((item) => {
                     const active = selectedItem?.name === item.name && !activePresetId;
+                    const deptMatch = deptFilter !== 'all' && (itemDeptsMap.get(item.name) || []).includes(deptFilter);
                     const barPct = Math.round((Number(item.score10 || 0) / 10) * 100);
                     return (
-                      <tr key={item.name} className={active ? 'is-active' : ''}>
+                      <tr key={item.name} className={`${active ? 'is-active' : ''} ${deptMatch ? 'is-dept-match' : ''}`}>
                         <td className="trw-num">{fmtBlipNo(item.blipNo)}</td>
                         <td>
                           <div className="trw-repo-cell">
                             <b>{item.name}</b>
+                            {deptMatch && <Badge className="trw-mini-accent">부서직결</Badge>}
                             {item.language && <span className="trw-lang">{item.language}</span>}
                             {item.needsApproval && <Badge className="trw-mini-warn">결정대기</Badge>}
                           </div>
@@ -1147,6 +1300,405 @@ export default function TechRadarWorkbench({
         </div>
       </div>
     </div>
+  );
+
+  // 보고자용 통합 브리핑 보드: 상황 · 시각 흐름 그림(SVG) · 데이터 기준 4원천 표 · 부서별 실행 업무표
+  const renderExecutiveStoryBoard = ({ compact = false } = {}) => {
+    const origins = sim.dataOrigins || {};
+    const deptRows = Array.isArray(sim.departmentMatrix) ? sim.departmentMatrix : [];
+    const topMetrics = (sim.metrics || []).slice(0, 2);
+
+    return (
+      <section
+        className={`trw-panel trw-story-board ${compact ? 'is-compact' : ''}`}
+        data-testid="radar-executive-story-board"
+        aria-label="보고자용 상황·시각흐름·데이터 기준·부서별 업무 브리핑"
+      >
+        <div className="trw-story-head">
+          <div>
+            <div className="trw-all-eyebrow">EXECUTIVE BRIEFING · SITUATION, FLOW, DATA ORIGINS &amp; DEPARTMENT PLAYBOOK</div>
+            <h3>상황 · 시각 흐름 그림 · 데이터 기준 4원천 · 부서별 실행 업무</h3>
+          </div>
+          <div className="trw-story-badges">
+            <Badge className="trw-mini-accent">관점: {activeDeptInfo.label}</Badge>
+            {sim.linkedBuildItem ? (
+              <Badge className="trw-mini-warn">
+                연속구현 {sim.linkedBuildItem.code} · {sim.linkedBuildItem.statusLabel}
+              </Badge>
+            ) : (
+              <Badge>{sim.primaryNode} · {sim.scenarioId}</Badge>
+            )}
+          </div>
+        </div>
+
+        {/* 상황 및 적용 결과 스플릿 */}
+        <div className="trw-story-situation-grid">
+          <div className="trw-story-sit-cell">
+            <span className="trw-sit-kicker">상황 · 지금 현장에서 생기는 병목 및 원가 누수</span>
+            <p>{sim.executiveBrief?.situation || '-'}</p>
+          </div>
+          <div className="trw-story-sit-cell is-outcome">
+            <span className="trw-sit-kicker is-ok">도입 결과 · 바뀌는 업무와 정량 개선 효과</span>
+            <p>{sim.executiveBrief?.outcome || '-'}</p>
+          </div>
+        </div>
+
+        {/* SVG 시각 흐름 그림: [원천 3대 입력] -> [판정 기준식 & 엔진] -> [4대 부서 실행] -> [원가·이익 결과] */}
+        <div className="trw-flow-wrap" data-testid="radar-flow-diagram">
+          <svg
+            className="trw-flow-svg"
+            viewBox="0 0 960 216"
+            role="img"
+            aria-label="이메일, 사내 담당자, 거래처 원천 데이터에서 판정 기준식과 4대 부서 실행 화면을 거쳐 원가절감 및 이익증대로 이어지는 흐름 그림"
+          >
+            <defs>
+              <marker id="trw-flow-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--trw-accent)" />
+              </marker>
+            </defs>
+
+            {/* 단계 헤더 라벨 */}
+            <text x="14" y="18" fill="var(--trw-muted)" fontSize="10" fontWeight="700">01 원천 데이터 입력 (어디서 왔는가)</text>
+            <text x="266" y="18" fill="var(--trw-muted)" fontSize="10" fontWeight="700">02 판정 기준식 &amp; 레이더·AGI 엔진</text>
+            <text x="514" y="18" fill="var(--trw-muted)" fontSize="10" fontWeight="700">03 4대 부서 실행 화면</text>
+            <text x="762" y="18" fill="var(--trw-muted)" fontSize="10" fontWeight="700">04 원가절감 · 이익증대 결과</text>
+
+            {/* Col 1: 3대 입력 원천 */}
+            <g>
+              <rect x="14" y="30" width="212" height="48" rx="4" fill="var(--trw-surface-2)" stroke="var(--trw-line)" strokeWidth="1" />
+              <text x="24" y="48" fill="var(--trw-accent)" fontSize="10.5" fontWeight="700">이메일 · 외부 첨부서류</text>
+              <text x="24" y="66" fill="var(--trw-ink)" fontSize="10.5">{clipText(origins.emailDoc, 28)}</text>
+
+              <rect x="14" y="88" width="212" height="48" rx="4" fill="var(--trw-surface-2)" stroke="var(--trw-line)" strokeWidth="1" />
+              <text x="24" y="106" fill="var(--trw-accent)" fontSize="10.5" fontWeight="700">사내 담당자 · 카톡 원문</text>
+              <text x="24" y="124" fill="var(--trw-ink)" fontSize="10.5">{clipText(origins.staffInput, 28)}</text>
+
+              <rect x="14" y="146" width="212" height="48" rx="4" fill="var(--trw-surface-2)" stroke="var(--trw-line)" strokeWidth="1" />
+              <text x="24" y="164" fill="var(--trw-accent)" fontSize="10.5" fontWeight="700">해외 농장 · 국내 거래처</text>
+              <text x="24" y="182" fill="var(--trw-ink)" fontSize="10.5">{clipText(origins.partnerData, 28)}</text>
+            </g>
+
+            {/* Col 1 -> Col 2 연결선 */}
+            <path d="M 226 54 L 246 54 L 246 108 L 264 108" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 226 112 L 264 112" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 226 170 L 246 170 L 246 116 L 264 116" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+
+            {/* Col 2: 판정 기준식 & 엔진 */}
+            <g>
+              <rect x="266" y="30" width="208" height="164" rx="4" fill="var(--trw-surface)" stroke="var(--trw-accent)" strokeWidth="1.4" />
+              <rect x="266" y="30" width="208" height="26" rx="4" fill="var(--trw-surface-2)" />
+              <text x="276" y="47" fill="var(--trw-accent)" fontSize="10.5" fontWeight="700">
+                판정 기준 · {sim.primaryNode} ({sim.activeNodes.join('→')})
+              </text>
+              <text x="276" y="76" fill="var(--trw-ink)" fontSize="11" fontWeight="700">
+                {clipText(sim.itemName, 26)}
+              </text>
+              <text x="276" y="98" fill="var(--trw-muted)" fontSize="10">핵심 기준식:</text>
+              <text x="276" y="114" fill="var(--trw-ink)" fontSize="10.5">
+                {clipText(origins.thresholdRule, 26)}
+              </text>
+              <text x="276" y="131" fill="var(--trw-muted)" fontSize="10">
+                {clipText(String(origins.thresholdRule || '').slice(26), 28)}
+              </text>
+              <line x1="276" y1="146" x2="464" y2="146" stroke="var(--trw-line)" strokeWidth="1" />
+              <text x="276" y="164" fill="var(--trw-ok)" fontSize="10.5" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {`STEP 0${safeStepIdx + 1}/0${Math.max(1, sim.steps.length)} · ${activeSimStep?.latencyMs ?? 0}ms`}
+              </text>
+              <text x="276" y="181" fill="var(--trw-muted)" fontSize="10">
+                {clipText(activeSimStep?.artifact || sim.subtitle, 28)}
+              </text>
+            </g>
+
+            {/* Col 2 -> Col 3 연결선 */}
+            <path d="M 474 112 L 494 112 L 494 49 L 512 49" fill="none" stroke="var(--trw-accent)" strokeWidth="1.2" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 474 112 L 494 112 L 494 91 L 512 91" fill="none" stroke="var(--trw-accent)" strokeWidth="1.2" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 474 112 L 494 112 L 494 133 L 512 133" fill="none" stroke="var(--trw-accent)" strokeWidth="1.2" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 474 112 L 494 112 L 494 175 L 512 175" fill="none" stroke="var(--trw-accent)" strokeWidth="1.2" markerEnd="url(#trw-flow-arrow)" />
+
+            {/* Col 3: 4대 부서 실행 화면 */}
+            {deptRows.slice(0, 4).map((row, idx) => {
+              const y = 30 + idx * 42;
+              const isFocus = deptFilter === row.deptId || (deptFilter === 'all' && row.impactLevel === '핵심');
+              return (
+                <g key={row.deptId} opacity={deptFilter === 'all' || deptFilter === row.deptId ? 1 : 0.48}>
+                  <rect
+                    x="514"
+                    y={y}
+                    width="208"
+                    height="36"
+                    rx="4"
+                    fill="var(--trw-surface-2)"
+                    stroke={isFocus ? 'var(--trw-ok)' : 'var(--trw-line)'}
+                    strokeWidth={isFocus ? '1.4' : '1'}
+                  />
+                  <text x="524" y={y + 15} fill={isFocus ? 'var(--trw-ok)' : 'var(--trw-ink)'} fontSize="10.5" fontWeight="700">
+                    {`${row.deptName} · ${row.impactLevel}`}
+                  </text>
+                  <text x="524" y={y + 29} fill="var(--trw-muted)" fontSize="9.8">
+                    {`${row.route} · ${clipText(row.routeLabel, 14)}`}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Col 3 -> Col 4 연결선 */}
+            <path d="M 722 49 L 742 49 L 742 108 L 760 108" fill="none" stroke="var(--trw-ok)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 722 91 L 742 91 L 742 112 L 760 112" fill="none" stroke="var(--trw-ok)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 722 133 L 742 133 L 742 116 L 760 116" fill="none" stroke="var(--trw-ok)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 722 175 L 742 175 L 742 120 L 760 120" fill="none" stroke="var(--trw-ok)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+
+            {/* Col 4: 기대 효과 & 승인 가드 */}
+            <g>
+              <rect x="762" y="30" width="184" height="164" rx="4" fill="var(--trw-surface)" stroke="var(--trw-ok)" strokeWidth="1.4" />
+              <rect x="762" y="30" width="184" height="26" rx="4" fill="var(--trw-ok-bg)" />
+              <text x="772" y="47" fill="var(--trw-ok-ink)" fontSize="10.5" fontWeight="700">원가절감 · 이익증대 결과</text>
+              {topMetrics.map((m, mIdx) => {
+                const my = 76 + mIdx * 44;
+                return (
+                  <g key={m.label}>
+                    <text x="772" y={my} fill="var(--trw-muted)" fontSize="9.8">{clipText(m.label, 22)}</text>
+                    <text x="772" y={my + 16} fill="var(--trw-ok)" fontSize="11" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {clipText(`${m.beforeLabel} → ${m.afterLabel}`, 24)}
+                    </text>
+                  </g>
+                );
+              })}
+              <line x1="772" y1="158" x2="936" y2="158" stroke="var(--trw-line)" strokeWidth="1" />
+              <text x="772" y="177" fill="var(--trw-ink)" fontSize="10" fontWeight="700">
+                ApprovedBy 승인 후 원장 반영
+              </text>
+            </g>
+          </svg>
+        </div>
+
+        {/* 표 1 (데이터 기준 4원천) + 표 2 (부서별 실행 업무) */}
+        <div className="trw-story-tables-grid">
+          <div className="trw-story-table-box" data-testid="radar-data-origins-table">
+            <div className="trw-sec-head">
+              <b>표 1 · 데이터 기준 4원천 명세표 (이메일 · 담당자 · 거래처 · 판정식)</b>
+              <span>기준 데이터 출처</span>
+            </div>
+            <table className="trw-table">
+              <thead>
+                <tr>
+                  <th>원천 구분</th>
+                  <th>수집 기준 데이터 (어디서 기준을 잡았는가)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="trw-num">1. 이메일 · 서류</td>
+                  <td>{origins.emailDoc || '-'}</td>
+                </tr>
+                <tr>
+                  <td className="trw-num">2. 사내 담당자</td>
+                  <td>{origins.staffInput || '-'}</td>
+                </tr>
+                <tr>
+                  <td className="trw-num">3. 거래처 · 농장</td>
+                  <td>{origins.partnerData || '-'}</td>
+                </tr>
+                <tr>
+                  <td className="trw-num">4. 판정 기준식</td>
+                  <td className="trw-rule-cell">{origins.thresholdRule || '-'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="trw-story-table-box" data-testid="radar-department-matrix-table">
+            <div className="trw-sec-head">
+              <b>표 2 · 부서별 실행 업무표 (수입부 · 영업부 · 출고창고 · 경영정산)</b>
+              <span>부서명 클릭 시 관점 필터 전환</span>
+            </div>
+            <table className="trw-table">
+              <thead>
+                <tr>
+                  <th>부서</th>
+                  <th>직결</th>
+                  <th>실행 업무 변화 (도입 후 1줄) &amp; 기준</th>
+                  <th>연결 화면</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deptRows.map((row) => {
+                  const isDeptFocus = deptFilter === row.deptId;
+                  return (
+                    <tr key={row.deptId} className={isDeptFocus ? 'is-dept-match is-active' : ''}>
+                      <td className="trw-num">
+                        <LinkButton onClick={() => setDeptFilter(isDeptFocus ? 'all' : row.deptId)}>
+                          {row.deptName}
+                        </LinkButton>
+                      </td>
+                      <td>
+                        <Badge className={row.impactLevel === '핵심' ? 'trw-mini-ok' : 'trw-mini-accent'}>
+                          {row.impactLevel}
+                        </Badge>
+                      </td>
+                      <td>
+                        <div className="trw-dept-role">{row.roleChange}</div>
+                        <div className="trw-dept-basis">기준: {row.dataBasis}</div>
+                      </td>
+                      <td className="trw-num">
+                        <a href={row.route} className="trw-inline-route">
+                          {row.routeLabel} ↗
+                        </a>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    );
+  };
+
+  // 하단: A·B·C 동시모드 연속 구현 파이프라인 (Continuous AGI Build Factory)
+  const renderContinuousBuildQueue = () => (
+    <section
+      className="trw-panel trw-build-factory"
+      data-testid="radar-continuous-build-queue"
+      aria-label="A·B·C 동시모드 연속 구현 파이프라인"
+    >
+      <div className="trw-build-head">
+        <div>
+          <div className="trw-all-eyebrow">CONTINUOUS AGI BUILD FACTORY · 4-STAGE AUTONOMOUS EXPANSION QUEUE</div>
+          <h3>A·B·C 동시모드 연속 구현 파이프라인 (추가 발굴 · 즉시 구현 확장 큐)</h3>
+          <p className="trw-sim-desc">
+            기존 5대 레버 외에 현업 데이터에서 추가 발굴한 고효율·고수익 모듈 후보입니다. 각 과제를 A·B·C 3종 동시 시뮬레이션으로 미리 검증한 뒤 구현 지시서를 복사해 바로 개발을 이어갈 수 있습니다.
+          </p>
+        </div>
+        <div className="trw-build-meta">
+          <Badge className="trw-mini-accent">부서: {activeDeptInfo.label}</Badge>
+          <span className="trw-count-note">
+            표시 {filteredBuildItems.length} / 전체 {CONTINUOUS_BUILD_PIPELINE.length}건
+          </span>
+        </div>
+      </div>
+
+      {/* 4단계 칸반/원장 상태 스트립 + 필터 칩 */}
+      <div className="trw-build-stage-filter">
+        <span className="trw-filter-label">단계 필터</span>
+        <ToggleChip on={buildStageFilter === 'all'} onClick={() => setBuildStageFilter('all')}>
+          전체 ({deptScopedBuildItems.length})
+        </ToggleChip>
+        {BUILD_PIPELINE_STAGES.map((stg) => {
+          const cnt = buildSummary.byStage[stg.id] || 0;
+          return (
+            <ToggleChip
+              key={stg.id}
+              on={buildStageFilter === stg.id}
+              onClick={() => setBuildStageFilter(buildStageFilter === stg.id ? 'all' : stg.id)}
+            >
+              {stg.shortLabel} ({cnt})
+            </ToggleChip>
+          );
+        })}
+      </div>
+
+      <div className="trw-build-stages-strip">
+        {BUILD_PIPELINE_STAGES.map((stg) => {
+          const stageItems = deptScopedBuildItems.filter((b) => b.status === stg.id);
+          const isActiveStage = buildStageFilter === stg.id;
+          return (
+            <div key={stg.id} className={`trw-build-stage-col ${isActiveStage ? 'is-current' : ''}`}>
+              <div className="trw-pipe-head">
+                <span className="trw-pipe-no">0{stg.order + 1}</span>
+                <span className="trw-pipe-code">{stg.code}</span>
+                <b className="trw-pipe-cnt">{stageItems.length}건</b>
+              </div>
+              <div className="trw-pipe-label">{stg.label}</div>
+              <div className="trw-pipe-desc">{stg.desc}</div>
+              <div className="trw-stage-codes">
+                {stageItems.map((it) => (
+                  <code key={it.id} className="trw-mod-pill">{it.code}</code>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 고밀도 연속 구현 과제 테이블 */}
+      <div className="trw-ledger-wrap is-build-queue">
+        <table className="trw-table" data-testid="radar-build-queue-table">
+          <thead>
+            <tr>
+              <th>코드 · 상태</th>
+              <th>추가 구현 모듈 &amp; 대상 부서 · 화면</th>
+              <th>기대 이익 · 단축 수치</th>
+              <th>데이터 기준 (이메일 · 담당자 · 거래처)</th>
+              <th>시뮬 재생 · 지시서 복사</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredBuildItems.map((b) => {
+              const isPlayingThis = activeBuildId === b.id;
+              const isCopied = copiedBuildId === b.id;
+              const isPreviewOpen = previewBriefId === b.id;
+              return [
+                <tr key={b.id} className={isPlayingThis ? 'is-active' : ''}>
+                  <td className="trw-num">
+                    <div className="trw-build-code-cell">
+                      <b>{b.code}</b>
+                      <Badge className={buildStatusToneClass(b.status)}>
+                        {b.status} {b.statusLabel}
+                      </Badge>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="trw-build-title">{b.title}</div>
+                    <div className="trw-build-tags">
+                      {b.departmentLabels.map((lbl) => (
+                        <Badge key={lbl}>{lbl}</Badge>
+                      ))}
+                      {b.targetRoutes.map((rt) => (
+                        <code key={rt} className="trw-mod-pill">{rt}</code>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="trw-impact-cell">{b.expectedImpact}</td>
+                  <td className="trw-summary-cell">{b.dataBasisSummary}</td>
+                  <td>
+                    <div className="trw-build-actions">
+                      <Button
+                        size="sm"
+                        variant={isPlayingThis ? 'primary' : 'secondary'}
+                        onClick={() => playBuildItemSimulation(b)}
+                      >
+                        A·B·C 3종 동시 시뮬레이션으로 미리 재생
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => copyAgentBrief(b)}
+                      >
+                        이 기능 구현 지시서 복사
+                      </Button>
+                      <div className="trw-build-subactions">
+                        {isCopied && <Badge className="trw-mini-ok">복사 완료</Badge>}
+                        <LinkButton onClick={() => setPreviewBriefId(isPreviewOpen ? '' : b.id)}>
+                          {isPreviewOpen ? '지시서 닫기' : '지시서 전문'}
+                        </LinkButton>
+                      </div>
+                    </div>
+                  </td>
+                </tr>,
+                isPreviewOpen ? (
+                  <tr key={`${b.id}-preview`} className="trw-brief-row">
+                    <td colSpan={5}>
+                      <pre className="trw-brief-pre">{b.agentBriefText}</pre>
+                    </td>
+                  </tr>
+                ) : null,
+              ];
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 
   // 시안 A·B·C 3종 동시 비교 시뮬레이션 (ALL)
@@ -1202,6 +1754,9 @@ export default function TechRadarWorkbench({
         </div>
       </div>
 
+      {/* 보고자용 상황 · 시각 흐름 그림 · 데이터 기준 4원천 · 부서별 업무 */}
+      {renderExecutiveStoryBoard({ compact: false })}
+
       {/* 3개 시안 라이브 비교 뷰포트 그리드 */}
       <div className="trw-all-grid" data-testid="radar-architecture-simulator">
         {/* 뷰포트 A: 에디토리얼 레이더 */}
@@ -1239,12 +1794,14 @@ export default function TechRadarWorkbench({
               </thead>
               <tbody>
                 {compareLedgerRows.map((item) => {
-                  const active = selectedItem?.name === item.name && !activePresetId;
+                  const active = selectedItem?.name === item.name && !activePresetId && !activeBuildId;
+                  const deptMatch = deptFilter !== 'all' && (itemDeptsMap.get(item.name) || []).includes(deptFilter);
                   return (
-                    <tr key={item.name} className={active ? 'is-active' : ''}>
+                    <tr key={item.name} className={`${active ? 'is-active' : ''} ${deptMatch ? 'is-dept-match' : ''}`}>
                       <td className="trw-num">{fmtBlipNo(item.blipNo)}</td>
                       <td>
                         <LinkButton onClick={() => selectItem(item, false)}>{item.name.split('/').pop()}</LinkButton>
+                        {deptMatch && <Badge className="trw-mini-accent">직결</Badge>}
                       </td>
                       <td>
                         <span className="trw-ring-pill" style={{ borderColor: ringColorVar(item.ring), color: ringColorVar(item.ring) }}>
@@ -1334,6 +1891,9 @@ export default function TechRadarWorkbench({
           </div>
         </section>
       </div>
+
+      {/* 하단: A·B·C 동시모드 연속 구현 파이프라인 */}
+      {renderContinuousBuildQueue()}
     </div>
   );
 
@@ -1408,13 +1968,34 @@ export default function TechRadarWorkbench({
           {SIM_PRESETS.map((preset) => (
             <ToggleChip
               key={preset.id}
-              on={activePresetId === preset.id || (!activePresetId && sim.scenarioId === preset.scenarioId)}
+              on={activePresetId === preset.id || (!activePresetId && !activeBuildId && sim.scenarioId === preset.scenarioId)}
               onClick={() => selectPreset(preset, true)}
             >
               <span>{preset.label}</span>
               <span className="trw-preset-badge">{preset.badge}</span>
             </ToggleChip>
           ))}
+        </div>
+
+        <div className="trw-dept-bar" data-testid="radar-department-filter" aria-label="부서별 관점 필터">
+          <span className="trw-filter-label">부서별 관점</span>
+          <div className="trw-filter-group">
+            {RADAR_DEPARTMENTS.map((dept) => (
+              <ToggleChip
+                key={dept.id}
+                on={deptFilter === dept.id}
+                onClick={() => setDeptFilter(dept.id)}
+              >
+                {dept.shortLabel}
+              </ToggleChip>
+            ))}
+          </div>
+          <span className="trw-dept-readout">
+            직결 기술 {deptMatchedCatalogCount}건 · 연속구현 {filteredBuildItems.length}건
+          </span>
+          {deptFilter !== 'all' && (
+            <LinkButton onClick={() => setDeptFilter('all')}>전사 보기</LinkButton>
+          )}
         </div>
 
         <div className="trw-filters">
@@ -1455,7 +2036,7 @@ export default function TechRadarWorkbench({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            {(quadFilter || ringFilter || query) && (
+            {(deptFilter !== 'all' || buildStageFilter !== 'all' || quadFilter || ringFilter || query) && (
               <LinkButton onClick={clearFilters}>초기화</LinkButton>
             )}
           </div>
@@ -1463,7 +2044,7 @@ export default function TechRadarWorkbench({
       </div>
 
       {/* 3. 본문: 시안 A / B / C / ALL 라이브 뷰 */}
-      {!allItems.length && !activePresetId ? (
+      {!allItems.length && !activePresetId && !activeBuildId ? (
         <EmptyState
           title="표시할 기술 레이더 항목이 없습니다"
           action={
@@ -1480,6 +2061,12 @@ export default function TechRadarWorkbench({
           {planMode === 'B' && renderPlanB()}
           {planMode === 'C' && renderPlanC()}
           {planMode === 'ALL' && renderPlanAll()}
+          {planMode !== 'ALL' && (
+            <>
+              {renderExecutiveStoryBoard({ compact: true })}
+              {renderContinuousBuildQueue()}
+            </>
+          )}
         </>
       )}
 
@@ -2200,6 +2787,234 @@ export default function TechRadarWorkbench({
         }
         .trw-safety-top { display: flex; align-items: center; gap: 5px; color: var(--trw-ink); }
 
+        /* 부서별 관점 필터 바 */
+        .trw-dept-bar {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px 10px;
+          padding-bottom: 5px;
+          border-bottom: 1px solid var(--trw-line);
+        }
+        .trw-dept-readout {
+          margin-left: auto;
+          font-size: 11px;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          color: var(--trw-muted);
+        }
+        .trw-table tr.is-dept-match {
+          background: color-mix(in srgb, var(--trw-ok) 8%, var(--trw-surface));
+        }
+
+        /* 보고자용 상황 · 흐름 그림 · 데이터 기준 4원천 · 부서별 업무 보드 */
+        .trw-story-board {
+          padding: 12px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .trw-story-head,
+        .trw-build-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          flex-wrap: wrap;
+          gap: 8px;
+          border-bottom: 1px solid var(--trw-line);
+          padding-bottom: 8px;
+        }
+        .trw-story-head h3,
+        .trw-build-head h3 {
+          margin: 2px 0 0;
+          font-size: 15px;
+          font-weight: 700;
+          color: var(--trw-ink);
+        }
+        .trw-story-badges,
+        .trw-build-meta {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .trw-story-situation-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          border: 1px solid var(--trw-line);
+          border-radius: var(--trw-radius);
+          background: var(--trw-surface-2);
+          overflow: hidden;
+        }
+        .trw-story-sit-cell {
+          padding: 9px 12px;
+          border-right: 1px solid var(--trw-line);
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .trw-story-sit-cell:last-child { border-right: 0; }
+        .trw-story-sit-cell p {
+          margin: 0;
+          font-size: 12px;
+          line-height: 1.5;
+          color: var(--trw-ink);
+        }
+        .trw-sit-kicker {
+          font-size: 10.5px;
+          font-weight: 700;
+          color: var(--trw-warn);
+        }
+        .trw-sit-kicker.is-ok { color: var(--trw-ok); }
+
+        .trw-flow-wrap {
+          border: 1px solid var(--trw-line);
+          border-radius: var(--trw-radius);
+          background: var(--trw-surface-2);
+          padding: 8px;
+          overflow-x: auto;
+        }
+        .trw-flow-svg {
+          display: block;
+          width: 100%;
+          min-width: 720px;
+          height: auto;
+        }
+
+        .trw-story-tables-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+          gap: 10px;
+          align-items: start;
+        }
+        .trw-story-table-box {
+          border: 1px solid var(--trw-line);
+          border-radius: var(--trw-radius);
+          background: var(--trw-surface-2);
+          padding: 8px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          overflow-x: auto;
+        }
+        .trw-rule-cell {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 11px;
+          color: var(--trw-accent);
+        }
+        .trw-dept-role {
+          font-size: 11.5px;
+          color: var(--trw-ink);
+          line-height: 1.42;
+        }
+        .trw-dept-basis {
+          margin-top: 2px;
+          font-size: 10.5px;
+          color: var(--trw-muted);
+        }
+        .trw-inline-route {
+          color: var(--trw-link);
+          font-weight: 700;
+          font-size: 11px;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+          white-space: nowrap;
+        }
+
+        /* 하단 A·B·C 동시모드 연속 구현 파이프라인 */
+        .trw-build-factory {
+          padding: 12px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .trw-build-stage-filter {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 4px;
+        }
+        .trw-build-stages-strip {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .trw-build-stage-col {
+          background: var(--trw-surface-2);
+          border: 1px solid var(--trw-line);
+          border-radius: var(--trw-radius);
+          padding: 8px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .trw-build-stage-col.is-current {
+          border-color: var(--trw-accent);
+          border-top: 2px solid var(--trw-accent);
+        }
+        .trw-stage-codes {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-top: 2px;
+        }
+        .trw-ledger-wrap.is-build-queue { max-height: 540px; }
+        .trw-build-code-cell {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
+        }
+        .trw-build-title {
+          font-weight: 700;
+          font-size: 12px;
+          color: var(--trw-ink);
+          line-height: 1.4;
+        }
+        .trw-build-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-top: 4px;
+        }
+        .trw-impact-cell {
+          font-size: 11.5px;
+          color: var(--trw-ok);
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
+          line-height: 1.42;
+          min-width: 190px;
+        }
+        .trw-build-actions {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 5px;
+          min-width: 215px;
+        }
+        .trw-build-subactions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .trw-brief-row td {
+          background: var(--trw-surface-2);
+        }
+        .trw-brief-pre {
+          margin: 0;
+          padding: 8px 10px;
+          border: 1px solid var(--trw-line);
+          border-radius: var(--trw-radius);
+          background: var(--trw-bg);
+          color: var(--trw-ink);
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 11px;
+          line-height: 1.5;
+          white-space: pre-wrap;
+          word-break: keep-all;
+        }
+
         @media (prefers-reduced-motion: reduce) {
           .trw-bar-fill { transition: none; }
           .trw-blip-wave { animation: none; }
@@ -2211,18 +3026,25 @@ export default function TechRadarWorkbench({
           .trw-plan-a,
           .trw-b-split,
           .trw-c-upper,
-          .trw-c-trace-grid {
+          .trw-c-trace-grid,
+          .trw-story-tables-grid,
+          .trw-story-situation-grid {
             grid-template-columns: 1fr;
           }
-          .trw-b-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .trw-story-sit-cell { border-right: 0; border-bottom: 1px solid var(--trw-line); }
+          .trw-story-sit-cell:last-child { border-bottom: 0; }
+          .trw-b-kpi-strip,
+          .trw-build-stages-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 640px) {
           .trw-nodes-grid,
           .trw-safety-list,
           .trw-pipeline-grid,
-          .trw-b-kpi-strip {
+          .trw-b-kpi-strip,
+          .trw-build-stages-strip {
             grid-template-columns: 1fr;
           }
+          .trw-dept-readout { margin-left: 0; }
           .trw-search-group { margin-left: 0; width: 100%; }
           .trw-search { flex: 1; min-width: 0; }
         }
