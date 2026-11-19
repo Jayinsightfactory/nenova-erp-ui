@@ -4028,3 +4028,37 @@ pm run test:canon 통과.
 4. 검증 상태: `npm run test:pm`(31개 스위트), `npm run test:workflow-guides`(33 workflows/34 videos), `node scripts/check-workflow-guides.cjs --changed-from origin/master`, `npm run test:ui-layout`, `npm run guard:erp-writes -- --changed-from origin/master`, `npm run test:erp-manifest -- --changed-from origin/master`, `npx next build --webpack`, `scripts/pm-control-smoke.cjs --record`(1920/1280/390, JS오류0/쓰기0, 실제 MP4 프레임 시각 검수) PASS. 실운영 DB·운영 브라우저는 미검증(합성 픽스처 검증, 원장 쓰기 0건).
 5. 주의/잠금: 병렬 세션 `UI-2`/`UI-3` 경계(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`, `components/work/SolutionSuiteSimulator.js`, `desktop/package.json`, `pages/pm/radar.js`, `lib/pmTechRadarSim.js`, `lib/pmRadarPlanTokens.js`, `pages/api/**`) 무수정. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·#hex·raw `<button>` 0건 유지.
 검색어: pm-control anti-ai-slop 오류관제 pages/pm pmThemes pmLookClear ControlGuide tabular-nums linear-gradient box-shadow PR1879
+
+## 2026-11-19 불량차감 수량 분리 요청
+- 검색어: 불량차감, 클레임용수량, 견적용수량, 담당자 바로가기, 로딩, 크레딧수량
+1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity / PR 없음.
+2. 완료 · 영업 담당자 선택 강조와 크레딧 크기, 지원 조회 진행 표시를 작업트리에 반영.
+3. 남음 · 클레임·견적 수량 저장/검증/인쇄, 비고·품목·확인 사유 개선, PR과 배포.
+4. 검증 · git diff --check. 빌드·DB 읽기 전용 probe·데스크톱 실화면 미검증.
+5. 주의 · 이 작업트리 미커밋 상태. 견적 수량을 기존 원문 수량/누락 식별키에 덮어쓰지 말 것.
+
+## 2026-11-19 별도 견적 수량 저장
+- 검색어: EstimateQuantity, 클레임용수량, 견적용수량, saveDraftRows, 기존 NULL
+1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity / PR 없음.
+2. 완료 · 별도 nullable SQL 컬럼 마이그레이션, 영업 입력, 서버 검증 및 INSERT/UPDATE, 조회 응답, 연결된 수기 견적 동기화.
+3. 남음 · 신규 견적 등록 및 조회/충돌 경로 전체 반영, 수입부·인쇄, 필수 검증 후 스키마 선적용 및 배포.
+4. 검증 · 수량 분리/누락/0/소수점 단위 테스트와 node 문법 검사 통과. 전체 테스트는 exceljs 미설치로 실행 실패. 운영 DB probe는 기존 원문 보호만 통과.
+5. 주의 · 운영 스키마 미적용. 원문 검증·누락에서 Quantity 유지. 신규 등록 전까지 기능 미배포.
+
+## 2026-11-19 견적 등록 수량 및 수입부 출력 연결
+- 검색어: registrationQuantity, EstimateQuantity, 크레딧수량, 견적서수량, 분할 등록.
+1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity.
+2. 완료 · 저장 수량을 목록·사전검증·미리보기·중복·Estimate 쓰기에서 사용. 원문 수량 유지. 수입부 화면과 인쇄에 두 수량 추가, 카톡 비고 표시 변경.
+3. 남음 · 스키마 선적용, 전체 검증, 운영 배포와 실제 데스크톱 확인.
+4. 검증 · Excel 의존성 설치 후 불량차감·등록확정·자동수집 회귀 통과. Windows 배포 스크립트 검사에서 PM2 restart 출력 실패. 운영 Estimate 쓰기 미검증.
+5. 주의 · 스키마 없는 서버를 먼저 배포하면 저장 쿼리가 실패한다. 운영 업무행 수정 금지.
+
+- 2026-11-19 운영 스키마: 사용자 승인으로 EstimateQuantity decimal(18,4) NULL 및 양수 CHECK 적용. 읽기 전용 확인에서 제약 활성·신뢰 확인. PR #1880 재검증 및 배포 대기.
+
+## 2026-11-19 · 인보이스 확인 매칭 우선 표시와 입고표 정리
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/invoice-match-review / 기준 master 0e99af3.
+2. 완료된 것: 확인 품목·인보이스 위 정렬, 90% 이상 같은 국가 단독 하이라이트, 입고표 반복 경고 1회, 좁은 표와 숫자 정렬, 같은 원본의 확인 이력, 데스크톱 1.3.61.
+3. 남은 할 일: 최신 PR 전체 게이트와 squash 처리, Cafe24 읽기 확인, 공식 설치본 공개.
+4. 검증 상태: 설치 ERP dnSpy, 운영 SELECT, 대상 86개, 브라우저 503·재시도·이력 및 직접 입고 readback, Desktop 단위 75개, 두 개 가이드와 사용자 스크린샷 3개.
+5. 주의/잠금: 기존 저장 별칭과 확정 행 변경 제한 유지. 운영 입고·원가 저장과 유료 분석 호출 0건. 저장 이력에 확인 표식이 없는 과거 파일에는 상태를 추정하지 않는다.
+검색어: invoice-match-review 90percent saved-matching country-split compact-receipt Desktop1.3.61
