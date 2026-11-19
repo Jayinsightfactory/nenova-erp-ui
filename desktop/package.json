@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.61",
+  "version": "1.3.64",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "수입 인보이스의 확인 품목을 위에 표시하고, 90% 이상 이름 후보와 간결한 입고 표를 제공합니다."
+      "releaseNotes": "인보이스 매칭표에서 확인 상태와 대체 후보를 같은 줄에 보고, 검색이나 후보 클릭으로 매칭을 바로 수정합니다."
     },
     "extraResources": [
       {

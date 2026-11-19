@@ -4021,6 +4021,13 @@ pm run test:canon 통과.
 5. 주의/잠금: 병렬 세션 `UI-1`(`pages/pm.js`, `lib/pmThemes.js`, `ControlGuide.js`, `Grow.js`, `workflow-guides.json`)·`UI-3`(`SolutionSuiteSimulator.js`, `desktop/package.json`)·`pages/api/**` 무수정 준수; `DeviceHubConsole`은 라이트 스테이지 위 `.dhc-root` 다크 프레임 보존.
 검색어: my-work 도입레이더 흐름도 ArchFlowChart TechRadarWorkbench mode-clear Anti-AI-Slop 에디토리얼라이트 쉘 PR1878
 
+## 2026-11-19 · 중국 운송수단별 손익 참고 내역 (구현 단계)
+1. 작업 위치: nenova-erp-ui / codex/china-profit-transport / .codex-work/china-transport / PR 미생성.
+2. 완료된 것: 중국 합계 불변 읽기 전용 HUBFRESH 배·Cloudland 비행기·미배정 분해, 실제 농장배정 우선·당차 동일품목 입고비율, 공통비/원가 미확인/저장본 차액 미배정, 0원 운임 경고, 기존 데스크톱 보고서 메뉴 연결(최신 master 보존 후1.3.61).
+3. 남은 할 일: 최신 master 병합, PR/CI/배포 및 운영44 스모크. 아직 배포하지 않음.
+4. 검증 상태: 새 정책/API 회귀, 합성 UI dry-run/녹화, 실제 dnSpy, 44/46 SELECT-only(468/474쿼리), manifest233/변경API쓰기 가드/dnSpy/desktop menu PASS. 전체계약 첫 실행은 샌드박스 Git Bash 초기화 차단; 해당 모의테스트16개 일반환경 재검사 및 최종 npm run verify:erp-change(전체 계약/가드/build) PASS. 가이드 최종 프레임·실제 MP4/한국어 VTT/키보드·목차·1920/390 플레이어 PASS. 원장 쓰기0.
+5. 주의/잠금: lib/profitChinaTransport*, ProfitChinaTransport*, report UI/가이드·desktop 버전은 이 브랜치 담당. 원가 미확인을0원 확정으로 해석하지 않음. 운영 DB·과거/확정 snapshot 및44 태국·수국 비용 입력은 수정 금지.
+검색어: 중국 HUBFRESH Cloudland 배 비행기 미배정 당차입고비율 합계보존 china-profit-transport
 ## 2026-11-19 · 오류관제(/pm) Anti-AI Slop §7 전면 정화 & pm-control 가이드 영상 갱신
 1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/pm-control-anti-ai-slop` / `C:\Users\USER\nw-agy-clean-pm` / PR #1879.
 2. 완료된 것: `pages/pm.js`, `lib/pmThemes.js`, `lib/pmLookClear.js`, `components/pm/{ui,ControlGuide,PmTheme,StaffRequests,Character,BgScene,IsoScene,SkillFx,grow/Grow}.js` Anti-AI Slop 정화(장식 이모지·CSS 그라디언트·`box-shadow`/`drop-shadow`/`backdrop-filter`·카드 중첩 제거, 1px 선형 SVG·플랫 에디토리얼 라이트 1px 헤어라인 KPI 스트립·2열 원장 스플릿·`tabular-nums` 고정폭 정렬, `ControlGuide` 닫힘 시 동기 일시정지 수정), `scripts/pm-control-smoke.cjs --record` 재녹화(`public/guides/pm-control/staff.{mp4,ko.vtt,proof.json}`, `chapters.json`, `config/workflow-guides.json` 해시 동기화).
@@ -4029,6 +4036,12 @@ pm run test:canon 통과.
 5. 주의/잠금: 병렬 세션 `UI-2`/`UI-3` 경계(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`, `components/work/SolutionSuiteSimulator.js`, `desktop/package.json`, `pages/pm/radar.js`, `lib/pmTechRadarSim.js`, `lib/pmRadarPlanTokens.js`, `pages/api/**`) 무수정. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·#hex·raw `<button>` 0건 유지.
 검색어: pm-control anti-ai-slop 오류관제 pages/pm pmThemes pmLookClear ControlGuide tabular-nums linear-gradient box-shadow PR1879
 
+### 2026-11-19 — A3 행 안쪽 여백 축소
+1. 작업 위치: codex/tight-rows / work/tight-rows / PR 준비.
+2. 완료: 실제 셀폭 줄계산 유지, 14.5pt 줄높이+4pt 여유, 최소18.5pt.
+3. 남음: 전체검사 종료·PR·배포.
+4. 검증: 대상38PASS, Excel PDF 체리오3줄/돈셀7줄 마지막줄 확인. 높이3579→3156pt, A3 4쪽 유지.
+5. 주의: ERP원장쓰기0. 검색어 tight A3 shipmentFieldCompact row height
 ## 2026-11-19 불량차감 수량 분리 요청
 - 검색어: 불량차감, 클레임용수량, 견적용수량, 담당자 바로가기, 로딩, 크레딧수량
 1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity / PR 없음.
@@ -4055,10 +4068,35 @@ pm run test:canon 통과.
 
 - 2026-11-19 운영 스키마: 사용자 승인으로 EstimateQuantity decimal(18,4) NULL 및 양수 CHECK 적용. 읽기 전용 확인에서 제약 활성·신뢰 확인. PR #1880 재검증 및 배포 대기.
 
+
+## 2026-11-19 통합 솔루션 시뮬레이터 SVG 선-글자 관통 · 공용폰 OCR 겹침 · 마스터-디테일 캡처 뷰어 · 한글 고딕 교정
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/simulator-svg-ocr-overlap` / `C:\Users\USER\nw-agy-fix-overlap` (PR 생성·CI 통과 후 squash 머지 및 정리)
+2. 완료된 것: `components/work/SolutionSuiteSimulator.js`(좌측 아키텍처 트레이스 SVG `03→04` 직교 버스 `y=144` 및 하단 독립 배지 레인 `y=166..196` 최상위 DOM 분리·화살표 마커, 공용폰 스냅샷 절대좌표 `.sim-ocr-box` 전면 폐기 후 3열 DOM Grid 인라인 하이라이트+우측 주석 거터 전환, `.sim-kv-row dt` `keep-all`/`nowrap` 및 폭 `162px` 보정, 좌측 `60%`에 `EXECUTION TRACE`+`5열 실행 로그 원장` 통합해 좌우 높이 균형화, `실제 작업 캡처 & 실측 대조`를 하단 `100%` `62:38` 마스터-디테일 뷰어로 독립 및 이미지 위 텍스트 대신 꼭짓점 번호 배지·우측 해설 리스트·전체 제목 가로 목록 구현, `ui-monospace` 제거 후 `Pretendard`/`Malgun Gothic`+`tabular-nums`·`12.5~14.5px` 고대비 적용), `pages/my-work.js`(`.bar-tabs` `flex-wrap: nowrap; overflow-x: auto` 단일 행 유지 및 불투명 배경, 고딕 서체 적용), `__tests__/solutionSuiteSimulator.test.js` 회귀 가드 보강, `desktop/package.json`·`desktop/package-lock.json` `1.3.62` 패치 업(`origin/master` 선행 `1.3.61` 이후 패치).
+3. 남은 할 일: PR 생성 · CI(`verify` · `installer`) 통과 대기 · squash 머지 · worktree/junction 정리.
+4. 검증 상태: `solutionSuiteSimulator.test.js`, `adoptionRadar.test.js`, `techRadarSimulator.test.js`, `archFlowChart.test.js`, `test:pm`, `test:ui-layout`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `guard:erp-writes --changed-from origin/master`, `test:erp-manifest --changed-from origin/master`, `desktop test`(75건), `npx next build --webpack`, Headless Chromium `1920×1080`·`1440×900` 실렌더링 기하·스크린샷 육안 검수 PASS (운영 서버 실데이터·DB 쓰기 0건, 캡처/API는 로컬 합성 픽스처 검증).
+5. 주의/잠금: 병렬 세션 `세션 Fix-Font` 전담 파일(`data/moyi-full-suite-blueprint.html`, `components/pm/TechRadarWorkbench.js`, `components/pm/ArchFlowChart.js`, `components/pm/ui.js`) 및 `GabrielProfitAgiWorkbench.js`, `pages/api/**` 무수정 유지.
+검색어: SolutionSuiteSimulator sim-bus-badge sim-ocr-token sim-line-gutter sim-capture-workbench Pretendard Malgun-Gothic bar-tabs Desktop-1.3.62
+
+### 2026-11-19 — 맑은 고딕 글자 폭에 맞춘 현장물량표 행 높이
+1. 작업 위치: nenova-erp-ui / codex/a3-page / work/a3-page / PR 예정.
+2. 완료된 것: shipmentFieldCompact의 한글·영문·공백·구두점·굵기별 추정 폭으로 실제 한 줄 셀의 두 줄 오판 수정. 줄간격/글씨크기/수식 유지.
+3. 남은 할 일: 전체검사·PR CI·운영 배포 확인.
+4. 검증 상태: 대상39건 PASS, 실제 Excel PDF Cosmo/딜레타33→18.5pt·돈셀7줄 유지 확인. A3 4쪽, 총3156→3069pt. 전체검사 진행.
+5. 주의/잠금: ERP 원장쓰기 없음. 작업트리만 수정. 추정폭은 플랫폼 폰트 실측 API가 아닌 10pt 보수 휴리스틱.
+검색어: shipmentFieldCompact printHeight Latin glyph spaces bold A3 39 tests a3-page
+
+## 2026-11-19 /pm 목적 우선 배너 + 실시간 PM 파이프라인 트레이스 모션 도면
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/pm-purpose-trace-motion` / `C:\Users\USER\nw-swm-pm-trace` (스웜 pm-trace-claude)
+2. 완료된 것: 신규 `components/pm/PmPurposeTraceBoard.js`. ① `PmPurposeBanner`(`data-testid="pm-purpose-banner"`)를 헤더 바로 아래에 둠. 「핵심 목적 · PURPOSE」로 WHY 17px, 손실·병목 / 완료 기준(DONE) / 담당 에이전트 / 기대 효과를 15px 굵게 표시. 업무 대장 줄(이제 키트 `SelectCard`)을 누르면 그 과제 기준으로 바뀌고(`data-scope=task`), `전체 목적 보기`를 누르면 원래대로 돌아감. ② 일반 관제의 `PmPurposeTraceBoard`(`data-testid="pm-live-trace-diagram"`). SVG 패턴으로 20px 모눈을 깔고 6단계 카드를 둠(01 현장 신호 → 06 Cafe24·데스크톱). 완료 카드는 에메랄드 실선과 이동 점, 실행 중 카드는 로열블루 흐르는 점선(`stroke-dashoffset`), 대기 카드는 슬레이트. 03→04 리턴 버스 선은 레인 위쪽에, 배지는 레인 아래쪽 흰 배경에 따로 둠. 실측해서 `data-bus-clear`에 기록함. AUTO 1x(2,600ms) 재생/정지, 카드를 누르면 그 단계로 이동, `실시간 상태로` 버튼도 있음. 과제 상태는 `traceStageOfTask`로 단계에 맞춤. 전체 보기는 승인 → 검증 → 조사 순서로 우선함. 색은 rgb()만 쓰고 hex는 0, 글꼴은 Pretendard → 맑은 고딕.
+3. 가이드: `pm-control` 시나리오가 6개가 됨(purpose / trace / task / control / game / off). sourceFiles에 새 컴포넌트를 넣음. `scripts/pm-control-smoke.cjs`에 배너·도면·과제 선택·버스 겹침 검사를 추가하고 `--record`로 다시 녹화함(98초).
+4. 검증: `node __tests__/pmPurposeTrace.test.js`(신규), `npm run test:pm`, `npm run test:workflow-guides`, `check-workflow-guides --changed-from origin/master`, `npm run test:ui-layout`, `guard:erp-writes --changed-from origin/master`, `npx next build --webpack`, 1920/1280/390 스크린샷 육안 확인 PASS. 쓰기 0, JS 오류 0.
+5. 함정: worktree의 node_modules junction은 Turbopack dev에서 패닉이 나므로 `npx next dev --webpack -p 3298`을 쓰고 `JWT_SECRET=pm-control-local-fixture-only`를 줘야 녹화 쿠키가 통과함. 녹화기 `focus`는 스크롤하지 않음. 그래서 step에서 `scrollIntoView({block:'center'})`를 먼저 부름(`block:'start'`이면 sticky 헤더가 버튼을 가려 클릭이 빗나감). animateMotion `mpath`는 경로 d가 바뀌어도 예전 좌표를 붙잡고 있음. `<g key={id+d}>`로 다시 마운트해서 해결함.
+검색어: PmPurposeTraceBoard pm-purpose-banner pm-live-trace-diagram traceStageOfTask data-bus-clear pmtr-flow AUTO 1x 2600ms 목적 우선 트레이스 도면
+
 ## 2026-11-19 · 인보이스 확인 매칭 우선 표시와 입고표 정리
-1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/invoice-match-review / 기준 master 0e99af3.
-2. 완료된 것: 확인 품목·인보이스 위 정렬, 90% 이상 같은 국가 단독 하이라이트, 입고표 반복 경고 1회, 좁은 표와 숫자 정렬, 같은 원본의 확인 이력, 데스크톱 1.3.61.
-3. 남은 할 일: 최신 PR 전체 게이트와 squash 처리, Cafe24 읽기 확인, 공식 설치본 공개.
-4. 검증 상태: 설치 ERP dnSpy, 운영 SELECT, 대상 86개, 브라우저 503·재시도·이력 및 직접 입고 readback, Desktop 단위 75개, 두 개 가이드와 사용자 스크린샷 3개.
-5. 주의/잠금: 기존 저장 별칭과 확정 행 변경 제한 유지. 운영 입고·원가 저장과 유료 분석 호출 0건. 저장 이력에 확인 표식이 없는 과거 파일에는 상태를 추정하지 않는다.
-검색어: invoice-match-review 90percent saved-matching country-split compact-receipt Desktop1.3.61
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/invoice-match-review / PR #1884 / 기준 master 29f275c.
+2. 완료된 것: 이미 확인된 송장·품목 우선 표시, 90% 이상 같은 나라 단독 후보, 현재 품목 옆 후보와 같은 행 검색·교체, 한글 14px·보조 12.5px, 확정 입고 반복 안내 통합, 화면 최상단 목적 제목, Desktop 1.3.64.
+3. 남은 할 일: 최종 PR CI 후 squash, Cafe24 운영 읽기 확인과 공식 Windows 설치본 공개.
+4. 검증 상태: 실제 설치 ERP dnSpy 및 운영 SELECT, 격리 Chrome 503 후 기존 매칭 유지와 선택·검색·초점 복귀·직접 입고, 같은 줄·폰트·숫자 실측과 최종 스크린샷, 목적 제목 계산 스타일 검증 및 원본 해시 영향 영상 4편.
+5. 주의/잠금: 적용한 나라만 조회. 기존 확정 입고 품목 변경 제한, 같은 파일 최신 이력, 명시 저장과 중복 차단 유지. 운영 입고·원가 저장과 유료 분석 없음.
+검색어: invoice-inline-match 90percent country-split compact-receipt Desktop1.3.64 PR1884

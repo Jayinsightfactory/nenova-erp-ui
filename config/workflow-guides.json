@@ -519,6 +519,9 @@
       ],
       "sourceFiles": [
         "pages/sales/profit-report.js",
+        "components/ProfitChinaTransport.js",
+        "components/ProfitChinaTransport.module.css",
+        "lib/profitChinaTransport.mjs",
         "components/ProfitReportSnapshotBanner.js",
         "lib/profitReportSourceGuide.js"
       ],
@@ -526,7 +529,8 @@
         "query",
         "scope",
         "views",
-        "output"
+        "output",
+        "china"
       ],
       "guides": [
         {
@@ -540,23 +544,28 @@
           "chapters": [
             {
               "scenario": "query",
-              "title": "연도·차수 선택 후 조회",
+              "title": "1. 연도·차수 선택 후 조회",
               "seconds": 0
             },
             {
               "scenario": "scope",
-              "title": "조건 변경과 재조회",
-              "seconds": 12.235
+              "title": "2. 조건 변경과 재조회",
+              "seconds": 20.434
             },
             {
               "scenario": "views",
-              "title": "차수별·월별도 직접 조회",
-              "seconds": 26.573
+              "title": "3. 차수별·월별도 직접 조회",
+              "seconds": 43.163
             },
             {
               "scenario": "output",
-              "title": "조회 범위와 출력 확인",
-              "seconds": 40.548
+              "title": "4. 조회 범위와 출력 확인",
+              "seconds": 65.86
+            },
+            {
+              "scenario": "china",
+              "title": "5. 중국 배·비행기·미배정 확인",
+              "seconds": 82.557
             }
           ]
         }
@@ -1001,27 +1010,27 @@
             {
               "scenario": "allocate",
               "title": "2. 요일 수량과 기본 출고요일",
-              "seconds": 26.654
+              "seconds": 40.041
             },
             {
               "scenario": "label",
               "title": "3. 엑셀 품목 표시명 직접 수정",
-              "seconds": 53.29
+              "seconds": 66.76
             },
             {
               "scenario": "drag",
               "title": "4. 국가·품종 필터와 누적 드래그 선택",
-              "seconds": 63.198
+              "seconds": 76.734
             },
             {
               "scenario": "group",
               "title": "5. 품목군 출력 묶음",
-              "seconds": 103.967
+              "seconds": 119.907
             },
             {
               "scenario": "save",
               "title": "6. 작성본 저장과 엑셀 다운로드",
-              "seconds": 130.957
+              "seconds": 147.312
             }
           ]
         }
@@ -1162,7 +1171,7 @@
     },
     {
       "id": "pm-control",
-      "title": "PM 진행·오류 관제와 게임 화면 선택",
+      "title": "PM 핵심 목적·진행 도면·오류 관제와 게임 화면 선택",
       "entryPaths": [
         "/pm"
       ],
@@ -1170,9 +1179,13 @@
         "pages/pm.js",
         "lib/pmThemes.js",
         "components/pm/grow/Grow.js",
-        "components/pm/ControlGuide.js"
+        "components/pm/ControlGuide.js",
+        "components/pm/PmPurposeTraceBoard.js"
       ],
       "requiredScenarios": [
+        "purpose",
+        "trace",
+        "task",
         "control",
         "game",
         "off"
@@ -1181,26 +1194,41 @@
         {
           "id": "staff",
           "role": "직원",
-          "title": "일반 관제 기본·게임 화면 켜기와 끄기",
+          "title": "핵심 목적·진행 도면 확인, 과제 선택, 게임 화면 켜기와 끄기",
           "status": "ready",
           "src": "/guides/pm-control/staff.mp4",
           "captions": "/guides/pm-control/staff.ko.vtt",
           "proof": "/guides/pm-control/staff.proof.json",
           "chapters": [
             {
+              "scenario": "purpose",
+              "title": "1. 맨 위 핵심 목적 먼저 확인",
+              "seconds": 0.298
+            },
+            {
+              "scenario": "trace",
+              "title": "2. 진행 도면에서 지금 단계 확인",
+              "seconds": 11.033
+            },
+            {
+              "scenario": "task",
+              "title": "3. 과제를 누르면 목적과 도면이 바뀜",
+              "seconds": 28.521
+            },
+            {
               "scenario": "control",
-              "title": "1. 일반 관제에서 진행과 오류 확인",
-              "seconds": 0
+              "title": "4. 일반 관제에서 진행과 오류 확인",
+              "seconds": 43.286
             },
             {
               "scenario": "game",
-              "title": "2. 필요한 경우 게임 화면 켜기",
-              "seconds": 10.459
+              "title": "5. 필요한 경우 게임 화면 켜기",
+              "seconds": 53.943
             },
             {
               "scenario": "off",
-              "title": "3. 게임을 끄고 일반 관제로 복귀",
-              "seconds": 23.5
+              "title": "6. 게임을 끄고 일반 관제로 복귀",
+              "seconds": 67.477
             }
           ]
         }
@@ -1588,13 +1616,13 @@
       "videoWaivers": [
         {
           "file": "desktop/shell/flight-board.js",
-          "sha256": "df707c602d9a6acc42f9ef8810681ac6cfbfe6aa2771eaec52522e6ec7e38006",
+          "sha256": "0e8d418d669074afd2afef50fbbfd6b439356e951e3f1abe17df260928af9ec9",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },
         {
           "file": "components/home/ImportFlightBoard.js",
-          "sha256": "c6012881d171f22c06a8d5c86c16972114728b113fbd87d726825408d9ecc226",
+          "sha256": "19e04a4b60d47a6d79ccfad16515194431615b09565d35ef39bd2c98ce546c76",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },
@@ -1606,7 +1634,7 @@
         },
         {
           "file": "desktop/flight-board.cjs",
-          "sha256": "9382b80223365218cac5100a7503d615336454c5a225f05838646fe16c5e43fc",
+          "sha256": "70a5bdf7c42160b3fc69e483619a7680130d339b510f9c474ba74230d881618c",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 우선 처리 항공편 정렬을 포함한 이번 연결 화면 개편 영상 제외."
         },

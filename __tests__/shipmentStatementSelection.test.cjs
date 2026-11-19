@@ -1,4 +1,14 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),s=require('../lib/shipmentStatementSelection.cjs');
+test('FSO alias searches the current scope and keeps the original customer identity',()=>{
+ const fso={CustKey:7,CustName:'에프에스오 2025(fso2025)',Manager:'담당A'};
+ const other={CustKey:8,CustName:'에프에스오 2024(fso2024)',Manager:'담당A'};
+ const favorites=new Map([[7,[1]]]);
+ assert.equal(s.customerDisplayName(fso.CustName),'플로르아름(fso)');
+ assert.equal(s.customerDisplayName(other.CustName),other.CustName);
+ for(const term of ['플로르아름','플로르아름(FSO)','에프에스오 2025'])assert.deepEqual(s.visibleCustomers([other,fso],'담당A',term,favorites),[fso]);
+ assert.deepEqual(s.visibleCustomers([fso],'담당B','플로르아름',favorites),[]);
+ assert.deepEqual(s.visibleCustomers([other],'담당A','플로르아름',favorites),[]);
+});
 test('main-week buttons are exactly selected ±2; clamp without crossing business year',()=>{
  assert.deepEqual(s.nearbyWeeks(45),[43,44,45,46,47]);assert.deepEqual(s.nearbyWeeks(1),[1,2,3]);assert.deepEqual(s.nearbyWeeks(53),[51,52,53]);
  for(const value of [undefined,null,'',0,false,true,-1,54,1.5,'45-01'])assert.deepEqual(s.nearbyWeeks(value),[]);

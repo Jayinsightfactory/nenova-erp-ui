@@ -169,12 +169,23 @@ test('print inventory suffix stays open for memo, uniform body font and top alig
  const wb=new ExcelJS.Workbook();await wb.xlsx.load(out);const ws=wb.worksheets[0],cell=ws.getCell('C3');
  assert.match(cell.text,/ \[입5 \/출3 \/재1 잔3$/);assert.equal(cell.text.split('[입').length,2);
  assert.equal(cell.alignment.vertical,'top');assert.notEqual(cell.alignment.shrinkToFit,true);
- assert(cell.value.richText.every(r=>r.font.size===10&&r.text.length>0));assert.equal(ws.getCell('A3').font.size,10);assert(ws.getRow(3).height>=24);
+ assert(cell.value.richText.every(r=>r.font.size===10&&r.text.length>0));assert.equal(ws.getCell('A3').font.size,10);assert(ws.getRow(3).height>=18.5);
 });
 test('row fit uses actual merged width and longest rich text lane',()=>{
  const {fitFieldRow}=load('shipmentFieldCompact'),wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('test');
  [30,2,20,20,20,7,7,7,7].forEach((w,i)=>ws.getColumn(i+1).width=w);
- ws.getCell('C1').value={richText:[{text:'일요일 업체1\n목요일 업체2\n금요일 업체3'}]};ws.mergeCells('C1:E1');fitFieldRow(ws,1,9);assert(ws.getRow(1).height>=56);
+ ws.getCell('C1').value={richText:[{text:'일요일 업체1\n목요일 업체2\n금요일 업체3'}]};ws.mergeCells('C1:E1');fitFieldRow(ws,1,9);assert(ws.getRow(1).height>=47.5);
  ws.getCell('C2').value='짧음';ws.getCell('D2').value={richText:[{text:'긴품종'.repeat(35)}]};fitFieldRow(ws,2,9);assert(ws.getRow(2).height>ws.getRow(1).height);
  const narrow=ws.getRow(2).height;ws.getColumn(4).width=60;fitFieldRow(ws,2,9);assert(ws.getRow(2).height<narrow);
+});
+
+
+
+test('10pt Latin spaces do not inflate a fitting one-line compact row',()=>{
+ const {fitFieldRow}=load('shipmentFieldCompact'),wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('test');
+ [30,2,57.54,57.54,57.545,7,7,7,7].forEach((w,i)=>ws.getColumn(i+1).width=w);
+ ws.getCell('C1').value={richText:[{text:'Cosmo Lilac  ',font:{bold:true}},{text:'출고 없음 [입0 /출0 /재1 잔1'}]};
+ ws.getCell('D1').value='다마스커스  일요일 - 호남선 태림CH농장 1 [입2 /출1 /재1 잔2';
+ fitFieldRow(ws,1,9);assert.equal(ws.getRow(1).height,18.5);
+ ws.getCell('C2').value='일요일 업체1\n목요일 업체2\n금요일 업체3';fitFieldRow(ws,2,9);assert.equal(ws.getRow(2).height,47.5);
 });
