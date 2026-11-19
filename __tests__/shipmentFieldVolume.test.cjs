@@ -4,7 +4,7 @@ function load(name){if(cache.has(name))return cache.get(name).exports;const m={e
 const api=load('shipmentFieldVolume'),drawing=load('shipmentFarmDrawing'),text=load('shipmentFarmText'),ExcelJS=require('exceljs'),JSZip=require('jszip');
 function farmRows(ws){
   return ws.getSheetValues().flatMap((_,i)=>{
-    const body=ws.getCell(i,3).text;
+    const body=[3,4,5].map(c=>ws.getCell(i,c).isMerged&&ws.getCell(i,c).master.col!==c?'':ws.getCell(i,c).text).join(' ');
     return /(?:아유라|새농장|농장) \d/.test(body)?[[null,null,body]]:[];
   });
 }const plan=()=>({kind:'field-volume-v2',orderYear:'2026',week:'46-02',colors:{},products:[{prodKey:2,label:'돈셀',unit:'박스',family:'carnation',incoming:5,stock:1}],customers:[{custKey:1,name:'업체',region:'양재'}],expected:[{custKey:1,prodKey:2,qty:3,farms:[{farmKey:4,shipmentQuantity:3}]}]});
@@ -135,11 +135,11 @@ test('weekday calendar lines and customer cultivar breakdown preserve selected q
     const wb=new ExcelJS.Workbook();await wb.xlsx.load(await api.renderFieldVolumeWorkbook(p,{entries,totals:p.products.map(x=>({...x,outgoing:6})),farms:new Map(),details:new Map(),lines:[]}));
     const ws=wb.worksheets[0];assert.equal(wb.worksheets.length,1);
     assert.match(ws.getCell('C3').text,/금요일[^\n]*\n일요일/);
-    assert.equal(ws.getColumn(1).values.filter(v=>v==='돈셀').length,1);
+    assert.equal(ws.getRow(3).values.filter(v=>v?.richText?.some(r=>r.text==='돈셀  ')).length,1);
     const header=ws.getColumn(1).values.findIndex(v=>v==='일요일 · 경부선');
     assert.equal(ws.getCell(header,3).text,includePrevious?'일신11(돈셀4,문라이트7) / 상희1.5(문라이트1.5)':'일신9(돈셀4,문라이트5) / 상희1.5(문라이트1.5)');
     assert.equal(ws.pageSetup.paperSize,8);assert.equal(ws.pageSetup.orientation,'landscape');
-    assert.equal(ws.getCell('G3').formula,'D3+F3-E3');
+    assert.equal(ws.getCell('M3').formula,'J3+L3-K3');
   }
 });
 
@@ -160,3 +160,4 @@ test('footer weekdays have independent merged headings below unchanged total',as
  assert.equal(ws.getCell('A4').text,'총합계');assert.equal(ws.getCell('A5').text,'금요일');assert.equal(ws.getCell('G5').master.address,'A5');assert.equal(ws.getCell('A6').text,'금요일 · 양재');assert.match(ws.getCell('C6').text,/돈셀3/);assert.equal(ws.getCell('A7').text,'업체별 당일 총수량');
  assert.equal(api.fieldCultivarDisplay('Moon Light'),'문라이트');assert.equal(api.fieldCultivarDisplay('Unknown'),'Unknown');assert.equal(api.fieldCultivarDisplay('Doncel'),'돈셀');assert.equal(api.fieldCultivarDisplay('Novia'),'노비아');assert.equal(api.fieldCultivarDisplay('Cherrio'),'체리오');
 });
+test('three short cultivars retain individual numeric anchors and long row ordering',async()=>{const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('현장물량표');ws.addRow(['title']);ws.addRow(['품종',null,'출고','입고','출고','재고','잔량']);for(let i=0;i<4;i++){const row=ws.addRow(['품종'+i,null,'요일 지역 업체 1',10+i,2+i,1,{formula:'D'+(i+3)+'+F'+(i+3)+'-E'+(i+3),result:9}]);row.height=16;}ws.addRow(['총합계',null,null,{formula:'SUM(D3:D6)',result:46},{formula:'SUM(E3:E6)',result:14},{formula:'SUM(F3:F6)',result:4},{formula:'SUM(G3:G6)',result:36}]);const result=load('shipmentFieldCompact').compactFieldRows(wb,ws,new Map([[3,2],[4,1],[5,0],[6,3]]));const reopened=new ExcelJS.Workbook();await reopened.xlsx.load(await wb.xlsx.writeBuffer());const out=reopened.worksheets[0];assert.equal(out.getCell('C3').text.startsWith('품종0'),true);assert.equal(out.getCell('D3').text.startsWith('품종1'),true);assert.equal(out.getCell('E3').text.startsWith('품종2'),true);assert.equal(out.getCell('A4').text,'품종3');assert.equal(out.getCell('F3').result,33);assert.equal(out.getCell('F5').result,46);assert.equal(out.getCell('F5').formula,'SUM(J3,N3,R3,F4)');assert.equal(out.getCell('M3').formula,'J3+L3-K3');assert.equal(out.pageSetup.printArea,'A1:I5');assert.equal(out.getColumn(10).hidden,true);assert.equal(result.rowCount,5);});

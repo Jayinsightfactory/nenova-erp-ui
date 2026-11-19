@@ -3897,6 +3897,19 @@ pm run test:canon 통과.
 5. 주의/잠금: 공용 ERP/ECOUNT 쓰기0, 새 DB DDL 없음. 과거 미기록 날짜/합계 추정 금지. acba의 기존 dirty WORK_MEMORY.md와 45차_판매전표_대조.csv 보존. 경로·계약은 docs/plans/estimate-change-history-implementation-2026-11-19.md, 백업ID는 docs/work-sessions/2026-11-19_estimate-change-history-backups.json.
 검색어: 네노바 견적 변경 이력 과거 수기 변경안 차장보고 이카운트 예상 실측 Amount+Vat SdateKey CAS 1.3.52
 
+## 2026-11-19 업체별 출고요약 글씨색
+1. 작업 위치: codex/customer-colors, work/customer-colors, PR미생성.
+2. 완료: footer 고객별 richText 4색, 구분자 회색.
+3. 남음: 샘플/필수전체검사/PR/배포.
+4. 검증: shipmentFieldVolume 35/35 PASS, 그외 미검증.
+5. 주의: ERP원장변경0. 검색어: footer customer richText customerColors
+
+## 2026-11-19 짧은품종 3개 압축 인쇄
+1. 위치: codex/customer-colors / work/customer-colors / PR 생성 전.
+2. 완료: 업체슬롯 2개 이하 연속품종을 최대3개 한행, 개별입출재잔 숨김숫자 backing 및 본문표기, 전체SUM anchor보존; footer4색 유지.
+3. 남음: 전체검사 최종종료 및 PR/CI/배포 확인.
+4. 검증: 대상36PASS, 실제46-01 XLSX/PDF 107→86행, Excel 재계산 입723/출596/재165/잔292. manifest230PASS, ERP/build 진행 중. 운영미검증.
+5. 주의: ERP원장쓰기0, 문서출력변경만. 검색어: compactFieldRows 3품종 2업체 J:U hidden anchor
 ## 2026-11-19 · PR1861 업로드→검토→격리입고→같은입고 원가 전달 완료
 검색어: PR1861 Desktop1.3.53 18065 91001 91002 AWB 중복방지 cost-export
 1. 위치: fix/co4702-summary-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co4702-summary-1119 / PR1861. origin3761e41c의 견적이력/메뉴/가이드/배포 변경 전부 보존, 기존 Desktop52 다음53으로분리. 기존 예약51 draft를53으로 이동(타릴리스 보존).
