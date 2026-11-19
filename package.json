@@ -3,6 +3,8 @@
   "version": "1.0.2",
   "private": true,
   "scripts": {
+    "test:colombia-week-cost": "node --test __tests__/colombiaWeekCost.test.js __tests__/colombiaWeekCostSource.test.js __tests__/colombiaWeekCostWorkbook.test.js __tests__/colombiaWeekCostVersions.test.js __tests__/colombiaWeekCostApi.test.js",
+    "pretest:manifest-farm": "npm run test:colombia-week-cost",
     "test:china-transport": "node __tests__/profitChinaTransport.test.mjs && node __tests__/profitChinaTransportApi.test.cjs",
     "posttest:profit-inventory-basis": "npm run test:china-transport",
     "test:paste-local-analysis": "node __tests__/pasteLocalAnalysis.test.js && node __tests__/pasteAiMatchReview.test.js",

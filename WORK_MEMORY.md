@@ -4100,3 +4100,19 @@ pm run test:canon 통과.
 4. 검증: `node __tests__/pmPurposeTrace.test.js`(신규), `npm run test:pm`, `npm run test:workflow-guides`, `check-workflow-guides --changed-from origin/master`, `npm run test:ui-layout`, `guard:erp-writes --changed-from origin/master`, `npx next build --webpack`, 1920/1280/390 스크린샷 육안 확인 PASS. 쓰기 0, JS 오류 0.
 5. 함정: worktree의 node_modules junction은 Turbopack dev에서 패닉이 나므로 `npx next dev --webpack -p 3298`을 쓰고 `JWT_SECRET=pm-control-local-fixture-only`를 줘야 녹화 쿠키가 통과함. 녹화기 `focus`는 스크롤하지 않음. 그래서 step에서 `scrollIntoView({block:'center'})`를 먼저 부름(`block:'start'`이면 sticky 헤더가 버튼을 가려 클릭이 빗나감). animateMotion `mpath`는 경로 d가 바뀌어도 예전 좌표를 붙잡고 있음. `<g key={id+d}>`로 다시 마운트해서 해결함.
 검색어: PmPurposeTraceBoard pm-purpose-banner pm-live-trace-diagram traceStageOfTask data-bus-clear pmtr-flow AUTO 1x 2600ms 목적 우선 트레이스 도면
+
+## 2026-11-19 Colombia exact-week landed cost — implementation checkpoint, NOT deployed
+1. 작업 위치: `fix/co-arrival-week-1119` / `C:/Users/USER/Documents/Codex/nw-cdx-co-arrival-week-1119`, base29f275c5, checkpoint71461625, PR아직없음. China PR1883/worktree는 별도 보존.
+2. 완료: CO 2026/46-02 운영 SELECT22입고94상품행 확인. AWB별 계산/공유통관 근거중복방지, 기존양식 단일시트 builder, 사용자·연도·차수별 atomic immutable XLSX+snapshot archive, prepare/preview/download/original-version API와 기존 native cost 진입 UI 연결. 비용행 금액15+15 등 통화/합계귀속을 임의추정하지 않고 확인근거 요구. 운영DB쓰기0.
+3. 남은 일: 실제 화면/접근성·모호 AWB해결 UX, 독립 Excel 재계산과 실제 Desktop 저장창·다시열기/캡처, 현재 가이드 소스해시 정책 확인, Desktop메뉴/버전 및 전체필수가드/빌드, 최신master병합, PR/CI/squash/Cafe24/desktop 배포와 읽기전용스모크. 아직 완료/배포로 보고금지.
+4. 검증: core5/source4/workbook2/archive4/API6 =21건 PASS, git diff --check PASS. 실제 DB자료 원가확정/네이티브Excel/Desktop/전체ERP/빌드/CI/배포 미검증. Archive원본은 재생성하지 않으며 늦은수국은 새버전, 과거버전은 변경없음.
+5. 주의/잠금: 이 worktree 단독소유. root node_modules는 canonical junction(대상 삭제금지). .verify 및 원본문서는 비공개/커밋금지. 사용자 기존Excel/데스크톱 및 China작업 보존. 운영 주문/입고/재고/정산/전달상태 쓰기·유료분석 금지.
+검색어: colombia-week-cost CO 2026 46-02 single-sheet AWB immutable archive 21PASS not-deployed
+
+### 2026-11-19 Colombia checkpoint — native Desktop acceptance blocked
+1. 위치: 동일 `fix/co-arrival-week-1119`, Colombia 전용 worktree. China 46-02 작업은 취소/변경하지 않음.
+2. 추가: 기존 native 도착원가 진입을 전체차수 UI로 연결, 모호품종/AWB만 근거입력, AWB별 운임·FB·환율, 통관증빙별 대상지정, 원장 비용행 포함/제외근거, 사용자별 보관원본 조회/재다운로드 API 구현. 원본 생성 시 전후 source fence, API는 클라이언트 금액/수량 결과를 무시하고 서버 재계산.
+3. 남음: UI 실행·격리fixture·독립 Excel 재계산/실제 Desktop native 저장창·캡처, 메뉴/버전/가이드정책, 최신master 통합과 최종 전체검증/PR CI/배포. 실제 검증 전 머지·배포 금지.
+4. 검증: 대상21PASS, JSX Babel구문2파일PASS, ERP manifest234PASS, changed API write guard1PASS. 실제 Desktop com.nenova.workspace 창78579022 복원/AX조회 성공했으나 수입부 탭 클릭 `coordinate input geometry is unavailable` 재발. 네이티브 저장창/Excel열기/민감정보없는 캡처 미검증. 운영DB/유료분석0.
+5. 잠금: root node_modules junction 대상 삭제금지, .verify 비공개. 기존 사용자 Excel·Desktop 탭/설정/업무자료 보존. 새API는 미배포이고 새화면 성공캡처 없음.
+검색어: colombia-week-cost desktop geometry unavailable manifest234 writeguard1 21PASS native-save-unverified
