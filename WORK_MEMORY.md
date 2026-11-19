@@ -3861,7 +3861,7 @@ pm run test:canon 통과.
 ### 2026-11-19 견적 변경 이력 배포 완료·회귀 CI 연결 보강
 1. 작업 위치: nenova-erp-ui / 구현 PR1863 squash3761e41c5dd649574db6917616ff92f699b59dc2 완료 / 후속 codex/estimate-history-ci-1119 / C:/Users/USER/nw-cdx-estimate-history-ci-1119.
 2. 완료: 독립 변경 이력 메뉴·과거 수기·반영 전 변경안·전체/업체 예상/실측·보고→이카운트→전산 수기 확인·표준 XLSX·달력 신규 다운로드·가이드4종, Desktop1.3.52 릴리스 및 실제 공개 피드/설치본111956437bytes SHA512/CI SHA256 검증. package.json에 신규 회귀4종+달력을 ERP CI의 기존 견적 검증 선행명령으로 연결.
-3. 남음: 검증 전용 후속 PR CI success 후 squash·배포·운영 GET 재확인·작업트리 정리. 기존 구현 worktree는 정리 대상이며 화면/원장 동작 변경 없음.
-4. 검증: PR verify44444601725·installer44444601720 success 후 병합; master ERP44445334162·Windows44445334066·Cafe24 44445334073 success. 운영 ping200/버전3761e41c·권한·실제173행 키·양식·영상/한국어 자막/목차5개·1920/1280/390·일반/팝업 통과, 로그인 이후 쓰기1건 차단·전달0·원장쓰기0. 후속 CI는 미검증.
+3. 남음: 검증 전용 후속 PR CI success 후 squash·배포·운영 GET 재확인·작업트리 정리. 기존 구현 worktree 정리 완료. 줄바꿈 사유40줄의 인쇄 높이 재현을 추가해 별첨을 표시 줄 수 기준으로 분할하고 신규 메뉴 가이드도 최종 출력 기준으로 갱신. 원장/수량·단가 원본은 보존.
+4. 검증: PR verify44444601725·installer44444601720 success 후 병합; master ERP44445334162·Windows44445334066·Cafe24 44445334073 success. 운영 ping200/버전3761e41c·권한·실제173행 키·양식·영상/한국어 자막/목차5개·1920/1280/390·일반/팝업 통과, 로그인 이후 쓰기1건 차단·전달0·원장쓰기0. 여러 줄 인쇄 회귀 포함 신규26건 및 실제 XLSX 렌더 통과. 갱신 가이드/자막은 새 Drive ID로 백업·메타데이터 재확인. 최종 후속 CI는 미검증.
 5. 주의/잠금: 원장/ECOUNT 쓰기 금지, SSMS/DDL 없음. 원본 첨부·개인정보 미반입. acba의 기존 dirty WORK_MEMORY.md·45차_판매전표_대조.csv 보존. 백업8개 ID는 docs/work-sessions/2026-11-19_estimate-change-history-backups.json, 구현 PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1863, 설치본 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.52.
 검색어: 견적 변경 이력 CI test:estimate-change-history pretest:estimate-delete PR1863 3761e41c Desktop1.3.52

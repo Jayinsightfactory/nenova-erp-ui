@@ -1979,22 +1979,22 @@
             {
               "scenario": "linked",
               "title": "2. 전산 반영 전 변경안 작성",
-              "seconds": 8.4
+              "seconds": 9.065
             },
             {
               "scenario": "history",
               "title": "3. 이력과 전체·업체 매출 비교",
-              "seconds": 16.638
+              "seconds": 23.84
             },
             {
               "scenario": "export",
               "title": "4. 원본 양식 확인과 엑셀 출력",
-              "seconds": 26.757
+              "seconds": 34.155
             },
             {
               "scenario": "progress",
               "title": "5. 실제 완료 단계와 실측 기록",
-              "seconds": 39.799
+              "seconds": 61.758
             }
           ]
         }
