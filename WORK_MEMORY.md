@@ -4004,3 +4004,12 @@ pm run test:canon 통과.
 4. 검증 상태: dnSpy CLI 및 운영 SELECT, 격리 실제 MSSQL 호주 단독·정상/오류 AWB·중복·교차연도, 콜롬비아 실제 PDF/재현 분석 8행·27박스·405단·8,100송이·USD 1,741.50 검증. 브라우저 직접 입고 및 모의 재조회 완료 확인, 브라우저/데스크톱 UA 같은 입고 재진입, Electron smoke 통과. 기존 직원 응답 복구 및 실제 Windows Excel 저장창은 미검증.
 5. 주의/잠금: 운영 입고·원가 데이터와 유료 분석 변경 없음. 기존 SQL writer, 재고·입고 readback, 원가 명시 승인 보존.
 검색어: invoice-only-receipt AWB optional packing receipt PENDING 18065 47-02 Desktop1.3.58 PR1875
+
+## 2026-11-19 · 오류관제(/pm) Anti-AI Slop §7 전면 정화 & pm-control 가이드 영상 갱신
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/pm-control-anti-ai-slop` / `C:\Users\USER\nw-agy-clean-pm` (PR 생성·CI 통과 후 squash 머지 및 worktree 정리 예정)
+2. 완료된 것: `pages/pm.js`, `lib/pmThemes.js`, `lib/pmLookClear.js`, `components/pm/{ui,ControlGuide,PmTheme,StaffRequests,Character,BgScene,IsoScene,SkillFx,grow/Grow}.js` Anti-AI Slop 정화(장식 이모지·CSS 그라디언트·`box-shadow`/`drop-shadow`/`backdrop-filter`·카드 중첩 제거, 1px 선형 SVG·플랫 에디토리얼 라이트 1px 헤어라인 KPI 스트립·2열 원장 스플릿·`tabular-nums` 고정폭 정렬, `ControlGuide` 닫힘 시 동기 일시정지 수정), `scripts/pm-control-smoke.cjs --record` 재녹화(`public/guides/pm-control/staff.{mp4,ko.vtt,proof.json}`, `chapters.json`, `config/workflow-guides.json` 해시 동기화).
+3. 남은 할 일: PR 생성, CI(`verify`·`installer`) 통과 대기, squash 머지 및 worktree/junction 정리.
+4. 검증 상태: `npm run test:pm`(31개 스위트), `npm run test:workflow-guides`(33 workflows/34 videos), `node scripts/check-workflow-guides.cjs --changed-from origin/master`, `npm run test:ui-layout`, `npm run guard:erp-writes -- --changed-from origin/master`, `npm run test:erp-manifest -- --changed-from origin/master`, `npx next build --webpack`, `scripts/pm-control-smoke.cjs --record`(1920/1280/390, JS오류0/쓰기0, 실제 MP4 프레임 시각 검수) PASS. 실운영 DB·운영 브라우저는 미검증(합성 픽스처 검증, 원장 쓰기 0건).
+5. 주의/잠금: 병렬 세션 `UI-2`/`UI-3` 경계(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`, `components/work/SolutionSuiteSimulator.js`, `desktop/package.json`, `pages/pm/radar.js`, `lib/pmTechRadarSim.js`, `lib/pmRadarPlanTokens.js`, `pages/api/**`) 무수정. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·#hex·raw `<button>` 0건 유지.
+검색어: pm-control anti-ai-slop 오류관제 pages/pm pmThemes pmLookClear ControlGuide tabular-nums linear-gradient box-shadow
+

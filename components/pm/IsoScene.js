@@ -525,27 +525,27 @@ export const ISO_CSS = `
 .pm .iso-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .pm .iso-svg { position: absolute; inset: 0; display: block; }
 .pm .iso-st { cursor: pointer; outline: none; } .pm .iso-st:focus-visible polygon:first-child { opacity: .6; }
-.pm .iso-neon { filter: drop-shadow(0 0 4px var(--pm-iso-glow)); }
-.pm .iso-zl { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--pm-plate); color: var(--pm-plate-ink); border: 2px solid var(--zc); box-shadow: var(--pm-shadow); pointer-events: none; }
+.pm .iso-neon { opacity: .95; }
+.pm .iso-zl { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 4px; background: var(--pm-plate); color: var(--pm-plate-ink); border: 1px solid var(--zc); pointer-events: none; }
 .pm .iso-zl small { color: inherit; opacity: .7; }
-.pm .iso-sl { position: absolute; transform: translate(-50%, -100%); display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font: inherit; font-size: 12px; font-weight: 700; padding: 2px 9px 2px 3px; border-radius: 999px; background: var(--pm-surface); color: var(--pm-ink); border: 2px solid var(--sc); box-shadow: var(--pm-shadow); cursor: pointer; }
-.pm .iso-sl i { font-style: normal; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--sc); color: var(--pm-accent-ink); font-size: 11px; }
-.pm .iso-sl small { font-size: 10px; margin-left: 2px; }
+.pm .iso-sl { position: absolute; transform: translate(-50%, -100%); display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font: inherit; font-size: 12px; font-weight: 700; padding: 2px 8px 2px 3px; border-radius: 4px; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--sc); cursor: pointer; }
+.pm .iso-sl i { font-style: normal; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; background: var(--sc); color: var(--pm-accent-ink); font-size: 11px; font-variant-numeric: tabular-nums; }
+.pm .iso-sl small { font-size: 10px; margin-left: 2px; font-variant-numeric: tabular-nums; }
 .pm .iso-sl.on, .pm .iso-sl:hover, .pm .iso-sl:focus-visible { background: var(--sc); color: var(--pm-accent-ink); outline: none; } .pm .iso-sl.on small, .pm .iso-sl:hover small { color: inherit; }
 .pm .iso-ch { position: absolute; transform: translate(-50%, -100%); background: none; border: 0; padding: 0; cursor: pointer; line-height: 0; }
-.pm .iso-ch:focus-visible { outline: 3px solid var(--pm-accent2); border-radius: 8px; }
+.pm .iso-ch:focus-visible { outline: 2px solid var(--pm-accent2); border-radius: 6px; }
 .pm .iso-ch.st-off { filter: grayscale(.85) brightness(.85); opacity: .8; }
 .pm .iso-ch.st-working .iso-chibi, .pm .iso-ch.st-working .iso-av { animation: isoBob 1.6s ease-in-out infinite; }
 .pm .iso-z { position: absolute; right: -6px; top: -4px; font: 700 12px/1 var(--pm-font); color: var(--pm-muted); animation: isoZ 2.4s ease-in-out infinite; }
 .pm .iso-bang { position: absolute; right: -4px; top: -6px; font: 900 14px/1 var(--pm-font); color: var(--pm-err); }
-.pm .iso-nm { position: absolute; transform: translate(-50%, 0); max-width: 76px; display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--pm-line); box-shadow: var(--pm-shadow); pointer-events: none; }
+.pm .iso-nm { position: absolute; transform: translate(-50%, 0); max-width: 76px; display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 4px; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--pm-line); pointer-events: none; }
 .pm .iso-nm i { flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--pm-off-ink); }
 .pm .iso-nm.st-working i { background: var(--pm-ok); } .pm .iso-nm.st-idle i { background: var(--pm-idle); } .pm .iso-nm.st-error i { background: var(--pm-err); }
 .pm .iso-nm.bot { max-width: 84px; font-size: 10px; display: block; text-overflow: ellipsis; } .pm .iso-nm.bot i { display: inline-block; margin-right: 3px; vertical-align: middle; }
 .pm .iso-nm.ext { color: var(--pm-muted); border-style: dashed; font-weight: 400; }
-.pm .iso-chip { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: inherit; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--pm-link); color: var(--pm-accent-ink); border: 1px solid var(--pm-surface); box-shadow: var(--pm-shadow); cursor: pointer; z-index: 3; }
+.pm .iso-chip { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: inherit; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; background: var(--pm-link); color: var(--pm-accent-ink); border: 1px solid var(--pm-surface); cursor: pointer; z-index: 3; }
 .pm .iso-chip:hover, .pm .iso-chip:focus-visible { outline: 2px solid var(--pm-accent2); }
-.pm .iso-pop { position: absolute; z-index: 10; transform: translate(-50%, -100%); width: 220px; box-sizing: border-box; display: grid; gap: 5px; padding: 10px 12px; background: var(--pm-surface); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); box-shadow: var(--pm-shadow); font-size: 12px; overflow-wrap: anywhere; }
+.pm .iso-pop { position: absolute; z-index: 10; transform: translate(-50%, -100%); width: 220px; box-sizing: border-box; display: grid; gap: 5px; padding: 10px 12px; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); font-size: 12px; overflow-wrap: anywhere; }
 .pm .iso-pop.pinned { border-color: var(--pm-accent); }
 .pm .iso-pop .chip { justify-self: start; }
 .pm .iso-clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

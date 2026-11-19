@@ -114,13 +114,13 @@ export function GrowTab({ name }) {
       {garden && <><h3>{garden.dept} 정원</h3><p className="muted">부서원 {garden.members}명 평균으로 {garden.stage}단계 {garden.stageName}</p></>}
       <p className="note">업무시간으로 자라며 오래 쉬어도 시들거나 단계가 내려가지 않아요. 급여·평가와 무관합니다.</p>
       <style jsx>{`
-        .hero { display: flex; gap: 14px; align-items: center; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: 8px; padding: 10px; }
-        .hero > div { flex: 1; } .nm { font-size: 16px; }
-        .bar { height: 8px; background: var(--pm-surface2); border-radius: 4px; overflow: hidden; margin: 6px 0 2px; } .bar i { display: block; height: 100%; background: var(--pm-ok); }
-        .stages { display: flex; justify-content: space-between; margin: 10px 0; }
+        .hero { display: flex; gap: 14px; align-items: center; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius, 6px); padding: 10px; font-variant-numeric: tabular-nums; }
+        .hero > div { flex: 1; } .nm { font-size: 15px; }
+        .bar { height: 6px; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: 3px; overflow: hidden; margin: 6px 0 2px; } .bar i { display: block; height: 100%; background: var(--pm-ok); }
+        .stages { display: flex; justify-content: space-between; margin: 10px 0; font-variant-numeric: tabular-nums; }
         .stages span { display: flex; flex-direction: column; align-items: center; } .stages .lock { opacity: .35; filter: grayscale(1); }
         .stages small { font-size: 11px; color: var(--pm-muted); }
-        .why { margin: 0 0 0 18px; padding: 0; }
+        .why { margin: 0 0 0 18px; padding: 0; font-variant-numeric: tabular-nums; }
         .note { font-size: 11px; color: var(--pm-muted); margin-top: 14px; }
       `}</style>
     </div>
@@ -150,10 +150,10 @@ export function GardenStrip() {
       ))}
       <span id="garden-help" className="ghelp">{GARDEN_HELP}</span>
       <style jsx>{`
-        .garden { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; padding: 6px 0; }
+        .garden { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; padding: 6px 10px; margin-bottom: 10px; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius, 6px); font-variant-numeric: tabular-nums; }
         .g { position: relative; display: flex; align-items: center; gap: 4px; outline: none; } .g small { font-size: 12px; opacity: .85; white-space: nowrap; }
         .gt { display: grid; gap: 2px; } .gn { font-size: 11px !important; }
-        .gb { display: block; width: 96px; height: 6px; border-radius: 3px; background: var(--pm-surface2); border: 1px solid var(--pm-line); overflow: hidden; } .gb i { display: block; height: 100%; background: var(--pm-ok); }
+        .gb { display: block; width: 96px; height: 5px; border-radius: 3px; background: var(--pm-surface2); border: 1px solid var(--pm-line); overflow: hidden; } .gb i { display: block; height: 100%; background: var(--pm-ok); }
         .ghelp { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
       `}</style>
     </div>
