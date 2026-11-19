@@ -3896,3 +3896,11 @@ pm run test:canon 통과.
 4. 검증: ERP 전체 suite·dnSpy·manifest230·쓰기 가드·공식 webpack build 통과. 기능36/EXE SQL26/desktop73 및 Electron·UI58, 1920/1280/390·Tab/ShiftTab/방향키/Esc·실제 행 왕복·실제 XLSX·가이드4종 재생/자막/역할/목차/다운로드 통과. 최신 통합/CI/운영은 아직 미검증.
 5. 주의/잠금: 공용 ERP/ECOUNT 쓰기0, 새 DB DDL 없음. 과거 미기록 날짜/합계 추정 금지. acba의 기존 dirty WORK_MEMORY.md와 45차_판매전표_대조.csv 보존. 경로·계약은 docs/plans/estimate-change-history-implementation-2026-11-19.md, 백업ID는 docs/work-sessions/2026-11-19_estimate-change-history-backups.json.
 검색어: 네노바 견적 변경 이력 과거 수기 변경안 차장보고 이카운트 예상 실측 Amount+Vat SdateKey CAS 1.3.52
+
+## 2026-11-19 · PR1861 업로드→검토→격리입고→같은입고 원가 전달 완료
+검색어: PR1861 Desktop1.3.53 18065 91001 91002 AWB 중복방지 cost-export
+1. 위치: fix/co4702-summary-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co4702-summary-1119 / PR1861. origin3761e41c의 견적이력/메뉴/가이드/배포 변경 전부 보존, 기존 Desktop52 다음53으로분리. 기존 예약51 draft를53으로 이동(타릴리스 보존).
+2. 완료: 실제47-2 PDF SHA와 재현응답으로 실제 /import/tools 검토금액65수정·64.5복원·소계제외복원·검증적용→격리입고91001(8행/27박스/405단/8100송이/USD1741.5)→같은문서 원가승인/재조회→엑셀41501바이트 다운로드 확인. 실제호주AWB+합성44-01송장 동시첨부, 64박스/잘못된번호 차단, 65박스/GW805/CW805 원문연결→같은작업ID로 격리입고91002→원가엑셀13637바이트 전달. 캡처는외부 2026-11-19-invoice-incident/e2e-*.jpg.
+3. 남음: 정확최종SHA 필수CI 성공 후 squash, Cafe24 포함SHA배포·운영읽기전용스모크, Desktop53 검증릴리스·현재worktree 링크만정리. 최종 배포/릴리스/스모크 증거는 PR1861댓글에 기록. 사용자 명시로 추가촬영·백업 유예.
+4. 검증: 전체ERP/dnSpy/manifest/write/build PASS, 실제브라우저 두경로·실제다운로드·격리SQL readback 확인. 별도 새 일회용DB 자동회귀 PASS_AMOUNT_REVIEW_RECEIPT_COST(동일요청동일입고/새중복 ALREADY_COMMITTED 차단/원가41473바이트/원장보호). 첫 UI종합assert는 정상차단코드 ALREADY_COMMITTED 누락으로 실패해 기대코드수정후 자동회귀PASS. AU초기실패는 시험StockMaster키 순서로 rollback, 시험키만연대순정리후 같은ID UI재시도PASS. 모든일회용DB정리.
+5. 잠금/미검증: 운영ERP쓰기·유료분석0. 직원저장원응답 미확보·직원실계정 전체등록성공 미검증. CO GW100/CW200/시험비용은 TEST_ONLY이며실원가주장금지. AU인보이스는합성·AWB원본은실파일, OCR정확도완료주장금지. OrderCode추가사전검증·농장별칭·문제로그확장은별도미완료. 이전감사worktree·canonicaldirty보존. 원본PDF/인증정보커밋금지, node_modulesjunction대상삭제금지.
