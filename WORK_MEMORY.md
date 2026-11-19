@@ -4021,6 +4021,14 @@ pm run test:canon 통과.
 5. 주의/잠금: 병렬 세션 `UI-1`(`pages/pm.js`, `lib/pmThemes.js`, `ControlGuide.js`, `Grow.js`, `workflow-guides.json`)·`UI-3`(`SolutionSuiteSimulator.js`, `desktop/package.json`)·`pages/api/**` 무수정 준수; `DeviceHubConsole`은 라이트 스테이지 위 `.dhc-root` 다크 프레임 보존.
 검색어: my-work 도입레이더 흐름도 ArchFlowChart TechRadarWorkbench mode-clear Anti-AI-Slop 에디토리얼라이트 쉘 PR1878
 
+## 2026-11-19 · 오류관제(/pm) Anti-AI Slop §7 전면 정화 & pm-control 가이드 영상 갱신
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/pm-control-anti-ai-slop` / `C:\Users\USER\nw-agy-clean-pm` / PR #1879.
+2. 완료된 것: `pages/pm.js`, `lib/pmThemes.js`, `lib/pmLookClear.js`, `components/pm/{ui,ControlGuide,PmTheme,StaffRequests,Character,BgScene,IsoScene,SkillFx,grow/Grow}.js` Anti-AI Slop 정화(장식 이모지·CSS 그라디언트·`box-shadow`/`drop-shadow`/`backdrop-filter`·카드 중첩 제거, 1px 선형 SVG·플랫 에디토리얼 라이트 1px 헤어라인 KPI 스트립·2열 원장 스플릿·`tabular-nums` 고정폭 정렬, `ControlGuide` 닫힘 시 동기 일시정지 수정), `scripts/pm-control-smoke.cjs --record` 재녹화(`public/guides/pm-control/staff.{mp4,ko.vtt,proof.json}`, `chapters.json`, `config/workflow-guides.json` 해시 동기화).
+3. 남은 할 일: `origin/master`(#1878 포함) 머지 후 PR #1879 CI(`verify`·`installer`) 통과 대기, squash 머지 및 worktree/junction 정리.
+4. 검증 상태: `npm run test:pm`(31개 스위트), `npm run test:workflow-guides`(33 workflows/34 videos), `node scripts/check-workflow-guides.cjs --changed-from origin/master`, `npm run test:ui-layout`, `npm run guard:erp-writes -- --changed-from origin/master`, `npm run test:erp-manifest -- --changed-from origin/master`, `npx next build --webpack`, `scripts/pm-control-smoke.cjs --record`(1920/1280/390, JS오류0/쓰기0, 실제 MP4 프레임 시각 검수) PASS. 실운영 DB·운영 브라우저는 미검증(합성 픽스처 검증, 원장 쓰기 0건).
+5. 주의/잠금: 병렬 세션 `UI-2`/`UI-3` 경계(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`, `components/work/SolutionSuiteSimulator.js`, `desktop/package.json`, `pages/pm/radar.js`, `lib/pmTechRadarSim.js`, `lib/pmRadarPlanTokens.js`, `pages/api/**`) 무수정. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·#hex·raw `<button>` 0건 유지.
+검색어: pm-control anti-ai-slop 오류관제 pages/pm pmThemes pmLookClear ControlGuide tabular-nums linear-gradient box-shadow PR1879
+
 ## 2026-11-19 불량차감 수량 분리 요청
 - 검색어: 불량차감, 클레임용수량, 견적용수량, 담당자 바로가기, 로딩, 크레딧수량
 1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity / PR 없음.
@@ -4044,3 +4052,5 @@ pm run test:canon 통과.
 3. 남음 · 스키마 선적용, 전체 검증, 운영 배포와 실제 데스크톱 확인.
 4. 검증 · Excel 의존성 설치 후 불량차감·등록확정·자동수집 회귀 통과. Windows 배포 스크립트 검사에서 PM2 restart 출력 실패. 운영 Estimate 쓰기 미검증.
 5. 주의 · 스키마 없는 서버를 먼저 배포하면 저장 쿼리가 실패한다. 운영 업무행 수정 금지.
+
+- 2026-11-19 운영 스키마: 사용자 승인으로 EstimateQuantity decimal(18,4) NULL 및 양수 CHECK 적용. 읽기 전용 확인에서 제약 활성·신뢰 확인. PR #1880 재검증 및 배포 대기.

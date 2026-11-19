@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-14T16:54:06.058Z",
+  "recordedAt": "2026-11-19T07:33:28.972Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 36.55,
+  "duration": 36.45,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "3e021853fe9242ffffe388b8e841ee343935d3634ca2753ff71e12bccd4c7262",
-  "captionsSha256": "ce5cbdcdb468399004d8ca3b63bba19f2bb8d991d54ba97b9a5f0f51e0ba95be",
+  "videoSha256": "c0c767a87774118910355295378e134912b71927ed3c1157a4494d48046013f1",
+  "captionsSha256": "b415b6f9e8802151c2467f0cd08b7849f144586ab47f5b306be7a5db5b2cbb49",
   "sourceHashes": {
-    "pages/pm.js": "f3c5fd7f9d6633ec0431f3eeb70a34ed269ad638d4f0b44fc446dbb8d2093272",
-    "lib/pmThemes.js": "3def5828b6c24d3c0871b919e2d86107d28dadbb392f711c0a36fb939cd6f9dd",
-    "components/pm/grow/Grow.js": "96d41e964416fe19e8c78b6dd895c3676b7a50769b5552fa757f63078d010601",
-    "components/pm/ControlGuide.js": "7bb3a5c41c67c7df54d925ef7bf35f9a11caaed136a39eca432879498b45fcb2"
+    "pages/pm.js": "4306f235118618f662e151e11589adecf0013c7020ffb8be2de93af09e367e90",
+    "lib/pmThemes.js": "d09b85f43db49304bf97b534850a74b265dd9576081e574ccbadf7939d1b8411",
+    "components/pm/grow/Grow.js": "82abfecc56e09952ca518ea987b0489539a8bec1177379a129e8a10475779779",
+    "components/pm/ControlGuide.js": "e2d83825f3d5780380d64bdf38a2970f4597adc7bfe98d661137e1cb1d7978a7"
   },
   "presentation": {
     "numberedSteps": 3,
@@ -31,10 +31,10 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 4.335127900000001,
-        "x": 960,
-        "y": 236.5,
-        "end": 10.2462759
+        "start": 4.3182555,
+        "x": 570.9296875,
+        "y": 336,
+        "end": 10.244568399999999
       }
     ]
   }

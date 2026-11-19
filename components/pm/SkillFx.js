@@ -77,12 +77,12 @@ export default function SkillFx({ lines, dances, avatars, reduced }) {
 export const FX_CSS = `
 .pm .fx-trail { fill: none; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 3 7; opacity: .5; }
 .pm .fx-ult .fx-trail { stroke-width: 3.5; opacity: .7; }
-.pm .fx-proj { pointer-events: none; filter: drop-shadow(0 2px 2px color-mix(in srgb, var(--pm-ink) 30%, transparent)); }
+.pm .fx-proj { pointer-events: none; }
 .pm .fx-hit { opacity: 0; stroke-width: 2; }
 .pm .fx-hl { fill: none; stroke-width: 3; opacity: .8; }
-.pm .fxi { font-size: 34px; line-height: 52px; width: 52px; height: 52px; display: inline-block; text-align: center; }
+.pm .fxi { font-size: 34px; line-height: 52px; width: 52px; height: 52px; display: inline-flex; align-items: center; justify-content: center; text-align: center; }
 .pm .fxi.big { font-size: 72px; width: auto; height: auto; line-height: 1; }
 .pm .fxprev svg { width: 100%; height: 100%; }
 .pm .fx-st { fill: color-mix(in srgb, var(--pm-stage-3) 30%, var(--pm-surface)); stroke: var(--pm-stage-3); stroke-width: 2; }
-.pm .bg-mount { position: absolute; transform: translate(-50%, -100%) scale(var(--iz, 1)); font-size: 16px; line-height: 1; pointer-events: none; filter: drop-shadow(0 1px 1px color-mix(in srgb, var(--pm-ink) 30%, transparent)); }
+.pm .bg-mount { position: absolute; transform: translate(-50%, -100%) scale(var(--iz, 1)); font-size: 16px; line-height: 1; pointer-events: none; }
 `;

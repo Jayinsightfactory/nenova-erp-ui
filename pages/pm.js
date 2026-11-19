@@ -56,6 +56,17 @@ function ago(iso, now) {
 function fmtAge(sec) { if (sec == null) return '없음'; if (sec < 60) return `${sec}초`; if (sec < 3600) return `${Math.floor(sec / 60)}분`; return `${Math.floor(sec / 3600)}시간`; }
 const arr = (x) => (Array.isArray(x) ? x : []);
 
+function PmIcon({ name, size = 14 }) {
+  const p = { width: size, height: size, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: '1.5', strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, className: 'pm-ic' };
+  if (name === 'log') return <svg {...p}><rect x="2.5" y="2" width="11" height="12" rx="1.5" /><path d="M5 5.5h6M5 8.5h6M5 11.5h3.5" /></svg>;
+  if (name === 'bolt') return <svg {...p}><path d="M9 1.5L3.5 9H8l-1 5.5L12.5 7H8l1-5.5z" /></svg>;
+  if (name === 'team') return <svg {...p}><circle cx="5.5" cy="5" r="2" /><circle cx="11" cy="5.5" r="1.75" /><path d="M2 13c0-2 1.6-3.2 3.5-3.2S9 11 9 13M9.5 13c0-1.5 1.1-2.5 2.5-2.5s2 1 2 2.5" /></svg>;
+  if (name === 'coin') return <svg {...p}><circle cx="8" cy="8" r="6" /><path d="M8 4.8v6.4M6.2 6.8h3.2M6.2 9.2h3.2" /></svg>;
+  if (name === 'shop') return <svg {...p}><path d="M2.5 6h11l-.8 7.5H3.3L2.5 6z" /><path d="M5.5 6V4.5a2.5 2.5 0 015 0V6" /></svg>;
+  if (name === 'palette') return <svg {...p}><circle cx="8" cy="8" r="6" /><circle cx="6" cy="6.5" r="0.8" fill="currentColor" /><circle cx="10" cy="6.5" r="0.8" fill="currentColor" /><circle cx="6.5" cy="10" r="0.8" fill="currentColor" /></svg>;
+  return null;
+}
+
 function Sprite({ status, color, robot, avatar }) {
   const st = STATUS_LABEL[status] ? status : 'off';
   return (
@@ -218,8 +229,8 @@ function BonusCard({ name }) {
     <section className="pcard bonus">
       <h3>효율 보너스 {b && <small>{b.mode === 'live' ? '지급 중' : '기록만'}</small>}</h3>
       {!b ? <p className="muted">불러오는 중…</p> : <>
-        <div className="bitem"><span className="bic" aria-hidden>⚡</span><div><b>{p ? `+${p.points}` : '0'}</b> 효율 점수<div className="muted">{p ? `판정 ${p.cases}건 · 빠름 ${fast}` : '판정할 기록 없음'}</div></div></div>
-        <div className="bitem"><span className="bic" aria-hidden>🔥</span><div><b>팀 퀘스트 {b.teamQuest.done}/{b.teamQuest.goal}</b><div className="muted">{b.teamQuest.complete ? '오늘 달성' : '같은 국가 넘김 이어가기'}</div></div></div>
+        <div className="bitem"><span className="bic" aria-hidden="true"><PmIcon name="bolt" size={16} /></span><div><b className="tnum">{p ? `+${p.points}` : '0'}</b> 효율 점수<div className="muted tnum">{p ? `판정 ${p.cases}건 · 빠름 ${fast}` : '판정할 기록 없음'}</div></div></div>
+        <div className="bitem"><span className="bic" aria-hidden="true"><PmIcon name="team" size={16} /></span><div><b className="tnum">팀 퀘스트 {b.teamQuest.done}/{b.teamQuest.goal}</b><div className="muted">{b.teamQuest.complete ? '오늘 달성' : '같은 국가 넘김 이어가기'}</div></div></div>
       </>}
     </section>
   );
@@ -289,7 +300,7 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'now', workLog = [
               <div className="wname">{name}</div>
               <div className="muted">{d?.role?.dept || live?.dept || ''}{d?.dataName && d.dataName !== name ? ` · ${d.dataName}` : ''}</div>
               {gameEnabled && <div className="lv"><b>Lv. {lv ? lv.level : '–'}</b><span className="gauge" aria-label={`다음 레벨까지 ${lvPct}%`}><i style={{ width: `${lvPct}%` }} /><em>{lvPct}%</em></span></div>}
-              {gameEnabled && <div className="tok">🪙 <b>{wallet ? wallet.balance.toLocaleString() : '–'}</b> TOKENS</div>}
+              {gameEnabled && <div className="tok"><PmIcon name="coin" size={14} /> <b className="tnum">{wallet ? wallet.balance.toLocaleString() : '–'}</b> 토큰</div>}
               <span className={`chip chip-${st}`}>{STATUS_LABEL[st]}{live?.lastAt ? ` · ${ago(live.lastAt, now)}` : ''}</span>
             </aside>
             <div className="sdmain">
@@ -336,8 +347,8 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'now', workLog = [
             </div>
             {gameEnabled && <aside className="sdside">
               <BonusCard name={name} />
-              <Button className="bigbtn shopb" onClick={() => setView('shop')}><span aria-hidden>🎁</span> 상점</Button>
-              <Button className="bigbtn lookb" onClick={() => setView('shop')}><span aria-hidden>👕</span> 꾸미기</Button>
+              <Button className="bigbtn shopb" onClick={() => setView('shop')}><PmIcon name="shop" size={18} /> 상점</Button>
+              <Button className="bigbtn lookb" onClick={() => setView('shop')}><PmIcon name="palette" size={18} /> 꾸미기</Button>
               {!canEdit && <p className="muted small">{editNote}</p>}
             </aside>}
           </div>
@@ -638,7 +649,7 @@ function VisionPanel({ vision }) {
   );
 }
 
-// 재발 학습 카드: 피드 playbooks 없으면 패널 숨김(구버전 호환). 카드 클릭=전체 펼침.
+// 재발 학습 카드: 피드 playbooks 없으면 패널 숨김(구버전 호환). 카드 중첩 없이 1px 행 클릭=전체 펼침.
 function PlaybookPanel({ playbooks }) {
   const [open, setOpen] = useState('');
   const pb = normalizePlaybooks(playbooks);
@@ -647,22 +658,116 @@ function PlaybookPanel({ playbooks }) {
   const cards = sortPlaybookCards(pb.cards);
   return (
     <section className="panel pbpanel">
-      <h2>재발 학습 카드 <small>{s.total}</small></h2>
-      <div className="pbsum">카드 {s.total}장 · 새로 학습 {s.learned} · 재발 적중 {s.hits} · 자동 해결 {s.auto} · 조사 완료 {s.investigated} · 사장님 확인 {s.escalated}</div>
-      {cards.map((c, i) => {
-        const id = c.id || String(i); const on = open === id;
-        return (
-          <SelectCard key={id} className="task pbcard" on={on} expanded={on} onClick={() => setOpen(on ? '' : id)}>
-            <div className="tk pbh"><span>{c.title || c.id}</span><span className={`chip ${Number(c.hits) > 0 ? 'chip-error' : 'chip-off'}`}>적중 {Number(c.hits) || 0}</span></div>
-            {c.learnedAt && <div className="pblearn"><span className="chip chip-working">학습됨{c.learnedFrom ? ` · ${c.learnedFrom}` : ''} · {kstDateTime(c.learnedAt)}</span></div>}
-            {c.signature && <div className={on ? '' : 'pbl'}><span className="muted">증상</span> {c.signature}</div>}
-            {c.fix && <div className={on ? '' : 'pbl'}><span className="muted">조치</span> {c.fix}</div>}
-            <div className="muted">마지막 적중 {c.lastHit ? `${kstDateTime(c.lastHit)} KST` : '없음'}</div>
-            {on && c.keys && <div className="muted pbk">작업키 {c.keys}</div>}
-          </SelectCard>
-        );
-      })}
-      {!cards.length && <p className="muted">카드 없음</p>}
+      <div className="panel-h">
+        <h2>재발 학습 <small className="tnum">{s.total}건</small></h2>
+        <span className="muted tnum">학습 {s.learned} · 적중 {s.hits} · 자동 {s.auto}</span>
+      </div>
+      <div className="pbsum tnum">조사 완료 {s.investigated} · 확인 대기 {s.escalated}</div>
+      <div className="pb-rows">
+        {cards.map((c, i) => {
+          const id = c.id || String(i);
+          const on = open === id;
+          return (
+            <SelectCard key={id} className="pbrow" on={on} expanded={on} onClick={() => setOpen(on ? '' : id)}>
+              <div className="tk pbh">
+                <span>{c.title || c.id}</span>
+                <span className={`chip tnum ${Number(c.hits) > 0 ? 'chip-error' : 'chip-off'}`}>적중 {Number(c.hits) || 0}</span>
+              </div>
+              {c.learnedAt && <div className="pblearn"><span className="chip chip-working tnum">학습됨{c.learnedFrom ? ` · ${c.learnedFrom}` : ''} · {kstDateTime(c.learnedAt)}</span></div>}
+              {c.signature && <div className={on ? '' : 'pbl'}><span className="muted">증상</span> {c.signature}</div>}
+              {c.fix && <div className={on ? '' : 'pbl'}><span className="muted">조치</span> {c.fix}</div>}
+              <div className="muted tnum">마지막 적중 {c.lastHit ? `${kstDateTime(c.lastHit)} KST` : '없음'}</div>
+              {on && c.keys && <div className="muted pbk">작업키 {c.keys}</div>}
+            </SelectCard>
+          );
+        })}
+      </div>
+      {!cards.length && <p className="muted">학습 항목 없음</p>}
+    </section>
+  );
+}
+
+function FeatureCandidatesPanel({ ts }) {
+  if (!ts?.data) return null;
+  return (
+    <details className="panel" open>
+      <summary><h2>네노바웹 기능 후보 <small>실측 기준</small></h2></summary>
+      <ol className="feat">{ts.data.features.slice(0, 12).map((f, i) => (
+        <li key={f.title + i}>
+          <div className="ft"><b>{f.title}</b><span className="fh tnum">−{f.saveHoursPerWeek}h/주</span></div>
+          {f.menu && <div className="muted">메뉴: {f.menu}</div>}
+          <div className="pchips">{f.people.map((p) => <span key={p}>{p}</span>)}</div>
+        </li>
+      ))}</ol>
+      {!ts.data.features.length && <p className="muted">후보 없음</p>}
+      {ts.data.unproposed.length > 0 && <>
+        <h3>개선안 없는 큰 업무</h3>
+        <ul className="unp">{ts.data.unproposed.slice(0, 10).map((u, i) => (
+          <li key={u.person + u.name + i}><b>{u.name}</b> <span className="muted tnum">{u.person} · 실측 {u.measuredHoursPerWeek}h/주</span></li>
+        ))}</ul>
+      </>}
+    </details>
+  );
+}
+
+function TasksLedgerPanel({ tasks, grouped, other }) {
+  const sections = [...grouped, { key: 'other', label: '기타', items: other }].filter((g) => g.items.length);
+  return (
+    <section className="panel ledger-panel">
+      <div className="panel-h">
+        <h2>PM 업무 대장 · 오류 큐 <small className="tnum">{tasks.length}건</small></h2>
+        <span className="muted">승인·지연·오류 원장</span>
+      </div>
+      {sections.map((g) => (
+        <div key={g.key} className="tg">
+          <h3 className={`tg-${g.key}`}>{g.label} <small className="tnum">{g.items.length}</small></h3>
+          <div className="ledger-rows">
+            {g.items.map((t, i) => (
+              <div key={(t.key || '') + i} className={`ledger-row tg-row-${g.key}`}>
+                <div className="lr-top">
+                  <b className="tk">{t.key || '작업'}</b>
+                  {t.state && <span className={`chip ${/escalat|err|fail|승인/i.test(t.state) ? 'chip-error' : 'chip-off'}`}>{t.state}</span>}
+                  {t.days != null && <span className="days tnum">{t.days}일</span>}
+                  {t.owner && <span className="lr-owner">{t.owner}</span>}
+                </div>
+                {t.msg && <div className="lr-msg">{t.msg}</div>}
+                {t.decision && <div className="dec">조치: {t.decision}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {!tasks.length && <p className="muted">열린 업무 없음</p>}
+    </section>
+  );
+}
+
+function UnresolvedPanel({ unresolved, board, now }) {
+  return (
+    <section className="panel">
+      <div className="panel-h">
+        <h2>PM이 스스로 해결 못 한 일 <small className="tnum">{unresolved.length}건</small></h2>
+      </div>
+      {unresolved.length ? (
+        <ul className="unres">{unresolved.map((u) => (
+          <li key={u.id}>
+            <div><b>{u.title}</b>{u.since ? <span className="muted tnum"> · {u.since}</span> : null}</div>
+            {u.todo && <div className="dec">{u.todo}</div>}
+          </li>
+        ))}</ul>
+      ) : <p className="muted">지금 사장님이 보실 것 없음</p>}
+      <details className="rawtalk">
+        <summary>에이전트 대화 원문 보기 <small className="tnum">{board.length}</small></summary>
+        <div className="feed">
+          {board.slice(0, 60).map((m, i) => (
+            <div key={i} className="msg">
+              <div className="mh"><b style={{ color: hashColor(m.from) }}>{m.from}</b> → <b>{m.to}</b>{m.type ? <span className="mt">{m.type}</span> : null}<span className="muted tnum"> {ago(m.at, now)}</span></div>
+              <div className="mb">{m.text}</div>
+            </div>
+          ))}
+          {!board.length && <p className="muted">대화 없음</p>}
+        </div>
+      </details>
     </section>
   );
 }
@@ -832,7 +937,12 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
   }
   const workLog = arr(d.workLog);
   const handoffs = buildHandoffs(workLog, { windowH: DEFAULT_WINDOW_H });
-  const working = agents.filter((a) => a.status === 'working').length + staff.filter((s) => s.status === 'working').length;
+  const workingAgents = agents.filter((a) => a.status === 'working').length;
+  const workingStaff = staff.filter((s) => s.status === 'working').length;
+  const working = workingAgents + workingStaff;
+  const errorAgents = agents.filter((a) => a.status === 'error').length;
+  const issueTasks = tasks.filter((t) => /escalat|err|fail|승인|3일/i.test(`${t.state || ''} ${t.msg || ''}`) || Number(t.days) >= 3).length;
+  const alertCount = errorAgents + issueTasks;
 
   return (
     <PmThemeCtx.Provider value={pmTheme.ctx}>
@@ -843,44 +953,99 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
       <header className="top">
         <MenuBackButton />
         <h1>{gameEnabled ? 'PM 사무실' : 'PM 진행·오류 관제'}</h1>
-        <span className={`badge ${mode}`}>{mode === 'live' ? '실행' : '그림자'}</span>
-        <span className={`badge age ${stale ? 'warn' : ''}`}>데이터 {fmtAge(ageSec)} 전{stale ? ' · 갱신 끊김?' : ''}</span>
-        <span className="badge plain">작업중 {working}</span>
-        <StaffRequestsButton onClick={() => setReqOpen(true)} />
-        <Button size="sm" onClick={() => setPmOpen(true)}>🤖 PM 일지</Button>
-        <ToggleChip on={gameEnabled} onClick={() => { setGameEnabled(v => !v); setSel(null); setTip(null); }}>{gameEnabled ? '게임 화면 끄기' : '게임 화면 켜기'}</ToggleChip>
-        {gameEnabled && <ThemePicker value={pmTheme.themeId} onChange={pmTheme.pick} />}
-        {err && <span className="badge warn">불러오기 실패: {err}</span>}
+        <div className="top-meta">
+          <span className={`badge ${mode}`}>{mode === 'live' ? '실행' : '그림자'}</span>
+          <span className={`badge age tnum ${stale ? 'warn' : ''}`}>갱신 {fmtAge(ageSec)} 전{stale ? ' · 지연' : ''}</span>
+          <span className="badge plain tnum">작업중 {working}</span>
+          {err && <span className="badge warn">불러오기 실패: {err}</span>}
+        </div>
+        <div className="top-act">
+          <StaffRequestsButton onClick={() => setReqOpen(true)} />
+          <Button size="sm" onClick={() => setPmOpen(true)}><PmIcon name="log" size={14} /> PM 일지</Button>
+          <ToggleChip on={gameEnabled} onClick={() => { setGameEnabled(v => !v); setSel(null); setTip(null); }}>{gameEnabled ? '게임 화면 끄기' : '게임 화면 켜기'}</ToggleChip>
+          {gameEnabled && <ThemePicker value={pmTheme.themeId} onChange={pmTheme.pick} />}
+        </div>
       </header>
       <ControlGuide />
       <StaffRequests startWriting={requestMode==='new'} focusId={requestFocus} open={reqOpen} onClose={() => setReqOpen(false)} />
       {pmOpen && <PmPopover pmAgent={pmAgent} detail={d.pmDetail} tasks={tasks} now={now} onClose={() => setPmOpen(false)}
         onOpenGoals={() => { setPmOpen(false); const el = document.querySelector('.vispanel'); if (el) { el.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }} />}
       {gameEnabled && <GardenStrip />}
-      {ts?.data && (
+      {!gameEnabled && (
+        <section className="kpi-strip" aria-label="관제 핵심 지표">
+          <div className="kpi-cell">
+            <span className="kpi-k">진행 중 · 전체</span>
+            <b className="kpi-v tnum">{working} / {agents.length + staff.length}</b>
+            <span className="kpi-sub tnum">에이전트 {workingAgents}/{agents.length} · 직원 {workingStaff}/{staff.length}</span>
+          </div>
+          <div className={`kpi-cell ${alertCount > 0 ? 'kpi-alert' : ''}`}>
+            <span className="kpi-k">오류 · 확인 필요</span>
+            <b className="kpi-v tnum">{alertCount}건</b>
+            <span className="kpi-sub tnum">에이전트 오류 {errorAgents} · 큐 확인 {issueTasks}</span>
+          </div>
+          <div className={`kpi-cell ${unresolved.length > 0 ? 'kpi-warn' : ''}`}>
+            <span className="kpi-k">사장님 확인 대기</span>
+            <b className="kpi-v tnum">{unresolved.length}건</b>
+            <span className="kpi-sub tnum">열린 업무 총 {tasks.length}건</span>
+          </div>
+          <div className="kpi-cell" title={ts?.data?.method || ''}>
+            <span className="kpi-k">주간 업무 특정 · 활성</span>
+            <b className="kpi-v tnum">{ts?.data ? `${ts.data.totals.assignedHoursPerWeek}h / ${ts.data.totals.activeHoursPerWeek}h` : '–'}</b>
+            <span className="kpi-sub tnum">{ts?.data ? `예상 절감 ${ts.data.totals.saveHoursPerWeek}h/주 · 추정치` : '관찰 데이터 대기'}</span>
+          </div>
+        </section>
+      )}
+      {gameEnabled && ts?.data && (
         <div className="tstrip" title={ts.data.method || ''}>
           <b>업무 시간 계기판</b>
-          <span>전 직원 활성 <b>{ts.data.totals.activeHoursPerWeek}h/주</b></span>
-          <span>업무 특정 <b>{ts.data.totals.assignedHoursPerWeek}h</b></span>
-          <span>절감 가능 <b className="g">{ts.data.totals.saveHoursPerWeek}h/주</b></span>
+          <span className="tnum">전 직원 활성 <b>{ts.data.totals.activeHoursPerWeek}h/주</b></span>
+          <span className="tnum">업무 특정 <b>{ts.data.totals.assignedHoursPerWeek}h</b></span>
+          <span className="tnum">절감 가능 <b className="g">{ts.data.totals.saveHoursPerWeek}h/주</b></span>
           <span className="est">추정치</span>
-          <span className="muted">데이터 {fmtAge(ts.ageSec)} 전{ts.data.days ? ` · ${ts.data.days}일 관찰` : ''}</span>
+          <span className="muted tnum">데이터 {fmtAge(ts.ageSec)} 전{ts.data.days ? ` · ${ts.data.days}일 관찰` : ''}</span>
         </div>
       )}
       {!resp && !err && <p className="muted">불러오는 중…</p>}
       {resp && !resp.data && <p className="muted">아직 올라온 pm-office 데이터가 없습니다.</p>}
-      <div className={`wrap ${gameEnabled && sideOpen ? 'open' : 'wide'}`}>
-        {!gameEnabled ? (
-          <main className="control-summary panel" aria-label="일반 업무 관제">
-            <h2>진행 현황</h2>
-            <p className="muted">게임 화면 꺼짐 · 업무 진행과 오류를 확인하세요.</p>
-            <div className="control-agents">{agents.map((a, i) => <div className="control-agent" key={a.id || a.name || i}>
-              <b>{a.name || a.id}</b><span className={`chip chip-${STATUS_LABEL[a.status] ? a.status : 'off'}`}>{STATUS_LABEL[a.status] || STATUS_LABEL.off}</span>
-              <span>{a.activity || '활동 내역 없음'}</span><small>{ago(a.lastAt, now)}</small>
-            </div>)}</div>
-            {!agents.length && <p className="muted">에이전트 없음</p>}
-          </main>
-        ) : view === 'scene' || view === '3d' ? (
+      {!gameEnabled ? (
+        <div className="control-board">
+          <div className="control-main">
+            <main className="control-summary panel" aria-label="일반 업무 관제">
+              <div className="panel-h">
+                <h2>진행 현황 <small className="tnum">{agents.length}대</small></h2>
+                <span className="muted">게임 화면 꺼짐 · 실시간 진행과 오류 확인</span>
+              </div>
+              {agents.length > 0 && (
+                <div className="control-thead" aria-hidden="true">
+                  <span>대상</span><span>상태</span><span>현재 작업 · 활동 내역</span><span className="tr">최근</span>
+                </div>
+              )}
+              <div className="control-agents">{agents.map((a, i) => {
+                const st = STATUS_LABEL[a.status] ? a.status : 'off';
+                return (
+                  <div className={`control-agent st-${st}`} key={a.id || a.name || i}>
+                    <b>{a.name || a.id}</b>
+                    <span className={`chip chip-${st}`}><i className="sdot" aria-hidden="true" />{STATUS_LABEL[st]}</span>
+                    <span className="act-txt">{a.activity || '활동 내역 없음'}</span>
+                    <small className="tnum tr">{ago(a.lastAt, now) || '–'}</small>
+                  </div>
+                );
+              })}</div>
+              {!agents.length && <p className="muted">에이전트 없음</p>}
+            </main>
+            <TasksLedgerPanel tasks={tasks} grouped={grouped} other={other} />
+            <UnresolvedPanel unresolved={unresolved} board={board} now={now} />
+          </div>
+          <aside className="control-side" aria-label="작업로그·학습·목표">
+            <WorkLogPanel workLog={workLog} onOpenPerson={(n) => openPerson(n, 'log')} />
+            <PlaybookPanel playbooks={d.playbooks} />
+            <VisionPanel vision={d.vision} />
+            <FeatureCandidatesPanel ts={ts} />
+          </aside>
+        </div>
+      ) : (
+      <div className={`wrap ${sideOpen ? 'open' : 'wide'}`}>
+        {view === 'scene' || view === '3d' ? (
         <main className="floor scene">
           <div className="scene-h">
             <b>사무실 장면</b><small>스테이션·캐릭터에 마우스 = 자세히 · 클릭 = 고정 · 라벨칩 클릭 = 직원 시간</small>
@@ -947,352 +1112,389 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
         </main>
         )}
         <aside className="side" aria-label="작업로그·업무 대장 패널">
-          {gameEnabled && <Button size="sm" className="sidetog" aria-expanded={sideOpen} onClick={toggleSide}>{sideOpen ? '패널 접기 (장면 아래로)' : '작업로그 패널을 옆으로 펼치기'}</Button>}
-          {ts?.data && (
-            <details className="panel" open>
-              <summary><h2>네노바웹 기능 후보 <small>실측 절감순</small></h2></summary>
-              <ol className="feat">{ts.data.features.slice(0, 12).map((f, i) => (
-                <li key={f.title + i}>
-                  <div className="ft"><b>{f.title}</b><span className="fh">−{f.saveHoursPerWeek}h/주</span></div>
-                  {f.menu && <div className="muted">메뉴: {f.menu}</div>}
-                  <div className="pchips">{f.people.map((p) => <span key={p}>{p}</span>)}</div>
-                </li>
-              ))}</ol>
-              {!ts.data.features.length && <p className="muted">후보 없음</p>}
-              {ts.data.unproposed.length > 0 && <>
-                <h3>개선안 없는 큰 업무</h3>
-                <ul className="unp">{ts.data.unproposed.slice(0, 10).map((u, i) => (
-                  <li key={u.person + u.name + i}><b>{u.name}</b> <span className="muted">{u.person} · 실측 {u.measuredHoursPerWeek}h/주</span></li>
-                ))}</ul>
-              </>}
-            </details>
-          )}
+          <Button size="sm" className="sidetog" aria-expanded={sideOpen} onClick={toggleSide}>{sideOpen ? '패널 접기 (장면 아래로)' : '작업로그 패널을 옆으로 펼치기'}</Button>
+          <FeatureCandidatesPanel ts={ts} />
           <WorkLogPanel workLog={workLog} onOpenPerson={(n) => openPerson(n, 'log')} />
           <VisionPanel vision={d.vision} />
-          <section className="panel">
-            <h2>PM 업무 대장 <small>{tasks.length}</small></h2>
-            {[...grouped, { key: 'other', label: '기타', items: other }].filter((g) => g.items.length).map((g) => (
-              <div key={g.key} className="tg">
-                <h3 className={`tg-${g.key}`}>{g.label} <small>{g.items.length}</small></h3>
-                {g.items.map((t, i) => (
-                  <div key={(t.key || '') + i} className="task">
-                    <div className="tk">{t.key}{t.days != null ? <span className="days">{t.days}일</span> : null}</div>
-                    {t.msg && <div>{t.msg}</div>}
-                    {t.decision && <div className="dec">결정: {t.decision}</div>}
-                    {t.owner && <div className="muted">담당 {t.owner}</div>}
-                  </div>
-                ))}
-              </div>
-            ))}
-            {!tasks.length && <p className="muted">열린 업무 없음</p>}
-          </section>
+          <TasksLedgerPanel tasks={tasks} grouped={grouped} other={other} />
           <PlaybookPanel playbooks={d.playbooks} />
-          <section className="panel">
-            <h2>PM이 스스로 해결 못 한 일 <small>{unresolved.length}</small></h2>
-            {unresolved.length ? (
-              <ul className="unres">{unresolved.map((u) => (
-                <li key={u.id}>
-                  <div><b>{u.title}</b>{u.since ? <span className="muted"> · {u.since}</span> : null}</div>
-                  {u.todo && <div className="dec">{u.todo}</div>}
-                </li>
-              ))}</ul>
-            ) : <p className="muted">지금 사장님이 보실 것 없음</p>}
-            <details className="rawtalk">
-              <summary>에이전트 대화 원문 보기 <small>{board.length}</small></summary>
-              <div className="feed">
-                {board.slice(0, 60).map((m, i) => (
-                  <div key={i} className="msg">
-                    <div className="mh"><b style={{ color: hashColor(m.from) }}>{m.from}</b> → <b>{m.to}</b>{m.type ? <span className="mt">{m.type}</span> : null}<span className="muted"> {ago(m.at, now)}</span></div>
-                    <div className="mb">{m.text}</div>
-                  </div>
-                ))}
-                {!board.length && <p className="muted">대화 없음</p>}
-              </div>
-            </details>
-          </section>
+          <UnresolvedPanel unresolved={unresolved} board={board} now={now} />
         </aside>
       </div>
+      )}
       {sel && <StaffDrawer key={sel + selTab} initialTab={selTab} gameEnabled={gameEnabled} name={sel} workLog={workLog} live={staff.find((x) => x.name === sel) || null} now={now} onClose={closeSel} isAdmin={isAdmin} myStaff={myStaff} />}
       {gameEnabled && <p className="credit">픽셀 사무실 아이디어: pablodelucca/pixel-agents (그림은 직접 제작)</p>}
       <style dangerouslySetInnerHTML={{ __html: ISO_CSS }} />
       <style dangerouslySetInnerHTML={{ __html: BG_CSS }} />
       <style jsx global>{`
-        /* 모든 색·모서리·그림자·폰트 = lib/pmThemes.js 토큰(var(--pm-*)). 여기에 hex 를 쓰지 않는다(__tests__/pmNoHexColor.test.js). */
-        .pm { position: relative; min-height: 100vh; background: var(--pm-bg); color: var(--pm-ink); font-family: var(--pm-font); padding: 0 16px 24px; font-size: 13px; isolation: isolate; }
-        .pm::before { content: ''; position: fixed; inset: 0; z-index: -2; background: var(--pm-tex) center / cover no-repeat; opacity: .28; pointer-events: none; }
+        /* 모든 색·모서리·폰트 = lib/pmThemes.js 토큰(var(--pm-*)). 여기에 hex 를 쓰지 않는다(__tests__/pmNoHexColor.test.js). */
+        .pm { position: relative; min-height: 100vh; background: var(--pm-bg); color: var(--pm-ink); font-family: var(--pm-font); padding: 0 20px 28px; font-size: 13px; isolation: isolate; box-sizing: border-box; }
+        .pm *, .pm *::before, .pm *::after { box-sizing: border-box; }
+        .pm::before { content: ''; position: fixed; inset: 0; z-index: -2; background: var(--pm-tex) center / cover no-repeat; opacity: .24; pointer-events: none; }
         .pm::after { content: ''; position: fixed; inset: 0; z-index: -1; background: var(--pm-deco); pointer-events: none; }
-        .pm .top { position: sticky; top: 0; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 -16px 12px; padding: 10px 16px; background: var(--pm-header); color: var(--pm-header-ink); box-shadow: var(--pm-shadow); border-bottom: 1px solid var(--pm-line); }
-        .pm .top h1 { font-size: 20px; margin: 0 6px 0 0; color: var(--pm-header-ink); }
-        .pm .badge { padding: 3px 10px; border-radius: 999px; font-size: 12px; background: var(--pm-surface2); color: var(--pm-ink); border: 1px solid var(--pm-line); }
-        .pm .badge.live { background: var(--pm-ok); color: var(--pm-accent-ink); } .pm .badge.warn { background: var(--pm-err); color: var(--pm-accent-ink); }
+        .pm .tnum { font-variant-numeric: tabular-nums; }
+        .pm .tr { text-align: right; }
+        .pm .pm-ic { vertical-align: -2px; flex: 0 0 auto; }
+
+        /* 상단 관제 헤더 — 1px 구조선, 절제된 인라인 메타·액션 */
+        .pm .top { position: sticky; top: 0; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 -20px 10px; padding: 9px 20px; background: var(--pm-header); color: var(--pm-header-ink); border-bottom: 1px solid var(--pm-line); }
+        .pm .top h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; margin: 0; color: var(--pm-header-ink); }
+        .pm .top-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+        .pm .top-act { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
+        .pm .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-size: 11.5px; font-weight: 600; background: var(--pm-surface2); color: var(--pm-ink); border: 1px solid var(--pm-line); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .pm .badge.live { background: var(--pm-ok-bg); color: var(--pm-ok-ink); border-color: color-mix(in srgb, var(--pm-ok) 35%, var(--pm-line)); }
+        .pm .badge.warn { background: var(--pm-err-bg); color: var(--pm-err-ink); border-color: color-mix(in srgb, var(--pm-err) 35%, var(--pm-line)); }
         .pm .muted { color: var(--pm-muted); }
-        .pm h2 { font-size: 15px; margin: 0 0 8px; } .pm h3 { font-size: 13px; margin: 8px 0 6px; color: var(--pm-ink); }
+        .pm h2 { font-size: 14px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+        .pm h3 { font-size: 12.5px; font-weight: 700; margin: 10px 0 6px; color: var(--pm-ink); }
         .pm small { color: var(--pm-muted); font-weight: normal; }
+
+        /* 사용 가이드 영상 패널 */
+        .pm .pm-control-guide { padding: 0; margin-bottom: 10px; overflow: hidden; }
+        .pm .pm-guide-summary { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px; cursor: pointer; list-style: none; font-size: 12.5px; }
+        .pm .pm-guide-summary::-webkit-details-marker { display: none; }
+        .pm .pm-guide-ic { display: inline-flex; align-items: center; justify-content: center; color: var(--pm-accent); }
+        .pm .pm-guide-sub { color: var(--pm-muted); }
+        .pm .pm-guide-meta { margin-left: auto; font-size: 11px; color: var(--pm-muted); }
+        .pm .pm-guide-body { padding: 12px; border-top: 1px solid var(--pm-line); display: grid; gap: 8px; }
+        .pm .pm-guide-body h2 { font-size: 14px; margin: 0; }
+        .pm .pm-guide-body p { margin: 0; font-size: 12px; }
+        .pm .pm-guide-body nav { display: flex; flex-wrap: wrap; gap: 6px; }
+        .pm .pm-guide-dl { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+        .pm .pm-guide-dl a { color: var(--pm-link); text-decoration: underline; text-underline-offset: 2px; }
+
+        /* 1px 헤어라인 KPI 스트립 (카드 나열 배제) */
+        .pm .kpi-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); margin-bottom: 12px; overflow: hidden; }
+        .pm .kpi-cell { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-right: 1px solid var(--pm-line); min-width: 0; }
+        .pm .kpi-cell:last-child { border-right: 0; }
+        .pm .kpi-k { font-size: 11.5px; font-weight: 600; color: var(--pm-muted); }
+        .pm .kpi-v { font-size: 20px; font-weight: 700; line-height: 1.25; color: var(--pm-ink); letter-spacing: -0.02em; }
+        .pm .kpi-sub { font-size: 11px; color: var(--pm-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pm .kpi-cell.kpi-alert { background: color-mix(in srgb, var(--pm-err-bg) 35%, var(--pm-surface)); }
+        .pm .kpi-cell.kpi-alert .kpi-v { color: var(--pm-err); }
+        .pm .kpi-cell.kpi-warn .kpi-v { color: var(--pm-idle); }
+
+        /* 일반 관제 2컬럼 스플릿 워크벤치 */
+        .pm .control-board { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr); gap: 14px; align-items: start; }
+        .pm .control-main, .pm .control-side { display: grid; gap: 12px; min-width: 0; }
+        .pm .control-board .panel { margin-bottom: 0; }
+        .pm .panel { background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 12px 14px; margin-bottom: 12px; min-width: 0; }
+        .pm .panel-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 10px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--pm-line); }
+        .pm .panel-h > span { font-size: 11.5px; }
+        .pm details.panel > summary { cursor: pointer; list-style: none; }
+        .pm details.panel > summary::-webkit-details-marker { display: none; }
+        .pm details.panel > summary h2 { display: inline; }
+
+        /* 진행 현황 원장 테이블 */
+        .pm .control-summary { padding: 12px 0 4px; }
+        .pm .control-summary .panel-h { padding: 0 14px 8px; margin-bottom: 0; }
+        .pm .control-thead { display: grid; grid-template-columns: minmax(110px, 150px) 84px minmax(0, 1fr) 76px; gap: 12px; padding: 6px 12px; border-bottom: 1px solid var(--pm-line); background: var(--pm-surface2); font-size: 11px; font-weight: 700; color: var(--pm-muted); }
+        .pm .control-agent { font-size: 12.5px; border-left: 2px solid transparent; }
+        .pm .control-agent.st-error { border-left-color: var(--pm-err); background: color-mix(in srgb, var(--pm-err-bg) 28%, var(--pm-surface)); }
+        .pm .control-agent .act-txt { color: var(--pm-ink); }
+        .pm .control-agent small { color: var(--pm-muted); font-size: 11.5px; }
+        .pm .sdot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; background: currentColor; vertical-align: 1px; }
+
+        /* 업무 대장 · 오류 큐 (Card-in-Card 제거, 1px 구분선 원장 행) */
+        .pm .tg { margin-top: 8px; }
+        .pm .tg:first-of-type { margin-top: 0; }
+        .pm .tg h3 { border-left: 2px solid var(--pm-line); padding-left: 8px; margin: 8px 0 4px; font-size: 12px; color: var(--pm-muted); }
+        .pm .tg-approval { border-color: var(--pm-err) !important; color: var(--pm-err) !important; }
+        .pm .tg-day3 { border-color: var(--pm-idle) !important; color: var(--pm-idle) !important; }
+        .pm .tg-investigate { border-color: var(--pm-accent) !important; color: var(--pm-accent) !important; }
+        .pm .tg-verify { border-color: var(--pm-ok) !important; color: var(--pm-ok) !important; }
+        .pm .ledger-rows { border-top: 1px solid var(--pm-line); }
+        .pm .ledger-row { padding: 8px 10px; border-bottom: 1px solid var(--pm-line); border-left: 2px solid transparent; display: grid; gap: 3px; font-size: 12.5px; line-height: 1.45; }
+        .pm .ledger-row:hover { background: var(--pm-surface2); }
+        .pm .ledger-row.tg-row-approval { border-left-color: var(--pm-err); }
+        .pm .ledger-row.tg-row-day3 { border-left-color: var(--pm-idle); }
+        .pm .lr-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+        .pm .lr-owner { margin-left: auto; font-size: 11.5px; color: var(--pm-muted); }
+        .pm .lr-msg { color: var(--pm-ink); }
+        .pm .tk { font-weight: 700; word-break: break-all; }
+        .pm .days { background: var(--pm-err-bg); color: var(--pm-err-ink); padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+        .pm .dec { color: var(--pm-accent); font-weight: 600; font-size: 12px; }
+
+        /* 재발 학습 원장 행 */
+        .pm .pbsum { font-size: 11.5px; color: var(--pm-muted); margin-bottom: 8px; }
+        .pm .pb-rows { border-top: 1px solid var(--pm-line); }
+        .pm .pbrow { display: block; width: 100%; text-align: left; font: inherit; cursor: pointer; background: transparent; border: 0; border-bottom: 1px solid var(--pm-line); padding: 8px 6px; color: var(--pm-ink); border-radius: 0; }
+        .pm .pbrow:hover, .pm .pbrow.on { background: var(--pm-surface2); }
+        .pm .pbrow.on { border-left: 2px solid var(--pm-accent); padding-left: 8px; }
+        .pm .pblearn { margin: 3px 0; } .pm .pbh { display: flex; justify-content: space-between; gap: 6px; align-items: center; } .pm .pbh .chip { flex: none; }
+        .pm .pbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pm .pbk { word-break: break-all; margin-top: 3px; }
+
+        /* 해결 못 한 일 & 대화 로그 */
+        .pm .unres { list-style: none; margin: 0 0 8px; padding: 0; border-top: 1px solid var(--pm-line); }
+        .pm .unres li { padding: 8px 2px; border-bottom: 1px solid var(--pm-line); font-size: 12.5px; line-height: 1.45; }
+        .pm .unres .dec { font-size: 12px; color: var(--pm-muted); margin-top: 2px; font-weight: 400; }
+        .pm .rawtalk > summary { cursor: pointer; font-size: 12px; color: var(--pm-muted); padding: 4px 0; }
+        .pm .rawtalk[open] > summary { margin-bottom: 6px; }
+        .pm .feed { max-height: 55vh; overflow-y: auto; border-top: 1px solid var(--pm-line); }
+        .pm .msg { padding: 7px 4px; border-bottom: 1px solid var(--pm-line); font-size: 12px; line-height: 1.45; }
+        .pm .mh { font-size: 11px; } .pm .mt { margin-left: 6px; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: 4px; padding: 0 5px; font-size: 10.5px; }
+        .pm .mb { margin-top: 2px; word-break: break-word; }
+
+        /* 제품 목표 & 기능 후보 */
+        .pm .vispanel .vgate { background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 7px 9px; margin: 8px 0; font-size: 12px; }
+        .pm .vispanel .vgw { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .pm .vispanel .vwk { background: var(--pm-surface); border: 1px solid var(--pm-line); color: var(--pm-off-ink); border-radius: 4px; padding: 1px 7px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .pm .vispanel .vwk.ok { background: var(--pm-ok-bg); color: var(--pm-ok-ink); border-color: color-mix(in srgb, var(--pm-ok) 30%, var(--pm-line)); }
+        .pm .vispanel .vgoals { margin: 0; padding: 0; list-style: none; counter-reset: vg; border-top: 1px solid var(--pm-line); }
+        .pm .vispanel .vgoals > li { padding: 7px 0; border-bottom: 1px solid var(--pm-line); counter-increment: vg; }
+        .pm .vispanel .vgt { display: flex; align-items: baseline; gap: 6px; }
+        .pm .vispanel .vgt b::before { content: counter(vg) '. '; color: var(--pm-muted); font-weight: normal; font-variant-numeric: tabular-nums; }
+        .pm .vispanel .vst { margin-left: auto; font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 6px; background: var(--pm-surface2); color: var(--pm-muted); white-space: nowrap; }
+        .pm .vispanel .vst.ok { background: var(--pm-ok-bg); color: var(--pm-ok-ink); }
+        .pm .vispanel .vst.warn { background: var(--pm-est-bg); color: var(--pm-est-ink); }
+        .pm .vispanel .vbar { position: relative; height: 10px; margin-top: 4px; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: 4px; overflow: hidden; }
+        .pm .vispanel .vbar i { display: block; height: 100%; background: var(--pm-accent); }
+        .pm .vispanel .vbar em { position: absolute; right: 4px; top: -2px; font-style: normal; font-size: 9.5px; font-weight: 700; color: var(--pm-ink); font-variant-numeric: tabular-nums; }
+        .pm .vispanel .vbs { font-size: 11px; margin-top: 2px; }
+        .pm .vispanel .vweek ul { margin: 4px 0 0; padding-left: 16px; } .pm .vispanel .vweek li { margin: 2px 0; }
+        .pm .feat { margin: 8px 0 0; padding-left: 18px; } .pm .feat li { margin-bottom: 7px; padding-bottom: 7px; border-bottom: 1px solid var(--pm-line); }
+        .pm .feat li:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+        .pm .ft { display: flex; justify-content: space-between; gap: 6px; } .pm .fh { font-weight: 700; white-space: nowrap; color: var(--pm-ok); }
+        .pm .pchips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+        .pm .pchips span { background: var(--pm-surface2); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: 4px; padding: 0 6px; font-size: 11px; }
+        .pm .unp { margin: 4px 0 0; padding-left: 18px; font-size: 12px; }
+
+        /* 게임 모드 레이아웃 */
         .pm .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; }
         .pm .wrap.wide { grid-template-columns: minmax(0, 1fr); }
         .pm .wrap.wide .side { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
         .pm .wrap.wide .side .sidetog, .pm .side .sidetog { justify-self: start; grid-column: 1 / -1; margin-bottom: 4px; }
         .pm .wrap > *, .pm .floor, .pm .room, .pm .topwing > * { min-width: 0; }
-        .pm .floor { position: relative; background: color-mix(in srgb, var(--pm-surface) 55%, transparent); border: 2px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 6px); padding: 12px; box-shadow: var(--pm-shadow); backdrop-filter: blur(2px); }
-        .pm .scene-h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 8px; } .pm .scene-h b { font-size: 14px; } .pm .scene-h .vtab { margin-left: auto; }
+        .pm .floor { position: relative; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 12px; }
+        .pm .scene-h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 8px; } .pm .scene-h b { font-size: 14px; } .pm .scene-h .vtab { margin-left: auto; flex: 0 0 auto; } .pm .scene-h .vtab .pmk-tab { flex: 0 0 auto; white-space: nowrap; min-height: 32px; padding: 0 12px; font-size: 12.5px; }
         .pm .floor.scene { padding: 10px; } .pm .chainbox { margin-top: 10px; } .pm .chainbox > summary { cursor: pointer; font-weight: bold; padding: 4px 0; color: var(--pm-ink); }
-        .pm .side .panel { padding: 10px 12px; } .pm .side .panel h2 { display: flex; align-items: baseline; gap: 6px; }
+        .pm .side .panel { padding: 12px; }
         .pm .topwing { display: flex; gap: 10px; flex-wrap: wrap; }
-        .pm .room { position: relative; background: var(--pm-floor); border: 3px solid var(--pm-line); border-radius: var(--pm-radius); padding: 28px 10px 10px; box-shadow: var(--pm-shadow); }
-        .pm .room::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 6px; border-radius: var(--pm-radius) var(--pm-radius) 0 0; background: var(--dc, var(--pm-accent)); }
-        .pm .plate { position: absolute; top: -10px; left: 14px; z-index: 6; background: var(--pm-plate); color: var(--pm-plate-ink); font-weight: bold; font-size: 12px; padding: 3px 12px; border: 2px solid var(--pm-line); border-radius: 999px; box-shadow: var(--pm-shadow); }
-        .pm .plate small { color: inherit; opacity: .8; }
+        .pm .room { position: relative; background: var(--pm-floor); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 26px 10px 10px; }
+        .pm .room::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 4px; border-radius: var(--pm-radius) var(--pm-radius) 0 0; background: var(--dc, var(--pm-accent)); }
+        .pm .plate { position: absolute; top: -10px; left: 12px; z-index: 6; background: var(--pm-plate); color: var(--pm-plate-ink); font-weight: 700; font-size: 11.5px; padding: 2px 10px; border: 1px solid var(--pm-line); border-radius: 4px; }
+        .pm .plate small { color: inherit; opacity: .8; font-variant-numeric: tabular-nums; }
         .pm .lab { flex: 1 1 520px; } .pm .mgr { flex: 0 0 150px; }
         .pm .rows { display: grid; grid-template-columns: repeat(auto-fill, 120px); gap: 8px; justify-content: start; }
         .pm .wing { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
-        .pm .table { display: inline-flex; flex-direction: column; max-width: 100%; overflow-x: auto; background: color-mix(in srgb, var(--pm-ink) 6%, transparent); padding: 6px; border-radius: var(--pm-radius); }
+        .pm .table { display: inline-flex; flex-direction: column; max-width: 100%; overflow-x: auto; background: color-mix(in srgb, var(--pm-ink) 5%, transparent); padding: 6px; border-radius: var(--pm-radius); }
         .pm .row { display: flex; gap: 6px; }
-        .pm .divider { height: 4px; margin: 3px 0; background: var(--pm-line); border-radius: 2px; }
-        .pm .seat { position: relative; z-index: 6; width: 120px; height: 150px; flex: 0 0 120px; box-sizing: border-box; background: var(--pm-surface); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); padding: 4px; text-align: center; overflow: hidden; box-shadow: var(--pm-shadow); }
+        .pm .divider { height: 2px; margin: 3px 0; background: var(--pm-line); }
+        .pm .seat { position: relative; z-index: 6; width: 120px; height: 150px; flex: 0 0 120px; box-sizing: border-box; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 4px; text-align: center; overflow: hidden; }
         .pm .seat.d-off { opacity: .78; } .pm .seat.d-off .sprite { filter: grayscale(.85) brightness(.75); }
-        .pm .seat.clickable { cursor: pointer; } .pm .seat.clickable:hover, .pm .seat.clickable:focus-visible { outline: 3px solid var(--pm-accent2); outline-offset: 1px; transform: translateY(-2px); }
+        .pm .seat.clickable { cursor: pointer; } .pm .seat.clickable:hover, .pm .seat.clickable:focus-visible { outline: 2px solid var(--pm-accent2); outline-offset: 1px; }
         .pm .seat.d-error { border-color: var(--pm-err); } .pm .seat.d-working { border-color: var(--pm-ok); }
         .pm .empty-seat { border-style: dashed; }
-        .pm .chip { display: inline-block; max-width: 100%; font-size: 11px; font-weight: bold; border-radius: 999px; padding: 1px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pm .chip { display: inline-flex; align-items: center; max-width: 100%; font-size: 11px; font-weight: 700; border-radius: 4px; padding: 1px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
         .pm .chip-working { background: var(--pm-ok-bg); color: var(--pm-ok-ink); } .pm .chip-idle { background: var(--pm-idle-bg); color: var(--pm-idle-ink); } .pm .chip-off { background: var(--pm-off-bg); color: var(--pm-off-ink); } .pm .chip-error { background: var(--pm-err-bg); color: var(--pm-err-ink); } .pm .chip-empty { background: var(--pm-surface2); color: var(--pm-muted); }
-        .pm .bubble { position: relative; background: var(--pm-bubble); color: var(--pm-bubble-ink); border: 1px solid var(--pm-line); height: 28px; box-sizing: border-box; border-radius: 10px; padding: 2px 5px; font-size: 10px; line-height: 12px; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: left; margin-bottom: 6px; }
+        .pm .bubble { position: relative; background: var(--pm-bubble); color: var(--pm-bubble-ink); border: 1px solid var(--pm-line); height: 28px; box-sizing: border-box; border-radius: 4px; padding: 2px 5px; font-size: 10px; line-height: 12px; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: left; margin-bottom: 6px; }
         .pm .bubble.none { visibility: hidden; }
-        .pm .nm { color: var(--pm-ink); font-weight: bold; margin-top: 2px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pm .tstrip { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); padding: 8px 12px; margin-bottom: 12px; color: var(--pm-ink); box-shadow: var(--pm-shadow); }
+        .pm .nm { color: var(--pm-ink); font-weight: 700; margin-top: 2px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pm .tstrip { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 8px 12px; margin-bottom: 12px; color: var(--pm-ink); }
         .pm .tstrip b.g, .pm .fh { color: var(--pm-ok); }
-        .pm .est { background: var(--pm-est-bg); color: var(--pm-est-ink); border-radius: 999px; padding: 0 7px; font-size: 11px; font-weight: bold; }
-        .pm .panel { background: var(--pm-surface); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); padding: 12px; margin-bottom: 12px; box-shadow: var(--pm-shadow); }
-        .pm details.panel > summary { cursor: pointer; list-style: none; } .pm details.panel > summary h2 { display: inline; }
-        /* 제품 목표(비전 P0) 패널 — 색은 전부 테마 토큰 */
-        .pm .vispanel .vgate { background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 6px 8px; margin: 8px 0; font-size: 12px; }
-        .pm .vispanel .vgw { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-        .pm .vispanel .vwk { background: var(--pm-off-bg); color: var(--pm-off-ink); border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: bold; }
-        .pm .vispanel .vwk.ok { background: var(--pm-ok-bg); color: var(--pm-ok-ink); }
-        .pm .vispanel .vgoals { margin: 0; padding: 0 0 0 2px; list-style: none; counter-reset: vg; }
-        .pm .vispanel .vgoals > li { padding: 6px 0; border-top: 1px dashed var(--pm-line); counter-increment: vg; }
-        .pm .vispanel .vgoals > li:first-child { border-top: 0; }
-        .pm .vispanel .vgt { display: flex; align-items: baseline; gap: 6px; }
-        .pm .vispanel .vgt b::before { content: counter(vg) '. '; color: var(--pm-muted); font-weight: normal; }
-        .pm .vispanel .vst { margin-left: auto; font-size: 11px; font-weight: bold; border-radius: 999px; padding: 0 7px; background: var(--pm-surface2); color: var(--pm-muted); white-space: nowrap; }
-        .pm .vispanel .vst.ok { background: var(--pm-ok-bg); color: var(--pm-ok-ink); }
-        .pm .vispanel .vst.warn { background: var(--pm-est-bg); color: var(--pm-est-ink); }
-        .pm .vispanel .vbar { position: relative; height: 12px; margin-top: 4px; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: 999px; overflow: hidden; }
-        .pm .vispanel .vbar i { display: block; height: 100%; background: var(--pm-accent); }
-        .pm .vispanel .vbar em { position: absolute; right: 6px; top: -1px; font-style: normal; font-size: 10px; font-weight: bold; color: var(--pm-ink); }
-        .pm .vispanel .vbs { font-size: 11px; margin-top: 2px; }
-        .pm .vispanel .vweek ul { margin: 4px 0 0; padding-left: 16px; } .pm .vispanel .vweek li { margin: 2px 0; }
-        /* PM 일지 팝오버 — 직원 상세와 같은 drawer-back 재사용 */
-        .pm .pmpop { background: var(--pm-surface); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); box-shadow: var(--pm-shadow); width: min(560px, 94vw); max-height: 86vh; overflow: auto; padding: 12px 14px; }
+        .pm .est { background: var(--pm-est-bg); color: var(--pm-est-ink); border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+
+        /* PM 일지 팝오버 */
+        .pm .pmpop { background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); width: min(560px, 94vw); max-height: 86vh; overflow: auto; padding: 14px 16px; }
         .pm .pmpop .pmpop-b { display: grid; gap: 6px; }
-        .pm .pmpop .pmlog { margin: 0; padding-left: 4px; list-style: none; }
-        .pm .pmpop .pmlog li { padding: 3px 0; border-top: 1px dashed var(--pm-line); font-size: 12px; }
-        .pm .pmpop .pmlog li:first-child { border-top: 0; }
+        .pm .pmpop .pmlog { margin: 0; padding-left: 0; list-style: none; border-top: 1px solid var(--pm-line); }
+        .pm .pmpop .pmlog li { padding: 5px 0; border-bottom: 1px solid var(--pm-line); font-size: 12px; }
         .pm .pmpop .pmlog .wt { color: var(--pm-muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
-        .pm .feat { margin: 8px 0 0; padding-left: 20px; } .pm .feat li { margin-bottom: 8px; }
-        .pm .ft { display: flex; justify-content: space-between; gap: 6px; } .pm .fh { font-weight: bold; white-space: nowrap; }
-        .pm .pchips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; } .pm .pchips span, .pm .mt { background: var(--pm-surface2); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: 999px; padding: 0 6px; font-size: 11px; }
-        .pm .unp { margin: 4px 0 0; padding-left: 18px; font-size: 12px; }
-        .pm .tg h3 { border-left: 4px solid var(--pm-line); padding-left: 6px; }
-        .pm .tg-approval { border-color: var(--pm-err) !important; } .pm .tg-day3 { border-color: var(--pm-idle) !important; } .pm .tg-investigate { border-color: var(--pm-accent) !important; } .pm .tg-verify { border-color: var(--pm-ok) !important; }
-        .pm .task, .pm .msg { background: var(--pm-surface2); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 6px 9px; margin-bottom: 6px; font-size: 12px; line-height: 1.4; }
-        .pm .tk { font-weight: bold; word-break: break-all; } .pm .days { margin-left: 6px; background: var(--pm-err); color: var(--pm-accent-ink); padding: 0 6px; border-radius: 999px; font-size: 11px; }
-        .pm .dec { color: var(--pm-accent); font-weight: bold; }
-        .pm .pbsum { font-size: 12px; color: var(--pm-muted); margin-bottom: 8px; line-height: 1.5; }
-        .pm .pbcard { display: block; width: 100%; text-align: left; font: inherit; cursor: pointer; }
-        .pm .pbcard.on { outline: 2px solid var(--pm-accent); }
-        .pm .pblearn { margin: 2px 0; } .pm .pbh { display: flex; justify-content: space-between; gap: 6px; } .pm .pbh .chip { flex: none; }
-        .pm .pbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pm .pbk { word-break: break-all; }
-        .pm .feed { max-height: 60vh; overflow-y: auto; }
-        .pm .unres { list-style: none; margin: 0 0 8px; padding: 0; } .pm .unres li { padding: 7px 0; border-bottom: 1px solid var(--pm-line); font-size: 13px; line-height: 1.45; } .pm .unres li:last-child { border-bottom: 0; }
-        .pm .unres .dec { font-size: 12px; color: var(--pm-muted); }
-        .pm .rawtalk > summary { cursor: pointer; font-size: 12px; color: var(--pm-muted); padding: 4px 0; } .pm .rawtalk[open] > summary { margin-bottom: 6px; }
-        .pm .mh { font-size: 11px; } .pm .mt { margin-left: 6px; } .pm .mb { margin-top: 2px; line-height: 1.4; word-break: break-word; }
         .pm .credit { margin-top: 12px; font-size: 11px; color: var(--pm-muted); }
-        /* 복도 = 2.5D 길(살짝 눕힌 바닥판 + 두께) */
-        .pm .hallwrap { position: relative; margin: 18px 0; padding: 12px; background: var(--pm-hall); color: var(--pm-hall-ink); border: 2px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 4px); box-shadow: 0 8px 0 color-mix(in srgb, var(--pm-hall) 60%, var(--pm-ink)), var(--pm-shadow); }
-        .pm .hall-t { position: relative; z-index: 6; color: var(--pm-hall-ink); font-weight: bold; font-size: 13px; margin-bottom: 8px; } .pm .hall-t small { color: var(--pm-hall-ink); opacity: .8; }
+
+        /* 복도 = 업무 파이프라인 */
+        .pm .hallwrap { position: relative; margin: 16px 0; padding: 12px; background: var(--pm-hall); color: var(--pm-hall-ink); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); }
+        .pm .hall-t { position: relative; z-index: 6; color: var(--pm-hall-ink); font-weight: 700; font-size: 13px; margin-bottom: 8px; } .pm .hall-t small { color: var(--pm-hall-ink); opacity: .8; }
         .pm .corridor { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 8px; }
         .pm .ccol { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-        .pm .cell { position: relative; z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 56px; padding: 7px 3px; background: var(--pm-surface); color: var(--pm-ink); border: 2px solid var(--sc, var(--pm-line)); border-radius: var(--pm-radius); cursor: pointer; font: inherit; box-shadow: 0 5px 0 color-mix(in srgb, var(--sc, var(--pm-line)) 55%, transparent); }
-        .pm .cell:hover, .pm .cell:focus-visible, .pm .cell.on { outline: 3px solid var(--pm-accent2); outline-offset: 1px; }
-        .pm .cell .ch { font-size: 16px; font-weight: bold; color: var(--sc, var(--pm-ink)); }
+        .pm .cell { position: relative; z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 56px; padding: 7px 3px; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--sc, var(--pm-line)); border-radius: var(--pm-radius); cursor: pointer; font: inherit; }
+        .pm .cell:hover, .pm .cell:focus-visible, .pm .cell.on { outline: 2px solid var(--pm-accent2); outline-offset: 1px; }
+        .pm .cell .ch { font-size: 15px; font-weight: 700; color: var(--sc, var(--pm-ink)); font-variant-numeric: tabular-nums; }
         .pm .cell .cl { font-size: 12px; color: var(--pm-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-        .pm .cell .cn, .pm .clink .cn { white-space: nowrap; font-size: 10px; background: var(--sc); color: var(--pm-surface); border-radius: 999px; padding: 0 5px; font-weight: bold; }
+        .pm .cell .cn, .pm .clink .cn { white-space: nowrap; font-size: 10px; background: var(--sc); color: var(--pm-surface); border-radius: 4px; padding: 0 5px; font-weight: 700; font-variant-numeric: tabular-nums; }
         .pm .cell .cnow { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; }
         .pm .cell .cnow .cn { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 12px; padding: 1px 4px; }
         .pm .cell .cn.dim, .pm .lchip.rec { opacity: 0.62; }
         .pm .lchips { display: flex; flex-direction: column; gap: 3px; position: relative; z-index: 6; }
         .pm .lchip { font-size: 10px; line-height: 14px; padding: 1px 6px; border-radius: var(--pm-radius); white-space: normal; word-break: keep-all; overflow-wrap: anywhere; cursor: pointer; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--sc); }
-        .pm .lchip.cur { background: var(--sc); color: var(--pm-surface); font-weight: bold; } .pm .lchip b { display: block; }
+        .pm .lchip.cur { background: var(--sc); color: var(--pm-surface); font-weight: 700; } .pm .lchip b { display: block; }
         .pm .cell.unk { --sc: var(--pm-muted); cursor: default; border-style: dashed; }
-        .pm .spanel { position: relative; z-index: 6; margin-top: 8px; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); padding: 8px 10px; color: var(--pm-ink); }
+        .pm .spanel { position: relative; z-index: 6; margin-top: 8px; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 8px 10px; color: var(--pm-ink); }
         .pm .ltip { font-size: 12px; }
         .pm .sph { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; } .pm .spx { margin-left: auto; color: var(--pm-ink); }
-        .pm .spu { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; } .pm .spl { margin-top: 4px; }
-        .pm .flows { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 5; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--pm-accent2) 50%, transparent)); }
+        .pm .spu { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-variant-numeric: tabular-nums; } .pm .spl { margin-top: 4px; }
+        .pm .flows { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 5; }
         .pm .flows .fl, .pm .flows .hit { pointer-events: stroke; cursor: pointer; }
-        .pm .chains { margin-top: 12px; padding-top: 10px; border-top: 2px dashed var(--pm-line); }
+        .pm .chains { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--pm-line); }
         .pm .chain { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 6px; align-items: center; margin-bottom: 8px; }
-        .pm .chl { color: var(--pm-hall-ink); font-weight: bold; font-size: 12px; }
+        .pm .chl { color: var(--pm-hall-ink); font-weight: 700; font-size: 12px; }
         .pm .chrow { display: flex; align-items: stretch; min-width: 0; }
         .pm .chseg { display: flex; align-items: center; flex: 1 1 0; min-width: 0; }
         .pm .cnode { flex: 1 1 0; min-width: 0; cursor: default; overflow: hidden; padding-top: 10px; }
-        .pm .cnode .dstrip { position: absolute; left: 0; right: 0; top: 0; height: 6px; }
-        .pm .cnode .cd, .pm .cnode .cd2 { font-size: 10px; color: var(--pm-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .pm .cnode .dstrip { position: absolute; left: 0; right: 0; top: 0; height: 4px; }
+        .pm .cnode .cd, .pm .cnode .cd2 { font-size: 10px; color: var(--pm-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; font-variant-numeric: tabular-nums; }
         .pm .clink { position: relative; flex: 0 0 34px; display: flex; flex-direction: column; align-items: center; }
         .pm .clink svg { display: block; width: 34px; } .pm .clink .cn { position: relative; z-index: 7; padding: 0 4px; } .pm .clink .cn i { font-style: normal; }
         .pm .hlist { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; }
         .pm .hlist li { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; color: var(--pm-hall-ink); font-size: 12px; }
         .pm .hlist .muted, .pm .hnone { color: var(--pm-hall-ink); opacity: .85; } .pm .hnone { margin: 4px 0 0; font-size: 12px; }
-        .pm .dsw { display: inline-block; width: 10px; height: 10px; flex: 0 0 10px; border-radius: 3px; border: 1px solid var(--pm-line); }
-        .pm .fchips { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin: 4px 0; }
-        .pm .wlscroll { max-height: 46vh; overflow-y: auto; margin-top: 4px; }
+        .pm .dsw { display: inline-block; width: 10px; height: 10px; flex: 0 0 10px; border-radius: 2px; border: 1px solid var(--pm-line); }
+        .pm .fchips { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin: 6px 0; }
+        .pm .wlscroll { max-height: 44vh; overflow-y: auto; margin-top: 6px; border-top: 1px solid var(--pm-line); }
         .pm .wlog { list-style: none; margin: 0; padding: 0; }
-        .pm .wday { font-size: 11px; color: var(--pm-muted); margin: 6px 0 2px; border-bottom: 1px solid var(--pm-line); }
-        .pm .wrow { display: flex; align-items: center; gap: 6px; padding: 3px 0; min-width: 0; font-size: 12px; }
+        .pm .wday { font-size: 11px; font-weight: 700; color: var(--pm-muted); padding: 6px 0 2px; border-bottom: 1px solid var(--pm-line); font-variant-numeric: tabular-nums; }
+        .pm .wrow { display: flex; align-items: center; gap: 6px; padding: 4px 0; min-width: 0; font-size: 12px; border-bottom: 1px solid color-mix(in srgb, var(--pm-line) 55%, transparent); }
         .pm .wt { font-variant-numeric: tabular-nums; color: var(--pm-muted); flex: 0 0 auto; }
-        .pm .wn { flex: 0 0 auto; color: var(--pm-ink); font-weight: bold; }
+        .pm .wn { flex: 0 0 auto; color: var(--pm-ink); font-weight: 700; }
         .pm .wl { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
         /* 테마 선택기 */
-        .pm .tpick { position: relative; margin-left: auto; }
-        .pm .tgrid { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: min(560px, 92vw); display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; padding: 10px; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); box-shadow: var(--pm-shadow); }
-        .pm .tthumb { display: flex; flex-direction: column; gap: 4px; padding: 4px; background: var(--pm-surface2); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); font-size: 11px; color: var(--pm-ink); }
+        .pm .tpick { position: relative; }
+        .pm .tgrid { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: min(560px, 92vw); display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; padding: 10px; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); }
+        .pm .tthumb { display: flex; flex-direction: column; gap: 4px; padding: 4px; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); font-size: 11px; color: var(--pm-ink); }
         .pm .tthumb img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: calc(var(--pm-radius) / 2); display: block; }
         .pm .tthumb.on { border-color: var(--pm-accent); outline: 2px solid var(--pm-accent); }
-        .pm .nm .tokb { margin-left: 4px; padding: 0 5px; font-size: 10px; font-weight: normal; vertical-align: 1px; background: var(--pm-est-bg); color: var(--pm-est-ink); border: 0; }
-        /* 직원 상세(시안 page-staff-detail) */
+        .pm .nm .tokb { margin-left: 4px; padding: 0 4px; font-size: 10px; font-weight: normal; vertical-align: 1px; background: var(--pm-est-bg); color: var(--pm-est-ink); border: 0; }
+
+        /* 직원 상세 */
         .drawer-back { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: color-mix(in srgb, var(--pm-ink) 45%, transparent); }
-        .pm .sdpage { width: min(1180px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: color-mix(in srgb, var(--pm-bg) 85%, var(--pm-surface)); color: var(--pm-ink); border: 3px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 8px); box-shadow: var(--pm-shadow); overflow: hidden; }
-        .pm .sdh { display: flex; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
-        .pm .sdh h2 { margin: 0; font-size: 22px; }
-        .pm .sdtabs { flex: 1; gap: 8px; justify-content: center; }
-        .pm .sdtabs .pmk-tab { flex: 0 0 auto; min-height: 38px; padding: 0 18px; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: 999px; color: var(--pm-ink); box-shadow: var(--pm-shadow); }
+        .pm .sdpage { width: min(1180px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: var(--pm-bg); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); overflow: hidden; }
+        .pm .sdh { display: flex; align-items: center; gap: 12px; padding: 10px 16px; flex-wrap: wrap; background: var(--pm-surface); border-bottom: 1px solid var(--pm-line); }
+        .pm .sdh h2 { margin: 0; font-size: 17px; }
+        .pm .sdtabs { flex: 1; gap: 4px; justify-content: center; }
+        .pm .sdtabs .pmk-tab { flex: 0 0 auto; min-height: 34px; padding: 0 14px; background: transparent; border: 1px solid var(--pm-line); border-radius: var(--pm-radius); color: var(--pm-ink); font-size: 12.5px; }
         .pm .sdtabs .pmk-tab.on { background: var(--pm-accent); color: var(--pm-accent-ink); border-color: var(--pm-accent); }
-        .pm .sdh .x { margin-left: auto; color: var(--pm-ink); font-size: 24px; min-width: 44px; min-height: 44px; }
-        .pm .sdbody { flex: 1; overflow-y: auto; padding: 4px 16px 18px; line-height: 1.5; }
-        .pm .sdgrid { display: grid; grid-template-columns: 240px minmax(0, 1fr) 220px; gap: 14px; align-items: start; }
-        .pm .pcard { background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 4px); padding: 12px; box-shadow: var(--pm-shadow); }
-        .pm .pcard h3 { margin-top: 0; font-size: 15px; }
+        .pm .sdh .x { margin-left: auto; color: var(--pm-ink); font-size: 22px; min-width: 36px; min-height: 36px; }
+        .pm .sdbody { flex: 1; overflow-y: auto; padding: 14px 16px 18px; line-height: 1.5; }
+        .pm .sdgrid { display: grid; grid-template-columns: 230px minmax(0, 1fr) 210px; gap: 14px; align-items: start; }
+        .pm .pcard { background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 12px; }
+        .pm .pcard h3 { margin-top: 0; font-size: 14px; }
         .pm .who { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
-        .pm .avbox { width: 100%; aspect-ratio: 1; display: grid; place-items: center; background: var(--pm-surface2); border-radius: var(--pm-radius); border: 2px solid var(--pm-line); }
-        .pm .avph { width: 110px; height: 110px; display: grid; place-items: center; border-radius: 50%; background: var(--pm-accent); color: var(--pm-accent-ink); font-size: 48px; font-weight: bold; }
-        .pm .wname { font-size: 22px; font-weight: bold; }
-        .pm .lv { width: 100%; display: flex; align-items: center; gap: 8px; font-size: 14px; }
-        .pm .gauge { position: relative; flex: 1; height: 16px; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: 999px; overflow: hidden; }
-        .pm .gauge i { position: absolute; inset: 0 auto 0 0; background: var(--pm-accent); border-radius: 999px; }
-        .pm .gauge em { position: relative; display: block; text-align: center; font-size: 11px; font-style: normal; font-weight: bold; line-height: 16px; }
-        .pm .tok { font-size: 15px; }
-        .pm .sdmain { display: grid; gap: 14px; min-width: 0; }
+        .pm .avbox { width: 100%; aspect-ratio: 1; display: grid; place-items: center; background: var(--pm-surface2); border-radius: var(--pm-radius); border: 1px solid var(--pm-line); }
+        .pm .avph { width: 96px; height: 96px; display: grid; place-items: center; border-radius: 50%; background: var(--pm-accent); color: var(--pm-accent-ink); font-size: 40px; font-weight: 700; }
+        .pm .wname { font-size: 18px; font-weight: 700; }
+        .pm .lv { width: 100%; display: flex; align-items: center; gap: 8px; font-size: 13px; font-variant-numeric: tabular-nums; }
+        .pm .gauge { position: relative; flex: 1; height: 14px; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: 4px; overflow: hidden; }
+        .pm .gauge i { position: absolute; inset: 0 auto 0 0; background: var(--pm-accent); }
+        .pm .gauge em { position: relative; display: block; text-align: center; font-size: 10px; font-style: normal; font-weight: 700; line-height: 14px; font-variant-numeric: tabular-nums; }
+        .pm .tok { display: inline-flex; align-items: center; gap: 4px; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+        .pm .sdmain { display: grid; gap: 12px; min-width: 0; }
         .pm .tline { list-style: none; margin: 0; padding: 4px 0 0; display: grid; grid-template-columns: repeat(9, 1fr); position: relative; }
-        .pm .tline::before { content: ''; position: absolute; left: 5%; right: 5%; top: 19px; height: 4px; background: var(--pm-line); border-radius: 2px; }
+        .pm .tline::before { content: ''; position: absolute; left: 5%; right: 5%; top: 18px; height: 2px; background: var(--pm-line); }
         .pm .tline li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--pm-muted); }
-        .pm .tline .dotn { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--pm-surface2); border: 2px solid var(--pm-line); color: var(--pm-muted); font-weight: bold; font-size: 14px; }
-        .pm .tline li.has .dotn { background: color-mix(in srgb, var(--sc) 30%, var(--pm-surface)); border-color: var(--sc); color: var(--pm-ink); }
+        .pm .tline .dotn { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--pm-surface2); border: 1px solid var(--pm-line); color: var(--pm-muted); font-weight: 700; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+        .pm .tline li.has .dotn { background: color-mix(in srgb, var(--sc) 24%, var(--pm-surface)); border-color: var(--sc); color: var(--pm-ink); }
         .pm .tline li.has .tl { color: var(--pm-ink); }
-        .pm .tline li.cur .dotn { background: var(--sc); color: var(--pm-surface); box-shadow: 0 0 0 4px color-mix(in srgb, var(--sc) 35%, transparent); }
-        .pm .nowgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; } .pm .nowgrid > div + div { border-left: 2px solid var(--pm-line); padding-left: 16px; }
+        .pm .tline li.cur .dotn { background: var(--sc); color: var(--pm-surface); outline: 2px solid color-mix(in srgb, var(--sc) 45%, transparent); outline-offset: 2px; }
+        .pm .nowgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; } .pm .nowgrid > div + div { border-left: 1px solid var(--pm-line); padding-left: 16px; }
         .pm .heat { display: grid; gap: 3px; }
-        .pm .hrow { display: grid; grid-template-columns: 44px repeat(13, 1fr); gap: 3px; align-items: center; font-size: 11px; }
-        .pm .hrow i { position: relative; display: block; aspect-ratio: 1; border-radius: calc(var(--pm-radius) / 3); background: var(--pm-surface2); border: 1px solid var(--pm-line); }
+        .pm .hrow { display: grid; grid-template-columns: 44px repeat(13, 1fr); gap: 3px; align-items: center; font-size: 11px; font-variant-numeric: tabular-nums; }
+        .pm .hrow i { position: relative; display: block; aspect-ratio: 1; border-radius: 2px; background: var(--pm-surface2); border: 1px solid var(--pm-line); }
         .pm .hrow i::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--pm-accent); opacity: var(--hv, 0); }
         .pm .hhead span { text-align: center; color: var(--pm-muted); }
-        .pm .sdside { display: grid; gap: 14px; }
-        .pm .bonus .bitem { display: flex; gap: 8px; align-items: center; padding: 6px; margin-top: 6px; background: var(--pm-surface2); border-radius: var(--pm-radius); }
-        .pm .bonus .bic { font-size: 24px; }
-        .pm .pmk-btn.bigbtn { min-height: 76px; font-size: 22px; font-weight: bold; border-radius: calc(var(--pm-radius) + 10px); border: 2px solid var(--pm-line); box-shadow: var(--pm-shadow); display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .pm .pmk-btn.shopb { background: color-mix(in srgb, var(--pm-accent2) 45%, var(--pm-surface)); color: var(--pm-ink); }
-        .pm .pmk-btn.lookb { background: color-mix(in srgb, var(--pm-accent) 40%, var(--pm-surface)); color: var(--pm-ink); }
-        .pm .pmk-btn.bigbtn span { font-size: 30px; }
+        .pm .sdside { display: grid; gap: 10px; }
+        .pm .bonus .bitem { display: flex; gap: 8px; align-items: center; padding: 7px 8px; margin-top: 6px; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); }
+        .pm .bonus .bic { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--pm-radius); background: var(--pm-surface); border: 1px solid var(--pm-line); color: var(--pm-accent); flex: 0 0 auto; }
+        .pm .pmk-btn.bigbtn { min-height: 44px; font-size: 14px; font-weight: 700; border-radius: var(--pm-radius); border: 1px solid var(--pm-line); display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .pm .pmk-btn.shopb { background: var(--pm-surface); color: var(--pm-ink); }
+        .pm .pmk-btn.lookb { background: var(--pm-surface2); color: var(--pm-ink); }
         .pm .small { font-size: 11px; }
-        .pm .sdpage .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .pm .sdpage .sum div { background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 8px; text-align: center; }
-        .pm .sdpage .sum b { display: block; font-size: 20px; } .pm .sdpage .sum span { font-size: 11px; color: var(--pm-muted); }
-        .pm .sdpage .card { background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 10px; margin-top: 8px; }
+        .pm .sdpage .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid var(--pm-line); border-radius: var(--pm-radius); overflow: hidden; }
+        .pm .sdpage .sum div { background: var(--pm-surface2); border-right: 1px solid var(--pm-line); padding: 8px; text-align: center; }
+        .pm .sdpage .sum div:last-child { border-right: 0; }
+        .pm .sdpage .sum b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; } .pm .sdpage .sum span { font-size: 11px; color: var(--pm-muted); }
+        .pm .sdpage .card { background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 10px; margin-top: 8px; }
         .pm .sdpage .wt { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .pm .sdpage .pill, .pm .sdpage .basis, .pm .sdpage .pipe span { font-size: 11px; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: 999px; padding: 0 6px; color: var(--pm-ink); }
+        .pm .sdpage .pill, .pm .sdpage .basis, .pm .sdpage .pipe span { font-size: 11px; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: 4px; padding: 0 6px; color: var(--pm-ink); font-variant-numeric: tabular-nums; }
         .pm .sdpage .pipe { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0; } .pm .sdpage .pipe span.done { background: var(--pm-accent); color: var(--pm-accent-ink); border-color: var(--pm-accent); }
         .pm .sdpage .save, .pm .sdpage .a-anchored, .pm .sdpage .b-erp-verified { background: var(--pm-ok-bg); color: var(--pm-ok-ink); }
         .pm .sdpage .b-estimated, .pm .sdpage .pill.est, .pm .sdpage .a-erp { background: var(--pm-est-bg); color: var(--pm-est-ink); }
-        .pm .sdpage .save { font-size: 12px; font-weight: bold; border-radius: 999px; padding: 0 7px; }
-        .pm .sdpage .bar, .pm .sdpage .hbt, .pm .sdpage .stack { height: 10px; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: 999px; overflow: hidden; }
+        .pm .sdpage .save { font-size: 12px; font-weight: 700; border-radius: 4px; padding: 0 6px; font-variant-numeric: tabular-nums; }
+        .pm .sdpage .bar, .pm .sdpage .hbt, .pm .sdpage .stack { height: 8px; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: 4px; overflow: hidden; }
         .pm .sdpage .bar i, .pm .sdpage .hbt i { display: block; height: 100%; background: var(--pm-accent); }
-        .pm .sdpage .stack { display: flex; height: 18px; } .pm .sdpage .stack i { display: block; height: 100%; min-width: 2px; }
-        .pm .sdpage .kv { margin-top: 4px; } .pm .sdpage .kv ul { margin: 2px 0 0 18px; padding: 0; }
+        .pm .sdpage .stack { display: flex; height: 14px; } .pm .sdpage .stack i { display: block; height: 100%; min-width: 2px; }
+        .pm .sdpage .kv { margin-top: 4px; font-variant-numeric: tabular-nums; } .pm .sdpage .kv ul { margin: 2px 0 0 18px; padding: 0; }
         .pm .sdpage .steps { margin: 6px 0 0; padding: 0; list-style: none; } .pm .sdpage .steps li { border-top: 1px solid var(--pm-line); padding: 6px 0; }
-        .pm .sdpage .ex { font-size: 12px; background: var(--pm-surface); padding: 2px 6px; border-radius: 4px; margin-top: 2px; word-break: break-word; }
+        .pm .sdpage .ex { font-size: 12px; background: var(--pm-surface2); padding: 2px 6px; border-radius: 4px; margin-top: 2px; word-break: break-word; }
         .pm .sdpage .cand { margin: 0; padding-left: 20px; }
-        .pm .sdpage .legend { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+        .pm .sdpage .legend { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-variant-numeric: tabular-nums; }
         .pm .sdpage .sw { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: middle; }
         .pm .sdpage .hbars { display: grid; gap: 4px; }
         .pm .sdpage .hb { display: grid; grid-template-columns: minmax(0, 40%) 1fr 48px; gap: 6px; align-items: center; font-size: 12px; }
-        .pm .sdpage .hbn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pm .sdpage .hbv { text-align: right; font-weight: bold; }
+        .pm .sdpage .hbn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pm .sdpage .hbv { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
         .pm .sdpage .dry { margin-top: 8px; } .pm .sdpage .dryres { margin-top: 6px; padding: 6px 8px; border-radius: var(--pm-radius); font-size: 12px; }
         .pm .sdpage .dryres.ok { background: var(--pm-ok-bg); color: var(--pm-ok-ink); } .pm .sdpage .dryres.bad, .pm .sdpage .warn { background: var(--pm-err-bg); color: var(--pm-err-ink); }
-        /* 상점·꾸미기 — 게임급 리스킨(2026-11-05 사장님 "진짜 게임 수준으로"): 아라곤 배경 아트 + 유리판 패널 */
-        .pm .shop { background: url('/pm/shop/bg/stage-beach.webp') center / cover no-repeat, var(--pm-room); border-radius: 22px; padding: 14px; box-shadow: var(--pm-shadow); }
-        .pm .shop .shead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-        .pm .shop .shead h2 { margin: 0; font-size: 19px; padding: 8px 18px; background: var(--pm-est-bg); color: var(--pm-est-ink); border: 2px solid color-mix(in srgb, var(--pm-est-ink) 35%, var(--pm-est-bg)); border-radius: 999px; box-shadow: 0 4px 0 color-mix(in srgb, var(--pm-est-ink) 40%, var(--pm-est-bg)), var(--pm-shadow); }
-        .pm .wpill { margin-left: auto; padding: 6px 16px; font-size: 18px; background: linear-gradient(180deg, color-mix(in srgb, var(--pm-est-bg) 80%, white), var(--pm-est-bg)); color: var(--pm-est-ink); border: 2px solid color-mix(in srgb, var(--pm-est-ink) 35%, var(--pm-est-bg)); border-radius: 999px; box-shadow: 0 3px 0 color-mix(in srgb, var(--pm-est-ink) 40%, var(--pm-est-bg)); font-weight: 800; }
+
+        /* 상점·꾸미기 — 플랫 1px 구조선 기반 */
+        .pm .shop { background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 14px; }
+        .pm .shop .shead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--pm-line); }
+        .pm .shop .shead h2 { margin: 0; font-size: 16px; color: var(--pm-ink); }
+        .pm .wpill { margin-left: auto; padding: 4px 12px; font-size: 14px; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); font-weight: 700; font-variant-numeric: tabular-nums; }
         .pm .sgrid { display: grid; grid-template-columns: 300px minmax(0, 1fr) 230px; gap: 14px; align-items: start; }
-        .pm .sitems, .pm .sside { background: color-mix(in srgb, var(--pm-surface) 82%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 2px solid color-mix(in srgb, var(--pm-surface) 55%, transparent); border-radius: 18px; padding: 12px; box-shadow: var(--pm-shadow); }
-        .pm .sstage { background: color-mix(in srgb, var(--pm-surface) 68%, transparent); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border: 2px solid color-mix(in srgb, var(--pm-surface) 50%, transparent); border-radius: 18px; padding: 12px; }
-        .pm .stagebox { position: relative; display: grid; place-items: center; height: 240px; border-radius: var(--pm-radius); background: radial-gradient(circle at 50% 40%, var(--pm-surface), var(--pm-surface2) 70%); overflow: hidden; }
+        .pm .sitems, .pm .sside, .pm .sstage { background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 12px; }
+        .pm .stagebox { position: relative; display: grid; place-items: center; height: 220px; border-radius: var(--pm-radius); background: var(--pm-surface2); border: 1px solid var(--pm-line); overflow: hidden; }
         .pm .stagebox .pav { z-index: 1; }
-        /* 3D 렌더 미리보기(종족 베이스 + 장착 레이어 겹침, components/pm/PmTheme.js Render3DPreview) */
         .pm .r3d { margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        .pm .r3dstack { position: relative; width: 170px; height: 170px; border-radius: var(--pm-radius); background: radial-gradient(circle at 50% 42%, var(--pm-surface), var(--pm-surface2) 72%); border: 2px solid var(--pm-line); overflow: hidden; }
-        /* 피팅룸(디자인 자문): 3D 렌더가 주인공 — 좌측 폭을 꽉 채우고, 단상 그림자 타원으로 "서 있는" 공간감 */
-        /* 게임급: 피팅룸 캐릭터가 배경 아트의 무대·받침대 위에 바로 서게 — 프레임 없는 투명 스택 */
-        .pm .r3dbig .r3dstack { width: 100%; max-width: 276px; height: auto; aspect-ratio: 1; background: transparent; border: 0; overflow: visible; }
-        /* 발밑 받침 원반 + 그림자 — 캐릭터가 허공에 뜨지 않게(배경 아트 어디에서도 성립) */
-        .pm .r3dbig .r3dstack::before { content: ''; position: absolute; left: 50%; bottom: 3%; width: 72%; height: 14%; transform: translateX(-50%); border-radius: 50%; background: linear-gradient(180deg, color-mix(in srgb, var(--pm-est-bg) 70%, white), color-mix(in srgb, var(--pm-est-bg) 70%, var(--pm-est-ink))); box-shadow: 0 6px 0 color-mix(in srgb, var(--pm-est-ink) 45%, var(--pm-est-bg)), 0 12px 16px color-mix(in srgb, var(--pm-ink) 25%, transparent); }
-        .pm .r3dbig .r3dstack::after { content: ''; position: absolute; left: 50%; bottom: 8%; width: 52%; height: 7%; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--pm-ink) 22%, transparent), transparent 70%); }
-        .pm .r3dbig .r3dstack img { inset: 0 0 8% 0; height: 92%; z-index: 1; }
+        .pm .r3dstack { position: relative; width: 170px; height: 170px; border-radius: var(--pm-radius); background: var(--pm-surface2); border: 1px solid var(--pm-line); overflow: hidden; }
+        .pm .r3dbig .r3dstack { width: 100%; max-width: 260px; height: auto; aspect-ratio: 1; background: var(--pm-surface2); border: 1px solid var(--pm-line); overflow: hidden; }
+        .pm .r3dbig .r3dstack img { inset: 0 0 6% 0; height: 94%; z-index: 1; }
         .pm .pc2stage { zoom: .9; opacity: .95; }
         .pm .r3dstack img { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); object-fit: contain; }
         .pm .r3dstack img.r3dm { inset: auto 4px 4px auto; width: 56px; height: 56px; }
-        .pm .pedestal { position: absolute; bottom: 22px; left: 50%; width: 170px; height: 34px; transform: translateX(-50%); border-radius: 50%; background: color-mix(in srgb, var(--pm-accent) 30%, var(--pm-surface2)); box-shadow: 0 6px 0 color-mix(in srgb, var(--pm-accent) 50%, var(--pm-line)); }
         .pm .czst { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; justify-content: center; }
         .pm .slots { gap: 4px; }
-        .pm .slots .pmk-tab { flex: 1 0 30%; min-height: 40px; font-size: 12px; background: var(--pm-surface2); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); }
+        .pm .slots .pmk-tab { flex: 1 0 30%; min-height: 36px; font-size: 12px; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); }
         .pm .slots .pmk-tab.on { background: var(--pm-accent); color: var(--pm-accent-ink); border-color: var(--pm-accent); }
         .pm .sitems { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
-        .pm .sitem { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; min-height: 132px; background: color-mix(in srgb, var(--pm-surface) 94%, transparent); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: 16px; font-size: 11px; transition: transform .12s ease, box-shadow .12s ease; }
-        .pm .sitem:hover { transform: translateY(-3px); box-shadow: 0 8px 14px color-mix(in srgb, var(--pm-ink) 14%, transparent); }
-        /* 등급색 테두리(게임급): 희귀 = 라벤더 링, 전설 = 금테 + 은은한 금빛 바탕 */
-        .pm .sitem:has(.czr.r-rare) { border-color: var(--pm-dept3); box-shadow: 0 0 0 1px color-mix(in srgb, var(--pm-dept3) 55%, transparent); }
-        .pm .sitem:has(.czr.r-legendary) { border-color: color-mix(in srgb, var(--pm-est-ink) 45%, var(--pm-est-bg)); background: linear-gradient(180deg, color-mix(in srgb, var(--pm-est-bg) 35%, var(--pm-surface)), var(--pm-surface)); box-shadow: 0 0 10px color-mix(in srgb, var(--pm-est-bg) 70%, transparent); }
-        .pm .sitem img { width: 72px; height: 72px; object-fit: contain; background: radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--pm-est-bg) 75%, var(--pm-surface)) 0 46%, transparent 50%); border-radius: 50%; }
-        /* [2026-11-06 사장님 신고 "원래 색값이 안 나옴"] 상점 렌더 이미지에 3D 사무실 캔버스와 같은 채도 보정(lib/pmThemes RENDER.canvasFilter) — 썸네일·피팅룸·상세가 사무실 실물 색과 일치 */
-        .pm .sitem img, .pm .r3dstack img, .pm .sdetail .dimg img { filter: saturate(1.24) contrast(1.04); }
-        /* 잠긴 상품(디자인 자문): 시커먼 박스 → 밝은 반투명 덮개 + 중앙 자물쇠(오류가 아니라 '갖고 싶은 것'으로) */
-        .pm .sitem.lock.poor { background: color-mix(in srgb, var(--pm-surface) 55%, var(--pm-surface2)); color: var(--pm-muted); }
+        .pm .sitem { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; min-height: 126px; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); font-size: 11px; }
+        .pm .sitem:hover { border-color: var(--pm-accent); background: var(--pm-surface2); }
+        .pm .sitem:has(.czr.r-rare) { border-color: var(--pm-dept3); }
+        .pm .sitem:has(.czr.r-legendary) { border-color: var(--pm-idle); background: color-mix(in srgb, var(--pm-est-bg) 25%, var(--pm-surface)); }
+        .pm .sitem img { width: 72px; height: 72px; object-fit: contain; background: var(--pm-surface2); border-radius: var(--pm-radius); }
+        .pm .sitem img, .pm .r3dstack img, .pm .sdetail .dimg img { filter: saturate(1.16) contrast(1.03); }
+        .pm .sitem.lock.poor { background: var(--pm-surface2); color: var(--pm-muted); }
         .pm .sitem.lock.poor img { filter: grayscale(.45) opacity(.75); }
-        .pm .sitem .padlock { position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%); font-size: 22px; filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--pm-ink) 30%, transparent)); }
+        .pm .sitem .padlock { position: absolute; top: 6px; left: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--pm-muted); }
         .pm .sitem.on { border-color: var(--pm-accent); outline: 2px solid var(--pm-accent); }
-        .pm .sitem .eq { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; background: var(--pm-ok); color: var(--pm-accent-ink); font-size: 12px; display: grid; place-items: center; }
-        .pm .sitem small.czr { background: color-mix(in srgb, var(--pm-accent) 14%, var(--pm-surface)); border-radius: 999px; padding: 1px 8px; font-weight: 700; }
-        .pm .iname { font-weight: bold; text-align: center; }
-        .pm .czr { font-size: 10px; border-radius: 999px; padding: 0 6px; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--pm-line); }
-        .pm .czr.r-rare { background: color-mix(in srgb, var(--pm-accent) 25%, var(--pm-surface)); } .pm .czr.r-legendary { background: var(--pm-est-bg); color: var(--pm-est-ink); }
+        .pm .sitem .eq { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border-radius: 4px; background: var(--pm-ok); color: var(--pm-accent-ink); font-size: 11px; display: grid; place-items: center; }
+        .pm .sitem small.czr { background: var(--pm-surface2); border-radius: 4px; padding: 1px 6px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .pm .iname { font-weight: 700; text-align: center; }
+        .pm .czr { font-size: 10px; border-radius: 4px; padding: 0 6px; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--pm-line); font-variant-numeric: tabular-nums; }
+        .pm .czr.r-rare { background: color-mix(in srgb, var(--pm-accent) 18%, var(--pm-surface)); } .pm .czr.r-legendary { background: var(--pm-est-bg); color: var(--pm-est-ink); }
         .pm .sside { display: flex; flex-direction: column; gap: 8px; }
         .pm .sdetail { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
-        .pm .sdetail .dimg { width: 100%; aspect-ratio: 1; display: grid; place-items: center; background: var(--pm-surface2); border-radius: var(--pm-radius); }
+        .pm .sdetail .dimg { width: 100%; aspect-ratio: 1; display: grid; place-items: center; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); }
         .pm .sdetail img { width: 70%; height: 70%; object-fit: contain; }
-        /* 젤리 버튼(게임급): 아래 두툼한 그림자 + 누르면 쑥 들어감 */
-        .pm .pmk-btn.big { min-height: 48px; font-size: 15px; border-radius: 999px; box-shadow: 0 5px 0 var(--pm-accent-down), var(--pm-shadow); }
-        .pm .pmk-btn.big:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--pm-accent-down); }
-        .pm .pmk-btn.buy { background: var(--pm-accent2); color: var(--pm-accent-ink); border-color: var(--pm-accent2); box-shadow: 0 5px 0 color-mix(in srgb, var(--pm-accent2) 60%, var(--pm-ink)), var(--pm-shadow); }
-        .pm .slots .pmk-tab { border-radius: 999px; background: color-mix(in srgb, var(--pm-surface) 88%, transparent); }
-        .pm .srow { display: flex; gap: 6px; } .pm .srow .pmk-btn { flex: 1; border-radius: 999px; }
+        .pm .pmk-btn.big { min-height: 40px; font-size: 14px; border-radius: var(--pm-radius); }
+        .pm .pmk-btn.buy { background: var(--pm-accent2); color: var(--pm-accent-ink); border-color: var(--pm-accent2); }
+        .pm .srow { display: flex; gap: 6px; } .pm .srow .pmk-btn { flex: 1; }
         .pm .czmsg { font-size: 12px; margin: 0; }
         .pm .shist { margin-top: 10px; }
-        .pm .wal .sum { display: flex; gap: 10px; } .pm .wal .sum div { flex: 1; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 8px; text-align: center; }
-        .pm .wal .sum b { display: block; font-size: 18px; } .pm .wal .sum span { font-size: 11px; color: var(--pm-muted); }
-        .pm .walh { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; font-size: 12px; } .pm .walh li { background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 4px 8px; }
-        @media (max-width: 1000px) { .pm .sdgrid, .pm .sgrid { grid-template-columns: 1fr; } .pm .nowgrid { grid-template-columns: 1fr; } .pm .nowgrid > div + div { border-left: 0; padding-left: 0; } }
-        @media (max-width: 640px) { .pm .chain { grid-template-columns: 1fr; gap: 2px; } .pm .clink { flex-basis: 22px; } .pm .clink svg { width: 22px; } .pm .cnode .cd { display: none; } .pm .chrow { flex-wrap: wrap; row-gap: 6px; } .pm .chseg { flex: 0 0 50%; } .pm .clink .cn i { display: none; } .pm .tline .tl { display: none; } .pm .drawer-back { padding: 0; } .pm .sdpage { max-height: 100vh; border-radius: 0; } }
-        @media (max-width: 640px) { .pm .corridor { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); } .pm { padding: 0 8px 20px; } .pm .top { margin: 0 -8px 10px; } .pm .seat { width: 104px; flex-basis: 104px; } }
+        .pm .wal .sum { display: flex; gap: 8px; } .pm .wal .sum div { flex: 1; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 8px; text-align: center; }
+        .pm .wal .sum b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; } .pm .wal .sum span { font-size: 11px; color: var(--pm-muted); }
+        .pm .walh { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; font-size: 12px; font-variant-numeric: tabular-nums; } .pm .walh li { background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 4px 8px; }
+
+        @media (max-width: 1020px) {
+          .pm .control-board { grid-template-columns: 1fr; }
+          .pm .kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .pm .kpi-cell:nth-child(2) { border-right: 0; }
+          .pm .kpi-cell:nth-child(1), .pm .kpi-cell:nth-child(2) { border-bottom: 1px solid var(--pm-line); }
+          .pm .sdgrid, .pm .sgrid { grid-template-columns: 1fr; }
+          .pm .nowgrid { grid-template-columns: 1fr; }
+          .pm .nowgrid > div + div { border-left: 0; padding-left: 0; }
+        }
+        @media (max-width: 640px) {
+          .pm { padding: 0 10px 20px; }
+          .pm .top { margin: 0 -10px 10px; padding: 8px 10px; }
+          .pm .top-act { margin-left: 0; width: 100%; }
+          .pm .kpi-strip { grid-template-columns: 1fr; }
+          .pm .kpi-cell { border-right: 0; border-bottom: 1px solid var(--pm-line); }
+          .pm .kpi-cell:last-child { border-bottom: 0; }
+          .pm .control-thead { display: none; }
+          .pm .pm-guide-meta { margin-left: 0; }
+          .pm .chain { grid-template-columns: 1fr; gap: 2px; } .pm .clink { flex-basis: 22px; } .pm .clink svg { width: 22px; } .pm .cnode .cd { display: none; } .pm .chrow { flex-wrap: wrap; row-gap: 6px; } .pm .chseg { flex: 0 0 50%; } .pm .clink .cn i { display: none; } .pm .tline .tl { display: none; } .pm .drawer-back { padding: 0; } .pm .sdpage { max-height: 100vh; border-radius: 0; }
+          .pm .corridor { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); } .pm .seat { width: 104px; flex-basis: 104px; }
+        }
         @media (prefers-reduced-motion: reduce) { .pm .flows circle { display: none; } }
         @media (max-width: 860px) { .pm .wrap { grid-template-columns: 1fr; } .pm .wing { grid-template-columns: 1fr; } .pm .mgr, .pm .lab { flex: 1 1 100%; } .pm .feed { max-height: none; } }
       `}</style>
@@ -1302,7 +1504,8 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
         .sprite .hair { position: absolute; left: 0; top: -2px; width: 20px; height: 6px; background: var(--pm-hair); }
         .sprite .antenna { position: absolute; left: 9px; top: -6px; width: 2px; height: 6px; background: var(--pm-muted); }
         .sprite .antenna:after { content: ''; position: absolute; left: -2px; top: -4px; width: 6px; height: 4px; background: var(--pm-err); }
-        .sprite .eyes { position: absolute; left: 4px; top: 8px; width: 3px; height: 3px; background: var(--pm-ink); box-shadow: 9px 0 0 var(--pm-ink); }
+        .sprite .eyes { position: absolute; left: 4px; top: 8px; width: 3px; height: 3px; background: var(--pm-ink); }
+        .sprite .eyes::after { content: ''; position: absolute; left: 9px; top: 0; width: 3px; height: 3px; background: var(--pm-ink); }
         .sprite .body { position: absolute; left: 18px; top: 22px; width: 28px; height: 18px; }
         .sprite .desk { position: absolute; left: 0; top: 38px; width: 64px; height: 26px; background: var(--pm-desk-wood); border-top: 4px solid var(--pm-desk-top); }
         .sprite .monitor { position: absolute; left: 4px; top: -22px; width: 18px; height: 14px; background: var(--pm-monitor); padding: 2px; }
