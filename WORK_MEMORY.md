@@ -3824,6 +3824,13 @@ pm run test:canon 통과.
 5. 주의/잠금: 기본 checkout dirty 및 타 세션 작업트리 보존. 새메뉴/데스크톱패키지/영상 조작순서 변경 없음. 카네이션45박스=1.1빠렛(기존40박스 기준), 장미일반10/Snowflake25단 환산 그대로; 빠렛에서 박스 역산 금지.
 검색어: field-calendar 요일 세로 현장물량표 업체 품종요약 빠렛 박스 A3 landscape
 
+## 2026-11-19 · 47-02 송장18065 금액 불일치와 원본 대조 검토 WIP
+- 검색어: co4702-summary 18065 3483 1741.5 packing-amount-review Desktop1.3.47
+1. 작업 위치: fix/co4702-summary-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co4702-summary-1119 / origin1b47554f / PR 미생성. 이전 농장 감사 worktree nw-cdx-receipt-presave-1118 별도 보존.
+2. 완료된 것: 운영 SELECT 로그19015/19016 및 실제UI10:03:04로 파일47-2 Master Invoice Nenova 992-04727822.pdf/UPLOAD_FAILED/18065 확인. 원본SHA b2176913b2a9f15d3e33354a0b4ad0e4f9956db8919c1f7de38947a6cf3a548c 28쪽의6쪽8상품+7쪽중복집계 확인. 최신지시로 자동삭제안 폐기, 검토목록·로컬PDF·강조·수정·소계제외복원·검산·사유·전후이력·기존공유초안 연결 구현중. 무료재검증 결과를 버리던 UI경로 수정. 기존문제로그 확장 설계만 문서화.
+3. 남은 할 일: 최종코드리뷰/단계별실브라우저캡처/신규가이드최종재녹화(마지막helper변경 후해시갱신 필요)/기존PackingListTool가이드2개재녹화/Drive백업/Desktop테스트·실스모크/최신master정합/필수전체게이트/PR CI squash/Cafe24 및Desktop릴리스/운영읽기전용스모크/정리.
+4. 검증 상태: 초기구형순수수정 ERP전체PASS이나 현재신규UI 최종게이트아님. 신규리뷰합성PDF 실제브라우저dry+record PASS(8행/1741.5/차이0/provider0/prod0); importHardening81PASS1skip, adapter+review24PASS. 임시Next build완료(세션44612최종결과확인). 직원저장원응답은SSH인증거부로미조회, 실제운영작업의무료재검증과전체송장성공은미검증. 신규가이드1차영상생성됐으나helper최근수정으로재녹화필요.
+5. 주의/잠금: 운영DB쓰기·유료분석·다른계정job소유범위우회금지. 불완전구간/진짜manifest건수/중복/HAWBconflict hard block보존. canonicaldirty절대수정금지. node_modules는canonicaljunction(삭제는링크만). sourceAmountReview원본/전후이력보존. 운영오류캡처는C:/Users/USER/Documents/Codex/2026-11-19-invoice-incident,업무PDF는Downloads에있으며git커밋금지.
 ## 2026-11-19 하단 요일별 독립구역 로컬 수정
 검색어: vertical-footer 46-01 카네이션 merged weekday fieldCultivarDisplay
 1. 작업 위치: nenova-erp-ui / codex/vertical-footer / Documents/Codex/2026-11-13/new-chat/work/vertical-footer / PR 없음.
@@ -3842,6 +3849,38 @@ pm run test:canon 통과.
 5. 주의/잠금: 원장/API/SQL·원가·정렬 변경 없음. 기존 체크아웃 보존. 직원 PC 재시작 없음.
 검색어: 입고관리 인보이스 번호 AWB 농장명 열 검색 normalizeAwbSearch
 
+
+## 2026-11-19 · 원본 대조 검토 최신 master 통합 체크포인트
+- 검색어: co4702-summary f94aa914 Desktop1.3.49 packing-amount-review
+1. 작업 위치: fix/co4702-summary-1119 / nw-cdx-co4702-summary-1119 / 체크포인트f94aa914 / origin0055590e 통합.
+2. 완료된 것: 검토UI·무료재검증연결·초안보존·소계제외복원·전후이력 및메뉴검색구현. 최종신규가이드78.6초/기존2편 재촬영과가이드검사31workflow32video PASS. 실제CUA before/edit/after캡처확보. upstream입고검색·비행기UI·가이드변경 모두보존. upstream48다음Desktop49로변경.
+3. 남은 할 일: 통합후최종ERP/dnSpy/manifest/write/build/desktop smoke/player, Drive기존영상백업검증, PR CI squash와운영·릴리스검증. 직원own계정원응답재검증 미완료.
+4. 검증 상태: 격리검토dry/mobile/keyboard 및실제CUA조작PASS(provider0/prod0), source/adapter24PASS, hardening81PASS1skip, ownerdraft9PASS, desktop73PASS·실Electron smokePASS(통합전). 두 임시Next buildPASS. 통합후최종검사는아직미검증.
+5. 주의/잠금: 운영DB쓰기·유료재분석·타계정job범위우회없음. sourcePDF/직원raw응답git금지. junction대상삭제금지. 가이드신규Drive mp4 1M5EQ0HFhktIanNLe2C5IenpEvUeT8MKG/vtt11NbxzmnSWcdA2UHKSldp15SqfSEl5NQQ/proof1kkRcncqMRhdAvnzRrEVLsSPQsAPkf8MH,최종덮어쓰기완료(독립메타데이터재확인예정).
+
+## 2026-11-19 · 원본 대조 PR1861 최종 게이트와 Desktop 버전 충돌 보존
+검색어: co4702-summary PR1861 Desktop1.3.50 18065 원본대조
+1. 작업 위치: fix/co4702-summary-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co4702-summary-1119 / PR1861. 최신origin b3a59f88 병합해 비행기 제목 변경 보존, 타작업 Desktop49 draft를 건드리지 않고 이번 버전50으로 분리.
+2. 완료된 것: ERP 전체·dnSpy·manifest230·write1API·최종Next build 및 Desktop74단위/실Electron 검색·열기·즐겨찾기 smoke PASS(0055590e 통합 기준). 실제MP4 세편 플레이어 키보드/자막/목차/다운로드/1920·390px 모두PASS. 최종영상 처음/중간/끝 시각확인, Drive9파일 업로드 후 독립크기 재조회일치. 외부 실제CUA 수정전/입력65/수정후 스크린샷 보존.
+3. 남은 할 일: b3a59f88 통합 변경 대상 검사·Desktop50 CI·최종빌드 확인 후 PR ready/CI전부통과 squash, Cafe24 정확SHA 또는 포함successor 배포·운영읽기전용UI, Desktop50 검증릴리스 및 merged worktree 링크만 해제 후 정리. 최종결과는 PR댓글에 기록해 docs만 재배포하지 않는다.
+4. 검증 상태: 직원 계정의 실제 저장원응답 무료재검증과 전체송장 입고성공은 미검증. 원본PDF와 오류는 실제운영읽기전용 확인, 수정UI·수량금액0차이·초안·회귀는 격리fixture검증. 새 유료호출/운영ERP쓰기/직원앱설치0.
+5. 주의/잠금: 다른Desktop49 draft/기존자산 덮어쓰기 금지. 이전 nw-cdx-receipt-presave-1118 감사작업 보존, OrderCode사전검증/농장별칭/문제로그확장 구현완료 주장금지(설계만). 원본민감PDF·직원raw응답 커밋금지. node_modules junction은 대상삭제 없이 링크만 정리.
+
+## 2026-11-19 · PR1861 마지막 통합·Desktop1.3.51
+검색어: PR1861 47-02 원본대조 Desktop1.3.51
+1. 위치: fix/co4702-summary-1119 / nw-cdx-co4702-summary-1119 / PR1861. origin2b0b9713 통합, 타작업 Desktop50과 기존49를 보존하고 이번51 예약.
+2. 완료: 기능·가이드·Drive·실제 수정전/수정/결과 캡처와 필수ERP·dnSpy·manifest·쓰기guard·build·Desktop74/실Electron·플레이어3편 PASS. upstream 추가 변경별 대상회귀도 PASS. 업무도구 원본대조 메뉴/검색/즐겨찾기 기존URL 유지.
+3. 남은 일: 최신통합 CI 전부통과 후 squash·Cafe24 포함SHA배포·운영읽기전용스모크·Desktop51 검증릴리스·현재worktree 링크만정리. 실제 최종배포/릴리스 결과는 PR1861 댓글에 기록.
+4. 미검증: 직원자신 저장응답 재검증/전체송장입고성공, 실제PC 설치·제거. 운영DB쓰기/유료추가분석/직원앱재시작0. 이번 review는 격리합성fixture와 원본PDF 읽기검증을 구분한다.
+5. 잠금: 다른 릴리스/원장/농장마스터/과거입고 변경금지. 이전 감사 worktree 보존. 원본PDF·인증정보 커밋금지. canonical node_modules junction 대상삭제금지.
+
+## 2026-11-19 · 사용자 우선순위: 영상 유예·업로드부터 원가까지 실기능 우선
+검색어: PR1861 amount-review stale INVOICE_TOTAL_MISMATCH E2E AWB
+1. 위치: fix/co4702-summary-1119 / nw-cdx-co4702-summary-1119 / PR1861 / Desktop51 예약 draft 보존.
+2. 완료: 실제47-2 PDF를 루프백 일회용SQL DB·실제웹UI에 업로드해 재현응답 검토/금액수정/소계제외복원 검증. 적용 후 이전3483 검증오류가 잔존하는 실제 통합 버그 발견·수정, 정상화 재계산 회귀6PASS. 다른 통화·날짜 문제는 보존. 사용자 명시 영상유예를 정확 helper해시 videoWaiver로 등록(검사기 우회/촬영완료 가장 없음).
+3. 남은 일: 배포용 빌드로 격리 입고등록·동일요청재시도/새중복방지·같은WarehouseKey 도착원가엑셀 다운로드 검증, 인보이스+AWB 동시 첨부 국가의 기존흐름 검사, 필수CI·가드·배포·운영읽기전용스모크. 추가촬영/백업은 유예.
+4. 검증: 원본PDF SHA검증, 직원저장응답은 미확보(재현응답과 구분). 첫격리test는 입고전 잔존오류로중단, 다음 dev서버 PDF worker오류로중단하여 각 일회용DB정리. 입고·원가통합 성공은 아직 미검증. 운영DB쓰기/유료분석0.
+5. 잠금: 루프백127.0.0.1:14339/일회용NenovaInvoiceFixture만쓰기. 원본PDF git금지, 운영Farm/과거입고 변경금지. 현재 scripts/test-packing-amount-receipt-local.cjs는 실제 writer/원가 서버용 격리회귀이며 운영API배포코드아님.
 ## 2026-11-19 · 원장 연결 알림 기록 달력 배포 완료
 - 위치: nenova-erp-ui / codex/ledger-calendar-1119 / 완료 worktree 정리 / PR1855, merge3da8f29783a0ff6b19b9a6cf754cfb5372712adf.
 - 완료: 최초/현재 신고·등록변경·차수 판매스냅샷 실제 날짜 달력, 미기록 날짜 비추정. 가이드66.4초·자막·목차, desktop1.3.46 릴리스와 feed/설치파일SHA512 확인.
@@ -3857,3 +3896,11 @@ pm run test:canon 통과.
 4. 검증: ERP 전체 suite·dnSpy·manifest230·쓰기 가드·공식 webpack build 통과. 기능36/EXE SQL26/desktop73 및 Electron·UI58, 1920/1280/390·Tab/ShiftTab/방향키/Esc·실제 행 왕복·실제 XLSX·가이드4종 재생/자막/역할/목차/다운로드 통과. 최신 통합/CI/운영은 아직 미검증.
 5. 주의/잠금: 공용 ERP/ECOUNT 쓰기0, 새 DB DDL 없음. 과거 미기록 날짜/합계 추정 금지. acba의 기존 dirty WORK_MEMORY.md와 45차_판매전표_대조.csv 보존. 경로·계약은 docs/plans/estimate-change-history-implementation-2026-11-19.md, 백업ID는 docs/work-sessions/2026-11-19_estimate-change-history-backups.json.
 검색어: 네노바 견적 변경 이력 과거 수기 변경안 차장보고 이카운트 예상 실측 Amount+Vat SdateKey CAS 1.3.52
+
+## 2026-11-19 · PR1861 업로드→검토→격리입고→같은입고 원가 전달 완료
+검색어: PR1861 Desktop1.3.53 18065 91001 91002 AWB 중복방지 cost-export
+1. 위치: fix/co4702-summary-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co4702-summary-1119 / PR1861. origin3761e41c의 견적이력/메뉴/가이드/배포 변경 전부 보존, 기존 Desktop52 다음53으로분리. 기존 예약51 draft를53으로 이동(타릴리스 보존).
+2. 완료: 실제47-2 PDF SHA와 재현응답으로 실제 /import/tools 검토금액65수정·64.5복원·소계제외복원·검증적용→격리입고91001(8행/27박스/405단/8100송이/USD1741.5)→같은문서 원가승인/재조회→엑셀41501바이트 다운로드 확인. 실제호주AWB+합성44-01송장 동시첨부, 64박스/잘못된번호 차단, 65박스/GW805/CW805 원문연결→같은작업ID로 격리입고91002→원가엑셀13637바이트 전달. 캡처는외부 2026-11-19-invoice-incident/e2e-*.jpg.
+3. 남음: 정확최종SHA 필수CI 성공 후 squash, Cafe24 포함SHA배포·운영읽기전용스모크, Desktop53 검증릴리스·현재worktree 링크만정리. 최종 배포/릴리스/스모크 증거는 PR1861댓글에 기록. 사용자 명시로 추가촬영·백업 유예.
+4. 검증: 전체ERP/dnSpy/manifest/write/build PASS, 실제브라우저 두경로·실제다운로드·격리SQL readback 확인. 별도 새 일회용DB 자동회귀 PASS_AMOUNT_REVIEW_RECEIPT_COST(동일요청동일입고/새중복 ALREADY_COMMITTED 차단/원가41473바이트/원장보호). 첫 UI종합assert는 정상차단코드 ALREADY_COMMITTED 누락으로 실패해 기대코드수정후 자동회귀PASS. AU초기실패는 시험StockMaster키 순서로 rollback, 시험키만연대순정리후 같은ID UI재시도PASS. 모든일회용DB정리.
+5. 잠금/미검증: 운영ERP쓰기·유료분석0. 직원저장원응답 미확보·직원실계정 전체등록성공 미검증. CO GW100/CW200/시험비용은 TEST_ONLY이며실원가주장금지. AU인보이스는합성·AWB원본은실파일, OCR정확도완료주장금지. OrderCode추가사전검증·농장별칭·문제로그확장은별도미완료. 이전감사worktree·canonicaldirty보존. 원본PDF/인증정보커밋금지, node_modulesjunction대상삭제금지.

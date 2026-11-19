@@ -165,7 +165,7 @@ export default withAuth(async(req,res)=>{
     if(req.body?.revalidateOnly===true){
       if(parsed.country!=='CO')return res.status(400).json({error:{message:'저장 구간 재검증은 콜롬비아 PDF만 지원합니다.'}});
       const id=retryJobId||(await findPackingPdfJobByKey(uid,cacheKey))?.jobId;
-      const job=id?await revalidatePackingPdfJob(uid,id,cacheKey,{parse:parsePackingChunk,merge:(chunks,count)=>mergePackingChunks(chunks,count,{sourceHash:doclingPdfSha(parsed.pdfBase64)})}):null;
+      const job=id?await revalidatePackingPdfJob(uid,id,cacheKey,{parse:parsePackingChunk,merge:(chunks,count)=>mergePackingChunks(chunks,count,{sourceHash:doclingPdfSha(parsed.pdfBase64),reviewRecoverable:true})}):null;
       return job?res.status(200).json(job):res.status(404).json({error:{message:'같은 사용자·원본 파일의 저장 분석 작업을 찾을 수 없습니다.'}});
     }
     if(retryJobId){
