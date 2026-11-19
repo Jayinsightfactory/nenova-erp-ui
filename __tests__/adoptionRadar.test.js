@@ -39,7 +39,7 @@ assert.ok(!/\b(SELECT|INSERT|UPDATE|DELETE)\s/i.test(api) && !/lib\/db/.test(api
 
 // 4) 수신: 기존 feature-data-ingest(토큰) 재사용 — lib 가 adoption-ledger 를 안다
 const lib = read('lib/workFeatureData.js');
-assert.ok(/'adoption-ledger'\]\)/.test(lib), 'FEATURE_NAMES 에 adoption-ledger');
+assert.ok(/FEATURE_NAMES\s*=\s*Object\.freeze\(\[[^\]]*'adoption-ledger'/.test(lib), 'FEATURE_NAMES 에 adoption-ledger');
 assert.ok(/name === 'adoption-ledger' \? 'adoption-ledger\.json'/.test(lib), '파일명 adoption-ledger.json');
 
 // 5) 런타임 파일은 git 미추적

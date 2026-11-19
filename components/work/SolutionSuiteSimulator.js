@@ -133,9 +133,9 @@ const SCENARIOS = [
         chip: 'dedup_key 해시 생성',
         action: 'Phone Harness가 위챗·카톡 수입단톡방의 추가발주 원문을 읽기 전용으로 수집합니다.',
         telemetry: [
-          '[01 PHONE-HARNESS] channel=wechat_read_only · room="콜롬비아 농장방"',
-          '[01 KAKAO-BRIDGE] dedup_key = sha256("suip-room|elite|1630|rose-freedom-5box|0")',
-          '[01 PAYLOAD] raw="ROSE FREEDOM 50CM +5 BOX ADD" · outbound_block=TRUE',
+          '[01 PHONE-HARNESS] channel=wechat_read_only · room="콜롬비아 농장방" (deferred_photos 18시·12장 한도 보완)',
+          '[01 MOYI-WORKER] core/moyi_worker.py 직렬 락 · sales 5s · addcancel_archive 300s · 운영PC 전담',
+          '[01 KAKAO-BRIDGE] dedup_key = sha256("suip-room|elite|1630|rose-freedom-5box|0") · outbound_block=TRUE',
         ],
       },
       {
@@ -586,7 +586,7 @@ function pickInitialPerson(people, scenario) {
   return people[0].name || '';
 }
 
-export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '' }) {
+export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSelectTab = null }) {
   const [scenarioId, setScenarioId] = useState('wechat_order');
   const [stepIndex, setStepIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -833,9 +833,23 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '' }) {
           <div className="sim-eyebrow">MOYI × NENOVA · MULTI-SURFACE MOTION &amp; EVIDENCE STUDIO</div>
           <h2>통합 솔루션 라이브 모션 시뮬레이션</h2>
           <p className="sim-subtitle">
-            MOYI 앱부터 Phone Harness · Device Hub · 데스크톱 Rust 사이드카 · Nenova Kakao · Hermes · 네노바웹 ERP 원장까지
+            MOYI 앱부터 Phone Harness · Device Hub · 데스크톱 Rust 사이드카 · nenovakakao 실설계(moyi-worker 직렬 락 · mindmap_sink · browser_session_bridge · PR 50 5분 자동배포) · Hermes · 네노바웹 ERP 원장까지
             실제 직원 작업 캡처 데이터 위에서 6단계 흐름을 즉시 재생·검증합니다.
           </p>
+          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <a
+              className="sim-ext-link is-highlight"
+              href="/my-work?tab=radar"
+              onClick={(e) => {
+                if (onSelectTab) {
+                  e.preventDefault();
+                  onSelectTab('radar');
+                }
+              }}
+            >
+              도입·기술 레이더 시뮬레이터 (/my-work?tab=radar) ↗
+            </a>
+          </div>
         </div>
 
         <div className="sim-gauge-card" aria-live="polite">
@@ -1084,6 +1098,14 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '' }) {
             <span><code>OutQuantity=100</code> 3단위 환산</span>
             <span><code>ApprovedBy</code> 2FA 승인 게이트</span>
             <span><code>BEGIN TRAN UPDLOCK</code> 원장 잠금</span>
+          </div>
+
+          {/* 인수인계된 nenovakakao 실설계 계약 & 5분 자동배포 경계 */}
+          <div className="sim-payload-strip" aria-label="nenovakakao 실설계 운영 계약">
+            <span><code>moyi-worker</code> 직렬 실행 락 (<code>core/moyi_worker.py</code> · 운영PC 전담 · 개발PC 실행 분리)</span>
+            <span><code>mindmap_sink</code> <code>/api/kakao/import</code> (50건 배치 아카이브)</span>
+            <span><code>browser_session_bridge</code> <code>com.nenovakakao.sales_session</code> Native Host</span>
+            <span><code>PR 50</code> <code>core/self_update.py</code> 별도 계정 승인 · 5분 자동배포</span>
           </div>
 
           {/* 라이브 텔레메트리 콘솔 */}
@@ -1412,6 +1434,18 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '' }) {
           </div>
 
           <div className="sim-gallery-actions">
+            <a
+              className="sim-ext-link"
+              href="/my-work?tab=radar"
+              onClick={(e) => {
+                if (onSelectTab) {
+                  e.preventDefault();
+                  onSelectTab('radar');
+                }
+              }}
+            >
+              도입·기술 레이더 시뮬레이터 ↗
+            </a>
             {orbit && (
               <a className="sim-ext-link" href={`${orbit}/my-work.html${orbitQs}`} target="_blank" rel="noreferrer">
                 Orbit 원본 작업 데이터 ↗
@@ -1441,7 +1475,7 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '' }) {
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setLightbox(bp); } }}
                 >
                   <img src={bp.src} alt={bp.title} loading="lazy" />
-                  <span className="sim-bp-zoom">클릭하여 확대 보기 🔍</span>
+                  <span className="sim-bp-zoom">클릭하여 확대 보기</span>
                 </div>
                 <div className="sim-bp-content">
                   <span className="sim-bp-badge">{bp.badge}</span>
