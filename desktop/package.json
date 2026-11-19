@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.54",
+  "version": "1.3.55",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "도입·기술레이더 Anti-AI Slop 워크벤치 및 nenovakakao 실설계 연동 시뮬레이터 탑재. 4분면 극좌표·2×2 매트릭스·실설계 도입 시뮬레이션을 데스크톱 홈과 메뉴에서 바로 열 수 있습니다."
+      "releaseNotes": "가브리엘 수입·원가·이익 최적화 AGI 워크벤치(/import/gabriel-agi) 및 시안 A·B·C 반사실 수익 시뮬레이터 탑재. AWB 중량 계단·농장 교차 소싱·마진 방어·크레딧 회수 분석을 데스크톱 메뉴와 내 작업 데이터에서 바로 실행할 수 있습니다."
     },
     "extraResources": [
       {

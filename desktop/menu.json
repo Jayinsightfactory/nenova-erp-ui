@@ -123,6 +123,11 @@
         "popup": false
       },
       {
+        "href": "/import/gabriel-agi",
+        "labelKey": "가브리엘 원가·이익 최적화 AGI(시뮬레이션)",
+        "popup": false
+      },
+      {
         "href": "/import/tools",
         "labelKey": "수입부 업무도구 · 인보이스 원본 대조",
         "popup": false

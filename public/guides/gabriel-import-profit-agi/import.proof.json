@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-19T04:20:14.857Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 43.4,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "bbfe79dfd1dabd162ef6deded87cf706e9ffe93e24079d79650bb2ce0292e26a",
+  "captionsSha256": "bdb43926963f520b80e25f515ada5ce9a6ab5881cfbf1b091cbaf47162fac664",
+  "sourceHashes": {
+    "pages/import/gabriel-agi.js": "463d5fd15b76db828306ee9af4051db045d7e883906a9ab15642e5e02413c5f2",
+    "components/import-tools/GabrielProfitAgiWorkbench.js": "f5dd46eb5150889ff2a396c23021b1f1b51656812e124005cbf48b0a4f95299a",
+    "lib/gabrielProfitAgi.js": "af553bcefb2166dda243efa9afd9690fe412fd2b62ef83fa4622d066665b1773",
+    "styles/GabrielProfitAgi.module.css": "c60d6713bc90068bd0ec384814a8e19c2ae3d08501dc35ea0a5f1f1dda693e5b"
+  },
+  "presentation": {
+    "numberedSteps": 4,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 3.218786,
+        "x": 653.21875,
+        "y": 370.84375,
+        "end": 8.6570495
+      },
+      {
+        "number": 2,
+        "start": 13.8981044,
+        "x": 1554.7890625,
+        "y": 513.640625,
+        "end": 19.3340572
+      },
+      {
+        "number": 3,
+        "start": 24.5763858,
+        "x": 300.0234375,
+        "y": 448.578125,
+        "end": 30.3133974
+      },
+      {
+        "number": 4,
+        "start": 35.999248,
+        "x": 1766.9921875,
+        "y": 369.84375,
+        "end": 41.4224399
+      }
+    ]
+  }
+}
