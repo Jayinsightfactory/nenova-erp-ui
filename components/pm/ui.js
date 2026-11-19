@@ -119,17 +119,16 @@ export function PmUiStyles() {
     <style jsx global>{`
       .pm {
         /* 값은 lib/pmThemes.js themeCss() 가 테마별로 --pm-* 토큰에 묶는다(여기엔 hex 금지). */
-        --pmk-radius: var(--pm-radius, 8px); --pmk-h: 32px; --pmk-h-sm: 28px;
+        --pmk-radius: var(--pm-radius, 6px); --pmk-h: 32px; --pmk-h-sm: 28px;
       }
       .pm .pmk { font: inherit; cursor: pointer; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       .pm .pmk:focus-visible { outline: 2px solid var(--pmk-focus); outline-offset: 2px; }
       .pm .pmk:disabled { cursor: not-allowed; opacity: .55; }
-      .pm .pmk-btn { height: auto; min-height: var(--pmk-h); padding: 0 14px; border-radius: var(--pmk-radius); font-size: 13px; justify-content: center; }
+      .pm .pmk-btn { height: auto; min-height: var(--pmk-h); padding: 0 12px; border-radius: var(--pmk-radius); font-size: 13px; justify-content: center; }
       .pm .pmk-btn.pmk-sm { min-height: var(--pmk-h-sm); padding: 0 10px; font-size: 12px; }
-      /* 상태 3종(기본·호버·눌림) — SOFT CLAY 시안: 호버=살짝 들림+그림자, 눌림=어두운 색+내려앉음. 색은 전부 토큰. */
-      .pm .pmk-btn.pmk-secondary, .pm .pmk-btn.pmk-primary, .pm .pmk-btn.pmk-danger { box-shadow: var(--pmk-shadow, none); transition: transform .12s, box-shadow .12s, background .12s; }
-      .pm .pmk-btn.pmk-secondary:hover:not(:disabled), .pm .pmk-btn.pmk-primary:hover:not(:disabled), .pm .pmk-btn.pmk-danger:hover:not(:disabled) { transform: translateY(-1px); }
-      .pm .pmk-btn.pmk-secondary:active:not(:disabled), .pm .pmk-btn.pmk-primary:active:not(:disabled), .pm .pmk-btn.pmk-danger:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
+      /* 상태 3종(기본·호버·눌림) — 플랫 1px 구조선 전환(부유·그림자 없음). 색은 전부 토큰. */
+      .pm .pmk-btn.pmk-secondary, .pm .pmk-btn.pmk-primary, .pm .pmk-btn.pmk-danger { transition: background .12s, border-color .12s, opacity .12s; }
+      .pm .pmk-btn.pmk-secondary:active:not(:disabled), .pm .pmk-btn.pmk-primary:active:not(:disabled), .pm .pmk-btn.pmk-danger:active:not(:disabled) { opacity: .9; }
       .pm .pmk-btn.pmk-secondary { background: var(--pmk-sec-bg); color: var(--pmk-sec-ink); border-color: var(--pmk-sec-border); }
       .pm .pmk-btn.pmk-secondary:hover:not(:disabled) { background: var(--pmk-sec-hover); }
       .pm .pmk-btn.pmk-primary { background: var(--pmk-primary); color: var(--pmk-primary-ink); border-color: var(--pmk-primary); font-weight: bold; }
@@ -138,8 +137,8 @@ export function PmUiStyles() {
       .pm .pmk-btn.pmk-danger { background: var(--pmk-danger); color: var(--pmk-primary-ink); border-color: var(--pmk-danger); }
       .pm .pmk-btn.pmk-danger:hover:not(:disabled) { background: var(--pmk-danger-hover); border-color: var(--pmk-danger-hover); }
       .pm .pmk-btn.pmk-danger:active:not(:disabled) { background: var(--pmk-danger-down, var(--pmk-danger)); border-color: var(--pmk-danger-down, var(--pmk-danger)); }
-      /* 비활성 — 시안: 회색 클레이(dis 토큰), 그림자 없음 */
-      .pm .pmk-btn.pmk-secondary:disabled, .pm .pmk-btn.pmk-primary:disabled, .pm .pmk-btn.pmk-danger:disabled { background: var(--pmk-dis-bg, var(--pmk-sec-bg)); color: var(--pmk-dis-ink, var(--pmk-sec-ink)); border-color: var(--pmk-dis-bg, var(--pmk-sec-border)); box-shadow: none; opacity: 1; }
+      /* 비활성 — 단색 토큰, 그림자 없음 */
+      .pm .pmk-btn.pmk-secondary:disabled, .pm .pmk-btn.pmk-primary:disabled, .pm .pmk-btn.pmk-danger:disabled { background: var(--pmk-dis-bg, var(--pmk-sec-bg)); color: var(--pmk-dis-ink, var(--pmk-sec-ink)); border-color: var(--pmk-dis-bg, var(--pmk-sec-border)); opacity: 1; }
       .pm .pmk-btn.pmk-ghost { display: inline-flex; align-items: center; background: transparent; color: var(--pmk-ink); border: 1px solid transparent; }
       .pm .pmk-btn.pmk-ghost:hover:not(:disabled) { border-color: currentColor; }
       .pm .pmk-btn[aria-busy] { cursor: progress; }
@@ -158,15 +157,13 @@ export function PmUiStyles() {
       .pm .pmk-zrange::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%; background: var(--pmk-primary); border: 1px solid var(--pmk-primary-hover); }
       .pm .pmk-zrange::-moz-range-track { height: 4px; border-radius: 999px; background: var(--pmk-sec-border); }
       .pm .pmk-zrange::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--pmk-primary); border: 1px solid var(--pmk-primary-hover); }
-      .pm .pmk-znum { width: 56px; min-height: var(--pmk-h-sm); padding: 0 6px; border: 1px solid var(--pmk-sec-border); border-radius: var(--pmk-radius); background: var(--pmk-sec-bg); color: var(--pmk-ink); font: inherit; font-size: 12px; text-align: right; }
+      .pm .pmk-znum { width: 56px; min-height: var(--pmk-h-sm); padding: 0 6px; border: 1px solid var(--pmk-sec-border); border-radius: var(--pmk-radius); background: var(--pmk-sec-bg); color: var(--pmk-ink); font: inherit; font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
       .pm .pmk-tabs { display: flex; flex-wrap: wrap; }
-      .pm .pmk-tab { flex: 1; min-height: 40px; padding: 0 10px; background: none; border: 0; border-bottom: 3px solid transparent; color: var(--pmk-tab-ink); font-size: 14px; }
+      .pm .pmk-tab { flex: 1; min-height: 40px; padding: 0 10px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--pmk-tab-ink); font-size: 13px; }
       .pm .pmk-tab:hover { color: var(--pmk-ink); }
       .pm .pmk-tab.on { color: var(--pmk-ink); font-weight: bold; border-bottom-color: var(--pmk-tab-on); }
-      /* 눌림 반응 — 칩·탭·카드·아이콘도 누르는 순간 살짝 눌린다(버튼과 같은 감각). */
-      .pm .pmk-chip, .pm .pmk-person, .pm .pmk-tab, .pm .pmk-icon, .pm .pmk-card { transition: transform .12s, background .12s, border-color .12s, color .12s; }
-      .pm .pmk-chip:active:not(:disabled), .pm .pmk-person:active:not(:disabled), .pm .pmk-icon:active:not(:disabled) { transform: scale(.96); }
-      .pm .pmk-card:active:not(:disabled) { transform: scale(.985); }
+      /* 상태 전환 — 1px 구조선 기반 */
+      .pm .pmk-chip, .pm .pmk-person, .pm .pmk-tab, .pm .pmk-icon, .pm .pmk-card { transition: background .12s, border-color .12s, color .12s; }
       .pm .pmk-tab:hover { border-bottom-color: var(--pmk-sec-border); }
       .pm .pmk-tab.on:hover { border-bottom-color: var(--pmk-tab-on); }
       /* 진행 중 — 버튼 안 돌림 표시(글자는 그대로 두어 폭이 흔들리지 않는다) */
@@ -191,9 +188,9 @@ export function PmUiStyles() {
       /* 불러오는 중 뼈대 */
       .pm .pmk-skel { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
       .pm .pmk-skel-card { padding: 16px; border-radius: var(--pmk-radius); background: var(--pmk-sec-bg); border: 1px solid var(--pmk-sec-border); }
-      .pm .pmk-skel-line { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--pmk-chip-bg) 25%, var(--pmk-sec-border) 37%, var(--pmk-chip-bg) 63%); background-size: 400% 100%; animation: pmk-skel 1.4s ease infinite; }
+      .pm .pmk-skel-line { display: block; height: 12px; border-radius: 4px; background: var(--pmk-chip-bg); animation: pmk-skel 1.4s ease-in-out infinite; }
       .pm .pmk-skel-line:first-child { height: 16px; }
-      @keyframes pmk-skel { from { background-position: 100% 50%; } to { background-position: 0 50%; } }
+      @keyframes pmk-skel { 0%, 100% { opacity: .45; } 50% { opacity: .9; } }
       @media (prefers-reduced-motion: reduce) {
         .pm .pmk-skel-line, .pm .pmk-spin { animation: none; }
         .pm .pmk-btn, .pm .pmk-chip, .pm .pmk-person, .pm .pmk-tab, .pm .pmk-icon, .pm .pmk-card { transition: none; }

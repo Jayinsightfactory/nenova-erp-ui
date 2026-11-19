@@ -150,22 +150,22 @@ export default function StaffRequests({ open, onClose,startWriting=false,focusId
       </aside>
       <style jsx global>{`
         .pm .srq-back { position: fixed; inset: 0; z-index: 60; background: color-mix(in srgb, var(--pm-ink) 35%, transparent); display: flex; justify-content: flex-end; }
-        .pm .srq { width: min(560px, 100%); height: 100%; overflow-y: auto; background: var(--pm-surface); color: var(--pm-ink); border-left: 3px solid var(--pm-line); padding: 14px 16px 24px; box-sizing: border-box; }
-        .pm .srq-top { display: flex; align-items: flex-start; gap: 8px; } .pm .srq-top h2 { margin: 0; font-size: 18px; white-space: nowrap; } .pm .srq-top .srq-muted { flex: 1; }
-        .pm .srq-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
-        .pm .srq-muted { color: var(--pm-muted); font-size: 12px; }
+        .pm .srq { width: min(560px, 100%); height: 100%; overflow-y: auto; background: var(--pm-surface); color: var(--pm-ink); border-left: 1px solid var(--pm-line); padding: 14px 16px 24px; box-sizing: border-box; font-variant-numeric: tabular-nums; }
+        .pm .srq-top { display: flex; align-items: flex-start; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--pm-line); } .pm .srq-top h2 { margin: 0; font-size: 16px; white-space: nowrap; } .pm .srq-top .srq-muted { flex: 1; }
+        .pm .srq-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+        .pm .srq-muted { color: var(--pm-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
         .pm .srq-err { color: var(--pm-err); font-size: 13px; }
         .pm .srq-form { background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 10px; margin: 8px 0; }
         .pm .srq-in { width: 100%; box-sizing: border-box; margin: 4px 0; padding: 7px 9px; font: inherit; font-size: 13px; color: var(--pm-ink); background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); }
         .pm .srq-row .srq-in { flex: 1; min-width: 140px; width: auto; } .pm .srq-sel { flex: 0 0 auto !important; min-width: 0 !important; }
         .pm .srq-file { font-size: 12px; color: var(--pm-muted); } .pm .srq-thumb { max-height: 60px; border-radius: var(--pm-radius); border: 1px solid var(--pm-line); }
-        .pm .srq-list { list-style: none; padding: 0; margin: 8px 0; }
-        .pm .srq-post { border: 1px solid var(--pm-line); border-radius: var(--pm-radius); background: var(--pm-surface2); padding: 8px 10px; margin-bottom: 8px; }
-        .pm .srq-post.st-needs-human { border-color: var(--pm-err); }
+        .pm .srq-list { list-style: none; padding: 0; margin: 8px 0; border-top: 1px solid var(--pm-line); }
+        .pm .srq-post { border-bottom: 1px solid var(--pm-line); background: var(--pm-surface); padding: 10px 4px; }
+        .pm .srq-post.st-needs-human { border-left: 2px solid var(--pm-err); padding-left: 8px; }
         .pm .srq-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .pm .srq-cat { font-size: 11px; color: var(--pm-muted); border: 1px solid var(--pm-line); border-radius: 999px; padding: 0 6px; }
+        .pm .srq-cat { font-size: 11px; color: var(--pm-muted); border: 1px solid var(--pm-line); border-radius: 4px; padding: 0 6px; }
         .pm .srq-title { font-weight: bold; text-align: left; padding: 0 4px; }
-        .pm .srq-answer { margin-top: 6px; font-size: 13px; background: var(--pm-surface); border-left: 3px solid var(--pm-accent); padding: 6px 8px; white-space: pre-wrap; }
+        .pm .srq-answer { margin-top: 6px; font-size: 13px; background: var(--pm-surface2); border-left: 2px solid var(--pm-accent); padding: 6px 8px; white-space: pre-wrap; }
         .pm .srq-body { white-space: pre-wrap; font-size: 13px; margin: 6px 0; }
         .pm .srq-shot { max-width: 100%; max-height: 240px; border: 1px solid var(--pm-line); border-radius: var(--pm-radius); }
         .pm .srq-log { margin: 6px 0; padding-left: 18px; font-size: 12px; } .pm .srq-log li { margin: 2px 0; }

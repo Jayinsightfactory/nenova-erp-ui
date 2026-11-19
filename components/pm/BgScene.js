@@ -275,8 +275,8 @@ export const BG_CSS = `${FX_CSS}
 .pm .bg-host.zoomed { cursor: grab; touch-action: none; }
 .pm .bg-host:focus-visible { outline: 3px solid var(--pm-accent2); outline-offset: 2px; }
 .pm .bg-zoom { position: absolute; inset: 0; transform-origin: 0 0; }
-.pm .bg-zbar { position: absolute; right: 10px; bottom: 10px; z-index: 20; display: flex; gap: 4px; align-items: center; padding: 4px 6px; border-radius: 999px; background: color-mix(in srgb, var(--pm-surface) 90%, transparent); border: 1px solid var(--pm-line); box-shadow: var(--pm-shadow); }
-.pm .bg-zbar small { min-width: 38px; text-align: center; color: var(--pm-ink); }
+.pm .bg-zbar { position: absolute; right: 10px; bottom: 10px; z-index: 20; display: flex; gap: 4px; align-items: center; padding: 4px 6px; border-radius: var(--pm-radius); background: var(--pm-surface); border: 1px solid var(--pm-line); }
+.pm .bg-zbar small { min-width: 38px; text-align: center; color: var(--pm-ink); font-variant-numeric: tabular-nums; }
 .pm .bg-lq { position: absolute; inset: 0; background-size: cover; background-position: center; filter: blur(14px); transform: scale(1.06); }
 .pm .bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity .35s ease; user-select: none; -webkit-user-drag: none; }
 .pm .bg-img.on { opacity: 1; }
@@ -287,24 +287,24 @@ export const BG_CSS = `${FX_CSS}
 .pm .bg-glow { fill: none; stroke: var(--pm-surface); stroke-width: 7; stroke-linecap: round; opacity: .55; }
 .pm .bg-rec { fill: none; stroke-width: 1.6; stroke-linecap: round; opacity: .45; stroke-dasharray: 4 6; }
 .pm .bg-dot { fill: var(--pm-link); stroke: var(--pm-surface); stroke-width: 1.5; }
-.pm .bg-zl { position: absolute; transform: translate(-50%, -50%) scale(var(--iz, 1)); white-space: nowrap; font-size: 11px; font-weight: 700; padding: 1px 9px; border-radius: 999px; background: color-mix(in srgb, var(--pm-plate) 88%, transparent); color: var(--pm-plate-ink); border: 1px solid var(--pm-line); box-shadow: var(--pm-shadow); pointer-events: none; opacity: .92; z-index: 2; }
+.pm .bg-zl { position: absolute; transform: translate(-50%, -50%) scale(var(--iz, 1)); white-space: nowrap; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; background: var(--pm-plate); color: var(--pm-plate-ink); border: 1px solid var(--pm-line); pointer-events: none; opacity: .95; z-index: 2; }
 .pm .bg-zl small { color: inherit; opacity: .7; }
-.pm .bg-sl { position: absolute; transform: translate(-50%, -50%) scale(var(--iz, 1)); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font: inherit; font-size: 12px; font-weight: 800; padding: 3px 11px 3px 4px; border-radius: 999px; background: color-mix(in srgb, var(--sc) 16%, var(--pm-plate)); color: var(--pm-plate-ink); border: 1.5px solid color-mix(in srgb, var(--sc) 55%, var(--pm-plate)); box-shadow: var(--pm-shadow); cursor: pointer; z-index: 3; }
-.pm .bg-sl i { font-style: normal; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--sc); color: var(--pm-accent-ink); font-size: 11px; }
-.pm .bg-sl small { font-size: 10px; margin-left: 2px; color: inherit; opacity: .75; }
+.pm .bg-sl { position: absolute; transform: translate(-50%, -50%) scale(var(--iz, 1)); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font: inherit; font-size: 12px; font-weight: 700; padding: 3px 10px 3px 4px; border-radius: 4px; background: color-mix(in srgb, var(--sc) 14%, var(--pm-plate)); color: var(--pm-plate-ink); border: 1px solid color-mix(in srgb, var(--sc) 55%, var(--pm-plate)); cursor: pointer; z-index: 3; }
+.pm .bg-sl i { font-style: normal; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; background: var(--sc); color: var(--pm-accent-ink); font-size: 11px; font-variant-numeric: tabular-nums; }
+.pm .bg-sl small { font-size: 10px; margin-left: 2px; color: inherit; opacity: .75; font-variant-numeric: tabular-nums; }
 .pm .bg-sl.on, .pm .bg-sl:hover, .pm .bg-sl:focus-visible { background: var(--sc); color: var(--pm-accent-ink); outline: none; }
-.pm .bg-host .iso-nm, .pm .bg-host .iso-chip, .pm .bg-zl { box-shadow: 0 3px 8px color-mix(in srgb, var(--pm-ink) 14%, transparent), 0 1px 2px color-mix(in srgb, var(--pm-ink) 10%, transparent); border-width: 1px; }
-.pm .bg-host .iso-chip { background: color-mix(in srgb, var(--pm-link) 82%, var(--pm-surface)); }
+.pm .bg-host .iso-nm, .pm .bg-host .iso-chip, .pm .bg-zl { border-width: 1px; }
+.pm .bg-host .iso-chip { background: var(--pm-link); }
 .pm .bg-nm { transform: translate(-50%, -50%) scale(var(--iz, 1)); transform-origin: 50% 50%; z-index: 4; pointer-events: none; }
 .pm .bg-chip { transform: translate(-50%, -50%) scale(var(--iz, 1)); pointer-events: none; cursor: default; z-index: 5; }
-.pm .bg-ch { position: absolute; transform: translate(-50%, -100%); background: none; border: 0; padding: 0; cursor: pointer; line-height: 0; z-index: 8; filter: drop-shadow(0 2px 2px color-mix(in srgb, var(--pm-ink) 30%, transparent)); }
+.pm .bg-ch { position: absolute; transform: translate(-50%, -100%); background: none; border: 0; padding: 0; cursor: pointer; line-height: 0; z-index: 8; }
 .pm .bg-ch::before { content: ''; position: absolute; left: 50%; top: 55%; width: 130%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; }
 .pm .bg-ch > svg, .pm .bg-ch > .iso-av { position: relative; width: clamp(30px, 4.6cqw, 72px) !important; height: clamp(30px, 4.6cqw, 72px) !important; }
 .pm .bg-ch.bot > svg { width: clamp(26px, 3.6cqw, 56px) !important; height: clamp(26px, 3.6cqw, 56px) !important; }
-.pm .bg-ch:hover > svg, .pm .bg-ch:hover > .iso-av { filter: drop-shadow(0 0 4px var(--pm-accent)); }
-.pm .bg-ch:focus-visible { outline: 3px solid var(--pm-accent2); border-radius: 8px; }
-.pm .bg-ch.st-off { filter: saturate(.45) drop-shadow(0 2px 2px color-mix(in srgb, var(--pm-ink) 25%, transparent)); }
-.pm .bg-legend { position: absolute; left: 10px; bottom: 10px; z-index: 20; display: flex; gap: 10px; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 11px; color: var(--pm-ink); background: color-mix(in srgb, var(--pm-surface) 90%, transparent); border: 1px solid var(--pm-line); box-shadow: var(--pm-shadow); }
+.pm .bg-ch:hover > svg, .pm .bg-ch:hover > .iso-av { opacity: .9; }
+.pm .bg-ch:focus-visible { outline: 2px solid var(--pm-accent2); border-radius: 6px; }
+.pm .bg-ch.st-off { filter: saturate(.45); }
+.pm .bg-legend { position: absolute; left: 10px; bottom: 10px; z-index: 20; display: flex; gap: 10px; align-items: center; padding: 4px 10px; border-radius: var(--pm-radius); font-size: 11px; color: var(--pm-ink); background: var(--pm-surface); border: 1px solid var(--pm-line); }
 .pm .bg-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
 .pm .bg-legend .w { background: var(--pm-ok); } .pm .bg-legend .d { background: var(--pm-idle); } .pm .bg-legend .o { background: var(--pm-off-ink); }
 .pm .bg-ch.st-working > svg, .pm .bg-ch.st-working > .iso-av { animation: isoBob 1.6s ease-in-out infinite; }
@@ -312,8 +312,8 @@ export const BG_CSS = `${FX_CSS}
 .pm .bg-seat { position: absolute; inset: 0; pointer-events: none; }
 .pm .bg-seat img { pointer-events: none; user-select: none; }
 .pm .bg-mask { position: absolute; display: block; pointer-events: none; background-repeat: no-repeat; }
-.pm .bg-ico { position: absolute; transform: translateX(-50%); object-fit: contain; filter: drop-shadow(0 1px 1px color-mix(in srgb, var(--pm-ink) 25%, transparent)); }
-.pm .bg-rugband { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--pm-accent) 30%, transparent), transparent); pointer-events: none; }
+.pm .bg-ico { position: absolute; transform: translateX(-50%); object-fit: contain; }
+.pm .bg-rugband { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; background: color-mix(in srgb, var(--pm-accent) 16%, transparent); border: 1px dashed color-mix(in srgb, var(--pm-accent) 40%, transparent); pointer-events: none; }
 .pm .bg-seat.st-off { filter: saturate(.55); }
 .pm .bg-hit { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; cursor: pointer; z-index: 900; outline: none; }
 .pm .bg-hit:focus-visible { outline: 3px solid var(--pm-accent2); }
