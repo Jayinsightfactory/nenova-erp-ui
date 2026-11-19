@@ -266,6 +266,71 @@ async function verifyHomeBridge(contents) {
   console.log('Smoke: home IPC fixed route, owner, date, create/complete/read and conflict');
 }
 
+async function verifyFlightRefreshOnRestore(contents) {
+  const readCount = () => fixtureRequests.filter(r => r.pathname === '/api/import/flight-board' && r.method === 'GET').length;
+  await contents.executeJavaScript(`(() => {
+    const realNow = Date.now, realSet = window.setTimeout, realClear = window.clearTimeout;
+    let now = realNow(), hidden = false, id = 0;
+    const timers = new Map();
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    Date.now = () => now;
+    window.setTimeout = (fn, ms, ...args) => {
+      if (ms !== 300000) return realSet(fn, ms, ...args);
+      timers.set(--id, { fn, at: now + ms });
+      return id;
+    };
+    window.clearTimeout = (timer) => timer < 0 ? timers.delete(timer) : realClear(timer);
+    const visibility = (value) => {
+      hidden = value;
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+    window.__flightClock = {
+      visibility,
+      advance(ms) {
+        now += ms;
+        for (const [key, entry] of timers) {
+          if (entry.at > now) continue;
+          timers.delete(key);
+          entry.fn();
+        }
+      },
+      restore() {
+        visibility(true);
+        delete document.hidden;
+        Date.now = realNow;
+        window.setTimeout = realSet;
+        window.clearTimeout = realClear;
+        delete window.__flightClock;
+      },
+    };
+  })()`);
+  try {
+    await waitFor(() => contents.executeJavaScript("!document.querySelector('#flightBoard .workspace-refresh').disabled"), 'initial flight read is settled');
+    const start = readCount();
+    await contents.executeJavaScript('window.flightBoard.reload()');
+    const before = readCount();
+    assert.equal(before, start + 1, 'visible native flight panel reads and starts its polling clock');
+    await contents.executeJavaScript('__flightClock.visibility(true); __flightClock.advance(301000)');
+    assert.equal(readCount(), before, 'no flight read while minimized');
+    const immediatelyStarted = await contents.executeJavaScript(`(() => {
+      __flightClock.visibility(false);
+      const reading = document.querySelector('#flightBoard .workspace-refresh').disabled;
+      __flightClock.visibility(false);
+      void window.flightBoard.reload();
+      return reading;
+    })()`);
+    assert.equal(immediatelyStarted, true, 'restore starts the overdue read before a manual action');
+    await waitFor(() => readCount() >= before + 1, 'overdue flight read when the window returns');
+    await waitFor(() => contents.executeJavaScript("!document.querySelector('#flightBoard .workspace-refresh').disabled"), 'restored flight read is settled');
+    assert.equal(readCount(), before + 1, 'resume and manual events share one in-flight read');
+    await contents.executeJavaScript('__flightClock.advance(300000)');
+    await waitFor(() => readCount() >= before + 2, 'the next regular flight read still runs');
+    assert.equal(readCount(), before + 2);
+  } finally {
+    await contents.executeJavaScript('__flightClock.restore(); window.flightBoard.reload()');
+  }
+}
+
 async function verifyHomeUi(contents, window) {
   const previousActive = window.activeId;
   main.command(window, 'menu', { open: true });
@@ -474,6 +539,10 @@ async function run() {
   await waitFor(() => shellContents.executeJavaScript("document.querySelector('[data-flight-select]')?.textContent.includes('콜롬비아 수국 47-1') === true"), 'flight card displays the API cargo title');
   await waitFor(() => shellContents.executeJavaScript("document.body.textContent.includes('도착 후 확인') && [...document.querySelectorAll('svg [role=button]')].some(n => n.getAttribute('aria-label')?.includes('K4254'))"), 'current flight marker and post-arrival work are shown');
   assert.equal(await shellContents.executeJavaScript("[...document.querySelectorAll('svg [role=button]')].some(n => n.getAttribute('aria-label')?.includes('KE048'))"), false, 'registered arrival with open work has no map marker');
+  const homeWasOpen = sourceWindow.menuOpen;
+  await main.command(sourceWindow, 'menu', { open: true });
+  try { await verifyFlightRefreshOnRestore(shellContents); }
+  finally { await main.command(sourceWindow, 'menu', { open: homeWasOpen }); }
   for (const [phase, label, disabled] of [['available', '앱 1.4.0 다운로드', false], ['downloading', '다운로드 42%', true], ['downloaded', '재시작하여 업데이트', false], ['unavailable', '앱 업데이트 확인', true]]) {
     // Account and tab events also publish state. Capture this fixture render when it arrives.
     await shellContents.executeJavaScript(`(() => {
