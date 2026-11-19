@@ -24,6 +24,7 @@ import { isOrbitReportViewer } from '../lib/orbitReportAccess';
 import { staffOfUser } from '../lib/pmAccount';
 import { PM_ROSTER } from '../lib/pmRoster';
 import StaffRequests, { StaffRequestsButton } from '../components/pm/StaffRequests';
+import PmPurposeTraceBoard, { PmPurposeBanner, PM_TRACE_CSS } from '../components/pm/PmPurposeTraceBoard';
 import dynamic from 'next/dynamic';
 const Scene3D = dynamic(() => import('../components/pm3d/Scene3D'), { ssr: false, loading: () => <p className="muted">3D 장면 불러오는 중…</p> });
 
@@ -710,30 +711,37 @@ function FeatureCandidatesPanel({ ts }) {
   );
 }
 
-function TasksLedgerPanel({ tasks, grouped, other }) {
+// 과제 선택 키: 같은 key 가 여러 줄이면 첫 줄. 선택하면 맨 위 목적 배너와 트레이스 도면이 그 과제 기준으로 바뀐다.
+const taskSelKey = (t) => `${t?.key || ''}|${t?.msg || ''}`;
+function TasksLedgerPanel({ tasks, grouped, other, selKey = '', onSelect }) {
   const sections = [...grouped, { key: 'other', label: '기타', items: other }].filter((g) => g.items.length);
   return (
     <section className="panel ledger-panel">
       <div className="panel-h">
         <h2>PM 업무 대장 · 오류 큐 <small className="tnum">{tasks.length}건</small></h2>
-        <span className="muted">승인·지연·오류 원장</span>
+        <span className="muted">{onSelect ? '과제를 누르면 맨 위 목적·도면이 그 과제로 바뀝니다' : '승인·지연·오류 원장'}</span>
       </div>
       {sections.map((g) => (
         <div key={g.key} className="tg">
           <h3 className={`tg-${g.key}`}>{g.label} <small className="tnum">{g.items.length}</small></h3>
           <div className="ledger-rows">
-            {g.items.map((t, i) => (
-              <div key={(t.key || '') + i} className={`ledger-row tg-row-${g.key}`}>
-                <div className="lr-top">
-                  <b className="tk">{t.key || '작업'}</b>
-                  {t.state && <span className={`chip ${/escalat|err|fail|승인/i.test(t.state) ? 'chip-error' : 'chip-off'}`}>{t.state}</span>}
-                  {t.days != null && <span className="days tnum">{t.days}일</span>}
-                  {t.owner && <span className="lr-owner">{t.owner}</span>}
-                </div>
-                {t.msg && <div className="lr-msg">{t.msg}</div>}
-                {t.decision && <div className="dec">조치: {t.decision}</div>}
-              </div>
-            ))}
+            {g.items.map((t, i) => {
+              const k = taskSelKey(t);
+              const on = !!selKey && selKey === k;
+              return (
+                <SelectCard key={(t.key || '') + i} className={`ledger-row tg-row-${g.key}`} on={on} pressed={onSelect ? on : undefined}
+                  data-task-key={t.key || ''} onClick={onSelect ? () => onSelect(on ? '' : k) : undefined}>
+                  <span className="lr-top">
+                    <b className="tk">{t.key || '작업'}</b>
+                    {t.state && <span className={`chip ${/escalat|err|fail|승인/i.test(t.state) ? 'chip-error' : 'chip-off'}`}>{t.state}</span>}
+                    {t.days != null && <span className="days tnum">{t.days}일</span>}
+                    {t.owner && <span className="lr-owner">{t.owner}</span>}
+                  </span>
+                  {t.msg && <span className="lr-msg">{t.msg}</span>}
+                  {t.decision && <span className="dec">조치: {t.decision}</span>}
+                </SelectCard>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -862,6 +870,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
   const pmTheme = usePmThemeState(myStaff || '');
   const [reqOpen, setReqOpen] = useState(!!requestMode);
   const [pmOpen, setPmOpen] = useState(false);
+  const [selTaskKey, setSelTaskKey] = useState('');
   // 새로 연 PM 탭은 항상 일반 관제 화면. 게임은 이 화면에서 직접 켤 때만 렌더링한다.
   const [gameEnabled, setGameEnabled] = useState(false);
   const floorRef = useRef(null);
@@ -943,6 +952,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
   const errorAgents = agents.filter((a) => a.status === 'error').length;
   const issueTasks = tasks.filter((t) => /escalat|err|fail|승인|3일/i.test(`${t.state || ''} ${t.msg || ''}`) || Number(t.days) >= 3).length;
   const alertCount = errorAgents + issueTasks;
+  const selectedTask = selTaskKey ? tasks.find((t) => taskSelKey(t) === selTaskKey) || null : null;
 
   return (
     <PmThemeCtx.Provider value={pmTheme.ctx}>
@@ -966,6 +976,9 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
           {gameEnabled && <ThemePicker value={pmTheme.themeId} onChange={pmTheme.pick} />}
         </div>
       </header>
+      <style dangerouslySetInnerHTML={{ __html: PM_TRACE_CSS }} />
+      <PmPurposeBanner task={selectedTask} tasks={tasks} unresolvedCount={unresolved.length} onClear={() => setSelTaskKey('')} />
+      {!gameEnabled && <PmPurposeTraceBoard tasks={tasks} task={selectedTask} reduced={reduced} />}
       <ControlGuide />
       <StaffRequests startWriting={requestMode==='new'} focusId={requestFocus} open={reqOpen} onClose={() => setReqOpen(false)} />
       {pmOpen && <PmPopover pmAgent={pmAgent} detail={d.pmDetail} tasks={tasks} now={now} onClose={() => setPmOpen(false)}
@@ -1033,7 +1046,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
               })}</div>
               {!agents.length && <p className="muted">에이전트 없음</p>}
             </main>
-            <TasksLedgerPanel tasks={tasks} grouped={grouped} other={other} />
+            <TasksLedgerPanel tasks={tasks} grouped={grouped} other={other} selKey={selTaskKey} onSelect={setSelTaskKey} />
             <UnresolvedPanel unresolved={unresolved} board={board} now={now} />
           </div>
           <aside className="control-side" aria-label="작업로그·학습·목표">
@@ -1116,7 +1129,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
           <FeatureCandidatesPanel ts={ts} />
           <WorkLogPanel workLog={workLog} onOpenPerson={(n) => openPerson(n, 'log')} />
           <VisionPanel vision={d.vision} />
-          <TasksLedgerPanel tasks={tasks} grouped={grouped} other={other} />
+          <TasksLedgerPanel tasks={tasks} grouped={grouped} other={other} selKey={selTaskKey} onSelect={setSelTaskKey} />
           <PlaybookPanel playbooks={d.playbooks} />
           <UnresolvedPanel unresolved={unresolved} board={board} now={now} />
         </aside>
@@ -1204,8 +1217,9 @@ export default function PmOffice({ isAdmin = false, myStaff = null,requestMode=n
         .pm .tg-investigate { border-color: var(--pm-accent) !important; color: var(--pm-accent) !important; }
         .pm .tg-verify { border-color: var(--pm-ok) !important; color: var(--pm-ok) !important; }
         .pm .ledger-rows { border-top: 1px solid var(--pm-line); }
-        .pm .ledger-row { padding: 8px 10px; border-bottom: 1px solid var(--pm-line); border-left: 2px solid transparent; display: grid; gap: 3px; font-size: 12.5px; line-height: 1.45; }
+        .pm .ledger-row { width: 100%; margin: 0; padding: 8px 10px; background: transparent; color: inherit; text-align: left; border: 0; border-bottom: 1px solid var(--pm-line); border-left: 2px solid transparent; border-radius: 0; display: grid; gap: 3px; font-size: 12.5px; line-height: 1.45; }
         .pm .ledger-row:hover { background: var(--pm-surface2); }
+        .pm .ledger-rows .ledger-row.on { background: rgb(239, 246, 255); border-left: 3px solid rgb(37, 99, 235); }
         .pm .ledger-row.tg-row-approval { border-left-color: var(--pm-err); }
         .pm .ledger-row.tg-row-day3 { border-left-color: var(--pm-idle); }
         .pm .lr-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
