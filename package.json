@@ -14,7 +14,7 @@
     "test:product-bulk": "node __tests__/productColor.test.js && node __tests__/productMasterSave.test.js && node __tests__/productMasterUi.test.cjs && node __tests__/productBulkEdit.test.js && node __tests__/productBulkSave.test.js && node __tests__/productBulkUi.test.cjs && node __tests__/productCatalogFilter.test.js",
     "pretest:packing-team": "node --test __tests__/invoiceReceiptComparison.test.js __tests__/invoiceProductAllocation.test.js __tests__/packingNlRegression.test.js __tests__/packingSharedHistory.test.js __tests__/packingIssueReview.test.js __tests__/packingReceiptPreparation.test.cjs",
     "posttest:packing-team": "node --test __tests__/nativeReceiptCost.test.js __tests__/invoiceCostPreview.test.js __tests__/auOriginalCostInputs.test.js __tests__/invoiceCostOriginalRestoration.test.js __tests__/nlCostCustomerComparison.test.js __tests__/invoiceCostCellPresentation.test.js __tests__/invoiceCostSalesDefaults.test.js __tests__/invoiceCostCustomsReference.test.js __tests__/chinaSeaCbmReference.test.js",
-    "pretest:estimate-delete": "node --test __tests__/estimateLedgerAlerts.test.cjs __tests__/estimateDuplicateWriteGuard.test.js && node --test __tests__/estimateLedgerReview.test.cjs",
+    "pretest:estimate-delete": "npm run test:estimate-change-history && node --test __tests__/estimateLedgerAlerts.test.cjs __tests__/estimateDuplicateWriteGuard.test.js && node --test __tests__/estimateLedgerReview.test.cjs",
     "test:packing-team": "node --test __tests__/auAwbFlow.test.cjs __tests__/packingMatchManager.test.js __tests__/packingWorkDraft.test.js __tests__/packingSimilarRanking.test.js __tests__/packingTeamMatching.test.js __tests__/invoiceReceiptChinaAirCost.test.js __tests__/invoiceArrivalCostPanel.test.js __tests__/importChinaInvoice.test.js __tests__/invoiceReceiptWorkbench.test.js __tests__/invoiceCostOnlyWorkflow.test.js __tests__/invoiceWarehouseBrowse.test.js __tests__/packingReceiptMatchState.test.js __tests__/invoiceMatchAssist.test.js __tests__/codeOnlyDeployment.test.cjs",
     "test:invoice-receipt": "node --test __tests__/invoiceReceiptReconciliation.test.js",
     "test:manifest-farm": "node --test __tests__/packingManifestReconciliation.test.js __tests__/farmMasterRegistration.test.js __tests__/balverdeReceiptFieldRepair.test.js",
@@ -129,7 +129,8 @@
     "test:shipment-statement": "node --test __tests__/shipmentStatement.test.cjs __tests__/shipmentStatementStore.test.cjs __tests__/shipmentStatementApi.test.cjs __tests__/shipmentStatementSelection.test.cjs __tests__/shipmentStatementGroups.test.cjs __tests__/shipmentStatementLabels.test.cjs __tests__/shipmentStatementLabelEdit.test.cjs __tests__/shipmentStatementChanges.test.cjs",
     "test:shipment-farm-text": "node --test __tests__/shipmentFarmTextImport.test.cjs && node --test __tests__/shipmentFieldVolume.test.cjs",
     "test:calendar-settings": "node --test __tests__/calendarHolidayDetails.test.mjs __tests__/companyCalendar.test.js desktop/tests/company-calendar.test.cjs",
-    "test:import-flight-resolution": "node --test __tests__/importFlightResolution.test.js"
+    "test:import-flight-resolution": "node --test __tests__/importFlightResolution.test.js",
+    "test:estimate-change-history": "node --test __tests__/estimateChangeHistory.test.cjs __tests__/estimateChangeHistorySales.test.cjs __tests__/estimateChangeHistoryStore.test.cjs __tests__/estimateChangeHistoryWorkbook.test.cjs __tests__/estimateLedgerCalendar.test.cjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
