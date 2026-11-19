@@ -75,6 +75,13 @@
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build"
   ],
+  "presentation": {
+    "weekdayLayout": "One cultivar row; each weekday starts a new line within column C, retaining existing 7/10 customer wrapping.",
+    "routeHeading": "Column C beside weekday-region heading lists customer total(cultivar quantity,...), grouped by CustKey and ProdKey within date/region/unit.",
+    "previousSelection": "Cultivar breakdown includes previous only when includePrevious is not false; never substitutes farm assignment quantity.",
+    "palletBoxes": "Append source snapshot box quantity (up to six decimal places) beside rounded pallets; never reverse rounded pallets. Existing capacities and rose 10 / Snow Flake 25 bundle-to-box conversion preserved.",
+    "print": "Single worksheet, A3 landscape; original D/E/F/G values and remaining-stock formulas retained."
+  },
   "sourceSummary": {
     "identity": [
       "sheetName",

@@ -66,8 +66,8 @@ test('undated retained stock uses the same route in new and previously saved pal
   assert.equal(snapshot.hydrangea['["미지정","경부선주광"]'],37);
   const legacy={hydrangea:{'["미정","경부선주광"]':3}};
   assert.match(palletText(snapshot,'미지정','경부선주광'),/수국 0\.9/);
-  assert.match(palletText(addPalletSnapshots(legacy,snapshot),'미지정','경부선주광'),/수국 1 .* = 1빠렛/);
-  assert.match(palletText(snapshot,'목','경부선주광'),/수국 0 /);
+  assert.match(palletText(addPalletSnapshots(legacy,snapshot),'미지정','경부선주광'),/수국 1\(40\).* = 1빠렛/);
+  assert.match(palletText(snapshot,'목','경부선주광'),/수국 0\(0\)/);
 });
 test('archived selection reopens by year, replaces the same source and scopes saved export pallets', async t=>{
   const store=load('shipmentFieldSources'),f=await uploadFixture();
@@ -120,4 +120,37 @@ test('archived selection reopens by year, replaces the same source and scopes sa
   assert.match(b.worksheets[0].getCell('C3').text,/업체 3 \(아유라 3\)/);
   assert.match(b.worksheets[0].getCell('C6').text,/\(총 3\)/);
   await assert.rejects(store.selectedData(year,week,[{...selection[0],revision:'stale'}]),/저장 목록/);
+});
+
+test('weekday calendar lines and customer cultivar breakdown preserve selected quantities',async()=>{
+  const p=plan();p.products.push({prodKey:3,label:'문라이트',family:'carnation',unit:'박스',incoming:8,stock:0});
+  const entries=[
+    {date:'2026-11-13',region:'경부선',custKey:1,customer:'일신',product:p.products[0],current:2,previous:1,details:[]},
+    {date:'2026-11-15',region:'경부선',custKey:1,customer:'일신',product:p.products[0],current:4,previous:0,details:[]},
+    {date:'2026-11-15',region:'경부선',custKey:1,customer:'일신',product:p.products[1],current:5,previous:2,details:[]},
+    {date:'2026-11-15',region:'경부선',custKey:2,customer:'상희',product:p.products[1],current:1.5,previous:0,details:[]}
+  ];
+  for(const includePrevious of [true,false]){
+    p.includePrevious=includePrevious;
+    const wb=new ExcelJS.Workbook();await wb.xlsx.load(await api.renderFieldVolumeWorkbook(p,{entries,totals:p.products.map(x=>({...x,outgoing:6})),farms:new Map(),details:new Map(),lines:[]}));
+    const ws=wb.worksheets[0];assert.equal(wb.worksheets.length,1);
+    assert.match(ws.getCell('C3').text,/금요일[^\n]*\n일요일/);
+    assert.equal(ws.getColumn(1).values.filter(v=>v==='돈셀').length,1);
+    const header=ws.getColumn(1).values.findIndex(v=>v==='일요일 · 경부선');
+    assert.equal(ws.getCell(header,3).text,includePrevious?'일신11(돈셀4,문라이트7) / 상희1.5(문라이트1.5)':'일신9(돈셀4,문라이트5) / 상희1.5(문라이트1.5)');
+    assert.equal(ws.pageSetup.paperSize,8);assert.equal(ws.pageSetup.orientation,'landscape');
+    assert.equal(ws.getCell('G3').formula,'D3+F3-E3');
+  }
+});
+
+test('pallet text shows source boxes independently from rounded pallet counts',()=>{
+  const {palletText,palletSnapshot}=load('shipmentPallet'),XLSX=require('xlsx');
+  const key=JSON.stringify(['일','경부선']);
+  assert.match(palletText({carnation:{[key]:45}},'일','경부선',['carnation']),/카네이션 1\.1\(45\)/);
+  const ws=XLSX.utils.aoa_to_sheet([['','경부선'],['','일']]);
+  const rows=[{productFamily:'rose',sheetName:'rose',colNo:2,productLabel:'Mondial',uploadQty:10},{productFamily:'rose',sheetName:'rose',colNo:2,productLabel:'Snow Flake',uploadQty:25}];
+  const snapshot=palletSnapshot(XLSX,{Sheets:{rose:ws}},rows);
+  assert.equal(snapshot.rose[key],2);
+  assert.match(palletText(snapshot,'일','경부선',['rose']),/장미 0\.1\(2\)/);
+  assert.match(palletText({ruscus:{[key]:35}},'일','경부선',['ruscus']),/루스커스 1\(35\)/);
 });

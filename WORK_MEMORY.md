@@ -3814,3 +3814,12 @@ pm run test:canon 통과.
 - 검증: 대상14·전체ERP계약·dnSpy·manifest229·쓰기범위·정식webpack빌드·desktop73/Electron smoke 통과. 브라우저1920/1280/390·달력 방향키·Esc·실패·가이드 재생 통과. 가이드66.4초 한국어자막/목차/첫중끝프레임/해시 확인, Drive 영상1QqliZgJIwSizKXqmLGVv1CNC1SIuti7U/자막1_ETgzM-q9OXf833URfleGnM1njNkzljV. 운영 SELECT 신고이력3/판매스냅샷10/확정0, 쓰기0. 배포 후 스모크는 미검증.
 - 주의/잠금: acba 기존 dirty WORK_MEMORY.md·45차CSV 보존. 판매스냅샷은 차수 전체 기록이며 엑셀다운로드/이카운트입력 증거 아님. 현재45차 판매등록확정 미기록.
 - 검색어: 원장 연결 알림 달력 최초 현재 신고 판매등록 날짜 REG_CONFIRM 견적 변경 이력 양식 1.3.46
+
+## 2026-11-19 현장물량표 요일 세로·업체 품종 요약
+- 요약: 품종명1회·한 셀 유지, 요일마다 새 줄. 하단 요일·지역 제목 오른쪽 업체총량(품종수량,...) 추가. 빠렛 옆 스냅샷 실제 박스수, 단일시트 A3가로. 기존1차합산·환산·입출재잔 수식 보존, SQL/API/UI 조작 변경0.
+1. 작업 위치: nenova-erp-ui / codex/field-calendar-1119 / Documents/Codex/2026-11-13/new-chat/work/nw-calendar / PR 생성 후 CI·자동 squash·Cafe24 확인 예정.
+2. 완료된 것: lib/shipmentFieldVolume.js, lib/shipmentPallet.js, 표적검사·계약/기준표·세션Q&A 갱신. 기존 Layout 및 desktop/menu.json 연결 확인. 실제46-02 원본4종 XLSX/PDF와 ZIP은 outputs에 보존.
+3. 남은 할 일: PR CI·squash 머지·Cafe24 배포·운영 버전/다운로드 확인 후 작업트리 정리. 배포 결과는 PR/Actions가 정본.
+4. 검증 상태: 최종 표적34·전체 ERP계약·manifest229·dnSpy·쓰기guard·전체 workflow-guides·정식 webpack build PASS. 초기 격리셸 bash 초기화/빌드 EPERM은 정상권한 재검증으로 통과. 실제Excel 읽기전용 인쇄4종 모두A3가로1페이지 및 전체 시각확인. 운영SELECT-only2025/2026동일46-02 범위 확인. 운영쓰기0; 배포 후 실제운영 다운로드는 아직 미검증.
+5. 주의/잠금: 기본 checkout dirty 및 타 세션 작업트리 보존. 새메뉴/데스크톱패키지/영상 조작순서 변경 없음. 카네이션45박스=1.1빠렛(기존40박스 기준), 장미일반10/Snowflake25단 환산 그대로; 빠렛에서 박스 역산 금지.
+검색어: field-calendar 요일 세로 현장물량표 업체 품종요약 빠렛 박스 A3 landscape
