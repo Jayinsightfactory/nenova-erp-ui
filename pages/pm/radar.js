@@ -8,10 +8,12 @@ import { themeById, themeCss } from '../../lib/pmThemes';
 import { LOOK_CLEAR, lookClearCss } from '../../lib/pmLookClear';
 import { verifyReqUser } from '../../lib/auth';
 
-export async function getServerSideProps({ req, res, resolvedUrl }) {
+export async function getServerSideProps({ req, res, resolvedUrl, query }) {
   const user = await verifyReqUser(req, res);
   if (!user) return { redirect: { destination: '/login?next=' + encodeURIComponent(resolvedUrl || '/pm/radar'), permanent: false } };
-  return { props: {} };
+  const rawPlan = String(query?.plan || '').toUpperCase();
+  const initialPlanMode = ['A', 'B', 'C', 'ALL'].includes(rawPlan) ? rawPlan : 'A';
+  return { props: { initialPlanMode } };
 }
 
 const ACTIONS = ['바로 시험', '관찰', '참고'];
@@ -164,7 +166,7 @@ function SmallCard({ x, i }) {
   );
 }
 
-export default function TechRadar() {
+export default function TechRadar({ initialPlanMode = 'A' }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
   const [pageView, setPageView] = useState('workbench'); // 'workbench' | 'cards'
@@ -275,7 +277,7 @@ export default function TechRadar() {
             value={pageView}
             onChange={setPageView}
             items={[
-              ['workbench', '극좌표 · 매트릭스 · 도입 시뮬레이터'],
+              ['workbench', '시안 A·B·C · 3종 비교 시뮬레이터'],
               ['cards', '회차별 쉬운 해설 목록'],
             ]}
           />
@@ -315,8 +317,9 @@ export default function TechRadar() {
           isAdmin={false}
           mode="clear"
           standaloneUiStyles={false}
-          title="전 직원 기술 레이더 · 실설계 도입 시뮬레이터"
-          subtitle="4분면 극좌표 레이더 · 2×2 임팩트×준비도 매트릭스 · 원장 표에서 기술을 선택해 업무 파이프라인 도입 전/후 변화를 확인합니다."
+          initialPlanMode={initialPlanMode}
+          title="전 직원 기술 레이더 · 시안 A·B·C 라이브 시뮬레이터"
+          subtitle="시안 A(에디토리얼 레이더) · 시안 B(2×2 매트릭스·드로어) · 시안 C(카본 다크 콘솔) 및 3종 동시 비교 모드에서 도입 전/후 변화를 확인합니다."
         />
       )}
 

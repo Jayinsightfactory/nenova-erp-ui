@@ -3933,3 +3933,11 @@ pm run test:canon 통과.
 4. 검증 상태: `techRadarSimulator`, `pmTechRadar`, `adoptionRadar`, `solutionSuiteSimulator`, `archFlowChart`, `test:pm`, `test:pm-boundary`, `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes`, `test:erp-manifest`, `desktopBootstrap`, `desktop/tests/*`(74건), `npx next build --webpack` PASS; 실운영 브라우저 클릭·MSSQL 쓰기 0건(파일 전용 기능) 및 CI 런너 실행은 PR 생성 후 확인.
 5. 주의/잠금: `C:\Users\USER\nenovakakao` 읽기 전용 참조만 수행(수정·워커 실행 0건), `desktop/shell/shell.js` 가이드 해시 보존, `/pm` 컴포넌트 `#hex`/raw `<button>`/금지어 0건 유지.
 검색어: tech-radar adoption-ledger TechRadarWorkbench techRadarSimEngine nenovakakao moyi_worker mindmap_sink browser_session_bridge self_update PR50 Desktop1.3.54
+
+## 2026-11-19 · 도입·기술 레이더 시안 A·B·C + 3종 동시 비교 시뮬레이터 & 가브리엘 원가·이익 AGI
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/radar-abc-all-simulations` / `C:\Users\USER\nw-agy-abc-sim` (PR 생성·CI·squash 머지 후 정리 예정)
+2. 완료된 것: `lib/pmRadarPlanTokens.js` (시안 A 라이트 에디토리얼·시안 B 스위스 모노크롬·시안 C 매트 카본 다크 CSS 변수 토큰, `rgb/rgba` 전용 `#hex` 0건), `lib/pmTechRadarSim.js`·`lib/techRadarSimEngine.js` (`gabriel-import-profit-agi` 시나리오 · 6종 `SIM_PRESETS` · 4단계 파이프라인 게이트 `PIPELINE_STAGES` · 단계별 레이턴시/링크 메타), `components/pm/TechRadarWorkbench.js` (시안 `A` 44:56 레이더+원장+하단 6노드 · 시안 `B` 4칸 플랫 KPI+60% 매트릭스+40% 인스펙터 · 시안 `C` 카본 다크+키보드 `J/K/1/2/3/4/B/Space`+4단계 게이트+트레이스 콘솔+도메인별 원장 · `ALL` A·B·C 3종 동시 비교 마스터 컨트롤), `pages/pm/radar.js` (`?plan=A|B|C|ALL` 지원), `__tests__/techRadarSimulator.test.js` 확장.
+3. 남은 할 일: PR 생성, CI(`verify`·`installer`) 통과 확인, 최신 `origin/master` 병합 재확인 후 squash 머지 및 worktree/junction 정리.
+4. 검증 상태: `techRadarSimulator.test.js`, `pmTechRadar.test.js`, `adoptionRadar.test.js`, `test:pm` (`pmBoundary`·`pmUiKit`·`pmNoHexColor` 포함 전체), `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes`, `test:erp-manifest` (231건), 실 `tech-radar.json`(80건) A/B/C/ALL SSR 렌더, `npx next build --webpack` PASS; 실브라우저 수동 클릭·MSSQL 쓰기 0건(파일 전용)·PR CI 결과는 PR 생성 후 확인.
+5. 주의/잠금: 병렬 세션 `세션 G3`(`Layout.js`, `pages/my-work.js`, `desktop/menu.json`, `desktop/package.json`) 무충돌 경계 준수, `/pm` 컴포넌트 `#hex`/raw `<button>`/금지어(`감시`/`추적`/`모니터링`/`절감시간`)/이모지 0건 유지.
+검색어: TechRadarWorkbench pmRadarPlanTokens 시안A 시안B 시안C 동시비교 가브리엘AGI gabriel-import-profit-agi SIM_PRESETS 매트카본
