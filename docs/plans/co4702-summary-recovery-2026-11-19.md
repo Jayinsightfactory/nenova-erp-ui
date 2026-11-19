@@ -8,7 +8,7 @@
 
 저장응답 재검증은 paid 호출 없이 같은 검토화면으로 결과를 연결한다. 기존 버튼은 결과를 버리고 성공문구만 보여주던 문제를 함께 수정했다. country/file scope 변경 중 오래된 재검증은 적용하지 않는다.
 
-신규 기능이므로 최신 master의 Desktop1.3.48 다음 버전인 Desktop1.3.49 및 기존 /import/tools 메뉴·검색·즐겨찾기를 검증한다. 새 메뉴 복제 없음. 신규 packing-amount-review 가이드 및 PackingListTool 관련 기존 두 가이드 재촬영이 완료 조건이다. 아래의 최초안에 있는 'UI 변경 없음/영상 해당없음/특정원본 자동분리'는 현재 구현에 적용되지 않는다.
+신규 기능이므로 최신 master의 Desktop1.3.49 다음 버전인 Desktop1.3.50 및 기존 /import/tools 메뉴·검색·즐겨찾기를 검증한다. 새 메뉴 복제 없음. 신규 packing-amount-review 가이드 및 PackingListTool 관련 기존 두 가이드 재촬영이 완료 조건이다. 아래의 최초안에 있는 'UI 변경 없음/영상 해당없음/특정원본 자동분리'는 현재 구현에 적용되지 않는다.
 
 ## 확인 근거
 

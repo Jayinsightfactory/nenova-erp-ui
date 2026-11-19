@@ -3847,3 +3847,11 @@ pm run test:canon 통과.
 3. 남은 할 일: 통합후최종ERP/dnSpy/manifest/write/build/desktop smoke/player, Drive기존영상백업검증, PR CI squash와운영·릴리스검증. 직원own계정원응답재검증 미완료.
 4. 검증 상태: 격리검토dry/mobile/keyboard 및실제CUA조작PASS(provider0/prod0), source/adapter24PASS, hardening81PASS1skip, ownerdraft9PASS, desktop73PASS·실Electron smokePASS(통합전). 두 임시Next buildPASS. 통합후최종검사는아직미검증.
 5. 주의/잠금: 운영DB쓰기·유료재분석·타계정job범위우회없음. sourcePDF/직원raw응답git금지. junction대상삭제금지. 가이드신규Drive mp4 1M5EQ0HFhktIanNLe2C5IenpEvUeT8MKG/vtt11NbxzmnSWcdA2UHKSldp15SqfSEl5NQQ/proof1kkRcncqMRhdAvnzRrEVLsSPQsAPkf8MH,최종덮어쓰기완료(독립메타데이터재확인예정).
+
+## 2026-11-19 · 원본 대조 PR1861 최종 게이트와 Desktop 버전 충돌 보존
+검색어: co4702-summary PR1861 Desktop1.3.50 18065 원본대조
+1. 작업 위치: fix/co4702-summary-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co4702-summary-1119 / PR1861. 최신origin b3a59f88 병합해 비행기 제목 변경 보존, 타작업 Desktop49 draft를 건드리지 않고 이번 버전50으로 분리.
+2. 완료된 것: ERP 전체·dnSpy·manifest230·write1API·최종Next build 및 Desktop74단위/실Electron 검색·열기·즐겨찾기 smoke PASS(0055590e 통합 기준). 실제MP4 세편 플레이어 키보드/자막/목차/다운로드/1920·390px 모두PASS. 최종영상 처음/중간/끝 시각확인, Drive9파일 업로드 후 독립크기 재조회일치. 외부 실제CUA 수정전/입력65/수정후 스크린샷 보존.
+3. 남은 할 일: b3a59f88 통합 변경 대상 검사·Desktop50 CI·최종빌드 확인 후 PR ready/CI전부통과 squash, Cafe24 정확SHA 또는 포함successor 배포·운영읽기전용UI, Desktop50 검증릴리스 및 merged worktree 링크만 해제 후 정리. 최종결과는 PR댓글에 기록해 docs만 재배포하지 않는다.
+4. 검증 상태: 직원 계정의 실제 저장원응답 무료재검증과 전체송장 입고성공은 미검증. 원본PDF와 오류는 실제운영읽기전용 확인, 수정UI·수량금액0차이·초안·회귀는 격리fixture검증. 새 유료호출/운영ERP쓰기/직원앱설치0.
+5. 주의/잠금: 다른Desktop49 draft/기존자산 덮어쓰기 금지. 이전 nw-cdx-receipt-presave-1118 감사작업 보존, OrderCode사전검증/농장별칭/문제로그확장 구현완료 주장금지(설계만). 원본민감PDF·직원raw응답 커밋금지. node_modules junction은 대상삭제 없이 링크만 정리.
