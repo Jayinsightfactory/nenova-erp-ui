@@ -91,7 +91,7 @@
   ],
   "presentation": {
     "menu": "수입 비행기 현황",
-    "issues": "No standalone issue table. Exact full-flight identity joins issues into each flight card. Urgent active flights first; registered flights collapsed.",
+    "issues": "No standalone issue table. Exact full-flight identity joins issues into each flight card. Urgent current flights first. The map and map-only dialog show departure-pending and in-flight statuses only. Arrival verification and post-arrival tasks remain separately visible. Registered flights without linked issues are collapsed.",
     "details": "Shared numbered map markers and cards; keyboard selection highlights route and expands the matching card. Unknown location is not invented. Compact defaults show cargo, completed-step count, quarantine deadline and first two actions. Expanded cards retain all issues, waybill, work steps and evidence. Card titles show country, deduplicated flower groups from the exact AWB, arrival year and sub-week receipt or parsed flight notice, and sub-week. Expanded cards expose any abbreviated list. Registered receipt quantities and reviewed invoice revision quantities retain their separate sources and units.",
     "sideEffects": "Kakao original-message resolution, conservative airport-date matching and display only. Existing warehouse SELECT and explicit docs flag unchanged. All ERP ledgers preserved.",
     "scheduledCheck": "Codex thread automation automation-2, daily 09/12/15/18 Asia/Seoul including weekends; linked-page results reported in chat, not written to ERP.",

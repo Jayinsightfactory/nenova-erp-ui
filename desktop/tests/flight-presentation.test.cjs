@@ -48,3 +48,10 @@ test('compact actions retain issue-specific instructions and unknown issue facts
   assert.equal(compactIssue({text:'검역증·인보이스 수량 대조 필요 (11/17 18:03)'}), '인보이스·검역증 수량과 정정본 확인');
   assert.equal(compactIssue({text:'편명 아직 없음'}), '편명 아직 없음');
 });
+
+test('the current-flight map excludes arrivals and registered arrivals with open issues', () => {
+  const { onFlightMap, afterArrival } = require('../shell/flight-board');
+  const rows = ['before_departure', 'in_flight', 'awaiting_awb', 'arrived', 'registered', 'unknown'].map(status => ({ status, flightIssues: [{ level: 'red' }]}));
+  assert.deepEqual(rows.filter(onFlightMap).map(f => f.status), ['before_departure', 'in_flight']);
+  assert.deepEqual(rows.filter(afterArrival).map(f => f.status), ['arrived', 'registered']);
+});

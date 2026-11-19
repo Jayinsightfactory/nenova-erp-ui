@@ -20,6 +20,8 @@ const flightPresentation = (() => {
       .replace('서류 전달 표시 없음', '서류 전달 미확인');
   }
   // Identity is the full flight key (including year) or its desktop hash, never the flight number alone.
+  const afterArrival = f => ['arrived', 'registered'].includes(f.status);
+  const onFlightMap = f => ['before_departure', 'in_flight'].includes(f.status);
   function linkedFlights(flights, rows) {
     const issues = issueRows(rows);
     return (flights || []).map((f, index) => {
@@ -67,7 +69,7 @@ const flightPresentation = (() => {
       return { ...point, ...p, anchorX: point.x, anchorY: point.y };
     });
   }
-  return { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers };
+  return { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers, afterArrival, onFlightMap };
 })();
 if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
 /* 앱 홈 맨 위 「수입 비행기 현황」: 지도와 편별 상태. 메인 프로세스가 추려 준 읽기 전용 요약만 그린다(스타일은 CSP 때문에 JS 로 준다). */
@@ -83,7 +85,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       ? 'minmax(0, 1fr) clamp(258px, 18%, 350px)' : '';
   };
   wideHome.addEventListener('change', layoutHome);
-  const {issueRows,shortIssue,linkedFlights,nextAction,compactIssue,placeMarkers}=flightPresentation;
+  const {issueRows,shortIssue,linkedFlights,nextAction,compactIssue,placeMarkers,afterArrival,onFlightMap}=flightPresentation;
   const SVG='http://www.w3.org/2000/svg',world=window.NenovaWorldMap||null;
   const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
   const css=(n,style)=>{Object.assign(n.style,style);return n;};
@@ -185,14 +187,20 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
   function paint(data){
     clear();last=data;
     const s=data.summary||{},issues=data.issueTotal??((s.red||0)+(s.amber||0));
-    const flights=linkedFlights(data.flights||[],data.todo||[]);
+    const ordered=linkedFlights(data.flights||[],data.todo||[]);
+    const pending=ordered.filter(f=>!afterArrival(f));
+    const arrived=ordered.filter(afterArrival);
+    const flights=[...pending,...arrived];
     const attention = flights.filter(f => f.priority < 2).length;
     chips.append(chip(`비행 중 ${s.inFlight||0}`,COLORS.in_flight),chip(`출발 전 ${s.beforeDeparture||0}`,COLORS.before_departure),chip(`빌번호 대기 ${s.awaitingAwb||0}`,COLORS.awaiting_awb),chip(`도착·입고 대기 ${s.arrived||0}`,COLORS.arrived),
       chip(`확인 필요 ${attention}편 · 이슈 ${issues}건`,issues?(s.red?COLORS.red:COLORS.amber):COLORS.gray));
-    paintMap({...data,flights});
+    const mapped = flights.filter(onFlightMap);
+    paintMap({...data,flights:mapped});
+    if (!mapped.length) mapBox.append(el('p', 'workspace-muted', '지도에 표시할 운항편이 없습니다.'));
     list.setAttribute('aria-label', `처리 순서별 항공편 ${flights.length}편`);
     if (flights.length > 3) list.append(css(el('div', '', `전체 ${flights.length}편 · 우선 처리 순`), {fontSize:'11.5px', marginBottom:'5px', color:'#526981'}));
     for(const f of flights){
+      if (f === arrived[0]) list.append(el('strong', '', '도착 후 확인'));
       const row=css(el('div'),{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'5px 10px',fontSize:'12.5px',fontVariantNumeric:'tabular-nums'});
       const pct=f.status==='in_flight'&&f.progress!==null&&!/대기/.test(f.statusLabel)?` ${Math.round(f.progress*100)}%`:'';
       const state=chip(`${f.statusLabel}${pct}`,COLORS[f.status]||COLORS.gray);

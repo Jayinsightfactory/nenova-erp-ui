@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.56",
+  "version": "1.3.57",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "가브리엘 수입·원가·이익 최적화 AGI 전사 10대 레버(L1~L10) 확장 — 상황·SVG 도해·4원천 데이터 계보(이메일/담당자/거래처/기준식)·4부서 연계 매트릭스 및 뷰 ALL(A·B·C 동시모드·연속구현 파이프라인 큐) 탑재."
+      "releaseNotes": "운항 지도에서 도착편을 빼고, 남은 일은 도착 후 확인에 표시합니다."
     },
     "extraResources": [
       {
