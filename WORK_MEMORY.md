@@ -3857,3 +3857,17 @@ pm run test:canon 통과.
 4. 검증: ERP 전체 suite·dnSpy·manifest230·쓰기 가드·공식 webpack build 통과. 기능36/EXE SQL26/desktop73 및 Electron·UI58, 1920/1280/390·Tab/ShiftTab/방향키/Esc·실제 행 왕복·실제 XLSX·가이드4종 재생/자막/역할/목차/다운로드 통과. 최신 통합/CI/운영은 아직 미검증.
 5. 주의/잠금: 공용 ERP/ECOUNT 쓰기0, 새 DB DDL 없음. 과거 미기록 날짜/합계 추정 금지. acba의 기존 dirty WORK_MEMORY.md와 45차_판매전표_대조.csv 보존. 경로·계약은 docs/plans/estimate-change-history-implementation-2026-11-19.md, 백업ID는 docs/work-sessions/2026-11-19_estimate-change-history-backups.json.
 검색어: 네노바 견적 변경 이력 과거 수기 변경안 차장보고 이카운트 예상 실측 Amount+Vat SdateKey CAS 1.3.52
+
+## 2026-11-19 업체별 출고요약 글씨색
+1. 작업 위치: codex/customer-colors, work/customer-colors, PR미생성.
+2. 완료: footer 고객별 richText 4색, 구분자 회색.
+3. 남음: 샘플/필수전체검사/PR/배포.
+4. 검증: shipmentFieldVolume 35/35 PASS, 그외 미검증.
+5. 주의: ERP원장변경0. 검색어: footer customer richText customerColors
+
+## 2026-11-19 짧은품종 3개 압축 인쇄
+1. 위치: codex/customer-colors / work/customer-colors / PR 생성 전.
+2. 완료: 업체슬롯 2개 이하 연속품종을 최대3개 한행, 개별입출재잔 숨김숫자 backing 및 본문표기, 전체SUM anchor보존; footer4색 유지.
+3. 남음: 전체검사 최종종료 및 PR/CI/배포 확인.
+4. 검증: 대상36PASS, 실제46-01 XLSX/PDF 107→86행, Excel 재계산 입723/출596/재165/잔292. manifest230PASS, ERP/build 진행 중. 운영미검증.
+5. 주의: ERP원장쓰기0, 문서출력변경만. 검색어: compactFieldRows 3품종 2업체 J:U hidden anchor

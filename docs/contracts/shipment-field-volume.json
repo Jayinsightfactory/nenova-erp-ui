@@ -3,6 +3,7 @@
   "title": "저장된 출고·농장분배의 신형 현장물량표",
   "scope": [
     "lib/shipmentFieldVolume.js",
+    "lib/shipmentFieldCompact.js",
     "lib/shipmentFarmDrawing.js",
     "pages/api/shipment/distribute-import-preview.js",
     "pages/api/shipment/distribute-import-export.js",
