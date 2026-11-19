@@ -203,6 +203,64 @@ assert.ok(gabrielSim.steps.some((s) => s.packetSummary.includes('AWB 중량구�
 assert.ok(gabrielSim.metrics.some((m) => m.beforeLabel.includes('38.0%') && m.afterLabel.includes('96.5%')));
 assert.ok(gabrielSim.metrics.some((m) => m.beforeLabel.includes('18.0 h') && m.afterLabel.includes('0.4 h')));
 
+// 3-2) 모든 시나리오에 상황/결과, 데이터 4원천(이메일/담당자/거래처/판정기준), 4대 부서 연결표 포함 검증
+assert.equal(simMod.RADAR_DEPARTMENTS.length, 5, '전사 + 4대 부서 필터 정의');
+assert.equal(simMod.BUILD_PIPELINE_STAGES.length, 4, '연속구현 4단계 상태 정의');
+const expectedDepts = ['수입부', '영업부', '출고·창고팀', '경영지원·정산부'];
+for (const sc of simMod.SIM_SCENARIOS) {
+  assert.ok(sc.executiveBrief?.situation?.length > 10, `${sc.id}: executiveBrief.situation 필수`);
+  assert.ok(sc.executiveBrief?.outcome?.length > 10, `${sc.id}: executiveBrief.outcome 필수`);
+  assert.ok(sc.dataOrigins?.emailDoc?.length > 5, `${sc.id}: dataOrigins.emailDoc 필수`);
+  assert.ok(sc.dataOrigins?.staffInput?.length > 5, `${sc.id}: dataOrigins.staffInput 필수`);
+  assert.ok(sc.dataOrigins?.partnerData?.length > 5, `${sc.id}: dataOrigins.partnerData 필수`);
+  assert.ok(sc.dataOrigins?.thresholdRule?.length > 5, `${sc.id}: dataOrigins.thresholdRule 필수`);
+  assert.equal(sc.departmentMatrix?.length, 4, `${sc.id}: 4대 부서 연결표`);
+  for (const dName of expectedDepts) {
+    const row = sc.departmentMatrix.find((r) => r.deptName === dName);
+    assert.ok(row && row.roleChange?.length > 5 && String(row.route || '').startsWith('/'), `${sc.id}: ${dName} 업무·경로 필수`);
+  }
+}
+for (const simResult of [hermesSim, rustSim, echartsSim, dynamicSim, gabrielSim]) {
+  assert.ok(simResult.executiveBrief?.situation && simResult.executiveBrief?.outcome);
+  assert.ok(simResult.dataOrigins?.emailDoc && simResult.dataOrigins?.staffInput && simResult.dataOrigins?.partnerData && simResult.dataOrigins?.thresholdRule);
+  assert.equal(simResult.departmentMatrix?.length, 4);
+}
+
+// 3-3) 연속 구현 파이프라인(CONTINUOUS_BUILD_PIPELINE & deriveNextBuildItems) 8종 이상 검증
+assert.ok(simMod.CONTINUOUS_BUILD_PIPELINE.length >= 8, '고효율·고수익 연속 구현 모듈 후보 8종 이상');
+const scenarioIds = new Set(simMod.SIM_SCENARIOS.map((s) => s.id));
+for (const b of simMod.CONTINUOUS_BUILD_PIPELINE) {
+  assert.ok(['LIVE', 'PILOT', 'READY', 'DISCOVERED'].includes(b.status), `${b.code}: 유효한 파이프라인 상태`);
+  assert.ok(b.expectedImpact?.length > 10, `${b.code}: expectedImpact 필수`);
+  assert.ok(b.dataBasisSummary?.includes('이메일') && b.dataBasisSummary?.includes('담당자') && b.dataBasisSummary?.includes('거래처'), `${b.code}: 이메일/담당자/거래처 기준 요약`);
+  assert.ok(Array.isArray(b.departments) && b.departments.length >= 1, `${b.code}: departments 필수`);
+  assert.ok(scenarioIds.has(b.linkedScenarioId), `${b.code}: linkedScenarioId(${b.linkedScenarioId}) 유효성`);
+  assert.ok(b.agentBriefText?.includes(b.code) && b.agentBriefText?.includes(b.title), `${b.code}: agentBriefText 실행 지시서 문구`);
+}
+for (const reqTerm of ['295품목(13,815주문행)', '232건', 'Proforma', 'APTA E1', '146품목', 'D+3/D+5', '공헌이익', '49개 농장', '가브리엘 10대 레버']) {
+  assert.ok(
+    simMod.CONTINUOUS_BUILD_PIPELINE.some((b) => b.title.includes(reqTerm)),
+    `필수 연속구현 과제 키워드 누락: ${reqTerm}`
+  );
+}
+const importBuildItems = simMod.deriveNextBuildItems({ dept: '수입부' });
+assert.ok(importBuildItems.length >= 6 && importBuildItems.every((b) => b.departments.includes('import')));
+const readyBuildItems = simMod.deriveNextBuildItems({ stage: 'READY' });
+assert.equal(readyBuildItems.length, 4, 'READY 즉시구현가능 4종 검증');
+const aptaItems = simMod.deriveNextBuildItems({ query: 'APTA' });
+assert.equal(aptaItems.length, 1);
+const buildSummary = simMod.summarizeBuildPipeline();
+assert.equal(
+  buildSummary.byStage.LIVE + buildSummary.byStage.PILOT + buildSummary.byStage.READY + buildSummary.byStage.DISCOVERED,
+  buildSummary.total
+);
+
+// buildItemId 연계 시뮬레이션 검증
+const zeroUnitSim = simMod.simulateRadarItem(null, { buildItemId: 'build-zero-unit-295-skus' });
+assert.equal(zeroUnitSim.linkedBuildItem?.code, 'BLD-05');
+assert.ok(zeroUnitSim.dataOrigins.thresholdRule.includes('295품목'));
+assert.ok(zeroUnitSim.executiveBrief.situation.includes('BLD-05'));
+
 // 4) Anti-AI Slop · 금지어 · #hex · raw <button> 소스 가드
 const HEX = /(^|[^&\w$])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/;
 const FORBIDDEN_WORDS = /감시|추적|모니터링|절감시간/;
@@ -336,7 +394,7 @@ assert.match(planCHtml, /도메인\(Q1~Q4\) 그룹별 마스터 엔지니어링 
 assert.doesNotMatch(planCHtml, FORBIDDEN_WORDS);
 assertButtonsUsePmKit(planCHtml, 'Plan C');
 
-// A·B·C 3종 동시 비교(ALL) SSR 검증
+// A·B·C 3종 동시 비교(ALL) SSR 검증 (+ 상황·흐름 그림·4원천·부서표·연속구현 파이프라인)
 const planAllHtml = renderToStaticMarkup(
   React.createElement(WorkbenchComp, {
     ledger: SAMPLE_LEDGER,
@@ -347,6 +405,14 @@ const planAllHtml = renderToStaticMarkup(
 );
 assert.match(planAllHtml, /data-testid="radar-plan-view-ALL"/);
 assert.match(planAllHtml, /data-testid="radar-all-master-controls"/);
+assert.match(planAllHtml, /data-testid="radar-department-filter"/);
+assert.match(planAllHtml, /data-testid="radar-executive-story-board"/);
+assert.match(planAllHtml, /data-testid="radar-flow-diagram"/);
+assert.match(planAllHtml, /viewBox="0 0 960 216"/);
+assert.match(planAllHtml, /data-testid="radar-data-origins-table"/);
+assert.match(planAllHtml, /data-testid="radar-department-matrix-table"/);
+assert.match(planAllHtml, /data-testid="radar-continuous-build-queue"/);
+assert.match(planAllHtml, /data-testid="radar-build-queue-table"/);
 assert.match(planAllHtml, /data-testid="radar-compare-panel-A"/);
 assert.match(planAllHtml, /data-testid="radar-compare-panel-B"/);
 assert.match(planAllHtml, /data-testid="radar-compare-panel-C"/);
@@ -354,8 +420,47 @@ assert.match(planAllHtml, /viewBox="0 0 640 640"/);
 assert.match(planAllHtml, /viewBox="0 0 640 420"/);
 assert.match(planAllHtml, /4단계 도입 게이트 파이프라인/);
 assert.match(planAllHtml, /전체 시안 동시 재생/);
+for (const token of [
+  '전사 전체',
+  '수입부',
+  '영업부',
+  '출고·창고',
+  '경영지원·정산',
+  '출고·창고팀',
+  '경영지원·정산부',
+  '이메일 · 외부 첨부서류',
+  '사내 담당자 · 카톡 원문',
+  '해외 농장 · 국내 거래처',
+  '제로유닛 295품목(13,815주문행)',
+  '미확정 불량차감(232건)',
+  '중국 APTA E1 협정세율',
+  'A·B·C 3종 동시 시뮬레이션으로 미리 재생',
+  '이 기능 구현 지시서 복사',
+  '실전가동',
+  '파일럿검증',
+  '즉시구현가능',
+  '신규발굴',
+]) {
+  assert.ok(planAllHtml.includes(token), `Plan ALL SSR 필수 항목 누락: ${token}`);
+}
 assert.doesNotMatch(planAllHtml, FORBIDDEN_WORDS);
 assertButtonsUsePmKit(planAllHtml, 'Plan ALL');
+
+// 부서 관점 필터(수입부) SSR 하이라이트 검증
+const deptImportHtml = renderToStaticMarkup(
+  React.createElement(WorkbenchComp, {
+    ledger: SAMPLE_LEDGER,
+    techRadar: SAMPLE_TECH_RADAR,
+    isAdmin: true,
+    initialPlanMode: 'ALL',
+    initialDepartment: 'import',
+  })
+);
+assert.match(deptImportHtml, /관점: 수입부/);
+assert.match(deptImportHtml, /부서: 수입부/);
+assert.match(deptImportHtml, /is-dept-match/);
+assert.doesNotMatch(deptImportHtml, FORBIDDEN_WORDS);
+assertButtonsUsePmKit(deptImportHtml, 'Plan ALL Import Dept');
 
 const staffHtml = renderToStaticMarkup(
   React.createElement(WorkbenchComp, {
@@ -367,6 +472,8 @@ const staffHtml = renderToStaticMarkup(
   })
 );
 assert.match(staffHtml, /data-testid="tech-radar-workbench"/);
+assert.match(staffHtml, /data-testid="radar-executive-story-board"/);
+assert.match(staffHtml, /data-testid="radar-continuous-build-queue"/);
 assert.match(staffHtml, /core\/moyi_inbound\.py/);
 assert.doesNotMatch(staffHtml, /결정 대기 실측/);
 assert.doesNotMatch(staffHtml, /유료 API 워커/);
@@ -378,4 +485,4 @@ for (const token of ['moyi-worker', 'mindmap_sink', 'browser_session_bridge', 'c
   assert.ok(suiteHtml.includes(token), `SolutionSuiteSimulator SSR 실설계 토큰 누락: ${token}`);
 }
 
-console.log('techRadarSimulator tests passed: 시안 A·B·C·ALL 4모드·가브리엘 AGI·극좌표/매트릭스·Anti-AI Slop·SSR 검증 완료');
+console.log('techRadarSimulator tests passed: 시안 A·B·C·ALL 4모드·부서관점·데이터4원천·SVG흐름·연속구현파이프라인·Anti-AI Slop·SSR 검증 완료');
