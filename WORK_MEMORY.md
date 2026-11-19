@@ -3941,3 +3941,11 @@ pm run test:canon 통과.
 4. 검증 상태: `techRadarSimulator.test.js`, `pmTechRadar.test.js`, `adoptionRadar.test.js`, `test:pm` (`pmBoundary`·`pmUiKit`·`pmNoHexColor` 포함 전체), `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes`, `test:erp-manifest` (231건), 실 `tech-radar.json`(80건) A/B/C/ALL SSR 렌더, `npx next build --webpack` PASS; 실브라우저 수동 클릭·MSSQL 쓰기 0건(파일 전용)·PR CI 결과는 PR 생성 후 확인.
 5. 주의/잠금: 병렬 세션 `세션 G3`(`Layout.js`, `pages/my-work.js`, `desktop/menu.json`, `desktop/package.json`) 무충돌 경계 준수, `/pm` 컴포넌트 `#hex`/raw `<button>`/금지어(`감시`/`추적`/`모니터링`/`절감시간`)/이모지 0건 유지.
 검색어: TechRadarWorkbench pmRadarPlanTokens 시안A 시안B 시안C 동시비교 가브리엘AGI gabriel-import-profit-agi SIM_PRESETS 매트카본
+
+### 2026-11-19 — 신형물량표 입출재잔 인라인·요일 가로칸
+1. 작업 위치: codex/compact-inline / work/compact-inline / PR 준비.
+2. 완료된 것: packed 품종 입출재잔 강제 줄바꿈 제거, 두요일을 같은 행 인접셀 배치. DB/API 쓰기 변경 없음.
+3. 남은 할 일: 전체검사 종료·PR CI·배포.
+4. 검증 상태: 대상36PASS, 실제46-01 Excel 재계산·A3가로4쪽 PDF 시각확인. 전체검사 진행중.
+5. 주의/잠금: lib/shipmentFieldCompact.js 단독 작업. 출력샘플 보존.
+검색어: compact-inline 입출재잔 한줄 두요일 인접셀
