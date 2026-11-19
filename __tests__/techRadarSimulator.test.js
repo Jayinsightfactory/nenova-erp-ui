@@ -32,8 +32,10 @@ function compile(rel, customRequire) {
 }
 
 const pmSimMod = compile('lib/pmTechRadarSim.js');
+const pmPlanTokensMod = compile('lib/pmRadarPlanTokens.js');
 const simMod = compile('lib/techRadarSimEngine.js', (id, baseReq) => {
   if (id === './pmTechRadarSim') return pmSimMod;
+  if (id === './pmRadarPlanTokens') return pmPlanTokensMod;
   return baseReq(id);
 });
 
@@ -186,12 +188,28 @@ assert.equal(dynamicSim.matchType, 'quadrant-mapped');
 assert.equal(dynamicSim.nodeDetails.length, 6);
 assert.ok(dynamicSim.steps.length >= 2);
 
+// 3-1) 가브리엘 수입·원가·이익 추론 AGI 시나리오 & 프리셋 6종 검증
+assert.equal(simMod.SIM_PRESETS.length, 6, '핵심 시나리오 프리셋 6종');
+const gabrielTarget = simMod.resolvePresetTarget('gabriel-import-profit-agi', adminItems);
+assert.equal(gabrielTarget.scenarioId, 'gabriel-import-profit-agi');
+const gabrielSim = simMod.simulateRadarItem(gabrielTarget.item, { scenarioId: gabrielTarget.scenarioId });
+assert.equal(gabrielSim.scenarioId, 'gabriel-import-profit-agi');
+assert.equal(gabrielSim.matchType, 'exact-scenario');
+assert.deepEqual(gabrielSim.activeNodes, ['N1', 'N4', 'N5', 'N6']);
+assert.equal(gabrielSim.primaryNode, 'N4');
+assert.ok(gabrielSim.links.some((l) => l.href === '/import/gabriel-agi'), '가브리엘 AGI 페이지 링크 포함');
+assert.ok(gabrielSim.links.some((l) => l.href === '/import/pipeline'), '수입 파이프라인 링크 포함');
+assert.ok(gabrielSim.steps.some((s) => s.packetSummary.includes('AWB 중량구간') && s.packetSummary.includes('불량크레딧')));
+assert.ok(gabrielSim.metrics.some((m) => m.beforeLabel.includes('38.0%') && m.afterLabel.includes('96.5%')));
+assert.ok(gabrielSim.metrics.some((m) => m.beforeLabel.includes('18.0 h') && m.afterLabel.includes('0.4 h')));
+
 // 4) Anti-AI Slop · 금지어 · #hex · raw <button> 소스 가드
 const HEX = /(^|[^&\w$])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/;
 const FORBIDDEN_WORDS = /감시|추적|모니터링|절감시간/;
 const FORBIDDEN_EMOJIS = /[🚀✨💡🔥🎯🌐🛰️🧪✅🔁⏳📍📦🔍]/u;
 
 for (const file of [
+  'lib/pmRadarPlanTokens.js',
   'lib/pmTechRadarSim.js',
   'lib/techRadarSimEngine.js',
   'components/pm/TechRadarWorkbench.js',
@@ -212,13 +230,21 @@ for (const file of [
 const wbSrc = read('components/pm/TechRadarWorkbench.js');
 assert.ok(wbSrc.includes('tabular-nums'), 'TechRadarWorkbench tabular-nums 적용');
 assert.ok(wbSrc.includes('prefers-reduced-motion'), 'TechRadarWorkbench reduced-motion 준수');
+assert.ok(wbSrc.includes("window.addEventListener('keydown'"), '시안 C 키보드 단축키 이벤트 핸들러 등록');
 
-// 5) SSR 렌더링 검증 (관리자 워크벤치 + 전직원 /pm/radar + SolutionSuiteSimulator 연동)
+// 5) SSR 렌더링 검증 (시안 A·B·C·ALL 4모드 + 관리자/전직원 격리 + SolutionSuiteSimulator 연동)
 const WorkbenchComp = compile('components/pm/TechRadarWorkbench.js', (id, baseReq) => {
   if (id === './ui') return compile('components/pm/ui.js');
   if (id === '../../lib/pmTechRadarSim') return pmSimMod;
+  if (id === '../../lib/pmRadarPlanTokens') return pmPlanTokensMod;
   return baseReq(id);
 }).default;
+
+const assertButtonsUsePmKit = (html, label) => {
+  for (const m of html.matchAll(/<button\b([^>]*)>/g)) {
+    assert.match(m[1], /\bpmk\b/, `${label}: 모든 렌더된 버튼은 pm ui 키트(pmk)여야 함: ${m[0]}`);
+  }
+};
 
 const adminHtml = renderToStaticMarkup(
   React.createElement(WorkbenchComp, {
@@ -228,9 +254,13 @@ const adminHtml = renderToStaticMarkup(
     mode: 'dark',
     standaloneUiStyles: true,
     onOpenSuiteSim: () => {},
+    initialPlanMode: 'A',
   })
 );
 assert.match(adminHtml, /data-testid="tech-radar-workbench"/);
+assert.match(adminHtml, /data-testid="radar-plan-switcher"/);
+assert.match(adminHtml, /data-testid="radar-scenario-presets"/);
+assert.match(adminHtml, /data-testid="radar-plan-view-A"/);
 assert.match(adminHtml, /data-testid="radar-architecture-simulator"/);
 assert.match(adminHtml, /viewBox="0 0 640 640"/);
 assert.match(adminHtml, /결정 대기 실측/);
@@ -238,9 +268,94 @@ assert.match(adminHtml, /시뮬레이션 검수/);
 assert.match(adminHtml, /통합 솔루션 시뮬레이터 열기/);
 assert.match(adminHtml, /운영PC nenovakakao/);
 assert.match(adminHtml, /core\/moyi_worker\.py/);
-for (const m of adminHtml.matchAll(/<button\b([^>]*)>/g)) {
-  assert.match(m[1], /\bpmk\b/, `모든 렌더된 버튼은 pm ui 키트(pmk)여야 함: ${m[0]}`);
-}
+assert.match(adminHtml, /가브리엘 원가·이익 AGI/);
+assert.doesNotMatch(adminHtml, FORBIDDEN_WORDS);
+assertButtonsUsePmKit(adminHtml, 'Plan A Admin');
+
+// 신규 회차 ▲ (<polygon) 렌더링 확인 (2개 이상 회차 데이터)
+const multiRoundRadar = {
+  generatedAt: '2026-11-19T00:00:00Z',
+  rounds: [
+    SAMPLE_TECH_RADAR.rounds[0],
+    {
+      id: '2026-11-15',
+      items: [{ name: 'old-org/legacy-tool', stars: 100, language: 'Python', score: 6, action: '관찰', track: 'interest' }],
+    },
+  ],
+};
+const multiRoundHtml = renderToStaticMarkup(
+  React.createElement(WorkbenchComp, {
+    ledger: SAMPLE_LEDGER,
+    techRadar: multiRoundRadar,
+    isAdmin: true,
+    initialPlanMode: 'A',
+  })
+);
+assert.match(multiRoundHtml, /<polygon\s+points=/, '신규 회차 Blip은 ▲ 삼각형(<polygon>)으로 렌더링');
+
+// 시안 B SSR 검증
+const planBHtml = renderToStaticMarkup(
+  React.createElement(WorkbenchComp, {
+    ledger: SAMPLE_LEDGER,
+    techRadar: SAMPLE_TECH_RADAR,
+    isAdmin: true,
+    initialPlanMode: 'B',
+  })
+);
+assert.match(planBHtml, /data-testid="radar-plan-view-B"/);
+assert.match(planBHtml, /data-testid="radar-architecture-simulator"/);
+assert.match(planBHtml, /viewBox="0 0 640 420"/);
+assert.match(planBHtml, /EVIDENCE &amp; SIMULATION INSPECTOR SHEET/);
+assert.match(planBHtml, /전체 평가 기술/);
+assert.match(planBHtml, /정식채택 · 파일럿/);
+assert.match(planBHtml, /파일럿 실측 비율/);
+assert.doesNotMatch(planBHtml, FORBIDDEN_WORDS);
+assertButtonsUsePmKit(planBHtml, 'Plan B');
+
+// 시안 C SSR 검증 (매트 카본 다크 + 단축키 + 4단계 파이프라인 + 벤치마크 표 + 전술 콘솔)
+const planCHtml = renderToStaticMarkup(
+  React.createElement(WorkbenchComp, {
+    ledger: SAMPLE_LEDGER,
+    techRadar: SAMPLE_TECH_RADAR,
+    isAdmin: true,
+    initialPlanMode: 'C',
+  })
+);
+assert.match(planCHtml, /data-testid="radar-plan-view-C"/);
+assert.match(planCHtml, /data-testid="radar-c-shortcuts"/);
+assert.match(planCHtml, /data-testid="radar-architecture-simulator"/);
+assert.match(planCHtml, /rgb\(17, 19, 21\)/, '시안 C 매트 카본 배경 토큰 주입');
+assert.match(planCHtml, /4단계 도입 게이트 파이프라인/);
+assert.match(planCHtml, /SCANNED/);
+assert.match(planCHtml, /PILOT/);
+assert.match(planCHtml, /CANARY/);
+assert.match(planCHtml, /ADOPTED/);
+assert.match(planCHtml, /Before \/ After 정량 벤치마크 대조 테이블/);
+assert.match(planCHtml, /6대 실설계 노드 전술 패킷 트레이스 콘솔/);
+assert.match(planCHtml, /도메인\(Q1~Q4\) 그룹별 마스터 엔지니어링 원장/);
+assert.doesNotMatch(planCHtml, FORBIDDEN_WORDS);
+assertButtonsUsePmKit(planCHtml, 'Plan C');
+
+// A·B·C 3종 동시 비교(ALL) SSR 검증
+const planAllHtml = renderToStaticMarkup(
+  React.createElement(WorkbenchComp, {
+    ledger: SAMPLE_LEDGER,
+    techRadar: SAMPLE_TECH_RADAR,
+    isAdmin: true,
+    initialPlanMode: 'ALL',
+  })
+);
+assert.match(planAllHtml, /data-testid="radar-plan-view-ALL"/);
+assert.match(planAllHtml, /data-testid="radar-all-master-controls"/);
+assert.match(planAllHtml, /data-testid="radar-compare-panel-A"/);
+assert.match(planAllHtml, /data-testid="radar-compare-panel-B"/);
+assert.match(planAllHtml, /data-testid="radar-compare-panel-C"/);
+assert.match(planAllHtml, /viewBox="0 0 640 640"/);
+assert.match(planAllHtml, /viewBox="0 0 640 420"/);
+assert.match(planAllHtml, /4단계 도입 게이트 파이프라인/);
+assert.match(planAllHtml, /전체 시안 동시 재생/);
+assert.doesNotMatch(planAllHtml, FORBIDDEN_WORDS);
+assertButtonsUsePmKit(planAllHtml, 'Plan ALL');
 
 const staffHtml = renderToStaticMarkup(
   React.createElement(WorkbenchComp, {
@@ -263,4 +378,4 @@ for (const token of ['moyi-worker', 'mindmap_sink', 'browser_session_bridge', 'c
   assert.ok(suiteHtml.includes(token), `SolutionSuiteSimulator SSR 실설계 토큰 누락: ${token}`);
 }
 
-console.log('techRadarSimulator tests passed: 극좌표/매트릭스 결정론·6노드 실설계 시뮬·Anti-AI Slop·SSR 검증 완료');
+console.log('techRadarSimulator tests passed: 시안 A·B·C·ALL 4모드·가브리엘 AGI·극좌표/매트릭스·Anti-AI Slop·SSR 검증 완료');
