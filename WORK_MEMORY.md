@@ -4076,3 +4076,11 @@ pm run test:canon 통과.
 4. 검증 상태: `solutionSuiteSimulator.test.js`, `adoptionRadar.test.js`, `techRadarSimulator.test.js`, `archFlowChart.test.js`, `test:pm`, `test:ui-layout`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `guard:erp-writes --changed-from origin/master`, `test:erp-manifest --changed-from origin/master`, `desktop test`(75건), `npx next build --webpack`, Headless Chromium `1920×1080`·`1440×900` 실렌더링 기하·스크린샷 육안 검수 PASS (운영 서버 실데이터·DB 쓰기 0건, 캡처/API는 로컬 합성 픽스처 검증).
 5. 주의/잠금: 병렬 세션 `세션 Fix-Font` 전담 파일(`data/moyi-full-suite-blueprint.html`, `components/pm/TechRadarWorkbench.js`, `components/pm/ArchFlowChart.js`, `components/pm/ui.js`) 및 `GabrielProfitAgiWorkbench.js`, `pages/api/**` 무수정 유지.
 검색어: SolutionSuiteSimulator sim-bus-badge sim-ocr-token sim-line-gutter sim-capture-workbench Pretendard Malgun-Gothic bar-tabs Desktop-1.3.62
+
+### 2026-11-19 — 맑은 고딕 글자 폭에 맞춘 현장물량표 행 높이
+1. 작업 위치: nenova-erp-ui / codex/a3-page / work/a3-page / PR 예정.
+2. 완료된 것: shipmentFieldCompact의 한글·영문·공백·구두점·굵기별 추정 폭으로 실제 한 줄 셀의 두 줄 오판 수정. 줄간격/글씨크기/수식 유지.
+3. 남은 할 일: 전체검사·PR CI·운영 배포 확인.
+4. 검증 상태: 대상39건 PASS, 실제 Excel PDF Cosmo/딜레타33→18.5pt·돈셀7줄 유지 확인. A3 4쪽, 총3156→3069pt. 전체검사 진행.
+5. 주의/잠금: ERP 원장쓰기 없음. 작업트리만 수정. 추정폭은 플랫폼 폰트 실측 API가 아닌 10pt 보수 휴리스틱.
+검색어: shipmentFieldCompact printHeight Latin glyph spaces bold A3 39 tests a3-page
