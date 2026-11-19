@@ -9,7 +9,7 @@ async function main(){
   page=await browser.newPage();page.setDefaultTimeout(30000);await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const s={year:'2026',week:45,custKey:777};const raw=[{ProdKey:1,ProdName:'문라이트',FlowerName:'장미',OutQuantity:3},{ProdKey:2,ProdName:'화이트 수국',FlowerName:'수국',OutQuantity:2},{ProdKey:3,ProdName:'핑크 장미',FlowerName:'장미',OutQuantity:4}].map((r,i)=>({...r,OrderYear:'2026',OrderWeek:i===2?'45-03':'45-01',CustKey:777,SdetailKey:100+i,Cost:12000+i*1000,OutUnit:'단',CounName:'콜롬비아'}));
   const source={scope:s,customer:{custKey:777,name:'연습업체',manager:'연습지원',baseDay:'일'},rows:core.sourceRows(raw,s),calendar:core.calendar(Array.from({length:7},(_,i)=>({WeekDay:new Date(Date.UTC(2026,10,4+i)).getUTCDay()+1,Date:new Date(Date.UTC(2026,10,4+i)).toISOString().slice(0,10)})))};
-  let saved=null,labels={},labelCalls=0,saveCalls=0,downloads=0,sourceChanged=false,favoriteOwner='support',favoriteWrites=0,favoriteFailure=false;const favoritesByActor=new Map();const customers=[{CustKey:777,CustName:'연습업체',Manager:'연습지원',DetailCount:3},{CustKey:778,CustName:'가나다상사',Manager:'연습지원',DetailCount:1},{CustKey:779,CustName:'다른담당업체',Manager:'다른담당',DetailCount:1}];await page.setRequestInterception(true);
+  let saved=null,labels={},labelCalls=0,saveCalls=0,downloads=0,sourceChanged=false,favoriteOwner='support',favoriteWrites=0,favoriteFailure=false;const favoritesByActor=new Map();const customers=[{CustKey:777,CustName:'연습업체',Manager:'연습지원',DetailCount:3},{CustKey:778,CustName:'에프에스오 2025(fso2025)',Manager:'연습지원',DetailCount:1},{CustKey:779,CustName:'다른담당업체',Manager:'다른담당',DetailCount:1}];await page.setRequestInterception(true);
   page.on('request',async req=>{const u=new URL(req.url());if(u.origin!==base)return req.abort();if(!u.pathname.startsWith('/api/'))return req.continue();
    let d={success:true,data:[],items:[],favorites:[]};
    if(u.pathname==='/api/auth/me')d.user={userId:favoriteOwner,userName:'연습지원',authority:2,deptName:'영업지원'};
@@ -43,6 +43,11 @@ async function main(){
   await rec?.chapter('load','차수·담당자·업체 버튼과 개인 즐겨찾기');await say('메인차수는 앞뒤 2차까지 버튼으로 표시됩니다.\n차수 버튼을 누르면 해당 차수 전체 분배값을 바로 불러옵니다.');
   assert.deepEqual(await page.$$eval('[aria-label="메인차수 선택"] button',n=>n.map(x=>x.textContent)),['43차','44차','45차','46차','47차']);
   await actClick('[aria-label="45차 선택"]');await page.waitForSelector('[aria-label="연습지원 담당자 선택"]');await actClick('[aria-label="연습지원 담당자 선택"]');assert.equal(await page.$$eval('[data-customer-key]',n=>n.length),2);
+  await input('업체 검색','플로르아름');
+  await page.waitForSelector('[aria-label="플로르아름(fso) 업체 선택"]');
+  assert.deepEqual(await page.$$eval('[data-customer-key]',n=>n.map(row=>row.dataset.customerKey)),['778']);
+  await say('업체 검색에 플로르아름을 입력하면 플로르아름(fso) 업체가 표시됩니다.');
+  await input('업체 검색','');
   await page.waitForFunction(()=>!document.querySelector('[aria-label="연습업체 즐겨찾기 추가"]').disabled);await actClick('[aria-label="연습업체 즐겨찾기 추가"]');await page.waitForSelector('[aria-label="연습업체 즐겨찾기 해제"]');assert.equal(await page.$eval('[data-customer-key]',n=>n.getAttribute('data-customer-key')),'777');assert.equal(saveCalls,0);
   await say('담당자 버튼을 누르면 해당 담당자의 업체만 보입니다.\n업체의 별표를 누르면 즐겨찾기로 저장되어 먼저 표시됩니다.');
   await actClick('[aria-label="연습업체 업체 선택"]');await page.waitForSelector('tbody tr');

@@ -52,7 +52,7 @@ export default function ShipmentStatementSelectors({year,week,customers,manager,
    {favoriteError&&<div role="alert" className={styles.error}>{favoriteError} <button disabled={favoriteBusy||favoriteLoading} onClick={refreshFavorites}>즐겨찾기 상태 다시 확인</button></div>}
    <div className={styles.customerButtons} role="group" aria-label="업체 선택" onKeyDown={moveFocus}>
     {shown.map(c=><div key={c.CustKey} className={styles.customerCard} data-customer-key={c.CustKey}>
-     <button type="button" aria-label={`${c.CustName} 업체 선택`} aria-pressed={String(customer)===String(c.CustKey)} disabled={busy} onClick={()=>onCustomer(String(c.CustKey))}><span>{c.CustName}</span><small>{c.DetailCount}개 분배내역</small></button>
+     <button type="button" aria-label={`${selection.customerDisplayName(c.CustName)} 업체 선택`} aria-pressed={String(customer)===String(c.CustKey)} disabled={busy} onClick={()=>onCustomer(String(c.CustKey))}><span>{selection.customerDisplayName(c.CustName)}</span><small>{c.DetailCount}개 분배내역</small></button>
      <button type="button" className={styles.favoriteButton} aria-label={`${c.CustName} 즐겨찾기 ${favorites.has(Number(c.CustKey))?'해제':'추가'}`} aria-pressed={favorites.has(Number(c.CustKey))} disabled={busy||!favoriteReady||favoriteLoading||favoriteBusy} onClick={()=>toggleFavorite(c)}>{favorites.has(Number(c.CustKey))?'★':'☆'}</button>
     </div>)}
    </div>
