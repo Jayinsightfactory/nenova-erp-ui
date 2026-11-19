@@ -7,17 +7,20 @@ async function main(){
  const handler=api.createChinaTransportHandler({load:scope=>{calls++;return new Promise(resolve=>release=()=>resolve({...scope,incoming:[]}));},id:()=> 'synthetic-job'});
  const call=async(query={},method='GET',owner='tester')=>{const res={setHeader(){},status(code){this.code=code;return this;},json(body){this.body=body;return this;}};await handler({method,query,user:{userId:owner}},res);return res;};
  assert.equal((await call({year:'2026',week:'44'},'POST')).code,405);assert.equal((await call({week:'44'})).code,400);assert.equal(calls,0);
+ assert.equal((await call({year:'2026',week:'38'})).code,400);assert.equal(calls,0,'before39 must never start SQL');
  const first=await call({year:'2026',week:'44'});assert.equal(first.code,202);await Promise.resolve();assert.equal(calls,1);
  assert.equal((await call({year:'2026',week:'44'})).code,202);assert.equal(calls,1,'dedup running job');
  assert.equal((await call({year:'2025',week:'44',jobId:first.body.jobId})).code,404);
  assert.equal((await call({year:'2026',week:'44',jobId:first.body.jobId},'GET','other')).code,404);
  release();await new Promise(resolve=>setImmediate(resolve));assert.equal((await call({year:'2026',week:'44',jobId:first.body.jobId})).code,200);
- const helper=compile('lib/profitChinaTransportData.js',{'./db.js':{query(){throw Error('unexpected SQL');},sql:{NVarChar:'nvarchar'}},'./profitReport.js':{CASE_CATEGORY:"N'중국'",refreshProfitCategorySql(){},stockablePurchaseItemSql:()=> '1=1',nonValueWeightSql:()=> '1=1',stockSnapshotByCategory:()=>{}},'./profitWorkbookRules.js':{freightSalesProductSql:()=> '(1=0)'},'./customsForwarding.js':{buildForwardingLedger:()=>({classifiedRows:[{category:'중국',orderYear:'2026',orderWeek:'44-01',farmName:'HUBFRESH',amount:0}]})}});
+ assert.equal((await call({year:'2026',week:'39'})).code,202);await Promise.resolve();assert.equal(calls,2);release();await new Promise(resolve=>setImmediate(resolve));
+ const helper=compile('lib/profitChinaTransportData.js',{'./countryClassification.js':{countryToCurrency:()=> 'CNY'},'./db.js':{query(){throw Error('unexpected SQL');},sql:{NVarChar:'nvarchar'}},'./profitReport.js':{CASE_CATEGORY:"N'중국'",refreshProfitCategorySql(){},stockablePurchaseItemSql:()=> '1=1',nonValueWeightSql:()=> '1=1',stockSnapshotByCategory:()=>{}},'./profitWorkbookRules.js':{freightSalesProductSql:()=> '(1=0)'},'./customsForwarding.js':{buildForwardingLedger:()=>({classifiedRows:[{category:'중국',orderYear:'2026',orderWeek:'44-01',farmName:'HUBFRESH',amount:0}]})}});
  let stockCalls=[];
  const evidence=await helper.loadChinaTransportEvidence({orderYear:'2026',major:'44'},{query:async(statement,params)=>{
    assert.equal(params.year.value,'2026');assert.equal(params.prefix.value,'44-%');assert.doesNotMatch(statement,/\b(?:INSERT|UPDATE|DELETE|MERGE|EXEC|CREATE|ALTER|DROP)\b/i);
    return {recordset:statement.includes('FROM WarehouseMaster')?[{Category:'중국',Stockable:1,OrderYear:'2026',OrderWeek:'44-01',FarmName:'HUBFRESH',ProdKey:1,OutUnit:'단',OutQuantity:5,TPrice:50}]:[{OrderYear:'2026',OrderWeek:'44-01',SdetailKey:1,ProdKey:1,OutQuantity:5,Amount:100,SfarmKey:1,FarmName:'HUBFRESH',ShipmentQuantity:2},{OrderYear:'2026',OrderWeek:'44-01',SdetailKey:1,ProdKey:1,OutQuantity:5,Amount:100,SfarmKey:2,FarmName:'Cloudland',ShipmentQuantity:3}]};},stockSnapshot:async(major,year,options)=>{stockCalls.push({major,year,options});return {snapshotAvailable:true,week:`${major}-01`,items:[]};}});
  assert.equal(evidence.shipments.length,1,'farm join must not multiply sales');assert.equal(evidence.shipments[0].assignments.length,2);assert.equal(evidence.shipments[0].amount,100);
+ assert.equal(evidence.incoming[0].currency,'CNY');assert.equal(evidence.incoming[0].currencyBasis,'report_category');
  assert(evidence.warnings.some(x=>x.includes('0원 전표')));assert.deepEqual(stockCalls.map(x=>x.major),['43','44']);
  const januaryCalls=[];
  await helper.loadChinaTransportEvidence({orderYear:'2027',major:'01'},{query:async(statement,params)=>{

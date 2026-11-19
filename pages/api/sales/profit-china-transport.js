@@ -1,5 +1,5 @@
 import { withAuth } from '../../../lib/auth';
-import { parseChinaTransportScope } from '../../../lib/profitChinaTransport.mjs';
+import { parseChinaTransportScope, chinaTransportEligible } from '../../../lib/profitChinaTransport.mjs';
 import { loadChinaTransportEvidence } from '../../../lib/profitChinaTransportData';
 import { randomUUID } from 'node:crypto';
 
@@ -11,6 +11,7 @@ return async function handler(req,res){
   if(req.method!=='GET')return res.status(405).json({ok:false,message:'GET만 허용합니다.'});
   const scope=parseChinaTransportScope(req.query?.year,req.query?.week);
   if(!scope)return res.status(400).json({ok:false,message:'연도와 1~53차를 선택하세요.'});
+  if(!chinaTransportEligible(scope.orderYear,scope.major))return res.status(400).json({ok:false,message:'중국 배·비행기 내역은 39차부터 제공합니다.'});
   const owner=req.user?.userId;
   if(typeof owner!=='string'||!owner)return res.status(401).json({ok:false,message:'로그인이 필요합니다.'});
   for(const [key,job]of jobs)if(job.finished&&now()-job.finished>300000)jobs.delete(key);
