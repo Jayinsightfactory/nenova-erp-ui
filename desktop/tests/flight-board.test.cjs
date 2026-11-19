@@ -26,7 +26,7 @@ test('flight board forwards the waybill only on its authenticated card',()=>{
   assert.equal(out.flights.length,2,'입고 등록 끝난 편은 뺀다');
   assert.equal(out.registeredCount,1);
   const f=out.flights[0];
-  assert.deepEqual(Object.keys(f).sort(),['displayName','airline','awb','originAssumed','announcedCargo','receivedCargo','steps','quarantineSlotChanged','scheduledAt','departAtEstimated','viewId','alertCount','arriveAt','country','doneSteps','estimatedAt','flight','itemLabel','nextState','nextStep','origin','phase','position','route','via','progress','quarantineDeadlineAt','quarantineSlot','regNo','remark','status','statusLabel','timeAssumed','totalSteps','trackUrl','viaName','weekLabel'].sort());
+  assert.deepEqual(Object.keys(f).sort(),['displayName','extraTitleItems','airline','awb','originAssumed','announcedCargo','receivedCargo','steps','quarantineSlotChanged','scheduledAt','departAtEstimated','viewId','alertCount','arriveAt','country','doneSteps','estimatedAt','flight','itemLabel','nextState','nextStep','origin','phase','position','route','via','progress','quarantineDeadlineAt','quarantineSlot','regNo','remark','status','statusLabel','timeAssumed','totalSteps','trackUrl','viaName','weekLabel'].sort());
   assert.equal(f.displayName, '연습 항공편 표시 이름');
   assert.equal(f.viaName,'밴쿠버');assert.deepEqual(f.via,{name:'밴쿠버',lat:49.19,lon:-123.18});assert.deepEqual(f.origin,{name:'보고타',lat:4.7,lon:-74.15});assert.deepEqual(f.position,{lat:49.19,lon:-123.18});
   assert.deepEqual(f.route,[[-74.1,4.7],[-100,30.12],[-123.18,49.19],[126.44,37.46]],'숫자가 아닌 점은 버리고 [경도,위도] 로');assert.equal(f.phase,'layover');

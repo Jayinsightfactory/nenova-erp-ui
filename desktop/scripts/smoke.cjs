@@ -457,9 +457,22 @@ async function run() {
   await verifyHomeBridge(shellContents);
   await verifyHomeUi(shellContents, sourceWindow);
   for (const [phase, label, disabled] of [['available', '앱 1.4.0 다운로드', false], ['downloading', '다운로드 42%', true], ['downloaded', '재시작하여 업데이트', false], ['unavailable', '앱 업데이트 확인', true]]) {
+    // Account and tab events also publish state. Capture this fixture render when it arrives.
+    await shellContents.executeJavaScript(`(() => {
+      const status = document.getElementById('appUpdateStatus');
+      window.__updateUiProbe = new Promise(resolve => {
+        const observer = new MutationObserver(() => {
+          if (!status.textContent.includes('검증 상태')) return;
+          observer.disconnect();
+          resolve(({label:document.getElementById('appUpdateButton').textContent,disabled:document.getElementById('appUpdateButton').disabled,cancel:!document.getElementById('cancelUpdateButton').hidden,notice:!document.getElementById('appUpdateNotice').hidden,noticeLabel:document.getElementById('appUpdateNotice').getAttribute('aria-label'),btnBg:getComputedStyle(document.getElementById('appUpdateButton')).backgroundColor,noticeBg:getComputedStyle(document.getElementById('appUpdateNotice')).backgroundColor,panelBorder:getComputedStyle(document.querySelector('.app-update-panel')).borderTopColor,statusText:document.getElementById('appUpdateStatus').textContent}));
+        });
+        observer.observe(status, { childList: true });
+        setTimeout(() => { observer.disconnect(); resolve(null); }, 3000);
+      });
+    })()`);
     shellContents.send('desktop:state', { appUpdate: { phase, version: '1.4.0', percent: 42, message: '검증 상태' } });
-    await new Promise(r => setTimeout(r, 50));
-    const updateUi = await shellContents.executeJavaScript("({label:document.getElementById('appUpdateButton').textContent,disabled:document.getElementById('appUpdateButton').disabled,cancel:!document.getElementById('cancelUpdateButton').hidden,notice:!document.getElementById('appUpdateNotice').hidden,noticeLabel:document.getElementById('appUpdateNotice').getAttribute('aria-label'),btnBg:getComputedStyle(document.getElementById('appUpdateButton')).backgroundColor,noticeBg:getComputedStyle(document.getElementById('appUpdateNotice')).backgroundColor,panelBorder:getComputedStyle(document.querySelector('.app-update-panel')).borderTopColor,statusText:document.getElementById('appUpdateStatus').textContent})");
+    const updateUi = await shellContents.executeJavaScript('window.__updateUiProbe');
+    assert.ok(updateUi, `update fixture rendered for ${phase}`);
     assert.equal(updateUi.label, label); assert.equal(updateUi.disabled, disabled); assert.equal(updateUi.cancel, phase === 'downloading');
     assert.equal(updateUi.notice, ['available', 'downloaded'].includes(phase), 'update notice is visible in the compact tab bar without opening home');
     if (phase === 'available' || phase === 'downloaded') {

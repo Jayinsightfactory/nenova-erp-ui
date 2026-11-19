@@ -356,7 +356,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                     <b>{f.boardNumber}. {f.displayName || `${f.country} · ${f.flight || '편명 미확인'}`}</b>
                     <span>{f.priority === 0 ? '우선 확인' : f.priority === 1 ? '확인 필요' : f.status === 'registered' ? '입고 등록 끝' : '이슈 없음'} {expanded ? '▴' : '▾'}</span>
                   </button>
-                  <div className="flight-compact-summary"><StatusChip f={f} /> <span>{f.itemLabel || f.country}{quantity != null && ` · ${f.receivedCargo?.boxes != null ? '입고' : '공지'} ${fmt(quantity)}박스`}</span>{!expanded && steps.length > 0 && <span>처리 {steps.filter(step => step.state === 'done').length}/{steps.length} 완료</span>}</div>
+                  <div className="flight-compact-summary"><StatusChip f={f} /> <span>{!f.displayName && (f.itemLabel || f.country)}{quantity != null && `${f.displayName ? '' : ' · '}${f.receivedCargo?.boxes != null ? '입고' : '공지'} ${fmt(quantity)}박스`}</span>{!expanded && steps.length > 0 && <span>처리 {steps.filter(step => step.state === 'done').length}/{steps.length} 완료</span>}</div>
                   {!expanded && deadline && <div style={{ color: deadline.color }}>{deadline.text}</div>}
                   {expanded && <>
                   <div>{f.weekLabel}차 · 공지 도착 {arrivalText(f)}</div>
@@ -371,6 +371,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                     운송 수량(공지): {f.announcedCargo?.boxes != null ? `${fmt(f.announcedCargo.boxes)}박스` : '미확인'}
                     {f.receivedCargo && <> · 전산 입고 합계 {fmt(f.receivedCargo.boxes)}박스</>}
                   </div>
+                  {!!f.extraTitleItems?.length && <div>품목 전체: {f.extraTitleItems.join(' · ')}</div>}
                   {!!f.announcedCargo?.items?.length && <div>공지 품목: {f.announcedCargo.items.map(item => `${item.name} ${fmt(item.box)}박스`).join(' · ')}</div>}
                   <FlightStrip f={f} busy={busyAwb === f.awb} onToggleDocs={toggleDocs} />
                   {f.checklist?.quarantineSlotChanged && <div>공항 예상 시각 변경으로 검역 예정 회차가 달라질 수 있습니다. 접수 가능 시간을 확인하세요.</div>}

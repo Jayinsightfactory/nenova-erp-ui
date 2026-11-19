@@ -1,7 +1,7 @@
 // 홈 수입 비행기 현황 조립 테스트 — node __tests__/importFlightBoard.test.js
 // 운송장 번호는 전부 지어낸 값이다.
 import assert from 'node:assert/strict';
-import { buildFlightBoard } from '../lib/importFlightBoard.js';
+import { buildFlightBoard, receiptIdentity } from '../lib/importFlightBoard.js';
 import { feedWindows, isoKst, readImportScheduleFeed } from '../lib/importScheduleFeed.js';
 
 const msg = (id, room, createdAt, message) => ({ chatroom: room, sender: '수입부', message, created_at: createdAt, external_message_id: id });
@@ -143,21 +143,31 @@ assert.ok(feed.messages.every(m => m.chatroom !== '다른방'));
 console.log('importFlightBoard tests passed');
 
 {
-  const checkTitle = (year, week, flight, awb) => {
-    const text = [week + '차 콜수국 (KALITTA)', '11월 18일 17:10 도착 예정', '(' + awb + ' ' + flight + ' 480 BOX)'].join(String.fromCharCode(10));
+  const goods = (names) => ({ items: names.map(name => ({ name, box: 50 })) });
+  const checkTitle = (year, week, awb, receipts = new Map(), items = []) => {
+    const text = [week + '차 콜수국 (KALITTA)', '11월 18일 17:10 도착 예정', '(' + awb + ' K4254 480 BOX)', ...items].join('\n');
     return buildFlightBoard({
       messages: [msg('label', '스케줄방', year + '-11-17T01:15:00Z', text)],
       now: Date.parse(year + '-11-18T12:00:00+09:00'),
+      receipts,
     }).flights[0];
   };
-  const selected = checkTitle(2026, '47-1', 'K4254', '992-04727892');
-  assert.equal(selected.displayName, '콜롬비아카장알루수 47-1');
+  const receiptKey = receiptIdentity('99204727892', 2026, '47-01');
+  const receipt = new Map([[receiptKey, goods(['수국'])]]);
+  const selected = checkTitle(2026, '47-1', '992-04727892', receipt);
+  assert.equal(selected.displayName, '콜롬비아 수국 47-1');
   assert.equal(selected.country, '콜롬비아');
   assert.equal(selected.itemLabel, '콜수국');
   assert.equal(selected.box, 480);
   assert.equal(selected.flight, 'K4254');
-  assert.equal(checkTitle(2025, '47-1', 'K4254', '992-04727892').displayName, '');
-  assert.equal(checkTitle(2026, '47-2', 'K4254', '992-04727892').displayName, '');
-  assert.equal(checkTitle(2026, '47-1', 'K4255', '992-04727892').displayName, '');
-  assert.equal(checkTitle(2026, '47-1', 'K4254', '992-12345675').displayName, '');
+
+  receipt.set(receiptKey, goods(['카네이션', '알스트로메리아', '수국', '카네이션 ']));
+  const grouped = checkTitle(2026, '47-1', '992-04727892', receipt);
+  assert.equal(grouped.displayName, '콜롬비아 카네이션·알스트로메리아 외 1종 47-1');
+  assert.deepEqual(grouped.extraTitleItems, ['카네이션', '알스트로메리아', '수국']);
+  assert.equal(checkTitle(2025, '47-1', '992-04727892', receipt).displayName, '콜롬비아 수국 47-1');
+  assert.equal(checkTitle(2026, '47-2', '992-04727892', receipt).displayName, '콜롬비아 수국 47-2');
+  assert.equal(checkTitle(2026, '47-1', '992-12345675', receipt).displayName, '콜롬비아 수국 47-1');
+  const announcement = checkTitle(2026, '47-1', '992-12345675', receipt, ['수국: 200박스', '카네이션: 280박스']);
+  assert.equal(announcement.displayName, '콜롬비아 수국·카네이션 47-1');
 }

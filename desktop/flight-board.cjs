@@ -53,6 +53,7 @@ function projectFlightBoard(data){
     return {
       viewId:flightViewId(f.key),weekLabel:clean(f.weekLabel,12),country:clean(f.country,12),itemLabel:clean(f.itemLabel,40),
       displayName:clean(f.displayName,60),
+      extraTitleItems:Array.isArray(f.extraTitleItems)?f.extraTitleItems.slice(0,80).map(name=>clean(name,60)).filter(Boolean):[],
       airline:clean(f.airline,32),awb:/^\d{3}-?\d{8}$/.test(f.awb||'')?f.awb:'',
       originAssumed:f.origin?.assumed===true,announcedCargo:cargo(f.announcedCargo),receivedCargo:cargo(f.receivedCargo),
       steps:steps.filter(x=>STEP_STATES.includes(x.state)).slice(0,20).map(x=>({label:clean(x.label,30),state:x.state,at:iso(x.at)})),

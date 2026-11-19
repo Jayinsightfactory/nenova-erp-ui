@@ -209,7 +209,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       row.append(choose,state);
       if (!selected) {
         const quantity = f.receivedCargo?.boxes ?? f.announcedCargo?.boxes;
-        const cargo = [f.itemLabel, quantity != null ? `${f.receivedCargo?.boxes != null ? '입고' : '공지'} ${quantity}박스` : ''].filter(Boolean).join(' · ');
+        const cargo = [f.displayName ? null : f.itemLabel, quantity != null ? `${f.receivedCargo?.boxes != null ? '입고' : '공지'} ${quantity}박스` : ''].filter(Boolean).join(' · ');
         if (cargo) row.append(css(el('span','',cargo),{overflowWrap:'anywhere',minWidth:'0'}));
         if (steps.length) row.append(css(el('span','',`처리 ${finished}/${steps.length} 완료`),{color:'#526981'}));
       } else row.append(arrive);
@@ -219,6 +219,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
         line(`${f.origin?.name || '출발지 미확인'}${f.originAssumed ? ' (추정)' : ''} → ${f.viaName ? f.viaName + '(경유) → ' : ''}인천`),
         line(`${f.weekLabel ? f.weekLabel + '차 · ' : ''}품목 ${f.itemLabel || '미확인'} · 운송 수량(공지) ${f.announcedCargo?.boxes != null ? f.announcedCargo.boxes + '박스' : '미확인'}`),
       );
+      if (selected && f.extraTitleItems?.length) row.append(line(`품목 전체 ${f.extraTitleItems.join(' · ')}`));
       if (selected && f.receivedCargo?.boxes != null) row.append(line(`전산 입고 합계 ${f.receivedCargo.boxes}박스`));
       const stepList = css(el('div'), { display: 'flex', flexBasis: '100%', flexWrap: 'wrap', gap: '4px' });
       const labels = {done:'확인', wait:'대기', due:'진행·확인 필요', late:'확인 필요', unknown:'미확인'};

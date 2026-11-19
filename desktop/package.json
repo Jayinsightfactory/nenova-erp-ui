@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "수입 비행기 현황에서 지정 항공편 이름과 확인할 편수·이슈 건수를 표시합니다."
+      "releaseNotes": "수입 비행기 현황에서 실제 품목으로 항공편 제목을 표시하고 확인할 편수와 이슈 건수를 따로 보여줍니다."
     },
     "extraResources": [
       {
