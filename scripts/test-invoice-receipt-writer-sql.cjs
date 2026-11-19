@@ -1327,6 +1327,10 @@ async function main() {
       ensure(Number(count.recordset?.[0]?.RowCount)===0,`fresh ${table} must be empty before fixture seeding`);
     }
     await seedSentinelsAndRows(pool);
+    if(process.env.NENOVA_AMOUNT_REVIEW_E2E==='1'){
+      await require('./test-packing-amount-receipt-local.cjs')({pool,sql,query,writer,documents,costs,ctx:writerContext(pool,writer),protectedSnapshot});
+      return;
+    }
     if(process.env.NENOVA_CO46_AI_RESPONSE && process.env.NENOVA_CO46_MASTER && process.env.NENOVA_CO46_PDF){
       await require('./test-co46-ai-native-local.cjs')({pool,sql,query,writer,documents,costs,ctx:writerContext(pool,writer),protectedSnapshot});
       return;

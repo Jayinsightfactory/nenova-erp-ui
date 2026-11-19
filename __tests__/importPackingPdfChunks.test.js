@@ -1,4 +1,5 @@
 import test from 'node:test';
+import './packingSummaryRows.test.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -42,7 +43,8 @@ test('response storage failure stops before parsing or dispatching the next segm
 test('free UI action is separate from ERP preparation and paid confirmation',async()=>{
   const source=await fs.readFile(new URL('../components/import-tools/PackingListTool.js',import.meta.url),'utf8');
   const handler=source.slice(source.indexOf('const revalidateSavedResponse ='),source.indexOf('const process = async'));
-  assert.ok(handler.includes('revalidateOnly:true'));assert.equal(/requestErpMatches|confirm\(|process\(/.test(handler),false);
+  assert.ok(handler.includes('revalidateOnly:true'));assert.equal(/requestErpMatches|confirm\(/.test(handler),false);
+  assert.ok(handler.includes('process(false,null,extraction)'),'saved response must enter the review UI without provider fallback');
   assert.ok(source.includes('onClick={revalidateSavedResponse}'));assert.ok(source.includes('저장 응답 재검증 · API 호출 없음'));
 });
 async function replayFixture(fn,{raw=true,bad=false}={}){

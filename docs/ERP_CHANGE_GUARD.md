@@ -1,5 +1,9 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-19 콜롬비아47-02 AYURA 집계행
+
+원본 SHA b2176913b2a9f15d3e33354a0b4ad0e4f9956db8919c1f7de38947a6cf3a548c/송장18065의6쪽8상품(27HB/8100송이/USD1741.5)과7쪽 관세집계1행은 같은 상품이다. 합계가2배라는 이유만으로 행을 삭제하지 않는다. 최신 사용자 지시에 따라 자동복구가 아니라 완결 추출의 금액 불일치를 검토 전용으로 보존한다. 로컬PDF 근거쪽·원본SHA·사유·명시확인·수량×단가/총액 검산 후 수정/제외/복원만 기존흐름에 적용하고 원본행·전후값·이력은 source_amount_review로 보존한다. saved response 무료 재검증도 같은 merge/helper와 UI로 연결한다. 불완전구간·진짜manifest건수·중복·HAWB충돌은 차단유지. 실제 직원 응답 재검증 전 전체업로드 성공을 주장하지 않는다. 운영ERP쓰기/유료재분석0. 근거 co4702-summary-recovery-2026-11-19.md, 회귀 co4702Summary.test.mjs.
+
 ## 2026-11-18 명세서 약칭·송장 법인명·DB 농장 연결
 
 문서의 다른 농장명을 송장 누락으로 단정하지 않는다. 유일한 송장번호/HAWB 또는 최소 법인 표기 동등성으로 연결하고, 미확정은 원본명·송장을 보존한 1:1 DB 후보 선택으로 해결한다. 실제 건수 차이·중복 연결·번호/HAWB 충돌은 계속 차단한다. 선택은 원본 SHA 작업에 보관하며 기존 원장명을 수정하지 않는다. 신규 Farm 등록은 별도 명시 버튼과 기존 수입부 권한, 활성 국가·중복 잠금·native IDENTITY·readback·rollback을 요구하며 Customer나 Warehouse/Stock/Estimate를 자동 생성하지 않는다. 근거 ClassFarmRegistration.md, 계획 manifest-farm-match-2026-11-18.md, 계약 manifest-farm-matching 및 실제 격리 SQL script 참조. 운영 원장 시험 쓰기 금지.

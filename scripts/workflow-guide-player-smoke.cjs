@@ -28,6 +28,7 @@ async function main() {
     await page.goto(base + (targetId==='packing-list-from-invoice'?'/work/manuals?manual=packing-list-from-invoice':targetId==='manifest-farm-matching'?'/master/codes':target?'/import/tools':'/import/tools?tab=incoming'), { waitUntil: 'networkidle0' });
     if(targetId==='invoice-farm-history')await page.click('button[aria-controls="import-panel-history"]');
     if(targetId==='manifest-farm-matching'){await page.focus('[role="tab"][aria-selected="true"]');await page.keyboard.press('End');assert.equal(await page.$eval('[role="tab"][aria-selected="true"]',node=>node.textContent.trim()),'🌾 농장');}
+    if(targetId==='packing-amount-review'){await page.click('button[aria-label="콜롬비아"]');}
     await page.evaluate(titleText=>{const title=[...document.querySelectorAll('h3')].find(n=>n.textContent===titleText&&n.closest('details'));if(!title)throw Error('Guide missing');title.closest('details').id='guide-player-target';},target?.title||'입고 수정 요청과 검토·확정');
     const summary = await page.$('#guide-player-target > summary');
     assert(summary, 'Guide entry missing'); await summary.focus(); if(!await page.$eval('#guide-player-target',details=>details.open))await page.keyboard.press('Enter');

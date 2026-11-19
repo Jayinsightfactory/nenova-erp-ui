@@ -2,6 +2,8 @@ import styles from '../../styles/ImportPacking.module.css';
 import WorkflowGuide from '../WorkflowGuide';
 import PackingManifestFarmReview from './PackingManifestFarmReview.js';
 import {pendingManifestIssues} from '../../lib/packingManifestReconciliation.js';
+import {packingAmountIssues} from '../../lib/packingAmountReview.js';
+import PackingAmountReview from './PackingAmountReview';
 import { blockingPackingIssues } from '../../lib/packingReceiptDatePolicy.js';
 import {createPackingHistoryClient,loadPackingHistory} from '../../lib/packingSharedHistoryClient.js';
 import {packingFileReuse,analyzedPackingUploads,readCompletedPackingAnalysis} from '../../lib/packingFileReuse.js';
@@ -902,6 +904,7 @@ const isLegacyChinaInvoice = invoice => invoice?.source_format === 'china_legacy
 function unresolvedExtractionIssues(invoices = [], result = null) {
   const issues = [
     ...pendingManifestIssues(result),
+    ...(result?.amount_review_country==='CO'?packingAmountIssues(result):[]),
     ...(Array.isArray(result?.extractionIssues) ? result.extractionIssues : []),
     ...(Array.isArray(result?.extraction_issues) ? result.extraction_issues : []),
     ...invoices.flatMap(invoice => [
@@ -1736,16 +1739,19 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   });
 
   const revalidateSavedResponse = async () => {
+    const validationVersion=readerVersion.current,validationScope=sharedScopeVersion.current;
     if(processingRef.current||!pdfBase64||country!=='CO')return;
     processingRef.current=true;setProcessing(true);
     setStatus({type:'info',msg:'저장 응답으로 파서를 재검증합니다. AI·입고 저장은 호출하지 않습니다.'});
     try{
-      await extractPackingDocument({country,pdfBase64,retryJobId:pdfRetryJobId,revalidateOnly:true});
-      setStatus({type:'info',msg:'저장 응답의 전체 파서·합계 검증을 통과했습니다. AI 호출 0회이며 입고는 등록하지 않았습니다.'});
+      const extraction=await extractPackingDocument({country,pdfBase64,retryJobId:pdfRetryJobId,revalidateOnly:true});
+      if(readerVersion.current!==validationVersion||sharedScopeVersion.current!==validationScope)return;
+      processingRef.current=false;setProcessing(false);
+      await process(false,null,extraction);
     }catch(error){setStatus({type:'error',msg:error.message});}
     finally{processingRef.current=false;setProcessing(false);}
   };
-  const process = async (allowAI = true, retryJobId = null) => {
+  const process = async (allowAI = true, retryJobId = null, savedExtraction = null) => {
     if(fileChoice||selectingFile)return;
     // PDF uploads use Claude after checking durable results. Failed jobs require
     // the separate explicit retry action; OCR is not an automatic fallback.
@@ -1777,7 +1783,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if(!isCurrent())return;
       setErpMatches(freshErp);setAliases(freshRecords.aliases);setLatestShared(false);
       let extraction;
-      if(reusableExtraction.current?.file===file){
+      if(savedExtraction){extraction=savedExtraction;}
+      else if(reusableExtraction.current?.file===file){
         extraction={data:reusableExtraction.current.data,source:'cache'};reusableExtraction.current=null;
       } else if (country === 'CN' && /\.xlsx$/i.test(file.name)) {
         try {
@@ -2387,6 +2394,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             </div>}
             <div className={styles.modeBadge}>{country==='CN'&&/\.xlsx$/i.test(file?.name||'')?'엑셀 코드 분석 · API 호출 없음':t.localMode}</div>
             {extractionSource&&<p className={styles.sourceBadge} role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}
+            {country==='CO'&&lastExtraction?.result?.amount_review_country==='CO'&&packingAmountIssues(lastExtraction.result).length>0&&<PackingAmountReview key={`${country}:${lastExtraction.sourceHash}`} result={lastExtraction.result} pdfBase64={pdfBase64} sourceHash={lastExtraction.sourceHash} disabled={processing||saving}
+              onDraft={result=>{setLastExtraction(current=>({...current,result}));setExcels([]);setGenerated({});setGeneratedErp(null);setReviewConfirmed(false);}}
+              onApply={result=>{setLastExtraction(current=>({...current,result,sourceInvoices:result.invoices}));setReviewRows(makePackingReviewRows(result.invoices,country));setReviewOpen(false);setReviewConfirmed(false);setExcels([]);setGenerated({});setGeneratedErp(null);
+                setMatchPreview(buildPackingMatchPreview({invoices:result.invoices,country,aliases,erpMatches}));
+                setStatus({type:'success',msg:'원본 대조와 합계 검증을 통과했습니다. 기존 품목 매칭·입고 준비를 계속하세요. 입고 등록은 실행하지 않았습니다.'});}}/>}
+            {country==='CO'&&<WorkflowGuide workflowId="packing-amount-review" initialRole="수입부"/>}
             {lastExtraction?.result?.manifest_review&&<PackingManifestFarmReview key={`${country}:${lastExtraction.sourceHash}`} result={lastExtraction.result} country={country} onApply={result=>{
               setLastExtraction(current=>({...current,result,sourceInvoices:result.invoices}));setExcels([]);setGenerated({});setGeneratedErp(null);setReviewConfirmed(false);
               setStatus({type:'success',msg:'명세서·송장·DB 농장을 연결했습니다. 원본 수량·금액은 변경하지 않았습니다.'});
