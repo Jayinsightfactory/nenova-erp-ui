@@ -449,7 +449,7 @@ function ReviewButtons({ wf, review }) {
         <div className="dim">실제 순서대로 고쳐 주세요. 필요 없는 단계는 삭제하고, 빠진 단계는 아래에서 추가하세요.</div>
         {steps.map((t, i) => <div key={i} style={{ display: 'flex', gap: 4, margin: '4px 0' }}>
           <span className="dim">{i + 1}.</span>
-          <input style={{ flex: 1, background: '#0d1117', color: '#c9d1d9', border: '1px solid #2c3340', borderRadius: 6, padding: '4px 8px', font: 'inherit' }} value={t} onChange={(e) => setAt(i, e.target.value)} />
+          <input style={{ flex: 1, background: '#ffffff', color: '#0f172a', border: '1px solid #cbd5e1', borderRadius: 4, padding: '4px 8px', font: 'inherit' }} value={t} onChange={(e) => setAt(i, e.target.value)} />
           <button type="button" className="sm" onClick={() => setSteps((a) => a.filter((_, k) => k !== i))}>삭제</button>
         </div>)}
         <button type="button" className="sm" onClick={() => setSteps((a) => [...a, ''])}>+ 단계 추가</button>{' '}
@@ -529,7 +529,7 @@ function BeforeRun({ before, k }) {
       <ol className="simsteps">{steps.map((s, i) => (
         <li key={i} className={(i < k ? 'done' : i === k ? 'cur' : 'todo') + (s.pain ? ' pain' : '')}>
           <div><span className="chip">{s.who}</span><span className="chip">{s.app}</span><b>{s.action}</b><span className="dim"> · {s.minutes}분</span></div>
-          {s.pain && i < k && <div className="painx">⚠ {s.pain}</div>}
+          {s.pain && i < k && <div className="painx">[병목] {s.pain}</div>}
         </li>))}</ol>
     </div>
   );
@@ -634,7 +634,7 @@ function Person({ p }) {
       <table className="tbl">
         <thead><tr><th style={{ width: '40%' }}>관찰된 수작업 (근거)</th><th>추가 가능한 기능</th><th style={{ width: 150 }}>메뉴</th><th style={{ width: 54 }}>우선</th></tr></thead>
         <tbody>{p.proposals.rows.map((r, i) => (
-          <tr key={i}><td>{r.observed}</td><td>{r.proposal}</td><td className="dim">{r.menu}</td><td><span className={'pri p' + r.priority}>{'★'.repeat(r.priority)}</span></td></tr>
+          <tr key={i}><td>{r.observed}</td><td>{r.proposal}</td><td className="dim">{r.menu}</td><td><span className={'pri p' + r.priority}>P{r.priority}</span></td></tr>
         ))}</tbody>
       </table>
       {p.proposals.note && <p className="warn">{p.proposals.note}</p>}
@@ -848,8 +848,8 @@ function TrendChart({ days }) {
   if (!rows.length) return <p className="dim">추이 데이터 없음</p>;
   const W = 720, H = 180, L = 36, R = 36, T = 12, B = 26, iw = W - L - R, ih = H - T - B;
   const series = [
-    { key: 'pct', label: '평균 확증률(%)', color: '#58a6ff', vals: rows.map((d) => Number(d.staffConfidence?.avgConfirmedPct)) },
-    { key: 'conf', label: '확증 기록(건)', color: '#3fb950', vals: rows.map((d) => Number(d.evidenceRecords?.confirmed)) },
+    { key: 'pct', label: '평균 확증률(%)', color: '#1d4ed8', vals: rows.map((d) => Number(d.staffConfidence?.avgConfirmedPct)) },
+    { key: 'conf', label: '확증 기록(건)', color: '#15803d', vals: rows.map((d) => Number(d.evidenceRecords?.confirmed)) },
   ];
   const x = (i) => L + (rows.length === 1 ? iw / 2 : (i / (rows.length - 1)) * iw);
   const drawn = series.map((s) => {
@@ -860,14 +860,14 @@ function TrendChart({ days }) {
   return (
     <div className="tw">
       <svg className="trend" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="확증률·확증기록 추이">
-        {[0, 0.5, 1].map((f) => <line key={f} x1={L} x2={W - R} y1={T + ih - f * ih} y2={T + ih - f * ih} stroke="#262b35" />)}
+        {[0, 0.5, 1].map((f) => <line key={f} x1={L} x2={W - R} y1={T + ih - f * ih} y2={T + ih - f * ih} stroke="#e2e8f0" />)}
         {drawn.map((s, si) => <g key={s.key}>
-          <text x={si === 0 ? L - 4 : W - R + 4} y={T + 4} textAnchor={si === 0 ? 'end' : 'start'} fill={s.color} fontSize="10">{s.max}</text>
-          <text x={si === 0 ? L - 4 : W - R + 4} y={T + ih} textAnchor={si === 0 ? 'end' : 'start'} fill={s.color} fontSize="10">0</text>
+          <text x={si === 0 ? L - 4 : W - R + 4} y={T + 4} textAnchor={si === 0 ? 'end' : 'start'} fill={s.color} fontSize="10" style={{ fontVariantNumeric: 'tabular-nums' }}>{s.max}</text>
+          <text x={si === 0 ? L - 4 : W - R + 4} y={T + ih} textAnchor={si === 0 ? 'end' : 'start'} fill={s.color} fontSize="10" style={{ fontVariantNumeric: 'tabular-nums' }}>0</text>
           <polyline fill="none" stroke={s.color} strokeWidth="2" points={s.pts.filter(Boolean).map((p) => p[0] + ',' + p[1]).join(' ')} />
           {s.pts.map((p, i) => p && <circle key={i} cx={p[0]} cy={p[1]} r="3" fill={s.color}><title>{rows[i].date} {s.label} {p[2]}</title></circle>)}
         </g>)}
-        {rows.map((d, i) => (i % every === 0 || i === rows.length - 1) && <text key={d.date} x={x(i)} y={H - 8} textAnchor="middle" fill="#98a1b2" fontSize="10">{String(d.date).slice(5)}</text>)}
+        {rows.map((d, i) => (i % every === 0 || i === rows.length - 1) && <text key={d.date} x={x(i)} y={H - 8} textAnchor="middle" fill="#64748b" fontSize="10" style={{ fontVariantNumeric: 'tabular-nums' }}>{String(d.date).slice(5)}</text>)}
       </svg>
       <div className="chips">{drawn.map((s) => <span key={s.key} className="chip"><i className="sw" style={{ background: s.color }} />{s.label}</span>)}</div>
     </div>
@@ -894,14 +894,14 @@ function RadarTab() {
   }, []);
   const onOpenSuiteSim = () => router.push({ pathname: '/my-work', query: { tab: 'suite-sim' } }, undefined, { shallow: true });
   return (
-    <>
-      <SelfTuneReport st={rep} />
-      {st.loading && !techRadar ? (
-        <p className="dim" style={{ padding: 20 }}>불러오는 중…</p>
-      ) : (
-        <Radar data={st.data} techRadar={techRadar} ledgerError={st.error} onOpenSuiteSim={onOpenSuiteSim} />
-      )}
-    </>
+    <Radar
+      data={st.data}
+      ledgerLoading={st.loading}
+      ledgerError={st.error}
+      rep={rep}
+      techRadar={techRadar}
+      onOpenSuiteSim={onOpenSuiteSim}
+    />
   );
 }
 // 자가수정 일일 보고(2026-10-09 사장님: "자가수정 로직은 도는데 보고가 없다"). self-tune-report.js 가 매일 올린 사람 문장 요약 + 직원별 확증 증감 + 채택 임박 별칭.
@@ -911,20 +911,21 @@ function SelfTuneReport({ st }) {
   const conf = arr(t.confidence), nearly = arr(t.aliases?.nearly), hints = arr(t.hintChanges);
   const sign = (d) => (d === null || d === undefined ? '-' : (d > 0 ? '+' : '') + d);
   return (
-    <div className="doc wide radar">
-      <h1>자가수정 보고 <small>{dash(t.date)} · 누적 {days.length}일</small></h1>
+    <div className="radar-selftune">
+      <h2>자가수정 보고 <small className="num">{dash(t.date)} · 누적 {days.length}일</small></h2>
       <ul>{arr(t.summary).map((l, i) => <li key={i} className={/^⚠/.test(l) ? 'warn' : ''}>{l}</li>)}</ul>
-      <h2>직원별 확증 <small>어제 대비</small></h2>
-      <div className="tw"><table className="tbl small"><thead><tr><th>직원</th><th>기록</th><th>확증</th><th>%</th><th>어제 대비</th><th>전산/파일/카톡</th></tr></thead>
+      <h3>직원별 확증 <small>어제 대비</small></h3>
+      <div className="tw"><table className="tbl small num-tbl"><thead><tr><th>직원</th><th>기록</th><th>확증</th><th>%</th><th>어제 대비</th><th>전산/파일/카톡</th></tr></thead>
         <tbody>{conf.map((c) => <tr key={c.name}><td>{c.name}</td><td>{c.records}</td><td>{c.confirmed}</td><td>{c.pct}</td><td>{sign(c.delta)}</td><td>{c.erp}/{c.file}/{c.msg}</td></tr>)}</tbody></table></div>
-      <h2>채택 임박 별칭 <small>후보 {dash(t.aliases?.candidates)} · 채택 {arr(t.aliases?.active).length}</small></h2>
-      {nearly.length ? <ul>{nearly.map((p, i) => <li key={i}>{p.nick} → {p.canonical} <span className="dim">({p.count}회·{p.days}일, {p.need})</span></li>)}</ul> : <p className="dim">없음</p>}
-      {hints.length ? <><h2>트래킹 요령 변화 <small>{hints.length}명</small></h2><ul>{hints.map((h, i) => <li key={i}><b>{h.name}</b><br /><span className="dim">전: {h.before}</span><br />후: {h.after}</li>)}</ul></> : null}
-      {t.experiment ? <p className="dim">실험 {dash(t.experiment.id)}: {dash(t.experiment.progress)} · 목표 {dash(t.experiment.target)}</p> : null}
+      <h3>채택 임박 별칭 <small className="num">후보 {dash(t.aliases?.candidates)} · 채택 {arr(t.aliases?.active).length}</small></h3>
+      {nearly.length ? <ul>{nearly.map((p, i) => <li key={i}>{p.nick} → {p.canonical} <span className="dim num">({p.count}회·{p.days}일, {p.need})</span></li>)}</ul> : <p className="dim">없음</p>}
+      {hints.length ? <><h3>해독 요령 변화 <small className="num">{hints.length}명</small></h3><ul>{hints.map((h, i) => <li key={i}><b>{h.name}</b><br /><span className="dim">전: {h.before}</span><br />후: {h.after}</li>)}</ul></> : null}
+      {t.experiment ? <p className="dim num">실험 {dash(t.experiment.id)}: {dash(t.experiment.progress)} · 목표 {dash(t.experiment.target)}</p> : null}
     </div>
   );
 }
-function Radar({ data, techRadar, ledgerError, onOpenSuiteSim }) {
+function Radar({ data, ledgerLoading = false, ledgerError = '', rep = { loading: false, data: null }, techRadar, onOpenSuiteSim }) {
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const days = arr(data?.days);
   const last = days[days.length - 1] || null;
   const cands = arr(data?.candidates);
@@ -936,48 +937,76 @@ function Radar({ data, techRadar, ledgerError, onOpenSuiteSim }) {
         ledger={data}
         techRadar={techRadar}
         isAdmin={true}
-        mode="dark"
+        mode="clear"
         standaloneUiStyles={true}
         onOpenSuiteSim={onOpenSuiteSim}
+        initialPlanMode="A"
         title="도입 · 기술 레이더 & 실설계 도입 시뮬레이터"
         subtitle="adoption-ledger 도입 장부와 tech-radar(GitHub 파일럿 실측)를 통합하고, 인수인계된 nenovakakao 6대 실설계 표면 기준으로 도입 전/후 변화를 시뮬레이션합니다."
       />
-      {!data && (
-        <p className="warn" style={{ marginTop: 14 }}>
-          {ledgerError ? `adoption-ledger 불러오기 안내: ${ledgerError}` : 'adoption-ledger.json 이 아직 올라오지 않았습니다 (사장님 PC run-all.sh → upload-adoption.js).'}
-        </p>
-      )}
-      {data && <>
-        <h1 style={{ marginTop: 22 }}>도입 장부 상세 원장</h1>
-        <p className="dim">기준일 {dash(data.baselineDate)} · 갱신 {data.updatedAt ? fmtTs(data.updatedAt) : '-'} · 누적 {days.length}일{data.note ? ' · ' + data.note : ''}</p>
-        <h2>레이더 <small>도입 → 시험 → 평가 → 보류</small></h2>
-        <div className="rings">{RADAR_RINGS.map(([k, label]) => <div className="ring" key={k}>
-          <h3>{label} <span className="dim">{arr(data.radar?.[k]).length}</span></h3>
-          {arr(data.radar?.[k]).length ? <ul>{arr(data.radar[k]).map((it, i) => <li key={i}>{dash(it)}</li>)}</ul> : <p className="dim">-</p>}
-        </div>)}</div>
-        <h2>추이 <small>평균 확증률 · 확증 기록(일별)</small></h2>
-        <TrendChart days={days} />
-        <h2>실험 <small>{arr(data.experiments).length}건</small></h2>
-        {arr(data.experiments).length ? <div className="tw"><table className="tbl"><thead><tr><th>ID</th><th>이름</th><th>지표</th><th>기준일</th><th>기준값</th><th>목표</th><th>상태</th></tr></thead>
-          <tbody>{arr(data.experiments).map((e, i) => <tr key={e.id || i}><td>{dash(e.id)}</td><td>{dash(e.name)}</td><td>{dash(e.metric)}</td><td>{dash(e.baselineDate)}</td>
-            <td>{e.baseline && typeof e.baseline === 'object' ? Object.entries(e.baseline).map(([k, v]) => <span key={k} className="chip">{k} <em>{dash(v)}</em></span>) : dash(e.baseline)}</td>
-            <td>{dash(e.target)}</td><td>{dash(e.status)}</td></tr>)}</tbody></table></div> : <p className="dim">실험 없음</p>}
-        <h2>후보 <small>탐색 결과 {cands.length}건</small></h2>
-        {cands.length ? <div className="tw"><table className="tbl small"><thead><tr><th>제목</th><th>출처</th><th>적합도</th><th>문제</th><th>이유</th><th>조치</th></tr></thead>
-          <tbody>{cands.map((c, i) => <tr key={i}><td>{c.url ? <a href={c.url} target="_blank" rel="noreferrer">{dash(c.title)}</a> : dash(c.title)}</td><td>{dash(c.source)}</td><td>{dash(c.fit)}</td><td>{dash(c.problem)}</td><td>{dash(c.why)}</td><td>{dash(c.action)}</td></tr>)}</tbody></table></div>
-          : <p className="dim">탐색 결과 없음</p>}
-        <h2>결정</h2>
-        {decisions.length ? <div className="kv">{decisions.map(([k, v]) => <span key={k}><b>{k}</b>{dash(v)}</span>)}</div> : <p className="dim">-</p>}
-        <h2>문제 등록부 <small>{last ? last.date : '-'}</small></h2>
-        {problems ? <div className="tw"><table className="tbl small"><thead><tr><th>항목</th><th>값</th></tr></thead>
-          <tbody>{Object.keys(PROBLEM_LABELS).map((k) => <tr key={k}><td>{PROBLEM_LABELS[k]}</td><td>{dash(problems[k])}</td></tr>)}
-            {Object.keys(problems).filter((k) => !PROBLEM_LABELS[k]).map((k) => <tr key={k}><td>{k}</td><td>{dash(problems[k])}</td></tr>)}</tbody></table></div> : <p className="dim">-</p>}
-        {last?.staffConfidence?.byEmployee && <>
-          <h2>직원별 확증률 <small>{dash(last.staffConfidence.accuracyDate)} · 최저 {dash(last.staffConfidence.lowest?.name)} {dash(last.staffConfidence.lowest?.confirmedPct)}%</small></h2>
-          <div className="tw"><table className="tbl small"><thead><tr><th>직원</th><th>확증(%)</th><th>전산(%)</th><th>파일(%)</th><th>메시지(%)</th><th>단계</th></tr></thead>
-            <tbody>{Object.entries(last.staffConfidence.byEmployee).map(([n, v]) => <tr key={n}><td>{n}</td><td>{dash(v?.confirmedPct)}</td><td>{dash(v?.erpPct)}</td><td>{dash(v?.filePct)}</td><td>{dash(v?.msgPct)}</td><td>{dash(v?.steps)}</td></tr>)}</tbody></table></div>
-        </>}
-      </>}
+      <section className="radar-archive" data-testid="radar-ledger-archive" aria-label="원장 로우데이터 및 일별 자가조율 로그">
+        <div className="radar-archive-bar">
+          <div className="radar-archive-meta">
+            <b>원장 로우데이터 및 일별 자가조율 로그</b>
+            <span className="dim num">
+              {data
+                ? `기준일 ${dash(data.baselineDate)} · 갱신 ${data.updatedAt ? fmtTs(data.updatedAt) : '-'} · 누적 ${days.length}일${data.note ? ' · ' + data.note : ''}`
+                : ledgerLoading
+                  ? 'adoption-ledger 불러오는 중…'
+                  : 'adoption-ledger 미업로드 (시뮬레이터 프리셋 동작 중)'}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="sm"
+            aria-expanded={archiveOpen}
+            onClick={() => setArchiveOpen((v) => !v)}
+          >
+            {archiveOpen ? '원장 로우데이터 및 일별 자가조율 로그 닫기' : '원장 로우데이터 및 일별 자가조율 로그 열람'}
+          </button>
+        </div>
+
+        {archiveOpen && (
+          <div className="radar-archive-body">
+            <SelfTuneReport st={rep} />
+            {!data && (
+              <p className="warn" style={{ margin: 0 }}>
+                {ledgerError ? `adoption-ledger 불러오기 안내: ${ledgerError}` : 'adoption-ledger.json 이 아직 올라오지 않았습니다 (사장님 PC run-all.sh → upload-adoption.js).'}
+              </p>
+            )}
+            {data && <>
+              <h2>도입 장부 상세 원장 <small className="num">기준일 {dash(data.baselineDate)} · 누적 {days.length}일</small></h2>
+              <h3>레이더 4단계 <small>도입 · 시험 · 평가 · 보류</small></h3>
+              <div className="rings">{RADAR_RINGS.map(([k, label]) => <div className="ring" key={k}>
+                <h4>{label} <span className="dim num">{arr(data.radar?.[k]).length}</span></h4>
+                {arr(data.radar?.[k]).length ? <ul>{arr(data.radar[k]).map((it, i) => <li key={i}>{dash(it)}</li>)}</ul> : <p className="dim">-</p>}
+              </div>)}</div>
+              <h3>추이 <small>평균 확증률 · 확증 기록(일별)</small></h3>
+              <TrendChart days={days} />
+              <h3>실험 <small className="num">{arr(data.experiments).length}건</small></h3>
+              {arr(data.experiments).length ? <div className="tw"><table className="tbl num-tbl"><thead><tr><th>ID</th><th>이름</th><th>지표</th><th>기준일</th><th>기준값</th><th>목표</th><th>상태</th></tr></thead>
+                <tbody>{arr(data.experiments).map((e, i) => <tr key={e.id || i}><td>{dash(e.id)}</td><td>{dash(e.name)}</td><td>{dash(e.metric)}</td><td>{dash(e.baselineDate)}</td>
+                  <td>{e.baseline && typeof e.baseline === 'object' ? Object.entries(e.baseline).map(([k, v]) => <span key={k} className="chip">{k} <em>{dash(v)}</em></span>) : dash(e.baseline)}</td>
+                  <td>{dash(e.target)}</td><td>{dash(e.status)}</td></tr>)}</tbody></table></div> : <p className="dim">실험 없음</p>}
+              <h3>후보 <small className="num">탐색 결과 {cands.length}건</small></h3>
+              {cands.length ? <div className="tw"><table className="tbl small num-tbl"><thead><tr><th>제목</th><th>출처</th><th>적합도</th><th>문제</th><th>이유</th><th>조치</th></tr></thead>
+                <tbody>{cands.map((c, i) => <tr key={i}><td>{c.url ? <a href={c.url} target="_blank" rel="noreferrer">{dash(c.title)}</a> : dash(c.title)}</td><td>{dash(c.source)}</td><td>{dash(c.fit)}</td><td>{dash(c.problem)}</td><td>{dash(c.why)}</td><td>{dash(c.action)}</td></tr>)}</tbody></table></div>
+                : <p className="dim">탐색 결과 없음</p>}
+              <h3>결정</h3>
+              {decisions.length ? <div className="kv">{decisions.map(([k, v]) => <span key={k}><b>{k}</b>{dash(v)}</span>)}</div> : <p className="dim">-</p>}
+              <h3>문제 등록부 <small className="num">{last ? last.date : '-'}</small></h3>
+              {problems ? <div className="tw"><table className="tbl small num-tbl"><thead><tr><th>항목</th><th>값</th></tr></thead>
+                <tbody>{Object.keys(PROBLEM_LABELS).map((k) => <tr key={k}><td>{PROBLEM_LABELS[k]}</td><td>{dash(problems[k])}</td></tr>)}
+                  {Object.keys(problems).filter((k) => !PROBLEM_LABELS[k]).map((k) => <tr key={k}><td>{k}</td><td>{dash(problems[k])}</td></tr>)}</tbody></table></div> : <p className="dim">-</p>}
+              {last?.staffConfidence?.byEmployee && <>
+                <h3>직원별 확증률 <small className="num">{dash(last.staffConfidence.accuracyDate)} · 최저 {dash(last.staffConfidence.lowest?.name)} {dash(last.staffConfidence.lowest?.confirmedPct)}%</small></h3>
+                <div className="tw"><table className="tbl small num-tbl"><thead><tr><th>직원</th><th>확증(%)</th><th>전산(%)</th><th>파일(%)</th><th>메시지(%)</th><th>단계</th></tr></thead>
+                  <tbody>{Object.entries(last.staffConfidence.byEmployee).map(([n, v]) => <tr key={n}><td>{n}</td><td>{dash(v?.confirmedPct)}</td><td>{dash(v?.erpPct)}</td><td>{dash(v?.filePct)}</td><td>{dash(v?.msgPct)}</td><td>{dash(v?.steps)}</td></tr>)}</tbody></table></div>
+              </>}
+            </>}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -1020,13 +1049,22 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
   }, [router.query?.tab, mineOnly]);
   return (
     <div className="wrap" data-my-work>
-      <div className="bar">
-        <MenuBackButton />
-        <b data-desktop-chrome>내 작업 데이터</b>
-        {TABS.map((t) => <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>{t.label}</button>)}
-        <span className="dim" style={{ marginLeft: 'auto' }}>{userId} 전용</span>
-        {!mineOnly && <a href={orbit + '/my-work.html' + orbitQs} target="_blank" rel="noreferrer">새 창</a>}
-      </div>
+      <header className="bar">
+        <div className="bar-top">
+          <MenuBackButton />
+          <div className="bar-brand">
+            <b data-desktop-chrome>내 작업 데이터</b>
+            <span className="bar-sub">NENOVA EDITORIAL WORKBENCH</span>
+          </div>
+          <div className="bar-right">
+            <span className="acct-badge">{userId} 전용</span>
+            {!mineOnly && <a href={orbit + '/my-work.html' + orbitQs} target="_blank" rel="noreferrer">Orbit 새 창 ↗</a>}
+          </div>
+        </div>
+        <nav className="bar-tabs" aria-label="작업 데이터 메뉴 탭">
+          {TABS.map((t) => <button key={t.id} type="button" className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>{t.label}</button>)}
+        </nav>
+      </header>
       <div className="stage">
         {tab === 'mine' && <MyFlowTab mine={mine} />}
         {tab === 'arch' && <ArchFlowChart onSelectTab={setTab} mineOnly={mineOnly} />}
@@ -1049,39 +1087,52 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
       </div>
       <style jsx global>{`
         html,body{margin:0;height:100%}
-        .wrap{position:fixed;inset:0;display:flex;flex-direction:column;background:#0e1016;color:#e7eaf0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;font-size:13px}
-        .bar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 14px;background:#171a21;border-bottom:1px solid #262b35;flex-wrap:wrap}
-        .bar button{background:#1f2430;color:#98a1b2;border:1px solid #2c3340;border-radius:6px;padding:5px 11px;cursor:pointer;font:inherit}
-        .bar button.on{color:#fff;border-color:#58a6ff;background:#1c2633}
-        .bar a{color:#98a1b2;border:1px solid #2c3340;border-radius:6px;padding:4px 9px;text-decoration:none;font-size:12px}
-        .stage{flex:1 1 auto;min-height:0;position:relative;overflow:auto}
-        .stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#0e1016}
-        .plwrap{display:grid;grid-template-columns:minmax(0,1fr) 560px;gap:14px;padding:14px;align-items:start}
+        .wrap{position:fixed;inset:0;display:flex;flex-direction:column;background:#f8fafc;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;font-size:13px}
+        .bar{flex:0 0 auto;display:flex;flex-direction:column;background:#ffffff;border-bottom:1px solid #e2e8f0;box-shadow:none}
+        .bar-top{display:flex;align-items:center;gap:10px;padding:7px 18px;border-bottom:1px solid #f1f5f9;flex-wrap:wrap}
+        .bar-brand{display:flex;align-items:baseline;gap:8px}
+        .bar-brand b{font-size:14px;font-weight:700;color:#0f172a;letter-spacing:-0.01em}
+        .bar-sub{font-size:10.5px;font-weight:700;letter-spacing:0.06em;color:#64748b}
+        .bar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+        .acct-badge{font-size:11.5px;font-weight:600;color:#475569;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:2px 8px;font-variant-numeric:tabular-nums}
+        .bar-tabs{display:flex;align-items:center;gap:2px;padding:0 18px;flex-wrap:wrap;background:#ffffff}
+        .bar button:not(.nv-back){background:transparent;color:#475569;border:0;border-bottom:2px solid transparent;border-radius:0;padding:8px 10px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:500;transition:color .12s,border-color .12s}
+        .bar button:not(.nv-back):hover{color:#0f172a;border-bottom-color:#cbd5e1}
+        .bar button:not(.nv-back).on{color:#1d4ed8;border-bottom-color:#1d4ed8;font-weight:700}
+        .bar button:not(.nv-back):focus-visible,.bar a:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px}
+        .bar a{color:#334155;background:#ffffff;border:1px solid #cbd5e1;border-radius:4px;padding:3px 9px;text-decoration:none;font-size:12px;font-weight:600}
+        .bar a:hover{background:#f1f5f9;color:#0f172a}
+        .stage{flex:1 1 auto;min-height:0;position:relative;overflow:auto;background:#f8fafc;color:#0f172a}
+        .stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#ffffff}
+        [data-my-work] .stage .dhc-root{background:#0f172a;border:1px solid #cbd5e1;border-radius:6px;margin-top:14px;margin-bottom:24px}
+        .num{font-variant-numeric:tabular-nums}
+        .num-tbl td,.num-tbl th{font-variant-numeric:tabular-nums}
+        .plwrap{display:grid;grid-template-columns:minmax(0,1fr) 560px;gap:14px;padding:16px 18px;align-items:start}
         @media(max-width:1100px){.plwrap{grid-template-columns:1fr}}
-        .pllede{color:#98a1b2;margin:0 0 10px;max-width:80ch}
+        .pllede{color:#475569;margin:0 0 10px;max-width:80ch}
         .plmap{display:grid;grid-template-columns:repeat(10,minmax(84px,1fr));gap:3px;overflow-x:auto}
-        .plstg{font:inherit;font-weight:700;color:#e7eaf0;background:#1f2a3a;border:0;padding:10px 12px 10px 18px;cursor:pointer;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%,10px 50%)}
+        .plstg{font:inherit;font-weight:700;color:#0f172a;background:#ffffff;border:1px solid #cbd5e1;padding:10px 12px 10px 18px;cursor:pointer;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%,10px 50%)}
         .plstg:first-child{clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%);padding-left:12px}
-        .plstg.none{background:#191c23;color:#5d6575}.plstg.on{background:#2e5d8f}
-        .plstg:focus-visible,.plchip:focus-visible,.plname:focus-visible{outline:2px solid #58a6ff}
-        .pllegend{display:flex;gap:14px;flex-wrap:wrap;color:#98a1b2;font-size:12px;margin:8px 0 12px}
+        .plstg.none{background:#f1f5f9;color:#94a3b8}.plstg.on{background:#1d4ed8;color:#ffffff}
+        .plstg:focus-visible,.plchip:focus-visible,.plname:focus-visible{outline:2px solid #1d4ed8;outline-offset:1px}
+        .pllegend{display:flex;gap:14px;flex-wrap:wrap;color:#475569;font-size:12px;margin:8px 0 12px}
         .pllegend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
-        .pllegend i.hi{background:#3fb950}.pllegend i.mid{background:#d29922}.pllegend i.lo{background:#6e7681}.pllegend i.none{background:#191c23;border:1px solid #2c3340}
-        .pllanes{border:1px solid #262b35;border-radius:10px;overflow:auto;max-height:calc(100vh - 230px)}
+        .pllegend i.hi{background:#15803d}.pllegend i.mid{background:#b45309}.pllegend i.lo{background:#94a3b8}.pllegend i.none{background:#f1f5f9;border:1px solid #cbd5e1}
+        .pllanes{border:1px solid #e2e8f0;border-radius:6px;overflow:auto;max-height:calc(100vh - 230px);background:#ffffff}
         .pllanes table{border-collapse:separate;border-spacing:0;min-width:1150px;width:100%}
-        .pllanes th,.pllanes td{border-bottom:1px solid #222733;vertical-align:top;padding:6px}
-        .pllanes thead th{position:sticky;top:0;background:#171a21;z-index:2;color:#98a1b2;font-weight:500;text-align:left;white-space:nowrap}
-        .pllanes th.hl,.pllanes td.hl{background:#152233}
-        .plwho{position:sticky;left:0;background:#12151c;z-index:1;width:92px}
-        thead .plwho{z-index:3}
-        .pldept td{background:#191d26;color:#98a1b2;font-weight:700;font-size:11.5px;padding:4px 8px}
-        tr.link td{background:#3a3313}
-        .plname{font:inherit;font-weight:700;font-size:13.5px;color:#e7eaf0;background:none;border:0;padding:2px 0;cursor:pointer;text-align:left}
-        .plname:hover{color:#58a6ff}
-        .plchip{display:block;width:100%;min-width:96px;text-align:left;font:inherit;font-size:12px;line-height:1.35;color:#e7eaf0;background:#1a1e27;border:1px solid #2c3340;border-left:3px solid #6e7681;border-radius:6px;padding:5px 7px;margin-bottom:4px;cursor:pointer}
-        .plchip.hi{border-left-color:#3fb950}.plchip.mid{border-left-color:#d29922}
-        .plchip:hover{border-color:#58a6ff}.plchip.on{background:#1c2633;border-color:#58a6ff}.plchip.dim{opacity:.3}
-        .plside{position:sticky;top:0;background:#151922;border:1px solid #262b35;border-radius:10px;padding:14px 16px;max-height:calc(100vh - 80px);overflow:auto}
+        .pllanes th,.pllanes td{border-bottom:1px solid #e2e8f0;vertical-align:top;padding:6px}
+        .pllanes thead th{position:sticky;top:0;background:#f1f5f9;z-index:2;color:#334155;font-weight:700;text-align:left;white-space:nowrap;border-bottom:1px solid #cbd5e1}
+        .pllanes th.hl,.pllanes td.hl{background:#eff6ff}
+        .plwho{position:sticky;left:0;background:#ffffff;z-index:1;width:92px;border-right:1px solid #e2e8f0}
+        thead .plwho{z-index:3;background:#f1f5f9}
+        .pldept td{background:#f8fafc;color:#475569;font-weight:700;font-size:11.5px;padding:4px 8px}
+        tr.link td{background:#fef9c3}
+        .plname{font:inherit;font-weight:700;font-size:13.5px;color:#0f172a;background:none;border:0;padding:2px 0;cursor:pointer;text-align:left}
+        .plname:hover{color:#1d4ed8}
+        .plchip{display:block;width:100%;min-width:96px;text-align:left;font:inherit;font-size:12px;line-height:1.35;color:#0f172a;background:#ffffff;border:1px solid #cbd5e1;border-left:3px solid #94a3b8;border-radius:4px;padding:5px 7px;margin-bottom:4px;cursor:pointer}
+        .plchip.hi{border-left-color:#15803d}.plchip.mid{border-left-color:#b45309}
+        .plchip:hover{border-color:#1d4ed8}.plchip.on{background:#eff6ff;border-color:#1d4ed8;color:#0f172a}.plchip.dim{opacity:.38}
+        .plside{position:sticky;top:0;background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:14px 16px;max-height:calc(100vh - 80px);overflow:auto;color:#0f172a}
         /* PC pipeline content follows the main stage scroll. Horizontal table
            overflow stays available; neither lane rows nor detail text is clipped. */
         @media screen {
@@ -1089,135 +1140,151 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
           html[data-nenova-desktop="true"] [data-my-work] .pllanes{max-height:none;overflow-x:auto;overflow-y:visible}
           html[data-nenova-desktop="true"] [data-my-work] .plside{position:static;max-height:none;overflow:visible;overflow-wrap:anywhere;min-width:0}
         }
-        .plside h2{margin:2px 0 6px;font-size:16px}
-        .plwhy{color:#c3c9d4}
-        .pll{color:#7d8697;font-size:11.5px;font-weight:700;letter-spacing:.03em;margin:10px 0 3px}
+        .plside h2{margin:2px 0 6px;font-size:16px;color:#0f172a}
+        .plwhy{color:#334155}
+        .pll{color:#64748b;font-size:11.5px;font-weight:700;letter-spacing:.03em;margin:10px 0 3px}
         .pltags{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
-        .pltag{font-size:11px;border:1px solid #2c3340;border-radius:4px;padding:0 6px;color:#aab2c0}
-        .plbadge{font-size:11px;font-weight:700;border-radius:99px;padding:1px 8px}
-        .plbadge.hi{background:#12301c;color:#3fb950}.plbadge.mid{background:#33280f;color:#d29922}.plbadge.lo{background:#23262d;color:#8b949e}
+        .pltag{font-size:11px;border:1px solid #cbd5e1;border-radius:4px;padding:0 6px;color:#475569;background:#f8fafc}
+        .plbadge{font-size:11px;font-weight:700;border-radius:4px;padding:1px 7px;border:1px solid transparent}
+        .plbadge.hi{background:#dcfce7;color:#15803d;border-color:#bbf7d0}.plbadge.mid{background:#fef3c7;color:#b45309;border-color:#fde68a}.plbadge.lo{background:#f1f5f9;color:#475569;border-color:#cbd5e1}
         .plflow{margin-top:8px}
         .plfs{display:grid;grid-template-columns:22px 1fr;gap:8px;position:relative;padding-bottom:10px}
-        .plfs::before{content:"";position:absolute;left:10px;top:22px;bottom:0;width:2px;background:#262b35}
+        .plfs::before{content:"";position:absolute;left:10px;top:22px;bottom:0;width:2px;background:#e2e8f0}
         .plfs:last-child::before{display:none}
-        .pldot{width:22px;height:22px;border-radius:50%;background:#1c2633;color:#58a6ff;font-size:11px;font-weight:700;display:grid;place-items:center}
+        .pldot{width:22px;height:22px;border-radius:4px;background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-size:11px;font-weight:700;display:grid;place-items:center;font-variant-numeric:tabular-nums}
         .plfs .pll{margin-top:2px}.plfs ul,.plfs ol,.plside ul{margin:2px 0 0;padding-left:18px}
-        .plrh{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;margin:4px 0}.plrh dt{color:#58a6ff;font-weight:700}.plrh dd{margin:0}
+        .plrh{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;margin:4px 0}.plrh dt{color:#1d4ed8;font-weight:700}.plrh dd{margin:0}
         .plppl{display:flex;flex-wrap:wrap;gap:4px}
-        .plppl button,.plact button{font:inherit;font-size:12px;color:#e7eaf0;background:#1f2430;border:1px solid #2c3340;border-radius:99px;padding:2px 10px;cursor:pointer}
+        .plppl button,.plact button{font:inherit;font-size:12px;color:#0f172a;background:#ffffff;border:1px solid #cbd5e1;border-radius:4px;padding:3px 10px;cursor:pointer}
+        .plppl button:hover,.plact button:hover{background:#f1f5f9;border-color:#94a3b8}
         .plrec{display:grid;gap:8px}
-        .plr{border:1px solid #262b35;border-radius:8px;padding:8px 10px;display:grid;gap:3px;font-size:12.5px;background:#12161e}
-        .plrh2{display:flex;gap:8px;align-items:baseline}.plt{color:#58a6ff;font-size:11.5px;white-space:nowrap}
-        .plk{display:inline-block;min-width:58px;color:#7d8697;font-size:11px;font-weight:700;margin-right:6px}
+        .plr{border:1px solid #e2e8f0;border-radius:6px;padding:9px 11px;display:grid;gap:3px;font-size:12.5px;background:#ffffff}
+        .plrh2{display:flex;gap:8px;align-items:baseline}.plt{color:#1d4ed8;font-size:11.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+        .plk{display:inline-block;min-width:58px;color:#64748b;font-size:11px;font-weight:700;margin-right:6px}
         .plr ul{margin:0;padding-left:18px}
         .ann{position:relative;display:block;cursor:zoom-in;margin-top:4px;line-height:0}
-        .ann img{width:100%;display:block;border-radius:6px;border:1px solid #2c3340}
+        .ann img{width:100%;display:block;border-radius:4px;border:1px solid #cbd5e1}
         .ann.sm{width:240px}.ann.md{width:100%;max-width:520px}.ann.lg{width:100%;cursor:zoom-out}
-        .annbox{position:absolute;border:2px solid #ff3b30;border-radius:3px;background:rgba(255,59,48,.10);pointer-events:none}
-        .annno{position:absolute;transform:translate(-45%,-45%);min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#ff3b30;color:#fff;font:700 11px/18px sans-serif;text-align:center;box-shadow:0 0 0 2px #0e1016;pointer-events:none}
-        .annno.inl{position:static;display:inline-block;transform:none;margin-right:6px;box-shadow:none}
+        .annbox{position:absolute;border:2px solid #dc2626;border-radius:3px;background:rgba(220,38,38,.10);pointer-events:none}
+        .annno{position:absolute;transform:translate(-45%,-45%);min-width:18px;height:18px;padding:0 4px;border-radius:4px;background:#dc2626;color:#ffffff;font:700 11px/16px sans-serif;text-align:center;border:2px solid #ffffff;pointer-events:none;font-variant-numeric:tabular-nums}
+        .annno.inl{position:static;display:inline-block;transform:none;margin-right:6px;border:0}
         .annlist{list-style:none;margin:6px 0 2px;padding:0;display:grid;gap:3px}
         .annflow{display:flex;gap:18px;overflow-x:auto;padding:4px 2px 10px}
         .annstep{flex:0 0 240px;position:relative}
-        .annstep:not(:last-child)::after{content:'→';position:absolute;right:-15px;top:70px;color:#ff3b30;font-weight:700}
-        .annhead{font-size:11.5px;color:#c3c9d4;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.annhead b{color:#ff3b30}
-        .anncap{font-size:11px;color:#98a1b2;margin-top:3px}
-        .plimg{max-width:160px;border-radius:6px;border:1px solid #2c3340;cursor:zoom-in;margin-top:4px}
+        .annstep:not(:last-child)::after{content:'→';position:absolute;right:-15px;top:70px;color:#dc2626;font-weight:700}
+        .annhead{font-size:11.5px;color:#334155;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.annhead b{color:#dc2626}
+        .anncap{font-size:11px;color:#64748b;margin-top:3px}
+        .plimg{max-width:160px;border-radius:4px;border:1px solid #cbd5e1;cursor:zoom-in;margin-top:4px}
         .plimg.big{max-width:100%;cursor:zoom-out}
-        .plact{display:flex;gap:6px;margin:12px 0 8px}.plact button.on{border-color:#58a6ff;background:#1c2633}
+        .plact{display:flex;gap:6px;margin:12px 0 8px}.plact button.on{border-color:#1d4ed8;background:#1d4ed8;color:#ffffff}
 
-        .doc{max-width:1200px;margin:0 auto;padding:18px 22px 60px}
-        .doc h1{font-size:20px;margin:0 0 6px}.doc h2{font-size:16px;margin:26px 0 8px;border-bottom:1px solid #262b35;padding-bottom:4px}
-        .doc h2 small{color:#98a1b2;font-weight:400;font-size:12px;margin-left:8px}
-        .doc h3{font-size:13.5px;margin:16px 0 6px;color:#c9d1d9}.tog{cursor:pointer;user-select:none}.tog:hover{color:#58a6ff}
-        .dim{color:#98a1b2}.warn{color:#e3b341}
-        .chip{display:inline-block;background:#1f2430;border:1px solid #2c3340;border-radius:999px;padding:1px 8px;margin:2px 3px 2px 0;font-size:11.5px}
-        .chip em{color:#98a1b2;font-style:normal}
+        .doc{max-width:1200px;margin:0 auto;padding:18px 22px 60px;color:#0f172a}
+        .doc h1{font-size:20px;margin:0 0 6px;color:#0f172a}.doc > h2,.radar-archive h2,.person h2{font-size:15.5px;margin:22px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px;color:#0f172a}
+        .doc h2 small,.doc h3 small{color:#64748b;font-weight:400;font-size:12px;margin-left:8px}
+        .doc h3{font-size:13.5px;margin:14px 0 6px;color:#1e293b}.tog{cursor:pointer;user-select:none}.tog:hover{color:#1d4ed8}
+        .dim{color:#475569}.warn{color:#b45309}
+        .chip{display:inline-block;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;padding:1px 7px;margin:2px 3px 2px 0;font-size:11.5px;color:#334155}
+        .chip em{color:#64748b;font-style:normal}
         .chips{display:flex;flex-wrap:wrap}
         .stats div{margin:3px 0}
-        .tbl{width:100%;border-collapse:collapse;font-size:12.5px}.tbl th,.tbl td{border:1px solid #262b35;padding:6px 8px;vertical-align:top;text-align:left}
-        .tbl th{background:#171a21;color:#98a1b2;font-weight:600}.tbl.small{font-size:11.5px}
-        /* 전역 CSS의 짝수행 흰 배경(글씨 안 보임) 차단 — 이 화면은 어두운 배경 고정 */
-        .doc .tbl tbody tr,.doc .tbl tbody tr:nth-child(even),.doc .tbl tbody tr:hover{background:#0e1016!important}
-        .doc .tbl td{background:transparent!important;color:#e7eaf0!important}
-        .pri{color:#e3b341;white-space:nowrap}
-        .manual{border:1px solid #262b35;border-radius:8px;padding:8px 12px;margin:6px 0;background:#12151c}
+        .tbl{width:100%;border-collapse:collapse;font-size:12.5px;background:#ffffff}.tbl th,.tbl td{border:1px solid #e2e8f0;padding:7px 9px;vertical-align:top;text-align:left;color:#0f172a}
+        .tbl th{background:#f1f5f9;color:#334155;font-weight:700}.tbl.small{font-size:11.5px}
+        .doc .tbl tbody tr,.doc .tbl tbody tr:nth-child(even){background:#ffffff!important}
+        .doc .tbl tbody tr:hover{background:#f8fafc!important}
+        .doc .tbl td{background:transparent!important;color:#0f172a!important}
+        .pri{color:#b45309;white-space:nowrap;font-weight:700;font-variant-numeric:tabular-nums}
+        .manual{border:1px solid #e2e8f0;border-radius:6px;padding:9px 12px;margin:6px 0;background:#ffffff}
         .manual ol{margin:4px 0 0;padding-left:20px}.manual li{margin:2px 0}
         .shared li{margin:6px 0}
-        .jump{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}.jump a{color:#58a6ff;border:1px solid #2c3340;border-radius:6px;padding:3px 10px;text-decoration:none}
-        .person{margin-top:28px;padding-top:6px}
-        .radar .rings{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}@media(max-width:900px){.radar .rings{grid-template-columns:repeat(2,minmax(0,1fr))}}
-        .radar .ring{border:1px solid #262b35;border-radius:8px;padding:8px 12px;background:#12151c}.radar .ring h3{margin:0 0 6px}.radar .ring ul{margin:0;padding-left:18px}.radar .ring li{margin:3px 0}
-        .radar .trend{width:100%;max-width:760px;height:auto;display:block;background:#12151c;border:1px solid #262b35;border-radius:8px}
+        .jump{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}.jump a{color:#1d4ed8;background:#ffffff;border:1px solid #cbd5e1;border-radius:4px;padding:3px 10px;text-decoration:none;font-weight:600}
+        .jump a:hover{background:#f1f5f9}
+        .person{margin-top:24px;padding-top:6px}
+        .radar-archive{margin-top:14px;border:1px solid #e2e8f0;border-radius:6px;background:#ffffff;overflow:hidden}
+        .radar-archive-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:#ffffff}
+        .radar-archive-meta{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+        .radar-archive-meta b{font-size:13px;color:#0f172a}
+        .radar-archive-body{border-top:1px solid #e2e8f0;padding:14px 16px 18px;display:flex;flex-direction:column;gap:12px;background:#f8fafc}
+        .radar-selftune{background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:12px 14px}
+        .radar-selftune h2{margin-top:0}
+        .radar .rings{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid #e2e8f0;border-radius:4px;background:#ffffff;overflow:hidden}
+        @media(max-width:900px){.radar .rings{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        .radar .ring{border-right:1px solid #e2e8f0;padding:10px 12px;background:#ffffff}
+        .radar .ring:last-child{border-right:0}
+        .radar .ring h4{margin:0 0 6px;font-size:13px;color:#0f172a}.radar .ring ul{margin:0;padding-left:18px}.radar .ring li{margin:3px 0}
+        .radar .trend{width:100%;max-width:760px;height:auto;display:block;background:#ffffff;border:1px solid #e2e8f0;border-radius:4px}
         .radar .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
         .radar .tw{overflow-x:auto}.radar .kv span{display:block;margin:3px 0}
-        .jump a.on{background:#1c2633;border-color:#58a6ff;color:#fff}.jump a em{color:#98a1b2;font-style:normal;font-size:11px;margin-left:4px}
-        .prop{border:1px solid #2c3340;border-radius:8px;padding:8px 12px;margin:8px 0 12px;background:#12151c}.prop div{margin:3px 0}
+        .jump a.on{background:#1d4ed8;border-color:#1d4ed8;color:#ffffff}.jump a em{color:inherit;opacity:.75;font-style:normal;font-size:11px;margin-left:4px;font-variant-numeric:tabular-nums}
+        .prop{border:1px solid #e2e8f0;border-radius:6px;padding:9px 12px;margin:8px 0 12px;background:#ffffff}.prop div{margin:3px 0}
         .film{display:flex;gap:10px;overflow-x:auto;padding:8px 0 14px;scroll-snap-type:x proximity}
-        .frame{flex:0 0 250px;scroll-snap-align:start;border:1px solid #2c3340;border-radius:10px;background:#12151c;padding:8px 10px;display:flex;flex-direction:column;gap:5px;min-height:170px}
-        .frame.hit{border-color:#e3b341;box-shadow:0 0 0 1px #e3b34155}
-        .fhead{display:flex;gap:6px;align-items:center;font-size:11px;color:#98a1b2}.fhead .t{font-weight:700;color:#e7eaf0}.fhead .app{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.fhead .dot{color:#e3b341}
-        .screen{font-weight:600;font-size:12px;line-height:1.35;border-bottom:1px dashed #262b35;padding-bottom:4px}
-        .act{font-size:11.5px;line-height:1.4;color:#c9d1d9}
-        .hint{font-size:10.5px;color:#8b949e;margin-top:auto;padding-top:4px;border-top:1px dashed #262b35}.hint.auto{color:#3fb950}
+        .frame{flex:0 0 250px;scroll-snap-align:start;border:1px solid #cbd5e1;border-radius:6px;background:#ffffff;padding:8px 10px;display:flex;flex-direction:column;gap:5px;min-height:170px}
+        .frame.hit{border-color:#b45309;border-left:3px solid #b45309}
+        .fhead{display:flex;gap:6px;align-items:center;font-size:11px;color:#64748b}.fhead .t{font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums}.fhead .app{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.fhead .dot{color:#b45309}
+        .screen{font-weight:600;font-size:12px;line-height:1.35;border-bottom:1px dashed #e2e8f0;padding-bottom:4px;color:#0f172a}
+        .act{font-size:11.5px;line-height:1.4;color:#334155}
+        .hint{font-size:10.5px;color:#64748b;margin-top:auto;padding-top:4px;border-top:1px dashed #e2e8f0}.hint.auto{color:#15803d}
         .doc.wide{max-width:1500px}
-        .sum{border:1px solid #2c3340;border-radius:8px;padding:8px 12px;margin:8px 0;background:#12151c;font-size:12.5px}.sum div{margin-top:3px}
-        .narr{white-space:pre-wrap;font:12.5px/1.55 inherit;background:#0b0d12;border:1px solid #262b35;border-radius:8px;padding:12px 14px;color:#c9d1d9;max-height:520px;overflow:auto}
+        .sum{border:1px solid #e2e8f0;border-radius:6px;padding:9px 12px;margin:8px 0;background:#ffffff;font-size:12.5px;color:#0f172a}.sum div{margin-top:3px}
+        .narr{white-space:pre-wrap;font:12.5px/1.55 inherit;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 14px;color:#0f172a;max-height:520px;overflow:auto}
         .filmv{display:flex;flex-direction:column;gap:10px;padding:6px 0 30px}
-        .framev{border:1px solid #2c3340;border-radius:10px;background:#12151c;padding:10px 14px;display:flex;flex-direction:column;gap:6px}
-        .framev.hit{border-color:#e3b341;box-shadow:0 0 0 1px #e3b34155}
-        .framev .fhead{font-size:12px;flex-wrap:wrap}.framev .no{background:#1f2430;border-radius:999px;padding:0 8px;font-weight:700}
+        .framev{border:1px solid #e2e8f0;border-radius:6px;background:#ffffff;padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+        .framev.hit{border-color:#b45309;border-left:3px solid #b45309}
+        .framev .fhead{font-size:12px;flex-wrap:wrap}.framev .no{background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;padding:0 7px;font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums}
         .framev .screen{font-size:13.5px}.framev .act{font-size:12.5px}
-        .framev .sub{font-size:11.5px;color:#c9d1d9;border-top:1px dashed #262b35;padding-top:5px}.framev .sub ol{margin:3px 0 0;padding-left:20px}.framev .sub li{margin:1px 0}.framev .sub em{color:#8b949e;font-style:normal}
-        .t2{color:#8b949e;font-variant-numeric:tabular-nums;margin-right:4px}
-        .chip.auto{color:#3fb950;border-color:#3fb95066}
+        .framev .sub{font-size:11.5px;color:#334155;border-top:1px dashed #e2e8f0;padding-top:5px}.framev .sub ol{margin:3px 0 0;padding-left:20px}.framev .sub li{margin:1px 0}.framev .sub em{color:#64748b;font-style:normal}
+        .t2{color:#64748b;font-variant-numeric:tabular-nums;margin-right:4px}
+        .chip.auto{color:#15803d;border-color:#bbf7d0;background:#dcfce7}
         .framev .hint{margin-top:2px;font-size:11.5px}
         .rp{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-top:10px}.rpl{flex:1 1 640px;min-width:0}
-        .rpr{flex:0 0 380px;max-height:720px;overflow:auto;border:1px solid #2c3340;border-radius:8px;background:#12151c;padding:8px 10px;font-size:12px}
-        .rpr ol{margin:6px 0 0;padding-left:22px}.rpr li{margin:3px 0;cursor:pointer;line-height:1.45}.rpr li:hover{color:#58a6ff}.rpr .val{color:#e3b341}.rpr li.k-route{color:#79c0ff}
-        .kv span{display:block;margin:2px 0}.kv b{color:#98a1b2;font-weight:600;margin-right:6px}.kv .ok{color:#3fb950}
-        .ft{border-collapse:collapse;font-size:11px;margin-top:4px}.ft th,.ft td{border:1px solid #262b35;padding:2px 6px;text-align:left;vertical-align:top}.ft th{background:#171a21;color:#98a1b2}
-        .ft .val{color:#e3b341;max-width:320px;word-break:break-all}.tw{overflow-x:auto}
-        .doc .ft tbody tr,.doc .ft tbody tr:nth-child(even){background:#0e1016!important}.doc .ft td{background:transparent!important;color:#e7eaf0!important}
-        .bars{display:inline-flex;width:180px;height:10px;border-radius:3px;overflow:hidden;vertical-align:middle;background:#1f2430}
+        .rpr{flex:0 0 380px;max-height:720px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;background:#ffffff;padding:8px 10px;font-size:12px}
+        .rpr ol{margin:6px 0 0;padding-left:22px}.rpr li{margin:3px 0;cursor:pointer;line-height:1.45}.rpr li:hover{color:#1d4ed8}.rpr .val{color:#b45309}.rpr li.k-route{color:#1d4ed8}
+        .kv span{display:block;margin:2px 0}.kv b{color:#475569;font-weight:600;margin-right:6px}.kv .ok{color:#15803d}
+        .ft{border-collapse:collapse;font-size:11px;margin-top:4px;background:#ffffff}.ft th,.ft td{border:1px solid #e2e8f0;padding:3px 7px;text-align:left;vertical-align:top}.ft th{background:#f1f5f9;color:#334155}
+        .ft .val{color:#b45309;max-width:320px;word-break:break-all}.tw{overflow-x:auto}
+        .doc .ft tbody tr,.doc .ft tbody tr:nth-child(even){background:#ffffff!important}.doc .ft td{background:transparent!important;color:#0f172a!important}
+        .bars{display:inline-flex;width:180px;height:10px;border-radius:3px;overflow:hidden;vertical-align:middle;background:#e2e8f0}
         .bars i{display:block;height:100%}
-        .s0{background:#58a6ff}.s1{background:#3fb950}.s2{background:#d29922}.s3{background:#f778ba}.s4{background:#a371f7}.s5{background:#79c0ff}.s6{background:#56d364}.s7{background:#ffa657}.s8{background:#ff7b72}.s9{background:#8b949e}.s10{background:#6e7681}.s11{background:#484f58}
-        .conf{display:inline-block;border-radius:999px;padding:0 7px;font-size:11px;font-weight:700;border:1px solid}.conf.hi{color:#3fb950;border-color:#3fb95066}.conf.mid{color:#e3b341;border-color:#e3b34166}.conf.lo{color:#ff7b72;border-color:#ff7b7266}
-        .wfwrap{display:flex;min-height:100%}.wfl{flex:0 0 230px;border-right:1px solid #262b35;padding:10px 8px;background:#12151c;overflow:auto}
-        .dept{color:#98a1b2;font-size:11.5px;margin:10px 6px 4px;font-weight:600}
-        .pp{display:flex;justify-content:space-between;align-items:center;width:100%;background:none;border:1px solid transparent;color:#e7eaf0;border-radius:6px;padding:5px 8px;cursor:pointer;font:inherit;text-align:left}
-        .pp.on{background:#1c2633;border-color:#58a6ff}.pp .cc{display:flex;gap:3px;align-items:center}
-        .wfm{flex:1;min-width:0;padding:16px 22px 60px;max-width:1300px}.wfm h1{font-size:20px;margin:0 0 6px}.wfm h3{font-size:13.5px;margin:18px 0 6px}
-        .tl{border-left:2px solid #2c3340;margin-left:6px;padding-left:12px}.tlr{position:relative;margin:6px 0;display:flex;gap:10px}.tlw{flex:0 0 190px;color:#79c0ff;font-weight:600}
-        .tld{position:absolute;left:-18px;top:5px;width:10px;height:10px;border-radius:50%;background:#58a6ff}
-        .wfc{border:1px solid #2c3340;border-radius:10px;background:#12151c;padding:10px 12px;margin:10px 0}
+        .s0{background:#1d4ed8}.s1{background:#15803d}.s2{background:#b45309}.s3{background:#db2777}.s4{background:#6d28d9}.s5{background:#0284c7}.s6{background:#059669}.s7{background:#d97706}.s8{background:#dc2626}.s9{background:#64748b}.s10{background:#94a3b8}.s11{background:#cbd5e1}
+        .conf{display:inline-block;border-radius:4px;padding:0 6px;font-size:11px;font-weight:700;border:1px solid;font-variant-numeric:tabular-nums}.conf.hi{color:#15803d;background:#dcfce7;border-color:#bbf7d0}.conf.mid{color:#b45309;background:#fef3c7;border-color:#fde68a}.conf.lo{color:#b91c1c;background:#fee2e2;border-color:#fecaca}
+        .wfwrap{display:flex;min-height:100%}.wfl{flex:0 0 230px;border-right:1px solid #e2e8f0;padding:10px 8px;background:#ffffff;overflow:auto}
+        .dept{color:#64748b;font-size:11.5px;margin:10px 6px 4px;font-weight:700}
+        .pp{display:flex;justify-content:space-between;align-items:center;width:100%;background:none;border:1px solid transparent;color:#0f172a;border-radius:4px;padding:5px 8px;cursor:pointer;font:inherit;text-align:left}
+        .pp:hover{background:#f8fafc}
+        .pp.on{background:#eff6ff;border-color:#1d4ed8;color:#1d4ed8;font-weight:600}.pp .cc{display:flex;gap:3px;align-items:center}
+        .wfm{flex:1;min-width:0;padding:16px 22px 60px;max-width:1300px}.wfm h1{font-size:20px;margin:0 0 6px;color:#0f172a}.wfm h3{font-size:13.5px;margin:18px 0 6px;color:#0f172a}
+        .tl{border-left:2px solid #cbd5e1;margin-left:6px;padding-left:12px}.tlr{position:relative;margin:6px 0;display:flex;gap:10px}.tlw{flex:0 0 190px;color:#1d4ed8;font-weight:600;font-variant-numeric:tabular-nums}
+        .tld{position:absolute;left:-18px;top:5px;width:10px;height:10px;border-radius:50%;background:#1d4ed8}
+        .wfc{border:1px solid #e2e8f0;border-radius:6px;background:#ffffff;padding:10px 12px;margin:10px 0}
         .wfh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
-        .flow{display:flex;gap:6px;align-items:stretch;overflow-x:auto;padding-bottom:4px}.arw{align-self:center;color:#58a6ff;font-size:18px}
-        .fcol{flex:1 1 160px;min-width:150px;background:#0e1016;border:1px solid #262b35;border-radius:8px;padding:6px 8px;font-size:12px}.fcol.steps{flex:2 1 280px}
-        .fcol .fl{color:#98a1b2;font-size:11px;font-weight:700;margin-bottom:3px}.fcol .fi{margin:2px 0;line-height:1.4}.fcol ol{margin:0;padding-left:18px}.fcol li{margin:2px 0;line-height:1.4}
-        .sroute{font-size:11px;color:#b8c0cc;margin:1px 0 4px}.sroute i{font-style:normal;color:#7d8590;margin-right:2px}.fcol.trg{border-color:#58a6ff55}.fcol.dec{border-color:#e3b34155}.fcol.out{border-color:#3fb95055}
+        .flow{display:flex;gap:6px;align-items:stretch;overflow-x:auto;padding-bottom:4px}.arw{align-self:center;color:#1d4ed8;font-size:18px}
+        .fcol{flex:1 1 160px;min-width:150px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:6px 8px;font-size:12px}.fcol.steps{flex:2 1 280px}
+        .fcol .fl{color:#475569;font-size:11px;font-weight:700;margin-bottom:3px}.fcol .fi{margin:2px 0;line-height:1.4}.fcol ol{margin:0;padding-left:18px}.fcol li{margin:2px 0;line-height:1.4}
+        .sroute{font-size:11px;color:#475569;margin:1px 0 4px}.sroute i{font-style:normal;color:#64748b;margin-right:2px}.fcol.trg{border-left:3px solid #1d4ed8}.fcol.dec{border-left:3px solid #b45309}.fcol.out{border-left:3px solid #15803d}
         .wfd{margin-top:8px;font-size:12.5px}.wfd>div{margin:4px 0}.wfd ul{margin:2px 0;padding-left:20px}
         .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
-        .thumb{margin:0;border:1px solid #262b35;border-radius:6px;overflow:hidden;background:#0b0d12}.thumb img{width:100%;display:block;aspect-ratio:16/10;object-fit:cover;background:#1f2430}
-        .thumb figcaption{font-size:11px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c9d1d9}
+        .thumb{margin:0;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;background:#ffffff}.thumb img{width:100%;display:block;aspect-ratio:16/10;object-fit:cover;background:#f1f5f9}
+        .thumb figcaption{font-size:11px;padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#334155}
         .unk li{margin:4px 0}
-        button.sm{background:#1f2430;color:#c9d1d9;border:1px solid #2c3340;border-radius:6px;padding:4px 10px;cursor:pointer;font:inherit;font-size:12px}button.sm.pri2{border-color:#58a6ff;color:#fff;background:#1c2633}
-        .sim{display:flex;gap:14px;flex-wrap:wrap}.simp{flex:1 1 480px;min-width:0;border:1px solid #2c3340;border-radius:10px;background:#12151c;padding:10px 12px}
-        .simh{display:flex;gap:10px;align-items:baseline;margin-bottom:8px}.timer{font-size:22px;font-weight:700;color:#ff7b72;font-variant-numeric:tabular-nums}.timer.ok{color:#3fb950}
-        .simsteps{margin:0;padding-left:22px}.simsteps li{margin:6px 0;transition:opacity .3s}.simsteps li.todo{opacity:.35}.simsteps li.cur{opacity:.7}.simsteps li.done{opacity:1}
-        .simsteps li.pain.done{border-left:3px solid #ff7b72;padding-left:6px}.painx{color:#ff7b72;font-size:12px;margin-top:2px}
-        .mock{border:1px solid #3a4150;border-radius:8px;background:#f6f7f9;color:#1f2328;margin-bottom:10px;overflow:hidden}
-        .mockt{background:#2f5fa7;color:#fff;padding:6px 10px;font-weight:700;font-size:12.5px}.mockf{display:flex;gap:10px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid #d0d7de}
-        .mockf label{font-size:11.5px;color:#57606a;display:flex;gap:4px;align-items:center}.mockf .inp{background:#fff;border:1px solid #d0d7de;border-radius:4px;padding:2px 8px;color:#1f2328}
-        .mtb{width:100%;border-collapse:collapse;font-size:12px}.mtb th,.mtb td{border:1px solid #d0d7de;padding:4px 7px;text-align:left}.mtb th{background:#eaeef2}
-        .doc .mtb tbody tr,.doc .mtb tbody tr:nth-child(even){background:#fff!important}.doc .mtb td{color:#1f2328!important}
-        .doc .mtb td.hl{background:#fff4c2!important;font-weight:700}.hln{display:block;font-size:10.5px;color:#9a6700;font-weight:400}
-        .mockb{display:flex;gap:8px;padding:8px 10px}.mockb button{background:#2f5fa7;color:#fff;border:0;border-radius:5px;padding:5px 12px;cursor:pointer;font:inherit;font-size:12px}
-        .modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:50}.modalb{background:#171a21;border:1px solid #2c3340;border-radius:10px;padding:14px;width:min(640px,92vw);display:flex;flex-direction:column;gap:8px}
-        .modalb textarea{width:100%;background:#0b0d12;color:#e7eaf0;border:1px solid #2c3340;border-radius:6px;font:12px/1.5 monospace;padding:8px;box-sizing:border-box}
-        .wbar{display:flex;align-items:center;gap:8px;margin:4px 0}.wbar .wl{flex:0 0 56px;color:#98a1b2}.wbar i{display:block;height:14px;border-radius:3px;min-width:2px}.wbar .b1{background:#ff7b72}.wbar .b2{background:#3fb950}
-        .st.s0{border-color:#58a6ff}.st.s1{border-color:#3fb950}.st.s2{border-color:#d29922}.st.s3{border-color:#f778ba}.st.s4{border-color:#a371f7}.st.s5{border-color:#79c0ff}.st.s6{border-color:#56d364}.st.s7{border-color:#ffa657}.st.s8{border-color:#ff7b72}
-        @media (max-width:760px){.wfwrap{flex-direction:column}.wfl{flex:none;border-right:0;border-bottom:1px solid #262b35}.tlr{flex-direction:column;gap:2px}.tlw{flex:none}}
+        button.sm{background:#ffffff;color:#0f172a;border:1px solid #cbd5e1;border-radius:4px;padding:4px 10px;cursor:pointer;font:inherit;font-size:12px;font-weight:600}
+        button.sm:hover{background:#f1f5f9;border-color:#94a3b8}
+        button.sm.pri2{border-color:#1d4ed8;color:#ffffff;background:#1d4ed8}
+        .sim{display:flex;gap:14px;flex-wrap:wrap}.simp{flex:1 1 480px;min-width:0;border:1px solid #e2e8f0;border-radius:6px;background:#ffffff;padding:10px 12px}
+        .simh{display:flex;gap:10px;align-items:baseline;margin-bottom:8px}.timer{font-size:22px;font-weight:700;color:#b91c1c;font-variant-numeric:tabular-nums}.timer.ok{color:#15803d}
+        .simsteps{margin:0;padding-left:22px}.simsteps li{margin:6px 0;transition:opacity .3s}.simsteps li.todo{opacity:.4}.simsteps li.cur{opacity:.75}.simsteps li.done{opacity:1}
+        .simsteps li.pain.done{border-left:3px solid #b91c1c;padding-left:6px}.painx{color:#b91c1c;font-size:12px;margin-top:2px}
+        .mock{border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;color:#0f172a;margin-bottom:10px;overflow:hidden}
+        .mockt{background:#1d4ed8;color:#ffffff;padding:6px 10px;font-weight:700;font-size:12.5px}.mockf{display:flex;gap:10px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid #e2e8f0;background:#ffffff}
+        .mockf label{font-size:11.5px;color:#475569;display:flex;gap:4px;align-items:center}.mockf .inp{background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;padding:2px 8px;color:#0f172a}
+        .mtb{width:100%;border-collapse:collapse;font-size:12px}.mtb th,.mtb td{border:1px solid #e2e8f0;padding:4px 7px;text-align:left}.mtb th{background:#f1f5f9;color:#334155}
+        .doc .mtb tbody tr,.doc .mtb tbody tr:nth-child(even){background:#ffffff!important}.doc .mtb td{color:#0f172a!important}
+        .doc .mtb td.hl{background:#fef3c7!important;font-weight:700}.hln{display:block;font-size:10.5px;color:#92400e;font-weight:400}
+        .mockb{display:flex;gap:8px;padding:8px 10px;background:#ffffff}.mockb button{background:#1d4ed8;color:#ffffff;border:0;border-radius:4px;padding:5px 12px;cursor:pointer;font:inherit;font-size:12px;font-weight:600}
+        .modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:50}.modalb{background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;padding:14px;width:min(640px,92vw);display:flex;flex-direction:column;gap:8px;color:#0f172a}
+        .modalb textarea{width:100%;background:#f8fafc;color:#0f172a;border:1px solid #cbd5e1;border-radius:4px;font:12px/1.5 monospace;padding:8px;box-sizing:border-box}
+        .wbar{display:flex;align-items:center;gap:8px;margin:4px 0}.wbar .wl{flex:0 0 56px;color:#475569}.wbar i{display:block;height:14px;border-radius:2px;min-width:2px}.wbar .b1{background:#dc2626}.wbar .b2{background:#15803d}
+        .st.s0{border-color:#1d4ed8}.st.s1{border-color:#15803d}.st.s2{border-color:#b45309}.st.s3{border-color:#db2777}.st.s4{border-color:#6d28d9}.st.s5{border-color:#0284c7}.st.s6{border-color:#059669}.st.s7{border-color:#d97706}.st.s8{border-color:#dc2626}
+        @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+        @media (max-width:760px){.wfwrap{flex-direction:column}.wfl{flex:none;border-right:0;border-bottom:1px solid #e2e8f0}.tlr{flex-direction:column;gap:2px}.tlw{flex:none}.bar-top{padding:7px 12px}.bar-tabs{padding:0 12px}}
       `}</style>
     </div>
   );
