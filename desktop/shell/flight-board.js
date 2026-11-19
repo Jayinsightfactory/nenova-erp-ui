@@ -217,7 +217,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       if (selected) row.append(
         line(`${f.displayName && f.flight ? `편명 ${f.flight} · ` : ''}항공사 ${f.airline || '미확인'} · 빌번호 ${f.awb || '미확인'}`),
         line(`${f.origin?.name || '출발지 미확인'}${f.originAssumed ? ' (추정)' : ''} → ${f.viaName ? f.viaName + '(경유) → ' : ''}인천`),
-        line(`${f.weekLabel ? f.weekLabel + '차 · ' : ''}품목 ${f.itemLabel || '미확인'} · 운송 수량(공지) ${f.announcedCargo?.boxes != null ? f.announcedCargo.boxes + '박스' : '미확인'}`),
+        line(`${f.weekLabel ? f.weekLabel + '차 · ' : '차수 미확인 · '}품목 ${f.itemLabel || '미확인'} · 운송 수량(공지) ${f.announcedCargo?.boxes != null ? f.announcedCargo.boxes + '박스' : '미확인'}`),
       );
       if (selected && f.extraTitleItems?.length) row.append(line(`품목 전체 ${f.extraTitleItems.join(' · ')}`));
       if (selected && f.receivedCargo?.boxes != null) row.append(line(`전산 입고 합계 ${f.receivedCargo.boxes}박스`));

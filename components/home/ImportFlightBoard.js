@@ -185,7 +185,7 @@ function FlightMap({ flights, destination, selectedKey, onSelect, onEnlarge }) {
           <Fragment key={f.key}>
           {(p.x !== p.anchorX || p.y !== p.anchorY) && <line x1={p.anchorX} y1={p.anchorY} x2={p.x} y2={p.y} stroke="#667f99" strokeWidth="1" pointerEvents="none" />}
           <g role="button" tabIndex={0} aria-label={`${f.boardNumber}번 ${f.country} ${f.flight || '편명 미확인'} 선택`} aria-pressed={on} onClick={event => { event.stopPropagation(); onSelect(f.key, event); }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(f.key, event); } }} style={{ cursor: 'pointer' }}>
-            <title>{`${f.weekLabel}차 ${f.country} ${f.flight} — ${f.statusLabel}${f.progress != null ? ` 약 ${Math.round(f.progress * 100)}%` : ''}`}</title>
+            <title>{`${f.weekLabel ? f.weekLabel + '차' : '차수 미확인'} ${f.country} ${f.flight} — ${f.statusLabel}${f.progress != null ? ` 약 ${Math.round(f.progress * 100)}%` : ''}`}</title>
             <circle cx={p.x} cy={p.y} r={on ? 9 : 7} fill={f.priority === 0 ? '#b02a2a' : st.dot} stroke={on ? '#0b3d75' : '#fff'} strokeWidth={on ? 2 : 1.4} opacity="0.95" />
             <text x={p.x} y={p.y + 2.6} fontSize="6.5" textAnchor="middle" fill="#fff" fontWeight="700">{f.boardNumber}</text>
             {(
@@ -359,7 +359,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                   <div className="flight-compact-summary"><StatusChip f={f} /> <span>{!f.displayName && (f.itemLabel || f.country)}{quantity != null && `${f.displayName ? '' : ' · '}${f.receivedCargo?.boxes != null ? '입고' : '공지'} ${fmt(quantity)}박스`}</span>{!expanded && steps.length > 0 && <span>처리 {steps.filter(step => step.state === 'done').length}/{steps.length} 완료</span>}</div>
                   {!expanded && deadline && <div style={{ color: deadline.color }}>{deadline.text}</div>}
                   {expanded && <>
-                  <div>{f.weekLabel}차 · 공지 도착 {arrivalText(f)}</div>
+                  <div>{f.weekLabel ? f.weekLabel + '차' : '차수 미확인'} · 공지 도착 {arrivalText(f)}</div>
                   <div>{f.displayName && f.flight && <>편명 {f.flight} · </>}항공사 {f.airline || '미확인'} · 빌번호 {f.awb || '미확인'}</div>
                   <div>{f.origin?.name || '출발지 미확인'}{f.origin?.assumed ? ' (추정)' : ''} → {f.via?.name ? `${f.via.name}(경유) → ` : ''}인천</div>
                   <div>
