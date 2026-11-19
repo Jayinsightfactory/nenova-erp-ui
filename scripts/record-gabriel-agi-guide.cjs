@@ -200,6 +200,7 @@ async function main() {
     await context.overridePermissions(base, ['clipboard-read', 'clipboard-write']);
 
     const page = await browser.newPage();
+    await page.bringToFront();
     await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
@@ -223,6 +224,7 @@ async function main() {
 
     await page.goto(`${base}/import/gabriel-agi?year=2026&week=46-01&popup=1`, { waitUntil: 'networkidle0', timeout: 120000 });
     await page.waitForSelector('[data-testid="gabriel-profit-agi-workbench"]', { timeout: 60000 });
+    await page.waitForSelector('[data-testid="gabriel-lever-story-diagram"]', { timeout: 30000 });
     await page.waitForFunction(() => document.body.innerText.includes('콜롬비아 카네이션 스탠다드 레드'), { timeout: 30000 });
 
     if (playerSmoke) {
@@ -286,9 +288,9 @@ async function main() {
       if (rec) {
         rec.chapter(scenario, `${num}. ${text}`);
         await rec.caption(`${num}. ${text}`);
-        await rec.pause(1400);
+        await rec.pause(1300);
         await rec.focus(selector, num);
-        await rec.pause(1100);
+        await rec.pause(1000);
       }
     };
 
@@ -296,63 +298,95 @@ async function main() {
       if (rec) {
         await rec.unfocus();
         await rec.caption(text);
-        await rec.pause(1800);
+        await rec.pause(1600);
       }
     };
 
-    // Step 1: Country CO filter & KPI check
+    // Step 1: Country CO filter & KPI + 10-lever lineage check
     await page.evaluate(() => {
       const btn = [...document.querySelectorAll('[aria-label="수입 국가 필터"] button')].find((b) => b.textContent.trim() === '콜롬비아');
       if (btn) btn.setAttribute('data-guide-co', 'true');
     });
-    await stepFocus('scope', '상단 공통 바에서 연도·세부차수와 국가(콜롬비아)를 선택해 원가 분석 범위를 맞춥니다.', '[data-guide-co="true"]', 1);
+    await stepFocus('scope', '상단 공통 바에서 연도·세부차수와 국가(콜롬비아)를 선택해 10대 레버 분석 범위를 맞춥니다.', '[data-guide-co="true"]', 1);
     await page.click('[data-guide-co="true"]');
     await page.waitForFunction(() => window.location.search.includes('country=CO'));
-    if (rec) await rec.pause(900);
-    await showResult('1. 콜롬비아 기준 5대 이익 레버와 차수 이익 개선액·원가 누수 경보가 즉시 산출됩니다.');
+    if (rec) await rec.pause(700);
+    await showResult('1. 콜롬비아 기준 전사 10대 이익 레버(L1~L10)와 부서별 업무·데이터 출처 표가 즉시 산출됩니다.');
 
-    // Reset back to ALL for full portfolio demo
+    // Reset back to ALL and test Department filter + Story Lever L6 selection
     await page.evaluate(() => {
       const btn = [...document.querySelectorAll('[aria-label="수입 국가 필터"] button')].find((b) => b.textContent.trim() === '전체 국가');
       btn?.click();
     });
     await page.waitForFunction(() => !window.location.search.includes('country=CO'));
 
+    await page.click('[data-testid="story-lever-chip-L6"]');
+    await page.waitForFunction(() => document.querySelector('[data-testid="gabriel-lever-situation"]')?.textContent.includes('L6'));
+    if (dry) {
+      await page.click('[data-testid="dept-filter-경영지원·정산부"]');
+      await page.waitForFunction(() => Boolean(document.querySelector('[data-testid="story-lever-chip-L4"]')) && !document.querySelector('[data-testid="story-lever-chip-L1"]'));
+      await page.click('[data-testid="dept-filter-ALL"]');
+      await page.waitForSelector('[data-testid="story-lever-chip-L1"]');
+      await page.$eval('[data-testid="gabriel-lever-story-diagram"]', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+      fs.mkdirSync('.verify', { recursive: true });
+      await page.screenshot({ path: '.verify/gabriel-agi-story-1920.png', fullPage: false });
+    }
+
     // Step 2: Counterfactual stress preset & simulation toggle
     await stepFocus('simulate', '반사실 시뮬레이션 컨트롤에서 환율 +60원 스트레스 프리셋을 적용해 방어 효과를 계산합니다.', '[data-testid="gabriel-preset-fx-stress"]', 2);
     await page.click('[data-testid="gabriel-preset-fx-stress"]');
     await page.waitForFunction(() => document.querySelector('[data-testid="readout-fx"]')?.textContent.includes('+60원'));
-    if (rec) await rec.pause(900);
-    await showResult('2. 환율 +60원 상승 시나리오에서도 리밸런싱·채움률·판가 방어로 총이익률이 즉시 방어됩니다.');
+    if (rec) await rec.pause(800);
+    await showResult('2. 환율 +60원 상승 시나리오에서도 리밸런싱·채움률·판가방어·송금분할로 총이익률이 방어됩니다.');
 
-    // Step 3: Switch View B (2x2 matrix) and View C (Matte Carbon Console)
-    await stepFocus('views', '시안 B(2×2 매트릭스)와 시안 C(매트 카본 수익 콘솔)로 전환해 품목별 우선순위를 검수합니다.', '[data-testid="gabriel-view-B"]', 3);
+    // Step 3: Switch View B, View C, and View ALL (A·B·C simultaneous + Continuous Build Queue)
+    await stepFocus('views', '시안 B(2×2)·시안 C(카본 콘솔)·뷰 ALL(A·B·C 동시모드 & 연속구현 큐)로 전환해 검수합니다.', '[data-testid="gabriel-view-ALL"]', 3);
     await page.click('[data-testid="gabriel-view-B"]');
     await page.waitForFunction(() => document.body.innerText.includes('원가 리스크 × 차수 물량 비중'));
-    if (rec) await rec.pause(1200);
+    if (rec) await rec.pause(800);
     if (dry) await page.screenshot({ path: '.verify/gabriel-agi-view-B-1920.png', fullPage: false });
     if (rec) await rec.unfocus();
+
     await page.click('[data-testid="gabriel-view-C"]');
     await page.waitForSelector('[data-testid="gabriel-carbon-console"]');
-    if (rec) {
-      await rec.caption('3. 매트 카본 수익 콘솔에서 환율 스트레스 래더·AWB 구간·미회수 크레딧·수입 속도 루틴을 확인했습니다.');
-      await rec.pause(2200);
-    }
+    if (rec) await rec.pause(800);
     if (dry) await page.screenshot({ path: '.verify/gabriel-agi-view-C-1920.png', fullPage: false });
+
+    await page.click('[data-testid="gabriel-view-ALL"]');
+    await page.waitForSelector('[data-testid="gabriel-all-mode"]');
+    await page.waitForSelector('[data-testid="gabriel-continuous-build-queue"]');
+    assert.ok(await page.$('[data-testid="gabriel-all-panel-A"]'));
+    assert.ok(await page.$('[data-testid="gabriel-all-panel-B"]'));
+    assert.ok(await page.$('[data-testid="gabriel-all-panel-C"]'));
+    if (dry) {
+      fs.mkdirSync('.verify', { recursive: true });
+      await page.$eval('[data-testid="gabriel-all-mode"]', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+      await page.screenshot({ path: '.verify/gabriel-agi-view-ALL-1920.png', fullPage: false });
+      await page.$eval('[data-testid="gabriel-continuous-build-queue"]', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+      await page.click('[data-testid="copy-build-brief-mod-l1-awb-coload-solver"]');
+      await page.waitForSelector('[data-testid="gabriel-build-copy-notice"]');
+      await page.waitForFunction(() => document.querySelector('[data-testid="gabriel-build-copy-notice"]')?.textContent.includes('구현 작업지시서'));
+      await page.screenshot({ path: '.verify/gabriel-agi-build-queue-1920.png', fullPage: false });
+    }
+
+    if (rec) {
+      await rec.caption('3. 뷰 ALL 동시모드에서 A·B·C 3종과 연속구현 파이프라인(L1~L10)이 실시간 동시 작동합니다.');
+      await rec.pause(1800);
+    }
 
     // Switch back to View A
     await page.click('[data-testid="gabriel-view-A"]');
-    await page.waitForFunction(() => document.body.innerText.includes('5대 이익 레버 분해'));
+    await page.waitForFunction(() => document.body.innerText.includes('10대 이익 레버 분해'));
 
     // Step 4: Copy executive briefing
-    await stepFocus('briefing', '사장님 보고용 원가·이익 브리핑 복사 버튼을 눌러 요약 보고서를 복사합니다.', '[data-testid="gabriel-copy-briefing"]', 4);
+    await stepFocus('briefing', '사장님 보고용 원가·이익 브리핑 복사 버튼을 눌러 10대 레버 요약 보고서를 복사합니다.', '[data-testid="gabriel-copy-briefing"]', 4);
     await page.click('[data-testid="gabriel-copy-briefing"]');
     await page.waitForSelector('[data-testid="gabriel-copy-notice"]');
-    if (rec) await rec.pause(900);
-    await showResult('4. 브리핑이 클립보드에 복사되었습니다. 실제 원장은 변경되지 않으며 파이프라인·빠른 분배로 이어집니다.');
+    if (rec) await rec.pause(800);
+    await showResult('4. 브리핑이 클립보드에 복사되었습니다. 실제 원장은 변경되지 않으며 각 부서 실행 화면으로 이어집니다.');
 
     // Keyboard navigation verification on View tabs
-    await page.focus('#gabriel-view-tab-C');
+    await page.focus('#gabriel-view-tab-ALL');
     await page.keyboard.press('Home');
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'gabriel-view-tab-A');
 

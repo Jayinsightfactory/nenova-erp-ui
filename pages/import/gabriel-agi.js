@@ -24,7 +24,7 @@ export async function getServerSideProps({ req, res, query = {} }) {
     return { redirect: { destination: '/login?next=/import/gabriel-agi', permanent: false } };
   }
   const rawView = String(query.view || 'A').toUpperCase();
-  const initialViewMode = ['A', 'B', 'C'].includes(rawView) ? rawView : 'A';
+  const initialViewMode = ['A', 'B', 'C', 'ALL'].includes(rawView) ? rawView : 'A';
   return {
     props: {
       userId: String(user.userId || ''),

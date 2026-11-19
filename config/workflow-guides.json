@@ -2087,7 +2087,7 @@
         {
           "id": "import",
           "role": "수입부",
-          "title": "차수·환율·리밸런싱·시안 A·B·C 시뮬레이션과 브리핑 복사",
+          "title": "차수·환율·10대 레버 데이터 계보·뷰 A·B·C·ALL 동시 시뮬레이션과 브리핑 복사",
           "status": "ready",
           "src": "/guides/gabriel-import-profit-agi/import.mp4",
           "captions": "/guides/gabriel-import-profit-agi/import.ko.vtt",
@@ -2095,23 +2095,23 @@
           "chapters": [
             {
               "scenario": "scope",
-              "title": "1. 상단 공통 바에서 연도·세부차수와 국가(콜롬비아)를 선택해 원가 분석 범위를 맞춥니다.",
-              "seconds": 0.006
+              "title": "1. 상단 공통 바에서 연도·세부차수와 국가(콜롬비아)를 선택해 10대 레버 분석 범위를 맞춥니다.",
+              "seconds": 0.005
             },
             {
               "scenario": "simulate",
               "title": "2. 반사실 시뮬레이션 컨트롤에서 환율 +60원 스트레스 프리셋을 적용해 방어 효과를 계산합니다.",
-              "seconds": 10.679
+              "seconds": 10.167
             },
             {
               "scenario": "views",
-              "title": "3. 시안 B(2×2 매트릭스)와 시안 C(매트 카본 수익 콘솔)로 전환해 품목별 우선순위를 검수합니다.",
-              "seconds": 21.354
+              "title": "3. 시안 B(2×2)·시안 C(카본 콘솔)·뷰 ALL(A·B·C 동시모드 & 연속구현 큐)로 전환해 검수합니다.",
+              "seconds": 20.395
             },
             {
               "scenario": "briefing",
-              "title": "4. 사장님 보고용 원가·이익 브리핑 복사 버튼을 눌러 요약 보고서를 복사합니다.",
-              "seconds": 32.786
+              "title": "4. 사장님 보고용 원가·이익 브리핑 복사 버튼을 눌러 10대 레버 요약 보고서를 복사합니다.",
+              "seconds": 31.739
             }
           ]
         }
