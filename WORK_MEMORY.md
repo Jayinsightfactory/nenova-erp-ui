@@ -4023,8 +4023,47 @@ pm run test:canon 통과.
 
 ## 2026-11-19 · 중국 운송수단별 손익 참고 내역 (구현 단계)
 1. 작업 위치: nenova-erp-ui / codex/china-profit-transport / .codex-work/china-transport / PR 미생성.
-2. 완료된 것: 중국 합계 불변 읽기 전용 HUBFRESH 배·Cloudland 비행기·미배정 분해, 실제 농장배정 우선·당차 동일품목 입고비율, 공통비/원가 미확인/저장본 차액 미배정, 0원 운임 경고, 기존 데스크톱 보고서 메뉴 연결(1.3.60).
+2. 완료된 것: 중국 합계 불변 읽기 전용 HUBFRESH 배·Cloudland 비행기·미배정 분해, 실제 농장배정 우선·당차 동일품목 입고비율, 공통비/원가 미확인/저장본 차액 미배정, 0원 운임 경고, 기존 데스크톱 보고서 메뉴 연결(최신 master 보존 후1.3.61).
 3. 남은 할 일: 최신 master 병합, PR/CI/배포 및 운영44 스모크. 아직 배포하지 않음.
 4. 검증 상태: 새 정책/API 회귀, 합성 UI dry-run/녹화, 실제 dnSpy, 44/46 SELECT-only(468/474쿼리), manifest233/변경API쓰기 가드/dnSpy/desktop menu PASS. 전체계약 첫 실행은 샌드박스 Git Bash 초기화 차단; 해당 모의테스트16개 일반환경 재검사 및 최종 npm run verify:erp-change(전체 계약/가드/build) PASS. 가이드 최종 프레임·실제 MP4/한국어 VTT/키보드·목차·1920/390 플레이어 PASS. 원장 쓰기0.
 5. 주의/잠금: lib/profitChinaTransport*, ProfitChinaTransport*, report UI/가이드·desktop 버전은 이 브랜치 담당. 원가 미확인을0원 확정으로 해석하지 않음. 운영 DB·과거/확정 snapshot 및44 태국·수국 비용 입력은 수정 금지.
 검색어: 중국 HUBFRESH Cloudland 배 비행기 미배정 당차입고비율 합계보존 china-profit-transport
+## 2026-11-19 · 오류관제(/pm) Anti-AI Slop §7 전면 정화 & pm-control 가이드 영상 갱신
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/pm-control-anti-ai-slop` / `C:\Users\USER\nw-agy-clean-pm` / PR #1879.
+2. 완료된 것: `pages/pm.js`, `lib/pmThemes.js`, `lib/pmLookClear.js`, `components/pm/{ui,ControlGuide,PmTheme,StaffRequests,Character,BgScene,IsoScene,SkillFx,grow/Grow}.js` Anti-AI Slop 정화(장식 이모지·CSS 그라디언트·`box-shadow`/`drop-shadow`/`backdrop-filter`·카드 중첩 제거, 1px 선형 SVG·플랫 에디토리얼 라이트 1px 헤어라인 KPI 스트립·2열 원장 스플릿·`tabular-nums` 고정폭 정렬, `ControlGuide` 닫힘 시 동기 일시정지 수정), `scripts/pm-control-smoke.cjs --record` 재녹화(`public/guides/pm-control/staff.{mp4,ko.vtt,proof.json}`, `chapters.json`, `config/workflow-guides.json` 해시 동기화).
+3. 남은 할 일: `origin/master`(#1878 포함) 머지 후 PR #1879 CI(`verify`·`installer`) 통과 대기, squash 머지 및 worktree/junction 정리.
+4. 검증 상태: `npm run test:pm`(31개 스위트), `npm run test:workflow-guides`(33 workflows/34 videos), `node scripts/check-workflow-guides.cjs --changed-from origin/master`, `npm run test:ui-layout`, `npm run guard:erp-writes -- --changed-from origin/master`, `npm run test:erp-manifest -- --changed-from origin/master`, `npx next build --webpack`, `scripts/pm-control-smoke.cjs --record`(1920/1280/390, JS오류0/쓰기0, 실제 MP4 프레임 시각 검수) PASS. 실운영 DB·운영 브라우저는 미검증(합성 픽스처 검증, 원장 쓰기 0건).
+5. 주의/잠금: 병렬 세션 `UI-2`/`UI-3` 경계(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`, `components/work/SolutionSuiteSimulator.js`, `desktop/package.json`, `pages/pm/radar.js`, `lib/pmTechRadarSim.js`, `lib/pmRadarPlanTokens.js`, `pages/api/**`) 무수정. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·#hex·raw `<button>` 0건 유지.
+검색어: pm-control anti-ai-slop 오류관제 pages/pm pmThemes pmLookClear ControlGuide tabular-nums linear-gradient box-shadow PR1879
+
+### 2026-11-19 — A3 행 안쪽 여백 축소
+1. 작업 위치: codex/tight-rows / work/tight-rows / PR 준비.
+2. 완료: 실제 셀폭 줄계산 유지, 14.5pt 줄높이+4pt 여유, 최소18.5pt.
+3. 남음: 전체검사 종료·PR·배포.
+4. 검증: 대상38PASS, Excel PDF 체리오3줄/돈셀7줄 마지막줄 확인. 높이3579→3156pt, A3 4쪽 유지.
+5. 주의: ERP원장쓰기0. 검색어 tight A3 shipmentFieldCompact row height
+## 2026-11-19 불량차감 수량 분리 요청
+- 검색어: 불량차감, 클레임용수량, 견적용수량, 담당자 바로가기, 로딩, 크레딧수량
+1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity / PR 없음.
+2. 완료 · 영업 담당자 선택 강조와 크레딧 크기, 지원 조회 진행 표시를 작업트리에 반영.
+3. 남음 · 클레임·견적 수량 저장/검증/인쇄, 비고·품목·확인 사유 개선, PR과 배포.
+4. 검증 · git diff --check. 빌드·DB 읽기 전용 probe·데스크톱 실화면 미검증.
+5. 주의 · 이 작업트리 미커밋 상태. 견적 수량을 기존 원문 수량/누락 식별키에 덮어쓰지 말 것.
+
+## 2026-11-19 별도 견적 수량 저장
+- 검색어: EstimateQuantity, 클레임용수량, 견적용수량, saveDraftRows, 기존 NULL
+1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity / PR 없음.
+2. 완료 · 별도 nullable SQL 컬럼 마이그레이션, 영업 입력, 서버 검증 및 INSERT/UPDATE, 조회 응답, 연결된 수기 견적 동기화.
+3. 남음 · 신규 견적 등록 및 조회/충돌 경로 전체 반영, 수입부·인쇄, 필수 검증 후 스키마 선적용 및 배포.
+4. 검증 · 수량 분리/누락/0/소수점 단위 테스트와 node 문법 검사 통과. 전체 테스트는 exceljs 미설치로 실행 실패. 운영 DB probe는 기존 원문 보호만 통과.
+5. 주의 · 운영 스키마 미적용. 원문 검증·누락에서 Quantity 유지. 신규 등록 전까지 기능 미배포.
+
+## 2026-11-19 견적 등록 수량 및 수입부 출력 연결
+- 검색어: registrationQuantity, EstimateQuantity, 크레딧수량, 견적서수량, 분할 등록.
+1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity.
+2. 완료 · 저장 수량을 목록·사전검증·미리보기·중복·Estimate 쓰기에서 사용. 원문 수량 유지. 수입부 화면과 인쇄에 두 수량 추가, 카톡 비고 표시 변경.
+3. 남음 · 스키마 선적용, 전체 검증, 운영 배포와 실제 데스크톱 확인.
+4. 검증 · Excel 의존성 설치 후 불량차감·등록확정·자동수집 회귀 통과. Windows 배포 스크립트 검사에서 PM2 restart 출력 실패. 운영 Estimate 쓰기 미검증.
+5. 주의 · 스키마 없는 서버를 먼저 배포하면 저장 쿼리가 실패한다. 운영 업무행 수정 금지.
+
+- 2026-11-19 운영 스키마: 사용자 승인으로 EstimateQuantity decimal(18,4) NULL 및 양수 CHECK 적용. 읽기 전용 확인에서 제약 활성·신뢰 확인. PR #1880 재검증 및 배포 대기.

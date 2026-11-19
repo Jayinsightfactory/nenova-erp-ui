@@ -202,9 +202,8 @@ export default function SalesDefectDeductionRegisterReviewPage() {
         const batchRows = activeRows.slice(offset, offset + REGISTRATION_APPLY_BATCH_SIZE);
         const batchIds = batchRows.map((row) => Number(row.deductionKey));
         const overrides = Object.fromEntries(batchRows.map((row) => [String(row.deductionKey), {
-          quantity: Number(row.editQuantity),
-          note: row.editNote || '',
-          sourceUnit: row.sourceUnit || '',
+          ...(Number(row.editQuantity) !== Number(row.quantity) && { quantity: Number(row.editQuantity) }),
+          ...((row.editNote || '') !== (row.note || '') && { note: row.editNote || '' }),
         }]));
         const batchData = await apiPost('/api/sales/defect-deductions', {
           action: 'register', year, week, ids: batchIds, deductionType, overrides,
@@ -330,7 +329,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
             if (resolveMode && !verified && !showNormal && !row.error && row.after && !excluded && !duplicateKeys.has(Number(row.deductionKey))) return null;
             return <div className={`review-card ${row.error ? 'has-error' : ''} ${excluded ? 'is-excluded' : ''}`} key={row.deductionKey || index}>
               <div className="row-title"><strong>{index + 1}. {row.customerName || '-'}</strong><span>{row.after?.ProdName || row.productDbName || row.productName || '-'} / {row.colorName || '-'}</span>{excluded && <span className="excluded-badge">이번 등록 제외</span>}<button className="row-exclude" onClick={() => setRowExcluded(row.deductionKey, !excluded)} disabled={loading || applying || editorBusy}>{excluded ? '보류 취소' : resolveMode ? '이번 등록 보류' : '이 행 제외'}</button><span>원장키 #{row.deductionKey}</span></div>
-              {resolveMode && <div className="resolution-row-facts">{row.sourceOrderYear || row.orderYear}년 {row.sourceOrderWeek || row.orderWeek}차 원문 · 수량 <b>{row.quantity}{row.sourceUnit}</b> · 단가 <b>{Number(row.distributionCost || row.after?.Cost) > 0 ? `${fmt(row.distributionCost || row.after?.Cost)}원` : '입력 필요'}</b>{row.after && !row.error && !duplicateKeys.has(Number(row.deductionKey)) && !excluded && ` · ${week}차 ${verified ? '반영 결과' : '등록 예정'}: ${row.after.Quantity}${row.after.Unit}`}</div>}
+              {resolveMode && <div className="resolution-row-facts">{row.sourceOrderYear || row.orderYear}년 {row.sourceOrderWeek || row.orderWeek}차 원문 · 견적서 수량 <b>{row.quantity}{row.sourceUnit}</b> · 단가 <b>{Number(row.distributionCost || row.after?.Cost) > 0 ? `${fmt(row.distributionCost || row.after?.Cost)}원` : '입력 필요'}</b>{row.after && !row.error && !duplicateKeys.has(Number(row.deductionKey)) && !excluded && ` · ${week}차 ${verified ? '반영 결과' : '등록 예정'}: ${row.after.Quantity}${row.after.Unit}`}</div>}
               {!resolveMode && batchDuplicates.has(Number(row.deductionKey)) && <div className="row-error" role="status">{batchDuplicates.get(Number(row.deductionKey))}</div>}
               {row.error && !resolveMode && <div className="row-error">{row.error}</div>}
               {resolveMode && row.error && !excluded && !verified && <DefectResolutionEditor key={`${row.deductionKey}-${row.rowVersionNo}`} row={row} year={year} week={week} admin={admin} disabled={loading || applying || editorBusy} onBusy={setEditorBusy} onSaved={async () => { await load({ throwOnError: true }); setMessage('저장 완료. 등록 가능 여부를 다시 검사했습니다.'); }} />}

@@ -100,7 +100,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
   const STORE='nenova.flightBoard.open';
   const readOpen=()=>{try{return window.localStorage.getItem(STORE)!=='0';}catch{return true;}};
   const saveOpen=value=>{try{window.localStorage.setItem(STORE,value?'1':'0');}catch{/* 저장이 막혀 있으면 이번 실행 동안만 유지 */}};
-  let owner='',generation=0,visible=false,online=false,busy=false,timer=null,loaded=false,opened=readOpen(),last=null,selectedViewId='';
+  let owner='',generation=0,visible=false,online=false,busy=false,timer=null,nextRefreshAt=null,disposed=false,loaded=false,opened=readOpen(),last=null,selectedViewId='';
   const open=(viewId='')=>window.desktop.invoke('flightPopup',{viewId}).catch(e=>{status.textContent=e.message;});
   const head=el('div','workspace-card-heading'),title=el('h2','','수입 비행기 현황'),actions=el('div','workspace-actions');
   const detail=btn('확대 보기',()=>open()),retry=btn('새로고침',()=>void load(true),'workspace-refresh'),toggle=btn('접기 ▴',()=>setOpen(!opened));
@@ -278,28 +278,57 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
   }
   function selectFlight(id){selectedViewId=id;if(!last)return;paint(last);const card=[...list.children].find(n=>n.dataset.flightId===id);card?.focus();card?.scrollIntoView({block:'nearest'});}
   list.onkeydown=e=>{if(!['ArrowDown','ArrowUp'].includes(e.key)||!e.target.hasAttribute('data-flight-select'))return;const buttons=[...list.querySelectorAll('[data-flight-select]')],i=buttons.indexOf(e.target),next=buttons[i+(e.key==='ArrowDown'?1:-1)];if(next){e.preventDefault();next.focus();}};
+  const refreshInterval = 5 * 60 * 1000;
+  const canRefresh = () => !disposed && owner && visible && online && !busy && !document.hidden;
+  function stopRefresh() {
+    clearTimeout(timer);
+    timer = null;
+  }
+  function resumeRefresh() {
+    stopRefresh();
+    if (!canRefresh()) return;
+    const remaining = (nextRefreshAt ?? Date.now()) - Date.now();
+    if (remaining <= 0) void load(false);
+    else timer = setTimeout(() => void load(false), remaining);
+  }
   async function load(fresh){
-    if(!owner||!visible||!online||busy||document.hidden)return;
+    if (!canRefresh()) return;
+    stopRefresh();
     const ticket=generation,actor=owner;busy=true;retry.disabled=true;if(!loaded)status.textContent='불러오는 중…';else if(fresh)status.textContent='다시 읽는 중…';
     try{
       const data=await window.desktop.invoke('importFlightBoard',fresh===true?{fresh:true}:{});if(ticket!==generation||actor!==owner)return;
       if(!data?.success||data.ownerId!==owner)throw Error('수입 비행기 현황을 확인하지 못했습니다.');
       paint(data);loaded=true;
     }catch(e){if(ticket===generation){if(!last)clear();status.textContent=(e&&e.message)||'수입 비행기 현황을 불러오지 못했습니다. 새로고침을 눌러 주세요.';}}
-    finally{if(ticket===generation){busy=false;retry.disabled=!owner||!online;clearTimeout(timer);timer=setTimeout(()=>void load(false),300000);}}
+    finally {
+      if (ticket === generation) {
+        busy = false;
+        retry.disabled = !owner || !online;
+        nextRefreshAt = Date.now() + refreshInterval;
+        resumeRefresh();
+      }
+    }
   }
   function applyState(state){
-    if(!state||typeof state!=='object')return;
+    if(disposed||!state||typeof state!=='object')return;
     const previousVisible=visible,previousOnline=online,nextOwner='homeOwnerId'in state?String(state.homeOwnerId||''):owner,changed=nextOwner!==owner;
-    if(changed){owner=nextOwner;generation++;busy=false;loaded=false;last=null;selectedViewId='';clearTimeout(timer);clear();status.textContent=owner?'수입 비행기 현황을 확인합니다.':'로그인 후 수입 비행기 현황을 확인할 수 있습니다.';}
+    if(changed){owner=nextOwner;generation++;busy=false;loaded=false;last=null;selectedViewId='';nextRefreshAt=null;stopRefresh();clear();status.textContent=owner?'수입 비행기 현황을 확인합니다.':'로그인 후 수입 비행기 현황을 확인할 수 있습니다.';}
     if('menuOpen'in state)visible=!!state.menuOpen;if('online'in state)online=!!state.online;
-    root.hidden=!owner;layoutHome();for(const b of [detail,retry])b.disabled=!owner||!online;
+    root.hidden=!owner;layoutHome();detail.disabled=!owner||!online;retry.disabled=!owner||!online||busy;
     if(owner&&visible&&online&&(changed||!previousVisible||!previousOnline))void load(false);
     if((changed||!visible||!online)&&mapDialog.open)mapDialog.close();
-    if(!visible||!online)clearTimeout(timer);
+    if(!visible||!online)stopRefresh();
   }
   setOpen(opened);
-  window.desktop.onState(applyState);
+  const unsubscribe = window.desktop.onState(applyState);
+  document.addEventListener('visibilitychange', resumeRefresh);
+  window.addEventListener('pagehide', () => {
+    disposed = true;
+    unsubscribe();
+    document.removeEventListener('visibilitychange', resumeRefresh);
+    stopRefresh();
+    generation++;
+  }, { once: true });
   // 처음 상태는 방송이 아니라 조회로 받는다(다른 홈 카드는 shell.js 가 넘겨 주지만 이 구역은 스스로 받는다).
   window.desktop.invoke('state').then(applyState).catch(()=>{});
   window.flightBoard={applyState,reload:()=>load(true),setOpen};
