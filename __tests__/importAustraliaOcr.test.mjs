@@ -18,3 +18,17 @@ test('AU boxes/bunches/prices and independent total reconcile; both Woolly rows 
 test('high-confidence numeric error cannot pass',()=>{const x=fixture();x.pages[0].items.find(i=>i.str==='500').str='501';assert.equal(inspectAustraliaOcr(x).result,null);});
 test('second-page total contradiction cannot pass',()=>{const x=fixture();x.pages[1].items.find(i=>i.str==='9800').str='9900';assert.equal(inspectAustraliaOcr(x).result,null);});
 test('missing printed stems-per-bunch not defaulted',()=>{const x=fixture();x.pages[0].items.find(i=>i.str.startsWith('Barker')).str='Barker bush';assert.equal(inspectAustraliaOcr(x).result,null);});
+test('invoice alone retains goods and amounts when the consignment number is absent or unreadable',()=>{
+  for (const consignment of [null, 'UNREADABLE']) {
+    const source=fixture();
+    const original=inspectAustraliaOcr(source).result.invoices[0];
+    if(consignment===null)source.pages[1].items=source.pages[1].items.filter(item=>item.y!==750);
+    else source.pages[1].items.find(item=>item.str===original.awb).str=consignment;
+    const {result,reason}=inspectAustraliaOcr(source);
+    assert.ok(result,reason);
+    const invoice=result.invoices[0];
+    assert.equal(invoice.awb,null);
+    assert.equal(invoice.invoice_total,original.invoice_total);
+    assert.deepEqual(invoice.products,original.products);
+  }
+});

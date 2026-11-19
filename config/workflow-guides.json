@@ -411,27 +411,27 @@
             {
               "scenario": "recover",
               "title": "2. 원본 PDF 선택 · 처음 올린 PDF는 Claude로 분석하고 저장 결과는 재사용합니다.",
-              "seconds": 12.365
+              "seconds": 12.246
             },
             {
               "scenario": "review",
               "title": "3. 미매칭 확인 · 원본 품목을 눌러 전산 품목을 검색하고 선택합니다.",
-              "seconds": 25.961
+              "seconds": 25.851
             },
             {
               "scenario": "reuse",
               "title": "4. 기존 분석 재사용 · 파일을 다시 올리지 않고 저장 분석에서 바로 이어갑니다.",
-              "seconds": 69.412
+              "seconds": 69.407
             },
             {
               "scenario": "changed",
               "title": "5. 변경본 선택 · 내용이 다른 파일은 기존 분석과 새 파일 분석 중 선택합니다.",
-              "seconds": 99.642
+              "seconds": 99.682
             },
             {
               "scenario": "history",
               "title": "6. 업로드 이력 · 원본과 보관 분석의 수량·금액을 비교합니다.",
-              "seconds": 141.385
+              "seconds": 141.466
             }
           ]
         }
@@ -447,20 +447,23 @@
       "sourceFiles": [
         "components/import-tools/PackingListTool.js",
         "lib/packingFileReuse.js",
-        "styles/ImportPacking.module.css"
+        "styles/ImportPacking.module.css",
+        "components/import-tools/InvoiceReceiptWorkbench.js",
+        "pages/import/tools.js"
       ],
       "requiredScenarios": [
         "select",
         "upload",
         "verify",
         "match",
-        "download"
+        "download",
+        "receipt"
       ],
       "guides": [
         {
           "id": "import",
           "role": "수입부",
-          "title": "인보이스 올리기부터 합계 확인·내려받기까지",
+          "title": "인보이스 대조부터 입고 완료까지",
           "status": "ready",
           "src": "/guides/packing-list-from-invoice/import.mp4",
           "captions": "/guides/packing-list-from-invoice/import.ko.vtt",
@@ -469,27 +472,32 @@
             {
               "scenario": "select",
               "title": "1. 나라 고르기",
-              "seconds": 0.003
+              "seconds": 0.001
             },
             {
               "scenario": "upload",
               "title": "2. 인보이스 PDF 올리기",
-              "seconds": 25.664
+              "seconds": 25.679
             },
             {
               "scenario": "verify",
               "title": "3. 읽힌 농장·인보이스 번호·수량·합계 확인",
-              "seconds": 63.662
+              "seconds": 63.848
             },
             {
               "scenario": "match",
               "title": "4. 미확인 품종을 전산 품목에 연결",
-              "seconds": 96.233
+              "seconds": 96.646
             },
             {
               "scenario": "download",
-              "title": "5. 합계 확인하고 엑셀 내려받기",
-              "seconds": 193.73
+              "title": "5. 필요할 때 입고용 엑셀 내려받기",
+              "seconds": 193.862
+            },
+            {
+              "scenario": "receipt",
+              "title": "6. 인보이스 입고 저장 완료",
+              "seconds": 259.096
             }
           ]
         }
@@ -582,27 +590,27 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 7.026
+              "seconds": 7.021
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 145.791
+              "seconds": 148.631
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 242.085
+              "seconds": 247.118
             },
             {
               "scenario": "add",
               "title": "4. 기존 입고에 품목·수량 추가",
-              "seconds": 323.604
+              "seconds": 329.57
             },
             {
               "scenario": "cancel",
               "title": "5. 기존 입고의 품목·수량 취소",
-              "seconds": 436.354
+              "seconds": 442.475
             }
           ]
         },
@@ -618,17 +626,17 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.003
+              "seconds": 14.031
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 57.886
+              "seconds": 58.084
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 139.428
+              "seconds": 140.106
             }
           ]
         }

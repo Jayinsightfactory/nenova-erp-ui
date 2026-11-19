@@ -3996,3 +3996,11 @@ pm run test:canon 통과.
 3. 남은 일: PR CI 성공 후 병합·배포 확인.
 4. 검증: 대상38건, 실제46-01 Excel PDF 체리오3줄/돈셀7줄 잘림없음. 전체ERP/빌드 진행.
 5. 주의: 원장 쓰기 없음, 출력물과 공유 node_modules 보존.
+
+## 2026-11-19 · 인보이스 단독 입고 저장 및 도착원가 분리
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/invoice-only-receipt / PR #1875.
+2. 완료된 것: 패킹리스트에서 인보이스 원본 대조 후 직접 입고 저장. 확인된 AWB는 선택 반영, 미확인 중량·운임은 미기재. 저장 결과 화면 및 입고관리에서 동일 입고로 후속 원가 재진입. 데스크톱 1.3.58과 복원 경로 연결.
+3. 남은 할 일: 최종 가이드·빌드·CI 확인 후 squash, Cafe24 웹 및 Desktop 배포·운영 읽기 스모크.
+4. 검증 상태: dnSpy CLI 및 운영 SELECT, 격리 실제 MSSQL 호주 단독·정상/오류 AWB·중복·교차연도, 콜롬비아 실제 PDF/재현 분석 8행·27박스·405단·8,100송이·USD 1,741.50 검증. 브라우저 직접 입고 및 모의 재조회 완료 확인, 브라우저/데스크톱 UA 같은 입고 재진입, Electron smoke 통과. 기존 직원 응답 복구 및 실제 Windows Excel 저장창은 미검증.
+5. 주의/잠금: 운영 입고·원가 데이터와 유료 분석 변경 없음. 기존 SQL writer, 재고·입고 readback, 원가 명시 승인 보존.
+검색어: invoice-only-receipt AWB optional packing receipt PENDING 18065 47-02 Desktop1.3.58 PR1875

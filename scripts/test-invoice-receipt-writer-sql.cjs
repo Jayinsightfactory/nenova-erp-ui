@@ -407,6 +407,74 @@ async function commitArgs(ctx, documentId, operationId, receiptPartId, baselineD
     reason: 'isolated SQL writer fixture', allowPendingCost: true, actor: 'invoice-fixture' });
 }
 
+async function testInvoiceOnlyAustralia(pool, writer, documents, costs) {
+  const ctx = writerContext(pool, writer);
+  const documentId = crypto.randomUUID();
+  const protectedBefore = await protectedSnapshot(pool);
+  await query(pool, `UPDATE dbo.Country SET CounName=N'호주' WHERE CounName=N'중국';
+    UPDATE dbo.Product SET CounName=N'호주' WHERE ProdKey=7201;`);
+  await insertDocument(pool, documentId, 'AU-INVOICE-ONLY');
+  const id = {type:sql.UniqueIdentifier,value:documentId};
+  const meta = {country:'AU',farmName:'Fixture Farm',inputDate:'2026-10-08',transportMode:'AIR'};
+  const saveMetadata = reviewed => query(pool,'UPDATE dbo.WebInvoiceDocument SET ReviewedMetadataJson=@meta WHERE DocumentId=@id',{
+    id,meta:{type:sql.NVarChar,value:JSON.stringify(reviewed)},
+  });
+  await saveMetadata({ ...meta, awbReviewed: true, awb: '081-63688774',
+    awbAttachment: { source: 'AWB_PDF', sourceHash: 'a'.repeat(64), fileName: 'fixture-awb.pdf',
+      awb: '082-63688774', reviewed: true, packageCount: 64, grossWeightKg: 805, chargeableWeightKg: 805 },
+    gw: 805, cw: 805,
+  });
+  const invalidAwb = await ctx.preview(documentId);
+  assert.equal(invalidAwb.canCommit, false);
+  assert(invalidAwb.issues.some(issue => issue.code === 'AWB_PACKAGE_TOTAL_MISMATCH'));
+  assert(invalidAwb.issues.some(issue => issue.code === 'AWB_NUMBER_INVALID'));
+  await saveMetadata(meta);
+  const preview = await ctx.preview(documentId);
+  assert.equal(preview.canCommit, true, JSON.stringify(preview.issues));
+  assert.deepEqual(preview.reconciliation.rows.map(row => row.orderedQty),[100], 'prior-year 41-01 orders must be excluded');
+  const operationId = crypto.randomUUID(), receiptPartId = crypto.randomUUID();
+  const result = await commitArgs(ctx,documentId,operationId,receiptPartId,preview.baselineDigest);
+  assert.equal(result.costStatus, 'PENDING');
+  assert.equal((await commitArgs(ctx,documentId,operationId,receiptPartId,preview.baselineDigest)).warehouseKey,result.warehouseKey);
+  await assert.rejects(() => commitArgs(ctx,documentId,crypto.randomUUID(),crypto.randomUUID(),preview.baselineDigest));
+  const {recordsets:[headers, lines]} = await query(pool,`
+    SELECT OrderYear, OrderWeek, OrderNo, GrossWeight, ChargeableWeight, FreightRateUSD, DocFeeUSD
+    FROM dbo.WarehouseMaster WHERE WarehouseKey=@key;
+    SELECT BunchQuantity, UPrice, TPrice FROM dbo.WarehouseDetail WHERE WarehouseKey=@key ORDER BY WdetailKey;
+  `,{key:{type:sql.Int,value:result.warehouseKey}});
+  assert.deepEqual(headers,[{OrderYear:'2026',OrderWeek:'41-01',OrderNo:'',
+    GrossWeight:null,ChargeableWeight:null,FreightRateUSD:null,DocFeeUSD:null}]);
+  assert.deepEqual(lines,[{BunchQuantity:2,UPrice:100,TPrice:200},{BunchQuantity:3,UPrice:200,TPrice:600}]);
+  const saved = await documents.getInvoiceDocument({queryFn:ctx.queryFn,types:sql,documentId});
+  const {verifyReceiptDocument} = await import('../lib/invoiceReceiptWorkflow.js');
+  assert.equal(verifyReceiptDocument(saved).warehouseKey,result.warehouseKey);
+  const cost = await costs.readInvoiceCosts({queryFn:ctx.queryFn,types:sql,warehouseKey:result.warehouseKey});
+  assert.equal(cost?.currentActual ?? null,null);
+
+  const verifiedAwbId = crypto.randomUUID();
+  await insertDocument(pool, verifiedAwbId, 'AU-VERIFIED-AWB');
+  const awbHash = 'a'.repeat(64), awb = '081-63688774';
+  const evidence = {source:'AWB_PDF',sourceHash:awbHash,unit:'kg'};
+  const attachedMeta = { ...meta, awb, gw:805, cw:805, freightRate:1.25, docFee:2, freightCurrency:'USD',
+    awbReviewed:true, weightSourceEvidence:{gw:evidence,cw:evidence},
+    awbAttachment:{source:'AWB_PDF',sourceHash:awbHash,fileName:'fixture-awb.pdf',
+      awb,reviewed:true,packageCount:3,grossWeightKg:805,chargeableWeightKg:805},
+  };
+  await query(pool,`UPDATE dbo.WebInvoiceDocument SET ReviewedMetadataJson=@meta WHERE DocumentId=@id;
+    UPDATE dbo.WebInvoiceLine SET BoxQuantity=[LineNo] WHERE DocumentId=@id;`,{
+    id:{type:sql.UniqueIdentifier,value:verifiedAwbId},meta:{type:sql.NVarChar,value:JSON.stringify(attachedMeta)},
+  });
+  const attachedPreview = await ctx.preview(verifiedAwbId);
+  assert.equal(attachedPreview.canCommit,true,JSON.stringify(attachedPreview.issues));
+  const attached = await commitArgs(ctx,verifiedAwbId,crypto.randomUUID(),crypto.randomUUID(),attachedPreview.baselineDigest);
+  assert.equal(attached.costStatus,'PENDING');
+  const attachedHeader = (await query(pool,`SELECT OrderNo, GrossWeight, ChargeableWeight, FreightRateUSD, DocFeeUSD
+    FROM dbo.WarehouseMaster WHERE WarehouseKey=@key;`,{key:{type:sql.Int,value:attached.warehouseKey}})).recordset[0];
+  assert.deepEqual(attachedHeader,{OrderNo:awb,GrossWeight:805,ChargeableWeight:805,FreightRateUSD:1.25,DocFeeUSD:2});
+  assert.deepEqual(await protectedSnapshot(pool),protectedBefore);
+  console.log('ok - AU invoice-only, AWB mismatch, cost pending, cross-year, exact readback and duplicate replay');
+}
+
 async function testHistoricalFarmSource(pool,writer,documents) {
   const id=crypto.randomUUID(),ctx=writerContext(pool,writer);
   await query(pool,`INSERT dbo.WarehouseMaster(WarehouseKey,OrderYear,OrderWeek,FarmName,InvoiceNo,InputDate,isDeleted)
@@ -1327,6 +1395,10 @@ async function main() {
       ensure(Number(count.recordset?.[0]?.RowCount)===0,`fresh ${table} must be empty before fixture seeding`);
     }
     await seedSentinelsAndRows(pool);
+    if(process.env.NENOVA_INVOICE_ONLY_E2E==='1'){
+      await testInvoiceOnlyAustralia(pool,writer,documents,costs);
+      return;
+    }
     if(process.env.NENOVA_AMOUNT_REVIEW_E2E==='1'){
       await require('./test-packing-amount-receipt-local.cjs')({pool,sql,query,writer,documents,costs,ctx:writerContext(pool,writer),protectedSnapshot});
       return;

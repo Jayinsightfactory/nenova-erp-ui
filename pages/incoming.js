@@ -15,6 +15,7 @@ import LatestArrivalReference from '../components/LatestArrivalReference.js';
 import WarehouseStockInvestigation from '../components/WarehouseStockInvestigation';
 import WarehouseCorrection from '../components/WarehouseCorrection.js';
 import { incomingWorkspaceHref } from '../lib/incomingWorkspaceNavigation.js';
+import { invoiceReceiptCostHref } from '../lib/invoiceReceiptCostRoute.js';
 import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
 const { Text } = Typography;
 
@@ -174,6 +175,9 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   };
 
   const selected = masters.find(m => m.WarehouseKey === selectedKey);
+  const selectedCostHref = selected && invoiceReceiptCostHref({
+    orderYear: selected.OrderYear, orderWeek: selected.OrderWeek, warehouseKey: selected.WarehouseKey,
+  });
   useEffect(()=>{
     if(!loading&&!linkedOpened.current&&linkedWarehouse.current&&masters.some(m=>Number(m.WarehouseKey)===linkedWarehouse.current)){
       linkedOpened.current=true;selectMaster(linkedWarehouse.current);
@@ -378,6 +382,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
         </Col>
         <Col xs={24} lg={11} style={{ minWidth: 0 }}>
           <Card size="small" title={<Space><Text strong>입고 상세 목록</Text>{selected && <Tag color="blue">{selected.FarmName} · {selected.InvoiceNo}</Tag>}</Space>} extra={selectedKey && <Input.Search size="small" allowClear placeholder="품목명·주문코드" value={detailSearch} onChange={(e) => setDetailSearch(e.target.value)} style={{ width: 180 }} />}>
+            {selectedCostHref && <Button size="small" href={selectedCostHref}>이 입고의 도착원가 작업</Button>}
             {selectedKey && <div style={{ marginBottom: 8 }} role="status">
               {invoiceExpenses?.warning && <Alert type="warning" showIcon message={invoiceExpenses.warning} />}
               {invoiceExpenses?.entries?.length > 0 && <div>입고 연결 비용 · 웹 문서 저장값 (상품 수량·재고와 별도): {invoiceExpenses.entries.map(entry => `${entry.kind === 'freight' ? '운송비' : entry.kind === 'docFee' ? '문서비' : entry.kind} ${entry.amount.toLocaleString('ko-KR')} ${entry.currency}`).join(' · ')}</div>}
