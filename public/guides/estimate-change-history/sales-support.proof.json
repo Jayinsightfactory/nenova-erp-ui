@@ -1,16 +1,16 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-19T02:17:53.405Z",
+  "recordedAt": "2026-11-19T03:06:24.313Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 63.65,
+  "duration": 85.75,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "996b89685e4438516b0c3bfc887567661fe29678ecdcafb70e1be8c84868bfad",
-  "captionsSha256": "847939058351c7fbeaad6403423e001e8bb81f3aeb69f98e257d357a9de09465",
+  "videoSha256": "ad3f7ed8532b4c6bb5989cd5421dbee27118dc5d341e9d7ede65154973f7990c",
+  "captionsSha256": "a5261fce52988d07ea37815d0d7b30178853421cecbba655c09c2d8955f06f1a",
   "sourceHashes": {
     "pages/estimate-change-history.js": "01e8ab6d572765c59fae879092be0c77cfca305bb675f79b17394f2874053545",
     "components/EstimateChangeHistory.js": "11a68e2cbe897820ec9f477ebc39ffb2c590f74dd449f7f07760bf027dd42509",
@@ -18,7 +18,7 @@
     "styles/EstimateChangeHistory.module.css": "4bb25737b321f171bb44d7b017a16acd228f10a756b694fcd57f1707350d366a",
     "lib/estimateChangeRequestRows.cjs": "5d0541b1ff75fac1f1659d4b2ddabfaf2ceb6e555a0a3527a71b888f311cc284",
     "lib/estimateChangeWorkbookPreview.js": "38852d5dfb294e4920d62e305ad5ca7211d36f85d1517d4448370568505d0939",
-    "lib/estimateChangeHistoryWorkbook.cjs": "d4f4704fd797e3fa39b4166e2a411d35ad81aa1e2061c87a26f9190834e08478",
+    "lib/estimateChangeHistoryWorkbook.cjs": "30bc4afc34457a1d449ce7615b19c6b0a8d24d8d08f13e6b1cac98c62b01f157",
     "components/EstimateHistoryImpact.js": "596e7e3e1f7d6245ad311261b48098220d489c5f2cc2f165c2000775db112b62",
     "lib/estimateChangeHistorySales.js": "c8f8dccaf6225f838df76fb1dc0780ff6bd5cb55ee2b36573b4f9fa1f96e564b"
   },
@@ -36,45 +36,59 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 1.824402,
+        "start": 1.8296100000000006,
         "x": 430,
         "y": 490.5,
-        "end": 5.6605839
+        "end": 6.2351605999999995
       },
       {
         "number": 2,
-        "start": 10.2849919,
+        "start": 11.090443200000001,
         "x": 1060,
         "y": 482.5,
-        "end": 16.1961619
+        "end": 17.0011973
       },
       {
         "number": 3,
-        "start": 18.635669099999998,
-        "x": 1060,
+        "start": 26.036763999999998,
+        "x": 446,
         "y": 649.40625,
-        "end": 26.5468781
+        "end": 33.949646900000005
       },
       {
         "number": 4,
-        "start": 28.6652992,
+        "start": 36.164129499999994,
         "x": 1060,
-        "y": 626.4296875,
-        "end": 36.5737794
+        "y": 558.4375,
+        "end": 44.08247
+      },
+      {
+        "number": 4,
+        "start": 46.12108990000001,
+        "x": 463.5,
+        "y": 539.578125,
+        "end": 53.048075700000005
+      },
+      {
+        "number": 4,
+        "start": 55.0733514,
+        "x": 564.0859375,
+        "y": 415.3125,
+        "end": 58.525729500000004
       },
       {
         "number": 5,
-        "start": 41.643206600000006,
+        "start": 63.6830129,
         "x": 1060,
         "y": 851.421875,
-        "end": 45.430657800000006
+        "end": 67.3804482
       },
       {
         "number": 5,
-        "start": 47.4684758,
-        "x": 1060,
+        "start": 69.4308658,
+        "x": 446,
         "y": 649.40625,
-        "end": 55.381030700000004
+        "end": 77.3764896
       }
     ]
   }

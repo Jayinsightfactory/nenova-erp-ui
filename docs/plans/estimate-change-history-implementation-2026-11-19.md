@@ -48,3 +48,6 @@
 적용: 독립 메뉴·데스크톱 카탈로그/검색/즐겨찾기·1.3.52 업데이트, 단일 Layout, 페이지 주 세로스크롤, 고밀도 표/폼, 숫자 고정폭 정렬, 최소 상태색, 한국어 업무 버튼/날짜, Tab/방향키/Esc, 빈 상태/오류/동시성/명시0, 가이드 영상 및 실제 XLSX 미리보기/전체 인쇄범위. 해당 없음: Rust(일반 React와 DB/I/O 대기), 새 DB DDL/SSMS(기존 private file 저장), 공용 원장/재고/손익 수정(모두 SELECT). 예외 없음. 첨부의 실제 예시·개인정보를 템플릿/영상/커밋에 포함하지 않는다.
 
 양식 재생성: Codex load_workspace_dependencies로 받은 bundled Node와 Node module root를 사용한다. ARTIFACT_NODE_MODULES에 해당 node_modules 절대경로를 설정하고 scripts/build-estimate-change-template.mjs <임시출력폴더> 실행 후 생성 파일/렌더를 검사한다. Artifact API로 빈 양식의 셀/서식/병합/숫자를 작성하고, 문서화된 print setup API가 없어 기존 런타임 OpenXML helper로 인쇄 영역·제목 반복·A4 설정만 마무리한다. 원본 업무 첨부는 읽거나 가져오지 않는다.
+
+
+후속 인쇄 검증: 짧은 문장40줄은 글자 수500자 분할만으로는 별첨 행 높이가 부족했다. 실제 줄바꿈과 열 폭에 따른 표시 줄 수를 함께 계산해 한 행18줄/500자 이하로 나누고 모든 문자를 그대로 이어 보존한다. 40번째 근거까지 실제 생성 XLSX를 재개봉 렌더해 확인했으며 최종 인쇄영역은 마지막 별첨 행까지 유지한다. 신규 회귀4종과 달력은 package.json의 test:estimate-change-history에서 묶어 기존 ERP CI의 pretest:estimate-delete에 연결한다.

@@ -3917,3 +3917,11 @@ pm run test:canon 통과.
 3. 남음: 정확최종SHA 필수CI 성공 후 squash, Cafe24 포함SHA배포·운영읽기전용스모크, Desktop53 검증릴리스·현재worktree 링크만정리. 최종 배포/릴리스/스모크 증거는 PR1861댓글에 기록. 사용자 명시로 추가촬영·백업 유예.
 4. 검증: 전체ERP/dnSpy/manifest/write/build PASS, 실제브라우저 두경로·실제다운로드·격리SQL readback 확인. 별도 새 일회용DB 자동회귀 PASS_AMOUNT_REVIEW_RECEIPT_COST(동일요청동일입고/새중복 ALREADY_COMMITTED 차단/원가41473바이트/원장보호). 첫 UI종합assert는 정상차단코드 ALREADY_COMMITTED 누락으로 실패해 기대코드수정후 자동회귀PASS. AU초기실패는 시험StockMaster키 순서로 rollback, 시험키만연대순정리후 같은ID UI재시도PASS. 모든일회용DB정리.
 5. 잠금/미검증: 운영ERP쓰기·유료분석0. 직원저장원응답 미확보·직원실계정 전체등록성공 미검증. CO GW100/CW200/시험비용은 TEST_ONLY이며실원가주장금지. AU인보이스는합성·AWB원본은실파일, OCR정확도완료주장금지. OrderCode추가사전검증·농장별칭·문제로그확장은별도미완료. 이전감사worktree·canonicaldirty보존. 원본PDF/인증정보커밋금지, node_modulesjunction대상삭제금지.
+
+### 2026-11-19 견적 변경 이력 배포 완료·회귀 CI 연결 보강
+1. 작업 위치: nenova-erp-ui / 구현 PR1863 squash3761e41c5dd649574db6917616ff92f699b59dc2 완료 / 후속 codex/estimate-history-ci-1119 / C:/Users/USER/nw-cdx-estimate-history-ci-1119.
+2. 완료: 독립 변경 이력 메뉴·과거 수기·반영 전 변경안·전체/업체 예상/실측·보고→이카운트→전산 수기 확인·표준 XLSX·달력 신규 다운로드·가이드4종, Desktop1.3.52 릴리스 및 실제 공개 피드/설치본111956437bytes SHA512/CI SHA256 검증. package.json에 신규 회귀4종+달력을 ERP CI의 기존 견적 검증 선행명령으로 연결.
+3. 남음: 검증 전용 후속 PR CI success 후 squash·배포·운영 GET 재확인·작업트리 정리. 기존 구현 worktree 정리 완료. 줄바꿈 사유40줄의 인쇄 높이 재현을 추가해 별첨을 표시 줄 수 기준으로 분할하고 신규 메뉴 가이드도 최종 출력 기준으로 갱신. 원장/수량·단가 원본은 보존.
+4. 검증: PR verify44444601725·installer44444601720 success 후 병합; master ERP44445334162·Windows44445334066·Cafe24 44445334073 success. 운영 ping200/버전3761e41c·권한·실제173행 키·양식·영상/한국어 자막/목차5개·1920/1280/390·일반/팝업 통과, 로그인 이후 쓰기1건 차단·전달0·원장쓰기0. 여러 줄 인쇄 회귀 포함 신규26건 및 실제 XLSX 렌더 통과. 갱신 가이드/자막은 새 Drive ID로 백업·메타데이터 재확인. 최종 후속 CI는 미검증.
+5. 주의/잠금: 원장/ECOUNT 쓰기 금지, SSMS/DDL 없음. 원본 첨부·개인정보 미반입. acba의 기존 dirty WORK_MEMORY.md·45차_판매전표_대조.csv 보존. 백업8개 ID는 docs/work-sessions/2026-11-19_estimate-change-history-backups.json, 구현 PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1863, 설치본 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.52.
+검색어: 견적 변경 이력 CI test:estimate-change-history pretest:estimate-delete PR1863 3761e41c Desktop1.3.52
