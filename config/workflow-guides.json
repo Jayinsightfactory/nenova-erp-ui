@@ -2132,22 +2132,22 @@
             {
               "scenario": "scope",
               "title": "1. 상단 공통 바에서 연도·세부차수와 국가(콜롬비아)를 선택해 10대 레버 분석 범위를 맞춥니다.",
-              "seconds": 0.005
+              "seconds": 0.062
             },
             {
               "scenario": "simulate",
               "title": "2. 반사실 시뮬레이션 컨트롤에서 환율 +60원 스트레스 프리셋을 적용해 방어 효과를 계산합니다.",
-              "seconds": 10.167
+              "seconds": 10.706
             },
             {
               "scenario": "views",
               "title": "3. 시안 B(2×2)·시안 C(카본 콘솔)·뷰 ALL(A·B·C 동시모드 & 연속구현 큐)로 전환해 검수합니다.",
-              "seconds": 20.395
+              "seconds": 20.982
             },
             {
               "scenario": "briefing",
               "title": "4. 사장님 보고용 원가·이익 브리핑 복사 버튼을 눌러 10대 레버 요약 보고서를 복사합니다.",
-              "seconds": 31.739
+              "seconds": 33.34
             }
           ]
         }
