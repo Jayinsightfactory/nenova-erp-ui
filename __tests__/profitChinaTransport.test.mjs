@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {buildChinaTransportBreakdown,incomingTransportShares,shipmentTransportShares,parseChinaTransportScope,TRANSPORT_AMOUNT_KEYS,chinaTransportFarm} from '../lib/profitChinaTransport.mjs';
+import {buildChinaTransportBreakdown,incomingTransportShares,shipmentTransportShares,parseChinaTransportScope,TRANSPORT_AMOUNT_KEYS,chinaTransportFarm,chinaTransportEligible,chinaCommonAllocation} from '../lib/profitChinaTransport.mjs';
 const scope={orderYear:'2026',major:'44'};
 for(const [y,w] of [[null,44],['26',44],['2026',54],['2026',0],[['2026'],44],['2026','44-01'],['2026','44x']])assert.equal(parseChinaTransportScope(y,w),null);
 assert.deepEqual(parseChinaTransportScope('2026','4'),{orderYear:'2026',major:'04'});
@@ -7,7 +7,7 @@ assert.equal(chinaTransportFarm(' cloudland '),'air');assert.equal(chinaTranspor
 const incoming=[{...scope,orderWeek:'44-01',prodKey:1,farm:'HUBFRESH',unit:'단',quantity:25,amount:250},
   {...scope,orderWeek:'44-02',prodKey:1,farm:'Cloudland',unit:'단',quantity:75,amount:750},
   {...scope,orderWeek:'44-01',prodKey:2,farm:'Cloudland',unit:'송이',quantity:5,amount:500},
-  {orderYear:'2025',orderWeek:'44-01',prodKey:1,farm:'HUBFRESH',unit:'단',quantity:9999,amount:99999}];
+  {orderYear:'2025',orderWeek:'44-01',prodKey:1,farm:'HUBFRESH',unit:'단',quantity:9999,amount:99999}].map(row=>({...row,currency:'CNY'}));
 const shares=incomingTransportShares(incoming,scope);assert.deepEqual(shares.get('1'),{sea:.25,air:.75,unassigned:0});
 assert.deepEqual(shares.get('2'),{sea:0,air:1,unassigned:0});
 assert.equal(incomingTransportShares([...incoming,{...incoming[0],quantity:-1}],scope).get('1').unassigned,1);
@@ -23,13 +23,23 @@ const evidence={...scope,incoming,shipments:[{...scope,orderWeek:'44-01',prodKey
   inventory:{begin:{items:[{prodKey:1,value:200},{prodKey:3,value:200}]},end:{items:[{prodKey:1,value:-40},{prodKey:2,value:140}]}}};
 const original=JSON.stringify({parent,evidence});const result=buildChinaTransportBreakdown(parent,evidence,scope);
 assert.equal(JSON.stringify({parent,evidence}),original,'inputs immutable');
-assert.equal(result.rows[0].calc.N,400);assert.equal(result.rows[1].calc.N,750);assert.equal(result.rows[2].calc.N,250);
-assert.equal(result.rows[0].calc.E,50);assert.equal(result.rows[0].calc.F,-10);
-assert.equal(result.rows[2].calc.H,60);assert.equal(result.rows[2].calc.L,-20);
+assert.equal(result.rows.length,2);assert.deepEqual(result.rows.map(row=>row.id),['sea','air']);
+assert.equal(result.allocation.kind,'incoming_purchase_amount');assert.equal(result.allocation.shares.sea,1/6);
+assert.equal(result.rows[0].calc.N,400+250/6,'direct actual/item evidence precedes residual allocation');
+assert(Math.abs(result.rows[0].calc.E-(50+200/6))<1e-12);assert.equal(result.rows[0].calc.F,-10);
+assert.equal(result.rows[0].calc.H,10);assert(Math.abs(result.rows[0].calc.L+20/6)<1e-12);
 for(const key of TRANSPORT_AMOUNT_KEYS)assert(Math.abs(result.rows.reduce((s,r)=>s+r.calc[key],0)-parent[key])<1e-8,key);
 for(const key of TRANSPORT_AMOUNT_KEYS)assert.equal(result.rows.reduce((s,r)=>s+r.display[key],0),Math.round(parent[key]),`visible ${key}`);
 for(const key of TRANSPORT_AMOUNT_KEYS){const missing=buildChinaTransportBreakdown({...parent,[key]:null},evidence,scope);assert(missing.rows.every(row=>row.calc[key]===null),key);}
 assert.throws(()=>buildChinaTransportBreakdown(parent,{...evidence,orderYear:'2025'},scope));
-const stale=buildChinaTransportBreakdown({...parent,N:1},evidence,scope);assert(stale.rows[2].calc.N<0,'negative residual not hidden');
-const zero=buildChinaTransportBreakdown({...parent,C:0,J:0,R:null},{...evidence,shipments:[]},scope);assert.equal(zero.rows[2].calc.K,null);
-console.log('profitChinaTransport PASS: scope, actual/partial/invalid, incoming ratios, units, nulls, zeros, negatives, immutable parent, conservation');
+const stale=buildChinaTransportBreakdown({...parent,N:1},evidence,scope);assert(stale.rows[0].allocated.N<0,'negative residual is allocated, not hidden');
+const zero=buildChinaTransportBreakdown({...parent,C:0,J:0,R:null},{...evidence,shipments:[]},scope);assert.equal(zero.rows[0].calc.K,null);
+assert.equal(chinaTransportEligible('2026','38'),false);assert.equal(chinaTransportEligible('2026','39'),true);assert.equal(chinaTransportEligible('2025','39'),true);
+assert.throws(()=>buildChinaTransportBreakdown(parent,{...evidence,major:'38'},{...scope,major:'38'}),/39차/);
+const quantity=chinaCommonAllocation(incoming.filter(row=>row.prodKey===1),scope);assert.equal(quantity.kind,'incoming_quantity');assert.equal(quantity.shares.sea,.25);
+for(const bad of [[],incoming.map(row=>({...row,currency:'USD'})),incoming.map(row=>({...row,amount:null})),incoming.map(row=>({...row,amount:0})),incoming.map(row=>({...row,farm:'OTHER'}))]){
+ const blocked=buildChinaTransportBreakdown(parent,{...evidence,incoming:bad},scope);assert.equal(blocked.allocation.available,false);assert(blocked.rows.every(row=>row.calc.C===null));
+}
+const weighted=result.rows.reduce((sum,row)=>sum+row.calc.J,0)/result.rows.reduce((sum,row)=>sum+row.calc.C,0);
+assert(Math.abs(weighted-parent.J/parent.C)<1e-12,'overall margin is conserved, not averaged');
+console.log('profitChinaTransport PASS: 38/39 boundary, two rows, direct-first, mixed-unit CNY fallback, no-evidence/null guards, immutable parent/margin and display conservation');

@@ -4112,6 +4112,14 @@ pm run test:canon 통과.
 5. 주의/잠금: 타 워커 담당 파일(`pages/pm.js`, `pages/work/manuals.js`, `ImportOneStopPipeline.js`, `CeoCommandHub.js`, `TechRadarWorkbench.js`, `ArchFlowChart.js`, `SolutionSuiteSimulator.js`, `pages/api/**`) 및 `workflow-guides.json` 타 워크플로우 항목 무수정 보존.
 검색어: GabrielProfitAgiWorkbench gabriel-purpose-callout gabriel-lever-purpose-callout gabriel-lever-svg-diagram gabriel-trace-auto-toggle stroke-dashoffset prefers-reduced-motion Purpose-First
 
+## 2026-11-19 중국 39차 이후 두 농장 손익 분해
+1. 작업 위치: `codex/china-profit-two-farms` / `.codex-work/china-two-farms` / PR #1895.
+2. 완료된 것: `profitChinaTransport` 정책·API·화면을 39차 이상 HUBFRESH/Cloudland 두 행으로 제한. 실제 농장·동일품목 당차 입고 우선, 잔차는 같은 단위 입고 수량 또는 명시한 보고서 CNY 매입액 비율. 근거 부족/원천 NULL은 확인 필요. 14px 한글 고딕·합계 보존·데스크톱1.3.66(다른 세션 1.3.65 이후).
+3. 남은 할 일: PR/CI/배포, 운영 44차 두 행 확인. 최종 상태는 해당 PR 인계 댓글에도 남긴다.
+4. 검증 상태: `verify:erp-change` 전체/빌드, 정책/API 회귀, 합성 화면 38/39 경계·두 행·조회범위, 데스크톱 메뉴3건, 가이드116.45초 재녹화·해시·실제 재생1920/390 PASS. 44차 전후 SELECT 469회씩, 저장본 calc 동일. 매출39,413,527·이익−18,524,012·전체이익률−46.9991238588% 및 모든 표시 금액 합계 보존. 실제 운영 새 화면은 미검증.
+5. 주의/잠금: DB/원장/저장본 쓰기 0. 혼합 단·송이를 합산하지 않음. 기초6/기말10품목 평가 미확인은 경고 유지하며 농장별 확정 원가로 오해하지 않도록 표시. 다른 작업의 메뉴/가이드 항목 보존.
+검색어: china-two-farms 39차 HUBFRESH Cloudland 공통안분 CNY 48375 188795 44차 39413527 469 SELECT
+
 ## 2026-11-19 · 인보이스 확인 매칭 우선 표시와 입고표 정리
 
 1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/invoice-match-review / PR #1884 / 기준 master 29f275c.

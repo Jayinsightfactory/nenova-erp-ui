@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { buildChinaTransportBreakdown, parseChinaTransportScope } from '../lib/profitChinaTransport.mjs';
+import { buildChinaTransportBreakdown, parseChinaTransportScope, chinaTransportEligible } from '../lib/profitChinaTransport.mjs';
 import WorkflowGuide from './WorkflowGuide';
 import styles from './ProfitChinaTransport.module.css';
 
@@ -35,22 +35,25 @@ export default function ProfitChinaTransport({ data, row, colSpan, dirty=false }
   }
   let breakdown=null,error=active?.error;
   if(active?.evidence&&!dirty){try{breakdown=buildChinaTransportBreakdown(row.calc,active.evidence,scope);}catch(e){error=e.message;}}
+  if(!chinaTransportEligible(scope?.orderYear,scope?.major))return null;
   return <tr className={styles.container} data-testid="china-transport-row"><td colSpan={colSpan}>
-    <button type="button" className={styles.toggle} aria-expanded={open} onClick={()=>{setOpen(!open);if(!open&&!active)load();}}>중국 배·비행기·미배정 {open?'접기':'내역 보기'}</button>
+    <button type="button" className={styles.toggle} aria-expanded={open} onClick={()=>{setOpen(!open);if(!open&&!active)load();}}>중국 배·비행기 {open?'접기':'내역 보기'}</button>
     {open&&<section aria-label="중국 운송수단별 참고 내역" className={styles.panel}>
-      <header><strong>중국 합계 보존 · 운송수단별 참고 내역</strong><button type="button" onClick={load} disabled={active?.busy||dirty}>근거 다시 조회</button></header>
-      <p>본표·확정본·엑셀은 변경하지 않습니다. 현재 원장으로 나눈 참고 내역이며 공통비를 배·비행기에 임의 배분하지 않습니다.</p>
+      <header><strong>중국 합계를 유지하며 배·비행기 손익 비교</strong><button type="button" onClick={load} disabled={active?.busy||dirty}>근거 다시 조회</button></header>
+      <p>39차부터 두 농장으로 분해합니다. 본표·확정본·엑셀은 변경하지 않습니다.</p>
       {dirty&&<p role="status">저장하지 않은 입력이 있습니다. 저장 또는 취소 후 본표를 다시 조회하세요.</p>}
       {active?.busy&&<p role="status">입고·출고·재고 원가 근거 조회 중… 본표를 변경하거나 DB에 저장하지 않습니다.</p>}
       {error&&<p role="alert">{error}</p>}
       {breakdown&&<>
         <p>{breakdown.note}</p>
+        {breakdown.allocation.available&&<p className={styles.basis}><strong>공통 안분 기준</strong> {breakdown.allocation.label} · HUBFRESH {format(breakdown.allocation.totals.sea,'Q')} / Cloudland {format(breakdown.allocation.totals.air,'Q')} {breakdown.allocation.unit} · {(breakdown.allocation.shares.sea*100).toFixed(2)}% / {(breakdown.allocation.shares.air*100).toFixed(2)}%</p>}
+        {!breakdown.allocation.available&&<p role="alert">분해 불가 · {breakdown.allocation.reason} 중국 본표는 그대로 보존합니다.</p>}
         {breakdown.warnings.length>0&&<ul className={styles.warnings}>{breakdown.warnings.map((warning,i)=><li key={i}>{warning}</li>)}</ul>}
         <div className={styles.scroll}><table><thead><tr><th>구분</th>{columns.map(([key,label])=><th key={key}>{label}{key!=='K'&&' (원)'}</th>)}</tr></thead>
           <tbody>{breakdown.rows.map(child=><tr key={child.id}><th scope="row">{child.label}</th>{columns.map(([key])=><td key={key}>{format(child.display[key],key)}</td>)}</tr>)}</tbody>
           <tfoot><tr><th scope="row">중국 본표 합계 (보존)</th>{columns.map(([key])=><td key={key}>{format(row.calc[key],key)}</td>)}</tr></tfoot>
         </table></div>
-        <p className={styles.meta}>실제 농장배정 {breakdown.basisCounts.actual_farm||0}건 · 당차 입고비율 {breakdown.basisCounts.incoming_ratio||0}건 · 입고 근거 없음 {breakdown.basisCounts.no_incoming||0}건. 미배정은 공통비·차감·현재 원천과 저장본의 차이를 포함하며 음수 차이도 보존합니다.</p>
+        <p className={styles.meta}>실제 농장배정 {breakdown.basisCounts.actual_farm||0}건 · 품목별 당차 입고비율 {breakdown.basisCounts.incoming_ratio||0}건 · 직접 입고 근거 없음 {breakdown.basisCounts.no_incoming||0}건. 남는 금액은 위 공통 비율로 안분합니다. 빈 원천값은 확인 필요로 유지합니다. 전체 이익률은 두 비율의 평균이 아니라 중국 전체 이익 ÷ 전체 매출입니다.</p>
         <details><summary>매입·운임 원천과 재고 기준 보기</summary>
           <div className={styles.scroll}><table><thead><tr><th>농장</th><th>세부차수</th><th>입고번호</th><th>운임 (CNY)</th></tr></thead><tbody>{active.evidence.freight.map((item,i)=><tr key={i}><td>{item.farm||'미확인'}</td><td>{item.orderWeek}</td><td>{item.warehouseKey}</td><td>{format(item.amount,'S')}</td></tr>)}</tbody></table></div>
           <p>기초 {active.evidence.inventory?.begin?.orderYear} / {active.evidence.inventory?.begin?.week||'미확인'} · 기말 {active.evidence.inventory?.end?.orderYear} / {active.evidence.inventory?.end?.week||'미확인'}. 재고도 동일 품목 당차 입고비율을 사용합니다. 저장 당시 농장별 재고를 복원한 결과가 아닙니다.</p>

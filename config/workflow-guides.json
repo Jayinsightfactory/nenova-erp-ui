@@ -550,22 +550,22 @@
             {
               "scenario": "scope",
               "title": "2. 조건 변경과 재조회",
-              "seconds": 20.434
+              "seconds": 20.111
             },
             {
               "scenario": "views",
               "title": "3. 차수별·월별도 직접 조회",
-              "seconds": 43.163
+              "seconds": 42.451
             },
             {
               "scenario": "output",
               "title": "4. 조회 범위와 출력 확인",
-              "seconds": 65.86
+              "seconds": 64.385
             },
             {
               "scenario": "china",
-              "title": "5. 중국 배·비행기·미배정 확인",
-              "seconds": 82.557
+              "title": "5. 39차부터 중국 두 농장 비교",
+              "seconds": 80.762
             }
           ]
         }
