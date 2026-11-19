@@ -226,7 +226,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
     setSelectedKey(key);
   };
   useEffect(() => {
-    if (selectedKey) { const card = detailRef.current?.querySelector('[data-selected="true"]'); card?.focus(); card?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+    if (selectedKey) { const card = detailRef.current?.querySelector('[data-selected="true"]'); card?.focus(); card?.scrollIntoView({ block: 'nearest' }); }
     else returnFocusRef.current?.focus();
   }, [selectedKey]);
   const [showDone, setShowDone] = useState(false);

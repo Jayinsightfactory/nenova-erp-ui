@@ -263,7 +263,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
     const parts=(data.feedRooms||[]).map(r=>`${r.room}: 원문 ${when(r.latestMessageAt)} / 저장 ${when(r.latestImportedAt)}${r.error?' · 조회 실패':''}`);if(data.registeredCount)parts.push(`입고 등록까지 끝난 편 ${data.registeredCount}건은 「확대 보기」에서 확인`);
     parts.push(`인천공항 자료 ${data.sources?.icn?'✔':'–'} · 통관 자료 ${data.sources?.customs?'✔':'–'}`);foot.textContent=parts.join(' · ');
   }
-  function selectFlight(id){selectedViewId=id;if(!last)return;paint(last);const card=[...list.children].find(n=>n.dataset.flightId===id);card?.focus();card?.scrollIntoView({block:'nearest',behavior:'smooth'});}
+  function selectFlight(id){selectedViewId=id;if(!last)return;paint(last);const card=[...list.children].find(n=>n.dataset.flightId===id);card?.focus();card?.scrollIntoView({block:'nearest'});}
   list.onkeydown=e=>{if(!['ArrowDown','ArrowUp'].includes(e.key)||!e.target.hasAttribute('data-flight-select'))return;const buttons=[...list.querySelectorAll('[data-flight-select]')],i=buttons.indexOf(e.target),next=buttons[i+(e.key==='ArrowDown'?1:-1)];if(next){e.preventDefault();next.focus();}};
   async function load(fresh){
     if(!owner||!visible||!online||busy||document.hidden)return;
