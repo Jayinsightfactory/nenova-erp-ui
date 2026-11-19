@@ -16,7 +16,7 @@ test('different actual date is never added to same-day 2차',()=>{const m=api.fi
 test('unsaved or changed quantity and farm blocks final output',()=>{const p=plan();p.expected[0].qty=4;assert.throws(()=>api.fieldVolumeModel(p,[line('46-02',3)],[farm()]),/적용/);assert.throws(()=>api.fieldVolumeModel(plan(),[line('46-02',3)],[]),/적용/);});
 test('reject farm total mismatch, duplicates and inconsistent dates',()=>{assert.throws(()=>api.fieldVolumeModel(plan(),[line('46-02',3)],[{...farm(),ShipmentQuantity:2}]),/합계/);assert.throws(()=>api.fieldVolumeModel(plan(),[line('46-02',3)],[farm(),farm()]),/중복/);assert.throws(()=>api.fieldVolumeModel(plan(),[line('46-02',3,{ShipmentQuantity:2})],[farm()]),/합계/);});
 test('SQL scopes explicit year, minor bounds, master customer; no detail CustKey or writes',()=>{const sql=api.fieldVolumeSql([2]);for(const s of Object.values(sql)){assert.match(s,/sm.OrderYear=@year/);assert.match(s,/BETWEEN 1 AND @minor/);assert.doesNotMatch(s,/sd.CustKey|\b(?:UPDATE|INSERT|DELETE|EXEC)\b/i);}assert.throws(()=>api.fieldVolumeSql([NaN]));});
-test('generated workbook compact text, day color, numeric summary formula, farms and print settings',async()=>{const p=plan();p.colors['금']='ABCDEF';const out=await api.createFieldVolumeWorkbook(p,[line('46-01',2),line('46-02',3)],[farm()]);const wb=new ExcelJS.Workbook();await wb.xlsx.load(out);const ws=wb.worksheets[0];assert.equal(wb.worksheets.length,1);assert.equal(ws.getCell('A3').text,'돈셀');assert.equal(ws.getCell('C3').text,'금요일 - 양재 업체(2) 3 /5 (아유라 3)');assert.equal(ws.getCell('A5').fill.fgColor.argb,'FFABCDEF');assert.deepEqual(ws.getRow(2).values.slice(-4),['입고','출고','재고','잔량']);assert.equal(ws.getCell('G3').value.result,3);assert.equal(ws.getCell('G3').value.formula,'D3+F3-E3');assert.equal(ws.getCell('A6').text,'업체별 당일 총수량');assert.equal(ws.getCell('A5').text,'금요일 · 양재');assert.equal(ws.getCell('A4').text,'총합계');for(const [i,col] of ['D','E','F','G'].entries())assert.deepEqual(ws.getCell(col+'4').value,{formula:'SUM('+col+'3:'+col+'3)',result:[5,3,1,3][i]});assert.equal(ws.pageSetup.scale,57);assert.equal(ws.pageSetup.fitToHeight,0);});
+test('generated workbook compact text, day color, numeric summary formula, farms and print settings',async()=>{const p=plan();p.colors['금']='ABCDEF';const out=await api.createFieldVolumeWorkbook(p,[line('46-01',2),line('46-02',3)],[farm()]);const wb=new ExcelJS.Workbook();await wb.xlsx.load(out);const ws=wb.worksheets[0];assert.equal(wb.worksheets.length,1);assert.equal(ws.getCell('A3').text,'돈셀');assert.equal(ws.getCell('C3').text,'금요일 - 양재 업체(2) 3 /5 (아유라 3)');assert.equal(ws.getCell('A5').fill.fgColor.argb,'FFABCDEF');assert.deepEqual(ws.getRow(2).values.slice(-4),['입고','출고','재고','잔량']);assert.equal(ws.getCell('G3').value.result,3);assert.equal(ws.getCell('G3').value.formula,'D3+F3-E3');assert.equal(ws.getCell('A7').text,'업체별 당일 총수량');assert.equal(ws.getCell('A6').text,'금요일 · 양재');assert.equal(ws.getCell('A4').text,'총합계');for(const [i,col] of ['D','E','F','G'].entries())assert.deepEqual(ws.getCell(col+'4').value,{formula:'SUM('+col+'3:'+col+'3)',result:[5,3,1,3][i]});assert.equal(ws.pageSetup.scale,57);assert.equal(ws.pageSetup.fitToHeight,0);});
 test('split-date farms not invented per day, farm ledger retains each assignment once',async()=>{const rows=[line('46-02',3,{ShipmentQuantity:1}),line('46-02',3,{ShipmentQuantity:2,SdateKey:22,Timestamp:'2026-11-12 00:00:00.000'})];const out=await api.createFieldVolumeWorkbook(plan(),rows,[farm()]);const wb=new ExcelJS.Workbook();await wb.xlsx.load(out);assert.match(wb.worksheets[0].getCell('C3').text,/하단 참조/);assert.equal(farmRows(wb.worksheets[0]).length,1);});
 test('blank inventory does not become zero, explicit zero preserved',async()=>{const p=plan();p.products[0].stock=null;p.products[0].incoming=0;const out=await api.createFieldVolumeWorkbook(p,[line('46-02',3)],[farm()]);const wb=new ExcelJS.Workbook();await wb.xlsx.load(out);assert.equal(wb.worksheets[0].getCell('D3').value,0);assert.equal(wb.worksheets[0].getCell('G3').value,null);});
 test('source summary is counted once across customers and unit-converted',async()=>{const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('원본');ws.addRow(['제목','양재동']);ws.addRow(['','금','금']);ws.addRow(['','갑','을','주문','입고','재고','잔량']);ws.addRow(['돈셀',1,2,3,5,0,2]);ws.getCell('B2').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFABCDEF'}};const buffer=await wb.xlsx.writeBuffer();const base={sheetName:'원본',prodKey:2,outUnit:'단',excelUnit:'박스',productLabel:'돈셀',productFamily:'carnation',currentOutQty:10,uploadQty:10,originalTotal:10,excelQty:1};const p=await api.fieldVolumePlan(buffer,{orderYear:'2026',week:'46-02',rows:[{...base,custKey:1,custName:'갑',cells:['원본!R4C2']},{...base,custKey:5,custName:'을',cells:['원본!R4C3']}]});assert.equal(p.products.length,1);assert.equal(p.products[0].incoming,50);assert.equal(p.products[0].stock,0);assert.equal(p.colors['금'],'ABCDEF');});
@@ -98,8 +98,8 @@ test('archived selection reopens by year, replaces the same source and scopes sa
   });
   const b=new ExcelJS.Workbook();await b.xlsx.load(output.output);
   assert.equal(b.worksheets[0].getCell('A4').text,'총합계');
-  assert.match(b.worksheets[0].getCell('C6').text,/카네이션 .*빠렛/);
-  assert.doesNotMatch(b.worksheets[0].getCell('C6').text,/장미|수국/);
+  assert.match(b.worksheets[0].getCell('C7').text,/카네이션 .*빠렛/);
+  assert.doesNotMatch(b.worksheets[0].getCell('C7').text,/장미|수국/);
   const stale=await store.downloadSelection(year,week,selection,[],null,async () => {throw Object.assign(Error('분배 변경'),{code:'FIELD_VOLUME_STALE'});},false);
   const source=await store.downloadSelection(year,week,selection,[],null,null,false);
   const fallbackBook=new ExcelJS.Workbook(),sourceBook=new ExcelJS.Workbook();
@@ -118,7 +118,7 @@ test('archived selection reopens by year, replaces the same source and scopes sa
   },false);
   await b.xlsx.load(currentOnly.output);
   assert.match(b.worksheets[0].getCell('C3').text,/업체 3 \(아유라 3\)/);
-  assert.match(b.worksheets[0].getCell('C6').text,/\(총 3\)/);
+  assert.match(b.worksheets[0].getCell('C7').text,/\(총 3\)/);
   await assert.rejects(store.selectedData(year,week,[{...selection[0],revision:'stale'}]),/저장 목록/);
 });
 
@@ -153,4 +153,10 @@ test('pallet text shows source boxes independently from rounded pallet counts',(
   assert.equal(snapshot.rose[key],2);
   assert.match(palletText(snapshot,'일','경부선',['rose']),/장미 0\.1\(2\)/);
   assert.match(palletText({ruscus:{[key]:35}},'일','경부선',['ruscus']),/루스커스 1\(35\)/);
+});
+
+test('footer weekdays have independent merged headings below unchanged total',async()=>{
+ const out=await api.createFieldVolumeWorkbook(plan(),[line('46-02',3)],[farm()]),wb=new ExcelJS.Workbook();await wb.xlsx.load(out);const ws=wb.worksheets[0];
+ assert.equal(ws.getCell('A4').text,'총합계');assert.equal(ws.getCell('A5').text,'금요일');assert.equal(ws.getCell('G5').master.address,'A5');assert.equal(ws.getCell('A6').text,'금요일 · 양재');assert.match(ws.getCell('C6').text,/돈셀3/);assert.equal(ws.getCell('A7').text,'업체별 당일 총수량');
+ assert.equal(api.fieldCultivarDisplay('Moon Light'),'문라이트');assert.equal(api.fieldCultivarDisplay('Unknown'),'Unknown');assert.equal(api.fieldCultivarDisplay('Doncel'),'돈셀');assert.equal(api.fieldCultivarDisplay('Novia'),'노비아');assert.equal(api.fieldCultivarDisplay('Cherrio'),'체리오');
 });

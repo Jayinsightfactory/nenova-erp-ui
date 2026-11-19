@@ -3831,6 +3831,16 @@ pm run test:canon 통과.
 3. 남은 할 일: 최종코드리뷰/단계별실브라우저캡처/신규가이드최종재녹화(마지막helper변경 후해시갱신 필요)/기존PackingListTool가이드2개재녹화/Drive백업/Desktop테스트·실스모크/최신master정합/필수전체게이트/PR CI squash/Cafe24 및Desktop릴리스/운영읽기전용스모크/정리.
 4. 검증 상태: 초기구형순수수정 ERP전체PASS이나 현재신규UI 최종게이트아님. 신규리뷰합성PDF 실제브라우저dry+record PASS(8행/1741.5/차이0/provider0/prod0); importHardening81PASS1skip, adapter+review24PASS. 임시Next build완료(세션44612최종결과확인). 직원저장원응답은SSH인증거부로미조회, 실제운영작업의무료재검증과전체송장성공은미검증. 신규가이드1차영상생성됐으나helper최근수정으로재녹화필요.
 5. 주의/잠금: 운영DB쓰기·유료분석·다른계정job소유범위우회금지. 불완전구간/진짜manifest건수/중복/HAWBconflict hard block보존. canonicaldirty절대수정금지. node_modules는canonicaljunction(삭제는링크만). sourceAmountReview원본/전후이력보존. 운영오류캡처는C:/Users/USER/Documents/Codex/2026-11-19-invoice-incident,업무PDF는Downloads에있으며git커밋금지.
+## 2026-11-19 하단 요일별 독립구역 로컬 수정
+검색어: vertical-footer 46-01 카네이션 merged weekday fieldCultivarDisplay
+1. 작업 위치: nenova-erp-ui / codex/vertical-footer / Documents/Codex/2026-11-13/new-chat/work/vertical-footer / PR 없음.
+2. 완료: shipmentFieldVolume.js 하단만 요일 독립 헤더+지역요약 세로 그룹, 기존 farm 별칭 기반7개 한글표시·unknown원문보존. 본문 배치·총합수식 유지. 계약과 대상시험 갱신.
+3. 남은 일: 실제 인쇄시각·필수전체gate·인계커밋·PR/CI/병합/배포. 기본 격리셸에서401이나 정상권한 gh api user/PR목록 성공; 계정만료아님, 재로그인불필요.
+4. 검증: 대상35/35 PASS, 실제46-01카네이션 파싱/생성 PASS. Excel A3가로4쪽 PDF·하단시각 확인. 전체gate·운영 진행중.
+5. 주의/잠금: 이 작업트리3개 변경파일 보존. ERP/DB쓰기0. 출력샘플은 new-chat/outputs/46-01 카네이션 하단요일 세로.xlsx.
+
+- 후속: 정식 webpack build exit0, manifest229/dnSpy/쓰기guard PASS. 실제 원본46-01 샘플·원본팔렛스냅샷 병기·Excel A3가로4쪽 PDF 및 footer 시각확인 PASS. 전체ERP/CI/배포 진행중.
+- 한글 후속: 기존 lib/displayName.js suggestDisplayName canonical 재사용, 알려진7개 별칭 우선. 한글변환 없는 미등록 이름은 원문유지. 대상35 PASS. 최종 SHA CI 재검증 필요.
 ## 2026-11-19 입고 원장 인보이스·AWB 열 검색
 1. 작업 위치: nenova-erp-ui / codex/incoming-number-search / work/nw-cdx-incoming-number-search / PR 생성 전.
 2. 완료된 것: pages/incoming.js의 원장 표에 인보이스·AWB 검색 추가. 세 검색은 AND, AWB는 공백·하이픈 무시, 입력 즉시 기존 조회 결과에서 필터. 데스크톱 기존 /incoming 메뉴 연결 확인, 설치본 1.3.48 준비.
