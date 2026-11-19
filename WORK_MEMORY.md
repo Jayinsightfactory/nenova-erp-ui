@@ -3972,6 +3972,15 @@ pm run test:canon 통과.
 4. 검증 상태: `techRadarSimulator.test.js`, `pmTechRadar.test.js`, `adoptionRadar.test.js`, `test:pm` (`pmBoundary`·`pmUiKit`·`pmNoHexColor` 포함), `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes --changed-from origin/master`, `test:erp-manifest --changed-from origin/master` (231건), `npx next build --webpack` PASS; 실브라우저 수동 클릭·MSSQL 쓰기 0건(파일 전용)·PR CI는 PR 생성 후 확인.
 5. 주의/잠금: 병렬 세션 `세션 L2` 영역(`lib/gabrielProfitAgi.js`, `GabrielProfitAgiWorkbench.js`, `pages/import/gabriel-agi.js`, `desktop/package.json`, `Layout.js`, `pages/my-work.js`, `pages/api/**`) 무수정 경계 준수, `#hex`·raw `<button>`·금지어 4종·장식 이모지 0건 유지.
 검색어: TechRadarWorkbench CONTINUOUS_BUILD_PIPELINE deriveNextBuildItems dataOrigins departmentMatrix executiveBrief radar-executive-story-board radar-continuous-build-queue 부서별관점 연속구현파이프라인
+
+### 2026-11-19 — 물량표 메모용 입출재잔·본문 글씨 및 잘림 여유
+1. 작업 위치: nenova-erp-ui / codex/metrics-clip / work/metrics-clip / PR 예정.
+2. 완료된 것: shipmentFieldCompact의 `[입1 /출1 /재1 잔1` 열린 표기, 전체폭 첫 출고줄에도 1회 표시, 본문10pt·상단정렬·축소금지·행높이 여유. 기존 수식/개별 backing 보존.
+3. 남은 할 일: 전체 검사 종료·PR/CI·운영 배포. 4종1A3는 샘플만 있으며 선택다운로드 통합 기능 미구현.
+4. 검증 상태: 대상37PASS·manifest231·write/dnSpy PASS. 실제46-01 원본 샘플 생성. Excel COM Open실패로 PDF 미검증. 4종194행7331pt 한장 축소 가독성 미충족.
+5. 주의/잠금: 원장 쓰기0. metrics-sample/combined.cjs는 로컬 임시. GitHub 계정 정상, 기본격리401 가능.
+- 검색어: metrics-clip printHeight inventoryText 열린괄호 입출재잔 10pt 4품목 A3
+- 후속 검증: 빈 richText run 제거 후 일반 Excel Open/PDF 성공. 단일품목 인쇄 시각검증 잘림없음. 4종 PDF 실제A3 1쪽이나 글씨가 매우작아 가독성 한계. 전체ERP/build exit0.
 ## 2026-11-19 · 가브리엘 AGI 전사 10대 레버(L1~L10) 상황·SVG도해·4원천계보·4부서업무 & 뷰 ALL(A·B·C 동시모드·연속구현 큐) 확장
 1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/gabriel-agi-10levers-lineage` / `C:\Users\USER\nw-agy-gabriel-v2` (PR 생성·CI 통과·squash 머지 후 worktree 정리)
 2. 완료된 것: `lib/gabrielProfitAgi.js` (기존 L1~L5 + 신규 L6 외화송금·결제일49곳·L7 D+3/5/7체화재고·L8 거래처실질공헌이익·L9 카톡addcancel컷오프·L10 통관선율/보세백상/용차요율대사 전사 10대 레버, 각 레버 `story` 상황·`visualDiagram` 5단계/워터폴·`dataBasis` 4원천 계보·`departmentTasks` 4부서 연계 매트릭스·`continuousBuildModule` 연속구현 큐), `components/import-tools/GabrielProfitAgiWorkbench.js` · `styles/GabrielProfitAgi.module.css` · `pages/import/gabriel-agi.js` (부서 필터·10대 레버 브리핑 패널·순수 SVG 구조도/워터폴·4원천/4부서 테이블·`viewMode === 'ALL'` A/B/C 동시모드 및 `[구현 작업지시서 복사]`), `desktop/package.json` · `desktop/package-lock.json` (`1.3.56`), `scripts/record-gabriel-agi-guide.cjs` 및 `public/guides/gabriel-import-profit-agi/import.{mp4,ko.vtt,proof.json}` + `config/workflow-guides.json` 재녹화·해시 동기화, `__tests__/gabrielProfitAgi.test.js` 확장.
