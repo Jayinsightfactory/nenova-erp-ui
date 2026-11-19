@@ -1,5 +1,16 @@
 # 작업 기록
 
+## 2026-11-19 업무 화면 목적 우선(Purpose-First) 실시간 트레이스 도면 — /work/manuals · /import/pipeline (feat/work-purpose-trace-motion)
+- 사장님 지시: "이런 형태로 모션·디자인이 업무도 PM도 들어갔으면 하고, 목적이 중요하게 표시되어야 한다" — 레퍼런스(실시간 아키텍처 트레이스 도면: 모눈 캔버스 + 01→02 단계 카드 + 직교 S-커브 배선 + 완료 초록/실행 중 파란 점선 흐름/대기 회색).
+- 신규 공용 components/work/PurposeFlowTrace.js: 최상단 「업무 핵심 목적 · PURPOSE」 콜아웃(17px 목적 + 15px 막는 문제·완료 결과물) → 캔버스 단계 카드(담당/표면 라벨·단계명 14.5px·단계 목적 1줄·기준/도구 토큰 박스·상태 배지). 완료=#059669 테두리+좌 4px 바+실선+패킷 점(SMIL animateMotion), 실행 중=#2563eb+#eff6ff+파란 점선(stroke-dashoffset), 대기=#cbd5e1. [AUTO 1x] 단추로 모션 재생/정지, prefers-reduced-motion 이면 자동 정지. 카드 클릭=onSelectStep(부모 활성 단계와 양방향).
+- ★배치는 순수 함수 layoutTrace(count,width) 가 계산(폭에서 열 수 4/3/2/1 균형 분할, 줄 사이 리턴 배선은 카드 아래 레인의 68% 높이, 레인 라벨은 같은 레인 위쪽 칸 6~32px). 라벨·배선·카드 겹침을 테스트가 폭 320~1920 × 1~8단계 전수 검사 — 참고 이미지처럼 라벨 위로 선이 지나가는 일 없음. 배경 모눈은 CSS 그라디언트가 아니라 SVG pattern.
+- 데이터 lib/workPurposeTrace.js: 4개 부서(수입부·영업지원·영업부·경영지원) 목적 + 대표 5단계(manualId=실제 매뉴얼 id, 테스트가 data/*handover*.json 과 대조), 설정 없는 부서는 order 순 대표 업무로 자동 구성. 수입 원스톱 목적 문구 + 4단계.
+- /work/manuals: 부서 칩 아래·검색줄 위에 도면 장착. 단계 클릭 → openSearchManual(dept, manualId) 로 그 매뉴얼을 열고, ?manual= 로 열린 매뉴얼은 도면의 실행 중 단계가 됨(ImportHandover 는 무수정 — 안에서 연 매뉴얼은 부모에 알리지 않으므로 마지막 클릭 단계 유지).
+- /import/pipeline: 헤더 아래·가이드 위에 도면. 지금 보는 단계(activeStep)=실행 중, 조회 결과 complete=완료, 나머지=대기. 카드 클릭=goToStep(1~4). 도면 버튼은 role=tab·#pipeline-tab-N 을 쓰지 않아 가이드 녹화 셀렉터와 충돌 없음. 가이드 sourceFiles 에 PurposeFlowTrace.js·lib/workPurposeTrace.js 추가 후 영상·해시 재생성.
+- ★함정: 도면 안 한글 토큰 상자는 monospace 만 쓰면 굴림체로 떨어짐 → Consolas,"Malgun Gothic" 순서. 테스트가 굴림 계열·그라디언트·이모지(화살표 ↔ 포함!)·금지어를 소스에서 검사.
+- 검증: purposeFlowTrace · workManualsUpgrade · importOneStopPipeline · test:workflow-guides · test:ui-layout · guard:erp-writes · test:pm 전수 PASS, next build --webpack 성공(락 사용).
+- 검색어: PurposeFlowTrace layoutTrace workPurposeTrace 목적 우선 트레이스 도면 /work/manuals /import/pipeline AUTO 1x 직교 S-커브
+
 ## 2026-11-05 /pm 3D(베타) 품질 총개선 — 체형 교정·클레이 렌더·배경 밀도 + 브리지 page/scroll (PR #1534)
 - 지시1 체형: build_char_kaykit.py 에 HEAD_K=0.55(머리 축소) + NECK_Z=1.17/BODY_K=1.1(목 아래 리그·메시 세로 스트레치, 머리는 평행이동) — 바인딩 전 변형이라 클립 9종 무손상, 머리:전신 1:2.2→≈1:4(레퍼런스 Kenney Protagonists·KayKit Rogue). sit 힙 0.48→0.52(SEAT_Y 보정), 서기 머리끝 1.94→1.78, CHAR_SCALE 0.95→1.1(화면 90~110px 테스트 유지). build_wearables.py 에도 같은 재매핑(head=이동+축소, chest=상승, hand=새 리그 좌표라 무수정) — 한쪽만 하면 착용물이 공중부양.
 - 지시2 렌더(QUALITY_RECIPE.md): 전역 shadowMap OFF→접지 블롭 평면, kit AO 베이크(신규 scripts/pm3d/bake_kit_ao.py: 모듈을 격자로 벌려 상호차폐 방지→공동 Smart UV 1024 아틀라스→Cycles AO→kit_ao.jpg+TEXCOORD_1 재export), 캐릭터 MeshToonMaterial 5단 파스텔 램프(NearestFilter), RoomEnvironment 1회+dispose, ACES 노출 1.05(1.2는 파스텔 날아감), 배경 그라데이션+fog+포말 띠. 토큰=PM3D.RENDER.
@@ -4091,6 +4102,16 @@ pm run test:canon 통과.
 3. 가이드: `pm-control` 시나리오가 6개가 됨(purpose / trace / task / control / game / off). sourceFiles에 새 컴포넌트를 넣음. `scripts/pm-control-smoke.cjs`에 배너·도면·과제 선택·버스 겹침 검사를 추가하고 `--record`로 다시 녹화함(98초).
 4. 검증: `node __tests__/pmPurposeTrace.test.js`(신규), `npm run test:pm`, `npm run test:workflow-guides`, `check-workflow-guides --changed-from origin/master`, `npm run test:ui-layout`, `guard:erp-writes --changed-from origin/master`, `npx next build --webpack`, 1920/1280/390 스크린샷 육안 확인 PASS. 쓰기 0, JS 오류 0.
 5. 함정: worktree의 node_modules junction은 Turbopack dev에서 패닉이 나므로 `npx next dev --webpack -p 3298`을 쓰고 `JWT_SECRET=pm-control-local-fixture-only`를 줘야 녹화 쿠키가 통과함. 녹화기 `focus`는 스크롤하지 않음. 그래서 step에서 `scrollIntoView({block:'center'})`를 먼저 부름(`block:'start'`이면 sticky 헤더가 버튼을 가려 클릭이 빗나감). animateMotion `mpath`는 경로 d가 바뀌어도 예전 좌표를 붙잡고 있음. `<g key={id+d}>`로 다시 마운트해서 해결함.
+검색어: PmPurposeTraceBoard pm-purpose-banner pm-live-trace-diagram traceStageOfTask data-bus-clear pmtr-flow AUTO 1x 2600ms 목적 우선 트레이스 도면
+
+## 2026-11-19 가브리엘 원가·이익 AGI(`/import/gabriel-agi`) 목적 우선(Purpose-First) & 실시간 트레이스 모션 도면 탑재
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/gabriel-purpose-trace-motion` / `C:\Users\USER\nw-swm-gabriel-trace`
+2. 완료된 것: `components/import-tools/GabrielProfitAgiWorkbench.js` 및 `styles/GabrielProfitAgi.module.css`에 최상단(`gabriel-purpose-callout`) 및 레버별(`gabriel-lever-purpose-callout`) `핵심 목적 · PURPOSE` 고대비 고딕(16px 굵게, Pretendard/Malgun Gothic, 단독 monospace/굴림체 폴백 제거) 배너 추가, 정적 `gabriel-lever-svg-diagram`을 모눈 그리드 캔버스 위 6단계 직교 배선 실시간 트레이스 모션 도면(`완료` 에메랄드 `#059669` 좌측 바+실선+패킷 이동점 / `실행 중` 로열블루 `#2563eb` 좌측 바+`#eff6ff`+`stroke-dashoffset` 흐르는 점선 / `대기` 슬레이트 `#cbd5e1`, `prefers-reduced-motion` 준수, 독립 레인 중앙 직교 버스 라벨 선-글자 겹침 0건, `AUTO 1x` 재생/정지 및 단계 클릭 상세 하이라이트)으로 업그레이드, `public/guides/gabriel-import-profit-agi/*` 재녹화 및 `config/workflow-guides.json`(`gabriel-import-profit-agi` 한정) 동기화, `__tests__/gabrielProfitAgi.test.js` 회귀 가드 보강.
+3. 남은 할 일: PR 생성 · CI 통과 대기 · squash 머지 · worktree 및 junction 정리 · `@verifier-claude` 검증 보고.
+4. 검증 상태: `gabrielProfitAgi.test.js`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `test:ui-layout`, `guard:erp-writes -- --changed-from origin/master`, `test:pm`, `npx next build --webpack`(`next-build.lock`), `record-gabriel-agi-guide.cjs`(`--dry-run` · 실녹화 · `--player-smoke`) 및 1920px·390px 실렌더링 스크린샷 육안 검수 PASS (운영 DB 쓰기 0건, 합성 픽스처 검증).
+5. 주의/잠금: 타 워커 담당 파일(`pages/pm.js`, `pages/work/manuals.js`, `ImportOneStopPipeline.js`, `CeoCommandHub.js`, `TechRadarWorkbench.js`, `ArchFlowChart.js`, `SolutionSuiteSimulator.js`, `pages/api/**`) 및 `workflow-guides.json` 타 워크플로우 항목 무수정 보존.
+검색어: GabrielProfitAgiWorkbench gabriel-purpose-callout gabriel-lever-purpose-callout gabriel-lever-svg-diagram gabriel-trace-auto-toggle stroke-dashoffset prefers-reduced-motion Purpose-First
+
 검색어: PmPurposeTraceBoard pm-purpose-banner pm-live-trace-diagram traceStageOfTask data-bus-clear pmtr-flow AUTO 1x 2600ms 목적 우선 트레이스 도면
 
 검색어: shipmentFieldCompact printHeight Latin glyph spaces bold A3 39 tests a3-page
