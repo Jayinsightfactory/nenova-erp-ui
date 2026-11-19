@@ -5,6 +5,7 @@ import { getCurrentWeek, stepWeek } from '../../lib/useWeekInput';
 import { MENU_BACK_REQUEST_EVENT } from '../../lib/menuNavigationHistory';
 import {
   DEFAULT_SIM_PARAMS,
+  GABRIEL_DEPARTMENTS,
   GABRIEL_VIEW_MODES,
   PIPELINE_COUNTRIES,
   buildGabrielExecutiveBriefing,
@@ -14,6 +15,8 @@ import {
   runGabrielAgiAudit,
 } from '../../lib/gabrielProfitAgi';
 import styles from '../../styles/GabrielProfitAgi.module.css';
+
+const VALID_VIEWS = ['A', 'B', 'C', 'ALL'];
 
 const PRESETS = Object.freeze([
   Object.freeze({
@@ -31,6 +34,11 @@ const PRESETS = Object.freeze([
       marginDefenseRatio: 100,
       targetMarginPct: 18,
       creditRecoveryEnabled: true,
+      fxSplitSchedulePct: 80,
+      agedStockClearRatio: 75,
+      customerAllocRatio: 70,
+      cutoffGuardEnabled: true,
+      customsRateAuditEnabled: true,
     },
   }),
   Object.freeze({
@@ -43,6 +51,11 @@ const PRESETS = Object.freeze([
       marginDefenseRatio: 100,
       targetMarginPct: 20,
       creditRecoveryEnabled: true,
+      fxSplitSchedulePct: 100,
+      agedStockClearRatio: 100,
+      customerAllocRatio: 100,
+      cutoffGuardEnabled: true,
+      customsRateAuditEnabled: true,
     },
   }),
   Object.freeze({
@@ -55,8 +68,20 @@ const PRESETS = Object.freeze([
       marginDefenseRatio: 0,
       targetMarginPct: 18,
       creditRecoveryEnabled: false,
+      fxSplitSchedulePct: 0,
+      agedStockClearRatio: 0,
+      customerAllocRatio: 0,
+      cutoffGuardEnabled: false,
+      customsRateAuditEnabled: false,
     },
   }),
+]);
+
+const BUILD_STAGES = Object.freeze([
+  Object.freeze({ id: 'ALL', label: '전체 모듈' }),
+  Object.freeze({ id: 'LIVE', label: '실전가동 LIVE' }),
+  Object.freeze({ id: 'BUILDING', label: '구현검증 BUILDING' }),
+  Object.freeze({ id: 'SPEC_READY', label: '설계완료 SPEC_READY' }),
 ]);
 
 function fmtKRW(v) {
@@ -81,6 +106,54 @@ function withPopup(href, isPopup) {
   return `${href}${href.includes('?') ? '&' : '?'}popup=1`;
 }
 
+function splitSvgText(text, maxChars = 16) {
+  const s = String(text || '').trim();
+  if (s.length <= maxChars) return [s];
+  const mid = s.lastIndexOf(' ', maxChars);
+  const cut = mid >= Math.floor(maxChars * 0.45) ? mid : maxChars;
+  const line1 = s.slice(0, cut).trim();
+  const rest = s.slice(cut).trim();
+  const line2 = rest.length > maxChars + 2 ? `${rest.slice(0, maxChars + 1)}…` : rest;
+  return [line1, line2];
+}
+
+async function copyTextSafe(text, fallbackInputRef) {
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fallback below
+  }
+  try {
+    if (fallbackInputRef?.current) {
+      fallbackInputRef.current.focus();
+      fallbackInputRef.current.select();
+      if (typeof document.execCommand === 'function' && document.execCommand('copy')) {
+        return true;
+      }
+    }
+    if (typeof document !== 'undefined' && document.body && typeof document.execCommand === 'function') {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const copied = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (copied) return true;
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
 async function fetchReadOnlyJson(url, signal) {
   const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store', signal });
   const body = await res.json().catch(() => null);
@@ -94,12 +167,13 @@ function parseInitContext(initialViewMode) {
   const [yr, wk, seq] = getCurrentWeek().split('-');
   const defYear = yr || '2026';
   const defWeek = wk && seq ? `${wk}-${seq}` : '46-01';
+  const fallbackView = VALID_VIEWS.includes(initialViewMode) ? initialViewMode : 'A';
   if (typeof window === 'undefined') {
-    return { orderYear: defYear, orderWeek: defWeek, country: 'ALL', viewMode: initialViewMode, isPopup: false };
+    return { orderYear: defYear, orderWeek: defWeek, country: 'ALL', viewMode: fallbackView, isPopup: false };
   }
   const q = new URLSearchParams(window.location.search);
-  const v = String(q.get('view') || initialViewMode || 'A').toUpperCase();
-  const validView = ['A', 'B', 'C'].includes(v) ? v : 'A';
+  const v = String(q.get('view') || fallbackView).toUpperCase();
+  const validView = VALID_VIEWS.includes(v) ? v : 'A';
   const rawYear = String(q.get('year') || '').trim();
   const rawWeek = String(q.get('week') || '').trim();
   const orderYear = /^20\d{2}$/.test(rawYear) ? rawYear : defYear;
@@ -109,6 +183,943 @@ function parseInitContext(initialViewMode) {
   const country = normalizeCountryCode(q.get('country') || 'ALL');
   const isPopup = q.get('popup') === '1';
   return { orderYear, orderWeek, country, viewMode: validView, isPopup };
+}
+
+function LeverDiagramSvg({ lever }) {
+  if (!lever?.visualDiagram) return null;
+  const { nodes = [], waterfall = {} } = lever.visualDiagram;
+  const maxVal = Math.max(1, Number(waterfall.beforeKRW) || 0, Number(waterfall.recoveredKRW) || 0);
+  const barTrackWidth = 450;
+  const beforeW = Math.round(barTrackWidth * ((Number(waterfall.beforeKRW) || 0) / maxVal));
+  const recW = (Number(waterfall.recoveredKRW) || 0) > 0
+    ? Math.max(10, Math.round(barTrackWidth * ((Number(waterfall.recoveredKRW) || 0) / maxVal)))
+    : 0;
+  const afterW = Math.round(barTrackWidth * ((Number(waterfall.afterKRW) || 0) / maxVal));
+
+  const nodeColor = (id) => {
+    if (id === 'leak') return 'var(--agi-err)';
+    if (id === 'gate') return 'var(--agi-accent)';
+    if (id === 'gain') return 'var(--agi-ok)';
+    return 'var(--agi-line)';
+  };
+
+  return (
+    <div className={styles.diagramBox} data-testid="gabriel-lever-svg-diagram">
+      <div className={styles.subTableHead}>
+        <h4>[그림] {lever.code} 원천 데이터 → 누수 차단 → 부서 조치 → 이익 회수 구조도</h4>
+        <span className={styles.panelHint}>슬라이더·국가 변경 시 도해 수치 실시간 동기화</span>
+      </div>
+      <svg
+        className={styles.diagramSvg}
+        viewBox="0 0 860 272"
+        role="img"
+        aria-label={`${lever.code} ${lever.title} 데이터 흐름 및 Before After 워터폴 도해`}
+      >
+        {/* Top Flow Header */}
+        <text x="14" y="18" fill="var(--agi-muted)" fontSize="11" fontWeight="700">
+          {lever.code} 데이터 계보 및 이익 회수 경로 (이메일·담당자·거래처 원천 → AGI 판정 → 부서 실행)
+        </text>
+
+        {/* 5 Connected Stage Boxes */}
+        {nodes.map((node, idx) => {
+          const x = 14 + idx * 170;
+          const y = 28;
+          const w = 152;
+          const h = 98;
+          const titleLines = splitSvgText(node.title, 15);
+          const detailLines = splitSvgText(node.detail, 17);
+          const border = nodeColor(node.id);
+          return (
+            <g key={node.id}>
+              <rect
+                x={x}
+                y={y}
+                width={w}
+                height={h}
+                rx="4"
+                fill="var(--agi-surface)"
+                stroke={border}
+                strokeWidth={node.id === 'gain' || node.id === 'leak' ? '1.8' : '1.2'}
+              />
+              <rect x={x} y={y} width={w} height="22" rx="4" fill="var(--agi-surface-2)" />
+              <line x1={x} y1={y + 22} x2={x + w} y2={y + 22} stroke="var(--agi-line-soft)" strokeWidth="1" />
+              <text x={x + 8} y={y + 15} fill={border === 'var(--agi-line)' ? 'var(--agi-muted)' : border} fontSize="10.5" fontWeight="700">
+                {node.step}
+              </text>
+              {titleLines.map((ln, li) => (
+                <text
+                  key={li}
+                  x={x + 8}
+                  y={y + 42 + li * 14}
+                  fill="var(--agi-ink)"
+                  fontSize="11.5"
+                  fontWeight="700"
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {ln}
+                </text>
+              ))}
+              {detailLines.map((ln, li) => (
+                <text
+                  key={li}
+                  x={x + 8}
+                  y={y + 73 + li * 13}
+                  fill="var(--agi-muted)"
+                  fontSize="10"
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {ln}
+                </text>
+              ))}
+              {idx < nodes.length - 1 && (
+                <g>
+                  <line x1={x + w + 2} y1={y + 49} x2={x + w + 14} y2={y + 49} stroke="var(--agi-muted)" strokeWidth="1.6" />
+                  <polygon points={`${x + w + 16},${y + 49} ${x + w + 10},${y + 45} ${x + w + 10},${y + 53}`} fill="var(--agi-muted)" />
+                </g>
+              )}
+            </g>
+          );
+        })}
+
+        {/* Bottom Before/After Waterfall Bars */}
+        <rect x="14" y="142" width="832" height="118" rx="4" fill="var(--agi-surface)" stroke="var(--agi-line)" strokeWidth="1" />
+        <text x="26" y="162" fill="var(--agi-ink)" fontSize="11.5" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          Before / After 원가 누수 대비 {lever.code} 이익 회수 워터폴 (회수·방어율 {waterfall.recoveryPct}%)
+        </text>
+
+        {/* Row 1: Before exposure */}
+        <text x="26" y="187" fill="var(--agi-muted)" fontSize="11" fontWeight="700">
+          {waterfall.beforeLabel || '무대응 손실 노출'}
+        </text>
+        <rect x="200" y="175" width={barTrackWidth} height="15" rx="2" fill="var(--agi-line-soft)" />
+        <rect x="200" y="175" width={beforeW} height="15" rx="2" fill="var(--agi-err)" />
+        <text x="832" y="187" textAnchor="end" fill="var(--agi-err)" fontSize="11.5" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          ₩{fmtKRW(waterfall.beforeKRW)} (100%)
+        </text>
+
+        {/* Row 2: Lever Gain */}
+        <text x="26" y="213" fill="var(--agi-ink)" fontSize="11" fontWeight="700">
+          {waterfall.recoveredLabel || `${lever.code} 회수`}
+        </text>
+        <rect x="200" y="201" width={barTrackWidth} height="15" rx="2" fill="var(--agi-line-soft)" />
+        <rect x="200" y="201" width={recW} height="15" rx="2" fill="var(--agi-ok)" />
+        <text x="832" y="213" textAnchor="end" fill="var(--agi-ok)" fontSize="11.5" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          +₩{fmtKRW(waterfall.recoveredKRW)} ({waterfall.recoveryPct}%)
+        </text>
+
+        {/* Row 3: Residual exposure */}
+        <text x="26" y="239" fill="var(--agi-muted)" fontSize="11" fontWeight="700">
+          {waterfall.afterLabel || '조치 후 잔여 노출'}
+        </text>
+        <rect x="200" y="227" width={barTrackWidth} height="15" rx="2" fill="var(--agi-line-soft)" />
+        <rect x="200" y="227" width={afterW} height="15" rx="2" fill="var(--agi-muted)" />
+        <text x="832" y="239" textAnchor="end" fill="var(--agi-ink)" fontSize="11.5" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          ₩{fmtKRW(waterfall.afterKRW)}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function LeverStoryLineagePanel({
+  levers,
+  deptFilter,
+  setDeptFilter,
+  selectedLeverCode,
+  setSelectedLeverCode,
+  isPopup,
+}) {
+  const filteredLevers = useMemo(() => {
+    if (deptFilter === 'ALL') return levers;
+    return levers.filter((lv) => lv.primaryDept === deptFilter || (lv.departments || []).includes(deptFilter));
+  }, [levers, deptFilter]);
+
+  const activeLever = useMemo(() => {
+    return filteredLevers.find((lv) => lv.code === selectedLeverCode)
+      || levers.find((lv) => lv.code === selectedLeverCode)
+      || filteredLevers[0]
+      || levers[0]
+      || null;
+  }, [filteredLevers, levers, selectedLeverCode]);
+
+  if (!activeLever) return null;
+
+  return (
+    <section className={styles.storySection} data-testid="gabriel-lever-story-diagram" aria-label="전사 10대 레버 상황 그림 데이터출처 부서업무 브리핑">
+      <div className={styles.storyToolbar}>
+        <div>
+          <h2>보고자 브리핑 · 전사 10대 레버(L1~L10) 상황 · 구조 도해 · 4원천 데이터 계보 · 부서별 업무</h2>
+          <span className={styles.panelHint}>
+            이메일·사내 담당자·거래처의 어떤 데이터로 기준을 잡았는지와 부서별 실행 역할을 한 번에 확인합니다.
+          </span>
+        </div>
+
+        <div className={styles.deptPills} role="group" aria-label="부서별 레버 필터">
+          {GABRIEL_DEPARTMENTS.map((d) => {
+            const active = deptFilter === d.id;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                data-testid={`dept-filter-${d.id}`}
+                aria-pressed={active}
+                className={`${styles.pillBtn} ${active ? styles.pillBtnActive : ''}`}
+                onClick={() => {
+                  setDeptFilter(d.id);
+                  const nextList = d.id === 'ALL'
+                    ? levers
+                    : levers.filter((lv) => lv.primaryDept === d.id || (lv.departments || []).includes(d.id));
+                  if (nextList.length && !nextList.some((lv) => lv.code === selectedLeverCode)) {
+                    setSelectedLeverCode(nextList[0].code);
+                  }
+                }}
+              >
+                {d.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 10대 레버 선택 카드 스트립 */}
+      <div className={styles.leverChipBar} role="tablist" aria-label="10대 원가 이익 레버 선택">
+        {filteredLevers.map((lv) => {
+          const active = activeLever.code === lv.code;
+          return (
+            <button
+              key={lv.code}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              data-testid={`story-lever-chip-${lv.code}`}
+              className={`${styles.leverChip} ${active ? styles.leverChipActive : ''}`}
+              onClick={() => setSelectedLeverCode(lv.code)}
+            >
+              <div className={styles.leverChipTop}>
+                <span className={styles.leverChipCode}>{lv.code}</span>
+                <span className={styles.leverChipGain}>{fmtSignedKRW(lv.profitGainKRW)}</span>
+              </div>
+              <span className={styles.leverChipName}>{lv.title}</span>
+              <span className={styles.leverChipDept}>주관 {lv.primaryDept} · 52주 {fmtSignedKRW(lv.annualizedGainKRW)}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 상황 + SVG 그림 2단 */}
+      <div className={styles.storyGrid}>
+        <div className={styles.situationBox} data-testid="gabriel-lever-situation">
+          <div className={styles.situationHead}>
+            <h3>[상황] {activeLever.code} · {activeLever.title}</h3>
+            <span className={`${styles.statusTag} ${styles.isInfo}`}>주관 {activeLever.primaryDept}</span>
+          </div>
+          <p className={styles.analogyLine}>{activeLever.story.analogySummary}</p>
+          <div className={styles.beforeAfterSplit}>
+            <div className={`${styles.sceneCard} ${styles.sceneBefore}`}>
+              <span className={styles.sceneTag}>BEFORE · 지금 돈이 새는 현장 상황</span>
+              <p className={styles.sceneText}>{activeLever.story.beforeScene}</p>
+            </div>
+            <div className={`${styles.sceneCard} ${styles.sceneAfter}`}>
+              <span className={styles.sceneTag}>AFTER · 레버 적용 후 바뀌는 현장</span>
+              <p className={styles.sceneText}>{activeLever.story.afterScene}</p>
+            </div>
+          </div>
+          <div className={styles.kvGrid}>
+            <div className={styles.kvCell}>
+              <span>차수 기대 이익 개선 ({activeLever.code})</span>
+              <b>{fmtSignedKRW(activeLever.profitGainKRW)}</b>
+            </div>
+            <div className={styles.kvCell}>
+              <span>연간 환산 (52주)</span>
+              <b>{fmtSignedKRW(activeLever.annualizedGainKRW)}</b>
+            </div>
+          </div>
+        </div>
+
+        <LeverDiagramSvg lever={activeLever} />
+      </div>
+
+      {/* 기준 데이터 출처 표 + 부서별 연계 업무 표 */}
+      <div className={styles.lineageSubTables}>
+        <div className={styles.subTablePanel} data-testid="gabriel-lever-data-basis">
+          <div className={styles.subTableHead}>
+            <h4>[기준 데이터 출처 표] {activeLever.code} 4원천 계보 (어디서 무엇으로 기준을 잡았는가)</h4>
+            <span className={styles.panelHint}>이메일 · 담당자 · 거래처 · 기준식</span>
+          </div>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>이메일 · 첨부 서류 원천</th>
+                  <th>사내 담당자 · 채널 원천</th>
+                  <th>거래처 · 농장 · 포워더 원천</th>
+                  <th>판정 기준식 · 임계치</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>{activeLever.dataBasis.emailSource}</td>
+                  <td>{activeLever.dataBasis.staffSource}</td>
+                  <td>{activeLever.dataBasis.counterpartySource}</td>
+                  <td><b>{activeLever.dataBasis.criterionRule}</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className={styles.subTablePanel} data-testid="gabriel-lever-dept-table">
+          <div className={styles.subTableHead}>
+            <h4>[부서별 연계 업무 표] {activeLever.code} 전사 4개 부서 역할 및 실행 화면</h4>
+            <span className={styles.panelHint}>원장 무쓰기 · 담당자 확인 실행</span>
+          </div>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>부서</th>
+                  <th>핵심 역할</th>
+                  <th>구체적 조치 · 시점</th>
+                  <th>연결 화면</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(activeLever.departmentTasks || []).map((task) => {
+                  const isFocusedDept = deptFilter !== 'ALL' && task.dept === deptFilter;
+                  return (
+                    <tr key={task.dept} className={isFocusedDept ? styles.isSelected : ''}>
+                      <td><b>{task.dept}</b></td>
+                      <td>{task.role}</td>
+                      <td>
+                        <div>{task.action}</div>
+                        <div className={styles.leverDriver}>실행 시점: {task.timing}</div>
+                      </td>
+                      <td>
+                        <Link href={withPopup(task.href, isPopup)} className={styles.linkBtn}>
+                          {task.screenLabel}
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* 전사 L1~L10 기준 데이터 출처 일람표 (접이식) */}
+      <details className={styles.allLineageDetails}>
+        <summary>전사 10대 레버(L1~L10) 전체 기준 데이터 출처 &amp; 부서 일람표 펼쳐보기</summary>
+        <div className={styles.tableWrap} style={{ marginTop: 8 }}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>레버</th>
+                <th>주관 부서</th>
+                <th>이메일·첨부 서류</th>
+                <th>사내 담당자·채널</th>
+                <th>거래처·해외농장·포워더</th>
+                <th>판정 기준식</th>
+                <th className={styles.numCell}>차수 이익</th>
+              </tr>
+            </thead>
+            <tbody>
+              {levers.map((lv) => (
+                <tr
+                  key={lv.code}
+                  className={lv.code === activeLever.code ? styles.isSelected : ''}
+                  onClick={() => setSelectedLeverCode(lv.code)}
+                >
+                  <td><b>{lv.code}</b></td>
+                  <td>{lv.primaryDept}</td>
+                  <td>{lv.dataBasis.emailSource}</td>
+                  <td>{lv.dataBasis.staffSource}</td>
+                  <td>{lv.dataBasis.counterpartySource}</td>
+                  <td>{lv.dataBasis.criterionRule}</td>
+                  <td className={styles.numCell}><b>{fmtSignedKRW(lv.profitGainKRW)}</b></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+  );
+}
+
+function ViewALeversSection({ audit, maxLeverGain, selectedLeverCode, onSelectLever, isPopup, titlePrefix = '뷰 A' }) {
+  return (
+    <section className={styles.panel} aria-label="10대 이익 레버 분해 프로파일" data-testid="gabriel-levers-waterfall">
+      <div className={styles.panelHead}>
+        <h3>{titlePrefix} · 10대 이익 레버 분해 (차수 개선 합계 {fmtSignedKRW(audit.summary.totalPotentialProfitKRW)})</h3>
+        <span className={styles.panelHint}>L1~L10 각 레버별 실측·기준 기여액 (행 클릭 시 상단 도해 연동)</span>
+      </div>
+      <div className={styles.leverList}>
+        {audit.levers.map((lv) => {
+          const widthPct = lv.profitGainKRW > 0
+            ? Math.max(4, Math.round((lv.profitGainKRW / maxLeverGain) * 100))
+            : 0;
+          const active = selectedLeverCode === lv.code;
+          return (
+            <div
+              key={lv.id}
+              role="button"
+              tabIndex={0}
+              className={`${styles.leverRow} ${active ? styles.leverRowActive : ''}`}
+              onClick={() => onSelectLever?.(lv.code)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelectLever?.(lv.code);
+                }
+              }}
+            >
+              <span className={styles.leverCode}>{lv.code}</span>
+              <div>
+                <div className={styles.leverTitle}>{lv.title}</div>
+                <div className={styles.leverDriver}>[{lv.primaryDept}] {lv.driverText}</div>
+              </div>
+              <div className={styles.barTrack} aria-hidden="true">
+                <span className={styles.barFill} style={{ width: `${widthPct}%` }} />
+              </div>
+              <div className={styles.leverGain}>{fmtSignedKRW(lv.profitGainKRW)}</div>
+              <Link
+                href={withPopup(lv.href, isPopup)}
+                className={styles.linkBtn}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {lv.actionLabel}
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ViewASkuTable({ audit, selectedSku, onSelectSku }) {
+  return (
+    <section className={styles.panel} aria-label="품목별 실질 도착원가 및 마진 방어 원장">
+      <div className={styles.panelHead}>
+        <h3>품목별 실질 도착원가(True Landed Cost) 고밀도 원장 ({audit.skus.length}건)</h3>
+        <span className={styles.panelHint}>행을 누르면 상세 분해·2×2 매트릭스 드로어와 동시 연동됩니다</span>
+      </div>
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>품목 · 국가</th>
+              <th>기준 → 대안 농장</th>
+              <th className={styles.numCell}>무대응 원가</th>
+              <th className={styles.numCell}>시뮬 원가</th>
+              <th className={styles.numCell}>현재 판가</th>
+              <th className={styles.numCell}>시뮬 마진</th>
+              <th className={styles.numCell}>권장 보정</th>
+              <th className={styles.numCell}>이익 개선</th>
+              <th>판정</th>
+            </tr>
+          </thead>
+          <tbody>
+            {audit.skus.map((sku) => {
+              const selected = selectedSku?.id === sku.id;
+              const tagTone = sku.status === '단가 방어 필요'
+                ? styles.isErr
+                : sku.status === '원가 절감 유망'
+                  ? styles.isWarn
+                  : styles.isOk;
+              return (
+                <tr
+                  key={sku.id}
+                  className={selected ? styles.isSelected : ''}
+                  tabIndex={0}
+                  onClick={() => onSelectSku(sku.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelectSku(sku.id);
+                    }
+                  }}
+                >
+                  <td>
+                    <b>{sku.prodName}</b>
+                    <div className={styles.leverDriver}>
+                      {sku.countryName} · {fmtKRW(sku.qty)}{sku.unit} · 입수율 {sku.fillPct}%
+                    </div>
+                  </td>
+                  <td>
+                    <div>{sku.farmName}</div>
+                    <div className={styles.leverDriver}>→ {sku.peerFarmName}</div>
+                  </td>
+                  <td className={styles.numCell}>₩{fmtKRW(sku.unhedgedLandedKRW)}</td>
+                  <td className={styles.numCell}>
+                    <b>₩{fmtKRW(sku.simLandedKRW)}</b>
+                    <div className={styles.leverDriver}>
+                      {sku.costDeltaKRW <= 0 ? `${fmtKRW(sku.costDeltaKRW)}원` : `+${fmtKRW(sku.costDeltaKRW)}원`}
+                    </div>
+                  </td>
+                  <td className={styles.numCell}>₩{fmtKRW(sku.currentSellPriceKRW)}</td>
+                  <td className={styles.numCell}>
+                    <b>{sku.simPostMarginPct}%</b>
+                    <div className={styles.leverDriver}>무대응 {sku.unhedgedMarginPct}%</div>
+                  </td>
+                  <td className={styles.numCell}>
+                    {sku.appliedPriceDeltaKRW > 0 ? `+₩${fmtKRW(sku.appliedPriceDeltaKRW)}` : '유지'}
+                  </td>
+                  <td className={styles.numCell}>
+                    <b>{fmtSignedKRW(sku.skuTotalBenefitKRW)}</b>
+                  </td>
+                  <td>
+                    <span className={`${styles.statusTag} ${tagTone}`}>{sku.status}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function ViewBMatrixSection({ audit, selectedSku, onSelectSku }) {
+  return (
+    <section className={styles.panel} aria-label="뷰 B 마진 리스크 대 물량 매트릭스">
+      <div className={styles.panelHead}>
+        <h3>뷰 B · 원가 리스크 × 차수 물량 비중 2×2 매트릭스</h3>
+        <span className={styles.panelHint}>번호 포인트를 클릭하면 우측 반사실 슬라이더 검수 드로어가 갱신됩니다</span>
+      </div>
+
+      <div className={styles.svgWrap}>
+        <svg className={styles.matrixSvg} viewBox="0 0 680 430" role="img" aria-label="원가 리스크 대 차수 물량 2x2 매트릭스">
+          <rect x="64" y="34" width="584" height="336" fill="var(--agi-surface-2)" stroke="var(--agi-line)" strokeWidth="1" />
+          <line x1="356" y1="34" x2="356" y2="370" stroke="var(--agi-line)" strokeWidth="1.2" />
+          <line x1="64" y1="202" x2="648" y2="202" stroke="var(--agi-line)" strokeWidth="1.2" />
+          <line x1="210" y1="34" x2="210" y2="370" stroke="var(--agi-line-soft)" strokeDasharray="3 4" />
+          <line x1="502" y1="34" x2="502" y2="370" stroke="var(--agi-line-soft)" strokeDasharray="3 4" />
+          <line x1="64" y1="118" x2="648" y2="118" stroke="var(--agi-line-soft)" strokeDasharray="3 4" />
+          <line x1="64" y1="286" x2="648" y2="286" stroke="var(--agi-line-soft)" strokeDasharray="3 4" />
+
+          <text x="74" y="54" fill="var(--agi-ok)" fontSize="11.5" fontWeight="700">핵심 수익 유지·물량 확대</text>
+          <text x="638" y="54" textAnchor="end" fill="var(--agi-err)" fontSize="11.5" fontWeight="700">즉시 단가·원가 방어 (우선)</text>
+          <text x="74" y="358" fill="var(--agi-muted)" fontSize="11.5" fontWeight="700">안정 관찰</text>
+          <text x="638" y="358" textAnchor="end" fill="var(--agi-warn)" fontSize="11.5" fontWeight="700">AWB 혼적·농장 리밸런싱</text>
+
+          <text x="64" y="388" textAnchor="middle" fill="var(--agi-muted)" fontSize="10.5">0</text>
+          <text x="356" y="388" textAnchor="middle" fill="var(--agi-muted)" fontSize="10.5">50</text>
+          <text x="648" y="388" textAnchor="middle" fill="var(--agi-muted)" fontSize="10.5">100</text>
+          <text x="356" y="410" textAnchor="middle" fill="var(--agi-ink)" fontSize="12" fontWeight="700">
+            원가 상승·마진 침식 리스크 (0~100)
+          </text>
+
+          <text x="54" y="370" textAnchor="end" fill="var(--agi-muted)" fontSize="10.5">0</text>
+          <text x="54" y="206" textAnchor="end" fill="var(--agi-muted)" fontSize="10.5">50</text>
+          <text x="54" y="42" textAnchor="end" fill="var(--agi-muted)" fontSize="10.5">100</text>
+          <text x="20" y="202" textAnchor="middle" transform="rotate(-90 20 202)" fill="var(--agi-ink)" fontSize="12" fontWeight="700">
+            차수 매출·이익 기여도
+          </text>
+
+          {audit.skus.map((sku) => {
+            const cx = 64 + (sku.riskScore / 100) * 584;
+            const cy = 370 - (sku.volumeScore / 100) * 336;
+            const active = selectedSku?.id === sku.id;
+            const strokeColor = sku.status === '단가 방어 필요'
+              ? 'var(--agi-err)'
+              : sku.status === '원가 절감 유망'
+                ? 'var(--agi-warn)'
+                : 'var(--agi-ok)';
+            return (
+              <g
+                key={sku.id}
+                transform={`translate(${cx.toFixed(1)}, ${cy.toFixed(1)})`}
+                className={styles.blip}
+                role="button"
+                tabIndex={0}
+                aria-label={`${sku.no}번 ${sku.prodName} 리스크 ${sku.riskScore} 물량 ${sku.volumeScore}`}
+                aria-pressed={active}
+                onClick={() => onSelectSku(sku.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectSku(sku.id);
+                  }
+                }}
+              >
+                <title>{`${sku.no}. ${sku.prodName} · 리스크 ${sku.riskScore} · 기여도 ${sku.volumeScore} · ${sku.quadrant}`}</title>
+                {active && <circle r="17" fill="none" stroke="var(--agi-accent)" strokeWidth="2" />}
+                <circle
+                  r={active ? 12 : 10}
+                  fill={active ? strokeColor : 'var(--agi-surface)'}
+                  stroke={strokeColor}
+                  strokeWidth={active ? 2.5 : 1.8}
+                />
+                <text
+                  textAnchor="middle"
+                  dy="3.5"
+                  fontSize="10"
+                  fontWeight="700"
+                  fill={active ? '#ffffff' : 'var(--agi-ink)'}
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {sku.no}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      <div className={styles.blipIndex} aria-label="매트릭스 품목 번호 색인">
+        {audit.skus.map((sku) => {
+          const active = selectedSku?.id === sku.id;
+          return (
+            <button
+              key={sku.id}
+              type="button"
+              className={`${styles.blipChip} ${active ? styles.blipChipActive : ''}`}
+              onClick={() => onSelectSku(sku.id)}
+            >
+              <span>#{sku.no}</span>
+              <span>{sku.prodName}</span>
+              <span>{sku.simPostMarginPct}%</span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ViewBSkuDrawer({ selectedSku, isPopup, pipelineHref, quickAbsorbHref }) {
+  return (
+    <aside className={styles.panel} aria-label="반사실 품목 검수 드로어">
+      <div className={styles.panelHead}>
+        <h3>반사실 품목 검수 드로어</h3>
+        <span className={styles.panelHint}>{selectedSku?.quadrant || '—'}</span>
+      </div>
+
+      {selectedSku && (
+        <>
+          <div>
+            <b style={{ fontSize: 14 }}>#{selectedSku.no} {selectedSku.prodName}</b>
+            <div className={styles.leverDriver}>
+              {selectedSku.countryName} · {selectedSku.farmName} → {selectedSku.peerFarmName} · 박스당 {selectedSku.actualUnitsPerBox}/{selectedSku.targetUnitsPerBox}{selectedSku.unit}
+            </div>
+          </div>
+
+          <div className={styles.kvGrid}>
+            <div className={styles.kvCell}>
+              <span>기존 도착원가(충격 0)</span>
+              <b>₩{fmtKRW(selectedSku.baseLandedKRW)}</b>
+            </div>
+            <div className={styles.kvCell}>
+              <span>충격 무대응 원가</span>
+              <b>₩{fmtKRW(selectedSku.unhedgedLandedKRW)}</b>
+            </div>
+            <div className={styles.kvCell}>
+              <span>가브리엘 시뮬 원가</span>
+              <b>₩{fmtKRW(selectedSku.simLandedKRW)}</b>
+            </div>
+            <div className={styles.kvCell}>
+              <span>현재 판가 → 권장 판가</span>
+              <b>₩{fmtKRW(selectedSku.currentSellPriceKRW)} → ₩{fmtKRW(selectedSku.simSellPriceKRW)}</b>
+            </div>
+            <div className={styles.kvCell}>
+              <span>마진율 (무대응 → 시뮬)</span>
+              <b>{selectedSku.unhedgedMarginPct}% → {selectedSku.simPostMarginPct}%</b>
+            </div>
+            <div className={styles.kvCell}>
+              <span>품목 예상 이익 개선</span>
+              <b>{fmtSignedKRW(selectedSku.skuTotalBenefitKRW)}</b>
+            </div>
+          </div>
+
+          <div className={styles.panelHead} style={{ marginTop: 4 }}>
+            <h3>바로 실행 연결</h3>
+            <span className={styles.panelHint}>원장 수동 승인</span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <Link href={pipelineHref} className={styles.linkBtn}>
+              수입 원스톱 파이프라인 실행
+            </Link>
+            <Link href={quickAbsorbHref} className={styles.linkBtn}>
+              빠른 분배 단가 확인
+            </Link>
+            <Link href={withPopup('/import/freight-calc', isPopup)} className={styles.linkBtn}>
+              AWB 운임 계산기
+            </Link>
+          </div>
+        </>
+      )}
+    </aside>
+  );
+}
+
+function ViewCCarbonConsole({ audit, simParams, isPopup, testId = 'gabriel-carbon-console' }) {
+  return (
+    <div className={styles.carbonGrid} data-testid={testId}>
+      <section className={styles.panel} aria-label="환율 변동 스트레스 래더">
+        <div className={styles.panelHead}>
+          <h3>뷰 C · 환율 스트레스 민감도 래더 (-50원 ~ +100원)</h3>
+          <span className={styles.panelHint}>현재 설정 {simParams.fxDeltaKRW >= 0 ? '+' : ''}{simParams.fxDeltaKRW}원 강조</span>
+        </div>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>변동폭</th>
+                <th className={styles.numCell}>적용 환율(USD)</th>
+                <th className={styles.numCell}>무대응 마진</th>
+                <th className={styles.numCell}>방어후 마진</th>
+                <th className={styles.numCell}>순이익 개선</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audit.fxLadder.map((row) => (
+                <tr key={row.fxDeltaKRW} className={row.isCurrent ? styles.isSelected : ''}>
+                  <td>
+                    <b>{row.fxDeltaKRW >= 0 ? `+${row.fxDeltaKRW}` : row.fxDeltaKRW}원</b>
+                  </td>
+                  <td className={styles.numCell}>₩{fmtKRW(row.usdRate)}</td>
+                  <td className={styles.numCell}>{row.unhedgedMarginPct}%</td>
+                  <td className={styles.numCell}>
+                    <b>{row.defendedMarginPct}%</b>
+                  </td>
+                  <td className={styles.numCell}>
+                    <b>{fmtSignedKRW(row.netGainKRW)}</b>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className={styles.panel} aria-label="AWB 중량 계단 및 혼적 최적화">
+        <div className={styles.panelHead}>
+          <h3>AWB 중량 계단(+100/+300/+500kg) 절감 탐색</h3>
+          <span className={styles.panelHint}>{audit.awbs.length}개 AWB 중 구간 근접 {audit.summary.awbTierReadyCount}건</span>
+        </div>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>AWB · 국가</th>
+                <th className={styles.numCell}>박스/중량(CW)</th>
+                <th>현재 구간 → 다음 구간</th>
+                <th className={styles.numCell}>부족 kg</th>
+                <th className={styles.numCell}>절감 잠재액</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audit.awbs.map((a) => (
+                <tr key={a.awb}>
+                  <td>
+                    <b>{a.awb}</b>
+                    <div className={styles.leverDriver}>{a.countryName} · {a.farms.join(', ')}</div>
+                  </td>
+                  <td className={styles.numCell}>{a.boxes}bx / {fmtNum(a.cwKg, 0)}kg</td>
+                  <td>
+                    <div>{a.currentTierLabel} ({a.currentRate}) → {a.nextTierLabel} ({a.nextRate})</div>
+                    <div className={styles.leverDriver}>{a.note}</div>
+                  </td>
+                  <td className={styles.numCell}>{a.kgToNext > 0 ? `${a.kgToNext}kg` : '도달'}</td>
+                  <td className={styles.numCell}>
+                    <b>{fmtSignedKRW(a.unitRateSaveKRW)}</b>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className={styles.panel} aria-label="미회수 해외 농장 크레딧 노트 탐지">
+        <div className={styles.panelHead}>
+          <h3>해외 농장 불량 Credit Note 미회수 누수 탐지</h3>
+          <span className={styles.panelHint}>합계 ${audit.summary.potentialCreditUSD} (₩{fmtKRW(audit.summary.potentialCreditKRW)})</span>
+        </div>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>농장 · 품목</th>
+                <th className={styles.numCell}>불량 수량</th>
+                <th className={styles.numCell}>추정 크레딧</th>
+                <th className={styles.numCell}>경과</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audit.claims.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    <b>{c.farmName}</b> · {c.countryName}
+                    <div className={styles.leverDriver}>{c.prodName} — {c.reason}</div>
+                  </td>
+                  <td className={styles.numCell}>{fmtKRW(c.defectQty)}{c.unit}</td>
+                  <td className={styles.numCell}>
+                    <b>${fmtKRW(c.claimUSD)}</b>
+                    <div className={styles.leverDriver}>₩{fmtKRW(c.krwValue)}</div>
+                  </td>
+                  <td className={styles.numCell}>{c.ageDays}일</td>
+                  <td>
+                    <span className={`${styles.statusTag} ${c.confirmed ? styles.isWarn : styles.isErr}`}>
+                      {c.statusLabel}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className={styles.panel} aria-label="가브리엘 고효율 수입 루틴 진단">
+        <div className={styles.panelHead}>
+          <h3>가브리엘 고효율 수입 루틴 (수입 속도 지수 {audit.summary.velocityScore}/100)</h3>
+          <span className={styles.panelHint}>인수인계 4단계 원클릭 실행</span>
+        </div>
+        <ol className={styles.traceList}>
+          {audit.routineSteps.map((st) => (
+            <li key={st.id} className={styles.traceItem}>
+              <div className={styles.traceTop}>
+                <span className={styles.traceStage}>STEP 0{st.stepNo} · {st.status}</span>
+                <span className={styles.traceMetric}>{st.score}점</span>
+              </div>
+              <div className={styles.traceTitle}>{st.title}</div>
+              <div className={styles.traceDesc} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                <span>{st.detail}</span>
+                <Link href={withPopup(st.href, isPopup)} className={styles.linkBtn}>
+                  {st.actionLabel}
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+    </div>
+  );
+}
+
+function ContinuousBuildQueueSection({ queue, stageFilter, setStageFilter, onCopyBrief, buildCopyNotice, isPopup }) {
+  const counts = useMemo(() => {
+    const out = { LIVE: 0, BUILDING: 0, SPEC_READY: 0 };
+    for (const item of queue) {
+      if (out[item.stage] !== undefined) out[item.stage] += 1;
+    }
+    return out;
+  }, [queue]);
+
+  const filtered = useMemo(() => {
+    if (stageFilter === 'ALL') return queue;
+    return queue.filter((item) => item.stage === stageFilter);
+  }, [queue, stageFilter]);
+
+  const stageTone = (stage) => {
+    if (stage === 'LIVE') return styles.isOk;
+    if (stage === 'BUILDING') return styles.isWarn;
+    return styles.isInfo;
+  };
+
+  const totalWeeklyBuildGain = filtered.reduce((s, x) => s + (Number(x.expectedWeeklyGainKRW) || 0), 0);
+
+  return (
+    <section
+      className={styles.panel}
+      data-testid="gabriel-continuous-build-queue"
+      aria-label="계속 구현해내는 자율 확장 파이프라인"
+    >
+      <div className={styles.panelHead}>
+        <div>
+          <h3>계속 구현해내는 자율 확장 파이프라인 (Continuous AGI Build Queue · L1~L10 연계 10대 모듈)</h3>
+          <span className={styles.panelHint}>
+            10대 레버에서 파생된 자동화 기능의 구현 단계와 기대 추가 이익을 확인하고 작업지시서를 바로 복사해 후속 구현을 이어갑니다.
+          </span>
+        </div>
+        <span className={styles.metaBadge}>
+          LIVE {counts.LIVE} · BUILDING {counts.BUILDING} · SPEC_READY {counts.SPEC_READY} · 합산 +{fmtKRW(totalWeeklyBuildGain)}원/차수
+        </span>
+      </div>
+
+      <div className={styles.buildQueueControls}>
+        <div className={styles.deptPills} role="group" aria-label="구현 단계 필터">
+          {BUILD_STAGES.map((st) => {
+            const active = stageFilter === st.id;
+            return (
+              <button
+                key={st.id}
+                type="button"
+                aria-pressed={active}
+                data-testid={`build-stage-${st.id}`}
+                className={`${styles.pillBtn} ${active ? styles.pillBtnActive : ''}`}
+                onClick={() => setStageFilter(st.id)}
+              >
+                {st.label}
+              </button>
+            );
+          })}
+        </div>
+        <span className={styles.panelHint}>원장 무쓰기 읽기 전용 지시서 · 담당자 승인 후 배포</span>
+      </div>
+
+      {buildCopyNotice && (
+        <div className={styles.noticeBanner} role="status" data-testid="gabriel-build-copy-notice">
+          {buildCopyNotice}
+        </div>
+      )}
+
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>레버</th>
+              <th>자동화 모듈명 · 구현 작업 범위</th>
+              <th>진행 단계</th>
+              <th>연결 부서</th>
+              <th className={styles.numCell}>기대 추가 이익 (차수 / 52주)</th>
+              <th>작업 실행 · 지시서</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((mod) => (
+              <tr key={mod.moduleId}>
+                <td><b>{mod.leverCode}</b></td>
+                <td>
+                  <b>{mod.title}</b>
+                  <div className={styles.leverDriver}>{mod.implementationBrief}</div>
+                </td>
+                <td>
+                  <span className={`${styles.statusTag} ${stageTone(mod.stage)}`}>{mod.stageLabel}</span>
+                </td>
+                <td>{(mod.targetDepts || []).join(' · ')}</td>
+                <td className={styles.numCell}>
+                  <b>{fmtSignedKRW(mod.expectedWeeklyGainKRW)}</b>
+                  <div className={styles.leverDriver}>연 {fmtSignedKRW(mod.expectedAnnualGainKRW)}</div>
+                </td>
+                <td>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <Link href={withPopup(mod.ownerRoute, isPopup)} className={styles.linkBtn}>
+                      대상 화면
+                    </Link>
+                    <button
+                      type="button"
+                      className={styles.primaryBtn}
+                      data-testid={`copy-build-brief-${mod.moduleId}`}
+                      onClick={() => onCopyBrief(mod)}
+                    >
+                      구현 작업지시서 복사
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
 }
 
 export default function GabrielProfitAgiWorkbench({
@@ -121,12 +1132,15 @@ export default function GabrielProfitAgiWorkbench({
   const [orderYear, setOrderYear] = useState('2026');
   const [orderWeek, setOrderWeek] = useState('46-01');
   const [country, setCountry] = useState('ALL');
-  const [viewMode, setViewMode] = useState(['A', 'B', 'C'].includes(initialViewMode) ? initialViewMode : 'A');
+  const [viewMode, setViewMode] = useState(VALID_VIEWS.includes(initialViewMode) ? initialViewMode : 'A');
   const [isPopup, setIsPopup] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   const [simParams, setSimParams] = useState(() => ({ ...DEFAULT_SIM_PARAMS }));
   const [selectedSkuId, setSelectedSkuId] = useState('');
+  const [deptFilter, setDeptFilter] = useState('ALL');
+  const [selectedLeverCode, setSelectedLeverCode] = useState('L1');
+  const [buildStageFilter, setBuildStageFilter] = useState('ALL');
 
   const [recentWeeks, setRecentWeeks] = useState([]);
   const [apiData, setApiData] = useState(null);
@@ -134,6 +1148,7 @@ export default function GabrielProfitAgiWorkbench({
   const [fetchStatusNote, setFetchStatusNote] = useState('');
 
   const [copyNotice, setCopyNotice] = useState('');
+  const [buildCopyNotice, setBuildCopyNotice] = useState('');
   const briefingRef = useRef(null);
   const activeFetchRef = useRef(null);
 
@@ -234,22 +1249,25 @@ export default function GabrielProfitAgiWorkbench({
 
   const briefingText = useMemo(() => buildGabrielExecutiveBriefing(audit), [audit]);
 
-  // Menu back button contextual reset
   const isDirtyState = useMemo(() => {
     const def = DEFAULT_SIM_PARAMS;
     const simChanged = Object.keys(def).some((k) => simParams[k] !== def[k]);
-    return simChanged || viewMode !== initialViewMode || Boolean(selectedSkuId) || country !== 'ALL';
-  }, [simParams, viewMode, initialViewMode, selectedSkuId, country]);
+    return simChanged || viewMode !== initialViewMode || Boolean(selectedSkuId) || country !== 'ALL' || deptFilter !== 'ALL';
+  }, [simParams, viewMode, initialViewMode, selectedSkuId, country, deptFilter]);
 
   useEffect(() => {
     const onBack = (event) => {
       if (!isDirtyState) return;
       event.preventDefault();
       setSimParams({ ...DEFAULT_SIM_PARAMS });
-      setViewMode(['A', 'B', 'C'].includes(initialViewMode) ? initialViewMode : 'A');
+      setViewMode(VALID_VIEWS.includes(initialViewMode) ? initialViewMode : 'A');
       setSelectedSkuId('');
       setCountry('ALL');
+      setDeptFilter('ALL');
+      setSelectedLeverCode('L1');
+      setBuildStageFilter('ALL');
       setCopyNotice('');
+      setBuildCopyNotice('');
     };
     window.addEventListener(MENU_BACK_REQUEST_EVENT, onBack);
     return () => window.removeEventListener(MENU_BACK_REQUEST_EVENT, onBack);
@@ -296,27 +1314,27 @@ export default function GabrielProfitAgiWorkbench({
   };
 
   const copyBriefing = async () => {
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(briefingText);
-      } else {
-        throw new Error('Clipboard unavailable');
-      }
-      setCopyNotice('사장님 보고용 원가·이익 브리핑을 클립보드에 복사했습니다. (자동 발송 없음)');
-    } catch {
-      try {
-        briefingRef.current?.focus();
-        briefingRef.current?.select();
-        const ok = typeof document.execCommand === 'function' && document.execCommand('copy');
-        setCopyNotice(
-          ok
-            ? '사장님 보고용 원가·이익 브리핑을 복사했습니다. (자동 발송 없음)'
-            : '자동 복사가 차단되었습니다. 아래 브리핑 상자에서 Ctrl+C로 복사하세요.',
-        );
-      } catch {
-        setCopyNotice('아래 브리핑 상자에서 Ctrl+C로 복사해 주세요.');
-      }
-    }
+    const ok = await copyTextSafe(briefingText, briefingRef);
+    setCopyNotice(
+      ok
+        ? '사장님 보고용 10대 레버 원가·이익 브리핑을 클립보드에 복사했습니다. (자동 발송 없음)'
+        : '자동 복사가 차단되었습니다. 아래 브리핑 상자에서 Ctrl+C로 복사해 주세요.',
+    );
+  };
+
+  const copyBuildBrief = async (mod) => {
+    const fullBrief = [
+      `[가브리엘 AGI 연속구현 작업지시서] ${mod.leverCode} · ${mod.title}`,
+      `단계: ${mod.stageLabel} | 대상 부서: ${(mod.targetDepts || []).join(', ')} | 대상 화면: ${mod.ownerRoute}`,
+      `기대 효과: 차수 +₩${fmtKRW(mod.expectedWeeklyGainKRW)} / 52주 +₩${fmtKRW(mod.expectedAnnualGainKRW)}`,
+      `구현 명세: ${mod.implementationBrief}`,
+    ].join('\n');
+    const ok = await copyTextSafe(fullBrief);
+    const msg = ok
+      ? `[${mod.leverCode}] "${mod.title}" 구현 작업지시서를 클립보드에 복사했습니다.`
+      : `[${mod.leverCode}] "${mod.title}" 구현 작업지시서 복사 대기 (수동 복사 필요).`;
+    setBuildCopyNotice(msg);
+    setCopyNotice(msg);
   };
 
   const maxLeverGain = Math.max(1, ...audit.levers.map((l) => l.profitGainKRW));
@@ -335,7 +1353,7 @@ export default function GabrielProfitAgiWorkbench({
         <div className={styles.topMain}>
           <div className={styles.titleBlock}>
             <div className={styles.eyebrow} data-desktop-chrome>
-              GABRIEL IMPORT COST &amp; PROFIT AGI · COUNTERFACTUAL WORKBENCH
+              GABRIEL IMPORT COST &amp; PROFIT AGI · 10-LEVER LINEAGE &amp; MULTI-VIEW WORKBENCH
             </div>
             <div className={styles.titleRow}>
               {embedded ? (
@@ -345,7 +1363,7 @@ export default function GabrielProfitAgiWorkbench({
               )}
             </div>
             <p className={styles.subtitle}>
-              AWB 중량 계단·박스 채움률·농장 교차 소싱·마진 침식 방어·미회수 크레딧 노트를 실시간 반사실 시뮬레이션해 회사 이익 개선 레버를 산출합니다.
+              AWB·혼적, 교차소싱·APTA 관세, 마진방어(23%), 크레딧, 선처리, 외화송금, 체화재고, 공헌이익 배분, 카톡 추가취소 컷오프, 통관·보세·용차 대사까지 전사 10대 이익 레버(L1~L10)와 데이터 출처·부서 업무를 실시간 시뮬레이션합니다.
             </p>
           </div>
 
@@ -362,7 +1380,7 @@ export default function GabrielProfitAgiWorkbench({
 
         <div className={styles.kpiStrip} aria-label="가브리엘 이익 최적화 핵심 지표">
           <div className={styles.kpiCell}>
-            <span className={styles.kpiLabel}>차수 이익 개선액</span>
+            <span className={styles.kpiLabel}>전사 10대 레버 차수 이익 개선액</span>
             <b className={`${styles.kpiValue} ${styles.isOk}`} data-testid="gabriel-kpi-profit">
               {fmtSignedKRW(audit.summary.totalPotentialProfitKRW)}
             </b>
@@ -407,7 +1425,7 @@ export default function GabrielProfitAgiWorkbench({
         </div>
       )}
 
-      {/* 2. 차수·국가 필터 바 & 시안 A·B·C 전환 탭 */}
+      {/* 2. 차수·국가 필터 바 & 시안 A·B·C·ALL 전환 탭 */}
       <section className={styles.controlStrip} aria-label="차수·국가 선택 및 시안 전환">
         <div className={styles.scopeRow}>
           <div className={styles.fieldGroup}>
@@ -517,7 +1535,7 @@ export default function GabrielProfitAgiWorkbench({
           </div>
         )}
 
-        <div className={styles.viewTabs} role="tablist" aria-label="시안 A B C 시뮬레이션 뷰 전환" onKeyDown={onTabKeyDown}>
+        <div className={styles.viewTabs} role="tablist" aria-label="시안 A B C ALL 시뮬레이션 뷰 전환" onKeyDown={onTabKeyDown}>
           {GABRIEL_VIEW_MODES.map((m) => (
             <button
               key={m.id}
@@ -540,10 +1558,10 @@ export default function GabrielProfitAgiWorkbench({
         </div>
       </section>
 
-      {/* 3. 반사실(Counterfactual) 이익 시뮬레이터 컨트롤 */}
+      {/* 3. 반사실(Counterfactual) 이익 시뮬레이터 컨트롤 (전사 L1~L10 마스터 제어) */}
       <section className={styles.simPanel} aria-label="반사실 이익 시뮬레이터 제어">
         <div className={styles.simHead}>
-          <h2>반사실(Counterfactual) 이익 시뮬레이션 컨트롤</h2>
+          <h2>마스터 반사실(Counterfactual) 이익 시뮬레이션 컨트롤 (L1~L10 동시 연동)</h2>
           <div className={styles.presetRow}>
             {PRESETS.map((p) => (
               <button
@@ -581,7 +1599,7 @@ export default function GabrielProfitAgiWorkbench({
 
           <div className={styles.sliderItem}>
             <div className={styles.sliderLabelRow}>
-              <label htmlFor="sim-rebalance">농장 리밸런싱 비율</label>
+              <label htmlFor="sim-rebalance">L2 농장 리밸런싱 비율</label>
               <span className={styles.sliderReadout} data-testid="readout-rebalance">
                 {simParams.rebalancePct}%
               </span>
@@ -595,12 +1613,12 @@ export default function GabrielProfitAgiWorkbench({
               value={simParams.rebalancePct}
               onChange={(e) => updateParam('rebalancePct', Number(e.target.value))}
             />
-            <span className={styles.sliderSub}>고원가 농장 → 우위 농장 교차 배분 (0~50%)</span>
+            <span className={styles.sliderSub}>우위 농장 교차 배분 · E1 관세 (0~50%)</span>
           </div>
 
           <div className={styles.sliderItem}>
             <div className={styles.sliderLabelRow}>
-              <label htmlFor="sim-box-fill">박스 채움·혼적 개선</label>
+              <label htmlFor="sim-box-fill">L1 박스 채움·혼적 개선</label>
               <span className={styles.sliderReadout} data-testid="readout-boxfill">
                 +{simParams.boxFillGainPct}%
               </span>
@@ -619,7 +1637,7 @@ export default function GabrielProfitAgiWorkbench({
 
           <div className={styles.sliderItem}>
             <div className={styles.sliderLabelRow}>
-              <label htmlFor="sim-margin-defense">권장 판가 방어 반영</label>
+              <label htmlFor="sim-margin-defense">L3·L5 권장 판가 방어율</label>
               <span className={styles.sliderReadout} data-testid="readout-defense">
                 {simParams.marginDefenseRatio}%
               </span>
@@ -638,7 +1656,7 @@ export default function GabrielProfitAgiWorkbench({
 
           <div className={styles.sliderItem}>
             <div className={styles.sliderLabelRow}>
-              <label htmlFor="sim-target-margin">목표 총이익률 기준선</label>
+              <label htmlFor="sim-target-margin">L3 목표 총이익률 기준선</label>
               <span className={styles.sliderReadout} data-testid="readout-targetmargin">
                 {simParams.targetMarginPct}%
               </span>
@@ -654,141 +1672,135 @@ export default function GabrielProfitAgiWorkbench({
             />
             <span className={styles.sliderSub}>품목별 목표 마진 방어 하한선 (12~30%)</span>
           </div>
+
+          <div className={styles.sliderItem}>
+            <div className={styles.sliderLabelRow}>
+              <label htmlFor="sim-fx-split">L6 외화 송금 분할 방어</label>
+              <span className={styles.sliderReadout} data-testid="readout-fxsplit">
+                {simParams.fxSplitSchedulePct}%
+              </span>
+            </div>
+            <input
+              id="sim-fx-split"
+              type="range"
+              min={0}
+              max={100}
+              step={10}
+              value={simParams.fxSplitSchedulePct}
+              onChange={(e) => updateParam('fxSplitSchedulePct', Number(e.target.value))}
+            />
+            <span className={styles.sliderSub}>미등록 49농장·30원+ 편차 분산 (0~100%)</span>
+          </div>
+
+          <div className={styles.sliderItem}>
+            <div className={styles.sliderLabelRow}>
+              <label htmlFor="sim-aged-stock">L7 체화재고 조기 소진</label>
+              <span className={styles.sliderReadout} data-testid="readout-agedstock">
+                {simParams.agedStockClearRatio}%
+              </span>
+            </div>
+            <input
+              id="sim-aged-stock"
+              type="range"
+              min={0}
+              max={100}
+              step={10}
+              value={simParams.agedStockClearRatio}
+              onChange={(e) => updateParam('agedStockClearRatio', Number(e.target.value))}
+            />
+            <span className={styles.sliderSub}>D+3·5·7일 잔량 특가 회수율 (0~100%)</span>
+          </div>
+
+          <div className={styles.sliderItem}>
+            <div className={styles.sliderLabelRow}>
+              <label htmlFor="sim-customer-alloc">L8 공헌이익 배분 가중</label>
+              <span className={styles.sliderReadout} data-testid="readout-custalloc">
+                {simParams.customerAllocRatio}%
+              </span>
+            </div>
+            <input
+              id="sim-customer-alloc"
+              type="range"
+              min={0}
+              max={100}
+              step={10}
+              value={simParams.customerAllocRatio}
+              onChange={(e) => updateParam('customerAllocRatio', Number(e.target.value))}
+            />
+            <span className={styles.sliderSub}>순단가-클레임-미수 우선 배분 (0~100%)</span>
+          </div>
         </div>
 
         <div className={styles.creditToggleRow}>
-          <label className={styles.checkboxLabel}>
-            <input
-              type="checkbox"
-              data-testid="toggle-credit-recovery"
-              checked={simParams.creditRecoveryEnabled}
-              onChange={(e) => updateParam('creditRecoveryEnabled', e.target.checked)}
-            />
-            <span>
-              미회수 해외 농장 Credit Note(구상 차감) 회수 반영 ({audit.claims.length}건 · ${audit.summary.potentialCreditUSD} · ₩{fmtKRW(audit.summary.potentialCreditKRW)})
-            </span>
-          </label>
+          <div className={styles.toggleGroup}>
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                data-testid="toggle-credit-recovery"
+                checked={simParams.creditRecoveryEnabled}
+                onChange={(e) => updateParam('creditRecoveryEnabled', e.target.checked)}
+              />
+              <span>
+                L4 미회수 Credit Note 회수 ({audit.claims.length}건 · ${audit.summary.potentialCreditUSD})
+              </span>
+            </label>
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                data-testid="toggle-cutoff-guard"
+                checked={simParams.cutoffGuardEnabled}
+                onChange={(e) => updateParam('cutoffGuardEnabled', e.target.checked)}
+              />
+              <span>
+                L9 카톡 추가취소(addcancel) D-2h 컷오프 방어
+              </span>
+            </label>
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                data-testid="toggle-customs-audit"
+                checked={simParams.customsRateAuditEnabled}
+                onChange={(e) => updateParam('customsRateAuditEnabled', e.target.checked)}
+              />
+              <span>
+                L10 통관(선율)·보세(백상)·용차 요율 대사
+              </span>
+            </label>
+          </div>
           <span className={styles.panelHint}>
-            선택 시뮬레이션 변동분은 전산 원장을 바꾸지 않으며 화면에서 즉시 재계산됩니다.
+            원장 무쓰기 읽기 전용 · 모든 수치가 실시간 재계산됩니다.
           </span>
         </div>
       </section>
 
-      {/* 4. 시안 A · B · C 메인 스테이지 */}
+      {/* 3.5 보고자·경영진 친화적 10대 레버 상황·그림·데이터 계보·부서업무 브리핑 패널 */}
+      <LeverStoryLineagePanel
+        levers={audit.levers}
+        deptFilter={deptFilter}
+        setDeptFilter={setDeptFilter}
+        selectedLeverCode={selectedLeverCode}
+        setSelectedLeverCode={setSelectedLeverCode}
+        isPopup={isPopup}
+      />
+
+      {/* 4. 시안 A · B · C · ALL 메인 스테이지 */}
       <div id="gabriel-view-stage" role="tabpanel" aria-labelledby={`gabriel-view-tab-${viewMode}`}>
         {viewMode === 'A' && (
           <div className={styles.split}>
-            {/* 좌측: 5대 레버 분해 + 품목 원가 원장 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-              <section className={styles.panel} aria-label="5대 이익 레버 분해 프로파일">
-                <div className={styles.panelHead}>
-                  <h3>뷰 A · 5대 이익 레버 분해 (차수 개선 합계 {fmtSignedKRW(audit.summary.totalPotentialProfitKRW)})</h3>
-                  <span className={styles.panelHint}>L1~L5 각 레버별 실측·기준 기여액</span>
-                </div>
-                <div className={styles.leverList}>
-                  {audit.levers.map((lv) => {
-                    const widthPct = lv.profitGainKRW > 0
-                      ? Math.max(4, Math.round((lv.profitGainKRW / maxLeverGain) * 100))
-                      : 0;
-                    return (
-                      <div key={lv.id} className={styles.leverRow}>
-                        <span className={styles.leverCode}>{lv.code}</span>
-                        <div>
-                          <div className={styles.leverTitle}>{lv.title}</div>
-                          <div className={styles.leverDriver}>{lv.driverText}</div>
-                        </div>
-                        <div className={styles.barTrack} aria-hidden="true">
-                          <span className={styles.barFill} style={{ width: `${widthPct}%` }} />
-                        </div>
-                        <div className={styles.leverGain}>{fmtSignedKRW(lv.profitGainKRW)}</div>
-                        <Link href={withPopup(lv.href, isPopup)} className={styles.linkBtn}>
-                          {lv.actionLabel}
-                        </Link>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section className={styles.panel} aria-label="품목별 실질 도착원가 및 마진 방어 원장">
-                <div className={styles.panelHead}>
-                  <h3>품목별 실질 도착원가(True Landed Cost) 고밀도 원장 ({audit.skus.length}건)</h3>
-                  <span className={styles.panelHint}>행을 누르면 오른쪽 상세 분해와 연동됩니다</span>
-                </div>
-                <div className={styles.tableWrap}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>품목 · 국가</th>
-                        <th>기준 → 대안 농장</th>
-                        <th className={styles.numCell}>무대응 원가</th>
-                        <th className={styles.numCell}>시뮬 원가</th>
-                        <th className={styles.numCell}>현재 판가</th>
-                        <th className={styles.numCell}>시뮬 마진</th>
-                        <th className={styles.numCell}>권장 보정</th>
-                        <th className={styles.numCell}>이익 개선</th>
-                        <th>판정</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {audit.skus.map((sku) => {
-                        const selected = selectedSku?.id === sku.id;
-                        const tagTone = sku.status === '단가 방어 필요'
-                          ? styles.isErr
-                          : sku.status === '원가 절감 유망'
-                            ? styles.isWarn
-                            : styles.isOk;
-                        return (
-                          <tr
-                            key={sku.id}
-                            className={selected ? styles.isSelected : ''}
-                            tabIndex={0}
-                            onClick={() => setSelectedSkuId(sku.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                setSelectedSkuId(sku.id);
-                              }
-                            }}
-                          >
-                            <td>
-                              <b>{sku.prodName}</b>
-                              <div className={styles.leverDriver}>
-                                {sku.countryName} · {fmtKRW(sku.qty)}{sku.unit} · 입수율 {sku.fillPct}%
-                              </div>
-                            </td>
-                            <td>
-                              <div>{sku.farmName}</div>
-                              <div className={styles.leverDriver}>→ {sku.peerFarmName}</div>
-                            </td>
-                            <td className={styles.numCell}>₩{fmtKRW(sku.unhedgedLandedKRW)}</td>
-                            <td className={styles.numCell}>
-                              <b>₩{fmtKRW(sku.simLandedKRW)}</b>
-                              <div className={styles.leverDriver}>
-                                {sku.costDeltaKRW <= 0 ? `${fmtKRW(sku.costDeltaKRW)}원` : `+${fmtKRW(sku.costDeltaKRW)}원`}
-                              </div>
-                            </td>
-                            <td className={styles.numCell}>₩{fmtKRW(sku.currentSellPriceKRW)}</td>
-                            <td className={styles.numCell}>
-                              <b>{sku.simPostMarginPct}%</b>
-                              <div className={styles.leverDriver}>무대응 {sku.unhedgedMarginPct}%</div>
-                            </td>
-                            <td className={styles.numCell}>
-                              {sku.appliedPriceDeltaKRW > 0 ? `+₩${fmtKRW(sku.appliedPriceDeltaKRW)}` : '유지'}
-                            </td>
-                            <td className={styles.numCell}>
-                              <b>{fmtSignedKRW(sku.skuTotalBenefitKRW)}</b>
-                            </td>
-                            <td>
-                              <span className={`${styles.statusTag} ${tagTone}`}>{sku.status}</span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
+              <ViewALeversSection
+                audit={audit}
+                maxLeverGain={maxLeverGain}
+                selectedLeverCode={selectedLeverCode}
+                onSelectLever={setSelectedLeverCode}
+                isPopup={isPopup}
+                titlePrefix="뷰 A"
+              />
+              <ViewASkuTable
+                audit={audit}
+                selectedSku={selectedSku}
+                onSelectSku={setSelectedSkuId}
+              />
             </div>
 
             {/* 우측: 선택 품목 상세 & 4단계 AGI 추론 파이프라인 */}
@@ -870,319 +1882,96 @@ export default function GabrielProfitAgiWorkbench({
 
         {viewMode === 'B' && (
           <div className={styles.split}>
-            <section className={styles.panel} aria-label="뷰 B 마진 리스크 대 물량 매트릭스">
-              <div className={styles.panelHead}>
-                <h3>뷰 B · 원가 리스크 × 차수 물량 비중 2×2 매트릭스</h3>
-                <span className={styles.panelHint}>번호 포인트를 클릭하면 우측 반사실 슬라이더 검수 드로어가 갱신됩니다</span>
-              </div>
-
-              <div className={styles.svgWrap}>
-                <svg className={styles.matrixSvg} viewBox="0 0 680 430" role="img" aria-label="원가 리스크 대 차수 물량 2x2 매트릭스">
-                  <rect x="64" y="34" width="584" height="336" fill="var(--agi-surface-2)" stroke="var(--agi-line)" strokeWidth="1" />
-                  <line x1="356" y1="34" x2="356" y2="370" stroke="var(--agi-line)" strokeWidth="1.2" />
-                  <line x1="64" y1="202" x2="648" y2="202" stroke="var(--agi-line)" strokeWidth="1.2" />
-                  <line x1="210" y1="34" x2="210" y2="370" stroke="var(--agi-line-soft)" strokeDasharray="3 4" />
-                  <line x1="502" y1="34" x2="502" y2="370" stroke="var(--agi-line-soft)" strokeDasharray="3 4" />
-                  <line x1="64" y1="118" x2="648" y2="118" stroke="var(--agi-line-soft)" strokeDasharray="3 4" />
-                  <line x1="64" y1="286" x2="648" y2="286" stroke="var(--agi-line-soft)" strokeDasharray="3 4" />
-
-                  <text x="74" y="54" fill="var(--agi-ok)" fontSize="11.5" fontWeight="700">핵심 수익 유지·물량 확대</text>
-                  <text x="638" y="54" textAnchor="end" fill="var(--agi-err)" fontSize="11.5" fontWeight="700">즉시 단가·원가 방어 (우선)</text>
-                  <text x="74" y="358" fill="var(--agi-muted)" fontSize="11.5" fontWeight="700">안정 관찰</text>
-                  <text x="638" y="358" textAnchor="end" fill="var(--agi-warn)" fontSize="11.5" fontWeight="700">AWB 혼적·농장 리밸런싱</text>
-
-                  <text x="64" y="388" textAnchor="middle" fill="var(--agi-muted)" fontSize="10.5">0</text>
-                  <text x="356" y="388" textAnchor="middle" fill="var(--agi-muted)" fontSize="10.5">50</text>
-                  <text x="648" y="388" textAnchor="middle" fill="var(--agi-muted)" fontSize="10.5">100</text>
-                  <text x="356" y="410" textAnchor="middle" fill="var(--agi-ink)" fontSize="12" fontWeight="700">
-                    원가 상승·마진 침식 리스크 (0~100)
-                  </text>
-
-                  <text x="54" y="370" textAnchor="end" fill="var(--agi-muted)" fontSize="10.5">0</text>
-                  <text x="54" y="206" textAnchor="end" fill="var(--agi-muted)" fontSize="10.5">50</text>
-                  <text x="54" y="42" textAnchor="end" fill="var(--agi-muted)" fontSize="10.5">100</text>
-                  <text x="20" y="202" textAnchor="middle" transform="rotate(-90 20 202)" fill="var(--agi-ink)" fontSize="12" fontWeight="700">
-                    차수 매출·이익 기여도
-                  </text>
-
-                  {audit.skus.map((sku) => {
-                    const cx = 64 + (sku.riskScore / 100) * 584;
-                    const cy = 370 - (sku.volumeScore / 100) * 336;
-                    const active = selectedSku?.id === sku.id;
-                    const strokeColor = sku.status === '단가 방어 필요'
-                      ? 'var(--agi-err)'
-                      : sku.status === '원가 절감 유망'
-                        ? 'var(--agi-warn)'
-                        : 'var(--agi-ok)';
-                    return (
-                      <g
-                        key={sku.id}
-                        transform={`translate(${cx.toFixed(1)}, ${cy.toFixed(1)})`}
-                        className={styles.blip}
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`${sku.no}번 ${sku.prodName} 리스크 ${sku.riskScore} 물량 ${sku.volumeScore}`}
-                        aria-pressed={active}
-                        onClick={() => setSelectedSkuId(sku.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            setSelectedSkuId(sku.id);
-                          }
-                        }}
-                      >
-                        <title>{`${sku.no}. ${sku.prodName} · 리스크 ${sku.riskScore} · 기여도 ${sku.volumeScore} · ${sku.quadrant}`}</title>
-                        {active && <circle r="17" fill="none" stroke="var(--agi-accent)" strokeWidth="2" />}
-                        <circle
-                          r={active ? 12 : 10}
-                          fill={active ? strokeColor : 'var(--agi-surface)'}
-                          stroke={strokeColor}
-                          strokeWidth={active ? 2.5 : 1.8}
-                        />
-                        <text
-                          textAnchor="middle"
-                          dy="3.5"
-                          fontSize="10"
-                          fontWeight="700"
-                          fill={active ? '#ffffff' : 'var(--agi-ink)'}
-                          style={{ fontVariantNumeric: 'tabular-nums' }}
-                        >
-                          {sku.no}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
-
-              <div className={styles.blipIndex} aria-label="매트릭스 품목 번호 색인">
-                {audit.skus.map((sku) => {
-                  const active = selectedSku?.id === sku.id;
-                  return (
-                    <button
-                      key={sku.id}
-                      type="button"
-                      className={`${styles.blipChip} ${active ? styles.blipChipActive : ''}`}
-                      onClick={() => setSelectedSkuId(sku.id)}
-                    >
-                      <span>#{sku.no}</span>
-                      <span>{sku.prodName}</span>
-                      <span>{sku.simPostMarginPct}%</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <aside className={styles.panel} aria-label="반사실 품목 검수 드로어">
-              <div className={styles.panelHead}>
-                <h3>반사실 품목 검수 드로어</h3>
-                <span className={styles.panelHint}>{selectedSku?.quadrant || '—'}</span>
-              </div>
-
-              {selectedSku && (
-                <>
-                  <div>
-                    <b style={{ fontSize: 14 }}>#{selectedSku.no} {selectedSku.prodName}</b>
-                    <div className={styles.leverDriver}>
-                      {selectedSku.countryName} · {selectedSku.farmName} → {selectedSku.peerFarmName} · 박스당 {selectedSku.actualUnitsPerBox}/{selectedSku.targetUnitsPerBox}{selectedSku.unit}
-                    </div>
-                  </div>
-
-                  <div className={styles.kvGrid}>
-                    <div className={styles.kvCell}>
-                      <span>기존 도착원가(충격 0)</span>
-                      <b>₩{fmtKRW(selectedSku.baseLandedKRW)}</b>
-                    </div>
-                    <div className={styles.kvCell}>
-                      <span>충격 무대응 원가</span>
-                      <b>₩{fmtKRW(selectedSku.unhedgedLandedKRW)}</b>
-                    </div>
-                    <div className={styles.kvCell}>
-                      <span>가브리엘 시뮬 원가</span>
-                      <b>₩{fmtKRW(selectedSku.simLandedKRW)}</b>
-                    </div>
-                    <div className={styles.kvCell}>
-                      <span>현재 판가 → 권장 판가</span>
-                      <b>₩{fmtKRW(selectedSku.currentSellPriceKRW)} → ₩{fmtKRW(selectedSku.simSellPriceKRW)}</b>
-                    </div>
-                    <div className={styles.kvCell}>
-                      <span>마진율 (무대응 → 시뮬)</span>
-                      <b>{selectedSku.unhedgedMarginPct}% → {selectedSku.simPostMarginPct}%</b>
-                    </div>
-                    <div className={styles.kvCell}>
-                      <span>품목 예상 이익 개선</span>
-                      <b>{fmtSignedKRW(selectedSku.skuTotalBenefitKRW)}</b>
-                    </div>
-                  </div>
-
-                  <div className={styles.panelHead} style={{ marginTop: 4 }}>
-                    <h3>바로 실행 연결</h3>
-                    <span className={styles.panelHint}>원장 수동 승인</span>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    <Link href={pipelineHref} className={styles.linkBtn}>
-                      수입 원스톱 파이프라인 실행
-                    </Link>
-                    <Link href={quickAbsorbHref} className={styles.linkBtn}>
-                      빠른 분배 단가 확인
-                    </Link>
-                    <Link href={withPopup('/import/freight-calc', isPopup)} className={styles.linkBtn}>
-                      AWB 운임 계산기
-                    </Link>
-                  </div>
-                </>
-              )}
-            </aside>
+            <ViewBMatrixSection
+              audit={audit}
+              selectedSku={selectedSku}
+              onSelectSku={setSelectedSkuId}
+            />
+            <ViewBSkuDrawer
+              selectedSku={selectedSku}
+              isPopup={isPopup}
+              pipelineHref={pipelineHref}
+              quickAbsorbHref={quickAbsorbHref}
+            />
           </div>
         )}
 
         {viewMode === 'C' && (
-          <div className={styles.carbonGrid} data-testid="gabriel-carbon-console">
-            {/* C-1: 환율 스트레스 래더 */}
-            <section className={styles.panel} aria-label="환율 변동 스트레스 래더">
-              <div className={styles.panelHead}>
-                <h3>뷰 C · 환율 스트레스 민감도 래더 (-50원 ~ +100원)</h3>
-                <span className={styles.panelHint}>현재 설정 {simParams.fxDeltaKRW >= 0 ? '+' : ''}{simParams.fxDeltaKRW}원 강조</span>
-              </div>
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>변동폭</th>
-                      <th className={styles.numCell}>적용 환율(USD)</th>
-                      <th className={styles.numCell}>무대응 마진</th>
-                      <th className={styles.numCell}>방어후 마진</th>
-                      <th className={styles.numCell}>순이익 개선</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {audit.fxLadder.map((row) => (
-                      <tr key={row.fxDeltaKRW} className={row.isCurrent ? styles.isSelected : ''}>
-                        <td>
-                          <b>{row.fxDeltaKRW >= 0 ? `+${row.fxDeltaKRW}` : row.fxDeltaKRW}원</b>
-                        </td>
-                        <td className={styles.numCell}>₩{fmtKRW(row.usdRate)}</td>
-                        <td className={styles.numCell}>{row.unhedgedMarginPct}%</td>
-                        <td className={styles.numCell}>
-                          <b>{row.defendedMarginPct}%</b>
-                        </td>
-                        <td className={styles.numCell}>
-                          <b>{fmtSignedKRW(row.netGainKRW)}</b>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+          <ViewCCarbonConsole
+            audit={audit}
+            simParams={simParams}
+            isPopup={isPopup}
+            testId="gabriel-carbon-console"
+          />
+        )}
 
-            {/* C-2: AWB 중량 브레이크포인트 게이지 */}
-            <section className={styles.panel} aria-label="AWB 중량 계단 및 혼적 최적화">
-              <div className={styles.panelHead}>
-                <h3>AWB 중량 계단(+100/+300/+500kg) 절감 탐색</h3>
-                <span className={styles.panelHint}>{audit.awbs.length}개 AWB 중 구간 근접 {audit.summary.awbTierReadyCount}건</span>
-              </div>
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>AWB · 국가</th>
-                      <th className={styles.numCell}>박스/중량(CW)</th>
-                      <th>현재 구간 → 다음 구간</th>
-                      <th className={styles.numCell}>부족 kg</th>
-                      <th className={styles.numCell}>절감 잠재액</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {audit.awbs.map((a) => (
-                      <tr key={a.awb}>
-                        <td>
-                          <b>{a.awb}</b>
-                          <div className={styles.leverDriver}>{a.countryName} · {a.farms.join(', ')}</div>
-                        </td>
-                        <td className={styles.numCell}>{a.boxes}bx / {fmtNum(a.cwKg, 0)}kg</td>
-                        <td>
-                          <div>{a.currentTierLabel} ({a.currentRate}) → {a.nextTierLabel} ({a.nextRate})</div>
-                          <div className={styles.leverDriver}>{a.note}</div>
-                        </td>
-                        <td className={styles.numCell}>{a.kgToNext > 0 ? `${a.kgToNext}kg` : '도달'}</td>
-                        <td className={styles.numCell}>
-                          <b>{fmtSignedKRW(a.unitRateSaveKRW)}</b>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+        {viewMode === 'ALL' && (
+          <div className={styles.allContainer} data-testid="gabriel-all-mode">
+            <div className={styles.allSyncBar}>
+              <span>
+                뷰 ALL · A·B·C 동시 시뮬레이션 가동 중 — 상단 마스터 슬라이더·국가·품목 선택이 뷰 A(10대 레버), 뷰 B(2×2 매트릭스), 뷰 C(카본 콘솔)에 동시 반영됩니다.
+              </span>
+              <span className={styles.metaBadge}>
+                선택 품목: {selectedSku ? `#${selectedSku.no} ${selectedSku.prodName}` : '—'} · 선택 레버: {selectedLeverCode}
+              </span>
+            </div>
 
-            {/* C-3: 미회수 해외 농장 Credit Note 원장 */}
-            <section className={styles.panel} aria-label="미회수 해외 농장 크레딧 노트 탐지">
-              <div className={styles.panelHead}>
-                <h3>해외 농장 불량 Credit Note 미회수 누수 탐지</h3>
-                <span className={styles.panelHint}>합계 ${audit.summary.potentialCreditUSD} (₩{fmtKRW(audit.summary.potentialCreditKRW)})</span>
+            {/* 동시 패널 1행: 뷰 A(10대 레버 + 원장 요약) + 뷰 B(2×2 매트릭스 + 검수 드로어) */}
+            <div className={styles.allPairGrid}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }} data-testid="gabriel-all-panel-A">
+                <ViewALeversSection
+                  audit={audit}
+                  maxLeverGain={maxLeverGain}
+                  selectedLeverCode={selectedLeverCode}
+                  onSelectLever={setSelectedLeverCode}
+                  isPopup={isPopup}
+                  titlePrefix="뷰 A (동시)"
+                />
+                <ViewASkuTable
+                  audit={audit}
+                  selectedSku={selectedSku}
+                  onSelectSku={setSelectedSkuId}
+                />
               </div>
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>농장 · 품목</th>
-                      <th className={styles.numCell}>불량 수량</th>
-                      <th className={styles.numCell}>추정 크레딧</th>
-                      <th className={styles.numCell}>경과</th>
-                      <th>상태</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {audit.claims.map((c) => (
-                      <tr key={c.id}>
-                        <td>
-                          <b>{c.farmName}</b> · {c.countryName}
-                          <div className={styles.leverDriver}>{c.prodName} — {c.reason}</div>
-                        </td>
-                        <td className={styles.numCell}>{fmtKRW(c.defectQty)}{c.unit}</td>
-                        <td className={styles.numCell}>
-                          <b>${fmtKRW(c.claimUSD)}</b>
-                          <div className={styles.leverDriver}>₩{fmtKRW(c.krwValue)}</div>
-                        </td>
-                        <td className={styles.numCell}>{c.ageDays}일</td>
-                        <td>
-                          <span className={`${styles.statusTag} ${c.confirmed ? styles.isWarn : styles.isErr}`}>
-                            {c.statusLabel}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
 
-            {/* C-4: 가브리엘 고효율 수입 루틴 & 리드타임 단축 점수 */}
-            <section className={styles.panel} aria-label="가브리엘 고효율 수입 루틴 진단">
-              <div className={styles.panelHead}>
-                <h3>가브리엘 고효율 수입 루틴 (수입 속도 지수 {audit.summary.velocityScore}/100)</h3>
-                <span className={styles.panelHint}>인수인계 4단계 원클릭 실행</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }} data-testid="gabriel-all-panel-B">
+                <ViewBMatrixSection
+                  audit={audit}
+                  selectedSku={selectedSku}
+                  onSelectSku={setSelectedSkuId}
+                />
+                <ViewBSkuDrawer
+                  selectedSku={selectedSku}
+                  isPopup={isPopup}
+                  pipelineHref={pipelineHref}
+                  quickAbsorbHref={quickAbsorbHref}
+                />
               </div>
-              <ol className={styles.traceList}>
-                {audit.routineSteps.map((st) => (
-                  <li key={st.id} className={styles.traceItem}>
-                    <div className={styles.traceTop}>
-                      <span className={styles.traceStage}>STEP 0{st.stepNo} · {st.status}</span>
-                      <span className={styles.traceMetric}>{st.score}점</span>
-                    </div>
-                    <div className={styles.traceTitle}>{st.title}</div>
-                    <div className={styles.traceDesc} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-                      <span>{st.detail}</span>
-                      <Link href={withPopup(st.href, isPopup)} className={styles.linkBtn}>
-                        {st.actionLabel}
-                      </Link>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </section>
+            </div>
+
+            {/* 동시 패널 2행: 뷰 C(매트 카본 다크 전술 콘솔) */}
+            <div className={styles.carbonSurface} data-testid="gabriel-all-panel-C">
+              <div className={styles.panelHead}>
+                <h3>뷰 C (동시) · 매트 카본 환율·AWB·크레딧·속도 전술 콘솔</h3>
+                <span className={styles.panelHint}>환율 충격 {simParams.fxDeltaKRW >= 0 ? '+' : ''}{simParams.fxDeltaKRW}원 · 크레딧 {simParams.creditRecoveryEnabled ? '반영' : '제외'} 실시간 동기화</span>
+              </div>
+              <ViewCCarbonConsole
+                audit={audit}
+                simParams={simParams}
+                isPopup={isPopup}
+                testId="gabriel-all-carbon-console"
+              />
+            </div>
+
+            {/* 하단: 계속 구현해내는 자율 확장 파이프라인 */}
+            <ContinuousBuildQueueSection
+              queue={audit.continuousBuildQueue}
+              stageFilter={buildStageFilter}
+              setStageFilter={setBuildStageFilter}
+              onCopyBrief={copyBuildBrief}
+              buildCopyNotice={buildCopyNotice}
+              isPopup={isPopup}
+            />
           </div>
         )}
       </div>

@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-19T04:20:14.857Z",
+  "recordedAt": "2026-11-19T04:56:58.293Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 43.4,
+  "duration": 41.9,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "bbfe79dfd1dabd162ef6deded87cf706e9ffe93e24079d79650bb2ce0292e26a",
-  "captionsSha256": "bdb43926963f520b80e25f515ada5ce9a6ab5881cfbf1b091cbaf47162fac664",
+  "videoSha256": "7953f2af417e90180891fa4b08abf22f9aa87ccd6fe96d1a4bf17eb997f96993",
+  "captionsSha256": "8a7a6477c49cbe266fa1bb9d8e929b3397036794ff66920c3b2d8a31701c1ba1",
   "sourceHashes": {
-    "pages/import/gabriel-agi.js": "463d5fd15b76db828306ee9af4051db045d7e883906a9ab15642e5e02413c5f2",
-    "components/import-tools/GabrielProfitAgiWorkbench.js": "f5dd46eb5150889ff2a396c23021b1f1b51656812e124005cbf48b0a4f95299a",
-    "lib/gabrielProfitAgi.js": "af553bcefb2166dda243efa9afd9690fe412fd2b62ef83fa4622d066665b1773",
-    "styles/GabrielProfitAgi.module.css": "c60d6713bc90068bd0ec384814a8e19c2ae3d08501dc35ea0a5f1f1dda693e5b"
+    "pages/import/gabriel-agi.js": "846d478373095ce4e71eef444654c3c2bb7b9d0c03a2ee45b013ec138ff1baca",
+    "components/import-tools/GabrielProfitAgiWorkbench.js": "96241051d461e1430fbd8bbb2be7a493219da5838b3cdad69ebe117b78553a3e",
+    "lib/gabrielProfitAgi.js": "4aafadf04c4d828e1751f10b05be4c5706c4bb03c6994e54d5e0f7152b7598cb",
+    "styles/GabrielProfitAgi.module.css": "d9653d66f0f6d4d312584df21fbf798416cb333cfa5b17d09f45f986849d165b"
   },
   "presentation": {
     "numberedSteps": 4,
@@ -31,31 +31,31 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 3.218786,
+        "start": 3.1359996,
         "x": 653.21875,
         "y": 370.84375,
-        "end": 8.6570495
+        "end": 8.2919023
       },
       {
         "number": 2,
-        "start": 13.8981044,
+        "start": 13.2876025,
         "x": 1554.7890625,
         "y": 513.640625,
-        "end": 19.3340572
+        "end": 18.5627019
       },
       {
         "number": 3,
-        "start": 24.5763858,
-        "x": 300.0234375,
+        "start": 23.5063043,
+        "x": 636.921875,
         "y": 448.578125,
-        "end": 30.3133974
+        "end": 28.770918
       },
       {
         "number": 4,
-        "start": 35.999248,
+        "start": 34.864469899999996,
         "x": 1766.9921875,
         "y": 369.84375,
-        "end": 41.4224399
+        "end": 40.152171
       }
     ]
   }
