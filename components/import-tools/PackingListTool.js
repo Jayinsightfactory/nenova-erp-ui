@@ -975,7 +975,6 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const [awbManualFields, setAwbManualFields] = useState([]);
   const [awbReviewed, setAwbReviewed] = useState(false);
   const awbFileRef = useRef(null);
-  const awbReviewRef = useRef(null);
   const [dateYear, setDateYear] = useState('');
   useEffect(() => { setDateYear(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Seoul', year: 'numeric' }).format(new Date())); }, []);
   const [pdfBase64, setPdfBase64] = useState(null);
@@ -1756,10 +1755,6 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     // PDF uploads use Claude after checking durable results. Failed jobs require
     // the separate explicit retry action; OCR is not an automatic fallback.
     if (!pdfBase64 || !xlsxLib || !sharedReady || savingRef.current || processingRef.current || catalogParsing) return;
-    if (country === 'AU' && !awbPdfBase64) {
-      setStatus({ type: 'error', msg: '호주 인보이스는 AWB PDF도 선택해야 GW·CW를 원문에서 확인하고 진행할 수 있습니다.' });
-      return;
-    }
     const parsed = parseWeekFromFilename(file.name);
     if (!parsed) {
       setStatus({ type: 'error', msg: t.errWeek(file.name) });
@@ -1894,7 +1889,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   };
 
   useEffect(() => {
-    if (autoAnalysisFile.current !== file || !file || !pdfBase64 || (country === 'AU' && !awbPdfBase64) || !xlsxLib || !sharedReady
+    if (autoAnalysisFile.current !== file || !file || !pdfBase64 || !xlsxLib || !sharedReady
       || saving || processing || catalogParsing) return;
     autoAnalysisFile.current = null;
     process('auto');
@@ -1938,17 +1933,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const statusColor = status?.type === 'error' ? '#c81e1e' : status?.type === 'success' ? '#057a55' : '#2457c5';
 
   const closeReview = () => { setReviewOpen(false); setTimeout(() => reviewButtonRef.current?.focus(), 0); };
-  const focusReceipt = ({ allowAllocationReview = false } = {}) => {
-    const canOpenAllocation = allowAllocationReview && allocationCount > 0;
-    if (country === 'AU' && (!awbFile || !awbReview?.ready || !awbReviewed) && !canOpenAllocation) {
-      const message = awbGateReason || 'AWB 원문 대조가 끝나지 않아 다음 단계로 이동할 수 없습니다.';
-      setStatus({ type: 'error', msg: message });
-      setTimeout(() => {
-        awbReviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        awbReviewRef.current?.focus({ preventScroll: true });
-      }, 0);
-      return false;
-    }
+  const focusReceipt = () => {
     onContinue?.(); return setTimeout(() => {
     const target = toolRoot.current?.ownerDocument?.getElementById(costOnly ? 'packing-cost-stage' : 'packing-receipt-stage');
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1967,12 +1952,6 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     ))).filter(review => review.needsReview && review.status !== 'ALLOCATION').length;
   const allocationCount = receiptStatus?.valid && receiptStatus.allocationPending === 0 ? 0
     : matchingRows.filter(row => needsInvoiceAllocation(country,row.sourceName||row.matchingDescription)).length;
-  const awbGateBlocked = country === 'AU' && (!awbFile || !awbReview?.ready || !awbReviewed);
-  const awbGateReason = !awbFile
-    ? 'AWB PDF를 업로드해야 입고·도착원가 단계로 갈 수 있습니다.'
-    : !awbReview?.ready
-      ? `AWB 검증 이슈 ${awbReview?.issues?.length || 0}건: ${(awbReview?.issues || []).map(issue => typeof issue === 'string' ? issue : issue?.message || issue?.label || issue?.code).filter(Boolean).join(' · ') || '원문 대조 항목을 확인하세요.'}`
-      : !awbReviewed ? 'AWB 번호·박스·GW·CW를 원문과 대조한 뒤 완료 체크가 필요합니다.' : '';
   const matchingComplete = matchingRows.length > 0 && remainingMatches === 0;
   const validationIssues = packingValidationIssues(lastExtraction?.result?.invoices || [], country);
   const openValidationIssue = issue => {
@@ -2012,7 +1991,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setReviewConfirmed(true);
       receiptIntent.current = false;
       setStatus({ type: 'success', msg: '품목 매칭 완료. 입고 준비 화면에서 차수·농장·수량을 확인한 뒤 저장하세요. 아직 입고·재고는 변경하지 않았습니다.' });
-      focusReceipt({ allowAllocationReview });
+      focusReceipt();
     } catch (error) {
       const message = `입고 업로드 준비 실패: ${error.message}\n「인식값 수정」에서 해당 값을 고쳐 주세요. 현재 매칭과 파일은 유지됩니다. 입고·재고는 변경하지 않았습니다.`;
       setStatus({ type: 'error', msg: message }); recordBlocked(message,'PREPARE_BLOCKED'); notifyPackingBlocked(message);
@@ -2332,11 +2311,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 }} style={{ padding: '5px 12px', fontSize: 13, borderRadius: 8, border: '1px solid #ccd6e5', background: '#fff', cursor: 'pointer' }}>{t.uploadRemove}</button>
               </div>
             )}
-            {country === 'AU' && <section ref={awbReviewRef} tabIndex={-1} data-testid="packing-awb-review" aria-label="호주 AWB 업로드 및 검토" style={{ marginTop: 12, border: '1px solid #c9d8ef', borderRadius: 10, padding: 14, background: '#f8fbff', scrollMarginTop: 16 }}>
+            {country === 'AU' && <section data-testid="packing-awb-review" aria-label="선택 사항 · 호주 AWB 업로드 및 검토" style={{ marginTop: 12, border: '1px solid #c9d8ef', borderRadius: 10, padding: 14, background: '#f8fbff', scrollMarginTop: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div>
-                  <strong style={{ color: '#172b4d' }}>AWB 항공운송장 PDF</strong>
-                  <div style={{ fontSize: 12, color: '#526580', marginTop: 4 }}>인보이스와 같은 항공편의 AWB를 올리세요. GW·CW·포장 수량은 AWB에서만 가져오고 입고 전 원문 대조가 필요합니다.</div>
+                  <strong style={{ color: '#172b4d' }}>AWB 항공운송장 PDF (선택)</strong>
+                  <div style={{ fontSize: 12, color: '#526580', marginTop: 4 }}>같은 항공편 AWB가 있다면 원문과 대조한 값이 입고에 반영됩니다. 인보이스만으로 입고를 저장하고 원가는 나중에 작업할 수 있습니다.</div>
                 </div>
                 <input ref={awbFileRef} type="file" accept=".pdf,application/pdf" style={{ display: 'none' }} onChange={event => { handleAwbFile(event.target.files?.[0]); event.target.value = ''; }} />
                 <button type="button" onClick={() => awbFileRef.current?.click()} disabled={!file || processing} style={{ border: '1px solid #2457c5', borderRadius: 7, padding: '8px 12px', background: '#fff', color: '#2457c5', cursor: file && !processing ? 'pointer' : 'not-allowed', opacity: file && !processing ? 1 : .5 }}>AWB PDF 선택</button>
@@ -2383,14 +2362,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             </section>}
             <p className={styles.notice} role="note" style={{ fontSize: 13, color: '#526580', marginTop: 12 }}>{country === 'CN' ? 'Excel은 코드 분석으로 처리합니다. Total of Flower Material은 단수, Stems는 송이수, Unit Price는 단당 단가로 읽습니다. PDF는 Claude API로 분석합니다. 입고등록 전 ERP 원장은 변경하지 않습니다.' : t.pdfNotice}</p>
             {!fileChoice&&!selectingFile&&<div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib || (country === 'AU' && !awbPdfBase64)} title={country === 'AU' && !awbPdfBase64 ? '호주 인보이스와 AWB PDF를 모두 선택해야 합니다.' : undefined} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 'pointer' : 'not-allowed', border: '1px solid #2457c5', background: '#2457c5', color: '#fff', opacity: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 1 : 0.35 }}>
+              <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: pdfBase64 && !processing && xlsxLib ? 'pointer' : 'not-allowed', border: '1px solid #2457c5', background: '#2457c5', color: '#fff', opacity: pdfBase64 && !processing && xlsxLib ? 1 : 0.35 }}>
                 {processing ? t.processing : t.generate}
               </button>
               {country==='CO'&&pdfBase64&&<button type="button" onClick={revalidateSavedResponse} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #2457c5',background:'#eff5ff',color:'#173e83',fontWeight:600}}>저장 응답 재검증 · API 호출 없음</button>}
               {needsAI&&<button onClick={()=>{
                 if (pdfRetryJobId && !toolRoot.current?.ownerDocument?.defaultView?.confirm('이전 분석의 결과가 불명확하여 추가 비용이 발생할 수 있습니다. 같은 파일을 새로 AI 분석할까요?')) return;
                 return process(true,pdfRetryJobId);
-              }} disabled={processing || (country === 'AU' && !awbPdfBase64)} title={country === 'AU' && !awbPdfBase64 ? '호주 인보이스와 AWB PDF를 모두 선택해야 합니다.' : undefined} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #b67b12',background:'#fff4d6',fontWeight:600}}>{pdfRetryJobId?'새로 AI 분석 (추가 비용 확인)':t.aiAnalyze}</button>}
+              }} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #b67b12',background:'#fff4d6',fontWeight:600}}>{pdfRetryJobId?'새로 AI 분석 (추가 비용 확인)':t.aiAnalyze}</button>}
             </div>}
             <div className={styles.modeBadge}>{country==='CN'&&/\.xlsx$/i.test(file?.name||'')?'엑셀 코드 분석 · API 호출 없음':t.localMode}</div>
             {extractionSource&&<p className={styles.sourceBadge} role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}
@@ -2469,15 +2448,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   </div>)}
                   {receiptStatus?.valid && <div role="status" data-testid="packing-receipt-match-summary">입고 문서 행별 품목 선택 {receiptStatus.documentTotal - receiptStatus.documentPending}/{receiptStatus.documentTotal}행 · {receiptStatus.documentPending}행 미선택 · 팀 공용 별칭 저장 아님{!receiptStatus.overlayComplete ? ' · 생성 패킹 행과 직접 연결되지 않아 패킹 상태는 별도 표시' : ''}</div>}
                   {matchingComplete && <button type="button" data-testid="packing-receipt-prepare"
-                    aria-describedby={awbGateBlocked && !allocationCount ? 'packing-awb-blocker' : undefined}
-                    title={allocationCount ? 'Woolly bush 행별 품목과 입고량을 분류하는 화면을 엽니다. AWB 확인은 입고·원가 진행 전에 완료해야 합니다.' : awbGateBlocked ? `${awbGateReason} 누르면 AWB 검토 위치로 이동합니다.` : undefined}
+                    title={allocationCount ? 'Woolly bush 행별 품목과 입고량을 분류하는 화면을 엽니다.' : undefined}
                     onClick={() => allocationCount ? openInvoiceAllocation() : prepareReceipt()}
                     disabled={saving || processing || !sharedReady || latestShared} style={{ marginLeft: 16, padding: '10px 20px', background: '#2457c5', color: '#fff', border: 0, borderRadius: 8, fontWeight: 700 }}>
-                    {allocationCount ? 'Woolly bush 품목·입고량 분류' : awbGateBlocked ? 'AWB 대조 항목 확인' : costOnly ? '다음 · 도착원가 준비' : excels.length && reviewConfirmed ? '입고 업로드로 이동' : '다음 · 입고 준비'}
+                    {allocationCount ? 'Woolly bush 품목·입고량 분류' : costOnly ? '다음 · 도착원가 준비' : '입고 업로드로 이동'}
                   </button>}
-                  {matchingComplete && awbGateBlocked && <p id="packing-awb-blocker" role={allocationCount ? 'status' : 'alert'} data-testid="packing-awb-blocker" style={{ margin: '8px 0 0', color: allocationCount ? '#526580' : '#b42318', fontSize: 13 }}>
-                    {awbGateReason}{allocationCount ? ' · 품목·입고량 분류는 먼저 진행할 수 있고, 입고·도착원가 이동 전에는 AWB 확인이 필요합니다.' : ' · 버튼을 누르면 아래 AWB 검토 위치로 이동합니다.'}
-                  </p>}
                   <p>팀 공용 DB 매칭과 입고 문서의 행별 품목 선택은 별개입니다. 행별 선택은 팀 공용 별칭으로 저장되지 않으며, 이미 생성된 패킹 파일의 다운로드는 기존 검증을 유지합니다. 변경된 품목을 패킹 파일에 반영하려면 다시 생성하세요. 매칭만으로 입고·재고가 변경되지 않습니다.</p>
                 </div>
                 <div role="status" style={{ padding: 12, marginBottom: 12, background: reviewConfirmed ? '#edf8f1' : '#fff4d6', border: '1px solid #ccd6e5', borderRadius: 8 }}>

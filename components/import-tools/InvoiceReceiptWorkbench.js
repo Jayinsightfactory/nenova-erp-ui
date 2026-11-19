@@ -356,9 +356,9 @@ export default function InvoiceReceiptWorkbench({
         excels, invoices, country, fileName: file.name, products, sourceHash: hash, reviewConfirmed, truncated,
       });
       const documents = country === 'AU' ? adaptedDocuments.map(document => {
-        const review = awb?.review || null;
+        const review = awb?.confirmed && awb.review?.ready ? awb.review : null;
         const evidence = review?.evidence || {};
-        const attachment = awb ? {
+        const attachment = review ? {
           source: 'AWB_PDF', sourceHash: awb.sourceHash, fileName: awb.fileName,
           awb: review?.awb || '', invoiceAwb: review?.invoiceAwb || '',
           packageCount: review?.packages ?? null, uploadDate: awb.uploadDate || invoiceUploadDate,
@@ -376,7 +376,7 @@ export default function InvoiceReceiptWorkbench({
           rawMetadata: {
             ...document.rawMetadata,
             invoiceUploadDate: awb?.uploadDate || invoiceUploadDate || '',
-            awb: review?.awb || '',
+            awb: review?.awb || document.rawMetadata?.awb || '',
             awbAttachment: attachment,
           },
           reviewedMetadata: {
@@ -387,11 +387,11 @@ export default function InvoiceReceiptWorkbench({
             cw: review?.chargeableWeightKg ?? document.reviewedMetadata?.cw ?? null,
             awbReviewed: Boolean(awb?.confirmed && review?.ready),
             awbAttachment: attachment,
-            weightManual: {
+            weightManual: review ? {
               ...document.reviewedMetadata?.weightManual,
               gw: (awb?.manualFields || []).includes('gross_weight_kg'),
               cw: (awb?.manualFields || []).includes('chargeable_weight_kg'),
-            },
+            } : document.reviewedMetadata?.weightManual,
             weightSourceEvidence: {
               ...document.reviewedMetadata?.weightSourceEvidence,
               ...(sourceWeight('grossWeightKg', 'gross_weight_kg') ? { gw: sourceWeight('grossWeightKg', 'gross_weight_kg') } : {}),
@@ -911,15 +911,15 @@ export default function InvoiceReceiptWorkbench({
         if (result.status === 'RECEIPT_VERIFIED') installSavedDocument(result.document);
         if (registerRequested === true && result.status === 'WAITING_CONFIRMATION') {
           const operation = buildReceiptCommitPending({document:result.document,preview:result.preview,
-            reason:'담당자 입고등록·도착원가 생성 실행',operationId:newUuid(),
+            reason:'담당자 인보이스 입고 업로드 승인',operationId:newUuid(),
             receiptPartId:receiptPartIdForCommit(result.document,newUuid)});
           storePendingOperation(documentId,operation);
           setRecords(current=>current.map(item=>item.document.documentId===documentId?{...item,pendingOperation:operation}:item));
-          setManualStage(documentId,'receipt','running','승인한 입고를 등록합니다. 재조회 검증 후 같은 문서의 도착원가를 계산합니다.');
+          setManualStage(documentId,'receipt','running','승인한 입고를 저장하고 같은 입고를 다시 조회합니다.');
           try {
             const data=await submitReceiptCommit(operation);
             if(!data.result)throw Object.assign(new Error('입고 결과를 확인하지 못했습니다. 같은 작업 상태를 조회하세요.'),{resultUnknown:true});
-            await acceptCommitResult(operation,data.result,'입고 등록·재조회 완료. 같은 문서로 도착원가 계산을 이어갑니다.',isCurrent,result.document);
+            await acceptCommitResult(operation,data.result,'입고 업로드 완료. 입고관리에서 확인할 수 있습니다.',isCurrent,result.document);
           }catch(error){handleCommitFailure(operation,error);}
           return;
         }
@@ -984,10 +984,7 @@ export default function InvoiceReceiptWorkbench({
       clearPendingCommit(pending.documentId);
       setOperationResult(result);
       openVerifiedReceipt(result,fresh);
-      // Only the verified current operation can advance to cost calculation.
-      // No receipt lookup, source rematching or automatic cost approval here.
-      setWorkspaceMode('cost', { documentId: fresh.documentId, orderYear: String(fresh.orderYear), orderWeek: fresh.orderWeek, warehouseKey: verified.warehouseKey });
-      setNotice({ type: 'success', text: `${message} WarehouseKey ${result.warehouseKey ?? '응답 누락'} · 원가 ${result.costStatus || '상태 미확인'}` });
+      setNotice({ type: 'success', text: `${message} 입고번호 ${verified.warehouseKey} · 도착원가는 별도로 생성할 수 있습니다.` });
     } catch (refreshError) {
       if (!isCurrent()) {
         refreshError.staleWorkflowResponse = true;
@@ -1235,6 +1232,10 @@ export default function InvoiceReceiptWorkbench({
     && committedOperations.some(operation => Number(operation.documentRevision) === Number(documentValue.revision));
   const costIsStale = documentValue.costStatus === 'STALE'
     || (committedOperations.length > 0 && (selected.dirty || !currentRevisionCommitted));
+  const openCostWorkspace = () => setWorkspaceMode('cost', currentRevisionCommitted ? {
+    documentId: documentValue.documentId, orderYear: String(documentValue.orderYear),
+    orderWeek: documentValue.orderWeek, warehouseKey: Number(documentValue.warehouseKey),
+  } : undefined);
 
   return <section className={styles.root} aria-label="인보이스 입고 작업대" data-testid="invoice-receipt-workbench">
     <header className={styles.heading}>
@@ -1245,7 +1246,7 @@ export default function InvoiceReceiptWorkbench({
 
     {!onWorkspaceModeChange && <nav className={styles.workspaceModes} aria-label="입고와 도착원가 작업 선택">
       <button type="button" aria-pressed={workspaceMode === 'receipt'} disabled={Boolean(busy)} onClick={() => setWorkspaceMode('receipt')}><strong>입고 작업</strong><small>수량 검토 · 입고 등록</small></button>
-      <button type="button" aria-pressed={workspaceMode === 'cost'} disabled={Boolean(busy)} onClick={() => setWorkspaceMode('cost')}><strong>도착원가만 작업</strong><small>기존 입고 확인 · 원가 파일 다운로드</small></button>
+      <button type="button" aria-pressed={workspaceMode === 'cost'} disabled={Boolean(busy)} onClick={openCostWorkspace}><strong>도착원가만 작업</strong><small>기존 입고 확인 · 원가 파일 다운로드</small></button>
     </nav>}
 
     {isAustraliaReceiptDocument(documentValue) && documentValue.reviewedMetadata?.awbAttachment && <section className={documentValue.reviewedMetadata.awbReviewed ? styles.info : styles.error} aria-label="AWB 중량 근거">
@@ -1407,8 +1408,8 @@ export default function InvoiceReceiptWorkbench({
 
     {['NL', 'CN', 'TH'].includes(documentValue.reviewedMetadata?.country) && committedOperations.length === 0 && <p>이미 입고된 자료는 농장이 검색되지 않아도 초안을 저장한 뒤 ‘기존 입고 유지 · 원가만 연결’을 누르세요. 같은 연도·차수·송장과 품목·수량·금액을 대조하고, 연결할 농장과 입고일을 보여드립니다. 새 입고는 등록하지 않습니다.</p>}
     <div className={styles.actionBar}>
-      <button type="button" className={styles.primary} onClick={() => runAutomaticPreparation(true)} disabled={currentRevisionCommitted || Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>{currentRevisionCommitted ? '입고 완료 · 재등록하지 않음' : '입고 등록 · 도착원가 생성'}</button>
-      <button type="button" onClick={() => setWorkspaceMode('cost')} disabled={Boolean(busy)}>{currentRevisionCommitted ? '도착원가 작업으로 이동' : '이미 입고된 자료 · 원가만 작업'}</button>
+      <button type="button" className={styles.primary} onClick={() => runAutomaticPreparation(true)} disabled={currentRevisionCommitted || Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>{currentRevisionCommitted ? '입고 업로드 완료' : '입고 업로드(저장)'}</button>
+      <button type="button" onClick={openCostWorkspace} disabled={Boolean(busy)}>{currentRevisionCommitted ? '이 입고의 도착원가 작업' : '이미 입고된 자료 · 원가만 작업'}</button>
       {documentValue.rawMetadata?.allocationSources?.length > 0 && <button type="button" onClick={() => setAllocationOpen(true)} disabled={Boolean(busy) || committedOperations.length > 0}>Woolly bush 품목·입고량 분류</button>}
       <button type="button" className={styles.primary} onClick={runAutomaticPreparation} disabled={Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>
         {busy === 'auto-workflow' ? '단계 검증 중…' : '자동 검증·계속'}
@@ -1428,9 +1429,9 @@ export default function InvoiceReceiptWorkbench({
       <span className={styles.state}>{selected.dirty ? '저장되지 않은 변경 있음' : `저장됨 · revision ${documentValue.revision}`}</span>
     </div>
 
-    {documentValue.receiptStatus === 'COMMITTED' && <p className={styles.committed}>등록 문서 · WarehouseKey {documentValue.warehouseKey ?? '확인 중'}{selected.dirty ? ' · 편집 초안은 저장 API 처리 전까지 기존 입고를 바꾸지 않습니다.' : ''}</p>}
+    {documentValue.receiptStatus === 'COMMITTED' && <p className={styles.committed}>{currentRevisionCommitted ? '입고 업로드 완료' : '기존 등록 문서'} · 입고번호 {documentValue.warehouseKey ?? '확인 중'}{selected.dirty ? ' · 편집 초안은 저장 API 처리 전까지 기존 입고를 바꾸지 않습니다.' : ''}</p>}
     {operationResult && <div className={styles.resultReadback}><strong>작업 readback</strong><span>상태 {operationResult.status || 'SUCCESS'}</span><span>WarehouseKey {operationResult.warehouseKey ?? '—'}</span><span>원가 {operationResult.costStatus || '—'}</span></div>}
-    {currentRevisionCommitted && Number(operationResult?.warehouseKey)>0 && <a target="_blank" rel="noopener noreferrer" href={`/incoming?${new URLSearchParams({warehouseKey:String(operationResult.warehouseKey),from:`${documentValue.orderYear}-01-01`,to:`${documentValue.orderYear}-12-31`,week:documentValue.orderWeek,popup:'1'})}`}>등록된 입고건 새창 조회 · 팝업이 차단되면 눌러 주세요</a>}
+    {currentRevisionCommitted && Number(documentValue.warehouseKey)>0 && <a target="_blank" rel="noopener noreferrer" href={`/incoming?${new URLSearchParams({warehouseKey:String(documentValue.warehouseKey),from:`${documentValue.orderYear}-01-01`,to:`${documentValue.orderYear}-12-31`,week:documentValue.orderWeek,popup:'1'})}`}>입고관리에서 확인</a>}
 
     {(() => {
       const meta = documentValue.reviewedMetadata || {};
@@ -1528,9 +1529,9 @@ export default function InvoiceReceiptWorkbench({
       <button type="button" onClick={() => setWorkspaceMode('receipt')} disabled={Boolean(busy)}>인보이스 입력값 확인·수정</button>
     </details>}
     </>}
-    {currentRevisionCommitted && documentValue.reviewedMetadata?.country === 'CO' && documentValue.reviewedMetadata?.awb &&
+    {workspaceMode === 'cost' && currentRevisionCommitted && documentValue.reviewedMetadata?.country === 'CO' && documentValue.reviewedMetadata?.awb &&
       <SharedAwbCostReview key={`${documentValue.documentId}/${documentValue.revision}`} document={documentValue} />}
-    {currentRevisionCommitted
+    {workspaceMode === 'cost' && currentRevisionCommitted
       ? <InvoiceReceiptCostReview document={documentValue} onSaved={refreshAfterCostSave}
         autoSaveRequested={false} autoProcess={workspaceMode === 'cost' && receiptReadbackPassed} onStageChange={onCostStageChange} />
       : costIsStale

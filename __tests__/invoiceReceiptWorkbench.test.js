@@ -40,7 +40,7 @@ test('farm lookup surfaces failures, rejects malformed responses, and ignores ab
   }
 });
 
-test('verified receipt advances to cost without another receipt request; failed or stale readback does not', async () => {
+test('verified receipt completes on the receipt screen without initiating cost; failed or stale readback cannot complete', async () => {
   const body = source.slice(source.indexOf('  async function acceptCommitResult('), source.indexOf('  function handleCommitFailure('));
   for (const scenario of ['success', 'wrong-operation', 'wrong-warehouse', 'read-failure', 'stale']) {
     const events = [];
@@ -59,10 +59,22 @@ test('verified receipt advances to cost without another receipt request; failed 
       () => scenario !== 'stale', fresh);
     if (['wrong-operation', 'wrong-warehouse', 'read-failure'].includes(scenario)) await assert.rejects(run);
     else await run();
-    assert.deepEqual(events, scenario === 'success' ? ['read', 'install', 'clear', 'result', 'cost'] : ['read']);
+    assert.deepEqual(events, scenario === 'success' ? ['read', 'install', 'clear', 'result'] : ['read']);
   }
   assert.match(source, /!currentRevisionCommitted && costSource==='existing'/);
-  assert.match(source, /입고 등록 · 도착원가 생성/);
+  assert.match(source, /입고 업로드\(저장\)/);
+  assert.match(source, /이 입고의 도착원가 작업/);
+  const start = source.indexOf('  const openCostWorkspace =');
+  const end = source.indexOf('\n\n  return', start);
+  const operation = { documentId: 'doc', orderYear: 2026, orderWeek: '47-02', warehouseKey: '42' };
+  for (const verified of [true, false]) {
+    const open = new Function('setWorkspaceMode', 'currentRevisionCommitted', 'documentValue',
+      `${source.slice(start, end)}; return openCostWorkspace;`)((mode, scope) => {
+      assert.equal(mode, 'cost');
+      assert.deepEqual(scope, verified ? { ...operation, orderYear: '2026', warehouseKey: 42 } : undefined);
+    }, verified, operation);
+    open();
+  }
 });
 
 test('local scope validation errors are not replaced by response scope checks', () => {

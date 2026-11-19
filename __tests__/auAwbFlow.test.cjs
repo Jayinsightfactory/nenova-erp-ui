@@ -83,15 +83,16 @@ test('AU analysis prompt distinguishes the second AWB PDF and never pre-seeds th
   assert.doesNotMatch(prompt, /805|081-63688774|packages":65/);
 });
 
-test('AU browser workflow requires both PDFs and blocks receipt until AWB is reviewed', () => {
+test('AU invoice upload allows one PDF and uses only reviewed AWB attachments for the receipt', () => {
   const packing = fs.readFileSync(path.join(root, 'components/import-tools/PackingListTool.js'), 'utf8');
   const workbench = fs.readFileSync(path.join(root, 'components/import-tools/InvoiceReceiptWorkbench.js'), 'utf8');
   const writer = fs.readFileSync(path.join(root, 'lib/invoiceReceiptWriter.js'), 'utf8');
-  assert.match(packing, /country === 'AU' && !awbPdfBase64/);
-  assert.match(packing, /awbReview\?\.ready \|\| !awbReviewed/);
+  assert.doesNotMatch(packing, /country === 'AU' && !awbPdfBase64/);
+  assert.match(packing, /AWB 항공운송장 PDF \(선택\)/);
   assert.match(packing, /invoiceUploadDate/);
   assert.match(workbench, /awbReviewed: Boolean\(awb\?\.confirmed && review\?\.ready\)/);
   assert.match(workbench, /grossWeightKg: review\?\.grossWeightKg/);
+  assert.match(workbench, /const attachment = review \?/);
   assert.match(writer, /AWB_REVIEW_REQUIRED/);
   assert.match(writer, /AWB_PACKAGE_TOTAL_MISMATCH/);
 });

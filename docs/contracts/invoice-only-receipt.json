@@ -1,0 +1,16 @@
+{
+  "id": "invoice-only-receipt",
+  "title": "인보이스 단독 입고 등록과 동일 원장 원가 재진입",
+  "scope": ["lib/importAustraliaOcr.js", "lib/invoiceReceiptCostRoute.js", "lib/invoiceReceiptWriter.js", "components/import-tools/PackingListTool.js", "components/import-tools/InvoiceReceiptWorkbench.js", "pages/import/tools.js", "pages/incoming.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "receiptIdentity": ["OrderYear", "OrderWeek", "WarehouseKey"],
+  "actions": [
+    {"name":"PREVIEW_INVOICE_ONLY","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","orderDetail":"preserve","shipmentDetail":"preserve","notes":"품목·공급자·연도/차수·원문 금액을 기존 규칙으로 확인한다. AWB 미첨부 허용. 반영 대상 AWB는 원문 근거가 필요하다."},
+    {"name":"COMMIT_INVOICE_ONLY","warehouseMaster":"create/update","warehouseDetail":"create/update","stock":"recalculate","orderDetail":"preserve","shipmentDetail":"preserve","notes":"원장 수치와 중복/트랜잭션 검증은 기존 writer, 원가는 PENDING, 원가 API 호출 없음. ShipmentDate, ShipmentFarm, Estimate, WebProfitReport 보존."},
+    {"name":"REOPEN_RECEIPT_COST","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","orderDetail":"preserve","shipmentDetail":"preserve","notes":"명시 원가 작업에서만 연도·차수·WarehouseKey로 기존 원가 자료를 조회한다. 데스크톱 복원과 입고관리 상세에서도 같은 경로를 사용한다."}
+  ],
+  "crossYearFixture": {"required":true,"description":"2025·2026 동일 41-01 주문이 있는 실제 격리 SQL에서 2026만 사전검증 및 저장. 2025·2026 47-02 업무 링크를 데스크톱 복원 후 각각 확인."},
+  "requiredTestFiles": ["__tests__/auAwbFlow.test.cjs", "__tests__/importAustraliaOcr.test.mjs", "__tests__/invoiceReceiptWorkbench.test.js", "__tests__/invoiceReceiptCostRoute.test.mjs", "__tests__/co4702Summary.test.mjs"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-11-19 설치 EXE CLI 재확인. 운영 SELECT 및 부작용은 docs/plans/invoice-only-receipt-2026-11-19.md 참조.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","StockHistory","Product","ProductStock"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"]
+}
