@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { normalizeFlightId, parseIcnDatetime, pickIcnRecord, readIcnFlights, _clearIcnCache } from '../lib/importFlightIcn.js';
-import { parseCustomsXml, summarizeCustoms, readCustoms, _clearCustomsCache } from '../lib/importFlightCustoms.js';
+import { parseCustomsXml, summarizeCustoms, compactCustomsProgress, readCustoms, _clearCustomsCache } from '../lib/importFlightCustoms.js';
 import { readDocsSent, setDocsSent } from '../lib/importFlightDocsStore.js';
 
 // --- 공항
@@ -143,3 +143,18 @@ fs.rmSync(dir, { recursive: true, force: true });
 delete process.env.IMPORT_FLIGHT_DOCS_FILE;
 
 console.log('importFlightSources tests passed');
+
+{
+  const checkedAt = Date.parse('2026-11-19T18:24:00+09:00');
+  const declaration = { found: true, checkedAt, status: '반입신고', customsStatus: '수입신고', declaredAt: '2026-11-19T16:38:00+09:00' };
+  assert.deepEqual(compactCustomsProgress(declaration, checkedAt), { declaration: 'pending', release: 'unknown' });
+  assert.deepEqual(compactCustomsProgress({ ...declaration, clearedAt: '2026-11-19T18:17:00+09:00' }, checkedAt), { declaration: 'cleared', release: 'unknown' });
+  assert.deepEqual(compactCustomsProgress({ ...declaration, status: '반출 대기' }, checkedAt), { declaration: 'pending', release: 'waiting' });
+  assert.equal(compactCustomsProgress({ ...declaration, releasedAt: '2026-11-19T18:19:00+09:00' }, checkedAt), null);
+  assert.equal(compactCustomsProgress({ ...declaration, status: '반출완료' }, checkedAt), null);
+  assert.equal(compactCustomsProgress({ ...declaration, status: '수입신고 취하' }, checkedAt), null);
+  assert.equal(compactCustomsProgress({ found: true, checkedAt, warehousedAt: declaration.declaredAt }, checkedAt), null);
+  assert.equal(compactCustomsProgress({ ...declaration, found: false }, checkedAt), null);
+  assert.equal(compactCustomsProgress({ ...declaration, status: '', customsStatus: '' }, checkedAt), null);
+  assert.equal(compactCustomsProgress(declaration, checkedAt + 600000), null);
+}
