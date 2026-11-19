@@ -35,10 +35,13 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
    else if(route==='/api/import/tools/product-matches'){if(method==='POST')catalog.value=upsertPackingErpMatch(catalog.value,body,catalog.products);d={...catalog,success:true,scope:'team',revision:1};}
    else if(route==='/api/import/upload-issues'){if(method==='POST')await appendUploadIssue({withTransaction:ctx.withTransactionFn,sql,actor:'invoice-fixture',input:body});d={success:true,rows:(await query(pool,"SELECT LogKey,Actor,Payload FROM SystemActionLog")).recordset.map(x=>({id:x.LogKey,actor:x.Actor,...JSON.parse(x.Payload)}))};}
    else if(route==='/api/import/tools/parse-pdf'&&method==='POST'){
-    assert.ok(cachedAnalysis,'NO_APPROVED_CACHED_ANALYSIS');assert.equal(body.country,cachedAnalysis.country);
-    const hash=createHash('sha256').update(Buffer.from(body.pdfBase64,'base64')).digest('hex');assert.equal(hash,cachedAnalysis.sourceHash,'SOURCE_HASH_MISMATCH');
-    d={...cachedAnalysis.ai,source:'cache',cacheSaved:true};
+    const cached=cachedAnalysis?.country===body.country?cachedAnalysis:cachedAnalysis?.alternates?.[body.country];
+    assert.ok(cached,'NO_APPROVED_CACHED_ANALYSIS');assert.equal(body.country,cached.country);
+    const hash=createHash('sha256').update(Buffer.from(body.pdfBase64,'base64')).digest('hex');assert.equal(hash,cached.sourceHash,'SOURCE_HASH_MISMATCH');
+    if(cached.awbSourceHash)assert.equal(createHash('sha256').update(Buffer.from(body.awbPdfBase64,'base64')).digest('hex'),cached.awbSourceHash,'AWB_SOURCE_HASH_MISMATCH');
+    d={...cached.ai,source:'cache',cacheSaved:true};
    }
+   else if(route==='/api/import/receipts/aud-exchange-rate'&&cachedAnalysis?.alternates?.AU)d={success:true,rate:950,rateDate:u.searchParams.get('date'),requestedDate:u.searchParams.get('date'),carriedForward:false,source:'TEST_ONLY fixed rate'};
    else if(route==='/api/import/receipts/live-exchange-rate'&&method==='GET'){
     if(cachedAnalysis?.testRate)d={success:true,...cachedAnalysis.testRate};else{
     const {fetchLiveInvoiceRate}=await import('../lib/invoiceLiveExchangeRate.js');
