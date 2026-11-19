@@ -2072,49 +2072,51 @@ export default function TechRadarWorkbench({
 
       <style jsx>{`
         .trw-root {
-          --trw-bg: var(--pm-bg, rgb(14, 16, 22));
-          --trw-surface: var(--pm-surface, rgb(20, 24, 32));
-          --trw-surface-2: var(--pm-surface2, rgb(27, 32, 43));
-          --trw-ink: var(--pm-ink, rgb(231, 234, 240));
-          --trw-muted: var(--pm-muted, rgb(148, 160, 178));
-          --trw-line: var(--pm-line, rgb(41, 49, 64));
-          --trw-accent: var(--pm-accent, rgb(88, 166, 255));
+          --trw-bg: var(--pm-bg, rgb(248, 250, 252));
+          --trw-surface: var(--pm-surface, rgb(255, 255, 255));
+          --trw-surface-2: var(--pm-surface2, rgb(241, 245, 249));
+          --trw-ink: var(--pm-ink, rgb(15, 23, 42));
+          --trw-muted: var(--pm-muted, rgb(71, 85, 105));
+          --trw-line: var(--pm-line, rgb(226, 232, 240));
+          --trw-accent: var(--pm-accent, rgb(29, 78, 216));
           --trw-accent-ink: var(--pm-accent-ink, rgb(255, 255, 255));
-          --trw-ok: var(--pm-ok, rgb(46, 160, 67));
-          --trw-ok-bg: var(--pm-ok-bg, rgba(46, 160, 67, 0.14));
-          --trw-ok-ink: var(--pm-ok-ink, rgb(110, 231, 183));
-          --trw-warn: var(--pm-idle, rgb(210, 153, 34));
-          --trw-warn-bg: var(--pm-idle-bg, rgba(210, 153, 34, 0.16));
-          --trw-warn-ink: var(--pm-idle-ink, rgb(251, 191, 36));
-          --trw-err: var(--pm-err, rgb(248, 81, 73));
-          --trw-link: var(--pm-link, rgb(121, 192, 255));
+          --trw-ok: var(--pm-ok, rgb(21, 128, 61));
+          --trw-ok-bg: var(--pm-ok-bg, rgb(220, 252, 231));
+          --trw-ok-ink: var(--pm-ok-ink, rgb(20, 83, 45));
+          --trw-warn: var(--pm-idle, rgb(180, 83, 9));
+          --trw-warn-bg: var(--pm-idle-bg, rgb(254, 243, 199));
+          --trw-warn-ink: var(--pm-idle-ink, rgb(120, 53, 15));
+          --trw-err: var(--pm-err, rgb(185, 28, 28));
+          --trw-link: var(--pm-link, rgb(29, 78, 216));
           --trw-radius: 6px;
           background: var(--trw-bg);
           color: var(--trw-ink);
+          border: 1px solid var(--trw-line);
           padding: 12px;
           border-radius: var(--trw-radius);
           font-size: 13px;
           display: flex;
           flex-direction: column;
           gap: 10px;
+          box-shadow: none;
         }
         .trw-root[data-wb-mode="clear"][data-plan-mode="ALL"] {
-          --trw-bg: var(--pm-bg, rgb(243, 245, 248));
+          --trw-bg: var(--pm-bg, rgb(248, 250, 252));
           --trw-surface: var(--pm-surface, rgb(255, 255, 255));
-          --trw-surface-2: var(--pm-surface2, rgb(241, 244, 249));
-          --trw-ink: var(--pm-ink, rgb(27, 36, 51));
-          --trw-muted: var(--pm-muted, rgb(91, 102, 120));
-          --trw-line: var(--pm-line, rgb(217, 222, 232));
-          --trw-accent: var(--pm-accent, rgb(36, 86, 200));
+          --trw-surface-2: var(--pm-surface2, rgb(241, 245, 249));
+          --trw-ink: var(--pm-ink, rgb(15, 23, 42));
+          --trw-muted: var(--pm-muted, rgb(71, 85, 105));
+          --trw-line: var(--pm-line, rgb(226, 232, 240));
+          --trw-accent: var(--pm-accent, rgb(29, 78, 216));
           --trw-accent-ink: var(--pm-accent-ink, rgb(255, 255, 255));
-          --trw-ok: var(--pm-ok, rgb(31, 138, 76));
-          --trw-ok-bg: var(--pm-ok-bg, rgb(227, 244, 234));
+          --trw-ok: var(--pm-ok, rgb(21, 128, 61));
+          --trw-ok-bg: var(--pm-ok-bg, rgb(220, 252, 231));
           --trw-ok-ink: var(--pm-ok-ink, rgb(20, 83, 45));
-          --trw-warn: var(--pm-idle, rgb(183, 121, 31));
-          --trw-warn-bg: var(--pm-idle-bg, rgb(253, 240, 200));
-          --trw-warn-ink: var(--pm-idle-ink, rgb(92, 67, 0));
-          --trw-err: var(--pm-err, rgb(200, 54, 44));
-          --trw-link: var(--pm-link, rgb(36, 86, 200));
+          --trw-warn: var(--pm-idle, rgb(180, 83, 9));
+          --trw-warn-bg: var(--pm-idle-bg, rgb(254, 243, 199));
+          --trw-warn-ink: var(--pm-idle-ink, rgb(120, 53, 15));
+          --trw-err: var(--pm-err, rgb(185, 28, 28));
+          --trw-link: var(--pm-link, rgb(29, 78, 216));
         }
 
         .trw-topbar,
@@ -2141,7 +2143,7 @@ export default function TechRadarWorkbench({
           margin-bottom: 3px;
         }
         .trw-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .trw-title-row h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--trw-ink); letter-spacing: -0.01em; }
+        .trw-title-row h2 { margin: 0; border-bottom: 0; padding-bottom: 0; font-size: 18px; font-weight: 700; color: var(--trw-ink); letter-spacing: -0.01em; }
         .trw-subtitle { margin: 4px 0 0; font-size: 12px; color: var(--trw-muted); line-height: 1.45; }
 
         .trw-kpi-strip {
@@ -2606,7 +2608,7 @@ export default function TechRadarWorkbench({
         .trw-table tr.is-active {
           background: color-mix(in srgb, var(--trw-accent) 10%, var(--trw-surface));
         }
-        .trw-table tr.is-active td:first-child { box-shadow: inset 3px 0 0 var(--trw-accent); }
+        .trw-table tr.is-active td:first-child { border-left: 3px solid var(--trw-accent); }
         .trw-num { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 700; }
         .trw-repo-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
         .trw-lang { font-size: 10px; color: var(--trw-muted); border: 1px solid var(--trw-line); border-radius: 3px; padding: 0 4px; }
@@ -2705,7 +2707,8 @@ export default function TechRadarWorkbench({
         .trw-node-card.is-active { border-color: var(--trw-accent); }
         .trw-node-card.is-primary { border-left: 3px solid var(--trw-ok); }
         .trw-node-card.is-step-focus {
-          box-shadow: inset 0 0 0 1px var(--trw-accent);
+          outline: 1px solid var(--trw-accent);
+          outline-offset: -1px;
           background: color-mix(in srgb, var(--trw-accent) 11%, var(--trw-surface-2));
         }
         .trw-node-top { display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 10px; }

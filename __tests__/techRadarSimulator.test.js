@@ -479,6 +479,20 @@ assert.doesNotMatch(staffHtml, /결정 대기 실측/);
 assert.doesNotMatch(staffHtml, /유료 API 워커/);
 assert.doesNotMatch(staffHtml, FORBIDDEN_WORDS);
 
+const clearAllHtml = renderToStaticMarkup(
+  React.createElement(WorkbenchComp, {
+    ledger: SAMPLE_LEDGER,
+    techRadar: SAMPLE_TECH_RADAR,
+    isAdmin: true,
+    mode: 'clear',
+    initialPlanMode: 'ALL',
+    standaloneUiStyles: false,
+  })
+);
+assert.match(clearAllHtml, /data-wb-mode="clear"/);
+assert.match(clearAllHtml, /rgb\(248, 250, 252\)/, 'ALL_CLEAR 에디토리얼 라이트 배경 토큰 적용');
+assert.doesNotMatch(wbSrc, /box-shadow:(?!\s*none\b)/, 'TechRadarWorkbench Anti-AI Slop: 글로우 box-shadow 금지');
+
 const SimComp = compile('components/work/SolutionSuiteSimulator.js').default;
 const suiteHtml = renderToStaticMarkup(React.createElement(SimComp, { orbit: 'https://orbit.example', orbitQs: '' }));
 for (const token of ['moyi-worker', 'mindmap_sink', 'browser_session_bridge', 'com.nenovakakao.sales_session', 'core/self_update.py', '/my-work?tab=radar']) {

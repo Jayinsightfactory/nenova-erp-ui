@@ -118,9 +118,19 @@ assert.match(myWorkSrc, /tab === 'suite-sim' && !mineOnly && <SolutionSuiteSimul
 const archSrc = read('components/pm/ArchFlowChart.js');
 assert.match(archSrc, /!mineOnly && onSelectTab &&[\s\S]*?<Button[\s\S]*?onSelectTab\('suite-sim'\)[\s\S]*?통합 모션 시뮬레이션 열기 ↗/);
 
-// 5) SolutionSuiteSimulator.js 소스 계약 & 금지어 & SSR 렌더링 검증
+// 5) SolutionSuiteSimulator.js 소스 계약 · Anti-AI Slop 가드 · SSR 렌더링 검증
 const simSrc = read('components/work/SolutionSuiteSimulator.js');
-assert.doesNotMatch(simSrc, /감시|추적|모니터링/, '작업자·관리자 UI 문구에 감시·추적·모니터링 금지');
+assert.doesNotMatch(simSrc, /감시|추적|모니터링|절감시간/, '작업자·관리자 UI 문구에 감시·추적·모니터링·절감시간 금지');
+assert.doesNotMatch(simSrc, /linear-gradient|radial-gradient|conic-gradient/i, 'Anti-AI Slop: gradient 사용 금지');
+assert.doesNotMatch(
+  simSrc,
+  /#(?:a78bfa|818cf8|22d3ee|38bdf8|0e1016|0b1019|67e8f9|7dd3fc|a5f3fc|34d399|60a5fa|f87171|fca5a5|fbbf24|fcd34d)\b/i,
+  'Anti-AI Slop: 보라·네온 청록·어두운 네온 배경 hex 금지'
+);
+assert.doesNotMatch(simSrc, /box-shadow|feGaussianBlur/i, 'Anti-AI Slop: 글로우/box-shadow 장식 금지');
+assert.ok(!simSrc.includes('➔'), 'Anti-AI Slop: 장식 화살표(➔) 금지');
+assert.doesNotMatch(simSrc, /[🚀✨💡🔥🎯🌐🛰️🧪✅🔁⏳📍📦🔍⏸▶◀↺⚡]/u, 'Anti-AI Slop: 장식 이모지·제어 기호 금지');
+assert.ok(simSrc.includes('tabular-nums'), '고정폭 숫자(tabular-nums) 적용 필수');
 assert.ok(simSrc.includes('prefers-reduced-motion'), 'prefers-reduced-motion 존중 필수');
 for (const apiPath of [
   '/api/my-work/feature?name=workflows',
@@ -133,12 +143,16 @@ for (const apiPath of [
 }
 assert.ok(simSrc.includes('steps') && simSrc.includes('.box'), 'records steps[].box 바운딩박스 지원 필요');
 
-// 기본 SSR 렌더링
+// 기본 SSR 렌더링 (실시간 아키텍처 트레이스 뷰포트 + 패킷 원장 인스펙터 + 실행 로그 테이블)
 const SimulatorComp = compile('components/work/SolutionSuiteSimulator.js').default;
 const ssrHtml = renderToStaticMarkup(React.createElement(SimulatorComp, { orbit: 'https://orbit.example', orbitQs: '' }));
 assert.match(ssrHtml, /data-testid="solution-suite-simulator"/);
 assert.match(ssrHtml, /viewBox="0 0 980 340"/);
-assert.match(ssrHtml, /수작업 18\.5분 ➔ 자동화\+MOYI 승인 14초 · 98\.7% 단축/);
+assert.match(ssrHtml, /수작업 18\.5분 → 자동화\+MOYI 승인 14초 · 98\.7% 단축/);
+assert.match(ssrHtml, /tabular-nums/);
+assert.doesNotMatch(ssrHtml, /linear-gradient|radial-gradient/i);
+assert.doesNotMatch(ssrHtml, /#(?:a78bfa|818cf8|22d3ee|38bdf8|0e1016|0b1019)\b/i);
+assert.doesNotMatch(ssrHtml, /감시|추적|모니터링|절감시간/);
 for (const token of [
   '01 Phone Harness · 카톡 수집',
   '02 Device Hub · 30fps Lease',
@@ -151,15 +165,24 @@ for (const token of [
   'OutQuantity=100',
   'ApprovedBy',
   'BEGIN TRAN UPDLOCK',
-  '/images/solution-sim/moyi-suite-hero-blueprint.jpg',
-  '/images/solution-sim/phone-harness-device-hub.jpg',
-  '/images/solution-sim/moyi-approval-erp-sync.jpg',
+  'core/moyi_worker.py',
+  'nenova-device-sidecar.exe',
+  'api.nowlink.kr',
+  'nenovaweb',
+  '원장 안전 가드 체크표',
+  '엔지니어링 실행 로그 원장',
+  '<th>Step</th>',
+  '<th>표면 노드</th>',
+  '<th>실행 모듈·계약</th>',
+  '<th>소요시간</th>',
+  '<th>안전 가드 상태</th>',
   '/api/my-work/feature?name=suite-blueprint-html',
+  '/my-work?tab=radar',
 ]) {
   assert.ok(ssrHtml.includes(token), `SSR HTML에 핵심 요소 누락: ${token}`);
 }
 
-// Step 5 (MOYI 승인 카드) + Archify 탭 + Orbit records steps[].box 바운딩박스 상태 렌더링 검증
+// Step 5 (MOYI 승인 카드) + Archify 탭 + Orbit records steps[].box 바운딩박스 + 3D 블루프린트 탭 상태 렌더링 검증
 const overrideByInit = (overrides) => {
   const MockComp = compile('components/work/SolutionSuiteSimulator.js', (id) => {
     if (id === 'react') {
@@ -187,15 +210,24 @@ const overrideByInit = (overrides) => {
 
 const step5ArchifyHtml = overrideByInit({
   '0': 4,
-  blueprints: 'archify',
+  trace: 'archify',
   items: [{ id: 'ev-101', timestamp: '2026-11-18T06:00:00Z', app: 'nenova', screen: '신규주문등록' }],
   records: [{ id: 'rec-101', timestamp: '2026-11-18T06:00:00Z', app: 'nenova', screen: '주문입력', steps: [{ box: [120, 240, 520, 440], label: '프리덤 100단', order: 1 }] }],
 });
-assert.match(step5ArchifyHtml, /\[✓ MOYI 승인 실행\]/, 'Step 5 에서 인터랙티브 MOYI 승인 버튼 렌더링');
-assert.match(step5ArchifyHtml, /<iframe[^>]+title="통합 솔루션 인터랙티브 설계도"[^>]+src="\/api\/my-work\/feature\?name=suite-blueprint-html"/, 'Archify 탭 iframe 렌더링');
+assert.match(step5ArchifyHtml, />MOYI 승인 실행</, 'Step 5 에서 인터랙티브 MOYI 승인 버튼 렌더링');
+assert.match(step5ArchifyHtml, /<iframe[^>]+title="통합 솔루션 인터랙티브 설계도"[^>]+src="\/api\/my-work\/feature\?name=suite-blueprint-html/, 'Archify 탭 iframe 렌더링');
 assert.match(step5ArchifyHtml, /\/api\/work\/orbit-thumbs\?img=rec-101/, '실작업 기록 캡처 이미지 렌더링');
 assert.match(step5ArchifyHtml, /left:12%;top:24%;width:40%;height:20%/, 'steps[].box 천분율 좌표 -> % 바운딩박스 변환 렌더링');
 assert.match(step5ArchifyHtml, /프리덤 100단/, '바운딩박스 라벨 렌더링');
+
+const blueprintsHtml = overrideByInit({ trace: 'blueprints' });
+for (const imgPath of [
+  '/images/solution-sim/moyi-suite-hero-blueprint.jpg',
+  '/images/solution-sim/phone-harness-device-hub.jpg',
+  '/images/solution-sim/moyi-approval-erp-sync.jpg',
+]) {
+  assert.ok(blueprintsHtml.includes(imgPath), `3D 블루프린트 탭 이미지 누락: ${imgPath}`);
+}
 
 // 6) 데스크톱 셸(shell.js) · 데스크톱 메뉴(Layout.js) 연결 계약
 const shellSrc = read('desktop/shell/shell.js');
