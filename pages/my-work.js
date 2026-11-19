@@ -13,6 +13,7 @@ import { useRouter } from 'next/router';
 import MenuBackButton from '../components/MenuBackButton';
 import ArchFlowChart from '../components/pm/ArchFlowChart';
 import TechRadarWorkbench from '../components/pm/TechRadarWorkbench';
+import GabrielProfitAgiWorkbench from '../components/import-tools/GabrielProfitAgiWorkbench';
 import SolutionSuiteSimulator from '../components/work/SolutionSuiteSimulator';
 import DeviceHubConsole from '../components/work/DeviceHubConsole';
 import { verifyReqUser } from '../lib/auth';
@@ -1011,6 +1012,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
     { id: 'replay', label: 'nenovaweb 화면 재생' },
     { id: 'orbit', label: 'Orbit 작업 데이터 전체' },
     { id: 'radar', label: '도입 레이더' }, // 관리자(isOrbitReportViewer) 전용 — mineOnly 목록에는 없음
+    { id: 'gabriel-agi', label: '가브리엘 원가·이익 AGI' },
   ];
   useEffect(() => {
     const qt = typeof router.query?.tab === 'string' ? router.query.tab : '';
@@ -1039,6 +1041,11 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
         {tab === 'story' && <StoryTab />}
         {tab === 'replay' && <Replay />}
         {tab === 'radar' && !mineOnly && <RadarTab />}
+        {tab === 'gabriel-agi' && !mineOnly && (
+          <div className="doc wide">
+            <GabrielProfitAgiWorkbench userId={userId} embedded={true} showGuide={false} />
+          </div>
+        )}
       </div>
       <style jsx global>{`
         html,body{margin:0;height:100%}

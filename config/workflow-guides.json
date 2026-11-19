@@ -4,7 +4,14 @@
     {
       "id": "packing-amount-review",
       "title": "인보이스 원본 대조·금액 수정·소계 제외와 복원",
-      "videoWaivers": [{"file":"lib/packingAmountReview.js","sha256":"ae1de28a4e58db6dc5d75d8cf9bd57190d4f7e4d1390bbfe2a9cfef549fad5c5","approvedBy":"owner","reason":"2026-11-19 사용자 명시: 추가촬영·백업 유예, 업로드→수정적용→격리입고→같은입고 원가다운로드·필수CI·배포 우선. 화면은 동일하며 적용 후 기존 금액검증 재계산만 수정. 기존영상 재촬영 완료 주장 없음."}],
+      "videoWaivers": [
+        {
+          "file": "lib/packingAmountReview.js",
+          "sha256": "ae1de28a4e58db6dc5d75d8cf9bd57190d4f7e4d1390bbfe2a9cfef549fad5c5",
+          "approvedBy": "owner",
+          "reason": "2026-11-19 사용자 명시: 추가촬영·백업 유예, 업로드→수정적용→격리입고→같은입고 원가다운로드·필수CI·배포 우선. 화면은 동일하며 적용 후 기존 금액검증 재계산만 수정. 기존영상 재촬영 완료 주장 없음."
+        }
+      ],
       "entryPaths": [
         "/import/tools"
       ],
@@ -2053,6 +2060,58 @@
               "scenario": "progress",
               "title": "5. 실제 완료 단계와 실측 기록",
               "seconds": 61.758
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gabriel-import-profit-agi",
+      "title": "가브리엘 수입·원가·이익 최적화 AGI 워크벤치",
+      "entryPaths": [
+        "/import/gabriel-agi"
+      ],
+      "sourceFiles": [
+        "pages/import/gabriel-agi.js",
+        "components/import-tools/GabrielProfitAgiWorkbench.js",
+        "lib/gabrielProfitAgi.js",
+        "styles/GabrielProfitAgi.module.css"
+      ],
+      "requiredScenarios": [
+        "scope",
+        "simulate",
+        "views",
+        "briefing"
+      ],
+      "guides": [
+        {
+          "id": "import",
+          "role": "수입부",
+          "title": "차수·환율·리밸런싱·시안 A·B·C 시뮬레이션과 브리핑 복사",
+          "status": "ready",
+          "src": "/guides/gabriel-import-profit-agi/import.mp4",
+          "captions": "/guides/gabriel-import-profit-agi/import.ko.vtt",
+          "proof": "/guides/gabriel-import-profit-agi/import.proof.json",
+          "chapters": [
+            {
+              "scenario": "scope",
+              "title": "1. 상단 공통 바에서 연도·세부차수와 국가(콜롬비아)를 선택해 원가 분석 범위를 맞춥니다.",
+              "seconds": 0.006
+            },
+            {
+              "scenario": "simulate",
+              "title": "2. 반사실 시뮬레이션 컨트롤에서 환율 +60원 스트레스 프리셋을 적용해 방어 효과를 계산합니다.",
+              "seconds": 10.679
+            },
+            {
+              "scenario": "views",
+              "title": "3. 시안 B(2×2 매트릭스)와 시안 C(매트 카본 수익 콘솔)로 전환해 품목별 우선순위를 검수합니다.",
+              "seconds": 21.354
+            },
+            {
+              "scenario": "briefing",
+              "title": "4. 사장님 보고용 원가·이익 브리핑 복사 버튼을 눌러 요약 보고서를 복사합니다.",
+              "seconds": 32.786
             }
           ]
         }
