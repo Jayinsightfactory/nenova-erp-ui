@@ -412,6 +412,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
       )}
       <style jsx>{`
         .flight-compact-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; overflow-wrap: anywhere; }
+        article[data-testid="flight-card"] { font-variant-numeric: tabular-nums; }
 
         .flight-select { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; border: 0; background: transparent; text-align: left; color: #163957; font: inherit; cursor: pointer; padding: 0 0 5px; }
         .flight-select:focus-visible { outline: 2px solid #1668c7; outline-offset: 3px; }

@@ -192,7 +192,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
     list.setAttribute('aria-label', `처리 순서별 항공편 ${flights.length}편`);
     if (flights.length > 3) list.append(css(el('div', '', `전체 ${flights.length}편 · 우선 처리 순`), {fontSize:'11.5px', marginBottom:'5px', color:'#526981'}));
     for(const f of flights){
-      const row=css(el('div'),{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'5px 10px',padding:'7px 2px',borderTop:'1px solid #e9ecef',fontSize:'12.5px'});
+      const row=css(el('div'),{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'5px 10px',fontSize:'12.5px',fontVariantNumeric:'tabular-nums'});
       const pct=f.status==='in_flight'&&f.progress!==null&&!/대기/.test(f.statusLabel)?` ${Math.round(f.progress*100)}%`:'';
       const state=chip(`${f.statusLabel}${pct}`,COLORS[f.status]||COLORS.gray);
       const at=f.arriveAt;
