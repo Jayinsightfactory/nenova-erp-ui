@@ -3925,3 +3925,11 @@ pm run test:canon 통과.
 4. 검증: PR verify44444601725·installer44444601720 success 후 병합; master ERP44445334162·Windows44445334066·Cafe24 44445334073 success. 운영 ping200/버전3761e41c·권한·실제173행 키·양식·영상/한국어 자막/목차5개·1920/1280/390·일반/팝업 통과, 로그인 이후 쓰기1건 차단·전달0·원장쓰기0. 여러 줄 인쇄 회귀 포함 신규26건 및 실제 XLSX 렌더 통과. 갱신 가이드/자막은 새 Drive ID로 백업·메타데이터 재확인. 최종 후속 CI는 미검증.
 5. 주의/잠금: 원장/ECOUNT 쓰기 금지, SSMS/DDL 없음. 원본 첨부·개인정보 미반입. acba의 기존 dirty WORK_MEMORY.md·45차_판매전표_대조.csv 보존. 백업8개 ID는 docs/work-sessions/2026-11-19_estimate-change-history-backups.json, 구현 PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1863, 설치본 https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.52.
 검색어: 견적 변경 이력 CI test:estimate-change-history pretest:estimate-delete PR1863 3761e41c Desktop1.3.52
+
+## 2026-11-19 · 도입·기술 레이더 Anti-AI Slop 워크벤치 & nenovakakao 실설계 도입 시뮬레이터
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/tech-radar-live-simulator` / `C:\Users\USER\nw-agy-radar-sim` (PR 생성·머지 후 정리 예정)
+2. 완료된 것: `lib/pmTechRadarSim.js` 및 `lib/techRadarSimEngine.js` (4분면×4동심원 결정론 극좌표·2×2 매트릭스·`nenovakakao` 6대 실설계 노드 Before/After 시뮬레이터), `components/pm/TechRadarWorkbench.js` (1px 헤어라인·`tabular-nums`·Anti-AI Slop 워크벤치), `pages/my-work.js` (`tab=radar` 통합 및 `adoption-ledger`+`tech-radar` 결합), `pages/pm/radar.js` (전 직원 워크벤치 연결·이모지 제거), `components/work/SolutionSuiteSimulator.js` (`moyi-worker`/`mindmap_sink`/`browser_session_bridge`/`PR #50` 계약 및 `/my-work?tab=radar` 연결), `desktop/package.json`·`package-lock.json` (`1.3.54` 패치 및 releaseNotes 갱신), `__tests__/techRadarSimulator.test.js` 작성 및 `__tests__/adoptionRadar.test.js` 현행화.
+3. 남은 할 일: PR 생성, `verify`·`installer` CI 통과 확인, squash 머지 및 worktree/junction 정리.
+4. 검증 상태: `techRadarSimulator`, `pmTechRadar`, `adoptionRadar`, `solutionSuiteSimulator`, `archFlowChart`, `test:pm`, `test:pm-boundary`, `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes`, `test:erp-manifest`, `desktopBootstrap`, `desktop/tests/*`(74건), `npx next build --webpack` PASS; 실운영 브라우저 클릭·MSSQL 쓰기 0건(파일 전용 기능) 및 CI 런너 실행은 PR 생성 후 확인.
+5. 주의/잠금: `C:\Users\USER\nenovakakao` 읽기 전용 참조만 수행(수정·워커 실행 0건), `desktop/shell/shell.js` 가이드 해시 보존, `/pm` 컴포넌트 `#hex`/raw `<button>`/금지어 0건 유지.
+검색어: tech-radar adoption-ledger TechRadarWorkbench techRadarSimEngine nenovakakao moyi_worker mindmap_sink browser_session_bridge self_update PR50 Desktop1.3.54

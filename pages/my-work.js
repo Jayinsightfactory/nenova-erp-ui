@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import MenuBackButton from '../components/MenuBackButton';
 import ArchFlowChart from '../components/pm/ArchFlowChart';
+import TechRadarWorkbench from '../components/pm/TechRadarWorkbench';
 import SolutionSuiteSimulator from '../components/work/SolutionSuiteSimulator';
 import DeviceHubConsole from '../components/work/DeviceHubConsole';
 import { verifyReqUser } from '../lib/auth';
@@ -871,10 +872,36 @@ function TrendChart({ days }) {
     </div>
   );
 }
+let _pmRadarCache = null;
 function RadarTab() {
+  const router = useRouter();
   const st = useFeature('adoption-ledger');
   const rep = useFeature('self-tune-report');
-  return <><SelfTuneReport st={rep} /><Loading st={st}><Radar data={st.data} /></Loading></>;
+  const [techRadar, setTechRadar] = useState(_pmRadarCache);
+  useEffect(() => {
+    if (_pmRadarCache) { setTechRadar(_pmRadarCache); return undefined; }
+    let alive = true;
+    fetch('/api/pm/radar', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !j?.success || !j?.data) return;
+        _pmRadarCache = j.data;
+        setTechRadar(j.data);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const onOpenSuiteSim = () => router.push({ pathname: '/my-work', query: { tab: 'suite-sim' } }, undefined, { shallow: true });
+  return (
+    <>
+      <SelfTuneReport st={rep} />
+      {st.loading && !techRadar ? (
+        <p className="dim" style={{ padding: 20 }}>불러오는 중…</p>
+      ) : (
+        <Radar data={st.data} techRadar={techRadar} ledgerError={st.error} onOpenSuiteSim={onOpenSuiteSim} />
+      )}
+    </>
+  );
 }
 // 자가수정 일일 보고(2026-10-09 사장님: "자가수정 로직은 도는데 보고가 없다"). self-tune-report.js 가 매일 올린 사람 문장 요약 + 직원별 확증 증감 + 채택 임박 별칭.
 function SelfTuneReport({ st }) {
@@ -883,7 +910,7 @@ function SelfTuneReport({ st }) {
   const conf = arr(t.confidence), nearly = arr(t.aliases?.nearly), hints = arr(t.hintChanges);
   const sign = (d) => (d === null || d === undefined ? '-' : (d > 0 ? '+' : '') + d);
   return (
-    <div className="doc radar">
+    <div className="doc wide radar">
       <h1>자가수정 보고 <small>{dash(t.date)} · 누적 {days.length}일</small></h1>
       <ul>{arr(t.summary).map((l, i) => <li key={i} className={/^⚠/.test(l) ? 'warn' : ''}>{l}</li>)}</ul>
       <h2>직원별 확증 <small>어제 대비</small></h2>
@@ -896,43 +923,59 @@ function SelfTuneReport({ st }) {
     </div>
   );
 }
-function Radar({ data }) {
-  if (!data) return <p className="warn">adoption-ledger.json 이 아직 올라오지 않았습니다 (사장님 PC run-all.sh → upload-adoption.js).</p>;
-  const days = arr(data.days);
+function Radar({ data, techRadar, ledgerError, onOpenSuiteSim }) {
+  const days = arr(data?.days);
   const last = days[days.length - 1] || null;
-  const cands = arr(data.candidates);
-  const decisions = data.decisions && typeof data.decisions === 'object' ? Object.entries(data.decisions) : [];
+  const cands = arr(data?.candidates);
+  const decisions = data?.decisions && typeof data.decisions === 'object' ? Object.entries(data.decisions) : [];
   const problems = last?.problemRegister && typeof last.problemRegister === 'object' ? last.problemRegister : null;
   return (
-    <div className="doc radar">
-      <h1>도입 레이더</h1>
-      <p className="dim">기준일 {dash(data.baselineDate)} · 갱신 {data.updatedAt ? fmtTs(data.updatedAt) : '-'} · 누적 {days.length}일{data.note ? ' · ' + data.note : ''}</p>
-      <h2>레이더 <small>도입 → 시험 → 평가 → 보류</small></h2>
-      <div className="rings">{RADAR_RINGS.map(([k, label]) => <div className="ring" key={k}>
-        <h3>{label} <span className="dim">{arr(data.radar?.[k]).length}</span></h3>
-        {arr(data.radar?.[k]).length ? <ul>{arr(data.radar[k]).map((it, i) => <li key={i}>{dash(it)}</li>)}</ul> : <p className="dim">-</p>}
-      </div>)}</div>
-      <h2>추이 <small>평균 확증률 · 확증 기록(일별)</small></h2>
-      <TrendChart days={days} />
-      <h2>실험 <small>{arr(data.experiments).length}건</small></h2>
-      {arr(data.experiments).length ? <div className="tw"><table className="tbl"><thead><tr><th>ID</th><th>이름</th><th>지표</th><th>기준일</th><th>기준값</th><th>목표</th><th>상태</th></tr></thead>
-        <tbody>{arr(data.experiments).map((e, i) => <tr key={e.id || i}><td>{dash(e.id)}</td><td>{dash(e.name)}</td><td>{dash(e.metric)}</td><td>{dash(e.baselineDate)}</td>
-          <td>{e.baseline && typeof e.baseline === 'object' ? Object.entries(e.baseline).map(([k, v]) => <span key={k} className="chip">{k} <em>{dash(v)}</em></span>) : dash(e.baseline)}</td>
-          <td>{dash(e.target)}</td><td>{dash(e.status)}</td></tr>)}</tbody></table></div> : <p className="dim">실험 없음</p>}
-      <h2>후보 <small>탐색 결과 {cands.length}건</small></h2>
-      {cands.length ? <div className="tw"><table className="tbl small"><thead><tr><th>제목</th><th>출처</th><th>적합도</th><th>문제</th><th>이유</th><th>조치</th></tr></thead>
-        <tbody>{cands.map((c, i) => <tr key={i}><td>{c.url ? <a href={c.url} target="_blank" rel="noreferrer">{dash(c.title)}</a> : dash(c.title)}</td><td>{dash(c.source)}</td><td>{dash(c.fit)}</td><td>{dash(c.problem)}</td><td>{dash(c.why)}</td><td>{dash(c.action)}</td></tr>)}</tbody></table></div>
-        : <p className="dim">탐색 결과 없음</p>}
-      <h2>결정</h2>
-      {decisions.length ? <div className="kv">{decisions.map(([k, v]) => <span key={k}><b>{k}</b>{dash(v)}</span>)}</div> : <p className="dim">-</p>}
-      <h2>문제 등록부 <small>{last ? last.date : '-'}</small></h2>
-      {problems ? <div className="tw"><table className="tbl small"><thead><tr><th>항목</th><th>값</th></tr></thead>
-        <tbody>{Object.keys(PROBLEM_LABELS).map((k) => <tr key={k}><td>{PROBLEM_LABELS[k]}</td><td>{dash(problems[k])}</td></tr>)}
-          {Object.keys(problems).filter((k) => !PROBLEM_LABELS[k]).map((k) => <tr key={k}><td>{k}</td><td>{dash(problems[k])}</td></tr>)}</tbody></table></div> : <p className="dim">-</p>}
-      {last?.staffConfidence?.byEmployee && <>
-        <h2>직원별 확증률 <small>{dash(last.staffConfidence.accuracyDate)} · 최저 {dash(last.staffConfidence.lowest?.name)} {dash(last.staffConfidence.lowest?.confirmedPct)}%</small></h2>
-        <div className="tw"><table className="tbl small"><thead><tr><th>직원</th><th>확증(%)</th><th>전산(%)</th><th>파일(%)</th><th>메시지(%)</th><th>단계</th></tr></thead>
-          <tbody>{Object.entries(last.staffConfidence.byEmployee).map(([n, v]) => <tr key={n}><td>{n}</td><td>{dash(v?.confirmedPct)}</td><td>{dash(v?.erpPct)}</td><td>{dash(v?.filePct)}</td><td>{dash(v?.msgPct)}</td><td>{dash(v?.steps)}</td></tr>)}</tbody></table></div>
+    <div className="doc wide radar">
+      <TechRadarWorkbench
+        ledger={data}
+        techRadar={techRadar}
+        isAdmin={true}
+        mode="dark"
+        standaloneUiStyles={true}
+        onOpenSuiteSim={onOpenSuiteSim}
+        title="도입 · 기술 레이더 & 실설계 도입 시뮬레이터"
+        subtitle="adoption-ledger 도입 장부와 tech-radar(GitHub 파일럿 실측)를 통합하고, 인수인계된 nenovakakao 6대 실설계 표면 기준으로 도입 전/후 변화를 시뮬레이션합니다."
+      />
+      {!data && (
+        <p className="warn" style={{ marginTop: 14 }}>
+          {ledgerError ? `adoption-ledger 불러오기 안내: ${ledgerError}` : 'adoption-ledger.json 이 아직 올라오지 않았습니다 (사장님 PC run-all.sh → upload-adoption.js).'}
+        </p>
+      )}
+      {data && <>
+        <h1 style={{ marginTop: 22 }}>도입 장부 상세 원장</h1>
+        <p className="dim">기준일 {dash(data.baselineDate)} · 갱신 {data.updatedAt ? fmtTs(data.updatedAt) : '-'} · 누적 {days.length}일{data.note ? ' · ' + data.note : ''}</p>
+        <h2>레이더 <small>도입 → 시험 → 평가 → 보류</small></h2>
+        <div className="rings">{RADAR_RINGS.map(([k, label]) => <div className="ring" key={k}>
+          <h3>{label} <span className="dim">{arr(data.radar?.[k]).length}</span></h3>
+          {arr(data.radar?.[k]).length ? <ul>{arr(data.radar[k]).map((it, i) => <li key={i}>{dash(it)}</li>)}</ul> : <p className="dim">-</p>}
+        </div>)}</div>
+        <h2>추이 <small>평균 확증률 · 확증 기록(일별)</small></h2>
+        <TrendChart days={days} />
+        <h2>실험 <small>{arr(data.experiments).length}건</small></h2>
+        {arr(data.experiments).length ? <div className="tw"><table className="tbl"><thead><tr><th>ID</th><th>이름</th><th>지표</th><th>기준일</th><th>기준값</th><th>목표</th><th>상태</th></tr></thead>
+          <tbody>{arr(data.experiments).map((e, i) => <tr key={e.id || i}><td>{dash(e.id)}</td><td>{dash(e.name)}</td><td>{dash(e.metric)}</td><td>{dash(e.baselineDate)}</td>
+            <td>{e.baseline && typeof e.baseline === 'object' ? Object.entries(e.baseline).map(([k, v]) => <span key={k} className="chip">{k} <em>{dash(v)}</em></span>) : dash(e.baseline)}</td>
+            <td>{dash(e.target)}</td><td>{dash(e.status)}</td></tr>)}</tbody></table></div> : <p className="dim">실험 없음</p>}
+        <h2>후보 <small>탐색 결과 {cands.length}건</small></h2>
+        {cands.length ? <div className="tw"><table className="tbl small"><thead><tr><th>제목</th><th>출처</th><th>적합도</th><th>문제</th><th>이유</th><th>조치</th></tr></thead>
+          <tbody>{cands.map((c, i) => <tr key={i}><td>{c.url ? <a href={c.url} target="_blank" rel="noreferrer">{dash(c.title)}</a> : dash(c.title)}</td><td>{dash(c.source)}</td><td>{dash(c.fit)}</td><td>{dash(c.problem)}</td><td>{dash(c.why)}</td><td>{dash(c.action)}</td></tr>)}</tbody></table></div>
+          : <p className="dim">탐색 결과 없음</p>}
+        <h2>결정</h2>
+        {decisions.length ? <div className="kv">{decisions.map(([k, v]) => <span key={k}><b>{k}</b>{dash(v)}</span>)}</div> : <p className="dim">-</p>}
+        <h2>문제 등록부 <small>{last ? last.date : '-'}</small></h2>
+        {problems ? <div className="tw"><table className="tbl small"><thead><tr><th>항목</th><th>값</th></tr></thead>
+          <tbody>{Object.keys(PROBLEM_LABELS).map((k) => <tr key={k}><td>{PROBLEM_LABELS[k]}</td><td>{dash(problems[k])}</td></tr>)}
+            {Object.keys(problems).filter((k) => !PROBLEM_LABELS[k]).map((k) => <tr key={k}><td>{k}</td><td>{dash(problems[k])}</td></tr>)}</tbody></table></div> : <p className="dim">-</p>}
+        {last?.staffConfidence?.byEmployee && <>
+          <h2>직원별 확증률 <small>{dash(last.staffConfidence.accuracyDate)} · 최저 {dash(last.staffConfidence.lowest?.name)} {dash(last.staffConfidence.lowest?.confirmedPct)}%</small></h2>
+          <div className="tw"><table className="tbl small"><thead><tr><th>직원</th><th>확증(%)</th><th>전산(%)</th><th>파일(%)</th><th>메시지(%)</th><th>단계</th></tr></thead>
+            <tbody>{Object.entries(last.staffConfidence.byEmployee).map(([n, v]) => <tr key={n}><td>{n}</td><td>{dash(v?.confirmedPct)}</td><td>{dash(v?.erpPct)}</td><td>{dash(v?.filePct)}</td><td>{dash(v?.msgPct)}</td><td>{dash(v?.steps)}</td></tr>)}</tbody></table></div>
+        </>}
       </>}
     </div>
   );
@@ -985,7 +1028,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
       <div className="stage">
         {tab === 'mine' && <MyFlowTab mine={mine} />}
         {tab === 'arch' && <ArchFlowChart onSelectTab={setTab} mineOnly={mineOnly} />}
-        {tab === 'suite-sim' && !mineOnly && <SolutionSuiteSimulator orbit={orbit} orbitQs={orbitQs} />}
+        {tab === 'suite-sim' && !mineOnly && <SolutionSuiteSimulator orbit={orbit} orbitQs={orbitQs} onSelectTab={setTab} />}
         {tab === 'devices' && !mineOnly && <DeviceHubConsole onSelectTab={setTab} />}
         {tab === 'unified' && <iframe title="업무 통합본" src={orbit + '/work-unified.html' + orbitQs} />}
         {tab === 'erp' && <iframe title="전산 실제 처리" src={orbit + '/erp-work.html' + orbitQs} />}
