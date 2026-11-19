@@ -23,6 +23,15 @@ test('damaged summaries are excluded and missing hashes fail closed',()=>{
  assert.throws(()=>packingFileReuse([],{country:'CO',sourceHash:''}));
  assert.throws(()=>analyzedPackingUploads(null,'CO'));
 });
+test('matching-reviewed files pin within country without overriding the newest revision or previous-file reuse',()=>{
+ const reviewed=row(1,{matchingReviewed:true,at:'2026-11-17'});
+ const pending=row(2,{sourceHash:changed,reviewConfirmed:true,at:'2026-11-19'});
+ const foreign=row(3,{country:'CN',matchingReviewed:true});
+ assert.deepEqual(analyzedPackingUploads([pending,reviewed,foreign],'CO'),[reviewed,pending]);
+ assert.equal(packingFileReuse([pending,reviewed],{country:'CO',sourceHash:'c'.repeat(64),fileName:reviewed.fileName}).previous,pending);
+ const latest={...reviewed,matchingReviewed:false,at:'2026-11-20'};
+ assert.equal(packingFileReuse([reviewed,latest],{country:'CO',sourceHash:hash,fileName:reviewed.fileName}).exact,latest);
+});
 test('unconsumed server completion is read with cacheOnly; cache miss never admits analysis',async()=>{
  const bodies=[];let status=200;
  const request=async(url,opts)=>{assert.equal(url,'/api/import/tools/parse-pdf');bodies.push(JSON.parse(opts.body));return {ok:status===200,status,json:async()=>({content:[{type:'text',text:'{}'}],stop_reason:'end_turn'})};};

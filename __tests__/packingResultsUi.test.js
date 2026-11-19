@@ -32,15 +32,16 @@ const React = {
 const css = new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) });
 const moduleUnderTest = { exports: {} };
 let packingMatchReview;
+let packingMatchPriority;
 let effectivePackingMatchReview;
 test.before(async () => {
-  ({ packingMatchReview } = await import('../lib/packingMatchReview.js'));
+  ({ packingMatchReview, packingMatchPriority } = await import('../lib/packingMatchReview.js'));
   ({ effectivePackingMatchReview } = await import('../lib/packingReceiptMatchState.js'));
 });
 new Function('require', 'module', 'exports', code)(key => {
   if (key === 'react') return React;
   if (key === '../../styles/ImportPacking.module.css') return css;
-  if (key === '../../lib/packingMatchReview') return { packingMatchReview: (...args) => packingMatchReview(...args) };
+  if (key === '../../lib/packingMatchReview') return { packingMatchReview: (...args) => packingMatchReview(...args), packingMatchPriority: (...args) => packingMatchPriority(...args) };
   if (key === '../../lib/packingReceiptMatchState') return { effectivePackingMatchReview: (...args) => effectivePackingMatchReview(...args) };
   throw new Error('Unexpected dependency: ' + key);
 }, moduleUnderTest, moduleUnderTest.exports);
@@ -119,7 +120,7 @@ test('renders every result row with optional China columns and stable smoke sele
   assert.match(text(tree), /DB 미매칭/);
 });
 
-test('default review list, ALL toggle, summaries and callbacks preserve original full-array identity', () => {
+test('default full list puts saved matches first and filter actions preserve original array identity', () => {
   state.length = 0;
   const products = [
     { sourceName: 'EXACT', name: 'EXACT', qty: 10 },
@@ -134,6 +135,10 @@ test('default review list, ALL toggle, summaries and callbacks preserve original
   let tree = render(props);
   let nodes = flatten(tree);
   let buttons = nodes.filter(node => node.props?.['data-testid'] === 'packing-product-match');
+  assert.deepEqual(buttons.map(text), ['MANUAL SOURCE', 'EXACT', 'SIMILAR SOURCE', 'UNKNOWN']);
+  nodes.find(node => node.props?.['data-testid'] === 'packing-results-view-toggle').props.onClick();
+  tree = render(props); nodes = flatten(tree);
+  buttons = nodes.filter(node => node.props?.['data-testid'] === 'packing-product-match');
   assert.deepEqual(buttons.map(text), ['SIMILAR SOURCE', 'UNKNOWN']);
   assert.match(text(tree), /정확 1 · 팀 공용 수동 1 · 문서 행 선택 0 · 유사 1 · 미매칭 1/);
   assert.match(text(tree), /단수 합계 100단/);
@@ -154,7 +159,7 @@ test('default review list, ALL toggle, summaries and callbacks preserve original
   buttons = nodes.filter(node => node.props?.['data-testid'] === 'packing-product-match');
   assert.equal(buttons.length, 4);
   assert.equal(nodes.find(node => node.props?.['data-testid'] === 'packing-results-view-toggle').props['aria-pressed'], true);
-  buttons[1].props.onClick(); assert.deepEqual(matches[1], [products[1], excel, 1]);
+  buttons[0].props.onClick(); assert.deepEqual(matches[1], [products[1], excel, 1]);
   nodes.find(node => node.props?.['data-testid'] === 'packing-results-view-toggle').props.onClick();
   assert.equal(flatten(render(props)).filter(node => node.props?.['data-testid'] === 'packing-product-match').length, 2);
 });
@@ -164,6 +169,8 @@ test('successful parent rebuild removes a review row safely, failed/no rebuild r
   const excel = { name: 'focus.xlsx', products: [{ sourceName: 'A', name: 'TARGET', qty: 1 }, { sourceName: 'B', name: 'B', qty: 2, unmatched: true }] };
   const props = { excels: [excel], country: 'CN', erpProducts: [{ ProdKey: 1, ProdName: 'TARGET' }, { ProdKey: 2, ProdName: 'B' }], blocked: () => false, onDownload() {}, onMatch() {} };
   let tree = render(props);
+  flatten(tree).find(node => node.props?.['data-testid'] === 'packing-results-view-toggle').props.onClick();
+  tree = render(props);
   let buttons = flatten(tree).filter(node => node.props?.['data-testid'] === 'packing-product-match');
   let focused = '';
   buttons[1].props.ref({ disabled: false, focus() { focused = 'B'; } });
@@ -272,7 +279,7 @@ test('disables matching without a parent callback or while mapping is disabled',
   assert.equal(flatten(statusDisabled).find(node => node.props?.['data-testid'] === 'packing-result-status-match').props.disabled, true);
 });
 
-test('preview-only rows never expose download and source issues join the default review filter', () => {
+test('preview-only rows never expose download and source issues join the review filter', () => {
   state.length = 0;
   const products = [
     { source_row: 1, sourceName: 'TARGET', name: 'TARGET', qty: null,
@@ -282,8 +289,11 @@ test('preview-only rows never expose download and source issues join the default
   ];
   const excel = { name: 'preview-only', label: 'Invoice preview', products, previewOnly: true };
   const reviews = [];
-  const tree = render({ excels: [excel], country: 'CN', previewOnly: true, erpProducts: [{ ProdKey: 3, ProdName: 'TARGET', country: 'CN' }],
-    blocked: () => true, onDownload() {}, onMatch() {}, onReviewSource: (...args) => reviews.push(args) });
+  const props = { excels: [excel], country: 'CN', previewOnly: true, erpProducts: [{ ProdKey: 3, ProdName: 'TARGET', country: 'CN' }],
+    blocked: () => true, onDownload() {}, onMatch() {}, onReviewSource: (...args) => reviews.push(args) };
+  const first = render(props);
+  flatten(first).find(node => node.props?.['data-testid'] === 'packing-results-view-toggle').props.onClick();
+  const tree = render(props);
   let nodes = flatten(tree);
   assert.equal(nodes.find(node => node.props?.['data-testid'] === 'packing-results-table').props['data-result-name'], 'preview-only');
   assert.equal(nodes.filter(node => node.props?.['data-testid'] === 'packing-product-match').length, 1,

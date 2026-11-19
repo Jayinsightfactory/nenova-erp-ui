@@ -23,6 +23,7 @@ import { receiptLineTotals } from '../../lib/importPackingReceiptAdapter.js';
 import { allocationIssues, applyInvoiceAllocation } from '../../lib/invoiceProductAllocation.js';
 import { createInvoiceReceiptStageLogClient, currentInvoiceStageHistory, invoiceStageHistorySummary } from '../../lib/invoiceReceiptStageLogClient.js';
 import styles from '../../styles/InvoiceReceipt.module.css';
+import sheetStyles from '../../styles/InvoiceReceiptSheet.module.css';
 import { assertReceiptScope, runReceiptPreparation, verifyReceiptDocument } from '../../lib/invoiceReceiptWorkflow.js';
 import {
   adaptPackingReceipts,
@@ -594,7 +595,7 @@ export default function InvoiceReceiptWorkbench({
     const picks = new Map();
     for (const line of documentValue.lines) {
       if (line.prodKey || committedLineIds.has(line.lineId) || line.sourceEvidence?.allocationSourceId) continue;
-      const top = topSuggestion(line, selectableProducts, country, matchHistory);
+      const top = topSuggestion(line, selectableProducts, country);
       if (top) picks.set(line.lineId, Number(top.product.ProdKey));
     }
     if (picks.size) updateSelected(document => ({
@@ -1226,6 +1227,8 @@ export default function InvoiceReceiptWorkbench({
     const mappings = operation?.result?.lineMappings || operation?.lineMappings || [];
     return mappings.map(mapping => mapping.lineId).filter(Boolean);
   }));
+  const receiptRows = [...documentValue.lines].sort((a, b) =>
+    Number(committedLineIds.has(b.lineId)) - Number(committedLineIds.has(a.lineId)));
   const receiptReadbackPassed = selected.stageProgress?.receiptVerify?.status === 'passed';
   const currentRevisionCommitted = !selected.dirty && receiptReadbackPassed
     && documentValue.receiptStatus === 'COMMITTED'
@@ -1438,26 +1441,26 @@ export default function InvoiceReceiptWorkbench({
       const guard = detectInvoiceCountry({ farmName: meta.farmName, lineNames: documentValue.lines.map(line => line.originalName),
         currency: documentValue.lines.find(line => line.currency)?.currency, selectedCountry: meta.country });
       const unmatched = documentValue.lines.filter(line => !line.prodKey && !committedLineIds.has(line.lineId) && !line.sourceEvidence?.allocationSourceId
-        && topSuggestion(line, selectableProducts, meta.country, matchHistory)).length;
+        && topSuggestion(line, selectableProducts, meta.country)).length;
       return <>
         {guard.mismatch && <p role="alert" style={{ padding: '8px 10px', border: '2px solid #c0392b', background: '#fdecea', color: '#7a1f14', borderRadius: 6 }}>
           <strong>나라 확인 필요:</strong> 이 인보이스는 {guard.suggested === 'CN' ? '중국' : '콜롬비아'}로 보이는데 {guard.selected === 'CN' ? '중국' : guard.selected === 'CO' ? '콜롬비아' : guard.selected}으로 선택되어 있습니다.
           {' '}근거: {guard.signals.filter(signal => signal.country === guard.suggested).map(signal => signal.reason).join(' · ')}. 나라가 틀리면 후보가 엉뚱한 품목으로 잡힙니다. 나라를 확인한 뒤 매칭하세요.
         </p>}
-        {unmatched > 0 && <p role="status"><button type="button" onClick={applyTopSuggestions}>미매칭 {unmatched}행 1순위로 모두 적용</button>{' '}
-          <small>행마다 1순위(굵은 파란 버튼)와 2순위 이하 버튼이 있습니다. 누르면 바로 선택됩니다.</small></p>}
+        {unmatched > 0 && <p role="status"><button type="button" onClick={applyTopSuggestions}>90% 이상 기본 후보 {unmatched}행 적용</button></p>}
       </>;
     })()}
     <div className={styles.workspace}>
-      <div className={styles.sheetScroll} tabIndex={0} role="region" aria-label="입고 검토 행 표">
+      <div className={`${styles.sheetScroll} ${sheetStyles.scroll}`} tabIndex={0} role="region" aria-label="입고 검토 행 표">
+        {committedLineIds.size > 0 && <p className={sheetStyles.note}>확정 품목을 바꾸려면 수량을 0으로 취소하고 새 행을 추가하세요.</p>}
         <div role="status" data-testid="receipt-current-totals">현재 입고 합계 · {(() => {
           const totals = receiptLineTotals(documentValue.lines), amounts = invoiceAmountReview(documentValue);
           const fmt = value => value == null ? '미기재' : value.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
           return `박스 ${fmt(totals.boxes)} · 단 ${fmt(totals.bunches)} · 송이 ${fmt(totals.stems)} · 상품 ${fmt(amounts.goods)} · 부대비 ${fmt(amounts.extras)} · 등록 총액 ${fmt(amounts.total)} / 송장 ${fmt(amounts.printed)} ${amounts.currency}`;
         })()}</div>
-        <table className={styles.sheet}>
+        <table className={`${styles.sheet} ${sheetStyles.table}`}>
           <thead><tr><th>#</th><th>원문 품목</th><th>전산 품목</th><th>박스</th><th>단</th><th>송이</th><th>가격단위</th><th>단가</th><th>통화</th><th>금액</th><th>대조</th></tr></thead>
-          <tbody>{documentValue.lines.map(line => {
+          <tbody>{receiptRows.map(line => {
             const product = productByKey.get(Number(line.prodKey));
             const committedProduct = committedLineIds.has(line.lineId);
             const rowIssues = issuesByLine.get(line.lineId) || [];
@@ -1465,7 +1468,7 @@ export default function InvoiceReceiptWorkbench({
             return <tr key={line.lineId} ref={element => element ? rowRefs.current.set(line.lineId, element) : rowRefs.current.delete(line.lineId)} className={rowIssues.length ? styles.issueRow : ''}>
               <td>{line.lineNo}</td><td title={line.originalName}>{line.originalName || '원문 미확인'}{line.lengthText ? <small>{line.lengthText}</small> : null}</td>
               <td>{committedProduct
-                ? <div className={styles.productLock}><strong>{productLabel(product) || `ProdKey #${line.prodKey}`}</strong><small>확정 입고 행의 품목은 변경할 수 없습니다. 수량 0 취소 후 새 행을 사용하세요.</small></div>
+                ? <strong>{productLabel(product) || `ProdKey #${line.prodKey}`}</strong>
                 : <><InvoiceReceiptProductPicker label={`${line.lineNo}행 전산 품목 검색`} products={selectableProducts} product={product} onSelect={selected => updateLineProduct(line.lineId, selected)} />
                   {product && productCountryMismatch(product, documentValue.reviewedMetadata?.country) && <p role="alert" style={{ margin: '4px 0 0', color: '#b3261e', fontWeight: 700 }}>⚠ 선택한 전산 품목의 원산지({product.CounName || product.country})가 이 문서와 다릅니다.</p>}
                   <InvoiceMatchSuggestions line={line} products={selectableProducts} country={documentValue.reviewedMetadata?.country} history={matchHistory} product={product} onSelect={selected => updateLineProduct(line.lineId, selected)} /></>}</td>
@@ -1483,8 +1486,8 @@ export default function InvoiceReceiptWorkbench({
 
       <aside className={styles.issues} aria-label="미리보기 이슈">
         <div className={styles.issueHeader}><div><strong>서버 이슈</strong><span>{issues.length}건</span></div><small>행을 누르면 표 위치로 이동합니다.</small></div>
-        {!preview && <p className={styles.empty}>저장 후 서버 미리보기를 실행하세요.</p>}
-        {preview && !issues.length && <p className={styles.clear}>이슈 0건 · canCommit {String(preview.canCommit)}</p>}
+        {!preview && <p className={styles.empty}>미리보기 후 확인할 항목이 표시됩니다.</p>}
+        {preview && !issues.length && <p className={styles.clear}>{preview.canCommit ? '확인할 항목 없음' : '입고 가능 여부를 확인하세요.'}</p>}
         {issues.map((issue, index) => {
           const lineId = issueLineId(issue);
           const line = documentValue.lines.find(item => item.lineId === lineId);

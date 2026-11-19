@@ -39,7 +39,8 @@ async function main() {
   const workflow = registry.workflows.find(w => w.id === WORKFLOW);
   assert(workflow, 'config/workflow-guides.json 에 ' + WORKFLOW + ' 등록 필요');
   if (!workflow.requiredScenarios.includes('receipt')) workflow.requiredScenarios.push('receipt');
-  for (const file of ['components/import-tools/InvoiceReceiptWorkbench.js', 'pages/import/tools.js']) {
+  for (const file of ['components/import-tools/InvoiceReceiptWorkbench.js', 'components/import-tools/PackingResults.js',
+    'components/import-tools/PackingProductMatchDialog.js', 'styles/InvoiceReceiptSheet.module.css', 'pages/import/tools.js']) {
     if (!workflow.sourceFiles.includes(file)) workflow.sourceFiles.push(file);
   }
   assert.equal(manual.steps.length, workflow.requiredScenarios.length, '글 단계 수 = 영상 시나리오 수');
@@ -256,8 +257,19 @@ async function main() {
       const cand = `[data-candidate="${item.pick}"]`;
       await page.waitForSelector(cand);
       console.log('후보', item.pick, await page.$eval(cand, n => n.innerText.replace(/\s+/g, ' ')));
-      await say('맞는 후보를 누르면 바로 저장되고 창이 닫힙니다.\n이 연결은 팀 공용으로 저장되어 다음 인보이스에도 적용됩니다.', 3500);
-      await press(cand, { fx: 0.97, fy: 0.5 });
+      const automatic = await page.evaluateHandle(() => [...document.querySelectorAll('[data-testid="packing-match-dialog"] button')]
+        .find(button => button.textContent === '기본 선택 저장'));
+      if (!item.search) {
+        assert(automatic.asElement(), '90% 이상 단독 후보를 기본 선택으로 표시해야 합니다');
+        assert.equal(await page.$eval(cand, button => button.getAttribute('aria-pressed')), 'true');
+        if (dry) await page.screenshot({path:'.verify/invoice-match-default.png'});
+        await say('이름 점수가 90% 이상인 단독 1위는 기본 선택으로 표시됩니다.\n품목을 확인하고 「기본 선택 저장」을 누릅니다.', 3500);
+        await press(await tag('saveDefault', 'button', '기본 선택 저장'), { fx: 0.97, fy: 0.5 });
+      } else {
+        await say('검색 결과에서 확인한 후보를 선택하면 팀 공용 매칭에 저장됩니다.', 3500);
+        await press(cand, { fx: 0.97, fy: 0.5 });
+      }
+      await automatic.dispose();
       await page.waitForFunction(() => !document.querySelector('[data-testid="packing-match-dialog"]'));
       await out();
       linked++;
@@ -265,7 +277,7 @@ async function main() {
       assert.equal(saved.at(-1).prodKey, item.pick, '연결한 전산 품목 번호');
       assert(JSON.stringify(saved.at(-1)).includes(item.desc), '원문 이름이 저장 요청에 있어야 함: ' + JSON.stringify(saved.at(-1)));
       if (linked < UNCONFIRMED.length) {
-        await say('연결한 줄은 "확인 필요" 목록에서 빠지고 남은 개수가 줄었습니다.\n아직 남은 줄이 있으면 같은 방법으로 이어서 연결합니다.', 3000);
+        await say('저장한 품목은 목록의 위에 표시됩니다.\n아직 남은 줄이 있으면 같은 방법으로 이어서 연결합니다.', 3000);
         await focus(await tag('counts1', 'css', results + ' p[role="status"]'));
         await out(3000);
       }
@@ -297,7 +309,9 @@ async function main() {
     const counts1 = await resultStatus();
     console.log('after matching:', counts1);
     assert(/정확 8 · 팀 공용 수동 2/.test(counts1) && counts1.includes('품목 매칭 완료'), '연결 결과가 개수에 반영돼야 함: ' + counts1);
-    await say('맨 위 줄이 "정확 8 · 팀 공용 수동 2 … 품목 매칭 완료"로 바뀌었습니다.\n직접 연결한 2건은 "팀 공용 수동"으로 센 것입니다.', 4000);
+    assert.equal(await page.$eval(results+' tbody tr:first-child', row=>row.textContent.includes('CANDLELIGHT')),true,'저장한 품목이 원본 행 번호를 보존하며 위로 이동해야 합니다.');
+    if (dry) await (await page.$(results+' article')).screenshot({path:'.verify/invoice-match-reviewed-first.png'});
+    await say('팀 공용으로 연결한 품목은 표 위쪽에서 다시 수정할 수 있습니다.\n확인 필요한 품목만 보려면 「확인 필요만 보기」를 누릅니다.', 4000);
     await focus(await tag('counts2', 'css', results + ' p[role="status"]'));
     await out(3500);
     const head2 = await tag('resultHead2', 'css', results + ' article header > div:first-child');
@@ -346,6 +360,10 @@ async function main() {
     });
     assert.equal(receiptCommits, 1);
     assert(!otherApi.some(entry => /native-cost|cost-revisions/.test(entry)));
+    if (dry) {
+      await page.$eval('[aria-label="입고 검토 행 표"]', table => table.scrollIntoView({block:'start',behavior:'instant'}));
+      await page.screenshot({path:'.verify/invoice-receipt-compact.png'});
+    }
     console.log('PASS actual upload UI: one direct receipt save, matching readback, no cost request');
     await out(1300);
     await say('입고 업로드 완료와 입고번호를 확인합니다.\n도착원가는 필요할 때 같은 입고에서 따로 작업합니다.', 3600);

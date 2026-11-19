@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styles from '../../styles/ImportPacking.module.css';
-import { packingMatchReview } from '../../lib/packingMatchReview';
+import { packingMatchPriority, packingMatchReview } from '../../lib/packingMatchReview';
 import { effectivePackingMatchReview } from '../../lib/packingReceiptMatchState';
 
 const hasValue = value => value !== null && value !== undefined && value !== '';
@@ -218,7 +218,7 @@ export default function PackingResults({
   const [notes, setNotes] = useState({});
   const [dialogText, setDialogText] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
-  const [view, setView] = useState('REVIEW_REQUIRED');
+  const [view, setView] = useState('ALL');
   const filterButtonRef = useRef(null);
   const rowRefs = useRef({});
   const matchButtonRefs = useRef({});
@@ -227,8 +227,13 @@ export default function PackingResults({
   const dialogTextareaRef = useRef(null);
   const safeExcels = Array.isArray(excels) ? excels : [];
   const summary = useMemo(() => buildIssueSummary(safeExcels, country, notes, truncated, erpProducts, receiptMatches), [safeExcels, country, notes, truncated, erpProducts, receiptMatches]);
-  const reviewedExcels = safeExcels.map((excel, excelIndex) => ({ excel, rows: (Array.isArray(excel.products) ? excel.products : []).map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: effectivePackingMatchReview(
-    packingMatchReview(product, erpProducts, country), receiptMatches.get(`${excel.sourceInvoiceIdentity?.sourceInvoiceIndex ?? excelIndex}:${index}`)) })) }));
+  const reviewedExcels = safeExcels.map((excel, excelIndex) => {
+    const rows = (Array.isArray(excel.products) ? excel.products : []).map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: effectivePackingMatchReview(
+      packingMatchReview(product, erpProducts, country), receiptMatches.get(`${excel.sourceInvoiceIdentity?.sourceInvoiceIndex ?? excelIndex}:${index}`)) }));
+    const reviewed = rows.some(row => packingMatchPriority(row.review.status) === 2);
+    const priority = reviewed ? (rows.every(row => !row.review.needsReview) ? 2 : 1) : 0;
+    return { excel, excelIndex, priority, rows: rows.sort((a, b) => packingMatchPriority(b.review.status) - packingMatchPriority(a.review.status)) };
+  }).sort((a, b) => b.priority - a.priority);
   const counts = reviewedExcels.flatMap(item => item.rows).reduce((result, row) => ({ ...result, [row.review.status]: (result[row.review.status] || 0) + 1 }), { EXACT: 0, MANUAL: 0, DOCUMENT: 0, REVIEW: 0, UNMATCHED: 0, ALLOCATION: 0 });
   useEffect(() => {
     if (counts.EXACT + counts.MANUAL + counts.DOCUMENT > 0 && counts.REVIEW + counts.UNMATCHED === 0) setView('ALL');
@@ -305,7 +310,6 @@ export default function PackingResults({
       <div className={styles.resultsHeadingRow}>
         <div>
           <h3 className={styles.resultsHeading}>품목 매칭 확인</h3>
-          <p className={styles.resultsHint}>원본 품명 옆 DB 품목을 선택하세요. 모두 매칭하면 다음 단계로 진행할 수 있습니다. 수량·단가 오류가 표시된 행만 「확인/수정 열기」에서 고치세요.</p>
         </div>
         <button ref={summaryButtonRef} type="button" onClick={openSummary} className={styles.summaryButton} data-testid="packing-results-copy-open">
           이슈 요약 새 창
@@ -322,7 +326,7 @@ export default function PackingResults({
           {view === 'ALL' ? '확인 필요만 보기' : '전체 보기'}</button>
       </div>
 
-      {reviewedExcels.map(({ excel, rows }, excelIndex) => {
+      {reviewedExcels.map(({ excel, rows, excelIndex }) => {
         const products = Array.isArray(excel.products) ? excel.products : [];
         const include = {
           stemLength: products.some(product => hasValue(product.stemLength ?? product.stem_length)),

@@ -1,0 +1,14 @@
+{
+  "id": "invoice-match-review",
+  "title": "인보이스 품목 검토 표시와 기본 후보",
+  "scope": ["components/import-tools/PackingResults.js", "components/import-tools/PackingProductMatchDialog.js", "components/import-tools/InvoiceMatchSuggestions.js", "components/import-tools/InvoiceReceiptWorkbench.js", "lib/invoiceMatchAssist.js", "lib/packingMatchReview.js", "lib/packingFileReuse.js", "lib/packingWorkDraft.js", "lib/packingSharedHistory.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name":"REVIEW_AND_SORT", "warehouseMaster":"preserve", "warehouseDetail":"preserve", "stock":"preserve", "orderDetail":"preserve", "shipmentDetail":"preserve", "notes":"원본 행 번호·입고 순서를 보존하고 표시만 정렬한다. 같은 국가, 선택 가능, 이력 가산점 없는 90점 이상 단독 1위만 기본 후보."},
+    {"name":"CONFIRM_MATCH", "warehouseMaster":"preserve", "warehouseDetail":"preserve", "stock":"preserve", "orderDetail":"preserve", "shipmentDetail":"preserve", "notes":"기존 팀 매칭 명시 저장 및 업로드 이력 JSON만 변경한다. 확정 입고 품목 변경 제한과 모든 ERP 승인 조건을 유지한다."}
+  ],
+  "crossYearFixture": {"required":true,"description":"2025 동일 차수와 2026 재업로드는 원본 묶음과 최신 이력으로 구분한다. 화면 정렬이 원본 콜백 인덱스와 입고 문서 범위를 변경하지 않는다."},
+  "requiredTestFiles": ["__tests__/invoiceMatchAssist.test.js", "__tests__/packingFileReuse.test.js", "__tests__/packingResultsUi.test.js", "__tests__/packingSharedHistory.test.js", "__tests__/invoiceReceiptWorkbench.test.js"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"docs/plans/invoice-match-review-2026-11-19.md","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","StockHistory","Product","ProductStock"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"]
+}

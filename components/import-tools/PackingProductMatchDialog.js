@@ -2,6 +2,7 @@ import React, {useEffect,useMemo,useRef,useState} from 'react';
 import {scoreProductSearchOptions} from '../../lib/productSearchRanking.js';
 import {PACKING_COUNTRIES} from '../../lib/importPackingErpMatches.js';
 import {packingNlCandidateNames} from '../../lib/packingNlCandidates.js';
+import {defaultInvoiceMatchSuggestion} from '../../lib/invoiceMatchAssist.js';
 import styles from '../../styles/PackingProductMatch.module.css';
 
 export default function PackingProductMatchDialog({target,country,products,matchEntries=[],onSave,onClose,onReload,saving,error}) {
@@ -11,6 +12,10 @@ export default function PackingProductMatchDialog({target,country,products,match
   const available=useMemo(()=>products.filter(p=>p.country===country).map(p=>({...p,
     MappingAliases:[...(p.MappingAliases||[]),...matchEntries.filter(e=>e.country===country&&e.prodKey===p.ProdKey&&e.prodName===p.ProdName&&p.selectable).map(e=>e.description)],
   })),[products,country,matchEntries]);
+  const current = available.find(product => product.selectable && product.ProdKey === target.currentProdKey && product.ProdName === target.currentName);
+  const defaultMatch = !current && !target.currentName && !target.requiresReload
+    ? defaultInvoiceMatchSuggestion(target.description, available, country) : null;
+  const defaultKey = current?.ProdKey ?? defaultMatch?.product.ProdKey;
   const candidates=useMemo(()=>{
     const scored=scoreProductSearchOptions(search.trim()||target.description,available,{packingSuggestions:true});
     if(country!=='NL'||search.trim())return scored;
@@ -61,11 +66,14 @@ export default function PackingProductMatchDialog({target,country,products,match
       <header><h2 id="packing-match-title">전산 품목 검색 · 매칭</h2><button type="button" onClick={onClose} disabled={saving} aria-label="품목 매칭 닫기">닫기</button></header>
       <p className={styles.source} title={target.description}>원문: <strong>{target.description}</strong></p>
       {target.currentName&&<p className={styles.source}>현재 저장된 DB 품목: <strong>{target.currentName}</strong></p>}
-      <p className={styles.hint}>{PACKING_COUNTRIES[country]} 전산 품목을 원문 단어·배열·자모 유사도 순으로 추천합니다. 추천은 확정이 아니므로 이름·길이를 확인해 선택하세요. 저장한 연결은 팀 공용으로 유지되어 다음 업로드에 적용됩니다. 주문·입고·재고는 변경하지 않습니다.</p>
+      <p className={styles.hint}>{PACKING_COUNTRIES[country]} · 선택한 연결을 팀 공용 매칭에 저장합니다.</p>
+      {defaultMatch && <p className={styles.source}><strong>기본 선택 · {defaultMatch.score}%</strong> {defaultMatch.product.ProdName}{' '}
+        <button type="button" disabled={saving} onClick={()=>saveCandidate(defaultKey)}>기본 선택 저장</button>
+      </p>}
       <input ref={searchRef} className={styles.search} aria-label="전산 품목 검색" placeholder="품목명 · 코드 · 꽃 이름 검색 (↓ 후보 이동, Enter 선택)" value={search} onChange={e=>setSearch(e.target.value)} disabled={saving}/>
       <div className={styles.list} role="region" aria-label="전산 품목 검색 결과">
         {candidates.length===0&&<p>검색 결과가 없습니다. 검색어를 줄이거나 전산 품목을 다시 불러오세요.</p>}
-        {candidates.map(({option:p,suggestion},index)=><button type="button" key={p.ProdKey} data-candidate={p.ProdKey} disabled={saving||target.requiresReload||!p.selectable} aria-pressed={selected===p.ProdKey} className={styles.candidate} onClick={()=>saveCandidate(p.ProdKey)} title={p.reason||p.ProdName}>
+        {candidates.map(({option:p,suggestion},index)=><button type="button" key={p.ProdKey} data-candidate={p.ProdKey} disabled={saving||target.requiresReload||!p.selectable} aria-pressed={(selected ?? defaultKey)===p.ProdKey} className={styles.candidate} onClick={()=>saveCandidate(p.ProdKey)} title={p.reason||p.ProdName}>
           <strong><span className={styles.rank}>{index+1}</span>{p.ProdName}</strong><span>{p.FlowerName} · {p.ProdCode||`번호 ${p.ProdKey}`} · {suggestion?.reason}{!p.selectable&&` · ${p.reason}`}</span>
         </button>)}
       </div>
