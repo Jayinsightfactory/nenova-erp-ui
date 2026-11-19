@@ -48,7 +48,9 @@ async function main(){
   console.log('page',new URL(page.url()).pathname,(await page.evaluate(()=>document.body.innerText)).slice(0,600));
   await page.waitForSelector('button[aria-label="콜롬비아"]');console.log('country ready');
   const sourceFiles=JSON.parse(fs.readFileSync('config/workflow-guides.json')).workflows.find(w=>w.id==='packing-free-ocr').sourceFiles;
-  if (!sourceFiles.includes('styles/ImportReviewTypography.module.css')) sourceFiles.push('styles/ImportReviewTypography.module.css');
+  for (const file of ['styles/ImportReviewTypography.module.css', 'pages/import/tools.js', 'styles/ImportTools.module.css']) {
+    if (!sourceFiles.includes(file)) sourceFiles.push(file);
+  }
   const rec=dry?null:await createWorkflowGuideRecorder(page,{workflowId:'packing-free-ocr',guideId:'import',title:'Claude 분석과 완료 구간 보존',sourceFiles,fixtureOnly:true});
   let number=0;const step=async(s,t)=>{number++;rec?.chapter(s,`${number}. ${t}`);if(rec){await rec.caption(`${number}. ${t}`);await rec.pause(5500);}};
   const focus=async selector=>{await page.$eval(selector,n=>n.scrollIntoView({block:'center',behavior:'instant'}));const p=await page.$eval(selector,n=>{const r=n.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};});assert(p.y>=70&&p.y<=900,`Guide target outside camera: ${selector} ${JSON.stringify(p)}`);if(rec){await rec.pause(1200);await rec.focus(selector,number);}};

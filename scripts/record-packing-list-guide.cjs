@@ -41,7 +41,7 @@ async function main() {
   if (!workflow.requiredScenarios.includes('receipt')) workflow.requiredScenarios.push('receipt');
   for (const file of ['components/import-tools/InvoiceReceiptWorkbench.js', 'components/import-tools/PackingResults.js',
     'components/import-tools/PackingProductMatchDialog.js', 'styles/InvoiceReceiptSheet.module.css',
-    'styles/ImportReviewTypography.module.css', 'pages/import/tools.js']) {
+    'styles/ImportReviewTypography.module.css', 'pages/import/tools.js', 'styles/ImportTools.module.css']) {
     if (!workflow.sourceFiles.includes(file)) workflow.sourceFiles.push(file);
   }
   assert.equal(manual.steps.length, workflow.requiredScenarios.length, '글 단계 수 = 영상 시나리오 수');
@@ -152,6 +152,23 @@ async function main() {
     assert.equal(ok.status(), 200);
     await page.waitForSelector('button[aria-label="콜롬비아"]');
     console.log('page ready', new URL(page.url()).pathname);
+    const purpose = await page.$eval('[data-testid="import-packing-purpose"]', element => {
+      const label = element.querySelector('span');
+      const title = element.querySelector('h1');
+      return {
+        label: label.innerText,
+        title: title.innerText,
+        visible: title.getBoundingClientRect().height > 0,
+        labelSize: getComputedStyle(label).fontSize,
+        titleSize: getComputedStyle(title).fontSize,
+        titleFont: getComputedStyle(title).fontFamily,
+      };
+    });
+    assert.equal(purpose.label, '[핵심 목적 · PURPOSE]');
+    assert.equal(purpose.title, '인보이스 품목을 확인하고 입고 저장');
+    assert(purpose.visible && purpose.labelSize === '12.5px' && parseFloat(purpose.titleSize) > 14);
+    assert(purpose.titleFont.startsWith('"Pretendard Variable"'));
+    console.log('PASS purpose heading', JSON.stringify(purpose));
     await page.screenshot({ path: '.verify/packing-list-guide-start.png' });
 
     const rec = dry ? null : await createWorkflowGuideRecorder(page, { workflowId: WORKFLOW, guideId: GUIDE, title: '패킹리스트 만들기', sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset:'veryfast' });
