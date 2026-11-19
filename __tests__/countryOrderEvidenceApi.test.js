@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readCountryOrderEvidence,COUNTRY_ORDER_DETAILS_SQL,COUNTRY_ORDER_EVENTS_SQL} from '../lib/countryOrderEvidenceApi.js';
+import {readCountryOrderEvidence,readStableCountryOrderSnapshot,COUNTRY_ORDER_DETAILS_SQL,COUNTRY_ORDER_EVENTS_SQL} from '../lib/countryOrderEvidenceApi.js';
 const types={NVarChar:n=>`nvarchar(${n})`};
 test('explicit exact country/year/week binds details and native history, preserves units and IDs',async()=>{
   const calls=[];
@@ -16,4 +16,15 @@ test('explicit exact country/year/week binds details and native history, preserv
 });
 test('unknown server timezone fails before detail/history queries',async()=>{
   let calls=0;await assert.rejects(readCountryOrderEvidence({scope:{country:'China',year:2025,orderWeek:'47-02'},types,queryFn:async()=>{calls++;return{recordset:[{OffsetMinutes:0}]};}}),/시각 기준/);assert.equal(calls,1);
+});
+
+test('two-pass read fence accepts only stable aggregate/details/history without automatic retry',async()=>{
+  let calls=0;
+  const stable=await readStableCountryOrderSnapshot(async()=>({queriedAt:String(++calls),matrix:{rows:[120]},details:[{key:9,quantity:120}],events:[{id:1}]}));
+  assert.equal(calls,2);assert.equal(stable.queriedAt,'2');
+  for(const field of ['matrix','details','events']){
+    calls=0;
+    await assert.rejects(readStableCountryOrderSnapshot(async()=>({queriedAt:String(++calls),matrix:[120],details:[9],events:[1],[field]:[calls]})),error=>error.statusCode===409&&error.code==='COUNTRY_ORDER_SOURCE_CHANGED');
+    assert.equal(calls,2);
+  }
 });

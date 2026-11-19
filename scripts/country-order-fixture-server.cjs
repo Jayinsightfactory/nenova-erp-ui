@@ -19,11 +19,15 @@ async function main(){
   const rawRows=quantity=>[{OrderYear:2026,OrderWeek:'47-02',CustKey:1,CustName:'TEST_ONLY 업체A',CustOrderCode:'CL1',ProdKey:2,ProdName:'ROSE / TEST_ONLY A',FlowerName:'장미',CounName:'중국',OutUnit:'단',OutQuantity:quantity,BunchQuantity:quantity,SteamQuantity:quantity*10,SourceRowCount:1},{OrderYear:2026,OrderWeek:'47-02',CustKey:3,CustName:'TEST_ONLY 업체B',CustOrderCode:'CL3',ProdKey:4,ProdName:'ROSE / TEST_ONLY B',FlowerName:'장미',CounName:'중국',OutUnit:'단',OutQuantity:50,BunchQuantity:50,SteamQuantity:500,SourceRowCount:1}];
   const matrix=quantity=>buildCountryOrderMatrix({success:true,readOnly:true,scope:{...scope,majorWeek:'47',counName:'중국',scopeKey:'China/2026/47'},subweeks:[{orderWeek:'47-02'}],rows:rawRows(quantity)},'47-02');
   const generated=(m,options={},eta)=>generateCompactCountryOrders(m,options).map(output=>({...output,bytes:Buffer.from(serializePedidosWorkbook(eta?withCountryOrderEta(output.workbook,'47-02',eta):output.workbook))}));
-  const store=createCountryOrderHistoryStore({root:path.join(output,'history')});
   const initial=generated(matrix(100))[0];
   const initialRows=matrix(100).rows.flatMap(row=>matrix(100).customers.map(customer=>({custKey:customer.key,customer:customer.name,prodKey:row.prodKey,product:row.name,unit:row.unit,quantity:row.quantities[customer.key]??0})));
-  const seed=await store.save({scope,id:crypto.randomUUID(),filename:initial.filename,bytes:initial.bytes,rows:initialRows,sourceKeys:[],queriedAt:'2026-11-19T01:00:00Z',actor:user.userId});
-  await store.markDelivered({scope,id:seed.id,sha256:seed.sha256,actor:user.userId,confirmed:true});
+  const stores=new Map();
+  for(const name of ['registered','chat-only','partial']){
+    const originalStore=createCountryOrderHistoryStore({root:path.join(output,'history',name)});stores.set(name,originalStore);
+    const seed=await originalStore.save({scope,id:crypto.randomUUID(),filename:initial.filename,bytes:initial.bytes,rows:initialRows,sourceKeys:[],queriedAt:'2026-11-19T01:00:00Z',actor:user.userId});
+    await originalStore.markDelivered({scope,id:seed.id,sha256:seed.sha256,actor:user.userId,confirmed:true});
+  }
+  const store=Object.fromEntries(['read','list','save','markDelivered','withScopeLock'].map(method=>[method,(...args)=>stores.get(scenario)[method](...args)]));
   const sourceItem={sourceKey:'TEST_ONLY-message-1/row-1',scope,rawCustomer:'TEST_ONLY 업체A',rawProduct:'ROSE / TEST_ONLY A',customer:'TEST_ONLY 업체A',product:'ROSE / TEST_ONLY A',unit:'bunches',quantity:20,at:'2026-11-19T02:00:00Z',kind:'addition'};
   const messages=[{id:'TEST_ONLY-message-1',time:'2026년 11월 19일 오전 11:00',text:'TEST_ONLY 격리 연습 자료\n2026년 47-02 중국 추가 발주\nTEST_ONLY 업체A\nROSE / TEST_ONLY A 20단 추가',items:[sourceItem]}];
   const quantity=()=>scenario==='partial'?110:scenario==='chat-only'?100:120;

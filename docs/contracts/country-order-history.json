@@ -21,7 +21,7 @@
     "archive":"private existing data/runtime file infrastructure; no DB schema; create-only xlsx and JSON via flush/link; separate first-delivery event; scope lock uses existing dead-owner-safe helper",
     "authorization":"active canManageInvoiceReceipt team, no service identity; same authority for shared list, read, preview, archive and delivery; raw file paths and credentials are never returned",
     "legacy":"existing ETA, country worksheets/formulas, farm partition and explicit file-only quantity review remain; direct quantity override plus chat inclusion requires separate review",
-    "desktop":"same stable /import/tools menu URL, searchable label and favorite identity, 1.3.59 source version; isolated real main/shell session intercepts all network to loopback, production policy remains unchanged"
+    "desktop":"same stable /import/tools menu URL, searchable label and favorite identity, 1.3.60 source version; isolated real main/shell session intercepts all network to loopback, production policy remains unchanged"
   },
   "writes": [],
   "preserves": ["OrderMaster", "OrderDetail", "OrderHistory", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "WarehouseMaster", "WarehouseDetail", "ProductStock", "StockHistory", "Estimate", "WebProfitReport"],

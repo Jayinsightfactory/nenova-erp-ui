@@ -4,7 +4,7 @@ import {query} from '../../../../lib/db';
 import {canManageInvoiceReceipt} from '../../../../lib/invoiceReceiptAccess';
 import {createCountryOrderSourceHandler} from '../../../../lib/countryOrderSourceApi';
 import {buildCountryOrderMatrix,COUNTRY_ORDER_COUNTRIES,normalizeCountryOrderUnit} from '../../../../lib/countryOrderSource';
-import {readCountryOrderEvidence} from '../../../../lib/countryOrderEvidenceApi';
+import {readCountryOrderEvidence,readStableCountryOrderSnapshot} from '../../../../lib/countryOrderEvidenceApi';
 import {createCountryOrderHistoryStore} from '../../../../lib/countryOrderHistoryStore';
 import {createCountryOrderHistoryHandler} from '../../../../lib/countryOrderHistoryApi';
 import {readImportArchive,offsetImportDay} from '../../../../lib/importKakaoArchive';
@@ -17,6 +17,7 @@ import {withCountryOrderEta,countryOrderSourceComplete} from '../../../../lib/co
 
 const sourceHandler=createCountryOrderSourceHandler({queryFn:query,types:sql});
 async function readCurrent(scope){
+ return readStableCountryOrderSnapshot(async()=>{
   let body,status=200;
   await sourceHandler({method:'GET',user:{},query:{country:scope.country,year:String(scope.year),majorWeek:scope.orderWeek.slice(0,2),orderWeek:scope.orderWeek}},
     {setHeader(){},status(value){status=value;return this;},json(value){body=value;}});
@@ -25,6 +26,7 @@ async function readCurrent(scope){
   const evidence=await readCountryOrderEvidence({scope,queryFn:query,types:sql});
   const matrix=buildCountryOrderMatrix(body,scope.orderWeek);
   return {...evidence,matrix};
+ });
 }
 function messageAt(value){
   const parts=String(value).match(/^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일\s*(오전|오후)\s*(\d{1,2}):(\d{2})$/);
