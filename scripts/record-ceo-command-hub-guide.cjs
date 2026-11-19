@@ -216,6 +216,8 @@ async function main() {
       return send({ success: true, data: null, items: [], rows: [] });
     }
 
+    const headers = { ...req.headers };
+    delete headers['proxy-connection'];
     const upstream = http.request(
       {
         hostname: '127.0.0.1',
@@ -223,7 +225,7 @@ async function main() {
         path: req.url,
         method: req.method,
         headers: {
-          ...req.headers,
+          ...headers,
           host: `127.0.0.1:${appPort}`,
           cookie: `nenovaToken=${activeToken}`,
           authorization: `Bearer ${activeToken}`,
@@ -234,9 +236,12 @@ async function main() {
         upstreamRes.pipe(res);
       }
     );
-    upstream.on('error', () => {
-      res.writeHead(503);
-      res.end('Starting isolated app');
+    upstream.on('error', (err) => {
+      console.error('[guide-proxy upstream error]', req.method, req.url, err?.code || err?.message);
+      if (!res.headersSent) {
+        res.writeHead(503);
+        res.end('Starting isolated app');
+      }
     });
     req.pipe(upstream);
   });
@@ -249,8 +254,10 @@ async function main() {
 
     for (let i = 0; i < 60; i += 1) {
       try {
-        const r = await fetch(`${base}/login`);
-        if (r.status === 200) break;
+        activeToken = staffToken;
+        const r1 = await fetch(`${base}/login`);
+        const r2 = await fetch(`${base}/work/command-hub?popup=1`);
+        if (r1.status === 200 && r2.status === 404) break;
       } catch {}
       if (i === 59) throw new Error('Timed out waiting for isolated Next server');
       await new Promise((r) => setTimeout(r, 1000));
