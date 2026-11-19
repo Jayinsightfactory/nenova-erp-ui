@@ -85,11 +85,11 @@ const CSS = `
 .pc2 .pc2-rig{position:absolute;inset:0;transform-origin:50% 92%}
 .pc2 .pc2-rig img{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;user-select:none}
 .pc2 .pc2-fx{position:absolute;inset:0;pointer-events:none}
-.pc2 .pc2-emo{position:absolute;left:50%;top:-6%;transform:translate(-50%,-60%);background:var(--pm-surface);color:var(--pm-ink);border:1px solid var(--pm-line);border-radius:999px;padding:0 .3em;font-size:max(10px,.16em);line-height:1.5;box-shadow:var(--pm-shadow);white-space:nowrap;z-index:3}
-.pc2 .pc2-halo{position:absolute;left:22%;right:22%;top:2%;height:9%;border-radius:50%;border:2px solid var(--pm-accent);opacity:.75}
-.pc2 .pc2-aura{position:absolute;inset:6% 12% 2%;border-radius:50% 50% 40% 40%;background:radial-gradient(closest-side,var(--pm-accent2),transparent);opacity:.45}
-.pc2 .pc2-spark{position:absolute;inset:0;background:radial-gradient(circle at 20% 30%,var(--pm-accent) 0 2%,transparent 3%),radial-gradient(circle at 82% 22%,var(--pm-accent2) 0 2%,transparent 3%),radial-gradient(circle at 75% 70%,var(--pm-accent) 0 1.5%,transparent 2.5%);opacity:.9}
-.pc2 .pc2-pin{position:absolute;right:16%;bottom:8%;font-size:max(9px,.1em)}
+.pc2 .pc2-emo{position:absolute;left:50%;top:-6%;transform:translate(-50%,-60%);background:var(--pm-surface);color:var(--pm-ink);border:1px solid var(--pm-line);border-radius:4px;padding:0 .3em;font-size:max(10px,.16em);line-height:1.5;white-space:nowrap;z-index:3}
+.pc2 .pc2-halo{position:absolute;left:22%;right:22%;top:2%;height:9%;border-radius:50%;border:1.5px solid var(--pm-accent);opacity:.75}
+.pc2 .pc2-aura{position:absolute;inset:8% 14% 4%;border-radius:50%;border:1px dashed var(--pm-accent2);opacity:.45}
+.pc2 .pc2-spark{position:absolute;inset:12%;border-radius:50%;border:1px dotted var(--pm-accent);opacity:.65}
+.pc2 .pc2-pin{position:absolute;right:14%;bottom:8%;display:inline-flex;align-items:center;justify-content:center;color:var(--pm-ok)}
 .pc2-a-idle .pc2-rig{animation:pc2breathe 3.2s ease-in-out infinite}
 .pc2-p-lively.pc2-a-idle .pc2-rig{animation:pc2hop 1.6s ease-in-out infinite}
 .pc2-p-playful.pc2-a-idle .pc2-rig{animation:pc2tilt 2.2s ease-in-out infinite}
@@ -155,7 +155,7 @@ export function CharacterAvatar({ cfg, state = 'idle', size = 40, stage = 1, vib
       <span className="pc2-rig" style={rigStyle}>{stack.map((x) => <img key={x.z} data-z={x.z} src={x.src} alt="" loading="lazy" decoding="async" draggable={false} />)}</span>
       {stage >= 4 && <i className="pc2-fx"><i className="pc2-halo" /></i>}
       {stage >= 3 && <i className="pc2-fx pc2-spark" />}
-      {stage >= 2 && size >= 60 && <i className="pc2-pin">🌱</i>}
+      {stage >= 2 && size >= 60 && <i className="pc2-pin" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 10V5M6 5C6 2.8 8 2 10 2c0 2.2-1 3.5-4 3M6 6.5C6 4.5 4 3.5 2 3.5c0 2 1 3 4 3" /></svg></i>}
       {emote && EMOTES[emote] && size >= 32 && <span className="pc2-emo" title={EMOTE_LABEL[emote]}>{EMOTES[emote]}</span>}
     </span>
   );

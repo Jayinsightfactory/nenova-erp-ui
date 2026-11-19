@@ -68,7 +68,7 @@ export function ThemePicker({ value, onChange }) {
   const cur = themeById(visibleThemeId(value));
   return (
     <div className="tpick">
-      <Button size="sm" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{cur.emoji} 테마 · {cur.name} {open ? '▴' : '▾'}</Button>
+      <Button size="sm" aria-expanded={open} onClick={() => setOpen((o) => !o)}>테마 · {cur.name} {open ? '▴' : '▾'}</Button>
       {open && (
         <div className="tgrid" role="listbox" aria-label="화면 테마 선택">
           {PM_THEMES.filter((t) => PM_THEMES_VISIBLE.includes(t.id)).map((t) => (
@@ -97,7 +97,7 @@ export function Avatar({ cfg, state = 'idle', size = 40, className = '', name = 
 // 자유이용권 남은 일수 배지
 export function PassBadge({ pass }) {
   if (!pass || !pass.active) return null;
-  return <Badge tone="plain" className="passb" title={`${pass.start} 부터 ${pass.days}일 · ${pass.end} 까지`}>🎟️ 자유이용권 D-{pass.daysLeft}</Badge>;
+  return <Badge tone="plain" className="passb" title={`${pass.start} 부터 ${pass.days}일 · ${pass.end} 까지`}>자유이용권 D-{pass.daysLeft}</Badge>;
 }
 
 const RARITY = { basic: '기본', common: '일반', rare: '희귀', legendary: '전설' };
@@ -114,7 +114,7 @@ export function TokenBadge({ name }) {
   const { shop } = usePmTheme();
   const b = shop?.balances?.[name];
   if (b == null) return null;
-  return <Badge tone="plain" className="tokb" title={`${name} 토큰 잔액 ${b}(업무시간 적립)`}>🪙 {b}</Badge>;
+  return <Badge tone="plain" className="tokb" title={`${name} 토큰 잔액 ${b}(업무시간 적립)`}>{b} T</Badge>;
 }
 
 export function WalletPanel({ name, wallet }) {
@@ -197,7 +197,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
   const choose = (x) => {
     setFocus(x); setFxPlay((n) => n + 1);
     // [2026-11-06 사장님 신고 "구매가 안 됨"] 잠긴 품목 클릭이 조용히 무시되던 것 → 왜 안 되는지 말해준다
-    if (slotShut || (x.need > myStage && !freeOn)) { setMsg(`🌱 ${x.name}은(는) 성장 ${slotShut ? SLOT_UNLOCK[slot] : x.need}단계부터 입어볼 수 있어요(지금 ${myStage}단계) — 자유이용권이 있으면 바로 가능`); return; }
+    if (slotShut || (x.need > myStage && !freeOn)) { setMsg(`${x.name}은(는) 성장 ${slotShut ? SLOT_UNLOCK[slot] : x.need}단계부터 입어볼 수 있어요(지금 ${myStage}단계) — 자유이용권이 있으면 바로 가능`); return; }
     setMsg('');
     if (slot === 'char') setCfg((c) => ({ ...c, char: x.id }));
     else setCfg((c) => ({ ...c, items: { ...c.items, [slot]: c.items[slot] === x.id ? undefined : x.id } }));
@@ -229,8 +229,8 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
     <div className="shop">
       <div className="shead">
         {onBack && <Button size="sm" variant="ghost" onClick={onBack}>← 직원 상세</Button>}
-        <h2>🏪 토큰 상점 &amp; 캐릭터 꾸미기 <small>{name}{proxy ? ' · 관리자 대리' : ''}</small></h2>
-        <div className="wpill" title="토큰 잔액(업무시간 적립)">{wallet ? <><b>{wallet.balance}</b> 🪙</> : '…'}</div>
+        <h2>토큰 상점 &amp; 캐릭터 꾸미기 <small>{name}{proxy ? ' · 관리자 대리' : ''}</small></h2>
+        <div className="wpill" title="토큰 잔액(업무시간 적립)">{wallet ? <><b>{wallet.balance}</b> 토큰</> : '…'}</div>
       </div>
       <div className="sgrid">
         <section className="sstage">
@@ -242,10 +242,10 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
           <PassBadge pass={pass} />
           {pass && pass.expired && <p className="czmsg" role="note">자유이용권이 끝났어요. 산 적 없는 품목은 기본 복장으로 돌아갔어요(꾸미기 기록은 보관) — 구매하면 계속 사용할 수 있어요.</p>}
           <div className="czst" role="group" aria-label="춤 미리보기">
-            {DANCES.map(([k, l]) => <ToggleChip key={k} on={dance === k} onClick={() => setDance(k)}>💃 {l}</ToggleChip>)}
+            {DANCES.map(([k, l]) => <ToggleChip key={k} on={dance === k} onClick={() => setDance(k)}>{l}</ToggleChip>)}
           </div>
           <div className="czst" role="group" aria-label="이모트">
-            {Object.keys(EMOTES).map((k) => <ToggleChip key={k} on={emote === k} onClick={() => setEmote(emote === k ? '' : k)} title={EMOTE_LABEL[k]}>{EMOTES[k]}</ToggleChip>)}
+            {Object.keys(EMOTES).map((k) => <ToggleChip key={k} on={emote === k} onClick={() => setEmote(emote === k ? '' : k)} title={EMOTE_LABEL[k]}>{EMOTE_LABEL[k]}</ToggleChip>)}
           </div>
           <div className="czst" role="group" aria-label="미리보기 상태">
             {manifest.states.map((s) => <ToggleChip key={s} on={st === s} onClick={() => setSt(s)}>{STATE_LABEL[s] || s}</ToggleChip>)}
@@ -254,18 +254,19 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
         </section>
         <section className="sitems" aria-label="아이템 목록">
           {slot === 'base' && <BasePicker cfg={cfg} setCfg={setCfg} />}
-          {slotShut && <p className="czmsg" role="note">🌱 성장 {SLOT_UNLOCK[slot]}단계에서 열리는 자리예요(지금 {myStage}단계).</p>}
+          {slotShut && <p className="czmsg" role="note">성장 {SLOT_UNLOCK[slot]}단계에서 열리는 자리예요(지금 {myStage}단계).</p>}
           {list.map((x) => {
             const own = isOwned(x.key, x.price);
             const poor = !own && wallet && wallet.balance < x.price;
             return (
               <SelectCard key={x.key} className={`sitem ${own ? 'own' : 'lock'} ${poor ? 'poor' : ''}`} on={x.on} pressed={x.on} onClick={() => choose(x)} title={`${x.name} · ${RARITY[x.rarity] || ''}`}>
                 {/* 격자 썸네일 = 얼굴 근접 렌더(/pm/shop/close/, 없으면 원본 전신으로 폴백) — 피팅룸 큰 렌더는 전신 세트 그대로 */}
-                {x.src ? <img src={thumbSrc(x.src)} alt="" loading="lazy" onError={(e) => { if (e.currentTarget.src !== new URL(x.src, window.location.href).href) e.currentTarget.src = x.src; }} /> : <span className="fxi" aria-hidden>{x.emoji}</span>}
-                {poor && <span className="padlock" aria-hidden>🔒</span>}
+                {x.src ? <img src={thumbSrc(x.src)} alt="" loading="lazy" onError={(e) => { if (e.currentTarget.src !== new URL(x.src, window.location.href).href) e.currentTarget.src = x.src; }} />
+                  : <span className="fxi" aria-hidden><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 3l2.2 5.5L20 10l-5.8 1.8L12 18l-2.2-6.2L4 10l5.8-1.5z" /></svg></span>}
+                {poor && <span className="padlock" aria-hidden><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="7" width="10" height="7" rx="1.5" /><path d="M5 7V5a3 3 0 016 0v2" /></svg></span>}
                 {x.on && <span className="eq" aria-label="착용 중">✓</span>}
                 <span className="iname">{x.name}</span>
-                <small className={`czr r-${x.rarity || 'basic'}`}>{x.need > myStage && !freeOn ? `🌱 ${x.need}단계 · ` : ''}{!x.price ? '무료' : own ? '보유중' : freeOn ? `🎟️ 이용권 · ${x.price}🪙` : `${poor ? '🔒 ' : ''}${x.price} 🪙`}</small>
+                <small className={`czr r-${x.rarity || 'basic'}`}>{x.need > myStage && !freeOn ? `${x.need}단계 · ` : ''}{!x.price ? '무료' : own ? '보유중' : freeOn ? `이용권 · ${x.price}T` : `${poor ? '잠김 · ' : ''}${x.price} T`}</small>
               </SelectCard>
             );
           })}
@@ -275,7 +276,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
           {f && (
             <div className="sdetail">
               {f.emoji ? <FxPreview f={f} slot={slot} play={fxPlay} reduced={reducedMotion()} /> : <div className="dimg"><img src={f.src} alt="" /></div>}
-              {f.emoji && <Button size="sm" onClick={() => setFxPlay((n) => n + 1)}>▶ 이펙트 재생</Button>}
+              {f.emoji && <Button size="sm" onClick={() => setFxPlay((n) => n + 1)}>이펙트 재생</Button>}
               <b>{f.name}</b>
               <small className={`czr r-${f.rarity || 'basic'}`}>{RARITY[f.rarity] || '기본'} · {!f.price ? '무료' : fOwned ? '보유중' : `${f.price}토큰`}</small>
             </div>
@@ -283,7 +284,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
           {!canEdit && <p className="czmsg" role="note">{editNote || '편집 권한 없음'}</p>}
           {canEdit && (freeOn ? notBought : needBuy).map((x) => (
             <Button key={x.key} variant="primary" className="big buy" disabled={busy || !wallet || wallet.balance < x.price} onClick={() => doBuy(x)}>
-              {x.name} 구매하기 · {x.price}🪙{wallet && wallet.balance < x.price ? ` · ${x.price - wallet.balance}🪙 모자라요 🏃` : ''}
+              {x.name} 구매하기 · {x.price}토큰{wallet && wallet.balance < x.price ? ` · ${x.price - wallet.balance}토큰 부족` : ''}
             </Button>
           ))}
           <Button variant="primary" className="big equip" loading={busy} disabled={!canEdit || needBuy.length > 0} title={needBuy.length ? '잠긴 품목을 먼저 사야 저장됩니다' : ''}
@@ -336,7 +337,21 @@ function Render3DPreview({ cfg, big = false }) {
 const reducedMotion = () => { try { return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 // 상점 미리보기: 스킬 = 같은 FxCast 로 캐릭터→스테이션 발사 재생, 탈것 = 아이콘 크게
 function FxPreview({ f, slot, play, reduced }) {
-  if (slot === 'mount') return <div className="dimg fxprev">{f.src ? <img src={f.src} alt="" /> : <span className="fxi big" aria-hidden>{f.emoji}</span>}</div>;
+  if (slot === 'mount') {
+    return (
+      <div className="dimg fxprev">
+        {f.src ? <img src={f.src} alt="" /> : (
+          <span className="fxi big" aria-hidden>
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="7" cy="17" r="3" />
+              <circle cx="17" cy="17" r="3" />
+              <path d="M7 17L10 9h5l2 8" />
+            </svg>
+          </span>
+        )}
+      </div>
+    );
+  }
   const sk = skillById(f.id) || BASE_SKILLS[0];
   const spec = castSpec(sk, { name: 'preview', stage: 3, tier: sk.tier === 'basic' ? 'basic' : 'ult', reason: 'preview' }, reduced);
   return (
