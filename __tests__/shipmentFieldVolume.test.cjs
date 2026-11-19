@@ -135,7 +135,7 @@ test('weekday calendar lines and customer cultivar breakdown preserve selected q
     const wb=new ExcelJS.Workbook();await wb.xlsx.load(await api.renderFieldVolumeWorkbook(p,{entries,totals:p.products.map(x=>({...x,outgoing:6})),farms:new Map(),details:new Map(),lines:[]}));
     const ws=wb.worksheets[0];assert.equal(wb.worksheets.length,1);
     assert.match(ws.getCell('C3').text,/금요일[^\n]*\n일요일/);
-    assert.equal(ws.getRow(3).values.filter(v=>v?.richText?.some(r=>r.text==='돈셀\n')).length,1);
+    assert.equal(ws.getRow(3).values.filter(v=>v?.richText?.some(r=>r.text==='돈셀  ')).length,1);
     const header=ws.getColumn(1).values.findIndex(v=>v==='일요일 · 경부선');
     assert.equal(ws.getCell(header,3).text,includePrevious?'일신11(돈셀4,문라이트7) / 상희1.5(문라이트1.5)':'일신9(돈셀4,문라이트5) / 상희1.5(문라이트1.5)');
     assert.equal(ws.pageSetup.paperSize,8);assert.equal(ws.pageSetup.orientation,'landscape');
