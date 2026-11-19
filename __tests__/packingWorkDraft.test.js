@@ -90,6 +90,15 @@ test('per-user latest snapshot restores original file, review, source, and local
   assert.equal(await bob.load(), null);
 });
 
+test('unresolved amount edits, exclusions and before/after history survive owner-scoped draft reload',async()=>{
+ const {createPackingWorkDraftStore}=await packingWorkDraft(),indexedDB=memoryIndexedDB(),store=createPackingWorkDraftStore('reviewer',{indexedDB});
+ const value=snapshot(),result=value.lastExtraction.result;
+ result.amount_review_country='CO';result.amount_review_source_hash=hash;
+ result.recoverable_review_draft={0:{edits:{0:{t_price:12}},excluded:[1],reason:'원본 소계 대조',confirmed:false,events:[{kind:'EDIT',rowIndex:0,field:'t_price',before:10,after:12}]}};
+ await store.save(value);assert.deepEqual((await store.load()).lastExtraction.result.recoverable_review_draft,result.recoverable_review_draft);
+ assert.equal(await createPackingWorkDraftStore('other-reviewer',{indexedDB}).load(),null);
+});
+
 test('unknown, generated, catalog, operation, and token fields are excluded from the persisted record', async () => {
   const { createPackingWorkDraftStore } = await packingWorkDraft();
   const indexedDB = memoryIndexedDB();

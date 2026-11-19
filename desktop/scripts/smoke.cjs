@@ -442,7 +442,7 @@ async function run() {
   assert.equal(importFarmMenus.length,3);
   for(const item of importFarmMenus){
     main.command(sourceWindow,'menu',{open:true});
-    await shellContents.executeJavaScript(`(()=>{const input=document.querySelector('#menuSearch');input.focus();input.value=${JSON.stringify(item.href==='/master/codes'?'농장 마스터':item.href==='/import/pipeline'?'수입 원스톱 파이프라인':'수입부 업무도구')};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    await shellContents.executeJavaScript(`(()=>{const input=document.querySelector('#menuSearch');input.focus();input.value=${JSON.stringify(item.href==='/master/codes'?'농장 마스터':item.href==='/import/pipeline'?'수입 원스톱 파이프라인':'인보이스 원본 대조')};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
     await waitFor(()=>shellContents.executeJavaScript("document.querySelectorAll('#menuSearchResults [role=option]').length===1"),'canonical import/farm search');
     await shellContents.executeJavaScript("document.querySelector('#menuSearchResults [role=option]').click()");
     await waitFor(()=>[...main.tabs.values()].some(tab=>new URL(tab.url).pathname===item.href),'canonical work tab opened');

@@ -3823,3 +3823,11 @@ pm run test:canon 통과.
 4. 검증 상태: 최종 표적34·전체 ERP계약·manifest229·dnSpy·쓰기guard·전체 workflow-guides·정식 webpack build PASS. 초기 격리셸 bash 초기화/빌드 EPERM은 정상권한 재검증으로 통과. 실제Excel 읽기전용 인쇄4종 모두A3가로1페이지 및 전체 시각확인. 운영SELECT-only2025/2026동일46-02 범위 확인. 운영쓰기0; 배포 후 실제운영 다운로드는 아직 미검증.
 5. 주의/잠금: 기본 checkout dirty 및 타 세션 작업트리 보존. 새메뉴/데스크톱패키지/영상 조작순서 변경 없음. 카네이션45박스=1.1빠렛(기존40박스 기준), 장미일반10/Snowflake25단 환산 그대로; 빠렛에서 박스 역산 금지.
 검색어: field-calendar 요일 세로 현장물량표 업체 품종요약 빠렛 박스 A3 landscape
+
+## 2026-11-19 · 47-02 송장18065 금액 불일치와 원본 대조 검토 WIP
+- 검색어: co4702-summary 18065 3483 1741.5 packing-amount-review Desktop1.3.47
+1. 작업 위치: fix/co4702-summary-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co4702-summary-1119 / origin1b47554f / PR 미생성. 이전 농장 감사 worktree nw-cdx-receipt-presave-1118 별도 보존.
+2. 완료된 것: 운영 SELECT 로그19015/19016 및 실제UI10:03:04로 파일47-2 Master Invoice Nenova 992-04727822.pdf/UPLOAD_FAILED/18065 확인. 원본SHA b2176913b2a9f15d3e33354a0b4ad0e4f9956db8919c1f7de38947a6cf3a548c 28쪽의6쪽8상품+7쪽중복집계 확인. 최신지시로 자동삭제안 폐기, 검토목록·로컬PDF·강조·수정·소계제외복원·검산·사유·전후이력·기존공유초안 연결 구현중. 무료재검증 결과를 버리던 UI경로 수정. 기존문제로그 확장 설계만 문서화.
+3. 남은 할 일: 최종코드리뷰/단계별실브라우저캡처/신규가이드최종재녹화(마지막helper변경 후해시갱신 필요)/기존PackingListTool가이드2개재녹화/Drive백업/Desktop테스트·실스모크/최신master정합/필수전체게이트/PR CI squash/Cafe24 및Desktop릴리스/운영읽기전용스모크/정리.
+4. 검증 상태: 초기구형순수수정 ERP전체PASS이나 현재신규UI 최종게이트아님. 신규리뷰합성PDF 실제브라우저dry+record PASS(8행/1741.5/차이0/provider0/prod0); importHardening81PASS1skip, adapter+review24PASS. 임시Next build완료(세션44612최종결과확인). 직원저장원응답은SSH인증거부로미조회, 실제운영작업의무료재검증과전체송장성공은미검증. 신규가이드1차영상생성됐으나helper최근수정으로재녹화필요.
+5. 주의/잠금: 운영DB쓰기·유료분석·다른계정job소유범위우회금지. 불완전구간/진짜manifest건수/중복/HAWBconflict hard block보존. canonicaldirty절대수정금지. node_modules는canonicaljunction(삭제는링크만). sourceAmountReview원본/전후이력보존. 운영오류캡처는C:/Users/USER/Documents/Codex/2026-11-19-invoice-incident,업무PDF는Downloads에있으며git커밋금지.

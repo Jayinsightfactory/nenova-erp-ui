@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-19T01:40:34.185Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 78.6,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "206088f3b0e5e65d3100b36badd79810997696945b76c5fd2546f1d1a630b3a0",
+  "captionsSha256": "5290fd37c1268fc6da506f56978e05ab5f899e4e44c7385f0657ba487b0bc90f",
+  "sourceHashes": {
+    "components/import-tools/PackingAmountReview.js": "1b6ded7b6a2798b03ff059441dd87b5695833facc6e75e25f38d9ed81b7949f4",
+    "styles/PackingAmountReview.module.css": "202ae32257b17e6841bf6b006a88d15534dbc83fa52b94f98fdb33eade3579b1",
+    "lib/packingAmountReview.js": "44851fd14116d9ab4649cd89eaec593c47065055af9c02021e66032789d106c1"
+  },
+  "presentation": {
+    "numberedSteps": 5,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 4.1323783,
+        "x": 298,
+        "y": 417.515625,
+        "end": 10.594780199999997
+      },
+      {
+        "number": 2,
+        "start": 14.715791399999999,
+        "x": 298,
+        "y": 539.78125,
+        "end": 22.290002699999995
+      },
+      {
+        "number": 3,
+        "start": 26.363602999999994,
+        "x": 1190,
+        "y": 539.78125,
+        "end": 37.2133507
+      },
+      {
+        "number": 4,
+        "start": 41.508463400000004,
+        "x": 1299.84375,
+        "y": 540.046875,
+        "end": 50.61916
+      },
+      {
+        "number": 5,
+        "start": 57.774439699999995,
+        "x": 206.6875,
+        "y": 701.046875,
+        "end": 63.700555300000005
+      },
+      {
+        "number": 5,
+        "start": 67.83413079999998,
+        "x": 280,
+        "y": 224.4375,
+        "end": 75.7415073
+      }
+    ]
+  }
+}
