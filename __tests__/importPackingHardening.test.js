@@ -135,14 +135,14 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     }
     const request = { url, options, ...deferred() }; requests.push(request); return request.promise;
   };
-  const extractionMock = { async extractPackingDocument({ country, pdfBase64, allowAI, onProgress }) {
-    extractionCalls.push({ country, pdfBase64, allowAI });
-    if (allowAI !== true) return { needsAI: true, reason: 'UNSUPPORTED_LAYOUT' };
+  const extractionMock = { async extractPackingDocument({ country, pdfBase64, allowAI, onProgress, revalidateOnly }) {
+    extractionCalls.push({ country, pdfBase64, allowAI, revalidateOnly });
+    if (allowAI !== true&&!revalidateOnly) return { needsAI: true, reason: 'UNSUPPORTED_LAYOUT' };
     onProgress?.({stage:'ANALYZING',elapsedSeconds:181});
     const data = await state.readPackingPdfResponse(await fetchStub('/api/import/tools/parse-pdf', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, pdfBase64 }),
     }));
-    return { data, source: data.source === 'cache' ? 'cache' : 'ai', cacheSaved: data.cacheSaved };
+    return { data, source: revalidateOnly?'saved-response':data.source === 'cache' ? 'cache' : 'ai', cacheSaved: data.cacheSaved };
   } };
   function PackingResultsStub() {}
   function PackingProductMatchDialogStub() {}
@@ -180,6 +180,8 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/importPackingMatchPreview.js': matchPreview,
     '../../lib/packingMatchReview.js': matchReview,
     '../../lib/packingManifestReconciliation.js': await import('../lib/packingManifestReconciliation.js'),
+    '../../lib/packingAmountReview.js': await import('../lib/packingAmountReview.js'),
+    './PackingAmountReview': {default:'PackingAmountReview',__esModule:true},
     '../../lib/packingWeekDate.js': require('../lib/packingWeekDate.js'),
     '../../lib/packingReceiptDatePolicy.js': require('../lib/packingReceiptDatePolicy.js'),
     '../../lib/packingReceiptMatchState.js': receiptMatchState,
@@ -1094,6 +1096,17 @@ test('AWB uses the same 20MiB bound and ignores late local parser completion', a
   parses[0].resolve({ text: 'EXCEL air waybill 111-87654321 more text for the fixture' }); await old; h.render();
   assert.ok(h.nodes('input').some(n => n.props.value === '999-12345678'));
   assert.ok(!h.nodes('input').some(n => n.props.value === '111-87654321'));
+});
+
+test('free saved-response action displays unresolved review and never falls back to paid extraction',async()=>{
+ const h=await harness();h.nodes('button').find(n=>n.props['aria-label']==='Colombia').props.onClick();h.render();
+ h.inputPdf({name:'47-2.pdf',type:'application/pdf',size:10});await h.readers[0].complete();h.render();
+ const pending=h.button('저장 응답 재검증 · API 호출 없음').props.onClick();await tick();
+ const invoice={invoice:'18065',supplier:'Demo SAS',date:'2026-11-18',raw_date:'2026-11-18',date_order:'YMD',currency:'USD',invoice_total:10,freight_total:0,
+  products:[{description:'CARNATION RAW',pcs:1,total_stems:10,u_price:1,t_price:10},{description:'CARNATION SUMMARY',pcs:1,total_stems:10,u_price:1,t_price:10}]};
+ h.requests[0].resolve({ok:true,status:200,json:async()=>({content:[{type:'text',text:JSON.stringify({invoices:[invoice],amount_review_country:'CO',amount_review_source_hash:'a'.repeat(64),extractionIssues:[{code:'PACKING_AMOUNT_REVIEW_REQUIRED',invoiceIndex:0}]})}],stop_reason:'end_turn'})});
+ await pending;await h.refresh();assert.equal(h.extractionCalls.length,1);assert.equal(h.extractionCalls[0].revalidateOnly,true);assert.notEqual(h.extractionCalls[0].allowAI,true);
+ assert.equal(h.nodes('PackingAmountReview').length,1);assert.equal(h.generationCalls.length,0);assert.equal(h.receiptSources.filter(source=>source?.invoices?.length>0).length,0);h.unmount();
 });
 
 test('PDF response errors handle JSON/HTML 413, gateway failures and structured API errors', async () => {

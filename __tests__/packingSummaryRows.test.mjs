@@ -1,4 +1,5 @@
 import test from 'node:test';
+import './co4702Summary.test.mjs';
 import assert from 'node:assert/strict';
 import {CO_461_SOURCE_HASH,reconcilePackingSummaryRows} from '../lib/importPackingSummaryRows.js';
 const options={sourceHash:CO_461_SOURCE_HASH};

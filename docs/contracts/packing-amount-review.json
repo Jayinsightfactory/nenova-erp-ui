@@ -1,0 +1,11 @@
+{
+ "id":"packing-amount-review","title":"콜롬비아 원본 PDF 대조·수정·소계 제외 복원",
+ "scope":["lib/packingAmountReview.js","components/import-tools/PackingAmountReview.js","styles/PackingAmountReview.module.css","components/import-tools/PackingListTool.js","lib/importPackingPdfChunks.js","lib/importPackingReceiptAdapter.js","pages/api/import/tools/parse-pdf.js","scripts/record-packing-amount-guide.cjs","scripts/workflow-guide-player-smoke.cjs","scripts/test-packing-amount-receipt-local.cjs","scripts/test-packing-native-local.cjs","scripts/test-invoice-receipt-writer-sql.cjs","components/Layout.js","desktop/menu.json","desktop/package.json","desktop/package-lock.json","desktop/scripts/smoke.cjs"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "analysisIdentity":["SourceSha256","invoiceIndex","sourceRowIndex","sourcePage"],
+ "actions":[{"name":"REVIEW_RECOVERABLE_AMOUNT","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","notes":"완료 구간 응답의 수량·금액 대조 불일치를 검토 전용 결과로 노출. 원본 SHA·쪽 열람·사유·명시확인 및 남은상품 수량×단가·인쇄총액 일치 후 기존흐름에 적용. 원본행·전후값·제외행은 웹공유초안에 보존. AI추가호출/운영ERP쓰기 없음. 진짜manifest건수/HAWB/중복/불완전구간은 차단 유지."}],
+ "crossYearFixture":{"required":true,"description":"다른 원본 SHA(전년도 동일차수 포함)의 저장초안 적용 거부; missing/0/복원/합계차이/잘못된쪽/사유/확인 반례"},
+ "requiredTestFiles":["__tests__/co4702Summary.test.mjs","__tests__/importPackingPdfChunks.test.js","__tests__/importPackingHardening.test.js","__tests__/packingWorkDraft.test.js","desktop/tests/menu.test.cjs"],
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail"],"source":"실제 dnSpy-derived MakeTempTable의 별도수량·가격 매핑 및 원본47-02 PDF6/7쪽 확인. UI검토 전용이며native writer/SP 미변경."},
+ "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

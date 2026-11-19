@@ -291,6 +291,8 @@ async function main() {
       '../../lib/packingValidationIssues.js': require('../lib/packingValidationIssues.js'),
       '../../lib/packingMatchReview.js': matchReview,
       '../../lib/packingManifestReconciliation.js': await import('../lib/packingManifestReconciliation.js'),
+      '../../lib/packingAmountReview.js': await import('../lib/packingAmountReview.js'),
+      './PackingAmountReview': {default:'PackingAmountReview',__esModule:true},
       '../../lib/packingWeekDate.js': require('../lib/packingWeekDate.js'),
       '../../lib/packingReceiptDatePolicy.js': require('../lib/packingReceiptDatePolicy.js'),
       '../../lib/packingReceiptMatchState.js': receiptMatchState,
