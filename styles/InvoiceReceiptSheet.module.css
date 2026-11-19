@@ -1,0 +1,39 @@
+.scroll .table {
+  min-width: 1160px;
+}
+
+.scroll .table th:nth-child(2) { width: 185px; }
+.scroll .table th:nth-child(3) { width: 215px; }
+.scroll .table th:nth-child(4),
+.scroll .table th:nth-child(5),
+.scroll .table th:nth-child(6) { width: 70px; }
+.scroll .table th:nth-child(7),
+.scroll .table th:nth-child(8) { width: 82px; }
+.scroll .table th:nth-child(9) { width: 64px; }
+.scroll .table th:nth-child(10),
+.scroll .table th:nth-child(11) { width: 90px; }
+
+.table td:nth-child(n+4):nth-child(-n+10),
+.table td input {
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  margin: 0;
+  padding: 7px 10px;
+  border-bottom: 1px solid #dbe3ed;
+  color: #526580;
+}
+
+@media (min-width: 1780px) {
+  .scroll:focus-within,
+  .scroll:focus-visible,
+  .scroll {
+    overflow-x: clip;
+    overflow-y: visible;
+  }
+
+  .scroll .table th {
+    top: 58px;
+  }
+}

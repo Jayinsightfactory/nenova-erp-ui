@@ -10,6 +10,7 @@ const source = fs.readFileSync(componentPath, 'utf8').replace(/\r\n/g, '\n');
 const adapterSource = fs.readFileSync(path.join(root, 'lib/importPackingReceiptAdapter.js'), 'utf8');
 const workflowSource = fs.readFileSync(path.join(root, 'lib/invoiceReceiptWorkflow.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'styles/InvoiceReceipt.module.css'), 'utf8');
+const sheetCss = fs.readFileSync(path.join(root, 'styles/InvoiceReceiptSheet.module.css'), 'utf8');
 const packingSource = fs.readFileSync(path.join(root, 'components/import-tools/PackingListTool.js'), 'utf8');
 const pageSource = fs.readFileSync(path.join(root, 'pages/import/tools.js'), 'utf8');
 test('farm header lookup carries source country and explicit historical farm selection',()=>{
@@ -203,7 +204,8 @@ test('workbench exposes editable raw quantities, explicit metadata, saved histor
   assert.match(picker,/onSelect\(candidate\); setQuery\(''\); setOpen\(false\)/);
   assert.doesNotMatch(picker,/onChange[^\n]*onSelect/);
   assert.match(source, /committedLineIds\.has\(line\.lineId\)/);
-  assert.match(source, /확정 입고 행의 품목은 변경할 수 없습니다/);
+  assert.match(source, /committedLineIds.size > 0 && <p className=\{sheetStyles.note\}>확정 품목을 바꾸려면/);
+  assert.doesNotMatch(source, /확정 입고 행의 품목은 변경할 수 없습니다/);
   assert.doesNotMatch(source, /dangerouslySetInnerHTML|innerHTML/);
 });
 
@@ -221,7 +223,8 @@ test('saved receipt documents remain reachable without re-uploading a source fil
 test('1920 workbench is dense, scroll-safe and keeps headers and issue rail visible', () => {
   assert.match(css, /\.root\s*\{[^}]*font-size:\s*14px/s);
   assert.match(css, /\.sheetScroll\s*\{[^}]*max-width:\s*100%[^}]*overflow-x:\s*auto/s);
-  assert.match(css, /\.sheet\s*\{[^}]*min-width:\s*1460px/s);
+  assert.match(sheetCss, /\.scroll \.table\s*\{[^}]*min-width:\s*1160px/s);
+  assert.match(sheetCss, /font-variant-numeric:\s*tabular-nums/);
   assert.match(css, /\.sheet th\s*\{[^}]*position:\s*sticky/s);
   assert.match(css, /\.issues\s*\{[^}]*position:\s*sticky/s);
   assert.match(css, /\.modal\s*\{[^}]*max-height:\s*calc\(100vh - 48px\)/s);

@@ -4112,6 +4112,15 @@ pm run test:canon 통과.
 5. 주의/잠금: 타 워커 담당 파일(`pages/pm.js`, `pages/work/manuals.js`, `ImportOneStopPipeline.js`, `CeoCommandHub.js`, `TechRadarWorkbench.js`, `ArchFlowChart.js`, `SolutionSuiteSimulator.js`, `pages/api/**`) 및 `workflow-guides.json` 타 워크플로우 항목 무수정 보존.
 검색어: GabrielProfitAgiWorkbench gabriel-purpose-callout gabriel-lever-purpose-callout gabriel-lever-svg-diagram gabriel-trace-auto-toggle stroke-dashoffset prefers-reduced-motion Purpose-First
 
+## 2026-11-19 · 인보이스 확인 매칭 우선 표시와 입고표 정리
+
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/invoice-match-review / PR #1884 / 기준 master 29f275c.
+2. 완료된 것: 이미 확인된 송장·품목 우선 표시, 90% 이상 같은 나라 단독 후보, 현재 품목 옆 후보와 같은 행 검색·교체, 한글 14px·보조 12.5px, 확정 입고 반복 안내 통합, 화면 최상단 목적 제목, Desktop 1.3.65.
+3. 남은 할 일: 최종 PR CI 후 squash, Cafe24 운영 읽기 확인과 공식 Windows 설치본 공개.
+4. 검증 상태: 실제 설치 ERP dnSpy 및 운영 SELECT, 격리 Chrome 503 후 기존 매칭 유지와 선택·검색·초점 복귀·직접 입고, 같은 줄·폰트·숫자 실측과 최종 스크린샷, 목적 제목 계산 스타일 검증 및 원본 해시 영향 영상 4편.
+5. 주의/잠금: 적용한 나라만 조회. 기존 확정 입고 품목 변경 제한, 같은 파일 최신 이력, 명시 저장과 중복 차단 유지. 운영 입고·원가 저장과 유료 분석 없음.
+검색어: invoice-inline-match 90percent country-split compact-receipt Desktop1.3.65 PR1884
+
 ## 2026-11-19 · 사장님 통합 지휘실(/work/command-hub) & 네노바 데스크톱 제1버튼(#pmHubButton) 연결
 1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/ceo-command-hub` / `C:\Users\USER\nw-agy-ceo-hub` / PR #1893.
 2. 완료된 것: 순수 집계 모듈 `lib/ceoCommandHub.js`(6대 전담 에이전트 현황판 `buildAgentRosterStatus`, PM·직원요청·기술레이더 통합 원장 `buildPmActionLedger`/`filterPmActionLedger`, 연속 디벨롭 펄스 `buildDevelopmentPulse`, 가브리엘 Profit AGI +536만원/주·Top 3 경보, 4대 목적별 21개 화면 한눈 지도 `CEO_PAGE_DIRECTORY`), 관리자(`nenovaSS3`) 404 게이트 페이지 `pages/work/command-hub.js` & Anti-AI Slop §7 한글 고딕 UI `components/work/CeoCommandHub.js` · `styles/CeoCommandHub.module.css`, 데스크톱 상단 제1버튼 `#pmHubButton` (`desktop/shell/shell.js`) & `Layout.js` `연동` 그룹 등록, `desktop/package.json`·`package-lock.json` `1.3.64`, 4단계 사용 가이드 영상(`scripts/record-ceo-command-hub-guide.cjs`, `public/guides/ceo-command-hub/staff.{mp4,ko.vtt,proof.json}`, `config/workflow-guides.json`) 및 단위·스모크 테스트(`__tests__/ceoCommandHub.test.js`, `__tests__/desktopBootstrap.test.mjs`, `desktop/scripts/smoke.cjs`).

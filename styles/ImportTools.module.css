@@ -53,6 +53,8 @@
 .packingWorkModes button:focus-visible { outline: 3px solid #2463be; outline-offset: 2px; }
 .packingWorkspace .header { margin-bottom: 10px; }
 .packingWorkspace .header h1 { font-size: 22px; }
+.packingPurpose { min-width: 0; font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif; color: #0f172a; }
+.packingPurpose span { display: block; font-size: 12.5px; font-weight: 700; color: #475569; }
 .packingWorkspace .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .packingWorkspace .tabs button { padding: 7px 12px; gap: 6px; }
 .packingWorkspace .tabs small, .packingWorkspace .tabNumber { display: none; }

@@ -136,9 +136,9 @@
 .sheetScroll { min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
 .resultSheet { width: 100%; min-width: 1200px; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 14px; }
 .rowNumberColumn { width: 52px; }
-.productColumn { width: 24%; }
+.productColumn { width: 20%; }
 .lengthColumn { width: 78px; }
-.matchDataColumn { width: 28%; }
+.matchDataColumn { width: 43%; }
 .boxesColumn, .stemsColumn { width: 78px; }
 .quantityColumn { width: 92px; }
 .priceColumn { width: 92px; }
@@ -189,10 +189,20 @@
 .statusAlias { background: #e8f0fe; color: #2457c5; }
 .statusIssue { background: #fde8e8; color: #9b1c1c; }
 .matchColumn { width: 28%; min-width: 250px; }
-.matchCell { width: 28%; min-width: 250px; }
+.matchCell { min-width: 250px; }
 .matchSummary { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 4px 7px; }
-.matchTarget { flex: 1 0 100%; color: #172b4d; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; white-space: normal; }
+.matchTarget { color: #0f172a; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; white-space: normal; }
+.currentMatch { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.currentMatch .statusChip { flex: 0 0 auto; white-space: nowrap; }
+.inlineMatchControls, .inlineMatchChoices { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.inlineMatchControls button, .inlineMatchChoices button { min-height: 28px !important; padding: 2px 6px !important; text-align: left; }
+.inlineMatchControls .inlineCandidate, .inlineMatchChoices .inlineCandidate { border-color: #94a3b8; color: #334155; background: #f8fafc; }
+.inlineCandidate[aria-pressed=true] { box-shadow: inset 0 0 0 1px #1d4ed8; background: #eff6ff; color: #0f172a; }
+.inlineCandidate small { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.inlineMatchEditor { flex-basis: 100%; padding: 5px 0; }
+.inlineMatchEditor input { width: min(100%, 360px); padding: 5px 8px; margin-bottom: 4px; }
 .matchActions { display: flex; min-width: 0; max-width: 100%; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 4px 7px; }
+.matchActions:empty { display: none; }
 .inlineNote { display: flex; min-width: 0; max-width: 100%; flex: 1 1 190px; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: #526580; font-size: 12px; }
 .inlineNote span { white-space: normal; }
 .inlineNote input {
