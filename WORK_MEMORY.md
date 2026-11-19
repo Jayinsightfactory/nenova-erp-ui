@@ -4085,8 +4085,18 @@ pm run test:canon 통과.
 5. 주의/잠금: ERP 원장쓰기 없음. 작업트리만 수정. 추정폭은 플랫폼 폰트 실측 API가 아닌 10pt 보수 휴리스틱.
 검색어: shipmentFieldCompact printHeight Latin glyph spaces bold A3 39 tests a3-page
 
+## 2026-11-19 /pm 목적 우선 배너 + 실시간 PM 파이프라인 트레이스 모션 도면
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/pm-purpose-trace-motion` / `C:\Users\USER\nw-swm-pm-trace` (스웜 pm-trace-claude)
+2. 완료된 것: 신규 `components/pm/PmPurposeTraceBoard.js`. ① `PmPurposeBanner`(`data-testid="pm-purpose-banner"`)를 헤더 바로 아래에 둠. 「핵심 목적 · PURPOSE」로 WHY 17px, 손실·병목 / 완료 기준(DONE) / 담당 에이전트 / 기대 효과를 15px 굵게 표시. 업무 대장 줄(이제 키트 `SelectCard`)을 누르면 그 과제 기준으로 바뀌고(`data-scope=task`), `전체 목적 보기`를 누르면 원래대로 돌아감. ② 일반 관제의 `PmPurposeTraceBoard`(`data-testid="pm-live-trace-diagram"`). SVG 패턴으로 20px 모눈을 깔고 6단계 카드를 둠(01 현장 신호 → 06 Cafe24·데스크톱). 완료 카드는 에메랄드 실선과 이동 점, 실행 중 카드는 로열블루 흐르는 점선(`stroke-dashoffset`), 대기 카드는 슬레이트. 03→04 리턴 버스 선은 레인 위쪽에, 배지는 레인 아래쪽 흰 배경에 따로 둠. 실측해서 `data-bus-clear`에 기록함. AUTO 1x(2,600ms) 재생/정지, 카드를 누르면 그 단계로 이동, `실시간 상태로` 버튼도 있음. 과제 상태는 `traceStageOfTask`로 단계에 맞춤. 전체 보기는 승인 → 검증 → 조사 순서로 우선함. 색은 rgb()만 쓰고 hex는 0, 글꼴은 Pretendard → 맑은 고딕.
+3. 가이드: `pm-control` 시나리오가 6개가 됨(purpose / trace / task / control / game / off). sourceFiles에 새 컴포넌트를 넣음. `scripts/pm-control-smoke.cjs`에 배너·도면·과제 선택·버스 겹침 검사를 추가하고 `--record`로 다시 녹화함(98초).
+4. 검증: `node __tests__/pmPurposeTrace.test.js`(신규), `npm run test:pm`, `npm run test:workflow-guides`, `check-workflow-guides --changed-from origin/master`, `npm run test:ui-layout`, `guard:erp-writes --changed-from origin/master`, `npx next build --webpack`, 1920/1280/390 스크린샷 육안 확인 PASS. 쓰기 0, JS 오류 0.
+5. 함정: worktree의 node_modules junction은 Turbopack dev에서 패닉이 나므로 `npx next dev --webpack -p 3298`을 쓰고 `JWT_SECRET=pm-control-local-fixture-only`를 줘야 녹화 쿠키가 통과함. 녹화기 `focus`는 스크롤하지 않음. 그래서 step에서 `scrollIntoView({block:'center'})`를 먼저 부름(`block:'start'`이면 sticky 헤더가 버튼을 가려 클릭이 빗나감). animateMotion `mpath`는 경로 d가 바뀌어도 예전 좌표를 붙잡고 있음. `<g key={id+d}>`로 다시 마운트해서 해결함.
+검색어: PmPurposeTraceBoard pm-purpose-banner pm-live-trace-diagram traceStageOfTask data-bus-clear pmtr-flow AUTO 1x 2600ms 목적 우선 트레이스 도면
+
+검색어: shipmentFieldCompact printHeight Latin glyph spaces bold A3 39 tests a3-page
+
 ### 2026-11-19 — Archify 도면(moyi-full-suite-blueprint.html) 및 관제 UI 한글 서체(굴림체 폴백 제거)·글자크기 상향 개편
-1. 작업 위치: Jayinsightfactory/nenova-erp-ui / fix/korean-typography-and-blueprint-legibility / C:\Users\USER\nw-agy-fix-font (PR 예정).
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / fix/korean-typography-and-blueprint-legibility / C:\Users\USER\nw-agy-fix-font PR #1892.
 2. 완료된 것: data/moyi-full-suite-blueprint.html의 JetBrains Mono·Georgia·단독 monospace 제거 및 Pretendard/Malgun Gothic 스택·tabular-nums 통일, GUIDED VIEWS 01~04 버튼 말줄임(...) 완전 해소(13.5px 2단 그리드), SVG viewBox(1406×588) 확장 및 노드 16.5px·부제목 13.5px·에지 불투명 캡슐 13px·경계 헤더 14px·Anti-AI Slop 4색 구조선 정비(글로우 halo 제거). components/pm/{TechRadarWorkbench,ArchFlowChart,ui}.js의 ui-monospace/monospace 13건 전수 고딕 교체, <style jsx global> 스코핑 수정(Plan A/B/C/ALL·StoryFlow 스타일 적용 복구), SVG/HTML 최소 글자크기 12~14px 상향, __tests__/{techRadarSimulator,archFlowChart}.test.js 가드 강화, 전역 SHARED_AGENT_RULES.md §7 반영 및 3-툴 동기화 완료.
 3. 남은 할 일: PR 생성, CI(verify·installer) 통과 확인, squash 머지 및 worktree/junction 정리.
 4. 검증 상태: test:pm, techRadarSimulator.test.js, archFlowChart.test.js, adoptionRadar.test.js, solutionSuiteSimulator.test.js, test:ui-layout, test:workflow-guides, guard:erp-writes, test:erp-manifest 및 Headless Chromium(1920×1080·iframe 922×660·Plan A/C·StoryFlow·ArchFlowChart, 콘솔 오류/가로넘침/말줄임/겹침/monospace 0건) + next build --webpack PASS. (운영 서버 DB 미연결 로컬 검증)
