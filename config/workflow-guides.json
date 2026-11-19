@@ -624,17 +624,17 @@
             {
               "scenario": "quantity",
               "title": "1. 수량과 박스 수량 확인",
-              "seconds": 0.007
+              "seconds": 0.008
             },
             {
               "scenario": "remark",
               "title": "2. 비고를 눌러 수정하기",
-              "seconds": 9.004
+              "seconds": 9.08
             },
             {
               "scenario": "print",
               "title": "3. 인쇄 전 마지막 합계 확인",
-              "seconds": 23.995
+              "seconds": 23.665
             }
           ]
         }
@@ -699,17 +699,17 @@
             {
               "scenario": "range",
               "title": "2. 원하는 기간과 매출 확인",
-              "seconds": 18.691
+              "seconds": 19.087
             },
             {
               "scenario": "source",
               "title": "3. 일별 수량·원차수·매출 합계",
-              "seconds": 37.387
+              "seconds": 37.898
             },
             {
               "scenario": "history",
               "title": "4. 즐겨찾기와 이전 정산 이력",
-              "seconds": 75.329
+              "seconds": 76.217
             }
           ]
         }
@@ -1727,12 +1727,12 @@
             {
               "scenario": "review",
               "title": "2. 신고와 견적 대조",
-              "seconds": 7.978
+              "seconds": 7.981
             },
             {
               "scenario": "close",
               "title": "3. 대조와 알림 닫기",
-              "seconds": 52.83
+              "seconds": 52.643
             }
           ]
         }
@@ -1932,6 +1932,69 @@
               "scenario": "result",
               "title": "4. 분배 반영 결과 확인",
               "seconds": 69.941
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "estimate-change-history",
+      "title": "네노바 견적 변경 이력",
+      "entryPaths": [
+        "/estimate-change-history"
+      ],
+      "sourceFiles": [
+        "pages/estimate-change-history.js",
+        "components/EstimateChangeHistory.js",
+        "components/EstimateHistoryTools.js",
+        "styles/EstimateChangeHistory.module.css",
+        "lib/estimateChangeRequestRows.cjs",
+        "lib/estimateChangeWorkbookPreview.js",
+        "lib/estimateChangeHistoryWorkbook.cjs",
+        "components/EstimateHistoryImpact.js",
+        "lib/estimateChangeHistorySales.js"
+      ],
+      "requiredScenarios": [
+        "historical",
+        "linked",
+        "history",
+        "export",
+        "progress"
+      ],
+      "guides": [
+        {
+          "id": "sales-support",
+          "role": "영업지원",
+          "title": "과거 수기 입력·견적 연결·변경요청서 출력",
+          "status": "ready",
+          "src": "/guides/estimate-change-history/sales-support.mp4",
+          "captions": "/guides/estimate-change-history/sales-support.ko.vtt",
+          "proof": "/guides/estimate-change-history/sales-support.proof.json",
+          "chapters": [
+            {
+              "scenario": "historical",
+              "title": "1. 과거 이력 수기 입력",
+              "seconds": 0
+            },
+            {
+              "scenario": "linked",
+              "title": "2. 전산 반영 전 변경안 작성",
+              "seconds": 8.4
+            },
+            {
+              "scenario": "history",
+              "title": "3. 이력과 전체·업체 매출 비교",
+              "seconds": 16.638
+            },
+            {
+              "scenario": "export",
+              "title": "4. 원본 양식 확인과 엑셀 출력",
+              "seconds": 26.757
+            },
+            {
+              "scenario": "progress",
+              "title": "5. 실제 완료 단계와 실측 기록",
+              "seconds": 39.799
             }
           ]
         }

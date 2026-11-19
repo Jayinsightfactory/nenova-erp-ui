@@ -31,7 +31,8 @@ import { amountVatFromCostEst } from '../lib/distributeUnits.js';
 import { requireCostSnapshot, rebaseCostItemsFromSaved, STALE_COST_MESSAGE } from '../lib/estimateCostSnapshot.js';
 import { shouldApplyEstimateProductContext } from '../lib/estimateProductContextGuard.js';
 import { estimatePhysicalRowKey, estimateQuantityEditKey } from '../lib/estimatePhysicalRow.js';
-import { downloadEcountUploadWorkbook } from '../lib/estimateEcountExcel.js';
+import {captureEstimateExport} from '../lib/estimateExportCapture.js';
+import EstimateHistoryRowLink from '../components/EstimateHistoryRowLink';
 import { collectEstimateBatchReadFailures, estimateBatchReadFailureMessage } from '../lib/estimateBatchOutputGuard';
 import {
   FIX_CATEGORY_PRESETS,
@@ -909,6 +910,8 @@ function EstimateByWeek() {
   const [listOrder, setListOrder] = useState('sales');
   const [weekSales, setWeekSales] = useState(null);
   const [ledgerAlertScope, setLedgerAlertScope] = useState(null);
+  const [pendingExportRecord,setPendingExportRecord]=useState(null),[ecountExporting,setEcountExporting]=useState(false);
+  const ecountExportingRef=useRef(false);
   const [selectedGroups, setSelectedGroups] = useState(new Set()); // 다중 선택 (전체선택 + 인쇄용)
   const [selectedId, setSelectedId] = useState(null);
   const [selectedCustKey, setSelectedCustKey] = useState(null);
@@ -919,6 +922,9 @@ function EstimateByWeek() {
 
   // 오른쪽 패널 - 견적서 목록
   const [items, setItems] = useState([]);
+  const historyHighlightRef=useRef(false);
+  useEffect(()=>{if(historyHighlightRef.current||typeof window==='undefined')return;const p=new URLSearchParams(window.location.search),key=p.get('historyRow');if(p.get('from')!=='estimate-history'||!key||!items.some(row=>estimatePhysicalRowKey(row)===key))return;const node=[...document.querySelectorAll('[data-estimate-history-key]')].find(el=>el.getAttribute('data-estimate-history-key')===key);if(node){historyHighlightRef.current=true;node.style.outline='2px solid var(--blue)';node.scrollIntoView({block:'center'});}},[items]);
+
   // 인쇄용 왼쪽 업체 선택과 분리된, 현재 상세의 불량/검역 Estimate 삭제 선택.
   const [selectedDeductionKeys, setSelectedDeductionKeys] = useState(() => new Set());
   const [deductionDeleting, setDeductionDeleting] = useState(false);
@@ -1014,7 +1020,7 @@ function EstimateByWeek() {
     const requestedWeek = String(params.get('week') || '').replace(/\D/g, '').slice(0, 2);
     const requestedCustKey = Number(params.get('custKey') || 0);
     const requestedCustName = String(params.get('custName') || '').trim();
-    if (params.get('from') === 'weekday' && requestedYear && requestedWeek && requestedCustKey > 0) setAutoLoad(true);
+    if (['weekday','estimate-history'].includes(params.get('from')) && requestedYear && requestedWeek && requestedCustKey > 0) setAutoLoad(true);
     if (params.get('includeUnfixed') === '1') {
       queryIncludeUnfixedRef.current = true;
       setIncludeUnfixed(true);
@@ -3758,31 +3764,17 @@ function EstimateByWeek() {
       return;
     }
 
-    const weekDays = [...activeWD].join(',');
-    const allRows = [];
+    if(ecountExportingRef.current)return;
+    ecountExportingRef.current=true;setEcountExporting(true);
     try {
-      for (const ship of targets) {
-        const d = await apiGet('/api/estimate', {
-          view: 'excelDetail',
-          week: weekNum,
-          year: yearStr,
-          custKey: ship.CustKey,
-          weekDays,
-        });
-        if (d.success && d.rows?.length) allRows.push(...d.rows);
-      }
-      if (!allRows.length) {
-        alert('이카운트 업로드용 데이터가 없습니다. (확정 견적·EstQuantity>0·선택 요일)');
-        return;
-      }
-      const fname = `이카운트_견적업로드_${weekNum}차_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      downloadEcountUploadWorkbook(allRows, fname);
-      setSuccessMsg(`✅ 이카운트 Excel ${allRows.length}행 저장`);
-      setTimeout(() => setSuccessMsg(''), 4000);
+      const result=await captureEstimateExport({year:yearStr,week:weekNum,custKeys:targets.map(s=>s.CustKey),weekDays:[...activeWD]});
+      setPendingExportRecord(result.pending);
+      setSuccessMsg(`${yearStr}년 ${weekNum}차 이카운트 엑셀 ${result.rowCount}행 다운로드 요청 · 파일 당시 값 보관`);
+      if(result.pending)setErr('파일은 생성됐지만 다운로드 요청 이력을 확인하지 못했습니다. 이력 기록 재시도를 눌러 확인하세요.');
     } catch (e) {
-      alert(e.message || '이카운트 Excel 저장 실패');
-    }
-  }, [weekNum, activeWD, selectedGroups, selectedShip, shipments]);
+      setErr(e.message||'이카운트 엑셀 생성 실패');
+    } finally {ecountExportingRef.current=false;setEcountExporting(false);}
+  }, [yearStr,weekNum,activeWD,selectedGroups,selectedShip,shipments]);
 
   const openPrintDialog = (printFormat = ESTIMATE_PRINT_FORMAT.ESTIMATE) => {
     setPrintOpts(o => ({ ...o, outType: 'total', printFormat }));
@@ -4799,7 +4791,9 @@ function EstimateByWeek() {
           </button>
           <button className="btn" onClick={handleStatementPrint}>📋 거래명세표 출력</button>
           <button className="btn" onClick={handleOrderStatementExcel} title="주문등록(ViewOrder) 품목·단위·단가 기준 거래명세표 Excel">📥 주문→거래명세표 Excel</button>
-          <button className="btn" onClick={handleEcountExcel} title="nenova.exe GetExcelDetail — 이카운트 견적 업로드용">📤 이카운트 Excel</button>
+          <button className="btn" disabled={ecountExporting} onClick={handleEcountExcel} title="이카운트 업로드용 파일과 다운로드 당시 값을 함께 보관">{ecountExporting?'파일 기준 보관 중…':'이카운트 엑셀'}</button>
+          <a className="btn" href={`/estimate-change-history?year=${yearStr}&week=${weekNum}${selectedShip?.CustKey?`&custKey=${selectedShip.CustKey}`:''}`}>견적 변경 이력</a>
+          {pendingExportRecord&&<button type="button" className="btn" onClick={async()=>{try{const r=await apiPost('/api/estimate/change-history',pendingExportRecord);if(!r.success)throw Error(r.error);setPendingExportRecord(null);setErr('');setSuccessMsg('다운로드 요청 이력을 확인했습니다.');}catch(e){setErr(e.message);}}}>다운로드 이력 기록 재시도</button>}
           <button className="btn" onClick={handleExcel} title="인쇄와 동일한 양식으로 Excel 저장">📊 인쇄·엑셀</button>
           <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
@@ -5238,7 +5232,7 @@ function EstimateByWeek() {
                           const boxQuantity = formatBoxQuantityLabel(item.Quantity, item.Unit, item.BunchesPerBox, item.SteamsPerBox);
                           const isEdited = editVal !== '' && !isNaN(parseFloat(editVal)) && parseFloat(editVal) !== item.Cost;
                           return (
-                          <tr key={estimatePhysicalRowKey(item) || costEditKey || `row:${i}`} data-estimate-deduction={isDed ? '1' : undefined} style={{background: isEdited ? '#E6F7FF' : (highlightDed ? '#FDE68A' : (isDed ? '#FFF8DC' : ''))}}>
+                          <tr key={estimatePhysicalRowKey(item) || costEditKey || `row:${i}`} data-estimate-history-key={estimatePhysicalRowKey(item)} data-estimate-deduction={isDed ? '1' : undefined} style={{background: isEdited ? '#E6F7FF' : (highlightDed ? '#FDE68A' : (isDed ? '#FFF8DC' : ''))}}>
                             <td style={{padding:'2px', textAlign:'center'}}>
                               {canDeleteDeduction ? (
                                 <label title="이 불량·검역 차감만 삭제 대상으로 선택" style={{display:'inline-flex', alignItems:'center', justifyContent:'center', cursor: deductionDeleting ? 'wait' : 'pointer'}}>
@@ -5267,7 +5261,7 @@ function EstimateByWeek() {
                                   textDecoration: 'underline', fontWeight: 600,
                                 }}
                                 title="품목 정보를 열어 수정"
-                              >{item.ProdName}</button>
+                              >{item.ProdName}</button><EstimateHistoryRowLink row={item} year={yearStr} week={weekNum} custKey={selectedShip?.CustKey||item.CustKey}/>
                             </td>
                             <td style={{fontSize:12}}>{item.Unit}</td>
                             <td style={{fontFamily:'var(--mono)', fontSize:12}}>{fmtDate(item.outDate)}</td>

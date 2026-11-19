@@ -3842,3 +3842,18 @@ pm run test:canon 통과.
 5. 주의/잠금: 원장/API/SQL·원가·정렬 변경 없음. 기존 체크아웃 보존. 직원 PC 재시작 없음.
 검색어: 입고관리 인보이스 번호 AWB 농장명 열 검색 normalizeAwbSearch
 
+## 2026-11-19 · 원장 연결 알림 기록 달력 배포 완료
+- 위치: nenova-erp-ui / codex/ledger-calendar-1119 / 완료 worktree 정리 / PR1855, merge3da8f29783a0ff6b19b9a6cf754cfb5372712adf.
+- 완료: 최초/현재 신고·등록변경·차수 판매스냅샷 실제 날짜 달력, 미기록 날짜 비추정. 가이드66.4초·자막·목차, desktop1.3.46 릴리스와 feed/설치파일SHA512 확인.
+- 남은 일: 달력 작업 없음. 새 사용자 승인에 따라 독립 '네노바 견적 변경 이력'을 새 worktree/PR에서 구현 진행.
+- 검증: 대상14/전체ERP계약/dnSpy/manifest/쓰기범위/webpack/desktop73/Electron/가이드 통과. PR CI44429400480·44429400218 및 master44430435808·44430435809 성공. Cafe24 배포44430435817 성공. 운영1920/1280/390 달력·기본접힘·방향키·Esc·영상/자막/목차·ping200·버전3da8f297 확인, nonGET2건 차단·운영쓰기0.
+- 주의/잠금: acba 기존 dirty 기록·45차CSV 보존. 판매스냅샷≠엑셀다운로드/이카운트 실제입력. Drive 영상1QqliZgJIwSizKXqmLGVv1CNC1SIuti7U/자막1_ETgzM-q9OXf833URfleGnM1njNkzljV. 새 메뉴는 사용자 추가승인으로 기획 제한 해제.
+- 검색어: PR1855 기록 달력 신고 판매등록 3da8f297 desktop1.3.46 견적 변경 이력 후속 승인
+
+### 2026-11-19 견적 변경 이력 구현·로컬 검증 완료 (배포 전)
+1. 작업 위치: nenova-erp-ui / codex/estimate-change-history-1119 / C:/Users/USER/nw-cdx-estimate-history-1119 / PR 생성 예정.
+2. 완료: 독립 변경 이력 메뉴, 과거 수기·나중 연결, 불변 다운로드 저장본, 반영 전 변경안, 차장보고→이카운트→전산 확인, 전체/업체 예상·실측 매출, 개인정보 없는 표준 XLSX, Desktop1.3.52, 실제 가이드4종 및 지정 Drive 백업(메타데이터 readback8건).
+3. 남음: 최신 master 병합·충돌 보존, PR 실제 CI success 후 squash, Cafe24 배포·운영 GET 스모크·Desktop1.3.52 릴리스 확인, 작업트리 정리.
+4. 검증: ERP 전체 suite·dnSpy·manifest230·쓰기 가드·공식 webpack build 통과. 기능36/EXE SQL26/desktop73 및 Electron·UI58, 1920/1280/390·Tab/ShiftTab/방향키/Esc·실제 행 왕복·실제 XLSX·가이드4종 재생/자막/역할/목차/다운로드 통과. 최신 통합/CI/운영은 아직 미검증.
+5. 주의/잠금: 공용 ERP/ECOUNT 쓰기0, 새 DB DDL 없음. 과거 미기록 날짜/합계 추정 금지. acba의 기존 dirty WORK_MEMORY.md와 45차_판매전표_대조.csv 보존. 경로·계약은 docs/plans/estimate-change-history-implementation-2026-11-19.md, 백업ID는 docs/work-sessions/2026-11-19_estimate-change-history-backups.json.
+검색어: 네노바 견적 변경 이력 과거 수기 변경안 차장보고 이카운트 예상 실측 Amount+Vat SdateKey CAS 1.3.52

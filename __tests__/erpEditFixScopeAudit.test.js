@@ -54,7 +54,10 @@ async function main() {
   const mobileEstimate = read('pages/m/estimate/index.js');
   const bizContext = read('lib/chat/bizContext.js');
 
-  assert.match(estimatePage, /apiGet\('\/api\/estimate', \{[\s\S]{0,100}?week: weekNum,[\s\S]{0,80}?year: yearStr/);
+  assert.match(estimatePage, /captureEstimateExport\(\{year:yearStr,week:weekNum,custKeys:/);
+  const exportCapture = read('lib/estimateExportCapture.js');
+  assert.match(exportCapture, /scope=\{year:String\(year\),week:Number\(week\)\}/);
+  assert.match(exportCapture, /action:'capture'[\s\S]*custKeys,weekDays/);
   assert.match(estimateApi, /resolveOrderYearWeek\(parentWeek, explicitYear\)/);
   assert.match(estimateApi, /om\.OrderYear=@yr/);
   assert.match(estimateApi, /sm\.OrderYear=@yr/);
