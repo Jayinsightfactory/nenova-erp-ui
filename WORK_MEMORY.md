@@ -4005,10 +4005,18 @@ pm run test:canon 통과.
 5. 주의/잠금: 운영 입고·원가 데이터와 유료 분석 변경 없음. 기존 SQL writer, 재고·입고 readback, 원가 명시 승인 보존.
 검색어: invoice-only-receipt AWB optional packing receipt PENDING 18065 47-02 Desktop1.3.58 PR1875
 
+## 2026-11-19 · 통합 솔루션 시뮬레이션(`/my-work?tab=suite-sim`) Anti-AI Slop 에디토리얼 리디자인
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/suite-sim-anti-ai-slop` / `C:\Users\USER\nw-agy-clean-suitesim` (`Desktop 1.3.59`).
+2. 완료된 것: `components/work/SolutionSuiteSimulator.js` 전면 리디자인(다크 네온 `#0b1019`/`#38bdf8`/`#22d3ee`/`#a78bfa`·`linear-gradient`·`box-shadow` 글로우·`➔`·이모지 완전 제거, `#f8fafc`/`#ffffff`/`1px solid #e2e8f0`/`#0f172a`/`#475569` + 3색 의미 팔레트 `#1d4ed8`·`#047857`·`#b45309`·`tabular-nums` 적용, 상단 1px 컨트롤·고정폭 지표 바, 좌측 60% `[실시간 아키텍처 트레이스 도면·Archify·3D 블루프린트]` 뷰포트, 우측 40% 단계별 패킷 원장·실제 캡처 증빙·4-Invariant 안전 가드 인스펙터, 하단 5열 고밀도 실행 로그 테이블 구현), `__tests__/solutionSuiteSimulator.test.js` Anti-AI Slop 가드·SSR·3탭 검증 강화, `desktop/package.json`·`desktop/package-lock.json` `1.3.59` 패치 업.
+3. 남은 할 일: PR 생성, CI(`verify`·`installer`) 통과 확인, squash 머지 및 worktree/junction 정리.
+4. 검증 상태: `solutionSuiteSimulator.test.js`, `techRadarSimulator.test.js`, `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes --changed-from origin/master`, `test:erp-manifest --changed-from origin/master`, `test:pm`, `desktopBootstrap.test.mjs`, `desktop/tests/menu.test.cjs`, `npm --prefix desktop test`(75건), `archFlowChart.test.js`, `npx next build --webpack` 실행 검증 완료. 실운영 브라우저/실DB는 미연결(SSR + 오프라인 API/목업 픽스처 검증).
+5. 주의/잠금: 병렬 세션 `UI-1`(`pages/pm.js`, `lib/pmThemes.js`, `config/workflow-guides.json`)·`UI-2`(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`)·`Layout.js`·`pages/api/**` 무수정 경계 유지. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·이모지·네온 hex·gradient 0건 유지.
+검색어: suite-sim SolutionSuiteSimulator Anti-AI-Slop SwissEngineering PalantirLight tabular-nums Desktop1.3.59
+
 ## 2026-11-19 · /my-work 에디토리얼 라이트 쉘 · 도입레이더 정화(clear/A) · 아키텍처 흐름도(ArchFlowChart) Anti-AI Slop 전면 리디자인
-1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/mywork-radar-arch-editorial` / `C:\Users\USER\nw-agy-clean-radar-arch`
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/mywork-radar-arch-editorial` / `C:\Users\USER\nw-agy-clean-radar-arch` / PR #1878
 2. 완료된 것: `pages/my-work.js` (구형 `#0e1016`·`#12151c`·`#58a6ff` 다크 껍데기 전면 철거, `#f8fafc`/`#ffffff`/`#e2e8f0`/`#1d4ed8` 에디토리얼 라이트 쉘·언더라인 탭·전 탭 라이트 대비 전환, `도입레이더` 진입 즉시 `<TechRadarWorkbench isAdmin={true} mode="clear" initialPlanMode="A" />` 최상단 배치 및 구형 `<SelfTuneReport />`/`.rings`/원장 5표를 접이식 `원장 로우데이터 및 일별 자가조율 로그 열람` 아카이브로 기본 수납), `components/pm/ArchFlowChart.js` (구형 다크 테마·글로우·`repeat(4)` 카드·중첩 박스 제거, 라이트 테크니컬 블루프린트 1px KPI 스트립·섹션 네비·좌우 스플릿·고밀도 원장 테이블 전환, `#hex`·raw `<button>`·금지어·이모지 0건), `lib/pmRadarPlanTokens.js`·`components/pm/TechRadarWorkbench.js` (`ALL_CLEAR`·`clear` 모드 팔레트/테두리 정합성 보강 및 `box-shadow` 글로우 0건), `__tests__/archFlowChart.test.js`·`__tests__/adoptionRadar.test.js`·`__tests__/techRadarSimulator.test.js` Anti-AI Slop·SSR 검증 추가.
-3. 남은 할 일: PR 생성, CI(`verify`·`installer`) 통과 및 squash 머지, junction/worktree 정리.
+3. 남은 할 일: `origin/master`(PR #1877) 병합 후 CI(`verify`·`installer`) 통과 및 squash 머지, junction/worktree 정리.
 4. 검증 상태: `archFlowChart.test.js`, `adoptionRadar.test.js`, `techRadarSimulator.test.js`, `gabrielProfitAgi.test.js`, `deviceHubConsole.test.js`, `solutionSuiteSimulator.test.js`, `workflowReview.test.js`, `workFeatureData.test.js`, `desktop-my-work-scroll-smoke.cjs`, `test:pm`, `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes --changed-from origin/master`, `test:erp-manifest --changed-from origin/master`, Puppeteer headless Chromium 렌더링/오버플로우 검증(1440/390) 및 `npx next build --webpack` PASS; 실운영 인증 세션의 수동 브라우저 클릭은 미검증(MSSQL 쓰기 0건).
 5. 주의/잠금: 병렬 세션 `UI-1`(`pages/pm.js`, `lib/pmThemes.js`, `ControlGuide.js`, `Grow.js`, `workflow-guides.json`)·`UI-3`(`SolutionSuiteSimulator.js`, `desktop/package.json`)·`pages/api/**` 무수정 준수; `DeviceHubConsole`은 라이트 스테이지 위 `.dhc-root` 다크 프레임 보존.
-검색어: my-work 도입레이더 흐름도 ArchFlowChart TechRadarWorkbench mode-clear Anti-AI-Slop 에디토리얼라이트 쉘
+검색어: my-work 도입레이더 흐름도 ArchFlowChart TechRadarWorkbench mode-clear Anti-AI-Slop 에디토리얼라이트 쉘 PR1878
