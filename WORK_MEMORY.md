@@ -3833,3 +3833,4 @@ pm run test:canon 통과.
 5. 주의/잠금: 이 작업트리3개 변경파일 보존. ERP/DB쓰기0. 출력샘플은 new-chat/outputs/46-01 카네이션 하단요일 세로.xlsx.
 
 - 후속: 정식 webpack build exit0, manifest229/dnSpy/쓰기guard PASS. 실제 원본46-01 샘플·원본팔렛스냅샷 병기·Excel A3가로4쪽 PDF 및 footer 시각확인 PASS. 전체ERP/CI/배포 진행중.
+- 한글 후속: 기존 lib/displayName.js suggestDisplayName canonical 재사용, 알려진7개 별칭 우선. 한글변환 없는 미등록 이름은 원문유지. 대상35 PASS. 최종 SHA CI 재검증 필요.

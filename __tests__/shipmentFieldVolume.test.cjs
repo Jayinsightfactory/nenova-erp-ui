@@ -158,5 +158,5 @@ test('pallet text shows source boxes independently from rounded pallet counts',(
 test('footer weekdays have independent merged headings below unchanged total',async()=>{
  const out=await api.createFieldVolumeWorkbook(plan(),[line('46-02',3)],[farm()]),wb=new ExcelJS.Workbook();await wb.xlsx.load(out);const ws=wb.worksheets[0];
  assert.equal(ws.getCell('A4').text,'총합계');assert.equal(ws.getCell('A5').text,'금요일');assert.equal(ws.getCell('G5').master.address,'A5');assert.equal(ws.getCell('A6').text,'금요일 · 양재');assert.match(ws.getCell('C6').text,/돈셀3/);assert.equal(ws.getCell('A7').text,'업체별 당일 총수량');
- assert.equal(api.fieldCultivarDisplay('Moon Light'),'문라이트');assert.equal(api.fieldCultivarDisplay('Unknown'),'Unknown');
+ assert.equal(api.fieldCultivarDisplay('Moon Light'),'문라이트');assert.equal(api.fieldCultivarDisplay('Unknown'),'Unknown');assert.equal(api.fieldCultivarDisplay('Doncel'),'돈셀');assert.equal(api.fieldCultivarDisplay('Novia'),'노비아');assert.equal(api.fieldCultivarDisplay('Cherrio'),'체리오');
 });
