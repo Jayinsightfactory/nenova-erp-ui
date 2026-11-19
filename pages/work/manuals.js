@@ -10,6 +10,8 @@ import LivePipelineManual from '../../components/manuals/LivePipelineManual';
 import ImportHandover from '../../components/manuals/ImportHandover';
 import ManualSearchBar from '../../components/manuals/ManualSearchBar';
 import ManualAdminBriefing from '../../components/manuals/ManualAdminBriefing';
+import PurposeFlowTrace from '../../components/work/PurposeFlowTrace';
+import { resolveDeptTrace } from '../../lib/workPurposeTrace';
 
 const TINTS = ['#2F6FEB', '#1E8E5A', '#C2410C', '#7C3AED', '#0E7490', '#B45309'];
 const STATUS = {
@@ -170,6 +172,7 @@ export default function WorkManualsPage() {
   const [deptParam, setDeptParam] = useState(null); // ?dept=<id> — 처음 보여 줄 부서
   const [deptPick, setDeptPick] = useState(null); // 사람이 단추로 고른 부서
   const [view, setView] = useState('routine'); // routine=부서별 신입 루틴(기본) / drafts=직원별 절차 초안 / live=라이브 매뉴얼(단계 캡처 재생)
+  const [traceStep, setTraceStep] = useState({}); // 부서별로 목적 도면에서 마지막에 고른 단계
   const [foldOpen, setFoldOpen] = useState(false);
   const foldRef = useRef(null);
 
@@ -251,6 +254,13 @@ export default function WorkManualsPage() {
     setFoldOpen(true);
     setTimeout(() => foldRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 40);
   };
+  // 부서 핵심 목적 + 대표 업무 도면 — 단계 카드를 누르면 그 업무 매뉴얼이 열리고, 주소 ?manual= 로 열린 매뉴얼은 도면의 현재 단계가 된다
+  const trace = curDept.ready ? resolveDeptTrace(curDept.id, curDept.data, curDept.name) : null;
+  const traceActiveId = trace ? (trace.steps.find((s) => manualParam && s.manualId === manualParam)?.id ?? traceStep[curDept.id] ?? trace.steps[0].id) : null;
+  const onTraceStep = (step) => {
+    setTraceStep((prev) => ({ ...prev, [curDept.id]: step.id }));
+    if (step.manualId && hasManual(curDept, step.manualId)) openSearchManual(curDept.id, step.manualId);
+  };
   const deptBar = (
     <div className="pm wm-dept" data-theme="B" data-look={LOOK_CLEAR}>
       <PmUiStyles />
@@ -258,6 +268,17 @@ export default function WorkManualsPage() {
       <div className="wm-dept-chips" role="group" aria-label="부서 선택">
         {handovers.map((h) => <ToggleChip key={h.id} on={h.id === curDept.id} onClick={() => pickDept(h.id)}>{h.name}</ToggleChip>)}
       </div>
+      {trace && (
+        <PurposeFlowTrace
+          testId="work-purpose-trace"
+          title={`${curDept.name} 업무 트레이스 도면`}
+          purpose={trace.purpose}
+          steps={trace.steps}
+          activeId={traceActiveId}
+          busLabel={trace.busLabel}
+          onSelectStep={onTraceStep}
+        />
+      )}
       <ManualSearchBar
         handovers={handovers}
         curDept={curDept}

@@ -1954,7 +1954,9 @@
         "pages/import/pipeline.js",
         "components/import-tools/ImportOneStopPipeline.js",
         "lib/importOneStopPipeline.js",
-        "styles/ImportOneStopPipeline.module.css"
+        "styles/ImportOneStopPipeline.module.css",
+        "components/work/PurposeFlowTrace.js",
+        "lib/workPurposeTrace.js"
       ],
       "requiredScenarios": [
         "context",
@@ -1975,22 +1977,22 @@
             {
               "scenario": "context",
               "title": "1. 상단 공통 바에서 연도·세부차수와 국가(콜롬비아)를 선택해 조회 기준을 맞춥니다.",
-              "seconds": 0.016
+              "seconds": 0.078
             },
             {
               "scenario": "incoming",
               "title": "2. 2단계 입고 업로드·검수 탭으로 이동해 발주·입고·분배 대조와 전산 입고 목록을 확인합니다.",
-              "seconds": 11.276
+              "seconds": 11.881
             },
             {
               "scenario": "cost",
               "title": "3. 3단계 도착원가 산출·확정 탭에서 승인된 실제 원가와 품목별 도착원가 반영 상태를 점검합니다.",
-              "seconds": 22.726
+              "seconds": 23.68
             },
             {
               "scenario": "share",
               "title": "4. 4단계 카톡 복사·드라이브 탭을 열어 보고 요약문 생성과 드라이브 연결로 이동합니다.",
-              "seconds": 34.137
+              "seconds": 35.456
             }
           ]
         }
@@ -2140,22 +2142,22 @@
             {
               "scenario": "scope",
               "title": "1. 상단 공통 바에서 연도·세부차수와 국가(콜롬비아)를 선택해 10대 레버 분석 범위를 맞춥니다.",
-              "seconds": 0.005
+              "seconds": 0.062
             },
             {
               "scenario": "simulate",
               "title": "2. 반사실 시뮬레이션 컨트롤에서 환율 +60원 스트레스 프리셋을 적용해 방어 효과를 계산합니다.",
-              "seconds": 10.167
+              "seconds": 10.706
             },
             {
               "scenario": "views",
               "title": "3. 시안 B(2×2)·시안 C(카본 콘솔)·뷰 ALL(A·B·C 동시모드 & 연속구현 큐)로 전환해 검수합니다.",
-              "seconds": 20.395
+              "seconds": 20.982
             },
             {
               "scenario": "briefing",
               "title": "4. 사장님 보고용 원가·이익 브리핑 복사 버튼을 눌러 10대 레버 요약 보고서를 복사합니다.",
-              "seconds": 31.739
+              "seconds": 33.34
             }
           ]
         }

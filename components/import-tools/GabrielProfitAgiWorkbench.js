@@ -106,17 +106,6 @@ function withPopup(href, isPopup) {
   return `${href}${href.includes('?') ? '&' : '?'}popup=1`;
 }
 
-function splitSvgText(text, maxChars = 16) {
-  const s = String(text || '').trim();
-  if (s.length <= maxChars) return [s];
-  const mid = s.lastIndexOf(' ', maxChars);
-  const cut = mid >= Math.floor(maxChars * 0.45) ? mid : maxChars;
-  const line1 = s.slice(0, cut).trim();
-  const rest = s.slice(cut).trim();
-  const line2 = rest.length > maxChars + 2 ? `${rest.slice(0, maxChars + 1)}…` : rest;
-  return [line1, line2];
-}
-
 async function copyTextSafe(text, fallbackInputRef) {
   try {
     if (navigator?.clipboard?.writeText) {
@@ -185,138 +174,574 @@ function parseInitContext(initialViewMode) {
   return { orderYear, orderWeek, country, viewMode: validView, isPopup };
 }
 
+function truncateText(text, maxChars = 22) {
+  const s = String(text || '').trim();
+  if (s.length <= maxChars) return s;
+  return `${s.slice(0, Math.max(1, maxChars - 1))}…`;
+}
+
+const TRACE_STEP_INTERVAL_MS = 2400;
+
+const TRACE_CARD_POSITIONS = Object.freeze([
+  Object.freeze({ x: 24, y: 22 }),
+  Object.freeze({ x: 339, y: 22 }),
+  Object.freeze({ x: 654, y: 22 }),
+  Object.freeze({ x: 24, y: 236 }),
+  Object.freeze({ x: 339, y: 236 }),
+  Object.freeze({ x: 654, y: 236 }),
+]);
+
+const TRACE_WIRES = Object.freeze([
+  Object.freeze({
+    id: 'w-0-1',
+    targetIdx: 1,
+    d: 'M 306 82 L 339 82',
+    startDot: { cx: 309, cy: 82 },
+    endDot: { cx: 336, cy: 82 },
+  }),
+  Object.freeze({
+    id: 'w-1-2',
+    targetIdx: 2,
+    d: 'M 621 82 L 654 82',
+    startDot: { cx: 624, cy: 82 },
+    endDot: { cx: 651, cy: 82 },
+  }),
+  Object.freeze({
+    id: 'w-2-3-bus',
+    targetIdx: 3,
+    d: 'M 795 142 L 795 162 Q 795 170 787 170 L 173 170 Q 165 170 165 178 L 165 236',
+    startDot: { cx: 795, cy: 145 },
+    endDot: { cx: 165, cy: 233 },
+  }),
+  Object.freeze({
+    id: 'w-3-4',
+    targetIdx: 4,
+    d: 'M 306 296 L 339 296',
+    startDot: { cx: 309, cy: 296 },
+    endDot: { cx: 336, cy: 296 },
+  }),
+  Object.freeze({
+    id: 'w-4-5',
+    targetIdx: 5,
+    d: 'M 621 296 L 654 296',
+    startDot: { cx: 624, cy: 296 },
+    endDot: { cx: 651, cy: 296 },
+  }),
+]);
+
+function buildLeverTraceStages(lever) {
+  const nodes = lever?.visualDiagram?.nodes || [];
+  const waterfall = lever?.visualDiagram?.waterfall || {};
+  const basis = lever?.dataBasis || {};
+  const tasks = lever?.departmentTasks || [];
+  const primaryTask = tasks.find((t) => t.dept === lever.primaryDept) || tasks[0] || null;
+  const secondarySummary = tasks
+    .filter((t) => !primaryTask || t.dept !== primaryTask.dept)
+    .map((t) => `${t.dept}(${t.role})`)
+    .join(' · ');
+
+  return [
+    {
+      stepNo: '01',
+      id: 'source',
+      surface: 'Stage 1 · 원천 수집',
+      title: '01 원천 서류·데이터 포착',
+      chip: truncateText(nodes[0]?.title || basis.emailSource || '원천 서류 수집', 22),
+      ownerDept: lever.primaryDept,
+      detailHeading: '이메일·첨부서류 및 사내 담당자 원천 포착',
+      detailBody: `이메일·서류: ${basis.emailSource || '—'} / 사내 원천: ${basis.staffSource || '—'}`,
+      detailMeta: `거래처·현장 원천: ${basis.counterpartySource || '—'}`,
+    },
+    {
+      stepNo: '02',
+      id: 'leak',
+      surface: 'Stage 2 · 누수 탐지',
+      title: '02 원가 누수 지점 탐지',
+      chip: `무대응 노출 ₩${fmtKRW(waterfall.beforeKRW)}`,
+      ownerDept: lever.primaryDept,
+      detailHeading: '무대응 시 발생하는 현장 원가 누수 지점',
+      detailBody: lever.story?.beforeScene || nodes[1]?.detail || '—',
+      detailMeta: `${waterfall.beforeLabel || '무대응 손실 노출'}: ₩${fmtKRW(waterfall.beforeKRW)}`,
+    },
+    {
+      stepNo: '03',
+      id: 'criterion',
+      surface: 'Stage 3 · 기준식 진단',
+      title: '03 가브리엘 기준식 진단',
+      chip: truncateText(nodes[2]?.title || '기준식 판정', 22),
+      ownerDept: '가브리엘 판정 엔진',
+      detailHeading: '판정 기준식 및 임계치 자동 진단',
+      detailBody: basis.criterionRule || nodes[2]?.detail || '—',
+      detailMeta: `임계 조건: ${nodes[2]?.detail || '—'}`,
+    },
+    {
+      stepNo: '04',
+      id: 'simulate',
+      surface: 'Stage 4 · 반사실 모의',
+      title: '04 반사실 이익 시뮬레이션',
+      chip: truncateText(`회수율 ${waterfall.recoveryPct ?? 0}% · ${fmtSignedKRW(lever.profitGainKRW)}`, 23),
+      ownerDept: '반사실 시뮬레이터',
+      detailHeading: '현재 슬라이더·환율·국가 변수 기반 회수율 모의',
+      detailBody: `적용 조건(${lever.driverText || '기본'}) 반영 시 무대응 노출 ₩${fmtKRW(waterfall.beforeKRW)} 중 +₩${fmtKRW(waterfall.recoveredKRW)} (${waterfall.recoveryPct ?? 0}%) 회수·방어 산출`,
+      detailMeta: `${waterfall.afterLabel || '조치 후 잔여 노출'}: ₩${fmtKRW(waterfall.afterKRW)}`,
+    },
+    {
+      stepNo: '05',
+      id: 'dept',
+      surface: 'Stage 5 · 부서 연계',
+      title: '05 4대 부서 연계 실행',
+      chip: truncateText(`${lever.primaryDept} 주관 · ${tasks.length}개 부서`, 22),
+      ownerDept: tasks.map((t) => t.dept).join(' · '),
+      detailHeading: `${lever.primaryDept} 주관 전사 4대 부서 실행 연계`,
+      detailBody: primaryTask
+        ? `[${primaryTask.dept} · ${primaryTask.role}] ${primaryTask.action} (실행 시점: ${primaryTask.timing})`
+        : (nodes[3]?.detail || '—'),
+      detailMeta: secondarySummary ? `협업 부서: ${secondarySummary}` : '원장 무쓰기 담당자 확인 실행',
+    },
+    {
+      stepNo: '06',
+      id: 'gain',
+      surface: 'Stage 6 · 원장·회수',
+      title: '06 원장 반영 & 순이익 회수',
+      chip: truncateText(`차수 ${fmtSignedKRW(lever.profitGainKRW)}`, 22),
+      ownerDept: '담당자 승인 게이트',
+      detailHeading: '담당자 확인 승인 후 원장 반영 & 순이익 회수',
+      detailBody: lever.story?.afterScene || '—',
+      detailMeta: `차수 기대 순이익 ${fmtSignedKRW(lever.profitGainKRW)} · 52주 연간 환산 ${fmtSignedKRW(lever.annualizedGainKRW)} (원장 자동 수정 없음)`,
+    },
+  ];
+}
+
 function LeverDiagramSvg({ lever }) {
+  const [activeStageIdx, setActiveStageIdx] = useState(4);
+  const [autoPlay, setAutoPlay] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setAutoPlay(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!autoPlay) return undefined;
+    const timer = setInterval(() => {
+      setActiveStageIdx((prev) => (prev + 1) % 6);
+    }, TRACE_STEP_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [autoPlay]);
+
   if (!lever?.visualDiagram) return null;
-  const { nodes = [], waterfall = {} } = lever.visualDiagram;
+  const { waterfall = {} } = lever.visualDiagram;
+  const stages = buildLeverTraceStages(lever);
+  const safeIdx = Math.max(0, Math.min(stages.length - 1, activeStageIdx));
+  const selectedStage = stages[safeIdx];
+
   const maxVal = Math.max(1, Number(waterfall.beforeKRW) || 0, Number(waterfall.recoveredKRW) || 0);
-  const barTrackWidth = 450;
+  const barTrackWidth = 480;
   const beforeW = Math.round(barTrackWidth * ((Number(waterfall.beforeKRW) || 0) / maxVal));
   const recW = (Number(waterfall.recoveredKRW) || 0) > 0
     ? Math.max(10, Math.round(barTrackWidth * ((Number(waterfall.recoveredKRW) || 0) / maxVal)))
     : 0;
   const afterW = Math.round(barTrackWidth * ((Number(waterfall.afterKRW) || 0) / maxVal));
 
-  const nodeColor = (id) => {
-    if (id === 'leak') return 'var(--agi-err)';
-    if (id === 'gate') return 'var(--agi-accent)';
-    if (id === 'gain') return 'var(--agi-ok)';
-    return 'var(--agi-line)';
+  const gridPatternId = `gabriel-trace-grid-${lever.code}`;
+  const getStageState = (idx) => (idx < safeIdx ? 'done' : idx === safeIdx ? 'running' : 'pending');
+  const stateLabel = (st) => (st === 'done' ? '완료' : st === 'running' ? '실행 중' : '대기');
+
+  const handleSelectStage = (idx) => {
+    setActiveStageIdx(idx);
+    setAutoPlay(false);
   };
 
   return (
     <div className={styles.diagramBox} data-testid="gabriel-lever-svg-diagram">
-      <div className={styles.subTableHead}>
-        <h4>[그림] {lever.code} 원천 데이터 → 누수 차단 → 부서 조치 → 이익 회수 구조도</h4>
-        <span className={styles.panelHint}>슬라이더·국가 변경 시 도해 수치 실시간 동기화</span>
+      <div className={styles.traceHeaderBar}>
+        <div className={styles.traceHeaderLeft}>
+          <span className={styles.traceTabTitle}>실시간 원가·이익 트레이스 도면</span>
+          <span className={styles.traceLeverTag}>
+            {lever.code} · {lever.title}
+          </span>
+        </div>
+
+        <div className={styles.traceHeaderControls}>
+          <div className={styles.traceLegend} aria-label="단계 상태 범례">
+            <span className={`${styles.traceLegendItem} ${styles.traceLegendDone}`}>완료</span>
+            <span className={`${styles.traceLegendItem} ${styles.traceLegendRun}`}>실행 중</span>
+            <span className={`${styles.traceLegendItem} ${styles.traceLegendWait}`}>대기</span>
+          </div>
+          <button
+            type="button"
+            data-testid="gabriel-trace-auto-toggle"
+            aria-pressed={autoPlay}
+            className={`${styles.traceAutoBtn} ${autoPlay ? styles.traceAutoBtnOn : ''}`}
+            onClick={() => setAutoPlay((prev) => !prev)}
+          >
+            {autoPlay ? 'AUTO 1x 재생 중' : 'AUTO 1x 정지 · 재생'}
+          </button>
+          <span className={styles.traceTimingReadout}>
+            {selectedStage.stepNo}/06 · 2,400ms
+          </span>
+        </div>
       </div>
-      <svg
-        className={styles.diagramSvg}
-        viewBox="0 0 860 272"
-        role="img"
-        aria-label={`${lever.code} ${lever.title} 데이터 흐름 및 Before After 워터폴 도해`}
-      >
-        {/* Top Flow Header */}
-        <text x="14" y="18" fill="var(--agi-muted)" fontSize="11" fontWeight="700">
-          {lever.code} 데이터 계보 및 이익 회수 경로 (이메일·담당자·거래처 원천 → AGI 판정 → 부서 실행)
-        </text>
 
-        {/* 5 Connected Stage Boxes */}
-        {nodes.map((node, idx) => {
-          const x = 14 + idx * 170;
-          const y = 28;
-          const w = 152;
-          const h = 98;
-          const titleLines = splitSvgText(node.title, 15);
-          const detailLines = splitSvgText(node.detail, 17);
-          const border = nodeColor(node.id);
-          return (
-            <g key={node.id}>
-              <rect
-                x={x}
-                y={y}
-                width={w}
-                height={h}
-                rx="4"
-                fill="var(--agi-surface)"
-                stroke={border}
-                strokeWidth={node.id === 'gain' || node.id === 'leak' ? '1.8' : '1.2'}
+      <div className={styles.traceCanvasWrap}>
+        <svg
+          className={styles.diagramSvg}
+          viewBox="0 0 960 512"
+          role="img"
+          aria-label={`${lever.code} ${lever.title} 실시간 6단계 원가·이익 트레이스 도면 및 Before After 워터폴`}
+        >
+          <defs>
+            <pattern id={gridPatternId} width="24" height="24" patternUnits="userSpaceOnUse">
+              <path
+                d="M 24 0 L 0 0 0 24"
+                fill="none"
+                stroke="var(--agi-trace-grid)"
+                strokeWidth="1"
               />
-              <rect x={x} y={y} width={w} height="22" rx="4" fill="var(--agi-surface-2)" />
-              <line x1={x} y1={y + 22} x2={x + w} y2={y + 22} stroke="var(--agi-line-soft)" strokeWidth="1" />
-              <text x={x + 8} y={y + 15} fill={border === 'var(--agi-line)' ? 'var(--agi-muted)' : border} fontSize="10.5" fontWeight="700">
-                {node.step}
-              </text>
-              {titleLines.map((ln, li) => (
-                <text
-                  key={li}
-                  x={x + 8}
-                  y={y + 42 + li * 14}
-                  fill="var(--agi-ink)"
-                  fontSize="11.5"
-                  fontWeight="700"
-                  style={{ fontVariantNumeric: 'tabular-nums' }}
-                >
-                  {ln}
-                </text>
-              ))}
-              {detailLines.map((ln, li) => (
-                <text
-                  key={li}
-                  x={x + 8}
-                  y={y + 73 + li * 13}
-                  fill="var(--agi-muted)"
-                  fontSize="10"
-                  style={{ fontVariantNumeric: 'tabular-nums' }}
-                >
-                  {ln}
-                </text>
-              ))}
-              {idx < nodes.length - 1 && (
-                <g>
-                  <line x1={x + w + 2} y1={y + 49} x2={x + w + 14} y2={y + 49} stroke="var(--agi-muted)" strokeWidth="1.6" />
-                  <polygon points={`${x + w + 16},${y + 49} ${x + w + 10},${y + 45} ${x + w + 10},${y + 53}`} fill="var(--agi-muted)" />
+            </pattern>
+            {TRACE_CARD_POSITIONS.map((pos, idx) => (
+              <clipPath key={idx} id={`gabriel-card-clip-${lever.code}-${idx}`}>
+                <rect x={pos.x} y={pos.y} width="282" height="120" rx="10" />
+              </clipPath>
+            ))}
+          </defs>
+
+          {/* Subtle Graph-Paper Blueprint Canvas */}
+          <rect
+            x="2"
+            y="2"
+            width="956"
+            height="368"
+            rx="8"
+            fill="var(--agi-trace-canvas)"
+            stroke="var(--agi-line-soft)"
+            strokeWidth="1"
+          />
+          <rect
+            x="2"
+            y="2"
+            width="956"
+            height="368"
+            rx="8"
+            fill={`url(#${gridPatternId})`}
+          />
+
+          {/* Orthogonal Connectors & Return Bus Wires */}
+          {TRACE_WIRES.map((wire) => {
+            const wireState = wire.targetIdx < safeIdx
+              ? 'done'
+              : wire.targetIdx === safeIdx
+                ? 'running'
+                : 'pending';
+            const dotFill = wireState === 'done'
+              ? 'var(--agi-trace-done)'
+              : wireState === 'running'
+                ? 'var(--agi-trace-run)'
+                : 'var(--agi-trace-wait-dot)';
+            return (
+              <g key={wire.id} data-wire-state={wireState}>
+                {wireState === 'done' && (
+                  <>
+                    <path d={wire.d} fill="none" className={styles.traceWireDone} />
+                    <path d={wire.d} fill="none" className={styles.tracePacketDone} />
+                  </>
+                )}
+                {wireState === 'running' && (
+                  <path d={wire.d} fill="none" className={styles.traceWireRunning} />
+                )}
+                {wireState === 'pending' && (
+                  <path d={wire.d} fill="none" className={styles.traceWirePending} />
+                )}
+                <circle cx={wire.startDot.cx} cy={wire.startDot.cy} r={wireState === 'running' ? 4 : 3.2} fill={dotFill} />
+                <circle cx={wire.endDot.cx} cy={wire.endDot.cy} r={wireState === 'running' ? 4 : 3.2} fill={dotFill} />
+              </g>
+            );
+          })}
+
+          {/* Independent Central Bus Label Lane (y=186..218, 16px clear below y=170 return wire, 18px clear above Row 2) */}
+          <g>
+            <rect
+              x="220"
+              y="186"
+              width="520"
+              height="32"
+              rx="6"
+              fill="var(--agi-surface)"
+              stroke="var(--agi-line)"
+              strokeWidth="1.2"
+            />
+            <text
+              x="480"
+              y="207"
+              textAnchor="middle"
+              fill="var(--agi-ink)"
+              fontSize="12.5"
+              fontWeight="700"
+              style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}
+            >
+              {lever.code} 직교 연계 버스 · 가브리엘 기준식 판정 → 4대 부서 반사실 실행
+            </text>
+          </g>
+
+          {/* 6 Interactive Trace Stage Cards */}
+          {stages.map((stage, idx) => {
+            const pos = TRACE_CARD_POSITIONS[idx];
+            const st = getStageState(idx);
+            const isRunning = st === 'running';
+            const isDone = st === 'done';
+            const cardFill = isRunning ? 'var(--agi-trace-run-surface)' : 'var(--agi-surface)';
+            const borderStroke = isDone
+              ? 'var(--agi-trace-done)'
+              : isRunning
+                ? 'var(--agi-trace-run)'
+                : 'var(--agi-trace-wait-border)';
+            const barFill = isDone
+              ? 'var(--agi-trace-done)'
+              : isRunning
+                ? 'var(--agi-trace-run)'
+                : 'var(--agi-trace-wait-border)';
+            const badgeFill = isDone
+              ? 'var(--agi-trace-done-bg)'
+              : isRunning
+                ? 'var(--agi-trace-run-badge-bg)'
+                : 'var(--agi-surface-2)';
+            const badgeTextFill = isDone
+              ? 'var(--agi-trace-done-ink)'
+              : isRunning
+                ? 'var(--agi-trace-run)'
+                : 'var(--agi-muted)';
+
+            return (
+              <g
+                key={stage.id}
+                className={styles.traceCardGroup}
+                role="button"
+                tabIndex={0}
+                data-testid={`gabriel-trace-node-${stage.stepNo}`}
+                data-stage-state={st}
+                aria-pressed={isRunning}
+                aria-label={`${stage.title} (${stateLabel(st)}) 상세 보기`}
+                onClick={() => handleSelectStage(idx)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleSelectStage(idx);
+                  }
+                }}
+              >
+                <rect
+                  x={pos.x}
+                  y={pos.y}
+                  width="282"
+                  height="120"
+                  rx="10"
+                  fill={cardFill}
+                  stroke={borderStroke}
+                  strokeWidth={isRunning ? '2.2' : '1.6'}
+                />
+                {/* Left 4px Rounded Status Accent Bar */}
+                <g clipPath={`url(#gabriel-card-clip-${lever.code}-${idx})`}>
+                  <rect x={pos.x} y={pos.y} width="5" height="120" fill={barFill} />
                 </g>
-              )}
-            </g>
-          );
-        })}
 
-        {/* Bottom Before/After Waterfall Bars */}
-        <rect x="14" y="142" width="832" height="118" rx="4" fill="var(--agi-surface)" stroke="var(--agi-line)" strokeWidth="1" />
-        <text x="26" y="162" fill="var(--agi-ink)" fontSize="11.5" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
-          Before / After 원가 누수 대비 {lever.code} 이익 회수 워터폴 (회수·방어율 {waterfall.recoveryPct}%)
-        </text>
+                {/* Top Row: Stage Surface + Status Pill */}
+                <text
+                  x={pos.x + 18}
+                  y={pos.y + 28}
+                  fill="var(--agi-muted)"
+                  fontSize="12.5"
+                  fontWeight="600"
+                  style={{ fontFamily: 'var(--agi-font)' }}
+                >
+                  {stage.surface}
+                </text>
+                <rect
+                  x={pos.x + 204}
+                  y={pos.y + 12}
+                  width="64"
+                  height="24"
+                  rx="5"
+                  fill={badgeFill}
+                  stroke={borderStroke}
+                  strokeWidth="1"
+                />
+                <text
+                  x={pos.x + 236}
+                  y={pos.y + 29}
+                  textAnchor="middle"
+                  fill={badgeTextFill}
+                  fontSize="12.5"
+                  fontWeight="700"
+                  style={{ fontFamily: 'var(--agi-font)' }}
+                >
+                  {stateLabel(st)}
+                </text>
 
-        {/* Row 1: Before exposure */}
-        <text x="26" y="187" fill="var(--agi-muted)" fontSize="11" fontWeight="700">
-          {waterfall.beforeLabel || '무대응 손실 노출'}
-        </text>
-        <rect x="200" y="175" width={barTrackWidth} height="15" rx="2" fill="var(--agi-line-soft)" />
-        <rect x="200" y="175" width={beforeW} height="15" rx="2" fill="var(--agi-err)" />
-        <text x="832" y="187" textAnchor="end" fill="var(--agi-err)" fontSize="11.5" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
-          ₩{fmtKRW(waterfall.beforeKRW)} (100%)
-        </text>
+                {/* Middle Row: Step Number & Bold Title */}
+                <text
+                  x={pos.x + 18}
+                  y={pos.y + 60}
+                  fill="var(--agi-ink)"
+                  fontSize="14.5"
+                  fontWeight="800"
+                  style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {stage.title}
+                </text>
 
-        {/* Row 2: Lever Gain */}
-        <text x="26" y="213" fill="var(--agi-ink)" fontSize="11" fontWeight="700">
-          {waterfall.recoveredLabel || `${lever.code} 회수`}
-        </text>
-        <rect x="200" y="201" width={barTrackWidth} height="15" rx="2" fill="var(--agi-line-soft)" />
-        <rect x="200" y="201" width={recW} height="15" rx="2" fill="var(--agi-ok)" />
-        <text x="832" y="213" textAnchor="end" fill="var(--agi-ok)" fontSize="11.5" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
-          +₩{fmtKRW(waterfall.recoveredKRW)} ({waterfall.recoveryPct}%)
-        </text>
+                {/* Bottom Row: Subtle Metric/Detail Chip */}
+                <rect
+                  x={pos.x + 16}
+                  y={pos.y + 76}
+                  width="250"
+                  height="30"
+                  rx="5"
+                  fill="var(--agi-surface-2)"
+                  stroke="var(--agi-line-soft)"
+                  strokeWidth="1"
+                />
+                <text
+                  x={pos.x + 26}
+                  y={pos.y + 96}
+                  fill={isRunning ? 'var(--agi-trace-run)' : 'var(--agi-ink)'}
+                  fontSize="12.5"
+                  fontWeight="600"
+                  style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {stage.chip}
+                </text>
+              </g>
+            );
+          })}
 
-        {/* Row 3: Residual exposure */}
-        <text x="26" y="239" fill="var(--agi-muted)" fontSize="11" fontWeight="700">
-          {waterfall.afterLabel || '조치 후 잔여 노출'}
-        </text>
-        <rect x="200" y="227" width={barTrackWidth} height="15" rx="2" fill="var(--agi-line-soft)" />
-        <rect x="200" y="227" width={afterW} height="15" rx="2" fill="var(--agi-muted)" />
-        <text x="832" y="239" textAnchor="end" fill="var(--agi-ink)" fontSize="11.5" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
-          ₩{fmtKRW(waterfall.afterKRW)}
-        </text>
-      </svg>
+          {/* Bottom Before/After Waterfall Panel */}
+          <rect
+            x="2"
+            y="382"
+            width="956"
+            height="124"
+            rx="8"
+            fill="var(--agi-surface)"
+            stroke="var(--agi-line)"
+            strokeWidth="1"
+          />
+          <text
+            x="20"
+            y="406"
+            fill="var(--agi-ink)"
+            fontSize="13"
+            fontWeight="700"
+            style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}
+          >
+            Before / After 원가 누수 대비 {lever.code} 순이익 회수 워터폴 (회수·방어율 {waterfall.recoveryPct}%)
+          </text>
+
+          {/* Row 1: Before exposure */}
+          <text
+            x="20"
+            y="434"
+            fill="var(--agi-muted)"
+            fontSize="12.5"
+            fontWeight="700"
+            style={{ fontFamily: 'var(--agi-font)' }}
+          >
+            {waterfall.beforeLabel || '무대응 손실 노출'}
+          </text>
+          <rect x="236" y="421" width={barTrackWidth} height="16" rx="3" fill="var(--agi-line-soft)" />
+          <rect x="236" y="421" width={beforeW} height="16" rx="3" fill="var(--agi-err)" />
+          <text
+            x="940"
+            y="434"
+            textAnchor="end"
+            fill="var(--agi-err)"
+            fontSize="13"
+            fontWeight="700"
+            style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}
+          >
+            ₩{fmtKRW(waterfall.beforeKRW)} (100%)
+          </text>
+
+          {/* Row 2: Lever Gain */}
+          <text
+            x="20"
+            y="462"
+            fill="var(--agi-ink)"
+            fontSize="12.5"
+            fontWeight="700"
+            style={{ fontFamily: 'var(--agi-font)' }}
+          >
+            {waterfall.recoveredLabel || `${lever.code} 회수`}
+          </text>
+          <rect x="236" y="449" width={barTrackWidth} height="16" rx="3" fill="var(--agi-line-soft)" />
+          <rect x="236" y="449" width={recW} height="16" rx="3" fill="var(--agi-trace-done)" />
+          <text
+            x="940"
+            y="462"
+            textAnchor="end"
+            fill="var(--agi-trace-done-ink)"
+            fontSize="13"
+            fontWeight="700"
+            style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}
+          >
+            +₩{fmtKRW(waterfall.recoveredKRW)} ({waterfall.recoveryPct}%)
+          </text>
+
+          {/* Row 3: Residual exposure */}
+          <text
+            x="20"
+            y="490"
+            fill="var(--agi-muted)"
+            fontSize="12.5"
+            fontWeight="700"
+            style={{ fontFamily: 'var(--agi-font)' }}
+          >
+            {waterfall.afterLabel || '조치 후 잔여 노출'}
+          </text>
+          <rect x="236" y="477" width={barTrackWidth} height="16" rx="3" fill="var(--agi-line-soft)" />
+          <rect x="236" y="477" width={afterW} height="16" rx="3" fill="var(--agi-muted)" />
+          <text
+            x="940"
+            y="490"
+            textAnchor="end"
+            fill="var(--agi-ink)"
+            fontSize="13"
+            fontWeight="700"
+            style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}
+          >
+            ₩{fmtKRW(waterfall.afterKRW)}
+          </text>
+        </svg>
+      </div>
+
+      {/* Selected Stage Interactive Source / Department Inspector */}
+      <div className={styles.traceDetailBar} data-testid="gabriel-trace-stage-detail">
+        <div className={styles.traceDetailHead}>
+          <div className={styles.traceDetailTitleRow}>
+            <span className={styles.traceDetailStepBadge}>
+              {selectedStage.stepNo} · {stateLabel(getStageState(safeIdx))}
+            </span>
+            <strong className={styles.traceDetailTitle}>{selectedStage.detailHeading}</strong>
+            <span className={styles.traceDetailDept}>담당: {selectedStage.ownerDept}</span>
+          </div>
+          <div className={styles.traceStepPills} role="group" aria-label="트레이스 단계 바로 선택">
+            {stages.map((st, idx) => (
+              <button
+                key={st.id}
+                type="button"
+                aria-pressed={idx === safeIdx}
+                className={`${styles.traceStepPill} ${idx === safeIdx ? styles.traceStepPillActive : ''}`}
+                onClick={() => handleSelectStage(idx)}
+              >
+                {st.stepNo}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className={styles.traceDetailBody}>{selectedStage.detailBody}</p>
+        <div className={styles.traceDetailMeta}>{selectedStage.detailMeta}</div>
+      </div>
     </div>
   );
 }
@@ -406,37 +831,52 @@ function LeverStoryLineagePanel({
         })}
       </div>
 
-      {/* 상황 + SVG 그림 2단 */}
-      <div className={styles.storyGrid}>
-        <div className={styles.situationBox} data-testid="gabriel-lever-situation">
-          <div className={styles.situationHead}>
-            <h3>[상황] {activeLever.code} · {activeLever.title}</h3>
-            <span className={`${styles.statusTag} ${styles.isInfo}`}>주관 {activeLever.primaryDept}</span>
+      {/* 선택된 레버 최상단: 핵심 목적 · PURPOSE */}
+      <div className={styles.leverPurposeCallout} data-testid="gabriel-lever-purpose-callout">
+        <div className={styles.purposeTopRow}>
+          <span className={styles.purposeTag}>{activeLever.code} 핵심 목적 · PURPOSE</span>
+          <span className={styles.purposeOwnerBadge}>주관 {activeLever.primaryDept}</span>
+          <span className={styles.purposeRecoveryMetric}>
+            차수 순이익 회수 {fmtSignedKRW(activeLever.profitGainKRW)} · 연 52주 {fmtSignedKRW(activeLever.annualizedGainKRW)} (회수율 {activeLever.visualDiagram?.waterfall?.recoveryPct ?? 0}%)
+          </span>
+        </div>
+        <p className={styles.purposeHeadline}>
+          {activeLever.story.analogySummary}
+        </p>
+        <div className={styles.purposeSubLine}>
+          차단 대상 원가 누수: <b>{activeLever.visualDiagram?.waterfall?.beforeLabel || '무대응 손실 노출'} ₩{fmtKRW(activeLever.visualDiagram?.waterfall?.beforeKRW)}</b> → 조치 후 잔여 노출 ₩{fmtKRW(activeLever.visualDiagram?.waterfall?.afterKRW)} ({activeLever.driverText})
+        </div>
+      </div>
+
+      {/* 실시간 모션 트레이스 도면 (전폭 배치) */}
+      <LeverDiagramSvg lever={activeLever} />
+
+      {/* 상황 BEFORE / AFTER 브리핑 */}
+      <div className={styles.situationBox} data-testid="gabriel-lever-situation">
+        <div className={styles.situationHead}>
+          <h3>[현장 상황] {activeLever.code} · {activeLever.title}</h3>
+          <span className={`${styles.statusTag} ${styles.isInfo}`}>주관 {activeLever.primaryDept}</span>
+        </div>
+        <div className={styles.beforeAfterSplit}>
+          <div className={`${styles.sceneCard} ${styles.sceneBefore}`}>
+            <span className={styles.sceneTag}>BEFORE · 지금 돈이 새는 현장 상황</span>
+            <p className={styles.sceneText}>{activeLever.story.beforeScene}</p>
           </div>
-          <p className={styles.analogyLine}>{activeLever.story.analogySummary}</p>
-          <div className={styles.beforeAfterSplit}>
-            <div className={`${styles.sceneCard} ${styles.sceneBefore}`}>
-              <span className={styles.sceneTag}>BEFORE · 지금 돈이 새는 현장 상황</span>
-              <p className={styles.sceneText}>{activeLever.story.beforeScene}</p>
-            </div>
-            <div className={`${styles.sceneCard} ${styles.sceneAfter}`}>
-              <span className={styles.sceneTag}>AFTER · 레버 적용 후 바뀌는 현장</span>
-              <p className={styles.sceneText}>{activeLever.story.afterScene}</p>
-            </div>
-          </div>
-          <div className={styles.kvGrid}>
-            <div className={styles.kvCell}>
-              <span>차수 기대 이익 개선 ({activeLever.code})</span>
-              <b>{fmtSignedKRW(activeLever.profitGainKRW)}</b>
-            </div>
-            <div className={styles.kvCell}>
-              <span>연간 환산 (52주)</span>
-              <b>{fmtSignedKRW(activeLever.annualizedGainKRW)}</b>
-            </div>
+          <div className={`${styles.sceneCard} ${styles.sceneAfter}`}>
+            <span className={styles.sceneTag}>AFTER · 레버 적용 후 바뀌는 현장</span>
+            <p className={styles.sceneText}>{activeLever.story.afterScene}</p>
           </div>
         </div>
-
-        <LeverDiagramSvg lever={activeLever} />
+        <div className={styles.kvGrid}>
+          <div className={styles.kvCell}>
+            <span>차수 기대 이익 개선 ({activeLever.code})</span>
+            <b>{fmtSignedKRW(activeLever.profitGainKRW)}</b>
+          </div>
+          <div className={styles.kvCell}>
+            <span>연간 환산 (52주)</span>
+            <b>{fmtSignedKRW(activeLever.annualizedGainKRW)}</b>
+          </div>
+        </div>
       </div>
 
       {/* 기준 데이터 출처 표 + 부서별 연계 업무 표 */}
@@ -701,22 +1141,22 @@ function ViewBMatrixSection({ audit, selectedSku, onSelectSku }) {
           <line x1="64" y1="118" x2="648" y2="118" stroke="var(--agi-line-soft)" strokeDasharray="3 4" />
           <line x1="64" y1="286" x2="648" y2="286" stroke="var(--agi-line-soft)" strokeDasharray="3 4" />
 
-          <text x="74" y="54" fill="var(--agi-ok)" fontSize="11.5" fontWeight="700">핵심 수익 유지·물량 확대</text>
-          <text x="638" y="54" textAnchor="end" fill="var(--agi-err)" fontSize="11.5" fontWeight="700">즉시 단가·원가 방어 (우선)</text>
-          <text x="74" y="358" fill="var(--agi-muted)" fontSize="11.5" fontWeight="700">안정 관찰</text>
-          <text x="638" y="358" textAnchor="end" fill="var(--agi-warn)" fontSize="11.5" fontWeight="700">AWB 혼적·농장 리밸런싱</text>
+          <text x="74" y="54" fill="var(--agi-ok)" fontSize="12.5" fontWeight="700" style={{ fontFamily: 'var(--agi-font)' }}>핵심 수익 유지·물량 확대</text>
+          <text x="638" y="54" textAnchor="end" fill="var(--agi-err)" fontSize="12.5" fontWeight="700" style={{ fontFamily: 'var(--agi-font)' }}>즉시 단가·원가 방어 (우선)</text>
+          <text x="74" y="358" fill="var(--agi-muted)" fontSize="12.5" fontWeight="700" style={{ fontFamily: 'var(--agi-font)' }}>안정 관찰</text>
+          <text x="638" y="358" textAnchor="end" fill="var(--agi-warn)" fontSize="12.5" fontWeight="700" style={{ fontFamily: 'var(--agi-font)' }}>AWB 혼적·농장 리밸런싱</text>
 
-          <text x="64" y="388" textAnchor="middle" fill="var(--agi-muted)" fontSize="10.5">0</text>
-          <text x="356" y="388" textAnchor="middle" fill="var(--agi-muted)" fontSize="10.5">50</text>
-          <text x="648" y="388" textAnchor="middle" fill="var(--agi-muted)" fontSize="10.5">100</text>
-          <text x="356" y="410" textAnchor="middle" fill="var(--agi-ink)" fontSize="12" fontWeight="700">
+          <text x="64" y="390" textAnchor="middle" fill="var(--agi-muted)" fontSize="12.5" style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}>0</text>
+          <text x="356" y="390" textAnchor="middle" fill="var(--agi-muted)" fontSize="12.5" style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}>50</text>
+          <text x="648" y="390" textAnchor="middle" fill="var(--agi-muted)" fontSize="12.5" style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}>100</text>
+          <text x="356" y="414" textAnchor="middle" fill="var(--agi-ink)" fontSize="13" fontWeight="700" style={{ fontFamily: 'var(--agi-font)' }}>
             원가 상승·마진 침식 리스크 (0~100)
           </text>
 
-          <text x="54" y="370" textAnchor="end" fill="var(--agi-muted)" fontSize="10.5">0</text>
-          <text x="54" y="206" textAnchor="end" fill="var(--agi-muted)" fontSize="10.5">50</text>
-          <text x="54" y="42" textAnchor="end" fill="var(--agi-muted)" fontSize="10.5">100</text>
-          <text x="20" y="202" textAnchor="middle" transform="rotate(-90 20 202)" fill="var(--agi-ink)" fontSize="12" fontWeight="700">
+          <text x="54" y="370" textAnchor="end" fill="var(--agi-muted)" fontSize="12.5" style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}>0</text>
+          <text x="54" y="206" textAnchor="end" fill="var(--agi-muted)" fontSize="12.5" style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}>50</text>
+          <text x="54" y="42" textAnchor="end" fill="var(--agi-muted)" fontSize="12.5" style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}>100</text>
+          <text x="20" y="202" textAnchor="middle" transform="rotate(-90 20 202)" fill="var(--agi-ink)" fontSize="13" fontWeight="700" style={{ fontFamily: 'var(--agi-font)' }}>
             차수 매출·이익 기여도
           </text>
 
@@ -756,11 +1196,11 @@ function ViewBMatrixSection({ audit, selectedSku, onSelectSku }) {
                 />
                 <text
                   textAnchor="middle"
-                  dy="3.5"
-                  fontSize="10"
+                  dy="4"
+                  fontSize="12.5"
                   fontWeight="700"
                   fill={active ? '#ffffff' : 'var(--agi-ink)'}
-                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                  style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}
                 >
                   {sku.no}
                 </text>
@@ -1375,6 +1815,22 @@ export default function GabrielProfitAgiWorkbench({
               {audit.dataMode === 'live-plus-model' ? '실전산 + 기준모델' : '시뮬레이션 기준 모델 (무쓰기)'}
             </span>
             {userName && <span className={styles.metaBadge}>담당 {userName}</span>}
+          </div>
+        </div>
+
+        {/* 최상단 핵심 목적 · PURPOSE Callout */}
+        <div className={styles.purposeCallout} data-testid="gabriel-purpose-callout">
+          <div className={styles.purposeTopRow}>
+            <span className={styles.purposeTag}>핵심 목적 · PURPOSE</span>
+            <span className={styles.purposeRecoveryMetric}>
+              전사 10대 레버(L1~L10) 차수 순이익 회수 {fmtSignedKRW(audit.summary.totalPotentialProfitKRW)} · 연 52주 {fmtSignedKRW(audit.summary.annualizedProfitKRW)}
+            </span>
+          </div>
+          <p className={styles.purposeHeadline}>
+            수입·통관·배분·정산 전 구간의 10대 원가 누수를 선제 차단해 차수당 {fmtSignedKRW(audit.summary.totalPotentialProfitKRW)}(연간 {fmtSignedKRW(audit.summary.annualizedProfitKRW)}) 순이익을 회수하는 읽기 전용 의사결정 워크벤치입니다.
+          </p>
+          <div className={styles.purposeSubLine}>
+            무대응 총이익률 <b>{audit.summary.unhedgedMarginPct}%</b> → 방어 후 <b>{audit.summary.simulatedMarginPct}%</b> ({audit.summary.marginDeltaPctPt >= 0 ? '+' : ''}{audit.summary.marginDeltaPctPt}%p) · 원가 누수·마진 경보 <b>{audit.summary.costLeakAlertCount}건</b> 즉시 진단 · 담당자 승인 전 원장 무쓰기 보장
           </div>
         </div>
 
