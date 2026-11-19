@@ -1769,8 +1769,8 @@
       "videoWaivers": [
         {
           "file": "desktop/shell/shell.js",
-          "sha256": "1bc2d48d25a2a8ac7172ad7b09ba905023520509be96681d70564da9d523fff7",
-          "reason": "관리자 전용 PM 라이브 확인 패널에 시뮬레이션·도입레이더 바로가기 버튼 추가 — 일반 직원 홈 오늘의 내 업무·시간표·메모장·달력 14단계 가이드 화면 및 조작 순서는 변경 없음",
+          "sha256": "a8436939c308bbc5578cdbe4b776ad29901b860cce09d69f06a47ecdceb5fa38",
+          "reason": "관리자 전용 PM 라이브 확인 패널에 통합지휘실(#pmHubButton) 제1버튼 및 시뮬레이션·도입레이더 바로가기 버튼 추가 — 일반 직원 홈 오늘의 내 업무·시간표·메모장·달력 14단계 가이드 화면 및 조작 순서는 변경 없음",
           "approvedBy": "사용자"
         }
       ]
@@ -2129,6 +2129,58 @@
               "scenario": "briefing",
               "title": "4. 사장님 보고용 원가·이익 브리핑 복사 버튼을 눌러 10대 레버 요약 보고서를 복사합니다.",
               "seconds": 31.739
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ceo-command-hub",
+      "title": "사장님 통합 지휘실 (PM · 에이전트 · 연속 디벨롭)",
+      "entryPaths": [
+        "/work/command-hub"
+      ],
+      "sourceFiles": [
+        "pages/work/command-hub.js",
+        "components/work/CeoCommandHub.js",
+        "lib/ceoCommandHub.js",
+        "styles/CeoCommandHub.module.css"
+      ],
+      "requiredScenarios": [
+        "pulse",
+        "ledger",
+        "queue",
+        "directory"
+      ],
+      "guides": [
+        {
+          "id": "staff",
+          "role": "사장님",
+          "title": "1분 점검 코스부터 PM 결재·에이전트·디벨롭·전체 화면 지도까지",
+          "status": "ready",
+          "src": "/guides/ceo-command-hub/staff.mp4",
+          "captions": "/guides/ceo-command-hub/staff.ko.vtt",
+          "proof": "/guides/ceo-command-hub/staff.proof.json",
+          "chapters": [
+            {
+              "scenario": "pulse",
+              "title": "1. 상단 맥박 스트립과 아침 1분 점검 코스에서 결재·에이전트·원가 경보를 확인합니다.",
+              "seconds": 0.01
+            },
+            {
+              "scenario": "ledger",
+              "title": "2. PM 업무 원장에서 전체·진행중·완료 탭을 전환하고 안건명·PR 번호로 검색합니다.",
+              "seconds": 10.055
+            },
+            {
+              "scenario": "queue",
+              "title": "3. 다음 연속 구현 대기 큐에서 READY 과제를 골라 구현 지시서를 복사합니다.",
+              "seconds": 20.385
+            },
+            {
+              "scenario": "directory",
+              "title": "4. 하단 4대 목적별 전체 화면 지도에서 오늘 필요한 업무 화면을 바로 엽니다.",
+              "seconds": 30.64
             }
           ]
         }

@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-19T09:08:40.720Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 40.75,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "64c22bcacf4d0a88336470b2474a09a418468046024474f50341d44cae5e2599",
+  "captionsSha256": "d859cbbe93060cf58d853e5f5e79211cde1675359429a488b45a6c137e91c645",
+  "sourceHashes": {
+    "pages/work/command-hub.js": "04246d9ecca37702613d9372288e2eeb8f448395300227765f750b03a5dba3ce",
+    "components/work/CeoCommandHub.js": "9d0735fe82b28bb4f9ce4eff23f2c137b3881836e5d74a7058bb282efeb68609",
+    "lib/ceoCommandHub.js": "0281bc62e845d20f7499f2d695f6f4505756fbc0bfcdca52fd0abdef50c02c15",
+    "styles/CeoCommandHub.module.css": "f4f3012072fd3d6d8da32aa0bf41ada02b874510a716b01557073c2c1428422a"
+  },
+  "presentation": {
+    "numberedSteps": 4,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 3.1377836000000006,
+        "x": 348,
+        "y": 337.296875,
+        "end": 8.287026200000001
+      },
+      {
+        "number": 2,
+        "start": 13.208338600000001,
+        "x": 570.4375,
+        "y": 540.046875,
+        "end": 18.6524222
+      },
+      {
+        "number": 3,
+        "start": 23.508993500000003,
+        "x": 1440.8984375,
+        "y": 539.984375,
+        "end": 28.879638
+      },
+      {
+        "number": 4,
+        "start": 33.80909630000001,
+        "x": 357.7109375,
+        "y": 540.4453125,
+        "end": 39.042027100000006
+      }
+    ]
+  }
+}

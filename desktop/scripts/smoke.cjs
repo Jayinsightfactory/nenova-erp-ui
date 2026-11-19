@@ -586,8 +586,14 @@ async function run() {
   await shellContents.executeJavaScript("window.dispatchEvent(new Event('online'))");
   assert.deepEqual({ activeId: sourceWindow.activeId, tabCount: main.tabs.size, menuOpen: sourceWindow.menuOpen }, beforeAutomaticUpdate);
   main.command(sourceWindow, 'menu', { open: true });
-  const pmButtons = await shellContents.executeJavaScript("({open:document.querySelector('#pmOpenButton')?.textContent,arch:document.querySelector('#pmArchButton')?.textContent,sim:document.querySelector('#pmSimButton')?.textContent,radar:document.querySelector('#pmRadarButton')?.textContent})");
-  assert.deepEqual(pmButtons, { open: '오류관제 열기', arch: '흐름도', sim: '시뮬레이션', radar: '도입레이더' });
+  const pmButtons = await shellContents.executeJavaScript("({firstId:document.querySelector('.pm-live-actions button')?.id,hub:document.querySelector('#pmHubButton')?.textContent,open:document.querySelector('#pmOpenButton')?.textContent,arch:document.querySelector('#pmArchButton')?.textContent,sim:document.querySelector('#pmSimButton')?.textContent,radar:document.querySelector('#pmRadarButton')?.textContent})");
+  assert.deepEqual(pmButtons, { firstId: 'pmHubButton', hub: '통합지휘실', open: '오류관제 열기', arch: '흐름도', sim: '시뮬레이션', radar: '도입레이더' });
+  await shellContents.executeJavaScript('document.querySelector("#pmHubButton").click()');
+  await waitFor(() => [...main.tabs.values()].some(tab => new URL(tab.url).pathname === '/work/command-hub'), 'PM hub button opens the CEO command hub');
+  const hubTab = [...main.tabs.values()].find(tab => new URL(tab.url).pathname === '/work/command-hub');
+  assert.equal(hubTab.title, '사장님 통합 지휘실');
+  main.command(sourceWindow, 'close', { id: hubTab.id });
+  main.command(sourceWindow, 'menu', { open: true });
   await shellContents.executeJavaScript('document.querySelector("#pmOpenButton").click()');
   await waitFor(() => [...main.tabs.values()].some(tab => new URL(tab.url).pathname === '/pm'), 'PM monitoring button opens the PM office');
   const pmTab = [...main.tabs.values()].find(tab => new URL(tab.url).pathname === '/pm');

@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.61",
+  "version": "1.3.62",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "최소화한 앱을 다시 열면 수입 비행기 현황을 확인하고 5분 자동 갱신을 이어갑니다."
+      "releaseNotes": "사장님 통합 지휘실(#pmHubButton)을 상단 첫 번째 버튼에 연결하고 PM·에이전트·연속 디벨롭 현황을 한 페이지로 통합했습니다."
     },
     "extraResources": [
       {
