@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "수입 비행기 현황에서 실제 품목으로 항공편 제목을 표시하고 확인할 편수와 이슈 건수를 따로 보여줍니다."
+      "releaseNotes": "인보이스 금액 불일치를 원본 PDF와 대조해 수정하고 중복 소계를 제외·복원할 수 있습니다. 수입부 업무도구에서 인보이스 원본 대조를 검색하세요. 기존 비행기 품목 제목과 입고 검색도 유지합니다."
     },
     "extraResources": [
       {
