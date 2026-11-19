@@ -55,3 +55,10 @@ test('the current-flight map excludes arrivals and registered arrivals with open
   assert.deepEqual(rows.filter(onFlightMap).map(f => f.status), ['before_departure', 'in_flight']);
   assert.deepEqual(rows.filter(afterArrival).map(f => f.status), ['arrived', 'registered']);
 });
+
+test('customs title qualifies uncertain release without confusing it with clearance', () => {
+  const { customsTitle } = require('../shell/flight-board');
+  assert.equal(customsTitle({ declaration: 'pending', release: 'waiting' }), '수입신고 수리 중 · 미반출');
+  assert.equal(customsTitle({ declaration: 'cleared', release: 'unknown' }), '수입신고 수리 완료 · 반출 미확인');
+  assert.equal(customsTitle(null), '');
+});
