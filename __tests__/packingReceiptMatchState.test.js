@@ -105,7 +105,7 @@ test('UI wiring publishes explicit selection and does not make catalog refresh r
   assert.doesNotMatch(packing, /setGeneratedErp\(data\)/);
   assert.match(packing, /isPackingDownloadBlocked\(excel,/);
   assert.match(packing, /if \(isBlocked\(excels\.find/);
-  assert.match(packing, /이미 생성된 패킹 파일의 다운로드는 기존 검증을 유지/);
+  assert.match(packing, /packingLegacyExportBlocked\(excel, generatedErp\?\.products, country\)/);
 });
 
 test('generated-file notice separates current receipt matches from old buffers without hiding errors or active steps', () => {

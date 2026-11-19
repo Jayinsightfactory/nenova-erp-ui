@@ -48,6 +48,7 @@ async function main(){
   console.log('page',new URL(page.url()).pathname,(await page.evaluate(()=>document.body.innerText)).slice(0,600));
   await page.waitForSelector('button[aria-label="콜롬비아"]');console.log('country ready');
   const sourceFiles=JSON.parse(fs.readFileSync('config/workflow-guides.json')).workflows.find(w=>w.id==='packing-free-ocr').sourceFiles;
+  if (!sourceFiles.includes('styles/ImportReviewTypography.module.css')) sourceFiles.push('styles/ImportReviewTypography.module.css');
   const rec=dry?null:await createWorkflowGuideRecorder(page,{workflowId:'packing-free-ocr',guideId:'import',title:'Claude 분석과 완료 구간 보존',sourceFiles,fixtureOnly:true});
   let number=0;const step=async(s,t)=>{number++;rec?.chapter(s,`${number}. ${t}`);if(rec){await rec.caption(`${number}. ${t}`);await rec.pause(5500);}};
   const focus=async selector=>{await page.$eval(selector,n=>n.scrollIntoView({block:'center',behavior:'instant'}));const p=await page.$eval(selector,n=>{const r=n.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};});assert(p.y>=70&&p.y<=900,`Guide target outside camera: ${selector} ${JSON.stringify(p)}`);if(rec){await rec.pause(1200);await rec.focus(selector,number);}};
@@ -63,19 +64,22 @@ async function main(){
   try{await page.waitForFunction(()=>document.body.innerText.includes('ROSE RED'));}catch(e){console.log((await page.evaluate(()=>document.body.innerText)).slice(-6000));throw e;}
   await rec?.unfocus();
   await step('review','미매칭 확인 · 원본 품목을 눌러 전산 품목을 검색하고 선택합니다.');
-  await focus('[aria-label="ROSE RED 전산 품목 매칭"]');await page.click('[aria-label="ROSE RED 전산 품목 매칭"]');await rec?.unfocus();
-  await page.waitForSelector('[aria-label="전산 품목 검색"]');
-  if(rec)await rec.caption('3. 검색 입력 · ROSE RED를 입력하고 국가·품목명을 대조합니다.');
-  await focus('[aria-label="전산 품목 검색"]');await page.type('[aria-label="전산 품목 검색"]','ROSE RED',{delay:180});if(rec)await rec.pause(3000);await rec?.unfocus();
-  await focus('[data-candidate="99001"]');await page.click('[data-candidate="99001"]');await page.waitForFunction(()=>!document.querySelector('[data-testid="packing-match-dialog"]'));await rec?.unfocus();
+  const rowSearch='[aria-label="ROSE RED 매칭 품목 검색"]';
+  const rowInput='[aria-label="ROSE RED 같은 국가 품목 검색"]';
+  const rowResult='[data-testid="packing-inline-search-result"][data-prod-key="99001"]';
+  await focus(rowSearch);await page.click(rowSearch);await rec?.unfocus();
+  await page.waitForSelector(rowInput);
+  if(rec)await rec.caption('3. 같은 행 검색 · ROSE RED를 입력하고 국가·품목명을 대조합니다.');
+  await focus(rowInput);await page.type(rowInput,'ROSE RED',{delay:180});if(rec)await rec.pause(3000);await rec?.unfocus();
+  await focus(rowResult);await page.click(rowResult);await page.waitForFunction(selector=>!document.querySelector(selector),{},rowInput);await rec?.unfocus();
   assert.equal(matchRevision,1);assert.equal(matchValue.entries[0].prodKey,99001);
-  if(rec){await rec.caption('3. 저장 결과 확인 · 선택 즉시 창이 닫히고 팀 공용 매칭에 저장됩니다.\n원본 표기 차이는 별도 확인 대상으로 남으며 매칭만으로 입고되지 않습니다.');await rec.pause(6500);}
+  if(rec){await rec.caption('3. 저장 결과 확인 · 선택한 품목과 확인 상태가 같은 행에 표시됩니다.\n원본 표기 차이는 별도로 확인합니다.');await rec.pause(6500);}
   await page.waitForFunction(()=>document.body.innerText.includes('팀 공용 수동 1'));
   if(rec)await rec.caption('3. 저장한 품목이 전체 목록 맨 위에 표시됩니다.\n확인 필요만 보기로 남은 품목을 볼 수 있습니다.');
   await focus('[data-testid="packing-results-view-toggle"]');await page.click('[data-testid="packing-results-view-toggle"]');
-  await page.waitForFunction(()=>!document.querySelector('[data-testid="packing-results"]')?.innerText.includes('ROSE RED TRAINING'));
+  await page.waitForFunction(selector=>!document.querySelector(selector),{},rowSearch);
   await page.click('[data-testid="packing-results-view-toggle"]');await rec?.unfocus();
-  await page.waitForFunction(()=>document.body.innerText.includes('ROSE RED TRAINING'));
+  await page.waitForSelector(rowSearch);
   await page.screenshot({path:'.verify/packing-guide-result.png'});
   assert.equal(freeCalls,0);assert.equal(paidCalls,1); // intercepted synthetic request, not a provider call
   await step('reuse','기존 분석 재사용 · 파일을 다시 올리지 않고 저장 분석에서 바로 이어갑니다.');
@@ -112,7 +116,7 @@ async function main(){
   assert((await page.$eval('[aria-label="보관 원본·분석 수량 금액 대조"]',node=>node.innerText)).includes('상품 총금액'));
   if(rec){await rec.caption('6. 대조 결과 · 송장별 품목·박스·단·송이와 행별 단가·금액을 확인합니다.\n미확인은 0이 아니며 실제 입고 저장 결과와 구분합니다.');await rec.pause(6500);}
   await page.click('button[aria-controls="import-panel-packing"]');await page.waitForSelector('[data-testid="packing-country-back"]');
-  if(rec){const result=await rec.stop();const file='config/workflow-guides.json',registry=JSON.parse(fs.readFileSync(file));const guide=registry.workflows.find(w=>w.id==='packing-free-ocr').guides[0];guide.status='ready';guide.chapters=result.chapters;fs.writeFileSync(file,JSON.stringify(registry,null,2)+'\n');}
+  if(rec){const result=await rec.stop();const file='config/workflow-guides.json',registry=JSON.parse(fs.readFileSync(file));const workflow=registry.workflows.find(w=>w.id==='packing-free-ocr');workflow.sourceFiles=sourceFiles;const guide=workflow.guides[0];guide.status='ready';guide.chapters=result.chapters;fs.writeFileSync(file,JSON.stringify(registry,null,2)+'\n');}
   if(dry){
     // A completed API response not yet saved in team history also reuses, not re-analyzes.
     const cachedPdf=await PDFDocument.load(fs.readFileSync(dummy));cachedPdf.setSubject('UNCONSUMED CACHE FIXTURE');

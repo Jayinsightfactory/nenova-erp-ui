@@ -40,7 +40,8 @@ async function main() {
   assert(workflow, 'config/workflow-guides.json 에 ' + WORKFLOW + ' 등록 필요');
   if (!workflow.requiredScenarios.includes('receipt')) workflow.requiredScenarios.push('receipt');
   for (const file of ['components/import-tools/InvoiceReceiptWorkbench.js', 'components/import-tools/PackingResults.js',
-    'components/import-tools/PackingProductMatchDialog.js', 'styles/InvoiceReceiptSheet.module.css', 'pages/import/tools.js']) {
+    'components/import-tools/PackingProductMatchDialog.js', 'styles/InvoiceReceiptSheet.module.css',
+    'styles/ImportReviewTypography.module.css', 'pages/import/tools.js']) {
     if (!workflow.sourceFiles.includes(file)) workflow.sourceFiles.push(file);
   }
   assert.equal(manual.steps.length, workflow.requiredScenarios.length, '글 단계 수 = 영상 시나리오 수');
@@ -67,6 +68,17 @@ async function main() {
     for (let i = 0; i < 90; i++) { try { if ((await fetch(base + '/login')).status === 200) break; } catch {} if (i === 89) throw Error('UI server unavailable'); await new Promise(r => setTimeout(r, 1000)); }
     browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', args: ['--no-sandbox'] });
     const page = await browser.newPage(); page.setDefaultTimeout(20000); page.on('pageerror', e => console.log('UI ERROR', e.message));
+    const checkTypography = async (selector, minSize, numeric = false) => {
+      const typography = await page.$eval(selector, node => {
+        const {fontFamily, fontSize, fontVariantNumeric} = getComputedStyle(node);
+        return {fontFamily, fontSize, fontVariantNumeric};
+      });
+      assert.match(typography.fontFamily, /^"?Pretendard Variable"?[,]/);
+      assert.match(typography.fontFamily, /Malgun Gothic/);
+      assert(Number.parseFloat(typography.fontSize) >= minSize);
+      if (numeric) assert.equal(typography.fontVariantNumeric, 'tabular-nums');
+      return typography;
+    };
     page.on('dialog', d => { console.log('DIALOG', d.message()); d.accept(); });
     await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
     await page.setCookie({ name: 'nenovaToken', value: jwt.sign({ userId: 'guide-import', userName: '연습 담당자', authority: 4, accountActive: true }, secret, { expiresIn: '1h' }), url: base });
@@ -241,52 +253,68 @@ async function main() {
     await out(3500);
 
     // 4. 미확인 품종 연결
-    await step('미확인 줄의 품목 이름을 눌러 전산 품목 창을 엽니다.\n인보이스의 품종·길이와 후보를 비교해 맞는 것을 고릅니다.');
+    await step('전산 품목 옆에 표시된 후보 이름·규격·점수를 비교합니다.\n맞는 후보를 누르면 같은 행의 품목을 교체합니다.');
     let linked = 0;
+    let extraWrites = 0;
     for (const item of UNCONFIRMED) {
-      const label = `${item.desc} 전산 품목 매칭`;
-      assert(await page.$(`[aria-label="${label}"]`), '미확인 줄의 연결 버튼이 보여야 함: ' + item.desc);
-      if (linked > 0) await say('다음 미확인 줄도 같은 방법으로 연결합니다.\n이번에는 검색어를 넣어 후보를 좁혀 봅니다.', 3000);
-      await press(`[aria-label="${label}"]`, { fx: 0.5, fy: 0.5 });
-      await page.waitForSelector('[data-testid="packing-match-dialog"]');
-      await out();
-      await say(`"원문"이 인보이스에 적힌 이름입니다. 아래 후보의 이름·길이를 비교합니다.\n${item.search ? '후보가 많으면 검색칸에 품종을 넣어 좁힙니다.' : '추천은 확정이 아니므로 이름과 길이를 눈으로 확인합니다.'}`, 4500);
-      await focus(await tag('dialogSource', 'css', '[data-testid="packing-match-dialog"] p'));
-      await out(2500);
+      const toggle = `[aria-label="${item.desc} 매칭 품목 검색"]`;
+      const direct = key => `[data-testid="packing-inline-candidate"][data-prod-key="${key}"][aria-label^="${item.desc} "]`;
+      let candidate = direct(item.pick);
       if (item.search) {
-        const box = '[aria-label="전산 품목 검색"]';
+        await say('같은 행의 「검색」을 누르고 품목명 일부를 입력합니다.', 3500);
+        await press(toggle);
+        const box = `[aria-label="${item.desc} 같은 국가 품목 검색"]`;
         await focus(box, { click: true, fx: 0.97 }); await page.click(box); await page.type(box, item.search, { delay: rec ? 140 : 0 });
+        assert(await page.$eval(box, input => document.activeElement === input && Boolean(input.closest('tr')?.querySelector('[data-testid="packing-inline-search"]'))));
         if (rec) await rec.pause(1800);
+        if (dry) await page.screenshot({path:'.verify/invoice-match-inline-search.png'});
         await out();
+        candidate = `[data-testid="packing-inline-search-result"][data-prod-key="${item.pick}"]`;
       }
-      const cand = `[data-candidate="${item.pick}"]`;
-      await page.waitForSelector(cand);
-      console.log('후보', item.pick, await page.$eval(cand, n => n.innerText.replace(/\s+/g, ' ')));
-      const automatic = await page.evaluateHandle(() => [...document.querySelectorAll('[data-testid="packing-match-dialog"] button')]
-        .find(button => button.textContent === '기본 선택 저장'));
+      await page.waitForSelector(candidate + ':not(:disabled)');
+      console.log('행 후보', item.pick, await page.$eval(candidate, n => n.innerText.replace(/\s+/g, ' ')));
       if (!item.search) {
-        assert(automatic.asElement(), '90% 이상 단독 후보를 기본 선택으로 표시해야 합니다');
-        assert.equal(await page.$eval(cand, button => button.getAttribute('aria-pressed')), 'true');
+        assert.equal(await page.$eval(candidate, button => button.getAttribute('aria-pressed')), 'true');
+        assert.equal(matchRevision, 0, '기본 선택만으로 저장하지 않습니다');
+        await checkTypography(candidate, 13.5);
+        await checkTypography(candidate+' small', 12.5);
+        await focus(candidate);
         if (dry) await page.screenshot({path:'.verify/invoice-match-default.png'});
         if (dry) {
-          await automatic.asElement().click();
-          await page.waitForFunction(() => document.querySelector('[data-testid="packing-match-dialog"]')?.textContent.includes('연습 매칭 저장 실패'));
+          await page.click(candidate);
+          await page.waitForFunction(() => [...document.querySelectorAll('[role="alert"]')].some(node=>node.textContent.includes('연습 매칭 저장 실패')));
           assert.equal(matchRevision, 0);
           assert(![...uploadHistory.records.values()].some(record => record.snapshot.matchingReviewed === true));
         }
-        await say('이름 점수가 90% 이상인 단독 1위는 기본 선택으로 표시됩니다.\n품목을 확인하고 「기본 선택 저장」을 누릅니다.', 3500);
-        await press(await tag('saveDefault', 'button', '기본 선택 저장'), { fx: 0.97, fy: 0.5 });
+        await say('같은 국가의 단독 1위가 90% 이상이면 기본 후보로 표시합니다.\n규격을 확인한 뒤 후보를 눌러 저장합니다.', 3500);
       } else {
-        await say('검색 결과에서 확인한 후보를 선택하면 팀 공용 매칭에 저장됩니다.', 3500);
-        await press(cand, { fx: 0.97, fy: 0.5 });
+        await say('같은 행에서 검색 결과를 누르면 확인한 품목으로 저장됩니다.', 3500);
       }
-      await automatic.dispose();
-      await page.waitForFunction(() => !document.querySelector('[data-testid="packing-match-dialog"]'));
+      await press(candidate, { fx: 0.97, fy: 0.5 });
+      const saveEnd = Date.now() + 7000;
+      while (matchRevision < linked + extraWrites + 1 && Date.now() < saveEnd) await new Promise(resolve=>setTimeout(resolve,100));
       await out();
       linked++;
-      assert.equal(matchRevision, linked, '품목 연결 저장 요청 수');
+      assert.equal(matchRevision, linked + extraWrites, '품목 연결 저장 요청 수');
       assert.equal(saved.at(-1).prodKey, item.pick, '연결한 전산 품목 번호');
       assert(JSON.stringify(saved.at(-1)).includes(item.desc), '원문 이름이 저장 요청에 있어야 함: ' + JSON.stringify(saved.at(-1)));
+      if (dry && linked === 1) {
+        const replacement = direct(99202);
+        await page.waitForSelector(replacement + ':not(:disabled)');
+        rejectMatchOnce = true;
+        await page.click(replacement);
+        await page.waitForFunction(() => [...document.querySelectorAll('[role="alert"]')].some(node=>node.textContent.includes('연습 매칭 저장 실패')));
+        assert.equal(matchRevision, linked);
+        assert.equal(matchValue.entries[0].prodKey, item.pick);
+        await page.click(replacement);
+        await page.waitForSelector(direct(item.pick) + ':not(:disabled)');
+        await page.waitForFunction(selector => document.activeElement?.matches(selector), {}, toggle);
+        assert.equal(matchValue.entries[0].prodKey, 99202);
+        await page.click(direct(item.pick));
+        await page.waitForSelector(replacement + ':not(:disabled)');
+        assert.equal(matchValue.entries[0].prodKey, item.pick);
+        extraWrites += 2;
+      }
       if (linked < UNCONFIRMED.length) {
         await say('저장한 품목은 목록의 위에 표시됩니다.\n아직 남은 줄이 있으면 같은 방법으로 이어서 연결합니다.', 3000);
         await focus(await tag('counts1', 'css', results + ' p[role="status"]'));
@@ -331,6 +359,19 @@ async function main() {
     console.log('after matching:', counts1);
     assert(/정확 8 · 팀 공용 수동 2/.test(counts1) && counts1.includes('품목 매칭 완료'), '연결 결과가 개수에 반영돼야 함: ' + counts1);
     assert.equal(await page.$eval(results+' tbody tr:first-child', row=>row.textContent.includes('CANDLELIGHT')),true,'저장한 품목이 원본 행 번호를 보존하며 위로 이동해야 합니다.');
+    const rowLayout = await page.$eval(results+' tbody tr:first-child', row => {
+      const label = row.querySelector('[data-review-label]');
+      const name = label.previousElementSibling;
+      const a = name.getBoundingClientRect(), b = label.getBoundingClientRect();
+      return {sameLine:a.right <= b.left && b.top < a.bottom && a.top < b.bottom,
+        statusSize:getComputedStyle(label).fontSize, tableSize:getComputedStyle(row.cells[0]).fontSize,
+        numbers:getComputedStyle(row.cells[0]).fontVariantNumeric};
+    });
+    assert(rowLayout.sameLine, '품목과 확인 상태가 한 줄에 표시되어야 합니다');
+    assert(Number.parseFloat(rowLayout.statusSize) >= 12.5);
+    assert(Number.parseFloat(rowLayout.tableSize) >= 13.5);
+    assert.equal(rowLayout.numbers, 'tabular-nums');
+    console.log('PASS inline row typography:', JSON.stringify(rowLayout));
     if (dry) await (await page.$(results+' article')).screenshot({path:'.verify/invoice-match-reviewed-first.png'});
     await say('팀 공용으로 연결한 품목은 표 위쪽에서 다시 수정할 수 있습니다.\n확인 필요한 품목만 보려면 「확인 필요만 보기」를 누릅니다.', 4000);
     await focus(await tag('counts2', 'css', results + ' p[role="status"]'));
@@ -383,6 +424,9 @@ async function main() {
     assert(!otherApi.some(entry => /native-cost|cost-revisions/.test(entry)));
     if (dry) {
       await page.$eval('[aria-label="입고 검토 행 표"]', table => table.scrollIntoView({block:'start',behavior:'instant'}));
+      const receiptTypography = await checkTypography('[aria-label="입고 검토 행 표"] th', 13.5, true);
+      await checkTypography('[aria-label="입고 검토 행 표"] tbody td input', 13.5, true);
+      console.log('PASS receipt typography:', JSON.stringify(receiptTypography));
       await page.screenshot({path:'.verify/invoice-receipt-compact.png'});
     }
     console.log('PASS actual upload UI: one direct receipt save, matching readback, no cost request');

@@ -1,4 +1,5 @@
 import styles from '../../styles/ImportPacking.module.css';
+import typography from '../../styles/ImportReviewTypography.module.css';
 import WorkflowGuide from '../WorkflowGuide';
 import PackingManifestFarmReview from './PackingManifestFarmReview.js';
 import {pendingManifestIssues} from '../../lib/packingManifestReconciliation.js';
@@ -1691,24 +1692,26 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     finally{savingRef.current=false;setSaving(false);}
   };
   const openInvoiceAllocation = () => prepareReceipt({ allowAllocationReview: true });
-  const saveErpMatch=async prodKey=>{
-    if(savingRef.current||processingRef.current||!matchTarget||matchTarget.requiresReload||!erpMatches||(!lastExtraction&&matchTarget.origin!=='manager'))return;
+  const saveErpMatch=async (prodKey, inlineTarget)=>{
+    const target=inlineTarget ?? matchTarget;
+    if(savingRef.current||processingRef.current||!target||target.requiresReload||!erpMatches||(!lastExtraction&&target.origin!=='manager'))return {error:'현재 매칭을 저장할 수 없습니다. 다시 조회하세요.'};
     const scope=sharedScopeVersion.current;
     const fileVersion=readerVersion.current;
     savingRef.current=true;setSaving(true);setMatchError('');
     ++erpReadSequence.current;
     try {
-      const data=await requestErpMatches({country:matchTarget.country ?? country,description:matchTarget.description,prodKey,expectedRevision:matchTarget.expectedRevision});
-      if(scope!==sharedScopeVersion.current)return;
+      const data=await requestErpMatches({country:target.country ?? country,description:target.description,prodKey,expectedRevision:target.expectedRevision});
+      if(scope!==sharedScopeVersion.current)return {error:'작업 범위가 변경됐습니다. 다시 조회하세요.'};
       setErpMatches(data);
       const nextPreview = refreshPreviewForMappings({ nextErp: data });
-      if (file && fileVersion === readerVersion.current && matchTarget.origin !== 'manager') {
+      if (file && fileVersion === readerVersion.current && target.origin !== 'manager') {
         const rows = nextPreview?.flatMap(excel => excel.products || []) || [];
         setMatchingReviewedFile(rows.length && rows.every(row => !packingMatchReview(row, data.products, country).needsReview) ? file : null);
       }
       setMatchTarget(null);
       setLatestShared(false);
-      if (matchTarget.origin === 'manager') setStatus({type:'success',msg:'팀 공용 DB 매칭을 수정했습니다. 다음 업로드와 현재 매칭표에 적용되며, 이미 저장된 입고 문서는 변경하지 않습니다.'});
+      if (target.origin === 'manager') setStatus({type:'success',msg:'팀 공용 DB 매칭을 수정했습니다. 다음 업로드와 현재 매칭표에 적용되며, 이미 저장된 입고 문서는 변경하지 않습니다.'});
+      return {success:true};
     } catch(error) {
       if(scope===sharedScopeVersion.current){
         setMatchError(error.message);
@@ -1718,6 +1721,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           if(scope===sharedScopeVersion.current)setMatchError(error.message+' · 최신 팀 매칭 적용 후 선택을 다시 확인하세요.');
         }
       }
+      return {error:error.message};
     }
     finally {savingRef.current=false;setSaving(false);}
   };
@@ -2054,7 +2058,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   }, [autoAnalyze,lastExtraction,matchingComplete,validationIssues.length,processing,saving,sharedReady,latestShared,reviewOpen,matchTarget,excels.length,reviewConfirmed]);
 
   return (
-    <div ref={toolRoot} className={styles.root} lang={lang} style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', color: '#172b4d' }}>
+    <div ref={toolRoot} className={`${styles.root} ${typography.scope}`} lang={lang} style={{ background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
       {matchTarget&&<PackingProductMatchDialog target={matchTarget} country={matchTarget.country ?? country} products={erpMatches?.products??[]} matchEntries={erpMatches?.value?.entries??[]}
         onSave={saveErpMatch} onClose={()=>setMatchTarget(null)} onReload={reloadErpMatches} saving={saving} error={matchError}/>}
       {reviewRows && <PackingEvidenceReview key={reviewRevision} rows={reviewRows} open={reviewOpen && !matchTarget} onClose={closeReview} onConfirm={confirmReview}
@@ -2508,6 +2512,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   </li>)}</ul>
                 </section>}
                 <PackingResults
+                  onInlineMatch={(product, prodKey) => saveErpMatch(prodKey, {
+                    description: product.matchingDescription,
+                    expectedRevision: erpMatches?.revision,
+                    requiresReload: latestShared || !product.matchingDescription
+                  })}
                   erpProducts={excels.length ? (generatedErp?.products || []) : (erpMatches?.products || [])}
                   receiptMatches={receiptMatches}
                   excels={excels.length ? excels : matchPreview}

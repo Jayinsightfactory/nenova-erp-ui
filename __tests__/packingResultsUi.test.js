@@ -43,6 +43,7 @@ new Function('require', 'module', 'exports', code)(key => {
   if (key === '../../styles/ImportPacking.module.css') return css;
   if (key === '../../lib/packingMatchReview') return { packingMatchReview: (...args) => packingMatchReview(...args), packingMatchPriority: (...args) => packingMatchPriority(...args) };
   if (key === '../../lib/packingReceiptMatchState') return { effectivePackingMatchReview: (...args) => effectivePackingMatchReview(...args) };
+  if (key === '../../lib/invoiceMatchAssist.js' || key === '../../lib/productSearchRanking.js') return {};
   throw new Error('Unexpected dependency: ' + key);
 }, moduleUnderTest, moduleUnderTest.exports);
 

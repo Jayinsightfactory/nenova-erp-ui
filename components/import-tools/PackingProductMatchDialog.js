@@ -74,7 +74,7 @@ export default function PackingProductMatchDialog({target,country,products,match
       <div className={styles.list} role="region" aria-label="전산 품목 검색 결과">
         {candidates.length===0&&<p>검색 결과가 없습니다. 검색어를 줄이거나 전산 품목을 다시 불러오세요.</p>}
         {candidates.map(({option:p,suggestion},index)=><button type="button" key={p.ProdKey} data-candidate={p.ProdKey} disabled={saving||target.requiresReload||!p.selectable} aria-pressed={(selected ?? defaultKey)===p.ProdKey} className={styles.candidate} onClick={()=>saveCandidate(p.ProdKey)} title={p.reason||p.ProdName}>
-          <strong><span className={styles.rank}>{index+1}</span>{p.ProdName}</strong><span>{p.FlowerName} · {p.ProdCode||`번호 ${p.ProdKey}`} · {suggestion?.reason}{!p.selectable&&` · ${p.reason}`}</span>
+          <strong><span data-review-label="" className={styles.rank}>{index+1}</span>{p.ProdName}</strong><span data-review-label="">{p.FlowerName} · {p.ProdCode||`번호 ${p.ProdKey}`} · {suggestion?.reason}{!p.selectable&&` · ${p.reason}`}</span>
         </button>)}
       </div>
       {error&&<p role="alert" className={styles.error}>{error}</p>}

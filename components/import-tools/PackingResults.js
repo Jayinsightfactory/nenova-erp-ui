@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styles from '../../styles/ImportPacking.module.css';
 import { packingMatchPriority, packingMatchReview } from '../../lib/packingMatchReview';
 import { effectivePackingMatchReview } from '../../lib/packingReceiptMatchState';
+import { defaultInvoiceMatchSuggestion, rankProductSuggestions, scoreProductMatch } from '../../lib/invoiceMatchAssist.js';
+import { scoreProductSearchOptions } from '../../lib/productSearchRanking.js';
 
 const hasValue = value => value !== null && value !== undefined && value !== '';
 const STEM_QUANTITY_COUNTRIES = new Set(['NL', 'CO', 'EC', 'TH', 'AU', 'US', 'VN']);
@@ -121,6 +123,87 @@ async function copyTextarea(textarea, statusNode) {
   }
 }
 
+function InlinePackingMatch({product, sourceName, currentKey, country, products, disabled, onSave}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [error, setError] = useState('');
+  const editor = useRef(null), toggle = useRef(null), search = useRef(null), inFlight = useRef(false);
+  const description = product.matchingDescription || sourceName;
+  const suggested = useMemo(() => {
+    const ranked = rankProductSuggestions(description, products, {country, limit: 3});
+    return ranked.items.filter(item => Number(item.product.ProdKey) !== currentKey).slice(0, 2);
+  }, [description, products, country, currentKey]);
+  const defaultItem = useMemo(() => currentKey == null ? defaultInvoiceMatchSuggestion(description, products, country) : null,
+    [description, products, country, currentKey]);
+  const found = useMemo(() => !open || !query.trim() ? suggested : scoreProductSearchOptions(query, products, {packingSuggestions:true})
+    .filter(item => Number(item.option.ProdKey) !== currentKey)
+    .slice(0, 8).map(({option}) => ({product:option, score:scoreProductMatch(description,option)})),
+  [open, query, suggested, products, currentKey, description]);
+
+  const close = () => {
+    setOpen(false);
+    setQuery('');
+    toggle.current?.focus();
+  };
+
+  const choose = async item => {
+    if (disabled || inFlight.current || Number(item.product.ProdKey) === currentKey) return;
+    inFlight.current = true;
+    setError('');
+    try {
+      const result = await onSave(product, Number(item.product.ProdKey));
+      if (result?.success) {
+        setOpen(false);
+        setQuery('');
+        requestAnimationFrame(() => toggle.current?.focus());
+      } else setError(result?.error || '매칭 저장에 실패했습니다.');
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      inFlight.current = false;
+    }
+  };
+
+  const keyboard = event => {
+    if (event.nativeEvent?.isComposing) return;
+    if (event.key === 'Escape') { event.preventDefault(); close(); }
+    if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+    const buttons = [...editor.current.querySelectorAll('button:not(:disabled)')];
+    if (!buttons.length) return;
+    const index = buttons.indexOf(event.target);
+    event.preventDefault();
+    buttons[index < 0 ? 0 : Math.max(0, Math.min(buttons.length - 1,index + (event.key==='ArrowDown' ? 1 : -1)))]?.focus();
+  };
+
+  return <>
+    <div className={styles.inlineMatchControls}>
+      {suggested.map(item => {
+        const active = defaultItem?.product.ProdKey === item.product.ProdKey;
+        return <button key={item.product.ProdKey} type="button" data-testid="packing-inline-candidate" data-prod-key={item.product.ProdKey}
+          className={styles.inlineCandidate} aria-pressed={active} disabled={disabled} onClick={() => choose(item)}
+          aria-label={`${sourceName} ${item.product.ProdName} ${item.score}% ${active ? '기본 선택 저장' : '매칭 교체'}`}>
+          {item.product.ProdName} <small>{item.score}%{active ? ' 기본' : ''}</small>
+        </button>;
+      })}
+      <button ref={toggle} type="button" data-testid="packing-inline-search" aria-label={`${sourceName} 매칭 품목 검색`}
+        aria-expanded={open} disabled={disabled} onClick={() => {
+          if (open) return close();
+          setOpen(true);
+          requestAnimationFrame(() => search.current?.focus());
+        }}>검색</button>
+    </div>
+    {open && <div ref={editor} className={styles.inlineMatchEditor} onKeyDown={keyboard}>
+      <input ref={search} type="search" aria-label={`${sourceName} 같은 국가 품목 검색`} placeholder="품목명 또는 코드" value={query}
+        disabled={disabled} onChange={event => setQuery(event.target.value)} />
+      {found.length > 0 ? <div className={styles.inlineMatchChoices}>{found.map(item => <button key={item.product.ProdKey} type="button"
+        data-testid="packing-inline-search-result" data-prod-key={item.product.ProdKey} className={styles.inlineCandidate} disabled={disabled} onClick={() => choose(item)}>
+        {item.product.ProdName} <small>{item.score}%</small>
+      </button>)}</div> : <small>같은 국가의 검색 결과가 없습니다.</small>}
+    </div>}
+    {error && <small role="alert">{error}</small>}
+  </>;
+}
+
 function populateSummaryWindow(popup, summary, returnFocus) {
   const doc = popup.document;
   let focusReturned = false;
@@ -137,8 +220,8 @@ function populateSummaryWindow(popup, summary, returnFocus) {
   while (doc.body.firstChild) doc.body.removeChild(doc.body.firstChild);
   doc.body.style.margin = '0';
   doc.body.style.padding = '24px';
-  doc.body.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-  doc.body.style.color = '#172b4d';
+  doc.body.style.fontFamily = "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif";
+  doc.body.style.color = '#0f172a';
   doc.body.style.background = '#f6f8fb';
 
   const heading = doc.createElement('h1');
@@ -157,7 +240,10 @@ function populateSummaryWindow(popup, summary, returnFocus) {
   textarea.style.padding = '14px';
   textarea.style.border = '1px solid #aebbd0';
   textarea.style.borderRadius = '8px';
-  textarea.style.font = '14px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace';
+  textarea.style.fontSize = '14px';
+  textarea.style.lineHeight = '1.6';
+  textarea.style.fontFamily = 'inherit';
+  textarea.style.fontVariantNumeric = 'tabular-nums';
   textarea.style.boxSizing = 'border-box';
   const actions = doc.createElement('div');
   actions.style.display = 'flex';
@@ -206,6 +292,7 @@ export default function PackingResults({
   blocked,
   onDownload,
   onMatch,
+  onInlineMatch,
   onAllocate,
   mappingDisabled = false,
   truncated = false,
@@ -226,6 +313,7 @@ export default function PackingResults({
   const dialogRef = useRef(null);
   const dialogTextareaRef = useRef(null);
   const safeExcels = Array.isArray(excels) ? excels : [];
+  const localProducts = useMemo(() => erpProducts.filter(product => product.country === country && product.selectable === true), [erpProducts, country]);
   const summary = useMemo(() => buildIssueSummary(safeExcels, country, notes, truncated, erpProducts, receiptMatches), [safeExcels, country, notes, truncated, erpProducts, receiptMatches]);
   const reviewedExcels = safeExcels.map((excel, excelIndex) => {
     const rows = (Array.isArray(excel.products) ? excel.products : []).map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: effectivePackingMatchReview(
@@ -313,7 +401,7 @@ export default function PackingResults({
         </div>
         <button ref={summaryButtonRef} type="button" onClick={openSummary} className={styles.summaryButton} data-testid="packing-results-copy-open">
           이슈 요약 새 창
-          {summary.issueCount > 0 && <span className={styles.summaryCount}>{summary.issueCount}</span>}
+          {summary.issueCount > 0 && <span data-review-label="" className={styles.summaryCount}>{summary.issueCount}</span>}
         </button>
       </div>
 
@@ -359,7 +447,7 @@ export default function PackingResults({
               <div>
                 <div className={styles.resultTitleLine}>
                   <h4>{excel.label || excel.name}</h4>
-                  {issueCount > 0 && <span className={styles.issueBadge}>확인 {issueCount}</span>}
+                  {issueCount > 0 && <span data-review-label="" className={styles.issueBadge}>확인 {issueCount}</span>}
                 </div>
                 <p>
                   {excel.name} · {products.length.toLocaleString('ko-KR')}행
@@ -459,13 +547,18 @@ export default function PackingResults({
                           {include.stemLength && <td>{hasValue(product.stemLength ?? product.stem_length) ? (product.stemLength ?? product.stem_length) : '—'}</td>}
                           <td className={styles.matchCell}>
                             <div className={styles.matchSummary}>
+                              <div className={styles.currentMatch}>
                               {review.prodKey != null && <strong className={styles.matchTarget}>{matchedName || '전산 품목 정보 없음'}</strong>}
-                              <div className={styles.matchActions}>
                                 {review.needsReview
                                   ? <button type="button" className={`${styles.statusChip} ${styles.statusAction}`} data-testid={allocationAction ? 'packing-result-status-allocation' : 'packing-result-status-match'}
                                       aria-label={allocationAction ? `${status}: ${sourceName} 품목·입고량 분류 열기` : `${status}: ${sourceName} 전산 품목 확인`}
                                       disabled={matchDisabled} onClick={openMatch}>{status}</button>
-                                  : <span className={`${styles.statusChip} ${['MANUAL', 'DOCUMENT'].includes(review.status) ? styles.statusAlias : styles.statusMatched}`}>{status}</span>}
+                                  : <span data-review-label="" className={`${styles.statusChip} ${['MANUAL', 'DOCUMENT'].includes(review.status) ? styles.statusAlias : styles.statusMatched}`}>{status}</span>}
+                              </div>
+                              {!allocationAction && onInlineMatch && <InlinePackingMatch product={product} sourceName={sourceName}
+                                currentKey={review.needsReview ? null : review.prodKey} country={country} products={localProducts} disabled={matchDisabled}
+                                onSave={onInlineMatch}/>}
+                              <div className={styles.matchActions}>
                                 {productSourceNeedsReview(product) && (
                                   <button type="button" className={`${styles.statusChip} ${styles.statusAction}`} data-testid="packing-result-source-review"
                                     aria-label={`${sourceName} 원문 확인: ${sourceIssueText(product.sourceReview)}`}

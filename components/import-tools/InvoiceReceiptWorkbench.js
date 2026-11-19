@@ -24,6 +24,7 @@ import { allocationIssues, applyInvoiceAllocation } from '../../lib/invoiceProdu
 import { createInvoiceReceiptStageLogClient, currentInvoiceStageHistory, invoiceStageHistorySummary } from '../../lib/invoiceReceiptStageLogClient.js';
 import styles from '../../styles/InvoiceReceipt.module.css';
 import sheetStyles from '../../styles/InvoiceReceiptSheet.module.css';
+import typography from '../../styles/ImportReviewTypography.module.css';
 import { assertReceiptScope, runReceiptPreparation, verifyReceiptDocument } from '../../lib/invoiceReceiptWorkflow.js';
 import {
   adaptPackingReceipts,
@@ -1196,10 +1197,11 @@ export default function InvoiceReceiptWorkbench({
   }
 
   if (packingActive && (!file || !excels.length)) return null;
-  if (packingActive && sourceState.error) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p className={styles.error} role="alert">입고 업로드 준비 실패: {sourceState.error} · 위 매칭표와 원본 파일은 유지됩니다. 확인값을 수정한 뒤 다시 준비하세요.</p><button type="button" onClick={() => setSourceAttempt(value => value + 1)}>입고 준비만 다시 시도 (AI 재분석 없음)</button></section>;
-  if (sourceState.busy) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p role="status">원본 파일 SHA-256과 입고 초안을 준비하는 중입니다…</p></section>;
-  if (packingActive && (!selected || !documentValue)) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p role="status">현재 매칭 결과로 입고 업로드를 준비하는 중입니다…</p></section>;
-  if (!selected || !documentValue) return <section className={styles.root} aria-label="인보이스 입고 작업대" data-testid="invoice-receipt-workbench">
+  const rootClass = `${styles.root} ${typography.scope}`;
+  if (packingActive && sourceState.error) return <section className={rootClass} aria-label="인보이스 입고 작업대"><p className={styles.error} role="alert">입고 업로드 준비 실패: {sourceState.error} · 위 매칭표와 원본 파일은 유지됩니다. 확인값을 수정한 뒤 다시 준비하세요.</p><button type="button" onClick={() => setSourceAttempt(value => value + 1)}>입고 준비만 다시 시도 (AI 재분석 없음)</button></section>;
+  if (sourceState.busy) return <section className={rootClass} aria-label="인보이스 입고 작업대"><p role="status">원본 파일 SHA-256과 입고 초안을 준비하는 중입니다…</p></section>;
+  if (packingActive && (!selected || !documentValue)) return <section className={rootClass} aria-label="인보이스 입고 작업대"><p role="status">현재 매칭 결과로 입고 업로드를 준비하는 중입니다…</p></section>;
+  if (!selected || !documentValue) return <section className={rootClass} aria-label="인보이스 입고 작업대" data-testid="invoice-receipt-workbench">
     <header className={styles.heading}><div><h2>{workspaceMode === 'cost' ? '기존 입고로 도착원가 만들기' : '저장 인보이스 입고 문서'}</h2><p>{workspaceMode === 'cost' ? '연도·차수 선택 → 입고 조회 → 부족한 비용 입력 → 엑셀 다운로드. 인보이스를 다시 올리지 않아도 됩니다.' : '저장된 문서를 연도와 세부차수로 찾아 이어서 검토할 수 있습니다.'}</p></div></header>
     {sourceState.error && <p className={styles.error} role="alert">{sourceState.error}</p>}
     <form className={styles.savedScope} onSubmit={submitSavedScope} aria-label="저장 인보이스 검색">
@@ -1240,7 +1242,7 @@ export default function InvoiceReceiptWorkbench({
     orderWeek: documentValue.orderWeek, warehouseKey: Number(documentValue.warehouseKey),
   } : undefined);
 
-  return <section className={styles.root} aria-label="인보이스 입고 작업대" data-testid="invoice-receipt-workbench">
+  return <section className={rootClass} aria-label="인보이스 입고 작업대" data-testid="invoice-receipt-workbench">
     <header className={styles.heading}>
       <div><h2>입고 · 도착원가</h2>
         <p>입고와 원가는 따로 작업합니다. 이미 입고된 자료는 다시 등록하지 않습니다.</p></div>

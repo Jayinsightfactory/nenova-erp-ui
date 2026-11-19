@@ -157,7 +157,8 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
       return promise;
     },
   };
-  const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packingHarness,
+  const cssModules = new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) });
+  const modules = { '../../styles/ImportPacking.module.css': cssModules, '../../styles/ImportReviewTypography.module.css': cssModules, react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packingHarness,
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
     '../../lib/invoiceSupplierEvidence.js': await import('../lib/invoiceSupplierEvidence.js'),
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
