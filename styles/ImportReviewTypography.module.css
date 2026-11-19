@@ -1,0 +1,41 @@
+.scope {
+  --import-review-font: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  font-family: var(--import-review-font);
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.scope :is(button, input, select, textarea, th, td, p, small, label, code, svg text, [data-review-label]) {
+  font-family: var(--import-review-font) !important;
+}
+
+.scope :is(button, input, select, textarea, th, td, p) {
+  font-size: 14px !important;
+}
+
+.scope :is(small, label, svg text, [data-review-label]) {
+  font-size: 12.5px !important;
+}
+
+.scope :is(th, td, input, [data-review-label], code) {
+  font-variant-numeric: tabular-nums;
+}
+
+.scope td {
+  color: #0f172a;
+}
+
+.scope :is(small, label),
+.scope td span:not([data-review-label]) {
+  color: #475569;
+}
+
+.scope :is(button, th, td) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.scope [role='dialog'] :is(header, footer) {
+  min-width: 0;
+  flex-wrap: wrap;
+}

@@ -1,5 +1,16 @@
 # 작업 기록
 
+## 2026-11-19 업무 화면 목적 우선(Purpose-First) 실시간 트레이스 도면 — /work/manuals · /import/pipeline (feat/work-purpose-trace-motion)
+- 사장님 지시: "이런 형태로 모션·디자인이 업무도 PM도 들어갔으면 하고, 목적이 중요하게 표시되어야 한다" — 레퍼런스(실시간 아키텍처 트레이스 도면: 모눈 캔버스 + 01→02 단계 카드 + 직교 S-커브 배선 + 완료 초록/실행 중 파란 점선 흐름/대기 회색).
+- 신규 공용 components/work/PurposeFlowTrace.js: 최상단 「업무 핵심 목적 · PURPOSE」 콜아웃(17px 목적 + 15px 막는 문제·완료 결과물) → 캔버스 단계 카드(담당/표면 라벨·단계명 14.5px·단계 목적 1줄·기준/도구 토큰 박스·상태 배지). 완료=#059669 테두리+좌 4px 바+실선+패킷 점(SMIL animateMotion), 실행 중=#2563eb+#eff6ff+파란 점선(stroke-dashoffset), 대기=#cbd5e1. [AUTO 1x] 단추로 모션 재생/정지, prefers-reduced-motion 이면 자동 정지. 카드 클릭=onSelectStep(부모 활성 단계와 양방향).
+- ★배치는 순수 함수 layoutTrace(count,width) 가 계산(폭에서 열 수 4/3/2/1 균형 분할, 줄 사이 리턴 배선은 카드 아래 레인의 68% 높이, 레인 라벨은 같은 레인 위쪽 칸 6~32px). 라벨·배선·카드 겹침을 테스트가 폭 320~1920 × 1~8단계 전수 검사 — 참고 이미지처럼 라벨 위로 선이 지나가는 일 없음. 배경 모눈은 CSS 그라디언트가 아니라 SVG pattern.
+- 데이터 lib/workPurposeTrace.js: 4개 부서(수입부·영업지원·영업부·경영지원) 목적 + 대표 5단계(manualId=실제 매뉴얼 id, 테스트가 data/*handover*.json 과 대조), 설정 없는 부서는 order 순 대표 업무로 자동 구성. 수입 원스톱 목적 문구 + 4단계.
+- /work/manuals: 부서 칩 아래·검색줄 위에 도면 장착. 단계 클릭 → openSearchManual(dept, manualId) 로 그 매뉴얼을 열고, ?manual= 로 열린 매뉴얼은 도면의 실행 중 단계가 됨(ImportHandover 는 무수정 — 안에서 연 매뉴얼은 부모에 알리지 않으므로 마지막 클릭 단계 유지).
+- /import/pipeline: 헤더 아래·가이드 위에 도면. 지금 보는 단계(activeStep)=실행 중, 조회 결과 complete=완료, 나머지=대기. 카드 클릭=goToStep(1~4). 도면 버튼은 role=tab·#pipeline-tab-N 을 쓰지 않아 가이드 녹화 셀렉터와 충돌 없음. 가이드 sourceFiles 에 PurposeFlowTrace.js·lib/workPurposeTrace.js 추가 후 영상·해시 재생성.
+- ★함정: 도면 안 한글 토큰 상자는 monospace 만 쓰면 굴림체로 떨어짐 → Consolas,"Malgun Gothic" 순서. 테스트가 굴림 계열·그라디언트·이모지(화살표 ↔ 포함!)·금지어를 소스에서 검사.
+- 검증: purposeFlowTrace · workManualsUpgrade · importOneStopPipeline · test:workflow-guides · test:ui-layout · guard:erp-writes · test:pm 전수 PASS, next build --webpack 성공(락 사용).
+- 검색어: PurposeFlowTrace layoutTrace workPurposeTrace 목적 우선 트레이스 도면 /work/manuals /import/pipeline AUTO 1x 직교 S-커브
+
 ## 2026-11-05 /pm 3D(베타) 품질 총개선 — 체형 교정·클레이 렌더·배경 밀도 + 브리지 page/scroll (PR #1534)
 - 지시1 체형: build_char_kaykit.py 에 HEAD_K=0.55(머리 축소) + NECK_Z=1.17/BODY_K=1.1(목 아래 리그·메시 세로 스트레치, 머리는 평행이동) — 바인딩 전 변형이라 클립 9종 무손상, 머리:전신 1:2.2→≈1:4(레퍼런스 Kenney Protagonists·KayKit Rogue). sit 힙 0.48→0.52(SEAT_Y 보정), 서기 머리끝 1.94→1.78, CHAR_SCALE 0.95→1.1(화면 90~110px 테스트 유지). build_wearables.py 에도 같은 재매핑(head=이동+축소, chest=상승, hand=새 리그 좌표라 무수정) — 한쪽만 하면 착용물이 공중부양.
 - 지시2 렌더(QUALITY_RECIPE.md): 전역 shadowMap OFF→접지 블롭 평면, kit AO 베이크(신규 scripts/pm3d/bake_kit_ao.py: 모듈을 격자로 벌려 상호차폐 방지→공동 Smart UV 1024 아틀라스→Cycles AO→kit_ao.jpg+TEXCOORD_1 재export), 캐릭터 MeshToonMaterial 5단 파스텔 램프(NearestFilter), RoomEnvironment 1회+dispose, ACES 노출 1.05(1.2는 파스텔 날아감), 배경 그라데이션+fog+포말 띠. 토큰=PM3D.RENDER.
@@ -4102,9 +4113,26 @@ pm run test:canon 통과.
 검색어: GabrielProfitAgiWorkbench gabriel-purpose-callout gabriel-lever-purpose-callout gabriel-lever-svg-diagram gabriel-trace-auto-toggle stroke-dashoffset prefers-reduced-motion Purpose-First
 
 ## 2026-11-19 중국 39차 이후 두 농장 손익 분해
-1. 작업 위치: `codex/china-profit-two-farms` / `.codex-work/china-two-farms` / PR 생성 전.
-2. 완료된 것: `profitChinaTransport` 정책·API·화면을 39차 이상 HUBFRESH/Cloudland 두 행으로 제한. 실제 농장·동일품목 당차 입고 우선, 잔차는 같은 단위 입고 수량 또는 명시한 보고서 CNY 매입액 비율. 근거 부족/원천 NULL은 확인 필요. 14px 한글 고딕·합계 보존·데스크톱1.3.64.
+1. 작업 위치: `codex/china-profit-two-farms` / `.codex-work/china-two-farms` / PR #1895.
+2. 완료된 것: `profitChinaTransport` 정책·API·화면을 39차 이상 HUBFRESH/Cloudland 두 행으로 제한. 실제 농장·동일품목 당차 입고 우선, 잔차는 같은 단위 입고 수량 또는 명시한 보고서 CNY 매입액 비율. 근거 부족/원천 NULL은 확인 필요. 14px 한글 고딕·합계 보존·데스크톱1.3.66(다른 세션 1.3.65 이후).
 3. 남은 할 일: PR/CI/배포, 운영 44차 두 행 확인. 최종 상태는 해당 PR 인계 댓글에도 남긴다.
 4. 검증 상태: `verify:erp-change` 전체/빌드, 정책/API 회귀, 합성 화면 38/39 경계·두 행·조회범위, 데스크톱 메뉴3건, 가이드116.45초 재녹화·해시·실제 재생1920/390 PASS. 44차 전후 SELECT 469회씩, 저장본 calc 동일. 매출39,413,527·이익−18,524,012·전체이익률−46.9991238588% 및 모든 표시 금액 합계 보존. 실제 운영 새 화면은 미검증.
 5. 주의/잠금: DB/원장/저장본 쓰기 0. 혼합 단·송이를 합산하지 않음. 기초6/기말10품목 평가 미확인은 경고 유지하며 농장별 확정 원가로 오해하지 않도록 표시. 다른 작업의 메뉴/가이드 항목 보존.
 검색어: china-two-farms 39차 HUBFRESH Cloudland 공통안분 CNY 48375 188795 44차 39413527 469 SELECT
+
+## 2026-11-19 · 인보이스 확인 매칭 우선 표시와 입고표 정리
+
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/invoice-match-review / PR #1884 / 기준 master 29f275c.
+2. 완료된 것: 이미 확인된 송장·품목 우선 표시, 90% 이상 같은 나라 단독 후보, 현재 품목 옆 후보와 같은 행 검색·교체, 한글 14px·보조 12.5px, 확정 입고 반복 안내 통합, 화면 최상단 목적 제목, Desktop 1.3.65.
+3. 남은 할 일: 최종 PR CI 후 squash, Cafe24 운영 읽기 확인과 공식 Windows 설치본 공개.
+4. 검증 상태: 실제 설치 ERP dnSpy 및 운영 SELECT, 격리 Chrome 503 후 기존 매칭 유지와 선택·검색·초점 복귀·직접 입고, 같은 줄·폰트·숫자 실측과 최종 스크린샷, 목적 제목 계산 스타일 검증 및 원본 해시 영향 영상 4편.
+5. 주의/잠금: 적용한 나라만 조회. 기존 확정 입고 품목 변경 제한, 같은 파일 최신 이력, 명시 저장과 중복 차단 유지. 운영 입고·원가 저장과 유료 분석 없음.
+검색어: invoice-inline-match 90percent country-split compact-receipt Desktop1.3.65 PR1884
+
+## 2026-11-19 · 사장님 통합 지휘실(/work/command-hub) & 네노바 데스크톱 제1버튼(#pmHubButton) 연결
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/ceo-command-hub` / `C:\Users\USER\nw-agy-ceo-hub` / PR #1893.
+2. 완료된 것: 순수 집계 모듈 `lib/ceoCommandHub.js`(6대 전담 에이전트 현황판 `buildAgentRosterStatus`, PM·직원요청·기술레이더 통합 원장 `buildPmActionLedger`/`filterPmActionLedger`, 연속 디벨롭 펄스 `buildDevelopmentPulse`, 가브리엘 Profit AGI +536만원/주·Top 3 경보, 4대 목적별 21개 화면 한눈 지도 `CEO_PAGE_DIRECTORY`), 관리자(`nenovaSS3`) 404 게이트 페이지 `pages/work/command-hub.js` & Anti-AI Slop §7 한글 고딕 UI `components/work/CeoCommandHub.js` · `styles/CeoCommandHub.module.css`, 데스크톱 상단 제1버튼 `#pmHubButton` (`desktop/shell/shell.js`) & `Layout.js` `연동` 그룹 등록, `desktop/package.json`·`package-lock.json` `1.3.64`, 4단계 사용 가이드 영상(`scripts/record-ceo-command-hub-guide.cjs`, `public/guides/ceo-command-hub/staff.{mp4,ko.vtt,proof.json}`, `config/workflow-guides.json`) 및 단위·스모크 테스트(`__tests__/ceoCommandHub.test.js`, `__tests__/desktopBootstrap.test.mjs`, `desktop/scripts/smoke.cjs`).
+3. 남은 할 일: PR #1893 CI(`verify` · `installer`) 통과 대기, squash 머지 및 worktree/junction 정리.
+4. 검증 상태: `node __tests__/ceoCommandHub.test.js`, `npm run test:ui-layout`(115메뉴/158페이지), `npm run test:workflow-guides`(34 workflows/35 videos), `node scripts/check-workflow-guides.cjs --changed-from origin/master`, `npm run guard:erp-writes -- --changed-from origin/master`(API 0건), `npm run test:erp-manifest -- --changed-from origin/master`, `npm run test:pm`, `npm run test:pm-boundary`, `npm run test:canon`, `npm run build`, `record-ceo-command-hub-guide.cjs`(--dry-run·녹화·--player-smoke, 404 게이트·1920/1280/390·MP4 프레임·WebVTT 재생/챕터 이동), `npm --prefix desktop test`(76건), `desktop test:smoke`, `desktop test:restore`, `desktop test:exit` PASS. 실운영 DB·운영 브라우저는 미검증(합성 픽스처 검증, 원장 쓰기 0건).
+5. 주의/잠금: 병렬 세션 파일(`data/moyi-full-suite-blueprint.html`, `components/pm/TechRadarWorkbench.js`, `components/pm/ArchFlowChart.js`, `components/pm/ui.js`) 및 `pages/api/**` 무수정. `copyNotice`는 구현 지시서 드로어 내부 렌더링 + `Escape`/닫기 시 동시 초기화해 지연 레이아웃 점프를 차단함.
+검색어: ceo-command-hub CeoCommandHub pmHubButton 통합지휘실 6대-에이전트 연속-디벨롭 4대-목적-디렉터리 PR1893 Desktop-1.3.64

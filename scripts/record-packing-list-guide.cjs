@@ -39,7 +39,9 @@ async function main() {
   const workflow = registry.workflows.find(w => w.id === WORKFLOW);
   assert(workflow, 'config/workflow-guides.json 에 ' + WORKFLOW + ' 등록 필요');
   if (!workflow.requiredScenarios.includes('receipt')) workflow.requiredScenarios.push('receipt');
-  for (const file of ['components/import-tools/InvoiceReceiptWorkbench.js', 'pages/import/tools.js']) {
+  for (const file of ['components/import-tools/InvoiceReceiptWorkbench.js', 'components/import-tools/PackingResults.js',
+    'components/import-tools/PackingProductMatchDialog.js', 'styles/InvoiceReceiptSheet.module.css',
+    'styles/ImportReviewTypography.module.css', 'pages/import/tools.js', 'styles/ImportTools.module.css']) {
     if (!workflow.sourceFiles.includes(file)) workflow.sourceFiles.push(file);
   }
   assert.equal(manual.steps.length, workflow.requiredScenarios.length, '글 단계 수 = 영상 시나리오 수');
@@ -66,6 +68,17 @@ async function main() {
     for (let i = 0; i < 90; i++) { try { if ((await fetch(base + '/login')).status === 200) break; } catch {} if (i === 89) throw Error('UI server unavailable'); await new Promise(r => setTimeout(r, 1000)); }
     browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', args: ['--no-sandbox'] });
     const page = await browser.newPage(); page.setDefaultTimeout(20000); page.on('pageerror', e => console.log('UI ERROR', e.message));
+    const checkTypography = async (selector, minSize, numeric = false) => {
+      const typography = await page.$eval(selector, node => {
+        const {fontFamily, fontSize, fontVariantNumeric} = getComputedStyle(node);
+        return {fontFamily, fontSize, fontVariantNumeric};
+      });
+      assert.match(typography.fontFamily, /^"?Pretendard Variable"?[,]/);
+      assert.match(typography.fontFamily, /Malgun Gothic/);
+      assert(Number.parseFloat(typography.fontSize) >= minSize);
+      if (numeric) assert.equal(typography.fontVariantNumeric, 'tabular-nums');
+      return typography;
+    };
     page.on('dialog', d => { console.log('DIALOG', d.message()); d.accept(); });
     await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
     await page.setCookie({ name: 'nenovaToken', value: jwt.sign({ userId: 'guide-import', userName: '연습 담당자', authority: 4, accountActive: true }, secret, { expiresIn: '1h' }), url: base });
@@ -74,6 +87,7 @@ async function main() {
     const uploadHistory=createPackingHistoryFixture();
     let external = 0, parseCalls = 0, matchRevision = 0, matchValue = { version: 1, entries: [] }; const saved = [], otherApi = [];
     let receiptDocument = null, receiptCommits = 0;
+    let rejectMatchOnce = dry;
     const baselineDigest = 'b'.repeat(64), warehouseKey = 91001;
     await page.setRequestInterception(true); page.on('request', req => {
       const u = new URL(req.url());
@@ -119,6 +133,10 @@ async function main() {
       }
       if (u.pathname === '/api/import/tools/product-matches') {
         if (req.method() === 'POST') {
+          if (rejectMatchOnce) {
+            rejectMatchOnce = false;
+            return req.respond({status:503,contentType:'application/json',body:JSON.stringify({success:false,error:'연습 매칭 저장 실패'})});
+          }
           const b = JSON.parse(req.postData() || '{}'); assert.equal(b.expectedRevision, matchRevision);
           matchValue = upsertPackingErpMatch(matchValue, b, ERP); matchRevision++; saved.push(b);
         }
@@ -134,6 +152,23 @@ async function main() {
     assert.equal(ok.status(), 200);
     await page.waitForSelector('button[aria-label="콜롬비아"]');
     console.log('page ready', new URL(page.url()).pathname);
+    const purpose = await page.$eval('[data-testid="import-packing-purpose"]', element => {
+      const label = element.querySelector('span');
+      const title = element.querySelector('h1');
+      return {
+        label: label.innerText,
+        title: title.innerText,
+        visible: title.getBoundingClientRect().height > 0,
+        labelSize: getComputedStyle(label).fontSize,
+        titleSize: getComputedStyle(title).fontSize,
+        titleFont: getComputedStyle(title).fontFamily,
+      };
+    });
+    assert.equal(purpose.label, '[핵심 목적 · PURPOSE]');
+    assert.equal(purpose.title, '인보이스 품목을 확인하고 입고 저장');
+    assert(purpose.visible && purpose.labelSize === '12.5px' && parseFloat(purpose.titleSize) > 14);
+    assert(purpose.titleFont.startsWith('"Pretendard Variable"'));
+    console.log('PASS purpose heading', JSON.stringify(purpose));
     await page.screenshot({ path: '.verify/packing-list-guide-start.png' });
 
     const rec = dry ? null : await createWorkflowGuideRecorder(page, { workflowId: WORKFLOW, guideId: GUIDE, title: '패킹리스트 만들기', sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset:'veryfast' });
@@ -235,43 +270,84 @@ async function main() {
     await out(3500);
 
     // 4. 미확인 품종 연결
-    await step('미확인 줄의 품목 이름을 눌러 전산 품목 창을 엽니다.\n인보이스의 품종·길이와 후보를 비교해 맞는 것을 고릅니다.');
+    await step('전산 품목 옆에 표시된 후보 이름·규격·점수를 비교합니다.\n맞는 후보를 누르면 같은 행의 품목을 교체합니다.');
     let linked = 0;
+    let extraWrites = 0;
     for (const item of UNCONFIRMED) {
-      const label = `${item.desc} 전산 품목 매칭`;
-      assert(await page.$(`[aria-label="${label}"]`), '미확인 줄의 연결 버튼이 보여야 함: ' + item.desc);
-      if (linked > 0) await say('다음 미확인 줄도 같은 방법으로 연결합니다.\n이번에는 검색어를 넣어 후보를 좁혀 봅니다.', 3000);
-      await press(`[aria-label="${label}"]`, { fx: 0.5, fy: 0.5 });
-      await page.waitForSelector('[data-testid="packing-match-dialog"]');
-      await out();
-      await say(`"원문"이 인보이스에 적힌 이름입니다. 아래 후보의 이름·길이를 비교합니다.\n${item.search ? '후보가 많으면 검색칸에 품종을 넣어 좁힙니다.' : '추천은 확정이 아니므로 이름과 길이를 눈으로 확인합니다.'}`, 4500);
-      await focus(await tag('dialogSource', 'css', '[data-testid="packing-match-dialog"] p'));
-      await out(2500);
+      const toggle = `[aria-label="${item.desc} 매칭 품목 검색"]`;
+      const direct = key => `[data-testid="packing-inline-candidate"][data-prod-key="${key}"][aria-label^="${item.desc} "]`;
+      let candidate = direct(item.pick);
       if (item.search) {
-        const box = '[aria-label="전산 품목 검색"]';
-        await focus(box, { click: true, fx: 0.97 }); await page.click(box); await page.type(box, item.search, { delay: rec ? 140 : 0 });
-        if (rec) await rec.pause(1800);
+        await say('같은 행의 「검색」을 누르고 품목명 일부를 입력합니다.', 3500);
+        await press(toggle);
         await out();
+        const box = `[aria-label="${item.desc} 같은 국가 품목 검색"]`;
+        await focus(box, { click: true, fx: 0.97 }); await page.click(box); await page.type(box, item.search, { delay: rec ? 140 : 0 });
+        assert(await page.$eval(box, input => document.activeElement === input && Boolean(input.closest('tr')?.querySelector('[data-testid="packing-inline-search"]'))));
+        if (rec) await rec.pause(1800);
+        if (dry) await page.screenshot({path:'.verify/invoice-match-inline-search.png'});
+        await out();
+        candidate = `[data-testid="packing-inline-search-result"][data-prod-key="${item.pick}"]`;
       }
-      const cand = `[data-candidate="${item.pick}"]`;
-      await page.waitForSelector(cand);
-      console.log('후보', item.pick, await page.$eval(cand, n => n.innerText.replace(/\s+/g, ' ')));
-      await say('맞는 후보를 누르면 바로 저장되고 창이 닫힙니다.\n이 연결은 팀 공용으로 저장되어 다음 인보이스에도 적용됩니다.', 3500);
-      await press(cand, { fx: 0.97, fy: 0.5 });
-      await page.waitForFunction(() => !document.querySelector('[data-testid="packing-match-dialog"]'));
+      await page.waitForSelector(candidate + ':not(:disabled)');
+      console.log('행 후보', item.pick, await page.$eval(candidate, n => n.innerText.replace(/\s+/g, ' ')));
+      if (!item.search) {
+        assert.equal(await page.$eval(candidate, button => button.getAttribute('aria-pressed')), 'true');
+        assert.equal(matchRevision, 0, '기본 선택만으로 저장하지 않습니다');
+        await checkTypography(candidate, 13.5);
+        await checkTypography(candidate+' small', 12.5);
+        await focus(candidate);
+        await out();
+        if (dry) await page.screenshot({path:'.verify/invoice-match-default.png'});
+        if (dry) {
+          await page.click(candidate);
+          await page.waitForFunction(() => [...document.querySelectorAll('[role="alert"]')].some(node=>node.textContent.includes('연습 매칭 저장 실패')));
+          assert.equal(matchRevision, 0);
+          assert(![...uploadHistory.records.values()].some(record => record.snapshot.matchingReviewed === true));
+        }
+        await say('같은 국가의 단독 1위가 90% 이상이면 기본 후보로 표시합니다.\n규격을 확인한 뒤 후보를 눌러 저장합니다.', 3500);
+      } else {
+        await say('같은 행에서 검색 결과를 누르면 확인한 품목으로 저장됩니다.', 3500);
+      }
+      await press(candidate, { fx: 0.97, fy: 0.5 });
+      const saveEnd = Date.now() + 7000;
+      while (matchRevision < linked + extraWrites + 1 && Date.now() < saveEnd) await new Promise(resolve=>setTimeout(resolve,100));
       await out();
       linked++;
-      assert.equal(matchRevision, linked, '품목 연결 저장 요청 수');
+      assert.equal(matchRevision, linked + extraWrites, '품목 연결 저장 요청 수');
       assert.equal(saved.at(-1).prodKey, item.pick, '연결한 전산 품목 번호');
       assert(JSON.stringify(saved.at(-1)).includes(item.desc), '원문 이름이 저장 요청에 있어야 함: ' + JSON.stringify(saved.at(-1)));
+      if (dry && linked === 1) {
+        const replacement = direct(99202);
+        await page.waitForSelector(replacement + ':not(:disabled)');
+        rejectMatchOnce = true;
+        await page.click(replacement);
+        await page.waitForFunction(() => [...document.querySelectorAll('[role="alert"]')].some(node=>node.textContent.includes('연습 매칭 저장 실패')));
+        assert.equal(matchRevision, linked);
+        assert.equal(matchValue.entries[0].prodKey, item.pick);
+        await page.click(replacement);
+        await page.waitForSelector(direct(item.pick) + ':not(:disabled)');
+        await page.waitForFunction(selector => document.activeElement?.matches(selector), {}, toggle);
+        assert.equal(matchValue.entries[0].prodKey, 99202);
+        await page.click(direct(item.pick));
+        await page.waitForSelector(replacement + ':not(:disabled)');
+        assert.equal(matchValue.entries[0].prodKey, item.pick);
+        extraWrites += 2;
+      }
       if (linked < UNCONFIRMED.length) {
-        await say('연결한 줄은 "확인 필요" 목록에서 빠지고 남은 개수가 줄었습니다.\n아직 남은 줄이 있으면 같은 방법으로 이어서 연결합니다.', 3000);
+        await say('저장한 품목은 목록의 위에 표시됩니다.\n아직 남은 줄이 있으면 같은 방법으로 이어서 연결합니다.', 3000);
         await focus(await tag('counts1', 'css', results + ' p[role="status"]'));
         await out(3000);
       }
     }
     // 마지막 줄을 연결하면 앱이 스스로 「입고 작업」 화면으로 넘어간다(입고 단계 자체는 이 영상의 범위 밖).
     await page.waitForFunction(() => [...document.querySelectorAll('nav[aria-label="인보이스 작업 선택"] button')].find(b => b.innerText.includes('입고 작업'))?.getAttribute('aria-pressed') === 'true');
+    const historyDeadline = Date.now() + 8000;
+    while (![...uploadHistory.records.values()].some(record => record.snapshot.matchingReviewed === true) && Date.now() < historyDeadline) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert([...uploadHistory.records.values()].some(record => record.snapshot.matchingReviewed === true),
+      '명시 매칭 후 자동 입고 전환에서도 같은 원본에 확인 이력을 보존해야 합니다');
     await new Promise(r => setTimeout(r, 1800)); // 앱이 입고 작업 위치로 부드럽게 스크롤하는 동안 기다린다
     await page.evaluate(() => window.scrollTo(0, 0));
     await new Promise(r => setTimeout(r, 500));
@@ -285,8 +361,12 @@ async function main() {
       const receiptTab=await page.evaluateHandle(()=>[...document.querySelectorAll('nav[aria-label="인보이스 작업 선택"] button')].find(button=>button.innerText.includes('입고 작업')));await receiptTab.asElement().click();
       const group='[data-testid="invoice-receipt-workbench"] [aria-label="농장 검색 결과"]';try{await page.waitForSelector(`${group} button`,{timeout:15000});}catch(error){console.log('WORKBENCH',await page.evaluate(()=>document.querySelector('#packing-receipt-stage')?.innerText));await page.screenshot({path:'.verify/farm-workbench-missing.png'});throw error;}
       await page.waitForFunction(()=>document.querySelector('[data-testid="invoice-receipt-workbench"]')?.innerText.includes('선택된 농장: CI FLORES 연습농장 SAS'));
-      await page.click(`${group} button:last-child`);await page.waitForFunction(()=>document.querySelector('[data-testid="invoice-receipt-workbench"]')?.innerText.includes('선택된 농장: 연습 농장'));
-      await page.click(`${group} button:first-child`);assert.equal(await page.$eval(`${group} button:first-child`,n=>n.getAttribute('aria-pressed')),'true');
+      const alternative = await page.waitForSelector(`${group} button:last-child:not(:disabled)`, {visible:true});
+      await alternative.click();
+      await page.waitForFunction(()=>document.querySelector('[data-testid="invoice-receipt-workbench"]')?.innerText.includes('선택된 농장: 연습 농장'));
+      const original = await page.waitForSelector(`${group} button:first-child:not(:disabled)`, {visible:true});
+      await original.click();
+      assert.equal(await page.$eval(`${group} button:first-child`,n=>n.getAttribute('aria-pressed')),'true');
       console.log('PASS actual workbench: source farm auto-fill and one-click change');
       const uploadTab=await page.evaluateHandle(()=>[...document.querySelectorAll('nav[aria-label="인보이스 작업 선택"] button')].find(button=>button.innerText.includes('인보이스 업로드')));await uploadTab.asElement().click();
     }
@@ -297,7 +377,22 @@ async function main() {
     const counts1 = await resultStatus();
     console.log('after matching:', counts1);
     assert(/정확 8 · 팀 공용 수동 2/.test(counts1) && counts1.includes('품목 매칭 완료'), '연결 결과가 개수에 반영돼야 함: ' + counts1);
-    await say('맨 위 줄이 "정확 8 · 팀 공용 수동 2 … 품목 매칭 완료"로 바뀌었습니다.\n직접 연결한 2건은 "팀 공용 수동"으로 센 것입니다.', 4000);
+    assert.equal(await page.$eval(results+' tbody tr:first-child', row=>row.textContent.includes('CANDLELIGHT')),true,'저장한 품목이 원본 행 번호를 보존하며 위로 이동해야 합니다.');
+    const rowLayout = await page.$eval(results+' tbody tr:first-child', row => {
+      const label = row.querySelector('[data-review-label]');
+      const name = label.previousElementSibling;
+      const a = name.getBoundingClientRect(), b = label.getBoundingClientRect();
+      return {sameLine:a.right <= b.left && b.top < a.bottom && a.top < b.bottom,
+        statusSize:getComputedStyle(label).fontSize, tableSize:getComputedStyle(row.cells[0]).fontSize,
+        numbers:getComputedStyle(row.cells[0]).fontVariantNumeric};
+    });
+    assert(rowLayout.sameLine, '품목과 확인 상태가 한 줄에 표시되어야 합니다');
+    assert(Number.parseFloat(rowLayout.statusSize) >= 12.5);
+    assert(Number.parseFloat(rowLayout.tableSize) >= 13.5);
+    assert.equal(rowLayout.numbers, 'tabular-nums');
+    console.log('PASS inline row typography:', JSON.stringify(rowLayout));
+    if (dry) await (await page.$(results+' article')).screenshot({path:'.verify/invoice-match-reviewed-first.png'});
+    await say('팀 공용으로 연결한 품목은 표 위쪽에서 다시 수정할 수 있습니다.\n확인 필요한 품목만 보려면 「확인 필요만 보기」를 누릅니다.', 4000);
     await focus(await tag('counts2', 'css', results + ' p[role="status"]'));
     await out(3500);
     const head2 = await tag('resultHead2', 'css', results + ' article header > div:first-child');
@@ -325,6 +420,7 @@ async function main() {
     await page.waitForSelector('[data-testid="invoice-receipt-workbench"]', { visible: true });
     await out(1250);
     await press(await tag('registerReceipt', 'button', '입고 업로드(저장)'));
+    await out();
     const amount = '[aria-label="입고 금액 대조"]';
     await page.waitForSelector(amount + ' input[type="checkbox"]:enabled', { visible: true, timeout: 30000 });
     await say('원본과 입고 예정 품목·수량·통화·총금액을 대조합니다.\n합계가 맞으면 확인을 체크하고 입고 등록을 누릅니다.', 3200);
@@ -346,6 +442,13 @@ async function main() {
     });
     assert.equal(receiptCommits, 1);
     assert(!otherApi.some(entry => /native-cost|cost-revisions/.test(entry)));
+    if (dry) {
+      await page.$eval('[aria-label="입고 검토 행 표"]', table => table.scrollIntoView({block:'start',behavior:'instant'}));
+      const receiptTypography = await checkTypography('[aria-label="입고 검토 행 표"] th', 13.5, true);
+      await checkTypography('[aria-label="입고 검토 행 표"] tbody td input', 13.5, true);
+      console.log('PASS receipt typography:', JSON.stringify(receiptTypography));
+      await page.screenshot({path:'.verify/invoice-receipt-compact.png'});
+    }
     console.log('PASS actual upload UI: one direct receipt save, matching readback, no cost request');
     await out(1300);
     await say('입고 업로드 완료와 입고번호를 확인합니다.\n도착원가는 필요할 때 같은 입고에서 따로 작업합니다.', 3600);

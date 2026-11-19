@@ -479,6 +479,18 @@
     pmActions.style.flexWrap = 'wrap';
     pmActions.style.gap = '6px';
     pmActions.style.alignItems = 'center';
+    const pmHubButton = document.createElement('button');
+    pmHubButton.id = 'pmHubButton';
+    pmHubButton.type = 'button';
+    pmHubButton.className = 'pm-open-button';
+    pmHubButton.textContent = '통합지휘실';
+    pmHubButton.title = '사장님 통합 지휘실(PM·에이전트·디벨롭) 열기';
+    pmHubButton.style.background = '#0f172a';
+    pmHubButton.style.borderColor = '#0f172a';
+    pmHubButton.style.color = '#ffffff';
+    pmHubButton.addEventListener('click', () => {
+      run('open', { url: '/work/command-hub', title: '사장님 통합 지휘실' });
+    });
     const pmArchButton = document.createElement('button');
     pmArchButton.id = 'pmArchButton';
     pmArchButton.type = 'button';
@@ -507,7 +519,7 @@
       run('open', { url: '/my-work?tab=radar', title: '도입·기술 레이더' });
     });
     pmOpenButton.replaceWith(pmActions);
-    pmActions.append(pmOpenButton, pmArchButton, pmSimButton, pmRadarButton);
+    pmActions.append(pmHubButton, pmOpenButton, pmArchButton, pmSimButton, pmRadarButton);
     $('menuButton').addEventListener('click', () => setMenu(!state.menuOpen, !state.menuOpen));
     $('toolsButton').addEventListener('click', () => run('tools'));
     $('compactFavoriteButton').addEventListener('click', () => { if (state.activeId) run('favorite', { id: state.activeId }); });
