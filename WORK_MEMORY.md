@@ -4084,3 +4084,11 @@ pm run test:canon 통과.
 4. 검증 상태: 대상39건 PASS, 실제 Excel PDF Cosmo/딜레타33→18.5pt·돈셀7줄 유지 확인. A3 4쪽, 총3156→3069pt. 전체검사 진행.
 5. 주의/잠금: ERP 원장쓰기 없음. 작업트리만 수정. 추정폭은 플랫폼 폰트 실측 API가 아닌 10pt 보수 휴리스틱.
 검색어: shipmentFieldCompact printHeight Latin glyph spaces bold A3 39 tests a3-page
+
+### 2026-11-19 — Archify 도면(moyi-full-suite-blueprint.html) 및 관제 UI 한글 서체(굴림체 폴백 제거)·글자크기 상향 개편
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / fix/korean-typography-and-blueprint-legibility / C:\Users\USER\nw-agy-fix-font (PR 예정).
+2. 완료된 것: data/moyi-full-suite-blueprint.html의 JetBrains Mono·Georgia·단독 monospace 제거 및 Pretendard/Malgun Gothic 스택·tabular-nums 통일, GUIDED VIEWS 01~04 버튼 말줄임(...) 완전 해소(13.5px 2단 그리드), SVG viewBox(1406×588) 확장 및 노드 16.5px·부제목 13.5px·에지 불투명 캡슐 13px·경계 헤더 14px·Anti-AI Slop 4색 구조선 정비(글로우 halo 제거). components/pm/{TechRadarWorkbench,ArchFlowChart,ui}.js의 ui-monospace/monospace 13건 전수 고딕 교체, <style jsx global> 스코핑 수정(Plan A/B/C/ALL·StoryFlow 스타일 적용 복구), SVG/HTML 최소 글자크기 12~14px 상향, __tests__/{techRadarSimulator,archFlowChart}.test.js 가드 강화, 전역 SHARED_AGENT_RULES.md §7 반영 및 3-툴 동기화 완료.
+3. 남은 할 일: PR 생성, CI(verify·installer) 통과 확인, squash 머지 및 worktree/junction 정리.
+4. 검증 상태: test:pm, techRadarSimulator.test.js, archFlowChart.test.js, adoptionRadar.test.js, solutionSuiteSimulator.test.js, test:ui-layout, test:workflow-guides, guard:erp-writes, test:erp-manifest 및 Headless Chromium(1920×1080·iframe 922×660·Plan A/C·StoryFlow·ArchFlowChart, 콘솔 오류/가로넘침/말줄임/겹침/monospace 0건) + next build --webpack PASS. (운영 서버 DB 미연결 로컬 검증)
+5. 주의/잠금: 병렬 세션 영역(SolutionSuiteSimulator.js, pages/my-work.js, desktop/package.json, config/workflow-guides.json, pages/pm.js, GabrielProfitAgiWorkbench.js, pages/api/**) 무수정 준수. components/pm/** #hex·raw <button>·금지어 0건.
+검색어: moyi-full-suite-blueprint Archify Pretendard Malgun-Gothic 굴림체 monospace TechRadarWorkbench ArchFlowChart ui.js Anti-AI-Slop tabular-nums

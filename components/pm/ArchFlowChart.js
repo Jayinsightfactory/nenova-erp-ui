@@ -1659,6 +1659,11 @@ export default function ArchFlowChart({
           --pmk-focus: var(--arch-accent);
           --pmk-radius: 4px;
           --pmk-shadow: none;
+          --arch-font: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+          font-family: var(--pm-font, var(--arch-font));
+          font-size: 13.5px;
+          line-height: 1.5;
+          font-variant-numeric: tabular-nums;
           background: var(--arch-bg);
           color: var(--arch-ink);
           padding: 18px 22px 44px;
@@ -1699,8 +1704,8 @@ export default function ArchFlowChart({
           background: var(--arch-surface-2);
           color: var(--arch-muted);
           border-radius: 4px;
-          padding: 1px 7px;
-          font-size: 11px;
+          padding: 2px 8px;
+          font-size: 12.5px;
           font-weight: 700;
           line-height: 1.5;
           white-space: nowrap;
@@ -1741,7 +1746,7 @@ export default function ArchFlowChart({
           gap: 14px;
         }
         .arch-eyebrow {
-          font-size: 10.5px;
+          font-size: 12px;
           font-weight: 700;
           letter-spacing: 0.08em;
           color: var(--arch-accent);
@@ -1749,7 +1754,7 @@ export default function ArchFlowChart({
         }
         .arch-head h2 {
           margin: 0 0 6px;
-          font-size: 19px;
+          font-size: 20px;
           font-weight: 700;
           letter-spacing: -0.01em;
           line-height: 1.35;
@@ -1758,18 +1763,20 @@ export default function ArchFlowChart({
         .arch-lede {
           margin: 0;
           color: var(--arch-muted);
-          font-size: 13px;
-          line-height: 1.55;
+          font-size: 14px;
+          line-height: 1.6;
           max-width: 84ch;
         }
         .arch-lede code,
         .arch-sec-head h3 code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11.5px;
+          font-family: var(--arch-font);
+          font-variant-numeric: tabular-nums;
+          font-size: 13px;
+          font-weight: 600;
           background: var(--arch-surface-2);
           border: 1px solid var(--arch-line);
           border-radius: 3px;
-          padding: 1px 5px;
+          padding: 1px 6px;
           color: var(--arch-accent);
         }
         .arch-kpi-strip {
@@ -1785,24 +1792,24 @@ export default function ArchFlowChart({
           border-right: 1px solid var(--arch-line);
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 3px;
         }
         .arch-kpi-cell:last-child {
           border-right: 0;
         }
         .arch-kpi-cell span {
-          font-size: 11px;
+          font-size: 12.5px;
           font-weight: 600;
           color: var(--arch-muted);
         }
         .arch-kpi-cell b {
-          font-size: 15px;
+          font-size: 16px;
           font-weight: 700;
           color: var(--arch-ink);
-          line-height: 1.25;
+          line-height: 1.3;
         }
         .arch-kpi-cell small {
-          font-size: 11px;
+          font-size: 12.5px;
           color: var(--arch-accent);
         }
         .arch-sec-nav {
@@ -1815,7 +1822,7 @@ export default function ArchFlowChart({
           background: var(--arch-surface-2);
         }
         .arch-nav-lbl {
-          font-size: 11px;
+          font-size: 12.5px;
           font-weight: 700;
           color: var(--arch-muted);
           white-space: nowrap;
@@ -1840,7 +1847,7 @@ export default function ArchFlowChart({
         }
         .arch-sec-head h3 {
           margin: 0 0 4px;
-          font-size: 16px;
+          font-size: 17px;
           font-weight: 700;
           color: var(--arch-ink);
         }
@@ -1854,9 +1861,9 @@ export default function ArchFlowChart({
           color: var(--arch-muted) !important;
           border: 1px solid var(--arch-line-strong) !important;
           border-radius: 4px !important;
-          padding: 4px 10px !important;
-          min-height: 28px !important;
-          font-size: 12px !important;
+          padding: 5px 11px !important;
+          min-height: 30px !important;
+          font-size: 13px !important;
           font-weight: 600 !important;
         }
         :global(.arch-filter-chip:hover) {
@@ -1875,8 +1882,8 @@ export default function ArchFlowChart({
           border: 1px solid var(--arch-accent) !important;
           border-radius: 4px !important;
           padding: 6px 12px !important;
-          min-height: 30px !important;
-          font-size: 12px !important;
+          min-height: 32px !important;
+          font-size: 13px !important;
           font-weight: 700 !important;
           white-space: nowrap;
         }
@@ -1915,21 +1922,21 @@ export default function ArchFlowChart({
         .arch-node-design { border-left-color: var(--arch-ok); }
         .arch-node-deploy { border-left-color: var(--arch-ink); }
         .arch-node-idx {
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 700;
           color: var(--arch-muted);
           margin-bottom: 2px;
         }
         .arch-node-title {
           font-weight: 700;
-          font-size: 13px;
+          font-size: 14px;
           color: var(--arch-ink);
           margin-bottom: 3px;
         }
         .arch-node-sub {
-          font-size: 11.5px;
+          font-size: 12.5px;
           color: var(--arch-muted);
-          line-height: 1.4;
+          line-height: 1.5;
         }
         .arch-arrow {
           flex: 0 0 auto;
@@ -1946,7 +1953,7 @@ export default function ArchFlowChart({
         }
         .arch-feedback-label {
           text-align: center;
-          font-size: 11.5px;
+          font-size: 12.5px;
           color: var(--arch-muted);
           margin-top: -2px;
         }
@@ -1967,7 +1974,7 @@ export default function ArchFlowChart({
         }
         .arch-rail-head {
           padding: 8px 12px;
-          font-size: 11px;
+          font-size: 12.5px;
           font-weight: 700;
           color: var(--arch-muted);
           border-bottom: 1px solid var(--arch-line);
@@ -2006,24 +2013,26 @@ export default function ArchFlowChart({
           gap: 6px;
         }
         .arch-rail-no {
-          font-size: 10.5px;
+          font-size: 12px;
           font-weight: 700;
           color: var(--arch-accent);
         }
         .arch-rail-title {
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 700;
           color: var(--arch-ink);
-          line-height: 1.35;
-        }
-        .arch-rail-sub {
-          font-size: 11.5px;
-          color: var(--arch-muted);
           line-height: 1.4;
         }
+        .arch-rail-sub {
+          font-size: 12.5px;
+          color: var(--arch-muted);
+          line-height: 1.45;
+        }
         .arch-rail-code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 10.5px;
+          font-family: var(--arch-font);
+          font-variant-numeric: tabular-nums;
+          font-size: 12.5px;
+          font-weight: 600;
           color: var(--arch-accent);
           overflow-wrap: anywhere;
         }
@@ -2044,15 +2053,15 @@ export default function ArchFlowChart({
         }
         .arch-detail-head h4 {
           margin: 0 0 4px;
-          font-size: 15.5px;
+          font-size: 16.5px;
           font-weight: 700;
           color: var(--arch-ink);
         }
         .arch-detail-head p {
           margin: 0;
-          font-size: 12.5px;
+          font-size: 13.5px;
           color: var(--arch-muted);
-          line-height: 1.5;
+          line-height: 1.55;
         }
         .arch-spec-strip {
           display: grid;
@@ -2073,7 +2082,7 @@ export default function ArchFlowChart({
           border-right: 0;
         }
         .arch-spec-cell b {
-          font-size: 11px;
+          font-size: 12.5px;
           font-weight: 700;
           color: var(--arch-accent);
         }
@@ -2084,8 +2093,8 @@ export default function ArchFlowChart({
           color: var(--arch-warn);
         }
         .arch-spec-cell span {
-          font-size: 12px;
-          line-height: 1.48;
+          font-size: 13px;
+          line-height: 1.52;
           color: var(--arch-ink);
         }
         .arch-compare-strip {
@@ -2107,7 +2116,7 @@ export default function ArchFlowChart({
           border-top: 2px solid var(--arch-ok);
         }
         .arch-col-title {
-          font-size: 11.5px;
+          font-size: 13px;
           font-weight: 700;
           margin-bottom: 7px;
         }
@@ -2119,8 +2128,8 @@ export default function ArchFlowChart({
           display: flex;
           flex-direction: column;
           gap: 5px;
-          font-size: 12px;
-          line-height: 1.45;
+          font-size: 13px;
+          line-height: 1.55;
           color: var(--arch-ink);
         }
         .arch-subledger {
@@ -2129,7 +2138,7 @@ export default function ArchFlowChart({
           gap: 6px;
         }
         .arch-subledger-title {
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 700;
           color: var(--arch-muted);
         }
@@ -2146,8 +2155,8 @@ export default function ArchFlowChart({
           border: 1px solid var(--arch-line);
           background: var(--arch-surface-2);
           border-radius: 4px;
-          padding: 3px 8px;
-          font-size: 11.5px;
+          padding: 4px 9px;
+          font-size: 12.5px;
         }
         .arch-meta-kv em {
           font-style: normal;
@@ -2166,23 +2175,27 @@ export default function ArchFlowChart({
           border: 1px solid var(--arch-line);
           border-radius: 4px;
           padding: 9px 12px;
-          font-size: 12px;
+          font-size: 13px;
           color: var(--arch-ink);
         }
         .arch-flow-rail code,
         .arch-code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
+          font-family: var(--arch-font);
+          font-variant-numeric: tabular-nums;
+          font-size: 12.5px;
+          font-weight: 600;
           background: var(--arch-surface-2);
           border: 1px solid var(--arch-line);
           border-radius: 3px;
-          padding: 1px 5px;
+          padding: 1px 6px;
           color: var(--arch-accent);
           overflow-wrap: anywhere;
         }
         .arch-code-plain {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
+          font-family: var(--arch-font);
+          font-variant-numeric: tabular-nums;
+          font-size: 12.5px;
+          font-weight: 600;
           color: var(--arch-ink);
           overflow-wrap: anywhere;
         }
@@ -2206,8 +2219,8 @@ export default function ArchFlowChart({
         .arch-bp-table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 12px;
-          line-height: 1.48;
+          font-size: 13px;
+          line-height: 1.55;
         }
         .arch-ledger-table th,
         .arch-ledger-table td,
@@ -2215,13 +2228,13 @@ export default function ArchFlowChart({
         .arch-bp-table td {
           text-align: left;
           vertical-align: top;
-          padding: 9px 11px;
+          padding: 10px 12px;
           border-bottom: 1px solid var(--arch-line);
           color: var(--arch-ink);
         }
         .arch-ledger-table th,
         .arch-bp-table th {
-          font-size: 11px;
+          font-size: 12.5px;
           font-weight: 700;
           color: var(--arch-muted);
           background: var(--arch-surface-2);
@@ -2246,7 +2259,7 @@ export default function ArchFlowChart({
         }
         .arch-cell-note {
           margin-top: 4px;
-          font-size: 11.5px;
+          font-size: 12.5px;
           color: var(--arch-ok);
         }
         .arch-schema-flow {
@@ -2269,12 +2282,14 @@ export default function ArchFlowChart({
         .arch-sf-box.tone-ok { border-top-color: var(--arch-ok); }
         .arch-sf-box.tone-warn { border-top-color: var(--arch-warn); }
         .arch-sf-box b {
-          font-size: 12.5px;
+          font-size: 13.5px;
           color: var(--arch-ink);
         }
         .arch-sf-box code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
+          font-family: var(--arch-font);
+          font-variant-numeric: tabular-nums;
+          font-size: 12.5px;
+          font-weight: 600;
           background: var(--arch-surface);
           border: 1px solid var(--arch-line);
           border-radius: 3px;
@@ -2283,9 +2298,9 @@ export default function ArchFlowChart({
           overflow-wrap: anywhere;
         }
         .arch-sf-box small {
-          font-size: 11px;
+          font-size: 12.5px;
           color: var(--arch-muted);
-          line-height: 1.4;
+          line-height: 1.48;
           margin-top: auto;
         }
         .arch-sf-bridge {
@@ -2294,7 +2309,7 @@ export default function ArchFlowChart({
           justify-content: center;
           align-items: center;
           gap: 2px;
-          font-size: 11px;
+          font-size: 12.5px;
           font-weight: 700;
           color: var(--arch-muted);
           white-space: nowrap;
@@ -2331,11 +2346,11 @@ export default function ArchFlowChart({
         }
         .arch-tier-head h4 {
           margin: 0;
-          font-size: 14px;
+          font-size: 15px;
           color: var(--arch-ink);
         }
         .arch-layer-rule {
-          font-size: 11.5px;
+          font-size: 12.5px;
           color: var(--arch-muted);
         }
         .arch-quad-ledger {
@@ -2361,14 +2376,14 @@ export default function ArchFlowChart({
           border-bottom: 0;
         }
         .arch-quad-cell b {
-          font-size: 11px;
+          font-size: 12.5px;
           color: var(--arch-accent);
         }
         .arch-quad-cell.is-guard b { color: var(--arch-warn); }
         .arch-quad-cell.is-solution b { color: var(--arch-ok); }
         .arch-quad-cell span {
-          font-size: 12px;
-          line-height: 1.48;
+          font-size: 13px;
+          line-height: 1.52;
           color: var(--arch-ink);
         }
         .arch-rule-callout {
@@ -2376,15 +2391,15 @@ export default function ArchFlowChart({
           border-left: 3px solid var(--arch-ok);
           background: var(--arch-surface-2);
           border-radius: 4px;
-          padding: 9px 12px;
+          padding: 10px 12px;
           display: flex;
           flex-direction: column;
           gap: 3px;
-          font-size: 12px;
-          line-height: 1.48;
+          font-size: 13px;
+          line-height: 1.55;
         }
         .arch-rule-callout b {
-          font-size: 11.5px;
+          font-size: 12.5px;
           color: var(--arch-ok);
         }
         .arch-bp-cell-item {
@@ -2396,8 +2411,10 @@ export default function ArchFlowChart({
         .arch-bp-cell-val { min-width: 245px; }
         .arch-bp-cell-key code,
         .arch-bp-cell-val code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
+          font-family: var(--arch-font);
+          font-variant-numeric: tabular-nums;
+          font-size: 12.5px;
+          font-weight: 600;
           background: var(--arch-surface-2);
           border: 1px solid var(--arch-line);
           border-radius: 3px;
@@ -2428,7 +2445,7 @@ export default function ArchFlowChart({
           margin-bottom: 4px;
         }
         .arch-vf-domain {
-          font-size: 11.5px;
+          font-size: 12.5px;
           font-weight: 700;
           color: var(--arch-muted);
         }
@@ -2442,8 +2459,10 @@ export default function ArchFlowChart({
         .arch-vf-src {
           display: inline-block;
           margin-top: 4px;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 10.5px;
+          font-family: var(--arch-font);
+          font-variant-numeric: tabular-nums;
+          font-size: 12.5px;
+          font-weight: 600;
           color: var(--arch-accent);
           background: var(--arch-surface-2);
           border: 1px solid var(--arch-line);
@@ -2516,7 +2535,7 @@ export default function ArchFlowChart({
           .arch-bp-table td::before {
             content: attr(data-label);
             display: block;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 700;
             color: var(--arch-muted);
             margin-bottom: 2px;
