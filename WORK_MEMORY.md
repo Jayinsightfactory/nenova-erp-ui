@@ -4037,7 +4037,7 @@ pm run test:canon 통과.
 검색어: pm-control anti-ai-slop 오류관제 pages/pm pmThemes pmLookClear ControlGuide tabular-nums linear-gradient box-shadow PR1879
 
 ## 2026-11-19 · Carver 국가별 발주 원본 이력 구현 / Desktop 실저장 검증 차단
-1. 작업 위치: nenova-erp-ui / fix/country-po-1119 / C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119 / Draft PR 생성 준비. 초기 4ae7fbee, 최신 b07a6019 병합 ad065954, 구현 checkpoint4120e0b7.
+1. 작업 위치: nenova-erp-ui / fix/country-po-1119 / C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119 / Draft PR #1883 (OPEN, 미머지·미배포). 초기 4ae7fbee, 최신 b07a6019 병합 ad065954, 구현 checkpoint4120e0b7 및 b9be8e18. 생성 직후 gh pr checks는 no checks reported였으며 CI 통과로 간주하지 않는다.
 2. 완료된 것: countryOrderReconciliation/HistoryStore/HistoryApi/EvidenceApi, 기존 PedidosTool 명시 미리보기·원문 좌/선별 우·기본접힘 요약·불변 XLSX/행/요청시각·별도 전달시각·과거 원본, 전체 ERP 보존·100→120 중복방지·부분110 검토. Desktop 메뉴/즐겨찾기 URL 보존 및 소스1.3.60. 원천 두 번 읽기 fence는 변경 감지시409, 자동 재시도 없음.
 3. 남은 할 일: 실제 Desktop 네이티브 저장창 '저장'→새 XLSX→Excel 셀·해시→격리 전달/앱 재진입/원본재다운로드, 가이드 재촬영/실프레임·플레이어/Drive, 전체 ERP gate 재통과·정식 build·CI·squash·Cafe24/해당 Desktop release·운영 readonly smoke·정리. 이 조건 전 머지/배포 금지.
 4. 검증 상태: 신규14 PASS, Desktop unit75/menu3 PASS, manifest233/write scope1API/dnSpy PASS, provisional webpack2회 PASS. 전체 ERP는 기존 codeOnlyDeployment Bash2건3221225794 실패 후 단독15건 재검증 PASS(전체 재통과 미완료). 정식 build는 오래된 PedidosTool 가이드 hash에서 실패. 실제 중국2026/47-02 SELECT61행=2270단+86송이; 실제 카톡 연결 조회 불가여서 동일사건 입증 미검증. fixture는 별도 명시.
