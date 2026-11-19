@@ -93,6 +93,11 @@ assert.doesNotMatch(comp, /[\u{1F300}-\u{1FAFF}]/u, 'Anti-AI Slop: 장식용 이
 assert.ok(comp.includes('tabular-nums'), 'ArchFlowChart tabular-nums 고정폭 정렬 필수');
 assert.ok(comp.includes('prefers-reduced-motion'), 'ArchFlowChart prefers-reduced-motion 준수 필수');
 assert.ok(comp.includes('rgb(248, 250, 252)'), 'ArchFlowChart 에디토리얼 라이트 배경 토큰 필수');
+assert.doesNotMatch(comp, /ui-monospace|\bmonospace\b/, 'ArchFlowChart: 한글 굴림체 폴백을 유발하는 monospace 선언 금지');
+assert.ok(comp.includes('Pretendard') && comp.includes('Malgun Gothic'), 'ArchFlowChart: Windows 한글 고딕 폰트 스택 필수');
+const uiKitSrc = read('components/pm/ui.js');
+assert.doesNotMatch(uiKitSrc, /ui-monospace|\bmonospace\b/, 'components/pm/ui.js: 한글 굴림체 폴백을 유발하는 monospace 선언 금지');
+assert.ok(uiKitSrc.includes('Pretendard') && uiKitSrc.includes('Malgun Gothic'), 'components/pm/ui.js: Windows 한글 고딕 폰트 스택 필수');
 assert.ok(fs.existsSync(path.join(root, 'docs', 'SOLUTION_VISION_AND_FEASIBILITY.md')), 'docs/SOLUTION_VISION_AND_FEASIBILITY.md 정본 문서 필수');
 
 // SSR 렌더링 및 버튼 PM UI 키트 준수 검증

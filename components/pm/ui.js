@@ -120,12 +120,15 @@ export function PmUiStyles() {
       .pm {
         /* 값은 lib/pmThemes.js themeCss() 가 테마별로 --pm-* 토큰에 묶는다(여기엔 hex 금지). */
         --pmk-radius: var(--pm-radius, 6px); --pmk-h: 32px; --pmk-h-sm: 28px;
+        --pmk-font-gothic: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+        font-family: var(--pm-font, var(--pmk-font-gothic));
+        font-variant-numeric: tabular-nums;
       }
       .pm .pmk { font: inherit; cursor: pointer; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       .pm .pmk:focus-visible { outline: 2px solid var(--pmk-focus); outline-offset: 2px; }
       .pm .pmk:disabled { cursor: not-allowed; opacity: .55; }
-      .pm .pmk-btn { height: auto; min-height: var(--pmk-h); padding: 0 12px; border-radius: var(--pmk-radius); font-size: 13px; justify-content: center; }
-      .pm .pmk-btn.pmk-sm { min-height: var(--pmk-h-sm); padding: 0 10px; font-size: 12px; }
+      .pm .pmk-btn { height: auto; min-height: var(--pmk-h); padding: 0 12px; border-radius: var(--pmk-radius); font-size: 13.5px; justify-content: center; }
+      .pm .pmk-btn.pmk-sm { min-height: var(--pmk-h-sm); padding: 0 10px; font-size: 12.5px; }
       /* 상태 3종(기본·호버·눌림) — 플랫 1px 구조선 전환(부유·그림자 없음). 색은 전부 토큰. */
       .pm .pmk-btn.pmk-secondary, .pm .pmk-btn.pmk-primary, .pm .pmk-btn.pmk-danger { transition: background .12s, border-color .12s, opacity .12s; }
       .pm .pmk-btn.pmk-secondary:active:not(:disabled), .pm .pmk-btn.pmk-primary:active:not(:disabled), .pm .pmk-btn.pmk-danger:active:not(:disabled) { opacity: .9; }
@@ -144,8 +147,8 @@ export function PmUiStyles() {
       .pm .pmk-btn[aria-busy] { cursor: progress; }
       .pm .pmk-icon { display: inline-flex; align-items: center; justify-content: center; min-width: var(--pmk-h); min-height: var(--pmk-h); padding: 0; background: transparent; border: 0; border-radius: var(--pmk-radius); color: inherit; font-size: 20px; line-height: 1; }
       .pm .pmk-icon:hover { background: rgba(127,127,127,.2); }
-      .pm .pmk-link { background: none; border: 0; padding: 4px 0; min-height: var(--pmk-h-sm); color: var(--pmk-link); font-size: 13px; text-decoration: underline; text-underline-offset: 2px; }
-      .pm .pmk-chip, .pm .pmk-person { display: inline-flex; align-items: center; min-height: var(--pmk-h-sm); padding: 0 9px; margin: 2px 4px 2px 0; background: var(--pmk-chip-bg); color: var(--pmk-chip-ink); border: 1px solid transparent; border-radius: var(--pmk-radius); font-size: 12px; text-align: left; }
+      .pm .pmk-link { background: none; border: 0; padding: 4px 0; min-height: var(--pmk-h-sm); color: var(--pmk-link); font-size: 13.5px; text-decoration: underline; text-underline-offset: 2px; }
+      .pm .pmk-chip, .pm .pmk-person { display: inline-flex; align-items: center; min-height: var(--pmk-h-sm); padding: 0 10px; margin: 2px 4px 2px 0; background: var(--pmk-chip-bg); color: var(--pmk-chip-ink); border: 1px solid transparent; border-radius: var(--pmk-radius); font-size: 12.5px; text-align: left; }
       .pm .pmk-chip:hover, .pm .pmk-person:hover { border-color: currentColor; }
       .pm .pmk-chip.on { background: var(--pmk-on-bg); color: var(--pmk-on-ink); font-weight: bold; }
       .pm .pmk-name { flex: 0 0 auto; background: none; border: 0; padding: 0; color: var(--pmk-ink); font-weight: bold; }
@@ -157,9 +160,9 @@ export function PmUiStyles() {
       .pm .pmk-zrange::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%; background: var(--pmk-primary); border: 1px solid var(--pmk-primary-hover); }
       .pm .pmk-zrange::-moz-range-track { height: 4px; border-radius: 999px; background: var(--pmk-sec-border); }
       .pm .pmk-zrange::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--pmk-primary); border: 1px solid var(--pmk-primary-hover); }
-      .pm .pmk-znum { width: 56px; min-height: var(--pmk-h-sm); padding: 0 6px; border: 1px solid var(--pmk-sec-border); border-radius: var(--pmk-radius); background: var(--pmk-sec-bg); color: var(--pmk-ink); font: inherit; font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+      .pm .pmk-znum { width: 56px; min-height: var(--pmk-h-sm); padding: 0 6px; border: 1px solid var(--pmk-sec-border); border-radius: var(--pmk-radius); background: var(--pmk-sec-bg); color: var(--pmk-ink); font: inherit; font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; }
       .pm .pmk-tabs { display: flex; flex-wrap: wrap; }
-      .pm .pmk-tab { flex: 1; min-height: 40px; padding: 0 10px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--pmk-tab-ink); font-size: 13px; }
+      .pm .pmk-tab { flex: 1; min-height: 40px; padding: 0 10px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--pmk-tab-ink); font-size: 13.5px; }
       .pm .pmk-tab:hover { color: var(--pmk-ink); }
       .pm .pmk-tab.on { color: var(--pmk-ink); font-weight: bold; border-bottom-color: var(--pmk-tab-on); }
       /* 상태 전환 — 1px 구조선 기반 */
@@ -174,15 +177,15 @@ export function PmUiStyles() {
       .pm .pmk-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 16px; text-align: center; border: 1px dashed var(--pmk-sec-border); border-radius: var(--pmk-radius); background: var(--pmk-sec-bg); color: var(--pmk-ink); }
       .pm .pmk-empty-art { font-size: 28px; line-height: 1; margin-bottom: 2px; }
       .pm .pmk-empty-art img { display: block; width: 120px; height: auto; }
-      .pm .pmk-empty-title { margin: 0; font-size: 14px; font-weight: bold; }
-      .pm .pmk-empty-body { margin: 0; max-width: 46ch; font-size: 13px; line-height: 1.5; color: var(--pmk-tab-ink); }
+      .pm .pmk-empty-title { margin: 0; font-size: 15px; font-weight: bold; }
+      .pm .pmk-empty-body { margin: 0; max-width: 46ch; font-size: 13.5px; line-height: 1.55; color: var(--pmk-tab-ink); }
       .pm .pmk-empty-act { margin-top: 8px; }
       /* 화면 안 알림 */
-      .pm .pmk-notice { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: var(--pmk-radius); font-size: 13px; line-height: 1.5; background: var(--pm-off-bg); color: var(--pm-off-ink); }
+      .pm .pmk-notice { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: var(--pmk-radius); font-size: 13.5px; line-height: 1.55; background: var(--pm-off-bg); color: var(--pm-off-ink); }
       .pm .pmk-notice-ok { background: var(--pm-ok-bg); color: var(--pm-ok-ink); }
       .pm .pmk-notice-warn { background: var(--pm-idle-bg); color: var(--pm-idle-ink); }
       .pm .pmk-notice-error { background: var(--pm-err-bg); color: var(--pm-err-ink); }
-      .pm .pmk-notice-mark { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; font-size: 11px; font-weight: bold; line-height: 1; }
+      .pm .pmk-notice-mark { flex: 0 0 auto; width: 19px; height: 19px; margin-top: 1px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; font-size: 12px; font-weight: bold; line-height: 1; }
       .pm .pmk-notice-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
       .pm .pmk-notice-act { flex: 0 0 auto; align-self: center; }
       /* 불러오는 중 뼈대 */
