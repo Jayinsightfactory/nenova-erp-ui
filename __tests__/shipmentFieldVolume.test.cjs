@@ -180,3 +180,12 @@ test('row fit uses actual merged width and longest rich text lane',()=>{
 });
 
 
+
+test('10pt Latin spaces do not inflate a fitting one-line compact row',()=>{
+ const {fitFieldRow}=load('shipmentFieldCompact'),wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('test');
+ [30,2,57.54,57.54,57.545,7,7,7,7].forEach((w,i)=>ws.getColumn(i+1).width=w);
+ ws.getCell('C1').value={richText:[{text:'Cosmo Lilac  ',font:{bold:true}},{text:'출고 없음 [입0 /출0 /재1 잔1'}]};
+ ws.getCell('D1').value='다마스커스  일요일 - 호남선 태림CH농장 1 [입2 /출1 /재1 잔2';
+ fitFieldRow(ws,1,9);assert.equal(ws.getRow(1).height,18.5);
+ ws.getCell('C2').value='일요일 업체1\n목요일 업체2\n금요일 업체3';fitFieldRow(ws,2,9);assert.equal(ws.getRow(2).height,47.5);
+});

@@ -20,6 +20,12 @@ const flightPresentation = (() => {
       .replace('서류 전달 표시 없음', '서류 전달 미확인');
   }
   // Identity is the full flight key (including year) or its desktop hash, never the flight number alone.
+  function customsTitle(progress) {
+    if (!progress) return '';
+    const declaration = { pending: '수입신고 수리 중', cleared: '수입신고 수리 완료' }[progress.declaration] || '';
+    const release = progress.release === 'waiting' ? '미반출' : declaration ? '반출 미확인' : '';
+    return [declaration, release].filter(Boolean).join(' · ');
+  }
   const afterArrival = f => ['arrived', 'registered'].includes(f.status);
   const onFlightMap = f => ['before_departure', 'in_flight'].includes(f.status);
   function linkedFlights(flights, rows) {
@@ -69,7 +75,7 @@ const flightPresentation = (() => {
       return { ...point, ...p, anchorX: point.x, anchorY: point.y };
     });
   }
-  return { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers, afterArrival, onFlightMap };
+  return { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers, afterArrival, onFlightMap, customsTitle };
 })();
 if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
 /* 앱 홈 맨 위 「수입 비행기 현황」: 지도와 편별 상태. 메인 프로세스가 추려 준 읽기 전용 요약만 그린다(스타일은 CSP 때문에 JS 로 준다). */
@@ -85,7 +91,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       ? 'minmax(0, 1fr) clamp(258px, 18%, 350px)' : '';
   };
   wideHome.addEventListener('change', layoutHome);
-  const {issueRows,shortIssue,linkedFlights,nextAction,compactIssue,placeMarkers,afterArrival,onFlightMap}=flightPresentation;
+  const {issueRows,shortIssue,linkedFlights,nextAction,compactIssue,placeMarkers,afterArrival,onFlightMap,customsTitle}=flightPresentation;
   const SVG='http://www.w3.org/2000/svg',world=window.NenovaWorldMap||null;
   const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
   const css=(n,style)=>{Object.assign(n.style,style);return n;};
@@ -210,7 +216,10 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       row.dataset.flightId=f.viewId;row.tabIndex=-1;
       css(row,{border:'1px solid #d7e0ea',borderLeft:`4px solid ${f.priority===0?'#b02a2a':f.priority===1?'#b07500':'#aab8c8'}`,borderRadius:'8px',padding:'8px',marginBottom:'8px',background:selected?'#f0f6ff':'#fff'});
       const title = f.displayName || `${f.country} · ${f.flight || '편명 미확인'}`;
-      const choose=btn(`${f.boardNumber}. ${title} ${selected?'▴':'▾'}`,()=>selectFlight(selected?'':f.viewId));
+      const choose=btn(`${f.boardNumber}. ${title}`,()=>selectFlight(selected?'':f.viewId));
+      const customs = customsTitle(f.customsProgress);
+      if (customs) choose.append(css(el('span', '', customs), { marginInlineStart: '8px', fontWeight: '400', fontSize: '12.5px', color: '#526981', fontVariantNumeric: 'tabular-nums' }));
+      choose.append(document.createTextNode(selected ? ' ▴' : ' ▾'));
       choose.dataset.flightSelect='';choose.setAttribute('aria-expanded',String(selected));css(choose,{fontWeight:'700',textAlign:'left',flexBasis:'100%'});
       const steps = f.steps || [];
       const finished = steps.filter(step => step.state === 'done').length;
