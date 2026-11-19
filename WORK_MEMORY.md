@@ -4021,6 +4021,13 @@ pm run test:canon 통과.
 5. 주의/잠금: 병렬 세션 `UI-1`(`pages/pm.js`, `lib/pmThemes.js`, `ControlGuide.js`, `Grow.js`, `workflow-guides.json`)·`UI-3`(`SolutionSuiteSimulator.js`, `desktop/package.json`)·`pages/api/**` 무수정 준수; `DeviceHubConsole`은 라이트 스테이지 위 `.dhc-root` 다크 프레임 보존.
 검색어: my-work 도입레이더 흐름도 ArchFlowChart TechRadarWorkbench mode-clear Anti-AI-Slop 에디토리얼라이트 쉘 PR1878
 
+## 2026-11-19 · 중국 운송수단별 손익 참고 내역 (구현 단계)
+1. 작업 위치: nenova-erp-ui / codex/china-profit-transport / .codex-work/china-transport / PR 미생성.
+2. 완료된 것: 중국 합계 불변 읽기 전용 HUBFRESH 배·Cloudland 비행기·미배정 분해, 실제 농장배정 우선·당차 동일품목 입고비율, 공통비/원가 미확인/저장본 차액 미배정, 0원 운임 경고, 기존 데스크톱 보고서 메뉴 연결(최신 master 보존 후1.3.61).
+3. 남은 할 일: 최신 master 병합, PR/CI/배포 및 운영44 스모크. 아직 배포하지 않음.
+4. 검증 상태: 새 정책/API 회귀, 합성 UI dry-run/녹화, 실제 dnSpy, 44/46 SELECT-only(468/474쿼리), manifest233/변경API쓰기 가드/dnSpy/desktop menu PASS. 전체계약 첫 실행은 샌드박스 Git Bash 초기화 차단; 해당 모의테스트16개 일반환경 재검사 및 최종 npm run verify:erp-change(전체 계약/가드/build) PASS. 가이드 최종 프레임·실제 MP4/한국어 VTT/키보드·목차·1920/390 플레이어 PASS. 원장 쓰기0.
+5. 주의/잠금: lib/profitChinaTransport*, ProfitChinaTransport*, report UI/가이드·desktop 버전은 이 브랜치 담당. 원가 미확인을0원 확정으로 해석하지 않음. 운영 DB·과거/확정 snapshot 및44 태국·수국 비용 입력은 수정 금지.
+검색어: 중국 HUBFRESH Cloudland 배 비행기 미배정 당차입고비율 합계보존 china-profit-transport
 ## 2026-11-19 · 오류관제(/pm) Anti-AI Slop §7 전면 정화 & pm-control 가이드 영상 갱신
 1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/pm-control-anti-ai-slop` / `C:\Users\USER\nw-agy-clean-pm` / PR #1879.
 2. 완료된 것: `pages/pm.js`, `lib/pmThemes.js`, `lib/pmLookClear.js`, `components/pm/{ui,ControlGuide,PmTheme,StaffRequests,Character,BgScene,IsoScene,SkillFx,grow/Grow}.js` Anti-AI Slop 정화(장식 이모지·CSS 그라디언트·`box-shadow`/`drop-shadow`/`backdrop-filter`·카드 중첩 제거, 1px 선형 SVG·플랫 에디토리얼 라이트 1px 헤어라인 KPI 스트립·2열 원장 스플릿·`tabular-nums` 고정폭 정렬, `ControlGuide` 닫힘 시 동기 일시정지 수정), `scripts/pm-control-smoke.cjs --record` 재녹화(`public/guides/pm-control/staff.{mp4,ko.vtt,proof.json}`, `chapters.json`, `config/workflow-guides.json` 해시 동기화).
