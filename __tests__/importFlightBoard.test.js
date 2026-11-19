@@ -141,3 +141,23 @@ assert.ok(feed.messages.every(m => m.chatroom !== '다른방'));
 }
 
 console.log('importFlightBoard tests passed');
+
+{
+  const checkTitle = (year, week, flight, awb) => {
+    const text = [week + '차 콜수국 (KALITTA)', '11월 18일 17:10 도착 예정', '(' + awb + ' ' + flight + ' 480 BOX)'].join(String.fromCharCode(10));
+    return buildFlightBoard({
+      messages: [msg('label', '스케줄방', year + '-11-17T01:15:00Z', text)],
+      now: Date.parse(year + '-11-18T12:00:00+09:00'),
+    }).flights[0];
+  };
+  const selected = checkTitle(2026, '47-1', 'K4254', '992-04727892');
+  assert.equal(selected.displayName, '콜롬비아카장알루수 47-1');
+  assert.equal(selected.country, '콜롬비아');
+  assert.equal(selected.itemLabel, '콜수국');
+  assert.equal(selected.box, 480);
+  assert.equal(selected.flight, 'K4254');
+  assert.equal(checkTitle(2025, '47-1', 'K4254', '992-04727892').displayName, '');
+  assert.equal(checkTitle(2026, '47-2', 'K4254', '992-04727892').displayName, '');
+  assert.equal(checkTitle(2026, '47-1', 'K4255', '992-04727892').displayName, '');
+  assert.equal(checkTitle(2026, '47-1', 'K4254', '992-12345675').displayName, '');
+}

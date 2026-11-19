@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const {importFlightBoard,projectFlightBoard}=require('../flight-board.cjs');
 // 운송장 번호는 전부 지어낸 값이다.
-const flight=(over={})=>({key:'014-12345675',weekLabel:'46-2',country:'콜롬비아',itemLabel:'콜카장수국',airline:'AIR CANADA',awb:'014-12345675',flight:'AC063',box:597,arriveAt:'2026-11-18T05:20:00.000Z',timeAssumed:false,
+const flight=(over={})=>({key:'014-12345675',weekLabel:'46-2',country:'콜롬비아',itemLabel:'콜카장수국',airline:'AIR CANADA',displayName:'연습 항공편 표시 이름',awb:'014-12345675',flight:'AC063',box:597,arriveAt:'2026-11-18T05:20:00.000Z',timeAssumed:false,
   status:'in_flight',statusLabel:'밴쿠버 경유지 대기(추정)',progress:0.45,via:{code:'YVR',name:'밴쿠버',lat:49.1947,lon:-123.1792},phase:'layover',note:'x',
   origin:{code:'BOG',name:'보고타',assumed:false,lat:4.7016,lon:-74.1469},position:{lat:49.1947,lon:-123.1792},route:[{lat:4.7,lon:-74.1},{lat:30.123456,lon:-100},{lat:49.19,lon:-123.18},{lat:'x',lon:1},{lat:37.46,lon:126.44}],
   actual:{scheduledAt:'2026-11-18T08:10:00.000Z',estimatedAt:'2026-11-18T08:10:00.000Z',remark:null,delayMinutes:170},aircraft:{regNo:'C-FIVM',type:'789'},
@@ -26,7 +26,8 @@ test('flight board forwards the waybill only on its authenticated card',()=>{
   assert.equal(out.flights.length,2,'입고 등록 끝난 편은 뺀다');
   assert.equal(out.registeredCount,1);
   const f=out.flights[0];
-  assert.deepEqual(Object.keys(f).sort(),['airline','awb','originAssumed','announcedCargo','receivedCargo','steps','quarantineSlotChanged','scheduledAt','departAtEstimated','viewId','alertCount','arriveAt','country','doneSteps','estimatedAt','flight','itemLabel','nextState','nextStep','origin','phase','position','route','via','progress','quarantineDeadlineAt','quarantineSlot','regNo','remark','status','statusLabel','timeAssumed','totalSteps','trackUrl','viaName','weekLabel'].sort());
+  assert.deepEqual(Object.keys(f).sort(),['displayName','airline','awb','originAssumed','announcedCargo','receivedCargo','steps','quarantineSlotChanged','scheduledAt','departAtEstimated','viewId','alertCount','arriveAt','country','doneSteps','estimatedAt','flight','itemLabel','nextState','nextStep','origin','phase','position','route','via','progress','quarantineDeadlineAt','quarantineSlot','regNo','remark','status','statusLabel','timeAssumed','totalSteps','trackUrl','viaName','weekLabel'].sort());
+  assert.equal(f.displayName, '연습 항공편 표시 이름');
   assert.equal(f.viaName,'밴쿠버');assert.deepEqual(f.via,{name:'밴쿠버',lat:49.19,lon:-123.18});assert.deepEqual(f.origin,{name:'보고타',lat:4.7,lon:-74.15});assert.deepEqual(f.position,{lat:49.19,lon:-123.18});
   assert.deepEqual(f.route,[[-74.1,4.7],[-100,30.12],[-123.18,49.19],[126.44,37.46]],'숫자가 아닌 점은 버리고 [경도,위도] 로');assert.equal(f.phase,'layover');
   assert.deepEqual(out.destination,{name:'인천',lat:37.46,lon:126.44});assert.equal(f.regNo,'C-FIVM');assert.equal(f.progress,0.45);

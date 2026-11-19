@@ -353,14 +353,14 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                 const track = f.links?.aircraftTrack || f.links?.flightTrack;
                 return <article key={f.key} tabIndex={-1} data-selected={expanded} data-testid="flight-card" onKeyDown={event => { if (event.key === 'Escape' && expanded) { event.stopPropagation(); setSelectedKey(''); } }} style={{ border: expanded ? '2px solid #1668c7' : '1px solid #d7e0ea', borderLeft: `4px solid ${f.priority === 0 ? '#b02a2a' : f.priority === 1 ? '#b07500' : '#aab8c8'}`, borderRadius: 8, padding: 10, marginBottom: 8, background: expanded ? '#f0f6ff' : '#fff', fontSize: 13, lineHeight: 1.6 }}>
                   <button type="button" data-flight-select className="flight-select" aria-expanded={expanded} onClick={event => selectDetail(expanded ? '' : f.key, event)}>
-                    <b>{f.boardNumber}. {f.country} · {f.flight || '편명 미확인'}</b>
+                    <b>{f.boardNumber}. {f.displayName || `${f.country} · ${f.flight || '편명 미확인'}`}</b>
                     <span>{f.priority === 0 ? '우선 확인' : f.priority === 1 ? '확인 필요' : f.status === 'registered' ? '입고 등록 끝' : '이슈 없음'} {expanded ? '▴' : '▾'}</span>
                   </button>
                   <div className="flight-compact-summary"><StatusChip f={f} /> <span>{f.itemLabel || f.country}{quantity != null && ` · ${f.receivedCargo?.boxes != null ? '입고' : '공지'} ${fmt(quantity)}박스`}</span>{!expanded && steps.length > 0 && <span>처리 {steps.filter(step => step.state === 'done').length}/{steps.length} 완료</span>}</div>
                   {!expanded && deadline && <div style={{ color: deadline.color }}>{deadline.text}</div>}
                   {expanded && <>
                   <div>{f.weekLabel}차 · 공지 도착 {arrivalText(f)}</div>
-                  <div>항공사 {f.airline || '미확인'} · 빌번호 {f.awb || '미확인'}</div>
+                  <div>{f.displayName && f.flight && <>편명 {f.flight} · </>}항공사 {f.airline || '미확인'} · 빌번호 {f.awb || '미확인'}</div>
                   <div>{f.origin?.name || '출발지 미확인'}{f.origin?.assumed ? ' (추정)' : ''} → {f.via?.name ? `${f.via.name}(경유) → ` : ''}인천</div>
                   <div>
                     {f.departAtEstimated && <>출발 예측 {shortTime(f.departAtEstimated)} · </>}
