@@ -27,7 +27,7 @@ test('original CREATE, current scope, negative other-number candidates and failu
 
 test('GET detail dispatch stays authenticated and returns scoped not-found instead of successful empty detail',async()=>{
  const source=fs.readFileSync('pages/api/estimate/ledger-alerts.js','utf8').replace(/^import .*;\s*$/gm,'').replace('export default ','return ');
- let authenticated=false,calls=0;const handler=new Function('withAuth','query','sql','readEstimateLedgerAlerts','readEstimateLedgerReview',source)(fn=>{authenticated=true;return fn;},()=>{},sql,()=>assert.fail('wrong dispatch'),async(q,s,input)=>{calls++;assert.equal(input.deductionKey,'10');const e=Error('not in scope');e.statusCode=404;throw e;});
+ let authenticated=false,calls=0;const handler=new Function('withAuth','query','sql','readEstimateLedgerAlerts','readEstimateLedgerReview','estimateChangeHistory',source)(fn=>{authenticated=true;return fn;},()=>{},sql,()=>assert.fail('wrong dispatch'),async(q,s,input)=>{calls++;assert.equal(input.deductionKey,'10');const e=Error('not in scope');e.statusCode=404;throw e;},{calendar:async()=>({status:'checked',rows:[]})});
  const res={headers:{},setHeader(k,v){this.headers[k]=v;},status(n){this.statusCode=n;return this;},json(body){this.body=body;return this;}};
  await handler({method:'POST',query:{deductionKey:'10'}},res);assert.equal(res.statusCode,405);assert.equal(calls,0);
  await handler({method:'GET',query:{year:'2025',week:'45',deductionKey:'10'}},res);assert(authenticated);assert.equal(calls,1);assert.equal(res.statusCode,404);assert.equal(res.body.success,false);assert.equal(res.headers['Cache-Control'],'no-store');

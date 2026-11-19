@@ -243,6 +243,11 @@
         "popup": true
       },
       {
+        "href": "/estimate-change-history",
+        "labelKey": "네노바 견적 변경 이력",
+        "popup": false
+      },
+      {
         "href": "/estimate/weekday",
         "labelKey": "주광 견적서",
         "popup": true
