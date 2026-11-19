@@ -722,6 +722,17 @@ const FEASIBILITY_ITEMS = [
   },
 ];
 
+const ARCH_SECTIONS = [
+  ['all', '전체 설계도'],
+  ['loops', '1. 자가발전 루프'],
+  ['hermes', '2. Hermes 관리'],
+  ['schema', '3. 3계층 스키마'],
+  ['blueprints', '4. 업종 청사진'],
+  ['suite', '5. 디바이스 스위트'],
+  ['rust', '6. Rust 핫패스'],
+  ['vision', '7. 비전·가능/불가능'],
+];
+
 export default function ArchFlowChart({
   timesave = null,
   workflows = null,
@@ -730,6 +741,7 @@ export default function ArchFlowChart({
   mineOnly = false,
   compact = false,
 }) {
+  const [sectionFocus, setSectionFocus] = useState('all');
   const [selectedId, setSelectedId] = useState('pipeline');
   const [schemaView, setSchemaView] = useState('all');
   const [blueprintId, setBlueprintId] = useState('master');
@@ -792,724 +804,944 @@ export default function ArchFlowChart({
   const condCount = FEASIBILITY_ITEMS.filter((it) => it.verdict === 'conditional').length;
   const blockedCount = FEASIBILITY_ITEMS.filter((it) => it.verdict === 'blocked').length;
   const solvedTodayCount = FEASIBILITY_ITEMS.filter((it) => it.solvedToday).length;
+  const showSec = (key) => sectionFocus === 'all' || sectionFocus === key;
 
   return (
-    <section className={`arch-root ${compact ? 'is-compact' : ''}`} aria-label="자가발전 솔루션 아키텍처 흐름도">
+    <section
+      className={`pm arch-root ${compact ? 'is-compact' : ''}`}
+      data-testid="arch-flow-chart"
+      aria-label="자가발전 솔루션 아키텍처 흐름도"
+    >
+      {/* 상단 기술 명세 헤더 & 1px 수직 구분선 KPI 스트립 */}
       <header className="arch-head">
-        <div>
-          <div className="arch-eyebrow">SELF-EVOLVING WORK INTELLIGENCE ARCHITECTURE</div>
-          <h2>직원 업무 관측 → 자가발전 · 자가치유 → 네노바웹 자동 반영 아키텍처</h2>
-          <p className="arch-lede">
-            단순 화면 기록 조회를 넘어, 매일 데이터의 빈칸을 스스로 메우고(①), 실시간 오류 로그를 직접 고치며(②),
-            긴 수작업 연쇄(③)와 불필요한 화면 왕복(④)을 찾아 실제 전산·웹 로직으로 재설계하는 순환 구조입니다.
-          </p>
+        <div className="arch-head-main">
+          <div className="arch-head-copy">
+            <div className="arch-eyebrow">ARCHITECTURAL SPECIFICATION · SELF-EVOLVING WORK SUITE</div>
+            <h2>직원 업무 관측 → 자가발전 · 자가치유 → 네노바웹 자동 반영 아키텍처</h2>
+            <p className="arch-lede">
+              화면·전산 기록의 빈칸을 메우는 4대 순환 엔진(1~4), Hermes 에이전트 오케스트레이션, 3계층 SQL 원장,
+              업종 치환 청사진, 5-Surface 디바이스 스위트, Rust 단일 바이너리 핫패스 및 가능/불가능 경계를 한 장의 설계 원장으로 정리합니다.
+            </p>
+          </div>
+
+          <div className="arch-kpi-strip" aria-label="아키텍처 주요 계측 지표">
+            {peopleCount != null ? (
+              <div className="arch-kpi-cell">
+                <span>관찰 인원</span>
+                <b className="arch-num">{peopleCount}명</b>
+                <small className="arch-num">업무 {workflowCount}건 구조화</small>
+              </div>
+            ) : (
+              <div className="arch-kpi-cell">
+                <span>순환 엔진</span>
+                <b className="arch-num">4대 루프</b>
+                <small>관측 · 치유 · 압축 · 흡수</small>
+              </div>
+            )}
+            {totals ? (
+              <div className="arch-kpi-cell">
+                <span>주간 활성 / 단축 후보</span>
+                <b className="arch-num">{totals.activeHoursPerWeek}h → -{totals.saveHoursPerWeek}h</b>
+                <small className="arch-num">주 {totals.assignedHoursPerWeek}h 업무 특정</small>
+              </div>
+            ) : (
+              <div className="arch-kpi-cell">
+                <span>데이터 계층</span>
+                <b className="arch-num">3-Tier · 5-Surface</b>
+                <small>MSSQL · Web* · JSON</small>
+              </div>
+            )}
+            {unresolvedCount != null ? (
+              <div className="arch-kpi-cell">
+                <span>PM 관제 연결</span>
+                <b className="arch-num">확인 필요 {unresolvedCount}건</b>
+                <small>실시간 오류 · 정체 확인</small>
+              </div>
+            ) : (
+              <div className="arch-kpi-cell">
+                <span>Hermes · Rust 가속</span>
+                <b className="arch-num">97 SKILL · 91.1%</b>
+                <small className="arch-num">단일 바이너리 389.5KB</small>
+              </div>
+            )}
+            <div className="arch-kpi-cell">
+              <span>가능/불가능 경계</span>
+              <b className="arch-num">{autoCount} 자동 · {condCount} 조건 · {blockedCount} 금지</b>
+              <small className="arch-num">오늘 해결 전환 {solvedTodayCount}건</small>
+            </div>
+          </div>
         </div>
-        <div className="arch-kpis">
-          {peopleCount != null && (
-            <div className="arch-kpi">
-              <span>관찰 인원</span>
-              <b>{peopleCount}명</b>
-              <small>업무 {workflowCount}건 구조화</small>
-            </div>
-          )}
-          {totals && (
-            <div className="arch-kpi">
-              <span>주간 활성 / 절감 후보</span>
-              <b>{totals.activeHoursPerWeek}h → -{totals.saveHoursPerWeek}h</b>
-              <small>주 {totals.assignedHoursPerWeek}h 업무 특정</small>
-            </div>
-          )}
-          {unresolvedCount != null && (
-            <div className="arch-kpi">
-              <span>PM 관제 연결</span>
-              <b>확인 필요 {unresolvedCount}건</b>
-              <small>실시간 오류 · 정체 확인</small>
-            </div>
-          )}
-          {!peopleCount && !totals && (
-            <div className="arch-kpi">
-              <span>순환 엔진</span>
-              <b>4대 자가발전 루프</b>
-              <small>관측 · 치유 · 압축 · 흡수</small>
-            </div>
-          )}
-        </div>
+
+        {/* 섹션 탐색 바 */}
+        <nav className="arch-sec-nav" aria-label="아키텍처 설계 섹션 선택">
+          <span className="arch-nav-lbl">설계 영역</span>
+          <div className="arch-schema-filters">
+            {ARCH_SECTIONS.map(([id, label]) => (
+              <ToggleChip
+                key={id}
+                on={sectionFocus === id}
+                className={`arch-filter-chip ${sectionFocus === id ? 'is-active' : ''}`}
+                onClick={() => setSectionFocus(id)}
+              >
+                {label}
+              </ToggleChip>
+            ))}
+          </div>
+        </nav>
       </header>
 
-      {/* 전체 아키텍처 SVG/플로우 다이어그램 */}
-      <div className="arch-diagram" role="region" aria-label="전체 아키텍처 단계 연결도">
-        <div className="arch-nodes">
-          {PIPELINE_NODES.map((node, idx) => (
-            <div key={node.key} className="arch-node-wrap">
-              <div className={`arch-node arch-node-${node.key}`}>
-                <div className="arch-node-title">{node.label}</div>
-                <div className="arch-node-sub">{node.sub}</div>
-              </div>
-              {idx < PIPELINE_NODES.length - 1 && (
-                <div className="arch-arrow" aria-hidden="true">→</div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* 닫힌 피드백 루프 바 */}
-        <svg className="arch-feedback-svg" viewBox="0 0 920 46" preserveAspectRatio="none" aria-hidden="true">
-          <path
-            d="M 830 4 L 830 28 L 90 28 L 90 10"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeDasharray="6 5"
-          />
-          <polygon points="84,12 90,2 96,12" fill="currentColor" />
-        </svg>
-        <div className="arch-feedback-label">
-          닫힌 피드백 루프(Closed Loop · Hermes 오케스트레이션): 반영 후 실측 단축 시간(timesave) · 확증% 변화 · SKILL.md 학습 자산을 다음 주기에 재투입
-        </div>
-      </div>
-
-      {/* 4대 자가발전 엔진 카드 선택기 */}
-      <div className="arch-loops-grid" role="group" aria-label="4대 자가발전 루프 선택">
-        {LOOPS.map((loop) => {
-          const active = loop.id === activeLoop.id;
-          return (
-            <SelectCard
-              key={loop.id}
-              on={active}
-              pressed={active}
-              className={`arch-loop-card tone-${loop.tone} ${active ? 'is-on' : ''}`}
-              onClick={() => setSelectedId(loop.id)}
-            >
-              <div className="arch-loop-top">
-                <span className="arch-loop-no">LOOP {loop.no}</span>
-                <Badge className="arch-loop-badge" tone={loop.tone === 'err' ? 'warn' : 'plain'}>{loop.badge}</Badge>
-              </div>
-              <div className="arch-loop-title">{loop.title}</div>
-              <div className="arch-loop-summary">{loop.summary}</div>
-            </SelectCard>
-          );
-        })}
-      </div>
-
-      {/* 선택한 루프의 상세 동작 + Before -> After 설계 흐름 */}
-      <article className="arch-detail" aria-live="polite">
-        <div className="arch-detail-head">
-          <div>
-            <span className="arch-detail-pill">LOOP {activeLoop.no} · {activeLoop.badge}</span>
-            <h3>{activeLoop.caseTitle}</h3>
-            <p>{activeLoop.caseDetail}</p>
-          </div>
-          {!mineOnly && onSelectTab && activeLoop.tabTarget && (
-            <Button className="arch-jump-btn" variant="primary" size="sm" onClick={() => onSelectTab(activeLoop.tabTarget)}>
-              {activeLoop.tabLabel} ↗
-            </Button>
-          )}
-        </div>
-
-        <div className="arch-spec-row">
-          <div className="arch-spec">
-            <b>감지 트리거 (Input)</b>
-            <span>{activeLoop.trigger}</span>
-          </div>
-          <div className="arch-spec-arrow" aria-hidden="true">→</div>
-          <div className="arch-spec">
-            <b>자가발전 판단·설계 엔진</b>
-            <span>{activeLoop.engine}</span>
-          </div>
-          <div className="arch-spec-arrow" aria-hidden="true">→</div>
-          <div className="arch-spec">
-            <b>시스템 반영 · 기대 결과 (Output)</b>
-            <span>{activeLoop.outcome}</span>
-          </div>
-        </div>
-
-        <div className="arch-compare">
-          <div className="arch-col arch-before">
-            <div className="arch-col-title">AS-IS · 관측된 기존 수작업 / 오류</div>
-            <ol>
-              {activeLoop.beforeSteps.map((step, i) => (
-                <li key={i}>{step}</li>
-              ))}
-            </ol>
-          </div>
-          <div className="arch-col-mid" aria-hidden="true">⟹</div>
-          <div className="arch-col arch-after">
-            <div className="arch-col-title">TO-BE · 자가발전 압축 · 흡수 구조</div>
-            <ol>
-              {activeLoop.afterSteps.map((step, i) => (
-                <li key={i}>{step}</li>
-              ))}
-            </ol>
-          </div>
-        </div>
-
-        {topFeatures.length > 0 && (
-          <div className="arch-live-features">
-            <div className="arch-live-title">
-              실측 절감 상위 후보 ({liveTs?.generatedAt ? String(liveTs.generatedAt).slice(0, 10) : '최신'} 기준)
-            </div>
-            <div className="arch-live-chips">
-              {topFeatures.map((feat, idx) => (
-                <div key={feat.title + idx} className="arch-live-chip">
-                  <b>{feat.title}</b>
-                  <span>주 {feat.saveHoursPerWeek}h 절감 후보{feat.menu ? ` · ${feat.menu}` : ''}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </article>
-
-      {/* Hermes 에이전트 관리 · 자가학습 오케스트레이션 계층 */}
-      <section className="arch-hermes" data-testid="arch-hermes-section" aria-label="Hermes 에이전트 관리 및 자가학습 오케스트레이션">
-        <div className="arch-schema-head">
-          <div>
-            <div className="arch-eyebrow">AGENT ORCHESTRATION &amp; CLOSED LEARNING LOOP · NousResearch/hermes-agent</div>
-            <h3>Hermes 에이전트 관리 · 자가학습 오케스트레이션 (<code>hermes-manager.js</code>)</h3>
-            <p className="arch-lede">
-              Claude · Codex · Antigravity 3-툴과 PM 조사관 루프를 하나로 묶어 한도 폴백, 세션 JSONL 인계, 궤적 압축, 절차 스킬 자동 합성을 수행합니다.
-            </p>
-          </div>
-          <div className="arch-hermes-badges">
-            <Badge tone="plain">
-              활성 엔진: {office?.hermes?.activeProvider || 'claude'}
-              {office?.hermes?.fallbackReady !== false ? ' (codex 폴백 대기)' : ''}
-            </Badge>
-            <Badge tone="plain">
-              합성 스킬: {office?.hermes?.skillsSynced ?? 97}건 SKILL.md
-            </Badge>
-            <Badge tone="plain">
-              압축 평균: {office?.hermes?.avgCompressionPct ?? 91.1}%
-            </Badge>
-          </div>
-        </div>
-
-        <div className="arch-hermes-flow" role="region" aria-label="Hermes 에이전트 관리 흐름">
-          <span><b>1. 실행 라우팅</b> <code>selectRunner</code> (Claude ↔ Codex)</span>
-          <span className="arch-hermes-arrow" aria-hidden="true">→</span>
-          <span><b>2. 진행 임대 점검</b> <code>checkWatchdogLeases</code></span>
-          <span className="arch-hermes-arrow" aria-hidden="true">→</span>
-          <span><b>3. 중단 구조/인계</b> <code>Session Rescue → Lineage</code></span>
-          <span className="arch-hermes-arrow" aria-hidden="true">→</span>
-          <span><b>4. 궤적 압축</b> <code>Head/Tail 보호</code></span>
-          <span className="arch-hermes-arrow" aria-hidden="true">→</span>
-          <span><b>5. 스킬 자가합성</b> <code>97 CARD → SKILL.md</code></span>
-        </div>
-
-        <div className="arch-hermes-grid">
-          {HERMES_MODULES.map((mod) => (
-            <div key={mod.id} className={`arch-hermes-card tone-${mod.tone}`}>
-              <div className="arch-hermes-top">
-                <span className="arch-detail-pill">{mod.metric}</span>
-                <code>{mod.source}</code>
-              </div>
-              <div className="arch-hermes-title">{mod.title}</div>
-              <p className="arch-hermes-desc">{mod.detail}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* SQL 원장 & 네노바웹 3계층 데이터 스키마 구조도 */}
-      <section className="arch-schema" aria-label="SQL 원장 및 네노바웹 데이터 스키마 구조도">
-        <div className="arch-schema-head">
-          <div>
-            <div className="arch-eyebrow">DATABASE &amp; DATA SCHEMA ARCHITECTURE</div>
-            <h3>SQL 원장 &amp; 네노바웹 3계층 데이터 스키마 구조도</h3>
-            <p className="arch-lede">
-              전산(nenova.exe)과 공유하는 <b>MSSQL 핵심 원장</b>, 웹 확장을 격리 저장하는 <b>Web* 전용 SQL 스키마</b>,
-              그리고 자가발전 분석·PM 관제가 사용하는 <b>data/runtime/*.json</b> 계층의 키·관계·불변 가드를 한눈에 보여줍니다.
-            </p>
-          </div>
-          <div className="arch-schema-filters" role="group" aria-label="스키마 계층 필터">
-            {[
-              ['all', '전체 구조'],
-              ['erp', '공유 MSSQL 원장'],
-              ['web', '웹 전용 MSSQL (Web*)'],
-              ['runtime', '런타임 JSON (data/runtime)'],
-              ['invariants', '불변 가드 규칙'],
-            ].map(([id, label]) => (
-              <ToggleChip
-                key={id}
-                on={schemaView === id}
-                className={`arch-filter-chip ${schemaView === id ? 'is-active' : ''}`}
-                onClick={() => setSchemaView(id)}
-              >
-                {label}
-              </ToggleChip>
-            ))}
-          </div>
-        </div>
-
-        {/* 3계층 관계 ER/데이터 흐름도 */}
-        <div className="arch-schema-flow" role="region" aria-label="3계층 데이터 흐름 및 테이블 관계도">
-          <div className="arch-sf-box tone-accent">
-            <b>Tier 1 · 공유 MSSQL ERP 원장</b>
-            <code>Customer(CustKey) ──▶ OrderMaster(OrderMasterKey) ──▶ OrderDetail</code>
-            <code>Product(ProdKey) ────▶ ShipmentMaster(ShipmentKey) ─▶ ShipmentDetail(SdetailKey)</code>
-            <code>WarehouseMaster(WarehouseKey) ─▶ WarehouseDetail(WdetailKey) · FreightCost</code>
-            <small>모든 업무 쓰기는 OrderYear + OrderWeek + CustKey + ProdKey · dnSpy 정본 준수</small>
-          </div>
-          <div className="arch-sf-bridge" aria-hidden="true">
-            <span>읽기 참조(JOIN) /</span>
-            <span>명시 계약 쓰기 ⇄</span>
-          </div>
-          <div className="arch-sf-box tone-ok">
-            <b>Tier 2 · 웹 전용 MSSQL (Web*)</b>
-            <code>WebProfitReport · WebCustoms* · WebStockPriceEvidence</code>
-            <code>WebRaumPnl / Item · WebSalesDefectDeduction* · WebChinaVolume*</code>
-            <code>WebPreShipment* · WebInvoice* · WebMappingStore · WebWorkflowReview</code>
-            <small>GET 시 assertWebSchemaContract 읽기 검증 전용(런타임 DDL 금지)</small>
-          </div>
-          <div className="arch-sf-bridge" aria-hidden="true">
-            <span>전산·웹 로그 대조 →</span>
-            <span>산출물 업로드 ⇄</span>
-          </div>
-          <div className="arch-sf-box tone-warn">
-            <b>Tier 3 · 런타임 JSON (data/runtime)</b>
-            <code>POST /api/work/feature-data-ingest (.tmp → renameSync)</code>
-            <code>workflows · proposals · simulations · storyboards · timesave</code>
-            <code>adoption-ledger.json · pm-office · live-pipelines · tech-radar</code>
-            <small>MSSQL 무관 원자적 파일 저장 · GET /api/my-work/feature · /api/pm/office 공급</small>
-          </div>
-        </div>
-
-        {/* 선택한 계층의 상세 스키마 카드 */}
-        {schemaView !== 'invariants' && (
-          <div className="arch-schema-layers">
-            {visibleLayers.map((layer) => (
-              <div key={layer.id} className={`arch-layer-card tone-${layer.tone}`}>
-                <div className="arch-layer-head">
-                  <div>
-                    <span className="arch-detail-pill">{layer.badge}</span>
-                    <h4>{layer.title}</h4>
-                  </div>
-                  <div className="arch-layer-rule">{layer.rule}</div>
-                </div>
-                <div className="arch-tables-grid">
-                  {layer.tables.map((tbl) => (
-                    <div key={tbl.name} className="arch-tbl">
-                      <div className="arch-tbl-name">{tbl.name}</div>
-                      <div className="arch-tbl-keys">
-                        <span><b>PK</b> <code>{tbl.pk}</code></span>
-                        <span><b>FK/연결</b> <code>{tbl.fk}</code></span>
-                      </div>
-                      <div className="arch-tbl-cols"><b>주요 컬럼:</b> <code>{tbl.cols}</code></div>
-                      <div className="arch-tbl-note">{tbl.note}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* 핵심 SQL & 스키마 불변 가드 요약 */}
-        {(schemaView === 'all' || schemaView === 'invariants') && (
-          <div className="arch-invariants">
-            <div className="arch-live-title">핵심 SQL · 스키마 불변 가드 (Invariants · docs/DB_STRUCTURE.md 기준)</div>
-            <div className="arch-inv-grid">
-              {SCHEMA_INVARIANTS.map((item) => (
-                <div key={item.key} className="arch-inv-item">
-                  <b>{item.key}</b>
-                  <span>{item.rule}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* 솔루션화 업무별 스키마 설계 청사진 & 실제 품목 데이터 예시 */}
-      <section
-        className="arch-blueprints"
-        data-testid="arch-solution-blueprints"
-        aria-label="솔루션화 업무별 스키마 설계 및 품목 예시"
-      >
-        <div className="arch-schema-head">
-          <div>
-            <div className="arch-eyebrow">DOMAIN SCHEMA BLUEPRINTS &amp; REAL ITEM DATA</div>
-            <h3>솔루션화 업무별 스키마 설계 청사진 &amp; 실제 품목 데이터 예시</h3>
-            <p className="arch-lede">
-              화훼 ERP에서 검증된 기준정보·주문·수입·재고 테이블 설계를 타 업종 상용 솔루션으로도 바로 이식할 수 있도록
-              핵심 설계 원리·치환 공식·실제 품목 저장 예시를 업무별로 정리했습니다.
-            </p>
-          </div>
-          <div className="arch-bp-pill-wrap">
-            <Badge tone="plain">업종 치환 가능 4대 업무 모델</Badge>
-          </div>
-        </div>
-
-        <div className="arch-bp-grid" role="group" aria-label="솔루션화 업무별 스키마 시나리오 선택">
-          {SOLUTION_BLUEPRINTS.map((bp) => {
-            const active = bp.id === activeBlueprint.id;
-            return (
-              <SelectCard
-                key={bp.id}
-                on={active}
-                pressed={active}
-                className={`arch-loop-card arch-bp-card tone-${bp.tone} ${active ? 'is-on' : ''}`}
-                onClick={() => setBlueprintId(bp.id)}
-              >
-                <div className="arch-loop-top">
-                  <span className="arch-loop-no">BLUEPRINT {bp.no}</span>
-                  <Badge className="arch-loop-badge" tone={bp.tone === 'err' ? 'warn' : 'plain'}>{bp.badge}</Badge>
-                </div>
-                <div className="arch-loop-title">{bp.title}</div>
-                <code className="arch-bp-tables">{bp.tables}</code>
-              </SelectCard>
-            );
-          })}
-        </div>
-
-        <div className="arch-bp-detail" aria-live="polite">
-          <div className="arch-bp-summary">
-            <div className="arch-bp-sum-card">
-              <b>언제 이 스키마를 쓰는가</b>
-              <span>{activeBlueprint.whenToUse}</span>
-            </div>
-            <div className="arch-bp-sum-card">
-              <b>핵심 테이블 · 키 설계 공식</b>
-              <span>{activeBlueprint.designRule}</span>
-            </div>
-            <div className="arch-bp-sum-card tone-solution">
-              <b>타 업종 솔루션 치환 공식</b>
-              <span>{activeBlueprint.solutionMap}</span>
-            </div>
-          </div>
-
-          <div className="arch-bp-examples">
-            <div className="arch-live-title">
-              실제 품목 데이터 저장 예시 — {activeBlueprint.no} · {activeBlueprint.title}
-            </div>
-            <div className="arch-bp-table-wrap">
-              <table className="arch-bp-table">
-                <thead>
-                  <tr>
-                    <th scope="col">품목 예시</th>
-                    <th scope="col">저장 테이블 · 키</th>
-                    <th scope="col">실제 컬럼 · 저장값 예시</th>
-                    <th scope="col">솔루션 설계 포인트</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activeBlueprint.examples.map((ex, idx) => (
-                    <tr key={`${activeBlueprint.id}-${idx}`}>
-                      <td data-label="품목 예시" className="arch-bp-cell-item">{ex.item}</td>
-                      <td data-label="저장 테이블 · 키" className="arch-bp-cell-key"><code>{ex.tableKey}</code></td>
-                      <td data-label="실제 컬럼 · 저장값 예시" className="arch-bp-cell-val"><code>{ex.values}</code></td>
-                      <td data-label="솔루션 설계 포인트" className="arch-bp-cell-pt">{ex.point}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 멀티 디바이스 작업화 솔루션 및 부류별 세션 설계 */}
-      <section
-        className="arch-device-suite"
-        data-testid="arch-device-suite-section"
-        aria-label="멀티 디바이스 작업화 솔루션 및 부류별 세션 설계"
-      >
-        <div className="arch-schema-head">
-          <div>
-            <div className="arch-eyebrow">MULTI-DEVICE WORK SUITE · 5-SURFACE ARCHITECTURE</div>
-            <h3>멀티 디바이스 작업화 솔루션 · 부류별(세션 1~4) 통합 설계</h3>
-            <p className="arch-lede">
-              모바일 공용폰·PC 카톡·데스크톱 사이드카에서 올라오는 비정형 업무를 원장 직접 오염 없이
-              <code>WebDeviceWorkQueue</code> 승인 게이트로 연결하는 5-Surface 통합 구조입니다.
-            </p>
-          </div>
-          <div className="arch-bp-pill-wrap">
-            <Badge tone="plain">5-Surface · 4개 세션 선택 조회</Badge>
-            {!mineOnly && onSelectTab && (
-              <Button className="arch-jump-btn" variant="primary" size="sm" onClick={() => onSelectTab('suite-sim')}>
-                통합 모션 시뮬레이션 열기 ↗
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="arch-suite-flow" role="region" aria-label="5-Surface 연결 흐름 바">
-          {DEVICE_SUITE_SURFACES.map((surface, idx) => (
-            <div key={surface.key} className="arch-suite-flow-item">
-              <div className="arch-suite-flow-box">
-                <b>{surface.title}</b>
-                <span>{surface.detail}</span>
-              </div>
-              {idx < DEVICE_SUITE_SURFACES.length - 1 && (
-                <span className="arch-hermes-arrow" aria-hidden="true">➔</span>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="arch-bp-grid" role="group" aria-label="부류별 세션 설계 선택">
-          {DEVICE_SUITE_SESSIONS.map((sess) => {
-            const active = sess.id === activeSuiteSession.id;
-            return (
-              <SelectCard
-                key={sess.id}
-                on={active}
-                pressed={active}
-                className={`arch-loop-card arch-bp-card tone-${sess.tone} ${active ? 'is-on' : ''}`}
-                onClick={() => setSuiteSessionId(sess.id)}
-              >
-                <div className="arch-loop-top">
-                  <span className="arch-loop-no">{sess.no}</span>
-                  <Badge className="arch-loop-badge" tone={sess.tone === 'err' ? 'warn' : 'plain'}>{sess.badge}</Badge>
-                </div>
-                <div className="arch-loop-title">{sess.title}</div>
-                <code className="arch-bp-tables">{sess.stack}</code>
-              </SelectCard>
-            );
-          })}
-        </div>
-
-        <article className="arch-suite-detail" aria-live="polite">
-          <div className="arch-detail-head">
+      {/* 1. 4단계 순환 파이프라인 다이어그램 & 4대 자가발전 엔진 좌우 스플릿 */}
+      {showSec('loops') && (
+        <section className="arch-section" aria-label="전체 아키텍처 연결도 및 4대 자가발전 루프">
+          <div className="arch-sec-head">
             <div>
-              <span className="arch-detail-pill">{activeSuiteSession.no} · {activeSuiteSession.badge}</span>
-              <h4>{activeSuiteSession.title}</h4>
-              <p>{activeSuiteSession.role}</p>
+              <div className="arch-eyebrow">01 · CLOSED-LOOP PIPELINE &amp; 4 ENGINES</div>
+              <h3>전체 순환 흐름도 &amp; 4대 자가발전 엔진 명세</h3>
             </div>
+            <Badge tone="plain">Closed Loop · 4 Engines</Badge>
           </div>
 
-          <div className="arch-suite-grid">
-            <div className="arch-bp-sum-card">
-              <b>핵심 구조</b>
-              <span>{activeSuiteSession.coreArch}</span>
-            </div>
-            <div className="arch-bp-sum-card tone-guard">
-              <b>안전 가드</b>
-              <span>{activeSuiteSession.safetyGuard}</span>
-            </div>
-            <div className="arch-bp-sum-card tone-solution">
-              <b>스키마 · 품목 작업화 예시</b>
-              <span>{activeSuiteSession.schemaAndItems}</span>
-            </div>
-            <div className="arch-bp-sum-card">
-              <b>도입 단계</b>
-              <span>{activeSuiteSession.rolloutStage}</span>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      {/* Rust 고효율 핫패스 자동 가속 계층 */}
-      <section
-        className="arch-hermes arch-rust-hotpaths"
-        data-testid="arch-rust-hotpaths"
-        aria-label="Rust 고효율 핫패스 자동 가속 계층"
-      >
-        <div className="arch-schema-head">
-          <div>
-            <div className="arch-eyebrow">RUST NATIVE HOTPATHS · ZERO-RUNTIME SINGLE BINARY</div>
-            <h3>Rust 고효율 핫패스 자동 가속 계층 (<code>hermes-core.exe</code> · <code>nenova-device-sidecar.exe</code>)</h3>
-            <p className="arch-lede">
-              상주 사이드카·대용량 스풀 로그 압축·실시간 프레임 필터만 단일 정적 Rust 바이너리로 전환해 80MB 런타임 부담과 GC 멈춤을 제거합니다.
-            </p>
-          </div>
-          <div className="arch-hermes-badges">
-            <Badge tone={office?.hermes?.rustAccelerator?.enabled ? 'ok' : 'plain'}>
-              {office?.hermes?.rustAccelerator?.enabled ? 'Rust 가속 활성' : 'Rust 핫패스 설계·적용'}
-            </Badge>
-            <Badge tone="plain">JS Fallback 자동 호환</Badge>
-          </div>
-        </div>
-
-        <div className="arch-rust-grid">
-          {RUST_HOTPATHS.map((hp) => (
-            <div key={hp.id} className={`arch-hermes-card tone-${hp.tone}`}>
-              <div className="arch-hermes-top">
-                <span className="arch-detail-pill">{hp.metric}</span>
-                <code>{hp.source}</code>
-              </div>
-              <div className="arch-hermes-title">{hp.title}</div>
-              <p className="arch-hermes-desc">{hp.detail}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="arch-bp-sum-card tone-solution">
-          <b>과잉 설계 방지 경계 (Rust vs JS/TS)</b>
-          <span>
-            웹 UI(Next.js)·비즈니스 규칙·일반 SQL API는 생산성을 위해 JS/TS를 유지하고, CPU·상주 메모리·단일 배포 이득이 확실한 핫패스에만 Rust + JS Fallback을 자동 적용합니다.
-          </span>
-        </div>
-      </section>
-
-      {/* 솔루션 마스터 목표 & 현실적 가능 · 불가능 판정 기준표 */}
-      <section
-        className="arch-vision-feasibility"
-        data-testid="arch-vision-feasibility"
-        aria-label="솔루션 마스터 목표 및 현실적 가능 · 불가능 판정 기준표"
-      >
-        <div className="arch-schema-head">
-          <div>
-            <div className="arch-eyebrow">MASTER SOLUTION VISION &amp; FEASIBILITY MATRIX</div>
-            <h3>솔루션 마스터 목표 &amp; 현실적 가능 · 불가능 판정 기준표</h3>
-            <p className="arch-lede">
-              사장님 제품 비전(P0~P3 · NOWLINK Watch/Build/Team)의 단계별 통과 관문과, 과거 작업·대화 데이터에서 검증한
-              즉시 자동 가능 · 조건부 가능 · 불가능(절대 금지) 경계 및 오늘 해결 전환 항목을 한눈에 대조합니다.
-            </p>
-          </div>
-          <div className="arch-hermes-badges">
-            <Badge tone="ok">즉시 자동 {autoCount}건</Badge>
-            <Badge tone="warn">조건부 {condCount}건</Badge>
-            <Badge tone="plain">불가능·금지 {blockedCount}건</Badge>
-            <Badge tone="plain">오늘 해결 {solvedTodayCount}건</Badge>
-          </div>
-        </div>
-
-        <div className="arch-bp-grid" role="group" aria-label="상용 솔루션 단계별 마스터 목표 선택">
-          {VISION_MASTER_STAGES.map((stage) => {
-            const active = stage.id === activeVisionPhase.id;
-            return (
-              <SelectCard
-                key={stage.id}
-                on={active}
-                pressed={active}
-                className={`arch-loop-card arch-bp-card tone-${stage.tone} ${active ? 'is-on' : ''}`}
-                onClick={() => setVisionPhaseId(stage.id)}
-              >
-                <div className="arch-loop-top">
-                  <span className="arch-loop-no">{stage.code}</span>
-                  <Badge className="arch-loop-badge" tone={stage.tone === 'ok' ? 'ok' : stage.tone === 'err' ? 'warn' : 'plain'}>
-                    관문 기준
-                  </Badge>
+          <div className="arch-diagram" role="region" aria-label="전체 아키텍처 단계 연결도">
+            <div className="arch-nodes">
+              {PIPELINE_NODES.map((node, idx) => (
+                <div key={node.key} className="arch-node-wrap">
+                  <div className={`arch-node arch-node-${node.key}`}>
+                    <div className="arch-node-idx arch-num">STEP 0{idx + 1}</div>
+                    <div className="arch-node-title">{node.label}</div>
+                    <div className="arch-node-sub">{node.sub}</div>
+                  </div>
+                  {idx < PIPELINE_NODES.length - 1 && (
+                    <div className="arch-arrow" aria-hidden="true">→</div>
+                  )}
                 </div>
-                <div className="arch-loop-title">{stage.title}</div>
-                <div className="arch-loop-summary">{stage.gate}</div>
-              </SelectCard>
-            );
-          })}
-        </div>
+              ))}
+            </div>
 
-        <div className="arch-bp-summary" aria-live="polite">
-          <div className="arch-bp-sum-card">
-            <b>선택 단계 관문 ({activeVisionPhase.code})</b>
-            <span>{activeVisionPhase.gate}</span>
+            <svg className="arch-feedback-svg" viewBox="0 0 920 38" preserveAspectRatio="none" aria-hidden="true">
+              <path
+                d="M 830 2 L 830 22 L 90 22 L 90 8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeDasharray="5 4"
+              />
+              <polygon points="85,10 90,2 95,10" fill="currentColor" />
+            </svg>
+            <div className="arch-feedback-label">
+              닫힌 피드백 루프(Closed Loop · Hermes 오케스트레이션): 반영 후 실측 단축 수치(timesave) · 확증% 변화 · SKILL.md 학습 자산을 다음 주기에 재투입
+            </div>
           </div>
-          <div className="arch-bp-sum-card tone-solution">
-            <b>현재 확보 자산 · 실측 수치</b>
-            <span>{activeVisionPhase.metrics}</span>
-          </div>
-          <div className="arch-bp-sum-card tone-guard">
-            <b>다음 우선 착수 과제</b>
-            <span>{activeVisionPhase.nextAction}</span>
-          </div>
-        </div>
 
-        <div className="arch-vf-toolbar">
-          <div className="arch-live-title">
-            현실적 가능 · 조건부 · 불가능 판정 필터 ({filteredFeasibility.length} / {FEASIBILITY_ITEMS.length}건)
-          </div>
-          <div className="arch-schema-filters" role="group" aria-label="실현 가능성 분류 필터">
-            {FEASIBILITY_CATEGORIES.map(([id, label]) => (
-              <ToggleChip
-                key={id}
-                on={feasibilityFilter === id}
-                className={`arch-filter-chip ${feasibilityFilter === id ? 'is-active' : ''}`}
-                onClick={() => setFeasibilityFilter(id)}
-              >
-                {label}
-              </ToggleChip>
-            ))}
-          </div>
-        </div>
-
-        <div className="arch-bp-table-wrap">
-          <table className="arch-bp-table">
-            <thead>
-              <tr>
-                <th scope="col">판정 · 영역</th>
-                <th scope="col">대상 기능 · 기술 항목</th>
-                <th scope="col">판정 근거 및 제약 한계</th>
-                <th scope="col">허용 대안 · 안전 가드 · 출처</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredFeasibility.map((row) => {
-                const badgeLabel = row.verdict === 'auto'
-                  ? '즉시 자동 가능'
-                  : row.verdict === 'conditional'
-                    ? '조건부 가능'
-                    : '불가능 · 금지';
-                const badgeTone = row.verdict === 'auto'
-                  ? 'ok'
-                  : row.verdict === 'conditional'
-                    ? 'warn'
-                    : 'plain';
+          {/* 좌우 스플릿 뷰: 왼쪽 4대 루프 선택 원장 + 오른쪽 상세 명세 & AS-IS/TO-BE 비교표 */}
+          <div className="arch-split-layout">
+            <div className="arch-split-rail" role="group" aria-label="4대 자가발전 루프 선택">
+              <div className="arch-rail-head">4대 자가발전 엔진 목록</div>
+              {LOOPS.map((loop) => {
+                const active = loop.id === activeLoop.id;
                 return (
-                  <tr key={row.id} className={`arch-vf-row is-${row.verdict}`}>
-                    <td data-label="판정 · 영역" className="arch-vf-cell-status">
-                      <div className="arch-vf-badges">
-                        <Badge tone={badgeTone}>{badgeLabel}</Badge>
-                        {row.solvedToday && (
-                          <Badge tone="plain">오늘 해결 전환</Badge>
-                        )}
-                      </div>
-                      <div className="arch-vf-domain">{row.domain}</div>
-                    </td>
-                    <td data-label="대상 기능 · 기술 항목" className="arch-bp-cell-item">{row.title}</td>
-                    <td data-label="판정 근거 및 제약 한계" className="arch-vf-cell-reason">{row.reason}</td>
-                    <td data-label="허용 대안 · 안전 가드 · 출처" className="arch-bp-cell-pt">
-                      <div>{row.guardrail}</div>
-                      <code className="arch-vf-src">{row.source}</code>
-                    </td>
-                  </tr>
+                  <SelectCard
+                    key={loop.id}
+                    on={active}
+                    pressed={active}
+                    className={`arch-rail-item tone-${loop.tone} ${active ? 'is-on' : ''}`}
+                    onClick={() => setSelectedId(loop.id)}
+                  >
+                    <div className="arch-rail-top">
+                      <span className="arch-rail-no arch-num">LOOP 0{loop.no}</span>
+                      <Badge className="arch-tag-badge" tone={loop.tone === 'err' ? 'warn' : 'plain'}>{loop.badge}</Badge>
+                    </div>
+                    <div className="arch-rail-title">{loop.title}</div>
+                    <div className="arch-rail-sub">{loop.summary}</div>
+                  </SelectCard>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </div>
+
+            <article className="arch-split-pane" aria-live="polite">
+              <div className="arch-detail-head">
+                <div>
+                  <div className="arch-eyebrow">LOOP 0{activeLoop.no} · {activeLoop.badge}</div>
+                  <h4>{activeLoop.caseTitle}</h4>
+                  <p>{activeLoop.caseDetail}</p>
+                </div>
+                {!mineOnly && onSelectTab && activeLoop.tabTarget && (
+                  <Button className="arch-jump-btn" variant="primary" size="sm" onClick={() => onSelectTab(activeLoop.tabTarget)}>
+                    {activeLoop.tabLabel} ↗
+                  </Button>
+                )}
+              </div>
+
+              <div className="arch-spec-strip">
+                <div className="arch-spec-cell">
+                  <b>감지 트리거 (Input)</b>
+                  <span>{activeLoop.trigger}</span>
+                </div>
+                <div className="arch-spec-cell">
+                  <b>자가발전 판단·설계 엔진</b>
+                  <span>{activeLoop.engine}</span>
+                </div>
+                <div className="arch-spec-cell">
+                  <b>시스템 반영 · 기대 결과 (Output)</b>
+                  <span>{activeLoop.outcome}</span>
+                </div>
+              </div>
+
+              <div className="arch-compare-strip">
+                <div className="arch-col arch-before">
+                  <div className="arch-col-title">AS-IS · 관측된 기존 수작업 / 오류</div>
+                  <ol>
+                    {activeLoop.beforeSteps.map((step, i) => (
+                      <li key={i}>{step}</li>
+                    ))}
+                  </ol>
+                </div>
+                <div className="arch-col arch-after">
+                  <div className="arch-col-title">TO-BE · 자가발전 압축 · 흡수 구조</div>
+                  <ol>
+                    {activeLoop.afterSteps.map((step, i) => (
+                      <li key={i}>{step}</li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+
+              {topFeatures.length > 0 && (
+                <div className="arch-subledger">
+                  <div className="arch-subledger-title">
+                    실측 단축 상위 후보 ({liveTs?.generatedAt ? String(liveTs.generatedAt).slice(0, 10) : '최신'} 기준)
+                  </div>
+                  <div className="arch-table-wrap">
+                    <table className="arch-ledger-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">기능 후보</th>
+                          <th scope="col">대상 메뉴</th>
+                          <th scope="col">주간 단축</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topFeatures.map((feat, idx) => (
+                          <tr key={feat.title + idx}>
+                            <td className="arch-cell-strong">{feat.title}</td>
+                            <td className="arch-cell-muted">{feat.menu || '-'}</td>
+                            <td className="arch-num arch-cell-ok">주 {feat.saveHoursPerWeek}h 단축 후보</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </article>
+          </div>
+        </section>
+      )}
+
+      {/* 2. Hermes 에이전트 관리 · 자가학습 오케스트레이션 계층 */}
+      {showSec('hermes') && (
+        <section className="arch-section" data-testid="arch-hermes-section" aria-label="Hermes 에이전트 관리 및 자가학습 오케스트레이션">
+          <div className="arch-sec-head">
+            <div>
+              <div className="arch-eyebrow">02 · AGENT ORCHESTRATION · NousResearch/hermes-agent</div>
+              <h3>Hermes 에이전트 관리 · 자가학습 오케스트레이션 (<code>hermes-manager.js</code>)</h3>
+              <p className="arch-lede">
+                Claude · Codex · Antigravity 3-툴과 PM 조사관 루프를 하나로 묶어 한도 폴백, 세션 JSONL 인계, 궤적 압축, 절차 스킬 자동 합성을 수행합니다.
+              </p>
+            </div>
+            <div className="arch-meta-strip">
+              <span className="arch-meta-kv">
+                <em>활성 엔진</em>
+                <b className="arch-num">
+                  {office?.hermes?.activeProvider || 'claude'}
+                  {office?.hermes?.fallbackReady !== false ? ' (codex 폴백)' : ''}
+                </b>
+              </span>
+              <span className="arch-meta-kv">
+                <em>합성 스킬</em>
+                <b className="arch-num">{office?.hermes?.skillsSynced ?? 97}건 SKILL.md</b>
+              </span>
+              <span className="arch-meta-kv">
+                <em>압축 평균</em>
+                <b className="arch-num">{office?.hermes?.avgCompressionPct ?? 91.1}%</b>
+              </span>
+            </div>
+          </div>
+
+          <div className="arch-flow-rail" role="region" aria-label="Hermes 에이전트 관리 흐름">
+            <span><b>1. 실행 라우팅</b> <code>selectRunner</code> (Claude ↔ Codex)</span>
+            <span className="arch-rail-sep" aria-hidden="true">→</span>
+            <span><b>2. 진행 임대 점검</b> <code>checkWatchdogLeases</code></span>
+            <span className="arch-rail-sep" aria-hidden="true">→</span>
+            <span><b>3. 중단 구조/인계</b> <code>Session Rescue → Lineage</code></span>
+            <span className="arch-rail-sep" aria-hidden="true">→</span>
+            <span><b>4. 궤적 압축</b> <code>Head/Tail 보호</code></span>
+            <span className="arch-rail-sep" aria-hidden="true">→</span>
+            <span><b>5. 스킬 자가합성</b> <code>97 CARD → SKILL.md</code></span>
+          </div>
+
+          <div className="arch-table-wrap">
+            <table className="arch-ledger-table">
+              <thead>
+                <tr>
+                  <th scope="col">핵심 모듈</th>
+                  <th scope="col">실측 지표</th>
+                  <th scope="col">소스 · 함수</th>
+                  <th scope="col">오케스트레이션 동작 명세</th>
+                </tr>
+              </thead>
+              <tbody>
+                {HERMES_MODULES.map((mod) => (
+                  <tr key={mod.id}>
+                    <td className="arch-cell-strong">{mod.title}</td>
+                    <td className="arch-num">
+                      <Badge className={`arch-tone-${mod.tone}`}>{mod.metric}</Badge>
+                    </td>
+                    <td><code className="arch-code">{mod.source}</code></td>
+                    <td>{mod.detail}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* 3. SQL 원장 & 네노바웹 3계층 데이터 스키마 구조도 */}
+      {showSec('schema') && (
+        <section className="arch-section" aria-label="SQL 원장 및 네노바웹 데이터 스키마 구조도">
+          <div className="arch-sec-head">
+            <div>
+              <div className="arch-eyebrow">03 · DATABASE &amp; DATA SCHEMA ARCHITECTURE</div>
+              <h3>SQL 원장 &amp; 네노바웹 3계층 데이터 스키마 구조도</h3>
+              <p className="arch-lede">
+                전산(nenova.exe)과 공유하는 <b>MSSQL 핵심 원장</b>, 웹 확장을 격리 저장하는 <b>Web* 전용 SQL 스키마</b>,
+                그리고 자가발전 분석·PM 관제가 사용하는 <b>data/runtime/*.json</b> 계층의 키·관계·불변 가드를 정리합니다.
+              </p>
+            </div>
+            <div className="arch-schema-filters" role="group" aria-label="스키마 계층 필터">
+              {[
+                ['all', '전체 구조'],
+                ['erp', '공유 MSSQL 원장'],
+                ['web', '웹 전용 MSSQL (Web*)'],
+                ['runtime', '런타임 JSON (data/runtime)'],
+                ['invariants', '불변 가드 규칙'],
+              ].map(([id, label]) => (
+                <ToggleChip
+                  key={id}
+                  on={schemaView === id}
+                  className={`arch-filter-chip ${schemaView === id ? 'is-active' : ''}`}
+                  onClick={() => setSchemaView(id)}
+                >
+                  {label}
+                </ToggleChip>
+              ))}
+            </div>
+          </div>
+
+          <div className="arch-schema-flow" role="region" aria-label="3계층 데이터 흐름 및 테이블 관계도">
+            <div className="arch-sf-box tone-accent">
+              <b>Tier 1 · 공유 MSSQL ERP 원장</b>
+              <code>Customer(CustKey) ──▶ OrderMaster(OrderMasterKey) ──▶ OrderDetail</code>
+              <code>Product(ProdKey) ────▶ ShipmentMaster(ShipmentKey) ─▶ ShipmentDetail(SdetailKey)</code>
+              <code>WarehouseMaster(WarehouseKey) ─▶ WarehouseDetail(WdetailKey) · FreightCost</code>
+              <small>모든 업무 쓰기는 OrderYear + OrderWeek + CustKey + ProdKey · dnSpy 정본 준수</small>
+            </div>
+            <div className="arch-sf-bridge" aria-hidden="true">
+              <span>읽기 참조(JOIN)</span>
+              <span>명시 계약 쓰기 ⇄</span>
+            </div>
+            <div className="arch-sf-box tone-ok">
+              <b>Tier 2 · 웹 전용 MSSQL (Web*)</b>
+              <code>WebProfitReport · WebCustoms* · WebStockPriceEvidence</code>
+              <code>WebRaumPnl / Item · WebSalesDefectDeduction* · WebChinaVolume*</code>
+              <code>WebPreShipment* · WebInvoice* · WebMappingStore · WebWorkflowReview</code>
+              <small>GET 시 assertWebSchemaContract 읽기 검증 전용(런타임 DDL 금지)</small>
+            </div>
+            <div className="arch-sf-bridge" aria-hidden="true">
+              <span>전산·웹 로그 대조</span>
+              <span>산출물 업로드 ⇄</span>
+            </div>
+            <div className="arch-sf-box tone-warn">
+              <b>Tier 3 · 런타임 JSON (data/runtime)</b>
+              <code>POST /api/work/feature-data-ingest (.tmp → renameSync)</code>
+              <code>workflows · proposals · simulations · storyboards · timesave</code>
+              <code>adoption-ledger.json · pm-office · live-pipelines · tech-radar</code>
+              <small>MSSQL 무관 원자적 파일 저장 · GET /api/my-work/feature · /api/pm/office 공급</small>
+            </div>
+          </div>
+
+          {schemaView !== 'invariants' && (
+            <div className="arch-schema-layers">
+              {visibleLayers.map((layer) => (
+                <div key={layer.id} className={`arch-tier-block tone-${layer.tone}`}>
+                  <div className="arch-tier-head">
+                    <div className="arch-tier-title-wrap">
+                      <Badge className={`arch-tone-${layer.tone}`}>{layer.badge}</Badge>
+                      <h4>{layer.title}</h4>
+                    </div>
+                    <div className="arch-layer-rule">{layer.rule}</div>
+                  </div>
+                  <div className="arch-table-wrap">
+                    <table className="arch-ledger-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">테이블 · 저장소</th>
+                          <th scope="col">Primary Key</th>
+                          <th scope="col">FK · 계약 연결</th>
+                          <th scope="col">핵심 컬럼 및 설계 가드</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {layer.tables.map((tbl) => (
+                          <tr key={tbl.name}>
+                            <td className="arch-cell-strong">{tbl.name}</td>
+                            <td><code className="arch-code">{tbl.pk}</code></td>
+                            <td><code className="arch-code">{tbl.fk}</code></td>
+                            <td>
+                              <div><code className="arch-code-plain">{tbl.cols}</code></div>
+                              <div className="arch-cell-note">{tbl.note}</div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {(schemaView === 'all' || schemaView === 'invariants') && (
+            <div className="arch-subledger">
+              <div className="arch-subledger-title">핵심 SQL · 스키마 불변 가드 (Invariants · docs/DB_STRUCTURE.md 기준)</div>
+              <div className="arch-table-wrap">
+                <table className="arch-ledger-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">가드 항목</th>
+                      <th scope="col">불변 계약 규칙</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {SCHEMA_INVARIANTS.map((item) => (
+                      <tr key={item.key}>
+                        <td className="arch-cell-strong">{item.key}</td>
+                        <td>{item.rule}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 4. 솔루션화 업무별 스키마 설계 청사진 & 실제 품목 데이터 예시 */}
+      {showSec('blueprints') && (
+        <section
+          className="arch-section"
+          data-testid="arch-solution-blueprints"
+          aria-label="솔루션화 업무별 스키마 설계 및 품목 예시"
+        >
+          <div className="arch-sec-head">
+            <div>
+              <div className="arch-eyebrow">04 · DOMAIN SCHEMA BLUEPRINTS &amp; REAL ITEM DATA</div>
+              <h3>솔루션화 업무별 스키마 설계 청사진 &amp; 실제 품목 데이터 예시</h3>
+              <p className="arch-lede">
+                화훼 ERP에서 검증된 기준정보·주문·수입·재고 테이블 설계를 타 업종 상용 솔루션으로도 바로 이식할 수 있도록
+                핵심 설계 원리·치환 공식·실제 품목 저장 예시를 업무별로 정리했습니다.
+              </p>
+            </div>
+            <Badge tone="plain">업종 치환 가능 4대 업무 모델</Badge>
+          </div>
+
+          <div className="arch-split-layout">
+            <div className="arch-split-rail" role="group" aria-label="솔루션화 업무별 스키마 시나리오 선택">
+              <div className="arch-rail-head">업무 청사진 모델</div>
+              {SOLUTION_BLUEPRINTS.map((bp) => {
+                const active = bp.id === activeBlueprint.id;
+                return (
+                  <SelectCard
+                    key={bp.id}
+                    on={active}
+                    pressed={active}
+                    className={`arch-rail-item tone-${bp.tone} ${active ? 'is-on' : ''}`}
+                    onClick={() => setBlueprintId(bp.id)}
+                  >
+                    <div className="arch-rail-top">
+                      <span className="arch-rail-no arch-num">BLUEPRINT {bp.no}</span>
+                      <Badge className="arch-tag-badge" tone={bp.tone === 'err' ? 'warn' : 'plain'}>{bp.badge}</Badge>
+                    </div>
+                    <div className="arch-rail-title">{bp.title}</div>
+                    <code className="arch-rail-code">{bp.tables}</code>
+                  </SelectCard>
+                );
+              })}
+            </div>
+
+            <div className="arch-split-pane" aria-live="polite">
+              <div className="arch-detail-head">
+                <div>
+                  <div className="arch-eyebrow">BLUEPRINT {activeBlueprint.no} · {activeBlueprint.badge}</div>
+                  <h4>{activeBlueprint.title}</h4>
+                </div>
+                <code className="arch-code">{activeBlueprint.tables}</code>
+              </div>
+
+              <div className="arch-spec-strip">
+                <div className="arch-spec-cell">
+                  <b>언제 이 스키마를 쓰는가</b>
+                  <span>{activeBlueprint.whenToUse}</span>
+                </div>
+                <div className="arch-spec-cell">
+                  <b>핵심 테이블 · 키 설계 공식</b>
+                  <span>{activeBlueprint.designRule}</span>
+                </div>
+                <div className="arch-spec-cell is-solution">
+                  <b>타 업종 솔루션 치환 공식</b>
+                  <span>{activeBlueprint.solutionMap}</span>
+                </div>
+              </div>
+
+              <div className="arch-subledger">
+                <div className="arch-subledger-title">
+                  실제 품목 데이터 저장 예시 — {activeBlueprint.no} · {activeBlueprint.title}
+                </div>
+                <div className="arch-table-wrap">
+                  <table className="arch-bp-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">품목 예시</th>
+                        <th scope="col">저장 테이블 · 키</th>
+                        <th scope="col">실제 컬럼 · 저장값 예시</th>
+                        <th scope="col">솔루션 설계 포인트</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeBlueprint.examples.map((ex, idx) => (
+                        <tr key={`${activeBlueprint.id}-${idx}`}>
+                          <td data-label="품목 예시" className="arch-bp-cell-item">{ex.item}</td>
+                          <td data-label="저장 테이블 · 키" className="arch-bp-cell-key"><code>{ex.tableKey}</code></td>
+                          <td data-label="실제 컬럼 · 저장값 예시" className="arch-bp-cell-val"><code>{ex.values}</code></td>
+                          <td data-label="솔루션 설계 포인트" className="arch-bp-cell-pt">{ex.point}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 5. 멀티 디바이스 작업화 솔루션 및 부류별 세션 설계 */}
+      {showSec('suite') && (
+        <section
+          className="arch-section"
+          data-testid="arch-device-suite-section"
+          aria-label="멀티 디바이스 작업화 솔루션 및 부류별 세션 설계"
+        >
+          <div className="arch-sec-head">
+            <div>
+              <div className="arch-eyebrow">05 · MULTI-DEVICE WORK SUITE · 5-SURFACE ARCHITECTURE</div>
+              <h3>멀티 디바이스 작업화 솔루션 · 부류별(세션 1~4) 통합 설계</h3>
+              <p className="arch-lede">
+                모바일 공용폰·PC 카톡·데스크톱 사이드카에서 올라오는 비정형 업무를 원장 직접 오염 없이
+                <code>WebDeviceWorkQueue</code> 승인 게이트로 연결하는 5-Surface 통합 구조입니다.
+              </p>
+            </div>
+            <div className="arch-meta-strip">
+              <Badge tone="plain">5-Surface · 4개 세션 선택 조회</Badge>
+              {!mineOnly && onSelectTab && (
+                <Button className="arch-jump-btn" variant="primary" size="sm" onClick={() => onSelectTab('suite-sim')}>
+                  통합 모션 시뮬레이션 열기 ↗
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="arch-flow-rail" role="region" aria-label="5-Surface 연결 흐름 바">
+            {DEVICE_SUITE_SURFACES.map((surface, idx) => (
+              <span key={surface.key} className="arch-surface-step">
+                <b>{surface.title}</b> {surface.detail}
+                {idx < DEVICE_SUITE_SURFACES.length - 1 && <span className="arch-rail-sep" aria-hidden="true">→</span>}
+              </span>
+            ))}
+          </div>
+
+          <div className="arch-split-layout">
+            <div className="arch-split-rail" role="group" aria-label="부류별 세션 설계 선택">
+              <div className="arch-rail-head">부류별 세션 (세션 1~4)</div>
+              {DEVICE_SUITE_SESSIONS.map((sess) => {
+                const active = sess.id === activeSuiteSession.id;
+                return (
+                  <SelectCard
+                    key={sess.id}
+                    on={active}
+                    pressed={active}
+                    className={`arch-rail-item tone-${sess.tone} ${active ? 'is-on' : ''}`}
+                    onClick={() => setSuiteSessionId(sess.id)}
+                  >
+                    <div className="arch-rail-top">
+                      <span className="arch-rail-no arch-num">{sess.no}</span>
+                      <Badge className="arch-tag-badge" tone={sess.tone === 'err' ? 'warn' : 'plain'}>{sess.badge}</Badge>
+                    </div>
+                    <div className="arch-rail-title">{sess.title}</div>
+                    <code className="arch-rail-code">{sess.stack}</code>
+                  </SelectCard>
+                );
+              })}
+            </div>
+
+            <article className="arch-split-pane" aria-live="polite">
+              <div className="arch-detail-head">
+                <div>
+                  <div className="arch-eyebrow">{activeSuiteSession.no} · {activeSuiteSession.badge}</div>
+                  <h4>{activeSuiteSession.title}</h4>
+                  <p>{activeSuiteSession.role}</p>
+                </div>
+                <code className="arch-code">{activeSuiteSession.stack}</code>
+              </div>
+
+              <div className="arch-quad-ledger">
+                <div className="arch-quad-cell">
+                  <b>핵심 구조</b>
+                  <span>{activeSuiteSession.coreArch}</span>
+                </div>
+                <div className="arch-quad-cell is-guard">
+                  <b>안전 가드</b>
+                  <span>{activeSuiteSession.safetyGuard}</span>
+                </div>
+                <div className="arch-quad-cell is-solution">
+                  <b>스키마 · 품목 작업화 예시</b>
+                  <span>{activeSuiteSession.schemaAndItems}</span>
+                </div>
+                <div className="arch-quad-cell">
+                  <b>도입 단계</b>
+                  <span>{activeSuiteSession.rolloutStage}</span>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+      )}
+
+      {/* 6. Rust 고효율 핫패스 자동 가속 계층 */}
+      {showSec('rust') && (
+        <section
+          className="arch-section"
+          data-testid="arch-rust-hotpaths"
+          aria-label="Rust 고효율 핫패스 자동 가속 계층"
+        >
+          <div className="arch-sec-head">
+            <div>
+              <div className="arch-eyebrow">06 · RUST NATIVE HOTPATHS · ZERO-RUNTIME SINGLE BINARY</div>
+              <h3>Rust 고효율 핫패스 자동 가속 계층 (<code>hermes-core.exe</code> · <code>nenova-device-sidecar.exe</code>)</h3>
+              <p className="arch-lede">
+                상주 사이드카·대용량 스풀 로그 압축·실시간 프레임 필터만 단일 정적 Rust 바이너리로 전환해 80MB 런타임 부담과 GC 멈춤을 제거합니다.
+              </p>
+            </div>
+            <div className="arch-meta-strip">
+              <Badge tone={office?.hermes?.rustAccelerator?.enabled ? 'ok' : 'plain'}>
+                {office?.hermes?.rustAccelerator?.enabled ? 'Rust 가속 활성' : 'Rust 핫패스 설계·적용'}
+              </Badge>
+              <Badge tone="plain">JS Fallback 자동 호환</Badge>
+            </div>
+          </div>
+
+          <div className="arch-table-wrap">
+            <table className="arch-ledger-table">
+              <thead>
+                <tr>
+                  <th scope="col">바이너리 · 핫패스 모듈</th>
+                  <th scope="col">규격 · 성능</th>
+                  <th scope="col">크레이트 · 경로</th>
+                  <th scope="col">처리 역할 및 무중단 Fallback</th>
+                </tr>
+              </thead>
+              <tbody>
+                {RUST_HOTPATHS.map((hp) => (
+                  <tr key={hp.id}>
+                    <td className="arch-cell-strong">{hp.title}</td>
+                    <td className="arch-num"><Badge className={`arch-tone-${hp.tone}`}>{hp.metric}</Badge></td>
+                    <td><code className="arch-code">{hp.source}</code></td>
+                    <td>{hp.detail}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="arch-rule-callout">
+            <b>과잉 설계 방지 경계 (Rust vs JS/TS)</b>
+            <span>
+              웹 UI(Next.js)·비즈니스 규칙·일반 SQL API는 생산성을 위해 JS/TS를 유지하고, CPU·상주 메모리·단일 배포 이득이 확실한 핫패스에만 Rust + JS Fallback을 자동 적용합니다.
+            </span>
+          </div>
+        </section>
+      )}
+
+      {/* 7. 솔루션 마스터 목표 & 현실적 가능 · 불가능 판정 기준표 */}
+      {showSec('vision') && (
+        <section
+          className="arch-section"
+          data-testid="arch-vision-feasibility"
+          aria-label="솔루션 마스터 목표 및 현실적 가능 · 불가능 판정 기준표"
+        >
+          <div className="arch-sec-head">
+            <div>
+              <div className="arch-eyebrow">07 · MASTER SOLUTION VISION &amp; FEASIBILITY MATRIX</div>
+              <h3>솔루션 마스터 목표 &amp; 현실적 가능 · 불가능 판정 기준표</h3>
+              <p className="arch-lede">
+                제품 비전(P0~P3 · NOWLINK Watch/Build/Team)의 단계별 통과 관문과, 실제 운영에서 검증한
+                즉시 자동 가능 · 조건부 가능 · 불가능(절대 금지) 경계 및 오늘 해결 전환 항목을 대조합니다.
+              </p>
+            </div>
+            <div className="arch-meta-strip">
+              <Badge tone="ok" className="arch-num">즉시 자동 {autoCount}건</Badge>
+              <Badge tone="warn" className="arch-num">조건부 {condCount}건</Badge>
+              <Badge tone="plain" className="arch-num">불가능·금지 {blockedCount}건</Badge>
+              <Badge tone="plain" className="arch-num">오늘 해결 {solvedTodayCount}건</Badge>
+            </div>
+          </div>
+
+          <div className="arch-split-layout">
+            <div className="arch-split-rail" role="group" aria-label="상용 솔루션 단계별 마스터 목표 선택">
+              <div className="arch-rail-head">솔루션 단계 (P0~P3)</div>
+              {VISION_MASTER_STAGES.map((stage) => {
+                const active = stage.id === activeVisionPhase.id;
+                return (
+                  <SelectCard
+                    key={stage.id}
+                    on={active}
+                    pressed={active}
+                    className={`arch-rail-item tone-${stage.tone} ${active ? 'is-on' : ''}`}
+                    onClick={() => setVisionPhaseId(stage.id)}
+                  >
+                    <div className="arch-rail-top">
+                      <span className="arch-rail-no arch-num">{stage.code}</span>
+                      <Badge className="arch-tag-badge" tone={stage.tone === 'ok' ? 'ok' : stage.tone === 'err' ? 'warn' : 'plain'}>
+                        관문 기준
+                      </Badge>
+                    </div>
+                    <div className="arch-rail-title">{stage.title}</div>
+                    <div className="arch-rail-sub arch-num">{stage.gate}</div>
+                  </SelectCard>
+                );
+              })}
+            </div>
+
+            <div className="arch-split-pane" aria-live="polite">
+              <div className="arch-detail-head">
+                <div>
+                  <div className="arch-eyebrow">{activeVisionPhase.code}</div>
+                  <h4>{activeVisionPhase.title}</h4>
+                </div>
+              </div>
+              <div className="arch-spec-strip">
+                <div className="arch-spec-cell">
+                  <b>선택 단계 관문 ({activeVisionPhase.code})</b>
+                  <span className="arch-num">{activeVisionPhase.gate}</span>
+                </div>
+                <div className="arch-spec-cell is-solution">
+                  <b>현재 확보 자산 · 실측 수치</b>
+                  <span className="arch-num">{activeVisionPhase.metrics}</span>
+                </div>
+                <div className="arch-spec-cell is-guard">
+                  <b>다음 우선 착수 과제</b>
+                  <span>{activeVisionPhase.nextAction}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="arch-vf-toolbar">
+            <div className="arch-subledger-title arch-num">
+              현실적 가능 · 조건부 · 불가능 판정 원장 ({filteredFeasibility.length} / {FEASIBILITY_ITEMS.length}건)
+            </div>
+            <div className="arch-schema-filters" role="group" aria-label="실현 가능성 분류 필터">
+              {FEASIBILITY_CATEGORIES.map(([id, label]) => (
+                <ToggleChip
+                  key={id}
+                  on={feasibilityFilter === id}
+                  className={`arch-filter-chip ${feasibilityFilter === id ? 'is-active' : ''}`}
+                  onClick={() => setFeasibilityFilter(id)}
+                >
+                  {label}
+                </ToggleChip>
+              ))}
+            </div>
+          </div>
+
+          <div className="arch-table-wrap">
+            <table className="arch-bp-table">
+              <thead>
+                <tr>
+                  <th scope="col">판정 · 영역</th>
+                  <th scope="col">대상 기능 · 기술 항목</th>
+                  <th scope="col">판정 근거 및 제약 한계</th>
+                  <th scope="col">허용 대안 · 안전 가드 · 출처</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredFeasibility.map((row) => {
+                  const badgeLabel = row.verdict === 'auto'
+                    ? '즉시 자동 가능'
+                    : row.verdict === 'conditional'
+                      ? '조건부 가능'
+                      : '불가능 · 금지';
+                  const badgeTone = row.verdict === 'auto'
+                    ? 'ok'
+                    : row.verdict === 'conditional'
+                      ? 'warn'
+                      : 'plain';
+                  return (
+                    <tr key={row.id} className={`arch-vf-row is-${row.verdict}`}>
+                      <td data-label="판정 · 영역" className="arch-vf-cell-status">
+                        <div className="arch-vf-badges">
+                          <Badge tone={badgeTone}>{badgeLabel}</Badge>
+                          {row.solvedToday && (
+                            <Badge tone="plain">오늘 해결 전환</Badge>
+                          )}
+                        </div>
+                        <div className="arch-vf-domain">{row.domain}</div>
+                      </td>
+                      <td data-label="대상 기능 · 기술 항목" className="arch-bp-cell-item">{row.title}</td>
+                      <td data-label="판정 근거 및 제약 한계" className="arch-vf-cell-reason">{row.reason}</td>
+                      <td data-label="허용 대안 · 안전 가드 · 출처" className="arch-bp-cell-pt">
+                        <div>{row.guardrail}</div>
+                        <code className="arch-vf-src">{row.source}</code>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <style jsx>{`
         .arch-root {
-          --arch-bg: var(--pm-bg, rgb(14, 16, 22));
-          --arch-surface: var(--pm-surface, rgb(18, 21, 28));
-          --arch-surface-2: var(--pm-surface2, rgb(24, 28, 38));
-          --arch-ink: var(--pm-ink, rgb(231, 234, 240));
-          --arch-muted: var(--pm-muted, rgb(152, 161, 178));
-          --arch-line: var(--pm-line, rgb(44, 51, 64));
-          --arch-accent: var(--pm-accent, rgb(88, 166, 255));
-          --arch-ok: var(--pm-ok, rgb(63, 185, 80));
-          --arch-warn: var(--pm-idle, rgb(227, 179, 65));
-          --arch-err: var(--pm-err, rgb(248, 81, 73));
+          --arch-bg: rgb(248, 250, 252);
+          --arch-surface: rgb(255, 255, 255);
+          --arch-surface-2: rgb(241, 245, 249);
+          --arch-ink: rgb(15, 23, 42);
+          --arch-muted: rgb(71, 85, 105);
+          --arch-line: rgb(226, 232, 240);
+          --arch-line-strong: rgb(203, 213, 225);
+          --arch-accent: rgb(29, 78, 216);
+          --arch-accent-tint: rgb(239, 246, 255);
+          --arch-ok: rgb(21, 128, 61);
+          --arch-ok-bg: rgb(220, 252, 231);
+          --arch-warn: rgb(180, 83, 9);
+          --arch-warn-bg: rgb(254, 243, 199);
+          --arch-err: rgb(185, 28, 28);
+          --arch-err-bg: rgb(254, 226, 226);
+          --pmk-primary: var(--arch-accent);
+          --pmk-primary-hover: rgb(30, 64, 175);
+          --pmk-primary-down: rgb(30, 58, 138);
+          --pmk-primary-ink: rgb(255, 255, 255);
+          --pmk-sec-bg: var(--arch-surface);
+          --pmk-sec-hover: var(--arch-surface-2);
+          --pmk-sec-ink: var(--arch-ink);
+          --pmk-sec-border: var(--arch-line-strong);
+          --pmk-chip-bg: var(--arch-surface);
+          --pmk-chip-ink: var(--arch-muted);
+          --pmk-on-bg: var(--arch-accent);
+          --pmk-on-ink: rgb(255, 255, 255);
+          --pmk-ink: var(--arch-ink);
+          --pmk-link: var(--arch-accent);
+          --pmk-tab-ink: var(--arch-muted);
+          --pmk-tab-on: var(--arch-accent);
+          --pmk-focus: var(--arch-accent);
+          --pmk-radius: 4px;
+          --pmk-shadow: none;
+          background: var(--arch-bg);
           color: var(--arch-ink);
-          padding: 18px 22px 36px;
+          padding: 18px 22px 44px;
           max-width: 1440px;
           margin: 0 auto;
           display: flex;
           flex-direction: column;
           gap: 16px;
+          box-sizing: border-box;
+        }
+        .arch-root * {
+          box-sizing: border-box;
         }
         .arch-root.is-compact {
-          padding: 12px 14px 18px;
+          padding: 14px 16px 20px;
           max-width: none;
           background: var(--arch-surface);
           border: 1px solid var(--arch-line);
-          border-radius: 10px;
+          border-radius: 6px;
           margin-bottom: 12px;
         }
+        .arch-num {
+          font-variant-numeric: tabular-nums;
+        }
+        .arch-root :global(.pmk) {
+          font: inherit;
+          cursor: pointer;
+          box-shadow: none;
+        }
+        .arch-root :global(.pmk:focus-visible) {
+          outline: 2px solid var(--arch-accent);
+          outline-offset: 2px;
+        }
+        .arch-root :global(.badge) {
+          display: inline-flex;
+          align-items: center;
+          border: 1px solid var(--arch-line-strong);
+          background: var(--arch-surface-2);
+          color: var(--arch-muted);
+          border-radius: 4px;
+          padding: 1px 7px;
+          font-size: 11px;
+          font-weight: 700;
+          line-height: 1.5;
+          white-space: nowrap;
+        }
+        .arch-root :global(.badge.ok),
+        .arch-root :global(.arch-tone-ok) {
+          background: var(--arch-ok-bg);
+          color: var(--arch-ok);
+          border-color: rgba(21, 128, 61, 0.28);
+        }
+        .arch-root :global(.badge.warn),
+        .arch-root :global(.arch-tone-warn) {
+          background: var(--arch-warn-bg);
+          color: var(--arch-warn);
+          border-color: rgba(180, 83, 9, 0.28);
+        }
+        .arch-root :global(.arch-tone-err) {
+          background: var(--arch-err-bg);
+          color: var(--arch-err);
+          border-color: rgba(185, 28, 28, 0.28);
+        }
+        .arch-root :global(.arch-tone-accent) {
+          background: var(--arch-accent-tint);
+          color: var(--arch-accent);
+          border-color: rgba(29, 78, 216, 0.28);
+        }
         .arch-head {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 16px;
-          flex-wrap: wrap;
           background: var(--arch-surface);
           border: 1px solid var(--arch-line);
-          border-radius: 12px;
+          border-radius: 6px;
+          display: flex;
+          flex-direction: column;
+        }
+        .arch-head-main {
           padding: 16px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
         }
         .arch-eyebrow {
-          font-size: 11px;
+          font-size: 10.5px;
           font-weight: 700;
           letter-spacing: 0.08em;
           color: var(--arch-accent);
@@ -1518,52 +1750,150 @@ export default function ArchFlowChart({
         .arch-head h2 {
           margin: 0 0 6px;
           font-size: 19px;
+          font-weight: 700;
+          letter-spacing: -0.01em;
           line-height: 1.35;
+          color: var(--arch-ink);
         }
         .arch-lede {
           margin: 0;
           color: var(--arch-muted);
           font-size: 13px;
           line-height: 1.55;
-          max-width: 78ch;
+          max-width: 84ch;
         }
-        .arch-kpis {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        .arch-kpi {
+        .arch-lede code,
+        .arch-sec-head h3 code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 11.5px;
           background: var(--arch-surface-2);
           border: 1px solid var(--arch-line);
-          border-radius: 10px;
-          padding: 8px 12px;
-          min-width: 145px;
+          border-radius: 3px;
+          padding: 1px 5px;
+          color: var(--arch-accent);
+        }
+        .arch-kpi-strip {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          border: 1px solid var(--arch-line);
+          border-radius: 4px;
+          background: var(--arch-surface-2);
+          overflow: hidden;
+        }
+        .arch-kpi-cell {
+          padding: 10px 14px;
+          border-right: 1px solid var(--arch-line);
           display: flex;
           flex-direction: column;
           gap: 2px;
         }
-        .arch-kpi span {
+        .arch-kpi-cell:last-child {
+          border-right: 0;
+        }
+        .arch-kpi-cell span {
           font-size: 11px;
+          font-weight: 600;
           color: var(--arch-muted);
         }
-        .arch-kpi b {
+        .arch-kpi-cell b {
           font-size: 15px;
+          font-weight: 700;
           color: var(--arch-ink);
+          line-height: 1.25;
         }
-        .arch-kpi small {
+        .arch-kpi-cell small {
           font-size: 11px;
           color: var(--arch-accent);
         }
-        .arch-diagram {
+        .arch-sec-nav {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px 12px;
+          padding: 10px 18px;
+          border-top: 1px solid var(--arch-line);
+          background: var(--arch-surface-2);
+        }
+        .arch-nav-lbl {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--arch-muted);
+          white-space: nowrap;
+        }
+        .arch-section {
           background: var(--arch-surface);
           border: 1px solid var(--arch-line);
-          border-radius: 12px;
-          padding: 16px 18px 12px;
+          border-radius: 6px;
+          padding: 16px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .arch-sec-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 12px;
+          flex-wrap: wrap;
+          border-bottom: 1px solid var(--arch-line);
+          padding-bottom: 10px;
+        }
+        .arch-sec-head h3 {
+          margin: 0 0 4px;
+          font-size: 16px;
+          font-weight: 700;
+          color: var(--arch-ink);
+        }
+        .arch-schema-filters {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        :global(.arch-filter-chip) {
+          background: var(--arch-surface) !important;
+          color: var(--arch-muted) !important;
+          border: 1px solid var(--arch-line-strong) !important;
+          border-radius: 4px !important;
+          padding: 4px 10px !important;
+          min-height: 28px !important;
+          font-size: 12px !important;
+          font-weight: 600 !important;
+        }
+        :global(.arch-filter-chip:hover) {
+          border-color: var(--arch-ink) !important;
+          color: var(--arch-ink) !important;
+        }
+        :global(.arch-filter-chip.is-active) {
+          background: var(--arch-accent-tint) !important;
+          color: var(--arch-accent) !important;
+          border-color: var(--arch-accent) !important;
+          font-weight: 700 !important;
+        }
+        :global(.arch-jump-btn) {
+          background: var(--arch-accent) !important;
+          color: rgb(255, 255, 255) !important;
+          border: 1px solid var(--arch-accent) !important;
+          border-radius: 4px !important;
+          padding: 6px 12px !important;
+          min-height: 30px !important;
+          font-size: 12px !important;
+          font-weight: 700 !important;
+          white-space: nowrap;
+        }
+        :global(.arch-jump-btn:hover) {
+          background: rgb(30, 64, 175) !important;
+          border-color: rgb(30, 64, 175) !important;
+        }
+        .arch-diagram {
+          background: var(--arch-surface-2);
+          border: 1px solid var(--arch-line);
+          border-radius: 4px;
+          padding: 14px 16px 10px;
         }
         .arch-nodes {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 10px;
+          gap: 8px;
           align-items: stretch;
         }
         .arch-node-wrap {
@@ -1575,121 +1905,135 @@ export default function ArchFlowChart({
         .arch-node {
           flex: 1 1 auto;
           min-width: 0;
-          background: var(--arch-surface-2);
-          border: 1px solid var(--arch-line);
-          border-top: 3px solid var(--arch-accent);
-          border-radius: 10px;
-          padding: 10px 12px;
+          background: var(--arch-surface);
+          border: 1px solid var(--arch-line-strong);
+          border-left: 3px solid var(--arch-accent);
+          border-radius: 4px;
+          padding: 9px 11px;
         }
-        .arch-node-evolve { border-top-color: var(--arch-warn); }
-        .arch-node-design { border-top-color: var(--arch-ok); }
-        .arch-node-deploy { border-top-color: var(--arch-err); }
+        .arch-node-evolve { border-left-color: var(--arch-warn); }
+        .arch-node-design { border-left-color: var(--arch-ok); }
+        .arch-node-deploy { border-left-color: var(--arch-ink); }
+        .arch-node-idx {
+          font-size: 10px;
+          font-weight: 700;
+          color: var(--arch-muted);
+          margin-bottom: 2px;
+        }
         .arch-node-title {
           font-weight: 700;
-          font-size: 13.5px;
-          margin-bottom: 4px;
+          font-size: 13px;
+          color: var(--arch-ink);
+          margin-bottom: 3px;
         }
         .arch-node-sub {
-          font-size: 12px;
+          font-size: 11.5px;
           color: var(--arch-muted);
           line-height: 1.4;
         }
         .arch-arrow {
           flex: 0 0 auto;
-          font-size: 18px;
+          font-size: 15px;
           font-weight: 700;
           color: var(--arch-accent);
         }
         .arch-feedback-svg {
           width: 100%;
-          height: 36px;
+          height: 30px;
           color: var(--arch-accent);
-          opacity: 0.85;
           display: block;
+          margin-top: 4px;
         }
         .arch-feedback-label {
           text-align: center;
-          font-size: 12px;
+          font-size: 11.5px;
           color: var(--arch-muted);
-          margin-top: -4px;
+          margin-top: -2px;
         }
-        .arch-loops-grid {
+        /* 좌우 스플릿 워크벤치 (카드 그리드 대신 단일 통합 레일 + 상세 패널) */
+        .arch-split-layout {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 10px;
+          grid-template-columns: 330px minmax(0, 1fr);
+          border: 1px solid var(--arch-line);
+          border-radius: 4px;
+          background: var(--arch-surface);
+          overflow: hidden;
         }
-        :global(.arch-loop-card) {
+        .arch-split-rail {
+          display: flex;
+          flex-direction: column;
+          border-right: 1px solid var(--arch-line);
+          background: var(--arch-surface-2);
+        }
+        .arch-rail-head {
+          padding: 8px 12px;
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--arch-muted);
+          border-bottom: 1px solid var(--arch-line);
+          letter-spacing: 0.03em;
+        }
+        :global(.arch-rail-item) {
           display: flex;
           flex-direction: column;
           align-items: stretch;
           text-align: left;
-          gap: 6px;
-          padding: 12px 14px !important;
-          border-radius: 10px !important;
-          border: 1px solid var(--arch-line) !important;
-          background: var(--arch-surface) !important;
+          gap: 4px;
+          width: 100%;
+          padding: 11px 12px !important;
+          border: 0 !important;
+          border-bottom: 1px solid var(--arch-line) !important;
+          border-left: 3px solid transparent !important;
+          border-radius: 0 !important;
+          background: transparent !important;
           color: var(--arch-ink) !important;
-          cursor: pointer;
           height: auto !important;
         }
-        :global(.arch-loop-card.is-on) {
-          background: var(--arch-surface-2) !important;
-          border-color: var(--arch-accent) !important;
-          box-shadow: 0 0 0 2px color-mix(in srgb, var(--arch-accent) 25%, transparent);
+        :global(.arch-rail-item:last-child) {
+          border-bottom: 0 !important;
         }
-        :global(.arch-loop-badge) {
-          font-size: 11px;
-          font-weight: 700;
-          padding: 1px 8px;
-          border-radius: 999px;
-          border: 1px solid var(--arch-line);
-          color: var(--arch-muted);
-          background: var(--arch-surface-2);
+        :global(.arch-rail-item:hover) {
+          background: var(--arch-surface) !important;
         }
-        :global(.arch-jump-btn) {
-          background: var(--arch-accent);
-          color: rgb(255, 255, 255);
-          border: 1px solid var(--arch-accent);
-          border-radius: 6px;
-          padding: 6px 12px;
-          font: inherit;
-          font-size: 12px;
-          font-weight: 700;
-          cursor: pointer;
-          white-space: nowrap;
+        :global(.arch-rail-item.is-on) {
+          background: var(--arch-surface) !important;
+          border-left-color: var(--arch-accent) !important;
         }
-        :global(.arch-jump-btn:hover) {
-          opacity: 0.92;
-        }
-        .arch-loop-top {
+        .arch-rail-top {
           display: flex;
           justify-content: space-between;
           align-items: center;
           gap: 6px;
         }
-        .arch-loop-no {
-          font-size: 11px;
+        .arch-rail-no {
+          font-size: 10.5px;
           font-weight: 700;
           color: var(--arch-accent);
         }
-        .arch-loop-title {
+        .arch-rail-title {
+          font-size: 13px;
           font-weight: 700;
-          font-size: 14px;
+          color: var(--arch-ink);
           line-height: 1.35;
         }
-        .arch-loop-summary {
-          font-size: 12px;
+        .arch-rail-sub {
+          font-size: 11.5px;
           color: var(--arch-muted);
-          line-height: 1.45;
+          line-height: 1.4;
         }
-        .arch-detail {
-          background: var(--arch-surface);
-          border: 1px solid var(--arch-line);
-          border-radius: 12px;
-          padding: 16px 18px;
+        .arch-rail-code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 10.5px;
+          color: var(--arch-accent);
+          overflow-wrap: anywhere;
+        }
+        .arch-split-pane {
+          padding: 14px 16px;
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 12px;
+          min-width: 0;
+          background: var(--arch-surface);
         }
         .arch-detail-head {
           display: flex;
@@ -1698,75 +2042,74 @@ export default function ArchFlowChart({
           gap: 12px;
           flex-wrap: wrap;
         }
-        .arch-detail-pill {
-          display: inline-block;
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--arch-accent);
-          border: 1px solid var(--arch-accent);
-          border-radius: 999px;
-          padding: 1px 9px;
-          margin-bottom: 6px;
-        }
-        .arch-detail-head h3 {
+        .arch-detail-head h4 {
           margin: 0 0 4px;
-          font-size: 16px;
+          font-size: 15.5px;
+          font-weight: 700;
+          color: var(--arch-ink);
         }
         .arch-detail-head p {
           margin: 0;
-          font-size: 13px;
+          font-size: 12.5px;
           color: var(--arch-muted);
           line-height: 1.5;
         }
-        .arch-spec-row {
+        .arch-spec-strip {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr);
-          gap: 8px;
-          align-items: center;
-        }
-        .arch-spec {
-          background: var(--arch-surface-2);
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           border: 1px solid var(--arch-line);
-          border-radius: 8px;
+          border-radius: 4px;
+          background: var(--arch-surface-2);
+          overflow: hidden;
+        }
+        .arch-spec-cell {
           padding: 10px 12px;
+          border-right: 1px solid var(--arch-line);
           display: flex;
           flex-direction: column;
           gap: 4px;
-          height: 100%;
-          box-sizing: border-box;
         }
-        .arch-spec b {
-          font-size: 11.5px;
+        .arch-spec-cell:last-child {
+          border-right: 0;
+        }
+        .arch-spec-cell b {
+          font-size: 11px;
+          font-weight: 700;
           color: var(--arch-accent);
         }
-        .arch-spec span {
-          font-size: 12.5px;
-          line-height: 1.45;
+        .arch-spec-cell.is-solution b {
+          color: var(--arch-ok);
         }
-        .arch-spec-arrow {
-          text-align: center;
-          font-size: 16px;
-          font-weight: 700;
-          color: var(--arch-muted);
+        .arch-spec-cell.is-guard b {
+          color: var(--arch-warn);
         }
-        .arch-compare {
+        .arch-spec-cell span {
+          font-size: 12px;
+          line-height: 1.48;
+          color: var(--arch-ink);
+        }
+        .arch-compare-strip {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr);
-          gap: 10px;
-          align-items: stretch;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          border: 1px solid var(--arch-line);
+          border-radius: 4px;
+          overflow: hidden;
         }
         .arch-col {
-          background: var(--arch-surface-2);
-          border: 1px solid var(--arch-line);
-          border-radius: 10px;
-          padding: 12px 14px;
+          padding: 11px 14px;
+          background: var(--arch-surface);
         }
-        .arch-before { border-left: 4px solid var(--arch-err); }
-        .arch-after { border-left: 4px solid var(--arch-ok); }
+        .arch-before {
+          border-right: 1px solid var(--arch-line);
+          border-top: 2px solid var(--arch-err);
+        }
+        .arch-after {
+          border-top: 2px solid var(--arch-ok);
+        }
         .arch-col-title {
-          font-size: 12px;
+          font-size: 11.5px;
           font-weight: 700;
-          margin-bottom: 8px;
+          margin-bottom: 7px;
         }
         .arch-before .arch-col-title { color: var(--arch-err); }
         .arch-after .arch-col-title { color: var(--arch-ok); }
@@ -1775,163 +2118,136 @@ export default function ArchFlowChart({
           padding-left: 18px;
           display: flex;
           flex-direction: column;
-          gap: 6px;
-          font-size: 12.5px;
+          gap: 5px;
+          font-size: 12px;
           line-height: 1.45;
-        }
-        .arch-col-mid {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 20px;
-          font-weight: 700;
-          color: var(--arch-accent);
-        }
-        .arch-live-features {
-          border-top: 1px solid var(--arch-line);
-          padding-top: 12px;
-        }
-        .arch-live-title {
-          font-size: 12px;
-          font-weight: 700;
-          color: var(--arch-muted);
-          margin-bottom: 8px;
-        }
-        .arch-live-chips {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-          gap: 8px;
-        }
-        .arch-live-chip {
-          background: var(--arch-surface-2);
-          border: 1px solid var(--arch-line);
-          border-radius: 8px;
-          padding: 8px 10px;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          font-size: 12px;
-        }
-        .arch-live-chip span {
-          color: var(--arch-ok);
-          font-size: 11.5px;
-        }
-        .arch-hermes {
-          background: var(--arch-surface);
-          border: 1px solid var(--arch-line);
-          border-radius: 12px;
-          padding: 16px 18px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .arch-hermes-badges {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          align-items: center;
-        }
-        .arch-hermes-flow {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 8px;
-          background: var(--arch-surface-2);
-          border: 1px solid var(--arch-line);
-          border-radius: 8px;
-          padding: 10px 12px;
-          font-size: 12px;
-        }
-        .arch-hermes-flow code, .arch-hermes-top code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
-          background: color-mix(in srgb, var(--arch-bg) 75%, transparent);
-          border: 1px solid var(--arch-line);
-          border-radius: 4px;
-          padding: 1px 5px;
-          color: var(--arch-accent);
-        }
-        .arch-hermes-arrow {
-          color: var(--arch-accent);
-          font-weight: 700;
-        }
-        .arch-hermes-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: 10px;
-        }
-        .arch-hermes-card {
-          background: var(--arch-surface-2);
-          border: 1px solid var(--arch-line);
-          border-top: 3px solid var(--arch-accent);
-          border-radius: 10px;
-          padding: 11px 13px;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .arch-hermes-card.tone-ok { border-top-color: var(--arch-ok); }
-        .arch-hermes-card.tone-warn { border-top-color: var(--arch-warn); }
-        .arch-hermes-card.tone-err { border-top-color: var(--arch-err); }
-        .arch-hermes-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 6px;
-          flex-wrap: wrap;
-        }
-        .arch-hermes-title {
-          font-weight: 700;
-          font-size: 13px;
           color: var(--arch-ink);
         }
-        .arch-hermes-desc {
-          margin: 0;
-          font-size: 12px;
-          line-height: 1.5;
-          color: var(--arch-muted);
-        }
-        .arch-schema {
-          background: var(--arch-surface);
-          border: 1px solid var(--arch-line);
-          border-radius: 12px;
-          padding: 16px 18px;
+        .arch-subledger {
           display: flex;
           flex-direction: column;
-          gap: 14px;
-        }
-        .arch-schema-head {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 14px;
-          flex-wrap: wrap;
-        }
-        .arch-schema-head h3 {
-          margin: 0 0 4px;
-          font-size: 17px;
-        }
-        .arch-schema-filters {
-          display: flex;
-          flex-wrap: wrap;
           gap: 6px;
         }
-        :global(.arch-filter-chip) {
-          background: var(--arch-surface-2) !important;
-          color: var(--arch-muted) !important;
-          border: 1px solid var(--arch-line) !important;
-          border-radius: 999px !important;
-          padding: 5px 11px !important;
-          font: inherit;
-          font-size: 12px !important;
-          font-weight: 600 !important;
-          cursor: pointer;
+        .arch-subledger-title {
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--arch-muted);
         }
-        :global(.arch-filter-chip.is-active) {
-          background: color-mix(in srgb, var(--arch-accent) 18%, var(--arch-surface)) !important;
-          color: var(--arch-ink) !important;
-          border-color: var(--arch-accent) !important;
-          font-weight: 700 !important;
+        .arch-meta-strip {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
+        }
+        .arch-meta-kv {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          border: 1px solid var(--arch-line);
+          background: var(--arch-surface-2);
+          border-radius: 4px;
+          padding: 3px 8px;
+          font-size: 11.5px;
+        }
+        .arch-meta-kv em {
+          font-style: normal;
+          color: var(--arch-muted);
+        }
+        .arch-meta-kv b {
+          color: var(--arch-ink);
+          font-weight: 700;
+        }
+        .arch-flow-rail {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px 8px;
+          background: var(--arch-surface-2);
+          border: 1px solid var(--arch-line);
+          border-radius: 4px;
+          padding: 9px 12px;
+          font-size: 12px;
+          color: var(--arch-ink);
+        }
+        .arch-flow-rail code,
+        .arch-code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 11px;
+          background: var(--arch-surface-2);
+          border: 1px solid var(--arch-line);
+          border-radius: 3px;
+          padding: 1px 5px;
+          color: var(--arch-accent);
+          overflow-wrap: anywhere;
+        }
+        .arch-code-plain {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 11px;
+          color: var(--arch-ink);
+          overflow-wrap: anywhere;
+        }
+        .arch-rail-sep {
+          color: var(--arch-accent);
+          font-weight: 700;
+          margin-left: 4px;
+        }
+        .arch-surface-step {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+        }
+        .arch-table-wrap {
+          overflow-x: auto;
+          border: 1px solid var(--arch-line);
+          border-radius: 4px;
+          background: var(--arch-surface);
+        }
+        .arch-ledger-table,
+        .arch-bp-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px;
+          line-height: 1.48;
+        }
+        .arch-ledger-table th,
+        .arch-ledger-table td,
+        .arch-bp-table th,
+        .arch-bp-table td {
+          text-align: left;
+          vertical-align: top;
+          padding: 9px 11px;
+          border-bottom: 1px solid var(--arch-line);
+          color: var(--arch-ink);
+        }
+        .arch-ledger-table th,
+        .arch-bp-table th {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--arch-muted);
+          background: var(--arch-surface-2);
+          white-space: nowrap;
+        }
+        .arch-ledger-table tbody tr:last-child td,
+        .arch-bp-table tbody tr:last-child td {
+          border-bottom: none;
+        }
+        .arch-cell-strong {
+          font-weight: 700;
+          color: var(--arch-ink);
+          min-width: 170px;
+        }
+        .arch-cell-muted {
+          color: var(--arch-muted);
+        }
+        .arch-cell-ok {
+          color: var(--arch-ok);
+          font-weight: 700;
+          white-space: nowrap;
+        }
+        .arch-cell-note {
+          margin-top: 4px;
+          font-size: 11.5px;
+          color: var(--arch-ok);
         }
         .arch-schema-flow {
           display: grid;
@@ -1942,8 +2258,8 @@ export default function ArchFlowChart({
         .arch-sf-box {
           background: var(--arch-surface-2);
           border: 1px solid var(--arch-line);
-          border-top: 3px solid var(--arch-accent);
-          border-radius: 10px;
+          border-top: 2px solid var(--arch-accent);
+          border-radius: 4px;
           padding: 10px 12px;
           display: flex;
           flex-direction: column;
@@ -1953,15 +2269,15 @@ export default function ArchFlowChart({
         .arch-sf-box.tone-ok { border-top-color: var(--arch-ok); }
         .arch-sf-box.tone-warn { border-top-color: var(--arch-warn); }
         .arch-sf-box b {
-          font-size: 13px;
+          font-size: 12.5px;
           color: var(--arch-ink);
         }
-        .arch-sf-box code, .arch-tbl code {
+        .arch-sf-box code {
           font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
           font-size: 11px;
-          background: color-mix(in srgb, var(--arch-bg) 75%, transparent);
+          background: var(--arch-surface);
           border: 1px solid var(--arch-line);
-          border-radius: 4px;
+          border-radius: 3px;
           padding: 2px 6px;
           color: var(--arch-accent);
           overflow-wrap: anywhere;
@@ -1988,225 +2304,103 @@ export default function ArchFlowChart({
           flex-direction: column;
           gap: 12px;
         }
-        .arch-layer-card {
-          background: var(--arch-surface-2);
+        .arch-tier-block {
           border: 1px solid var(--arch-line);
-          border-left: 4px solid var(--arch-accent);
-          border-radius: 10px;
-          padding: 12px 14px;
+          border-left: 3px solid var(--arch-accent);
+          border-radius: 4px;
+          padding: 11px 12px;
+          background: var(--arch-surface);
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 8px;
         }
-        .arch-layer-card.tone-ok { border-left-color: var(--arch-ok); }
-        .arch-layer-card.tone-warn { border-left-color: var(--arch-warn); }
-        .arch-layer-head {
+        .arch-tier-block.tone-ok { border-left-color: var(--arch-ok); }
+        .arch-tier-block.tone-warn { border-left-color: var(--arch-warn); }
+        .arch-tier-head {
           display: flex;
           justify-content: space-between;
-          align-items: flex-end;
+          align-items: baseline;
           gap: 10px;
           flex-wrap: wrap;
         }
-        .arch-layer-head h4 {
+        .arch-tier-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .arch-tier-head h4 {
           margin: 0;
-          font-size: 15px;
+          font-size: 14px;
+          color: var(--arch-ink);
         }
         .arch-layer-rule {
           font-size: 11.5px;
           color: var(--arch-muted);
         }
-        .arch-tables-grid {
+        .arch-quad-ledger {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 10px;
-        }
-        .arch-tbl {
-          background: var(--arch-surface);
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           border: 1px solid var(--arch-line);
-          border-radius: 8px;
+          border-radius: 4px;
+          overflow: hidden;
+        }
+        .arch-quad-cell {
           padding: 10px 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          font-size: 12px;
-        }
-        .arch-tbl-name {
-          font-weight: 700;
-          font-size: 13px;
-          color: var(--arch-ink);
-        }
-        .arch-tbl-keys {
+          border-right: 1px solid var(--arch-line);
+          border-bottom: 1px solid var(--arch-line);
           display: flex;
           flex-direction: column;
           gap: 4px;
-        }
-        .arch-tbl-keys b, .arch-tbl-cols b {
-          color: var(--arch-muted);
-          font-size: 11px;
-          margin-right: 4px;
-        }
-        .arch-tbl-cols {
-          line-height: 1.5;
-        }
-        .arch-tbl-note {
-          font-size: 11.5px;
-          color: var(--arch-ok);
-          line-height: 1.45;
-          margin-top: auto;
-          padding-top: 4px;
-          border-top: 1px dashed var(--arch-line);
-        }
-        .arch-invariants {
-          border-top: 1px solid var(--arch-line);
-          padding-top: 12px;
-        }
-        .arch-inv-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 8px;
-        }
-        .arch-inv-item {
           background: var(--arch-surface-2);
+        }
+        .arch-quad-cell:nth-child(2n) {
+          border-right: 0;
+        }
+        .arch-quad-cell:nth-last-child(-n + 2) {
+          border-bottom: 0;
+        }
+        .arch-quad-cell b {
+          font-size: 11px;
+          color: var(--arch-accent);
+        }
+        .arch-quad-cell.is-guard b { color: var(--arch-warn); }
+        .arch-quad-cell.is-solution b { color: var(--arch-ok); }
+        .arch-quad-cell span {
+          font-size: 12px;
+          line-height: 1.48;
+          color: var(--arch-ink);
+        }
+        .arch-rule-callout {
           border: 1px solid var(--arch-line);
-          border-radius: 8px;
-          padding: 8px 10px;
+          border-left: 3px solid var(--arch-ok);
+          background: var(--arch-surface-2);
+          border-radius: 4px;
+          padding: 9px 12px;
           display: flex;
           flex-direction: column;
           gap: 3px;
           font-size: 12px;
-          line-height: 1.45;
+          line-height: 1.48;
         }
-        .arch-inv-item b {
-          color: var(--arch-warn);
-          font-size: 12px;
-        }
-        .arch-blueprints {
-          background: var(--arch-surface);
-          border: 1px solid var(--arch-line);
-          border-radius: 12px;
-          padding: 16px 18px;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        .arch-bp-pill-wrap {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-        .arch-bp-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 10px;
-        }
-        :global(.arch-bp-card) {
-          border-top: 3px solid var(--arch-accent) !important;
-        }
-        :global(.arch-bp-card.tone-ok) {
-          border-top-color: var(--arch-ok) !important;
-        }
-        :global(.arch-bp-card.tone-warn) {
-          border-top-color: var(--arch-warn) !important;
-        }
-        :global(.arch-bp-card.tone-err) {
-          border-top-color: var(--arch-err) !important;
-        }
-        .arch-bp-tables {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
-          color: var(--arch-accent);
-          background: color-mix(in srgb, var(--arch-bg) 75%, transparent);
-          border: 1px solid var(--arch-line);
-          border-radius: 5px;
-          padding: 3px 6px;
-          overflow-wrap: anywhere;
-          margin-top: auto;
-        }
-        .arch-bp-detail {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .arch-bp-summary {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 10px;
-        }
-        .arch-bp-sum-card {
-          background: var(--arch-surface-2);
-          border: 1px solid var(--arch-line);
-          border-radius: 10px;
-          padding: 11px 13px;
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-        }
-        .arch-bp-sum-card b {
+        .arch-rule-callout b {
           font-size: 11.5px;
-          color: var(--arch-accent);
-        }
-        .arch-bp-sum-card.tone-solution {
-          border-left: 3px solid var(--arch-ok);
-        }
-        .arch-bp-sum-card.tone-solution b {
           color: var(--arch-ok);
-        }
-        .arch-bp-sum-card span {
-          font-size: 12.5px;
-          line-height: 1.5;
-          color: var(--arch-ink);
-        }
-        .arch-bp-examples {
-          border-top: 1px solid var(--arch-line);
-          padding-top: 12px;
-        }
-        .arch-bp-table-wrap {
-          overflow-x: auto;
-          border: 1px solid var(--arch-line);
-          border-radius: 10px;
-          background: var(--arch-surface-2);
-        }
-        .arch-bp-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 12.5px;
-          line-height: 1.5;
-        }
-        .arch-bp-table th,
-        .arch-bp-table td {
-          text-align: left;
-          vertical-align: top;
-          padding: 10px 12px;
-          border-bottom: 1px solid var(--arch-line);
-        }
-        .arch-bp-table th {
-          font-size: 11.5px;
-          font-weight: 700;
-          color: var(--arch-muted);
-          background: color-mix(in srgb, var(--arch-bg) 55%, var(--arch-surface-2));
-          white-space: nowrap;
-        }
-        .arch-bp-table tbody tr:last-child td {
-          border-bottom: none;
         }
         .arch-bp-cell-item {
           font-weight: 700;
           color: var(--arch-ink);
-          min-width: 170px;
+          min-width: 165px;
         }
-        .arch-bp-cell-key {
-          min-width: 185px;
-        }
-        .arch-bp-cell-val {
-          min-width: 260px;
-        }
+        .arch-bp-cell-key { min-width: 175px; }
+        .arch-bp-cell-val { min-width: 245px; }
         .arch-bp-cell-key code,
         .arch-bp-cell-val code {
           font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11.5px;
-          background: color-mix(in srgb, var(--arch-bg) 78%, transparent);
+          font-size: 11px;
+          background: var(--arch-surface-2);
           border: 1px solid var(--arch-line);
-          border-radius: 4px;
+          border-radius: 3px;
           padding: 2px 6px;
           color: var(--arch-accent);
           display: inline-block;
@@ -2217,94 +2411,7 @@ export default function ArchFlowChart({
         }
         .arch-bp-cell-pt {
           color: var(--arch-ok);
-          min-width: 200px;
-        }
-        .arch-device-suite {
-          background: var(--arch-surface);
-          border: 1px solid var(--arch-line);
-          border-radius: 12px;
-          padding: 16px 18px;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        .arch-suite-flow {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 8px;
-          background: var(--arch-surface-2);
-          border: 1px solid var(--arch-line);
-          border-radius: 10px;
-          padding: 10px 12px;
-        }
-        .arch-suite-flow-item {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex: 1 1 180px;
-          min-width: 0;
-        }
-        .arch-suite-flow-box {
-          flex: 1 1 auto;
-          min-width: 0;
-          background: var(--arch-surface);
-          border: 1px solid var(--arch-line);
-          border-top: 2px solid var(--arch-accent);
-          border-radius: 8px;
-          padding: 7px 10px;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .arch-suite-flow-box b {
-          font-size: 11px;
-          color: var(--arch-accent);
-        }
-        .arch-suite-flow-box span {
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--arch-ink);
-          line-height: 1.35;
-        }
-        .arch-suite-detail {
-          background: var(--arch-surface-2);
-          border: 1px solid var(--arch-line);
-          border-radius: 10px;
-          padding: 14px 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .arch-suite-detail h4 {
-          margin: 0 0 4px;
-          font-size: 15.5px;
-          color: var(--arch-ink);
-        }
-        .arch-suite-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
-        }
-        .arch-bp-sum-card.tone-guard {
-          border-left: 3px solid var(--arch-warn);
-        }
-        .arch-bp-sum-card.tone-guard b {
-          color: var(--arch-warn);
-        }
-        .arch-rust-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 10px;
-        }
-        .arch-vision-feasibility {
-          background: var(--arch-surface);
-          border: 1px solid var(--arch-line);
-          border-radius: 12px;
-          padding: 16px 18px;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
+          min-width: 195px;
         }
         .arch-vf-toolbar {
           display: flex;
@@ -2312,15 +2419,8 @@ export default function ArchFlowChart({
           align-items: center;
           gap: 10px;
           flex-wrap: wrap;
-          border-top: 1px solid var(--arch-line);
-          padding-top: 12px;
         }
-        .arch-vf-toolbar .arch-live-title {
-          margin-bottom: 0;
-        }
-        .arch-vf-cell-status {
-          min-width: 155px;
-        }
+        .arch-vf-cell-status { min-width: 150px; }
         .arch-vf-badges {
           display: flex;
           flex-wrap: wrap;
@@ -2333,7 +2433,7 @@ export default function ArchFlowChart({
           color: var(--arch-muted);
         }
         .arch-vf-cell-reason {
-          min-width: 240px;
+          min-width: 230px;
           color: var(--arch-ink);
         }
         .arch-vf-row.is-blocked .arch-bp-cell-item {
@@ -2343,38 +2443,54 @@ export default function ArchFlowChart({
           display: inline-block;
           margin-top: 4px;
           font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
+          font-size: 10.5px;
           color: var(--arch-accent);
-          background: color-mix(in srgb, var(--arch-bg) 75%, transparent);
+          background: var(--arch-surface-2);
           border: 1px solid var(--arch-line);
-          border-radius: 4px;
+          border-radius: 3px;
           padding: 1px 6px;
         }
-        @media (max-width: 1040px) {
-          .arch-nodes, .arch-loops-grid, .arch-bp-grid {
+        @media (prefers-reduced-motion: reduce) {
+          .arch-root * {
+            transition: none !important;
+            animation: none !important;
+          }
+        }
+        @media (max-width: 1080px) {
+          .arch-kpi-strip,
+          .arch-nodes {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
-          .arch-bp-summary, .arch-suite-grid, .arch-rust-grid {
-            grid-template-columns: 1fr;
+          .arch-kpi-cell {
+            border-bottom: 1px solid var(--arch-line);
           }
+          .arch-split-layout,
+          .arch-spec-strip,
+          .arch-compare-strip,
+          .arch-quad-ledger,
           .arch-schema-flow {
             grid-template-columns: 1fr;
+          }
+          .arch-split-rail,
+          .arch-before,
+          .arch-spec-cell,
+          .arch-quad-cell {
+            border-right: 0;
+            border-bottom: 1px solid var(--arch-line);
           }
           .arch-sf-bridge {
             flex-direction: row;
             justify-content: flex-start;
           }
-          .arch-arrow, .arch-feedback-svg {
-            display: none;
-          }
-          .arch-spec-row, .arch-compare {
-            grid-template-columns: 1fr;
-          }
-          .arch-spec-arrow, .arch-col-mid {
+          .arch-arrow,
+          .arch-feedback-svg {
             display: none;
           }
         }
         @media (max-width: 720px) {
+          .arch-root {
+            padding: 12px 14px 32px;
+          }
           .arch-bp-table thead {
             display: none;
           }
@@ -2384,7 +2500,6 @@ export default function ArchFlowChart({
           .arch-bp-table td {
             display: block;
             width: 100%;
-            box-sizing: border-box;
           }
           .arch-bp-table tr {
             border-bottom: 1px solid var(--arch-line);
@@ -2395,7 +2510,7 @@ export default function ArchFlowChart({
           }
           .arch-bp-table td {
             border-bottom: none;
-            padding: 4px 12px;
+            padding: 4px 10px;
             min-width: 0;
           }
           .arch-bp-table td::before {
@@ -2408,7 +2523,8 @@ export default function ArchFlowChart({
           }
         }
         @media (max-width: 640px) {
-          .arch-nodes, .arch-loops-grid, .arch-bp-grid {
+          .arch-kpi-strip,
+          .arch-nodes {
             grid-template-columns: 1fr;
           }
         }
