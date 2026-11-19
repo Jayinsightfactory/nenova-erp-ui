@@ -238,6 +238,7 @@ async function main() {
         port: appPort,
         path: req.url,
         method: req.method,
+        agent: false, // 로더가 남긴 keep-alive 소켓을 5초 뒤 재사용하다 ECONNRESET 나는 것을 막는다(브라우저 기동이 느린 PC 대비)
         headers: {
           ...req.headers,
           host: `127.0.0.1:${appPort}`,

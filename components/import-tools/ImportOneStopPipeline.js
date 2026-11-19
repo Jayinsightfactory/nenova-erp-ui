@@ -1,6 +1,8 @@
 import dynamic from 'next/dynamic';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WorkflowGuide from '../WorkflowGuide';
+import PurposeFlowTrace from '../work/PurposeFlowTrace';
+import { IMPORT_PIPELINE_PURPOSE, IMPORT_PIPELINE_TRACE_STEPS } from '../../lib/workPurposeTrace';
 import { createImportTeamStorage } from '../../lib/importTeamClient';
 import { getCurrentWeek, stepWeek } from '../../lib/useWeekInput';
 import { MENU_BACK_REQUEST_EVENT } from '../../lib/menuNavigationHistory';
@@ -387,6 +389,11 @@ export default function ImportOneStopPipeline({ userId = '', userName = '' }) {
   }
 
   const errorEntries = Object.entries(stateData.errors || {}).filter(([, msg]) => Boolean(msg));
+  // 목적 도면 — 지금 보는 단계(activeStep)는 실행 중, 조회 결과가 완료인 단계는 완료, 나머지는 대기
+  const traceSteps = IMPORT_PIPELINE_TRACE_STEPS.map((stepDef, index) => ({
+    ...stepDef,
+    status: activeStep === stepDef.id ? 'running' : (summary.steps[index]?.status === 'complete' ? 'done' : 'wait'),
+  }));
   const step1Info = summary.steps[0];
   const step2Info = summary.steps[1];
   const step3Info = summary.steps[2];
@@ -414,6 +421,16 @@ export default function ImportOneStopPipeline({ userId = '', userName = '' }) {
           <span className={styles.safeBadge}>원장 보호 · 수동 승인/복사 전용</span>
         </div>
       </header>
+
+      <PurposeFlowTrace
+        testId="import-purpose-trace"
+        title="수입 원스톱 실시간 트레이스 도면"
+        purpose={IMPORT_PIPELINE_PURPOSE}
+        steps={traceSteps}
+        activeId={activeStep}
+        busLabel="검수에서 원가 · 공유로 이어지는 흐름"
+        onSelectStep={(step) => goToStep(step.id)}
+      />
 
       <div className={styles.guideWrap}>
         <WorkflowGuide workflowId="import-onestop-pipeline" initialRole="수입부" />

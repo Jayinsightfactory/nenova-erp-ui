@@ -1,5 +1,16 @@
 # 작업 기록
 
+## 2026-11-19 업무 화면 목적 우선(Purpose-First) 실시간 트레이스 도면 — /work/manuals · /import/pipeline (feat/work-purpose-trace-motion)
+- 사장님 지시: "이런 형태로 모션·디자인이 업무도 PM도 들어갔으면 하고, 목적이 중요하게 표시되어야 한다" — 레퍼런스(실시간 아키텍처 트레이스 도면: 모눈 캔버스 + 01→02 단계 카드 + 직교 S-커브 배선 + 완료 초록/실행 중 파란 점선 흐름/대기 회색).
+- 신규 공용 components/work/PurposeFlowTrace.js: 최상단 「업무 핵심 목적 · PURPOSE」 콜아웃(17px 목적 + 15px 막는 문제·완료 결과물) → 캔버스 단계 카드(담당/표면 라벨·단계명 14.5px·단계 목적 1줄·기준/도구 토큰 박스·상태 배지). 완료=#059669 테두리+좌 4px 바+실선+패킷 점(SMIL animateMotion), 실행 중=#2563eb+#eff6ff+파란 점선(stroke-dashoffset), 대기=#cbd5e1. [AUTO 1x] 단추로 모션 재생/정지, prefers-reduced-motion 이면 자동 정지. 카드 클릭=onSelectStep(부모 활성 단계와 양방향).
+- ★배치는 순수 함수 layoutTrace(count,width) 가 계산(폭에서 열 수 4/3/2/1 균형 분할, 줄 사이 리턴 배선은 카드 아래 레인의 68% 높이, 레인 라벨은 같은 레인 위쪽 칸 6~32px). 라벨·배선·카드 겹침을 테스트가 폭 320~1920 × 1~8단계 전수 검사 — 참고 이미지처럼 라벨 위로 선이 지나가는 일 없음. 배경 모눈은 CSS 그라디언트가 아니라 SVG pattern.
+- 데이터 lib/workPurposeTrace.js: 4개 부서(수입부·영업지원·영업부·경영지원) 목적 + 대표 5단계(manualId=실제 매뉴얼 id, 테스트가 data/*handover*.json 과 대조), 설정 없는 부서는 order 순 대표 업무로 자동 구성. 수입 원스톱 목적 문구 + 4단계.
+- /work/manuals: 부서 칩 아래·검색줄 위에 도면 장착. 단계 클릭 → openSearchManual(dept, manualId) 로 그 매뉴얼을 열고, ?manual= 로 열린 매뉴얼은 도면의 실행 중 단계가 됨(ImportHandover 는 무수정 — 안에서 연 매뉴얼은 부모에 알리지 않으므로 마지막 클릭 단계 유지).
+- /import/pipeline: 헤더 아래·가이드 위에 도면. 지금 보는 단계(activeStep)=실행 중, 조회 결과 complete=완료, 나머지=대기. 카드 클릭=goToStep(1~4). 도면 버튼은 role=tab·#pipeline-tab-N 을 쓰지 않아 가이드 녹화 셀렉터와 충돌 없음. 가이드 sourceFiles 에 PurposeFlowTrace.js·lib/workPurposeTrace.js 추가 후 영상·해시 재생성.
+- ★함정: 도면 안 한글 토큰 상자는 monospace 만 쓰면 굴림체로 떨어짐 → Consolas,"Malgun Gothic" 순서. 테스트가 굴림 계열·그라디언트·이모지(화살표 ↔ 포함!)·금지어를 소스에서 검사.
+- 검증: purposeFlowTrace · workManualsUpgrade · importOneStopPipeline · test:workflow-guides · test:ui-layout · guard:erp-writes · test:pm 전수 PASS, next build --webpack 성공(락 사용).
+- 검색어: PurposeFlowTrace layoutTrace workPurposeTrace 목적 우선 트레이스 도면 /work/manuals /import/pipeline AUTO 1x 직교 S-커브
+
 ## 2026-11-05 /pm 3D(베타) 품질 총개선 — 체형 교정·클레이 렌더·배경 밀도 + 브리지 page/scroll (PR #1534)
 - 지시1 체형: build_char_kaykit.py 에 HEAD_K=0.55(머리 축소) + NECK_Z=1.17/BODY_K=1.1(목 아래 리그·메시 세로 스트레치, 머리는 평행이동) — 바인딩 전 변형이라 클립 9종 무손상, 머리:전신 1:2.2→≈1:4(레퍼런스 Kenney Protagonists·KayKit Rogue). sit 힙 0.48→0.52(SEAT_Y 보정), 서기 머리끝 1.94→1.78, CHAR_SCALE 0.95→1.1(화면 90~110px 테스트 유지). build_wearables.py 에도 같은 재매핑(head=이동+축소, chest=상승, hand=새 리그 좌표라 무수정) — 한쪽만 하면 착용물이 공중부양.
 - 지시2 렌더(QUALITY_RECIPE.md): 전역 shadowMap OFF→접지 블롭 평면, kit AO 베이크(신규 scripts/pm3d/bake_kit_ao.py: 모듈을 격자로 벌려 상호차폐 방지→공동 Smart UV 1024 아틀라스→Cycles AO→kit_ao.jpg+TEXCOORD_1 재export), 캐릭터 MeshToonMaterial 5단 파스텔 램프(NearestFilter), RoomEnvironment 1회+dispose, ACES 노출 1.05(1.2는 파스텔 날아감), 배경 그라데이션+fog+포말 띠. 토큰=PM3D.RENDER.
