@@ -9,7 +9,8 @@
     "scripts/test-estimate-ledger-alerts-sql.cjs",
     "package.json",
     "lib/estimateLedgerReview.js",
-    "components/EstimateLedgerReview.js"
+    "components/EstimateLedgerReview.js",
+    "lib/estimateLedgerCalendar.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -28,7 +29,7 @@
       "name": "READ_REVIEW",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "SELECT only: scoped source, history snapshots, current estimates and same customer/product other-number candidates. No registration, deletion or automatic match. Default collapsed."
+      "sideEffect": "SELECT only: scoped source, history snapshots, current estimates and same customer/product other-number candidates. No registration, deletion or automatic match. Default collapsed. Calendar uses recorded UpdatedAt/ChangedAt and year+major scoped WebSalesSnapshot TakenAt. No table ensure/creation. Excel download and ECOUNT input dates are unknown."
     }
   ],
   "crossYearFixture": {
@@ -37,7 +38,8 @@
   },
   "requiredTestFiles": [
     "__tests__/estimateLedgerAlerts.test.cjs",
-    "__tests__/estimateLedgerReview.test.cjs"
+    "__tests__/estimateLedgerReview.test.cjs",
+    "__tests__/estimateLedgerCalendar.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -53,7 +55,9 @@
       "ShipmentDetail",
       "ShipmentDate",
       "Estimate",
-      "WebSalesDefectDeduction"
+      "WebSalesDefectDeduction",
+      "WebSalesDefectDeductionHistory",
+      "WebSalesSnapshot"
     ]
   },
   "requiredCommands": [

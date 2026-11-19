@@ -1701,7 +1701,8 @@
       ],
       "sourceFiles": [
         "components/EstimateLedgerAlerts.js",
-        "components/EstimateLedgerReview.js"
+        "components/EstimateLedgerReview.js",
+        "lib/estimateLedgerCalendar.js"
       ],
       "requiredScenarios": [
         "open",
@@ -1726,12 +1727,12 @@
             {
               "scenario": "review",
               "title": "2. 신고와 견적 대조",
-              "seconds": 8.019
+              "seconds": 7.978
             },
             {
               "scenario": "close",
               "title": "3. 대조와 알림 닫기",
-              "seconds": 38.489
+              "seconds": 52.83
             }
           ]
         }

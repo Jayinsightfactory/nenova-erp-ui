@@ -20,7 +20,7 @@ test('original CREATE, current scope, negative other-number candidates and failu
  const source={DeductionKey:1,OrderYear:2025,CustKey:31,ProdKey:7,Quantity:10,SourceUnit:'단',EstimateKey:99};
  const history=[{HistoryKey:1,ActionType:'CREATE',AfterJson:'{"quantity":10,"orderYear":2025}'},{HistoryKey:2,ActionType:'REGISTER_ESTIMATE',AfterJson:'{"estimateKey":99}'}];
  const estimates=[{EstimateKey:99,InCurrentScope:1,Quantity:-10},{EstimateKey:100,InCurrentScope:1,Quantity:10},{EstimateKey:101,InCurrentScope:0,Quantity:-20}];let calls=0;
- const q=async(text,params)=>{calls++;assert.doesNotMatch(text,/\b(?:INSERT|UPDATE|DELETE|ALTER|CREATE|EXEC)\s/i);if(calls===1)return {recordset:[source]};if(calls===2)return {recordset:history};assert.equal(params.sourceYear.value,'2025');assert.equal(params.cust.value,31);return {recordset:estimates};};
+ const q=async(text,params)=>{calls++;if(text.includes('sys.columns'))return {recordset:[]};assert.doesNotMatch(text,/\b(?:INSERT|UPDATE|DELETE|ALTER|CREATE|EXEC)\s/i);if(calls===1)return {recordset:[source]};if(calls===2)return {recordset:history};assert.equal(params.sourceYear.value,'2025');assert.equal(params.cust.value,31);return {recordset:estimates};};
  const result=await m.readEstimateLedgerReview(q,sql,{year:2026,week:45,deductionKey:1});assert.equal(result.original.quantity,10);assert.equal(result.history.length,2);assert.equal(result.current.length,2);assert.deepEqual(result.candidates.map(e=>e.EstimateKey),[101]);
  await assert.rejects(()=>m.readEstimateLedgerReview(async()=>{throw Error('offline');},sql,{year:2026,week:45,deductionKey:1}),/offline/);
 });
