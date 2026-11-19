@@ -4004,3 +4004,11 @@ pm run test:canon 통과.
 4. 검증 상태: dnSpy CLI 및 운영 SELECT, 격리 실제 MSSQL 호주 단독·정상/오류 AWB·중복·교차연도, 콜롬비아 실제 PDF/재현 분석 8행·27박스·405단·8,100송이·USD 1,741.50 검증. 브라우저 직접 입고 및 모의 재조회 완료 확인, 브라우저/데스크톱 UA 같은 입고 재진입, Electron smoke 통과. 기존 직원 응답 복구 및 실제 Windows Excel 저장창은 미검증.
 5. 주의/잠금: 운영 입고·원가 데이터와 유료 분석 변경 없음. 기존 SQL writer, 재고·입고 readback, 원가 명시 승인 보존.
 검색어: invoice-only-receipt AWB optional packing receipt PENDING 18065 47-02 Desktop1.3.58 PR1875
+
+## 2026-11-19 · 통합 솔루션 시뮬레이션(`/my-work?tab=suite-sim`) Anti-AI Slop 에디토리얼 리디자인
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/suite-sim-anti-ai-slop` / `C:\Users\USER\nw-agy-clean-suitesim` (`Desktop 1.3.59`).
+2. 완료된 것: `components/work/SolutionSuiteSimulator.js` 전면 리디자인(다크 네온 `#0b1019`/`#38bdf8`/`#22d3ee`/`#a78bfa`·`linear-gradient`·`box-shadow` 글로우·`➔`·이모지 완전 제거, `#f8fafc`/`#ffffff`/`1px solid #e2e8f0`/`#0f172a`/`#475569` + 3색 의미 팔레트 `#1d4ed8`·`#047857`·`#b45309`·`tabular-nums` 적용, 상단 1px 컨트롤·고정폭 지표 바, 좌측 60% `[실시간 아키텍처 트레이스 도면·Archify·3D 블루프린트]` 뷰포트, 우측 40% 단계별 패킷 원장·실제 캡처 증빙·4-Invariant 안전 가드 인스펙터, 하단 5열 고밀도 실행 로그 테이블 구현), `__tests__/solutionSuiteSimulator.test.js` Anti-AI Slop 가드·SSR·3탭 검증 강화, `desktop/package.json`·`desktop/package-lock.json` `1.3.59` 패치 업.
+3. 남은 할 일: PR 생성, CI(`verify`·`installer`) 통과 확인, squash 머지 및 worktree/junction 정리.
+4. 검증 상태: `solutionSuiteSimulator.test.js`, `techRadarSimulator.test.js`, `test:ui-layout`, `test:workflow-guides`, `guard:erp-writes --changed-from origin/master`, `test:erp-manifest --changed-from origin/master`, `test:pm`, `desktopBootstrap.test.mjs`, `desktop/tests/menu.test.cjs`, `npm --prefix desktop test`(75건), `archFlowChart.test.js`, `npx next build --webpack` 실행 검증 완료. 실운영 브라우저/실DB는 미연결(SSR + 오프라인 API/목업 픽스처 검증).
+5. 주의/잠금: 병렬 세션 `UI-1`(`pages/pm.js`, `lib/pmThemes.js`, `config/workflow-guides.json`)·`UI-2`(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`)·`Layout.js`·`pages/api/**` 무수정 경계 유지. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·이모지·네온 hex·gradient 0건 유지.
+검색어: suite-sim SolutionSuiteSimulator Anti-AI-Slop SwissEngineering PalantirLight tabular-nums Desktop1.3.59
