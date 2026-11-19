@@ -9,3 +9,5 @@
 연도·차수·송장·농장과 박스·단·송이·단위환산·출고/견적수량·단가·금액 매핑 및 원자적 쓰기 순서는 기존 `invoiceReceiptWriter`를 유지한다. 설치된 nenova.exe의 `ExcelLoadingPackingList.MakeTempTable` 및 `InsertMaster`를 dnSpy CLI로 다시 확인했다. 입고 헤더 생성→`uspCreateWarehouse`→`uspStockCalculation` 순서이며 원문 박스/단/송이/가격을 별개로 읽는다. 운영 읽기 SQL에서 `OrderNo`, `GrossWeight`, `ChargeableWeight`, `FreightRateUSD`, `DocFeeUSD`의 NULL 허용과 2026/47-02 송장 18065의 8행·27박스·405단·8,100송이·1,741.50, 2025 동차수 동일 송장 없음 확인.
 
 인보이스 번호·발행일·통화·공급자·품목·수량·단가·금액은 원본/기존 검토 규칙의 적용을 받는다. AWB 첨부 없이 검증된 인보이스 입력은 등록할 수 있다. AWB를 반영할 때는 번호·포장 수·GW/CW·원문 지문 검증을 유지한다. 인보이스에 확인 가능한 값은 기존 매핑을 사용하며 미확인 중량·운임·수수료는 NULL, 원가 환율·공식·운임 배부는 별도 작업에서 확인한다. 출고 정책의 차수·품목 기준과 다른 연도 비교, 기존 중복 방지·원가 승인 하위 계약을 유지한다.
+
+운영 읽기 전용 근거는 같은 입고의 8개 품목에서 ViewOrder 15행, ViewShipment·DetailFix·ShipmentDate·ShipmentFarm·Estimate와 해당 대차수 활성 손익확정 0행이다. 실입고의 값을 변경하지 않았다. 격리 SQL에서 호주 무첨부/검증 첨부 저장값, 오첨부 차단, 타연도 주문 제외, 중복 재전송, PENDING 원가를 대조했고 콜롬비아 실제 PDF·재현 응답에서 수량/금액과 별도 원가 엑셀을 대조했다.

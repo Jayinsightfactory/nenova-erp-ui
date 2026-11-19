@@ -38,6 +38,10 @@ async function main() {
   const registry = JSON.parse(fs.readFileSync(path.join(root, 'config/workflow-guides.json'), 'utf8'));
   const workflow = registry.workflows.find(w => w.id === WORKFLOW);
   assert(workflow, 'config/workflow-guides.json 에 ' + WORKFLOW + ' 등록 필요');
+  if (!workflow.requiredScenarios.includes('receipt')) workflow.requiredScenarios.push('receipt');
+  for (const file of ['components/import-tools/InvoiceReceiptWorkbench.js', 'pages/import/tools.js']) {
+    if (!workflow.sourceFiles.includes(file)) workflow.sourceFiles.push(file);
+  }
   assert.equal(manual.steps.length, workflow.requiredScenarios.length, '글 단계 수 = 영상 시나리오 수');
 
   fs.mkdirSync(path.join(root, '.verify'), { recursive: true });
@@ -69,6 +73,8 @@ async function main() {
 
     const uploadHistory=createPackingHistoryFixture();
     let external = 0, parseCalls = 0, matchRevision = 0, matchValue = { version: 1, entries: [] }; const saved = [], otherApi = [];
+    let receiptDocument = null, receiptCommits = 0;
+    const baselineDigest = 'b'.repeat(64), warehouseKey = 91001;
     await page.setRequestInterception(true); page.on('request', req => {
       const u = new URL(req.url());
       if (!/^https?:$/.test(u.protocol)) return req.continue(); // data:/blob: 은 화면 안의 그림·내려받기 자료
@@ -80,7 +86,37 @@ async function main() {
       if(u.pathname==='/api/import/receipts/auto-fill')body=req.method()==='POST'
         ?{success:true,resolution:resolveInvoiceHeader(JSON.parse(req.postData()),farmChoices)}
         :{success:true,farms:rankedInvoiceFarmSources(farmChoices,u.searchParams.get('supplier'),'CO')};
-      if(req.method()==='GET'&&/^\/api\/import\/receipts\/[a-f0-9-]{36}$/.test(u.pathname)){status=404;body={success:false,code:'INVOICE_DOCUMENT_NOT_FOUND',error:'연습 문서 최초 준비'};}
+      if (u.pathname === '/api/import/receipts/drafts' && req.method() === 'POST') {
+        const submitted = JSON.parse(req.postData());
+        assert.equal(submitted.invoiceNo, INVOICE_NO);
+        assert.equal(submitted.lines.length, LINES.length);
+        assert.equal(submitted.reviewedMetadata?.amountConfirmation?.sourceSeen, true);
+        receiptDocument = { ...submitted, revision: 1, rowVersion: 'AAAAAAAAAAE=',
+          receiptStatus: 'DRAFT', costStatus: 'PENDING', history: [], operations: [] };
+        body = { success: true, document: receiptDocument };
+      }
+      if(req.method()==='GET'&&/^\/api\/import\/receipts\/[a-f0-9-]{36}$/.test(u.pathname)){
+        if (receiptDocument && u.pathname.endsWith(receiptDocument.documentId)) body = { success: true, document: receiptDocument };
+        else { status=404;body={success:false,code:'INVOICE_DOCUMENT_NOT_FOUND',error:'연습 문서 최초 준비'}; }
+      }
+      if (receiptDocument && u.pathname === `/api/import/receipts/${receiptDocument.documentId}/preview`) {
+        assert.equal(JSON.parse(req.postData()).revision, receiptDocument.revision);
+        body = { success: true, preview: { canCommit: true, baselineDigest, documentRevision: 1,
+          eligibility: { allowed: true }, issues: [], lines: receiptDocument.lines, reconciliation: { rows: [] },
+          cost: { status: 'PENDING' } } };
+      }
+      if (receiptDocument && u.pathname === `/api/import/receipts/${receiptDocument.documentId}/commit`) {
+        const approved = JSON.parse(req.postData());
+        assert.equal(approved.baselineDigest, baselineDigest);
+        assert.equal(approved.allowPendingCost, true);
+        assert.equal(++receiptCommits, 1);
+        const result = { status: 'SUCCESS', documentId: receiptDocument.documentId, revision: receiptDocument.revision, warehouseKey, costStatus: 'PENDING',
+          lineMappings: receiptDocument.lines.map((line,index) => ({ lineId: line.lineId, wdetailKey: 91100+index })) };
+        receiptDocument = { ...receiptDocument, receiptStatus: 'COMMITTED', warehouseKey,
+          operations: [{ operationId: approved.operationId, receiptPartId: approved.receiptPartId, documentId: result.documentId,
+            documentRevision: result.revision, status: 'COMMITTED', warehouseKey, result }] };
+        body = { success: true, result };
+      }
       if (u.pathname === '/api/import/tools/product-matches') {
         if (req.method() === 'POST') {
           const b = JSON.parse(req.postData() || '{}'); assert.equal(b.expectedRevision, matchRevision);
@@ -125,28 +161,26 @@ async function main() {
     };
     // 표가 화면 맨 아래쪽에 있으면 가운데로 올릴 수 없다 → 화면에 보이지 않는 여백만 아래에 둔다(내용·동작은 그대로).
     await page.evaluate(() => { const s = document.createElement('div'); s.id = 'guide-bottom-space'; s.style.cssText = 'height:700px;flex:none'; document.body.append(s); });
-    // 입고 작업 화면은 이 영상의 범위 밖이고 연습 자료로는 채울 수 없어, 녹화 중에는 그 영역의 내용을 비워 둔다.
-    if(!dry)await page.addStyleTag({ content: '#packing-receipt-stage > * { visibility: hidden !important; }' });
     // 확대 대상: 화면 y 70~900 안, 확대창(약 1370×590) 안에 들어와야 글자가 잘리지 않는다.
     // 읽는 칸은 마우스 표시를 칸 바깥 옆으로 비켜 두고, 누를 버튼은 글자가 없는 가장자리를 누른다.
-    const focus = async (selector, { click = false, fx = 0.9, fy = 0.5 } = {}) => {
+    const focus = async (selector, { click = false, fx = 0.9, fy = 0.5, staticHighlight = false } = {}) => {
       await page.$eval(selector, n => n.scrollIntoView({ block: 'center', behavior: 'instant' }));
       // 화면 가득 찬 줄은 글이 왼쪽에만 있어 중앙 확대 시 잘린다 → 녹화 중에만 칸 너비를 글 크기에 맞춘다(내용·동작은 그대로).
       const measure = () => page.$eval(selector, n => { const b = n.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; });
       let r = await measure();
       if (r.w > 1340) { await page.$eval(selector, n => { n.style.width = 'fit-content'; n.style.maxWidth = '100%'; }); r = await measure(); }
       const cy = r.y + r.h / 2;
-      if (!(cy >= 70 && cy <= 900)) await page.screenshot({ path: '.verify/packing-list-guide-error.png' });
-      assert(cy >= 70 && cy <= 900, `확대 범위 밖: ${selector} ${JSON.stringify(r)}`);
+      if (!staticHighlight && !(cy >= 70 && cy <= 900)) await page.screenshot({ path: '.verify/packing-list-guide-error.png' });
+      assert(cy >= 70 && cy <= (staticHighlight ? 1080 : 900), `캡처 범위 밖: ${selector} ${JSON.stringify(r)}`);
       assert(r.w <= 1340 && r.h <= 560, `확대창보다 큼(글자 잘림): ${selector} ${JSON.stringify(r)}`);
       const p = click ? { x: r.x + r.w * fx, y: r.y + r.h * fy } : (r.x + r.w + 40 < 1900 ? { x: r.x + r.w + 40, y: cy } : { x: Math.max(8, r.x - 40), y: cy });
       await page.mouse.move(p.x, p.y, { steps: 14 });
-      if (process.env.GUIDE_SHOTS) { // 점검용: 1.4배 확대창이 비추는 범위(약 1371×593)를 그대로 찍는다
+      if (process.env.GUIDE_SHOTS && !staticHighlight) { // 점검용: 1.4배 확대창이 비추는 범위(약 1371×593)를 그대로 찍는다
         const ww = 1371, hh = 593, cx = r.x + r.w / 2, x0 = Math.max(0, Math.min(1920 - ww, cx - ww / 2)), y0 = Math.max(70, Math.min(900 - hh, cy - hh / 2));
         fs.mkdirSync('.verify/zoom-check', { recursive: true });
         await page.screenshot({ path: `.verify/zoom-check/s${number}-${String(++shotNo).padStart(2, '0')}.png`, clip: { x: x0, y: y0, width: ww, height: hh } });
       }
-      if (rec) { await rec.pause(1000); await rec.focus(selector, number); }
+      if (rec) { await rec.pause(1000); await rec.focus(selector, number, { staticHighlight }); }
       return p;
     };
     const press = async (selector, opts = {}) => { const p = await focus(selector, { ...opts, click: true }); await page.mouse.click(p.x, p.y); };
@@ -243,8 +277,8 @@ async function main() {
     await new Promise(r => setTimeout(r, 500));
 
     // 5. 합계 확인하고 내려받기
-    await step('미확인 품종을 모두 연결하자 화면이 「입고 작업」으로 넘어갔습니다.\n엑셀을 받으려면 위쪽 「파일 · 품목 매칭」 탭으로 돌아옵니다.', 7000);
-    await press(await tag('backTab', 'button', '파일 · 품목 매칭'), { fx: 0.95, fy: 0.5 });
+    await step('미확인 품종을 모두 연결하자 화면이 「입고 작업」으로 넘어갔습니다.\n엑셀을 받으려면 위쪽 「인보이스 업로드」 탭으로 돌아옵니다.', 7000);
+    await press(await tag('backTab', 'button', '인보이스 업로드'), { fx: 0.95, fy: 0.5 });
     await downloadReady();
     if(dry){
       await page.click('[data-testid="packing-receipt-prepare"]');
@@ -254,7 +288,7 @@ async function main() {
       await page.click(`${group} button:last-child`);await page.waitForFunction(()=>document.querySelector('[data-testid="invoice-receipt-workbench"]')?.innerText.includes('선택된 농장: 연습 농장'));
       await page.click(`${group} button:first-child`);assert.equal(await page.$eval(`${group} button:first-child`,n=>n.getAttribute('aria-pressed')),'true');
       console.log('PASS actual workbench: source farm auto-fill and one-click change');
-      const uploadTab=await page.evaluateHandle(()=>[...document.querySelectorAll('nav[aria-label="인보이스 작업 선택"] button')].find(button=>button.innerText.includes('파일 · 품목 매칭')));await uploadTab.asElement().click();
+      const uploadTab=await page.evaluateHandle(()=>[...document.querySelectorAll('nav[aria-label="인보이스 작업 선택"] button')].find(button=>button.innerText.includes('인보이스 업로드')));await uploadTab.asElement().click();
     }
     await out();
     const text5 = await pageText();
@@ -286,17 +320,54 @@ async function main() {
     await say('엑셀이 브라우저의 다운로드 폴더에 저장되었습니다.\n저장된 엑셀은 열어서 인보이스 합계와 한 번 더 대조합니다.', 2500);
     await out(5000);
 
+    await step('인보이스의 품목·금액이 맞으면 입고 작업 탭에서 저장합니다.\n엑셀 제출과 AWB 첨부는 입고 저장에 필요하지 않습니다.', 4100);
+    await press(await tag('receiptTab', 'button', '입고 작업'), { fx: 0.92 });
+    await page.waitForSelector('[data-testid="invoice-receipt-workbench"]', { visible: true });
+    await out(1250);
+    await press(await tag('registerReceipt', 'button', '입고 업로드(저장)'));
+    const amount = '[aria-label="입고 금액 대조"]';
+    await page.waitForSelector(amount + ' input[type="checkbox"]:enabled', { visible: true, timeout: 30000 });
+    await say('원본과 입고 예정 품목·수량·통화·총금액을 대조합니다.\n합계가 맞으면 확인을 체크하고 입고 등록을 누릅니다.', 3200);
+    await press(await tag('receiptAmountCheck', 'css', amount + ' input[type="checkbox"]'), { fx: 0.6, staticHighlight: true });
+    await out(1100);
+    page.once('popup', popup => { void popup?.close().catch(() => {}); });
+    await press(await tag('confirmReceipt', 'button', '대조 확인 · 입고 등록'), { staticHighlight: true });
+    await page.bringToFront();
+    await page.waitForFunction(() => {
+      const workbench = document.querySelector('[data-testid="invoice-receipt-workbench"]');
+      return workbench?.textContent.includes('입고 업로드 완료 · 입고번호 91001')
+        && [...workbench.querySelectorAll('a')].some(link => new URL(link.href).searchParams.get('warehouseKey') === '91001'
+          && link.textContent.trim() === '입고관리에서 확인');
+    }, { polling: 100, timeout: 12000 }).catch(async error => {
+      console.error('Receipt fixture calls', otherApi.filter(entry => entry.includes('/receipts/')));
+      console.error('Receipt UI notices', await page.$$eval('[role="alert"]', nodes => nodes.map(node => node.innerText).filter(Boolean)));
+      console.error('Receipt view', await page.$eval('[data-testid="invoice-receipt-workbench"]', node => node.textContent.slice(0, 3500)));
+      throw error;
+    });
+    assert.equal(receiptCommits, 1);
+    assert(!otherApi.some(entry => /native-cost|cost-revisions/.test(entry)));
+    console.log('PASS actual upload UI: one direct receipt save, matching readback, no cost request');
+    await out(1300);
+    await say('입고 업로드 완료와 입고번호를 확인합니다.\n도착원가는 필요할 때 같은 입고에서 따로 작업합니다.', 3600);
+    await focus(await tag('receiptComplete', 'css', '[data-testid="invoice-receipt-workbench"] a[href*="warehouseKey=91001"]'));
+    await out(2200);
+
     assert.equal(number, manual.steps.length);
     assert.equal(external, 0, '외부 요청 0');
     // 입고 작업 화면이 스스로 부르는 API 도 모두 연습용 가짜 응답으로 막혀 있다(서버·DB 로 나가지 않음).
     console.log('가로챈 기타 import API:', [...new Set(otherApi)].join(', ') || '없음');
-    await page.screenshot({ path: '.verify/packing-list-guide-result.png' });
+    if (dry) await page.screenshot({ path: '.verify/packing-list-guide-result.png' });
     if (rec) {
       await rec.pause(2500);
+      console.log('Encoding six-step invoice receipt guide');
       const result = await rec.stop();
       const guide = workflow.guides.find(g => g.id === GUIDE);
       guide.status = 'ready'; guide.chapters = result.chapters;
-      fs.writeFileSync(path.join(root, 'config/workflow-guides.json'), JSON.stringify(registry, null, 2) + '\n');
+      guide.title = '인보이스 대조부터 입고 완료까지';
+      const latest = JSON.parse(fs.readFileSync(path.join(root, 'config/workflow-guides.json'), 'utf8'));
+      latest.workflows[latest.workflows.findIndex(item => item.id === WORKFLOW)] = workflow;
+      fs.writeFileSync(path.join(root, '.verify/packing-list-recorded-registry.json'), JSON.stringify(workflow, null, 2) + '\n');
+      fs.writeFileSync(path.join(root, 'config/workflow-guides.json'), JSON.stringify(latest, null, 2) + '\n');
     }
     console.log(JSON.stringify({ passed: true, dry, steps: number, blockedExternalRequests: external, parseCalls, linkedSaves: saved.length, savedKeys: saved.map(s => s.prodKey), download: file, productionWrites: 0 }));
   } finally { await browser?.close(); server.kill(); }
