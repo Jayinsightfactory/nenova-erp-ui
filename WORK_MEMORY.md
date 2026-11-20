@@ -4225,3 +4225,11 @@ pm run test:canon 통과.
 4. 검증: 이전 기준 ERP manifest 235·write scope 1 PASS, 이번 병합본 재검증 필요. Electron CLI로 격리 창·메뉴 검색·탭 열기 성공, 사용자 운영 Chrome과 겹침 확인 시 입력 중단. 저장·전달 미실행, 실카톡 매칭 미확인.
 5. 주의: 실제 주문·농장 전송 쓰기 금지. 개인 로컬 저장 확인과 팀 원본 보관·전달 기록은 서로 대체하지 않음. 개인 원문·엑셀 증거는 비공개.
 검색어: PR1883 1902 native completed immutable-archive videoWaivers 46-02 user-desktop-occupied
+
+### 2026-11-20 · 사용자 가이드 제외 후 릴리스 검증 체크포인트
+1. 위치: fix/country-po-1119 / PR #1883 / Desktop 1.3.71 후보.
+2. 완료: 격리 46-02 API·디스크 테스트에서 ERP 동일 건 100+20→120(140 아님), 팀 전달 표시 후 별도 저장소 인스턴스에서 원본 SHA-256·바이트·셀 재조회 일치.
+3. 남음: 실제 네이티브 저장·격리 전달 및 앱 재시작, 카카오 원문 접근과 동일 사건 연결, 정식 CI 및 Cafe24·Desktop 배포.
+4. 검증: 최신 master 통합 후 대상 99 PASS·1 skip, 이후 46-02 저장소 재열기 테스트 2 PASS. 78개 기존 ERP/Excel 셀, 2,563단 + 80송이 일치는 실제 카카오 매칭 증거 아님.
+5. 주의: 운영 Chrome이 겹쳐 입력 중지 후 격리 fixture/앱 PID만 정리. 운영 쓰기·실발송·유료분석 0. 가이드 자산은 master 그대로, PedidosTool만 공식 해시 한정 예외.
+검색어: country-po 9cd8296d release-build native-save user-occupied approved-guide-waiver

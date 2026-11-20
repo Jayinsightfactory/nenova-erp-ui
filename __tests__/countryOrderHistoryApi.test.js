@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import XLSX from 'xlsx-js-style';
@@ -10,11 +11,11 @@ import {buildCountryOrderMatrix} from '../lib/countryOrderSource.js';
 import {generateCompactCountryOrders} from '../lib/countryOrderPresentation.js';
 import {serializePedidosWorkbook} from '../lib/importPedidos.js';
 import {withCountryOrderEta} from '../lib/countryOrderEta.js';
-const scope={country:'China',year:2026,orderWeek:'47-02'};
+const scope={country:'China',year:2026,orderWeek:'46-02'};
 const selection={sourceKey:'message-1/row-1',custKey:'1',prodKey:2};
 const item={...selection,scope,rawCustomer:'업체1',rawProduct:'ROSE Test',unit:'bunches',quantity:20,at:'2026-11-19T02:00:00Z',kind:'addition'};
 const options={farms:['Melody','CLOUD'],split:false,selected:{}};
-const matrix=qty=>buildCountryOrderMatrix({success:true,readOnly:true,scope:{country:'China',year:2026,majorWeek:'47',counName:'중국',scopeKey:'China/2026/47'},subweeks:[{orderWeek:'47-02'}],rows:[{OrderYear:2026,OrderWeek:'47-02',CustKey:1,CustName:'업체1',CustOrderCode:'CL1',ProdKey:2,ProdName:'ROSE Test',FlowerName:'장미',CounName:'중국',OutUnit:'단',OutQuantity:qty,BunchQuantity:qty,SteamQuantity:qty*10,SourceRowCount:1}]},'47-02');
+const matrix=qty=>buildCountryOrderMatrix({success:true,readOnly:true,scope:{...scope,majorWeek:'46',counName:'중국',scopeKey:'China/2026/46'},subweeks:[{orderWeek:scope.orderWeek}],rows:[{OrderYear:scope.year,OrderWeek:scope.orderWeek,CustKey:1,CustName:'업체1',CustOrderCode:'CL1',ProdKey:2,ProdName:'ROSE Test',FlowerName:'장미',CounName:'중국',OutUnit:'단',OutQuantity:qty,BunchQuantity:qty,SteamQuantity:qty*10,SourceRowCount:1}]},scope.orderWeek);
 function response(){return {code:0,headers:{},setHeader(k,v){this.headers[k]=v;},status(n){this.code=n;return this;},json(v){this.body=v;return this;},send(v){this.body=v;return this;},end(){return this;}};}
 test('actual generator→immutable XLSX→explicit delivery→reopen same bytes; 100/120/partial and no paid/ERP writers',async()=>{
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'country-order-api-test-'));
@@ -37,6 +38,14 @@ test('actual generator→immutable XLSX→explicit delivery→reopen same bytes;
     assert.equal(reopened.headers['X-Content-SHA256'],saved.sha256);
     qty=120;queriedAt='2026-11-19T03:00:00Z';events=[{id:'history:1',scope,custKey:1,prodKey:2,unit:'bunches',orderDetailKey:9,kind:'increase',before:100,after:120,at:'2026-11-19T02:05:00Z'}];
     const registered=await call({action:'preview',scope,selections:[selection],decisions:{[item.sourceKey]:{mode:'registered',eventId:'history:1'}},options});assert.equal(registered.code,200);assert.equal(registered.body.outputs[0].totalQuantity,120);
+    // New store instance represents reopening on the same durable storage;
+    // the old original must not be regenerated using the now-changed ERP.
+    const restarted=createCountryOrderHistoryStore({root});
+    const original=await restarted.read(scope,saved.id);
+    assert.ok(original.deliveredAt);assert.equal(createHash('sha256').update(original.bytes).digest('hex'),saved.sha256);
+    assert.ok(original.bytes.equals(bytes));
+    const originalWorkbook=XLSX.read(Buffer.from(original.bytes),{type:'buffer'});
+    assert.deepEqual(XLSX.utils.sheet_to_json(originalWorkbook.Sheets[originalWorkbook.SheetNames[0]],{header:1}),cells);
     qty=100;events=[];
     const fresh=await call({action:'preview',scope,selections:[selection,selection],decisions:{[item.sourceKey]:{mode:'new',confirmed:true}},options});assert.equal(fresh.code,200);assert.equal(fresh.body.outputs[0].totalQuantity,120);assert.equal(fresh.body.reconciliation.duplicateCount,1);
     qty=110;assert.equal((await call({action:'preview',scope,selections:[selection],decisions:{[item.sourceKey]:{mode:'new',confirmed:true}},options})).code,409);
