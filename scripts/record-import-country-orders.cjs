@@ -163,7 +163,12 @@ async function main(){
       assert.equal(await page.$eval(recovered+' input[type="checkbox"]',n=>n.checked),false);await page.focus(recovered+' input[type="checkbox"]');await page.keyboard.press('Space');
       assert((await page.$eval('.kakao-table',n=>n.textContent)).includes('연습화이트'));console.log('PASS manual recovered order edit and include');
     }
-    await rec.pause(2800);await rec.unfocus();
+    if(id==='match-total'||id==='match-source'){
+      await rec.pause(700);await rec.unfocus();
+      const paired=id==='match-total'?'.kakao-contributions':parsed;
+      await page.$eval(paired,node=>node.scrollIntoView({block:'center'}));
+      await rec.pause(5200);
+    }else{await rec.pause(2800);await rec.unfocus();}
     if(id==='match-source'||id==='recover')await page.click(detailClose);
   }
   assert((await page.$eval('.kakao-table',el=>el.textContent)).includes('주광 1, 미우 2, 일신 1'));
