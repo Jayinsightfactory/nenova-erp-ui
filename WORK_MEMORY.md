@@ -4162,6 +4162,21 @@ pm run test:canon 통과.
 4. 검증: 수신 테스트와 전체 GitHub CI 결과를 확인하고 배포한다. 실제 직원 세션은 미검증.
 5. 주의: 기존 등록자·SHA 중복·파일 열람 권한을 유지한다. 원장·데스크톱 메뉴와 운영 파일 변경 없음.
 
+## 2026-11-20 · 엑셀 분배 선택 합산 구현·대상 검증
+1. 작업 위치: nenova-erp-ui / codex/additive-distribution-1120 / C:/Users/USER/.codex/worktrees/e8d3/nw-cdx-additive-distribution-1120 / PR 생성 전.
+2. 완료된 것: ADD/표시셀한정 FINAL 공통 계약, preview/HMAC/preflight/잠금저장 연결, 기존농장+명시추가/미배정 표시, FINAL·추가분 원본보존 수량·수식cache·파일종류 메타, 체크·2개radio·완료후중복승인/형식잠금, 파일선택 자동생성 해제. Desktop 기존메뉴 합산검색 연결/1.3.69 준비.
+3. 남은 할 일: 나머지 기존회귀, 실제 저장함수 격리fixture·합성Chrome, 장미/인쇄 최종검증, 가이드 갱신, desktop·전체게이트/PR/CI/배포 및 Drive보관·정리.
+4. 검증 상태: 새7그룹(단위/교차연도/중복셀/strict stale/서명/농장/다운로드/소수표시)·실페이지React7·기존매칭/서명/복구48 PASS. 실카네이션Excel 3→13/SUM130→140/잔량59→49, 추가본3/130/59 확인. 나머지는 미검증. 운영SELECT 선검증·실제dnSpy CLI 기록은 docs/plans/additive-distribution-2026-11-20.md.
+5. 주의/잠금: 이 worktree의 합산 관련 lib/API/UI/tests/desktop/guide는 본 세션 수정중. 다른 세션은 별도 worktree 사용. 사용자 원본 Excel 덮어쓰기0, 운영 원장 쓰기0, 타 Excel 프로세스 조작0. PR1780 자동다운로드해제와 일부 중복되지만 임의 머지/종료하지 않음.
+검색어: additive-distribution-1120 합산13 추가3 표시셀FINAL strictstale 미배정 DecimalExcel1.3.69
+
+## 2026-11-20 — 합산 대상 검증·실물 Excel 단계 완료
+검색어: additive-distribution-1120, 기존 분배 합산, FINAL ADDITIONAL, native-qa.json
+1. 작업 위치: nenova-erp-ui / codex/additive-distribution-1120 / C:/Users/USER/.codex/worktrees/e8d3/nw-cdx-additive-distribution-1120 / PR 미생성.
+2. 완료: 합산 체크·다운로드 두 형식·검증 무효화·저장 후 스냅샷 고정, 기존 농장 보존/부분 미배정, 원본 OOXML 수량·캐시 보존 구현. 실제 저장 코어 경쟁 차단 2회귀 추가.
+3. 남은 할 일: 가이드 촬영/레지스트리, desktop 스모크, readonly downstream 기록, 전체 게이트, PR/CI/병합/Cafe24/운영 조회 스모크, Drive 보관 후 정리.
+4. 검증: 신규 계약7그룹·실제 React7·기존48·기존 최종상태 회귀·실제 저장 진입점 경쟁2 통과. 격리 Chrome 1920/390 및 완료후 재승인 차단 통과. 두 원본 양식 native Excel 추가3/최종13, 합계·잔량 재계산/그림/행열/A3 1페이지/여백·비율 동일. 최종 전체 게이트·운영 배포는 미검증. 운영 DB 쓰기0.
+5. 주의/잠금: 이 worktree 전체는 본 세션 작업 중. 원본 두 Excel 읽기 전용 보존. .verify/ 및 외부 proof 폴더는 Drive 업로드 확인 전 삭제 금지. 이전 nw-farm-roundtrip-proof 미push 기록 보존.
 
 ## 2026-11-20 — 입고 원장 일반 차수·전체 차수 검색
 1. 작업 위치: nenova-erp-ui / codex/incoming-round-search-1120 / C:/Users/USER/Documents/Codex/nw-cdx-incoming-round-1120 / 입고 원장 차수 검색 PR.
@@ -4190,6 +4205,13 @@ pm run test:canon 통과.
 4. 검증: Chrome 1572/1920/390, 실제 브라우저 XLSX 생성 및 비교, 페이지 새로고침 이후 비교 유지, 저장 완료/취소, 7개국 양식·dnSpy·쓰기·canon, 실제 Electron 격리 다운로드 완료/취소/bytes, 실제 2개 가이드 해시 통과.
 5. 주의: 개인·원문 채팅·업체별 값·XLSX 원본 바이트는 저장하지 않음. 업무 파일은 사용자 저장 위치. 원장/API 변경 없음. 팀 공유 이력 초안 #1883 무수정. 버전 1.3.68은 #1901이 사용하여 1.3.69.
 
+## 2026-11-20 — 합산 최종 로컬 게이트 완료 / PR 준비
+검색어: additive-distribution-1120, Desktop 1.3.71, shipment-additive-import, ERP resume
+1. 작업 위치: nenova-erp-ui / codex/additive-distribution-1120 / C:/Users/USER/.codex/worktrees/e8d3/nw-cdx-additive-distribution-1120 / PR 생성 예정.
+2. 완료: 합산/두 다운로드/농장 보존·미배정·stale/최종 왕복/원본 인쇄 보존 구현, 실제 Chrome·native Excel·신규6단계/기존 가이드 검증. 최신 master e45071093 병합, Desktop1.3.71로 정리. 생성 개발이력 캐시는 최신 master 원본 보존(빌드 시 재생성).
+3. 남은 할 일: PR 생성·CI 전체 성공·squash·Cafe24 배포·운영 조회/다운로드 스모크, installer release, Drive 검증 보관 후 임시 자료/worktree 정리.
+4. 검증: ERP 전체 선행/전반부 통과 후 계약 enum 수정·중단지점 이후 순차 전부 통과, dnSpy·manifest236·쓰기 가드·production build 통과. 기존 농장11/물량표39, React/신규계약16, native 두 양식A3 1페이지, Desktop77/Electron 및 신규가이드 재생/자막/키보드1920·390 통과. 운영 DB 쓰기0; 실제 MSSQL 저장 성공 시험은 미실행(격리 SQL adapter/실제 save core stale 검증).
+5. 주의/잠금: 본 worktree 계속 작업 중. node_modules와 desktop/node_modules는 정본 junction이므로 종료 시 junction만 먼저 제거. 사용자 원본/이전 worktree 보존. proof·.verify 파일은 지정 Drive 업로드 readback 전 삭제 금지.
 ## 2026-11-20 — 42-02 카네이션 확정/취소 BUSY 자동복구 검토본 동기화
 1. 작업 위치: nenova-erp-ui / codex/confirm-busy-1120 / C:/Users/USER/nw-cdx-confirm-busy-1120 / PR 생성 예정.
 2. 완료된 것: lib/pendingStockRecovery.cjs가 기존 atomic CALC와 승인된 cursor 정렬본의 정확한 hash만 허용. 실행 직전 선택 hash 재검증, capability 거부 시 retry 미소비, 검토본 hash별 예산으로 이전 불일치 소진 복구. 테스트·계약·EXE golden·ERP 가드 근거 갱신.

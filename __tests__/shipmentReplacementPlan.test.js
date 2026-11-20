@@ -70,7 +70,7 @@ test('production route enforces plan before apply; transaction checks coverage b
   const api = readFileSync(new URL('../pages/api/shipment/distribute-import-apply.js', import.meta.url), 'utf8');
   const core = readFileSync(new URL('../lib/shipmentImport.js', import.meta.url), 'utf8');
   assert(api.indexOf('assertReplacementPlan(req.body') < api.indexOf('await applyImportRows('));
-  assert.match(api, /fullCategoryReplacement: true/);
+  assert.match(api, /fullCategoryReplacement: distributionMode==='REPLACE'/);
   assert.match(core, /withTransaction\(async \(tQ\) => \{\s*if \(fullCategoryReplacement\) await assertReplacementCoverage/);
-  assert.match(core, /if \(fixCheck.fixBlocked\) \{\s*if \(fullCategoryReplacement\) throw/);
+  assert.match(core, /if \(fixCheck.fixBlocked\) \{\s*if \(fullCategoryReplacement \|\| importMode!=='REPLACE'\) throw/);
 });
