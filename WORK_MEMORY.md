@@ -4197,3 +4197,16 @@ pm run test:canon 통과.
 4. 검증 상태: 실제 dnSpy FormShipmentDistribution FIX/CANCEL→별도 CALC0 확인. 구현 전 SELECT 43-01 CANCEL WAIT_CALC/V2ready, 2026/42-02 카네이션99행확정·2025동일82행 보존기준. 운영 정의 전체 diff는 승인 정렬 1줄뿐. 표적89개 및 실제 격리 SQL(rollback/동시/중단/교차연도/RUN보존) PASS. dnSpy/manifest234/write guard PASS. 전체 ERP contract(pre36/본체144/post27 명령) 및 production webpack build exit0.
 5. 주의/잠금: 운영 SP DDL/직접 gate clear/RUN회수/확정 토글/재고조정 없음. StockMaster/ProductStock만 기존 native CALC 범위; 주문·출고·날짜·농장·입고·현재고·이력·견적·매출 12개 보호원장 기준선 확보. SQL fixture 원래 중지 상태 복원. 새 UI/URL/메뉴 없음, 데스크톱 기존 기능 재사용. 다른 세션 파일 무수정.
 검색어: confirm-busy 42-02 카네이션 43-01 WAIT_CALC CANCEL 010c947 24a415 pendingStockRecovery approved-cursor-order retry-fingerprint
+
+
+## 2026-11-20 — 미리보기 닫기 시 열었던 업무 탭 복귀
+1. 작업 위치: nenova-erp-ui / codex/desktop-popup-opener-1120 / C:/Users/USER/Documents/Codex/nw-cdx-popup-opener-1120 / PR 생성 전.
+2. 완료된 것: 새 창을 업무 탭으로 열 때 실제 opener ID 저장, 활성 사용자 팝업 종료 시 원래 창과 탭 복원. 다른 탭과 작업 입력은 보존. 관련 Electron 스모크 추가.
+3. 남은 할 일: 회사 Drive 원본 보관 최종 확인, PR·CI·공개 피드. PC 재시작 없음.
+4. 검증 상태: desktop 단위 77개, 실제 Electron 새 창 opener/종료 복귀 스모크 통과. 실제 직원 PC 설치 미검증.
+5. 주의/잠금: 동일 원장의 차수 검색 PR #1901은 Cafe24 44651535818 및 운영 일반/세부 차수 실제 Chrome, Desktop 1.3.68 최신 피드 공개 검증 완료. 회사 Drive 가이드 두 역할 6파일 보관. 공유 의존성 junction 제거는 Windows 도구 정책에 의해 차단되어 해당 worktree는 보존.
+검색어: 미리보기 닫기 여는 탭 복귀 popup opener focus PedidosTool desktop incoming round 1.3.68
+
+실제 1920x1080 가이드 14단계, 554.5초, 자막 76개 실제 프레임 정렬 및 카메라 구간 검증.
+
+2026-11-20 최종 업스트림 통합: Desktop 1.3.71, 546.1초·자막 76개 정확한 프레임 정렬, PR #1903. 운영 공개는 CI 후 확인.

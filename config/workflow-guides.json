@@ -2154,67 +2154,67 @@
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 46.939
+              "seconds": 49.986
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 56.725
+              "seconds": 59.784
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 85.224
+              "seconds": 89.797
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 107.651
+              "seconds": 111.597
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 136.346
+              "seconds": 140.398
             },
             {
               "scenario": "calendar",
               "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 145.961
+              "seconds": 150.199
             },
             {
               "scenario": "independent",
               "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 170.537
+              "seconds": 175.998
             },
             {
               "scenario": "company",
               "title": "9. 공통 일정 제목과 색상 등록·수정",
-              "seconds": 182.282
+              "seconds": 187.988
             },
             {
               "scenario": "collapse",
               "title": "10. 월간·주간 접기와 홈 다시 열기",
-              "seconds": 258.603
+              "seconds": 265.588
             },
             {
               "scenario": "weekly",
               "title": "11. 주차별 일정과 다음 주 차수 확인",
-              "seconds": 291.88
+              "seconds": 300.18
             },
             {
               "scenario": "holidays",
               "title": "12. 국가를 선택해 공휴일 표시",
-              "seconds": 385.121
+              "seconds": 401.199
             },
             {
               "scenario": "eventDetails",
               "title": "13. 저장된 일정의 상세 정보 수정",
-              "seconds": 428.512
+              "seconds": 444.18
             },
             {
               "scenario": "personalDetails",
               "title": "14. 개인 업무도 달력에서 바로 수정",
-              "seconds": 496.252
+              "seconds": 511.797
             }
           ]
         }
