@@ -41,7 +41,7 @@
   "actions": [
     {
       "name": "IMPORT_ROOM_ADDITIONS_REVIEW",
-      "source": "fixed nenovakakao 수입방 raw archive GET using the existing server credential and original external identity; review sheet provides customer aliases only; latest two actual order dates via latestImportFeed through Seoul today (up to 31 days), with later cancellation review; newest first. Only additions and separate relevant review requests returned; explicit additions with independently parsed complete rows and unit-missing rows include only the complete rows by default; cancellation, conditional and unparsed quantity messages remain in review; general messages removed. Raw quantities override empty/incorrect pre-extracted quantity cells; CL/customer headings local to message. Same sender/time/normalized text dedup, deleted snapshot review. Totals segregate year/week/country/category/product/unit; unnamed quantities included. Totals in center; original cards in the right pane start collapsed; matching expands only contributing originals; cycle and group filters retain the active choice when compact; quantities and units do not wrap. Browser edits and clipboard only; no ERP access. Optional audit=1 returns excluded/duplicate source text and reasons to the same authenticated role; default excludes it. Count reconciliation covers collected archive messages only, not source Kakao completeness. Manual review is browser-local and unchecked until verified.",
+      "source": "fixed nenovakakao 수입방 raw archive GET using the existing server credential and original external identity; review sheet provides customer aliases only; latest two actual order dates via latestImportFeed through Seoul today (up to 31 days), with later cancellation review. Only additions and relevant review requests returned; general messages removed. Explicit additions with independently parsed complete rows and unit-missing rows include only the complete rows by default. Raw quantities override empty/incorrect pre-extracted quantity cells. Standalone company plus numeric CL is the customer heading for subsequent lines within the same message. Same sender/time/normalized text dedup, deleted snapshot review; sender field is withheld. Totals segregate year/week/country/category/product/unit; unnamed quantities included. Totals in center; chronological plain-text originals on the right show newest first and support room/date/body search and all/add/cancel filters. Matching shows only contributing originals or totals. Cancellation amounts cannot be included in the farm totals. Other review is browser-local and unchecked until verified. Browser edits and clipboard only; no ERP access. Optional audit=1 returns excluded/duplicate source text and reasons to the same authenticated role. Count reconciliation covers collected archive messages only, not source Kakao completeness.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "warehouseDetail": "preserve",
@@ -95,7 +95,8 @@
     "chinaFarmSplit": "Browser-only recipient names default Melody/CLOUD; splitting is off by default, preserving the existing Melody filename, searchable from existing master GET or directly editable. No FarmKey is invented and no ShipmentFarm write occurs. ProdKey-selected products including all customers go to farm1, all remaining products go to farm2; same/blank names and stale product selections block generation. Scope changes clear selection. prepareCountryOrderPedidos validates the complete matrix before any partition.",
     "eta": "Download opens ETA calendar plus manual YYYY-MM-DD input. Country-specific default is stored only in this browser localStorage. First default is PeriodDay cycle start+7 days; saved date follows actual cycle-start difference, same-major subweek unchanged, no guessed ISO calendar. Excel A1 appends Semana <week>차 ETA (year,month,day EnglishWeekday); title row minimum60pt prevents clipping. Other cells/formulas/source workbook preserved.",
     "noOmission": "No partial blocked-product export. Excluded rows are rejected by adapter. Hidden active orders block download until administrator resolves native linkage; no ERP repair is performed.",
-    "viewport": "1920x1080 CSS pixels at 100%; page vertical scroll, matrix horizontal scroll only",
+    "viewport": "1920x1080 CSS pixels at 100%; page vertical scroll and matrix horizontal scroll; right Kakao source list has a bounded vertical scroll to match the requested feed",
+    "importSourceFeed": "Default all relevant requests, newest timestamp first. Search and request type filter only the right source list and leave farm grouping and totals independent. Matching a total clears source search/type, then shows its contributing originals; choosing an original narrows visible totals only. Product editors start closed. Cancellation source rows cannot be checked into totals.",
     "calendar": "PeriodDay is authoritative; Asia/Seoul today main cycle plus next five, exactly six unique contiguous Thursday rows; no ISO week or 52-week fallback",
     "request": "country plus explicit year and majorWeek; year/majorWeek omitted together means current cycle; partial or outside-six scope rejected",
     "sqlScope": "v.OrderYear=@orderYear AND v.OrderWeek LIKE @majorWeek + '-%' and exact server country mapping",
@@ -211,6 +212,7 @@
   },
   "positiveFixtures": [
     "Extracted Moon Light quantities 1+2+1 automatically total 4 with customer remarks; unnamed customer quantities count; matching customer repeated quantities combine; comma-formatted quantities normalize",
+    "Standalone company plus CL23 establishes context for 70 and 24 stems, with no CL quantity row; normalized CL spelling resolves a confirmed alias",
     "Import room defaults to the latest two distinct dates containing actual orders on or before Seoul today, not calendar today/yesterday; includes subsequent cancellation review; newest first and cross-year safe",
     "Asia/Seoul 2026-10-15 resolves to ERP 2026/42 and buttons 42 through 47",
     "Netherlands OutUnit bunch with stored BunchQuantity 20 and SteamQuantity 200 exports 200 stems",
@@ -225,6 +227,7 @@
   ],
   "nearMissFixtures": [
     "Explicit unchecked persists after refresh; blank product, zero, negative, cancelled/superseded/archived and cancellation text do not automatically count; units never mix",
+    "A product containing CL23 followed by a quantity and valid unit remains a product; cancellation of the same customer/item/unit/year/week prevents automatic aggregation",
     "Import room skips quiet dates and future messages, retains original source year, limits orders to latest two order dates and preserves subsequent cancellation review; no orders exposes latest collected timestamp",
     "same OrderWeek in prior year is excluded",
     "positive Netherlands bunch quantity with SteamQuantity zero remains visible and blocks export",
