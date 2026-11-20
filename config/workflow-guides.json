@@ -1272,117 +1272,117 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.018
+              "seconds": 0.027
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.626
+              "seconds": 10.72
             },
             {
               "scenario": "week",
               "title": "3. 세부차수와 미리보기",
-              "seconds": 21.173
+              "seconds": 21.29
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 38.033
+              "seconds": 38.151
             },
             {
               "scenario": "download",
               "title": "5. 다운로드·ETA 창 열기",
-              "seconds": 49.094
+              "seconds": 49.322
             },
             {
               "scenario": "eta",
               "title": "6. ETA 날짜 입력",
-              "seconds": 59.697
+              "seconds": 59.926
             },
             {
               "scenario": "save",
               "title": "7. ETA 저장·엑셀 다운로드",
-              "seconds": 71.952
+              "seconds": 72.731
             },
             {
               "scenario": "china",
               "title": "8. 중국 발주 조회",
-              "seconds": 82.88
+              "seconds": 85.061
             },
             {
               "scenario": "china-cycle",
               "title": "9. 중국 차수 선택",
-              "seconds": 93.454
+              "seconds": 95.689
             },
             {
               "scenario": "china-week",
               "title": "10. 중국 세부차수와 미리보기",
-              "seconds": 104.016
+              "seconds": 106.298
             },
             {
               "scenario": "farm",
               "title": "11. 기본 수신명 수정",
-              "seconds": 120.772
+              "seconds": 123.2
             },
             {
               "scenario": "split",
               "title": "12. 농장별 파일 나누기",
-              "seconds": 132.654
+              "seconds": 135.593
             },
             {
               "scenario": "assign",
               "title": "13. 농장 1 품목 선택",
-              "seconds": 143.213
+              "seconds": 146.353
             },
             {
               "scenario": "farm-download",
               "title": "14. 농장별 파일 확인",
-              "seconds": 153.787
+              "seconds": 157.184
             },
             {
               "scenario": "farm-save",
               "title": "15. 농장 파일 다운로드",
-              "seconds": 164.354
+              "seconds": 167.863
             },
             {
               "scenario": "chat",
               "title": "16. 최근 발주일 카톡 확인",
-              "seconds": 174.996
+              "seconds": 178.9
             },
             {
               "scenario": "sum",
               "title": "17. 차수·품목군 버튼 선택",
-              "seconds": 185.572
+              "seconds": 189.654
             },
             {
               "scenario": "match-total",
               "title": "18. 합계에서 원문 확인",
-              "seconds": 196.128
+              "seconds": 200.503
             },
             {
               "scenario": "match-source",
               "title": "19. 원문에서 합계 확인",
-              "seconds": 206.698
+              "seconds": 211.315
             },
             {
               "scenario": "audit",
               "title": "20. 제외 원문 대조",
-              "seconds": 217.249
+              "seconds": 222.031
             },
             {
               "scenario": "recover",
               "title": "21. 누락 의심 발주 보완",
-              "seconds": 227.902
+              "seconds": 233.038
             },
             {
               "scenario": "copy",
               "title": "22. 농장 전달용 복사",
-              "seconds": 245.998
+              "seconds": 252.141
             },
             {
               "scenario": "download-history",
               "title": "23. 이전 다운로드와 수량 비교",
-              "seconds": 259.534
+              "seconds": 266.172
             }
           ]
         }
