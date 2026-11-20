@@ -1149,37 +1149,37 @@
             {
               "scenario": "upload",
               "title": "1. 물량표 모아 업로드에서 엑셀을 선택합니다",
-              "seconds": 0.241
+              "seconds": 0.205
             },
             {
               "scenario": "upload-only",
               "title": "1. 저장된 품목을 체크하고 신형 물량표 다운로드를 누릅니다",
-              "seconds": 10.192
+              "seconds": 8.901
             },
             {
               "scenario": "farm",
               "title": "2. 카톡 내용을 붙여넣어 업체·품목·농장을 지정합니다",
-              "seconds": 20.514
+              "seconds": 17.976
             },
             {
               "scenario": "farm",
               "title": "2. 카톡 농장 적용으로 기존 출고의 농장만 저장합니다",
-              "seconds": 31.525
+              "seconds": 27.946
             },
             {
               "scenario": "generate",
               "title": "3. 1차 물량 합산을 풀고 2차 작업량을 다운로드합니다",
-              "seconds": 41.762
+              "seconds": 36.726
             },
             {
               "scenario": "review",
               "title": "4. 바로 생성 엑셀의 원본 수량을 확인합니다",
-              "seconds": 52.734
+              "seconds": 46.741
             },
             {
               "scenario": "review",
               "title": "4. 생성 엑셀의 인쇄 결과와 수량을 확인합니다",
-              "seconds": 59.863
+              "seconds": 53.307
             }
           ]
         }
@@ -1288,117 +1288,117 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.027
+              "seconds": 0.009
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.72
+              "seconds": 10.58
             },
             {
               "scenario": "week",
               "title": "3. 세부차수와 미리보기",
-              "seconds": 21.29
+              "seconds": 21.153
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 38.151
+              "seconds": 37.918
             },
             {
               "scenario": "download",
               "title": "5. 다운로드·ETA 창 열기",
-              "seconds": 49.322
+              "seconds": 48.968
             },
             {
               "scenario": "eta",
               "title": "6. ETA 날짜 입력",
-              "seconds": 59.926
+              "seconds": 59.536
             },
             {
               "scenario": "save",
               "title": "7. ETA 저장·엑셀 다운로드",
-              "seconds": 72.731
+              "seconds": 71.757
             },
             {
               "scenario": "china",
               "title": "8. 중국 발주 조회",
-              "seconds": 85.061
+              "seconds": 82.596
             },
             {
               "scenario": "china-cycle",
               "title": "9. 중국 차수 선택",
-              "seconds": 95.689
+              "seconds": 93.18
             },
             {
               "scenario": "china-week",
               "title": "10. 중국 세부차수와 미리보기",
-              "seconds": 106.298
+              "seconds": 103.736
             },
             {
               "scenario": "farm",
               "title": "11. 기본 수신명 수정",
-              "seconds": 123.2
+              "seconds": 120.534
             },
             {
               "scenario": "split",
               "title": "12. 농장별 파일 나누기",
-              "seconds": 135.593
+              "seconds": 132.424
             },
             {
               "scenario": "assign",
               "title": "13. 농장 1 품목 선택",
-              "seconds": 146.353
+              "seconds": 142.997
             },
             {
               "scenario": "farm-download",
               "title": "14. 농장별 파일 확인",
-              "seconds": 157.184
+              "seconds": 153.598
             },
             {
               "scenario": "farm-save",
               "title": "15. 농장 파일 다운로드",
-              "seconds": 167.863
+              "seconds": 164.18
             },
             {
               "scenario": "chat",
-              "title": "16. 최근 발주일 카톡 확인",
-              "seconds": 178.9
+              "title": "16. 오른쪽 카톡 추가·취소 원문 확인",
+              "seconds": 174.835
             },
             {
               "scenario": "sum",
               "title": "17. 차수·품목군 버튼 선택",
-              "seconds": 189.654
+              "seconds": 191.486
             },
             {
               "scenario": "match-total",
               "title": "18. 합계에서 원문 확인",
-              "seconds": 200.503
+              "seconds": 202.162
             },
             {
               "scenario": "match-source",
               "title": "19. 원문에서 합계 확인",
-              "seconds": 211.315
+              "seconds": 212.79
             },
             {
               "scenario": "audit",
               "title": "20. 제외 원문 대조",
-              "seconds": 222.031
+              "seconds": 223.388
             },
             {
               "scenario": "recover",
               "title": "21. 누락 의심 발주 보완",
-              "seconds": 233.038
+              "seconds": 234.099
             },
             {
               "scenario": "copy",
               "title": "22. 농장 전달용 복사",
-              "seconds": 252.141
+              "seconds": 252.498
             },
             {
               "scenario": "download-history",
               "title": "23. 이전 다운로드와 수량 비교",
-              "seconds": 266.172
+              "seconds": 265.992
             }
           ]
         }
@@ -2261,32 +2261,32 @@
             {
               "scenario": "upload",
               "title": "1. 파일을 선택한 뒤 기본 교체 방식과 대상 차수를 확인합니다",
-              "seconds": 0.047
+              "seconds": 0.04
             },
             {
               "scenario": "add",
               "title": "2. 기존 분배에 합산하기를 체크합니다",
-              "seconds": 7.493
+              "seconds": 7.267
             },
             {
               "scenario": "additional",
               "title": "3. 추가분 별도를 선택하고 검증하면 이번 추가수량만 다운로드됩니다",
-              "seconds": 14.834
+              "seconds": 14.562
             },
             {
               "scenario": "verify",
               "title": "4. 합산전10 + 추가3 = 최종13과 농장 미배정 수량을 함께 확인합니다",
-              "seconds": 21.823
+              "seconds": 21.889
             },
             {
               "scenario": "final",
               "title": "5. 합산본을 선택하면 다시 검증한 최종합계13을 다운로드합니다",
-              "seconds": 29.45
+              "seconds": 29.275
             },
             {
               "scenario": "apply",
               "title": "6. 승인 후 최종13을 저장하며 완료한 합산은 중복 승인하지 않습니다",
-              "seconds": 37.051
+              "seconds": 36.598
             }
           ]
         }

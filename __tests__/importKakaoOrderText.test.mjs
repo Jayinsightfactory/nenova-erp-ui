@@ -19,6 +19,18 @@ const stems=parse('45-2 네덜란드 발주 추가\nCL23 (연습업체)\nAnthuri
 assert.equal(stems.kind,'addition');assert.deepEqual(stems.items.map(i=>i.quantity),['40','50','100']);assert(stems.items.every(i=>i.unit==='송이'));assert.equal(stems.items[0].product,'Anthurium gracioasa 15cm');
 const cl=parse('46-1 중국 발주 추가\nCL63\n캐서린 50단\nCL10\n캐서린 10단');
 assert.deepEqual(cl.items.map(i=>i.customer),['CL63','CL10']);
+const namedClText='47-2 네덜란드 발주 추가\n연습업체 CL23\nFirst Astilbe 70송이\nSecond Astilbe 24st';
+const namedCl=parse(namedClText);
+assert.equal(namedCl.kind,'addition');
+assert.deepEqual(namedCl.items.map(({quantity,unit,customer})=>[quantity,unit,customer]),[
+  ['70','송이','연습업체 CL23'],['24','송이','연습업체 CL23'],
+]);
+assert.deepEqual(namedCl.unparsed,[]);
+assert.deepEqual(totals([message(namedClText)]).map(row=>row.quantity).sort((a,b)=>a-b),[24,70]);
+assert.equal(analyzeImportMessage(message(namedClText.replace('CL23','cl - 23')),new Map([['cl23','확인 업체']])).items[0].customer,'확인 업체');
+assert.deepEqual(parse('47-2 네덜란드 발주 추가\n연습 CL23 품종 12송이').items.map(({product,quantity})=>[product,quantity]),[['연습 CL23 품종','12']]);
+assert.equal(parse('47-2 네덜란드 발주 추가\n연습업체 CL23\nFirst Astilbe 70송이\nSecond Astilbe 24st\n취소해주세요').kind,'review');
+assert.deepEqual(totals([message(namedClText),message(namedClText.replace('발주 추가','발주 취소'),'cancel')]),[]);
 assert.equal(parse('46-1 콜 수국 발주 추가\n주광 : 버건디 10박스(지정 농장)').items[0].customer,'주광');
 for(const text of ['이번에 온 3박스가 포장 불량입니다','사진 3장','카라 오데사 400스팀 필요합니다. 가격 네고 가능한지 문의드립니다.','네덜란드 킹프로테아 버건디 정보요청\n정보 및 단가 문의드립니다.','47차 미국 더글라스 ETA 11월19일 도착 일정 확인','60cm는 없을까요?','감사합니다']) {
   assert.equal(parse(text).kind,'excluded',text);

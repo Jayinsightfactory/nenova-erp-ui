@@ -4259,6 +4259,13 @@ pm run test:canon 통과.
 5. 주의/잠금: UI/URL/메뉴 변경 없음(Desktop 기존 동작 재사용). 새로운 hash를 운영 관측값으로 자동 승인하지 않음, 실행 직전 재검증·unknown 거부 보존. 연결 목표: g17/g19, 학습 반영 있음. goals.json 백업·기존 id/gate/progress55/40 보존, note/history만 연결. owner alignment98.3%, 열린 drift0; 실제 목표 진척률 증가 근거 아님. ledger/세션 무수정.
 검색어: stock-procedure-hashes prepareInstallation planStockCalculationOrderRepair CREATE ALTER missing-hash exit1 g17 g19 학습반영
 
+## 2026-11-20 — 합산 다운로드 고정 숫자 ‘예시’ 명시
+검색어: additive-example-label-1120 예시 고정숫자 copy-only g03 g13 g19
+1. 작업 위치: codex/additive-example-label-1120 / C:/Users/USER/.codex/worktrees/e8d3/nw-cdx-additive-example-1120 / origin/master483f4853a 기반.
+2. 완료: FINAL/ADDITIONAL 라디오 설명의 고정 숫자 앞에 ‘예시:’만 추가. 계산·반영·다운로드 모드·Desktop URL/설치본 무변경. 기존 UI 테스트7개 통과. g03/g13/g19 근거·history 연결 및 UI 고정숫자 예시 선호 학습, progress0/100/40와 gate-p0 보존.
+3. 다음: 자동 copy-only 가이드 면제가 없으므로 관련 영상2편만 실제 합성 UI로 재촬영/해시 갱신, 기존 게이트·PR/CI/squash/Cafe24/운영 문구 확인.
+4. 검증 상태: UI7개 통과, 새 소스의 가이드 촬영 진행. native Excel/수량 원장 테스트는 계산 변경이 없어 반복하지 않음. 운영 ERP 쓰기0.
+5. 주의/잠금: 이전 additive-distribution-1120 캐시/원본은 자동 정리 검토 거절로 보존 상태. 이전 거절을 우회하지 않음. 현재 worktree만 작업 중이며 source hash를 촬영한 것처럼 바꾸거나 사용자 video waiver 승인을 추론하지 않는다.
 ## 2026-11-20 — 사장님 통합지휘실(/work/command-hub) 내 목표 × 작업 정합성 × Owner AGI 디지털 트윈 보드 & 3중 루프 트레이스 탑재 (연결 목표: g19 · g17 · g18)
 1. 작업 위치: nenova-erp-ui / feat/command-hub-owner-agi-twin / C:/Users/USER/nw-swm-owner-twin-hub / Desktop 1.3.74.
 2. 완료된 것: `lib/workFeatureData.js`에 `owner-twin` 피처 추가, `pages/work/command-hub.js` SSR `vision`·`owner-twin` 로드, 최상단 `<PurposeFlowTrace>` 5단계 상시 3중 병렬 AGI 루프 트레이스 도면 장착, `ceo-owner-twin-board`(4대 전략 축 g01~g19 Goal Ledger · 1:1 Goal Alignment Audit & 공백 경보 · 6대 판단 DNA 카드 & 선제 실행 제안 Top 5 지시서 복사) 구축, 가이드 영상 재녹화 및 해시 갱신.
@@ -4274,3 +4281,11 @@ pm run test:canon 통과.
 4. 검증: 대상 API/snapshot/confirmed/HTML 회귀(2025/2026·빈/null/직접 재고 문구) 및 합성 실제 PDF3장/자동상세 제외/비고 전체 보존 PASS. 전체 test:erp-contract 및 npm run build(webpack,1worker) exit0, dnSpy evidence·manifest236·변경API2개쓰기 가드·가이드35개/영상36개 PASS. 실제 FormStockView CLI 재확인. 코드 수정 전 운영 인쇄44664444254/44664440664 PASS는 자동 비고 제외 증거가 아니므로 수정 후 검사를 별도로 실행한다.
 5. 주의/잠금: DB 쓰기·계산본 갱신·수익률 계산 수정 없음. 기존 /sales/profit-report 웹/데스크톱 메뉴와 조작 단계 보존; 새 메뉴/셸/가이드 영상 변경 없음. 앞선 미변경 worktree 정리는 Windows 정책 차단으로 보존되어 이 작업에서 계속 사용. 원문/재무값은 공개 CI 로그에 출력하지 않음.
 검색어: printUserNote author-note-only 인쇄비고 자동재고조정제외 snapshot 원문보존
+
+## 2026-11-20 — 아키텍처 트레이스 SVG 배선-버스 캡슐 라벨 겹침 원천 차단 및 전수 감사 (연결 목표: g17, g19 / 학습 반영: 있음)
+1. 작업 위치: nenova-erp-ui / fix/svg-trace-bus-label-layering / C:/Users/USER/nw-swm-svg-bus-fix. 연결 목표: g17, g19 / 학습 반영: 있음.
+2. 완료된 것: `components/work/SolutionSuiteSimulator.js` 실시간 아키텍처 트레이스 SVG를 선행 `<g data-layer="wires">`(배선·이동 패킷) + 최상단 `<g data-layer="labels">`(불투명 카드·`fill="#ffffff" fillOpacity="1"` 중앙 버스 캡슐 `WSS 역터널 · HERMES AI 3단위 매칭 버스`·`dominantBaseline="central"`·한글 고딕 `13px`)으로 엄격 분리, `components/pm/TechRadarWorkbench.js` `radar-flow-diagram` 배선-카드 인터리빙 해소(`data-layer="wires"`→`data-layer="labels"`), `data/moyi-full-suite-blueprint.html` 엣지·경계 캡슐 `fill-opacity: 1` 명시, 회귀 테스트(`__tests__/solutionSuiteSimulator.test.js`, `__tests__/techRadarSimulator.test.js`) 보강, 전수 감사(`PurposeFlowTrace.js`·`PmPurposeTraceBoard.js`·`ArchFlowChart.js`·`GabrielProfitAgiWorkbench.js`·`pages/pm.js`·`CeoCommandHub.js`) 겹침 0건 확인, `owner-agi-twin.js --learn` 영구 지시 반영.
+3. 남은 할 일: PR CI(`verify`) 통과 즉시 squash 머지, 로컬 `origin/master` fetch 및 `../nw-swm-svg-bus-fix` worktree 정리.
+4. 검증 상태: `solutionSuiteSimulator`·`techRadarSimulator`·`purposeFlowTrace`·`pmPurposeTrace`·`archFlowChart`·`gabrielProfitAgi`·`test:pm`·`test:ui-layout`·`test:workflow-guides`·`guard:erp-writes`·`next build --webpack` 전수 PASS, 로컬 프로덕션 1920x1080 Chromium(`/my-work?tab=suite-sim`, Step 06 `01~05 완료/06 실행 중` `2,600ms`) 실렌더 `suite_sim_bus_pill_fixed_preview.png` 육안 검증(선·패킷 겹침 0px). 운영 배포 후 실화면 확인은 배포 완료 시점 기준.
+5. 주의/잠금: `pages/api/**`, `workflow-guides.json` 추적 소스 파일, ERP 원장 무수정(읽기 전용), Anti-AI Slop §7(`#hex` 금지 PM 경계·한글 고딕·금지어 0건) 준수.
+검색어: SolutionSuiteSimulator TechRadarWorkbench moyi-full-suite-blueprint data-layer wires labels sim-bus-badge fillOpacity g17 g19 학습반영

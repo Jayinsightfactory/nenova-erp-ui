@@ -500,6 +500,11 @@ const clearAllHtml = renderToStaticMarkup(
 );
 assert.match(clearAllHtml, /data-wb-mode="clear"/);
 assert.match(clearAllHtml, /rgb\(248, 250, 252\)/, 'ALL_CLEAR 에디토리얼 라이트 배경 토큰 적용');
+assert.ok(
+  clearAllHtml.indexOf('data-layer="wires"') > 0 &&
+    clearAllHtml.indexOf('data-layer="labels"') > clearAllHtml.indexOf('data-layer="wires"'),
+  'TechRadarWorkbench SVG 흐름 도면은 배선(data-layer="wires") 이후 카드·라벨(data-layer="labels")을 렌더링해야 함'
+);
 assert.doesNotMatch(wbSrc, /box-shadow:(?!\s*none\b)/, 'TechRadarWorkbench Anti-AI Slop: 글로우 box-shadow 금지');
 
 const SimComp = compile('components/work/SolutionSuiteSimulator.js').default;

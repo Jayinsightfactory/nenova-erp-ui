@@ -156,8 +156,51 @@ const ssrHtml = renderToStaticMarkup(React.createElement(SimulatorComp, { orbit:
 assert.match(ssrHtml, /data-testid="solution-suite-simulator"/);
 assert.match(ssrHtml, /viewBox="0 0 980 340"/);
 assert.ok(
-  ssrHtml.indexOf('id="sim-edge-2"') > 0 && ssrHtml.indexOf('class="sim-bus-badge"') > ssrHtml.indexOf('id="sim-edge-2"'),
-  'SVG 연결선(sim-edge-2) 이후 최상위 레이어에 중앙 버스 배지(sim-bus-badge) 배치 필수'
+  ssrHtml.indexOf('data-layer="wires"') > 0 &&
+    ssrHtml.indexOf('data-layer="labels"') > ssrHtml.indexOf('data-layer="wires"'),
+  'SVG 배선 레이어(data-layer="wires")는 라벨·카드 레이어(data-layer="labels")보다 먼저 렌더링되어야 함'
+);
+assert.ok(
+  ssrHtml.indexOf('id="sim-edge-2"') > ssrHtml.indexOf('data-layer="wires"') &&
+    ssrHtml.indexOf('id="sim-edge-2"') < ssrHtml.indexOf('data-layer="labels"'),
+  '반환 버스 배선(sim-edge-2)은 반드시 data-layer="wires" 내부에 위치해야 함'
+);
+assert.ok(
+  ssrHtml.indexOf('data-testid="sim-bus-badge"') > ssrHtml.indexOf('data-layer="labels"') &&
+    ssrHtml.indexOf('class="sim-bus-badge"') > ssrHtml.lastIndexOf('class="sim-node-g'),
+  '중앙 버스 배지(sim-bus-badge)는 모든 배선·노드 카드 이후 최상단 레이어에 배치 필수'
+);
+assert.match(
+  ssrHtml,
+  /class="sim-bus-badge"[^>]*><rect[^>]*fill="#ffffff"[^>]*fill-opacity="1"[^>]*>(?:<\/rect>)?<text[^>]*dominant-baseline="central"[^>]*>WSS 역터널 · HERMES AI 3단위 매칭 버스<\/text>/,
+  '중앙 버스 캡슐은 완전 불투명(#ffffff, fill-opacity=1) + dominant-baseline=central 중앙 정렬 필수'
+);
+// Step 06 실행 중(01~05 완료, 06 실행 중) 프레임에서도 모든 이동 패킷(<circle>)이 data-layer="wires" 안에만 존재하는지 검증
+const step6TraceHtml = (() => {
+  const MockStep6 = compile('components/work/SolutionSuiteSimulator.js', (id) => {
+    if (id === 'react') {
+      return {
+        ...React,
+        useState(init) {
+          if (init === 0) return [5, () => {}];
+          return [init, () => {}];
+        },
+        useEffect() {},
+        useMemo: (fn) => fn(),
+        useRef: (v) => ({ current: v }),
+      };
+    }
+    return Module.createRequire(path.join(root, 'components/work/SolutionSuiteSimulator.js'))(id);
+  }).default;
+  return renderToStaticMarkup(React.createElement(MockStep6, {}));
+})();
+assert.ok(
+  step6TraceHtml.indexOf('data-layer="labels"') > step6TraceHtml.lastIndexOf('<circle'),
+  'Step 06(01~05 완료 / 06 실행 중) 프레임에서 모든 이동 패킷(<circle>)은 data-layer="labels" 이전에 렌더링되어야 함'
+);
+assert.ok(
+  step6TraceHtml.indexOf('data-layer="labels"') > step6TraceHtml.lastIndexOf('id="sim-edge-4"'),
+  'Step 06 프레임에서 모든 배선(<path>)은 data-layer="labels" 이전에 렌더링되어야 함'
 );
 assert.match(ssrHtml, /class="sim-capture-workbench"/, '전체 폭 마스터-디테일 캡처 워크벤치 렌더링');
 assert.doesNotMatch(ssrHtml, /sim-ocr-box/, 'SSR HTML에 절대좌표 OCR 오버레이 미포함');
