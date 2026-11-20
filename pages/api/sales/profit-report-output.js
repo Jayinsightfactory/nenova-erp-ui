@@ -20,7 +20,7 @@ export default withAuth(async function handler(req, res) {
     const data = await loadWeeklyReportPayload(scope.major, scope.year, { mode:'display' });
     const display = profitDisplayCalculation(data);
     const evidence = await loadProfitImpactNotes(data, s => loadWeeklyReportPayload(s.major, s.year, { currentPeriod: { orderYear: '9999', major: '53' } }));
-    const workbook = buildProfitReportXlsx({ major: scope.major, rows: display.rows, note: [data.note, evidence.text].filter(Boolean).join('\n'),
+    const workbook = buildProfitReportXlsx({ major: scope.major, rows: display.rows, note: [data.note, evidence.text].filter(Boolean).join('\n'), printUserNote: data.note ?? '',
       audit: data.audit, visibleCols, confirmedTotals: display.totals,
       displaySheetFirst: true, displayCategory, returnWorkbook: true });
     res.setHeader('Cache-Control', 'private, no-store');

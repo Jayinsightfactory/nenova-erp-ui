@@ -149,6 +149,40 @@ module.exports = (async () => {
   const original=valid.data.workbook.Sheets['주차별 매출이익 보고서'];
   const row = Object.keys(original).find(key => /^B\d+$/.test(key) && original[key].v === '에콰도르').slice(1);
   assert.equal(original[`K${row}`].v,-0.3);
+  // Execute the real snapshot/confirmation note readers before the output API.
+  // Generated stock history may remain in XLSX, never in print author metadata.
+  const storedCalc = await import('../lib/profitReportStoredCalculation.js');
+  const snapshotSource = fs.readFileSync('lib/profitReportSnapshot.js','utf8');
+  const storedBody = snapshotSource.slice(snapshotSource.indexOf('export function storedProfitPayload('), snapshotSource.indexOf('export async function readStoredProfitPayload(')).replace('export ', '');
+  const readStored = new Function('isMaterializedProfitPayload','pad2','snapshotMeta','profitCacheError', storedBody+';return storedProfitPayload;')(
+    storedCalc.isMaterializedProfitPayload,v=>String(v).padStart(2,'0'),()=>({servedFrom:'snapshot'}),(_code,message)=>new Error(message));
+  const loaderSource = fs.readFileSync('pages/api/sales/profit-report.js','utf8');
+  const confirmBody = loaderSource.slice(loaderSource.indexOf('async function buildConfirmedPayload('),loaderSource.indexOf('/** Display reads:'));
+  const readConfirmed = new Function('profitReportCategoriesForWeek','manualInputManifest',confirmBody+';return buildConfirmedPayload;')(()=>[],{});
+  const originalLoader = context.loadWeeklyReportPayload;
+  for (const year of ['2025','2026']) for (const author of ['',null,'문라이트 1\n문라이트 2\n재고조정 -2박스는 직접 작성한 비고 · 입력안됨']) {
+    const base = {orderYear:year,major:'01',note:author,autoNote:'자동 미분류 상세',rows:[{category:'에콰도르',auto:{N:1000,Q:1300,R:1,L:0,O:0,S:0,H:0,E:0,F:0},manual:{}}]};
+    const stored = {orderYear:year,major:'01',payload:storedCalc.materializeProfitPayload(base)};
+    const confirmation = {confirm:{notes:author,auditIssues:[]},rowsByCategory:{},totalsCalc:sample};
+    const sourceBefore = JSON.stringify({base,stored,confirmation});
+    const sources = [base,readStored(stored,{orderYear:year,major:'01'}),await readConfirmed('01',year,confirmation)];
+    for (const source of sources) {
+      context.loadWeeklyReportPayload = async()=>source;
+      const response = await request('GET',{year,week:'01',cols:'C,J,K'});
+      assert.equal(response.code,200);
+      const ws=response.data.workbook.Sheets['주차별 매출이익 보고서'];
+      assert.equal(ws['!profitPrint'].userNote,author ?? '', 'Only exact user input from the chosen live/stored/confirmed source');
+      assert.match(ws.B28.v,/운임 비교 \+100원/, 'Existing XLSX evidence must remain');
+      const paper=outputPrintHtml([response.data],s=>XLSX.utils.sheet_to_json(s,{header:1,raw:false,defval:''}));
+      assert.doesNotMatch(paper,/운임 비교 \+100원|평가액 -400원|자동 미분류 상세/);
+      assert.equal(ws.J24.v,sample.J,'Financial totals remain unchanged');
+      if(author) assert.match(paper,/문라이트 1 · 문라이트 2 · 재고조정 -2박스는 직접 작성한 비고 · 입력안됨/);
+      else assert.doesNotMatch(paper,/class="note"/, 'Empty author note cannot inherit automatic details or totals');
+      assert.equal(JSON.stringify({base,stored,confirmation}),sourceBefore);
+    }
+    assert.throws(()=>readStored(stored,{orderYear:year==='2025'?'2026':'2025',major:'01'}),/연도·차수/);
+  }
+  context.loadWeeklyReportPayload = originalLoader;
   const hidden = await request('GET',{year:'2026',week:'1',cols:'K,C',category:'0'});
   const hiddenBook = combineOutputBooks([hidden.data]);
   const hiddenRows = XLSX.utils.sheet_to_json(hiddenBook.Sheets['01차'],{header:1});

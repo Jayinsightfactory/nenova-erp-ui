@@ -17,7 +17,7 @@ const XLSX = require('xlsx-js-style');
   const browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH || (process.platform==='win32'
     ? 'C:/Program Files/Google/Chrome/Application/chrome.exe':'/usr/bin/google-chrome'),headless:true,args:process.env.CI?['--no-sandbox']:[]});
   try {
-    const items=notes.map((note,i)=>({year:'2026',major:String(38+i),workbook:buildProfitReportXlsx({major:38+i,rows,note,
+    const items=notes.map((note,i)=>({year:'2026',major:String(38+i),workbook:buildProfitReportXlsx({major:38+i,rows,note:note+'\nAUTO_STOCK_DETAIL_OMIT -999원',printUserNote:note,
       confirmedTotals:rows[0].calc,visibleCols:columns,returnWorkbook:true})}));
     const html=outputPrintHtml(items,sheet=>XLSX.utils.sheet_to_json(sheet,{header:1,raw:false,defval:''}));
     const original=JSON.stringify(items);
@@ -48,6 +48,7 @@ const XLSX = require('xlsx-js-style');
       const text=(await page.getTextContent()).items.map(item=>item.str).join('').replace(/\s/g,'');
       const expected=formatPrintUserNote(notes[i]).replace(/\s/g,'');
       assert(text.includes(expected),`Entire synthetic note ${i+1}, including all signed values, glyphs and last item, must survive PDF`);
+      assert(!text.includes('AUTO_STOCK_DETAIL_OMIT'),'Automatic stock detail must not survive into the PDF');
       assert(text.includes(`2026년${38+i}차매출이익보고서`));
       console.log(JSON.stringify({syntheticLongNotePdf:'PASS',page:i+1,noteLength:expected.length,scale:first[i].scale,wholeNoteExact:true}));
     }

@@ -4266,3 +4266,11 @@ pm run test:canon 통과.
 4. 검증 상태: `ceoCommandHub`, `workFeatureData`, `adoptionRadar`, `purposeFlowTrace`, `test:workflow-guides`, `check-workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:pm`, `desktop test` 80/80, `next build --webpack`, Puppeteer 1920/1280/390 실렌더링·가이드 영상 `--player-smoke` 전수 PASS. 운영 서버 배포 후 실데이터 미검증.
 5. 주의/잠금: `pages/api/**`, `nenova-pm/*`, `SHARED_AGENT_RULES.md` 무접촉, 원장 쓰기 0건(읽기 전용), Anti-AI Slop §7(한글 고딕·금지어/이모지/그라디언트 0건) 준수.
 검색어: command-hub owner-twin 디지털트윈 목표정합성 PurposeFlowTrace g19 g18 g17 1.3.74
+
+## 2026-11-20 — 주차별 매출 인쇄 비고 원문 분리
+1. 작업 위치: nenova-erp-ui / codex/profit-direct-print / C:/Users/USER/nw-cdx-profit-direct-print / base760fffd3, PR 생성 전.
+2. 완료: 직접 입력 note와 자동 금융·재고조정 설명이 합쳐진 인쇄 metadata를 분리. 최신/과거 계산본/확정본의 직접 입력 note만 printUserNote로 전달. 웹·XLSX 자동 설명과 본표 금액/합계·원장은 보존. 직접 작성한 재고 문구는 삭제하지 않음.
+3. 남은 일: PR/CI→Cafe24 배포→44차/43~45차 운영 인쇄 원문 독립 대조. 실제 프린터 장치 출력은 미검증.
+4. 검증: 대상 API/snapshot/confirmed/HTML 회귀(2025/2026·빈/null/직접 재고 문구) 및 합성 실제 PDF3장/자동상세 제외/비고 전체 보존 PASS. 전체 test:erp-contract 및 npm run build(webpack,1worker) exit0, dnSpy evidence·manifest236·변경API2개쓰기 가드·가이드35개/영상36개 PASS. 실제 FormStockView CLI 재확인. 코드 수정 전 운영 인쇄44664444254/44664440664 PASS는 자동 비고 제외 증거가 아니므로 수정 후 검사를 별도로 실행한다.
+5. 주의/잠금: DB 쓰기·계산본 갱신·수익률 계산 수정 없음. 기존 /sales/profit-report 웹/데스크톱 메뉴와 조작 단계 보존; 새 메뉴/셸/가이드 영상 변경 없음. 앞선 미변경 worktree 정리는 Windows 정책 차단으로 보존되어 이 작업에서 계속 사용. 원문/재무값은 공개 CI 로그에 출력하지 않음.
+검색어: printUserNote author-note-only 인쇄비고 자동재고조정제외 snapshot 원문보존
