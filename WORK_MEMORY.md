@@ -4305,3 +4305,11 @@ pm run test:canon 통과.
 4. 검증 상태: Chrome 연습 행 40단 자동·40단 확인·저장 1회, 실제 EC·US XLSX, 격리 MSSQL·네이티브 SP 대조, 교차연도·중복·staging 보존.
 5. 주의/잠금: 운영 기존 입고와 원본 엑셀 보존. 기존 G=1 단 공란은 인쇄 근거 확인 필요. 연결목표:g17 / 학습반영:있음.
 검색어: 47-01 원본 단 자동 보완 품목 마스터 추천 G1 확인하고 입고 계속 XLSX snapshot g17
+
+## 2026-11-20 — Private 전환 2단계: Cafe24 데스크톱 정적 피드(/desktop-releases) + CI 자동 게시 + Actions 2,000분 한도 방어
+1. 작업 위치: nenova-erp-ui / feat/private-phase2-zero-cost / C:/Users/USER/nw-swm-private-phase2 / PR 생성 직전. 연결 목표: g18, g19 / 학습 반영: 있음 (8c6245cef073).
+2. 완료된 것: pages/api/public/desktop-releases/[...path].js + lib/desktopReleases.cjs + next.config.js rewrite(/desktop-releases/* → 배포 밖 영구 디렉터리 /var/lib/nenova/desktop-releases 무인증 Range 스트리밍 + /latest 302), DesktopDownloadButton.js → /desktop-releases/latest, desktop-windows.yml CI 자동 게시(publish-cafe24, SHA-512 검증 + latest.yml 마지막 원자 교체 + seed_from_release_tag 0분 Windows 시드 + 비-desktop PR fast-pass + concurrency), erp-contract.yml PR concurrency 및 중복 master push 제거(필수 체크 verify 유지), deploy.yml 조기 STALE_RELEASE_EARLY 스킵(cancel-in-progress: false 보존), 비상 로컬 번들 배포 scripts/local-cafe24-deploy.cjs, GITHUB_PRIVATE_ZERO_COST_PLAYBOOK.md 보강.
+3. 남은 할 일: PR 머지 후 Deploy to Cafe24 실서버 배포 + desktop-v1.3.74 Cafe24 시드 완료 후 https://nenovaweb.com/desktop-releases/latest.yml HTTP 200 실측 및 goals.json g18 갱신.
+4. 검증 상태: desktop 80/80, desktopReleasesFeed+privateRepoDeploy+ciBuildArtifact+codeOnlyDeployment 30/30, guard:erp-writes, test:erp-manifest(236), check-workflow-guides(35/36), test:ui-layout(58/58), 3개 워크플로우 YAML 구문, local-cafe24-deploy --dry-run 전수 PASS. nenova-pm/office-feed.js owner-twin 실서버 업로드 200 ok 확인.
+5. 주의/잠금: /var/lib/nenova/desktop-releases(~/shared/desktop-releases)는 배포 경로 밖 영구 디렉터리. PR 체크 이름 verify 변경 금지. deploy.yml cancel-in-progress: false 유지 필수.
+검색어: desktop-releases publish-cafe24 seed_from_release_tag DESKTOP_FAST_PASS STALE_RELEASE_EARLY local-cafe24-deploy owner-twin g18 g19
