@@ -1,6 +1,6 @@
 // Main-only installer. Default invocation is offline dry-run; never clears a gate.
 const fs=require('node:fs'),assert=require('node:assert/strict');
-const {patch,hash,EXPECTED}=require('./native-stock-gate-atomic.cjs');
+const {patch,prepareInstallation,hash,EXPECTED}=require('./native-stock-gate-atomic.cjs');
 const META=`SELECT m.definition,m.uses_ansi_nulls,m.uses_quoted_identifier,m.execute_as_principal_id,
  (SELECT COUNT(*) FROM sys.crypt_properties WHERE major_id=m.object_id) signatures,
  (SELECT CONVERT(varchar(64),CONVERT(varbinary(32),value),2) FROM sys.extended_properties WHERE class=1 AND major_id=m.object_id AND minor_id=0 AND name=N'NenovaStockGateOwnerV2Hash') propertyHash
@@ -22,8 +22,8 @@ async function installInTransaction(tQ,types,{apply=false,drained=false}={}){
  const tx=(await tQ('SELECT @@TRANCOUNT n,XACT_STATE() state;')).recordset[0];assert.equal(tx.n,1);assert.equal(tx.state,1);
  idle((await tQ('SELECT * FROM dbo.NenovaStockWeekGate WITH(XLOCK,HOLDLOCK,NOWAIT) WHERE GateKey=1;')).recordset);
  const cap=(await tQ('EXEC dbo.usp_NenovaStockWeekGateCapability;')).recordset[0];assert.equal(Number(cap.ProtocolVersion),2);assert.equal(Number(cap.IsReady),1);
- const before=checkMetadata(await tQ(META),EXPECTED);const prepared=patch(before.definition);
- const alter=prepared.definition.replace('CREATE PROCEDURE [dbo].[usp_StockCalculation]','ALTER PROCEDURE [dbo].[usp_StockCalculation]');assert.notEqual(alter,prepared.definition);
+ const before=checkMetadata(await tQ(META),EXPECTED);const prepared=prepareInstallation(before.definition);
+ const alter=prepared.alterSql;
  // Separate nested batch retains required module SET options. No parameter interpolation.
  await tQ('SET ANSI_NULLS ON; SET QUOTED_IDENTIFIER ON; EXEC sys.sp_executesql @ddl;', {ddl:{type:types.NVarChar(types.MAX),value:alter}});
  await tQ(`DECLARE @hash varbinary(32)=HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(N'dbo.usp_StockCalculation',N'P')));
@@ -33,7 +33,7 @@ EXEC sys.sp_updateextendedproperty @name=N'NenovaStockGateOwnerV2Hash',@value=@h
  const afterHash=hash(postMetadata.recordsets?.[0]?.[0]?.definition || '');
  // SQL Server 2016 retains CREATE in stored module text after ALTER; other
  // versions can retain ALTER. Accept only these two byte-exact definitions.
- assert([hash(alter),prepared.afterHash].includes(afterHash),'Stored module differs from exact prepared CREATE/ALTER definitions');
+ assert(prepared.acceptedDefinitions.map(hash).includes(afterHash),'Stored module differs from exact prepared CREATE/ALTER definitions');
  checkMetadata(postMetadata,afterHash);
  const post=(await tQ('EXEC dbo.usp_NenovaStockWeekGateCapability;')).recordset[0];assert.equal(Number(post.ProtocolVersion),2);assert.equal(Number(post.IsReady),1);
  idle((await tQ('SELECT * FROM dbo.NenovaStockWeekGate WHERE GateKey=1;')).recordset);
