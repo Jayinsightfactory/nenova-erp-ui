@@ -23,4 +23,10 @@ function patch(definition){
  if(business(result)!==business(definition))throw Error('Business SQL changed');
  return {definition:result,beforeHash:hash(definition),afterHash:hash(result),businessHash:hash(business(result))};
 }
-module.exports={patch,hash,business,EXPECTED};
+// Both byte-exact module texts are already accepted by the installer on SQL2016+.
+function prepareInstallation(definition) {
+ const prepared=patch(definition);
+ const alterSql=once(prepared.definition,'CREATE PROCEDURE [dbo].[usp_StockCalculation]','ALTER PROCEDURE [dbo].[usp_StockCalculation]');
+ return {...prepared,alterSql,acceptedDefinitions:[alterSql,prepared.definition]};
+}
+module.exports={patch,prepareInstallation,hash,business,EXPECTED};

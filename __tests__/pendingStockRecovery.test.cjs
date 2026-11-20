@@ -299,16 +299,6 @@ test('explicit zero grace is preserved as scheduling configuration without RUN r
   assert.equal(f.calls[2].params.minPendingAgeSeconds.value, 0);
 });
 
-// Reconstruct from the reviewed atomic fixture rather than trusting a copied hash.
-test('reviewed hashes are exact atomic definitions with only approved cursor ordering', () => {
-  const fs = require('node:fs');
-  const { patch, hash } = require('../scripts/native-stock-gate-atomic.cjs');
-  const native = JSON.parse(fs.readFileSync(require('node:path').join(__dirname, 'fixtures/native-stock-gate-2026-10-12.json'), 'utf8').replace(/^\uFEFF/, '')).find(row => row.name === 'usp_StockCalculation').definition;
-  const atomic = patch(native).definition;
-  const ordered = atomic.replace('SELECT OrderYear, OrderWeek FROM #CalculationList;', 'SELECT OrderYear, OrderWeek FROM #CalculationList ORDER BY OrderYear, OrderWeek;');
-  assert.notEqual(atomic, ordered);
-  assert.deepEqual(REVIEWED_CALC_SHA256, [hash(ordered), hash(atomic)]);
-});
 for (const calcSha256 of REVIEWED_CALC_SHA256) test(`reviewed revision ${calcSha256} is pinned through native execution`, async () => {
   const cap = capability(); cap.recordsets[2][0].CalcSha256 = calcSha256;
   const f = fixture({cap}); let candidate;

@@ -160,6 +160,9 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Approved stock procedure hash coverage (offline)
+        run: node scripts/check-stock-procedure-hashes.cjs
+
       - name: ERP 계약 + 교차연도 쓰기 검증
         env:
           BASE_SHA: ${{ github.event.before }}
