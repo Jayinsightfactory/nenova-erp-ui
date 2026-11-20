@@ -4135,6 +4135,14 @@ pm run test:canon 통과.
 4. 검증: 대상21·JSX2·manifest234·writeguard1 PASS. `npm run build` prebuild에서 `shared-awb-cost/import: SharedAwbCostReview.js 변경 후 가이드를 다시 촬영하세요`로 중단(Next compile 미실행). Desktop AX 조회 성공/탭 클릭 geometry unavailable. 네이티브 저장·Excel 재계산·캡처·배포는 미검증.
 5. 주의: draft PR1896을 CI초록만으로 머지하지 말고 위 실제 검증 선행. root dependency junction/사용자 기존앱/China worktree/원본업무문서 보존. prebuild가 만든 두 data/generated 변경만 HEAD로 복구했으며 소스 변경은 전부 보존.
 검색어: PR1896 4d6b931a Colombia 46-02 build-guide-block desktop-geometry-block not-deployed
+
+### 2026-11-20 · PR #1896 최신 master 병합 체크포인트
+1. 위치: `fix/co-arrival-week-1119` / `C:/Users/USER/Documents/Codex/nw-cdx-co-arrival-week-1119` / PR #1896 / `ea718580`.
+2. 완료: `929692c0` 병합 및 브랜치 push. 양쪽 인계 내용 보존.
+3. 남음: 격리 Desktop 저장·Excel 검증, 가이드 실촬영·플레이어, 전체 게이트, CI·squash·Cafe24·Desktop 게시 및 스모크.
+4. 검증: 21건 통과; shared-awb-cost/import 가이드 최신성 검사 실패. 실제 Desktop 저장과 배포 미검증.
+5. 주의: 초안 유지. 운영 DB 쓰기·농장 발송·유료 분석 없음. 실제 원본과 작업트리 의존성 경로 보존.
+검색어: PR1896 ea718580 master929692c0 guide-recapture native-save-unverified
 ## 2026-11-19 가브리엘 원가·이익 AGI(`/import/gabriel-agi`) 목적 우선(Purpose-First) & 실시간 트레이스 모션 도면 탑재
 1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/gabriel-purpose-trace-motion` / `C:\Users\USER\nw-swm-gabriel-trace`
 2. 완료된 것: `components/import-tools/GabrielProfitAgiWorkbench.js` 및 `styles/GabrielProfitAgi.module.css`에 최상단(`gabriel-purpose-callout`) 및 레버별(`gabriel-lever-purpose-callout`) `핵심 목적 · PURPOSE` 고대비 고딕(16px 굵게, Pretendard/Malgun Gothic, 단독 monospace/굴림체 폴백 제거) 배너 추가, 정적 `gabriel-lever-svg-diagram`을 모눈 그리드 캔버스 위 6단계 직교 배선 실시간 트레이스 모션 도면(`완료` 에메랄드 `#059669` 좌측 바+실선+패킷 이동점 / `실행 중` 로열블루 `#2563eb` 좌측 바+`#eff6ff`+`stroke-dashoffset` 흐르는 점선 / `대기` 슬레이트 `#cbd5e1`, `prefers-reduced-motion` 준수, 독립 레인 중앙 직교 버스 라벨 선-글자 겹침 0건, `AUTO 1x` 재생/정지 및 단계 클릭 상세 하이라이트)으로 업그레이드, `public/guides/gabriel-import-profit-agi/*` 재녹화 및 `config/workflow-guides.json`(`gabriel-import-profit-agi` 한정) 동기화, `__tests__/gabrielProfitAgi.test.js` 회귀 가드 보강.
