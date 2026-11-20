@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "원본 기준 단 수량을 자동 계산하고, 확인이 필요한 품목만 같은 화면에서 수정한 뒤 진행합니다."
+      "releaseNotes": "출고분배 엑셀 업로드를 파일·반영 방식, 검증·승인·다운로드 순서로 정돈했습니다. 미매칭 확인창의 초점 복귀와 작은 화면 버튼 잘림을 보완했습니다."
     },
     "extraResources": [
       {
