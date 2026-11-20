@@ -12,13 +12,14 @@ async function main(){
   const {withCountryOrderEta}=await import('../lib/countryOrderEta.js');
   const port=Number(process.env.COUNTRY_FIXTURE_PORT||19483),nextPort=port+1;
   const output=path.resolve('.verify/country-order-desktop',crypto.randomUUID());fs.mkdirSync(output,{recursive:true});
-  const secret=crypto.randomUUID(),scope={country:'China',year:2026,orderWeek:'47-02'};
+  const secret=crypto.randomUUID(),scope={country:'China',year:2026,orderWeek:'46-02'};
+  const majorWeek=scope.orderWeek.split('-')[0];
   const user={userId:'fixture-country',userName:'TEST_ONLY 연습 계정',deptName:'수입부',authority:1,accountActive:true};
   const cookie='nenovaToken='+jwt.sign(user,secret,{expiresIn:'2h'});
   let scenario='registered',queries=0,fixturePosts=0;
-  const rawRows=quantity=>[{OrderYear:2026,OrderWeek:'47-02',CustKey:1,CustName:'TEST_ONLY 업체A',CustOrderCode:'CL1',ProdKey:2,ProdName:'ROSE / TEST_ONLY A',FlowerName:'장미',CounName:'중국',OutUnit:'단',OutQuantity:quantity,BunchQuantity:quantity,SteamQuantity:quantity*10,SourceRowCount:1},{OrderYear:2026,OrderWeek:'47-02',CustKey:3,CustName:'TEST_ONLY 업체B',CustOrderCode:'CL3',ProdKey:4,ProdName:'ROSE / TEST_ONLY B',FlowerName:'장미',CounName:'중국',OutUnit:'단',OutQuantity:50,BunchQuantity:50,SteamQuantity:500,SourceRowCount:1}];
-  const matrix=quantity=>buildCountryOrderMatrix({success:true,readOnly:true,scope:{...scope,majorWeek:'47',counName:'중국',scopeKey:'China/2026/47'},subweeks:[{orderWeek:'47-02'}],rows:rawRows(quantity)},'47-02');
-  const generated=(m,options={},eta)=>generateCompactCountryOrders(m,options).map(output=>({...output,bytes:Buffer.from(serializePedidosWorkbook(eta?withCountryOrderEta(output.workbook,'47-02',eta):output.workbook))}));
+  const rawRows=quantity=>[{OrderYear:scope.year,OrderWeek:scope.orderWeek,CustKey:1,CustName:'TEST_ONLY 업체A',CustOrderCode:'CL1',ProdKey:2,ProdName:'ROSE / TEST_ONLY A',FlowerName:'장미',CounName:'중국',OutUnit:'단',OutQuantity:quantity,BunchQuantity:quantity,SteamQuantity:quantity*10,SourceRowCount:1},{OrderYear:scope.year,OrderWeek:scope.orderWeek,CustKey:3,CustName:'TEST_ONLY 업체B',CustOrderCode:'CL3',ProdKey:4,ProdName:'ROSE / TEST_ONLY B',FlowerName:'장미',CounName:'중국',OutUnit:'단',OutQuantity:50,BunchQuantity:50,SteamQuantity:500,SourceRowCount:1}];
+  const matrix=quantity=>buildCountryOrderMatrix({success:true,readOnly:true,scope:{...scope,majorWeek,counName:'중국',scopeKey:`China/${scope.year}/${majorWeek}`},subweeks:[{orderWeek:scope.orderWeek}],rows:rawRows(quantity)},scope.orderWeek);
+  const generated=(m,options={},eta)=>generateCompactCountryOrders(m,options).map(output=>({...output,bytes:Buffer.from(serializePedidosWorkbook(eta?withCountryOrderEta(output.workbook,scope.orderWeek,eta):output.workbook))}));
   const initial=generated(matrix(100))[0];
   const initialRows=matrix(100).rows.flatMap(row=>matrix(100).customers.map(customer=>({custKey:customer.key,customer:customer.name,prodKey:row.prodKey,product:row.name,unit:row.unit,quantity:row.quantities[customer.key]??0})));
   const stores=new Map();
@@ -29,12 +30,12 @@ async function main(){
   }
   const store=Object.fromEntries(['read','list','save','markDelivered','withScopeLock'].map(method=>[method,(...args)=>stores.get(scenario)[method](...args)]));
   const sourceItem={sourceKey:'TEST_ONLY-message-1/row-1',scope,rawCustomer:'TEST_ONLY 업체A',rawProduct:'ROSE / TEST_ONLY A',customer:'TEST_ONLY 업체A',product:'ROSE / TEST_ONLY A',unit:'bunches',quantity:20,at:'2026-11-19T02:00:00Z',kind:'addition'};
-  const messages=[{id:'TEST_ONLY-message-1',time:'2026년 11월 19일 오전 11:00',text:'TEST_ONLY 격리 연습 자료\n2026년 47-02 중국 추가 발주\nTEST_ONLY 업체A\nROSE / TEST_ONLY A 20단 추가',items:[sourceItem]}];
+  const messages=[{id:'TEST_ONLY-message-1',time:'2026년 11월 19일 오전 11:00',text:`TEST_ONLY 격리 연습 자료\n${scope.year}년 ${scope.orderWeek} 중국 추가 발주\nTEST_ONLY 업체A\nROSE / TEST_ONLY A 20단 추가`,items:[sourceItem]}];
   const quantity=()=>scenario==='partial'?110:scenario==='chat-only'?100:120;
   const events=()=>scenario==='registered'?[{id:'history:TEST_ONLY-1',scope,custKey:1,prodKey:2,unit:'bunches',orderDetailKey:91001,kind:'increase',before:100,after:120,at:'2026-11-19T02:05:00Z'}]:scenario==='partial'?[{id:'history:TEST_ONLY-partial',scope,custKey:1,prodKey:2,unit:'bunches',orderDetailKey:91001,kind:'increase',before:100,after:110,at:'2026-11-19T02:05:00Z'}]:[];
   const historyHandler=createCountryOrderHistoryHandler({store,secret,canAccess:actor=>actor?.userId===user.userId,readCurrent:async()=>{queries++;return{matrix:matrix(quantity()),queriedAt:'2026-11-19T03:00:00Z',details:[{orderDetailKey:91001,custKey:1,prodKey:2,quantity:quantity(),unit:'bunches'}],events:events()};},readMessages:async()=>messages,generate:generated});
-  const calendar=Array.from({length:6},(_,index)=>({OrderYearWeek:'2026'+(47+index),WeekDay:5,BaseYmd:new Date(Date.UTC(2026,10,19+index*7)).toISOString().slice(0,10)}));
-  const sourceHandler=createCountryOrderSourceHandler({types:{NVarChar:()=>null},now:()=>new Date('2026-11-19T03:00:00Z'),queryFn:async(statement)=>({recordset:statement.includes('FROM PeriodDay')?calendar:statement.includes('HiddenCount')?[{HiddenCount:0}]:statement.includes('SELECT DISTINCT')?[{OrderWeek:'47-02'}]:rawRows(quantity())})});
+  const calendar=Array.from({length:6},(_,index)=>({OrderYearWeek:String(scope.year)+(Number(majorWeek)+index),WeekDay:5,BaseYmd:new Date(Date.UTC(2026,10,12+index*7)).toISOString().slice(0,10)}));
+  const sourceHandler=createCountryOrderSourceHandler({types:{NVarChar:()=>null},now:()=>new Date('2026-11-19T03:00:00Z'),queryFn:async(statement)=>({recordset:statement.includes('FROM PeriodDay')?calendar:statement.includes('HiddenCount')?[{HiddenCount:0}]:statement.includes('SELECT DISTINCT')?[{OrderWeek:scope.orderWeek}]:rawRows(quantity())})});
   const menus=JSON.parse(fs.readFileSync('desktop/menu.json','utf8'));
   const json=(res,body,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body));};
   const childEnv={...process.env,JWT_SECRET:secret,DB_SERVER:'',DB_USER:'',DB_PASSWORD:'',DB_NAME:'',ORBIT_OWNER_TOKEN:'',ANTHROPIC_API_KEY:'',PROFIT_REPORT_WEEKLY_SCHEDULER_DISABLED:'1',NENOVA_PENDING_STOCK_RECOVERY:'0'};

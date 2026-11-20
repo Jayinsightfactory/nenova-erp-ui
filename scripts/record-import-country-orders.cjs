@@ -7,6 +7,12 @@ const root=process.cwd(),paced=process.argv.includes('--paced-dry-run'),dry=proc
 async function main(){
  fs.mkdirSync('.verify',{recursive:true});
  const {classifyImportFeed}=await import('../lib/importKakaoOrderText.js');
+ const {buildCountryOrderMatrix}=await import('../lib/countryOrderSource.js');
+ const {createCountryOrderHistoryHandler}=await import('../lib/countryOrderHistoryApi.js');
+ const {createCountryOrderHistoryStore}=await import('../lib/countryOrderHistoryStore.js');
+ const {generateCompactCountryOrders}=await import('../lib/countryOrderPresentation.js');
+ const {serializePedidosWorkbook}=await import('../lib/importPedidos.js');
+ const {withCountryOrderEta}=await import('../lib/countryOrderEta.js');
  const sampleMessage=(id,text)=>({id,time:id==='white'?'2026년 11월 12일 오전 9:10':'2026년 11월 18일 오전 9:10',text,sender:'연습 담당자',items:[]});
  const sampleMessages=[...['주광','미우','일신'].map((customer,i)=>sampleMessage(String(i),'46-1 콜 카네이션 발주 추가\n'+customer+'\nMoon Light '+[1,2,1][i]+'박스')),sampleMessage('white','46-1 콜 수국 발주 추가\n화이트 2박스'),sampleMessage('duplicate','46-1 콜 카네이션 발주 추가\n주광\nMoon Light 1박스'),sampleMessage('noise','이번에 온 3박스가 포장 불량입니다'),sampleMessage('cancel','46-1 콜 카네이션 발주 취소\n별도품종 1박스')];
  sampleMessages.push(sampleMessage('missed','46-1 콜 수국 추가\n연습화이트 두 박스 부탁합니다.'));
@@ -30,6 +36,14 @@ async function main(){
   fs.mkdirSync(downloadDir,{recursive:true});
   const client=await page.createCDPSession(); await client.send('Page.setDownloadBehavior',{behavior:'allow',downloadPath:downloadDir});
   const details=[];
+  const rowsFor=country=>country==='China'?[{...row,CounName:'중국',ProdName:'ROSE / 연습 화이트 50cm',FlowerName:'장미',OutUnit:'단',OutQuantity:15},{...row,CounName:'중국',ProdKey:2,ProdName:'ROSE / 연습 핑크 50cm',FlowerName:'장미',OutUnit:'단',OutQuantity:10}]:[row];
+  const scopeFor=country=>({country,counName:country==='China'?'중국':'네덜란드',year:2026,majorWeek:'46',scopeKey:country+'/2026/46'});
+  const historyHandler=createCountryOrderHistoryHandler({
+    store:createCountryOrderHistoryStore({root:path.join(downloadDir,'fixture-history')}),secret,canAccess:actor=>actor?.userId===user.userId,
+    readCurrent:async scope=>({matrix:buildCountryOrderMatrix({success:true,readOnly:true,scope:scopeFor(scope.country),subweeks:[week],rows:rowsFor(scope.country)},scope.orderWeek),queriedAt:'2026-11-19T03:00:00Z',details:[],events:[]}),
+    readMessages:async()=>[],
+    generate:(matrix,options,eta)=>generateCompactCountryOrders(matrix,options).map(output=>({...output,bytes:Buffer.from(serializePedidosWorkbook(eta?withCountryOrderEta(output.workbook,matrix.orderWeek??week.orderWeek,eta):output.workbook))}))
+  });
   await page.setRequestInterception(true);
   page.on('request',async req=>{
     const url=new URL(req.url());
@@ -37,6 +51,11 @@ async function main(){
     if(url.origin!==base)return req.abort();
     if(!url.pathname.startsWith('/api/'))return req.continue();
     let data={success:true,items:[],rows:[],products:[],data:[],value:null,revision:0,history:[],user};
+    if(url.pathname.endsWith('/country-order-history')){
+      const headers={};let status=200;
+      const result={setHeader:(k,v)=>{headers[k]=v;},status(n){status=n;return this;},json(body){return req.respond({status,headers,contentType:'application/json',body:JSON.stringify(body)});},send(body){return req.respond({status,headers,body});},end(){return req.respond({status,headers});}};
+      return await historyHandler({method:req.method(),user,query:Object.fromEntries(url.searchParams),body:JSON.parse(req.postData()||'null')},result);
+    }
     if(url.pathname.endsWith('/kakao-additions')) data=url.searchParams.get('audit')==='1'?{...sampleFeed,audit:classifyImportFeed({messages:sampleMessages},new Map(),{audit:true}).audit}:sampleFeed;
     if(url.pathname.endsWith('/country-orders')){
       const country=url.searchParams.get('country'),exact=url.searchParams.get('orderWeek');
@@ -50,10 +69,20 @@ async function main(){
   await page.goto(base+'/import/tools',{waitUntil:'networkidle0',timeout:150000});
   await page.waitForSelector('[aria-controls="import-panel-orders"]');
   await page.click('[aria-controls="import-panel-orders"]');
+  // Reserve scroll runway below the full-screen preview so the real last-row
+  // controls can sit above the recorder's caption band at 100% browser zoom.
+  await page.addStyleTag({content:'.pedidos-work-preview { padding-bottom: 240px !important; }'});
   // Record the fullscreen fallback in the original tab. Dry runs separately exercise the actual popup.
   await page.evaluate(() => { window.__orderGuideOpen = window.open; window.open = () => null; });
   const country='.pedidos-auto [aria-label="국가"] button:nth-child(2)',cycle='.pedidos-cycles button',sub='.pedidos-subweeks[aria-label="실제 주문 세부차수"] button',down='.pedidos-auto-actions button:not([disabled])';
   await page.waitForSelector(country,{visible:true});
+  const generatePreview=async(target=page)=>{
+    await target.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='미리보기 생성'&&!b.disabled));
+    const preview=target.waitForResponse(r=>r.url().endsWith('/country-order-history')&&r.request().method()==='POST');
+    await target.evaluate(()=>[...document.querySelectorAll('button')].find(b=>b.textContent==='미리보기 생성'&&!b.disabled).click());
+    const response=await preview;
+    if(!response.ok())throw Error('Fixture preview '+response.status()+': '+await response.text());
+  };
   const countryButton=await page.evaluate(()=>[...document.querySelectorAll('[aria-label="국가"] button')].findIndex(b=>b.textContent.includes('네덜란드'))+1);
   assert(countryButton);
   rec=dry?{chapter(){},focus:async()=>{},unfocus:async()=>{},caption:async()=>{},pause:async()=>{},stop:async()=>({})}:await createWorkflowGuideRecorder(page,{workflowId:workflow.id,guideId:'import',title:workflow.title,sourceFiles:workflow.sourceFiles,fixtureOnly:true});
@@ -67,13 +96,17 @@ async function main(){
    ['save','ETA 저장·엑셀 다운로드','[aria-labelledby="pedidos-eta-title"] button[type="submit"]','ETA를 기본값으로 저장하고 엑셀을 내려받습니다. 전산 주문 수량은 바뀌지 않습니다.']];
   for(const [i,[scenario,label,selector,description]] of steps.entries()){
     await page.waitForSelector(selector,{visible:true});
-    if(i===3) {await page.waitForFunction(()=>document.querySelector('.pedidos-auto-actions button')?.textContent.includes('.xlsx')); assert.deepEqual(details,[week.orderWeek]);}
+    if(i===3) assert.deepEqual(details,[week.orderWeek]);
     if(i===2)assert.equal(details.length,0);
     const title=(i+1)+'. '+label;
     await page.$eval(selector,b=>b.scrollIntoView({block:'center'}));
     rec.chapter(scenario,title);await rec.caption(title+' · '+description);await rec.pause(2300);await rec.focus(selector,i+1);
     await page.focus(selector);
     if(scenario==='review'||scenario==='eta'){await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');await page.keyboard.type(scenario==='eta'?'2026-11-16':'140',{delay:150});await page.keyboard.press('Tab');assert.equal(await page.$eval(selector,n=>n.value),scenario==='eta'?'2026-11-16':'140');if(scenario==='eta')assert((await page.$eval('[aria-labelledby="pedidos-eta-title"]',n=>n.textContent)).includes('ETA (2026-11-16 Monday)'));}else await page.keyboard.press('Enter');await rec.pause(2800);await rec.unfocus();
+    if(scenario==='review'){
+      await generatePreview();
+      await page.waitForFunction(()=>document.querySelector('.pedidos-auto-actions button')?.textContent.includes('.xlsx'));
+    }
   }
   let filename;
   for(let n=0;n<50&&!filename;n++){filename=fs.readdirSync(downloadDir).find(f=>f.endsWith('.xlsx'));if(!filename)await new Promise(r=>setTimeout(r,100));}
@@ -100,7 +133,7 @@ async function main(){
     await page.focus(selector);
     if(scenario==='farm'){assert.deepEqual(await page.$$eval('.pedidos-farms input[type="text"]',nodes=>nodes.map(node=>node.value)),['Melody','CLOUD']);await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');await page.keyboard.type('HUBFRESH',{delay:150});await page.keyboard.press('Tab');}
     else await page.keyboard.press(['assign','split'].includes(scenario)?'Space':'Enter');
-    if(scenario==='assign')await page.waitForFunction(()=>document.querySelectorAll('.pedidos-auto-actions button').length>=3&&document.querySelector('.pedidos-auto-actions').textContent.includes('HUBFRESH')&&document.querySelector('.pedidos-auto-actions').textContent.includes('CLOUD'));
+    if(scenario==='assign'){await generatePreview();await page.waitForFunction(()=>document.querySelector('.pedidos-auto-actions')?.textContent.includes('HUBFRESH')&&document.querySelector('.pedidos-auto-actions')?.textContent.includes('CLOUD'));}
     await rec.pause(2800);await rec.unfocus();
   }
   let farmFile;for(let n=0;n<50&&!farmFile;n++){farmFile=fs.readdirSync(downloadDir).find(name=>name.includes('HUBFRESH')&&name.endsWith('.xlsx'));if(!farmFile)await new Promise(resolve=>setTimeout(resolve,100));}

@@ -4202,3 +4202,11 @@ pm run test:canon 통과.
 검색어: 입고 차수 일반차수 전체차수 세부차수 47-02 incoming ledger round 검색 1.3.68
 
 2026-11-20 검증 업데이트: 두 역할 실제 가이드 촬영, 34흐름/35영상 검사, 회사 Drive 6파일 및 크기 검증 완료. 운영 확인은 PR에서 추적.
+
+### 2026-11-20 · #1883 가이드 fixture 수리 및 격리 Desktop 시작 오류
+1. 위치: fix/country-po-1119 / C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119 / PR #1883.
+2. 완료: 가이드 녹화에 실제 이력 처리기와 로컬 저장소 연결, 수량 수정·농장 배정 후 명시적 미리보기 추가. Desktop fixture를 중국 2026/46-02로 정렬.
+3. 남음: 중국 가이드 전체 재촬영·해시·플레이어, 격리 Desktop 저장·재시작·전달/원본 해시와 셀 비교, 실제 카카오 근거 읽기, 정식 빌드·CI·배포.
+4. 검증: 최초 dry-run은 messages.flatMap 오류, 수정 후 네덜란드 격리 XLSX 140송이/ETA 확인을 통과하고 중국 농장 미리보기에서 중단. 실제 녹화 시 수량 입력 y=912.625가 캡처 범위 900 초과. Desktop fixture HTTP 200, 실제 Electron 시작 EPIPE 오류·재시작 명령 정책 거부. 저장창 및 실제 카카오 매칭 미검증.
+5. 주의: 이전 78셀·2,563단+80송이는 ERP↔Excel 일치 근거만. 운영 DB 쓰기·농장 발송·유료 분석 0. 비공개 fixture 로그·원본은 커밋 금지.
+검색어: PR1883 46-02 archive-fixture preview-recorder EPIPE capture-band Kakao-uncertain
