@@ -70,7 +70,7 @@
             },
             {
               "title": "농장 발주(주문서 · 농장 방 협의)",
-              "manualId": "colombia-weekly-order",
+              "manualId": "netherlands-order",
               "seenDays": 3,
               "totalDays": 6,
               "minutes": 13,
@@ -520,7 +520,7 @@
             },
             {
               "title": "농장 발주(주문서 · 농장 방 협의)",
-              "manualId": "china-order",
+              "manualId": "netherlands-order",
               "seenDays": 4,
               "totalDays": 6,
               "minutes": 25,
@@ -651,7 +651,7 @@
             },
             {
               "title": "농장 발주(주문서 · 농장 방 협의)",
-              "manualId": "colombia-weekly-order",
+              "manualId": "netherlands-order",
               "seenDays": 4,
               "totalDays": 6,
               "minutes": 10,
@@ -942,7 +942,7 @@
             },
             {
               "title": "농장 발주(주문서 · 농장 방 협의)",
-              "manualId": "colombia-weekly-order",
+              "manualId": "netherlands-order",
               "seenDays": 3,
               "totalDays": 6,
               "minutes": 14,
@@ -1313,7 +1313,7 @@
             },
             {
               "title": "농장 발주(주문서 · 농장 방 협의)",
-              "manualId": "colombia-weekly-order",
+              "manualId": "netherlands-order",
               "seenDays": 3,
               "totalDays": 5,
               "minutes": 45,

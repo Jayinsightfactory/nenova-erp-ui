@@ -4338,3 +4338,12 @@ pm run test:canon 통과.
 3. 남은 일: folderMap 의 화면 1건짜리 「확정」 줄, 「자리」라는 말이 차수와 PC 두 뜻으로 쓰이는 곳, 요일별 업무표(import-weekday.json)의 네덜란드 연결은 손대지 않음
 4. 검증: npm run -s test:workflow-guides 통과. 운영 확인은 배포 뒤.
 5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: 수입부 인수인계 / 학습 반영: 없음
+
+## 2026-11-20 수입부 인수인계 원고 — 재검증 마지막 정리
+요약: 「자리」의 두 뜻을 가름(차수 표기는 「한 자리 숫자」, 컴퓨터는 「PC 두 대」), 폴더 지도에서 하루만 본 폴더 4곳을 추정으로, 마감 질문에 사장님께 여쭐 것 표시(12 → 13), 요일별 업무표의 네덜란드 발주 5줄을 네덜란드 발주 매뉴얼로 연결.
+검색어: 수입부 매뉴얼 재검증 자리 PC 폴더 지도 folderMap askOwner import-weekday netherlands-order
+1. 작업 위치: nenova-erp-ui / fix/import-reverify-1120c / C:\Users\USER\wt-import-manual
+2. 완료: scripts/build-import-handover.cjs · scripts/build-import-weekday.cjs(매뉴얼 고르는 규칙) · data/import-weekday.json(같은 규칙으로 값만 고침) → data · docs 재생성
+3. 남은 일: 없음(재검증에서 나온 항목 기준). import-weekday.json 은 다시 만들지 않았음 — 다시 만들면 기록 기간이 바뀌어 숫자가 전부 달라짐
+4. 검증: npm run -s test:workflow-guides 통과. 운영 확인은 배포 뒤.
+5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: 수입부 인수인계 / 학습 반영: 없음

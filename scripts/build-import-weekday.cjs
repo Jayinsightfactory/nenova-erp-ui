@@ -18,7 +18,7 @@ const PROC = {
   '공급처 탐색·자료': ['공급처 자료 확인', null], '전산 발주·주문 조회': ['전산 발주 · 주문 조회', null], '패킹리스트 생성기': ['패킹리스트 만들기', 'packing-list-from-invoice'], '신규 품목 등록': ['신규 품목 등록', 'product-new-registration'],
 };
 const COUNTRY = [['콜롬비아', /콜롬|colombia|bogot|medell|콜카|clavel|rosa|hortensia|alstro|pedido|보고타|메데진/i], ['중국', /중국|china|cloud|위챗|해상|sea\b/i], ['네덜란드', /네덜|holex|nl\b|neth|ez flower/i], ['에콰도르', /에콰|ecuador|rosaleda/i], ['태국', /태국|thai|super ?fresh|klong/i], ['호주', /호주|austral|premium greens/i], ['미국', /미국|us_|더글라스|usa/i], ['베트남', /베트남|vietnam|royal base/i], ['뉴질랜드', /뉴질|nzbloom|new zealand/i]];
-const order = (m, proc) => (proc === '농장 발주(발주서·협의)' ? (/중국/.test(m) ? 'china-order' : 'colombia-weekly-order') : PROC[proc]?.[1] || null);
+const order = (m, proc) => (proc === '농장 발주(발주서·협의)' ? (m.split(' ')[0] === '네덜란드' ? 'netherlands-order' : /중국/.test(m) ? 'china-order' : 'colombia-weekly-order') : PROC[proc]?.[1] || null);
 const median = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : 0; };
 const days = {}; // 요일 → 날짜 집합
 const cell = {}; // 요일|시간대|작업 → { dates:Set, min: {date: 분}, country: {나라: Set(date)} }
