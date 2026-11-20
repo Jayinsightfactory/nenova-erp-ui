@@ -1074,6 +1074,47 @@ for (const f of folderMap) {
   { const w = chinaMoq.filter(x => x.item === '왁스'); if (w.length !== 1) throw new Error('왁스 줄을 찾지 못함'); w[0].note = '원래 20단이었는데 10단으로 바뀌었다고 사장님이 전해 들으심(11월 20일). ' + w[0].note; }
 }
 
+// ── 2026-11-20 사장님 추가 답 반영 ──
+{
+  const SRC = '사장님 답(11월 20일, 두 번째)';
+  const find = (prefix) => { const i = questions.findIndex(x => x.question.startsWith(prefix)); if (i < 0) throw new Error('질문을 찾지 못함: ' + prefix); return i; };
+  const close = (prefix, answer, status) => { const i = find(prefix); const q0 = questions[i]; answered.push(ans(q0.topic, q0.question, answer, status || 'confirmed', SRC)); questions.splice(i, 1); };
+  const edit = (prefix, question, whyAdd) => { const q0 = questions[find(prefix)]; q0.question = question; if (whyAdd) q0.why = whyAdd + ' / ' + q0.why; };
+  const dropFollow = (topicPart) => { const i = ownerFollowUps.findIndex(x => x.topic.includes(topicPart)); if (i < 0) throw new Error('다시 여쭐 것을 찾지 못함: ' + topicPart); ownerFollowUps.splice(i, 1); };
+  const fixAns = (qPart, fn) => { const a = answered.filter(x => x.question.includes(qPart)); if (a.length !== 1) throw new Error('풀린 것을 찾지 못함: ' + qPart); fn(a[0]); };
+
+  // 왁스: 10단으로 바뀜(확정)
+  fixAns('중국 왁스의 최소 주문량', (a) => { a.answer = '10단입니다. 원래 20단이었는데 10단으로 바뀌었습니다.'; a.status = 'confirmed'; a.evidence = SRC; });
+  { const w = chinaMoq.filter(x => x.item === '왁스'); if (w.length !== 1) throw new Error('왁스 줄'); w[0].status = 'confirmed'; w[0].note = '20단에서 10단으로 바뀜(사장님 답, 11월 20일). 예전 글에 20단으로 적힌 것은 바뀌기 전 값'; }
+  edit('중국 품목별 최소 주문량을 공급처가 준 정식 표가 있나요', '중국 품목별 최소 주문량을 공급처가 준 정식 표가 있나요? 발주 파일에 남은 옛 거래처 코드(CL1·CL2·CL5 등 22종)는 지금 어떤 코드인가요? (왁스는 10단으로 확정)');
+
+  // 확정 순서: 같은 차수의 -02 는 -01 이 확정되어야 확정된다
+  answered.push(ans('입고 등록', '차수 확정의 순서', '한 차수(예: 44차)에 세부 차수 01 · 02 가 있으면, 02 는 01 이 확정되어야 확정되는 구조입니다. 그래서 앞 세부 차수가 확정된 뒤에 그 차수 입고를 고치려면 영업지원이 확정을 취소해 줘야 합니다.', 'confirmed', SRC));
+  dropFollow('확정과 입고 업로드의 순서');
+
+  // 백상 결제: 창고 이용은 한 달 단위, 중국 배로 들어오는 것은 차수별
+  answered.push(ans('검역 · 창고', '백상 창고료는 언제 결제하나', '백상 창고 이용료는 한 달 단위로 결제합니다. 중국에서 배로 들어오는 것은 들어오는 양이 달라서 차수별로 결제합니다.', 'confirmed', SRC));
+  dropFollow('백상 창고료 청구 주기');
+  edit('백상 창고료는 주 단위로 청구되나요', '백상 소독비는 박스당인가요, 건당인가요? 창고료에 최소 요금이 있나요? (창고 이용은 한 달 단위, 중국 배는 차수별 결제로 확정)', '결제 주기는 사장님 답으로 풀림(11월 20일)');
+
+  // 입고일 칸: 업로드하는 날짜로 고정
+  fixAns('전산 입고일 칸에는 어떤 날짜', (a) => { a.answer = '입고일은 업로드하는 날짜로 고정하면 될 것 같다고 하셨습니다. 그래서 입고일 칸에는 올리는 날의 날짜를 넣습니다. 전산이 자동으로 그렇게 넣도록 바꾸는 것은 아직 하지 않았습니다(프로그램을 고쳐야 하는 일이라 따로 정해야 함).'; a.status = 'estimated'; a.evidence = SRC; });
+  dropFollow('전산 입고일 칸');
+  { const p = incoming.pitfalls.filter(x => x.mistake.startsWith('입고일 칸에 월과 일을 바꿔 넣음')); if (p.length !== 1) throw new Error('입고일 실수 줄'); p[0].fix = '입고일 칸에는 업로드하는 날의 날짜를 넣는다(사장님 답, 11월 20일). 저장 전에 월과 일이 바뀌지 않았는지 다시 본다. 최근 8개 차수에 3건 있었다.'; }
+
+  // 합계가 다른 까닭: 인보이스가 고쳐져 오면 새로 올린 것이 맞는 값
+  fixAns('합계가 인보이스와 다를 때', (a) => { a.answer = '인보이스는 고쳐져서 다시 오기 때문에, 올릴 때 먼저 올린 것과 값이 다르면 새로 올리는 것이 맞는 값입니다. 따로 정한 허용 차이나 승인자는 없고, 담당자가 가장 최신 인보이스로 다시 올립니다. 글자 인식이 틀린 경우에는 읽힌 값을 원문과 대조해 고칩니다.'; a.status = 'confirmed'; a.evidence = SRC; });
+  dropFollow('패킹리스트 합계가 다른 까닭');
+
+  // 품목번호: 영업지원이 이카운트에 넣으면 그 품종 번호에서 1 늘린 번호가 생긴다
+  close('품목코드 번호는 어떤 규칙으로 정하나요', '영업지원이 이카운트에 넣으면 그 품종의 번호에서 1 을 늘린 품목번호가 새로 생깁니다. 수입부가 번호를 정하지 않습니다. 수입부는 신규 품목 창에서 품목을 만들어 두고, 번호는 영업지원 쪽에서 붙습니다.');
+
+  // 입고 등록의 뜻(네노바웹 화면을 언제 쓰는지는 여전히 답이 없어 다시 여쭐 것에 남긴다)
+  answered.push(ans('입고 등록', '입고 등록은 무엇을 하는 일인가', '농장이 실제로 보내는 물량과 단가가 인보이스로 정확하게 오면, 그것을 입고 등록해서 전산에 넣는 일입니다. 주문 등록과는 다른 일이고, 인보이스나 AWB 가 왔을 때 올리며 시기는 매주 비슷합니다.', 'confirmed', SRC));
+  { const f = ownerFollowUps.filter(x => x.topic.includes('웹 입고 등록 화면')); if (f.length !== 1) throw new Error('웹 입고 등록 다시 여쭐 것');
+    f[0].said = '「인보이스로 정확하게 농장에서 보내는 물량과 단가가 오면, 그걸 입고등록해서 전산에 넣는 거지」'; f[0].why = '입고 등록이 무엇인지는 답하셨고, 두 화면의 차이는 답이 없음(세 번째)';
+    f[0].ask = '입고를 올리는 곳이 두 군데 있습니다. ① 전산 프로그램의 「입고 관리 › 업로드」(지금 수입부가 쓰는 곳) ② 네노바웹 「수입부 업무도구」 안의 입고 등록. 새 직원에게 「①만 쓰면 된다」고 적어도 될까요, 아니면 ②를 써야 하는 때가 있나요?'; }
+}
 const data = {
   version: 1, updatedAt: '2026-11-17', dept: '수입부',
   sourceSummary: [
