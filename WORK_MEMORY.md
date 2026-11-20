@@ -4205,3 +4205,5 @@ pm run test:canon 통과.
 4. 검증 상태: 표적89개, 실제 격리 MSSQL, 전체 ERP 계약, dnSpy/manifest/write guard, 로컬 webpack 및 최신 master 통합 GitHub CI PASS. 배포 API/worker heartbeat/실브라우저 hydration PASS. 배포 직전/후 보호12개 원장 건수·체크섬 일치(완전한 행 동일성 증명은 아님), 운영 SP hash 동일.
 5. 주의/잠금: 직접 gate clear/RUN 회수/SP 변경/확정 토글/재고조정 없음. 원장 강제보정 없음. 기존 메뉴 재사용, 새 화면 없음. 임시 SQL/기준선/빌드·junction 및 작업 worktree 정리. 다른 세션 작업은 무수정.
 검색어: confirm-busy 완료 PR1905 4079538a Cafe24 44660332001 IDLE PendingCalc0 12원장보존 89회귀
+
+2026-11-20 정리 정정: 배포/복구 검증은 완료. 정확한 worktree/junction/임시파일 경로 확인 후 PowerShell Remove-Item 정리가 자동 승인 검토에서 blocked by policy로 거부되어 로컬 worktree·node_modules junction·임시 probe 파일은 보존했다. 우회/force 삭제 없음. 기능상 남은 일은 없으며 로컬 정리만 미완료. 검색어: confirm-busy cleanup-policy-blocked worktree보존
