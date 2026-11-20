@@ -2,6 +2,11 @@
 
 // Only main owns the feed and installer. The web renderer never supplies URLs.
 const FEED = 'https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download';
+// Zero-cost feed chain: the Cafe24 static feed is tried first (it keeps working after the GitHub
+// repository goes private); GitHub Releases stays as the unchanged fallback. FEED remains the
+// baked-in publish URL of already installed apps.
+const FEED_PRIMARY = 'https://nenovaweb.com/desktop-releases';
+const FEED_CHAIN = Object.freeze([FEED_PRIMARY, FEED]);
 const MIN_FREE = 1024 ** 3;
 function releaseNoteLines(notes) {
   const text = typeof notes === 'string' ? notes : Array.isArray(notes) ? notes.slice(0, 3).map(item => typeof item?.note === 'string' ? item.note : '').join('\n') : '';
@@ -14,10 +19,24 @@ function validInfo(info) {
     Number.isSafeInteger(f.size) && f.size > 0 && f.size <= 500 * 1024 ** 2 &&
     typeof f.sha512 === 'string' && /^[A-Za-z0-9+/]{86}==$/.test(f.sha512);
 }
-function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall }) {
+function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall, feeds = FEED_CHAIN }) {
   let state = { phase: enabled ? 'idle' : 'unavailable', version: '', percent: 0, message: enabled ? '앱 업데이트를 확인할 수 있습니다.' : '설치된 Windows 앱에서 업데이트할 수 있습니다.' };
   let token, installBusy = false;
   const emit = (patch) => { state = { ...state, ...patch }; notify({ ...state }); };
+  // Feeds are tried in order. A 404, network error or malformed metadata moves on to the next
+  // feed; the first feed that answers with valid metadata wins (even if it offers nothing newer).
+  async function checkFeeds() {
+    let last;
+    for (const url of feeds) {
+      try {
+        if (typeof engine.setFeedURL === 'function') engine.setFeedURL({ provider: 'generic', url });
+        const result = await engine.checkForUpdates();
+        if (!result || !validInfo(result.updateInfo)) throw Error('Invalid update metadata');
+        return result;
+      } catch (error) { last = error; }
+    }
+    throw last || Error('No update feed');
+  }
   const fail = () => emit({ phase: 'error', message: '업데이트에 실패했습니다. 네트워크와 저장 공간을 확인한 뒤 다시 확인해 주세요.' });
   if (engine) {
     engine.autoDownload = false;
@@ -39,8 +58,7 @@ function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall })
       if (!enabled || ['checking', 'available', 'downloading', 'downloaded', 'installing'].includes(state.phase)) return;
       emit({ phase: 'checking', version: '', releaseNotes: [], percent: 0, message: '앱 새 버전을 확인하고 있습니다.' });
       try {
-        const result = await engine.checkForUpdates();
-        if (!result || !validInfo(result.updateInfo)) throw Error('Invalid update metadata');
+        const result = await checkFeeds();
         const current = engine.currentVersion.version;
         const newer = result.updateInfo.version.split('.').map(Number);
         const old = current.split('.').map(Number);
@@ -104,4 +122,4 @@ function createUpdateScheduler({ updater, isReady, isOnline, now = Date.now }) {
     },
   };
 }
-module.exports = { createUpdater, createUpdateScheduler, validInfo, releaseNoteLines, FEED, MIN_FREE };
+module.exports = { createUpdater, createUpdateScheduler, validInfo, releaseNoteLines, FEED, FEED_PRIMARY, FEED_CHAIN, MIN_FREE };
