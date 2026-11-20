@@ -4241,3 +4241,11 @@ pm run test:canon 통과.
 실제 1920x1080 가이드 14단계, 554.5초, 자막 76개 실제 프레임 정렬 및 카메라 구간 검증.
 
 2026-11-20 최종 업스트림 통합: Desktop 1.3.71, 546.1초·자막 76개 정확한 프레임 정렬, PR #1903. 운영 공개는 CI 후 확인.
+
+## 2026-11-20 — Private 전환 사전 공사: Cafe24 무인증 git fetch 제거 + 데스크톱 이중 피드
+1. 작업 위치: nenova-erp-ui / feat/zero-cost-private-repo-prep / C:/Users/USER/nw-swm-private-prep / PR 생성 직전. 연결 목표: g18.
+2. 완료된 것: deploy.yml 서버 스크립트에서 GitHub 무인증 fetch 제거(러너가 증분 git bundle + deploy-meta.json 전송, 서버는 SHA256·메타·bundle verify 후 로컬 갱신, 무중단 교체·롤백 보존). updater.cjs 1차 nenovaweb.com/desktop-releases → 2차 GitHub Releases 폴백. docs/GITHUB_PRIVATE_ZERO_COST_PLAYBOOK.md 신규.
+3. 남은 할 일: 머지 후 Deploy to Cafe24 첫 성공 확인(번들 경로 실서버 첫 실행), Cafe24 /desktop-releases(nginx alias)에 latest.yml·설치파일 업로드, 구버전 앱 전원 갱신 확인, DesktopDownloadButton 링크 교체 후속 PR. 그 전에는 저장소를 Private 로 바꾸지 말 것.
+4. 검증 상태: desktop 80개·updater 실제 다운로드 스모크·deploy 관련 테스트·신규 privateRepoDeploy(번들 오프라인 재현 3종)·test:ui-layout·guard:erp-writes 통과. 실서버 번들 배포는 머지 후 첫 실행에서만 검증 가능.
+5. 주의/잠금: 서버에 GitHub 토큰 심지 말 것. 서버 HEAD 가 러너 저장소 조상이 아니면 SERVER_HEAD_DIVERGED 로 배포가 안전 중단된다. 1차 피드 latest.yml 업로드를 빼먹으면 직원 앱이 갱신되지 않는다.
+검색어: private 전환 deploy bundle deploy-meta desktop-releases 이중 피드 g18
