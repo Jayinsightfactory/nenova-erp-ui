@@ -4416,3 +4416,12 @@ pm run test:canon 통과.
 3. 남은 일: 사장님 설명과 기록이 다른 2건(일요일 9시 분류 대 8시대 출발 글, 평일 배차를 누가 하는지)과 토요일 출고는 질문으로 남김. 분류 작업·토요일 출고 매뉴얼은 기록이 없어 못 씀. 강의형 영상은 반영 뒤 만든다.
 4. 검증: node scripts/validate-handover.cjs data/handover-field.json 통과, npm run -s test:workflow-guides 통과(deptHandover ok). 운영 화면 확인은 브라우저 로그인이 풀려 미검증.
 5. 주의: 원고는 scripts/build-handover-field.cjs 한 곳만 고칠 것. 새 화면 주소는 없음(기존 /work/manuals 안의 부서 선택)이라 데스크톱앱 메뉴 변경 없음. 연결 목표: g03 / 학습 반영: 없음
+
+## 2026-11-20 수입부 인수인계 원고 — 입고를 올리는 곳(사장님 답)
+요약: 원래는 네노바웹 수입부 업무도구에서 입고를 올리는 것이 맞고, 지금은 그 화면의 입고 업로드를 고치는 중이라 전산 프로그램으로 올린다. 「정식 흐름」이라고 적었던 문구를 고치고 다시 여쭐 것 4 → 3.
+검색어: 수입부 매뉴얼 입고 등록 업무도구 전산 프로그램 업로드 정식
+1. 작업 위치: nenova-erp-ui / feat/import-owner-answers-1120c / C:\Users\USER\wt-import-manual
+2. 완료: scripts/build-import-handover.cjs → data · docs 재생성
+3. 남은 일: 업무도구의 입고 업로드가 고쳐지면 입고 등록 매뉴얼을 업무도구 기준으로 다시 쓰기
+4. 검증: npm run -s test:workflow-guides 통과. 운영 화면 확인은 브라우저 로그인이 풀려 미검증.
+5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: g03 / 학습 반영: 없음
