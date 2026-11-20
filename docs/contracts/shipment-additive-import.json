@@ -30,7 +30,10 @@
     "__tests__/shipmentImportFinalStateRollback.test.js",
     "__tests__/shipmentImportCustomerExclusionPreview.test.js",
     "__tests__/shipmentFarmTextImport.test.cjs",
-    "scripts/record-shipment-field-volume.cjs"
+    "scripts/record-shipment-field-volume.cjs",
+    "docs/plans/distribution-import-ui-2026-11-20.md",
+    "desktop/scripts/smoke.cjs",
+    "scripts/workflow-guide-player-smoke.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -103,6 +106,7 @@
     "farms": "ADD-only partial preservation; no scaling; exact added amount if provided; no overallocation",
     "files": "explicit FINAL or ADDITIONAL; reject mismatched upload mode; no silent mode switch",
     "finalFileScope": "resolved visible cells only; never metadata key expansion",
-    "retry": "fixed target and quantity+farm stale checks; no automatic post-success re-add"
+    "retry": "fixed target and quantity+farm stale checks; no automatic post-success re-add",
+    "uiLayout": "file/mode then verified actions; native disclosures preserve selection; same handlers, selected-year scope and invalidation"
   }
 }

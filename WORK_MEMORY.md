@@ -4338,3 +4338,11 @@ pm run test:canon 통과.
 3. 남은 일: folderMap 의 화면 1건짜리 「확정」 줄, 「자리」라는 말이 차수와 PC 두 뜻으로 쓰이는 곳, 요일별 업무표(import-weekday.json)의 네덜란드 연결은 손대지 않음
 4. 검증: npm run -s test:workflow-guides 통과. 운영 확인은 배포 뒤.
 5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: 수입부 인수인계 / 학습 반영: 없음
+## 2026-11-20 출고분배 업로드 버튼 정돈 — UI 확정·Desktop 1.3.76 예약
+요약: 운영 캡처에서 혼재한 버튼을 파일/반영 방식 → 검증/승인/검증본 다운로드로 정돈. 보조 생성·이력/가이드/선택 농장 입력은 native details로 묶고 상태를 보존한다. 원장·API·수량 계산·합산/교체·서명/잠금 정책은 변경하지 않는다.
+검색어: distribute-import 버튼 정돈 파일 반영방식 검증 승인 다운로드 Desktop 1.3.76
+1. 작업 위치: nenova-erp-ui / codex/distribute-ui-1120 / C:/Users/USER/nw-cdx-distribute-ui-1120 / PR 생성 전
+2. 완료: 페이지 구조 및 한국어 안내, Chrome 1920/390 업무·키보드·접기 상태 보존, React/합산 회귀16개 통과. Desktop1.3.76은 release/draft 확인 후 이번 작업 예약.
+3. 남은 일: 가이드2편 최종 녹화·프레임/플레이어 확인, ERP 필수 게이트·빌드·PR/CI·배포·운영 스모크.
+4. 검증: 대상16개/격리Chrome/현장물량표 dry-run 통과. 최종 게이트/운영 미검증. 출고/원장 계산·파일양식은 기존 계약 보존.
+5. 주의/잠금: pages/shipment/distribute-import.js, 관련 가이드2편·촬영 스크립트, desktop/package*.json(1.3.76) 이번 작업 소유. 연결 목표: g03/g13/g19 / 학습 반영: 있음. 정합률96.8%, 공백 g02/g05/g06/g07/g08/g09/g14/g15(엔진 조회값).
