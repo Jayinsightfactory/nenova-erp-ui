@@ -4312,3 +4312,11 @@ pm run test:canon 통과.
 4. 검증 상태: desktop 80/80, desktopReleasesFeed+privateRepoDeploy+ciBuildArtifact+codeOnlyDeployment 30/30, guard:erp-writes, test:erp-manifest(236), check-workflow-guides(35/36), test:ui-layout(58/58), 3개 워크플로우 YAML 구문, local-cafe24-deploy --dry-run 전수 PASS. nenova-pm/office-feed.js owner-twin 실서버 업로드 200 ok 확인.
 5. 주의/잠금: /var/lib/nenova/desktop-releases(~/shared/desktop-releases)는 배포 경로 밖 영구 디렉터리. PR 체크 이름 verify 변경 금지. deploy.yml cancel-in-progress: false 유지 필수.
 검색어: desktop-releases publish-cafe24 seed_from_release_tag DESKTOP_FAST_PASS STALE_RELEASE_EARLY local-cafe24-deploy owner-twin g18 g19
+## 2026-11-20 수입부 인수인계 원고 — 재검증에서 틀린 문구 바로잡기
+요약: 11-17 재분석으로 넣은 내용을 따로 검증(화면 분류 225건 · 카톡 186건 · 원고 모순 검토)한 결과 틀리거나 어긋난 문구를 고침. 응답 시간 "보통 15분" 삭제(요청 다음 글 40건 중 답은 11건), "변경 공지 세 방 0건" → 4건 중 1건, 수입방 403건은 "창이 떠 있던 화면 수"로 표기, 불량차감 확인 시점 · 주말 도착 공지 요일 · 네덜란드 입고 요일 · 공용 주소 날짜 · 5일 결제 · 변경 글 제목 통일.
+검색어: 수입부 매뉴얼 재검증 import-handover 응답시간 변경공지 세방 day-reply m-pay 네덜란드 입고 월요일
+1. 작업 위치: nenova-erp-ui / fix/import-reverify-1120 / C:\Users\USER\wt-import-manual
+2. 완료: scripts/build-import-handover.cjs 문구 19곳 → data/import-handover.json · docs/IMPORT_DEPT_WORK_SCHEDULE.md 재생성
+3. 남은 일: 검토에서 나온 "판단이 필요한 어긋남" 11건(1차 화물 도착 요일, 호주·미국·베트남 월요일 입고의 확정 표시, 주말 서류 전달, 주말 근거 숫자 730, 콜롬비아 1차 파일 수, 태국 추가 마감, 창고료 금액 대역, 확정 표시 근거 약한 줄, 질문 목록 중복, 네덜란드 칸 매뉴얼 연결, 방 · 자리 이름 통일)
+4. 검증: npm run -s test:workflow-guides 통과. 운영 확인은 배포 뒤.
+5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것(data · docs 는 생성물). 연결 목표: 수입부 인수인계 / 학습 반영: 없음
