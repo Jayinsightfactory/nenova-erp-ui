@@ -326,6 +326,12 @@
       "videoWaivers": [
         {
           "file": "components/import-tools/SharedAwbCostReview.js",
+          "sha256": "54bf55219dc26c9aeaf44a40e65a4819f7db8e1b1a209f23fbf1f249de4d886a",
+          "approvedBy": "owner",
+          "reason": "2026-11-20 사용자 명시: PR #1896 콜롬비아 입고→주차 통합 변경의 가이드 촬영·영상·자막 갱신 제외. 기존 공동 AWB 영상은 그대로이며 새 주차 통합 절차를 설명하지 않음. 네이티브·Excel·배포 검증은 별도 유지."
+        },
+        {
+          "file": "components/import-tools/SharedAwbCostReview.js",
           "sha256": "4e8f7065bf28d53117863a91c0dbc19c7f1d943d8a4710fab39d409647c792cb",
           "reason": "콜롬비아 전체 농장 한 번에 계산(기존 입고 모드)·누적 원가자료 옵션·통관비 기준 추가 — 공동 AWB 조회·입력·다운로드 기본 조작 순서는 변경 없음",
           "approvedBy": "사용자 지시 2026-11-13 (영상 없이 배포)"

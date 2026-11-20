@@ -25,6 +25,16 @@ test('one combined original-layout sheet only, all rows and AWB-local live formu
  const zip=await JSZip.loadAsync(bytes);assert.equal(Object.keys(zip.files).filter(n=>/^xl\/worksheets\/sheet\d+\.xml$/.test(n)).length,1);
  const xml=await zip.file('xl/workbook.xml').async('string');assert.match(xml,/fullCalcOnLoad="1"/);assert.doesNotMatch(xml,/summary|AWB 시트|원본수식 비교/);
 });
+test('native Excel compatibility: overlay keeps cell addresses unique and column ranges disjoint',async()=>{
+ const zip=await JSZip.loadAsync(await createColombiaWeekCostWorkbook(fixture()));
+ const xml=await zip.file('xl/worksheets/sheet1.xml').async('string');
+ const refs=[...xml.matchAll(/<c\b[^>]*\br="([A-Z]+\d+)"/g)].map(match=>match[1]);
+ assert.equal(new Set(refs).size,refs.length,'Excel repairs cells with repeated addresses');
+ for(const address of ['AK3','AK4','O5'])assert.equal(refs.filter(ref=>ref===address).length,1);
+ const cols=[...xml.matchAll(/<col\s[^>]*\bmin="(\d+)"[^>]*\bmax="(\d+)"/g)].map(m=>m.slice(1).map(Number));
+ assert.ok(cols.some(([min,max])=>min===41&&max===54));
+ for(let i=1;i<cols.length;i++)assert.ok(cols[i-1][1]<cols[i][0],JSON.stringify(cols));
+});
 test('single AWB retains existing visible GW/CW/freight/FX input dependency, and missing stem factors block export',async()=>{
  const f=fixture();f.calculation.results.pop();f.calculation.lines.pop();f.calculation.weights.pop();f.calculation.awbCount=1;f.prepared.documents.pop();
  f.calculation.customsSources[0].awbs.pop();f.calculation.customsSources[0].amountKRW=500;f.calculation.totals.customsKRW=500;
