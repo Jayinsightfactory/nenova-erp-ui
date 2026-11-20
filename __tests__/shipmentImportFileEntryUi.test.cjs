@@ -141,6 +141,9 @@ test('addition and download selection invalidate prior approval; ordinary explic
     assert.equal(f.button(f.render(),'검증된 엑셀 다운로드').props.disabled,true);
     const radios=f.nodes(f.render(),n=>n.type==='input' && n.props.type==='radio');
     assert.equal(radios.length,2);assert.equal(radios[0].props.checked,true);
+    const labels=f.nodes(f.render(),n=>n.type==='label').map(n=>React.Children.toArray(n.props.children).filter(c=>typeof c==='string').join(''));
+    assert.ok(labels.includes('합산본 (예시: 기존 10 + 추가 3 = 최종 13)'));
+    assert.ok(labels.includes('추가분 별도 (예시: 이번 파일 3만)'));
     radios[1].props.onChange();
     assert.equal(f.nodes(f.render(),n=>n.type==='input' && n.props.type==='radio')[1].props.checked,true);
     assert.equal(f.button(f.render(),'물량표 바로 생성').props.disabled,true,'ADD cannot bypass verified quantity by a quick export');

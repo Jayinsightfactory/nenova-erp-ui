@@ -4258,3 +4258,11 @@ pm run test:canon 통과.
 4. 검증 상태: 최초 가드에서 기존 ALTER 저장형2개 누락 exit1 확인 후 이미 승인된 정확4해시로 수정. 해시가드4개·복구90개·기존 atomic/installer 회귀·canon/dnSpy PASS. 독립 npm ci, 최신 #1906 통합 전체 ERP contract/webpack build exit0. 고정 기준 f891c82c2의 manifest236/writeguard/API0·canon/dnSpy 및 배포 계약22 PASS. 운영 DB/SP 쓰기 없음.
 5. 주의/잠금: UI/URL/메뉴 변경 없음(Desktop 기존 동작 재사용). 새로운 hash를 운영 관측값으로 자동 승인하지 않음, 실행 직전 재검증·unknown 거부 보존. 연결 목표: g17/g19, 학습 반영 있음. goals.json 백업·기존 id/gate/progress55/40 보존, note/history만 연결. owner alignment98.3%, 열린 drift0; 실제 목표 진척률 증가 근거 아님. ledger/세션 무수정.
 검색어: stock-procedure-hashes prepareInstallation planStockCalculationOrderRepair CREATE ALTER missing-hash exit1 g17 g19 학습반영
+
+## 2026-11-20 — 합산 다운로드 고정 숫자 ‘예시’ 명시
+검색어: additive-example-label-1120 예시 고정숫자 copy-only g03 g13 g19
+1. 작업 위치: codex/additive-example-label-1120 / C:/Users/USER/.codex/worktrees/e8d3/nw-cdx-additive-example-1120 / origin/master483f4853a 기반.
+2. 완료: FINAL/ADDITIONAL 라디오 설명의 고정 숫자 앞에 ‘예시:’만 추가. 계산·반영·다운로드 모드·Desktop URL/설치본 무변경. 기존 UI 테스트7개 통과. g03/g13/g19 근거·history 연결 및 UI 고정숫자 예시 선호 학습, progress0/100/40와 gate-p0 보존.
+3. 다음: 자동 copy-only 가이드 면제가 없으므로 관련 영상2편만 실제 합성 UI로 재촬영/해시 갱신, 기존 게이트·PR/CI/squash/Cafe24/운영 문구 확인.
+4. 검증 상태: UI7개 통과, 새 소스의 가이드 촬영 진행. native Excel/수량 원장 테스트는 계산 변경이 없어 반복하지 않음. 운영 ERP 쓰기0.
+5. 주의/잠금: 이전 additive-distribution-1120 캐시/원본은 자동 정리 검토 거절로 보존 상태. 이전 거절을 우회하지 않음. 현재 worktree만 작업 중이며 source hash를 촬영한 것처럼 바꾸거나 사용자 video waiver 승인을 추론하지 않는다.

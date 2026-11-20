@@ -1149,37 +1149,37 @@
             {
               "scenario": "upload",
               "title": "1. 물량표 모아 업로드에서 엑셀을 선택합니다",
-              "seconds": 0.241
+              "seconds": 0.205
             },
             {
               "scenario": "upload-only",
               "title": "1. 저장된 품목을 체크하고 신형 물량표 다운로드를 누릅니다",
-              "seconds": 10.192
+              "seconds": 8.901
             },
             {
               "scenario": "farm",
               "title": "2. 카톡 내용을 붙여넣어 업체·품목·농장을 지정합니다",
-              "seconds": 20.514
+              "seconds": 17.976
             },
             {
               "scenario": "farm",
               "title": "2. 카톡 농장 적용으로 기존 출고의 농장만 저장합니다",
-              "seconds": 31.525
+              "seconds": 27.946
             },
             {
               "scenario": "generate",
               "title": "3. 1차 물량 합산을 풀고 2차 작업량을 다운로드합니다",
-              "seconds": 41.762
+              "seconds": 36.726
             },
             {
               "scenario": "review",
               "title": "4. 바로 생성 엑셀의 원본 수량을 확인합니다",
-              "seconds": 52.734
+              "seconds": 46.741
             },
             {
               "scenario": "review",
               "title": "4. 생성 엑셀의 인쇄 결과와 수량을 확인합니다",
-              "seconds": 59.863
+              "seconds": 53.307
             }
           ]
         }
@@ -2261,32 +2261,32 @@
             {
               "scenario": "upload",
               "title": "1. 파일을 선택한 뒤 기본 교체 방식과 대상 차수를 확인합니다",
-              "seconds": 0.047
+              "seconds": 0.04
             },
             {
               "scenario": "add",
               "title": "2. 기존 분배에 합산하기를 체크합니다",
-              "seconds": 7.493
+              "seconds": 7.267
             },
             {
               "scenario": "additional",
               "title": "3. 추가분 별도를 선택하고 검증하면 이번 추가수량만 다운로드됩니다",
-              "seconds": 14.834
+              "seconds": 14.562
             },
             {
               "scenario": "verify",
               "title": "4. 합산전10 + 추가3 = 최종13과 농장 미배정 수량을 함께 확인합니다",
-              "seconds": 21.823
+              "seconds": 21.889
             },
             {
               "scenario": "final",
               "title": "5. 합산본을 선택하면 다시 검증한 최종합계13을 다운로드합니다",
-              "seconds": 29.45
+              "seconds": 29.275
             },
             {
               "scenario": "apply",
               "title": "6. 승인 후 최종13을 저장하며 완료한 합산은 중복 승인하지 않습니다",
-              "seconds": 37.051
+              "seconds": 36.598
             }
           ]
         }
