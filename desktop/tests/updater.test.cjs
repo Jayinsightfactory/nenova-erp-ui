@@ -64,9 +64,9 @@ test('automatic retries recover after failure and concurrent ticks issue one che
   f.engine.checkForUpdates = async () => { checks++; throw Error('offline'); };
   const scheduler = createUpdateScheduler({ updater: f.updater, isReady: () => true, isOnline: () => true, now: () => time });
   await scheduler.tick(); assert.equal(f.updater.getState().phase, 'error');
-  time = 15 * 60 * 1000 - 1; await scheduler.tick(); assert.equal(checks, 1);
+  time = 15 * 60 * 1000 - 1; await scheduler.tick(); assert.equal(checks, 2, 'one failed attempt tries the Cafe24 feed and the GitHub fallback once each');
   f.engine.checkForUpdates = () => { checks++; return new Promise(resolve => { finish = resolve; }); };
-  time++; const pending = scheduler.tick(); await scheduler.tick(true); await f.updater.check(); assert.equal(checks, 2);
+  time++; const pending = scheduler.tick(); await scheduler.tick(true); await f.updater.check(); assert.equal(checks, 3);
   finish({ updateInfo: info() }); await pending;
   assert.equal(f.updater.getState().phase, 'installing');
   assert.equal(f.installs.length, 1);
@@ -133,4 +133,52 @@ test('current/older releases and development mode do not download', async () => 
     await f.updater.download(); assert.equal(f.updater.getState().phase,'current');
   }
   const f=fixture({enabled:false}); await f.updater.check(); assert.equal(f.updater.getState().phase,'unavailable');
+});
+
+test('dual feed: Cafe24 static feed first, GitHub Releases only as fallback', async () => {
+  const { FEED_PRIMARY, FEED_CHAIN } = require('../updater.cjs');
+  assert.equal(FEED_PRIMARY, 'https://nenovaweb.com/desktop-releases');
+  assert.deepEqual([...FEED_CHAIN], [FEED_PRIMARY, FEED]);
+  assert(Object.isFrozen(FEED_CHAIN));
+  const f = fixture(); const seen = [];
+  f.engine.setFeedURL = options => seen.push(options);
+  f.engine.checkForUpdates = async () => { seen.push('check'); return { updateInfo: info() }; };
+  await f.updater.check();
+  assert.deepEqual(seen, [{ provider: 'generic', url: FEED_PRIMARY }, 'check']);
+  assert.equal(f.updater.getState().phase, 'available');
+});
+
+test('dual feed: missing or malformed Cafe24 feed falls back to GitHub without user-visible error', async () => {
+  for (const failure of ['404', 'html', 'offline']) {
+    const f = fixture(); const seen = []; let url = '';
+    f.engine.setFeedURL = options => { url = options.url; seen.push(url); };
+    f.engine.checkForUpdates = async () => {
+      if (url === FEED) return { updateInfo: info() };
+      if (failure === '404') throw Error('Cannot find latest.yml: 404');
+      if (failure === 'html') return { updateInfo: { version: '1.4.0', files: [] } };
+      throw Error('ENOTFOUND nenovaweb.com');
+    };
+    await f.updater.check();
+    assert.deepEqual(seen, ['https://nenovaweb.com/desktop-releases', FEED], failure);
+    assert.equal(f.updater.getState().phase, 'available', failure);
+    await f.updater.download(); assert.equal(f.updater.getState().phase, 'downloaded', failure);
+  }
+});
+
+test('dual feed: every feed failing is a normal retryable error, and a valid current primary does not hit GitHub', async () => {
+  const f = fixture(); const seen = [];
+  f.engine.setFeedURL = options => seen.push(options.url);
+  f.engine.checkForUpdates = async () => { throw Error('offline'); };
+  await f.updater.check();
+  assert.equal(f.updater.getState().phase, 'error'); assert.equal(seen.length, 2);
+  const g = fixture(); const used = [];
+  g.engine.setFeedURL = options => used.push(options.url);
+  g.engine.checkForUpdates = async () => ({ updateInfo: info('1.3.0') });
+  await g.updater.check();
+  assert.equal(g.updater.getState().phase, 'current'); assert.deepEqual(used, ['https://nenovaweb.com/desktop-releases']);
+  // Feed list is injectable for a single-feed rollback, and the renderer can never supply URLs.
+  const engine = new EventEmitter(); engine.currentVersion = { version: '1.3.0' }; const urls = [];
+  engine.setFeedURL = options => urls.push(options.url); engine.checkForUpdates = async () => ({ updateInfo: info() });
+  await createUpdater({ engine, enabled: true, enoughSpace: () => true, prepareInstall: () => true, notify() {}, feeds: [FEED] }).check();
+  assert.deepEqual(urls, [FEED]);
 });
