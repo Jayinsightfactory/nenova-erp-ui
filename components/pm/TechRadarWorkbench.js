@@ -1357,116 +1357,123 @@ export default function TechRadarWorkbench({
               </marker>
             </defs>
 
-            {/* 단계 헤더 라벨 */}
-            <text x="12" y="18" fill="var(--trw-muted)" fontSize="12" fontWeight="700">01 원천 데이터 입력</text>
-            <text x="254" y="18" fill="var(--trw-muted)" fontSize="12" fontWeight="700">02 판정 기준식 · 엔진</text>
-            <text x="502" y="18" fill="var(--trw-muted)" fontSize="12" fontWeight="700">03 4대 부서 실행 화면</text>
-            <text x="750" y="18" fill="var(--trw-muted)" fontSize="12" fontWeight="700">04 원가절감 · 이익증대</text>
+            {/* Layer 1: 모든 연결 배선(<path>) 선행 렌더링 */}
+            <g data-layer="wires">
+              {/* Col 1 -> Col 2 연결선 */}
+              <path d="M 226 53 L 240 53 L 240 108 L 252 108" fill="none" stroke="var(--trw-accent)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
+              <path d="M 226 112 L 252 112" fill="none" stroke="var(--trw-accent)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
+              <path d="M 226 171 L 240 171 L 240 116 L 252 116" fill="none" stroke="var(--trw-accent)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
 
-            {/* Col 1: 3대 입력 원천 */}
-            <g>
-              <rect x="12" y="28" width="214" height="50" rx="4" fill="var(--trw-surface-2)" stroke="var(--trw-line)" strokeWidth="1" />
-              <text x="22" y="47" fill="var(--trw-accent)" fontSize="12.5" fontWeight="700">이메일 · 외부 첨부서류</text>
-              <text x="22" y="67" fill="var(--trw-ink)" fontSize="12">{clipText(origins.emailDoc, 20)}</text>
+              {/* Col 2 -> Col 3 연결선 */}
+              <path d="M 474 112 L 488 112 L 488 47 L 500 47" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+              <path d="M 474 112 L 488 112 L 488 90 L 500 90" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+              <path d="M 474 112 L 488 112 L 488 133 L 500 133" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+              <path d="M 474 112 L 488 112 L 488 176 L 500 176" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
 
-              <rect x="12" y="87" width="214" height="50" rx="4" fill="var(--trw-surface-2)" stroke="var(--trw-line)" strokeWidth="1" />
-              <text x="22" y="106" fill="var(--trw-accent)" fontSize="12.5" fontWeight="700">사내 담당자 · 카톡 원문</text>
-              <text x="22" y="126" fill="var(--trw-ink)" fontSize="12">{clipText(origins.staffInput, 20)}</text>
-
-              <rect x="12" y="146" width="214" height="50" rx="4" fill="var(--trw-surface-2)" stroke="var(--trw-line)" strokeWidth="1" />
-              <text x="22" y="165" fill="var(--trw-accent)" fontSize="12.5" fontWeight="700">해외 농장 · 국내 거래처</text>
-              <text x="22" y="185" fill="var(--trw-ink)" fontSize="12">{clipText(origins.partnerData, 20)}</text>
+              {/* Col 3 -> Col 4 연결선 */}
+              <path d="M 722 47 L 736 47 L 736 108 L 748 108" fill="none" stroke="var(--trw-ok)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
+              <path d="M 722 90 L 736 90 L 736 112 L 748 112" fill="none" stroke="var(--trw-ok)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
+              <path d="M 722 133 L 736 133 L 736 116 L 748 116" fill="none" stroke="var(--trw-ok)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
+              <path d="M 722 176 L 736 176 L 736 120 L 748 120" fill="none" stroke="var(--trw-ok)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
             </g>
 
-            {/* Col 1 -> Col 2 연결선 */}
-            <path d="M 226 53 L 240 53 L 240 108 L 252 108" fill="none" stroke="var(--trw-accent)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 226 112 L 252 112" fill="none" stroke="var(--trw-accent)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 226 171 L 240 171 L 240 116 L 252 116" fill="none" stroke="var(--trw-accent)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
+            {/* Layer 2 (최상단): 단계 헤더 라벨 및 4개 칼럼 불투명 노드 카드 */}
+            <g data-layer="labels">
+              {/* 단계 헤더 라벨 */}
+              <text x="12" y="18" fill="var(--trw-muted)" fontSize="12" fontWeight="700">01 원천 데이터 입력</text>
+              <text x="254" y="18" fill="var(--trw-muted)" fontSize="12" fontWeight="700">02 판정 기준식 · 엔진</text>
+              <text x="502" y="18" fill="var(--trw-muted)" fontSize="12" fontWeight="700">03 4대 부서 실행 화면</text>
+              <text x="750" y="18" fill="var(--trw-muted)" fontSize="12" fontWeight="700">04 원가절감 · 이익증대</text>
 
-            {/* Col 2: 판정 기준식 & 엔진 */}
-            <g>
-              <rect x="254" y="28" width="220" height="168" rx="4" fill="var(--trw-surface)" stroke="var(--trw-accent)" strokeWidth="1.4" />
-              <rect x="254" y="28" width="220" height="28" rx="4" fill="var(--trw-surface-2)" />
-              <text x="264" y="47" fill="var(--trw-accent)" fontSize="12" fontWeight="700">
-                {`판정 · ${sim.primaryNode} (${sim.activeNodes.join('→')})`}
-              </text>
-              <text x="264" y="76" fill="var(--trw-ink)" fontSize="12.5" fontWeight="700">
-                {clipText(sim.itemName, 20)}
-              </text>
-              <text x="264" y="98" fill="var(--trw-muted)" fontSize="12">핵심 기준식:</text>
-              <text x="264" y="116" fill="var(--trw-ink)" fontSize="12">
-                {clipText(origins.thresholdRule, 17)}
-              </text>
-              <text x="264" y="134" fill="var(--trw-muted)" fontSize="12">
-                {clipText(String(origins.thresholdRule || '').slice(17), 18)}
-              </text>
-              <line x1="264" y1="148" x2="464" y2="148" stroke="var(--trw-line)" strokeWidth="1" />
-              <text x="264" y="167" fill="var(--trw-ok)" fontSize="12" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {`STEP 0${safeStepIdx + 1}/0${Math.max(1, sim.steps.length)} · ${activeSimStep?.latencyMs ?? 0}ms`}
-              </text>
-              <text x="264" y="185" fill="var(--trw-muted)" fontSize="12">
-                {clipText(activeSimStep?.artifact || sim.subtitle, 22)}
-              </text>
-            </g>
+              {/* Col 1: 3대 입력 원천 */}
+              <g>
+                <rect x="12" y="28" width="214" height="50" rx="4" fill="var(--trw-surface-2)" fillOpacity="1" stroke="var(--trw-line)" strokeWidth="1" />
+                <text x="22" y="47" fill="var(--trw-accent)" fontSize="12.5" fontWeight="700">이메일 · 외부 첨부서류</text>
+                <text x="22" y="67" fill="var(--trw-ink)" fontSize="12">{clipText(origins.emailDoc, 20)}</text>
 
-            {/* Col 2 -> Col 3 연결선 */}
-            <path d="M 474 112 L 488 112 L 488 47 L 500 47" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 474 112 L 488 112 L 488 90 L 500 90" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 474 112 L 488 112 L 488 133 L 500 133" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 474 112 L 488 112 L 488 176 L 500 176" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+                <rect x="12" y="87" width="214" height="50" rx="4" fill="var(--trw-surface-2)" fillOpacity="1" stroke="var(--trw-line)" strokeWidth="1" />
+                <text x="22" y="106" fill="var(--trw-accent)" fontSize="12.5" fontWeight="700">사내 담당자 · 카톡 원문</text>
+                <text x="22" y="126" fill="var(--trw-ink)" fontSize="12">{clipText(origins.staffInput, 20)}</text>
 
-            {/* Col 3: 4대 부서 실행 화면 */}
-            {deptRows.slice(0, 4).map((row, idx) => {
-              const y = 28 + idx * 43;
-              const isFocus = deptFilter === row.deptId || (deptFilter === 'all' && row.impactLevel === '핵심');
-              return (
-                <g key={row.deptId} opacity={deptFilter === 'all' || deptFilter === row.deptId ? 1 : 0.48}>
-                  <rect
-                    x="502"
-                    y={y}
-                    width="220"
-                    height="38"
-                    rx="4"
-                    fill="var(--trw-surface-2)"
-                    stroke={isFocus ? 'var(--trw-ok)' : 'var(--trw-line)'}
-                    strokeWidth={isFocus ? '1.4' : '1'}
-                  />
-                  <text x="512" y={y + 15} fill={isFocus ? 'var(--trw-ok)' : 'var(--trw-ink)'} fontSize="12" fontWeight="700">
-                    {`${row.deptName} · ${row.impactLevel}`}
-                  </text>
-                  <text x="512" y={y + 31} fill="var(--trw-muted)" fontSize="12">
-                    {clipText(`${row.route} · ${row.routeLabel}`, 24)}
-                  </text>
-                </g>
-              );
-            })}
+                <rect x="12" y="146" width="214" height="50" rx="4" fill="var(--trw-surface-2)" fillOpacity="1" stroke="var(--trw-line)" strokeWidth="1" />
+                <text x="22" y="165" fill="var(--trw-accent)" fontSize="12.5" fontWeight="700">해외 농장 · 국내 거래처</text>
+                <text x="22" y="185" fill="var(--trw-ink)" fontSize="12">{clipText(origins.partnerData, 20)}</text>
+              </g>
 
-            {/* Col 3 -> Col 4 연결선 */}
-            <path d="M 722 47 L 736 47 L 736 108 L 748 108" fill="none" stroke="var(--trw-ok)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 722 90 L 736 90 L 736 112 L 748 112" fill="none" stroke="var(--trw-ok)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 722 133 L 736 133 L 736 116 L 748 116" fill="none" stroke="var(--trw-ok)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 722 176 L 736 176 L 736 120 L 748 120" fill="none" stroke="var(--trw-ok)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
+              {/* Col 2: 판정 기준식 & 엔진 */}
+              <g>
+                <rect x="254" y="28" width="220" height="168" rx="4" fill="var(--trw-surface)" fillOpacity="1" stroke="var(--trw-accent)" strokeWidth="1.4" />
+                <rect x="254" y="28" width="220" height="28" rx="4" fill="var(--trw-surface-2)" fillOpacity="1" />
+                <text x="264" y="47" fill="var(--trw-accent)" fontSize="12" fontWeight="700">
+                  {`판정 · ${sim.primaryNode} (${sim.activeNodes.join('→')})`}
+                </text>
+                <text x="264" y="76" fill="var(--trw-ink)" fontSize="12.5" fontWeight="700">
+                  {clipText(sim.itemName, 20)}
+                </text>
+                <text x="264" y="98" fill="var(--trw-muted)" fontSize="12">핵심 기준식:</text>
+                <text x="264" y="116" fill="var(--trw-ink)" fontSize="12">
+                  {clipText(origins.thresholdRule, 17)}
+                </text>
+                <text x="264" y="134" fill="var(--trw-muted)" fontSize="12">
+                  {clipText(String(origins.thresholdRule || '').slice(17), 18)}
+                </text>
+                <line x1="264" y1="148" x2="464" y2="148" stroke="var(--trw-line)" strokeWidth="1" />
+                <text x="264" y="167" fill="var(--trw-ok)" fontSize="12" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {`STEP 0${safeStepIdx + 1}/0${Math.max(1, sim.steps.length)} · ${activeSimStep?.latencyMs ?? 0}ms`}
+                </text>
+                <text x="264" y="185" fill="var(--trw-muted)" fontSize="12">
+                  {clipText(activeSimStep?.artifact || sim.subtitle, 22)}
+                </text>
+              </g>
 
-            {/* Col 4: 기대 효과 & 승인 가드 */}
-            <g>
-              <rect x="750" y="28" width="198" height="168" rx="4" fill="var(--trw-surface)" stroke="var(--trw-ok)" strokeWidth="1.4" />
-              <rect x="750" y="28" width="198" height="28" rx="4" fill="var(--trw-ok-bg)" />
-              <text x="760" y="47" fill="var(--trw-ok-ink)" fontSize="12.5" fontWeight="700">원가절감 · 이익증대 결과</text>
-              {topMetrics.map((m, mIdx) => {
-                const my = 76 + mIdx * 43;
+              {/* Col 3: 4대 부서 실행 화면 */}
+              {deptRows.slice(0, 4).map((row, idx) => {
+                const y = 28 + idx * 43;
+                const isFocus = deptFilter === row.deptId || (deptFilter === 'all' && row.impactLevel === '핵심');
                 return (
-                  <g key={m.label}>
-                    <text x="760" y={my} fill="var(--trw-muted)" fontSize="12">{clipText(m.label, 18)}</text>
-                    <text x="760" y={my + 17} fill="var(--trw-ok)" fontSize="12" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                      {clipText(`${m.beforeLabel} → ${m.afterLabel}`, 19)}
+                  <g key={row.deptId} opacity={deptFilter === 'all' || deptFilter === row.deptId ? 1 : 0.48}>
+                    <rect
+                      x="502"
+                      y={y}
+                      width="220"
+                      height="38"
+                      rx="4"
+                      fill="var(--trw-surface-2)"
+                      fillOpacity="1"
+                      stroke={isFocus ? 'var(--trw-ok)' : 'var(--trw-line)'}
+                      strokeWidth={isFocus ? '1.4' : '1'}
+                    />
+                    <text x="512" y={y + 15} fill={isFocus ? 'var(--trw-ok)' : 'var(--trw-ink)'} fontSize="12" fontWeight="700">
+                      {`${row.deptName} · ${row.impactLevel}`}
+                    </text>
+                    <text x="512" y={y + 31} fill="var(--trw-muted)" fontSize="12">
+                      {clipText(`${row.route} · ${row.routeLabel}`, 24)}
                     </text>
                   </g>
                 );
               })}
-              <line x1="760" y1="158" x2="938" y2="158" stroke="var(--trw-line)" strokeWidth="1" />
-              <text x="760" y="179" fill="var(--trw-ink)" fontSize="12" fontWeight="700">
-                ApprovedBy 승인 후 원장 반영
-              </text>
+
+              {/* Col 4: 기대 효과 & 승인 가드 */}
+              <g>
+                <rect x="750" y="28" width="198" height="168" rx="4" fill="var(--trw-surface)" fillOpacity="1" stroke="var(--trw-ok)" strokeWidth="1.4" />
+                <rect x="750" y="28" width="198" height="28" rx="4" fill="var(--trw-ok-bg)" fillOpacity="1" />
+                <text x="760" y="47" fill="var(--trw-ok-ink)" fontSize="12.5" fontWeight="700">원가절감 · 이익증대 결과</text>
+                {topMetrics.map((m, mIdx) => {
+                  const my = 76 + mIdx * 43;
+                  return (
+                    <g key={m.label}>
+                      <text x="760" y={my} fill="var(--trw-muted)" fontSize="12">{clipText(m.label, 18)}</text>
+                      <text x="760" y={my + 17} fill="var(--trw-ok)" fontSize="12" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {clipText(`${m.beforeLabel} → ${m.afterLabel}`, 19)}
+                      </text>
+                    </g>
+                  );
+                })}
+                <line x1="760" y1="158" x2="938" y2="158" stroke="var(--trw-line)" strokeWidth="1" />
+                <text x="760" y="179" fill="var(--trw-ink)" fontSize="12" fontWeight="700">
+                  ApprovedBy 승인 후 원장 반영
+                </text>
+              </g>
             </g>
           </svg>
         </div>

@@ -80,7 +80,7 @@ const NODES = [
   },
 ];
 
-// 6개 노드를 잇는 직교(90도) 파이프라인 경로 — 중앙 버스 트랙(y=144)과 하단 배지 레인(y=166..196)을 물리적으로 완전 분리
+// 6개 노드를 잇는 직교(90도) 파이프라인 경로 — 중앙 버스 트랙(y=144)과 하단 배지 레인(y=164..198)을 물리적으로 완전 분리
 const EDGE_PATHS = [
   'M 306 69 L 339 69',
   'M 635 69 L 668 69',
@@ -1141,192 +1141,213 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
                     <rect x="0" y="0" width="980" height="340" fill="#ffffff" />
                     <rect x="0" y="0" width="980" height="340" fill="url(#simGrid)" />
 
-                    {/* 연결 경로 및 정밀 패킷 마커 (중앙 버스 트랙 y=144) */}
-                    {EDGE_PATHS.map((d, edgeIdx) => {
-                      const completed = stepIndex > edgeIdx;
-                      const activeEdge = stepIndex === edgeIdx + 1 || (stepIndex === edgeIdx && playing);
-                      const pathId = `sim-edge-${edgeIdx}`;
-                      const strokeColor = activeEdge ? '#1d4ed8' : completed ? '#047857' : '#64748b';
-                      const markerId = activeEdge ? 'url(#simArrowActive)' : completed ? 'url(#simArrowDone)' : 'url(#simArrowIdle)';
-                      return (
-                        <g key={pathId}>
-                          <path d={d} fill="none" stroke="#e2e8f0" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-                          <path
-                            id={pathId}
-                            d={d}
-                            fill="none"
-                            stroke={strokeColor}
-                            strokeWidth={activeEdge || completed ? '2.5' : '1.75'}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            markerEnd={markerId}
-                            className={activeEdge ? 'sim-edge-flow' : ''}
-                          />
-                          {!reducedMotion && (activeEdge || completed) && (
-                            <circle
-                              r={activeEdge ? 4.5 : 3.5}
-                              fill={activeEdge ? '#1d4ed8' : '#047857'}
-                              stroke="#ffffff"
-                              strokeWidth="1.5"
-                            >
-                              <animateMotion dur={speed === '1.8x' ? '0.85s' : '1.4s'} repeatCount="indefinite">
-                                <mpath href={`#${pathId}`} />
-                              </animateMotion>
-                            </circle>
-                          )}
-                        </g>
-                      );
-                    })}
-
-                    {/* 중앙 엔지니어링 버스 배지 — 버스 선(y=144) 아래 독립 레인(y=166..196) + 최상위 SVG DOM 레이어 */}
-                    <g className="sim-bus-badge">
-                      <rect x="305" y="166" width="370" height="30" rx="4" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1.2" />
-                      <text
-                        x="490"
-                        y="185.5"
-                        textAnchor="middle"
-                        fill="#0f172a"
-                        fontSize="13"
-                        fontWeight="700"
-                        fontFamily={FONT_SANS}
-                        style={{ fontVariantNumeric: 'tabular-nums' }}
-                      >
-                        WSS 역터널 · HERMES AI 3단위 정규화 버스
-                      </text>
+                    {/* Layer 1: 모든 배선(<path>) 및 이동 패킷(<circle>) 선행 렌더링 — 텍스트·캡슐 위로 절대 겹치지 않도록 Paint Order 고정 */}
+                    <g data-layer="wires">
+                      {EDGE_PATHS.map((d, edgeIdx) => {
+                        const completed = stepIndex > edgeIdx;
+                        const activeEdge = stepIndex === edgeIdx + 1 || (stepIndex === edgeIdx && playing);
+                        const pathId = `sim-edge-${edgeIdx}`;
+                        const strokeColor = activeEdge ? '#1d4ed8' : completed ? '#047857' : '#64748b';
+                        const markerId = activeEdge ? 'url(#simArrowActive)' : completed ? 'url(#simArrowDone)' : 'url(#simArrowIdle)';
+                        return (
+                          <g key={pathId}>
+                            <path d={d} fill="none" stroke="#e2e8f0" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                            <path
+                              id={pathId}
+                              d={d}
+                              fill="none"
+                              stroke={strokeColor}
+                              strokeWidth={activeEdge || completed ? '2.5' : '1.75'}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              markerEnd={markerId}
+                              className={activeEdge ? 'sim-edge-flow' : ''}
+                            />
+                            {!reducedMotion && (activeEdge || completed) && (
+                              <circle
+                                r={activeEdge ? 4.5 : 3.5}
+                                fill={activeEdge ? '#1d4ed8' : '#047857'}
+                                stroke="#ffffff"
+                                strokeWidth="1.5"
+                              >
+                                <animateMotion dur={speed === '1.8x' ? '0.85s' : '1.4s'} repeatCount="indefinite">
+                                  <mpath href={`#${pathId}`} />
+                                </animateMotion>
+                              </circle>
+                            )}
+                          </g>
+                        );
+                      })}
                     </g>
 
-                    {/* 6개 인터랙티브 노드 (활성 보더 두께 + 3색 의미 팔레트 + 선명한 고딕 폰트) */}
-                    {NODES.map((node, idx) => {
-                      const isActive = idx === stepIndex;
-                      const isPendingGate = idx === 4 && isActive && !isApproved;
-                      const isDone = idx < stepIndex || (idx === 5 && isApproved);
-                      const stepInfo = scenario.steps[idx];
-                      const stateLabel = isPendingGate ? '승인 대기' : isActive ? '실행 중' : isDone ? '완료' : '대기';
+                    {/* Layer 2 (최상단): 6개 인터랙티브 노드 카드 + 완전 불투명 중앙 버스 라벨 캡슐 */}
+                    <g data-layer="labels">
+                      {NODES.map((node, idx) => {
+                        const isActive = idx === stepIndex;
+                        const isPendingGate = idx === 4 && isActive && !isApproved;
+                        const isDone = idx < stepIndex || (idx === 5 && isApproved);
+                        const stepInfo = scenario.steps[idx];
+                        const stateLabel = isPendingGate ? '승인 대기' : isActive ? '실행 중' : isDone ? '완료' : '대기';
 
-                      const borderStroke = isPendingGate
-                        ? '#b45309'
-                        : isActive
-                          ? '#1d4ed8'
-                          : isDone
-                            ? '#047857'
-                            : '#cbd5e1';
-                      const borderWidth = isActive ? '2.5' : isDone ? '1.5' : '1';
-                      const nodeFill = isPendingGate
-                        ? '#fffbeb'
-                        : isActive
-                          ? '#eff6ff'
-                          : '#ffffff';
-                      const tagFill = isPendingGate
-                        ? '#fffbeb'
-                        : isActive
-                          ? '#eff6ff'
-                          : isDone
-                            ? '#ecfdf5'
-                            : '#f1f5f9';
-                      const tagStroke = isPendingGate
-                        ? '#b45309'
-                        : isActive
-                          ? '#1d4ed8'
-                          : isDone
-                            ? '#047857'
-                            : '#cbd5e1';
-                      const tagInk = isPendingGate
-                        ? '#b45309'
-                        : isActive
-                          ? '#1d4ed8'
-                          : isDone
-                            ? '#047857'
-                            : '#334155';
+                        const borderStroke = isPendingGate
+                          ? '#b45309'
+                          : isActive
+                            ? '#1d4ed8'
+                            : isDone
+                              ? '#047857'
+                              : '#cbd5e1';
+                        const borderWidth = isActive ? '2.5' : isDone ? '1.5' : '1';
+                        const nodeFill = isPendingGate
+                          ? '#fffbeb'
+                          : isActive
+                            ? '#eff6ff'
+                            : '#ffffff';
+                        const tagFill = isPendingGate
+                          ? '#fffbeb'
+                          : isActive
+                            ? '#eff6ff'
+                            : isDone
+                              ? '#ecfdf5'
+                              : '#f1f5f9';
+                        const tagStroke = isPendingGate
+                          ? '#b45309'
+                          : isActive
+                            ? '#1d4ed8'
+                            : isDone
+                              ? '#047857'
+                              : '#cbd5e1';
+                        const tagInk = isPendingGate
+                          ? '#b45309'
+                          : isActive
+                            ? '#1d4ed8'
+                            : isDone
+                              ? '#047857'
+                              : '#334155';
 
-                      return (
-                        <g
-                          key={node.id}
-                          className={`sim-node-g ${isActive ? 'is-active' : ''}`}
-                          style={{ cursor: 'pointer' }}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`${node.short} 단계로 이동`}
-                          aria-pressed={isActive}
-                          onClick={() => { setPlaying(false); jumpToStep(idx); }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              setPlaying(false);
-                              jumpToStep(idx);
-                            }
-                          }}
+                        return (
+                          <g
+                            key={node.id}
+                            className={`sim-node-g ${isActive ? 'is-active' : ''}`}
+                            style={{ cursor: 'pointer' }}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`${node.short} 단계로 이동`}
+                            aria-pressed={isActive}
+                            onClick={() => { setPlaying(false); jumpToStep(idx); }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setPlaying(false);
+                                jumpToStep(idx);
+                              }
+                            }}
+                          >
+                            <rect
+                              x={node.x}
+                              y={node.y}
+                              width={node.w}
+                              height={node.h}
+                              rx="4"
+                              fill={nodeFill}
+                              fillOpacity="1"
+                              stroke={borderStroke}
+                              strokeWidth={borderWidth}
+                            />
+                            <rect x={node.x} y={node.y} width="4" height={node.h} rx="1" fill={tagInk} fillOpacity="1" />
+
+                            <text
+                              x={node.x + 14}
+                              y={node.y + 20}
+                              dominantBaseline="central"
+                              fill="#334155"
+                              fontSize="12.5"
+                              fontWeight="600"
+                              fontFamily={FONT_SANS}
+                            >
+                              {node.surface}
+                            </text>
+
+                            <rect
+                              x={node.x + node.w - 86}
+                              y={node.y + 9}
+                              width="74"
+                              height="22"
+                              rx="4"
+                              fill={tagFill}
+                              fillOpacity="1"
+                              stroke={tagStroke}
+                              strokeWidth="1"
+                            />
+                            <text
+                              x={node.x + node.w - 49}
+                              y={node.y + 20}
+                              textAnchor="middle"
+                              dominantBaseline="central"
+                              fill={tagInk}
+                              fontSize="12.5"
+                              fontWeight="700"
+                              fontFamily={FONT_SANS}
+                            >
+                              {stateLabel}
+                            </text>
+
+                            <text
+                              x={node.x + 14}
+                              y={node.y + 52}
+                              dominantBaseline="central"
+                              fill="#0f172a"
+                              fontSize="14.5"
+                              fontWeight="700"
+                              fontFamily={FONT_SANS}
+                            >
+                              {node.short}
+                            </text>
+
+                            <rect x={node.x + 12} y={node.y + 72} width={node.w - 24} height="28" rx="3" fill="#f8fafc" fillOpacity="1" stroke="#cbd5e1" strokeWidth="1" />
+                            <text
+                              x={node.x + 20}
+                              y={node.y + 86}
+                              dominantBaseline="central"
+                              fill={isActive ? tagInk : '#1e293b'}
+                              fontSize="12.5"
+                              fontWeight="600"
+                              fontFamily={FONT_SANS}
+                              style={{ fontVariantNumeric: 'tabular-nums' }}
+                            >
+                              {stepInfo?.chip || ''}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {/* 중앙 엔지니어링 버스 배지 — 버스 선(y=144) 아래 독립 레인(y=164..198) + 완전 불투명(#ffffff) 최상단 SVG 레이어 */}
+                      <g className="sim-bus-badge" data-testid="sim-bus-badge">
+                        <rect
+                          x="275"
+                          y="164"
+                          width="430"
+                          height="34"
+                          rx="6"
+                          fill="#ffffff"
+                          fillOpacity="1"
+                          stroke="#94a3b8"
+                          strokeWidth="1.25"
+                        />
+                        <text
+                          x="490"
+                          y="181"
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fill="#0f172a"
+                          fontSize="13"
+                          fontWeight="700"
+                          fontFamily={FONT_SANS}
+                          style={{ fontVariantNumeric: 'tabular-nums' }}
                         >
-                          <rect
-                            x={node.x}
-                            y={node.y}
-                            width={node.w}
-                            height={node.h}
-                            rx="4"
-                            fill={nodeFill}
-                            stroke={borderStroke}
-                            strokeWidth={borderWidth}
-                          />
-                          <rect x={node.x} y={node.y} width="4" height={node.h} rx="1" fill={tagInk} />
-
-                          <text
-                            x={node.x + 14}
-                            y={node.y + 24}
-                            fill="#334155"
-                            fontSize="12.5"
-                            fontWeight="600"
-                            fontFamily={FONT_SANS}
-                          >
-                            {node.surface}
-                          </text>
-
-                          <rect
-                            x={node.x + node.w - 84}
-                            y={node.y + 9}
-                            width="72"
-                            height="22"
-                            rx="3"
-                            fill={tagFill}
-                            stroke={tagStroke}
-                            strokeWidth="1"
-                          />
-                          <text
-                            x={node.x + node.w - 48}
-                            y={node.y + 24}
-                            textAnchor="middle"
-                            fill={tagInk}
-                            fontSize="12"
-                            fontWeight="700"
-                            fontFamily={FONT_SANS}
-                          >
-                            {stateLabel}
-                          </text>
-
-                          <text
-                            x={node.x + 14}
-                            y={node.y + 56}
-                            fill="#0f172a"
-                            fontSize="14.5"
-                            fontWeight="700"
-                            fontFamily={FONT_SANS}
-                          >
-                            {node.short}
-                          </text>
-
-                          <rect x={node.x + 12} y={node.y + 72} width={node.w - 24} height="28" rx="3" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1" />
-                          <text
-                            x={node.x + 20}
-                            y={node.y + 90.5}
-                            fill={isActive ? tagInk : '#1e293b'}
-                            fontSize="12.5"
-                            fontWeight="600"
-                            fontFamily={FONT_SANS}
-                            style={{ fontVariantNumeric: 'tabular-nums' }}
-                          >
-                            {stepInfo?.chip || ''}
-                          </text>
-                        </g>
-                      );
-                    })}
+                          WSS 역터널 · HERMES AI 3단위 매칭 버스
+                        </text>
+                      </g>
+                    </g>
                   </svg>
                 </div>
 
