@@ -4289,3 +4289,11 @@ pm run test:canon 통과.
 4. 검증 상태: `solutionSuiteSimulator`·`techRadarSimulator`·`purposeFlowTrace`·`pmPurposeTrace`·`archFlowChart`·`gabrielProfitAgi`·`test:pm`·`test:ui-layout`·`test:workflow-guides`·`guard:erp-writes`·`next build --webpack` 전수 PASS, 로컬 프로덕션 1920x1080 Chromium(`/my-work?tab=suite-sim`, Step 06 `01~05 완료/06 실행 중` `2,600ms`) 실렌더 `suite_sim_bus_pill_fixed_preview.png` 육안 검증(선·패킷 겹침 0px). 운영 배포 후 실화면 확인은 배포 완료 시점 기준.
 5. 주의/잠금: `pages/api/**`, `workflow-guides.json` 추적 소스 파일, ERP 원장 무수정(읽기 전용), Anti-AI Slop §7(`#hex` 금지 PM 경계·한글 고딕·금지어 0건) 준수.
 검색어: SolutionSuiteSimulator TechRadarWorkbench moyi-full-suite-blueprint data-layer wires labels sim-bus-badge fillOpacity g17 g19 학습반영
+
+## 2026-11-20 — 입고 원장 차수 검색·미리보기 복귀·단가 수정 승인
+1. 작업 위치: nenova-erp-ui / 입고용 격리 worktree nw-cdx-incoming-round-1120, nw-cdx-popup-opener-1120, nw-cdx-incoming-price-1120 / PR #1901(929692c0), #1903(69c6e197), #1908(483f4853).
+2. 완료된 것: 입고 원장에서 일반·세부 차수와 농장·인보이스·AWB를 함께 검색(1.3.68), 미리보기 닫기에 원래 업무 탭 복귀(1.3.71), 단가만 변경 요청 및 영업지원 승인 시 선택한 원장 행 1개의 단가·총액 검증/반영(최초 구현 1.3.73, 공개 1.3.74). 기존 농장·품목·수량 요청 유지. 한국어 실제 가이드와 Drive 원본 확인.
+3. 남은 할 일: 요청된 44-03 호접란은 단가 230으로 유지. 입고 담당자가 원본 인보이스/패킹리스트에서 미매칭 2행을 확인하고 영업지원이 동일 차수 도착원가의 농장 귀속과 원가 기준을 확인한 뒤 기존 승인 경로에서 재검토.
+4. 검증 상태: ERP 계약/Windows CI, 차수 운영 Chrome 검색, 격리 Electron 탭 복귀, 단가·농장 양 역할 연습 자료 검증 통과. Cafe24 f84fc183(44670064193) 배포 성공, 운영 Chrome에서 단가·농장·수량 메뉴 및 행 선택 확인, 공개 1.3.74 latest.yml과 설치파일 크기·해시 확인. 운영 입고 쓰기 0, 실제 직원 PC 설치와 옵트인 MSSQL 시험은 미검증.
+5. 주의/잠금: ERP 직접 단가 저장 금지, 요청·승인 및 기존 원장·원가 보호 유지. 작업트리 공용 의존성 junction 제거는 자동 정책이 차단하여 보존. 목표 g03/g17 근거 기록, g19 화면·승인 선호만 학습, 진행률·gate 값 유지.
+검색어: 입고관리 차수 검색 일반차수 세부차수 invoice AWB 미리보기 opener 단가만 변경 농장만 변경 44-03 도착원가 승인 g03 g17 g19
