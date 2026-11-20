@@ -121,8 +121,8 @@ console.log('importHandoverView ok');
   const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), 'ih-dept-'));
   fs.writeFileSync(path.join(tmp2, 'ih.cjs'), strip(read('lib', 'importHandover.js')) + '\nmodule.exports = { HANDOVER_DEPTS, loadHandover, handoverForView };');
   const D = require(path.join(tmp2, 'ih.cjs'));
-  assert.deepStrictEqual(D.HANDOVER_DEPTS.map((d) => d.id), ['import', 'sales-support', 'sales', 'management'], '부서는 수입부·영업지원·영업부·경영지원 네 곳');
-  assert.deepStrictEqual(D.HANDOVER_DEPTS.map((d) => d.name), ['수입부', '영업지원', '영업부', '경영지원']);
+  assert.deepStrictEqual(D.HANDOVER_DEPTS.map((d) => d.id), ['import', 'sales-support', 'sales', 'management', 'field'], '부서는 수입부·영업지원·영업부·경영지원·현장팀 다섯 곳');
+  assert.deepStrictEqual(D.HANDOVER_DEPTS.map((d) => d.name), ['수입부', '영업지원', '영업부', '경영지원', '현장팀']);
   const { check } = require(path.join(repo, 'scripts', 'validate-handover.cjs'));
   for (const d of D.HANDOVER_DEPTS) {
     const f = path.join(repo, 'data', d.file);

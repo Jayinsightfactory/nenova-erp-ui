@@ -4407,3 +4407,12 @@ pm run test:canon 통과.
 3. 남은 일: 「입고일을 업로드 날짜로 고정」을 전산이 자동으로 하게 할지는 프로그램 변경이라 따로 정해야 함(손대지 않음). 네노바웹 입고 등록 화면을 언제 쓰는지는 세 번째도 답이 없어 다시 여쭐 것에 남김.
 4. 검증: npm run -s test:workflow-guides 통과. 운영 화면 확인은 브라우저 로그인이 풀려 미검증.
 5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: g03 / 학습 반영: 없음
+
+## 2026-11-20 부서별 업무 매뉴얼 — 현장팀 추가
+요약: 현장팀은 PC 기록이 없어 전산 출고일(39~46차 11,200줄)·카카오톡 현장 글(30일 1,429건)·사장님 설명(11-20)을 대조해 만듦. 하루 6줄·주 7줄·매뉴얼 6편(받기·나누기, 추가·취소와 잔량표, 출고 사진·출발, 배차, 소독·검역차감, 주말 출고)·문제 8건·질문 8개. 부서 선택에 「현장팀」 추가(다섯 번째).
+검색어: 현장팀 매뉴얼 handover-field 출고 사진 배차 검역차감 일요일 출고 부서 선택
+1. 작업 위치: nenova-erp-ui / feat/handover-field / C:\Users\USER\nw-cld-field
+2. 완료: scripts/build-handover-field.cjs → data/handover-field.json, lib/importHandover.js(HANDOVER_DEPTS 에 field), __tests__/importHandover.test.cjs(부서 다섯 곳)
+3. 남은 일: 사장님 설명과 기록이 다른 2건(일요일 9시 분류 대 8시대 출발 글, 평일 배차를 누가 하는지)과 토요일 출고는 질문으로 남김. 분류 작업·토요일 출고 매뉴얼은 기록이 없어 못 씀. 강의형 영상은 반영 뒤 만든다.
+4. 검증: node scripts/validate-handover.cjs data/handover-field.json 통과, npm run -s test:workflow-guides 통과(deptHandover ok). 운영 화면 확인은 브라우저 로그인이 풀려 미검증.
+5. 주의: 원고는 scripts/build-handover-field.cjs 한 곳만 고칠 것. 새 화면 주소는 없음(기존 /work/manuals 안의 부서 선택)이라 데스크톱앱 메뉴 변경 없음. 연결 목표: g03 / 학습 반영: 없음
