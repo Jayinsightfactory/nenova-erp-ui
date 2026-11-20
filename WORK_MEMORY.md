@@ -4237,7 +4237,7 @@ pm run test:canon 통과.
 
 ### 2026-11-20 · 사용자 가이드 제외 후 릴리스 검증 체크포인트
 1. 위치: fix/co-arrival-week-1119 / PR #1896 / Desktop 1.3.70 후보.
-2. 완료: master 9cd8296d 통합, 기존 /arrival-cost 즐겨찾기 URL에 검색 가능한 콜롬비아 주차 명칭, 공식 가이드 면제. 추가 가이드 촬영·갱신 없음; 촬영기를 브라우저 스모크로 전환.
+2. 완료: master 9cd8296d 통합, 실제 통합 컴포넌트를 여는 기존 /import/pipeline 메뉴에 검색 가능한 콜롬비아 주차 원가 명칭(/arrival-cost 별도 원장 보존), 공식 가이드 면제. 추가 가이드 촬영·갱신 없음; 촬영기를 브라우저 스모크로 전환.
 3. 남음: 실제 격리 앱 저장 클릭 및 캡처, 열린 Excel에서 A 변경·B/합계 검증, CI 및 Cafe24·Desktop 게시/스모크.
 4. 검증: 정식 webpack build PASS(기존 workDrivePairsAsync 경고), 메뉴 3 PASS. 격리 자동 테스트 AWB A 입고 2건 운임 100→125 USD, B 200 USD 유지, 총운임 300→325 USD, 공유 통관비 1,000원 유지. Excel 단일 시트 복구 없이 열림, 실편집 미검증.
 5. 주의: 운영 Chrome이 창을 가린 상태에서 입력 금지. 운영 DB 쓰기 0. 브라우저 저장·자동 수식 검사를 OS 저장 또는 Excel 실재계산으로 표기하지 않음.

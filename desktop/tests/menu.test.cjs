@@ -53,7 +53,7 @@ test('invoice work and farm master share the canonical searchable desktop catalo
   assert.match(items.find(i=>i.href==='/import/tools').labelKey,/인보이스 원본 대조/);
   const pipeline=items.filter(i=>i.href==='/import/pipeline');
   assert.equal(pipeline.length,1);
-  assert.equal(pipeline[0].labelKey,'수입 원스톱 파이프라인(인보이스→원가→공유)');
+  assert.match(pipeline[0].labelKey,/수입 원스톱 파이프라인.*콜롬비아 주차 원가/);
   assert.equal(pipeline[0].popup,false);
   const gabriel=items.filter(i=>i.href==='/import/gabriel-agi');
   assert.equal(gabriel.length,1);
@@ -63,5 +63,5 @@ test('invoice work and farm master share the canonical searchable desktop catalo
   assert.equal(farms[0].href,'/master/codes','stable URL preserves existing favorites');
   const arrival=items.filter(i=>i.href==='/arrival-cost');
   assert.equal(arrival.length,1,'arrival cost keeps its existing favorites URL');
-  assert.match(arrival[0].labelKey,/콜롬비아 주차 통합/);
+  assert.equal(arrival[0].labelKey,'도착원가','separate arrival cost ledger is unchanged');
 });
