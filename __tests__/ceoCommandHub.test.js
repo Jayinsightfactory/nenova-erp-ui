@@ -58,10 +58,12 @@ const hubLib = compile('lib/ceoCommandHub.js', (id, baseReq) => {
 const stubCss = new Proxy({}, { get: (_, prop) => String(prop) });
 const stubLink = ({ href, children, ...rest }) => React.createElement('a', { href: String(href || ''), ...rest }, children);
 const stubGuide = ({ workflowId }) => React.createElement('div', { 'data-guide-stub': workflowId });
+const PurposeFlowTraceMod = compile('components/work/PurposeFlowTrace.js');
 
 const CeoCommandHub = compile('components/work/CeoCommandHub.js', (id, baseReq) => {
   if (id === 'next/link') return { __esModule: true, default: stubLink };
   if (id === '../WorkflowGuide') return { __esModule: true, default: stubGuide };
+  if (id === './PurposeFlowTrace') return PurposeFlowTraceMod;
   if (id === '../../lib/ceoCommandHub') return hubLib;
   if (id.endsWith('.module.css')) return { __esModule: true, default: stubCss };
   return baseReq(id);
@@ -252,6 +254,87 @@ assert.ok(liveModel.pulse.metrics.buildPipelineCounts.READY >= 1);
 assert.ok(liveModel.pulse.metrics.weeklyProfitPotentialKRW > 0, '가브리엘 주간 기대 이익 양수');
 assert.equal(liveModel.pulse.gabrielTopAlerts.length, 3, '가브리엘 상위 3대 경보');
 
+// 3.5) 내 목표 × 작업 정합도 × 나를 학습한 AGI (Owner Digital Twin) 도메인 검증
+assert.ok(liveModel.ownerTwin, 'ownerTwin 모델 반환');
+assert.equal(liveModel.ownerTwin.traceSteps.length, 5, '상시 3중 병렬 AGI 5단계 트레이스 스텝');
+assert.equal(liveModel.ownerTwin.pillars.length, 4, '4대 전략 축 Goal Ledger');
+assert.equal(liveModel.ownerTwin.goals.length, 19, 'g01~g19 전사 목표 19개 정본');
+assert.equal(liveModel.ownerTwin.alignmentAudit.driftCount, 0, '목표 이탈 Drift 0건');
+assert.equal(liveModel.ownerTwin.alignmentAudit.alignmentRatePct, 100, '전사 작업 목표 정합률 100%');
+assert.ok(liveModel.ownerTwin.alignmentAudit.mappings.length >= 6, '작업↔목표 1:1 매핑 최소 6건');
+assert.ok(liveModel.ownerTwin.alignmentAudit.gapAlerts.length >= 3, '목표 공백 경보 포함');
+assert.equal(liveModel.ownerTwin.persona.principles.length, 6, '6대 의사결정 DNA 원칙 카드');
+assert.equal(liveModel.ownerTwin.proactiveProposals.length, 5, '선제 실행 제안 Top 5');
+assert.ok(
+  liveModel.ownerTwin.proactiveProposals.every((p) => p.code && p.goalId && p.expectedImpact && p.rationale && p.agentBriefText.length > 30),
+  '선제 실행 제안 5건 모두 연결목표·기대효과·판단근거·지시서 포함'
+);
+
+// 실시간 owner-twin 피드 + vision.goals 병합 검증
+const mergedLiveTwin = hubLib.buildOwnerDigitalTwinModel({
+  pmOffice: {
+    ...SAMPLE_PM_OFFICE,
+    data: {
+      ...SAMPLE_PM_OFFICE.data,
+      vision: {
+        updatedAt: '2026-11-20T02:40:00Z',
+        goals: [{ id: 'g18', title: '인프라 고정비 절감 & Private 자립', progress: 60, state: 'open', note: '실시간 업데이트 반영' }],
+      },
+    },
+  },
+  ownerTwin: {
+    generatedAt: '2026-11-20T02:41:00Z',
+    maturityScore: 91,
+    learnedSignalsCount: 140,
+    ownerPersona: {
+      axes: [{ id: 'P1', name: '수익·비용 실익 우선주의', principle: '실익 검증 우선', check: '원 단위 검증', signals: 16 }],
+    },
+    goalAlignment: {
+      alignmentRatePct: 98.3,
+      driftMonitor: { driftOpenCount: 0, driftTaskCount: 2 },
+    },
+    predictedOwnerActions: [
+      {
+        id: 'A1-RAILWAY-PG-DIET',
+        title: 'Railway Postgres 다이어트',
+        linkedGoalId: 'g18',
+        linkedAxes: ['P1', 'P6'],
+        priorityScore: 88,
+        expectedBenefit: { monthlyKRW: 112000, basis: '월 14만원→2.8만원' },
+        orderBrief: { owner: '하위세션', scope: '용량 실측', forbidden: '무승인 삭제 금지', done: '계획서 제출' },
+      },
+      {
+        id: 'A2-TALKHUB-DISK',
+        title: 'talkhub 디스크 정리',
+        linkedGoalId: 'g18',
+        linkedAxes: ['P6'],
+        priorityScore: 76,
+        expectedBenefit: { monthlyKRW: null, basis: '장애 예방' },
+        orderBrief: { owner: '하위세션', scope: '/data 점검', forbidden: '무승인 삭제 금지', done: '85% 경보' },
+      },
+      {
+        id: 'A3-PRIVATE-MIRROR',
+        title: 'Cafe24 정적 미러 Private 전환',
+        linkedGoalId: 'g18',
+        linkedAxes: ['P6', 'P1'],
+        priorityScore: 74,
+        expectedBenefit: { monthlyKRW: null, basis: '추가비용 0원 비공개화' },
+        orderBrief: { owner: '하위세션', scope: '미러 전환', forbidden: '직원 PC 중단 금지', done: '무중단 검증' },
+      },
+    ],
+  },
+  agents: liveModel.agents,
+});
+assert.equal(mergedLiveTwin.hasLiveTwin, true);
+assert.equal(mergedLiveTwin.hasLiveVision, true);
+assert.equal(mergedLiveTwin.goals.find((g) => g.id === 'g18').progress, 60, '실시간 vision.goals 진척 병합');
+assert.equal(mergedLiveTwin.persona.maturityScore, 91, '실시간 ownerPersona 성숙도 병합');
+assert.equal(mergedLiveTwin.persona.learnedSignalsCount, 140, '실시간 learnedSignalsCount 병합');
+assert.equal(mergedLiveTwin.alignmentAudit.alignmentRatePct, 98.3, '실시간 goalAlignment 정합률 병합');
+assert.equal(mergedLiveTwin.alignmentAudit.driftCount, 0, 'driftOpenCount 0 반영');
+assert.match(mergedLiveTwin.proactiveProposals[0].expectedImpact, /11\.2만원/, 'orderBrief/expectedBenefit 실측 포맷');
+assert.match(mergedLiveTwin.proactiveProposals[0].agentBriefText, /완료기준: 계획서 제출/, 'orderBrief 지시서 변환');
+
 // 4) 4대 목적별 디렉터리 경로 실존 검증
 assert.equal(hubLib.CEO_PAGE_DIRECTORY.length, 4, '4대 목적별 동선 지도');
 for (const group of hubLib.CEO_PAGE_DIRECTORY) {
@@ -281,6 +364,18 @@ const ssrHtml = renderToStaticMarkup(
 
 for (const marker of [
   'data-testid="ceo-command-hub"',
+  'data-testid="ceo-agi-loop-trace"',
+  'data-testid="ceo-agi-loop-trace-purpose"',
+  'data-testid="ceo-owner-twin-board"',
+  'data-testid="owner-twin-goal-ledger"',
+  'data-testid="owner-twin-alignment-audit"',
+  'data-testid="owner-twin-alignment-table"',
+  'data-testid="owner-twin-gap-alerts"',
+  'data-testid="owner-twin-persona"',
+  'data-testid="owner-twin-dna-grid"',
+  'data-testid="owner-twin-proposals"',
+  'data-testid="copy-twin-proposal-TW-01"',
+  'AUTO 1x',
   'data-testid="hub-kpi-strip"',
   'data-testid="hub-agent-roster"',
   'data-testid="hub-pm-ledger-table"',

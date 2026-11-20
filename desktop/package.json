@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.70",
+  "version": "1.3.71",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "입고 단 수량 검증과 중량을 뺀 상품 합계를 적용합니다."
+      "releaseNotes": "사장님 통합 지휘실에 내 목표·작업 정합성·Owner AGI 디지털 트윈 보드와 3중 루프 트레이스 모션을 탑재합니다."
     },
     "extraResources": [
       {

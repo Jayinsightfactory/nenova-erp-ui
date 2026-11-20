@@ -42,6 +42,7 @@ function readPmOfficeInitial() {
             tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
             playbooks: raw.playbooks || null,
             pmDetail: raw.pmDetail || null,
+            vision: raw.vision || null,
             workLog: Array.isArray(raw.workLog) ? raw.workLog.slice(0, 60) : [],
           }
         : null,
@@ -87,6 +88,7 @@ export async function getServerSideProps({ req, res }) {
   const initialTechRadar = trimTechRadar(readJsonSafe(featureFilePath('tech-radar')));
   const initialDeviceHub = trimDeviceHub(readJsonSafe(featureFilePath('device-hub-status')));
   const initialSelfTune = readJsonSafe(featureFilePath('self-tune-report'));
+  const initialOwnerTwin = readJsonSafe(featureFilePath('owner-twin'));
 
   return {
     props: {
@@ -98,6 +100,7 @@ export async function getServerSideProps({ req, res }) {
       initialTechRadar,
       initialDeviceHub,
       initialSelfTune,
+      initialOwnerTwin,
     },
   };
 }

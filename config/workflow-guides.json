@@ -2074,23 +2074,23 @@
           "chapters": [
             {
               "scenario": "pulse",
-              "title": "1. 상단 맥박 스트립과 아침 1분 점검 코스에서 결재·에이전트·원가 경보를 확인합니다.",
-              "seconds": 0.011
+              "title": "1. 최상단 3중 병렬 AGI 트레이스 도면과 내 목표·정합성·선제 실행 제안 보드를 확인합니다.",
+              "seconds": 0.076
             },
             {
               "scenario": "ledger",
               "title": "2. PM 업무 원장에서 전체·진행중·완료 탭을 전환하고 안건명·PR 번호로 검색합니다.",
-              "seconds": 10.05
+              "seconds": 11.55
             },
             {
               "scenario": "queue",
               "title": "3. 다음 연속 구현 대기 큐에서 READY 과제를 골라 구현 지시서를 복사합니다.",
-              "seconds": 20.351
+              "seconds": 22.521
             },
             {
               "scenario": "directory",
               "title": "4. 하단 4대 목적별 전체 화면 지도에서 오늘 필요한 업무 화면을 바로 엽니다.",
-              "seconds": 30.745
+              "seconds": 34.167
             }
           ]
         }

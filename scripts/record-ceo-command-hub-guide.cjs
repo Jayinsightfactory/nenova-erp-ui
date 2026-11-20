@@ -14,7 +14,7 @@ const dry = process.argv.includes('--dry-run');
 const playerSmoke = process.argv.includes('--player-smoke');
 
 const PREVIEW_PATH =
-  'C:\\Users\\USER\\.gemini\\antigravity\\brain\\f4448c29-951a-4c47-b77b-96cafa4fbb27\\ceo_command_hub_preview.png';
+  'C:\\Users\\USER\\.gemini\\antigravity\\brain\\f4448c29-951a-4c47-b77b-96cafa4fbb27\\ceo_owner_twin_hub_preview.png';
 
 async function freePort() {
   const server = net.createServer();
@@ -212,6 +212,17 @@ async function main() {
         if (name === 'tech-radar') return send({ success: true, name, data: fixtureTechRadar });
         if (name === 'device-hub-status') return send({ success: true, name, data: fixtureDeviceHub });
         if (name === 'self-tune-report') return send({ success: true, name, data: { summary: '이상 없음' } });
+        if (name === 'owner-twin') {
+          return send({
+            success: true,
+            name,
+            data: {
+              generatedAt: '2026-11-20T02:35:00Z',
+              ownerPersona: { maturityScore: 86, learnedSignalsCount: 58 },
+              goalAlignment: { alignmentRatePct: 100, driftCount: 0 },
+            },
+          });
+        }
       }
       return send({ success: true, data: null, items: [], rows: [] });
     }
@@ -308,6 +319,8 @@ async function main() {
     const okRes = await page.goto(`${base}/work/command-hub?popup=1`, { waitUntil: 'networkidle0', timeout: 120000 });
     assert.equal(okRes.status(), 200);
     await page.waitForSelector('[data-testid="ceo-command-hub"]', { timeout: 30000 });
+    await page.waitForSelector('[data-testid="ceo-agi-loop-trace"]', { timeout: 30000 });
+    await page.waitForSelector('[data-testid="ceo-owner-twin-board"]', { timeout: 30000 });
     await page.waitForSelector('[data-testid="hub-agent-roster"]', { timeout: 30000 });
     await page.waitForSelector('[data-testid="hub-page-directory"]', { timeout: 30000 });
     await page.waitForFunction(() => document.body.innerText.includes('PM 총괄 · 조사관 에이전트'), { timeout: 30000 });
@@ -358,6 +371,10 @@ async function main() {
       fs.mkdirSync('.verify', { recursive: true });
       await page.screenshot({ path: PREVIEW_PATH, fullPage: true });
       await page.screenshot({ path: '.verify/ceo-command-hub-1920-fold.png', fullPage: false });
+      await page.$eval('#hub-owner-twin-board', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+      await page.screenshot({ path: '.verify/ceo-owner-twin-board.png', fullPage: false });
+      await page.$eval('#owner-twin-persona', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+      await page.screenshot({ path: '.verify/ceo-owner-twin-persona.png', fullPage: false });
       await page.$eval('#hub-pm-ledger', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
       await page.screenshot({ path: '.verify/ceo-command-hub-ledger.png', fullPage: false });
       await page.$eval('#hub-directory', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
@@ -405,11 +422,16 @@ async function main() {
       }
     };
 
-    // 1단계: 아침 1분 점검 코스 & 실시간 맥박 스트립
-    await stepFocus('pulse', '상단 맥박 스트립과 아침 1분 점검 코스에서 결재·에이전트·원가 경보를 확인합니다.', '[data-testid="checklist-step-approval"]', 1);
-    await page.click('[data-testid="checklist-step-approval"]');
+    // 1단계: 핵심 목적 트레이스 도면 & 내 목표 × 작업 정합도 × Owner AGI 관제 보드
+    await stepFocus('pulse', '최상단 3중 병렬 AGI 트레이스 도면과 내 목표·정합성·선제 실행 제안 보드를 확인합니다.', '[data-testid="copy-twin-proposal-TW-01"]', 1);
+    await page.click('[data-testid="copy-twin-proposal-TW-01"]');
+    await page.waitForSelector('[data-testid="twin-copy-notice"]');
     if (rec) await rec.pause(700);
-    await showResult('1. 결재 대기 건수, 6대 에이전트 현황, 연속 디벨롭 진척을 한 화면 상단에서 즉시 파악합니다.');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('[data-testid="twin-copy-notice"]'));
+    await page.click('[data-testid="checklist-step-approval"]');
+    if (rec) await rec.pause(600);
+    await showResult('1. 전사 목표(g01~g19), 작업 1:1 정합률, 6대 판단 DNA와 선제 실행 제안 Top 5를 즉시 확인·발주합니다.');
 
     // 2단계: PM 원장 탭 전환 및 검색
     await stepFocus('ledger', 'PM 업무 원장에서 전체·진행중·완료 탭을 전환하고 안건명·PR 번호로 검색합니다.', '[data-testid="ledger-tab-all"]', 2);
