@@ -21,3 +21,12 @@ PR/CI와 Cafe24·desktop 배포, `customs-phase03-smoke.yml`의 읽기 전용 �
 ## 새 문맥용 지시
 
 `codex/customs-phase03`의 CI/배포 상태를 먼저 읽고 이미 끝난 검사를 중복 실행하지 말 것. 실패가 있으면 해당 항목만 진단하되 필수 gate를 건너뛰지 말 것. 운영 원천·DB·저장 보고서 쓰기는 금지이며 35/37/40/41/43/44 GET 및 실제 44 화면까지만 검증한다. 완료 커밋·배포 run·운영 검증 상태를 구분하여 부모 `/root`에 인계한다.
+
+## 2026-11-20 18:47 KST 완료 추가 기록
+
+- [PR #1932](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1932), master merge `c2a0ceb332d3f0d95f200953615e2db19bd0d70f`.
+- [ERP CI](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/44710861371), [Windows CI](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/44710861502) 성공.
+- [Cafe24](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/44711909305), [desktop 1.3.78](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/44711909269) 배포 성공. 코드 전용 배포 로그 확인, 운영 ping DB 정상 및 desktop 피드 HTTP200.
+- [원천·실제44UI](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/44713338665): 6차수 GET, 베트남 증빙 gross, 역사 중복 방지, 44 exact03 입력창 모두 PASS. 업무 쓰기0.
+- [44 보고서 GET](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/44713345139): HTTP200, 1,734ms, `financialBasis=stored`. 기존 저장본 보존을 확인했으며 새로운 수익률 저장/재계산을 수행하지 않았다.
+- 구현 범위 남은 작업 없음. 운영 금액 입력/ZIP 연결/과거 보고서 갱신은 별도 승인 범위다. 이 배포 후 기록은 작업 브랜치의 인계 커밋이며 추가 코드 배포를 만들지 않는다.
