@@ -4047,6 +4047,14 @@ pm run test:canon 통과.
 5. 주의/잠금: 병렬 세션 `UI-2`/`UI-3` 경계(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`, `components/work/SolutionSuiteSimulator.js`, `desktop/package.json`, `pages/pm/radar.js`, `lib/pmTechRadarSim.js`, `lib/pmRadarPlanTokens.js`, `pages/api/**`) 무수정. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·#hex·raw `<button>` 0건 유지.
 검색어: pm-control anti-ai-slop 오류관제 pages/pm pmThemes pmLookClear ControlGuide tabular-nums linear-gradient box-shadow PR1879
 
+## 2026-11-19 · Carver 콜롬비아46-02 차수 통합 원가 별도 착수
+1. 작업 위치: nenova-erp-ui / fix/co-arrival-week-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co-arrival-week-1119 / origin/master29f275c5, PR아직없음. 중국 발주서 PR1883/worktree는 취소/변경 없이 별도 보존.
+2. 완료된 것: 사용자확정 단일현재차수원가시트/일반꽃+수국/다중AWB격리/공유통관1회/버전보존 계획·contract작성. 실제dnSpy FormWarehouseView 재실행, exact2026/46-02 readonly source22입고94상품(수국25/카네26/장미24/알스19), 같은AWB01441369974. 신규순수 week계산 및 전체입고 source helper구현, 기존 개별/공동AWB/원장 코드 불변.
+3. 남은 할 일: 실제 비용전표/AWB근거 자동연결 및 모호 비용행만확인 UI, 단일기존양식 시트(요약/AWB별시트금지) 생성·수식/독립재계산·불변버전보관, serverAPI/기존Desktop메뉴연결/버전·실제격리native저장·Excel재열기/캡처, 가이드/필수gates/PR·CI·squash·배포readonly smoke. 미완료 코드이며 배포금지.
+4. 검증 상태: 신규계산5/source4=9건PASS. 다중AWB운임독립·중복CW거부·동일증빙중복1회/별개동액보존·공유통관1회·늦은수국새지문·양연도/타국/모호행검증. 운영조회에서 비용참고6행: 전표8109 운임13651.92+85.88/GW3942/CW4824, 별도송장15+15귀속미확인. 실제원가·다운로드·수식재계산·Desktop·CI·배포 미검증. 운영DB쓰기0/유료분석0.
+5. 주의/잠금: Carver단독 새worktree. private .verify/CO probe/raw receipts/EXE소스 커밋금지. root node_modules는canonical junction(대상재귀삭제금지), desktopjunction아직없음. 기존국가/과거원가·중국작업·기존 비용수식/원장 보존. sourceReady는원천완전성만 뜻하며 비용확정/다운로드승인이 아님.
+검색어: Carver co-arrival-week-1119 Colombia46-02 colombiaWeekCost one-sheet multiAWB shared-customs hydrangea25
+
 ### 2026-11-19 — A3 행 안쪽 여백 축소
 1. 작업 위치: codex/tight-rows / work/tight-rows / PR 준비.
 2. 완료: 실제 셀폭 줄계산 유지, 14.5pt 줄높이+4pt 여유, 최소18.5pt.
@@ -4104,6 +4112,37 @@ pm run test:canon 통과.
 5. 함정: worktree의 node_modules junction은 Turbopack dev에서 패닉이 나므로 `npx next dev --webpack -p 3298`을 쓰고 `JWT_SECRET=pm-control-local-fixture-only`를 줘야 녹화 쿠키가 통과함. 녹화기 `focus`는 스크롤하지 않음. 그래서 step에서 `scrollIntoView({block:'center'})`를 먼저 부름(`block:'start'`이면 sticky 헤더가 버튼을 가려 클릭이 빗나감). animateMotion `mpath`는 경로 d가 바뀌어도 예전 좌표를 붙잡고 있음. `<g key={id+d}>`로 다시 마운트해서 해결함.
 검색어: PmPurposeTraceBoard pm-purpose-banner pm-live-trace-diagram traceStageOfTask data-bus-clear pmtr-flow AUTO 1x 2600ms 목적 우선 트레이스 도면
 
+## 2026-11-19 Colombia exact-week landed cost — implementation checkpoint, NOT deployed
+1. 작업 위치: `fix/co-arrival-week-1119` / `C:/Users/USER/Documents/Codex/nw-cdx-co-arrival-week-1119`, base29f275c5, checkpoint71461625, PR아직없음. China PR1883/worktree는 별도 보존.
+2. 완료: CO 2026/46-02 운영 SELECT22입고94상품행 확인. AWB별 계산/공유통관 근거중복방지, 기존양식 단일시트 builder, 사용자·연도·차수별 atomic immutable XLSX+snapshot archive, prepare/preview/download/original-version API와 기존 native cost 진입 UI 연결. 비용행 금액15+15 등 통화/합계귀속을 임의추정하지 않고 확인근거 요구. 운영DB쓰기0.
+3. 남은 일: 실제 화면/접근성·모호 AWB해결 UX, 독립 Excel 재계산과 실제 Desktop 저장창·다시열기/캡처, 현재 가이드 소스해시 정책 확인, Desktop메뉴/버전 및 전체필수가드/빌드, 최신master병합, PR/CI/squash/Cafe24/desktop 배포와 읽기전용스모크. 아직 완료/배포로 보고금지.
+4. 검증: core5/source4/workbook2/archive4/API6 =21건 PASS, git diff --check PASS. 실제 DB자료 원가확정/네이티브Excel/Desktop/전체ERP/빌드/CI/배포 미검증. Archive원본은 재생성하지 않으며 늦은수국은 새버전, 과거버전은 변경없음.
+5. 주의/잠금: 이 worktree 단독소유. root node_modules는 canonical junction(대상 삭제금지). .verify 및 원본문서는 비공개/커밋금지. 사용자 기존Excel/데스크톱 및 China작업 보존. 운영 주문/입고/재고/정산/전달상태 쓰기·유료분석 금지.
+검색어: colombia-week-cost CO 2026 46-02 single-sheet AWB immutable archive 21PASS not-deployed
+
+### 2026-11-19 Colombia checkpoint — native Desktop acceptance blocked
+1. 위치: 동일 `fix/co-arrival-week-1119`, Colombia 전용 worktree. China 46-02 작업은 취소/변경하지 않음.
+2. 추가: 기존 native 도착원가 진입을 전체차수 UI로 연결, 모호품종/AWB만 근거입력, AWB별 운임·FB·환율, 통관증빙별 대상지정, 원장 비용행 포함/제외근거, 사용자별 보관원본 조회/재다운로드 API 구현. 원본 생성 시 전후 source fence, API는 클라이언트 금액/수량 결과를 무시하고 서버 재계산.
+3. 남음: UI 실행·격리fixture·독립 Excel 재계산/실제 Desktop native 저장창·캡처, 메뉴/버전/가이드정책, 최신master 통합과 최종 전체검증/PR CI/배포. 실제 검증 전 머지·배포 금지.
+4. 검증: 대상21PASS, JSX Babel구문2파일PASS, ERP manifest234PASS, changed API write guard1PASS. 실제 Desktop com.nenova.workspace 창78579022 복원/AX조회 성공했으나 수입부 탭 클릭 `coordinate input geometry is unavailable` 재발. 네이티브 저장창/Excel열기/민감정보없는 캡처 미검증. 운영DB/유료분석0.
+5. 잠금: root node_modules junction 대상 삭제금지, .verify 비공개. 기존 사용자 Excel·Desktop 탭/설정/업무자료 보존. 새API는 미배포이고 새화면 성공캡처 없음.
+검색어: colombia-week-cost desktop geometry unavailable manifest234 writeguard1 21PASS native-save-unverified
+
+### 2026-11-19 Colombia PR1896 draft — deployment held, evidence preserved
+1. 위치: `fix/co-arrival-week-1119` / `C:/Users/USER/Documents/Codex/nw-cdx-co-arrival-week-1119` / https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1896 / implementation4d6b931a.
+2. 완료: 계산/전체차수 source/단일양식 XLSX/불변원본/API/UI 코드를 GitHub 초안에 보존. China PR1883 독립 유지. 운영 DB 쓰기·유료분석 없음.
+3. 남음: 독립 Excel 및 격리 Desktop 실제 저장·열기 캡처, UI 실행회귀, 가이드 필수게이트 충족, Desktop 메뉴/버전, 최신master병합, 전체ERP/빌드/CI와 배포/읽기스모크. 실제 검증 전 완료 보고·머지 금지.
+4. 검증: 대상21·JSX2·manifest234·writeguard1 PASS. `npm run build` prebuild에서 `shared-awb-cost/import: SharedAwbCostReview.js 변경 후 가이드를 다시 촬영하세요`로 중단(Next compile 미실행). Desktop AX 조회 성공/탭 클릭 geometry unavailable. 네이티브 저장·Excel 재계산·캡처·배포는 미검증.
+5. 주의: draft PR1896을 CI초록만으로 머지하지 말고 위 실제 검증 선행. root dependency junction/사용자 기존앱/China worktree/원본업무문서 보존. prebuild가 만든 두 data/generated 변경만 HEAD로 복구했으며 소스 변경은 전부 보존.
+검색어: PR1896 4d6b931a Colombia 46-02 build-guide-block desktop-geometry-block not-deployed
+
+### 2026-11-20 · PR #1896 최신 master 병합 체크포인트
+1. 위치: `fix/co-arrival-week-1119` / `C:/Users/USER/Documents/Codex/nw-cdx-co-arrival-week-1119` / PR #1896 / `ea718580`.
+2. 완료: `929692c0` 병합 및 브랜치 push. 양쪽 인계 내용 보존.
+3. 남음: 격리 Desktop 저장·Excel 검증, 가이드 실촬영·플레이어, 전체 게이트, CI·squash·Cafe24·Desktop 게시 및 스모크.
+4. 검증: 21건 통과; shared-awb-cost/import 가이드 최신성 검사 실패. 실제 Desktop 저장과 배포 미검증.
+5. 주의: 초안 유지. 운영 DB 쓰기·농장 발송·유료 분석 없음. 실제 원본과 작업트리 의존성 경로 보존.
+검색어: PR1896 ea718580 master929692c0 guide-recapture native-save-unverified
 ## 2026-11-19 가브리엘 원가·이익 AGI(`/import/gabriel-agi`) 목적 우선(Purpose-First) & 실시간 트레이스 모션 도면 탑재
 1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/gabriel-purpose-trace-motion` / `C:\Users\USER\nw-swm-gabriel-trace`
 2. 완료된 것: `components/import-tools/GabrielProfitAgiWorkbench.js` 및 `styles/GabrielProfitAgi.module.css`에 최상단(`gabriel-purpose-callout`) 및 레버별(`gabriel-lever-purpose-callout`) `핵심 목적 · PURPOSE` 고대비 고딕(16px 굵게, Pretendard/Malgun Gothic, 단독 monospace/굴림체 폴백 제거) 배너 추가, 정적 `gabriel-lever-svg-diagram`을 모눈 그리드 캔버스 위 6단계 직교 배선 실시간 트레이스 모션 도면(`완료` 에메랄드 `#059669` 좌측 바+실선+패킷 이동점 / `실행 중` 로열블루 `#2563eb` 좌측 바+`#eff6ff`+`stroke-dashoffset` 흐르는 점선 / `대기` 슬레이트 `#cbd5e1`, `prefers-reduced-motion` 준수, 독립 레인 중앙 직교 버스 라벨 선-글자 겹침 0건, `AUTO 1x` 재생/정지 및 단계 클릭 상세 하이라이트)으로 업그레이드, `public/guides/gabriel-import-profit-agi/*` 재녹화 및 `config/workflow-guides.json`(`gabriel-import-profit-agi` 한정) 동기화, `__tests__/gabrielProfitAgi.test.js` 회귀 가드 보강.
@@ -4173,6 +4212,13 @@ pm run test:canon 통과.
 
 2026-11-20 검증 업데이트: 두 역할 실제 가이드 촬영, 34흐름/35영상 검사, 회사 Drive 6파일 및 크기 검증 완료. 운영 확인은 PR에서 추적.
 
+### 2026-11-20 · #1896 46-02 격리 실화면 가이드 촬영
+1. 위치: fix/co-arrival-week-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co-arrival-week-1119 / PR #1896.
+2. 완료: 46-02 실제 통합 컴포넌트·API·엑셀 생성기 격리 fixture 및 녹화기 추가. 조회·계산·다운로드 각 1회, 동일 AWB 2입고 + 별도 AWB 1입고, 운임 100+200=300 USD. XLSX 13,936바이트, 2026 46-02 단일 시트, 이력 재다운로드 바이트 일치.
+3. 남음: 촬영본 자막 겹침·헤더 잘림 수정본 재촬영 및 플레이어 등록; 실제 Desktop 네이티브 저장, Excel에서 AWB A 재계산, 정식 빌드·CI·배포·스모크.
+4. 검증: .verify/colombia-week-guide 1920×1080/67.9초 MP4 SHA-256 c053b3e8d029d66fa49c0a635f81a7a5f8652e256c98892f3c04d6ec7219c11f; 촬영 XLSX SHA-256 b32b74ee4cab03fecd5eb841d65ee4cc92301ceefd33f5e36dad78e1a050967a. 프레임 검수에서 상단 잘림 및 마지막 자막이 결과 일부와 겹침. Desktop·Excel 실재계산 미검증.
+5. 주의: 기존 AWB 재촬영은 새 흐름이 아니어서 .verify/legacy-awb-guide에만 보관. 검증 증거·작업 원본은 공개 커밋 금지, 운영 쓰기·외부 provider 0, 가이드 해시 우회 금지.
+검색어: PR1896 46-02 synthetic 13936 actual-browser guide-frame-QA b32b74ee desktop-native-unverified
 ## 2026-11-20 국가별 발주서 배치·명시 미리보기·다운로드 대조
 - 검색어: 수입방 오른쪽 원문 가운데 합계 매칭데이터 미리보기 선택 조회 이전 다운로드 이력 5건
 1. 작업 위치: nenova-erp-ui / codex/country-download-1120 / nw-cdx-country-download-1120 / PR 대기.
@@ -4180,3 +4226,19 @@ pm run test:canon 통과.
 3. 남은 일: PR CI·운영 배포·Desktop 공개 피드·실화면 및 최종 인계. 운영 미검증.
 4. 검증: Chrome 1572/1920/390, 실제 브라우저 XLSX 생성 및 비교, 페이지 새로고침 이후 비교 유지, 저장 완료/취소, 7개국 양식·dnSpy·쓰기·canon, 실제 Electron 격리 다운로드 완료/취소/bytes, 실제 2개 가이드 해시 통과.
 5. 주의: 개인·원문 채팅·업체별 값·XLSX 원본 바이트는 저장하지 않음. 업무 파일은 사용자 저장 위치. 원장/API 변경 없음. 팀 공유 이력 초안 #1883 무수정. 버전 1.3.68은 #1901이 사용하여 1.3.69.
+
+### 2026-11-20 · #1896 가이드 제외 승인 및 Excel 복구 수정
+1. 위치: fix/co-arrival-week-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co-arrival-week-1119 / PR #1896.
+2. 완료: 셀 주소 중복(AK3·AK4·O5)과 열 범위 중첩 제거, 회귀검사 추가. 사용자 지정에 따라 기존 영상·자막·proof 그대로 두고 경로별 공식 videoWaivers만 추가.
+3. 남음: 실제 Desktop 저장 클릭·캡처, 연결 Excel에서 운임 A 수정 및 합계·B 불변 검증, 필수 CI 및 독립 Cafe24·Desktop 배포 스모크.
+4. 검증: 대상 22 PASS, ERP manifest 235·write scope 1 PASS. 수정된 브라우저 XLSX SHA-256 541df955ad9badc0973eb9c2c10cbec1bde6e73baf6fabe669c3b46aa1763faa, Microsoft Excel 복구 없이 2026 46-02 단일 시트 열림. Excel 창 최소화로 재계산 미검증.
+5. 주의: 작업 중 운영 사용자 창과 겹치면 입력 중지. 운영 DB 쓰기·유료분석 0. 가이드 미갱신·촬영 후보 비공개 보관.
+검색어: PR1896 541df955 no-Excel-repair videoWaivers master1902 native-save-unverified
+
+### 2026-11-20 · 사용자 가이드 제외 후 릴리스 검증 체크포인트
+1. 위치: fix/co-arrival-week-1119 / PR #1896 / Desktop 1.3.70 후보.
+2. 완료: master 9cd8296d 통합, 실제 통합 컴포넌트를 여는 기존 /import/pipeline 메뉴에 검색 가능한 콜롬비아 주차 원가 명칭(/arrival-cost 별도 원장 보존), 공식 가이드 면제. 추가 가이드 촬영·갱신 없음; 촬영기를 브라우저 스모크로 전환.
+3. 남음: 실제 격리 앱 저장 클릭 및 캡처, 열린 Excel에서 A 변경·B/합계 검증, CI 및 Cafe24·Desktop 게시/스모크.
+4. 검증: 정식 webpack build PASS(기존 workDrivePairsAsync 경고), 메뉴 3 PASS. 격리 자동 테스트 AWB A 입고 2건 운임 100→125 USD, B 200 USD 유지, 총운임 300→325 USD, 공유 통관비 1,000원 유지. Excel 단일 시트 복구 없이 열림, 실편집 미검증.
+5. 주의: 운영 Chrome이 창을 가린 상태에서 입력 금지. 운영 DB 쓰기 0. 브라우저 저장·자동 수식 검사를 OS 저장 또는 Excel 실재계산으로 표기하지 않음.
+검색어: co-arrival-week 9cd8296d release-build native-save user-occupied approved-guide-waiver

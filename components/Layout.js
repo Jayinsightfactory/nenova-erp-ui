@@ -77,7 +77,7 @@ export const MENU_ITEMS = [
     group: '수입부',
     items: [
       { href: '/import',              labelKey: '수입부 통합',   popup: false },
-      { href: '/import/pipeline',     labelKey: '수입 원스톱 파이프라인(인보이스→원가→공유)', popup: false },
+      { href: '/import/pipeline',     labelKey: '수입 원스톱 파이프라인(인보이스→원가→공유) · 콜롬비아 주차 원가', popup: false },
       { href: '/import/gabriel-agi',  labelKey: '가브리엘 원가·이익 최적화 AGI(시뮬레이션)', popup: false },
       { href: '/import/tools',        labelKey: '수입부 업무도구 · 발주 이력 · 인보이스 원본 대조', popup: false },
       { href: '/desktop-flight',      labelKey: '수입 비행기 현황', popup: false },

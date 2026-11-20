@@ -2,6 +2,7 @@ import React, {useEffect,useState} from 'react';
 import WorkflowGuide from '../WorkflowGuide';
 import {calculateCoOriginalCustoms} from '../../lib/coOriginalCostInputs.js';
 import styles from '../../styles/InvoiceReceipt.module.css';
+import ColombiaWeekCostReview from './ColombiaWeekCostReview';
 
 const labels={ROSE:'장미',CARNATION:'카네이션',ALSTROMERIA:'알스트로',RUSCUS:'루스커스',HYDRANGEA:'수국'};
 const MASTER_LABELS={CO:'콜카장 누적 원가자료',CO_HYDRANGEA:'수국 누적 원가자료'};
@@ -13,6 +14,10 @@ const scopeLabels={MAIN:'콜카장 (장미·카네이션·알스트로·루스�
  * - native: 기존 입고(읽기 전용)에서 같은 차수 콜롬비아 농장 전체를 묶음 (도착원가 작업)
  */
 export default function SharedAwbCostReview({document,native=null}) {
+  if(native)return <ColombiaWeekCostReview key={`${native.orderYear}-${native.orderWeek}`} orderYear={native.orderYear} orderWeek={native.orderWeek}/>;
+  return <LegacySharedAwbCostReview document={document}/>;
+}
+function LegacySharedAwbCostReview({document,native=null}) {
   const orderYear=native?native.orderYear:document.orderYear,orderWeek=native?native.orderWeek:document.orderWeek;
   const endpoint=native?'/api/import/receipts/native-shared-cost':'/api/import/receipts/shared-awb-cost';
   const [prepared,setPrepared]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState('');

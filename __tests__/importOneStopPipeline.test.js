@@ -224,9 +224,9 @@ test('page, UI component, Layout, and desktop menu.json satisfy layout and ERP s
   assert.doesNotMatch(uiSrc, /\b(INSERT\s+INTO|UPDATE\s+dbo\.|DELETE\s+FROM|usp_StockCalculation)\b/i);
 
   // Desktop menu & Layout parity
-  assert.match(layoutSrc, /href:\s*'\/import\/pipeline',\s*labelKey:\s*'수입 원스톱 파이프라인\(인보이스→원가→공유\)',\s*popup:\s*false/);
+  assert.match(layoutSrc, /href:\s*'\/import\/pipeline',\s*labelKey:\s*'수입 원스톱 파이프라인\(인보이스→원가→공유\) · 콜롬비아 주차 원가',\s*popup:\s*false/);
   const desktopItem = desktopMenu.flatMap((g) => g.items).find((item) => item.href === '/import/pipeline');
   assert.ok(desktopItem, 'desktop/menu.json must contain /import/pipeline');
-  assert.equal(desktopItem.labelKey, '수입 원스톱 파이프라인(인보이스→원가→공유)');
+  assert.match(desktopItem.labelKey, /수입 원스톱 파이프라인.*콜롬비아 주차 원가/);
   assert.equal(desktopItem.popup, false);
 });
