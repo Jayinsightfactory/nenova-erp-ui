@@ -3,7 +3,7 @@
 // Offline injected fixtures only. No app db/auth/env imports or SQL connections.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { recoverPendingStock, EXPECTED_CALC_SHA256, DEFAULT_MIN_PENDING_AGE_SECONDS } = require('../lib/pendingStockRecovery.cjs');
+const { recoverPendingStock, EXPECTED_CALC_SHA256, REVIEWED_CALC_SHA256, DEFAULT_MIN_PENDING_AGE_SECONDS } = require('../lib/pendingStockRecovery.cjs');
 
 const types = { Int: Symbol('Int'), NVarChar: Symbol('NVarChar') };
 const token = '34567a01-f1ba-4210-a129-c167b1551234';
@@ -174,14 +174,14 @@ test('async candidate callback receives fingerprint before native work and can e
   const result = await run(f, { onCandidate: async value => {
     await Promise.resolve();
     candidate = value;
-    assert.equal(f.calls.length, 1);
+    assert.equal(f.calls.length, 2);
     return false;
   } });
   assert.deepEqual(candidate, { orderYear: '2026', orderWeek: '41-02', ownerToken: token,
-    action: 'CANCEL', lockedAt: '2026-10-15T08:00:00.000Z' });
+    action: 'CANCEL', lockedAt: '2026-10-15T08:00:00.000Z', calcSha256: EXPECTED_CALC_SHA256 });
   assert.ok(Object.isFrozen(candidate));
   assert.equal(result.code, 'PENDING_STOCK_COOLDOWN');
-  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls.length, 2);
 });
 
 test('candidate callback failure aborts without native work and supplies safe fingerprint', async () => {
@@ -192,7 +192,7 @@ test('candidate callback failure aborts without native work and supplies safe fi
     assert.equal(error.candidate.ownerToken, token);
     return true;
   });
-  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls.length, 2);
 });
 
 for (const [name, mutate] of [
@@ -297,4 +297,28 @@ test('explicit zero grace is preserved as scheduling configuration without RUN r
   assert.equal((await run(f, { minPendingAgeSeconds: 0 })).status, 'recovered');
   assert.equal(f.calls[0].params.minPendingAgeSeconds.value, 0);
   assert.equal(f.calls[2].params.minPendingAgeSeconds.value, 0);
+});
+
+// Reconstruct from the reviewed atomic fixture rather than trusting a copied hash.
+test('reviewed hashes are exact atomic definitions with only approved cursor ordering', () => {
+  const fs = require('node:fs');
+  const { patch, hash } = require('../scripts/native-stock-gate-atomic.cjs');
+  const native = JSON.parse(fs.readFileSync(require('node:path').join(__dirname, 'fixtures/native-stock-gate-2026-10-12.json'), 'utf8').replace(/^\uFEFF/, '')).find(row => row.name === 'usp_StockCalculation').definition;
+  const atomic = patch(native).definition;
+  const ordered = atomic.replace('SELECT OrderYear, OrderWeek FROM #CalculationList;', 'SELECT OrderYear, OrderWeek FROM #CalculationList ORDER BY OrderYear, OrderWeek;');
+  assert.notEqual(atomic, ordered);
+  assert.deepEqual(REVIEWED_CALC_SHA256, [hash(ordered), hash(atomic)]);
+});
+for (const calcSha256 of REVIEWED_CALC_SHA256) test(`reviewed revision ${calcSha256} is pinned through native execution`, async () => {
+  const cap = capability(); cap.recordsets[2][0].CalcSha256 = calcSha256;
+  const f = fixture({cap}); let candidate;
+  assert.equal((await run(f, {onCandidate: value => {candidate = value;}})).status, 'recovered');
+  assert.equal(candidate.calcSha256, calcSha256);
+  assert.equal(f.calls[2].params.expectedCalcSha256.value, calcSha256);
+});
+test('unknown native revision does not consume a retry attempt', async () => {
+  const cap = capability(); cap.recordsets[2][0].CalcSha256 = 'f'.repeat(64);
+  const f = fixture({cap}); let attempts=0;
+  await rejectsCode(run(f,{onCandidate:()=>{attempts++;}}), 'PENDING_STOCK_CAPABILITY_REQUIRED');
+  assert.equal(attempts,0); assert.equal(f.nativeCount,0);
 });

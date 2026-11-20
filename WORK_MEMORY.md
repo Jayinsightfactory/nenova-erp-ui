@@ -4173,6 +4173,15 @@ pm run test:canon 통과.
 
 2026-11-20 검증 업데이트: 두 역할 실제 가이드 촬영, 34흐름/35영상 검사, 회사 Drive 6파일 및 크기 검증 완료. 운영 확인은 PR에서 추적.
 
+
+## 2026-11-20 — 입고 단 수량 검증과 상품 합계
+1. 작업 위치: nenova-erp-ui / codex/repair-invoice-bunch-weight-1120 / C:/Users/USER/.codex/worktrees/5a25/nw-cdx-invoice-bunch-weight / 단 수량·중량 합계 PR.
+2. 완료된 것: EC·US 원본 단·포장비 보존, 단 판매·견적 상품의 미확정 수량 차단, XLSX 행 편집 및 재검증, 공용 네이티브 입고 트랜잭션 적용, 중량행 상품 합계 제외.
+3. 남은 할 일: CI 및 Cafe24/Windows 배포 결과는 이 변경의 PR에서 추적. 원본 단 수량이 확인된 소급 보정 후보는 0건.
+4. 검증 상태: 운영 읽기 대조와 dnSpy, 격리 SQL/SP 비교, 브라우저 연습 행 미리보기·저장, 상품 합계와 raw 중량행 구분 확인. 운영 데이터 쓰기 및 유료 분석 없음.
+5. 주의/잠금: 공용 TempWarehouseDetail과 47-01 Nivalia·Mystic·Hood 원장은 보존. 현재 마스터 환산으로 과거 단 수량 보정 금지.
+검색어: 47-01 단 수량 0 누락 입고 XLSX 중량 스템 상품합계 Nivalia Mystic Hood Canal
+
 ## 2026-11-20 국가별 발주서 배치·명시 미리보기·다운로드 대조
 - 검색어: 수입방 오른쪽 원문 가운데 합계 매칭데이터 미리보기 선택 조회 이전 다운로드 이력 5건
 1. 작업 위치: nenova-erp-ui / codex/country-download-1120 / nw-cdx-country-download-1120 / PR 대기.
@@ -4180,6 +4189,14 @@ pm run test:canon 통과.
 3. 남은 일: PR CI·운영 배포·Desktop 공개 피드·실화면 및 최종 인계. 운영 미검증.
 4. 검증: Chrome 1572/1920/390, 실제 브라우저 XLSX 생성 및 비교, 페이지 새로고침 이후 비교 유지, 저장 완료/취소, 7개국 양식·dnSpy·쓰기·canon, 실제 Electron 격리 다운로드 완료/취소/bytes, 실제 2개 가이드 해시 통과.
 5. 주의: 개인·원문 채팅·업체별 값·XLSX 원본 바이트는 저장하지 않음. 업무 파일은 사용자 저장 위치. 원장/API 변경 없음. 팀 공유 이력 초안 #1883 무수정. 버전 1.3.68은 #1901이 사용하여 1.3.69.
+
+## 2026-11-20 — 42-02 카네이션 확정/취소 BUSY 자동복구 검토본 동기화
+1. 작업 위치: nenova-erp-ui / codex/confirm-busy-1120 / C:/Users/USER/nw-cdx-confirm-busy-1120 / PR 생성 예정.
+2. 완료된 것: lib/pendingStockRecovery.cjs가 기존 atomic CALC와 승인된 cursor 정렬본의 정확한 hash만 허용. 실행 직전 선택 hash 재검증, capability 거부 시 retry 미소비, 검토본 hash별 예산으로 이전 불일치 소진 복구. 테스트·계약·EXE golden·ERP 가드 근거 갱신.
+3. 남은 할 일: PR CI/squash, Cafe24 배포, worker 정상복구와 DB·실브라우저 확인, worktree 정리. 운영 복구는 배포 전 미실행.
+4. 검증 상태: 실제 dnSpy FormShipmentDistribution FIX/CANCEL→별도 CALC0 확인. 구현 전 SELECT 43-01 CANCEL WAIT_CALC/V2ready, 2026/42-02 카네이션99행확정·2025동일82행 보존기준. 운영 정의 전체 diff는 승인 정렬 1줄뿐. 표적89개 및 실제 격리 SQL(rollback/동시/중단/교차연도/RUN보존) PASS. dnSpy/manifest234/write guard PASS. 전체 ERP contract(pre36/본체144/post27 명령) 및 production webpack build exit0.
+5. 주의/잠금: 운영 SP DDL/직접 gate clear/RUN회수/확정 토글/재고조정 없음. StockMaster/ProductStock만 기존 native CALC 범위; 주문·출고·날짜·농장·입고·현재고·이력·견적·매출 12개 보호원장 기준선 확보. SQL fixture 원래 중지 상태 복원. 새 UI/URL/메뉴 없음, 데스크톱 기존 기능 재사용. 다른 세션 파일 무수정.
+검색어: confirm-busy 42-02 카네이션 43-01 WAIT_CALC CANCEL 010c947 24a415 pendingStockRecovery approved-cursor-order retry-fingerprint
 
 
 ## 2026-11-20 — 미리보기 닫기 시 열었던 업무 탭 복귀
@@ -4191,3 +4208,5 @@ pm run test:canon 통과.
 검색어: 미리보기 닫기 여는 탭 복귀 popup opener focus PedidosTool desktop incoming round 1.3.68
 
 실제 1920x1080 가이드 14단계, 554.5초, 자막 76개 실제 프레임 정렬 및 카메라 구간 검증.
+
+2026-11-20 최종 업스트림 통합: Desktop 1.3.71, 546.1초·자막 76개 정확한 프레임 정렬, PR #1903. 운영 공개는 CI 후 확인.
