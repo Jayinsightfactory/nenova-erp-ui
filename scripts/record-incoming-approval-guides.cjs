@@ -137,7 +137,7 @@ async function recordRole(browser, base, secret, role) {
   await page.waitForSelector('nav[aria-label="입고 정정 처리 단계"]');
   const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},unfocus:async()=>{},stop: async () => null } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 수정 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset: 'veryfast' });
   let stepNumber=1,currentCaption='1. 조작할 위치를 확인합니다.';
-  const hold = async (text, seconds = 5) => { currentCaption=`${stepNumber}. ${text.replace(/^\d+\. /,'')}`;await rec.caption(currentCaption); await rec.pause(seconds * 1000); };
+  const hold = async (text, seconds = 5) => { currentCaption=`${stepNumber}. ${text.replace(/^\d+\. /,'')}`;await rec.caption(currentCaption); await rec.pause(Math.min(seconds, 7) * 1000); };
   const focusTarget=async element=>{
     await rec.caption(currentCaption);
     await element.evaluate(n=>{n.scrollIntoView({behavior:'instant',block:'center'});n.dataset.incomingGuideTarget='current';});
