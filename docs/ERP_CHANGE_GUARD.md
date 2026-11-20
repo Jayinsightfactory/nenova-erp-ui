@@ -1260,3 +1260,7 @@ native select는검색기능이없고 Farm마스터전용조회가실제입고�
 ## 2026-11-18 일반 주문·영업부 붙여넣기 빈 연결 헤더
 
 source=manual-order/sales-paste 주문 저장은 정확한 연도+세부차수+업체 전체 헤더를 UPDLOCK/HOLDLOCK으로 재검증한다. 0건만 빈 native 헤더 생성, 단일 활성은 변경 없이 재사용, 삭제/중복은409 전체 rollback. 다른 source·과거 원장 자동보정0. 주문과 헤더가 분리 commit되지 않으며 분배/날짜/농장/Estimate/손익 쓰기0. manual-order 재고 기존 계산, sales-paste 기존 보존. 기준은 order-native-empty-header/sales-paste-order 계약 및 실제 FormOrderAdd 근거. myCustomerOrderApi 실행 fixture가 교차연도·경계·재시도·원자성을 검사한다.
+
+## 2026-11-20 입고 단·중량 회귀
+
+47-01 실제 원장 비교와 재발 방지 기준은 [입고 단 수량과 중량 합계](plans/warehouse-bunch-weight-2026-11-20.md)에 기록했습니다.

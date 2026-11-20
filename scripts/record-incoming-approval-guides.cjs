@@ -60,6 +60,7 @@ async function recordRole(browser, base, secret, role) {
   const isImport = role === 'import', requests = isImport ? [] : ['farm', 'product', 'quantity', 'price'].map(requestFixture);
   let loseApproval=dry&&!isImport,lostApproval=null,replayedApproval=false;
   const page = await browser.newPage();page.setDefaultNavigationTimeout(120000);const errors = [], posts = [];
+  let packingSaves = 0;
   let mainNavigations=0;page.on('framenavigated',frame=>{if(frame===page.mainFrame())mainNavigations++;});
   await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
   page.on('pageerror', error => errors.push(error.message)); page.on('dialog', dialog => dialog.accept());
@@ -74,6 +75,20 @@ async function recordRole(browser, base, secret, role) {
       if (u.pathname === '/api/products/search') data.products = products;
       if (u.pathname === '/api/auth/me') data.user = user;
       if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,OrderWeek:i===1?'45-02':i?'46-01':header.OrderWeek,FarmName:i?'다른 농장':header.FarmName,InvoiceNo:i?`GUIDE-${i+1}`:header.InvoiceNo}));
+      if (u.pathname === '/api/warehouse' && r.method() === 'POST') {
+        assert(isImport,'fixture import authorization');
+        const body=JSON.parse(r.postData());
+        assert.equal(body.orderYear,'2026');
+        if (!(Number(body.items?.[0]?.bunchQty)>0)) {
+          return r.respond({status:400,contentType:'application/json',body:JSON.stringify({
+            success:false,error:'품목 검증에 실패했습니다.',
+            errors:[{prodName:'장미 레드 50',error:'단 수량을 원본에서 확인해 입력하세요.'}],
+          })});
+        }
+        assert.equal(Number(body.items[0].bunchQty),40);
+        if (!body.previewOnly) packingSaves++;
+        data={success:true,warehouseKey:9200,message:'입고 등록 완료: 1/1개 품목'};
+      }
       if (u.pathname === '/api/arrival-cost/latest') data.references = {'1|': [1000, 1350].map((cost,i)=>({cost,unit:'단',farm:`원가 농장 ${i+1}`,week:'45-01',orderYear:'2026',sourceKind:'INVOICE',referenceKey:String(i)}))};
       if (u.pathname === '/api/warehouse/9001') data.items = before;
       if (u.pathname === '/api/warehouse/correction') data = { success: true, draftOwner: user.userId, header, baselineDigest:'c'.repeat(64), details: before, farms: [{ FarmName: header.FarmName }, { FarmName: '연습농장 나' }], history: [] };
@@ -306,6 +321,37 @@ async function recordRole(browser, base, secret, role) {
     }
     if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
     await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click(onlyScenario==='price'&&!isImport?'#4 열기':'#1 열기');await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
+    if (isImport && !onlyScenario) {
+      console.log(`${dry?'CHECK':'RECORD'} import: packing-quantity`);
+      await page.goto(`${base}/incoming?popup=1`,{waitUntil:'networkidle0'});
+      await rec.restoreOverlay?.();
+      stepNumber=7;
+      rec.chapter('packing-quantity','7. 단 수량을 확인하고 새 입고 저장');
+      await hold('엑셀 업로드에서 연습 패킹리스트를 엽니다.',5);
+      const xlsx=require('xlsx-js-style');
+      const grid=[['PACKING LIST'],['','','연습농장 가','','','','45-01','','','','GUIDE-NEW'],
+        ['','','','','','','2026/11/05'],[],['COD','VARIETY NAME','','','SIZE','BOX','BUNCH/ST','STEAM BOX','TOTAL\nBUNCH','TOTAL STEAM','U.PRICE','T.PRICE'],
+        ['1','장미 레드 50','','','',2,10,200,'',400,50,100]];
+      const book=xlsx.utils.book_new();
+      xlsx.utils.book_append_sheet(book,xlsx.utils.aoa_to_sheet(grid),'연습');
+      const file=path.join(root,'.verify','packing-quantity-guide.xlsx');
+      xlsx.writeFile(book,file);
+      const [chooser]=await Promise.all([page.waitForFileChooser({timeout:12000}),click('업로드 / Subir')]);
+      await chooser.accept([file]);
+      await page.waitForSelector('.modal input[placeholder="2026"]');
+      await fill('.modal input[placeholder="2026"]','2026');
+      await click('수량 검증','.modal');
+      await page.waitForFunction(()=>document.querySelector('.modal [role=alert]')?.textContent.includes('단 수량'));
+      await hold('단을 쓰는 품목의 수량이 비면 저장할 수 없습니다.\n원본의 단 수량을 확인하고 같은 행에 입력합니다.',5);
+      await fill('.modal input[aria-label="1행 장미 레드 50 단 수량"]','40');
+      await click('수량 검증','.modal');
+      await page.waitForFunction(()=>document.querySelector('.modal [role=status]')?.textContent.includes('수량 검증 완료'));
+      await hold('연습 자료의 40단을 대조한 뒤 수량 검증을 마치고 입고 저장을 선택합니다.',5);
+      await click('입고 저장','.modal');
+      await page.waitForFunction(()=>document.body.innerText.includes('입고 등록 완료: 1/1개 품목'));
+      await hold('입고 등록 완료 메시지를 확인합니다.',5);
+      assert.equal(packingSaves,1);
+    }
     assert.deepEqual(errors, []);
     assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (onlyScenario?1:isImport?6:4)+(dry&&!isImport?1:0));
     if(dry&&!isImport)assert(replayedApproval,'lost approval retry must reuse the same operation');

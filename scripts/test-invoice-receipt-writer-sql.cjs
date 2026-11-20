@@ -1340,6 +1340,81 @@ async function testPrivateChinaInvoiceWriterAndAirCost(pool,writer,costApi,docum
   console.log('ok - actual invoice quantities/prices with synthetic fixture matching and TEST_ONLY cost inputs: 28 lines, 159 boxes, 2380 bunches, 30900 stems, CNY goods 57330 / grand 84844.9, GW 1985.94; writer/stock/cost readback and idempotency passed.');
 }
 
+async function testLegacyPackingBunchVerification(pool) {
+  const route = path.join(ROOT,'pages','api','warehouse','index.js');
+  const babel = require('next/dist/compiled/babel/core');
+  const compiled = babel.transformSync(fs.readFileSync(route,'utf8'), {
+    plugins:[require('next/dist/compiled/babel/plugin-transform-modules-commonjs')],configFile:false,babelrc:false,
+  }).code;
+  const out={exports:{}};
+  const mocks={
+    '../../../lib/db':{sql,query:(statement,params)=>query(pool,statement,params),withTransaction:withTransactionFn(pool)},
+    '../../../lib/auth':{withAuth:handler=>handler},
+    '../../../lib/invoiceReceiptAccess.js':{canManageInvoiceReceipt:user=>user.deptName==='수입부'},
+    '../../../lib/exeParity/common.js':{},'../../../lib/exeWarehouseViewSql.js':{},
+  };
+  for (const file of ['invoiceReceiptNative','receiptBunchQuantity','warehouseWeightRows']) {
+    mocks['../../../lib/'+file+'.js']=await import(pathToFileURL(path.join(ROOT,'lib',file+'.js')).href);
+  }
+  new Function('require','module','exports',compiled)(key=>mocks[key],out,out.exports);
+  await query(pool,`INSERT dbo.Product(ProdKey,ProdName,CountryFlower,CounName,FlowerName,OutUnit,EstUnit,SteamOf1Box,SteamOf1Bunch,BunchOf1Box,Stock,isDeleted)
+    VALUES(9761,N'Legacy fixture greenery',N'미국 GREEN',N'미국',N'GREEN',N'박스',N'단',200,10,20,0,0);
+    INSERT dbo.WarehouseMaster(WarehouseKey,OrderYear,OrderWeek,FarmName,InvoiceNo,InputDate,isDeleted)
+    VALUES(97000,N'2025',N'47-01',N'Legacy fixture farm',N'LEGACY-47',DATEFROMPARTS(2025,11,17),0);
+    INSERT dbo.StockMaster(StockKey,OrderYear,OrderWeek,OrderYearWeek,Descr,isFix,CreateID)
+    VALUES(2547,N'2025',N'47-01',N'20254701',N'Legacy prior',0,N'fixture'),
+          (2647,N'2026',N'47-01',N'20264701',N'Legacy current',0,N'fixture');`);
+  const values={orderYear:'2026',orderWeek:'47-01',inputDate:'2026-11-17',farmName:'Legacy fixture farm',invoiceNo:'LEGACY-47',
+    items:[{prodName:'Legacy fixture greenery',boxQty:2,steamQty:400,bunchQty:null,steamOf1Bunch:10,steamOf1Box:200,unitPrice:50,totalPrice:100,orderCode:'1'}]};
+  const run=async body=>{
+    const response={status(code){this.code=code;return this;},json(value){this.result=value;return this;}};
+    await out.exports.default({method:'POST',body,user:{userId:'fixture',deptName:'수입부'}},response);
+    return response;
+  };
+  const before=await stockSnapshot(pool);
+  const protectedBefore=await protectedSnapshot(pool);
+  assert.equal((await run({...values,previewOnly:true})).code,400);
+  assert.equal((await run(values)).code,400);
+  assert.deepEqual(await stockSnapshot(pool),before);
+  const corrected={...values,items:[{...values.items[0],bunchQty:40}]};
+  assert.equal((await run({...corrected,previewOnly:true})).code,200);
+  assert.deepEqual(await stockSnapshot(pool),before);
+  const stagedBefore=await rows(pool,'TempWarehouseDetail','WdetailKey');
+  assert(stagedBefore.length>0,'fixture has an existing native staging row');
+  const saved=await run(corrected);
+  assert.equal(saved.code,201,saved.result?.error);
+  const {recordset:details}=await query(pool,`SELECT d.BoxQuantity,d.BunchQuantity,d.SteamQuantity,d.OutQuantity,d.EstQuantity,d.UPrice,d.TPrice
+    FROM dbo.WarehouseMaster m JOIN dbo.WarehouseDetail d ON d.WarehouseKey=m.WarehouseKey
+    WHERE m.OrderYear=N'2026' AND m.OrderWeek=N'47-01' AND m.WarehouseKey=@key`,{key:{type:sql.Int,value:saved.result.warehouseKey}});
+  assert.deepEqual(details,[{BoxQuantity:2,BunchQuantity:40,SteamQuantity:400,OutQuantity:2,EstQuantity:40,UPrice:50,TPrice:100}]);
+  assert.deepEqual(await rows(pool,'TempWarehouseDetail','WdetailKey'),stagedBefore);
+  assert.deepEqual(await protectedSnapshot(pool),protectedBefore);
+  const view = await query(pool,`SELECT BoxQuantity,BunchQuantity,SteamQuantity,OutQuantity,EstQuantity,UPrice,TPrice
+    FROM dbo.ViewWarehouse WHERE OrderYear=N'2026' AND OrderWeek=N'47-01' AND WarehouseKey=@key`,
+  {key:{type:sql.Int,value:saved.result.warehouseKey}});
+  assert.deepEqual(view.recordset,details);
+  const after=await stockSnapshot(pool);
+  assert.equal((await run(corrected)).code,409);
+  assert.deepEqual(await stockSnapshot(pool),after);
+  assert.equal((await query(pool,`SELECT COUNT(*) n FROM dbo.WarehouseMaster WHERE WarehouseKey=97000 AND OrderYear=N'2025'`)).recordset[0].n,1);
+  assert.equal((await query(pool,`SELECT COUNT(*) n FROM dbo.StockHistory WHERE ProdKey=9761 AND OrderYear=N'2026'
+    AND OrderWeek=N'47-01' AND ChangeType=N'입고' AND AfterValue-BeforeValue=2`)).recordset[0].n,1);
+  // A separate reference call runs the captured native SP only in this disposable database.
+  const native = await query(pool,`
+    DELETE FROM dbo.TempWarehouseDetail;
+    INSERT dbo.WarehouseMaster(WarehouseKey,OrderYear,OrderWeek,FarmName,InvoiceNo,InputDate,isDeleted)
+      VALUES(97002,N'2026',N'47-01',N'Legacy fixture farm',N'LEGACY-47-NATIVE',DATEFROMPARTS(2026,11,17),0);
+    INSERT dbo.TempWarehouseDetail (ProdName,BoxQuantity,BunchQuantity,SteamQuantity,SteamOf1Box,SteamOf1Bunch,UPrice,TPrice,OrderCode,WarehouseKey)
+      VALUES(N'Legacy fixture greenery',2,40,400,200,10,50,100,N'1',97002);
+    DECLARE @r int;
+    EXEC dbo.usp_CreateWarehouse @iUserID=N'fixture',@oResult=@r OUTPUT;
+    IF @r<>0 THROW 51070,'Native reference refused',1;
+    SELECT BoxQuantity,BunchQuantity,SteamQuantity,OutQuantity,EstQuantity,UPrice,TPrice
+      FROM dbo.WarehouseDetail WHERE WarehouseKey=97002;`);
+  assert.deepEqual(native.recordset,details);
+  console.log('PASS legacy Excel isolated SQL: exact native SP parity, missing bunch blocks, read-only preview, successful save, duplicate denied, prior year and native staging preserved');
+}
+
 async function main() {
   stage('argument and local-input preflight');
   const args=parseArgs(process.argv);
@@ -1458,6 +1533,8 @@ async function main() {
     await testExistingCostLink(pool,costs);
     await testExistingCostLink(pool,costs,true);
     await testHistoricalFarmSource(pool,writer,documents);
+    stage('legacy packing bunch verification');
+    await testLegacyPackingBunchVerification(pool);
     stage('fixture scenarios passed');
     console.log('PASS: isolated invoice receipt writer SQL fixture scenarios completed.');
   }finally{

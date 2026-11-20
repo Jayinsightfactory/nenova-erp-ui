@@ -53,7 +53,7 @@ for (const search of ['', '?from=2025-12-01&to=2026-01-31&farm=EXCEL&week=39-01&
   assert.equal(linked.current,search.includes('warehouseKey=7970')?7970:null);
   if (search.includes('farm=')) assert.deepEqual([state.farm, state.week, state.search], ['EXCEL', '39-01', 'test']);
 }
-assert.match(page, /apiGetExe\('\/api\/warehouse', \{ startDate, endDate \}\)/);
+assert.match(page, /apiGetExe\('\/api\/warehouse', \{ startDate, endDate, goodsTotals: '1' \}\)/);
 assert.match(page, /if \(startDate && endDate\) load\(\)/);
 assert.match(page, /q\.set\('from', startDate\); q\.set\('to', endDate\)/);
 assert.doesNotMatch(effect, /fetch\(|apiGet|apiPost|apiPut|apiPatch|apiDelete/);

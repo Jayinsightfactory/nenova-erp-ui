@@ -38,7 +38,7 @@ async function main() {
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'data');
     return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
   };
-  await check('original prompts preserved except verified CO/CN corrections and AU invoice+AWB extraction', () => {
+  await check('prompts retain unchanged country contracts and explicit EC/US source packing evidence', () => {
     const correctedCoCheck = '- Sum the t_price values of all products, then add freight_total. Does goods + extras equal invoice_total? If not, you missed a row, duplicated one, or selected the wrong charge/total — re-read the invoice top to bottom. Do NOT compare goods alone to a grand total that includes extras.';
     const originalCoCheck = '- Sum the t_price values of all your products. Does it equal invoice_total? If not, you missed a row or duplicated one — re-read the invoice top to bottom.';
     assert.ok(prompt.buildPrompt('CO').includes(correctedCoCheck));
@@ -51,10 +51,10 @@ async function main() {
       NL: 'b10cfcaa7bc66b44924bffa6ccee6ee0049e96dc64d25dcf2fb22d1a9647cf75',
       // 45-1 original header: HUBFRESH, not the cached Cloudland guess; numeric date must retain ambiguity.
       CN: '4b68d30fce3d9c834251c312a6907a1f4f0a44e42fafc68cd31b61ebfcbc7db8',
-      EC: '9ea4cce8f2461a8e6c21d732029f29c26da9d4e6884a5634959d74dcb91965fa',
+      EC: 'b1853b21372989542cac5b2cd22ba222623b66f247d8628d95ab47a47927365c',
       TH: '07e6964383ae6dcefb0cd331f6c79f5d7e214cd3324a8d68c51440fd2d5d313d',
       AU: '8e8ef22e1bcac2b56a57404ffc165bb6afbd28378a18a507243be611695fbcda',
-      US: '59954e0c51bf5f9ac3e4732842297ead452e4d3aaa5c31fb961de4f53c90be70',
+      US: '8485830edfd566c95961cced1bab5c9ccbb99d936e23ede6e3e294d9aee0b58d',
       VN: '2010b95a63ee0da81dd1fd60829956283551a0d4e600fd6af202075d5e14ac29',
     };
     for (const country of prompt.PACKING_COUNTRIES) {
@@ -158,9 +158,17 @@ async function main() {
       const captures = [];
       const mock = { ...XLSX, write: wb => { captures.push(canonical(wb)); return new Uint8Array([1]); } };
       packing[name](mock, inv, '40', '01', opts);
-      if (original) {
+      if (original && !['EC', 'US'].includes(country)) {
         original[name](mock, inv, '40', '01', opts);
-        assert.deepEqual(captures[0], captures[1], name);
+        const unchanged = book => {
+          const sheet = book.Sheets[book.SheetNames[0]];
+          for (const col of 'FIJ') {
+            delete sheet[col+'58'].f;
+            delete sheet[col+'58'].v;
+          }
+          return book;
+        };
+        assert.deepEqual(unchanged(captures[0]), unchanged(captures[1]), name);
       }
       const ws = captures[0].Sheets[captures[0].SheetNames[0]];
       assert.equal(ws['!ref'], 'A1:L58'); assert.equal(ws.B6.s.font.name, 'Calibri');
