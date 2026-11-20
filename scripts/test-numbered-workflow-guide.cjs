@@ -18,14 +18,14 @@ if(process.argv.includes('--recorded')){
   const guide=registry.workflows.find(w=>w.id==='customs-settlement-zip').guides[0];
   const proof=JSON.parse(fs.readFileSync('public'+guide.proof));
   assert.equal(proof.browserZoom,100);assert.equal(proof.fps,20);assert.equal(proof.productionWrites,0);
-  assert.equal(proof.presentation.numberedSteps,4);assert.deepEqual(proof.presentation.cameraBand,{x:0,y:70,width:1920,height:830});cameraFilters(proof.presentation.focusShots);
-  assert.deepEqual([...new Set(proof.presentation.focusShots.map(s=>s.number))],[1,2,3,4]);
+  assert.equal(proof.presentation.numberedSteps,6);assert.deepEqual(proof.presentation.cameraBand,{x:0,y:70,width:1920,height:830});cameraFilters(proof.presentation.focusShots);
+  assert.deepEqual([...new Set(proof.presentation.focusShots.map(s=>s.number))],[1,2,3,4,5,6]);
   guide.chapters.forEach((c,i)=>assert(c.title.startsWith(`${i+1}. `)));
   const cues=fs.readFileSync('public'+guide.captions,'utf8').split(/\r?\n\r?\n/).slice(1).filter(Boolean);
   assert(cues.every(c=>/^\d\. /m.test(c)),'Every Korean cue carries its business-step number');
-  assert.deepEqual([...new Set(cues.map(c=>Number(c.match(/^(\d)\. /m)[1])))],[1,2,3,4]);
+  assert.deepEqual([...new Set(cues.map(c=>Number(c.match(/^(\d)\. /m)[1])))],[1,2,3,4,5,6]);
   const seconds=value=>value.split(':').reduce((total,n)=>total*60+Number(n),0);
-  for(const [number,text] of [[1,'정상 문서 1건'],[2,'2026년 34차 실제 원천이라는'],[3,'원천 등록 완료 2건'],[4,'다시 올려도 완료 2건']]){
+  for(const [number,text] of [[1,'정상 문서 1건'],[2,'2026년 34차 실제 원천이라는'],[3,'원천 등록 완료 2건'],[4,'다시 올려도 완료 2건'],[5,'저장 후 다시 조회한 비용 합계'],[6,'증빙과 정확히 일치한 값만 투영']]){
     const cue=cues.find(c=>c.includes(text));assert(cue,`Result cue ${number}`);
     const resultAt=seconds(cue.split(' --> ')[0]);
     const shots=proof.presentation.focusShots.filter(s=>s.number===number);

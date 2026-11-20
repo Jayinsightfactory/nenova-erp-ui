@@ -4,6 +4,7 @@
 // 저장 시 onSaved() 호출 — 부모가 이걸로 매출이익보고서를 재조회해 자동 재계산에 반영한다.
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import CustomsSettlementUpload from './CustomsSettlementUpload';
+import CustomsPhase03Panel from './CustomsPhase03Panel';
 import {settlementCoversCountryField,preserveSettlementCountryField} from '../lib/customsSettlementPresentation';
 import { COUNTRY_INPUT_FIELDS, vatInclusiveToNet, vatNetToInclusive } from '../lib/customsFields';
 import { applyProfitReportColombiaRates, PROFIT_REPORT_COLOMBIA_BOX_RATES } from '../lib/profitReportCustomsPolicy';
@@ -312,6 +313,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
     const hasEdit = Boolean(countryEdits[row.category] && Object.keys(countryEdits[row.category]).length);
     if (!hasEdit || !countryRates) return n0(row.total);
     const liveRow = {};
+    liveRow.Phase03Total = row.effectiveRow?.Phase03Total;
     COUNTRY_FIELD_KEYS.forEach((field) => {
       const isWorldFreight = field === 'WorldFreight1' || field === 'WorldFreight2';
       const v = countryValue(row, field);
@@ -452,7 +454,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
       <div style={st.hint}>
         <b>이 화면이 만드는 값</b> — 매출이익 보고서 H열(그외통관비)입니다. 국가별 계산식은
         <b> (1차GW+2차GW)×백상 창고료 단가 + 관세1+관세2 + (선율1+선율2+월드운송료1+월드운송료2+한국방역1+한국방역2)÷1.1</b> 입니다.
-        백상창고료·관세는 부가세를 빼지 않고, 선율·월드운송료·한국방역만 ÷1.1(공급가)로 바꿉니다(베트남 선율만 예외 — 원본이 이미 공급가).
+        백상창고료·관세는 그대로, 일반 국가의 선율·월드운송료·한국방역은 공급가로 계산합니다. 베트남 선율은 승인된 엑셀 기준으로 증빙된 수수료 VAT를 포함합니다. 수입 VAT는 비용에서 제외합니다.
         월드 운송료 추천값은 <b>그 대차수 1차+2차 GW를 합산해 용량 단위로 분해</b>합니다(예: 3,000kg → 2.5t 1대 + 1t 1대).
         <u>과거에 실제로 쓴 차량·비용이 저장돼 있으면 추천값으로 덮지 않습니다.</u> 직접 입력하면 그 차수의 실제값으로 저장됩니다(부가세 제외 금액 표시).
         관세·선율은 청구가 나뉘어 오므로 1차/2차를 각각 1·2·3번으로 나눠 입력하고, 화면 합계가 관세1차/2차·선율1차/2차로 자동 합산됩니다.
@@ -554,7 +556,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                       <tr key={row.category} data-customs-focus-key={row.category} style={{ background: isHistorical ? '#ecfdf5' : carried ? '#fff7ed' : '#fff', ...focusStyle(row.category) }}>
                         <td style={st.tdLabel}>
                           {row.category}
-                          {row.settlement && <div style={{ color: '#0369a1', fontSize: 11 }}>선율 ZIP 누락 비용 보완 · 기존 DB 값 유지</div>}
+                          {row.effectiveRow?.VietnamFeeEvidence?.length ? <div style={{ color: '#334155', fontSize: 12.5 }}>베트남 엑셀 기준 · 증빙 수수료 VAT 포함 · DB 원문 보존</div> : row.settlement && <div style={{ color: '#0369a1', fontSize: 11 }}>선율 ZIP 누락 비용 보완 · 기존 DB 값 유지</div>}
                           {isHistorical && <span style={st.baselineBadge} title="운영 DB에 이 차수 입력 이력이 없어, 원본 '매출원가 양식' 엑셀의 구성요소(GW/관세/선율/월드운송료/방역)를 그대로 자동 적용 중입니다. 한 칸이라도 저장하면 이 행 전체가 저장값으로 바뀝니다.">원본 엑셀값</span>}
                         </td>
                         {COUNTRY_PHASES.map((phase) => {
@@ -658,6 +660,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
           </div>
 
           <div style={st.panel}>
+            <CustomsPhase03Panel key={`${data.orderYear}|${data.major}`} year={data.orderYear} major={data.major} value={data.phase03} onRefresh={refreshSettlementSource} />
             <div style={st.panelHead}><strong>콜롬비아 4품목 무게배분 (반차수별 — 카네이션·장미·알스트로·루스커스 공유)</strong></div>
             {(data.colombia || []).map((c) => {
               const isHistorical = c.totalSource === 'excel_historical_snapshot';

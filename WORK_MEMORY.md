@@ -4425,3 +4425,12 @@ pm run test:canon 통과.
 3. 남은 일: 업무도구의 입고 업로드가 고쳐지면 입고 등록 매뉴얼을 업무도구 기준으로 다시 쓰기
 4. 검증: npm run -s test:workflow-guides 통과. 운영 화면 확인은 브라우저 로그인이 풀려 미검증.
 5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: g03 / 학습 반영: 없음
+
+## 2026-11-20 통관 03차·베트남 증빙 VAT 비용 연결
+요약: 실제 연도·03차·AWB별 웹 전용 입력/ZIP/보고서 근거를 연결하고, 베트남 수수료는 일치하는 증빙 gross만 읽기 투영한다. 기존 DB·ZIP 원문·확정/과거 저장본은 보존한다.
+검색어: customs-phase03 03차 AWB 베트남 선율 VAT gross 중복 방지
+1. 작업 위치: nenova-erp-ui / codex/customs-phase03 / C:/Users/USER/nw-cdx-customs-phase03 / PR 생성 직전.
+2. 완료: customsPhase03 순수 정책·파일 저장 서비스·UI, ZIP 03 target, 중국/태국 계산 중복 방지, 베트남 정확 증빙 정책, desktop 1.3.78 메뉴, 한국어 6단계 안내 영상, 읽기 전용 운영 스모크 준비.
+3. 남은 일: PR CI → squash → Cafe24 코드 전용 배포 → desktop 배포 → 35/37/40/41/43/44 원천 GET와 실제 44 UI 검증. 운영 입력/ZIP 등록/저장 보고서 갱신은 승인 범위 밖이므로 실행하지 않는다.
+4. 검증: 실제 dnSpy/동일 범위 SELECT, 신규 13·기존 통관 22·desktop 11 회귀, 전체 ERP 계약, manifest237/dnSpy/write guard, 가이드 35업무/36영상 및 실제 재생, webpack build 통과. 이후 동시 매뉴얼 PR 2건 fast-forward 후 해당 회귀·가이드 재검증. 최종 통합 빌드/운영 상태는 PR 체크와 후속 완료 댓글을 따른다.
+5. 주의/잠금: 통관·03차 정책·가이드 파일은 이 PR 완료까지 본 작업 소유. 37 베트남은 SQL 입력행 부재를 PDF만으로 자동 보충하지 않는다. 원천 금융정보를 학습 선호로 저장하지 않음. 연결 목표 g03 / 학습 반영 없음.
