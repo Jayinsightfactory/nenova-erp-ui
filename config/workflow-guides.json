@@ -1242,7 +1242,9 @@
       ],
       "sourceFiles": [
         "components/import-tools/PedidosTool.js",
-        "components/import-tools/KakaoAdditions.js"
+        "components/import-tools/KakaoAdditions.js",
+        "components/import-tools/CountryDownloadComparison.js",
+        "lib/countryOrderDownloadHistory.js"
       ],
       "requiredScenarios": [
         "country",
@@ -1254,7 +1256,8 @@
         "save",
         "chat",
         "sum",
-        "copy"
+        "copy",
+        "download-history"
       ],
       "guides": [
         {
@@ -1269,112 +1272,117 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.012
+              "seconds": 0.027
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.582
+              "seconds": 10.72
             },
             {
               "scenario": "week",
-              "title": "3. 세부차수 미리보기",
-              "seconds": 21.288
+              "title": "3. 세부차수와 미리보기",
+              "seconds": 21.29
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 32.007
+              "seconds": 38.151
             },
             {
               "scenario": "download",
               "title": "5. 다운로드·ETA 창 열기",
-              "seconds": 43.134
+              "seconds": 49.322
             },
             {
               "scenario": "eta",
               "title": "6. ETA 날짜 입력",
-              "seconds": 53.74
+              "seconds": 59.926
             },
             {
               "scenario": "save",
               "title": "7. ETA 저장·엑셀 다운로드",
-              "seconds": 66.053
+              "seconds": 72.731
             },
             {
               "scenario": "china",
               "title": "8. 중국 발주 조회",
-              "seconds": 76.85
+              "seconds": 85.061
             },
             {
               "scenario": "china-cycle",
               "title": "9. 중국 차수 선택",
-              "seconds": 87.418
+              "seconds": 95.689
             },
             {
               "scenario": "china-week",
-              "title": "10. 중국 세부차수 선택",
-              "seconds": 98.241
+              "title": "10. 중국 세부차수와 미리보기",
+              "seconds": 106.298
             },
             {
               "scenario": "farm",
               "title": "11. 기본 수신명 수정",
-              "seconds": 108.872
+              "seconds": 123.2
             },
             {
               "scenario": "split",
               "title": "12. 농장별 파일 나누기",
-              "seconds": 120.865
+              "seconds": 135.593
             },
             {
               "scenario": "assign",
               "title": "13. 농장 1 품목 선택",
-              "seconds": 131.475
+              "seconds": 146.353
             },
             {
               "scenario": "farm-download",
               "title": "14. 농장별 파일 확인",
-              "seconds": 142.078
+              "seconds": 157.184
             },
             {
               "scenario": "farm-save",
               "title": "15. 농장 파일 다운로드",
-              "seconds": 152.648
+              "seconds": 167.863
             },
             {
               "scenario": "chat",
               "title": "16. 최근 발주일 카톡 확인",
-              "seconds": 163.281
+              "seconds": 178.9
             },
             {
               "scenario": "sum",
               "title": "17. 차수·품목군 버튼 선택",
-              "seconds": 173.831
+              "seconds": 189.654
             },
             {
               "scenario": "match-total",
               "title": "18. 합계에서 원문 확인",
-              "seconds": 184.378
+              "seconds": 200.503
             },
             {
               "scenario": "match-source",
               "title": "19. 원문에서 합계 확인",
-              "seconds": 194.926
+              "seconds": 211.315
             },
             {
               "scenario": "audit",
               "title": "20. 제외 원문 대조",
-              "seconds": 205.482
+              "seconds": 222.031
             },
             {
               "scenario": "recover",
               "title": "21. 누락 의심 발주 보완",
-              "seconds": 216.264
+              "seconds": 233.038
             },
             {
               "scenario": "copy",
               "title": "22. 농장 전달용 복사",
-              "seconds": 234.466
+              "seconds": 252.141
+            },
+            {
+              "scenario": "download-history",
+              "title": "23. 이전 다운로드와 수량 비교",
+              "seconds": 266.172
             }
           ]
         }
@@ -2136,72 +2144,72 @@
             {
               "scenario": "overview",
               "title": "1. 홈에서 오늘 업무 확인",
-              "seconds": 0.2
+              "seconds": 0
             },
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 51.587
+              "seconds": 46.939
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 61.588
+              "seconds": 56.725
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 90.395
+              "seconds": 85.224
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 111.599
+              "seconds": 107.651
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 140.398
+              "seconds": 136.346
             },
             {
               "scenario": "calendar",
               "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 149.792
+              "seconds": 145.961
             },
             {
               "scenario": "independent",
               "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 175.188
+              "seconds": 170.537
             },
             {
               "scenario": "company",
               "title": "9. 공통 일정 제목과 색상 등록·수정",
-              "seconds": 187.377
+              "seconds": 182.282
             },
             {
               "scenario": "collapse",
               "title": "10. 월간·주간 접기와 홈 다시 열기",
-              "seconds": 268.592
+              "seconds": 258.603
             },
             {
               "scenario": "weekly",
               "title": "11. 주차별 일정과 다음 주 차수 확인",
-              "seconds": 305.798
+              "seconds": 291.88
             },
             {
               "scenario": "holidays",
               "title": "12. 국가를 선택해 공휴일 표시",
-              "seconds": 407.392
+              "seconds": 385.121
             },
             {
               "scenario": "eventDetails",
               "title": "13. 저장된 일정의 상세 정보 수정",
-              "seconds": 450.74
+              "seconds": 428.512
             },
             {
               "scenario": "personalDetails",
               "title": "14. 개인 업무도 달력에서 바로 수정",
-              "seconds": 519.558
+              "seconds": 496.252
             }
           ]
         }

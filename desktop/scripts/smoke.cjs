@@ -768,6 +768,33 @@ async function run() {
   await waitFor(() => !main.tabs.has(preview.id), 'popup close');
   assert.equal(sourceWindow.activeId, first.id, 'closing a preview returns to its opener, even with unrelated tabs open');
 
+  await main.command(sourceWindow,'open',{url:'/import/tools?tab=orders',title:'발주 이력 테스트'});
+  const orders=[...main.tabs.values()].find(tab=>tab.title==='발주 이력 테스트');
+  assert(orders);
+  await waitFor(()=>!orders.loading,'order download fixture tab');
+  const orderContents=orders.view.webContents;
+  const savePath=path.join(USER_DATA,'country-download-smoke.xlsx');
+  for(const expected of ['completed','cancelled']){
+    orderContents.session.once('will-download',(_event,item,owner)=>{
+      assert.equal(owner,orderContents);
+      if(expected==='completed')item.setSavePath(savePath);
+      else item.cancel();
+    });
+    const completion=await orderContents.executeJavaScript(`new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(new Blob([new Uint8Array([80,75,3,4,42])]));
+      const timer=setTimeout(()=>reject(Error('download completion unavailable')),5000);
+      const listener=e=>{if(e.detail?.url===url){clearTimeout(timer);removeEventListener('nenova-country-download-done',listener);URL.revokeObjectURL(url);resolve(e.detail.status)}};
+      addEventListener('nenova-country-download-done',listener);
+      const anchor=document.createElement('a');anchor.href=url;anchor.download='country-download-smoke.xlsx';document.body.append(anchor);anchor.click();anchor.remove();
+    })`,true);
+    assert.equal(completion,expected);
+  }
+  assert.deepEqual(fs.readFileSync(savePath),Buffer.from([80,75,3,4,42]));
+  const originalAnswer=dialogAnswer;dialogAnswer=0;
+  try{await main.command(sourceWindow,'close',{id:orders.id});await waitFor(()=>!main.tabs.has(orders.id),'order download fixture cleanup');}
+  finally{dialogAnswer=originalAnswer;}
+  console.log('Smoke: country file exact blob completion, cancelled save and bytes');
+
   console.log('Smoke: popup opener');
   const assertShellWidth = async (width, filename) => {
     sourceWindow.win.setContentSize(width, 1080);

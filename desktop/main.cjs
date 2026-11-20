@@ -118,6 +118,7 @@ function syncRemoteTools(t) {
   if (!w) return;
   const value = w.toolsOpen ? 'open' : 'closed';
   wc.executeJavaScript(`document.documentElement.dataset.nenovaDesktopTools = ${JSON.stringify(value)}`).catch(() => {});
+  wc.executeJavaScript("document.documentElement.dataset.nenovaCountryDownloads = '1'").catch(() => {});
 }
 function boundsOnScreen(bounds) {
   const displays = screen.getAllDisplays();
@@ -736,7 +737,22 @@ app.whenReady().then(async () => {
     const owner = [...tabs.values()].find(t => t.view.webContents === wc);
     const w = windows.get(owner?.windowId) || [...windows.values()][0];
     item.setSaveDialogOptions({ title: '네노바 파일 저장', defaultPath: path.join(app.getPath('downloads'), path.basename(item.getFilename()).replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')) });
-    item.once('done', (_event, status) => { if (w && windows.has(w.id)) { if (status === 'completed') w.message = '파일 저장을 완료했습니다.'; else if (status === 'cancelled') w.message = '파일 저장을 취소했습니다.'; else reportFailure(w, '파일 저장에 실패했습니다. 다시 다운로드해 주세요.'); broadcast(); } });
+    const pageUrl=wc.getURL();
+    const downloadUrl=item.getURL();
+    const countryFile=owner && (trustedUrl(pageUrl,{popup:false})?.startsWith(`${ORIGIN}/import/tools`) || owner.popup && pageUrl==='about:blank')
+      && /^blob:https:\/\/nenovaweb\.com\/[a-f\d-]{36}$/i.test(downloadUrl) && /\.xlsx$/i.test(item.getFilename());
+    item.once('done', (_event, status) => {
+      if (countryFile && !wc.isDestroyed() && wc.getURL()===pageUrl && ['completed','cancelled','interrupted'].includes(status)) {
+        const payload=JSON.stringify({url:downloadUrl,status});
+        wc.executeJavaScript(`dispatchEvent(new CustomEvent('nenova-country-download-done',{detail:${payload}}))`).catch(()=>{});
+      }
+      if (w && windows.has(w.id)) {
+        if (status === 'completed') w.message = '파일 저장을 완료했습니다.';
+        else if (status === 'cancelled') w.message = '파일 저장을 취소했습니다.';
+        else reportFailure(w, '파일 저장에 실패했습니다. 다시 다운로드해 주세요.');
+        broadcast();
+      }
+    });
   });
   ipcMain.handle('desktop:command', (event, action, payload) => {
     const w = [...windows.values()].find(w => w.win.webContents === event.sender);
