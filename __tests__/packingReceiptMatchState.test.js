@@ -104,7 +104,11 @@ test('UI wiring publishes explicit selection and does not make catalog refresh r
   assert.match(packing, /setGeneratedErp\(currentErp\)/);
   assert.doesNotMatch(packing, /setGeneratedErp\(data\)/);
   assert.match(packing, /isPackingDownloadBlocked\(excel,/);
-  assert.match(packing, /if \(isBlocked\(excels\.find/);
+  assert.match(packing, /names\.some\(name => !generated\[name\] \|\| isBlocked\(excels\.find/);
+  assert.match(packing, /const dl = name => downloadPackingFiles\(\[name\]\)/);
+  assert.match(packing, /const dlAll = \(\) => downloadPackingFiles\(Object\.keys\(generated\)\)/);
+  const downloads = packing.slice(packing.indexOf('const downloadPackingFiles'), packing.indexOf('const statusBg'));
+  assert.match(downloads, /await fetch\('\/api\/import\/tools\/packing-export'[\s\S]*if \(!result\.ok\)[\s\S]*throw new Error[\s\S]*files\.push[\s\S]*files\.forEach/);
   assert.match(packing, /packingLegacyExportBlocked\(excel, generatedErp\?\.products, country\)/);
 });
 

@@ -3,6 +3,9 @@
   "title": "입고 단 수량 확인과 상품 합계",
   "scope": [
     "lib/receiptBunchQuantity.js",
+    "lib/packingExportBunchGuard.js",
+    "pages/api/import/tools/packing-export.js",
+    "components/import-tools/PackingListTool.js",
     "lib/warehouseWeightRows.js",
     "lib/importPacking.js",
     "lib/importPackingPrompt.js",
@@ -25,6 +28,15 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "DOWNLOAD_EXE_PACKING",
+      "warehouseMaster": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "EC·US는 생성 파일의 실제 I열을 현재 활성 Product의 OutUnit·EstUnit과 대조한다. 누락·0·원본 단당 송이 충돌은 직접 POST도 차단한다. 조회 전용. 도착원가 파일 제외."
+    },
     {
       "name": "PREVIEW_RECEIPT",
       "warehouseMaster": "preserve",
@@ -58,6 +70,7 @@
     "description": "2025/47-01 US와 2026/47-01 EC를 다른 연도·세부차수로 검증. 한 원장의 중량 수치를 다른 원장 품목에 사용하지 않는다."
   },
   "requiredTestFiles": [
+    "__tests__/packingExportBunchGuard.test.cjs",
     "__tests__/invoiceReceiptValidation.test.js",
     "__tests__/warehousePackingImport.test.js",
     "__tests__/importPackingSourceIdentity.test.js",
