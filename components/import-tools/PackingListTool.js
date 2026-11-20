@@ -1097,6 +1097,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const [reloadVersion, setReloadVersion] = useState(0);
   const savingRef = useRef(false);
   const readerVersion = useRef(0);
+  const exportGeneration = useRef(0);
+  const exportInFlight = useRef(false);
   const catalogReaderVersion = useRef(0);
   const sharedScopeVersion = useRef(0);
   const processingRef = useRef(false);
@@ -1257,6 +1259,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     invoiceUploadDate, awbFile, awbSourceHash, awbReview, awbReviewed, awbManualFields, audMarketRate, audMarketRateError]);
 
   const resetResults = () => {
+    exportGeneration.current++;
     setMatchingReviewedFile(null);
     setFileChoice(null);setSelectingFile(false);setHistoryOpen(false);setHistoryError('');
     receiptIntent.current = false;
@@ -1622,6 +1625,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     }
     const newGenerated = {};
     builtExcels.forEach((ex) => { newGenerated[ex.name] = ex.buf; });
+    exportGeneration.current++;
     setGenerated(newGenerated);
     // Dialog/catalog reads must not re-adapt and replace receipt workbench drafts.
     // Only an explicit generation/rebuild publishes a new receipt product snapshot.
@@ -1928,11 +1932,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     truncated: lastExtraction?.wasTruncated,
   });
 
-  const dl = (name) => {
-    if (isBlocked(excels.find(ex => ex.name === name))) return;
-    const buf = generated[name];
-    if (!buf) return;
-    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const savePackingFile = (name, blob) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -1942,10 +1942,48 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  const dlAll = () => {
-    if (excels.some(isBlocked)) return;
-    Object.keys(generated).forEach((name, i) => setTimeout(() => dl(name), i * 250));
+  const downloadPackingFiles = async names => {
+    if (exportInFlight.current || names.some(name => !generated[name] || isBlocked(excels.find(ex => ex.name === name)))) return;
+    const generation = exportGeneration.current;
+    const fileVersion = readerVersion.current;
+    const isCurrent = () => generation === exportGeneration.current && fileVersion === readerVersion.current;
+    const files = [];
+    exportInFlight.current = true;
+    try {
+      for (const name of names) {
+        let blob = new Blob([generated[name]], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        if (country === 'EC' || country === 'US') {
+          const workbook = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result).split(',')[1]);
+            reader.onerror = () => reject(new Error('생성한 패킹 엑셀을 읽지 못했습니다.'));
+            reader.readAsDataURL(blob);
+          });
+          if (!isCurrent()) return;
+          const result = await fetch('/api/import/tools/packing-export', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ country, workbook }), signal: AbortSignal.timeout(15000),
+          });
+          if (!result.ok) {
+            const error = await result.json().catch(() => ({}));
+            throw new Error(`${name} · ${error.error || '패킹 엑셀 수량 검증을 완료하지 못했습니다.'}`);
+          }
+          blob = await result.blob();
+        }
+        if (!isCurrent()) return;
+        files.push({ name, blob });
+      }
+      files.forEach(({ name, blob }, index) => setTimeout(() => {
+        if (isCurrent()) savePackingFile(name, blob);
+      }, index * 250));
+    } catch (error) {
+      if (isCurrent()) setStatus({ type: 'error', exportBlocked: true, msg: error.message || '패킹 엑셀 다운로드를 다시 시도하세요.' });
+    } finally {
+      exportInFlight.current = false;
+    }
   };
+  const dl = name => downloadPackingFiles([name]);
+  const dlAll = () => downloadPackingFiles(Object.keys(generated));
 
   const statusBg = status?.type === 'error' ? '#fde8e8' : status?.type === 'success' ? '#e8f5ee' : '#e8f0fe';
   const statusBorder = status?.type === 'error' ? '#f8b4b4' : status?.type === 'success' ? '#84e1bc' : '#c3d3fb';
@@ -2434,7 +2472,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
               </section>;
             })()}
             {status && (
-              <div role={status.type === 'error' ? 'alert' : 'status'} aria-live="polite" style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, fontSize: 13, background: statusBg, color: statusColor, border: `1px solid ${statusBorder}` }}>
+              <div role={status.type === 'error' ? 'alert' : 'status'} aria-live="polite" style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, fontSize: status.exportBlocked ? 14 : 13, fontVariantNumeric: 'tabular-nums', background: statusBg, color: status.exportBlocked ? '#991b1b' : statusColor, border: `1px solid ${statusBorder}` }}>
                 {processing && <span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid #ccd6e5', borderTopColor: '#172b4d', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginRight: 6, verticalAlign: 'middle' }}></span>}
                 {receiptStatus?.valid && status.type !== 'error' && !processing
                   ? '기존 패킹 파일 생성 결과입니다. 현재 행별 매칭 상태는 아래에 표시하며, 입고 문서에서 변경한 품목은 기존 패킹 파일에 소급 반영되지 않습니다.'
