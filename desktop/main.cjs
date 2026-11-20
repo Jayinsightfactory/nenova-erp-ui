@@ -216,12 +216,22 @@ function confirm(w, message, actionLabel = '닫기') {
 function destroyTab(t) {
   if (!t) return;
   const w = windows.get(t.windowId);
+  const opener = t.closing && !locked && !quitting && w && !w.win.isDestroyed() && w.activeId === t.id
+    ? tabs.get(t.openerTabId) : null;
   if (w) { if (!w.win.isDestroyed()) w.win.contentView.removeChildView(t.view); w.ids = w.ids.filter(id => id !== t.id); if (w.activeId === t.id) w.activeId = w.ids.at(-1) || null; if (!w.ids.length) w.menuOpen = true; }
   tabs.delete(t.id);
   t.destroying = true;
   const contents = t.view.webContents;
   if (contents && !contents.isDestroyed()) contents.close();
   if (w) layout(w);
+  const openerWindow = opener && !opener.closing ? windows.get(opener.windowId) : null;
+  if (openerWindow && !openerWindow.win.isDestroyed() && openerWindow.ids.includes(opener.id)) {
+    activate(openerWindow, opener.id);
+    if (openerWindow !== w) {
+      openerWindow.win.show();
+      openerWindow.win.focus();
+    }
+  }
 }
 function closeTab(t, ask = true) {
   if (!t) return;
@@ -274,7 +284,8 @@ function secureContents(wc, owner) {
     if (!locked && tabs.size < 50 && (url || details.url === 'about:blank' || details.url === '')) {
       return { action: 'allow', overrideBrowserWindowOptions: { webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, preload: undefined, devTools: !app.isPackaged } },
         createWindow: options => {
-          const t = openTab(w, { url: details.url || 'about:blank', popup: true }, options);
+          const opener = [...tabs.values()].find(tab => tab.view.webContents === wc);
+          const t = openTab(w, { url: details.url || 'about:blank', popup: true, openerTabId: opener?.id }, options);
           if (!options.webContents) t.view.webContents.loadURL(details.url || 'about:blank').catch(() => {});
           return t.view.webContents;
         }
@@ -300,7 +311,7 @@ function openTab(w, data = {}, adoption = null) {
   if (tabs.size >= 50) { reportFailure(w, '열린 탭이 50개입니다. 사용하지 않는 탭을 닫아 주세요.'); broadcast(); return null; }
   const id = String(nextId++);
   const view = new WebContentsView({ ...(adoption?.webContents ? { webContents: adoption.webContents } : {}), webPreferences: { session: webSession, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, devTools: !app.isPackaged } });
-  const t = { id, windowId: w.id, view, url, title: text(data.title) || '네노바 업무', customTitle: Boolean(data.title), popup: Boolean(data.popup), zoom: Number.isFinite(data.zoom) ? Math.min(1.5, Math.max(.5, data.zoom)) : 1, loading: true, error: '' };
+  const t = { id, windowId: w.id, view, url, title: text(data.title) || '네노바 업무', customTitle: Boolean(data.title), popup: Boolean(data.popup), openerTabId: adoption ? data.openerTabId : undefined, zoom: Number.isFinite(data.zoom) ? Math.min(1.5, Math.max(.5, data.zoom)) : 1, loading: true, error: '' };
   tabs.set(id, t); w.ids.push(id); w.win.contentView.addChildView(view);
   const wc = view.webContents;
   wc.setZoomMode('isolated');
