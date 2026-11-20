@@ -4338,6 +4338,14 @@ pm run test:canon 통과.
 3. 남은 일: folderMap 의 화면 1건짜리 「확정」 줄, 「자리」라는 말이 차수와 PC 두 뜻으로 쓰이는 곳, 요일별 업무표(import-weekday.json)의 네덜란드 연결은 손대지 않음
 4. 검증: npm run -s test:workflow-guides 통과. 운영 확인은 배포 뒤.
 5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: 수입부 인수인계 / 학습 반영: 없음
+## 2026-11-20 출고분배 업로드 버튼 정돈 — UI 확정·Desktop 1.3.76 예약
+요약: 운영 캡처에서 혼재한 버튼을 파일/반영 방식 → 검증/승인/검증본 다운로드로 정돈. 보조 생성·이력/가이드/선택 농장 입력은 native details로 묶고 상태를 보존한다. 원장·API·수량 계산·합산/교체·서명/잠금 정책은 변경하지 않는다.
+검색어: distribute-import 버튼 정돈 파일 반영방식 검증 승인 다운로드 Desktop 1.3.76
+1. 작업 위치: nenova-erp-ui / codex/distribute-ui-1120 / C:/Users/USER/nw-cdx-distribute-ui-1120 / PR 생성 전
+2. 완료: 페이지 구조 및 한국어 안내, Chrome 1920/390 업무·키보드·접기 상태 보존, React/합산 회귀16개 통과. Desktop1.3.76은 release/draft 확인 후 이번 작업 예약.
+3. 남은 일: 가이드2편 최종 녹화·프레임/플레이어 확인, ERP 필수 게이트·빌드·PR/CI·배포·운영 스모크.
+4. 검증: 대상16개/격리Chrome/현장물량표 dry-run 통과. 최종 게이트/운영 미검증. 출고/원장 계산·파일양식은 기존 계약 보존.
+5. 주의/잠금: pages/shipment/distribute-import.js, 관련 가이드2편·촬영 스크립트, desktop/package*.json(1.3.76) 이번 작업 소유. 연결 목표: g03/g13/g19 / 학습 반영: 있음. 정합률96.8%, 공백 g02/g05/g06/g07/g08/g09/g14/g15(엔진 조회값).
 
 ## 2026-11-20 수입부 인수인계 원고 — 재검증 마지막 정리
 요약: 「자리」의 두 뜻을 가름(차수 표기는 「한 자리 숫자」, 컴퓨터는 「PC 두 대」), 폴더 지도에서 하루만 본 폴더 4곳을 추정으로, 마감 질문에 사장님께 여쭐 것 표시(12 → 13), 요일별 업무표의 네덜란드 발주 5줄을 네덜란드 발주 매뉴얼로 연결.
@@ -4347,3 +4355,21 @@ pm run test:canon 통과.
 3. 남은 일: 없음(재검증에서 나온 항목 기준). import-weekday.json 은 다시 만들지 않았음 — 다시 만들면 기록 기간이 바뀌어 숫자가 전부 달라짐
 4. 검증: npm run -s test:workflow-guides 통과. 운영 확인은 배포 뒤.
 5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: 수입부 인수인계 / 학습 반영: 없음
+
+최종 인계 보관: 배포 후 codex/handoff-<이 PR 번호> 원격 ref에 WORK_MEMORY.md만 추가한 고정 커밋을 보관한다. 추가 master 배포 없이 해당 커밋 URL을 최종 보고와 Drive 증거에 남긴다.
+
+## 2026-11-20 출고분배 업로드 정돈 — 필수 게이트 및 모달 접근성 보완
+검색어: distribute-import 초점 confirm Escape 미매칭 모바일 버튼 wrap Desktop 1.3.76
+1. 작업 위치: nenova-erp-ui / codex/distribute-ui-1120 / C:/Users/USER/nw-cdx-distribute-ui-1120 / PR 생성 전.
+2. 완료: UI 구조·합산 동작 회귀16개, ERP 전체계약/dnSpy/manifest/쓰기 가드/프로덕션 빌드, Desktop80 및 실제 Electron 검색·탭·즐겨찾기, 가이드 플레이어 통과. 추가 모달 QA에서 confirm 후 body 초점과 390px 오른쪽403.5px 버튼 잘림을 찾아 호출자 ref·안전 fallback·하단 wrap으로 보완.
+3. 남은 일: 보완한 최종 UI 소스 가이드 재촬영/빌드/플레이어·모달 최종 재확인, PR 최종 CI·Cafe24·Desktop 피드·운영 캡처.
+4. 검증: UI 후속 React7 및 모달 실제 Escape/비활성 호출자/선택 보존/재검증 payload/390px 하단 버튼 통과. 원장/API/수량정책 변경 없음. 핵심 ERP 전체 중복 반복 대신 최종 CI에서 최종 소스를 재검증한다.
+5. 주의/잠금: 본 페이지·가이드2편·관련 브라우저 QA 및 Desktop1.3.76은 이번 작업 소유. 최종 인계는 codex/handoff-<PR번호> 원격 ref의 WORK_MEMORY docs-only 커밋으로 보존. 연결 목표 g03/g13/g19 / 학습 반영 있음, 목표% 유지.
+
+## 2026-11-20 출고분배 업로드 버튼 정돈 — 로컬 최종 완료
+검색어: distribute-import 정돈 가이드57.7 62.95 modal farm error Desktop1.3.76
+1. 작업 위치: nenova-erp-ui / codex/distribute-ui-1120 / C:/Users/USER/nw-cdx-distribute-ui-1120 / PR 생성 직전.
+2. 완료: 파일/조건 → 검증·승인·검증본 다운로드, 보조 기능/가이드/농장 입력 접기, 실제 호출자 초점 복귀·모바일 확인 버튼 wrap. 최신 소스 실제 가이드2편57.7/62.95초 재촬영·번호/줌/자막/전체 수량열 프레임·소스/미디어 해시 검증.
+3. 남은 일: PR 최종 CI·squash·Cafe24 배포·Desktop1.3.76 정식 설치본 해시/피드·운영 스모크·Drive 보관. 최종 인계는 codex/handoff-<PR번호> docs-only 고정 커밋.
+4. 검증: ERP 전체계약/dnSpy/manifest236/쓰기 가드, 최종 UI build 및 MP4/VTT 플레이어(내부/외부 접기 정지) 통과. 대상 회귀16개, 후속 React7, Desktop80/실제 Electron 메뉴·탭·즐겨찾기, Chrome1920/390·선택 보존·Escape/비활성 호출자·재검증 payload·접힌 농장 입력 외부 오류 표시 통과. 운영 ERP 쓰기0, 직원 PC 실제 설치 미검증.
+5. 주의/잠금: PR 완료 전 페이지·관련 가이드2편·Desktop1.3.76 예약 유지. 원장/API/계산/파일양식 변경 없음. 연결 목표 g03/g13/g19 / 학습 반영 있음, 목표% 유지.

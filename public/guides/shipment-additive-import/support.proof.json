@@ -1,18 +1,18 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-20T03:36:24.837Z",
+  "recordedAt": "2026-11-20T07:02:12.594Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 44.05,
+  "duration": 57.7,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "ff25e00b4acb805d6a6d37cd78f18f19bde21870450763442078d5330ecf2808",
-  "captionsSha256": "f8285ed38237222a6448ee37c165911bc2aaf1d33c93ac38966c751387592821",
+  "videoSha256": "8a1da14d6076150ac64558cd4ba553f9590f1ed2779efc7ba1972132d787e2b4",
+  "captionsSha256": "bb9cca3ce759b9a313932cb3ff46ab5c29ad43692066c6f592322c09fa6e1d50",
   "sourceHashes": {
-    "pages/shipment/distribute-import.js": "b55956c1231e00dfb445c23b12a8eb733e7a87cb12111da90be8dd59232cee14"
+    "pages/shipment/distribute-import.js": "325d9d3d4bd3f7b4b495fed54867f9944ffde091ad36b71237df51b7dcd41202"
   },
   "presentation": {
     "numberedSteps": 6,
@@ -28,45 +28,45 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 1.8572183000000004,
-        "x": 602.09375,
-        "y": 330.09375,
-        "end": 6.7806127
+        "start": 3.369713099999999,
+        "x": 506.4609375,
+        "y": 219,
+        "end": 10.1605236
       },
       {
         "number": 2,
-        "start": 9.094858899999998,
-        "x": 602.09375,
-        "y": 330.34375,
-        "end": 14.0052526
+        "start": 14.3777581,
+        "x": 690.421875,
+        "y": 265,
+        "end": 21.2304931
       },
       {
         "number": 3,
-        "start": 16.452281300000003,
-        "x": 1070.015625,
-        "y": 339.09375,
-        "end": 21.370598400000002
+        "start": 23.3100585,
+        "x": 1162.34375,
+        "y": 275,
+        "end": 30.5788476
       },
       {
         "number": 4,
-        "start": 23.7774064,
-        "x": 442.921875,
-        "y": 874.09375,
-        "end": 28.702008399999997
+        "start": 32.610691700000004,
+        "x": 448,
+        "y": 868.890625,
+        "end": 37.885111800000004
       },
       {
         "number": 5,
-        "start": 31.123737999999996,
-        "x": 766.9375,
-        "y": 339.09375,
-        "end": 36.0324745
+        "start": 39.9668583,
+        "x": 859.265625,
+        "y": 275,
+        "end": 47.2047656
       },
       {
         "number": 6,
-        "start": 38.4232013,
-        "x": 766.9375,
-        "y": 339.09375,
-        "end": 43.3483661
+        "start": 49.3601353,
+        "x": 647.9609375,
+        "y": 338.5,
+        "end": 57.1332964
       }
     ]
   }

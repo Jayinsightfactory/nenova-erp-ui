@@ -126,6 +126,7 @@ export default function DistributeImport() {
   const preAlignAvailable = false;
   const [file, setFile] = useState(null);
   const sheetLoadRef = useRef(0);
+  const previewTriggerRef = useRef(null);
   const readRequestsRef = useRef(null);
   if (!readRequestsRef.current) readRequestsRef.current = createImportReadRequests();
   const [earlyImportMode, setEarlyImportMode] = useState('ORIGINAL_INCLUDES_EARLY');
@@ -394,6 +395,8 @@ export default function DistributeImport() {
   }
 
   const handlePreview = async (options = {}) => {
+    const trigger = options.trigger || (typeof document !== 'undefined' ? document.activeElement : null);
+    if (trigger?.tagName === 'BUTTON' && !trigger.closest('[role="dialog"]')) previewTriggerRef.current = trigger;
     if (applying || preAligning) return;
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
@@ -805,14 +808,13 @@ export default function DistributeImport() {
 
   return (
     <>
-      <div style={st.page}>
+      <div style={st.page} className="distribution-import-page">
         <div style={st.toolbar}>
           <div style={{flex:'1 1 320px',minWidth:0}}>
             <h1 data-desktop-chrome style={st.title}>출고분배 엑셀 검증 업로드</h1>
             <div style={{fontSize:14,fontWeight:700,color:'#0f172a'}}>핵심 목적 · 엑셀 수정·농장분배를 함께 검증하고 선택한 수량만 반영합니다.</div>
             <div style={st.sub}>차수피벗 출고리스트 또는 분류프로그램 물량표를 읽어 기존 주문등록 수량 기준으로 변경을 검증합니다.</div>
-            <WorkflowGuide workflowId="shipment-field-volume" />
-            <WorkflowGuide workflowId="shipment-additive-import" />
+
           </div>
           <div style={st.controls}>
             <button onClick={weekInput.prevWeek} style={st.iconBtn}>◁</button>
@@ -837,13 +839,21 @@ export default function DistributeImport() {
                   적용 {applyRows.length} · 미매칭 {(preview.unmatched || []).length} · ⚠경고 {qtyWarningRows.length}
                 </span>
               )}
-              <button style={st.miniBtn} onClick={handlePreview} disabled={loading || applying || preAligning}>{loading ? '검증중…' : '검증'}</button>
+              <button style={st.miniBtn} onClick={event => handlePreview({ trigger: event?.currentTarget })} disabled={loading || applying || preAligning}>{loading ? '검증중…' : '검증'}</button>
               <button style={st.miniApplyBtn} onClick={handleApply} disabled={applying || !!pendingJob || !pendingReady || !preview}>{applying ? '적용중…' : '적용'}</button>
             </span>
           )}
         >
-        <div style={st.uploadBand}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, whiteSpace: 'nowrap' }}>
+        <section style={st.uploadBand} aria-label="엑셀 업로드 작업 순서">
+          <div className="import-work-row">
+            <h2 style={st.stepTitle}>1. 파일과 반영 방식</h2>
+            <div style={st.workBody}>
+              <div style={st.workLine}>
+          <button disabled={applying || preAligning} style={st.secondaryBtn} onClick={()=>{archivePicker.current=false;if(fileRef.current){fileRef.current.multiple=false;fileRef.current.click();}}}>파일 선택</button>
+          <span style={st.fileName}>{file ? `${file.name} · 새 파일 내용 기준` : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
+              </div>
+              <div style={st.workLine}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, whiteSpace: 'nowrap' }}>
             선출고 원문
             <select value={earlyImportMode} disabled={applying} onChange={event => {
               setEarlyImportMode(event.target.value);
@@ -854,6 +864,21 @@ export default function DistributeImport() {
               <option value="ALREADY_EXCLUDED">이미 선출고 제외</option>
             </select>
           </label>
+          <label style={{display:'inline-flex',alignItems:'center',gap:8,fontSize:14,fontWeight:700}}>
+            <input type="checkbox" aria-label="기존 분배에 합산하기" checked={addToExisting} disabled={applying || !!pendingJob}
+              onChange={e=>{setAddToExisting(e.target.checked);invalidateFarmPreview();setMessage('분배 반영 방식이 바뀌었습니다. 다시 검증하세요.');}}/>
+            기존 분배에 합산하기
+          </label>
+          {addToExisting && <fieldset style={{border:0,margin:0,padding:0,fontSize:14}} disabled={applying || !!pendingJob || additionCompleted}>
+            <legend style={{fontSize:14,fontWeight:700}}>검증 후 엑셀 다운로드</legend>
+            {[['FINAL','합산본 (예시: 기존 10 + 추가 3 = 최종 13)'],['ADDITIONAL','추가분 별도 (예시: 이번 파일 3만)']].map(([value,label])=><label key={value} style={{marginRight:16,display:'inline-flex',alignItems:'center',gap:6}}>
+              <input type="radio" name="allocation-download-kind" value={value} checked={downloadKind===value} onChange={()=>{setDownloadKind(value);invalidateFarmPreview();setMessage('다운로드 형식이 바뀌었습니다. 다시 검증하세요.');}}/>{label}
+            </label>)}
+            {additionCompleted && <span>반영 완료: 다운로드 형식은 검증한 선택으로 고정됩니다.</span>}
+          </fieldset>}
+              </div>
+            </div>
+          </div>
           <input
             ref={fileRef}
             type="file"
@@ -888,19 +913,29 @@ export default function DistributeImport() {
               }
             }}
           />
-          <button disabled={applying || preAligning} style={st.secondaryBtn} onClick={()=>{archivePicker.current=false;if(fileRef.current){fileRef.current.multiple=false;fileRef.current.click();}}}>파일 선택</button>
-          <label style={{display:'inline-flex',alignItems:'center',gap:8,fontSize:14,fontWeight:700}}>
-            <input type="checkbox" aria-label="기존 분배에 합산하기" checked={addToExisting} disabled={applying || !!pendingJob}
-              onChange={e=>{setAddToExisting(e.target.checked);invalidateFarmPreview();setMessage('분배 반영 방식이 바뀌었습니다. 다시 검증하세요.');}}/>
-            기존 분배에 합산하기
-          </label>
-          {addToExisting && <fieldset style={{border:0,margin:0,padding:0,fontSize:14}} disabled={applying || !!pendingJob || additionCompleted}>
-            <legend style={{fontSize:14,fontWeight:700}}>검증 후 엑셀 다운로드</legend>
-            {[['FINAL','합산본 (예시: 기존 10 + 추가 3 = 최종 13)'],['ADDITIONAL','추가분 별도 (예시: 이번 파일 3만)']].map(([value,label])=><label key={value} style={{marginRight:16,display:'inline-flex',alignItems:'center',gap:6}}>
-              <input type="radio" name="allocation-download-kind" value={value} checked={downloadKind===value} onChange={()=>{setDownloadKind(value);invalidateFarmPreview();setMessage('다운로드 형식이 바뀌었습니다. 다시 검증하세요.');}}/>{label}
-            </label>)}
-            {additionCompleted && <span>반영 완료: 다운로드 형식은 검증한 선택으로 고정됩니다.</span>}
-          </fieldset>}
+          <div className="import-work-row import-main-actions">
+            <h2 style={st.stepTitle}>2. 검증 후 반영</h2>
+            <div style={st.workBody}>
+              <div style={st.workLine}>
+          <button style={preview?.replacementPlan ? st.secondaryBtn : st.primaryBtn} onClick={event => handlePreview({ requireConfirmation: true, trigger: event?.currentTarget })} disabled={loading || applying}>{loading ? '읽는 중...' : '검증하기'}</button>
+
+          <button style={preview?.replacementPlan && !additionCompleted ? st.applyBtn : st.secondaryBtn} onClick={handleApply} disabled={applying || !!pendingJob || !pendingReady || !preview?.replacementPlan}>
+            {applying ? '적용 중...' : '승인 후 주문등록+분배'}
+          </button>
+            <button style={additionCompleted ? st.primaryBtn : st.secondaryBtn} disabled={downloading || applying || loading || !!pendingJob || !preview?.exportPlan} onClick={()=>handleFarmDownload(false)}>{downloading?'다운로드 준비 중…':'검증된 엑셀 다운로드'}</button>
+              </div>
+              <p style={st.workNote}>파일·반영 방식·농장 입력을 바꾸면 다시 검증하세요. 승인은 검증 결과를 확인한 뒤 진행합니다.</p>
+            </div>
+          </div>
+          <details className="import-auxiliary">
+            <summary>물량표 생성·모아받기 / 업로드 이력</summary>
+            <div style={st.auxBody}>
+              <div style={st.workLine}>
+          <button style={st.primaryBtn} onClick={() => handleFarmDownload(true,true)} disabled={addToExisting || !file || !/\.xlsx$/i.test(file.name) || loading || applying || downloading || preAligning || !!pendingJob} title={addToExisting?'합산 수량과 선택한 형식은 검증 후 검증된 엑셀 다운로드를 사용하세요.':'원본 수량·요일색·입고·재고로 바로 생성합니다. 이전차수는 포함하지 않습니다.'}>{downloading ? '다운로드 준비 중...' : '물량표 바로 생성'}</button>
+          <span style={{fontSize:14,color:'#475569'}}>{addToExisting?'합산/추가분 파일은 검증 후 “검증된 엑셀 다운로드”로 받으세요.':'파일 선택 후 필요할 때 직접 생성 · 원본 기준(이전차수 미포함)'}</span>
+            <button style={st.secondaryBtn} disabled={addToExisting || downloading || applying || loading || savingSources || (!checkedSources.length && !/\.xlsx$/i.test(file?.name || ''))} onClick={()=>downloadChecked({uploadCurrent:!checkedSources.length})}>신형 물량표 다운로드</button>
+              </div>
+              <div style={st.workLine}>
           <button style={st.secondaryBtn} disabled={savingSources||applying||preAligning} onClick={()=>{archivePicker.current=true;if(fileRef.current){fileRef.current.multiple=true;fileRef.current.click();}}}>물량표 모아 업로드</button>
           <fieldset disabled={savingSources||downloading||applying}>
             <legend>저장된 물량표 · 합산할 품목</legend>
@@ -913,9 +948,9 @@ export default function DistributeImport() {
           {isSecondRound&&<label><input type="checkbox" checked={includePrevious} disabled={downloading||savingSources}
             onChange={e=>setIncludePrevious(e.target.checked)}/> 1차 물량 합산</label>}
           <button style={st.primaryBtn} onClick={downloadChecked} disabled={addToExisting||!checkedSources.length||savingSources||loading||applying||downloading||!!pendingJob}>선택 품목 다운로드</button>
-          <span style={st.fileName}>{file ? `${file.name} · 새 파일 내용 기준` : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
-          <button style={st.primaryBtn} onClick={() => handleFarmDownload(true,true)} disabled={addToExisting || !file || !/\.xlsx$/i.test(file.name) || loading || applying || downloading || preAligning || !!pendingJob} title={addToExisting?'합산 수량과 선택한 형식은 검증 후 검증된 엑셀 다운로드를 사용하세요.':'원본 수량·요일색·입고·재고로 바로 생성합니다. 이전차수는 포함하지 않습니다.'}>{downloading ? '다운로드 준비 중...' : '물량표 바로 생성'}</button>
-          <span style={{fontSize:14,color:'#475569'}}>{addToExisting?'합산/추가분 파일은 검증 후 “검증된 엑셀 다운로드”로 받으세요.':'파일 선택 후 필요할 때 직접 생성 · 원본 기준(이전차수 미포함)'}</span>
+              </div>
+              <div style={st.workLine}>
+          <button style={st.secondaryBtn} onClick={toggleImportHistory} disabled={historyLoading}>{historyOpen ? '업로드 이력 닫기' : '업로드 이력·전체 되돌리기'}</button>
           <button
             style={preAlignAvailable ? st.preAlignBtn : st.preAlignDisabledBtn}
             onClick={handlePreAlign}
@@ -924,12 +959,19 @@ export default function DistributeImport() {
           >
             {preAligning ? '일괄분배 중...' : '업로드 품종 일괄분배'}
           </button>
-          <button style={st.primaryBtn} onClick={() => handlePreview({ requireConfirmation: true })} disabled={loading || applying}>{loading ? '읽는 중...' : '검증하기'}</button>
-          <button style={st.secondaryBtn} onClick={toggleImportHistory} disabled={historyLoading}>{historyOpen ? '업로드 이력 닫기' : '업로드 이력·전체 되돌리기'}</button>
-          <button style={st.applyBtn} onClick={handleApply} disabled={applying || !!pendingJob || !pendingReady || !preview?.replacementPlan}>
-            {applying ? '적용 중...' : '승인 후 주문등록+분배'}
-          </button>
-        </div>
+              </div>
+            </div>
+          </details>
+          <details className="import-auxiliary" onToggle={event => { if (!event.currentTarget.open) event.currentTarget.querySelectorAll('video').forEach(video => video.pause()); }}>
+            <summary>사용 가이드 영상 · 물량표 생성 / 기존 분배 합산</summary>
+            <div style={st.auxBody}>
+              <div style={st.guideLabel}>물량표 생성·농장 입력</div>
+              <WorkflowGuide workflowId="shipment-field-volume" />
+              <div style={st.guideLabel}>기존 분배 합산·다운로드 선택</div>
+              <WorkflowGuide workflowId="shipment-additive-import" />
+            </div>
+          </details>
+        </section>
 
         {pendingJob && <div role="status" style={{ marginBottom: 12, padding: 12, background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 8 }}>
           <strong>{pendingJob.year}/{pendingJob.week} 처리 결과 확인 중</strong>
@@ -1121,6 +1163,7 @@ export default function DistributeImport() {
           onClose={() => setApplyModalOpen(false)}
         />
         <UnmatchedMatchingModal
+          returnFocusRef={previewTriggerRef}
           open={unmatchedModalOpen}
           matchTab={matchTab}
           onTabChange={setMatchTab}
@@ -1155,26 +1198,26 @@ export default function DistributeImport() {
           </div>
         )}
 
-        <section style={st.panel} aria-label="카톡 농장분배 입력">
-          <div style={st.panelHead}><strong>카톡 농장분배</strong></div>
+        <details style={st.panel} className="import-farm" aria-label="카톡 농장분배 입력">
+          <summary style={{...st.panelHead, cursor:'pointer', display:'list-item', paddingLeft:16}}><strong>선택 입력 · 카톡 농장분배{farmText ? ' · 입력됨' : ''}</strong></summary>
           <div style={{padding:12}}>
+            <p style={st.workNote}>농장분배가 있을 때만 입력하세요. 엑셀 수정과 함께 검증하려면 위의 ‘검증하기’를 누르세요.</p>
             <textarea aria-label="농장분배 카톡 내용" value={farmText} disabled={applying || !!pendingJob}
               onChange={e=>{setFarmText(e.target.value);setFarmOverrides({targets:{},farms:{}});invalidateFarmPreview();}}
               placeholder={'42-2 장미 농장분배\n-라움\n퀵샌드 40단(엘리떼 30단, 발로레스 10단)'}
               style={{width:'100%',minHeight:150,boxSizing:'border-box',padding:10,fontSize:14}} />
             <button style={st.secondaryBtn} disabled={applying || loading || !!pendingJob || !preview?.drawingFarmText}
               onClick={()=>{setFarmText(preview.drawingFarmText);setFarmOverrides({targets:{},farms:{}});invalidateFarmPreview();}}>엑셀 농장메모 불러오기</button>
-            <span style={{marginLeft:8,fontSize:12}}>카톡 내용을 붙여넣거나, 엑셀 텍스트 상자의 농장메모를 불러온 뒤 검증하세요.</span>
-            <p style={{fontSize:13,color:'#475569'}}>엑셀 수정 내역과 농장별 합계를 함께 검증합니다. 카톡 제목 차수와 관계없이 선택한 연도·차수에 적용합니다. 원본 표의 크기·여백·인쇄 설정을 유지하고 표 밖 빈 공간에 농장분배를 넣습니다.</p>
+            <span style={{marginLeft:8,fontSize:14}}>카톡 내용을 붙여넣거나, 엑셀 텍스트 상자의 농장메모를 불러온 뒤 검증하세요.</span>
+            <p style={{fontSize:14,color:'#475569'}}>엑셀 수정 내역과 농장별 합계를 함께 검증합니다. 카톡 제목 차수와 관계없이 선택한 연도·차수에 적용합니다. 원본 표의 크기·여백·인쇄 설정을 유지하고 표 밖 빈 공간에 농장분배를 넣습니다.</p>
             <button style={st.applyBtn} disabled={addToExisting || !file || !weekInput.value || applying || loading || preAligning || !!pendingJob} onClick={applyChatFarms}>카톡 농장 적용</button>{' '}
-            <button style={st.primaryBtn} disabled={loading || applying || !file} onClick={()=>handlePreview()}>수정 내역 + 농장분배 검증</button>{' '}
-            <button style={st.secondaryBtn} disabled={downloading || applying || loading || !!pendingJob || !preview?.exportPlan} onClick={()=>handleFarmDownload(false)}>{downloading?'다운로드 준비 중…':'검증된 엑셀 다운로드'}</button>{' '}
-            <button style={st.applyBtn} disabled={addToExisting || downloading || applying || loading || savingSources || (!checkedSources.length && !/\.xlsx$/i.test(file?.name || ''))} onClick={()=>downloadChecked({uploadCurrent:!checkedSources.length})}>신형 물량표 다운로드</button>
+
+
             <p style={{fontSize:14,color:'#475569'}}>{addToExisting?'합산 모드의 농장 입력은 추가분 수량 기준입니다. 기존 농장배정은 보존하며, 배정하지 않은 수량은 미배정으로 표시합니다. 위에서 선택한 합산본/추가분은 검증된 엑셀 다운로드로 받으세요.':'농장 적용은 기존 출고의 농장배정만 저장합니다. 신형 물량표는 직접 생성할 수 있습니다. 여러 품목을 모으려면 저장된 물량표에서 품목을 체크하세요.'}</p>
             {preview?.fieldExportError && <p role="alert" style={{color:'#b91c1c'}}>현장물량표: {preview.fieldExportError}</p>}
-            <span style={{marginLeft:10,fontSize:12}}>ERP 저장은 ‘적용’ 버튼으로 진행합니다.</span>
+            <p style={st.workNote}>농장배정만 저장하려면 ‘카톡 농장 적용’, 주문·수량까지 저장하려면 위의 ‘승인 후 주문등록+분배’를 누르세요.</p>
           </div>
-        </section>
+        </details>
         {preview?.farmImport && <FarmImportReview preview={preview} overrides={farmOverrides} disabled={loading || applying || !!pendingJob}
           onChange={(kind,key,value)=>{setFarmOverrides(prev=>({...prev,[kind]:{...prev[kind],[key]:value}}));invalidateFarmPreview();}}
           onVerify={()=>handlePreview()} />}
@@ -1248,6 +1291,20 @@ export default function DistributeImport() {
         )}
       </div>
       <style jsx global>{`
+        .distribution-import-page button, .distribution-import-page select, .distribution-import-page input, .distribution-import-page textarea { font: inherit; }
+        .distribution-import-page button { min-height: 34px; white-space: nowrap; }
+        .distribution-import-page button:disabled { cursor: not-allowed; opacity: 1; color: #64748b; background: #f1f5f9; border: 1px solid #cbd5e1; }
+        .distribution-import-page :is(button, input, select, textarea, summary):focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+        .distribution-import-page .import-work-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; padding: 18px 16px; }
+        .distribution-import-page .import-main-actions { border-top: 1px solid #e2e8f0; background: #f8fafc; }
+        .distribution-import-page .import-auxiliary { border-top: 1px solid #e2e8f0; }
+        .distribution-import-page .import-auxiliary > summary { padding: 14px 16px; cursor: pointer; color: #334155; font-weight: 600; }
+        .distribution-import-page fieldset { min-width: 0; max-width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; }
+        @media (max-width: 700px) {
+          .distribution-import-page .import-work-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+          .distribution-import-page { padding: 12px !important; }
+          .distribution-import-page textarea { min-height: 120px !important; }
+        }
         table th {
           position: sticky;
           top: 0;
@@ -2122,7 +2179,7 @@ function SuggestSelect({ value, onChange, suggested = [], options = [], renderSu
 }
 
 function UnmatchedMatchingModal({
-  open, matchTab, onTabChange,
+  open, matchTab, onTabChange, returnFocusRef,
   customerItems, productItems,
   customerOptions, productOptions,
   custOverrides, prodOverrides,
@@ -2134,10 +2191,15 @@ function UnmatchedMatchingModal({
   const closeRef = useRef(null);
   useEffect(() => {
     if (!open) return;
-    const trigger = document.activeElement;
+    const trigger = returnFocusRef?.current || document.activeElement;
+    const page = dialogRef.current?.closest('.distribution-import-page');
     closeRef.current?.focus();
-    return () => { if (trigger?.isConnected) trigger.focus(); };
-  }, [open]);
+    return () => {
+      const candidates = [trigger, ...(page?.querySelectorAll('button:not(:disabled)') || [])];
+      const target = candidates.find(node => node?.isConnected && !node.disabled && node !== document.body && !node.closest('[role="dialog"]') && node.getClientRects().length);
+      target?.focus();
+    };
+  }, [open, returnFocusRef]);
   function dialogKeys(event) {
     if (event.key === 'Escape' && !loading) { event.preventDefault(); event.stopPropagation(); onClose(); }
     if (event.key !== 'Tab') return;
@@ -2262,11 +2324,11 @@ function UnmatchedMatchingModal({
             </>
           )}
         </div>
-        <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, color: '#64748b' }}>
+        <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, color: '#475569' }}>
             업체 {custResolved}/{customerItems.length} · 품목 {prodResolved}/{productItems.length} 선택됨
           </span>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <button type="button" style={st.secondaryBtn} onClick={onClose}>닫기 (제외하지 않음)</button>
             <button type="button" style={st.primaryBtn} onClick={onReverify} disabled={loading || !canReverify}>
               {loading ? '검증 중...' : '선택 반영 후 다시 검증'}
@@ -2306,15 +2368,21 @@ function SimpleUnmatched({ rows }) {
 }
 
 const st = {
-  page: { padding: 18, maxWidth: 1600, margin: '0 auto' },
+  page: { padding: 18, maxWidth: 1600, margin: '0 auto', fontFamily: "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif", fontSize: 14, fontVariantNumeric: 'tabular-nums' },
   toolbar: { display: 'flex', flexWrap:'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 12 },
   title: { margin: 0, fontSize: 22, color: '#0f172a' },
   sub: { marginTop: 4, fontSize: 13, color: '#64748b' },
   controls: { display: 'flex', alignItems: 'center', gap: 4 },
   iconBtn: { width: 32, height: 32, border: '1px solid #cbd5e1', background: '#fff', borderRadius: 6, cursor: 'pointer' },
   weekInput: { width: 104, height: 32, border: '1px solid #cbd5e1', borderRadius: 6, textAlign: 'center', fontWeight: 700 },
-  uploadBand: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: 12, border: '1px solid #dbe3ef', background: '#f8fafc', borderRadius: 8, marginBottom: 12 },
-  fileName: { flex:'1 1 220px', minWidth:0, overflowWrap:'anywhere', color: '#475569', fontSize: 13 },
+  uploadBand: { border: '1px solid #cbd5e1', background: '#fff', borderRadius: 8, marginBottom: 12, overflow: 'hidden' },
+  stepTitle: { margin: 0, fontSize: 14, color: '#0f172a', fontWeight: 700 },
+  workBody: { minWidth: 0, display: 'grid', gap: 12 },
+  workLine: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, minWidth: 0 },
+  workNote: { margin: '4px 0', fontSize: 14, color: '#475569', lineHeight: 1.6 },
+  auxBody: { padding: '4px 16px 16px', display: 'grid', gap: 14 },
+  guideLabel: { fontWeight: 700, fontSize: 14, color: '#334155' },
+  fileName: { flex:'1 1 220px', minWidth:0, overflowWrap:'anywhere', color: '#475569', fontSize: 14 },
   secondaryBtn: { height: 34, padding: '0 14px', border: '1px solid #cbd5e1', background: '#fff', borderRadius: 6, cursor: 'pointer' },
   primaryBtn: { height: 34, padding: '0 16px', border: 0, background: '#2563eb', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   preAlignBtn: { height: 34, padding: '0 16px', border: 0, background: '#0f766e', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },

@@ -30,6 +30,10 @@ async function main() {
     if(targetId==='manifest-farm-matching'){await page.focus('[role="tab"][aria-selected="true"]');await page.keyboard.press('End');assert.equal(await page.$eval('[role="tab"][aria-selected="true"]',node=>node.textContent.trim()),'🌾 농장');}
     if(targetId==='packing-amount-review'){await page.click('button[aria-label="콜롬비아"]');}
     await page.evaluate(titleText=>{const title=[...document.querySelectorAll('h3')].find(n=>n.textContent===titleText&&n.closest('details'));if(!title)throw Error('Guide missing');title.closest('details').id='guide-player-target';},target.title);
+    // A workflow may group its players in an outer native disclosure.
+    const ancestors=await page.$$('#guide-player-target');
+    await ancestors[0].evaluate(node=>{let p=node.parentElement;let i=0;while(p){if(p.tagName==='DETAILS'&&!p.open)p.dataset.playerAncestor=String(i++);p=p.parentElement;}});
+    for(const parent of await page.$$('[data-player-ancestor] > summary')){await parent.focus();await page.keyboard.press('Enter');}
     const summary = await page.$('#guide-player-target > summary');
     assert(summary, 'Guide entry missing'); await summary.focus(); if(!await page.$eval('#guide-player-target',details=>details.open))await page.keyboard.press('Enter');
     await page.waitForSelector('#guide-player-target video'); assert(await page.$eval('#guide-player-target video', video => video.paused));
@@ -59,8 +63,15 @@ async function main() {
     await page.screenshot({ path: '.verify/workflow-guide-player-mobile.png' });
     await page.$eval('#guide-player-target video', video => video.play()); await summary.focus(); await page.keyboard.press('Enter');
     await page.waitForFunction(() => document.querySelector('#guide-player-target video').paused);
+    const outerSummary=await page.$('[data-player-ancestor] > summary');
+    if(outerSummary){
+      await summary.focus();await page.keyboard.press('Enter');
+      await page.$eval('#guide-player-target video',video=>video.play());
+      await outerSummary.focus();await page.keyboard.press('Enter');
+      await page.waitForFunction(()=>document.querySelector('#guide-player-target video').paused);
+    }
     assert.deepEqual(errors, []); assert(assets.length >= roles.length * 2); assert(assets.every(asset => [200, 206, 304].includes(asset.status)));
-    assert(writes.every(url => !url.startsWith('/api/warehouse')), 'Guide must not submit ERP requests');
+    assert(writes.every(url => !url.startsWith('/api/warehouse') && !url.startsWith('/api/shipment/distribute-import')), 'Guide must not submit ERP requests');
     console.log('PASS guide player: keyboard open/roles/chapters, actual MP4 playback, Korean VTT, download, collapse pause, 1920/390; all APIs synthetic');
   } finally { await browser?.close(); server.kill(); }
 }
