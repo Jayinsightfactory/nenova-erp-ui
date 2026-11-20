@@ -1,6 +1,7 @@
 import styles from '../../styles/ImportPacking.module.css';
 import typography from '../../styles/ImportReviewTypography.module.css';
 import WorkflowGuide from '../WorkflowGuide';
+import ReceiptBunchConfirmation from '../ReceiptBunchConfirmation';
 import PackingManifestFarmReview from './PackingManifestFarmReview.js';
 import {pendingManifestIssues} from '../../lib/packingManifestReconciliation.js';
 import {packingAmountIssues} from '../../lib/packingAmountReview.js';
@@ -1099,6 +1100,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const readerVersion = useRef(0);
   const exportGeneration = useRef(0);
   const exportInFlight = useRef(false);
+  const [exportReview, setExportReview] = useState(null);
   const catalogReaderVersion = useRef(0);
   const sharedScopeVersion = useRef(0);
   const processingRef = useRef(false);
@@ -1260,6 +1262,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
 
   const resetResults = () => {
     exportGeneration.current++;
+    setExportReview(null);
     setMatchingReviewedFile(null);
     setFileChoice(null);setSelectingFile(false);setHistoryOpen(false);setHistoryError('');
     receiptIntent.current = false;
@@ -1626,6 +1629,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     const newGenerated = {};
     builtExcels.forEach((ex) => { newGenerated[ex.name] = ex.buf; });
     exportGeneration.current++;
+    setExportReview(null);
     setGenerated(newGenerated);
     // Dialog/catalog reads must not re-adapt and replace receipt workbench drafts.
     // Only an explicit generation/rebuild publishes a new receipt product snapshot.
@@ -1942,13 +1946,15 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  const downloadPackingFiles = async names => {
+  const downloadPackingFiles = async (names, confirmations = {}) => {
     if (exportInFlight.current || names.some(name => !generated[name] || isBlocked(excels.find(ex => ex.name === name)))) return;
     const generation = exportGeneration.current;
     const fileVersion = readerVersion.current;
     const isCurrent = () => generation === exportGeneration.current && fileVersion === readerVersion.current;
     const files = [];
+    const issues = [];
     exportInFlight.current = true;
+    setExportReview(null);
     try {
       for (const name of names) {
         let blob = new Blob([generated[name]], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -1962,16 +1968,24 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           if (!isCurrent()) return;
           const result = await fetch('/api/import/tools/packing-export', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ country, workbook }), signal: AbortSignal.timeout(15000),
+            body: JSON.stringify({ country, workbook, confirmations:confirmations[name] }), signal: AbortSignal.timeout(15000),
           });
           if (!result.ok) {
             const error = await result.json().catch(() => ({}));
+            if (Array.isArray(error.issues) && error.issues.length) {
+              issues.push(...error.issues.map(issue=>({...issue,fileName:name})));
+              continue;
+            }
             throw new Error(`${name} · ${error.error || '패킹 엑셀 수량 검증을 완료하지 못했습니다.'}`);
           }
           blob = await result.blob();
         }
         if (!isCurrent()) return;
         files.push({ name, blob });
+      }
+      if (issues.length && isCurrent()) {
+        setExportReview({names, confirmations, issues});
+        return;
       }
       files.forEach(({ name, blob }, index) => setTimeout(() => {
         if (isCurrent()) savePackingFile(name, blob);
@@ -2105,7 +2119,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         matchedInvoices={excels.length ? excels : matchPreview} initialTarget={reviewInitialTarget}
         validationIssues={validationIssues} onMatch={openProductMatch}
         products={matchingProducts} country={country}
-        onInvalidate={() => setReviewConfirmed(false)}
+        onInvalidate={() => { exportGeneration.current++; setExportReview(null); setReviewConfirmed(false); }}
         fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
       <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>
         <WorkflowGuide workflowId="packing-free-ocr" initialRole="수입부" />
@@ -2516,9 +2530,20 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   </button>}
                 </div>
                 <div role="status" style={{ padding: 12, marginBottom: 12, background: reviewConfirmed ? '#edf8f1' : '#fff4d6', border: '1px solid #ccd6e5', borderRadius: 8 }}>
-                  <button ref={reviewButtonRef} type="button" onClick={() => { setReviewInitialTarget(null); setReviewOpen(true); }} disabled={processing || saving} data-testid="packing-review-open">인식값 수정 · 원본 PDF 보기</button>
+                  <button ref={reviewButtonRef} type="button" onClick={() => { exportGeneration.current++; setExportReview(null); setReviewInitialTarget(null); setReviewOpen(true); }} disabled={processing || saving} data-testid="packing-review-open">인식값 수정 · 원본 PDF 보기</button>
                 </div>
                 {excels.some(excel => packingLegacyExportBlocked(excel, generatedErp?.products, country)) && <p role="alert">다른 국가에 같은 이름의 품목이 있어 EXE용 패킹 엑셀 다운로드는 차단했습니다. 국가와 품목키로 구분되는 웹 입고 등록을 이용하세요. 도착원가 다운로드는 별도입니다.</p>}
+                {reviewConfirmed && exportReview && <section aria-label="다운로드 전 단 수량 확인">
+                  <h3>[핵심 목적 · PURPOSE] 단 수량을 확인하고 다운로드</h3>
+                  {exportReview.issues.map(issue => <div key={`${issue.fileName}:${issue.row}:${issue.snapshot}`}>
+                    <strong>{issue.fileName} · {issue.row}행 · {issue.name}</strong>
+                    <ReceiptBunchConfirmation issue={issue} actionLabel="확인하고 다운로드 계속" onConfirm={confirmation=>downloadPackingFiles(exportReview.names,{
+                      ...exportReview.confirmations,
+                      [issue.fileName]:{...exportReview.confirmations[issue.fileName],[issue.row]:confirmation},
+                    })}/>
+                  </div>)}
+                  <button type="button" onClick={()=>setExportReview(null)}>다운로드 취소</button>
+                </section>}
                 {excels.length > 1 && (() => {
                   const anyBlocked = excels.some(isBlocked);
                   return (

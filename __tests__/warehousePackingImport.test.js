@@ -102,7 +102,7 @@ async function main() {
   assert.doesNotMatch(apiSource, /INSERT INTO WarehouseDetail/);
   assert.doesNotMatch(apiSource, /INSERT INTO StockHistory/);
 
-  const { receiptBunchIssue } = await import('../lib/receiptBunchQuantity.js');
+  const { resolveReceiptBunch } = await import('../lib/receiptBunchQuantity.js');
   const { WAREHOUSE_WEIGHT_ROW_SQL } = await import('../lib/warehouseWeightRows.js');
   const babel = require('next/dist/compiled/babel/core');
   const compiled = babel.transformSync(apiSource, {
@@ -126,13 +126,13 @@ async function main() {
     '../../../lib/exeParity/common.js':{}, '../../../lib/exeWarehouseViewSql.js':{},
     '../../../lib/invoiceReceiptNative.js':{},
     '../../../lib/invoiceReceiptAccess.js':{canManageInvoiceReceipt:()=>true},
-    '../../../lib/receiptBunchQuantity.js':{receiptBunchIssue},
+    '../../../lib/receiptBunchQuantity.js':{resolveReceiptBunch},
     '../../../lib/warehouseWeightRows.js':{WAREHOUSE_WEIGHT_ROW_SQL},
   };
   new Function('require','module','exports',compiled)(key=>mocks[key],out,out.exports);
   const handler=out.exports.default;
   const legacyBody={orderYear:'2026',orderWeek:'47-01',inputDate:'2026-11-20',
-    items:[{prodName:'Douglas Fir',boxQty:150,steamQty:30000,bunchQty:null,steamOf1Bunch:10}]};
+    items:[{prodName:'Douglas Fir',boxQty:150,steamQty:30000,bunchQty:null}]};
   const run=async body=>{
     const response={status(code){this.code=code;return this;},json(value){this.result=value;return this;}};
     await handler({method:'POST',body,user:{userId:'test'}},response);
@@ -141,6 +141,9 @@ async function main() {
   assert.equal((await run({...legacyBody,previewOnly:true})).code,400);
   assert.equal((await run(legacyBody)).code,400);
   assert.deepEqual(transactionSql,[]);
+  const automatic = await run({...legacyBody,previewOnly:true,items:[{...legacyBody.items[0],steamOf1Bunch:10}]});
+  assert.equal(automatic.code,200);
+  assert.deepEqual(automatic.result.bunchQuantities,[3000]);
   const corrected={...legacyBody,items:[{...legacyBody.items[0],bunchQty:3000}]};
   assert.equal((await run({...corrected,previewOnly:true})).code,200);
   assert.deepEqual(transactionSql,[]);

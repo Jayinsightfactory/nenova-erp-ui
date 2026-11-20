@@ -4305,6 +4305,14 @@ pm run test:canon 통과.
 5. 주의/잠금: ERP 직접 단가 저장 금지, 요청·승인 및 기존 원장·원가 보호 유지. 작업트리 공용 의존성 junction 제거는 자동 정책이 차단하여 보존. 목표 g03/g17 근거 기록, g19 화면·승인 선호만 학습, 진행률·gate 값 유지.
 검색어: 입고관리 차수 검색 일반차수 세부차수 invoice AWB 미리보기 opener 단가만 변경 농장만 변경 44-03 도착원가 승인 g03 g17 g19
 
+## 2026-11-20 — 원본 단 수량 자동 보완과 입고 화면 확인
+1. 작업 위치: nenova-erp-ui / codex/resolve-packing-bunch-1120 / C:/Users/USER/.codex/worktrees/5a25/nw-cdx-bunch-resolve / #1904·#1907 후속.
+2. 완료된 것: 원본 단 보존, 근거 일치 시 자동 보완, 불명확한 행에 원본·품목 마스터 산식 제시 및 같은 화면에서 확인. 확인은 행과 현재 근거에 묶음. 직접 입고 JSON에는 확인 근거가 남음.
+3. 남은 할 일: 이 변경 PR의 가이드·CI·Cafe24·Windows 최종 확인. 기존 47-01 세 건은 보정 확정 근거 없음.
+4. 검증 상태: Chrome 연습 행 40단 자동·40단 확인·저장 1회, 실제 EC·US XLSX, 격리 MSSQL·네이티브 SP 대조, 교차연도·중복·staging 보존.
+5. 주의/잠금: 운영 기존 입고와 원본 엑셀 보존. 기존 G=1 단 공란은 인쇄 근거 확인 필요. 연결목표:g17 / 학습반영:있음.
+검색어: 47-01 원본 단 자동 보완 품목 마스터 추천 G1 확인하고 입고 계속 XLSX snapshot g17
+
 ## 2026-11-20 — Private 전환 2단계: Cafe24 데스크톱 정적 피드(/desktop-releases) + CI 자동 게시 + Actions 2,000분 한도 방어
 1. 작업 위치: nenova-erp-ui / feat/private-phase2-zero-cost / C:/Users/USER/nw-swm-private-phase2 / PR 생성 직전. 연결 목표: g18, g19 / 학습 반영: 있음 (8c6245cef073).
 2. 완료된 것: pages/api/public/desktop-releases/[...path].js + lib/desktopReleases.cjs + next.config.js rewrite(/desktop-releases/* → 배포 밖 영구 디렉터리 /var/lib/nenova/desktop-releases 무인증 Range 스트리밍 + /latest 302), DesktopDownloadButton.js → /desktop-releases/latest, desktop-windows.yml CI 자동 게시(publish-cafe24, SHA-512 검증 + latest.yml 마지막 원자 교체 + seed_from_release_tag 0분 Windows 시드 + 비-desktop PR fast-pass + concurrency), erp-contract.yml PR concurrency 및 중복 master push 제거(필수 체크 verify 유지), deploy.yml 조기 STALE_RELEASE_EARLY 스킵(cancel-in-progress: false 보존), 비상 로컬 번들 배포 scripts/local-cafe24-deploy.cjs, GITHUB_PRIVATE_ZERO_COST_PLAYBOOK.md 보강.
@@ -4312,6 +4320,7 @@ pm run test:canon 통과.
 4. 검증 상태: desktop 80/80, desktopReleasesFeed+privateRepoDeploy+ciBuildArtifact+codeOnlyDeployment 30/30, guard:erp-writes, test:erp-manifest(236), check-workflow-guides(35/36), test:ui-layout(58/58), 3개 워크플로우 YAML 구문, local-cafe24-deploy --dry-run 전수 PASS. nenova-pm/office-feed.js owner-twin 실서버 업로드 200 ok 확인.
 5. 주의/잠금: /var/lib/nenova/desktop-releases(~/shared/desktop-releases)는 배포 경로 밖 영구 디렉터리. PR 체크 이름 verify 변경 금지. deploy.yml cancel-in-progress: false 유지 필수.
 검색어: desktop-releases publish-cafe24 seed_from_release_tag DESKTOP_FAST_PASS STALE_RELEASE_EARLY local-cafe24-deploy owner-twin g18 g19
+
 ## 2026-11-20 수입부 인수인계 원고 — 재검증에서 틀린 문구 바로잡기
 요약: 11-17 재분석으로 넣은 내용을 따로 검증(화면 분류 225건 · 카톡 186건 · 원고 모순 검토)한 결과 틀리거나 어긋난 문구를 고침. 응답 시간 "보통 15분" 삭제(요청 다음 글 40건 중 답은 11건), "변경 공지 세 방 0건" → 4건 중 1건, 수입방 403건은 "창이 떠 있던 화면 수"로 표기, 불량차감 확인 시점 · 주말 도착 공지 요일 · 네덜란드 입고 요일 · 공용 주소 날짜 · 5일 결제 · 변경 글 제목 통일.
 검색어: 수입부 매뉴얼 재검증 import-handover 응답시간 변경공지 세방 day-reply m-pay 네덜란드 입고 월요일

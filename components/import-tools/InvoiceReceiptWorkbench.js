@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ReceiptBunchConfirmation from '../ReceiptBunchConfirmation';
 import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
 import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoiceReceiptAutoFill.js';
 import InvoiceFarmChoices from './InvoiceFarmChoices.js';
@@ -264,6 +265,7 @@ export default function InvoiceReceiptWorkbench({
   }
   const workflowGenerationRef = useRef(0);
   const workflowLockRef = useRef(null);
+  const bunchResumeRef = useRef(null);
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
   const confirmButtonRef = useRef(null);
@@ -499,6 +501,7 @@ export default function InvoiceReceiptWorkbench({
   }, [scopeWeek, scopeYear]);
 
   function updateSelected(mutator) {
+    bunchResumeRef.current = null;
     workflowGenerationRef.current += 1;
     setRecords(current => current.map(record => {
       if (record.document.documentId !== selectedId) return record;
@@ -572,8 +575,9 @@ export default function InvoiceReceiptWorkbench({
         if (line.lineId !== lineId) return line;
         const conversionQuantityEdit = line.sourceEvidence?.conversionValidation?.status === 'MISMATCH'
           && RECEIPT_QUANTITY_FIELDS.has(field) && String(value ?? '') !== String(line[field] ?? '');
-        const reviewed = conversionQuantityEdit
-          ? { ...(line.reviewed || {}), confirmed: false, conversionConfirmed: false }
+        const quantityChanged = RECEIPT_QUANTITY_FIELDS.has(field) && String(value ?? '') !== String(line[field] ?? '');
+        const reviewed = quantityChanged && (line.reviewed || conversionQuantityEdit)
+          ? { ...line.reviewed, bunchConfirmation: undefined, ...(conversionQuantityEdit ? { confirmed: false, conversionConfirmed: false } : {}) }
           : line.reviewed;
         return { ...line, [field]: value, ...(reviewed ? { reviewed } : {}) };
       }),
@@ -614,7 +618,7 @@ export default function InvoiceReceiptWorkbench({
     const selectedLine = documentValue.lines.find(line => line.lineId === lineId);
     let next = { ...documentValue, lines: documentValue.lines.map(line => line.lineId === lineId
       ? { ...line, productSearch: undefined, prodKey: Number(product.ProdKey),
-        reviewed: { ...(line.reviewed || {}), erpMatchConfirmed: Boolean(product),
+        reviewed: { ...(line.reviewed || {}), erpMatchConfirmed: Boolean(product), bunchConfirmation: undefined,
           ...(line.sourceEvidence?.allocationSourceId ? { allocationConfirmed: false } : {}) } } : line) };
     const sourceId = next.lines.find(line => line.lineId === lineId)?.sourceEvidence?.allocationSourceId;
     if (sourceId) {
@@ -803,6 +807,7 @@ export default function InvoiceReceiptWorkbench({
   async function requestPreview() {
     if (!selected || selected.dirty || selected.document.revision == null || selected.document.sourceWarnings?.length || busy || workflowLockRef.current) return;
     workflowLockRef.current = { kind: 'manual-preview', documentId: selected.document.documentId };
+    bunchResumeRef.current = null;
     setBusy('preview'); setNotice(null);
     try {
       const result = await previewDraft(selected);
@@ -889,6 +894,8 @@ export default function InvoiceReceiptWorkbench({
         isCurrent,
       });
       if (isCurrent()) {
+        bunchResumeRef.current = result.preview?.issues?.some(issue=>issue.code === 'BUNCH_QUANTITY_REQUIRED')
+          ? {documentId,revision:result.preview.documentRevision,registerRequested} : null;
         const returned = result.document;
         if (returned && returned.documentId === target.document.documentId
           && Number.isSafeInteger(Number(returned.revision)) && Number(returned.revision) > 0) {
@@ -1474,7 +1481,12 @@ export default function InvoiceReceiptWorkbench({
                 : <><InvoiceReceiptProductPicker label={`${line.lineNo}행 전산 품목 검색`} products={selectableProducts} product={product} onSelect={selected => updateLineProduct(line.lineId, selected)} />
                   {product && productCountryMismatch(product, documentValue.reviewedMetadata?.country) && <p role="alert" style={{ margin: '4px 0 0', color: '#b3261e', fontWeight: 700 }}>⚠ 선택한 전산 품목의 원산지({product.CounName || product.country})가 이 문서와 다릅니다.</p>}
                   <InvoiceMatchSuggestions line={line} products={selectableProducts} country={documentValue.reviewedMetadata?.country} history={matchHistory} product={product} onSelect={selected => updateLineProduct(line.lineId, selected)} /></>}</td>
-              {['boxQuantity', 'bunchQuantity', 'stemQuantity'].map((field, index) => <td key={field}><NumberInput className={styles.cellInput} label={`${line.lineNo}행 ${['박스','단','송이'][index]}`} value={line[field]} onChange={value => updateLine(line.lineId, field, value)} /></td>)}
+              {['boxQuantity', 'bunchQuantity', 'stemQuantity'].map((field, index) => {
+                const resolved = field === 'bunchQuantity' ? preview?.lines?.find(item => item.lineId === line.lineId && item.bunchResolution) : null;
+                return <td key={field}><NumberInput className={styles.cellInput} label={`${line.lineNo}행 ${['박스','단','송이'][index]}`}
+                  value={resolved?.bunchQuantity ?? line[field]} onChange={value => updateLine(line.lineId, field, value)} />
+                  {resolved && <small style={{fontSize:12.5,color:'#334155'}}>{resolved.bunchResolution === 'derived' ? '원본 기준 자동 계산' : '확인 수량'}</small>}</td>;
+              })}
               <td><select className={styles.cellSelect} value={line.priceUnit || ''} onChange={event => updateLine(line.lineId, 'priceUnit', event.target.value)}><option value="">선택</option><option value="박스">박스</option><option value="단">단</option><option value="송이">송이</option></select></td>
               <td><NumberInput className={styles.cellInput} label={`${line.lineNo}행 단가`} value={line.unitPrice} onChange={value => updateLine(line.lineId, 'unitPrice', value)} /></td>
               <td><input className={styles.currencyInput} aria-label={`${line.lineNo}행 통화`} maxLength={3} value={line.currency || ''} onChange={event => updateLine(line.lineId, 'currency', event.target.value.toUpperCase())} /></td>
@@ -1493,6 +1505,20 @@ export default function InvoiceReceiptWorkbench({
         {issues.map((issue, index) => {
           const lineId = issueLineId(issue);
           const line = documentValue.lines.find(item => item.lineId === lineId);
+          if (line && issue?.code === 'BUNCH_QUANTITY_REQUIRED' && issue.snapshot && !committedLineIds.has(lineId)) {
+            return <section key={`${lineId}-${issue.snapshot}`} aria-label={`${line.lineNo}행 단 수량 확인`}>
+              <strong>{line.lineNo}행 · {line.originalName}</strong>
+              <ReceiptBunchConfirmation issue={issue} disabled={Boolean(busy)} onConfirm={confirmation=>{
+                const resumeRegistration = bunchResumeRef.current?.documentId === documentValue.documentId
+                  && Number(bunchResumeRef.current.revision) === Number(preview.documentRevision)
+                  && bunchResumeRef.current.registerRequested;
+                const document = {...documentValue,lines:documentValue.lines.map(item=>item.lineId===lineId
+                  ? {...item,reviewed:{...item.reviewed,bunchConfirmation:confirmation}} : item)};
+                updateSelected(() => document);
+                runAutomaticPreparation(Boolean(resumeRegistration),{...selected,document,dirty:true,preview:null});
+              }}/>
+            </section>;
+          }
           return <button type="button" className={styles.issueCard} key={`${lineId || 'global'}-${index}`} onClick={() => lineId && rowRefs.current.get(lineId)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
             <span>{line ? `${line.lineNo}행 · ${line.originalName}` : '문서 범위'}</span><strong>{issueText(issue)}</strong>{typeof issue === 'object' && issue?.resolution ? <small>{issue.resolution}</small> : null}
           </button>;

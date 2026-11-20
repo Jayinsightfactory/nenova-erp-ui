@@ -1365,7 +1365,7 @@ async function testLegacyPackingBunchVerification(pool) {
     VALUES(2547,N'2025',N'47-01',N'20254701',N'Legacy prior',0,N'fixture'),
           (2647,N'2026',N'47-01',N'20264701',N'Legacy current',0,N'fixture');`);
   const values={orderYear:'2026',orderWeek:'47-01',inputDate:'2026-11-17',farmName:'Legacy fixture farm',invoiceNo:'LEGACY-47',
-    items:[{prodName:'Legacy fixture greenery',boxQty:2,steamQty:400,bunchQty:null,steamOf1Bunch:10,steamOf1Box:200,unitPrice:50,totalPrice:100,orderCode:'1'}]};
+    items:[{prodName:'Legacy fixture greenery',boxQty:2,steamQty:400,bunchQty:null,steamOf1Bunch:null,steamOf1Box:200,unitPrice:50,totalPrice:100,orderCode:'1'}]};
   const run=async body=>{
     const response={status(code){this.code=code;return this;},json(value){this.result=value;return this;}};
     await out.exports.default({method:'POST',body,user:{userId:'fixture',deptName:'수입부'}},response);
@@ -1376,7 +1376,7 @@ async function testLegacyPackingBunchVerification(pool) {
   assert.equal((await run({...values,previewOnly:true})).code,400);
   assert.equal((await run(values)).code,400);
   assert.deepEqual(await stockSnapshot(pool),before);
-  const corrected={...values,items:[{...values.items[0],bunchQty:40}]};
+  const corrected={...values,items:[{...values.items[0],steamOf1Bunch:10}]};
   assert.equal((await run({...corrected,previewOnly:true})).code,200);
   assert.deepEqual(await stockSnapshot(pool),before);
   const stagedBefore=await rows(pool,'TempWarehouseDetail','WdetailKey');

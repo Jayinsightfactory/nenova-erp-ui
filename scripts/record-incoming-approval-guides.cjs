@@ -57,6 +57,7 @@ function requestFixture(scenario, index) {
     baseline: { receipt: { header, details: before }, receiptPlan: p, products }, matching: { rows: [], farms: [], receiptMappings: [], farmGroups: [], financial: { acknowledged: false, reason: '', costInputs: [] } } };
 }
 async function recordRole(browser, base, secret, role) {
+  const {resolveReceiptBunch}=await import('../lib/receiptBunchQuantity.js');
   const isImport = role === 'import', requests = isImport ? [] : ['farm', 'product', 'quantity', 'price'].map(requestFixture);
   let loseApproval=dry&&!isImport,lostApproval=null,replayedApproval=false;
   const page = await browser.newPage();page.setDefaultNavigationTimeout(120000);const errors = [], posts = [];
@@ -79,15 +80,22 @@ async function recordRole(browser, base, secret, role) {
         assert(isImport,'fixture import authorization');
         const body=JSON.parse(r.postData());
         assert.equal(body.orderYear,'2026');
-        if (!(Number(body.items?.[0]?.bunchQty)>0)) {
+        const results=body.items.map((item,index)=>resolveReceiptBunch(products[index],{
+          boxQuantity:item.boxQty,stemQuantity:item.steamQty,bunchQuantity:item.bunchQty,stemsPerBunch:item.steamOf1Bunch,
+          stemsPerBox:item.steamOf1Box,confirmation:item.bunchConfirmation,legacyWorkbook:true,scopeKey:[body.orderYear,body.orderWeek,body.inputDate,body.sourceWorkbookHash,index],
+        }));
+        const bunchResolutions=Object.fromEntries(results.flatMap((result,index)=>
+          ['derived','confirmed'].includes(result.status)?[[index,{quantity:result.quantity,status:result.status}]]:[]));
+        if (results.some(result=>result.status==='review')) {
           return r.respond({status:400,contentType:'application/json',body:JSON.stringify({
-            success:false,error:'품목 검증에 실패했습니다.',
-            errors:[{prodName:'장미 레드 50',error:'단 수량을 원본에서 확인해 입력하세요.'}],
+            success:false,error:'단 수량을 확인할 품목이 있습니다.',bunchResolutions,
+            errors:results.flatMap((result,index)=>result.status==='review'?[{row:index+1,prodName:products[index].ProdName,
+              error:result.message,candidates:result.candidates,snapshot:result.snapshot}]:[]),
           })});
         }
-        assert.equal(Number(body.items[0].bunchQty),40);
+        assert.deepEqual(results.map(item=>item.quantity),[40,40]);
         if (!body.previewOnly) packingSaves++;
-        data={success:true,warehouseKey:9200,message:'입고 등록 완료: 1/1개 품목'};
+        data={success:true,bunchQuantities:results.map(item=>item.quantity),bunchResolutions,warehouseKey:9200,message:'입고 등록 완료: 2/2개 품목'};
       }
       if (u.pathname === '/api/arrival-cost/latest') data.references = {'1|': [1000, 1350].map((cost,i)=>({cost,unit:'단',farm:`원가 농장 ${i+1}`,week:'45-01',orderYear:'2026',sourceKind:'INVOICE',referenceKey:String(i)}))};
       if (u.pathname === '/api/warehouse/9001') data.items = before;
@@ -319,9 +327,11 @@ async function recordRole(browser, base, secret, role) {
         await hold('적용 완료 결과를 확인합니다.\n이미 발송한 견적서는 정정 내용으로 다시 발행하세요.',5);await click('요청 목록으로');
       }
     }
-    if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
-    await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click(onlyScenario==='price'&&!isImport?'#4 열기':'#1 열기');await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
-    if (isImport && !onlyScenario) {
+    if(onlyScenario!=='packing-quantity'){
+      if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
+      await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click(onlyScenario==='price'&&!isImport?'#4 열기':'#1 열기');await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
+    }
+    if (isImport && (!onlyScenario || onlyScenario==='packing-quantity')) {
       console.log(`${dry?'CHECK':'RECORD'} import: packing-quantity`);
       await page.goto(`${base}/incoming?popup=1`,{waitUntil:'networkidle0'});
       await rec.restoreOverlay?.();
@@ -331,7 +341,8 @@ async function recordRole(browser, base, secret, role) {
       const xlsx=require('xlsx-js-style');
       const grid=[['PACKING LIST'],['','','연습농장 가','','','','45-01','','','','GUIDE-NEW'],
         ['','','','','','','2026/11/05'],[],['COD','VARIETY NAME','','','SIZE','BOX','BUNCH/ST','STEAM BOX','TOTAL\nBUNCH','TOTAL STEAM','U.PRICE','T.PRICE'],
-        ['1','장미 레드 50','','','',2,10,200,'',400,50,100]];
+        ['1','장미 레드 50','','','',2,10,200,'',400,50,100],
+        ['2','장미 핑크 50','','','',4,'','','',400,50,200]];
       const book=xlsx.utils.book_new();
       xlsx.utils.book_append_sheet(book,xlsx.utils.aoa_to_sheet(grid),'연습');
       const file=path.join(root,'.verify','packing-quantity-guide.xlsx');
@@ -341,19 +352,41 @@ async function recordRole(browser, base, secret, role) {
       await page.waitForSelector('.modal input[placeholder="2026"]');
       await fill('.modal input[placeholder="2026"]','2026');
       await click('수량 검증','.modal');
-      await page.waitForFunction(()=>document.querySelector('.modal [role=alert]')?.textContent.includes('단 수량'));
-      await hold('단을 쓰는 품목의 수량이 비면 저장할 수 없습니다.\n원본의 단 수량을 확인하고 같은 행에 입력합니다.',5);
-      await fill('.modal input[aria-label="1행 장미 레드 50 단 수량"]','40');
-      await click('수량 검증','.modal');
+      const review='.modal [aria-label="2행 단 수량 확인"]';
+      await page.waitForSelector(review);
+      if (dry) {
+        await click('취소 / Cancelar', '.modal');
+        await page.waitForSelector('.modal', { hidden: true });
+        const [replacement] = await Promise.all([page.waitForFileChooser({ timeout: 12000 }), click('업로드 / Subir')]);
+        await replacement.accept([file]);
+        await page.waitForSelector('.modal input[placeholder="2026"]');
+        assert.equal(await page.$(review), null, 'reopening a workbook clears the old confirmation');
+        await click('수량 검증', '.modal');
+        await page.waitForSelector(review);
+        await page.$eval('.modal input[type=date]', input => {
+          const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          set.call(input, '2026-11-21');
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await page.waitForSelector(review, {hidden:true, timeout:5000});
+        await click('수량 검증', '.modal');
+        await page.waitForSelector(review);
+        await page.screenshot({path:'.verify/bunch-inline-review.png'});
+      }
+      await hold('원본 단당 송이가 맞는 첫 행은 40단을 자동 계산합니다.\n두 번째 행만 전산 기준 산식과 원본을 대조합니다.',5);
+      await click('수량 선택',review);
+      await fill(review+' input[maxlength="500"]','연습 원본의 40단 확인');
+      await click('확인하고 입고 계속',review);
       await page.waitForFunction(()=>document.querySelector('.modal [role=status]')?.textContent.includes('수량 검증 완료'));
-      await hold('연습 자료의 40단을 대조한 뒤 수량 검증을 마치고 입고 저장을 선택합니다.',5);
+      if(dry)await page.screenshot({path:'.verify/bunch-inline-confirmed.png'});
+      await hold('두 행에 각각 40단이 반영됐습니다.\n수량을 확인한 뒤 입고 저장을 선택합니다.',5);
       await click('입고 저장','.modal');
-      await page.waitForFunction(()=>document.body.innerText.includes('입고 등록 완료: 1/1개 품목'));
+      await page.waitForFunction(()=>document.body.innerText.includes('입고 등록 완료: 2/2개 품목'));
       await hold('입고 등록 완료 메시지를 확인합니다.',5);
       assert.equal(packingSaves,1);
     }
     assert.deepEqual(errors, []);
-    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (onlyScenario?1:isImport?6:4)+(dry&&!isImport?1:0));
+    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (onlyScenario==='packing-quantity'?0:onlyScenario?1:isImport?6:4)+(dry&&!isImport?1:0));
     if(dry&&!isImport)assert(replayedApproval,'lost approval retry must reuse the same operation');
     const result = await rec.stop(); stopped = true;
     if (!dry) { const guide = workflow.guides.find(item => item.id === role); guide.status = 'ready'; guide.chapters = result.chapters; fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n'); }

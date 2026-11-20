@@ -4,7 +4,7 @@ import { withAuth } from '../../../lib/auth';
 import { useExeParityFlag } from '../../../lib/exeParity/common.js';
 import { sqlWarehouseViewGetData } from '../../../lib/exeWarehouseViewSql.js';
 import { acquireInvoiceReceiptGate, nextInvoiceWarehouseKey, calculateInvoiceStock, insertInvoiceWarehouseDetail, applyInvoiceWarehouseStockDelta } from '../../../lib/invoiceReceiptNative.js';
-import { receiptBunchIssue } from '../../../lib/receiptBunchQuantity.js';
+import { resolveReceiptBunch } from '../../../lib/receiptBunchQuantity.js';
 import { WAREHOUSE_WEIGHT_ROW_SQL } from '../../../lib/warehouseWeightRows.js';
 import { canManageInvoiceReceipt } from '../../../lib/invoiceReceiptAccess.js';
 
@@ -83,13 +83,14 @@ async function getWarehouse(req, res) {
   }
 }
 
-function warehouseRowBunchIssue(item, product) {
-  return receiptBunchIssue(product, {boxQuantity:item.boxQty, bunchQuantity:item.bunchQty,
-    stemQuantity:item.steamQty, stemsPerBunch:item.steamOf1Bunch});
+function warehouseRowBunch(item, product) {
+  return resolveReceiptBunch(product, {boxQuantity:item.boxQty, bunchQuantity:item.bunchQty,
+    stemQuantity:item.steamQty, stemsPerBunch:item.steamOf1Bunch, stemsPerBox:item.steamOf1Box, legacyWorkbook:true,
+    confirmation:item.bunchConfirmation, scopeKey:item.bunchScope});
 }
 
 async function uploadWarehouse(req, res) {
-  const { orderYear, orderWeek, farmName, invoiceNo, awb, inputDate, fileName, items, gw, cw, rate, docFee } = req.body;
+  const { orderYear, orderWeek, farmName, invoiceNo, awb, inputDate, fileName, sourceWorkbookHash, items, gw, cw, rate, docFee } = req.body;
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ success: false, error: '업로드할 데이터가 없습니다.' });
   if (!/^\d{4}$/.test(String(orderYear || '')) || !/^\d{2}-\d{2}$/.test(String(orderWeek || ''))) {
     return res.status(400).json({ success: false, code: 'ORDER_YEAR_WEEK_REQUIRED', error: '입고 저장에는 화면의 선택 연도와 세부차수가 필요합니다.' });
@@ -104,16 +105,19 @@ async function uploadWarehouse(req, res) {
   // EXE CheckData와 같은 대소문자 무시 정확 일치. 요청 prodKey와 유사검색은 신뢰하지 않는다.
   const resolvedItems = [];
   const validationErrors = [];
+  const bunchResolutions = {};
   for (const [index, item] of items.entries()) {
     const prodName = String(item?.prodName || '').trim();
     const numericFields = ['boxQty', 'bunchQty', 'steamQty', 'steamOf1Box', 'steamOf1Bunch', 'unitPrice', 'totalPrice'];
     const badField = numericFields.find((field) => item[field] != null && item[field] !== '' && !Number.isFinite(Number(item[field])));
-    if (!prodName || badField) {
-      validationErrors.push({ row: index + 1, prodName, error: !prodName ? '품목명이 없습니다.' : `${badField} 값이 숫자가 아닙니다.` });
+    const negativeQuantity = numericFields.slice(0,5).find(field => Number(item[field]) < 0);
+    if (!prodName || badField || negativeQuantity) {
+      validationErrors.push({ row: index + 1, prodName, error: !prodName ? '품목명이 없습니다.'
+        : badField ? `${badField} 값이 숫자가 아닙니다.` : '입고 수량과 포장 기준은 0 이상이어야 합니다.' });
       continue;
     }
     const pr = await query(
-      `SELECT ProdKey, CountryFlower, OutUnit, EstUnit
+      `SELECT ProdKey, CountryFlower, OutUnit, EstUnit, SteamOf1Bunch, BunchOf1Box
          FROM Product
         WHERE LOWER(LTRIM(RTRIM(ProdName)))=LOWER(@name)
           AND ISNULL(isDeleted,0)=0`,
@@ -124,30 +128,45 @@ async function uploadWarehouse(req, res) {
       continue;
     }
     const product = pr.recordset[0];
-    const error = warehouseRowBunchIssue(item, product);
-    if (error) {
-      validationErrors.push({row:index+1,prodName,error});
+    const workbookScope = /^[a-f0-9]{64}$/i.test(sourceWorkbookHash || '') ? sourceWorkbookHash.toLowerCase() : fileName;
+    const bunchScope = [orderYear, orderWeek, farmName, invoiceNo, inputDate, workbookScope, index];
+    const resolution = warehouseRowBunch({...item,bunchScope}, product);
+    if (resolution.status === 'review') {
+      validationErrors.push({row:index+1,prodName,error:resolution.message,candidates:resolution.candidates,snapshot:resolution.snapshot});
       continue;
     }
-    resolvedItems.push({ ...item, prodName, prodKey: product.ProdKey, countryFlower: product.CountryFlower });
+    if (resolution.status === 'derived' || resolution.status === 'confirmed') {
+      bunchResolutions[index] = {quantity:resolution.quantity,status:resolution.status};
+    }
+    resolvedItems.push({ ...item, bunchScope, prodName, prodKey: product.ProdKey, countryFlower: product.CountryFlower,
+      previewBunchQuantity: resolution.quantity ?? item.bunchQty });
   }
   if (validationErrors.length || resolvedItems.length !== items.length) {
-    return res.status(400).json({ success: false, code: 'WAREHOUSE_PRODUCT_VALIDATION_FAILED', error: '품목 검증에 실패하여 파일 전체를 저장하지 않았습니다.', errors: validationErrors });
+    return res.status(400).json({ success: false, code: 'WAREHOUSE_PRODUCT_VALIDATION_FAILED', error: '확인이 필요한 품목이 있습니다.',
+      errors: validationErrors,bunchResolutions });
   }
 
-  if (req.body.previewOnly === true) return res.status(200).json({success:true, validatedRows:resolvedItems.length});
+  if (req.body.previewOnly === true) return res.status(200).json({success:true, validatedRows:resolvedItems.length,
+    bunchQuantities:resolvedItems.map(item => item.previewBunchQuantity),bunchResolutions});
 
   try {
     const warehouseKey = await withTransaction(async (tQuery) => {
       for (const item of resolvedItems) {
         const current = await tQuery(
-          `SELECT ProdKey, CountryFlower, OutUnit, EstUnit FROM dbo.Product WITH (UPDLOCK,HOLDLOCK)
+          `SELECT ProdKey, CountryFlower, OutUnit, EstUnit, SteamOf1Bunch, BunchOf1Box FROM dbo.Product WITH (UPDLOCK,HOLDLOCK)
            WHERE ISNULL(isDeleted,0)=0 AND LOWER(LTRIM(RTRIM(ProdName)))=LOWER(@name)`,
           {name:{type:sql.NVarChar,value:item.prodName}}
         );
         const product = current.recordset.length === 1 && current.recordset[0].ProdKey === item.prodKey ? current.recordset[0] : null;
-        const error = product ? warehouseRowBunchIssue(item,product) : '품목이 변경됐습니다. 다시 확인하세요.';
-        if (error) throw Object.assign(new Error(`${item.prodName} · ${error}`), {statusCode:400});
+        const resolution = product && warehouseRowBunch(item,product);
+        const error = !product ? '품목이 변경됐습니다. 다시 확인하세요.' : resolution.message;
+        if (error) throw Object.assign(new Error(`${item.prodName} · ${error}`), {statusCode:400,
+          ...(resolution?.snapshot ? {errors:[{row:item.bunchScope.at(-1)+1,prodName:item.prodName,error,
+            candidates:resolution.candidates,snapshot:resolution.snapshot}]} : {})});
+        if (resolution.status === 'derived' || resolution.status === 'confirmed') {
+          item.bunchQty = resolution.quantity;
+          if (item.steamQty > 0) item.steamOf1Bunch = item.steamQty / resolution.quantity;
+        }
         item.countryFlower = product.CountryFlower;
         item.outUnit = product.OutUnit;
         item.estUnit = product.EstUnit;
@@ -242,7 +261,9 @@ async function uploadWarehouse(req, res) {
       message: `입고 등록 완료: ${items.length}/${items.length}개 품목`,
     });
   } catch (err) {
-    return res.status([400,409,503].includes(err.statusCode) ? err.statusCode : err.code === 'WAREHOUSE_WEEK_FIXED' ? 409 : 500).json({ success: false, code: err.code, error: err.message });
+    return res.status([400,409,503].includes(err.statusCode) ? err.statusCode : err.code === 'WAREHOUSE_WEEK_FIXED' ? 409 : 500).json({
+      success: false, code: err.code, error: err.message, ...(err.errors ? {errors:err.errors} : {}),
+    });
   }
 }
 
