@@ -63,6 +63,8 @@ const nextConfig = {
       // public/ 은 빌드 시점 고정이므로 API 라우트로 파일시스템 직접 스트리밍
       { source: '/uploads/photos/:path*', destination: '/api/public/photo/:path*' },
       { source: '/uploads/catalog/:path*', destination: '/api/public/catalog/:path*' },
+      // 데스크톱앱 자동 업데이트 1차 정적 피드(Private 전환 대비 — 배포 밖 영구 경로에서 스트리밍)
+      { source: '/desktop-releases/:path*', destination: '/api/public/desktop-releases/:path*' },
     ];
   },
   async headers() {

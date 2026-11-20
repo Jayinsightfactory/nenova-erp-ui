@@ -69,48 +69,49 @@ foreach ($r in 'ai-trainer-hub','ai-lecture') { gh repo view Jayinsightfactory/$
 
 > 코드 선행 조건 — **이 PR(`feat/zero-cost-private-repo-prep`)이 master 에 머지되고 `Deploy to Cafe24` 가 1회 성공한 뒤에만** 전환한다.
 
-### 3-A. 이미 코드로 해결된 것 (이 PR)
+### 3-A. 이미 코드로 해결된 것 (Phase 1 #1909/#1913 + Phase 2)
 
 | 의존 | 이전 | 변경 |
 | --- | --- | --- |
-| Cafe24 서버가 소스 갱신 | 서버 SSH 스크립트가 `git remote set-url origin https://github.com/...` + 무인증 `git fetch origin master` | Actions 러너(체크아웃 인증 완료)가 `git bundle`(서버 HEAD 이후 증분) + `deploy-meta.json` 을 SCP 로 전송. 서버는 **번들 SHA256, 메타(커밋·아카이브 SHA·릴리스 ID) 검증 → `git bundle verify` → 로컬 번들에서 `origin/master` 갱신 → `--ff-only`**. GitHub 접속·토큰 0개 |
-| 최신 master 확인(STALE_RELEASE) | 서버가 fetch 해 비교 | 러너가 `git fetch origin master` 로 `GITHUB_SHA` 와 비교 |
-| 롤백/무중단 | `.next-previous` 원자적 교체·`flock` 대기·변경파일 백업 | **변경 없음**(번들 검증 이후 구간은 그대로) |
-| 데스크톱 앱 업데이트 | 고정 URL `…/releases/latest/download` | `desktop/updater.cjs` 가 `https://nenovaweb.com/desktop-releases`(1차) → 실패/404/비정상 메타 시 GitHub Releases(2차) 순으로 자동 폴백 |
+| Cafe24 서버가 소스 갱신 | 서버 SSH 스크립트가 `git remote set-url origin https://github.com/...` + 무인증 `git fetch origin master` | Actions 러너(체크아웃 인증 완료)가 `git bundle`(서버 HEAD 이후 증분) + `deploy-meta.json` 을 SCP 로 전송. 서버는 **번들 SHA256, 메타(커밋·아카이브 SHA·릴리스 ID) 검증 → `git bundle verify` → 로컬 번들에서 `origin/master` 갱신 → `--ff-only`**. GitHub 접속·토큰 0개 (실서버 `run 44670064193` 검증 완료) |
+| 최신 master 확인(STALE_RELEASE) | 서버가 fetch 해 비교 | 러너가 Checkout 직후 1차 조기 스킵(`STALE_RELEASE_EARLY`, 15초 종료) + SCP 직전 2차 최종 검증으로 중복 빌드 7분 소모 차단 |
+| 롤백/무중단 | `.next-previous` 원자적 교체·`flock` 대기·변경파일 백업 | **변경 없음**(번들 검증 이후 구간은 그대로, `cancel-in-progress: false` 보존) |
+| 데스크톱 앱 업데이트 1차 피드 | 고정 URL `…/releases/latest/download` (Private 전환 시 404) | `desktop/updater.cjs` 1차 `https://nenovaweb.com/desktop-releases` → 2차 GitHub Releases 폴백. Next.js `pages/api/public/desktop-releases/[...path].js` + `next.config.js` rewrite 가 배포 밖 영구 경로(`/var/lib/nenova/desktop-releases`, `~/shared/desktop-releases` 링크)에서 `latest.yml`/`.exe`/`.blockmap`/`SHA256.txt` 를 무인증·Range 스트리밍 서빙 |
+| 데스크톱 인스톨러 CI 자동 게시 | Actions 아티팩트만 생성, 수동 업로드 | `.github/workflows/desktop-windows.yml` 의 `publish-cafe24` 잡(`ubuntu-latest`, Windows 분 0)이 `master` 푸시·`release published`·`workflow_dispatch(seed_from_release_tag)` 시 SHA-512 검증 후 Cafe24 영구 디렉터리에 `.exe` 선배치 → `latest.yml` 원자 교체 자동 게시 |
+| 웹 다운로드 버튼 | `DesktopDownloadButton.js` 가 GitHub `releases/latest` 직링크 | `/desktop-releases/latest` 로 교체(`latest.yml` 검증된 최신 `.exe` 로 302 리다이렉트 — Private 전환 후에도 무인증 다운로드) |
+| Actions 월 2,000분 한도 방어 | PR 중복 실행 미취소, `master` 푸시 중복 `verify`, 비-desktop PR 풀 Windows 패키징 | `erp-contract.yml`·`desktop-windows.yml` PR `concurrency` 즉시 취소(`cancel-in-progress: true`), `erp-contract.yml` 중복 `master` push 제거(필수 PR 체크 `verify` 유지), `desktop/**` 미변경 PR 은 경량 `npm test` fast-pass, `deploy.yml` 조기 `STALE_RELEASE_EARLY` 스킵 |
 
 서버가 번들을 받으려면 서버 HEAD 가 러너 저장소의 조상이어야 한다. 서버에 수동 커밋이 있으면 `SERVER_HEAD_DIVERGED` 로 **배포가 안전하게 중단**된다(운영 앱은 그대로 유지).
 
-### 3-B. 전환 전 필수 작업
+### 3-B. 전환 전 확인 및 비상 로컬 배포
 
-1. **데스크톱 업데이트 피드 준비(Cafe24 정적 파일)** — 새 앱 버전을 `https://nenovaweb.com/desktop-releases/` 에 올린다.
-   ```powershell
-   # 1) 설치 파일 빌드 산출물(Actions 아티팩트 Nenova-Desktop-Windows-x64 또는 로컬 npm --prefix desktop run dist)
-   $v = (Get-Content desktop\package.json | ConvertFrom-Json).version
-   # 2) 서버 정적 디렉터리(저장소 밖이라 배포가 건드리지 않음)에 업로드
-   scp desktop\dist\Nenova-Desktop-Setup-$v-x64.exe desktop\dist\latest.yml root@172.233.89.171:/var/www/nenova-desktop-releases/
-   ```
-   서버에서 한 번만 nginx 에 정적 경로 추가(인증 미들웨어와 무관하게 서빙):
-   ```nginx
-   location /desktop-releases/ { alias /var/www/nenova-desktop-releases/; add_header Cache-Control "no-cache"; }
-   ```
-   확인(둘 다 200 이고 본문이 `version:` 으로 시작해야 한다. HTML 로그인 화면이 오면 실패):
-   ```powershell
-   curl.exe -s -o NUL -w "%{http_code}`n" https://nenovaweb.com/desktop-releases/latest.yml
-   curl.exe -s https://nenovaweb.com/desktop-releases/latest.yml | Select-Object -First 3
-   curl.exe -sI https://nenovaweb.com/desktop-releases/Nenova-Desktop-Setup-$v-x64.exe | Select-String "200|Content-Length"
-   ```
-   > 매 릴리스마다 `latest.yml` 과 설치 파일을 **같은 방식으로 업로드**해야 한다. 업로드를 빼먹으면 1차 피드가 옛 버전을 가리켜 직원 앱이 갱신되지 않는다(2차 폴백은 1차가 *실패*할 때만 동작).
-2. **이미 설치된 구버전 앱은 GitHub 고정 URL 을 쓴다** — Private 전환 전에 **새 버전 앱이 직원 PC 에 전부 배포**됐는지(앱 설정의 버전 확인) 확인한다. 미갱신 PC 는 전환 후 수동 설치가 필요하다.
-3. **웹 다운로드 버튼** `components/DesktopDownloadButton.js` 의 `releases/latest` 링크는 Private 전환 후 로그아웃 사용자에게 404 이므로, 1차 피드 업로드 확인 후 `https://nenovaweb.com/desktop-releases/Nenova-Desktop-Setup-<버전>-x64.exe` 로 교체하는 후속 PR 을 낸다(이 PR 범위 밖).
-4. **Actions 러너 결정** — 월 2,000분(Windows 2배) 한도 대비:
-   `Deploy to Cafe24`(ubuntu, 빌드 포함 약 15~20분/회) + `Nenova Desktop Windows`(windows, 약 20분×2배) + `verify` 를 합산해 한도를 넘기면 **Self-Hosted Runner** 로 전환한다.
-   ```powershell
-   # 저장소 Settings → Actions → Runners → New self-hosted runner (Windows x64) 의 토큰을 사용해 운영 보조 PC 에 설치
-   mkdir C:\actions-runner; cd C:\actions-runner
-   # (GitHub 화면에 표시되는 다운로드/구성 명령 실행)  .\config.cmd --url https://github.com/Jayinsightfactory/nenova-erp-ui --token <일회용 토큰> --labels nenova-win
-   .\run.cmd   # 확인 후 서비스 등록: .\svc.cmd install; .\svc.cmd start
-   ```
-   러너 라벨 연결은 워크플로의 `runs-on: [self-hosted, nenova-win]` 변경 PR 로 별도 진행하며, **운영 PC·ECOUNT PC 에는 설치하지 않는다.** 한도가 충분하면 이 항목은 생략 가능.
+1. **Cafe24 `/desktop-releases` 자동 시드 및 HTTP 200 확인**:
+   - 기존 GitHub Release(`desktop-v1.3.74` 등)를 Windows 러너 0분 소모로 즉시 시드하려면:
+     ```powershell
+     gh workflow run "Nenova Desktop Windows" --ref master -f seed_from_release_tag=desktop-v1.3.74
+     ```
+   - 정상 서빙 확인(`latest.yml` 200 YAML + `latest` 302 리다이렉트 + `.exe` 200):
+     ```powershell
+     curl.exe -s -o NUL -w "latest.yml HTTP %{http_code}`n" https://nenovaweb.com/desktop-releases/latest.yml
+     curl.exe -s https://nenovaweb.com/desktop-releases/latest.yml | Select-Object -First 4
+     curl.exe -s -o NUL -w "latest redirect HTTP %{http_code}`n" https://nenovaweb.com/desktop-releases/latest
+     ```
+2. **이미 설치된 구버전 앱은 GitHub 고정 URL 을 쓴다** — Private 전환 전에 `desktop/updater.cjs` 이중 피드가 탑재된 버전(`1.3.74` 이상)이 직원 PC 에 배포됐는지 확인한다. 미갱신 PC 는 `https://nenovaweb.com/desktop-releases/latest` 에서 1회 수동 설치하면 이후 자동 업데이트된다.
+3. **비상 시 로컬 PC 무인증 번들 배포(GitHub Actions 무료 2,000분 소진 대비)**:
+   - Actions 무료 한도가 소진돼도 이 PC 에서 Cafe24 로 GitHub 접속·서버 토큰 없이 동일하게 배포할 수 있다:
+     ```powershell
+     # 1) 안전 드라이런(읽기 전용 점검, 기본값)
+     node scripts/local-cafe24-deploy.cjs --dry-run
+     # 2) 실제 비상 배포 (clean master 체크아웃 + SSH 접속 가능 상태)
+     node scripts/local-cafe24-deploy.cjs --apply
+     ```
+   - 한도 여유가 부족하면 보조 PC(운영 PC·ECOUNT PC 제외)에 Self-Hosted Runner 를 추가 연결해 무제한 무료 실행도 가능하다:
+     ```powershell
+     mkdir C:\actions-runner; cd C:\actions-runner
+     # Settings → Actions → Runners → New self-hosted runner 토큰 사용
+     .\config.cmd --url https://github.com/Jayinsightfactory/nenova-erp-ui --token <일회용 토큰> --labels nenova-win
+     .\svc.cmd install; .\svc.cmd start
+     ```
 
 ### 3-C. 전환과 확인
 

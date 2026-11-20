@@ -1,4 +1,4 @@
-export const DESKTOP_DOWNLOAD_URL = 'https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest';
+export const DESKTOP_DOWNLOAD_URL = '/desktop-releases/latest';
 
 export default function DesktopDownloadButton({ fullWidth = false }) {
   return (

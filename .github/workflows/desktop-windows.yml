@@ -2,17 +2,34 @@ name: Nenova Desktop Windows
 
 on:
   workflow_dispatch:
+    inputs:
+      seed_from_release_tag:
+        description: '기존 GitHub Release 태그(예: desktop-v1.3.74)를 Windows 빌드 없이 Cafe24 /desktop-releases로 즉시 시드'
+        type: string
+        default: ''
+      publish_to_cafe24:
+        description: '빌드 산출물을 Cafe24 /desktop-releases 정적 피드로 자동 게시'
+        type: boolean
+        default: true
+  release:
+    types: [published]
   pull_request:
     paths: ['desktop/**', 'components/Layout.js', 'pages/api/desktop/**', 'lib/desktopBootstrap.js', '__tests__/desktopBootstrap.test.mjs', '.github/workflows/desktop-windows.yml']
   push:
     branches: [master]
     paths: ['desktop/**', 'components/Layout.js', 'pages/api/desktop/**', 'lib/desktopBootstrap.js', '__tests__/desktopBootstrap.test.mjs', '.github/workflows/desktop-windows.yml']
 
+# PR 연속 푸시 시 2배 과금되는 Windows 러너 이전 실행 즉시 취소 (master/릴리스는 보존)
+concurrency:
+  group: desktop-windows-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
   installer:
+    if: github.event_name != 'release' && (github.event_name != 'workflow_dispatch' || inputs.seed_from_release_tag == '')
     runs-on: windows-latest
     timeout-minutes: 20
     defaults:
@@ -20,6 +37,23 @@ jobs:
         working-directory: desktop
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decide full Windows packaging vs fast unit check (Actions minute diet)
+        id: scope
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "full_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          if git diff --name-only "$BASE_SHA"...HEAD -- desktop/ | grep -q .; then
+            echo "full_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "full_build=false" >> "$GITHUB_OUTPUT"
+            echo "DESKTOP_FAST_PASS: no desktop/** changes in PR; running unit tests only to save Windows runner minutes."
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -29,24 +63,33 @@ jobs:
       - run: npm run menu
       - run: npm test
       - name: Isolated Electron lifecycle and authentication smoke
+        if: steps.scope.outputs.full_build == 'true'
         run: npm run test:smoke
       - name: Restore in a separate process
+        if: steps.scope.outputs.full_build == 'true'
         run: npm run test:restore
       - name: Native last-window close exits the process
+        if: steps.scope.outputs.full_build == 'true'
         run: npm run test:exit
       - name: Update download integrity (no installer execution)
+        if: steps.scope.outputs.full_build == 'true'
         run: npm run test:updater
       - name: Build Windows installer
+        if: steps.scope.outputs.full_build == 'true'
         run: npm run dist
       - name: Verify native taskbar icon resource
+        if: steps.scope.outputs.full_build == 'true'
         run: |
           if (-not (Test-Path -LiteralPath 'dist/win-unpacked/resources/app-icon.ico')) { throw 'Native taskbar icon is missing' }
           if ((Get-FileHash -LiteralPath 'dist/win-unpacked/resources/app-icon.ico').Hash -ne (Get-FileHash -LiteralPath 'assets/icon.ico').Hash) { throw 'Native taskbar icon differs from source' }
       - name: Verify the home UI inside the packaged Windows app
+        if: steps.scope.outputs.full_build == 'true'
         run: node scripts/verify-packaged-home.cjs
       - name: Installer SHA256
+        if: steps.scope.outputs.full_build == 'true'
         run: Get-FileHash dist/Nenova-Desktop-Setup-*-x64.exe -Algorithm SHA256 | Format-List | Out-File dist/SHA256.txt
       - uses: actions/upload-artifact@v4
+        if: steps.scope.outputs.full_build == 'true'
         with:
           name: Nenova-Desktop-Windows-x64
           path: |
@@ -55,3 +98,103 @@ jobs:
             desktop/dist/latest.yml
             desktop/dist/*.blockmap
           retention-days: 30
+
+  publish-cafe24:
+    needs: [installer]
+    if: >-
+      always() && (
+        (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'desktop-v')) ||
+        (github.event_name == 'workflow_dispatch' && inputs.seed_from_release_tag != '') ||
+        (needs.installer.result == 'success' && (
+          (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+          (github.event_name == 'workflow_dispatch' && inputs.publish_to_cafe24 == true)
+        ))
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: nenova-desktop-releases-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Download release assets from GitHub Release (no Windows runner)
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.seed_from_release_tag != '')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SEED_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.seed_from_release_tag }}
+        run: |
+          [[ "$SEED_TAG" =~ ^desktop-v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "INVALID_SEED_TAG: $SEED_TAG"; exit 1; }
+          mkdir -p release-stage
+          gh release download "$SEED_TAG" --repo "${{ github.repository }}" -D release-stage \
+            --pattern 'latest.yml' \
+            --pattern 'Nenova-Desktop-Setup-*-x64.exe' \
+            --pattern 'Nenova-Desktop-Setup-*-x64.exe.blockmap' \
+            --pattern 'SHA256.txt'
+
+      - name: Download freshly built Windows installer artifact
+        if: github.event_name != 'release' && (github.event_name != 'workflow_dispatch' || inputs.seed_from_release_tag == '')
+        uses: actions/download-artifact@v4
+        with:
+          name: Nenova-Desktop-Windows-x64
+          path: release-stage
+
+      - name: Verify latest.yml and installer SHA-512 integrity before upload
+        run: node scripts/verify-desktop-release-stage.cjs release-stage
+
+      - name: Upload staged release files to Cafe24 persistent directory
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          source: "release-stage/*"
+          strip_components: 1
+          target: /var/lib/nenova/desktop-releases/.staging-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Atomically promote desktop release feed on Cafe24 and verify HTTP 200
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          STAGE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          STRICT_HTTP: ${{ (github.event_name == 'workflow_dispatch' && inputs.seed_from_release_tag != '') && 'true' || 'false' }}
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          envs: STAGE_ID,STRICT_HTTP
+          script: |
+            set -euo pipefail
+            RELEASE_DIR="/var/lib/nenova/desktop-releases"
+            STAGE_DIR="$RELEASE_DIR/.staging-$STAGE_ID"
+            mkdir -p "$RELEASE_DIR" /root/shared
+            ln -sfn "$RELEASE_DIR" /root/shared/desktop-releases
+            test -f "$STAGE_DIR/latest.yml"
+            # Promote installer/blockmap/checksum FIRST, then atomically swap latest.yml LAST
+            for f in "$STAGE_DIR"/Nenova-Desktop-Setup-*-x64.exe "$STAGE_DIR"/Nenova-Desktop-Setup-*-x64.exe.blockmap "$STAGE_DIR"/SHA256.txt; do
+              [ -f "$f" ] && mv -f "$f" "$RELEASE_DIR/$(basename "$f")"
+            done
+            mv -f "$STAGE_DIR/latest.yml" "$RELEASE_DIR/latest.yml"
+            rmdir "$STAGE_DIR" 2>/dev/null || rm -rf "$STAGE_DIR"
+            # Keep the 3 newest installers/blockmaps so disk usage stays bounded
+            ls -1t "$RELEASE_DIR"/Nenova-Desktop-Setup-*-x64.exe 2>/dev/null | tail -n +4 | xargs -r rm -f
+            ls -1t "$RELEASE_DIR"/Nenova-Desktop-Setup-*-x64.exe.blockmap 2>/dev/null | tail -n +4 | xargs -r rm -f
+            chmod 644 "$RELEASE_DIR"/latest.yml "$RELEASE_DIR"/Nenova-Desktop-Setup-*-x64.exe* "$RELEASE_DIR"/SHA256.txt 2>/dev/null || true
+            head -n 3 "$RELEASE_DIR/latest.yml" | grep -q '^version: ' || { echo "STAGE_LATEST_YML_INVALID"; exit 1; }
+            # Verify live public feed serves HTTP 200 YAML when route is active
+            HTTP_CODE="$(curl -s -o /tmp/nenova-latest-check.yml -w '%{http_code}' https://nenovaweb.com/desktop-releases/latest.yml || echo 000)"
+            echo "CAFE24_DESKTOP_FEED_HTTP=$HTTP_CODE"
+            if [ "$HTTP_CODE" = "200" ]; then
+              head -n 3 /tmp/nenova-latest-check.yml | grep -q '^version: ' || { echo "DESKTOP_FEED_BODY_INVALID"; exit 1; }
+            elif [ "$STRICT_HTTP" = "true" ] || [ -d "/var/www/nenova-erp/pages/api/public/desktop-releases" ]; then
+              echo "DESKTOP_FEED_HTTP_FAILED: $HTTP_CODE"
+              exit 1
+            else
+              echo "DESKTOP_FEED_SEEDED_PENDING_WEB_DEPLOY: files ready in $RELEASE_DIR"
+            fi
+            rm -f /tmp/nenova-latest-check.yml
+            ls -lh "$RELEASE_DIR"
