@@ -15,6 +15,8 @@
 - [ ] 후보를 보여주는 GET과 저장 트랜잭션의 최종 검증이 같은 SQL scope/helper를 사용하는지 확인했다.
 - [ ] 새 메뉴·탭 또는 작업 순서 변경이면 역할별 사용 가이드 시나리오와 화면 연결 위치를 정했다. `docs/WORKFLOW_VIDEO_GUIDES.md`와 `config/workflow-guides.json`을 사용한다.
 
+- [ ] DB 프로시저/생성기/repair 변경이면 [프로시저와 허용 해시 동시 검증](../AGENTS.md#db-프로시저-변경과-허용-해시-동시-검증)의 소비자 매핑을 확인하고 `npm run test:stock-procedure-hashes` 및 허용 누락 실패 fixture를 통과했다.
+
 ## 2. 구현 중에 지켜야 할 것
 
 - [ ] 화면의 연도 선택값이 조회 GET, 변경 POST/PATCH/PUT/DELETE의 payload까지 전달된다.

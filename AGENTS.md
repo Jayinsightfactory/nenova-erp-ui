@@ -91,6 +91,18 @@ ADD/CANCEL로 출고 수량을 바꾸는 경우에는 견적 노출 진단(`Deta
 
 기능 추가·수정은 반드시 계약 JSON과 교차연도 fixture를 함께 추가·갱신한다. 계약이 없는 ERP 기능은 구현 완료로 간주하지 않는다.
 
+## DB 프로시저 변경과 허용 해시 동시 검증
+
+DB 프로시저 정의·저장형·생성기·repair를 변경하기 전에 **프로시저 → 모든 해시 소비자**를 찾아 같은 PR에서 검토한다. 자동복구, capability 속성, installer/repair의 원본·결과 검증, 실행 직전 재검증을 빠뜨리지 않는다. 운영에서 조회한 hash를 그대로 자동 승인하지 않는다.
+
+| 프로시저/기준 | 생성·승인 경로 | 함께 확인할 소비자 |
+|---|---|---|
+| `usp_StockCalculation` atomic 본문과 정확 CREATE/ALTER 저장형 | `scripts/native-stock-gate-atomic.cjs`의 `prepareInstallation`, 실제 installer가 같은 출력을 사용 | `lib/pendingStockRecovery.cjs`의 `REVIEWED_CALC_SHA256`·실행 직전 `expectedCalcSha256`, installer의 정확 결과 검증 |
+| 위 프로시저의 승인된 정렬 repair | `lib/stockCalculationOrderRepair.mjs`의 실제 `planStockCalculationOrderRepair` 출력 | repair 원본/결과 UTF8 hash와 위 자동복구의 SQL UTF16LE hash를 각각 확인(인코딩 혼용 금지) |
+| `usp_ShipmentFix`, `usp_ShipmentFixCancel`, `usp_StockCalculation` 및 gate helper | `docs/migrations/2026-08-26_nenova_stock_gate_owner.sql`의 capability 계약 | `NenovaStockGateOwnerV2Hash`·V2 readiness와 각 caller의 최종 실행 검증; 원자성·인자·서명·SET 옵션 보존 |
+
+`npm run test:stock-procedure-hashes`는 **실제 installer/repair가 생성하는 SQL 전체 정의**의 hash와 자동복구 허용 목록을 양방향 대조한다. 누락·미검토 추가·중복은 CI/배포를 차단한다. SQL 생성 결과만 바꾸고 허용 hash를 빼먹은 반례가 실제 exit1로 실패해야 한다. 허용 목록은 검토된 상수로 유지하며 런타임 자동 확장·검증 생략·unknown hash 허용은 금지한다. 새 프로시저나 새 소비자는 이 매핑과 실행형 검증에 함께 등록한다. 검사 실패 시 원문 차이·승인 근거를 먼저 확인하고 배포하지 않는다.
+
 ## 변경 후 필수 검증
 
 ```powershell

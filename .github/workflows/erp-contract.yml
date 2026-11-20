@@ -16,6 +16,8 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - name: Approved stock procedure hash coverage (offline)
+        run: node scripts/check-stock-procedure-hashes.cjs
       - run: npm ci
       - name: CI build artifact contracts
         run: node --test __tests__/ciBuildArtifact.test.cjs __tests__/codeOnlyDeployment.test.cjs
