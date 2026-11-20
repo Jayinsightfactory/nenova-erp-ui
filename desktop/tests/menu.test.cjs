@@ -61,4 +61,7 @@ test('invoice work and farm master share the canonical searchable desktop catalo
   assert.equal(gabriel[0].popup,false);
   const farms=items.filter(i=>i.href==='/master/codes');assert.equal(farms.length,1);assert.match(farms[0].labelKey,/농장 마스터/);
   assert.equal(farms[0].href,'/master/codes','stable URL preserves existing favorites');
+  const arrival=items.filter(i=>i.href==='/arrival-cost');
+  assert.equal(arrival.length,1,'arrival cost keeps its existing favorites URL');
+  assert.match(arrival[0].labelKey,/콜롬비아 주차 통합/);
 });

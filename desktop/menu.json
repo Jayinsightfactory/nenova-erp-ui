@@ -129,7 +129,7 @@
       },
       {
         "href": "/import/tools",
-        "labelKey": "수입부 업무도구 · 인보이스 원본 대조",
+        "labelKey": "수입부 업무도구 · 발주 이력 · 인보이스 원본 대조",
         "popup": false
       },
       {
@@ -184,7 +184,7 @@
       },
       {
         "href": "/arrival-cost",
-        "labelKey": "도착원가",
+        "labelKey": "도착원가 · 콜롬비아 주차 통합",
         "popup": true
       },
       {

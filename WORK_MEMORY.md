@@ -4219,3 +4219,18 @@ pm run test:canon 통과.
 4. 검증: .verify/colombia-week-guide 1920×1080/67.9초 MP4 SHA-256 c053b3e8d029d66fa49c0a635f81a7a5f8652e256c98892f3c04d6ec7219c11f; 촬영 XLSX SHA-256 b32b74ee4cab03fecd5eb841d65ee4cc92301ceefd33f5e36dad78e1a050967a. 프레임 검수에서 상단 잘림 및 마지막 자막이 결과 일부와 겹침. Desktop·Excel 실재계산 미검증.
 5. 주의: 기존 AWB 재촬영은 새 흐름이 아니어서 .verify/legacy-awb-guide에만 보관. 검증 증거·작업 원본은 공개 커밋 금지, 운영 쓰기·외부 provider 0, 가이드 해시 우회 금지.
 검색어: PR1896 46-02 synthetic 13936 actual-browser guide-frame-QA b32b74ee desktop-native-unverified
+## 2026-11-20 국가별 발주서 배치·명시 미리보기·다운로드 대조
+- 검색어: 수입방 오른쪽 원문 가운데 합계 매칭데이터 미리보기 선택 조회 이전 다운로드 이력 5건
+1. 작업 위치: nenova-erp-ui / codex/country-download-1120 / nw-cdx-country-download-1120 / PR 대기.
+2. 완료: 오른쪽 원문 실제 본문·가운데 합계, 세부차수 조회 후 CTA로만 미리보기, 제품·단위 수량과 ETA 다운로드 비교. 계정·기기·국가·연도·세부차수·파일로 5건 분리. 저장확인 전 기록 없음. 기존 XLSX 직접 불러오기. Desktop 기존 메뉴 재사용·저장완료 신호·1.3.69.
+3. 남은 일: PR CI·운영 배포·Desktop 공개 피드·실화면 및 최종 인계. 운영 미검증.
+4. 검증: Chrome 1572/1920/390, 실제 브라우저 XLSX 생성 및 비교, 페이지 새로고침 이후 비교 유지, 저장 완료/취소, 7개국 양식·dnSpy·쓰기·canon, 실제 Electron 격리 다운로드 완료/취소/bytes, 실제 2개 가이드 해시 통과.
+5. 주의: 개인·원문 채팅·업체별 값·XLSX 원본 바이트는 저장하지 않음. 업무 파일은 사용자 저장 위치. 원장/API 변경 없음. 팀 공유 이력 초안 #1883 무수정. 버전 1.3.68은 #1901이 사용하여 1.3.69.
+
+### 2026-11-20 · #1896 가이드 제외 승인 및 Excel 복구 수정
+1. 위치: fix/co-arrival-week-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co-arrival-week-1119 / PR #1896.
+2. 완료: 셀 주소 중복(AK3·AK4·O5)과 열 범위 중첩 제거, 회귀검사 추가. 사용자 지정에 따라 기존 영상·자막·proof 그대로 두고 경로별 공식 videoWaivers만 추가.
+3. 남음: 실제 Desktop 저장 클릭·캡처, 연결 Excel에서 운임 A 수정 및 합계·B 불변 검증, 필수 CI 및 독립 Cafe24·Desktop 배포 스모크.
+4. 검증: 대상 22 PASS, ERP manifest 235·write scope 1 PASS. 수정된 브라우저 XLSX SHA-256 541df955ad9badc0973eb9c2c10cbec1bde6e73baf6fabe669c3b46aa1763faa, Microsoft Excel 복구 없이 2026 46-02 단일 시트 열림. Excel 창 최소화로 재계산 미검증.
+5. 주의: 작업 중 운영 사용자 창과 겹치면 입력 중지. 운영 DB 쓰기·유료분석 0. 가이드 미갱신·촬영 후보 비공개 보관.
+검색어: PR1896 541df955 no-Excel-repair videoWaivers master1902 native-save-unverified

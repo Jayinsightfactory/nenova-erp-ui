@@ -1248,7 +1248,9 @@
       ],
       "sourceFiles": [
         "components/import-tools/PedidosTool.js",
-        "components/import-tools/KakaoAdditions.js"
+        "components/import-tools/KakaoAdditions.js",
+        "components/import-tools/CountryDownloadComparison.js",
+        "lib/countryOrderDownloadHistory.js"
       ],
       "requiredScenarios": [
         "country",
@@ -1260,7 +1262,8 @@
         "save",
         "chat",
         "sum",
-        "copy"
+        "copy",
+        "download-history"
       ],
       "guides": [
         {
@@ -1275,112 +1278,117 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.012
+              "seconds": 0.027
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.582
+              "seconds": 10.72
             },
             {
               "scenario": "week",
-              "title": "3. 세부차수 미리보기",
-              "seconds": 21.288
+              "title": "3. 세부차수와 미리보기",
+              "seconds": 21.29
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 32.007
+              "seconds": 38.151
             },
             {
               "scenario": "download",
               "title": "5. 다운로드·ETA 창 열기",
-              "seconds": 43.134
+              "seconds": 49.322
             },
             {
               "scenario": "eta",
               "title": "6. ETA 날짜 입력",
-              "seconds": 53.74
+              "seconds": 59.926
             },
             {
               "scenario": "save",
               "title": "7. ETA 저장·엑셀 다운로드",
-              "seconds": 66.053
+              "seconds": 72.731
             },
             {
               "scenario": "china",
               "title": "8. 중국 발주 조회",
-              "seconds": 76.85
+              "seconds": 85.061
             },
             {
               "scenario": "china-cycle",
               "title": "9. 중국 차수 선택",
-              "seconds": 87.418
+              "seconds": 95.689
             },
             {
               "scenario": "china-week",
-              "title": "10. 중국 세부차수 선택",
-              "seconds": 98.241
+              "title": "10. 중국 세부차수와 미리보기",
+              "seconds": 106.298
             },
             {
               "scenario": "farm",
               "title": "11. 기본 수신명 수정",
-              "seconds": 108.872
+              "seconds": 123.2
             },
             {
               "scenario": "split",
               "title": "12. 농장별 파일 나누기",
-              "seconds": 120.865
+              "seconds": 135.593
             },
             {
               "scenario": "assign",
               "title": "13. 농장 1 품목 선택",
-              "seconds": 131.475
+              "seconds": 146.353
             },
             {
               "scenario": "farm-download",
               "title": "14. 농장별 파일 확인",
-              "seconds": 142.078
+              "seconds": 157.184
             },
             {
               "scenario": "farm-save",
               "title": "15. 농장 파일 다운로드",
-              "seconds": 152.648
+              "seconds": 167.863
             },
             {
               "scenario": "chat",
               "title": "16. 최근 발주일 카톡 확인",
-              "seconds": 163.281
+              "seconds": 178.9
             },
             {
               "scenario": "sum",
               "title": "17. 차수·품목군 버튼 선택",
-              "seconds": 173.831
+              "seconds": 189.654
             },
             {
               "scenario": "match-total",
               "title": "18. 합계에서 원문 확인",
-              "seconds": 184.378
+              "seconds": 200.503
             },
             {
               "scenario": "match-source",
               "title": "19. 원문에서 합계 확인",
-              "seconds": 194.926
+              "seconds": 211.315
             },
             {
               "scenario": "audit",
               "title": "20. 제외 원문 대조",
-              "seconds": 205.482
+              "seconds": 222.031
             },
             {
               "scenario": "recover",
               "title": "21. 누락 의심 발주 보완",
-              "seconds": 216.264
+              "seconds": 233.038
             },
             {
               "scenario": "copy",
               "title": "22. 농장 전달용 복사",
-              "seconds": 234.466
+              "seconds": 252.141
+            },
+            {
+              "scenario": "download-history",
+              "title": "23. 이전 다운로드와 수량 비교",
+              "seconds": 266.172
             }
           ]
         }
@@ -1672,138 +1680,6 @@
           "file": "desktop/shell/index.html",
           "sha256": "88b2d825b098f3cf327aa6a472bf2b1da386dfab121e958704c6336afe32ff40",
           "reason": "사용자 명시: 비행기현황탭은 가이드영상필요없음. 2026-11-18 원문 기반 이슈 정합성 수정.",
-          "approvedBy": "사용자"
-        }
-      ]
-    },
-    {
-      "id": "desktop-task-schedule",
-      "title": "오늘의 내 업무 · 시간과 바로가기",
-      "entryPaths": [
-        "/desktop-guide"
-      ],
-      "sourceFiles": [
-        "desktop/shell/shell.js",
-        "desktop/shell/company-calendar.js",
-        "desktop/main.cjs",
-        "desktop/windows-identity.cjs",
-        "desktop/notes-preload.cjs",
-        "desktop/shell/home-dashboard.js",
-        "desktop/shell/index.html",
-        "desktop/shell/home-workspace.js",
-        "desktop/shell/shell.css",
-        "desktop/shell/notes.html",
-        "desktop/shell/notes.js",
-        "desktop/shell/notes.css",
-        "desktop/shell/task-settings.js",
-        "desktop/shell/task-controls.js",
-        "desktop/shell/task-controls.css",
-        "pages/desktop-guide.js"
-      ],
-      "requiredScenarios": [
-        "overview",
-        "schedule",
-        "save",
-        "notes",
-        "shortcut",
-        "launch",
-        "calendar",
-        "independent",
-        "company",
-        "collapse",
-        "weekly",
-        "holidays",
-        "eventDetails",
-        "personalDetails"
-      ],
-      "guides": [
-        {
-          "id": "staff",
-          "role": "직원",
-          "title": "시간표 입력부터 PC 메모장 바로가기까지",
-          "status": "ready",
-          "src": "/guides/desktop-task-schedule/staff.mp4",
-          "captions": "/guides/desktop-task-schedule/staff.ko.vtt",
-          "proof": "/guides/desktop-task-schedule/staff.proof.json",
-          "chapters": [
-            {
-              "scenario": "overview",
-              "title": "1. 홈에서 오늘 업무 확인",
-              "seconds": 0
-            },
-            {
-              "scenario": "schedule",
-              "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 48.397
-            },
-            {
-              "scenario": "save",
-              "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 57.597
-            },
-            {
-              "scenario": "notes",
-              "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 83.399
-            },
-            {
-              "scenario": "shortcut",
-              "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 104.599
-            },
-            {
-              "scenario": "launch",
-              "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 133.199
-            },
-            {
-              "scenario": "calendar",
-              "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 142.799
-            },
-            {
-              "scenario": "independent",
-              "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 167.199
-            },
-            {
-              "scenario": "company",
-              "title": "9. 공통 일정 제목과 색상 등록·수정",
-              "seconds": 178.799
-            },
-            {
-              "scenario": "collapse",
-              "title": "10. 월간·주간 접기와 홈 다시 열기",
-              "seconds": 251.399
-            },
-            {
-              "scenario": "weekly",
-              "title": "11. 주차별 일정과 다음 주 차수 확인",
-              "seconds": 283.195
-            },
-            {
-              "scenario": "holidays",
-              "title": "12. 국가를 선택해 공휴일 표시",
-              "seconds": 370.199
-            },
-            {
-              "scenario": "eventDetails",
-              "title": "13. 저장된 일정의 상세 정보 수정",
-              "seconds": 412.799
-            },
-            {
-              "scenario": "personalDetails",
-              "title": "14. 개인 업무도 달력에서 바로 수정",
-              "seconds": 480.199
-            }
-          ]
-        }
-      ],
-      "videoWaivers": [
-        {
-          "file": "desktop/shell/shell.js",
-          "sha256": "a8436939c308bbc5578cdbe4b776ad29901b860cce09d69f06a47ecdceb5fa38",
-          "reason": "관리자 전용 PM 라이브 확인 패널에 통합지휘실(#pmHubButton) 제1버튼 및 시뮬레이션·도입레이더 바로가기 버튼 추가 — 일반 직원 홈 오늘의 내 업무·시간표·메모장·달력 14단계 가이드 화면 및 조작 순서는 변경 없음",
           "approvedBy": "사용자"
         }
       ]
@@ -2216,6 +2092,130 @@
               "scenario": "directory",
               "title": "4. 하단 4대 목적별 전체 화면 지도에서 오늘 필요한 업무 화면을 바로 엽니다.",
               "seconds": 30.745
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "desktop-task-schedule",
+      "title": "오늘의 내 업무 · 시간과 바로가기",
+      "entryPaths": [
+        "/desktop-guide"
+      ],
+      "sourceFiles": [
+        "desktop/shell/shell.js",
+        "desktop/shell/company-calendar.js",
+        "desktop/main.cjs",
+        "desktop/windows-identity.cjs",
+        "desktop/notes-preload.cjs",
+        "desktop/shell/home-dashboard.js",
+        "desktop/shell/index.html",
+        "desktop/shell/home-workspace.js",
+        "desktop/shell/shell.css",
+        "desktop/shell/notes.html",
+        "desktop/shell/notes.js",
+        "desktop/shell/notes.css",
+        "desktop/shell/task-settings.js",
+        "desktop/shell/task-controls.js",
+        "desktop/shell/task-controls.css",
+        "pages/desktop-guide.js"
+      ],
+      "requiredScenarios": [
+        "overview",
+        "schedule",
+        "save",
+        "notes",
+        "shortcut",
+        "launch",
+        "calendar",
+        "independent",
+        "company",
+        "collapse",
+        "weekly",
+        "holidays",
+        "eventDetails",
+        "personalDetails"
+      ],
+      "guides": [
+        {
+          "id": "staff",
+          "role": "직원",
+          "title": "시간표 입력부터 PC 메모장 바로가기까지",
+          "status": "ready",
+          "src": "/guides/desktop-task-schedule/staff.mp4",
+          "captions": "/guides/desktop-task-schedule/staff.ko.vtt",
+          "proof": "/guides/desktop-task-schedule/staff.proof.json",
+          "chapters": [
+            {
+              "scenario": "overview",
+              "title": "1. 홈에서 오늘 업무 확인",
+              "seconds": 0
+            },
+            {
+              "scenario": "schedule",
+              "title": "2. 시간표에서 매일 업무 입력",
+              "seconds": 46.939
+            },
+            {
+              "scenario": "save",
+              "title": "3. 업무명과 반복을 입력하고 저장",
+              "seconds": 56.725
+            },
+            {
+              "scenario": "notes",
+              "title": "4. 좁은 PC 메모장에서 업무 확인",
+              "seconds": 85.224
+            },
+            {
+              "scenario": "shortcut",
+              "title": "5. 메뉴를 검색해 바로가기 연결",
+              "seconds": 107.651
+            },
+            {
+              "scenario": "launch",
+              "title": "6. 바로가기와 완료를 따로 사용",
+              "seconds": 136.346
+            },
+            {
+              "scenario": "calendar",
+              "title": "7. 월간 달력과 하단 주간 시간표",
+              "seconds": 145.961
+            },
+            {
+              "scenario": "independent",
+              "title": "8. 메모장에서 홈 다시 열기",
+              "seconds": 170.537
+            },
+            {
+              "scenario": "company",
+              "title": "9. 공통 일정 제목과 색상 등록·수정",
+              "seconds": 182.282
+            },
+            {
+              "scenario": "collapse",
+              "title": "10. 월간·주간 접기와 홈 다시 열기",
+              "seconds": 258.603
+            },
+            {
+              "scenario": "weekly",
+              "title": "11. 주차별 일정과 다음 주 차수 확인",
+              "seconds": 291.88
+            },
+            {
+              "scenario": "holidays",
+              "title": "12. 국가를 선택해 공휴일 표시",
+              "seconds": 385.121
+            },
+            {
+              "scenario": "eventDetails",
+              "title": "13. 저장된 일정의 상세 정보 수정",
+              "seconds": 428.512
+            },
+            {
+              "scenario": "personalDetails",
+              "title": "14. 개인 업무도 달력에서 바로 수정",
+              "seconds": 496.252
             }
           ]
         }

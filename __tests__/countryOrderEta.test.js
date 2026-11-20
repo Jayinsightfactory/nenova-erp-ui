@@ -1,3 +1,4 @@
+import './countryOrderDownloadHistory.test.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { countryOrderEtaDefault, formatCountryOrderEta, parseCountryOrderEta, withCountryOrderEta, countryOrderSourceComplete } from '../lib/countryOrderEta.js';
