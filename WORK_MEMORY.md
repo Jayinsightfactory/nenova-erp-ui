@@ -4373,3 +4373,11 @@ pm run test:canon 통과.
 3. 남은 일: PR 최종 CI·squash·Cafe24 배포·Desktop1.3.76 정식 설치본 해시/피드·운영 스모크·Drive 보관. 최종 인계는 codex/handoff-<PR번호> docs-only 고정 커밋.
 4. 검증: ERP 전체계약/dnSpy/manifest236/쓰기 가드, 최종 UI build 및 MP4/VTT 플레이어(내부/외부 접기 정지) 통과. 대상 회귀16개, 후속 React7, Desktop80/실제 Electron 메뉴·탭·즐겨찾기, Chrome1920/390·선택 보존·Escape/비활성 호출자·재검증 payload·접힌 농장 입력 외부 오류 표시 통과. 운영 ERP 쓰기0, 직원 PC 실제 설치 미검증.
 5. 주의/잠금: PR 완료 전 페이지·관련 가이드2편·Desktop1.3.76 예약 유지. 원장/API/계산/파일양식 변경 없음. 연결 목표 g03/g13/g19 / 학습 반영 있음, 목표% 유지.
+
+## 2026-11-20 수입 비행기 카드 접힌 상태 정보 표시
+검색어: 수입 비행기 현황 카드 접힌 상태 도착 공지 ETA STA 빌번호 박스 #1926 Desktop 1.3.77
+1. 작업 위치: nenova-erp-ui / codex/flight-card-glance / C:/Users/USER/nw-cdx-flight-card-glance / PR #1926, master 29904f77.
+2. 완료된 것: 웹과 Desktop 홈에 상태·마감·처리 항목과 도착 정보·항공편·빌번호·수량 병렬 표시. 공지/공항 시각 차이는 함께 노출. 상세·지도 연결과 기존 수입 업무 흐름 유지.
+3. 남은 할 일: 이 PC의 Desktop 홈 적용은 1.3.77 업데이트 후 확인. 강제 설치·재시작 없이 공개 완료.
+4. 검증 상태: Linux ERP·webpack 및 Windows 격리/설치본 검증 통과. Cafe24 44699835321 운영 확대 화면 1426·1920px, 실제 접힌 카드·지도 마커·지도 단독 확대·상세 확인. Desktop 공개 매니페스트 1.3.77과 CI 해시 일치.
+5. 주의/잠금: 운영 원장·업무 원문·데이터 수집 설정 변경 없음. 사용자 지정 가이드 면제 유지. 운영 스크린샷은 GitHub에 올리지 않음.
