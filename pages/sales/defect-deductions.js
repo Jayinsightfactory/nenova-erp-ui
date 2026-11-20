@@ -1,4 +1,5 @@
 import { incomingProductLabel, incomingOutputProductLabel } from '../../lib/incomingProductLabel.js';
+import { incomingDefectPrintBlockReason } from '../../lib/salesDefectDeductionCore';
 import { incomingDefectPrintNote } from '../../lib/incomingDefectPrintNote.js';
 import { manualHoldDescriptor, canSelectSupportDisposition } from '../../lib/defectManualHold.js';
 import DefectCostLookup from '../../components/DefectCostLookup';
@@ -14,10 +15,9 @@ import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
 import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
-import { isDefectAdmin, isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
+import { isDefectAdmin, isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek, needsDefectManagerGuide } from '../../lib/salesDefectDeductionCore';
 import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, getSupportLinkedEstimate, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
 import { sortDefectDisplayRows, sortIncomingRows } from '../../lib/salesDefectIncomingGroup.js';
-import { farmCandidateLabel } from '../../lib/defectFarmCandidates.js';
 import { canUseDefectIncoming, canUseDefectSupport } from '../../lib/salesDefectDeductionCore';
 import { selectDefectRange } from '../../lib/defectDragSelection.js';
 import { buildDefectProductDisplay } from '../../lib/defectProductDisplay.js';
@@ -292,7 +292,7 @@ export default function SalesDefectDeductionsPage() {
     apiGet('/api/auth/me').then((data) => {
       const user = data.user || null;
       setCurrentUser(user);
-      setManager(managerFilterForUser(user?.userName || user?.userId || '', user));
+      setManager((selected) => selected || (isDefectAdmin(user) ? '' : managerFilterForUser(user?.userName || user?.userId || '', user)));
     }).catch(() => { /* 목록 API가 최종 인증 오류를 표시한다. */ })
       .finally(() => setAuthResolved(true));
   }, []);
@@ -483,6 +483,7 @@ export default function SalesDefectDeductionsPage() {
     });
     return result;
   }, [visibleManagerOptions]);
+  const showManagerGuide = needsDefectManagerGuide(manager, managerQuickOptions);
 
   useEffect(() => {
     clearTimeout(preflightTimer.current);
@@ -1510,6 +1511,7 @@ export default function SalesDefectDeductionsPage() {
     } catch (e) { setError(e.message); }
   };
 
+  const incomingPrintReason = activeTab === 'incoming' ? incomingDefectPrintBlockReason(incomingRows) : '';
   const printForm = () => {
     setError('');
     window.print();
@@ -1644,8 +1646,13 @@ export default function SalesDefectDeductionsPage() {
     [rows, salesSortMode, companyFilters.sales],
   );
   const salesSummaryRows = displayedSalesRows.filter(({ row }) => salesRowHasInput(row));
-  const salesStatusCounts = rows.reduce((counts, row) => {
+  const pendingSalesRows = new Set();
+  const salesStatusCounts = rows.reduce((counts, row, index) => {
     const state = salesRowSaveState(row);
+    if (state === '미저장' || state === '저장 안 됨') {
+      const key = Number(row.deductionKey);
+      pendingSalesRows.add(key > 0 ? key : `draft-${index}`);
+    }
     counts[state] = (counts[state] || 0) + 1;
     return counts;
   }, {});
@@ -1748,14 +1755,16 @@ export default function SalesDefectDeductionsPage() {
         {activeTab === 'carryover' && <span className="incoming-tab-help">수입부 컨펌 완료 건만 선택할 수 있고, 해당 차수 판매행이 없는 건은 미처리로 남아 다음 차수에 재시도합니다.</span>}
       </div>
 
-      {activeTab === 'sales' && <div className={`card manager-home-card ${!manager ? "manager-home-attention" : ""}`}>
-        <div className="manager-home-title">담당자 바로가기{!manager && <small className="manager-home-hint">담당자를 선택해야 조회 가능합니다</small>}</div>
+      {activeTab === 'sales' && <div className="card manager-home-card">
+        <div className="manager-home-title">담당자 바로가기</div>
         <div className="manager-home-buttons">
+          {showManagerGuide && <span id="manager-home-hint" className="manager-home-hint">담당자를 선택해야 조회할 수 있습니다</span>}
           {managerQuickOptions.map((item) => (
             <button
               key={`quick-${item.managerId || 'all'}`}
               type="button"
-              className={`btn manager-home-button ${String(manager) === String(item.managerId) ? 'btn-primary' : ''}`}
+              className={`btn manager-home-button ${String(manager) === String(item.managerId) ? 'btn-primary' : ''} ${showManagerGuide && item.managerId ? 'manager-home-attention' : ''}`}
+              aria-describedby={showManagerGuide && item.managerId ? 'manager-home-hint' : undefined}
               onClick={() => setManager(item.managerId)}
               disabled={loading}
             >
@@ -1790,7 +1799,7 @@ export default function SalesDefectDeductionsPage() {
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
            <button className="btn" onClick={() => openAddModeMenu(rows.length - 1)}>빈 행 추가</button>
           <button className="btn" onClick={rematch} disabled={saving || !rows.length}>미매칭 재매칭</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving || !rows.length}>저장</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving || !pendingSalesRows.size}>변경건({pendingSalesRows.size}) 저장</button>
           <button className="btn" onClick={register} disabled={saving || !selected.size}>선택 일괄 견적서관리 등록</button>
           </>}
           {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={managementMode || managementBusy || incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
@@ -1820,7 +1829,8 @@ export default function SalesDefectDeductionsPage() {
             {omissionRows!==null&&<div role="dialog" aria-label="누락 처리 내역" style={{position:'fixed',inset:'10%',zIndex:10000,background:'white',padding:20,overflow:'auto',border:'1px solid #999'}}><h3>{year}년 누락 처리 내역</h3><button type="button" onClick={()=>setOmissionRows(null)}>닫기</button><table><thead><tr><th>원차수</th><th>업체</th><th>품목</th><th>수량</th><th>처리일</th><th>상태</th><th>취소</th></tr></thead><tbody>{omissionRows.map(r=><tr key={r.historyKey}><td>{r.orderWeek}</td><td>{r.customerName}</td><td>{r.productName}</td><td>{r.quantity}{r.sourceUnit}</td><td>{String(r.changedAt).slice(0,10)}</td><td>{r.cancelled?'취소됨':'고정 제외'}</td><td><button type="button" disabled={omissionBusy||r.cancelled} onClick={()=>undoOmission(r)}>누락 취소</button></td></tr>)}</tbody></table>{!omissionRows.length&&<p>누락 처리 내역이 없습니다.</p>}</div>}
             <button type="button" className="btn" onClick={markSupportManualComplete} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>수동처리완료</button>
           </>}
-          <button className="btn" onClick={printForm} disabled={activeTab === 'support' || activeTab === 'carryover' || (activeTab === 'incoming' ? !incomingRows.length || !incomingRows.every((row) => row.importConfirmed) : !rows.length)}>인쇄</button>
+          <button className="btn" onClick={printForm} aria-describedby={incomingPrintReason ? 'incoming-print-reason' : undefined} disabled={activeTab === 'support' || activeTab === 'carryover' || (activeTab === 'incoming' ? !!incomingPrintReason : !rows.length)}>인쇄</button>
+          {incomingPrintReason && <span id="incoming-print-reason" className="incoming-print-reason">{incomingPrintReason}</span>}
           <button className="btn" onClick={download} disabled={loading || activeTab === 'carryover'}>엑셀 다운로드</button>
           <button className="btn" onClick={() => setShowHistory((v) => !v)}>수정이력 {showHistory ? '닫기' : '보기'}</button>
           {managementAllowed && ['incoming', 'support'].includes(activeTab) && <>
@@ -1896,7 +1906,7 @@ export default function SalesDefectDeductionsPage() {
         </div>
         <div className="defect-grid-scroll incoming-grid-scroll">
           <table className="data-table defect-grid incoming-grid" onFocusCapture={handleGridFocusCapture}>
-            <colgroup><col style={{ width: '3%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '8%' }} /><col style={{ width: '19%' }} /><col style={{ width: '7%' }} /><col style={{ width: '15%' }} /><col style={{ width: '6%' }} /><col style={{ width: '6%' }} /><col style={{ width: '10%' }} /><col style={{ width: '7%' }} /></colgroup>
+            <colgroup><col style={{ width: '3%' }} /><col style={{ width: '7%' }} /><col style={{ width: '9%' }} /><col style={{ width: '7%' }} /><col style={{ width: '14%' }} /><col style={{ width: '6%' }} /><col style={{ width: '6%' }} /><col style={{ width: '20%' }} /><col style={{ width: '6%' }} /><col style={{ width: '6%' }} /><col style={{ width: '9%' }} /><col style={{ width: '7%' }} /></colgroup>
             <thead><tr><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>크레딧수량</th><th>견적서수량</th><th>농장 검색/선택</th><th>크레딧 가능</th><th>보완 필요</th><th>비고</th><th>확정</th></tr></thead>
             <tbody>{displayedIncomingRows.map(({ row, sourceIndex, displayIndex, isGroupStart, isCountryStart, groupLabel, countryLabel }) => <Fragment key={row.deductionKey || `incoming-${sourceIndex}`}>
               {incomingGroupMode === 'product' && isCountryStart && <tr className="incoming-country-divider"><td colSpan="12"><strong>{countryLabel}</strong><span>국가별 품종</span></td></tr>}
@@ -1914,7 +1924,16 @@ export default function SalesDefectDeductionsPage() {
                   <button type="button" className="btn btn-xs lookup-btn" onClick={() => runLookup(sourceIndex, 'farm', '', 'incoming')}>검색</button>
                 </div>
                 {renderLookupPanel(sourceIndex, 'farm', 'incoming')}
-                {!String(row.farmName || '').trim() && farmCandidateLabel(farmCandidates[row.deductionKey]) && <div className="incoming-farm-candidates" title="같은 차수(없으면 직전 차수)에 이 품목을 입고한 농장입니다. 참고용이며 자동으로 채워지지 않습니다.">{farmCandidateLabel(farmCandidates[row.deductionKey])}</div>}
+                {!String(row.farmName || '').trim() && farmCandidates[row.deductionKey]?.total > 0 && (
+                  <details className="incoming-farm-candidates">
+                    <summary>입고 농장 후보 {farmCandidates[row.deductionKey].total}곳</summary>
+                    <ul>
+                      {[...farmCandidates[row.deductionKey].farms, ...(farmCandidates[row.deductionKey].remainingFarms || [])].map((farm) => (
+                        <li key={farm.farmName}>{farm.farmName}{farm.sameWeek ? '' : ' (직전 차수)'}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </td>
               <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateIncomingRow(sourceIndex, { creditApplied: e.target.checked, importConfirmed: false })} /> 가능</label></td>
               <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.importReviewRequired} onChange={(e) => updateIncomingRow(sourceIndex, { importReviewRequired: e.target.checked, importConfirmed: false })} /> 필요</label></td>
@@ -2252,7 +2271,8 @@ export default function SalesDefectDeductionsPage() {
         .incoming-grid tr.incoming-group-start td { border-top: 3px solid #93b4de; }
         .incoming-review-note { color: #64748b !important; }
         .incoming-grid-scroll { max-height: calc(100vh - 330px); }
-        .incoming-grid { width: 100%; min-width: 0; table-layout: fixed; font-size: 12px; }
+        .incoming-print-reason { font-size: 12.5px; color: #334155; }
+        .incoming-grid { width: 100%; min-width: 1160px; table-layout: fixed; font-size: 14px; color: #0f172a; }
         .incoming-grid th, .incoming-grid td { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
         .incoming-grid td { vertical-align: middle; }
         .incoming-grid th, .incoming-grid td { padding: 4px 6px; }
@@ -2263,7 +2283,11 @@ export default function SalesDefectDeductionsPage() {
         .incoming-note-input { min-width: 0; width: 100%; }
         .incoming-confirmed { color: #166534; font-weight: 700; }
         .incoming-pending { color: #b45309; font-weight: 700; }
-        .incoming-farm-candidates { margin-top: 3px; font-size: 11.5px; line-height: 1.35; color: #47607a; white-space: normal; word-break: keep-all; }
+        .incoming-farm-candidates { margin-top: 4px; font-size: 12.5px; line-height: 1.4; color: #334155; }
+        .incoming-farm-candidates summary { cursor: pointer; font-weight: 600; }
+        .incoming-farm-candidates ul { margin: 4px 0 0; padding-left: 22px; }
+        .incoming-grid td:nth-child(6), .incoming-grid td:nth-child(7) { text-align: center; font-variant-numeric: tabular-nums; }
+        .incoming-grid .btn-xs, .incoming-grid .incoming-confirmed, .incoming-grid .incoming-pending { font-size: 12.5px; }
         .sales-view-toggle { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); background: #f8fafc; border-radius: 4px; }
         .defect-sort-field { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
         .defect-sort-field .input { min-width: 150px; }
@@ -2296,8 +2320,8 @@ export default function SalesDefectDeductionsPage() {
         .sales-summary-state-warn { color: #b45309; font-weight: 700; }
         .sales-summary-state-reset { color: #64748b; }
         .manager-home-card { display: flex; align-items: center; gap: 12px; padding: 9px 10px; margin: 8px 0; }
-        .manager-home-attention { border: 2px solid #2563eb; }
-        .manager-home-hint { display: block; margin-top: 3px; font-size: 12px; }
+        .manager-home-buttons .manager-home-attention { border: 2px solid #1d4ed8; background: #eff6ff; color: #1e3a8a; font-weight: 700; }
+        .manager-home-hint { flex-basis: 100%; color: #1e3a8a; font-size: 14px; font-weight: 700; }
         .sales-credit-checkbox { width: 24px; height: 24px; margin: 0; cursor: pointer; }
         .support-loading { display: flex; gap: 8px; align-items: center; padding: 8px 12px; font-size: 13px; }
         .support-loading progress { width: 68px; }
@@ -2406,13 +2430,18 @@ export default function SalesDefectDeductionsPage() {
         .lookup-inline { display: flex; align-items: center; gap: 4px; width: 100%; }
         .lookup-inline .cell { flex: 1 1 auto; min-width: 0; }
         .lookup-btn { flex: 0 0 auto; white-space: nowrap; }
-        .qty { width: 65px; min-width: 65px; }
+        .qty { width: 65px; min-width: 65px; text-align: center; font-variant-numeric: tabular-nums; }
         .unit { width: 62px; min-width: 62px; }
         .btn-xs { padding: 4px 7px; font-size: 12px; }
         td { position: relative; vertical-align: middle; }
-        .match-ok, .match-warn { display: block; font-size: 11px; line-height: 17px; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; word-break: break-word; }
+        .match-ok, .match-warn { display: block; font-size: 12.5px; line-height: 18px; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; word-break: break-word; }
         .match-ok { color: #166534; }
-        .match-warn { color: #b45309; }
+        .match-warn { color: #92400e; }
+        .screenOnly, .screenOnly :is(input, select, button, textarea), .incoming-grid th, .incoming-grid td {
+          font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+        }
+        .screenOnly :is(input.input, select.input, textarea.input) { border: 1px solid #64748b; border-radius: 4px; font-size: 14px; }
+        .screenOnly :is(input.input, select.input, textarea.input):focus-visible { border-color: #1d4ed8; outline: 2px solid #1d4ed8; outline-offset: 1px; }
         .defect-inline-suggestions { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
         .defect-inline-suggestion { border: 1px solid #93c5fd; background: #eff6ff; color: #1e3a8a; border-radius: 3px; padding: 2px 5px; font-size: 10px; cursor: pointer; text-align: left; }
         .web-meta { color: #475569; font-size: 10px; line-height: 15px; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; word-break: break-word; }
