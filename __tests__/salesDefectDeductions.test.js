@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { supportRegisterBlockReason } from '../lib/salesDefectSupportStatus.js';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { scoreMatch } from '../lib/displayName.js';
@@ -11,6 +12,8 @@ import {
   previousParentScope,
   normalizeDeductionRow,
   managerFilterForUser,
+  needsDefectManagerGuide,
+  incomingDefectPrintBlockReason,
   partitionRegistrationPreflight,
   mergeSavedDeductionRows,
   partitionSelectedDeductionRows,
@@ -87,6 +90,22 @@ assert.equal(isNoopDeductionHistory({ ChangeSummary: 'MATCH: 품목 매칭 변�
 assert.equal(managerFilterForUser('nenovaSD3', { userId: 'nenovaSD3', userName: '조현욱' }), '조현욱');
 assert.equal(managerFilterForUser('조현욱', { userId: 'nenovaSD3', userName: '조현욱' }), '조현욱');
 assert.equal(managerFilterForUser('', { userId: 'nenovaSD3', userName: '조현욱' }), '');
+const quickOwners = [{ managerId: '', managerName: '전체' }, { managerId: 'nenovaSD3', managerName: '조현욱' }];
+assert.equal(needsDefectManagerGuide('', quickOwners), true);
+assert.equal(needsDefectManagerGuide('전체', quickOwners), true);
+assert.equal(needsDefectManagerGuide('admin', quickOwners), true);
+assert.equal(needsDefectManagerGuide('nenovaSD3', quickOwners), false);
+assert.equal(needsDefectManagerGuide('조현욱', quickOwners), false);
+assert.match(incomingDefectPrintBlockReason([]), /인쇄할 자료가 없습니다/);
+assert.match(incomingDefectPrintBlockReason([{ importConfirmed: true }, {}, {}]), /미확정 2건/);
+assert.equal(incomingDefectPrintBlockReason([{ importConfirmed: true }]), '');
+assert.match(supportRegisterBlockReason({ supportLoading: true }), /조회하는 중/);
+assert.match(supportRegisterBlockReason({ supportRegistering: true }), /등록을 진행 중/);
+assert.match(supportRegisterBlockReason({ managementMode: true }), /수정·정리/);
+assert.match(supportRegisterBlockReason({ eligibleCount: 0 }), /등록 가능한 항목이 없습니다/);
+assert.match(supportRegisterBlockReason({ eligibleCount: 2, checkedCount: 0 }), /항목을 선택/);
+assert.match(supportRegisterBlockReason({ eligibleCount: 2, checkedCount: 2, selectionBlocked: true }), /등록 불가 건/);
+assert.equal(supportRegisterBlockReason({ eligibleCount: 2, checkedCount: 1 }), '');
 assert.deepEqual(
   partitionRegistrationPreflight([
     { deductionKey: 1, error: '' },
@@ -98,6 +117,12 @@ const deductionSource = fs.readFileSync('lib/salesDefectDeductions.js', 'utf8');
 const estimateTargetScopeSource = fs.readFileSync('lib/defectEstimateTargetScope.js', 'utf8');
 const defectApiSource = fs.readFileSync('pages/api/sales/defect-deductions.js', 'utf8');
 const pageSource = fs.readFileSync('pages/sales/defect-deductions.js', 'utf8');
+assert.match(pageSource, /const showManagerGuide = needsDefectManagerGuide\(manager, managerQuickOptions\)/);
+assert.match(pageSource, /showManagerGuide && item\.managerId \? 'manager-home-attention'/);
+assert.match(pageSource, /담당자를 선택해야 조회할 수 있습니다/);
+assert.match(pageSource, /변경건\(\{pendingSalesRows\.size\}\) 저장/);
+assert.match(pageSource, /const salesRowSignature[^;]+String\(row.estimateQuantity \?\? row.quantity \?\? ''\)/);
+assert.match(pageSource, /<details className="incoming-farm-candidates">/);
 const supportReviewSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
 const deductionContract = JSON.parse(fs.readFileSync('docs/contracts/sales-defect-deduction.json', 'utf8'));
 const incomingFixture = [
@@ -491,7 +516,7 @@ assert.equal(formatSalesDefectExportRows([{
 }]).some((row) => String(row.customerName || '').startsWith('기존명:')), false, '엑셀 거래처 열에는 기존명을 별도 출력하지 않아야 한다.');
 
 const managerWorkbook = await buildSalesDefectWorkbook([
-  { customerName: '태림원예', matchedProductDbName: 'CARNATION Hermes', customerAlias: '태림C대농장/월요일', note: 'kakao-defect:불량-TEST:1 / 원차수 44-1 / 원문 2026년 11월 2일 오전 9:10 / 자동수집', originalCustomerName: '태림C대농장', managerName: '김담당', productName: '카네이션', countryName: '콜롬비아', colorName: 'A', quantity: 1, sourceUnit: '단' },
+  { customerName: '태림원예', matchedProductDbName: 'CARNATION Hermes', customerAlias: '태림C대농장/월요일', note: 'kakao-defect:불량-TEST:1 / 원차수 44-1 / 원문 2026년 11월 2일 오전 9:10 / 자동수집', originalCustomerName: '태림C대농장', managerName: '김담당', productName: '카네이션', countryName: '콜롬비아', colorName: 'A', quantity: 1, estimateQuantity: 4, creditApplied: true, sourceUnit: '단' },
   { customerName: '업체B', matchedProductDbName: 'ROSE / Laila', note: '소량', managerName: '이담당', productName: '장미', countryName: '중국', colorName: '', quantity: 2, sourceUnit: '단' },
   { customerName: '업체C', managerName: '김담당', productName: '수국', countryName: '콜롬비아', colorName: 'C', quantity: 3, sourceUnit: '박스' },
 ], { year: 2026, week: 33, includeManagerSheets: true });
@@ -507,10 +532,16 @@ assert.equal(managerWb.getWorksheet('김담당').getCell('B7').value, null);
 assert.equal(managerWb.getWorksheet('김담당').pageSetup.printArea, 'B1:K44');
 
 for (const sheet of managerWb.worksheets) {
+  assert.equal(sheet.getCell('G5').value, '크레딧수량');
+  assert.equal(sheet.getCell('H5').value, '견적서수량');
   assert.equal(sheet.getColumn('D').hidden, true);
   assert.equal(sheet.getColumn('E').hidden, true);
   assert.ok(sheet.getColumn('I').width > sheet.getColumn('H').width);
 }
+assert.equal(managerWb.getWorksheet('전체품목').getCell('G6').value, '1단');
+assert.equal(managerWb.getWorksheet('김담당').getCell('H6').value, '4단');
+assert.equal(managerWb.getWorksheet('이담당').getCell('G6').value, null);
+assert.equal(managerWb.getWorksheet('이담당').getCell('H6').value, '2단');
 assert.equal(managerWb.getWorksheet('전체품목').getCell('J6').value, '김담당 카11-2,09:10');
 assert.equal(managerWb.getWorksheet('이담당').getCell('J6').value, null);
 

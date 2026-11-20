@@ -43,6 +43,14 @@ assert.equal(many[20].total, 6);
 assert.equal(many[20].farms.length, 4);
 assert.equal(many[20].more, 2);
 assert.equal(farmCandidateLabel(many[20]), '입고 농장 후보 6곳: A, B, C, D 외 2곳');
+for (const total of [9, 16]) {
+  const rows = Array.from({ length: total }, (_, index) => ({
+    DeductionKey: 20, SameWeek: 1, ReceiptCount: 1, FarmName: `Farm ${index}`,
+  }));
+  const entry = groupFarmCandidates(rows)[20];
+  assert.equal(entry.total, total);
+  assert.equal(new Set([...entry.farms, ...entry.remainingFarms].map(({ farmName }) => farmName)).size, total);
+}
 
 // 불러오기: 조회 한 번, 매개값은 연도·차수·직전 차수
 const calls = [];
