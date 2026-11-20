@@ -4150,3 +4150,12 @@ pm run test:canon 통과.
 4. 검증 상태: test:pm, techRadarSimulator.test.js, archFlowChart.test.js, adoptionRadar.test.js, solutionSuiteSimulator.test.js, test:ui-layout, test:workflow-guides, guard:erp-writes, test:erp-manifest 및 Headless Chromium(1920×1080·iframe 922×660·Plan A/C·StoryFlow·ArchFlowChart, 콘솔 오류/가로넘침/말줄임/겹침/monospace 0건) + next build --webpack PASS. (운영 서버 DB 미연결 로컬 검증)
 5. 주의/잠금: 병렬 세션 영역(SolutionSuiteSimulator.js, pages/my-work.js, desktop/package.json, config/workflow-guides.json, pages/pm.js, GabrielProfitAgiWorkbench.js, pages/api/**) 무수정 준수. components/pm/** #hex·raw <button>·금지어 0건.
 검색어: moyi-full-suite-blueprint Archify Pretendard Malgun-Gothic 굴림체 monospace TechRadarWorkbench ArchFlowChart ui.js Anti-AI-Slop tabular-nums
+
+
+## 2026-11-20 — 입고 원장 일반 차수·전체 차수 검색
+1. 작업 위치: nenova-erp-ui / codex/incoming-round-search-1120 / C:/Users/USER/Documents/Codex/nw-cdx-incoming-round-1120 / 입고 원장 차수 검색 PR.
+2. 완료된 것: 차수 열 검색 예시 47 / 47-02. 일반 47·47차는 47의 세부 차수 전체, 전체 47-02는 정확히 한 세부 차수. 기존 연도, 드롭다운, 농장·인보이스·AWB의 교집합. 수입부 및 영업지원 최종 화면 촬영 진행 중, 데스크톱 1.3.68.
+3. 남은 할 일: 가이드 검증·회사 Drive 보관·최종 PR CI 및 운영 배포·설치본 무결성 검증. 직원 PC 설치·재시작은 하지 않음.
+4. 검증 상태: 정식 webpack, 실제 Chrome 합성 원장 일반/세부/전각·구분 문자 및 다른 필터 교집합, dnSpy, 원장 쓰기 가드(변경 API 0) 통과. 운영 검증 전.
+5. 주의/잠금: 공유 기본 체크아웃 및 #1896 입고 원가 시트 범위 변경 금지. 이번 검색은 기존 조회 결과에만 적용되며 DB 및 ECOUNT 쓰기 없음.
+검색어: 입고 차수 일반차수 전체차수 세부차수 47-02 incoming ledger round 검색 1.3.68
