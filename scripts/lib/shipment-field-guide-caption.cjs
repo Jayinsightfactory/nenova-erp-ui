@@ -23,9 +23,9 @@ if(!proof.printPreviewZoom){
  // The current captured table spans x=300..1615. Pan the 1.35x camera
  // to x=235 so both the product name and stock/remainder columns stay visible.
  // Keep the subtitle band outside the camera transform.
- const filter=`split=2[base][print];[print]crop=1920:900:0:0,zoompan=z='1+.35*(${weight})':x='235*(${weight})':y=0:d=1:s=1920x900:fps=20[printzoom];[base][printzoom]overlay=0:0,drawbox=x=0:y=955:w=1920:h=125:color=0x102847@0.95:t=fill:enable='${enable}',drawtext=${font}:textfile=.verify/field-volume/caption-raw.txt:fontcolor=white:fontsize=28:line_spacing=10:x=40:y=975:enable='${enable}'`;
+ const filter=`split=2[base][print];[print]crop=1920:830:0:70,zoompan=z='1+.35*(${weight})':x='235*(${weight})':y=0:d=1:s=1920x830:fps=20[printzoom];[base][printzoom]overlay=0:70,drawbox=x=0:y=955:w=1920:h=125:color=0x102847@0.95:t=fill:enable='${enable}',drawtext=${font}:textfile=.verify/field-volume/caption-raw.txt:fontcolor=white:fontsize=28:line_spacing=10:x=40:y=975:enable='${enable}'`;
  execFileSync('ffmpeg',['-y','-loglevel','error','-i',dir+'/support.mp4','-vf',filter,'-an','-c:v','libx264','-preset','veryfast','-threads','2','-crf','22','-pix_fmt','yuv420p','-movflags','+faststart','.verify/field-volume/print-zoomed.mp4'],{stdio:'pipe'});
- fs.copyFileSync('.verify/field-volume/print-zoomed.mp4',dir+'/support.mp4');proof.printPreviewZoom={start,scale:1.35,x:235,y:0,source:'camera crop of actual captured Excel print page; product/name and stock/remainder columns preserved',cameraBand:{x:0,y:0,width:1920,height:900},transitionSeconds:1.2,returnsToFullFrame:true};delete proof.printPreviewCaption;
+ fs.copyFileSync('.verify/field-volume/print-zoomed.mp4',dir+'/support.mp4');proof.printPreviewZoom={start,scale:1.35,x:235,y:0,source:'camera crop of actual captured Excel print page; product/name and stock/remainder columns preserved',cameraBand:{x:0,y:70,width:1920,height:830},transitionSeconds:1.2,returnsToFullFrame:true};delete proof.printPreviewCaption;
 }
 if(proof.printPreviewCaption&&proof.videoSha256===hash(fs.readFileSync(dir+'/support.mp4')))return;
 fs.mkdirSync('.verify/field-volume',{recursive:true});fs.writeFileSync('.verify/field-volume/caption-last.txt','4. 1차 합산 해제 · 돈셀 이번 작업량 3\n요일색 · 입고 5 · 출고 3 · 재고 1 · 잔량 3 확인');fs.writeFileSync('.verify/field-volume/caption-step.txt','4 단계');
