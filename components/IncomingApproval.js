@@ -104,6 +104,16 @@ export default function IncomingApproval({ children, active = true }) {
       <details><summary>요청 처리 이력 ({data.history?.length??0}건)</summary>{data.history?.length?<ol>{data.history.map((event,i)=><li key={i}>{new Date(event.CreatedAt).toLocaleString('ko-KR')} · {labels[event.FromStatus]??'작성'} → {labels[event.ToStatus]??event.ToStatus} · {event.Note}</li>)}</ol>:<p>등록된 처리 이력이 없습니다.</p>}</details>
       <h3>요청 #{request.requestId} · {labels[request.status]} · {request.correction.orderYear}/{request.correction.orderWeek}</h3>
       <p><a target="_blank" rel="noopener noreferrer" href={`/estimate?popup=1&openFixStatus=1&year=${encodeURIComponent(request.correction.orderYear)}&week=${encodeURIComponent(request.correction.orderWeek.slice(0,2))}`}>확정 현황 확인·취소 ↗</a></p><p>{request.reason}</p><p>농장 {request.baseline.receipt.header.FarmName} → {request.correction.farmName}</p>
+      {request.correction.editKind === 'PRICE' && (() => {
+        const key = request.correction.price?.sourceWdetailKey;
+        const before = facts.receiptPlan.before.find(row => row.WdetailKey === key);
+        const after = facts.receiptPlan.after.find(row => row.WdetailKey === key);
+        if (!before || !after) return null;
+        return <div className="scroll"><table><caption>입고 단가 변경</caption>
+          <thead><tr><th>입고행</th><th>기존 단가</th><th>새 단가</th><th>기존 총액</th><th>변경 총액</th></tr></thead>
+          <tbody><tr><td>{before.OrderCode || key}</td><td>{fmt(before.UPrice)}</td><td>{fmt(after.UPrice)}</td>
+            <td>{fmt(before.TPrice)}</td><td>{fmt(after.TPrice)}</td></tr></tbody></table></div>;
+      })()}
       <div className="scroll"><table><caption>입고 최종 수량</caption><thead><tr><th>품목</th><th>단위</th><th>현재</th><th>수정 후</th><th>차이</th></tr></thead><tbody>{(request.evidence?.receiptChanges ?? facts.receiptPlan.changes).map(c => <tr key={c.prodKey}><td>{c.prodName}</td><td>{c.unit}</td><td>{fmt(c.before)}</td><td>{fmt(c.after)}</td><td>{fmt(c.delta)}</td></tr>)}</tbody></table></div>
       {request.status === 'draft' && permissions.request && <button disabled={busy} onClick={() => action('submit')}>영업지원에 수정 요청</button>}
       {request.status === 'draft' && permissions.request && <button disabled={busy} onClick={() => setEditDraft(true)}>초안 수정</button>}
