@@ -541,6 +541,7 @@ async function run() {
   await waitFor(() => shellContents.executeJavaScript("document.body.textContent.includes('도착 후 확인') && [...document.querySelectorAll('svg [role=button]')].some(n => n.getAttribute('aria-label')?.includes('K4254'))"), 'current flight marker and post-arrival work are shown');
   assert.equal(await shellContents.executeJavaScript("[...document.querySelectorAll('svg [role=button]')].some(n => n.getAttribute('aria-label')?.includes('KE048'))"), false, 'registered arrival with open work has no map marker');
   assert.equal(await shellContents.executeJavaScript("[...document.querySelectorAll('[data-flight-select]')].some(n => n.textContent.includes('KE048') && n.textContent.includes('수입신고 수리 완료 · 반출 미확인'))"), true, 'recent customs status is displayed beside the flight title');
+  assert.equal(await shellContents.executeJavaScript("document.querySelector('#flightBoard').textContent.includes('모든 시각 한국시간(KST)')"), true, 'native board names its time standard');
   const homeWasOpen = sourceWindow.menuOpen;
   await main.command(sourceWindow, 'menu', { open: true });
   try { await verifyFlightRefreshOnRestore(shellContents); }
