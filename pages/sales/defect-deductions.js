@@ -3,7 +3,7 @@ import { incomingDefectPrintBlockReason } from '../../lib/salesDefectDeductionCo
 import { incomingDefectPrintNote } from '../../lib/incomingDefectPrintNote.js';
 import { manualHoldDescriptor, canSelectSupportDisposition } from '../../lib/defectManualHold.js';
 import DefectCostLookup from '../../components/DefectCostLookup';
-import { defectSourcePeriodLabel, isDefectRegistrationHeld } from '../../lib/defectResolution.js';
+import { defectResolution, defectSourcePeriodLabel, isDefectRegistrationHeld } from '../../lib/defectResolution.js';
 // 영업수입불량차감 — 원본 양식 업로드/수정/이력/견적서관리 일괄 등록
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -16,7 +16,7 @@ import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
 import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { isDefectAdmin, isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek, needsDefectManagerGuide } from '../../lib/salesDefectDeductionCore';
-import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, getSupportLinkedEstimate, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
+import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, getSupportLinkedEstimate, supportRegistrationDecisionLabel, supportStatusDetail, supportRegisterBlockReason } from '../../lib/salesDefectSupportStatus.js';
 import { sortDefectDisplayRows, sortIncomingRows } from '../../lib/salesDefectIncomingGroup.js';
 import { canUseDefectIncoming, canUseDefectSupport } from '../../lib/salesDefectDeductionCore';
 import { selectDefectRange } from '../../lib/defectDragSelection.js';
@@ -1668,6 +1668,10 @@ export default function SalesDefectDeductionsPage() {
     .filter((key) => key > 0);
   const supportCheckedRows = visibleSupportRows.filter(row=>supportSelected.has(Number(row.deductionKey)));
   const supportSelectionBlocked = supportCheckedRows.some(row=>!isSupportRegistrationSelectable(row, activeTab));
+  const supportRegistrationReason = supportRegisterBlockReason({
+    managementMode, managementBusy, supportLoading, supportRegistering,
+    eligibleCount: supportSelectableKeys.length, checkedCount: supportCheckedRows.length, selectionBlocked: supportSelectionBlocked,
+  });
   const supportVisibleSelectable = visibleSupportRows.filter(isSupportCheckable);
   const supportVisibleAllSelected = supportVisibleSelectable.length>0 && supportVisibleSelectable.every(row=>supportSelected.has(Number(row.deductionKey)));
   const supportAllSelected = supportSelectableKeys.length > 0 && supportSelectableKeys.every((key) => supportSelected.has(key));
@@ -1806,7 +1810,8 @@ export default function SalesDefectDeductionsPage() {
           {activeTab === 'support' && <>
             <button type="button" className="btn btn-primary" onClick={() => registerSupport(true)} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !visibleSupportRows.length}>{companyFilters.support ? '선택 업체 불량 확인·등록 (문제 해결 창)' : (supportListMode === 'held' ? '보류 사유 확인 (문제 해결 창)' : '전체 불량 확인·등록 (문제 해결 창)')}</button>
             <button className="btn" onClick={toggleAllSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
-            <button className="btn btn-primary" onClick={() => registerSupport(false)} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelected.size || supportSelectionBlocked}>견적서관리에 불량차감 등록</button>
+            <button className="btn btn-primary" onClick={() => registerSupport(false)} aria-describedby={supportRegistrationReason ? 'support-register-reason' : undefined} disabled={!!supportRegistrationReason}>견적서관리에 불량차감 등록</button>
+            {supportRegistrationReason && <span id="support-register-reason" className="support-scope-label" role="status">{supportRegistrationReason}</span>}
             <button type="button" className="btn" onClick={() => changeSupportHold(supportListMode !== 'held')} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportCheckedRows.length}>{supportListMode === 'held' ? '선택 보류 해제' : '선택 항목 보류로 이동'}</button>
             <button type="button" className="btn" onClick={markSupportOmitted} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>선택 누락 처리</button>
             <button type="button" className="btn" onClick={loadOmissionHistory} disabled={omissionBusy}>누락 처리 내역·취소</button>
@@ -1843,7 +1848,6 @@ export default function SalesDefectDeductionsPage() {
         {activeTab === 'support' && <div role="group" aria-label="등록 대상과 보류 목록" style={{ display: 'flex', gap: 8, margin: '10px 0' }}>
           {[['active', '등록 대상'], ['held', '보류']].map(([mode, label]) => <button type="button" className={`btn ${supportListMode === mode ? 'btn-primary' : ''}`} key={mode} aria-pressed={supportListMode === mode} disabled={supportLoading || supportRegistering || managementBusy} onClick={() => { setSupportListMode(mode); setSupportSelected(new Set()); setManagementSelected(new Set()); setCompanyFilters(current => ({ ...current, support: '' })); }}>{label} ({supportRows.filter(row => isDefectRegistrationHeld(row) === (mode === 'held')).length}건)</button>)}
           {supportListMode === 'active' && <span>등록 가능은 이 불량 건의 등록 조건을 통과했다는 뜻입니다. 체크한 항목은 보류로 이동할 수 있습니다.</span>}
-          {supportSelectionBlocked && supportCheckedRows.length > 0 && <span role="status">선택 항목에 등록 불가 건이 있습니다. 보류로 이동하거나 문제를 해결한 뒤 등록하세요.</span>}
           {supportListMode === 'held' && <span>이전 견적·원문 확인 또는 이번 차수 분배가 필요한 자료입니다. 담당자 보류는 체크 후 보류 해제할 수 있습니다. 원장은 보존하며, 다른 보류 사유가 해결되면 재조회 시 등록 대상으로 돌아옵니다.</span>}
         </div>}
         {['sales', 'support'].includes(activeTab) && <DefectCompanyFilter key={activeTab} rows={activeTab === 'sales' ? rows : supportModeRows} value={companyFilters[activeTab]} disabled={loading || saving || supportLoading || supportRegistering || managementBusy} onChange={value => { endSelectionDrag(); setCompanyFilters(current => ({ ...current, [activeTab]: value })); setSelected(new Set()); setSupportSelected(new Set()); setManagementSelected(new Set()); setActiveSearch(null); }} />}
@@ -1989,6 +1993,9 @@ export default function SalesDefectDeductionsPage() {
               const existingEstimateRecords = Array.isArray(row.existingEstimateRecords) ? row.existingEstimateRecords : [];
               const existingEstimateCount = Number(row.existingEstimateCount ?? existingEstimateRecords.length);
               const scopeLabel = supportStatusDetail(row, year, week);
+              const rowBlocked = activeTab === 'support' && !isSupportRegistrationSelectable(row, activeTab);
+              const blockAction = rowBlocked ? defectResolution(row).action : '';
+              const blockDetail = rowBlocked ? row.registrationError || scopeLabel : scopeLabel;
               const estimateCapture = buildSupportEstimateCapture(row, { year, week });
               const productDisplay = buildDefectProductDisplay(row);
               const registeredEstimate = getSupportLinkedEstimate(row);
@@ -2023,7 +2030,8 @@ export default function SalesDefectDeductionsPage() {
                     {row.registrationEligibilityCode === 'CUSTOMER_SALE_MISSING' && <button type="button" className="btn btn-xs" onClick={() => { setManager(row.managerName || row.managerId || ''); setYear(String(row.orderYear || year)); setWeek(String(row.orderWeek || week)); setActiveTab('sales'); }}>원차수 출고 확인</button>}
                     {existingEstimateCount > 0 && <details className="support-existing-estimates" onKeyDown={event => { if (event.key === 'Escape' && event.currentTarget.open) { event.preventDefault(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}><summary>기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}
                   </div>
-                  {scopeLabel && <small className="support-scope-label" title={scopeLabel}>{scopeLabel}</small>}
+                  {blockDetail && <div className="support-scope-label">{rowBlocked ? '사유 · ' : ''}{blockDetail}</div>}
+                  {blockAction && blockAction !== blockDetail && <div className="support-scope-label">다음 조치 · {blockAction}</div>}
                 </td>
                 <td className="support-estimate-preview-cell">
                   <SupportEstimatePreviewButton
@@ -2379,7 +2387,7 @@ export default function SalesDefectDeductionsPage() {
         .support-existing-estimates summary { cursor: pointer; color: #1d4ed8; font-weight: 700; white-space: nowrap; }
         .support-existing-estimates div { margin-top: 2px; padding-top: 2px; border-top: 1px dashed #cbd5e1; white-space: normal; overflow-wrap: anywhere; }
         .support-carryover { color: #b45309; font-weight: 700; }
-        .support-scope-label { display: block; margin-top: 2px; color: #64748b; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .support-scope-label { display: block; margin-top: 2px; color: #334155; font-size: 12.5px; white-space: normal; overflow-wrap: anywhere; }
         .support-estimate-open { display: inline-block; white-space: nowrap; }
         .support-estimate-preview-cell { width: 104px; min-width: 104px; text-align: center; white-space: nowrap; }
         .support-estimate-preview { min-width: 84px; color: #92400e; border-color: #f59e0b; background: #fffbeb; }

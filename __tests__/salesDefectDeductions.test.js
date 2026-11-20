@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { supportRegisterBlockReason } from '../lib/salesDefectSupportStatus.js';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { scoreMatch } from '../lib/displayName.js';
@@ -98,6 +99,13 @@ assert.equal(needsDefectManagerGuide('조현욱', quickOwners), false);
 assert.match(incomingDefectPrintBlockReason([]), /인쇄할 자료가 없습니다/);
 assert.match(incomingDefectPrintBlockReason([{ importConfirmed: true }, {}, {}]), /미확정 2건/);
 assert.equal(incomingDefectPrintBlockReason([{ importConfirmed: true }]), '');
+assert.match(supportRegisterBlockReason({ supportLoading: true }), /조회하는 중/);
+assert.match(supportRegisterBlockReason({ supportRegistering: true }), /등록을 진행 중/);
+assert.match(supportRegisterBlockReason({ managementMode: true }), /수정·정리/);
+assert.match(supportRegisterBlockReason({ eligibleCount: 0 }), /등록 가능한 항목이 없습니다/);
+assert.match(supportRegisterBlockReason({ eligibleCount: 2, checkedCount: 0 }), /항목을 선택/);
+assert.match(supportRegisterBlockReason({ eligibleCount: 2, checkedCount: 2, selectionBlocked: true }), /등록 불가 건/);
+assert.equal(supportRegisterBlockReason({ eligibleCount: 2, checkedCount: 1 }), '');
 assert.deepEqual(
   partitionRegistrationPreflight([
     { deductionKey: 1, error: '' },
