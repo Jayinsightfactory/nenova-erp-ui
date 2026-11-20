@@ -592,7 +592,8 @@
       "requiredScenarios": [
         "farm",
         "product",
-        "quantity"
+        "quantity",
+        "price"
       ],
       "guides": [
         {

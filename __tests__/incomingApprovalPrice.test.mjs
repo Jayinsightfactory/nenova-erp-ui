@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildCorrectionPlan, normalizedCorrection} from '../lib/warehouseCorrectionPolicy.js';
+import {prepareWarehouseCorrection} from '../lib/warehouseCorrection.js';
 import {writeApprovalReceiptPrice} from '../lib/incomingApprovalLinkedWriter.js';
 
 const header={WarehouseKey:1,OrderYear:'2026',OrderWeek:'44-03',FarmName:'연습 농장',isDeleted:0};
@@ -24,6 +25,10 @@ test('price-only change keeps the selected original row and derives its total',a
   assert.match(statements[0].sql,/SET UPrice=@price,TPrice=@total/);
   assert.match(statements[0].sql,/WdetailKey=@key AND WarehouseKey=@wk AND ProdKey=@product AND UPrice=@expected/);
   assert.equal(after[1].WdetailKey,12);
+});
+
+test('direct correction route cannot use a price approval payload',async()=>{
+  await assert.rejects(prepareWarehouseCorrection({input:request,types:{},queryFn:()=>{throw Error('unexpected query');}}),{code:'CORRECTION_APPROVAL_REQUIRED'});
 });
 
 test('price-only change rejects stale price, farm changes, a different total basis, and unmapped legacy rows',()=>{
