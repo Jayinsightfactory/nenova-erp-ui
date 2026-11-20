@@ -1,5 +1,16 @@
 # 작업 기록
 
+## 2026-11-19 업무 화면 목적 우선(Purpose-First) 실시간 트레이스 도면 — /work/manuals · /import/pipeline (feat/work-purpose-trace-motion)
+- 사장님 지시: "이런 형태로 모션·디자인이 업무도 PM도 들어갔으면 하고, 목적이 중요하게 표시되어야 한다" — 레퍼런스(실시간 아키텍처 트레이스 도면: 모눈 캔버스 + 01→02 단계 카드 + 직교 S-커브 배선 + 완료 초록/실행 중 파란 점선 흐름/대기 회색).
+- 신규 공용 components/work/PurposeFlowTrace.js: 최상단 「업무 핵심 목적 · PURPOSE」 콜아웃(17px 목적 + 15px 막는 문제·완료 결과물) → 캔버스 단계 카드(담당/표면 라벨·단계명 14.5px·단계 목적 1줄·기준/도구 토큰 박스·상태 배지). 완료=#059669 테두리+좌 4px 바+실선+패킷 점(SMIL animateMotion), 실행 중=#2563eb+#eff6ff+파란 점선(stroke-dashoffset), 대기=#cbd5e1. [AUTO 1x] 단추로 모션 재생/정지, prefers-reduced-motion 이면 자동 정지. 카드 클릭=onSelectStep(부모 활성 단계와 양방향).
+- ★배치는 순수 함수 layoutTrace(count,width) 가 계산(폭에서 열 수 4/3/2/1 균형 분할, 줄 사이 리턴 배선은 카드 아래 레인의 68% 높이, 레인 라벨은 같은 레인 위쪽 칸 6~32px). 라벨·배선·카드 겹침을 테스트가 폭 320~1920 × 1~8단계 전수 검사 — 참고 이미지처럼 라벨 위로 선이 지나가는 일 없음. 배경 모눈은 CSS 그라디언트가 아니라 SVG pattern.
+- 데이터 lib/workPurposeTrace.js: 4개 부서(수입부·영업지원·영업부·경영지원) 목적 + 대표 5단계(manualId=실제 매뉴얼 id, 테스트가 data/*handover*.json 과 대조), 설정 없는 부서는 order 순 대표 업무로 자동 구성. 수입 원스톱 목적 문구 + 4단계.
+- /work/manuals: 부서 칩 아래·검색줄 위에 도면 장착. 단계 클릭 → openSearchManual(dept, manualId) 로 그 매뉴얼을 열고, ?manual= 로 열린 매뉴얼은 도면의 실행 중 단계가 됨(ImportHandover 는 무수정 — 안에서 연 매뉴얼은 부모에 알리지 않으므로 마지막 클릭 단계 유지).
+- /import/pipeline: 헤더 아래·가이드 위에 도면. 지금 보는 단계(activeStep)=실행 중, 조회 결과 complete=완료, 나머지=대기. 카드 클릭=goToStep(1~4). 도면 버튼은 role=tab·#pipeline-tab-N 을 쓰지 않아 가이드 녹화 셀렉터와 충돌 없음. 가이드 sourceFiles 에 PurposeFlowTrace.js·lib/workPurposeTrace.js 추가 후 영상·해시 재생성.
+- ★함정: 도면 안 한글 토큰 상자는 monospace 만 쓰면 굴림체로 떨어짐 → Consolas,"Malgun Gothic" 순서. 테스트가 굴림 계열·그라디언트·이모지(화살표 ↔ 포함!)·금지어를 소스에서 검사.
+- 검증: purposeFlowTrace · workManualsUpgrade · importOneStopPipeline · test:workflow-guides · test:ui-layout · guard:erp-writes · test:pm 전수 PASS, next build --webpack 성공(락 사용).
+- 검색어: PurposeFlowTrace layoutTrace workPurposeTrace 목적 우선 트레이스 도면 /work/manuals /import/pipeline AUTO 1x 직교 S-커브
+
 ## 2026-11-05 /pm 3D(베타) 품질 총개선 — 체형 교정·클레이 렌더·배경 밀도 + 브리지 page/scroll (PR #1534)
 - 지시1 체형: build_char_kaykit.py 에 HEAD_K=0.55(머리 축소) + NECK_Z=1.17/BODY_K=1.1(목 아래 리그·메시 세로 스트레치, 머리는 평행이동) — 바인딩 전 변형이라 클립 9종 무손상, 머리:전신 1:2.2→≈1:4(레퍼런스 Kenney Protagonists·KayKit Rogue). sit 힙 0.48→0.52(SEAT_Y 보정), 서기 머리끝 1.94→1.78, CHAR_SCALE 0.95→1.1(화면 90~110px 테스트 유지). build_wearables.py 에도 같은 재매핑(head=이동+축소, chest=상승, hand=새 리그 좌표라 무수정) — 한쪽만 하면 착용물이 공중부양.
 - 지시2 렌더(QUALITY_RECIPE.md): 전역 shadowMap OFF→접지 블롭 평면, kit AO 베이크(신규 scripts/pm3d/bake_kit_ao.py: 모듈을 격자로 벌려 상호차폐 방지→공동 Smart UV 1024 아틀라스→Cycles AO→kit_ao.jpg+TEXCOORD_1 재export), 캐릭터 MeshToonMaterial 5단 파스텔 램프(NearestFilter), RoomEnvironment 1회+dispose, ACES 노출 1.05(1.2는 파스텔 날아감), 배경 그라데이션+fog+포말 띠. 토큰=PM3D.RENDER.
@@ -4028,6 +4039,13 @@ pm run test:canon 통과.
 5. 주의/잠금: 병렬 세션 `UI-1`(`pages/pm.js`, `lib/pmThemes.js`, `ControlGuide.js`, `Grow.js`, `workflow-guides.json`)·`UI-3`(`SolutionSuiteSimulator.js`, `desktop/package.json`)·`pages/api/**` 무수정 준수; `DeviceHubConsole`은 라이트 스테이지 위 `.dhc-root` 다크 프레임 보존.
 검색어: my-work 도입레이더 흐름도 ArchFlowChart TechRadarWorkbench mode-clear Anti-AI-Slop 에디토리얼라이트 쉘 PR1878
 
+## 2026-11-19 · 중국 운송수단별 손익 참고 내역 (구현 단계)
+1. 작업 위치: nenova-erp-ui / codex/china-profit-transport / .codex-work/china-transport / PR 미생성.
+2. 완료된 것: 중국 합계 불변 읽기 전용 HUBFRESH 배·Cloudland 비행기·미배정 분해, 실제 농장배정 우선·당차 동일품목 입고비율, 공통비/원가 미확인/저장본 차액 미배정, 0원 운임 경고, 기존 데스크톱 보고서 메뉴 연결(최신 master 보존 후1.3.61).
+3. 남은 할 일: 최신 master 병합, PR/CI/배포 및 운영44 스모크. 아직 배포하지 않음.
+4. 검증 상태: 새 정책/API 회귀, 합성 UI dry-run/녹화, 실제 dnSpy, 44/46 SELECT-only(468/474쿼리), manifest233/변경API쓰기 가드/dnSpy/desktop menu PASS. 전체계약 첫 실행은 샌드박스 Git Bash 초기화 차단; 해당 모의테스트16개 일반환경 재검사 및 최종 npm run verify:erp-change(전체 계약/가드/build) PASS. 가이드 최종 프레임·실제 MP4/한국어 VTT/키보드·목차·1920/390 플레이어 PASS. 원장 쓰기0.
+5. 주의/잠금: lib/profitChinaTransport*, ProfitChinaTransport*, report UI/가이드·desktop 버전은 이 브랜치 담당. 원가 미확인을0원 확정으로 해석하지 않음. 운영 DB·과거/확정 snapshot 및44 태국·수국 비용 입력은 수정 금지.
+검색어: 중국 HUBFRESH Cloudland 배 비행기 미배정 당차입고비율 합계보존 china-profit-transport
 ## 2026-11-19 · 오류관제(/pm) Anti-AI Slop §7 전면 정화 & pm-control 가이드 영상 갱신
 1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/pm-control-anti-ai-slop` / `C:\Users\USER\nw-agy-clean-pm` / PR #1879.
 2. 완료된 것: `pages/pm.js`, `lib/pmThemes.js`, `lib/pmLookClear.js`, `components/pm/{ui,ControlGuide,PmTheme,StaffRequests,Character,BgScene,IsoScene,SkillFx,grow/Grow}.js` Anti-AI Slop 정화(장식 이모지·CSS 그라디언트·`box-shadow`/`drop-shadow`/`backdrop-filter`·카드 중첩 제거, 1px 선형 SVG·플랫 에디토리얼 라이트 1px 헤어라인 KPI 스트립·2열 원장 스플릿·`tabular-nums` 고정폭 정렬, `ControlGuide` 닫힘 시 동기 일시정지 수정), `scripts/pm-control-smoke.cjs --record` 재녹화(`public/guides/pm-control/staff.{mp4,ko.vtt,proof.json}`, `chapters.json`, `config/workflow-guides.json` 해시 동기화).
@@ -4051,3 +4069,128 @@ pm run test:canon 통과.
 4. 검증 상태: 새46-02 원천실패→오류·생성0 회귀 포함15건 PASS. 카톡archive 자격 없음·별칭조회실패는 unavailable, 메시지수null. 최초 다운로드/전달 및 실제 카톡↔등록 중복 여부 미확인(0건 아님). 운영 브라우저2회시간초과, 실제Desktop 읽기는 가능하나 탭클릭 coordinate input geometry unavailable 지속. 설치앱1.3.60 관찰은 타배포 버전이며 PR1883 배포 증거 아님. 실제 클릭/캡처·새 배포 미완료.
 5. 주의/잠금: private .verify/probe-country-4602.cjs, country-4602-readonly.json, compare-country-4602.cjs, country-4602-file-comparison.json은 원문/상세키를 포함하여 커밋 금지. 원본 Downloads 두 파일 보존. 일반 기능 소스 불변, 회귀테스트·plan만 추가. Carver 단독 worktree와 junction 경계 유지.
 검색어: China2026 46-02 Carver PR1883 CLOUD2518 Melody45 2563단80송이 unavailable-not-zero actual-original-readonly
+### 2026-11-19 — A3 행 안쪽 여백 축소
+1. 작업 위치: codex/tight-rows / work/tight-rows / PR 준비.
+2. 완료: 실제 셀폭 줄계산 유지, 14.5pt 줄높이+4pt 여유, 최소18.5pt.
+3. 남음: 전체검사 종료·PR·배포.
+4. 검증: 대상38PASS, Excel PDF 체리오3줄/돈셀7줄 마지막줄 확인. 높이3579→3156pt, A3 4쪽 유지.
+5. 주의: ERP원장쓰기0. 검색어 tight A3 shipmentFieldCompact row height
+## 2026-11-19 불량차감 수량 분리 요청
+- 검색어: 불량차감, 클레임용수량, 견적용수량, 담당자 바로가기, 로딩, 크레딧수량
+1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity / PR 없음.
+2. 완료 · 영업 담당자 선택 강조와 크레딧 크기, 지원 조회 진행 표시를 작업트리에 반영.
+3. 남음 · 클레임·견적 수량 저장/검증/인쇄, 비고·품목·확인 사유 개선, PR과 배포.
+4. 검증 · git diff --check. 빌드·DB 읽기 전용 probe·데스크톱 실화면 미검증.
+5. 주의 · 이 작업트리 미커밋 상태. 견적 수량을 기존 원문 수량/누락 식별키에 덮어쓰지 말 것.
+
+## 2026-11-19 별도 견적 수량 저장
+- 검색어: EstimateQuantity, 클레임용수량, 견적용수량, saveDraftRows, 기존 NULL
+1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity / PR 없음.
+2. 완료 · 별도 nullable SQL 컬럼 마이그레이션, 영업 입력, 서버 검증 및 INSERT/UPDATE, 조회 응답, 연결된 수기 견적 동기화.
+3. 남음 · 신규 견적 등록 및 조회/충돌 경로 전체 반영, 수입부·인쇄, 필수 검증 후 스키마 선적용 및 배포.
+4. 검증 · 수량 분리/누락/0/소수점 단위 테스트와 node 문법 검사 통과. 전체 테스트는 exceljs 미설치로 실행 실패. 운영 DB probe는 기존 원문 보호만 통과.
+5. 주의 · 운영 스키마 미적용. 원문 검증·누락에서 Quantity 유지. 신규 등록 전까지 기능 미배포.
+
+## 2026-11-19 견적 등록 수량 및 수입부 출력 연결
+- 검색어: registrationQuantity, EstimateQuantity, 크레딧수량, 견적서수량, 분할 등록.
+1. 작업 위치 · nenova-erp-ui / codex/defect-claim-estimate-quantity / nw-cdx-defect-quantity.
+2. 완료 · 저장 수량을 목록·사전검증·미리보기·중복·Estimate 쓰기에서 사용. 원문 수량 유지. 수입부 화면과 인쇄에 두 수량 추가, 카톡 비고 표시 변경.
+3. 남음 · 스키마 선적용, 전체 검증, 운영 배포와 실제 데스크톱 확인.
+4. 검증 · Excel 의존성 설치 후 불량차감·등록확정·자동수집 회귀 통과. Windows 배포 스크립트 검사에서 PM2 restart 출력 실패. 운영 Estimate 쓰기 미검증.
+5. 주의 · 스키마 없는 서버를 먼저 배포하면 저장 쿼리가 실패한다. 운영 업무행 수정 금지.
+
+- 2026-11-19 운영 스키마: 사용자 승인으로 EstimateQuantity decimal(18,4) NULL 및 양수 CHECK 적용. 읽기 전용 확인에서 제약 활성·신뢰 확인. PR #1880 재검증 및 배포 대기.
+
+
+## 2026-11-19 통합 솔루션 시뮬레이터 SVG 선-글자 관통 · 공용폰 OCR 겹침 · 마스터-디테일 캡처 뷰어 · 한글 고딕 교정
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/simulator-svg-ocr-overlap` / `C:\Users\USER\nw-agy-fix-overlap` (PR 생성·CI 통과 후 squash 머지 및 정리)
+2. 완료된 것: `components/work/SolutionSuiteSimulator.js`(좌측 아키텍처 트레이스 SVG `03→04` 직교 버스 `y=144` 및 하단 독립 배지 레인 `y=166..196` 최상위 DOM 분리·화살표 마커, 공용폰 스냅샷 절대좌표 `.sim-ocr-box` 전면 폐기 후 3열 DOM Grid 인라인 하이라이트+우측 주석 거터 전환, `.sim-kv-row dt` `keep-all`/`nowrap` 및 폭 `162px` 보정, 좌측 `60%`에 `EXECUTION TRACE`+`5열 실행 로그 원장` 통합해 좌우 높이 균형화, `실제 작업 캡처 & 실측 대조`를 하단 `100%` `62:38` 마스터-디테일 뷰어로 독립 및 이미지 위 텍스트 대신 꼭짓점 번호 배지·우측 해설 리스트·전체 제목 가로 목록 구현, `ui-monospace` 제거 후 `Pretendard`/`Malgun Gothic`+`tabular-nums`·`12.5~14.5px` 고대비 적용), `pages/my-work.js`(`.bar-tabs` `flex-wrap: nowrap; overflow-x: auto` 단일 행 유지 및 불투명 배경, 고딕 서체 적용), `__tests__/solutionSuiteSimulator.test.js` 회귀 가드 보강, `desktop/package.json`·`desktop/package-lock.json` `1.3.62` 패치 업(`origin/master` 선행 `1.3.61` 이후 패치).
+3. 남은 할 일: PR 생성 · CI(`verify` · `installer`) 통과 대기 · squash 머지 · worktree/junction 정리.
+4. 검증 상태: `solutionSuiteSimulator.test.js`, `adoptionRadar.test.js`, `techRadarSimulator.test.js`, `archFlowChart.test.js`, `test:pm`, `test:ui-layout`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `guard:erp-writes --changed-from origin/master`, `test:erp-manifest --changed-from origin/master`, `desktop test`(75건), `npx next build --webpack`, Headless Chromium `1920×1080`·`1440×900` 실렌더링 기하·스크린샷 육안 검수 PASS (운영 서버 실데이터·DB 쓰기 0건, 캡처/API는 로컬 합성 픽스처 검증).
+5. 주의/잠금: 병렬 세션 `세션 Fix-Font` 전담 파일(`data/moyi-full-suite-blueprint.html`, `components/pm/TechRadarWorkbench.js`, `components/pm/ArchFlowChart.js`, `components/pm/ui.js`) 및 `GabrielProfitAgiWorkbench.js`, `pages/api/**` 무수정 유지.
+검색어: SolutionSuiteSimulator sim-bus-badge sim-ocr-token sim-line-gutter sim-capture-workbench Pretendard Malgun-Gothic bar-tabs Desktop-1.3.62
+
+### 2026-11-19 — 맑은 고딕 글자 폭에 맞춘 현장물량표 행 높이
+1. 작업 위치: nenova-erp-ui / codex/a3-page / work/a3-page / PR 예정.
+2. 완료된 것: shipmentFieldCompact의 한글·영문·공백·구두점·굵기별 추정 폭으로 실제 한 줄 셀의 두 줄 오판 수정. 줄간격/글씨크기/수식 유지.
+3. 남은 할 일: 전체검사·PR CI·운영 배포 확인.
+4. 검증 상태: 대상39건 PASS, 실제 Excel PDF Cosmo/딜레타33→18.5pt·돈셀7줄 유지 확인. A3 4쪽, 총3156→3069pt. 전체검사 진행.
+5. 주의/잠금: ERP 원장쓰기 없음. 작업트리만 수정. 추정폭은 플랫폼 폰트 실측 API가 아닌 10pt 보수 휴리스틱.
+검색어: shipmentFieldCompact printHeight Latin glyph spaces bold A3 39 tests a3-page
+
+## 2026-11-19 /pm 목적 우선 배너 + 실시간 PM 파이프라인 트레이스 모션 도면
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/pm-purpose-trace-motion` / `C:\Users\USER\nw-swm-pm-trace` (스웜 pm-trace-claude)
+2. 완료된 것: 신규 `components/pm/PmPurposeTraceBoard.js`. ① `PmPurposeBanner`(`data-testid="pm-purpose-banner"`)를 헤더 바로 아래에 둠. 「핵심 목적 · PURPOSE」로 WHY 17px, 손실·병목 / 완료 기준(DONE) / 담당 에이전트 / 기대 효과를 15px 굵게 표시. 업무 대장 줄(이제 키트 `SelectCard`)을 누르면 그 과제 기준으로 바뀌고(`data-scope=task`), `전체 목적 보기`를 누르면 원래대로 돌아감. ② 일반 관제의 `PmPurposeTraceBoard`(`data-testid="pm-live-trace-diagram"`). SVG 패턴으로 20px 모눈을 깔고 6단계 카드를 둠(01 현장 신호 → 06 Cafe24·데스크톱). 완료 카드는 에메랄드 실선과 이동 점, 실행 중 카드는 로열블루 흐르는 점선(`stroke-dashoffset`), 대기 카드는 슬레이트. 03→04 리턴 버스 선은 레인 위쪽에, 배지는 레인 아래쪽 흰 배경에 따로 둠. 실측해서 `data-bus-clear`에 기록함. AUTO 1x(2,600ms) 재생/정지, 카드를 누르면 그 단계로 이동, `실시간 상태로` 버튼도 있음. 과제 상태는 `traceStageOfTask`로 단계에 맞춤. 전체 보기는 승인 → 검증 → 조사 순서로 우선함. 색은 rgb()만 쓰고 hex는 0, 글꼴은 Pretendard → 맑은 고딕.
+3. 가이드: `pm-control` 시나리오가 6개가 됨(purpose / trace / task / control / game / off). sourceFiles에 새 컴포넌트를 넣음. `scripts/pm-control-smoke.cjs`에 배너·도면·과제 선택·버스 겹침 검사를 추가하고 `--record`로 다시 녹화함(98초).
+4. 검증: `node __tests__/pmPurposeTrace.test.js`(신규), `npm run test:pm`, `npm run test:workflow-guides`, `check-workflow-guides --changed-from origin/master`, `npm run test:ui-layout`, `guard:erp-writes --changed-from origin/master`, `npx next build --webpack`, 1920/1280/390 스크린샷 육안 확인 PASS. 쓰기 0, JS 오류 0.
+5. 함정: worktree의 node_modules junction은 Turbopack dev에서 패닉이 나므로 `npx next dev --webpack -p 3298`을 쓰고 `JWT_SECRET=pm-control-local-fixture-only`를 줘야 녹화 쿠키가 통과함. 녹화기 `focus`는 스크롤하지 않음. 그래서 step에서 `scrollIntoView({block:'center'})`를 먼저 부름(`block:'start'`이면 sticky 헤더가 버튼을 가려 클릭이 빗나감). animateMotion `mpath`는 경로 d가 바뀌어도 예전 좌표를 붙잡고 있음. `<g key={id+d}>`로 다시 마운트해서 해결함.
+검색어: PmPurposeTraceBoard pm-purpose-banner pm-live-trace-diagram traceStageOfTask data-bus-clear pmtr-flow AUTO 1x 2600ms 목적 우선 트레이스 도면
+
+## 2026-11-19 가브리엘 원가·이익 AGI(`/import/gabriel-agi`) 목적 우선(Purpose-First) & 실시간 트레이스 모션 도면 탑재
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/gabriel-purpose-trace-motion` / `C:\Users\USER\nw-swm-gabriel-trace`
+2. 완료된 것: `components/import-tools/GabrielProfitAgiWorkbench.js` 및 `styles/GabrielProfitAgi.module.css`에 최상단(`gabriel-purpose-callout`) 및 레버별(`gabriel-lever-purpose-callout`) `핵심 목적 · PURPOSE` 고대비 고딕(16px 굵게, Pretendard/Malgun Gothic, 단독 monospace/굴림체 폴백 제거) 배너 추가, 정적 `gabriel-lever-svg-diagram`을 모눈 그리드 캔버스 위 6단계 직교 배선 실시간 트레이스 모션 도면(`완료` 에메랄드 `#059669` 좌측 바+실선+패킷 이동점 / `실행 중` 로열블루 `#2563eb` 좌측 바+`#eff6ff`+`stroke-dashoffset` 흐르는 점선 / `대기` 슬레이트 `#cbd5e1`, `prefers-reduced-motion` 준수, 독립 레인 중앙 직교 버스 라벨 선-글자 겹침 0건, `AUTO 1x` 재생/정지 및 단계 클릭 상세 하이라이트)으로 업그레이드, `public/guides/gabriel-import-profit-agi/*` 재녹화 및 `config/workflow-guides.json`(`gabriel-import-profit-agi` 한정) 동기화, `__tests__/gabrielProfitAgi.test.js` 회귀 가드 보강.
+3. 남은 할 일: PR 생성 · CI 통과 대기 · squash 머지 · worktree 및 junction 정리 · `@verifier-claude` 검증 보고.
+4. 검증 상태: `gabrielProfitAgi.test.js`, `test:workflow-guides`, `check-workflow-guides.cjs --changed-from origin/master`, `test:ui-layout`, `guard:erp-writes -- --changed-from origin/master`, `test:pm`, `npx next build --webpack`(`next-build.lock`), `record-gabriel-agi-guide.cjs`(`--dry-run` · 실녹화 · `--player-smoke`) 및 1920px·390px 실렌더링 스크린샷 육안 검수 PASS (운영 DB 쓰기 0건, 합성 픽스처 검증).
+5. 주의/잠금: 타 워커 담당 파일(`pages/pm.js`, `pages/work/manuals.js`, `ImportOneStopPipeline.js`, `CeoCommandHub.js`, `TechRadarWorkbench.js`, `ArchFlowChart.js`, `SolutionSuiteSimulator.js`, `pages/api/**`) 및 `workflow-guides.json` 타 워크플로우 항목 무수정 보존.
+검색어: GabrielProfitAgiWorkbench gabriel-purpose-callout gabriel-lever-purpose-callout gabriel-lever-svg-diagram gabriel-trace-auto-toggle stroke-dashoffset prefers-reduced-motion Purpose-First
+
+## 2026-11-19 중국 39차 이후 두 농장 손익 분해
+1. 작업 위치: `codex/china-profit-two-farms` / `.codex-work/china-two-farms` / PR #1895.
+2. 완료된 것: `profitChinaTransport` 정책·API·화면을 39차 이상 HUBFRESH/Cloudland 두 행으로 제한. 실제 농장·동일품목 당차 입고 우선, 잔차는 같은 단위 입고 수량 또는 명시한 보고서 CNY 매입액 비율. 근거 부족/원천 NULL은 확인 필요. 14px 한글 고딕·합계 보존·데스크톱1.3.66(다른 세션 1.3.65 이후).
+3. 남은 할 일: PR/CI/배포, 운영 44차 두 행 확인. 최종 상태는 해당 PR 인계 댓글에도 남긴다.
+4. 검증 상태: `verify:erp-change` 전체/빌드, 정책/API 회귀, 합성 화면 38/39 경계·두 행·조회범위, 데스크톱 메뉴3건, 가이드116.45초 재녹화·해시·실제 재생1920/390 PASS. 44차 전후 SELECT 469회씩, 저장본 calc 동일. 매출39,413,527·이익−18,524,012·전체이익률−46.9991238588% 및 모든 표시 금액 합계 보존. 실제 운영 새 화면은 미검증.
+5. 주의/잠금: DB/원장/저장본 쓰기 0. 혼합 단·송이를 합산하지 않음. 기초6/기말10품목 평가 미확인은 경고 유지하며 농장별 확정 원가로 오해하지 않도록 표시. 다른 작업의 메뉴/가이드 항목 보존.
+검색어: china-two-farms 39차 HUBFRESH Cloudland 공통안분 CNY 48375 188795 44차 39413527 469 SELECT
+
+## 2026-11-19 · 인보이스 확인 매칭 우선 표시와 입고표 정리
+
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / codex/invoice-match-review / PR #1884 / 기준 master 29f275c.
+2. 완료된 것: 이미 확인된 송장·품목 우선 표시, 90% 이상 같은 나라 단독 후보, 현재 품목 옆 후보와 같은 행 검색·교체, 한글 14px·보조 12.5px, 확정 입고 반복 안내 통합, 화면 최상단 목적 제목, Desktop 1.3.65.
+3. 남은 할 일: 최종 PR CI 후 squash, Cafe24 운영 읽기 확인과 공식 Windows 설치본 공개.
+4. 검증 상태: 실제 설치 ERP dnSpy 및 운영 SELECT, 격리 Chrome 503 후 기존 매칭 유지와 선택·검색·초점 복귀·직접 입고, 같은 줄·폰트·숫자 실측과 최종 스크린샷, 목적 제목 계산 스타일 검증 및 원본 해시 영향 영상 4편.
+5. 주의/잠금: 적용한 나라만 조회. 기존 확정 입고 품목 변경 제한, 같은 파일 최신 이력, 명시 저장과 중복 차단 유지. 운영 입고·원가 저장과 유료 분석 없음.
+검색어: invoice-inline-match 90percent country-split compact-receipt Desktop1.3.65 PR1884
+
+## 2026-11-19 · 사장님 통합 지휘실(/work/command-hub) & 네노바 데스크톱 제1버튼(#pmHubButton) 연결
+1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `feat/ceo-command-hub` / `C:\Users\USER\nw-agy-ceo-hub` / PR #1893.
+2. 완료된 것: 순수 집계 모듈 `lib/ceoCommandHub.js`(6대 전담 에이전트 현황판 `buildAgentRosterStatus`, PM·직원요청·기술레이더 통합 원장 `buildPmActionLedger`/`filterPmActionLedger`, 연속 디벨롭 펄스 `buildDevelopmentPulse`, 가브리엘 Profit AGI +536만원/주·Top 3 경보, 4대 목적별 21개 화면 한눈 지도 `CEO_PAGE_DIRECTORY`), 관리자(`nenovaSS3`) 404 게이트 페이지 `pages/work/command-hub.js` & Anti-AI Slop §7 한글 고딕 UI `components/work/CeoCommandHub.js` · `styles/CeoCommandHub.module.css`, 데스크톱 상단 제1버튼 `#pmHubButton` (`desktop/shell/shell.js`) & `Layout.js` `연동` 그룹 등록, `desktop/package.json`·`package-lock.json` `1.3.64`, 4단계 사용 가이드 영상(`scripts/record-ceo-command-hub-guide.cjs`, `public/guides/ceo-command-hub/staff.{mp4,ko.vtt,proof.json}`, `config/workflow-guides.json`) 및 단위·스모크 테스트(`__tests__/ceoCommandHub.test.js`, `__tests__/desktopBootstrap.test.mjs`, `desktop/scripts/smoke.cjs`).
+3. 남은 할 일: PR #1893 CI(`verify` · `installer`) 통과 대기, squash 머지 및 worktree/junction 정리.
+4. 검증 상태: `node __tests__/ceoCommandHub.test.js`, `npm run test:ui-layout`(115메뉴/158페이지), `npm run test:workflow-guides`(34 workflows/35 videos), `node scripts/check-workflow-guides.cjs --changed-from origin/master`, `npm run guard:erp-writes -- --changed-from origin/master`(API 0건), `npm run test:erp-manifest -- --changed-from origin/master`, `npm run test:pm`, `npm run test:pm-boundary`, `npm run test:canon`, `npm run build`, `record-ceo-command-hub-guide.cjs`(--dry-run·녹화·--player-smoke, 404 게이트·1920/1280/390·MP4 프레임·WebVTT 재생/챕터 이동), `npm --prefix desktop test`(76건), `desktop test:smoke`, `desktop test:restore`, `desktop test:exit` PASS. 실운영 DB·운영 브라우저는 미검증(합성 픽스처 검증, 원장 쓰기 0건).
+5. 주의/잠금: 병렬 세션 파일(`data/moyi-full-suite-blueprint.html`, `components/pm/TechRadarWorkbench.js`, `components/pm/ArchFlowChart.js`, `components/pm/ui.js`) 및 `pages/api/**` 무수정. `copyNotice`는 구현 지시서 드로어 내부 렌더링 + `Escape`/닫기 시 동시 초기화해 지연 레이아웃 점프를 차단함.
+검색어: ceo-command-hub CeoCommandHub pmHubButton 통합지휘실 6대-에이전트 연속-디벨롭 4대-목적-디렉터리 PR1893 Desktop-1.3.64
+
+검색어: GabrielProfitAgiWorkbench gabriel-purpose-callout gabriel-lever-purpose-callout gabriel-lever-svg-diagram gabriel-trace-auto-toggle stroke-dashoffset prefers-reduced-motion Purpose-First
+
+검색어: PmPurposeTraceBoard pm-purpose-banner pm-live-trace-diagram traceStageOfTask data-bus-clear pmtr-flow AUTO 1x 2600ms 목적 우선 트레이스 도면
+
+검색어: shipmentFieldCompact printHeight Latin glyph spaces bold A3 39 tests a3-page
+
+### 2026-11-19 — Archify 도면(moyi-full-suite-blueprint.html) 및 관제 UI 한글 서체(굴림체 폴백 제거)·글자크기 상향 개편
+1. 작업 위치: Jayinsightfactory/nenova-erp-ui / fix/korean-typography-and-blueprint-legibility / C:\Users\USER\nw-agy-fix-font PR #1892.
+2. 완료된 것: data/moyi-full-suite-blueprint.html의 JetBrains Mono·Georgia·단독 monospace 제거 및 Pretendard/Malgun Gothic 스택·tabular-nums 통일, GUIDED VIEWS 01~04 버튼 말줄임(...) 완전 해소(13.5px 2단 그리드), SVG viewBox(1406×588) 확장 및 노드 16.5px·부제목 13.5px·에지 불투명 캡슐 13px·경계 헤더 14px·Anti-AI Slop 4색 구조선 정비(글로우 halo 제거). components/pm/{TechRadarWorkbench,ArchFlowChart,ui}.js의 ui-monospace/monospace 13건 전수 고딕 교체, <style jsx global> 스코핑 수정(Plan A/B/C/ALL·StoryFlow 스타일 적용 복구), SVG/HTML 최소 글자크기 12~14px 상향, __tests__/{techRadarSimulator,archFlowChart}.test.js 가드 강화, 전역 SHARED_AGENT_RULES.md §7 반영 및 3-툴 동기화 완료.
+3. 남은 할 일: PR 생성, CI(verify·installer) 통과 확인, squash 머지 및 worktree/junction 정리.
+4. 검증 상태: test:pm, techRadarSimulator.test.js, archFlowChart.test.js, adoptionRadar.test.js, solutionSuiteSimulator.test.js, test:ui-layout, test:workflow-guides, guard:erp-writes, test:erp-manifest 및 Headless Chromium(1920×1080·iframe 922×660·Plan A/C·StoryFlow·ArchFlowChart, 콘솔 오류/가로넘침/말줄임/겹침/monospace 0건) + next build --webpack PASS. (운영 서버 DB 미연결 로컬 검증)
+5. 주의/잠금: 병렬 세션 영역(SolutionSuiteSimulator.js, pages/my-work.js, desktop/package.json, config/workflow-guides.json, pages/pm.js, GabrielProfitAgiWorkbench.js, pages/api/**) 무수정 준수. components/pm/** #hex·raw <button>·금지어 0건.
+검색어: moyi-full-suite-blueprint Archify Pretendard Malgun-Gothic 굴림체 monospace TechRadarWorkbench ArchFlowChart ui.js Anti-AI-Slop tabular-nums
+
+## 2026-11-20 승인 OneDrive CI 약칭 수신
+
+- 검색어: 승인 OneDrive CI.pdf ERP 수신 capability 민감 권한 dedup
+- 승인 OneDrive 소스의 CI 약칭 PDF에만 기존 민감 정책을 적용하고, 데몬이 새 수신기를 토큰 인증으로 확인하는 읽기 전용 capability를 추가했다.
+
+1. 작업 위치: nenova-erp-ui / codex/approved-ci-sensitive / 격리 worktree .erp-drive-newfiles / PR #1900.
+2. 완료: 승인 업로드 CI PDF 분류·민감 정책과 OPTIONS capability, 수신 worker 회귀 및 파일 전용 계약.
+3. 남음: 별도 Orbit 카나리에서 정상 담당자 계정, 승인된 실제 OneDrive, 신규 업로드 및 직원 본인의 열람 검증.
+4. 검증: 수신 테스트와 전체 GitHub CI 결과를 확인하고 배포한다. 실제 직원 세션은 미검증.
+5. 주의: 기존 등록자·SHA 중복·파일 열람 권한을 유지한다. 원장·데스크톱 메뉴와 운영 파일 변경 없음.
+
+
+## 2026-11-20 — 입고 원장 일반 차수·전체 차수 검색
+1. 작업 위치: nenova-erp-ui / codex/incoming-round-search-1120 / C:/Users/USER/Documents/Codex/nw-cdx-incoming-round-1120 / 입고 원장 차수 검색 PR.
+2. 완료된 것: 차수 열 검색 예시 47 / 47-02. 일반 47·47차는 47의 세부 차수 전체, 전체 47-02는 정확히 한 세부 차수. 기존 연도, 드롭다운, 농장·인보이스·AWB의 교집합. 수입부 및 영업지원 최종 화면 촬영 진행 중, 데스크톱 1.3.68.
+3. 남은 할 일: 가이드 검증·회사 Drive 보관·최종 PR CI 및 운영 배포·설치본 무결성 검증. 직원 PC 설치·재시작은 하지 않음.
+4. 검증 상태: 정식 webpack, 실제 Chrome 합성 원장 일반/세부/전각·구분 문자 및 다른 필터 교집합, dnSpy, 원장 쓰기 가드(변경 API 0) 통과. 운영 검증 전.
+5. 주의/잠금: 공유 기본 체크아웃 및 #1896 입고 원가 시트 범위 변경 금지. 이번 검색은 기존 조회 결과에만 적용되며 DB 및 ECOUNT 쓰기 없음.
+검색어: 입고 차수 일반차수 전체차수 세부차수 47-02 incoming ledger round 검색 1.3.68
+
+2026-11-20 검증 업데이트: 두 역할 실제 가이드 촬영, 34흐름/35영상 검사, 회사 Drive 6파일 및 크기 검증 완료. 운영 확인은 PR에서 추적.

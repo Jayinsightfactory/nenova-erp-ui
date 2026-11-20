@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.60",
+  "version": "1.3.68",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -80,7 +80,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "오류관제·흐름도·시뮬레이션·도입레이더 4대 관제 화면 Anti-AI Slop 에디토리얼 리디자인 적용"
+      "releaseNotes": "수입 비행기 현황의 공지, 공항, 통관 및 원문 시각을 한국시간으로 표시합니다."
     },
     "extraResources": [
       {

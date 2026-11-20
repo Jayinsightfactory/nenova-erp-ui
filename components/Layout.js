@@ -32,6 +32,7 @@ export const MENU_ITEMS = [
   {
     group: '연동',
     items: [
+      { href: '/work/command-hub', labelKey: '사장님 통합 지휘실(PM·에이전트·디벨롭)', popup: false, userIds: ['nenovaSS3'] },
       { href: '/integrations/moyi', labelKey: 'MOYI 보고 연동', popup: false },
       { href: '/integrations/moyi-drive', labelKey: 'MOYI Drive 관리', popup: false, userIds: ['nenovaSS3'] },
       { href: '/admin/orbit-report', labelKey: '직원 업무 심화 리포트', popup: true, userIds: ['nenovaSS3'] },
@@ -124,7 +125,7 @@ export const MENU_ITEMS = [
       { href: '/sales/registration-history', labelKey: '판매등록 히스토리', popup: true },
       { href: '/sales/defect-deductions', labelKey: '영업수입불량차감', popup: true },
       { href: '/sales/farm-quality', labelKey: '농장 불량·피드백', popup: true },
-      { href: '/sales/profit-report', labelKey: '주차별 매출이익 보고서', popup: true },
+      { href: '/sales/profit-report', labelKey: '주차별 매출이익 보고서 · 중국 배/비행기', popup: true },
       { href: '/sales/profit-validation', labelKey: '매출이익 수익률 검증', popup: true },
       { href: '/raum/pnl',           labelKey: '라움 초이문 손익계산서 · 신라호텔', popup: true },
       { href: '/raum/purchase-costs', labelKey: '라움 초이문 차수별 매입단가 · 신라호텔', popup: true },

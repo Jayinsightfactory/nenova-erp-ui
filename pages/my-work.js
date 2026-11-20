@@ -1087,20 +1087,20 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
       </div>
       <style jsx global>{`
         html,body{margin:0;height:100%}
-        .wrap{position:fixed;inset:0;display:flex;flex-direction:column;background:#f8fafc;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;font-size:13px}
-        .bar{flex:0 0 auto;display:flex;flex-direction:column;background:#ffffff;border-bottom:1px solid #e2e8f0;box-shadow:none}
-        .bar-top{display:flex;align-items:center;gap:10px;padding:7px 18px;border-bottom:1px solid #f1f5f9;flex-wrap:wrap}
-        .bar-brand{display:flex;align-items:baseline;gap:8px}
-        .bar-brand b{font-size:14px;font-weight:700;color:#0f172a;letter-spacing:-0.01em}
-        .bar-sub{font-size:10.5px;font-weight:700;letter-spacing:0.06em;color:#64748b}
-        .bar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
-        .acct-badge{font-size:11.5px;font-weight:600;color:#475569;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:2px 8px;font-variant-numeric:tabular-nums}
-        .bar-tabs{display:flex;align-items:center;gap:2px;padding:0 18px;flex-wrap:wrap;background:#ffffff}
-        .bar button:not(.nv-back){background:transparent;color:#475569;border:0;border-bottom:2px solid transparent;border-radius:0;padding:8px 10px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:500;transition:color .12s,border-color .12s}
+        .wrap{position:fixed;inset:0;display:flex;flex-direction:column;background:#f8fafc;color:#0f172a;font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif;font-size:13.5px}
+        .bar{flex:0 0 auto;position:relative;z-index:20;display:flex;flex-direction:column;background:#ffffff;border-bottom:1px solid #cbd5e1;box-shadow:none}
+        .bar-top{display:flex;align-items:center;gap:10px;padding:8px 18px;border-bottom:1px solid #e2e8f0;flex-wrap:nowrap;background:#ffffff}
+        .bar-brand{display:flex;align-items:baseline;gap:8px;min-width:0}
+        .bar-brand b{font-size:15px;font-weight:700;color:#0f172a;letter-spacing:-0.01em;white-space:nowrap}
+        .bar-sub{font-size:11.5px;font-weight:700;letter-spacing:0.05em;color:#475569;white-space:nowrap}
+        .bar-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+        .acct-badge{font-size:12.5px;font-weight:600;color:#1e293b;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;padding:3px 9px;font-variant-numeric:tabular-nums;white-space:nowrap}
+        .bar-tabs{display:flex;align-items:center;gap:1px;padding:0 12px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;background:#ffffff}
+        .bar button:not(.nv-back){flex:0 0 auto;white-space:nowrap;background:transparent;color:#334155;border:0;border-bottom:2px solid transparent;border-radius:0;padding:8px 6px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;transition:color .12s,border-color .12s}
         .bar button:not(.nv-back):hover{color:#0f172a;border-bottom-color:#cbd5e1}
         .bar button:not(.nv-back).on{color:#1d4ed8;border-bottom-color:#1d4ed8;font-weight:700}
         .bar button:not(.nv-back):focus-visible,.bar a:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px}
-        .bar a{color:#334155;background:#ffffff;border:1px solid #cbd5e1;border-radius:4px;padding:3px 9px;text-decoration:none;font-size:12px;font-weight:600}
+        .bar a{color:#1e293b;background:#ffffff;border:1px solid #cbd5e1;border-radius:4px;padding:4px 10px;text-decoration:none;font-size:12.5px;font-weight:600;white-space:nowrap}
         .bar a:hover{background:#f1f5f9;color:#0f172a}
         .stage{flex:1 1 auto;min-height:0;position:relative;overflow:auto;background:#f8fafc;color:#0f172a}
         .stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#ffffff}
@@ -1280,11 +1280,11 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
         .doc .mtb td.hl{background:#fef3c7!important;font-weight:700}.hln{display:block;font-size:10.5px;color:#92400e;font-weight:400}
         .mockb{display:flex;gap:8px;padding:8px 10px;background:#ffffff}.mockb button{background:#1d4ed8;color:#ffffff;border:0;border-radius:4px;padding:5px 12px;cursor:pointer;font:inherit;font-size:12px;font-weight:600}
         .modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:50}.modalb{background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;padding:14px;width:min(640px,92vw);display:flex;flex-direction:column;gap:8px;color:#0f172a}
-        .modalb textarea{width:100%;background:#f8fafc;color:#0f172a;border:1px solid #cbd5e1;border-radius:4px;font:12px/1.5 monospace;padding:8px;box-sizing:border-box}
+        .modalb textarea{width:100%;background:#f8fafc;color:#0f172a;border:1px solid #cbd5e1;border-radius:4px;font:13px/1.55 'Pretendard Variable','Pretendard','Malgun Gothic','맑은 고딕',sans-serif;font-variant-numeric:tabular-nums;padding:8px;box-sizing:border-box}
         .wbar{display:flex;align-items:center;gap:8px;margin:4px 0}.wbar .wl{flex:0 0 56px;color:#475569}.wbar i{display:block;height:14px;border-radius:2px;min-width:2px}.wbar .b1{background:#dc2626}.wbar .b2{background:#15803d}
         .st.s0{border-color:#1d4ed8}.st.s1{border-color:#15803d}.st.s2{border-color:#b45309}.st.s3{border-color:#db2777}.st.s4{border-color:#6d28d9}.st.s5{border-color:#0284c7}.st.s6{border-color:#059669}.st.s7{border-color:#d97706}.st.s8{border-color:#dc2626}
         @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
-        @media (max-width:760px){.wfwrap{flex-direction:column}.wfl{flex:none;border-right:0;border-bottom:1px solid #e2e8f0}.tlr{flex-direction:column;gap:2px}.tlw{flex:none}.bar-top{padding:7px 12px}.bar-tabs{padding:0 12px}}
+        @media (max-width:760px){.wfwrap{flex-direction:column}.wfl{flex:none;border-right:0;border-bottom:1px solid #e2e8f0}.tlr{flex-direction:column;gap:2px}.tlw{flex:none}.bar-top{padding:7px 12px;flex-wrap:wrap}.bar-tabs{padding:0 12px}}
       `}</style>
     </div>
   );

@@ -163,6 +163,7 @@ function installFixtureProtocol() {
           origin: { name: '메데진', lat: 6.16, lon: -75.42 },
         }, {
           key: 'registered-fixture', weekLabel: '47-1', country: '미국', flight: 'KE048', status: 'registered', statusLabel: '입고 등록 끝',
+          customsProgress: { declaration: 'cleared', release: 'unknown' },
           origin: { name: '로스앤젤레스', lat: 33.94, lon: -118.40 }, position: { lat: 37.46, lon: 126.44 },
         }],
         todo: [{ key: 'registered-fixture', text: '인보이스 수량 확인', level: 'red' }],
@@ -264,6 +265,71 @@ async function verifyHomeBridge(contents) {
   await assert.rejects(homeIpc(contents, { method: 'GET', date: '2026-02-30' }));
   assert.equal(homeRequests.length, beforeInvalid, 'invalid bridge requests never reach fixture transport');
   console.log('Smoke: home IPC fixed route, owner, date, create/complete/read and conflict');
+}
+
+async function verifyFlightRefreshOnRestore(contents) {
+  const readCount = () => fixtureRequests.filter(r => r.pathname === '/api/import/flight-board' && r.method === 'GET').length;
+  await contents.executeJavaScript(`(() => {
+    const realNow = Date.now, realSet = window.setTimeout, realClear = window.clearTimeout;
+    let now = realNow(), hidden = false, id = 0;
+    const timers = new Map();
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    Date.now = () => now;
+    window.setTimeout = (fn, ms, ...args) => {
+      if (ms !== 300000) return realSet(fn, ms, ...args);
+      timers.set(--id, { fn, at: now + ms });
+      return id;
+    };
+    window.clearTimeout = (timer) => timer < 0 ? timers.delete(timer) : realClear(timer);
+    const visibility = (value) => {
+      hidden = value;
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+    window.__flightClock = {
+      visibility,
+      advance(ms) {
+        now += ms;
+        for (const [key, entry] of timers) {
+          if (entry.at > now) continue;
+          timers.delete(key);
+          entry.fn();
+        }
+      },
+      restore() {
+        visibility(true);
+        delete document.hidden;
+        Date.now = realNow;
+        window.setTimeout = realSet;
+        window.clearTimeout = realClear;
+        delete window.__flightClock;
+      },
+    };
+  })()`);
+  try {
+    await waitFor(() => contents.executeJavaScript("!document.querySelector('#flightBoard .workspace-refresh').disabled"), 'initial flight read is settled');
+    const start = readCount();
+    await contents.executeJavaScript('window.flightBoard.reload()');
+    const before = readCount();
+    assert.equal(before, start + 1, 'visible native flight panel reads and starts its polling clock');
+    await contents.executeJavaScript('__flightClock.visibility(true); __flightClock.advance(301000)');
+    assert.equal(readCount(), before, 'no flight read while minimized');
+    const immediatelyStarted = await contents.executeJavaScript(`(() => {
+      __flightClock.visibility(false);
+      const reading = document.querySelector('#flightBoard .workspace-refresh').disabled;
+      __flightClock.visibility(false);
+      void window.flightBoard.reload();
+      return reading;
+    })()`);
+    assert.equal(immediatelyStarted, true, 'restore starts the overdue read before a manual action');
+    await waitFor(() => readCount() >= before + 1, 'overdue flight read when the window returns');
+    await waitFor(() => contents.executeJavaScript("!document.querySelector('#flightBoard .workspace-refresh').disabled"), 'restored flight read is settled');
+    assert.equal(readCount(), before + 1, 'resume and manual events share one in-flight read');
+    await contents.executeJavaScript('__flightClock.advance(300000)');
+    await waitFor(() => readCount() >= before + 2, 'the next regular flight read still runs');
+    assert.equal(readCount(), before + 2);
+  } finally {
+    await contents.executeJavaScript('__flightClock.restore(); window.flightBoard.reload()');
+  }
 }
 
 async function verifyHomeUi(contents, window) {
@@ -474,6 +540,12 @@ async function run() {
   await waitFor(() => shellContents.executeJavaScript("document.querySelector('[data-flight-select]')?.textContent.includes('콜롬비아 수국 47-1') === true"), 'flight card displays the API cargo title');
   await waitFor(() => shellContents.executeJavaScript("document.body.textContent.includes('도착 후 확인') && [...document.querySelectorAll('svg [role=button]')].some(n => n.getAttribute('aria-label')?.includes('K4254'))"), 'current flight marker and post-arrival work are shown');
   assert.equal(await shellContents.executeJavaScript("[...document.querySelectorAll('svg [role=button]')].some(n => n.getAttribute('aria-label')?.includes('KE048'))"), false, 'registered arrival with open work has no map marker');
+  assert.equal(await shellContents.executeJavaScript("[...document.querySelectorAll('[data-flight-select]')].some(n => n.textContent.includes('KE048') && n.textContent.includes('수입신고 수리 완료 · 반출 미확인'))"), true, 'recent customs status is displayed beside the flight title');
+  assert.equal(await shellContents.executeJavaScript("document.querySelector('#flightBoard').textContent.includes('모든 시각 한국시간(KST)')"), true, 'native board names its time standard');
+  const homeWasOpen = sourceWindow.menuOpen;
+  await main.command(sourceWindow, 'menu', { open: true });
+  try { await verifyFlightRefreshOnRestore(shellContents); }
+  finally { await main.command(sourceWindow, 'menu', { open: homeWasOpen }); }
   for (const [phase, label, disabled] of [['available', '앱 1.4.0 다운로드', false], ['downloading', '다운로드 42%', true], ['downloaded', '재시작하여 업데이트', false], ['unavailable', '앱 업데이트 확인', true]]) {
     // Account and tab events also publish state. Capture this fixture render when it arrives.
     await shellContents.executeJavaScript(`(() => {
@@ -517,8 +589,14 @@ async function run() {
   await shellContents.executeJavaScript("window.dispatchEvent(new Event('online'))");
   assert.deepEqual({ activeId: sourceWindow.activeId, tabCount: main.tabs.size, menuOpen: sourceWindow.menuOpen }, beforeAutomaticUpdate);
   main.command(sourceWindow, 'menu', { open: true });
-  const pmButtons = await shellContents.executeJavaScript("({open:document.querySelector('#pmOpenButton')?.textContent,arch:document.querySelector('#pmArchButton')?.textContent,sim:document.querySelector('#pmSimButton')?.textContent,radar:document.querySelector('#pmRadarButton')?.textContent})");
-  assert.deepEqual(pmButtons, { open: '오류관제 열기', arch: '흐름도', sim: '시뮬레이션', radar: '도입레이더' });
+  const pmButtons = await shellContents.executeJavaScript("({firstId:document.querySelector('.pm-live-actions button')?.id,hub:document.querySelector('#pmHubButton')?.textContent,open:document.querySelector('#pmOpenButton')?.textContent,arch:document.querySelector('#pmArchButton')?.textContent,sim:document.querySelector('#pmSimButton')?.textContent,radar:document.querySelector('#pmRadarButton')?.textContent})");
+  assert.deepEqual(pmButtons, { firstId: 'pmHubButton', hub: '통합지휘실', open: '오류관제 열기', arch: '흐름도', sim: '시뮬레이션', radar: '도입레이더' });
+  await shellContents.executeJavaScript('document.querySelector("#pmHubButton").click()');
+  await waitFor(() => [...main.tabs.values()].some(tab => new URL(tab.url).pathname === '/work/command-hub'), 'PM hub button opens the CEO command hub');
+  const hubTab = [...main.tabs.values()].find(tab => new URL(tab.url).pathname === '/work/command-hub');
+  assert.equal(hubTab.title, '사장님 통합 지휘실');
+  main.command(sourceWindow, 'close', { id: hubTab.id });
+  main.command(sourceWindow, 'menu', { open: true });
   await shellContents.executeJavaScript('document.querySelector("#pmOpenButton").click()');
   await waitFor(() => [...main.tabs.values()].some(tab => new URL(tab.url).pathname === '/pm'), 'PM monitoring button opens the PM office');
   const pmTab = [...main.tabs.values()].find(tab => new URL(tab.url).pathname === '/pm');

@@ -3,88 +3,90 @@
 // Phone Harness · Device Hub · 데스크톱 Rust 사이드카 · Nenova Kakao · Hermes · MOYI 앱 · 네노바웹 ERP 원장 연동 실연.
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+const FONT_SANS = "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif";
+
 const NODES = [
   {
     id: 'phone_kakao',
     no: '01',
     short: '01 Phone Harness · 카톡 수집',
     surface: 'Surface 1 · 현장 수집',
-    x: 26,
-    y: 30,
-    w: 272,
-    h: 104,
-    cx: 162,
-    cy: 82,
+    x: 16,
+    y: 14,
+    w: 290,
+    h: 110,
+    cx: 161,
+    cy: 69,
   },
   {
     id: 'device_hub',
     no: '02',
     short: '02 Device Hub · 30fps Lease',
     surface: 'Surface 2 · 기기 관제',
-    x: 354,
-    y: 30,
-    w: 272,
-    h: 104,
+    x: 345,
+    y: 14,
+    w: 290,
+    h: 110,
     cx: 490,
-    cy: 82,
+    cy: 69,
   },
   {
     id: 'rust_sidecar',
     no: '03',
     short: '03 Rust 사이드카 · hermes-core',
     surface: 'Surface 2 · WSS/압축',
-    x: 682,
-    y: 30,
-    w: 272,
-    h: 104,
-    cx: 818,
-    cy: 82,
+    x: 674,
+    y: 14,
+    w: 290,
+    h: 110,
+    cx: 819,
+    cy: 69,
   },
   {
     id: 'hermes_ai',
     no: '04',
     short: '04 Hermes AI · 3단위 환산',
     surface: 'Surface 3 · 지능 매칭',
-    x: 26,
-    y: 204,
-    w: 272,
-    h: 104,
-    cx: 162,
-    cy: 256,
+    x: 16,
+    y: 216,
+    w: 290,
+    h: 110,
+    cx: 161,
+    cy: 271,
   },
   {
     id: 'moyi_gate',
     no: '05',
     short: '05 MOYI 앱 · 승인 게이트',
     surface: 'Surface 4 · 2FA 승인',
-    x: 354,
-    y: 204,
-    w: 272,
-    h: 104,
+    x: 345,
+    y: 216,
+    w: 290,
+    h: 110,
     cx: 490,
-    cy: 256,
+    cy: 271,
   },
   {
     id: 'erp_ledger',
     no: '06',
     short: '06 네노바웹 · MSSQL 원장',
     surface: 'Surface 5 · 공유 원장',
-    x: 682,
-    y: 204,
-    w: 272,
-    h: 104,
-    cx: 818,
-    cy: 256,
+    x: 674,
+    y: 216,
+    w: 290,
+    h: 110,
+    cx: 819,
+    cy: 271,
   },
 ];
 
-// 6개 노드를 잇는 직교 파이프라인 경로(1→2→3 상단 행에서 중앙 버스를 타고 4→5→6 하단 행으로 연결)
+// 6개 노드를 잇는 직교(90도) 파이프라인 경로 — 중앙 버스 트랙(y=144)과 하단 배지 레인(y=166..196)을 물리적으로 완전 분리
 const EDGE_PATHS = [
-  'M 298 82 L 354 82',
-  'M 626 82 L 682 82',
-  'M 818 134 L 818 154 Q 818 169 803 169 L 177 169 Q 162 169 162 184 L 162 204',
-  'M 298 256 L 354 256',
-  'M 626 256 L 682 256',
+  'M 306 69 L 339 69',
+  'M 635 69 L 668 69',
+  'M 819 124 L 819 134 Q 819 144 809 144 L 171 144 Q 161 144 161 154 L 161 210',
+  'M 306 271 L 339 271',
+  'M 635 271 L 668 271',
 ];
 
 const ROUTE_ENDPOINTS = [
@@ -109,13 +111,9 @@ const SCENARIOS = [
     phoneTitle: '콜롬비아 ELITE 농장방',
     phoneSub: '오후 16:30 · 신규 발주 메시지 수신',
     phoneLines: [
-      { tag: 'SENDER', text: 'ELITE_FARM_COL (수입단톡방)' },
-      { tag: 'MSG', text: 'ROSE FREEDOM 50CM +5 BOX ADD (46-01차)' },
-      { tag: 'OCR', text: 'ProdKey=1042 · BunchOf1Box=20 · OutQuantity=100단' },
-    ],
-    scanBoxes: [
-      { label: '위챗 원문 영역', top: '28%', left: '8%', width: '84%', height: '24%' },
-      { label: '수량 +5 BOX 추출', top: '57%', left: '12%', width: '76%', height: '18%' },
+      { tag: 'SENDER', prefix: '', token: 'ELITE_FARM_COL', suffix: ' (수입단톡방)', scanLabel: '위챗 발주방 식별' },
+      { tag: 'MSG', prefix: 'ROSE FREEDOM 50CM ', token: '+5 BOX ADD', suffix: ' (46-01차)', scanLabel: '수량 +5 BOX 추출' },
+      { tag: 'OCR', prefix: 'ProdKey=1042 · BunchOf1Box=20 · ', token: 'OutQuantity=100단', suffix: '', scanLabel: '3단위 환산 완료' },
     ],
     moyiCard: {
       room: 'MOYI 수입·발주 승인 게이트',
@@ -234,13 +232,9 @@ const SCENARIOS = [
     phoneTitle: '입고 검수 촬영 · 2번 냉장고',
     phoneSub: '오후 14:12 · 네덜란드 수국 줄기 파손',
     phoneLines: [
-      { tag: 'PHOTO', text: 'IMG_4601_HYDRANGEA_DMG.jpg (3.1MB -> 180KB)' },
-      { tag: 'LABEL', text: 'NL HYDRANGEA MAGICAL GREEN · 15 STEMS' },
-      { tag: 'OCR', text: 'ProdKey=2218 · OutUnit=송이 · DefectQty=15송이' },
-    ],
-    scanBoxes: [
-      { label: '박스 바코드/라벨', top: '26%', left: '10%', width: '80%', height: '22%' },
-      { label: '파손 15송이 판독', top: '54%', left: '14%', width: '72%', height: '20%' },
+      { tag: 'PHOTO', prefix: '', token: 'IMG_4601_HYDRANGEA_DMG.jpg', suffix: ' (3.1MB → 180KB)', scanLabel: '현장 촬영본 확보' },
+      { tag: 'LABEL', prefix: 'NL HYDRANGEA MAGICAL GREEN · ', token: '15 STEMS', suffix: '', scanLabel: '박스 라벨 판독' },
+      { tag: 'OCR', prefix: 'ProdKey=2218 · OutUnit=송이 · ', token: 'DefectQty=15송이', suffix: '', scanLabel: '파손 15송이 추출' },
     ],
     moyiCard: {
       room: 'MOYI 창고·클레임 승인 게이트',
@@ -359,13 +353,9 @@ const SCENARIOS = [
     phoneTitle: '은행·인증 보안키패드 감지',
     phoneSub: '에이전트 Lease 반납 → 사람 10초 원격 해제',
     phoneLines: [
-      { tag: 'FLAG', text: 'Window FLAG_SECURE=true (보안키패드 보호)' },
-      { tag: 'LEASE', text: 'WAITING_HUMAN · Agent Lease 즉시 반납 완료' },
-      { tag: 'RESUME', text: '웹 30fps 10초 해제 확인 -> 에이전트 안전 재개' },
-    ],
-    scanBoxes: [
-      { label: 'FLAG_SECURE 윈도우 감지', top: '24%', left: '8%', width: '84%', height: '26%' },
-      { label: '보안키패드 차단 구역', top: '54%', left: '8%', width: '84%', height: '30%' },
+      { tag: 'FLAG', prefix: 'Window ', token: 'FLAG_SECURE=true', suffix: ' (보안키패드 보호)', scanLabel: '보안키패드 감지' },
+      { tag: 'LEASE', prefix: '', token: 'WAITING_HUMAN', suffix: ' · Agent Lease 즉시 반납 완료', scanLabel: '자동입력 즉시 정지' },
+      { tag: 'RESUME', prefix: '웹 30fps 10초 해제 확인 → ', token: '에이전트 안전 재개', suffix: '', scanLabel: '10초 해제 후 재개' },
     ],
     moyiCard: {
       room: 'MOYI 긴급 보안 개입 알림',
@@ -680,6 +670,8 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
   const [selectedPersonName, setSelectedPersonName] = useState('');
   const [thumbsState, setThumbsState] = useState({ loading: false, items: [], error: '', mode: 'idle' });
   const [recordsState, setRecordsState] = useState({ loading: false, records: [], error: '' });
+  const [selectedCaptureId, setSelectedCaptureId] = useState('');
+  const [hoveredBoxNo, setHoveredBoxNo] = useState(null);
   const [shotModal, setShotModal] = useState(null);
 
   const scenario = useMemo(
@@ -795,6 +787,8 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
 
   // 선택 직원의 실제 Orbit 캡처 썸네일 + bounding box records 조회
   useEffect(() => {
+    setSelectedCaptureId('');
+    setHoveredBoxNo(null);
     const uid = selectedPerson?.uid;
     if (!uid) {
       setThumbsState({ loading: false, items: [], error: '', mode: 'no-uid' });
@@ -895,7 +889,45 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
   const simAfter = activeSimulation.item?.after || {};
   const beforeSteps = arr(simBefore.steps);
   const afterSteps = arr(simAfter.steps);
-  const activeRecordsWithBoxes = recordsState.records.filter((r) => extractBoxes(r).length > 0);
+  const activeRecordsWithBoxes = useMemo(
+    () => recordsState.records.filter((r) => extractBoxes(r).length > 0),
+    [recordsState.records]
+  );
+  const captureItems = useMemo(() => {
+    const out = [];
+    const seen = new Set();
+    activeRecordsWithBoxes.forEach((rec) => {
+      if (!rec?.id || seen.has(rec.id)) return;
+      seen.add(rec.id);
+      out.push({
+        id: rec.id,
+        kind: 'ai',
+        kindLabel: '영역 해독',
+        ts: rec.timestamp,
+        title: rec.screen || rec.app || '화면 기록',
+        sub: rec.done || rec.activity || rec.app || '',
+        boxes: extractBoxes(rec),
+      });
+    });
+    thumbsState.items.forEach((t) => {
+      if (!t?.id || seen.has(t.id)) return;
+      seen.add(t.id);
+      out.push({
+        id: t.id,
+        kind: 'live',
+        kindLabel: '실시간 캡처',
+        ts: t.timestamp,
+        title: t.screen || t.activity || t.app || '실시간 캡처',
+        sub: [t.app, t.activity].filter(Boolean).join(' · '),
+        boxes: [],
+      });
+    });
+    return out;
+  }, [activeRecordsWithBoxes, thumbsState.items]);
+  const selectedCapture = useMemo(
+    () => captureItems.find((c) => c.id === selectedCaptureId) || captureItems[0] || null,
+    [captureItems, selectedCaptureId]
+  );
   const visibleTelemetry = fullTelemetryText.slice(0, typedLen);
   const totalElapsedMs = Math.round(activeStep.elapsedSec * 1000);
   const progressPct = Math.round(((stepIndex + 1) / scenario.steps.length) * 100);
@@ -1095,38 +1127,44 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
                       <pattern id="simGrid" width="24" height="24" patternUnits="userSpaceOnUse">
                         <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#f1f5f9" strokeWidth="1" />
                       </pattern>
+                      <marker id="simArrowIdle" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                        <path d="M 1 1 L 9 5 L 1 9 z" fill="#475569" />
+                      </marker>
+                      <marker id="simArrowActive" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                        <path d="M 1 1 L 9 5 L 1 9 z" fill="#1d4ed8" />
+                      </marker>
+                      <marker id="simArrowDone" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                        <path d="M 1 1 L 9 5 L 1 9 z" fill="#047857" />
+                      </marker>
                     </defs>
 
                     <rect x="0" y="0" width="980" height="340" fill="#ffffff" />
                     <rect x="0" y="0" width="980" height="340" fill="url(#simGrid)" />
 
-                    {/* 중앙 엔지니어링 버스 라벨 */}
-                    <rect x="352" y="157" width="276" height="24" rx="2" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1" />
-                    <text x="490" y="173" textAnchor="middle" fill="#0f172a" fontSize="11" fontWeight="700" fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
-                      WSS 역터널 → HERMES AI 3단위 매칭 버스
-                    </text>
-
-                    {/* 연결 경로 및 정밀 패킷 마커 */}
+                    {/* 연결 경로 및 정밀 패킷 마커 (중앙 버스 트랙 y=144) */}
                     {EDGE_PATHS.map((d, edgeIdx) => {
                       const completed = stepIndex > edgeIdx;
                       const activeEdge = stepIndex === edgeIdx + 1 || (stepIndex === edgeIdx && playing);
                       const pathId = `sim-edge-${edgeIdx}`;
-                      const strokeColor = activeEdge ? '#1d4ed8' : completed ? '#047857' : '#cbd5e1';
+                      const strokeColor = activeEdge ? '#1d4ed8' : completed ? '#047857' : '#64748b';
+                      const markerId = activeEdge ? 'url(#simArrowActive)' : completed ? 'url(#simArrowDone)' : 'url(#simArrowIdle)';
                       return (
                         <g key={pathId}>
-                          <path d={d} fill="none" stroke="#e2e8f0" strokeWidth="4" strokeLinecap="square" />
+                          <path d={d} fill="none" stroke="#e2e8f0" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
                           <path
                             id={pathId}
                             d={d}
                             fill="none"
                             stroke={strokeColor}
-                            strokeWidth={activeEdge || completed ? '2.5' : '1.5'}
-                            strokeLinecap="square"
+                            strokeWidth={activeEdge || completed ? '2.5' : '1.75'}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            markerEnd={markerId}
                             className={activeEdge ? 'sim-edge-flow' : ''}
                           />
                           {!reducedMotion && (activeEdge || completed) && (
                             <circle
-                              r={activeEdge ? 4.5 : 3}
+                              r={activeEdge ? 4.5 : 3.5}
                               fill={activeEdge ? '#1d4ed8' : '#047857'}
                               stroke="#ffffff"
                               strokeWidth="1.5"
@@ -1140,7 +1178,24 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
                       );
                     })}
 
-                    {/* 6개 인터랙티브 노드 (활성 보더 두께 + 3색 의미 팔레트만 사용) */}
+                    {/* 중앙 엔지니어링 버스 배지 — 버스 선(y=144) 아래 독립 레인(y=166..196) + 최상위 SVG DOM 레이어 */}
+                    <g className="sim-bus-badge">
+                      <rect x="305" y="166" width="370" height="30" rx="4" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1.2" />
+                      <text
+                        x="490"
+                        y="185.5"
+                        textAnchor="middle"
+                        fill="#0f172a"
+                        fontSize="13"
+                        fontWeight="700"
+                        fontFamily={FONT_SANS}
+                        style={{ fontVariantNumeric: 'tabular-nums' }}
+                      >
+                        WSS 역터널 · HERMES AI 3단위 정규화 버스
+                      </text>
+                    </g>
+
+                    {/* 6개 인터랙티브 노드 (활성 보더 두께 + 3색 의미 팔레트 + 선명한 고딕 폰트) */}
                     {NODES.map((node, idx) => {
                       const isActive = idx === stepIndex;
                       const isPendingGate = idx === 4 && isActive && !isApproved;
@@ -1181,7 +1236,7 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
                           ? '#1d4ed8'
                           : isDone
                             ? '#047857'
-                            : '#475569';
+                            : '#334155';
 
                       return (
                         <g
@@ -1213,42 +1268,59 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
                           />
                           <rect x={node.x} y={node.y} width="4" height={node.h} rx="1" fill={tagInk} />
 
-                          <text x={node.x + 14} y={node.y + 23} fill="#475569" fontSize="10.5" fontWeight="600">
+                          <text
+                            x={node.x + 14}
+                            y={node.y + 24}
+                            fill="#334155"
+                            fontSize="12.5"
+                            fontWeight="600"
+                            fontFamily={FONT_SANS}
+                          >
                             {node.surface}
                           </text>
 
                           <rect
-                            x={node.x + node.w - 68}
-                            y={node.y + 10}
-                            width="58"
-                            height="18"
-                            rx="2"
+                            x={node.x + node.w - 84}
+                            y={node.y + 9}
+                            width="72"
+                            height="22"
+                            rx="3"
                             fill={tagFill}
                             stroke={tagStroke}
                             strokeWidth="1"
                           />
                           <text
-                            x={node.x + node.w - 39}
-                            y={node.y + 22.5}
+                            x={node.x + node.w - 48}
+                            y={node.y + 24}
                             textAnchor="middle"
                             fill={tagInk}
-                            fontSize="10"
+                            fontSize="12"
                             fontWeight="700"
+                            fontFamily={FONT_SANS}
                           >
                             {stateLabel}
                           </text>
 
-                          <text x={node.x + 14} y={node.y + 52} fill="#0f172a" fontSize="12.5" fontWeight="700">
+                          <text
+                            x={node.x + 14}
+                            y={node.y + 56}
+                            fill="#0f172a"
+                            fontSize="14.5"
+                            fontWeight="700"
+                            fontFamily={FONT_SANS}
+                          >
                             {node.short}
                           </text>
 
-                          <rect x={node.x + 14} y={node.y + 68} width={node.w - 28} height="24" rx="2" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
+                          <rect x={node.x + 12} y={node.y + 72} width={node.w - 24} height="28" rx="3" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1" />
                           <text
-                            x={node.x + 22}
-                            y={node.y + 84}
-                            fill={isActive ? tagInk : '#334155'}
-                            fontSize="11"
-                            fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+                            x={node.x + 20}
+                            y={node.y + 90.5}
+                            fill={isActive ? tagInk : '#1e293b'}
+                            fontSize="12.5"
+                            fontWeight="600"
+                            fontFamily={FONT_SANS}
+                            style={{ fontVariantNumeric: 'tabular-nums' }}
                           >
                             {stepInfo?.chip || ''}
                           </text>
@@ -1337,10 +1409,92 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
                 ))}
               </div>
             )}
+
+            {/* 좌측 60% 하단: 5열 엔지니어링 실행 로그 원장 (좌·우 높이 균형) */}
+            <div className="sim-timeline-section" aria-label="전체 스텝 엔지니어링 실행 로그 테이블">
+              <div className="sim-timeline-head">
+                <div>
+                  <b>엔지니어링 실행 로그 원장</b>
+                  <span>행을 클릭하거나 Enter/방향키로 해당 스텝으로 이동합니다.</span>
+                </div>
+                <span className="sim-mono-num">총 {scenario.steps.length}단계 · 누적 {scenario.autoSeconds}초 ({(scenario.autoSeconds * 1000).toLocaleString()}ms)</span>
+              </div>
+
+              <div className="sim-table-wrap">
+                <table className="sim-exec-table">
+                  <thead>
+                    <tr>
+                      <th>Step</th>
+                      <th>표면 노드</th>
+                      <th>실행 모듈·계약</th>
+                      <th>소요시간</th>
+                      <th>안전 가드 상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scenario.steps.map((st, idx) => {
+                      const node = NODES[idx];
+                      const isActive = idx === stepIndex;
+                      const isPendingGate = idx === 4 && isActive && !isApproved;
+                      const isDone = idx < stepIndex || (idx === 5 && isApproved);
+                      const rowTone = isPendingGate ? 'warn' : isActive ? 'active' : isDone ? 'ok' : 'muted';
+                      const rowStatus = isPendingGate ? '승인 대기' : isActive ? '실행 중' : isDone ? '완료' : '대기';
+                      return (
+                        <tr
+                          key={node.id}
+                          tabIndex={0}
+                          aria-selected={isActive}
+                          className={`sim-exec-row ${isActive ? 'is-active' : ''}`}
+                          onClick={() => { setPlaying(false); jumpToStep(idx); }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setPlaying(false);
+                              jumpToStep(idx);
+                            } else if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              setPlaying(false);
+                              jumpToStep(Math.min(scenario.steps.length - 1, idx + 1));
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              setPlaying(false);
+                              jumpToStep(Math.max(0, idx - 1));
+                            }
+                          }}
+                        >
+                          <td className="sim-mono-num sim-col-step">0{idx + 1}</td>
+                          <td>
+                            <div className="sim-node-cell">
+                              <strong>{node.short}</strong>
+                              <span>{node.surface}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="sim-mod-cell">
+                              <code>{st.moduleEndpoint}</code>
+                              <span>{st.chip}</span>
+                            </div>
+                          </td>
+                          <td className="sim-mono-num sim-col-time">
+                            {st.stepMs.toLocaleString()}ms <span>(누적 {st.elapsedSec.toFixed(1)}s)</span>
+                          </td>
+                          <td>
+                            <div className="sim-guard-cell">
+                              <span className={`sim-mono-pill is-${rowTone}`}>{rowStatus}</span>
+                              <span>{st.guardLabel}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
-          {/* 우측 40%: 단계별 패킷 원장 & 실제 캡처 증빙 인스펙터 시트 */}
-          <aside className="sim-right-pane" aria-label="단계별 패킷 원장 및 실제 캡처 증빙 인스펙터">
+          {/* 우측 40%: 단계별 패킷 원장 · 공용폰 스냅샷 · MOYI 승인 게이트 · 4-Invariant 원장 안전 가드 */}
+          <aside className="sim-right-pane" aria-label="단계별 패킷 원장 및 4-Invariant 원장 안전 가드">
             <div className="sim-inspector-block">
               <div className="sim-inspector-head">
                 <b>단계별 패킷 원장 인스펙터</b>
@@ -1375,7 +1529,7 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
                 </div>
               </dl>
 
-              {/* 공용폰 수집 표면 미리보기 */}
+              {/* 공용폰 수집 표면 미리보기 — 3열 DOM Grid 인라인 하이라이트 + 우측 거터 주석 (절대좌표 겹침 0건) */}
               <div className="sim-surface-preview" aria-label="현장 수집 디바이스 스냅샷">
                 <div className="sim-surface-bar">
                   <b>{scenario.phoneHeader}</b>
@@ -1388,21 +1542,26 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
                   <span>{scenario.phoneSub}</span>
                 </div>
                 <div className="sim-surface-lines">
-                  {scenario.phoneLines.map((line, i) => (
-                    <div key={i} className={`sim-line-row ${stepIndex >= i ? 'is-lit' : ''}`}>
-                      <span className="sim-line-tag">{line.tag}</span>
-                      <span>{line.text}</span>
-                    </div>
-                  ))}
-                  {stepIndex <= 2 && scenario.scanBoxes.map((b, i) => (
-                    <div
-                      key={i}
-                      className="sim-ocr-box"
-                      style={{ top: b.top, left: b.left, width: b.width, height: b.height }}
-                    >
-                      <span>{b.label}</span>
-                    </div>
-                  ))}
+                  {scenario.phoneLines.map((line, i) => {
+                    const isLit = stepIndex >= i;
+                    const isScanning = stepIndex <= 2 && stepIndex >= i;
+                    return (
+                      <div key={i} className={`sim-line-row ${isLit ? 'is-lit' : ''} ${isScanning ? 'is-scanning' : ''}`}>
+                        <span className="sim-line-tag">{line.tag}</span>
+                        <span className="sim-line-text">
+                          {line.prefix}
+                          <mark className={`sim-ocr-token ${isScanning ? 'is-scanning' : isLit ? 'is-lit' : ''}`}>
+                            {line.token}
+                          </mark>
+                          {line.suffix}
+                        </span>
+                        <span className={`sim-line-gutter ${isScanning ? 'is-scanning' : isLit ? 'is-lit' : ''}`}>
+                          <span className="sim-gutter-leader" aria-hidden="true" />
+                          <span className="sim-gutter-badge">{line.scanLabel}</span>
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1446,176 +1605,6 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* 실제 작업 캡처 미리보기 & Before/After 대조 */}
-            <div className="sim-inspector-block">
-              <div className="sim-inspector-head">
-                <b>실제 작업 캡처 미리보기 &amp; 실측 대조</b>
-                <span className={`sim-mono-pill ${thumbsState.mode === 'live' ? 'is-ok' : 'is-warn'}`}>
-                  {thumbsState.mode === 'live' ? `실제 캡처 ${thumbsState.items.length}건` : '저장소 실측 폴백'}
-                </span>
-              </div>
-
-              <div className="sim-staff-row">
-                <label htmlFor="sim-staff-select">대상 직원</label>
-                <select
-                  id="sim-staff-select"
-                  value={selectedPerson?.name || ''}
-                  onChange={(e) => setSelectedPersonName(e.target.value)}
-                >
-                  {peopleList.map((p) => (
-                    <option key={p.name} value={p.name}>
-                      {p.name} ({p.dept || '소속'}{p.uid ? ' · 캡처연결' : ''})
-                    </option>
-                  ))}
-                </select>
-                <span className="sim-mono-sub">
-                  {selectedPerson?.uid ? `uid=${selectedPerson.uid}` : '오프라인 기준'}
-                </span>
-              </div>
-
-              {selectedPerson && (
-                <div className="sim-person-line">
-                  <b>{selectedPerson.name}</b>
-                  <span className="sim-dept-tag">{selectedPerson.dept || '전사'}</span>
-                  <span>{selectedPerson.roleSummary || '실제 업무 흐름 관찰 기반 자동화 대상'}</span>
-                </div>
-              )}
-
-              {thumbsState.loading && <p className="sim-dim">캡처 화면 및 인식 좌표 불러오는 중…</p>}
-
-              {!thumbsState.loading && activeRecordsWithBoxes.length > 0 && (
-                <div className="sim-bbox-grid">
-                  {activeRecordsWithBoxes.slice(0, 4).map((rec) => {
-                    const boxes = extractBoxes(rec);
-                    return (
-                      <div
-                        key={rec.id}
-                        className="sim-bbox-card"
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`${rec.screen || rec.app || '실제 캡처'} 크게 보기`}
-                        onClick={() => setShotModal({ id: rec.id, title: rec.screen || rec.app, boxes, ts: rec.timestamp })}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            setShotModal({ id: rec.id, title: rec.screen || rec.app, boxes, ts: rec.timestamp });
-                          }
-                        }}
-                      >
-                        <div className="sim-bbox-frame">
-                          <img
-                            loading="lazy"
-                            src={`/api/work/orbit-thumbs?img=${encodeURIComponent(rec.id)}`}
-                            alt={rec.screen || rec.app || '실제 캡처'}
-                          />
-                          {boxes.map((b, k) => {
-                            const [x0, y0, x1, y1] = b.box;
-                            return (
-                              <span
-                                key={k}
-                                className="sim-ai-bbox"
-                                style={{
-                                  left: `${x0 / 10}%`,
-                                  top: `${y0 / 10}%`,
-                                  width: `${Math.max(1, (x1 - x0) / 10)}%`,
-                                  height: `${Math.max(1, (y1 - y0) / 10)}%`,
-                                }}
-                                title={b.label}
-                              >
-                                <em>{b.no}. {String(b.label).slice(0, 14)}</em>
-                              </span>
-                            );
-                          })}
-                        </div>
-                        <div className="sim-bbox-meta">
-                          <span className="sim-mono-num">{fmtTs(rec.timestamp)}</span>
-                          <b>{rec.screen || rec.app || '화면 기록'}</b>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {!thumbsState.loading && thumbsState.items.length > 0 && (
-                <div className="sim-filmstrip" aria-label="실제 캡처 필름스트립">
-                  {thumbsState.items.map((t) => (
-                    <figure
-                      key={t.id}
-                      className="sim-thumb-card"
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`${t.screen || t.app || '캡처 썸네일'} 크게 보기`}
-                      onClick={() => setShotModal({ id: t.id, title: t.screen || t.app, boxes: [], ts: t.timestamp })}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setShotModal({ id: t.id, title: t.screen || t.app, boxes: [], ts: t.timestamp });
-                        }
-                      }}
-                    >
-                      <img
-                        loading="lazy"
-                        src={`/api/work/orbit-thumbs?img=${encodeURIComponent(t.id)}`}
-                        alt={t.screen || t.app || '캡처 썸네일'}
-                      />
-                      <figcaption>
-                        <span className="sim-mono-num">{fmtTs(t.timestamp)}</span>
-                        <b>{t.app}</b>
-                        <small>{t.screen || t.activity}</small>
-                      </figcaption>
-                    </figure>
-                  ))}
-                </div>
-              )}
-
-              {!thumbsState.loading && thumbsState.items.length === 0 && (
-                <div className="sim-fallback-note">
-                  <b>캡처 이미지 0건 / 로컬 실측 폴백</b>
-                  <span>{thumbsState.error || 'Orbit 서버 토큰 미설정 또는 최근 7일 해독 캡처 0건'}</span>
-                  <p>
-                    운영 환경에서는 이 영역에 실제 화면 캡처와 <code>steps[].box</code> 천분율 좌표 바운딩박스가 표시됩니다.
-                  </p>
-                </div>
-              )}
-
-              {activeSimulation.item && (
-                <div className="sim-compare-ledger">
-                  <div className="sim-compare-header">
-                    <b>{activeSimulation.item.title}</b>
-                    <span className="sim-mono-num">
-                      수작업 {simBefore.totalMinutes ?? '—'}분 → 자동화 {simAfter.totalMinutes ?? '—'}분
-                      {activeSimulation.item.savingPerWeekMin != null
-                        ? ` (주간 ${(Number(activeSimulation.item.savingPerWeekMin) / 60).toFixed(1)}h / ${activeSimulation.item.savingPerWeekMin}분 단축)`
-                        : ''}
-                    </span>
-                  </div>
-                  <div className="sim-compare-grid">
-                    <div className="sim-compare-col">
-                      <div className="sim-compare-sub">기존 수작업 ({simBefore.totalMinutes ?? '—'}분)</div>
-                      <ol>
-                        {beforeSteps.map((st, idx) => (
-                          <li key={idx}>
-                            {st.action} <small className="sim-mono-num">({st.app} · {st.minutes}분)</small>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                    <div className="sim-compare-col is-after">
-                      <div className="sim-compare-sub">자동화 + MOYI ({simAfter.totalMinutes ?? '—'}분)</div>
-                      <ol>
-                        {afterSteps.map((st, idx) => (
-                          <li key={idx}>
-                            {st.action} <small className="sim-mono-num">({st.minutes}분{st.auto ? ' · 자동' : ''})</small>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* 원장 안전 가드 체크표 */}
@@ -1667,86 +1656,215 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           </aside>
         </section>
 
-        {/* 3. 하단 고밀도 엔지니어링 실행 로그 테이블 */}
-        <section className="sim-timeline-section" aria-label="전체 스텝 엔지니어링 실행 로그 테이블">
-          <div className="sim-timeline-head">
-            <div>
-              <b>엔지니어링 실행 로그 원장</b>
-              <span>행을 클릭하거나 Enter/방향키로 해당 스텝으로 즉시 이동합니다.</span>
+        {/* 3. 하단 전체 폭(100%) 마스터-디테일 실제 작업 캡처 & 실측 대조 워크벤치 */}
+        <section className="sim-capture-workbench" aria-label="실제 작업 캡처 및 실측 대조">
+          <div className="sim-capture-head">
+            <div className="sim-capture-title-group">
+              <b>실제 작업 캡처 &amp; 실측 대조</b>
+              <span className={`sim-mono-pill ${thumbsState.mode === 'live' ? 'is-ok' : 'is-warn'}`}>
+                {thumbsState.mode === 'live' ? `실제 캡처 ${captureItems.length}건` : '저장소 실측 폴백'}
+              </span>
             </div>
-            <span className="sim-mono-num">총 {scenario.steps.length}단계 · 누적 {scenario.autoSeconds}초 ({(scenario.autoSeconds * 1000).toLocaleString()}ms)</span>
+
+            <div className="sim-staff-row">
+              <label htmlFor="sim-staff-select">대상 직원</label>
+              <select
+                id="sim-staff-select"
+                value={selectedPerson?.name || ''}
+                onChange={(e) => setSelectedPersonName(e.target.value)}
+              >
+                {peopleList.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.name} ({p.dept || '소속'}{p.uid ? ' · 캡처연결' : ''})
+                  </option>
+                ))}
+              </select>
+              <span className="sim-mono-sub">
+                {selectedPerson?.uid ? `uid=${selectedPerson.uid}` : '오프라인 기준'}
+              </span>
+            </div>
           </div>
 
-          <div className="sim-table-wrap">
-            <table className="sim-exec-table">
-              <thead>
-                <tr>
-                  <th>Step</th>
-                  <th>표면 노드</th>
-                  <th>실행 모듈·계약</th>
-                  <th>소요시간</th>
-                  <th>안전 가드 상태</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scenario.steps.map((st, idx) => {
-                  const node = NODES[idx];
-                  const isActive = idx === stepIndex;
-                  const isPendingGate = idx === 4 && isActive && !isApproved;
-                  const isDone = idx < stepIndex || (idx === 5 && isApproved);
-                  const rowTone = isPendingGate ? 'warn' : isActive ? 'active' : isDone ? 'ok' : 'muted';
-                  const rowStatus = isPendingGate ? '승인 대기' : isActive ? '실행 중' : isDone ? '완료' : '대기';
-                  return (
-                    <tr
-                      key={node.id}
-                      tabIndex={0}
-                      aria-selected={isActive}
-                      className={`sim-exec-row ${isActive ? 'is-active' : ''}`}
-                      onClick={() => { setPlaying(false); jumpToStep(idx); }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setPlaying(false);
-                          jumpToStep(idx);
-                        } else if (e.key === 'ArrowDown') {
-                          e.preventDefault();
-                          setPlaying(false);
-                          jumpToStep(Math.min(scenario.steps.length - 1, idx + 1));
-                        } else if (e.key === 'ArrowUp') {
-                          e.preventDefault();
-                          setPlaying(false);
-                          jumpToStep(Math.max(0, idx - 1));
-                        }
-                      }}
-                    >
-                      <td className="sim-mono-num sim-col-step">0{idx + 1}</td>
-                      <td>
-                        <div className="sim-node-cell">
-                          <strong>{node.short}</strong>
-                          <span>{node.surface}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="sim-mod-cell">
-                          <code>{st.moduleEndpoint}</code>
-                          <span>{st.chip}</span>
-                        </div>
-                      </td>
-                      <td className="sim-mono-num sim-col-time">
-                        {st.stepMs.toLocaleString()}ms <span>(누적 {st.elapsedSec.toFixed(1)}s)</span>
-                      </td>
-                      <td>
-                        <div className="sim-guard-cell">
-                          <span className={`sim-mono-pill is-${rowTone}`}>{rowStatus}</span>
-                          <span>{st.guardLabel}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {selectedPerson && (
+            <div className="sim-person-bar">
+              <b>{selectedPerson.name}</b>
+              <span className="sim-dept-tag">{selectedPerson.dept || '전사'}</span>
+              <span className="sim-person-summary">{selectedPerson.roleSummary || '실제 업무 흐름 관찰 기반 자동화 대상'}</span>
+            </div>
+          )}
+
+          {thumbsState.loading ? (
+            <div className="sim-capture-loading">캡처 화면 및 인식 좌표 불러오는 중…</div>
+          ) : captureItems.length > 0 && selectedCapture ? (
+            <div className="sim-capture-split">
+              {/* 좌측 62%: 대형 고해상도 캡처 스테이지 — 이미지 위엔 번호 배지(1,2,3)와 테두리만 표시 */}
+              <div className="sim-capture-stage">
+                <div className="sim-stage-bar">
+                  <div className="sim-stage-title-wrap">
+                    <span className={`sim-mono-pill ${selectedCapture.kind === 'ai' ? 'is-active' : 'is-muted'}`}>
+                      {selectedCapture.kindLabel}
+                    </span>
+                    <span className="sim-mono-num sim-stage-ts">{fmtTs(selectedCapture.ts)}</span>
+                    <b className="sim-stage-title">{selectedCapture.title}</b>
+                  </div>
+                  <button
+                    type="button"
+                    className="sim-btn"
+                    onClick={() => setShotModal({ id: selectedCapture.id, title: selectedCapture.title, boxes: selectedCapture.boxes, ts: selectedCapture.ts })}
+                  >
+                    원본 크게 보기
+                  </button>
+                </div>
+
+                <div className="sim-stage-frame">
+                  <div className="sim-stage-inner">
+                    <img
+                      src={`/api/work/orbit-thumbs?img=${encodeURIComponent(selectedCapture.id)}`}
+                      alt={selectedCapture.title || '실제 캡처'}
+                    />
+                    {selectedCapture.boxes.map((b, k) => {
+                      const [x0, y0, x1, y1] = b.box;
+                      const focused = hoveredBoxNo === b.no;
+                      const badgeTop = y0 < 25 ? '2px' : '-11px';
+                      const badgeLeft = x0 < 25 ? '2px' : '-11px';
+                      return (
+                        <span
+                          key={k}
+                          className={`sim-ai-bbox ${focused ? 'is-focused' : ''}`}
+                          style={{
+                            left: `${x0 / 10}%`,
+                            top: `${y0 / 10}%`,
+                            width: `${Math.max(1, (x1 - x0) / 10)}%`,
+                            height: `${Math.max(1, (y1 - y0) / 10)}%`,
+                          }}
+                          title={`${b.no}. ${b.label}`}
+                          aria-label={`${b.no}번 영역: ${b.label}`}
+                        >
+                          <span className="sim-ai-no" style={{ top: badgeTop, left: badgeLeft }}>{b.no}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* 우측 38%: 번호별 단계 해설 + 가로 행 캡처 목록 */}
+              <div className="sim-capture-sidebar">
+                <div className="sim-legend-box">
+                  <div className="sim-legend-head">
+                    <b>선택 화면 단계·영역 해설</b>
+                    <span className="sim-mono-sub">
+                      {selectedCapture.boxes.length > 0 ? `${selectedCapture.boxes.length}개 판독 영역` : '캡처 상세 정보'}
+                    </span>
+                  </div>
+                  {selectedCapture.boxes.length > 0 ? (
+                    <ol className="sim-box-legend">
+                      {selectedCapture.boxes.map((b, k) => (
+                        <li
+                          key={k}
+                          className={hoveredBoxNo === b.no ? 'is-focused' : ''}
+                          onMouseEnter={() => setHoveredBoxNo(b.no)}
+                          onMouseLeave={() => setHoveredBoxNo(null)}
+                        >
+                          <span className="sim-legend-no">{b.no}</span>
+                          <span className="sim-legend-text">{b.label}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <div className="sim-legend-empty">
+                      <div className="sim-legend-screen">{selectedCapture.title}</div>
+                      {selectedCapture.sub && <p>{selectedCapture.sub}</p>}
+                    </div>
+                  )}
+                </div>
+
+                <div className="sim-caplist-box">
+                  <div className="sim-legend-head">
+                    <b>스토리보드 · 실시간 캡처 목록</b>
+                    <span className="sim-mono-num">{captureItems.length}건</span>
+                  </div>
+                  <div className="sim-caplist" role="listbox" aria-label="실제 작업 캡처 목록">
+                    {captureItems.map((item) => {
+                      const activeCap = item.id === selectedCapture.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          role="option"
+                          aria-selected={activeCap}
+                          className={`sim-cap-row ${activeCap ? 'is-active' : ''}`}
+                          onClick={() => {
+                            setSelectedCaptureId(item.id);
+                            setHoveredBoxNo(null);
+                          }}
+                        >
+                          <img
+                            loading="lazy"
+                            src={`/api/work/orbit-thumbs?img=${encodeURIComponent(item.id)}`}
+                            alt={item.title}
+                          />
+                          <div className="sim-cap-info">
+                            <div className="sim-cap-meta">
+                              <span className="sim-mono-num">{fmtTs(item.ts)}</span>
+                              <span className={`sim-cap-kind ${item.kind === 'ai' ? 'is-ai' : ''}`}>{item.kindLabel}</span>
+                              {item.boxes.length > 0 && <span className="sim-cap-cnt">영역 {item.boxes.length}</span>}
+                            </div>
+                            <strong className="sim-cap-title">{item.title}</strong>
+                            {item.sub && item.sub !== item.title && <span className="sim-cap-sub">{item.sub}</span>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="sim-fallback-note">
+              <b>캡처 이미지 0건 / 로컬 실측 폴백</b>
+              <span>{thumbsState.error || 'Orbit 서버 토큰 미설정 또는 최근 7일 해독 캡처 0건'}</span>
+              <p>
+                운영 환경에서는 이 영역에 실제 화면 캡처와 <code>steps[].box</code> 천분율 좌표 바운딩박스가 표시됩니다.
+              </p>
+            </div>
+          )}
+
+          {activeSimulation.item && (
+            <div className="sim-compare-ledger">
+              <div className="sim-compare-header">
+                <b>실측 작업시간 대조 · {activeSimulation.item.title}</b>
+                <span className="sim-mono-num">
+                  수작업 {simBefore.totalMinutes ?? '—'}분 → 자동화 {simAfter.totalMinutes ?? '—'}분
+                  {activeSimulation.item.savingPerWeekMin != null
+                    ? ` (주간 ${(Number(activeSimulation.item.savingPerWeekMin) / 60).toFixed(1)}h / ${activeSimulation.item.savingPerWeekMin}분 단축)`
+                    : ''}
+                </span>
+              </div>
+              <div className="sim-compare-grid">
+                <div className="sim-compare-col">
+                  <div className="sim-compare-sub">기존 수작업 ({simBefore.totalMinutes ?? '—'}분)</div>
+                  <ol>
+                    {beforeSteps.map((st, idx) => (
+                      <li key={idx}>
+                        {st.action} <small className="sim-mono-num">({st.app} · {st.minutes}분)</small>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div className="sim-compare-col is-after">
+                  <div className="sim-compare-sub">자동화 + MOYI ({simAfter.totalMinutes ?? '—'}분)</div>
+                  <ol>
+                    {afterSteps.map((st, idx) => (
+                      <li key={idx}>
+                        {st.action} <small className="sim-mono-num">({st.minutes}분{st.auto ? ' · 자동' : ''})</small>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       </div>
 
@@ -1769,7 +1887,7 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         </div>
       )}
 
-      {/* 실작업 캡처 확대 모달 */}
+      {/* 실작업 캡처 확대 모달 — 번호 배지만 이미지에 올리고 해설은 하단 리스트로 분리 */}
       {shotModal && (
         <div className="sim-modal-backdrop" role="dialog" aria-modal="true" aria-label={shotModal.title} onClick={() => setShotModal(null)}>
           <div className="sim-modal-box" onClick={(e) => e.stopPropagation()}>
@@ -1780,26 +1898,41 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
               </div>
               <button type="button" className="sim-btn" onClick={() => setShotModal(null)}>닫기 ×</button>
             </div>
-            <div className="sim-bbox-frame is-large">
-              <img src={`/api/work/orbit-thumbs?img=${encodeURIComponent(shotModal.id)}`} alt={shotModal.title || '캡처'} />
-              {arr(shotModal.boxes).map((b, k) => {
-                const [x0, y0, x1, y1] = b.box;
-                return (
-                  <span
-                    key={k}
-                    className="sim-ai-bbox"
-                    style={{
-                      left: `${x0 / 10}%`,
-                      top: `${y0 / 10}%`,
-                      width: `${Math.max(1, (x1 - x0) / 10)}%`,
-                      height: `${Math.max(1, (y1 - y0) / 10)}%`,
-                    }}
-                  >
-                    <em>{b.no}. {b.label}</em>
-                  </span>
-                );
-              })}
+            <div className="sim-stage-frame is-large">
+              <div className="sim-stage-inner">
+                <img src={`/api/work/orbit-thumbs?img=${encodeURIComponent(shotModal.id)}`} alt={shotModal.title || '캡처'} />
+                {arr(shotModal.boxes).map((b, k) => {
+                  const [x0, y0, x1, y1] = b.box;
+                  const badgeTop = y0 < 25 ? '2px' : '-11px';
+                  const badgeLeft = x0 < 25 ? '2px' : '-11px';
+                  return (
+                    <span
+                      key={k}
+                      className="sim-ai-bbox"
+                      style={{
+                        left: `${x0 / 10}%`,
+                        top: `${y0 / 10}%`,
+                        width: `${Math.max(1, (x1 - x0) / 10)}%`,
+                        height: `${Math.max(1, (y1 - y0) / 10)}%`,
+                      }}
+                      title={`${b.no}. ${b.label}`}
+                    >
+                      <span className="sim-ai-no" style={{ top: badgeTop, left: badgeLeft }}>{b.no}</span>
+                    </span>
+                  );
+                })}
+              </div>
             </div>
+            {arr(shotModal.boxes).length > 0 && (
+              <ol className="sim-box-legend is-modal">
+                {arr(shotModal.boxes).map((b, k) => (
+                  <li key={k}>
+                    <span className="sim-legend-no">{b.no}</span>
+                    <span className="sim-legend-text">{b.label}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
         </div>
       )}
@@ -1810,6 +1943,7 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           min-height: 100%;
           background: #f8fafc;
           color: #0f172a;
+          font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
           font-variant-numeric: tabular-nums;
           box-sizing: border-box;
           padding: 16px 20px 44px;
@@ -1818,14 +1952,12 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           max-width: 1540px;
           margin: 0 auto;
           background: #ffffff;
-          border: 1px solid #e2e8f0;
+          border: 1px solid #cbd5e1;
         }
-        .sim-mono-num {
-          font-variant-numeric: tabular-nums;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        }
+        .sim-mono-num,
         .sim-mono {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-variant-numeric: tabular-nums;
+          font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
         }
 
         /* 1. 상단 헤더 & 1px 컨트롤/지표 바 */
@@ -1844,35 +1976,34 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           min-width: 0;
         }
         .sim-eyebrow {
-          font-size: 10.5px;
+          font-size: 12px;
           font-weight: 700;
-          letter-spacing: 0.08em;
-          color: #475569;
+          letter-spacing: 0.06em;
+          color: #334155;
           margin-bottom: 4px;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         }
         .sim-title-row {
           display: flex;
           align-items: center;
           gap: 10px;
           flex-wrap: wrap;
-          margin-bottom: 4px;
+          margin-bottom: 5px;
         }
         .sim-title-row h2 {
           margin: 0;
-          font-size: 18px;
+          font-size: 20px;
           font-weight: 700;
           color: #0f172a;
           letter-spacing: -0.01em;
         }
         .sim-status-tag {
-          font-size: 11px;
+          font-size: 12.5px;
           font-weight: 700;
-          padding: 2px 8px;
-          border-radius: 2px;
+          padding: 2px 9px;
+          border-radius: 3px;
           border: 1px solid #cbd5e1;
           background: #f8fafc;
-          color: #475569;
+          color: #334155;
         }
         .sim-status-tag.is-active {
           color: #1d4ed8;
@@ -1891,9 +2022,9 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         }
         .sim-subtitle {
           margin: 0;
-          font-size: 12px;
-          color: #475569;
-          line-height: 1.5;
+          font-size: 13.5px;
+          color: #334155;
+          line-height: 1.55;
         }
         .sim-header-links {
           display: flex;
@@ -1904,8 +2035,8 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         .sim-hairline-link {
           display: inline-flex;
           align-items: center;
-          padding: 6px 10px;
-          font-size: 12px;
+          padding: 7px 11px;
+          font-size: 13px;
           font-weight: 600;
           color: #0f172a;
           background: #ffffff;
@@ -1948,11 +2079,12 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           color: #0f172a;
           border: 1px solid #cbd5e1;
           border-radius: 3px;
-          padding: 5px 11px;
+          padding: 6px 12px;
           font: inherit;
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 600;
           cursor: pointer;
+          white-space: nowrap;
           transition: border-color 0.15s, background 0.15s;
         }
         .sim-btn:hover:not(:disabled) {
@@ -1963,12 +2095,13 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         .sim-sc-tab:focus-visible,
         .sim-vtab:focus-visible,
         .sim-exec-row:focus-visible,
-        .sim-approve-btn:focus-visible {
+        .sim-approve-btn:focus-visible,
+        .sim-cap-row:focus-visible {
           outline: 2px solid #1d4ed8;
           outline-offset: -2px;
         }
         .sim-btn:disabled {
-          opacity: 0.42;
+          opacity: 0.45;
           cursor: not-allowed;
         }
         .sim-btn.is-primary {
@@ -1988,22 +2121,21 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           grid-template-columns: repeat(3, minmax(0, 1fr));
         }
         .sim-metric-cell {
-          padding: 8px 14px;
+          padding: 9px 14px;
           border-left: 1px solid #e2e8f0;
           display: flex;
           flex-direction: column;
-          gap: 3px;
+          gap: 4px;
           min-width: 0;
         }
         .sim-metric-cell:first-child {
           border-left: 0;
         }
         .sim-metric-label {
-          font-size: 10.5px;
+          font-size: 12px;
           font-weight: 700;
-          color: #475569;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
+          color: #334155;
+          letter-spacing: 0.02em;
         }
         .sim-metric-val {
           display: flex;
@@ -2012,28 +2144,28 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           flex-wrap: wrap;
         }
         .sim-metric-val strong {
-          font-size: 13.5px;
+          font-size: 15px;
           color: #0f172a;
         }
         .sim-metric-val strong.is-text-active { color: #1d4ed8; }
         .sim-metric-val strong.is-text-ok { color: #047857; }
         .sim-metric-val strong.is-text-warn { color: #b45309; }
         .sim-metric-sub {
-          font-size: 11.5px;
-          color: #475569;
+          font-size: 12.5px;
+          color: #334155;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .sim-metric-caption {
-          font-size: 11px;
-          color: #475569;
+          font-size: 12.5px;
+          color: #334155;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .sim-progress-track {
-          height: 3px;
+          height: 4px;
           background: #e2e8f0;
           overflow: hidden;
           margin-top: 2px;
@@ -2058,12 +2190,12 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           border: 0;
           border-right: 1px solid #e2e8f0;
           border-bottom: 2px solid transparent;
-          padding: 9px 14px;
-          color: #475569;
+          padding: 10px 14px;
+          color: #334155;
           cursor: pointer;
           display: flex;
           flex-direction: column;
-          gap: 3px;
+          gap: 4px;
           font: inherit;
         }
         .sim-sc-tab:last-child {
@@ -2079,28 +2211,30 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           color: #0f172a;
         }
         .sim-sc-badge {
-          font-size: 10.5px;
+          font-size: 12.5px;
           font-weight: 700;
           color: #1d4ed8;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         }
         .sim-sc-title {
-          font-size: 12px;
-          line-height: 1.4;
+          font-size: 13.5px;
+          line-height: 1.45;
           font-weight: 600;
+          color: #0f172a;
         }
 
-        /* 2. 메인 좌우 스플릿 60% : 40% */
+        /* 2. 상단 메인 좌우 스플릿 (60% : 40%) — 좌우 높이 균형 */
         .sim-main-split {
           display: grid;
-          grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-          border-bottom: 1px solid #e2e8f0;
-          align-items: start;
+          grid-template-columns: minmax(0, 1.48fr) minmax(0, 1fr);
+          border-bottom: 1px solid #cbd5e1;
+          align-items: stretch;
         }
         .sim-left-pane {
           min-width: 0;
           border-right: 1px solid #e2e8f0;
           background: #ffffff;
+          display: flex;
+          flex-direction: column;
         }
         .sim-pane-head {
           display: flex;
@@ -2121,11 +2255,11 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           border: 0;
           border-right: 1px solid #e2e8f0;
           border-bottom: 2px solid transparent;
-          padding: 9px 14px;
+          padding: 10px 14px;
           font: inherit;
-          font-size: 12px;
+          font-size: 13.5px;
           font-weight: 600;
-          color: #475569;
+          color: #334155;
           cursor: pointer;
         }
         .sim-vtab:hover {
@@ -2136,6 +2270,7 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           background: #ffffff;
           color: #1d4ed8;
           border-bottom-color: #1d4ed8;
+          font-weight: 700;
         }
         .sim-pane-meta {
           display: flex;
@@ -2144,14 +2279,13 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           padding: 4px 0;
         }
         .sim-mode-pill {
-          font-size: 10.5px;
+          font-size: 12.5px;
           font-weight: 700;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          padding: 2px 7px;
+          padding: 2px 8px;
           border: 1px solid #cbd5e1;
           background: #ffffff;
-          color: #475569;
-          border-radius: 2px;
+          color: #1e293b;
+          border-radius: 3px;
         }
         .sim-mode-pill.is-live {
           color: #047857;
@@ -2159,8 +2293,8 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           background: #ecfdf5;
         }
         .sim-step-ms {
-          font-size: 11.5px;
-          color: #475569;
+          font-size: 13px;
+          color: #1e293b;
           font-weight: 700;
         }
 
@@ -2186,26 +2320,27 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         .sim-contract-strip {
           display: flex;
           flex-wrap: wrap;
-          gap: 6px 14px;
-          padding: 8px 14px;
+          gap: 8px 14px;
+          padding: 9px 14px;
           border-bottom: 1px solid #e2e8f0;
           background: #ffffff;
-          font-size: 11.5px;
-          color: #475569;
+          font-size: 13px;
+          color: #1e293b;
         }
         .sim-contract-strip code {
           color: #0f172a;
           background: #f1f5f9;
-          border: 1px solid #e2e8f0;
-          border-radius: 2px;
-          padding: 1px 5px;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
-          font-weight: 600;
+          border: 1px solid #cbd5e1;
+          border-radius: 3px;
+          padding: 2px 7px;
+          font-family: inherit;
+          font-size: 12.5px;
+          font-weight: 700;
           margin-right: 4px;
         }
         .sim-console {
           background: #f8fafc;
+          border-bottom: 1px solid #e2e8f0;
         }
         .sim-console-head {
           display: flex;
@@ -2215,24 +2350,25 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           flex-wrap: wrap;
           padding: 8px 14px;
           border-bottom: 1px solid #e2e8f0;
-          font-size: 11.5px;
+          font-size: 13px;
           background: #f1f5f9;
         }
         .sim-console-head b {
           color: #1d4ed8;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-weight: 700;
         }
         .sim-console-head span {
           color: #0f172a;
-          font-weight: 500;
+          font-weight: 600;
         }
         .sim-console-body {
           margin: 0;
           padding: 10px 14px;
-          min-height: 76px;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11.5px;
-          line-height: 1.55;
+          min-height: 74px;
+          font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+          font-variant-numeric: tabular-nums;
+          font-size: 13px;
+          line-height: 1.65;
           color: #0f172a;
           white-space: pre-wrap;
           overflow-wrap: anywhere;
@@ -2242,22 +2378,28 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           display: flex;
           flex-direction: column;
           background: #ffffff;
+          border-bottom: 1px solid #e2e8f0;
         }
         .sim-archify-bar {
           display: flex;
           justify-content: space-between;
           align-items: center;
           gap: 8px;
-          padding: 8px 14px;
+          padding: 9px 14px;
           border-bottom: 1px solid #e2e8f0;
-          font-size: 12px;
-          color: #475569;
+          font-size: 13px;
+          color: #334155;
+        }
+        .sim-archify-bar code {
+          font-family: inherit;
+          font-weight: 700;
+          color: #0f172a;
         }
         .sim-archify-iframe {
           position: static !important;
           inset: auto !important;
           width: 100%;
-          height: 660px !important;
+          height: 540px !important;
           border: 0;
           display: block;
           background: #ffffff;
@@ -2266,6 +2408,7 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         .sim-bp-ledger {
           display: flex;
           flex-direction: column;
+          border-bottom: 1px solid #e2e8f0;
         }
         .sim-bp-row {
           display: grid;
@@ -2297,16 +2440,16 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           background: #ffffff;
           border: 1px solid #cbd5e1;
           color: #0f172a;
-          font-size: 10.5px;
+          font-size: 12.5px;
           font-weight: 700;
-          padding: 1px 6px;
-          border-radius: 2px;
+          padding: 2px 8px;
+          border-radius: 3px;
         }
         .sim-bp-spec {
           min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 5px;
+          gap: 6px;
         }
         .sim-bp-head {
           display: flex;
@@ -2315,34 +2458,149 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           flex-wrap: wrap;
         }
         .sim-bp-badge {
-          font-size: 10.5px;
+          font-size: 12.5px;
           font-weight: 700;
           color: #1d4ed8;
           background: #eff6ff;
           border: 1px solid #bfdbfe;
-          border-radius: 2px;
-          padding: 1px 7px;
+          border-radius: 3px;
+          padding: 2px 8px;
         }
         .sim-bp-spec h4 {
           margin: 0;
-          font-size: 13.5px;
+          font-size: 14.5px;
           color: #0f172a;
         }
         .sim-bp-sub {
           margin: 0;
-          font-size: 11px;
-          color: #475569;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 12.5px;
+          color: #334155;
+          font-family: inherit;
         }
         .sim-bp-spec ul {
           margin: 2px 0 0;
-          padding-left: 16px;
-          font-size: 12px;
-          color: #334155;
-          line-height: 1.45;
+          padding-left: 18px;
+          font-size: 13.5px;
+          color: #1e293b;
+          line-height: 1.5;
           display: flex;
           flex-direction: column;
-          gap: 3px;
+          gap: 4px;
+        }
+
+        /* 좌측 하단: 5열 엔지니어링 실행 로그 원장 */
+        .sim-timeline-section {
+          background: #ffffff;
+          flex: 1 1 auto;
+          display: flex;
+          flex-direction: column;
+        }
+        .sim-timeline-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          padding: 9px 14px;
+          border-bottom: 1px solid #e2e8f0;
+          background: #f8fafc;
+          font-size: 13px;
+        }
+        .sim-timeline-head b {
+          color: #0f172a;
+          font-size: 14px;
+          margin-right: 10px;
+        }
+        .sim-timeline-head span {
+          color: #334155;
+        }
+        .sim-table-wrap {
+          width: 100%;
+          overflow-x: auto;
+        }
+        .sim-exec-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13.5px;
+        }
+        .sim-exec-table th,
+        .sim-exec-table td {
+          padding: 6.5px 9px;
+          border-bottom: 1px solid #e2e8f0;
+          text-align: left;
+          vertical-align: middle;
+        }
+        .sim-exec-table tr:last-child td {
+          border-bottom: 0;
+        }
+        .sim-exec-table th {
+          background: #ffffff;
+          color: #334155;
+          font-size: 12.5px;
+          font-weight: 700;
+          border-bottom: 1px solid #cbd5e1;
+          white-space: nowrap;
+        }
+        .sim-exec-row {
+          cursor: pointer;
+          transition: background 0.12s;
+        }
+        .sim-exec-row:hover {
+          background: #f8fafc;
+        }
+        .sim-exec-row.is-active {
+          background: #eff6ff;
+        }
+        .sim-exec-row.is-active td:first-child {
+          border-left-color: #1d4ed8;
+        }
+        .sim-col-step {
+          font-weight: 700;
+          color: #0f172a;
+          width: 44px;
+          border-left: 3px solid transparent;
+          white-space: nowrap;
+        }
+        .sim-node-cell,
+        .sim-mod-cell {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .sim-node-cell strong {
+          color: #0f172a;
+          font-size: 13px;
+          word-break: keep-all;
+        }
+        .sim-node-cell span,
+        .sim-mod-cell span {
+          color: #334155;
+          font-size: 12.5px;
+        }
+        .sim-mod-cell code {
+          font-family: inherit;
+          font-size: 12.5px;
+          color: #1d4ed8;
+          font-weight: 700;
+          overflow-wrap: anywhere;
+        }
+        .sim-col-time {
+          font-weight: 700;
+          color: #0f172a;
+          white-space: nowrap;
+        }
+        .sim-col-time span {
+          font-weight: 500;
+          color: #334155;
+          font-size: 12.5px;
+        }
+        .sim-guard-cell {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+          font-size: 13px;
+          color: #1e293b;
         }
 
         /* 우측 40%: 원장형 인스펙터 시트 */
@@ -2368,13 +2626,14 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           align-items: center;
           gap: 8px;
           flex-wrap: wrap;
-          font-size: 12.5px;
+          font-size: 14px;
           color: #0f172a;
         }
         .sim-mono-sub {
-          font-size: 11px;
-          color: #475569;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 12.5px;
+          color: #334155;
+          font-family: inherit;
+          font-weight: 600;
         }
 
         .sim-route-hops {
@@ -2383,7 +2642,7 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           border: 1px solid #e2e8f0;
         }
         .sim-hop {
-          padding: 6px 8px;
+          padding: 7px 9px;
           border-right: 1px solid #e2e8f0;
           border-bottom: 1px solid #e2e8f0;
           background: #f8fafc;
@@ -2398,14 +2657,15 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           border-bottom: 0;
         }
         .sim-hop code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
+          font-family: inherit;
+          font-size: 13px;
           font-weight: 700;
           color: #0f172a;
+          overflow-wrap: anywhere;
         }
         .sim-hop span {
-          font-size: 10.5px;
-          color: #475569;
+          font-size: 12.5px;
+          color: #334155;
         }
         .sim-hop.is-active {
           background: #eff6ff;
@@ -2421,44 +2681,48 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         }
         .sim-kv-row {
           display: grid;
-          grid-template-columns: 126px minmax(0, 1fr);
+          grid-template-columns: 162px minmax(0, 1fr);
           border-bottom: 1px solid #e2e8f0;
-          font-size: 11.5px;
+          font-size: 13.5px;
         }
         .sim-kv-row:last-child {
           border-bottom: 0;
         }
         .sim-kv-row dt {
-          padding: 6px 8px;
+          padding: 8px 10px;
           background: #f8fafc;
-          color: #475569;
+          color: #1e293b;
           font-weight: 700;
           border-right: 1px solid #e2e8f0;
+          word-break: keep-all;
+          white-space: nowrap;
         }
         .sim-kv-row dd {
           margin: 0;
-          padding: 6px 8px;
+          padding: 8px 10px;
           color: #0f172a;
           overflow-wrap: anywhere;
+          line-height: 1.45;
         }
         .sim-kv-row code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
+          font-family: inherit;
+          font-size: 13px;
           color: #1d4ed8;
-          font-weight: 600;
+          font-weight: 700;
         }
 
         .sim-guard-pill,
         .sim-mono-pill {
           display: inline-block;
-          font-size: 10.5px;
+          font-size: 12.5px;
           font-weight: 700;
-          padding: 1px 6px;
-          border-radius: 2px;
+          padding: 2px 8px;
+          border-radius: 3px;
           border: 1px solid #cbd5e1;
           background: #f8fafc;
-          color: #475569;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          color: #1e293b;
+          font-family: inherit;
+          white-space: nowrap;
         }
         .sim-guard-pill.is-active,
         .sim-mono-pill.is-active {
@@ -2481,7 +2745,7 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
 
         .sim-surface-preview,
         .sim-gate-ledger {
-          border: 1px solid #e2e8f0;
+          border: 1px solid #cbd5e1;
           background: #ffffff;
         }
         .sim-surface-bar {
@@ -2489,40 +2753,42 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           justify-content: space-between;
           align-items: center;
           gap: 8px;
-          padding: 7px 10px;
+          padding: 8px 11px;
           background: #f8fafc;
           border-bottom: 1px solid #e2e8f0;
-          font-size: 11.5px;
+          font-size: 13.5px;
         }
         .sim-surface-meta {
           display: flex;
           justify-content: space-between;
           gap: 8px;
-          padding: 5px 10px;
+          flex-wrap: wrap;
+          padding: 6px 11px;
           border-bottom: 1px solid #e2e8f0;
-          font-size: 11px;
-          color: #475569;
+          font-size: 12.5px;
+          color: #334155;
         }
         .sim-surface-meta span:first-child {
           font-weight: 700;
           color: #0f172a;
         }
         .sim-surface-lines {
-          position: relative;
           padding: 10px;
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 7px;
         }
         .sim-line-row {
-          display: flex;
-          align-items: baseline;
+          display: grid;
+          grid-template-columns: 74px minmax(0, 1fr) auto;
+          align-items: center;
           gap: 8px;
-          padding: 5px 8px;
+          padding: 7px 9px;
           border: 1px solid #e2e8f0;
           background: #f8fafc;
-          font-size: 11px;
-          color: #475569;
+          font-size: 13px;
+          line-height: 1.5;
+          color: #334155;
         }
         .sim-line-row.is-lit {
           border-color: #1d4ed8;
@@ -2530,57 +2796,104 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           color: #0f172a;
         }
         .sim-line-tag {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 10px;
+          font-family: inherit;
+          font-size: 12px;
           font-weight: 700;
           color: #1d4ed8;
-          flex: 0 0 auto;
-        }
-        .sim-ocr-box {
-          position: absolute;
-          border: 1.5px dashed #1d4ed8;
-          background: rgba(29, 78, 216, 0.04);
-          pointer-events: none;
-        }
-        .sim-ocr-box span {
-          position: absolute;
-          top: -9px;
-          right: 6px;
           background: #eff6ff;
           border: 1px solid #bfdbfe;
-          color: #1d4ed8;
-          font-size: 9.5px;
+          border-radius: 3px;
+          padding: 2px 6px;
+          text-align: center;
+          white-space: nowrap;
+        }
+        .sim-line-text {
+          min-width: 0;
+          overflow-wrap: anywhere;
+          color: #0f172a;
+        }
+        .sim-ocr-token {
+          display: inline-block;
+          max-width: 100%;
+          overflow-wrap: anywhere;
+          padding: 1px 6px;
+          margin: 1px 0;
+          border-radius: 3px;
+          border: 1px solid #cbd5e1;
+          background: #f1f5f9;
+          color: #0f172a;
           font-weight: 700;
-          padding: 0 4px;
+        }
+        .sim-ocr-token.is-lit {
+          border-color: #bfdbfe;
+          background: #eff6ff;
+          color: #1e293b;
+        }
+        .sim-ocr-token.is-scanning {
+          border: 1.5px dashed #1d4ed8;
+          background: #eff6ff;
+          color: #1d4ed8;
+        }
+        .sim-line-gutter {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .sim-gutter-leader {
+          width: 14px;
+          height: 0;
+          border-top: 1.5px dashed #64748b;
+        }
+        .sim-line-gutter.is-scanning .sim-gutter-leader,
+        .sim-line-gutter.is-lit .sim-gutter-leader {
+          border-top-color: #1d4ed8;
+        }
+        .sim-gutter-badge {
+          font-size: 12px;
+          font-weight: 700;
+          padding: 2px 7px;
+          border-radius: 3px;
+          border: 1px solid #cbd5e1;
+          background: #f8fafc;
+          color: #334155;
+        }
+        .sim-line-gutter.is-scanning .sim-gutter-badge,
+        .sim-line-gutter.is-lit .sim-gutter-badge {
+          border-color: #bfdbfe;
+          background: #eff6ff;
+          color: #1d4ed8;
         }
 
         .sim-gate-standby {
           margin: 0;
-          padding: 10px;
-          font-size: 11.5px;
-          color: #475569;
-          line-height: 1.5;
+          padding: 11px;
+          font-size: 13px;
+          color: #334155;
+          line-height: 1.55;
         }
         .sim-gate-standby code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-family: inherit;
+          font-weight: 700;
           color: #0f172a;
         }
         .sim-gate-card {
-          padding: 10px;
+          padding: 11px;
           display: flex;
           flex-direction: column;
           gap: 8px;
         }
         .sim-gate-title {
-          font-size: 12.5px;
+          font-size: 14px;
           font-weight: 700;
           color: #0f172a;
         }
         .sim-gate-meta {
           display: flex;
           flex-direction: column;
-          gap: 4px;
-          font-size: 11.5px;
+          gap: 5px;
+          font-size: 13px;
         }
         .sim-gate-meta div {
           display: flex;
@@ -2588,12 +2901,13 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           flex-wrap: wrap;
         }
         .sim-gate-meta b {
-          color: #475569;
-          min-width: 82px;
+          color: #334155;
+          min-width: 92px;
         }
         .sim-gate-meta code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
+          font-family: inherit;
+          font-size: 12.5px;
+          font-weight: 700;
           color: #1d4ed8;
         }
         .sim-approve-btn {
@@ -2601,10 +2915,10 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           color: #ffffff;
           border: 1px solid #047857;
           border-radius: 3px;
-          padding: 7px 12px;
+          padding: 8px 14px;
           font: inherit;
           font-weight: 700;
-          font-size: 12.5px;
+          font-size: 13.5px;
           cursor: pointer;
         }
         .sim-approve-btn:hover {
@@ -2613,7 +2927,7 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         .sim-receipt-box {
           background: #ecfdf5;
           border: 1px solid #a7f3d0;
-          padding: 8px 10px;
+          padding: 9px 11px;
           display: flex;
           flex-direction: column;
           gap: 4px;
@@ -2623,163 +2937,401 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           justify-content: space-between;
           gap: 6px;
           flex-wrap: wrap;
-          font-size: 11.5px;
+          font-size: 13px;
           color: #047857;
         }
         .sim-receipt-body {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
+          font-family: inherit;
+          font-size: 12.5px;
           color: #0f172a;
           overflow-wrap: anywhere;
         }
 
+        .sim-guard-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13px;
+          border: 1px solid #e2e8f0;
+        }
+        .sim-guard-table th,
+        .sim-guard-table td {
+          padding: 7px 9px;
+          border-bottom: 1px solid #e2e8f0;
+          text-align: left;
+          vertical-align: middle;
+        }
+        .sim-guard-table th {
+          background: #f8fafc;
+          color: #334155;
+          font-weight: 700;
+          font-size: 12.5px;
+        }
+        .sim-guard-table tr:last-child td {
+          border-bottom: 0;
+        }
+        .sim-guard-table code {
+          font-family: inherit;
+          font-weight: 700;
+          font-size: 12.5px;
+          color: #0f172a;
+        }
+
+        /* 3. 하단 전체 폭(100%) 마스터-디테일 실제 작업 캡처 & 실측 대조 워크벤치 */
+        .sim-capture-workbench {
+          padding: 16px 18px 20px;
+          background: #ffffff;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .sim-capture-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .sim-capture-title-group {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .sim-capture-title-group b {
+          font-size: 16px;
+          color: #0f172a;
+        }
         .sim-staff-row {
           display: flex;
           align-items: center;
           gap: 8px;
           flex-wrap: wrap;
-          font-size: 12px;
+          font-size: 13.5px;
         }
         .sim-staff-row label {
           font-weight: 700;
-          color: #475569;
+          color: #1e293b;
         }
         .sim-staff-row select {
           background: #ffffff;
           color: #0f172a;
           border: 1px solid #cbd5e1;
           border-radius: 3px;
-          padding: 4px 8px;
+          padding: 5px 10px;
           font: inherit;
-          font-size: 12px;
+          font-size: 13px;
+          font-weight: 600;
         }
-        .sim-person-line {
+        .sim-person-bar {
           display: flex;
           align-items: baseline;
-          gap: 6px;
+          gap: 10px;
           flex-wrap: wrap;
-          font-size: 11.5px;
-          color: #475569;
-          padding: 6px 8px;
+          font-size: 13.5px;
+          line-height: 1.5;
+          color: #1e293b;
+          padding: 9px 12px;
           background: #f8fafc;
           border: 1px solid #e2e8f0;
         }
-        .sim-person-line b {
+        .sim-person-bar b {
           color: #0f172a;
+          font-size: 14px;
         }
         .sim-dept-tag {
-          font-size: 10.5px;
+          font-size: 12.5px;
           font-weight: 700;
           color: #1d4ed8;
           background: #eff6ff;
           border: 1px solid #bfdbfe;
-          padding: 0 6px;
+          border-radius: 3px;
+          padding: 1px 7px;
+        }
+        .sim-person-summary {
+          color: #334155;
+        }
+        .sim-capture-loading {
+          padding: 20px;
+          border: 1px solid #e2e8f0;
+          background: #f8fafc;
+          color: #334155;
+          font-size: 13.5px;
         }
 
-        .sim-bbox-grid {
+        .sim-capture-split {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 8px;
+          grid-template-columns: minmax(0, 62fr) minmax(0, 38fr);
+          gap: 16px;
+          align-items: start;
         }
-        .sim-bbox-card {
+        .sim-capture-stage {
           border: 1px solid #cbd5e1;
           background: #ffffff;
-          cursor: pointer;
+          min-width: 0;
         }
-        .sim-bbox-frame {
+        .sim-stage-bar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          padding: 9px 12px;
+          background: #f8fafc;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .sim-stage-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          min-width: 0;
+        }
+        .sim-stage-ts {
+          font-size: 12.5px;
+          font-weight: 700;
+          color: #334155;
+        }
+        .sim-stage-title {
+          font-size: 14px;
+          color: #0f172a;
+        }
+        .sim-stage-frame {
+          display: flex;
+          justify-content: center;
+          background: #f1f5f9;
+          padding: 8px;
+        }
+        .sim-stage-inner {
           position: relative;
+          display: inline-block;
           line-height: 0;
+          max-width: 100%;
         }
-        .sim-bbox-frame img {
-          width: 100%;
+        .sim-stage-inner img {
           display: block;
-          aspect-ratio: 16 / 10;
-          object-fit: cover;
+          max-width: 100%;
+          width: auto;
+          height: auto;
+          max-height: 620px;
+          background: #ffffff;
         }
-        .sim-bbox-frame.is-large img {
-          aspect-ratio: auto;
+        .sim-stage-frame.is-large .sim-stage-inner img {
           max-height: 70vh;
-          object-fit: contain;
         }
         .sim-ai-bbox {
           position: absolute;
           border: 2px solid #1d4ed8;
-          background: rgba(29, 78, 216, 0.1);
+          background: rgba(29, 78, 216, 0.06);
           pointer-events: none;
+          box-sizing: border-box;
         }
-        .sim-ai-bbox em {
+        .sim-ai-bbox.is-focused {
+          border-color: #b45309;
+          border-width: 2.5px;
+          background: rgba(180, 83, 9, 0.14);
+          z-index: 3;
+        }
+        .sim-ai-no {
           position: absolute;
-          top: -15px;
-          left: 0;
+          min-width: 22px;
+          height: 22px;
+          padding: 0 5px;
+          border-radius: 999px;
           background: #1d4ed8;
           color: #ffffff;
-          font-style: normal;
-          font-size: 10px;
+          border: 2px solid #ffffff;
+          font-size: 12px;
           font-weight: 700;
-          padding: 0 5px;
-          white-space: nowrap;
+          line-height: 18px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
         }
-        .sim-bbox-meta {
-          padding: 5px 7px;
-          display: flex;
-          gap: 6px;
-          font-size: 11px;
-          color: #0f172a;
-          border-top: 1px solid #e2e8f0;
+        .sim-ai-bbox.is-focused .sim-ai-no {
+          background: #b45309;
         }
-        .sim-bbox-meta span {
-          color: #475569;
-          white-space: nowrap;
-        }
-        .sim-bbox-meta b {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .sim-filmstrip {
-          display: flex;
-          gap: 8px;
-          overflow-x: auto;
-          padding-bottom: 2px;
-        }
-        .sim-thumb-card {
-          flex: 0 0 148px;
-          margin: 0;
-          border: 1px solid #cbd5e1;
-          background: #ffffff;
-          cursor: pointer;
-        }
-        .sim-thumb-card img {
-          width: 100%;
-          display: block;
-          aspect-ratio: 16 / 10;
-          object-fit: cover;
-        }
-        .sim-thumb-card figcaption {
-          padding: 4px 6px;
+
+        .sim-capture-sidebar {
           display: flex;
           flex-direction: column;
-          font-size: 10.5px;
-          border-top: 1px solid #e2e8f0;
+          gap: 12px;
+          min-width: 0;
         }
-        .sim-thumb-card figcaption span {
-          color: #1d4ed8;
+        .sim-legend-box,
+        .sim-caplist-box {
+          border: 1px solid #cbd5e1;
+          background: #ffffff;
         }
-        .sim-thumb-card figcaption small {
-          color: #475569;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+        .sim-legend-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+          padding: 9px 12px;
+          background: #f8fafc;
+          border-bottom: 1px solid #e2e8f0;
+          font-size: 13.5px;
+          color: #0f172a;
         }
-        .sim-fallback-note {
-          padding: 8px 10px;
+        .sim-box-legend {
+          margin: 0;
+          padding: 10px 12px;
+          list-style: none;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .sim-box-legend.is-modal {
+          border: 1px solid #e2e8f0;
+          background: #f8fafc;
+        }
+        .sim-box-legend li {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          padding: 6px 8px;
+          border: 1px solid #e2e8f0;
+          background: #f8fafc;
+          font-size: 13.5px;
+          line-height: 1.45;
+          color: #0f172a;
+        }
+        .sim-box-legend li.is-focused {
+          border-color: #b45309;
           background: #fffbeb;
-          border: 1px solid #fde68a;
-          font-size: 11.5px;
-          color: #475569;
+        }
+        .sim-legend-no {
+          flex: 0 0 auto;
+          min-width: 22px;
+          height: 22px;
+          padding: 0 6px;
+          border-radius: 3px;
+          background: #1d4ed8;
+          color: #ffffff;
+          font-size: 12.5px;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .sim-box-legend li.is-focused .sim-legend-no {
+          background: #b45309;
+        }
+        .sim-legend-text {
+          min-width: 0;
+          overflow-wrap: anywhere;
+        }
+        .sim-legend-empty {
+          padding: 11px 12px;
+          font-size: 13.5px;
+          color: #1e293b;
+        }
+        .sim-legend-screen {
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 4px;
+        }
+        .sim-legend-empty p {
+          margin: 0;
+          color: #334155;
+          line-height: 1.5;
+        }
+
+        .sim-caplist {
+          display: flex;
+          flex-direction: column;
+          max-height: 440px;
+          overflow-y: auto;
+        }
+        .sim-cap-row {
+          width: 100%;
+          text-align: left;
+          background: #ffffff;
+          border: 0;
+          border-bottom: 1px solid #e2e8f0;
+          padding: 9px 10px;
+          display: grid;
+          grid-template-columns: 104px minmax(0, 1fr);
+          gap: 10px;
+          align-items: center;
+          cursor: pointer;
+          font: inherit;
+          color: #0f172a;
+        }
+        .sim-cap-row:last-child {
+          border-bottom: 0;
+        }
+        .sim-cap-row:hover {
+          background: #f8fafc;
+        }
+        .sim-cap-row.is-active {
+          background: #eff6ff;
+          border-left: 3px solid #1d4ed8;
+        }
+        .sim-cap-row img {
+          width: 104px;
+          height: 65px;
+          object-fit: cover;
+          display: block;
+          border: 1px solid #cbd5e1;
+          background: #f1f5f9;
+        }
+        .sim-cap-info {
+          min-width: 0;
           display: flex;
           flex-direction: column;
           gap: 3px;
+        }
+        .sim-cap-meta {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+          font-size: 12px;
+          color: #334155;
+        }
+        .sim-cap-kind {
+          font-weight: 700;
+          padding: 1px 6px;
+          border-radius: 3px;
+          background: #f1f5f9;
+          border: 1px solid #cbd5e1;
+          color: #334155;
+        }
+        .sim-cap-kind.is-ai {
+          background: #eff6ff;
+          border-color: #bfdbfe;
+          color: #1d4ed8;
+        }
+        .sim-cap-cnt {
+          font-weight: 700;
+          color: #047857;
+        }
+        .sim-cap-title {
+          font-size: 13px;
+          font-weight: 700;
+          line-height: 1.4;
+          color: #0f172a;
+          white-space: normal;
+          word-break: keep-all;
+          overflow-wrap: anywhere;
+        }
+        .sim-cap-sub {
+          font-size: 12.5px;
+          color: #334155;
+          white-space: normal;
+          overflow-wrap: anywhere;
+        }
+
+        .sim-fallback-note {
+          padding: 11px 13px;
+          background: #fffbeb;
+          border: 1px solid #fde68a;
+          font-size: 13.5px;
+          color: #334155;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
         }
         .sim-fallback-note b {
           color: #b45309;
@@ -2788,22 +3340,23 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           margin: 0;
         }
         .sim-fallback-note code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-family: inherit;
+          font-weight: 700;
           color: #0f172a;
         }
 
         .sim-compare-ledger {
-          border: 1px solid #e2e8f0;
+          border: 1px solid #cbd5e1;
         }
         .sim-compare-header {
-          padding: 7px 10px;
+          padding: 9px 12px;
           background: #f8fafc;
           border-bottom: 1px solid #e2e8f0;
           display: flex;
           justify-content: space-between;
           gap: 8px;
           flex-wrap: wrap;
-          font-size: 11.5px;
+          font-size: 13.5px;
         }
         .sim-compare-header span {
           color: #047857;
@@ -2814,9 +3367,10 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .sim-compare-col {
-          padding: 8px 10px;
+          padding: 10px 14px;
           border-right: 1px solid #e2e8f0;
-          font-size: 11.5px;
+          font-size: 13.5px;
+          line-height: 1.55;
         }
         .sim-compare-col:last-child {
           border-right: 0;
@@ -2827,151 +3381,21 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         .sim-compare-sub {
           font-weight: 700;
           color: #0f172a;
-          margin-bottom: 4px;
+          margin-bottom: 5px;
         }
         .sim-compare-col.is-after .sim-compare-sub {
           color: #047857;
         }
         .sim-compare-col ol {
           margin: 0;
-          padding-left: 16px;
+          padding-left: 18px;
           display: flex;
           flex-direction: column;
-          gap: 3px;
+          gap: 4px;
         }
         .sim-compare-col small {
-          color: #475569;
-        }
-
-        .sim-guard-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 11.5px;
-          border: 1px solid #e2e8f0;
-        }
-        .sim-guard-table th,
-        .sim-guard-table td {
-          padding: 6px 8px;
-          border-bottom: 1px solid #e2e8f0;
-          text-align: left;
-          vertical-align: middle;
-        }
-        .sim-guard-table th {
-          background: #f8fafc;
-          color: #475569;
-          font-weight: 700;
-          font-size: 11px;
-        }
-        .sim-guard-table tr:last-child td {
-          border-bottom: 0;
-        }
-        .sim-guard-table code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 10.5px;
-          color: #0f172a;
-        }
-
-        /* 3. 하단 고밀도 엔지니어링 실행 로그 테이블 */
-        .sim-timeline-section {
-          background: #ffffff;
-        }
-        .sim-timeline-head {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-          padding: 10px 16px;
-          border-bottom: 1px solid #e2e8f0;
-          background: #f8fafc;
-          font-size: 12px;
-        }
-        .sim-timeline-head b {
-          color: #0f172a;
-          margin-right: 10px;
-        }
-        .sim-timeline-head span {
-          color: #475569;
-        }
-        .sim-table-wrap {
-          width: 100%;
-          overflow-x: auto;
-        }
-        .sim-exec-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 12px;
-        }
-        .sim-exec-table th,
-        .sim-exec-table td {
-          padding: 8px 12px;
-          border-bottom: 1px solid #e2e8f0;
-          text-align: left;
-          vertical-align: middle;
-        }
-        .sim-exec-table th {
-          background: #ffffff;
-          color: #475569;
-          font-size: 11px;
-          font-weight: 700;
-          border-bottom: 1px solid #cbd5e1;
-        }
-        .sim-exec-row {
-          cursor: pointer;
-          transition: background 0.12s;
-        }
-        .sim-exec-row:hover {
-          background: #f8fafc;
-        }
-        .sim-exec-row.is-active {
-          background: #eff6ff;
-        }
-        .sim-exec-row.is-active td:first-child {
-          border-left-color: #1d4ed8;
-        }
-        .sim-col-step {
-          font-weight: 700;
-          color: #0f172a;
-          width: 56px;
-          border-left: 3px solid transparent;
-        }
-        .sim-node-cell,
-        .sim-mod-cell {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .sim-node-cell strong {
-          color: #0f172a;
-          font-size: 12px;
-        }
-        .sim-node-cell span,
-        .sim-mod-cell span {
-          color: #475569;
-          font-size: 11px;
-        }
-        .sim-mod-cell code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
-          color: #1d4ed8;
-          font-weight: 600;
-        }
-        .sim-col-time {
-          font-weight: 700;
-          color: #0f172a;
-          white-space: nowrap;
-        }
-        .sim-col-time span {
-          font-weight: 400;
-          color: #475569;
-        }
-        .sim-guard-cell {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-          font-size: 11.5px;
           color: #334155;
+          font-size: 12.5px;
         }
 
         /* 모달 */
@@ -3006,7 +3430,7 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         }
         .sim-modal-head h4 {
           margin: 4px 0 0;
-          font-size: 15px;
+          font-size: 16px;
           color: #0f172a;
         }
         .sim-modal-img {
@@ -3018,14 +3442,14 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         }
         .sim-modal-callouts {
           margin: 0;
-          padding-left: 18px;
-          font-size: 12.5px;
-          color: #334155;
+          padding-left: 20px;
+          font-size: 13.5px;
+          color: #1e293b;
           line-height: 1.55;
         }
         .sim-dim {
-          color: #475569;
-          font-size: 12px;
+          color: #334155;
+          font-size: 13px;
         }
 
         @keyframes sim-edge-dash {
@@ -3046,7 +3470,8 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         }
 
         @media (max-width: 1180px) {
-          .sim-main-split {
+          .sim-main-split,
+          .sim-capture-split {
             grid-template-columns: 1fr;
           }
           .sim-left-pane {
@@ -3070,14 +3495,18 @@ export default function SolutionSuiteSimulator({ orbit = '', orbitQs = '', onSel
         @media (max-width: 720px) {
           .sim-bp-row,
           .sim-compare-grid,
-          .sim-bbox-grid,
           .sim-route-hops,
-          .sim-kv-row {
+          .sim-kv-row,
+          .sim-line-row {
             grid-template-columns: 1fr;
           }
           .sim-kv-row dt {
             border-right: 0;
             border-bottom: 1px solid #e2e8f0;
+            white-space: normal;
+          }
+          .sim-gutter-leader {
+            display: none;
           }
         }
       `}</style>

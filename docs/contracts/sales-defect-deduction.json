@@ -45,6 +45,7 @@
     "lib/estimateFixStatusLink.js",
     "lib/customerMappings.js",
     "docs/migrations/2026-07-22_web_sales_defect_deduction.sql",
+    "docs/migrations/2026-11-19_web_sales_defect_estimate_quantity.sql",
     "docs/exe-golden/FormEstimateView.md",
     "docs/DB_STRUCTURE.md",
     "pages/api/orders/parse-paste.js",

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectInvoiceCountry, productCountryMismatch, rankProductSuggestions, scoreProductMatch } from '../lib/invoiceMatchAssist.js';
+import { defaultInvoiceMatchSuggestion, detectInvoiceCountry, productCountryMismatch, rankProductSuggestions, scoreProductMatch } from '../lib/invoiceMatchAssist.js';
 
 const products = [
   { ProdKey: 1, ProdName: 'ROSE CHINA / 만달라(Mandala) 65-75cm', country: 'CN', selectable: true },
@@ -81,6 +81,17 @@ test('업무드라이브에서 이미 연결된 품명이면 그 품목이 1순�
   assert.equal(withHist.items[0].history.count, 3);
   assert.ok(withHist.items[0].score >= 94 && withHist.items[0].score <= 99);
   assert.ok(withHist.items[0].score >= (without.items.find(item => item.product.ProdKey === 4)?.score ?? 0));
+});
+
+test('기본 선택은 90 이상 단독 1위의 실제 이름 유사도, 정확한 국가와 선택 가능한 품목만 사용한다', () => {
+  const candidate = { ProdKey: 8, ProdName: 'Moon Light 50cm', country: 'CO', selectable: true };
+  assert.equal(defaultInvoiceMatchSuggestion('Moon Light', [candidate], 'CO')?.score, 90);
+  assert.equal(defaultInvoiceMatchSuggestion('Moon Light', [candidate, {...candidate, ProdKey: 9}], 'CO'), null);
+  assert.equal(defaultInvoiceMatchSuggestion('Moon Light', [candidate, {...candidate, ProdKey: 9, country: 'CN'}], 'CO')?.product.ProdKey, 8);
+  assert.equal(defaultInvoiceMatchSuggestion('Moon Light', [{...candidate, selectable: false}], 'CO'), null);
+  assert.equal(defaultInvoiceMatchSuggestion('Moon Light', [{...candidate, country: undefined}], 'CO'), null);
+  assert.equal(defaultInvoiceMatchSuggestion('Mandala MQ special', products, 'CN'), null);
+  assert.equal(defaultInvoiceMatchSuggestion('Moon Light 60cm', [candidate], 'CO'), null);
 });
 
 test('이력의 품목이 다른 나라라 후보에 없으면 끼어들지 않는다', () => {

@@ -383,7 +383,10 @@
         "lib/packingFileReuse.js",
         "components/import-tools/SharedPackingHistory.js",
         "lib/packingHistoryComparison.js",
-        "styles/ImportPacking.module.css"
+        "styles/ImportPacking.module.css",
+        "styles/ImportReviewTypography.module.css",
+        "pages/import/tools.js",
+        "styles/ImportTools.module.css"
       ],
       "requiredScenarios": [
         "select",
@@ -411,27 +414,27 @@
             {
               "scenario": "recover",
               "title": "2. 원본 PDF 선택 · 처음 올린 PDF는 Claude로 분석하고 저장 결과는 재사용합니다.",
-              "seconds": 12.246
+              "seconds": 12.537
             },
             {
               "scenario": "review",
               "title": "3. 미매칭 확인 · 원본 품목을 눌러 전산 품목을 검색하고 선택합니다.",
-              "seconds": 25.851
+              "seconds": 26.3
             },
             {
               "scenario": "reuse",
               "title": "4. 기존 분석 재사용 · 파일을 다시 올리지 않고 저장 분석에서 바로 이어갑니다.",
-              "seconds": 69.407
+              "seconds": 71.869
             },
             {
               "scenario": "changed",
               "title": "5. 변경본 선택 · 내용이 다른 파일은 기존 분석과 새 파일 분석 중 선택합니다.",
-              "seconds": 99.682
+              "seconds": 103.579
             },
             {
               "scenario": "history",
               "title": "6. 업로드 이력 · 원본과 보관 분석의 수량·금액을 비교합니다.",
-              "seconds": 141.466
+              "seconds": 145.779
             }
           ]
         }
@@ -449,7 +452,12 @@
         "lib/packingFileReuse.js",
         "styles/ImportPacking.module.css",
         "components/import-tools/InvoiceReceiptWorkbench.js",
-        "pages/import/tools.js"
+        "pages/import/tools.js",
+        "components/import-tools/PackingResults.js",
+        "components/import-tools/PackingProductMatchDialog.js",
+        "styles/InvoiceReceiptSheet.module.css",
+        "styles/ImportReviewTypography.module.css",
+        "styles/ImportTools.module.css"
       ],
       "requiredScenarios": [
         "select",
@@ -477,27 +485,27 @@
             {
               "scenario": "upload",
               "title": "2. 인보이스 PDF 올리기",
-              "seconds": 25.679
+              "seconds": 25.577
             },
             {
               "scenario": "verify",
               "title": "3. 읽힌 농장·인보이스 번호·수량·합계 확인",
-              "seconds": 63.848
+              "seconds": 64.11
             },
             {
               "scenario": "match",
               "title": "4. 미확인 품종을 전산 품목에 연결",
-              "seconds": 96.646
+              "seconds": 97.052
             },
             {
               "scenario": "download",
               "title": "5. 필요할 때 입고용 엑셀 내려받기",
-              "seconds": 193.862
+              "seconds": 167.013
             },
             {
               "scenario": "receipt",
               "title": "6. 인보이스 입고 저장 완료",
-              "seconds": 259.096
+              "seconds": 232.25
             }
           ]
         }
@@ -511,6 +519,9 @@
       ],
       "sourceFiles": [
         "pages/sales/profit-report.js",
+        "components/ProfitChinaTransport.js",
+        "components/ProfitChinaTransport.module.css",
+        "lib/profitChinaTransport.mjs",
         "components/ProfitReportSnapshotBanner.js",
         "lib/profitReportSourceGuide.js"
       ],
@@ -518,7 +529,8 @@
         "query",
         "scope",
         "views",
-        "output"
+        "output",
+        "china"
       ],
       "guides": [
         {
@@ -532,23 +544,28 @@
           "chapters": [
             {
               "scenario": "query",
-              "title": "연도·차수 선택 후 조회",
+              "title": "1. 연도·차수 선택 후 조회",
               "seconds": 0
             },
             {
               "scenario": "scope",
-              "title": "조건 변경과 재조회",
-              "seconds": 12.235
+              "title": "2. 조건 변경과 재조회",
+              "seconds": 20.111
             },
             {
               "scenario": "views",
-              "title": "차수별·월별도 직접 조회",
-              "seconds": 26.573
+              "title": "3. 차수별·월별도 직접 조회",
+              "seconds": 42.451
             },
             {
               "scenario": "output",
-              "title": "조회 범위와 출력 확인",
-              "seconds": 40.548
+              "title": "4. 조회 범위와 출력 확인",
+              "seconds": 64.385
+            },
+            {
+              "scenario": "china",
+              "title": "5. 39차부터 중국 두 농장 비교",
+              "seconds": 80.762
             }
           ]
         }
@@ -590,27 +607,27 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 7.021
+              "seconds": 7.018
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 148.631
+              "seconds": 166.046
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 247.118
+              "seconds": 261.943
             },
             {
               "scenario": "add",
               "title": "4. 기존 입고에 품목·수량 추가",
-              "seconds": 329.57
+              "seconds": 343.213
             },
             {
               "scenario": "cancel",
               "title": "5. 기존 입고의 품목·수량 취소",
-              "seconds": 442.475
+              "seconds": 454.56
             }
           ]
         },
@@ -626,17 +643,17 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.031
+              "seconds": 13.989
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 58.084
+              "seconds": 57.784
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 140.106
+              "seconds": 138.909
             }
           ]
         }
@@ -993,27 +1010,27 @@
             {
               "scenario": "allocate",
               "title": "2. 요일 수량과 기본 출고요일",
-              "seconds": 26.654
+              "seconds": 40.041
             },
             {
               "scenario": "label",
               "title": "3. 엑셀 품목 표시명 직접 수정",
-              "seconds": 53.29
+              "seconds": 66.76
             },
             {
               "scenario": "drag",
               "title": "4. 국가·품종 필터와 누적 드래그 선택",
-              "seconds": 63.198
+              "seconds": 76.734
             },
             {
               "scenario": "group",
               "title": "5. 품목군 출력 묶음",
-              "seconds": 103.967
+              "seconds": 119.907
             },
             {
               "scenario": "save",
               "title": "6. 작성본 저장과 엑셀 다운로드",
-              "seconds": 130.957
+              "seconds": 147.312
             }
           ]
         }
@@ -1154,7 +1171,7 @@
     },
     {
       "id": "pm-control",
-      "title": "PM 진행·오류 관제와 게임 화면 선택",
+      "title": "PM 핵심 목적·진행 도면·오류 관제와 게임 화면 선택",
       "entryPaths": [
         "/pm"
       ],
@@ -1162,9 +1179,13 @@
         "pages/pm.js",
         "lib/pmThemes.js",
         "components/pm/grow/Grow.js",
-        "components/pm/ControlGuide.js"
+        "components/pm/ControlGuide.js",
+        "components/pm/PmPurposeTraceBoard.js"
       ],
       "requiredScenarios": [
+        "purpose",
+        "trace",
+        "task",
         "control",
         "game",
         "off"
@@ -1173,26 +1194,41 @@
         {
           "id": "staff",
           "role": "직원",
-          "title": "일반 관제 기본·게임 화면 켜기와 끄기",
+          "title": "핵심 목적·진행 도면 확인, 과제 선택, 게임 화면 켜기와 끄기",
           "status": "ready",
           "src": "/guides/pm-control/staff.mp4",
           "captions": "/guides/pm-control/staff.ko.vtt",
           "proof": "/guides/pm-control/staff.proof.json",
           "chapters": [
             {
+              "scenario": "purpose",
+              "title": "1. 맨 위 핵심 목적 먼저 확인",
+              "seconds": 0.298
+            },
+            {
+              "scenario": "trace",
+              "title": "2. 진행 도면에서 지금 단계 확인",
+              "seconds": 11.033
+            },
+            {
+              "scenario": "task",
+              "title": "3. 과제를 누르면 목적과 도면이 바뀜",
+              "seconds": 28.521
+            },
+            {
               "scenario": "control",
-              "title": "1. 일반 관제에서 진행과 오류 확인",
-              "seconds": 0
+              "title": "4. 일반 관제에서 진행과 오류 확인",
+              "seconds": 43.286
             },
             {
               "scenario": "game",
-              "title": "2. 필요한 경우 게임 화면 켜기",
-              "seconds": 10.459
+              "title": "5. 필요한 경우 게임 화면 켜기",
+              "seconds": 53.943
             },
             {
               "scenario": "off",
-              "title": "3. 게임을 끄고 일반 관제로 복귀",
-              "seconds": 23.5
+              "title": "6. 게임을 끄고 일반 관제로 복귀",
+              "seconds": 67.477
             }
           ]
         }
@@ -1580,13 +1616,13 @@
       "videoWaivers": [
         {
           "file": "desktop/shell/flight-board.js",
-          "sha256": "7373df7a589654538e20ee27d943503c8c2c96c15bebf43643d2a84a6a0c17fa",
+          "sha256": "52a3fea09c8743df02f8e02057750a436a142223ba278504da021a000c5c2500",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },
         {
           "file": "components/home/ImportFlightBoard.js",
-          "sha256": "c6012881d171f22c06a8d5c86c16972114728b113fbd87d726825408d9ecc226",
+          "sha256": "6adf76a432d824088278dc2382d355776912be0abaa125c65797266c7ebe04ff",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 지도·항공편별 이슈 연결 개편에도 영상 제외 유지. 신규 촬영 완료 주장 없음."
         },
@@ -1598,7 +1634,7 @@
         },
         {
           "file": "desktop/flight-board.cjs",
-          "sha256": "9382b80223365218cac5100a7503d615336454c5a225f05838646fe16c5e43fc",
+          "sha256": "5ad02883153e3bd369666a1b1963c37b8d10b511f06cca5f36dcc82c42f02b24",
           "approvedBy": "owner",
           "reason": "2026-11-18 사용자 명시: 비행기현황탭 가이드영상 불필요. 우선 처리 항공편 정렬을 포함한 이번 연결 화면 개편 영상 제외."
         },
@@ -1760,8 +1796,8 @@
       "videoWaivers": [
         {
           "file": "desktop/shell/shell.js",
-          "sha256": "1bc2d48d25a2a8ac7172ad7b09ba905023520509be96681d70564da9d523fff7",
-          "reason": "관리자 전용 PM 라이브 확인 패널에 시뮬레이션·도입레이더 바로가기 버튼 추가 — 일반 직원 홈 오늘의 내 업무·시간표·메모장·달력 14단계 가이드 화면 및 조작 순서는 변경 없음",
+          "sha256": "a8436939c308bbc5578cdbe4b776ad29901b860cce09d69f06a47ecdceb5fa38",
+          "reason": "관리자 전용 PM 라이브 확인 패널에 통합지휘실(#pmHubButton) 제1버튼 및 시뮬레이션·도입레이더 바로가기 버튼 추가 — 일반 직원 홈 오늘의 내 업무·시간표·메모장·달력 14단계 가이드 화면 및 조작 순서는 변경 없음",
           "approvedBy": "사용자"
         }
       ]
@@ -1918,7 +1954,9 @@
         "pages/import/pipeline.js",
         "components/import-tools/ImportOneStopPipeline.js",
         "lib/importOneStopPipeline.js",
-        "styles/ImportOneStopPipeline.module.css"
+        "styles/ImportOneStopPipeline.module.css",
+        "components/work/PurposeFlowTrace.js",
+        "lib/workPurposeTrace.js"
       ],
       "requiredScenarios": [
         "context",
@@ -1939,22 +1977,22 @@
             {
               "scenario": "context",
               "title": "1. 상단 공통 바에서 연도·세부차수와 국가(콜롬비아)를 선택해 조회 기준을 맞춥니다.",
-              "seconds": 0.016
+              "seconds": 0.078
             },
             {
               "scenario": "incoming",
               "title": "2. 2단계 입고 업로드·검수 탭으로 이동해 발주·입고·분배 대조와 전산 입고 목록을 확인합니다.",
-              "seconds": 11.276
+              "seconds": 11.881
             },
             {
               "scenario": "cost",
               "title": "3. 3단계 도착원가 산출·확정 탭에서 승인된 실제 원가와 품목별 도착원가 반영 상태를 점검합니다.",
-              "seconds": 22.726
+              "seconds": 23.68
             },
             {
               "scenario": "share",
               "title": "4. 4단계 카톡 복사·드라이브 탭을 열어 보고 요약문 생성과 드라이브 연결로 이동합니다.",
-              "seconds": 34.137
+              "seconds": 35.456
             }
           ]
         }
@@ -2104,22 +2142,74 @@
             {
               "scenario": "scope",
               "title": "1. 상단 공통 바에서 연도·세부차수와 국가(콜롬비아)를 선택해 10대 레버 분석 범위를 맞춥니다.",
-              "seconds": 0.005
+              "seconds": 0.062
             },
             {
               "scenario": "simulate",
               "title": "2. 반사실 시뮬레이션 컨트롤에서 환율 +60원 스트레스 프리셋을 적용해 방어 효과를 계산합니다.",
-              "seconds": 10.167
+              "seconds": 10.706
             },
             {
               "scenario": "views",
               "title": "3. 시안 B(2×2)·시안 C(카본 콘솔)·뷰 ALL(A·B·C 동시모드 & 연속구현 큐)로 전환해 검수합니다.",
-              "seconds": 20.395
+              "seconds": 20.982
             },
             {
               "scenario": "briefing",
               "title": "4. 사장님 보고용 원가·이익 브리핑 복사 버튼을 눌러 10대 레버 요약 보고서를 복사합니다.",
-              "seconds": 31.739
+              "seconds": 33.34
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ceo-command-hub",
+      "title": "사장님 통합 지휘실 (PM · 에이전트 · 연속 디벨롭)",
+      "entryPaths": [
+        "/work/command-hub"
+      ],
+      "sourceFiles": [
+        "pages/work/command-hub.js",
+        "components/work/CeoCommandHub.js",
+        "lib/ceoCommandHub.js",
+        "styles/CeoCommandHub.module.css"
+      ],
+      "requiredScenarios": [
+        "pulse",
+        "ledger",
+        "queue",
+        "directory"
+      ],
+      "guides": [
+        {
+          "id": "staff",
+          "role": "사장님",
+          "title": "1분 점검 코스부터 PM 결재·에이전트·디벨롭·전체 화면 지도까지",
+          "status": "ready",
+          "src": "/guides/ceo-command-hub/staff.mp4",
+          "captions": "/guides/ceo-command-hub/staff.ko.vtt",
+          "proof": "/guides/ceo-command-hub/staff.proof.json",
+          "chapters": [
+            {
+              "scenario": "pulse",
+              "title": "1. 상단 맥박 스트립과 아침 1분 점검 코스에서 결재·에이전트·원가 경보를 확인합니다.",
+              "seconds": 0.011
+            },
+            {
+              "scenario": "ledger",
+              "title": "2. PM 업무 원장에서 전체·진행중·완료 탭을 전환하고 안건명·PR 번호로 검색합니다.",
+              "seconds": 10.05
+            },
+            {
+              "scenario": "queue",
+              "title": "3. 다음 연속 구현 대기 큐에서 READY 과제를 골라 구현 지시서를 복사합니다.",
+              "seconds": 20.351
+            },
+            {
+              "scenario": "directory",
+              "title": "4. 하단 4대 목적별 전체 화면 지도에서 오늘 필요한 업무 화면을 바로 엽니다.",
+              "seconds": 30.745
             }
           ]
         }

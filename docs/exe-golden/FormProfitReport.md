@@ -1,5 +1,16 @@
 # 주차별 매출이익보고서 — Nenova 호환 근거
 
+## 2026-11-19 중국 운송수단 참고 분해
+
+실제 설치 Nenova.exe에 dnSpy.Console `-t Nenova.ClassShipmentFarm` 및
+`-t FormWarehouseView`를 실행했다. ShipmentFarm의 SdetailKey/FarmKey/ShipmentQuantity,
+입고의 OrderYear/OrderWeek/TPrice 연결을 확인했다. 메서드 출력의 INSERT/UPDATE/Delete
+및 uspStockCalculation은 실행하지 않았다. 같은 2026/44 업무키 SELECT-only probe에서
+중국 확정 상세186건의 농장배정0건을 확인했다. 실제 배정 우선, 없으면 같은 품목 당차
+입고비율을 쓰는 표시는 사용자 승인 근사이며 native 저장을 대체하지 않는다.
+조회·가이드·배포 모두 ERP 원장 및 과거/확정 손익 snapshot을 보존한다.
+계획: docs/plans/profit-china-transport-2026-11-19.md.
+
 ## 2026-10-23 통관 환율 주간과 입력일자 분리
 
 실제 `C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe`를

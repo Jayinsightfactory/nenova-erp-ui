@@ -24,10 +24,14 @@ test('original-only upload is team-readable, immutable and idempotent',async t=>
 });
 test('new staff revision preserves old revision and strips ERP write authority',async t=>{
  const {api,options}=await setup(t),request=input();await api.savePackingUpload(request,'staff-a',options);
- const next={...request,id:randomUUID(),fileBase64:undefined,snapshot:{...request.snapshot,lastExtraction:{sourceHash:request.sourceHash,result:{invoices:[{year:2026,week:'42-01',canCommit:true,operationId:'do-not-restore',items:[]}]},sourceInvoices:[]}}};
+ const next={...request,id:randomUUID(),fileBase64:undefined,snapshot:{...request.snapshot,matchingReviewed:true,lastExtraction:{sourceHash:request.sourceHash,result:{invoices:[{year:2026,week:'42-01',canCommit:true,operationId:'do-not-restore',items:[]}]},sourceInvoices:[]}}};
  const saved=await api.savePackingUpload(next,'staff-b',{...options,now:()=>new Date('2099-01-01')});
  assert.equal((await api.listPackingUploads(options))[0].actor,'staff-b');
  const detail=await api.readPackingUpload(saved.id,options);
+ assert.equal(saved.matchingReviewed,true);
+ assert.equal(detail.snapshot.matchingReviewed,true);
+ assert.equal(detail.reviewConfirmed,false);
+ assert.equal((await api.readPackingUpload(request.id,options)).matchingReviewed,false);
  assert.equal(detail.snapshot.lastExtraction.result.invoices[0].canCommit,undefined);
  assert.equal(detail.snapshot.lastExtraction.result.invoices[0].operationId,undefined);
  assert.equal((await api.readPackingUpload(request.id,options)).hasAnalysis,false);

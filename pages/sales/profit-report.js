@@ -25,6 +25,7 @@ import ProfitAuditIssueList from '../../components/ProfitAuditIssueList';
 import ProfitReportSnapshotBanner from '../../components/ProfitReportSnapshotBanner';
 import ProfitWeekCheckPanel from '../../components/ProfitWeekCheckPanel';
 import ProfitStockAdjustmentNotes from '../../components/ProfitStockAdjustmentNotes';
+import ProfitChinaTransport from '../../components/ProfitChinaTransport';
 import ProfitRangeOutput from '../../components/ProfitRangeOutput';
 import { profitWeeksScope, profitWeeksScopeMatches, collectProfitWeeks } from '../../lib/profitRangeOutput.mjs';
 import toolbar from '../../styles/ProfitReportToolbar.module.css';
@@ -1572,7 +1573,7 @@ export default function ProfitReportPage() {
                 const D = hasStoredRowCalculation(row) ? c.D : calcRevenueRatio(c, totals);
                 const U = hasStoredRowCalculation(row) ? c.U : calcPurchaseRatio(c, totals);
                 return (
-                  <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
+                  <Fragment key={row.category}><tr style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
                     {isVisible('category') && (
                       <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}
                         title={row.category === '기타(미분류)' ? '국가·화종 매핑에 들지 않은 거래입니다. 아래 합계(매출액·매출비율·매출원가·매출이익·이익률)에 포함되지 않는 검증 전용 행이며, 품목의 국가/화종을 정정해야 정식 카테고리로 반영됩니다.' : undefined}>
@@ -1589,7 +1590,7 @@ export default function ProfitReportPage() {
                         {cd.key === 'K' && <ProfitValidationRateLabel validation={sourceValidation} category={row.category} />}
                       </td>
                     ))}
-                  </tr>
+                  </tr>{row.category === '중국' && <ProfitChinaTransport data={data} row={row} dirty={dirty} colSpan={shownColumns.length + (isVisible('category') ? 1 : 0)} />}</Fragment>
                 );
               })}
               <tr style={{ background: '#e2e8f0', fontWeight: 800 }}>

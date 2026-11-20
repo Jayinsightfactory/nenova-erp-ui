@@ -3,6 +3,8 @@
   "version": "1.0.2",
   "private": true,
   "scripts": {
+    "test:china-transport": "node __tests__/profitChinaTransport.test.mjs && node __tests__/profitChinaTransportApi.test.cjs",
+    "posttest:profit-inventory-basis": "npm run test:china-transport",
     "test:paste-local-analysis": "node __tests__/pasteLocalAnalysis.test.js && node __tests__/pasteAiMatchReview.test.js",
     "test:profit-customer-margin": "node --test __tests__/profitCustomerMargin.test.cjs __tests__/profitCustomerMarginApi.test.cjs __tests__/profitCustomerMarginDrivers.test.cjs __tests__/profitCustomerMarginUi.test.cjs",
     "pretest:profit-weekly-cache": "npm run test:profit-customer-margin && node --test __tests__/profitTemplateDuty.test.cjs __tests__/profitWorkbookDuty.test.cjs __tests__/profitAverageFallback.test.cjs __tests__/profitAverageSources.test.cjs __tests__/profitAverageView.test.cjs && node __tests__/profitProductionSmoke.test.cjs",

@@ -1,4 +1,5 @@
 import styles from '../../styles/ImportPacking.module.css';
+import typography from '../../styles/ImportReviewTypography.module.css';
 import WorkflowGuide from '../WorkflowGuide';
 import PackingManifestFarmReview from './PackingManifestFarmReview.js';
 import {pendingManifestIssues} from '../../lib/packingManifestReconciliation.js';
@@ -1072,6 +1073,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const [reviewRows, setReviewRows] = useState(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
+  const [matchingReviewedFile, setMatchingReviewedFile] = useState(null);
   const [reviewRevision, setReviewRevision] = useState(0);
   const reviewButtonRef = useRef(null);
   const matchPreviewRef = useRef(null);
@@ -1127,14 +1129,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     const sequence = ++workSaveSequence.current;
     let active = true;
     setWorkMessage('현재 작업 보관 중…');
-    workStore.save({ file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed,
+    workStore.save({ file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed, matchingReviewed: matchingReviewedFile === file,
       legacyReviewData, legacyPackingReviewRequired, extractionSource }).then(() => {
       if (active && sequence === workSaveSequence.current) { setWorkError(''); setWorkMessage('현재 작업 보관됨 · 같은 PC·계정에서 새로고침 후 이어서 작업할 수 있습니다.'); }
     }).catch(error => {
       if (active && sequence === workSaveSequence.current) { setWorkMessage(''); setWorkError(`현재 작업 보관 실패: ${error.message} · 이 화면을 닫지 말고 다시 시도하세요.`); }
     });
     return () => { active = false; };
-  }, [workStore, workReady, file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork]);
+  }, [workStore, workReady, file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed, matchingReviewedFile, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork]);
 
   useEffect(() => {
     if (!userId || !file || restoringWork) return;
@@ -1142,14 +1144,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     setTeamHistoryStatus('팀 업로드 이력 보관 대기 중…');
     const timer = setTimeout(() => {
       let pending;
-      try { pending = teamHistory.save({file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed,
+      try { pending = teamHistory.save({file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed, matchingReviewed: matchingReviewedFile === file,
         legacyReviewData, legacyPackingReviewRequired, extractionSource}); }
       catch (error) { setTeamHistoryError(error.message); return; }
       pending.then(() => { if (active) { setTeamHistoryError(''); setTeamHistoryStatus('팀 업로드 이력 보관 완료 · 변경 이력에서 모든 직원이 불러올 수 있습니다.'); } })
         .catch(error => { if (active) { setTeamHistoryStatus(''); setTeamHistoryError(error.message); } });
     }, 800);
     return () => { active = false; clearTimeout(timer); };
-  }, [teamHistory, userId, file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork, teamHistoryRetry]);
+  }, [teamHistory, userId, file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed, matchingReviewedFile, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork, teamHistoryRetry]);
 
   useEffect(() => {
     if (!sharedRestore) return;
@@ -1195,6 +1197,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setFileChoice(null);setHistoryOpen(false);
       setAwbFile(null);setAwbPdfBase64('');setAwbSourceHash('');setAwbValues(null);setAwbManualFields([]);setAwbReviewed(false);
       setCountry(work.country); setDateYear(work.dateYear || ''); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
+      setMatchingReviewedFile(work.matchingReviewed === true ? restoredFile : null);
       setLastExtraction({ ...extraction, sourceHash: hash }); setReviewRows(work.reviewRows || makePackingReviewRows(extraction.sourceInvoices, work.country));
       setReviewConfirmed(confirmed); setReviewOpen(false); setReviewRevision(value => value + 1);
       setLegacyReviewData(work.legacyReviewData); setLegacyPackingReviewRequired(work.legacyPackingReviewRequired);
@@ -1254,6 +1257,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     invoiceUploadDate, awbFile, awbSourceHash, awbReview, awbReviewed, awbManualFields, audMarketRate, audMarketRateError]);
 
   const resetResults = () => {
+    setMatchingReviewedFile(null);
     setFileChoice(null);setSelectingFile(false);setHistoryOpen(false);setHistoryError('');
     receiptIntent.current = false;
     setMatchTarget(null);setMatchError('');
@@ -1377,10 +1381,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   };
 
   const refreshPreviewForMappings = ({ invoices = lastExtraction?.result?.invoices, nextAliases = aliases, nextErp = erpMatches } = {}) => {
-    if (invoices && nextErp) setMatchPreview(buildPackingMatchPreview({ invoices, country, aliases: nextAliases, erpMatches: nextErp }));
+    const nextPreview = invoices && nextErp ? buildPackingMatchPreview({ invoices, country, aliases: nextAliases, erpMatches: nextErp }) : null;
+    if (nextPreview) setMatchPreview(nextPreview);
     // Mapping/catalog revisions invalidate generated bytes, but retain source-review drafts.
     setExcels([]); setGenerated({}); setGeneratedErp(null);
     setPending([]); setAllNoMatches([]); setMismatches([]);
+    return nextPreview;
   };
 
   const rebuildWithAliases = currentAliases => refreshPreviewForMappings({ nextAliases: currentAliases });
@@ -1659,8 +1665,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if (matchTarget?.origin === 'manager') {
         const entry = data.value?.entries?.find(e => e.country === matchTarget.country && e.sourceKey === packingSourceKey(matchTarget.description));
         if (!entry) { setMatchTarget(target => target ? {...target, requiresReload:true} : target); throw new Error('저장된 연결이 더 이상 없습니다. 창을 닫고 매칭 목록을 다시 확인하세요.'); }
-        setMatchTarget(target => target ? {...target, currentName:entry.prodName, expectedRevision:data.revision, requiresReload:false} : target);
-      } else setMatchTarget(target=>target?{...target,expectedRevision:data.revision,requiresReload:false}:target);
+        setMatchTarget(target => target ? {...target, currentName:entry.prodName, currentProdKey:entry.prodKey, expectedRevision:data.revision, requiresReload:false} : target);
+      } else setMatchTarget(target=>{
+        if (!target) return target;
+        const entry = data.value?.entries?.find(e => e.country === country && e.sourceKey === packingSourceKey(target.description));
+        return {...target,currentName:entry?.prodName,currentProdKey:entry?.prodKey,expectedRevision:data.revision,requiresReload:false};
+      });
     }
     catch(error){if(scope===sharedScopeVersion.current){setMatchError(error.message);setStatus({type:'error',msg:error.message});}}
     finally{savingRef.current=false;setSaving(false);}
@@ -1676,24 +1686,32 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       const data=await requestErpMatches();
       if(scope!==sharedScopeVersion.current||version!==readerVersion.current||sequence!==erpReadSequence.current)return;
       if(data.revision!==erpMatches?.revision)setLatestShared(true);
-      setErpMatches(data);setMatchTarget({description,expectedRevision:data.revision});
+      const current = data.value?.entries?.find(entry => entry.country === country && entry.sourceKey === packingSourceKey(description));
+      setErpMatches(data);setMatchTarget({description,currentName:current?.prodName,currentProdKey:current?.prodKey,expectedRevision:data.revision});
     } catch(error){if(scope===sharedScopeVersion.current){setMatchError(error.message);setStatus({type:'error',msg:error.message});}}
     finally{savingRef.current=false;setSaving(false);}
   };
   const openInvoiceAllocation = () => prepareReceipt({ allowAllocationReview: true });
-  const saveErpMatch=async prodKey=>{
-    if(savingRef.current||processingRef.current||!matchTarget||matchTarget.requiresReload||!erpMatches||(!lastExtraction&&matchTarget.origin!=='manager'))return;
+  const saveErpMatch=async (prodKey, inlineTarget)=>{
+    const target=inlineTarget ?? matchTarget;
+    if(savingRef.current||processingRef.current||!target||target.requiresReload||!erpMatches||(!lastExtraction&&target.origin!=='manager'))return {error:'현재 매칭을 저장할 수 없습니다. 다시 조회하세요.'};
     const scope=sharedScopeVersion.current;
+    const fileVersion=readerVersion.current;
     savingRef.current=true;setSaving(true);setMatchError('');
     ++erpReadSequence.current;
     try {
-      const data=await requestErpMatches({country:matchTarget.country ?? country,description:matchTarget.description,prodKey,expectedRevision:matchTarget.expectedRevision});
-      if(scope!==sharedScopeVersion.current)return;
+      const data=await requestErpMatches({country:target.country ?? country,description:target.description,prodKey,expectedRevision:target.expectedRevision});
+      if(scope!==sharedScopeVersion.current)return {error:'작업 범위가 변경됐습니다. 다시 조회하세요.'};
       setErpMatches(data);
-      refreshPreviewForMappings({ nextErp: data });
+      const nextPreview = refreshPreviewForMappings({ nextErp: data });
+      if (file && fileVersion === readerVersion.current && target.origin !== 'manager') {
+        const rows = nextPreview?.flatMap(excel => excel.products || []) || [];
+        setMatchingReviewedFile(rows.length && rows.every(row => !packingMatchReview(row, data.products, country).needsReview) ? file : null);
+      }
       setMatchTarget(null);
       setLatestShared(false);
-      if (matchTarget.origin === 'manager') setStatus({type:'success',msg:'팀 공용 DB 매칭을 수정했습니다. 다음 업로드와 현재 매칭표에 적용되며, 이미 저장된 입고 문서는 변경하지 않습니다.'});
+      if (target.origin === 'manager') setStatus({type:'success',msg:'팀 공용 DB 매칭을 수정했습니다. 다음 업로드와 현재 매칭표에 적용되며, 이미 저장된 입고 문서는 변경하지 않습니다.'});
+      return {success:true};
     } catch(error) {
       if(scope===sharedScopeVersion.current){
         setMatchError(error.message);
@@ -1703,6 +1721,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           if(scope===sharedScopeVersion.current)setMatchError(error.message+' · 최신 팀 매칭 적용 후 선택을 다시 확인하세요.');
         }
       }
+      return {error:error.message};
     }
     finally {savingRef.current=false;setSaving(false);}
   };
@@ -1718,7 +1737,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if(data.revision!==erpMatches?.revision)setLatestShared(true);
       const current=data.value?.entries?.find(e=>e.country===entry.country&&e.sourceKey===entry.sourceKey);
       if(!current)throw new Error('저장된 연결이 더 이상 없습니다. 최신 목록을 확인하세요.');
-      setMatchTarget({origin:'manager',country:current.country,description:current.description,currentName:current.prodName,expectedRevision:data.revision});
+      setMatchTarget({origin:'manager',country:current.country,description:current.description,currentName:current.prodName,currentProdKey:current.prodKey,expectedRevision:data.revision});
     } catch(error){if(scope===sharedScopeVersion.current){setMatchError(error.message);setStatus({type:'error',msg:error.message});}}
     finally{savingRef.current=false;setSaving(false);}
   };
@@ -2039,7 +2058,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   }, [autoAnalyze,lastExtraction,matchingComplete,validationIssues.length,processing,saving,sharedReady,latestShared,reviewOpen,matchTarget,excels.length,reviewConfirmed]);
 
   return (
-    <div ref={toolRoot} className={styles.root} lang={lang} style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', color: '#172b4d' }}>
+    <div ref={toolRoot} className={`${styles.root} ${typography.scope}`} lang={lang} style={{ background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
       {matchTarget&&<PackingProductMatchDialog target={matchTarget} country={matchTarget.country ?? country} products={erpMatches?.products??[]} matchEntries={erpMatches?.value?.entries??[]}
         onSave={saveErpMatch} onClose={()=>setMatchTarget(null)} onReload={reloadErpMatches} saving={saving} error={matchError}/>}
       {reviewRows && <PackingEvidenceReview key={reviewRevision} rows={reviewRows} open={reviewOpen && !matchTarget} onClose={closeReview} onConfirm={confirmReview}
@@ -2269,7 +2288,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 <label className={styles.reuseSearch}>보관된 파일명 검색<input aria-label="보관된 파일명 검색" value={historySearch} onChange={e=>setHistorySearch(e.target.value)}/></label>
                 <div className={styles.reuseList}>
                   {historyRows.filter(r=>r.country===country&&r.fileName.toLocaleLowerCase().includes(historySearch.toLocaleLowerCase())).slice(0,30).map(row=><button type="button" key={row.id} data-testid="packing-history-resume" disabled={processing||saving||restoringWork||selectingFile} onClick={()=>restoreAnalyzedUpload(row)}>
-                    <span>{row.fileName}</span><small>{Number.isFinite(Date.parse(row.at))?new Date(row.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'저장 시각 미확인'} · 바로 이어서 작업</small>
+                    <span>{row.fileName}</span><small>{row.matchingReviewed === true && '매칭 확인 · '}{Number.isFinite(Date.parse(row.at))?new Date(row.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'저장 시각 미확인'}</small>
                   </button>)}
                 </div>
                 {!selectingFile&&!historyRows.some(r=>r.country===country&&r.fileName.toLocaleLowerCase().includes(historySearch.toLocaleLowerCase()))&&<p>선택한 국가에 해당하는 저장 분석이 없습니다.</p>}
@@ -2449,17 +2468,17 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   {receiptStatus?.valid && <div role="status" data-testid="packing-receipt-match-summary">입고 문서 행별 품목 선택 {receiptStatus.documentTotal - receiptStatus.documentPending}/{receiptStatus.documentTotal}행 · {receiptStatus.documentPending}행 미선택 · 팀 공용 별칭 저장 아님{!receiptStatus.overlayComplete ? ' · 생성 패킹 행과 직접 연결되지 않아 패킹 상태는 별도 표시' : ''}</div>}
                   {matchingComplete && <button type="button" data-testid="packing-receipt-prepare"
                     title={allocationCount ? 'Woolly bush 행별 품목과 입고량을 분류하는 화면을 엽니다.' : undefined}
-                    onClick={() => allocationCount ? openInvoiceAllocation() : prepareReceipt()}
+                    onClick={() => {
+                      if (allocationCount) return openInvoiceAllocation();
+                      setMatchingReviewedFile(file);
+                      return prepareReceipt();
+                    }}
                     disabled={saving || processing || !sharedReady || latestShared} style={{ marginLeft: 16, padding: '10px 20px', background: '#2457c5', color: '#fff', border: 0, borderRadius: 8, fontWeight: 700 }}>
                     {allocationCount ? 'Woolly bush 품목·입고량 분류' : costOnly ? '다음 · 도착원가 준비' : '입고 업로드로 이동'}
                   </button>}
-                  <p>팀 공용 DB 매칭과 입고 문서의 행별 품목 선택은 별개입니다. 행별 선택은 팀 공용 별칭으로 저장되지 않으며, 이미 생성된 패킹 파일의 다운로드는 기존 검증을 유지합니다. 변경된 품목을 패킹 파일에 반영하려면 다시 생성하세요. 매칭만으로 입고·재고가 변경되지 않습니다.</p>
                 </div>
                 <div role="status" style={{ padding: 12, marginBottom: 12, background: reviewConfirmed ? '#edf8f1' : '#fff4d6', border: '1px solid #ccd6e5', borderRadius: 8 }}>
                   <button ref={reviewButtonRef} type="button" onClick={() => { setReviewInitialTarget(null); setReviewOpen(true); }} disabled={processing || saving} data-testid="packing-review-open">인식값 수정 · 원본 PDF 보기</button>
-                  <span style={{ marginLeft: 12 }}>원본 품명 옆에 DB 품목을 모두 연결한 뒤 「{costOnly ? '다음 · 도착원가 준비' : '다음 · 입고 준비'}」를 누르세요. 별도 원문확인 체크는 필요 없습니다.</span>
-                  <p>수량·단가를 잘못 읽은 경우에만 인식값을 수정하세요. 실제 숫자 오류·단위 환산·중복입고는 저장 전에 다시 검사합니다.</p>
-                  <div>미리보기와 확인은 ERP 입고 DB에 저장하지 않습니다.</div>
                 </div>
                 {excels.some(excel => packingLegacyExportBlocked(excel, generatedErp?.products, country)) && <p role="alert">다른 국가에 같은 이름의 품목이 있어 EXE용 패킹 엑셀 다운로드는 차단했습니다. 국가와 품목키로 구분되는 웹 입고 등록을 이용하세요. 도착원가 다운로드는 별도입니다.</p>}
                 {excels.length > 1 && (() => {
@@ -2493,6 +2512,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   </li>)}</ul>
                 </section>}
                 <PackingResults
+                  onInlineMatch={(product, prodKey) => saveErpMatch(prodKey, {
+                    description: product.matchingDescription,
+                    expectedRevision: erpMatches?.revision,
+                    requiresReload: latestShared || !product.matchingDescription
+                  })}
                   erpProducts={excels.length ? (generatedErp?.products || []) : (erpMatches?.products || [])}
                   receiptMatches={receiptMatches}
                   excels={excels.length ? excels : matchPreview}

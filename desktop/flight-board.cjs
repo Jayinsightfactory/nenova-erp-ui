@@ -1,11 +1,11 @@
 'use strict';
 const {createHash}=require('node:crypto');
-const {linkedFlights}=require('./shell/flight-board');
+const {linkedFlights,absoluteTime}=require('./shell/flight-board');
 // 앱 홈 「수입 비행기 현황」: 로그인 세션으로 네노바웹 /api/import/flight-board 를 읽어 홈에 필요한 칸만 추려 넘긴다(읽기 전용).
 // 카드에 필요한 운송장·수량만 넘기고 원문은 상세 화면에서 확인한다.
 const {ORIGIN}=require('./policy.cjs');
 const clean=(value,max)=>typeof value==='string'?value.replace(/[\u0000-\u001f\u007f]/g,' ').slice(0,max):'';
-const iso=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))?new Date(value).toISOString():null;
+const iso=value=>{const ms=absoluteTime(value);return Number.isFinite(ms)?new Date(ms).toISOString():null;};
 const count=value=>Number.isFinite(Number(value))&&Number(value)>=0?Math.min(Math.trunc(Number(value)),9999):0;
 const flightViewId=key=>createHash('sha256').update(String(key||'')).digest('hex');
 const issueText=value=>clean(value,160).replace(/\b\d{3}[- ]?\d{8}\b/g,'운송장');
@@ -53,6 +53,10 @@ function projectFlightBoard(data){
     return {
       viewId:flightViewId(f.key),weekLabel:clean(f.weekLabel,12),country:clean(f.country,12),itemLabel:clean(f.itemLabel,40),
       displayName:clean(f.displayName,60),
+      customsProgress:f.customsProgress ? {
+        declaration:['pending','cleared'].includes(f.customsProgress.declaration) ? f.customsProgress.declaration : '',
+        release:f.customsProgress.release === 'waiting' ? 'waiting' : 'unknown',
+      } : null,
       extraTitleItems:Array.isArray(f.extraTitleItems)?f.extraTitleItems.slice(0,80).map(name=>clean(name,60)).filter(Boolean):[],
       airline:clean(f.airline,32),awb:/^\d{3}-?\d{8}$/.test(f.awb||'')?f.awb:'',
       originAssumed:f.origin?.assumed===true,announcedCargo:cargo(f.announcedCargo),receivedCargo:cargo(f.receivedCargo),

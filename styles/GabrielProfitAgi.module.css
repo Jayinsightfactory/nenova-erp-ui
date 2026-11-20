@@ -3,6 +3,7 @@
  */
 
 .root {
+  --agi-font: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
   --agi-bg: #f4f6fa;
   --agi-surface: #ffffff;
   --agi-surface-2: #f8fafc;
@@ -18,13 +19,27 @@
   --agi-warn-bg: #fef3c7;
   --agi-err: #b91c1c;
   --agi-err-bg: #fee2e2;
+  --agi-purpose-bg: #f0f6ff;
+  --agi-purpose-border: #bfdbfe;
+  --agi-trace-canvas: #fafcff;
+  --agi-trace-grid: #e8eef6;
+  --agi-trace-done: #059669;
+  --agi-trace-done-ink: #047857;
+  --agi-trace-done-bg: #ecfdf5;
+  --agi-trace-done-packet: #34d399;
+  --agi-trace-run: #2563eb;
+  --agi-trace-run-surface: #eff6ff;
+  --agi-trace-run-badge-bg: #dbeafe;
+  --agi-trace-wait-border: #cbd5e1;
+  --agi-trace-wait-dot: #94a3b8;
 
+  font-family: var(--agi-font);
   background: var(--agi-bg);
   color: var(--agi-ink);
   padding: 14px 18px 28px;
   min-height: 100%;
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 13.5px;
+  line-height: 1.48;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -47,6 +62,19 @@
   --agi-warn-bg: rgba(210, 153, 34, 0.16);
   --agi-err: #f85149;
   --agi-err-bg: rgba(248, 81, 73, 0.14);
+  --agi-purpose-bg: #122036;
+  --agi-purpose-border: #264875;
+  --agi-trace-canvas: #0f151f;
+  --agi-trace-grid: #1e293b;
+  --agi-trace-done: #10b981;
+  --agi-trace-done-ink: #34d399;
+  --agi-trace-done-bg: rgba(16, 185, 129, 0.16);
+  --agi-trace-done-packet: #6ee7b7;
+  --agi-trace-run: #3b82f6;
+  --agi-trace-run-surface: rgba(37, 99, 235, 0.16);
+  --agi-trace-run-badge-bg: rgba(59, 130, 246, 0.22);
+  --agi-trace-wait-border: #334155;
+  --agi-trace-wait-dot: #64748b;
 }
 
 .carbonSurface {
@@ -157,6 +185,92 @@
   border-color: var(--agi-ok);
   background: var(--agi-ok-bg);
   color: var(--agi-ok);
+}
+
+/* 목적 우선 표시(Purpose-First) 최상단 및 레버별 핵심 목적 Callout */
+.purposeCallout,
+.leverPurposeCallout {
+  font-family: var(--agi-font);
+  border: 1px solid var(--agi-purpose-border);
+  border-left: 4px solid var(--agi-trace-run);
+  border-radius: 6px;
+  background: var(--agi-purpose-bg);
+  padding: 11px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.leverPurposeCallout {
+  border-left-color: var(--agi-trace-done);
+}
+
+.purposeTopRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.purposeTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 4px;
+  background: var(--agi-trace-run);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.leverPurposeCallout .purposeTag {
+  background: var(--agi-trace-done);
+}
+
+.purposeOwnerBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--agi-line);
+  background: var(--agi-surface);
+  color: var(--agi-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.purposeRecoveryMetric {
+  margin-left: auto;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--agi-trace-done-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.purposeHeadline {
+  margin: 0;
+  font-family: var(--agi-font);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.45;
+  color: var(--agi-ink);
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+
+.purposeSubLine {
+  font-size: 13px;
+  color: var(--agi-muted);
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+
+.purposeSubLine b {
+  color: var(--agi-ink);
+  font-weight: 700;
 }
 
 .kpiStrip {
@@ -698,8 +812,207 @@
 }
 
 .diagramBox {
-  border: 1px solid var(--agi-line-soft);
+  border: 1px solid var(--agi-line);
+  border-radius: 8px;
+  background: var(--agi-surface);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.traceHeaderBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  border-bottom: 1px solid var(--agi-line-soft);
+  padding-bottom: 9px;
+}
+
+.traceHeaderLeft {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.traceTabTitle {
+  font-family: var(--agi-font);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--agi-trace-run);
+  padding-bottom: 2px;
+  border-bottom: 2px solid var(--agi-trace-run);
+  white-space: nowrap;
+}
+
+.traceLeverTag {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--agi-ink);
+}
+
+.traceHeaderControls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.traceLegend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.traceLegendItem {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
   border-radius: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  border: 1px solid var(--agi-line);
+  white-space: nowrap;
+}
+
+.traceLegendDone {
+  background: var(--agi-trace-done-bg);
+  border-color: var(--agi-trace-done);
+  color: var(--agi-trace-done-ink);
+}
+
+.traceLegendRun {
+  background: var(--agi-trace-run-badge-bg);
+  border-color: var(--agi-trace-run);
+  color: var(--agi-trace-run);
+}
+
+.traceLegendWait {
+  background: var(--agi-surface-2);
+  border-color: var(--agi-trace-wait-border);
+  color: var(--agi-muted);
+}
+
+.traceAutoBtn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 5px;
+  border: 1px solid var(--agi-line);
+  background: var(--agi-surface-2);
+  color: var(--agi-ink);
+  font-family: var(--agi-font);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.traceAutoBtnOn {
+  background: var(--agi-trace-done-bg);
+  border-color: var(--agi-trace-done);
+  color: var(--agi-trace-done-ink);
+}
+
+.traceTimingReadout {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--agi-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.traceCanvasWrap {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--agi-trace-canvas);
+  border: 1px solid var(--agi-line-soft);
+  padding: 6px 8px;
+}
+
+.diagramSvg {
+  width: 100%;
+  max-width: 1120px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  font-family: var(--agi-font);
+}
+
+.traceCardGroup {
+  cursor: pointer;
+}
+
+.traceCardGroup:focus-visible {
+  outline: 2px solid var(--agi-trace-run);
+  outline-offset: 2px;
+}
+
+.traceWireDone {
+  stroke: var(--agi-trace-done);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tracePacketDone {
+  stroke: var(--agi-trace-done-packet);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 2 58;
+  animation: gabrielTracePacketFlow 2.2s linear infinite;
+}
+
+.traceWireRunning {
+  stroke: var(--agi-trace-run);
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 8 6;
+  animation: gabrielTraceDashFlow 0.8s linear infinite;
+}
+
+.traceWirePending {
+  stroke: var(--agi-trace-wait-border);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 4 5;
+}
+
+@keyframes gabrielTraceDashFlow {
+  from {
+    stroke-dashoffset: 28;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes gabrielTracePacketFlow {
+  from {
+    stroke-dashoffset: 120;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .traceWireRunning,
+  .tracePacketDone {
+    animation: none !important;
+  }
+}
+
+.traceDetailBar {
+  border: 1px solid var(--agi-purpose-border);
+  border-left: 4px solid var(--agi-trace-run);
+  border-radius: 6px;
   background: var(--agi-surface-2);
   padding: 10px 12px;
   display: flex;
@@ -707,10 +1020,85 @@
   gap: 6px;
 }
 
-.diagramSvg {
-  width: 100%;
-  height: auto;
-  display: block;
+.traceDetailHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.traceDetailTitleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.traceDetailStepBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--agi-trace-run-badge-bg);
+  border: 1px solid var(--agi-trace-run);
+  color: var(--agi-trace-run);
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.traceDetailTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--agi-ink);
+}
+
+.traceDetailDept {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--agi-muted);
+}
+
+.traceStepPills {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.traceStepPill {
+  min-width: 30px;
+  height: 26px;
+  padding: 0 7px;
+  border-radius: 4px;
+  border: 1px solid var(--agi-line);
+  background: var(--agi-surface);
+  color: var(--agi-muted);
+  font-family: var(--agi-font);
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.traceStepPillActive {
+  background: var(--agi-trace-run);
+  border-color: var(--agi-trace-run);
+  color: #ffffff;
+}
+
+.traceDetailBody {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--agi-ink);
+  line-height: 1.5;
+}
+
+.traceDetailMeta {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--agi-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .lineageSubTables {
@@ -1158,7 +1546,10 @@
   background: var(--agi-surface-2);
   color: var(--agi-ink);
   padding: 8px 10px;
-  font: 12px/1.5 monospace;
+  font-family: var(--agi-font);
+  font-size: 13px;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
   resize: vertical;
 }
 
@@ -1205,7 +1596,14 @@
   .barTrack {
     grid-column: 1 / -1;
   }
-  .viewDesc {
+  .viewDesc,
+  .purposeRecoveryMetric {
     margin-left: 0;
+  }
+  .purposeHeadline {
+    font-size: 15px;
+  }
+  .traceLegend {
+    display: none;
   }
 }

@@ -1,19 +1,78 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-06T07:35:10.237Z",
+  "recordedAt": "2026-11-19T09:53:16.735Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 49.05,
+  "duration": 116.45,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "0f3a63dd7481d8e10b1458ec3da3e16d3a8c00a2f61a2b3711e14a7930b327e0",
-  "captionsSha256": "bbc09481d848af349fb801843893ac17a824ad0d109545be6056af5ccc85dbf5",
+  "videoSha256": "ce7f11014976c8fb866b2892d9feeceaafb1922717efcf20fcf37d0a60526cb9",
+  "captionsSha256": "f94a2ce0da8d22b7e2d4740651373e804fddb87026739fd315eb7205a490103f",
   "sourceHashes": {
-    "pages/sales/profit-report.js": "1aaed263a349d3e304bcc3b78bd1f934f1b3a9b1b12defa1721299bea061dc2d",
+    "pages/sales/profit-report.js": "2ead4c025e6e5daac5f0d8bdb394345bfd2633232f162e90f402f4d16bb8ad42",
+    "components/ProfitChinaTransport.js": "670e5c0b74f187a967ce2eec114b8bc09dc6d856eac83057ed899f82221eaca3",
+    "components/ProfitChinaTransport.module.css": "660987548ab0e36d096bde50c44c41c34f6b0dc3923d4a411c7f2794cc6b9f5d",
+    "lib/profitChinaTransport.mjs": "628b46005eedf56988a0acb9bca8a16806656e32ef8f2a203b6f310f94046693",
     "components/ProfitReportSnapshotBanner.js": "07e409a0af53b523dda57b589c70b81b26545ba410124cd7b3986d297d5a5b07",
     "lib/profitReportSourceGuide.js": "98911242b681142e01d7f00a59355d785a50432731bd0d99db7c33de90236654"
+  },
+  "presentation": {
+    "numberedSteps": 5,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 900
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 7.834639800000001,
+        "x": 1401.5,
+        "y": 126,
+        "end": 13.886777699999998
+      },
+      {
+        "number": 2,
+        "start": 22.3377186,
+        "x": 1309.5,
+        "y": 126,
+        "end": 28.497741599999998
+      },
+      {
+        "number": 3,
+        "start": 44.26438039999999,
+        "x": 368.5,
+        "y": 126,
+        "end": 50.3441724
+      },
+      {
+        "number": 4,
+        "start": 66.1967392,
+        "x": 282.5,
+        "y": 126,
+        "end": 72.2748067
+      },
+      {
+        "number": 5,
+        "start": 88.59908920000001,
+        "x": 316.4140625,
+        "y": 558.90625,
+        "end": 94.6499654
+      },
+      {
+        "number": 5,
+        "start": 104.68407359999999,
+        "x": 461.5,
+        "y": 558.25,
+        "end": 116.14709669999999
+      }
+    ]
   }
 }

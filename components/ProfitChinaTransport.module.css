@@ -1,0 +1,20 @@
+.container { background: #f8fafc; color: #1e293b; font-size: 14px; font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif; }
+.container button, .container table { font: inherit; }
+.container button:focus-visible, .container summary:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+.basis { border-left: 3px solid #475569; padding-left: 10px; }
+.container > td { padding: 0; border-bottom: 1px solid #cbd5e1; }
+.toggle { padding: 8px 12px; border: 0; background: transparent; color: #1e40af; cursor: pointer; text-align: left; }
+.panel { padding: 12px 16px; max-width: 1500px; }
+.panel header { display: flex; align-items: center; gap: 16px; }
+.panel header strong { font-size: 16px; }
+.panel button:not(.toggle) { background: white; border: 1px solid #94a3b8; padding: 5px 10px; cursor: pointer; }
+.panel p { line-height: 1.6; margin: 8px 0; }
+.scroll { overflow-x: auto; }
+.scroll table { border-collapse: collapse; width: 100%; min-width: 960px; font-variant-numeric: tabular-nums; }
+.scroll th, .scroll td { padding: 8px; border-bottom: 1px solid #cbd5e1; text-align: right; white-space: nowrap; }
+.scroll th:first-child, .scroll td:first-child { text-align: left; }
+.scroll thead, .scroll tfoot { background: #e2e8f0; }
+.warnings { padding-left: 20px; color: #92400e; line-height: 1.6; }
+.meta { color: #475569; }
+.panel summary { cursor: pointer; padding: 6px 0; }
+@media print { .container { display: none; } }
