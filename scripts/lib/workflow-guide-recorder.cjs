@@ -70,13 +70,20 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
       host.querySelector('[data-guide-caption]').textContent = text;
     }, String(text));
   }
-  async function stop() {
+  let stopPromise;
+  function stop() { return stopPromise ??= finalizeCapture(); }
+  async function finalizeCapture() {
     if (pending) cues.push({ ...pending, end: elapsed() });
     await recorder.stop();
     // Optional editorial zoom: source browser remains 1920x1080 / 100% throughout.
     // Keep the original lower caption band outside the zoomed picture.
     const filters = cameraFilters(focusShots, includeHeader);
-    execFileSync(ffmpegPath, ['-y', '-hide_banner', '-loglevel', 'error', '-i', raw, ...filters, '-an', '-c:v', 'libx264', '-preset', encodingPreset, '-threads', '2', '-crf', '23', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4], { windowsHide: true, timeout: 300000 });
+    // Save the actual capture timing before encoding so a timeout does not lose it.
+    fs.writeFileSync(path.join(work, `${workflowId}-${guideId}.capture.json`), JSON.stringify({
+      raw, mp4, captions, proofFile, sourceFiles, sourceHashes, chapters, cues, focusShots,
+      includeHeader, encodingPreset, filters, recordedAt: new Date().toISOString()
+    }, null, 2) + '\n');
+    execFileSync(ffmpegPath, ['-y', '-hide_banner', '-loglevel', 'error', '-i', raw, ...filters, '-an', '-c:v', 'libx264', '-preset', encodingPreset, '-threads', '2', '-crf', '23', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4], { windowsHide: true, timeout: 900000 });
     const probe = JSON.parse(execFileSync(ffprobePath, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height,avg_frame_rate:format=duration', '-of', 'json', mp4], { encoding: 'utf8', windowsHide: true }));
     const stream = probe.streams[0], duration = Number(probe.format.duration);
     const fps = stream.avg_frame_rate.split('/').map(Number).reduce((a, b) => a / b);
