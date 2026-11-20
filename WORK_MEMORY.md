@@ -4241,3 +4241,16 @@ pm run test:canon 통과.
 실제 1920x1080 가이드 14단계, 554.5초, 자막 76개 실제 프레임 정렬 및 카메라 구간 검증.
 
 2026-11-20 최종 업스트림 통합: Desktop 1.3.71, 546.1초·자막 76개 정확한 프레임 정렬, PR #1903. 운영 공개는 CI 후 확인.
+
+## 2026-11-20 — 출고분배 엑셀 합산 배포·운영 확인 완료
+검색어: additive-distribution-1120 PR1906 f891c82c Desktop1.3.71 FINAL ADDITIONAL g03 g13 g19
+1. 작업 위치: nenova-erp-ui / 기능 PR1906 squash f891c82c268dc45cc8dc9d908c7ab01a0d0a8daa / 최종 인계 codex/additive-distribution-1120-handoff. 작업 worktree C:/Users/USER/.codex/worktrees/e8d3/nw-cdx-additive-distribution-1120는 인계 push·Drive readback 후 제거. 최신 master f2585e675(타 작업 Desktop1.3.72)는 f891을 포함하며 해당 버전/릴리스는 수정하지 않음.
+2. 완료: 검증 전 기존합산 체크, 합산전+추가=최종·미배정, 합산본/추가분 선택다운로드·메타 왕복, 기존농장/파일밖/0·빈칸 보존, 수량·농장 stale/확정/경쟁·중복 차단. 원본 행열·그림·인쇄 유지, 수식 캐시·소수 표시 정밀화. 신규6단계/기존가이드 촬영·해시·재생, Desktop 연결 완료. Cafe24 run44662157882 success 및 운영 f891 실화면 체크/두 옵션/검증전 승인차단 확인. 실제 운영 ERP 원장 시험 쓰기0.
+3. 남은 할 일: 기능·배포 필수 작업 없음. 신입 가이드 수용률60건 등의 분모 측정은 본 작업 범위 밖으로 미측정. 다운로드 검증 서명의 기존30분 유효기간 유지. 실제 운영 MSSQL 양수 저장 성공 시험은 하지 않았으며 실제 save core 경쟁2회귀는 격리 SQL adapter, 실제 입력·승인 UI는 전체 API 합성 응답 경계에서 검증했음.
+4. 검증/근거: 최종 PR ERP CI44661257206·Windows44661257770 success, master Windows44662157850의 f891 설치본1.3.71·공개 latest readback 및 EXE SHA25625463cc7da7b158dd8ebfcebad6101fe0d2e77a2759f1728e7bf048a9302a311/blockmap 해시 일치. 사용자 원본2개 SHA256 보존·native6출력 원본시트 A3 1페이지/그림13·6/행열·여백·fit1×1/합계·잔량 확인. 목표g03/g13/g19 note·history·evidence 연결, progress0/100/40 및 gate-p0 보존, 지시1건 학습. 정합률98.3%(키워드 관련도), 이탈후보2 전부종결/진행0. neglectedGoals11: g05,g06,g07,g08,g09,g02,g14,g15,g03,g04,g18.
+5. 주의/보관: 사용자 원본·이전 nw-farm-roundtrip-proof 및 미push기록 무변경. 타인1.3.71 draft/asset 무수정, 정상 게시 f891 설치본을 검증함. 자체 draft452203273은 QA보관/미게시·latest 아님. node_modules 및 desktop/node_modules는 정본 junction이므로 junction자체만 먼저 제거. 최종 운영 JPG 34,623B만 최종 전달용으로 worktree 밖 유지하고 대용량 임시는 Drive readback 후 정리.
+Drive 폴더: https://drive.google.com/drive/folders/1AK3Gpx3gQrCcAlumYYMQV2mFn17olVAc
+검증 ZIP(15,575,214B): https://drive.google.com/file/d/1JQgMI-KcOLs69HD1LayasZI7Lb7LEUQh/view
+최종 증거 ZIP(16,463,041B): https://drive.google.com/file/d/1KgyHGjLjY2qM9ofbSU4MmpII7x0wnQt3/view
+운영 JPG: C:/Users/USER/.codex/visualizations/2026/11/20/additive-distribution-1120/production-additive-controls.jpg / https://drive.google.com/file/d/12_XX8CdILiPuyWM1oa6OU04f4w3Zoh5c/view
+공개 설치본: https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.71
