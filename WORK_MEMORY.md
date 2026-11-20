@@ -4254,3 +4254,12 @@ Drive 폴더: https://drive.google.com/drive/folders/1AK3Gpx3gQrCcAlumYYMQV2mFn1
 최종 증거 ZIP(16,463,041B): https://drive.google.com/file/d/1KgyHGjLjY2qM9ofbSU4MmpII7x0wnQt3/view
 운영 JPG: C:/Users/USER/.codex/visualizations/2026/11/20/additive-distribution-1120/production-additive-controls.jpg / https://drive.google.com/file/d/12_XX8CdILiPuyWM1oa6OU04f4w3Zoh5c/view
 공개 설치본: https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.71
+
+## 2026-11-20 — 최종 정리 상태 정정 (자동 검토 차단)
+검색어: PR1906 cleanup-blocked blocked-by-policy additive-distribution-1120
+1. 작업 위치: codex/additive-distribution-1120-handoff / C:/Users/USER/.codex/worktrees/e8d3/nw-cdx-additive-distribution-1120. 실제 Git common dir=C:/Users/USER/Documents/Codex/2026-07-11/new-chat/work/nenova-erp-ui/.git.
+2. 완료: 기능 PR1906·Cafe24 f891·Desktop1.3.71 공개 latest/해시·운영 UI·Drive 보관·목표g03/g13/g19 연결/학습 완료. 공유 dependencies를 가리키던 junction2개는 Target/LinkType 확인 후 링크 자체만 제거, 정본 dependencies 실체 보존.
+3. 남은 일: 로컬 task worktree/.next·.next-additive-dev·.verify(설치본/영상/로그) 및 외부 검증폴더 대용량은 미정리. 일괄 정리 및 명시경로·ReparsePoint 검사를 넣은 캐시/정상 worktree 정리가 모두 자동 검토에서 차단돼 추가 삭제/우회 중단. 권한 재요청 없음.
+4. 검증/보관: 삭제 명령은 실행 전 거절돼 source/검증자료 보존. 사용자 원본2개 SHA256 보존, 이전 nw-farm-roundtrip-proof 무변경. 실제 운영 ERP 시험 쓰기0(양수 저장 성공 시험 미실행; 실제 save core 경쟁은 격리 SQL adapter, 실제 입력/승인 UI는 합성 API 경계, 운영은 체크·선택·승인 차단 확인). neglectedGoals11=g05,g06,g07,g08,g09,g02,g14,g15,g03,g04,g18. 학습1건, 기존 progress/gate 유지.
+5. 주의: 자동 승인 검토의 사유는 'blocked by policy'만 제공되고 세부 사유 없음. 다른 셸·분할·강제 삭제로 우회하지 말 것. 원본·이전기록·PM 백업은 보존. 최종 전달 JPG는 C:/Users/USER/.codex/visualizations/2026/11/20/additive-distribution-1120/production-additive-controls.jpg(34,623B).
+미정리 위치: 위 worktree 전체 + C:/Users/USER/.codex/visualizations/2026/11/20/additive-distribution-1120(JPG 외 검증 자료 포함). 저장된 두 ZIP·최종 상태는 Drive 폴더 참조. 이 정정이 앞의 '정리 예정' 기록보다 우선한다.

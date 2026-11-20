@@ -47,3 +47,6 @@ PR1906은 f891c82c268dc45cc8dc9d908c7ab01a0d0a8daa로 squash 병합. 최종 ERP/
 목표g03/g13/g19에는 근거·메모·이력만 추가하고 progress0/100/40와 gate-p0를 보존. 비밀 없는 지시1건을 영구 학습했다. 정합률98.3%는 목표 달성률이 아니며 미접촉 목표11개는 WORK_MEMORY 참조. 운영 ERP 시험 쓰기0; native/격리 fixture/UI 검증의 구체적 범위와 기존30분 다운로드 서명 제한은 위 기록을 따른다.
 
 최종 증거는 지정 Drive 폴더와 두 ZIP에 업로드·크기/부모/ID readback 확인. 최종 운영 JPG1장만 전달용으로 남기고 task worktree·공유 junction 참조·캐시·중복 설치본/영상/Excel/PDF는 보관 확인 후 정리한다. 사용자 원본과 이전 작업 기록은 유지한다.
+
+### 정리 상태 정정
+기능·배포·운영·보관은 완료했으나 로컬 정리는 자동 승인 검토에서 거절됐다. 사유는 'blocked by policy'만 제공됐다. junction2개만 안전하게 제거했고 정본 dependencies 실체·사용자 원본·이전 작업은 보존했다. task worktree의 캐시/.verify/설치본 및 외부 검증폴더 대용량은 삭제하지 않고 남겨 둔다. 명시경로/ReparsePoint 검사를 넣은 방식도 거절되어 추가 삭제/우회/권한 재요청은 하지 않았다. 최종 WORK_MEMORY 정정 블록을 따른다.
