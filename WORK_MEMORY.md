@@ -4373,3 +4373,12 @@ pm run test:canon 통과.
 3. 남은 일: PR 최종 CI·squash·Cafe24 배포·Desktop1.3.76 정식 설치본 해시/피드·운영 스모크·Drive 보관. 최종 인계는 codex/handoff-<PR번호> docs-only 고정 커밋.
 4. 검증: ERP 전체계약/dnSpy/manifest236/쓰기 가드, 최종 UI build 및 MP4/VTT 플레이어(내부/외부 접기 정지) 통과. 대상 회귀16개, 후속 React7, Desktop80/실제 Electron 메뉴·탭·즐겨찾기, Chrome1920/390·선택 보존·Escape/비활성 호출자·재검증 payload·접힌 농장 입력 외부 오류 표시 통과. 운영 ERP 쓰기0, 직원 PC 실제 설치 미검증.
 5. 주의/잠금: PR 완료 전 페이지·관련 가이드2편·Desktop1.3.76 예약 유지. 원장/API/계산/파일양식 변경 없음. 연결 목표 g03/g13/g19 / 학습 반영 있음, 목표% 유지.
+
+## 2026-11-20 수입부 인수인계 원고 — 사장님 답 25개 반영
+요약: 질문 25 → 13(풀린 것 53 → 74). 확정으로 옮긴 것: 농장 부족은 영업 판단, 고정 주문은 대표·이사, 체크리스트는 직원 양식, 폴더 이름 규칙 없음, 한 주는 수~화, 새 업체 송금은 이사 허락, 확정은 영업지원이 취소, 저녁·주말은 최대한 빨리, 사진 필수 등. 추측·순서 불명은 「다시 여쭐 것」 4건 추가. 기록에서 찾을 것(나라·품종별 마감, 환율·관세율, 농장별 결제 조건, 메일 수신처)은 질문에 할 일로 남김.
+검색어: 수입부 매뉴얼 사장님 답 questions answered ownerFollowUps 염색 수국 마감 85% 매칭
+1. 작업 위치: nenova-erp-ui / feat/import-owner-answers-1120 / C:\Users\USER\wt-import-manual
+2. 완료: scripts/build-import-handover.cjs(자료 묶기 직전 「사장님 답 반영」 블록, 문제표 1곳) → data · docs 재생성
+3. 남은 일: 전산에서 나라·품종별 마지막 주문 등록 시점 표 만들기, 경영지원 기록에서 농장별 결제 조건 찾기, 보낸 메일에서 수신처 찾기, 패킹리스트 생성기가 85% 기준으로 추천하는지 확인
+4. 검증: npm run -s test:workflow-guides 통과. 전산 대조 1건(콜롬비아 수국 염색 대 일반, 40~46차). 운영 확인은 배포 뒤.
+5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: g03 / 학습 반영: 있음(owner-agi-twin 에 넣을 것)
