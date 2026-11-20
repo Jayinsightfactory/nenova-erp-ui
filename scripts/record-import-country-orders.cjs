@@ -51,8 +51,16 @@ async function main(){
   await page.waitForSelector('[aria-controls="import-panel-orders"]');
   await page.click('[aria-controls="import-panel-orders"]');
   // Record the fullscreen fallback in the original tab. Dry runs separately exercise the actual popup.
-  await page.evaluate(() => { window.__orderGuideOpen = window.open; window.open = () => null; });
+  await page.evaluate(() => { window.__orderGuideOpen = window.open; window.open = () => null; window.showSaveFilePicker = undefined; });
   const country='.pedidos-auto [aria-label="국가"] button:nth-child(2)',cycle='.pedidos-cycles button',sub='.pedidos-subweeks[aria-label="실제 주문 세부차수"] button',down='.pedidos-auto-actions button:not([disabled])';
+  const openPreview='.pedidos-primary button.pedidos-open-preview';
+  async function selectThenOpen(number) {
+    await page.waitForSelector(openPreview+':enabled',{visible:true});
+    assert.equal(await page.$('#pedidos-preview-title'),null);
+    await rec.pause(700);await rec.unfocus();
+    await rec.focus(openPreview,number);
+    await page.focus(openPreview);await page.keyboard.press('Enter');
+  }
   await page.waitForSelector(country,{visible:true});
   const countryButton=await page.evaluate(()=>[...document.querySelectorAll('[aria-label="국가"] button')].findIndex(b=>b.textContent.includes('네덜란드'))+1);
   assert(countryButton);
@@ -60,7 +68,7 @@ async function main(){
   const steps=[
    ['country','국가 선택','[aria-label="국가"] button:nth-child('+countryButton+')','네덜란드를 선택하면 차수 버튼이 나타납니다.'],
    ['cycle','차수 선택',cycle,'2026년 46차를 선택해 실제 주문이 있는 세부차수를 확인합니다.'],
-   ['week','세부차수 미리보기',sub,'46-01차를 누르면 넓은 미리보기에서 품목과 주문 수량을 확인합니다. 팝업이 차단되면 이 화면에서 전체 크기로 열립니다.'],
+   ['week','세부차수와 미리보기',sub,'46-01차로 주문을 조회한 뒤 매칭데이터 미리보기 열기를 눌러 품목과 수량을 확인합니다.'],
    ['review','송이 수 확인·수정','.pedidos-review-input','전산 원수량 150송이를 확인하고 이번 발주 수량을 140송이로 수정합니다.'],
    ['download','다운로드·ETA 창 열기',down,'파일명이 표시된 다운로드 버튼을 누르면 ETA 입력 창이 열립니다.'],
    ['eta','ETA 날짜 입력','[aria-labelledby="pedidos-eta-title"] input[type="text"]','달력으로 날짜를 선택하거나 아래에 직접 입력합니다. 2026-11-16과 영문 요일을 확인합니다.'],
@@ -73,7 +81,9 @@ async function main(){
     await page.$eval(selector,b=>b.scrollIntoView({block:'center'}));
     rec.chapter(scenario,title);await rec.caption(title+' · '+description);await rec.pause(2300);await rec.focus(selector,i+1);
     await page.focus(selector);
-    if(scenario==='review'||scenario==='eta'){await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');await page.keyboard.type(scenario==='eta'?'2026-11-16':'140',{delay:150});await page.keyboard.press('Tab');assert.equal(await page.$eval(selector,n=>n.value),scenario==='eta'?'2026-11-16':'140');if(scenario==='eta')assert((await page.$eval('[aria-labelledby="pedidos-eta-title"]',n=>n.textContent)).includes('ETA (2026-11-16 Monday)'));}else await page.keyboard.press('Enter');await rec.pause(2800);await rec.unfocus();
+    if(scenario==='review'||scenario==='eta'){await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');await page.keyboard.type(scenario==='eta'?'2026-11-16':'140',{delay:150});await page.keyboard.press('Tab');assert.equal(await page.$eval(selector,n=>n.value),scenario==='eta'?'2026-11-16':'140');if(scenario==='eta')assert((await page.$eval('[aria-labelledby="pedidos-eta-title"]',n=>n.textContent)).includes('ETA (2026-11-16 Monday)'));}else await page.keyboard.press('Enter');
+    if(scenario==='week') await selectThenOpen(i+1);
+    await rec.pause(2800);await rec.unfocus();
   }
   let filename;
   for(let n=0;n<50&&!filename;n++){filename=fs.readdirSync(downloadDir).find(f=>f.endsWith('.xlsx'));if(!filename)await new Promise(r=>setTimeout(r,100));}
@@ -87,7 +97,7 @@ async function main(){
   const farmSteps=[
    ['china','중국 발주 조회','[aria-label="국가"] button:nth-child('+chinaIndex+')','중국을 선택하고 차수와 세부차수를 다시 선택합니다.'],
    ['china-cycle','중국 차수 선택',cycle,'2026년 46차를 선택합니다.'],
-   ['china-week','중국 세부차수 선택',sub,'46-01차의 모든 품목과 업체 수량을 불러옵니다.'],
+   ['china-week','중국 세부차수와 미리보기',sub,'46-01차의 주문을 조회하고 매칭데이터 미리보기 열기를 누릅니다.'],
    ['farm','기본 수신명 수정','.pedidos-farms input[type="text"]','기본값 Melody는 유지됩니다. 이번에는 HUBFRESH로 바꿉니다. 농장명을 검색하거나 직접 입력할 수 있습니다.'],
    ['split','농장별 파일 나누기','.pedidos-split-toggle input','나누기를 켜면 농장 1에 체크한 품목과 미선택 품목의 파일이 나뉩니다. 기본 상태에서는 나누지 않습니다.'],
    ['assign','농장 1 품목 선택','.pedidos-matrix input[aria-label="ROSE / 연습 화이트 50cm 농장 1 HUBFRESH"]','화이트 품목을 농장 1로 선택합니다. 체크한 품목 전체 업체 수량은 HUBFRESH, 나머지는 CLOUD 파일에 들어갑니다.'],
@@ -100,6 +110,7 @@ async function main(){
     await page.focus(selector);
     if(scenario==='farm'){assert.deepEqual(await page.$$eval('.pedidos-farms input[type="text"]',nodes=>nodes.map(node=>node.value)),['Melody','CLOUD']);await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');await page.keyboard.type('HUBFRESH',{delay:150});await page.keyboard.press('Tab');}
     else await page.keyboard.press(['assign','split'].includes(scenario)?'Space':'Enter');
+    if(scenario==='china-week') await selectThenOpen(number);
     if(scenario==='assign')await page.waitForFunction(()=>document.querySelectorAll('.pedidos-auto-actions button').length>=3&&document.querySelector('.pedidos-auto-actions').textContent.includes('HUBFRESH')&&document.querySelector('.pedidos-auto-actions').textContent.includes('CLOUD'));
     await rec.pause(2800);await rec.unfocus();
   }
@@ -110,7 +121,7 @@ async function main(){
   for(const [n,id,label,selector,caption,key] of [
     [16,'chat','최근 발주일 카톡 확인','.kakao-refresh','오늘과 어제가 아니라 발주가 있는 최근 2일을 자동으로 찾습니다. 표시된 발주일을 확인하세요. 일반 대화와 중복은 제외하고 취소는 검토로 분리합니다.','Enter'],
     [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','콜롬비아 카네이션을 선택하면 Moon Light 4박스와 업체별 주광 1, 미우 2, 일신 1을 확인할 수 있습니다.',null],
-    [18,'match-total','합계에서 원문 확인','.kakao-match-total','품종 버튼을 누르면 중앙에 이 합계에 포함된 원문만 나타납니다.','Enter'],
+    [18,'match-total','합계에서 원문 확인','.kakao-match-total','가운데 품종 버튼을 누르면 오른쪽에 합계 근거 원문이 펼쳐집니다.','Enter'],
     [19,'match-source','원문에서 합계 확인','.kakao-match-source','원문 버튼을 누르면 오른쪽에 이 원문이 기여한 합계를 표시합니다.','Enter'],
     [20,'audit','제외 원문 대조','.kakao-audit > summary','분류 건수를 대조하고 제외 원문을 검색해 놓친 발주를 확인합니다. 카톡 자체 수집 누락과 사진은 별도 원본 대조가 필요합니다.','Enter'],
     [21,'recover','누락 의심 발주 보완','[data-audit-id="missed"] > button','원문에서 두 박스를 확인한 뒤 품종·차수·수량·단위를 보완하고 합산을 체크합니다.','Enter'],
@@ -153,7 +164,7 @@ async function main(){
   assert.equal(await page.$eval('.kakao-additions input[type="checkbox"]',n=>n.checked),false);
   assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'3 박스');
   console.log('PASS initial automatic total4, customer remarks, manual exclusion3 preserved after refresh');
-  const layout=await page.evaluate(()=>{const box=s=>document.querySelector(s).getBoundingClientRect();return {ratio:box('.pedidos-primary').width/box('.pedidos-split').width,left:box('.pedidos-primary').x,center:box('.kakao-originals').x,right:box('.kakao-totals').x};});
+  const layout=await page.evaluate(()=>{const box=s=>document.querySelector(s).getBoundingClientRect();return {ratio:box('.pedidos-primary').width/box('.pedidos-split').width,left:box('.pedidos-primary').x,center:box('.kakao-totals').x,right:box('.kakao-originals').x};});
   assert(layout.ratio>.23&&layout.ratio<.26);assert(layout.left<layout.center&&layout.center<layout.right);
   await page.click('.kakao-match-total');assert.equal(await page.$$eval('.kakao-order-message',n=>n.length),2);
   assert.equal(await page.$$eval('.kakao-order-message[open]',n=>n.length),2);
@@ -164,6 +175,28 @@ async function main(){
   assert((await page.$eval('.kakao-audit',n=>n.textContent)).includes('카톡방 전체의 수집 누락 여부는 확인되지 않았습니다'));
   await page.click('.kakao-audit > summary');await page.waitForNetworkIdle();
   console.log('PASS 25percent layout, week/category buttons, bidirectional contributors and opt-in omission audit');
+  rec.chapter('download-history','23. 이전 다운로드와 수량 비교');
+  await rec.caption('23. 이전 다운로드와 수량 비교 · 저장된 이전본을 선택하거나 기존 파일을 열어 현재 발주 수량을 대조합니다.');
+  await rec.pause(1400);await rec.focus(openPreview,23);await page.click(openPreview);await rec.unfocus();
+  const comparison='.pedidos-result:first-of-type .pedidos-download-comparison';
+  await page.waitForSelector(comparison,{visible:true});
+  assert((await page.$eval(comparison,node=>node.textContent)).includes('보관된 다운로드가 없습니다'));
+  await page.$eval(comparison+' button',el=>el.scrollIntoView({block:'center'}));
+  await rec.focus(comparison+' button',23);await page.click(comparison+' button');await rec.unfocus();
+  const previousFile=await page.$(comparison+' input[type="file"]');
+  await previousFile.uploadFile(path.join(downloadDir,farmFile));
+  await page.click(comparison+' .pedidos-fields button');
+  await page.waitForFunction(selector=>document.querySelector(selector)?.textContent.includes('파일 불러옴'),{},comparison);
+  const compareEdit='.pedidos-review-input[aria-label*="화이트"]';
+  await page.$eval(compareEdit,el=>el.scrollIntoView({block:'center'}));
+  await rec.focus(compareEdit,23);await page.focus(compareEdit);
+  await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');
+  await page.keyboard.type('35',{delay:150});await rec.unfocus();
+  await page.waitForSelector(comparison+' table[aria-label="이전과 현재 수량 차이"]',{visible:true});
+  assert((await page.$eval(comparison,el=>el.textContent)).includes('35'));
+  await page.$eval(comparison,el=>el.scrollIntoView({block:'center'}));
+  await rec.focus(comparison,23,{anchorLeft:true});await rec.pause(2100);await rec.unfocus();
+  await page.click('.pedidos-preview-heading button');
   const result=await rec.stop();stopped=true;
   await page.click('.kakao-choices[aria-label="품목군"] button');
   const reviewButton=await page.$('.kakao-originals > button[aria-expanded]');await reviewButton.focus();await page.keyboard.press('Enter');
@@ -184,11 +217,11 @@ async function main(){
   if(!dry){workflow.guides[0].chapters=result.chapters;workflow.guides[0].status='ready';fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');}
   if(dry){
     await page.setViewport({width:1572,height:900});
-    assert(await page.evaluate(()=>document.querySelector('.kakao-originals').getBoundingClientRect().x<document.querySelector('.kakao-totals').getBoundingClientRect().x));
+    assert(await page.evaluate(()=>document.querySelector('.kakao-totals').getBoundingClientRect().x<document.querySelector('.kakao-originals').getBoundingClientRect().x));
     await page.evaluate(() => { window.open = window.__orderGuideOpen; delete window.__orderGuideOpen; });
     const openPopup = async() => {
       const created = new Promise(resolve=>page.once('popup',resolve));
-      await page.click(sub);
+      await page.click(openPreview);
       return created;
     };
     const popup = await openPopup();
@@ -198,6 +231,7 @@ async function main(){
     await popup.keyboard.down('Control');await popup.keyboard.press('a');await popup.keyboard.up('Control');await popup.keyboard.type('35');
     await popup.click('.pedidos-preview-heading button');
     const reopened = await openPopup();
+    await reopened.evaluate(()=>{ window.showSaveFilePicker=undefined; });
     await reopened.waitForSelector('.pedidos-review-input',{visible:true});
     assert.equal(await reopened.$eval('.pedidos-review-input',input=>input.value),'35');
     const popupDownload = path.join(downloadDir,'popup');
@@ -250,6 +284,32 @@ async function main(){
     assert(await page.$eval('.kakao-additions',node=>{const r=node.getBoundingClientRect();return r.width<=innerWidth&&r.left>=0&&r.right<=innerWidth+1;}));
     assert(await page.$eval('#country-order-guide-test video',video=>{const rect=video.getBoundingClientRect();return rect.width<=innerWidth;}));
     console.log('PASS actual guide player MP4 playback, registered chapters, Korean captions, keyboard and 390px');
+    await page.setViewport({width:1572,height:900});
+    await page.reload({waitUntil:'networkidle0'});
+    await page.evaluate(()=>{window.open=()=>null;window.showSaveFilePicker=undefined;});
+    await page.click('[aria-controls="import-panel-orders"]');
+    const china='[aria-label="국가"] button:nth-child('+chinaIndex+')';
+    await page.waitForSelector(china,{visible:true});await page.click(china);
+    await page.waitForSelector(cycle,{visible:true});await page.click(cycle);
+    await page.waitForSelector(sub,{visible:true});await page.click(sub);
+    await page.waitForSelector(openPreview+':enabled',{visible:true});await page.click(openPreview);
+    await page.waitForSelector('.pedidos-farms input[type="text"]',{visible:true});
+    await page.focus('.pedidos-farms input[type="text"]');
+    await page.$eval('.pedidos-farms input[type="text"]',input=>input.select());
+    await page.keyboard.type('HUBFRESH');
+    await page.waitForFunction(selector=>document.querySelector(selector)?.textContent.includes('파일 불러옴'),{},comparison);
+    console.log('PASS prior workbook comparison retained through page reload');
+    await page.evaluate(()=>{window.showSaveFilePicker=async()=>({createWritable:async()=>({write:async()=>{},close:async()=>{},abort:async()=>{}})});});
+    await page.click(down);await page.waitForSelector('[aria-labelledby="pedidos-eta-title"] button[type="submit"]');
+    await page.click('[aria-labelledby="pedidos-eta-title"] button[type="submit"]');
+    await page.waitForFunction(selector=>document.querySelector(selector+' select')?.options.length===2,{},comparison);
+    await page.evaluate(()=>{window.showSaveFilePicker=async()=>{throw new DOMException('cancelled','AbortError');};});
+    await page.click(down);await page.waitForSelector('[aria-labelledby="pedidos-eta-title"] button[type="submit"]');
+    await page.click('[aria-labelledby="pedidos-eta-title"] button[type="submit"]');
+    await page.waitForSelector('[aria-labelledby="pedidos-eta-title"] button[type="submit"]:enabled');
+    assert.equal(await page.$eval(comparison+' select',select=>select.options.length),2);
+    await page.keyboard.press('Escape');await page.click('.pedidos-preview-heading button');
+    console.log('PASS confirmed save appends and cancelled save preserves earlier history');
   }
   console.log('PASS keyboard country/cycle/subweek, ETA manual/date sync, stored default, Escape, browser download, XLSX quantity140/title');
  }finally{await browser?.close();if(server.pid && server.exitCode===null) require('node:child_process').spawnSync('taskkill',['/PID',String(server.pid),'/T','/F'],{windowsHide:true});}

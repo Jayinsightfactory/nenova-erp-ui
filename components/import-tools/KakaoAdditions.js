@@ -125,6 +125,15 @@ function RecentReview() {
       <span role="status">{notice}</span>
     </header>
     <div className="kakao-columns">
+      <section className="kakao-totals" aria-label="농장 전달용 자동 합계"><h4 ref={totalHeading} tabIndex={-1}>농장 전달용 자동 합계</h4>
+        <ChoiceButtons label="차수" all="전체 차수" values={weeks} value={activeWeek} onChange={v=>{setWeek(v);setGroup('');setFocus(null);}}/>
+        <ChoiceButtons label="품목군" all="전체 품목군" values={groups} value={activeGroup} onChange={v=>{setGroup(v);setFocus(null);}}/>
+        {selectedMessage&&<p className="kakao-match-notice">선택 원문이 포함된 합계 {shownTotals.length}행 <button type="button" onClick={()=>setFocus(null)}>매칭 해제</button></p>}
+        {invalid&&<p role="alert">합산할 행의 차수, 품종, 양수 수량과 단위를 확인하세요.</p>}
+        {totals.length>0&&!invalid?<><div className="kakao-table"><table><thead><tr>{['차수 · 품목군','품종 / 원문 대조','수량','비고 (업체·수량)'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>
+          {shownTotals.map(r=><tr key={r.key} className={selectedTotal?.key===r.key||selectedMessage?'kakao-linked':''}><td>{r.year}/{r.week}차<br/>{groupKey(r)}</td><td><button type="button" className="kakao-match-total" aria-pressed={selectedTotal?.key===r.key} onClick={()=>matchTotal(r.key)}>{r.product}<small>원문 {r.sourceKeys.length}행 보기</small></button></td><td className="kakao-quantity">{r.quantity} {r.unit}</td><td>{r.notes||'업체 미기재'}{r.requests&&<small><br/>요청: {r.requests}</small>}</td></tr>)}
+        </tbody></table></div><button type="button" disabled={!!error} onClick={copy}>농장 전달용 복사</button><small>선택한 차수·품목군 전체 합계를 복사합니다.</small></>:!invalid&&feed&&<p role="status">현재 범위에 자동 합산할 추가 발주가 없습니다. 검토 필요 목록을 확인하세요.</p>}
+      </section>
       <section className="kakao-originals" aria-label="선별된 카톡 원문"><h4 ref={originalHeading} tabIndex={-1}>선별된 추가 발주 원문 · {shownMessages.length}건</h4>
         {selectedTotal&&<p className="kakao-match-notice">{selectedTotal.product} {selectedTotal.quantity} {selectedTotal.unit}의 근거 원문 <button type="button" onClick={()=>setFocus(null)}>매칭 해제</button></p>}
         {shownMessages.map(renderMessage)}
@@ -139,15 +148,6 @@ function RecentReview() {
           {auditRows.map(m=><details key={m.id} data-audit-id={m.id}><summary>{m.time} · {m.quantityCandidate?'수량 포함 · ':''}{m.reason}</summary><blockquote>{m.text}</blockquote>{m.duplicateOf?<p>중복 원본 요청: {m.duplicateOf}</p>:<button type="button" disabled={!!manual[m.id]} onClick={()=>addManual(m)}>{manual[m.id]?'검토로 가져옴':'발주로 검토'}</button>}</details>)}
         </details>
       </section>
-      <section className="kakao-totals" aria-label="농장 전달용 자동 합계"><h4 ref={totalHeading} tabIndex={-1}>농장 전달용 자동 합계</h4>
-        <ChoiceButtons label="차수" all="전체 차수" values={weeks} value={activeWeek} onChange={v=>{setWeek(v);setGroup('');setFocus(null);}}/>
-        <ChoiceButtons label="품목군" all="전체 품목군" values={groups} value={activeGroup} onChange={v=>{setGroup(v);setFocus(null);}}/>
-        {selectedMessage&&<p className="kakao-match-notice">선택 원문이 포함된 합계 {shownTotals.length}행 <button type="button" onClick={()=>setFocus(null)}>매칭 해제</button></p>}
-        {invalid&&<p role="alert">합산할 행의 차수, 품종, 양수 수량과 단위를 확인하세요.</p>}
-        {totals.length>0&&!invalid?<><div className="kakao-table"><table><thead><tr>{['차수 · 품목군','품종 / 원문 대조','수량','비고 (업체·수량)'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>
-          {shownTotals.map(r=><tr key={r.key} className={selectedTotal?.key===r.key||selectedMessage?'kakao-linked':''}><td>{r.year}/{r.week}차<br/>{groupKey(r)}</td><td><button type="button" className="kakao-match-total" aria-pressed={selectedTotal?.key===r.key} onClick={()=>matchTotal(r.key)}>{r.product}<small>원문 {r.sourceKeys.length}행 보기</small></button></td><td className="kakao-quantity">{r.quantity} {r.unit}</td><td>{r.notes||'업체 미기재'}{r.requests&&<small><br/>요청: {r.requests}</small>}</td></tr>)}
-        </tbody></table></div><button type="button" disabled={!!error} onClick={copy}>농장 전달용 복사</button><small>선택한 차수·품목군 전체 합계를 복사합니다.</small></>:!invalid&&feed&&<p role="status">현재 범위에 자동 합산할 추가 발주가 없습니다. 검토 필요 목록을 확인하세요.</p>}
-      </section>
     </div>
   </>;
 }
@@ -157,13 +157,13 @@ export default function KakaoAdditions(){return <aside className="kakao-addition
 .kakao-additions button{font:inherit;color:#193558;background:white;border:1px solid #b9cbed;border-radius:6px;padding:7px 9px;cursor:pointer}.kakao-additions button:disabled{opacity:.5;cursor:default}.kakao-additions button[aria-pressed=true]{background:#2056bd;color:white}.kakao-additions :focus-visible{outline:3px solid #eaa52c;outline-offset:2px}
 .kakao-choices{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.kakao-choices strong{flex-basis:100%}.kakao-additions details{background:white;padding:10px;margin-top:8px;border:1px solid #e0e8f5;border-radius:6px}.kakao-additions summary{cursor:pointer;overflow-wrap:anywhere}.kakao-additions blockquote{white-space:pre-wrap;overflow-wrap:anywhere;border-left:3px solid #9eb7df;padding-left:10px;margin:12px 0}
 .kakao-additions fieldset{display:flex;flex-wrap:wrap;gap:6px;min-width:0;border:1px solid #cddbf0;margin:8px 0}.kakao-additions fieldset>label{display:grid;flex:1 1 90px}.kakao-additions input:not([type=checkbox]){width:100%;min-width:0;box-sizing:border-box;padding:6px;border:1px solid #bdcce4;border-radius:4px;font:inherit}
-.kakao-table{overflow-x:auto}.kakao-table table{width:100%;border-collapse:collapse;background:white}.kakao-table th,.kakao-table td{text-align:left;padding:7px;border-bottom:1px solid #cddbf0;overflow-wrap:anywhere}.kakao-additions small{display:block}.kakao-linked{background:#fff4d6!important;box-shadow:inset 3px 0 #e8a623}.kakao-match-notice{padding:8px;background:#fff4d6}.kakao-match-total{width:100%;text-align:left}.kakao-audit{margin-top:16px!important}
+.kakao-table{overflow-x:auto}.kakao-table table{width:100%;border-collapse:collapse;background:white}.kakao-table th,.kakao-table td{text-align:left;padding:7px;border-bottom:1px solid #cddbf0;overflow-wrap:anywhere}.kakao-additions small{display:block;font-size:12.5px}.kakao-linked{background:#fff4d6!important;box-shadow:inset 3px 0 #e8a623}.kakao-match-notice{padding:8px;background:#fff4d6}.kakao-match-total{width:100%;text-align:left}.kakao-audit{margin-top:16px!important}
 .kakao-additions h4{scroll-margin-top:90px}
 .kakao-order-message>summary{color:#17365f;font-weight:600;padding:2px 0}
 .kakao-order-message>summary>span{overflow-wrap:anywhere}
 .kakao-order-message>summary small{font-weight:400;color:#536783;margin-top:2px;padding-left:14px}
 .kakao-order-message:not([open]){padding:7px 9px}
-.kakao-choices button{font-size:12px;padding:5px 8px;line-height:1.3}
+.kakao-choices button{font-size:13.5px;padding:5px 8px;line-height:1.3}
 .kakao-choices .kakao-more{border-style:dashed}
 .kakao-table .kakao-quantity{white-space:nowrap;font-variant-numeric:tabular-nums}
 .kakao-table th,.kakao-table td{vertical-align:top}
