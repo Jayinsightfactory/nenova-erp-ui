@@ -40,7 +40,8 @@ async function main(){
   const json=(res,body,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body));};
   const childEnv={...process.env,JWT_SECRET:secret,DB_SERVER:'',DB_USER:'',DB_PASSWORD:'',DB_NAME:'',ORBIT_OWNER_TOKEN:'',ANTHROPIC_API_KEY:'',PROFIT_REPORT_WEEKLY_SCHEDULER_DISABLED:'1',NENOVA_PENDING_STOCK_RECOVERY:'0'};
   const log=fs.openSync(path.join(output,'next.log'),'w');
-  const child=spawn(process.execPath,[require.resolve('next/dist/bin/next'),'start','-p',String(nextPort)],{env:childEnv,stdio:['ignore',log,log],windowsHide:true});fs.closeSync(log);
+  const nextMode=process.argv.includes('--dev')?['dev','--webpack']:['start'];
+  const child=spawn(process.execPath,[require.resolve('next/dist/bin/next'),...nextMode,'-H','127.0.0.1','-p',String(nextPort)],{env:childEnv,stdio:['ignore',log,log],windowsHide:true});fs.closeSync(log);
   const server=http.createServer(async(req,res)=>{
     try{
       const url=new URL(req.url,'http://127.0.0.1:'+port);

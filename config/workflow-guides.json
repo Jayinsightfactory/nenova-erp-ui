@@ -1237,6 +1237,14 @@
     {
       "id": "import-country-orders",
       "title": "국가별 발주서 조회와 다운로드",
+      "videoWaivers": [
+        {
+          "file": "components/import-tools/PedidosTool.js",
+          "sha256": "02ce4599545faa68d8af8e156f7169357c747292a9d6a576dbd13f7fa19f6c4d",
+          "approvedBy": "owner",
+          "reason": "2026-11-20 사용자 명시: PR #1883 국가별 발주서 변경의 가이드 촬영·영상·자막 갱신 제외. 기존 영상은 그대로이며 추가 주문 동일 건 대조·원본 전달 이력 변경을 설명하지 않음. 네이티브·Excel·배포 검증은 별도 유지."
+        }
+      ],
       "entryPaths": [
         "/import/tools"
       ],
