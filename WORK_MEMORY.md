@@ -4373,3 +4373,12 @@ pm run test:canon 통과.
 3. 남은 일: PR 최종 CI·squash·Cafe24 배포·Desktop1.3.76 정식 설치본 해시/피드·운영 스모크·Drive 보관. 최종 인계는 codex/handoff-<PR번호> docs-only 고정 커밋.
 4. 검증: ERP 전체계약/dnSpy/manifest236/쓰기 가드, 최종 UI build 및 MP4/VTT 플레이어(내부/외부 접기 정지) 통과. 대상 회귀16개, 후속 React7, Desktop80/실제 Electron 메뉴·탭·즐겨찾기, Chrome1920/390·선택 보존·Escape/비활성 호출자·재검증 payload·접힌 농장 입력 외부 오류 표시 통과. 운영 ERP 쓰기0, 직원 PC 실제 설치 미검증.
 5. 주의/잠금: PR 완료 전 페이지·관련 가이드2편·Desktop1.3.76 예약 유지. 원장/API/계산/파일양식 변경 없음. 연결 목표 g03/g13/g19 / 학습 반영 있음, 목표% 유지.
+
+## 2026-11-20 출고분배 업로드 버튼 정돈 — 최종 인계
+검색어: 출고분배 버튼정돈 distribute-import PR1925 Desktop1.3.76 c9c707dd Drive 정책삭제거절 g03 g13 g19
+1. 작업 위치: nenova-erp-ui / 본편 c9c707dd1a50c93c4c29469278d35948969d2636(PR1925) / 최종 기록 ref codex/handoff-1925. 작업용 복사본 C:/Users/USER/nw-cdx-distribute-ui-1120은 삭제 검토 거절로 보존.
+2. 완료: 파일·반영 방식→검증·승인·검증본 다운로드, 보조 생성/이력·가이드·농장 입력 접기. 미매칭 호출자 초점 복귀/비활성 fallback/390px 필수 버튼 보완. 가이드2편57.7/62.95초 실제 재촬영, 운영 재생·목차·접기 정지 및 MP4/VTT/source 해시 일치. 원장/API/계산/기존 ADD·REPLACE·파일양식 보존.
+3. 남은 할 일: 기능·배포 없음. 직원 PC 실제 설치는 미검증이며 별도 요청 시 확인. 자동 검토가 두 node_modules junction 삭제를 `blocked by policy`로 거절해 삭제 우회/재시도 및 worktree 제거를 하지 않음. 작업용 복사본과 생성 캐시 보존.
+4. 검증: ERP 계약·dnSpy·manifest236·쓰기 가드·최종 build·UI/모달·Desktop80/실제Electron·가이드 플레이어 통과. 최종 PR ERP/Windows CI, Cafe2444694522956, 정식Windows44694522966, 릴리스게시44696111303 성공. Desktop1.3.76 설치본111958317바이트 SHA256 d30d9c12f8f559e8885754ca5afebe97c739eb3fa3049926ac7cf2834a85c680: master CI=공개Cafe24=GitHub digest 및 latest.yml 일치. 운영 ERP 쓰기0, 사용자 원본 Excel/다른 작업트리 보존.
+5. 주의/잠금: 제품 파일 잠금 해제. 삭제 미실행 경로는 위 작업용 복사본과 node_modules/desktop/node_modules 연결폴더. 공개 before-public.jpg/after-public.jpg는 C:/Users/USER/.codex/visualizations/2026/11/20/distribute-ui-1120에 보존(그 외 생성 임시 캡처도 정리 중단으로 보존). Drive29MB 크기 readback28981420 완료: https://drive.google.com/file/d/1B3_GADp-v6KaChfAEyFIh4WBVW98shwc/view?usp=drivesdk . 연결 목표 g03/g13/g19 / 학습 반영 있음 / 목표% 유지. 최신 정합률96.9%, 공백표시 g05/g06/g07/g08/g09/g02/g14/g15/g03/g04(키워드 기반 엔진 조회값).
+정식 릴리스: https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.76 . 최종 고정 커밋과 HQ 일감 링크는 같은 Drive 계정의 출고분배_버튼정돈_PR1925_최종인계.txt에 함께 보관한다. 이 인계 ref는 보존하고 추가 master PR·배포는 만들지 않는다.
