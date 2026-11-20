@@ -3,6 +3,7 @@
   "title": "입고 단 수량 확인과 상품 합계",
   "scope": [
     "lib/receiptBunchQuantity.js",
+    "components/ReceiptBunchConfirmation.js",
     "lib/packingExportBunchGuard.js",
     "pages/api/import/tools/packing-export.js",
     "components/import-tools/PackingListTool.js",
@@ -35,7 +36,7 @@
       "stock": "preserve",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "notes": "EC·US는 생성 파일의 실제 I열을 현재 활성 Product의 OutUnit·EstUnit과 대조한다. 누락·0·원본 단당 송이 충돌은 직접 POST도 차단한다. 조회 전용. 도착원가 파일 제외."
+      "notes": "EC·US 생성 파일의 원본 산식이 일치하면 I열에 자동 보완한다. 모순·근거 없음에는 산식 후보 및 확인이 필요하다. 확인은 파일 해시와 현재 품목 및 행에 묶는다. 조회 전용. 도착원가 파일 제외."
     },
     {
       "name": "PREVIEW_RECEIPT",
@@ -44,7 +45,7 @@
       "stock": "preserve",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "notes": "원본 명시 단 또는 인쇄 포장값과 충돌 없는 산출만 사용. 단 출고/견적 품목은 단 누락·0·원본 충돌 차단. 레거시 미리보기는 Product SELECT만 수행."
+      "notes": "원본 명시 단 또는 인쇄 포장값과 충돌 없는 산출을 자동 사용. 마스터 비율은 후보 근거이며 검토가 필요한 행만 사용자 확인 후 재검증. 레거시 미리보기는 Product SELECT만 수행."
     },
     {
       "name": "COMMIT_NEW_RECEIPT",

@@ -386,7 +386,8 @@
         "styles/ImportPacking.module.css",
         "styles/ImportReviewTypography.module.css",
         "pages/import/tools.js",
-        "styles/ImportTools.module.css"
+        "styles/ImportTools.module.css",
+        "components/ReceiptBunchConfirmation.js"
       ],
       "requiredScenarios": [
         "select",
@@ -457,7 +458,8 @@
         "components/import-tools/PackingProductMatchDialog.js",
         "styles/InvoiceReceiptSheet.module.css",
         "styles/ImportReviewTypography.module.css",
-        "styles/ImportTools.module.css"
+        "styles/ImportTools.module.css",
+        "components/ReceiptBunchConfirmation.js"
       ],
       "requiredScenarios": [
         "select",
@@ -587,7 +589,8 @@
         "components/IncomingCorrectionRequest.js",
         "lib/incomingApprovalSimple.js",
         "components/WarehouseFarmSelect.js",
-        "lib/warehouseFarmChoices.js"
+        "lib/warehouseFarmChoices.js",
+        "components/ReceiptBunchConfirmation.js"
       ],
       "requiredScenarios": [
         "farm",

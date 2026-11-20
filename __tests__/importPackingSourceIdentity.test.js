@@ -217,9 +217,9 @@ test('EC packing preserves explicit counts and US totals leave weight out of all
     {description:'Douglas Fir',pcs:150,total_stems:30000,bunch_st:10,u_price:54.67},
     {description:'SALAL TIPS',pcs:20,total_stems:12500,bunches_per_box:25,u_price:54.67}]},'47','01'));
   assert.deepEqual(['F58','I58','J58'].map(c=>us[c].v),[170,3500,42500]);
-  assert.deepEqual(['F58','I58','J58'].map(c=>us[c].f),['SUM(F6,F7)','SUM(I6,I7)','SUM(J6,J7)']);
+  assert.deepEqual(['F58','I58','J58'].map(c=>us[c].f),['SUM(F6:F57)','SUM(I6:I57)','SUM(J6:J7,J10:J57)']);
   assert.deepEqual(['J8','J9'].map(c=>us[c].v),[1697,1840]);
   assert.equal(us.L6.f,'K6*F6');
   const unknown=read(packing.genEcuador(XLSX,{...source,products:[{...source.products[0],total_bunch:0}]},'47','01'));
-  assert.equal(unknown.I6?.v || '', '');
+  assert.equal(unknown.I6?.v, 0);
 });

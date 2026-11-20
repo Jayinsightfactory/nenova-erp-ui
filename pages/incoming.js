@@ -1,4 +1,5 @@
 import WorkflowGuide from '../components/WorkflowGuide';
+import ReceiptBunchConfirmation from '../components/ReceiptBunchConfirmation';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { apiGetExe } from '../lib/exeParity/client.js';
 import { apiGet } from '../lib/useApi.js';
@@ -98,6 +99,9 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const [uploadData, setUploadData] = useState(null);
   const [uploadValidation, setUploadValidation] = useState(null);
   const [uploadError, setUploadError] = useState('');
+  const [uploadBunchIssues, setUploadBunchIssues] = useState([]);
+  const uploadBunchResume = useRef(false);
+  const [uploadBunchResolution, setUploadBunchResolution] = useState(null);
   const [uploadMeta, setUploadMeta] = useState({ orderYear:'', orderWeek:'', farmName:'', invoiceNo:'', awb:'', inputDate: '', gw:'', cw:'', rate:'', docFee:'' });
   // [2026-09-22] 입고 원장 탐색 보강 — nenova.exe에서 농장명 컬럼 필터를 반복 클릭하던 작업(Orbit 실측)을 웹에서 끝내기 위해:
   //   컬럼 정렬 · 농장/차수 드롭다운 · 최근 본 농장 칩 · 필터 상태 URL 유지 · 원장 목록 엑셀
@@ -288,17 +292,19 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   };
 
   const uploadValidated = uploadValidation?.items === uploadData && uploadValidation?.meta === uploadMeta;
-  const handleUpload = async (previewOnly) => {
+  const handleUpload = async (previewOnly, rows = uploadData, resumeSave = false) => {
     if (!previewOnly && !uploadValidated) return;
     setUploadError('');
+    setUploadBunchIssues([]);
+    setUploadBunchResolution(null);
     if (!uploadData || !/^\d{4}$/.test(uploadMeta.orderYear) || !/^\d{2}-\d{2}$/.test(uploadMeta.orderWeek) || !uploadMeta.farmName || !uploadMeta.inputDate) {
       alert('주문년도, 차수(예: 33-02), 농장명, 입력일자는 필수입니다.'); return;
     }
     setUploading(true);
     try {
-      const items = uploadData;
+      const items = rows;
 
-      const res = await fetch('/api/warehouse', {
+      const send = checking => fetch('/api/warehouse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -307,12 +313,19 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
           cw:     uploadMeta.cw     === '' ? null : uploadMeta.cw,
           rate:   uploadMeta.rate   === '' ? null : uploadMeta.rate,
           docFee: uploadMeta.docFee === '' ? null : uploadMeta.docFee,
-          items, previewOnly,
+          items, previewOnly:checking,
         }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error([data.error, ...(data.errors || []).map(x => `${x.prodName || `${x.row}행`}: ${x.error}`)].join('\n'));
-      if (previewOnly) {
+      }).then(response=>response.json());
+      let data = await send(previewOnly);
+      if (previewOnly && resumeSave && data.success) data = await send(false);
+      if (!data.success) {
+        uploadBunchResume.current = !previewOnly || resumeSave;
+        setUploadBunchResolution({items,meta:uploadMeta,rows:data.bunchResolutions});
+        setUploadBunchIssues((data.errors || []).filter(issue => issue.snapshot));
+        throw new Error([data.error, ...(data.errors || []).filter(issue => !issue.snapshot).map(x => `${x.prodName || `${x.row}행`}: ${x.error}`)].join('\n'));
+      }
+      if (previewOnly && !resumeSave) {
+        setUploadBunchResolution({items,meta:uploadMeta,rows:data.bunchResolutions});
         setUploadValidation({items,meta:uploadMeta});
         return;
       }
@@ -491,6 +504,14 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
               <div style={{marginTop:12}}>
                 <div style={{fontSize:14,fontWeight:600,marginBottom:6,color:'#0f172a'}}>상품 수량 확인 · {uploadData?.length || 0}행</div>
                 {uploadError && <p role="alert" style={{whiteSpace:'pre-line',fontSize:14,color:'#0f172a'}}>{uploadError}</p>}
+                {uploadBunchIssues.map(issue => <section key={`${issue.row}:${issue.snapshot}`} aria-label={`${issue.row}행 단 수량 확인`}>
+                  <strong>{issue.row}행 · {issue.prodName}</strong>
+                  <ReceiptBunchConfirmation issue={issue} disabled={uploading} onConfirm={confirmation=>{
+                    const rows=uploadData.map((row,index)=>index===issue.row-1?{...row,bunchConfirmation:confirmation}:row);
+                    setUploadData(rows);
+                    handleUpload(true,rows,uploadBunchResume.current);
+                  }}/>
+                </section>)}
                 {uploadValidated && <p role="status" style={{fontSize:14,color:'#0f172a'}}>수량 검증 완료</p>}
                 <div style={{overflowX:'auto',border:'1px solid var(--border)',borderRadius:6}}>
                   <table className="tbl" style={{fontFamily:`'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif`,fontSize:14,fontVariantNumeric:'tabular-nums',color:'#0f172a',minWidth:420}}>
@@ -502,11 +523,17 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
                         <tr key={i}><td>{row.prodName}</td><td>{row.boxQty}</td>
                           <td><input className="form-control" type="number" min="0" step="any"
                             style={{font:'inherit',width:90}} disabled={uploading} aria-label={`${i+1}행 ${row.prodName} 단 수량`}
-                            value={row.bunchQty ?? ''} onChange={e=>{
+                            value={(uploadBunchResolution?.items === uploadData && uploadBunchResolution?.meta === uploadMeta
+                              ? uploadBunchResolution.rows?.[i]?.quantity : null) ?? row.bunchConfirmation?.quantity ?? row.bunchQty ?? ''} onChange={e=>{
                               const value = e.target.value;
-                              setUploadData(rows=>rows.map((item,index)=>index===i?{...item,bunchQty:value}:item));
+                              setUploadData(rows=>rows.map((item,index)=>index===i?{...item,bunchQty:value,bunchConfirmation:undefined}:item));
                               setUploadError('');
-                            }} /></td><td>{row.steamQty}</td></tr>
+                            }} />
+                            {uploadBunchResolution?.items === uploadData && uploadBunchResolution?.meta === uploadMeta
+                              && uploadBunchResolution.rows?.[i] && <small style={{fontSize:12.5,color:'#334155',marginLeft:6}}>
+                                {uploadBunchResolution.rows[i].status === 'derived' ? '원본 기준 자동 계산' : '확인 수량'}
+                              </small>}
+                          </td><td>{row.steamQty}</td></tr>
                       ))}
                     </tbody>
                   </table>

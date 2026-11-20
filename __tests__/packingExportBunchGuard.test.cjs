@@ -55,24 +55,52 @@ test('direct export validates posted workbook bytes against current ERP units be
     '../../../../lib/packingExportBunchGuard.js': policy,
   };
   new Function('require', 'module', 'exports', compiled)(key => mocks[key], out, out.exports);
-  const run = async (bytes, country = 'US') => {
+  const run = async (bytes, country = 'US', confirmations) => {
     const res = { setHeader() {}, status(code) { this.code = code; return this; },
       json(value) { this.result = value; }, send(bytes) { this.bytes = bytes; } };
-    await out.exports.default({ method: 'POST', body: { country, workbook: bytes.toString('base64') }, user: { accountActive: true } }, res);
+    await out.exports.default({ method: 'POST', body: { country, workbook: bytes.toString('base64'), confirmations }, user: { accountActive: true } }, res);
     return res;
   };
   const rejected = await run(await book('US', {}));
   assert.equal(rejected.code, 422);
-  assert.match(rejected.result.error, /인식값 수정/);
+  assert.match(rejected.result.error, /원본에서 단 수량/);
+  assert.equal(rejected.result.issues[0].row, 6);
   assert.equal(rejected.bytes, undefined);
   const corrected = await book('US', { total_bunch: 40, bunch_st: 10 });
   const mismatch = XLSX.read(corrected);
   mismatch.Sheets['US-HC'].I6.v = 39;
   assert.equal((await run(XLSX.write(mismatch, { type: 'buffer', bookType: 'xlsx' }))).code, 422);
+  delete mismatch.Sheets['US-HC'].I6;
+  const filled = await run(XLSX.write(mismatch, { type: 'buffer', bookType: 'xlsx' }));
+  assert.equal(filled.code, 200);
+  const filledSheet = XLSX.read(filled.bytes).Sheets['US-HC'];
+  assert.equal(filledSheet.I6.v, 40);
+  assert.equal(filledSheet.I58.v, 40);
+  assert.equal(filledSheet.J58.v, 400);
+  const missing = await book('US', {});
+  const accepted = await run(missing,'US',{6:{quantity:40,reason:'Printed count verified',snapshot:rejected.result.issues[0].snapshot}});
+  assert.equal(accepted.code,200);
+  assert.equal(XLSX.read(accepted.bytes).Sheets['US-HC'].G6.v,10);
   assert.equal((await run(corrected, 'EC')).code, 422);
   const passed = await run(corrected);
   assert.equal(passed.code, 200);
   assert.deepEqual(passed.bytes, corrected);
+});
+
+test('source agreement fills deterministically and conflicting master values require scoped confirmation', async () => {
+  const { resolveReceiptBunch } = await import('../lib/receiptBunchQuantity.js');
+  const master = { ProdKey: 44, OutUnit:'박스', EstUnit:'단', SteamOf1Bunch:25, BunchOf1Box:20 };
+  const row = { boxQuantity:1, stemQuantity:7500, scopeKey:['2026','47-01',1] };
+  const review = resolveReceiptBunch(master,row);
+  assert.deepEqual(review.candidates.map(candidate=>candidate.quantity),[300,20]);
+  const confirmation = {quantity:300,reason:'Verified printed quantity',snapshot:review.snapshot};
+  assert.equal(resolveReceiptBunch(master,{...row,confirmation}).status,'confirmed');
+  assert.equal(resolveReceiptBunch(master,{...row,confirmation,scopeKey:['2025','47-01',1]}).status,'review');
+  assert.equal(resolveReceiptBunch({...master,BunchOf1Box:21},{...row,confirmation}).status,'review');
+  assert.equal(resolveReceiptBunch(master,{...row,stemsPerBunch:1,legacyWorkbook:true}).status,'review');
+  assert.equal(resolveReceiptBunch(master,{boxQuantity:2,stemQuantity:400,stemsPerBunch:10,bunchesPerBox:20}).quantity,40);
+  assert.equal(resolveReceiptBunch(master,{boxQuantity:2,stemQuantity:400,stemsPerBunch:10,bunchesPerBox:21}).status,'review');
+  assert.equal(resolveReceiptBunch(master,{stemQuantity:401,stemsPerBunch:10}).status,'review');
 });
 
 test('US source review can supply a verified bunch value when extraction omitted the key', async () => {
