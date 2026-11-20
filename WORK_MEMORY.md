@@ -4249,6 +4249,7 @@ pm run test:canon 통과.
 4. 검증 상태: desktop 80개·updater 실제 다운로드 스모크·deploy 관련 테스트·신규 privateRepoDeploy(번들 오프라인 재현 3종)·test:ui-layout·guard:erp-writes 통과. 실서버 번들 배포는 머지 후 첫 실행에서만 검증 가능.
 5. 주의/잠금: 서버에 GitHub 토큰 심지 말 것. 서버 HEAD 가 러너 저장소 조상이 아니면 SERVER_HEAD_DIVERGED 로 배포가 안전 중단된다. 1차 피드 latest.yml 업로드를 빼먹으면 직원 앱이 갱신되지 않는다.
 검색어: private 전환 deploy bundle deploy-meta desktop-releases 이중 피드 g18
+2026-11-20 후속(#1909 첫 배포 실패 수정, 연결 목표 g18): 서버 HEAD 읽기에 쓰인 ssh-action@v1.0.3 은 capture_stdout 미지원이라 빈 값 → 러너에서 sshpass 로 읽기 전용 조회로 교체. 실패 지점은 서버 변경 전(운영 앱 무영향). 다음 배포 성공 확인 전까지 Private 전환 금지.
 
 ## 2026-11-20 — 프로시저 변경 시 자동복구 hash 누락 차단
 1. 작업 위치: nenova-erp-ui / codex/stock-hash-guard-1120 / C:/Users/USER/nw-cdx-stock-hash-guard-1120 / PR 생성 전.
