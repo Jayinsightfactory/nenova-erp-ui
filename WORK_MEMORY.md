@@ -1,5 +1,12 @@
 # 작업 기록
 
+## 2026-11-20 업무데이터 3축 이해도 지표(`understanding-3axis`) 피처 수신 허용 (feat/work-data-3axis-ingest, 연결 목표: g01, g19)
+- 원인: `nenova-work-features/metrics-3axis.js`가 매일 07:00 `/api/work/feature-data-ingest`로 `understanding-3axis`(디테일·신뢰도·파악량 3축 지표)를 업로드하지만 `lib/workFeatureData.js` `FEATURE_NAMES`에 미등록되어 매일 `HTTP 400`으로 탈락.
+- 수정: `lib/workFeatureData.js`(`FEATURE_NAMES`에 `'understanding-3axis'` 추가, `FEATURE_NAME_MAX` 2MB 상한 설정) 및 `__tests__/workFeatureData.test.js` 단위 테스트 보강. ERP 원장·SQL·데스크톱 변경 없음.
+- 검증: `node __tests__/workFeatureData.test.js` PASS (2MB 413 초과 차단·generatedAt 검증·runtime 우선 읽기 확인).
+- 인계 5줄: ①저장소=`nenova-erp-ui`(worktree `nw-swm-work-data-boost`) ②수정=`lib/workFeatureData.js`, `__tests__/workFeatureData.test.js` ③남은 것=배포 후 `nenova-work-features/metrics-3axis.js` 업로드 `200 ok` 확인 ④검증=단위테스트·CI ⑤잠금 없음.
+- 검색어: understanding-3axis workFeatureData FEATURE_NAMES feature-data-ingest 400 업무데이터 3축 이해도 g01 g19
+
 ## 2026-11-19 업무 화면 목적 우선(Purpose-First) 실시간 트레이스 도면 — /work/manuals · /import/pipeline (feat/work-purpose-trace-motion)
 - 사장님 지시: "이런 형태로 모션·디자인이 업무도 PM도 들어갔으면 하고, 목적이 중요하게 표시되어야 한다" — 레퍼런스(실시간 아키텍처 트레이스 도면: 모눈 캔버스 + 01→02 단계 카드 + 직교 S-커브 배선 + 완료 초록/실행 중 파란 점선 흐름/대기 회색).
 - 신규 공용 components/work/PurposeFlowTrace.js: 최상단 「업무 핵심 목적 · PURPOSE」 콜아웃(17px 목적 + 15px 막는 문제·완료 결과물) → 캔버스 단계 카드(담당/표면 라벨·단계명 14.5px·단계 목적 1줄·기준/도구 토큰 박스·상태 배지). 완료=#059669 테두리+좌 4px 바+실선+패킷 점(SMIL animateMotion), 실행 중=#2563eb+#eff6ff+파란 점선(stroke-dashoffset), 대기=#cbd5e1. [AUTO 1x] 단추로 모션 재생/정지, prefers-reduced-motion 이면 자동 정지. 카드 클릭=onSelectStep(부모 활성 단계와 양방향).
@@ -4313,3 +4320,21 @@ pm run test:canon 통과.
 4. 검증 상태: desktop 80/80, desktopReleasesFeed+privateRepoDeploy+ciBuildArtifact+codeOnlyDeployment 30/30, guard:erp-writes, test:erp-manifest(236), check-workflow-guides(35/36), test:ui-layout(58/58), 3개 워크플로우 YAML 구문, local-cafe24-deploy --dry-run 전수 PASS. nenova-pm/office-feed.js owner-twin 실서버 업로드 200 ok 확인.
 5. 주의/잠금: /var/lib/nenova/desktop-releases(~/shared/desktop-releases)는 배포 경로 밖 영구 디렉터리. PR 체크 이름 verify 변경 금지. deploy.yml cancel-in-progress: false 유지 필수.
 검색어: desktop-releases publish-cafe24 seed_from_release_tag DESKTOP_FAST_PASS STALE_RELEASE_EARLY local-cafe24-deploy owner-twin g18 g19
+
+## 2026-11-20 수입부 인수인계 원고 — 재검증에서 틀린 문구 바로잡기
+요약: 11-17 재분석으로 넣은 내용을 따로 검증(화면 분류 225건 · 카톡 186건 · 원고 모순 검토)한 결과 틀리거나 어긋난 문구를 고침. 응답 시간 "보통 15분" 삭제(요청 다음 글 40건 중 답은 11건), "변경 공지 세 방 0건" → 4건 중 1건, 수입방 403건은 "창이 떠 있던 화면 수"로 표기, 불량차감 확인 시점 · 주말 도착 공지 요일 · 네덜란드 입고 요일 · 공용 주소 날짜 · 5일 결제 · 변경 글 제목 통일.
+검색어: 수입부 매뉴얼 재검증 import-handover 응답시간 변경공지 세방 day-reply m-pay 네덜란드 입고 월요일
+1. 작업 위치: nenova-erp-ui / fix/import-reverify-1120 / C:\Users\USER\wt-import-manual
+2. 완료: scripts/build-import-handover.cjs 문구 19곳 → data/import-handover.json · docs/IMPORT_DEPT_WORK_SCHEDULE.md 재생성
+3. 남은 일: 검토에서 나온 "판단이 필요한 어긋남" 11건(1차 화물 도착 요일, 호주·미국·베트남 월요일 입고의 확정 표시, 주말 서류 전달, 주말 근거 숫자 730, 콜롬비아 1차 파일 수, 태국 추가 마감, 창고료 금액 대역, 확정 표시 근거 약한 줄, 질문 목록 중복, 네덜란드 칸 매뉴얼 연결, 방 · 자리 이름 통일)
+4. 검증: npm run -s test:workflow-guides 통과. 운영 확인은 배포 뒤.
+5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것(data · docs 는 생성물). 연결 목표: 수입부 인수인계 / 학습 반영: 없음
+
+## 2026-11-20 수입부 인수인계 원고 — 재검증 남은 어긋남 11건 정리
+요약: 기록으로 가를 수 있는 것은 통일(1차·2차 화물 도착 요일, 콜롬비아 1차 파일 수 42~51, 주말 글 수 718, 창고료 표기, 방·화면 이름), 가를 수 없는 것은 「확정」을 내리고 확인 필요로(호주·미국·베트남 월요일 입고, 태국 추가 마감, 주말 서류 전달, 중국 최소 주문량 2건). 질문 26 → 25(주말 질문 합침), 네덜란드 칸에 매뉴얼 연결.
+검색어: 수입부 매뉴얼 재검증 countryCalendar 확정 추정 chinaMoq 주말 질문 네덜란드 manualId
+1. 작업 위치: nenova-erp-ui / fix/import-reverify-1120b / C:\Users\USER\wt-import-manual
+2. 완료: scripts/build-import-handover.cjs(문구 12곳 + 자료 묶기 직전 정리 블록) → data · docs 재생성
+3. 남은 일: folderMap 의 화면 1건짜리 「확정」 줄, 「자리」라는 말이 차수와 PC 두 뜻으로 쓰이는 곳, 요일별 업무표(import-weekday.json)의 네덜란드 연결은 손대지 않음
+4. 검증: npm run -s test:workflow-guides 통과. 운영 확인은 배포 뒤.
+5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: 수입부 인수인계 / 학습 반영: 없음
