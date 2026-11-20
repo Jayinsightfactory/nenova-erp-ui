@@ -4150,3 +4150,11 @@ pm run test:canon 통과.
 4. 검증 상태: test:pm, techRadarSimulator.test.js, archFlowChart.test.js, adoptionRadar.test.js, solutionSuiteSimulator.test.js, test:ui-layout, test:workflow-guides, guard:erp-writes, test:erp-manifest 및 Headless Chromium(1920×1080·iframe 922×660·Plan A/C·StoryFlow·ArchFlowChart, 콘솔 오류/가로넘침/말줄임/겹침/monospace 0건) + next build --webpack PASS. (운영 서버 DB 미연결 로컬 검증)
 5. 주의/잠금: 병렬 세션 영역(SolutionSuiteSimulator.js, pages/my-work.js, desktop/package.json, config/workflow-guides.json, pages/pm.js, GabrielProfitAgiWorkbench.js, pages/api/**) 무수정 준수. components/pm/** #hex·raw <button>·금지어 0건.
 검색어: moyi-full-suite-blueprint Archify Pretendard Malgun-Gothic 굴림체 monospace TechRadarWorkbench ArchFlowChart ui.js Anti-AI-Slop tabular-nums
+
+## 2026-11-20 수입 비행기 한국시간 통일
+- 작업 위치: PR #1899, master 866919545, nw-flight-kst.
+- 완료: 웹 장표·Desktop 홈에서 공지·원문·갱신·공항·처리 시각을 Asia/Seoul로 표시하고 KST 기준 명시. 외부 무오프셋 미확인, 국내 계약 오프셋 한 번만 적용. Cafe24 44645516688, Desktop 1.3.67 공식 공개.
+- 남은 일: 사용자 PC 1.3.67 설치 미확인(확인 시 1.3.66). Windows 도구가 브라우저 URL을 확인하지 못해 운영 인증 카드 직접 확인 미검증.
+- 검증: LA/서울 기준 ±오프셋, 날짜 변경, 자정, 날짜만 남은 공지. Linux·Windows·Electron, Cafe24 hydration 스모크 및 공개 manifest 일치.
+- 주의/잠금: 자동화 시각, ERP 원장과 운영 수집기는 그대로 사용. 관련 파일 잠금 없음.
+검색어: 수입 비행기 한국시간 KST Asia/Seoul 오프셋 원문 갱신 Desktop 1.3.67
