@@ -4069,6 +4069,14 @@ pm run test:canon 통과.
 4. 검증 상태: 새46-02 원천실패→오류·생성0 회귀 포함15건 PASS. 카톡archive 자격 없음·별칭조회실패는 unavailable, 메시지수null. 최초 다운로드/전달 및 실제 카톡↔등록 중복 여부 미확인(0건 아님). 운영 브라우저2회시간초과, 실제Desktop 읽기는 가능하나 탭클릭 coordinate input geometry unavailable 지속. 설치앱1.3.60 관찰은 타배포 버전이며 PR1883 배포 증거 아님. 실제 클릭/캡처·새 배포 미완료.
 5. 주의/잠금: private .verify/probe-country-4602.cjs, country-4602-readonly.json, compare-country-4602.cjs, country-4602-file-comparison.json은 원문/상세키를 포함하여 커밋 금지. 원본 Downloads 두 파일 보존. 일반 기능 소스 불변, 회귀테스트·plan만 추가. Carver 단독 worktree와 junction 경계 유지.
 검색어: China2026 46-02 Carver PR1883 CLOUD2518 Melody45 2563단80송이 unavailable-not-zero actual-original-readonly
+
+### 2026-11-20 · PR #1883 최신 master 병합 체크포인트
+1. 위치: `fix/country-po-1119` / `C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119` / PR #1883 / `6d805fd7`.
+2. 완료: `929692c0` 병합 및 브랜치 push. 양쪽 인계 내용 보존, Desktop 기존 버전 1.3.68 보존.
+3. 남음: 격리 Desktop 저장·Excel 검증, 가이드 실촬영·플레이어, 전체 게이트, CI·squash·Cafe24·Desktop 게시 및 스모크.
+4. 검증: 84건 통과·1건 건너뜀; import-country-orders/import 가이드 최신성 검사 실패. 실제 Desktop 저장과 배포 미검증. 카카오 원문과 ERP 등록 일치 미확인.
+5. 주의: 초안 유지. 운영 DB 쓰기·농장 발송·유료 분석 없음. 실제 원본과 작업트리 의존성 경로 보존.
+검색어: PR1883 6d805fd7 master929692c0 guide-recapture native-save-unverified
 ### 2026-11-19 — A3 행 안쪽 여백 축소
 1. 작업 위치: codex/tight-rows / work/tight-rows / PR 준비.
 2. 완료: 실제 셀폭 줄계산 유지, 14.5pt 줄높이+4pt 여유, 최소18.5pt.
