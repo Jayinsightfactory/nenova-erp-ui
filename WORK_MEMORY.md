@@ -4184,7 +4184,7 @@ pm run test:canon 통과.
 ## 2026-11-20 — 42-02 카네이션 확정/취소 BUSY 자동복구 검토본 동기화
 1. 작업 위치: nenova-erp-ui / codex/confirm-busy-1120 / C:/Users/USER/nw-cdx-confirm-busy-1120 / PR 생성 예정.
 2. 완료된 것: lib/pendingStockRecovery.cjs가 기존 atomic CALC와 승인된 cursor 정렬본의 정확한 hash만 허용. 실행 직전 선택 hash 재검증, capability 거부 시 retry 미소비, 검토본 hash별 예산으로 이전 불일치 소진 복구. 테스트·계약·EXE golden·ERP 가드 근거 갱신.
-3. 남은 할 일: 전체 ERP 계약/webpack 완료, PR CI/squash, Cafe24 배포, worker 정상복구와 DB·실브라우저 확인, worktree 정리. 운영 복구는 배포 전 미실행.
-4. 검증 상태: 실제 dnSpy FormShipmentDistribution FIX/CANCEL→별도 CALC0 확인. 구현 전 SELECT 43-01 CANCEL WAIT_CALC/V2ready, 2026/42-02 카네이션99행확정·2025동일82행 보존기준. 운영 정의 전체 diff는 승인 정렬 1줄뿐. 표적89개 및 실제 격리 SQL(rollback/동시/중단/교차연도/RUN보존) PASS. dnSpy/manifest234/write guard PASS. 전체 ERP/build 진행중.
+3. 남은 할 일: PR CI/squash, Cafe24 배포, worker 정상복구와 DB·실브라우저 확인, worktree 정리. 운영 복구는 배포 전 미실행.
+4. 검증 상태: 실제 dnSpy FormShipmentDistribution FIX/CANCEL→별도 CALC0 확인. 구현 전 SELECT 43-01 CANCEL WAIT_CALC/V2ready, 2026/42-02 카네이션99행확정·2025동일82행 보존기준. 운영 정의 전체 diff는 승인 정렬 1줄뿐. 표적89개 및 실제 격리 SQL(rollback/동시/중단/교차연도/RUN보존) PASS. dnSpy/manifest234/write guard PASS. 전체 ERP contract(pre36/본체144/post27 명령) 및 production webpack build exit0.
 5. 주의/잠금: 운영 SP DDL/직접 gate clear/RUN회수/확정 토글/재고조정 없음. StockMaster/ProductStock만 기존 native CALC 범위; 주문·출고·날짜·농장·입고·현재고·이력·견적·매출 12개 보호원장 기준선 확보. SQL fixture 원래 중지 상태 복원. 새 UI/URL/메뉴 없음, 데스크톱 기존 기능 재사용. 다른 세션 파일 무수정.
 검색어: confirm-busy 42-02 카네이션 43-01 WAIT_CALC CANCEL 010c947 24a415 pendingStockRecovery approved-cursor-order retry-fingerprint
