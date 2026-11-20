@@ -206,3 +206,20 @@ test('all remaining country writers expose the exact raw resolver description in
     assert.equal(result.products[0].matchingDescription, sourceName, entry.name);
   }
 });
+
+test('EC packing preserves explicit counts and US totals leave weight out of all merchandise quantities', async ()=>{
+  const packing = await ready;
+  const source={invoice:'TEST-47',products:[{description:'TEST FLOWER',pcs:2,bunch_st:25,total_bunch:80,total_stems:2000,u_price:.1,t_price:200}]};
+  const read=generated=>{const wb=XLSX.read(generated.buf,{type:'array'});return wb.Sheets[wb.SheetNames[0]];};
+  const ec=read(packing.genEcuador(XLSX,source,'47','01'));
+  assert.deepEqual(['F6','G6','I6','J6'].map(c=>ec[c].v),[2,25,80,2000]);
+  const us=read(packing.genUS(XLSX,{...source,gross_weight:1697,vol_weight:1840,products:[
+    {description:'Douglas Fir',pcs:150,total_stems:30000,bunch_st:10,u_price:54.67},
+    {description:'SALAL TIPS',pcs:20,total_stems:12500,bunches_per_box:25,u_price:54.67}]},'47','01'));
+  assert.deepEqual(['F58','I58','J58'].map(c=>us[c].v),[170,3500,42500]);
+  assert.deepEqual(['F58','I58','J58'].map(c=>us[c].f),['SUM(F6,F7)','SUM(I6,I7)','SUM(J6,J7)']);
+  assert.deepEqual(['J8','J9'].map(c=>us[c].v),[1697,1840]);
+  assert.equal(us.L6.f,'K6*F6');
+  const unknown=read(packing.genEcuador(XLSX,{...source,products:[{...source.products[0],total_bunch:0}]},'47','01'));
+  assert.equal(unknown.I6?.v || '', '');
+});

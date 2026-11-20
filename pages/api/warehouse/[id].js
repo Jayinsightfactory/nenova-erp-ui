@@ -1,5 +1,6 @@
 // pages/api/warehouse/[id].js — exe FormWarehouseView.GetDetail
 import { query, sql } from '../../../lib/db';
+import { WAREHOUSE_WEIGHT_ROW_SQL } from '../../../lib/warehouseWeightRows.js';
 import { withAuth } from '../../../lib/auth';
 import { useExeParityFlag } from '../../../lib/exeParity/common.js';
 import { sqlWarehouseViewGetDetail } from '../../../lib/exeWarehouseViewSql.js';
@@ -9,13 +10,14 @@ export default withAuth(async function handler(req, res) {
   const useExe = useExeParityFlag(exeParity);
   try {
     if (useExe) {
-      const result = await query(sqlWarehouseViewGetDetail(), {
+      const result = await query(sqlWarehouseViewGetDetail({goodsTotals:req.query.goodsTotals === '1'}), {
         warehouseKey: { type: sql.Int, value: parseInt(id, 10) },
       });
       return res.status(200).json({ success: true, source: 'real_db_exe_parity', items: result.recordset });
     }
     const result = await query(
       `SELECT wd.WdetailKey, wd.ProdKey,
+        CONVERT(bit, CASE WHEN ${WAREHOUSE_WEIGHT_ROW_SQL} THEN 1 ELSE 0 END) AS IsWeightRow,
         ISNULL(p.ProdName, '') AS ProdName,
         wd.OrderCode AS 주문코드,
         ISNULL(p.OutUnit, '') AS 단위,
