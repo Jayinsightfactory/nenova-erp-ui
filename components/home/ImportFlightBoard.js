@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { apiGet, apiPost } from '../../lib/useApi';
 import { WORLD_VIEW, WORLD_LAND_PATH, projectLonLat } from '../../lib/importFlightWorldPath';
 
-const { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers, afterArrival, onFlightMap, customsTitle, kstParts, formatFlightTime } = require('../../desktop/shell/flight-board');
+const { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers, afterArrival, onFlightMap, customsTitle, kstParts, formatFlightTime, compactFlightFacts } = require('../../desktop/shell/flight-board');
 
 const REFRESH_MS = 5 * 60 * 1000;
 const STATUS_STYLE = {
@@ -341,7 +341,8 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                 const attention = f.priority < 2;
                 const steps = f.checklist?.steps || [];
                 const deadline = quarantineView(f.checklist, steps);
-                const quantity = f.receivedCargo?.boxes ?? f.announcedCargo?.boxes;
+                const facts = compactFlightFacts(f);
+                const issues = f.flightIssues.length > 0 ? <ol className="flight-actions">{(expanded ? f.flightIssues : f.flightIssues.slice(0, 2)).map(it => <li key={it.text}><span>{expanded ? shortIssue(it.text) : compactIssue(it)}</span>{expanded && <div className="flight-next">→ {nextAction(it)}</div>}</li>)}</ol> : <p style={{ margin: '4px 0', color: 'var(--text3)' }}>{f.nextStep ? `${f.nextStep} 확인` : '현재 연결된 이슈 없음'}</p>;
                 const track = f.links?.aircraftTrack || f.links?.flightTrack;
                 return <Fragment key={f.key}>
                   {f === arrived[0] && <h3 style={{ margin: '0 0 6px', fontSize: 13 }}>도착 후 확인</h3>}
@@ -350,9 +351,17 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                     <span className="flight-title"><b>{f.boardNumber}. {f.displayName || `${f.country} · ${f.flight || '편명 미확인'}`}</b>{customs && <span className="flight-customs-title">{customs}</span>}</span>
                     <span>{f.priority === 0 ? '우선 확인' : f.priority === 1 ? '확인 필요' : f.status === 'registered' ? '입고 등록 끝' : '이슈 없음'} {expanded ? '▴' : '▾'}</span>
                   </button>
-                  <div className="flight-compact-summary"><StatusChip f={f} /> <span>{!f.displayName && (f.itemLabel || f.country)}{quantity != null && `${f.displayName ? '' : ' · '}${f.receivedCargo?.boxes != null ? '입고' : '공지'} ${fmt(quantity)}박스`}</span>{!expanded && steps.length > 0 && <span>처리 {steps.filter(step => step.state === 'done').length}/{steps.length} 완료</span>}</div>
-                  {!expanded && deadline && <div style={{ color: deadline.color }}>{deadline.text}</div>}
+                  {!expanded && <div className="flight-glance">
+                    <div className="flight-glance-work">
+                      <div className="flight-compact-summary"><StatusChip f={f} />{steps.length > 0 && <span>처리 {steps.filter(step => step.state === 'done').length}/{steps.length} 완료</span>}</div>
+                      {deadline && <div style={{ color: deadline.color }}>{deadline.text}</div>}
+                      {attention && issues}
+                      {f.flightIssues.length > 2 && <button type="button" className="btn btn-sm" onClick={event => selectDetail(f.key, event)}>이슈 {f.flightIssues.length}건 모두 보기</button>}
+                    </div>
+                    {facts.length > 0 && <div className="flight-glance-facts">{facts.map(fact => <div key={fact}>{fact}</div>)}</div>}
+                  </div>}
                   {expanded && <>
+                  <StatusChip f={f} />
                   <div>{f.weekLabel ? f.weekLabel + '차' : '차수 미확인'} · 공지 도착 {arrivalText(f)}</div>
                   <div>{f.displayName && f.flight && <>편명 {f.flight} · </>}항공사 {f.airline || '미확인'} · 빌번호 {f.awb || '미확인'}</div>
                   <div>{f.origin?.name || '출발지 미확인'}{f.origin?.assumed ? ' (추정)' : ''} → {f.via?.name ? `${f.via.name}(경유) → ` : ''}인천</div>
@@ -383,10 +392,9 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                     ))}
                   </details>
                   </>}
-                  {(attention || expanded) && <>
-                    {f.flightIssues.length > 0 ? <ol className="flight-actions">{(expanded ? f.flightIssues : f.flightIssues.slice(0,2)).map(it => <li key={it.text}><span>{expanded ? shortIssue(it.text) : compactIssue(it)}</span>{expanded && <div className="flight-next">→ {nextAction(it)}</div>}</li>)}</ol> : <p style={{ margin: '4px 0', color: 'var(--text3)' }}>{f.nextStep ? `${f.nextStep} 확인` : '현재 연결된 이슈 없음'}</p>}
+                  {expanded && <>
+                    {issues}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
-                      {!expanded && f.flightIssues.length > 2 && <button type="button" className="btn btn-sm" onClick={event => selectDetail(f.key,event)}>이슈 {f.flightIssues.length}건 모두 보기</button>}
                       {expanded && track && <a href={track} target="_blank" rel="noopener noreferrer" className="btn btn-sm">시간·실제 위치 원문 ↗</a>}
                       {expanded && <button type="button" className="btn btn-sm" disabled={loading} onClick={() => { setLoading(true); load(true); }}>공항 자료 다시 확인</button>}
                     </div>
@@ -406,6 +414,10 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
         </div>
       )}
       <style jsx>{`
+        .flight-glance { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 3px 16px; }
+        .flight-glance-work { flex: 3 1 225px; min-width: 0; overflow-wrap: anywhere; }
+        .flight-glance-facts { flex: 2 1 180px; min-width: 0; overflow-wrap: anywhere; color: #334155; font-size: 12.5px; line-height: 1.45; }
+        .flight-glance .flight-actions { margin: 2px 0; }
         .flight-compact-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; overflow-wrap: anywhere; }
         article[data-testid="flight-card"] { font-variant-numeric: tabular-nums; }
 

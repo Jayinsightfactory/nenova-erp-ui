@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers } = require('../shell/flight-board');
+const { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers, compactFlightFacts } = require('../shell/flight-board');
 
 test('nearby flight labels stay separately clickable without moving their projected anchors', () => {
   const points = [{x:320,y:90,id:'2026-K4254'}, {x:328,y:88,id:'2026-AC063'}, {x:320,y:90,id:'2025-K4254'}, {x:719,y:271,id:'edge'}];
@@ -71,4 +71,22 @@ test('flight dates are Korean standard time regardless of where the caller runs'
   assert.equal(formatFlightTime('2026-11-20T00:00:00+09:00'), '11/20 00:00');
   assert.equal(formatFlightTime('2026-11-19T23:30:00'), '시각 미확인');
   assert.equal(formatFlightTime('2026-11-20', false, true), '11/20 시각 미정');
+});
+
+
+test('compact facts distinguish notice, airport ETA, landed time and cargo sources', () => {
+  const notice = { country: '콜롬비아', displayName: '콜롬비아 수국 47-2', flight: 'PO958', awb: '123-45678901',
+    arriveAt: '2026-11-22T12:05:00Z', announcedCargo: { boxes: 20 }, receivedCargo: { boxes: 18 } };
+  const estimatedAt = '2026-11-22T12:40:00Z';
+  assert.deepEqual(compactFlightFacts({ ...notice, actual: { estimatedAt } }), [
+    '공항 예상(ETA) 11/22(일) 21:40', '공지 도착 11/22(일) 21:05', '편명 PO958 · 빌번호 123-45678901', '입고 18박스',
+  ]);
+  assert.deepEqual(compactFlightFacts({ ...notice, estimatedAt: notice.arriveAt, remark: '도착' }), [
+    '공항 도착 표시 11/22(일) 21:05', '편명 PO958 · 빌번호 123-45678901', '입고 18박스',
+  ]);
+  assert.deepEqual(compactFlightFacts({ country: '태국', itemLabel: '태국', arrivalDate: '2026-11-22' }), [
+    '공지 도착 11/22 시각 미정',
+  ]);
+  assert.deepEqual(compactFlightFacts({ flight: 'KE412', estimatedAt: '2026-11-22T19:55', scheduledAt: estimatedAt,
+    announcedCargo: { boxes: 8 } }), ['공항 예정(STA) 11/22(일) 21:40', '공지 8박스']);
 });

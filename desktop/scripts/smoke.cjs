@@ -160,6 +160,8 @@ function installFixtureProtocol() {
         flights: [{
           key: 'flight-fixture', number: 1, weekLabel: '47-1', country: '콜롬비아', displayName: '콜롬비아 수국 47-1',
           itemLabel: '콜수국', airline: 'KALITTA', flight: 'K4254', status: 'in_flight', statusLabel: '비행 중',
+          arriveAt: '2026-11-22T12:05:00.000Z', actual: { estimatedAt: '2026-11-22T12:40:00.000Z' },
+          awb: '123-45678901', announcedCargo: { boxes: 20 },
           origin: { name: '메데진', lat: 6.16, lon: -75.42 },
         }, {
           key: 'registered-fixture', weekLabel: '47-1', country: '미국', flight: 'KE048', status: 'registered', statusLabel: '입고 등록 끝',
@@ -542,6 +544,13 @@ async function run() {
   assert.equal(await shellContents.executeJavaScript("[...document.querySelectorAll('svg [role=button]')].some(n => n.getAttribute('aria-label')?.includes('KE048'))"), false, 'registered arrival with open work has no map marker');
   assert.equal(await shellContents.executeJavaScript("[...document.querySelectorAll('[data-flight-select]')].some(n => n.textContent.includes('KE048') && n.textContent.includes('수입신고 수리 완료 · 반출 미확인'))"), true, 'recent customs status is displayed beside the flight title');
   assert.equal(await shellContents.executeJavaScript("document.querySelector('#flightBoard').textContent.includes('모든 시각 한국시간(KST)')"), true, 'native board names its time standard');
+  assert.equal(await shellContents.executeJavaScript(`(() => {
+    const choose = document.querySelector('[data-flight-select]');
+    const row = choose.closest('[data-flight-id]');
+    return choose.getAttribute('aria-expanded') === 'false' && [
+      '공항 예상(ETA) 11/22(일) 21:40', '공지 도착 11/22(일) 21:05', '편명 K4254 · 빌번호 123-45678901', '공지 20박스',
+    ].every(fact => row.textContent.includes(fact));
+  })()`), true, 'native collapsed card names and distinguishes arrival and cargo facts');
   const homeWasOpen = sourceWindow.menuOpen;
   await main.command(sourceWindow, 'menu', { open: true });
   try { await verifyFlightRefreshOnRestore(shellContents); }
