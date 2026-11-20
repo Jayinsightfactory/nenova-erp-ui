@@ -4172,3 +4172,14 @@ pm run test:canon 통과.
 검색어: 입고 차수 일반차수 전체차수 세부차수 47-02 incoming ledger round 검색 1.3.68
 
 2026-11-20 검증 업데이트: 두 역할 실제 가이드 촬영, 34흐름/35영상 검사, 회사 Drive 6파일 및 크기 검증 완료. 운영 확인은 PR에서 추적.
+
+
+## 2026-11-20 — 미리보기 닫기 시 열었던 업무 탭 복귀
+1. 작업 위치: nenova-erp-ui / codex/desktop-popup-opener-1120 / C:/Users/USER/Documents/Codex/nw-cdx-popup-opener-1120 / PR 생성 전.
+2. 완료된 것: 새 창을 업무 탭으로 열 때 실제 opener ID 저장, 활성 사용자 팝업 종료 시 원래 창과 탭 복원. 다른 탭과 작업 입력은 보존. 관련 Electron 스모크 추가.
+3. 남은 할 일: 회사 Drive 원본 보관 최종 확인, PR·CI·공개 피드. PC 재시작 없음.
+4. 검증 상태: desktop 단위 77개, 실제 Electron 새 창 opener/종료 복귀 스모크 통과. 실제 직원 PC 설치 미검증.
+5. 주의/잠금: 동일 원장의 차수 검색 PR #1901은 Cafe24 44651535818 및 운영 일반/세부 차수 실제 Chrome, Desktop 1.3.68 최신 피드 공개 검증 완료. 회사 Drive 가이드 두 역할 6파일 보관. 공유 의존성 junction 제거는 Windows 도구 정책에 의해 차단되어 해당 worktree는 보존.
+검색어: 미리보기 닫기 여는 탭 복귀 popup opener focus PedidosTool desktop incoming round 1.3.68
+
+실제 1920x1080 가이드 14단계, 554.5초, 자막 76개 실제 프레임 정렬 및 카메라 구간 검증.
