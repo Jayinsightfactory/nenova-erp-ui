@@ -4210,3 +4210,18 @@ pm run test:canon 통과.
 4. 검증: 최초 dry-run은 messages.flatMap 오류, 수정 후 네덜란드 격리 XLSX 140송이/ETA 확인을 통과하고 중국 농장 미리보기에서 중단. 실제 녹화 시 수량 입력 y=912.625가 캡처 범위 900 초과. Desktop fixture HTTP 200, 실제 Electron 시작 EPIPE 오류·재시작 명령 정책 거부. 저장창 및 실제 카카오 매칭 미검증.
 5. 주의: 이전 78셀·2,563단+80송이는 ERP↔Excel 일치 근거만. 운영 DB 쓰기·농장 발송·유료 분석 0. 비공개 fixture 로그·원본은 커밋 금지.
 검색어: PR1883 46-02 archive-fixture preview-recorder EPIPE capture-band Kakao-uncertain
+## 2026-11-20 국가별 발주서 배치·명시 미리보기·다운로드 대조
+- 검색어: 수입방 오른쪽 원문 가운데 합계 매칭데이터 미리보기 선택 조회 이전 다운로드 이력 5건
+1. 작업 위치: nenova-erp-ui / codex/country-download-1120 / nw-cdx-country-download-1120 / PR 대기.
+2. 완료: 오른쪽 원문 실제 본문·가운데 합계, 세부차수 조회 후 CTA로만 미리보기, 제품·단위 수량과 ETA 다운로드 비교. 계정·기기·국가·연도·세부차수·파일로 5건 분리. 저장확인 전 기록 없음. 기존 XLSX 직접 불러오기. Desktop 기존 메뉴 재사용·저장완료 신호·1.3.69.
+3. 남은 일: PR CI·운영 배포·Desktop 공개 피드·실화면 및 최종 인계. 운영 미검증.
+4. 검증: Chrome 1572/1920/390, 실제 브라우저 XLSX 생성 및 비교, 페이지 새로고침 이후 비교 유지, 저장 완료/취소, 7개국 양식·dnSpy·쓰기·canon, 실제 Electron 격리 다운로드 완료/취소/bytes, 실제 2개 가이드 해시 통과.
+5. 주의: 개인·원문 채팅·업체별 값·XLSX 원본 바이트는 저장하지 않음. 업무 파일은 사용자 저장 위치. 원장/API 변경 없음. 팀 공유 이력 초안 #1883 무수정. 버전 1.3.68은 #1901이 사용하여 1.3.69.
+
+### 2026-11-20 · #1883 사용자 가이드 제외 / #1902 네이티브 저장 연결 조정
+1. 위치: fix/country-po-1119 / C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119 / PR #1883.
+2. 완료: #1902 현행 화면·로컬 저장 비교·정확한 blob 완료 이벤트와 #1883 팀 원본·전달 이력 결합. 팀에서 받은 해시 일치 바이트만 저장하며 범위 메타데이터 보존. 기존 영상·자막·proof 미수정, 승인된 videoWaivers로 변경 파일만 예외.
+3. 남음: 최신 병합 상태의 네이티브 저장 클릭/캡처→격리 전달·재진입·SHA/셀, 실카톡 근거 read-only. CI 통과 이후 독립 Cafe24와 Desktop 1.3.71 게시 및 스모크.
+4. 검증: 이전 기준 ERP manifest 235·write scope 1 PASS, 이번 병합본 재검증 필요. Electron CLI로 격리 창·메뉴 검색·탭 열기 성공, 사용자 운영 Chrome과 겹침 확인 시 입력 중단. 저장·전달 미실행, 실카톡 매칭 미확인.
+5. 주의: 실제 주문·농장 전송 쓰기 금지. 개인 로컬 저장 확인과 팀 원본 보관·전달 기록은 서로 대체하지 않음. 개인 원문·엑셀 증거는 비공개.
+검색어: PR1883 1902 native completed immutable-archive videoWaivers 46-02 user-desktop-occupied

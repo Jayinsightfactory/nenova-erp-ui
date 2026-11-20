@@ -46,7 +46,8 @@ export default withAuth(createCountryOrderHistoryHandler({store,readCurrent,read
   secret:getJwtSecret,
   canAccess:user=>canManageInvoiceReceipt(user)&&user?.accountActive!==false&&typeof user?.userId==='string'&&user.service!==true,
   generate:(matrix,options,eta)=>generateCompactCountryOrders(matrix,options).map(output=>{
-    const workbook=eta?withCountryOrderEta(output.workbook,matrix.scope.orderWeek,eta):output.workbook;
+    const workbook=eta?withCountryOrderEta(output.workbook,matrix.scope.orderWeek,eta):{...output.workbook};
+    workbook.Custprops={...workbook.Custprops,NenovaOrderYear:String(matrix.scope.year),NenovaOrderCountry:matrix.scope.country};
     return {...output,workbook,bytes:Buffer.from(serializePedidosWorkbook(workbook))};
   })
 }));

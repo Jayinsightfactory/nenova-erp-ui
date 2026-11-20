@@ -1,6 +1,7 @@
 import KakaoAdditions from './KakaoAdditions';
 import CountryOrderEvidenceReview from './CountryOrderEvidenceReview';
 import WorkflowGuide from '../WorkflowGuide';
+import CountryDownloadComparison from './CountryDownloadComparison';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PEDIDOS_COUNTRIES, generatePedidos, formatPedidosQuantity, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
@@ -9,9 +10,11 @@ import { COUNTRY_ORDER_ETA_STORAGE, countryOrderEtaDefault, countryOrderSourceCo
 import { createCountryOrderRequestGuard } from '../../lib/countryOrderPedidosAdapter';
 import { importCountryLabel, importUnitLabel, importColumnLabel } from '../../lib/importToolsDisplay';
 import { countryOrderShortName, countryOrderGroup, countryOrderIssue, generateCompactCountryOrders } from '../../lib/countryOrderPresentation';
+import { appendOrderDownload, downloadHistoryKey, orderWorkbookRows, saveOrderFile } from '../../lib/countryOrderDownloadHistory';
 
 // Native React, browser-only file conversion. Parent owns menu and shared storage.
 export default function PedidosTool({ active = true }) {
+  const [userId,setUserId] = useState('');
   const [sourceMode, setSourceMode] = useState('erp');
   const [cycles, setCycles] = useState([]);
   const [cycleKey, setCycleKey] = useState('');
@@ -39,6 +42,18 @@ export default function PedidosTool({ active = true }) {
   const [farmSelection, setFarmSelection] = useState({});
   const [expandedRows, setExpandedRows] = useState({});
   useEffect(() => {
+    if (!active) return;
+    const controller=new AbortController();
+    setUserId('');
+    fetch('/api/auth/me',{cache:'no-store',signal:controller.signal})
+      .then(response=>response.ok ? response.json() : null)
+      .then(result=>{
+        if (!controller.signal.aborted && result?.user?.userId != null) setUserId(String(result.user.userId));
+      })
+      .catch(()=>{});
+    return ()=>controller.abort();
+  },[active]);
+  useEffect(() => {
     if (!active || country !== 'China') return;
     const controller = new AbortController();
     fetch('/api/master?entity=codes', { signal: controller.signal }).then(result => result.ok ? result.json() : null).then(body => {
@@ -50,6 +65,8 @@ export default function PedidosTool({ active = true }) {
   const [productDialog, setProductDialog] = useState(null); // { items: [{ row, snapshot, suggestion, drafts }], saving, error }
   const [productSaved, setProductSaved] = useState('');
   const [etaDialog, setEtaDialog] = useState(null);
+  const [historyRevision, updateHistory] = useState(0);
+  const [savingDownload, setSavingDownload] = useState(false);
   const etaModal = useRef(null);
   const etaOpener = useRef(null);
   const downloading = useRef(false);
@@ -329,38 +346,75 @@ export default function PedidosTool({ active = true }) {
     event.preventDefault();
     if (downloading.current || !etaDialog || etaDialog.generation !== contextGeneration.current || !active || loading || busy || !results?.includes(etaDialog.output) || (sourceMode === 'erp' && !canExport)) return;
     downloading.current = true;
+    setSavingDownload(true);
     const { output, date, scope } = etaDialog;
-    const ownerDocument=event.currentTarget.ownerDocument;
-    const generation=contextGeneration.current;
+    const ownerDocument = event.currentTarget.ownerDocument;
+    const generation = contextGeneration.current;
     setError('');
-    let url;
     try {
       let bytes;
+      const desktop=document.documentElement.dataset.nenovaCountryDownloads==='1';
+      let openPicker=ownerDocument.defaultView?.showSaveFilePicker?.bind(ownerDocument.defaultView);
       if(sourceMode==='erp'){
         if(!historyEnvelope)throw Error('미리보기를 다시 생성하세요.');
+        // The web file picker needs the original click's activation, before a
+        // potentially slow server revalidation. Opening it writes no bytes.
+        if(!desktop&&openPicker){
+          const handle=await openPicker({suggestedName:output.filename,types:[{description:'Excel 통합 문서',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});
+          if(generation!==contextGeneration.current)return;
+          openPicker=async()=>handle;
+        }
         const response=await fetch('/api/import/tools/country-order-history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'download',...historyEnvelope,id:historyEnvelope.outputIds[output.filename],filename:output.filename,eta:date})});
         const body=await response.json();if(!response.ok)throw Error(body.error??'원본 보관 실패');
         if(generation!==contextGeneration.current)return;
         bytes=Uint8Array.from(atob(body.file),letter=>letter.charCodeAt(0));
         const sha=Array.from(new Uint8Array(await window.crypto.subtle.digest('SHA-256',bytes)),value=>value.toString(16).padStart(2,'0')).join('');
         if(sha!==body.record.sha256)throw Error('내려받은 원본 해시가 보관 이력과 다릅니다. 저장하지 않았습니다.');
-      }else bytes=serializePedidosWorkbook(withCountryOrderEta(output.workbook, context.week, date));
+      }else{
+        const workbook=withCountryOrderEta(output.workbook,context.week,date);
+        workbook.Custprops={...workbook.Custprops,NenovaOrderYear:String(context.year),NenovaOrderCountry:context.country};
+        bytes=serializePedidosWorkbook(workbook);
+      }
+      if(generation!==contextGeneration.current)return;
+      const state=await saveOrderFile({bytes,filename:output.filename,document:ownerDocument,desktop,openPicker});
+      if (state === 'cancelled') return;
+      if (state === 'interrupted') throw Error('파일 저장이 중단되었습니다.');
+      let historyMessage='';
+      if (state === 'completed') {
+        try {
+          const key=await downloadHistoryKey(userId,context,output.filename);
+          if (!key) throw Error('Account unavailable');
+          await appendOrderDownload(localStorage,key,{id:crypto.randomUUID(),at:new Date().toISOString(),eta:date,
+            rows:orderWorkbookRows(readPedidosWorkbook(bytes),output.unit),source:'completed'},navigator.locks);
+          updateHistory(n=>n+1);
+        } catch { historyMessage=' 비교 이력은 저장하지 못했습니다.'; }
+      } else historyMessage=' 저장 확인 후 기존 발주서 불러오기로 비교 이력에 넣을 수 있습니다.';
+      if (generation!==contextGeneration.current) return;
       let defaults;
       try { defaults = JSON.parse(localStorage.getItem(COUNTRY_ORDER_ETA_STORAGE) || '{}'); }
       catch { defaults = {}; }
       if (!defaults || typeof defaults !== 'object' || Array.isArray(defaults)) defaults = {};
-      localStorage.setItem(COUNTRY_ORDER_ETA_STORAGE, JSON.stringify({ ...defaults, [country]: { ...scope, date } }));
-      url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-      const anchor = ownerDocument.createElement('a');
-      anchor.href = url; anchor.download = output.filename;
-      ownerDocument.body.appendChild(anchor); anchor.click(); anchor.remove();
-      setDownloaded(`${output.filename} · ${formatCountryOrderEta(date)} 다운로드를 요청했습니다.${sourceMode==='erp'?' 원본은 팀 이력에 보관했습니다. OS 저장 완료·농장 전달 완료는 별도입니다.':''}`);
+      try { localStorage.setItem(COUNTRY_ORDER_ETA_STORAGE, JSON.stringify({ ...defaults, [country]: { ...scope, date } })); } catch {}
+      setDownloaded(`${output.filename} · ${formatCountryOrderEta(date)} ${state==='completed'?'저장 완료.':'다운로드 요청.'}${sourceMode==='erp'?' 팀 원본 보관과 농장 전달은 별도입니다.':''}${historyMessage}`);
       closeEta();
-    } catch (err) { downloading.current = false; setEtaDialog(current => current && ({ ...current, error: `다운로드 실패: ${err.message}` })); }
-    finally { if (url) window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
+    } catch (err) {
+      if (err.name!=='AbortError' && generation===contextGeneration.current) {
+        setEtaDialog(current => current && ({ ...current, error: `다운로드 실패: ${err.message}` }));
+      }
+    } finally {
+      downloading.current=false;setSavingDownload(false);
+    }
   }
 
   const noItems = results !== null && (results.length === 0 || results.every(output => output.itemCount === 0));
+  let currentEta='';
+  if (context) {
+    try {
+      const saved=JSON.parse(localStorage.getItem(COUNTRY_ORDER_ETA_STORAGE) || '{}')[context.country];
+      const cycle=cycles.find(item=>Number(item.year)===Number(context.year) && item.majorWeek===context.week.split('-')[0].padStart(2,'0'));
+      currentEta=countryOrderEtaDefault(saved,{year:context.year,week:context.week,cycleStart:cycle?.startDate || null});
+    } catch {}
+  }
   const finishControls = <div className="pedidos-form-controls">
     {busy && <p role="status">Excel을 읽고 발주서를 생성하고 있습니다…</p>}
     {error && <p role="alert" className="pedidos-error">{countryOrderIssue(error)}</p>}
@@ -392,6 +446,8 @@ export default function PedidosTool({ active = true }) {
           <button type="button" onClick={event => download(output, event.currentTarget)}>엑셀 다운로드</button>
         </div>
         {output.totalQuantity === 0 && <p role="status" className="pedidos-note">숫자 원본의 합계가 0입니다. 정상적인 0 수량 결과도 다운로드할 수 있습니다.</p>}
+        <CountryDownloadComparison key={JSON.stringify([context.country,context.year,context.week,output.filename])}
+          userId={userId} context={context} output={output} revision={historyRevision} currentEta={currentEta} />
         {output.warnings.length > 0 && <div className="pedidos-warning"><h5>확인 필요</h5><ul>{output.warnings.map(warning => <li key={warning}>{countryOrderIssue(warning)}</li>)}</ul></div>}
         {output.itemCount > 0 && <details><summary>품목 미리보기 ({output.itemCount}개, 수식 계산값 표시)</summary>
           <div className="pedidos-preview" tabIndex={0} role="region" aria-label={`${output.filename} 품목 표`}>
@@ -404,7 +460,7 @@ export default function PedidosTool({ active = true }) {
       <p className="pedidos-note">변경량(Cambios)은 빈칸으로 유지됩니다. 다운로드 파일에는 원본 수식과 초기 계산값이 포함되며, 엑셀에서 편집하면 자동 재계산됩니다. 저장 위치는 브라우저 설정을 따릅니다.</p>
     </div>}
     {etaDialog && active && <div className="pedidos-backdrop"><form ref={etaModal} role="dialog" aria-modal="true" aria-labelledby="pedidos-eta-title" className="pedidos-dialog" onSubmit={confirmEta} onKeyDown={event => {
-      if (event.key === 'Escape') { event.preventDefault(); closeEta(); }
+      if (event.key === 'Escape') { event.preventDefault(); if (!savingDownload) closeEta(); }
       if (event.key === 'Tab') {
         const fields = [...etaModal.current.querySelectorAll('input, button')].filter(field => !field.disabled);
         const first = fields[0], last = fields[fields.length - 1];
@@ -419,7 +475,7 @@ export default function PedidosTool({ active = true }) {
       <p className="pedidos-note">국가별 기본값은 이 PC·브라우저에 저장됩니다. 다음 주차는 7일 증가하고 같은 주의 세부차수는 유지합니다. 전산 주문은 변경하지 않습니다.</p>
       <p aria-live="polite">{(() => { try { return `Semana ${context?.week}차 ${formatCountryOrderEta(etaDialog.date)}`; } catch { return '달력에서 선택하거나 YYYY-MM-DD 형식으로 입력하세요.'; } })()}</p>
       {etaDialog.error && <p role="alert" className="pedidos-error">{etaDialog.error}</p>}
-      <div className="pedidos-dialog-actions"><button type="submit">ETA 저장·엑셀 다운로드</button><button type="button" className="pedidos-secondary" onClick={closeEta}>취소</button></div>
+      <div className="pedidos-dialog-actions"><button type="submit" disabled={savingDownload}>{savingDownload?'파일 저장 확인 중…':'ETA 저장·엑셀 다운로드'}</button><button type="button" className="pedidos-secondary" disabled={savingDownload} onClick={closeEta}>취소</button></div>
     </form></div>}
 
   </div>;
@@ -472,7 +528,7 @@ export default function PedidosTool({ active = true }) {
     {finishControls}
   </section>;
   return <section className="pedidos-tool" aria-label="국가별 발주서 파일 변환">
-    <div className="pedidos-heading"><div><h2>국가별 발주서</h2><p>전산 원주문 또는 Excel 원본을 기존 국가별 양식으로 내려받으세요.</p></div><span className="pedidos-free">전산 읽기 전용 · 원장 변경 없음</span></div>
+    <div className="pedidos-heading"><div><h2>국가별 발주서</h2><p className="pedidos-purpose">핵심 목적 · 수입 발주 누락을 확인하고 이전 파일과 수량을 대조합니다.</p></div><span className="pedidos-free">전산 읽기 전용 · 원장 변경 없음</span></div>
     <WorkflowGuide workflowId="import-country-orders" />
     <div className="pedidos-split"><div className="pedidos-primary">
     <div className="pedidos-source" role="group" aria-label="발주 수량 원천">
@@ -485,13 +541,13 @@ export default function PedidosTool({ active = true }) {
       {country && <><h3>2. 차수</h3>
       <div className="pedidos-cycles" role="group" aria-label="오늘부터 다음 5개 대차수">{cycles.map(cycle => <button type="button" key={cycle.key} aria-pressed={selectedCycle?.key === cycle.key} onClick={() => changeCycle(cycle.key)}>{cycle.year} {cycle.majorWeek}차 <small>{cycle.startDate.slice(5).replace('-', '/')}–{cycle.endDate.slice(5).replace('-', '/')}</small></button>)}</div></>}
       {cycleKey && <><h3>3. 세부차수</h3>
-      <div className="pedidos-subweeks" role="group" aria-label="실제 주문 세부차수">{subweeks.map(subweek => <button type="button" key={subweek.key} aria-pressed={orderWeek === subweek.orderWeek} onClick={event => {
-        openPreview(event.currentTarget);
+      <div className="pedidos-subweeks" role="group" aria-label="실제 주문 세부차수">{subweeks.map(subweek => <button type="button" key={subweek.key} aria-pressed={orderWeek === subweek.orderWeek} onClick={() => {
         if (orderWeek === subweek.orderWeek) return;
+        closePreview();
         requestGuard.current.invalidate(); setResponse(null); setManual({}); invalidate(setOrderWeek, subweek.orderWeek);
       }}>{subweek.orderWeek}차</button>)}</div></>}
-      {orderWeek && <button type="button" className="pedidos-secondary" onClick={event => openPreview(event.currentTarget)}>매칭 데이터 미리보기 열기</button>}
-      {!orderWeek && <p role="status">{loading ? '차수 목록 조회 중…' : !country ? '국가를 선택하세요.' : !cycleKey ? '차수를 선택하세요.' : subweeks.length ? '세부차수를 선택하면 미리보기가 열립니다.' : '선택 범위에 주문 없음'}</p>}
+      {orderWeek && <button type="button" disabled={loading} className="pedidos-secondary pedidos-open-preview" onClick={event => openPreview(event.currentTarget)}>매칭데이터 미리보기 열기</button>}
+      <p role="status">{loading ? (orderWeek ? '세부차수 주문 조회 중…' : '차수 목록 조회 중…') : !country ? '국가를 선택하세요.' : !cycleKey ? '차수를 선택하세요.' : !orderWeek ? (subweeks.length ? '세부차수를 선택하세요.' : '선택 범위에 주문 없음') : ''}</p>
     </div> : <form onSubmit={convert}>
       <fieldset disabled={busy}>
         <legend>1. 국가·차수와 원본 파일 선택</legend>
@@ -513,7 +569,6 @@ export default function PedidosTool({ active = true }) {
       <dialog ref={previewDialog} className="pedidos-preview-window" aria-labelledby="pedidos-preview-title"
         onCancel={event => { event.preventDefault(); closePreview(); }}>{orderPreview}</dialog>) : finishControls}
     <style jsx global>{`
-      .pedidos-tool { width: 100%; min-width: 0; color: #172b4d; font-size:14px; line-height:1.5; }
       /* Available before window.open copies the parent styles into the managed popup. */
       .country-evidence{margin:16px 0;border-top:1px solid #cbd5e1;padding-top:14px;font-variant-numeric:tabular-nums}
       .country-evidence-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
@@ -524,6 +579,11 @@ export default function PedidosTool({ active = true }) {
       .country-history{overflow-x:auto}.country-history small{display:block;overflow-wrap:anywhere;max-width:300px}
       .country-history td{vertical-align:top;padding:7px}
       @media(max-width:800px){.country-evidence-split{grid-template-columns:minmax(0,1fr)}}
+      .pedidos-tool { width: 100%; min-width: 0; color: #0f172a; font-size:14px; line-height:1.5; font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; font-variant-numeric:tabular-nums; }
+      .pedidos-purpose { font-size:16px;font-weight:700; }
+      .pedidos-download-comparison {margin:12px 0;padding-top:10px;border-top:1px solid #cbd5e1}
+      .pedidos-download-comparison label {max-width:420px;margin-bottom:8px}
+      .pedidos-download-comparison input[type=checkbox] {width:18px}
       .pedidos-source, .pedidos-cycles, .pedidos-subweeks, .pedidos-auto-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
       .pedidos-source button, .pedidos-cycles button, .pedidos-subweeks button, .pedidos-secondary { background:#edf2fa; color:#234775; border:1px solid #cbd5e1; }
       .pedidos-tool button[aria-pressed="true"] { background:#2457c5; color:white; border-color:#2457c5; }
@@ -574,7 +634,7 @@ export default function PedidosTool({ active = true }) {
       :where(.pedidos-tool) button:focus-visible:where(:not(.kakao-additions *)), :where(.pedidos-tool) input:focus-visible:where(:not(.kakao-additions *)), :where(.pedidos-tool) select:focus-visible:where(:not(.kakao-additions *)), .pedidos-preview:focus-visible, :where(.pedidos-tool) summary:focus-visible:where(:not(.kakao-additions *)) { outline:3px solid #ee9700; outline-offset:3px; }
       .pedidos-heading { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
       .pedidos-heading h2 { font-size:18px; } .pedidos-heading p { margin:0; color:#54657d; }
-      .pedidos-free { border-radius:6px; background:#e9f6ee; color:#21653e; padding:5px 10px; font-size:12px; font-weight:600; }
+      .pedidos-free { border-radius:6px; background:#e9f6ee; color:#21653e; padding:5px 10px; font-size:12.5px; font-weight:600; }
       .pedidos-guide { margin:0 0 20px; font-size:13px; color:#54657d; }
       .pedidos-totals { display:flex; gap:10px; flex-wrap:wrap; }
       .pedidos-totals span { padding:6px 10px; border-radius:6px; background:#edf3ff; color:#38577e; }
@@ -589,7 +649,7 @@ export default function PedidosTool({ active = true }) {
       :where(.pedidos-tool) input[type=number]:where(:not(.kakao-additions *)), :where(.pedidos-tool) input[type=text]:where(:not(.kakao-additions *)) { width: 150px; }
       :where(.pedidos-tool) button:where(:not(.kakao-additions *)) { border: 0; border-radius: 7px; padding: 10px 16px; min-height:38px; font:inherit; font-weight:600; background: #2457c5; color: white; cursor: pointer; white-space: nowrap; }
       :where(.pedidos-tool) button:disabled:where(:not(.kakao-additions *)) { opacity: .5; cursor: not-allowed; }
-      .pedidos-note { color: #64748b; font-size: 13px; }
+      .pedidos-note { color: #475569; font-size: 13.5px; }
       .pedidos-error { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; padding: 12px; overflow-wrap: anywhere; }
       .pedidos-warning { background: #fffbeb; color: #92400e; padding: 12px; overflow-wrap: anywhere; }
       .pedidos-result { margin: 14px 0; padding: 16px; border: 1px solid #cbd5e1; border-radius: 8px; min-width: 0; }
