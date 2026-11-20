@@ -4320,3 +4320,12 @@ pm run test:canon 통과.
 3. 남은 일: 검토에서 나온 "판단이 필요한 어긋남" 11건(1차 화물 도착 요일, 호주·미국·베트남 월요일 입고의 확정 표시, 주말 서류 전달, 주말 근거 숫자 730, 콜롬비아 1차 파일 수, 태국 추가 마감, 창고료 금액 대역, 확정 표시 근거 약한 줄, 질문 목록 중복, 네덜란드 칸 매뉴얼 연결, 방 · 자리 이름 통일)
 4. 검증: npm run -s test:workflow-guides 통과. 운영 확인은 배포 뒤.
 5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것(data · docs 는 생성물). 연결 목표: 수입부 인수인계 / 학습 반영: 없음
+
+## 2026-11-20 수입부 인수인계 원고 — 재검증 남은 어긋남 11건 정리
+요약: 기록으로 가를 수 있는 것은 통일(1차·2차 화물 도착 요일, 콜롬비아 1차 파일 수 42~51, 주말 글 수 718, 창고료 표기, 방·화면 이름), 가를 수 없는 것은 「확정」을 내리고 확인 필요로(호주·미국·베트남 월요일 입고, 태국 추가 마감, 주말 서류 전달, 중국 최소 주문량 2건). 질문 26 → 25(주말 질문 합침), 네덜란드 칸에 매뉴얼 연결.
+검색어: 수입부 매뉴얼 재검증 countryCalendar 확정 추정 chinaMoq 주말 질문 네덜란드 manualId
+1. 작업 위치: nenova-erp-ui / fix/import-reverify-1120b / C:\Users\USER\wt-import-manual
+2. 완료: scripts/build-import-handover.cjs(문구 12곳 + 자료 묶기 직전 정리 블록) → data · docs 재생성
+3. 남은 일: folderMap 의 화면 1건짜리 「확정」 줄, 「자리」라는 말이 차수와 PC 두 뜻으로 쓰이는 곳, 요일별 업무표(import-weekday.json)의 네덜란드 연결은 손대지 않음
+4. 검증: npm run -s test:workflow-guides 통과. 운영 확인은 배포 뒤.
+5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: 수입부 인수인계 / 학습 반영: 없음
