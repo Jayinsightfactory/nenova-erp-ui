@@ -4266,3 +4266,12 @@ pm run test:canon 통과.
 4. 검증 상태: `ceoCommandHub`, `workFeatureData`, `adoptionRadar`, `purposeFlowTrace`, `test:workflow-guides`, `check-workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:pm`, `desktop test` 80/80, `next build --webpack`, Puppeteer 1920/1280/390 실렌더링·가이드 영상 `--player-smoke` 전수 PASS. 운영 서버 배포 후 실데이터 미검증.
 5. 주의/잠금: `pages/api/**`, `nenova-pm/*`, `SHARED_AGENT_RULES.md` 무접촉, 원장 쓰기 0건(읽기 전용), Anti-AI Slop §7(한글 고딕·금지어/이모지/그라디언트 0건) 준수.
 검색어: command-hub owner-twin 디지털트윈 목표정합성 PurposeFlowTrace g19 g18 g17 1.3.74
+
+
+## 2026-11-20 수입방 카톡 원문 형식·CL 수량 운영 인계
+1. 작업 위치: nenova-erp-ui / codex/import-kakao-raw-feed-1120 / nw-cdx-kakao-raw-feed-1120 / PR #1912, squash 44196a2190385b6ef64309be19e779891cbc5ece.
+2. 완료: 오른쪽 최신순 카톡 원문 상시 표시, 전체/추가/취소 및 방·시각·본문 검색, 가운데 농장 합계와 양방향 대조. 업체명+CL을 해당 원문 안에서 업체 머리글로 인식하며, 취소 원문의 수량은 합산 제외. 목표 g19의 가독성 선호를 학습에 반영하고 진척률은 유지.
+3. 남은 할 일: 없음. 카톡 사진 본문과 전체 기간은 미검증. 새로운 Desktop 설치본은 불필요하며 현재 수입업무도구 링크로 연결.
+4. 검증: ERP·dnSpy·가이드·빌드·PR CI 통과. 128건 원본/129건 아카이브(매체 표시 각 20), 11/19~11/20 11:59:26 KST에서 정확 96건+같은 작성자·분·수량단위·분류의 버전 12건, 아카이브에만 일반 대화 1건. 텍스트 신규 발주 누락 0건. Cafe24 44670064193(f84fc183) 배포 및 hydration 통과. 기존 Desktop 운영 탭에서 오른쪽 원문과 CL23 검색, 70송이와 24송이 두 행·허위 업체 품목 없음 확인. 실제 영상 23단계 291.9초, 플레이어 및 운영 파일 크기 확인. 회사 Drive MP4 10zuvglBCaH62s5hRevIYNcw9ZuBSoasN / 자막 1JLh_RZXm3smkiqJgJIbSh6-WOZXKkErA / 근거 19rWNWSMufXfA88kM6Gxn98acrOSR9x5P.
+5. 주의/잠금: 카톡 수집기·운영 PC·기존 계정 범위·ERP/ECOUNT·직원 앱 설치와 재시작 변경 없음. 첨부 원문과 발신자는 도구 결과·작업 파일에 복제하지 않음. 목표 g19, 학습 반영 있음.
+검색어: PR1912 카톡 원문 오른쪽 전체 추가 취소 CL23 네덜란드 47-02 70송이 24송이 수집 대조 g19
