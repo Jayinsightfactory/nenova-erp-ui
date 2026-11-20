@@ -15,6 +15,8 @@ import { planFarmWorkbook, signFarmExport } from '../../../lib/shipmentFarmWorkb
 import { fieldVolumePlan, farmWorkbookReadiness } from '../../../lib/shipmentFieldVolume';
 import { readFarmDrawingText } from '../../../lib/shipmentFarmDrawing';
 import { FARM_SHEET } from '../../../lib/shipmentFarmText';
+import { readImportFileMetadata, resolveImportMode, requireDownloadKind } from '../../../lib/shipmentImportMode.js';
+import { allocationExportRows, allocationWorkbookPlan } from '../../../lib/shipmentImportWorkbook.js';
 
 export const config = {
   api: { bodyParser: false },
@@ -70,6 +72,9 @@ export async function processWorkbook(req, res, farmOnly) {
     }
     mirrorWebUpload({ filepath: file.filepath, filename: file.originalFilename, user: req.user, source: 'shipment/distribute-import-preview' });
     const workbook = XLSX.readFile(file.filepath, { cellDates: false, cellNF: false, cellStyles: false });
+    const sourceMetadata=readImportFileMetadata(workbook);
+    const distributionMode=resolveImportMode({addToExisting:field('addToExisting'),metadata:sourceMetadata,year:year || String(week).match(/^(\d{4})-/)?.[1],week,earlyImportMode});
+    const downloadKind=requireDownloadKind(field('downloadKind'));
     // Only the new workbook's visible contents determine the scope.
     const parsed = parseAllocationWorkbook(XLSX, workbook);
     const preview = await buildImportPreview({
@@ -78,6 +83,7 @@ export async function processWorkbook(req, res, farmOnly) {
       rawWeek: week,
       rawYear: year,
       earlyImportMode,
+      distributionMode,
       earlyExclusionLoader: getEarlyShipmentExclusions,
       customerOverrides,
       productOverrides,
@@ -98,9 +104,13 @@ export async function processWorkbook(req, res, farmOnly) {
       const changed = await withTransaction(q => applyChatFarms(q,preview));
       return res.json({success:true,changed});
     }
-    const exportLayout = isXlsx ? await planFarmWorkbook(original, preview.rows) : {
+    const exportLayout = isXlsx ? await planFarmWorkbook(original, allocationExportRows(preview,downloadKind),distributionMode==='REPLACE'?{}:{
+      caption:distributionMode==='ADD' && downloadKind==='ADDITIONAL'?'추가분 물량표 · 이번 추가수량만 (기존 농장배정 제외)':'합산본 물량표 · 최종수량 (기존 분배 + 이번 추가분)',
+      noteSheets:[...new Set(preview.rows.map(r=>r.sheetName).filter(Boolean))],
+    }) : {
       entries: [], patches: [], errors: preview.rows.some(r=>r.farmSource) ? ['농장분배 원본 보존 다운로드는 .xlsx 파일을 사용하세요.'] : [],
     };
+    if(isXlsx)exportLayout.allocation=allocationWorkbookPlan(preview,workbook,downloadKind);
     preview.farmImport.layoutErrors = exportLayout.errors.map(message=>`원본 보존 다운로드: ${message} 신형 현장물량표는 별도 양식으로 생성합니다.`);
     // Original print-space limits affect only the optional original-layout download.
     // For XLSX, valid farm assignments can be saved and printed in the new layout.
@@ -117,6 +127,8 @@ export async function processWorkbook(req, res, farmOnly) {
     if(fieldExportReady)await rememberFieldPlan(fieldPlan,original);
     return res.status(200).json({
       ...preview,
+      sourceMetadata,
+      downloadKind,
       replacementPlan: readiness.canApplyFarm ? createReplacementPlan(preview, req.user.userId) : null,
       exportPlan,
       fieldExportPlan: fieldPlan ? signFarmExport(original, fieldPlan, req.user.userId) : null,

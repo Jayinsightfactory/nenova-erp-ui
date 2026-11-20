@@ -25,7 +25,7 @@ async function main() {
       if(targetId==='packing-list-from-invoice'&&url.pathname==='/api/work/manuals'){data.handover=require('../data/import-handover.json');data.me=user;data.departments=[];data.manuals=[];}
       return request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
     });
-    await page.goto(base + (targetId==='profit-explicit-query'?'/sales/profit-report':targetId==='packing-list-from-invoice'?'/work/manuals?manual=packing-list-from-invoice':targetId==='manifest-farm-matching'?'/master/codes':targetId==='incoming-approval'?'/import/tools?tab=incoming':'/import/tools'), { waitUntil: 'networkidle0' });
+    await page.goto(base + (['shipment-additive-import','shipment-field-volume'].includes(targetId)?'/shipment/distribute-import':targetId==='profit-explicit-query'?'/sales/profit-report':targetId==='packing-list-from-invoice'?'/work/manuals?manual=packing-list-from-invoice':targetId==='manifest-farm-matching'?'/master/codes':targetId==='incoming-approval'?'/import/tools?tab=incoming':'/import/tools'), { waitUntil: 'networkidle0' });
     if(targetId==='invoice-farm-history')await page.click('button[aria-controls="import-panel-history"]');
     if(targetId==='manifest-farm-matching'){await page.focus('[role="tab"][aria-selected="true"]');await page.keyboard.press('End');assert.equal(await page.$eval('[role="tab"][aria-selected="true"]',node=>node.textContent.trim()),'🌾 농장');}
     if(targetId==='packing-amount-review'){await page.click('button[aria-label="콜롬비아"]');}

@@ -762,6 +762,11 @@ async function run() {
   await first.view.webContents.executeJavaScript(`window.openSameOriginPopup()`);
   await waitFor(() => first.view.webContents.executeJavaScript('window.__nonblankReceived === true'), 'nonblank popup opener message');
   assert.equal(await first.view.webContents.executeJavaScript('window.__nonblankHandle'), true, 'same-origin nonblank popup returns a usable handle');
+  const preview = main.tabs.get(sourceWindow.activeId);
+  assert.equal(preview.openerTabId, first.id);
+  await preview.view.webContents.executeJavaScript('setTimeout(() => window.close(), 0)');
+  await waitFor(() => !main.tabs.has(preview.id), 'popup close');
+  assert.equal(sourceWindow.activeId, first.id, 'closing a preview returns to its opener, even with unrelated tabs open');
 
   await main.command(sourceWindow,'open',{url:'/import/tools?tab=orders',title:'발주 이력 테스트'});
   const orders=[...main.tabs.values()].find(tab=>tab.title==='발주 이력 테스트');
