@@ -4266,3 +4266,11 @@ pm run test:canon 통과.
 4. 검증 상태: `ceoCommandHub`, `workFeatureData`, `adoptionRadar`, `purposeFlowTrace`, `test:workflow-guides`, `check-workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:pm`, `desktop test` 80/80, `next build --webpack`, Puppeteer 1920/1280/390 실렌더링·가이드 영상 `--player-smoke` 전수 PASS. 운영 서버 배포 후 실데이터 미검증.
 5. 주의/잠금: `pages/api/**`, `nenova-pm/*`, `SHARED_AGENT_RULES.md` 무접촉, 원장 쓰기 0건(읽기 전용), Anti-AI Slop §7(한글 고딕·금지어/이모지/그라디언트 0건) 준수.
 검색어: command-hub owner-twin 디지털트윈 목표정합성 PurposeFlowTrace g19 g18 g17 1.3.74
+
+## 2026-11-20 — 아키텍처 트레이스 SVG 배선-버스 캡슐 라벨 겹침 원천 차단 및 전수 감사 (연결 목표: g17, g19 / 학습 반영: 있음)
+1. 작업 위치: nenova-erp-ui / fix/svg-trace-bus-label-layering / C:/Users/USER/nw-swm-svg-bus-fix. 연결 목표: g17, g19 / 학습 반영: 있음.
+2. 완료된 것: `components/work/SolutionSuiteSimulator.js` 실시간 아키텍처 트레이스 SVG를 선행 `<g data-layer="wires">`(배선·이동 패킷) + 최상단 `<g data-layer="labels">`(불투명 카드·`fill="#ffffff" fillOpacity="1"` 중앙 버스 캡슐 `WSS 역터널 · HERMES AI 3단위 매칭 버스`·`dominantBaseline="central"`·한글 고딕 `13px`)으로 엄격 분리, `components/pm/TechRadarWorkbench.js` `radar-flow-diagram` 배선-카드 인터리빙 해소(`data-layer="wires"`→`data-layer="labels"`), `data/moyi-full-suite-blueprint.html` 엣지·경계 캡슐 `fill-opacity: 1` 명시, 회귀 테스트(`__tests__/solutionSuiteSimulator.test.js`, `__tests__/techRadarSimulator.test.js`) 보강, 전수 감사(`PurposeFlowTrace.js`·`PmPurposeTraceBoard.js`·`ArchFlowChart.js`·`GabrielProfitAgiWorkbench.js`·`pages/pm.js`·`CeoCommandHub.js`) 겹침 0건 확인, `owner-agi-twin.js --learn` 영구 지시 반영.
+3. 남은 할 일: PR CI(`verify`) 통과 즉시 squash 머지, 로컬 `origin/master` fetch 및 `../nw-swm-svg-bus-fix` worktree 정리.
+4. 검증 상태: `solutionSuiteSimulator`·`techRadarSimulator`·`purposeFlowTrace`·`pmPurposeTrace`·`archFlowChart`·`gabrielProfitAgi`·`test:pm`·`test:ui-layout`·`test:workflow-guides`·`guard:erp-writes`·`next build --webpack` 전수 PASS, 로컬 프로덕션 1920x1080 Chromium(`/my-work?tab=suite-sim`, Step 06 `01~05 완료/06 실행 중` `2,600ms`) 실렌더 `suite_sim_bus_pill_fixed_preview.png` 육안 검증(선·패킷 겹침 0px). 운영 배포 후 실화면 확인은 배포 완료 시점 기준.
+5. 주의/잠금: `pages/api/**`, `workflow-guides.json` 추적 소스 파일, ERP 원장 무수정(읽기 전용), Anti-AI Slop §7(`#hex` 금지 PM 경계·한글 고딕·금지어 0건) 준수.
+검색어: SolutionSuiteSimulator TechRadarWorkbench moyi-full-suite-blueprint data-layer wires labels sim-bus-badge fillOpacity g17 g19 학습반영
