@@ -1,0 +1,92 @@
+{
+  "id": "warehouse-bunch-weight",
+  "title": "입고 단 수량 확인과 상품 합계",
+  "scope": [
+    "lib/receiptBunchQuantity.js",
+    "lib/warehouseWeightRows.js",
+    "lib/importPacking.js",
+    "lib/importPackingPrompt.js",
+    "lib/importPackingReceiptAdapter.js",
+    "lib/invoiceReceiptValidation.js",
+    "lib/warehousePackingImport.js",
+    "lib/exeWarehouseViewSql.js",
+    "pages/incoming.js",
+    "pages/api/warehouse/index.js",
+    "pages/api/warehouse/[id].js",
+    "lib/importPackingSourceReview.js",
+    "lib/invoiceReceiptNative.js",
+    "lib/invoiceReceiptWriter.js",
+    "scripts/test-invoice-receipt-writer-sql.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "PREVIEW_RECEIPT",
+      "warehouseMaster": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "원본 명시 단 또는 인쇄 포장값과 충돌 없는 산출만 사용. 단 출고/견적 품목은 단 누락·0·원본 충돌 차단. 레거시 미리보기는 Product SELECT만 수행."
+    },
+    {
+      "name": "COMMIT_NEW_RECEIPT",
+      "warehouseMaster": "insert",
+      "warehouseDetail": "insert",
+      "stock": "recalculate",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "최종 트랜잭션에서 정확 단일 품목과 단위를 다시 읽는다. 키 발급, 상세 삽입, StockHistory·품목 재고차액, V2 재고계산 및 읽기 대조는 공용 직접 인보이스 함수 사용. 공용 EXE staging 미사용. 기존 입고 수정 없음."
+    },
+    {
+      "name": "DISPLAY_GOODS_TOTALS",
+      "warehouseMaster": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "업무 화면 요청에서만 중량 전용 품목 및 원장키 안에서 입증된 과거 중복 중량을 합계에서 뺀다. EXE 기본 원시 합계, 상세 중량 행, 금액합계 보존."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/47-01 US와 2026/47-01 EC를 다른 연도·세부차수로 검증. 한 원장의 중량 수치를 다른 원장 품목에 사용하지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/invoiceReceiptValidation.test.js",
+    "__tests__/warehousePackingImport.test.js",
+    "__tests__/importPackingSourceIdentity.test.js",
+    "__tests__/incomingWarehouseDisplay.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormWarehouseUpload.md",
+    "source": "docs/plans/warehouse-bunch-weight-2026-11-20.md",
+    "methods": [
+      "ExcelLoadingPackingList.MakeTempTable",
+      "ExcelLoadingPackingList.InsertMaster",
+      "DBMSSQL.uspCreateWarehouse",
+      "DBMSSQL.uspGetNextKey"
+    ],
+    "tables": [
+      "Product",
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "TempWarehouseDetail",
+      "StockHistory",
+      "ProductStock"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

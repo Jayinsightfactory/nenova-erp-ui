@@ -49,3 +49,19 @@ test('native key and calculation check original transaction before/after call an
   await assert.rejects(calculateInvoiceStock(async()=>({recordset:[{result:0,returnCode:-1}]}),types,{},doc,'importer'));
   await calculateInvoiceStock(async q=>{assert.match(q,/@ProdKey=0/);assert.match(q,/INVOICE_GATE_NOT_IDLE_AFTER_CALC/);return {recordset:[{result:0,returnCode:0}]};},types,{},doc,'importer');
 });
+
+test('EC and US require a verified bunch value whenever shipment or estimate uses bunches', ()=>{
+  const current = {...doc, orderWeek:'47-01', reviewedMetadata:{country:'EC',inputDate:'2026-11-17'}};
+  const line = {...doc.lines[0], bunchQuantity:null, stemQuantity:7500, boxQuantity:1, priceUnit:'송이', unitPrice:0.2, lineAmount:1500};
+  const p = {...product, ProdName:'EC fixture', SteamOf1Bunch:25, BunchOf1Box:20, SteamOf1Box:0};
+  for (const value of [null,0]) {
+    const result=validateInvoiceReceiptLines({...current,lines:[{...line,bunchQuantity:value}]},[p]);
+    assert.ok(result.issues.some(({ code }) => code === 'BUNCH_QUANTITY_REQUIRED'));
+    assert.equal(result.lines[0].bunchQuantity,value);
+  }
+  assert.equal(validateInvoiceReceiptLines({...current,lines:[{...line,bunchQuantity:300}]},[p]).issues.length,0);
+  const old = {...current,orderYear:'2025',reviewedMetadata:{country:'US',inputDate:'2025-11-17'}};
+  const box = {...p,OutUnit:'박스',EstUnit:'단'};
+  assert.ok(validateInvoiceReceiptLines({...old,lines:[line]},[box]).issues.some(({ code })=>code==='BUNCH_QUANTITY_REQUIRED'));
+  assert.equal(validateInvoiceReceiptLines({...old,lines:[{...line,bunchQuantity:300}]},[box]).lines[0].outQuantity,1);
+});

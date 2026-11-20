@@ -4188,6 +4188,15 @@ pm run test:canon 통과.
 
 2026-11-20 검증 업데이트: 두 역할 실제 가이드 촬영, 34흐름/35영상 검사, 회사 Drive 6파일 및 크기 검증 완료. 운영 확인은 PR에서 추적.
 
+
+## 2026-11-20 — 입고 단 수량 검증과 상품 합계
+1. 작업 위치: nenova-erp-ui / codex/repair-invoice-bunch-weight-1120 / C:/Users/USER/.codex/worktrees/5a25/nw-cdx-invoice-bunch-weight / 단 수량·중량 합계 PR.
+2. 완료된 것: EC·US 원본 단·포장비 보존, 단 판매·견적 상품의 미확정 수량 차단, XLSX 행 편집 및 재검증, 공용 네이티브 입고 트랜잭션 적용, 중량행 상품 합계 제외.
+3. 남은 할 일: CI 및 Cafe24/Windows 배포 결과는 이 변경의 PR에서 추적. 원본 단 수량이 확인된 소급 보정 후보는 0건.
+4. 검증 상태: 운영 읽기 대조와 dnSpy, 격리 SQL/SP 비교, 브라우저 연습 행 미리보기·저장, 상품 합계와 raw 중량행 구분 확인. 운영 데이터 쓰기 및 유료 분석 없음.
+5. 주의/잠금: 공용 TempWarehouseDetail과 47-01 Nivalia·Mystic·Hood 원장은 보존. 현재 마스터 환산으로 과거 단 수량 보정 금지.
+검색어: 47-01 단 수량 0 누락 입고 XLSX 중량 스템 상품합계 Nivalia Mystic Hood Canal
+
 ## 2026-11-20 국가별 발주서 배치·명시 미리보기·다운로드 대조
 - 검색어: 수입방 오른쪽 원문 가운데 합계 매칭데이터 미리보기 선택 조회 이전 다운로드 이력 5건
 1. 작업 위치: nenova-erp-ui / codex/country-download-1120 / nw-cdx-country-download-1120 / PR 대기.

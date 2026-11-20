@@ -2,9 +2,9 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), net = req
 const { spawn } = require('node:child_process');
 const jwt = require('jsonwebtoken'), puppeteer = require('puppeteer-core');
 async function main() {
-  const targetId=process.env.GUIDE_WORKFLOW_ID;
-  const target=targetId?require('../config/workflow-guides.json').workflows.find(w=>w.id===targetId):null;
-  if(targetId&&!target)throw Error('Unknown guide workflow');
+  const targetId=process.env.GUIDE_WORKFLOW_ID || 'incoming-approval';
+  const target=require('../config/workflow-guides.json').workflows.find(w=>w.id===targetId);
+  if(!target)throw Error('Unknown guide workflow');
   const listener = net.createServer(); await new Promise(resolve => listener.listen(0, '127.0.0.1', resolve)); const port = listener.address().port; await new Promise(resolve => listener.close(resolve));
   const secret = crypto.randomUUID(), base = `http://127.0.0.1:${port}`;
   const server = spawn(process.execPath, [require.resolve('next/dist/bin/next'), 'start', '-p', String(port)], { env: { ...process.env, DB_SERVER: '', JWT_SECRET: secret }, stdio: 'ignore', windowsHide: true }); let browser;
@@ -25,23 +25,27 @@ async function main() {
       if(targetId==='packing-list-from-invoice'&&url.pathname==='/api/work/manuals'){data.handover=require('../data/import-handover.json');data.me=user;data.departments=[];data.manuals=[];}
       return request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
     });
-    await page.goto(base + (['shipment-additive-import','shipment-field-volume'].includes(targetId)?'/shipment/distribute-import':targetId==='profit-explicit-query'?'/sales/profit-report':targetId==='packing-list-from-invoice'?'/work/manuals?manual=packing-list-from-invoice':targetId==='manifest-farm-matching'?'/master/codes':target?'/import/tools':'/import/tools?tab=incoming'), { waitUntil: 'networkidle0' });
+    await page.goto(base + (['shipment-additive-import','shipment-field-volume'].includes(targetId)?'/shipment/distribute-import':targetId==='profit-explicit-query'?'/sales/profit-report':targetId==='packing-list-from-invoice'?'/work/manuals?manual=packing-list-from-invoice':targetId==='manifest-farm-matching'?'/master/codes':targetId==='incoming-approval'?'/import/tools?tab=incoming':'/import/tools'), { waitUntil: 'networkidle0' });
     if(targetId==='invoice-farm-history')await page.click('button[aria-controls="import-panel-history"]');
     if(targetId==='manifest-farm-matching'){await page.focus('[role="tab"][aria-selected="true"]');await page.keyboard.press('End');assert.equal(await page.$eval('[role="tab"][aria-selected="true"]',node=>node.textContent.trim()),'🌾 농장');}
     if(targetId==='packing-amount-review'){await page.click('button[aria-label="콜롬비아"]');}
-    await page.evaluate(titleText=>{const title=[...document.querySelectorAll('h3')].find(n=>n.textContent===titleText&&n.closest('details'));if(!title)throw Error('Guide missing');title.closest('details').id='guide-player-target';},target?.title||'입고 수정 요청과 검토·확정');
+    await page.evaluate(titleText=>{const title=[...document.querySelectorAll('h3')].find(n=>n.textContent===titleText&&n.closest('details'));if(!title)throw Error('Guide missing');title.closest('details').id='guide-player-target';},target.title);
     const summary = await page.$('#guide-player-target > summary');
     assert(summary, 'Guide entry missing'); await summary.focus(); if(!await page.$eval('#guide-player-target',details=>details.open))await page.keyboard.press('Enter');
     await page.waitForSelector('#guide-player-target video'); assert(await page.$eval('#guide-player-target video', video => video.paused));
-    for (const role of target?[...new Set(target.guides.map(g=>g.role))]:['수입부', '영업지원']) {
+    const roles = [...new Set(target.guides.map(guide => guide.role))];
+    for (const role of roles) {
       const button = await page.evaluateHandle(role => [...document.querySelector('#guide-player-target').querySelectorAll('button')].find(node => node.textContent === `${role}용`), role); if(button.asElement()){await button.asElement().focus(); await page.keyboard.press('Space');}
       await page.waitForFunction(role => document.querySelector('#guide-player-target video')?.getAttribute('aria-label').startsWith(role), {}, role);
       await page.$eval('#guide-player-target video', video => { video.muted = true; return video.play(); });
       await page.waitForFunction(() => document.querySelector('#guide-player-target video').currentTime > .3, { timeout: 15000 });
       await page.$eval('#guide-player-target video', video => video.pause());
       await page.$eval('#guide-player-target video', video => { video.textTracks[0].mode = 'showing'; });
-      const chapters = await page.$$(`#guide-player-target nav[aria-label="${role} 영상 목차"] button`); assert.equal(chapters.length,target?target.guides.find(g=>g.role===role).chapters.length:role==='수입부'?5:3);
-      await chapters[1].focus(); await page.keyboard.press('Enter');
+      const chapters = await page.$$(`#guide-player-target nav[aria-label="${role} 영상 목차"] button`);
+      const expectedChapters = target.guides.find(guide => guide.role === role).chapters;
+      assert.equal(chapters.length, expectedChapters.length);
+      const newPackingChapter = expectedChapters.findIndex(chapter => chapter.scenario === 'packing-quantity');
+      await chapters[newPackingChapter >= 0 ? newPackingChapter : 1].focus(); await page.keyboard.press('Enter');
       assert(await page.$eval('#guide-player-target video', video => video.currentTime > 1 && video.paused));
       await page.waitForFunction(() => { const video = document.querySelector('#guide-player-target video'); return !video.seeking && video.readyState >= 2; });
       await page.waitForFunction(() => document.querySelector('#guide-player-target video track')?.readyState === 2, { timeout: 15000 });
@@ -55,7 +59,7 @@ async function main() {
     await page.screenshot({ path: '.verify/workflow-guide-player-mobile.png' });
     await page.$eval('#guide-player-target video', video => video.play()); await summary.focus(); await page.keyboard.press('Enter');
     await page.waitForFunction(() => document.querySelector('#guide-player-target video').paused);
-    assert.deepEqual(errors, []); assert(assets.length >= (target?2:4)); assert(assets.every(asset => [200, 206, 304].includes(asset.status)));
+    assert.deepEqual(errors, []); assert(assets.length >= roles.length * 2); assert(assets.every(asset => [200, 206, 304].includes(asset.status)));
     assert(writes.every(url => !url.startsWith('/api/warehouse')), 'Guide must not submit ERP requests');
     console.log('PASS guide player: keyboard open/roles/chapters, actual MP4 playback, Korean VTT, download, collapse pause, 1920/390; all APIs synthetic');
   } finally { await browser?.close(); server.kill(); }

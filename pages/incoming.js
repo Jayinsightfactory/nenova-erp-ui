@@ -96,6 +96,8 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [correctionTarget, setCorrectionTarget] = useState(null);
   const [uploadData, setUploadData] = useState(null);
+  const [uploadValidation, setUploadValidation] = useState(null);
+  const [uploadError, setUploadError] = useState('');
   const [uploadMeta, setUploadMeta] = useState({ orderYear:'', orderWeek:'', farmName:'', invoiceNo:'', awb:'', inputDate: '', gw:'', cw:'', rate:'', docFee:'' });
   // [2026-09-22] 입고 원장 탐색 보강 — nenova.exe에서 농장명 컬럼 필터를 반복 클릭하던 작업(Orbit 실측)을 웹에서 끝내기 위해:
   //   컬럼 정렬 · 농장/차수 드롭다운 · 최근 본 농장 칩 · 필터 상태 URL 유지 · 원장 목록 엑셀
@@ -122,7 +124,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const load = () => {
     const seq = ++loadSeq.current;
     setLoading(true);
-    apiGetExe('/api/warehouse', { startDate, endDate })
+    apiGetExe('/api/warehouse', { startDate, endDate, goodsTotals: '1' })
       .then(d => { if (seq === loadSeq.current) { setMasters(d.masters||[]); setErr(''); } })
       .catch(e => { if (seq === loadSeq.current) setErr(e.message); })
       .finally(() => { if (seq === loadSeq.current) setLoading(false); });
@@ -178,7 +180,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
       .then(d => { if (seq === detailSeq.current) { setInvoiceCosts(d.costs || null); setInvoiceExpenses(d.expenses || null); } })
       .catch(e => { if (seq === detailSeq.current) setCostError(e.message); })
       .finally(() => { if (seq === detailSeq.current) setCostLoading(false); });
-    apiGetExe(`/api/warehouse/${wk}`)
+    apiGetExe(`/api/warehouse/${wk}`, {goodsTotals: '1'})
       .then(d => { if (seq === detailSeq.current) setDetails(d.items||[]); })
       .catch(e => { if (seq === detailSeq.current) { setDetails([]); setErr(e.message); } })
       .finally(() => { if (seq === detailSeq.current) setDetailLoading(false); });
@@ -265,6 +267,8 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
         try {
           const { meta, rows } = parseWarehousePackingWorkbook(new Uint8Array(ev.target.result), XLSX);
           if (rows.length === 0) { alert('엑셀 파일에서 데이터를 찾을 수 없습니다.'); return; }
+          setUploadError('');
+          setUploadValidation(null);
           setUploadData(rows);
           setUploadMeta(m => ({
             ...m,
@@ -283,7 +287,10 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
     e.target.value = '';
   };
 
-  const handleUpload = async () => {
+  const uploadValidated = uploadValidation?.items === uploadData && uploadValidation?.meta === uploadMeta;
+  const handleUpload = async (previewOnly) => {
+    if (!previewOnly && !uploadValidated) return;
+    setUploadError('');
     if (!uploadData || !/^\d{4}$/.test(uploadMeta.orderYear) || !/^\d{2}-\d{2}$/.test(uploadMeta.orderWeek) || !uploadMeta.farmName || !uploadMeta.inputDate) {
       alert('주문년도, 차수(예: 33-02), 농장명, 입력일자는 필수입니다.'); return;
     }
@@ -300,16 +307,20 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
           cw:     uploadMeta.cw     === '' ? null : uploadMeta.cw,
           rate:   uploadMeta.rate   === '' ? null : uploadMeta.rate,
           docFee: uploadMeta.docFee === '' ? null : uploadMeta.docFee,
-          items,
+          items, previewOnly,
         }),
       });
       const data = await res.json();
       if (!data.success) throw new Error([data.error, ...(data.errors || []).map(x => `${x.prodName || `${x.row}행`}: ${x.error}`)].join('\n'));
+      if (previewOnly) {
+        setUploadValidation({items,meta:uploadMeta});
+        return;
+      }
       setSuccessMsg(`✅ ${data.message}`);
       setShowUploadModal(false); setUploadData(null);
       setTimeout(() => setSuccessMsg(''), 5000);
       load();
-    } catch (e) { alert(e.message); } finally { setUploading(false); }
+    } catch (e) { setUploadValidation(null); setUploadError(e.message); } finally { setUploading(false); }
   };
 
   const handleDelete = async () => {
@@ -411,7 +422,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
               <ReceiptDetailScroll tableRoot={detailTableRoot} />
               <ConfigProvider theme={{components:{Table:{cellPaddingBlockSM:4,cellPaddingInlineSM:6}}}}>
               <Table size="small" rowKey={(d, i) => d.WdetailKey ?? i} loading={detailLoading} dataSource={filteredDetails} pagination={false} scroll={{ x: showLatestDetails ? 1580 : 1460 }}
-                summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={5}><Text strong>합계</Text></Table.Summary.Cell>{['BoxQuantity', 'BunchQuantity', 'SteamQuantity'].map((k, i) => <Table.Summary.Cell key={k} index={5 + i} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b[k] || 0), 0))}</Text></Table.Summary.Cell>)}<Table.Summary.Cell index={8} /><Table.Summary.Cell index={9} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.총액 || 0), 0))}</Text></Table.Summary.Cell></Table.Summary.Row></Table.Summary>}
+                summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={5}><Text strong>합계</Text></Table.Summary.Cell>{['BoxQuantity', 'BunchQuantity', 'SteamQuantity'].map((k, i) => <Table.Summary.Cell key={k} index={5 + i} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.IsWeightRow ? 0 : (b[k] || 0)), 0))}</Text></Table.Summary.Cell>)}<Table.Summary.Cell index={8} /><Table.Summary.Cell index={9} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.총액 || 0), 0))}</Text></Table.Summary.Cell></Table.Summary.Row></Table.Summary>}
                 columns={[
                   { title: '주문코드', dataIndex: '주문코드', width: 90, render: (v) => <Text style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
                   { title: '품목명(색상)', key: 'name', width: 280, render: (_, d) => (
@@ -446,14 +457,12 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
       {/* 업로드 모달 */}
       {showUploadModal && (
         <div className="modal-overlay" onClick={()=>{}}>
-          <div className="modal" style={{maxWidth:620}} onClick={e=>e.stopPropagation()}>
-            <div className="modal-header">
-              <span className="modal-title">📤 입고 데이터 업로드</span>
+          <div className="modal" style={{maxWidth:620,fontFamily:`'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif`}} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header" style={{display:'block',color:'#0f172a'}}>
+              <div style={{fontSize:12.5,color:'#475569'}}>[핵심 목적 · PURPOSE]</div>
+              <h2 className="modal-title" style={{fontSize:20,margin:0}}>상품 수량을 확인하고 입고 저장</h2>
             </div>
             <div className="modal-body">
-              <div style={{padding:'8px 12px',background:'var(--blue-bg)',borderRadius:6,fontSize:12,color:'var(--blue)',marginBottom:14}}>
-                파일에서 <strong>{uploadData?.length}개</strong> 행을 읽었습니다. 아래 정보를 입력 후 저장하세요.
-              </div>
               <div className="form-row">
                 <div className="form-group"><label className="form-label">주문년도 *</label><input className="form-control" value={uploadMeta.orderYear} onChange={e=>setUploadMeta(m=>({...m,orderYear:e.target.value}))} placeholder="2026"/></div>
                 <div className="form-group"><label className="form-label">차수 *</label><input className="form-control" value={uploadMeta.orderWeek} onChange={e=>setUploadMeta(m=>({...m,orderWeek:e.target.value}))} placeholder="13-01"/></div>
@@ -480,15 +489,24 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
 
               {/* 미리보기 */}
               <div style={{marginTop:12}}>
-                <div style={{fontSize:12,fontWeight:600,marginBottom:6,color:'var(--text2)'}}>데이터 미리보기 (상위 5개)</div>
+                <div style={{fontSize:14,fontWeight:600,marginBottom:6,color:'#0f172a'}}>상품 수량 확인 · {uploadData?.length || 0}행</div>
+                {uploadError && <p role="alert" style={{whiteSpace:'pre-line',fontSize:14,color:'#0f172a'}}>{uploadError}</p>}
+                {uploadValidated && <p role="status" style={{fontSize:14,color:'#0f172a'}}>수량 검증 완료</p>}
                 <div style={{overflowX:'auto',border:'1px solid var(--border)',borderRadius:6}}>
-                  <table className="tbl" style={{fontSize:11,minWidth:400}}>
+                  <table className="tbl" style={{fontFamily:`'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif`,fontSize:14,fontVariantNumeric:'tabular-nums',color:'#0f172a',minWidth:420}}>
                     <thead>
-                      <tr>{uploadData?.[0] && Object.keys(uploadData[0]).slice(0,6).map(k=><th key={k}>{k}</th>)}</tr>
+                      <tr><th scope="col">품목</th><th scope="col">박스</th><th scope="col">단 수량</th><th scope="col">송이</th></tr>
                     </thead>
                     <tbody>
-                      {uploadData?.slice(0,5).map((row,i)=>(
-                        <tr key={i}>{Object.values(row).slice(0,6).map((v,j)=><td key={j} style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{v}</td>)}</tr>
+                      {uploadData?.map((row,i)=>(
+                        <tr key={i}><td>{row.prodName}</td><td>{row.boxQty}</td>
+                          <td><input className="form-control" type="number" min="0" step="any"
+                            style={{font:'inherit',width:90}} disabled={uploading} aria-label={`${i+1}행 ${row.prodName} 단 수량`}
+                            value={row.bunchQty ?? ''} onChange={e=>{
+                              const value = e.target.value;
+                              setUploadData(rows=>rows.map((item,index)=>index===i?{...item,bunchQty:value}:item));
+                              setUploadError('');
+                            }} /></td><td>{row.steamQty}</td></tr>
                       ))}
                     </tbody>
                   </table>
@@ -497,7 +515,8 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" disabled={uploading} onClick={()=>{setShowUploadModal(false);setUploadData(null);}}>취소 / Cancelar</button>
-              <button className="btn btn-primary" onClick={handleUpload} disabled={uploading}>{uploading?'업로드 중...':'📤 업로드 / Subir'}</button>
+              <button className="btn btn-secondary" onClick={()=>handleUpload(true)} disabled={uploading}>수량 검증</button>
+              <button className="btn btn-primary" onClick={()=>handleUpload(false)} disabled={uploading || !uploadValidated}>입고 저장</button>
             </div>
           </div>
         </div>
