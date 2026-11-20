@@ -4266,3 +4266,10 @@ pm run test:canon 통과.
 3. 다음: 자동 copy-only 가이드 면제가 없으므로 관련 영상2편만 실제 합성 UI로 재촬영/해시 갱신, 기존 게이트·PR/CI/squash/Cafe24/운영 문구 확인.
 4. 검증 상태: UI7개 통과, 새 소스의 가이드 촬영 진행. native Excel/수량 원장 테스트는 계산 변경이 없어 반복하지 않음. 운영 ERP 쓰기0.
 5. 주의/잠금: 이전 additive-distribution-1120 캐시/원본은 자동 정리 검토 거절로 보존 상태. 이전 거절을 우회하지 않음. 현재 worktree만 작업 중이며 source hash를 촬영한 것처럼 바꾸거나 사용자 video waiver 승인을 추론하지 않는다.
+## 2026-11-20 — 사장님 통합지휘실(/work/command-hub) 내 목표 × 작업 정합성 × Owner AGI 디지털 트윈 보드 & 3중 루프 트레이스 탑재 (연결 목표: g19 · g17 · g18)
+1. 작업 위치: nenova-erp-ui / feat/command-hub-owner-agi-twin / C:/Users/USER/nw-swm-owner-twin-hub / Desktop 1.3.74.
+2. 완료된 것: `lib/workFeatureData.js`에 `owner-twin` 피처 추가, `pages/work/command-hub.js` SSR `vision`·`owner-twin` 로드, 최상단 `<PurposeFlowTrace>` 5단계 상시 3중 병렬 AGI 루프 트레이스 도면 장착, `ceo-owner-twin-board`(4대 전략 축 g01~g19 Goal Ledger · 1:1 Goal Alignment Audit & 공백 경보 · 6대 판단 DNA 카드 & 선제 실행 제안 Top 5 지시서 복사) 구축, 가이드 영상 재녹화 및 해시 갱신.
+3. 남은 할 일: PR #1910 CI(`verify` · `installer`) 통과 후 squash 머지, 운영 서버 `owner-twin` 피처 업로드 연동 확인, worktree 정리.
+4. 검증 상태: `ceoCommandHub`, `workFeatureData`, `adoptionRadar`, `purposeFlowTrace`, `test:workflow-guides`, `check-workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:pm`, `desktop test` 80/80, `next build --webpack`, Puppeteer 1920/1280/390 실렌더링·가이드 영상 `--player-smoke` 전수 PASS. 운영 서버 배포 후 실데이터 미검증.
+5. 주의/잠금: `pages/api/**`, `nenova-pm/*`, `SHARED_AGENT_RULES.md` 무접촉, 원장 쓰기 0건(읽기 전용), Anti-AI Slop §7(한글 고딕·금지어/이모지/그라디언트 0건) 준수.
+검색어: command-hub owner-twin 디지털트윈 목표정합성 PurposeFlowTrace g19 g18 g17 1.3.74
