@@ -125,6 +125,7 @@ const salesRowHasInput = (row = {}) => Boolean(
   || String(row.productName || '').trim()
   || String(row.colorName || '').trim()
   || String(row.quantity ?? '').trim()
+  || String(row.estimateQuantity ?? '').trim()
   || String(row.note || '').trim()
   || row.custKey
   || row.prodKey
@@ -135,7 +136,8 @@ const salesRowSignature = (row = {}) => JSON.stringify([
   Number(row.deductionKey || 0),
   String(row.customerName || ''), Number(row.custKey || 0),
   String(row.productName || ''), Number(row.prodKey || 0), String(row.colorName || ''),
-  String(row.quantity ?? ''), String(row.sourceUnit || row.unit || ''), Boolean(row.creditApplied),
+  String(row.quantity ?? ''), String(row.estimateQuantity ?? row.quantity ?? ''),
+  String(row.sourceUnit || row.unit || ''), Boolean(row.creditApplied),
   Number(row.farmKey || 0), String(row.farmName || ''), String(row.note || ''),
   Boolean(row.importReviewRequired),
 ]);

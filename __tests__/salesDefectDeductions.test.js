@@ -121,6 +121,7 @@ assert.match(pageSource, /const showManagerGuide = needsDefectManagerGuide\(mana
 assert.match(pageSource, /showManagerGuide && item\.managerId \? 'manager-home-attention'/);
 assert.match(pageSource, /담당자를 선택해야 조회할 수 있습니다/);
 assert.match(pageSource, /변경건\(\{pendingSalesRows\.size\}\) 저장/);
+assert.match(pageSource, /const salesRowSignature[^;]+String\(row.estimateQuantity \?\? row.quantity \?\? ''\)/);
 assert.match(pageSource, /<details className="incoming-farm-candidates">/);
 const supportReviewSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
 const deductionContract = JSON.parse(fs.readFileSync('docs/contracts/sales-defect-deduction.json', 'utf8'));
