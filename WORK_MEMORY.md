@@ -4197,3 +4197,11 @@ pm run test:canon 통과.
 4. 검증 상태: 실제 dnSpy FormShipmentDistribution FIX/CANCEL→별도 CALC0 확인. 구현 전 SELECT 43-01 CANCEL WAIT_CALC/V2ready, 2026/42-02 카네이션99행확정·2025동일82행 보존기준. 운영 정의 전체 diff는 승인 정렬 1줄뿐. 표적89개 및 실제 격리 SQL(rollback/동시/중단/교차연도/RUN보존) PASS. dnSpy/manifest234/write guard PASS. 전체 ERP contract(pre36/본체144/post27 명령) 및 production webpack build exit0.
 5. 주의/잠금: 운영 SP DDL/직접 gate clear/RUN회수/확정 토글/재고조정 없음. StockMaster/ProductStock만 기존 native CALC 범위; 주문·출고·날짜·농장·입고·현재고·이력·견적·매출 12개 보호원장 기준선 확보. SQL fixture 원래 중지 상태 복원. 새 UI/URL/메뉴 없음, 데스크톱 기존 기능 재사용. 다른 세션 파일 무수정.
 검색어: confirm-busy 42-02 카네이션 43-01 WAIT_CALC CANCEL 010c947 24a415 pendingStockRecovery approved-cursor-order retry-fingerprint
+
+## 2026-11-20 — EC·US EXE용 패킹 엑셀 단 수량 다운로드 검사
+1. 작업 위치: nenova-erp-ui / codex/guard-packing-export-bunch-1120 / C:/Users/USER/.codex/worktrees/5a25/nw-cdx-packing-export-bunch-1120 / #1904 후속.
+2. 완료된 것: 현재 Product 출고·견적 단위로 실제 생성 XLSX의 I열 검사. 공란·0·불일치는 개별·전체 내보내기 및 직접 POST 차단. 미국 원문 검토에서 단 필드가 없었던 행도 근거를 입력해 복구. Desktop 1.3.72.
+3. 남은 할 일: 후속 PR의 Cafe24 배포와 Windows 공식 설치본에서 추적. 이전 47-01 원장 보정 확정 0건.
+4. 검증 상태: 실제 EC/US XLSX와 API 응답, Chrome 누락 0파일·원문 40단 정정 후 I6=40/J58=400·두 파일 중 하나 거절 시 전체 0파일, 웹팩·dnSpy·쓰기 가드. 운영 입고 쓰기 없음.
+5. 주의/잠금: 도착원가 파일, 기존 생성 파일, nenova.exe 바이너리 및 운영 입고 3건의 기존 수량은 보존. 원본·마스터 구분. 연결목표:g17(55% 유지) / 학습반영:있음(P6 판단 기준).
+검색어: EC US 입고용 EXE packing-export I열 단수량 다운로드 공란 현재 품목견적 전체다운로드 1.3.72
