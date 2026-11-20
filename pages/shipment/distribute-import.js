@@ -126,6 +126,7 @@ export default function DistributeImport() {
   const preAlignAvailable = false;
   const [file, setFile] = useState(null);
   const sheetLoadRef = useRef(0);
+  const previewTriggerRef = useRef(null);
   const readRequestsRef = useRef(null);
   if (!readRequestsRef.current) readRequestsRef.current = createImportReadRequests();
   const [earlyImportMode, setEarlyImportMode] = useState('ORIGINAL_INCLUDES_EARLY');
@@ -394,6 +395,8 @@ export default function DistributeImport() {
   }
 
   const handlePreview = async (options = {}) => {
+    const trigger = options.trigger || (typeof document !== 'undefined' ? document.activeElement : null);
+    if (trigger?.tagName === 'BUTTON' && !trigger.closest('[role="dialog"]')) previewTriggerRef.current = trigger;
     if (applying || preAligning) return;
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
@@ -836,7 +839,7 @@ export default function DistributeImport() {
                   적용 {applyRows.length} · 미매칭 {(preview.unmatched || []).length} · ⚠경고 {qtyWarningRows.length}
                 </span>
               )}
-              <button style={st.miniBtn} onClick={handlePreview} disabled={loading || applying || preAligning}>{loading ? '검증중…' : '검증'}</button>
+              <button style={st.miniBtn} onClick={event => handlePreview({ trigger: event?.currentTarget })} disabled={loading || applying || preAligning}>{loading ? '검증중…' : '검증'}</button>
               <button style={st.miniApplyBtn} onClick={handleApply} disabled={applying || !!pendingJob || !pendingReady || !preview}>{applying ? '적용중…' : '적용'}</button>
             </span>
           )}
@@ -914,7 +917,7 @@ export default function DistributeImport() {
             <h2 style={st.stepTitle}>2. 검증 후 반영</h2>
             <div style={st.workBody}>
               <div style={st.workLine}>
-          <button style={preview?.replacementPlan ? st.secondaryBtn : st.primaryBtn} onClick={() => handlePreview({ requireConfirmation: true })} disabled={loading || applying}>{loading ? '읽는 중...' : '검증하기'}</button>
+          <button style={preview?.replacementPlan ? st.secondaryBtn : st.primaryBtn} onClick={event => handlePreview({ requireConfirmation: true, trigger: event?.currentTarget })} disabled={loading || applying}>{loading ? '읽는 중...' : '검증하기'}</button>
 
           <button style={preview?.replacementPlan && !additionCompleted ? st.applyBtn : st.secondaryBtn} onClick={handleApply} disabled={applying || !!pendingJob || !pendingReady || !preview?.replacementPlan}>
             {applying ? '적용 중...' : '승인 후 주문등록+분배'}
@@ -1160,6 +1163,7 @@ export default function DistributeImport() {
           onClose={() => setApplyModalOpen(false)}
         />
         <UnmatchedMatchingModal
+          returnFocusRef={previewTriggerRef}
           open={unmatchedModalOpen}
           matchTab={matchTab}
           onTabChange={setMatchTab}
@@ -2175,7 +2179,7 @@ function SuggestSelect({ value, onChange, suggested = [], options = [], renderSu
 }
 
 function UnmatchedMatchingModal({
-  open, matchTab, onTabChange,
+  open, matchTab, onTabChange, returnFocusRef,
   customerItems, productItems,
   customerOptions, productOptions,
   custOverrides, prodOverrides,
@@ -2187,10 +2191,15 @@ function UnmatchedMatchingModal({
   const closeRef = useRef(null);
   useEffect(() => {
     if (!open) return;
-    const trigger = document.activeElement;
+    const trigger = returnFocusRef?.current || document.activeElement;
+    const page = dialogRef.current?.closest('.distribution-import-page');
     closeRef.current?.focus();
-    return () => { if (trigger?.isConnected) trigger.focus(); };
-  }, [open]);
+    return () => {
+      const candidates = [trigger, ...(page?.querySelectorAll('button:not(:disabled)') || [])];
+      const target = candidates.find(node => node?.isConnected && !node.disabled && node !== document.body && !node.closest('[role="dialog"]') && node.getClientRects().length);
+      target?.focus();
+    };
+  }, [open, returnFocusRef]);
   function dialogKeys(event) {
     if (event.key === 'Escape' && !loading) { event.preventDefault(); event.stopPropagation(); onClose(); }
     if (event.key !== 'Tab') return;
@@ -2315,11 +2324,11 @@ function UnmatchedMatchingModal({
             </>
           )}
         </div>
-        <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, color: '#64748b' }}>
+        <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, color: '#475569' }}>
             업체 {custResolved}/{customerItems.length} · 품목 {prodResolved}/{productItems.length} 선택됨
           </span>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <button type="button" style={st.secondaryBtn} onClick={onClose}>닫기 (제외하지 않음)</button>
             <button type="button" style={st.primaryBtn} onClick={onReverify} disabled={loading || !canReverify}>
               {loading ? '검증 중...' : '선택 반영 후 다시 검증'}

@@ -63,6 +63,13 @@ async function main() {
     await page.screenshot({ path: '.verify/workflow-guide-player-mobile.png' });
     await page.$eval('#guide-player-target video', video => video.play()); await summary.focus(); await page.keyboard.press('Enter');
     await page.waitForFunction(() => document.querySelector('#guide-player-target video').paused);
+    const outerSummary=await page.$('[data-player-ancestor] > summary');
+    if(outerSummary){
+      await summary.focus();await page.keyboard.press('Enter');
+      await page.$eval('#guide-player-target video',video=>video.play());
+      await outerSummary.focus();await page.keyboard.press('Enter');
+      await page.waitForFunction(()=>document.querySelector('#guide-player-target video').paused);
+    }
     assert.deepEqual(errors, []); assert(assets.length >= roles.length * 2); assert(assets.every(asset => [200, 206, 304].includes(asset.status)));
     assert(writes.every(url => !url.startsWith('/api/warehouse') && !url.startsWith('/api/shipment/distribute-import')), 'Guide must not submit ERP requests');
     console.log('PASS guide player: keyboard open/roles/chapters, actual MP4 playback, Korean VTT, download, collapse pause, 1920/390; all APIs synthetic');

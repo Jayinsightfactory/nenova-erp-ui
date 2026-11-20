@@ -4357,3 +4357,11 @@ pm run test:canon 통과.
 5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: 수입부 인수인계 / 학습 반영: 없음
 
 최종 인계 보관: 배포 후 codex/handoff-<이 PR 번호> 원격 ref에 WORK_MEMORY.md만 추가한 고정 커밋을 보관한다. 추가 master 배포 없이 해당 커밋 URL을 최종 보고와 Drive 증거에 남긴다.
+
+## 2026-11-20 출고분배 업로드 정돈 — 필수 게이트 및 모달 접근성 보완
+검색어: distribute-import 초점 confirm Escape 미매칭 모바일 버튼 wrap Desktop 1.3.76
+1. 작업 위치: nenova-erp-ui / codex/distribute-ui-1120 / C:/Users/USER/nw-cdx-distribute-ui-1120 / PR 생성 전.
+2. 완료: UI 구조·합산 동작 회귀16개, ERP 전체계약/dnSpy/manifest/쓰기 가드/프로덕션 빌드, Desktop80 및 실제 Electron 검색·탭·즐겨찾기, 가이드 플레이어 통과. 추가 모달 QA에서 confirm 후 body 초점과 390px 오른쪽403.5px 버튼 잘림을 찾아 호출자 ref·안전 fallback·하단 wrap으로 보완.
+3. 남은 일: 보완한 최종 UI 소스 가이드 재촬영/빌드/플레이어·모달 최종 재확인, PR 최종 CI·Cafe24·Desktop 피드·운영 캡처.
+4. 검증: UI 후속 React7 및 모달 실제 Escape/비활성 호출자/선택 보존/재검증 payload/390px 하단 버튼 통과. 원장/API/수량정책 변경 없음. 핵심 ERP 전체 중복 반복 대신 최종 CI에서 최종 소스를 재검증한다.
+5. 주의/잠금: 본 페이지·가이드2편·관련 브라우저 QA 및 Desktop1.3.76은 이번 작업 소유. 최종 인계는 codex/handoff-<PR번호> 원격 ref의 WORK_MEMORY docs-only 커밋으로 보존. 연결 목표 g03/g13/g19 / 학습 반영 있음, 목표% 유지.

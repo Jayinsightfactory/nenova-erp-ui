@@ -46,7 +46,7 @@ const puppeteer=require('puppeteer-core');
   await page.keyboard.press('Enter');for(const b of await page.$$('button'))if((await b.evaluate(e=>e.textContent)).trim()==='업로드 이력 닫기'){await b.click();break;}
   await page.focus('.import-auxiliary > summary');await page.keyboard.press('Enter');
   await page.setViewport({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);await page.screenshot({path:path.join(proofDir,'candidate-empty-mobile.jpg'),type:'jpeg',fullPage:true});await page.setViewport({width:1920,height:1080});
-  const rec=process.argv.includes('--record')?await require('./lib/workflow-guide-recorder.cjs').createWorkflowGuideRecorder(page,{workflowId:'shipment-additive-import',guideId:'support',title:'기존 분배 합산 · 합산본/추가분 다운로드',sourceFiles:['pages/shipment/distribute-import.js'],fixtureOnly:true}):null;
+  const rec=process.argv.includes('--record')?await require('./lib/workflow-guide-recorder.cjs').createWorkflowGuideRecorder(page,{workflowId:'shipment-additive-import',guideId:'support',title:'기존 분배 합산 · 합산본/추가분 다운로드',sourceFiles:['pages/shipment/distribute-import.js'],fixtureOnly:true,encodingPreset:'veryfast'}):null;
   const step=async(n,scenario,title,selector)=>{if(!rec)return;await rec.unfocus();await page.$eval(selector,e=>e.scrollIntoView({block:'center'}));rec.chapter(scenario,`${n}. ${title}`);await rec.caption(`${n}. ${title}`);await rec.focus(selector,n);await rec.pause(1500);};
   const checkbox='input[aria-label="기존 분배에 합산하기"]';await page.waitForSelector(checkbox);
   assert.equal(await page.$eval(checkbox,e=>e.checked),false);

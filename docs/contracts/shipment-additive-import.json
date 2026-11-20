@@ -33,7 +33,8 @@
     "scripts/record-shipment-field-volume.cjs",
     "docs/plans/distribution-import-ui-2026-11-20.md",
     "desktop/scripts/smoke.cjs",
-    "scripts/workflow-guide-player-smoke.cjs"
+    "scripts/workflow-guide-player-smoke.cjs",
+    "scripts/smoke-distribution-import-layout.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
