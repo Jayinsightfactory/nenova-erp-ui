@@ -4355,3 +4355,5 @@ pm run test:canon 통과.
 3. 남은 일: 없음(재검증에서 나온 항목 기준). import-weekday.json 은 다시 만들지 않았음 — 다시 만들면 기록 기간이 바뀌어 숫자가 전부 달라짐
 4. 검증: npm run -s test:workflow-guides 통과. 운영 확인은 배포 뒤.
 5. 주의: 원고는 scripts/build-import-handover.cjs 한 곳만 고칠 것. 연결 목표: 수입부 인수인계 / 학습 반영: 없음
+
+최종 인계 보관: 배포 후 codex/handoff-<이 PR 번호> 원격 ref에 WORK_MEMORY.md만 추가한 고정 커밋을 보관한다. 추가 master 배포 없이 해당 커밋 URL을 최종 보고와 Drive 증거에 남긴다.
