@@ -129,7 +129,8 @@
       "shipmentDetail": "preserve",
       "warehouse": "UPrice and TPrice on one expected original WdetailKey; verify quantity-price basis, prior price, entire baseline and readback",
       "stock": "preserve",
-      "financial": "linked cost and profit review and existing transactional recalculation; derived total from existing OutQuantity"
+      "financial": "Existing linked cost and profit review with transactional recalculation. Uploaded SOURCE arrival rows for the same year and normalized exact subweek require external reconciliation first.",
+      "externalEvidence": "Preserve immutable arrival workbooks and downstream confirmed numbers until explicit reconciliation."
     }
   ],
   "crossYearFixture": {
