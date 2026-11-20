@@ -4365,3 +4365,11 @@ pm run test:canon 통과.
 3. 남은 일: 보완한 최종 UI 소스 가이드 재촬영/빌드/플레이어·모달 최종 재확인, PR 최종 CI·Cafe24·Desktop 피드·운영 캡처.
 4. 검증: UI 후속 React7 및 모달 실제 Escape/비활성 호출자/선택 보존/재검증 payload/390px 하단 버튼 통과. 원장/API/수량정책 변경 없음. 핵심 ERP 전체 중복 반복 대신 최종 CI에서 최종 소스를 재검증한다.
 5. 주의/잠금: 본 페이지·가이드2편·관련 브라우저 QA 및 Desktop1.3.76은 이번 작업 소유. 최종 인계는 codex/handoff-<PR번호> 원격 ref의 WORK_MEMORY docs-only 커밋으로 보존. 연결 목표 g03/g13/g19 / 학습 반영 있음, 목표% 유지.
+
+## 2026-11-20 출고분배 업로드 버튼 정돈 — 로컬 최종 완료
+검색어: distribute-import 정돈 가이드57.7 62.95 modal farm error Desktop1.3.76
+1. 작업 위치: nenova-erp-ui / codex/distribute-ui-1120 / C:/Users/USER/nw-cdx-distribute-ui-1120 / PR 생성 직전.
+2. 완료: 파일/조건 → 검증·승인·검증본 다운로드, 보조 기능/가이드/농장 입력 접기, 실제 호출자 초점 복귀·모바일 확인 버튼 wrap. 최신 소스 실제 가이드2편57.7/62.95초 재촬영·번호/줌/자막/전체 수량열 프레임·소스/미디어 해시 검증.
+3. 남은 일: PR 최종 CI·squash·Cafe24 배포·Desktop1.3.76 정식 설치본 해시/피드·운영 스모크·Drive 보관. 최종 인계는 codex/handoff-<PR번호> docs-only 고정 커밋.
+4. 검증: ERP 전체계약/dnSpy/manifest236/쓰기 가드, 최종 UI build 및 MP4/VTT 플레이어(내부/외부 접기 정지) 통과. 대상 회귀16개, 후속 React7, Desktop80/실제 Electron 메뉴·탭·즐겨찾기, Chrome1920/390·선택 보존·Escape/비활성 호출자·재검증 payload·접힌 농장 입력 외부 오류 표시 통과. 운영 ERP 쓰기0, 직원 PC 실제 설치 미검증.
+5. 주의/잠금: PR 완료 전 페이지·관련 가이드2편·Desktop1.3.76 예약 유지. 원장/API/계산/파일양식 변경 없음. 연결 목표 g03/g13/g19 / 학습 반영 있음, 목표% 유지.
