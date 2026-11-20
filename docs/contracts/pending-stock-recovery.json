@@ -6,7 +6,9 @@
     "lib/pendingStockRecoveryWorker.cjs",
     "scripts/pending-stock-recovery-child.cjs",
     "scripts/test-pending-stock-recovery-sql.cjs",
-    "scripts/pending-stock-recovery-service.cjs"
+    "scripts/pending-stock-recovery-service.cjs",
+    "scripts/check-stock-procedure-hashes.cjs",
+    "__tests__/stockProcedureHashGuard.test.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -34,7 +36,8 @@
     "completion": "Native returnCode and output result both numeric zero; same original transaction; fully idle gate; commit acknowledged",
     "retry": "15 second poll; fingerprint-specific durable max5 attempts, 30/60/120/240/300second backoff; exhausted scope pauses with persistent status and stderr warning; new token has separate budget; validate capability before consuming attempts; fingerprint includes exact reviewed CalcSha256 so a newly reviewed revision can retry an exhausted incompatible fingerprint",
     "process": "Dedicated PM2 service independent of next start/web.js, production opt-in, Next production env loader, dedicated child/pool, 90second request timeout and120second termination deadline; parent waits child close",
-    "uncertainty": "Unknown commit or process death is not replayed blindly; next iteration rereads locked gate. status.json is last report, not authoritative DB state"
+    "uncertainty": "Unknown commit or process death is not replayed blindly; next iteration rereads locked gate. status.json is last report, not authoritative DB state",
+    "approvedDefinitionCoverage": "Offline guard compares exact UTF16LE hashes of actual atomic installer and order-repair planner CREATE/ALTER outputs with every recovery allowlist entry; missing, unknown or duplicate hash blocks CI/deployment. No live hash auto-approval."
   },
   "sideEffects": {
     "StockMaster/ProductStock": "existing native calculation only, including later snapshots as original SP",
@@ -50,7 +53,8 @@
     "__tests__/pendingStockRecovery.test.cjs",
     "__tests__/pendingStockRecoveryWorker.test.cjs",
     "scripts/test-pending-stock-recovery-sql.cjs",
-    "__tests__/pendingStockRecoveryService.test.cjs"
+    "__tests__/pendingStockRecoveryService.test.cjs",
+    "__tests__/stockProcedureHashGuard.test.cjs"
   ],
   "requiredCommands": [
     "npm run test:pending-stock-recovery",
@@ -58,7 +62,8 @@
     "npm run test:erp-contract",
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from origin/master",
-    "npm run build"
+    "npm run build",
+    "npm run test:stock-procedure-hashes"
   ],
   "dnspyEvidence": {
     "required": true,

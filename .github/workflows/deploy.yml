@@ -160,6 +160,9 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Approved stock procedure hash coverage (offline)
+        run: node scripts/check-stock-procedure-hashes.cjs
+
       - name: ERP 계약 + 교차연도 쓰기 검증
         env:
           BASE_SHA: ${{ github.event.before }}
@@ -198,26 +201,22 @@ jobs:
 
       - name: Read current server checkout commit (read-only)
         id: server-head
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: 172.233.89.171
-          username: root
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: 22
-          capture_stdout: true
-          script: |
-            cd /var/www/nenova-erp || exit 1
-            export GIT_OPTIONAL_LOCKS=0
-            echo "SERVER_HEAD=$(git rev-parse HEAD)"
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          sudo apt-get install -y -qq sshpass >/dev/null
+          OUT="$(sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 root@172.233.89.171 'cd /var/www/nenova-erp && GIT_OPTIONAL_LOCKS=0 git rev-parse HEAD')"
+          SERVER_HEAD="$(printf '%s\n' "$OUT" | grep -oE '[a-f0-9]{40}' | tail -1)"
+          [[ "$SERVER_HEAD" =~ ^[a-f0-9]{40}$ ]] || { echo 'SERVER_HEAD_UNKNOWN: could not read server checkout commit'; exit 1; }
+          echo "sha=$SERVER_HEAD" >> "$GITHUB_OUTPUT"
 
       - name: Create source bundle and release metadata
         id: source-bundle
         env:
-          SERVER_HEAD_OUTPUT: ${{ steps.server-head.outputs.stdout }}
+          SERVER_HEAD: ${{ steps.server-head.outputs.sha }}
           ARCHIVE_SHA256: ${{ steps.bundle.outputs.sha256 }}
           RELEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
         run: |
-          SERVER_HEAD="$(printf '%s\n' "$SERVER_HEAD_OUTPUT" | grep -oE 'SERVER_HEAD=[a-f0-9]{40}' | tail -1 | cut -d= -f2)"
           [[ "$SERVER_HEAD" =~ ^[a-f0-9]{40}$ ]] || { echo 'SERVER_HEAD_UNKNOWN: could not read server checkout commit'; exit 1; }
           git cat-file -e "${SERVER_HEAD}^{commit}" || { echo 'SERVER_HEAD_DIVERGED: server commit is not in this repository; stopped'; exit 1; }
           git merge-base --is-ancestor "$SERVER_HEAD" "$GITHUB_SHA" || { echo 'SERVER_HEAD_DIVERGED: server checkout is not an ancestor of this release; stopped'; exit 1; }
