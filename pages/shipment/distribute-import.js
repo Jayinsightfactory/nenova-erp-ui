@@ -12,6 +12,7 @@ import { createImportReadRequests } from '../../lib/importReadRequests';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => {
+  if(r.distributionMode==='ADD')return `${fmt(r.currentOutQty)} + ${fmt(r.inputQty)} = ${fmt(r.uploadQty)}`;
   if (isAlstroImportRow(r)) {
     return `${fmt(r.uploadQty)}(${fmt(Number(r.uploadQty || 0) / 16)})`;
   }
@@ -128,6 +129,9 @@ export default function DistributeImport() {
   const readRequestsRef = useRef(null);
   if (!readRequestsRef.current) readRequestsRef.current = createImportReadRequests();
   const [earlyImportMode, setEarlyImportMode] = useState('ORIGINAL_INCLUDES_EARLY');
+  const [addToExisting,setAddToExisting]=useState(false);
+  const [downloadKind,setDownloadKind]=useState('FINAL');
+  const [additionCompleted,setAdditionCompleted]=useState(false);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -173,6 +177,7 @@ export default function DistributeImport() {
       const unknown = IMPORT_UNKNOWN_CODES.has(data.code);
       setApplyResult({ ...data, running: false, failed: !data.success, outcomeUnknown: unknown, logs: data.logs || [data.error || '처리 결과 확인'] });
       if (!unknown) finishPendingJob(job);
+      if(data.success && job.distributionMode==='ADD')setAdditionCompleted(true);
       setPreview(null);
       if (data.success) setMessage(`${job.year}/${job.week} 이전 작업 완료를 확인했습니다. 적용 ${data.appliedCount || 0}건. 새 파일은 다시 검증하세요.`);
       else setError(data.error || '이전 적용 작업이 실패했습니다.');
@@ -358,6 +363,8 @@ export default function DistributeImport() {
     form.append('week', weekInput.value);
     form.append('year', String(weekInput.value || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear()));
     form.append('earlyImportMode', earlyImportMode);
+    form.append('addToExisting',String(addToExisting));
+    form.append('downloadKind',downloadKind);
     form.append('file', file);
     form.append('farmText', farmText);
     form.append('farmOverrides', JSON.stringify(farmOverrides));
@@ -371,6 +378,7 @@ export default function DistributeImport() {
   }
 
   async function applyChatFarms() {
+    if(addToExisting){setError('합산 모드에서는 수량과 농장분배를 함께 검증·승인하세요.');return;}
     if (!file || !weekInput.value || applying || pendingJob) return;
     setApplying(true); setError(''); setMessage(''); setPreview(null);
     try {
@@ -389,6 +397,7 @@ export default function DistributeImport() {
     if (applying || preAligning) return;
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
+    if(addToExisting && additionCompleted && !confirm('이 파일의 추가분은 이미 반영됐습니다. 다시 검증하면 현재 분배에 같은 추가분을 한 번 더 합산하는 새 작업입니다. 다시 합산할 의도가 맞습니까?'))return;
     if (options.requireConfirmation && !confirm(`선택 차수: ${weekInput.value}\n업로드 파일: ${file.name}\n\n해당 차수에 이 파일이 맞습니까?\n확인을 누르면 검증을 시작합니다.`)) return;
     const fileRevision = sheetLoadRef.current;
     const request = readRequestsRef.current.start('preview');
@@ -413,6 +422,7 @@ export default function DistributeImport() {
       if (!request.isCurrent() || fileRevision !== sheetLoadRef.current) return;
       if (!data.success) throw new Error(data.error || '검증 실패');
       verifiedOverridesRef.current = submittedOverrides;
+      setAdditionCompleted(false);
       setPreview(data);
       const fixedAlert = buildImportFixBlockedAlert({
         orderYear: data.orderYear,
@@ -529,6 +539,8 @@ export default function DistributeImport() {
   };
 
   const invalidateFarmPreview = () => {
+    readRequestsRef.current.abortAll();
+    setDownloading(false);
     sheetLoadRef.current += 1;
     setLoading(false);
     setPreview(prev => prev ? { ...prev, replacementPlan: null, exportPlan: null, fieldExportPlan: null, fieldExportReady: false } : prev);
@@ -606,7 +618,8 @@ export default function DistributeImport() {
       if (!response.ok) { const data=await response.json(); throw new Error(data.error || '엑셀 다운로드 실패'); }
       const blob=await response.blob();if(!request.isCurrent() || revision!==sheetLoadRef.current)return;
       const url=URL.createObjectURL(blob), link=document.createElement('a');
-      link.href=url; link.download=sourceFile.name.replace(/\.xlsx$/i,'')+(uploadOnly?'-신형현장물량표-업로드기준.xlsx':fieldVolume?'-신형현장물량표.xlsx':'-농장분배.xlsx');
+      const encoded=response.headers?.get('Content-Disposition')?.split("UTF-8''")[1];
+      link.href=url; link.download=encoded?decodeURIComponent(encoded):sourceFile.name.replace(/\.xlsx$/i,'')+(uploadOnly?'-신형현장물량표-업로드기준.xlsx':fieldVolume?'-신형현장물량표.xlsx':'-농장분배.xlsx');
       document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
     } catch(e) {
       if (request.isCurrent() && revision===sheetLoadRef.current) setError(request.timedOut ? '물량표 생성 응답이 지연됩니다. 파일을 다시 선택하거나 물량표 바로 생성을 다시 눌러 주세요. 전산 적용은 실행하지 않았습니다.' : e.message);
@@ -621,6 +634,7 @@ export default function DistributeImport() {
       return;
     }
     if (!preview) return;
+    if(addToExisting!==(preview.distributionMode==='ADD')){setError('분배 반영 방식이 바뀌었습니다. 다시 검증하세요.');return;}
     if (!preview.replacementPlan) {
       setError('전체 교체 검증이 완료되지 않았습니다. 미매칭·확정 차단을 해결하고 다시 검증하세요.');
       return;
@@ -666,12 +680,13 @@ export default function DistributeImport() {
       ackQtyWarnings = true;
     }
     const missingCancellations = rows.filter(r => r.missingFromExcel && Number(r.currentOutQty) !== 0);
-    if (!confirm(`${preview.orderYear}/${preview.week} ${preview.skippedProducts?.length ? '선택 품목 분배 적용 (건너뛴 품목 보존)' : '검증된 품종 범위 분배 교체 (다른 품종 보존)'}\n건너뛰기: ${(preview.skippedProducts || []).map(p => p.productLabel).join(', ') || '없음'}\n범위: ${(preview.replacementScopeLabels || preview.replacementCategories || []).join(', ')}\n적용대상 ${applyRows.length}건 · 파일 누락 취소 ${missingCancellations.length}건\n${missingCancellations.slice(0, 6).map(r => `${r.custName} / ${r.prodName}: ${r.currentOutQty} → 0`).join('\n')}${missingCancellations.length > 6 ? '\n나머지는 검증표의 엑셀누락 행을 확인하세요.' : ''}\n\n기존 주문은 보존합니다. 주문이 없는 양수 분배만 신규 주문을 만듭니다. 적용 범위 안의 누락 분배만 0으로 취소합니다. 위 범위의 적용을 승인하시겠습니까?`)) {
+    if (!confirm(preview.distributionMode==='ADD' ? `${preview.orderYear}/${preview.week} 기존 분배에 추가분 합산\n${applyRows.length}건 · 기존 주문 및 파일 밖 분배 보존\n${applyRows.slice(0,6).map(r=>`${r.custName} / ${r.displayName || r.prodName}: 합산전 ${r.currentOutQty} + 추가 ${r.inputQty} = 최종 ${r.uploadQty}${r.outUnit} · 미배정 ${r.unassignedQty || 0}`).join('\n')}\n\n기존 농장배정에 명시한 추가분만 더합니다. 검증한 최종 수량의 반영을 승인하시겠습니까?` : preview.distributionMode==='FINAL' ? `${preview.orderYear}/${preview.week} 최종 합계 파일 반영\n표시된 업체·품목 ${applyRows.length}건만 최종값으로 반영합니다. 파일 밖 기존 분배는 보존하며 다시 더하지 않습니다. 승인하시겠습니까?` : `${preview.orderYear}/${preview.week} ${preview.skippedProducts?.length ? '선택 품목 분배 적용 (건너뛴 품목 보존)' : '검증된 품종 범위 분배 교체 (다른 품종 보존)'}\n건너뛰기: ${(preview.skippedProducts || []).map(p => p.productLabel).join(', ') || '없음'}\n범위: ${(preview.replacementScopeLabels || preview.replacementCategories || []).join(', ')}\n적용대상 ${applyRows.length}건 · 파일 누락 취소 ${missingCancellations.length}건\n${missingCancellations.slice(0, 6).map(r => `${r.custName} / ${r.prodName}: ${r.currentOutQty} → 0`).join('\n')}${missingCancellations.length > 6 ? '\n나머지는 검증표의 엑셀누락 행을 확인하세요.' : ''}\n\n기존 주문은 보존합니다. 주문이 없는 양수 분배만 신규 주문을 만듭니다. 적용 범위 안의 누락 분배만 0으로 취소합니다. 위 범위의 적용을 승인하시겠습니까?`)) {
       return;
     }
     const fileRevision = sheetLoadRef.current;
     setApplying(true); setError(''); setMessage('');
     const initialApplyResult = {
+      distributionMode: preview.distributionMode || 'REPLACE',
       running: true,
       logs: [
         `${preview.week}차 주문등록+출고분배 최종값 적용 시작`,
@@ -683,7 +698,7 @@ export default function DistributeImport() {
     setApplyModalOpen(true);
     // 실시간 진행 로그 — 서버 트랜잭션이 도는 동안 몇 건째/어떤 업체·품목을 입력 중인지 폴링으로 표시
     const jobId = `apply_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const job = { jobId, year: preview.orderYear, week: preview.week };
+    const job = { jobId, year: preview.orderYear, week: preview.week, distributionMode:preview.distributionMode };
     try {
       savePendingImport(window.localStorage, pendingKeyRef.current, job);
       setPendingJob(job);
@@ -722,7 +737,7 @@ export default function DistributeImport() {
           signal: AbortSignal.timeout(60000),
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ week: preview.week, year: preview.orderYear, sourceFileName: file?.name || '', rows, fullCategoryReplacement: true, ackQtyWarnings, jobId, replacementPlan: preview.replacementPlan, replacementProductKeys: preview.replacementProductKeys,
+          body: JSON.stringify({ week: preview.week, year: preview.orderYear, sourceFileName: file?.name || '', rows, distributionMode:preview.distributionMode || 'REPLACE', fullCategoryReplacement: !preview.distributionMode || preview.distributionMode==='REPLACE', ackQtyWarnings, jobId, replacementPlan: preview.replacementPlan, replacementProductKeys: preview.replacementProductKeys,
             earlyImportMode: preview.earlyImport.mode, earlyLedgerFingerprint: preview.earlyImport.fingerprint, earlyImportScope: preview.earlyImport.scope }),
         });
       } catch {
@@ -765,7 +780,11 @@ export default function DistributeImport() {
         setMessage(`적용 완료: 신규추가 ${data.orderCreatedCount || 0}건, 주문수정 ${data.orderUpdatedCount || 0}건, 주문보존·분배 0 ${data.shipmentDeletedCount || 0}건, 그 외 분배변경 ${Math.max(0, Number(data.shipmentChangedCount || 0) - Number(data.shipmentDeletedCount || 0))}건${verifyText}`);
       }
       if (verifyMismatchCount > 0) setError(`사후 검증에서 미반영·불일치 ${verifyMismatchCount}건이 발견됐습니다. 적용 내역 아래 검증 결과 표를 확인하세요.`);
-      await handlePreview({ preserveMessage: true, preserveApplyResult: true });
+      if(preview.distributionMode==='ADD') {
+        setAdditionCompleted(true);
+        setPreview(prev=>prev?{...prev,replacementPlan:null}:prev);
+        setMessage(`합산 반영 완료. 검증표의 '합산전 + 추가분 = 최종 분배'가 저장됐습니다. 같은 파일의 중복 승인은 차단했습니다. 엑셀 다운로드는 검증한 수량을 유지합니다.${verifyText}`);
+      } else await handlePreview({ preserveMessage: true, preserveApplyResult: true });
     } catch (e) {
       if (fileRevision !== sheetLoadRef.current) return;
       setError(e.message);
@@ -790,8 +809,10 @@ export default function DistributeImport() {
         <div style={st.toolbar}>
           <div style={{flex:'1 1 320px',minWidth:0}}>
             <h1 data-desktop-chrome style={st.title}>출고분배 엑셀 검증 업로드</h1>
+            <div style={{fontSize:14,fontWeight:700,color:'#0f172a'}}>핵심 목적 · 엑셀 수정·농장분배를 함께 검증하고 선택한 수량만 반영합니다.</div>
             <div style={st.sub}>차수피벗 출고리스트 또는 분류프로그램 물량표를 읽어 기존 주문등록 수량 기준으로 변경을 검증합니다.</div>
             <WorkflowGuide workflowId="shipment-field-volume" />
+            <WorkflowGuide workflowId="shipment-additive-import" />
           </div>
           <div style={st.controls}>
             <button onClick={weekInput.prevWeek} style={st.iconBtn}>◁</button>
@@ -826,7 +847,7 @@ export default function DistributeImport() {
             선출고 원문
             <select value={earlyImportMode} disabled={applying} onChange={event => {
               setEarlyImportMode(event.target.value);
-              setPreview(null);
+              invalidateFarmPreview();
               setMessage('원문 기준이 바뀌었습니다. 다시 검증하세요.');
             }} style={{ height: 34, border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff' }}>
               <option value="ORIGINAL_INCLUDES_EARLY">선출고 포함 원본</option>
@@ -851,6 +872,7 @@ export default function DistributeImport() {
               setFarmOverrides({ targets: {}, farms: {} });
               ++sheetLoadRef.current;
               setFile(selectedFile);
+              setAdditionCompleted(false);
               verifiedOverridesRef.current = { cust: {}, prod: {} };
               setApplyModalOpen(false); setLoading(false);
               setPreview(null);
@@ -862,11 +884,23 @@ export default function DistributeImport() {
               setProdOverridesState({});
               setUnmatchedModalOpen(false);
               if (/\.xlsx$/i.test(selectedFile.name)) {
-                if(archive)void saveSources(selectedFiles);else void handleFarmDownload(true, true, selectedFile, '');
+                if(archive)void saveSources(selectedFiles);
               }
             }}
           />
           <button disabled={applying || preAligning} style={st.secondaryBtn} onClick={()=>{archivePicker.current=false;if(fileRef.current){fileRef.current.multiple=false;fileRef.current.click();}}}>파일 선택</button>
+          <label style={{display:'inline-flex',alignItems:'center',gap:8,fontSize:14,fontWeight:700}}>
+            <input type="checkbox" aria-label="기존 분배에 합산하기" checked={addToExisting} disabled={applying || !!pendingJob}
+              onChange={e=>{setAddToExisting(e.target.checked);invalidateFarmPreview();setMessage('분배 반영 방식이 바뀌었습니다. 다시 검증하세요.');}}/>
+            기존 분배에 합산하기
+          </label>
+          {addToExisting && <fieldset style={{border:0,margin:0,padding:0,fontSize:14}} disabled={applying || !!pendingJob || additionCompleted}>
+            <legend style={{fontSize:14,fontWeight:700}}>검증 후 엑셀 다운로드</legend>
+            {[['FINAL','합산본 (기존 10 + 추가 3 = 최종 13)'],['ADDITIONAL','추가분 별도 (이번 파일 3만)']].map(([value,label])=><label key={value} style={{marginRight:16,display:'inline-flex',alignItems:'center',gap:6}}>
+              <input type="radio" name="allocation-download-kind" value={value} checked={downloadKind===value} onChange={()=>{setDownloadKind(value);invalidateFarmPreview();setMessage('다운로드 형식이 바뀌었습니다. 다시 검증하세요.');}}/>{label}
+            </label>)}
+            {additionCompleted && <span>반영 완료: 다운로드 형식은 검증한 선택으로 고정됩니다.</span>}
+          </fieldset>}
           <button style={st.secondaryBtn} disabled={savingSources||applying||preAligning} onClick={()=>{archivePicker.current=true;if(fileRef.current){fileRef.current.multiple=true;fileRef.current.click();}}}>물량표 모아 업로드</button>
           <fieldset disabled={savingSources||downloading||applying}>
             <legend>저장된 물량표 · 합산할 품목</legend>
@@ -878,10 +912,10 @@ export default function DistributeImport() {
           </fieldset>
           {isSecondRound&&<label><input type="checkbox" checked={includePrevious} disabled={downloading||savingSources}
             onChange={e=>setIncludePrevious(e.target.checked)}/> 1차 물량 합산</label>}
-          <button style={st.primaryBtn} onClick={downloadChecked} disabled={!checkedSources.length||savingSources||loading||applying||downloading||!!pendingJob}>선택 품목 다운로드</button>
+          <button style={st.primaryBtn} onClick={downloadChecked} disabled={addToExisting||!checkedSources.length||savingSources||loading||applying||downloading||!!pendingJob}>선택 품목 다운로드</button>
           <span style={st.fileName}>{file ? `${file.name} · 새 파일 내용 기준` : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
-          <button style={st.primaryBtn} onClick={() => handleFarmDownload(true,true)} disabled={!file || !/\.xlsx$/i.test(file.name) || loading || applying || downloading || preAligning || !!pendingJob} title="원본 수량·요일색·입고·재고로 바로 생성합니다. 입력한 카톡 또는 엑셀 농장메모도 확인하며, 이전차수는 포함하지 않습니다.">{downloading ? '다운로드 준비 중...' : '물량표 바로 생성'}</button>
-          <span style={{fontSize:12,color:'#475569'}}>xlsx 선택 시 신형 현장물량표 자동 다운로드 · 카톡 입력 후 다시 생성 가능 · 원본 기준(이전차수 미포함)</span>
+          <button style={st.primaryBtn} onClick={() => handleFarmDownload(true,true)} disabled={addToExisting || !file || !/\.xlsx$/i.test(file.name) || loading || applying || downloading || preAligning || !!pendingJob} title={addToExisting?'합산 수량과 선택한 형식은 검증 후 검증된 엑셀 다운로드를 사용하세요.':'원본 수량·요일색·입고·재고로 바로 생성합니다. 이전차수는 포함하지 않습니다.'}>{downloading ? '다운로드 준비 중...' : '물량표 바로 생성'}</button>
+          <span style={{fontSize:14,color:'#475569'}}>{addToExisting?'합산/추가분 파일은 검증 후 “검증된 엑셀 다운로드”로 받으세요.':'파일 선택 후 필요할 때 직접 생성 · 원본 기준(이전차수 미포함)'}</span>
           <button
             style={preAlignAvailable ? st.preAlignBtn : st.preAlignDisabledBtn}
             onClick={handlePreAlign}
@@ -920,8 +954,11 @@ export default function DistributeImport() {
         )}
         {preview && (
           <div role="status" style={{ marginBottom: 12, padding: 12, background: '#fff7ed', color: '#7c2d12', border: '1px solid #fdba74', borderRadius: 8 }}>
-            <strong>{preview.skippedProducts?.length ? '선택 품목 적용 (건너뛴 품목 보존)' : '검증된 품종 범위 교체 (다른 품종 보존)'} · {preview.orderYear}/{preview.week} · {(preview.replacementScopeLabels || preview.replacementCategories || []).join(', ')}</strong>
-            <div>적용 범위 안에서 빠진 기존 분배 {rows.filter(r => r.missingFromExcel && Number(r.currentOutQty) !== 0).length}건을 0으로 취소합니다. 기존 주문은 보존합니다.</div>
+            <strong>{preview.distributionMode==='ADD'?'기존 분배에 추가분 합산':preview.distributionMode==='FINAL'?'최종 합계 파일 · 표시된 업체·품목만 반영':preview.skippedProducts?.length ? '선택 품목 적용 (건너뛴 품목 보존)' : '검증된 품종 범위 교체 (다른 품종 보존)'} · {preview.orderYear}/{preview.week} · {(preview.replacementScopeLabels || preview.replacementCategories || []).join(', ')}</strong>
+            {preview.distributionMode==='ADD' ? <div style={{fontSize:14}}>합산전 + 추가분 = 최종 분배 · 0·빈칸·파일 밖 기존 분배와 기존 주문은 보존합니다. 농장 입력은 추가분 기준이며, 입력하지 않은 추가분은 미배정으로 남습니다. 다운로드: <b>{preview.downloadKind==='ADDITIONAL'?'추가분 별도':'합산본 (최종 합계)'}</b></div>
+              : preview.distributionMode==='FINAL' ? <div style={{fontSize:14}}>이미 합산된 최종 수량입니다. 파일 밖 기존 분배는 보존하며 다시 더하지 않습니다.</div>
+              : <div>적용 범위 안에서 빠진 기존 분배 {rows.filter(r => r.missingFromExcel && Number(r.currentOutQty) !== 0).length}건을 0으로 취소합니다. 기존 주문은 보존합니다.</div>}
+            {additionCompleted && <div role="status" style={{fontSize:14,fontWeight:700}}>합산 반영 완료 · 표의 기존 값은 합산전 수량입니다. 검증된 최종 수량 저장을 확인했으며 중복 승인은 차단했습니다.</div>}
             {(preview.skippedProducts || []).length > 0 && <div>
               건너뛴 품목은 기존 주문·분배를 보존합니다. 이번 파일에서 매칭된 품목만 적용합니다.
               {preview.skippedProducts.map(item => <div key={item.key}>
@@ -1024,7 +1061,7 @@ export default function DistributeImport() {
 
         {error && <div style={st.error}>{error}</div>}
         {message && <div style={st.message}>{message}</div>}
-        {preview?.replacementCategories?.length > 0 && (
+        {preview?.replacementCategories?.length > 0 && (!preview.distributionMode || preview.distributionMode==='REPLACE') && (
           <div style={st.message}>
             최종 분배 교체: {preview.orderYear}년 {preview.week} · {preview.replacementCategories.join(', ')}
             {' — 새 파일에 없는 업체·품목과 빈칸은 분배 0으로 정리합니다. 기존 주문수량은 유지합니다.'}
@@ -1129,11 +1166,11 @@ export default function DistributeImport() {
               onClick={()=>{setFarmText(preview.drawingFarmText);setFarmOverrides({targets:{},farms:{}});invalidateFarmPreview();}}>엑셀 농장메모 불러오기</button>
             <span style={{marginLeft:8,fontSize:12}}>카톡 내용을 붙여넣거나, 엑셀 텍스트 상자의 농장메모를 불러온 뒤 검증하세요.</span>
             <p style={{fontSize:13,color:'#475569'}}>엑셀 수정 내역과 농장별 합계를 함께 검증합니다. 카톡 제목 차수와 관계없이 선택한 연도·차수에 적용합니다. 원본 표의 크기·여백·인쇄 설정을 유지하고 표 밖 빈 공간에 농장분배를 넣습니다.</p>
-            <button style={st.applyBtn} disabled={!file || !weekInput.value || applying || loading || preAligning || !!pendingJob} onClick={applyChatFarms}>카톡 농장 적용</button>{' '}
+            <button style={st.applyBtn} disabled={addToExisting || !file || !weekInput.value || applying || loading || preAligning || !!pendingJob} onClick={applyChatFarms}>카톡 농장 적용</button>{' '}
             <button style={st.primaryBtn} disabled={loading || applying || !file} onClick={()=>handlePreview()}>수정 내역 + 농장분배 검증</button>{' '}
             <button style={st.secondaryBtn} disabled={downloading || applying || loading || !!pendingJob || !preview?.exportPlan} onClick={()=>handleFarmDownload(false)}>{downloading?'다운로드 준비 중…':'검증된 엑셀 다운로드'}</button>{' '}
-            <button style={st.applyBtn} disabled={downloading || applying || loading || savingSources || (!checkedSources.length && !/\.xlsx$/i.test(file?.name || ''))} onClick={()=>downloadChecked({uploadCurrent:!checkedSources.length})}>신형 물량표 다운로드</button>
-            <p style={{fontSize:13,color:'#475569'}}>농장 적용은 기존 출고의 농장배정만 저장합니다. 신형 물량표는 업로드 직후에도 받을 수 있습니다. 여러 품목을 합산하려면 저장된 물량표에서 품목을 체크하세요.</p>
+            <button style={st.applyBtn} disabled={addToExisting || downloading || applying || loading || savingSources || (!checkedSources.length && !/\.xlsx$/i.test(file?.name || ''))} onClick={()=>downloadChecked({uploadCurrent:!checkedSources.length})}>신형 물량표 다운로드</button>
+            <p style={{fontSize:14,color:'#475569'}}>{addToExisting?'합산 모드의 농장 입력은 추가분 수량 기준입니다. 기존 농장배정은 보존하며, 배정하지 않은 수량은 미배정으로 표시합니다. 위에서 선택한 합산본/추가분은 검증된 엑셀 다운로드로 받으세요.':'농장 적용은 기존 출고의 농장배정만 저장합니다. 신형 물량표는 직접 생성할 수 있습니다. 여러 품목을 모으려면 저장된 물량표에서 품목을 체크하세요.'}</p>
             {preview?.fieldExportError && <p role="alert" style={{color:'#b91c1c'}}>현장물량표: {preview.fieldExportError}</p>}
             <span style={{marginLeft:10,fontSize:12}}>ERP 저장은 ‘적용’ 버튼으로 진행합니다.</span>
           </div>
@@ -1177,7 +1214,7 @@ export default function DistributeImport() {
                 <div style={st.tableWrapLarge}>
                   <table style={st.table}>
                     <thead>
-                      <tr><th>상태</th><th>업체</th><th>품목</th><th>단위</th><th>주문등록</th><th>원문 환산량</th><th>현재분배</th><th>처리 선출고</th><th>이번 제외</th><th>최종 목표</th><th>주문변경</th><th>분배차이</th><th>농장 변경前</th><th>농장 변경後</th><th>수량경고</th><th>셀</th></tr>
+                      <tr><th>상태</th><th>업체</th><th>품목</th><th>단위</th><th>주문등록</th><th>원문 환산량</th><th>{preview.distributionMode==='ADD'?'합산전 분배':'현재분배'}</th><th>처리 선출고</th><th>이번 제외</th>{preview.distributionMode==='ADD'&&<th>추가분</th>}<th>최종 목표</th><th>주문변경</th><th>분배차이</th><th>농장 변경前</th><th>농장 변경後</th>{['ADD','FINAL'].includes(preview.distributionMode)&&<th>최종 미배정</th>}<th>수량경고</th><th>셀</th></tr>
                     </thead>
                     <tbody>
                       {visibleRows.map(r => (
@@ -1191,10 +1228,12 @@ export default function DistributeImport() {
                           <td>{fmt(r.currentOutQty)}</td>
                           <td title={r.earlyExclusionReason || ''}>{fmt(r.processedEarlyTotal || 0)}{r.earlyExclusionReason ? ` · ${r.earlyExclusionReason}` : ''}</td>
                           <td>{fmt(r.earlyExcludedApplied || 0)}</td>
+                          {preview.distributionMode==='ADD'&&<td>{fmt(r.inputQty)}</td>}
                           <td>{fmtUpload(r)}</td>
                           <td>{fmt(r.changeQty)}</td>
                           <td>{fmt(shipmentDiffQty(r))}</td>
                           <td>{r.farmBeforeText || '미지정'}</td><td>{r.farmText || r.farmBeforeText || '미지정'}</td>
+                          {['ADD','FINAL'].includes(preview.distributionMode)&&<td>{fmt(r.unassignedQty)}</td>}
                           <td style={r.hasQtyWarning ? st.qtyWarnCell : undefined}>{qtyWarningText(r)}</td>
                           <td>{(r.cells || []).slice(0, 2).join(', ')}</td>
                         </tr>
@@ -1285,6 +1324,7 @@ function FarmImportReview({preview,overrides,onChange,onVerify,disabled}) {
   </section>;
 }
 function PivotComparison({ model, fullModel, filter, filterFallback, onShowAll }) {
+  const additive=model.products.some(p=>[...p.cells.values()].some(r=>r.distributionMode==='ADD'));
   if (!model.products.length) {
     const filterLabel = filter === 'apply' ? '적용대상'
       : filter === 'changed' ? '주문변경'
@@ -1332,7 +1372,7 @@ function PivotComparison({ model, fullModel, filter, filterFallback, onShowAll }
                   const filteredQtyDiffers = isFiltered && Number(fullCustomer.uploadQty || 0) !== Number(c.uploadQty || 0);
                   return (
                     <div style={st.custMeta}>
-                      전체 엑셀 {fmt(fullCustomer.uploadQty)}
+                      {additive?'최종 분배':'전체 엑셀'} {fmt(fullCustomer.uploadQty)}
                       {filteredQtyDiffers ? ` / 현재 표시 ${fmt(c.uploadQty)}` : ''}
                       {' / '}주문변경 {fmt(c.changeQty)} / 분배차이 {fmt(c.shipmentDiffQty)}
                     </div>
@@ -1341,8 +1381,8 @@ function PivotComparison({ model, fullModel, filter, filterFallback, onShowAll }
               </th>
             ))}
             <th style={st.pivotTotalHead}>주문등록</th>
-            <th style={st.pivotTotalHead}>현재분배</th>
-            <th style={st.pivotTotalHead}>엑셀수량</th>
+            <th style={st.pivotTotalHead}>{additive?'합산전 분배':'현재분배'}</th>
+            <th style={st.pivotTotalHead}>{additive?'최종 분배':'엑셀수량'}</th>
             <th style={st.pivotTotalHead}>주문변경</th>
             <th style={st.pivotTotalHead}>분배차이</th>
           </tr>
@@ -1352,7 +1392,7 @@ function PivotComparison({ model, fullModel, filter, filterFallback, onShowAll }
             <tr key={p.key}>
               <td style={st.pivotProductCell}>
                 <div style={{ fontWeight: 700 }}>{p.name}</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{p.outUnit || '박스'} · 주문변경 {p.changedLines}건 · 분배반영 {p.shipmentChangedLines}건</div>
+                <div style={{ fontSize: 12.5, color: '#475569' }}>{p.outUnit || '박스'} · 주문변경 {p.changedLines}건 · 분배반영 {p.shipmentChangedLines}건</div>
               </td>
               {model.customers.map(c => {
                 const r = p.cells.get(c.key);
@@ -1376,9 +1416,10 @@ function PivotComparison({ model, fullModel, filter, filterFallback, onShowAll }
                     )}
                     {shipDiff && (
                       <div style={{ ...st.qtySub, color: '#15803d' }}>
-                        분배 {fmt(r.currentOutQty)} → {fmt(r.uploadQty)}
+                        {r.distributionMode==='ADD'?'합산전':'분배'} {fmt(r.currentOutQty)} → {fmt(r.uploadQty)}
                       </div>
                     )}
+                    {['ADD','FINAL'].includes(r.distributionMode) && <div style={{fontSize:12.5,color:'#334155',fontVariantNumeric:'tabular-nums'}}>미배정 {fmt(r.unassignedQty)}{r.outUnit}</div>}
                     {r.farmChanged && <div style={{...st.qtySub,color:'#7e22ce',whiteSpace:'normal'}} title={`${r.farmBeforeText || '미지정'} → ${r.farmText}`}>
                       농장 {r.farmBeforeText || '미지정'} → {r.farmText}
                     </div>}
@@ -1652,8 +1693,7 @@ function ApplyResultContent({ result }) {
       )}
       {result.running && (
         <div style={st.applyStepBox}>
-          <div>검증된 엑셀의 양수 수량은 주문등록과 출고분배의 최종값으로 맞춥니다.</div>
-          <div>0·빈칸·엑셀에서 빠진 품목은 주문등록값을 유지하고 출고분배만 0으로 처리합니다.</div>
+          {result.distributionMode==='ADD'?<><div>합산전 분배에 이번 추가분을 더한 검증된 최종값을 저장합니다.</div><div>기존 주문·농장배정과 0·빈칸·파일 밖 분배는 보존합니다.</div></>:<><div>검증된 엑셀의 양수 수량은 주문등록과 출고분배의 최종값으로 맞춥니다.</div><div>0·빈칸·엑셀에서 빠진 품목은 주문등록값을 유지하고 출고분배만 0으로 처리합니다.</div></>}
           <div>주문과 분배 검증이 모두 끝나야 한 번에 저장됩니다.</div>
         </div>
       )}

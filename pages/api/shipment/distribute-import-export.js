@@ -2,8 +2,11 @@ import fs from 'fs';
 import {readPalletSnapshots} from '../../../lib/shipmentImportAudit';
 import {addPalletSnapshots} from '../../../lib/shipmentPallet';
 import formidable from 'formidable';
+import XLSX from 'xlsx';
 import { withAuth } from '../../../lib/auth';
 import { verifyFarmExport, exportFarmWorkbook } from '../../../lib/shipmentFarmWorkbook';
+import { exportAllocationWorkbook } from '../../../lib/shipmentImportWorkbook.js';
+import { readImportFileMetadata } from '../../../lib/shipmentImportMode.js';
 import { query, sql } from '../../../lib/db';
 import { requireOrderYear } from '../../../lib/orderUtils';
 import { fieldVolumeSql, createFieldVolumeWorkbook } from '../../../lib/shipmentFieldVolume';
@@ -26,9 +29,11 @@ async function handler(req,res) {
     if(!file)throw Object.assign(new Error('원본 엑셀 파일이 필요합니다.'),{statusCode:400});
     const field=name=>Array.isArray(fields[name])?fields[name][0]:fields[name];
     const mode=field('mode');
-    let output;
+    let output,verifiedKind;
     if(mode==='field-upload') {
       if(!/\.xlsx$/i.test(file.originalFilename||''))throw new Error('바로 생성은 .xlsx 물량표를 선택하세요.');
+      const metadata=readImportFileMetadata(XLSX.readFile(file.filepath,{bookProps:true,bookSheets:true}));
+      if(metadata)throw Object.assign(new Error('합산본·추가분 파일은 분배 방식과 선출고 기준을 확인한 뒤 검증된 엑셀 다운로드를 사용하세요.'),{statusCode:409});
       const directory=await loadFieldUploadDirectory(async()=>{
         const result=await query("SELECT CustName, OrderCode, Descr FROM Customer WHERE ISNULL(isDeleted,0)=0");
         return result.recordset.map(row=>({CustName:row.CustName,OrderCode:row.OrderCode,customerAlias:customerExportName(row)}));
@@ -37,6 +42,7 @@ async function handler(req,res) {
     } else {
       const buffer=await fs.promises.readFile(file.filepath);
       const plan=verifyFarmExport(buffer,field('exportPlan'),req.user.userId);
+      verifiedKind=plan.allocation?.metadata?.kind;
       if(mode==='field-volume') {
         if(plan.kind!=='field-volume-v2')throw Object.assign(new Error('현장물량표를 생성하기 전에 다시 검증하세요.'),{statusCode:409});
         const {orderYear,orderWeek}=requireOrderYear(plan.week,plan.orderYear);
@@ -49,11 +55,11 @@ async function handler(req,res) {
         output=await createFieldVolumeWorkbook(plan,lines.recordset,farms.recordset);
       } else {
         if(mode || plan.kind)throw Object.assign(new Error('잘못된 다운로드 형식입니다.'),{statusCode:400});
-        output=await exportFarmWorkbook(buffer,plan);
+        output=await exportAllocationWorkbook(await exportFarmWorkbook(buffer,plan),plan.allocation);
       }
     }
     if(controller.signal.aborted || res.destroyed)return;
-    const name=String(file.originalFilename || '물량표.xlsx').replace(/\.xlsx$/i,'')+(mode==='field-upload'?'-신형현장물량표-업로드기준.xlsx':mode==='field-volume'?'-신형현장물량표.xlsx':'-농장분배.xlsx');
+    const name=String(file.originalFilename || '물량표.xlsx').replace(/\.xlsx$/i,'')+(mode==='field-upload'?'-신형현장물량표-업로드기준.xlsx':mode==='field-volume'?'-신형현장물량표.xlsx':verifiedKind==='FINAL'?'-합산본-최종합계.xlsx':verifiedKind==='ADDITIONAL'?'-추가분.xlsx':'-농장분배.xlsx');
     res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition',`attachment; filename*=UTF-8''${encodeURIComponent(name)}`);
     res.setHeader('Cache-Control','no-store');

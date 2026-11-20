@@ -662,3 +662,13 @@ ShipmentDate↔PeriodDay exact 시각 JOIN, DetailFix=1, EstQuantity>0를 사용
 
 ## 2026-11-13 업체 비교 제한 해제·독립 스크롤 선검증
 실제 설치 EXE FormShipmentDistribution dnSpy CLI 재추출(nw-unlimited-customers-1113-dnspy.log): GetProductList/GetCustomerList/btnSave_Click 명시 SelectOrderYear/SelectOrderWeek와 CustKey/ProdKey, OutUnit 저장을 확인. 비교열5개 제한은 웹 UI이며 native 업무키/SQL 제한으로 추정하지 않는다. 운영 READ ONLY 46-01:2025 상세1214/업체60/품목345/확정1214,2026 상세821/업체62/품목212/확정167(업무중 가변). 기존 native API의1~1000 변경행 트랜잭션 한도와500품목 조회 보호는 유지. 표시/조회 소유권/스크롤만 확장하며 원본 품목명·수량·금액/날짜·isFix는 변경하지 않는다. 계획 distribution-unlimited-customers-2026-11-13.md.
+
+## 2026-11-20 확정 ON/OFF BUSY: 자동복구 CALC 검토본 동기화
+
+- 실제 CLI: `dnSpy.Console.exe --no-color -t FormShipmentDistribution "C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe"` 재실행. `btnFix_Click` 942/947행, `btnFixCancel_Click` 995/1000행에서 FIX/CANCEL 성공 후 별도 `uspStockCalculation(SelectOrderYear, SelectOrderWeek, 0)` 호출 확인. EXE 바이너리 변경 없음.
+- 구현 전 운영 SELECT: 공용 `NenovaStockWeekGate`는 2026/43-01 `WAIT_CALC`, `Action=CANCEL`, `PendingCalc=1`; 다른 42-02의 확정/취소를 막는 상태. V2 capability ready. 2026/42-02 콜롬비아카네이션 99행/확정99, 2025 동일차수 82행/확정82. 서버 전체 세션 조회 권한이 없어 DMV 0행을 종료 근거로 쓰지 않음. RUN 회수 없음.
+- 실제 `sys.sql_modules` 전체 정의를 10/12 atomic fixture transformer 결과와 대조: 차이는 `SELECT OrderYear, OrderWeek FROM #CalculationList ORDER BY OrderYear, OrderWeek;` 한 줄뿐. `lib/stockCalculationOrderRepair.mjs`의 승인된 정렬패치, `docs/plans/stock-residual-2026-10-22.md`의 검토본 UTF8 hash `65c4a11cb828dfb0326bcd6e45160b6fa9260afddfaab90564cc40d5b3f98377`와 동일. 원자적 GateEnter/Leave transaction 경계, 6인자와 재고 본문 유지. SQL UTF16LE hash는 `010c947a0d0cf23994692b5fb68abbfdebc2361b061808bef96a2156be2c2722`.
+- 원인: 자동복구가 10/12 hash만 허용해 승인된 정렬본을 거부하는 회귀. 승인된 두 정확한 hash만 허용하고 실행 직전 같은 hash를 다시 확인한다. capability 불일치는 retry 예산을 소비하지 않으며 검토된 hash별 fingerprint로 이전 불일치 소진과 구별한다.
+- 기준/부작용: 잠긴 committed WAIT_CALC의 연도/세부차수만 기존 full CALC0 수행. StockMaster/ProductStock는 native 계산, Gate는 native enter/leave만 허용. OrderMaster/OrderDetail, ShipmentMaster/ShipmentDetail(OutQuantity/Amount/Vat/isFix), ShipmentDate, ShipmentFarm, Product.Stock, StockHistory, Estimate, WebProfitReport 보존. 업무 수량·확정 토글·직접 gate clear·SP DDL 없음.
+- 양수 fixture: 이전 atomic/승인 정렬본 hash 양쪽 실행·재검증. 반례: 미검토 hash/원자성 이전 hash/6인자 불일치/capability not-ready/2025 같은 차수/RUN 모두 거부 또는 보존. 실제 fixture로 정의를 재구성하여 hash를 검증하므로 운영 hash 복사만으로 승인하지 않는다.
+- 기존 데스크톱의 확정 기능 서버 복구 수정이며 화면·URL·탭·메뉴 추가 없음. 기존 메뉴 연결 재사용, 버전/가이드 변경 대상 없음.

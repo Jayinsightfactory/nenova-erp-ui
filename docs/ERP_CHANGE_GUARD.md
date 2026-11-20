@@ -1264,3 +1264,8 @@ source=manual-order/sales-paste 주문 저장은 정확한 연도+세부차수+�
 ## 2026-11-20 입고 단·중량 회귀
 
 47-01 실제 원장 비교와 재발 방지 기준은 [입고 단 수량과 중량 합계](plans/warehouse-bunch-weight-2026-11-20.md)에 기록했습니다.
+
+## 2026-11-20 확정 ON/OFF BUSY · 승인된 CALC hash와 자동복구 불일치
+
+2026/43-01 CANCEL 후 committed WAIT_CALC가 공용 게이트에 남아 42-02 카네이션의 확정/취소까지 막았다. 운영 CALC는 10/12 원자성 보강본에 이미 승인된 cursor 정렬 한 줄만 추가된 정의였으나 자동복구가 이전 hash만 허용했다. `pendingStockRecovery.cjs`는 두 정확한 검토본만 허용하고 실행 직전 같은 hash/원래 transaction을 재검증한다. capability 거부는 계산 retry 예산을 소모하지 않고 검토본 hash를 fingerprint에 포함한다. 미검토 정의 자동 승인이나 RUN 만료/회수는 금지한다. 회귀 `pendingStockRecovery.test.cjs`는 실제 atomic fixture로 두 hash 재구성, 선택 hash 전달, 알 수 없는 hash 계산0/예산0을 검증한다. 상세 dnSpy/SELECT 및 부작용 근거는 `docs/exe-golden/FormShipmentDistribution.md` 참조.
+

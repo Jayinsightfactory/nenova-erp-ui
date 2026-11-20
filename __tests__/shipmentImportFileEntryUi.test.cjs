@@ -17,7 +17,7 @@ function fixture(overrides = {}) {
   const hookReact = { ...React, useState(value) { const i = stateIndex++; if (!(i in states)) states[i] = value; return [states[i], value => { states[i] = typeof value === 'function' ? value(states[i]) : value; }]; }, useRef(value) { const i = refIndex++; return refs[i] ||= { current: value }; }, useEffect() {}, useLayoutEffect() {}, useMemo: fn => fn(), useCallback: fn => fn };
   const fetch = (url, options) => new Promise((resolve, reject) => { calls.push({ url, options, resolve, reject }); options.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true }); });
   let source = fs.readFileSync('pages/shipment/distribute-import.js', 'utf8');
-  for (const [name, value] of Object.entries(overrides)) source = source.replace(new RegExp(`(const \\[${name}, [^\\]]+\\] = useState\\()([^;]+)(\\);)`), (_, a, _b, c) => a + JSON.stringify(value) + c);
+  for (const [name, value] of Object.entries(overrides)) source = source.replace(new RegExp(`(const \\[${name},\\s*[^\\]]+\\]\\s*=\\s*useState\\()([^;]+)(\\);)`), (_, a, _b, c) => a + JSON.stringify(value) + c);
   const Page = load(source, id => {
     if (id === 'react') return hookReact;
     if (id === 'next/router') return { useRouter: () => ({ isReady: false, query: {} }) };
@@ -35,16 +35,19 @@ function fixture(overrides = {}) {
   const select = name => { const tree = render(); const input = nodes(tree, node => node.type === 'input' && node.props.type === 'file')[0]; input.props.onChange({ target: { files: [{ name }], value: name } }); };
   const compactPicker = tree => button(nodes(tree, node => node.props?.storageKey === 'distribute-import')[0].props.summary, '파일 선택');
   const editFarmText = text => nodes(render(), node => node.props?.['aria-label'] === '농장분배 카톡 내용')[0].props.onChange({target:{value:text}});
-  return { render, button, compactPicker, editFarmText, select, calls, downloads, cleanup: () => refs.forEach(ref => ref.current?.abortAll?.()) };
+  return { render, nodes, button, compactPicker, editFarmText, select, calls, downloads, cleanup: () => refs.forEach(ref => ref.current?.abortAll?.()) };
 }
 
 test('actual page allows file selection while read waits; newer file owns download and loading state', async () => {
   const f = fixture();
   try {
     f.select('first.xlsx');
+    assert.equal(f.calls.length,0,'selecting a file never generates before the allocation choice');
+    void f.button(f.render(),'물량표 바로 생성').props.onClick();
     assert.equal(f.calls.length, 1);
     assert.equal(f.button(f.render(), '파일 선택').props.disabled, false);
     f.select('second.xlsx');
+    void f.button(f.render(),'물량표 바로 생성').props.onClick();
     assert.equal(f.calls.length, 2, 'new selection starts its own generation even while old downloading state was true');
     assert(f.calls[0].options.signal.aborted);
     await Promise.resolve(); await Promise.resolve();
@@ -70,7 +73,7 @@ test('2/5/10/20 mounted staff pages accept independent normal files while anothe
   for (const count of [2, 5, 10, 20]) {
     const screens = Array.from({ length: count }, () => fixture());
     try {
-      screens.forEach((screen, index) => screen.select(`staff-${index}.xlsx`));
+      screens.forEach((screen, index) => {screen.select(`staff-${index}.xlsx`);void screen.button(screen.render(),'물량표 바로 생성').props.onClick();});
       assert(screens.every(screen => screen.calls.length === 1 && !screen.button(screen.render(), '파일 선택').props.disabled));
       // First staff's network request remains pending while everyone else finishes.
       screens.slice(1).forEach(screen => screen.calls[0].resolve({ ok: true, blob: async () => ({}) }));
@@ -94,7 +97,7 @@ test('collapsed upload header exposes a file picker while reading and observes t
 test('editing the farm note during a download suppresses the old result and releases the download button', async () => {
   const view=fixture();
   try {
-    view.select('draft.xlsx');view.editFarmText('새 메모');
+    view.select('draft.xlsx');void view.button(view.render(),'물량표 바로 생성').props.onClick();view.editFarmText('새 메모');
     view.calls[0].resolve({ok:true,blob:async()=>({})});
     await new Promise(resolve=>setImmediate(resolve));
     assert.deepEqual(view.downloads,[]);
@@ -106,23 +109,41 @@ test('upload enables farm-only apply and field download before ERP quantity vali
   const view=fixture();
   try {
     view.select('46-02 장미 물량표.xlsx');
-    view.calls[0].resolve({ok:true,blob:async()=>({})});
-    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(view.calls.length,0);
     const download=view.button(view.render(),'신형 물량표 다운로드');
     assert.equal(download.props.disabled,false);
     const farm=view.button(view.render(),'카톡 농장 적용');
     assert.equal(farm.props.disabled,false);
     const pending=farm.props.onClick();
-    assert.match(view.calls[1].url,/distribute-import-farms$/);
-    view.calls[1].resolve({ok:true,json:async()=>({success:true,changed:1})});
+    assert.match(view.calls[0].url,/distribute-import-farms$/);
+    view.calls[0].resolve({ok:true,json:async()=>({success:true,changed:1})});
     await pending;
     const exportPending=download.props.onClick();
-    assert.match(view.calls[2].url,/field-sources/);
-    view.calls[2].resolve({ok:true,json:async()=>({items:[{id:'r',revision:'1',filename:'46-02 장미 물량표.xlsx'}]})});
+    assert.match(view.calls[1].url,/field-sources/);
+    view.calls[1].resolve({ok:true,json:async()=>({items:[{id:'r',revision:'1',filename:'46-02 장미 물량표.xlsx'}]})});
     await new Promise(resolve=>setImmediate(resolve));
-    assert.match(view.calls[3].url,/field-sources/);
-    view.calls[3].resolve({ok:true,blob:async()=>({}),headers:{get:()=>null}});
+    assert.match(view.calls[2].url,/field-sources/);
+    view.calls[2].resolve({ok:true,blob:async()=>({}),headers:{get:()=>null}});
     await exportPending;
-    assert.equal(view.downloads.length,2);
+    assert.equal(view.downloads.length,1);
   } finally {view.cleanup();}
+});
+
+test('addition and download selection invalidate prior approval; ordinary explicit generation remains available',()=>{
+  const verified={success:true,distributionMode:'ADD',downloadKind:'FINAL',rows:[],unmatched:[],replacementPlan:'signed',exportPlan:'signed-export'};
+  const f=fixture({preview:verified});
+  try {
+    const toggle=()=>f.nodes(f.render(),n=>n.props?.['aria-label']==='기존 분배에 합산하기')[0];
+    assert.equal(toggle().props.checked,false,'ordinary workbook default is replacement');
+    toggle().props.onChange({target:{checked:true}});
+    assert.equal(toggle().props.checked,true);
+    assert.equal(f.button(f.render(),'승인 후 주문등록+분배').props.disabled,true);
+    assert.equal(f.button(f.render(),'검증된 엑셀 다운로드').props.disabled,true);
+    const radios=f.nodes(f.render(),n=>n.type==='input' && n.props.type==='radio');
+    assert.equal(radios.length,2);assert.equal(radios[0].props.checked,true);
+    radios[1].props.onChange();
+    assert.equal(f.nodes(f.render(),n=>n.type==='input' && n.props.type==='radio')[1].props.checked,true);
+    assert.equal(f.button(f.render(),'물량표 바로 생성').props.disabled,true,'ADD cannot bypass verified quantity by a quick export');
+    assert.equal(f.button(f.render(),'카톡 농장 적용').props.disabled,true,'ADD saves quantity and farms atomically');
+  }finally{f.cleanup();}
 });

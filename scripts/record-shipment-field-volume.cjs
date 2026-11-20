@@ -50,7 +50,7 @@ const area='textarea[aria-label="농장분배 카톡 내용"]';await page.$eval(
 await step(2,'farm','카톡 내용을 붙여넣어 업체·품목·농장을 지정합니다',area,async()=>{await page.focus(area);await page.type(area,'-연습업체\n돈셀 3(연습농장)',{delay:90});});
 await mark('카톡 농장 적용');await step(2,'farm','카톡 농장 적용으로 기존 출고의 농장만 저장합니다','[data-field-focus]',async()=>{await(await button('카톡 농장 적용')).click();await page.waitForFunction(()=>document.body.innerText.includes('농장분배 1건 적용 완료'));});
 assert.equal(previewCount,0);
-const combine=await page.waitForSelector('label:has(input[type=checkbox]):not(fieldset label) input[type=checkbox]');assert(await combine.evaluate(el=>el.checked));await combine.click();
+const combine=await page.waitForSelector('label:has(input[type=checkbox]):not(:has(input[aria-label="기존 분배에 합산하기"])):not(fieldset label) input[type=checkbox]');assert(await combine.evaluate(el=>el.checked));await combine.click();
 await mark('신형 물량표 다운로드');await step(3,'generate','1차 물량 합산을 풀고 2차 작업량을 다운로드합니다','[data-field-focus]',async()=>{const b=await button('신형 물량표 다운로드');await b.focus();await page.keyboard.press('Tab');await page.keyboard.down('Shift');await page.keyboard.press('Tab');await page.keyboard.up('Shift');assert(await b.evaluate(e=>e===document.activeElement));await page.keyboard.press('Enter');await page.waitForFunction(()=>![...document.querySelectorAll('button')].some(b=>b.textContent.includes('다운로드 준비')));});
 await new Promise(r=>setTimeout(r,600));assert.equal(exportCount,1);assert.equal(stage,2);const downloaded=path.resolve('.verify/field-volume/input-신형현장물량표.xlsx');assert(fs.existsSync(downloaded),'actual downloaded workbook missing');assert.deepEqual(fs.readFileSync(downloaded),f.currentOutput);
 await page.screenshot({path:'.verify/field-volume/page-1920.png',fullPage:true});

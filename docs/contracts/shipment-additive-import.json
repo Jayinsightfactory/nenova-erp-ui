@@ -1,0 +1,108 @@
+{
+  "id": "shipment-additive-import",
+  "title": "분배 엑셀 선택 합산·최종/추가분 다운로드",
+  "scope": [
+    "lib/shipmentImportMode.js",
+    "lib/shipmentImportWorkbook.js",
+    "lib/shipmentImport.js",
+    "lib/shipmentFarmImport.js",
+    "lib/shipmentReplacementPlan.js",
+    "pages/api/shipment/distribute-import-preview.js",
+    "pages/api/shipment/distribute-import-apply.js",
+    "pages/api/shipment/distribute-import-export.js",
+    "pages/shipment/distribute-import.js",
+    "__tests__/shipmentAdditiveImport.test.cjs",
+    "scripts/smoke-shipment-additive.cjs",
+    "scripts/record-shipment-additive-guide.cjs",
+    "desktop/package.json",
+    "desktop/menu.json",
+    "config/workflow-guides.json",
+    "lib/importApplyClient.js",
+    "__tests__/shipmentImportFileEntryUi.test.cjs",
+    "__tests__/importProgressJournal.test.cjs",
+    "components/Layout.js",
+    "package.json",
+    "desktop/package-lock.json",
+    "__tests__/shipmentReplacementPlan.test.js",
+    "__tests__/shipmentImportManualSkip.test.js",
+    "__tests__/shipmentAdditiveApply.test.cjs",
+    "__tests__/helpers/shipmentImportLoader.cjs",
+    "__tests__/shipmentImportFinalStateRollback.test.js",
+    "__tests__/shipmentImportCustomerExclusionPreview.test.js",
+    "__tests__/shipmentFarmTextImport.test.cjs",
+    "scripts/record-shipment-field-volume.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "PREVIEW_EXPORT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentFarm": "preserve",
+      "shipmentDate": "preserve"
+    },
+    {
+      "name": "ADD",
+      "orderDetail": "create-positive",
+      "existingOrderDetail": "preserve-existing/create-positive-if-absent",
+      "shipmentDetail": "set-final-nonnegative",
+      "quantityPolicy": "set-signed-existing-plus-input",
+      "shipmentFarm": "preserve-existing/add-explicit-increment",
+      "shipmentDate": "existing-quantity-sync-helper",
+      "estimate": "preserve-direct-ledger",
+      "stock": "preserve-direct-ledger"
+    },
+    {
+      "name": "FINAL",
+      "scope": "current-visible-matched-pairs-only",
+      "shipmentDetail": "set-final-nonnegative",
+      "orderDetail": "replace-positive_preserve-zero-blank-missing",
+      "shipmentFarm": "existing-file-policy"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 same week/customer/product: only explicitly selected year participates; file provenance never chooses target year."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/plans/additive-distribution-2026-11-20.md",
+    "source": "actual dnSpy.Console.exe FormShipmentDistribution",
+    "methods": [
+      "btnSave_Click",
+      "grdViewShipment_FocusedRowChanged"
+    ],
+    "tables": [
+      "OrderDetail",
+      "ShipmentDetail",
+      "ShipmentFarm",
+      "ShipmentDate",
+      "ViewWarehouse"
+    ]
+  },
+  "requiredTestFiles": [
+    "__tests__/shipmentAdditiveImport.test.cjs",
+    "__tests__/shipmentAdditiveApply.test.cjs"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "criteria": {
+    "default": "REPLACE",
+    "add": "group normalized source increments, add baseline once per pair, set signed target",
+    "zeroMissing": "preserve in ADD",
+    "farms": "ADD-only partial preservation; no scaling; exact added amount if provided; no overallocation",
+    "files": "explicit FINAL or ADDITIONAL; reject mismatched upload mode; no silent mode switch",
+    "finalFileScope": "resolved visible cells only; never metadata key expansion",
+    "retry": "fixed target and quantity+farm stale checks; no automatic post-success re-add"
+  }
+}
