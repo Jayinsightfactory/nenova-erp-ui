@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { analyzeImportMessage, classifyImportFeed, importCustomerAliases, readLatestOrderImports, latestImportFeed } from '../lib/importKakaoOrderText.js';
-import { readRecentImports, importItemView, farmTotals, importTotalsText } from '../lib/importKakaoAdditions.js';
+import { readRecentImports, importItemView, farmTotals, groupImportTotals, importTotalsText } from '../lib/importKakaoAdditions.js';
 const message=(text,id='a',time='2026년 11월 18일 오전 9:00')=>({id,time,text,sender:'fixture',items:[]});
 const parse=text=>analyzeImportMessage(message(text));
 const totals=messages=>farmTotals(classifyImportFeed({messages}).messages.flatMap(m=>m.items.map(i=>importItemView(i))));
@@ -53,7 +53,14 @@ const conflict=[...raw];conflict[8]='다른업체';assert.equal(importCustomerAl
 const invalid=parse('46-1 콜 수국 발주 추가\n화이트 0박스');assert(!importItemView(invalid.items[0]).checked);
 assert.equal(parse('46-1 콜 수국 발주 추가\n화이트 1,000박스').items[0].quantity,'1000');
 assert.equal(parse('46-1 콜 수국 발주 추가\n화이트 10박스\n블루 3~5박스').kind,'review');
-assert.match(importTotalsText(sum),/2026\/46-01차 · 콜롬비아 · 수국 · 화이트 40 박스 \(주광 10\)/);
+assert.equal(importTotalsText(sum),'2026년 · 46-01차\n콜롬비아 · 수국\n- 화이트 40 박스 (주광 10) · 요청: 주광: (좋은 농장에서 추가 부탁합니다.)');
+const grouped = groupImportTotals([
+  sum[0], {...sum[0],unit:'단'}, {...sum[0],year:'2025'},
+  {...sum[0],country:'',group:'장미'}, {...sum[0],week:'46-02'},
+]);
+assert.deepEqual(grouped.map(v=>[v.year,v.week]),[['2026','46-02'],['2026','46-01'],['2025','46-01']]);
+assert.deepEqual(grouped[1].groups.map(v=>v.label),['콜롬비아 · 수국','국가 미상 · 장미']);
+assert.deepEqual(grouped[1].groups[0].rows.map(v=>v.unit),['단','박스']);
 const header='요청번호|항목|원문 시각|원문 작성자|분석 담당자|담당자 카톡|차수|원문 거래처|매칭 거래처|원문 품목|매칭 품목|수량|단위|매칭 판정|품목 후보|처리 상태|확인 필요사항|원문|검토 결과|거래처 수정|품목 수정'.split('|');
 const sheetRow=(id,text,at)=>{const r=Array(21).fill('');r[0]=id;r[1]='0';r[2]=at;r[17]=text;r[15]='ignored';return r;};
 const feed=classifyImportFeed(readRecentImports([header,sheetRow('raw',a,'2026년 11월 18일 오전 9:00'),sheetRow('old',a,'2025년 11월 18일 오전 9:00'),sheetRow('info','사진 3장','2026년 11월 18일 오전 9:01')],new Date('2026-11-18T01:00:00Z')));
