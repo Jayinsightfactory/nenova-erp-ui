@@ -1,5 +1,12 @@
 # 작업 기록
 
+## 2026-11-20 업무데이터 3축 이해도 지표(`understanding-3axis`) 피처 수신 허용 (feat/work-data-3axis-ingest, 연결 목표: g01, g19)
+- 원인: `nenova-work-features/metrics-3axis.js`가 매일 07:00 `/api/work/feature-data-ingest`로 `understanding-3axis`(디테일·신뢰도·파악량 3축 지표)를 업로드하지만 `lib/workFeatureData.js` `FEATURE_NAMES`에 미등록되어 매일 `HTTP 400`으로 탈락.
+- 수정: `lib/workFeatureData.js`(`FEATURE_NAMES`에 `'understanding-3axis'` 추가, `FEATURE_NAME_MAX` 2MB 상한 설정) 및 `__tests__/workFeatureData.test.js` 단위 테스트 보강. ERP 원장·SQL·데스크톱 변경 없음.
+- 검증: `node __tests__/workFeatureData.test.js` PASS (2MB 413 초과 차단·generatedAt 검증·runtime 우선 읽기 확인).
+- 인계 5줄: ①저장소=`nenova-erp-ui`(worktree `nw-swm-work-data-boost`) ②수정=`lib/workFeatureData.js`, `__tests__/workFeatureData.test.js` ③남은 것=배포 후 `nenova-work-features/metrics-3axis.js` 업로드 `200 ok` 확인 ④검증=단위테스트·CI ⑤잠금 없음.
+- 검색어: understanding-3axis workFeatureData FEATURE_NAMES feature-data-ingest 400 업무데이터 3축 이해도 g01 g19
+
 ## 2026-11-19 업무 화면 목적 우선(Purpose-First) 실시간 트레이스 도면 — /work/manuals · /import/pipeline (feat/work-purpose-trace-motion)
 - 사장님 지시: "이런 형태로 모션·디자인이 업무도 PM도 들어갔으면 하고, 목적이 중요하게 표시되어야 한다" — 레퍼런스(실시간 아키텍처 트레이스 도면: 모눈 캔버스 + 01→02 단계 카드 + 직교 S-커브 배선 + 완료 초록/실행 중 파란 점선 흐름/대기 회색).
 - 신규 공용 components/work/PurposeFlowTrace.js: 최상단 「업무 핵심 목적 · PURPOSE」 콜아웃(17px 목적 + 15px 막는 문제·완료 결과물) → 캔버스 단계 카드(담당/표면 라벨·단계명 14.5px·단계 목적 1줄·기준/도구 토큰 박스·상태 배지). 완료=#059669 테두리+좌 4px 바+실선+패킷 점(SMIL animateMotion), 실행 중=#2563eb+#eff6ff+파란 점선(stroke-dashoffset), 대기=#cbd5e1. [AUTO 1x] 단추로 모션 재생/정지, prefers-reduced-motion 이면 자동 정지. 카드 클릭=onSelectStep(부모 활성 단계와 양방향).
