@@ -14,14 +14,22 @@ const products = [{ ProdKey: 1, ProdName: '장미 레드 50' }, { ProdKey: 2, Pr
 const docId = '11111111-1111-8111-8111-111111111111', lineId = '44444444-4444-8444-8444-444444444444';
 const header = { WarehouseKey: 9001, OrderYear: '2026', OrderWeek: '45-01', FarmName: '연습농장 가', InvoiceNo: 'GUIDE-001', AWB: '000-1234 5678', InputDate: '2026-11-05', UploadDtm: '2026-11-05', totalBox: 10, totalBunch: 100, totalSteam: 1000, GrossWeight: 20, ChargeableWeight: 20, FreightRateUSD: 2 };
 const before = [{ WdetailKey: 101, ProdKey: 1, ProdName: products[0].ProdName, OrderCode: '연습', BoxQuantity: 10, BunchQuantity: 100, SteamQuantity: 1000, SteamOf1Box:100, SteamOf1Bunch:10, OutQuantity: 100, EstQuantity: 100, UPrice: 1, TPrice: 100, 주문코드: '연습', 단위: '단', 단송이: 10, 박스송이: 100, 단가: 1, 총액: 100 }];
-const scenarioTitles = { farm: '농장만 수정', product: '품목·수량 함께 변경', quantity: '수량만 변경·부족 문제 해결',add:'기존 입고에 품목·수량 추가',cancel:'기존 입고의 품목·수량 취소' };
+const scenarioTitles = { farm: '농장만 수정', price: '입고 단가만 변경', product: '품목·수량 함께 변경', quantity: '수량만 변경·부족 문제 해결',add:'기존 입고에 품목·수량 추가',cancel:'기존 입고의 품목·수량 취소' };
 
 function correction(scenario) {
+  if (scenario === 'price') return {warehouseKey:9001,orderYear:'2026',orderWeek:'45-01',mode:'REPLACE',editKind:'PRICE',farmName:header.FarmName,price:{sourceWdetailKey:101,expectedUnitPrice:1,unitPrice:2}};
   const item=(p,qty,source=101)=>({sourceWdetailKey:source,prodName:p.ProdName,orderCode:'연습',boxQty:qty/10,bunchQty:qty,steamQty:qty*10,steamOf1Box:100,steamOf1Bunch:10,unitPrice:1,totalPrice:qty});
   return {warehouseKey:9001,orderYear:'2026',orderWeek:'45-01',mode:scenario==='farm'?'FARM':'REPLACE',editKind:{farm:'FARM',product:'PRODUCT',quantity:'QUANTITY',add:'ADD',cancel:'CANCEL'}[scenario],farmName:scenario==='farm'?'연습농장 나':header.FarmName,
     ...(scenario==='farm'?{}:{fileName:'입고행 직접 정정',fileMeta:{},items:scenario==='add'?[item(products[0],100),item(products[1],20,null)]:[item(scenario==='product'?products[1]:products[0],scenario==='quantity'?80:scenario==='cancel'?0:100)]})};
 }
 function previewFor(c) {
+  if (c.editKind === 'PRICE') {
+    assert.equal(c.price.sourceWdetailKey, 101);
+    assert.equal(c.price.expectedUnitPrice, 1);
+    const after = [{...before[0],UPrice:c.price.unitPrice,TPrice:before[0].OutQuantity*c.price.unitPrice}];
+    const changes = [{prodKey:1,prodName:products[0].ProdName,unit:'단',before:100,after:100,delta:0}];
+    return {success:true,canCommit:true,issues:[],farmBefore:header.FarmName,farmAfter:c.farmName,before,after,changes,scenario:'price'};
+  }
   const scenario={FARM:'farm',PRODUCT:'product',QUANTITY:'quantity',ADD:'add',CANCEL:'cancel'}[c.editKind]??(c.mode==='FARM'?'farm':c.items?.[0]?.prodName===products[1].ProdName?'product':'quantity');
   const after=c.mode==='FARM'?clone(before):c.items.map(item=>{const p=products.find(p=>p.ProdName===item.prodName);assert(p,'fixture exact product');return {SourceWdetailKey:item.sourceWdetailKey,ProdKey:p.ProdKey,ProdName:p.ProdName,OrderCode:item.orderCode,BoxQuantity:Number(item.boxQty),BunchQuantity:Number(item.bunchQty),SteamQuantity:Number(item.steamQty),SteamOf1Box:Number(item.steamOf1Box),SteamOf1Bunch:Number(item.steamOf1Bunch),OutQuantity:Number(item.bunchQty),EstQuantity:Number(item.bunchQty),UPrice:Number(item.unitPrice),TPrice:Number(item.totalPrice)};});
   const keys=[...new Set([...before,...after].map(r=>r.ProdKey))];
@@ -49,7 +57,7 @@ function requestFixture(scenario, index) {
     baseline: { receipt: { header, details: before }, receiptPlan: p, products }, matching: { rows: [], farms: [], receiptMappings: [], farmGroups: [], financial: { acknowledged: false, reason: '', costInputs: [] } } };
 }
 async function recordRole(browser, base, secret, role) {
-  const isImport = role === 'import', requests = isImport ? [] : ['farm', 'product', 'quantity'].map(requestFixture);
+  const isImport = role === 'import', requests = isImport ? [] : ['farm', 'product', 'quantity', 'price'].map(requestFixture);
   let loseApproval=dry&&!isImport,lostApproval=null,replayedApproval=false;
   const page = await browser.newPage();page.setDefaultNavigationTimeout(120000);const errors = [], posts = [];
   let packingSaves = 0;
@@ -129,7 +137,7 @@ async function recordRole(browser, base, secret, role) {
   await page.waitForSelector('nav[aria-label="입고 정정 처리 단계"]');
   const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},unfocus:async()=>{},stop: async () => null } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 수정 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset: 'veryfast' });
   let stepNumber=1,currentCaption='1. 조작할 위치를 확인합니다.';
-  const hold = async (text, seconds = 5) => { currentCaption=`${stepNumber}. ${text.replace(/^\d+\. /,'')}`;await rec.caption(currentCaption); await rec.pause(seconds * 1000); };
+  const hold = async (text, seconds = 5) => { currentCaption=`${stepNumber}. ${text.replace(/^\d+\. /,'')}`;await rec.caption(currentCaption); await rec.pause(Math.min(seconds, 7) * 1000); };
   const focusTarget=async element=>{
     await rec.caption(currentCaption);
     await element.evaluate(n=>{n.scrollIntoView({behavior:'instant',block:'center'});n.dataset.incomingGuideTarget='current';});
@@ -162,7 +170,7 @@ async function recordRole(browser, base, secret, role) {
   try {
     await hold(isImport ? '수입부는 기존 입고에서 수정할 내용과 사유를 입력하고 요청합니다.\n영업지원 최종 확정 전까지 원장은 바뀌지 않습니다.' : '요청을 열면 시스템이 입고·분배·재고·원가·손익을 자동 검증합니다.\n영향 차수별 분배 검토창에서 분배·확정 상태를 확인하고 수정합니다.', 7);
     if(!isImport)await click('검토·확정');
-    for(const [index,scenario] of (isImport?['farm','product','quantity','add','cancel']:['farm','product','quantity']).filter(s=>!onlyScenario||s===onlyScenario).entries()){
+    for(const [index,scenario] of (isImport?['farm','product','quantity','add','cancel','price']:['farm','product','quantity','price']).filter(s=>!onlyScenario||s===onlyScenario).entries()){
       stepNumber=index+1;console.log(`${dry?'CHECK':'RECORD'} ${role}: ${scenario}`);rec.chapter(scenario,`${stepNumber}. ${scenarioTitles[scenario]}`);
       if(isImport){
         if(scenario==='farm'){
@@ -227,8 +235,13 @@ async function recordRole(browser, base, secret, role) {
           await select('select[aria-label="변경 농장"]','연습농장 나');
         }
         else{
-          await select('select[aria-label="수정 종류"]',{product:'PRODUCT',quantity:'QUANTITY',add:'ADD',cancel:'CANCEL'}[scenario]);
-          if(scenario==='product'){
+          await select('select[aria-label="수정 종류"]',{product:'PRODUCT',quantity:'QUANTITY',add:'ADD',cancel:'CANCEL',price:'PRICE'}[scenario]);
+          if(scenario==='price'){
+            await select('select[aria-label="단가 변경 입고행"]','101');
+            await fill('input[aria-label="새 단가"]','2');
+            await page.waitForFunction(()=>document.querySelector('dialog[open]')?.textContent.includes('수정 후 총액 200'));
+            await hold('입고행과 기존 단가를 확인하고 새 단가 2를 입력합니다. 기존 100단에 맞춰 총액 200으로 계산됩니다.',6);
+          }else if(scenario==='product'){
             await fill('input[aria-label="1행 품목 검색"]',products[1].ProdName);
             await fill('input[aria-label="1행 최종수량"]','90');
             await hold('기존 포장·매입값을 제안값으로 보존하고 다른 품목과 최종 90단을 정합니다.\n새 품목의 원가 근거는 영업지원 검증 문제로 전달됩니다.',6);
@@ -254,6 +267,10 @@ async function recordRole(browser, base, secret, role) {
         assert(scenarioRequest,'Scenario request fixture missing');
         await click(`#${scenarioRequest.requestId} 열기`);await page.waitForFunction(()=>document.body.textContent.includes('최종 반영 전후'));
         await hold(`${index+1}. ${scenarioTitles[scenario]}\n요청값과 자동 검증 결과를 확인합니다.`,5);
+        if(scenario==='price'){
+          await page.waitForFunction(()=>[...document.querySelectorAll('caption')].some(x=>x.textContent==='입고 단가 변경'));
+          await hold('요청된 기존·새 단가와 총액을 확인합니다. 품목과 수량은 유지하고 연결 원가·손익만 검토합니다.',7);
+        }
         if(dry&&scenario==='farm')await page.screenshot({path:'.verify/simple-support-no-problem.png',fullPage:false});
         if(scenario==='farm')await hold('문제가 없어도 영향 차수별 분배 검토창을 열어 확인할 수 있습니다.\n농장만 바뀌므로 분배·재고·견적·매출 금액을 보존합니다.',7);
         if(scenario==='product'){
@@ -303,13 +320,13 @@ async function recordRole(browser, base, secret, role) {
       }
     }
     if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
-    await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click('#1 열기');await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
+    await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click(onlyScenario==='price'&&!isImport?'#4 열기':'#1 열기');await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
     if (isImport && !onlyScenario) {
       console.log(`${dry?'CHECK':'RECORD'} import: packing-quantity`);
       await page.goto(`${base}/incoming?popup=1`,{waitUntil:'networkidle0'});
       await rec.restoreOverlay?.();
-      stepNumber=6;
-      rec.chapter('packing-quantity','6. 단 수량을 확인하고 새 입고 저장');
+      stepNumber=7;
+      rec.chapter('packing-quantity','7. 단 수량을 확인하고 새 입고 저장');
       await hold('엑셀 업로드에서 연습 패킹리스트를 엽니다.',5);
       const xlsx=require('xlsx-js-style');
       const grid=[['PACKING LIST'],['','','연습농장 가','','','','45-01','','','','GUIDE-NEW'],
@@ -336,7 +353,7 @@ async function recordRole(browser, base, secret, role) {
       assert.equal(packingSaves,1);
     }
     assert.deepEqual(errors, []);
-    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (onlyScenario?1:isImport?5:3)+(dry&&!isImport?1:0));
+    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (onlyScenario?1:isImport?6:4)+(dry&&!isImport?1:0));
     if(dry&&!isImport)assert(replayedApproval,'lost approval retry must reuse the same operation');
     const result = await rec.stop(); stopped = true;
     if (!dry) { const guide = workflow.guides.find(item => item.id === role); guide.status = 'ready'; guide.chapters = result.chapters; fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n'); }

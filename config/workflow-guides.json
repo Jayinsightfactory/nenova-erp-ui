@@ -592,7 +592,8 @@
       "requiredScenarios": [
         "farm",
         "product",
-        "quantity"
+        "quantity",
+        "price"
       ],
       "guides": [
         {
@@ -607,32 +608,37 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 7.015
+              "seconds": 7.005
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 167.514
+              "seconds": 167.636
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 265.648
+              "seconds": 264.87
             },
             {
               "scenario": "add",
               "title": "4. 기존 입고에 품목·수량 추가",
-              "seconds": 348.424
+              "seconds": 346.919
             },
             {
               "scenario": "cancel",
               "title": "5. 기존 입고의 품목·수량 취소",
-              "seconds": 464.206
+              "seconds": 459.964
+            },
+            {
+              "scenario": "price",
+              "title": "6. 입고 단가만 변경",
+              "seconds": 541.327
             },
             {
               "scenario": "packing-quantity",
-              "title": "6. 단 수량을 확인하고 새 입고 저장",
-              "seconds": 581.393
+              "title": "7. 단 수량을 확인하고 새 입고 저장",
+              "seconds": 664.983
             }
           ]
         },
@@ -648,17 +654,22 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.207
+              "seconds": 14.232
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 58.588
+              "seconds": 58.535
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 142.574
+              "seconds": 143.21
+            },
+            {
+              "scenario": "price",
+              "title": "4. 입고 단가만 변경",
+              "seconds": 273.715
             }
           ]
         }
@@ -2074,23 +2085,23 @@
           "chapters": [
             {
               "scenario": "pulse",
-              "title": "1. 상단 맥박 스트립과 아침 1분 점검 코스에서 결재·에이전트·원가 경보를 확인합니다.",
-              "seconds": 0.011
+              "title": "1. 최상단 3중 병렬 AGI 트레이스 도면과 내 목표·정합성·선제 실행 제안 보드를 확인합니다.",
+              "seconds": 0.076
             },
             {
               "scenario": "ledger",
               "title": "2. PM 업무 원장에서 전체·진행중·완료 탭을 전환하고 안건명·PR 번호로 검색합니다.",
-              "seconds": 10.05
+              "seconds": 11.55
             },
             {
               "scenario": "queue",
               "title": "3. 다음 연속 구현 대기 큐에서 READY 과제를 골라 구현 지시서를 복사합니다.",
-              "seconds": 20.351
+              "seconds": 22.521
             },
             {
               "scenario": "directory",
               "title": "4. 하단 4대 목적별 전체 화면 지도에서 오늘 필요한 업무 화면을 바로 엽니다.",
-              "seconds": 30.745
+              "seconds": 34.167
             }
           ]
         }

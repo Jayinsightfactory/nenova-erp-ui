@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import WorkflowGuide from '../WorkflowGuide';
+import PurposeFlowTrace from './PurposeFlowTrace';
 import {
   buildCommandHubModel,
   filterPmActionLedger,
@@ -64,6 +65,7 @@ export default function CeoCommandHub({
   initialTechRadar = null,
   initialDeviceHub = null,
   initialSelfTune = null,
+  initialOwnerTwin = null,
 }) {
   const [pmOffice, setPmOffice] = useState(initialPmOffice);
   const [staffRequests, setStaffRequests] = useState(
@@ -73,10 +75,16 @@ export default function CeoCommandHub({
   const [techRadar, setTechRadar] = useState(initialTechRadar);
   const [deviceHub, setDeviceHub] = useState(initialDeviceHub);
   const [selfTune, setSelfTune] = useState(initialSelfTune);
+  const [ownerTwinData, setOwnerTwinData] = useState(initialOwnerTwin);
 
   const [lastSyncedAt, setLastSyncedAt] = useState(initialSyncedAt || '');
   const [refreshing, setRefreshing] = useState(false);
   const [syncWarning, setSyncWarning] = useState('');
+
+  const [activeLoopStep, setActiveLoopStep] = useState('alignment-audit');
+  const [pillarFilter, setPillarFilter] = useState('ALL');
+  const [copiedTwinProposal, setCopiedTwinProposal] = useState(null);
+  const [twinCopyNotice, setTwinCopyNotice] = useState('');
 
   const [ledgerTab, setLedgerTab] = useState('all');
   const [ledgerQuery, setLedgerQuery] = useState('');
@@ -86,6 +94,7 @@ export default function CeoCommandHub({
 
   const ledgerTabRefs = useRef([]);
   const briefTriggerRef = useRef(null);
+  const twinBriefTriggerRef = useRef(null);
 
   const model = useMemo(
     () =>
@@ -96,8 +105,9 @@ export default function CeoCommandHub({
         techRadar,
         deviceHub,
         selfTune,
+        ownerTwin: ownerTwinData,
       }),
-    [pmOffice, staffRequests, adoptionLedger, techRadar, deviceHub, selfTune]
+    [pmOffice, staffRequests, adoptionLedger, techRadar, deviceHub, selfTune, ownerTwinData]
   );
 
   // 초기에 결재 대기가 있으면 기본 탭을 결재 대기로 자연스럽게 맞춘다(사용자가 탭을 누르기 전 기준)
@@ -136,11 +146,12 @@ export default function CeoCommandHub({
       fetchJsonSafe('/api/my-work/feature?name=tech-radar', signal),
       fetchJsonSafe('/api/my-work/feature?name=device-hub-status', signal),
       fetchJsonSafe('/api/my-work/feature?name=self-tune-report', signal),
+      fetchJsonSafe('/api/my-work/feature?name=owner-twin', signal),
     ]);
 
     if (signal?.aborted) return;
 
-    const [pmRes, reqRes, ledgerRes, radarRes, deviceRes, tuneRes] = results;
+    const [pmRes, reqRes, ledgerRes, radarRes, deviceRes, tuneRes, twinRes] = results;
     let failedCount = 0;
 
     if (pmRes.status === 'fulfilled') setPmOffice(pmRes.value);
@@ -161,6 +172,9 @@ export default function CeoCommandHub({
     }
     if (tuneRes.status === 'fulfilled' && tuneRes.value.data) {
       setSelfTune(tuneRes.value.data);
+    }
+    if (twinRes.status === 'fulfilled' && twinRes.value.data) {
+      setOwnerTwinData(twinRes.value.data);
     }
 
     if (failedCount >= 2) {
@@ -185,18 +199,56 @@ export default function CeoCommandHub({
   }, [loadLive]);
 
   useEffect(() => {
-    if (!copiedBrief) return undefined;
+    if (!copiedBrief && !copiedTwinProposal) return undefined;
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setCopyNotice('');
-        setCopiedBrief(null);
-        briefTriggerRef.current?.focus();
+        if (copiedTwinProposal) {
+          setTwinCopyNotice('');
+          setCopiedTwinProposal(null);
+          twinBriefTriggerRef.current?.focus();
+        }
+        if (copiedBrief) {
+          setCopyNotice('');
+          setCopiedBrief(null);
+          briefTriggerRef.current?.focus();
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [copiedBrief]);
+  }, [copiedBrief, copiedTwinProposal]);
+
+  const handleSelectLoopStep = (step) => {
+    if (!step?.id) return;
+    setActiveLoopStep(step.id);
+    if (step.targetId && typeof document !== 'undefined') {
+      const el = document.getElementById(step.targetId);
+      if (el) {
+        const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+        el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+      }
+    }
+  };
+
+  const handleCopyTwinProposal = async (proposal, event) => {
+    twinBriefTriggerRef.current = event?.currentTarget || null;
+    setCopiedTwinProposal(proposal);
+    let copied = false;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(proposal.agentBriefText);
+        copied = true;
+      }
+    } catch {
+      copied = false;
+    }
+    setTwinCopyNotice(
+      copied
+        ? `[${proposal.code} · ${proposal.goalId}] 작업 지시서를 클립보드에 복사했습니다.`
+        : `[${proposal.code} · ${proposal.goalId}] 작업 지시서를 아래 상자에 열었습니다.`
+    );
+  };
 
   const handleSelectLedgerTab = (tabId) => {
     userTouchedTabRef.current = true;
@@ -250,12 +302,17 @@ export default function CeoCommandHub({
     );
   };
 
-  const { pulse, agents, checklist, directory } = model;
+  const { pulse, agents, checklist, directory, ownerTwin } = model;
   const { metrics } = pulse;
+
+  const visiblePillars = useMemo(() => {
+    if (pillarFilter === 'ALL') return ownerTwin.pillars;
+    return ownerTwin.pillars.filter((p) => p.id === pillarFilter);
+  }, [ownerTwin.pillars, pillarFilter]);
 
   return (
     <main className={styles.hub} data-testid="ceo-command-hub">
-      {/* 1. 최상단: 연속 디벨롭 맥박 스트립 & 아침 1분 점검 코스 가이드 */}
+      {/* 1. 최상단: 핵심 목적 & 상시 3중 병렬 AGI 루프 트레이스 도면 + 연속 디벨롭 맥박 스트립 */}
       <section className={styles.headerPanel} aria-label="사장님 통합 지휘실 요약">
         <div className={styles.headerTop}>
           <div className={styles.titleArea}>
@@ -263,10 +320,10 @@ export default function CeoCommandHub({
               NENOVA COMMAND HUB · {userId || 'nenovaSS3'} 전용 · 읽기 전용 관제
             </div>
             <h1 className={styles.hubTitle} data-desktop-chrome>
-              사장님 통합 지휘실 (PM · 에이전트 · 연속 디벨롭)
+              사장님 통합 지휘실 (내 목표 · 작업 정합성 · Owner AGI · 에이전트)
             </h1>
             <p className={styles.hubSubtitle}>
-              흩어진 100여 개 화면을 헤매지 않도록 PM 결재 안건, 6대 에이전트 가동 현황, 최근 디벨롭 진척, 가브리엘 원가 경보, 목적별 전체 지도를 한 페이지에 모았습니다.
+              사장님 목표(g01~g19) 동기화, 에이전트 작업 목표정합성 감사, 나를 학습한 AGI 진화와 PM 결재·6대 에이전트·가브리엘 원가 경보를 한 화면에서 지휘합니다.
             </p>
           </div>
           <div className={styles.headerActions}>
@@ -289,6 +346,20 @@ export default function CeoCommandHub({
               도입 레이더 열기
             </Link>
           </div>
+        </div>
+
+        {/* 최상단 목적 콜아웃 & 상시 3중 병렬 AGI 5단계 실시간 트레이스 모션 도면 */}
+        <div className={styles.traceWrap}>
+          <PurposeFlowTrace
+            testId="ceo-agi-loop-trace"
+            title="상시 3중 병렬 AGI 루프 실시간 트레이스 도면 (01 → 05)"
+            purpose={ownerTwin.purpose}
+            steps={ownerTwin.traceSteps}
+            activeId={activeLoopStep}
+            onSelectStep={handleSelectLoopStep}
+            busLabel="목표 동기화 · 정합 감사 · 재학습 순환"
+            initialWidth={1280}
+          />
         </div>
 
         {/* 4대 핵심 정량 진척 KPI 스트립 */}
@@ -406,6 +477,410 @@ export default function CeoCommandHub({
 
         <div className={styles.guideWrap}>
           <WorkflowGuide workflowId="ceo-command-hub" initialRole="사장님" />
+        </div>
+      </section>
+
+      {/* 1.5. 핵심 신설 섹션: 내 목표 × 작업 정합도 × 나를 학습한 AGI (Owner Digital Twin) 3중 상시 관제 보드 */}
+      <section
+        className={styles.panel}
+        id="hub-owner-twin-board"
+        data-testid="ceo-owner-twin-board"
+        aria-labelledby="owner-twin-heading"
+      >
+        <div className={styles.panelHeader}>
+          <div>
+            <h2 id="owner-twin-heading" className={styles.sectionTitle}>
+              내 목표 × 작업 정합도 × 나를 학습한 AGI (Owner Digital Twin)
+            </h2>
+            <p className={styles.sectionSub}>
+              사장님 목표(g01~g19) 달성률, 현행 에이전트 작업의 1:1 목표 정합성 감사, 6대 의사결정 DNA와 선제 실행 제안 Top 5를 상시 동기화합니다.
+            </p>
+          </div>
+          <div className={styles.twinHeaderBadges}>
+            <span className={ownerTwin.hasLiveTwin ? styles.badgeLive : styles.badgeActive}>
+              {ownerTwin.dataModeLabel}
+            </span>
+            <span className={`${styles.badge} ${styles.tnum}`}>
+              목표 {ownerTwin.summary.totalGoalCount}개 · 정합률 {ownerTwin.summary.alignmentRatePct}%
+            </span>
+          </div>
+        </div>
+
+        {/* 3중 관제 요약 스트립 */}
+        <div className={styles.twinSummaryStrip}>
+          <div className={styles.twinSummaryCell}>
+            <span className={styles.twinSummaryLabel}>전사 목표 평균 달성률</span>
+            <div className={styles.twinSummaryRow}>
+              <strong className={`${styles.twinSummaryVal} ${styles.tnum}`}>
+                {ownerTwin.summary.overallGoalProgress}%
+              </strong>
+              <span className={`${styles.badgeActive} ${styles.tnum}`}>
+                완료 {ownerTwin.summary.doneGoalCount}/{ownerTwin.summary.totalGoalCount}
+              </span>
+            </div>
+            <span className={`${styles.twinSummaryMeta} ${styles.tnum}`}>
+              4대 전략 축 · 승인 대기 {ownerTwin.summary.approvalGoalCount}건
+            </span>
+          </div>
+
+          <div className={styles.twinSummaryCell}>
+            <span className={styles.twinSummaryLabel}>전사 작업 목표 정합률</span>
+            <div className={styles.twinSummaryRow}>
+              <strong
+                className={`${styles.twinSummaryVal} ${styles.tnum} ${
+                  ownerTwin.summary.driftCount === 0 ? styles.kpiValueOk : styles.kpiValueWarn
+                }`}
+              >
+                {ownerTwin.summary.alignmentRatePct}%
+              </strong>
+              <span className={ownerTwin.summary.driftCount === 0 ? styles.badgeLive : styles.badgeWarn}>
+                Drift {ownerTwin.summary.driftCount}건
+              </span>
+            </div>
+            <span className={`${styles.twinSummaryMeta} ${styles.tnum}`}>
+              감사 대상 {ownerTwin.alignmentAudit.totalAuditedCount}건 · 공백 경보 {ownerTwin.summary.gapAlertCount}건
+            </span>
+          </div>
+
+          <div className={styles.twinSummaryCell}>
+            <span className={styles.twinSummaryLabel}>Owner AGI 학습 성숙도</span>
+            <div className={styles.twinSummaryRow}>
+              <strong className={`${styles.twinSummaryVal} ${styles.tnum}`}>
+                {ownerTwin.summary.maturityScore}점
+              </strong>
+              <span className={`${styles.badgeLive} ${styles.tnum}`}>
+                학습 신호 {ownerTwin.summary.learnedSignalsCount}건
+              </span>
+            </div>
+            <span className={styles.twinSummaryMeta}>
+              6대 의사결정 DNA · 전역 지침 §8 상시 축적
+            </span>
+          </div>
+
+          <div className={styles.twinSummaryCell}>
+            <span className={styles.twinSummaryLabel}>선제 실행 제안 기대 효과</span>
+            <div className={styles.twinSummaryRow}>
+              <strong className={`${styles.twinSummaryValOk} ${styles.tnum}`}>
+                {ownerTwin.summary.fixedCostSavingsLabel}
+              </strong>
+            </div>
+            <span className={`${styles.twinSummaryMeta} ${styles.tnum}`}>
+              ROI·안전 최우선 Top {ownerTwin.summary.proactiveCount} 원클릭 발주
+            </span>
+          </div>
+        </div>
+
+        {/* 1단: [축 1 · 내 목표 & 실시간 달성률] + [축 2 · 목표 정합성 감사] */}
+        <div className={styles.twinTopGrid}>
+          {/* 축 1: Goal Ledger */}
+          <div className={styles.twinAxisBox} id="owner-twin-goal-ledger" data-testid="owner-twin-goal-ledger">
+            <div className={styles.twinAxisHead}>
+              <div>
+                <div className={styles.twinAxisEyebrow}>축 1 · GOAL LEDGER</div>
+                <h3 className={styles.twinAxisTitle}>내 목표 &amp; 4대 전략 축 실시간 달성률</h3>
+              </div>
+              <span className={`${styles.badge} ${styles.tnum}`}>
+                g01~g{ownerTwin.summary.totalGoalCount}
+              </span>
+            </div>
+
+            <div className={styles.stageFilterRow} role="group" aria-label="전략 축 필터">
+              <button
+                type="button"
+                aria-pressed={pillarFilter === 'ALL'}
+                className={styles.stageBtn}
+                onClick={() => setPillarFilter('ALL')}
+                data-testid="pillar-filter-ALL"
+              >
+                전체 4대 축 ({ownerTwin.summary.totalGoalCount})
+              </button>
+              {ownerTwin.pillars.map((pillar) => (
+                <button
+                  key={pillar.id}
+                  type="button"
+                  aria-pressed={pillarFilter === pillar.id}
+                  className={styles.stageBtn}
+                  onClick={() => setPillarFilter(pillar.id)}
+                  data-testid={`pillar-filter-${pillar.id}`}
+                >
+                  {pillar.orderLabel} ({pillar.avgProgress}%)
+                </button>
+              ))}
+            </div>
+
+            <div
+              className={
+                pillarFilter === 'ALL' ? styles.pillarGrid : styles.pillarGridSingle
+              }
+            >
+              {visiblePillars.map((pillar) => (
+                <article key={pillar.id} className={styles.pillarCard} data-testid={`pillar-card-${pillar.id}`}>
+                  <div className={styles.pillarTop}>
+                    <div>
+                      <div className={styles.pillarOrder}>{pillar.orderLabel}</div>
+                      <h4 className={styles.pillarTitle}>{pillar.title}</h4>
+                    </div>
+                    <strong className={`${styles.pillarPct} ${styles.tnum}`}>
+                      {pillar.avgProgress}%
+                    </strong>
+                  </div>
+                  <div className={styles.progressTrack} aria-hidden="true">
+                    <div
+                      className={
+                        pillar.avgProgress >= 75
+                          ? styles.progressFillOk
+                          : pillar.avgProgress >= 35
+                            ? styles.progressFillInfo
+                            : styles.progressFillWarn
+                      }
+                      style={{ width: `${pillar.avgProgress}%` }}
+                    />
+                  </div>
+                  <ul className={styles.goalList}>
+                    {pillar.goals.map((goal) => (
+                      <li key={goal.id} className={styles.goalRow}>
+                        <div className={styles.goalRowTop}>
+                          <span className={`${styles.goalCode} ${styles.tnum}`}>{goal.id}</span>
+                          <span className={styles.goalTitle}>{goal.title}</span>
+                          <span className={badgeClassByStatus(goal.tone)}>{goal.stateLabel}</span>
+                        </div>
+                        <div className={styles.goalRowBottom}>
+                          <div className={styles.goalMiniBarWrap}>
+                            <div className={styles.progressTrackSm} aria-hidden="true">
+                              <div
+                                className={
+                                  goal.progress >= 80
+                                    ? styles.progressFillOk
+                                    : goal.progress >= 30
+                                      ? styles.progressFillInfo
+                                      : styles.progressFillWarn
+                                }
+                                style={{ width: `${goal.progress}%` }}
+                              />
+                            </div>
+                            <span className={`${styles.goalPctText} ${styles.tnum}`}>{goal.progress}%</span>
+                          </div>
+                          <span className={styles.goalLinkedTag}>{goal.recentLinked}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          {/* 축 2: Goal Alignment Audit */}
+          <div className={styles.twinAxisBox} id="owner-twin-alignment-audit" data-testid="owner-twin-alignment-audit">
+            <div className={styles.twinAxisHead}>
+              <div>
+                <div className={styles.twinAxisEyebrow}>축 2 · GOAL ALIGNMENT AUDIT</div>
+                <h3 className={styles.twinAxisTitle}>목표에 맞게 작업되고 있는가? (1:1 매핑 감사)</h3>
+              </div>
+              <span
+                className={
+                  ownerTwin.alignmentAudit.driftCount === 0 ? styles.badgeLive : styles.badgeWarn
+                }
+              >
+                정합률 {ownerTwin.alignmentAudit.alignmentRatePct}% · Drift {ownerTwin.alignmentAudit.driftCount}건
+              </span>
+            </div>
+
+            <div className={styles.tableWrap}>
+              <table className={styles.ledgerTable} data-testid="owner-twin-alignment-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 138 }}>작업 · 에이전트</th>
+                    <th>진행 내용</th>
+                    <th style={{ width: 184 }}>전진 목표 (g01~g19)</th>
+                    <th style={{ width: 90 }}>판정</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ownerTwin.alignmentAudit.mappings.map((row) => (
+                    <tr key={row.workId}>
+                      <td>
+                        <div className={styles.ledgerTrack}>{row.workSource}</div>
+                      </td>
+                      <td>
+                        <div className={styles.alignmentWorkTitle}>{row.workTitle}</div>
+                      </td>
+                      <td>
+                        <div className={styles.alignmentGoalLine}>
+                          <span className={`${styles.goalCode} ${styles.tnum}`}>{row.goalId}</span>
+                          <span className={styles.alignmentGoalName}>{row.pillarLabel}</span>
+                        </div>
+                        <div className={styles.alignmentGoalDesc}>{row.goalTitle}</div>
+                      </td>
+                      <td>
+                        <span className={row.aligned ? styles.badgeLive : styles.badgeWarn}>
+                          {row.aligned ? row.statusLabel : '이탈 점검'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 손길이 더 필요한 목표 공백 경보 */}
+            <div className={styles.gapAlertSection} data-testid="owner-twin-gap-alerts">
+              <div className={styles.gapAlertHeader}>
+                <h4 className={styles.subBlockTitle}>손길이 더 필요한 목표 공백 경보</h4>
+                <span className={`${styles.badgeWarn} ${styles.tnum}`}>
+                  우선 보강 {ownerTwin.alignmentAudit.gapAlerts.length}건
+                </span>
+              </div>
+              <div className={styles.gapAlertList}>
+                {ownerTwin.alignmentAudit.gapAlerts.map((gap) => (
+                  <article
+                    key={gap.id}
+                    className={
+                      gap.severity === 'high' ? styles.gapAlertRowHigh : styles.gapAlertRow
+                    }
+                  >
+                    <div className={styles.gapAlertBody}>
+                      <div className={styles.gapAlertMeta}>
+                        <span className={`${styles.goalCode} ${styles.tnum}`}>{gap.goalId}</span>
+                        <strong className={styles.gapAlertTitle}>{gap.title}</strong>
+                      </div>
+                      <div className={styles.gapAlertDetail}>{gap.detail}</div>
+                    </div>
+                    <span className={styles.badge}>{gap.nextAction}</span>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2단: [축 3 · 나를 학습한 AGI 진화 현황 (6대 의사결정 DNA + 선제 실행 제안 Top 5)] */}
+        <div className={styles.twinBottomGrid} id="owner-twin-persona" data-testid="owner-twin-persona">
+          {/* 좌측: 6대 의사결정 DNA 원칙 카드 */}
+          <div className={styles.twinAxisBox}>
+            <div className={styles.twinAxisHead}>
+              <div>
+                <div className={styles.twinAxisEyebrow}>축 3 · OWNER PERSONA DIGITAL TWIN</div>
+                <h3 className={styles.twinAxisTitle}>나를 학습한 AGI · 6대 의사결정 DNA 원칙</h3>
+              </div>
+              <span className={`${styles.badgeLive} ${styles.tnum}`}>
+                성숙도 {ownerTwin.persona.maturityScore}/100
+              </span>
+            </div>
+
+            <div className={styles.maturityBarRow}>
+              <span className={styles.maturityLabel}>사장님 판단 DNA 학습 진도</span>
+              <div className={styles.progressTrack} aria-hidden="true">
+                <div
+                  className={styles.progressFillOk}
+                  style={{ width: `${ownerTwin.persona.maturityScore}%` }}
+                />
+              </div>
+              <span className={`${styles.maturityVal} ${styles.tnum}`}>
+                {ownerTwin.persona.maturityScore}% ({ownerTwin.persona.learnedSignalsCount}신호)
+              </span>
+            </div>
+
+            <div className={styles.dnaGrid} data-testid="owner-twin-dna-grid">
+              {ownerTwin.persona.principles.map((dna) => (
+                <article key={dna.id} className={styles.dnaCard} data-testid={`dna-card-${dna.id}`}>
+                  <div className={styles.dnaCardTop}>
+                    <span className={`${styles.dnaCode} ${styles.tnum}`}>{dna.id}</span>
+                    <strong className={styles.dnaTitle}>{dna.title}</strong>
+                    <span className={`${styles.dnaSignal} ${styles.tnum}`}>학습 {dna.signals}건</span>
+                  </div>
+                  <p className={styles.dnaRule}>{dna.rule}</p>
+                  <div className={styles.dnaEvidence}>근거: {dna.evidence}</div>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          {/* 우측: 나를 학습한 AGI의 선제 실행 제안 Top 5 */}
+          <div className={styles.twinAxisBox} id="owner-twin-proposals" data-testid="owner-twin-proposals">
+            <div className={styles.twinAxisHead}>
+              <div>
+                <div className={styles.twinAxisEyebrow}>PROACTIVE EXECUTION · TOP 5</div>
+                <h3 className={styles.twinAxisTitle}>나를 학습한 AGI의 선제 실행 제안 Top 5</h3>
+              </div>
+              <span className={`${styles.badgeActive} ${styles.tnum}`}>
+                원클릭 지시서 발주
+              </span>
+            </div>
+
+            {copiedTwinProposal && (
+              <div className={styles.briefDrawer} role="region" aria-label="선제 실행 작업 지시서">
+                <div className={styles.briefDrawerHead}>
+                  <strong>
+                    [{copiedTwinProposal.code} · {copiedTwinProposal.goalId}] 작업 지시서 원문
+                  </strong>
+                  <button
+                    type="button"
+                    className={styles.btnSm}
+                    onClick={() => {
+                      setTwinCopyNotice('');
+                      setCopiedTwinProposal(null);
+                      twinBriefTriggerRef.current?.focus();
+                    }}
+                  >
+                    닫기 (Esc)
+                  </button>
+                </div>
+                {twinCopyNotice && (
+                  <div
+                    className={styles.copyNotice}
+                    role="status"
+                    data-testid="twin-copy-notice"
+                    style={{ marginBottom: 8 }}
+                  >
+                    {twinCopyNotice}
+                  </div>
+                )}
+                <pre className={styles.briefPre}>{copiedTwinProposal.agentBriefText}</pre>
+              </div>
+            )}
+
+            <div className={styles.proposalList}>
+              {ownerTwin.proactiveProposals.map((proposal) => (
+                <article
+                  key={proposal.id}
+                  className={styles.proposalRow}
+                  data-testid={`twin-proposal-${proposal.code}`}
+                >
+                  <div className={styles.proposalTop}>
+                    <div className={styles.proposalTitleWrap}>
+                      <span className={`${styles.agentNo} ${styles.tnum}`}>{proposal.code}</span>
+                      <span className={`${styles.goalCode} ${styles.tnum}`}>{proposal.goalId}</span>
+                      <strong className={styles.proposalTitle}>{proposal.title}</strong>
+                    </div>
+                    <span className={styles.badgeWarn}>{proposal.urgency}</span>
+                  </div>
+                  <div className={`${styles.proposalImpact} ${styles.tnum}`}>
+                    기대 효과: {proposal.expectedImpact}
+                  </div>
+                  <div className={styles.proposalRationale}>
+                    판단 근거: {proposal.rationale}
+                  </div>
+                  <div className={styles.proposalFoot}>
+                    <span className={styles.deptText}>연결 목표: {proposal.goalTitle}</span>
+                    <div className={styles.agentLinks}>
+                      <button
+                        type="button"
+                        className={styles.btnPrimarySm}
+                        onClick={(e) => void handleCopyTwinProposal(proposal, e)}
+                        data-testid={`copy-twin-proposal-${proposal.code}`}
+                      >
+                        이 작업 지시서 복사
+                      </button>
+                      <Link href={proposal.route} className={styles.linkBtnSm}>
+                        {proposal.routeLabel}
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
