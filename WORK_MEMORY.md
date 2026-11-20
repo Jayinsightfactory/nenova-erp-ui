@@ -4249,3 +4249,11 @@ pm run test:canon 통과.
 4. 검증 상태: desktop 80개·updater 실제 다운로드 스모크·deploy 관련 테스트·신규 privateRepoDeploy(번들 오프라인 재현 3종)·test:ui-layout·guard:erp-writes 통과. 실서버 번들 배포는 머지 후 첫 실행에서만 검증 가능.
 5. 주의/잠금: 서버에 GitHub 토큰 심지 말 것. 서버 HEAD 가 러너 저장소 조상이 아니면 SERVER_HEAD_DIVERGED 로 배포가 안전 중단된다. 1차 피드 latest.yml 업로드를 빼먹으면 직원 앱이 갱신되지 않는다.
 검색어: private 전환 deploy bundle deploy-meta desktop-releases 이중 피드 g18
+
+## 2026-11-20 — 프로시저 변경 시 자동복구 hash 누락 차단
+1. 작업 위치: nenova-erp-ui / codex/stock-hash-guard-1120 / C:/Users/USER/nw-cdx-stock-hash-guard-1120 / PR 생성 전.
+2. 완료된 것: AGENTS 정본에 프로시저→hash 소비자 매핑·동시 검토 의무, checklist/가드/why-log 연결. 실제 atomic installer 준비 함수·실제 정렬 repair의 정확 CREATE/ALTER 출력4개와 자동복구 상수 목록을 오프라인 양방향 대조. 누락/unknown/중복·SQL변경/stale목록 거부 및 subprocess exit1 반례, PR/Cafe24 fail-fast·ERP suite 연결. 실제 설치 DDL bytes/업무본문/인자는 불변.
+3. 남은 할 일: PR/CI/squash/Cafe24, 최종 인계 및 새 worktree 정리. 기존 cleanup 거부 경로는 보존하고 접근하지 않음.
+4. 검증 상태: 최초 가드에서 기존 ALTER 저장형2개 누락 exit1 확인 후 이미 승인된 정확4해시로 수정. 해시가드4개·복구90개·기존 atomic/installer 회귀·canon/dnSpy PASS. 독립 npm ci, 최신 #1906 통합 전체 ERP contract/webpack build exit0. 고정 기준 f891c82c2의 manifest236/writeguard/API0·canon/dnSpy 및 배포 계약22 PASS. 운영 DB/SP 쓰기 없음.
+5. 주의/잠금: UI/URL/메뉴 변경 없음(Desktop 기존 동작 재사용). 새로운 hash를 운영 관측값으로 자동 승인하지 않음, 실행 직전 재검증·unknown 거부 보존. 연결 목표: g17/g19, 학습 반영 있음. goals.json 백업·기존 id/gate/progress55/40 보존, note/history만 연결. owner alignment98.3%, 열린 drift0; 실제 목표 진척률 증가 근거 아님. ledger/세션 무수정.
+검색어: stock-procedure-hashes prepareInstallation planStockCalculationOrderRepair CREATE ALTER missing-hash exit1 g17 g19 학습반영
