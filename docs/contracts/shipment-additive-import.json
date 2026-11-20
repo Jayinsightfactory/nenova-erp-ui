@@ -48,8 +48,10 @@
     },
     {
       "name": "ADD",
-      "orderDetail": "preserve-existing/create-positive-if-absent",
-      "shipmentDetail": "set-signed-existing-plus-input",
+      "orderDetail": "create-positive",
+      "existingOrderDetail": "preserve-existing/create-positive-if-absent",
+      "shipmentDetail": "set-final-nonnegative",
+      "quantityPolicy": "set-signed-existing-plus-input",
       "shipmentFarm": "preserve-existing/add-explicit-increment",
       "shipmentDate": "existing-quantity-sync-helper",
       "estimate": "preserve-direct-ledger",
@@ -58,8 +60,8 @@
     {
       "name": "FINAL",
       "scope": "current-visible-matched-pairs-only",
-      "shipmentDetail": "set-final",
-      "orderDetail": "existing-file-policy",
+      "shipmentDetail": "set-final-nonnegative",
+      "orderDetail": "replace-positive_preserve-zero-blank-missing",
       "shipmentFarm": "existing-file-policy"
     }
   ],

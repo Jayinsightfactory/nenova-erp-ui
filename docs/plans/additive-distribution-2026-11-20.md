@@ -37,3 +37,6 @@
 - Desktop1.3.69 메뉴 검색에 합산 명칭 연결, 단위77·실제 Electron 스모크 통과. 신규 합산6단계45초 및 기존 동일페이지 가이드를 현재 UI로 촬영, 가이드35업무/36영상 해시·번호·줌경계 검사 통과.
 - 최종 ERP 전체게이트·빌드·CI·Cafe24·운영 페이지 스모크는 다음 단계(아직 미검증).
 - 외부 증거: C:/Users/USER/.codex/visualizations/2026/11/20/additive-distribution-1120 (native-qa.json, 6xlsx/6pdf, Chrome 익명 화면). Drive 업로드 확인 전 삭제 금지.
+
+### 최종 로컬 게이트 (2026-11-20)
+프로덕션 build 통과. 전체 ERP 계약은 신규 manifest enum 오류를 고친 뒤 이미 통과한 선행·전반부를 반복하지 않고 manifest부터 나머지 명령144개 목록의 끝까지 순차 실행해 통과했다. dnSpy/manifest235개/변경 API 쓰기 가드 통과. 농장 텍스트11·현장물량표39 통과, 가이드 플레이어 MP4/VTT/키보드 목차/1920·390 통과. 실제 dnSpy 재실행 출력 SHA256=642AF0D4B6AB6A3536DDA5C124E28BA835190AD2D0468C10D33EF9DEEFB9A818. 새 기능 추가 없이 이후 CI에서 병합 최종 소스를 재검증한다.
