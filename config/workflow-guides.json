@@ -277,6 +277,7 @@
       "sourceFiles": [
         "components/CustomsSettlementUpload.js",
         "components/CustomsClearancePanel.js",
+        "components/CustomsPhase03Panel.js",
         "pages/sales/customs-clearance.js",
         "lib/customsSettlementPresentation.js",
         "lib/customsSettlementHttp.js"
@@ -285,7 +286,9 @@
         "upload",
         "review",
         "link",
-        "preserve"
+        "preserve",
+        "phase03",
+        "vietnam"
       ],
       "guides": [
         {
@@ -305,17 +308,27 @@
             {
               "scenario": "review",
               "title": "2. 타차수·판독 보류 확인",
-              "seconds": 31.342
+              "seconds": 31.305
             },
             {
               "scenario": "link",
               "title": "3. 검토건 확인 후 등록",
-              "seconds": 57.7
+              "seconds": 57.669
             },
             {
               "scenario": "preserve",
               "title": "4. 중복 방지·과거 계산본 갱신 안내",
-              "seconds": 84.06
+              "seconds": 84.004
+            },
+            {
+              "scenario": "phase03",
+              "title": "5. 03차 AWB 비용 입력·재조회",
+              "seconds": 105.535
+            },
+            {
+              "scenario": "vietnam",
+              "title": "6. 베트남 증빙 VAT 포함 기준",
+              "seconds": 158.509
             }
           ]
         }

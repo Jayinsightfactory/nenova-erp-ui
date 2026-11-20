@@ -3,6 +3,8 @@
 import { withAuth } from '../../../lib/auth';
 import { applyProfitReportColombiaRates } from '../../../lib/profitReportCustomsPolicy';
 import { requireOrderYear } from '../../../lib/orderUtils';
+import { loadSettlementContext } from '../../../lib/customsSettlementContext';
+import { phase03View, savePhase03 } from '../../../lib/customsPhase03Service';
 import { loadSettlementEvidence, settlementCountryRow, settlementColombiaRow, settlementCountryValues, settlementColombiaValues } from '../../../lib/customsSettlementEvidence';
 import { resolveCountryWeight, resolveColombiaWeight, isHistoricalWeightScope, assertInboundWeightUnchanged } from '../../../lib/customsWeightPolicy';
 import {
@@ -37,6 +39,8 @@ export default withAuth(async function handler(req, res) {
       ]);
       const activeCategories = await activeCustomsCategories(major, orderYear); // 이 차수 입고 존재 국가만 기본 노출
       const settlement = await loadSettlementEvidence(orderYear, major);
+      const settlementContext = await loadSettlementContext(orderYear, major);
+      const phase03 = phase03View(settlementContext, settlement);
 
       const [colombia, prevColombia] = await Promise.all([
         Promise.all(subWeeks.map(async (wk) => {
@@ -58,7 +62,7 @@ export default withAuth(async function handler(req, res) {
       //                  눌러야만 저장 대상이 된다.
       const countries = COUNTRY_CATEGORIES.map((cat) => {
         const originalRow = countryRows[cat] || null;
-        const row = settlementCountryRow(originalRow, settlement, cat);
+        const row = settlementCountryRow(originalRow, settlement, cat, { year: orderYear, major, awbSources: settlementContext.candidates.filter(c => c.categories.includes(cat)) });
         const prevRow = prevCountryRows[cat] || null;
         const resolved = resolveCountryCustomsTotal({ row, gwDef: autoGw.countries?.[cat], rates, category: cat, orderYear, major });
         const historical = resolved.source === HISTORICAL_CUSTOMS_SOURCE ? resolved.row : null;
@@ -108,7 +112,7 @@ export default withAuth(async function handler(req, res) {
         };
       });
 
-      return res.status(200).json({ success: true, major, orderYear, rates, countries, colombia: colombiaOut, autoGw, activeCategories });
+      return res.status(200).json({ success: true, major, orderYear, rates, countries, colombia: colombiaOut, autoGw, activeCategories, phase03 });
     }
 
     if (req.method === 'POST') {
@@ -116,6 +120,9 @@ export default withAuth(async function handler(req, res) {
       if (!major) return res.status(400).json({ success: false, error: 'week 필요' });
       const { orderYear } = requireOrderYear(`${major}-01`, req.body?.year);
       const actor = req.user?.userName || req.user?.userId || 'user';
+      if (req.body?.action === 'savePhase03') {
+        return res.status(200).json(await savePhase03({ year: orderYear, major, input: req.body.row, expectedDigest: req.body.expectedDigest, confirmed: req.body.confirmed, actor }));
+      }
 
       if (['saveCountry', 'saveCountries', 'saveColombia'].includes(req.body?.action)) {
         const autoGw = await loadWarehouseGw(major, orderYear);

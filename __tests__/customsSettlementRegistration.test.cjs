@@ -1,6 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
 const policy=require('../lib/customsSettlementPlan.cjs'),store=require('../lib/customsSettlementStore.cjs');
 require('./customsSettlementMissingCosts.test.cjs');
+require('./customsPhase03.test.cjs');
 const receipt=(id='TEST-001',awb='12312345678',net=100)=>({issuer:'SUNYUL',documentId:id,sourceHash:require('crypto').createHash('sha256').update(id).digest('hex'),awb,date:'2026-08-30',charges:[{code:'HANDLING',net,vat:net/10,total:net+net/10}],total:net+net/10,currency:'CNY',foreignAmount:100,grossWeight:1});
 const candidate=(major='35',awb='12312345678')=>({year:'2026',orderWeek:`${major}-01`,awb,matchId:`2026|${major}-01|${awb}`,targetKey:'country|중국|01',currency:'CNY',foreignAmount:100,grossWeight:1});
 const job=(receipts,major='35')=>({jobId:'00000000-0000-4000-8000-000000000001',year:'2026',major,status:'REVIEW_READY',files:receipts.map(r=>({sourceHash:r.sourceHash,status:'READY',receipt:r}))});

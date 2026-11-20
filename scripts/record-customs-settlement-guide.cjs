@@ -6,6 +6,8 @@ const dry=process.argv.includes('--dry-run');
 async function main(){
   fs.mkdirSync('.verify',{recursive:true});const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json')),workflow=registry.workflows.find(w=>w.id==='customs-settlement-zip');
   const reg=await import('../lib/customsSettlementRegistration.js'),evidence=await import('../lib/customsSettlementEvidence.js'),root=await fsp.mkdtemp(path.join(os.tmpdir(),'customs-guide-source-'));
+  const extra=await import('../lib/customsPhase03Service.js'),store=require('../lib/customsSettlementStore.cjs');
+  const extraContext={year:'2026',major:'35',candidates:[{year:'2026',orderWeek:'35-03',awb:'12377777777',targetKey:'country|중국|03',matchId:'2026|35-03|12377777777'}],saved:{},mapping:{},confirmed:false};
   const make=(id,awb)=>({issuer:'SUNYUL',documentId:id,sourceHash:crypto.createHash('sha256').update(id).digest('hex'),awb,date:'2026-08-30',charges:[{code:'DUTY',net:0,vat:0,total:1200},{code:'IMPORT_VAT',net:0,vat:0,total:5000},{code:'HANDLING',net:27000,vat:2700,total:29700},{code:'QUARANTINE_AGENCY',net:40000,vat:4000,total:44000}],total:79900});
   const receipts=[make('TEST-001','12312345678'),make('TEST-002','12399999999')],candidates=[{year:'2026',orderWeek:'35-01',awb:receipts[0].awb,targetKey:'country|태국|01'},{year:'2026',orderWeek:'34-01',awb:receipts[1].awb,targetKey:'country|미국|01'}].map(c=>({...c,matchId:`2026|${c.orderWeek}|${c.awb}`}));
   const options={root,loadCandidates:async()=>candidates,loadContext:async(year,major)=>({year,major,candidates:candidates.filter(c=>c.orderWeek.startsWith(major+'-')),saved:{},mapping:{country:{DUTY:{field:'Customs1_1',basis:'total'},HANDLING:{field:'SunYul1_1',basis:'total'},QUARANTINE_AGENCY:{field:'SunYul1_1',basis:'total'}}}})};
@@ -23,10 +25,19 @@ async function main(){
     await page.setRequestInterception(true);page.on('request',async request=>{try{
       const url=new URL(request.url());if(url.origin!==base)return request.abort();if(!url.pathname.startsWith('/api/'))return request.continue();let data={success:true,user,items:[],rows:[],data:[],countries:[],colombia:[],rates:{},autoGw:{},activeCategories:[]};
       if(url.pathname==='/api/sales/customs-clearance'){
+        if(request.method()==='POST'){
+          const body=JSON.parse(request.postData()||'{}');assert.equal(body.action,'savePhase03');
+          data=await extra.savePhase03({year:body.year,major:body.week,input:body.row,expectedDigest:body.expectedDigest,confirmed:body.confirmed,actor:'guide',root,loadContext:async()=>extraContext});
+          await request.respond({status:200,contentType:'application/json',body:JSON.stringify(data)});return;
+        }
         sourceScopes.push({year:url.searchParams.get('year'),week:url.searchParams.get('week')});
         sourceReads++;const saved={SunYul1_1:20000,SunYul1_2:47000,SunYul1_3:null,GW1:0,GW2:0};
         const ledger={values:{'country|태국|01':{Customs1_1:1200,SunYul1_1:73700}}},effectiveRow=automatic?evidence.settlementCountryRow(saved,ledger,'태국'):saved;
-        data={...data,major:'35',orderYear:'2026',activeCategories:['태국'],countries:[{category:'태국',saved,effectiveRow,...(automatic?{settlement:{values:evidence.settlementCountryValues(saved,ledger,'태국')}}:{}),weightSource:{},worldFreightAuto:{},total:67000/1.1+(automatic?1200:0),totalSource:automatic?'sun_yul_settlement_file':'saved'}]};
+        data={...data,major:'35',orderYear:'2026',phase03:extra.phase03View(extraContext,await store.readLedger(root,2026,35)),colombia:[{orderWeek:'35-01',saved:{},effectiveRow:{},boxQty:{},total:0,allocationH:{}}],activeCategories:['태국'],countries:[{category:'태국',saved,effectiveRow,...(automatic?{settlement:{values:evidence.settlementCountryValues(saved,ledger,'태국')}}:{}),weightSource:{},worldFreightAuto:{},total:67000/1.1+(automatic?1200:0),totalSource:automatic?'sun_yul_settlement_file':'saved'}]};
+        const vnSaved={SunYul1:100,SunYul1_1:100};
+        const vnLedger={documents:[{targetKey:'country|베트남|01',documentId:'TRAINING-VN',charges:[{code:'HANDLING',net:100,vat:10,total:110}]}],values:{}};
+        const vnEffective=evidence.settlementCountryRow(vnSaved,vnLedger,'베트남');
+        data.activeCategories.push('베트남');data.countries.push({category:'베트남',saved:vnSaved,effectiveRow:vnEffective,weightSource:{},worldFreightAuto:{},total:110,totalSource:'workbook_gross_evidence'});
       }
       if(url.pathname==='/api/sales/customs-settlement'){
         const body=JSON.parse(request.postData()||'{}');
@@ -58,7 +69,15 @@ async function main(){
     await target(await buttonSelector('검토 선택건 귀속·금액 재검증'),2);await click('검토 선택건 귀속·금액 재검증');await page.waitForFunction(()=>document.body.textContent.includes('2026년 34차 실제 원천'));await rec.unfocus();await say('2026년 34차 실제 원천이라는 검토 결과를 확인합니다.');await page.evaluate(()=>document.querySelectorAll('[data-guide-target]').forEach(n=>delete n.dataset.guideTarget));
     step=3;rec.chapter('link','3. 검토건 확인 후 등록');await say('실제 귀속 차수와 금액을 검토한 뒤 누락 비용 보완에 동의합니다.\n기존 DB 값은 0원을 포함해 그대로 유지합니다.');await target('[aria-label="검토 누락 비용 보완 확인"]',3);await page.click('[aria-label="검토 누락 비용 보완 확인"]');await rec.unfocus();await target(await buttonSelector('확인한 검토건 등록'),3);await click('확인한 검토건 등록');await page.waitForFunction(()=>document.body.textContent.includes('원천 등록 완료 2건'));await rec.unfocus();await say('원천 등록 완료 2건을 확인합니다. 등록 대상은 34차와 35차로 구분됩니다.');
     step=4;rec.chapter('preserve','4. 중복 방지·과거 계산본 갱신 안내');await say('같은 ZIP을 다시 올려 중복 방지를 확인합니다.\n저장·확정 계산본은 자동 변경되지 않으므로 대상 차수에서 직접 갱신해야 합니다.');await target('[aria-label="선율 정산 ZIP 연결"] input[type=file]',4);await page.$eval('input[type=file]',n=>{n.value='';});await (await page.$('[aria-label="선율 정산 ZIP 연결"] input[type=file]')).uploadFile(path.resolve('.verify/customs-guide-synthetic.zip'));await page.waitForFunction(()=>document.body.textContent.includes('원천 등록 완료 2건'));await rec.unfocus();await say('다시 올려도 완료 2건으로 유지되어 중복 등록되지 않습니다.\n정산서가 증명하지 않는 창고료·운송·한국방역까지 실제 비용으로 인증하지 않습니다.');if(!dry)await rec.pause(1800);
-    assert.deepEqual(errors,[]);await page.screenshot({path:'.verify/customs-settlement-guide.png'});const result=await rec.stop();stopped=true;
+    step=5;rec.chapter('phase03','5. 03차 AWB 비용 입력·재조회');await say('03차는 실제 입고 AWB별로 입력합니다.\n선율 공급가와 VAT를 분리하고, 수입 VAT는 비용에서 제외합니다.');
+    for(const [label,value] of [['관세','1000'],['선율 공급가','100'],['선율 VAT','10'],['수입 VAT (비용 제외)','400']]){
+      const selector=`[aria-label="12377777777 ${label}"]`;await target(selector,5);await page.click(selector);await page.keyboard.type(value);await rec.unfocus();
+    }
+    await say('관세 1,000원 + 선율 공급가 100원 = 비용 1,100원입니다.\n선율 VAT 10원·수입 VAT 400원은 비용에 더하지 않습니다.');
+    page.once('dialog',dialog=>dialog.accept());await target('[aria-label="03차 AWB별 통관 비용"] button',5);await page.click('[aria-label="03차 AWB별 통관 비용"] button');await page.waitForFunction(()=>document.querySelector('[aria-label="03차 AWB별 통관 비용"]')?.textContent.includes('원천 저장·재조회 완료'));await rec.unfocus();await say('저장 후 다시 조회한 비용 합계 1,100원을 확인합니다.\n기존 1·2차 원문과 과거 보고서는 변경하지 않습니다.');
+    assert.equal((await store.readLedger(root,2026,35)).manualPhase03[0].costs.serviceNet,100);
+    step=6;rec.chapter('vietnam','6. 베트남 증빙 VAT 포함 기준');await say('베트남 선율은 엑셀과 같은 VAT 포함 비용입니다.\n연습 예시: 공급가 100원 + 수수료 VAT 10원 = 110원. 수입 VAT는 별개로 제외합니다.');await target('[data-customs-focus-key="베트남"] input[readonly]',6);await rec.unfocus();await say('증빙과 정확히 일치한 값만 투영하며 DB 원문 100원은 보존합니다.\n이미 110원인 입력은 다시 올리지 않고, 근거 없는 과거 금액은 자동 1.1배하지 않습니다.');
+    assert.equal(await page.$eval('[data-customs-focus-key="베트남"] input[readonly]',n=>n.value),'110');assert.deepEqual(errors,[]);await page.screenshot({path:'.verify/customs-settlement-guide.png'});const result=await rec.stop();stopped=true;
     if(!dry){workflow.guides[0].status='ready';workflow.guides[0].chapters=result.chapters;fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');}console.log(JSON.stringify({result:'PASS',dry,productionWrites:0,allApisSynthetic:true,sourcePanelRefreshes:sourceReads}));
   }finally{if(rec&&!stopped){console.log(JSON.stringify({errors,alerts:await page?.$$eval('[role=alert]',els=>els.map(e=>e.textContent))}));await page?.screenshot({path:'.verify/customs-guide-failure.png'});await rec.stop().catch(()=>{});}await browser?.close();server.kill();}
 }

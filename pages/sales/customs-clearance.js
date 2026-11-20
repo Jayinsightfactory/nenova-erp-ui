@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Head from 'next/head';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 import CustomsClearancePanel from '../../components/CustomsClearancePanel';
+import MenuBackButton from '../../components/MenuBackButton';
 
 // This page selects a major separately from the year, unlike shipment week inputs.
 export function standaloneCustomsScope(year, rawWeek) {
@@ -33,10 +34,11 @@ export default function CustomsClearancePage({initialSelectedYear='',initialSele
 
   return (
     <>
-      <Head><title>📦 그외통관비 입력 - nenova ERP</title></Head>
+      <Head><title>그외통관비 입력 - nenova ERP</title></Head>
       <div style={st.page}>
         <div style={st.bar}>
-          <h1 data-desktop-chrome style={st.h1}>📦 그외통관비 입력</h1>
+          <MenuBackButton />
+          <h1 data-desktop-chrome style={st.h1}>그외통관비 입력</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
             <input style={{ ...st.weekInput, width: 70 }} value={year} onChange={e => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} aria-label="연도" />
             <input style={st.weekInput} value={week} onChange={e => setWeek(e.target.value)} aria-label="통관 차수" placeholder="27" />
@@ -51,9 +53,9 @@ export default function CustomsClearancePage({initialSelectedYear='',initialSele
 }
 
 const st = {
-  page: { padding: '10px 14px', fontFamily: "'Malgun Gothic', sans-serif", background: '#f5f7fa', minHeight: '100vh' },
+  page: { padding: '10px 14px', fontFamily: "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif", fontSize: 14, fontVariantNumeric: 'tabular-nums', background: '#f5f7fa', minHeight: '100vh' },
   bar: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' },
   h1: { fontSize: 17, fontWeight: 800, color: '#1e293b', margin: 0 },
   weekInput: { width: 90, padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: 6, textAlign: 'center', fontWeight: 700 },
-  primaryBtn: { padding: '7px 16px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: 12.5 },
+  primaryBtn: { padding: '7px 16px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: 14 },
 };

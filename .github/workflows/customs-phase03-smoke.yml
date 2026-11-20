@@ -1,0 +1,21 @@
+name: Read-only production customs phase03
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Current source and exact AWB UI without save or report refresh
+        env:
+          NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node scripts/customs-phase03-production-smoke.cjs

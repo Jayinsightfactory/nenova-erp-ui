@@ -303,6 +303,11 @@
         "popup": true
       },
       {
+        "href": "/sales/customs-clearance",
+        "labelKey": "그외통관비 · ZIP·03차 입력",
+        "popup": true
+      },
+      {
         "href": "/sales/profit-validation",
         "labelKey": "매출이익 수익률 검증",
         "popup": true
