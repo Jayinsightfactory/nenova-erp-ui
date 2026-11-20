@@ -9,7 +9,7 @@
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "8b5035d413dcc033e2292583a288adfd63f1d60fe5b71c72737b3313a8431ffa",
+  "videoSha256": "3fd2557a9d2a774a2ccf9b3270c73f6ee73b8969b35e1ca258e8c713e89378fd",
   "captionsSha256": "f227fcd2a06c7152c9d3a1112c6bb7ac65428ad4c6e5cbb8059e6f653734f8e6",
   "sourceHashes": {
     "pages/shipment/distribute-import.js": "dad0a791f7aaad8e54c86b16d55989a1dcf95aa84e29be9e91ab3419147f7bfe"
