@@ -4221,6 +4221,15 @@ pm run test:canon 통과.
 검색어: confirm-busy 42-02 카네이션 43-01 WAIT_CALC CANCEL 010c947 24a415 pendingStockRecovery approved-cursor-order retry-fingerprint
 
 
+## 2026-11-20 — EC·US EXE용 패킹 엑셀 단 수량 다운로드 검사
+1. 작업 위치: nenova-erp-ui / codex/guard-packing-export-bunch-1120 / C:/Users/USER/.codex/worktrees/5a25/nw-cdx-packing-export-bunch-1120 / #1904 후속.
+2. 완료된 것: 현재 Product 출고·견적 단위로 실제 생성 XLSX의 I열 검사. 공란·0·불일치는 개별·전체 내보내기 및 직접 POST 차단. 미국 원문 검토에서 단 필드가 없었던 행도 근거를 입력해 복구. Desktop 1.3.72.
+3. 남은 할 일: 후속 PR의 Cafe24 배포와 Windows 공식 설치본에서 추적. 이전 47-01 원장 보정 확정 0건.
+4. 검증 상태: 실제 EC/US XLSX와 API 응답, Chrome 누락 0파일·원문 40단 정정 후 I6=40/J58=400·두 파일 중 하나 거절 시 전체 0파일, 웹팩·dnSpy·쓰기 가드. 운영 입고 쓰기 없음.
+5. 주의/잠금: 도착원가 파일, 기존 생성 파일, nenova.exe 바이너리 및 운영 입고 3건의 기존 수량은 보존. 원본·마스터 구분. 연결목표:g17(55% 유지) / 학습반영:있음(P6 판단 기준).
+검색어: EC US 입고용 EXE packing-export I열 단수량 다운로드 공란 현재 품목견적 전체다운로드 1.3.72
+
+
 ## 2026-11-20 — 미리보기 닫기 시 열었던 업무 탭 복귀
 1. 작업 위치: nenova-erp-ui / codex/desktop-popup-opener-1120 / C:/Users/USER/Documents/Codex/nw-cdx-popup-opener-1120 / PR 생성 전.
 2. 완료된 것: 새 창을 업무 탭으로 열 때 실제 opener ID 저장, 활성 사용자 팝업 종료 시 원래 창과 탭 복원. 다른 탭과 작업 입력은 보존. 관련 Electron 스모크 추가.
@@ -4243,3 +4252,5 @@ pm run test:canon 통과.
 검색어: 단가만 변경 수정요청 44-03 Cloud 호접란 UPrice TPrice 230 23 CORRECTION_OLD_DETAILS_INVALID
 
 2026-11-20 확인: 미리보기 PR #1903/Cafe24 44662157882/Windows 1.3.71 공개·업데이트 피드 성공. 가격 정식 빌드 및 수입부 7단계·영업지원 4단계 실제 Chrome, 두 가이드 캡처·해시 검증 완료. 가격 Desktop 1.3.72 운영 배포 전. 연결 목표: g03/g17; g19 일반 선호만 학습 반영 있음, 진행률·gate 변경 없음.
+
+2026-11-20 #1908 최종 버전: 선행 패킹 엑셀 배포를 보존해 Desktop 1.3.73으로 조정. 차수·미리보기·가격 계약은 변경 없음.
