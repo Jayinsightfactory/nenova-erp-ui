@@ -896,7 +896,7 @@ export default function DistributeImport() {
           </label>
           {addToExisting && <fieldset style={{border:0,margin:0,padding:0,fontSize:14}} disabled={applying || !!pendingJob || additionCompleted}>
             <legend style={{fontSize:14,fontWeight:700}}>검증 후 엑셀 다운로드</legend>
-            {[['FINAL','합산본 (기존 10 + 추가 3 = 최종 13)'],['ADDITIONAL','추가분 별도 (이번 파일 3만)']].map(([value,label])=><label key={value} style={{marginRight:16,display:'inline-flex',alignItems:'center',gap:6}}>
+            {[['FINAL','합산본 (예시: 기존 10 + 추가 3 = 최종 13)'],['ADDITIONAL','추가분 별도 (예시: 이번 파일 3만)']].map(([value,label])=><label key={value} style={{marginRight:16,display:'inline-flex',alignItems:'center',gap:6}}>
               <input type="radio" name="allocation-download-kind" value={value} checked={downloadKind===value} onChange={()=>{setDownloadKind(value);invalidateFarmPreview();setMessage('다운로드 형식이 바뀌었습니다. 다시 검증하세요.');}}/>{label}
             </label>)}
             {additionCompleted && <span>반영 완료: 다운로드 형식은 검증한 선택으로 고정됩니다.</span>}
