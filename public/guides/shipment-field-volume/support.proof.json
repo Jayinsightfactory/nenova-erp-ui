@@ -9,7 +9,7 @@
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "1340061769bf4f6ae21c9443db9e69578bb8f1555e469d273cdeae1b94998222",
+  "videoSha256": "8b5035d413dcc033e2292583a288adfd63f1d60fe5b71c72737b3313a8431ffa",
   "captionsSha256": "f227fcd2a06c7152c9d3a1112c6bb7ac65428ad4c6e5cbb8059e6f653734f8e6",
   "sourceHashes": {
     "pages/shipment/distribute-import.js": "dad0a791f7aaad8e54c86b16d55989a1dcf95aa84e29be9e91ab3419147f7bfe"
@@ -68,7 +68,7 @@
   "printPreviewZoom": {
     "start": 48.538,
     "scale": 1.35,
-    "x": 0,
+    "x": 235,
     "y": 0,
     "source": "camera crop of actual captured Excel print page; product/name and stock/remainder columns preserved",
     "cameraBand": {
