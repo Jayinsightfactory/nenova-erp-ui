@@ -4156,7 +4156,7 @@ pm run test:canon 통과.
 - 검색어: 승인 OneDrive CI.pdf ERP 수신 capability 민감 권한 dedup
 - 승인 OneDrive 소스의 CI 약칭 PDF에만 기존 민감 정책을 적용하고, 데몬이 새 수신기를 토큰 인증으로 확인하는 읽기 전용 capability를 추가했다.
 
-1. 작업 위치: nenova-erp-ui / codex/approved-ci-sensitive / 격리 worktree .erp-drive-newfiles.
+1. 작업 위치: nenova-erp-ui / codex/approved-ci-sensitive / 격리 worktree .erp-drive-newfiles / PR #1900.
 2. 완료: 승인 업로드 CI PDF 분류·민감 정책과 OPTIONS capability, 수신 worker 회귀 및 파일 전용 계약.
 3. 남음: 별도 Orbit 카나리에서 정상 담당자 계정, 승인된 실제 OneDrive, 신규 업로드 및 직원 본인의 열람 검증.
 4. 검증: 수신 테스트와 전체 GitHub CI 결과를 확인하고 배포한다. 실제 직원 세션은 미검증.
