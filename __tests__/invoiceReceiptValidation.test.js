@@ -60,6 +60,19 @@ test('EC and US require a verified bunch value whenever shipment or estimate use
     assert.equal(result.lines[0].bunchQuantity,value);
   }
   assert.equal(validateInvoiceReceiptLines({...current,lines:[{...line,bunchQuantity:300}]},[p]).issues.length,0);
+  const printed = validateInvoiceReceiptLines({...current,lines:[{...line,
+    sourceEvidence:{packing:{stemsPerBunch:25}}}]},[p]);
+  assert.deepEqual(printed.issues,[]);
+  assert.equal(printed.lines[0].bunchResolution,'derived');
+  assert.equal(printed.lines[0].bunchQuantity,300);
+  const review = validateInvoiceReceiptLines({...current,lines:[line]},[p]).issues.find(issue=>issue.code==='BUNCH_QUANTITY_REQUIRED');
+  const reviewedLine = {...line,reviewed:{bunchConfirmation:{quantity:300,reason:'Printed count checked',snapshot:review.snapshot}}};
+  const confirmed = validateInvoiceReceiptLines({...current,lines:[reviewedLine]},[p]);
+  assert.deepEqual(confirmed.issues,[]);
+  assert.equal(confirmed.lines[0].bunchResolution,'confirmed');
+  assert.equal(reviewedLine.bunchQuantity,null);
+  assert.ok(validateInvoiceReceiptLines({...current,lines:[reviewedLine]},[{...p,BunchOf1Box:21}])
+    .issues.some(({code})=>code==='BUNCH_QUANTITY_REQUIRED'));
   const old = {...current,orderYear:'2025',reviewedMetadata:{country:'US',inputDate:'2025-11-17'}};
   const box = {...p,OutUnit:'박스',EstUnit:'단'};
   assert.ok(validateInvoiceReceiptLines({...old,lines:[line]},[box]).issues.some(({ code })=>code==='BUNCH_QUANTITY_REQUIRED'));
