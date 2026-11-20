@@ -4250,15 +4250,10 @@ pm run test:canon 통과.
 5. 주의/잠금: 서버에 GitHub 토큰 심지 말 것. 서버 HEAD 가 러너 저장소 조상이 아니면 SERVER_HEAD_DIVERGED 로 배포가 안전 중단된다. 1차 피드 latest.yml 업로드를 빼먹으면 직원 앱이 갱신되지 않는다.
 검색어: private 전환 deploy bundle deploy-meta desktop-releases 이중 피드 g18
 
-
-## 2026-11-20 — 단가만 변경 승인 경로 구현 중
-1. 작업 위치: nenova-erp-ui / codex/incoming-price-only-1120 / C:/Users/USER/Documents/Codex/nw-cdx-incoming-price-1120 / PR 생성 전.
-2. 완료된 것: 단가만 변경 입력, 기존 농장만 변경 유지, 대상 WdetailKey/기존 단가/총액 산식 확인, 승인 트랜잭션에서 한 행 UPrice/TPrice만 업데이트, 직접 저장 경로 차단. 출고/농장/재고 수량 변경 금지, 기존 연결 원가·손익 정합 검증 유지.
-3. 남은 할 일: 정상 합성 승인 경로 실브라우저 확인, 사용 가이드 녹화/검증·PR·배포. 44-03 실제 수정은 기존 미매칭 2행과 저장 도착원가 농장 귀속 문제 검토 전 보류.
-4. 검증 상태: 합성 순수/변경 writer 및 기존 회귀 31건, JSX 문법, manifest·쓰기범위 통과. SQL fixture 두 건 미실행. 운영은 인증 GET 및 공식 읽기 전용 preview만 진행, 단가 230 유지.
-5. 주의/잠금: 2026/44-03 Cloud 호접란 White 대상 1행·수량 600송이·CNY, 보이는 상세 6/원본 8, 미매칭 2. 기존 공식 미리보기 CORRECTION_OLD_DETAILS_INVALID. 저장 도착원가 출처 SOURCE/농장 미확정, 기존 기록 우회나 원장 직접 UPDATE 금지. 동시 작업 #1896 건드리지 않음.
-검색어: 단가만 변경 수정요청 44-03 Cloud 호접란 UPrice TPrice 230 23 CORRECTION_OLD_DETAILS_INVALID
-
-2026-11-20 확인: 미리보기 PR #1903/Cafe24 44662157882/Windows 1.3.71 공개·업데이트 피드 성공. 가격 정식 빌드 및 수입부 7단계·영업지원 4단계 실제 Chrome, 두 가이드 캡처·해시 검증 완료. 가격 Desktop 1.3.72 운영 배포 전. 연결 목표: g03/g17; g19 일반 선호만 학습 반영 있음, 진행률·gate 변경 없음.
-
-2026-11-20 #1908 최종 버전: 선행 패킹 엑셀 배포를 보존해 Desktop 1.3.73으로 조정. 차수·미리보기·가격 계약은 변경 없음.
+## 2026-11-20 — 프로시저 변경 시 자동복구 hash 누락 차단
+1. 작업 위치: nenova-erp-ui / codex/stock-hash-guard-1120 / C:/Users/USER/nw-cdx-stock-hash-guard-1120 / PR 생성 전.
+2. 완료된 것: AGENTS 정본에 프로시저→hash 소비자 매핑·동시 검토 의무, checklist/가드/why-log 연결. 실제 atomic installer 준비 함수·실제 정렬 repair의 정확 CREATE/ALTER 출력4개와 자동복구 상수 목록을 오프라인 양방향 대조. 누락/unknown/중복·SQL변경/stale목록 거부 및 subprocess exit1 반례, PR/Cafe24 fail-fast·ERP suite 연결. 실제 설치 DDL bytes/업무본문/인자는 불변.
+3. 남은 할 일: PR/CI/squash/Cafe24, 최종 인계 및 새 worktree 정리. 기존 cleanup 거부 경로는 보존하고 접근하지 않음.
+4. 검증 상태: 최초 가드에서 기존 ALTER 저장형2개 누락 exit1 확인 후 이미 승인된 정확4해시로 수정. 해시가드4개·복구90개·기존 atomic/installer 회귀·canon/dnSpy PASS. 독립 npm ci, 최신 #1906 통합 전체 ERP contract/webpack build exit0. 고정 기준 f891c82c2의 manifest236/writeguard/API0·canon/dnSpy 및 배포 계약22 PASS. 운영 DB/SP 쓰기 없음.
+5. 주의/잠금: UI/URL/메뉴 변경 없음(Desktop 기존 동작 재사용). 새로운 hash를 운영 관측값으로 자동 승인하지 않음, 실행 직전 재검증·unknown 거부 보존. 연결 목표: g17/g19, 학습 반영 있음. goals.json 백업·기존 id/gate/progress55/40 보존, note/history만 연결. owner alignment98.3%, 열린 drift0; 실제 목표 진척률 증가 근거 아님. ledger/세션 무수정.
+검색어: stock-procedure-hashes prepareInstallation planStockCalculationOrderRepair CREATE ALTER missing-hash exit1 g17 g19 학습반영

@@ -120,7 +120,7 @@
     "test:weekday-early-shipment": "node --test __tests__/weekdayEarlyShipment.test.js && node __tests__/weekdayEarlyShipmentPresentation.test.js",
     "test:stock-gate-atomic": "node scripts/native-stock-gate-atomic.test.cjs && node scripts/native-stock-gate-atomic-installer.test.cjs",
     "test:user-activity": "node scripts/test-user-activity-server.cjs && node --test __tests__/userActivityClient.test.js __tests__/userActivityWorkerResolution.test.cjs __tests__/adminActivityRead.test.cjs && node --test desktop/tests/activity.test.cjs",
-    "test:pending-stock-recovery": "node --test __tests__/pendingStockRecovery.test.cjs __tests__/pendingStockRecoveryWorker.test.cjs __tests__/pendingStockRecoveryService.test.cjs",
+    "test:pending-stock-recovery": "npm run test:stock-procedure-hashes && node --test __tests__/pendingStockRecovery.test.cjs __tests__/pendingStockRecoveryWorker.test.cjs __tests__/pendingStockRecoveryService.test.cjs",
     "test:stock-adjustment-matrix": "node --test __tests__/stockAdjustmentMatrix.test.js __tests__/stockAdjustmentMatrixWorkbook.test.js __tests__/stockAdjustmentMatrixApi.test.js __tests__/stockAdjustmentMatrixUi.test.cjs",
     "test:kakao-stock": "node __tests__/kakaoStockLedger.test.js && node __tests__/kakaoStockInbox.test.js && node __tests__/kakaoStockPages.test.js && node __tests__/kakaoStockSections.test.js && node __tests__/kakaoStockCustomers.test.js",
     "test:pm-boundary": "node __tests__/pmBoundary.test.js",
@@ -133,6 +133,7 @@
     "test:calendar-settings": "node --test __tests__/calendarHolidayDetails.test.mjs __tests__/companyCalendar.test.js desktop/tests/company-calendar.test.cjs",
     "test:import-flight-resolution": "node --test __tests__/importFlightResolution.test.js",
     "test:estimate-change-history": "node --test __tests__/estimateChangeHistory.test.cjs __tests__/estimateChangeHistorySales.test.cjs __tests__/estimateChangeHistoryStore.test.cjs __tests__/estimateChangeHistoryWorkbook.test.cjs __tests__/estimateLedgerCalendar.test.cjs",
+    "test:stock-procedure-hashes": "node scripts/check-stock-procedure-hashes.cjs && node --test __tests__/stockProcedureHashGuard.test.cjs",
     "test:shipment-additive": "node --test __tests__/shipmentAdditiveImport.test.cjs __tests__/shipmentAdditiveApply.test.cjs"
   },
   "dependencies": {
