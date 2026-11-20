@@ -4204,3 +4204,11 @@ pm run test:canon 통과.
 3. 남은 일: PR CI·운영 배포·Desktop 공개 피드·실화면 및 최종 인계. 운영 미검증.
 4. 검증: Chrome 1572/1920/390, 실제 브라우저 XLSX 생성 및 비교, 페이지 새로고침 이후 비교 유지, 저장 완료/취소, 7개국 양식·dnSpy·쓰기·canon, 실제 Electron 격리 다운로드 완료/취소/bytes, 실제 2개 가이드 해시 통과.
 5. 주의: 개인·원문 채팅·업체별 값·XLSX 원본 바이트는 저장하지 않음. 업무 파일은 사용자 저장 위치. 원장/API 변경 없음. 팀 공유 이력 초안 #1883 무수정. 버전 1.3.68은 #1901이 사용하여 1.3.69.
+
+## 2026-11-20 — 합산 최종 로컬 게이트 완료 / PR 준비
+검색어: additive-distribution-1120, Desktop 1.3.71, shipment-additive-import, ERP resume
+1. 작업 위치: nenova-erp-ui / codex/additive-distribution-1120 / C:/Users/USER/.codex/worktrees/e8d3/nw-cdx-additive-distribution-1120 / PR 생성 예정.
+2. 완료: 합산/두 다운로드/농장 보존·미배정·stale/최종 왕복/원본 인쇄 보존 구현, 실제 Chrome·native Excel·신규6단계/기존 가이드 검증. 최신 master e45071093 병합, Desktop1.3.71로 정리. 생성 개발이력 캐시는 최신 master 원본 보존(빌드 시 재생성).
+3. 남은 할 일: PR 생성·CI 전체 성공·squash·Cafe24 배포·운영 조회/다운로드 스모크, installer release, Drive 검증 보관 후 임시 자료/worktree 정리.
+4. 검증: ERP 전체 선행/전반부 통과 후 계약 enum 수정·중단지점 이후 순차 전부 통과, dnSpy·manifest236·쓰기 가드·production build 통과. 기존 농장11/물량표39, React/신규계약16, native 두 양식A3 1페이지, Desktop77/Electron 및 신규가이드 재생/자막/키보드1920·390 통과. 운영 DB 쓰기0; 실제 MSSQL 저장 성공 시험은 미실행(격리 SQL adapter/실제 save core stale 검증).
+5. 주의/잠금: 본 worktree 계속 작업 중. node_modules와 desktop/node_modules는 정본 junction이므로 종료 시 junction만 먼저 제거. 사용자 원본/이전 worktree 보존. proof·.verify 파일은 지정 Drive 업로드 readback 전 삭제 금지.
