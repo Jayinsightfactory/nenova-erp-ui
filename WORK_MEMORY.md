@@ -4281,3 +4281,4 @@ pm run test:canon 통과.
 3. 남은 할 일: 이번 문구 요청 없음. 이전 additive-distribution-1120 worktree는 기존 자동정리 검토 blocked by policy로 남아 있으며 재시도하지 않음. 이번 copy worktree는 node_modules junction 대상 확인 후 링크만 제거하고 git worktree remove 성공; 공유 dependency 원본 보존.
 4. 검증 상태: 기존 실행 결과 재사용 — UI7, manifest236, 쓰기 API변경0 가드/dnSpy, 관련 영상2편 실제 재촬영 및 가이드35/업무36 검사, CI6m12s 통과. 운영 쓰기0. Desktop 재패키징 없음. 이번 정리에서 코드 재검증·빌드·영상 재촬영 반복 없음. 사용자 원본 Excel 미접촉.
 5. 주의/잠금: 최종 사용자 JPG C:/Users/USER/.codex/visualizations/2026/11/20/additive-example-1120/production-example-labels.jpg 보존. 연결 목표 g03/g13/g19, progress0/100/40 유지. 학습 반영 있음: 03:36:08Z UI 고정 수량은 예시로 명시 기존 학습 확인, 중복 학습 없음. 목표 공백 현재값 재점검하지 않았으므로 미검증(과거 98.3%/공백11을 최신 수치로 보고하지 않음). 기존 다른 폴더·원본·기존 미정리 worktree 보존.
+2026-11-20 정리 후속: 이번 copy worktree 제거는 성공. Drive readback 이후 visualizations/additive-example-1120의 JPG 제외 임시자료 삭제 명령은 자동 승인 검토가 'blocked by policy'로 거절하여 미정리 보존. 우회·재시도 없음. 최종 JPG는 계속 보존.
