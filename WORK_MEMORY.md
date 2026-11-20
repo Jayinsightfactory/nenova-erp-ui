@@ -4265,3 +4265,11 @@ pm run test:canon 통과.
 4. 검증 상태: 로컬 전체 ERP/build·canon/dnSpy·manifest236/writeguard/API0·배포계약22, 통합보완27, 해시가드4/복구90, PR CI(최종8m37s) PASS. 운영 DB/SP 쓰기0. 새로운 UI/URL/메뉴 없음.
 5. 주의/잠금: 연결 목표:g17/g19, 학습 반영 있음(원문을 유지한 원장 안전선 문맥으로 실제 memory.directives 저장 확인). goals.json 백업/id/gate/progress 보존. 기존 거부 경로 무수정; 중복 수정 방지용 임시 worktree는 변경0 확인 후 정상 정리. 추가 기능/PR 없음.
 검색어: stock-procedure-hashes PR1911 de793cfc missing-hash exit1 STALE_RELEASE 44669585561 g17 g19 학습반영
+
+## 2026-11-20 — 프로시저 자동복구 hash 누락 가드 배포 완료
+1. 작업 위치: nenova-erp-ui / PR #1911 squash de793cfc / 최종 배포 master f84fc183218e6d8ebd5789c2a18150394a978ff5 / Cafe24 run44670064193. 최종 인계는 작업 브랜치와 PR 댓글 보관.
+2. 완료된 것: AGENTS.md 정본 규칙·소비자 매핑, docs/ERP_FEATURE_CHANGE_CHECKLIST.md·docs/ERP_CHANGE_GUARD.md 연결. npm run test:stock-procedure-hashes로 실제 installer/repair 생성4정의와 allowlist 대조, 누락/unknown/중복/SQL변경-stale목록 및 실제 exit1 반례. CI/배포 fail-fast·전체ERP suite 연결.
+3. 남은 할 일: 기능·배포 없음. 이번 physical worktree만 정리하고 최종 PR 댓글에 정리 결과 기록. 이전 정책 거부 경로는 무수정 보존.
+4. 검증 상태: 표적/전체ERP/canon/dnSpy/manifest/writeguard/webpack/통합CI PASS. 최종 배포도 hash가드·전체ERP/build·서버HEAD/번들·SSH·API/실브라우저 hydration PASS(exit0). 운영 DB/SP 쓰기 없음. 이전 배포 중단은 #1909 stdout 계약(#1913 별도 수정)과 master 연속 이동 보호 때문이며 우회하지 않음.
+5. 주의/잠금: 연결 목표:g17/g19, 학습 반영 있음(실제 memory 확인). goals.json 백업/id/gate/현재 progress 보존, 완료 근거만 note/history 기록. UI/URL/메뉴 신규 없음. 타 PR/채팅/CI/보호설정 조작 없음.
+검색어: stock-procedure-hashes 완료 PR1911 de793cfc f84fc183 44670064193 missing-hash exit1 g17 g19 학습반영
