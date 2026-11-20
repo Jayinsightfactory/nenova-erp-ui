@@ -4221,6 +4221,15 @@ pm run test:canon 통과.
 검색어: confirm-busy 42-02 카네이션 43-01 WAIT_CALC CANCEL 010c947 24a415 pendingStockRecovery approved-cursor-order retry-fingerprint
 
 
+## 2026-11-20 — EC·US EXE용 패킹 엑셀 단 수량 다운로드 검사
+1. 작업 위치: nenova-erp-ui / codex/guard-packing-export-bunch-1120 / C:/Users/USER/.codex/worktrees/5a25/nw-cdx-packing-export-bunch-1120 / #1904 후속.
+2. 완료된 것: 현재 Product 출고·견적 단위로 실제 생성 XLSX의 I열 검사. 공란·0·불일치는 개별·전체 내보내기 및 직접 POST 차단. 미국 원문 검토에서 단 필드가 없었던 행도 근거를 입력해 복구. Desktop 1.3.72.
+3. 남은 할 일: 후속 PR의 Cafe24 배포와 Windows 공식 설치본에서 추적. 이전 47-01 원장 보정 확정 0건.
+4. 검증 상태: 실제 EC/US XLSX와 API 응답, Chrome 누락 0파일·원문 40단 정정 후 I6=40/J58=400·두 파일 중 하나 거절 시 전체 0파일, 웹팩·dnSpy·쓰기 가드. 운영 입고 쓰기 없음.
+5. 주의/잠금: 도착원가 파일, 기존 생성 파일, nenova.exe 바이너리 및 운영 입고 3건의 기존 수량은 보존. 원본·마스터 구분. 연결목표:g17(55% 유지) / 학습반영:있음(P6 판단 기준).
+검색어: EC US 입고용 EXE packing-export I열 단수량 다운로드 공란 현재 품목견적 전체다운로드 1.3.72
+
+
 ## 2026-11-20 — 미리보기 닫기 시 열었던 업무 탭 복귀
 1. 작업 위치: nenova-erp-ui / codex/desktop-popup-opener-1120 / C:/Users/USER/Documents/Codex/nw-cdx-popup-opener-1120 / PR 생성 전.
 2. 완료된 것: 새 창을 업무 탭으로 열 때 실제 opener ID 저장, 활성 사용자 팝업 종료 시 원래 창과 탭 복원. 다른 탭과 작업 입력은 보존. 관련 Electron 스모크 추가.
@@ -4233,6 +4242,13 @@ pm run test:canon 통과.
 
 2026-11-20 최종 업스트림 통합: Desktop 1.3.71, 546.1초·자막 76개 정확한 프레임 정렬, PR #1903. 운영 공개는 CI 후 확인.
 
+## 2026-11-20 — Private 전환 사전 공사: Cafe24 무인증 git fetch 제거 + 데스크톱 이중 피드
+1. 작업 위치: nenova-erp-ui / feat/zero-cost-private-repo-prep / C:/Users/USER/nw-swm-private-prep / PR 생성 직전. 연결 목표: g18.
+2. 완료된 것: deploy.yml 서버 스크립트에서 GitHub 무인증 fetch 제거(러너가 증분 git bundle + deploy-meta.json 전송, 서버는 SHA256·메타·bundle verify 후 로컬 갱신, 무중단 교체·롤백 보존). updater.cjs 1차 nenovaweb.com/desktop-releases → 2차 GitHub Releases 폴백. docs/GITHUB_PRIVATE_ZERO_COST_PLAYBOOK.md 신규.
+3. 남은 할 일: 머지 후 Deploy to Cafe24 첫 성공 확인(번들 경로 실서버 첫 실행), Cafe24 /desktop-releases(nginx alias)에 latest.yml·설치파일 업로드, 구버전 앱 전원 갱신 확인, DesktopDownloadButton 링크 교체 후속 PR. 그 전에는 저장소를 Private 로 바꾸지 말 것.
+4. 검증 상태: desktop 80개·updater 실제 다운로드 스모크·deploy 관련 테스트·신규 privateRepoDeploy(번들 오프라인 재현 3종)·test:ui-layout·guard:erp-writes 통과. 실서버 번들 배포는 머지 후 첫 실행에서만 검증 가능.
+5. 주의/잠금: 서버에 GitHub 토큰 심지 말 것. 서버 HEAD 가 러너 저장소 조상이 아니면 SERVER_HEAD_DIVERGED 로 배포가 안전 중단된다. 1차 피드 latest.yml 업로드를 빼먹으면 직원 앱이 갱신되지 않는다.
+검색어: private 전환 deploy bundle deploy-meta desktop-releases 이중 피드 g18
 ## 2026-11-20 수입방 최신순 원문 목록·업체 CL 머리글
 1. 작업 위치: nenova-erp-ui / codex/import-kakao-raw-feed-1120 / nw-cdx-kakao-raw-feed-1120 / PR 준비.
 2. 완료: 오른쪽 최신순 원문 표시, 방·시각·본문 검색, 전체/추가/취소 필터, 가운데 합계 양방향 대조 및 검토 버튼. 업체명+숫자 CL을 해당 원문 내 업체 머리글로 처리. 취소 수량 합산 제외.
