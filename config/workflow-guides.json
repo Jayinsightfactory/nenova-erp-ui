@@ -607,27 +607,27 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 7.035
+              "seconds": 7.018
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 156.378
+              "seconds": 166.046
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 256.119
+              "seconds": 261.943
             },
             {
               "scenario": "add",
               "title": "4. 기존 입고에 품목·수량 추가",
-              "seconds": 338.893
+              "seconds": 343.213
             },
             {
               "scenario": "cancel",
               "title": "5. 기존 입고의 품목·수량 취소",
-              "seconds": 452.953
+              "seconds": 454.56
             }
           ]
         },
@@ -643,17 +643,17 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.243
+              "seconds": 13.989
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 58.797
+              "seconds": 57.784
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 140.904
+              "seconds": 138.909
             }
           ]
         }
