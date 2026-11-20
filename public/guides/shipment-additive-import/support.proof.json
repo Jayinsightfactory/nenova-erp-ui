@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-20T02:03:02.371Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 44.95,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "ef4097b08cfc108043a3f3a693250d0489f9400167306f4f34d4adbd6035a41c",
+  "captionsSha256": "4a17a6e02e61931d809cfba6482dca23d56039d3866c202f0445a418be9c273a",
+  "sourceHashes": {
+    "pages/shipment/distribute-import.js": "8c1d8a69eaf07b3743b885884afbdbe726149f31ccc4d0bfc3838669200cadab"
+  },
+  "presentation": {
+    "numberedSteps": 6,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 1.8787904999999996,
+        "x": 602.09375,
+        "y": 272.546875,
+        "end": 6.79925
+      },
+      {
+        "number": 2,
+        "start": 9.322051300000002,
+        "x": 602.09375,
+        "y": 272.796875,
+        "end": 14.2440299
+      },
+      {
+        "number": 3,
+        "start": 16.701198899999998,
+        "x": 1034.03125,
+        "y": 281.546875,
+        "end": 21.6140141
+      },
+      {
+        "number": 4,
+        "start": 23.652369499999995,
+        "x": 442.921875,
+        "y": 874.546875,
+        "end": 28.563990899999997
+      },
+      {
+        "number": 5,
+        "start": 31.356736700000003,
+        "x": 766.9375,
+        "y": 281.546875,
+        "end": 36.2801406
+      },
+      {
+        "number": 6,
+        "start": 38.9581338,
+        "x": 766.9375,
+        "y": 281.546875,
+        "end": 43.8872687
+      }
+    ]
+  }
+}
