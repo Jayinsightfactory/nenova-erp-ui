@@ -154,16 +154,30 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check if release is still newest master (early Actions minute guard)
+        id: freshness
+        run: |
+          git fetch --no-tags --quiet origin master
+          if [ "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA" ]; then
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            echo "STALE_RELEASE_EARLY: newer master exists; skipping redundant build to save Actions minutes."
+          fi
+
       - name: Setup Node (ERP 계약검사용)
+        if: steps.freshness.outputs.is_latest == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
       - name: Approved stock procedure hash coverage (offline)
+        if: steps.freshness.outputs.is_latest == 'true'
         run: node scripts/check-stock-procedure-hashes.cjs
 
       - name: ERP 계약 + 교차연도 쓰기 검증
+        if: steps.freshness.outputs.is_latest == 'true'
         env:
           BASE_SHA: ${{ github.event.before }}
         run: |
@@ -171,12 +185,14 @@ jobs:
           npm ci
           node --test __tests__/codeOnlyDeployment.test.cjs
           node --test __tests__/privateRepoDeploy.test.cjs
+          node --test __tests__/desktopReleasesFeed.test.cjs
           node --test __tests__/ciBuildArtifact.test.cjs
           npm run test:erp-contract
           npm run test:erp-manifest -- --changed-from "$BASE_SHA"
           npm run guard:erp-writes -- --changed-from "$BASE_SHA"
 
       - name: Build webpack on GitHub (no production DB)
+        if: steps.freshness.outputs.is_latest == 'true'
         env:
           DB_SERVER: ''
           NEXT_DIST_DIR: .next-build
@@ -184,6 +200,7 @@ jobs:
         run: npm run build
 
       - name: Package verified CI build
+        if: steps.freshness.outputs.is_latest == 'true'
         id: bundle
         run: |
           node scripts/ci-build-smoke.cjs
@@ -195,11 +212,13 @@ jobs:
       # authenticated by checkout) proves the release is still the newest master, then ships the
       # exact git objects as an incremental bundle plus release metadata over the existing SCP path.
       - name: Verify release is still newest master (runner credentials)
+        if: steps.freshness.outputs.is_latest == 'true'
         run: |
           git fetch --no-tags --quiet origin master
           [ "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA" ] || { echo 'STALE_RELEASE: newer master exists; stopped'; exit 1; }
 
       - name: Read current server checkout commit (read-only)
+        if: steps.freshness.outputs.is_latest == 'true'
         id: server-head
         env:
           SSHPASS: ${{ secrets.SSH_PASSWORD }}
@@ -211,6 +230,7 @@ jobs:
           echo "sha=$SERVER_HEAD" >> "$GITHUB_OUTPUT"
 
       - name: Create source bundle and release metadata
+        if: steps.freshness.outputs.is_latest == 'true'
         id: source-bundle
         env:
           SERVER_HEAD: ${{ steps.server-head.outputs.sha }}
@@ -232,6 +252,7 @@ jobs:
         shell: bash
 
       - name: Transfer build to isolated release directory
+        if: steps.freshness.outputs.is_latest == 'true'
         uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
         with:
           host: 172.233.89.171
@@ -242,6 +263,7 @@ jobs:
           target: /var/lib/nenova/deploy-artifacts/${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: SSH Deploy to Cafe24
+        if: steps.freshness.outputs.is_latest == 'true'
         uses: appleboy/ssh-action@v1.0.3
         env:
           APPLY_DB_MIGRATIONS: ${{ github.event_name == 'workflow_dispatch' && inputs.apply_db_migrations == true && 'true' || 'false' }}
@@ -679,6 +701,7 @@ jobs:
       # 화면은 그려져도 React가 시동 안 되는 "조용한 장애" 감지 (2026-07-10 Turbopack 사고 재발 방지)
       # API 스모크는 이 유형을 못 잡는다 — Actions 러너의 실브라우저로 fiber 부착 여부를 직접 확인
       - name: Hydration smoke (실브라우저)
+        if: steps.freshness.outputs.is_latest == 'true'
         run: |
           npm install puppeteer-core --no-save --no-audit --no-fund
           CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium-browser)" \

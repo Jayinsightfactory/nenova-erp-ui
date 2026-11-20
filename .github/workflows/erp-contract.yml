@@ -2,8 +2,14 @@ name: ERP Contract Guard
 
 on:
   pull_request:
-  push:
-    branches: [master]
+  workflow_dispatch:
+
+# Private 전환 대비 Actions 월 2,000분 한도 방어:
+# - PR 연속 푸시 시 이전 실행 즉시 취소(cancel-in-progress: true)
+# - master push에서는 deploy.yml이 동일한 ERP 계약·빌드 검증을 이미 수행하므로 중복 실행 제거
+concurrency:
+  group: erp-contract-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
@@ -20,7 +26,7 @@ jobs:
         run: node scripts/check-stock-procedure-hashes.cjs
       - run: npm ci
       - name: CI build artifact contracts
-        run: node --test __tests__/ciBuildArtifact.test.cjs __tests__/codeOnlyDeployment.test.cjs
+        run: node --test __tests__/ciBuildArtifact.test.cjs __tests__/codeOnlyDeployment.test.cjs __tests__/privateRepoDeploy.test.cjs __tests__/desktopReleasesFeed.test.cjs
       - name: ERP contract manifests
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
