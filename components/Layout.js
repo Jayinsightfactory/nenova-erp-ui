@@ -97,7 +97,7 @@ export const MENU_ITEMS = [
       { href: '/arrival-cost',        labelKey: '도착원가',     popup: true },
       { href: '/shipment/distribute',    labelKey: '출고분배',      popup: true },
       { href: '/shipment/quick-absorb',  labelKey: '빠른 분배·미등록주문 통합입력', popup: false },
-      { href: '/shipment/distribute-import', labelKey: '출고분배 엑셀업로드', popup: false },
+      { href: '/shipment/distribute-import', labelKey: '출고분배 엑셀업로드·합산', popup: false },
       { href: '/shipment/fix-status',    labelKey: '차수 확정 현황', popup: false },
       { href: '/shipment/stock-status', labelKey: '출고,재고상황', popup: false },
       { href: '/shipment/week-pivot',   labelKey: '차수피벗',      popup: true },

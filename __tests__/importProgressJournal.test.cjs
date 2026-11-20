@@ -105,6 +105,7 @@ test('API rejection and duplicate job must not finish or overwrite an existing o
     shipmentImport: { applyImportRows: async () => { applied++; if (applyError) throw applyError; return { success: true }; } },
     weekdayEarlyShipmentImport: { requireEarlyImportMode: () => 'ORIGINAL_INCLUDES_EARLY' },
     'shipmentReplacementPlan.js': { assertReplacementPlan: () => { if (!allowed) throw Object.assign(new Error('stale'), { statusCode: 409 }); } },
+    'shipmentImportMode.js': { requireDistributionMode: value => value || 'REPLACE' },
     importApplyProgress: { initApplyProgress: () => { if (storageError) throw storageError; return claimed; }, progressStep: () => {}, finishApplyProgress: () => { finished++; } },
   };
   const mod = { exports: {} };
