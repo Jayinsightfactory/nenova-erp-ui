@@ -4242,10 +4242,18 @@ pm run test:canon 통과.
 
 2026-11-20 최종 업스트림 통합: Desktop 1.3.71, 546.1초·자막 76개 정확한 프레임 정렬, PR #1903. 운영 공개는 CI 후 확인.
 
+## 2026-11-20 — Private 전환 사전 공사: Cafe24 무인증 git fetch 제거 + 데스크톱 이중 피드
+1. 작업 위치: nenova-erp-ui / feat/zero-cost-private-repo-prep / C:/Users/USER/nw-swm-private-prep / PR 생성 직전. 연결 목표: g18.
+2. 완료된 것: deploy.yml 서버 스크립트에서 GitHub 무인증 fetch 제거(러너가 증분 git bundle + deploy-meta.json 전송, 서버는 SHA256·메타·bundle verify 후 로컬 갱신, 무중단 교체·롤백 보존). updater.cjs 1차 nenovaweb.com/desktop-releases → 2차 GitHub Releases 폴백. docs/GITHUB_PRIVATE_ZERO_COST_PLAYBOOK.md 신규.
+3. 남은 할 일: 머지 후 Deploy to Cafe24 첫 성공 확인(번들 경로 실서버 첫 실행), Cafe24 /desktop-releases(nginx alias)에 latest.yml·설치파일 업로드, 구버전 앱 전원 갱신 확인, DesktopDownloadButton 링크 교체 후속 PR. 그 전에는 저장소를 Private 로 바꾸지 말 것.
+4. 검증 상태: desktop 80개·updater 실제 다운로드 스모크·deploy 관련 테스트·신규 privateRepoDeploy(번들 오프라인 재현 3종)·test:ui-layout·guard:erp-writes 통과. 실서버 번들 배포는 머지 후 첫 실행에서만 검증 가능.
+5. 주의/잠금: 서버에 GitHub 토큰 심지 말 것. 서버 HEAD 가 러너 저장소 조상이 아니면 SERVER_HEAD_DIVERGED 로 배포가 안전 중단된다. 1차 피드 latest.yml 업로드를 빼먹으면 직원 앱이 갱신되지 않는다.
+검색어: private 전환 deploy bundle deploy-meta desktop-releases 이중 피드 g18
+
 ## 2026-11-20 — 사장님 통합지휘실(/work/command-hub) 내 목표 × 작업 정합성 × Owner AGI 디지털 트윈 보드 & 3중 루프 트레이스 탑재 (연결 목표: g19 · g17 · g18)
-1. 작업 위치: nenova-erp-ui / feat/command-hub-owner-agi-twin / C:/Users/USER/nw-swm-owner-twin-hub / Desktop 1.3.72.
-2. 완료된 것: `lib/workFeatureData.js`에 `'owner-twin'` 피처 추가, `pages/work/command-hub.js` SSR `vision`·`owner-twin` 로드, 최상단 `<PurposeFlowTrace>` 5단계 상시 3중 병렬 AGI 루프 트레이스 도면 장착, `ceo-owner-twin-board`(4대 전략 축 g01~g19 Goal Ledger · 1:1 Goal Alignment Audit & 공백 경보 · 6대 판단 DNA 카드 & 선제 실행 제안 Top 5 지시서 복사) 구축, 가이드 영상 재녹화 및 해시 갱신.
-3. 남은 할 일: PR CI(`verify` · `installer`) 통과 후 squash 머지, 운영 서버 `owner-twin` 피처 업로드 연동 확인, worktree 정리.
-4. 검증 상태: `ceoCommandHub`, `workFeatureData`, `adoptionRadar`, `purposeFlowTrace`, `test:workflow-guides`, `check-workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:pm`, `desktop test` 77/77, `next build --webpack`, Puppeteer 1920/1280/390 실렌더링·가이드 영상 `--player-smoke` 전수 PASS. 운영 서버 배포 후 실데이터 미검증.
-5. 주의/잠금: `pages/api/**`, `nenova-pm/*`, `SHARED_AGENT_RULES.md` 무접촉, 원장 쓰기 0건(읽기 전용), Anti-AI Slop §7(한글 고딕·금지어/이모지/그라디언트 0건) 준수.
-검색어: command-hub owner-twin 디지털트윈 목표정합성 PurposeFlowTrace g19 g18 g17 1.3.72
+1. 작업 위치: nenova-erp-ui / feat/command-hub-owner-agi-twin / C:/Users/USER/nw-swm-owner-twin-hub / Desktop 1.3.74.
+2. 완료된 것: lib/workFeatureData.js에 owner-twin 피처 추가, pages/work/command-hub.js SSR ision·owner-twin 로드, 최상단 <PurposeFlowTrace> 5단계 상시 3중 병렬 AGI 루프 트레이스 도면 장착, ceo-owner-twin-board(4대 전략 축 g01~g19 Goal Ledger · 1:1 Goal Alignment Audit & 공백 경보 · 6대 판단 DNA 카드 & 선제 실행 제안 Top 5 지시서 복사) 구축, 가이드 영상 재녹화 및 해시 갱신.
+3. 남은 할 일: PR #1910 CI(erify · installer) 통과 후 squash 머지, 운영 서버 owner-twin 피처 업로드 연동 확인, worktree 정리.
+4. 검증 상태: ceoCommandHub, workFeatureData, doptionRadar, purposeFlowTrace, 	est:workflow-guides, check-workflow-guides, 	est:ui-layout, guard:erp-writes, 	est:pm, desktop test 80/80, ext build --webpack, Puppeteer 1920/1280/390 실렌더링·가이드 영상 --player-smoke 전수 PASS. 운영 서버 배포 후 실데이터 미검증.
+5. 주의/잠금: pages/api/**, enova-pm/*, SHARED_AGENT_RULES.md 무접촉, 원장 쓰기 0건(읽기 전용), Anti-AI Slop §7(한글 고딕·금지어/이모지/그라디언트 0건) 준수.
+검색어: command-hub owner-twin 디지털트윈 목표정합성 PurposeFlowTrace g19 g18 g17 1.3.74

@@ -167,6 +167,7 @@ jobs:
           BASE_SHA="${BASE_SHA:-$(git rev-parse "${GITHUB_SHA}^")}"
           npm ci
           node --test __tests__/codeOnlyDeployment.test.cjs
+          node --test __tests__/privateRepoDeploy.test.cjs
           node --test __tests__/ciBuildArtifact.test.cjs
           npm run test:erp-contract
           npm run test:erp-manifest -- --changed-from "$BASE_SHA"
@@ -187,6 +188,50 @@ jobs:
           tar --exclude='.next-build/cache' -czf nenova-build.tar.gz .next-build data/generated/full-development-history.json data/generated/menu-development-history.json
           echo "sha256=$(sha256sum nenova-build.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
+      # Private-repository ready: the server never contacts GitHub. This runner (already
+      # authenticated by checkout) proves the release is still the newest master, then ships the
+      # exact git objects as an incremental bundle plus release metadata over the existing SCP path.
+      - name: Verify release is still newest master (runner credentials)
+        run: |
+          git fetch --no-tags --quiet origin master
+          [ "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA" ] || { echo 'STALE_RELEASE: newer master exists; stopped'; exit 1; }
+
+      - name: Read current server checkout commit (read-only)
+        id: server-head
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          capture_stdout: true
+          script: |
+            cd /var/www/nenova-erp || exit 1
+            export GIT_OPTIONAL_LOCKS=0
+            echo "SERVER_HEAD=$(git rev-parse HEAD)"
+
+      - name: Create source bundle and release metadata
+        id: source-bundle
+        env:
+          SERVER_HEAD_OUTPUT: ${{ steps.server-head.outputs.stdout }}
+          ARCHIVE_SHA256: ${{ steps.bundle.outputs.sha256 }}
+          RELEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          SERVER_HEAD="$(printf '%s\n' "$SERVER_HEAD_OUTPUT" | grep -oE 'SERVER_HEAD=[a-f0-9]{40}' | tail -1 | cut -d= -f2)"
+          [[ "$SERVER_HEAD" =~ ^[a-f0-9]{40}$ ]] || { echo 'SERVER_HEAD_UNKNOWN: could not read server checkout commit'; exit 1; }
+          git cat-file -e "${SERVER_HEAD}^{commit}" || { echo 'SERVER_HEAD_DIVERGED: server commit is not in this repository; stopped'; exit 1; }
+          git merge-base --is-ancestor "$SERVER_HEAD" "$GITHUB_SHA" || { echo 'SERVER_HEAD_DIVERGED: server checkout is not an ancestor of this release; stopped'; exit 1; }
+          if [ "$SERVER_HEAD" = "$GITHUB_SHA" ]; then
+            : > nenova-source.bundle   # server already has this commit; nothing to transfer
+          else
+            git branch -f deploy-bundle "$GITHUB_SHA"
+            git bundle create nenova-source.bundle deploy-bundle "^${SERVER_HEAD}"
+          fi
+          BUNDLE_SHA256="$(sha256sum nenova-source.bundle | cut -d' ' -f1)"
+          echo "sha256=$BUNDLE_SHA256" >> "$GITHUB_OUTPUT"
+          SERVER_HEAD="$SERVER_HEAD" BUNDLE_SHA256="$BUNDLE_SHA256" node -e 'const fs=require("fs");const e=process.env;fs.writeFileSync("deploy-meta.json",JSON.stringify({schema:1,commitSha:e.GITHUB_SHA,branch:"master",releaseId:e.RELEASE_ID,baseSha:e.SERVER_HEAD,createdAt:new Date().toISOString(),archiveSha256:e.ARCHIVE_SHA256,bundleSha256:e.BUNDLE_SHA256},null,2)+"\n")'
+        shell: bash
+
       - name: Transfer build to isolated release directory
         uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
         with:
@@ -194,7 +239,7 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          source: nenova-build.tar.gz
+          source: nenova-build.tar.gz,nenova-source.bundle,deploy-meta.json
           target: /var/lib/nenova/deploy-artifacts/${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: SSH Deploy to Cafe24
@@ -204,6 +249,7 @@ jobs:
           MIGRATE_ORDER_MAPPINGS: ${{ github.event_name == 'workflow_dispatch' && inputs.migrate_order_mappings == true && 'true' || 'false' }}
           DEPLOY_SHA: ${{ github.sha }}
           BUILD_ARCHIVE_SHA256: ${{ steps.bundle.outputs.sha256 }}
+          SOURCE_BUNDLE_SHA256: ${{ steps.source-bundle.outputs.sha256 }}
           BUILD_RELEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           NENOVA_ESTIMATE_SEAL_PNG: ${{ secrets.NENOVA_ESTIMATE_SEAL_PNG }}
@@ -231,7 +277,7 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: APPLY_DB_MIGRATIONS,MIGRATE_ORDER_MAPPINGS,DEPLOY_SHA,BUILD_ARCHIVE_SHA256,BUILD_RELEASE_ID,JWT_SECRET,NENOVA_ESTIMATE_SEAL_PNG,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,NENOVAWEB_SERVICE_TOKEN,BAROBILL_ENV,BAROBILL_CERTKEY,BAROBILL_CORPNUM,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID,ICN_FLIGHT_API_KEY,UNIPASS_API_KEY
+          envs: APPLY_DB_MIGRATIONS,MIGRATE_ORDER_MAPPINGS,DEPLOY_SHA,BUILD_ARCHIVE_SHA256,SOURCE_BUNDLE_SHA256,BUILD_RELEASE_ID,JWT_SECRET,NENOVA_ESTIMATE_SEAL_PNG,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,NENOVAWEB_SERVICE_TOKEN,BAROBILL_ENV,BAROBILL_CERTKEY,BAROBILL_CORPNUM,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID,ICN_FLIGHT_API_KEY,UNIPASS_API_KEY
           # Tests plus webpack can exceed ssh-action's default ten minutes.
           # Keep code-only migration gates and atomic build swap unchanged.
           command_timeout: 30m
@@ -241,10 +287,19 @@ jobs:
             [[ "$DEPLOY_SHA" =~ ^[a-f0-9]{40}$ && "$BUILD_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ && "$BUILD_RELEASE_ID" =~ ^[0-9]+-[0-9]+$ ]] || exit 1
             build_archive="/var/lib/nenova/deploy-artifacts/$BUILD_RELEASE_ID/nenova-build.tar.gz"
             printf '%s  %s\n' "$BUILD_ARCHIVE_SHA256" "$build_archive" | sha256sum -c - || exit 1
-            echo "=== git pull ==="
-            git remote set-url origin https://github.com/Jayinsightfactory/nenova-erp-ui.git
-            git fetch origin master
-            [ "$(git rev-parse origin/master)" = "$DEPLOY_SHA" ] || { echo 'STALE_RELEASE: newer master exists; stopped'; exit 1; }
+            echo "=== verify transferred release (server never contacts GitHub; no token on server) ==="
+            release_dir="/var/lib/nenova/deploy-artifacts/$BUILD_RELEASE_ID"
+            source_bundle="$release_dir/nenova-source.bundle"
+            [[ "$SOURCE_BUNDLE_SHA256" =~ ^[a-f0-9]{64}$ ]] || exit 1
+            printf '%s  %s\n' "$SOURCE_BUNDLE_SHA256" "$source_bundle" | sha256sum -c - || exit 1
+            node -e 'const fs=require("fs");const m=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));const e=process.env;if(m.schema!==1||m.branch!=="master"||m.commitSha!==e.DEPLOY_SHA||m.releaseId!==e.BUILD_RELEASE_ID||m.archiveSha256!==e.BUILD_ARCHIVE_SHA256||m.bundleSha256!==e.SOURCE_BUNDLE_SHA256)process.exit(1)' "$release_dir/deploy-meta.json" || { echo 'DEPLOY_META_MISMATCH: release metadata does not match this deployment; stopped'; exit 1; }
+            if [ "$(git rev-parse HEAD)" = "$DEPLOY_SHA" ]; then
+              git update-ref refs/remotes/origin/master "$DEPLOY_SHA" || exit 1
+            else
+              git bundle verify "$source_bundle" || { echo 'SOURCE_BUNDLE_INVALID: bundle prerequisites missing or corrupt; stopped'; exit 1; }
+              git fetch --no-tags "$source_bundle" "+refs/heads/deploy-bundle:refs/remotes/origin/master" || exit 1
+            fi
+            [ "$(git rev-parse origin/master)" = "$DEPLOY_SHA" ] || { echo 'STALE_RELEASE: bundle does not match DEPLOY_SHA; stopped'; exit 1; }
             # Preserve existing user mappings before reset replaces the tracked seed.
             # copyFileSync(COPYFILE_EXCL) never overwrites a migrated runtime store.
             if [ ! -f .next/.mapping-db-capable ]; then
