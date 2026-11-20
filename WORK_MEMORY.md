@@ -4273,3 +4273,11 @@ pm run test:canon 통과.
 4. 검증 상태: `ceoCommandHub`, `workFeatureData`, `adoptionRadar`, `purposeFlowTrace`, `test:workflow-guides`, `check-workflow-guides`, `test:ui-layout`, `guard:erp-writes`, `test:pm`, `desktop test` 80/80, `next build --webpack`, Puppeteer 1920/1280/390 실렌더링·가이드 영상 `--player-smoke` 전수 PASS. 운영 서버 배포 후 실데이터 미검증.
 5. 주의/잠금: `pages/api/**`, `nenova-pm/*`, `SHARED_AGENT_RULES.md` 무접촉, 원장 쓰기 0건(읽기 전용), Anti-AI Slop §7(한글 고딕·금지어/이모지/그라디언트 0건) 준수.
 검색어: command-hub owner-twin 디지털트윈 목표정합성 PurposeFlowTrace g19 g18 g17 1.3.74
+
+## 2026-11-20 — PR1915 예시 표시 배포 및 최종 정리 완료
+검색어: PR1915 additive-example-label 예시 copy-only 497404112 f84fc183 Drive cleanup g03 g13 g19
+1. 작업 위치: nenova-erp-ui / codex/additive-example-label-1120 / PR #1915 squash 497404112fddadb7461a2086b9062a140a89333b. 작업 worktree C:/Users/USER/.codex/worktrees/e8d3/nw-cdx-additive-example-1120 정리 완료.
+2. 완료: 다운로드 라디오 2곳 고정 수량에 예시 명시. 계산·저장·다운로드 정책 불변. PR1914 통합 f84fc183(run44670064193)에 포함되어 Cafe24 배포·실브라우저 문구/선택/검증 전 승인차단 확인. 운영 JPG·새 영상2편·proof/자막 포함 ZIP 회사 Drive 보관 및 metadata readback 완료: https://drive.google.com/drive/folders/1-hLvnOjkcFLtOdHu_rgHgRkD3Gi34DhK (완전 ZIP 1HF_MJvJQNJcJ1hh8Zk6kLMTfCLEBGqYq 12514123 bytes). JPG 1We7BeFRHCoDPU2J42Mu4aYZhyqrqCXCI 38343 bytes.
+3. 남은 할 일: 이번 문구 요청 없음. 이전 additive-distribution-1120 worktree는 기존 자동정리 검토 blocked by policy로 남아 있으며 재시도하지 않음. 이번 copy worktree는 node_modules junction 대상 확인 후 링크만 제거하고 git worktree remove 성공; 공유 dependency 원본 보존.
+4. 검증 상태: 기존 실행 결과 재사용 — UI7, manifest236, 쓰기 API변경0 가드/dnSpy, 관련 영상2편 실제 재촬영 및 가이드35/업무36 검사, CI6m12s 통과. 운영 쓰기0. Desktop 재패키징 없음. 이번 정리에서 코드 재검증·빌드·영상 재촬영 반복 없음. 사용자 원본 Excel 미접촉.
+5. 주의/잠금: 최종 사용자 JPG C:/Users/USER/.codex/visualizations/2026/11/20/additive-example-1120/production-example-labels.jpg 보존. 연결 목표 g03/g13/g19, progress0/100/40 유지. 학습 반영 있음: 03:36:08Z UI 고정 수량은 예시로 명시 기존 학습 확인, 중복 학습 없음. 목표 공백 현재값 재점검하지 않았으므로 미검증(과거 98.3%/공백11을 최신 수치로 보고하지 않음). 기존 다른 폴더·원본·기존 미정리 worktree 보존.
