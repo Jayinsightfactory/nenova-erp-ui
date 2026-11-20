@@ -4161,3 +4161,12 @@ pm run test:canon 통과.
 3. 남음: 별도 Orbit 카나리에서 정상 담당자 계정, 승인된 실제 OneDrive, 신규 업로드 및 직원 본인의 열람 검증.
 4. 검증: 수신 테스트와 전체 GitHub CI 결과를 확인하고 배포한다. 실제 직원 세션은 미검증.
 5. 주의: 기존 등록자·SHA 중복·파일 열람 권한을 유지한다. 원장·데스크톱 메뉴와 운영 파일 변경 없음.
+
+
+## 2026-11-20 — 단가만 변경 승인 경로 구현 중
+1. 작업 위치: nenova-erp-ui / codex/incoming-price-only-1120 / C:/Users/USER/Documents/Codex/nw-cdx-incoming-price-1120 / PR 생성 전.
+2. 완료된 것: 단가만 변경 입력, 기존 농장만 변경 유지, 대상 WdetailKey/기존 단가/총액 산식 확인, 승인 트랜잭션에서 한 행 UPrice/TPrice만 업데이트, 직접 저장 경로 차단. 출고/농장/재고 수량 변경 금지, 기존 연결 원가·손익 정합 검증 유지.
+3. 남은 할 일: 정상 합성 승인 경로 실브라우저 확인, 사용 가이드 녹화/검증·PR·배포. 44-03 실제 수정은 기존 미매칭 2행과 저장 도착원가 농장 귀속 문제 검토 전 보류.
+4. 검증 상태: 합성 순수/변경 writer 및 기존 회귀 31건, JSX 문법, manifest·쓰기범위 통과. SQL fixture 두 건 미실행. 운영은 인증 GET 및 공식 읽기 전용 preview만 진행, 단가 230 유지.
+5. 주의/잠금: 2026/44-03 Cloud 호접란 White 대상 1행·수량 600송이·CNY, 보이는 상세 6/원본 8, 미매칭 2. 기존 공식 미리보기 CORRECTION_OLD_DETAILS_INVALID. 저장 도착원가 출처 SOURCE/농장 미확정, 기존 기록 우회나 원장 직접 UPDATE 금지. 동시 작업 #1896 건드리지 않음.
+검색어: 단가만 변경 수정요청 44-03 Cloud 호접란 UPrice TPrice 230 23 CORRECTION_OLD_DETAILS_INVALID

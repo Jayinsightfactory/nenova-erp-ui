@@ -61,7 +61,8 @@
     "scripts/warehouse-farm-search-ui.cjs",
     "scripts/record-incoming-approval-guides.cjs",
     "config/workflow-guides.json",
-    "scripts/lib/workflow-guide-recorder.cjs"
+    "scripts/lib/workflow-guide-recorder.cjs",
+    "__tests__/incomingApprovalPrice.test.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -121,6 +122,14 @@
       "shipmentDetail": "set-final-nonnegative",
       "stock": "native authoritative per-period physical and cumulative unfixed-reservation shortage, including unchanged reservations after receipt reduction and earlier sub-weeks within the same major; signed exact human-reviewed quantities; StockHistory 재고조정 plus Product.Stock delta and native recalculation in same transaction",
       "financial": "recompute affected costs and profit after adjustment; preserve earlier unaffected periods; rollback all on any failure"
+    },
+    {
+      "name": "APPROVE_RECEIPT_PRICE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouse": "UPrice and TPrice on one expected original WdetailKey; verify quantity-price basis, prior price, entire baseline and readback",
+      "stock": "preserve",
+      "financial": "linked cost and profit review and existing transactional recalculation; derived total from existing OutQuantity"
     }
   ],
   "crossYearFixture": {
@@ -157,7 +166,8 @@
     "__tests__/incomingApprovalSimple.test.mjs",
     "__tests__/incomingApprovalSimpleDisplay.test.cjs",
     "__tests__/warehouseFarmChoices.test.mjs",
-    "__tests__/warehouseFarmChoicesSql.test.mjs"
+    "__tests__/warehouseFarmChoicesSql.test.mjs",
+    "__tests__/incomingApprovalPrice.test.mjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
