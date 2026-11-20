@@ -4151,6 +4151,17 @@ pm run test:canon 통과.
 5. 주의/잠금: 병렬 세션 영역(SolutionSuiteSimulator.js, pages/my-work.js, desktop/package.json, config/workflow-guides.json, pages/pm.js, GabrielProfitAgiWorkbench.js, pages/api/**) 무수정 준수. components/pm/** #hex·raw <button>·금지어 0건.
 검색어: moyi-full-suite-blueprint Archify Pretendard Malgun-Gothic 굴림체 monospace TechRadarWorkbench ArchFlowChart ui.js Anti-AI-Slop tabular-nums
 
+## 2026-11-20 승인 OneDrive CI 약칭 수신
+
+- 검색어: 승인 OneDrive CI.pdf ERP 수신 capability 민감 권한 dedup
+- 승인 OneDrive 소스의 CI 약칭 PDF에만 기존 민감 정책을 적용하고, 데몬이 새 수신기를 토큰 인증으로 확인하는 읽기 전용 capability를 추가했다.
+
+1. 작업 위치: nenova-erp-ui / codex/approved-ci-sensitive / 격리 worktree .erp-drive-newfiles / PR #1900.
+2. 완료: 승인 업로드 CI PDF 분류·민감 정책과 OPTIONS capability, 수신 worker 회귀 및 파일 전용 계약.
+3. 남음: 별도 Orbit 카나리에서 정상 담당자 계정, 승인된 실제 OneDrive, 신규 업로드 및 직원 본인의 열람 검증.
+4. 검증: 수신 테스트와 전체 GitHub CI 결과를 확인하고 배포한다. 실제 직원 세션은 미검증.
+5. 주의: 기존 등록자·SHA 중복·파일 열람 권한을 유지한다. 원장·데스크톱 메뉴와 운영 파일 변경 없음.
+
 
 ## 2026-11-20 — 입고 원장 일반 차수·전체 차수 검색
 1. 작업 위치: nenova-erp-ui / codex/incoming-round-search-1120 / C:/Users/USER/Documents/Codex/nw-cdx-incoming-round-1120 / 입고 원장 차수 검색 PR.
@@ -4159,3 +4170,5 @@ pm run test:canon 통과.
 4. 검증 상태: 정식 webpack, 실제 Chrome 합성 원장 일반/세부/전각·구분 문자 및 다른 필터 교집합, dnSpy, 원장 쓰기 가드(변경 API 0) 통과. 운영 검증 전.
 5. 주의/잠금: 공유 기본 체크아웃 및 #1896 입고 원가 시트 범위 변경 금지. 이번 검색은 기존 조회 결과에만 적용되며 DB 및 ECOUNT 쓰기 없음.
 검색어: 입고 차수 일반차수 전체차수 세부차수 47-02 incoming ledger round 검색 1.3.68
+
+2026-11-20 검증 업데이트: 두 역할 실제 가이드 촬영, 34흐름/35영상 검사, 회사 Drive 6파일 및 크기 검증 완료. 운영 확인은 PR에서 추적.

@@ -38,6 +38,32 @@ test('durable pair queue keeps crash-before-storage intent, retries errors, boun
   await queue.close();queue=createPairQueue({rootDir:root,run:async()=>{throw Error('fixture');}});await queue.drain();assert.equal(fs.readdirSync(path.join(root,'pair-jobs')).length,QUEUE_MAX);
  }finally{if(queue)await queue.close();cleanup(root);}
 });
+test('approved OneDrive CI is private, including after reclassification and duplicate submission', async () => {
+ const temp = fixture(), prior = process.cwd();
+ process.chdir(temp);
+ const service = createDriveIngestService({ projectRoot, pairRun: async () => {} });
+ try {
+  const { classify, getFileForVerification, reclassifyAll } = await import(pathToFileURL(path.join(projectRoot, 'lib/workDrive.js')));
+  assert.equal(classify({ filename: 'CI.pdf' }).sensitive, false);
+  assert.equal(classify({ filename: 'CIRCULAR.pdf', eventType: 'approved-onedrive' }).sensitive, false);
+  const filepath = path.join(temp, 'fixture.pdf');
+  fs.writeFileSync(filepath, '%PDF-1.7\nfixture\n%%EOF');
+  const first = await service.ingest({ filepath, filename: 'ABC_CI.pdf', userName: 'Fixture Employee', eventType: 'approved-onedrive' });
+  assert(first.result.ok && !first.result.duplicate);
+  assert.equal(first.result.classification.stage, '입고');
+  assert.equal(first.result.classification.sensitive, true);
+  const owner = { userId: 'fixture-owner', userName: 'Fixture Employee' };
+  const other = { userId: 'fixture-other', userName: 'Fixture Other' };
+  assert(getFileForVerification(owner, first.result.id));
+  assert.equal(getFileForVerification(other, first.result.id), null);
+  const duplicate = await service.ingest({ filepath, filename: 'CI.pdf', userName: other.userName, eventType: 'approved-onedrive' });
+  assert(duplicate.result.duplicate);
+  assert.equal(duplicate.result.id, first.result.id);
+  assert(reclassifyAll({ userId: 'nenovaSS3' }).ok);
+  assert.equal(getFileForVerification(owner, first.result.id).row.sensitive, true);
+  assert.equal(getFileForVerification(other, first.result.id), null);
+ } finally { await service.close(); process.chdir(prior); cleanup(temp); }
+});
 test('actual process exit after storage leaves original and pair intent recoverable without another upload',async()=>{
  const root=fixture(),drive=path.join(root,'data','drive');let queue;
  try{
