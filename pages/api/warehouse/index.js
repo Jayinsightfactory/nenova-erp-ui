@@ -90,7 +90,7 @@ function warehouseRowBunch(item, product) {
 }
 
 async function uploadWarehouse(req, res) {
-  const { orderYear, orderWeek, farmName, invoiceNo, awb, inputDate, fileName, items, gw, cw, rate, docFee } = req.body;
+  const { orderYear, orderWeek, farmName, invoiceNo, awb, inputDate, fileName, sourceWorkbookHash, items, gw, cw, rate, docFee } = req.body;
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ success: false, error: '업로드할 데이터가 없습니다.' });
   if (!/^\d{4}$/.test(String(orderYear || '')) || !/^\d{2}-\d{2}$/.test(String(orderWeek || ''))) {
     return res.status(400).json({ success: false, code: 'ORDER_YEAR_WEEK_REQUIRED', error: '입고 저장에는 화면의 선택 연도와 세부차수가 필요합니다.' });
@@ -128,7 +128,8 @@ async function uploadWarehouse(req, res) {
       continue;
     }
     const product = pr.recordset[0];
-    const bunchScope = [orderYear,orderWeek,farmName,invoiceNo,index];
+    const workbookScope = /^[a-f0-9]{64}$/i.test(sourceWorkbookHash || '') ? sourceWorkbookHash.toLowerCase() : fileName;
+    const bunchScope = [orderYear, orderWeek, farmName, invoiceNo, inputDate, workbookScope, index];
     const resolution = warehouseRowBunch({...item,bunchScope}, product);
     if (resolution.status === 'review') {
       validationErrors.push({row:index+1,prodName,error:resolution.message,candidates:resolution.candidates,snapshot:resolution.snapshot});

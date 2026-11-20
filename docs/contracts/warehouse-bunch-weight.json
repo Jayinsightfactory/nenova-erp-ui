@@ -45,7 +45,7 @@
       "stock": "preserve",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "notes": "원본 명시 단 또는 인쇄 포장값과 충돌 없는 산출을 자동 사용. 마스터 비율은 후보 근거이며 검토가 필요한 행만 사용자 확인 후 재검증. 레거시 미리보기는 Product SELECT만 수행."
+      "notes": "원본 명시 단 또는 인쇄 포장값과 충돌 없는 산출을 자동 사용. 마스터 비율은 후보 근거이며 검토가 필요한 행만 사용자 확인 후 재검증. 레거시 확인값은 입력일과 업로드 파일 식별자에 묶으며, 인보이스 확인값은 원본 해시·국가·입력일을 함께 확인한다. 레거시 미리보기는 Product SELECT만 수행."
     },
     {
       "name": "COMMIT_NEW_RECEIPT",

@@ -71,6 +71,15 @@ test('EC and US require a verified bunch value whenever shipment or estimate use
   assert.deepEqual(confirmed.issues,[]);
   assert.equal(confirmed.lines[0].bunchResolution,'confirmed');
   assert.equal(reviewedLine.bunchQuantity,null);
+  for (const changed of [
+    {...current,sourceHash:'changed'},
+    {...current,reviewedMetadata:{...current.reviewedMetadata,inputDate:'2026-11-18'}},
+    {...current,reviewedMetadata:{...current.reviewedMetadata,country:'US'}},
+  ]) {
+    assert.ok(validateInvoiceReceiptLines({...changed,lines:[reviewedLine]},[p])
+      .issues.some(({code})=>code==='BUNCH_QUANTITY_REQUIRED'));
+  }
+
   assert.ok(validateInvoiceReceiptLines({...current,lines:[reviewedLine]},[{...p,BunchOf1Box:21}])
     .issues.some(({code})=>code==='BUNCH_QUANTITY_REQUIRED'));
   const old = {...current,orderYear:'2025',reviewedMetadata:{country:'US',inputDate:'2025-11-17'}};

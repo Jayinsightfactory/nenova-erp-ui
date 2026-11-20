@@ -501,6 +501,7 @@ export default function InvoiceReceiptWorkbench({
   }, [scopeWeek, scopeYear]);
 
   function updateSelected(mutator) {
+    bunchResumeRef.current = null;
     workflowGenerationRef.current += 1;
     setRecords(current => current.map(record => {
       if (record.document.documentId !== selectedId) return record;
@@ -574,8 +575,9 @@ export default function InvoiceReceiptWorkbench({
         if (line.lineId !== lineId) return line;
         const conversionQuantityEdit = line.sourceEvidence?.conversionValidation?.status === 'MISMATCH'
           && RECEIPT_QUANTITY_FIELDS.has(field) && String(value ?? '') !== String(line[field] ?? '');
-        const reviewed = conversionQuantityEdit
-          ? { ...(line.reviewed || {}), confirmed: false, conversionConfirmed: false }
+        const quantityChanged = RECEIPT_QUANTITY_FIELDS.has(field) && String(value ?? '') !== String(line[field] ?? '');
+        const reviewed = quantityChanged && (line.reviewed || conversionQuantityEdit)
+          ? { ...line.reviewed, bunchConfirmation: undefined, ...(conversionQuantityEdit ? { confirmed: false, conversionConfirmed: false } : {}) }
           : line.reviewed;
         return { ...line, [field]: value, ...(reviewed ? { reviewed } : {}) };
       }),
@@ -616,7 +618,7 @@ export default function InvoiceReceiptWorkbench({
     const selectedLine = documentValue.lines.find(line => line.lineId === lineId);
     let next = { ...documentValue, lines: documentValue.lines.map(line => line.lineId === lineId
       ? { ...line, productSearch: undefined, prodKey: Number(product.ProdKey),
-        reviewed: { ...(line.reviewed || {}), erpMatchConfirmed: Boolean(product),
+        reviewed: { ...(line.reviewed || {}), erpMatchConfirmed: Boolean(product), bunchConfirmation: undefined,
           ...(line.sourceEvidence?.allocationSourceId ? { allocationConfirmed: false } : {}) } } : line) };
     const sourceId = next.lines.find(line => line.lineId === lineId)?.sourceEvidence?.allocationSourceId;
     if (sourceId) {
@@ -893,7 +895,7 @@ export default function InvoiceReceiptWorkbench({
       });
       if (isCurrent()) {
         bunchResumeRef.current = result.preview?.issues?.some(issue=>issue.code === 'BUNCH_QUANTITY_REQUIRED')
-          ? {documentId,registerRequested} : null;
+          ? {documentId,revision:result.preview.documentRevision,registerRequested} : null;
         const returned = result.document;
         if (returned && returned.documentId === target.document.documentId
           && Number.isSafeInteger(Number(returned.revision)) && Number(returned.revision) > 0) {
@@ -1508,6 +1510,7 @@ export default function InvoiceReceiptWorkbench({
               <strong>{line.lineNo}행 · {line.originalName}</strong>
               <ReceiptBunchConfirmation issue={issue} disabled={Boolean(busy)} onConfirm={confirmation=>{
                 const resumeRegistration = bunchResumeRef.current?.documentId === documentValue.documentId
+                  && Number(bunchResumeRef.current.revision) === Number(preview.documentRevision)
                   && bunchResumeRef.current.registerRequested;
                 const document = {...documentValue,lines:documentValue.lines.map(item=>item.lineId===lineId
                   ? {...item,reviewed:{...item.reviewed,bunchConfirmation:confirmation}} : item)};

@@ -82,7 +82,7 @@ async function recordRole(browser, base, secret, role) {
         assert.equal(body.orderYear,'2026');
         const results=body.items.map((item,index)=>resolveReceiptBunch(products[index],{
           boxQuantity:item.boxQty,stemQuantity:item.steamQty,bunchQuantity:item.bunchQty,stemsPerBunch:item.steamOf1Bunch,
-          stemsPerBox:item.steamOf1Box,confirmation:item.bunchConfirmation,legacyWorkbook:true,scopeKey:[body.orderYear,body.orderWeek,index],
+          stemsPerBox:item.steamOf1Box,confirmation:item.bunchConfirmation,legacyWorkbook:true,scopeKey:[body.orderYear,body.orderWeek,body.inputDate,body.sourceWorkbookHash,index],
         }));
         const bunchResolutions=Object.fromEntries(results.flatMap((result,index)=>
           ['derived','confirmed'].includes(result.status)?[[index,{quantity:result.quantity,status:result.status}]]:[]));
@@ -354,7 +354,25 @@ async function recordRole(browser, base, secret, role) {
       await click('수량 검증','.modal');
       const review='.modal [aria-label="2행 단 수량 확인"]';
       await page.waitForSelector(review);
-      if(dry)await page.screenshot({path:'.verify/bunch-inline-review.png'});
+      if (dry) {
+        await click('취소 / Cancelar', '.modal');
+        await page.waitForSelector('.modal', { hidden: true });
+        const [replacement] = await Promise.all([page.waitForFileChooser({ timeout: 12000 }), click('업로드 / Subir')]);
+        await replacement.accept([file]);
+        await page.waitForSelector('.modal input[placeholder="2026"]');
+        assert.equal(await page.$(review), null, 'reopening a workbook clears the old confirmation');
+        await click('수량 검증', '.modal');
+        await page.waitForSelector(review);
+        await page.$eval('.modal input[type=date]', input => {
+          const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          set.call(input, '2026-11-21');
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await page.waitForSelector(review, {hidden:true, timeout:5000});
+        await click('수량 검증', '.modal');
+        await page.waitForSelector(review);
+        await page.screenshot({path:'.verify/bunch-inline-review.png'});
+      }
       await hold('원본 단당 송이가 맞는 첫 행은 40단을 자동 계산합니다.\n두 번째 행만 전산 기준 산식과 원본을 대조합니다.',5);
       await click('수량 선택',review);
       await fill(review+' input[maxlength="500"]','연습 원본의 40단 확인');

@@ -2119,7 +2119,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         matchedInvoices={excels.length ? excels : matchPreview} initialTarget={reviewInitialTarget}
         validationIssues={validationIssues} onMatch={openProductMatch}
         products={matchingProducts} country={country}
-        onInvalidate={() => setReviewConfirmed(false)}
+        onInvalidate={() => { exportGeneration.current++; setExportReview(null); setReviewConfirmed(false); }}
         fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
       <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>
         <WorkflowGuide workflowId="packing-free-ocr" initialRole="수입부" />
@@ -2530,10 +2530,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   </button>}
                 </div>
                 <div role="status" style={{ padding: 12, marginBottom: 12, background: reviewConfirmed ? '#edf8f1' : '#fff4d6', border: '1px solid #ccd6e5', borderRadius: 8 }}>
-                  <button ref={reviewButtonRef} type="button" onClick={() => { setReviewInitialTarget(null); setReviewOpen(true); }} disabled={processing || saving} data-testid="packing-review-open">인식값 수정 · 원본 PDF 보기</button>
+                  <button ref={reviewButtonRef} type="button" onClick={() => { exportGeneration.current++; setExportReview(null); setReviewInitialTarget(null); setReviewOpen(true); }} disabled={processing || saving} data-testid="packing-review-open">인식값 수정 · 원본 PDF 보기</button>
                 </div>
                 {excels.some(excel => packingLegacyExportBlocked(excel, generatedErp?.products, country)) && <p role="alert">다른 국가에 같은 이름의 품목이 있어 EXE용 패킹 엑셀 다운로드는 차단했습니다. 국가와 품목키로 구분되는 웹 입고 등록을 이용하세요. 도착원가 다운로드는 별도입니다.</p>}
-                {exportReview && <section aria-label="다운로드 전 단 수량 확인">
+                {reviewConfirmed && exportReview && <section aria-label="다운로드 전 단 수량 확인">
                   <h3>[핵심 목적 · PURPOSE] 단 수량을 확인하고 다운로드</h3>
                   {exportReview.issues.map(issue => <div key={`${issue.fileName}:${issue.row}:${issue.snapshot}`}>
                     <strong>{issue.fileName} · {issue.row}행 · {issue.name}</strong>
