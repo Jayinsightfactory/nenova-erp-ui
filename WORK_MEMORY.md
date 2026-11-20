@@ -4016,6 +4016,13 @@ pm run test:canon 통과.
 5. 주의/잠금: 운영 입고·원가 데이터와 유료 분석 변경 없음. 기존 SQL writer, 재고·입고 readback, 원가 명시 승인 보존.
 검색어: invoice-only-receipt AWB optional packing receipt PENDING 18065 47-02 Desktop1.3.58 PR1875
 
+## 2026-11-19 — 국가별 발주서 불변 이력·카톡/등록 대조 착수 (Carver)
+1. 작업 위치: fix/country-po-1119 / C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119 / origin/master 4ae7fbee / PR 아직 없음.
+2. 완료된 것: 지침·사용량·ERP 가드/계약 검토, 실제 dnSpy FormOrderView/ClassOrderHistory 재실행. SELECT 중국2026/47-02 61행16업체38품목(2270단+86송이), 2025동일차수27행 확인. 대조 순수정책·불변 파일 저장 코어·상세/OrderHistory SELECT helper와 계획/계약 작성.
+3. 남은 할 일: 실제 카톡 동일건 확인, 보관 API와 화면 연결/서버 재검증·권한·동시성 보강, 기존 ETA 보존, Desktop 메뉴/버전·실제 격리 저장창/Excel/전달체크 재진입 hash, 필수 full gates/PR/CI/squash/Cafe24/release/읽기 smoke/정리. 아직 배포 후보 아님.
+4. 검증 상태: 최초 대조7+보관1+조회2=10PASS; 이후 전달 후 미등록분 carry/후속등록 소진 회귀 추가해 대조8PASS. UI/실제XLSX/공유API/전체 ERP·빌드·CI·배포는 미검증. 운영 SELECT만, 쓰기/실제 전달/유료 호출0.
+5. 주의/잠금: Carver 단독 작업트리. canonical dirty 및 기존 다른 작업트리 보존. 신규 helper들은 아직 런타임 API/화면에 연결하지 않았음. 저장 코어는 기존 private data/runtime 파일 인프라 재사용 설계, 운영 경로·내구성 최종 확인 전 완료 주장 금지.
+검색어: country-po-1119 countryOrderReconciliation countryOrderHistoryStore countryOrderEvidenceApi 47-02 중국 CARRY_PENDING
 ## 2026-11-19 · 통합 솔루션 시뮬레이션(`/my-work?tab=suite-sim`) Anti-AI Slop 에디토리얼 리디자인
 1. 작업 위치: `Jayinsightfactory/nenova-erp-ui` / `fix/suite-sim-anti-ai-slop` / `C:\Users\USER\nw-agy-clean-suitesim` (`Desktop 1.3.59`).
 2. 완료된 것: `components/work/SolutionSuiteSimulator.js` 전면 리디자인(다크 네온 `#0b1019`/`#38bdf8`/`#22d3ee`/`#a78bfa`·`linear-gradient`·`box-shadow` 글로우·`➔`·이모지 완전 제거, `#f8fafc`/`#ffffff`/`1px solid #e2e8f0`/`#0f172a`/`#475569` + 3색 의미 팔레트 `#1d4ed8`·`#047857`·`#b45309`·`tabular-nums` 적용, 상단 1px 컨트롤·고정폭 지표 바, 좌측 60% `[실시간 아키텍처 트레이스 도면·Archify·3D 블루프린트]` 뷰포트, 우측 40% 단계별 패킷 원장·실제 캡처 증빙·4-Invariant 안전 가드 인스펙터, 하단 5열 고밀도 실행 로그 테이블 구현), `__tests__/solutionSuiteSimulator.test.js` Anti-AI Slop 가드·SSR·3탭 검증 강화, `desktop/package.json`·`desktop/package-lock.json` `1.3.59` 패치 업.
@@ -4047,6 +4054,29 @@ pm run test:canon 통과.
 5. 주의/잠금: 병렬 세션 `UI-2`/`UI-3` 경계(`pages/my-work.js`, `components/pm/ArchFlowChart.js`, `components/pm/TechRadarWorkbench.js`, `components/work/SolutionSuiteSimulator.js`, `desktop/package.json`, `pages/pm/radar.js`, `lib/pmTechRadarSim.js`, `lib/pmRadarPlanTokens.js`, `pages/api/**`) 무수정. 금지어(`감시`·`추적`·`모니터링`·`절감시간`)·#hex·raw `<button>` 0건 유지.
 검색어: pm-control anti-ai-slop 오류관제 pages/pm pmThemes pmLookClear ControlGuide tabular-nums linear-gradient box-shadow PR1879
 
+## 2026-11-19 · Carver 국가별 발주 원본 이력 구현 / Desktop 실저장 검증 차단
+1. 작업 위치: nenova-erp-ui / fix/country-po-1119 / C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119 / Draft PR #1883 (OPEN, 미머지·미배포). 초기 4ae7fbee, 최신 b07a6019 병합 ad065954, 구현 checkpoint4120e0b7 및 b9be8e18. 생성 직후 gh pr checks는 no checks reported였으며 CI 통과로 간주하지 않는다.
+2. 완료된 것: countryOrderReconciliation/HistoryStore/HistoryApi/EvidenceApi, 기존 PedidosTool 명시 미리보기·원문 좌/선별 우·기본접힘 요약·불변 XLSX/행/요청시각·별도 전달시각·과거 원본, 전체 ERP 보존·100→120 중복방지·부분110 검토. Desktop 메뉴/즐겨찾기 URL 보존 및 소스1.3.60. 원천 두 번 읽기 fence는 변경 감지시409, 자동 재시도 없음.
+3. 남은 할 일: 실제 Desktop 네이티브 저장창 '저장'→새 XLSX→Excel 셀·해시→격리 전달/앱 재진입/원본재다운로드, 가이드 재촬영/실프레임·플레이어/Drive, 전체 ERP gate 재통과·정식 build·CI·squash·Cafe24/해당 Desktop release·운영 readonly smoke·정리. 이 조건 전 머지/배포 금지.
+4. 검증 상태: 신규14 PASS, Desktop unit75/menu3 PASS, manifest233/write scope1API/dnSpy PASS, provisional webpack2회 PASS. 전체 ERP는 기존 codeOnlyDeployment Bash2건3221225794 실패 후 단독15건 재검증 PASS(전체 재통과 미완료). 정식 build는 오래된 PedidosTool 가이드 hash에서 실패. 실제 중국2026/47-02 SELECT61행=2270단+86송이; 실제 카톡 연결 조회 불가여서 동일사건 입증 미검증. fixture는 별도 명시.
+5. 주의/잠금: Carver 단독 worktree 유지. CUA 사용자 입력충돌/최소화/coordinate input geometry unavailable, 겹친 타 앱 화면은 캡처증거로 저장하지 않음. 네이티브 저장 버튼 클릭·Excel 확인 미완료. 운영 ERP/전달체크/유료분석0. node_modules 두 junction은 canonical 대상 재귀삭제 금지. .verify private probe/로그·임시 원본은 커밋 금지, 생성 출력2개는 해시 검증 백업 후에만 복원함.
+검색어: country-po-1119 Carver countryOrderHistory China2026 47-02 Desktop1.3.60 native-save-blocked immutable-XLSX CARRY_PENDING
+
+## 2026-11-19 · 실검증 범위 중국2026/46-02 정정 / 실제 두 원본 대조
+1. 작업 위치: nenova-erp-ui / fix/country-po-1119 / C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119 / Draft PR1883 유지. 이전47-02 일반 테스트·기록 보존, 46-02 실자료로 재표기하지 않음.
+2. 완료된 것: 46-02 새 SELECT-only 두번읽기78상세/17업체/47품목=2563단+80송이, 주문수량이력89건 확보. Downloads 실제46-02_CLOUD(35137bytes,2518단+80송이)와 Melody(14446bytes,45단)의 첫 '업체별 발주' 시트78개 셀을 현재 ERP와 대조: 수량차이0/파일간중복셀0/품목키모호0/행합계차이0. 기존 국가양식 시트는 중복 합산하지 않음. 원본bytes 수정없음·SHA plan에 보존.
+3. 남은 할 일: 실제 해당 카톡 추가 원문·유일 등록 근거·최초 다운로드/전달 기준 확보, 실제 Desktop 격리 전달체크→원본 재열기/재다운로드·hash/셀·네이티브 저장/캡처, 기존 가이드/필수gates/CI/배포. 파일 생성시각을 다운로드·전달시각으로 오인 금지. 운영 주문/농장전달 쓰기 금지.
+4. 검증 상태: 새46-02 원천실패→오류·생성0 회귀 포함15건 PASS. 카톡archive 자격 없음·별칭조회실패는 unavailable, 메시지수null. 최초 다운로드/전달 및 실제 카톡↔등록 중복 여부 미확인(0건 아님). 운영 브라우저2회시간초과, 실제Desktop 읽기는 가능하나 탭클릭 coordinate input geometry unavailable 지속. 설치앱1.3.60 관찰은 타배포 버전이며 PR1883 배포 증거 아님. 실제 클릭/캡처·새 배포 미완료.
+5. 주의/잠금: private .verify/probe-country-4602.cjs, country-4602-readonly.json, compare-country-4602.cjs, country-4602-file-comparison.json은 원문/상세키를 포함하여 커밋 금지. 원본 Downloads 두 파일 보존. 일반 기능 소스 불변, 회귀테스트·plan만 추가. Carver 단독 worktree와 junction 경계 유지.
+검색어: China2026 46-02 Carver PR1883 CLOUD2518 Melody45 2563단80송이 unavailable-not-zero actual-original-readonly
+
+### 2026-11-20 · PR #1883 최신 master 병합 체크포인트
+1. 위치: `fix/country-po-1119` / `C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119` / PR #1883 / `6d805fd7`.
+2. 완료: `929692c0` 병합 및 브랜치 push. 양쪽 인계 내용 보존, Desktop 기존 버전 1.3.68 보존.
+3. 남음: 격리 Desktop 저장·Excel 검증, 가이드 실촬영·플레이어, 전체 게이트, CI·squash·Cafe24·Desktop 게시 및 스모크.
+4. 검증: 84건 통과·1건 건너뜀; import-country-orders/import 가이드 최신성 검사 실패. 실제 Desktop 저장과 배포 미검증. 카카오 원문과 ERP 등록 일치 미확인.
+5. 주의: 초안 유지. 운영 DB 쓰기·농장 발송·유료 분석 없음. 실제 원본과 작업트리 의존성 경로 보존.
+검색어: PR1883 6d805fd7 master929692c0 guide-recapture native-save-unverified
 ### 2026-11-19 — A3 행 안쪽 여백 축소
 1. 작업 위치: codex/tight-rows / work/tight-rows / PR 준비.
 2. 완료: 실제 셀폭 줄계산 유지, 14.5pt 줄높이+4pt 여유, 최소18.5pt.
@@ -4173,6 +4203,13 @@ pm run test:canon 통과.
 
 2026-11-20 검증 업데이트: 두 역할 실제 가이드 촬영, 34흐름/35영상 검사, 회사 Drive 6파일 및 크기 검증 완료. 운영 확인은 PR에서 추적.
 
+### 2026-11-20 · #1883 가이드 fixture 수리 및 격리 Desktop 시작 오류
+1. 위치: fix/country-po-1119 / C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119 / PR #1883.
+2. 완료: 가이드 녹화에 실제 이력 처리기와 로컬 저장소 연결, 수량 수정·농장 배정 후 명시적 미리보기 추가. Desktop fixture를 중국 2026/46-02로 정렬.
+3. 남음: 중국 가이드 전체 재촬영·해시·플레이어, 격리 Desktop 저장·재시작·전달/원본 해시와 셀 비교, 실제 카카오 근거 읽기, 정식 빌드·CI·배포.
+4. 검증: 최초 dry-run은 messages.flatMap 오류, 수정 후 네덜란드 격리 XLSX 140송이/ETA 확인을 통과하고 중국 농장 미리보기에서 중단. 실제 녹화 시 수량 입력 y=912.625가 캡처 범위 900 초과. Desktop fixture HTTP 200, 실제 Electron 시작 EPIPE 오류·재시작 명령 정책 거부. 저장창 및 실제 카카오 매칭 미검증.
+5. 주의: 이전 78셀·2,563단+80송이는 ERP↔Excel 일치 근거만. 운영 DB 쓰기·농장 발송·유료 분석 0. 비공개 fixture 로그·원본은 커밋 금지.
+검색어: PR1883 46-02 archive-fixture preview-recorder EPIPE capture-band Kakao-uncertain
 ## 2026-11-20 국가별 발주서 배치·명시 미리보기·다운로드 대조
 - 검색어: 수입방 오른쪽 원문 가운데 합계 매칭데이터 미리보기 선택 조회 이전 다운로드 이력 5건
 1. 작업 위치: nenova-erp-ui / codex/country-download-1120 / nw-cdx-country-download-1120 / PR 대기.
@@ -4180,3 +4217,19 @@ pm run test:canon 통과.
 3. 남은 일: PR CI·운영 배포·Desktop 공개 피드·실화면 및 최종 인계. 운영 미검증.
 4. 검증: Chrome 1572/1920/390, 실제 브라우저 XLSX 생성 및 비교, 페이지 새로고침 이후 비교 유지, 저장 완료/취소, 7개국 양식·dnSpy·쓰기·canon, 실제 Electron 격리 다운로드 완료/취소/bytes, 실제 2개 가이드 해시 통과.
 5. 주의: 개인·원문 채팅·업체별 값·XLSX 원본 바이트는 저장하지 않음. 업무 파일은 사용자 저장 위치. 원장/API 변경 없음. 팀 공유 이력 초안 #1883 무수정. 버전 1.3.68은 #1901이 사용하여 1.3.69.
+
+### 2026-11-20 · #1883 사용자 가이드 제외 / #1902 네이티브 저장 연결 조정
+1. 위치: fix/country-po-1119 / C:/Users/USER/Documents/Codex/nw-cdx-country-po-1119 / PR #1883.
+2. 완료: #1902 현행 화면·로컬 저장 비교·정확한 blob 완료 이벤트와 #1883 팀 원본·전달 이력 결합. 팀에서 받은 해시 일치 바이트만 저장하며 범위 메타데이터 보존. 기존 영상·자막·proof 미수정, 승인된 videoWaivers로 변경 파일만 예외.
+3. 남음: 최신 병합 상태의 네이티브 저장 클릭/캡처→격리 전달·재진입·SHA/셀, 실카톡 근거 read-only. CI 통과 이후 독립 Cafe24와 Desktop 1.3.71 게시 및 스모크.
+4. 검증: 이전 기준 ERP manifest 235·write scope 1 PASS, 이번 병합본 재검증 필요. Electron CLI로 격리 창·메뉴 검색·탭 열기 성공, 사용자 운영 Chrome과 겹침 확인 시 입력 중단. 저장·전달 미실행, 실카톡 매칭 미확인.
+5. 주의: 실제 주문·농장 전송 쓰기 금지. 개인 로컬 저장 확인과 팀 원본 보관·전달 기록은 서로 대체하지 않음. 개인 원문·엑셀 증거는 비공개.
+검색어: PR1883 1902 native completed immutable-archive videoWaivers 46-02 user-desktop-occupied
+
+### 2026-11-20 · 사용자 가이드 제외 후 릴리스 검증 체크포인트
+1. 위치: fix/country-po-1119 / PR #1883 / Desktop 1.3.71 후보.
+2. 완료: 격리 46-02 API·디스크 테스트에서 ERP 동일 건 100+20→120(140 아님), 팀 전달 표시 후 별도 저장소 인스턴스에서 원본 SHA-256·바이트·셀 재조회 일치.
+3. 남음: 실제 네이티브 저장·격리 전달 및 앱 재시작, 카카오 원문 접근과 동일 사건 연결, 정식 CI 및 Cafe24·Desktop 배포.
+4. 검증: 최신 master 통합 후 대상 99 PASS·1 skip, 이후 46-02 저장소 재열기 테스트 2 PASS. 78개 기존 ERP/Excel 셀, 2,563단 + 80송이 일치는 실제 카카오 매칭 증거 아님.
+5. 주의: 운영 Chrome이 겹쳐 입력 중지 후 격리 fixture/앱 PID만 정리. 운영 쓰기·실발송·유료분석 0. 가이드 자산은 master 그대로, PedidosTool만 공식 해시 한정 예외.
+검색어: country-po 9cd8296d release-build native-save user-occupied approved-guide-waiver

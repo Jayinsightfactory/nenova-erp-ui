@@ -1,7 +1,8 @@
 import KakaoAdditions from './KakaoAdditions';
+import CountryOrderEvidenceReview from './CountryOrderEvidenceReview';
 import WorkflowGuide from '../WorkflowGuide';
 import CountryDownloadComparison from './CountryDownloadComparison';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PEDIDOS_COUNTRIES, generatePedidos, formatPedidosQuantity, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
 import { reviewCountryOrderQuantities, buildCountryOrderMatrix, applyCountryOrderManualQuantities, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities, buildCountryOrderProductSnapshot, suggestCountryOrderProductFactors } from '../../lib/countryOrderSource';
@@ -73,6 +74,9 @@ export default function PedidosTool({ active = true }) {
   const previewOpener = useRef(null);
   const previewDialog = useRef(null);
   const [preview, setPreview] = useState(null);
+  const [historyReview,setHistoryReview]=useState(null);
+  const [historyEnvelope,setHistoryEnvelope]=useState(null);
+  const [reconciliation,setReconciliation]=useState(null);
 
   function closePreview() {
     const opened = previewWindow.current;
@@ -141,7 +145,9 @@ export default function PedidosTool({ active = true }) {
     contextGeneration.current += 1;
     setEtaDialog(null);
     setResults(null); setContext(null); setError(''); setDownloaded(''); setBusy(false);
+    setHistoryEnvelope(null);setReconciliation(null);
   }
+  const historyReviewChanged=useCallback(value=>{clearResults();setHistoryReview(value);},[]);
   function setManualQuantity(rowKey, custKey, value) {
     clearResults();
     setManual(current => ({ ...current, [rowKey]: { ...(current[rowKey] ?? {}), [custKey]: value } }));
@@ -226,14 +232,7 @@ export default function PedidosTool({ active = true }) {
   }, [matrix, manual]);
   const canGenerate = canExport && (matrix.blockers.length === 0 || Boolean(manualState.matrix));
 
-  useEffect(() => {
-    if (!canExport || matrix.blockers.length) return;
-    try {
-      const outputs = generateCompactCountryOrders(matrix, { farms, selected: farmSelection, split: farmSplit });
-      setContext({ country, year: matrix.scope.year, week: orderWeek, sourceName: '검토한 발주 수량' });
-      setResults(outputs);
-    } catch (err) { setResults(null); setError(err.message); }
-  }, [canExport, matrix, country, orderWeek, farms, farmSelection, farmSplit]);
+  // Selecting a scope only reads ERP. No workbook generation until the explicit button.
 
   function editQuantity(rowKey, customerKey, value) {
     clearResults();
@@ -293,14 +292,22 @@ export default function PedidosTool({ active = true }) {
     } catch (err) { setProductDialog({ ...productDialog, saving: false, error: `${err.message} 품목관리는 저장되지 않았습니다.` }); }
   }
 
-  function convertMatrix() {
+  async function convertMatrix() {
     clearResults();
     if (!canGenerate) return;
+    if(!historyReview){setError('원문·전산·전달 이력 조회를 완료한 뒤 미리보기를 생성하세요.');return;}
+    const generation=contextGeneration.current;
+    setBusy(true);
     try {
-      const source = matrix.blockers.length ? manualState.matrix : matrix;
-      const outputs = generateCompactCountryOrders(source, { farms, selected: farmSelection, split: farmSplit });
-      setContext({ country, year: matrix.scope.year, week: orderWeek, sourceName: '전산 원주문 (읽기 전용)' }); setResults(outputs);
-    } catch (err) { setError(err.message || '발주서 생성에 실패했습니다.'); }
+      const request={scope:{country,year:matrix.scope.year,orderWeek},expectedFingerprint:historyReview.fingerprint,selections:historyReview.selections,decisions:historyReview.decisions,options:{farms,selected:farmSelection,split:farmSplit},changes,manual};
+      const response=await fetch('/api/import/tools/country-order-history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'preview',...request})});
+      const body=await response.json();if(generation!==contextGeneration.current)return;
+      if(body.reconciliation)setReconciliation(body.reconciliation);
+      if(!response.ok)throw Error(body.error??'미리보기 생성 실패');
+      setHistoryEnvelope({...request,previewToken:body.previewToken,outputIds:body.outputIds});
+      setContext({ country, year: matrix.scope.year, week: orderWeek, sourceName: '전산 전체 주문 + 확인한 미등록 신규 (읽기 전용)' }); setResults(body.outputs);
+    } catch (err) { if(generation===contextGeneration.current)setError(err.message || '발주서 생성에 실패했습니다.'); }
+    finally{if(generation===contextGeneration.current)setBusy(false);}
   }
 
   async function convert(event) {
@@ -345,12 +352,31 @@ export default function PedidosTool({ active = true }) {
     const generation = contextGeneration.current;
     setError('');
     try {
-      const workbook=withCountryOrderEta(output.workbook,context.week,date);
-      workbook.Custprops={...workbook.Custprops,NenovaOrderYear:String(context.year),NenovaOrderCountry:context.country};
-      const bytes=serializePedidosWorkbook(workbook);
-      const state=await saveOrderFile({bytes,filename:output.filename,document:ownerDocument,
-        desktop:document.documentElement.dataset.nenovaCountryDownloads==='1',
-        openPicker:ownerDocument.defaultView?.showSaveFilePicker?.bind(ownerDocument.defaultView)});
+      let bytes;
+      const desktop=document.documentElement.dataset.nenovaCountryDownloads==='1';
+      let openPicker=ownerDocument.defaultView?.showSaveFilePicker?.bind(ownerDocument.defaultView);
+      if(sourceMode==='erp'){
+        if(!historyEnvelope)throw Error('미리보기를 다시 생성하세요.');
+        // The web file picker needs the original click's activation, before a
+        // potentially slow server revalidation. Opening it writes no bytes.
+        if(!desktop&&openPicker){
+          const handle=await openPicker({suggestedName:output.filename,types:[{description:'Excel 통합 문서',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});
+          if(generation!==contextGeneration.current)return;
+          openPicker=async()=>handle;
+        }
+        const response=await fetch('/api/import/tools/country-order-history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'download',...historyEnvelope,id:historyEnvelope.outputIds[output.filename],filename:output.filename,eta:date})});
+        const body=await response.json();if(!response.ok)throw Error(body.error??'원본 보관 실패');
+        if(generation!==contextGeneration.current)return;
+        bytes=Uint8Array.from(atob(body.file),letter=>letter.charCodeAt(0));
+        const sha=Array.from(new Uint8Array(await window.crypto.subtle.digest('SHA-256',bytes)),value=>value.toString(16).padStart(2,'0')).join('');
+        if(sha!==body.record.sha256)throw Error('내려받은 원본 해시가 보관 이력과 다릅니다. 저장하지 않았습니다.');
+      }else{
+        const workbook=withCountryOrderEta(output.workbook,context.week,date);
+        workbook.Custprops={...workbook.Custprops,NenovaOrderYear:String(context.year),NenovaOrderCountry:context.country};
+        bytes=serializePedidosWorkbook(workbook);
+      }
+      if(generation!==contextGeneration.current)return;
+      const state=await saveOrderFile({bytes,filename:output.filename,document:ownerDocument,desktop,openPicker});
       if (state === 'cancelled') return;
       if (state === 'interrupted') throw Error('파일 저장이 중단되었습니다.');
       let historyMessage='';
@@ -369,7 +395,7 @@ export default function PedidosTool({ active = true }) {
       catch { defaults = {}; }
       if (!defaults || typeof defaults !== 'object' || Array.isArray(defaults)) defaults = {};
       try { localStorage.setItem(COUNTRY_ORDER_ETA_STORAGE, JSON.stringify({ ...defaults, [country]: { ...scope, date } })); } catch {}
-      setDownloaded(`${output.filename} · ${formatCountryOrderEta(date)} ${state==='completed'?'저장 완료.':'다운로드 요청.'}${historyMessage}`);
+      setDownloaded(`${output.filename} · ${formatCountryOrderEta(date)} ${state==='completed'?'저장 완료.':'다운로드 요청.'}${sourceMode==='erp'?' 팀 원본 보관과 농장 전달은 별도입니다.':''}${historyMessage}`);
       closeEta();
     } catch (err) {
       if (err.name!=='AbortError' && generation===contextGeneration.current) {
@@ -467,10 +493,12 @@ export default function PedidosTool({ active = true }) {
       </fieldset>}
       <div className="pedidos-auto-actions">
         {results?.length ? results.map(output => <button key={output.filename} type="button" onClick={event => download(output, event.currentTarget)}>{output.filename} 다운로드</button>) : <button type="button" disabled>엑셀 다운로드</button>}
-        {matrix?.blockers.length > 0 && <button type="button" disabled={!canGenerate} onClick={requestGenerate}>미리보기 생성</button>}
+        <button type="button" disabled={!canGenerate||!historyReview} onClick={requestGenerate}>미리보기 생성</button>
         <button type="button" className="pedidos-secondary" disabled={loading} onClick={() => { requestGuard.current.invalidate(); clearResults(); setResponse(null); setReload(value => value + 1); }}>다시 조회</button>
         <span role="status">{loading ? (orderWeek ? '전산 원주문 조회 중…' : '차수 목록 조회 중…') : !country ? '국가를 선택하세요.' : !cycleKey ? '차수를 선택하세요.' : !orderWeek ? (subweeks.length ? '세부차수를 선택하면 주문을 조회합니다.' : '선택 범위에 주문 없음') : ''}</span>
       </div>
+      {original&&matchesScope&&<CountryOrderEvidenceReview key={`${country}/${matrix.scope.year}/${orderWeek}/${response.queriedAt}`} scope={{country,year:matrix.scope.year,orderWeek}} onChange={historyReviewChanged}/>}
+      {reconciliation&&<section aria-label="발주 수량 대조 결과"><h3>수량 대조 결과</h3><table><thead><tr><th>근거</th><th>판정</th><th>설명</th></tr></thead><tbody>{reconciliation.findings.map((row,index)=><tr key={index}><td>{row.item.rawCustomer??row.item.customer} · {row.item.rawProduct??row.item.product} {row.item.quantity}</td><td>{({REVIEW:'검토 필요',NEW:'미등록 신규',REGISTERED:'전산 반영 · 중복 추가 없음',CARRY_PENDING:'전달된 미등록분 유지',DUPLICATE:'중복 원문 제외',ALREADY_SENT:'기전달'})[row.status]}</td><td>{row.reason}</td></tr>)}</tbody></table><details><summary>발주 최종 셀 확인</summary><table><tbody>{reconciliation.rows.map((row,index)=><tr key={index}><td>{row.customer}</td><td>{row.product}</td><td>전산 {row.erpQuantity} + 파일 신규 {row.additionalQuantity} = {row.quantity} {importUnitLabel(row.unit)}</td></tr>)}</tbody></table></details></section>}
       {review.error && <p className="pedidos-error" role="alert">{review.error}</p>}
       {response && !sourceComplete && <p className="pedidos-error" role="alert">원주문 누락 점검을 통과하지 못했습니다. 조회되지 않은 활성 주문이 있거나 점검 결과가 없습니다. 누락 방지를 위해 다운로드를 중단했습니다. 관리자 확인 후 다시 조회하세요.</p>}
       {matrixState.error && <p role="alert" className="pedidos-error">{matrixState.error}</p>}
@@ -541,6 +569,16 @@ export default function PedidosTool({ active = true }) {
       <dialog ref={previewDialog} className="pedidos-preview-window" aria-labelledby="pedidos-preview-title"
         onCancel={event => { event.preventDefault(); closePreview(); }}>{orderPreview}</dialog>) : finishControls}
     <style jsx global>{`
+      /* Available before window.open copies the parent styles into the managed popup. */
+      .country-evidence{margin:16px 0;border-top:1px solid #cbd5e1;padding-top:14px;font-variant-numeric:tabular-nums}
+      .country-evidence-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+      .country-evidence article{border-bottom:1px solid #cbd5e1;padding:10px 6px}
+      .country-evidence article[data-selected=true]{background:#fff4cf;outline:2px solid #8a6a18}
+      .country-evidence pre{white-space:pre-wrap;word-break:break-word;font-family:inherit}
+      .country-evidence label{display:block;margin:5px 0}.country-evidence select{max-width:100%}
+      .country-history{overflow-x:auto}.country-history small{display:block;overflow-wrap:anywhere;max-width:300px}
+      .country-history td{vertical-align:top;padding:7px}
+      @media(max-width:800px){.country-evidence-split{grid-template-columns:minmax(0,1fr)}}
       .pedidos-tool { width: 100%; min-width: 0; color: #0f172a; font-size:14px; line-height:1.5; font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; font-variant-numeric:tabular-nums; }
       .pedidos-purpose { font-size:16px;font-weight:700; }
       .pedidos-download-comparison {margin:12px 0;padding-top:10px;border-top:1px solid #cbd5e1}

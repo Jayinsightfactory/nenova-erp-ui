@@ -51,6 +51,8 @@ test('invoice work and farm master share the canonical searchable desktop catalo
   const items=menu.flatMap(g=>g.items);
   assert.equal(items.filter(i=>i.href==='/import/tools').length,1);
   assert.match(items.find(i=>i.href==='/import/tools').labelKey,/인보이스 원본 대조/);
+  assert.match(items.find(i=>i.href==='/import/tools').labelKey,/발주 원본 이력/,'country-order history is searchable without a duplicate route');
+  assert.equal(items.find(i=>i.href==='/import/tools').popup,false,'opens inside the managed Desktop tab');
   const pipeline=items.filter(i=>i.href==='/import/pipeline');
   assert.equal(pipeline.length,1);
   assert.equal(pipeline[0].labelKey,'수입 원스톱 파이프라인(인보이스→원가→공유)');

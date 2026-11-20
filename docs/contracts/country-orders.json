@@ -81,7 +81,7 @@
     },
     {
       "name": "COUNTRY_ORDER_XLSX_GENERATE",
-      "source": "validated ERP-only CountryOrderMatrix through generatePedidosFromMatrix; subweek chooses and loads only; explicit preview button opens same-origin wide preview with a fullscreen fallback and identical state; download ETA label uses YYYY-MM-DD and retains workbook cell types and formulas; compares actual exported item/unit totals and ETA against five local-account snapshots per country/year/exact subweek/output filename; confirms OS save via browser writable close or Electron exact blob done, cancellation and failure do not record; explicit XLSX file import supports the unverified/legacy path; existing upload generatePedidos path remains intact; browser file only",
+      "source": "validated ERP-only CountryOrderMatrix; exact subweek selects and reads only; explicit preview generates with the same-origin wide preview/fullscreen fallback. ERP-source requests revalidate and archive the exact workbook bytes under the private country-order-history contract; uploaded workbook generation remains browser-local. ETA, types, formulas and scope metadata are preserved. Native blob completion or browser writable close alone records a local-account saved comparison (five per scope/file); cancellation and failure do not record local saved comparison and never set delivery. Explicit file import remains available",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "warehouseDetail": "preserve",
@@ -114,7 +114,7 @@
     "codeRecognition": "trimmed case-insensitive ^[A-Z]*CL[A-Z0-9_-]*$ recognizes CL, BCL, HCL, KCL, MCL, YCL and suffix variants; unknown non-empty codes retained with warning",
     "staleRequests": "AbortController plus request generation and exact response scopeKey; stale/cancelled/partial responses cannot mutate current state or enable download",
     "converterBoundary": "CountryOrderMatrix and generatePedidosFromMatrix are ERP-only additions; do not rewrite generatePedidos(workbook, ...) or unrelated country upload parsers",
-    "sideEffects": "authenticated GET SELECT plus browser-local parse/export only; no ERP or web-table write. Exception (2026-11-04): when a blocked product had a web-entered quantity, PedidosTool asks \"품목관리에 변경하시겠습니까?\" and, only on explicit confirm, POSTs Product conversion factors (SteamOf1Bunch/BunchOf1Box/SteamOf1Box) to the existing audited /api/master/products-bulk under the product-save-compat contract; country-orders itself stays GET-only and never touches order quantities",
+    "sideEffects": "country-orders remains authenticated GET SELECT only. ERP-source preview/download/delivery delegates to country-order-history for private immutable web-file originals/snapshots and separate explicit delivery events; no ERP or web-table write there. Existing exception (2026-11-04): blocked-product entered quantities may explicitly confirm Product conversion factors through audited /api/master/products-bulk under product-save-compat; no order quantity write",
     "exportProductOrder": "Each generated workbook sorts product names A-Z case-insensitively before writing rows/formulas, for ERP and uploaded input. Country/category/unit file splits remain unchanged. Ecuador retains adjacent half-box pairing after name sorting.",
     "importKakaoText": "docs/plans/import-kakao-filter-2026-11-18.md; raw-first selection shared by API/fixtures/browser; review items excluded until explicit check, no guessed photo quantities; customer aliases require unambiguous evidence."
   },

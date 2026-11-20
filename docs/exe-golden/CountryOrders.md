@@ -1,5 +1,20 @@
 # 국가별 발주서 조회 근거 — 2026-10-15
 
+## 2026-11-19 불변 발주 원본·전달 이력의 읽기 근거
+
+설치 EXE를 dnSpy.Console.exe --no-color -t FormOrderView 및 -t ClassOrderHistory로 재실행했다.
+FormOrderView.GetData는 ViewOrder/Product를 읽고 ExportToXlsx는 WYSIWYG다.
+ClassOrderHistory.Insert는 ChangeDtm에 GETDATE(), ColumName/BeforeValue/AfterValue/OrderDetailKey를 기록한다.
+FormOrderAdd의 주문수량 이력은 AfterValue=ClassOrderDetail.OutQuantity이며 미발주수량 이력과 별도다.
+따라서 주문수량(ColumName=N'주문수량')만 등록 증감 근거로 사용하고 같은 숫자의 다른 이력을 더하지 않는다.
+
+운영 SELECT 2026-11-19: 중국2026/47-02 ViewOrder61행/16업체/38품목, OutUnit 단59행2270·송이2행86.
+2025동일차수는27행/2업체/23품목으로 별도다. native 서버 DATEPART(TZOFFSET,SYSDATETIMEOFFSET())=540 확인.
+OrderHistoryKey215405/215403 등의 최신 주문수량 신규 이력이 있지만 카톡 보관함/업체별칭 조회가
+작업 환경에서 실패해 동일 사건으로 확인하지 않았다. 실제 카톡/전달 기준본 없는 현재 수량만으로
+중복을 추정하지 않는다. 로컬 생성·전달 시험은 명시 TEST_ONLY 격리 파일 이력에서만 수행한다.
+ERP 원장/SP/재고·견적·매출 쓰기0. 진행 상태는 WORK_MEMORY.md의 country-po-1119 항목을 따른다.
+
 ## 2026-11-17 CL 공란 표시와 출력 보존
 - 실제 설치 EXE의 FormOrderView.GetData/ExportToXlsx를 dnSpy CLI로 재확인. ViewOrder의 OrderYear/OrderWeek 및 저장 BunchQuantity/SteamQuantity를 읽는다. CL 표시 유무는 주문수량의 자격 조건이 아니다.
 - 운영 읽기 대조: CO47-01 141품목/54업체 및 CO47-02 61품목/29업체 각각 공란코드4업체 포함해 XLSX 품목수·수량 보존. NL47-02 17품목/2020송이 보존. NL46-02의 일부업체 송이수 누락3품목은 부분제외 없이 전체보류 유지. 조회와 브라우저 파일 생성만 수행, ERP 쓰기0.
