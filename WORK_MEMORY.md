@@ -4257,3 +4257,11 @@ pm run test:canon 통과.
 4. 검증 상태: 최초 가드에서 기존 ALTER 저장형2개 누락 exit1 확인 후 이미 승인된 정확4해시로 수정. 해시가드4개·복구90개·기존 atomic/installer 회귀·canon/dnSpy PASS. 독립 npm ci, 최신 #1906 통합 전체 ERP contract/webpack build exit0. 고정 기준 f891c82c2의 manifest236/writeguard/API0·canon/dnSpy 및 배포 계약22 PASS. 운영 DB/SP 쓰기 없음.
 5. 주의/잠금: UI/URL/메뉴 변경 없음(Desktop 기존 동작 재사용). 새로운 hash를 운영 관측값으로 자동 승인하지 않음, 실행 직전 재검증·unknown 거부 보존. 연결 목표: g17/g19, 학습 반영 있음. goals.json 백업·기존 id/gate/progress55/40 보존, note/history만 연결. owner alignment98.3%, 열린 drift0; 실제 목표 진척률 증가 근거 아님. ledger/세션 무수정.
 검색어: stock-procedure-hashes prepareInstallation planStockCalculationOrderRepair CREATE ALTER missing-hash exit1 g17 g19 학습반영
+
+## 2026-11-20 — 프로시저 hash 동기화 검증 구현 완료·운영 배포 추적
+1. 작업 위치: nenova-erp-ui / codex/stock-hash-guard-1120 / PR #1911 / master de793cfc3051de2c600dcf26ed5dd988e8cd801b. 최종 상태는 PR 댓글/작업 브랜치에 보관.
+2. 완료된 것: AGENTS.md 소비자 매핑·동시 검토 의무, checklist/ERP 가드 연결. npm run test:stock-procedure-hashes: 실제 atomic installer/정렬 repair의 정확4정의와 정적 allowlist 대조. SQL변경+stale목록, missing hash subprocess exit1, unknown/중복 거부. PR/Cafe24 fail-fast와 전체 ERP suite 연결.
+3. 남은 할 일: 최신 master44196a21(#1912) Cafe24 run44669585561 완료 확인 및 이번 worktree 정리. 앞선 배포는 #1909 stdout 계약 오류(#1913 별도 수정) 및 연속 master 변경의 STALE_RELEASE 보호로 운영 반영 전 중단. 보호 우회 없음.
+4. 검증 상태: 로컬 전체 ERP/build·canon/dnSpy·manifest236/writeguard/API0·배포계약22, 통합보완27, 해시가드4/복구90, PR CI(최종8m37s) PASS. 운영 DB/SP 쓰기0. 새로운 UI/URL/메뉴 없음.
+5. 주의/잠금: 연결 목표:g17/g19, 학습 반영 있음(원문을 유지한 원장 안전선 문맥으로 실제 memory.directives 저장 확인). goals.json 백업/id/gate/progress 보존. 기존 거부 경로 무수정; 중복 수정 방지용 임시 worktree는 변경0 확인 후 정상 정리. 추가 기능/PR 없음.
+검색어: stock-procedure-hashes PR1911 de793cfc missing-hash exit1 STALE_RELEASE 44669585561 g17 g19 학습반영
