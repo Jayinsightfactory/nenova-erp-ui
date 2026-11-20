@@ -90,9 +90,11 @@ async function main() {
   assert.throws(() => parseWarehousePackingGrid(badNumber), /BOX 값이 숫자가 아닙니다/);
 
   const apiSource = fs.readFileSync(path.join(__dirname, '..', 'pages/api/warehouse/index.js'), 'utf8');
-  assert.match(apiSource, /INSERT INTO TempWarehouseDetail/);
-  assert.match(apiSource, /EXEC dbo\.usp_CreateWarehouse/);
-  assert.match(apiSource, /ISNULL\(@result,-1\)<>0/, 'usp_CreateWarehouse는 dnSpy와 같이 oResult=0만 성공이다.');
+  assert.doesNotMatch(apiSource, /TempWarehouseDetail/, '신규 Excel 업로드는 EXE의 공용 staging을 변경하지 않는다');
+  assert.match(apiSource, /nextInvoiceWarehouseKey\(tQuery/);
+  assert.match(apiSource, /insertInvoiceWarehouseDetail\(tQuery/);
+  assert.match(apiSource, /applyInvoiceWarehouseStockDelta\(tQuery/);
+  assert.match(apiSource, /calculateInvoiceStock\(tQuery/);
   assert.match(apiSource, /map\(Number\)\.filter\(\(key\) => Number\.isInteger\(key\) && key >= 0\)/,
     'ProdKey=0 전체 재계산을 제거하면 안 된다.');
   assert.match(apiSource, /IF ISNULL\(@r,-1\)<>0 THROW 51001/,
@@ -100,6 +102,52 @@ async function main() {
   assert.doesNotMatch(apiSource, /INSERT INTO WarehouseDetail/);
   assert.doesNotMatch(apiSource, /INSERT INTO StockHistory/);
 
+  const { receiptBunchIssue } = await import('../lib/receiptBunchQuantity.js');
+  const { WAREHOUSE_WEIGHT_ROW_SQL } = await import('../lib/warehouseWeightRows.js');
+  const babel = require('next/dist/compiled/babel/core');
+  const compiled = babel.transformSync(apiSource, {
+    plugins:[require('next/dist/compiled/babel/plugin-transform-modules-commonjs')],
+    configFile:false,babelrc:false,
+  }).code;
+  const out = {exports:{}};
+  const product = {ProdKey:670,CountryFlower:1,OutUnit:'박스',EstUnit:'단'};
+  const transactionSql = [];
+  let replaceUnit = false;
+  const database = {
+    sql:new Proxy({},{get:(_,key)=>key}),
+    query:async()=>({recordset:[product]}),
+    withTransaction:async callback=>callback(async statement=>{
+      transactionSql.push(statement);
+      return {recordset: [replaceUnit ? {...product,ProdKey:999} : product]};
+    }),
+  };
+  const mocks = {
+    '../../../lib/db':database, '../../../lib/auth':{withAuth:handler=>handler},
+    '../../../lib/exeParity/common.js':{}, '../../../lib/exeWarehouseViewSql.js':{},
+    '../../../lib/invoiceReceiptNative.js':{},
+    '../../../lib/invoiceReceiptAccess.js':{canManageInvoiceReceipt:()=>true},
+    '../../../lib/receiptBunchQuantity.js':{receiptBunchIssue},
+    '../../../lib/warehouseWeightRows.js':{WAREHOUSE_WEIGHT_ROW_SQL},
+  };
+  new Function('require','module','exports',compiled)(key=>mocks[key],out,out.exports);
+  const handler=out.exports.default;
+  const legacyBody={orderYear:'2026',orderWeek:'47-01',inputDate:'2026-11-20',
+    items:[{prodName:'Douglas Fir',boxQty:150,steamQty:30000,bunchQty:null,steamOf1Bunch:10}]};
+  const run=async body=>{
+    const response={status(code){this.code=code;return this;},json(value){this.result=value;return this;}};
+    await handler({method:'POST',body,user:{userId:'test'}},response);
+    return response;
+  };
+  assert.equal((await run({...legacyBody,previewOnly:true})).code,400);
+  assert.equal((await run(legacyBody)).code,400);
+  assert.deepEqual(transactionSql,[]);
+  const corrected={...legacyBody,items:[{...legacyBody.items[0],bunchQty:3000}]};
+  assert.equal((await run({...corrected,previewOnly:true})).code,200);
+  assert.deepEqual(transactionSql,[]);
+  replaceUnit=true;
+  assert.equal((await run(corrected)).code,400);
+  assert.equal(transactionSql.length,1);
+  assert.match(transactionSql[0], /UPDLOCK,HOLDLOCK/);
   console.log('warehouse packing import parser/policy tests passed');
 }
 
