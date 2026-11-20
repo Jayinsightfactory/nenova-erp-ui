@@ -27,12 +27,12 @@
     }
   ],
   "criteria": {
-    "source": "Live 2026-10-15 native gate helpers and atomic CALC hash; actual installed EXE FormShipmentDistribution FIX/CANCEL then separate CALC0",
+    "source": "2026-11-20 read-only live definition equals 2026-10-12 atomic CALC plus the approved historical-stock-repair cursor ORDER BY OrderYear, OrderWeek; exact UTF16LE hashes only",
     "scope": "year/week from same locked committed V2 WAIT_CALC row only; pending full-product scope ProdKey=0",
     "grace": "60 seconds from SQL GETDATE, only yields to normal EXE follow-up; never a RUN expiry",
     "locking": "UPDLOCK,HOLDLOCK,NOWAIT, then original transaction SPID/count/state and transaction-owned application-lock marker",
     "completion": "Native returnCode and output result both numeric zero; same original transaction; fully idle gate; commit acknowledged",
-    "retry": "15 second poll; fingerprint-specific durable max5 attempts, 30/60/120/240/300second backoff; exhausted scope pauses with persistent status and stderr warning; new token has separate budget",
+    "retry": "15 second poll; fingerprint-specific durable max5 attempts, 30/60/120/240/300second backoff; exhausted scope pauses with persistent status and stderr warning; new token has separate budget; validate capability before consuming attempts; fingerprint includes exact reviewed CalcSha256 so a newly reviewed revision can retry an exhausted incompatible fingerprint",
     "process": "Dedicated PM2 service independent of next start/web.js, production opt-in, Next production env loader, dedicated child/pool, 90second request timeout and120second termination deadline; parent waits child close",
     "uncertainty": "Unknown commit or process death is not replayed blindly; next iteration rereads locked gate. status.json is last report, not authoritative DB state"
   },

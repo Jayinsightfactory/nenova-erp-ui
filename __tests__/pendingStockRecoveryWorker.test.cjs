@@ -30,3 +30,14 @@ test('deadline kills isolated process but does not overlap until confirmed close
 test('journal failure denies native calculation',async()=>{
  const s=setup({journal:{read:()=>({}),append:()=>{throw Error('disk');},save:()=>{throw Error('disk');}}});try{s.worker.tick();const c=s.children[0];c.emit('message',{type:'candidate',scope});assert.equal(c.sent[0].allow,false);}finally{await s.cleanup();}
 });
+
+test('reviewed CALC revision gets a separate retry budget without resetting exhausted prior work',async()=>{
+ const s=setup();try{
+ const legacyFile=retryFile(scope);const fingerprint=require('node:crypto').createHash('sha256').update(JSON.stringify(scope)).digest('hex');
+ s.journal.save(legacyFile,{fingerprint,attempts:5,nextAt:0});
+ const revised={...scope,calcSha256:require('../lib/pendingStockRecovery.cjs').EXPECTED_CALC_SHA256};
+ s.worker.tick();const c=s.children[0];c.emit('message',{type:'candidate',scope:revised});
+ assert.equal(c.sent[0].allow,true);assert.equal(s.journal.read(retryFile(revised)).attempts,1);
+ assert.equal(s.journal.read(legacyFile).attempts,5);c.emit('close',1,null);
+ }finally{await s.cleanup();}
+});
