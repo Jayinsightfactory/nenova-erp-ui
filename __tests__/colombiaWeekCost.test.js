@@ -21,6 +21,20 @@ test('split/reordered input and repeated same customs source preserve calculatio
 test('same AWB must be one whole pool, never repeated CW/freight; same receipt/detail cannot cross AWBs',()=>{
  for(const change of [f=>f.awbs.push({...f.awbs[0],manifest:{...f.awbs[0].manifest,awb:'014-41369974'}}),f=>f.awbs[1].members[0].warehouseKey=1,f=>f.awbs[1].members[0].rows[0].lineId='line-1']){const f=fixture();change(f);assert.throws(()=>calculate(f));}
 });
+test('two receipts on AWB A consume one charge; increasing A leaves B and shared customs unchanged',()=>{
+ const f=fixture(),a=f.awbs[0],other=awb(a.manifest.awb,3);
+ a.members.push(other.members[0]);a.manifest.members.push(other.manifest.members[0]);
+ const before=calculate(f);
+ a.input.freightAmount=125;
+ const after=calculate(f),awbLines=(result,id)=>result.lines.filter(line=>line.awb===id);
+ const freight=lines=>lines.reduce((total,line)=>total+line.componentAmounts.freightNative,0);
+ assert.equal(awbLines(before,a.manifest.awb).length,2);
+ assert.equal(freight(awbLines(before,a.manifest.awb)),100);
+ assert.equal(freight(awbLines(after,a.manifest.awb)),125);
+ assert.deepEqual(awbLines(after,f.awbs[1].manifest.awb),awbLines(before,f.awbs[1].manifest.awb));
+ assert.equal(before.totals.freightNative,300);assert.equal(after.totals.freightNative,325);
+ assert.equal(after.totals.customsKRW,before.totals.customsKRW);
+});
 test('late hydrangea creates next version, prior input/result untouched and no receipt registration',()=>{
  const f=fixture();f.awbs.pop();f.customsPools[0].awbs.pop();const old=calculate(f),saved=JSON.stringify(old);
  f.awbs.push(awb('16017338005',2,'HYDRANGEA',200));f.customsPools[0].awbs.push('16017338005');const next=calculate(f);
