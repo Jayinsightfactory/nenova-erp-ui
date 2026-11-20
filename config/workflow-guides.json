@@ -657,22 +657,22 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.232
+              "seconds": 14.007
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 58.535
+              "seconds": 58.031
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 143.21
+              "seconds": 139.814
             },
             {
               "scenario": "price",
               "title": "4. 입고 단가만 변경",
-              "seconds": 273.715
+              "seconds": 267.262
             }
           ]
         }
