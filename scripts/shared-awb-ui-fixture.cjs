@@ -8,6 +8,10 @@ const babel=require('next/dist/compiled/babel/core');
  const {stemsPerBunchCO}=await import('../lib/importPacking.js');
  const {fetchLiveInvoiceRate}=await import('../lib/invoiceLiveExchangeRate.js');
  const {coReceiptCostPrice}=await import('../lib/coOriginalCostInputs.js');
+ const weekMode=process.argv.includes('--week');
+ const weekScope={country:'CO',orderYear:'2026',orderWeek:'46-02'};
+ const openVersions=new Map();
+ const {createColombiaWeekCostHandler}=await import('../lib/colombiaWeekCostApi.js');
  const source=process.argv[2]?.startsWith('--')?null:process.argv[2],hash='a'.repeat(64);
  const invoices=source?JSON.parse(JSON.parse(fs.readFileSync(source,'utf8')).content[0].text).invoices:
   [{supplier:'연습 농장 A',invoice:'TEST-A',products:[{description:'ROSE RED',total_stems:100,pcs:1,u_price:1,t_price:100}]},
@@ -33,16 +37,26 @@ const babel=require('next/dist/compiled/babel/core');
   members=[...grouped.values()];if(members.length!==31||seq!==265)throw Error('46-1 receipt scope mismatch');
  }
  const manifest={orderYear:'2026',orderWeek:'46-01',awb:'86514699602',currency:'USD',members:members.map(({documentId,revision,sourceHash})=>({documentId,revision,sourceHash}))};
+ const weekMembers=[...members,members[0]].map((m,i)=>({...m,...weekScope,warehouseKey:i+1,documentId:'TEST_ONLY-'+(i+1),awb:i===2?'22222222222':'11111111111',rows:m.rows.map((r,j)=>({...r,lineId:'line-'+i+'-'+j})),lineInputs:m.lineInputs.map((l,j)=>({...l,lineId:'line-'+i+'-'+j,groupId:i===2?'HYDRANGEA':'ROSE'}))}));
+ const weekAwbs=[...new Set(weekMembers.map(m=>m.awb))].map(awb=>{const matching=weekMembers.filter(m=>m.awb===awb);return{awb,members:matching,headerEvidence:[],manifest:{...weekScope,awb,currency:'USD',members:matching}};});
+ const weekHandler=createColombiaWeekCostHandler({authorize:()=>true,prepare:async()=>({scope:weekScope,baselineDigest:'TEST_ONLY',awbs:weekAwbs,members:weekMembers,excluded:[],issues:[],documents:weekMembers.map(m=>({...m,reviewedMetadata:{country:'CO',transportMode:'AIR',farmName:m.farmName,inputDate:'2026-11-19'},receiptLines:m.rows,lines:m.rows}))}),preserve:async({scope,versionHash,createWorkbook})=>{if(!openVersions.has(versionHash)){const bytes=await createWorkbook();openVersions.set(versionHash,{bytes,metadata:{scope,versionHash,bytes:bytes.length,createdAt:new Date().toISOString(),sha256:crypto.createHash('sha256').update(bytes).digest('hex')}});}return openVersions.get(versionHash);},readVersion:async({versionHash})=>openVersions.get(versionHash),listVersions:async()=>[...openVersions.values()].map(v=>v.metadata)});
  const document={documentId:members[0].documentId,revision:1,orderYear:'2026',orderWeek:'46-01',invoiceNo:'AWB 86514699602',receiptStatus:'SHARED_AWB_PREVIEW',costStatus:'PREVIEW_ONLY',receiptLines,reviewedMetadata:{country:'CO',transportMode:'AIR',inputDate:'2026-11-06',farmName:'TEST_ONLY 격리 재생',awb:'86514699602'}};
- const component=fs.readFileSync('components/import-tools/SharedAwbCostReview.js','utf8');
+ const component=fs.readFileSync(weekMode?'components/import-tools/ColombiaWeekCostReview.js':'components/import-tools/SharedAwbCostReview.js','utf8');
  const compiled=babel.transformSync(component,{presets:[[require('next/dist/compiled/babel/preset-react'),{runtime:'classic'}]],plugins:[require('next/dist/compiled/babel/plugin-transform-modules-commonjs')],configFile:false,babelrc:false}).code;
  const coCompiled=babel.transformSync(fs.readFileSync('lib/coOriginalCostInputs.js','utf8'),{plugins:[require('next/dist/compiled/babel/plugin-transform-modules-commonjs')],configFile:false,babelrc:false}).code;
- const bundle=`const coModule=(()=>{const exports={};${coCompiled};return exports;})();const exports={},module={exports};function require(id){if(id==='react')return React;if(id==='../WorkflowGuide')return ()=>null;if(id.includes('coOriginalCostInputs'))return coModule;return new Proxy({},{get:(_,k)=>k==='__esModule'?false:String(k)});} ${compiled}\nReactDOM.render(React.createElement(module.exports.default,{document:${JSON.stringify(document)}}),document.getElementById('app'));`;
+ const bundle=`const coModule=(()=>{const exports={};${coCompiled};return exports;})();const exports={},module={exports};function require(id){if(id==='react')return React;if(id==='../WorkflowGuide')return ()=>null;if(id.includes('coOriginalCostInputs'))return coModule;return new Proxy({},{get:(_,k)=>k==='__esModule'?false:String(k)});} ${compiled}\nReactDOM.render(React.createElement(module.exports.default,${JSON.stringify(weekMode?weekScope:{document})}),document.getElementById('app'));`;
  const counts={prepare:0,preview:0,download:0,productionWrites:0,providerCalls:0};
  const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://127.0.0.1'),send=(body,status=200,type='application/json')=>{res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store'});res.end(type==='application/json'?JSON.stringify(body):body);};
   try{
    if(url.pathname==='/fixture-status')return send(counts);
+   if(weekMode&&url.pathname==='/api/import/receipts/colombia-week-cost'){
+    let text='';for await(const c of req)text+=c;const body=JSON.parse(text);
+    if(body.country!==weekScope.country||body.orderYear!==weekScope.orderYear||body.orderWeek!==weekScope.orderWeek)return send({error:'격리 차수 불일치'},400);
+    if(['prepare','preview','download'].includes(body.action))counts[body.action]++;
+    return await weekHandler({body,method:req.method,user:{userId:'fixture'}},{setHeader:(k,v)=>res.setHeader(k,v),status(n){res.statusCode=n;return this;},json(value){return send(value,res.statusCode);},send(bytes){res.end(bytes);}});
+   }
+   if(weekMode&&url.pathname.startsWith('/api/'))return send({error:'격리 서버: 이 API는 차단되었습니다.'},403);
    if(url.pathname==='/api/import/receipts/live-exchange-rate')return send({success:true,...await fetchLiveInvoiceRate('USD')});
    if(url.pathname==='/api/import/receipts/shared-awb-cost'){
     let text='';for await(const c of req)text+=c;const b=JSON.parse(text);

@@ -4211,3 +4211,11 @@ pm run test:canon 통과.
 검색어: 입고 차수 일반차수 전체차수 세부차수 47-02 incoming ledger round 검색 1.3.68
 
 2026-11-20 검증 업데이트: 두 역할 실제 가이드 촬영, 34흐름/35영상 검사, 회사 Drive 6파일 및 크기 검증 완료. 운영 확인은 PR에서 추적.
+
+### 2026-11-20 · #1896 46-02 격리 실화면 가이드 촬영
+1. 위치: fix/co-arrival-week-1119 / C:/Users/USER/Documents/Codex/nw-cdx-co-arrival-week-1119 / PR #1896.
+2. 완료: 46-02 실제 통합 컴포넌트·API·엑셀 생성기 격리 fixture 및 녹화기 추가. 조회·계산·다운로드 각 1회, 동일 AWB 2입고 + 별도 AWB 1입고, 운임 100+200=300 USD. XLSX 13,936바이트, 2026 46-02 단일 시트, 이력 재다운로드 바이트 일치.
+3. 남음: 촬영본 자막 겹침·헤더 잘림 수정본 재촬영 및 플레이어 등록; 실제 Desktop 네이티브 저장, Excel에서 AWB A 재계산, 정식 빌드·CI·배포·스모크.
+4. 검증: .verify/colombia-week-guide 1920×1080/67.9초 MP4 SHA-256 c053b3e8d029d66fa49c0a635f81a7a5f8652e256c98892f3c04d6ec7219c11f; 촬영 XLSX SHA-256 b32b74ee4cab03fecd5eb841d65ee4cc92301ceefd33f5e36dad78e1a050967a. 프레임 검수에서 상단 잘림 및 마지막 자막이 결과 일부와 겹침. Desktop·Excel 실재계산 미검증.
+5. 주의: 기존 AWB 재촬영은 새 흐름이 아니어서 .verify/legacy-awb-guide에만 보관. 검증 증거·작업 원본은 공개 커밋 금지, 운영 쓰기·외부 provider 0, 가이드 해시 우회 금지.
+검색어: PR1896 46-02 synthetic 13936 actual-browser guide-frame-QA b32b74ee desktop-native-unverified
