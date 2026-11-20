@@ -4197,3 +4197,11 @@ pm run test:canon 통과.
 4. 검증 상태: 실제 dnSpy FormShipmentDistribution FIX/CANCEL→별도 CALC0 확인. 구현 전 SELECT 43-01 CANCEL WAIT_CALC/V2ready, 2026/42-02 카네이션99행확정·2025동일82행 보존기준. 운영 정의 전체 diff는 승인 정렬 1줄뿐. 표적89개 및 실제 격리 SQL(rollback/동시/중단/교차연도/RUN보존) PASS. dnSpy/manifest234/write guard PASS. 전체 ERP contract(pre36/본체144/post27 명령) 및 production webpack build exit0.
 5. 주의/잠금: 운영 SP DDL/직접 gate clear/RUN회수/확정 토글/재고조정 없음. StockMaster/ProductStock만 기존 native CALC 범위; 주문·출고·날짜·농장·입고·현재고·이력·견적·매출 12개 보호원장 기준선 확보. SQL fixture 원래 중지 상태 복원. 새 UI/URL/메뉴 없음, 데스크톱 기존 기능 재사용. 다른 세션 파일 무수정.
 검색어: confirm-busy 42-02 카네이션 43-01 WAIT_CALC CANCEL 010c947 24a415 pendingStockRecovery approved-cursor-order retry-fingerprint
+
+## 2026-11-20 — 확정 BUSY 배포 완료 인계
+1. 작업 위치: nenova-erp-ui / codex/confirm-busy-1120 / PR #1905 squash master 4079538a50e16cfe725cfb36506fcd1f29dd0eff. 격리 worktree 정리 예정, 이 완료 인계는 작업 브랜치에도 보관.
+2. 완료된 것: 승인된 atomic/정렬 CALC 정확 hash 허용과 실행 직전 검증, capability 거부 retry 미소비, 검토본 hash별 budget. Cafe24 run44660332001 배포 exit0, worker 정상복구 후 새 연결 gate IDLE/PendingCalc0.
+3. 남은 할 일: 없음(이번 BUSY 복구/배포 범위). 수동 42-02 확정 ON/OFF 토글은 실행하지 않았음. CUA가 Windows URL확신 부족으로 중단되어 수동 조작 스모크는 미검증이며 우회하지 않음.
+4. 검증 상태: 표적89개, 실제 격리 MSSQL, 전체 ERP 계약, dnSpy/manifest/write guard, 로컬 webpack 및 최신 master 통합 GitHub CI PASS. 배포 API/worker heartbeat/실브라우저 hydration PASS. 배포 직전/후 보호12개 원장 건수·체크섬 일치(완전한 행 동일성 증명은 아님), 운영 SP hash 동일.
+5. 주의/잠금: 직접 gate clear/RUN 회수/SP 변경/확정 토글/재고조정 없음. 원장 강제보정 없음. 기존 메뉴 재사용, 새 화면 없음. 임시 SQL/기준선/빌드·junction 및 작업 worktree 정리. 다른 세션 작업은 무수정.
+검색어: confirm-busy 완료 PR1905 4079538a Cafe24 44660332001 IDLE PendingCalc0 12원장보존 89회귀
