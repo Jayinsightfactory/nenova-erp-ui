@@ -73,7 +73,7 @@ async function recordRole(browser, base, secret, role) {
       let data = { success: true, items: [], rows: [], data: [], products: [], countries: [], records: [], history: [], references: [], options: [], value: null, revision: 0 };
       if (u.pathname === '/api/products/search') data.products = products;
       if (u.pathname === '/api/auth/me') data.user = user;
-      if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,FarmName:i?'다른 농장':header.FarmName,InvoiceNo:i?`GUIDE-${i+1}`:header.InvoiceNo}));
+      if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,OrderWeek:i===1?'45-02':i?'46-01':header.OrderWeek,FarmName:i?'다른 농장':header.FarmName,InvoiceNo:i?`GUIDE-${i+1}`:header.InvoiceNo}));
       if (u.pathname === '/api/arrival-cost/latest') data.references = {'1|': [1000, 1350].map((cost,i)=>({cost,unit:'단',farm:`원가 농장 ${i+1}`,week:'45-01',orderYear:'2026',sourceKind:'INVOICE',referenceKey:String(i)}))};
       if (u.pathname === '/api/warehouse/9001') data.items = before;
       if (u.pathname === '/api/warehouse/correction') data = { success: true, draftOwner: user.userId, header, baselineDigest:'c'.repeat(64), details: before, farms: [{ FarmName: header.FarmName }, { FarmName: '연습농장 나' }], history: [] };
@@ -161,6 +161,19 @@ async function recordRole(browser, base, secret, role) {
         if(scenario==='farm'){
           await page.goto(`${base}/incoming?popup=1`,{waitUntil:'networkidle0'});
           await page.waitForSelector('[data-row-key="9001"]');
+          const roundInput = 'input[aria-label="차수 검색"]';
+          await hold('차수 열 위에서 45를 입력하면 45차 전체가 나옵니다. 45-01을 입력하면 해당 세부차수만 표시됩니다.',4);
+          await fill(roundInput, '45');
+          await page.waitForFunction(() => document.querySelectorAll('tr[data-row-key]').length === 2);
+          await fill(roundInput, '45-01');
+          await page.waitForFunction(() => document.querySelectorAll('tr[data-row-key]').length === 1);
+          if (dry) {
+            await fill(roundInput, '４５차');
+            await page.waitForFunction(() => document.querySelectorAll('tr[data-row-key]').length === 2);
+            await fill(roundInput, '45 – 02');
+            await page.waitForSelector('[data-row-key="9002"]');
+            await fill(roundInput, '45-01');
+          }
           await hold('농장명·인보이스·AWB 열 위에서 각각 검색할 수 있습니다. 여러 칸을 채우면 모든 조건과 일치하는 건만 표시됩니다.',4);
           await fill('input[aria-label="인보이스 검색"]','guide-001');
           await page.waitForFunction(()=>document.querySelectorAll('tr[data-row-key]').length===1);
@@ -169,6 +182,9 @@ async function recordRole(browser, base, secret, role) {
           await fill('input[aria-label="농장명 검색"]','연습농장');
           await page.waitForFunction(()=>document.querySelectorAll('tr[data-row-key]').length===1);
           if (dry) {
+            await fill(roundInput, '45-02');
+            await page.waitForFunction(() => !document.querySelector('[data-row-key="9001"]'));
+            await fill(roundInput, '45-01');
             await fill('input[aria-label="AWB 검색"]', '99999999');
             await page.waitForFunction(() => !document.querySelector('[data-row-key="9001"]'));
             await page.setViewport({width: 820, height: 900});
