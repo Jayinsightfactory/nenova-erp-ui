@@ -537,15 +537,15 @@ export default function TechRadarWorkbench({
         <line x1="320" y1="36" x2="320" y2="604" stroke="var(--trw-line)" strokeWidth="1" />
         <line x1="36" y1="320" x2="604" y2="320" stroke="var(--trw-line)" strokeWidth="1" />
 
-        <text x="326" y="256" fill="var(--trw-muted)" fontSize="10" fontWeight="700">ADOPT</text>
-        <text x="326" y="188" fill="var(--trw-muted)" fontSize="10" fontWeight="700">TRIAL</text>
-        <text x="326" y="124" fill="var(--trw-muted)" fontSize="10" fontWeight="700">ASSESS</text>
-        <text x="326" y="78" fill="var(--trw-muted)" fontSize="10" fontWeight="700">HOLD</text>
+        <text x="326" y="256" fill="var(--trw-muted)" fontSize="12.5" fontWeight="700">ADOPT</text>
+        <text x="326" y="188" fill="var(--trw-muted)" fontSize="12.5" fontWeight="700">TRIAL</text>
+        <text x="326" y="124" fill="var(--trw-muted)" fontSize="12.5" fontWeight="700">ASSESS</text>
+        <text x="326" y="78" fill="var(--trw-muted)" fontSize="12.5" fontWeight="700">HOLD</text>
 
-        <text x="24" y="28" fill="var(--trw-ink)" fontSize="12" fontWeight="700">Q2 고성능 런타임·Rust</text>
-        <text x="616" y="28" textAnchor="end" fill="var(--trw-ink)" fontSize="12" fontWeight="700">Q1 에이전트·오케스트레이션</text>
-        <text x="24" y="624" fill="var(--trw-ink)" fontSize="12" fontWeight="700">Q3 카톡·디바이스 브릿지</text>
-        <text x="616" y="624" textAnchor="end" fill="var(--trw-ink)" fontSize="12" fontWeight="700">Q4 UI·시각화·문서검증</text>
+        <text x="24" y="28" fill="var(--trw-ink)" fontSize="14.5" fontWeight="700">Q2 고성능 런타임·Rust</text>
+        <text x="616" y="28" textAnchor="end" fill="var(--trw-ink)" fontSize="14.5" fontWeight="700">Q1 에이전트·오케스트레이션</text>
+        <text x="24" y="624" fill="var(--trw-ink)" fontSize="14.5" fontWeight="700">Q3 카톡·디바이스 브릿지</text>
+        <text x="616" y="624" textAnchor="end" fill="var(--trw-ink)" fontSize="14.5" fontWeight="700">Q4 UI·시각화·문서검증</text>
 
         {polarPoints.map((pt) => {
           const active = selectedItem?.name === pt.name;
@@ -582,14 +582,14 @@ export default function TechRadarWorkbench({
               )}
               {isNew ? (
                 <polygon
-                  points={active ? '0,-13.5 12.5,9.5 -12.5,9.5' : '0,-11.5 10.5,8 -10.5,8'}
+                  points={active ? '0,-15.5 14,10.5 -14,10.5' : '0,-13.5 12,9.5 -12,9.5'}
                   fill={active ? color : 'var(--trw-surface)'}
                   stroke={color}
                   strokeWidth={active ? 2 : 1.5}
                 />
               ) : (
                 <circle
-                  r={active ? 11.5 : 9.5}
+                  r={active ? 13.5 : 11.5}
                   fill={active ? color : 'var(--trw-surface)'}
                   stroke={color}
                   strokeWidth={active ? 2 : 1.5}
@@ -597,8 +597,8 @@ export default function TechRadarWorkbench({
               )}
               <text
                 textAnchor="middle"
-                dy={isNew ? '5.2' : '3.4'}
-                fontSize="8.8"
+                dy={isNew ? '5.5' : '3.8'}
+                fontSize="11"
                 fontWeight="700"
                 fill={active ? 'var(--trw-surface)' : 'var(--trw-ink)'}
                 style={{ fontVariantNumeric: 'tabular-nums' }}
@@ -624,22 +624,22 @@ export default function TechRadarWorkbench({
         <line x1="58" y1="199" x2="616" y2="199" stroke="var(--trw-line)" strokeWidth="1.2" />
         <line x1="58" y1="282.5" x2="616" y2="282.5" stroke="var(--trw-line)" strokeWidth="1" strokeDasharray="2 4" strokeOpacity="0.6" />
 
-        <text x="68" y="50" fill="var(--trw-warn)" fontSize="11" fontWeight="700">{MATRIX_ZONES[1].label}</text>
-        <text x="606" y="50" textAnchor="end" fill="var(--trw-ok)" fontSize="11" fontWeight="700">{MATRIX_ZONES[0].label}</text>
-        <text x="68" y="354" fill="var(--trw-muted)" fontSize="11" fontWeight="700">{MATRIX_ZONES[3].label}</text>
-        <text x="606" y="354" textAnchor="end" fill="var(--trw-accent)" fontSize="11" fontWeight="700">{MATRIX_ZONES[2].label}</text>
+        <text x="68" y="52" fill="var(--trw-warn)" fontSize="12.5" fontWeight="700">{MATRIX_ZONES[1].label}</text>
+        <text x="606" y="52" textAnchor="end" fill="var(--trw-ok)" fontSize="12.5" fontWeight="700">{MATRIX_ZONES[0].label}</text>
+        <text x="68" y="352" fill="var(--trw-muted)" fontSize="12.5" fontWeight="700">{MATRIX_ZONES[3].label}</text>
+        <text x="606" y="352" textAnchor="end" fill="var(--trw-accent)" fontSize="12.5" fontWeight="700">{MATRIX_ZONES[2].label}</text>
 
-        <text x="58" y="384" textAnchor="middle" fill="var(--trw-muted)" fontSize="10">0</text>
-        <text x="337" y="384" textAnchor="middle" fill="var(--trw-muted)" fontSize="10">50</text>
-        <text x="616" y="384" textAnchor="middle" fill="var(--trw-muted)" fontSize="10">100</text>
-        <text x="337" y="405" textAnchor="middle" fill="var(--trw-ink)" fontSize="11.5" fontWeight="700">
+        <text x="58" y="385" textAnchor="middle" fill="var(--trw-muted)" fontSize="12">0</text>
+        <text x="337" y="385" textAnchor="middle" fill="var(--trw-muted)" fontSize="12">50</text>
+        <text x="616" y="385" textAnchor="middle" fill="var(--trw-muted)" fontSize="12">100</text>
+        <text x="337" y="408" textAnchor="middle" fill="var(--trw-ink)" fontSize="13" fontWeight="700">
           운영·원장 안전성 및 실측 준비도 (0~100)
         </text>
 
-        <text x="48" y="366" textAnchor="end" fill="var(--trw-muted)" fontSize="10">0</text>
-        <text x="48" y="202" textAnchor="end" fill="var(--trw-muted)" fontSize="10">50</text>
-        <text x="48" y="38" textAnchor="end" fill="var(--trw-muted)" fontSize="10">100</text>
-        <text x="18" y="199" textAnchor="middle" transform="rotate(-90 18 199)" fill="var(--trw-ink)" fontSize="11.5" fontWeight="700">
+        <text x="48" y="366" textAnchor="end" fill="var(--trw-muted)" fontSize="12">0</text>
+        <text x="48" y="203" textAnchor="end" fill="var(--trw-muted)" fontSize="12">50</text>
+        <text x="48" y="39" textAnchor="end" fill="var(--trw-muted)" fontSize="12">100</text>
+        <text x="18" y="199" textAnchor="middle" transform="rotate(-90 18 199)" fill="var(--trw-ink)" fontSize="13" fontWeight="700">
           처리속도·업무시간 단축 임팩트
         </text>
 
@@ -669,17 +669,17 @@ export default function TechRadarWorkbench({
               }}
             >
               <title>{`${labelNo}. ${pt.name} · 준비도 ${pt.readiness} · 임팩트 ${pt.impact} · ${pt.zoneLabel}`}</title>
-              {active && <circle r="15.5" fill="none" stroke={color} strokeWidth="2" />}
+              {active && <circle r="17" fill="none" stroke={color} strokeWidth="2" />}
               <circle
-                r={active ? 11 : 9}
+                r={active ? 13 : 11}
                 fill={active ? color : 'var(--trw-surface)'}
                 stroke={color}
                 strokeWidth={active ? 2 : 1.5}
               />
               <text
                 textAnchor="middle"
-                dy="3.4"
-                fontSize="8.8"
+                dy="3.8"
+                fontSize="11"
                 fontWeight="700"
                 fill={active ? 'var(--trw-surface)' : 'var(--trw-ink)'}
                 style={{ fontVariantNumeric: 'tabular-nums' }}
@@ -1358,113 +1358,113 @@ export default function TechRadarWorkbench({
             </defs>
 
             {/* 단계 헤더 라벨 */}
-            <text x="14" y="18" fill="var(--trw-muted)" fontSize="10" fontWeight="700">01 원천 데이터 입력 (어디서 왔는가)</text>
-            <text x="266" y="18" fill="var(--trw-muted)" fontSize="10" fontWeight="700">02 판정 기준식 &amp; 레이더·AGI 엔진</text>
-            <text x="514" y="18" fill="var(--trw-muted)" fontSize="10" fontWeight="700">03 4대 부서 실행 화면</text>
-            <text x="762" y="18" fill="var(--trw-muted)" fontSize="10" fontWeight="700">04 원가절감 · 이익증대 결과</text>
+            <text x="12" y="18" fill="var(--trw-muted)" fontSize="12" fontWeight="700">01 원천 데이터 입력</text>
+            <text x="254" y="18" fill="var(--trw-muted)" fontSize="12" fontWeight="700">02 판정 기준식 · 엔진</text>
+            <text x="502" y="18" fill="var(--trw-muted)" fontSize="12" fontWeight="700">03 4대 부서 실행 화면</text>
+            <text x="750" y="18" fill="var(--trw-muted)" fontSize="12" fontWeight="700">04 원가절감 · 이익증대</text>
 
             {/* Col 1: 3대 입력 원천 */}
             <g>
-              <rect x="14" y="30" width="212" height="48" rx="4" fill="var(--trw-surface-2)" stroke="var(--trw-line)" strokeWidth="1" />
-              <text x="24" y="48" fill="var(--trw-accent)" fontSize="10.5" fontWeight="700">이메일 · 외부 첨부서류</text>
-              <text x="24" y="66" fill="var(--trw-ink)" fontSize="10.5">{clipText(origins.emailDoc, 28)}</text>
+              <rect x="12" y="28" width="214" height="50" rx="4" fill="var(--trw-surface-2)" stroke="var(--trw-line)" strokeWidth="1" />
+              <text x="22" y="47" fill="var(--trw-accent)" fontSize="12.5" fontWeight="700">이메일 · 외부 첨부서류</text>
+              <text x="22" y="67" fill="var(--trw-ink)" fontSize="12">{clipText(origins.emailDoc, 20)}</text>
 
-              <rect x="14" y="88" width="212" height="48" rx="4" fill="var(--trw-surface-2)" stroke="var(--trw-line)" strokeWidth="1" />
-              <text x="24" y="106" fill="var(--trw-accent)" fontSize="10.5" fontWeight="700">사내 담당자 · 카톡 원문</text>
-              <text x="24" y="124" fill="var(--trw-ink)" fontSize="10.5">{clipText(origins.staffInput, 28)}</text>
+              <rect x="12" y="87" width="214" height="50" rx="4" fill="var(--trw-surface-2)" stroke="var(--trw-line)" strokeWidth="1" />
+              <text x="22" y="106" fill="var(--trw-accent)" fontSize="12.5" fontWeight="700">사내 담당자 · 카톡 원문</text>
+              <text x="22" y="126" fill="var(--trw-ink)" fontSize="12">{clipText(origins.staffInput, 20)}</text>
 
-              <rect x="14" y="146" width="212" height="48" rx="4" fill="var(--trw-surface-2)" stroke="var(--trw-line)" strokeWidth="1" />
-              <text x="24" y="164" fill="var(--trw-accent)" fontSize="10.5" fontWeight="700">해외 농장 · 국내 거래처</text>
-              <text x="24" y="182" fill="var(--trw-ink)" fontSize="10.5">{clipText(origins.partnerData, 28)}</text>
+              <rect x="12" y="146" width="214" height="50" rx="4" fill="var(--trw-surface-2)" stroke="var(--trw-line)" strokeWidth="1" />
+              <text x="22" y="165" fill="var(--trw-accent)" fontSize="12.5" fontWeight="700">해외 농장 · 국내 거래처</text>
+              <text x="22" y="185" fill="var(--trw-ink)" fontSize="12">{clipText(origins.partnerData, 20)}</text>
             </g>
 
             {/* Col 1 -> Col 2 연결선 */}
-            <path d="M 226 54 L 246 54 L 246 108 L 264 108" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 226 112 L 264 112" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 226 170 L 246 170 L 246 116 L 264 116" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 226 53 L 240 53 L 240 108 L 252 108" fill="none" stroke="var(--trw-accent)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 226 112 L 252 112" fill="none" stroke="var(--trw-accent)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 226 171 L 240 171 L 240 116 L 252 116" fill="none" stroke="var(--trw-accent)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
 
             {/* Col 2: 판정 기준식 & 엔진 */}
             <g>
-              <rect x="266" y="30" width="208" height="164" rx="4" fill="var(--trw-surface)" stroke="var(--trw-accent)" strokeWidth="1.4" />
-              <rect x="266" y="30" width="208" height="26" rx="4" fill="var(--trw-surface-2)" />
-              <text x="276" y="47" fill="var(--trw-accent)" fontSize="10.5" fontWeight="700">
-                판정 기준 · {sim.primaryNode} ({sim.activeNodes.join('→')})
+              <rect x="254" y="28" width="220" height="168" rx="4" fill="var(--trw-surface)" stroke="var(--trw-accent)" strokeWidth="1.4" />
+              <rect x="254" y="28" width="220" height="28" rx="4" fill="var(--trw-surface-2)" />
+              <text x="264" y="47" fill="var(--trw-accent)" fontSize="12" fontWeight="700">
+                {`판정 · ${sim.primaryNode} (${sim.activeNodes.join('→')})`}
               </text>
-              <text x="276" y="76" fill="var(--trw-ink)" fontSize="11" fontWeight="700">
-                {clipText(sim.itemName, 26)}
+              <text x="264" y="76" fill="var(--trw-ink)" fontSize="12.5" fontWeight="700">
+                {clipText(sim.itemName, 20)}
               </text>
-              <text x="276" y="98" fill="var(--trw-muted)" fontSize="10">핵심 기준식:</text>
-              <text x="276" y="114" fill="var(--trw-ink)" fontSize="10.5">
-                {clipText(origins.thresholdRule, 26)}
+              <text x="264" y="98" fill="var(--trw-muted)" fontSize="12">핵심 기준식:</text>
+              <text x="264" y="116" fill="var(--trw-ink)" fontSize="12">
+                {clipText(origins.thresholdRule, 17)}
               </text>
-              <text x="276" y="131" fill="var(--trw-muted)" fontSize="10">
-                {clipText(String(origins.thresholdRule || '').slice(26), 28)}
+              <text x="264" y="134" fill="var(--trw-muted)" fontSize="12">
+                {clipText(String(origins.thresholdRule || '').slice(17), 18)}
               </text>
-              <line x1="276" y1="146" x2="464" y2="146" stroke="var(--trw-line)" strokeWidth="1" />
-              <text x="276" y="164" fill="var(--trw-ok)" fontSize="10.5" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <line x1="264" y1="148" x2="464" y2="148" stroke="var(--trw-line)" strokeWidth="1" />
+              <text x="264" y="167" fill="var(--trw-ok)" fontSize="12" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {`STEP 0${safeStepIdx + 1}/0${Math.max(1, sim.steps.length)} · ${activeSimStep?.latencyMs ?? 0}ms`}
               </text>
-              <text x="276" y="181" fill="var(--trw-muted)" fontSize="10">
-                {clipText(activeSimStep?.artifact || sim.subtitle, 28)}
+              <text x="264" y="185" fill="var(--trw-muted)" fontSize="12">
+                {clipText(activeSimStep?.artifact || sim.subtitle, 22)}
               </text>
             </g>
 
             {/* Col 2 -> Col 3 연결선 */}
-            <path d="M 474 112 L 494 112 L 494 49 L 512 49" fill="none" stroke="var(--trw-accent)" strokeWidth="1.2" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 474 112 L 494 112 L 494 91 L 512 91" fill="none" stroke="var(--trw-accent)" strokeWidth="1.2" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 474 112 L 494 112 L 494 133 L 512 133" fill="none" stroke="var(--trw-accent)" strokeWidth="1.2" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 474 112 L 494 112 L 494 175 L 512 175" fill="none" stroke="var(--trw-accent)" strokeWidth="1.2" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 474 112 L 488 112 L 488 47 L 500 47" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 474 112 L 488 112 L 488 90 L 500 90" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 474 112 L 488 112 L 488 133 L 500 133" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 474 112 L 488 112 L 488 176 L 500 176" fill="none" stroke="var(--trw-accent)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
 
             {/* Col 3: 4대 부서 실행 화면 */}
             {deptRows.slice(0, 4).map((row, idx) => {
-              const y = 30 + idx * 42;
+              const y = 28 + idx * 43;
               const isFocus = deptFilter === row.deptId || (deptFilter === 'all' && row.impactLevel === '핵심');
               return (
                 <g key={row.deptId} opacity={deptFilter === 'all' || deptFilter === row.deptId ? 1 : 0.48}>
                   <rect
-                    x="514"
+                    x="502"
                     y={y}
-                    width="208"
-                    height="36"
+                    width="220"
+                    height="38"
                     rx="4"
                     fill="var(--trw-surface-2)"
                     stroke={isFocus ? 'var(--trw-ok)' : 'var(--trw-line)'}
                     strokeWidth={isFocus ? '1.4' : '1'}
                   />
-                  <text x="524" y={y + 15} fill={isFocus ? 'var(--trw-ok)' : 'var(--trw-ink)'} fontSize="10.5" fontWeight="700">
+                  <text x="512" y={y + 15} fill={isFocus ? 'var(--trw-ok)' : 'var(--trw-ink)'} fontSize="12" fontWeight="700">
                     {`${row.deptName} · ${row.impactLevel}`}
                   </text>
-                  <text x="524" y={y + 29} fill="var(--trw-muted)" fontSize="9.8">
-                    {`${row.route} · ${clipText(row.routeLabel, 14)}`}
+                  <text x="512" y={y + 31} fill="var(--trw-muted)" fontSize="12">
+                    {clipText(`${row.route} · ${row.routeLabel}`, 24)}
                   </text>
                 </g>
               );
             })}
 
             {/* Col 3 -> Col 4 연결선 */}
-            <path d="M 722 49 L 742 49 L 742 108 L 760 108" fill="none" stroke="var(--trw-ok)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 722 91 L 742 91 L 742 112 L 760 112" fill="none" stroke="var(--trw-ok)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 722 133 L 742 133 L 742 116 L 760 116" fill="none" stroke="var(--trw-ok)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
-            <path d="M 722 175 L 742 175 L 742 120 L 760 120" fill="none" stroke="var(--trw-ok)" strokeWidth="1.3" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 722 47 L 736 47 L 736 108 L 748 108" fill="none" stroke="var(--trw-ok)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 722 90 L 736 90 L 736 112 L 748 112" fill="none" stroke="var(--trw-ok)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 722 133 L 736 133 L 736 116 L 748 116" fill="none" stroke="var(--trw-ok)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
+            <path d="M 722 176 L 736 176 L 736 120 L 748 120" fill="none" stroke="var(--trw-ok)" strokeWidth="1.4" markerEnd="url(#trw-flow-arrow)" />
 
             {/* Col 4: 기대 효과 & 승인 가드 */}
             <g>
-              <rect x="762" y="30" width="184" height="164" rx="4" fill="var(--trw-surface)" stroke="var(--trw-ok)" strokeWidth="1.4" />
-              <rect x="762" y="30" width="184" height="26" rx="4" fill="var(--trw-ok-bg)" />
-              <text x="772" y="47" fill="var(--trw-ok-ink)" fontSize="10.5" fontWeight="700">원가절감 · 이익증대 결과</text>
+              <rect x="750" y="28" width="198" height="168" rx="4" fill="var(--trw-surface)" stroke="var(--trw-ok)" strokeWidth="1.4" />
+              <rect x="750" y="28" width="198" height="28" rx="4" fill="var(--trw-ok-bg)" />
+              <text x="760" y="47" fill="var(--trw-ok-ink)" fontSize="12.5" fontWeight="700">원가절감 · 이익증대 결과</text>
               {topMetrics.map((m, mIdx) => {
-                const my = 76 + mIdx * 44;
+                const my = 76 + mIdx * 43;
                 return (
                   <g key={m.label}>
-                    <text x="772" y={my} fill="var(--trw-muted)" fontSize="9.8">{clipText(m.label, 22)}</text>
-                    <text x="772" y={my + 16} fill="var(--trw-ok)" fontSize="11" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                      {clipText(`${m.beforeLabel} → ${m.afterLabel}`, 24)}
+                    <text x="760" y={my} fill="var(--trw-muted)" fontSize="12">{clipText(m.label, 18)}</text>
+                    <text x="760" y={my + 17} fill="var(--trw-ok)" fontSize="12" fontWeight="700" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {clipText(`${m.beforeLabel} → ${m.afterLabel}`, 19)}
                     </text>
                   </g>
                 );
               })}
-              <line x1="772" y1="158" x2="936" y2="158" stroke="var(--trw-line)" strokeWidth="1" />
-              <text x="772" y="177" fill="var(--trw-ink)" fontSize="10" fontWeight="700">
+              <line x1="760" y1="158" x2="938" y2="158" stroke="var(--trw-line)" strokeWidth="1" />
+              <text x="760" y="179" fill="var(--trw-ink)" fontSize="12" fontWeight="700">
                 ApprovedBy 승인 후 원장 반영
               </text>
             </g>
@@ -2070,7 +2070,7 @@ export default function TechRadarWorkbench({
         </>
       )}
 
-      <style jsx>{`
+      <style jsx global>{`
         .trw-root {
           --trw-bg: var(--pm-bg, rgb(248, 250, 252));
           --trw-surface: var(--pm-surface, rgb(255, 255, 255));
@@ -2089,16 +2089,25 @@ export default function TechRadarWorkbench({
           --trw-err: var(--pm-err, rgb(185, 28, 28));
           --trw-link: var(--pm-link, rgb(29, 78, 216));
           --trw-radius: 6px;
+          --trw-font: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+          font-family: var(--pm-font, var(--trw-font));
+          font-variant-numeric: tabular-nums;
+          line-height: 1.5;
           background: var(--trw-bg);
           color: var(--trw-ink);
           border: 1px solid var(--trw-line);
           padding: 12px;
           border-radius: var(--trw-radius);
-          font-size: 13px;
+          font-size: 13.5px;
           display: flex;
           flex-direction: column;
           gap: 10px;
           box-shadow: none;
+        }
+        .trw-root svg,
+        .trw-root svg text {
+          font-family: var(--trw-font);
+          font-variant-numeric: tabular-nums;
         }
         .trw-root[data-wb-mode="clear"][data-plan-mode="ALL"] {
           --trw-bg: var(--pm-bg, rgb(248, 250, 252));
@@ -2136,15 +2145,15 @@ export default function TechRadarWorkbench({
         }
         .trw-title-wrap { flex: 1 1 460px; min-width: 0; }
         .trw-eyebrow {
-          font-size: 10.5px;
+          font-size: 12px;
           font-weight: 700;
           letter-spacing: 0.08em;
           color: var(--trw-muted);
           margin-bottom: 3px;
         }
         .trw-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .trw-title-row h2 { margin: 0; border-bottom: 0; padding-bottom: 0; font-size: 18px; font-weight: 700; color: var(--trw-ink); letter-spacing: -0.01em; }
-        .trw-subtitle { margin: 4px 0 0; font-size: 12px; color: var(--trw-muted); line-height: 1.45; }
+        .trw-title-row h2 { margin: 0; border-bottom: 0; padding-bottom: 0; font-size: 19px; font-weight: 700; color: var(--trw-ink); letter-spacing: -0.01em; }
+        .trw-subtitle { margin: 4px 0 0; font-size: 13.5px; color: var(--trw-muted); line-height: 1.55; }
 
         .trw-kpi-strip {
           display: flex;
@@ -2162,12 +2171,12 @@ export default function TechRadarWorkbench({
           flex-direction: column;
           justify-content: center;
           gap: 2px;
-          min-width: 76px;
+          min-width: 82px;
         }
         .trw-kpi-cell:last-child { border-right: 0; }
         .trw-kpi-cell.is-highlight { background: var(--trw-warn-bg); }
-        .trw-kpi-label { font-size: 10px; font-weight: 700; color: var(--trw-muted); white-space: nowrap; }
-        .trw-kpi-val { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; color: var(--trw-ink); }
+        .trw-kpi-label { font-size: 12px; font-weight: 700; color: var(--trw-muted); white-space: nowrap; }
+        .trw-kpi-val { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; color: var(--trw-ink); }
         .trw-kpi-val.is-ok { color: var(--trw-ok); }
         .trw-kpi-val.is-accent { color: var(--trw-accent); }
         .trw-kpi-val.is-warn { color: var(--trw-warn); }
@@ -2187,8 +2196,8 @@ export default function TechRadarWorkbench({
           border-bottom: 1px solid var(--trw-line);
           padding-bottom: 4px;
         }
-        .trw-plan-bar :global(.trw-view-tabs) { flex: 1 1 520px; }
-        .trw-plan-note { font-size: 11.5px; color: var(--trw-muted); }
+        .trw-plan-bar .trw-view-tabs { flex: 1 1 520px; }
+        .trw-plan-note { font-size: 13px; color: var(--trw-muted); }
 
         .trw-preset-bar {
           display: flex;
@@ -2200,24 +2209,24 @@ export default function TechRadarWorkbench({
         }
         .trw-preset-badge {
           margin-left: 6px;
-          font-size: 10px;
-          opacity: 0.78;
+          font-size: 12px;
+          opacity: 0.85;
           font-variant-numeric: tabular-nums;
         }
 
         .trw-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
         .trw-filter-group { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; }
-        .trw-filter-label { font-size: 11px; font-weight: 700; color: var(--trw-muted); margin-right: 4px; white-space: nowrap; }
+        .trw-filter-label { font-size: 12.5px; font-weight: 700; color: var(--trw-muted); margin-right: 4px; white-space: nowrap; }
         .trw-search-group { display: flex; align-items: center; gap: 8px; margin-left: auto; }
         .trw-search {
           background: var(--trw-surface-2);
           color: var(--trw-ink);
           border: 1px solid var(--trw-line);
           border-radius: var(--trw-radius);
-          padding: 4px 9px;
+          padding: 5px 10px;
           font: inherit;
-          font-size: 12px;
-          min-width: 190px;
+          font-size: 13.5px;
+          min-width: 195px;
         }
 
         .trw-approval-bar {
@@ -2231,7 +2240,7 @@ export default function TechRadarWorkbench({
           border-radius: var(--trw-radius);
           padding: 7px 10px;
         }
-        .trw-approval-head { font-size: 11.5px; font-weight: 700; color: var(--trw-warn); white-space: nowrap; }
+        .trw-approval-head { font-size: 13px; font-weight: 700; color: var(--trw-warn); white-space: nowrap; }
         .trw-approval-list { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
         .trw-approval-item {
           display: inline-flex;
@@ -2240,11 +2249,11 @@ export default function TechRadarWorkbench({
           background: var(--trw-surface);
           border: 1px solid var(--trw-line);
           border-radius: var(--trw-radius);
-          padding: 2px 5px 2px 8px;
+          padding: 3px 6px 3px 9px;
         }
         .trw-approval-item.is-active { border-color: var(--trw-accent); }
-        .trw-approval-name { font-size: 11.5px; font-weight: 700; color: var(--trw-ink); }
-        .trw-approval-score { font-size: 11px; color: var(--trw-muted); font-variant-numeric: tabular-nums; }
+        .trw-approval-name { font-size: 13px; font-weight: 700; color: var(--trw-ink); }
+        .trw-approval-score { font-size: 12.5px; color: var(--trw-muted); font-variant-numeric: tabular-nums; }
 
         /* 시안 A 레이아웃: 44% : 56% */
         .trw-plan-a {
@@ -2266,12 +2275,12 @@ export default function TechRadarWorkbench({
           flex-wrap: wrap;
           align-items: center;
           gap: 10px;
-          font-size: 11px;
+          font-size: 12.5px;
           color: var(--trw-muted);
           background: var(--trw-surface-2);
           border: 1px solid var(--trw-line);
           border-radius: var(--trw-radius);
-          padding: 4px 9px;
+          padding: 5px 10px;
         }
         .trw-legend-strip b { color: var(--trw-accent); margin-right: 2px; }
         .trw-legend-ref { margin-left: auto; font-weight: 600; }
@@ -2304,10 +2313,10 @@ export default function TechRadarWorkbench({
           gap: 2px;
         }
         .trw-b-kpi-cell:last-child { border-right: 0; }
-        .trw-b-kpi-cell span { font-size: 11px; font-weight: 700; color: var(--trw-muted); }
-        .trw-b-kpi-cell b { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--trw-ink); line-height: 1.2; }
-        .trw-b-kpi-cell small { font-size: 12px; font-weight: 400; color: var(--trw-muted); margin-left: 2px; }
-        .trw-b-kpi-cell em { font-style: normal; font-size: 11px; color: var(--trw-muted); font-variant-numeric: tabular-nums; }
+        .trw-b-kpi-cell span { font-size: 12.5px; font-weight: 700; color: var(--trw-muted); }
+        .trw-b-kpi-cell b { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--trw-ink); line-height: 1.25; }
+        .trw-b-kpi-cell small { font-size: 13px; font-weight: 400; color: var(--trw-muted); margin-left: 2px; }
+        .trw-b-kpi-cell em { font-style: normal; font-size: 12.5px; color: var(--trw-muted); font-variant-numeric: tabular-nums; }
         .trw-b-split {
           display: grid;
           grid-template-columns: minmax(0, 60fr) minmax(320px, 40fr);
@@ -2326,19 +2335,21 @@ export default function TechRadarWorkbench({
           border-left: 2px solid var(--trw-accent);
         }
         .trw-drawer-eyebrow {
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 700;
-          letter-spacing: 0.09em;
+          letter-spacing: 0.08em;
           color: var(--trw-muted);
         }
         .trw-module-chips { display: flex; flex-wrap: wrap; gap: 4px; }
         .trw-mod-pill {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 10.5px;
+          font-family: var(--trw-font);
+          font-variant-numeric: tabular-nums;
+          font-size: 12.5px;
+          font-weight: 600;
           background: var(--trw-surface-2);
           border: 1px solid var(--trw-line);
           border-radius: 3px;
-          padding: 2px 6px;
+          padding: 2px 7px;
           color: var(--trw-ink);
           overflow-wrap: anywhere;
         }
@@ -2355,19 +2366,21 @@ export default function TechRadarWorkbench({
           background: var(--trw-surface);
           border: 1px solid var(--trw-line);
           border-radius: var(--trw-radius);
-          padding: 7px 12px;
+          padding: 8px 12px;
         }
-        .trw-c-sc-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--trw-muted); }
-        .trw-c-kbd-group { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--trw-muted); }
+        .trw-c-sc-title { font-size: 12.5px; font-weight: 700; letter-spacing: 0.05em; color: var(--trw-muted); }
+        .trw-c-kbd-group { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; color: var(--trw-muted); }
         .trw-c-kbd-group kbd {
           display: inline-block;
           background: var(--trw-surface-2);
           border: 1px solid var(--trw-line);
           border-radius: 3px;
-          padding: 1px 5px;
-          margin-right: 3px;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 10.5px;
+          padding: 1px 6px;
+          margin-right: 4px;
+          font-family: var(--trw-font);
+          font-variant-numeric: tabular-nums;
+          font-size: 12.5px;
+          font-weight: 700;
           color: var(--trw-ink);
         }
         .trw-c-upper {
@@ -2393,10 +2406,10 @@ export default function TechRadarWorkbench({
           background: var(--trw-surface-2);
           border: 1px solid var(--trw-line);
           border-radius: var(--trw-radius);
-          padding: 8px 10px;
-          font-size: 12px;
+          padding: 9px 11px;
+          font-size: 13px;
         }
-        .trw-c-meta-lbl { font-size: 10.5px; font-weight: 700; color: var(--trw-muted); margin-right: 8px; }
+        .trw-c-meta-lbl { font-size: 12.5px; font-weight: 700; color: var(--trw-muted); margin-right: 8px; }
         .trw-c-after-val { color: var(--trw-ok); }
         .trw-c-delta-val { color: var(--trw-warn); }
         .trw-c-console-head {
@@ -2408,8 +2421,8 @@ export default function TechRadarWorkbench({
           border-bottom: 1px solid var(--trw-line);
           padding-bottom: 8px;
         }
-        .trw-c-console-head b { display: block; font-size: 13.5px; color: var(--trw-ink); }
-        .trw-c-console-head span { font-size: 11px; color: var(--trw-muted); }
+        .trw-c-console-head b { display: block; font-size: 14.5px; color: var(--trw-ink); }
+        .trw-c-console-head span { font-size: 12.5px; color: var(--trw-muted); }
         .trw-c-trace-grid {
           display: grid;
           grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
@@ -2429,8 +2442,8 @@ export default function TechRadarWorkbench({
           align-items: center;
           background: var(--trw-surface-2);
           border-bottom: 1px solid var(--trw-line);
-          padding: 6px 10px;
-          font-size: 12px;
+          padding: 7px 11px;
+          font-size: 13px;
           font-weight: 700;
           color: var(--trw-ink);
         }
@@ -2466,12 +2479,12 @@ export default function TechRadarWorkbench({
           border-color: var(--trw-ok);
           border-top: 2px solid var(--trw-ok);
         }
-        .trw-pipe-head { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--trw-muted); }
+        .trw-pipe-head { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--trw-muted); }
         .trw-pipe-no { font-weight: 700; color: var(--trw-accent); font-variant-numeric: tabular-nums; }
         .trw-pipe-code { font-weight: 700; }
         .trw-pipe-cnt { margin-left: auto; color: var(--trw-ink); font-variant-numeric: tabular-nums; }
-        .trw-pipe-label { font-size: 12.5px; font-weight: 700; color: var(--trw-ink); }
-        .trw-pipe-desc { font-size: 10.5px; color: var(--trw-muted); line-height: 1.35; }
+        .trw-pipe-label { font-size: 13.5px; font-weight: 700; color: var(--trw-ink); }
+        .trw-pipe-desc { font-size: 12.5px; color: var(--trw-muted); line-height: 1.48; }
 
         /* A·B·C 3종 동시 비교(ALL) */
         .trw-plan-all { display: flex; flex-direction: column; gap: 10px; }
@@ -2486,10 +2499,10 @@ export default function TechRadarWorkbench({
           flex-wrap: wrap;
           gap: 10px;
         }
-        .trw-all-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--trw-muted); }
+        .trw-all-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--trw-muted); }
         .trw-all-target { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
-        .trw-all-target b { font-size: 14px; color: var(--trw-ink); }
-        .trw-all-target span { font-size: 12px; color: var(--trw-muted); }
+        .trw-all-target b { font-size: 15px; color: var(--trw-ink); }
+        .trw-all-target span { font-size: 13px; color: var(--trw-muted); }
         .trw-all-master-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 
         .trw-all-grid {
@@ -2519,8 +2532,8 @@ export default function TechRadarWorkbench({
           border-radius: var(--trw-radius);
           padding: 8px 10px;
         }
-        .trw-cmp-tag { font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; color: var(--trw-muted); display: block; }
-        .trw-cmp-head h3 { margin: 2px 0 0; font-size: 13.5px; color: var(--trw-ink); }
+        .trw-cmp-tag { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--trw-muted); display: block; }
+        .trw-root .trw-cmp-head h3 { margin: 2px 0 0; font-size: 14.5px; color: var(--trw-ink); }
         .trw-cmp-subhead {
           display: flex;
           justify-content: space-between;
@@ -2529,18 +2542,18 @@ export default function TechRadarWorkbench({
           border-bottom: 1px solid var(--trw-line);
           padding-bottom: 4px;
         }
-        .trw-cmp-subhead b { font-size: 12px; color: var(--trw-ink); }
-        .trw-cmp-subhead span { font-size: 10.5px; color: var(--trw-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .trw-cmp-subhead b { font-size: 13px; color: var(--trw-ink); }
+        .trw-cmp-subhead span { font-size: 12.5px; color: var(--trw-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .trw-cmp-step-box {
           background: var(--trw-surface);
           border: 1px solid var(--trw-line);
           border-left: 3px solid var(--trw-accent);
           border-radius: var(--trw-radius);
-          padding: 7px 9px;
-          font-size: 11px;
+          padding: 8px 10px;
+          font-size: 12.5px;
         }
-        .trw-cmp-step-box b { display: block; color: var(--trw-ink); margin-bottom: 2px; }
-        .trw-cmp-step-box p { margin: 0; color: var(--trw-muted); line-height: 1.4; }
+        .trw-cmp-step-box b { display: block; color: var(--trw-ink); margin-bottom: 3px; }
+        .trw-cmp-step-box p { margin: 0; color: var(--trw-muted); line-height: 1.48; }
         .trw-cmp-safety-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; }
 
         /* 공용 내부 부품 */
@@ -2553,10 +2566,10 @@ export default function TechRadarWorkbench({
           border-bottom: 1px solid var(--trw-line);
           padding-bottom: 7px;
         }
-        .trw-viz-head b { display: block; font-size: 13px; color: var(--trw-ink); }
-        .trw-viz-head span { font-size: 11px; color: var(--trw-muted); }
+        .trw-viz-head b { display: block; font-size: 14px; color: var(--trw-ink); }
+        .trw-viz-head span { font-size: 12.5px; color: var(--trw-muted); }
         .trw-viz-meta { display: flex; align-items: center; gap: 6px; }
-        .trw-count-note { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--trw-muted); }
+        .trw-count-note { font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--trw-muted); }
 
         .trw-svg-wrap { width: 100%; overflow: hidden; }
         .trw-svg { width: 100%; height: auto; display: block; max-height: 520px; }
@@ -2581,17 +2594,17 @@ export default function TechRadarWorkbench({
         }
         .trw-idx-no { font-variant-numeric: tabular-nums; font-weight: 700; margin-right: 4px; }
         .trw-idx-name { margin-right: 4px; }
-        .trw-idx-ring { font-size: 10px; opacity: 0.78; font-variant-numeric: tabular-nums; }
+        .trw-idx-ring { font-size: 12px; opacity: 0.85; font-variant-numeric: tabular-nums; }
 
         .trw-ledger-wrap { overflow-x: auto; max-height: 360px; overflow-y: auto; }
         .trw-ledger-wrap.is-plan-a { max-height: 280px; }
         .trw-ledger-wrap.is-plan-b { max-height: 310px; }
         .trw-ledger-wrap.is-compact { max-height: 210px; }
-        .trw-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+        .trw-table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.5; }
         .trw-table th,
         .trw-table td {
           border-bottom: 1px solid var(--trw-line);
-          padding: 6px 8px;
+          padding: 7px 9px;
           text-align: left;
           vertical-align: top;
         }
@@ -2600,7 +2613,7 @@ export default function TechRadarWorkbench({
           top: 0;
           background: var(--trw-surface-2);
           color: var(--trw-muted);
-          font-size: 10.5px;
+          font-size: 12.5px;
           font-weight: 700;
           white-space: nowrap;
           z-index: 1;
@@ -2611,56 +2624,59 @@ export default function TechRadarWorkbench({
         .trw-table tr.is-active td:first-child { border-left: 3px solid var(--trw-accent); }
         .trw-num { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 700; }
         .trw-repo-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-        .trw-lang { font-size: 10px; color: var(--trw-muted); border: 1px solid var(--trw-line); border-radius: 3px; padding: 0 4px; }
+        .trw-lang { font-size: 12px; color: var(--trw-muted); border: 1px solid var(--trw-line); border-radius: 3px; padding: 0 5px; }
         .trw-ring-pill {
           display: inline-block;
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 700;
           border: 1px solid;
           border-radius: 3px;
-          padding: 1px 5px;
+          padding: 1px 6px;
           white-space: nowrap;
         }
-        .trw-summary-cell { color: var(--trw-muted); line-height: 1.38; min-width: 190px; }
+        .trw-summary-cell { color: var(--trw-muted); line-height: 1.48; min-width: 190px; }
 
         .trw-sim-header { display: flex; flex-direction: column; gap: 5px; }
-        .trw-sim-header.is-compact h3 { font-size: 14.5px; }
+        .trw-sim-header.is-compact h3 { font-size: 15.5px; }
         .trw-sim-head-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
         .trw-sim-badges { display: flex; flex-wrap: wrap; gap: 4px; }
-        .trw-root :global(.badge) {
+        .trw-root .badge {
+          display: inline-flex;
+          align-items: center;
+          white-space: nowrap;
           border: 1px solid var(--trw-line);
           background: var(--trw-surface-2);
           color: var(--trw-ink);
           border-radius: 4px;
-          font-size: 10.5px;
-          padding: 1px 6px;
+          font-size: 12.5px;
+          padding: 2px 7px;
         }
-        .trw-root :global(.trw-mini-ok) {
+        .trw-root .trw-mini-ok {
           background: var(--trw-ok-bg) !important;
           color: var(--trw-ok-ink) !important;
           border-color: var(--trw-ok) !important;
         }
-        .trw-root :global(.trw-mini-warn) {
+        .trw-root .trw-mini-warn {
           background: var(--trw-warn-bg) !important;
           color: var(--trw-warn-ink) !important;
           border-color: var(--trw-warn) !important;
         }
-        .trw-root :global(.trw-mini-accent) {
+        .trw-root .trw-mini-accent {
           border-color: var(--trw-accent) !important;
           color: var(--trw-accent) !important;
         }
-        .trw-score-readout { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--trw-accent); }
-        .trw-sim-header h3 { margin: 0; font-size: 15px; color: var(--trw-ink); }
+        .trw-score-readout { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--trw-accent); }
+        .trw-root .trw-sim-header h3 { margin: 0; font-size: 16px; color: var(--trw-ink); }
         .trw-sim-header h3 a { color: var(--trw-link); text-decoration: none; }
         .trw-sim-header h3 a:hover { text-decoration: underline; }
-        .trw-sim-desc { margin: 0; font-size: 12px; line-height: 1.45; color: var(--trw-muted); }
+        .trw-sim-desc { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--trw-muted); }
 
         .trw-link-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
         .trw-ext-link {
           display: inline-flex;
           align-items: center;
-          padding: 3px 9px;
-          font-size: 11.5px;
+          padding: 4px 10px;
+          font-size: 13px;
           font-weight: 700;
           color: var(--trw-accent-ink);
           background: var(--trw-accent);
@@ -2682,12 +2698,12 @@ export default function TechRadarWorkbench({
         }
         .trw-sim-mode-group,
         .trw-sim-play-group { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
-        .trw-step-counter { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--trw-muted); }
+        .trw-step-counter { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--trw-muted); }
 
         .trw-section { display: flex; flex-direction: column; gap: 6px; }
         .trw-sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; flex-wrap: wrap; }
-        .trw-sec-head b { font-size: 12px; color: var(--trw-ink); }
-        .trw-sec-head span { font-size: 10.5px; color: var(--trw-muted); }
+        .trw-sec-head b { font-size: 13.5px; color: var(--trw-ink); }
+        .trw-sec-head span { font-size: 12.5px; color: var(--trw-muted); }
 
         .trw-nodes-grid {
           display: grid;
@@ -2698,10 +2714,10 @@ export default function TechRadarWorkbench({
           background: var(--trw-surface-2);
           border: 1px solid var(--trw-line);
           border-radius: var(--trw-radius);
-          padding: 7px 8px;
+          padding: 8px 9px;
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 3px;
         }
         .trw-node-card.is-passive { opacity: 0.72; }
         .trw-node-card.is-active { border-color: var(--trw-accent); }
@@ -2711,28 +2727,28 @@ export default function TechRadarWorkbench({
           outline-offset: -1px;
           background: color-mix(in srgb, var(--trw-accent) 11%, var(--trw-surface-2));
         }
-        .trw-node-top { display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 10px; }
+        .trw-node-top { display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 12px; }
         .trw-node-code { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--trw-accent); }
         .trw-node-state { display: inline-flex; align-items: center; gap: 4px; color: var(--trw-muted); font-weight: 600; }
         .trw-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; background: var(--trw-muted); }
         .trw-dot.is-on { background: var(--trw-ok); }
         .trw-dot.is-focus { background: var(--trw-warn); }
-        .trw-node-name { font-size: 11.5px; font-weight: 700; color: var(--trw-ink); }
-        .trw-node-artifact { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; color: var(--trw-link); overflow-wrap: anywhere; }
-        .trw-node-desc { margin: 2px 0 0; font-size: 10.5px; line-height: 1.38; color: var(--trw-muted); }
+        .trw-node-name { font-size: 13px; font-weight: 700; color: var(--trw-ink); }
+        .trw-node-artifact { font-family: var(--trw-font); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; color: var(--trw-link); overflow-wrap: anywhere; }
+        .trw-node-desc { margin: 2px 0 0; font-size: 12.5px; line-height: 1.48; color: var(--trw-muted); }
         .trw-node-telemetry {
           display: flex;
           justify-content: space-between;
-          font-size: 10px;
+          font-size: 12px;
           color: var(--trw-muted);
           font-variant-numeric: tabular-nums;
           border-top: 1px dashed var(--trw-line);
           margin-top: 2px;
-          padding-top: 2px;
+          padding-top: 3px;
         }
 
         .trw-steps-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
-        .trw-steps-list :global(.trw-step-hit) {
+        .trw-steps-list .trw-step-hit {
           display: flex;
           flex-direction: column;
           gap: 3px;
@@ -2740,15 +2756,15 @@ export default function TechRadarWorkbench({
           background: var(--trw-surface-2);
           border: 1px solid var(--trw-line);
           border-radius: var(--trw-radius);
-          padding: 6px 9px;
+          padding: 7px 10px;
         }
-        .trw-steps-list li.is-current :global(.trw-step-hit) { border-color: var(--trw-accent); border-left-width: 3px; }
-        .trw-step-row-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11px; }
+        .trw-steps-list li.is-current .trw-step-hit { border-color: var(--trw-accent); border-left-width: 3px; }
+        .trw-step-row-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12.5px; }
         .trw-step-no { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--trw-accent); }
-        .trw-step-row-top code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; color: var(--trw-muted); }
-        .trw-step-lat { margin-left: auto; font-size: 10px; color: var(--trw-ok); font-variant-numeric: tabular-nums; font-weight: 700; }
-        .trw-step-packet { font-size: 11px; color: var(--trw-ink); line-height: 1.38; }
-        .trw-step-note { font-size: 10.5px; line-height: 1.35; }
+        .trw-step-row-top code { font-family: var(--trw-font); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; color: var(--trw-muted); }
+        .trw-step-lat { margin-left: auto; font-size: 12px; color: var(--trw-ok); font-variant-numeric: tabular-nums; font-weight: 700; }
+        .trw-step-packet { font-size: 13px; color: var(--trw-ink); line-height: 1.48; }
+        .trw-step-note { font-size: 12.5px; line-height: 1.45; }
         .trw-step-note.is-before { color: var(--trw-warn); }
         .trw-step-note.is-after { color: var(--trw-ok); }
 
@@ -2757,22 +2773,22 @@ export default function TechRadarWorkbench({
           background: var(--trw-surface-2);
           border: 1px solid var(--trw-line);
           border-radius: var(--trw-radius);
-          padding: 7px 9px;
+          padding: 8px 10px;
           display: flex;
           flex-direction: column;
           gap: 4px;
         }
         .trw-metric-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .trw-metric-label { font-size: 11.5px; font-weight: 700; color: var(--trw-ink); }
+        .trw-metric-label { font-size: 13px; font-weight: 700; color: var(--trw-ink); }
         .trw-metric-badges { display: flex; gap: 4px; }
         .trw-metric-bars { display: flex; flex-direction: column; gap: 3px; }
-        .trw-bar-line { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 7px; }
-        .trw-bar-tag { font-size: 10px; color: var(--trw-muted); }
+        .trw-bar-line { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 7px; }
+        .trw-bar-tag { font-size: 12px; color: var(--trw-muted); }
         .trw-bar-track { height: 6px; background: var(--trw-surface); border: 1px solid var(--trw-line); border-radius: 2px; overflow: hidden; }
         .trw-bar-fill { display: block; height: 100%; transition: width 0.25s ease; }
         .trw-bar-fill.is-before { background: var(--trw-muted); }
         .trw-bar-fill.is-after { background: var(--trw-ok); }
-        .trw-bar-val { font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--trw-muted); white-space: nowrap; }
+        .trw-bar-val { font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--trw-muted); white-space: nowrap; }
         .trw-bar-val.is-after { color: var(--trw-ok); font-weight: 700; }
 
         .trw-safety-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
@@ -2780,13 +2796,13 @@ export default function TechRadarWorkbench({
           background: var(--trw-surface-2);
           border: 1px solid var(--trw-line);
           border-radius: var(--trw-radius);
-          padding: 6px 8px;
+          padding: 7px 9px;
           display: flex;
           flex-direction: column;
           gap: 2px;
-          font-size: 10.5px;
+          font-size: 12.5px;
           color: var(--trw-muted);
-          line-height: 1.38;
+          line-height: 1.48;
         }
         .trw-safety-top { display: flex; align-items: center; gap: 5px; color: var(--trw-ink); }
 
@@ -2801,7 +2817,7 @@ export default function TechRadarWorkbench({
         }
         .trw-dept-readout {
           margin-left: auto;
-          font-size: 11px;
+          font-size: 12.5px;
           font-weight: 700;
           font-variant-numeric: tabular-nums;
           color: var(--trw-muted);
@@ -2827,10 +2843,10 @@ export default function TechRadarWorkbench({
           border-bottom: 1px solid var(--trw-line);
           padding-bottom: 8px;
         }
-        .trw-story-head h3,
-        .trw-build-head h3 {
+        .trw-root .trw-story-head h3,
+        .trw-root .trw-build-head h3 {
           margin: 2px 0 0;
-          font-size: 15px;
+          font-size: 16px;
           font-weight: 700;
           color: var(--trw-ink);
         }
@@ -2850,7 +2866,7 @@ export default function TechRadarWorkbench({
           overflow: hidden;
         }
         .trw-story-sit-cell {
-          padding: 9px 12px;
+          padding: 10px 13px;
           border-right: 1px solid var(--trw-line);
           display: flex;
           flex-direction: column;
@@ -2859,12 +2875,12 @@ export default function TechRadarWorkbench({
         .trw-story-sit-cell:last-child { border-right: 0; }
         .trw-story-sit-cell p {
           margin: 0;
-          font-size: 12px;
-          line-height: 1.5;
+          font-size: 13.5px;
+          line-height: 1.55;
           color: var(--trw-ink);
         }
         .trw-sit-kicker {
-          font-size: 10.5px;
+          font-size: 12.5px;
           font-weight: 700;
           color: var(--trw-warn);
         }
@@ -2880,7 +2896,7 @@ export default function TechRadarWorkbench({
         .trw-flow-svg {
           display: block;
           width: 100%;
-          min-width: 720px;
+          min-width: 860px;
           height: auto;
         }
 
@@ -2901,24 +2917,26 @@ export default function TechRadarWorkbench({
           overflow-x: auto;
         }
         .trw-rule-cell {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
+          font-family: var(--trw-font);
+          font-variant-numeric: tabular-nums;
+          font-size: 12.5px;
+          font-weight: 600;
           color: var(--trw-accent);
         }
         .trw-dept-role {
-          font-size: 11.5px;
+          font-size: 13px;
           color: var(--trw-ink);
-          line-height: 1.42;
+          line-height: 1.5;
         }
         .trw-dept-basis {
           margin-top: 2px;
-          font-size: 10.5px;
+          font-size: 12.5px;
           color: var(--trw-muted);
         }
         .trw-inline-route {
           color: var(--trw-link);
           font-weight: 700;
-          font-size: 11px;
+          font-size: 12.5px;
           text-decoration: underline;
           text-underline-offset: 2px;
           white-space: nowrap;
@@ -2970,9 +2988,9 @@ export default function TechRadarWorkbench({
         }
         .trw-build-title {
           font-weight: 700;
-          font-size: 12px;
+          font-size: 13.5px;
           color: var(--trw-ink);
-          line-height: 1.4;
+          line-height: 1.48;
         }
         .trw-build-tags {
           display: flex;
@@ -2981,11 +2999,11 @@ export default function TechRadarWorkbench({
           margin-top: 4px;
         }
         .trw-impact-cell {
-          font-size: 11.5px;
+          font-size: 13px;
           color: var(--trw-ok);
           font-weight: 600;
           font-variant-numeric: tabular-nums;
-          line-height: 1.42;
+          line-height: 1.48;
           min-width: 190px;
         }
         .trw-build-actions {
@@ -3006,14 +3024,15 @@ export default function TechRadarWorkbench({
         }
         .trw-brief-pre {
           margin: 0;
-          padding: 8px 10px;
+          padding: 10px 12px;
           border: 1px solid var(--trw-line);
           border-radius: var(--trw-radius);
           background: var(--trw-bg);
           color: var(--trw-ink);
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 11px;
-          line-height: 1.5;
+          font-family: var(--trw-font);
+          font-variant-numeric: tabular-nums;
+          font-size: 12.5px;
+          line-height: 1.55;
           white-space: pre-wrap;
           word-break: keep-all;
         }

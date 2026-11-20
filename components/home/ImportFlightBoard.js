@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { apiGet, apiPost } from '../../lib/useApi';
 import { WORLD_VIEW, WORLD_LAND_PATH, projectLonLat } from '../../lib/importFlightWorldPath';
 
-const { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers, afterArrival, onFlightMap, customsTitle } = require('../../desktop/shell/flight-board');
+const { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers, afterArrival, onFlightMap, customsTitle, kstParts, formatFlightTime } = require('../../desktop/shell/flight-board');
 
 const REFRESH_MS = 5 * 60 * 1000;
 const STATUS_STYLE = {
@@ -23,21 +23,10 @@ function moveTableFocus(event) {
   if (next) { event.preventDefault(); next.focus(); }
 }
 
-function kstParts(iso) {
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return null;
-  const d = new Date(ms + 9 * 3600000);
-  return { mo: d.getUTCMonth() + 1, day: d.getUTCDate(), hh: String(d.getUTCHours()).padStart(2, '0'), mm: String(d.getUTCMinutes()).padStart(2, '0'), dow: '일월화수목금토'[d.getUTCDay()] };
-}
 function arrivalText(f) {
-  const p = kstParts(f.arriveAt);
-  if (!p) return f.arrivalDate || '-';
-  return f.timeAssumed ? `${p.mo}/${p.day}(${p.dow}) 시각 미정` : `${p.mo}/${p.day}(${p.dow}) ${p.hh}:${p.mm}`;
+  return formatFlightTime(f.arriveAt || f.arrivalDate, true, f.timeAssumed || !f.arriveAt);
 }
-function shortTime(iso) {
-  const p = kstParts(iso);
-  return p ? `${p.mo}/${p.day} ${p.hh}:${p.mm}` : '';
-}
+const shortTime = value => formatFlightTime(value);
 
 const STEP_STYLE = {
   done: { bg: '#e6f6ea', ink: '#1d6b33', mark: '✔ ' },
@@ -48,10 +37,7 @@ const STEP_STYLE = {
 };
 const ROOM_LEVEL_COLOR = { red: '#b02a2a', amber: '#b07500' };
 const roomColor = level => ROOM_LEVEL_COLOR[level] || 'var(--text3)';
-function roomLine(e) {
-  const p = kstParts(e?.at);
-  return p ? `${p.mo}/${p.day} ${p.hh}:${p.mm}` : '';
-}
+const roomLine = e => shortTime(e?.at);
 function delayView(actual) {
   const m = Number(actual?.delayMinutes);
   if (!Number.isFinite(m) || Math.abs(m) < 30) return null;
@@ -286,6 +272,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
     <div className="card" style={{ marginBottom: 6 }} data-testid="import-flight-board">
       <div className="card-header" style={{ flexWrap: 'wrap', gap: 6 }}>
         <span className="card-title">수입 비행기 현황</span>
+        <span style={{ fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>모든 시각 한국시간(KST)</span>
         <span style={{ fontSize: 11, color: 'var(--text3)' }}>
           지도 위 위치는 도착 공지 일정으로 계산한 <b>예측</b>입니다 · 실제 위치는 편별 「실제 위치」 버튼
         </span>
@@ -407,7 +394,7 @@ export default function ImportFlightBoard({ initialViewId = '' }) {
                   {expanded && <div data-testid="flight-selected-detail" style={{ borderTop: '1px solid #d7e0ea', marginTop: 8, paddingTop: 8 }}>
                     <div style={{ color: 'var(--text3)' }}>자료 읽음 {shortTime(data.generatedAt)} KST · 출처: 인천공항 자료 · 미확인은 미처리 확정이 아닙니다.</div>
                     {f.note && <div style={{ color: 'var(--text3)' }}>{f.note}</div>}
-                    {(f.history || []).length > 1 && <details><summary>일정 변경 이력</summary>{f.history.map((h,i) => <p key={i}>{shortTime(h.postedAt)} 공지 → {shortTime(h.arrivalAt || h.arrivalDate)} · {h.box ?? '–'}박스</p>)}</details>}
+                    {(f.history || []).length > 1 && <details><summary>일정 변경 이력</summary>{f.history.map((h,i) => <p key={i}>{shortTime(h.postedAt)} 공지 → {formatFlightTime(h.arrivalAt || h.arrivalDate, false, !h.arrivalAt)} · {h.box ?? '–'}박스</p>)}</details>}
                     {(f.roomEvents || []).length > 0 && <details><summary>연결된 처리 원문·완료 근거</summary>{f.roomEvents.map((e,i) => <p key={i}>{roomLine(e)} · {e.room} · {e.text}{e.guessed ? ' (추정 연결)' : ''}</p>)}</details>}
                   </div>}
                 </article></Fragment>;

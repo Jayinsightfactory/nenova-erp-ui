@@ -1,5 +1,28 @@
 const flightPresentation = (() => {
   const normalize = value => String(value || '').replace(/\s+/g, ' ').trim();
+  const seoulClock = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', weekday: 'short',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  });
+  function absoluteTime(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)) return NaN;
+    return Date.parse(value);
+  }
+  function kstParts(value) {
+    const ms = absoluteTime(value);
+    if (!Number.isFinite(ms)) return null;
+    const parts = Object.fromEntries(seoulClock.formatToParts(ms).map(part => [part.type, part.value]));
+    return { mo: parts.month, day: parts.day, hh: parts.hour, mm: parts.minute, dow: parts.weekday };
+  }
+  function formatFlightTime(value, withDow = false, dateOnly = false) {
+    if (dateOnly && /^\d{4}-\d{2}-\d{2}$/.test(value || '')) {
+      const [, month, day] = value.split('-');
+      return Number(month) + '/' + Number(day) + ' 시각 미정';
+    }
+    const p = kstParts(value);
+    if (!p) return '시각 미확인';
+    return p.mo + '/' + p.day + (withDow ? '(' + p.dow + ')' : '') + (dateOnly ? ' 시각 미정' : ' ' + p.hh + ':' + p.mm);
+  }
   function issueRows(rows) {
     const unique = new Map();
     for (const row of rows || []) {
@@ -75,7 +98,7 @@ const flightPresentation = (() => {
       return { ...point, ...p, anchorX: point.x, anchorY: point.y };
     });
   }
-  return { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers, afterArrival, onFlightMap, customsTitle };
+  return { issueRows, shortIssue, linkedFlights, nextAction, compactIssue, placeMarkers, afterArrival, onFlightMap, customsTitle, absoluteTime, kstParts, formatFlightTime };
 })();
 if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
 /* 앱 홈 맨 위 「수입 비행기 현황」: 지도와 편별 상태. 메인 프로세스가 추려 준 읽기 전용 요약만 그린다(스타일은 CSP 때문에 JS 로 준다). */
@@ -91,7 +114,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       ? 'minmax(0, 1fr) clamp(258px, 18%, 350px)' : '';
   };
   wideHome.addEventListener('change', layoutHome);
-  const {issueRows,shortIssue,linkedFlights,nextAction,compactIssue,placeMarkers,afterArrival,onFlightMap,customsTitle}=flightPresentation;
+  const {issueRows,shortIssue,linkedFlights,nextAction,compactIssue,placeMarkers,afterArrival,onFlightMap,customsTitle,kstParts:kst,formatFlightTime:when}=flightPresentation;
   const SVG='http://www.w3.org/2000/svg',world=window.NenovaWorldMap||null;
   const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
   const css=(n,style)=>{Object.assign(n.style,style);return n;};
@@ -100,9 +123,6 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
   const COLORS={in_flight:['#e3f0ff','#0b57a4'],before_departure:['#f1f3f5','#495057'],awaiting_awb:['#fff4d6','#8a5a00'],arrived:['#e6f6ea','#1d6b33'],unknown:['#f1f3f5','#495057'],red:['#ffe3e3','#b02a2a'],amber:['#fff4d6','#8a5a00'],gray:['#f1f3f5','#6c757d']};
   const DOT={in_flight:'#1668c7',before_departure:'#868e96'};
   const chip=(text,[bg,ink])=>css(el('span','',text),{display:'inline-block',padding:'2px 9px',borderRadius:'11px',background:bg,color:ink,fontSize:'12px',fontWeight:'700',whiteSpace:'nowrap'});
-  // 한국 시간 고정(이 PC 시간대와 무관)
-  const kst=iso=>{const ms=Date.parse(iso);if(!Number.isFinite(ms))return null;const d=new Date(ms+9*3600000);return {mo:d.getUTCMonth()+1,day:d.getUTCDate(),hh:String(d.getUTCHours()).padStart(2,'0'),mm:String(d.getUTCMinutes()).padStart(2,'0'),dow:'일월화수목금토'[d.getUTCDay()]};};
-  const when=(iso,withDow)=>{const p=kst(iso);return p?`${p.mo}/${p.day}${withDow?`(${p.dow})`:''} ${p.hh}:${p.mm}`:'';};
   const STORE='nenova.flightBoard.open';
   const readOpen=()=>{try{return window.localStorage.getItem(STORE)!=='0';}catch{return true;}};
   const saveOpen=value=>{try{window.localStorage.setItem(STORE,value?'1':'0');}catch{/* 저장이 막혀 있으면 이번 실행 동안만 유지 */}};
@@ -121,7 +141,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
   const mapBox=css(el('div'),{flex:'1 1 420px',minWidth:'280px'});
   const list=css(el('div'),{flex:'1 1 380px',minWidth:'280px',display:'flex',flexDirection:'column',maxHeight:'640px',overflowY:'auto'});
   const foot=css(el('p','workspace-muted'),{fontSize:'11.5px',margin:'6px 0 0'});
-  const timingHelp=css(el('p','workspace-muted','STD(출발 예정)·ATD(실제 출발)는 미수신 · STA는 인천공항 도착 예정 · 출발과 지도 위치는 예측 기준'),{fontSize:'11.5px',margin:'4px 0'});
+  const timingHelp=css(el('p','workspace-muted','모든 시각 한국시간(KST) · STD(출발 예정)·ATD(실제 출발)는 미수신 · STA는 인천공항 도착 예정'),{fontSize:'12.5px',fontVariantNumeric:'tabular-nums',margin:'4px 0'});
   split.append(mapBox,list);body.append(split,foot);root.append(head,status,chips,timingHelp,body);todoBox.hidden=true;
   function setOpen(value){opened=value;saveOpen(value);body.hidden=!value;toggle.textContent=value?'접기 ▴':'열기 ▾';toggle.setAttribute('aria-expanded',String(value));}
   function clear(){chips.replaceChildren();todoBox.replaceChildren();todoBox.hidden=true;mapBox.replaceChildren();list.replaceChildren();foot.textContent='';}
@@ -211,7 +231,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       const pct=f.status==='in_flight'&&f.progress!==null&&!/대기/.test(f.statusLabel)?` ${Math.round(f.progress*100)}%`:'';
       const state=chip(`${f.statusLabel}${pct}`,COLORS[f.status]||COLORS.gray);
       const at=f.arriveAt;
-      const arrive=el('span','',at?'공지 도착 '+(f.timeAssumed?when(at,true).slice(0,-5)+'시각 미정':when(at,true)):'공지 도착 미정');
+      const arrive=el('span','',at?'공지 도착 '+(when(at,true,f.timeAssumed)):'공지 도착 미정');
       const selected=f.viewId===selectedViewId;
       row.dataset.flightId=f.viewId;row.tabIndex=-1;
       css(row,{border:'1px solid #d7e0ea',borderLeft:`4px solid ${f.priority===0?'#b02a2a':f.priority===1?'#b07500':'#aab8c8'}`,borderRadius:'8px',padding:'8px',marginBottom:'8px',background:selected?'#f0f6ff':'#fff'});
@@ -279,7 +299,7 @@ if(typeof module==='object'&&module.exports)module.exports=flightPresentation;
       list.append(row);
     }
     const p=kst(data.generatedAt);
-    status.textContent=flights.length?`${p?`${p.mo}/${p.day} ${p.hh}:${p.mm} 기준 · `:''}5분마다 자동으로 다시 읽습니다. 「새로고침」을 누르면 바로 다시 읽습니다.`:(data.feedOk?'지금 들어오는 비행기 공지가 없습니다.':'도착 공지를 읽지 못했습니다. 잠시 후 다시 확인해 주세요.');
+    status.textContent=flights.length?`${p?`${p.mo}/${p.day} ${p.hh}:${p.mm} 기준 · `:''}5분마다 다시 읽습니다. 「새로고침」을 누르면 바로 다시 읽습니다.`:(data.feedOk?'지금 들어오는 비행기 공지가 없습니다.':'도착 공지를 읽지 못했습니다. 잠시 후 다시 확인해 주세요.');
     const parts=(data.feedRooms||[]).map(r=>`${r.room}: 원문 ${when(r.latestMessageAt)} / 저장 ${when(r.latestImportedAt)}${r.error?' · 조회 실패':''}`);
     const hiddenRegistered = Math.max(0, (data.registeredCount || 0) - flights.filter(f => f.status === 'registered').length);
     if (hiddenRegistered) parts.push(`이슈 없는 입고 완료 ${hiddenRegistered}편은 「확대 보기」에서 확인`);

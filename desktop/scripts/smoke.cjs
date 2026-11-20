@@ -541,6 +541,7 @@ async function run() {
   await waitFor(() => shellContents.executeJavaScript("document.body.textContent.includes('도착 후 확인') && [...document.querySelectorAll('svg [role=button]')].some(n => n.getAttribute('aria-label')?.includes('K4254'))"), 'current flight marker and post-arrival work are shown');
   assert.equal(await shellContents.executeJavaScript("[...document.querySelectorAll('svg [role=button]')].some(n => n.getAttribute('aria-label')?.includes('KE048'))"), false, 'registered arrival with open work has no map marker');
   assert.equal(await shellContents.executeJavaScript("[...document.querySelectorAll('[data-flight-select]')].some(n => n.textContent.includes('KE048') && n.textContent.includes('수입신고 수리 완료 · 반출 미확인'))"), true, 'recent customs status is displayed beside the flight title');
+  assert.equal(await shellContents.executeJavaScript("document.querySelector('#flightBoard').textContent.includes('모든 시각 한국시간(KST)')"), true, 'native board names its time standard');
   const homeWasOpen = sourceWindow.menuOpen;
   await main.command(sourceWindow, 'menu', { open: true });
   try { await verifyFlightRefreshOnRestore(shellContents); }
@@ -588,8 +589,14 @@ async function run() {
   await shellContents.executeJavaScript("window.dispatchEvent(new Event('online'))");
   assert.deepEqual({ activeId: sourceWindow.activeId, tabCount: main.tabs.size, menuOpen: sourceWindow.menuOpen }, beforeAutomaticUpdate);
   main.command(sourceWindow, 'menu', { open: true });
-  const pmButtons = await shellContents.executeJavaScript("({open:document.querySelector('#pmOpenButton')?.textContent,arch:document.querySelector('#pmArchButton')?.textContent,sim:document.querySelector('#pmSimButton')?.textContent,radar:document.querySelector('#pmRadarButton')?.textContent})");
-  assert.deepEqual(pmButtons, { open: '오류관제 열기', arch: '흐름도', sim: '시뮬레이션', radar: '도입레이더' });
+  const pmButtons = await shellContents.executeJavaScript("({firstId:document.querySelector('.pm-live-actions button')?.id,hub:document.querySelector('#pmHubButton')?.textContent,open:document.querySelector('#pmOpenButton')?.textContent,arch:document.querySelector('#pmArchButton')?.textContent,sim:document.querySelector('#pmSimButton')?.textContent,radar:document.querySelector('#pmRadarButton')?.textContent})");
+  assert.deepEqual(pmButtons, { firstId: 'pmHubButton', hub: '통합지휘실', open: '오류관제 열기', arch: '흐름도', sim: '시뮬레이션', radar: '도입레이더' });
+  await shellContents.executeJavaScript('document.querySelector("#pmHubButton").click()');
+  await waitFor(() => [...main.tabs.values()].some(tab => new URL(tab.url).pathname === '/work/command-hub'), 'PM hub button opens the CEO command hub');
+  const hubTab = [...main.tabs.values()].find(tab => new URL(tab.url).pathname === '/work/command-hub');
+  assert.equal(hubTab.title, '사장님 통합 지휘실');
+  main.command(sourceWindow, 'close', { id: hubTab.id });
+  main.command(sourceWindow, 'menu', { open: true });
   await shellContents.executeJavaScript('document.querySelector("#pmOpenButton").click()');
   await waitFor(() => [...main.tabs.values()].some(tab => new URL(tab.url).pathname === '/pm'), 'PM monitoring button opens the PM office');
   const pmTab = [...main.tabs.values()].find(tab => new URL(tab.url).pathname === '/pm');

@@ -157,7 +157,8 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
       return promise;
     },
   };
-  const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packingHarness,
+  const cssModules = new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) });
+  const modules = { '../../styles/ImportPacking.module.css': cssModules, '../../styles/ImportReviewTypography.module.css': cssModules, react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packingHarness,
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
     '../../lib/invoiceSupplierEvidence.js': await import('../lib/invoiceSupplierEvidence.js'),
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
@@ -856,7 +857,7 @@ test('explicit ERP refresh after generation invalidates old workbook but retains
   reviewNode.props.onClose(); await h.refresh();
   let prepare = h.nodes('button').find(node => node.props['data-testid'] === 'packing-receipt-prepare');
   assert.ok(prepare, 'all-matched preview exposes the receipt CTA before review confirmation');
-  assert.ok(text(h.tree).includes('원본 품명 옆 DB 품목을 모두 연결한 뒤'));
+  assert.equal(text(prepare), '입고 업로드로 이동');
   assert.ok(!text(h.tree).includes('원문 검토를 명시적으로 적용'));
   prepare.props.onClick(); await h.refresh();
   assert.equal(flatten(h.tree).find(node => node.type === h.components.PackingResultsStub).props.previewOnly, false,
@@ -889,7 +890,6 @@ test('explicit ERP refresh after generation invalidates old workbook but retains
   assert.equal(h.receiptSources.at(-1).excels.length, 0, 'invalidated output no longer publishes receipt rows');
   assert.equal(flatten(h.tree).find(node => node.type === 'PackingEvidenceReview').props.rows, retainedReview.props.rows,
     'the source-review draft rows stay mounted through mapping refresh');
-  assert.ok(text(h.tree).includes('별도 원문확인 체크는 필요 없습니다'), 'refresh retains the matching-first workflow');
   assert.equal(h.erpRequests.filter(request => request.options?.method === 'POST').length, 0,
     'refresh is read-only and does not save an ERP mapping');
   const retainedMatchRows = results.props.excels[0].products.map(row => row.matchingDescription);

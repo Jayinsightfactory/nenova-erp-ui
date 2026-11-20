@@ -24,11 +24,20 @@ const fmt = n => Number(n || 0).toLocaleString();
 const normalizeLedgerSearch = value => String(value ?? '').normalize('NFKC').toLowerCase();
 const normalizeAwbSearch = value => normalizeLedgerSearch(value).replace(/[\s\p{Dash_Punctuation}]+/gu, '');
 
-function LedgerSearchHeading({ label, value, onChange }) {
+const normalizeRoundSearch = value => normalizeLedgerSearch(value)
+  .replace(/\s/gu, '').replace(/\p{Dash_Punctuation}/gu, '-').replace(/차$/u, '');
+
+function matchesRound(value, query) {
+  const round = normalizeRoundSearch(value);
+  if (query.includes('-')) return round === query || (query.endsWith('-') && round.startsWith(query));
+  return round.split('-', 1)[0] === query;
+}
+
+function LedgerSearchHeading({ label, value, onChange, placeholder }) {
   const searchLabel = `${label} 검색`;
   return <div>
     <div onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
-      <Input size="small" allowClear aria-label={searchLabel} placeholder={searchLabel} value={value} onChange={event => onChange(event.target.value)} />
+      <Input size="small" allowClear aria-label={searchLabel} placeholder={placeholder ?? searchLabel} value={value} onChange={event => onChange(event.target.value)} />
     </div>
     <span>{label}</span>
   </div>;
@@ -96,6 +105,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const [weekFilter, setWeekFilter] = useState('');
   const [recentFarms, setRecentFarms] = useState([]);
   const [masterSearch, setMasterSearch] = useState('');
+  const [roundSearch, setRoundSearch] = useState('');
   const [farmSearch, setFarmSearch] = useState('');
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [awbSearch, setAwbSearch] = useState('');
@@ -200,12 +210,14 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
     const q = masterSearch.trim().toLowerCase();
     const farmQuery = farmSearch.trim().normalize('NFKC').toLowerCase();
     const invoiceQuery = normalizeLedgerSearch(invoiceSearch).trim();
+    const roundQuery = normalizeRoundSearch(roundSearch);
     const awbQuery = normalizeAwbSearch(awbSearch);
     const list = masters.filter(m => {
       if (farmFilter && m.FarmName !== farmFilter) return false;
       if (farmQuery && !String(m.FarmName ?? '').normalize('NFKC').toLowerCase().includes(farmQuery)) return false;
       if (invoiceQuery && !normalizeLedgerSearch(m.InvoiceNo).includes(invoiceQuery)) return false;
       if (awbQuery && !normalizeAwbSearch(m.AWB).includes(awbQuery)) return false;
+      if (roundQuery && !matchesRound(m.OrderWeek, roundQuery)) return false;
       if (weekFilter && m.OrderWeek !== weekFilter) return false;
       if (!q) return true;
       return (m.FarmName||'').toLowerCase().includes(q) ||
@@ -215,7 +227,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
     });
     const val = (m) => { const v = m[sortKey]; return v == null ? '' : v; };
     return list.sort((a, b) => { const x = val(a), y = val(b); if (typeof x === 'number' && typeof y === 'number') return (x - y) * sortDir; return String(x).localeCompare(String(y), 'ko') * sortDir; });
-  }, [masters, masterSearch, farmFilter, farmSearch, invoiceSearch, awbSearch, weekFilter, sortKey, sortDir]);
+  }, [masters, masterSearch, farmFilter, farmSearch, invoiceSearch, awbSearch, roundSearch, weekFilter, sortKey, sortDir]);
 
   // 농장/차수를 고르면 첫 원장을 자동 선택해 상세까지 한 번에
   useEffect(() => {
@@ -364,7 +376,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
               summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={6}><Text strong>합계</Text></Table.Summary.Cell><Table.Summary.Cell index={6} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBox || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={7} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBunch || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={8} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalSteam || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={9} colSpan={3} /></Table.Summary.Row></Table.Summary>}
               columns={[
                 { title: '주문년도', dataIndex: 'OrderYear', width: 80, sorter: (a, b) => String(a.OrderYear).localeCompare(String(b.OrderYear)) },
-                { title: '차수', dataIndex: 'OrderWeek', width: 70, sorter: (a, b) => String(a.OrderWeek).localeCompare(String(b.OrderWeek)), render: (v) => <Text strong>{v}</Text> },
+                { title: <LedgerSearchHeading label="차수" value={roundSearch} onChange={setRoundSearch} placeholder="47 / 47-02" />, dataIndex: 'OrderWeek', width: 112, sorter: (a, b) => String(a.OrderWeek).localeCompare(String(b.OrderWeek)), render: (v) => <Text strong>{v}</Text> },
                 { title: <LedgerSearchHeading label="농장명" value={farmSearch} onChange={setFarmSearch} />, dataIndex: 'FarmName', width: 200,
                   render: name => <span style={{overflowWrap:'anywhere',whiteSpace:'normal'}}>{name || '미기재'}</span>,
                   sorter: (a, b) => String(a.FarmName || '').localeCompare(String(b.FarmName || ''), 'ko'), filterSearch: true, filters: farmOptions.map((f) => ({ text: f, value: f })), onFilter: (v, r) => r.FarmName === v },

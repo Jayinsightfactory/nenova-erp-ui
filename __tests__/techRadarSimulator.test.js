@@ -289,6 +289,15 @@ const wbSrc = read('components/pm/TechRadarWorkbench.js');
 assert.ok(wbSrc.includes('tabular-nums'), 'TechRadarWorkbench tabular-nums 적용');
 assert.ok(wbSrc.includes('prefers-reduced-motion'), 'TechRadarWorkbench reduced-motion 준수');
 assert.ok(wbSrc.includes("window.addEventListener('keydown'"), '시안 C 키보드 단축키 이벤트 핸들러 등록');
+assert.doesNotMatch(wbSrc, /ui-monospace|\bmonospace\b/, 'TechRadarWorkbench: 한글 굴림체 폴백을 유발하는 monospace 선언 금지');
+assert.ok(wbSrc.includes('Pretendard') && wbSrc.includes('Malgun Gothic'), 'TechRadarWorkbench: Windows 한글 고딕 폰트 스택 필수');
+
+const bpHtml = read('data/moyi-full-suite-blueprint.html');
+assert.doesNotMatch(bpHtml, /JetBrains Mono|ui-monospace|\bmonospace\b/i, 'moyi-full-suite-blueprint.html: 굴림체 폴백 유발 monospace 선언 금지');
+assert.ok(bpHtml.includes('Pretendard') && bpHtml.includes('Malgun Gothic'), 'moyi-full-suite-blueprint.html: Windows 한글 고딕 폰트 스택 필수');
+for (const m of bpHtml.matchAll(/<script(?![^>]*type="application\/json")[^>]*>([\s\S]*?)<\/script>/g)) {
+  new Function(m[1]);
+}
 
 // 5) SSR 렌더링 검증 (시안 A·B·C·ALL 4모드 + 관리자/전직원 격리 + SolutionSuiteSimulator 연동)
 const WorkbenchComp = compile('components/pm/TechRadarWorkbench.js', (id, baseReq) => {

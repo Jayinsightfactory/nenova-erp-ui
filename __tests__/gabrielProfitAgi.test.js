@@ -240,9 +240,21 @@ for (const viewMode of ['A', 'B', 'C', 'ALL']) {
   }));
   assert.ok(html.includes(`data-view="${viewMode}"`), `뷰 ${viewMode} data-view 속성`);
   assert.ok(html.includes('가브리엘 수입·원가·이익 최적화 AGI 워크벤치'), `뷰 ${viewMode} 제목`);
+  assert.ok(html.includes('gabriel-purpose-callout'), `뷰 ${viewMode} 최상단 핵심 목적 Callout`);
+  assert.ok(html.includes('gabriel-lever-purpose-callout'), `뷰 ${viewMode} 레버별 핵심 목적 Callout`);
+  assert.ok(html.includes('핵심 목적 · PURPOSE'), `뷰 ${viewMode} PURPOSE 문구`);
   assert.ok(html.includes('gabriel-copy-briefing'), `뷰 ${viewMode} 브리핑 복사 버튼`);
   assert.ok(html.includes('gabriel-lever-story-diagram'), `뷰 ${viewMode} 스토리·그림·계보 패널`);
-  assert.ok(html.includes('gabriel-lever-svg-diagram'), `뷰 ${viewMode} SVG 도해`);
+  assert.ok(html.includes('gabriel-lever-svg-diagram'), `뷰 ${viewMode} 실시간 트레이스 SVG 도면`);
+  assert.ok(html.includes('gabriel-trace-auto-toggle'), `뷰 ${viewMode} AUTO 1x 재생 토글`);
+  assert.ok(html.includes('gabriel-trace-stage-detail'), `뷰 ${viewMode} 선택 단계 상세 패널`);
+  for (const stepNo of ['01', '02', '03', '04', '05', '06']) {
+    assert.ok(html.includes(`gabriel-trace-node-${stepNo}`), `뷰 ${viewMode} 트레이스 ${stepNo}단계 카드`);
+  }
+  assert.ok(html.includes('data-stage-state="done"'), `뷰 ${viewMode} 완료 상태 카드`);
+  assert.ok(html.includes('data-stage-state="running"'), `뷰 ${viewMode} 실행 중 상태 카드`);
+  assert.ok(html.includes('data-stage-state="pending"'), `뷰 ${viewMode} 대기 상태 카드`);
+  assert.ok(html.includes('직교 연계 버스'), `뷰 ${viewMode} 독립 레인 직교 연계 버스`);
   assert.ok(html.includes('gabriel-lever-data-basis'), `뷰 ${viewMode} 4원천 출처 표`);
   assert.ok(html.includes('gabriel-lever-dept-table'), `뷰 ${viewMode} 부서별 업무 표`);
 }
@@ -277,6 +289,9 @@ for (const file of targetFiles) {
 }
 const cssSrc = read('styles/GabrielProfitAgi.module.css');
 assert.ok(cssSrc.includes('tabular-nums'), 'CSS에 tabular-nums 고정폭 정렬 필수');
+assert.ok(cssSrc.includes('Malgun Gothic') && cssSrc.includes('Pretendard'), 'CSS에 Pretendard/Malgun Gothic 한글 고딕 스택 필수 (굴림체 폴백 금지)');
+assert.ok(!/\bmonospace\b/i.test(cssSrc), 'CSS에 단독 monospace 폴백 금지 (Windows 굴림체 방지)');
+assert.ok(cssSrc.includes('stroke-dashoffset') && cssSrc.includes('prefers-reduced-motion'), 'CSS에 실시간 점선 모션(stroke-dashoffset) 및 prefers-reduced-motion 준수 필수');
 assert.ok(!/linear-gradient|radial-gradient/i.test(cssSrc), 'Anti-AI Slop: 그라디언트 금지');
 
 const pageSrc = read('pages/import/gabriel-agi.js');

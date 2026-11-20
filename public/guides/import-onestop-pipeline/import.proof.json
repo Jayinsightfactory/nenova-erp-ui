@@ -1,21 +1,23 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-18T09:36:24.583Z",
+  "recordedAt": "2026-11-19T09:39:08.869Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 61.75,
+  "duration": 72.05,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "c1d6083ee0384ed70729000b0086313dc6f8d24e8991f294cafbfd48a9fb8869",
-  "captionsSha256": "b58293a83427cca8eb812ec0928a79566d725ffce5316ecb63bba3237e10065d",
+  "videoSha256": "e47edbb25a0352715a591cb379136eeb41d83a45d4fd297a9f8ca07d74396384",
+  "captionsSha256": "2f641fe3f67cba29f609f786390fa054fb7670e18eacd4942dc829f00760840e",
   "sourceHashes": {
     "pages/import/pipeline.js": "476858944389ba66e00d69f4768d87a5cec8e0fbd35f6f789b4a0a3001708c73",
-    "components/import-tools/ImportOneStopPipeline.js": "84af229ade3153eb305b21de5a92e6c9cfcee50a011d79a2a993d2aa2c94474e",
+    "components/import-tools/ImportOneStopPipeline.js": "43561893a7c16747fbc9580ff360f0381632a4cb27478987faf11a244f2a745f",
     "lib/importOneStopPipeline.js": "70feda84974f0e4fffdce0ca455d7aa0cbf3b74e89eb964cf0dc8537517ac23a",
-    "styles/ImportOneStopPipeline.module.css": "2f3f1de2d3ae86096d0fecff9c980575b01cc57795e54ecc9a1b6f7da1fe8ebc"
+    "styles/ImportOneStopPipeline.module.css": "2f3f1de2d3ae86096d0fecff9c980575b01cc57795e54ecc9a1b6f7da1fe8ebc",
+    "components/work/PurposeFlowTrace.js": "7c6475d2167c01615a94c9e071b1a08f82857f21056a1417e5b88c0f961376b3",
+    "lib/workPurposeTrace.js": "010ed156e3916ceae8f1279964258297cbda30fa911375e7736323194c7058d1"
   },
   "presentation": {
     "numberedSteps": 4,
@@ -31,45 +33,45 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 3.3584019,
+        "start": 3.4986244000000006,
         "x": 699.453125,
-        "y": 247.046875,
-        "end": 9.059725499999999
+        "y": 539.828125,
+        "end": 9.520962200000001
       },
       {
         "number": 2,
-        "start": 14.6097111,
+        "start": 15.3337863,
         "x": 729.25,
-        "y": 424.546875,
-        "end": 20.4922654
+        "y": 540.328125,
+        "end": 21.4188775
       },
       {
         "number": 3,
-        "start": 26.064249,
+        "start": 27.1402687,
         "x": 1190.75,
-        "y": 424.546875,
-        "end": 31.909136999999998
+        "y": 540.328125,
+        "end": 33.149599900000005
       },
       {
         "number": 4,
-        "start": 37.4737503,
+        "start": 38.9040294,
         "x": 1652.25,
-        "y": 424.546875,
-        "end": 42.2362658
+        "y": 540.328125,
+        "end": 43.856614500000006
       },
       {
         "number": 4,
-        "start": 45.7776535,
+        "start": 47.3676503,
         "x": 455.09375,
-        "y": 539.546875,
-        "end": 51.5840348
+        "y": 540.328125,
+        "end": 53.391586000000004
       },
       {
         "number": 4,
-        "start": 55.041928799999994,
+        "start": 56.9164688,
         "x": 107.7890625,
-        "y": 747.046875,
-        "end": 59.538319400000006
+        "y": 746.828125,
+        "end": 61.577399899999996
       }
     ]
   }

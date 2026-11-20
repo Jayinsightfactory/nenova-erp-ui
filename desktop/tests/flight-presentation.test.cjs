@@ -62,3 +62,13 @@ test('customs title qualifies uncertain release without confusing it with cleara
   assert.equal(customsTitle({ declaration: 'cleared', release: 'unknown' }), '수입신고 수리 완료 · 반출 미확인');
   assert.equal(customsTitle(null), '');
 });
+
+test('flight dates are Korean standard time regardless of where the caller runs', () => {
+  const { formatFlightTime } = require('../shell/flight-board');
+  assert.equal(formatFlightTime('2026-11-19T23:30:00Z', true), '11/20(금) 08:30');
+  assert.equal(formatFlightTime('2026-11-20T00:30:00+14:00'), '11/19 19:30');
+  assert.equal(formatFlightTime('2026-11-19T22:30:00-08:00'), '11/20 15:30');
+  assert.equal(formatFlightTime('2026-11-20T00:00:00+09:00'), '11/20 00:00');
+  assert.equal(formatFlightTime('2026-11-19T23:30:00'), '시각 미확인');
+  assert.equal(formatFlightTime('2026-11-20', false, true), '11/20 시각 미정');
+});
