@@ -21,7 +21,7 @@ const puppeteer = require('puppeteer-core');
   let unexpectedMutationAttempts = 0;
   const blockedWriteEndpoints = new Map();
   const requested = [], statuses = [];
-  const outputReads = [], sourceNotes = new Map();
+  const outputReads = [], sourceNotes = new Map(), authorNotes = new Map();
   const reportReads = [];
   let stage = 'font-preflight', activePage = null;
   const mark = next => { stage = next; console.log(JSON.stringify({printSmokeStage:stage})); };
@@ -81,7 +81,13 @@ const puppeteer = require('puppeteer-core');
     });
     page.on('response', response => {
       const responseUrl = new URL(response.url());
-      if (responseUrl.pathname === '/api/sales/profit-report') reportReads.push({year:responseUrl.searchParams.get('year'),week:responseUrl.searchParams.get('week'),status:response.status()});
+      if (responseUrl.pathname === '/api/sales/profit-report') {
+        reportReads.push({year:responseUrl.searchParams.get('year'),week:responseUrl.searchParams.get('week'),status:response.status()});
+        if(response.status()===200) outputReads.push(response.json().then(data=>{
+          if(data.success && String(data.orderYear)===year && weeks.includes(String(data.major).padStart(2,'0')))
+            authorNotes.set(String(data.major).padStart(2,'0'),String(data.note ?? ''));
+        }));
+      }
       if (responseUrl.pathname !== '/api/sales/profit-report-output') return;
       statuses.push(response.status());
       if (response.status() === 200) outputReads.push(response.json().then(data => {
@@ -191,10 +197,23 @@ const puppeteer = require('puppeteer-core');
     }));
     assert.equal(sections.length, weeks.length);
     await Promise.all(outputReads);
+    // Category view loads one report, while its output picker may select several.
+    // Read only missing selected scopes; never trust output metadata as its own oracle.
+    for (const week of weeks.filter(week=>!authorNotes.has(week))) {
+      const author = await page.evaluate(async ({year,week})=>{
+        const response=await fetch(`/api/sales/profit-report?year=${year}&week=${week}`,{credentials:'same-origin'});
+        const data=await response.json();
+        if(!response.ok||!data.success||String(data.orderYear)!==year||Number(data.major)!==Number(week))throw Error('Author note source read failed');
+        return String(data.note ?? '');
+      },{year,week});
+      authorNotes.set(week,author);
+    }
     for (let i = 0; i < sections.length; i++) {
       assert.ok(sourceNotes.has(weeks[i]), 'Source note metadata must be read for the exact selected week');
+      assert.ok(authorNotes.has(weeks[i]), 'Independent report author note must be read for the selected year/week');
+      assert.ok(sourceNotes.get(weeks[i])===authorNotes.get(weeks[i]),'Print metadata must contain only the saved author note, not generated stock or financial explanations');
       const expectedNote = sourceNotes.get(weeks[i]).split(/\r\n|\n|\r/).map(line => line.trim()).filter(Boolean).join(' · ');
-      assert.equal(sections[i].userNote, expectedNote, 'Print note must preserve every source item in original order');
+      assert.ok(sections[i].userNote===expectedNote, 'Print note must preserve every source item in original order');
     }
     for (const section of sections) { assert.equal(section.headers.length, 22); assert.equal(section.hasAutomaticStatus, false); assert.ok(section.fits, 'All table cells must fit their printed page'); }
     const printHtml = await frame.content();

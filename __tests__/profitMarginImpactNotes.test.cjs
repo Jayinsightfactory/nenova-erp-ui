@@ -64,8 +64,8 @@ const current={orderYear:'2026',major:'01',rows:[{category:'장미',calc:{E:120,
 assert.match(notes.inventoryContinuityNotes(current,prior,null),/평가차이 \+20원 \(StockHistory 실제 조정과 별개\)/);
 assert.match(notes.inventoryContinuityNotes(current,{...prior,orderYear:'2024'},null),/인접 연도·차수 근거 불일치/);
 const excel=compile('lib/profitReportExcel.js');
-const workbook=excel.buildProfitReportXlsx({major:'31',rows:[{...makeRow(),confirmed:true,calc:{...normal,K:-9,D:1,U:1}}],confirmedTotals:{...normal,K:-8,D:1,U:1},note:'사용자 냉해 메모\n'+positive,visibleCols:['C','J','K'],returnWorkbook:true});
-assert.equal(workbook.Sheets['주차별 매출이익 보고서'].K24.v,normal.J/normal.C);assert.match(workbook.Sheets['주차별 매출이익 보고서']['!profitPrint'].userNote,/사용자 냉해 메모/);assert.match(workbook.Sheets['주차별 매출이익 보고서']['!profitPrint'].userNote,/중량기준 대비/);
+const workbook=excel.buildProfitReportXlsx({major:'31',rows:[{...makeRow(),confirmed:true,calc:{...normal,K:-9,D:1,U:1}}],confirmedTotals:{...normal,K:-8,D:1,U:1},note:'사용자 냉해 메모\n'+positive,printUserNote:'사용자 냉해 메모',visibleCols:['C','J','K'],returnWorkbook:true});
+assert.equal(workbook.Sheets['주차별 매출이익 보고서'].K24.v,normal.J/normal.C);assert.equal(workbook.Sheets['주차별 매출이익 보고서']['!profitPrint'].userNote,'사용자 냉해 메모');assert.match(workbook.Sheets['주차별 매출이익 보고서'].B28.v,/중량기준 대비/);
 const FormulaAudit=compile('components/ProfitFormulaAudit.js').default;
 const auditHtml=require('react-dom/server').renderToStaticMarkup(require('react').createElement(FormulaAudit,{report:{...frozen,confirmed:true,confirmedTotals:frozen.totals}}));
 assert.match(auditHtml,/계산식 일치/);assert.doesNotMatch(auditHtml,/계산식 불일치/);

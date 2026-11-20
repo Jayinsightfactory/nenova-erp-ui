@@ -1,5 +1,9 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-20 인쇄 비고 직접 입력 원문
+
+출력 API의 금융/재고 자동 설명을 합친 note를 사용자 비고로 인쇄하지 않는다. printUserNote는 선택 최신/저장/확정 응답의 직접 입력 note만 전달한다. 빈 값은 자동 설명으로 채우지 않으며 직접 작성한 재고 문구는 제거하지 않는다. 웹/XLSX 자동 설명, 본표 금액·합계, ERP/저장본/확정본은 보존한다. 실제 API·snapshot reader·builder·HTML의 교차연도 회귀와 독립 원문 대조는 profitRangeOutput.test.cjs 및 production print smoke로 검사한다. 기준: plans/profit-print-author-note-2026-11-20.md.
+
 ## 2026-11-19 인보이스 단독 입고 및 후속 원가
 
 인보이스 품목·원문 금액·농장·연도·차수 대조를 통과하면 AWB 없이 기존 입고 writer로 저장할 수 있다. 확인된 운송장 데이터만 선택 반영하고, 누락 중량·운임단가·서류비는 NULL로 남긴다. 입고 readback 완료 후 원가 API는 사용자 선택에서만 시작한다. 입고관리와 데스크톱 복원은 명시 연도·차수·WarehouseKey를 재사용한다. 중복 operation, 교차연도, 실제 입고 수치·재고 readback의 기준은 기존 writer를 따른다. 근거 `plans/invoice-only-receipt-2026-11-19.md`, 계약 `invoice-only-receipt`, 테스트 `NENOVA_INVOICE_ONLY_E2E` 및 `invoiceReceiptCostRoute.test.mjs`.
