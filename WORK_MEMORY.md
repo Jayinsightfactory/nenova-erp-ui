@@ -4463,3 +4463,12 @@ pm run test:canon 통과.
 3. 남은 일: 남은 질문 5개(분류 시작·끝 시각, 분배 내역을 받는 모양, 출고 사진에 찍힐 것, 당일 추가·취소 마감, 노선별 거래처 묶음). 강의형 영상 2편(배차·주말 출고)은 반영 뒤 다시 만든다.
 4. 검증: validate-handover 통과, npm run -s test:workflow-guides 통과. 운영 화면 확인은 브라우저 로그인이 풀려 미검증.
 5. 주의/잠금: 원고는 scripts/build-handover-field.cjs 한 곳만 고칠 것. 새 화면 주소 없음(데스크톱앱 메뉴 변경 없음). 연결 목표: g03 / 학습 반영: 없음
+
+## 2026-11-22 현장팀 업무 매뉴얼 — 사장님 답 5건 반영(남은 질문)
+요약: 질문 5 → 1. ① 박스의 거래처 표시는 물량표 기준, 추가취소방 수정 사항이 있으면 고침 ② 화물이 들어온 다음 날 작업(인천공항 도착·평일 기준) ③ 출고 사진은 잘못 나갔거나 불량이 생겼을 때 어느 농장 물건이 나갔는지 확인하려는 것 ④ 당일 추가·취소는 기본 오후 4시, 늦어도 오후 6시 전 ⑤ 담당자마다 거래처 지역이 다르고 거래처 관리에서 확인.
+검색어: 현장팀 매뉴얼 handover-field 물량표 마킹 출고 사진 농장 추가 취소 마감 16시 18시 노선 거래처 관리
+1. 작업 위치: nenova-erp-ui / feat/handover-field-answers2 / C:\Users\USER\nw-cld-field3
+2. 완료: scripts/build-handover-field.cjs(자료 묶기 직전 「남은 질문 5건」 블록) → data/handover-field.json
+3. 남은 일: 남은 질문 1개(현장이 물량표를 어떤 모양으로 보는지). 하루 중 분류 시작·끝 시각은 매뉴얼의 열린 질문에 남김.
+4. 검증: validate-handover 통과, npm run -s test:workflow-guides 통과. 운영 화면 확인은 브라우저 로그인이 풀려 미검증.
+5. 주의/잠금: 원고는 scripts/build-handover-field.cjs 한 곳만 고칠 것. 연결 목표: g03 / 학습 반영: 없음
