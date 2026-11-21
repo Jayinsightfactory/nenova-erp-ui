@@ -1,4 +1,4 @@
-/* styles/GabrielProfitAgi.module.css
+/* styles/ImportCostAgi.module.css
  * Anti-AI Slop 기준: 1px 구조선 · tabular-nums 고정폭 숫자 정렬 · 무채색 기반 + 최소 상태색 · 네온/그라디언트/과잉 중첩 금지
  */
 
@@ -965,7 +965,7 @@
   stroke-width: 5;
   stroke-linecap: round;
   stroke-dasharray: 2 58;
-  animation: gabrielTracePacketFlow 2.2s linear infinite;
+  animation: costAgiTracePacketFlow 2.2s linear infinite;
 }
 
 .traceWireRunning {
@@ -974,7 +974,7 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 8 6;
-  animation: gabrielTraceDashFlow 0.8s linear infinite;
+  animation: costAgiTraceDashFlow 0.8s linear infinite;
 }
 
 .traceWirePending {
@@ -984,7 +984,7 @@
   stroke-dasharray: 4 5;
 }
 
-@keyframes gabrielTraceDashFlow {
+@keyframes costAgiTraceDashFlow {
   from {
     stroke-dashoffset: 28;
   }
@@ -993,7 +993,7 @@
   }
 }
 
-@keyframes gabrielTracePacketFlow {
+@keyframes costAgiTracePacketFlow {
   from {
     stroke-dashoffset: 120;
   }

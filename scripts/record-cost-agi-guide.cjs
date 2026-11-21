@@ -1,4 +1,4 @@
-// Actual built Next.js /import/gabriel-agi UI with loopback synthetic fixtures. Zero MSSQL or production writes.
+// Actual built Next.js /import/cost-agi UI with loopback synthetic fixtures. Zero MSSQL or production writes.
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -26,7 +26,7 @@ async function main() {
   const proxyPort = await freePort();
   const secret = crypto.randomBytes(32).toString('hex');
   const user = {
-    userId: 'fixture-gabriel',
+    userId: 'fixture-import',
     userName: '연습 담당자',
     authority: 2,
     deptName: '수입부',
@@ -184,7 +184,7 @@ async function main() {
 
     for (let i = 0; i < 60; i++) {
       try {
-        const res = await fetch(`${base}/import/gabriel-agi?year=2026&week=46-01&popup=1`);
+        const res = await fetch(`${base}/import/cost-agi?year=2026&week=46-01&popup=1`);
         if (res.status === 200) break;
       } catch (_) {}
       if (i === 59) throw new Error('Timed out waiting for isolated Next server');
@@ -216,50 +216,50 @@ async function main() {
     page.on('response', (response) => {
       try {
         const u = new URL(response.url());
-        if (u.pathname.startsWith('/guides/gabriel-import-profit-agi/')) {
+        if (u.pathname.startsWith('/guides/import-cost-profit-agi/')) {
           guideAssets.push({ path: u.pathname, status: response.status() });
         }
       } catch (_) {}
     });
 
-    await page.goto(`${base}/import/gabriel-agi?year=2026&week=46-01&popup=1`, { waitUntil: 'networkidle0', timeout: 120000 });
-    await page.waitForSelector('[data-testid="gabriel-profit-agi-workbench"]', { timeout: 60000 });
-    await page.waitForSelector('[data-testid="gabriel-lever-story-diagram"]', { timeout: 30000 });
+    await page.goto(`${base}/import/cost-agi?year=2026&week=46-01&popup=1`, { waitUntil: 'networkidle0', timeout: 120000 });
+    await page.waitForSelector('[data-testid="cost-profit-agi-workbench"]', { timeout: 60000 });
+    await page.waitForSelector('[data-testid="cost-agi-lever-story-diagram"]', { timeout: 30000 });
     await page.waitForFunction(() => document.body.innerText.includes('콜롬비아 카네이션 스탠다드 레드'), { timeout: 30000 });
 
     if (playerSmoke) {
       await page.evaluate(() => {
         const details = [...document.querySelectorAll('details')]
-          .find((node) => node.querySelector('h3')?.textContent.includes('가브리엘 수입·원가·이익 최적화'));
-        if (!details) throw new Error('WorkflowGuide for gabriel-import-profit-agi not found');
-        details.id = 'gabriel-guide-target';
+          .find((node) => node.querySelector('h3')?.textContent.includes('수입 원가·이익 AGI'));
+        if (!details) throw new Error('WorkflowGuide for import-cost-profit-agi not found');
+        details.id = 'cost-agi-guide-target';
       });
-      const summary = await page.$('#gabriel-guide-target > summary');
+      const summary = await page.$('#cost-agi-guide-target > summary');
       assert.ok(summary, 'WorkflowGuide summary missing');
       await summary.focus();
       await page.keyboard.press('Enter');
-      await page.waitForSelector('#gabriel-guide-target video');
-      assert.equal(await page.$eval('#gabriel-guide-target video', (v) => v.paused), true);
+      await page.waitForSelector('#cost-agi-guide-target video');
+      assert.equal(await page.$eval('#cost-agi-guide-target video', (v) => v.paused), true);
 
-      await page.$eval('#gabriel-guide-target video', (v) => { v.muted = true; return v.play(); });
-      await page.waitForFunction(() => document.querySelector('#gabriel-guide-target video')?.currentTime > 0.3, { timeout: 15000 });
-      await page.$eval('#gabriel-guide-target video', (v) => {
+      await page.$eval('#cost-agi-guide-target video', (v) => { v.muted = true; return v.play(); });
+      await page.waitForFunction(() => document.querySelector('#cost-agi-guide-target video')?.currentTime > 0.3, { timeout: 15000 });
+      await page.$eval('#cost-agi-guide-target video', (v) => {
         v.pause();
         if (v.textTracks?.[0]) v.textTracks[0].mode = 'showing';
       });
 
-      const chapters = await page.$$('#gabriel-guide-target nav[aria-label="수입부 영상 목차"] button');
+      const chapters = await page.$$('#cost-agi-guide-target nav[aria-label="수입부 영상 목차"] button');
       assert.equal(chapters.length, 4);
       await chapters[1].focus();
       await page.keyboard.press('Enter');
       await page.waitForFunction(() => {
-        const v = document.querySelector('#gabriel-guide-target video');
+        const v = document.querySelector('#cost-agi-guide-target video');
         return Boolean(v && !v.seeking && v.readyState >= 2 && v.currentTime > 5);
       }, { timeout: 15000 });
-      await page.waitForFunction(() => document.querySelector('#gabriel-guide-target video track')?.readyState === 2, { timeout: 15000 });
-      assert.equal(await page.$eval('#gabriel-guide-target video', (v) => v.textTracks.length === 1 && v.textTracks[0].language === 'ko' && v.textTracks[0].cues.length > 0), true);
-      assert.ok(await page.$('#gabriel-guide-target a[download][href="/guides/gabriel-import-profit-agi/import.mp4"]'));
-      assert.ok(await page.$('#gabriel-guide-target a[download][href="/guides/gabriel-import-profit-agi/import.ko.vtt"]'));
+      await page.waitForFunction(() => document.querySelector('#cost-agi-guide-target video track')?.readyState === 2, { timeout: 15000 });
+      assert.equal(await page.$eval('#cost-agi-guide-target video', (v) => v.textTracks.length === 1 && v.textTracks[0].language === 'ko' && v.textTracks[0].cues.length > 0), true);
+      assert.ok(await page.$('#cost-agi-guide-target a[download][href="/guides/import-cost-profit-agi/import.mp4"]'));
+      assert.ok(await page.$('#cost-agi-guide-target a[download][href="/guides/import-cost-profit-agi/import.ko.vtt"]'));
       assert.equal(counts.blockedWrites, 0);
       assert.deepEqual(errors, []);
       assert.ok(guideAssets.some((a) => a.path.endsWith('.mp4')));
@@ -272,8 +272,8 @@ async function main() {
     if (!dry) {
       await page.addStyleTag({ content: 'body { padding-bottom: 240px !important; }' });
       const registry = JSON.parse(fs.readFileSync('config/workflow-guides.json', 'utf8'));
-      const wf = registry.workflows.find((w) => w.id === 'gabriel-import-profit-agi');
-      assert.ok(wf, 'gabriel-import-profit-agi entry missing in config/workflow-guides.json');
+      const wf = registry.workflows.find((w) => w.id === 'import-cost-profit-agi');
+      assert.ok(wf, 'import-cost-profit-agi entry missing in config/workflow-guides.json');
       rec = await createWorkflowGuideRecorder(page, {
         workflowId: wf.id,
         guideId: 'import',
@@ -321,52 +321,52 @@ async function main() {
     await page.waitForFunction(() => !window.location.search.includes('country=CO'));
 
     await page.click('[data-testid="story-lever-chip-L6"]');
-    await page.waitForFunction(() => document.querySelector('[data-testid="gabriel-lever-situation"]')?.textContent.includes('L6'));
+    await page.waitForFunction(() => document.querySelector('[data-testid="cost-agi-lever-situation"]')?.textContent.includes('L6'));
     if (dry) {
       await page.click('[data-testid="dept-filter-경영지원·정산부"]');
       await page.waitForFunction(() => Boolean(document.querySelector('[data-testid="story-lever-chip-L4"]')) && !document.querySelector('[data-testid="story-lever-chip-L1"]'));
       await page.click('[data-testid="dept-filter-ALL"]');
       await page.waitForSelector('[data-testid="story-lever-chip-L1"]');
-      await page.$eval('[data-testid="gabriel-lever-story-diagram"]', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+      await page.$eval('[data-testid="cost-agi-lever-story-diagram"]', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
       fs.mkdirSync('.verify', { recursive: true });
-      await page.screenshot({ path: '.verify/gabriel-agi-story-1920.png', fullPage: false });
+      await page.screenshot({ path: '.verify/cost-agi-story-1920.png', fullPage: false });
     }
 
     // Step 2: Counterfactual stress preset & simulation toggle
-    await stepFocus('simulate', '반사실 시뮬레이션 컨트롤에서 환율 +60원 스트레스 프리셋을 적용해 방어 효과를 계산합니다.', '[data-testid="gabriel-preset-fx-stress"]', 2);
-    await page.click('[data-testid="gabriel-preset-fx-stress"]');
+    await stepFocus('simulate', '반사실 시뮬레이션 컨트롤에서 환율 +60원 스트레스 프리셋을 적용해 방어 효과를 계산합니다.', '[data-testid="cost-agi-preset-fx-stress"]', 2);
+    await page.click('[data-testid="cost-agi-preset-fx-stress"]');
     await page.waitForFunction(() => document.querySelector('[data-testid="readout-fx"]')?.textContent.includes('+60원'));
     if (rec) await rec.pause(800);
     await showResult('2. 환율 +60원 상승 시나리오에서도 리밸런싱·채움률·판가방어·송금분할로 총이익률이 방어됩니다.');
 
     // Step 3: Switch View B, View C, and View ALL (A·B·C simultaneous + Continuous Build Queue)
-    await stepFocus('views', '시안 B(2×2)·시안 C(카본 콘솔)·뷰 ALL(A·B·C 동시모드 & 연속구현 큐)로 전환해 검수합니다.', '[data-testid="gabriel-view-ALL"]', 3);
-    await page.click('[data-testid="gabriel-view-B"]');
+    await stepFocus('views', '시안 B(2×2)·시안 C(카본 콘솔)·뷰 ALL(A·B·C 동시모드 & 연속구현 큐)로 전환해 검수합니다.', '[data-testid="cost-agi-view-ALL"]', 3);
+    await page.click('[data-testid="cost-agi-view-B"]');
     await page.waitForFunction(() => document.body.innerText.includes('원가 리스크 × 차수 물량 비중'));
     if (rec) await rec.pause(800);
-    if (dry) await page.screenshot({ path: '.verify/gabriel-agi-view-B-1920.png', fullPage: false });
+    if (dry) await page.screenshot({ path: '.verify/cost-agi-view-B-1920.png', fullPage: false });
     if (rec) await rec.unfocus();
 
-    await page.click('[data-testid="gabriel-view-C"]');
-    await page.waitForSelector('[data-testid="gabriel-carbon-console"]');
+    await page.click('[data-testid="cost-agi-view-C"]');
+    await page.waitForSelector('[data-testid="cost-agi-carbon-console"]');
     if (rec) await rec.pause(800);
-    if (dry) await page.screenshot({ path: '.verify/gabriel-agi-view-C-1920.png', fullPage: false });
+    if (dry) await page.screenshot({ path: '.verify/cost-agi-view-C-1920.png', fullPage: false });
 
-    await page.click('[data-testid="gabriel-view-ALL"]');
-    await page.waitForSelector('[data-testid="gabriel-all-mode"]');
-    await page.waitForSelector('[data-testid="gabriel-continuous-build-queue"]');
-    assert.ok(await page.$('[data-testid="gabriel-all-panel-A"]'));
-    assert.ok(await page.$('[data-testid="gabriel-all-panel-B"]'));
-    assert.ok(await page.$('[data-testid="gabriel-all-panel-C"]'));
+    await page.click('[data-testid="cost-agi-view-ALL"]');
+    await page.waitForSelector('[data-testid="cost-agi-all-mode"]');
+    await page.waitForSelector('[data-testid="cost-agi-continuous-build-queue"]');
+    assert.ok(await page.$('[data-testid="cost-agi-all-panel-A"]'));
+    assert.ok(await page.$('[data-testid="cost-agi-all-panel-B"]'));
+    assert.ok(await page.$('[data-testid="cost-agi-all-panel-C"]'));
     if (dry) {
       fs.mkdirSync('.verify', { recursive: true });
-      await page.$eval('[data-testid="gabriel-all-mode"]', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
-      await page.screenshot({ path: '.verify/gabriel-agi-view-ALL-1920.png', fullPage: false });
-      await page.$eval('[data-testid="gabriel-continuous-build-queue"]', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+      await page.$eval('[data-testid="cost-agi-all-mode"]', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+      await page.screenshot({ path: '.verify/cost-agi-view-ALL-1920.png', fullPage: false });
+      await page.$eval('[data-testid="cost-agi-continuous-build-queue"]', (el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
       await page.click('[data-testid="copy-build-brief-mod-l1-awb-coload-solver"]');
-      await page.waitForSelector('[data-testid="gabriel-build-copy-notice"]');
-      await page.waitForFunction(() => document.querySelector('[data-testid="gabriel-build-copy-notice"]')?.textContent.includes('구현 작업지시서'));
-      await page.screenshot({ path: '.verify/gabriel-agi-build-queue-1920.png', fullPage: false });
+      await page.waitForSelector('[data-testid="cost-agi-build-copy-notice"]');
+      await page.waitForFunction(() => document.querySelector('[data-testid="cost-agi-build-copy-notice"]')?.textContent.includes('구현 작업지시서'));
+      await page.screenshot({ path: '.verify/cost-agi-build-queue-1920.png', fullPage: false });
     }
 
     if (rec) {
@@ -375,37 +375,37 @@ async function main() {
     }
 
     // Switch back to View A
-    await page.click('[data-testid="gabriel-view-A"]');
+    await page.click('[data-testid="cost-agi-view-A"]');
     await page.waitForFunction(() => document.body.innerText.includes('10대 이익 레버 분해'));
 
     // Step 4: Copy executive briefing
-    await stepFocus('briefing', '사장님 보고용 원가·이익 브리핑 복사 버튼을 눌러 10대 레버 요약 보고서를 복사합니다.', '[data-testid="gabriel-copy-briefing"]', 4);
-    await page.click('[data-testid="gabriel-copy-briefing"]');
-    await page.waitForSelector('[data-testid="gabriel-copy-notice"]');
+    await stepFocus('briefing', '사장님 보고용 원가·이익 브리핑 복사 버튼을 눌러 10대 레버 요약 보고서를 복사합니다.', '[data-testid="cost-agi-copy-briefing"]', 4);
+    await page.click('[data-testid="cost-agi-copy-briefing"]');
+    await page.waitForSelector('[data-testid="cost-agi-copy-notice"]');
     if (rec) await rec.pause(800);
     await showResult('4. 브리핑이 클립보드에 복사되었습니다. 실제 원장은 변경되지 않으며 각 부서 실행 화면으로 이어집니다.');
 
     // Keyboard navigation verification on View tabs
-    await page.focus('#gabriel-view-tab-ALL');
+    await page.focus('#cost-agi-view-tab-ALL');
     await page.keyboard.press('Home');
-    assert.equal(await page.evaluate(() => document.activeElement?.id), 'gabriel-view-tab-A');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'cost-agi-view-tab-A');
 
     if (rec) {
       const result = await rec.stop();
       const registryPath = 'config/workflow-guides.json';
       const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
-      const entry = registry.workflows.find((w) => w.id === 'gabriel-import-profit-agi');
+      const entry = registry.workflows.find((w) => w.id === 'import-cost-profit-agi');
       Object.assign(entry.guides[0], { status: 'ready', chapters: result.chapters });
       fs.writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`, 'utf8');
     }
 
     if (dry) {
       fs.mkdirSync('.verify', { recursive: true });
-      await page.screenshot({ path: '.verify/gabriel-agi-1920.png', fullPage: false });
+      await page.screenshot({ path: '.verify/cost-agi-1920.png', fullPage: false });
       await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
       assert.equal(overflow, false, 'Mobile 390px viewport must not horizontally overflow');
-      await page.screenshot({ path: '.verify/gabriel-agi-390.png', fullPage: true });
+      await page.screenshot({ path: '.verify/cost-agi-390.png', fullPage: true });
     }
 
     assert.equal(counts.blockedWrites, 0);

@@ -55,6 +55,8 @@ const nextConfig = {
       { source: '/install', destination: `${MOYI}/install`, permanent: false }, // bat 다운로드
       { source: '/guide', destination: `${MOYI}/guide`, permanent: false },     // 설치 안내 페이지
       { source: '/moyi', destination: `${MOYI}/guide`, permanent: false },      // 기억용 별칭
+      // [2026-11-21] 화면 이름 변경 — 옛 주소(즐겨찾기·데스크톱 바로가기)를 새 주소로 넘긴다. 쿼리(?year=&week=&view=)는 그대로 전달.
+      { source: '/import/gabriel-agi', destination: '/import/cost-agi', permanent: false },
     ];
   },
   async rewrites() {

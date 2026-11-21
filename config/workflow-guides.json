@@ -2020,16 +2020,16 @@
       ]
     },
     {
-      "id": "gabriel-import-profit-agi",
-      "title": "가브리엘 수입·원가·이익 최적화 AGI 워크벤치",
+      "id": "import-cost-profit-agi",
+      "title": "수입 원가·이익 AGI 워크벤치",
       "entryPaths": [
-        "/import/gabriel-agi"
+        "/import/cost-agi"
       ],
       "sourceFiles": [
-        "pages/import/gabriel-agi.js",
-        "components/import-tools/GabrielProfitAgiWorkbench.js",
-        "lib/gabrielProfitAgi.js",
-        "styles/GabrielProfitAgi.module.css"
+        "pages/import/cost-agi.js",
+        "components/import-tools/ImportCostAgiWorkbench.js",
+        "lib/importCostAgi.js",
+        "styles/ImportCostAgi.module.css"
       ],
       "requiredScenarios": [
         "scope",
@@ -2043,29 +2043,29 @@
           "role": "수입부",
           "title": "차수·환율·10대 레버 데이터 계보·뷰 A·B·C·ALL 동시 시뮬레이션과 브리핑 복사",
           "status": "ready",
-          "src": "/guides/gabriel-import-profit-agi/import.mp4",
-          "captions": "/guides/gabriel-import-profit-agi/import.ko.vtt",
-          "proof": "/guides/gabriel-import-profit-agi/import.proof.json",
+          "src": "/guides/import-cost-profit-agi/import.mp4",
+          "captions": "/guides/import-cost-profit-agi/import.ko.vtt",
+          "proof": "/guides/import-cost-profit-agi/import.proof.json",
           "chapters": [
             {
               "scenario": "scope",
               "title": "1. 상단 공통 바에서 연도·세부차수와 국가(콜롬비아)를 선택해 10대 레버 분석 범위를 맞춥니다.",
-              "seconds": 0.062
+              "seconds": 0.013
             },
             {
               "scenario": "simulate",
               "title": "2. 반사실 시뮬레이션 컨트롤에서 환율 +60원 스트레스 프리셋을 적용해 방어 효과를 계산합니다.",
-              "seconds": 10.706
+              "seconds": 10.222
             },
             {
               "scenario": "views",
               "title": "3. 시안 B(2×2)·시안 C(카본 콘솔)·뷰 ALL(A·B·C 동시모드 & 연속구현 큐)로 전환해 검수합니다.",
-              "seconds": 20.982
+              "seconds": 20.447
             },
             {
               "scenario": "briefing",
               "title": "4. 사장님 보고용 원가·이익 브리핑 복사 버튼을 눌러 10대 레버 요약 보고서를 복사합니다.",
-              "seconds": 33.34
+              "seconds": 32
             }
           ]
         }
@@ -2102,22 +2102,22 @@
             {
               "scenario": "pulse",
               "title": "1. 최상단 3중 병렬 AGI 트레이스 도면과 내 목표·정합성·선제 실행 제안 보드를 확인합니다.",
-              "seconds": 0.076
+              "seconds": 0.108
             },
             {
               "scenario": "ledger",
               "title": "2. PM 업무 원장에서 전체·진행중·완료 탭을 전환하고 안건명·PR 번호로 검색합니다.",
-              "seconds": 11.55
+              "seconds": 10.847
             },
             {
               "scenario": "queue",
               "title": "3. 다음 연속 구현 대기 큐에서 READY 과제를 골라 구현 지시서를 복사합니다.",
-              "seconds": 22.521
+              "seconds": 21.01
             },
             {
               "scenario": "directory",
               "title": "4. 하단 4대 목적별 전체 화면 지도에서 오늘 필요한 업무 화면을 바로 엽니다.",
-              "seconds": 34.167
+              "seconds": 31.181
             }
           ]
         }

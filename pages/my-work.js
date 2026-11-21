@@ -13,7 +13,7 @@ import { useRouter } from 'next/router';
 import MenuBackButton from '../components/MenuBackButton';
 import ArchFlowChart from '../components/pm/ArchFlowChart';
 import TechRadarWorkbench from '../components/pm/TechRadarWorkbench';
-import GabrielProfitAgiWorkbench from '../components/import-tools/GabrielProfitAgiWorkbench';
+import ImportCostAgiWorkbench from '../components/import-tools/ImportCostAgiWorkbench';
 import SolutionSuiteSimulator from '../components/work/SolutionSuiteSimulator';
 import DeviceHubConsole from '../components/work/DeviceHubConsole';
 import { verifyReqUser } from '../lib/auth';
@@ -1041,10 +1041,11 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
     { id: 'replay', label: 'nenovaweb 화면 재생' },
     { id: 'orbit', label: 'Orbit 작업 데이터 전체' },
     { id: 'radar', label: '도입 레이더' }, // 관리자(isOrbitReportViewer) 전용 — mineOnly 목록에는 없음
-    { id: 'gabriel-agi', label: '가브리엘 원가·이익 AGI' },
+    { id: 'cost-agi', label: '수입 원가·이익 AGI' },
   ];
   useEffect(() => {
-    const qt = typeof router.query?.tab === 'string' ? router.query.tab : '';
+    const rawTab = typeof router.query?.tab === 'string' ? router.query.tab : '';
+    const qt = rawTab === 'gabriel-agi' ? 'cost-agi' : rawTab; // 옛 탭 주소(2026-11-21 이름 변경) 호환
     if (qt && TABS.some((t) => t.id === qt)) setTab(qt);
   }, [router.query?.tab, mineOnly]);
   return (
@@ -1079,9 +1080,9 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
         {tab === 'story' && <StoryTab />}
         {tab === 'replay' && <Replay />}
         {tab === 'radar' && !mineOnly && <RadarTab />}
-        {tab === 'gabriel-agi' && !mineOnly && (
+        {tab === 'cost-agi' && !mineOnly && (
           <div className="doc wide">
-            <GabrielProfitAgiWorkbench userId={userId} embedded={true} showGuide={false} />
+            <ImportCostAgiWorkbench userId={userId} embedded={true} showGuide={false} />
           </div>
         )}
       </div>

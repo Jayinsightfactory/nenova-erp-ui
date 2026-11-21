@@ -496,7 +496,7 @@ export default function TechRadarWorkbench({
     </div>
   );
 
-  // 공용: 시나리오 바로가기 링크 (/import/gabriel-agi, /import/pipeline 등)
+  // 공용: 시나리오 바로가기 링크 (/import/cost-agi, /import/pipeline 등)
   const renderScenarioLinks = () => {
     if (!visibleLinks.length) return null;
     return (
@@ -2056,7 +2056,7 @@ export default function TechRadarWorkbench({
           title="표시할 기술 레이더 항목이 없습니다"
           action={
             <Button variant="primary" onClick={() => selectPreset(SIM_PRESETS[0], true)}>
-              가브리엘 원가·이익 AGI 시뮬레이션 열기
+              수입 원가·이익 AGI 시뮬레이션 열기
             </Button>
           }
         >

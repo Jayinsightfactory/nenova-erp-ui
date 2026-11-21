@@ -5,16 +5,16 @@ import { getCurrentWeek, stepWeek } from '../../lib/useWeekInput';
 import { MENU_BACK_REQUEST_EVENT } from '../../lib/menuNavigationHistory';
 import {
   DEFAULT_SIM_PARAMS,
-  GABRIEL_DEPARTMENTS,
-  GABRIEL_VIEW_MODES,
+  COST_AGI_DEPARTMENTS,
+  COST_AGI_VIEW_MODES,
   PIPELINE_COUNTRIES,
-  buildGabrielExecutiveBriefing,
+  buildCostAgiExecutiveBriefing,
   countryLabel,
   normalizeCountryCode,
   normalizeSimParams,
-  runGabrielAgiAudit,
-} from '../../lib/gabrielProfitAgi';
-import styles from '../../styles/GabrielProfitAgi.module.css';
+  runCostAgiAudit,
+} from '../../lib/importCostAgi';
+import styles from '../../styles/ImportCostAgi.module.css';
 
 const VALID_VIEWS = ['A', 'B', 'C', 'ALL'];
 
@@ -42,8 +42,8 @@ const PRESETS = Object.freeze([
     },
   }),
   Object.freeze({
-    id: 'gabriel-optimal',
-    label: '가브리엘 최적 루프',
+    id: 'cost-agi-optimal',
+    label: '최적 루프',
     params: {
       fxDeltaKRW: 0,
       rebalancePct: 50,
@@ -267,9 +267,9 @@ function buildLeverTraceStages(lever) {
       stepNo: '03',
       id: 'criterion',
       surface: 'Stage 3 · 기준식 진단',
-      title: '03 가브리엘 기준식 진단',
+      title: '03 원가 기준식 진단',
       chip: truncateText(nodes[2]?.title || '기준식 판정', 22),
-      ownerDept: '가브리엘 판정 엔진',
+      ownerDept: '원가 판정 엔진',
       detailHeading: '판정 기준식 및 임계치 자동 진단',
       detailBody: basis.criterionRule || nodes[2]?.detail || '—',
       detailMeta: `임계 조건: ${nodes[2]?.detail || '—'}`,
@@ -345,7 +345,7 @@ function LeverDiagramSvg({ lever }) {
     : 0;
   const afterW = Math.round(barTrackWidth * ((Number(waterfall.afterKRW) || 0) / maxVal));
 
-  const gridPatternId = `gabriel-trace-grid-${lever.code}`;
+  const gridPatternId = `cost-agi-trace-grid-${lever.code}`;
   const getStageState = (idx) => (idx < safeIdx ? 'done' : idx === safeIdx ? 'running' : 'pending');
   const stateLabel = (st) => (st === 'done' ? '완료' : st === 'running' ? '실행 중' : '대기');
 
@@ -355,7 +355,7 @@ function LeverDiagramSvg({ lever }) {
   };
 
   return (
-    <div className={styles.diagramBox} data-testid="gabriel-lever-svg-diagram">
+    <div className={styles.diagramBox} data-testid="cost-agi-lever-svg-diagram">
       <div className={styles.traceHeaderBar}>
         <div className={styles.traceHeaderLeft}>
           <span className={styles.traceTabTitle}>실시간 원가·이익 트레이스 도면</span>
@@ -372,7 +372,7 @@ function LeverDiagramSvg({ lever }) {
           </div>
           <button
             type="button"
-            data-testid="gabriel-trace-auto-toggle"
+            data-testid="cost-agi-trace-auto-toggle"
             aria-pressed={autoPlay}
             className={`${styles.traceAutoBtn} ${autoPlay ? styles.traceAutoBtnOn : ''}`}
             onClick={() => setAutoPlay((prev) => !prev)}
@@ -402,7 +402,7 @@ function LeverDiagramSvg({ lever }) {
               />
             </pattern>
             {TRACE_CARD_POSITIONS.map((pos, idx) => (
-              <clipPath key={idx} id={`gabriel-card-clip-${lever.code}-${idx}`}>
+              <clipPath key={idx} id={`cost-agi-card-clip-${lever.code}-${idx}`}>
                 <rect x={pos.x} y={pos.y} width="282" height="120" rx="10" />
               </clipPath>
             ))}
@@ -481,7 +481,7 @@ function LeverDiagramSvg({ lever }) {
               fontWeight="700"
               style={{ fontFamily: 'var(--agi-font)', fontVariantNumeric: 'tabular-nums' }}
             >
-              {lever.code} 직교 연계 버스 · 가브리엘 기준식 판정 → 4대 부서 반사실 실행
+              {lever.code} 직교 연계 버스 · 원가 기준식 판정 → 4대 부서 반사실 실행
             </text>
           </g>
 
@@ -519,7 +519,7 @@ function LeverDiagramSvg({ lever }) {
                 className={styles.traceCardGroup}
                 role="button"
                 tabIndex={0}
-                data-testid={`gabriel-trace-node-${stage.stepNo}`}
+                data-testid={`cost-agi-trace-node-${stage.stepNo}`}
                 data-stage-state={st}
                 aria-pressed={isRunning}
                 aria-label={`${stage.title} (${stateLabel(st)}) 상세 보기`}
@@ -542,7 +542,7 @@ function LeverDiagramSvg({ lever }) {
                   strokeWidth={isRunning ? '2.2' : '1.6'}
                 />
                 {/* Left 4px Rounded Status Accent Bar */}
-                <g clipPath={`url(#gabriel-card-clip-${lever.code}-${idx})`}>
+                <g clipPath={`url(#cost-agi-card-clip-${lever.code}-${idx})`}>
                   <rect x={pos.x} y={pos.y} width="5" height="120" fill={barFill} />
                 </g>
 
@@ -716,7 +716,7 @@ function LeverDiagramSvg({ lever }) {
       </div>
 
       {/* Selected Stage Interactive Source / Department Inspector */}
-      <div className={styles.traceDetailBar} data-testid="gabriel-trace-stage-detail">
+      <div className={styles.traceDetailBar} data-testid="cost-agi-trace-stage-detail">
         <div className={styles.traceDetailHead}>
           <div className={styles.traceDetailTitleRow}>
             <span className={styles.traceDetailStepBadge}>
@@ -770,7 +770,7 @@ function LeverStoryLineagePanel({
   if (!activeLever) return null;
 
   return (
-    <section className={styles.storySection} data-testid="gabriel-lever-story-diagram" aria-label="전사 10대 레버 상황 그림 데이터출처 부서업무 브리핑">
+    <section className={styles.storySection} data-testid="cost-agi-lever-story-diagram" aria-label="전사 10대 레버 상황 그림 데이터출처 부서업무 브리핑">
       <div className={styles.storyToolbar}>
         <div>
           <h2>보고자 브리핑 · 전사 10대 레버(L1~L10) 상황 · 구조 도해 · 4원천 데이터 계보 · 부서별 업무</h2>
@@ -780,7 +780,7 @@ function LeverStoryLineagePanel({
         </div>
 
         <div className={styles.deptPills} role="group" aria-label="부서별 레버 필터">
-          {GABRIEL_DEPARTMENTS.map((d) => {
+          {COST_AGI_DEPARTMENTS.map((d) => {
             const active = deptFilter === d.id;
             return (
               <button
@@ -832,7 +832,7 @@ function LeverStoryLineagePanel({
       </div>
 
       {/* 선택된 레버 최상단: 핵심 목적 · PURPOSE */}
-      <div className={styles.leverPurposeCallout} data-testid="gabriel-lever-purpose-callout">
+      <div className={styles.leverPurposeCallout} data-testid="cost-agi-lever-purpose-callout">
         <div className={styles.purposeTopRow}>
           <span className={styles.purposeTag}>{activeLever.code} 핵심 목적 · PURPOSE</span>
           <span className={styles.purposeOwnerBadge}>주관 {activeLever.primaryDept}</span>
@@ -852,7 +852,7 @@ function LeverStoryLineagePanel({
       <LeverDiagramSvg lever={activeLever} />
 
       {/* 상황 BEFORE / AFTER 브리핑 */}
-      <div className={styles.situationBox} data-testid="gabriel-lever-situation">
+      <div className={styles.situationBox} data-testid="cost-agi-lever-situation">
         <div className={styles.situationHead}>
           <h3>[현장 상황] {activeLever.code} · {activeLever.title}</h3>
           <span className={`${styles.statusTag} ${styles.isInfo}`}>주관 {activeLever.primaryDept}</span>
@@ -881,7 +881,7 @@ function LeverStoryLineagePanel({
 
       {/* 기준 데이터 출처 표 + 부서별 연계 업무 표 */}
       <div className={styles.lineageSubTables}>
-        <div className={styles.subTablePanel} data-testid="gabriel-lever-data-basis">
+        <div className={styles.subTablePanel} data-testid="cost-agi-lever-data-basis">
           <div className={styles.subTableHead}>
             <h4>[기준 데이터 출처 표] {activeLever.code} 4원천 계보 (어디서 무엇으로 기준을 잡았는가)</h4>
             <span className={styles.panelHint}>이메일 · 담당자 · 거래처 · 기준식</span>
@@ -908,7 +908,7 @@ function LeverStoryLineagePanel({
           </div>
         </div>
 
-        <div className={styles.subTablePanel} data-testid="gabriel-lever-dept-table">
+        <div className={styles.subTablePanel} data-testid="cost-agi-lever-dept-table">
           <div className={styles.subTableHead}>
             <h4>[부서별 연계 업무 표] {activeLever.code} 전사 4개 부서 역할 및 실행 화면</h4>
             <span className={styles.panelHint}>원장 무쓰기 · 담당자 확인 실행</span>
@@ -990,7 +990,7 @@ function LeverStoryLineagePanel({
 
 function ViewALeversSection({ audit, maxLeverGain, selectedLeverCode, onSelectLever, isPopup, titlePrefix = '뷰 A' }) {
   return (
-    <section className={styles.panel} aria-label="10대 이익 레버 분해 프로파일" data-testid="gabriel-levers-waterfall">
+    <section className={styles.panel} aria-label="10대 이익 레버 분해 프로파일" data-testid="cost-agi-levers-waterfall">
       <div className={styles.panelHead}>
         <h3>{titlePrefix} · 10대 이익 레버 분해 (차수 개선 합계 {fmtSignedKRW(audit.summary.totalPotentialProfitKRW)})</h3>
         <span className={styles.panelHint}>L1~L10 각 레버별 실측·기준 기여액 (행 클릭 시 상단 도해 연동)</span>
@@ -1258,7 +1258,7 @@ function ViewBSkuDrawer({ selectedSku, isPopup, pipelineHref, quickAbsorbHref })
               <b>₩{fmtKRW(selectedSku.unhedgedLandedKRW)}</b>
             </div>
             <div className={styles.kvCell}>
-              <span>가브리엘 시뮬 원가</span>
+              <span>AGI 시뮬 원가</span>
               <b>₩{fmtKRW(selectedSku.simLandedKRW)}</b>
             </div>
             <div className={styles.kvCell}>
@@ -1296,7 +1296,7 @@ function ViewBSkuDrawer({ selectedSku, isPopup, pipelineHref, quickAbsorbHref })
   );
 }
 
-function ViewCCarbonConsole({ audit, simParams, isPopup, testId = 'gabriel-carbon-console' }) {
+function ViewCCarbonConsole({ audit, simParams, isPopup, testId = 'cost-agi-carbon-console' }) {
   return (
     <div className={styles.carbonGrid} data-testid={testId}>
       <section className={styles.panel} aria-label="환율 변동 스트레스 래더">
@@ -1416,9 +1416,9 @@ function ViewCCarbonConsole({ audit, simParams, isPopup, testId = 'gabriel-carbo
         </div>
       </section>
 
-      <section className={styles.panel} aria-label="가브리엘 고효율 수입 루틴 진단">
+      <section className={styles.panel} aria-label="고효율 수입 루틴 진단">
         <div className={styles.panelHead}>
-          <h3>가브리엘 고효율 수입 루틴 (수입 속도 지수 {audit.summary.velocityScore}/100)</h3>
+          <h3>고효율 수입 루틴 (수입 속도 지수 {audit.summary.velocityScore}/100)</h3>
           <span className={styles.panelHint}>인수인계 4단계 원클릭 실행</span>
         </div>
         <ol className={styles.traceList}>
@@ -1468,7 +1468,7 @@ function ContinuousBuildQueueSection({ queue, stageFilter, setStageFilter, onCop
   return (
     <section
       className={styles.panel}
-      data-testid="gabriel-continuous-build-queue"
+      data-testid="cost-agi-continuous-build-queue"
       aria-label="계속 구현해내는 자율 확장 파이프라인"
     >
       <div className={styles.panelHead}>
@@ -1505,7 +1505,7 @@ function ContinuousBuildQueueSection({ queue, stageFilter, setStageFilter, onCop
       </div>
 
       {buildCopyNotice && (
-        <div className={styles.noticeBanner} role="status" data-testid="gabriel-build-copy-notice">
+        <div className={styles.noticeBanner} role="status" data-testid="cost-agi-build-copy-notice">
           {buildCopyNotice}
         </div>
       )}
@@ -1562,7 +1562,7 @@ function ContinuousBuildQueueSection({ queue, stageFilter, setStageFilter, onCop
   );
 }
 
-export default function GabrielProfitAgiWorkbench({
+export default function ImportCostAgiWorkbench({
   userId = '',
   userName = '',
   embedded = false,
@@ -1678,7 +1678,7 @@ export default function GabrielProfitAgiWorkbench({
   }, [hydrated, orderYear, orderWeek, loadLiveContext]);
 
   const audit = useMemo(
-    () => runGabrielAgiAudit({ orderYear, orderWeek, country, simParams, apiData }),
+    () => runCostAgiAudit({ orderYear, orderWeek, country, simParams, apiData }),
     [orderYear, orderWeek, country, simParams, apiData],
   );
 
@@ -1687,7 +1687,7 @@ export default function GabrielProfitAgiWorkbench({
     return audit.skus.find((s) => s.id === selectedSkuId) || audit.skus[0];
   }, [audit.skus, selectedSkuId]);
 
-  const briefingText = useMemo(() => buildGabrielExecutiveBriefing(audit), [audit]);
+  const briefingText = useMemo(() => buildCostAgiExecutiveBriefing(audit), [audit]);
 
   const isDirtyState = useMemo(() => {
     const def = DEFAULT_SIM_PARAMS;
@@ -1748,7 +1748,7 @@ export default function GabrielProfitAgiWorkbench({
       : event.key === 'End'
         ? buttons.length - 1
         : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
-    const nextMode = GABRIEL_VIEW_MODES[nextIdx]?.id;
+    const nextMode = COST_AGI_VIEW_MODES[nextIdx]?.id;
     if (nextMode) setViewMode(nextMode);
     buttons[nextIdx]?.focus();
   };
@@ -1764,7 +1764,7 @@ export default function GabrielProfitAgiWorkbench({
 
   const copyBuildBrief = async (mod) => {
     const fullBrief = [
-      `[가브리엘 AGI 연속구현 작업지시서] ${mod.leverCode} · ${mod.title}`,
+      `[원가·이익 AGI 연속구현 작업지시서] ${mod.leverCode} · ${mod.title}`,
       `단계: ${mod.stageLabel} | 대상 부서: ${(mod.targetDepts || []).join(', ')} | 대상 화면: ${mod.ownerRoute}`,
       `기대 효과: 차수 +₩${fmtKRW(mod.expectedWeeklyGainKRW)} / 52주 +₩${fmtKRW(mod.expectedAnnualGainKRW)}`,
       `구현 명세: ${mod.implementationBrief}`,
@@ -1786,20 +1786,20 @@ export default function GabrielProfitAgiWorkbench({
     <div
       className={`${styles.root} ${embedded ? styles.embedded : ''}`}
       data-view={viewMode}
-      data-testid="gabriel-profit-agi-workbench"
+      data-testid="cost-profit-agi-workbench"
     >
       {/* 1. 상단 헤더 & 1px 헤어라인 KPI 스트립 */}
       <header className={styles.topbar}>
         <div className={styles.topMain}>
           <div className={styles.titleBlock}>
             <div className={styles.eyebrow} data-desktop-chrome>
-              GABRIEL IMPORT COST &amp; PROFIT AGI · 10-LEVER LINEAGE &amp; MULTI-VIEW WORKBENCH
+              IMPORT COST &amp; PROFIT AGI · 10-LEVER LINEAGE &amp; MULTI-VIEW WORKBENCH
             </div>
             <div className={styles.titleRow}>
               {embedded ? (
-                <h2>가브리엘 수입·원가·이익 최적화 AGI 워크벤치</h2>
+                <h2>수입 원가·이익 AGI 워크벤치</h2>
               ) : (
-                <h1 data-desktop-chrome>가브리엘 수입·원가·이익 최적화 AGI 워크벤치</h1>
+                <h1 data-desktop-chrome>수입 원가·이익 AGI 워크벤치</h1>
               )}
             </div>
             <p className={styles.subtitle}>
@@ -1819,7 +1819,7 @@ export default function GabrielProfitAgiWorkbench({
         </div>
 
         {/* 최상단 핵심 목적 · PURPOSE Callout */}
-        <div className={styles.purposeCallout} data-testid="gabriel-purpose-callout">
+        <div className={styles.purposeCallout} data-testid="cost-agi-purpose-callout">
           <div className={styles.purposeTopRow}>
             <span className={styles.purposeTag}>핵심 목적 · PURPOSE</span>
             <span className={styles.purposeRecoveryMetric}>
@@ -1834,10 +1834,10 @@ export default function GabrielProfitAgiWorkbench({
           </div>
         </div>
 
-        <div className={styles.kpiStrip} aria-label="가브리엘 이익 최적화 핵심 지표">
+        <div className={styles.kpiStrip} aria-label="이익 최적화 핵심 지표">
           <div className={styles.kpiCell}>
             <span className={styles.kpiLabel}>전사 10대 레버 차수 이익 개선액</span>
-            <b className={`${styles.kpiValue} ${styles.isOk}`} data-testid="gabriel-kpi-profit">
+            <b className={`${styles.kpiValue} ${styles.isOk}`} data-testid="cost-agi-kpi-profit">
               {fmtSignedKRW(audit.summary.totalPotentialProfitKRW)}
             </b>
             <span className={styles.kpiSub}>
@@ -1846,7 +1846,7 @@ export default function GabrielProfitAgiWorkbench({
           </div>
           <div className={styles.kpiCell}>
             <span className={styles.kpiLabel}>연간 환산 이익 개선 (52주)</span>
-            <b className={`${styles.kpiValue} ${styles.isOk}`} data-testid="gabriel-kpi-annual">
+            <b className={`${styles.kpiValue} ${styles.isOk}`} data-testid="cost-agi-kpi-annual">
               {fmtSignedKRW(audit.summary.annualizedProfitKRW)}
             </b>
             <span className={styles.kpiSub}>
@@ -1877,7 +1877,7 @@ export default function GabrielProfitAgiWorkbench({
       {/* 사용 가이드 영상 (단독 페이지 기본 제공) */}
       {showGuide && (
         <div className={styles.guideWrap}>
-          <WorkflowGuide workflowId="gabriel-import-profit-agi" initialRole="수입부" />
+          <WorkflowGuide workflowId="import-cost-profit-agi" initialRole="수입부" />
         </div>
       )}
 
@@ -1885,11 +1885,11 @@ export default function GabrielProfitAgiWorkbench({
       <section className={styles.controlStrip} aria-label="차수·국가 선택 및 시안 전환">
         <div className={styles.scopeRow}>
           <div className={styles.fieldGroup}>
-            <label className={styles.fieldLabel} htmlFor="gabriel-year">연도 (OrderYear)</label>
+            <label className={styles.fieldLabel} htmlFor="cost-agi-year">연도 (OrderYear)</label>
             <div className={styles.stepper}>
               <button type="button" aria-label="이전 연도" onClick={() => moveYear(-1)}>‹</button>
               <input
-                id="gabriel-year"
+                id="cost-agi-year"
                 aria-label="연도 (OrderYear)"
                 maxLength={4}
                 value={orderYear}
@@ -1900,11 +1900,11 @@ export default function GabrielProfitAgiWorkbench({
           </div>
 
           <div className={styles.fieldGroup}>
-            <label className={styles.fieldLabel} htmlFor="gabriel-week">세부차수 (OrderWeek)</label>
+            <label className={styles.fieldLabel} htmlFor="cost-agi-week">세부차수 (OrderWeek)</label>
             <div className={styles.stepper}>
               <button type="button" aria-label="이전 세부차수" onClick={() => moveWeek('prev')}>‹</button>
               <input
-                id="gabriel-week"
+                id="cost-agi-week"
                 aria-label="세부차수 (OrderWeek)"
                 maxLength={5}
                 value={orderWeek}
@@ -1916,9 +1916,9 @@ export default function GabrielProfitAgiWorkbench({
 
           {recentWeeks.length > 0 && (
             <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel} htmlFor="gabriel-recent-week">최근 입고 차수</label>
+              <label className={styles.fieldLabel} htmlFor="cost-agi-recent-week">최근 입고 차수</label>
               <select
-                id="gabriel-recent-week"
+                id="cost-agi-recent-week"
                 className={styles.selectInput}
                 value={`${orderYear}|${orderWeek}`}
                 onChange={(e) => {
@@ -1971,7 +1971,7 @@ export default function GabrielProfitAgiWorkbench({
             <button
               type="button"
               className={styles.primaryBtn}
-              data-testid="gabriel-copy-briefing"
+              data-testid="cost-agi-copy-briefing"
               onClick={copyBriefing}
             >
               사장님 보고용 원가·이익 브리핑 복사
@@ -1986,21 +1986,21 @@ export default function GabrielProfitAgiWorkbench({
         )}
 
         {copyNotice && (
-          <div className={styles.noticeBanner} role="status" data-testid="gabriel-copy-notice">
+          <div className={styles.noticeBanner} role="status" data-testid="cost-agi-copy-notice">
             {copyNotice}
           </div>
         )}
 
         <div className={styles.viewTabs} role="tablist" aria-label="시안 A B C ALL 시뮬레이션 뷰 전환" onKeyDown={onTabKeyDown}>
-          {GABRIEL_VIEW_MODES.map((m) => (
+          {COST_AGI_VIEW_MODES.map((m) => (
             <button
               key={m.id}
               type="button"
               role="tab"
-              id={`gabriel-view-tab-${m.id}`}
+              id={`cost-agi-view-tab-${m.id}`}
               aria-selected={viewMode === m.id}
-              aria-controls="gabriel-view-stage"
-              data-testid={`gabriel-view-${m.id}`}
+              aria-controls="cost-agi-view-stage"
+              data-testid={`cost-agi-view-${m.id}`}
               className={styles.viewTab}
               onClick={() => setViewMode(m.id)}
             >
@@ -2009,7 +2009,7 @@ export default function GabrielProfitAgiWorkbench({
             </button>
           ))}
           <span className={styles.viewDesc}>
-            {GABRIEL_VIEW_MODES.find((m) => m.id === viewMode)?.description}
+            {COST_AGI_VIEW_MODES.find((m) => m.id === viewMode)?.description}
           </span>
         </div>
       </section>
@@ -2023,7 +2023,7 @@ export default function GabrielProfitAgiWorkbench({
               <button
                 key={p.id}
                 type="button"
-                data-testid={`gabriel-preset-${p.id}`}
+                data-testid={`cost-agi-preset-${p.id}`}
                 className={styles.secondaryBtn}
                 onClick={() => applyPreset(p)}
               >
@@ -2240,7 +2240,7 @@ export default function GabrielProfitAgiWorkbench({
       />
 
       {/* 4. 시안 A · B · C · ALL 메인 스테이지 */}
-      <div id="gabriel-view-stage" role="tabpanel" aria-labelledby={`gabriel-view-tab-${viewMode}`}>
+      <div id="cost-agi-view-stage" role="tabpanel" aria-labelledby={`cost-agi-view-tab-${viewMode}`}>
         {viewMode === 'A' && (
           <div className={styles.split}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
@@ -2357,12 +2357,12 @@ export default function GabrielProfitAgiWorkbench({
             audit={audit}
             simParams={simParams}
             isPopup={isPopup}
-            testId="gabriel-carbon-console"
+            testId="cost-agi-carbon-console"
           />
         )}
 
         {viewMode === 'ALL' && (
-          <div className={styles.allContainer} data-testid="gabriel-all-mode">
+          <div className={styles.allContainer} data-testid="cost-agi-all-mode">
             <div className={styles.allSyncBar}>
               <span>
                 뷰 ALL · A·B·C 동시 시뮬레이션 가동 중 — 상단 마스터 슬라이더·국가·품목 선택이 뷰 A(10대 레버), 뷰 B(2×2 매트릭스), 뷰 C(카본 콘솔)에 동시 반영됩니다.
@@ -2374,7 +2374,7 @@ export default function GabrielProfitAgiWorkbench({
 
             {/* 동시 패널 1행: 뷰 A(10대 레버 + 원장 요약) + 뷰 B(2×2 매트릭스 + 검수 드로어) */}
             <div className={styles.allPairGrid}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }} data-testid="gabriel-all-panel-A">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }} data-testid="cost-agi-all-panel-A">
                 <ViewALeversSection
                   audit={audit}
                   maxLeverGain={maxLeverGain}
@@ -2390,7 +2390,7 @@ export default function GabrielProfitAgiWorkbench({
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }} data-testid="gabriel-all-panel-B">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }} data-testid="cost-agi-all-panel-B">
                 <ViewBMatrixSection
                   audit={audit}
                   selectedSku={selectedSku}
@@ -2406,7 +2406,7 @@ export default function GabrielProfitAgiWorkbench({
             </div>
 
             {/* 동시 패널 2행: 뷰 C(매트 카본 다크 전술 콘솔) */}
-            <div className={styles.carbonSurface} data-testid="gabriel-all-panel-C">
+            <div className={styles.carbonSurface} data-testid="cost-agi-all-panel-C">
               <div className={styles.panelHead}>
                 <h3>뷰 C (동시) · 매트 카본 환율·AWB·크레딧·속도 전술 콘솔</h3>
                 <span className={styles.panelHint}>환율 충격 {simParams.fxDeltaKRW >= 0 ? '+' : ''}{simParams.fxDeltaKRW}원 · 크레딧 {simParams.creditRecoveryEnabled ? '반영' : '제외'} 실시간 동기화</span>
@@ -2415,7 +2415,7 @@ export default function GabrielProfitAgiWorkbench({
                 audit={audit}
                 simParams={simParams}
                 isPopup={isPopup}
-                testId="gabriel-all-carbon-console"
+                testId="cost-agi-all-carbon-console"
               />
             </div>
 

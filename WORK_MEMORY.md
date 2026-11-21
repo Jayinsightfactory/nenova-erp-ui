@@ -4445,3 +4445,12 @@ pm run test:canon 통과.
 5. 주의/잠금: desktop/shell/index.html·shell.css 는 가이드 영상 해시에 묶여 있어 건드리지 않음. 연결 목표: g19·g01 / 학습 반영: 있음(AGI 정의=보고→승인).
 추가(같은 날, 사장님 지시 2건): ① 일반 계정은 알림 주소를 아예 조회하지 않음 — 로그인 때 받는 메뉴 응답(/api/desktop/bootstrap)에 관리자 계정만 adminAlerts 표시, 데스크톱은 표시가 있을 때만 조회. ② 알림마다 "클로드 지시문 복사" 버튼(제목·내용·정할 것 + 4부 보고 요청 문장을 클립보드로). 계약 등록: docs/contracts/pm-office.json scope, config/pm-boundary-allowlist.json 3줄. 검색어: adminAlerts bootstrap 표시, 클로드 지시문 복사, alerts copy
 추가 2(같은 날): 자동 검사 "사용 가이드 영상" 가드에 걸림 — desktop/preload.cjs·shell/shell.js·main.cjs 가 가이드 영상 원본 해시에 묶여 있음. preload.cjs·shell.js 는 원래대로 되돌림(홈의 다시 열기 버튼 삭제, 대신 닫기=작업 표시줄로 내리기). main.cjs 는 연결에 꼭 필요해 변경 유지 → `desktop-task-schedule/staff` 가이드 재촬영 또는 사장님 승인 면제(config/workflow-guides.json videoWaivers, 현재 main.cjs sha256 dcc260a8…ec0) 중 하나가 있어야 검사 통과. 사장님 결정 대기. 직원 자리 "데이터 병목" 알림은 한 줄로 묶음(pmUnresolved data-gap).
+
+## 2026-11-21 화면·코드 이름에서 '가브리엘' 빼기 → 수입 원가·이익 AGI (Desktop 1.3.80)
+요약: 사장님 지시 "가브리엘이라는 이름을 모두 빼도록 해". 화면 이름을 "수입 원가·이익 AGI"로, 주소를 /import/cost-agi 로 바꾸고 옛 주소(/import/gabriel-agi, /my-work?tab=gabriel-agi)는 새 주소로 자동 이동. 파일·함수·검사 ID·가이드 영상 폴더도 같은 규칙으로 변경. 권한은 그대로.
+검색어: cost-agi, importCostAgi, ImportCostAgiWorkbench, import-cost-profit-agi, 수입 원가·이익 AGI, 이름 변경, gabriel-agi 옛 주소 이동
+1. 작업 위치: nenova-erp-ui / cld/rename-cost-agi-1121 / C:\Users\USER\nw-cld-rename-agi
+2. 완료: lib/importCostAgi.js · components/import-tools/ImportCostAgiWorkbench.js · styles/ImportCostAgi.module.css · pages/import/cost-agi.js(이름 변경) · next.config.js(옛 주소 이동) · pages/my-work.js(옛 탭 호환) · components/Layout.js · desktop/menu.json · desktop/package.json 1.3.80 · lib/ceoCommandHub.js · lib/pmTechRadarSim.js · config/workflow-guides.json · 가이드 영상 2편 재촬영(import-cost-profit-agi/import, ceo-command-hub/staff)
+3. 남은 일: 없음. 남긴 것 — 예전 수입부 담당자 실명으로 쓰인 곳(휴가 명단·이름 별칭·업무 기록·튤립 품종명 Gabrielle·농장 담당 Gabriela)과 이 파일의 과거 기록은 지난 기록·실명이라 그대로 둠.
+4. 검증: importCostAgi·ceoCommandHub·techRadarSimulator·adoptionRadar 검사 통과, desktop 메뉴 검사 통과(updater 7건 실패는 로컬 부품 부재로 변경 전에도 동일), npm run test:workflow-guides 통과, next build --webpack 통과, 로컬에서 옛 주소 307 → /import/cost-agi?year=…&view=B 확인. 운영 확인 결과는 수정안 반영 뒤 추가.
+5. 주의/잠금: next.config.js 의 옛 주소 이동 줄과 my-work 의 옛 탭 호환 줄에는 옛 주소 글자가 남아야 함(지우면 즐겨찾기가 깨짐). 연결 목표: g17 / 학습 반영: 있음(사람 이름을 기능 이름으로 쓰지 않는다).

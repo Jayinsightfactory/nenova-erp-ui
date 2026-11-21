@@ -98,7 +98,7 @@ const MyWorkPage = compile('pages/my-work.js', (id, baseReq) => {
   if (id === '../components/MenuBackButton') return () => React.createElement('button', { type: 'button', className: 'nv-back' }, '뒤로가기');
   if (id === '../components/pm/ArchFlowChart') return archMod;
   if (id === '../components/pm/TechRadarWorkbench') return trwMod;
-  if (id === '../components/import-tools/GabrielProfitAgiWorkbench') return () => null;
+  if (id === '../components/import-tools/ImportCostAgiWorkbench') return () => null;
   if (id === '../components/work/SolutionSuiteSimulator') return () => null;
   if (id === '../components/work/DeviceHubConsole') return () => null;
   if (id === '../lib/auth') return { verifyReqUser: async () => null };

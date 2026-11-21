@@ -1,6 +1,6 @@
 // components/work/CeoCommandHub.js
 // 사장님 전용 통합 지휘실 UI (/work/command-hub).
-// 한 페이지에서 PM 업무·결재, 6대 에이전트 현황, 연속 디벨롭 펄스, 가브리엘 원가 경보, 4대 목적별 전체 화면 지도를 확인한다.
+// 한 페이지에서 PM 업무·결재, 6대 에이전트 현황, 연속 디벨롭 펄스, 원가 경보, 4대 목적별 전체 화면 지도를 확인한다.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import WorkflowGuide from '../WorkflowGuide';
@@ -323,7 +323,7 @@ export default function CeoCommandHub({
               사장님 통합 지휘실 (내 목표 · 작업 정합성 · Owner AGI · 에이전트)
             </h1>
             <p className={styles.hubSubtitle}>
-              사장님 목표(g01~g19) 동기화, 에이전트 작업 목표정합성 감사, 나를 학습한 AGI 진화와 PM 결재·6대 에이전트·가브리엘 원가 경보를 한 화면에서 지휘합니다.
+              사장님 목표(g01~g19) 동기화, 에이전트 작업 목표정합성 감사, 나를 학습한 AGI 진화와 PM 결재·6대 에이전트·원가 경보를 한 화면에서 지휘합니다.
             </p>
           </div>
           <div className={styles.headerActions}>
@@ -435,7 +435,7 @@ export default function CeoCommandHub({
           </div>
 
           <div className={styles.kpiCell}>
-            <div className={styles.kpiLabel}>가브리엘 10대 레버 주간 기대이익</div>
+            <div className={styles.kpiLabel}>원가·이익 10대 레버 주간 기대이익</div>
             <div className={styles.kpiValueRow}>
               <strong className={`${styles.kpiValue} ${styles.kpiValueOk} ${styles.tnum}`}>
                 {metrics.weeklyProfitPotentialLabel}
@@ -447,8 +447,8 @@ export default function CeoCommandHub({
             <div className={`${styles.kpiMeta} ${styles.tnum}`}>
               연속구현 큐: LIVE {metrics.buildPipelineCounts.LIVE} · PILOT {metrics.buildPipelineCounts.PILOT} · READY {metrics.buildPipelineCounts.READY} · 발굴 {metrics.buildPipelineCounts.DISCOVERED}
             </div>
-            <Link href="/import/gabriel-agi" className={styles.kpiActionBtn}>
-              가브리엘 AGI 열기 →
+            <Link href="/import/cost-agi" className={styles.kpiActionBtn}>
+              원가·이익 AGI 열기 →
             </Link>
           </div>
         </div>
@@ -1062,7 +1062,7 @@ export default function CeoCommandHub({
           </section>
         </div>
 
-        {/* 우측 44%: 연속 디벨롭 타임라인 + 연속 구현 대기 큐 + 가브리엘 원가 경보 Top 3 */}
+        {/* 우측 44%: 연속 디벨롭 타임라인 + 연속 구현 대기 큐 + 원가 경보 Top 3 */}
         <div className={styles.columnStack}>
           <section className={styles.panel} id="hub-dev-timeline" aria-labelledby="timeline-heading">
             <div className={styles.panelHeader}>
@@ -1195,23 +1195,23 @@ export default function CeoCommandHub({
             </div>
           </section>
 
-          <section className={styles.panel} id="hub-gabriel-alerts" aria-labelledby="gabriel-heading">
+          <section className={styles.panel} id="hub-cost-agi-alerts" aria-labelledby="cost-agi-heading">
             <div className={styles.panelHeader}>
               <div>
-                <h2 id="gabriel-heading" className={styles.sectionTitle}>
-                  가브리엘 원가 · 이익 경보 Top 3
+                <h2 id="cost-agi-heading" className={styles.sectionTitle}>
+                  원가 · 이익 경보 Top 3
                 </h2>
                 <p className={styles.sectionSub}>
-                  {model.gabrielScope?.orderYear || '2026'}년 {model.gabrielScope?.orderWeek || '46-01'}차 기준 즉시 이익 방어 대상
+                  {model.costAgiScope?.orderYear || '2026'}년 {model.costAgiScope?.orderWeek || '46-01'}차 기준 즉시 이익 방어 대상
                 </p>
               </div>
-              <Link href="/import/gabriel-agi" className={styles.linkBtnSm}>
+              <Link href="/import/cost-agi" className={styles.linkBtnSm}>
                 10대 레버 전체 →
               </Link>
             </div>
 
-            <div className={styles.alertList} data-testid="hub-gabriel-alert-list">
-              {pulse.gabrielTopAlerts.map((alert) => (
+            <div className={styles.alertList} data-testid="hub-cost-agi-alert-list">
+              {pulse.costAgiTopAlerts.map((alert) => (
                 <article key={alert.id} className={styles.alertRow}>
                   <div className={styles.alertBody}>
                     <div className={styles.alertCode}>{alert.code}</div>

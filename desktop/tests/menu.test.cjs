@@ -55,10 +55,10 @@ test('invoice work and farm master share the canonical searchable desktop catalo
   assert.equal(pipeline.length,1);
   assert.equal(pipeline[0].labelKey,'수입 원스톱 파이프라인(인보이스→원가→공유)');
   assert.equal(pipeline[0].popup,false);
-  const gabriel=items.filter(i=>i.href==='/import/gabriel-agi');
-  assert.equal(gabriel.length,1);
-  assert.equal(gabriel[0].labelKey,'가브리엘 원가·이익 최적화 AGI(시뮬레이션)');
-  assert.equal(gabriel[0].popup,false);
+  const costAgi=items.filter(i=>i.href==='/import/cost-agi');
+  assert.equal(costAgi.length,1);
+  assert.equal(costAgi[0].labelKey,'수입 원가·이익 AGI(시뮬레이션)');
+  assert.equal(costAgi[0].popup,false);
   const farms=items.filter(i=>i.href==='/master/codes');assert.equal(farms.length,1);assert.match(farms[0].labelKey,/농장 마스터/);
   assert.equal(farms[0].href,'/master/codes','stable URL preserves existing favorites');
 });

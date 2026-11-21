@@ -456,7 +456,7 @@ async function main() {
     if (rec) await rec.pause(800);
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => !document.querySelector('[data-testid="hub-copy-notice"]'));
-    await showResult('3. 구현 지시서가 복사되어 바로 하위 세션에 발주할 수 있습니다. 이어서 가브리엘 원가 경보도 봅니다.');
+    await showResult('3. 구현 지시서가 복사되어 바로 하위 세션에 발주할 수 있습니다. 이어서 원가 경보도 봅니다.');
 
     // 4단계: 4대 목적별 전체 화면 한눈 지도
     await stepFocus('directory', '하단 4대 목적별 전체 화면 지도에서 오늘 필요한 업무 화면을 바로 엽니다.', '#directory-heading', 4);
