@@ -1,0 +1,73 @@
+{
+  "id": "fifo-box-qty-salal",
+  "title": "FIFO 입고 박스 → 평가단위 수량 환산 (SALAL TIPS 1718 사례)",
+  "module": "lib/profitReport.js",
+  "export": "warehouseQtyInEstUnit",
+  "source": [
+    "__tests__/profitReportFifoBoxQty.test.js: SALAL 박스 70, EstQuantity 0, 단 25/박스 → 1750단 (송이 43750 아님)"
+  ],
+  "cases": [
+    {
+      "name": "SALAL 70박스 × 25단/박스 = 1750단",
+      "input": [
+        {
+          "estQuantity": 0,
+          "boxQuantity": 70,
+          "outQuantity": 70,
+          "steamQuantity": 43750,
+          "estUnit": "단",
+          "bunchOf1Box": 25,
+          "steamOf1Box": 625
+        }
+      ],
+      "expected": {
+        "qty": 1750,
+        "rule": "box-to-est-unit"
+      }
+    },
+    {
+      "name": "4박스 × 300송이/박스 = 1200송이",
+      "input": [
+        {
+          "estQuantity": null,
+          "boxQuantity": 4,
+          "estUnit": "송이",
+          "steamOf1Box": 300
+        }
+      ],
+      "expected": {
+        "qty": 1200
+      }
+    },
+    {
+      "name": "EstQuantity 가 있으면 그대로",
+      "input": [
+        {
+          "estQuantity": 1400,
+          "boxQuantity": 7,
+          "estUnit": "단",
+          "bunchOf1Box": 25
+        }
+      ],
+      "expected": {
+        "qty": 1400,
+        "rule": "est-quantity"
+      }
+    },
+    {
+      "name": "환산계수 없음 → 기존 legacy-box 유지",
+      "input": [
+        {
+          "estQuantity": 0,
+          "boxQuantity": 1,
+          "estUnit": "단",
+          "bunchOf1Box": 0
+        }
+      ],
+      "expected": {
+        "qty": 1,
+        "rule": "legacy-box"
+      }
+    }
+  ]
+}
