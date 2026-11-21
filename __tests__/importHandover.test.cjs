@@ -138,3 +138,27 @@ console.log('importHandoverView ok');
   for (const f of ['ImportHandover', 'ImportWeekday']) assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(read('components', 'manuals', f + '.js')), `${f}: 색 토큰만`);
 }
 console.log('deptHandover ok');
+
+// ── 쉬운 글(data/handover-plain-<부서>.json): 따라 하는 사람이 읽는 짧은 글. 원고 글은 「자세히 · 근거」로 접힌다 ──
+{
+  const read = (...p) => fs.readFileSync(path.join(repo, ...p), 'utf8');
+  const { check, DEPTS } = require(path.join(repo, 'scripts', 'validate-handover-plain.cjs'));
+  for (const id of Object.keys(DEPTS)) assert.deepStrictEqual(check(id), [], `${id}: 쉬운 글이 기준(빠짐 없음 · 길이 · 쓰지 않는 표현)을 통과해야 함`);
+  const tmp3 = fs.mkdtempSync(path.join(os.tmpdir(), 'ihp-'));
+  fs.writeFileSync(path.join(tmp3, 'ih.cjs'), strip(read('lib', 'importHandover.js')) + '\nmodule.exports = { applyHandoverPlain, handoverForView };');
+  const P = require(path.join(tmp3, 'ih.cjs'));
+  const base = { manuals: [{ id: 'm', why: '긴 왜', when: '긴 언제', prepare: ['a'], doneCheck: ['b'], pitfalls: [{ mistake: 'x', fix: 'y' }], steps: [{ no: 1, look: '긴 보고', input: '긴 넣고', why: '긴 이유' }, { no: 2, look: 'L', input: 'I', why: 'W' }] }], schedule: { daily: [{ id: 'd1', detail: '긴 설명' }, { id: 'd2' }], weekly: [], monthly: [] } };
+  const plain = { version: 1, manuals: { m: { why: '쉬운 왜', steps: { 1: { look: '쉬운 보고', input: '쉬운 넣고', why: '쉬운 이유' } } } }, schedule: { d1: { detail: '쉬운 설명' }, d2: { detail: '원고에 설명이 없으면 붙이지 않는다' } } };
+  const out = P.applyHandoverPlain(base, plain);
+  assert.equal(out.manuals[0].why, '쉬운 왜'); assert.equal(out.manuals[0].full.why, '긴 왜', '원고 글은 full 에 남는다');
+  assert.equal(out.manuals[0].when, '긴 언제', '쉬운 글이 없는 칸은 원고 그대로');
+  assert.equal(out.manuals[0].steps[0].input, '쉬운 넣고'); assert.equal(out.manuals[0].steps[0].full.input, '긴 넣고');
+  assert.equal(out.manuals[0].steps[1].look, 'L', '쉬운 글이 없는 단계는 원고 그대로');
+  assert.equal(out.schedule.daily[0].detail, '쉬운 설명'); assert.equal(out.schedule.daily[0].fullDetail, '긴 설명'); assert.equal(out.schedule.daily[1].detail, undefined);
+  assert.deepStrictEqual(P.applyHandoverPlain(base, null), base, '쉬운 글 파일이 없으면 원고 그대로');
+  assert.equal(base.manuals[0].why, '긴 왜', '원고 자료를 바꾸지 않는다');
+  const v = P.handoverForView('import');
+  assert.ok(v.manuals.every((m) => m.full && m.steps.every((s) => s.full)), '수입부 화면 자료: 모든 매뉴얼 · 단계에 쉬운 글과 접힌 원고 글');
+  assert.ok(ui.includes('자세히 · 근거') && ui.indexOf('<figure className="cap">') < ui.indexOf('<dt>무엇을 보고</dt>'), '화면: 캡처가 글보다 먼저, 원고 글은 접어서');
+}
+console.log('handoverPlain ok');

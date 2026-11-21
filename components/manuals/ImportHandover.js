@@ -69,6 +69,7 @@ function ScheduleTable({ kind, rows, manuals, onOpen }) {
                 <td>
                   <b>{r.title}</b> {!allEst && <Status it={r} />}
                   {r.detail ? <p>{r.detail}</p> : null}
+                  {r.fullDetail ? <details className="why"><summary>자세히</summary><small className="muted">{r.fullDetail}</small></details> : null}
                   <details className="why"><summary>근거</summary><small className="muted">{evidenceText(r.evidence)}</small></details>
                 </td>
                 <td>{r.trigger || '-'}</td>
@@ -249,6 +250,12 @@ function ManualView({ manual, manuals, knowledge = [], deptId = '', onBack, onOp
       <h4 id="mn-why">① 이 일을 왜 · 언제 하는가</h4>
       <p><b>왜</b> {manual.why}</p>
       <p><b>언제</b> {manual.when}</p>
+      {manual.full?.why || manual.full?.when ? (
+        <details className="why"><summary>자세히 · 근거</summary>
+          {manual.full.why ? <p className="muted"><b>왜</b> {manual.full.why}</p> : null}
+          {manual.full.when ? <p className="muted"><b>언제</b> {manual.full.when}</p> : null}
+        </details>
+      ) : null}
 
       <h4 id="mn-prep">② 시작 전에 준비할 자료</h4>
       <ul>{manual.prepare.map((p, i) => <li key={i}>{p}</li>)}</ul>
@@ -264,11 +271,6 @@ function ManualView({ manual, manuals, knowledge = [], deptId = '', onBack, onOp
             <span className="no" aria-hidden>{s.no}</span>
             <div>
               <b>{s.no}. {s.title}</b>{s.screen ? <small className="muted"> {s.screen}</small> : null}
-              <dl>
-                <dt>무엇을 보고</dt><dd><Long text={s.look} /></dd>
-                <dt>무엇을 넣고</dt><dd><Long text={s.input} /></dd>
-                <dt>왜</dt><dd><Long text={s.why} /></dd>
-              </dl>
               {s.capture ? (
                 sameAs[i] ? <small className="muted capnote">위 {sameAs[i]}단계 그림과 같은 화면입니다.</small> : (
                   <figure className="cap">
@@ -282,6 +284,20 @@ function ManualView({ manual, manuals, knowledge = [], deptId = '', onBack, onOp
               ) : s.captureKind === 'messenger'
                 ? <small className="muted capnote">메신저 · 메일 화면이라 캡처를 싣지 않습니다.</small>
                 : !manual.video ? <small className="muted capnote">화면 캡처 준비 중</small> : null}
+              <dl>
+                <dt>무엇을 보고</dt><dd><Long text={s.look} /></dd>
+                <dt>무엇을 넣고</dt><dd><Long text={s.input} /></dd>
+                <dt>왜</dt><dd><Long text={s.why} /></dd>
+              </dl>
+              {s.full && (s.full.look || s.full.input || s.full.why) ? (
+                <details className="why"><summary>자세히 · 근거</summary>
+                  <dl className="fulldl">
+                    {s.full.look ? <><dt>무엇을 보고</dt><dd>{s.full.look}</dd></> : null}
+                    {s.full.input ? <><dt>무엇을 넣고</dt><dd>{s.full.input}</dd></> : null}
+                    {s.full.why ? <><dt>왜</dt><dd>{s.full.why}</dd></> : null}
+                  </dl>
+                </details>
+              ) : null}
             </div>
           </li>
         ))}
@@ -664,10 +680,11 @@ export default function ImportHandover({ data, me, initialManual, knowledge = []
         .ih .msteps dl { display: grid; grid-template-columns: 84px 1fr; gap: 3px 8px; margin: 6px 0 0; line-height: 1.6; }
         .ih .msteps dt { color: var(--pm-muted); }
         .ih .msteps dd { margin: 0; }
+        .ih .msteps .fulldl { color: var(--pm-muted); font-size: 12px; }
         .ih .vid, .ih .lec { max-width: 720px; }
         .ih .lec video { display: block; width: 100%; max-width: 720px; border: 1px solid var(--pm-line); border-radius: 6px; background: var(--pm-ink); }
         .ih .lec .chips { margin-top: 8px; }
-        .ih .cap { margin: 8px 0 0; max-width: 720px; }
+        .ih .cap { margin: 8px 0 6px; max-width: 860px; }
         .ih .capbtn { display: block; width: 100%; padding: 0; height: auto; border-color: var(--pm-line); cursor: zoom-in; }
         .ih .cap img { display: block; width: 100%; height: auto; border: 1px solid var(--pm-line); border-radius: 6px; }
         .ih .cap figcaption, .ih .capnote { display: block; margin-top: 4px; font-size: 12px; color: var(--pm-muted); }
