@@ -1,0 +1,143 @@
+{
+  "id": "adjust-units-rose-bunch",
+  "title": "출고분배 ADD/CANCEL 단위 환산 (장미 단 입력 10배 버그 재발 방지)",
+  "module": "lib/adjustUnits.js",
+  "export": "computeShipmentAdjustUnits",
+  "source": [
+    "__tests__/adjustUnit.test.js (장미 B1B=10 · 카네이션 B1B=15 · 알스트로 OutUnit=단 케이스)",
+    "lib/adjustUnits.js 머리 주석: 10단 ADD 는 OutQuantity +1박스 (not +10)",
+    "docs/ERP_COMPAT_INVARIANTS_2026-06-04.md 불변식 5 (환산필드 전부 기록, EstQuantity=OutQuantity 강제 금지)"
+  ],
+  "cases": [
+    {
+      "name": "장미 10단 ADD → +1박스",
+      "input": [
+        {
+          "curOut": 0,
+          "delta": 10,
+          "type": "ADD",
+          "unit": "단",
+          "outUnit": "박스",
+          "estUnit": "단",
+          "bunchOf1Box": 10,
+          "steamOf1Box": 100
+        }
+      ],
+      "expected": {
+        "deltaOut": 1,
+        "qtyAfter": 1,
+        "estQty": 10,
+        "units": {
+          "box": 1,
+          "bunch": 10,
+          "steam": 100
+        }
+      }
+    },
+    {
+      "name": "장미 2박스 + 10단 ADD → 3박스",
+      "input": [
+        {
+          "curOut": 2,
+          "delta": 10,
+          "type": "ADD",
+          "unit": "단",
+          "outUnit": "박스",
+          "estUnit": "단",
+          "bunchOf1Box": 10,
+          "steamOf1Box": 100
+        }
+      ],
+      "expected": {
+        "qtyAfter": 3,
+        "units": {
+          "bunch": 30
+        }
+      }
+    },
+    {
+      "name": "장미 5박스에서 10단 CANCEL → 4박스",
+      "input": [
+        {
+          "curOut": 5,
+          "delta": 10,
+          "type": "CANCEL",
+          "unit": "단",
+          "outUnit": "박스",
+          "estUnit": "단",
+          "bunchOf1Box": 10,
+          "steamOf1Box": 100
+        }
+      ],
+      "expected": {
+        "qtyAfter": 4,
+        "units": {
+          "bunch": 40
+        }
+      }
+    },
+    {
+      "name": "장미 200송이 ADD → 2박스",
+      "input": [
+        {
+          "curOut": 0,
+          "delta": 200,
+          "type": "ADD",
+          "unit": "송이",
+          "outUnit": "박스",
+          "estUnit": "단",
+          "bunchOf1Box": 10,
+          "steamOf1Box": 100
+        }
+      ],
+      "expected": {
+        "qtyAfter": 2,
+        "units": {
+          "steam": 200,
+          "bunch": 20
+        }
+      }
+    },
+    {
+      "name": "카네이션 B1B=15, 45단 ADD → 3박스",
+      "input": [
+        {
+          "curOut": 0,
+          "delta": 45,
+          "type": "ADD",
+          "unit": "단",
+          "outUnit": "박스",
+          "estUnit": "단",
+          "bunchOf1Box": 15,
+          "steamOf1Box": 0
+        }
+      ],
+      "expected": {
+        "qtyAfter": 3,
+        "estQty": 45,
+        "units": {
+          "bunch": 45
+        }
+      }
+    },
+    {
+      "name": "알스트로 OutUnit=단, 1박스 ADD → +10단",
+      "input": [
+        {
+          "curOut": 0,
+          "delta": 1,
+          "type": "ADD",
+          "unit": "박스",
+          "outUnit": "단",
+          "estUnit": "송이",
+          "bunchOf1Box": 10,
+          "steamOf1Box": 100
+        }
+      ],
+      "expected": {
+        "deltaOut": 10,
+        "qtyAfter": 10
+      }
+    }
+  ]
+}

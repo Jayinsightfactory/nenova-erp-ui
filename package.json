@@ -38,6 +38,7 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "node web.js",
+    "eval": "node evals/run.cjs",
     "audit:prod": "npm audit --omit=dev",
     "posttest:raum-pnl": "node __tests__/raumPnlCollisionLocationRender.test.js && node __tests__/hotelArrivalDisplay.test.js && node --test __tests__/latestArrivalReference.test.js",
     "test:board": "node __tests__/shillaMiuBoard.test.js",
