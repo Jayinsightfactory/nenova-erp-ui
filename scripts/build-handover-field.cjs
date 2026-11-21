@@ -336,8 +336,40 @@ const sourceSummary = [
   { label: '사장님 설명', period: '2026-11-20', count: 5 },
 ];
 
+// ── 2026-11-22 사장님 답 반영(현장팀 질문 3건) ──
+{
+  const SRC = '사장님 답(11월 22일)';
+  const close = (prefix, answer, evidence) => { const i = questions.findIndex(x => x.question.startsWith(prefix)); if (i < 0) throw new Error('질문을 찾지 못함: ' + prefix); const q0 = questions[i]; answered.push({ topic: q0.topic, question: q0.question, answer, status: 'confirmed', evidence: evidence || SRC }); questions.splice(i, 1); };
+  const rowOf = (list, id) => { const x = list.filter(v => v.id === id); if (x.length !== 1) throw new Error('업무표 줄을 찾지 못함: ' + id); return x[0]; };
+  const dropOpen = (m, part) => { const n = m.openQuestions.length; m.openQuestions = m.openQuestions.filter(v => !v.includes(part)); if (m.openQuestions.length === n) throw new Error('열린 질문을 찾지 못함: ' + part); };
+
+  // 1. 일요일 아침: 배차 글은 9시 이전에도 올라온다 → 8시대 글과 「9시 출근 · 분류」가 어긋나지 않는다
+  close('일요일 아침 일의 순서는 무엇이 먼저인가요', '배차 글은 9시 이전에도 올라옵니다. 그래서 8시쯤의 배차 정보 · 출발 글과 「9시에 출근해 9시부터 분류」는 서로 어긋나지 않습니다. 차는 먼저 움직이고, 들어온 화물을 나누는 일은 9시부터입니다.', SRC + ' · 카카오톡 일요일 4번 모두 08:00~09:35 배차 정보와 출발 글');
+  { const x = rowOf(weekly, 'w-sun'); x.detail = '배차 글은 9시 이전에도 올라온다(사장님 답, 11월 22일): 8시쯤 배차 정보, 8시 반~9시 35분에 노선별로 사진과 「출발합니다」. 일요일에 화물이 들어오는 날은 9시에 출근해 9시부터 나누고, 특이사항이 있으면 소독 · 검역을 하며, 당일 입고 · 출고는 통관 여부에 따라 달라진다. 9시 뒤의 분류 작업은 카카오톡에 글이 남지 않는다.'; }
+  mWeekend.when = mWeekend.when.replace('일요일 8시쯤 배차 정보, 8시 반~9시 35분에 노선별 출발.', '일요일 8시쯤 배차 정보, 8시 반~9시 35분에 노선별 출발 — 배차 글은 9시 이전에도 올라온다(사장님 답).');
+  if (!mWeekend.when.includes('9시 이전에도')) throw new Error('주말 매뉴얼 when');
+
+  // 2. 평일 배차: 현장은 차 정보를 올리고, 영업은 담당자가 거래처와 협의한 최종 내용을 올린다
+  close('평일 배차는 누가 무엇을 하나요', '현장팀은 차 정보를 올립니다. 영업은 담당자가 거래처와 협의한 최종 내용을 올려 줍니다 — 현장이 헷갈리지 않게 하려는 것입니다. 그래서 영업의 「오늘 배차 출고건」 글이 그날 나갈 내용의 기준이고, 현장은 그 글대로 차를 맞춰 차 정보를 올립니다.', SRC + ' · 카카오톡: 영업의 「오늘 배차 출고건」 45건, 현장의 차 정보 글 19건');
+  { const x = rowOf(daily, 'd-ship-list'); x.detail = '영업 담당이 거래처와 협의한 최종 내용을 현장방에 「오늘 지방 · 호텔 배차 출고건」으로 올려 준다 — 현장이 헷갈리지 않게 하려는 것이다(사장님 답, 11월 22일). 현장은 이 글을 기준으로 삼고, 분배 내역(차수 · 거래처별 출고일)과 맞춰 오늘 나갈 거래처를 정리한다. 수요일은 거래처가 가장 많은 날(약 27곳)이라 전날부터 확인한다.'; }
+  mDispatch.status = 'confirmed';
+  mDispatch.oneLine = '영업이 올린 최종 출고 내용에 맞춰 차를 잡고, 차 크기 · 시각 · 파렛트 수를 방에 올린다.';
+  mDispatch.when = '평일에는 영업 담당이 거래처와 협의한 최종 내용을 9~10시에 「오늘 지방 · 호텔 배차 출고건」으로 올리고(목 · 화 · 금에 많음), 현장이 그에 맞춰 차 정보와 도착 예정을 올린다(화 · 목). 배차 글은 9시 이전에도 올라온다. 금요일 18~20시에는 일요일 배차를 빌번호방에 올린다. 토요일 출고는 영업이 「토요일 배차 출고건」으로 알려 주거나 영업지원이 물량표를 만들 때 말로 알려 준다.';
+  mDispatch.steps[0].look = '영업 담당이 올린 「오늘 배차 출고건」의 거래처와 노선 — 거래처와 협의가 끝난 최종 내용이다.';
+  mDispatch.steps[0].why = '이 글이 그날 나갈 내용의 기준이다. 추가취소방의 글과 다르면 영업 담당 글을 따르고, 헷갈리면 되묻는다.';
+  mDispatch.pitfalls.push({ mistake: '영업의 최종 글을 안 보고 예전 분배 내역대로 차를 잡음', fix: '영업 담당이 거래처와 협의한 최종 내용을 올려 주니 그 글을 기준으로 한다(사장님 답, 11월 22일).' });
+  dropOpen(mDispatch, '평일 배차를 영업과 현장이 어떻게 나누는지');
+
+  // 3. 토요일 출고: 영업이 현장에 알려 주거나(토요일 배차 출고건), 영업지원이 물량표를 만들 때 말로 알려 준다
+  close('토요일 출고(거래처 1곳)는 누가 어떻게 내보내나요', '영업이 현장에 「토요일 배차 출고건」으로 알려 주거나, 영업지원이 물량표를 만들 때 말로 알려 주는 경우가 있습니다. 그래서 카카오톡에 글이 남지 않는 토요일 출고가 있습니다.', SRC + ' · 전산: 토요일 출고 거래처 1곳(차수마다 25~34줄)');
+  { const x = rowOf(weekly, 'w-sat'); x.status = 'confirmed'; x.detail = '영업이 현장에 「토요일 배차 출고건」으로 알려 주거나, 영업지원이 물량표를 만들 때 말로 알려 준다(사장님 답, 11월 22일). 말로 전해지는 경우가 있어 카카오톡에는 토요일 현장 글이 남지 않는다 — 금요일에 토요일 출고가 있는지 영업 · 영업지원에 먼저 확인한다.'; x.screens = ['카카오톡 현장방', '말로 전달(영업지원)']; x.handoff = '배송 차량'; x.manualId = 'field-weekend'; x.evidence.push(ev(OWN, 1, '토요일 출고는 영업이 알리거나 영업지원이 물량표 만들 때 말로 알림(11월 22일)')); }
+  mWeekend.pitfalls.push({ mistake: '토요일 출고가 있는 줄 모르고 지나감', fix: '토요일 출고는 영업이 「토요일 배차 출고건」으로 알리거나 영업지원이 물량표를 만들 때 말로 알려 준다. 글이 안 남을 수 있으니 금요일에 영업 · 영업지원에 토요일 출고가 있는지 먼저 묻는다.' });
+  dropOpen(mWeekend, '토요일 출고(거래처 1곳)는 누가');
+  { const i = notYet.findIndex(x => x.title === '토요일 출고 매뉴얼'); if (i >= 0) notYet.splice(i, 1); }
+  sourceSummary.push({ label: '사장님 답(현장팀 질문 3건)', period: '2026-11-22', count: 3 });
+}
 const data = {
-  version: 1, updatedAt: '2026-11-20', dept: '현장팀', sourceSummary,
+  version: 1, updatedAt: '2026-11-22', dept: '현장팀', sourceSummary,
   schedule: { daily, weekly, monthly }, manuals, essentials, firstDay, troubles, rooms, folderMap, tools, questions, answered, notYet, weakEvidence,
 };
 fs.writeFileSync(path.join(__dirname, '..', 'data', 'handover-field.json'), JSON.stringify(data, null, 2));
