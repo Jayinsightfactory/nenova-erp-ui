@@ -2125,6 +2125,14 @@
     },
     {
       "id": "desktop-task-schedule",
+      "videoWaivers": [
+        {
+          "file": "desktop/main.cjs",
+          "sha256": "dcc260a8d4de3be19ff91a2e00907be9a9333e941718f92774ef3985dae15ec0",
+          "approvedBy": "owner",
+          "reason": "2026-11-21 사용자 명시 \"면제 승인\": 관리자 알림 새 창 연결 코드만 추가(알림 모듈 생성·3분 주기 확인·알림 창 전용 명령). 오늘의 내 업무·시간·바로가기 화면과 동작은 그대로다. 기존 영상 재촬영 완료 주장 없음."
+        }
+      ],
       "title": "오늘의 내 업무 · 시간과 바로가기",
       "entryPaths": [
         "/desktop-guide"
