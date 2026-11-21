@@ -4444,6 +4444,15 @@ pm run test:canon 통과.
 4. 검증: npm run eval 25/25 통과, 기대값 1750→1751 로 바꾸면 종료코드 1 + 차이 표 출력, 원복 후 통과. CI 통과 여부는 PR 체크 확인. 운영 DB 비교는 미검증(접속 안 함).
 5. 주의/잠금: 기본 폴더 nenova-erp-ui 미접촉. 케이스 근거를 `source` 없이 추가 금지. 연결 목표: g03 / 학습 반영: 없음
 
+## 2026-11-21 핵심 테이블 ERD·SSOT·트랜잭션 경계 문서 (Claude)
+요약: `docs/erd/core-tables.md` 신설 — 주문·분배·출고·재고·입고·견적·매출이익보고서 15개 테이블 Mermaid ERD 1장, 테이블별 정본/읽기쓰기 표, 쓰기 트랜잭션 경계와 위험 3건. 코드·문서만 읽음(DB·ECOUNT 접근 없음).
+검색어: ERD, core-tables, SSOT, 트랜잭션 경계, usp_StockCalculation 별도 트랜잭션, Product.Stock ProductStock 이중 축
+1. 작업 위치: nenova-erp-ui / docs/core-erd-ssot / C:\Users\USER\nw-cld-erd-1121 / PR 번호는 PR 본문 참조(머지 금지 상태)
+2. 완료: docs/erd/core-tables.md 추가, WORK_MEMORY.md 인계 추가(코드 변경 없음)
+3. 남은 할 일: 사장님 확인(코드 미확인 컬럼·매출원가 단일 정본·FIFO 차감 위치) 후 문서 보강, 위험 3건의 수정 여부 결정
+4. 검증: 근거 파일:줄 수동 대조. Mermaid 렌더 미검증, 실제 DB 컬럼 대조 미검증, SP 본문 미확인
+5. 주의/잠금: docs/erd/ 외 수정 없음. master 머지 시 deploy.yml이 경로 필터 없이 배포됨. 연결 목표 g03 추정(미확인) / 학습 반영 없음
+
 ## 2026-11-21 — 데스크톱앱 관리자 알림 새 창 (Desktop 1.3.79)
 요약: 사장님 지시 "네노바 데스크톱앱에 관리자 계정만 알림을 새 창으로". PM이 스스로 해결 못 해 승인·확인이 필요한 일이 새로 생기면 관리자 계정의 데스크톱앱에 작은 창(460×600, 화면 오른쪽 아래)이 포커스를 뺏지 않고 뜬다. 같은 알림은 한 번만 띄우고, 홈 PM 칸의 "승인·확인 알림 N건 열기" 버튼으로 다시 열 수 있다.
 검색어: 관리자 알림 새창, admin-alerts, alerts.html, pmAlertCards, /api/pm/admin-alerts, adminAlertsOpen, Desktop 1.3.79
