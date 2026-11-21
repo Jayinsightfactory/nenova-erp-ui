@@ -64,7 +64,7 @@ function state(w) {
   return { windowId: w.id, windows: [...windows.values()].map(v => ({ id: v.id, title: `업무 창 ${v.id}` })),
     tabs: w.ids.map(id => tabs.get(id)).filter(Boolean).map(t => ({ id: t.id, title: locked && new URL(t.url).pathname !== '/login' ? '로그인 대기' : t.title, url: locked ? '' : t.url, loading: t.loading, error: t.error, zoom: t.zoom })),
     activeId: w.activeId, menuOpen: w.menuOpen, toolsOpen: w.toolsOpen, favorites: locked ? [] : favorites, menus: locked ? [] : menus.map(group => ({ ...group, items: group.items.map(item => ({ ...item, favorite: favorites.some(f => f.url === menuFavoriteEntry(item)?.url) })) })), version: app.getVersion(), online: !locked,
-    appUpdate: updater?.getState(), homeOwnerId: locked ? '' : actor, adminAlerts: locked ? null : adminAlerts?.count() ?? null, syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || activityWarning,
+    appUpdate: updater?.getState(), homeOwnerId: locked ? '' : actor, syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || activityWarning,
     message: w.message || (locked ? '로그인이 필요합니다. 업무 화면에서 로그인해 주세요.' : '탭 이동은 작업을 유지합니다 · 종료 전 업무 내용을 저장해 주세요.') };
 }
 function broadcast() {
@@ -392,10 +392,6 @@ function command(w, action, p = {}) {
           return pmLiveStatus(await response.json());
         }).catch(() => ({ ok: false, state: 'offline', reason: 'PM 상태 서버에 연결할 수 없습니다.' }));
     }
-    case 'adminAlerts': {
-      if (locked || !actor || adminAlerts?.count() == null) throw Error('관리자 계정에서만 열 수 있습니다.');
-      adminAlerts.open(); void adminAlerts.check(); return { opened: true };
-    }
     case 'notesOpen': return openNotesWindow();
     case 'notesShortcut': return saveNotesShortcut(w);
     case 'logout': return logout(w);
@@ -715,12 +711,11 @@ app.whenReady().then(async () => {
   const alertSeenPath = path.join(app.getPath('userData'), 'admin-alerts.json');
   const readAlertSeen = () => { try { const v = JSON.parse(fs.readFileSync(alertSeenPath, 'utf8')); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch { return {}; } };
   adminAlerts = createAdminAlerts({ BrowserWindow, screen, appDir: __dirname, preload: path.join(__dirname, 'alerts-preload.cjs'),
-    fetch: (url, options) => webSession.fetch(url, options), getOwner: () => (locked || quitting ? '' : actor), allowed: () => adminAlertsAllowed,
+    fetch: (url, options) => webSession.fetch(url, options), getOwner: () => (locked || quitting ? '' : actor), allowed: () => adminAlertsAllowed, isQuitting: () => quitting,
     readSeen: owner => { const list = readAlertSeen()[owner]; return Array.isArray(list) ? list.filter(v => typeof v === 'string') : []; },
     writeSeen: (owner, list) => { try { fs.writeFileSync(alertSeenPath, JSON.stringify({ [owner]: list.slice(0, 200) })); } catch { /* 다음 확인 때 다시 기록한다. */ } },
     onCreate: win => { auxiliary.add(win); win.on('closed', () => auxiliary.delete(win)); activity?.record('adminAlertsOpen', '/desktop/alerts'); },
-    setIdentity: win => applyWindowIdentity(win, { packaged: app.isPackaged, execPath: process.execPath, resourcesPath: process.resourcesPath, appDir: __dirname }),
-    onChange: () => broadcast() });
+    setIdentity: win => applyWindowIdentity(win, { packaged: app.isPackaged, execPath: process.execPath, resourcesPath: process.resourcesPath, appDir: __dirname }) });
   flightPopup=createFlightPopup({BrowserWindow,session:webSession,screen,appDir:__dirname,
     onCreate:win=>{auxiliary.add(win);win.on('closed',()=>auxiliary.delete(win));},
     setIdentity:win=>applyWindowIdentity(win,{packaged:app.isPackaged,execPath:process.execPath,resourcesPath:process.resourcesPath,appDir:__dirname}),

@@ -3,6 +3,8 @@
 // 관리자 여부는 서버가 로그인 때 주는 메뉴 응답(bootstrap)의 adminAlerts 표시로 안다. 표시가 없는 일반 계정은 알림 주소를 아예 조회하지 않는다.
 // 알림 주소도 관리자 계정에만 200, 그 외 404 로 한 번 더 막는다.
 // 창은 포커스를 뺏지 않고 뜬다(입력 중인 업무 화면을 방해하지 않게). 같은 알림은 한 번만 띄운다.
+// 닫기는 창을 없애지 않고 작업 표시줄로 내린다: 홈 화면(shell.js·preload.cjs)은 가이드 영상 원본 해시에 묶여 있어
+// 다시 여는 버튼을 넣을 수 없으므로, 작업 표시줄의 창이 다시 여는 길이다.
 const path = require('node:path');
 const { ORIGIN } = require('./policy.cjs');
 
@@ -21,7 +23,7 @@ function adminAlertList(body) {
   });
 }
 
-function createAdminAlerts({ BrowserWindow, screen, appDir, preload, fetch, getOwner, allowed, readSeen, writeSeen, onCreate, setIdentity, onChange = () => {}, now = () => Date.now() }) {
+function createAdminAlerts({ BrowserWindow, screen, appDir, preload, fetch, getOwner, allowed, isQuitting = () => false, readSeen, writeSeen, onCreate, setIdentity, onChange = () => {}, now = () => Date.now() }) {
   let owner = '', admin = null, alerts = [], fresh = new Set(), checkedAt = 0, ageSec = null, failed = false, denied = false, window = null, busy = null;
 
   function snapshot() {
@@ -35,6 +37,11 @@ function createAdminAlerts({ BrowserWindow, screen, appDir, preload, fetch, getO
   function closeWindow() {
     if (window && !window.isDestroyed()) window.destroy();
     window = null;
+  }
+  function lower() {
+    if (window && !window.isDestroyed()) { window.flashFrame(false); window.minimize(); }
+    fresh = new Set();
+    if (window && !window.isDestroyed()) window.webContents.send('alerts:state', snapshot());
   }
   function reset(nextOwner = '') {
     owner = nextOwner; admin = null; alerts = []; fresh = new Set(); checkedAt = 0; ageSec = null; failed = false; denied = false;
@@ -62,13 +69,14 @@ function createAdminAlerts({ BrowserWindow, screen, appDir, preload, fetch, getO
         if (focus) created.show(); else { created.showInactive(); created.flashFrame(true); }
       });
       created.on('focus', () => { if (!created.isDestroyed()) created.flashFrame(false); });
+      created.on('close', event => { if (!isQuitting() && !created.isDestroyed()) { event.preventDefault(); lower(); } });
       created.on('closed', () => { if (window === created) { window = null; fresh = new Set(); } });
       onCreate(created);
       void created.loadURL(ALERTS_URL);
       return true;
     }
     if (focus) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); }
-    else if (!window.isVisible()) window.showInactive();
+    else if (window.isMinimized() || !window.isVisible()) window.showInactive();
     if (!focus) window.flashFrame(true);
     return true;
   }
@@ -114,7 +122,7 @@ function createAdminAlerts({ BrowserWindow, screen, appDir, preload, fetch, getO
         item.detail ? `내용: ${item.detail}` : '', `정할 것: ${item.decision || item.todo || '사장님 확인 필요'}`, '',
         '위 건을 기록으로 확인한 뒤, 확인한 것·진행 방법·여쭐 것·확인 방법 순서로 보고하고 진행해 줘.'].filter((line, index) => line || index === 3).join('\n');
     },
-    close() { closeWindow(); return { closed: true }; }
+    close() { lower(); return { closed: true }; }
   };
 }
 

@@ -6,7 +6,7 @@ const { adminAlertList, createAdminAlerts, ALERTS_URL } = require('../admin-aler
 
 const card = (sig, extra = {}) => ({ sig, title: `${sig} 제목`, since: '2일째', todo: '사장님 승인 필요', approval: true, detail: '내용', decision: '정할 것', ...extra });
 
-function harness({ owner = 'boss', responses, allowed = true }) {
+function harness({ owner = 'boss', responses, allowed = true, isQuitting }) {
   const windows = [], seen = {}, changes = [];
   class Window extends EventEmitter {
     constructor(options) {
@@ -17,11 +17,13 @@ function harness({ owner = 'boss', responses, allowed = true }) {
       windows.push(this);
     }
     isDestroyed() { return !!this.destroyed; }
-    isMinimized() { return false; }
+    isMinimized() { return !!this.minimized; }
+    minimize() { this.minimized = true; }
+    restore() { this.minimized = false; }
     isVisible() { return !!this.visible; }
     setMenuBarVisibility(value) { assert.equal(value, false); }
     show() { this.visible = true; this.focused = true; }
-    showInactive() { this.visible = true; }
+    showInactive() { this.visible = true; this.minimized = false; }
     focus() { this.focused = true; }
     flashFrame(value) { this.flashes.push(value); }
     destroy() { this.destroyed = true; this.emit('closed'); }
@@ -32,7 +34,7 @@ function harness({ owner = 'boss', responses, allowed = true }) {
     BrowserWindow: Window, screen: { getPrimaryDisplay: () => ({ workArea: { x: 0, y: 0, width: 1280, height: 800 } }) },
     appDir: 'desktop', preload: 'desktop/alerts-preload.cjs',
     fetch: async url => { state.calls++; state.url = url; const next = responses.shift(); if (next instanceof Error) throw next; return next; },
-    getOwner: () => state.owner, allowed: () => state.allowed, readSeen: who => seen[who] || [], writeSeen: (who, list) => { seen[who] = list; },
+    getOwner: () => state.owner, allowed: () => state.allowed, isQuitting, readSeen: who => seen[who] || [], writeSeen: (who, list) => { seen[who] = list; },
     onCreate: win => { win.registered = true; }, setIdentity: win => { win.branded = true; }, onChange: () => changes.push(1), now: () => 1000,
   });
   return { alerts, windows, seen, state, changes };
@@ -90,16 +92,27 @@ test('an admin gets one unfocused secured window per new alert, not per check', 
   assert.equal(win.destroyed, true, 'losing the login flag closes the window'); assert.equal(h.alerts.count(), null); assert.equal(h.state.calls, 3);
 });
 
-test('closing clears new marks, already seen alerts stay quiet, a returning alert shows again', async () => {
+test('closing lowers the window to the taskbar, seen alerts stay quiet, a returning alert raises it again', async () => {
   const h = harness({ responses: [ok([card('a')]), ok([card('a')]), ok([]), ok([card('a')])] });
-  await h.alerts.check(); h.alerts.close();
-  assert.equal(h.windows[0].destroyed, true);
+  await h.alerts.check(); const win = h.windows[0]; win.emit('ready-to-show');
+  h.alerts.close();
+  assert.equal(win.minimized, true); assert.notEqual(win.destroyed, true, 'the window stays in the taskbar so it can be reopened');
+  const blocked = { preventDefault() { this.stopped = true; } }; win.emit('close', blocked);
+  assert.equal(blocked.stopped, true, 'the title-bar close also only lowers the window');
   const quiet = await h.alerts.check();
-  assert.equal(h.windows.length, 1, 'no new window for an alert that was already shown'); assert.equal(quiet.alerts[0].fresh, false);
-  assert.equal(h.alerts.open(), true); assert.equal(h.windows.length, 2);
-  h.windows[1].emit('ready-to-show'); assert.equal(h.windows[1].focused, true, 'a manual open takes focus');
-  await h.alerts.check(); assert.deepEqual(h.seen.boss, []);
-  const back = await h.alerts.check(); assert.equal(back.alerts[0].fresh, true);
+  assert.equal(h.windows.length, 1); assert.equal(win.minimized, true, 'an alert that was already shown does not raise the window'); assert.equal(quiet.alerts[0].fresh, false);
+  assert.equal(h.alerts.open(), true); assert.equal(win.minimized, false); assert.equal(win.focused, true, 'a manual open takes focus');
+  h.alerts.close(); await h.alerts.check(); assert.deepEqual(h.seen.boss, []);
+  const back = await h.alerts.check(); assert.equal(back.alerts[0].fresh, true); assert.equal(win.minimized, false, 'a returning alert raises the window');
+  assert.equal(h.windows.length, 1);
+});
+
+test('app quit is never blocked by the alert window', async () => {
+  const state = { quitting: false };
+  const h = harness({ responses: [ok([card('a')])], isQuitting: () => state.quitting });
+  await h.alerts.check(); state.quitting = true;
+  const event = { preventDefault() { this.stopped = true; } }; h.windows[0].emit('close', event);
+  assert.notEqual(event.stopped, true);
 });
 
 test('network failure and account change fail closed', async () => {

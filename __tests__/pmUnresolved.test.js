@@ -71,6 +71,11 @@ const todo = cards.find((c) => c.id === 'todo');
 assert.equal(todo.title, '프로그램에 미완성으로 남은 곳 2곳'); assert.equal(todo.detail, '', '묶인 항목은 상세 없음');
 assert.ok(cards.find((c) => c.id === 'long').detail.length <= 400);
 assert.deepEqual(pmAlertCards(null), []);
+const gaps = pmUnresolved([
+  { key: 'flow-a', state: 'escalated', days: 1, msg: '데이터 병목(하락): 가 자리 — 카톡 글 근거 19.9% → 12.5%' },
+  { key: 'flow-b', state: 'escalated', days: 2, msg: '데이터 병목(낮음): 나 자리 — 파일 저장 근거 2.6%' },
+]);
+assert.deepEqual(gaps, [{ id: 'data-gap', title: '기록 근거가 줄거나 부족한 직원 자리 2곳', since: '2일째', todo: '사장님 확인 필요' }]);
 // 관리자 알림 API 는 관리자 계정에만 열리고 그 외에는 404 로 숨긴다(읽기 전용).
 const api = fs.readFileSync(path.join(process.cwd(), 'pages', 'api', 'pm', 'admin-alerts.js'), 'utf8');
 assert.ok(api.includes('if (!isOrbitReportViewer(user)) return res.status(404)'), '관리자 아니면 404');
