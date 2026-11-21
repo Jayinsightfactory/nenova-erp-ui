@@ -4454,3 +4454,12 @@ pm run test:canon 통과.
 3. 남은 일: 없음. 남긴 것 — 예전 수입부 담당자 실명으로 쓰인 곳(휴가 명단·이름 별칭·업무 기록·튤립 품종명 Gabrielle·농장 담당 Gabriela)과 이 파일의 과거 기록은 지난 기록·실명이라 그대로 둠.
 4. 검증: importCostAgi·ceoCommandHub·techRadarSimulator·adoptionRadar 검사 통과, desktop 메뉴 검사 통과(updater 7건 실패는 로컬 부품 부재로 변경 전에도 동일), npm run test:workflow-guides 통과, next build --webpack 통과, 로컬에서 옛 주소 307 → /import/cost-agi?year=…&view=B 확인. 운영 확인 결과는 수정안 반영 뒤 추가.
 5. 주의/잠금: next.config.js 의 옛 주소 이동 줄과 my-work 의 옛 탭 호환 줄에는 옛 주소 글자가 남아야 함(지우면 즐겨찾기가 깨짐). 연결 목표: g17 / 학습 반영: 있음(사람 이름을 기능 이름으로 쓰지 않는다).
+
+## 2026-11-22 현장팀 업무 매뉴얼 — 사장님 답 3건 반영
+요약: 질문 8 → 5, 풀린 것 4 → 7. ① 배차 글은 9시 이전에도 올라온다(일요일 8시대 글과 「9시 출근·분류」가 어긋나지 않음) ② 현장은 차 정보를 올리고 영업은 담당자가 거래처와 협의한 최종 내용을 올린다(배차 매뉴얼을 확정으로) ③ 토요일 출고는 영업이 「토요일 배차 출고건」으로 알리거나 영업지원이 물량표 만들 때 말로 알린다.
+검색어: 현장팀 매뉴얼 handover-field 배차 토요일 출고 일요일 9시 영업 최종 내용
+1. 작업 위치: nenova-erp-ui / feat/handover-field-answers / C:\Users\USER\nw-cld-field2
+2. 완료: scripts/build-handover-field.cjs(자료 묶기 직전 「사장님 답 반영」 블록) → data/handover-field.json
+3. 남은 일: 남은 질문 5개(분류 시작·끝 시각, 분배 내역을 받는 모양, 출고 사진에 찍힐 것, 당일 추가·취소 마감, 노선별 거래처 묶음). 강의형 영상 2편(배차·주말 출고)은 반영 뒤 다시 만든다.
+4. 검증: validate-handover 통과, npm run -s test:workflow-guides 통과. 운영 화면 확인은 브라우저 로그인이 풀려 미검증.
+5. 주의/잠금: 원고는 scripts/build-handover-field.cjs 한 곳만 고칠 것. 새 화면 주소 없음(데스크톱앱 메뉴 변경 없음). 연결 목표: g03 / 학습 반영: 없음
