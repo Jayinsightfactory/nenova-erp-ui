@@ -407,12 +407,27 @@
       renderPmLive({ state: pmLive.owner ? 'checking' : 'offline', reason: pmLive.owner ? 'PM 상태를 확인하고 있습니다.' : '로그인 후 확인할 수 있습니다.' });
       if (pmLive.owner) void checkPmLive();
     }
+    renderAdminAlerts(next.adminAlerts);
     // Commit explicit menu-opening focus with the same render. A queued frame
     // can run after another native focus/state transition and restore a tab.
     // Ordinary polling never enters this branch or takes focus from the user.
     if (!wasMenuOpen && state.menuOpen) $('menuSearch').focus({ preventScroll: true });
   }
 
+  // 관리자 계정에만 보이는 "알림 창 열기" 버튼. 서버가 관리자라고 답한 계정만 건수(숫자)가 오고, 그 외에는 null 이라 버튼이 없다.
+  // index.html·shell.css 는 가이드 영상 원본 해시에 묶여 있어 여기서 만들고 모양도 여기서 준다.
+  function renderAdminAlerts(count) {
+    const panel = $('pmLivePanel'); if (!panel) return;
+    let button = $('adminAlertsOpen');
+    if (!Number.isInteger(count)) { button?.remove(); return; }
+    if (!button) {
+      button = document.createElement('button'); button.id = 'adminAlertsOpen'; button.type = 'button';
+      Object.assign(button.style, { justifySelf: 'start', font: 'inherit', fontSize: '12.5px', padding: '4px 9px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff', color: '#0f172a', cursor: 'pointer' });
+      button.addEventListener('click', () => { desktop.invoke('adminAlerts').catch(() => {}); });
+      panel.append(button);
+    }
+    button.textContent = count ? `승인·확인 알림 ${count}건 열기` : '승인·확인 알림 열기';
+  }
   function renderPmLive(result) {
     const panel = $('pmLivePanel'), badge = $('pmLiveBadge'), activity = $('pmLiveActivity'), evidence = $('pmLiveEvidence');
     if (!panel || !badge || !activity || !evidence) return;

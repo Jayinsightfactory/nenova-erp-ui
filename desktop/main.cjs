@@ -15,6 +15,8 @@ let flightPopup;
 const {companyCalendarRequest}=require('./company-calendar.cjs');
 const { homeWorkspaceRequest } = require('./home-workspace.cjs');
 const { pmLiveStatus } = require('./pm-live.cjs');
+const { createAdminAlerts, ALERTS_URL } = require('./admin-alerts.cjs');
+let adminAlerts = null, adminAlertTimer = null;
 const { createActivity } = require('./activity.cjs');
 let menus = [], syncStatus = 'checking', menuVersion = '', webVersion = '';
 const SHELL = 'nenova-app://shell/index.html';
@@ -62,7 +64,7 @@ function state(w) {
   return { windowId: w.id, windows: [...windows.values()].map(v => ({ id: v.id, title: `업무 창 ${v.id}` })),
     tabs: w.ids.map(id => tabs.get(id)).filter(Boolean).map(t => ({ id: t.id, title: locked && new URL(t.url).pathname !== '/login' ? '로그인 대기' : t.title, url: locked ? '' : t.url, loading: t.loading, error: t.error, zoom: t.zoom })),
     activeId: w.activeId, menuOpen: w.menuOpen, toolsOpen: w.toolsOpen, favorites: locked ? [] : favorites, menus: locked ? [] : menus.map(group => ({ ...group, items: group.items.map(item => ({ ...item, favorite: favorites.some(f => f.url === menuFavoriteEntry(item)?.url) })) })), version: app.getVersion(), online: !locked,
-    appUpdate: updater?.getState(), homeOwnerId: locked ? '' : actor, syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || activityWarning,
+    appUpdate: updater?.getState(), homeOwnerId: locked ? '' : actor, adminAlerts: locked ? null : adminAlerts?.count() ?? null, syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || activityWarning,
     message: w.message || (locked ? '로그인이 필요합니다. 업무 화면에서 로그인해 주세요.' : '탭 이동은 작업을 유지합니다 · 종료 전 업무 내용을 저장해 주세요.') };
 }
 function broadcast() {
@@ -390,6 +392,10 @@ function command(w, action, p = {}) {
           return pmLiveStatus(await response.json());
         }).catch(() => ({ ok: false, state: 'offline', reason: 'PM 상태 서버에 연결할 수 없습니다.' }));
     }
+    case 'adminAlerts': {
+      if (locked || !actor || adminAlerts?.count() == null) throw Error('관리자 계정에서만 열 수 있습니다.');
+      adminAlerts.open(); void adminAlerts.check(); return { opened: true };
+    }
     case 'notesOpen': return openNotesWindow();
     case 'notesShortcut': return saveNotesShortcut(w);
     case 'logout': return logout(w);
@@ -462,7 +468,7 @@ function lockAccount() {
   clearTimeout(saveTimer);
   for (const t of tabs.values()) if (new URL(t.url).pathname !== '/login') { t.view.webContents.stop(); t.view.setVisible(false); }
   for (const w of auxiliary) w.destroy();
-  notesWindow = null;
+  notesWindow = null; adminAlerts?.reset();
   broadcast();
 }
 async function logout(w) {
@@ -580,6 +586,7 @@ async function verifyAccount(initial = false) {
   broadcast();
   await accountFavorites();
   void updateScheduler?.tick();
+  void adminAlerts?.check();
 }
 // --- AI 브리지(로컬 전용 제어 통로) ---------------------------------------
 // 기본 꺼짐. --ai-bridge 플래그 또는 NENOVA_AI_BRIDGE=1일 때만 127.0.0.1 HTTP 서버를 연다.
@@ -701,10 +708,19 @@ app.whenReady().then(async () => {
   protocol.handle('nenova-app', request => {
     const u = new URL(request.url);
     const name = u.pathname.slice(1);
-    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css','home-workspace.js','task-settings.js','task-controls.js','home-dashboard.js','flight-board.js','flight-map-data.js','company-calendar.js','notes.html','notes.js','notes.css'].includes(name)) return new Response('Not found', { status: 404 });
+    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css','home-workspace.js','task-settings.js','task-controls.js','home-dashboard.js','flight-board.js','flight-map-data.js','company-calendar.js','notes.html','notes.js','notes.css','alerts.html','alerts.js','alerts.css'].includes(name)) return new Response('Not found', { status: 404 });
     return new Response(fs.readFileSync(path.join(__dirname, 'shell', name)), { headers: { 'content-type': name.endsWith('.html') ? 'text/html; charset=utf-8' : name.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8', 'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'" } });
   });
   webSession = session.fromPartition('persist:nenova-work');
+  const alertSeenPath = path.join(app.getPath('userData'), 'admin-alerts.json');
+  const readAlertSeen = () => { try { const v = JSON.parse(fs.readFileSync(alertSeenPath, 'utf8')); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch { return {}; } };
+  adminAlerts = createAdminAlerts({ BrowserWindow, screen, appDir: __dirname, preload: path.join(__dirname, 'alerts-preload.cjs'),
+    fetch: (url, options) => webSession.fetch(url, options), getOwner: () => (locked || quitting ? '' : actor),
+    readSeen: owner => { const list = readAlertSeen()[owner]; return Array.isArray(list) ? list.filter(v => typeof v === 'string') : []; },
+    writeSeen: (owner, list) => { try { fs.writeFileSync(alertSeenPath, JSON.stringify({ [owner]: list.slice(0, 200) })); } catch { /* 다음 확인 때 다시 기록한다. */ } },
+    onCreate: win => { auxiliary.add(win); win.on('closed', () => auxiliary.delete(win)); activity?.record('adminAlertsOpen', '/desktop/alerts'); },
+    setIdentity: win => applyWindowIdentity(win, { packaged: app.isPackaged, execPath: process.execPath, resourcesPath: process.resourcesPath, appDir: __dirname }),
+    onChange: () => broadcast() });
   flightPopup=createFlightPopup({BrowserWindow,session:webSession,screen,appDir:__dirname,
     onCreate:win=>{auxiliary.add(win);win.on('closed',()=>auxiliary.delete(win));},
     setIdentity:win=>applyWindowIdentity(win,{packaged:app.isPackaged,execPath:process.execPath,resourcesPath:process.resourcesPath,appDir:__dirname}),
@@ -760,6 +776,15 @@ app.whenReady().then(async () => {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('잘못된 요청');
     return command(w, action, payload);
   });
+  ipcMain.handle('alerts:command', async (event, action) => {
+    if (!adminAlerts?.owns(event.sender) || event.senderFrame !== event.sender.mainFrame || event.senderFrame.url !== ALERTS_URL) throw new Error('신뢰할 수 없는 알림 요청');
+    if (locked || !actor) throw new Error('로그인을 다시 확인하세요.');
+    if (action === 'state') return adminAlerts.snapshot();
+    if (action === 'refresh') return adminAlerts.check();
+    if (action === 'close') return adminAlerts.close();
+    if (action === 'openPm') { const w = [...windows.values()].find(x => !x.win.isDestroyed()) || createWindow(); command(w, 'open', { url: '/pm', title: 'PM' }); w.win.show(); w.win.focus(); activity?.record('adminAlertsOpenPm', '/pm'); return { opened: true }; }
+    throw new Error('지원하지 않는 알림 동작');
+  });
   ipcMain.handle('notes:command', (event, action, payload) => {
     if (!notesWindow || notesWindow.isDestroyed() || event.sender!==notesWindow.webContents || event.senderFrame!==event.sender.mainFrame || event.senderFrame.url!==NOTES) throw new Error('신뢰할 수 없는 메모장 요청');
     if (!payload || typeof payload!=='object' || Array.isArray(payload)) throw new Error('잘못된 요청');
@@ -787,9 +812,10 @@ app.whenReady().then(async () => {
   await verifyAccount(true);
   if (process.argv.some(arg=>/^nenova-notes:\/\/open\/?$/i.test(arg)) && !locked) openNotesWindow();
   notesTimer=setInterval(()=>void checkNotesReminder(),60*1000);notesTimer.unref();void checkNotesReminder();
+  adminAlertTimer = setInterval(() => { if (!locked && actor && !quitting) void adminAlerts.check(); }, 3 * 60 * 1000); adminAlertTimer.unref();
 });
 app.on('before-quit', e => { if (!quitting && (windows.size||hasNotes())) { e.preventDefault(); quit(); } });
-app.on('will-quit', () => { clearInterval(updateTimer); clearInterval(activityTimer); clearInterval(notesTimer); aiBridge?.stop(); });
+app.on('will-quit', () => { clearInterval(updateTimer); clearInterval(activityTimer); clearInterval(notesTimer); clearInterval(adminAlertTimer); aiBridge?.stop(); });
 app.on('window-all-closed', () => { if (!quitting) { quitting = true; app.quit(); } });
 // Export only to the local Node test runner. No renderer receives this object.
 module.exports = { windows, tabs, command, createWindow, moveTab, snapshot, verifyAccount };

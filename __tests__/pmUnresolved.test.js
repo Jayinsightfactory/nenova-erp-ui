@@ -6,9 +6,9 @@ const os = require('os');
 const path = require('path');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pmun-'));
 const src = fs.readFileSync(path.join(process.cwd(), 'lib', 'pmUnresolved.js'), 'utf8').replace(/^export (const|function) /gm, '$1 ')
-  + '\nmodule.exports = { isUnresolved, plainTitle, pmUnresolved };\n';
+  + '\nmodule.exports = { isUnresolved, plainTitle, pmUnresolved, pmAlertCards };\n';
 fs.writeFileSync(path.join(dir, 'm.cjs'), src);
-const { isUnresolved, pmUnresolved } = require(path.join(dir, 'm.cjs'));
+const { isUnresolved, pmUnresolved, pmAlertCards } = require(path.join(dir, 'm.cjs'));
 
 // 판정: 올린 건·승인 필요·3일 이상만. 조사 중·검증 중·예정은 제외.
 assert.equal(isUnresolved({ state: 'escalated', days: 1 }), true);
@@ -51,4 +51,28 @@ assert.equal(rows.find((r) => /박성수/.test(r.title)).todo, '사장님 확인
 assert.equal(rows.find((r) => /새 종류/.test(r.title)).since, '4일째');
 assert.deepEqual(pmUnresolved(undefined), []);
 assert.deepEqual(pmUnresolved([{ key: 'x', state: 'verifying', days: 1 }]), []);
+// 관리자 알림 창 카드: 쉬운 제목 + 내용·정할 것. 묶인 항목은 상세를 붙이지 않는다.
+const cards = pmAlertCards([
+  { key: 'radar-pilot-apache-echarts', state: 'needs-approval', days: 1, msg: '[기술 파일럿] apache/echarts 시험 완료 — 6점: 합계 100% 일치', decision: '승인 대기: 채택 여부 사장님 결정', owner: '사장님' },
+  { key: 'staff-silent', state: 'escalated', days: 2, msg: '오늘 켜져 있던 PC가 40분+ 무응답: 박성수(10:13)' },
+  { key: 'auto-todo-a', state: 'escalated', days: 1, msg: 'TODO 처리: a' },
+  { key: 'auto-todo-b', state: 'escalated', days: 1, msg: 'TODO 처리: b' },
+  { key: 'x', state: 'verifying', days: 1, msg: '검증 중' },
+  { key: 'long', state: 'escalated', days: 1, msg: '가'.repeat(900) },
+]);
+assert.equal(cards.length, 4);
+const pilot = cards[0];
+assert.equal(pilot.approval, true, '승인 필요가 맨 위'); assert.equal(pilot.sig, 'radar-pilot-apache-echarts|approval');
+assert.equal(pilot.title, '기술 시험 끝남: echarts (6점)'); assert.equal(pilot.todo, '쓸지 말지 결정');
+assert.ok(pilot.detail.startsWith('apache/echarts 시험 완료'), '앞의 [표시]는 뗀다'); assert.equal(pilot.decision, '승인 대기: 채택 여부 사장님 결정');
+const silent = cards.find((c) => c.id === 'staff-silent');
+assert.equal(silent.approval, false); assert.equal(silent.sig, 'staff-silent|check'); assert.equal(silent.since, '2일째'); assert.equal(silent.decision, '');
+const todo = cards.find((c) => c.id === 'todo');
+assert.equal(todo.title, '프로그램에 미완성으로 남은 곳 2곳'); assert.equal(todo.detail, '', '묶인 항목은 상세 없음');
+assert.ok(cards.find((c) => c.id === 'long').detail.length <= 400);
+assert.deepEqual(pmAlertCards(null), []);
+// 관리자 알림 API 는 관리자 계정에만 열리고 그 외에는 404 로 숨긴다(읽기 전용).
+const api = fs.readFileSync(path.join(process.cwd(), 'pages', 'api', 'pm', 'admin-alerts.js'), 'utf8');
+assert.ok(api.includes('if (!isOrbitReportViewer(user)) return res.status(404)'), '관리자 아니면 404');
+assert.ok(api.includes('GET only')); assert.ok(!/writeFile|appendFile|getPool|mssql/.test(api), '쓰기·DB 없음');
 console.log('pmUnresolved: OK');

@@ -1,0 +1,104 @@
+'use strict';
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
+const { adminAlertList, createAdminAlerts, ALERTS_URL } = require('../admin-alerts.cjs');
+
+const card = (sig, extra = {}) => ({ sig, title: `${sig} 제목`, since: '2일째', todo: '사장님 승인 필요', approval: true, detail: '내용', decision: '정할 것', ...extra });
+
+function harness({ owner = 'boss', responses }) {
+  const windows = [], seen = {}, changes = [];
+  class Window extends EventEmitter {
+    constructor(options) {
+      super(); this.options = options; this.urls = []; this.sent = []; this.flashes = [];
+      this.webContents = new EventEmitter();
+      this.webContents.setWindowOpenHandler = handler => { this.openHandler = handler; };
+      this.webContents.send = (channel, state) => this.sent.push([channel, state]);
+      windows.push(this);
+    }
+    isDestroyed() { return !!this.destroyed; }
+    isMinimized() { return false; }
+    isVisible() { return !!this.visible; }
+    setMenuBarVisibility(value) { assert.equal(value, false); }
+    show() { this.visible = true; this.focused = true; }
+    showInactive() { this.visible = true; }
+    focus() { this.focused = true; }
+    flashFrame(value) { this.flashes.push(value); }
+    destroy() { this.destroyed = true; this.emit('closed'); }
+    async loadURL(url) { this.urls.push(url); }
+  }
+  const state = { owner, calls: 0 };
+  const alerts = createAdminAlerts({
+    BrowserWindow: Window, screen: { getPrimaryDisplay: () => ({ workArea: { x: 0, y: 0, width: 1280, height: 800 } }) },
+    appDir: 'desktop', preload: 'desktop/alerts-preload.cjs',
+    fetch: async url => { state.calls++; state.url = url; const next = responses.shift(); if (next instanceof Error) throw next; return next; },
+    getOwner: () => state.owner, readSeen: who => seen[who] || [], writeSeen: (who, list) => { seen[who] = list; },
+    onCreate: win => { win.registered = true; }, setIdentity: win => { win.branded = true; }, onChange: () => changes.push(1), now: () => 1000,
+  });
+  return { alerts, windows, seen, state, changes };
+}
+const ok = list => ({ ok: true, status: 200, json: async () => ({ success: true, ageSec: 30, alerts: list }) });
+
+test('server payload is reduced to bounded text fields and duplicate marks are dropped', () => {
+  assert.equal(adminAlertList({ success: false, alerts: [] }), null);
+  assert.equal(adminAlertList({ success: true }), null);
+  const list = adminAlertList({ success: true, alerts: [card('a'), card('a'), { sig: 'b' }, { title: 'no sig' }, card('c', { title: 'x'.repeat(300), approval: 'yes', html: '<b>' })] });
+  assert.deepEqual(list.map(item => item.sig), ['a', 'c']);
+  assert.equal(list[1].title.length, 120); assert.equal(list[1].approval, false); assert.equal('html' in list[1], false);
+});
+
+test('a non-admin account never gets a window and is asked only once', async () => {
+  const h = harness({ responses: [{ ok: false, status: 404 }] });
+  await h.alerts.check(); await h.alerts.check();
+  assert.equal(h.state.calls, 1); assert.equal(h.windows.length, 0);
+  assert.equal(h.alerts.count(), null); assert.equal(h.alerts.open(), false); assert.equal(h.windows.length, 0);
+});
+
+test('an admin gets one unfocused secured window per new alert, not per check', async () => {
+  const h = harness({ responses: [ok([card('a')]), ok([card('a')]), ok([card('a'), card('b', { approval: false })])] });
+  const first = await h.alerts.check();
+  assert.match(h.state.url, /\/api\/pm\/admin-alerts$/);
+  assert.equal(h.windows.length, 1);
+  const win = h.windows[0];
+  assert.equal(win.options.show, false); assert.equal(win.options.webPreferences.nodeIntegration, false);
+  assert.equal(win.options.webPreferences.contextIsolation, true); assert.equal(win.options.webPreferences.sandbox, true);
+  assert.equal(win.options.webPreferences.preload, 'desktop/alerts-preload.cjs');
+  assert.deepEqual(win.urls, [ALERTS_URL]); assert.equal(win.branded, true); assert.equal(win.registered, true);
+  assert.deepEqual(win.openHandler({ url: 'https://example.com' }), { action: 'deny' });
+  win.emit('ready-to-show');
+  assert.equal(win.visible, true); assert.notEqual(win.focused, true, 'the alert must not take keyboard focus from work screens');
+  assert.equal(first.alerts[0].fresh, true); assert.equal(h.alerts.count(), 1); assert.deepEqual(h.seen.boss, ['a']);
+  const flashes = win.flashes.length;
+  await h.alerts.check();
+  assert.equal(h.windows.length, 1); assert.equal(win.flashes.length, flashes, 'an unchanged list does not flash again');
+  const third = await h.alerts.check();
+  assert.equal(h.windows.length, 1); assert.ok(win.flashes.length > flashes);
+  assert.deepEqual(third.alerts.map(item => [item.sig, item.fresh]), [['a', true], ['b', true]]);
+  assert.deepEqual(h.seen.boss, ['a', 'b']);
+  assert.equal(win.sent.at(-1)[0], 'alerts:state');
+  assert.equal(h.alerts.owns(win.webContents), true); assert.equal(h.alerts.owns({}), false);
+});
+
+test('closing clears new marks, already seen alerts stay quiet, a returning alert shows again', async () => {
+  const h = harness({ responses: [ok([card('a')]), ok([card('a')]), ok([]), ok([card('a')])] });
+  await h.alerts.check(); h.alerts.close();
+  assert.equal(h.windows[0].destroyed, true);
+  const quiet = await h.alerts.check();
+  assert.equal(h.windows.length, 1, 'no new window for an alert that was already shown'); assert.equal(quiet.alerts[0].fresh, false);
+  assert.equal(h.alerts.open(), true); assert.equal(h.windows.length, 2);
+  h.windows[1].emit('ready-to-show'); assert.equal(h.windows[1].focused, true, 'a manual open takes focus');
+  await h.alerts.check(); assert.deepEqual(h.seen.boss, []);
+  const back = await h.alerts.check(); assert.equal(back.alerts[0].fresh, true);
+});
+
+test('network failure and account change fail closed', async () => {
+  const h = harness({ responses: [new Error('offline'), ok([card('a')]), { ok: false, status: 404 }] });
+  const failed = await h.alerts.check();
+  assert.equal(failed.failed, true); assert.equal(failed.admin, false); assert.equal(h.windows.length, 0);
+  await h.alerts.check(); assert.equal(h.windows.length, 1);
+  h.state.owner = 'staff';
+  await h.alerts.check();
+  assert.equal(h.windows[0].destroyed, true, 'the admin window closes when the account changes'); assert.equal(h.alerts.count(), null);
+  h.state.owner = '';
+  const out = await h.alerts.check(); assert.deepEqual(out.alerts, []);
+});
