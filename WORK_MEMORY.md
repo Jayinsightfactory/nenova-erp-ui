@@ -4434,3 +4434,12 @@ pm run test:canon 통과.
 3. 남은 일: PR CI → squash → Cafe24 코드 전용 배포 → desktop 배포 → 35/37/40/41/43/44 원천 GET와 실제 44 UI 검증. 운영 입력/ZIP 등록/저장 보고서 갱신은 승인 범위 밖이므로 실행하지 않는다.
 4. 검증: 실제 dnSpy/동일 범위 SELECT, 신규 13·기존 통관 22·desktop 11 회귀, 전체 ERP 계약, manifest237/dnSpy/write guard, 가이드 35업무/36영상 및 실제 재생, webpack build 통과. 이후 동시 매뉴얼 PR 2건 fast-forward 후 해당 회귀·가이드 재검증. 최종 통합 빌드/운영 상태는 PR 체크와 후속 완료 댓글을 따른다.
 5. 주의/잠금: 통관·03차 정책·가이드 파일은 이 PR 완료까지 본 작업 소유. 37 베트남은 SQL 입력행 부재를 PDF만으로 자동 보충하지 않는다. 원천 금융정보를 학습 선호로 저장하지 않음. 연결 목표 g03 / 학습 반영 없음.
+
+## 2026-11-21 핵심 테이블 ERD·SSOT·트랜잭션 경계 문서 (Claude)
+요약: `docs/erd/core-tables.md` 신설 — 주문·분배·출고·재고·입고·견적·매출이익보고서 15개 테이블 Mermaid ERD 1장, 테이블별 정본/읽기쓰기 표, 쓰기 트랜잭션 경계와 위험 3건. 코드·문서만 읽음(DB·ECOUNT 접근 없음).
+검색어: ERD, core-tables, SSOT, 트랜잭션 경계, usp_StockCalculation 별도 트랜잭션, Product.Stock ProductStock 이중 축
+1. 작업 위치: nenova-erp-ui / docs/core-erd-ssot / C:\Users\USER\nw-cld-erd-1121 / PR 번호는 PR 본문 참조(머지 금지 상태)
+2. 완료: docs/erd/core-tables.md 추가, WORK_MEMORY.md 인계 추가(코드 변경 없음)
+3. 남은 할 일: 사장님 확인(코드 미확인 컬럼·매출원가 단일 정본·FIFO 차감 위치) 후 문서 보강, 위험 3건의 수정 여부 결정
+4. 검증: 근거 파일:줄 수동 대조. Mermaid 렌더 미검증, 실제 DB 컬럼 대조 미검증, SP 본문 미확인
+5. 주의/잠금: docs/erd/ 외 수정 없음. master 머지 시 deploy.yml이 경로 필터 없이 배포됨. 연결 목표 g03 추정(미확인) / 학습 반영 없음
