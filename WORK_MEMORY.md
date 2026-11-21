@@ -4481,3 +4481,12 @@ pm run test:canon 통과.
 3. 남은 일: 매뉴얼 안의 열린 질문(물량표 출력물을 누가 뽑아 주는지 등). 한 달 뒤 카카오톡 기록으로 다시 맞춰 보기.
 4. 검증: validate-handover 통과, npm run -s test:workflow-guides 통과, 자료에서 배차 매뉴얼 상태가 confirmed 로 나오는 것 확인. 운영 화면 확인은 브라우저 로그인이 풀려 미검증.
 5. 주의/잠금: 답 반영 블록은 매뉴얼 묶음을 만드는 줄보다 앞에 둘 것(뒤에 두면 매뉴얼 본문 변경이 안 실림). 연결 목표: g03 / 학습 반영: 없음
+
+## 2026-11-22 부서별 업무 매뉴얼 — 쉬운 글 + 캡처 먼저
+요약: 사장님 지시 "매뉴얼을 직접 읽어 봐, 이해하기 쉬워?" → 원고는 할 일과 근거(날짜·건수·출처·추정)가 한 문장에 섞여 읽기 어려웠음(수입부 272덩어리 중 71개가 100자 넘음). 원고는 그대로 두고 따라 하는 사람용 「쉬운 글」을 부서 5곳(매뉴얼 54편·단계 294개·업무표 98줄)에 따로 써서 화면 앞에 보이고, 원고 글은 「자세히 · 근거」로 접음. 단계마다 실제 화면 캡처가 글보다 먼저 나오게 함.
+검색어: 쉬운 글 handover-plain applyHandoverPlain validate-handover-plain 자세히 근거 캡처 먼저 매뉴얼 읽기 쉽게
+1. 작업 위치: nenova-erp-ui / feat/handover-plain / C:\Users\USER\nw-cld-plain
+2. 완료: data/handover-plain-<부서>.json 5개, lib/importHandover.js(loadHandoverPlain·applyHandoverPlain), components/manuals/ImportHandover.js(캡처 먼저·접기), scripts/validate-handover-plain.cjs, docs/HANDOVER_PLAIN_WRITING.md, __tests__/importHandover.test.cjs(handoverPlain ok)
+3. 남은 일: 캡처 위에 "여기를 누른다" 표시 넣기, 캡처 없는 단계 채우기(확인 대기 후보 21장), 쉬운 글에서 "먼저 묻습니다"로 돌린 빈 내용 채우기(부서별 목록은 지휘실 일감 파일).
+4. 검증: validate-handover-plain 5곳 통과, test:workflow-guides 통과, 내 PC 에서 실행본을 만들어 세 부서 매뉴얼 화면을 찍어 확인(오류 0, 캡처가 글보다 먼저, 접기 동작). 쉬운 글 54편 중 처음부터 끝까지 읽은 것은 1편 — 나머지는 자동 검사와 화면·단추 이름 450개 원고 대조(지어낸 이름 0)로 확인. 운영 화면은 브라우저 로그인이 풀려 미검증.
+5. 주의/잠금: 원고를 고쳐 단계가 늘거나 줄면 쉬운 글도 같이 고쳐야 검사를 통과한다. 쉬운 글에는 날짜·건수·출처·추정을 쓰지 않는다. 연결 목표: g03 / 학습 반영: 있음
