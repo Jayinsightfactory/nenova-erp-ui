@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-21T10:30:54.683Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 42.2,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "71e2aa0c0ffb55329f6ab5bba8cfd9dc21e42d8c00c0ff29aba66945b2a9336c",
+  "captionsSha256": "bd3c11c7f6fa4d730c70e7410e045e42884b405660306a73c449745425cdd02c",
+  "sourceHashes": {
+    "pages/import/cost-agi.js": "8ed650ed6f7e7a77cd3d73694191733a3b325429160eb5f38be3ec98f4464b1d",
+    "components/import-tools/ImportCostAgiWorkbench.js": "6b140bd609ff1b3dacbf820921beb8d61b7d603fba67f20f4ef89ecdf7f2fc08",
+    "lib/importCostAgi.js": "79760c4317c97539c6b6cc0ef277cef3b2f4288c6ecb27f971682f68cd72e13a",
+    "styles/ImportCostAgi.module.css": "437c59c4437994be0a6f00d0a35c268232e332f1b7dfd629541373bf4f07282f"
+  },
+  "presentation": {
+    "numberedSteps": 4,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 3.1267290999999995,
+        "x": 653.21875,
+        "y": 484.3125,
+        "end": 8.2972792
+      },
+      {
+        "number": 2,
+        "start": 13.3548361,
+        "x": 1607.0078125,
+        "y": 539.828125,
+        "end": 18.6223354
+      },
+      {
+        "number": 3,
+        "start": 23.575325999999997,
+        "x": 636.921875,
+        "y": 539.578125,
+        "end": 28.847226600000003
+      },
+      {
+        "number": 4,
+        "start": 35.1303525,
+        "x": 1766.9921875,
+        "y": 483.3125,
+        "end": 40.3730904
+      }
+    ]
+  }
+}

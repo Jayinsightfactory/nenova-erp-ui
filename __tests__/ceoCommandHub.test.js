@@ -39,7 +39,7 @@ const pipelineMod = compile('lib/importOneStopPipeline.js', (id, baseReq) => {
   return baseReq(id);
 });
 const boxMod = compile('lib/boxMetricTable.js');
-const gabrielMod = compile('lib/gabrielProfitAgi.js', (id, baseReq) => {
+const costAgiMod = compile('lib/importCostAgi.js', (id, baseReq) => {
   if (id === './importOneStopPipeline.js') return pipelineMod;
   if (id === './boxMetricTable.js') return boxMod;
   return baseReq(id);
@@ -49,7 +49,7 @@ const pmPlaybooksMod = compile('lib/pmPlaybooks.js');
 
 const hubLib = compile('lib/ceoCommandHub.js', (id, baseReq) => {
   if (id === './pmTechRadarSim') return pmTechRadarMod;
-  if (id === './gabrielProfitAgi') return gabrielMod;
+  if (id === './importCostAgi') return costAgiMod;
   if (id === './pmUnresolved') return pmUnresolvedMod;
   if (id === './pmPlaybooks') return pmPlaybooksMod;
   return baseReq(id);
@@ -100,10 +100,10 @@ const SAMPLE_PM_OFFICE = {
         owner: 'PM 검증',
       },
       {
-        key: 'done-gabriel-l10',
+        key: 'done-cost-agi-l10',
         state: 'done',
         days: 0,
-        msg: '가브리엘 10대 레버 시뮬레이터 검증 완료',
+        msg: '원가·이익 10대 레버 시뮬레이터 검증 완료',
         pr: '#1871',
         owner: 'PM',
       },
@@ -219,7 +219,7 @@ const liveModel = hubLib.buildCommandHubModel({
 assert.equal(liveModel.agents.length, 6, '6대 에이전트 현황 카드 모두 반환');
 assert.deepEqual(
   liveModel.agents.map((a) => a.id),
-  ['pm-hermes', 'nenovakakao-worker', 'gabriel-agi', 'tech-radar-pilot', 'orbit-manuals', 'device-rust-sidecar']
+  ['pm-hermes', 'nenovakakao-worker', 'cost-agi', 'tech-radar-pilot', 'orbit-manuals', 'device-rust-sidecar']
 );
 assert.equal(liveModel.agents[0].statusCode, 'live');
 assert.match(liveModel.agents[0].headlineMetric, /열린 과제 2건/);
@@ -251,8 +251,8 @@ assert.equal(liveModel.pulse.timeline[0].source, 'live-pm', '오늘 PM 완료가
 assert.equal(liveModel.pulse.metrics.buildPipelineCounts.total, 11, '11개 연속 구현 파이프라인 집계');
 assert.ok(liveModel.pulse.metrics.buildPipelineCounts.LIVE >= 1);
 assert.ok(liveModel.pulse.metrics.buildPipelineCounts.READY >= 1);
-assert.ok(liveModel.pulse.metrics.weeklyProfitPotentialKRW > 0, '가브리엘 주간 기대 이익 양수');
-assert.equal(liveModel.pulse.gabrielTopAlerts.length, 3, '가브리엘 상위 3대 경보');
+assert.ok(liveModel.pulse.metrics.weeklyProfitPotentialKRW > 0, '원가·이익 AGI 주간 기대 이익 양수');
+assert.equal(liveModel.pulse.costAgiTopAlerts.length, 3, '원가 경보 상위 3대 경보');
 
 // 3.5) 내 목표 × 작업 정합도 × 나를 학습한 AGI (Owner Digital Twin) 도메인 검증
 assert.ok(liveModel.ownerTwin, 'ownerTwin 모델 반환');
@@ -381,7 +381,7 @@ for (const marker of [
   'data-testid="hub-pm-ledger-table"',
   'data-testid="hub-dev-timeline"',
   'data-testid="hub-build-queue-list"',
-  'data-testid="hub-gabriel-alert-list"',
+  'data-testid="hub-cost-agi-alert-list"',
   'data-testid="hub-page-directory"',
   'data-guide-stub="ceo-command-hub"',
 ]) {

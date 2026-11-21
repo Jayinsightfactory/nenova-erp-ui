@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-20T02:51:27.582Z",
+  "recordedAt": "2026-11-21T10:32:04.717Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 44.55,
+  "duration": 41.25,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "564034e5d48b35008c72790e54369f865c0abc47e5938f9fd6653f933bb01e4b",
-  "captionsSha256": "72d36a663cf27addd1fccd2f625de0bd207d013dfd731eb9e43a1d231d9a2614",
+  "videoSha256": "eacec33b936b1743543402b974daaa741c666c08c24cd6d6bfec3a583afd071d",
+  "captionsSha256": "867cbcc0a4f8b8df54ee6daa370b923abf6a161d50bf11531cda48555aff7b49",
   "sourceHashes": {
     "pages/work/command-hub.js": "b85396ec5f47c5e0a57e4303461f905f2953d03ea47fc5eea2f7f5009b1e34e9",
-    "components/work/CeoCommandHub.js": "609952d5e0b0097731ddbabfb8e855061eae2b38016b591a4a7264182b8d5d5e",
-    "lib/ceoCommandHub.js": "d8e17abaed8e21f605a1f470d959077629bd95829f40736c49fea8ea701d0957",
-    "styles/CeoCommandHub.module.css": "ef89eebb19c01df1ab3bf31f1aff4422324040da1c95531ad74b2e8bf1bf020b"
+    "components/work/CeoCommandHub.js": "f2e184d445b6d80c732c7a8160f5f85d28f790ba6801475d6c08f372dd34649b",
+    "lib/ceoCommandHub.js": "e59b1667625fdda84631f17c47749a1e8c2d8e7232e3a951418d2decd838ea31",
+    "styles/CeoCommandHub.module.css": "aac68fa369c898f0c4d3508ab9fd37f57c7c2dc75ec499dece304535fb4f59f0"
   },
   "presentation": {
     "numberedSteps": 4,
@@ -31,31 +31,31 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 3.3269737999999998,
+        "start": 3.2796916,
         "x": 1671.5625,
         "y": 540.265625,
-        "end": 9.708407699999999
+        "end": 9.136574399999999
       },
       {
         "number": 2,
-        "start": 14.808859499999999,
+        "start": 13.970965900000001,
         "x": 570.4375,
         "y": 540.21875,
-        "end": 20.7882048
+        "end": 19.2794907
       },
       {
         "number": 3,
-        "start": 25.766253299999995,
+        "start": 24.134989500000003,
         "x": 1440.8984375,
         "y": 540.484375,
-        "end": 32.0668219
+        "end": 29.4600305
       },
       {
         "number": 4,
-        "start": 37.4244712,
+        "start": 34.3166872,
         "x": 357.7109375,
         "y": 539.6953125,
-        "end": 42.642055500000005
+        "end": 39.5489416
       }
     ]
   }

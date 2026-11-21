@@ -829,7 +829,7 @@
   padding: 10px 12px;
 }
 
-/* 우측: 가브리엘 원가·이익 경보 Top 3 */
+/* 우측: 원가·이익 경보 Top 3 */
 .alertList {
   display: flex;
   flex-direction: column;

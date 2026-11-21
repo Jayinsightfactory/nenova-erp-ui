@@ -188,20 +188,20 @@ assert.equal(dynamicSim.matchType, 'quadrant-mapped');
 assert.equal(dynamicSim.nodeDetails.length, 6);
 assert.ok(dynamicSim.steps.length >= 2);
 
-// 3-1) 가브리엘 수입·원가·이익 추론 AGI 시나리오 & 프리셋 6종 검증
+// 3-1) 수입 원가·이익 추론 AGI 시나리오 & 프리셋 6종 검증
 assert.equal(simMod.SIM_PRESETS.length, 6, '핵심 시나리오 프리셋 6종');
-const gabrielTarget = simMod.resolvePresetTarget('gabriel-import-profit-agi', adminItems);
-assert.equal(gabrielTarget.scenarioId, 'gabriel-import-profit-agi');
-const gabrielSim = simMod.simulateRadarItem(gabrielTarget.item, { scenarioId: gabrielTarget.scenarioId });
-assert.equal(gabrielSim.scenarioId, 'gabriel-import-profit-agi');
-assert.equal(gabrielSim.matchType, 'exact-scenario');
-assert.deepEqual(gabrielSim.activeNodes, ['N1', 'N4', 'N5', 'N6']);
-assert.equal(gabrielSim.primaryNode, 'N4');
-assert.ok(gabrielSim.links.some((l) => l.href === '/import/gabriel-agi'), '가브리엘 AGI 페이지 링크 포함');
-assert.ok(gabrielSim.links.some((l) => l.href === '/import/pipeline'), '수입 파이프라인 링크 포함');
-assert.ok(gabrielSim.steps.some((s) => s.packetSummary.includes('AWB 중량구간') && s.packetSummary.includes('불량크레딧')));
-assert.ok(gabrielSim.metrics.some((m) => m.beforeLabel.includes('38.0%') && m.afterLabel.includes('96.5%')));
-assert.ok(gabrielSim.metrics.some((m) => m.beforeLabel.includes('18.0 h') && m.afterLabel.includes('0.4 h')));
+const costAgiTarget = simMod.resolvePresetTarget('import-cost-profit-agi', adminItems);
+assert.equal(costAgiTarget.scenarioId, 'import-cost-profit-agi');
+const costAgiSim = simMod.simulateRadarItem(costAgiTarget.item, { scenarioId: costAgiTarget.scenarioId });
+assert.equal(costAgiSim.scenarioId, 'import-cost-profit-agi');
+assert.equal(costAgiSim.matchType, 'exact-scenario');
+assert.deepEqual(costAgiSim.activeNodes, ['N1', 'N4', 'N5', 'N6']);
+assert.equal(costAgiSim.primaryNode, 'N4');
+assert.ok(costAgiSim.links.some((l) => l.href === '/import/cost-agi'), '원가·이익 AGI 페이지 링크 포함');
+assert.ok(costAgiSim.links.some((l) => l.href === '/import/pipeline'), '수입 파이프라인 링크 포함');
+assert.ok(costAgiSim.steps.some((s) => s.packetSummary.includes('AWB 중량구간') && s.packetSummary.includes('불량크레딧')));
+assert.ok(costAgiSim.metrics.some((m) => m.beforeLabel.includes('38.0%') && m.afterLabel.includes('96.5%')));
+assert.ok(costAgiSim.metrics.some((m) => m.beforeLabel.includes('18.0 h') && m.afterLabel.includes('0.4 h')));
 
 // 3-2) 모든 시나리오에 상황/결과, 데이터 4원천(이메일/담당자/거래처/판정기준), 4대 부서 연결표 포함 검증
 assert.equal(simMod.RADAR_DEPARTMENTS.length, 5, '전사 + 4대 부서 필터 정의');
@@ -220,7 +220,7 @@ for (const sc of simMod.SIM_SCENARIOS) {
     assert.ok(row && row.roleChange?.length > 5 && String(row.route || '').startsWith('/'), `${sc.id}: ${dName} 업무·경로 필수`);
   }
 }
-for (const simResult of [hermesSim, rustSim, echartsSim, dynamicSim, gabrielSim]) {
+for (const simResult of [hermesSim, rustSim, echartsSim, dynamicSim, costAgiSim]) {
   assert.ok(simResult.executiveBrief?.situation && simResult.executiveBrief?.outcome);
   assert.ok(simResult.dataOrigins?.emailDoc && simResult.dataOrigins?.staffInput && simResult.dataOrigins?.partnerData && simResult.dataOrigins?.thresholdRule);
   assert.equal(simResult.departmentMatrix?.length, 4);
@@ -237,7 +237,7 @@ for (const b of simMod.CONTINUOUS_BUILD_PIPELINE) {
   assert.ok(scenarioIds.has(b.linkedScenarioId), `${b.code}: linkedScenarioId(${b.linkedScenarioId}) 유효성`);
   assert.ok(b.agentBriefText?.includes(b.code) && b.agentBriefText?.includes(b.title), `${b.code}: agentBriefText 실행 지시서 문구`);
 }
-for (const reqTerm of ['295품목(13,815주문행)', '232건', 'Proforma', 'APTA E1', '146품목', 'D+3/D+5', '공헌이익', '49개 농장', '가브리엘 10대 레버']) {
+for (const reqTerm of ['295품목(13,815주문행)', '232건', 'Proforma', 'APTA E1', '146품목', 'D+3/D+5', '공헌이익', '49개 농장', '원가·이익 10대 레버']) {
   assert.ok(
     simMod.CONTINUOUS_BUILD_PIPELINE.some((b) => b.title.includes(reqTerm)),
     `필수 연속구현 과제 키워드 누락: ${reqTerm}`
@@ -335,7 +335,7 @@ assert.match(adminHtml, /시뮬레이션 검수/);
 assert.match(adminHtml, /통합 솔루션 시뮬레이터 열기/);
 assert.match(adminHtml, /운영PC nenovakakao/);
 assert.match(adminHtml, /core\/moyi_worker\.py/);
-assert.match(adminHtml, /가브리엘 원가·이익 AGI/);
+assert.match(adminHtml, /수입 원가·이익 AGI/);
 assert.doesNotMatch(adminHtml, FORBIDDEN_WORDS);
 assertButtonsUsePmKit(adminHtml, 'Plan A Admin');
 
