@@ -6,7 +6,7 @@ const { adminAlertList, createAdminAlerts, ALERTS_URL } = require('../admin-aler
 
 const card = (sig, extra = {}) => ({ sig, title: `${sig} 제목`, since: '2일째', todo: '사장님 승인 필요', approval: true, detail: '내용', decision: '정할 것', ...extra });
 
-function harness({ owner = 'boss', responses }) {
+function harness({ owner = 'boss', responses, allowed = true }) {
   const windows = [], seen = {}, changes = [];
   class Window extends EventEmitter {
     constructor(options) {
@@ -27,12 +27,12 @@ function harness({ owner = 'boss', responses }) {
     destroy() { this.destroyed = true; this.emit('closed'); }
     async loadURL(url) { this.urls.push(url); }
   }
-  const state = { owner, calls: 0 };
+  const state = { owner, calls: 0, allowed };
   const alerts = createAdminAlerts({
     BrowserWindow: Window, screen: { getPrimaryDisplay: () => ({ workArea: { x: 0, y: 0, width: 1280, height: 800 } }) },
     appDir: 'desktop', preload: 'desktop/alerts-preload.cjs',
     fetch: async url => { state.calls++; state.url = url; const next = responses.shift(); if (next instanceof Error) throw next; return next; },
-    getOwner: () => state.owner, readSeen: who => seen[who] || [], writeSeen: (who, list) => { seen[who] = list; },
+    getOwner: () => state.owner, allowed: () => state.allowed, readSeen: who => seen[who] || [], writeSeen: (who, list) => { seen[who] = list; },
     onCreate: win => { win.registered = true; }, setIdentity: win => { win.branded = true; }, onChange: () => changes.push(1), now: () => 1000,
   });
   return { alerts, windows, seen, state, changes };
@@ -47,7 +47,14 @@ test('server payload is reduced to bounded text fields and duplicate marks are d
   assert.equal(list[1].title.length, 120); assert.equal(list[1].approval, false); assert.equal('html' in list[1], false);
 });
 
-test('a non-admin account never gets a window and is asked only once', async () => {
+test('an ordinary account never asks the server and never gets a window', async () => {
+  const plain = harness({ responses: [], allowed: false });
+  await plain.alerts.check(); await plain.alerts.check();
+  assert.equal(plain.state.calls, 0, 'no request at all without the login flag'); assert.equal(plain.windows.length, 0);
+  assert.equal(plain.alerts.count(), null); assert.equal(plain.alerts.open(), false);
+});
+
+test('a flagged account the server still refuses is asked only once', async () => {
   const h = harness({ responses: [{ ok: false, status: 404 }] });
   await h.alerts.check(); await h.alerts.check();
   assert.equal(h.state.calls, 1); assert.equal(h.windows.length, 0);
@@ -77,6 +84,10 @@ test('an admin gets one unfocused secured window per new alert, not per check', 
   assert.deepEqual(h.seen.boss, ['a', 'b']);
   assert.equal(win.sent.at(-1)[0], 'alerts:state');
   assert.equal(h.alerts.owns(win.webContents), true); assert.equal(h.alerts.owns({}), false);
+  assert.equal(h.alerts.prompt('a'), '[네노바 PM 알림] a 제목 (2일째)\n내용: 내용\n정할 것: 정할 것\n\n위 건을 기록으로 확인한 뒤, 확인한 것·진행 방법·여쭐 것·확인 방법 순서로 보고하고 진행해 줘.');
+  assert.equal(h.alerts.prompt('missing'), '');
+  h.state.allowed = false; await h.alerts.check();
+  assert.equal(win.destroyed, true, 'losing the login flag closes the window'); assert.equal(h.alerts.count(), null); assert.equal(h.state.calls, 3);
 });
 
 test('closing clears new marks, already seen alerts stay quiet, a returning alert shows again', async () => {

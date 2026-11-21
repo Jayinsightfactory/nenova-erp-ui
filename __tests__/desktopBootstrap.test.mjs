@@ -32,6 +32,8 @@ test('returns every permitted menu in source order without leaking userIds', () 
   ]);
   assert.equal(response.menuVersion, createHash('sha256').update(JSON.stringify(response.menus)).digest('hex'));
   assert.equal(JSON.stringify(response).includes('userIds'), false);
+  assert.equal(response.adminAlerts, true, '관리자 계정에만 알림 표시');
+  assert.equal('adminAlerts' in buildDesktopBootstrap(menuGroups, { userId: 'sales01' }, 'v1'), false, '일반 계정에는 표시 자체가 없다');
   assert.equal(menuGroups[0].items[1].userIds[0], 'nenovaSS3');
 });
 

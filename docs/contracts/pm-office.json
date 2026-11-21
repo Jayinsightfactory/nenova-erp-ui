@@ -4,6 +4,8 @@
   "scope": [
     "pages/pm.js",
     "pages/api/pm/office.js",
+    "pages/api/pm/admin-alerts.js",
+    "lib/pmUnresolved.js",
     "pages/api/work/feature-data-ingest.js",
     "lib/workFeatureData.js",
     "lib/orbitReportAccess.js",

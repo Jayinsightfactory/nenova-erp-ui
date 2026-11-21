@@ -29,5 +29,6 @@ button{font:inherit;color:#0f172a;cursor:pointer;background:#fff;border:1px soli
 button:hover{background:#f1f5f9}
 button:disabled{opacity:.5;cursor:default}
 button:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px}
+button.copy{display:block;margin-top:8px;font-size:13.5px;padding:5px 10px}
 button.primary{background:#0f172a;border-color:#0f172a;color:#fff;margin-right:auto}
 button.primary:hover{background:#1e293b}

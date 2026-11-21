@@ -4443,3 +4443,4 @@ pm run test:canon 통과.
 3. 남은 일: 알림 창에서 바로 승인·보류·거절을 눌러 PM 대장 상태를 넘기는 통로(현재는 알림과 PM 화면 열기까지). 4부 보고 형식(확인한 것·방법·여쭐 것·확인 방법) 필드는 PM 피드에 아직 없어 내용·정할 것 2칸만 표시.
 4. 검증: node __tests__/pmUnresolved.test.js OK · desktop node --test 79 통과(신규 5건 포함), updater 7건 실패는 로컬 node_modules 부재로 변경 전에도 동일 · 알림 창 화면을 예시 자료로 Electron 44.6.0 에서 렌더 확인. 미검증: Electron 스모크(CI 에서 실행), 운영 관리자 계정 실제 팝업, 설치본 자동 업데이트.
 5. 주의/잠금: desktop/shell/index.html·shell.css 는 가이드 영상 해시에 묶여 있어 건드리지 않음. 연결 목표: g19·g01 / 학습 반영: 있음(AGI 정의=보고→승인).
+추가(같은 날, 사장님 지시 2건): ① 일반 계정은 알림 주소를 아예 조회하지 않음 — 로그인 때 받는 메뉴 응답(/api/desktop/bootstrap)에 관리자 계정만 adminAlerts 표시, 데스크톱은 표시가 있을 때만 조회. ② 알림마다 "클로드 지시문 복사" 버튼(제목·내용·정할 것 + 4부 보고 요청 문장을 클립보드로). 계약 등록: docs/contracts/pm-office.json scope, config/pm-boundary-allowlist.json 3줄. 검색어: adminAlerts bootstrap 표시, 클로드 지시문 복사, alerts copy

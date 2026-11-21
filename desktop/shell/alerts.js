@@ -30,6 +30,12 @@
       if (item.todo) li.append(el('span', 'todo', item.todo));
       if (item.detail) { const p = el('p', 'detail'); p.append(el('span', 'label', '내용'), document.createTextNode(item.detail)); li.append(p); }
       if (item.decision) { const p = el('p', 'decision'); p.append(el('span', 'label', '정할 것'), document.createTextNode(item.decision)); li.append(p); }
+      const copy = el('button', 'copy', '클로드 지시문 복사'); copy.type = 'button';
+      copy.addEventListener('click', async () => {
+        try { await window.alerts.invoke('copy', { sig: item.sig }); copy.textContent = '복사됨 · 클로드에 붙여 넣으세요'; }
+        catch { copy.textContent = '복사하지 못했습니다'; }
+      });
+      li.append(copy);
       return li;
     }));
   }

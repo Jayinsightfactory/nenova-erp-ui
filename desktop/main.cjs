@@ -16,7 +16,7 @@ const {companyCalendarRequest}=require('./company-calendar.cjs');
 const { homeWorkspaceRequest } = require('./home-workspace.cjs');
 const { pmLiveStatus } = require('./pm-live.cjs');
 const { createAdminAlerts, ALERTS_URL } = require('./admin-alerts.cjs');
-let adminAlerts = null, adminAlertTimer = null;
+let adminAlerts = null, adminAlertTimer = null, adminAlertsAllowed = false;
 const { createActivity } = require('./activity.cjs');
 let menus = [], syncStatus = 'checking', menuVersion = '', webVersion = '';
 const SHELL = 'nenova-app://shell/index.html';
@@ -540,7 +540,7 @@ async function verifyAccount(initial = false) {
   } catch { latest = null; }
   if (generation !== authGeneration || quitting) return;
   const updatedOpenViews = latest && webVersion && latest.webVersion !== webVersion && !changed && tabs.size > 0;
-  menus = latest?.menus || [];
+  menus = latest?.menus || []; adminAlertsAllowed = latest?.adminAlerts === true;
   menuVersion = latest?.menuVersion || '';
   webVersion = latest?.webVersion || '';
   syncStatus = latest ? 'ready' : 'error';
@@ -715,7 +715,7 @@ app.whenReady().then(async () => {
   const alertSeenPath = path.join(app.getPath('userData'), 'admin-alerts.json');
   const readAlertSeen = () => { try { const v = JSON.parse(fs.readFileSync(alertSeenPath, 'utf8')); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch { return {}; } };
   adminAlerts = createAdminAlerts({ BrowserWindow, screen, appDir: __dirname, preload: path.join(__dirname, 'alerts-preload.cjs'),
-    fetch: (url, options) => webSession.fetch(url, options), getOwner: () => (locked || quitting ? '' : actor),
+    fetch: (url, options) => webSession.fetch(url, options), getOwner: () => (locked || quitting ? '' : actor), allowed: () => adminAlertsAllowed,
     readSeen: owner => { const list = readAlertSeen()[owner]; return Array.isArray(list) ? list.filter(v => typeof v === 'string') : []; },
     writeSeen: (owner, list) => { try { fs.writeFileSync(alertSeenPath, JSON.stringify({ [owner]: list.slice(0, 200) })); } catch { /* 다음 확인 때 다시 기록한다. */ } },
     onCreate: win => { auxiliary.add(win); win.on('closed', () => auxiliary.delete(win)); activity?.record('adminAlertsOpen', '/desktop/alerts'); },
@@ -776,12 +776,13 @@ app.whenReady().then(async () => {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('잘못된 요청');
     return command(w, action, payload);
   });
-  ipcMain.handle('alerts:command', async (event, action) => {
+  ipcMain.handle('alerts:command', async (event, action, payload) => {
     if (!adminAlerts?.owns(event.sender) || event.senderFrame !== event.sender.mainFrame || event.senderFrame.url !== ALERTS_URL) throw new Error('신뢰할 수 없는 알림 요청');
     if (locked || !actor) throw new Error('로그인을 다시 확인하세요.');
     if (action === 'state') return adminAlerts.snapshot();
     if (action === 'refresh') return adminAlerts.check();
     if (action === 'close') return adminAlerts.close();
+    if (action === 'copy') { const body = adminAlerts.prompt(typeof payload?.sig === 'string' ? payload.sig : ''); if (!body) throw new Error('이미 사라진 알림입니다.'); clipboard.writeText(body); activity?.record('adminAlertsCopy', '/desktop/alerts'); return { copied: true }; }
     if (action === 'openPm') { const w = [...windows.values()].find(x => !x.win.isDestroyed()) || createWindow(); command(w, 'open', { url: '/pm', title: 'PM' }); w.win.show(); w.win.focus(); activity?.record('adminAlertsOpenPm', '/pm'); return { opened: true }; }
     throw new Error('지원하지 않는 알림 동작');
   });
