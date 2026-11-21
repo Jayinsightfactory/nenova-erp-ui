@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.78",
+  "version": "1.3.79",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -36,6 +36,8 @@
       "bootstrap.cjs",
       "home-workspace.cjs",
       "pm-live.cjs",
+      "admin-alerts.cjs",
+      "alerts-preload.cjs",
       "shell/**/*",
       "assets/**/*",
       "package.json",

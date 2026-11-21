@@ -19,7 +19,10 @@ test('accepts a valid bootstrap payload and returns only the shell contract', ()
     menus: [{ group: '업무', items: [{ href: '/orders', labelKey: 'orders', popup: false }] }],
     menuVersion: 'a'.repeat(64),
     webVersion: 'web-1',
+    adminAlerts: false,
   });
+  assert.equal(parseBootstrap({ ...valid(), adminAlerts: true }, actor).adminAlerts, true);
+  assert.equal(parseBootstrap({ ...valid(), adminAlerts: 'true' }, actor).adminAlerts, false, 'only the exact server flag counts');
 });
 
 test('rejects malformed envelope and actor identity', () => {

@@ -16,6 +16,6 @@ function parseBootstrap(data, expectedActor) {
       return { href: u.pathname + u.search + u.hash, labelKey: text(item.labelKey, 120), popup: item.popup };
     }) };
   });
-  return { menus, menuVersion: data.menuVersion, webVersion: text(data.webVersion, 160) };
+  return { menus, menuVersion: data.menuVersion, webVersion: text(data.webVersion, 160), adminAlerts: data.adminAlerts === true };
 }
 module.exports = { parseBootstrap };

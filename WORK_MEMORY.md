@@ -4434,3 +4434,14 @@ pm run test:canon 통과.
 3. 남은 일: PR CI → squash → Cafe24 코드 전용 배포 → desktop 배포 → 35/37/40/41/43/44 원천 GET와 실제 44 UI 검증. 운영 입력/ZIP 등록/저장 보고서 갱신은 승인 범위 밖이므로 실행하지 않는다.
 4. 검증: 실제 dnSpy/동일 범위 SELECT, 신규 13·기존 통관 22·desktop 11 회귀, 전체 ERP 계약, manifest237/dnSpy/write guard, 가이드 35업무/36영상 및 실제 재생, webpack build 통과. 이후 동시 매뉴얼 PR 2건 fast-forward 후 해당 회귀·가이드 재검증. 최종 통합 빌드/운영 상태는 PR 체크와 후속 완료 댓글을 따른다.
 5. 주의/잠금: 통관·03차 정책·가이드 파일은 이 PR 완료까지 본 작업 소유. 37 베트남은 SQL 입력행 부재를 PDF만으로 자동 보충하지 않는다. 원천 금융정보를 학습 선호로 저장하지 않음. 연결 목표 g03 / 학습 반영 없음.
+
+## 2026-11-21 — 데스크톱앱 관리자 알림 새 창 (Desktop 1.3.79)
+요약: 사장님 지시 "네노바 데스크톱앱에 관리자 계정만 알림을 새 창으로". PM이 스스로 해결 못 해 승인·확인이 필요한 일이 새로 생기면 관리자 계정의 데스크톱앱에 작은 창(460×600, 화면 오른쪽 아래)이 포커스를 뺏지 않고 뜬다. 같은 알림은 한 번만 띄우고, 홈 PM 칸의 "승인·확인 알림 N건 열기" 버튼으로 다시 열 수 있다.
+검색어: 관리자 알림 새창, admin-alerts, alerts.html, pmAlertCards, /api/pm/admin-alerts, adminAlertsOpen, Desktop 1.3.79
+1. 작업 위치: nenova-erp-ui / feat/desktop-admin-alert-window / C:\Users\USER\nw-cld-admin-alert
+2. 완료: lib/pmUnresolved.js(pmAlertCards 추가) · pages/api/pm/admin-alerts.js(신규, 관리자만 200·그 외 404, 읽기 전용) · desktop/admin-alerts.cjs · alerts-preload.cjs · shell/alerts.{html,js,css}(신규) · desktop/main.cjs(명령·3분 주기 확인·로그인 직후 확인·계정 잠금 시 창 닫기) · preload.cjs · shell/shell.js(관리자 전용 열기 버튼, index.html·shell.css 미수정) · package.json 1.3.79
+3. 남은 일: 알림 창에서 바로 승인·보류·거절을 눌러 PM 대장 상태를 넘기는 통로(현재는 알림과 PM 화면 열기까지). 4부 보고 형식(확인한 것·방법·여쭐 것·확인 방법) 필드는 PM 피드에 아직 없어 내용·정할 것 2칸만 표시.
+4. 검증: node __tests__/pmUnresolved.test.js OK · desktop node --test 79 통과(신규 5건 포함), updater 7건 실패는 로컬 node_modules 부재로 변경 전에도 동일 · 알림 창 화면을 예시 자료로 Electron 44.6.0 에서 렌더 확인. 미검증: Electron 스모크(CI 에서 실행), 운영 관리자 계정 실제 팝업, 설치본 자동 업데이트.
+5. 주의/잠금: desktop/shell/index.html·shell.css 는 가이드 영상 해시에 묶여 있어 건드리지 않음. 연결 목표: g19·g01 / 학습 반영: 있음(AGI 정의=보고→승인).
+추가(같은 날, 사장님 지시 2건): ① 일반 계정은 알림 주소를 아예 조회하지 않음 — 로그인 때 받는 메뉴 응답(/api/desktop/bootstrap)에 관리자 계정만 adminAlerts 표시, 데스크톱은 표시가 있을 때만 조회. ② 알림마다 "클로드 지시문 복사" 버튼(제목·내용·정할 것 + 4부 보고 요청 문장을 클립보드로). 계약 등록: docs/contracts/pm-office.json scope, config/pm-boundary-allowlist.json 3줄. 검색어: adminAlerts bootstrap 표시, 클로드 지시문 복사, alerts copy
+추가 2(같은 날): 자동 검사 "사용 가이드 영상" 가드에 걸림 — desktop/preload.cjs·shell/shell.js·main.cjs 가 가이드 영상 원본 해시에 묶여 있음. preload.cjs·shell.js 는 원래대로 되돌림(홈의 다시 열기 버튼 삭제, 대신 닫기=작업 표시줄로 내리기). main.cjs 는 연결에 꼭 필요해 변경 유지 → `desktop-task-schedule/staff` 가이드 재촬영 또는 사장님 승인 면제(config/workflow-guides.json videoWaivers, 현재 main.cjs sha256 dcc260a8…ec0) 중 하나가 있어야 검사 통과. 사장님 결정 대기. 직원 자리 "데이터 병목" 알림은 한 줄로 묶음(pmUnresolved data-gap).
