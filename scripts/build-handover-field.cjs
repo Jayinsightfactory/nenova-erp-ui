@@ -245,7 +245,7 @@ const mWeekend = {
   media: MEDIA_NONE(NO_VIDEO),
 };
 
-const manuals = [mReceive, mAddCancel, mShip, mDispatch, mQuarantine, mWeekend].map((m) => ({ phase: 'field', ...m }));
+// (매뉴얼 묶음은 아래 「사장님 답 반영」 블록들 뒤, 자료를 묶기 직전에 만든다)
 
 // ───────────────────────── 꼭 아는 말 · 첫날 · 문제 ─────────────────────────
 const essentials = [
@@ -368,6 +368,86 @@ const sourceSummary = [
   { const i = notYet.findIndex(x => x.title === '토요일 출고 매뉴얼'); if (i >= 0) notYet.splice(i, 1); }
   sourceSummary.push({ label: '사장님 답(현장팀 질문 3건)', period: '2026-11-22', count: 3 });
 }
+// ── 2026-11-22 사장님 답 반영(현장팀 남은 질문 5건) ──
+{
+  const SRC = '사장님 답(11월 22일, 두 번째)';
+  const idx = (prefix) => { const i = questions.findIndex(x => x.question.startsWith(prefix)); if (i < 0) throw new Error('질문을 찾지 못함: ' + prefix); return i; };
+  const close = (prefix, answer, evidence) => { const i = idx(prefix); const q0 = questions[i]; answered.push({ topic: q0.topic, question: q0.question, answer, status: 'confirmed', evidence: evidence || SRC }); questions.splice(i, 1); };
+  const rowOf = (list, id) => { const x = list.filter(v => v.id === id); if (x.length !== 1) throw new Error('업무표 줄을 찾지 못함: ' + id); return x[0]; };
+  const dropOpen = (m, part) => { const n = m.openQuestions.length; m.openQuestions = m.openQuestions.filter(v => !v.includes(part)); if (m.openQuestions.length === n) throw new Error('열린 질문을 찾지 못함: ' + part); };
+  const term = (t) => { const x = essentials.filter(v => v.term === t); if (x.length !== 1) throw new Error('낱말을 찾지 못함: ' + t); return x[0]; };
+
+  // 1 · 2. 나누는 때와 박스 표시
+  close('화물을 받아 거래처별로 나누는 일은 몇 시에 시작해', '화물이 들어온 다음 날 작업합니다(인천공항 도착 기준, 평일 기준). 박스에 거래처를 표시하는 것은 물량표를 기준으로 하고, 추가취소방에 수정 사항이 있으면 그대로 고칩니다. 일요일에 들어오는 날은 9시에 출근해 9시부터 나눕니다(11월 20일 답).', SRC + ' · 전산: 새 차수 1차는 월요일 입고 등록 뒤 이틀 뒤 수요일에 첫 출고(콜롬비아 7개 차수 모두)');
+  { const q0 = questions[idx('현장은 분배 내역을 어떤 모양으로 받나요')]; q0.question = '현장은 물량표를 어떤 모양으로 보나요(출력물, 휴대폰 화면)? (박스 표시는 물량표를 기준으로 한다는 것은 받음)'; q0.why = '물량표가 기준이라는 것은 사장님 답으로 풀림(11월 22일). 현장에는 PC 기록이 없어 어떤 모양으로 보는지는 알 수 없음'; }
+  mReceive.status = 'confirmed';
+  mReceive.oneLine = '통관이 끝난 화물을 받아 박스 수를 서류와 맞추고, 다음 날 물량표대로 박스에 거래처를 표시해 노선별로 나눈다.';
+  mReceive.when = '화물이 들어온 다음 날 작업한다(인천공항 도착 기준, 평일 기준 — 사장님 답, 11월 22일). 새 차수 1차는 월요일에 전산 입고 등록(08~10시)이 되고 이틀 뒤 수요일에 첫 출고가 나간다. 수요일에 입고 확인 글이 가장 많다. 일요일에 들어오는 날은 9시에 출근해 9시부터 나눈다. 통관 · 검역이 늦어지면 그만큼 밀린다 — 반입 신고가 늦어 입고가 저녁 8시 가까이 된 날이 있었다.';
+  mReceive.prepare[0] = '그 차수 물량표(거래처별 품목 · 수량 · 출고일) — 박스 표시의 기준';
+  { const st5 = mReceive.steps[4]; st5.title = '물량표대로 박스에 거래처를 표시하고 노선별로 나누기'; st5.screen = '창고 현장(물량표)'; st5.input = '물량표를 기준으로 박스에 거래처를 표시하고 노선별로 모은다. 추가취소방에 수정 사항이 있으면 그대로 고친다. 수량이 물량표와 안 맞으면 추가취소방에 되묻는다.'; }
+  dropOpen(mReceive, '분류를 시작하고 끝내는 시각'); dropOpen(mReceive, '박스에 거래처를 표시하는 방법');
+  mReceive.openQuestions.push('하루 중 몇 시에 시작해 몇 시에 끝나는지(카카오톡에 글이 남지 않음)');
+  term('마킹').meaning = '박스에 거래처를 표시하는 일. 물량표를 기준으로 하고, 추가취소방에 수정 사항이 있으면 고친다.'; term('마킹').status = 'confirmed';
+  term('분배 내역(출고 구분표)').meaning = '물량표. 차수 · 거래처별로 어떤 품목을 몇 개, 어느 날 내보낼지 적은 표. 영업지원이 만들어 주고, 현장은 이 표를 기준으로 박스에 거래처를 표시한다.';
+
+  // 3. 출고 사진의 목적
+  close('출고 사진에 꼭 찍혀야 하는 것이 있나요', '출고 사진은 나중에 잘못 나갔거나 불량이 생겼을 때 어느 농장 물건이 그 거래처로 나갔는지 확인하려고 찍습니다. 그래서 거래처와 함께 농장을 알 수 있는 박스 표시가 보이게 찍습니다.');
+  mShip.why = '나중에 잘못 나갔거나 불량이 생겼을 때 어느 농장 물건이 그 거래처로 나갔는지 이 사진으로 확인한다(사장님 답, 11월 22일). 영업은 이 사진과 수량으로 거래처에 「나갔다」고 알린다.';
+  mShip.steps[0].look = '한 거래처(또는 한 노선) 물량이 다 모였는지, 박스의 농장 표시가 보이는지.';
+  mShip.steps[0].input = '거래처 · 노선 이름과 박스의 농장 표시가 함께 보이게 찍는다.';
+  mShip.steps[0].why = '불량이나 잘못 나간 것이 생기면 이 사진으로 어느 농장 물건인지 찾는다.';
+  mShip.pitfalls.push({ mistake: '박스의 농장 표시가 안 보이게 찍음', fix: '농장을 알 수 있는 면이 보이게 다시 찍는다. 나중에 불량이 나오면 이 사진으로 농장을 찾는다.' });
+  dropOpen(mShip, '출고 사진에 꼭 들어가야 하는 것');
+
+  // 4. 당일 추가 · 취소 마감
+  close('출고 당일 추가 · 취소는 몇 시까지 받나요', '기본은 오후 4시까지이고, 늦어도 오후 6시 전까지 받습니다.', SRC + ' · 카카오톡: 추가 · 취소 글의 3분의 2가 당일 출고분');
+  mAddCancel.when = mAddCancel.when + ' 출고 당일 추가 · 취소는 기본 오후 4시까지, 늦어도 오후 6시 전까지 받는다(사장님 답, 11월 22일).';
+  mAddCancel.pitfalls.push({ mistake: '오후 6시가 지난 당일 추가를 받아 출고가 늦어짐', fix: '당일 추가 · 취소는 기본 오후 4시까지, 늦어도 오후 6시 전까지다. 그 뒤에 온 것은 다음 출고로 넘긴다고 답한다.' });
+  dropOpen(mAddCancel, '추가 · 취소를 몇 시까지 받는지');
+  { const x = rowOf(daily, 'd-add-cancel'); x.when = '09:00~11:00, 13:00~15:00(당일분은 기본 16시, 늦어도 18시 전까지)'; x.detail = x.detail + ' 출고 당일 추가 · 취소는 기본 오후 4시까지, 늦어도 오후 6시 전까지 받는다(사장님 답).'; }
+
+  // 5. 노선: 담당자별로 거래처 지역이 다르고 전산 거래처 관리에서 확인한다
+  close('경부선 · 호남선 · 양재 같은 노선마다 어느 거래처가 묶이나요', '영업 담당자마다 맡은 거래처의 지역이 다릅니다. 어느 거래처가 어느 지역인지는 전산 프로그램의 거래처 관리에서 확인할 수 있습니다.');
+  term('경부선 · 호남선 · 양재').meaning = '지방 배송 노선과 출고처 이름. 지방 거래처는 노선별 차량에 모아 보낸다. 영업 담당자마다 맡은 거래처의 지역이 다르고, 거래처의 지역은 전산 프로그램 거래처 관리에서 확인한다.'; term('경부선 · 호남선 · 양재').status = 'confirmed';
+  mDispatch.prepare.push('전산 프로그램 거래처 관리(거래처의 지역 · 담당자 확인)');
+  dropOpen(mDispatch, '노선 이름(경부선');
+  tools.push({ name: '전산 프로그램 거래처 관리', use: '거래처의 지역과 담당 영업을 확인한다(노선을 나눌 때)', where: '전산 프로그램(nenova) — 현장에서 직접 여는지 영업에 묻는지는 확인 필요' });
+  { const i = notYet.findIndex(x => x.title.startsWith('분류(거래처별로 나누기)')); if (i >= 0) notYet[i].reason = '언제(도착 다음 날) · 무엇을 기준으로(물량표) 하는지는 사장님 답으로 적음. 창고에서 손으로 하는 세부 순서는 기록이 없어 직접 보거나 설명을 들어야 쓸 수 있음'; }
+  sourceSummary.push({ label: '사장님 답(현장팀 남은 질문 5건)', period: '2026-11-22', count: 5 });
+}
+// ── 2026-11-22 사장님 답 반영(현장팀 세 번째: 물량표 · 분류에 걸리는 시간) ──
+{
+  const SRC = '사장님 답(11월 22일, 세 번째)';
+  const WEB_SHEET = '네노바웹의 엑셀 분배 업로드 물량표 · 신형 물량표 · 물량표 탭';
+  { const i = questions.findIndex(x => x.question.startsWith('현장은 물량표를 어떤 모양으로 보나요')); if (i < 0) throw new Error('물량표 질문'); const q0 = questions[i];
+    answered.push({ topic: q0.topic, question: q0.question, answer: '출력물로 봅니다. 물량표는 ' + WEB_SHEET + '에서 볼 수 있습니다.', status: 'confirmed', evidence: SRC }); questions.splice(i, 1); }
+  answered.push({ topic: '분류', question: '들어온 화물을 나누는 데 얼마나 걸리나', answer: '물건이 들어오면 먼저 종류별로 분류합니다(반나절쯤). 그 뒤 물량표를 기준으로 거래처별 작업을 하는데, 양에 따라 하루가 걸리기도 하고 이틀이 걸리기도 합니다.', status: 'confirmed', evidence: SRC });
+
+  // 받기 · 나누기 매뉴얼: 「종류별 분류」 단계를 따로 두고 순서를 다시 매긴다
+  { const m = mReceive; const last = m.steps[4];
+    const sort = { no: 5, title: '종류별로 분류하기(반나절쯤)', screen: '창고 현장', look: '들어온 박스의 나라 · 꽃 종류 · 농장.', input: '거래처별로 나누기 전에 먼저 종류별로 모아 둔다. 반나절쯤 걸린다.', why: '종류별로 모아 둬야 물량표대로 거래처별 수량을 빼기 쉽다.', captureKind: 'screen' };
+    last.no = 6; last.screen = '창고 현장(물량표 출력물)'; last.look = '물량표 출력물의 거래처별 품목 · 수량과 출고일.';
+    last.why = '출고 요일은 거래처마다 거의 정해져 있어(72곳 중 70곳) 먼저 나갈 것부터 한다. 양에 따라 하루가 걸리기도 하고 이틀이 걸리기도 한다.';
+    m.steps = [m.steps[0], m.steps[1], m.steps[2], m.steps[3], sort, last];
+    m.oneLine = '통관이 끝난 화물을 받아 박스 수를 맞추고, 종류별로 분류한 뒤, 물량표 출력물대로 박스에 거래처를 표시해 노선별로 나눈다.';
+    m.when = m.when + ' 들어오면 먼저 종류별로 분류하고(반나절쯤), 그 뒤 물량표 기준 작업은 양에 따라 하루~이틀 걸린다(사장님 답, 11월 22일).';
+    m.prepare[0] = '그 차수 물량표 출력물(거래처별 품목 · 수량 · 출고일) — 박스 표시의 기준. ' + WEB_SHEET + '에서 볼 수 있다';
+    m.screens = ['카카오톡 현장 추가취소방 · 현장방', '물량표 출력물(' + WEB_SHEET + ')', '카카오톡 네노바&선율방 · 빌번호방(읽기)'];
+    const n = m.openQuestions.length; m.openQuestions = m.openQuestions.filter(v => !v.includes('하루 중 몇 시에 시작해')); if (m.openQuestions.length === n) throw new Error('열린 질문(시각)');
+    m.openQuestions.push('물량표 출력물은 누가 뽑아 현장에 주는지(영업지원인지 현장이 직접 뽑는지)');
+    m.doneCheck.splice(1, 0, '종류별 분류가 끝났다.');
+    m.pitfalls.push({ mistake: '종류별 분류를 건너뛰고 바로 거래처별로 나눔', fix: '먼저 종류별로 모아 둔다(반나절쯤). 그 뒤 물량표대로 거래처별 작업을 한다. 양이 많으면 이틀이 걸릴 수 있으니 먼저 나갈 거래처부터 한다.' });
+  }
+  { const t = essentials.filter(v => v.term === '분배 내역(출고 구분표)'); if (t.length !== 1) throw new Error('낱말: 분배 내역'); t[0].term = '물량표(분배 내역 · 출고 구분표)'; t[0].meaning = '차수 · 거래처별로 어떤 품목을 몇 개, 어느 날 내보낼지 적은 표. ' + WEB_SHEET + '에서 볼 수 있고, 현장은 출력물로 본다. 이 표를 기준으로 박스에 거래처를 표시한다.'; }
+  { const f = firstDay.items.filter(v => v.what === '분배 내역(출고 구분표)'); if (f.length !== 1) throw new Error('첫날: 분배 내역'); f[0].what = '물량표'; f[0].known = '현장은 출력물로 본다. 물량표는 ' + WEB_SHEET + '에서 볼 수 있다. 거래처별 품목 · 수량 · 출고일이 들어 있다.'; f[0].missing = '출력물을 누가 뽑아 주는지'; }
+  { const t = tools.filter(v => v.name === '분배 내역(출고 구분표)'); if (t.length !== 1) throw new Error('도구: 분배 내역'); t[0].name = '물량표 출력물'; t[0].use = '거래처별 품목 · 수량 · 출고일을 보고 박스에 거래처를 표시하고 나눈다'; t[0].where = WEB_SHEET + '에서 뽑은 출력물'; }
+  for (const x of [...daily, ...weekly]) if (Array.isArray(x.screens)) x.screens = x.screens.map(v => v === '분배 내역(출고 구분표)' ? '물량표 출력물' : v);
+  for (const m of [mReceive, mAddCancel, mShip, mDispatch, mQuarantine, mWeekend]) { m.screens = m.screens.map(v => v === '분배 내역(출고 구분표)' ? '물량표 출력물' : v); }
+  { const i = notYet.findIndex(x => x.title.startsWith('분류(거래처별로 나누기)')); if (i >= 0) notYet[i].reason = '순서(종류별 분류 반나절 → 물량표 기준 작업 하루~이틀)와 기준(물량표 출력물)은 사장님 답으로 적음. 창고에서 손으로 하는 세부 동작은 직접 보거나 설명을 들어야 쓸 수 있음'; }
+  sourceSummary.push({ label: '사장님 답(현장팀: 물량표 · 분류에 걸리는 시간)', period: '2026-11-22', count: 3 });
+}
+// 매뉴얼 묶음 — 위 블록들이 고친 내용이 모두 실리도록 맨 마지막에 만든다
+const manuals = [mReceive, mAddCancel, mShip, mDispatch, mQuarantine, mWeekend].map((m) => ({ phase: 'field', ...m }));
 const data = {
   version: 1, updatedAt: '2026-11-22', dept: '현장팀', sourceSummary,
   schedule: { daily, weekly, monthly }, manuals, essentials, firstDay, troubles, rooms, folderMap, tools, questions, answered, notYet, weakEvidence,
