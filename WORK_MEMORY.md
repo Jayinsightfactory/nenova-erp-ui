@@ -4514,3 +4514,11 @@ pm run test:canon 통과.
 4. 검증 상태: `nenova-pm/tests/pstack-guardrails.test.js` 전수 PASS, `nw-swm-guardrails/__tests__/agentGuardrails.test.cjs` 전수 PASS, `node C:/Users/USER/nenova-pm/pstack-verify.cjs --repo C:/Users/USER/nw-swm-guardrails` 5/5 PASS(`<2초`). 운영 DB/API/기존 화면 무접촉.
 5. 주의/잠금: 타 세션 작업트리·로컬 폴더(`pages/api/**`, `workflow-guides.json`) 무접촉. 기존 레거시 파일 오탐 방지를 위해 변경 파일/추가 라인(`--changed-from`) 범위에서만 검사. 연결 목표: g19, g18.
 검색어: check-agent-guardrails pstack-verify guard:agent-slop PS1_UTF8_BOM SVG_LAYER_ORDER MONOSPACE_GULIM_FALLBACK UI_FORBIDDEN_WORD g19 g18
+
+## 2026-11-22 「기능 추가 후보」 탭 맨 위에 엑셀 되풀이 자료 표
+검색어: 엑셀 되풀이 자료 웹 후보 ExcelCandidates excel 칸 build-excel-candidates excel-web-map 제안 장치
+1. 작업 위치: nenova-erp-ui / cld/excel-candidates / C:\Users\USER\nw-cld-excel-cand. 짝이 되는 장치는 nenova-work-features/build-excel-candidates.js(git 아님).
+2. 완료: pages/my-work.js 에 ExcelCandidates 표(상태·엑셀 자료·부서·엑셀 화면·주당 추정·같은 일의 웹 화면·웹 화면·제안, 줄을 누르면 주별 건수와 파일 이름). 「기능 추가 후보」 탭 맨 위에 항상 보인다. 자료는 탭2 갱신본(work-feature-proposals.json)의 excel 칸 — 배포 없이 매일 아침 묶음이 올린다.
+3. 남은 일: 「짝 미정」 5종은 무슨 일인지 확인해 excel-web-map.json 에 짝을 적는다. 「웹 있는데 엑셀」 8종은 직원 엑셀 양식과 웹 화면을 칸 단위로 맞대어 본다(매출원가 양식, 원가자료부터).
+4. 검증: 문법 검사 통과, pstack-verify 5/5 PASS. 운영 화면 확인은 반영 뒤에. 건수는 약 3분 간격 화면 표본이고 웹 화면과의 짝은 낱말 규칙(추정).
+5. 주의: 표에는 부서만 싣고 사람 이름은 싣지 않는다. 메뉴는 기존 /my-work?tab=proposals 그대로라 데스크톱앱 메뉴 변경 없음. 연결 목표: g03 / 학습 반영: 있음
