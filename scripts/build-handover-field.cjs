@@ -446,6 +446,19 @@ const sourceSummary = [
   { const i = notYet.findIndex(x => x.title.startsWith('분류(거래처별로 나누기)')); if (i >= 0) notYet[i].reason = '순서(종류별 분류 반나절 → 물량표 기준 작업 하루~이틀)와 기준(물량표 출력물)은 사장님 답으로 적음. 창고에서 손으로 하는 세부 동작은 직접 보거나 설명을 들어야 쓸 수 있음'; }
   sourceSummary.push({ label: '사장님 답(현장팀: 물량표 · 분류에 걸리는 시간)', period: '2026-11-22', count: 3 });
 }
+// ── 2026-11-22 사장님 답 반영(현장팀 네 번째: 차 잡는 방법) ──
+{
+  const SRC = '사장님 답(11월 22일, 네 번째)';
+  answered.push({ topic: '배차', question: '차는 어떻게 잡나', answer: '담당자가 배차 회사에 직접 전화해서 몇 톤 차량이 언제 몇 시에 올지를 정합니다.', status: 'confirmed', evidence: SRC });
+  const s2 = mDispatch.steps[1]; if (s2.title !== '차 잡기') throw new Error('배차 2단계');
+  s2.title = '배차 회사에 전화해 차 잡기'; s2.screen = '전화(배차 회사)'; s2.look = '필요한 차 크기(몇 톤)와 와야 하는 날짜 · 시각.';
+  s2.input = '담당자가 배차 회사에 직접 전화해 「몇 톤 차량, 언제 몇 시」로 정한다.'; s2.why = '차가 정해져야 그날 노선별로 나갈 수 있다(사장님 답, 11월 22일).';
+  mDispatch.prepare = mDispatch.prepare.map(v => v === '배송 차량 연락' ? '배차 회사 전화번호(담당자에게 받는다)' : v);
+  if (!mDispatch.prepare.some(v => v.startsWith('배차 회사 전화번호'))) throw new Error('배차 준비물');
+  { const n = mDispatch.openQuestions.length; mDispatch.openQuestions = mDispatch.openQuestions.filter(v => !v.includes('차 잡는 순서')); if (mDispatch.openQuestions.length === n) throw new Error('열린 질문(차 잡는 순서)'); }
+  mDispatch.openQuestions.push('배차 회사 이름과 전화번호를 어디에 적어 두는지');
+  sourceSummary.push({ label: '사장님 답(현장팀: 차 잡는 방법)', period: '2026-11-22', count: 1 });
+}
 // 매뉴얼 묶음 — 위 블록들이 고친 내용이 모두 실리도록 맨 마지막에 만든다
 const manuals = [mReceive, mAddCancel, mShip, mDispatch, mQuarantine, mWeekend].map((m) => ({ phase: 'field', ...m }));
 const data = {
