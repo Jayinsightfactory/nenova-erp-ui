@@ -4506,3 +4506,11 @@ pm run test:canon 통과.
 3. 남은 일: 시세 승인자 · 거래처별 단가 차이 질문은 유지. 금요일 선입력의 나라별 표.
 4. 검증: validate-handover ✓, validate-handover-plain ✓, test:workflow-guides 통과. 운영 화면 미검증.
 5. 주의: 없음. 연결 목표: g03 / 학습 반영: 있음
+
+## 2026-11-22 — 1초 정적 가드레일 엔진(check-agent-guardrails) CI 장착 및 원커맨드 검증 팩(pstack-verify) 구축 (연결 목표: g19, g18)
+1. 작업 위치: nenova-erp-ui / feat/ci-agent-guardrails / C:/Users/USER/nw-swm-guardrails (+ 공용 `C:/Users/USER/nenova-pm/check-agent-guardrails.cjs`, `pstack-verify.cjs`, `tests/pstack-guardrails.test.js`).
+2. 완료된 것: LLM 토큰 0·실행 `<1초` 정적 가드레일(`scripts/check-agent-guardrails.cjs` — ① `.ps1` UTF-8 BOM, ② SVG `data-layer="wires"`→`"labels"` 및 패킷 `<circle>` 역전 차단, ③ 단독 `monospace`/`JetBrains Mono` 굴림 폴백 차단, ④ UI 금지어·슬롭 이모지 및 `/pm` raw `#hex`·`<button>` 차단, `--changed-from` diff 정밀 검사), 단위 테스트(`__tests__/agentGuardrails.test.cjs`), `package.json`(`guard:agent-slop`), `.github/workflows/erp-contract.yml`(`verify` 잡 오프라인 1초 스텝) 장착.
+3. 남은 할 일: PR CI(`verify`) 통과 즉시 squash 머지 및 `nw-swm-guardrails` worktree 정리, `@hub-twin-gemini`의 3-툴 공용 규칙 동기화 연동.
+4. 검증 상태: `nenova-pm/tests/pstack-guardrails.test.js` 전수 PASS, `nw-swm-guardrails/__tests__/agentGuardrails.test.cjs` 전수 PASS, `node C:/Users/USER/nenova-pm/pstack-verify.cjs --repo C:/Users/USER/nw-swm-guardrails` 5/5 PASS(`<2초`). 운영 DB/API/기존 화면 무접촉.
+5. 주의/잠금: 타 세션 작업트리·로컬 폴더(`pages/api/**`, `workflow-guides.json`) 무접촉. 기존 레거시 파일 오탐 방지를 위해 변경 파일/추가 라인(`--changed-from`) 범위에서만 검사. 연결 목표: g19, g18.
+검색어: check-agent-guardrails pstack-verify guard:agent-slop PS1_UTF8_BOM SVG_LAYER_ORDER MONOSPACE_GULIM_FALLBACK UI_FORBIDDEN_WORD g19 g18
