@@ -602,6 +602,37 @@ const sourceSummary = [
   { label: '부서별 신입 루틴 요약(영업부)', period: '2026-10', count: 1 },
 ];
 
+// ── 2026-11-22 사장님 답 반영(영업부: 단추 두 개 · 농장 물량 부족 · 금요일 선입력) ──
+{
+  const SRC = '사장님 답(11월 22일)';
+  const man = (id) => { const x = manuals.filter(v => v.id === id); if (x.length !== 1) throw new Error('매뉴얼을 찾지 못함: ' + id); return x[0]; };
+  const qi = (topic) => { const i = questions.findIndex(x => x.topic === topic); if (i < 0) throw new Error('질문을 찾지 못함: ' + topic); return i; };
+  const dropOpen = (m, part) => { const n = m.openQuestions.length; m.openQuestions = m.openQuestions.filter(v => !v.includes(part)); if (m.openQuestions.length === n) throw new Error('열린 질문을 찾지 못함: ' + part); };
+
+  // 1. 「클라이언트 넘버 생성」 · 「지난 주문 불러오기」
+  { const i = qi('지난 주문 불러오기'); const q0 = questions[i];
+    answered.push({ topic: q0.topic, question: q0.question, answer: '「클라이언트 넘버 생성」은 새 거래처가 생겼을 때 씁니다. 「지난 주문 불러오기」는 매 차수 같은 주문을 하는 고정 주문 거래처에 씁니다 — 매번 새로 입력하지 않고 지난 주문을 불러와서 고칩니다.', status: 'confirmed', evidence: SRC }); questions.splice(i, 1); }
+  { const m = man('customer-order-to-erp'); const s3 = m.steps[2]; const s4 = m.steps[3];
+    if (!s3.input.includes('영업이 어느 때 누르는지는 기록에 없다')) throw new Error('주문 3단계');
+    s3.input = s3.input.replace(/ ?화면에는 「클라이언트 넘버 생성」과 「지난 주문 불러오기」 버튼도 있는데 영업이 어느 때 누르는지는 기록에 없다[^.]*\./, ' 「클라이언트 넘버 생성」은 새 거래처가 생겼을 때 쓴다(사장님 답, 11월 22일).');
+    if (s3.input.includes('기록에 없다')) throw new Error('주문 3단계 치환');
+    s4.input = '매 차수 같은 주문을 하는 고정 주문 거래처는 「지난 주문 불러오기」로 지난 주문을 불러와 바뀐 수량만 고친다(사장님 답, 11월 22일). 그 밖에는: ' + s4.input;
+    m.pitfalls.push({ mistake: '고정 주문 거래처 주문을 매번 처음부터 다시 입력함', fix: '「지난 주문 불러오기」로 지난 주문을 불러와 바뀐 곳만 고친다. 불러온 뒤 이번 차수에 빠지거나 바뀐 품목이 없는지 거래처 글과 맞춰 본다.' });
+    dropOpen(m, '「지난 주문 불러오기」와 「클라이언트 넘버 생성」');
+    // 3. 금요일 선입력: 나라마다 다르다(나라별 요일은 아직 모름 → 질문 유지)
+    m.when = m.when.replace('금요일에 다음 다음 주 1차를 먼저 넣는 날도 격주로 있고,', '금요일에 다음 다음 주 1차를 먼저 넣는 날도 있는데 나라마다 다르고(사장님 답, 11월 22일),');
+    if (!m.when.includes('나라마다 다르고')) throw new Error('주문 when');
+  }
+  { const q0 = questions[qi('금요일 선입력')]; q0.question = '금요일에 다음 다음 주 1차를 먼저 넣는 것은 나라마다 다르다고 하셨습니다. 어느 나라가 금요일에 먼저 넣는 나라인가요?'; q0.why = '나라마다 다르다는 것은 사장님 답으로 받음(11월 22일). 나라별 표는 아직 없음 — 전산 주문 기록을 나라별로 나눠 보면 채울 수 있음 / ' + q0.why; }
+
+  // 2. 농장 물량이 부족할 때
+  answered.push({ topic: '농장 물량 부족', question: '농장 물량이 부족할 때 영업은 무엇을 하나', answer: '영업이 물량을 구할 방법은 없습니다. 수입 담당자가 물량을 더 찾아 주거나, 못 구하면 영업이 거래처에 취소를 요청합니다.', status: 'confirmed', evidence: SRC });
+  { const m = man('shortage-substitute-reply');
+    m.why = '농장 물량이 부족하면 영업이 물량을 구할 방법은 없다. 수입 담당자가 물량을 더 찾아 주거나, 못 구하면 영업이 거래처에 취소를 요청한다(사장님 답, 11월 22일). ' + m.why;
+    m.pitfalls.push({ mistake: '부족하다는 답을 받고 영업이 따로 물량을 구하려 함', fix: '영업이 물량을 구할 방법은 없다. 수입 담당자에게 더 찾아 달라고 하고, 못 구하면 거래처에 취소를 요청한다.' }); }
+  { const q0 = questions[qi('대체 허용 범위')]; q0.why = '부족할 때는 수입 담당자가 물량을 더 찾거나 영업이 거래처에 취소를 요청한다는 답을 받음(11월 22일). 수입부가 다른 품종 · 색을 제안했을 때 영업이 혼자 정해도 되는 범위는 아직 답이 없음 / ' + q0.why; }
+  { const q0 = questions[qi('가격표 원본')]; q0.why = '사장님이 「시세는 도착원가를 말하는 것인가」라고 되물으심(11월 22일) — 이 매뉴얼의 시세는 영업이 거래처에 알려 주는 판매 가격 목록임. 도착원가와 어떻게 이어지는지 다시 여쭐 것 / ' + q0.why; }
+}
 const data = {
   version: 1, updatedAt: '2026-11-16', dept: '영업부', sourceSummary,
   schedule: { daily, weekly, monthly }, manuals, essentials, firstDay, troubles, rooms, folderMap, tools, questions, answered, notYet, weakEvidence,
