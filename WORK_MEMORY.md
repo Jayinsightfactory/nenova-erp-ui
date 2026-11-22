@@ -4498,3 +4498,11 @@ pm run test:canon 통과.
 3. 남은 일: 금요일 선입력의 나라별 표(전산 주문 기록으로 채울 수 있음), 「시세」와 도착원가의 관계는 사장님께 다시 여쭐 것, 대체 허용 범위 질문 유지. 캡처 위 누를 곳 표시는 다음 수정안.
 4. 검증: validate-handover 3개 ✓, validate-handover-plain 3개 ✓, test:workflow-guides 통과. 운영 화면 직접 확인은 미검증.
 5. 주의: 영업부 원고는 매뉴얼 묶음(manuals)이 질문보다 먼저 만들어지므로 답 블록에서는 manuals 에서 찾아 고친다. 연결 목표: g03 / 학습 반영: 있음
+
+## 2026-11-22 영업부 인수인계: 시세 답 반영
+검색어: 인수인계 영업부 시세 시장 확인 수식 없음 가격표 원본 price-share
+1. 작업 위치: nenova-erp-ui / cld/handover-price-1122 / C:\Users\USER\nw-cld-price
+2. 완료: scripts/build-handover-sales.cjs 답 블록, data/handover-sales.json, data/handover-plain-sales.json — 시세는 영업이 시장에서 확인해 얻어 오는 정보, 정해진 수식 · 가격표 원본 없음. 질문 「가격표 원본」 닫음.
+3. 남은 일: 시세 승인자 · 거래처별 단가 차이 질문은 유지. 금요일 선입력의 나라별 표.
+4. 검증: validate-handover ✓, validate-handover-plain ✓, test:workflow-guides 통과. 운영 화면 미검증.
+5. 주의: 없음. 연결 목표: g03 / 학습 반영: 있음

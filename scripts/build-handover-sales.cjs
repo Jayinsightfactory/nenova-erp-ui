@@ -633,6 +633,18 @@ const sourceSummary = [
   { const q0 = questions[qi('대체 허용 범위')]; q0.why = '부족할 때는 수입 담당자가 물량을 더 찾거나 영업이 거래처에 취소를 요청한다는 답을 받음(11월 22일). 수입부가 다른 품종 · 색을 제안했을 때 영업이 혼자 정해도 되는 범위는 아직 답이 없음 / ' + q0.why; }
   { const q0 = questions[qi('가격표 원본')]; q0.why = '사장님이 「시세는 도착원가를 말하는 것인가」라고 되물으심(11월 22일) — 이 매뉴얼의 시세는 영업이 거래처에 알려 주는 판매 가격 목록임. 도착원가와 어떻게 이어지는지 다시 여쭐 것 / ' + q0.why; }
 }
+// ── 2026-11-22 사장님 답 반영(영업부: 시세는 시장에서 얻어 오는 정보, 정해진 수식 없음) ──
+{
+  const SRC = '사장님 답(11월 22일, 두 번째)';
+  const i = questions.findIndex(x => x.topic === '가격표 원본'); if (i < 0) throw new Error('가격표 원본 질문');
+  answered.push({ topic: '시세', question: '시세는 어떻게 정하나(가격표 원본 · 수식)', answer: '시세는 영업이 시장에서 직접 확인하고 정보를 얻어 오는 것입니다. 정해진 수식이나 가격표 원본은 없습니다.', status: 'confirmed', evidence: SRC });
+  questions.splice(i, 1);
+  const m = manuals.find(v => v.id === 'price-share'); if (!m) throw new Error('시세 매뉴얼');
+  m.why = '시세는 영업이 시장에서 직접 확인하고 정보를 얻어 오는 것이라 정해진 수식이 없다(사장님 답, 11월 22일). ' + m.why;
+  const n = m.openQuestions.length; m.openQuestions = m.openQuestions.filter(v => !v.includes('가격표 원본 파일')); if (m.openQuestions.length === n) throw new Error('열린 질문(가격표 원본)');
+  m.pitfalls.push({ mistake: '가격표나 수식을 찾느라 답이 늦어짐', fix: '정해진 가격표나 수식은 없다. 시장에서 확인한 시세와 수입방의 가격 답을 모아 안내한다.' });
+  { const r = notYet.findIndex(x => x.title === '시세·가격표 안내'); if (r >= 0) notYet[r].reason = '시세는 영업이 시장에서 얻어 오는 정보라 정해진 수식이 없다(사장님 답). 화면 기록이 몇 건뿐이라 순서는 추정이다.'; }
+}
 const data = {
   version: 1, updatedAt: '2026-11-16', dept: '영업부', sourceSummary,
   schedule: { daily, weekly, monthly }, manuals, essentials, firstDay, troubles, rooms, folderMap, tools, questions, answered, notYet, weakEvidence,
