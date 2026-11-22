@@ -8,7 +8,7 @@
 // 탭3 Orbit 전체: /my-work.html(작업 흐름·시간표·화면 타임라인 등).
 // 탭 도입 레이더(관리자 전용): data/runtime/adoption-ledger.json(사장님 PC 장부 업로드) — 레이더 4링·추이·실험·후보·결정·문제 등록부. mineOnly 에는 없음.
 import fs from 'fs';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import MenuBackButton from '../components/MenuBackButton';
 import ArchFlowChart from '../components/pm/ArchFlowChart';
@@ -662,6 +662,43 @@ function Person({ p }) {
   );
 }
 
+// 직원이 엑셀로 되풀이해 만드는 자료 → 웹으로 옮길 후보 (nenova-work-features/build-excel-candidates.js 가 매일 만든다, 2026-11-22 사장님 지시)
+// 주어는 업무 자료(엑셀 파일 종류)다. 부서만 적고 사람 이름은 싣지 않는다.
+function ExcelCandidates({ x }) {
+  const [open, setOpen] = useState(null);
+  if (!x || !Array.isArray(x.rows) || !x.rows.length) return null;
+  const tone = { '웹 없음': 'xneed', '웹 있는데 엑셀': 'xgap', '짝 미정': 'xask', '웹으로 넘어가는 중': 'xok' };
+  const by = x.totals?.byStatus || {};
+  return (
+    <section className="xcand">
+      <h2>엑셀로 되풀이해 만드는 자료 <small>{x.from} ~ {x.to} · {x.rows.length}종 · 생성 {String(x.generatedAt).slice(0, 10)}</small></h2>
+      <p className="xpurpose"><b>목적</b> 직원이 엑셀로 매주 되풀이해 만드는 자료를 먼저 찾아 웹으로 옮기고, 웹 화면을 만든 뒤에는 그 엑셀이 실제로 줄었는지 확인한다.</p>
+      <p className="dim">웹 없음 {by['웹 없음'] || 0} · 웹 있는데 엑셀 {by['웹 있는데 엑셀'] || 0} · 짝 미정 {by['짝 미정'] || 0} · 웹으로 넘어가는 중 {by['웹으로 넘어가는 중'] || 0}. {x.basis}</p>
+      <table className="tbl xtbl">
+        <thead><tr><th>상태</th><th>엑셀 자료</th><th>부서</th><th className="num">엑셀 화면</th><th className="num">주당(추정)</th><th>같은 일의 웹 화면</th><th className="num">웹 화면</th><th>제안</th></tr></thead>
+        <tbody>{x.rows.map((r, i) => (
+          <Fragment key={r.name}>
+            <tr className="xrow" onClick={() => setOpen(open === i ? null : i)} title="누르면 주별 건수와 파일 이름을 봅니다">
+              <td><span className={'xst ' + (tone[r.status] || '')}>{r.status}</span></td>
+              <td><b>{r.name}</b></td>
+              <td>{(r.depts || []).join(' · ')}</td>
+              <td className="num">{r.excelCount}건 · {r.weeks}주</td>
+              <td className="num">약 {r.minutesPerWeek}분</td>
+              <td>{r.web ? <a href={r.web} onClick={(e) => e.stopPropagation()}>{r.webName}</a> : <span className="dim">없음</span>}</td>
+              <td className="num">{r.web ? r.webCount + '건' : '-'}</td>
+              <td>{r.proposal}</td>
+            </tr>
+            {open === i && <tr><td colSpan={8} className="xmore">
+              <div><b>주별 건수</b> {(r.weekly || []).map((w) => <span key={w.week} className="chip">{w.week.slice(5)} 엑셀 {w.excel}{r.web ? ' · 웹 ' + w.web : ''}</span>)}</div>
+              <div><b>많이 열린 파일</b> {(r.files || []).map((f) => <span key={f} className="chip">{f}</span>)}</div>
+              <div className="dim">처음 {r.first} · 마지막 {r.last} · 기록된 날 {r.days}일</div>
+            </td></tr>}
+          </Fragment>))}</tbody>
+      </table>
+    </section>
+  );
+}
+
 function Proposals({ data }) {
   if (!data) return <p className="warn">data/work-feature-proposals.json 이 없습니다.</p>;
   return (
@@ -669,6 +706,7 @@ function Proposals({ data }) {
       <h1>관찰 데이터로 뽑은 네노바웹 기능 추가 후보</h1>
       <p className="dim">전산 기록 {data.period?.start} ~ {data.period?.end} · 화면 해독 {data.visPeriod?.from} ~ {data.visPeriod?.to} · 생성 {String(data.generatedAt).slice(0, 10)} · AI 초안(직원 확인 전)</p>
       <p>{data.basis}</p>
+      <ExcelCandidates x={data.excel} />
       <h2>우선순위 (여러 사람이 같이 쓰는 것부터)</h2>
       <ol className="shared">{data.shared.map((s) => <li key={s.rank}><b>{s.title}</b> <span className="chip">{s.people.join(' · ')}</span><div className="dim">{s.why}</div></li>)}</ol>
       <div className="jump">{data.people.map((p) => <a key={p.name} href={'#p-' + p.name}>{p.name}</a>)}</div>
@@ -1017,9 +1055,13 @@ function FeatureTab({ name, render }) {
 }
 function ProposalsTab() {
   const sims = useFeature('simulations');
-  const pr = useFeature('proposals', null, !sims.loading && !arr(sims.data?.people).some((p) => arr(p.items).length));
+  const pr = useFeature('proposals'); // 엑셀 되풀이 자료 표(excel 칸)를 항상 맨 위에 보이려고 늘 불러온다
   if (sims.loading) return <Loading st={sims} />;
-  return <Simulator sims={sims.data} fallback={<Loading st={pr}><Proposals data={pr.data} /></Loading>} />;
+  const hasSim = arr(sims.data?.people).some((p) => arr(p.items).length);
+  return (<>
+    {hasSim && pr.data?.excel && <div className="doc xtop"><ExcelCandidates x={pr.data.excel} /></div>}
+    <Simulator sims={sims.data} fallback={<Loading st={pr}><Proposals data={pr.data} /></Loading>} />
+  </>);
 }
 
 export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, mine = null, mineOnly = false }) {
@@ -1186,6 +1228,12 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
         .dim{color:#475569}.warn{color:#b45309}
         .chip{display:inline-block;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;padding:1px 7px;margin:2px 3px 2px 0;font-size:11.5px;color:#334155}
         .chip em{color:#64748b;font-style:normal}
+        .doc.xtop{padding-bottom:0}.xcand{margin:14px 0 26px}.xcand h2{font-size:15.5px;margin:18px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px;color:#0f172a}
+        .xpurpose{font-size:14px;color:#0f172a;border-left:4px solid #334155;padding:6px 10px;background:#f8fafc;margin:8px 0}
+        .xtbl{font-size:13.5px}.xtbl .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.xrow{cursor:pointer}
+        .xst{display:inline-block;white-space:nowrap;border-radius:4px;padding:2px 8px;font-size:12.5px;font-weight:700;border:1px solid #cbd5e1;color:#334155;background:#f1f5f9}
+        .xst.xneed{color:#9f1239;border-color:#fda4af;background:#fff1f2}.xst.xgap{color:#92400e;border-color:#fcd34d;background:#fffbeb}.xst.xok{color:#166534;border-color:#86efac;background:#f0fdf4}
+        .xmore{background:#f8fafc!important}.xmore div{margin:3px 0}.xmore .chip{font-size:12.5px}
         .chips{display:flex;flex-wrap:wrap}
         .stats div{margin:3px 0}
         .tbl{width:100%;border-collapse:collapse;font-size:12.5px;background:#ffffff}.tbl th,.tbl td{border:1px solid #e2e8f0;padding:7px 9px;vertical-align:top;text-align:left;color:#0f172a}
