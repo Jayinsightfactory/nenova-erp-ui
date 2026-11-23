@@ -3,7 +3,26 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {exactNzVarietyProduct} from '../lib/packingOriginEvidence.js';
 import {resolveInvoiceHeader,isNzBloomSupplierMatch} from '../lib/invoiceReceiptAutoFill.js';
-import {fillConfirmedNzReceiptLine,nzConfirmedBunchQuantity,nzReceiptLineReview} from '../lib/nzReceiptUnits.js';
+import {applyNzCommonUnits,fillConfirmedNzReceiptLine,nzConfirmedBunchQuantity,nzReceiptLineReview} from '../lib/nzReceiptUnits.js';
+
+test('NZ common evidence applies only to selected compatible lines and does not overwrite overrides',()=>{
+  const rows=[[240,7.57,1816.8],[200,4.7,940],[300,4.99,1497]].map(([units,unitPrice,lineAmount],i)=>({
+    lineId:String(i),lineNo:i+1,currency:'NZD',unitPrice,lineAmount,
+    sourceEvidence:{nzPrintedUnits:units,sourceFieldStates:{unitPrice:{rawValue:unitPrice},lineAmount:{rawValue:lineAmount}}},
+  }));
+  const settings={unit:'송이',reason:'TEST_ONLY verified packing',ratio:'5'};
+  const result=applyNzCommonUnits(rows,['0','1','2'],settings);
+  assert.equal(result.applied,3);
+  assert.deepEqual(result.lines.map(line=>[line.stemQuantity,line.bunchQuantity]),[[240,48],[200,40],[300,60]]);
+  assert.deepEqual(result.lines.map(line=>line.lineAmount),[1816.8,940,1497]);
+  const override={...rows[1],priceUnit:'단',reviewed:{nzUnitReason:'manual exception'}};
+  const scoped=applyNzCommonUnits([rows[0],override,rows[2]],['0','1'],settings);
+  assert.deepEqual(scoped.skipped,[2]);
+  assert.equal(scoped.lines[1],override);
+  assert.equal(scoped.lines[2],rows[2]);
+  assert.equal(applyNzCommonUnits(rows,['0'],{...settings,ratio:'7'}).applied,0);
+  assert.equal(applyNzCommonUnits(rows,['0'],{...settings,reason:''}).applied,0);
+});
 import {toReceiptDraftPayload} from '../lib/importPackingReceiptAdapter.js';
 
 test('NZ automatic match requires a unique active country, exact variety, grade and both sizes',()=>{
