@@ -1,6 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runReceiptPreparation, verifyReceiptDocument } from '../lib/invoiceReceiptWorkflow.js';
+import { RECEIPT_MATCH_WARNING, receiptMatchWarnings } from '../lib/receiptMatchWarnings.js';
+
+test('matching warning follows current confirmation on entry, edit and resumed draft without removing other blockers',async()=>{
+  for(const year of ['2025','2026']) for(const count of [38,2]) {
+    const document={...base(),orderYear:year,sourceWarnings:[RECEIPT_MATCH_WARNING],
+      lines:Array.from({length:count},(_,i)=>({lineId:String(i),prodKey:i+1,reviewed:{erpMatchConfirmed:true}}))};
+    let saved=0,previewed=0;
+    const run=()=>runReceiptPreparation({record:{document,dirty:true},saveDraft:async d=>{saved++;return {...d,revision:2};},
+      previewDraft:async d=>{previewed++;return preview(d);}});
+    assert.equal((await run()).status,'WAITING_CONFIRMATION');assert.equal(saved,1);assert.equal(previewed,1);
+    document.lines[0].reviewed.erpMatchConfirmed=false;
+    assert.equal((await run()).status,'BLOCKED');assert.equal(saved,1);
+    document.lines[0].reviewed.erpMatchConfirmed=true;document.sourceWarnings.push('GW 원문 검토 필요');
+    assert.deepEqual(receiptMatchWarnings(document),['GW 원문 검토 필요']);assert.equal((await run()).status,'BLOCKED');assert.equal(saved,1);
+  }
+});
 
 const base = () => ({ documentId: '11111111-1111-4111-8111-111111111111', sourceHash: 'a'.repeat(64),
   orderYear: '2026', orderWeek: '41-01', revision: 1, receiptStatus: 'DRAFT',
