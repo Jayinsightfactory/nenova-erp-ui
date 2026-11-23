@@ -20,3 +20,7 @@
 .root input[aria-required="true"][aria-invalid="false"]{background:#fff;border-color:#b9c9df;box-shadow:none}
 .root [data-cost-next="true"]{outline:3px solid #da9200!important;outline-offset:4px;background-color:#fff3c4!important;color:#172e54!important;scroll-margin:100px}
 .root button[data-cost-download][data-cost-next="true"]{outline-color:#188257!important;background:#e5f7ec!important;color:#105335!important}
+.cloudCategories button{min-height:40px;padding:8px 12px;border:1px solid #aebccd;border-radius:8px;background:#fff;color:#24344a;font:inherit;cursor:pointer}
+.cloudCategories button[aria-pressed="true"]{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+.cloudCategories button:focus-visible{outline:3px solid #60a5fa;outline-offset:2px}
+.cloudCategories button:disabled{opacity:.5;cursor:not-allowed}

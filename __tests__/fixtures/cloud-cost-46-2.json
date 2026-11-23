@@ -1,0 +1,310 @@
+{
+  "sourceHash": "534642102c2b66c40d2f25c362114142b6c019430db9ebd9fb1915e623327386",
+  "fx": 210,
+  "gw": 1896,
+  "freight": 24087,
+  "customs": 1520160,
+  "rows": [
+    {
+      "sourceRow": 33,
+      "categoryCode": 1,
+      "quantity": 30,
+      "price": 20,
+      "expected": 9145.415004365117
+    },
+    {
+      "sourceRow": 34,
+      "categoryCode": 1,
+      "quantity": 160,
+      "price": 23,
+      "expected": 9929.135004365116
+    },
+    {
+      "sourceRow": 35,
+      "categoryCode": 1,
+      "quantity": 210,
+      "price": 30,
+      "expected": 11757.815004365117
+    },
+    {
+      "sourceRow": 36,
+      "categoryCode": 1,
+      "quantity": 10,
+      "price": 28,
+      "expected": 11235.335004365117
+    },
+    {
+      "sourceRow": 37,
+      "categoryCode": 1,
+      "quantity": 40,
+      "price": 28,
+      "expected": 11235.335004365117
+    },
+    {
+      "sourceRow": 38,
+      "categoryCode": 1,
+      "quantity": 20,
+      "price": 24,
+      "expected": 10190.375004365116
+    },
+    {
+      "sourceRow": 39,
+      "categoryCode": 1,
+      "quantity": 20,
+      "price": 27,
+      "expected": 10974.095004365117
+    },
+    {
+      "sourceRow": 40,
+      "categoryCode": 6,
+      "quantity": 40,
+      "price": 7.5,
+      "expected": 3846.241152952709
+    },
+    {
+      "sourceRow": 41,
+      "categoryCode": 1,
+      "quantity": 30,
+      "price": 15,
+      "expected": 7839.215004365117
+    },
+    {
+      "sourceRow": 42,
+      "categoryCode": 1,
+      "quantity": 20,
+      "price": 35,
+      "expected": 13064.015004365117
+    },
+    {
+      "sourceRow": 43,
+      "categoryCode": 1,
+      "quantity": 20,
+      "price": 39,
+      "expected": 14108.975004365115
+    },
+    {
+      "sourceRow": 44,
+      "categoryCode": 1,
+      "quantity": 20,
+      "price": 40,
+      "expected": 14370.215004365116
+    },
+    {
+      "sourceRow": 45,
+      "categoryCode": 1,
+      "quantity": 10,
+      "price": 47,
+      "expected": 16198.895004365117
+    },
+    {
+      "sourceRow": 46,
+      "categoryCode": 5,
+      "quantity": 20,
+      "price": 15,
+      "expected": 6537.663739461175
+    },
+    {
+      "sourceRow": 47,
+      "categoryCode": 5,
+      "quantity": 460,
+      "price": 15,
+      "expected": 6537.663739461175
+    },
+    {
+      "sourceRow": 48,
+      "categoryCode": 7,
+      "quantity": 160,
+      "price": 23,
+      "expected": 10579.910636817087
+    },
+    {
+      "sourceRow": 49,
+      "categoryCode": 10,
+      "quantity": 25,
+      "price": 22,
+      "expected": 6406.525381089178
+    },
+    {
+      "sourceRow": 50,
+      "categoryCode": 10,
+      "quantity": 25,
+      "price": 22,
+      "expected": 6406.525381089178
+    },
+    {
+      "sourceRow": 51,
+      "categoryCode": 10,
+      "quantity": 25,
+      "price": 22,
+      "expected": 6406.525381089178
+    },
+    {
+      "sourceRow": 52,
+      "categoryCode": 11,
+      "quantity": 20,
+      "price": 24,
+      "expected": 8373.452531723213
+    },
+    {
+      "sourceRow": 53,
+      "categoryCode": 12,
+      "quantity": 10,
+      "price": 20,
+      "expected": 8331.945463800153
+    },
+    {
+      "sourceRow": 54,
+      "categoryCode": 13,
+      "quantity": 10,
+      "price": 20,
+      "expected": 8331.945463800153
+    },
+    {
+      "sourceRow": 55,
+      "categoryCode": 14,
+      "quantity": 10,
+      "price": 35,
+      "expected": 12250.545463800154
+    },
+    {
+      "sourceRow": 56,
+      "categoryCode": 20,
+      "quantity": 20,
+      "price": 35,
+      "expected": 10555.808189565048
+    },
+    {
+      "sourceRow": 57,
+      "categoryCode": 15,
+      "quantity": 30,
+      "price": 14,
+      "expected": 5483.290937410336
+    },
+    {
+      "sourceRow": 58,
+      "categoryCode": 15,
+      "quantity": 10,
+      "price": 14,
+      "expected": 5483.290937410336
+    },
+    {
+      "sourceRow": 59,
+      "categoryCode": 15,
+      "quantity": 30,
+      "price": 14,
+      "expected": 5483.290937410336
+    },
+    {
+      "sourceRow": 60,
+      "categoryCode": 15,
+      "quantity": 40,
+      "price": 14,
+      "expected": 5483.290937410336
+    },
+    {
+      "sourceRow": 61,
+      "categoryCode": 15,
+      "quantity": 20,
+      "price": 14,
+      "expected": 5483.290937410336
+    },
+    {
+      "sourceRow": 62,
+      "categoryCode": 15,
+      "quantity": 10,
+      "price": 14,
+      "expected": 5483.290937410336
+    },
+    {
+      "sourceRow": 63,
+      "categoryCode": 4,
+      "quantity": 70,
+      "price": 18,
+      "expected": 7806.1538632949405
+    },
+    {
+      "sourceRow": 64,
+      "categoryCode": 4,
+      "quantity": 280,
+      "price": 18,
+      "expected": 7806.1538632949405
+    },
+    {
+      "sourceRow": 65,
+      "categoryCode": 21,
+      "quantity": 15,
+      "price": 18,
+      "expected": 6764.468189565049
+    },
+    {
+      "sourceRow": 66,
+      "categoryCode": 8,
+      "quantity": 80,
+      "price": 23,
+      "expected": 9281.84592323519
+    },
+    {
+      "sourceRow": 67,
+      "categoryCode": 16,
+      "quantity": 20,
+      "price": 14,
+      "expected": 6237.377201514058
+    },
+    {
+      "sourceRow": 68,
+      "categoryCode": 16,
+      "quantity": 20,
+      "price": 14,
+      "expected": 6237.377201514058
+    },
+    {
+      "sourceRow": 69,
+      "categoryCode": 17,
+      "quantity": 20,
+      "price": 12,
+      "expected": 7055.495004365117
+    },
+    {
+      "sourceRow": 70,
+      "categoryCode": 18,
+      "quantity": 70,
+      "price": 32,
+      "expected": 12801.728979867257
+    },
+    {
+      "sourceRow": 71,
+      "categoryCode": 18,
+      "quantity": 80,
+      "price": 32,
+      "expected": 12801.728979867257
+    },
+    {
+      "sourceRow": 72,
+      "categoryCode": 18,
+      "quantity": 40,
+      "price": 32,
+      "expected": 12801.728979867257
+    },
+    {
+      "sourceRow": 73,
+      "categoryCode": 19,
+      "quantity": 10,
+      "price": 22,
+      "expected": 8854.425463800153
+    },
+    {
+      "sourceRow": 74,
+      "categoryCode": 19,
+      "quantity": 10,
+      "price": 22,
+      "expected": 8854.425463800153
+    },
+    {
+      "sourceRow": 75,
+      "categoryCode": 19,
+      "quantity": 10,
+      "price": 22,
+      "expected": 8854.425463800153
+    }
+  ]
+}

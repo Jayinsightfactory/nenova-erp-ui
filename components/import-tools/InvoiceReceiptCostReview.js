@@ -11,6 +11,8 @@ import { validateInvoiceCostReadback } from '../../lib/invoiceReceiptCostWorkflo
 import { AU_ORIGINAL_SOURCE, initialAuOriginalInputs, calculateAuOriginalCustoms } from '../../lib/auOriginalCostInputs.js';
 import { nlInvoiceTariffRate } from '../../lib/nlInvoiceTariffReference.js';
 import { nlInvoiceDraftTemplate } from '../../lib/nlInvoiceDraftDefaults.js';
+import {isCloudInvoice,matchCloudCategory,cloudCustomsTotal,CLOUD_CUSTOMS_DEFAULTS} from '../../lib/chinaCloudCost.js';
+import CloudCostCategories from './CloudCostCategories';
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -85,7 +87,7 @@ const GROUP_LABELS = Object.freeze({ ROSE: '장미', CARNATION: '카네이션', 
 const DERIVED_GROUP_LINE_FIELDS = ['grossWeightKg', 'volumeWeightKg', 'allocationShare'];
 function groupLabel(groupId) { return GROUP_LABELS[groupId] || groupId; }
 function visibleLineFields(formula) {
-  return formulaLineFields(formula).filter(key => key !== 'groupId' && !(formulaGroupIds(formula).length && DERIVED_GROUP_LINE_FIELDS.includes(key)));
+  return formulaLineFields(formula).filter(key => !['groupId','categoryCode'].includes(key) && !(formulaGroupIds(formula).length && DERIVED_GROUP_LINE_FIELDS.includes(key)));
 }
 function formulaGroupIds(formula) {
   return [...new Set(formula?.costGroupIds || formula?.groupIds || [])].filter(id => typeof id === 'string' && id.length > 0);
@@ -164,6 +166,7 @@ function initialForm(document, receiptLines) {
       freightCurrency: String(freight.currency).trim().toUpperCase(),
     } : {}),
     ...saved,
+    ...(verifiedFormula?.formulaId==='CN_CLOUD_CBM_V1'?{...CLOUD_CUSTOMS_DEFAULTS,...Object.fromEntries(Object.keys(CLOUD_CUSTOMS_DEFAULTS).filter(k=>saved[k]!=null).map(k=>[k,saved[k]])),cloudCustomsMode:saved.cloudCustomsMode??(saved.customsTotalKRW!=null?'TOTAL':'FORMULA'),expenseBasis:saved.expenseBasis??'ESTIMATED',estimateSource:saved.estimateSource??'46-2 CLOUD cbm 원본 기준값 · 실제 비용 확인 전 추정 · 국내운송비는 해당 자료의 195,000원이며 중량별 확정요율 아님'}:{}),
     ...(vn && vn.total!==null && numberOrNull(saved.customsTotalKRW)===null ? {customsTotalKRW:vn.total,expenseBasis:'ESTIMATED',estimateSource:VN_CUSTOMS_SOURCE} : {}),
     ...(vn && verifiedFormula.freightIncluded && numberOrNull(saved.freightAmount)===null && !recognizedFreight ? {freightAmount:0,freightCurrency:uniformNativeCurrency} : {}),
     ...(verifiedFormula?.country === 'AU' ? {
@@ -206,6 +209,7 @@ function initialForm(document, receiptLines) {
           && Number(line.sourceEvidence.grossWeightKg) >= 0 ? Number(line.sourceEvidence.grossWeightKg) : ''),
       volumeWeightKg: savedLines.get(String(line.lineId).toLowerCase())?.volumeWeightKg ?? '',
       groupId: String(savedLines.get(String(line.lineId).toLowerCase())?.groupId ?? ''),
+      categoryCode: savedLines.get(String(line.lineId).toLowerCase())?.categoryCode ?? (verifiedFormula?.formulaId==='CN_CLOUD_CBM_V1'?matchCloudCategory(line.originalName):null) ?? '',
     })),
   };
 }
@@ -248,6 +252,7 @@ function applicableFormulaId(document) {
 function applicableFormulas(document) {
   const country = documentCountry(document), transport = documentTransport(document);
   return Object.values(INVOICE_COST_FORMULAS).filter(formula => formula.country === country && formula.transportMode === transport
+    && (formula.formulaId==='CN_CLOUD_CBM_V1'?isCloudInvoice(document):!(country==='CN'&&transport==='AIR'&&isCloudInvoice(document)))
     && country && transport && formula.formulaId && formula.formulaSourceHash && formula.formulaVersion);
 }
 
@@ -846,7 +851,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       <Field label="환율 기준일"><input type="date" value={form.exchangeRateDate} onInput={event => update('exchangeRateDate', event.currentTarget.value)} onChange={event => update('exchangeRateDate', event.target.value)} /></Field></>}
       <Field label="운임 원금"><input type="number" step="0.000001" min="0" value={form.freightAmount} onChange={event => update('freightAmount', event.target.value)} /></Field>
       {nativePreview && form.formulaId === 'AU_CNF_BUNCH_V1' && <Field label="호주 통관비 계산 방식"><select value={form.auOriginalMode || 'TOTAL'} onChange={event => update('auOriginalMode', event.target.value)}><option value="FORMULA">원본 수식 · 기본값 적용</option><option value="TOTAL">확인한 합계 직접 입력</option></select></Field>}
-      {(!nativePreview || form.formulaId !== 'CN_SEA_ACTUAL_V1') && <Field label="통관비 합계 (KRW)"><input type="number" step="0.000001" min="0" readOnly={form.formulaId === 'AU_CNF_BUNCH_V1' && form.auOriginalMode === 'FORMULA'} value={form.formulaId === 'AU_CNF_BUNCH_V1' && form.auOriginalMode === 'FORMULA' ? calculateAuOriginalCustoms(form.auOriginal).total ?? '' : form.customsTotalKRW} onChange={event => update('customsTotalKRW', event.target.value)} placeholder="공식 기준 확인 · 누락은 0이 아님" /></Field>}
+      {(!nativePreview || form.formulaId !== 'CN_SEA_ACTUAL_V1') && <Field label="통관비 합계 (KRW)"><input type="number" step="0.000001" min="0" readOnly={(form.formulaId === 'AU_CNF_BUNCH_V1' && form.auOriginalMode === 'FORMULA')||(form.formulaId==='CN_CLOUD_CBM_V1'&&form.cloudCustomsMode==='FORMULA')} value={form.formulaId==='CN_CLOUD_CBM_V1'&&form.cloudCustomsMode==='FORMULA'?cloudCustomsTotal(document,receiptLines,payloadOf(form))??'':form.formulaId === 'AU_CNF_BUNCH_V1' && form.auOriginalMode === 'FORMULA' ? calculateAuOriginalCustoms(form.auOriginal).total ?? '' : form.customsTotalKRW} onChange={event => update('customsTotalKRW', event.target.value)} placeholder="공식 기준 확인 · 누락은 0이 아님" /></Field>}
       {!nativePreview && <Field label="비용 원천 식별값" wide><input value={form.costSourceId} onChange={event => update('costSourceId', event.target.value)} placeholder="공급자 + 전표번호 + 비용항목 + 통화" /></Field>}
       <Field label="통관비 기준"><select disabled={form.formulaId === 'AU_CNF_BUNCH_V1' && form.auOriginalMode === 'FORMULA'} value={form.formulaId === 'AU_CNF_BUNCH_V1' && form.auOriginalMode === 'FORMULA' ? 'ESTIMATED' : form.expenseBasis || 'CONFIRMED'} onChange={event => update('expenseBasis', event.target.value)}><option value="CONFIRMED">확인된 비용</option><option value="ESTIMATED">이전 자료로 추정한 비용</option></select></Field>
       {form.expenseBasis === 'ESTIMATED' && <Field label="추정 근거 (실제 청구액 아님)" wide><input value={form.estimateSource || ''} onChange={event => update('estimateSource', event.target.value)} placeholder="원본 파일 · 기준 차수 · 금액과 계산식" /></Field>}
@@ -956,6 +961,16 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
         })}</tbody></table>
     </div>
 
+    {form.formulaId==='CN_CLOUD_CBM_V1'&&<>
+      <details className={styles.evidence}><summary>CLOUD 원본 통관비·허가증 기준 보기/수정</summary>
+        <p>원본 기준값으로 추정합니다. 국내운송비 195,000원은 해당 자료의 값이며 모든 중량의 고정요금이 아닙니다. 실제 견적이 다르면 수정하세요.</p>
+        <div className={styles.formGrid}>
+          <Field label="통관비 계산"><select value={form.cloudCustomsMode} onChange={e=>update('cloudCustomsMode',e.target.value)}><option value="FORMULA">원본 수식 자동 계산</option><option value="TOTAL">확인된 합계 직접 지정</option></select></Field>
+          {Object.entries({cloudWarehousePerKg:'백상 원/kg',cloudBrokerage:'통관 수수료 원',cloudQuarantinePerCategory:'검역 원/품종',cloudDomesticTransport:'국내운송비 원',cloudMiscellaneous:'기타비 원',cloudDisinfection:'소독비 원',cloudOrchidPermitNative:'호접 허가증 CNY'}).map(([key,label])=><Field key={key} label={label}><input type="number" min="0" step="any" value={form[key]??''} onChange={e=>update(key,e.target.value)}/></Field>)}
+        </div><p>자동 계산 통관비: {money(cloudCustomsTotal(document,receiptLines,payloadOf(form)))}</p>
+      </details>
+      <CloudCostCategories lines={receiptLines} inputs={form.lineInputs} onChange={updateLine} disabled={busy}/>
+    </>}
     <div className={styles.actions}>
       <button data-cost-preview type="button" onClick={runPreview} disabled={busy}>입력값으로 미리보기</button>
       {nativePreview ? <button data-cost-download type="button" className={styles.primary} disabled={downloadFeedback.disabled} title={downloadFeedback.reason || '미승인 계산본을 다운로드합니다.'} aria-describedby={downloadFeedback.disabled ? 'cost-download-reason' : undefined} onClick={async () => {

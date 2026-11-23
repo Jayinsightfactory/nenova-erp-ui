@@ -1,22 +1,22 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-16T02:06:18.016Z",
+  "recordedAt": "2026-11-23T02:26:17.611Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 43.3,
+  "duration": 46.65,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "6c4a118aedbde31475bc3d06e674869d183c1f86491c81c7a2cf0040041db7ec",
-  "captionsSha256": "fc6e62fcb3ae6a8b1d5ca181db752426ef10dade964a27de5883242035176486",
+  "videoSha256": "ec81abe2118a1f88233d843ccf964bec869cce8ba8e99dd885445bbf98084d5b",
+  "captionsSha256": "ddb1ab86bb3f94bca20036a041bbc267dcab87b6a7596642c99c7ee0f99a15fe",
   "sourceHashes": {
     "components/import-tools/NativeReceiptCost.js": "5fcf1c70b060c629a654a6f3df37aba1fc10068796354522bf70126aabd56f81",
-    "components/import-tools/InvoiceReceiptCostReview.js": "8553b09b4b964f3b990e6b37ce566004fbb51381de4a15c1da3be301136e157d"
+    "components/import-tools/InvoiceReceiptCostReview.js": "3a31c6e4b036d45be989c8f0be442d5d57e2ee533a4ec895be2ecc011870955b"
   },
   "presentation": {
-    "numberedSteps": 3,
+    "numberedSteps": 4,
     "zoom": "post-capture-1.4x",
     "transitionSeconds": 1.2,
     "captionBand": "unscaled-bottom-180px",
@@ -29,24 +29,31 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 3.4892888999999996,
-        "x": 960,
-        "y": 527.171875,
-        "end": 9.4107841
+        "start": 3.4387209000000003,
+        "x": 254.5078125,
+        "y": 539.921875,
+        "end": 9.355826999999998
       },
       {
         "number": 2,
-        "start": 13.104384099999999,
-        "x": 620.7890625,
-        "y": 540.171875,
-        "end": 21.898538199999997
+        "start": 13.051064799999999,
+        "x": 508.09375,
+        "y": 540.015625,
+        "end": 21.2269991
       },
       {
         "number": 3,
-        "start": 25.6210583,
+        "start": 24.8607923,
+        "x": 620.7890625,
+        "y": 539.921875,
+        "end": 33.4204717
+      },
+      {
+        "number": 4,
+        "start": 37.072663999999996,
         "x": 1042.4609375,
-        "y": 582.671875,
-        "end": 43.141865300000006
+        "y": 581.515625,
+        "end": 46.466929099999994
       }
     ]
   }
