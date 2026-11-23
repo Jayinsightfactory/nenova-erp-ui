@@ -9,7 +9,10 @@
     "lib/invoiceReceiptCostExport.js",
     "lib/invoiceCostExportProfiles.js",
     "components/import-tools/CloudCostCategories.js",
-    "components/import-tools/InvoiceReceiptCostReview.js"
+    "components/import-tools/InvoiceReceiptCostReview.js",
+    "lib/nativeReceiptCostEvidence.js",
+    "data/native-cost-source-evidence.json",
+    "lib/nativeReceiptCost.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -36,7 +39,8 @@
   },
   "requiredTestFiles": [
     "__tests__/chinaCloudCost.test.js",
-    "__tests__/chinaCloudCostWorkbook.test.js"
+    "__tests__/chinaCloudCostWorkbook.test.js",
+    "__tests__/nativeReceiptCostEvidence.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -56,5 +60,6 @@
     "npm run test:erp-manifest -- --changed-from origin/master",
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build"
-  ]
+  ],
+  "nativeWorkbookEvidence": "2026-11-23: verified archived CN-CLD packing SHA0d47d734; exact scoped native digest and zero-amount GW/CW typo pair only. Cost source exclusion and 2543kg metadata, freight24087 and category6/21 defaults; native prices and all ERP ledgers preserved. Missing/stale/cross-year evidence remains blocked. docs/plans/cloud-native-source-2026-11-23.md"
 }
