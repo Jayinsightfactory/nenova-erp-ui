@@ -4659,3 +4659,14 @@ pm run test:canon 통과.
 3. 남은 할 일: 최종pstack→PR/CI→머지/Cafe24배포→운영Chrome실제다운로드·파일검산. 실제운영다운로드는아직미완료.
 4. 검증 상태: 전체ERP계약exit0,manifest238/dnSpy/ERP쓰기0API/productionbuild/메뉴3PASS. 표적67PASS·9조건부skip,새증거4PASS·최종출력회귀9PASS, 실제SELECT재생·nativeExcel PASS. 중복전체검사재실행없음.
 5. 주의/잠금: 본worktree전용. 운영Warehouse/Stock/Order/Shipment/Estimate/손익원장쓰기0,원본엑셀수정0. 연결목표g17/g19·실이익회수미측정·진행률상향0. 사용자가받을최종다운로드파일은보존.
+
+## 2026-11-23 · 자동 실행 및 업로드 폭주 방지 구현
+- 11/19 분 단위 읽기 전용 진단 Actions45109293587: 17:18 업로드4000요청/오류3338, 이벤트루프 최대3731ms. 주요 오류17:16~23은 reload17:28/35/44와 불일치. 특정 Codex/직원 기인 미확정.
+- 인증 후 파일 해석 전 공통8건/초·burst8 제한, 초과429/Retry-After5·success:false. 원본과 ERP SQL/원장 쓰기정책 보존. OPTIONS로 운영 적용 버전을 읽기 전용 확인.
+- Windows 첫 설치 실행에서 자동 시작 등록, 사용자/OS 해제 보존, 홈 켜기/끄기, 로그인 기동15~45초 분산. 실제 Electron 등록/조회/해제 PASS. 실제 직원 재부팅/전체 설치/초과 파일 재시도 완료는 미검증.
+- 검색어: 자동실행 로그인 nenova-autostart drive-ingest 429 업로드 폭주 3731ms 45109293587
+1. 작업 위치: nenova-erp-ui / codex/startup-upload-audit-1123 / C:/Users/USER/nw-cdx-startup-audit-1123 / PR 생성 전.
+2. 완료된 것: startup.cjs·홈 설정·NSIS 제거 정책·8req/s admission·실제 핸들러 테스트·운영 OPTIONS 진단. 일정 가이드14단계526.5초 실제 재녹화/MP4/VTT/증거 갱신. 기존 탭 복구 방식 유지.
+3. 남은 할 일: 최신 master 병합·pstack·PR/CI·squash·Cafe24와 Desktop 배포·운영 read-only 확인.
+4. 검증 상태: Desktop95/95, native Windows 등록/해제, 별도 프로세스 restore, Electron smoke, startup 키보드/3해상도, admission5/5, 전체 ERP계약/dnSpy/manifest238/쓰기1API/Next production build PASS. 가이드1920/390 실제 재생·자막·목차 PASS, 영상 앞/중간/끝 육안 확인. 직원 PC 재부팅 미검증.
+5. 주의/잠금: 본 worktree 전용. 운영 업로드 부하 재현/원장 변경0. 승인 대량 수집은 더 오래 걸릴 수 있음. 연결 목표g13/g18 / 학습 반영 있음 / 진척률 임의 상향0.

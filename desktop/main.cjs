@@ -8,6 +8,9 @@ const { ORIGIN, trustedUrl, externalUrl, safeSnapshot, safeFavorites, text } = r
 const { parseBootstrap } = require('./bootstrap.cjs');
 const { launchTaskShortcut }=require('./task-launcher.cjs');
 const {closeMainAction}=require('./lifecycle.cjs');
+const {createStartup,startupDelay}=require('./startup.cjs');
+const startup=createStartup({app});
+let releaseStartup=null;
 const {homeRequests}=require('./home-board.cjs');
 const {importFlightBoard}=require('./flight-board.cjs');
 const {createFlightPopup}=require('./flight-popup.cjs');
@@ -57,14 +60,14 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'nenova-app', privileges: { stan
 app.setName('Nenova Desktop');
 app.setAppUserModelId(appIdFor(app.isPackaged));
 if (!app.requestSingleInstanceLock()) app.quit();
-app.on('second-instance', (_event, argv) => { if (argv.some(arg => /^nenova-notes:\/\/open\/?$/i.test(arg)) && !locked) { openNotesWindow(); return; } const w = ([...windows.values()][0]||createWindow()).win; if (w) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); } });
+app.on('second-instance', (_event, argv) => { if (releaseStartup) { releaseStartup(); return; } if (argv.some(arg => /^nenova-notes:\/\/open\/?$/i.test(arg)) && !locked) { openNotesWindow(); return; } const w = ([...windows.values()][0]||createWindow()).win; if (w) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); } });
 
 function menuFavoriteEntry(item) { return safeSnapshot({ favorites: [{ url: item.href, title: item.labelKey }] }).favorites[0]; }
 function state(w) {
   return { windowId: w.id, windows: [...windows.values()].map(v => ({ id: v.id, title: `업무 창 ${v.id}` })),
     tabs: w.ids.map(id => tabs.get(id)).filter(Boolean).map(t => ({ id: t.id, title: locked && new URL(t.url).pathname !== '/login' ? '로그인 대기' : t.title, url: locked ? '' : t.url, loading: t.loading, error: t.error, zoom: t.zoom })),
     activeId: w.activeId, menuOpen: w.menuOpen, toolsOpen: w.toolsOpen, favorites: locked ? [] : favorites, menus: locked ? [] : menus.map(group => ({ ...group, items: group.items.map(item => ({ ...item, favorite: favorites.some(f => f.url === menuFavoriteEntry(item)?.url) })) })), version: app.getVersion(), online: !locked,
-    appUpdate: updater?.getState(), homeOwnerId: locked ? '' : actor, syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || activityWarning,
+    startup: startup.state(), appUpdate: updater?.getState(), homeOwnerId: locked ? '' : actor, syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || activityWarning,
     message: w.message || (locked ? '로그인이 필요합니다. 업무 화면에서 로그인해 주세요.' : '탭 이동은 작업을 유지합니다 · 종료 전 업무 내용을 저장해 주세요.') };
 }
 function broadcast() {
@@ -374,6 +377,7 @@ function command(w, action, p = {}) {
   if (!['close', 'closeWindow', 'quit', 'pmLiveStatus', 'importFlightBoard'].includes(action) && !(action === 'appUpdate' && p.automatic === true)) activity?.record(auditAction, trustedUrl(p.url || p.href) || t?.url || '/desktop');
   switch (action) {
     case 'state': break;
+    case 'startup': startup.set(p.enabled); broadcast(); return state(w);
     case 'homeDraft': {const scope=p.scope||'personal';if(!['personal','company'].includes(scope)||typeof p.dirty!=='boolean')throw Error('입력 상태를 확인하세요.');w.homeDrafts={...w.homeDrafts,[scope]:p.dirty};w.homeDirty=Object.values(w.homeDrafts).some(Boolean);return state(w);}
     case 'homeWorkspace': {
       if (locked || !actor) return Promise.reject(new Error('로그인을 다시 확인하세요.'));
@@ -690,6 +694,9 @@ async function startAiBridge() {
 }
 // ---------------------------------------------------------------------------
 app.whenReady().then(async () => {
+  startup.initialize();
+  const delay=startupDelay({packaged:app.isPackaged,argv:process.argv});
+  if(delay) await new Promise(resolve=>{const timer=setTimeout(()=>{releaseStartup=null;resolve();},delay);releaseStartup=()=>{clearTimeout(timer);releaseStartup=null;resolve();};});
   const enabled = app.isPackaged && process.platform === 'win32';
   if (enabled) repairTaskbarShortcuts({ shell, appData: app.getPath('appData'), execPath: process.execPath, resourcesPath: process.resourcesPath });
   const engine = enabled ? require('electron-updater').autoUpdater : null;
@@ -704,7 +711,7 @@ app.whenReady().then(async () => {
   protocol.handle('nenova-app', request => {
     const u = new URL(request.url);
     const name = u.pathname.slice(1);
-    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css','home-workspace.js','task-settings.js','task-controls.js','home-dashboard.js','flight-board.js','flight-map-data.js','company-calendar.js','notes.html','notes.js','notes.css','alerts.html','alerts.js','alerts.css'].includes(name)) return new Response('Not found', { status: 404 });
+    if (u.hostname !== 'shell' || !['index.html','shell.js','startup-settings.js','shell.css','home-workspace.js','task-settings.js','task-controls.js','home-dashboard.js','flight-board.js','flight-map-data.js','company-calendar.js','notes.html','notes.js','notes.css','alerts.html','alerts.js','alerts.css'].includes(name)) return new Response('Not found', { status: 404 });
     return new Response(fs.readFileSync(path.join(__dirname, 'shell', name)), { headers: { 'content-type': name.endsWith('.html') ? 'text/html; charset=utf-8' : name.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8', 'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'" } });
   });
   webSession = session.fromPartition('persist:nenova-work');

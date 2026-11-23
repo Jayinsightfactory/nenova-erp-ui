@@ -7,6 +7,7 @@
   <title>Nenova 데스크톱</title>
   <link rel="stylesheet" href="./shell.css">
   <link rel="stylesheet" href="./task-controls.css">
+  <script src="./startup-settings.js" defer></script>
   <script src="./task-settings.js" defer></script><script src="./task-controls.js" defer></script><script src="./home-workspace.js" defer></script>
   <script src="./company-calendar.js" defer></script><script src="./home-dashboard.js" defer></script><script src="./flight-map-data.js" defer></script><script src="./flight-board.js" defer></script><script src="./shell.js" defer></script>
 </head>
@@ -67,6 +68,8 @@
           </div>
           <section class="app-update-panel" aria-label="앱 업데이트">
             <button id="logoutButton" class="top-action" type="button">로그아웃 · 계정 변경</button>
+            <button id="startupButton" class="top-action" type="button" aria-pressed="false">Windows 로그인 시 자동 실행</button>
+            <span id="startupStatus" role="status"></span>
             <button id="appUpdateButton" class="top-action" type="button">앱 업데이트 확인</button>
             <button id="cancelUpdateButton" class="top-action" type="button" hidden>다운로드 취소</button>
             <span id="appUpdateStatus" role="status" aria-live="polite"></span>
