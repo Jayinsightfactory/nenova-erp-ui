@@ -633,7 +633,7 @@ export default function InvoiceReceiptWorkbench({
   }
 
   async function updateLineProduct(lineId, product) {
-    setEditingNzProduct(null);
+    if (typeof setEditingNzProduct === 'function') setEditingNzProduct(null);
     const selectedDocument = documentValue;
     const selectedLine = documentValue.lines.find(line => line.lineId === lineId);
     let next = { ...documentValue, lines: documentValue.lines.map(line => line.lineId === lineId

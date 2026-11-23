@@ -518,7 +518,7 @@
         },
         {
           "file": "components/import-tools/InvoiceReceiptWorkbench.js",
-          "sha256": "656ec3274a0d4194b0389031b018bcd629764260e868bab57b5ef7c3bbdac004",
+          "sha256": "59723885d09cfde4357712553c33a5b51fdb8fb3d367f40052b17ae1e3e93fe4",
           "reason": "2026-11-23 사용자 승인: NZ 원본 근거 자동채움 및 공통 Units 변경에 한해 가이드 재촬영 제외. 기존 영상은 갱신되지 않음.",
           "approvedBy": "owner"
         },
