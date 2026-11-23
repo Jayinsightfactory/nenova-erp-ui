@@ -4706,3 +4706,33 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 머지·Cafe24 배포 후 2026년 43·44·45차 v4 스냅샷 갱신으로 H열 최신 실비 + R열 14/17 + totals(I·K·P) null 0건 실측 확인 및 워크트리 정리.
 4. 검증 상태: profitReportAutoRefresh 11/11 PASS, pstack-verify 5/5 PASS, test:profit-weekly-cache·guard:erp-writes·test:erp-manifest·test:erp-contract·npm run build 통과 예정.
 5. 주의/잠금: 타 연도·타 차수 환율 오염 금지(WHERE OrderYear=@y AND MajorWeek=@m), non-outage(missing_declaration_date/disabled/approval_evidence_required) 시 복원 금지, ERP 공유 원장 쓰기 0건. 연결 목표 g17·g19.
+
+## 2026-11-23 · 업로드일 입고 기본값 · 통합 원가/네덜란드 실제 등록 후속
+사용자 확정: 입고일 기본값은 업로드 시점 한국 날짜. 발행일은 참고일로만 유지하고 사용자가 웹에서 완료한 매칭은 덮어쓰거나 재질문하지 않는다. 기존 자동채움이 인보이스 날짜를 입고일로 제안하던 불일치를 수정한다. 캡처된 최초 업로드일을 신규 초안·로컬/팀 복구에 보존하며 재열기 날짜·파일 수정일은 쓰지 않는다. 기존 수동 입력·저장 초안·확정 입고는 보존한다.
+선행 PR1956/06a0d8af는 최신34d6d2ee에 포함되어 Cafe2445117891559와 Desktop1.3.85 게시45117620523 성공. 운영 실제 다운로드 두 파일 모두 한 시트: CN2026/45-03은2입고58행2190단/18,434,216.141562원, CO2026/46-02는22입고94행44940송이/43,916,865.799999원. Downloads의 도착원가_통합_CN_2026_45-03.xlsx(17640bytes)와 도착원가_통합_CO_2026_46-02.xlsx(21745bytes)를 실제 읽었다. CN210원은 사용자선택 검증용, 통관비 CN2,059,800원/CO2,025,320원은 추정이다. CN 첫 다운로드500은 정상 재시도1회로 성공했고 구체적 원인은 미확정이다. CO 첫 다운로드 성공. 해당 오류를 추정으로 수정하지 않았다.
+사용자가 NL140행 매칭을 직접 완료한 뒤 공식 초안/금액대조/서버검증/등록/재조회를 수행했다. Holex1222993 입고8247/2026/47-02/InputDate2026-11-23/140행13320송이/상품14,291.55EUR/미연결0/동송장1건, 원문 운임3333.97+문서50을 별도 비용으로 보존. 원문 총17675.52EUR와 일치. 앞선 미확정9행 인계는 사용자 직접선택으로 해소됐으므로 재질문·임의교체하지 않는다. 기존 CN8061/8062/8160과 CO22입고는 재등록하지 않았다.
+검색어: 업로드일 기본값 KST 자정 invoiceUploadDate 입고8247 송장1222993 PR1956 중국 A/B 콜롬비아 통합 다운로드
+1. 작업 위치: nenova-erp-ui / codex/invoice-upload-date-1123 / C:/Users/USER/nw-cdx-upload-date-1123 / 후속PR 준비.
+2. 완료된 것: AutoFill·Adapter·Workbench에서 최초 업로드일 연결, packingWorkDraft/PackingListTool의 복구 날짜 보존, 계약/golden 근거와 날짜 경계 회귀. 기존 화면·단계·버튼·ERP writer 변경 없음. 기존 desktop 수입부 메뉴에서 같은 웹 경로 사용.
+3. 남은 할 일: 필수 ERP/빌드/pstack·PR/CI·머지·배포 후 신규 날짜 기본값 확인. 운영8247 및 기존 입고 원장은 수정하지 않음.
+4. 검증 상태: 날짜·변환·복구 49개와 워크벤치·참고일·입고검증30개 PASS(79개, skip0). 통합 운영실파일 두 개/실제 NL등록 후조회 PASS. 전체 ERP/빌드는 후속 검증 중. 입력 기본값만 변경하여 기존 사용 가이드의 업무 순서가 그대로이므로 재촬영 해당 없음.
+5. 주의/잠금: 수동 날짜/매칭·확정 원장 보존. KST 업로드일과 선택연도 충돌은 기존 서버 검증 유지. 다른 작업트리 미수정. 연결 목표 g17/g19, 학습 반영 있음.
+## 2026-11-23 입고 업로드 날짜·CLOUD Contract 원문 지원 후속
+- 최초 업로드 한국 날짜를 입고일 기본값으로 사용한다. 발행일로 대체하거나 저장 초안의 수동 날짜를 오늘로 덮어쓰지 않는다. 사용자 실제번호 A2026YY-054/B2026YY-055 적용 경로를 분리했다.
+- 중국 Contract 원본의 8열·Flower Cost·3비용·TOTAL을 독립 검증하고 포장비 포함 단가와 단/송이·미기재 NULL을 기존 공식 입고 작업대로 전달한다. 실제 A38행 상품54909/총78077CNY, B2행 상품2620/총4450CNY를 대조했다. 원본 수정 없음.
+- NZ210195는 등록완료가 아닌 초안이었다. 실제 원본 3행/8박스/740Units/4253.8NZD와 대조, 입고일11/23·AIR·AWB를 공식 데스크톱 UI에서 입력했다. 원장 중복0 확인. Farm69 국가NULL이 같은 이름의 유효 역사농장3245를 숨겨 preflight 차단하는 조회정책을 최소 보완했다. 단위 확인근거 및 실제 저장은 아직 미완료이며 완료로 보고하지 않는다.
+1. 작업 위치: nenova-erp-ui / codex/invoice-upload-date-1123 / C:/Users/USER/nw-cdx-upload-date-1123 / PR 준비 중.
+2. 완료된 것: 날짜 자동채움·strict Contract 파서/어댑터/NULL 보존·송장번호 출처 선택·역사농장 국가 후보 정책·계약/회귀/원문 근거. 연결 목표 g17/g19, 학습 반영 있음.
+3. 남은 할 일: 영향 가이드3개 갱신, 정식 필수 검사, PR/CI/배포, 47-02Cloud40행 매칭 및 공식 등록, NZ210195 공식 등록/후조회. 중국 A22 Eucalyptus/B9 호접란 색상은 근거 확인 필요.
+4. 검증 상태: 기존 날짜 회귀79/ERP계약 전체/dnSpy/manifest 통과 후 Contract타깃49·실원문A/B·농장정책5 통과. 녹화용 production build 통과. 최신 전체가드·배포·47Cloud/NZ등록은 미검증.
+5. 주의/잠금: 현재 worktree만 수정. 기존 원장·사용자 NL8247 매칭·원본 파일 불변. browser CUA 연결장애 후 공식 computer-use @oai/sky 정식 데스크톱으로 전환. 별도 dev Electron Isolated SQL 창 조작 금지.
+검색어: 입고일 업로드 KST CLOUD Contract 2026YY-054 2026YY-055 210195 NZ Blooms 국가NULL 역사농장 g17 g19
+
+### 2026-11-23 후속 검증 완료 · PR 준비
+1. 작업 위치: codex/invoice-upload-date-1123 / C:/Users/USER/nw-cdx-upload-date-1123 / PR 생성 직전.
+2. 완료된 것: 가이드3개 실제 재녹화 및6단계 연습다운로드 PASS. Desktop1.3.86 메타데이터에 반영, 기존 수입부 업무도구 메뉴를 그대로 사용한다. A22는 사장님 확정 Prod2226 대1kg, B9는 원본 흰호접란사진으로3529 확인. 연결 목표 g17/g19 / 학습 반영 있음.
+3. 남은 할 일: CI/머지/배포, 정식 데스크톱에서 Cloud54·55와NZ210195 공식등록·후조회. 현재 NZ는11/23·AIR·AWB·기존송이판단/원문금액근거를 rev8에 저장한 초안 상태.
+4. 검증 상태: 최신 전체 test:erp-contract EXIT0, dnSpy PASS, manifest240 PASS, writeguard PASS, 정식 npm run build EXIT0(전체 가이드가드 포함), pstack PASS. 47Cloud/NZ 최종등록·배포는 미검증. 녹화전 임시 next build는 촬영서버 준비용이며 최종 정식build도 별도로 통과했다.
+5. 주의/잠금: 원본·기존원장·사용자NL매칭 불변, 같은 송장 재등록 금지. 자동생성 전체 개발이력2파일의 대량 무관 diff는 포함하지 않았다. 정식앱과별도 Isolated SQL 창을 혼동하지 않는다.
+검색어: Cloud47 Contract 054 055 NZ210195 revision8 Desktop1.3.86 가이드3 pstack g17 g19
+

@@ -39,6 +39,8 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
     if(url.pathname.startsWith('/api/')) {
       let body='';for await(const chunk of req) body+=chunk;
       let payload={};try {payload=JSON.parse(body||'{}');}catch{}
+      if(process.env.CONTRACT_RECEIPT_FIXTURE==='1'&&url.pathname==='/api/import/receipts/auto-fill'&&req.method==='POST')return send({success:true,resolution:{farm:{farmKey:1,farmName:'Cloudland TEST_ONLY'},inputDate:payload.rawMetadata?.invoiceUploadDate||'',transportMode:'AIR',issues:[],source:{basis:'TEST_ONLY'}}});
+      if(process.env.CONTRACT_RECEIPT_FIXTURE==='1'&&req.method==='GET'&&/^\/api\/import\/receipts\/[a-f0-9-]{36}$/.test(url.pathname))return send({success:false,code:'INVOICE_DOCUMENT_NOT_FOUND',error:'TEST_ONLY document not saved'},404);
       if(url.pathname==='/api/import/receipts/week-cost') {
         if(payload.action==='preview')counts.preview++;if(payload.action==='download')counts.download++;
         res.status=n=>{res.statusCode=n;return res;};res.json=v=>{res.setHeader('Content-Type','application/json; charset=utf-8');res.end(JSON.stringify(v));};res.send=v=>res.end(v);

@@ -39,6 +39,15 @@ function file(bytes = 'packing bytes') {
 }
 const hash = 'a'.repeat(64);
 
+test('original upload day survives recovery without using file modification or reopening date',async()=>{
+ const {normalizePackingWorkSnapshot,createPackingWorkDraftStore}=await packingWorkDraft();
+ const store=createPackingWorkDraftStore('u',{indexedDB:memoryIndexedDB()});
+ await store.save(snapshot({invoiceUploadDate:'2025-12-31'}));
+ assert.equal((await store.load()).invoiceUploadDate,'2025-12-31');
+ assert.equal(normalizePackingWorkSnapshot(snapshot()).invoiceUploadDate,'');
+ for(const value of ['2026-02-30','2026-11-23T01:00:00Z'])assert.throws(()=>normalizePackingWorkSnapshot(snapshot({invoiceUploadDate:value})),/invoiceUploadDate/);
+});
+
 test('receipt and cost recovery remain isolated for the same authenticated owner', async () => {
   const { createPackingWorkDraftStore } = await packingWorkDraft();
   const indexedDB = memoryIndexedDB();

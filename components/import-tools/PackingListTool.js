@@ -959,6 +959,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const [country, setCountry] = useState(null);
   const [originPreview, setOriginPreview] = useState(null);
   const [nzReceiptSource, setNzReceiptSource] = useState(null);
+  const [contractReceiptSource,setContractReceiptSource]=useState(null);
   const [lang, setLang] = useState('ko');
   const t = { ...I18N[lang] || I18N.ko, ...packingText(lang) };
   const changeLang = setLang;
@@ -1140,14 +1141,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     const sequence = ++workSaveSequence.current;
     let active = true;
     setWorkMessage('현재 작업 보관 중…');
-    workStore.save({ file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed, matchingReviewed: matchingReviewedFile === file,
+    workStore.save({ file, country, dateYear, invoiceUploadDate, lastExtraction, reviewRows, reviewConfirmed, matchingReviewed: matchingReviewedFile === file,
       legacyReviewData, legacyPackingReviewRequired, extractionSource }).then(() => {
       if (active && sequence === workSaveSequence.current) { setWorkError(''); setWorkMessage('현재 작업 보관됨 · 같은 PC·계정에서 새로고침 후 이어서 작업할 수 있습니다.'); }
     }).catch(error => {
       if (active && sequence === workSaveSequence.current) { setWorkMessage(''); setWorkError(`현재 작업 보관 실패: ${error.message} · 이 화면을 닫지 말고 다시 시도하세요.`); }
     });
     return () => { active = false; };
-  }, [workStore, workReady, file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed, matchingReviewedFile, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork]);
+  }, [workStore, workReady, file, country, dateYear, invoiceUploadDate, lastExtraction, reviewRows, reviewConfirmed, matchingReviewedFile, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork]);
 
   useEffect(() => {
     if (!userId || !file || restoringWork) return;
@@ -1155,14 +1156,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     setTeamHistoryStatus('팀 업로드 이력 보관 대기 중…');
     const timer = setTimeout(() => {
       let pending;
-      try { pending = teamHistory.save({file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed, matchingReviewed: matchingReviewedFile === file,
+      try { pending = teamHistory.save({file, country, dateYear, invoiceUploadDate, lastExtraction, reviewRows, reviewConfirmed, matchingReviewed: matchingReviewedFile === file,
         legacyReviewData, legacyPackingReviewRequired, extractionSource}); }
       catch (error) { setTeamHistoryError(error.message); return; }
       pending.then(() => { if (active) { setTeamHistoryError(''); setTeamHistoryStatus('팀 업로드 이력 보관 완료 · 변경 이력에서 모든 직원이 불러올 수 있습니다.'); } })
         .catch(error => { if (active) { setTeamHistoryStatus(''); setTeamHistoryError(error.message); } });
     }, 800);
     return () => { active = false; clearTimeout(timer); };
-  }, [teamHistory, userId, file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed, matchingReviewedFile, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork, teamHistoryRetry]);
+  }, [teamHistory, userId, file, country, dateYear, invoiceUploadDate, lastExtraction, reviewRows, reviewConfirmed, matchingReviewedFile, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork, teamHistoryRetry]);
 
   useEffect(() => {
     if (!sharedRestore) return;
@@ -1190,6 +1191,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1]); reader.onerror = () => reject(new Error('보관된 원본 파일을 읽을 수 없습니다.')); reader.readAsDataURL(restoredFile); }),
       ]);
       if (readerVersion.current !== version) return;
+      setInvoiceUploadDate(work.invoiceUploadDate || '');
       if (work.country === 'AU' && /\.pdf$/i.test(restoredFile.name)) {
         const mismatch = packingOriginMismatch(await readAwbPdf(base64).catch(() => null), work.country);
         if (readerVersion.current !== version) return;
@@ -1215,6 +1217,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setCountry(work.country); setDateYear(work.dateYear || ''); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
       setMatchingReviewedFile(work.matchingReviewed === true ? restoredFile : null);
       setLastExtraction({ ...extraction, sourceHash: hash }); setReviewRows(work.reviewRows || makePackingReviewRows(extraction.sourceInvoices, work.country));
+      if(work.country==='CN'&&extraction.result.invoices.every(i=>i.source_format==='china_cloud_contract_xlsx'))setContractReceiptSource({country:'CN',file:restoredFile,invoices:extraction.result.invoices,
+        excels:buildPackingMatchPreview({invoices:extraction.result.invoices,country:'CN',aliases:records.aliases,erpMatches:freshErp}),products:freshErp.products,reviewConfirmed:true,packingActive:true,truncated:false,invoiceUploadDate:work.invoiceUploadDate||''});
       setReviewConfirmed(confirmed); setReviewOpen(false); setReviewRevision(value => value + 1);
       setLegacyReviewData(work.legacyReviewData); setLegacyPackingReviewRequired(work.legacyPackingReviewRequired);
       setExtractionSource('저장 분석 재사용 · API 호출 없음'); setErpMatches(freshErp); setAliases(records.aliases); setLatestShared(false);
@@ -1234,8 +1238,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
 
   useEffect(() => {
     if (typeof onReceiptSourceChange !== 'function') return;
+    if(country==='CN'&&contractReceiptSource?.file===file){onReceiptSourceChange(contractReceiptSource);return;}
     if (country === 'NZ' && nzReceiptSource) {
-      onReceiptSourceChange(nzReceiptSource);
+      onReceiptSourceChange({...nzReceiptSource,invoiceUploadDate});
       return;
     }
     // Empty source suspends new adaptation; the workbench retains its records.
@@ -1273,7 +1278,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       audMarketRate: country === 'AU' ? audMarketRate : null,
       audMarketRateError: country === 'AU' ? audMarketRateError : '',
     });
-  }, [country, nzReceiptSource, generatedErp, excels, file, lastExtraction, onReceiptSourceChange, reviewConfirmed, latestShared,
+  }, [country, nzReceiptSource, contractReceiptSource, generatedErp, excels, file, lastExtraction, onReceiptSourceChange, reviewConfirmed, latestShared,
     invoiceUploadDate, awbFile, awbSourceHash, awbReview, awbReviewed, awbManualFields, audMarketRate, audMarketRateError]);
 
   const resetResults = () => {
@@ -1517,6 +1522,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     if(readerVersion.current!==version||processingRef.current||savingRef.current)return;
     setFileChoice(null);setHistoryOpen(false);
     setPdfBase64(null); resetResults(); setStatus(null); setFile(null);
+    setContractReceiptSource(null);
     const uploadDate = seoulCalendarDate();
     setInvoiceUploadDate(uploadDate);
     setAudMarketRate(null); setAudMarketRateError('');
@@ -1538,6 +1544,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   };
   const handleFile = async (f) => {
     if (!f || processingRef.current || savingRef.current) return;
+    if(country==='NZ')setInvoiceUploadDate(seoulCalendarDate());
     const version = ++readerVersion.current;
     autoAnalysisFile.current=null;setFileChoice(null);
     const isChinaExcel = country === 'CN' && /\.xlsx$/i.test(f.name);
@@ -1907,6 +1914,17 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         setStatus({type:'info',msg:t.localUnavailable});return;
       }
       const data=extraction.data;
+      const localContract=country==='CN'&&extraction.source==='local'&&Array.isArray(data?.content)
+        ? JSON.parse(data.content.find(c=>c.type==='text')?.text||'null') : null;
+      if(localContract?.receiptOnly===true&&localContract.invoices?.every(i=>i.source_format==='china_cloud_contract_xlsx')){
+        const invoices=localContract.invoices.map(i=>({...i,pdfSourceHash:sourceHash}));
+        const previews=buildPackingMatchPreview({invoices,country,aliases:freshRecords.aliases,erpMatches:freshErp});
+        setLastExtraction({result:{invoices},sourceInvoices:invoices,masterAwb:'',weekParsed:parsed,wasTruncated:false,sourceHash});
+        setContractReceiptSource({file,country:'CN',invoices,excels:previews,products:freshErp.products,reviewConfirmed:true,truncated:false,packingActive:true,invoiceUploadDate});
+        setStatus({type:'success',msg:'CLOUD Contract 상품·포장비·비용·총액 검증 완료. 입고 작업에서 참조번호·연도·품목을 확인하세요. 박스와 GW/CW는 미기재로 유지하며 패킹 파일은 만들지 않습니다.'});
+        setSteps([{label:'Contract 원문 8열 확인',state:'done'},{label:'상품·포장비·3개 비용·TOTAL 대조',state:'done'}]);
+        focusReceipt();return;
+      }
       const sourceLabel=extraction.source==='saved-response'?'저장 응답 재검증 · API 호출 없음':extraction.source==='free-ocr'?'이전 OCR 결과 재사용':extraction.source==='local'?t.sourceLocal:extraction.source==='cache'?t.sourceCache:t.sourceAI;
       setExtractionSource(sourceLabel+(extraction.source==='ai'&&extraction.cacheSaved===false?' · '+t.cacheNotSaved:''));
       setSteps([

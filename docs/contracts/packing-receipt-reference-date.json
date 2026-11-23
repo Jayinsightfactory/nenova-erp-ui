@@ -1,11 +1,11 @@
 {
  "id":"packing-receipt-reference-date",
  "title":"입고일과 인보이스 참고일 분리",
- "scope":["lib/packingReceiptDatePolicy.js","lib/importPackingMatchPreview.js","lib/importPackingSourceReview.js","lib/importPackingReview.js","lib/importPackingReceiptAdapter.js","lib/packingValidationIssues.js","components/import-tools/PackingListTool.js","components/import-tools/PackingEvidenceReview.js","components/import-tools/InvoiceReceiptWorkbench.js"],
+ "scope":["lib/packingReceiptDatePolicy.js","lib/importPackingMatchPreview.js","lib/importPackingSourceReview.js","lib/importPackingReview.js","lib/importPackingReceiptAdapter.js","lib/packingValidationIssues.js","lib/invoiceReceiptAutoFill.js","lib/packingWorkDraft.js","components/import-tools/PackingListTool.js","components/import-tools/PackingEvidenceReview.js","components/import-tools/InvoiceReceiptWorkbench.js"],
  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
- "actions":[{"name":"REFERENCE_DATE_REVIEW","orderDetail":"preserve","shipmentDetail":"preserve","notes":"인쇄 날짜 미확인은 참고 경고로 보존, 입고 진행 차단 아님. 실제 입고일과 연도·세부차수/중복 송장 키 검증 유지. 수량·통화·총액/원본 해시·매칭 보호 유지. 새로운 DATE 오류는 기본 차단."}],
+ "actions":[{"name":"REFERENCE_DATE_REVIEW","orderDetail":"preserve","shipmentDetail":"preserve","notes":"인쇄 날짜 미확인은 참고 경고로 보존, 입고 진행 차단 아님. 실제 입고일과 연도·세부차수/중복 송장 키 검증 유지. 수량·통화·총액/원본 해시·매칭 보호 유지. 새로운 DATE 오류는 기본 차단."},{"name":"DEFAULT_RECEIPT_UPLOAD_DAY","orderDetail":"preserve","shipmentDetail":"preserve","notes":"2026-11-23 사용자 확정: 신규 인보이스의 입고일 기본값은 최초 업로드 시점 KST 날짜. 발행일은 참고 필드로만 보존. 로컬·팀 보관본도 최초 업로드일을 유지하고, 기존 수동 입고일·저장 문서·확정 입고는 덮어쓰지 않는다. 원래 업로드일 없는 옛 보관본은 문서 createdAt을 사용하며 그것도 없으면 오늘을 추정하지 않는다. 선택연도 충돌 검증과 native 저장 경로는 유지."}],
  "crossYearFixture":{"required":true,"description":"2025/2026 참고일 편집과 실제 입고일-선택연도 충돌 검증 유지"},
- "requiredTestFiles":["__tests__/packingReceiptDatePolicy.test.js","__tests__/packingBlockedNotice.test.js","__tests__/invoiceReceiptValidation.test.js"],
+ "requiredTestFiles":["__tests__/packingReceiptDatePolicy.test.js","__tests__/packingBlockedNotice.test.js","__tests__/invoiceReceiptValidation.test.js","__tests__/invoiceReceiptAutoFill.test.js","__tests__/packingWorkDraft.test.js","__tests__/importPackingReceiptAdapter.test.js"],
  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-10-22 dnSpy ExcelLoadingPackingList; G3 InputDate와 G2 OrderWeek 별도. 인쇄 날짜 확인 사유 없음. 입고일 검증 보존.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail"]},
  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
 }

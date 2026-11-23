@@ -1,6 +1,6 @@
 {
   "id":"invoice-historical-farm",
-  "title":"기존 입고 농장명 근거 연결",
+  "title":"기존 입고 농장명 근거 연결 · 미확인 마스터 국가 보완",
   "scope":["lib/invoiceSupplierEvidence.js","lib/importPackingExtractClient.js","lib/importPackingPrompt.js","lib/importPackingReceiptAdapter.js","components/import-tools/PackingListTool.js","lib/invoiceFarmSource.js","lib/invoiceAmountReview.js","components/import-tools/InvoiceTotalEvidence.js","pages/incoming.js","lib/invoiceReceiptAutoFill.js","lib/invoiceReceiptValidation.js","lib/invoiceReceiptWriter.js","lib/invoiceReceiptDocuments.js","pages/api/import/receipts/auto-fill.js","components/import-tools/InvoiceReceiptWorkbench.js","components/import-tools/InvoiceUploadIssues.js","lib/invoiceUploadIssue.js"],
   "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
   "actions":[{"name":"RESOLVE_HISTORICAL_FARM","orderDetail":"preserve","shipmentDetail":"preserve","notes":"Farm 마스터 쓰기 없음. 활성 WarehouseMaster PK와 정확한 FarmName을 조회/저장직전 재검증. 가짜 FarmKey 금지. 기존 writer 입고/재고 계약만 유지. Estimate/ShipmentDate/WebProfitReport 변경 없음."}],
