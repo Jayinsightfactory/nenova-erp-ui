@@ -4522,3 +4522,11 @@ pm run test:canon 통과.
 3. 남은 일: 「짝 미정」 5종은 무슨 일인지 확인해 excel-web-map.json 에 짝을 적는다. 「웹 있는데 엑셀」 8종은 직원 엑셀 양식과 웹 화면을 칸 단위로 맞대어 본다(매출원가 양식, 원가자료부터).
 4. 검증: 문법 검사 통과, pstack-verify 5/5 PASS. 운영 화면 확인은 반영 뒤에. 건수는 약 3분 간격 화면 표본이고 웹 화면과의 짝은 낱말 규칙(추정).
 5. 주의: 표에는 부서만 싣고 사람 이름은 싣지 않는다. 메뉴는 기존 /my-work?tab=proposals 그대로라 데스크톱앱 메뉴 변경 없음. 연결 목표: g03 / 학습 반영: 있음
+
+## 2026-11-23 「기능 추가 후보」 탭에 여러 부서가 같이 만지는 자료 표
+검색어: 같이 쓰는 자료 부서별 영역 한 화면 설계 shared sharedProposal 영업수입불량차감 본보기 excel-web-map
+1. 작업 위치: nenova-erp-ui / cld/shared-areas / C:\Users\USER\nw-cld-shared-areas. 짝이 되는 장치는 nenova-work-features/build-excel-candidates.js · excel-web-map.json(git 아님).
+2. 완료: pages/my-work.js ExcelCandidates 아래에 「여러 부서가 같이 만지는 자료」 표(자료 · 부서별 건수와 주로 보는 시트·요일 · 지금 웹 화면 · 한 화면 설계 초안). 자료는 탭2 갱신본 excel 칸의 rows[].shared · sharedProposal.
+3. 남은 일: 설계 초안 5건(도착원가 3영역, 송금 요청 2영역, 인보이스 대조 2영역, 견적서 2영역, 발주 현황 2영역)은 직원 확인 전이다. 카톡으로 주고받는 일(파일 아닌 것)은 아직 안 본다.
+4. 검증: 문법 검사 통과, pstack-verify 5/5 PASS, 장치 실행 결과 같이 쓰는 자료 6종. 운영 화면 확인은 로그인 풀림으로 미검증.
+5. 주의: 부서만 싣고 사람 이름은 싣지 않는다. 시트 이름은 화면 해독문에서 뽑아 거칠다. 연결 목표: g03 / 학습 반영: 있음

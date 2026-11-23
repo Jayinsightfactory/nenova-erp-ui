@@ -695,6 +695,20 @@ function ExcelCandidates({ x }) {
             </td></tr>}
           </Fragment>))}</tbody>
       </table>
+      {x.rows.some((r) => (r.shared || []).length >= 2) && <>
+        <h2>여러 부서가 같이 만지는 자료 <small>한 화면에 부서별 영역으로 묶을 후보 · 본보기 「영업수입불량차감」</small></h2>
+        <p className="dim">{x.sharedNote}</p>
+        <table className="tbl xtbl">
+          <thead><tr><th>자료</th><th>부서별로 하는 일(건수 · 주로 보는 시트 · 주로 하는 요일)</th><th>지금 웹 화면</th><th>한 화면 설계 초안</th></tr></thead>
+          <tbody>{x.rows.filter((r) => (r.shared || []).length >= 2).map((r) => (
+            <tr key={r.name}>
+              <td><b>{r.name}</b></td>
+              <td>{r.shared.map((d) => <div key={d.dept} className="xdept"><b>{d.dept}</b> <span className="num">{d.count}건 · {d.share}%</span>{d.days.length > 0 && <span className="chip">{d.days.join(' · ')}요일</span>}<div className="dim">{d.sheets.join(' / ') || '시트 이름이 읽히지 않음'}</div></div>)}</td>
+              <td>{r.web ? <a href={r.web}>{r.webName}</a> : <span className="dim">없음</span>}</td>
+              <td>{r.sharedProposal}</td>
+            </tr>))}</tbody>
+        </table>
+      </>}
     </section>
   );
 }
@@ -1233,6 +1247,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
         .xtbl{font-size:13.5px}.xtbl .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.xrow{cursor:pointer}
         .xst{display:inline-block;white-space:nowrap;border-radius:4px;padding:2px 8px;font-size:12.5px;font-weight:700;border:1px solid #cbd5e1;color:#334155;background:#f1f5f9}
         .xst.xneed{color:#9f1239;border-color:#fda4af;background:#fff1f2}.xst.xgap{color:#92400e;border-color:#fcd34d;background:#fffbeb}.xst.xok{color:#166534;border-color:#86efac;background:#f0fdf4}
+        .xdept{margin:0 0 6px}.xdept .num{font-variant-numeric:tabular-nums;color:#334155;margin:0 6px}
         .xmore{background:#f8fafc!important}.xmore div{margin:3px 0}.xmore .chip{font-size:12.5px}
         .chips{display:flex;flex-wrap:wrap}
         .stats div{margin:3px 0}
