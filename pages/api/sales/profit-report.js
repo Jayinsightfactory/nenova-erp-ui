@@ -167,6 +167,9 @@ async function loadReportDataInScope(major, orderYear) {
   const previousPeriod=await previousReportPeriod(orderYear,major);
   const prevOrderYear=previousPeriod.orderYear;
   const prevMajor=previousPeriod.major;
+      const safeLoadSettlement = typeof loadSettlementEvidence === 'function' ? loadSettlementEvidence : async () => ({ documents: [] });
+      const safeSettlementRates = typeof settlementTaxableRates === 'function' ? settlementTaxableRates : () => ({ byCategory: {}, byCurrency: {} });
+      const safePickSettlement = typeof pickSettlementTaxableRate === 'function' ? pickSettlementTaxableRate : () => null;
       const [N, est, Q, purchaseQty, S, rates, invoiceRateResult, cur, prev, customs, unclassifiedDetails, savedRates, kcsRates, settlementLedger] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
@@ -181,9 +184,9 @@ async function loadReportDataInScope(major, orderYear) {
         unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
         loadTaxableRates(orderYear, major),                 // R 원천: 이 주차에 저장/캐시된 과세환율(웹 전용, SELECT only)
         kcsRatesByCategory(major, orderYear),                // R 4순위(2026 28차 이후 및 그 다음 연도): KCS InputDate·TPrice 가중평균
-        loadSettlementEvidence(orderYear, major),            // 선율 정산서 1페이지 적용환율(파일 전용, DB 쓰기 0)
+        safeLoadSettlement(orderYear, major),                // 선율 정산서 1페이지 적용환율(파일 전용, DB 쓰기 0)
       ]);
-      const settlementRates = settlementTaxableRates(settlementLedger);
+      const settlementRates = safeSettlementRates(settlementLedger);
 
       // E는 "현재 보고서의 E 셀"을 이월하지 않고, 같은 연도의 직전 대차수 F를 같은 공식으로
       // 다시 계산한다. 이 때문에 26차 F와 불연속인 27차 workbook E(베트남 +3,658,862.88875)는
@@ -197,9 +200,9 @@ async function loadReportDataInScope(major, orderYear) {
         computeCustomsAndForwarding(prevMajor, prevOrderYear, { profile: 'profit-report' }),
         loadTaxableRates(prevOrderYear, prevMajor),
         kcsRatesByCategory(prevMajor, prevOrderYear),
-        loadSettlementEvidence(prevOrderYear, prevMajor),
+        safeLoadSettlement(prevOrderYear, prevMajor),
       ]);
-      const prevSettlementRates = settlementTaxableRates(prevSettlementLedger);
+      const prevSettlementRates = safeSettlementRates(prevSettlementLedger);
 
       const prevInvoiceRates = prevInvoiceRateResult.rates || prevInvoiceRateResult;
       const invoiceEvidenceFor = (result, category) => result.evidence ? {
@@ -227,18 +230,18 @@ async function loadReportDataInScope(major, orderYear) {
           loadManual(m, y),
           loadTaxableRates(y, m),
           purchaseQtyByCategory(m, y),
-          loadSettlementEvidence(y, m),
+          safeLoadSettlement(y, m),
         ]);
         const hasPurchase = Object.values(purchaseQtyW || {}).some((qty) => Number(qty) > 0);
         const kcsRatesW = hasPurchase ? await kcsRatesByCategory(m, y) : { byCategory: {} };
-        return { manual: manualW.manual || {}, invoiceRates: invoiceRatesW, savedRates: savedRatesW, settlementRates: settlementTaxableRates(settlementLedgerW), kcsRates: kcsRatesW, purchaseQty: purchaseQtyW };
+        return { manual: manualW.manual || {}, invoiceRates: invoiceRatesW, savedRates: savedRatesW, settlementRates: safeSettlementRates(settlementLedgerW), kcsRates: kcsRatesW, purchaseQty: purchaseQtyW };
       });
 
       const resolvedRateByKey = {};
       for (const key of keys) {
         const curCode = currencyCodeForCategory(key);
         const prevMan = prev.manual[key] || {};
-        const pickedSettlement = pickSettlementTaxableRate(settlementRates, key, curCode);
+        const pickedSettlement = safePickSettlement(settlementRates, key, curCode);
         resolvedRateByKey[key] = {
           curCode,
           resolvedRate: resolveTaxableRate({
@@ -275,7 +278,7 @@ async function loadReportDataInScope(major, orderYear) {
       const prevResolvedRateByKey = {};
       for (const key of keys) {
         const curCode = currencyCodeForCategory(key);
-        const pickedPrevSettlement = pickSettlementTaxableRate(prevSettlementRates, key, curCode);
+        const pickedPrevSettlement = safePickSettlement(prevSettlementRates, key, curCode);
         prevResolvedRateByKey[key] = {
           curCode,
           resolvedRate: resolveTaxableRate({
