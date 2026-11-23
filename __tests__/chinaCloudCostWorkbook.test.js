@@ -21,7 +21,7 @@ test('CLOUD export routes through validated preview and retains live category, G
  const f=fixture(),p=previewInvoiceCost({...f.document,costInput:f.input},f.document.lines);assert.equal(p.status,'APPROVED',JSON.stringify(p.issues));
  const bytes=await createInvoicePreviewCostWorkbook(f),book=XLSX.read(bytes,{type:'buffer',cellFormula:true}),main=book.Sheets['CLOUD 원가'],cat=book.Sheets['품종 기준'];
  assert.match(main.A1.v,/미승인 계산본.*원장 변경 없음/);assert.match(main.A2.v,/TEST_ONLY 시험값/);
- f.input.expenseBasis='ESTIMATED';const estimated=XLSX.read(await createInvoicePreviewCostWorkbook(f)).Sheets['CLOUD 원가'];assert.match(estimated.A2.v,/추정 통관비 포함.*실제 청구액 아님/);
+ f.input.expenseBasis='ESTIMATED';f.input.estimateSource='TEST_ONLY 46-2 CLOUD reference';const estimated=XLSX.read(await createInvoicePreviewCostWorkbook(f)).Sheets['CLOUD 원가'];assert.match(estimated.A2.v,/추정 통관비 포함.*실제 청구액 아님/);
  assert.ok(Math.abs(main.C8.v-p.totals.totalCostKRW)<1e-6);
  assert.equal(main.C6.v,1360160);assert.match(main.C6.f,/C4\*V3/);assert.match(main.C6.f,/COUNTIF/);
  assert.match(main.S13.f,/\$J\$3/);assert.match(main.G13.f,/S13/);assert.match(main.L13.f,/I13\+J13\+K13/);
