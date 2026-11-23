@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { runReceiptPreparation, verifyReceiptDocument } from '../lib/invoiceReceiptWorkflow.js';
 import { RECEIPT_MATCH_WARNING, receiptMatchWarnings } from '../lib/receiptMatchWarnings.js';
 
+
+const base = () => ({ documentId: '11111111-1111-4111-8111-111111111111', sourceHash: 'a'.repeat(64),
+  orderYear: '2026', orderWeek: '41-01', revision: 1, receiptStatus: 'DRAFT',
+  reviewedMetadata: { country: 'CN' }, lines: [{ lineId: 'L1', bunchQuantity: 0 }] });
+const preview = document => ({ canCommit: true, issues: [], documentRevision: document.revision,
+  document, baselineDigest: 'b'.repeat(64) });
 test('matching warning follows current confirmation on entry, edit and resumed draft without removing other blockers',async()=>{
   for(const year of ['2025','2026']) for(const count of [38,2]) {
     const document={...base(),orderYear:year,sourceWarnings:[RECEIPT_MATCH_WARNING],
@@ -18,11 +24,6 @@ test('matching warning follows current confirmation on entry, edit and resumed d
   }
 });
 
-const base = () => ({ documentId: '11111111-1111-4111-8111-111111111111', sourceHash: 'a'.repeat(64),
-  orderYear: '2026', orderWeek: '41-01', revision: 1, receiptStatus: 'DRAFT',
-  reviewedMetadata: { country: 'CN' }, lines: [{ lineId: 'L1', bunchQuantity: 0 }] });
-const preview = document => ({ canCommit: true, issues: [], documentRevision: document.revision,
-  document, baselineDigest: 'b'.repeat(64) });
 test('missing receipt scope blocks before saving and corrected scope preserves matching', async () => {
   for (const scope of [{orderYear: null}, {orderYear: ''}, {orderWeek: null}, {orderWeek: ''}, {orderWeek: '54-01'}]) {
     const document = {...base(), ...scope};
