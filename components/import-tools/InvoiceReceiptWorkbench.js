@@ -358,7 +358,7 @@ export default function InvoiceReceiptWorkbench({
     (async () => {
       const hash = await sha256File(file);
       const adaptedDocuments = await adaptPackingReceipts({
-        excels, invoices, country, fileName: file.name, products, sourceHash: hash, reviewConfirmed, truncated,
+        excels, invoices, country, fileName: file.name, products, sourceHash: hash, reviewConfirmed, truncated, invoiceUploadDate,
       });
       const documents = country === 'AU' ? adaptedDocuments.map(document => {
         const review = awb?.confirmed && awb.review?.ready ? awb.review : null;
@@ -426,8 +426,8 @@ export default function InvoiceReceiptWorkbench({
           || ((document.farmKey || document.reviewedMetadata?.farmSourceWarehouseKey) && document.reviewedMetadata?.inputDate && document.reviewedMetadata?.transportMode)) return record;
         const data = await readJson(await fetch('/api/import/receipts/auto-fill', {
           method: 'POST', credentials: 'same-origin', headers: jsonHeaders,
-          body: JSON.stringify({orderYear:document.orderYear,farmKey:document.farmKey,
-            rawMetadata:{supplier:document.rawMetadata?.supplier,invoiceDate:document.rawMetadata?.invoiceDate,rawDate:document.rawMetadata?.rawDate},
+          body: JSON.stringify({orderYear:document.orderYear,farmKey:document.farmKey,createdAt:document.createdAt,
+            rawMetadata:{supplier:document.rawMetadata?.supplier,invoiceDate:document.rawMetadata?.invoiceDate,rawDate:document.rawMetadata?.rawDate,invoiceUploadDate:document.rawMetadata?.invoiceUploadDate},
             reviewedMetadata:{farmName:document.reviewedMetadata?.farmName,country:document.reviewedMetadata?.country,farmSourceWarehouseKey:document.reviewedMetadata?.farmSourceWarehouseKey,inputDate:document.reviewedMetadata?.inputDate,awb:document.reviewedMetadata?.awb,transportMode:document.reviewedMetadata?.transportMode}}),
         }));
         return applyInvoiceHeader(record, data.resolution);
@@ -1380,6 +1380,10 @@ export default function InvoiceReceiptWorkbench({
       </Field>
       <Field label="세부차수"><input value={documentValue.orderWeek ?? ''} placeholder="예: 41-01" onChange={event => updateDocumentField('orderWeek', event.target.value)} /></Field>
       <Field label="인보이스 번호"><input value={documentValue.invoiceNo ?? ''} onChange={event => updateDocumentField('invoiceNo', event.target.value)} /></Field>
+      {documentValue.rawMetadata?.sourceContract?.referenceRequired&&<Field label="원문 미기재 송장번호 근거"><select aria-label="Contract 송장번호 근거"
+        value={documentValue.reviewedMetadata.contractReferenceConfirmation?.reference===documentValue.invoiceNo?documentValue.reviewedMetadata.contractReferenceConfirmation?.kind||'':''}
+        onChange={event=>updateMetadata('contractReferenceConfirmation',{confirmed:Boolean(event.target.value),kind:event.target.value,reference:documentValue.invoiceNo,reason:event.target.value==='ACTUAL_INVOICE'?'사용자가 별도로 확인한 실제 송장번호':'원문 번호 미기재 · 임시 참조번호 사용 확인'})}>
+        <option value="">입력한 번호의 근거 선택</option><option value="ACTUAL_INVOICE">사용자 확인 실제 송장번호</option><option value="REFERENCE">임시 참조번호 사용</option></select></Field>}
       <Field label="인보이스 연도"><input value={documentValue.invoiceYear ?? ''} inputMode="numeric" onChange={event => updateDocumentField('invoiceYear', event.target.value)} /></Field>
       <Field label="입고일"><input data-receipt-field="inputDate" type="date" value={documentValue.reviewedMetadata.inputDate || ''} onInput={event => updateMetadata('inputDate', event.currentTarget.value)} onChange={event => updateMetadata('inputDate', event.target.value)} />
         {documentValue.reviewedMetadata.country==='NZ'&&!documentValue.reviewedMetadata.inputDate&&<small>같은 건의 실제 입고일이 확인되지 않았습니다. 송장 발행일이 아닌 실제 입고일을 입력하세요.</small>}</Field>

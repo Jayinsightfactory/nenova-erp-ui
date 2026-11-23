@@ -165,22 +165,22 @@
             {
               "scenario": "automatic",
               "title": "1. 같은 공급자·국가에서 사용 이력이 많은 농장이 자동 선택됩니다.",
-              "seconds": 0.016
+              "seconds": 0.027
             },
             {
               "scenario": "change",
               "title": "2. 다른 후보를 눌러 선택을 변경하고 선택된 농장명을 확인합니다.",
-              "seconds": 9.904
+              "seconds": 9.876
             },
             {
               "scenario": "search",
               "title": "3. 농장명을 입력하면 후보를 좁혀 다시 선택할 수 있습니다.",
-              "seconds": 19.824
+              "seconds": 19.761
             },
             {
               "scenario": "compare",
               "title": "4. 이력에서 수량·금액 대조를 눌러 원본과 보관 분석을 비교합니다.",
-              "seconds": 31.044
+              "seconds": 30.918
             }
           ]
         }
@@ -475,27 +475,27 @@
             {
               "scenario": "recover",
               "title": "2. 원본 PDF 선택 · 처음 올린 PDF는 Claude로 분석하고 저장 결과는 재사용합니다.",
-              "seconds": 12.207
+              "seconds": 12.25
             },
             {
               "scenario": "review",
               "title": "3. 미매칭 확인 · 원본 품목을 눌러 전산 품목을 검색하고 선택합니다.",
-              "seconds": 25.793
+              "seconds": 25.851
             },
             {
               "scenario": "reuse",
               "title": "4. 기존 분석 재사용 · 파일을 다시 올리지 않고 저장 분석에서 바로 이어갑니다.",
-              "seconds": 69.168
+              "seconds": 69.449
             },
             {
               "scenario": "changed",
               "title": "5. 변경본 선택 · 내용이 다른 파일은 기존 분석과 새 파일 분석 중 선택합니다.",
-              "seconds": 99.365
+              "seconds": 99.845
             },
             {
               "scenario": "history",
               "title": "6. 업로드 이력 · 원본과 보관 분석의 수량·금액을 비교합니다.",
-              "seconds": 141.078
+              "seconds": 141.609
             }
           ]
         }
@@ -573,27 +573,27 @@
             {
               "scenario": "upload",
               "title": "2. 인보이스 PDF 올리기",
-              "seconds": 25.375
+              "seconds": 25.459
             },
             {
               "scenario": "verify",
               "title": "3. 읽힌 농장·인보이스 번호·수량·합계 확인",
-              "seconds": 62.968
+              "seconds": 63.251
             },
             {
               "scenario": "match",
               "title": "4. 미확인 품종을 전산 품목에 연결",
-              "seconds": 95.36
+              "seconds": 95.671
             },
             {
               "scenario": "download",
               "title": "5. 필요할 때 입고용 엑셀 내려받기",
-              "seconds": 164.396
+              "seconds": 165.02
             },
             {
               "scenario": "receipt",
               "title": "6. 인보이스 입고 저장 완료",
-              "seconds": 229.085
+              "seconds": 229.771
             }
           ]
         }
