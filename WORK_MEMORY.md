@@ -4715,3 +4715,11 @@ pm run test:canon 통과.
 3. 남은 할 일: pstack→PR/CI→병합·설치본 게시. 사용자 실행 앱 자동 종료하지 않음.
 4. 검증 상태: Desktop96/96, Windows native 무공백/공백 두 경로 등록·조회·해제 PASS. 실제 설치된1.3.84 Run 항목을 수정 코드로 조회 enabled=true 확인(읽기 전용), 홈 버튼 키보드/3해상도 스모크 PASS. 직원 재부팅 미검증.
 5. 주의/잠금: 이 worktree만 사용. 네노바 원장/설치된 앱 파일/실제 시작 앱 설정 변경0. 연결 목표g13/g18, 진척률 유지.
+
+## 2026-11-23 KCS 폴백 erpReadContext 순수 SELECT 보정 및 미래 차수 지문 격리
+검색어: erpReadContext APPROVAL_REPORT_SOURCE_FAILED PROFIT_SOURCES_CHANGED KCS 폴백 loadPriorSnapshotKcsRates g17 g19
+1. 작업 위치: nenova-erp-ui / fix/kcs-fallback-read-context / C:/Users/USER/nw-swm-kcs-fix2 / origin/master 5eebdfd5 기반.
+2. 완료된 것: lib/profitReportAutoRefresh.js의 loadPriorSnapshotKcsRates가 erpReadContext 순수 SELECT 규칙을 준수하도록 IF OBJECT_ID를 SELECT OBJECT_ID + SELECT TOP 10 2단 순수 SELECT 조회로 수정, pages/api/sales/profit-report.js의 loadCoherentLatestReport(forCache) 지문에서 엄격히 미래 차수(> major) 변경을 제외해 업무시간 47차 편집으로 인한 43·44·45차 409 오탐 차단, __tests__/profitReportAutoRefresh.test.cjs에 실 withErpReadContext + 미래 차수 격리 회귀 테스트 추가.
+3. 남은 할 일: PR #1959 머지·Cafe24 배포 후 2026년 43·44·45차 v4 스냅샷 생성 및 H열·R열 14/17·totals(I·K·P) null 0건 실측 검증 후 워크트리 정리.
+4. 검증 상태: profitReportAutoRefresh 12/12 PASS, profitSourceFenceDiagnostic 6/6 PASS, pstack-verify 5/5 PASS, guard:erp-writes·test:erp-manifest(239) PASS.
+5. 주의/잠금: erpReadContext 내부 모든 SQL은 SELECT/WITH로 시작해야 함. 동일/과거 차수 및 전역 테이블 변경은 여전히 409 PROFIT_SOURCES_CHANGED 차단 유지. 연결 목표 g17·g19.

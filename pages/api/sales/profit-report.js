@@ -745,7 +745,13 @@ async function loadCoherentLatestReport(major,orderYear,{forCache=false}={}){
     if(forCache)clearTemplateDutyCache();
     const previous=await previousReportPeriod(orderYear,major);
     const years=[...new Set([String(orderYear),previous.orderYear,String(Number(orderYear)-1)])];
-    const signature=async()=>JSON.stringify({erp:[...(await loadSourceFingerprints(years,{force:true})).map].sort(([a],[b])=>a.localeCompare(b)),invoice:await latestProfitInvoiceFence(years),settlement:await settlementScopeFence(years)});
+    const isFutureWeekKey = (k) => {
+      const p = String(k).split(':');
+      if (p.length !== 3 || !p[1] || !p[2]) return false;
+      const ky = Number(p[1]), km = Number(p[2]);
+      return Number.isFinite(ky) && Number.isFinite(km) && (ky > Number(orderYear) || (ky === Number(orderYear) && km > Number(major)));
+    };
+    const signature=async()=>{const erpEntries=[...(await loadSourceFingerprints(years,{force:true})).map];return JSON.stringify({erp:(forCache?erpEntries.filter(([k])=>!isFutureWeekKey(k)):erpEntries).sort(([a],[b])=>a.localeCompare(b)),invoice:await latestProfitInvoiceFence(years),settlement:await settlementScopeFence(years)});};
     diagnostic?.phase('preFence');
     const before=await signature();
     diagnostic?.phase('current');
