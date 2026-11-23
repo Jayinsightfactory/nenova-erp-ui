@@ -4723,3 +4723,28 @@ pm run test:canon 통과.
 3. 남은 할 일: PR #1959 머지·Cafe24 배포 후 2026년 43·44·45차 v4 스냅샷 생성 및 H열·R열 14/17·totals(I·K·P) null 0건 실측 검증 후 워크트리 정리.
 4. 검증 상태: profitReportAutoRefresh 12/12 PASS, profitSourceFenceDiagnostic 6/6 PASS, pstack-verify 5/5 PASS, guard:erp-writes·test:erp-manifest(239) PASS.
 5. 주의/잠금: erpReadContext 내부 모든 SQL은 SELECT/WITH로 시작해야 함. 동일/과거 차수 및 전역 테이블 변경은 여전히 409 PROFIT_SOURCES_CHANGED 차단 유지. 연결 목표 g17·g19.
+
+## 2026-11-23 입고 수정 요청 품목 검색·미리보기·팝업 크기
+- 요약: 검색어와 선택 품목을 분리하고, 원본에 없는 포장값 때문에 품목 변경 미리보기가 멈추는 경우를 수정. 데스크톱 모달 최대 1,800px와 모바일 가로 스크롤 적용.
+- 검색어: 입고 수정 요청 boxQty NULL 품목 검색 팝업 ClassWarehouseDetail g03
+1. 작업 위치: nenova-erp-ui / codex/incoming-product-preview-1123 / .task-nw-incoming-product / PR 미생성.
+2. 완료된 것: IncomingCorrectionRequest 검색 후보 12개·선택 분리, source row NULL 보존 정책, 교차연도/NULL 위조/필수 환산단위 fixture, 가이드 녹화 스크립트의 선택 클릭 반영.
+3. 남은 할 일: 가이드 2편 녹화·검증 및 해시, 필수 빌드·가드 후 GitHub 인증 복구·PR·CI·배포. 연결 목표 g03, 진행률 변화 미측정 / 학습 반영 없음.
+4. 검증 상태: 진짜 dnSpy ClassWarehouseDetail decimal.TryParse 확인, 운영 SELECT-only 8247/2026/47-02 ProdKey3170에 박스 NULL 및 단·송이·가격 존재, 정책 16건·dnSpy 가드·Chrome 1920/390 통과. 새 품목/원본 NULL/총액 보존 미리보기 호출 확인. 전체 빌드·운영 배포 미검증.
+5. 주의/잠금: 가이드 세션 20070에서 이 작업트리 사용 중. 운영 업무 데이터 쓰기 없음. gh 401, git push --dry-run 사용자 인증 실패. 공유 node_modules junction 보존 대상.
+
+### 2026-11-23 검증 단계 인계
+- 검색어: 입고 수정 품목 NULL 1800px 가이드 production build g03
+1. 작업 위치: 위 동일 작업트리, PR 미생성.
+2. 완료된 것: 실제 Next UI 양쪽 역할 연습 오픈·요청·미리보기 dry-run, 1920에서 1800px 실측 및 모바일 390px 전체 가로 밀림 없음. 원장 비어 있는 포장값 그대로 미리보기 통과.
+3. 남은 할 일: production Next 빌드 기반 양쪽 가이드 실녹화·플레이어 확인, 정식 빌드/원커맨드 검증·PR·배포. 연결 목표 g03 / 학습 반영 없음.
+4. 검증 상태: 전체 ERP, manifest 239, dnSpy 증빙, 쓰기 범위 가드, 녹화용 Next production 빌드 통과. 정식 prebuild·운영 미검증.
+5. 주의/잠금: 녹화 세션 28545에서 작업트리 사용 중. elevated 실행에서 GitHub 인증 복구 확인. 실패한 중간 녹화물을 배포하지 말 것.
+
+### 2026-11-23 품목 수정 배포 준비 완료
+- 검색어: 입고 품목 수정 boxQty 1800px pstack Drive g03
+1. 작업 위치: 위 동일 브랜치·작업트리 / PR 생성 단계.
+2. 완료된 것: 품목 검색·선택 및 미리보기, 수량·금액 원본 보존과 넓은 팝업. 수입부 7단계 739.65초, 영업지원 4단계 355.15초 영상·자막·증빙 촬영 및 회사 Drive 6파일 보관 확인.
+3. 남은 할 일: 통합 CI 후 squash와 Cafe24, 운영 화면 조회 스모크. 연결 목표 g03 / 학습 반영 없음.
+4. 검증 상태: 전체 ERP, dnSpy, manifest 239, 쓰기 가드, 1920/390 브라우저, 영상 게이트 36업무 37개, pstack 5/5, 정상 npm build 통과. 운영 화면 미검증.
+5. 주의/잠금: 실제 업무 데이터 쓰기 없음. 기존 입고관리 데스크톱 메뉴 경로 사용. 새 writer/SP/schema 추가 없음. 가이드 원본은 GitHub·회사 Drive.

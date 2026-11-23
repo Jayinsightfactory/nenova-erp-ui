@@ -141,5 +141,11 @@
     "writeBeforeApproval": "기존 approval create/submit만 사용; ERP 원장 변경 없음",
     "fixedShipment": "요청 등록을 막지 않음; 농장-only 확정 보존, 수량변경은 기존 최종승인 원자 처리",
     "retry": "동일 operationId 생성 재확인, 생성된 draft의 현재 revision으로 submit"
+  },
+  "productCorrectionSearch": {
+    "selection": "Typing filters visible candidates without changing the selected product; selected ERP name is sent explicitly.",
+    "existingNull": "PRODUCT preserves SQL NULL only from the same scoped source row; a number cannot be cleared by sending NULL. File uploads retain required-field validation.",
+    "differentUnit": "If the replacement product requires an unrecorded outbound or estimate unit quantity, require it explicitly before approval.",
+    "fixture": "2026 source with NULL box and present bunch/stem values succeeds while same-week 2025, forged NULL, and undefined new outbound quantity fail."
   }
 }
