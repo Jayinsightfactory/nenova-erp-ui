@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReceiptBunchConfirmation from '../ReceiptBunchConfirmation';
-import { nzConfirmedBunchQuantity } from '../../lib/nzReceiptUnits.js';
+import { fillConfirmedNzReceiptLine, nzConfirmedBunchQuantity, nzReceiptLineReview } from '../../lib/nzReceiptUnits.js';
 import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
 import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoiceReceiptAutoFill.js';
 import InvoiceFarmChoices from './InvoiceFarmChoices.js';
@@ -415,6 +415,12 @@ export default function InvoiceReceiptWorkbench({
         pendingOperation: loadPendingOperation(document.documentId),
       }, document));
       const next = await Promise.all(resumed.map(async record => {
+        if (record.document.reviewedMetadata?.country==='NZ'&&!record.pendingOperation&&!record.recoveryRequired
+          &&!record.document.warehouseKey&&record.document.receiptStatus!=='COMMITTED') {
+          const lines=record.document.lines.map(fillConfirmedNzReceiptLine);
+          if(lines.some((line,index)=>line!==record.document.lines[index]))
+            record={...record,dirty:true,preview:null,stageProgress:{},document:{...record.document,lines}};
+        }
         const document = record.document;
         if (record.pendingOperation || record.recoveryRequired || document.receiptStatus === 'COMMITTED'
           || ((document.farmKey || document.reviewedMetadata?.farmSourceWarehouseKey) && document.reviewedMetadata?.inputDate && document.reviewedMetadata?.transportMode)) return record;
@@ -580,7 +586,9 @@ export default function InvoiceReceiptWorkbench({
         const reviewed = quantityChanged && (line.reviewed || conversionQuantityEdit)
           ? { ...line.reviewed, bunchConfirmation: undefined, ...(conversionQuantityEdit ? { confirmed: false, conversionConfirmed: false } : {}) }
           : line.reviewed;
-        const nzChanged = document.reviewedMetadata?.country==='NZ' && (quantityChanged || field==='priceUnit');
+        const pricedQuantity = {단:'bunchQuantity',송이:'stemQuantity'}[line.priceUnit];
+        const nzChanged = document.reviewedMetadata?.country==='NZ' &&
+          (field==='priceUnit' && value!==line.priceUnit || quantityChanged && field===pricedQuantity);
         return { ...line, [field]: value, ...(nzChanged ? {reviewed:{...reviewed,nzUnitReason:''}} : reviewed ? { reviewed } : {}) };
       }),
     }));
@@ -593,6 +601,12 @@ export default function InvoiceReceiptWorkbench({
         ? { ...line, reviewed: { ...(line.reviewed || {}), confirmed: Boolean(confirmed), conversionConfirmed: Boolean(confirmed) } }
         : line),
     }));
+  }
+
+  function applyConfirmedNzLine(lineId) {
+    const line=documentValue.lines.find(item=>item.lineId===lineId);
+    if (!line||fillConfirmedNzReceiptLine(line)===line) return;
+    updateSelected(doc=>({...doc,lines:doc.lines.map(item=>item.lineId===lineId?fillConfirmedNzReceiptLine(item):item)}));
   }
 
   // 미매칭 행에 1순위 후보를 한 번에 적용한다(사용자가 누른 선택이며, 저장·입고 등록은 하지 않는다).
@@ -621,7 +635,6 @@ export default function InvoiceReceiptWorkbench({
     let next = { ...documentValue, lines: documentValue.lines.map(line => line.lineId === lineId
       ? { ...line, productSearch: undefined, prodKey: Number(product.ProdKey),
         reviewed: { ...(line.reviewed || {}), erpMatchConfirmed: Boolean(product), bunchConfirmation: undefined,
-          ...(documentValue.reviewedMetadata?.country==='NZ' ? {nzUnitReason:''} : {}),
           ...(line.sourceEvidence?.allocationSourceId ? { allocationConfirmed: false } : {}) } } : line) };
     const sourceId = next.lines.find(line => line.lineId === lineId)?.sourceEvidence?.allocationSourceId;
     if (sourceId) {
@@ -1368,7 +1381,8 @@ export default function InvoiceReceiptWorkbench({
       <Field label="세부차수"><input value={documentValue.orderWeek ?? ''} placeholder="예: 41-01" onChange={event => updateDocumentField('orderWeek', event.target.value)} /></Field>
       <Field label="인보이스 번호"><input value={documentValue.invoiceNo ?? ''} onChange={event => updateDocumentField('invoiceNo', event.target.value)} /></Field>
       <Field label="인보이스 연도"><input value={documentValue.invoiceYear ?? ''} inputMode="numeric" onChange={event => updateDocumentField('invoiceYear', event.target.value)} /></Field>
-      <Field label="입고일"><input data-receipt-field="inputDate" type="date" value={documentValue.reviewedMetadata.inputDate || ''} onInput={event => updateMetadata('inputDate', event.currentTarget.value)} onChange={event => updateMetadata('inputDate', event.target.value)} /></Field>
+      <Field label="입고일"><input data-receipt-field="inputDate" type="date" value={documentValue.reviewedMetadata.inputDate || ''} onInput={event => updateMetadata('inputDate', event.currentTarget.value)} onChange={event => updateMetadata('inputDate', event.target.value)} />
+        {documentValue.reviewedMetadata.country==='NZ'&&!documentValue.reviewedMetadata.inputDate&&<small>같은 건의 실제 입고일이 확인되지 않았습니다. 송장 발행일이 아닌 실제 입고일을 입력하세요.</small>}</Field>
       <Field label="인보이스일 (참고 · 선택)"><input type="date" value={documentValue.reviewedMetadata.invoiceDate || ''} onChange={event => updateMetadata('invoiceDate', event.target.value)} /></Field>
       <Field label="운송 방식"><select value={documentValue.reviewedMetadata.transportMode || ''} onChange={event => updateMetadata('transportMode', event.target.value)}>
         <option value="">선택 필요</option><option value="AIR">AIR</option><option value="SEA">SEA</option><option value="OTHER">OTHER</option>
@@ -1468,12 +1482,14 @@ export default function InvoiceReceiptWorkbench({
             const committedProduct = committedLineIds.has(line.lineId);
             const rowIssues = issuesByLine.get(line.lineId) || [];
             const nzBunch=documentValue.reviewedMetadata?.country==='NZ'?nzConfirmedBunchQuantity(line).quantity:null;
+            const nzReview=documentValue.reviewedMetadata?.country==='NZ'&&!committedProduct?nzReceiptLineReview(line):null;
             const reconciliation = reconciliationByLine.get(line.lineId);
             return <tr key={line.lineId} ref={element => element ? rowRefs.current.set(line.lineId, element) : rowRefs.current.delete(line.lineId)} className={rowIssues.length ? styles.issueRow : ''}>
               <td>{line.lineNo}</td><td title={line.originalName}>{line.originalName || '원문 미확인'}{line.lengthText ? <small>{line.lengthText}</small> : null}{line.sourceEvidence?.sourceVariety && <small>Variety: {line.sourceEvidence.sourceVariety} · PDF {line.sourceEvidence.sourcePage}쪽</small>}</td>
               <td>{committedProduct
                 ? <strong>{productLabel(product) || `ProdKey #${line.prodKey}`}</strong>
                 : <><InvoiceReceiptProductPicker label={`${line.lineNo}행 전산 품목 검색`} products={selectableProducts} product={product} onSelect={selected => updateLineProduct(line.lineId, selected)} />
+                  {nzReview?.product&&<small>{nzReview.product}</small>}
                   {product && productCountryMismatch(product, documentValue.reviewedMetadata?.country) && <p role="alert" style={{ margin: '4px 0 0', color: '#b3261e', fontWeight: 700 }}>⚠ 선택한 전산 품목의 원산지({product.CounName || product.country})가 이 문서와 다릅니다.</p>}
                   <InvoiceMatchSuggestions line={line} products={selectableProducts} country={documentValue.reviewedMetadata?.country} history={matchHistory} product={product} onSelect={selected => updateLineProduct(line.lineId, selected)} /></>}</td>
               {['boxQuantity', 'bunchQuantity', 'stemQuantity'].map((field, index) => {
@@ -1485,15 +1501,17 @@ export default function InvoiceReceiptWorkbench({
               })}
               <td><select aria-label={`${line.lineNo}행 가격 기준 단위`} className={styles.cellSelect} value={line.priceUnit || ''} onChange={event => updateLine(line.lineId, 'priceUnit', event.target.value)}><option value="">선택</option>{documentValue.reviewedMetadata?.country!=='NZ'&&<option value="박스">박스</option>}<option value="단">단</option><option value="송이">송이</option></select>
               {documentValue.reviewedMetadata?.country==='NZ'&&<label>원문 Units {line.sourceEvidence?.nzPrintedUnits ?? '미확인'} · 단위 근거
-                <input maxLength={250} value={line.reviewed?.nzUnitReason||''} onChange={event=>{
+                <input maxLength={250} value={line.reviewed?.nzUnitReason||''} onBlur={()=>applyConfirmedNzLine(line.lineId)} onChange={event=>{
                   const reason=event.target.value;
                   updateSelected(doc=>({...doc,lines:doc.lines.map(item=>item.lineId===line.lineId?{...item,reviewed:{...item.reviewed,nzUnitReason:reason}}:item)}));
                 }}/></label>}
               {documentValue.reviewedMetadata?.country==='NZ'&&<label>송이/단 (확인값)
-                <input inputMode="numeric" aria-label={`${line.lineNo}행 송이/단`} value={line.reviewed?.nzStemsPerBunch??''} onChange={event=>{
+                <input inputMode="numeric" aria-label={`${line.lineNo}행 송이/단`} value={line.reviewed?.nzStemsPerBunch??''} onBlur={()=>applyConfirmedNzLine(line.lineId)} onChange={event=>{
                   const ratio=event.target.value;
                   updateSelected(doc=>({...doc,lines:doc.lines.map(item=>item.lineId===line.lineId?{...item,reviewed:{...item.reviewed,nzStemsPerBunch:ratio}}:item)}));
-                }}/></label>}</td>
+                }}/></label>}
+              {nzReview?.units&&<small>{nzReview.units}</small>}
+              {nzReview?.conversion&&<small>{nzReview.conversion}</small>}</td>
               <td><NumberInput className={styles.cellInput} label={`${line.lineNo}행 단가`} value={line.unitPrice} onChange={value => updateLine(line.lineId, 'unitPrice', value)} /></td>
               <td><input className={styles.currencyInput} aria-label={`${line.lineNo}행 통화`} maxLength={3} value={line.currency || ''} onChange={event => updateLine(line.lineId, 'currency', event.target.value.toUpperCase())} /></td>
               <td><NumberInput className={styles.cellInput} label={`${line.lineNo}행 금액`} value={line.lineAmount} onChange={value => updateLine(line.lineId, 'lineAmount', value)} /></td>

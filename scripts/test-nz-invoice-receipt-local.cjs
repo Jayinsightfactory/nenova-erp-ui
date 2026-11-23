@@ -21,6 +21,7 @@ module.exports=async ({pool,sql,query,documents,writer,ctx,protectedSnapshot})=>
   const invoice=inspectNzBloomInvoice(pdf);
   await job.destroy();
   assert.equal(invoice?.invoice,'210195');
+  assert.equal(invoice.awb,'180-79060332');
   assert(packingOriginMismatch(pdf,'AU'));
   await query(pool,`ALTER TABLE dbo.Country ADD CounKey int NULL;`);
   await query(pool,`UPDATE dbo.Country SET CounKey=1 WHERE CounName=N'중국';

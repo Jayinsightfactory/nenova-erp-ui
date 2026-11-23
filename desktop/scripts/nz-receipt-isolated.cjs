@@ -18,6 +18,23 @@ app.whenReady().then(async()=>{
     session:ses,sandbox:true,contextIsolation:true,nodeIntegration:false,
   }});
   win.on('page-title-updated',event=>event.preventDefault());
+  if(process.env.NENOVA_NZ_TRACE==='1'){
+    const safeUrl=value=>{try{const url=new URL(value);return url.origin===origin?url.pathname:url.protocol;}catch{return 'unavailable';}};
+    for(const event of ['did-start-navigation','did-navigate','did-navigate-in-page','did-finish-load'])
+      win.webContents.on(event,(_event,url)=>console.log('ISOLATED_NAV',event,safeUrl(url)));
+    win.webContents.on('console-message',(event,legacyLevel,legacyMessage)=>{
+      const level=event.level??({2:'warning',3:'error'}[legacyLevel]);
+      const message=event.message??legacyMessage;
+      if(/^(warning|error)$/.test(level))
+        console.log('ISOLATED_CONSOLE',level,String(message).slice(0,400));
+    });
+    win.webContents.on('dom-ready',()=>win.webContents.executeJavaScript(`
+      for (const type of ['change','cancel']) document.addEventListener(type,event=>{
+        if (event.target instanceof HTMLInputElement && event.target.type==='file')
+          console.warn('ISOLATED_FILE',type,event.target.files.length);
+      },true);
+    `).catch(error=>console.error('ISOLATED_TRACE',error.message)));
+  }
   win.webContents.setWindowOpenHandler(({url,frameName})=>{
     console.log('ISOLATED_POPUP',url,frameName);
     return {action:url==='about:blank'||new URL(url).origin===origin?'allow':'deny'};
