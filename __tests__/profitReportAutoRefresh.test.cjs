@@ -441,8 +441,13 @@ test('extractKcsRatesFromSnapshotPayload & mergeKcsRatesWithSnapshotFallback: re
   assert.equal(extracted['중국'], undefined);
 
   // loadPriorSnapshotKcsRates skips degraded v3 and restores from v2 with exact OrderYear+MajorWeek SQL scope
+  // AND executes strictly SELECT-only queries compatible with withErpReadContext!
+  const { withErpReadContext } = await import('../lib/erpReadContext.js');
   const mockQuery = async (sqlText, params) => {
-    assert.match(sqlText, /WHERE OrderYear = @y AND MajorWeek = @m/);
+    const trimmed = sqlText.trim();
+    assert.match(trimmed, /^SELECT\b/i, 'every SQL inside erpReadContext must start with SELECT');
+    if (trimmed.includes('OBJECT_ID')) return { recordset: [{ id: 1234 }] };
+    assert.match(trimmed, /WHERE OrderYear = @y AND MajorWeek = @m/);
     assert.equal(params.y.value, '2026');
     assert.equal(params.m.value, '45');
     return {
@@ -453,7 +458,7 @@ test('extractKcsRatesFromSnapshotPayload & mergeKcsRatesWithSnapshotFallback: re
     };
   };
 
-  // Outage fallback merges missing KCS categories only
+  // Outage fallback merges missing KCS categories only — verified inside real withErpReadContext!
   const liveKcsOutage = {
     byCategory: {},
     failuresByCategory: {
@@ -462,7 +467,10 @@ test('extractKcsRatesFromSnapshotPayload & mergeKcsRatesWithSnapshotFallback: re
       미국: [{ date: null, reason: 'missing_declaration_date', message: 'no date' }],
     },
   };
-  const merged = await A.mergeKcsRatesWithSnapshotFallback('2026', '45', liveKcsOutage, { queryFn: mockQuery });
+  const merged = await withErpReadContext(
+    { queryFn: mockQuery, allowExternalEvidenceReads: true, serializeReads: false },
+    () => A.mergeKcsRatesWithSnapshotFallback('2026', '45', liveKcsOutage),
+  );
   assert.equal(merged.byCategory['호주'].rate, 933.66);
   assert.equal(merged.byCategory['네덜란드'].rate, 1499.0);
   // missing_declaration_date is NOT a KCS outage -> must NOT restore 미국
@@ -516,4 +524,68 @@ test('autoRefreshUnconfirmedProfitSnapshot: avoids duplicate actor suffix when t
     clearDutyCache: () => {},
   });
   assert.equal(capturedActor, 'auto-refresh:stale-read');
+});
+
+test('loadCoherentLatestReport fence ignores strictly future week edits (> major) while rejecting same/prior week mutations', async () => {
+  const C = await import('../lib/profitReportStoredCalculation.js');
+  const policy = await import('../lib/profitReportReadPolicy.js');
+  const api = read('pages/api/sales/profit-report.js');
+  const loaderBody = api
+    .slice(api.indexOf('export async function currentProfitPeriod'), api.indexOf('export async function loadAnnualMonthlyReportData'))
+    .replaceAll('export ', '');
+
+  const raw = { orderYear: '2026', major: '43', rows: [{ category: '중국', variant: 'normal', auto: { N: 100, L: 0, O: 0, Q: 1, S: 0, H: 0, R: 200 }, manual: {}, stock: {} }] };
+  let futureVersion = 1;
+  let sameWeekVersion = 1;
+  let mutateFuture = true;
+  let mutateSame = false;
+
+  const deps = {
+    ...(await import('../lib/profitMixedFreightView.js')),
+    ...policy,
+    materializeProfitPayload: C.materializeProfitPayload,
+    estimateCalendarEvidenceByCategory: async (m, y) => ({ orderYear: y, major: m, byCategory: {} }),
+    applyProfitEstimateCalendarView: (p) => p,
+    loadProfitReportCalendar: async () => [],
+    resolveCurrentProfitWeek: () => ({ orderYear: '2026', major: '47' }),
+    resolvePreviousProfitWeek: () => ({ orderYear: '2026', major: '46' }),
+    getActiveConfirm: async () => null,
+    buildConfirmedPayload: async () => ({}),
+    readStoredProfitPayload: async () => { throw new Error('unused'); },
+    storedProfitPayload: (x) => x,
+    loadReportData: async () => {
+      if (mutateFuture) futureVersion += 1;
+      if (mutateSame) sameWeekVersion += 1;
+      return raw;
+    },
+    loadSourceFingerprints: async () => ({
+      map: new Map([
+        ['SHIP:2026:43', `10|1|${sameWeekVersion}`],
+        ['SHIP:2026:47', `99|9|${futureVersion}`],
+      ]),
+    }),
+    currentErpReadContext: () => true,
+    latestProfitInvoiceFence: async () => 'inv',
+    settlementScopeFence: async () => 'settle',
+    applyTemplateDutyToReport: async (p) => p,
+    clearTemplateDutyCache: () => {},
+    finalizeProfitCachePayload: async (p) => p,
+    saveProfitCache: async (_o, compute) => compute('43', '2026'),
+    manualInputManifest: {},
+    unclassifiedDetailsByCategory: async () => [],
+  };
+
+  const L = new Function(...Object.keys(deps), `${loaderBody};return {saveProfitReportCache};`)(...Object.values(deps));
+
+  // Future week (2026:47) changing mid-compute MUST NOT abort 2026:43!
+  const ok = await L.saveProfitReportCache({ orderYear: '2026', major: '43' });
+  assert.equal(ok.major, '43');
+
+  // Same week (2026:43) changing mid-compute MUST still abort with 409 PROFIT_SOURCES_CHANGED!
+  mutateFuture = false;
+  mutateSame = true;
+  await assert.rejects(
+    L.saveProfitReportCache({ orderYear: '2026', major: '43' }),
+    (e) => e.code === 'PROFIT_SOURCES_CHANGED' && e.statusCode === 409,
+  );
 });

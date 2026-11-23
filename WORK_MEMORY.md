@@ -4707,6 +4707,23 @@ pm run test:canon 통과.
 4. 검증 상태: profitReportAutoRefresh 11/11 PASS, pstack-verify 5/5 PASS, test:profit-weekly-cache·guard:erp-writes·test:erp-manifest·test:erp-contract·npm run build 통과 예정.
 5. 주의/잠금: 타 연도·타 차수 환율 오염 금지(WHERE OrderYear=@y AND MajorWeek=@m), non-outage(missing_declaration_date/disabled/approval_evidence_required) 시 복원 금지, ERP 공유 원장 쓰기 0건. 연결 목표 g17·g19.
 
+## 2026-11-23 · Windows 공백 설치 경로 자동 실행 오판 수정
+- 사용자 오류 재현: 설치본1.3.84 Run 항목은 정상 등록됐으나 Electron 조회가 따옴표 없는 C:\Program Files\Nenova Desktop\Nenova Desktop.exe를 C:\Program으로 해석해 타 앱을 반환했다. 같은 실제 경로를 따옴표로 감싼 조회는 자기 항목/인자/enabled를 정확히 반환한다. 기존 검증의 무공백 개발 실행파일 경로 누락을 보완.
+- 검색어: 자동실행 저장 오류 Program Files Nenova Desktop quoted path Electron getLoginItemSettings g13
+1. 작업 위치: nenova-erp-ui / codex/startup-save-fix-1123 / C:/Users/USER/nw-cdx-startup-save-fix-1123 / PR 전.
+2. 완료된 것: startup.cjs 조회 경로만 인용, 쓰기 경로·해제 보존 유지. Desktop1.3.86. 단위 반례 및 Windows 실제 임시 등록/조회/해제에 공백 경로 추가. UI·업무 순서·ERP/API 변경0으로 가이드·dnSpy 대상 아님.
+3. 남은 할 일: pstack→PR/CI→병합·설치본 게시. 사용자 실행 앱 자동 종료하지 않음.
+4. 검증 상태: Desktop96/96, Windows native 무공백/공백 두 경로 등록·조회·해제 PASS. 실제 설치된1.3.84 Run 항목을 수정 코드로 조회 enabled=true 확인(읽기 전용), 홈 버튼 키보드/3해상도 스모크 PASS. 직원 재부팅 미검증.
+5. 주의/잠금: 이 worktree만 사용. 네노바 원장/설치된 앱 파일/실제 시작 앱 설정 변경0. 연결 목표g13/g18, 진척률 유지.
+
+## 2026-11-23 KCS 폴백 erpReadContext 순수 SELECT 보정 및 미래 차수 지문 격리
+검색어: erpReadContext APPROVAL_REPORT_SOURCE_FAILED PROFIT_SOURCES_CHANGED KCS 폴백 loadPriorSnapshotKcsRates g17 g19
+1. 작업 위치: nenova-erp-ui / fix/kcs-fallback-read-context / C:/Users/USER/nw-swm-kcs-fix2 / origin/master 5eebdfd5 기반.
+2. 완료된 것: lib/profitReportAutoRefresh.js의 loadPriorSnapshotKcsRates가 erpReadContext 순수 SELECT 규칙을 준수하도록 IF OBJECT_ID를 SELECT OBJECT_ID + SELECT TOP 10 2단 순수 SELECT 조회로 수정, pages/api/sales/profit-report.js의 loadCoherentLatestReport(forCache) 지문에서 엄격히 미래 차수(> major) 변경을 제외해 업무시간 47차 편집으로 인한 43·44·45차 409 오탐 차단, __tests__/profitReportAutoRefresh.test.cjs에 실 withErpReadContext + 미래 차수 격리 회귀 테스트 추가.
+3. 남은 할 일: PR #1959 머지·Cafe24 배포 후 2026년 43·44·45차 v4 스냅샷 생성 및 H열·R열 14/17·totals(I·K·P) null 0건 실측 검증 후 워크트리 정리.
+4. 검증 상태: profitReportAutoRefresh 12/12 PASS, profitSourceFenceDiagnostic 6/6 PASS, pstack-verify 5/5 PASS, guard:erp-writes·test:erp-manifest(239) PASS.
+5. 주의/잠금: erpReadContext 내부 모든 SQL은 SELECT/WITH로 시작해야 함. 동일/과거 차수 및 전역 테이블 변경은 여전히 409 PROFIT_SOURCES_CHANGED 차단 유지. 연결 목표 g17·g19.
+
 ## 2026-11-23 · 업로드일 입고 기본값 · 통합 원가/네덜란드 실제 등록 후속
 사용자 확정: 입고일 기본값은 업로드 시점 한국 날짜. 발행일은 참고일로만 유지하고 사용자가 웹에서 완료한 매칭은 덮어쓰거나 재질문하지 않는다. 기존 자동채움이 인보이스 날짜를 입고일로 제안하던 불일치를 수정한다. 캡처된 최초 업로드일을 신규 초안·로컬/팀 복구에 보존하며 재열기 날짜·파일 수정일은 쓰지 않는다. 기존 수동 입력·저장 초안·확정 입고는 보존한다.
 선행 PR1956/06a0d8af는 최신34d6d2ee에 포함되어 Cafe2445117891559와 Desktop1.3.85 게시45117620523 성공. 운영 실제 다운로드 두 파일 모두 한 시트: CN2026/45-03은2입고58행2190단/18,434,216.141562원, CO2026/46-02는22입고94행44940송이/43,916,865.799999원. Downloads의 도착원가_통합_CN_2026_45-03.xlsx(17640bytes)와 도착원가_통합_CO_2026_46-02.xlsx(21745bytes)를 실제 읽었다. CN210원은 사용자선택 검증용, 통관비 CN2,059,800원/CO2,025,320원은 추정이다. CN 첫 다운로드500은 정상 재시도1회로 성공했고 구체적 원인은 미확정이다. CO 첫 다운로드 성공. 해당 오류를 추정으로 수정하지 않았다.
