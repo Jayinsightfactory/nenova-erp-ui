@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReceiptBunchConfirmation from '../ReceiptBunchConfirmation';
+import { nzConfirmedBunchQuantity } from '../../lib/nzReceiptUnits.js';
 import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
 import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoiceReceiptAutoFill.js';
 import InvoiceFarmChoices from './InvoiceFarmChoices.js';
@@ -1466,6 +1467,7 @@ export default function InvoiceReceiptWorkbench({
             const product = productByKey.get(Number(line.prodKey));
             const committedProduct = committedLineIds.has(line.lineId);
             const rowIssues = issuesByLine.get(line.lineId) || [];
+            const nzBunch=documentValue.reviewedMetadata?.country==='NZ'?nzConfirmedBunchQuantity(line).quantity:null;
             const reconciliation = reconciliationByLine.get(line.lineId);
             return <tr key={line.lineId} ref={element => element ? rowRefs.current.set(line.lineId, element) : rowRefs.current.delete(line.lineId)} className={rowIssues.length ? styles.issueRow : ''}>
               <td>{line.lineNo}</td><td title={line.originalName}>{line.originalName || '원문 미확인'}{line.lengthText ? <small>{line.lengthText}</small> : null}{line.sourceEvidence?.sourceVariety && <small>Variety: {line.sourceEvidence.sourceVariety} · PDF {line.sourceEvidence.sourcePage}쪽</small>}</td>
@@ -1477,7 +1479,8 @@ export default function InvoiceReceiptWorkbench({
               {['boxQuantity', 'bunchQuantity', 'stemQuantity'].map((field, index) => {
                 const resolved = field === 'bunchQuantity' ? preview?.lines?.find(item => item.lineId === line.lineId && item.bunchResolution) : null;
                 return <td key={field}><NumberInput className={styles.cellInput} label={`${line.lineNo}행 ${['박스','단','송이'][index]}`}
-                  value={resolved?.bunchQuantity ?? line[field]} onChange={value => updateLine(line.lineId, field, value)} />
+                  value={resolved?.bunchQuantity ?? line[field] ?? (field==='bunchQuantity'?nzBunch:null)} onChange={value => updateLine(line.lineId, field, value)} />
+                  {field==='bunchQuantity'&&nzBunch!=null&&<small>원문 송이 ÷ 확인된 송이/단 = {nzBunch}단</small>}
                   {resolved && <small style={{fontSize:12.5,color:'#334155'}}>{resolved.bunchResolution === 'derived' ? '원본 기준 자동 계산' : '확인 수량'}</small>}</td>;
               })}
               <td><select aria-label={`${line.lineNo}행 가격 기준 단위`} className={styles.cellSelect} value={line.priceUnit || ''} onChange={event => updateLine(line.lineId, 'priceUnit', event.target.value)}><option value="">선택</option>{documentValue.reviewedMetadata?.country!=='NZ'&&<option value="박스">박스</option>}<option value="단">단</option><option value="송이">송이</option></select>
@@ -1485,6 +1488,11 @@ export default function InvoiceReceiptWorkbench({
                 <input maxLength={250} value={line.reviewed?.nzUnitReason||''} onChange={event=>{
                   const reason=event.target.value;
                   updateSelected(doc=>({...doc,lines:doc.lines.map(item=>item.lineId===line.lineId?{...item,reviewed:{...item.reviewed,nzUnitReason:reason}}:item)}));
+                }}/></label>}
+              {documentValue.reviewedMetadata?.country==='NZ'&&<label>송이/단 (확인값)
+                <input inputMode="numeric" aria-label={`${line.lineNo}행 송이/단`} value={line.reviewed?.nzStemsPerBunch??''} onChange={event=>{
+                  const ratio=event.target.value;
+                  updateSelected(doc=>({...doc,lines:doc.lines.map(item=>item.lineId===line.lineId?{...item,reviewed:{...item.reviewed,nzStemsPerBunch:ratio}}:item)}));
                 }}/></label>}</td>
               <td><NumberInput className={styles.cellInput} label={`${line.lineNo}행 단가`} value={line.unitPrice} onChange={value => updateLine(line.lineId, 'unitPrice', value)} /></td>
               <td><input className={styles.currencyInput} aria-label={`${line.lineNo}행 통화`} maxLength={3} value={line.currency || ''} onChange={event => updateLine(line.lineId, 'currency', event.target.value.toUpperCase())} /></td>
@@ -1522,7 +1530,7 @@ export default function InvoiceReceiptWorkbench({
           <button type="button" className={styles.issueCard} onClick={event=>{
             const code=issue?.code||'';
             const root=event.currentTarget.closest('section[aria-label="인보이스 입고 작업대"]')||document;
-            const field=lineId ? rowRefs.current.get(lineId)?.querySelector(code==='NZ_UNITS_EVIDENCE_REQUIRED'||code==='PRICE_UNIT_REQUIRED'
+            const field=lineId ? rowRefs.current.get(lineId)?.querySelector(code==='NZ_BUNCH_RATIO_CONFLICT'?'input[aria-label$="송이/단"]':code==='NZ_UNITS_EVIDENCE_REQUIRED'||code==='PRICE_UNIT_REQUIRED'
               ? 'select[aria-label$="가격 기준 단위"]' : code==='UNIT_CONVERSION_REQUIRED'
                 ? 'input[aria-label$="송이"]' : 'input[type="search"], input')
               : /FARM|SUPPLIER/.test(code) ? root.querySelector('input[aria-label="농장 검색"]')

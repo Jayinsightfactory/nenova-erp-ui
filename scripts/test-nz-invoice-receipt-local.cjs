@@ -25,11 +25,11 @@ module.exports=async ({pool,sql,query,documents,writer,ctx,protectedSnapshot})=>
   await query(pool,`ALTER TABLE dbo.Country ADD CounKey int NULL;`);
   await query(pool,`UPDATE dbo.Country SET CounKey=1 WHERE CounName=N'중국';
     INSERT dbo.Country(CounName,isUseOrderCode,CounKey) VALUES(N'뉴질랜드',0,2);
-    INSERT dbo.Farm(FarmKey,FarmName,CounKey,isDeleted) VALUES(7113,N'New Zealand Bloom Ltd',2,0);
+    INSERT dbo.Farm(FarmKey,FarmName,CounKey,isDeleted) VALUES(7113,N'NZ Blooms',2,0);
     INSERT dbo.StockMaster(StockKey,OrderYear,OrderWeek,OrderYearWeek,isFix,CreateID)
       VALUES(2547,N'2025',N'47-01',N'20254701',1,N'fixture'),(2647,N'2026',N'47-01',N'20264701',1,N'fixture');
     INSERT dbo.Product(ProdKey,ProdName,CountryFlower,CounName,FlowerName,OutUnit,EstUnit,Stock,isDeleted)
-      VALUES(94301,N'TEST_ONLY Peony Red',N'PEONY',N'뉴질랜드',N'PEONY',N'송이',N'송이',0,0),
+      VALUES(94301,N'TEST_ONLY Peony Red',N'PEONY',N'뉴질랜드',N'PEONY',N'단',N'단',0,0),
             (94302,N'TEST_ONLY Peony Pink',N'PEONY',N'뉴질랜드',N'PEONY',N'송이',N'송이',0,0),
             (94303,N'TEST_ONLY Peony White',N'PEONY',N'뉴질랜드',N'PEONY',N'송이',N'송이',0,0);`);
   const before=await protectedSnapshot(pool);
@@ -39,12 +39,13 @@ module.exports=async ({pool,sql,query,documents,writer,ctx,protectedSnapshot})=>
       SteamOf1Box,SteamOf1Bunch,BunchOf1Box,isDeleted FROM dbo.Product WHERE ProdKey BETWEEN 94301 AND 94303`)).recordset);
     const run=await require('./test-packing-native-local.cjs')({pool,sql,query,documents,writer,ctx,protectedSnapshot,
       protectedBefore:before,catalog:{products,value:{version:1,entries:[]}},upsertPackingErpMatch,
-      farms:[{FarmKey:7113,FarmName:invoice.supplier,CounName:'뉴질랜드'}]});
+      farms:[{FarmKey:7113,FarmName:'NZ Blooms',CounName:'뉴질랜드'}]});
     assert.equal(run.receiptRequests.length,1);
     const [{args,result}]=run.receiptRequests;
-    const readback=(await query(pool,`SELECT BoxQuantity,SteamQuantity,UPrice,TPrice FROM dbo.WarehouseDetail WHERE WarehouseKey=@key ORDER BY ProdKey`,
+    const readback=(await query(pool,`SELECT BoxQuantity,BunchQuantity,SteamQuantity,SteamOf1Box,SteamOf1Bunch,OutQuantity,EstQuantity,UPrice,TPrice FROM dbo.WarehouseDetail WHERE WarehouseKey=@key ORDER BY ProdKey`,
       {key:{type:sql.Int,value:result.warehouseKey}})).recordset;
     assert.deepEqual(readback.map(r=>[r.BoxQuantity,r.SteamQuantity,r.UPrice,r.TPrice]),[[3,240,7.57,1816.8],[2,200,4.7,940],[3,300,4.99,1497]]);
+    assert.deepEqual([readback[0].BunchQuantity,readback[0].SteamOf1Box,readback[0].SteamOf1Bunch,readback[0].OutQuantity,readback[0].EstQuantity],[48,80,5,48,48]);
     assert.equal((await ctx.create(args)).warehouseKey,result.warehouseKey);
     await assert.rejects(()=>ctx.create({...args,operationId:crypto.randomUUID(),receiptPartId:crypto.randomUUID()}));
     console.log(JSON.stringify({warehouseKey:result.warehouseKey,readback,duplicateReplay:true,newDuplicateBlocked:true}));
@@ -55,7 +56,7 @@ module.exports=async ({pool,sql,query,documents,writer,ctx,protectedSnapshot})=>
   assert.equal(draft.invoiceYear,'2026');
   assert(draft.lines.every(line=>line.stemQuantity===null&&line.bunchQuantity===null&&line.priceUnit===null));
   draft.farmKey=7113;
-  Object.assign(draft.reviewedMetadata,{farmName:invoice.supplier,inputDate:'2026-11-20',transportMode:'AIR'});
+  Object.assign(draft.reviewedMetadata,{farmName:'NZ Blooms',inputDate:'2026-11-20',transportMode:'AIR'});
   const save=async()=>documents.saveInvoiceDraft({withTransactionFn:ctx.withTransactionFn,types:sql,
     input:{...draft,expectedRevision:draft.revision},documentId:draft.revision?draft.documentId:undefined,actor:'invoice-fixture'});
   for(const [i,line] of draft.lines.entries()) line.prodKey=94301+i;
@@ -70,6 +71,7 @@ module.exports=async ({pool,sql,query,documents,writer,ctx,protectedSnapshot})=>
     line.priceUnit='송이'; line.stemQuantity=line.sourceEvidence.nzPrintedUnits;
     line.reviewed={nzUnitReason:'TEST_ONLY: fixture maps Units to stems; this is not production evidence',erpMatchConfirmed:true};
   }
+  draft.lines[0].reviewed.nzStemsPerBunch=5;
   confirmAmount();
   const doc=await save();
   const preview=await ctx.preview(doc.documentId,doc.revision);
@@ -78,15 +80,16 @@ module.exports=async ({pool,sql,query,documents,writer,ctx,protectedSnapshot})=>
     baselineDigest:preview.baselineDigest,reason:'TEST_ONLY NZ isolated SQL',allowPendingCost:true,actor:'invoice-fixture'};
   const result=await ctx.create(args);
   const {recordsets:[headers,rows]}=await query(pool,`SELECT OrderYear,OrderWeek,FarmName,InvoiceNo FROM dbo.WarehouseMaster WHERE WarehouseKey=@key;
-    SELECT BoxQuantity,BunchQuantity,SteamQuantity,UPrice,TPrice FROM dbo.WarehouseDetail WHERE WarehouseKey=@key ORDER BY ProdKey;`,
+    SELECT BoxQuantity,BunchQuantity,SteamQuantity,SteamOf1Box,SteamOf1Bunch,OutQuantity,EstQuantity,UPrice,TPrice FROM dbo.WarehouseDetail WHERE WarehouseKey=@key ORDER BY ProdKey;`,
     {key:{type:sql.Int,value:result.warehouseKey}});
-  assert.deepEqual(headers,[{OrderYear:'2026',OrderWeek:'47-01',FarmName:invoice.supplier,InvoiceNo:'210195'}]);
+  assert.deepEqual(headers,[{OrderYear:'2026',OrderWeek:'47-01',FarmName:'NZ Blooms',InvoiceNo:'210195'}]);
   assert.deepEqual(rows.map(r=>[r.BoxQuantity,r.SteamQuantity,r.UPrice,r.TPrice]),[[3,240,7.57,1816.8],[2,200,4.7,940],[3,300,4.99,1497]]);
+  assert.deepEqual([rows[0].BunchQuantity,rows[0].SteamOf1Box,rows[0].SteamOf1Bunch,rows[0].OutQuantity,rows[0].EstQuantity],[48,80,5,48,48]);
   assert.equal((await documents.getInvoiceDocument({queryFn:ctx.queryFn,types:sql,documentId:doc.documentId})).rawMetadata.currency,'NZD');
   assert.equal(invoiceAmountReview(draft).difference,0);
   assert.equal((await ctx.create(args)).warehouseKey,result.warehouseKey);
   await assert.rejects(()=>ctx.create({...args,operationId:crypto.randomUUID(),receiptPartId:crypto.randomUUID()}));
   assert.deepEqual(await protectedSnapshot(pool),before);
-  console.log(JSON.stringify({warehouseKey:result.warehouseKey,rows:rows.length,totalNZD:4253.8,difference:0,
+  console.log(JSON.stringify({warehouseKey:result.warehouseKey,rows:rows.length,first:rows[0],farm:headers[0].FarmName,totalNZD:4253.8,difference:0,
     duplicateReplay:true,newDuplicateBlocked:true,units:'TEST_ONLY stems, not production evidence'}));
 };
