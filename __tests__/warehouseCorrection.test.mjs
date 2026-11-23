@@ -97,3 +97,17 @@ test('API denies unauthorized users and unsupported actions before any work; GET
   const read=response();await handler({method:'GET',user:{allowed:true,userId:'tester'},query:{queryFn:'spoof',types:'spoof'}},read);assert.equal(reads,1);assert.equal(read.body.draftOwner,'tester');
   const unknown=response();await handler({method:'POST',user:{allowed:true},body:{action:'delete'}},unknown);assert.equal(unknown.statusCode,400);assert.equal(writes,0);
 });
+
+test('Product correction preserves original NULL packing values, numbers and the scoped receipt',()=>{
+  const original={...detail,BoxQuantity:null,SteamOf1Box:null};
+  const productEdit={...replaceInput,editKind:'PRODUCT',items:[{...replaceInput.items[0],sourceWdetailKey:901,boxQty:null,steamOf1Box:null}]};
+  const plan=buildCorrectionPlan(normalizedCorrection(productEdit),header,[original],products);
+  assert.equal(plan.after[0].ProdKey,2);
+  assert.equal(plan.after[0].BoxQuantity,null);
+  assert.equal(plan.after[0].SteamOf1Box,null);
+  for(const key of ['BunchQuantity','SteamQuantity','UPrice','TPrice','OutQuantity','EstQuantity']) assert.equal(plan.after[0][key],original[key]);
+  assert.throws(()=>buildCorrectionPlan(normalizedCorrection(productEdit),header,[detail],products),{code:'CORRECTION_NUMBER_REQUIRED'});
+  assert.throws(()=>buildCorrectionPlan(normalizedCorrection(productEdit),{...header,OrderYear:'2025'},[original],products),{code:'CORRECTION_SCOPE_CHANGED'});
+  assert.throws(()=>buildCorrectionPlan(normalizedCorrection(productEdit),header,[original],products.map(p=>p.ProdKey===2?{...p,OutUnit:'박스'}:p)),{code:'CORRECTION_PRODUCT_UNIT_QUANTITY'});
+  assert.throws(()=>normalizedCorrection({...productEdit,editKind:undefined}),{code:'CORRECTION_NUMBER_REQUIRED'});
+});

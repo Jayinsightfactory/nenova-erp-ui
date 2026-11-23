@@ -162,6 +162,15 @@ async function recordRole(browser, base, secret, role) {
     const box = await element.boundingBox(); assert(box, 'Guide target not visible');
     await focusTarget(element);await movePointer(box.x + box.width / 2, box.y + box.height / 2); await rec.pause(450); await element.click(); await rec.pause(600);if(!keepFocus)await unfocusTarget();
   };
+  const selectReceipt = async () => {
+    const selector = '[data-row-key="9001"]';
+    const target = await page.waitForSelector(selector + ' td:first-child', {visible:true});
+    await focusTarget(target);
+    await page.focus(selector);
+    await page.keyboard.press('Enter');
+    await page.waitForSelector(selector + '[aria-selected="true"]');
+    await unfocusTarget();
+  };
   const click = async (text, scope = 'body') => {
     await page.waitForFunction(({ text, scope }) => [...(document.querySelector(scope)?.querySelectorAll('button,a,summary') ?? [])].some(node => node.textContent.trim() === text && !node.disabled), { timeout: 15000 }, { text, scope }).catch(() => { throw Error(`Missing enabled button: ${text}`); });
     const handle = await page.evaluateHandle(({ text, scope }) => [...document.querySelector(scope).querySelectorAll('button,a,summary')].find(node => node.textContent.trim() === text && !node.disabled), { text, scope }); assert(handle.asElement(), `Missing enabled button: ${text}`); await moveClick(handle.asElement()); await handle.dispose();
@@ -219,8 +228,9 @@ async function recordRole(browser, base, secret, role) {
             await page.waitForSelector('[data-row-key="9001"]');
             await page.setViewport({width: 1920, height: 1080});
           }
-          await moveClick(await page.$('[data-row-key="9001"]'));
+          await selectReceipt();
           const scrollBar = '[aria-label="입고 상세 열 좌우 이동"]';
+          await page.waitForSelector(scrollBar);
           await page.waitForFunction(()=>document.body.textContent.includes('1,350원/단'));
           assert.equal(await page.evaluate(()=>document.body.textContent.includes('1,000원/단')),false);
           await hold('상세 목록 상단 가로 막대로 오른쪽 원가 열을 엽니다. 기본은 최고가 한 건을 표시합니다.',5);
@@ -235,7 +245,7 @@ async function recordRole(browser, base, secret, role) {
           await hold('입력한 농장·사유를 유지한 요청 내용을 확인합니다. 농장명만 변경하면 기존 확정·수량·금액을 보존합니다.',6);await click('영업지원에 요청 등록');await page.waitForFunction(()=>document.body.textContent.includes('영업지원에 수정 요청을 등록했습니다.'));await hold('요청 등록 완료를 확인합니다. 영업지원이 검토하고 수정 반영과 필요한 재확정까지 처리합니다.',6);await click('목록으로 돌아가기');await page.goto(`${base}/import/tools?tab=incoming&warehouseKey=9001&from=2026-10-01&to=2026-11-30`,{waitUntil:'networkidle0'});continue;
         }
         await hold(`${index+1}. ${scenarioTitles[scenario]}\n선택 농장의 기존 입고 안에서 수정합니다.`,5);
-        await page.waitForSelector('[data-row-key="9001"]');await moveClick(await page.$('[data-row-key="9001"]'));if(scenario==='product'){await click('농장·품목 수정 / 파일 교체');await page.waitForSelector('select[aria-label="수정 방식"]');await select('select[aria-label="수정 방식"]','PRODUCT');}else await click('수입부 수정 요청');
+        await page.waitForSelector('[data-row-key="9001"]');await selectReceipt();if(scenario==='product'){await click('농장·품목 수정 / 파일 교체');await page.waitForSelector('select[aria-label="수정 방식"]');await select('select[aria-label="수정 방식"]','PRODUCT');}else await click('수입부 수정 요청');
         await page.waitForSelector('dialog[open] select[aria-label="수정 종류"]');
         if(scenario==='farm'){
           await hold('농장 검색칸에 농장명 일부를 입력합니다. 대소문자와 공백을 구분하지 않습니다.\n검색은 기존 선택을 바꾸지 않으며, 목록에서 정확한 농장을 선택합니다.',5);
@@ -250,11 +260,11 @@ async function recordRole(browser, base, secret, role) {
             await page.waitForFunction(()=>document.querySelector('dialog[open]')?.textContent.includes('수정 후 총액 200'));
             await hold('입고행과 기존 단가를 확인하고 새 단가 2를 입력합니다. 기존 100단에 맞춰 총액 200으로 계산됩니다.',6);
           }else if(scenario==='product'){
-            await fill('input[aria-label="1행 품목 검색"]',products[1].ProdName);
+            await fill('input[aria-label="1행 품목 검색"]',products[1].ProdName);await click(`${products[1].ProdName} · ${products[1].OutUnit}`,'dialog');
             await fill('input[aria-label="1행 최종수량"]','90');
             await hold('기존 포장·매입값을 제안값으로 보존하고 다른 품목과 최종 90단을 정합니다.\n새 품목의 원가 근거는 영업지원 검증 문제로 전달됩니다.',6);
           }else if(scenario==='add'){
-            await click('품목·수량 추가','dialog');await fill('input[aria-label="2행 품목 검색"]',products[1].ProdName);await fill('input[aria-label="2행 최종수량"]','20');
+            await click('품목·수량 추가','dialog');await fill('input[aria-label="2행 품목 검색"]',products[1].ProdName);await click(`${products[1].ProdName} · ${products[1].OutUnit}`,'dialog');await fill('input[aria-label="2행 최종수량"]','20');
             const target=await page.$('input[aria-label="2행 단가"]');await target.evaluate(n=>n.closest('details').open=true);
             await fill('input[aria-label="2행 단가"]','1');await fill('input[aria-label="2행 총액"]','20');
             await hold('추가 품목과 최종 20단을 정하면 품목마스터 기준으로 포장을 계산합니다.\n현재 입고에 매입 근거가 없는 경우에만 확인한 단가·총액을 입력합니다.',6);
