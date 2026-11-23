@@ -17,7 +17,7 @@ export default function InvoiceReceiptComparison({file,document,productByKey,onR
    <button type="button" onClick={()=>setFocus(null)}>원본 총금액 보기</button>
    <div className={styles.compareTableScroll}><table><thead><tr><th>{sourceOnly?'원본 품목':'원본 → 전산 품목'}</th>{RECEIPT_COMPARE_FIELDS.map(([key,label])=><th key={key}>{label}</th>)}</tr></thead>
     <tbody>{document.lines.map(line=><tr key={line.lineId} className={focus?.key.startsWith(`${line.lineId}:`)?styles.compareSelected:undefined}>
-     <th scope="row"><button type="button" onClick={()=>setFocus(receiptComparisonFocus(line,'description'))}>{line.lineNo} · {line.originalName}</button><small>{sourceOnly?`Units (원문): ${format(line.printedUnits)}`:productByKey?.get(Number(line.prodKey))?.ProdName||'전산 품목 미선택'}</small></th>
+     <th scope="row"><button type="button" onClick={()=>setFocus(receiptComparisonFocus(line,'description'))}>{line.lineNo} · {line.originalName}{line.sourceEvidence?.sourceVariety&&<small>Variety: {line.sourceEvidence.sourceVariety}</small>}</button><small>{sourceOnly?`Units (원문): ${format(line.printedUnits)}`:productByKey?.get(Number(line.prodKey))?.ProdName||'전산 품목 미선택'}</small></th>
      {RECEIPT_COMPARE_FIELDS.map(([key,label])=>{
       const v=receiptComparisonValues(line,key,document.rawMetadata?.currency);
       const money=key==='unitPrice'||key==='lineAmount';

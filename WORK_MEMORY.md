@@ -4546,3 +4546,11 @@ pm run test:canon 통과.
 4. 검증 상태: 실물 38·41·44차 선율 정산서 PDF 10/10건 100% 추출(`1,484.0000` EUR, `199.2000` CNY, `1,330.5200` USD, `931.2300` AUD 등), 단위 테스트 60/60 PASS, `crawl-sunyul-gmail.test.js` 4/4 PASS, `pstack-verify`·`guard:erp-writes`·`test:erp-contract`·`test:erp-manifest`·`build` 전수 통과.
 5. 주의/잠금: 구형 `nenova.exe` 테이블(`Order*`/`Shipment*`/`Warehouse*`/`Stock*`/`Estimate`) 쓰기 0건, 확정 스냅샷 불변, 교차연도(`OrderYear+MajorWeek`) 격리 엄수. 연결 목표: g01, g17, g19 / 학습 반영: 있음
 검색어: 선율 정산서 적용환율 sunyul_settlement gmail-auto customs-settlement crawl-sunyul-gmail WebTaxableExchangeRate g01 g17 g19
+
+## 2026-11-23 NZ 입고 확인 탭과 원문 Variety
+검색어: NZ 210195 about:blank 빈 탭 Variety Red Charm Sarah Bernhardt Madame Claude Tain
+1. 작업 위치: nenova-erp-ui / fix/nz-receipt-popup-1123 / C:/Users/USER/Documents/Codex/nw-cdx-nz-popup-1123.
+2. 완료: 사전 빈 탭 제거, 검증 완료 후 기존 입고 링크 사용, 원문 Variety 표시, 규격 일치 활성 품목·근거 있는 농장 별칭만 제안/선택. 이슈 중복 제거 및 입력 위치 연결.
+3. 남은 일: 격리 Electron의 실제 원본·버튼·등록·재조회 검증, CI·배포.
+4. 검증: NZ 별칭·정확 품목·입고 대조 집중 회귀 34건 통과. 운영 DB 조회·쓰기 없음.
+5. 주의: NZ 서류 날짜를 실제 입고일로 사용하지 않는다. 단·송이 가격 기준 자동 환산 없음. 중국 작업트리 미접촉. 연결 목표 g17.

@@ -4,11 +4,14 @@ import { receiptProductLabel } from '../../lib/invoiceReceiptProductSearch.js';
 
 // 100% 미만이면 1순위를 크게, 2순위 이하는 옆에 버튼으로 둔다. 누르면 바로 그 품목으로 선택된다(저장·입고 등록은 하지 않음).
 export function topSuggestion(line, products, country) {
+  if(country==='NZ'&&line?.sourceEvidence?.sourceVariety)return null;
   return defaultInvoiceMatchSuggestion(line?.originalName, products, country);
 }
 
 export default function InvoiceMatchSuggestions({ line, products, country, product, history, onSelect }) {
-  const ranked = useMemo(() => rankProductSuggestions(line?.originalName, products, { country, limit: 5, history }), [line?.originalName, products, country, history]);
+  const variety=country==='NZ'?line?.sourceEvidence?.sourceVariety:null;
+  const search=variety?`${line.originalName} ${variety}`:line?.originalName;
+  const ranked = useMemo(() => rankProductSuggestions(search, products, { country, limit: 5, history }), [search, products, country, history]);
   if (!ranked.items.length) return null;
   const selectedKey = product ? Number(product.ProdKey) : null;
   const defaultMatch = selectedKey == null ? topSuggestion(line, products, country) : null;
