@@ -1,22 +1,111 @@
 {
- "id":"invoice-existing-receipt-cost",
- "nlAutomaticPreview":"2026-11-02 read-only NL native defaults: same receipt freight rows, GW/CW actual values ignoring native Box/Bunch placeholder1 only; distinct kg conflicts remain blocked. EUR AIR from verified NL scope, live quote+15, existing NL company tariff/default customs helpers; template customs ESTIMATED with provenance, not billed/approved. Actual saved bunch/stem relationship supplies conversion. Direct download calls existing server revalidation/export only. No approved-cost/receipt/stock writes.",
- "automaticScope":["lib/nlNativeCostDefaults.js","lib/invoiceLiveExchangeRate.js","pages/api/import/receipts/live-exchange-rate.js"],
- "costStepGuide":"2026-10-29 presentation-only: invalid inputs then formula confirmation, preview and enabled native download are highlighted in order. No focus theft while typing. AU export font readability changes only; sales/profit remain formula-driven pending current selling price. ERP data/approval unchanged.",
- "independentCostWorkspace":"2026-10-29: cost menu defaults to existing receipt browse. Independent mounted cost workspace never navigates to receipt upload; new invoice mode stays inside cost. Local packing recovery is namespaced by authenticated owner AND workspace. Existing receipt/native calculation APIs and ERP writes unchanged.",
- "auNativeAmount":"User confirmed stored shipment total5100 is correct for 44-01 Red Tip. Native AU preview derives bunch price TPrice/BunchQuantity and retains nativeStoredUnitPrice. UI and XLSX identify saved total basis. No stored values or approved/invoice calculations change.",
- "invoiceDownloadShortcut":"2026-10-27: selected invoice exposes native read-only cost/download browser independently of LINK_EXISTING_COST country support or draft receipt status. Exact year/week/invoice filter, explicit warehouse/farm selection, no draft values copied to native source. Native amount mismatches remain blocking. See plans/au-cost-download-2026-10-27.md.",
- "additionalScope":["lib/nativeReceiptCost.js","lib/nativeCostHttp.js","components/import-tools/NativeReceiptCost.js","pages/api/import/receipts/native-cost.js","lib/invoiceWarehouseBrowse.js","components/import-tools/InvoiceWarehouseCostBrowse.js","pages/api/import/receipts/warehouse-list.js","lib/useWeekInput.js"],
- "browseContract":"Explicit OrderYear+OrderWeek GET-only WarehouseMaster lookup. Default after client mount uses getCurrentWeek; year editable, stepWeek shared 01..04 year rollover. Native receipt calculation/export uses SELECT only with year/week/key and source digest. No invoice reconnect required. Missing currency/transport/cost inputs are explicit. Preview workbook is not an approval; no native or web revision writes. Approved export retains original checks.",
- "nativePreviewEvidence":"docs/plans/native-receipt-cost-preview-2026-10-27.md; actual dnSpy ExcelLoadingPackingList rerun and SELECT-only 2026/43-01 WarehouseKey7771. New pure calculation and XLSX path does not call receipt writer or stock SP.",
- "title":"기존 입고 보존 원가 연결 (NL 송이 / CN·TH 단, TH 인보이스 송이 FOB)",
- "thaiExtension":"TH USD/STEM invoice identity and exact product/price/stem/amount aggregate are checked by the same existing-link helper. Native bunch/box/stock remain unchanged. EXISTING_TH persists a complete snapshot and is rechecked at approval/readback/export. See docs/plans/thai-existing-cost-2026-10-23.md.",
- "scope":["components/import-tools/IndependentCostWorkspace.js","lib/packingWorkDraft.js","lib/nativeReceiptCost.js","lib/nativeCostHttp.js","components/import-tools/NativeReceiptCost.js","pages/api/import/receipts/native-cost.js","lib/invoiceWarehouseBrowse.js","components/import-tools/InvoiceWarehouseCostBrowse.js","pages/api/import/receipts/warehouse-list.js","lib/useWeekInput.js","lib/invoiceExistingReceipt.js","lib/invoiceCostOnlyWorkflow.js","pages/import/tools.js","pages/api/import/receipts/[id]/link-existing.js","lib/invoiceReceiptCost.js","lib/invoiceReceiptWriter.js","components/import-tools/InvoiceReceiptWorkbench.js","components/import-tools/InvoiceReceiptCostReview.js","lib/invoiceReceiptCostExport.js","components/import-tools/PackingListTool.js","components/import-tools/PackingResults.js"],
- "workspaceSeparation":"2026-10-27: receipt registration and landed-cost actions are separate. Current committed web documents in every supported country use readback only. Native-only existing link retains NL/CN/TH scope. Cost-only failure never calls receipt commit. Mode changes retain mounted inputs; receipt action never auto-approves cost. 2026-10-28: AU file-specific Woolly bush allocation review opens before AWB verification and writes no receipt/cost data. AWB evidence and completion remain mandatory before receipt/cost navigation; blocked next action exposes the exact reason and focuses the AWB review section.",
- "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
- "actions":[{"name":"LINK_EXISTING_COST","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"read-only","warehouseDetail":"read-only","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","notes":"Explicit NL EUR stem, CN CNY bunch or TH USD stem invoice existing receipt link only. TH invoice stems and native bunches must both match; cost unit is BUNCH. Same year/week/farm/invoice, exact product+price grouped billed quantities and amounts. Preserve all source lines and complete native snapshot including CN null-product nonfinancial rows. Link operation and document/history only; lock and revalidate full snapshot. Block native writer for linked documents. No stock SP."}],
- "crossYearFixture":{"required":true,"description":"2025/2026 same week/invoice cannot link across years; stale detail and duplicate candidate rejected. Farm selection optional for native existing receipts: require exactly one active WarehouseMaster by OrderYear+OrderWeek+InvoiceNo+InputDate year. Explicit FarmKey must resolve active Farm and remains a narrowing filter. Missing Farm master never creates Farm or receipt; confirmation displays native FarmName/InputDate/InvoiceNo."},
- "requiredTestFiles":["__tests__/nativeReceiptCost.test.js","__tests__/invoiceWarehouseBrowse.test.js","__tests__/invoiceCostOnlyWorkflow.test.js","__tests__/invoiceExistingReceipt.test.js","__tests__/invoiceReceiptCost.test.js","__tests__/invoiceReceiptCostExport.test.js","__tests__/invoiceReceiptCostRegistryUi.test.js","__tests__/packingResultsUi.test.js"],
- "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-10-19 actual dnSpy ExcelLoadingPackingList: MakeTempTable and InsertMaster native receipt/stock path inspected. New link never calls native insert or calculation. Read-only receipt7662:82 goods+3 weight/freight rows,16251 stems.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","WebInvoiceDocument","WebInvoiceOperation","WebInvoiceHistory"]},
- "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+  "id": "invoice-existing-receipt-cost",
+  "nlAutomaticPreview": "2026-11-02 read-only NL native defaults: same receipt freight rows, GW/CW actual values ignoring native Box/Bunch placeholder1 only; distinct kg conflicts remain blocked. EUR AIR from verified NL scope, live quote+15, existing NL company tariff/default customs helpers; template customs ESTIMATED with provenance, not billed/approved. Actual saved bunch/stem relationship supplies conversion. Direct download calls existing server revalidation/export only. No approved-cost/receipt/stock writes.",
+  "automaticScope": [
+    "lib/nlNativeCostDefaults.js",
+    "lib/invoiceLiveExchangeRate.js",
+    "pages/api/import/receipts/live-exchange-rate.js"
+  ],
+  "costStepGuide": "2026-10-29 presentation-only: invalid inputs then formula confirmation, preview and enabled native download are highlighted in order. No focus theft while typing. AU export font readability changes only; sales/profit remain formula-driven pending current selling price. ERP data/approval unchanged.",
+  "independentCostWorkspace": "2026-10-29: cost menu defaults to existing receipt browse. Independent mounted cost workspace never navigates to receipt upload; new invoice mode stays inside cost. Local packing recovery is namespaced by authenticated owner AND workspace. Existing receipt/native calculation APIs and ERP writes unchanged.",
+  "auNativeAmount": "User confirmed stored shipment total5100 is correct for 44-01 Red Tip. Native AU preview derives bunch price TPrice/BunchQuantity and retains nativeStoredUnitPrice. UI and XLSX identify saved total basis. No stored values or approved/invoice calculations change.",
+  "invoiceDownloadShortcut": "2026-10-27: selected invoice exposes native read-only cost/download browser independently of LINK_EXISTING_COST country support or draft receipt status. Exact year/week/invoice filter, explicit warehouse/farm selection, no draft values copied to native source. Native amount mismatches remain blocking. See plans/au-cost-download-2026-10-27.md.",
+  "additionalScope": [
+    "lib/nativeReceiptCost.js",
+    "lib/nativeCostHttp.js",
+    "components/import-tools/NativeReceiptCost.js",
+    "pages/api/import/receipts/native-cost.js",
+    "lib/invoiceWarehouseBrowse.js",
+    "components/import-tools/InvoiceWarehouseCostBrowse.js",
+    "pages/api/import/receipts/warehouse-list.js",
+    "lib/useWeekInput.js"
+  ],
+  "browseContract": "Explicit OrderYear+OrderWeek GET-only WarehouseMaster lookup. Default after client mount uses getCurrentWeek; year editable, stepWeek shared 01..04 year rollover. Native receipt calculation/export uses SELECT only with year/week/key and source digest. No invoice reconnect required. Missing currency/transport/cost inputs are explicit. Preview workbook is not an approval; no native or web revision writes. Approved export retains original checks.",
+  "nativePreviewEvidence": "docs/plans/native-receipt-cost-preview-2026-10-27.md; actual dnSpy ExcelLoadingPackingList rerun and SELECT-only 2026/43-01 WarehouseKey7771. New pure calculation and XLSX path does not call receipt writer or stock SP.",
+  "title": "기존 입고 보존 원가 연결 (NL 송이 / CN·TH 단, TH 인보이스 송이 FOB)",
+  "thaiExtension": "TH USD/STEM invoice identity and exact product/price/stem/amount aggregate are checked by the same existing-link helper. Native bunch/box/stock remain unchanged. EXISTING_TH persists a complete snapshot and is rechecked at approval/readback/export. See docs/plans/thai-existing-cost-2026-10-23.md.",
+  "scope": [
+    "components/import-tools/IndependentCostWorkspace.js",
+    "lib/packingWorkDraft.js",
+    "lib/nativeReceiptCost.js",
+    "lib/nativeCostHttp.js",
+    "components/import-tools/NativeReceiptCost.js",
+    "pages/api/import/receipts/native-cost.js",
+    "lib/invoiceWarehouseBrowse.js",
+    "components/import-tools/InvoiceWarehouseCostBrowse.js",
+    "pages/api/import/receipts/warehouse-list.js",
+    "lib/useWeekInput.js",
+    "lib/invoiceExistingReceipt.js",
+    "lib/invoiceCostOnlyWorkflow.js",
+    "pages/import/tools.js",
+    "pages/api/import/receipts/[id]/link-existing.js",
+    "lib/invoiceReceiptCost.js",
+    "lib/invoiceReceiptWriter.js",
+    "components/import-tools/InvoiceReceiptWorkbench.js",
+    "components/import-tools/InvoiceReceiptCostReview.js",
+    "lib/invoiceReceiptCostExport.js",
+    "components/import-tools/PackingListTool.js",
+    "components/import-tools/PackingResults.js",
+    "lib/nativeReceiptCostEvidence.js",
+    "data/native-cost-source-evidence.json"
+  ],
+  "workspaceSeparation": "2026-10-27: receipt registration and landed-cost actions are separate. Current committed web documents in every supported country use readback only. Native-only existing link retains NL/CN/TH scope. Cost-only failure never calls receipt commit. Mode changes retain mounted inputs; receipt action never auto-approves cost. 2026-10-28: AU file-specific Woolly bush allocation review opens before AWB verification and writes no receipt/cost data. AWB evidence and completion remain mandatory before receipt/cost navigation; blocked next action exposes the exact reason and focuses the AWB review section.",
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "LINK_EXISTING_COST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "read-only",
+      "warehouseDetail": "read-only",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "notes": "Explicit NL EUR stem, CN CNY bunch or TH USD stem invoice existing receipt link only. TH invoice stems and native bunches must both match; cost unit is BUNCH. Same year/week/farm/invoice, exact product+price grouped billed quantities and amounts. Preserve all source lines and complete native snapshot including CN null-product nonfinancial rows. Link operation and document/history only; lock and revalidate full snapshot. Block native writer for linked documents. No stock SP."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 same week/invoice cannot link across years; stale detail and duplicate candidate rejected. Farm selection optional for native existing receipts: require exactly one active WarehouseMaster by OrderYear+OrderWeek+InvoiceNo+InputDate year. Explicit FarmKey must resolve active Farm and remains a narrowing filter. Missing Farm master never creates Farm or receipt; confirmation displays native FarmName/InputDate/InvoiceNo."
+  },
+  "requiredTestFiles": [
+    "__tests__/nativeReceiptCost.test.js",
+    "__tests__/invoiceWarehouseBrowse.test.js",
+    "__tests__/invoiceCostOnlyWorkflow.test.js",
+    "__tests__/invoiceExistingReceipt.test.js",
+    "__tests__/invoiceReceiptCost.test.js",
+    "__tests__/invoiceReceiptCostExport.test.js",
+    "__tests__/invoiceReceiptCostRegistryUi.test.js",
+    "__tests__/packingResultsUi.test.js",
+    "__tests__/nativeReceiptCostEvidence.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormWarehouseUpload.md",
+    "source": "2026-10-19 actual dnSpy ExcelLoadingPackingList: MakeTempTable and InsertMaster native receipt/stock path inspected. New link never calls native insert or calculation. Read-only receipt7662:82 goods+3 weight/freight rows,16251 stems.",
+    "methods": [
+      "ExcelLoadingPackingList.MakeTempTable",
+      "ExcelLoadingPackingList.InsertMaster"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "WebInvoiceDocument",
+      "WebInvoiceOperation",
+      "WebInvoiceHistory"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "nativeWorkbookEvidence": "2026-11-23: verified archived CN-CLD packing SHA0d47d734; exact scoped native digest and zero-amount GW/CW typo pair only. Cost source exclusion and 2543kg metadata, freight24087 and category6/21 defaults; native prices and all ERP ledgers preserved. Missing/stale/cross-year evidence remains blocked. docs/plans/cloud-native-source-2026-11-23.md"
 }

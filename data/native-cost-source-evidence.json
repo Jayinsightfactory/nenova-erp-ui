@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "id": "cloud-2026-46-02-packing",
+      "scope": {
+        "warehouseKey": 8160,
+        "orderYear": "2026",
+        "orderWeek": "46-02",
+        "farmName": "Cloudland",
+        "invoiceNo": "2026YY-053",
+        "fileName": "46-02_CN_CLD_PL.xlsx"
+      },
+      "source": {
+        "archiveId": "mwiyx5s5-0d47d7",
+        "sha256": "0d47d73469576f1f537c44929660ead1b226540cfc67916829fbb39eb82a974e",
+        "sheet": "CN-CLD",
+        "verifiedAt": "2026-11-23"
+      },
+      "rowCount": 48,
+      "nativeDigest": "9728ab24f1c39ddfc4b3907773ed4ab9dbd1c5bedd7ed8cbfe7bebbddccd248a",
+      "weights": [
+        {
+          "key": 50449,
+          "orderCode": "47",
+          "kind": "GW",
+          "kg": 2543,
+          "name": "Gross weigth",
+          "cells": "B52:J52"
+        },
+        {
+          "key": 50450,
+          "orderCode": "48",
+          "kind": "CW",
+          "kg": 2543,
+          "name": "Chargeable weigth",
+          "cells": "B53:J53"
+        }
+      ],
+      "freight": {
+        "key": 50448,
+        "amount": 24087,
+        "currency": "CNY",
+        "cells": "B51:L51"
+      },
+      "categories": [
+        {
+          "key": 50412,
+          "code": 6,
+          "cells": "46-2 CLOUD cbm !B40:F40,L12:Q12"
+        },
+        {
+          "key": 50437,
+          "code": 21,
+          "cells": "46-2 CLOUD cbm !B65:F65,L27:Q27"
+        }
+      ],
+      "unitConversions": [
+        {
+          "key": 50438,
+          "from": "송이",
+          "to": "BUNCH",
+          "cells": "CN-CLD!G41:J41; 46-2 CLOUD cbm !E66:F66"
+        }
+      ],
+      "exchangeRate": {
+        "value": 210,
+        "currency": "CNY",
+        "sourceHash": "534642102c2b66c40d2f25c362114142b6c019430db9ebd9fb1915e623327386",
+        "sheet": "46-2 CLOUD cbm ",
+        "cell": "C7"
+      },
+      "note": "원본 중량 이름의 weigth 철자 오류 2행을 상품에서만 분리 · 원장 변경 없음"
+    }
+  ]
+}

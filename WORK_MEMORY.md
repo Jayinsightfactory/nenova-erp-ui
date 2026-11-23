@@ -4629,10 +4629,33 @@ pm run test:canon 통과.
 4. 검증: 격리 Chrome 실파일 Sheet1 두 건, CNY 78,077/4,450 차이 0. 시험 선택 A 상품38·비용3 중 1행, B 상품2·비용3 중 1행 매칭. 관련 테스트 103 통과/2 건너뜀.
 5. 주의: 운영 DB 및 원본 변경 없음. CLOUD에서 원문에 없는 단위를 확정하지 않는다. 연결 목표 g17 / 진행률 유지.
 
+## 2026-11-23 · CLOUD 운영 다운로드 잔여 항목 조사 · 사용자 확인 대기
+- 운영2026/46-02 Cloudland 송장2026YY-053/WarehouseKey8160 SELECT-only. 상품45행은 원본43행의 프라우드 분할2건을 묶으면2280단 일치. 상품금액 원본48870/운영48928CNY이며 차이는F34 프라우드58단의 단가23/24 한 건(+58CNY)뿐이다.
+- 미연결50449/50450은 ProdKey·품목명·실제수량·단위NULL, 각Box/Bunch1·Steam2543·U/TPrice0, OrderCode47/48. 원본C8 GW1896/E8 CW2578.4566667과 달라2543을어느중량으로도추정하지않는다. 원장/다운로드원가값/제외판정 변경0.
+- 확인된입력: 운송료50448 TPrice24087=원본C11(E111200+H1122887). 50412꽃잎→PETAL(code6),B40/E40/F40,L12/Q12(21.4%). 50437포플러스→POPULUS GRAIN(code21),B65/E65/F65,L27/M27/Q27(15kg/box,3.2%).
+- 검색어: CLOUD 다운로드 8160 50449 50450 프라우드 F34 58CNY GW1896 2543 PETAL POPULUS
+1. 작업 위치: codex/cloud-cost-download-1123 / C:/Users/USER/nw-cdx-cloud-download-1123 / origin/master e8b3094f4 기반 / PR없음.
+2. 완료된 것: 원본·운영수량/금액 대응표 및 운임/카테고리 근거정리. 코드변경없음, 본WORK_MEMORY 조사기록만추가.
+3. 남은 할 일: 사용자에게가격기준(원장유지/엑셀원가전용)과GW/CW/NULL0원2행계산제외 여부를질문한상태. 답변전제외·override·다운로드·새구현/배포보류.
+4. 검증 상태: 운영SELECT와원본43행대조완료. 구현변경이없어전체테스트·빌드재실행안함. 실제다운로드미완료. 원본엑셀·ERP원장·운영배포변경0.
+5. 주의/잠금: 위worktree는후속답변용예약. 확정되지않은프라우드58단가격·2543중량을임의반영금지. 연결목표g17/g19, 추가진척률상향0.
+
+## 2026-11-23 · CLOUD 미연결 2행 원문 확정 · 운영 기준 원가 재현
+- 사용자 결정: 프라우드 운영102단@23+58단@24, 상품48928 CNY 유지. 가격override0.
+- 업무드라이브 원본46-02_CN_CLD_PL.xlsx, SHA0d47d73469576f1f537c44929660ead1b226540cfc67916829fbb39eb82a974e, CN-CLD!B52/J52=Gross weigth/2543, B53/J53=Chargeable weigth/2543. weight철자오류로Product정확매칭실패한중량2행임을확인. 원본A6:L53의48행숫자·품명·순서를운영과전부대조완료.
+- data/native-cost-source-evidence.json의검증기록과 lib/nativeReceiptCostEvidence.js 공통검증으로정확scope·원본명·48행지문·NULL0원GW/CWpair일치시만분리. GW=CW2543,운임24087,카테고리PETAL/POPULUS. 호접은원본G41:I41:J41과원가표E66의1송이=1단근거로계산단위만BUNCH, 원장단위송이보존. 다른입고자동확대/광역weight fuzzy제외없음.
+- 운영재생45상품행/2280단/상품48928 CNY/운임24087 CNY/환율210(원가표C7)/통관1817780원/총20423351.235777원. 생성전후sourceHash동일,실제Excel재계산20423351.2357767원·수식오류0. XLSX출력에오타원인·원장불변·원본SHA/셀·1:1단위·환율근거표시.
+- 검색어: CLOUD 8160 50449 50450 Gross weigth Chargeable weigth 2543 0d47d734 20423351 운영기준
+1. 작업 위치: codex/cloud-cost-download-1123 / C:/Users/USER/nw-cdx-cloud-download-1123 / e8b3094f4 기반 / PR생성전.
+2. 완료된 것: sourceevidence·공통검증·원가전용분리/자동입력·출력근거·정상/near-miss/교차연도회귀·Desktop1.3.82. UI파일/메뉴/업무순서변경없고기존사용가이드유지.
+3. 남은 할 일: 최종pstack→PR/CI→머지/Cafe24배포→운영Chrome실제다운로드·파일검산. 실제운영다운로드는아직미완료.
+4. 검증 상태: 전체ERP계약exit0,manifest238/dnSpy/ERP쓰기0API/productionbuild/메뉴3PASS. 표적67PASS·9조건부skip,새증거4PASS·최종출력회귀9PASS, 실제SELECT재생·nativeExcel PASS. 중복전체검사재실행없음.
+5. 주의/잠금: 본worktree전용. 운영Warehouse/Stock/Order/Shipment/Estimate/손익원장쓰기0,원본엑셀수정0. 연결목표g17/g19·실이익회수미측정·진행률상향0. 사용자가받을최종다운로드파일은보존.
+
 ## 2026-11-23 뉴질랜드 인보이스 근거 기반 자동입력
 검색어: NZ 인보이스 Units 원문 자동입력 품종 규격 실제 입고일 g17
-1. 작업 위치: nenova-erp-ui / codex/nz-receipt-autofill / C:/Users/USER/Documents/Codex/nw-cdx-nz-autofill-1123 / PR 미생성.
-2. 완료: 활성 NZ 정확 품목 제한, 명시 단위 근거로 원문 수량 적용, 확인 환산과 수동값 보존, 필드별 확인 사유, 원문 AWB 좌표·체크디지트 확인 후 AIR 표시.
-3. 남은 일: 필수 CI·Cafe24·Desktop 게시·운영 메뉴 스모크. 공식 가이드 예외 승인·적용, 영상 미갱신.
-4. 검증: ERP 계약·dnSpy·운영형 빌드와 격리 Electron 실제 원본 3행 등록·원장 재조회 통과. 국가 초기화는 개발 서버에서만 재현, 운영형 빌드에서 change 이벤트와 무재로드 검증. 자동채움은 원장 쓰기 없음.
+1. 작업 위치: nenova-erp-ui / codex/nz-receipt-autofill / C:/Users/USER/Documents/Codex/nw-cdx-nz-autofill-1123 / PR1953.
+2. 완료: 활성 NZ 정확 품목, 명시 단위 근거로 원문 수량 적용, 환산과 수동값 보존, 원문 AWB 좌표·체크디지트 확인 후 AIR 표시.
+3. 남은 일: 필수 CI·Cafe24·Desktop 게시·운영 메뉴 스모크. 공식 가이드 예외 적용, 영상 미갱신.
+4. 검증: ERP 계약·dnSpy·운영형 빌드와 격리 Electron 실제 원본 3행 등록·재조회 통과. 국가 초기화는 개발 서버에서만 재현. 운영형 빌드에서 change 이벤트와 무재로드 검증.
 5. 주의: 운영 DB 조회·쓰기 금지. 송장일로 실제 입고일 대체 금지. 연결 목표 g17 / 검증 전 진척률 유지.
