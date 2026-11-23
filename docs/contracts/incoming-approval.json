@@ -214,5 +214,9 @@
     "writeBeforeApproval": "기존 approval create/submit만 사용; ERP 원장 변경 없음",
     "fixedShipment": "요청 등록을 막지 않음; 농장-only 확정 보존, 수량변경은 기존 최종승인 원자 처리",
     "retry": "동일 operationId 생성 재확인, 생성된 draft의 현재 revision으로 submit"
+  },
+  "invoiceCorrectionSnapshot": {
+    "scope": "Linked invoice mappings mirror the scoped corrected WarehouseDetail values. Retain NULL pack quantities and explicit zero independently; an explicit cancelled line still maps to zero.",
+    "fixture": "Direct confirmed receipt with BoxQuantity NULL and BunchQuantity 0, numeric stem counts, amount and unit price; linked invoice snapshot and producer readback agree."
   }
 }
