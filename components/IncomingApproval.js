@@ -48,8 +48,14 @@ export default function IncomingApproval({ children, active = true }) {
     const ticket = ++generation.current;
     workLog.mark('receipt','요청 내용과 서버 처리 이력 조회 중');
     let value = await api(null, id); if (ticket !== generation.current) return;
+    workLog.mark('receipt','요청 내용과 처리 이력을 불러왔습니다.','done');
     setData(value); setMatching(value.request.matching);
-    try { value = await prepareSimpleReview(api,value); } catch(e) { value = {...value,preview:{canCommit:false,issues:[{code:'APPROVAL_PREPARATION_FAILED',message:e.message}],groups:[]}}; }
+    try {
+      value = await prepareSimpleReview(api,value,workLog.mark);
+    } catch(e) {
+      workLog.mark('matching',e.message,'error');
+      value = {...value,preview:{canCommit:false,issues:[{code:'APPROVAL_PREPARATION_FAILED',message:e.message}],groups:[]}};
+    }
     if(ticket !== generation.current)return;
     setData(value); setMatching(value.request.matching); setPreview(value.preview??null); setConfirmed(false); setDirty(false); setPending(null); setDistributionWeek(''); setSearch('');
     setTimeout(() => detailRef.current?.focus(), 0);
