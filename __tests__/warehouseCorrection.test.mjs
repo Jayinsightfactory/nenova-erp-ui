@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import fs from 'node:fs';
-import {normalizedCorrection,buildCorrectionPlan} from '../lib/warehouseCorrectionPolicy.js';
+import {normalizedCorrection,preserveOriginalFarmName,buildCorrectionPlan} from '../lib/warehouseCorrectionPolicy.js';
 import {prepareWarehouseCorrection,commitWarehouseCorrection} from '../lib/warehouseCorrection.js';
 
 const types={Int:'int',NVarChar:'nvarchar',Float:'float'};
@@ -110,4 +110,17 @@ test('Product correction preserves original NULL packing values, numbers and the
   assert.throws(()=>buildCorrectionPlan(normalizedCorrection(productEdit),{...header,OrderYear:'2025'},[original],products),{code:'CORRECTION_SCOPE_CHANGED'});
   assert.throws(()=>buildCorrectionPlan(normalizedCorrection(productEdit),header,[original],products.map(p=>p.ProdKey===2?{...p,OutUnit:'박스'}:p)),{code:'CORRECTION_PRODUCT_UNIT_QUANTITY'});
   assert.throws(()=>normalizedCorrection({...productEdit,editKind:undefined}),{code:'CORRECTION_NUMBER_REQUIRED'});
+});
+
+test('Non-farm correction keeps the byte-for-byte farm on the scoped receipt',()=>{
+  const sourceHeader={...header,FarmName:' Farm A '};
+  const input={...replaceInput,editKind:'PRODUCT',items:[{...replaceInput.items[0],sourceWdetailKey:901}]};
+  const bound=preserveOriginalFarmName(normalizedCorrection(input),sourceHeader);
+  assert.equal(bound.farmName,sourceHeader.FarmName);
+  assert.equal(buildCorrectionPlan(bound,sourceHeader,[detail],products).farmChanged,false);
+  assert.throws(()=>buildCorrectionPlan(bound,{...sourceHeader,OrderYear:'2025'},[detail],products),{code:'CORRECTION_SCOPE_CHANGED'});
+  const tampered=preserveOriginalFarmName(normalizedCorrection({...input,farmName:'Farm B'}),sourceHeader);
+  assert.throws(()=>buildCorrectionPlan(tampered,sourceHeader,[detail],products),{code:'CORRECTION_EDIT_SCOPE'});
+  const farm=normalizedCorrection({...farmInput,editKind:'FARM'});
+  assert.equal(preserveOriginalFarmName(farm,sourceHeader).farmName,'Farm B');
 });
