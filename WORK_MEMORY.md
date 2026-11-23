@@ -4678,3 +4678,14 @@ pm run test:canon 통과.
 3. 남은 일: 필수 CI·Cafe24·Desktop 게시·운영 메뉴 스모크. 공식 가이드 예외 적용, 영상 미갱신.
 4. 검증: ERP 계약·dnSpy·운영형 빌드와 격리 Electron 실제 원본 3행 등록·재조회 통과. 국가 초기화는 개발 서버에서만 재현. 운영형 빌드에서 change 이벤트와 무재로드 검증.
 5. 주의: 운영 DB 조회·쓰기 금지. 송장일로 실제 입고일 대체 금지. 연결 목표 g17 / 검증 전 진척률 유지.
+
+## 2026-11-23 · 자동 실행·업로드 보호 배포 완료
+- PR1954 squash acb03ec42931566d81d8880d9649bf39b502e77c. ERP CI45111253240 및 Windows CI45111253273 SUCCESS. Cafe24 배포45111954666·Desktop 게시45111954715 SUCCESS.
+- 운영 읽기 전용45112639589: upload_admission_policy HTTP200/version1/ratePerSecond8/burst8. 앱 DB health200/123ms, SELECT1 성공382ms. 최근30분 수신716건 오류0/최대701ms·로그인5건 오류0/최대96ms는 배포 전후 혼합구간이므로 개선율로 해석하지 않는다.
+- 공개 latest.yml1.3.84, 설치본111964017B SHA512 일치, SHA256 3c906264db1081a63bd3cd9186070fb9155f938c13ea82db8e2f7309d72fcb2c. /desktop-releases/latest 302→1.3.84. 실제 Chrome 로그인200·입력란 표시·페이지오류0. 설치 파일은 메모리 스트림 검증 후 로컬 저장하지 않음.
+- 검색어: PR1954 acb03ec4 Desktop1.3.84 자동시작 8req/s 45112639589 배포완료
+1. 작업 위치: nenova-erp-ui / codex/startup-upload-audit-1123 / C:/Users/USER/nw-cdx-startup-audit-1123 / PR1954 merged. 최종 배포 기록은 해당 원격 작업 브랜치에 보존 후 로컬 worktree 정리.
+2. 완료된 것: Windows 로그인 자동 실행·해제 보존·기동 분산·홈 설정, 업로드 선행 처리량 제한 및 운영 readback, 일정 가이드 재녹화, 코드 검사/빌드/설치본 게시/운영 브라우저 확인.
+3. 남은 할 일: 직원 재부팅·모든 PC 업데이트·폭주 시 실제 조회 응답·초과 파일 재시도 완료는 미검증. 별도 직원 PC 원격 명령/재부팅 없음. 기존 카카오추가·파일조회 등 다른 느린 경로까지 해결했다고 주장하지 않음.
+4. 검증 상태: 로컬 ERP/desktop/native/UI/video/build 및 PR CI, master 웹/설치본 배포 SUCCESS. 운영 정책8/8·DB·Chrome·파일무결성 확인. 자동 실행은 새 버전 최초 실행 이후 적용, 기존 비활성 선택 유지.
+5. 주의/잠금: 원장·원본 수정0. 진단 시간대와 특정 Codex/직원 인과 미확정. 연결 목표g13/g18 / 학습 반영 있음 / 진행률 유지. 인계 후 작업 잠금 해제.
