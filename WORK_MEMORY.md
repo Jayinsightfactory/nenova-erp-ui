@@ -4679,6 +4679,18 @@ pm run test:canon 통과.
 4. 검증: ERP 계약·dnSpy·운영형 빌드와 격리 Electron 실제 원본 3행 등록·재조회 통과. 국가 초기화는 개발 서버에서만 재현. 운영형 빌드에서 change 이벤트와 무재로드 검증.
 5. 주의: 운영 DB 조회·쓰기 금지. 송장일로 실제 입고일 대체 금지. 연결 목표 g17 / 검증 전 진척률 유지.
 
+
+## 2026-11-23 · 중국 A/B·콜롬비아 차수 통합 원가
+- 같은 국가·연도·정확 세부차수에서 선택입고 전체를 다시 조회. 원본행PK와 농장·송장·AWB 유지, 같은SKU 다른송장은보존. 같은 농장/송장 또는 같은원본/송장 중복입고는 취합차단. 추가입고/단가변경은source지문409.
+- 운임·통관비는 종류+증빙식별자+대상AWB로1회배분. 같은청구충돌차단, 동액별도청구보존. CO동일AWB의 수국/장미/카네이션/알스트로 분모통합, 송장PHYTO/추가비15USD각각은 해당송장원본박스배분으로별도표시.
+- 중국45-03A/B원본64행 전수대조, weigth오타4행exact근거·1050/980kg확인. 사용자210원/CNY 검증용 및 A/B각각청구결정. 상품58행2190단42675CNY/운임20470CNY/추정통관2059800KRW/합계18434216.141562원. CO22입고94행44940송이/운임13737.8USD/송장비30USD/원문참고환율1345.2/추정통관2025320KRW/합계43916865.799999원. 생성후읽기전용지문불변.
+- 검색어: 차수 통합 A차 B차 CLOUD 콜롬비아 수국 장미 카네이션 AWB 증빙 중복 2059800 18434216 43916865
+1. 작업 위치: nenova-erp-ui / codex/arrival-week-merge-1123 / C:/Users/USER/nw-cdx-arrival-week-1123 / PR생성전.
+2. 완료된 것: 순수통합/SELECT source/POST preview·download/한시트수식출력·입고후원가진입UI·Desktop1.3.85·6단계67.2초실제가이드. 별도/import/pipeline 코드는보존. 원가입력권한·원장writer정책불변.
+3. 남은 할 일: pstack→PR/CI→squash/Cafe24배포→운영Chrome중국·CO실제다운로드/파일보존. 추가NL47-2CI송장1222993입고요청은운영중복0건확인했으나파일선택도구권한단계확인중,등록0건.
+4. 검증 상태: 새회귀20PASS, CN/CO실제격리UI다운로드1시트/연습합계89821.6·561000일치. 가이드36업무37영상/앞중간끝프레임검증. 전체ERP초기단계후manifest계약키표기1건실패를정본스키마수정후239PASS, 성공분재실행없이나머지114명령및후처리전부PASS. dnSpy/새API쓰기guard1/메뉴3/productionbuildPASS. 실데이터2파일생성및수식runtime재계산은검증,운영브라우저다운로드아직미검증.
+5. 주의/잠금: 본worktree전용. 중국환율210은검증용·통관비는추정으로표시,당시실비/승인원가로주장금지. 원본파일수정/ERP원장쓰기0. 연결목표g17/g19·학습반영있음·실이익미측정진척률상향0. 추가NL입고는새사용자승인범위이나기존24입고재등록금지.
+
 ## 2026-11-23 주차별 매출이익 미확정 스냅샷 자동 새로고침 (Push + Stale-on-Read)
 검색어: WebProfitReportSnapshot 자동 새로고침 auto-refresh Stale-on-Read Push 선율 정산서 WebCustomsWeekly g17 g19
 1. 작업 위치: nenova-erp-ui / feat/profit-report-auto-refresh / C:/Users/USER/nw-swm-profit-autorefresh / origin/master 22fb230d 기반.

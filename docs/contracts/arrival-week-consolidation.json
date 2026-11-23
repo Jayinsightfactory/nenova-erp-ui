@@ -1,0 +1,68 @@
+{
+  "id": "arrival-week-consolidation",
+  "title": "중국 A/B·콜롬비아 품종별 입고 차수 통합 원가",
+  "scope": [
+    "lib/arrivalWeekCost.js",
+    "lib/arrivalWeekCostHttp.js",
+    "lib/arrivalWeekCostWorkbook.js",
+    "lib/colombiaWeekCost.js",
+    "lib/colombiaWeekCostSource.js",
+    "components/import-tools/ArrivalWeekCostReview.js",
+    "components/import-tools/InvoiceWarehouseCostBrowse.js",
+    "pages/api/import/receipts/week-cost.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "WEEK_COST_PREPARE_PREVIEW_DOWNLOAD",
+      "warehouseMaster": "read-only",
+      "warehouseDetail": "read-only",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "notes": "명시 국가·연도·세부차수·선택입고. 원문/AWB/농장/인보이스별 귀속 보존. 같은 비용증빙과 종류만 중복 제거하며 금액 동등성은 중복 근거가 아님. 원장 쓰기 없음."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 차수 전년도는 제외. A/B는 원장 동일45-03 확인, 임의 suffix 제거 없음. 업로드 순서와 무관한 집합, 중복/동시추가 시 재조회 요구."
+  },
+  "requiredTestFiles": [
+    "__tests__/arrivalWeekCost.test.js",
+    "__tests__/colombiaWeekCost.test.js",
+    "__tests__/colombiaWeekCostSource.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormWarehouseUpload.md",
+    "source": "2026-11-23 actual ExcelLoadingPackingList dnSpy CLI. 운영 SELECT CN8061/8062 동일45-03, 다른AWB; CO46-02 수국·일반꽃 동일AWB. 원가 작성·다운로드만 추가, native writer 보존.",
+    "methods": [
+      "ExcelLoadingPackingList.MakeTempTable",
+      "ExcelLoadingPackingList.InsertMaster"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "nativeReceiptIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "WarehouseKey",
+    "WdetailKey"
+  ]
+}

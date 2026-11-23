@@ -1,0 +1,30 @@
+.root {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #0f172a;
+  border-top: 2px solid #334155;
+  margin: 18px 0;
+  padding: 16px 0;
+  font-variant-numeric: tabular-nums;
+}
+.root h3 { font-size: 18px; margin: 0 0 8px; }
+.root h4 { font-size: 15px; margin: 18px 0 6px; }
+.root p { margin: 8px 0; }
+.root fieldset { border: 1px solid #cbd5e1; padding: 12px; margin: 12px 0; min-width: 0; }
+.root legend { font-weight: 600; padding: 0 6px; }
+.root label { display: inline-flex; flex-direction: column; gap: 5px; margin: 8px 14px 8px 0; min-width: 180px; max-width: 440px; vertical-align: top; }
+.root label:has(input[type='checkbox']) { flex-direction: row; align-items: center; min-width: auto; }
+.root input:not([type='checkbox']), .root select { font: inherit; color: inherit; border: 1px solid #94a3b8; border-radius: 4px; padding: 7px 9px; min-height: 36px; max-width: 100%; }
+.root input[type='number'] { width: 175px; }
+.root input[type='text'], .root input:not([type]) { width: 320px; }
+.root input[type='checkbox'] { width: 16px; height: 16px; margin-right: 6px; }
+.root button { font: inherit; margin: 6px 5px 6px 0; min-height: 36px; padding: 7px 12px; }
+.root table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+.root th, .root td { text-align: left; border-bottom: 1px solid #cbd5e1; padding: 8px 10px; overflow-wrap: anywhere; }
+.root th { background: #f1f5f9; color: #334155; }
+.root [role='alert'] { border-left: 3px solid #b45309; padding: 8px 12px; color: #78350f; }
+@media (max-width: 700px) {
+  .root table { display: block; overflow-x: auto; }
+  .root label { width: 100%; max-width: 100%; }
+}
