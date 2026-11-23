@@ -4730,9 +4730,9 @@ pm run test:canon 통과.
 
 ### 2026-11-23 후속 검증 완료 · PR 준비
 1. 작업 위치: codex/invoice-upload-date-1123 / C:/Users/USER/nw-cdx-upload-date-1123 / PR 생성 직전.
-2. 완료된 것: 가이드3개 실제 재녹화 및6단계 연습다운로드 PASS. Desktop1.3.86 메타데이터에 반영, 기존 수입부 업무도구 메뉴를 그대로 사용한다. A22는 사장님 확정 Prod2226 대1kg, B9는 원본 흰호접란사진으로3529 확인. 연결 목표 g17/g19 / 학습 반영 있음.
+2. 완료된 것: 가이드3개 실제 재녹화 및6단계 연습다운로드 PASS. Desktop1.3.87 메타데이터에 반영, 기존 수입부 업무도구 메뉴를 그대로 사용한다. A22는 사장님 확정 Prod2226 대1kg, B9는 원본 흰호접란사진으로3529 확인. 연결 목표 g17/g19 / 학습 반영 있음.
 3. 남은 할 일: CI/머지/배포, 정식 데스크톱에서 Cloud54·55와NZ210195 공식등록·후조회. 현재 NZ는11/23·AIR·AWB·기존송이판단/원문금액근거를 rev8에 저장한 초안 상태.
 4. 검증 상태: 최신 전체 test:erp-contract EXIT0, dnSpy PASS, manifest240 PASS, writeguard PASS, 정식 npm run build EXIT0(전체 가이드가드 포함), pstack PASS. 47Cloud/NZ 최종등록·배포는 미검증. 녹화전 임시 next build는 촬영서버 준비용이며 최종 정식build도 별도로 통과했다.
 5. 주의/잠금: 원본·기존원장·사용자NL매칭 불변, 같은 송장 재등록 금지. 자동생성 전체 개발이력2파일의 대량 무관 diff는 포함하지 않았다. 정식앱과별도 Isolated SQL 창을 혼동하지 않는다.
-검색어: Cloud47 Contract 054 055 NZ210195 revision8 Desktop1.3.86 가이드3 pstack g17 g19
+검색어: Cloud47 Contract 054 055 NZ210195 revision8 Desktop1.3.87 가이드3 pstack g17 g19
 
