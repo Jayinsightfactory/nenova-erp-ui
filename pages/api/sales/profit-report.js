@@ -41,7 +41,7 @@ import {profitFinancialReadPolicy} from '../../../lib/profitReportReadPolicy.js'
 import {getPool} from '../../../lib/db.js';
 import {withErpReadContext,currentErpReadContext} from '../../../lib/erpReadContext.js';
 import {latestProfitInvoiceFence} from '../../../lib/profitLatestInvoiceFence.js';
-import {settlementScopeFence} from '../../../lib/customsSettlementEvidence.js';
+import { loadSettlementEvidence, settlementScopeFence, settlementTaxableRates, pickSettlementTaxableRate } from '../../../lib/customsSettlementEvidence.js';
 import {shareLatestProfitRead} from '../../../lib/profitLatestInFlight.mjs';
 import {createProfitReadFailureDiagnostic} from '../../../lib/profitReadFailureDiagnostic.cjs';
 import {applyProfitEstimateCalendarView} from '../../../lib/profitEstimateCalendarView.js';
@@ -167,7 +167,7 @@ async function loadReportDataInScope(major, orderYear) {
   const previousPeriod=await previousReportPeriod(orderYear,major);
   const prevOrderYear=previousPeriod.orderYear;
   const prevMajor=previousPeriod.major;
-  const [N, est, Q, purchaseQty, S, rates, invoiceRateResult, cur, prev, customs, unclassifiedDetails, savedRates, kcsRates] = await Promise.all([
+      const [N, est, Q, purchaseQty, S, rates, invoiceRateResult, cur, prev, customs, unclassifiedDetails, savedRates, kcsRates, settlementLedger] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
@@ -181,13 +181,15 @@ async function loadReportDataInScope(major, orderYear) {
         unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
         loadTaxableRates(orderYear, major),                 // R 원천: 이 주차에 저장/캐시된 과세환율(웹 전용, SELECT only)
         kcsRatesByCategory(major, orderYear),                // R 4순위(2026 28차 이후 및 그 다음 연도): KCS InputDate·TPrice 가중평균
+        loadSettlementEvidence(orderYear, major),            // 선율 정산서 1페이지 적용환율(파일 전용, DB 쓰기 0)
       ]);
+      const settlementRates = settlementTaxableRates(settlementLedger);
 
       // E는 "현재 보고서의 E 셀"을 이월하지 않고, 같은 연도의 직전 대차수 F를 같은 공식으로
       // 다시 계산한다. 이 때문에 26차 F와 불연속인 27차 workbook E(베트남 +3,658,862.88875)는
       // 웹 값에 섞이지 않는다. 01차 직전은 실제 PeriodDay로 결정한다.
       const invoiceRates = invoiceRateResult.rates || invoiceRateResult;
-      const [prevQ, prevPurchaseQty, prevLegacyS, prevInvoiceRateResult, prevCustoms, prevSavedRates, prevKcsRates] = await Promise.all([
+      const [prevQ, prevPurchaseQty, prevLegacyS, prevInvoiceRateResult, prevCustoms, prevSavedRates, prevKcsRates, prevSettlementLedger] = await Promise.all([
         purchaseByCategory(prevMajor, prevOrderYear),
         purchaseQtyByCategory(prevMajor, prevOrderYear),
         forwardingByCategory(prevMajor, prevOrderYear),
@@ -195,7 +197,9 @@ async function loadReportDataInScope(major, orderYear) {
         computeCustomsAndForwarding(prevMajor, prevOrderYear, { profile: 'profit-report' }),
         loadTaxableRates(prevOrderYear, prevMajor),
         kcsRatesByCategory(prevMajor, prevOrderYear),
+        loadSettlementEvidence(prevOrderYear, prevMajor),
       ]);
+      const prevSettlementRates = settlementTaxableRates(prevSettlementLedger);
 
       const prevInvoiceRates = prevInvoiceRateResult.rates || prevInvoiceRateResult;
       const invoiceEvidenceFor = (result, category) => result.evidence ? {
@@ -218,21 +222,23 @@ async function loadReportDataInScope(major, orderYear) {
       // fetchCarryWeekContext가 (연도,차수) 조합당 한 번만 조회해 여러 호출(행 R + AUD 재고근거 +
       // 전차수 평가)이 같은 과거 차수를 다시 쿼리하지 않게 한다.
       const fetchCarryWeekContext = createWeekContextCache(async (y, m) => {
-        const [invoiceRatesW, manualW, savedRatesW, purchaseQtyW] = await Promise.all([
+        const [invoiceRatesW, manualW, savedRatesW, purchaseQtyW, settlementLedgerW] = await Promise.all([
           invoiceRatesByCategory(m, y),
           loadManual(m, y),
           loadTaxableRates(y, m),
           purchaseQtyByCategory(m, y),
+          loadSettlementEvidence(y, m),
         ]);
         const hasPurchase = Object.values(purchaseQtyW || {}).some((qty) => Number(qty) > 0);
         const kcsRatesW = hasPurchase ? await kcsRatesByCategory(m, y) : { byCategory: {} };
-        return { manual: manualW.manual || {}, invoiceRates: invoiceRatesW, savedRates: savedRatesW, kcsRates: kcsRatesW, purchaseQty: purchaseQtyW };
+        return { manual: manualW.manual || {}, invoiceRates: invoiceRatesW, savedRates: savedRatesW, settlementRates: settlementTaxableRates(settlementLedgerW), kcsRates: kcsRatesW, purchaseQty: purchaseQtyW };
       });
 
       const resolvedRateByKey = {};
       for (const key of keys) {
         const curCode = currencyCodeForCategory(key);
         const prevMan = prev.manual[key] || {};
+        const pickedSettlement = pickSettlementTaxableRate(settlementRates, key, curCode);
         resolvedRateByKey[key] = {
           curCode,
           resolvedRate: resolveTaxableRate({
@@ -244,6 +250,8 @@ async function loadReportDataInScope(major, orderYear) {
             currencyMasterRate: curCode && rateByCode[curCode] != null ? rateByCode[curCode] : null,
             previousWeekRate: prevMan.R != null ? Number(prevMan.R) : null,
             previousWeekLabel: `${Number(prevMajor)}차`,
+            settlementRate: pickedSettlement?.rate ?? null,
+            settlementDetail: pickedSettlement ?? null,
             kcsRate: kcsRates.byCategory?.[key]?.rate ?? null,
             kcsDetail: kcsRates.byCategory?.[key]?.detail ?? null,
           }),
@@ -267,6 +275,7 @@ async function loadReportDataInScope(major, orderYear) {
       const prevResolvedRateByKey = {};
       for (const key of keys) {
         const curCode = currencyCodeForCategory(key);
+        const pickedPrevSettlement = pickSettlementTaxableRate(prevSettlementRates, key, curCode);
         prevResolvedRateByKey[key] = {
           curCode,
           resolvedRate: resolveTaxableRate({
@@ -278,6 +287,8 @@ async function loadReportDataInScope(major, orderYear) {
             currencyMasterRate: curCode && rateByCode[curCode] != null ? rateByCode[curCode] : null,
             previousWeekRate: null,
             previousWeekLabel: null,
+            settlementRate: pickedPrevSettlement?.rate ?? null,
+            settlementDetail: pickedPrevSettlement ?? null,
             kcsRate: prevKcsRates.byCategory?.[key]?.rate ?? null,
             kcsDetail: prevKcsRates.byCategory?.[key]?.detail ?? null,
           }),

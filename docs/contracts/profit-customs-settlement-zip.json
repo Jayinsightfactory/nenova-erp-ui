@@ -17,11 +17,20 @@
     "lib/customsForwarding.js",
     "lib/customsForwardingCalc.js",
     "lib/profitReportActualCosts.mjs",
+    "lib/taxableExchangeRate.js",
+    "lib/profitReportTaxableRateCarry.js",
+    "lib/profitReport.js",
+    "lib/profitNativeUnitCosts.mjs",
+    "lib/profitTemplateDuty.mjs",
+    "lib/profitReportWeekCheck.js",
+    "lib/profitCustomerMargin.mjs",
     "pages/api/sales/customs-settlement.js",
     "pages/api/sales/customs-settlement-worker.js",
     "pages/api/sales/customs-clearance.js",
     "pages/api/sales/profit-report.js",
     "components/CustomsSettlementUpload.js",
+    "components/CustomsSettlementGmailBadge.js",
+    "components/ProfitReportSourceGuide.js",
     "components/CustomsClearancePanel.js",
     "scripts/customs-settlement-worker.py",
     "scripts/windows-customs-ocr.ps1",
@@ -55,7 +64,7 @@
       "name": "READ_MISSING_COST_OVERLAY",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Existing DB values including explicit zero and complete split groups take precedence; ItemCount-derived agency cost is preserved. Only missing duty, handling/quarantine agency and explicitly named disinfection components use validated receipt evidence. Freight, warehouse, domestic transport and import VAT are never overlaid. Disinfection country gross/Colombia net; Vietnam handling net only. Full immutable receipt remains stored, but UI coverage contains only applied components. Existing snapshots/confirmed report money preserved, past report refresh explicit user action. Replay requires explicit external evidence; live context cache and before/after file digest fence."
+      "sideEffect": "Existing DB values including explicit zero and complete split groups take precedence; ItemCount-derived agency cost is preserved. Only missing duty, handling/quarantine agency, explicitly named disinfection components, and missing taxable exchange rate (R via Row-2 적용환율, strictly scoped to OrderYear+MajorWeek+Currency+Category with manual/snapshot/saved/historical values always winning) use validated receipt evidence. Freight, warehouse, domestic transport and import VAT are never overlaid. Disinfection country gross/Colombia net; Vietnam handling net only. Full immutable receipt remains stored, but UI coverage contains only applied components. Existing snapshots/confirmed report money preserved, past report refresh explicit user action. Server-to-server Gmail ingest accepts ZIP or PDF via ORBIT_DRIVE_INGEST_TOKEN Bearer with permanent attachmentSha256 idempotency. Replay requires explicit external evidence; live context cache and before/after file digest fence."
     }
   ],
   "crossYearFixture": {
@@ -66,6 +75,7 @@
     "__tests__/customsSettlement.test.cjs",
     "__tests__/customsSettlementRegistration.test.cjs",
     "__tests__/customsSettlementMissingCosts.test.cjs",
+    "__tests__/customsSettlementGmailAndRate.test.cjs",
     "__tests__/pnlUploadNginx.test.js"
   ],
   "dnspyEvidence": {

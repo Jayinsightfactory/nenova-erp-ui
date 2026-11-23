@@ -4530,3 +4530,11 @@ pm run test:canon 통과.
 3. 남은 일: 설계 초안 5건(도착원가 3영역, 송금 요청 2영역, 인보이스 대조 2영역, 견적서 2영역, 발주 현황 2영역)은 직원 확인 전이다. 카톡으로 주고받는 일(파일 아닌 것)은 아직 안 본다.
 4. 검증: 문법 검사 통과, pstack-verify 5/5 PASS, 장치 실행 결과 같이 쓰는 자료 6종. 운영 화면 확인은 로그인 풀림으로 미검증.
 5. 주의: 부서만 싣고 사람 이름은 싣지 않는다. 시트 이름은 화면 해독문에서 뽑아 거칠다. 연결 목표: g03 / 학습 반영: 있음
+
+## 2026-11-23 관세법인 선율 정산서 Gmail 키워드 자동수집 · 적용환율(R열) 자동반영 (연결 목표: g01, g17, g19)
+1. 작업 위치: nenova-erp-ui / feat/sunyul-gmail-auto-settlement / C:\Users\USER\nw-swm-sunyul-auto (+ 로컬 크롤러 `C:\Users\USER\nenova-pm\crawl-sunyul-gmail.js`, `tests/crawl-sunyul-gmail.test.js`, Windows 예약작업 `NenovaSunyulGmailCrawler`).
+2. 완료한 것: ① `lib/customsSettlementParser.cjs` 1페이지 Row-2 `적용환율` 추출 + 통화별 범위 검증(미인식 시 null 안전 폴백) ② `lib/customsSettlementEvidence.js`·`lib/taxableExchangeRate.js`·`pages/api/sales/profit-report.js`·`lib/profitReport.js`·하류 FX 화이트리스트에 `sunyul_settlement`(선율 정산서 자동반영) 연결 — 수기·입고별·저장·역사·확정본 100% 보존, 비어 있는 `OrderYear+MajorWeek+Currency+Category`만 파일 전용 원장으로 보완(DB DML/DDL 0건) ③ `pages/api/sales/customs-settlement.js`·`lib/customsSettlementZip.cjs`·`lib/customsSettlementJobs.cjs`에 `ORBIT_DRIVE_INGEST_TOKEN` Bearer 서버간 자동 투입(`action='ingest'`, ZIP/단일 PDF, `attachmentSha256` 영구 멱등) 및 `CustomsSettlementGmailBadge.js`(`components/ProfitReportSourceGuide.js`) `Gmail [정산서] 자동 수집 연동` 상태 배지 추가 ④ `docs/contracts/profit-customs-settlement-zip.json` 및 단위 테스트 `__tests__/customsSettlementGmailAndRate.test.cjs` 추가.
+3. 남은 일: PR CI(`verify`) 통과 후 squash 머지·Cafe24 배포 검증 및 `NenovaSunyulGmailCrawler` 실 Gmail 자격증명 연결 확인.
+4. 검증 상태: 실물 38·41·44차 선율 정산서 PDF 10/10건 100% 추출(`1,484.0000` EUR, `199.2000` CNY, `1,330.5200` USD, `931.2300` AUD 등), 단위 테스트 60/60 PASS, `crawl-sunyul-gmail.test.js` 4/4 PASS, `pstack-verify`·`guard:erp-writes`·`test:erp-contract`·`test:erp-manifest`·`build` 전수 통과.
+5. 주의/잠금: 구형 `nenova.exe` 테이블(`Order*`/`Shipment*`/`Warehouse*`/`Stock*`/`Estimate`) 쓰기 0건, 확정 스냅샷 불변, 교차연도(`OrderYear+MajorWeek`) 격리 엄수. 연결 목표: g01, g17, g19 / 학습 반영: 있음
+검색어: 선율 정산서 적용환율 sunyul_settlement gmail-auto customs-settlement crawl-sunyul-gmail WebTaxableExchangeRate g01 g17 g19
