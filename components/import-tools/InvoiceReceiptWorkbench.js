@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReceiptBunchConfirmation from '../ReceiptBunchConfirmation';
-import { fillConfirmedNzReceiptLine, nzConfirmedBunchQuantity, nzReceiptLineReview } from '../../lib/nzReceiptUnits.js';
+import { applyNzCommonUnits, fillConfirmedNzReceiptLine, nzConfirmedBunchQuantity, nzReceiptLineReview } from '../../lib/nzReceiptUnits.js';
+import { isNzBloomSupplierMatch } from '../../lib/invoiceReceiptAutoFill.js';
 import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
 import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoiceReceiptAutoFill.js';
 import InvoiceFarmChoices from './InvoiceFarmChoices.js';
@@ -215,6 +216,8 @@ export default function InvoiceReceiptWorkbench({
   const [savedDocuments, setSavedDocuments] = useState([]);
   const [savedError, setSavedError] = useState('');
   const [farmQuery, setFarmQuery] = useState('');
+  const [nzCommon, setNzCommon] = useState({documentId:'',unit:'',reason:'',ratio:'',excluded:[]});
+  const [editingNzProduct,setEditingNzProduct]=useState(null);
   const [farmOptions, setFarmOptions] = useState([]);
   const [farmBusy, setFarmBusy] = useState(false);
   const [farmError, setFarmError] = useState('');
@@ -630,6 +633,7 @@ export default function InvoiceReceiptWorkbench({
   }
 
   async function updateLineProduct(lineId, product) {
+    if (typeof setEditingNzProduct === 'function') setEditingNzProduct(null);
     const selectedDocument = documentValue;
     const selectedLine = documentValue.lines.find(line => line.lineId === lineId);
     let next = { ...documentValue, lines: documentValue.lines.map(line => line.lineId === lineId
@@ -1341,6 +1345,33 @@ export default function InvoiceReceiptWorkbench({
     </div>
     <div hidden={workspaceMode !== 'receipt'}>
     <fieldset disabled={Boolean(busy)} className={styles.editFieldset}>
+    {documentValue.reviewedMetadata.country==='NZ'&&!currentRevisionCommitted&&(()=>{
+      const docId=documentValue.documentId;
+      const common=nzCommon.documentId===docId?nzCommon:{documentId:docId,unit:'',reason:'',ratio:'',excluded:[]};
+      const set=patch=>setNzCommon({...common,...patch});
+      const rows=receiptRows.filter(line=>!committedLineIds.has(line.lineId));
+      return <fieldset aria-label="NZ 공통 Units 확인" id="nz-common-units">
+        <legend>NZ 공통 Units 확인</legend>
+        <p>같은 기준이 확인된 행만 선택하세요. 이미 기록된 행별 근거와 수동 예외는 유지합니다.</p>
+        <div className={styles.actionBar}>
+          <label>공통 가격 기준 <select value={common.unit} onChange={event=>set({unit:event.target.value,ratio:''})}>
+            <option value="">선택</option><option value="송이">NZD / 송이</option><option value="단">NZD / 단</option>
+          </select></label>
+          <label>공통 Units 근거 <input value={common.reason} maxLength={250} onChange={event=>set({reason:event.target.value})}/></label>
+          {common.unit==='송이'&&<label>공통 송이/단 <input inputMode="numeric" value={common.ratio} onChange={event=>set({ratio:event.target.value})}/></label>}
+        </div>
+        <div className={styles.actionBar}>
+          {rows.map(line=><label key={line.lineId}><input type="checkbox" checked={!common.excluded.includes(line.lineId)}
+            onChange={event=>set({excluded:event.target.checked?common.excluded.filter(id=>id!==line.lineId):[...common.excluded,line.lineId]})}/>
+            {line.lineNo}행 · {line.sourceEvidence?.sourceVariety||line.originalName}</label>)}
+          <button type="button" onClick={()=>{
+            const result=applyNzCommonUnits(documentValue.lines,rows.filter(line=>!common.excluded.includes(line.lineId)).map(line=>line.lineId),common);
+            if(result.applied)updateSelected(doc=>({...doc,lines:result.lines}));
+            setNotice({type:result.error?'error':'info',text:result.error||`${result.applied}행에 공통 근거 적용${result.skipped.length?` · ${result.skipped.join(', ')}행은 기존 값 또는 원본 불일치로 유지`:''}`});
+          }}>선택 행에 공통 근거 적용</button>
+        </div>
+      </fieldset>;
+    })()}
     {mismatchRows.length > 0 && <section className={styles.conversionReview} aria-label="국가별 패킹 변환 수량 차이 검토">
       <header><strong>원문 수량과 국가별 변환 대조</strong><span>각 행을 비교하고 실제 입고 수량을 입력한 뒤 행별로 확인하세요.</span></header>
       <div className={styles.conversionReviewRows}>{mismatchRows.map(line => {
@@ -1408,22 +1439,27 @@ export default function InvoiceReceiptWorkbench({
       </> : <>
         <Field label="비USD 문서비 원가"><NumberInput label="비USD 문서비 원가" value={documentValue.reviewedMetadata.costInputs?.docFee?.amount} onChange={value => updateCostInput('docFee', value)} /></Field>
       </>}
-      <Field label="농장 검색" wide><input aria-label="농장 검색" value={farmQuery} placeholder="농장명 입력 후 아래 검색 결과를 선택하세요" onChange={event => setFarmQuery(event.target.value)} />
+      {documentValue.reviewedMetadata.country!=='NZ'&&<Field label="농장 검색" wide><input aria-label="농장 검색" value={farmQuery} placeholder="농장명 입력 후 아래 검색 결과를 선택하세요" onChange={event => setFarmQuery(event.target.value)} />
         {farmError && <span role="alert">농장 검색 실패: {farmError}</span>}
         {!farmBusy && !farmError && farmQuery.trim() && farmOptions.length === 0 && <span role="status">일치하는 농장이 없습니다. 농장명의 일부로 다시 검색해 주세요.</span>}
         <button type="button" onClick={() => setFarmSearchAttempt(value => value + 1)} disabled={farmBusy}>농장 다시 검색</button>
         {!farmBusy&&!farmError&&<InvoiceFarmChoices farms={farmOptions} selected={documentValue} searching={Boolean(farmQuery.trim())}
           onSelect={farm=>updateSelected(document=>({...document,farmKey:farm.FarmKey??null,reviewedMetadata:{...document.reviewedMetadata,farmName:farm.FarmName,farmSourceWarehouseKey:farm.WarehouseKey??null}}))}/>} 
         <span role="status">{documentValue.farmKey || documentValue.reviewedMetadata.farmSourceWarehouseKey ? `선택된 농장: ${documentValue.reviewedMetadata.farmName || '저장 농장'}` : '농장 미선택 · 검색어 입력만으로 선택되지 않습니다. 검색 결과의 농장을 눌러 주세요.'}</span>
-      </Field>
-      <Field label={farmBusy ? '농장 검색 중…' : '농장 선택'} wide><select value={documentValue.farmKey ?? (documentValue.reviewedMetadata.farmSourceWarehouseKey ? `receipt:${documentValue.reviewedMetadata.farmSourceWarehouseKey}` : '')} onChange={event => {
+      </Field>}
+      <Field label={farmBusy ? '농장 검색 중…' : '농장 선택'} wide><select data-receipt-field="farm" value={documentValue.farmKey ?? (documentValue.reviewedMetadata.farmSourceWarehouseKey ? `receipt:${documentValue.reviewedMetadata.farmSourceWarehouseKey}` : '')} onChange={event => {
         const farm = farmOptions.find(option => String(option.FarmKey ?? `receipt:${option.WarehouseKey}`) === event.target.value);
         updateSelected(document => ({ ...document, farmKey: farm?.FarmKey ?? null, reviewedMetadata: { ...document.reviewedMetadata, farmName: farm?.FarmName || '', farmSourceWarehouseKey:farm?.WarehouseKey ?? null } }));
       }}><option value="">신규 입고는 선택 · 기존 입고 연결은 생략 가능</option>{documentValue.farmKey && !farmOptions.some(farm => Number(farm.FarmKey) === Number(documentValue.farmKey))
         ? <option value={documentValue.farmKey}>{documentValue.reviewedMetadata.farmName || '저장 농장'} (#{documentValue.farmKey})</option> : null}
       {!documentValue.farmKey && documentValue.reviewedMetadata.farmSourceWarehouseKey && !farmOptions.some(farm=>farm.WarehouseKey===documentValue.reviewedMetadata.farmSourceWarehouseKey)
         ? <option value={`receipt:${documentValue.reviewedMetadata.farmSourceWarehouseKey}`}>{documentValue.reviewedMetadata.farmName} · 기존 입고 농장</option> : null}
-      {farmOptions.map(farm => <option key={farm.FarmKey ?? `receipt:${farm.WarehouseKey}`} value={farm.FarmKey ?? `receipt:${farm.WarehouseKey}`}>{farm.FarmName} · {farm.FarmKey ? '농장 마스터' : '기존 입고 농장'}</option>)}</select></Field>
+      {farmOptions.map(farm => {
+        const unverified=documentValue.reviewedMetadata.country==='NZ'&&(farm.CounName?.trim()!=='뉴질랜드'||!isNzBloomSupplierMatch(documentValue.rawMetadata?.supplier,farm.FarmName));
+        return <option key={farm.FarmKey ?? `receipt:${farm.WarehouseKey}`} value={farm.FarmKey ?? `receipt:${farm.WarehouseKey}`} disabled={unverified}>{farm.FarmName} · {farm.FarmKey ? '농장 마스터' : '기존 입고 농장'}{unverified?' · NZ 공급 근거 미확인':''}</option>;
+      })}</select>
+      {documentValue.reviewedMetadata.country==='NZ'&&<><small>원본 New Zealand Bloom Ltd에 대응하는 뉴질랜드 농장만 선택할 수 있습니다. 등록 시 서버에서 근거를 다시 확인합니다.</small>
+        {farmError&&<button type="button" onClick={()=>setFarmSearchAttempt(value=>value+1)}>농장 조회 다시 시도</button>}</>}</Field>
       <Field label="입고 메모" wide><input value={documentValue.reviewedMetadata.receiptNotes || ''} onChange={event => updateMetadata('receiptNotes', event.target.value)} /></Field>
       <FarmMasterRegistration key={`farm-master:${documentValue.documentId}:${documentValue.reviewedMetadata.country}`} country={documentValue.reviewedMetadata.country} initialName={documentValue.rawMetadata?.supplier||''}
         disabled={Boolean(busy)||Boolean(selected.pendingOperation)||Boolean(selected.recoveryRequired)||currentRevisionCommitted}
@@ -1492,6 +1528,8 @@ export default function InvoiceReceiptWorkbench({
               <td>{line.lineNo}</td><td title={line.originalName}>{line.originalName || '원문 미확인'}{line.lengthText ? <small>{line.lengthText}</small> : null}{line.sourceEvidence?.sourceVariety && <small>Variety: {line.sourceEvidence.sourceVariety} · PDF {line.sourceEvidence.sourcePage}쪽</small>}</td>
               <td>{committedProduct
                 ? <strong>{productLabel(product) || `ProdKey #${line.prodKey}`}</strong>
+                : documentValue.reviewedMetadata.country==='NZ'&&product&&editingNzProduct!==line.lineId
+                ? <><strong>{productLabel(product)}</strong> <button type="button" aria-label={`${line.lineNo}행 품목 변경`} onClick={()=>setEditingNzProduct(line.lineId)}>변경</button></>
                 : <><InvoiceReceiptProductPicker label={`${line.lineNo}행 전산 품목 검색`} products={selectableProducts} product={product} onSelect={selected => updateLineProduct(line.lineId, selected)} />
                   {nzReview?.product&&<small>{nzReview.product}</small>}
                   {product && productCountryMismatch(product, documentValue.reviewedMetadata?.country) && <p role="alert" style={{ margin: '4px 0 0', color: '#b3261e', fontWeight: 700 }}>⚠ 선택한 전산 품목의 원산지({product.CounName || product.country})가 이 문서와 다릅니다.</p>}
@@ -1530,7 +1568,15 @@ export default function InvoiceReceiptWorkbench({
         <div className={styles.issueHeader}><div><strong>서버 이슈</strong><span>{issues.length}건</span></div><small>행을 누르면 표 위치로 이동합니다.</small></div>
         {!preview && <p className={styles.empty}>미리보기 후 확인할 항목이 표시됩니다.</p>}
         {preview && !issues.length && <p className={styles.clear}>{preview.canCommit ? '확인할 항목 없음' : '입고 가능 여부를 확인하세요.'}</p>}
-        {[...issues.filter(issue=>!issueLineId(issue)),...issues.filter(issue=>issueLineId(issue))].map((issue, index) => {
+        {issues.some(issue=>issue?.code==='NZ_UNITS_EVIDENCE_REQUIRED')&&<div>
+          <strong>Units 근거 확인 · {issues.filter(issue=>issue?.code==='NZ_UNITS_EVIDENCE_REQUIRED').length}행</strong>
+          <button type="button" onClick={()=>{const group=document.getElementById('nz-common-units');group?.scrollIntoView({block:'center'});group?.querySelector('select')?.focus();}}>공통 Units 입력으로 이동</button>
+          <div className={styles.actionBar}>{issues.filter(issue=>issue?.code==='NZ_UNITS_EVIDENCE_REQUIRED').map(issue=>{
+            const id=issueLineId(issue),line=documentValue.lines.find(row=>row.lineId===id);
+            return line&&<button type="button" key={id} onClick={()=>{const field=rowRefs.current.get(id)?.querySelector('select[aria-label$="가격 기준 단위"]');field?.scrollIntoView({block:'center'});field?.focus();}}>{line.lineNo}행 예외 확인</button>;
+          })}</div>
+        </div>}
+        {[...issues.filter(issue=>!issueLineId(issue)),...issues.filter(issue=>issueLineId(issue))].filter(issue=>issue?.code!=='NZ_UNITS_EVIDENCE_REQUIRED').map((issue, index) => {
           const lineId = issueLineId(issue);
           const line = documentValue.lines.find(item => item.lineId === lineId);
           if (line && issue?.code === 'BUNCH_QUANTITY_REQUIRED' && issue.snapshot && !committedLineIds.has(lineId)) {
@@ -1554,8 +1600,8 @@ export default function InvoiceReceiptWorkbench({
             const root=event.currentTarget.closest('section[aria-label="인보이스 입고 작업대"]')||document;
             const field=lineId ? rowRefs.current.get(lineId)?.querySelector(code==='NZ_BUNCH_RATIO_CONFLICT'?'input[aria-label$="송이/단"]':code==='NZ_UNITS_EVIDENCE_REQUIRED'||code==='PRICE_UNIT_REQUIRED'
               ? 'select[aria-label$="가격 기준 단위"]' : code==='UNIT_CONVERSION_REQUIRED'
-                ? 'input[aria-label$="송이"]' : 'input[type="search"], input')
-              : /FARM|SUPPLIER/.test(code) ? root.querySelector('input[aria-label="농장 검색"]')
+                ? 'input[aria-label$="송이"]' : 'input[type="search"], button[aria-label$="품목 변경"], input')
+              : /FARM|SUPPLIER/.test(code) ? root.querySelector('[data-receipt-field="farm"]')
               : /DATE/.test(code) ? root.querySelector('[data-receipt-field="inputDate"]') : orderYearRef.current;
             field?.scrollIntoView({block:'center'});field?.focus();
           }}>
