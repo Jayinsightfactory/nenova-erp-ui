@@ -5,6 +5,7 @@ import { applyProfitReportColombiaRates } from '../../../lib/profitReportCustoms
 import { requireOrderYear } from '../../../lib/orderUtils';
 import { loadSettlementContext } from '../../../lib/customsSettlementContext';
 import { phase03View, savePhase03 } from '../../../lib/customsPhase03Service';
+import { safeAutoRefreshUnconfirmedProfitSnapshot } from '../../../lib/profitReportAutoRefresh';
 import { loadSettlementEvidence, settlementCountryRow, settlementColombiaRow, settlementCountryValues, settlementColombiaValues } from '../../../lib/customsSettlementEvidence';
 import { resolveCountryWeight, resolveColombiaWeight, isHistoricalWeightScope, assertInboundWeightUnchanged } from '../../../lib/customsWeightPolicy';
 import {
@@ -121,7 +122,9 @@ export default withAuth(async function handler(req, res) {
       const { orderYear } = requireOrderYear(`${major}-01`, req.body?.year);
       const actor = req.user?.userName || req.user?.userId || 'user';
       if (req.body?.action === 'savePhase03') {
-        return res.status(200).json(await savePhase03({ year: orderYear, major, input: req.body.row, expectedDigest: req.body.expectedDigest, confirmed: req.body.confirmed, actor }));
+        const saved = await savePhase03({ year: orderYear, major, input: req.body.row, expectedDigest: req.body.expectedDigest, confirmed: req.body.confirmed, actor });
+        const snapshotRefresh = await safeAutoRefreshUnconfirmedProfitSnapshot({ orderYear, major, actor, trigger: 'customs:savePhase03' });
+        return res.status(200).json({ ...saved, snapshotRefresh });
       }
 
       if (['saveCountry', 'saveCountries', 'saveColombia'].includes(req.body?.action)) {
@@ -145,23 +148,27 @@ export default withAuth(async function handler(req, res) {
 
       if (req.body?.action === 'saveRates') {
         await saveRateConfig(req.body?.rates || {}, actor, orderYear, major);
-        return res.status(200).json({ success: true });
+        const snapshotRefresh = await safeAutoRefreshUnconfirmedProfitSnapshot({ orderYear, major, actor, trigger: 'customs:saveRates' });
+        return res.status(200).json({ success: true, snapshotRefresh });
       }
       if (req.body?.action === 'saveCountry') {
         if (!req.body?.category) return res.status(400).json({ success: false, error: 'category 필요' });
         await saveCustomsWeekly(major, orderYear, req.body.category, req.body?.row || {}, actor);
-        return res.status(200).json({ success: true });
+        const snapshotRefresh = await safeAutoRefreshUnconfirmedProfitSnapshot({ orderYear, major, actor, trigger: 'customs:saveCountry' });
+        return res.status(200).json({ success: true, snapshotRefresh });
       }
       if (req.body?.action === 'saveCountries') {
         const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
         if (!rows.length) return res.status(400).json({ success: false, error: '저장할 국가 입력값이 없습니다' });
         await saveCustomsWeeklyBatch(major, orderYear, rows, actor);
-        return res.status(200).json({ success: true, saved: rows.length });
+        const snapshotRefresh = await safeAutoRefreshUnconfirmedProfitSnapshot({ orderYear, major, actor, trigger: 'customs:saveCountries' });
+        return res.status(200).json({ success: true, saved: rows.length, snapshotRefresh });
       }
       if (req.body?.action === 'saveColombia') {
         if (!req.body?.orderWeek) return res.status(400).json({ success: false, error: 'orderWeek 필요' });
         await saveColombiaWeekly(req.body.orderWeek, orderYear, req.body?.row || {}, actor);
-        return res.status(200).json({ success: true });
+        const snapshotRefresh = await safeAutoRefreshUnconfirmedProfitSnapshot({ orderYear, major, actor, trigger: 'customs:saveColombia' });
+        return res.status(200).json({ success: true, snapshotRefresh });
       }
       return res.status(400).json({ success: false, error: '알 수 없는 action' });
     }

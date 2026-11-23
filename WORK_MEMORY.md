@@ -4690,3 +4690,11 @@ pm run test:canon 통과.
 3. 남은 할 일: pstack→PR/CI→squash/Cafe24배포→운영Chrome중국·CO실제다운로드/파일보존. 추가NL47-2CI송장1222993입고요청은운영중복0건확인했으나파일선택도구권한단계확인중,등록0건.
 4. 검증 상태: 새회귀20PASS, CN/CO실제격리UI다운로드1시트/연습합계89821.6·561000일치. 가이드36업무37영상/앞중간끝프레임검증. 전체ERP초기단계후manifest계약키표기1건실패를정본스키마수정후239PASS, 성공분재실행없이나머지114명령및후처리전부PASS. dnSpy/새API쓰기guard1/메뉴3/productionbuildPASS. 실데이터2파일생성및수식runtime재계산은검증,운영브라우저다운로드아직미검증.
 5. 주의/잠금: 본worktree전용. 중국환율210은검증용·통관비는추정으로표시,당시실비/승인원가로주장금지. 원본파일수정/ERP원장쓰기0. 연결목표g17/g19·학습반영있음·실이익미측정진척률상향0. 추가NL입고는새사용자승인범위이나기존24입고재등록금지.
+
+## 2026-11-23 주차별 매출이익 미확정 스냅샷 자동 새로고침 (Push + Stale-on-Read)
+검색어: WebProfitReportSnapshot 자동 새로고침 auto-refresh Stale-on-Read Push 선율 정산서 WebCustomsWeekly g17 g19
+1. 작업 위치: nenova-erp-ui / feat/profit-report-auto-refresh / C:/Users/USER/nw-swm-profit-autorefresh / origin/master 22fb230d 기반.
+2. 완료된 것: lib/profitReportAutoRefresh.js 신설(확정 차수 WebProfitReportConfirm 불변 하드 가드 + SQL TZOFFSET KST->UTC 정규화 + single-flight), 선율 정산서 등록(lib/customsSettlementRegistration.js)·통관비/포워딩/매출이익 POST 저장 직후 Push 자동 갱신 및 GET /api/sales/profit-report Stale-on-Read 자동 감지·갱신 연결, docs/contracts/weekly-profit-report.json 계약 등록 및 __tests__/profitReportAutoRefresh.test.cjs 9개 회귀 테스트 추가.
+3. 남은 할 일: PR 머지 및 Deploy to Cafe24 완료 후 2026년 43·44·45차 실서버 스냅샷 최신화 실측 검증 및 워크트리 정리.
+4. 검증 상태: pstack-verify 5/5 PASS, profitReportAutoRefresh 9/9 PASS, test:profit-weekly-cache·test:erp-manifest(238)·guard:erp-writes·test:erp-contract·npm run build 전수 PASS. ERP 공유 원장 쓰기 0건.
+5. 주의/잠금: 확정 차수(WebProfitReportConfirm IsActive=1)는 절대 자동 재계산·덮어쓰기 금지. 스냅샷 쓰기는 기존 정식 saveProfitReportCache(WebProfitReportSnapshot 전용)만 재사용. 연결 목표 g17·g19.

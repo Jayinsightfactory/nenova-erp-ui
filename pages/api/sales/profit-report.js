@@ -47,6 +47,7 @@ import {createProfitReadFailureDiagnostic} from '../../../lib/profitReadFailureD
 import {applyProfitEstimateCalendarView} from '../../../lib/profitEstimateCalendarView.js';
 import { mixedFreightDeltas, applyMixedFreightView, assertFreightConservationForCache } from '../../../lib/profitMixedFreightView.js';
 import { autoForwardingByCountry } from '../../../lib/customsForwarding.js';
+import { detectStaleProfitSnapshot, safeAutoRefreshUnconfirmedProfitSnapshot } from '../../../lib/profitReportAutoRefresh.js';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -773,7 +774,7 @@ async function loadCoherentLatestReport(major,orderYear,{forCache=false}={}){
   return forCache?execute():shareLatestProfitRead(orderYear,major,execute);
 }
 export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
-  const {mode='display',preferLive=false,currentPeriod,confirmedResult,storedResult}=options;
+  const {mode='display',preferLive=false,currentPeriod,confirmedResult,storedResult,checkStale}=options;
   const activeConfirm = confirmedResult !== undefined ? confirmedResult : await getActiveConfirm(orderYear, major);
   if (activeConfirm?.initialized && activeConfirm.confirm) {
     const data=await frozenEstimateCalendarView(await buildConfirmedPayload(major, orderYear, activeConfirm),major,orderYear);
@@ -786,9 +787,54 @@ export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
   const current=currentPeriod || await currentProfitPeriod();
   const previous=current.previous || await previousReportPeriod(current.orderYear,current.major);
   const financialReadPolicy=profitFinancialReadPolicy(orderYear,major,current,previous,{liveAudit:mode==='liveAudit'||preferLive});
-  const live=!financialReadPolicy.frozen;
+  let live=!financialReadPolicy.frozen;
   let data = live ? {...await loadCoherentLatestReport(major,orderYear),snapshot:{state:'live',servedFrom:'live',needsRefresh:false}}
     : storedResult !== undefined ? storedProfitPayload(storedResult,{orderYear,major}) : await readStoredProfitPayload(orderYear,major);
+  // Stale-on-Read: 미확정 차수의 저장 스냅샷 시각보다 통관비/수기/선율 정산서 원장이 더 최근이면
+  // 구버전 캐시를 그대로 내려주지 않고 자동으로 최신 스냅샷을 재계산·갱신 반환한다(확정 차수는 위에서 이미 불변 차단).
+  const canDetectStale = typeof detectStaleProfitSnapshot === 'function' && typeof safeAutoRefreshUnconfirmedProfitSnapshot === 'function';
+  if (!live && mode==='display' && checkStale !== false && (storedResult === undefined || checkStale === true) && canDetectStale && data?.snapshot?.savedAt) {
+    const prevPeriodForStale = await previousReportPeriod(orderYear, major);
+    const stale = await detectStaleProfitSnapshot({ orderYear, major, snapshotSavedAt: data.snapshot.savedAt, prevPeriod: prevPeriodForStale });
+    if (stale?.isStale) {
+      const clearDuty = typeof clearTemplateDutyCache === 'function' ? clearTemplateDutyCache : () => {};
+      const refreshed = await safeAutoRefreshUnconfirmedProfitSnapshot({
+        orderYear, major, actor: 'stale-read', trigger: 'stale-read',
+        saveCache: saveProfitReportCache, checkConfirm: getActiveConfirm, clearDutyCache: clearDuty,
+      });
+      if (refreshed?.reason === 'confirmed') {
+        const confirmedNow = await getActiveConfirm(orderYear, major);
+        if (confirmedNow?.initialized && confirmedNow.confirm) {
+          const confirmedData = await frozenEstimateCalendarView(await buildConfirmedPayload(major, orderYear, confirmedNow), major, orderYear);
+          return {...confirmedData,major,orderYear,readMode:'confirmed',financialReadPolicy:profitFinancialReadPolicy(orderYear,major,null,null,{confirmed:true})};
+        }
+      }
+      if (refreshed?.refreshed && refreshed.payload) {
+        data = {
+          ...refreshed.payload,
+          snapshot: {
+            ...(refreshed.payload.snapshot || {}),
+            autoRefreshed: true,
+            refreshedFromSources: stale.staleSources.map(s => s.source),
+          },
+        };
+      } else {
+        const liveFresh = await loadCoherentLatestReport(major, orderYear);
+        data = {
+          ...liveFresh,
+          snapshot: {
+            ...(data.snapshot || {}),
+            state: 'live',
+            servedFrom: 'live',
+            needsRefresh: true,
+            autoRefreshed: false,
+            refreshedFromSources: stale.staleSources.map(s => s.source),
+          },
+        };
+        live = true;
+      }
+    }
+  }
   if (!live) data=await frozenEstimateCalendarView(data,major,orderYear);
   if (!data.manualInputManifest) data={...data,manualInputManifest};
   const displayPolicy=data.estimateCalendarView?.changed ? {...financialReadPolicy,label:data.financialReadPolicy.label} : financialReadPolicy;
@@ -934,7 +980,11 @@ export default withAuth(async function handler(req, res) {
           return res.status(409).json({ success: false, error: '현재 확정 기말 재고 스냅샷과 단가 근거의 OrderWeek가 일치하지 않습니다.', code: 'PRICE_EVIDENCE_SNAPSHOT_MISMATCH' });
         }
         await saveStockPrices(req.body?.prices || {}, actor, { orderYear, orderWeek: requestedWeek });
-        return res.status(200).json({ success: true });
+        const snapshotRefresh = await safeAutoRefreshUnconfirmedProfitSnapshot({
+          orderYear, major, actor, trigger: 'profit-post:stockPrices',
+          saveCache: saveProfitReportCache, checkConfirm: getActiveConfirm, clearDutyCache: clearTemplateDutyCache,
+        });
+        return res.status(200).json({ success: true, snapshotRefresh });
       }
       // 과세환율(R) 저장 — 정확한 OrderYear+MajorWeek(+Currency/Category) 키로 웹 전용 테이블에만 쓴다.
       // 담당자가 관세청 고시 환율을 입력하거나, 전차수 참고값/통화마스터 제안을 "적용"해 확정할 때 호출.
@@ -952,7 +1002,11 @@ export default withAuth(async function handler(req, res) {
           sourceRangeEnd: req.body?.sourceRangeEnd || null,
           sourceNote: req.body?.sourceNote || null,
         }, actor);
-        return res.status(200).json({ success: true });
+        const snapshotRefresh = await safeAutoRefreshUnconfirmedProfitSnapshot({
+          orderYear, major, actor, trigger: 'profit-post:saveTaxableRate',
+          saveCache: saveProfitReportCache, checkConfirm: getActiveConfirm, clearDutyCache: clearTemplateDutyCache,
+        });
+        return res.status(200).json({ success: true, snapshotRefresh });
       }
       if (req.body?.action === 'classifyUnclassifiedProduct') {
         const changed = await classifyUnclassifiedProfitProduct({
@@ -961,15 +1015,27 @@ export default withAuth(async function handler(req, res) {
           category: String(req.body?.category || ''),
           actor,
         });
-        return res.status(200).json({ success: true, changed, affected: 1 });
+        const snapshotRefresh = await safeAutoRefreshUnconfirmedProfitSnapshot({
+          orderYear, major, actor, trigger: 'profit-post:classifyUnclassifiedProduct',
+          saveCache: saveProfitReportCache, checkConfirm: getActiveConfirm, clearDutyCache: clearTemplateDutyCache,
+        });
+        return res.status(200).json({ success: true, changed, affected: 1, snapshotRefresh });
       }
       if (req.body?.action === 'saveNote') {
         const note = String(req.body?.note ?? '').slice(0, 2000);
         await saveManual(major, orderYear, {}, note, actor);
-        return res.status(200).json({ success: true });
+        const snapshotRefresh = await safeAutoRefreshUnconfirmedProfitSnapshot({
+          orderYear, major, actor, trigger: 'profit-post:saveNote',
+          saveCache: saveProfitReportCache, checkConfirm: getActiveConfirm, clearDutyCache: clearTemplateDutyCache,
+        });
+        return res.status(200).json({ success: true, snapshotRefresh });
       }
       await saveManual(major, orderYear, req.body?.values || {}, req.body?.note, actor, req.body?.evidence || {});
-      return res.status(200).json({ success: true });
+      const snapshotRefresh = await safeAutoRefreshUnconfirmedProfitSnapshot({
+        orderYear, major, actor, trigger: 'profit-post:saveManual',
+        saveCache: saveProfitReportCache, checkConfirm: getActiveConfirm, clearDutyCache: clearTemplateDutyCache,
+      });
+      return res.status(200).json({ success: true, snapshotRefresh });
     }
 
     return res.status(405).json({ success: false, error: 'Method not allowed' });
