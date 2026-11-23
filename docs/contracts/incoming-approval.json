@@ -135,7 +135,7 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025 same week preserved, 2026 correction cascades into 2027 stock; selected shipment scope explicit year/week/customer/product; 2026 45-01 receipt / 45-03 fixed and unfixed distribution lifecycle and intermediate date-write rollback, 2025 untouched"
+    "description": "2025 same week preserved, 2026 non-farm edit preserves a padded original farm without accepting a changed farm, 2026 correction cascades into 2027 stock; selected shipment scope explicit year/week/customer/product; 2026 45-01 receipt / 45-03 fixed and unfixed distribution lifecycle and intermediate date-write rollback, 2025 untouched"
   },
   "dnspyEvidence": {
     "required": true,
@@ -178,7 +178,7 @@
     "npm run build"
   ],
   "simpleWorkflow": {
-    "scope": "Selected existing receipt only; FARM / PRODUCT with quantity / QUANTITY / ADD rows / CANCEL quantity to zero. Non-FARM preserves FarmName; every original source row remains uniquely identified.",
+    "scope": "Selected existing receipt only; FARM / PRODUCT with quantity / QUANTITY / ADD rows / CANCEL quantity to zero. Non-FARM preserves exact stored FarmName after normalized identity comparison and source digest, including existing leading/trailing whitespace; every original source row remains uniquely identified.",
     "automaticPreparation": "Exact receipt source identity; unchanged allocations/farms; same product one-to-one cost unit quantities only. financial.prepared is calculation preparation, never human acknowledgement.",
     "finalConsent": "Signed preview and explicit final approve remain mandatory; precise StockHistory shortage consent is never automatic.",
     "problems": "Show actual validation problems; no-problem requests go directly to summary and final confirm. No global allocation attribution to receipt/farm.",
