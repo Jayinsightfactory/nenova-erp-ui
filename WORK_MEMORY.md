@@ -4593,3 +4593,22 @@ pm run test:canon 통과.
 3. 남은 할 일: 기존파일 즉시불러오기/내용변경 새파일 선택재분석 UI는 미구현. 별도 단일구간 실패3건은 interruptedOwner=false로 이번 owner-dead와 다르며 상세원인 미검증. 9구간 잔여4는 재분석하지 않았고 추가비용 동의없이 호출 금지. CLOUD PR1813 E2E/다운로드/가이드는 계속 미완료.
 4. 검증 상태: root-fix 전체검사·Linuxbuild·Cafe24·hydration·ping·배포후saved5job 보존PASS. 실제앱에서 실패건 복구버튼 클릭·나머지4분석·입고/원가생성은 미검증. root-fix 배포 완료와 CLOUD 배포 미완료 구분.
 5. 주의/잠금: 운영입고/재고/원가DB 보존, 유료분석0. 이가드는 배포재시작만 보호하며 OOM/OS강제종료 전부를 방지한다고 주장하지 않음. 본 CLOUD worktree 독점 및 private자료 Git커밋금지. 다음작업 전 origin/master 최신34243ea9 이상을 본 CLOUD브랜치에 통합하고 검증.
+
+## 2026-11-23 · CLOUD 중국 도착원가 새 첨부 수식 정렬
+- 새 원본 SHA53464210 / 46-2 CLOUD cbm / 공식2.0.0. 장미·시네신스·안개 규격, 유칼립·포플러스15kg/box, 아스파라3.2%, 국내운송195000원 수정. 관세를3%가산전 CNF에 적용. CLOUDLAND 별칭 연결, HUBFRESH 보존.
+- 원본43행2280단 전부 Q값1e-6원내 일치, 합계20110579.3157767원. native Excel 재계산 합계동일/수식오류0/환율210→211 갱신PASS. 전용9테스트와 고정양식대조108PASS/18optional 원본파일미보유skip. 생성형CLOUD는 별도2시트·행별수식·필수값·다운로드·취소·명시0·카테고리·원가/추천판매가/이익합계를 전용검사하며 고정양식의3시트 특정좌표 검사는 적용하지 않음.
+- 운영 SELECT-only 2026/46-02 1입고48행2283단/2025없음. 기존 helper제외1행후 NULL품목·단위2행(각1단0원)존재로 실제운영 해당입고 성공다운로드 미검증/차단유지. 원장보정/자동제외/유료PDF분석 없음. 실제dnSpy MakeTempTable 원문 UPrice/TPrice 보존 확인.
+- 검색어: CLOUD Cloudland 중국 도착원가 53464210 46-2 CBM 3% 관세 20110579 PR1813 g17 g19
+1. 작업 위치: nenova-erp-ui / codex/cloud-arrival-cost-1123 / C:/Users/USER/nw-cdx-cloud-cost-1123 / 기존 draft PR1813를 최신master와 병합하여 이어감.
+2. 완료된 것: chinaCloudCost 계산·21카테고리·버튼수정·2시트수식Excel, 원본43행fixture, CLOUDLAND연결. 기존수입부 desktop메뉴확인/101항목재생성·menu3PASS/Desktop1.3.81. 최종가이드4단계실촬영·프레임검수·다운로드쓰기0.
+3. 남은 할 일: 전체ERP 최종검사·빌드·pstack→기존PR갱신/CI→squash머지→Cafe24배포·운영스모크→worktree정리. 운영NULL품목2행은 별도근거확인대상이며 자동수정하지 않음.
+4. 검증 상태: 위43행·nativeExcel·연습브라우저다운로드·영상프레임PASS, dnSpy/쓰기범위/영상해시PASS. 전체ERP/빌드/CI/배포/실운영다운로드는 기록시점 미검증.
+5. 주의/잠금: 본worktree독점, 기존PR1813 fast-forward갱신예정. 원본엑셀·운영입고/재고/견적/매출보존. 연결 목표:g17/g19, 진행률상향0, 학습반영있음(owner-twin --learn).
+
+## 2026-11-23 · CLOUD 원가 배포 후보 검증 완료
+- 검색어: CLOUD 46-2 CBM 원가2.0.0 PR1813 nativeExcel 빌드 가이드 g17 g19
+1. 작업 위치: codex/cloud-arrival-cost-1123 / C:/Users/USER/nw-cdx-cloud-cost-1123 / PR1813 이어서 갱신.
+2. 완료된 것: 새원본43행수식정렬·CLOUDLAND식선택·수정가능카테고리·수식Excel·Desktop1.3.81·최종실제화면가이드. 원본비교·nativeExcel재계산·빌드UI다운로드/영상재생/키보드목차/한국어자막/다운로드 검증.
+3. 남은 할 일: 최신master(#1949 카카오표시)통합→최종CI→squash머지/Cafe24배포/운영스모크. 운영NULL품목2행은원장수정없이별도확인대상. 실제운영46-02입고성공다운로드 미검증.
+4. 검증 상태: npm test:erp-contract 전체exit0, manifest238, dnSpy, ERP쓰기0API, production build, pstack5/5, desktop메뉴3, 전용9 PASS. 고정양식검사108PASS/18optional 개인원본미보유skip. 원본환율210→nativeExcel211(저장안함), 가이드연습210→215. 최종빌드UI7306bytes/쓰기0. 배포는기록시점대기.
+5. 주의/잠금: 기존PR1813에fast-forwardpush, 원본엑셀/운영원장/다른농장계산보존. 연결목표g17/g19·진척률상향0·학습반영있음. 상세정정은docs/plans/china-cloud-cbm-1118.md.

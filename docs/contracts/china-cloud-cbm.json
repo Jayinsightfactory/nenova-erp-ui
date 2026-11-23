@@ -1,11 +1,60 @@
 {
-  "id":"china-cloud-cbm",
-  "title":"CLOUD 전용 품종 CBM 원가",
-  "scope":["lib/chinaCloudCost.js","lib/invoiceCostPreview.js","lib/invoiceReceiptCost.js","lib/chinaCloudCostWorkbook.js","lib/invoiceReceiptCostExport.js","lib/invoiceCostExportProfiles.js","components/import-tools/CloudCostCategories.js","components/import-tools/InvoiceReceiptCostReview.js"],
-  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
-  "actions":[{"name":"CLOUD_CBM_PREVIEW","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","notes":"순수 계산. 사용자 확인: 46-2 CLOUD cbm 시트를 CLOUD에 적용, HUBFRESH 기존식 보존. 상품/운임 CNY에3%가산 후 품종세율; 운임은품종부피중량, 통관은단수 배분. 미확인 농장/단위/카테고리 거부."}],
-  "crossYearFixture":{"required":true,"description":"연도별 원문/품목/수량 보존. 과거 차수 비용·환율을 현차수 확정비용으로 자동 승격하지 않음."},
-  "requiredTestFiles":["__tests__/chinaCloudCost.test.js"],
-  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","methods":["ExcelLoadingPackingList.MakeTempTable"],"tables":["WarehouseMaster","WarehouseDetail"],"source":"순수 원가계산만 추가. 기존 native 입고 writer·단위·가격·재고·주문·견적 SQL을 변경하지 않음."},
-  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+  "id": "china-cloud-cbm",
+  "title": "CLOUD 전용 품종 CBM 원가",
+  "scope": [
+    "lib/chinaCloudCost.js",
+    "lib/invoiceCostPreview.js",
+    "lib/invoiceReceiptCost.js",
+    "lib/chinaCloudCostWorkbook.js",
+    "lib/invoiceReceiptCostExport.js",
+    "lib/invoiceCostExportProfiles.js",
+    "components/import-tools/CloudCostCategories.js",
+    "components/import-tools/InvoiceReceiptCostReview.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "CLOUD_CBM_PREVIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "notes": "순수 계산. 2026-11-23 원본 SHA534642102c2b66c40d2f25c362114142b6c019430db9ebd9fb1915e623327386 / 공식2.0.0. CLOUD·CLOUDLAND 전용, HUBFRESH 보존. CNF KRW에3% 별도가산 및 가산전 CNF에 관세. 장미100x40x20, 유칼립·포플러스15kg/box literal, 시네신스·안개100x40x24, 아스파라3.2%, 운송195000원은수정가능 추정값. 운임 CBM/통관단수배분. NULL품목·단위·카테고리 미확인은 차단."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "연도별 원문/품목/수량 보존. 과거 차수 비용·환율을 현차수 확정비용으로 자동 승격하지 않음."
+  },
+  "requiredTestFiles": [
+    "__tests__/chinaCloudCost.test.js",
+    "__tests__/chinaCloudCostWorkbook.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormWarehouseUpload.md",
+    "methods": [
+      "ExcelLoadingPackingList.MakeTempTable"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail"
+    ],
+    "source": "순수 원가계산만 추가. 기존 native 입고 writer·단위·가격·재고·주문·견적 SQL을 변경하지 않음."
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
 }

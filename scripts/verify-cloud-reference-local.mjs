@@ -1,13 +1,15 @@
 // Read-only original-workbook comparison. No DB, AI, HTTP or receipt writes.
 import {execFileSync} from 'node:child_process';
-import {randomUUID} from 'node:crypto';
-import {writeFileSync,mkdirSync} from 'node:fs';
+import {randomUUID,createHash} from 'node:crypto';
+import {writeFileSync,mkdirSync,readFileSync} from 'node:fs';
 import {CLOUD_COST_FORMULA,matchCloudCategory} from '../lib/chinaCloudCost.js';
 import {previewInvoiceCost} from '../lib/invoiceReceiptCost.js';
 import {createInvoicePreviewCostWorkbook} from '../lib/invoiceReceiptCostExport.js';
-const python='C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1116-1210-0_26.1116.1210.0_x64__3k8sg7r9htsxt/dependencies/python/python.exe';
+const python=process.env.CLOUD_REFERENCE_PYTHON;
+if(!python)throw Error('CLOUD_REFERENCE_PYTHON is required');
 const file=process.env.CLOUD_REFERENCE_FILE;
 if(!file)throw Error('CLOUD_REFERENCE_FILE is required; no source substitution');
+if(createHash('sha256').update(readFileSync(file)).digest('hex')!==CLOUD_COST_FORMULA.formulaSourceHash)throw Error('Workbook hash does not match the reviewed reference');
 const source=JSON.parse(execFileSync(python,['-c',`import openpyxl,json,sys
 w=openpyxl.load_workbook(sys.argv[1],data_only=True);s=w['46-2 CLOUD cbm ']
 print(json.dumps({'fx':s['C7'].value,'gw':s['C8'].value,'cw':s['E8'].value,'freight':s['C11'].value,'customs':s['T10'].value,'rows':[{'name':s.cell(r,2).value,'quantity':s.cell(r,5).value,'price':s.cell(r,6).value,'expected':s.cell(r,17).value} for r in range(33,76)]},ensure_ascii=True))`,file],{encoding:'utf8'}));
@@ -23,5 +25,5 @@ input.cloudCustomsMode='FORMULA';
 const auto=previewInvoiceCost({...document,costInput:input},lines);
 if(auto.status!=='APPROVED'||Math.abs(auto.totals.totalCostKRW-preview.totals.totalCostKRW)>1e-6)throw Error('Automatic customs differs from reference');
 const output=await createInvoicePreviewCostWorkbook({document,input});
-mkdirSync('private/cloud-reference',{recursive:true});writeFileSync('private/cloud-reference/TEST_ONLY-cloud-reference.xlsx',output);
+mkdirSync('.verify/cloud-reference',{recursive:true});writeFileSync('.verify/cloud-reference/TEST_ONLY-cloud-reference.xlsx',output);
 console.log('Reference calculation workbook exported; not invoice/receipt E2E');

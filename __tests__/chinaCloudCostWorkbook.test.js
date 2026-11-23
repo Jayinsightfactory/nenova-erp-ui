@@ -21,7 +21,7 @@ test('CLOUD export routes through validated preview and retains live category, G
  const f=fixture(),p=previewInvoiceCost({...f.document,costInput:f.input},f.document.lines);assert.equal(p.status,'APPROVED',JSON.stringify(p.issues));
  const bytes=await createInvoicePreviewCostWorkbook(f),book=XLSX.read(bytes,{type:'buffer',cellFormula:true}),main=book.Sheets['CLOUD 원가'],cat=book.Sheets['품종 기준'];
  assert.ok(Math.abs(main.C8.v-p.totals.totalCostKRW)<1e-6);
- assert.equal(main.C6.v,1264160);assert.match(main.C6.f,/C4\*V3/);assert.match(main.C6.f,/COUNTIF/);
+ assert.equal(main.C6.v,1360160);assert.match(main.C6.f,/C4\*V3/);assert.match(main.C6.f,/COUNTIF/);
  assert.match(main.S13.f,/\$J\$3/);assert.match(main.G13.f,/S13/);assert.match(main.L13.f,/I13\+J13\+K13/);
  assert.match(main.Q12.f,/N12\*D12/);assert.match(main.R12.f,/O12\*D12/);assert.match(main.C9.f,/SUM\(Q/);
  assert.equal(main.B12.v,'ROSE');assert.equal(main.L14.v,0);assert.equal(main.M14.v,0);

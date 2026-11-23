@@ -166,7 +166,7 @@ function initialForm(document, receiptLines) {
       freightCurrency: String(freight.currency).trim().toUpperCase(),
     } : {}),
     ...saved,
-    ...(verifiedFormula?.formulaId==='CN_CLOUD_CBM_V1'?{...CLOUD_CUSTOMS_DEFAULTS,...Object.fromEntries(Object.keys(CLOUD_CUSTOMS_DEFAULTS).filter(k=>saved[k]!=null).map(k=>[k,saved[k]])),cloudCustomsMode:saved.cloudCustomsMode??(saved.customsTotalKRW!=null?'TOTAL':'FORMULA'),expenseBasis:saved.expenseBasis??'ESTIMATED',estimateSource:saved.estimateSource??'46-2 CLOUD cbm 원본 기준값 · 실제 비용 확인 전 추정 · 국내운송비는 해당 자료의 99,000원이며 중량별 확정요율 아님'}:{}),
+    ...(verifiedFormula?.formulaId==='CN_CLOUD_CBM_V1'?{...CLOUD_CUSTOMS_DEFAULTS,...Object.fromEntries(Object.keys(CLOUD_CUSTOMS_DEFAULTS).filter(k=>saved[k]!=null).map(k=>[k,saved[k]])),cloudCustomsMode:saved.cloudCustomsMode??(saved.customsTotalKRW!=null?'TOTAL':'FORMULA'),expenseBasis:saved.expenseBasis??'ESTIMATED',estimateSource:saved.estimateSource??'46-2 CLOUD cbm 원본 기준값 · 실제 비용 확인 전 추정 · 국내운송비는 해당 자료의 195,000원이며 중량별 확정요율 아님'}:{}),
     ...(vn && vn.total!==null && numberOrNull(saved.customsTotalKRW)===null ? {customsTotalKRW:vn.total,expenseBasis:'ESTIMATED',estimateSource:VN_CUSTOMS_SOURCE} : {}),
     ...(vn && verifiedFormula.freightIncluded && numberOrNull(saved.freightAmount)===null && !recognizedFreight ? {freightAmount:0,freightCurrency:uniformNativeCurrency} : {}),
     ...(verifiedFormula?.country === 'AU' ? {
@@ -963,7 +963,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
 
     {form.formulaId==='CN_CLOUD_CBM_V1'&&<>
       <details className={styles.evidence}><summary>CLOUD 원본 통관비·허가증 기준 보기/수정</summary>
-        <p>원본 기준값으로 추정합니다. 국내운송비 99,000원은 해당 자료의 값이며 모든 중량의 고정요금이 아닙니다. 실제 견적이 다르면 수정하세요.</p>
+        <p>원본 기준값으로 추정합니다. 국내운송비 195,000원은 해당 자료의 값이며 모든 중량의 고정요금이 아닙니다. 실제 견적이 다르면 수정하세요.</p>
         <div className={styles.formGrid}>
           <Field label="통관비 계산"><select value={form.cloudCustomsMode} onChange={e=>update('cloudCustomsMode',e.target.value)}><option value="FORMULA">원본 수식 자동 계산</option><option value="TOTAL">확인된 합계 직접 지정</option></select></Field>
           {Object.entries({cloudWarehousePerKg:'백상 원/kg',cloudBrokerage:'통관 수수료 원',cloudQuarantinePerCategory:'검역 원/품종',cloudDomesticTransport:'국내운송비 원',cloudMiscellaneous:'기타비 원',cloudDisinfection:'소독비 원',cloudOrchidPermitNative:'호접 허가증 CNY'}).map(([key,label])=><Field key={key} label={label}><input type="number" min="0" step="any" value={form[key]??''} onChange={e=>update(key,e.target.value)}/></Field>)}
