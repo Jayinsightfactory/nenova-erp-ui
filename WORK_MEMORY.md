@@ -4670,3 +4670,11 @@ pm run test:canon 통과.
 3. 남은 할 일: 최신 master 병합·pstack·PR/CI·squash·Cafe24와 Desktop 배포·운영 read-only 확인.
 4. 검증 상태: Desktop95/95, native Windows 등록/해제, 별도 프로세스 restore, Electron smoke, startup 키보드/3해상도, admission5/5, 전체 ERP계약/dnSpy/manifest238/쓰기1API/Next production build PASS. 가이드1920/390 실제 재생·자막·목차 PASS, 영상 앞/중간/끝 육안 확인. 직원 PC 재부팅 미검증.
 5. 주의/잠금: 본 worktree 전용. 운영 업로드 부하 재현/원장 변경0. 승인 대량 수집은 더 오래 걸릴 수 있음. 연결 목표g13/g18 / 학습 반영 있음 / 진척률 임의 상향0.
+
+## 2026-11-23 뉴질랜드 인보이스 근거 기반 자동입력
+검색어: NZ 인보이스 Units 원문 자동입력 품종 규격 실제 입고일 g17
+1. 작업 위치: nenova-erp-ui / codex/nz-receipt-autofill / C:/Users/USER/Documents/Codex/nw-cdx-nz-autofill-1123 / PR1953.
+2. 완료: 활성 NZ 정확 품목, 명시 단위 근거로 원문 수량 적용, 환산과 수동값 보존, 원문 AWB 좌표·체크디지트 확인 후 AIR 표시.
+3. 남은 일: 필수 CI·Cafe24·Desktop 게시·운영 메뉴 스모크. 공식 가이드 예외 적용, 영상 미갱신.
+4. 검증: ERP 계약·dnSpy·운영형 빌드와 격리 Electron 실제 원본 3행 등록·재조회 통과. 국가 초기화는 개발 서버에서만 재현. 운영형 빌드에서 change 이벤트와 무재로드 검증.
+5. 주의: 운영 DB 조회·쓰기 금지. 송장일로 실제 입고일 대체 금지. 연결 목표 g17 / 검증 전 진척률 유지.

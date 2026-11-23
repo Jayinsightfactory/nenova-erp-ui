@@ -517,6 +517,12 @@
           "approvedBy": "owner"
         },
         {
+          "file": "components/import-tools/InvoiceReceiptWorkbench.js",
+          "sha256": "f70c3cf6f736f3f41e092de24f40fc22cd2d96bbb5f9b5d9e35d4230ba387e15",
+          "reason": "2026-11-23 사용자 승인: NZ 원본 근거 자동채움 변경에 한해 가이드 재촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        },
+        {
           "file": "pages/import/tools.js",
           "sha256": "4c50c890dff9e2ca775bdb5613f474d4a315c7964a1c205ac9b434d9c5e35f73",
           "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",

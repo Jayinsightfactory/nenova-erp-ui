@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {exactNzVarietyProduct} from '../lib/packingOriginEvidence.js';
 import {resolveInvoiceHeader,isNzBloomSupplierMatch} from '../lib/invoiceReceiptAutoFill.js';
-import {nzConfirmedBunchQuantity} from '../lib/nzReceiptUnits.js';
+import {fillConfirmedNzReceiptLine,nzConfirmedBunchQuantity,nzReceiptLineReview} from '../lib/nzReceiptUnits.js';
 import {toReceiptDraftPayload} from '../lib/importPackingReceiptAdapter.js';
 
 test('NZ automatic match requires a unique active country, exact variety, grade and both sizes',()=>{
@@ -12,9 +12,24 @@ test('NZ automatic match requires a unique active country, exact variety, grade 
   const wrong={...exact,ProdKey:2622,ProdName:exact.ProdName.replace('50cm','40cm')};
   assert.equal(exactNzVarietyProduct(row,[wrong,exact]),exact);
   assert.equal(exactNzVarietyProduct(row,[wrong]),null);
+  assert.equal(exactNzVarietyProduct(row,[{...exact,isDeleted:1}]),null);
+  assert.equal(exactNzVarietyProduct(row,[{...exact,CounName:'호주'}]),null);
   assert.equal(exactNzVarietyProduct(row,[{...exact,selectable:false}]),null);
   assert.equal(exactNzVarietyProduct(row,[exact,{...exact,ProdKey:9}]),null);
   assert.equal(exactNzVarietyProduct({...row,variety:'Madame Claude Tain'},[exact]),null);
+});
+
+test('NZ applies printed quantity only with an explicit unit decision and intact NZD facts; preserves manual and zero',()=>{
+  const line={prodKey:1,priceUnit:'송이',currency:'NZD',unitPrice:7.57,lineAmount:1816.8,boxQuantity:3,
+    sourceEvidence:{nzPrintedUnits:240,sourceFieldStates:{unitPrice:{rawValue:'7.57'},lineAmount:{rawValue:'1,816.80'}}},
+    reviewed:{nzUnitReason:'confirmed packing document',nzStemsPerBunch:'5'}};
+  const filled=fillConfirmedNzReceiptLine(line);
+  assert.deepEqual([filled.boxQuantity,filled.bunchQuantity,filled.stemQuantity,filled.priceUnit],[3,48,240,'송이']);
+  assert.deepEqual(nzReceiptLineReview(filled),{product:'',units:'',conversion:''});
+  for(const edited of [{...line,stemQuantity:0},{...line,stemQuantity:239},{...line,lineAmount:1800},
+    {...line,reviewed:{nzStemsPerBunch:'5'}},{...line,currency:'AUD'}]) assert.equal(fillConfirmedNzReceiptLine(edited),edited);
+  assert.equal(fillConfirmedNzReceiptLine({...line,bunchQuantity:49}).bunchQuantity,49);
+  assert.ok(nzReceiptLineReview({...filled,bunchQuantity:49}).conversion);
 });
 
 test('verified NZ alias needs origin; invoice date is not the actual receipt date',()=>{
