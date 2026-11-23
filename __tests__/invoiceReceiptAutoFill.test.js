@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {invoiceCalendarDate,invoiceSupplierKey,resolveInvoiceHeader,applyInvoiceHeader,sameInvoiceSupplier,packingWeight,fillMissingReceiptWeights} from '../lib/invoiceReceiptAutoFill.js';
+import {invoiceCalendarDate,invoiceUploadCalendarDate,invoiceSupplierKey,resolveInvoiceHeader,applyInvoiceHeader,sameInvoiceSupplier,packingWeight,fillMissingReceiptWeights} from '../lib/invoiceReceiptAutoFill.js';
 const source=()=>({orderYear:'2026',orderWeek:'44-01',farmKey:null,receiptStatus:'DRAFT',revision:1,
-  rawMetadata:{supplier:'CI FLORES BALVERDE SAS',invoiceDate:'2026-10-23',rawDate:'23OCT2026'},
+  rawMetadata:{supplier:'CI FLORES BALVERDE SAS',invoiceDate:'2026-10-23',rawDate:'23OCT2026',invoiceUploadDate:'2026-10-24'},
   reviewedMetadata:{inputDate:'',farmName:'CI FLORES BALVERDE SAS'},lines:[{prodKey:866,boxQuantity:5,stemQuantity:150}]});
 const farms=[{FarmKey:41,FarmName:'Balverde'}];
 
@@ -67,19 +67,38 @@ test('same invoice supplier recognizes stored full company name, not another far
 });
 test('44-1 invoice resolves header without any existing receipt data',()=>{
  const doc=source(), result=resolveInvoiceHeader(doc,farms);
- assert.equal(result.farm.farmKey,41);assert.equal(result.inputDate,'2026-10-23');assert.deepEqual(result.issues,[]);
+ assert.equal(result.farm.farmKey,41);assert.equal(result.inputDate,'2026-10-24');assert.deepEqual(result.issues,[]);
  const record=applyInvoiceHeader({document:doc,dirty:false},result);
- assert.equal(record.document.farmKey,41);assert.equal(record.document.reviewedMetadata.inputDate,'2026-10-23');
+ assert.equal(record.document.farmKey,41);assert.equal(record.document.reviewedMetadata.inputDate,'2026-10-24');
  assert.equal(record.document.revision,1);assert.deepEqual(record.document.lines,doc.lines);assert.equal(record.dirty,true);
 });
 test('canonical date validates calendar and compact month names, no today fallback',()=>{
  assert.equal(invoiceCalendarDate('23OCT2026'),'2026-10-23');assert.equal(invoiceCalendarDate('2026/10/23'),'2026-10-23');
  for(const invalid of ['','2026-02-30','31FEB2026','10/11/26','23OCT26'])assert.equal(invoiceCalendarDate(invalid),'');
 });
-test('conflicting dates, other year, missing date never auto-fill',()=>{
- for(const doc of [{...source(),orderYear:'2025'},{...source(),rawMetadata:{...source().rawMetadata,rawDate:'24OCT2026'}},{...source(),rawMetadata:{supplier:'Balverde'}}]){
+test('invoice dates never replace absent original upload evidence',()=>{
+ for(const doc of [{...source(),rawMetadata:{invoiceDate:'2025-10-23'}},{...source(),rawMetadata:{invoiceDate:'2026-10-23',rawDate:'24OCT2026'}},{...source(),rawMetadata:{supplier:'Balverde'}}]){
   assert.equal(resolveInvoiceHeader(doc,farms).inputDate,'');
  }
+});
+
+test('upload timestamp uses KST midnight and keeps original upload day on reopening',()=>{
+ assert.equal(invoiceUploadCalendarDate('2026-11-22T14:59:59Z'),'2026-11-22');
+ assert.equal(invoiceUploadCalendarDate('2026-11-22T15:00:00Z'),'2026-11-23');
+ assert.equal(invoiceUploadCalendarDate('2026-12-31T15:00:00Z'),'2027-01-01');
+ for(const value of ['', '2026-02-30', '2026-11-22T15:00:00', null])assert.equal(invoiceUploadCalendarDate(value),'');
+ const old={...source(),createdAt:'2025-12-31T15:00:00Z',rawMetadata:{invoiceDate:'2025-12-20'}};
+ assert.equal(resolveInvoiceHeader(old,farms).inputDate,'2026-01-01');
+ const manual={document:{...old,reviewedMetadata:{inputDate:'2026-01-03'}},dirty:false};
+ assert.equal(applyInvoiceHeader(manual,resolveInvoiceHeader(old,[])).document.reviewedMetadata.inputDate,'2026-01-03');
+ assert.equal(old.rawMetadata.invoiceDate,'2025-12-20');
+});
+
+test('new adapter receives original upload day separately from printed invoice date',async()=>{
+ const {adaptPackingReceipts}=await import('../lib/importPackingReceiptAdapter.js');
+ const [doc]=await adaptPackingReceipts({sourceHash:'a'.repeat(64),country:'CO',fileName:'2026 44-1.xlsx',reviewConfirmed:true,invoiceUploadDate:'2026-10-24',invoices:[{invoice:'25529',date:'2026-10-23',products:[]}],excels:[{products:[]}]});
+ assert.equal(doc.reviewedMetadata.inputDate,'2026-10-24');assert.equal(doc.rawMetadata.invoiceUploadDate,'2026-10-24');
+ assert.equal(doc.reviewedMetadata.invoiceDate,'2026-10-23');
 });
 test('ambiguous/deleted/no farm never pick first fuzzy candidate',()=>{
  assert.equal(resolveInvoiceHeader(source(),[...farms,{FarmKey:42,FarmName:'C.I Flores Balverde S.A.S'}]).farm,null);

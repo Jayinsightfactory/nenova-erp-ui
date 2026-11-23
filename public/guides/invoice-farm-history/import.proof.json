@@ -1,20 +1,20 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-18T05:13:21.700Z",
+  "recordedAt": "2026-11-23T06:24:07.703Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 47.9,
+  "duration": 47.8,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "e3feb655ae7e6066fb064e9dd3d107844a07d41e345e8be7ea6444d7e3695bea",
-  "captionsSha256": "710b0dddbba9005e69688d7fc1bcbb96c21c9a9c31bdf13ecad765458a079855",
+  "videoSha256": "d694438080572f31393c4283971cb5c4cb015b8df67e69b9576990a714dd91d8",
+  "captionsSha256": "75e18d055db4f50db094e40acb64588d74f63e3f49515cbff4c837ff7e5f8ad5",
   "sourceHashes": {
     "components/import-tools/InvoiceFarmChoices.js": "fb4f58c3d28f9560bae5c07666b90a6b62393a7443a4780759e7f518959570a0",
     "components/import-tools/SharedPackingHistory.js": "b13f3a438864f488943b7549ba8b85d4f853aeb117a9dc212d6268aae884f257",
-    "lib/invoiceReceiptAutoFill.js": "0e010dcf3e909215a7ce5d0e8d3a1982042e211837f3d52dab6b4e7dc5abed95",
+    "lib/invoiceReceiptAutoFill.js": "bcfce392d37bf283cfc61b1f7ec3759eb9458fbcb9ebcfd20e35a4b7fc96f6ab",
     "lib/packingHistoryComparison.js": "f4c169ab63ace9034e435ff62326a8fe655b8478b278e0af781bc7dfd4db3ce2"
   },
   "presentation": {
@@ -31,31 +31,31 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 3.6676235000000004,
+        "start": 3.6643565,
         "x": 263.0390625,
         "y": 282.5,
-        "end": 9.699467199999999
+        "end": 9.6752196
       },
       {
         "number": 2,
-        "start": 13.5362895,
+        "start": 13.511655999999999,
         "x": 606.8359375,
         "y": 282.5,
-        "end": 19.6202261
+        "end": 19.557767
       },
       {
         "number": 3,
-        "start": 23.453983200000003,
+        "start": 23.4128287,
         "x": 205.3125,
         "y": 253.5,
-        "end": 30.833027100000002
+        "end": 30.7158812
       },
       {
         "number": 4,
-        "start": 34.6861734,
+        "start": 34.546521500000004,
         "x": 1653.234375,
         "y": 547.5,
-        "end": 40.7363005
+        "end": 40.5870024
       }
     ]
   }

@@ -24,6 +24,17 @@ test('historical source is re-read under transaction lock and does not use order
 test('candidate lookup is read only and malformed lookup cannot pass',async()=>{
  await assert.rejects(listInvoiceFarmSources(async q=>{assert.match(q,/UNION ALL/);assert.doesNotMatch(q,/INSERT|UPDATE|DELETE/);return {};}));
 });
+test('a same-name master only supersedes historical country evidence when its country agrees',async()=>{
+ const history={FarmKey:null,WarehouseKey:3245,FarmName:'NZ Blooms',CounName:'뉴질랜드',UsageCount:3};
+ const rows=await listInvoiceFarmSources(async query=>{
+  assert.match(query,/knownCountry\.CounName=c\.CounName/);
+  assert.match(query,/NULLIF\(LTRIM\(RTRIM\(knownCountry\.CounName\)\),N''\) IS NOT NULL/);
+  assert.match(query,/COUNT\(DISTINCT p\.CounName\)=1/);
+  return {recordset:[{FarmKey:69,FarmName:'NZ Blooms',CounName:null},history]};
+ });
+ assert.equal(hasReceiptFarmSource({orderYear:'2026',orderWeek:'47-01',farmKey:null,reviewedMetadata:{farmName:rows[1].FarmName,farmSourceWarehouseKey:rows[1].WarehouseKey}}),true);
+ assert.equal(rows[1].WarehouseKey,3245);
+});
 test('upload error detail is bounded, redacted and accepted by the logging contract',()=>{
  const detail=uploadFailureDetail('농장 검색 실패 token=private password=hidden Bearer abc');
  assert.match(detail,/농장 검색 실패/);assert.doesNotMatch(detail,/private|hidden|abc/);

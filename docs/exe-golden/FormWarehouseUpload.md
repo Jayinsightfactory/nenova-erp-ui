@@ -1,5 +1,9 @@
 # FormWarehouse 입고 엑셀 업로드 — nenova.exe golden
 
+## 2026-11-23 업로드일 기본값 · native 저장 경계 보존
+
+사용자가 입고일 기본값을 최초 업로드 시점의 한국 날짜로 확정했다. 기존 MakeTempTable G3/InputDate 및 InsertMaster 저장 순서·재고 트랜잭션은 바꾸지 않는다. 웹 신규 초안에서만 원래 업로드일을 입력하고, 발행일은 참고일로 유지한다. 기존 수동일자·저장초안·확정원장은 보존한다. 실제 공식 등록/SELECT 후조회: 2026/47-02 Holex 1222993 입고8247, InputDate2026-11-23,140행/13,320송이/14,291.55EUR/미연결0, 중복0. 이 등록은 사용자 매칭과 명시 승인 뒤 기존 native writer를 사용했다.
+
 ## 2026-10-23 태국 기존 입고 원가 전용 연결 재확인
 
 실제 dnSpy.Console.exe --no-color -t ExcelLoadingPackingList 명령을 설치된 Nenova.exe에 재실행했다.
@@ -146,3 +150,9 @@ NULL 품목 2행은 금액 0이며 출고·견적수량 NULL인 경우에만 원
 ## 2026-11-23 같은 차수 A/B·품종 통합 원가
 실제 ExcelLoadingPackingList CLI 재확인: MakeTempTable의 G2 차수 및 G3 연도로 WarehouseMaster/Detail 저장, InsertMaster 후 native 재고계산 호출 순서는 변경하지 않았다. 운영 SELECT 중국2026/45-03 입고8061/8062는 동일 원장차수·서로다른AWB이며 패킹원본64행을 가격/금액/수량까지 전수대조했다. 원본 SHA bf76704f7f5327e4dc815278eec0bf58f69cb0f48dd2b36512b089615b07ba41 /60cd46d8f978d926112c1da4dbf502109ac9a68a26852539d0f9554f4ad3baa1. 두 weigth 오타 중량pair는 각각1050/980kg, exact 근거기록 일치시 원가상품에서만 분리한다.
 콜롬비아2026/46-02는22입고94상품/44940송이, 하나의AWB01441369974에 수국·카네이션·장미·알스트로가 있다. 원본AWB와Apollo엑셀은GW3942/CW4824/운임13737.8USD 일치, MasterInvoice1쪽FB195.75와품종수량 전부일치.6쪽FE204138 PHYTO15USD·12쪽FC02182 추가청구15USD는 각송장비용으로별도표시한다. native가격/원장/재고/견적/손익 쓰기0. 통합 기준과 부작용은 plans/arrival-week-consolidation-2026-11-23.md.
+
+## 2026-11-23 업로드일 기본값과 CLOUD 원본 Contract 지원
+- 입고일 초기값은 최초 업로드의 한국 날짜이며 송장 발행일과 구분한다. 저장 초안의 명시 날짜·기존 입고일을 덮어쓰지 않는다. 사용자 확인 실제 송장번호는 A 2026YY-054 / B 2026YY-055이다. 원문에 없는 번호를 추출값으로 표시하지 않는다.
+- 47-2A 원본 SHA fd136fbc2c0e33b58cf72a667a8197b2cb78eb00781b6809f13c0dfc79d2cb0b, Sheet1 A7:H7 정확 8열, 상품8:45 38행/2365단/54909CNY, 비용47:49 23168, 총액G50=78077. B SHA41c8778688245c80f93daa05667991a621bb94c2d3b1c0d2efdcb7696adc902b, 상품8:9 2행/2620CNY, 비용11:13 1830, G14=4450. 상품 단가=(E+F), 금액=D*(E+F). B8 25단/125송이, B9 90송이/단수미기재. D10의115는 혼합단위 소계로서 115단으로 저장하지 않는다.
+- 원문 미기재 박스/GW/CW는 NULL. 국제운임 Quantity2452/70은 kg 표기가 없어 중량으로 간주하지 않는다. 실제 INFORMATION_SCHEMA에서 BoxQuantity/BunchQuantity/SteamQuantity nullable float 확인, 기존 NL8247의62행 Box NULL 확인. 기존 native MakeTempTable/InsertMaster 필드·Float파라미터·트랜잭션·재고계산 순서는 유지한다.
+- NZ 초안210195/2026/47-01은 공급농장69의 Country NULL로 preflight가 차단했다. 동일명 기존입고3245의 상품원산지는 뉴질랜드이다. 후보조회에서 같은 이름뿐 아니라 국가까지 일치하는 마스터만 역사후보를 대체하도록 수정한다. 잘못된 국가·미확인 국가인 마스터는 유효 역사후보를 숨기지 않는다. writer의 저장직전 PK/정확농장명/상품국가 재검증은 유지하며 과거 상품·가격·연도·차수를 복사하지 않는다.
