@@ -4706,3 +4706,12 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 머지·Cafe24 배포 후 2026년 43·44·45차 v4 스냅샷 갱신으로 H열 최신 실비 + R열 14/17 + totals(I·K·P) null 0건 실측 확인 및 워크트리 정리.
 4. 검증 상태: profitReportAutoRefresh 11/11 PASS, pstack-verify 5/5 PASS, test:profit-weekly-cache·guard:erp-writes·test:erp-manifest·test:erp-contract·npm run build 통과 예정.
 5. 주의/잠금: 타 연도·타 차수 환율 오염 금지(WHERE OrderYear=@y AND MajorWeek=@m), non-outage(missing_declaration_date/disabled/approval_evidence_required) 시 복원 금지, ERP 공유 원장 쓰기 0건. 연결 목표 g17·g19.
+
+## 2026-11-23 · Windows 공백 설치 경로 자동 실행 오판 수정
+- 사용자 오류 재현: 설치본1.3.84 Run 항목은 정상 등록됐으나 Electron 조회가 따옴표 없는 C:\Program Files\Nenova Desktop\Nenova Desktop.exe를 C:\Program으로 해석해 타 앱을 반환했다. 같은 실제 경로를 따옴표로 감싼 조회는 자기 항목/인자/enabled를 정확히 반환한다. 기존 검증의 무공백 개발 실행파일 경로 누락을 보완.
+- 검색어: 자동실행 저장 오류 Program Files Nenova Desktop quoted path Electron getLoginItemSettings g13
+1. 작업 위치: nenova-erp-ui / codex/startup-save-fix-1123 / C:/Users/USER/nw-cdx-startup-save-fix-1123 / PR 전.
+2. 완료된 것: startup.cjs 조회 경로만 인용, 쓰기 경로·해제 보존 유지. Desktop1.3.86. 단위 반례 및 Windows 실제 임시 등록/조회/해제에 공백 경로 추가. UI·업무 순서·ERP/API 변경0으로 가이드·dnSpy 대상 아님.
+3. 남은 할 일: pstack→PR/CI→병합·설치본 게시. 사용자 실행 앱 자동 종료하지 않음.
+4. 검증 상태: Desktop96/96, Windows native 무공백/공백 두 경로 등록·조회·해제 PASS. 실제 설치된1.3.84 Run 항목을 수정 코드로 조회 enabled=true 확인(읽기 전용), 홈 버튼 키보드/3해상도 스모크 PASS. 직원 재부팅 미검증.
+5. 주의/잠금: 이 worktree만 사용. 네노바 원장/설치된 앱 파일/실제 시작 앱 설정 변경0. 연결 목표g13/g18, 진척률 유지.
