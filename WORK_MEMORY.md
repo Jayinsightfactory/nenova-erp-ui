@@ -4753,3 +4753,11 @@ pm run test:canon 통과.
 5. 주의/잠금: 원본·기존원장·사용자NL매칭 불변, 같은 송장 재등록 금지. 자동생성 전체 개발이력2파일의 대량 무관 diff는 포함하지 않았다. 정식앱과별도 Isolated SQL 창을 혼동하지 않는다.
 검색어: Cloud47 Contract 054 055 NZ210195 revision8 Desktop1.3.87 가이드3 pstack g17 g19
 
+## 2026-11-23 · NZ 공통 Units 입고 및 3행 전체 격리 등록·원본 대조 검증
+검색어: NZ 공통 Units 입고 210195 NZ Blooms 91001 8박스 148단 740송이 4253.80 g17
+1. 작업 위치: nenova-erp-ui / codex/nz-common-units / C:/Users/USER/Documents/Codex/nw-cdx-nz-common-units-1123 / PR 생성.
+2. 완료: 공통 Units(송이·근거·5송이/단) 3행 일괄 적용 및 예외 보존, 확정 품목 접기(변경 버튼), NZ Blooms 단일 농장·AWB 180-79060332 AIR 자동입력, test-nz-invoice-receipt-local 3행 전체 단/박스환산 검증 확장.
+3. 남은 일: PR 필수 CI 통과 후 squash 머지 및 워크트리 정리.
+4. 검증: 격리 UI(19462)+격리 SQL(14339)에서 실제 210195 PDF 3행(3/2/3=8박스, 48/40/60=148단, 240/200/300=740송이, 80/100/100송이/박스, 5송이/단, 1816.80/940.00/1497.00=4253.80 NZD 차이 0) 입고번호 91001 등록·입고관리 재조회·중복차단·pstack 5/5 PASS.
+5. 주의: 운영 DB 조회·쓰기와 원본 변경 금지. 실제 입고일은 송장일로 대체하지 않음. 목표 g17 / 학습 반영 있음(owner-agi-twin --learn).
+

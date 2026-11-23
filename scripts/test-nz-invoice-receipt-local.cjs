@@ -10,7 +10,8 @@ module.exports=async ({pool,sql,query,documents,writer,ctx,protectedSnapshot})=>
   assert.equal(sourceHash,'4e4bd50394e9ab29bd932b0098fe36103fefbb823775874fc39708587683e874');
   const {getDocument}=await import('pdfjs-dist/legacy/build/pdf.mjs');
   const {inspectNzBloomInvoice,packingOriginMismatch}=await import('../lib/packingOriginEvidence.js');
-  const {adaptPackingReceipts}=await import('../lib/importPackingReceiptAdapter.js');
+  const {adaptPackingReceipts,toReceiptDraftPayload}=await import('../lib/importPackingReceiptAdapter.js');
+  const {applyNzCommonUnits}=await import('../lib/nzReceiptUnits.js');
   const {invoiceAmountReview}=await import('../lib/invoiceAmountReview.js');
   const job=getDocument({data:new Uint8Array(source),useSystemFonts:false});
   const page=await (await job.promise).getPage(1);
@@ -45,8 +46,11 @@ module.exports=async ({pool,sql,query,documents,writer,ctx,protectedSnapshot})=>
     const [{args,result}]=run.receiptRequests;
     const readback=(await query(pool,`SELECT BoxQuantity,BunchQuantity,SteamQuantity,SteamOf1Box,SteamOf1Bunch,OutQuantity,EstQuantity,UPrice,TPrice FROM dbo.WarehouseDetail WHERE WarehouseKey=@key ORDER BY ProdKey`,
       {key:{type:sql.Int,value:result.warehouseKey}})).recordset;
-    assert.deepEqual(readback.map(r=>[r.BoxQuantity,r.SteamQuantity,r.UPrice,r.TPrice]),[[3,240,7.57,1816.8],[2,200,4.7,940],[3,300,4.99,1497]]);
-    assert.deepEqual([readback[0].BunchQuantity,readback[0].SteamOf1Box,readback[0].SteamOf1Bunch,readback[0].OutQuantity,readback[0].EstQuantity],[48,80,5,48,48]);
+    assert.deepEqual(readback.map(r=>[r.BoxQuantity,r.BunchQuantity,r.SteamQuantity,r.SteamOf1Box,r.SteamOf1Bunch,r.OutQuantity,r.EstQuantity,r.UPrice,r.TPrice]),[
+      [3,48,240,80,5,48,48,7.57,1816.8],
+      [2,40,200,100,5,200,200,4.7,940],
+      [3,60,300,100,5,300,300,4.99,1497],
+    ]);
     assert.equal((await ctx.create(args)).warehouseKey,result.warehouseKey);
     await assert.rejects(()=>ctx.create({...args,operationId:crypto.randomUUID(),receiptPartId:crypto.randomUUID()}));
     console.log(JSON.stringify({warehouseKey:result.warehouseKey,readback,duplicateReplay:true,newDuplicateBlocked:true}));
@@ -59,7 +63,7 @@ module.exports=async ({pool,sql,query,documents,writer,ctx,protectedSnapshot})=>
   draft.farmKey=7113;
   Object.assign(draft.reviewedMetadata,{farmName:'NZ Blooms',inputDate:'2026-11-20',transportMode:'AIR'});
   const save=async()=>documents.saveInvoiceDraft({withTransactionFn:ctx.withTransactionFn,types:sql,
-    input:{...draft,expectedRevision:draft.revision},documentId:draft.revision?draft.documentId:undefined,actor:'invoice-fixture'});
+    input:toReceiptDraftPayload(draft),documentId:draft.revision?draft.documentId:undefined,actor:'invoice-fixture'});
   for(const [i,line] of draft.lines.entries()) line.prodKey=94301+i;
   const confirmAmount=()=>{draft.reviewedMetadata.amountConfirmation={basis:invoiceAmountReview(draft).basis,sourceSeen:true};};
   confirmAmount();
@@ -68,11 +72,13 @@ module.exports=async ({pool,sql,query,documents,writer,ctx,protectedSnapshot})=>
   assert.equal(rejected.canCommit,false);
   assert(rejected.issues.some(issue=>issue.code==='NZ_UNITS_EVIDENCE_REQUIRED'));
   draft.revision=blocked.revision;
-  for(const line of draft.lines){
-    line.priceUnit='송이'; line.stemQuantity=line.sourceEvidence.nzPrintedUnits;
-    line.reviewed={nzUnitReason:'TEST_ONLY: fixture maps Units to stems; this is not production evidence',erpMatchConfirmed:true};
-  }
-  draft.lines[0].reviewed.nzStemsPerBunch=5;
+  const commonApplied=applyNzCommonUnits(draft.lines,draft.lines.map(line=>line.lineId),{
+    unit:'송이',
+    reason:'TEST_ONLY: fixture maps Units to stems; this is not production evidence',
+    ratio:'5',
+  });
+  assert.equal(commonApplied.applied,3);
+  draft.lines=commonApplied.lines.map(line=>({...line,reviewed:{...line.reviewed,erpMatchConfirmed:true}}));
   confirmAmount();
   const doc=await save();
   const preview=await ctx.preview(doc.documentId,doc.revision);
@@ -84,8 +90,11 @@ module.exports=async ({pool,sql,query,documents,writer,ctx,protectedSnapshot})=>
     SELECT BoxQuantity,BunchQuantity,SteamQuantity,SteamOf1Box,SteamOf1Bunch,OutQuantity,EstQuantity,UPrice,TPrice FROM dbo.WarehouseDetail WHERE WarehouseKey=@key ORDER BY ProdKey;`,
     {key:{type:sql.Int,value:result.warehouseKey}});
   assert.deepEqual(headers,[{OrderYear:'2026',OrderWeek:'47-01',FarmName:'NZ Blooms',InvoiceNo:'210195'}]);
-  assert.deepEqual(rows.map(r=>[r.BoxQuantity,r.SteamQuantity,r.UPrice,r.TPrice]),[[3,240,7.57,1816.8],[2,200,4.7,940],[3,300,4.99,1497]]);
-  assert.deepEqual([rows[0].BunchQuantity,rows[0].SteamOf1Box,rows[0].SteamOf1Bunch,rows[0].OutQuantity,rows[0].EstQuantity],[48,80,5,48,48]);
+  assert.deepEqual(rows.map(r=>[r.BoxQuantity,r.BunchQuantity,r.SteamQuantity,r.SteamOf1Box,r.SteamOf1Bunch,r.OutQuantity,r.EstQuantity,r.UPrice,r.TPrice]),[
+    [3,48,240,80,5,48,48,7.57,1816.8],
+    [2,40,200,100,5,200,200,4.7,940],
+    [3,60,300,100,5,300,300,4.99,1497],
+  ]);
   assert.equal((await documents.getInvoiceDocument({queryFn:ctx.queryFn,types:sql,documentId:doc.documentId})).rawMetadata.currency,'NZD');
   assert.equal(invoiceAmountReview(draft).difference,0);
   assert.equal((await ctx.create(args)).warehouseKey,result.warehouseKey);
