@@ -18,7 +18,10 @@ app.whenReady().then(async()=>{
     session:ses,sandbox:true,contextIsolation:true,nodeIntegration:false,
   }});
   win.on('page-title-updated',event=>event.preventDefault());
-  win.webContents.setWindowOpenHandler(({url})=>({action:url==='about:blank'||new URL(url).origin===origin?'allow':'deny'}));
+  win.webContents.setWindowOpenHandler(({url,frameName})=>{
+    console.log('ISOLATED_POPUP',url,frameName);
+    return {action:url==='about:blank'||new URL(url).origin===origin?'allow':'deny'};
+  });
   await win.loadURL(origin+'/import/tools?popup=1');
 }).catch(error=>{console.error(error.message);app.exit(1);});
 app.on('window-all-closed',()=>app.quit());

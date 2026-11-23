@@ -131,7 +131,7 @@
       "videoWaivers": [
         {
           "file": "lib/invoiceReceiptAutoFill.js",
-          "sha256": "eba0533d28d3a6af3d8e285e3ffad9fefce7fd739aaaed4c05f6d7583ab3ef86",
+          "sha256": "1f60d9f43362b44868caba642ac6916a5f6eba231b3e783ae5df7561a27be51e",
           "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
           "approvedBy": "owner"
         }
@@ -191,7 +191,7 @@
       "videoWaivers": [
         {
           "file": "components/import-tools/InvoiceReceiptComparison.js",
-          "sha256": "49b7420ee852b28f04447c318356f738b36cbfc0715dcde4522996616f4556b7",
+          "sha256": "06259c6e3114b55a0dda9e3e9e7f9d2a36bdf4def98f91430df93a17b4200849",
           "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
           "approvedBy": "owner"
         },
@@ -512,7 +512,7 @@
         },
         {
           "file": "components/import-tools/InvoiceReceiptWorkbench.js",
-          "sha256": "6214d7c40bd8bb697949d0df0ec07155d6d5979f2d242399503186dddae89aac",
+          "sha256": "e0f40e883786f61134caf621fca706706ab67d4a9a2e874d34865b1182865414",
           "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
           "approvedBy": "owner"
         },
