@@ -1,7 +1,7 @@
 # Read-only aggregate of nginx access logs. Never output clients, URLs, query strings or raw lines.
 import gzip,glob,re,datetime,collections,json,os
 now=datetime.datetime.now(datetime.timezone.utc); since=now-datetime.timedelta(days=7)
-status=collections.Counter();hours=collections.Counter();uploads=collections.Counter();groups=collections.Counter();activityMethods=collections.Counter();total=0;files=0;incident=collections.Counter()
+status=collections.Counter();hours=collections.Counter();uploads=collections.Counter();groups=collections.Counter();activityMethods=collections.Counter();total=0;files=0;incident=collections.Counter();incidentAgents=collections.Counter();incidentClients=collections.Counter()
 pattern=re.compile(r'\[(\d\d/\w+/\d{4}:\d\d:\d\d:\d\d [+-]\d{4})\].*?"(?:GET|POST|PUT|PATCH|DELETE) ([^ ?"]+)[^"]*" (\d{3}) ')
 paths={'/api/shipment/distribute-import-apply':'distribution','/api/sales/hotel-miu-parse':'hotel_parse','/api/sales/hotel-order-images':'hotel_image','/api/orders':'orders','/api/sales/hotel-order-drafts':'hotel_draft'}
 for file in glob.glob('/var/log/nginx/*access*.log*'):
@@ -17,6 +17,11 @@ for file in glob.glob('/var/log/nginx/*access*.log*'):
     code=m[3]
     if dt.astimezone(datetime.timezone(datetime.timedelta(hours=9))).strftime('%Y-%m-%dT%H')=='2026-11-19T17':
      route='drive-ingest' if m[2]=='/api/work/drive-ingest' else 'other'
+     if route=='drive-ingest':
+      agent=line.rsplit(chr(34),2)[1] if line.count(chr(34))>=6 else ''
+      agentKind='node' if agent in ('node','undici') else 'python' if 'python' in agent.lower() else 'curl' if 'curl' in agent.lower() else 'browser' if 'Mozilla/' in agent else 'other'
+      incidentAgents[(agentKind,code)]+=1
+      incidentClients[line.split(' ',1)[0]]+=1
      incident[(dt.astimezone(datetime.timezone(datetime.timedelta(hours=9))).strftime('%H:%M'),route,code)]+=1
     total+=1;status[code[0]+'xx']+=1;hour=dt.strftime('%Y-%m-%dT%H:00%z');hours[hour]+=1
     parts=m[2].split('/')
@@ -32,3 +37,5 @@ for file in glob.glob('/var/log/nginx/*access*.log*'):
 print(json.dumps({'section':'nginx_7d','files':files,'total':total,'status':dict(status),'busiestHours':hours.most_common(20),'targetRoutes':[[*k,v] for k,v in uploads.most_common(80)],'topApiGroups':[[*k,v] for k,v in groups.most_common(60)],'errorGroups':[[*k,v] for k,v in groups.most_common() if k[2]=='5xx'][:40],'activityMethods':[[*k,v] for k,v in activityMethods.most_common(40)],'activityTotals':dict(collections.Counter({method:sum(v for (hour,m),v in activityMethods.items() if m==method) for method in ['POST','GET','ME_GET','OTHER']}))},ensure_ascii=False))
 
 print(json.dumps({'section':'incident_20261119_17_kst','minuteStatus':[[*k,v] for k,v in sorted(incident.items())]}))
+
+print(json.dumps({'section':'incident_sender_counts','agents':[[*k,v] for k,v in incidentAgents.items()],'clientCount':len(incidentClients),'largestClientRequestCounts':sorted(incidentClients.values(),reverse=True)[:5]}))
