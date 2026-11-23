@@ -65,6 +65,7 @@ function RecentReview() {
   const inScope=row=>(!activeWeek||weekKey(row)===activeWeek)&&(!activeGroup||groupKey(row)===activeGroup);
   const rows=allRows.filter(inScope),totals=farmTotals(rows);
   const invalid=rows.some(r=>r.checked&&(!validItem(r)||!r.unit||!/^\d{1,2}(?:-\d{1,2})?$/.test(r.week)));
+  const includedSourceKeys=new Set(invalid?[]:totals.flatMap(total=>total.sourceKeys));
   const selectedTotal=focus?.type==='total'?totals.find(t=>t.key===focus.key):null;
   const selectedMessage=focus?.type==='message'?allMessages.find(m=>m.id===focus.id):null;
   const sourceKeys=new Set(selectedTotal?.sourceKeys||[]);
@@ -92,10 +93,14 @@ function RecentReview() {
   function renderMessage(m){
     const visible=m.kind==='review'?m.items:m.items.filter(i=>inScope(view(i)));
     const linked=selectedMessage?.id===m.id||m.items.some(i=>sourceKeys.has(i.key));
+    const included=m.items.some(item=>includedSourceKeys.has(item.key));
     const type=sourceType(m);
     const open=!!openEditors[m.id];
     return <article key={m.id} data-source-id={m.id} data-source-kind={m.kind} className={'kakao-order-message '+(linked?'kakao-linked':'')}>
-      <div className="kakao-source-meta"><strong>{importRoom}</strong><span>{m.time}</span><span>{type==='추가'?'추가 발주':type==='취소'?'취소 요청':'검토 필요'}</span>{linked&&<strong className="kakao-source-reference">{sourceReference(m.id)}</strong>}</div>
+      <div className="kakao-source-meta"><strong>{importRoom}</strong><span>{m.time}</span><span>{type==='추가'?'추가 발주':type==='취소'?'취소 요청':'검토 필요'}</span>
+        {included&&<span className="kakao-source-included"><span aria-hidden="true">✓ </span>합계 반영</span>}
+        {linked&&<strong className="kakao-source-reference">{sourceReference(m.id)}</strong>}
+      </div>
       <pre className="kakao-source-body">{m.text}</pre>
       <div className="kakao-source-actions">
         {visible.length>0&&type!=='취소'&&<button type="button" className="kakao-match-source" aria-pressed={selectedMessage?.id===m.id} onClick={()=>setFocus({type:'message',id:m.id})}>이 원문의 합계 보기</button>}
@@ -185,6 +190,7 @@ export default function KakaoAdditions(){return <aside className="kakao-addition
 .kakao-source-period,.kakao-source-meta,.kakao-source-controls span{color:#334155;font-size:12.5px;font-variant-numeric:tabular-nums}
 .kakao-source-controls,.kakao-source-actions,.kakao-source-meta{display:flex;flex-wrap:wrap;align-items:center;gap:5px 8px}
 .kakao-source-controls{margin:8px 0}
+.kakao-source-included{display:inline-block;white-space:nowrap;padding:1px 5px;border-radius:4px;background:#dcfce7;color:#14532d;font-weight:700}
 .kakao-source-controls button,.kakao-source-actions button{font-size:13.5px;padding:4px 7px}
 .kakao-source-list{max-height:65dvh;overflow:auto;overscroll-behavior:contain;border-block:1px solid #cddbf0}
 .kakao-order-message{padding:10px 8px;border-bottom:1px solid #e0e8f5}
