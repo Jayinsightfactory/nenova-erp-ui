@@ -545,7 +545,8 @@
         "styles/InvoiceReceiptSheet.module.css",
         "styles/ImportReviewTypography.module.css",
         "styles/ImportTools.module.css",
-        "components/ReceiptBunchConfirmation.js"
+        "components/ReceiptBunchConfirmation.js",
+        "lib/receiptMatchWarnings.js"
       ],
       "requiredScenarios": [
         "select",
@@ -568,32 +569,32 @@
             {
               "scenario": "select",
               "title": "1. 나라 고르기",
-              "seconds": 0.002
+              "seconds": 0.001
             },
             {
               "scenario": "upload",
               "title": "2. 인보이스 PDF 올리기",
-              "seconds": 25.355
+              "seconds": 25.414
             },
             {
               "scenario": "verify",
               "title": "3. 읽힌 농장·인보이스 번호·수량·합계 확인",
-              "seconds": 63.028
+              "seconds": 62.966
             },
             {
               "scenario": "match",
               "title": "4. 미확인 품종을 전산 품목에 연결",
-              "seconds": 95.354
+              "seconds": 95.317
             },
             {
               "scenario": "download",
               "title": "5. 필요할 때 입고용 엑셀 내려받기",
-              "seconds": 164.384
+              "seconds": 164.315
             },
             {
               "scenario": "receipt",
               "title": "6. 인보이스 입고 저장 완료",
-              "seconds": 229.035
+              "seconds": 228.967
             }
           ]
         }

@@ -13,6 +13,26 @@ const css = fs.readFileSync(path.join(root, 'styles/InvoiceReceipt.module.css'),
 const sheetCss = fs.readFileSync(path.join(root, 'styles/InvoiceReceiptSheet.module.css'), 'utf8');
 const packingSource = fs.readFileSync(path.join(root, 'components/import-tools/PackingListTool.js'), 'utf8');
 const pageSource = fs.readFileSync(path.join(root, 'pages/import/tools.js'), 'utf8');
+
+test('same-key picker selection confirms every row; only the derived match warning clears', async () => {
+  const { receiptMatchWarnings, RECEIPT_MATCH_WARNING } = await import('../lib/receiptMatchWarnings.js');
+  const start=source.indexOf('  async function updateLineProduct('),end=source.indexOf('  async function saveDraftRecord(',start);
+  for(const count of [38,2]) {
+    let document={sourceWarnings:[RECEIPT_MATCH_WARNING,'원문 검토 필요'],lines:Array.from({length:count},(_,i)=>({lineId:String(i),prodKey:i+1,reviewed:{erpMatchConfirmed:false}}))};
+    const select=new Function('documentValue','updateSelected','saveReceiptProductMatch','setNotice','products','applyInvoiceAllocation',
+      `${source.slice(start,end)};return updateLineProduct;`);
+    for(let i=0;i<count;i++) {
+      await select(document,mutate=>{document=mutate(document);document.sourceWarnings=receiptMatchWarnings(document);},async()=>({}),()=>{},[],()=>{})(String(i),{ProdKey:i+1});
+      assert.equal(document.lines[i].reviewed.erpMatchConfirmed,true);
+      assert.equal(document.sourceWarnings.includes(RECEIPT_MATCH_WARNING),i<count-1);
+    }
+    assert.deepEqual(document.sourceWarnings,['원문 검토 필요']);
+    document.lines[0].reviewed.erpMatchConfirmed=false;
+    assert.deepEqual(receiptMatchWarnings(document),['원문 검토 필요',RECEIPT_MATCH_WARNING]);
+    document.lines[0].prodKey=null;
+    assert.deepEqual(receiptMatchWarnings(document),['원문 검토 필요']); // unlinked product is validated separately
+  }
+});
 test('undated Contract reaches editable intake before optional year-guarded lookup; valid year still uses lookup', async()=>{
   const start=source.indexOf('const next = await Promise.all(resumed.map(async record => {');
   const end=source.indexOf('      if (!active) return;',start);

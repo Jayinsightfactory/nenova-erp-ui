@@ -3,6 +3,7 @@ import ReceiptBunchConfirmation from '../ReceiptBunchConfirmation';
 import { applyNzCommonUnits, fillConfirmedNzReceiptLine, nzConfirmedBunchQuantity, nzReceiptLineReview } from '../../lib/nzReceiptUnits.js';
 import { isNzBloomSupplierMatch } from '../../lib/invoiceReceiptAutoFill.js';
 import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
+import { receiptMatchWarnings } from '../../lib/receiptMatchWarnings.js';
 import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoiceReceiptAutoFill.js';
 import InvoiceFarmChoices from './InvoiceFarmChoices.js';
 import FarmMasterRegistration from './FarmMasterRegistration.js';
@@ -60,7 +61,7 @@ function unresolvedConversionMismatchLines(document) {
 }
 
 function conversionWarnings(document) {
-  const warnings = (document?.sourceWarnings || []).filter(warning => warning !== CONVERSION_MISMATCH_WARNING);
+  const warnings = receiptMatchWarnings(document).filter(warning => warning !== CONVERSION_MISMATCH_WARNING);
   return unresolvedConversionMismatchLines(document).length ? [...warnings, CONVERSION_MISMATCH_WARNING] : warnings;
 }
 
@@ -673,7 +674,7 @@ export default function InvoiceReceiptWorkbench({
       const data = await readJson(response);
       const saved = responseDocument(data);
       if (!saved) throw new Error('저장 응답에서 초안 문서를 확인할 수 없습니다.');
-      const normalized = { ...normalizeReceiptDocument(saved), sourceWarnings: target.document.sourceWarnings || [] };
+      const normalized = normalizeReceiptDocument({ ...saved, sourceWarnings: target.document.sourceWarnings || [] });
       const expectedSavedRevision = target.document.revision == null ? 1 : Number(target.document.revision) + 1;
       assertReceiptScope(normalized, target.document, expectedSavedRevision);
       loggingDocumentsRef.current.set(`${normalized.documentId}:${normalized.revision}`, normalized);
@@ -760,7 +761,7 @@ export default function InvoiceReceiptWorkbench({
         stageProgress.receiptVerify = { id: 'receiptVerify', status: 'unknown', message: '새 입고 요청 전 기존 operation을 확인하세요.', at: now };
       }
       const nextRecord = {
-        document: { ...normalized, sourceWarnings: existing?.document.sourceWarnings || [] },
+        document: normalizeReceiptDocument({ ...normalized, sourceWarnings: existing?.document.sourceWarnings || [] }),
         dirty: false,
         preview: null,
         pendingOperation: verifiedReceipt ? null : pendingOperation,

@@ -4828,6 +4828,16 @@ pm run test:canon 통과.
 4. 검증 상태: 요청1 검토 대기 rev3 및 원래 품목 보존. 운영 재고 검산 32행 PASS, 운영 데이터를 읽어 실행한 로컬 비저장 연동 작성기에서 RECEIPT_SNAPSHOT_INVALID 재현. 신규 회귀·운영 미검증.
 5. 주의/잠금: 요청1 유지. 운송·손익·출고 확정 변경 없음. 직접 운영 SQL 쓰기 금지 유지.
 
+
+## 2026-11-23 CLOUD 수동매칭 경고 갱신 hotfix
+- 확인: 실제 A38행을 모두 선택해도 최초 sourceWarnings의 별칭 미확인 경고가 남아 초안 저장 전에 차단. NZ210195는 별도 공식 UI로 입고8248/2026/47-01/3행740송이4253.8NZD 등록·독립SELECT 완료. 중국054/055는 이 수정 전 미등록0건.
+- 작업 위치: codex/cloud-match-review-1123 / C:/Users/USER/nw-cdx-cloud-match-review-1123 / PR 생성 전.
+- 완료된 것: receiptMatchWarnings 공통 순수 helper로 정확 경고만 현재 prodKey/erpMatchConfirmed===true 기준 갱신. 최초변환·수동선택·정규화/복구·준비워크플로우 일치. 다른 경고와 서버/원장 writer 보존.
+- 남은 할 일: 정식 ERP gate·PR/CI/squash·Cafe24 배포 후 중국A2026YY-054/B2026YY-055 실제 등록 및 독립후조회. 운영 A38행 입력 탭1026785301 보존.
+- 검증 상태: 관련57테스트 PASS. 실제 원본A/B 및 readonly활성 중국품목490개 격리UI에서38/2행 전행 수동선택flag/정확ProdKey·실제 validateInvoiceReceiptLines issues0·초안저장/preview PASS. A78077/B4450CNY, 원본날짜 공백, provider0/운영write0, ERP commit차단. 해당6단계 가이드1개 촬영/인코딩 완료. 정식 verify:erp-change 전체계약/dnSpy/manifest240/writeguard/문구·가이드/build PASS.
+- 주의/잠금: 원본 수정·가짜발행일·박스/GW/CW 추정 금지. NZ8248/NL8247 재등록 금지. A22Prod2226대1kg/B9Prod3529 사용자확정 유지. 연결 목표:g17/g19 / 학습 반영:기존 업로드일·명시매칭 결정 재사용.
+검색어: CLOUD stale sourceWarnings receiptMatchWarnings erpMatchConfirmed 054 055 NZ8248
+
 ## 2026-11-23 입고 품목 검색 및 요청·승인 작업 표시
 - 요약: 수입부 업무도구의 입고 수정 탭에서 기존 검색이 오타를 찾지 못하던 점을 확인했다. 결과 선택, 변경항목, 접수부터 반영까지 실제 서버 응답을 구분해 표시한다.
 - 검색어: 입고 수정 요청 품목 검색 abosrbed 작업 로그 영업지원 변경 항목 g03
