@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import sql from 'mssql';
 import { planApprovalInvoiceLines,planApprovalFreight,readIncomingApprovalCosts,prepareIncomingApprovalCosts,writeIncomingApprovalCosts,suggestedIncomingApprovalCostInputs } from '../lib/incomingApprovalCosts.js';
 import { saveInvoiceDraft } from '../lib/invoiceReceiptDocuments.js';
-import { INVOICE_COST_FORMULAS,saveInvoiceCostRevision,readInvoiceCosts } from '../lib/invoiceReceiptCost.js';
+import { INVOICE_COST_FORMULAS,saveInvoiceCostRevision,readInvoiceCosts,buildReceiptLines,validateLiveReceiptDetails } from '../lib/invoiceReceiptCost.js';
 const lineId='44444444-4444-8444-8444-444444444444',docId='11111111-1111-8111-8111-111111111111';
 const product={ProdKey:1,ProdName:'Flower A',OutUnit:'단',CounName:'중국',FlowerName:'장미'},productB={...product,ProdKey:2,ProdName:'Flower B'};
 const detail={WdetailKey:1,WarehouseKey:90,ProdKey:1,BoxQuantity:10,BunchQuantity:100,SteamQuantity:1000,OutQuantity:100,EstQuantity:100,UPrice:10,TPrice:1000};
@@ -81,4 +81,20 @@ test('isolated financial writer preserves old invoice lineage, updates current c
   await assert.rejects(()=>transaction(combinedExecute));assert.equal((await q('SELECT Revision FROM WebInvoiceDocument')).recordset[0].Revision,3);assert.equal((await q('SELECT COUNT(*) n FROM FreightCost WHERE isDeleted=0')).recordset[0].n,1);assert.equal((await q('SELECT OutQuantity FROM WarehouseDetail WHERE WarehouseKey=90')).recordset[0].OutQuantity,80);
   await q('DROP TRIGGER dbo.FixtureFailFreight');const combined=await transaction(combinedExecute);assert.equal(combined.evidence.length,2);assert.equal((await q('SELECT COUNT(*) n FROM FreightCost WHERE isDeleted=0')).recordset[0].n,1);assert.equal((await q('SELECT COUNT(*) n FROM FreightCost')).recordset[0].n,2);assert.equal((await readInvoiceCosts({queryFn:q,types:sql,warehouseKey:90})).currentActual.totalCostKRW,148000);
  }finally{if(pool)await pool.close();if(created){assert.match(name,/^NenovaInvoiceFixture_approval_[a-f0-9]{16}$/);await master.request().query(`DROP DATABASE [${name}]`);}await master.close();}
+});
+
+test('direct invoice correction preserves empty packing fields through linked snapshot readback',async()=>{
+ const header={WarehouseKey:90,OrderYear:'2026',OrderWeek:'47-02',FarmName:'Farm A',InvoiceNo:'I-1',OrderNo:'AWB-1',InputDateISO:'2026-11-23',isDeleted:false};
+ const changed={...detail,ProdKey:2,BoxQuantity:null,BunchQuantity:0};
+ const oldOperation={...invoice.operation,action:'CREATE_RECEIPT',result:{...invoice.operation.result,linkMode:null}};
+ const plan=planApprovalInvoiceLines({invoice:{...invoice,operation:oldOperation},after:[changed],products:[product,productB],lineMappings:[{sourceLineId:lineId,targetRowIndex:0,quantity:100}]});
+ assert.equal(plan.lines[0].boxQuantity,null);
+ assert.equal(plan.mappings[0].bunchQuantity,0);
+ const document={...invoice.document,lines:plan.lines};
+ const operation={warehouseKey:90,action:'UPDATE_RECEIPT',result:{lineMappings:plan.mappings.map(m=>({...m,wdetailKey:1})),receiptSnapshot:{header,details:[changed]}}};
+ const read=async statement=>({recordset:statement.includes('validate-live-receipt-header')?[header]:[changed]});
+ const live=await validateLiveReceiptDetails({queryFn:read,types:sql,operation,receiptLines:buildReceiptLines(document,operation)});
+ assert.equal(live.matches,true);
+ assert.equal(live.snapshot.details[0].boxQuantity,null);
+ assert.equal(live.snapshot.details[0].bunchQuantity,0);
 });
