@@ -39,7 +39,7 @@ async function main() {
   const workflow = registry.workflows.find(w => w.id === WORKFLOW);
   assert(workflow, 'config/workflow-guides.json 에 ' + WORKFLOW + ' 등록 필요');
   if (!workflow.requiredScenarios.includes('receipt')) workflow.requiredScenarios.push('receipt');
-  for (const file of ['components/import-tools/InvoiceReceiptWorkbench.js', 'components/import-tools/PackingResults.js',
+  for (const file of ['lib/receiptMatchWarnings.js', 'components/import-tools/InvoiceReceiptWorkbench.js', 'components/import-tools/PackingResults.js',
     'components/import-tools/PackingProductMatchDialog.js', 'styles/InvoiceReceiptSheet.module.css',
     'styles/ImportReviewTypography.module.css', 'pages/import/tools.js', 'styles/ImportTools.module.css']) {
     if (!workflow.sourceFiles.includes(file)) workflow.sourceFiles.push(file);
