@@ -13,6 +13,27 @@ const css = fs.readFileSync(path.join(root, 'styles/InvoiceReceipt.module.css'),
 const sheetCss = fs.readFileSync(path.join(root, 'styles/InvoiceReceiptSheet.module.css'), 'utf8');
 const packingSource = fs.readFileSync(path.join(root, 'components/import-tools/PackingListTool.js'), 'utf8');
 const pageSource = fs.readFileSync(path.join(root, 'pages/import/tools.js'), 'utf8');
+test('undated Contract reaches editable intake before optional year-guarded lookup; valid year still uses lookup', async()=>{
+  const start=source.indexOf('const next = await Promise.all(resumed.map(async record => {');
+  const end=source.indexOf('      if (!active) return;',start);
+  assert(start>=0&&end>start);
+  const execute=new Function('resumed','fetch','readJson','fillConfirmedNzReceiptLine','applyInvoiceHeader','jsonHeaders',
+    `return(async()=>{${source.slice(start,end)};return next;})();`);
+  for(const year of ['', 'invalid', '2026']){
+    let calls=0;
+    const document={documentId:'source',orderYear:year,invoiceYear:'',invoiceNo:'',rawMetadata:{sourceFormat:'china_cloud_contract_xlsx',invoiceDate:''},
+      reviewedMetadata:{country:'CN',inputDate:'2026-11-23'},lines:[{prodKey:3529,priceUnit:'송이',stemQuantity:90,unitPrice:23,lineAmount:2070}]};
+    const record={document,dirty:true};
+    const result=await execute([record],async(_url,request)=>{
+      calls++;const body=JSON.parse(request.body);
+      if(!/^\d{4}$/.test(String(body.orderYear||'')))throw Error('real auto-fill boundary: missing invoice year');
+      return {resolution:{farm:{farmKey:1}}};
+    },async value=>value,value=>value,(current)=>current,{});
+    assert.equal(calls,year==='2026'?1:0);assert.equal(result[0],record);
+    assert.equal(result[0].document.invoiceYear,'');assert.equal(result[0].document.rawMetadata.invoiceDate,'');
+    assert.deepEqual(result[0].document.lines,document.lines);
+  }
+});
 test('farm header lookup carries source country and explicit historical farm selection',()=>{
  const header=source.slice(source.indexOf("const data = await readJson(await fetch('/api/import/receipts/auto-fill'"),source.indexOf('return applyInvoiceHeader(record, data.resolution)'));
  assert.match(header,/country:document\.reviewedMetadata\?\.country/);

@@ -425,6 +425,9 @@ export default function InvoiceReceiptWorkbench({
             record={...record,dirty:true,preview:null,stageProgress:{},document:{...record.document,lines}};
         }
         const document = record.document;
+        // The editor must open before an operator can supply a missing source year.
+        // Header lookup is optional; draft/preview/commit keep their server guards.
+        if (!/^\d{4}$/.test(String(document.orderYear || ''))) return record;
         if (record.pendingOperation || record.recoveryRequired || document.receiptStatus === 'COMMITTED'
           || ((document.farmKey || document.reviewedMetadata?.farmSourceWarehouseKey) && document.reviewedMetadata?.inputDate && document.reviewedMetadata?.transportMode)) return record;
         const data = await readJson(await fetch('/api/import/receipts/auto-fill', {
