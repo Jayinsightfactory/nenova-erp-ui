@@ -38,13 +38,13 @@ const authedHandler = withAuth(async function handler(req, res) {
     if(action==='resume'){
       const result=await registerSettlementJob(job,{automatic:true,actor:uid});
       const updated=await jobs.recordRegistration(jobId,{state:result.errors.length?'RETRY':'DONE',registeredDocuments:result.registeredDocuments,errors:result.errors});
-      return res.json({success:true,job:updated,result,review:await reviewSettlementRegistration(updated),message:result.errors.length?'자동등록이 일부 보류되었습니다. 연결 상태와 차수별 결과를 확인하세요.':'자동등록 확인 완료. 저장 매출자료는 등록 대상 차수에서 직접 갱신하세요.'});
+      return res.json({success:true,job:updated,result,review:await reviewSettlementRegistration(updated),message:result.errors.length?'자동등록이 일부 보류되었습니다. 연결 상태와 차수별 결과를 확인하세요.':'자동등록 완료. 미확정 차수의 매출이익 계산본이 자동 갱신되며 확정본은 그대로 보존됩니다.'});
     }
     if (!Array.isArray(selectedHashes) || !selectedHashes.length || new Set(selectedHashes).size !== selectedHashes.length || selectedHashes.some(h => !job.files.some(f => f.sourceHash === h && f.status === 'READY'))) return res.status(400).json({ success: false, error: '검산된 정산서를 선택하세요.' });
     if(!links||typeof links!=='object'||Array.isArray(links)||Object.keys(links).length>80)return res.status(400).json({success:false,error:'입고 연결 선택을 확인하세요.'});
     if (action === 'preview') return res.json({ success: true, review: await reviewSettlementRegistration(job,{links,selectedHashes}) });
     const result = await registerSettlementJob(job,{links,selectedHashes,reviewDigest,confirmed,actor:uid});
-    return res.json({ success: true, result,review:await reviewSettlementRegistration(job), message: result.errors.length?'일부 원천 등록이 보류되었습니다. 차수별 결과를 확인하고 다시 검토하세요.':'실제 정산 원천 등록 완료. 저장된 매출자료는 대상 차수에서 직접 갱신해야 하며 확정본은 그대로 보존됩니다.' });
+    return res.json({ success: true, result,review:await reviewSettlementRegistration(job), message: result.errors.length?'일부 원천 등록이 보류되었습니다. 차수별 결과를 확인하고 다시 검토하세요.':'실제 정산 원천 등록 완료. 미확정 차수의 매출이익 계산본이 자동 갱신되며 확정본은 그대로 보존됩니다.' });
   } catch (error) {
     return res.status(error.statusCode || 503).json({ success: false, error: error.statusCode ? error.message : '통관 정산 연결에 실패했습니다. 원본은 다시 적용하지 말고 상태를 확인하세요.' });
   }

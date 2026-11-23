@@ -66,6 +66,7 @@
     "lib/profitReportRateAnalysis.js",
     "lib/profitReportPriceMixCandidates.js",
     "lib/profitReportDriverExplanation.js",
+    "lib/profitReportAutoRefresh.js",
     "components/ProfitReportSourceGuide.js",
     "docs/migrations/2026-08-10_web_profit_report_schema.sql",
     "docs/migrations/2026-08-11_web_profit_report_confirm.sql",
@@ -278,6 +279,18 @@
       "shipmentDetail": "preserve"
     },
     {
+      "name": "PROFIT_SNAPSHOT_AUTO_REFRESH",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "estimate": "preserve",
+      "productStock": "preserve",
+      "stockHistory": "preserve",
+      "erpLedgerWrite": "forbidden",
+      "sideEffect": "미확정 (OrderYear, MajorWeek) 차수의 원천(선율 정산서 파일 원장·WebCustomsWeekly·WebColombiaWeekly·WebForwardingWeekly·WebProfitReport)이 갱신되면 Push(저장 직후) 및 Stale-on-Read(GET 조회 시 스냅샷 시각 < 원천 UTC 수정 시각 감지) 2중 경로로 기존 정식 saveProfitReportCache(WebProfitReportSnapshot 전용 INSERT)를 재사용해 스냅샷을 자동 갱신한다. 확정 차수(WebProfitReportConfirm IsActive=1)는 하드 가드로 절대 재계산·변경하지 않으며, ERP 공유 원장 테이블 쓰기는 0건이다."
+    },
+    {
       "name": "REPORT_CONFIRM_SNAPSHOT",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -362,7 +375,8 @@
     "__tests__/profitReportStockPriceSuggestion.test.js",
     "__tests__/profitReportWeek28Totals.test.js",
     "__tests__/profitReportRequiredInputUiContract.test.js",
-    "__tests__/profitReportDefaultWeek.test.js"
+    "__tests__/profitReportDefaultWeek.test.js",
+    "__tests__/profitReportAutoRefresh.test.cjs"
   ],
   "historicalCustomsPolicy": {
     "description": "2026-08-12 원천 정정: 22~27차 그외통관비(H) 원본 엑셀 historical snapshot(lib/profitReportHistoricalCustoms.js)을 국가/콜롬비아 저장행이 전혀 없을 때만 폴백으로 적용한다. 이전 구현(lib/profitReportAuditedBaseline.js)은 검증된 '최종 H 합계'만 갖고 있어 운영 DB 입력 부재를 화면에서 숨겼다 — 이제는 백상 GW·관세·선율·월드운송료·한국방역 구성요소를 그대로 갖고 있어 총액을 항상 같은 프로덕션 공식(computeCountryCustomsTotal/computeColombiaCustomsTotal)으로 재계산한다. 우선순위는 explicit saved row(WebCustomsWeekly/WebColombiaWeekly) > excel historical snapshot(2026년 22~27차만) > current auto(입고 GW 자동병합) > global defaults(RATE_DEFAULTS/WebCustomsRateConfig)이며, 저장행에 조금이라도 값이 있으면 historical snapshot은 전혀 적용하지 않는다(행 단위 폴백 — 필드 일부만 덮어쓰지 않음). 연도가 정확히 2026과 일치할 때만 적용되어 2025년 동일 차수는 절대 오염되지 않는다. 백상 창고료 요율은 scope별로 분리된다 — 국가 시트(그외통관비 화면)는 22~27차 전부 460원/kg, 콜롬비아 4품목 반차수 시트는 22차만 370원/kg·23~27차는 460원/kg이다(lib/customsForwardingCalc.js effectiveRatesForWeek scope 파라미터). WebCustomsWeekly/WebColombiaWeekly.BakSangRateApplied 스냅샷이 있으면 그 값이 최우선이다(전역 요율 변경이 과거 저장행을 재계산하지 않음).",
