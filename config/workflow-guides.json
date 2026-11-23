@@ -423,8 +423,8 @@
       "videoWaivers": [
         {
           "file": "components/import-tools/PackingListTool.js",
-          "sha256": "2c6cba6c5bf197ffceef0e3d56a047cf463dd94364311969f65dcf4534cde762",
-          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "sha256": "55cebe1db981fcf79dc2e7ca5f3cac17a0bd9ad5e42fbbc317357d78220f83e9",
+          "reason": "2026-11-23 사용자 명시: 중국 47-2A/B 시트 선택·원문 대조 변경의 영상 재촬영 제외. 기존 영상은 갱신되지 않음.",
           "approvedBy": "owner"
         },
         {
@@ -506,8 +506,8 @@
       "videoWaivers": [
         {
           "file": "components/import-tools/PackingListTool.js",
-          "sha256": "2c6cba6c5bf197ffceef0e3d56a047cf463dd94364311969f65dcf4534cde762",
-          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "sha256": "55cebe1db981fcf79dc2e7ca5f3cac17a0bd9ad5e42fbbc317357d78220f83e9",
+          "reason": "2026-11-23 사용자 명시: 중국 47-2A/B 시트 선택·원문 대조 변경의 영상 재촬영 제외. 기존 영상은 갱신되지 않음.",
           "approvedBy": "owner"
         },
         {

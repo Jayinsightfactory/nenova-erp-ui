@@ -4612,3 +4612,11 @@ pm run test:canon 통과.
 3. 남은 할 일: 최신master(#1949 카카오표시)통합→최종CI→squash머지/Cafe24배포/운영스모크. 운영NULL품목2행은원장수정없이별도확인대상. 실제운영46-02입고성공다운로드 미검증.
 4. 검증 상태: npm test:erp-contract 전체exit0, manifest238, dnSpy, ERP쓰기0API, production build, pstack5/5, desktop메뉴3, 전용9 PASS. 고정양식검사108PASS/18optional 개인원본미보유skip. 원본환율210→nativeExcel211(저장안함), 가이드연습210→215. 최종빌드UI7306bytes/쓰기0. 배포는기록시점대기.
 5. 주의/잠금: 기존PR1813에fast-forwardpush, 원본엑셀/운영원장/다른농장계산보존. 연결목표g17/g19·진척률상향0·학습반영있음. 상세정정은docs/plans/china-cloud-cbm-1118.md.
+
+## 2026-11-23 중국 XLSX 시트 선택과 CLOUD 인보이스 대조
+검색어: ChinaInvoiceSheetReview CLOUD Sheet1 Sheet2 Sheet3 Flower Cost CNY 중국 인보이스 시트
+1. 작업 위치: nenova-erp-ui / fix/cn-invoice-sheet-1123 / C:/Users/USER/Documents/Codex/nw-cdx-cn-invoice-sheet-1123 / PR 미생성.
+2. 완료: 파일 로컬 읽기, 빈/숨김 시트 구분, 명시 선택한 INVOICE/legacy 검증, CLOUD 소계·총액 대조, 명시 분류·단위 확인 뒤 읽기 전용 품목 매칭.
+3. 남은 일: 실제 업무 단위·매칭 근거 확인, 가이드 갱신·CI·배포. CLOUD 화면은 입고 저장 경로가 아니다.
+4. 검증: 격리 Chrome 실파일 Sheet1 두 건, CNY 78,077/4,450 차이 0. 시험 선택 A 상품38·비용3 중 1행, B 상품2·비용3 중 1행 매칭. 관련 테스트 103 통과/2 건너뜀.
+5. 주의: 운영 DB 및 원본 변경 없음. CLOUD에서 원문에 없는 단위를 확정하지 않는다. 연결 목표 g17 / 진행률 유지.

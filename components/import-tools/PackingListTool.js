@@ -31,6 +31,7 @@ import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
 import { packingWeight } from '../../lib/invoiceReceiptAutoFill.js';
 import { parseChinaInvoiceWorkbook, CHINA_INVOICE_MAX_BYTES } from '../../lib/importChinaInvoice.js';
+import ChinaInvoiceSheetReview from './ChinaInvoiceSheetReview.js';
 import { isModernChinaInvoice } from '../../lib/importChinaInvoiceFormat.js';
 import { readPackingRecords, indexPackingCatalog, savePackingAliases, writePackingRecord,
   PACKING_STORAGE_KEYS, isPackingDownloadBlocked, previewPackingCatalog,
@@ -963,6 +964,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const changeLang = setLang;
   const [file, setFile] = useState(null);
   const [fileChoice,setFileChoice]=useState(null);
+  const [chinaSheetReview,setChinaSheetReview]=useState(null);
+  const selectedChinaSheet=useRef(null);
   const [selectingFile,setSelectingFile]=useState(false);
   const [historyOpen,setHistoryOpen]=useState(false);
   const [historyRows,setHistoryRows]=useState([]);
@@ -1578,6 +1581,23 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         if (readerVersion.current === version) setSelectingFile(false);
       }
     }
+    if(isChinaExcel){
+      setSelectingFile(true);setStatus(null);
+      try{
+        if(!xlsxLib)throw Error('Excel 읽기 도구가 준비되지 않았습니다. 잠시 후 다시 선택하세요.');
+        const bytes=await f.arrayBuffer();
+        const source=await new Promise((resolve,reject)=>{
+          const reader=new FileReader();
+          reader.onload=()=>resolve(String(reader.result).split(',')[1]);
+          reader.onerror=()=>reject(Error('선택한 원본 Excel을 읽지 못했습니다.'));
+          reader.readAsDataURL(f);
+        });
+        if(readerVersion.current===version)setChinaSheetReview({file:f,book:xlsxLib.read(bytes,{type:'array',cellFormula:true}),base64:source,version});
+      }catch(e){if(readerVersion.current===version)setStatus({type:'error',msg:e.message});}
+      finally{if(readerVersion.current===version)setSelectingFile(false);}
+      return;
+    }
+    setChinaSheetReview(null);
     if (autoAnalyze) {setSelectingFile(true);try {
       const sourceHash = await sha256File(f);
       const rows=await readUploadHistory();
@@ -1855,8 +1875,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         extraction={data:reusableExtraction.current.data,source:'cache'};reusableExtraction.current=null;
       } else if (country === 'CN' && /\.xlsx$/i.test(file.name)) {
         try {
-          extraction = { source: 'local', data: parseChinaInvoiceWorkbook(xlsxLib, pdfBase64) };
+          const selected=selectedChinaSheet.current;
+          extraction = { source: 'local', data: parseChinaInvoiceWorkbook(xlsxLib, pdfBase64, selected?.file===file?{sheetName:selected.name}:undefined) };
         } catch (modernError) {
+          if(selectedChinaSheet.current?.file===file)throw modernError;
           try {
             const workbook = xlsxLib.read(pdfBase64, { type: 'base64', cellFormula: true });
             const candidates = findLegacyChinaInvoiceCandidates(xlsxLib, workbook);
@@ -2334,7 +2356,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             <div className={styles.countryGrid}>
               {[...countryLabels, ...SUPPLEMENTAL_PACKING_ORIGINS].map((c) => (
                 <button type="button" key={c.code} aria-label={c.name} onClick={() => {
-                  ++readerVersion.current; resetResults(); setOriginPreview(null); setNzReceiptSource(null); setCountry(c.code); setScreen('upload'); setFile(null); setPdfBase64(null); setStatus(null);
+                  ++readerVersion.current; resetResults(); setOriginPreview(null); setNzReceiptSource(null); setChinaSheetReview(null); setCountry(c.code); setScreen('upload'); setFile(null); setPdfBase64(null); setStatus(null);
                   setInvoiceUploadDate(''); setAudMarketRate(null); setAudMarketRateError('');
                   setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
                 }}
@@ -2436,6 +2458,13 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
               <div style={{ fontSize: 14, color: '#526580' }}><strong style={{ color: '#172b4d' }}>{t.uploadClick}</strong> {t.uploadDrag}</div>
               <div style={{ fontSize: 13, marginTop: 4, color: '#526580' }}>{country === 'CN' ? 'PDF 20MiB / Excel 50MiB · 예: 41-1 중국 해상 ci1.xlsx' : <>PDF · 20MiB · {t.uploadHint} <code style={{ background: '#edf2f8', padding: '1px 5px', borderRadius: 3 }}>16-2 Hortensias.pdf</code>)</>}</div>
             </div>
+            {country==='CN'&&chinaSheetReview&&<ChinaInvoiceSheetReview key={chinaSheetReview.version} xlsx={xlsxLib} source={chinaSheetReview}
+              products={(erpMatches?.products||[]).filter(p=>p.country==='CN'&&p.selectable)}
+              onCancel={()=>setChinaSheetReview(null)} onContinue={name=>{
+                selectedChinaSheet.current={name,file:chinaSheetReview.file};
+                acceptSelectedFile(chinaSheetReview.file,chinaSheetReview.version,null,chinaSheetReview.base64);
+                setChinaSheetReview(null);
+              }}/>}
             {fileChoice&&<section className={styles.reusePanel} aria-label="새 파일 분석 선택" data-testid="packing-file-choice" onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();cancelFileChoice();}}}>
               <h3 ref={fileChoiceRef} tabIndex={-1}>{fileChoice.previous?'내용이 변경된 파일입니다':'새 파일 분석을 선택하세요'}</h3>
               <p><strong>{fileChoice.file.name}</strong> · {(fileChoice.file.size/1024).toFixed(0)} KB</p>
