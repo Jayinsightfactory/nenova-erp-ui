@@ -4698,3 +4698,11 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 머지 및 Deploy to Cafe24 완료 후 2026년 43·44·45차 실서버 스냅샷 최신화 실측 검증 및 워크트리 정리.
 4. 검증 상태: pstack-verify 5/5 PASS, profitReportAutoRefresh 9/9 PASS, test:profit-weekly-cache·test:erp-manifest(238)·guard:erp-writes·test:erp-contract·npm run build 전수 PASS. ERP 공유 원장 쓰기 0건.
 5. 주의/잠금: 확정 차수(WebProfitReportConfirm IsActive=1)는 절대 자동 재계산·덮어쓰기 금지. 스냅샷 쓰기는 기존 정식 saveProfitReportCache(WebProfitReportSnapshot 전용)만 재사용. 연결 목표 g17·g19.
+
+## 2026-11-23 관세청 KCS API 장애 시 동일 차수 직전 스냅샷 과세환율 무손실 폴백
+검색어: KCS API 장애 HTTP 500 시스템 에러 과세환율 폴백 WebProfitReportSnapshot mergeKcsRatesWithSnapshotFallback g17 g19
+1. 작업 위치: nenova-erp-ui / feat/kcs-snapshot-rate-fallback / C:/Users/USER/nw-swm-kcs-fallback / origin/master 3d8d63e5 기반.
+2. 완료된 것: lib/profitReportAutoRefresh.js에 extractKcsRatesFromSnapshotPayload·loadPriorSnapshotKcsRates·mergeKcsRatesWithSnapshotFallback 추가(동일 OrderYear+MajorWeek 직전 스냅샷의 공식 KCS 환율만 복원, 선율 정산서·수기·입고 우선순위 보존, 타 연도/차수 격리) 및 CreatedBy 중복 접미사(stale-read:stale-read -> stale-read) 정리, pages/api/sales/profit-report.js 연결, __tests__/profitReportAutoRefresh.test.cjs 회귀 테스트 추가.
+3. 남은 할 일: PR 머지·Cafe24 배포 후 2026년 43·44·45차 v4 스냅샷 갱신으로 H열 최신 실비 + R열 14/17 + totals(I·K·P) null 0건 실측 확인 및 워크트리 정리.
+4. 검증 상태: profitReportAutoRefresh 11/11 PASS, pstack-verify 5/5 PASS, test:profit-weekly-cache·guard:erp-writes·test:erp-manifest·test:erp-contract·npm run build 통과 예정.
+5. 주의/잠금: 타 연도·타 차수 환율 오염 금지(WHERE OrderYear=@y AND MajorWeek=@m), non-outage(missing_declaration_date/disabled/approval_evidence_required) 시 복원 금지, ERP 공유 원장 쓰기 0건. 연결 목표 g17·g19.

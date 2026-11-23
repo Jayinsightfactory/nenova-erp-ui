@@ -381,3 +381,139 @@ test('Zero ERP ledger writes & UTC timezone normalization static contract', () =
   assert.match(read('pages/api/sales/profit-report.js'), /detectStaleProfitSnapshot/);
   assert.match(read('lib/customsSettlementRegistration.js'), /triggerProfitSnapshotAutoRefreshForScopes/);
 });
+
+test('extractKcsRatesFromSnapshotPayload & mergeKcsRatesWithSnapshotFallback: restores official KCS rates on outage, preserves Sunyul priority, and keeps totals I/K/P intact', async () => {
+  const A = await import('../lib/profitReportAutoRefresh.js');
+  const { resolveTaxableRate, RATE_SOURCE } = await import('../lib/taxableExchangeRate.js');
+  const { computeProfitRow, computeProfitTotals } = await import('../lib/profitReportCalc.js');
+
+  const v3Degraded = {
+    orderYear: '2026',
+    major: '45',
+    rows: [
+      { category: '호주', currency: 'AUD', source: { R: 'missing' }, auto: { R: null }, calc: { R: null } },
+      { category: '네덜란드', currency: 'EUR', source: { R: 'sunyul_settlement' }, auto: { R: 1501.03 }, calc: { R: 1501.03 } },
+    ],
+  };
+  const v2Official = {
+    orderYear: '2026',
+    major: '45',
+    rows: [
+      {
+        category: '호주',
+        currency: 'AUD',
+        source: { R: 'approved_customs_timing_estimate' },
+        auto: { R: 933.66 },
+        calc: { R: 933.66 },
+        rateDetail: { source: 'approved_customs_timing_estimate', estimated: true, currency: 'AUD', officialSourceRange: { start: '2026-11-08', end: '2026-11-14' } },
+      },
+      {
+        category: '네덜란드',
+        currency: 'EUR',
+        source: { R: 'approved_customs_timing_estimate' },
+        auto: { R: 1499.0 },
+        calc: { R: 1499.0 },
+        rateDetail: { source: 'approved_customs_timing_estimate', estimated: true, currency: 'EUR' },
+      },
+      {
+        category: '미국',
+        currency: 'USD',
+        source: { R: 'kcs_api' },
+        auto: { R: 1328.56 },
+        calc: { R: 1328.56 },
+      },
+      // Non-KCS sources must NEVER be extracted as KCS fallback
+      { category: '일본', currency: 'JPY', source: { R: 'carried_taxable_rate' }, auto: { R: 9.5 }, calc: { R: 9.5 } },
+      { category: '중국', currency: 'CNY', source: { R: 'manual_invoice' }, auto: { R: 205 }, calc: { R: 205 } },
+    ],
+  };
+
+  // Cross-year / cross-week payload strictly rejected
+  assert.deepEqual(A.extractKcsRatesFromSnapshotPayload({ ...v2Official, orderYear: '2025' }, { orderYear: '2026', major: '45', versionNo: 2 }), {});
+  assert.deepEqual(A.extractKcsRatesFromSnapshotPayload({ ...v2Official, major: '44' }, { orderYear: '2026', major: '45', versionNo: 2 }), {});
+
+  // Valid extraction ignores carried/manual and keeps kcs_api / approved_customs_timing_estimate only
+  const extracted = A.extractKcsRatesFromSnapshotPayload(v2Official, { orderYear: '2026', major: '45', versionNo: 2 });
+  assert.equal(extracted['호주'].rate, 933.66);
+  assert.equal(extracted['호주'].detail.restoredFromSnapshotVersion, 2);
+  assert.equal(extracted['미국'].rate, 1328.56);
+  assert.equal(extracted['일본'], undefined);
+  assert.equal(extracted['중국'], undefined);
+
+  // loadPriorSnapshotKcsRates skips degraded v3 and restores from v2 with exact OrderYear+MajorWeek SQL scope
+  const mockQuery = async (sqlText, params) => {
+    assert.match(sqlText, /WHERE OrderYear = @y AND MajorWeek = @m/);
+    assert.equal(params.y.value, '2026');
+    assert.equal(params.m.value, '45');
+    return {
+      recordset: [
+        { VersionNo: 3, PayloadJson: JSON.stringify(v3Degraded) },
+        { VersionNo: 2, PayloadJson: JSON.stringify(v2Official) },
+      ],
+    };
+  };
+
+  // Outage fallback merges missing KCS categories only
+  const liveKcsOutage = {
+    byCategory: {},
+    failuresByCategory: {
+      호주: [{ date: '2026-11-09', reason: 'parse_error', message: 'HTML system error' }],
+      네덜란드: [{ date: '2026-11-09', reason: 'http_error', message: 'HTTP 500' }],
+      미국: [{ date: null, reason: 'missing_declaration_date', message: 'no date' }],
+    },
+  };
+  const merged = await A.mergeKcsRatesWithSnapshotFallback('2026', '45', liveKcsOutage, { queryFn: mockQuery });
+  assert.equal(merged.byCategory['호주'].rate, 933.66);
+  assert.equal(merged.byCategory['네덜란드'].rate, 1499.0);
+  // missing_declaration_date is NOT a KCS outage -> must NOT restore 미국
+  assert.equal(merged.byCategory['미국'], undefined);
+  assert.ok(merged.failuresByCategory['미국']);
+
+  // Priority check: Sunyul settlement ALWAYS overrides restored KCS fallback for 네덜란드,
+  // while 호주 (no Sunyul settlement) uses restored KCS 933.66 -> totals I, K, P, J all non-null!
+  const nlResolved = resolveTaxableRate({
+    settlementRate: 1501.03,
+    settlementDetail: { source: 'sunyul_settlement' },
+    kcsRate: merged.byCategory['네덜란드'].rate,
+    kcsDetail: merged.byCategory['네덜란드'].detail,
+  });
+  assert.equal(nlResolved.source, RATE_SOURCE.SUNYUL_SETTLEMENT);
+  assert.equal(nlResolved.rate, 1501.03);
+
+  const auResolved = resolveTaxableRate({
+    settlementRate: null,
+    kcsRate: merged.byCategory['호주'].rate,
+    kcsDetail: merged.byCategory['호주'].detail,
+  });
+  assert.equal(auResolved.source, RATE_SOURCE.APPROVED_TIMING_ESTIMATE);
+  assert.equal(auResolved.rate, 933.66);
+
+  const nlRow = computeProfitRow({ category: '네덜란드', variant: 'normal', auto: { N: 32000000, L: 0, O: 0, Q: 15000, S: 2000, H: 1143190, E: 100000, F: 200000, R: nlResolved.rate }, manual: {} });
+  const auRow = computeProfitRow({ category: '호주', variant: 'normal', auto: { N: 9800000, L: 0, O: 0, Q: 7000, S: 0, H: 344712, E: 50000, F: 80000, R: auResolved.rate }, manual: {} });
+  const totals = computeProfitTotals([
+    { category: '네덜란드', variant: 'normal', calc: nlRow },
+    { category: '호주', variant: 'normal', calc: auRow },
+  ]);
+  assert.ok(Number.isFinite(totals.P) && totals.P > 0, 'totals.P must be computed');
+  assert.ok(Number.isFinite(totals.I) && totals.I > 0, 'totals.I must be computed');
+  assert.ok(Number.isFinite(totals.J), 'totals.J must be computed');
+  assert.ok(Number.isFinite(totals.K), 'totals.K must be computed');
+});
+
+test('autoRefreshUnconfirmedProfitSnapshot: avoids duplicate actor suffix when trigger === actor', async () => {
+  const A = await import('../lib/profitReportAutoRefresh.js');
+  let capturedActor = null;
+  await A.autoRefreshUnconfirmedProfitSnapshot({
+    orderYear: '2026',
+    major: '43',
+    actor: 'stale-read',
+    trigger: 'stale-read',
+    checkConfirm: async () => ({ initialized: true, confirm: null }),
+    saveCache: async (arg) => {
+      capturedActor = arg.actor;
+      return { action: 'saved', payload: {}, snapshot: {} };
+    },
+    clearDutyCache: () => {},
+  });
+  assert.equal(capturedActor, 'auto-refresh:stale-read');
+});
