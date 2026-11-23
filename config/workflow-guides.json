@@ -706,37 +706,37 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 7.012
+              "seconds": 7.009
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 164.05
+              "seconds": 163.804
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 272.431
+              "seconds": 272.244
             },
             {
               "scenario": "add",
               "title": "4. 기존 입고에 품목·수량 추가",
-              "seconds": 352.409
+              "seconds": 352.067
             },
             {
               "scenario": "cancel",
               "title": "5. 기존 입고의 품목·수량 취소",
-              "seconds": 469.404
+              "seconds": 470.634
             },
             {
               "scenario": "price",
               "title": "6. 입고 단가만 변경",
-              "seconds": 548.529
+              "seconds": 549.79
             },
             {
               "scenario": "packing-quantity",
               "title": "7. 단 수량을 확인하고 새 입고 저장",
-              "seconds": 669.411
+              "seconds": 670.008
             }
           ]
         },
@@ -752,22 +752,22 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.023
+              "seconds": 13.995
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 57.887
+              "seconds": 57.932
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 142.706
+              "seconds": 142.839
             },
             {
               "scenario": "price",
               "title": "4. 입고 단가만 변경",
-              "seconds": 269.824
+              "seconds": 270.309
             }
           ]
         }

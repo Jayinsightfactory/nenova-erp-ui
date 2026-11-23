@@ -286,6 +286,11 @@ async function recordRole(browser, base, secret, role) {
         const scenarioRequest=requests.find(item=>previewFor(item.correction).scenario===scenario);
         assert(scenarioRequest,'Scenario request fixture missing');
         await click(`#${scenarioRequest.requestId} 열기`);await page.waitForFunction(()=>document.body.textContent.includes('최종 반영 전후'));
+        await page.waitForFunction(()=>{
+          const log=document.querySelector('[aria-label="작업 로그"]')?.textContent ?? '';
+          return log.includes('요청 내용과 처리 이력을 불러왔습니다.') &&
+            (log.includes('검증 결과를 확인할 수 있습니다.') || log.includes('검토가 필요한 항목이 있습니다.'));
+        });
         await hold(`${index+1}. ${scenarioTitles[scenario]}\n바뀐 입고 항목과 작업 로그의 자동 검증 결과를 확인합니다.`,5);
         if(scenario==='price'){
           await page.waitForFunction(()=>[...document.querySelectorAll('caption')].some(x=>x.textContent==='입고 단가 변경'));
@@ -341,7 +346,7 @@ async function recordRole(browser, base, secret, role) {
     }
     if(onlyScenario!=='packing-quantity'){
       if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
-      await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click(onlyScenario==='price'&&!isImport?'#4 열기':'#1 열기');await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
+      await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click(onlyScenario==='price'&&!isImport?'#4 열기':'#1 열기');await page.waitForFunction(()=>document.querySelector('[aria-label="작업 로그"]')?.textContent.includes('요청 내용과 처리 이력을 불러왔습니다.'));await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
     }
     if (isImport && (!onlyScenario || onlyScenario==='packing-quantity')) {
       console.log(`${dry?'CHECK':'RECORD'} import: packing-quantity`);
@@ -401,7 +406,13 @@ async function recordRole(browser, base, secret, role) {
     assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (onlyScenario==='packing-quantity'?0:onlyScenario?1:isImport?6:4)+(dry&&!isImport?1:0));
     if(dry&&!isImport)assert(replayedApproval,'lost approval retry must reuse the same operation');
     const result = await rec.stop(); stopped = true;
-    if (!dry) { const guide = workflow.guides.find(item => item.id === role); guide.status = 'ready'; guide.chapters = result.chapters; fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n'); }
+    if (!dry) {
+      const latestRegistry = JSON.parse(fs.readFileSync(registryPath,'utf8'));
+      const guide = latestRegistry.workflows.find(item => item.id === workflow.id).guides.find(item => item.id === role);
+      guide.status = 'ready';
+      guide.chapters = result.chapters;
+      fs.writeFileSync(registryPath, JSON.stringify(latestRegistry, null, 2) + '\n');
+    }
     console.log(`PASS ${role}: actual UI ${dry ? 'dry run' : 'recording'}, farm/product/quantity, all APIs synthetic, ERP writes=0`);
   } finally { if (!stopped) { console.error(JSON.stringify({role,mainNavigations,requestStatuses:requests.map(r=>r.status),actions:posts.map(p=>p.action)}));await page.screenshot({ path: `.verify/guide-${role}-failure.png` }).catch(() => {}); await rec.stop().catch(() => {}); } await page.close(); }
 }

@@ -222,6 +222,6 @@
   "requestAndReviewFeedback": {
     "search": "Local exact (punctuation and spacing folded), then cancellable shared read-only product search. Never selects a suggestion without user confirmation; IME Enter does not select.",
     "display": "Physical source row and changed values only, per same receipt key/year/week; 0 is not a blank. No change to the matching, approval, or transaction scope.",
-    "log": "Transient client stages reflect actual in-flight API work and received responses; server ApprovalAudit is the durable history. A missing response is not applied. Existing operation replay semantics retained."
+    "log": "Transient client stages reflect actual in-flight API work and received responses, including opening saved history and automatic validation for an eligible review. Server ApprovalAudit is the durable history. A missing response is not applied. Existing operation replay semantics retained."
   }
 }
