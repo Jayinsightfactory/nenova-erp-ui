@@ -83,7 +83,7 @@ test('CO original calculation keeps prior-year scope and explicit zero freight, 
 });
 
 test('all ten exports retain approvals and add live original-formula comparison with honest missing CBM', async () => {
-  for (const profile of Object.values(INVOICE_COST_EXPORT_PROFILES)) {
+  for (const profile of Object.values(INVOICE_COST_EXPORT_PROFILES).filter(profile=>!profile.generated)) {
     const f = invoiceCostExportFixture(3, profile.formulaId), before = JSON.stringify(f);
     const book = XLSX.read(await createInvoiceCostWorkbook(f), { cellFormula: true });
     const sheet = book.Sheets['원본수식 비교'];
@@ -607,7 +607,7 @@ for (const [id, assetName, filename] of [
 }
 
 test('every enabled profile preserves explicit cancelled rows without allocation or invented per-unit cost', async () => {
-  for (const p of Object.values(INVOICE_COST_EXPORT_PROFILES)) {
+  for (const p of Object.values(INVOICE_COST_EXPORT_PROFILES).filter(profile=>!profile.generated)) {
     const f = invoiceCostExportFixture(10, p.formulaId), source = f.document.lines[0], detail = f.snapshot.receiptSnapshot.details[0];
     const originalStems = source.lineAmount / source.unitPrice;
     source.lineAmount = 0; detail.lineAmount = 0; detail.outQuantity = 0; detail.stemQuantity = 0;
@@ -640,7 +640,7 @@ test('every enabled profile preserves explicit cancelled rows without allocation
 });
 
 test('every country export retains an explicit TEST_ONLY warning on both sheets', async () => {
-  for (const profile of Object.values(INVOICE_COST_EXPORT_PROFILES)) {
+  for (const profile of Object.values(INVOICE_COST_EXPORT_PROFILES).filter(profile=>!profile.generated)) {
     const f = invoiceCostExportFixture(1, profile.formulaId);
     f.snapshot.input.exchangeRateType = 'TEST_ONLY';
     const before = JSON.stringify(f);

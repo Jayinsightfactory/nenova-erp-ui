@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const {isCloudInvoice,matchCloudCategory}=require('../lib/chinaCloudCost.js');
 const source = fs.readFileSync(path.resolve(__dirname, '../components/import-tools/InvoiceReceiptCostReview.js'), 'utf8');
 const descriptor = (formulaId, country, transportMode, lineInputFields) => ({ formulaId, country, transportMode, lineInputFields, formulaSourceHash: 'a'.repeat(64), formulaVersion: '1' });
 const registry = {
@@ -11,7 +12,7 @@ const registry = {
   CN_AIR_WEIGHT_CBM_V1: descriptor('CN_AIR_WEIGHT_CBM_V1', 'CN', 'AIR'),
 };
 const helpers = source.slice(source.indexOf('const EMPTY_FORM'), source.indexOf('function Field('));
-const ui = new Function('INVOICE_COST_FORMULAS', 'initialAuOriginalInputs', 'calculateAuOriginalCustoms', `${helpers}; return { applicableFormulas, applicableFormulaId, formulaLineFields, initialForm, payloadOf, editedForm, switchedFormulaForm, formulaPriceBasis, formulaGroupIds, formulaGroupFields, editedGroupForm, groupLabel, visibleLineFields };`)(registry, () => ({}), () => ({ total: null, missing: [] }));
+const ui = new Function('INVOICE_COST_FORMULAS', 'initialAuOriginalInputs', 'calculateAuOriginalCustoms','isCloudInvoice','matchCloudCategory', `${helpers}; return { applicableFormulas, applicableFormulaId, formulaLineFields, initialForm, payloadOf, editedForm, switchedFormulaForm, formulaPriceBasis, formulaGroupIds, formulaGroupFields, editedGroupForm, groupLabel, visibleLineFields };`)(registry, () => ({}), () => ({ total: null, missing: [] }),isCloudInvoice,matchCloudCategory);
 const doc = country => ({ reviewedMetadata: { country, transportMode: 'AIR' } });
 
 test('VN read-only form computes only missing costs from actual GW/CW, retaining explicit zero and approval inputs',async()=>{

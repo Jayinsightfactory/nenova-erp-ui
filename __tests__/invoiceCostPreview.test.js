@@ -139,7 +139,8 @@ test('input and Product changes invalidate prepared download; missing cost and w
  await assert.rejects(createInvoicePreviewCostWorkbook(noCost));
  assert.throws(()=>calculateInvoiceCostPreview(p,request(p,{...f.input,formulaId:'NL_AMOUNT_V1'})),/공식/);
 });
-for(const formula of Object.values(INVOICE_COST_FORMULAS))test(`${formula.formulaId} invoice-only keeps verified formula and Excel template`,async()=>{
+// CLOUD has its own category/farm-specific fixture in chinaCloudCostWorkbook.test.js.
+for(const formula of Object.values(INVOICE_COST_FORMULAS).filter(f=>f.formulaId!=='CN_CLOUD_CBM_V1'))test(`${formula.formulaId} invoice-only keeps verified formula and Excel template`,async()=>{
  const f=invoiceCostExportFixture(1,formula.formulaId),names={AU:'호주',US:'미국',VN:'베트남',TH:'태국',CO:'콜롬비아',EC:'에콰도르',CN:'중국',NL:'네덜란드',NZ:'뉴질랜드'};
  const line=f.document.lines[0],quantity=f.document.operations[0].result.lineMappings[0].outQuantity;
  line.bunchQuantity=quantity;line.stemQuantity=quantity*5;line.boxQuantity=quantity/20;

@@ -3,7 +3,7 @@ import {invoiceCostExportFixture}from'./invoiceReceiptCostExport.test.js';import
 import {INVOICE_COST_EXPORT_PROFILES}from'../lib/invoiceCostExportProfiles.js';
 import {appendCostInputDifferentialStyle,costSellingInputCue}from'../lib/invoiceCostCellPresentation.js';
 const X=createRequire(import.meta.url)('xlsx');
-for(const profile of Object.values(INVOICE_COST_EXPORT_PROFILES))test(`${profile.id}: complete current metadata, no hidden populated cells, selling cue and immutable snapshot`,async()=>{
+for(const profile of Object.values(INVOICE_COST_EXPORT_PROFILES).filter(profile=>!profile.generated))test(`${profile.id}: complete current metadata, no hidden populated cells, selling cue and immutable snapshot`,async()=>{
  const f=invoiceCostExportFixture(7,profile.formulaId);f.document.orderYear='2025';const before=JSON.stringify(f),bytes=await createInvoiceCostWorkbook(f),z=await JSZip.loadAsync(bytes),book=X.read(bytes,{cellFormula:true}),s=book.Sheets[book.SheetNames[0]];
  assert.equal(JSON.stringify(f),before);assert.match(book.SheetNames[0],/^2025 /);
  const compact=profile.priceBasis&&profile.id!=='EC_ORIGINAL_V1',col=compact?['US_ORIGINAL_V1','NZ_ORIGINAL_V1'].includes(profile.id)?'C':'D':'C';
