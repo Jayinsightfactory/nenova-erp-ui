@@ -112,7 +112,7 @@ async function recordRole(browser, base, secret, role) {
           if (body.action === 'create') {
             const item = { ...requestFixture(previewFor(body.correction).scenario, requests.length), status: 'draft', correction: body.correction, reason: body.reason }; requests.push(item); data = { success: true, requestId: item.requestId, revision: 1 };
           }
-          if (body.action === 'submit') { assert(isImport); request.status = 'requested'; request.revision++; }
+          if (body.action === 'submit') { assert(isImport); if(previewFor(request.correction).scenario==='product')await new Promise(resolve=>setTimeout(resolve,dry?250:5500)); request.status = 'requested'; request.revision++; data={...data,status:request.status,requestId:request.requestId,revision:request.revision}; }
           if (body.action === 'saveMatching') {
             assert(!isImport); assert(body.matching.financial.prepared || body.matching.financial.acknowledged);
             request.matching = body.matching; request.reviewedBy='guide-support'; request.revision++; data.revision=request.revision;
@@ -134,8 +134,9 @@ async function recordRole(browser, base, secret, role) {
             }
           }
           if (body.action === 'approve') {
+            if(previewFor(request.correction).scenario==='product'&&!dry)await new Promise(resolve=>setTimeout(resolve,5500));
             if(loseApproval){loseApproval=false;lostApproval=body;return await r.respond({status:409,contentType:'application/json',body:JSON.stringify({success:false,error:'응답 유실 재시도 검증'})});}
-            if(lostApproval&&!replayedApproval){assert.equal(body.operationId,lostApproval.operationId);assert.equal(body.requestId,lostApproval.requestId);replayedApproval=true;} assert(!isImport && body.confirmed); request.status = 'applied'; request.result = { warehouseKey: 9001, shipmentGroups: request.matching.rows?.length ? 1 : 0, stockProducts: previewFor(request.correction).scenario === 'farm' ? 0 : previewFor(request.correction).changes.length }; request.appliedAt = '2026-11-04 10:00'; request.evidence = { receiptChanges: previewFor(request.correction).changes }; }
+            if(lostApproval&&!replayedApproval){assert.equal(body.operationId,lostApproval.operationId);assert.equal(body.requestId,lostApproval.requestId);replayedApproval=true;} assert(!isImport && body.confirmed); request.status = 'applied'; data.status='applied'; request.result = { warehouseKey: 9001, shipmentGroups: request.matching.rows?.length ? 1 : 0, stockProducts: previewFor(request.correction).scenario === 'farm' ? 0 : previewFor(request.correction).changes.length }; request.appliedAt = '2026-11-04 10:00'; request.evidence = { receiptChanges: previewFor(request.correction).changes }; }
         }
       }
       await r.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
@@ -260,7 +261,7 @@ async function recordRole(browser, base, secret, role) {
             await page.waitForFunction(()=>document.querySelector('dialog[open]')?.textContent.includes('수정 후 총액 200'));
             await hold('입고행과 기존 단가를 확인하고 새 단가 2를 입력합니다. 기존 100단에 맞춰 총액 200으로 계산됩니다.',6);
           }else if(scenario==='product'){
-            await fill('input[aria-label="1행 품목 검색"]',products[1].ProdName);await click(`${products[1].ProdName} · ${products[1].OutUnit}`,'dialog');
+            await fill('input[aria-label="1행 품목 검색"]',products[1].ProdName);await hold('검색창 아래 후보의 품목명과 단위를 확인하고 선택합니다.',3);await click(`${products[1].ProdName} · ${products[1].OutUnit}`,'dialog');
             await fill('input[aria-label="1행 최종수량"]','90');
             await hold('기존 포장·매입값을 제안값으로 보존하고 다른 품목과 최종 90단을 정합니다.\n새 품목의 원가 근거는 영업지원 검증 문제로 전달됩니다.',6);
           }else if(scenario==='add'){
@@ -274,9 +275,10 @@ async function recordRole(browser, base, secret, role) {
         await fill('input[aria-label="수정 사유"]',`${scenarioTitles[scenario]} · 실제 파킹 자료 확인`);
         if(dry&&scenario==='quantity')await page.screenshot({path:'.verify/simple-import-quantity.png',fullPage:false});
         await click('변경 요약 확인');await page.waitForSelector('[aria-label="요청 변경 요약"]');
-        await hold('기존값과 수정 후 최종값을 확인한 뒤 요청합니다.\n품목·수량 추가와 취소도 이 입고 안의 행을 대상으로 합니다.',6);
-        await click('영업지원에 수정 요청','dialog');await page.waitForFunction(()=>document.querySelector('dialog')?.textContent.includes('영업지원에 수정 요청했습니다.'));
-        await hold('영업지원에 검토 대기로 전달했습니다.\n별도의 초안 제출 단계 없이 요청이 완료됩니다.',5);
+        await hold('바뀐 항목만 비교하고 강조된 수정값을 확인한 뒤 요청합니다.\n품목·수량 추가와 취소도 이 입고 안의 행을 대상으로 합니다.',6);
+        await click('영업지원에 수정 요청','dialog');if(!dry&&scenario==='product')await hold('작업 로그에서 영업지원에 접수하는 동안 진행 상태를 볼 수 있습니다.',3);await page.waitForFunction(()=>document.querySelector('dialog')?.textContent.includes('영업지원에 수정 요청했습니다.'));
+        await page.waitForFunction(()=>document.querySelector('[aria-label="작업 로그"]')?.textContent.includes('검토 대기로 등록'));
+        await hold('작업 로그의 검토 대기 등록 완료를 확인합니다.\n영업지원은 요청 상세에서 서버 처리 이력을 확인할 수 있습니다.',5);
         if(await page.$('dialog[open]'))await click('목록으로 돌아가기','dialog[open]');
         await page.waitForFunction(()=>!document.querySelector('dialog[open]')&&document.body.textContent.includes('수입부 수정 요청'));
         assert.equal(requests.at(-1).status,'requested','return to list follows successful submission');
@@ -284,7 +286,7 @@ async function recordRole(browser, base, secret, role) {
         const scenarioRequest=requests.find(item=>previewFor(item.correction).scenario===scenario);
         assert(scenarioRequest,'Scenario request fixture missing');
         await click(`#${scenarioRequest.requestId} 열기`);await page.waitForFunction(()=>document.body.textContent.includes('최종 반영 전후'));
-        await hold(`${index+1}. ${scenarioTitles[scenario]}\n요청값과 자동 검증 결과를 확인합니다.`,5);
+        await hold(`${index+1}. ${scenarioTitles[scenario]}\n바뀐 입고 항목과 작업 로그의 자동 검증 결과를 확인합니다.`,5);
         if(scenario==='price'){
           await page.waitForFunction(()=>[...document.querySelectorAll('caption')].some(x=>x.textContent==='입고 단가 변경'));
           await hold('요청된 기존·새 단가와 총액을 확인합니다. 품목과 수량은 유지하고 연결 원가·손익만 검토합니다.',7);

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import jwt from 'jsonwebtoken';
-import {receiptItem,resizeReceiptItem,newReceiptItemQuantities,prepareSimpleMatching,prepareSimpleReview} from '../lib/incomingApprovalSimple.js';
+import {receiptItem,resizeReceiptItem,newReceiptItemQuantities,prepareSimpleMatching,prepareSimpleReview,searchReceiptProducts,receiptSearchSuggestions,receiptRowDifferences} from '../lib/incomingApprovalSimple.js';
 import {normalizedCorrection,buildCorrectionPlan} from '../lib/warehouseCorrectionPolicy.js';
 import {normalizeApprovalMatching,approvalPermissions,approvalError} from '../lib/incomingApprovalPolicy.js';
 import {suggestReceiptMappings} from '../lib/incomingApprovalLinkedPolicy.js';
@@ -62,4 +62,32 @@ test('actual API handler: farm and quantity open→automatic preparation→signe
     await call({action:'approve',requestId:1,revision:2,digest:value.preview.digest,previewToken:value.preview.previewToken,confirmed:true});
   }
   assert.equal(commits,2);
+});
+
+test('receipt search folds spacing and punctuation and ranks precise names first',()=>{
+  const rows=[{ProdKey:3,ProdName:'CALLA Ventura 65cm',DisplayName:'카라 화이트 65cm'},
+    {ProdKey:4,ProdName:'Leucothoe Absorbed red',DisplayName:'루코토 레드',ProdCode:'9914',MappingAliases:['absorbed red']},
+    {ProdKey:5,ProdName:'Leucothoe Absorbed red Large'}];
+  assert.deepEqual(searchReceiptProducts('카라화이트 ６５cm',rows).map(p=>p.ProdKey),[3]);
+  assert.equal(searchReceiptProducts('absorbed-red',rows)[0].ProdKey,4);
+  assert.equal(searchReceiptProducts('9914',rows)[0].ProdKey,4);
+  assert.deepEqual(receiptSearchSuggestions('베이스 65',rows.map(p=>({...p,MatchScore:92}))).map(p=>p.ProdKey),[3]);
+  assert.deepEqual(receiptSearchSuggestions('absrb',rows.map(p=>({...p,MatchScore:5}))),[]);
+});
+test('receipt differences show only changed physical fields even with same product on several lines',()=>{
+  const original=[{WdetailKey:1,ProdKey:1,BoxQuantity:null,OutQuantity:150},{WdetailKey:2,ProdKey:1,BoxQuantity:2,OutQuantity:600}];
+  const altered=[{SourceWdetailKey:1,ProdKey:2,BoxQuantity:0,OutQuantity:150},{SourceWdetailKey:2,ProdKey:1,BoxQuantity:2,OutQuantity:600}];
+  const result=receiptRowDifferences(original,altered);
+  assert.equal(result.length,1);
+  assert.equal(result[0].key,1);
+  assert.deepEqual(result[0].changed,['ProdKey','BoxQuantity']);
+  assert.equal(receiptRowDifferences(original,[{ProdKey:1,BoxQuantity:null,OutQuantity:150},{ProdKey:1,BoxQuantity:2,OutQuantity:600}]).length,0);
+});
+
+test('review log marks a failed server preview without reporting completion',async()=>{
+  const value={request:{requestId:8,revision:2,status:'requested',reviewedBy:'support'},permissions:{review:true}};
+  const events=[];
+  const result=await prepareSimpleReview(async()=>{throw new Error('검증 응답 실패');},value,(...entry)=>events.push(entry));
+  assert.equal(result.preview.canCommit,false);
+  assert.deepEqual(events,[['preview','원장과 연결 자료 영향 검증 중'],['preview','검증 응답 실패','error']]);
 });

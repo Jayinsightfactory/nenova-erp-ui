@@ -1,7 +1,7 @@
 import WarehouseFarmSelect from './WarehouseFarmSelect.js';
 import { useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
-import IncomingCorrectionRequest from './IncomingCorrectionRequest.js';
+import IncomingCorrectionRequest, { IncomingChangeSummary, IncomingWorkLog, useIncomingWorkLog } from './IncomingCorrectionRequest.js';
 import { parseWarehousePackingWorkbook } from '../lib/warehousePackingImport.js';
 
 const fmt=n=>Number(n??0).toLocaleString('ko-KR',{maximumFractionDigits:4});
@@ -16,6 +16,7 @@ export default function WarehouseCorrection(props){
 }
 function LegacyWarehouseCorrection({selected,onClose,onSaved,onProductRequest}){
   const [approval,setApproval]=useState(false);
+  const workLog=useIncomingWorkLog();
   const submittedDraft=useRef(null);
   const dialog=useRef(null),busyRef=useRef(false),draftKey=useRef(null);
   const [data,setData]=useState(null),[mode,setMode]=useState('FARM'),[farmName,setFarmName]=useState('');
@@ -44,7 +45,7 @@ function LegacyWarehouseCorrection({selected,onClose,onSaved,onProductRequest}){
   });
   const close=()=>{if(busyRef.current)return;if(dirty&&!saved&&!window.confirm('입력 중인 수정안은 이 탭에 보관됩니다. 목록으로 돌아갈까요?'))return;onClose();};
   const invalidate=()=>{submittedDraft.current=null;setPreview(null);setConfirmed(false);setPending(null);setSaved(false);setError('');};
-  const perform=async fn=>{if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('');try{await fn();}catch(e){setError(e.message);}finally{busyRef.current=false;setBusy(false);}};
+  const perform=async fn=>{if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('');workLog.reset();try{await fn();}catch(e){setError(e.message);workLog.mark('failure',e.message,'attention');}finally{busyRef.current=false;setBusy(false);}};
   const readFile=event=>{
     const selectedFile=event.target.files?.[0];event.target.value='';if(!selectedFile)return;
     invalidate();setFile(null);
@@ -61,10 +62,17 @@ function LegacyWarehouseCorrection({selected,onClose,onSaved,onProductRequest}){
   const save=()=>perform(async()=>{
     if(approval){
       const payload=pending||{action:selected.approvalDraft?'saveDraft':'create',correction:request(),reason,operationId:crypto.randomUUID(),...(selected.approvalDraft?{requestId:selected.approvalDraft.requestId,revision:selected.approvalDraft.revision}:{})};setPending(payload);
+      workLog.mark('draft','요청 초안 저장 또는 이전 결과 확인 중');
       const created=submittedDraft.current??await api('/api/warehouse/approval',payload);submittedDraft.current=created;
+      workLog.mark('draft','요청 초안 확인 완료','done');
+      workLog.mark('submit','영업지원 검토 대기 요청 등록 중');
       const current=await api(`/api/warehouse/approval?requestId=${created.requestId}`);
-      if(current.request.status==='draft')await api('/api/warehouse/approval',{action:'submit',requestId:created.requestId,revision:current.request.revision});
+      if(current.request.status==='draft'){
+        const result=await api('/api/warehouse/approval',{action:'submit',requestId:created.requestId,revision:current.request.revision});
+        if(result.status!=='requested')throw new Error('요청 등록 상태를 확인하지 못했습니다. 같은 요청 결과를 다시 확인하세요.');
+      }
       else if(current.request.status!=='requested')throw new Error('요청 상태가 바뀌었습니다. 입고 정정 업무에서 확인하세요.');
+      workLog.mark('submit',`요청 #${created.requestId}이 영업지원 검토 대기로 등록됐습니다.`,'done');
       setSaved(true);setPending(null);setPreview(null);setConfirmed(false);
       try{sessionStorage.removeItem(draftKey.current);}catch{}
       onSaved({...created,warehouseKey:scope.warehouseKey,approval:true});
@@ -88,6 +96,7 @@ function LegacyWarehouseCorrection({selected,onClose,onSaved,onProductRequest}){
       <p><a target="_blank" rel="noopener noreferrer" href={`/estimate?popup=1&openFixStatus=1&year=${encodeURIComponent(scope.orderYear)}&week=${encodeURIComponent(scope.orderWeek.slice(0,2))}`}>확정 현황 확인·취소 ↗</a> · 해당 연도·차수의 견적서 확정현황을 새 창에서 엽니다.</p>
       {error&&<p role="alert" style={{color:'#b91c1c',whiteSpace:'pre-wrap'}}>{error}</p>}
       {saved&&<p role="status" style={{color:'#047857'}}>{approval?'영업지원에 수정 요청을 등록했습니다. 영업지원이 검토 후 수정 반영과 필요한 재확정까지 처리합니다.':'수정을 저장했습니다. 아래 수정 이력에서 결과를 확인할 수 있습니다.'}</p>}
+      {approval&&<IncomingWorkLog entries={workLog.entries}/>}
       {draft&&<p>이 탭에 보관한 수정안이 있습니다. <button disabled={busy} onClick={restore}>수정안 불러오기</button><button disabled={busy} onClick={()=>{try{sessionStorage.removeItem(draftKey.current);}catch{}setDraft(null);}}>보관안 삭제</button></p>}
       {!data?<p role="status">{error?'자료를 읽지 못했습니다. 창을 닫고 다시 열어주세요.':'기존 입고와 수정 이력 조회 중…'}</p>:<>
         <fieldset disabled={busy||!!pending}><legend>수정 내용</legend>
@@ -103,7 +112,7 @@ function LegacyWarehouseCorrection({selected,onClose,onSaved,onProductRequest}){
         {preview&&<section aria-label="수정 미리보기">
           <h3>농장: {preview.farmBefore} → {preview.farmAfter}</h3>
           {preview.issues.map((issue,i)=><p role="alert" key={i} style={{color:'#b91c1c'}}>{issue.message}{issue.blockers?.map((b,j)=><span key={j}> · {b.orderYear}/{b.orderWeek} {b.countryFlower}</span>)}</p>)}
-          <div style={{overflowX:'auto'}}><table><caption>품목별 입고 최종 수량</caption><thead><tr><th>품목</th><th>단위</th><th>기존</th><th>수정 후</th><th>증감</th></tr></thead><tbody>{preview.changes.map(c=><tr key={c.prodKey}><td>{c.prodName}</td><td>{c.unit}</td><td>{fmt(c.before)}</td><td>{fmt(c.after)}</td><td>{c.delta>0?'+':''}{fmt(c.delta)}</td></tr>)}</tbody></table></div>
+          {approval?<IncomingChangeSummary before={preview.before} after={preview.after} farmBefore={preview.farmBefore} farmAfter={preview.farmAfter}/>:<div style={{overflowX:'auto'}}><table><caption>품목별 입고 최종 수량</caption><thead><tr><th>품목</th><th>단위</th><th>기존</th><th>수정 후</th><th>증감</th></tr></thead><tbody>{preview.changes.map(c=><tr key={c.prodKey}><td>{c.prodName}</td><td>{c.unit}</td><td>{fmt(c.before)}</td><td>{fmt(c.after)}</td><td>{c.delta>0?'+':''}{fmt(c.delta)}</td></tr>)}</tbody></table></div>}
           <details><summary>전체 품목·수량·금액 변경 전후 보기</summary>{[['기존',preview.before],['수정 후',preview.after]].map(([label,list])=><div key={label} style={{overflowX:'auto'}}><table><caption>{label}</caption><thead><tr>{['품목','주문코드','박스','단','송이','출고단위수량','견적단위수량','단가','총액'].map(t=><th key={t}>{t}</th>)}</tr></thead><tbody>{list.map((d,i)=><tr key={i}><td>{d.ProdName||preview.changes.find(c=>c.prodKey===d.ProdKey)?.prodName||d.ProdKey}</td><td>{d.OrderCode}</td>{['BoxQuantity','BunchQuantity','SteamQuantity','OutQuantity','EstQuantity','UPrice','TPrice'].map(k=><td key={k}>{fmt(d[k])}</td>)}</tr>)}</tbody></table></div>)}</details>
           {preview.canCommit&&!approval&&<p><label><input type="checkbox" checked={confirmed} disabled={busy||!!pending} onChange={e=>setConfirmed(e.target.checked)}/>위 변경 내역과 기존 입고 교체를 확인했습니다.</label></p>}
         </section>}
