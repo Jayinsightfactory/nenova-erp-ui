@@ -47,7 +47,7 @@ import {createProfitReadFailureDiagnostic} from '../../../lib/profitReadFailureD
 import {applyProfitEstimateCalendarView} from '../../../lib/profitEstimateCalendarView.js';
 import { mixedFreightDeltas, applyMixedFreightView, assertFreightConservationForCache } from '../../../lib/profitMixedFreightView.js';
 import { autoForwardingByCountry } from '../../../lib/customsForwarding.js';
-import { detectStaleProfitSnapshot, safeAutoRefreshUnconfirmedProfitSnapshot } from '../../../lib/profitReportAutoRefresh.js';
+import { detectStaleProfitSnapshot, safeAutoRefreshUnconfirmedProfitSnapshot, mergeKcsRatesWithSnapshotFallback } from '../../../lib/profitReportAutoRefresh.js';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -94,7 +94,8 @@ function buildInventoryRateEvidenceByCurrency({
 }
 
 async function loadInventoryRateEvidenceByCurrency(targetYear, targetMajor) {
-  const [invoice, manualResult, saved, kcs, rates, purchaseQty] = await Promise.all([
+  const safeMergeKcs = typeof mergeKcsRatesWithSnapshotFallback === 'function' ? mergeKcsRatesWithSnapshotFallback : async (_y, _m, live) => live;
+  const [invoice, manualResult, saved, rawKcs, rates, purchaseQty] = await Promise.all([
     invoiceRatesByCategory(targetMajor, targetYear),
     loadManual(targetMajor, targetYear),
     loadTaxableRates(targetYear, targetMajor),
@@ -102,6 +103,7 @@ async function loadInventoryRateEvidenceByCurrency(targetYear, targetMajor) {
     currencyRates(),
     purchaseQtyByCategory(targetMajor, targetYear),
   ]);
+  const kcs = await safeMergeKcs(targetYear, targetMajor, rawKcs);
   const rateByCode = Object.fromEntries((rates || []).map((row) => [row.CurrencyCode, Number(row.ExchangeRate)]));
   const currency = 'AUD';
   const category = '호주';
@@ -131,7 +133,8 @@ async function loadInventoryRateEvidenceByCurrency(targetYear, targetMajor) {
         purchaseQtyByCategory(m, y),
       ]);
       const hasPurchase = Object.values(purchaseQtyW || {}).some((qty) => Number(qty) > 0);
-      const kcsRatesW = hasPurchase ? await kcsRatesByCategory(m, y) : { byCategory: {} };
+      const rawKcsRatesW = hasPurchase ? await kcsRatesByCategory(m, y) : { byCategory: {} };
+      const kcsRatesW = hasPurchase ? await safeMergeKcs(y, m, rawKcsRatesW) : rawKcsRatesW;
       return { manual: manualW.manual || {}, invoiceRates: invoiceRatesW, savedRates: savedRatesW, kcsRates: kcsRatesW, purchaseQty: purchaseQtyW };
     });
     const carried = await resolveCarriedRatesForCategories({
@@ -171,7 +174,8 @@ async function loadReportDataInScope(major, orderYear) {
       const safeLoadSettlement = typeof loadSettlementEvidence === 'function' ? loadSettlementEvidence : async () => ({ documents: [] });
       const safeSettlementRates = typeof settlementTaxableRates === 'function' ? settlementTaxableRates : () => ({ byCategory: {}, byCurrency: {} });
       const safePickSettlement = typeof pickSettlementTaxableRate === 'function' ? pickSettlementTaxableRate : () => null;
-      const [N, est, Q, purchaseQty, S, rates, invoiceRateResult, cur, prev, customs, unclassifiedDetails, savedRates, kcsRates, settlementLedger] = await Promise.all([
+      const safeMergeKcs = typeof mergeKcsRatesWithSnapshotFallback === 'function' ? mergeKcsRatesWithSnapshotFallback : async (_y, _m, live) => live;
+      const [N, est, Q, purchaseQty, S, rates, invoiceRateResult, cur, prev, customs, unclassifiedDetails, savedRates, rawKcsRates, settlementLedger] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
@@ -187,13 +191,14 @@ async function loadReportDataInScope(major, orderYear) {
         kcsRatesByCategory(major, orderYear),                // R 4순위(2026 28차 이후 및 그 다음 연도): KCS InputDate·TPrice 가중평균
         safeLoadSettlement(orderYear, major),                // 선율 정산서 1페이지 적용환율(파일 전용, DB 쓰기 0)
       ]);
+      const kcsRates = await safeMergeKcs(orderYear, major, rawKcsRates);
       const settlementRates = safeSettlementRates(settlementLedger);
 
       // E는 "현재 보고서의 E 셀"을 이월하지 않고, 같은 연도의 직전 대차수 F를 같은 공식으로
       // 다시 계산한다. 이 때문에 26차 F와 불연속인 27차 workbook E(베트남 +3,658,862.88875)는
       // 웹 값에 섞이지 않는다. 01차 직전은 실제 PeriodDay로 결정한다.
       const invoiceRates = invoiceRateResult.rates || invoiceRateResult;
-      const [prevQ, prevPurchaseQty, prevLegacyS, prevInvoiceRateResult, prevCustoms, prevSavedRates, prevKcsRates, prevSettlementLedger] = await Promise.all([
+      const [prevQ, prevPurchaseQty, prevLegacyS, prevInvoiceRateResult, prevCustoms, prevSavedRates, rawPrevKcsRates, prevSettlementLedger] = await Promise.all([
         purchaseByCategory(prevMajor, prevOrderYear),
         purchaseQtyByCategory(prevMajor, prevOrderYear),
         forwardingByCategory(prevMajor, prevOrderYear),
@@ -203,6 +208,7 @@ async function loadReportDataInScope(major, orderYear) {
         kcsRatesByCategory(prevMajor, prevOrderYear),
         safeLoadSettlement(prevOrderYear, prevMajor),
       ]);
+      const prevKcsRates = await safeMergeKcs(prevOrderYear, prevMajor, rawPrevKcsRates);
       const prevSettlementRates = safeSettlementRates(prevSettlementLedger);
 
       const prevInvoiceRates = prevInvoiceRateResult.rates || prevInvoiceRateResult;
@@ -234,7 +240,8 @@ async function loadReportDataInScope(major, orderYear) {
           safeLoadSettlement(y, m),
         ]);
         const hasPurchase = Object.values(purchaseQtyW || {}).some((qty) => Number(qty) > 0);
-        const kcsRatesW = hasPurchase ? await kcsRatesByCategory(m, y) : { byCategory: {} };
+        const rawKcsRatesW = hasPurchase ? await kcsRatesByCategory(m, y) : { byCategory: {} };
+        const kcsRatesW = hasPurchase ? await safeMergeKcs(y, m, rawKcsRatesW) : rawKcsRatesW;
         return { manual: manualW.manual || {}, invoiceRates: invoiceRatesW, savedRates: savedRatesW, settlementRates: safeSettlementRates(settlementLedgerW), kcsRates: kcsRatesW, purchaseQty: purchaseQtyW };
       });
 
