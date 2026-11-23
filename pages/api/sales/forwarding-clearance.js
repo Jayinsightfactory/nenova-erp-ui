@@ -4,6 +4,7 @@
 import { withAuth } from '../../../lib/auth';
 import { applyProfitReportColombiaRates } from '../../../lib/profitReportCustomsPolicy';
 import { requireOrderYear } from '../../../lib/orderUtils';
+import { safeAutoRefreshUnconfirmedProfitSnapshot } from '../../../lib/profitReportAutoRefresh';
 import {
   FORWARDING_DIRECT_CATEGORIES, COLOMBIA_POOLED_HYDRANGEA,
   getRateConfig, loadForwardingWeekly, saveForwardingWeekly,
@@ -87,12 +88,14 @@ export default withAuth(async function handler(req, res) {
       if (req.body?.action === 'saveDirect') {
         if (!req.body?.category) return res.status(400).json({ success: false, error: 'category 필요' });
         await saveForwardingWeekly(major, orderYear, req.body.category, req.body?.amountUSD, actor);
-        return res.status(200).json({ success: true });
+        const snapshotRefresh = await safeAutoRefreshUnconfirmedProfitSnapshot({ orderYear, major, actor, trigger: 'forwarding:saveDirect' });
+        return res.status(200).json({ success: true, snapshotRefresh });
       }
       if (req.body?.action === 'saveColombiaAir') {
         if (!req.body?.orderWeek) return res.status(400).json({ success: false, error: 'orderWeek 필요' });
         await saveColombiaWeekly(req.body.orderWeek, orderYear, { AirRateUSD: req.body?.airRateUSD }, actor);
-        return res.status(200).json({ success: true });
+        const snapshotRefresh = await safeAutoRefreshUnconfirmedProfitSnapshot({ orderYear, major, actor, trigger: 'forwarding:saveColombiaAir' });
+        return res.status(200).json({ success: true, snapshotRefresh });
       }
       return res.status(400).json({ success: false, error: '알 수 없는 action' });
     }

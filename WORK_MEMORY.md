@@ -4678,3 +4678,11 @@ pm run test:canon 통과.
 3. 남은 일: 필수 CI·Cafe24·Desktop 게시·운영 메뉴 스모크. 공식 가이드 예외 적용, 영상 미갱신.
 4. 검증: ERP 계약·dnSpy·운영형 빌드와 격리 Electron 실제 원본 3행 등록·재조회 통과. 국가 초기화는 개발 서버에서만 재현. 운영형 빌드에서 change 이벤트와 무재로드 검증.
 5. 주의: 운영 DB 조회·쓰기 금지. 송장일로 실제 입고일 대체 금지. 연결 목표 g17 / 검증 전 진척률 유지.
+
+## 2026-11-23 주차별 매출이익 미확정 스냅샷 자동 새로고침 (Push + Stale-on-Read)
+검색어: WebProfitReportSnapshot 자동 새로고침 auto-refresh Stale-on-Read Push 선율 정산서 WebCustomsWeekly g17 g19
+1. 작업 위치: nenova-erp-ui / feat/profit-report-auto-refresh / C:/Users/USER/nw-swm-profit-autorefresh / origin/master 22fb230d 기반.
+2. 완료된 것: lib/profitReportAutoRefresh.js 신설(확정 차수 WebProfitReportConfirm 불변 하드 가드 + SQL TZOFFSET KST->UTC 정규화 + single-flight), 선율 정산서 등록(lib/customsSettlementRegistration.js)·통관비/포워딩/매출이익 POST 저장 직후 Push 자동 갱신 및 GET /api/sales/profit-report Stale-on-Read 자동 감지·갱신 연결, docs/contracts/weekly-profit-report.json 계약 등록 및 __tests__/profitReportAutoRefresh.test.cjs 9개 회귀 테스트 추가.
+3. 남은 할 일: PR 머지 및 Deploy to Cafe24 완료 후 2026년 43·44·45차 실서버 스냅샷 최신화 실측 검증 및 워크트리 정리.
+4. 검증 상태: pstack-verify 5/5 PASS, profitReportAutoRefresh 9/9 PASS, test:profit-weekly-cache·test:erp-manifest(238)·guard:erp-writes·test:erp-contract·npm run build 전수 PASS. ERP 공유 원장 쓰기 0건.
+5. 주의/잠금: 확정 차수(WebProfitReportConfirm IsActive=1)는 절대 자동 재계산·덮어쓰기 금지. 스냅샷 쓰기는 기존 정식 saveProfitReportCache(WebProfitReportSnapshot 전용)만 재사용. 연결 목표 g17·g19.
