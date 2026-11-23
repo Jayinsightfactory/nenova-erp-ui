@@ -9,11 +9,15 @@ function createStartup({ app, platform = process.platform, execPath = process.ex
   read ||= () => { try { return JSON.parse(fs.readFileSync(file(), 'utf8')); } catch (e) { if (e.code === 'ENOENT') return null; throw e; } };
   write ||= value => { fs.mkdirSync(path.dirname(file()), { recursive: true }); fs.writeFileSync(file() + '.tmp', JSON.stringify(value)); fs.renameSync(file() + '.tmp', file()); };
   const options = { path: execPath, args: ARGS };
+  // Electron 44 parses the lookup path as a command line. Without quotes,
+  // C:\Program Files\... is looked up as C:\Program, even though writing succeeds.
+  // Keep the write path raw; Electron quotes the Run value itself.
+  const lookupOptions = { ...options, path: `"${execPath}"` };
   let failure = false;
   function state() {
     if (!supported) return { supported: false, enabled: false, message: '설치된 Windows 앱에서 사용할 수 있습니다.' };
     try {
-      const actual = app.getLoginItemSettings(options);
+      const actual = app.getLoginItemSettings(lookupOptions);
       const own=actual.launchItems?.find(item=>item.name===NAME&&item.path?.replace(/^"|"$/g,'').toLowerCase()===execPath.toLowerCase()&&JSON.stringify(item.args)===JSON.stringify(ARGS));
       return { supported: true, enabled: !!own?.enabled && actual.executableWillLaunchAtLogin===true,
         message: failure ? '자동 실행 설정을 확인하지 못했습니다. 다시 시도해 주세요.' : '' };
@@ -36,7 +40,7 @@ function createStartup({ app, platform = process.platform, execPath = process.ex
     try {
       const prior = read();
       if (prior) return state(); // Never override an OS/user opt-out on later launches.
-      const actual = app.getLoginItemSettings(options);
+      const actual = app.getLoginItemSettings(lookupOptions);
       const registered = actual.launchItems?.some(item => item.name === NAME);
       if (registered || actual.openAtLogin) { write({ initialized: true }); return state(); }
       return set(true);

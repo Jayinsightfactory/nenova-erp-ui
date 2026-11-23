@@ -12,3 +12,12 @@ test('explicit off persists across initialization and explicit on works',()=>{co
 test('development and unsupported platforms do not touch startup',()=>{const f=fixture({packaged:false});assert.equal(f.service.initialize().supported,false);assert.equal(f.calls.length,0);});
 test('registration failure is visible and does not crash startup',()=>{const f=fixture({fail:true});assert.match(f.service.initialize().message,/설정/);assert.equal(f.service.state().enabled,false);});
 test('only login launches stagger; manual launches are immediate',()=>{assert.equal(startupDelay({packaged:true,argv:[]}),0);assert.equal(startupDelay({packaged:false,argv:['nenova-autostart']}),0);assert.equal(startupDelay({packaged:true,argv:['nenova-autostart'],random:()=>0}),15000);assert.equal(startupDelay({packaged:true,argv:['nenova-autostart'],random:()=>0.999}),44970);});
+test('installed paths with spaces are quoted only for Windows readback',()=>{
+ const execPath='C:\\Program Files\\Nenova Desktop\\Nenova Desktop.exe';let registration=null;
+ const app={isPackaged:true,setLoginItemSettings:value=>{assert.equal(value.path,execPath);registration=value.openAtLogin?value:null},getLoginItemSettings:options=>{
+   if(options.path!==`"${execPath}"`)return {executableWillLaunchAtLogin:true,launchItems:[{name:'Other',path:'C:\\Program',args:[],enabled:true}]};
+   return {executableWillLaunchAtLogin:!!registration,launchItems:registration?[{name:registration.name,path:execPath,args:registration.args,enabled:true}]:[]};
+ }};
+ const service=createStartup({app,platform:'win32',execPath,read:()=>null,write:()=>{}});
+ assert.equal(service.initialize().enabled,true);assert.equal(service.state().enabled,true);assert.equal(service.set(false).enabled,false);assert.equal(service.set(true).enabled,true);
+});
