@@ -120,14 +120,17 @@ async function main(){
   const source = id => '.kakao-order-message[data-source-id="'+id+'"]';
   const sourceFilter = index => '.kakao-source-controls button:nth-child('+index+')';
   const sourceSearch = 'input[aria-label="카톡 원문 검색"]';
+  const included = id => source(id)+' .kakao-source-included';
   assert(await page.$eval(source('0')+' pre',node=>node.textContent.includes('\nMoon Light 1박스')));
   assert.equal(await page.$('.kakao-originals fieldset'),null);
   assert.equal(await page.$('.kakao-source-reference'),null);
+  for(const id of ['0','1','2','white'])assert(await page.$(included(id)));
+  assert.equal(await page.$(included('cancel')),null);
   assert.deepEqual(await page.$$eval('.kakao-table thead th', nodes => nodes.map(node => node.textContent)),
     ['차수 · 품목군','품종 / 원문 대조','수량','비고 (업체·수량)']);
   for(const [n,id,label,selector,caption,key] of [
     [16,'chat','오른쪽 카톡 추가·취소 원문 확인',sourceFilter(3),'발주가 있는 최근 2일을 자동으로 찾습니다. 오른쪽에서 취소 원문을 보고 방·시각·내용으로 검색하세요. 취소 수량은 확인 전 합산하지 않습니다.','Enter'],
-    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','콜롬비아 카네이션을 선택하면 Moon Light 4박스와 업체별 주광 1, 미우 2, 일신 1을 확인할 수 있습니다.',null],
+    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','콜롬비아 카네이션을 선택하고 합계 수량을 확인합니다. 오른쪽의 합계 반영 체크는 이 범위의 합계에 수량이 들어간 원문입니다.',null],
     [18,'match-total','합계에서 원문 확인','.kakao-match-total','가운데 품종을 누르면 오른쪽 근거 원문으로 이동합니다. 양쪽의 같은 원문 번호를 비교합니다.','Enter'],
     [19,'match-source','원문에서 합계 확인','.kakao-order-message.kakao-linked .kakao-match-source','오른쪽 원문의 합계 보기를 누르면 가운데 전체 합계 아래에 해당 원문의 수량이 표시됩니다.','Enter'],
     [20,'audit','제외 원문 대조','.kakao-audit > summary','분류 건수를 대조하고 제외 원문을 검색해 놓친 발주를 확인합니다. 카톡 자체 수집 누락과 사진은 별도 원본 대조가 필요합니다.','Enter'],
@@ -142,6 +145,7 @@ async function main(){
     if(id==='audit'){await page.focus('.kakao-match-notice button');await page.keyboard.press('Enter');}if(key){await page.focus(selector);await page.keyboard.press(key);}
     if(id==='chat'){
       assert.equal(await page.$$eval('.kakao-order-message',nodes=>nodes.length),1);
+      assert.equal(await page.$(included('cancel')),null);
       assert(await page.$eval(source('cancel')+' pre',node=>node.textContent.includes('\n별도품종 1박스')));
       await rec.unfocus();await rec.focus(sourceSearch,n);
       await page.focus(sourceSearch);await page.keyboard.type('별도품종',{delay:dry?0:100});
@@ -160,6 +164,7 @@ async function main(){
       const inputs=await page.$$(recovered+' > label input');
       for(const [i,value] of ['콜롬비아','수국','46-01','연습화이트','2','박스',''].entries()){await inputs[i].focus();await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');await page.keyboard.type(value,{delay:dry?0:90});}
       assert.equal(await page.$eval(recovered+' input[type="checkbox"]',n=>n.checked),false);await page.focus(recovered+' input[type="checkbox"]');await page.keyboard.press('Space');
+      assert(await page.$(included('missed')));
       assert((await page.$eval('.kakao-table',n=>n.textContent)).includes('연습화이트'));console.log('PASS manual recovered order edit and include');
     }
     if(id==='match-total'||id==='match-source'){
@@ -182,8 +187,10 @@ async function main(){
   assert((await page.$eval('.kakao-table',node=>node.textContent)).includes('주광 1, 미우 2, 일신 1'));
 
   assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'4 박스');
+  assert(await page.$(included('0')));
   await page.click(source('0')+' input[type="checkbox"]');
   assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'3 박스');
+  assert.equal(await page.$(included('0')),null);
   await page.click('.kakao-refresh');await page.waitForNetworkIdle();
   assert.equal(await page.$eval(source('0')+' input[type="checkbox"]',n=>n.checked),false);
   assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'3 박스');
@@ -201,8 +208,10 @@ async function main(){
   assert.equal(await page.$$eval('.kakao-table tbody tr',n=>n.length),1);
   assert(await page.$eval('.kakao-table .kakao-quantity',n=>/^3 박스이 원문 [12] 박스$/.test(n.textContent.trim())));
   assert(await page.evaluate(()=>document.querySelector('.kakao-totals .kakao-match-notice').textContent.includes(document.querySelector('.kakao-order-message.kakao-linked .kakao-source-reference').textContent)));
+  for(const id of ['1','2'])assert(await page.$(included(id)));
   await page.click('.kakao-match-notice button');
   assert.equal(await page.$('.kakao-source-reference'),null);
+  for(const id of ['1','2'])assert(await page.$(included(id)));
   await page.click('.kakao-audit > summary');await page.waitForNetworkIdle();
   assert((await page.$eval('.kakao-audit',n=>n.textContent)).includes('분류 건수 일치'));
   assert((await page.$eval('.kakao-audit',n=>n.textContent)).includes('카톡방 전체의 수집 누락 여부는 확인되지 않았습니다'));
@@ -253,6 +262,28 @@ async function main(){
   console.log('PASS live refresh invalidates prior inclusion when a related cancellation arrives');
   if(!dry){workflow.guides[0].chapters=result.chapters;workflow.guides[0].status='ready';fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');}
   if(dry){
+    const savedFeed={...sampleFeed};
+    const mixed=sampleMessage('mixed','45-2 네덜란드 발주 추가\n연습수국 2\n연습장미 60cm 100스팀');
+    const good=sampleMessage('sample-hydrangea','45-2 네덜란드 수국 발주 추가\n연습화이트 8송이');
+    Object.assign(sampleFeed,classifyImportFeed({messages:[mixed,good]}));
+    await page.click('.kakao-refresh');await page.waitForNetworkIdle();
+    assert(await page.$(included('mixed')));
+    const groups='.kakao-choices[aria-label="품목군"]';
+    const hydrangea=await page.$$(groups+' button');
+    for(const button of hydrangea){
+      if(await button.evaluate(el=>el.textContent==='네덜란드 · 수국')){await button.click();break;}
+    }
+    assert(await page.$(source('mixed')));
+    assert.equal(await page.$(included('mixed')),null);
+    assert(await page.$(included('sample-hydrangea')));
+    await page.click(groups+' button:first-of-type');
+    await page.click(source('mixed')+' .kakao-edit-source');
+    await page.click(source('mixed')+' fieldset input[type="checkbox"]');
+    assert.equal(await page.$('.kakao-table'),null);
+    assert.equal(await page.$('.kakao-source-included'),null);
+    Object.assign(sampleFeed,savedFeed);
+    await page.click('.kakao-refresh');await page.waitForNetworkIdle();
+    console.log('PASS mixed contribution, current scope, invalid total, and focus-independent inclusion badges');
     await page.setViewport({width:1572,height:900});
     assert(await page.evaluate(()=>document.querySelector('.kakao-totals').getBoundingClientRect().x<document.querySelector('.kakao-originals').getBoundingClientRect().x));
     await page.evaluate(() => { window.open = window.__orderGuideOpen; delete window.__orderGuideOpen; });
