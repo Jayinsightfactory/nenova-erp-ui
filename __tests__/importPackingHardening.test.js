@@ -161,6 +161,8 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   const modules = { '../../styles/ImportPacking.module.css': cssModules, '../../styles/ImportReviewTypography.module.css': cssModules, react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packingHarness,
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
     '../../lib/invoiceSupplierEvidence.js': await import('../lib/invoiceSupplierEvidence.js'),
+    '../../lib/packingOriginEvidence.js': await import('../lib/packingOriginEvidence.js'),
+    './InvoiceReceiptComparison.js': () => null,
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
     '../../lib/importFreeOcrClient.js': {async extractFreePackingDocument({country,pdfBase64}){
       extractionCalls.push({country,pdfBase64,freeOnly:true});
