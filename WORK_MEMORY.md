@@ -4546,3 +4546,50 @@ pm run test:canon 통과.
 4. 검증 상태: 실물 38·41·44차 선율 정산서 PDF 10/10건 100% 추출(`1,484.0000` EUR, `199.2000` CNY, `1,330.5200` USD, `931.2300` AUD 등), 단위 테스트 60/60 PASS, `crawl-sunyul-gmail.test.js` 4/4 PASS, `pstack-verify`·`guard:erp-writes`·`test:erp-contract`·`test:erp-manifest`·`build` 전수 통과.
 5. 주의/잠금: 구형 `nenova.exe` 테이블(`Order*`/`Shipment*`/`Warehouse*`/`Stock*`/`Estimate`) 쓰기 0건, 확정 스냅샷 불변, 교차연도(`OrderYear+MajorWeek`) 격리 엄수. 연결 목표: g01, g17, g19 / 학습 반영: 있음
 검색어: 선율 정산서 적용환율 sunyul_settlement gmail-auto customs-settlement crawl-sunyul-gmail WebTaxableExchangeRate g01 g17 g19
+## 2026-11-18 · HUBFRESH 계산식 분리 착수·원본 시트 불일치 확인
+- 사용자 첨부 46-2 중국 원가자료.xlsx SHA256=25c1690b748e7ba4c8bf60c538790d40153bf4d34663a18bb4410a9d36231732 읽기 전용 분석. active ‘46-2 CLOUD cbm ’, HUBFRESH 이름은40-2/40-3/41-2. 사용자는HUBFRESH 기준이라고 지정했으므로 어느 시트가 새 기준인지 질문, 답변 전 금융 계산식 임의 변경 금지.
+- 최신46-2: 21개 품종, 품종별 상자규격/박스당 단수/단당 무게/세율. 운임AL=품종CBM비율, 통관T10=GW*460+33000+품종수*10000+국내운송비+기타40000+소독200000; 상세N=$T$11(통관비/총단수), CNF×1.03 후 원화환산·품종관세. 기존GW비례통관 보조표Y는 존재하지만 실제 상세N은균등단수 방식. 원본 AE 품종무게 일부 공란은 임의 0 대입 금지.
+- 검색어: HUBFRESH CLOUD 46-2 cbm 농장별 계산식 원본시트확인 25c1690b 21카테고리
+1. 작업 위치: nenova-erp-ui / feat/hubfresh-cost-1118 / C:/Users/USER/Documents/Codex/nw-cdx-hubfresh-1118 / PR 미생성.
+2. 완료된 것: 새 origin/master worktree, git상태·최근기록·열린PR 점검, 첨부원본 수식과 기존CN_AIR_WEIGHT_CBM_V1 비교. 제품코드 변경 없음.
+3. 남은 할 일: 사용자 기준시트 답변→ERP지침/계약 읽기→농장분리·수정가능 카테고리 버튼 UI·서버/Excel 동일 계산→격리 실제인보이스 입고/다운로드→가이드·CI·배포.
+4. 검증 상태: 원본 수식/셀 읽기만 완료. 실제 인보이스 업로드·입고등록·엑셀 재계산·배포 모두 미검증. 운영DB연결/수정 및 유료분석 없음.
+5. 주의/잠금: 새 worktree는 본 세션 전용. 기존수입부/다른농장 산식 건드리지 않음. 원본엑셀은 사용자소유로 보존, 로컬사본/업무문서 추가생성 없음.
+
+## 2026-11-18 · CLOUD CBM 계산·버튼 매칭 구현, 실제 CI 검증 대기
+- 사용자 정정 확정: 46-2 CLOUD cbm은 CLOUD에 적용. HUBFRESH 기존식 유지. chinaCloudCost에21품종·규격/단수/세율, CBM운임, 통관단수배분, CNF3%가산, 호접허가증300CNY 배분 구현. 원본값 수정/명시0 보존. 국내운송99000원은 원본 추정값일 뿐 모든 중량 고정요율로 선언하지 않음.
+- 미매칭만 기본 표시하는 CloudCostCategories, 전체 보기에서 기존 매칭 변경/해제, Tab/방향키 버튼 이동 추가. 품목명+전산명 카테고리 초안, 저장된 변경/해제 우선. 별도 CN_CLOUD_CBM_V1 registry/순수 서버검증/Excel출력 연결. 신규 CLOUD 구 항공식 혼용 거부; 과거 검증된 승인 스냅샷 출력만 역사식 유지.
+- 원본43품목2280단을 읽기전용 비교:43개 단위원가 전부 차이1e-6미만, 합계20094336.64221원. 생성 Excel은 수량/카테고리/FOB/환율/GW/운임/허가증/통관·판매·이익의 연동 수식 및 숫자 캐시 포함. 실제 Excel 재계산 증명은 아직 없음.
+- 표적211검사193PASS/0FAIL/18SKIP(이후 신규반례2개 추가한 CLOUD 단독8개 전부PASS). 직접 manifest225계약/쓰기scope guard 통과. npm build는 prebuild 사용가이드 갱신가드에서 정상 차단: invoice-cost-readonly/import 재촬영 필요. 최종 전체빌드·ERP 전체가드·CI·배포 미완료.
+- 받은 46-2 중국 CI.pdf는 원문2025-11-14/YUNNAN HENGGE/6품종/11220PCS/33419CNY로, 사용자도 ‘2025년 잘못준 파일’이라고 확인. 현재 2026 CLOUD 테스트에 사용/연도수정/농장강제연결 금지. 로컬 및 네노바 Google Drive 제한검색에서 올바른2026 46-2 CLOUD CI/AWB 미확보. Downloads/46-02_CLOUD.xlsx는 발주서여서 인보이스로 대체 금지.
+- 컴퓨터유즈 Excel창 활성화·읽기만 수행. 파일선택창 접근성인덱스/좌표와 실제초점 불일치로 사본열기 조작 중단, Esc로 창 닫음. 원본/운영DB/입고/재고/승인원가 수정0, 유료분석0. 실제앱 업로드·입고·다운로드/최종영상은 미검증.
+- 검색어: CLOUD CBM 1118 43품목2280단 20094336 CN_CLOUD_CBM_V1 카테고리버튼 2025잘못된CI
+1. 작업 위치: nenova-erp-ui / feat/hubfresh-cost-1118(브랜치명만 초기HUBFRESH, 실제기능CLOUD) / C:/Users/USER/Documents/Codex/nw-cdx-hubfresh-1118 / 초안 PR #1813, 코드09d7228c. 검증 전 병합·배포 금지.
+2. 완료된 것: lib/chinaCloudCost.js·chinaCloudCostWorkbook.js, CloudCostCategories UI, cost engine/preview/export/profile/form 연결, 전용계약/계획/테스트/원본비교 스크립트. 실제인보이스/원본파일 private자료 커밋 금지.
+3. 남은 할 일: 올바른2026 CLOUD CI/AWB 수령→격리업로드/기존매칭/수량총액/입고 저장→카테고리수정→다운로드 실제UI/Excel재계산→사용가이드 녹화·Drive보관→전체가드·빌드·PR/CI·배포.
+4. 검증 상태: 원본원가43행정합/순수계산·예외·취소·기존식보존·수식캐시 표적 통과. 국가전체/실제입고E2E/Excel native/빌드/배포 모두 미검증. 현재상태를 배포완료로 말하지 않음.
+5. 주의/잠금: 이worktree 본 세션 전용. private/원본업무자료, 이전세션 작업트리와 source사용자파일 보존. data/generated 두파일은 build 자동생성 변경이므로 별도stash보관 후 코드PR에서 제외.
+
+## 2026-11-18 · CLOUD 053 CI 업무드라이브 누락 진단: 파일명 오타 검색 불일치
+- 새 사용자 PDF ‘46-2 증국 053 CI sample-YY.pdf’ SHA256 ec11e9e88f4201e7dd9dff661459030d93dc1d74f1a987fd0e97d03e02253fdc, 4페이지. 원문 Yunnan Yunyan/수량합계2280/상품48928CNY/최종73015CNY. 기준원가표와 연결 가능한 자료이며 상세 행별 매칭/입고/원가E2E는 아직 미검증. 은행/연락처/계좌 등 민감 원문은 기록하지 않음.
+- 실제 Chrome 네이버웍스 Drive에서 공용 드라이브/2026년/46차/정확한파일명 존재 확인. 상세 생성2026-11-16 09:51, 수정09:47, 사내전체.
+- 실제 로그인된 네노바 /work/drive 새 탭에서 전체검색053→정확한파일명 조회. 올린사람 아드리아나/차수46-2/입고>인보이스·Proforma/올린시각11.16 09:47/2.8MB 확인. 따라서 수집 누락 아님.
+- 같은 화면 ‘46-2 중국’ 검색에서는 CI가 빠지고 AWB/다른중국파일만 조회, ‘46-2 증국’ 검색에서는 정확한CI 1행 조회 재현. lib/workDriveSearch.cjs matchesQuery는 filename.includes(query)이며 오타/의미 보정 없음. 파일명의 증국≠중국이 원인. CLOUD라는 검색어도 이파일명에는 없음.
+- 파일 이름변경/색인교정/미러재실행/운영DB/원본내용 수정 없음. 조회요청과 화면검색만 수행. 파일선택 클릭은 geometry unavailable로 중단했으나 목록검색 성공과 등록정보는 이미 확인됨. 서버원본SHA 대조는 미검증.
+- 검색어: 053 CI 증국 중국 오타 업무드라이브 검색누락 수집정상 아드리아나 73015
+1. 작업 위치: nenova-erp-ui / feat/hubfresh-cost-1118 / nw-cdx-hubfresh-1118 / 기존 초안PR1813, 이번은 진단기록만.
+2. 완료된 것: 올바른CLOUD PDF 내용 확인, 네이버웍스원본·네노바색인 존재와 검색차이 실제Chrome에서 재현.
+3. 남은 할 일: 기존CLOUD 개발의 해당PDF/AWB 실제E2E, 카테고리 보완·엑셀/가이드/필수가드·배포. 검색오타 보완 또는 원본파일명교정은 사용자가 아직 요청하지 않아 미실행.
+4. 검증 상태: 실제네노바 전체검색 성공, 업로더/차수/분류/올린시각 확인. 원본서버SHA·수량전체입고·최종엑셀은 미검증.
+5. 주의/잠금: 운영DB·원본·분류·파일명 보존. 새Chrome탭은 46-2 증국 검색결과를 표시. private업무자료 Git커밋 금지.
+
+## 2026-11-18 · PDF 분석 중단 보호 별도 PR1818 배포 완료
+- 사용자 보고 46-1 0/6·1/9 지연 후 owner-dead 오류 조사. 읽기전용 진단44220341313에서 최근30분 메모리재시작0·7일OOM0. 실패9구간 작업10:42:45 시작과 실제 배포44217840381의10:48:54.193KST reload가 중첩. 진단44221499539에서 해당 실패 interruptedOwner=true·완료5/9 보존 확인. 별도6구간 작업은10:53:27→10:57:47 성공,260초. 이는 분석 결과이며 입고/도착원가E2E 성공을 뜻하지 않는다.
+- 최신master 별도worktree fix/pdf-lifecycle-1118에서 admission과 build swap/reload 공용 OS mutex, alive RUNNING이 있으면 배포만 차단(파일/완료구간/ERP원장/Provider재시도 보존), 익명timestamp/status진단 추가. 표적120PASS/1SKIP, 신규7PASS·postmerge17PASS·배포/브라우저27PASS, 전체ERP·dnSpy·manifest224·writeguard·로컬webpack 및 최신LinuxCI44222326603 PASS.
+- PR1818 squash34243ea9, Cafe2444223232124 success(6m54s), 실제browser hydration·ping·공개_app버전v1.0.2·34243ea 확인. 사용자 새분석중단 확인 후 최초적용, 완료후 재개 안내. 배포후 진단44224192284(11:34:30KST)에서도 동일5작업/성공6/6·실패완료5/9와 원래timestamp 전부 유지, 활성분석0. 추가유료분석·운영DB수정0.
+- 검색어: PR1818 PDF 분석 중단 배포 재시작 34243ea9 5/9 6/6 260초 lifecycle mutex
+1. 작업 위치: root-fix PR1818 merged34243ea9, 전용worktree nw-cdx-pdf-lifecycle-1118 병합후정리. 현재 기록 위치는 본세션 기존미완료 feat/hubfresh-cost-1118 / nw-cdx-hubfresh-1118 / draftPR1813이며 CLOUD코드 변경 없음.
+2. 완료된 것: root-fix lib/packingPdfLifecycle.cjs·importTeamPdfJobs·guard-pdf-deploy·익명진단·deploy workflow·전용테스트/계약, 실제 운영 배포·기존결과 유지 확인. 근거 PR1818 댓글 및 actions44223232124/44224192284.
+3. 남은 할 일: 기존파일 즉시불러오기/내용변경 새파일 선택재분석 UI는 미구현. 별도 단일구간 실패3건은 interruptedOwner=false로 이번 owner-dead와 다르며 상세원인 미검증. 9구간 잔여4는 재분석하지 않았고 추가비용 동의없이 호출 금지. CLOUD PR1813 E2E/다운로드/가이드는 계속 미완료.
+4. 검증 상태: root-fix 전체검사·Linuxbuild·Cafe24·hydration·ping·배포후saved5job 보존PASS. 실제앱에서 실패건 복구버튼 클릭·나머지4분석·입고/원가생성은 미검증. root-fix 배포 완료와 CLOUD 배포 미완료 구분.
+5. 주의/잠금: 운영입고/재고/원가DB 보존, 유료분석0. 이가드는 배포재시작만 보호하며 OOM/OS강제종료 전부를 방지한다고 주장하지 않음. 본 CLOUD worktree 독점 및 private자료 Git커밋금지. 다음작업 전 origin/master 최신34243ea9 이상을 본 CLOUD브랜치에 통합하고 검증.
