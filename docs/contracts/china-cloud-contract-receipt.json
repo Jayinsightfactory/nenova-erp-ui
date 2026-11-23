@@ -1,6 +1,6 @@
 {
  "id":"china-cloud-contract-receipt",
- "title":"CLOUD 8열 Contract 원문 입고 · 포장비와 미기재 단위 보존",
+ "title":"CLOUD 8열 Contract 원문 입고 · 미기재 연도 편집과 포장비·단위 보존",
  "scope":["lib/importChinaCloudContract.js","lib/importChinaInvoice.js","lib/importPackingReceiptAdapter.js","lib/invoiceReceiptValidation.js","components/import-tools/PackingListTool.js","components/import-tools/InvoiceReceiptWorkbench.js","components/import-tools/ChinaInvoiceSheetReview.js"],
  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
  "actions":[{"name":"PARSE_CONTRACT_RECEIPT_ONLY","orderDetail":"preserve","shipmentDetail":"preserve","notes":"실제 47-2A/B의 Contract·고객·공급자·8개 열을 정확히 판독. 상품 D×(E+F)=G, Flower Cost 수량/금액 소계, 문서/공항운송/국제운임3행, TOTAL 독립 검증. 사진·원본 파일은 수정하지 않음. 단가에 상품 포장비 포함. 단/송이와 500g 단위 구분; 박스·GW/CW·송장/발행일 누락을 추정하지 않음. 패킹 파일을 생성하지 않고 기존 입고 작업표로 연결."},{"name":"CONFIRMED_REFERENCE_NATIVE_RECEIPT","orderDetail":"preserve","shipmentDetail":"preserve","notes":"누락 송장번호는 입력 참조값과 결합된 명시 확인 전 등록 차단. 기존 preview/operation/transaction/readback/stock 경로 재사용. Product 비율은 Out/Est 투영에만 사용하며 원문미기재 물리 박스/단/송이는 NULL 보존. 기존 등록 및 타 양식 변경 없음."}],
