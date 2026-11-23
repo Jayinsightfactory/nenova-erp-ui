@@ -4523,6 +4523,14 @@ pm run test:canon 통과.
 4. 검증: 문법 검사 통과, pstack-verify 5/5 PASS. 운영 화면 확인은 반영 뒤에. 건수는 약 3분 간격 화면 표본이고 웹 화면과의 짝은 낱말 규칙(추정).
 5. 주의: 표에는 부서만 싣고 사람 이름은 싣지 않는다. 메뉴는 기존 /my-work?tab=proposals 그대로라 데스크톱앱 메뉴 변경 없음. 연결 목표: g03 / 학습 반영: 있음
 
+## 2026-11-23 패킹리스트 원산지와 인보이스 통화 구분
+검색어: packingOriginEvidence NZD 뉴질랜드 호주 Premium Greens 원산지 오선택 패킹리스트
+1. 작업 위치: nenova-erp-ui / fix/packing-nz-origin-1123 / C:/Users/USER/Documents/Codex/nw-cdx-packing-nz-1123 / PR 미생성.
+2. 완료: NZ 원문→입고 초안, AU 오선택 차단, JP/IL 선택·미지원 안내. 입고 전 원본·예정값 및 PDF 행 확대. SKU·농장 원산지와 원문 NZD·Units 근거를 기존 입고 writer에서 검증.
+3. 남은 일: Electron 추가 캡처와 실제 직원용 NZ 품목·가격 단위 근거 확인. 영상은 사용자 제외로 공식 파일 한정 면제 사용.
+4. 검증: 실제 PDF 격리 웹에서 원문 확대→명시 단위·품목→등록→입고관리 상세 재조회. SQL 키 91001 3행·8박스·NZD 4,253.80·차이 0·중복 차단. 운영 조회·쓰기 및 유료 호출 없음.
+5. 주의: 격리 SQL의 송이·품목 설정은 TEST_ONLY. 운영의 Units 기준을 추정하지 않는다. 연결 목표: g17 / 진행률 유지.
+
 ## 2026-11-23 「기능 추가 후보」 탭에 여러 부서가 같이 만지는 자료 표
 검색어: 같이 쓰는 자료 부서별 영역 한 화면 설계 shared sharedProposal 영업수입불량차감 본보기 excel-web-map
 1. 작업 위치: nenova-erp-ui / cld/shared-areas / C:\Users\USER\nw-cld-shared-areas. 짝이 되는 장치는 nenova-work-features/build-excel-candidates.js · excel-web-map.json(git 아님).

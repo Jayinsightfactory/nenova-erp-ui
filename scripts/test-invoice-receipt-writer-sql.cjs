@@ -1470,6 +1470,10 @@ async function main() {
       ensure(Number(count.recordset?.[0]?.RowCount)===0,`fresh ${table} must be empty before fixture seeding`);
     }
     await seedSentinelsAndRows(pool);
+    if(process.env.NENOVA_NZ_RECEIPT_PDF){
+      await require('./test-nz-invoice-receipt-local.cjs')({pool,sql,query,documents,writer,ctx:writerContext(pool,writer),protectedSnapshot});
+      return;
+    }
     if(process.env.NENOVA_INVOICE_ONLY_E2E==='1'){
       await testInvoiceOnlyAustralia(pool,writer,documents,costs);
       return;

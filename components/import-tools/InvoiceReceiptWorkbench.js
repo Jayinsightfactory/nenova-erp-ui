@@ -349,7 +349,7 @@ export default function InvoiceReceiptWorkbench({
   useEffect(() => {
     let active = true;
     workflowGenerationRef.current += 1;
-    if (!file || !invoices.length || !excels.length) {
+    if (!file || !invoices.length || (!excels.length && country !== 'NZ')) {
       setSourceState({ busy: false, error: '', hash: '' });
       return () => { active = false; };
     }
@@ -579,7 +579,8 @@ export default function InvoiceReceiptWorkbench({
         const reviewed = quantityChanged && (line.reviewed || conversionQuantityEdit)
           ? { ...line.reviewed, bunchConfirmation: undefined, ...(conversionQuantityEdit ? { confirmed: false, conversionConfirmed: false } : {}) }
           : line.reviewed;
-        return { ...line, [field]: value, ...(reviewed ? { reviewed } : {}) };
+        const nzChanged = document.reviewedMetadata?.country==='NZ' && (quantityChanged || field==='priceUnit');
+        return { ...line, [field]: value, ...(nzChanged ? {reviewed:{...reviewed,nzUnitReason:''}} : reviewed ? { reviewed } : {}) };
       }),
     }));
   }
@@ -619,6 +620,7 @@ export default function InvoiceReceiptWorkbench({
     let next = { ...documentValue, lines: documentValue.lines.map(line => line.lineId === lineId
       ? { ...line, productSearch: undefined, prodKey: Number(product.ProdKey),
         reviewed: { ...(line.reviewed || {}), erpMatchConfirmed: Boolean(product), bunchConfirmation: undefined,
+          ...(documentValue.reviewedMetadata?.country==='NZ' ? {nzUnitReason:''} : {}),
           ...(line.sourceEvidence?.allocationSourceId ? { allocationConfirmed: false } : {}) } } : line) };
     const sourceId = next.lines.find(line => line.lineId === lineId)?.sourceEvidence?.allocationSourceId;
     if (sourceId) {
@@ -1203,7 +1205,7 @@ export default function InvoiceReceiptWorkbench({
     </section>;
   }
 
-  if (packingActive && (!file || !excels.length)) return null;
+  if (packingActive && (!file || (!excels.length && country !== 'NZ'))) return null;
   const rootClass = `${styles.root} ${typography.scope}`;
   if (packingActive && sourceState.error) return <section className={rootClass} aria-label="인보이스 입고 작업대"><p className={styles.error} role="alert">입고 업로드 준비 실패: {sourceState.error} · 위 매칭표와 원본 파일은 유지됩니다. 확인값을 수정한 뒤 다시 준비하세요.</p><button type="button" onClick={() => setSourceAttempt(value => value + 1)}>입고 준비만 다시 시도 (AI 재분석 없음)</button></section>;
   if (sourceState.busy) return <section className={rootClass} aria-label="인보이스 입고 작업대"><p role="status">원본 파일 SHA-256과 입고 초안을 준비하는 중입니다…</p></section>;
@@ -1487,7 +1489,12 @@ export default function InvoiceReceiptWorkbench({
                   value={resolved?.bunchQuantity ?? line[field]} onChange={value => updateLine(line.lineId, field, value)} />
                   {resolved && <small style={{fontSize:12.5,color:'#334155'}}>{resolved.bunchResolution === 'derived' ? '원본 기준 자동 계산' : '확인 수량'}</small>}</td>;
               })}
-              <td><select className={styles.cellSelect} value={line.priceUnit || ''} onChange={event => updateLine(line.lineId, 'priceUnit', event.target.value)}><option value="">선택</option><option value="박스">박스</option><option value="단">단</option><option value="송이">송이</option></select></td>
+              <td><select aria-label={`${line.lineNo}행 가격 기준 단위`} className={styles.cellSelect} value={line.priceUnit || ''} onChange={event => updateLine(line.lineId, 'priceUnit', event.target.value)}><option value="">선택</option>{documentValue.reviewedMetadata?.country!=='NZ'&&<option value="박스">박스</option>}<option value="단">단</option><option value="송이">송이</option></select>
+              {documentValue.reviewedMetadata?.country==='NZ'&&<label>원문 Units {line.sourceEvidence?.nzPrintedUnits ?? '미확인'} · 단위 근거
+                <input maxLength={250} value={line.reviewed?.nzUnitReason||''} onChange={event=>{
+                  const reason=event.target.value;
+                  updateSelected(doc=>({...doc,lines:doc.lines.map(item=>item.lineId===line.lineId?{...item,reviewed:{...item.reviewed,nzUnitReason:reason}}:item)}));
+                }}/></label>}</td>
               <td><NumberInput className={styles.cellInput} label={`${line.lineNo}행 단가`} value={line.unitPrice} onChange={value => updateLine(line.lineId, 'unitPrice', value)} /></td>
               <td><input className={styles.currencyInput} aria-label={`${line.lineNo}행 통화`} maxLength={3} value={line.currency || ''} onChange={event => updateLine(line.lineId, 'currency', event.target.value.toUpperCase())} /></td>
               <td><NumberInput className={styles.cellInput} label={`${line.lineNo}행 금액`} value={line.lineAmount} onChange={value => updateLine(line.lineId, 'lineAmount', value)} /></td>
@@ -1584,11 +1591,11 @@ export default function InvoiceReceiptWorkbench({
         <section aria-label="입고 금액 대조">{(()=>{const review=invoiceAmountReview(documentValue);return <>
           <h3>{documentValue.orderYear}/{documentValue.orderWeek} · {documentValue.invoiceNo}</h3>
           <p>농장: {documentValue.reviewedMetadata.farmName||'미선택'}</p>
-          <p>원본 인보이스 총액: <strong>{displayNumber(review.printed)} {review.currency}</strong></p>
-          <p>입고 상품금액 합계: <strong>{displayNumber(review.goods)} {review.currency}</strong></p>
+          <p>원본 인보이스 총액: <strong>{displayNumber(review.printed)} {documentValue.rawMetadata?.currency || '통화 미확인'}</strong></p>
+          <p>저장 예정 상품금액 합계: <strong>{review.goods==null?'계산 불가 · 행 금액 또는 통화 확인':`${displayNumber(review.goods)} ${review.currency}`}</strong> (부대비 제외)</p>
           <p>원문 운송·부대비: {displayNumber(review.extras)} {review.currency} (상품금액에 중복 등록하지 않음)</p>
           <p>상품금액 + 부대비: <strong>{displayNumber(review.total)} {review.currency}</strong></p>
-          <p role="status">차액: {displayNumber(review.difference)} {review.currency} · {review.message}</p>
+          <p role="status">차이 (상품금액 + 부대비 − 원본 총액): {review.difference==null||!documentValue.rawMetadata?.currency?'계산 안 함 · 통화 또는 금액 확인':`${displayNumber(review.difference)} ${review.currency}`} · {review.message}</p>
           <label><input type="checkbox" checked={amountChecked} disabled={!amountSourceReady||!review.matches} onChange={e=>setAmountChecked(e.target.checked)}/>원본의 품목·수량·통화·총금액과 입고 예정값을 대조했습니다.</label>
           <p>확인 후 서버 재검증을 통과한 경우에만 입고등록됩니다. 완료된 입고건은 새창으로 표시됩니다.</p>
         </>;})()}</section>
@@ -1606,6 +1613,7 @@ export default function InvoiceReceiptWorkbench({
             <span>{sourceLine?.lineNo ?? '—'}행 · {sourceLine?.originalName || output.prodName || '원문 미확인'}</span>
             <span>{output.prodName || productByKey.get(Number(output.prodKey))?.ProdName || `ProdKey #${output.prodKey ?? '—'}`}</span>
             <strong>{displayNumber(output.outQuantity)} {output.outUnit || '단위 미확인'}</strong>
+            <span>저장 단가 {displayNumber(output.unitPrice)} · 행 금액 {displayNumber(output.lineAmount)} {sourceLine?.currency || '통화 미확인'}</span>
           </div>;
         })}</div>
       </section>

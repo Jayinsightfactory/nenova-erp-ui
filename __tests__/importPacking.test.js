@@ -291,6 +291,8 @@ async function main() {
       '../../styles/ImportReviewTypography.module.css': { scope: 'reviewTypographyScope' },
       '../../lib/importPackingResponse.js': response, '../../lib/importAwbFields.js': awbFields,
       '../../lib/invoiceSupplierEvidence.js': await import('../lib/invoiceSupplierEvidence.js'),
+      '../../lib/packingOriginEvidence.js': await import('../lib/packingOriginEvidence.js'),
+      './InvoiceReceiptComparison.js': () => null,
       '../../lib/importPackingExtractClient.js': extractionMock, '../../lib/importPackingReview.js': review,
       '../../lib/importPackingErpMatches.js': erpMatchHelpers,
       '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,
