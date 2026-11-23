@@ -1304,117 +1304,117 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.007
+              "seconds": 0.013
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.588
+              "seconds": 10.722
             },
             {
               "scenario": "week",
               "title": "3. 세부차수와 미리보기",
-              "seconds": 21.176
+              "seconds": 21.337
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 37.975
+              "seconds": 38.226
             },
             {
               "scenario": "download",
               "title": "5. 다운로드·ETA 창 열기",
-              "seconds": 49.185
+              "seconds": 49.334
             },
             {
               "scenario": "eta",
               "title": "6. ETA 날짜 입력",
-              "seconds": 59.761
+              "seconds": 59.927
             },
             {
               "scenario": "save",
               "title": "7. ETA 저장·엑셀 다운로드",
-              "seconds": 72.164
+              "seconds": 72.141
             },
             {
               "scenario": "china",
               "title": "8. 중국 발주 조회",
-              "seconds": 83.194
+              "seconds": 83.038
             },
             {
               "scenario": "china-cycle",
               "title": "9. 중국 차수 선택",
-              "seconds": 93.77
+              "seconds": 93.607
             },
             {
               "scenario": "china-week",
               "title": "10. 중국 세부차수와 미리보기",
-              "seconds": 104.343
+              "seconds": 104.259
             },
             {
               "scenario": "farm",
               "title": "11. 기본 수신명 수정",
-              "seconds": 121.179
+              "seconds": 121.036
             },
             {
               "scenario": "split",
               "title": "12. 농장별 파일 나누기",
-              "seconds": 133.113
+              "seconds": 132.985
             },
             {
               "scenario": "assign",
               "title": "13. 농장 1 품목 선택",
-              "seconds": 143.674
+              "seconds": 143.536
             },
             {
               "scenario": "farm-download",
               "title": "14. 농장별 파일 확인",
-              "seconds": 154.247
+              "seconds": 154.122
             },
             {
               "scenario": "farm-save",
               "title": "15. 농장 파일 다운로드",
-              "seconds": 164.829
+              "seconds": 164.687
             },
             {
               "scenario": "chat",
               "title": "16. 오른쪽 카톡 추가·취소 원문 확인",
-              "seconds": 175.568
+              "seconds": 175.34
             },
             {
               "scenario": "sum",
               "title": "17. 차수·품목군 버튼 선택",
-              "seconds": 192.609
+              "seconds": 191.917
             },
             {
               "scenario": "match-total",
-              "title": "18. 합계에서 근거 원문 확인",
-              "seconds": 203.196
+              "title": "18. 합계에서 원문 확인",
+              "seconds": 202.477
             },
             {
               "scenario": "match-source",
-              "title": "19. 카톡 원문과 품목·수량 대조",
-              "seconds": 216.883
+              "title": "19. 원문에서 합계 확인",
+              "seconds": 215.89
             },
             {
               "scenario": "audit",
               "title": "20. 제외 원문 대조",
-              "seconds": 230.576
+              "seconds": 229.312
             },
             {
               "scenario": "recover",
               "title": "21. 누락 의심 발주 보완",
-              "seconds": 241.231
+              "seconds": 239.918
             },
             {
               "scenario": "copy",
               "title": "22. 농장 전달용 복사",
-              "seconds": 259.378
+              "seconds": 257.981
             },
             {
               "scenario": "download-history",
               "title": "23. 이전 다운로드와 수량 비교",
-              "seconds": 273.298
+              "seconds": 271.434
             }
           ]
         }
