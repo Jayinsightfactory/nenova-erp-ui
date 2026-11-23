@@ -88,10 +88,11 @@ test('active packing never falls through to saved-document lookup during prepara
   assert.match(source, /setSourceAttempt\(value => value \+ 1\)/);
   assert.match(source, /truncated, sourceAttempt,[\s\S]*?awb, invoiceUploadDate, audMarketRate/);
   const lookup = source.indexOf('if (!selected || !documentValue) return');
-  for (const guard of ['if (packingActive && (!file || !excels.length)) return null;', 'if (packingActive && sourceState.error)', 'if (packingActive && (!selected || !documentValue))']) {
+  for (const guard of ["if (packingActive && (!file || (!excels.length && country !== 'NZ'))) return null;", 'if (packingActive && sourceState.error)', 'if (packingActive && (!selected || !documentValue))']) {
     assert.ok(source.indexOf(guard) >= 0 && source.indexOf(guard) < lookup);
   }
   assert.match(source, /!packingActive && renderSavedDocuments\(true\)/);
+  assert.match(source, /if \(!file \|\| !invoices\.length \|\| \(!excels\.length && country !== 'NZ'\)\)/);
 });
 
 test('AU AWB rendering uses a locally defined safe country predicate', () => {

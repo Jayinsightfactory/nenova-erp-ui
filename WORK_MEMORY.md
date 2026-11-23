@@ -4523,6 +4523,14 @@ pm run test:canon 통과.
 4. 검증: 문법 검사 통과, pstack-verify 5/5 PASS. 운영 화면 확인은 반영 뒤에. 건수는 약 3분 간격 화면 표본이고 웹 화면과의 짝은 낱말 규칙(추정).
 5. 주의: 표에는 부서만 싣고 사람 이름은 싣지 않는다. 메뉴는 기존 /my-work?tab=proposals 그대로라 데스크톱앱 메뉴 변경 없음. 연결 목표: g03 / 학습 반영: 있음
 
+## 2026-11-23 패킹리스트 원산지와 인보이스 통화 구분
+검색어: packingOriginEvidence NZD 뉴질랜드 호주 Premium Greens 원산지 오선택 패킹리스트
+1. 작업 위치: nenova-erp-ui / fix/packing-nz-origin-1123 / C:/Users/USER/Documents/Codex/nw-cdx-packing-nz-1123 / PR 미생성.
+2. 완료: NZ 원문→입고 초안, AU 오선택 차단, JP/IL 선택·미지원 안내. 입고 전 원본·예정값 및 PDF 행 확대. SKU·농장 원산지와 원문 NZD·Units 근거를 기존 입고 writer에서 검증.
+3. 남은 일: Electron 추가 캡처와 실제 직원용 NZ 품목·가격 단위 근거 확인. 영상은 사용자 제외로 공식 파일 한정 면제 사용.
+4. 검증: 실제 PDF 격리 웹에서 원문 확대→명시 단위·품목→등록→입고관리 상세 재조회. SQL 키 91001 3행·8박스·NZD 4,253.80·차이 0·중복 차단. 운영 조회·쓰기 및 유료 호출 없음.
+5. 주의: 격리 SQL의 송이·품목 설정은 TEST_ONLY. 운영의 Units 기준을 추정하지 않는다. 연결 목표: g17 / 진행률 유지.
+
 ## 2026-11-23 「기능 추가 후보」 탭에 여러 부서가 같이 만지는 자료 표
 검색어: 같이 쓰는 자료 부서별 영역 한 화면 설계 shared sharedProposal 영업수입불량차감 본보기 excel-web-map
 1. 작업 위치: nenova-erp-ui / cld/shared-areas / C:\Users\USER\nw-cld-shared-areas. 짝이 되는 장치는 nenova-work-features/build-excel-candidates.js · excel-web-map.json(git 아님).
@@ -4539,3 +4547,115 @@ pm run test:canon 통과.
 3. 남은 일: 자동실행 구현/카나리, 11/19 분 단위5xx코드·배포 대조, 활동기록 worker 경로 재현. 사용자 증상 시각 미확정.
 4. 검증 상태: 읽기전용 Actions45089140667 성공, 배포 job skipped. 7일 OOM0, 현재DB health200; 재부팅·부하 재현·개선효과 미검증. 실제 기능코드 변경 없어 전체빌드 미실행.
 5. 주의/잠금: 본 worktree 설계 문서 보존. 운영DB/직원PC 무접촉. 연결 목표:g13/g18, 진행률 증가0%p / 학습 반영:있음.
+## 2026-11-23 관세법인 선율 정산서 Gmail 키워드 자동수집 · 적용환율(R열) 자동반영 (연결 목표: g01, g17, g19)
+1. 작업 위치: nenova-erp-ui / feat/sunyul-gmail-auto-settlement / C:\Users\USER\nw-swm-sunyul-auto (+ 로컬 크롤러 `C:\Users\USER\nenova-pm\crawl-sunyul-gmail.js`, `tests/crawl-sunyul-gmail.test.js`, Windows 예약작업 `NenovaSunyulGmailCrawler`).
+2. 완료한 것: ① `lib/customsSettlementParser.cjs` 1페이지 Row-2 `적용환율` 추출 + 통화별 범위 검증(미인식 시 null 안전 폴백) ② `lib/customsSettlementEvidence.js`·`lib/taxableExchangeRate.js`·`pages/api/sales/profit-report.js`·`lib/profitReport.js`·하류 FX 화이트리스트에 `sunyul_settlement`(선율 정산서 자동반영) 연결 — 수기·입고별·저장·역사·확정본 100% 보존, 비어 있는 `OrderYear+MajorWeek+Currency+Category`만 파일 전용 원장으로 보완(DB DML/DDL 0건) ③ `pages/api/sales/customs-settlement.js`·`lib/customsSettlementZip.cjs`·`lib/customsSettlementJobs.cjs`에 `ORBIT_DRIVE_INGEST_TOKEN` Bearer 서버간 자동 투입(`action='ingest'`, ZIP/단일 PDF, `attachmentSha256` 영구 멱등) 및 `CustomsSettlementGmailBadge.js`(`components/ProfitReportSourceGuide.js`) `Gmail [정산서] 자동 수집 연동` 상태 배지 추가 ④ `docs/contracts/profit-customs-settlement-zip.json` 및 단위 테스트 `__tests__/customsSettlementGmailAndRate.test.cjs` 추가.
+3. 남은 일: PR CI(`verify`) 통과 후 squash 머지·Cafe24 배포 검증 및 `NenovaSunyulGmailCrawler` 실 Gmail 자격증명 연결 확인.
+4. 검증 상태: 실물 38·41·44차 선율 정산서 PDF 10/10건 100% 추출(`1,484.0000` EUR, `199.2000` CNY, `1,330.5200` USD, `931.2300` AUD 등), 단위 테스트 60/60 PASS, `crawl-sunyul-gmail.test.js` 4/4 PASS, `pstack-verify`·`guard:erp-writes`·`test:erp-contract`·`test:erp-manifest`·`build` 전수 통과.
+5. 주의/잠금: 구형 `nenova.exe` 테이블(`Order*`/`Shipment*`/`Warehouse*`/`Stock*`/`Estimate`) 쓰기 0건, 확정 스냅샷 불변, 교차연도(`OrderYear+MajorWeek`) 격리 엄수. 연결 목표: g01, g17, g19 / 학습 반영: 있음
+검색어: 선율 정산서 적용환율 sunyul_settlement gmail-auto customs-settlement crawl-sunyul-gmail WebTaxableExchangeRate g01 g17 g19
+
+## 2026-11-23 NZ 입고 확인 탭과 원문 Variety
+검색어: NZ 210195 about:blank 빈 탭 Variety Red Charm Sarah Bernhardt Madame Claude Tain
+1. 작업 위치: nenova-erp-ui / fix/nz-receipt-popup-1123 / C:/Users/USER/Documents/Codex/nw-cdx-nz-popup-1123.
+2. 완료: 사전 빈 탭 제거, 검증 완료 후 기존 입고 링크 사용, 원문 Variety 표시, 규격 일치 활성 품목·근거 있는 농장 별칭만 제안/선택. 이슈 중복 제거 및 입력 위치 연결.
+3. 남은 일: 격리 Electron의 실제 원본·버튼·등록·재조회 검증, CI·배포.
+4. 검증: 집중 회귀 35건 통과. 격리 SQL의 활성 NZ Blooms 입고에서 3박스·240송이·48단·80송이/박스·5송이/단, 출고·견적 48단, NZD 단가 7.57·금액 1816.80, 중복 차단 확인. 운영 DB 조회·쓰기 없음.
+5. 주의: NZ 서류 날짜를 실제 입고일로 사용하지 않는다. 단·송이 가격 기준 자동 환산 없음. 중국 작업트리 미접촉. 연결 목표 g17.
+## 2026-11-18 · HUBFRESH 계산식 분리 착수·원본 시트 불일치 확인
+- 사용자 첨부 46-2 중국 원가자료.xlsx SHA256=25c1690b748e7ba4c8bf60c538790d40153bf4d34663a18bb4410a9d36231732 읽기 전용 분석. active ‘46-2 CLOUD cbm ’, HUBFRESH 이름은40-2/40-3/41-2. 사용자는HUBFRESH 기준이라고 지정했으므로 어느 시트가 새 기준인지 질문, 답변 전 금융 계산식 임의 변경 금지.
+- 최신46-2: 21개 품종, 품종별 상자규격/박스당 단수/단당 무게/세율. 운임AL=품종CBM비율, 통관T10=GW*460+33000+품종수*10000+국내운송비+기타40000+소독200000; 상세N=$T$11(통관비/총단수), CNF×1.03 후 원화환산·품종관세. 기존GW비례통관 보조표Y는 존재하지만 실제 상세N은균등단수 방식. 원본 AE 품종무게 일부 공란은 임의 0 대입 금지.
+- 검색어: HUBFRESH CLOUD 46-2 cbm 농장별 계산식 원본시트확인 25c1690b 21카테고리
+1. 작업 위치: nenova-erp-ui / feat/hubfresh-cost-1118 / C:/Users/USER/Documents/Codex/nw-cdx-hubfresh-1118 / PR 미생성.
+2. 완료된 것: 새 origin/master worktree, git상태·최근기록·열린PR 점검, 첨부원본 수식과 기존CN_AIR_WEIGHT_CBM_V1 비교. 제품코드 변경 없음.
+3. 남은 할 일: 사용자 기준시트 답변→ERP지침/계약 읽기→농장분리·수정가능 카테고리 버튼 UI·서버/Excel 동일 계산→격리 실제인보이스 입고/다운로드→가이드·CI·배포.
+4. 검증 상태: 원본 수식/셀 읽기만 완료. 실제 인보이스 업로드·입고등록·엑셀 재계산·배포 모두 미검증. 운영DB연결/수정 및 유료분석 없음.
+5. 주의/잠금: 새 worktree는 본 세션 전용. 기존수입부/다른농장 산식 건드리지 않음. 원본엑셀은 사용자소유로 보존, 로컬사본/업무문서 추가생성 없음.
+
+## 2026-11-18 · CLOUD CBM 계산·버튼 매칭 구현, 실제 CI 검증 대기
+- 사용자 정정 확정: 46-2 CLOUD cbm은 CLOUD에 적용. HUBFRESH 기존식 유지. chinaCloudCost에21품종·규격/단수/세율, CBM운임, 통관단수배분, CNF3%가산, 호접허가증300CNY 배분 구현. 원본값 수정/명시0 보존. 국내운송99000원은 원본 추정값일 뿐 모든 중량 고정요율로 선언하지 않음.
+- 미매칭만 기본 표시하는 CloudCostCategories, 전체 보기에서 기존 매칭 변경/해제, Tab/방향키 버튼 이동 추가. 품목명+전산명 카테고리 초안, 저장된 변경/해제 우선. 별도 CN_CLOUD_CBM_V1 registry/순수 서버검증/Excel출력 연결. 신규 CLOUD 구 항공식 혼용 거부; 과거 검증된 승인 스냅샷 출력만 역사식 유지.
+- 원본43품목2280단을 읽기전용 비교:43개 단위원가 전부 차이1e-6미만, 합계20094336.64221원. 생성 Excel은 수량/카테고리/FOB/환율/GW/운임/허가증/통관·판매·이익의 연동 수식 및 숫자 캐시 포함. 실제 Excel 재계산 증명은 아직 없음.
+- 표적211검사193PASS/0FAIL/18SKIP(이후 신규반례2개 추가한 CLOUD 단독8개 전부PASS). 직접 manifest225계약/쓰기scope guard 통과. npm build는 prebuild 사용가이드 갱신가드에서 정상 차단: invoice-cost-readonly/import 재촬영 필요. 최종 전체빌드·ERP 전체가드·CI·배포 미완료.
+- 받은 46-2 중국 CI.pdf는 원문2025-11-14/YUNNAN HENGGE/6품종/11220PCS/33419CNY로, 사용자도 ‘2025년 잘못준 파일’이라고 확인. 현재 2026 CLOUD 테스트에 사용/연도수정/농장강제연결 금지. 로컬 및 네노바 Google Drive 제한검색에서 올바른2026 46-2 CLOUD CI/AWB 미확보. Downloads/46-02_CLOUD.xlsx는 발주서여서 인보이스로 대체 금지.
+- 컴퓨터유즈 Excel창 활성화·읽기만 수행. 파일선택창 접근성인덱스/좌표와 실제초점 불일치로 사본열기 조작 중단, Esc로 창 닫음. 원본/운영DB/입고/재고/승인원가 수정0, 유료분석0. 실제앱 업로드·입고·다운로드/최종영상은 미검증.
+- 검색어: CLOUD CBM 1118 43품목2280단 20094336 CN_CLOUD_CBM_V1 카테고리버튼 2025잘못된CI
+1. 작업 위치: nenova-erp-ui / feat/hubfresh-cost-1118(브랜치명만 초기HUBFRESH, 실제기능CLOUD) / C:/Users/USER/Documents/Codex/nw-cdx-hubfresh-1118 / 초안 PR #1813, 코드09d7228c. 검증 전 병합·배포 금지.
+2. 완료된 것: lib/chinaCloudCost.js·chinaCloudCostWorkbook.js, CloudCostCategories UI, cost engine/preview/export/profile/form 연결, 전용계약/계획/테스트/원본비교 스크립트. 실제인보이스/원본파일 private자료 커밋 금지.
+3. 남은 할 일: 올바른2026 CLOUD CI/AWB 수령→격리업로드/기존매칭/수량총액/입고 저장→카테고리수정→다운로드 실제UI/Excel재계산→사용가이드 녹화·Drive보관→전체가드·빌드·PR/CI·배포.
+4. 검증 상태: 원본원가43행정합/순수계산·예외·취소·기존식보존·수식캐시 표적 통과. 국가전체/실제입고E2E/Excel native/빌드/배포 모두 미검증. 현재상태를 배포완료로 말하지 않음.
+5. 주의/잠금: 이worktree 본 세션 전용. private/원본업무자료, 이전세션 작업트리와 source사용자파일 보존. data/generated 두파일은 build 자동생성 변경이므로 별도stash보관 후 코드PR에서 제외.
+
+## 2026-11-18 · CLOUD 053 CI 업무드라이브 누락 진단: 파일명 오타 검색 불일치
+- 새 사용자 PDF ‘46-2 증국 053 CI sample-YY.pdf’ SHA256 ec11e9e88f4201e7dd9dff661459030d93dc1d74f1a987fd0e97d03e02253fdc, 4페이지. 원문 Yunnan Yunyan/수량합계2280/상품48928CNY/최종73015CNY. 기준원가표와 연결 가능한 자료이며 상세 행별 매칭/입고/원가E2E는 아직 미검증. 은행/연락처/계좌 등 민감 원문은 기록하지 않음.
+- 실제 Chrome 네이버웍스 Drive에서 공용 드라이브/2026년/46차/정확한파일명 존재 확인. 상세 생성2026-11-16 09:51, 수정09:47, 사내전체.
+- 실제 로그인된 네노바 /work/drive 새 탭에서 전체검색053→정확한파일명 조회. 올린사람 아드리아나/차수46-2/입고>인보이스·Proforma/올린시각11.16 09:47/2.8MB 확인. 따라서 수집 누락 아님.
+- 같은 화면 ‘46-2 중국’ 검색에서는 CI가 빠지고 AWB/다른중국파일만 조회, ‘46-2 증국’ 검색에서는 정확한CI 1행 조회 재현. lib/workDriveSearch.cjs matchesQuery는 filename.includes(query)이며 오타/의미 보정 없음. 파일명의 증국≠중국이 원인. CLOUD라는 검색어도 이파일명에는 없음.
+- 파일 이름변경/색인교정/미러재실행/운영DB/원본내용 수정 없음. 조회요청과 화면검색만 수행. 파일선택 클릭은 geometry unavailable로 중단했으나 목록검색 성공과 등록정보는 이미 확인됨. 서버원본SHA 대조는 미검증.
+- 검색어: 053 CI 증국 중국 오타 업무드라이브 검색누락 수집정상 아드리아나 73015
+1. 작업 위치: nenova-erp-ui / feat/hubfresh-cost-1118 / nw-cdx-hubfresh-1118 / 기존 초안PR1813, 이번은 진단기록만.
+2. 완료된 것: 올바른CLOUD PDF 내용 확인, 네이버웍스원본·네노바색인 존재와 검색차이 실제Chrome에서 재현.
+3. 남은 할 일: 기존CLOUD 개발의 해당PDF/AWB 실제E2E, 카테고리 보완·엑셀/가이드/필수가드·배포. 검색오타 보완 또는 원본파일명교정은 사용자가 아직 요청하지 않아 미실행.
+4. 검증 상태: 실제네노바 전체검색 성공, 업로더/차수/분류/올린시각 확인. 원본서버SHA·수량전체입고·최종엑셀은 미검증.
+5. 주의/잠금: 운영DB·원본·분류·파일명 보존. 새Chrome탭은 46-2 증국 검색결과를 표시. private업무자료 Git커밋 금지.
+
+## 2026-11-18 · PDF 분석 중단 보호 별도 PR1818 배포 완료
+- 사용자 보고 46-1 0/6·1/9 지연 후 owner-dead 오류 조사. 읽기전용 진단44220341313에서 최근30분 메모리재시작0·7일OOM0. 실패9구간 작업10:42:45 시작과 실제 배포44217840381의10:48:54.193KST reload가 중첩. 진단44221499539에서 해당 실패 interruptedOwner=true·완료5/9 보존 확인. 별도6구간 작업은10:53:27→10:57:47 성공,260초. 이는 분석 결과이며 입고/도착원가E2E 성공을 뜻하지 않는다.
+- 최신master 별도worktree fix/pdf-lifecycle-1118에서 admission과 build swap/reload 공용 OS mutex, alive RUNNING이 있으면 배포만 차단(파일/완료구간/ERP원장/Provider재시도 보존), 익명timestamp/status진단 추가. 표적120PASS/1SKIP, 신규7PASS·postmerge17PASS·배포/브라우저27PASS, 전체ERP·dnSpy·manifest224·writeguard·로컬webpack 및 최신LinuxCI44222326603 PASS.
+- PR1818 squash34243ea9, Cafe2444223232124 success(6m54s), 실제browser hydration·ping·공개_app버전v1.0.2·34243ea 확인. 사용자 새분석중단 확인 후 최초적용, 완료후 재개 안내. 배포후 진단44224192284(11:34:30KST)에서도 동일5작업/성공6/6·실패완료5/9와 원래timestamp 전부 유지, 활성분석0. 추가유료분석·운영DB수정0.
+- 검색어: PR1818 PDF 분석 중단 배포 재시작 34243ea9 5/9 6/6 260초 lifecycle mutex
+1. 작업 위치: root-fix PR1818 merged34243ea9, 전용worktree nw-cdx-pdf-lifecycle-1118 병합후정리. 현재 기록 위치는 본세션 기존미완료 feat/hubfresh-cost-1118 / nw-cdx-hubfresh-1118 / draftPR1813이며 CLOUD코드 변경 없음.
+2. 완료된 것: root-fix lib/packingPdfLifecycle.cjs·importTeamPdfJobs·guard-pdf-deploy·익명진단·deploy workflow·전용테스트/계약, 실제 운영 배포·기존결과 유지 확인. 근거 PR1818 댓글 및 actions44223232124/44224192284.
+3. 남은 할 일: 기존파일 즉시불러오기/내용변경 새파일 선택재분석 UI는 미구현. 별도 단일구간 실패3건은 interruptedOwner=false로 이번 owner-dead와 다르며 상세원인 미검증. 9구간 잔여4는 재분석하지 않았고 추가비용 동의없이 호출 금지. CLOUD PR1813 E2E/다운로드/가이드는 계속 미완료.
+4. 검증 상태: root-fix 전체검사·Linuxbuild·Cafe24·hydration·ping·배포후saved5job 보존PASS. 실제앱에서 실패건 복구버튼 클릭·나머지4분석·입고/원가생성은 미검증. root-fix 배포 완료와 CLOUD 배포 미완료 구분.
+5. 주의/잠금: 운영입고/재고/원가DB 보존, 유료분석0. 이가드는 배포재시작만 보호하며 OOM/OS강제종료 전부를 방지한다고 주장하지 않음. 본 CLOUD worktree 독점 및 private자료 Git커밋금지. 다음작업 전 origin/master 최신34243ea9 이상을 본 CLOUD브랜치에 통합하고 검증.
+
+## 2026-11-23 · CLOUD 중국 도착원가 새 첨부 수식 정렬
+- 새 원본 SHA53464210 / 46-2 CLOUD cbm / 공식2.0.0. 장미·시네신스·안개 규격, 유칼립·포플러스15kg/box, 아스파라3.2%, 국내운송195000원 수정. 관세를3%가산전 CNF에 적용. CLOUDLAND 별칭 연결, HUBFRESH 보존.
+- 원본43행2280단 전부 Q값1e-6원내 일치, 합계20110579.3157767원. native Excel 재계산 합계동일/수식오류0/환율210→211 갱신PASS. 전용9테스트와 고정양식대조108PASS/18optional 원본파일미보유skip. 생성형CLOUD는 별도2시트·행별수식·필수값·다운로드·취소·명시0·카테고리·원가/추천판매가/이익합계를 전용검사하며 고정양식의3시트 특정좌표 검사는 적용하지 않음.
+- 운영 SELECT-only 2026/46-02 1입고48행2283단/2025없음. 기존 helper제외1행후 NULL품목·단위2행(각1단0원)존재로 실제운영 해당입고 성공다운로드 미검증/차단유지. 원장보정/자동제외/유료PDF분석 없음. 실제dnSpy MakeTempTable 원문 UPrice/TPrice 보존 확인.
+- 검색어: CLOUD Cloudland 중국 도착원가 53464210 46-2 CBM 3% 관세 20110579 PR1813 g17 g19
+1. 작업 위치: nenova-erp-ui / codex/cloud-arrival-cost-1123 / C:/Users/USER/nw-cdx-cloud-cost-1123 / 기존 draft PR1813를 최신master와 병합하여 이어감.
+2. 완료된 것: chinaCloudCost 계산·21카테고리·버튼수정·2시트수식Excel, 원본43행fixture, CLOUDLAND연결. 기존수입부 desktop메뉴확인/101항목재생성·menu3PASS/Desktop1.3.81. 최종가이드4단계실촬영·프레임검수·다운로드쓰기0.
+3. 남은 할 일: 전체ERP 최종검사·빌드·pstack→기존PR갱신/CI→squash머지→Cafe24배포·운영스모크→worktree정리. 운영NULL품목2행은 별도근거확인대상이며 자동수정하지 않음.
+4. 검증 상태: 위43행·nativeExcel·연습브라우저다운로드·영상프레임PASS, dnSpy/쓰기범위/영상해시PASS. 전체ERP/빌드/CI/배포/실운영다운로드는 기록시점 미검증.
+5. 주의/잠금: 본worktree독점, 기존PR1813 fast-forward갱신예정. 원본엑셀·운영입고/재고/견적/매출보존. 연결 목표:g17/g19, 진행률상향0, 학습반영있음(owner-twin --learn).
+
+## 2026-11-23 · CLOUD 원가 배포 후보 검증 완료
+- 검색어: CLOUD 46-2 CBM 원가2.0.0 PR1813 nativeExcel 빌드 가이드 g17 g19
+1. 작업 위치: codex/cloud-arrival-cost-1123 / C:/Users/USER/nw-cdx-cloud-cost-1123 / PR1813 이어서 갱신.
+2. 완료된 것: 새원본43행수식정렬·CLOUDLAND식선택·수정가능카테고리·수식Excel·Desktop1.3.81·최종실제화면가이드. 원본비교·nativeExcel재계산·빌드UI다운로드/영상재생/키보드목차/한국어자막/다운로드 검증.
+3. 남은 할 일: 최신master(#1949 카카오표시)통합→최종CI→squash머지/Cafe24배포/운영스모크. 운영NULL품목2행은원장수정없이별도확인대상. 실제운영46-02입고성공다운로드 미검증.
+4. 검증 상태: npm test:erp-contract 전체exit0, manifest238, dnSpy, ERP쓰기0API, production build, pstack5/5, desktop메뉴3, 전용9 PASS. 고정양식검사108PASS/18optional 개인원본미보유skip. 원본환율210→nativeExcel211(저장안함), 가이드연습210→215. 최종빌드UI7306bytes/쓰기0. 배포는기록시점대기.
+5. 주의/잠금: 기존PR1813에fast-forwardpush, 원본엑셀/운영원장/다른농장계산보존. 연결목표g17/g19·진척률상향0·학습반영있음. 상세정정은docs/plans/china-cloud-cbm-1118.md.
+
+## 2026-11-23 중국 XLSX 시트 선택과 CLOUD 인보이스 대조
+검색어: ChinaInvoiceSheetReview CLOUD Sheet1 Sheet2 Sheet3 Flower Cost CNY 중국 인보이스 시트
+1. 작업 위치: nenova-erp-ui / fix/cn-invoice-sheet-1123 / C:/Users/USER/Documents/Codex/nw-cdx-cn-invoice-sheet-1123 / PR 미생성.
+2. 완료: 파일 로컬 읽기, 빈/숨김 시트 구분, 명시 선택한 INVOICE/legacy 검증, CLOUD 소계·총액 대조, 명시 분류·단위 확인 뒤 읽기 전용 품목 매칭.
+3. 남은 일: 실제 업무 단위·매칭 근거 확인, 가이드 갱신·CI·배포. CLOUD 화면은 입고 저장 경로가 아니다.
+4. 검증: 격리 Chrome 실파일 Sheet1 두 건, CNY 78,077/4,450 차이 0. 시험 선택 A 상품38·비용3 중 1행, B 상품2·비용3 중 1행 매칭. 관련 테스트 103 통과/2 건너뜀.
+5. 주의: 운영 DB 및 원본 변경 없음. CLOUD에서 원문에 없는 단위를 확정하지 않는다. 연결 목표 g17 / 진행률 유지.
+
+## 2026-11-23 · CLOUD 운영 다운로드 잔여 항목 조사 · 사용자 확인 대기
+- 운영2026/46-02 Cloudland 송장2026YY-053/WarehouseKey8160 SELECT-only. 상품45행은 원본43행의 프라우드 분할2건을 묶으면2280단 일치. 상품금액 원본48870/운영48928CNY이며 차이는F34 프라우드58단의 단가23/24 한 건(+58CNY)뿐이다.
+- 미연결50449/50450은 ProdKey·품목명·실제수량·단위NULL, 각Box/Bunch1·Steam2543·U/TPrice0, OrderCode47/48. 원본C8 GW1896/E8 CW2578.4566667과 달라2543을어느중량으로도추정하지않는다. 원장/다운로드원가값/제외판정 변경0.
+- 확인된입력: 운송료50448 TPrice24087=원본C11(E111200+H1122887). 50412꽃잎→PETAL(code6),B40/E40/F40,L12/Q12(21.4%). 50437포플러스→POPULUS GRAIN(code21),B65/E65/F65,L27/M27/Q27(15kg/box,3.2%).
+- 검색어: CLOUD 다운로드 8160 50449 50450 프라우드 F34 58CNY GW1896 2543 PETAL POPULUS
+1. 작업 위치: codex/cloud-cost-download-1123 / C:/Users/USER/nw-cdx-cloud-download-1123 / origin/master e8b3094f4 기반 / PR없음.
+2. 완료된 것: 원본·운영수량/금액 대응표 및 운임/카테고리 근거정리. 코드변경없음, 본WORK_MEMORY 조사기록만추가.
+3. 남은 할 일: 사용자에게가격기준(원장유지/엑셀원가전용)과GW/CW/NULL0원2행계산제외 여부를질문한상태. 답변전제외·override·다운로드·새구현/배포보류.
+4. 검증 상태: 운영SELECT와원본43행대조완료. 구현변경이없어전체테스트·빌드재실행안함. 실제다운로드미완료. 원본엑셀·ERP원장·운영배포변경0.
+5. 주의/잠금: 위worktree는후속답변용예약. 확정되지않은프라우드58단가격·2543중량을임의반영금지. 연결목표g17/g19, 추가진척률상향0.
+
+## 2026-11-23 · CLOUD 미연결 2행 원문 확정 · 운영 기준 원가 재현
+- 사용자 결정: 프라우드 운영102단@23+58단@24, 상품48928 CNY 유지. 가격override0.
+- 업무드라이브 원본46-02_CN_CLD_PL.xlsx, SHA0d47d73469576f1f537c44929660ead1b226540cfc67916829fbb39eb82a974e, CN-CLD!B52/J52=Gross weigth/2543, B53/J53=Chargeable weigth/2543. weight철자오류로Product정확매칭실패한중량2행임을확인. 원본A6:L53의48행숫자·품명·순서를운영과전부대조완료.
+- data/native-cost-source-evidence.json의검증기록과 lib/nativeReceiptCostEvidence.js 공통검증으로정확scope·원본명·48행지문·NULL0원GW/CWpair일치시만분리. GW=CW2543,운임24087,카테고리PETAL/POPULUS. 호접은원본G41:I41:J41과원가표E66의1송이=1단근거로계산단위만BUNCH, 원장단위송이보존. 다른입고자동확대/광역weight fuzzy제외없음.
+- 운영재생45상품행/2280단/상품48928 CNY/운임24087 CNY/환율210(원가표C7)/통관1817780원/총20423351.235777원. 생성전후sourceHash동일,실제Excel재계산20423351.2357767원·수식오류0. XLSX출력에오타원인·원장불변·원본SHA/셀·1:1단위·환율근거표시.
+- 검색어: CLOUD 8160 50449 50450 Gross weigth Chargeable weigth 2543 0d47d734 20423351 운영기준
+1. 작업 위치: codex/cloud-cost-download-1123 / C:/Users/USER/nw-cdx-cloud-download-1123 / e8b3094f4 기반 / PR생성전.
+2. 완료된 것: sourceevidence·공통검증·원가전용분리/자동입력·출력근거·정상/near-miss/교차연도회귀·Desktop1.3.82. UI파일/메뉴/업무순서변경없고기존사용가이드유지.
+3. 남은 할 일: 최종pstack→PR/CI→머지/Cafe24배포→운영Chrome실제다운로드·파일검산. 실제운영다운로드는아직미완료.
+4. 검증 상태: 전체ERP계약exit0,manifest238/dnSpy/ERP쓰기0API/productionbuild/메뉴3PASS. 표적67PASS·9조건부skip,새증거4PASS·최종출력회귀9PASS, 실제SELECT재생·nativeExcel PASS. 중복전체검사재실행없음.
+5. 주의/잠금: 본worktree전용. 운영Warehouse/Stock/Order/Shipment/Estimate/손익원장쓰기0,원본엑셀수정0. 연결목표g17/g19·실이익회수미측정·진행률상향0. 사용자가받을최종다운로드파일은보존.

@@ -128,6 +128,14 @@
     },
     {
       "id": "invoice-farm-history",
+      "videoWaivers": [
+        {
+          "file": "lib/invoiceReceiptAutoFill.js",
+          "sha256": "1f60d9f43362b44868caba642ac6916a5f6eba231b3e783ae5df7561a27be51e",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        }
+      ],
       "title": "농장 자동 선택·수정과 업로드 이력 대조",
       "entryPaths": [
         "/import/tools"
@@ -180,6 +188,26 @@
     },
     {
       "id": "receipt-source-comparison",
+      "videoWaivers": [
+        {
+          "file": "components/import-tools/InvoiceReceiptComparison.js",
+          "sha256": "06259c6e3114b55a0dda9e3e9e7f9d2a36bdf4def98f91430df93a17b4200849",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        },
+        {
+          "file": "components/import-tools/InvoiceTotalEvidence.js",
+          "sha256": "d7aeec94436980993b3d24deb3df44c41fea8126de04c664be3553c5323a1b94",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        },
+        {
+          "file": "styles/InvoiceReceipt.module.css",
+          "sha256": "46bc66cf0342bfbf7999adcff5086721e293d290b364bad961b4368b5444b6ce",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        }
+      ],
       "title": "입고 전 원본·품목·수량 대조",
       "entryPaths": [
         "/import/tools"
@@ -251,17 +279,22 @@
             {
               "scenario": "lookup",
               "title": "1. 기존 입고의 자동 통화·중량·참고 세율을 확인합니다. 인보이스 재업로드와 매칭은 반복하지 않습니다.",
-              "seconds": 0.038
+              "seconds": 0.008
+            },
+            {
+              "scenario": "categories",
+              "title": "2. 품종별 카테고리를 확인합니다. 장미를 유칼립투스로 바꾸면 운임과 관세가 다시 계산됩니다.",
+              "seconds": 9.621
             },
             {
               "scenario": "inputs",
-              "title": "2. 자동 환율을 확인하고 필요할 때만 수정합니다. 수정 후 별도 체크나 미리보기 없이 다시 검증됩니다.",
-              "seconds": 9.657
+              "title": "3. 자동 환율을 확인하고 필요할 때만 수정합니다. 수정 후 별도 체크나 미리보기 없이 다시 검증됩니다.",
+              "seconds": 21.436
             },
             {
               "scenario": "download",
-              "title": "3. 다운로드를 누르면 서버가 현재 입고·금액·수량을 다시 검증하고 엑셀을 만듭니다. 운영 원장은 저장하지 않습니다.",
-              "seconds": 22.135
+              "title": "4. 다운로드를 누르면 서버가 현재 입고·금액·수량을 다시 검증하고 엑셀을 만듭니다. 운영 원장은 저장하지 않습니다.",
+              "seconds": 33.633
             }
           ]
         }
@@ -387,6 +420,20 @@
     },
     {
       "id": "packing-free-ocr",
+      "videoWaivers": [
+        {
+          "file": "components/import-tools/PackingListTool.js",
+          "sha256": "55cebe1db981fcf79dc2e7ca5f3cac17a0bd9ad5e42fbbc317357d78220f83e9",
+          "reason": "2026-11-23 사용자 명시: 중국 47-2A/B 시트 선택·원문 대조 변경의 영상 재촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        },
+        {
+          "file": "pages/import/tools.js",
+          "sha256": "4c50c890dff9e2ca775bdb5613f474d4a315c7964a1c205ac9b434d9c5e35f73",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        }
+      ],
       "title": "Claude 인보이스 분석·원본 이슈 확인",
       "entryPaths": [
         "/import/tools"
@@ -456,6 +503,26 @@
     },
     {
       "id": "packing-list-from-invoice",
+      "videoWaivers": [
+        {
+          "file": "components/import-tools/PackingListTool.js",
+          "sha256": "55cebe1db981fcf79dc2e7ca5f3cac17a0bd9ad5e42fbbc317357d78220f83e9",
+          "reason": "2026-11-23 사용자 명시: 중국 47-2A/B 시트 선택·원문 대조 변경의 영상 재촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        },
+        {
+          "file": "components/import-tools/InvoiceReceiptWorkbench.js",
+          "sha256": "e0f40e883786f61134caf621fca706706ab67d4a9a2e874d34865b1182865414",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        },
+        {
+          "file": "pages/import/tools.js",
+          "sha256": "4c50c890dff9e2ca775bdb5613f474d4a315c7964a1c205ac9b434d9c5e35f73",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        }
+      ],
       "title": "패킹리스트 만들기(인보이스 → 입고용 엑셀)",
       "entryPaths": [
         "/import/tools",
@@ -588,6 +655,14 @@
     },
     {
       "id": "incoming-approval",
+      "videoWaivers": [
+        {
+          "file": "pages/import/tools.js",
+          "sha256": "4c50c890dff9e2ca775bdb5613f474d4a315c7964a1c205ac9b434d9c5e35f73",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        }
+      ],
       "title": "입고 수정 요청과 검토·확정",
       "entryPaths": [
         "/incoming",
@@ -1304,117 +1379,117 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.007
+              "seconds": 0.006
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.588
+              "seconds": 10.572
             },
             {
               "scenario": "week",
               "title": "3. 세부차수와 미리보기",
-              "seconds": 21.176
+              "seconds": 21.125
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 37.975
+              "seconds": 37.943
             },
             {
               "scenario": "download",
               "title": "5. 다운로드·ETA 창 열기",
-              "seconds": 49.185
+              "seconds": 49.025
             },
             {
               "scenario": "eta",
               "title": "6. ETA 날짜 입력",
-              "seconds": 59.761
+              "seconds": 59.603
             },
             {
               "scenario": "save",
               "title": "7. ETA 저장·엑셀 다운로드",
-              "seconds": 72.164
+              "seconds": 71.827
             },
             {
               "scenario": "china",
               "title": "8. 중국 발주 조회",
-              "seconds": 83.194
+              "seconds": 82.665
             },
             {
               "scenario": "china-cycle",
               "title": "9. 중국 차수 선택",
-              "seconds": 93.77
+              "seconds": 93.235
             },
             {
               "scenario": "china-week",
               "title": "10. 중국 세부차수와 미리보기",
-              "seconds": 104.343
+              "seconds": 103.808
             },
             {
               "scenario": "farm",
               "title": "11. 기본 수신명 수정",
-              "seconds": 121.179
+              "seconds": 120.555
             },
             {
               "scenario": "split",
               "title": "12. 농장별 파일 나누기",
-              "seconds": 133.113
+              "seconds": 132.447
             },
             {
               "scenario": "assign",
               "title": "13. 농장 1 품목 선택",
-              "seconds": 143.674
+              "seconds": 143.019
             },
             {
               "scenario": "farm-download",
               "title": "14. 농장별 파일 확인",
-              "seconds": 154.247
+              "seconds": 153.592
             },
             {
               "scenario": "farm-save",
               "title": "15. 농장 파일 다운로드",
-              "seconds": 164.829
+              "seconds": 164.169
             },
             {
               "scenario": "chat",
               "title": "16. 오른쪽 카톡 추가·취소 원문 확인",
-              "seconds": 175.568
+              "seconds": 174.841
             },
             {
               "scenario": "sum",
               "title": "17. 차수·품목군 버튼 선택",
-              "seconds": 192.609
+              "seconds": 191.392
             },
             {
               "scenario": "match-total",
-              "title": "18. 합계에서 근거 원문 확인",
-              "seconds": 203.196
+              "title": "18. 합계에서 원문 확인",
+              "seconds": 201.967
             },
             {
               "scenario": "match-source",
-              "title": "19. 카톡 원문과 품목·수량 대조",
-              "seconds": 216.883
+              "title": "19. 원문에서 합계 확인",
+              "seconds": 215.398
             },
             {
               "scenario": "audit",
               "title": "20. 제외 원문 대조",
-              "seconds": 230.576
+              "seconds": 228.8
             },
             {
               "scenario": "recover",
               "title": "21. 누락 의심 발주 보완",
-              "seconds": 241.231
+              "seconds": 239.472
             },
             {
               "scenario": "copy",
               "title": "22. 농장 전달용 복사",
-              "seconds": 259.378
+              "seconds": 257.675
             },
             {
               "scenario": "download-history",
               "title": "23. 이전 다운로드와 수량 비교",
-              "seconds": 273.298
+              "seconds": 271.21
             }
           ]
         }

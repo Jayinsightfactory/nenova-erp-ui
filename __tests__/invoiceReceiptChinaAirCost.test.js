@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { INVOICE_COST_FORMULAS, previewInvoiceCost, restoredInvoiceCostInput } from '../lib/invoiceReceiptCost.js';
 import { acquireInvoiceCostWorkflowLock } from '../lib/invoiceReceiptCostWorkflow.js';
+import {isCloudInvoice,matchCloudCategory} from '../lib/chinaCloudCost.js';
 import { validateInvoiceCostReadback } from '../lib/invoiceReceiptCostWorkflow.js';
 import { adaptPackingReceipts, normalizeReceiptDocument, toReceiptDraftPayload } from '../lib/importPackingReceiptAdapter.js';
 
@@ -190,7 +191,7 @@ test('UI restores and serializes new line weights while recognized GW remains on
     filename: 'InvoiceReceiptCostReview.js', presets: [require('next/dist/compiled/babel/preset-react')], configFile: false, babelrc: false,
   });
   const beforeField = source.slice(source.indexOf('const EMPTY_FORM'), source.indexOf('function Field('));
-  const ui = new Function('INVOICE_COST_FORMULAS', `${beforeField}\nreturn { initialForm, payloadOf, applicableFormulaId };`)(INVOICE_COST_FORMULAS);
+  const ui = new Function('INVOICE_COST_FORMULAS','isCloudInvoice','matchCloudCategory', `${beforeField}\nreturn { initialForm, payloadOf, applicableFormulaId };`)(INVOICE_COST_FORMULAS,isCloudInvoice,matchCloudCategory);
   const f = fixture();
   f.lines[0].sourceEvidence = { grossWeightKg: 25, grossWeightEvidence: { requiresReview: true } };
   const unsaved = ui.initialForm(f.document, f.lines);
@@ -225,7 +226,7 @@ test('explicit UI restore blocks dirty or stale async responses and resets appli
   const source = readFileSync(new URL('../components/import-tools/InvoiceReceiptCostReview.js', import.meta.url), 'utf8');
   const handler = source.slice(source.indexOf('  async function loadApprovedInput()'), source.indexOf('  async function runPreview()'));
   const beforeField = source.slice(source.indexOf('const EMPTY_FORM'), source.indexOf('function Field('));
-  const { initialForm } = new Function('INVOICE_COST_FORMULAS', `${beforeField}\nreturn { initialForm };`)(INVOICE_COST_FORMULAS);
+  const { initialForm } = new Function('INVOICE_COST_FORMULAS','isCloudInvoice','matchCloudCategory', `${beforeField}\nreturn { initialForm };`)(INVOICE_COST_FORMULAS,isCloudInvoice,matchCloudCategory);
   for (const scenario of ['success', 'dirty-before', 'dirty-during', 'identity-change']) {
     const f = fixture(); f.document.sourceHash = 'aa'.repeat(32);
     let resolveFetch; let fetches = 0; let restoredForm; let current = true;

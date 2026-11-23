@@ -3,6 +3,7 @@
 // 설명 문구는 lib/profitReportSourceGuide.js 한 곳에서만 관리한다(회귀테스트가 강제).
 import { Fragment, useState } from 'react';
 import { GUIDE_SECTIONS, ENTRY_KINDS, GUIDE_SUMMARY } from '../lib/profitReportSourceGuide';
+import CustomsSettlementGmailBadge from './CustomsSettlementGmailBadge';
 
 const PANEL_ID = 'profit-report-source-guide-panel';
 
@@ -20,6 +21,7 @@ export default function ProfitReportSourceGuide() {
   const [open, setOpen] = useState(false);
   return (
     <div style={st.wrap}>
+      <CustomsSettlementGmailBadge />
       <button
         type="button"
         onClick={() => setOpen(v => !v)}

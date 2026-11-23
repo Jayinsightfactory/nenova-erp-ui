@@ -25,10 +25,13 @@ import { packingValidationIssues } from '../../lib/packingValidationIssues.js';
 import { notifyPackingBlocked } from '../../lib/packingBlockedNotice.js';
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { reconcileInvoiceSupplier } from '../../lib/invoiceSupplierEvidence.js';
+import { inspectNzBloomInvoice, nzOriginComparisonDocument, packingOriginMismatch, SUPPLEMENTAL_PACKING_ORIGINS } from '../../lib/packingOriginEvidence.js';
+import InvoiceReceiptComparison from './InvoiceReceiptComparison.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
 import { packingWeight } from '../../lib/invoiceReceiptAutoFill.js';
 import { parseChinaInvoiceWorkbook, CHINA_INVOICE_MAX_BYTES } from '../../lib/importChinaInvoice.js';
+import ChinaInvoiceSheetReview from './ChinaInvoiceSheetReview.js';
 import { isModernChinaInvoice } from '../../lib/importChinaInvoiceFormat.js';
 import { readPackingRecords, indexPackingCatalog, savePackingAliases, writePackingRecord,
   PACKING_STORAGE_KEYS, isPackingDownloadBlocked, previewPackingCatalog,
@@ -954,11 +957,15 @@ async function requestErpMatches(body, revisionOnly = false) {
 export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '', sharedRestore, autoAnalyze = true, onContinue, costOnly = false }) {
   const [screen, setScreen] = useState('country');
   const [country, setCountry] = useState(null);
+  const [originPreview, setOriginPreview] = useState(null);
+  const [nzReceiptSource, setNzReceiptSource] = useState(null);
   const [lang, setLang] = useState('ko');
   const t = { ...I18N[lang] || I18N.ko, ...packingText(lang) };
   const changeLang = setLang;
   const [file, setFile] = useState(null);
   const [fileChoice,setFileChoice]=useState(null);
+  const [chinaSheetReview,setChinaSheetReview]=useState(null);
+  const selectedChinaSheet=useRef(null);
   const [selectingFile,setSelectingFile]=useState(false);
   const [historyOpen,setHistoryOpen]=useState(false);
   const [historyRows,setHistoryRows]=useState([]);
@@ -1183,6 +1190,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1]); reader.onerror = () => reject(new Error('보관된 원본 파일을 읽을 수 없습니다.')); reader.readAsDataURL(restoredFile); }),
       ]);
       if (readerVersion.current !== version) return;
+      if (work.country === 'AU' && /\.pdf$/i.test(restoredFile.name)) {
+        const mismatch = packingOriginMismatch(await readAwbPdf(base64).catch(() => null), work.country);
+        if (readerVersion.current !== version) return;
+        if (mismatch) throw new Error(mismatch);
+      }
       const extraction = work.lastExtraction;
       if (!extraction?.result?.invoices?.length || !extraction?.sourceInvoices?.length) {
         resetResults(); setCountry(work.country); setDateYear(work.dateYear || ''); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
@@ -1222,6 +1234,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
 
   useEffect(() => {
     if (typeof onReceiptSourceChange !== 'function') return;
+    if (country === 'NZ' && nzReceiptSource) {
+      onReceiptSourceChange(nzReceiptSource);
+      return;
+    }
     // Empty source suspends new adaptation; the workbench retains its records.
     if (latestShared || !file || !lastExtraction || !excels.length || !generatedErp || !reviewConfirmed) {
       onReceiptSourceChange({
@@ -1257,7 +1273,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       audMarketRate: country === 'AU' ? audMarketRate : null,
       audMarketRateError: country === 'AU' ? audMarketRateError : '',
     });
-  }, [country, generatedErp, excels, file, lastExtraction, onReceiptSourceChange, reviewConfirmed, latestShared,
+  }, [country, nzReceiptSource, generatedErp, excels, file, lastExtraction, onReceiptSourceChange, reviewConfirmed, latestShared,
     invoiceUploadDate, awbFile, awbSourceHash, awbReview, awbReviewed, awbManualFields, audMarketRate, audMarketRateError]);
 
   const resetResults = () => {
@@ -1533,6 +1549,55 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setStatus({ type: 'error', msg: country === 'CN' ? '중국 인보이스는 PDF 또는 XLSX 파일을 선택하세요.' : t.pdfOnly });
       return;
     }
+    if (country === 'AU' || country === 'NZ') {
+      setOriginPreview(null); setNzReceiptSource(null); setStatus(null); setSelectingFile(true);
+      try {
+        const base64 = await new Promise((resolve,reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1]);
+          reader.onerror = () => reject(new Error('선택한 원본 파일을 읽지 못했습니다.'));
+          reader.readAsDataURL(f);
+        });
+        const evidence = await readAwbPdf(base64).catch(error => {
+          if (country === 'NZ') throw error;
+          return null;
+        });
+        if (readerVersion.current !== version) return;
+        const mismatch = packingOriginMismatch(evidence, country);
+        if (mismatch) {
+          resetResults(); setFile(null); setPdfBase64(null); setStatus({ type:'error', msg:mismatch });
+          return;
+        }
+        if (country === 'NZ') {
+          const invoice = inspectNzBloomInvoice(evidence);
+          if (invoice) setOriginPreview({ ...invoice, file:f });
+          else setStatus({ type:'error', msg:'지원하는 뉴질랜드 인보이스 서식이 아니거나 송장번호·수량·금액이 원문과 일치하지 않습니다. 분석 API는 호출하지 않았습니다.' });
+          return;
+        }
+      } catch (error) {
+        if (readerVersion.current === version) setStatus({type:'error',msg:error.message});
+        return;
+      } finally {
+        if (readerVersion.current === version) setSelectingFile(false);
+      }
+    }
+    if(isChinaExcel){
+      setSelectingFile(true);setStatus(null);
+      try{
+        if(!xlsxLib)throw Error('Excel 읽기 도구가 준비되지 않았습니다. 잠시 후 다시 선택하세요.');
+        const bytes=await f.arrayBuffer();
+        const source=await new Promise((resolve,reject)=>{
+          const reader=new FileReader();
+          reader.onload=()=>resolve(String(reader.result).split(',')[1]);
+          reader.onerror=()=>reject(Error('선택한 원본 Excel을 읽지 못했습니다.'));
+          reader.readAsDataURL(f);
+        });
+        if(readerVersion.current===version)setChinaSheetReview({file:f,book:xlsxLib.read(bytes,{type:'array',cellFormula:true}),base64:source,version});
+      }catch(e){if(readerVersion.current===version)setStatus({type:'error',msg:e.message});}
+      finally{if(readerVersion.current===version)setSelectingFile(false);}
+      return;
+    }
+    setChinaSheetReview(null);
     if (autoAnalyze) {setSelectingFile(true);try {
       const sourceHash = await sha256File(f);
       const rows=await readUploadHistory();
@@ -1810,8 +1875,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         extraction={data:reusableExtraction.current.data,source:'cache'};reusableExtraction.current=null;
       } else if (country === 'CN' && /\.xlsx$/i.test(file.name)) {
         try {
-          extraction = { source: 'local', data: parseChinaInvoiceWorkbook(xlsxLib, pdfBase64) };
+          const selected=selectedChinaSheet.current;
+          extraction = { source: 'local', data: parseChinaInvoiceWorkbook(xlsxLib, pdfBase64, selected?.file===file?{sheetName:selected.name}:undefined) };
         } catch (modernError) {
+          if(selectedChinaSheet.current?.file===file)throw modernError;
           try {
             const workbook = xlsxLib.read(pdfBase64, { type: 'base64', cellFormula: true });
             const candidates = findLegacyChinaInvoiceCandidates(xlsxLib, workbook);
@@ -2287,9 +2354,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           <>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.selectCountry}</div>
             <div className={styles.countryGrid}>
-              {countryLabels.map((c) => (
+              {[...countryLabels, ...SUPPLEMENTAL_PACKING_ORIGINS].map((c) => (
                 <button type="button" key={c.code} aria-label={c.name} onClick={() => {
-                  ++readerVersion.current; resetResults(); setCountry(c.code); setScreen('upload'); setFile(null); setPdfBase64(null); setStatus(null);
+                  ++readerVersion.current; resetResults(); setOriginPreview(null); setNzReceiptSource(null); setChinaSheetReview(null); setCountry(c.code); setScreen('upload'); setFile(null); setPdfBase64(null); setStatus(null);
                   setInvoiceUploadDate(''); setAudMarketRate(null); setAudMarketRateError('');
                   setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
                 }}
@@ -2299,7 +2366,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   <span style={{ fontSize: 26, display: 'block', marginBottom: 7 }}>{c.flag}</span>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{c.name}</div>
                   <div style={{ fontSize: 13, color: '#526580', marginTop: 2 }}>{c.desc}</div>
-                  <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 13, padding: '2px 7px', borderRadius: 20, fontWeight: 500, background: '#e8f5ee', color: '#176039', border: '1px solid #b8e0c8' }}>{t.countryReady}</span>
+                  {c.flag && <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 13, padding: '2px 7px', borderRadius: 20, fontWeight: 500, background: '#e8f5ee', color: '#176039', border: '1px solid #b8e0c8' }}>{t.countryReady}</span>}
                 </button>
               ))}
               {/* AWB tile — separate module, not a country */}
@@ -2320,6 +2387,38 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           <AWBPanel xlsxLib={xlsxLib} lang={lang} readAwbPdf={readAwbPdf} onBack={() => setScreen('country')} />
         )}
 
+        {screen === 'upload' && !cfg && SUPPLEMENTAL_PACKING_ORIGINS.some(item => item.code === country) && (
+          <section className={styles.reusePanel} aria-label="추가 원산지">
+            <button type="button" onClick={() => { ++readerVersion.current; setSelectingFile(false); setScreen('country'); }}>{t.back}</button>
+            <h2>{SUPPLEMENTAL_PACKING_ORIGINS.find(item => item.code === country).name}</h2>
+            <p>{country === 'NZ' ? '원문을 대조한 뒤 입고 작업에서 농장·품목과 Units의 수량·가격 기준을 확인하세요. 패킹 엑셀과 이 화면에서의 원가 계산은 지원하지 않습니다.' : '국가는 선택할 수 있지만 이 메뉴에서 패킹 처리·ERP 입고·원가는 아직 지원하지 않습니다.'}</p>
+            {country === 'NZ' && <>
+              <label>뉴질랜드 인보이스 PDF <input type="file" accept=".pdf" disabled={selectingFile} onChange={e => { handleFile(e.target.files[0]); e.target.value = ''; }} /></label>
+              {selectingFile && <p role="status">PDF 원문 확인 중…</p>}
+              {status?.type === 'error' && <p role="alert">{status.msg}</p>}
+              {originPreview && <div data-testid="packing-origin-preview" style={{overflowX:'auto'}}>
+                <p>송장 {originPreview.invoice} · 공급처 {originPreview.supplier} · 원산지 뉴질랜드 · 통화 {originPreview.currency} · 총액 {originPreview.total}</p>
+                <p>원본 총액 {originPreview.currency} {originPreview.total} · 저장 예정 총액 해당 없음 · 차이 계산 안 함</p>
+                <InvoiceReceiptComparison file={originPreview.file} document={nzOriginComparisonDocument(originPreview)} sourceOnly />
+                <button type="button" disabled={selectingFile} onClick={async()=>{
+                  const version=readerVersion.current;
+                  setSelectingFile(true);
+                  try {
+                    const data=await requestErpMatches();
+                    if (readerVersion.current!==version) return;
+                    setNzReceiptSource({country:'NZ',file:originPreview.file,invoices:[originPreview],
+                      excels:EMPTY_RECEIPT_ITEMS,products:data.products,reviewConfirmed:true,truncated:false,packingActive:true});
+                    onContinue?.();
+                  } catch(error) {
+                    if(readerVersion.current===version)setStatus({type:'error',msg:error.message});
+                  } finally {
+                    if(readerVersion.current===version)setSelectingFile(false);
+                  }
+                }}>원본 확인 · 입고 작업 열기</button>
+              </div>}
+            </>}
+          </section>
+        )}
         {screen === 'upload' && cfg && (
           <>
             <button data-testid="packing-country-back" onClick={() => {++readerVersion.current;autoAnalysisFile.current=null;setFileChoice(null);setSelectingFile(false);setHistoryOpen(false);setScreen('country');}} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#526580', cursor: 'pointer', border: 'none', background: 'none', padding: 0, marginBottom: '1.25rem' }}>{t.back}</button>
@@ -2359,6 +2458,13 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
               <div style={{ fontSize: 14, color: '#526580' }}><strong style={{ color: '#172b4d' }}>{t.uploadClick}</strong> {t.uploadDrag}</div>
               <div style={{ fontSize: 13, marginTop: 4, color: '#526580' }}>{country === 'CN' ? 'PDF 20MiB / Excel 50MiB · 예: 41-1 중국 해상 ci1.xlsx' : <>PDF · 20MiB · {t.uploadHint} <code style={{ background: '#edf2f8', padding: '1px 5px', borderRadius: 3 }}>16-2 Hortensias.pdf</code>)</>}</div>
             </div>
+            {country==='CN'&&chinaSheetReview&&<ChinaInvoiceSheetReview key={chinaSheetReview.version} xlsx={xlsxLib} source={chinaSheetReview}
+              products={(erpMatches?.products||[]).filter(p=>p.country==='CN'&&p.selectable)}
+              onCancel={()=>setChinaSheetReview(null)} onContinue={name=>{
+                selectedChinaSheet.current={name,file:chinaSheetReview.file};
+                acceptSelectedFile(chinaSheetReview.file,chinaSheetReview.version,null,chinaSheetReview.base64);
+                setChinaSheetReview(null);
+              }}/>}
             {fileChoice&&<section className={styles.reusePanel} aria-label="새 파일 분석 선택" data-testid="packing-file-choice" onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();cancelFileChoice();}}}>
               <h3 ref={fileChoiceRef} tabIndex={-1}>{fileChoice.previous?'내용이 변경된 파일입니다':'새 파일 분석을 선택하세요'}</h3>
               <p><strong>{fileChoice.file.name}</strong> · {(fileChoice.file.size/1024).toFixed(0)} KB</p>

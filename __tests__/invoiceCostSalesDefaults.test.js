@@ -33,7 +33,7 @@ function hasCycle(sheet){
  }
  return [...edges.keys()].some(visit);
 }
-for(const profile of Object.values(INVOICE_COST_EXPORT_PROFILES))test(`${profile.id} automatic reference sales and complete profit totals, no source mutation`,async()=>{
+for(const profile of Object.values(INVOICE_COST_EXPORT_PROFILES).filter(profile=>!profile.generated))test(`${profile.id} automatic reference sales and complete profit totals, no source mutation`,async()=>{
  const f=invoiceCostExportFixture(4,profile.formulaId);f.document.orderYear='2025';
  if(profile.id==='CN_SEA_ORIGINAL_V1')f.snapshot.input.lineInputs.forEach(l=>{l.boxCbm=.1;});
  const before=JSON.stringify(f),bytes=await createInvoiceCostWorkbook(f),b=X.read(bytes,{cellFormula:true}),s=b.Sheets['원본 양식 계산'],p=layout(profile),r=p.first,summary=(profile.headerRow??r-1)-1;

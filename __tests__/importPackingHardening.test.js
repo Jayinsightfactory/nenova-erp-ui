@@ -161,6 +161,8 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   const modules = { '../../styles/ImportPacking.module.css': cssModules, '../../styles/ImportReviewTypography.module.css': cssModules, react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packingHarness,
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
     '../../lib/invoiceSupplierEvidence.js': await import('../lib/invoiceSupplierEvidence.js'),
+    '../../lib/packingOriginEvidence.js': await import('../lib/packingOriginEvidence.js'),
+    './InvoiceReceiptComparison.js': () => null,
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
     '../../lib/importFreeOcrClient.js': {async extractFreePackingDocument({country,pdfBase64}){
       extractionCalls.push({country,pdfBase64,freeOnly:true});
@@ -190,6 +192,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/packingSharedHistoryClient.js': {createPackingHistoryClient: () => ({save: async () => ({id:'test-history'})})},
     '../../lib/packingFileReuse.js': {...require('../lib/packingFileReuse.js'),readCompletedPackingAnalysis:async()=>null},
     './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
+    './ChinaInvoiceSheetReview.js': { default: 'ChinaInvoiceSheetReview', __esModule: true },
     './PackingResults.js': { default: PackingResultsStub, __esModule: true },
     './PackingMatchManager.js': { default: PackingMatchManagerStub, __esModule: true },
     './PackingEvidenceReview.js': { default: 'PackingEvidenceReview', __esModule: true },
@@ -317,17 +320,17 @@ test('China accepts a 33MiB XLSX locally and rejects oversize files without AI r
     h.nodes('input').find(n => n.props.accept === '.pdf,.xlsx').props.onChange({ target: { files: [file], value: '' } });
     h.render();
   };
-  upload({name:'41-1 중국 해상 ci1.xlsx',size:34304924,type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  await h.waitForRealSha(0); await h.refresh();
+  upload({...catalogFile([], '41-1 중국 해상 ci1.xlsx'),size:34304924,type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  await h.refresh();
   assert.equal(h.readers.length, 1);
   await h.readers[0].complete('fixture'); h.render();
-  assert.ok(text(h.tree).includes('41-1 중국 해상 ci1.xlsx'));
+  assert.equal(h.nodes('ChinaInvoiceSheetReview')[0].props.source.file.name,'41-1 중국 해상 ci1.xlsx');
   upload({name:'41-1 too-large.xlsx',size:50*1024*1024+1});
   assert.ok(text(h.tree).includes('최대 50MiB'));
   assert.equal(h.readers.length, 1);
   assert.equal(h.extractionCalls.length, 0);
   assert.equal(h.requests.length, 0);
-  assert.ok(text(h.tree).includes('41-1 중국 해상 ci1.xlsx'), 'invalid replacement preserves the prior file');
+  assert.equal(h.nodes('ChinaInvoiceSheetReview')[0].props.source.file.name,'41-1 중국 해상 ci1.xlsx','invalid replacement preserves prior preview');
 });
 
 test('legacy China promotion is local and genChina stays gated until separate packing review', async () => {
@@ -343,11 +346,15 @@ test('legacy China promotion is local and genChina stays gated until separate pa
   ]), 'Invoice');
   const base64 = XLSX.write(book, { type: 'base64', bookType: 'xlsx' });
   h.nodes('input').find(node => node.props.accept === '.pdf,.xlsx').props.onChange({ target: {
-    files: [{ name: '41-1-legacy.xlsx', size: 1000, type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }], value: 'legacy',
+    files: [{ name: '41-1-legacy.xlsx', size: 1000, type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      arrayBuffer:async()=>XLSX.write(book,{type:'array',bookType:'xlsx'}) }], value: 'legacy',
   } }); h.render();
-  await h.waitForRealSha(0); await h.refresh();
+  await h.refresh();
   await h.readers.at(-1).complete(base64); h.render();
-  await h.refresh(); await h.waitForRealSha(1); await h.refresh();
+  await h.refresh();
+  assert.equal(h.generationCalls.length,0);
+  h.nodes('ChinaInvoiceSheetReview')[0].props.onContinue('Invoice');
+  await h.refresh(); await h.waitForRealSha(0); await h.refresh();
   assert.equal(h.requests.length, 0); assert.equal(h.extractionCalls.length, 0);
   assert.equal(h.generationCalls.length, 0, 'raw legacy source never reaches genChina');
   assert.ok(h.nodes('ChinaLegacyReview').length, text(h.tree));
