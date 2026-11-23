@@ -93,7 +93,7 @@ export default function ImportTools({userId='',initialTab='packing',initialCostS
     {costVisited&&<div hidden={packingWorkMode!=='cost'}><IndependentCostWorkspace key={userId} userId={userId} storage={storage} resumeReceiptScope={resumeReceiptScope}/></div>}
     <div hidden={packingWorkMode!=='upload'}><PackingListTool key={userId} userId={userId} sharedRestore={sharedRestore} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState} onContinue={()=>setPackingWorkMode('receipt')}/></div>
     <div id="packing-receipt-stage" hidden={packingWorkMode!=='receipt'} tabIndex={-1} style={{scrollMarginTop:16}}>
-     {receiptSource.packingActive && !receiptSource.excels.length && <p role="status">인보이스 업로드에서 파일을 준비하세요. <button type="button" onClick={()=>setPackingWorkMode('upload')}>인보이스 업로드로 돌아가기</button></p>}
+     {receiptSource.packingActive && !receiptSource.excels.length && receiptSource.country!=='NZ' && <p role="status">인보이스 업로드에서 파일을 준비하세요. <button type="button" onClick={()=>setPackingWorkMode('upload')}>인보이스 업로드로 돌아가기</button></p>}
      <InvoiceReceiptWorkbench key={userId} userId={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState} workspaceMode="receipt" onWorkspaceModeChange={(mode,scope)=>{
        if(mode==='cost'){
          const href=invoiceReceiptCostHref(scope);

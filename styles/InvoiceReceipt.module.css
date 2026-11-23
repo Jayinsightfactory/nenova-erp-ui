@@ -841,11 +841,12 @@
 .compareToolbar button { border:1px solid #b8c9df; border-radius:6px; padding:8px 14px; background:#fff; color:#193a60; font:inherit; cursor:pointer; }
 .compareToolbar button:disabled { opacity:.5; cursor:default; }
 .amountComparison > section:last-child { grid-column:1/-1; }
-.compareValues table { width:100%; border-collapse:collapse; }
+.compareTableScroll { overflow-x:auto; }
+.compareValues table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
 .compareValues th,.compareValues td { border:1px solid #ccd5e2; padding:6px; }
 .compareValues td { text-align:center; }
 .compareValues button { border:1px solid #b8c9df; border-radius:6px; padding:8px; background:#fff; color:#193a60; cursor:pointer; font:inherit; }
-.compareValues td button { font-size:19px; font-weight:700; min-width:58px; }
+.compareValues td button { font-size:14px; font-weight:600; min-width:58px; }
 .compareValues th button { text-align:left; overflow-wrap:anywhere; }
 .compareValues small { display:block; margin-top:5px; font-weight:400; }
 .compareSelected { background:#fff2bf; }

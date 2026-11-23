@@ -128,6 +128,14 @@
     },
     {
       "id": "invoice-farm-history",
+      "videoWaivers": [
+        {
+          "file": "lib/invoiceReceiptAutoFill.js",
+          "sha256": "eba0533d28d3a6af3d8e285e3ffad9fefce7fd739aaaed4c05f6d7583ab3ef86",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        }
+      ],
       "title": "농장 자동 선택·수정과 업로드 이력 대조",
       "entryPaths": [
         "/import/tools"
@@ -180,6 +188,26 @@
     },
     {
       "id": "receipt-source-comparison",
+      "videoWaivers": [
+        {
+          "file": "components/import-tools/InvoiceReceiptComparison.js",
+          "sha256": "49b7420ee852b28f04447c318356f738b36cbfc0715dcde4522996616f4556b7",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        },
+        {
+          "file": "components/import-tools/InvoiceTotalEvidence.js",
+          "sha256": "d7aeec94436980993b3d24deb3df44c41fea8126de04c664be3553c5323a1b94",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        },
+        {
+          "file": "styles/InvoiceReceipt.module.css",
+          "sha256": "46bc66cf0342bfbf7999adcff5086721e293d290b364bad961b4368b5444b6ce",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        }
+      ],
       "title": "입고 전 원본·품목·수량 대조",
       "entryPaths": [
         "/import/tools"
@@ -387,6 +415,20 @@
     },
     {
       "id": "packing-free-ocr",
+      "videoWaivers": [
+        {
+          "file": "components/import-tools/PackingListTool.js",
+          "sha256": "2c6cba6c5bf197ffceef0e3d56a047cf463dd94364311969f65dcf4534cde762",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        },
+        {
+          "file": "pages/import/tools.js",
+          "sha256": "4c50c890dff9e2ca775bdb5613f474d4a315c7964a1c205ac9b434d9c5e35f73",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        }
+      ],
       "title": "Claude 인보이스 분석·원본 이슈 확인",
       "entryPaths": [
         "/import/tools"
@@ -456,6 +498,26 @@
     },
     {
       "id": "packing-list-from-invoice",
+      "videoWaivers": [
+        {
+          "file": "components/import-tools/PackingListTool.js",
+          "sha256": "2c6cba6c5bf197ffceef0e3d56a047cf463dd94364311969f65dcf4534cde762",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        },
+        {
+          "file": "components/import-tools/InvoiceReceiptWorkbench.js",
+          "sha256": "6214d7c40bd8bb697949d0df0ec07155d6d5979f2d242399503186dddae89aac",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        },
+        {
+          "file": "pages/import/tools.js",
+          "sha256": "4c50c890dff9e2ca775bdb5613f474d4a315c7964a1c205ac9b434d9c5e35f73",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        }
+      ],
       "title": "패킹리스트 만들기(인보이스 → 입고용 엑셀)",
       "entryPaths": [
         "/import/tools",
@@ -588,6 +650,14 @@
     },
     {
       "id": "incoming-approval",
+      "videoWaivers": [
+        {
+          "file": "pages/import/tools.js",
+          "sha256": "4c50c890dff9e2ca775bdb5613f474d4a315c7964a1c205ac9b434d9c5e35f73",
+          "reason": "2026-11-23 사용자 명시: NZ 패킹·입고 원본 대조 변경의 영상 촬영 제외. 기존 영상은 갱신되지 않음.",
+          "approvedBy": "owner"
+        }
+      ],
       "title": "입고 수정 요청과 검토·확정",
       "entryPaths": [
         "/incoming",
