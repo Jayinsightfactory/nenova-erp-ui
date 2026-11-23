@@ -1767,8 +1767,8 @@
         },
         {
           "file": "desktop/preload.cjs",
-          "sha256": "294e04ca323439d0747de91597ec6944e5323f49ab6f36b651234029d6370560",
-          "reason": "사용자 명시: 비행기현황탭은 가이드영상필요없음. 2026-11-18 원문 기반 이슈 정합성 수정.",
+          "sha256": "3dd7a44b1dd5959fdb51beee3cf09d58fbdeccc05f027a649f547144febb3e5f",
+          "reason": "사용자 명시: 비행기현황탭은 가이드영상필요없음. 2026-11-18 원문 기반 이슈 정합성 수정. 2026-11-23 자동실행 IPC 추가; 비행기 화면/동작 변경 없음. 기존 사용자 제외 범위 유지.",
           "approvedBy": "사용자"
         },
         {
@@ -1785,8 +1785,8 @@
         },
         {
           "file": "desktop/shell/index.html",
-          "sha256": "88b2d825b098f3cf327aa6a472bf2b1da386dfab121e958704c6336afe32ff40",
-          "reason": "사용자 명시: 비행기현황탭은 가이드영상필요없음. 2026-11-18 원문 기반 이슈 정합성 수정.",
+          "sha256": "44e5631b769c1183b933f0cfa01ee139f78f37b8d52db5bea531bdb5143dffd7",
+          "reason": "사용자 명시: 비행기현황탭은 가이드영상필요없음. 2026-11-18 원문 기반 이슈 정합성 수정. 2026-11-23 자동실행 설정 추가; 비행기 화면/동작 변경 없음. 기존 사용자 제외 범위 유지.",
           "approvedBy": "사용자"
         }
       ]
@@ -2205,15 +2205,68 @@
       ]
     },
     {
-      "id": "desktop-task-schedule",
-      "videoWaivers": [
-        {
-          "file": "desktop/main.cjs",
-          "sha256": "dcc260a8d4de3be19ff91a2e00907be9a9333e941718f92774ef3985dae15ec0",
-          "approvedBy": "owner",
-          "reason": "2026-11-21 사용자 명시 \"면제 승인\": 관리자 알림 새 창 연결 코드만 추가(알림 모듈 생성·3분 주기 확인·알림 창 전용 명령). 오늘의 내 업무·시간·바로가기 화면과 동작은 그대로다. 기존 영상 재촬영 완료 주장 없음."
-        }
+      "id": "shipment-additive-import",
+      "title": "기존 분배 합산과 다운로드 선택",
+      "entryPaths": [
+        "/shipment/distribute-import"
       ],
+      "sourceFiles": [
+        "pages/shipment/distribute-import.js"
+      ],
+      "requiredScenarios": [
+        "upload",
+        "add",
+        "additional",
+        "verify",
+        "final",
+        "apply"
+      ],
+      "guides": [
+        {
+          "id": "support",
+          "role": "영업지원",
+          "title": "기존 분배 합산 · 합산본/추가분 다운로드",
+          "status": "ready",
+          "src": "/guides/shipment-additive-import/support.mp4",
+          "captions": "/guides/shipment-additive-import/support.ko.vtt",
+          "proof": "/guides/shipment-additive-import/support.proof.json",
+          "chapters": [
+            {
+              "scenario": "upload",
+              "title": "1. 파일을 선택하고 기본 교체 방식과 대상 차수를 확인합니다",
+              "seconds": 1.445
+            },
+            {
+              "scenario": "add",
+              "title": "2. 기존 분배에 합산하기를 체크합니다",
+              "seconds": 12.494
+            },
+            {
+              "scenario": "additional",
+              "title": "3. 추가분 별도를 선택하고 검증하면 이번 추가수량만 다운로드됩니다",
+              "seconds": 21.455
+            },
+            {
+              "scenario": "verify",
+              "title": "4. 합산전10 + 추가3 = 최종13과 농장 미배정 수량을 함께 확인합니다",
+              "seconds": 30.792
+            },
+            {
+              "scenario": "final",
+              "title": "5. 합산본을 선택하면 다시 검증한 최종합계13을 다운로드합니다",
+              "seconds": 38.115
+            },
+            {
+              "scenario": "apply",
+              "title": "6. 승인 후 최종13을 저장하며 완료한 합산은 중복 승인하지 않습니다",
+              "seconds": 47.432
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "desktop-task-schedule",
       "title": "오늘의 내 업무 · 시간과 바로가기",
       "entryPaths": [
         "/desktop-guide"
@@ -2270,128 +2323,67 @@
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 49.986
+              "seconds": 45.895
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 59.784
+              "seconds": 55.327
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 89.797
+              "seconds": 82.106
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 111.597
+              "seconds": 103.479
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 140.398
+              "seconds": 132.196
             },
             {
               "scenario": "calendar",
               "title": "7. 월간 달력과 하단 주간 시간표",
-              "seconds": 150.199
+              "seconds": 141.732
             },
             {
               "scenario": "independent",
               "title": "8. 메모장에서 홈 다시 열기",
-              "seconds": 175.998
+              "seconds": 166.391
             },
             {
               "scenario": "company",
               "title": "9. 공통 일정 제목과 색상 등록·수정",
-              "seconds": 187.988
+              "seconds": 178.057
             },
             {
               "scenario": "collapse",
               "title": "10. 월간·주간 접기와 홈 다시 열기",
-              "seconds": 265.588
+              "seconds": 251.626
             },
             {
               "scenario": "weekly",
               "title": "11. 주차별 일정과 다음 주 차수 확인",
-              "seconds": 300.18
+              "seconds": 283.999
             },
             {
               "scenario": "holidays",
               "title": "12. 국가를 선택해 공휴일 표시",
-              "seconds": 401.199
+              "seconds": 372.962
             },
             {
               "scenario": "eventDetails",
               "title": "13. 저장된 일정의 상세 정보 수정",
-              "seconds": 444.18
+              "seconds": 415.8
             },
             {
               "scenario": "personalDetails",
               "title": "14. 개인 업무도 달력에서 바로 수정",
-              "seconds": 511.797
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "shipment-additive-import",
-      "title": "기존 분배 합산과 다운로드 선택",
-      "entryPaths": [
-        "/shipment/distribute-import"
-      ],
-      "sourceFiles": [
-        "pages/shipment/distribute-import.js"
-      ],
-      "requiredScenarios": [
-        "upload",
-        "add",
-        "additional",
-        "verify",
-        "final",
-        "apply"
-      ],
-      "guides": [
-        {
-          "id": "support",
-          "role": "영업지원",
-          "title": "기존 분배 합산 · 합산본/추가분 다운로드",
-          "status": "ready",
-          "src": "/guides/shipment-additive-import/support.mp4",
-          "captions": "/guides/shipment-additive-import/support.ko.vtt",
-          "proof": "/guides/shipment-additive-import/support.proof.json",
-          "chapters": [
-            {
-              "scenario": "upload",
-              "title": "1. 파일을 선택하고 기본 교체 방식과 대상 차수를 확인합니다",
-              "seconds": 1.445
-            },
-            {
-              "scenario": "add",
-              "title": "2. 기존 분배에 합산하기를 체크합니다",
-              "seconds": 12.494
-            },
-            {
-              "scenario": "additional",
-              "title": "3. 추가분 별도를 선택하고 검증하면 이번 추가수량만 다운로드됩니다",
-              "seconds": 21.455
-            },
-            {
-              "scenario": "verify",
-              "title": "4. 합산전10 + 추가3 = 최종13과 농장 미배정 수량을 함께 확인합니다",
-              "seconds": 30.792
-            },
-            {
-              "scenario": "final",
-              "title": "5. 합산본을 선택하면 다시 검증한 최종합계13을 다운로드합니다",
-              "seconds": 38.115
-            },
-            {
-              "scenario": "apply",
-              "title": "6. 승인 후 최종13을 저장하며 완료한 합산은 중복 승인하지 않습니다",
-              "seconds": 47.432
+              "seconds": 483.269
             }
           ]
         }

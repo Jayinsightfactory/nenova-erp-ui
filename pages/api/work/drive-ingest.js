@@ -8,6 +8,7 @@ import formidable from 'formidable';
 import { FILE_MAX } from '../../../lib/workDrive';
 import { startDriveIngestService } from '../../../lib/workDriveIngestAsync.cjs';
 import { measure } from '../../../lib/serverWorkTelemetry.cjs';
+import { admitUpload, ingressPolicy } from '../../../lib/workDriveIngressBudget.cjs';
 import { importRemitFile } from '../../../lib/farmRemitInbox';
 import { REMIT_FILE_RE } from '../../../lib/farmRemitImport';
 
@@ -30,8 +31,9 @@ export default async function handler(req, res) {
   if (!t.ok) return res.status(t.status).json({ success: false, error: t.error });
   if (req.method === 'OPTIONS') {
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).json({ approvedOneDriveVersion: 1 });
+    return res.status(200).json({ approvedOneDriveVersion: 1, uploadAdmission: ingressPolicy });
   }
+  if (!admitUpload(res)) return;
   const service=startDriveIngestService(),release=await measure('admission',()=>service.acquire(req));
   if(!release){res.setHeader('Retry-After','5');return res.status(503).json({success:false,error:'업무 파일 저장 중입니다. 잠시 후 다시 시도해 주세요.'});}
   const temporary=new Set();

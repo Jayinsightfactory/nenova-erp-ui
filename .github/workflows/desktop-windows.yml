@@ -74,6 +74,9 @@ jobs:
       - name: Update download integrity (no installer execution)
         if: steps.scope.outputs.full_build == 'true'
         run: npm run test:updater
+      - name: Windows login startup registration readback (disposable entry)
+        if: steps.scope.outputs.full_build == 'true'
+        run: npx electron scripts/startup-native-smoke.cjs
       - name: Build Windows installer
         if: steps.scope.outputs.full_build == 'true'
         run: npm run dist

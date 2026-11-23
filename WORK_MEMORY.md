@@ -4539,6 +4539,14 @@ pm run test:canon 통과.
 4. 검증: 문법 검사 통과, pstack-verify 5/5 PASS, 장치 실행 결과 같이 쓰는 자료 6종. 운영 화면 확인은 로그인 풀림으로 미검증.
 5. 주의: 부서만 싣고 사람 이름은 싣지 않는다. 시트 이름은 화면 해독문에서 뽑아 거칠다. 연결 목표: g03 / 학습 반영: 있음
 
+## 2026-11-23 자동 실행 설계·지난주 업로드/조회 지연 조사
+요약: 자동 실행 미구현 확인 및 설계 작성. 11/19 17시대 drive-ingest 5xx15,222건과 운영 reload4회 동시간대 확인. 인과 미확정, 코드/운영 설정 변경 없음.
+검색어: 자동실행 로그인 startup 업로드 조회멈춤 45089140667 15222 배포 reload g13 g18
+1. 작업 위치: nenova-erp-ui / codex/startup-upload-audit-1123 / C:/Users/USER/nw-cdx-startup-audit-1123 / PR 없음(설계·조사).
+2. 완료: docs/plans/desktop-startup-upload-audit-2026-11-23.md 설계·운영 집계·배포 시각 대조. 공식 Electron API 확인.
+3. 남은 일: 자동실행 구현/카나리, 11/19 분 단위5xx코드·배포 대조, 활동기록 worker 경로 재현. 사용자 증상 시각 미확정.
+4. 검증 상태: 읽기전용 Actions45089140667 성공, 배포 job skipped. 7일 OOM0, 현재DB health200; 재부팅·부하 재현·개선효과 미검증. 실제 기능코드 변경 없어 전체빌드 미실행.
+5. 주의/잠금: 본 worktree 설계 문서 보존. 운영DB/직원PC 무접촉. 연결 목표:g13/g18, 진행률 증가0%p / 학습 반영:있음.
 ## 2026-11-23 관세법인 선율 정산서 Gmail 키워드 자동수집 · 적용환율(R열) 자동반영 (연결 목표: g01, g17, g19)
 1. 작업 위치: nenova-erp-ui / feat/sunyul-gmail-auto-settlement / C:\Users\USER\nw-swm-sunyul-auto (+ 로컬 크롤러 `C:\Users\USER\nenova-pm\crawl-sunyul-gmail.js`, `tests/crawl-sunyul-gmail.test.js`, Windows 예약작업 `NenovaSunyulGmailCrawler`).
 2. 완료한 것: ① `lib/customsSettlementParser.cjs` 1페이지 Row-2 `적용환율` 추출 + 통화별 범위 검증(미인식 시 null 안전 폴백) ② `lib/customsSettlementEvidence.js`·`lib/taxableExchangeRate.js`·`pages/api/sales/profit-report.js`·`lib/profitReport.js`·하류 FX 화이트리스트에 `sunyul_settlement`(선율 정산서 자동반영) 연결 — 수기·입고별·저장·역사·확정본 100% 보존, 비어 있는 `OrderYear+MajorWeek+Currency+Category`만 파일 전용 원장으로 보완(DB DML/DDL 0건) ③ `pages/api/sales/customs-settlement.js`·`lib/customsSettlementZip.cjs`·`lib/customsSettlementJobs.cjs`에 `ORBIT_DRIVE_INGEST_TOKEN` Bearer 서버간 자동 투입(`action='ingest'`, ZIP/단일 PDF, `attachmentSha256` 영구 멱등) 및 `CustomsSettlementGmailBadge.js`(`components/ProfitReportSourceGuide.js`) `Gmail [정산서] 자동 수집 연동` 상태 배지 추가 ④ `docs/contracts/profit-customs-settlement-zip.json` 및 단위 테스트 `__tests__/customsSettlementGmailAndRate.test.cjs` 추가.
@@ -4651,6 +4659,17 @@ pm run test:canon 통과.
 3. 남은 할 일: 최종pstack→PR/CI→머지/Cafe24배포→운영Chrome실제다운로드·파일검산. 실제운영다운로드는아직미완료.
 4. 검증 상태: 전체ERP계약exit0,manifest238/dnSpy/ERP쓰기0API/productionbuild/메뉴3PASS. 표적67PASS·9조건부skip,새증거4PASS·최종출력회귀9PASS, 실제SELECT재생·nativeExcel PASS. 중복전체검사재실행없음.
 5. 주의/잠금: 본worktree전용. 운영Warehouse/Stock/Order/Shipment/Estimate/손익원장쓰기0,원본엑셀수정0. 연결목표g17/g19·실이익회수미측정·진행률상향0. 사용자가받을최종다운로드파일은보존.
+
+## 2026-11-23 · 자동 실행 및 업로드 폭주 방지 구현
+- 11/19 분 단위 읽기 전용 진단 Actions45109293587: 17:18 업로드4000요청/오류3338, 이벤트루프 최대3731ms. 주요 오류17:16~23은 reload17:28/35/44와 불일치. 특정 Codex/직원 기인 미확정.
+- 인증 후 파일 해석 전 공통8건/초·burst8 제한, 초과429/Retry-After5·success:false. 원본과 ERP SQL/원장 쓰기정책 보존. OPTIONS로 운영 적용 버전을 읽기 전용 확인.
+- Windows 첫 설치 실행에서 자동 시작 등록, 사용자/OS 해제 보존, 홈 켜기/끄기, 로그인 기동15~45초 분산. 실제 Electron 등록/조회/해제 PASS. 실제 직원 재부팅/전체 설치/초과 파일 재시도 완료는 미검증.
+- 검색어: 자동실행 로그인 nenova-autostart drive-ingest 429 업로드 폭주 3731ms 45109293587
+1. 작업 위치: nenova-erp-ui / codex/startup-upload-audit-1123 / C:/Users/USER/nw-cdx-startup-audit-1123 / PR 생성 전.
+2. 완료된 것: startup.cjs·홈 설정·NSIS 제거 정책·8req/s admission·실제 핸들러 테스트·운영 OPTIONS 진단. 일정 가이드14단계526.5초 실제 재녹화/MP4/VTT/증거 갱신. 기존 탭 복구 방식 유지.
+3. 남은 할 일: 최신 master 병합·pstack·PR/CI·squash·Cafe24와 Desktop 배포·운영 read-only 확인.
+4. 검증 상태: Desktop95/95, native Windows 등록/해제, 별도 프로세스 restore, Electron smoke, startup 키보드/3해상도, admission5/5, 전체 ERP계약/dnSpy/manifest238/쓰기1API/Next production build PASS. 가이드1920/390 실제 재생·자막·목차 PASS, 영상 앞/중간/끝 육안 확인. 직원 PC 재부팅 미검증.
+5. 주의/잠금: 본 worktree 전용. 운영 업로드 부하 재현/원장 변경0. 승인 대량 수집은 더 오래 걸릴 수 있음. 연결 목표g13/g18 / 학습 반영 있음 / 진척률 임의 상향0.
 
 ## 2026-11-23 뉴질랜드 인보이스 근거 기반 자동입력
 검색어: NZ 인보이스 Units 원문 자동입력 품종 규격 실제 입고일 g17
