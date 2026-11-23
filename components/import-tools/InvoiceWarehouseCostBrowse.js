@@ -4,6 +4,7 @@ import styles from '../../styles/InvoiceReceipt.module.css';
 import NativeReceiptCost from './NativeReceiptCost';
 import { filterInvoiceWarehouses } from '../../lib/invoiceWarehouseBrowse.js';
 import SharedAwbCostReview from './SharedAwbCostReview';
+import ArrivalWeekCostReview from './ArrivalWeekCostReview';
 
 export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoiceNo }) {
   const scope = `${orderYear}/${orderWeek}/${invoiceNo ?? '*'}`;
@@ -12,10 +13,10 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
   const [action, setAction] = useState({ busy: false, error: '' });
   const lock = useRef(false);
   const [nativeKey, setNativeKey] = useState(null);
-  // 콜롬비아는 농장이 여러 곳이라 "전체 농장 한 번에 계산"이 기본 화면이다. 한 곳만 받을 때는 아래 입고 목록을 쓴다.
-  const [showColombia, setShowColombia] = useState(true);
+  // 차수 통합이 기본이다. 기존 단일 AWB·개별 입고는 별도 선택으로 보존한다.
+  const [showColombia, setShowColombia] = useState(false);
   useEffect(() => {
-    setShowColombia(true);
+    setShowColombia(false);
     const controller = new AbortController();
     setState({ rows: [], loading: true }); setAction({ busy: false, error: '' });
     setNativeKey(null);
@@ -45,9 +46,10 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
   return <section className={styles.saved} aria-label="입고내역 도착원가 작업">
     <h3>{orderYear} / {orderWeek} 입고내역</h3>
     <p>인보이스 재연결 없이 입고자료로 계산합니다. 기존 입고·재고·승인 원가는 변경하지 않습니다.</p>
+    <ArrivalWeekCostReview orderYear={orderYear} orderWeek={orderWeek} />
     {invoiceNo != null && <p>송장 {invoiceNo}의 기존 입고만 표시합니다. 현재 초안의 수정값은 사용하지 않습니다. 농장·송장을 확인하고 선택하세요.</p>}
-    <p>콜롬비아는 같은 차수의 모든 농장을 농장별 행으로 한 파일에 받는 것이 기본입니다. 아래 입고 목록의 버튼은 선택한 입고 1건(농장 1곳)만 계산합니다.</p>
-    <button type="button" aria-expanded={showColombia} onClick={() => setShowColombia(value => !value)}>{showColombia ? '콜롬비아 전체 농장 계산 접기' : '콜롬비아 전체 농장 한 번에 계산 펼치기'}</button>
+    <p>같은 차수의 중국 A/B·콜롬비아 품종 통합은 위에서 계산하세요. 아래 기존 버튼은 선택한 입고 1건만 계산합니다.</p>
+    <button type="button" aria-expanded={showColombia} onClick={() => setShowColombia(value => !value)}>{showColombia ? '기존 단일 AWB 계산 접기' : '기존 단일 AWB 계산 펼치기'}</button>
     {showColombia && <SharedAwbCostReview native={{ orderYear, orderWeek }} />}
     {state.loading && <p role="status">입고내역 조회 중…</p>}
     {(state.error || action.error) && <p className={styles.error} role="alert">{state.error || action.error}</p>}

@@ -71,6 +71,107 @@
         "cell": "C7"
       },
       "note": "원본 중량 이름의 weigth 철자 오류 2행을 상품에서만 분리 · 원장 변경 없음"
+    },
+    {
+      "id": "cloud-2026-45-03-8061",
+      "scope": {
+        "warehouseKey": 8061,
+        "orderYear": "2026",
+        "orderWeek": "45-03",
+        "farmName": "Cloudland",
+        "invoiceNo": "2026YY-051A",
+        "fileName": "45-03A 중국_CN_CLD_PL.xlsx"
+      },
+      "source": {
+        "archiveId": "mwej0zft-bf7670",
+        "sha256": "bf76704f7f5327e4dc815278eec0bf58f69cb0f48dd2b36512b089615b07ba41",
+        "sheet": "CN-CLD",
+        "verifiedAt": "2026-11-23"
+      },
+      "rowCount": 49,
+      "nativeDigest": "063f09be02fae78bbf8f9eaa323a9ed5d96dfd75e885b4065420ad0522cbe627",
+      "weights": [
+        {
+          "key": 49457,
+          "orderCode": "48",
+          "kind": "GW",
+          "kg": 1050,
+          "name": "Gross weigth",
+          "cells": "B53:J53"
+        },
+        {
+          "key": 49458,
+          "orderCode": "49",
+          "kind": "CW",
+          "kg": 1050,
+          "name": "Chargeable weigth",
+          "cells": "B54:J54"
+        }
+      ],
+      "freight": {
+        "key": 49456,
+        "amount": 10550,
+        "currency": "CNY",
+        "cells": "B52:L52"
+      },
+      "categories": [],
+      "note": "원본 A/B 전체 행과 입고 수량·가격·금액 대조. weigth 중량행만 원가 상품에서 분리, 원장 보존"
+    },
+    {
+      "id": "cloud-2026-45-03-8062",
+      "scope": {
+        "warehouseKey": 8062,
+        "orderYear": "2026",
+        "orderWeek": "45-03",
+        "farmName": "Cloudland",
+        "invoiceNo": "2026YY-051B",
+        "fileName": "45-03B 중국_CN_CLD_PL.xlsx"
+      },
+      "source": {
+        "archiveId": "mwej0yen-60cd46",
+        "sha256": "60cd46d8f978d926112c1da4dbf502109ac9a68a26852539d0f9554f4ad3baa1",
+        "sheet": "CN-CLD",
+        "verifiedAt": "2026-11-23"
+      },
+      "rowCount": 15,
+      "nativeDigest": "3573ef882ddd64bc117b41d7bf68420297d4b0b650fe5ed5603f5cc86fd73671",
+      "weights": [
+        {
+          "key": 49472,
+          "orderCode": "14",
+          "kind": "GW",
+          "kg": 980,
+          "name": "Gross weigth",
+          "cells": "B19:J19"
+        },
+        {
+          "key": 49473,
+          "orderCode": "15",
+          "kind": "CW",
+          "kg": 980,
+          "name": "Chargeable weigth",
+          "cells": "B20:J20"
+        }
+      ],
+      "freight": {
+        "key": 49471,
+        "amount": 9920,
+        "currency": "CNY",
+        "cells": "B18:L18"
+      },
+      "categories": [
+        {
+          "key": 49463,
+          "code": 6,
+          "cells": "CN-CLD!B10:L10; 46-2 CLOUD cbm !K12:Q12"
+        },
+        {
+          "key": 49464,
+          "code": 6,
+          "cells": "CN-CLD!B11:L11; 46-2 CLOUD cbm !K12:Q12"
+        }
+      ],
+      "note": "원본 A/B 전체 행과 입고 수량·가격·금액 대조. weigth 중량행만 원가 상품에서 분리, 원장 보존"
     }
   ]
 }

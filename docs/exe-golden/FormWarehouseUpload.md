@@ -141,3 +141,8 @@ NULL 품목 2행은 금액 0이며 출고·견적수량 NULL인 경우에만 원
 실제 설치 EXE ExcelLoadingPackingList를 dnSpy CLI로 다시 확인했다. MakeTempTable은 B열 품명(끝공백 제거), A열 OrderCode, F/G/H/I/J/K/L 값을 보존하고 공란 가격을 0으로 넣는다. Product 매칭은 LOWER(td.ProdName)=LOWER(p.ProdName)이다.
 읽기 전용 운영8160/2026/46-02/2026YY-053의50449/50450은 Product NULL, OrderCode47/48, 박스·단·단/박스환산각1, Steam2543, UPrice/TPrice0이었다. 업무드라이브 보관 원본 SHA0d47d73469576f1f537c44929660ead1b226540cfc67916829fbb39eb82a974e의 CN-CLD!B52:J53에서 Gross weigth/Chargeable weigth 오타와2543을 확인했고 A6:L53 전체48행을 원장과 대조했다. 상품 누락이 아닌 중량행이다.
 원가 source에서만 검증기록의 정확업무키·파일명·전체지문·0원pair를 확인해 분리한다. 원장/SP/재고 SQL을 수정하지 않는다. 호접50438의 G41/I41/J41=1/80/80과원가표E66=80단은 계산본1:1단위근거다. native송이단위·수량·가격은보존한다. 다른연도/입고/금액·pair변경은기존차단을유지한다. 상세기준은 docs/plans/cloud-native-source-2026-11-23.md 및 nativeReceiptCostEvidence 회귀를 따른다.
+
+
+## 2026-11-23 같은 차수 A/B·품종 통합 원가
+실제 ExcelLoadingPackingList CLI 재확인: MakeTempTable의 G2 차수 및 G3 연도로 WarehouseMaster/Detail 저장, InsertMaster 후 native 재고계산 호출 순서는 변경하지 않았다. 운영 SELECT 중국2026/45-03 입고8061/8062는 동일 원장차수·서로다른AWB이며 패킹원본64행을 가격/금액/수량까지 전수대조했다. 원본 SHA bf76704f7f5327e4dc815278eec0bf58f69cb0f48dd2b36512b089615b07ba41 /60cd46d8f978d926112c1da4dbf502109ac9a68a26852539d0f9554f4ad3baa1. 두 weigth 오타 중량pair는 각각1050/980kg, exact 근거기록 일치시 원가상품에서만 분리한다.
+콜롬비아2026/46-02는22입고94상품/44940송이, 하나의AWB01441369974에 수국·카네이션·장미·알스트로가 있다. 원본AWB와Apollo엑셀은GW3942/CW4824/운임13737.8USD 일치, MasterInvoice1쪽FB195.75와품종수량 전부일치.6쪽FE204138 PHYTO15USD·12쪽FC02182 추가청구15USD는 각송장비용으로별도표시한다. native가격/원장/재고/견적/손익 쓰기0. 통합 기준과 부작용은 plans/arrival-week-consolidation-2026-11-23.md.
