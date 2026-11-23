@@ -4546,3 +4546,12 @@ pm run test:canon 통과.
 4. 검증 상태: 실물 38·41·44차 선율 정산서 PDF 10/10건 100% 추출(`1,484.0000` EUR, `199.2000` CNY, `1,330.5200` USD, `931.2300` AUD 등), 단위 테스트 60/60 PASS, `crawl-sunyul-gmail.test.js` 4/4 PASS, `pstack-verify`·`guard:erp-writes`·`test:erp-contract`·`test:erp-manifest`·`build` 전수 통과.
 5. 주의/잠금: 구형 `nenova.exe` 테이블(`Order*`/`Shipment*`/`Warehouse*`/`Stock*`/`Estimate`) 쓰기 0건, 확정 스냅샷 불변, 교차연도(`OrderYear+MajorWeek`) 격리 엄수. 연결 목표: g01, g17, g19 / 학습 반영: 있음
 검색어: 선율 정산서 적용환율 sunyul_settlement gmail-auto customs-settlement crawl-sunyul-gmail WebTaxableExchangeRate g01 g17 g19
+
+
+## 2026-11-23 국가별 발주서 합계에 사용된 카톡 원문 체크
+검색어: 국가별 발주서 카톡 원문 합계 반영 카톡 체크 farmTotals sourceKeys PR1949 g19
+1. 작업 위치: nenova-erp-ui / codex/kakao-included-1123 / nw-cdx-kakao-included-1123 / PR #1949, ff19e6037.
+2. 완료: 현재 차수·품목군의 전송용 합계에 들어간 원문 메타정보에 합계 반영 체크. 같은 원문의 일부 품목만 합산돼도 표시한다. 가이드 MP4·한국어 자막·검증 기록 갱신.
+3. 남은 일: 운영 로그인 Chrome과 설치 앱의 실제 원문 체크 화면은 미검증. 저장소의 기존 수입부 업무도구 경로에서 확인한다.
+4. 검증: PStack 5/5, ERP 계약·교차연도·쓰기 가드·빌드, CI 45099905944. 연습 자료 Chrome 1920/1572/390에서 반영·선택·취소·범위 변경과 플레이어 확인. Cafe24 45100429397 성공, SSH 배포·운영 실브라우저 기본 동작 및 가이드 제공 확인.
+5. 주의: 원문·카톡 수집·ERP 원장을 변경하지 않는 기존 화면 변경. 연결 목표: g19 / 학습 반영: 있음.
