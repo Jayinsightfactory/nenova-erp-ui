@@ -218,5 +218,10 @@
   "invoiceCorrectionSnapshot": {
     "scope": "Linked invoice mappings mirror the scoped corrected WarehouseDetail values. Retain NULL pack quantities and explicit zero independently; an explicit cancelled line still maps to zero.",
     "fixture": "Direct confirmed receipt with BoxQuantity NULL and BunchQuantity 0, numeric stem counts, amount and unit price; linked invoice snapshot and producer readback agree."
+  },
+  "requestAndReviewFeedback": {
+    "search": "Local exact (punctuation and spacing folded), then cancellable shared read-only product search. Never selects a suggestion without user confirmation; IME Enter does not select.",
+    "display": "Physical source row and changed values only, per same receipt key/year/week; 0 is not a blank. No change to the matching, approval, or transaction scope.",
+    "log": "Transient client stages reflect actual in-flight API work and received responses; server ApprovalAudit is the durable history. A missing response is not applied. Existing operation replay semantics retained."
   }
 }

@@ -4837,3 +4837,21 @@ pm run test:canon 통과.
 - 검증 상태: 관련57테스트 PASS. 실제 원본A/B 및 readonly활성 중국품목490개 격리UI에서38/2행 전행 수동선택flag/정확ProdKey·실제 validateInvoiceReceiptLines issues0·초안저장/preview PASS. A78077/B4450CNY, 원본날짜 공백, provider0/운영write0, ERP commit차단. 해당6단계 가이드1개 촬영/인코딩 완료. 정식 verify:erp-change 전체계약/dnSpy/manifest240/writeguard/문구·가이드/build PASS.
 - 주의/잠금: 원본 수정·가짜발행일·박스/GW/CW 추정 금지. NZ8248/NL8247 재등록 금지. A22Prod2226대1kg/B9Prod3529 사용자확정 유지. 연결 목표:g17/g19 / 학습 반영:기존 업로드일·명시매칭 결정 재사용.
 검색어: CLOUD stale sourceWarnings receiptMatchWarnings erpMatchConfirmed 054 055 NZ8248
+
+## 2026-11-23 입고 품목 검색 및 요청·승인 작업 표시
+- 요약: 수입부 업무도구의 입고 수정 탭에서 기존 검색이 오타를 찾지 못하던 점을 확인했다. 결과 선택, 변경항목, 접수부터 반영까지 실제 서버 응답을 구분해 표시한다.
+- 검색어: 입고 수정 요청 품목 검색 abosrbed 작업 로그 영업지원 변경 항목 g03
+1. 작업 위치: nenova-erp-ui / codex/incoming-work-log-1123 / .task-nw-incoming-worklog / PR 미생성.
+2. 완료된 것: 기존 검색 직접 후보·키보드·IME·공용 품목검색 보완, 실제 서버 확인 단계 표시, 원장행별 변경 항목 비교.
+3. 남은 할 일: 회귀·실제 연습 화면 확인, 영향 가이드2개, 필수 검사·PR·CI·배포·운영 조회. 연결 목표 g03 / 학습 반영 없음.
+4. 검증 상태: 운영 Chrome 입고수정 탭 abosrbed red 0건/absorb 1건 재현. 같은 운영 품목 검색 API는 요청 후보1014 1위 확인. 수정 화면·운영 배포 미검증.
+5. 주의/잠금: 운영 요청·원장 쓰기 없음. 기존 쓰기·감사·승인·차수 범위는 변경하지 않는다. 데스크톱 기존 입고관리·수입부 업무도구 메뉴 경로를 사용한다.
+
+## 2026-11-23 입고 수정 작업 표시 검증
+- 요약: 두 입고 수정 진입점의 공용 검색과 실제 처리 단계 표시를 수정했다.
+- 검색어: 입고 수정 abosrbed red IME 변경점 작업 로그 영업지원 g03
+1. 작업 위치: nenova-erp-ui / codex/incoming-work-log-1123 / .task-nw-incoming-worklog / PR 준비.
+2. 완료된 것: 품목 검색 보완, 원장행별 변경점과 접수·검토·확정 로그를 실제 응답에 맞춰 표시.
+3. 남은 할 일: 가이드 최종 파일 검증, PR·CI·배포, 운영 조회. 연결 목표 g03 / 학습 반영 없음.
+4. 검증 상태: 집중 테스트 8개, 전체 ERP 계약, dnSpy 근거 검사, 매니페스트 240개, 쓰기 가드 통과. Chrome 1920·390 연습 환경 검색·키보드·변경 표시와 요청 응답 스모크 통과. 배포 이후 운영 미검증.
+5. 주의/잠금: 운영 요청 및 원장 쓰기 없음. 기존 데스크톱 메뉴 경로와 승인 API 유지.
