@@ -5049,3 +5049,12 @@ pm run test:canon 통과.
 4. 검증 상태: 카톡 순수 로직·라우트, 연도/차수 조건, Chrome 합성 재생, manifest 245·dnSpy·쓰기 가드·1920x1080 영상 23장·등록 해시 통과. 전체 ERP/빌드 결과와 운영은 완료 인계에 기록한다.
 5. 주의/잠금: 조회와 브라우저 표시 전용, 운영 원장·카톡 수집기 변경 없음. 연결 목표: g19 / 학습 반영: 있음.
 검색어: 카톡 추가발주 국가 미기재 콜롬비아 기본값 알스트로메리아 태국 단일 그룹 국가 우선 g19
+
+## 2026-11-24 직육면체 박스 1면 라벨 & 팔레트 지그재그(교차) 적재 3면 노출 원리 및 전산 잔여 품목 소거 매칭 (`/vision/box-inspector`)
+- 요약: 직육면체 화훼 박스 한쪽 단면(`label_end`)에만 라벨지가 붙어있고 팔레트 안정성을 위해 층마다 90도 지그재그(교차) 적재하여 정면·좌측면·우측면 3면에 라벨이 분산 노출되는 현장 적재 원리를 반영해, 정면 사진에서 긴 옆면(`zigzag_side`, HOLEX 로고면)만 보여 라벨이 안 보이는 박스를 ① 팔레트 3면(정면·좌·우) 사진 교차 라벨 1:1 결합 또는 ② 전산 출고 원장 소거법(`전산 총 출고 품목 - 정면 라벨 단면 확인 품목 = 지그재그 옆면 잔여 품목`)으로 원클릭 역산 매칭하는 워크플로우를 구축했다 (Desktop `v1.3.94`).
+- 검색어: 직육면체 박스 지그재그 교차 적재 3면 노출 정면 좌측면 우측면 label_end zigzag_side exposedLabelSide 소거법 autoDeduceZigzagBoxes box-inspector 180-9162-6441 1222993 주광농원 Holex g17 g19 g14 g03
+1. 작업 위치: `nenova-erp-ui` (`nw-agy-zigzag-3side` 워크트리, `feat/vision-zigzag-3side-deduction` 브랜치) — `lib/boxVisionInspector.js`, `pages/vision/box-inspector.js`, `pages/api/vision/box-count-match.js`, `__tests__/boxVisionInspector.test.cjs`, `public/guides/box-vision-inspector/warehouse.proof.json`, `desktop/package.json`(1.3.94).
+2. 완료된 것: ① 박스 적재 방향(`boxFace`: `'label_end'` vs `'zigzag_side'`), 라벨 노출 측면(`exposedLabelSide`: `'front'`|`'left'`|`'right'`), 팔레트 촬영면(`cameraAngle`: `'front'`|`'left'`|`'right'`) 및 역산 후보(`deductionCandidate`) 데이터 모델링, ② 샘플 4(`s4-b11`, `s4-b19`, `s4-b20`) 및 샘플 5(`s5-b9`, `s5-b15`, `s5-b16`) 지그재그 옆면 박스에 대해 3면 사진 교차 라벨 매칭(`s4-b19` ⇄ `s5-w1` 이중 카운팅 방지 1:1 결합) 및 전산 출고 원장 차감 소거법(`buildZigzagDeductionCandidate`, `autoDeduceZigzagBoxes`) 구현, ③ 비전 캔버스·대기열에 `[지그재그 적재 옆면 (라벨 좌/우측면 노출)]` 배지·시각적 소거법 수식(`전산 출고 N박스 - 정면 라벨 확인 M박스 = 지그재그 옆면 잔여 K박스`) 및 `[지그재그 옆면 박스 → 전산 잔여 품목 자동 소거 매칭 (N건 일괄 적용)]` 원클릭 액션 + 개별 3버튼(① 소거법/3면교차 1클릭 확정, ② 직접 검색 매칭, ③ 패스) 제공.
+3. 남은 할 일: 운영 배포 후 현장 출고방 3면(정면·좌·우) 팔레트 묶음 사진 실전 자동 소거 매칭 모니터링.
+4. 검증 상태: `__tests__/boxVisionInspector.test.cjs` 6/6 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS (`agent-guardrails`, `guard-erp-writes`, `ui-layout-contract`, `workflow-guides`, `work-memory-handoff`), `next build --webpack` 성공.
+5. 주의/잠금: MSSQL 원장 테이블(`WarehouseMaster`, `WarehouseDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentFarm`, `OrderMaster`, `OrderDetail`) 쓰기 0건(순수 SELECT 조회 전용). 연결 목표: g17, g19, g14, g03 / 학습 반영: 있음
