@@ -2489,6 +2489,57 @@
           ]
         }
       ]
+    },
+    {
+      "id": "box-vision-inspector",
+      "title": "박스 사진 판독 · 품목/수량/차수/불량차감 매칭",
+      "entryPaths": [
+        "/vision/box-inspector"
+      ],
+      "sourceFiles": [
+        "pages/vision/box-inspector.js",
+        "lib/boxVisionInspector.js",
+        "styles/BoxVisionInspector.module.css"
+      ],
+      "requiredScenarios": [
+        "sample",
+        "dedupe",
+        "reconcile",
+        "defect"
+      ],
+      "guides": [
+        {
+          "id": "warehouse",
+          "role": "현장·수입·영업지원",
+          "title": "창고 박스 사진 스캔·중복제거·출고 대조 및 불량차감 사진 반영",
+          "status": "ready",
+          "src": "/guides/box-vision-inspector/warehouse.mp4",
+          "captions": "/guides/box-vision-inspector/warehouse.ko.vtt",
+          "proof": "/guides/box-vision-inspector/warehouse.proof.json",
+          "chapters": [
+            {
+              "scenario": "sample",
+              "title": "1. 창고 샘플 사진 선택 또는 Ctrl+V 붙여넣기로 박스 스캔 카운팅",
+              "seconds": 0.1
+            },
+            {
+              "scenario": "dedupe",
+              "title": "2. 다중 사진 일련번호(Order.Line.Box) 교차 중복 자동 제외 확인",
+              "seconds": 3.2
+            },
+            {
+              "scenario": "reconcile",
+              "title": "3. 업체별×품목별 출고 수량 전산 대조 및 농장 박스색상 3단계 판별",
+              "seconds": 6.4
+            },
+            {
+              "scenario": "defect",
+              "title": "4. 영업수입불량차감 해당 불량품목에 사진·농장/차수 원클릭 반영",
+              "seconds": 9.6
+            }
+          ]
+        }
+      ]
     }
   ]
 }

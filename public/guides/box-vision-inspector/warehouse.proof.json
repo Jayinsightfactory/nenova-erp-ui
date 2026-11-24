@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-24T06:53:18.873Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 13.95,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "13ec9e7eac1e48ab7a18334c1920546e41875a093239c8ad00debb170e7efbc9",
+  "captionsSha256": "c8c263c12cb3454b0e83d367d2c5394e58af62e9d0f74da8d2e761653a952d0a",
+  "sourceHashes": {
+    "pages/vision/box-inspector.js": "96e60d0707e60b3afdd162220a95281f87688f5f6cd5c3425b61b7e9130b3b8d",
+    "lib/boxVisionInspector.js": "81bc852ee7b64b244c3c0f672ad32d6c113382c43fe1b09e05e6cb4c430c33eb",
+    "styles/BoxVisionInspector.module.css": "8ae71bff432e1c2425287a280dab002fef8ed46bcb0c68ef589c2b8629125e05"
+  }
+}

@@ -163,6 +163,11 @@
         "popup": true
       },
       {
+        "href": "/vision/box-inspector",
+        "labelKey": "박스 사진 판독 · 품목/수량 매칭",
+        "popup": false
+      },
+      {
         "href": "/incoming/insight",
         "labelKey": "입고 인사이트",
         "popup": true

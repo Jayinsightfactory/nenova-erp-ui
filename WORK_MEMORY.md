@@ -4949,10 +4949,20 @@ pm run test:canon 통과.
 5. 주의/잠금: 이 작업트리 입고 목록·가이드 검증 중. 연결 목표 g03 / 학습 반영 있음.
 검색어: 입고 원장 인보이스 AWB 인라인 47-02 차수 입력일자 dnSpy
 
+## 2026-11-24 박스 사진 판독 · 품목/수량 매칭 (`/vision/box-inspector`) 및 데스크톱앱 메뉴 연결
+- 요약: 네노바웹 및 데스크톱앱(`v1.3.91`)에 창고 박스 사진을 붙여넣기(`Ctrl+V`)하거나 업로드하면 팔레트 박스를 스캔 카운팅하고 바코드 라벨(AWB·Bill·일련번호·영문 품목명·수기 업체명)과 농장 박스색상을 교차 판독하여 업체별×품목별 출고 수량 대조 및 영업수입불량차감 사진 매칭을 수행하는 `/vision/box-inspector` 메뉴를 구축했다.
+- 검색어: 박스 사진 판독 품목 수량 매칭 box-inspector 180-9162-6441 1222993 2493354 2494499 2494510 신라호텔 늘봄원예 주광농원 Holex 불량차감 g17 g19 g14 g03
+1. 작업 위치: `nenova-erp-ui` (`nw-agy-box-vision` 워크트리, `feat/agy-box-vision` 브랜치) — `pages/vision/box-inspector.js`, `pages/api/vision/box-count-match.js`, `lib/boxVisionInspector.js`, `styles/BoxVisionInspector.module.css`, `components/Layout.js`, `desktop/menu.json`, `desktop/package.json`(1.3.91), `public/samples/box-vision/sample-1~5.jpg`.
+2. 완료된 것: ① 사장님 창고 샘플 사진 5장 정적 탑재 및 `Ctrl+V`/드래그앤드롭 업로드, ② Counting Pallet 스타일 비전 스캔 캔버스 및 다중 사진 바코드 일련번호(`2494510.31.1/30.1/27.1`) 중복 자동 제외·배경 팔레트 분리, ③ 실 DB(`WarehouseKey=8247` AWB `180-9162-6441` Bill `1222993`, `ShipmentKey=7522/7577/7541`) 1:1 품목(`ProdName`)·출고수량 대조 및 농장 박스색상 3단계 판별기, ④ 영업수입불량차감 불량품목 사진·농장·차수 매칭 및 데스크톱 메뉴 동기화.
+3. 남은 할 일: 운영 배포 후 현장 출고방·수입불량방 실시간 카톡 사진 추가 학습 및 모바일 단말 카메라 직결 확장.
+4. 검증 상태: `boxVisionInspector.test.cjs` 3/3 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS (`agent-guardrails`, `guard-erp-writes`, `ui-layout-contract`, `workflow-guides`, `work-memory-handoff`), `npm run build` 성공.
+5. 주의/잠금: 기존 MSSQL 원장 테이블(`WarehouseMaster`, `ShipmentMaster`, `OrderMaster` 등)에 대한 쓰기(INSERT/UPDATE/DELETE) 0건(순수 SELECT 조회 전용). 연결 목표: g17, g19, g14, g03 / 학습 반영: 있음
+
+
 ## 2026-11-24 CLOUD 원본 양식 통합 다운로드
 검색어: CLOUD cbm 원본 양식 A B 통합 40행 수식 출처 TEST_ONLY g17 g19
 1. 작업 위치: nenova-erp-ui / codex/cloud-template-1124 / C:/Users/USER/nw-cdx-cloud-template-1124 / PR 준비.
-2. 완료된 것: CLOUD 한 시트 상단 A/B 중량·비용·품종 요약, 원본 E:X 열 순서와 40행 단일 출력. 기존 원가 계산·ERP 원장 보존. 데스크톱 1.3.91 연결 및 해당 가이드 1개 갱신.
+2. 완료된 것: CLOUD 한 시트 상단 A/B 중량·비용·품종 요약, 원본 E:X 열 순서와 40행 단일 출력. 기존 원가 계산·ERP 원장 보존. 데스크톱 1.3.92 연결 및 해당 가이드 1개 갱신.
 3. 남은 할 일: 정식 검사·PR·CI·Cafe24 배포 후 운영 공유 초안 revision1 TEST_ONLY 다운로드와 원장 지문 재확인.
 4. 검증 상태: 대상 15개 PASS, 실제40행 Artifact 재계산 및 환율·수량 변경 대조 PASS. 격리 UI 공유/충돌/다운로드 및 가이드 재생 PASS. 운영 새 양식 다운로드 미검증.
 5. 주의/잠금: 이 작업트리 출력 모듈·해당 가이드만 잠금. 원본 전체 및 업무 스냅샷 Git 제외. 연결 목표 g17/g19 / 학습 반영 있음.
