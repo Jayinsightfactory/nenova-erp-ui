@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { apiGetExe } from '../lib/exeParity/client.js';
 import { apiGet } from '../lib/useApi.js';
 import { incomingDateLabel, incomingCompactDateLabel } from '../lib/incomingDateLabel.js';
-import { incomingRoundLabel, normalizeRoundSearch, matchesRound } from '../lib/incomingRoundLabel.js';
+import { incomingRoundLabel, receiptRoundLabel, normalizeRoundSearch, matchesRound, splitIncomingRound } from '../lib/incomingRoundLabel.js';
 import { incomingQueryDateRange } from '../lib/incomingQueryDateRange.js';
 import { useLang } from '../lib/i18n';
 import * as XLSX from 'xlsx';
@@ -18,6 +18,7 @@ import WarehouseStockInvestigation from '../components/WarehouseStockInvestigati
 import WarehouseCorrection from '../components/WarehouseCorrection.js';
 import WarehouseManualUpload from '../components/WarehouseManualUpload.js';
 import WarehouseIdentityCell from '../components/WarehouseIdentityCell.js';
+import { WarehouseRoundCell, WarehouseQuantityDialog, WarehouseDetailHistory } from '../components/WarehouseDetailActions.js';
 import { incomingWorkspaceHref } from '../lib/incomingWorkspaceNavigation.js';
 import { invoiceReceiptCostHref } from '../lib/invoiceReceiptCostRoute.js';
 import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
@@ -92,6 +93,10 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [manualUpload, setManualUpload] = useState(null);
   const [identityEditor, setIdentityEditor] = useState(null);
+  const [detailAccess,setDetailAccess] = useState({edit:false,read:false});
+  const [quantityTarget,setQuantityTarget]=useState(null);
+  const [detailHistory,setDetailHistory]=useState({});
+  const [historyRevision,setHistoryRevision]=useState(0);
   const manualUploadButton = useRef(null);
   const [correctionTarget, setCorrectionTarget] = useState(null);
   const [uploadData, setUploadData] = useState(null);
@@ -127,8 +132,8 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const load = () => {
     const seq = ++loadSeq.current;
     setLoading(true);
-    apiGetExe('/api/warehouse', { startDate, endDate, goodsTotals: '1' })
-      .then(d => { if (seq === loadSeq.current) { setMasters(d.masters||[]); setErr(''); } })
+    apiGetExe('/api/warehouse', { startDate, endDate, goodsTotals: '1', roundLabels:'1' })
+      .then(d => { if (seq === loadSeq.current) { setMasters(d.masters||[]); setErr(''); setDetailAccess({edit:d.canEditDetail===true,read:d.canReadDetailHistory===true}); } })
       .catch(e => { if (seq === loadSeq.current) setErr(e.message); })
       .finally(() => { if (seq === loadSeq.current) setLoading(false); });
   };
@@ -190,6 +195,20 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   };
 
   const selected = masters.find(m => m.WarehouseKey === selectedKey);
+  const selectedYear=selected?.OrderYear, selectedRound=selected?.OrderWeek;
+  useEffect(()=>{
+    if(!selectedKey||!selectedYear||!/^\d{2}-\d{2}$/.test(selectedRound??'')||Number(selectedYear)<2026||!detailAccess.read){setDetailHistory({});return;}
+    let active=true;
+    setDetailHistory({loading:true});
+    apiGet('/api/warehouse/detail-actions',{warehouseKey:selectedKey,orderYear:selectedYear,orderWeek:selectedRound})
+      .then(result=>{if(active)setDetailHistory({rows:result.history});})
+      .catch(error=>{if(active)setDetailHistory({error:error.message});});
+    return ()=>{active=false;};
+  },[selectedKey,selectedYear,selectedRound,detailAccess.read,historyRevision]);
+  const roundSaved=({warehouseKey,suffix})=>{
+    setMasters(list=>list.map(row=>row.WarehouseKey===warehouseKey?{...row,RoundSuffix:suffix}:row));
+    if(selectedKey===warehouseKey)setHistoryRevision(value=>value+1);
+  };
   const selectedCostHref = selected && invoiceReceiptCostHref({
     orderYear: selected.OrderYear, orderWeek: selected.OrderWeek, warehouseKey: selected.WarehouseKey,
   });
@@ -222,13 +241,13 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
       if (farmQuery && !String(m.FarmName ?? '').normalize('NFKC').toLowerCase().includes(farmQuery)) return false;
       if (invoiceQuery && !normalizeLedgerSearch(m.InvoiceNo).includes(invoiceQuery)) return false;
       if (awbQuery && !normalizeAwbSearch(m.AWB).includes(awbQuery)) return false;
-      if (roundQuery && !matchesRound(m.OrderWeek, roundQuery)) return false;
+      if (roundQuery && !matchesRound(receiptRoundLabel(m), roundQuery)) return false;
       if (weekFilter && m.OrderWeek !== weekFilter) return false;
       if (!q) return true;
       return (m.FarmName||'').toLowerCase().includes(q) ||
              (m.InvoiceNo||'').toLowerCase().includes(q) ||
              (m.AWB||'').toLowerCase().includes(q) ||
-             (m.OrderWeek||'').includes(q);
+             normalizeLedgerSearch(receiptRoundLabel(m)).includes(q);
     });
     const val = (m) => { const v = m[sortKey]; return v == null ? '' : v; };
     return list.sort((a, b) => { const x = val(a), y = val(b); if (typeof x === 'number' && typeof y === 'number') return (x - y) * sortDir; return String(x).localeCompare(String(y), 'ko') * sortDir; });
@@ -243,7 +262,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
 
   const handleMasterExcel = () => {
     if (!filteredMasters.length) { alert('내보낼 원장이 없습니다.'); return; }
-    const rows = filteredMasters.map(m => ({ 주문년도:m.OrderYear, 차수:m.OrderWeek, 농장명:m.FarmName, 인보이스:m.InvoiceNo, AWB:m.AWB, 입력일자:m.InputDate,
+    const rows = filteredMasters.map(m => ({ 주문년도:m.OrderYear, 차수:receiptRoundLabel(m), 농장명:m.FarmName, 인보이스:m.InvoiceNo, AWB:m.AWB, 입력일자:m.InputDate,
       박스:m.totalBox, 단:m.totalBunch, 송이:m.totalSteam, GW:m.GrossWeight, CW:m.ChargeableWeight, Rate:m.FreightRateUSD }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '입고원장');
@@ -323,7 +342,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
     setUploadError('');
     setUploadBunchIssues([]);
     setUploadBunchResolution(null);
-    if (!uploadData || !/^\d{4}$/.test(uploadMeta.orderYear) || !/^\d{2}-\d{2}$/.test(uploadMeta.orderWeek) || !uploadMeta.farmName || !uploadMeta.inputDate) {
+    if (!uploadData || !/^\d{4}$/.test(uploadMeta.orderYear) || !splitIncomingRound(uploadMeta.orderWeek) || !uploadMeta.farmName || !uploadMeta.inputDate) {
       alert('주문년도, 차수(예: 33-02), 농장명, 입력일자는 필수입니다.'); return;
     }
     const lifecycle = uploadLifecycle.current;
@@ -456,7 +475,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
               summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={6}><Text strong>합계</Text></Table.Summary.Cell><Table.Summary.Cell index={6} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBox || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={7} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBunch || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={8} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalSteam || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={9} colSpan={3} /></Table.Summary.Row></Table.Summary>}
               columns={[
                 { title: '주문년도', dataIndex: 'OrderYear', width: 68, sorter: (a, b) => String(a.OrderYear).localeCompare(String(b.OrderYear)) },
-                { title: <LedgerSearchHeading label="차수" value={roundSearch} onChange={setRoundSearch} placeholder="47-02.A" />, dataIndex: 'OrderWeek', width: 94, sorter: (a, b) => String(a.OrderWeek).localeCompare(String(b.OrderWeek)), render: (v) => <Text strong title={v}>{incomingRoundLabel(v)}</Text> },
+                { title: <LedgerSearchHeading label="차수" value={roundSearch} onChange={setRoundSearch} placeholder="47-02.A" />, dataIndex: 'OrderWeek', width: 94, sorter: (a, b) => String(a.OrderWeek).localeCompare(String(b.OrderWeek)), render: (_, row) => <WarehouseRoundCell row={row} editable={detailAccess.edit&&/^\d{2}-\d{2}$/.test(row.OrderWeek)&&Number(row.OrderYear)>=2026} onSaved={roundSaved} /> },
                 { title: <LedgerSearchHeading label="농장명" value={farmSearch} onChange={setFarmSearch} />, dataIndex: 'FarmName', width: 200,
                   render: name => <span style={{overflowWrap:'anywhere',whiteSpace:'normal'}}>{name || '미기재'}</span>,
                   sorter: (a, b) => String(a.FarmName || '').localeCompare(String(b.FarmName || ''), 'ko'), filterSearch: true, filters: farmOptions.map((f) => ({ text: f, value: f })), onFilter: (v, r) => r.FarmName === v },
@@ -498,6 +517,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
                 <input type="checkbox" checked={showLatestDetails} onChange={event => setShowLatestDetails(event.target.checked)} />
                 최신원가 참고 상세 보기
               </label>
+              {detailAccess.read&&selected&&Number(selectedYear)>=2026&&/^\d{2}-\d{2}$/.test(selectedRound)&&<WarehouseDetailHistory state={detailHistory} />}
               <ReceiptDetailScroll tableRoot={detailTableRoot} />
               <Table size="small" rowKey={(d, i) => d.WdetailKey ?? i} loading={detailLoading} dataSource={filteredDetails} pagination={false} scroll={{ x: showLatestDetails ? 1580 : 1460 }}
                 summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={5}><Text strong>합계</Text></Table.Summary.Cell>{['BoxQuantity', 'BunchQuantity', 'SteamQuantity'].map((k, i) => <Table.Summary.Cell key={k} index={5 + i} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.IsWeightRow ? 0 : (b[k] || 0)), 0))}</Text></Table.Summary.Cell>)}<Table.Summary.Cell index={8} /><Table.Summary.Cell index={9} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.총액 || 0), 0))}</Text></Table.Summary.Cell></Table.Summary.Row></Table.Summary>}
@@ -509,7 +529,11 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
                       strong
                       title={d.DisplayName || d.ProdName || ''}
                       style={{ display: 'block', whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.35 }}
-                    >{d.DisplayName || d.ProdName}</Text>
+                    >{d.DisplayName || d.ProdName}
+                      {detailAccess.edit&&selected&&Number(selectedYear)>=2026&&/^\d{2}-\d{2}$/.test(selectedRound)&&!d.IsWeightRow&&Number.isInteger(d.WdetailKey)&&Number.isInteger(d.ProdKey)&&
+                        <Button type="link" size="small" aria-label={`상세 수량 수정 · ${d.DisplayName || d.ProdName}`}
+                          onClick={()=>setQuantityTarget({receipt:selected,row:d})}>수량 수정</Button>}
+                    </Text>
                   ) },
                   { title: '단위', dataIndex: '단위', width: 56 },
                   { title: '송이/단', dataIndex: '단송이', align: 'right', width: 64, render: fmt },
@@ -536,6 +560,13 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
         </Col>
       </Row>
 
+      {quantityTarget&&<WarehouseQuantityDialog {...quantityTarget} onClose={()=>setQuantityTarget(null)} onSaved={()=>{
+        const key=quantityTarget.receipt.WarehouseKey;
+        setQuantityTarget(null);
+        setSuccessMsg(`입고 #${key} 상세 수량 저장 완료`);
+        setHistoryRevision(value=>value+1);
+        load();selectMaster(key);
+      }}/>}
       {correctionTarget && <WarehouseCorrection selected={correctionTarget} onClose={() => setCorrectionTarget(null)} onSaved={(result) => { setSuccessMsg(result.approval?`수정 요청 #${result.requestId} · 영업지원 검토 대기로 전달했습니다.`:`입고 #${result.warehouseKey} 수정 완료`); if(result.approval){window.dispatchEvent(new Event('incoming-approval-saved'));return;} setFarmFilter(''); load(); selectMaster(result.warehouseKey); }} />}
       {manualUpload && <WarehouseManualUpload initial={manualUpload} onClose={()=>{
         setManualUpload(null);
@@ -558,7 +589,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
             <div className="modal-body">
               <div className="form-row">
                 <div className="form-group"><label className="form-label">주문년도 *</label><input className="form-control" value={uploadMeta.orderYear} disabled={uploading} onChange={e=>updateUploadMeta('orderYear', e.target.value)} placeholder="2026"/></div>
-                <div className="form-group"><label className="form-label">차수 *</label><input className="form-control" value={uploadMeta.orderWeek} disabled={uploading} onChange={e=>updateUploadMeta('orderWeek', e.target.value)} placeholder="13-01"/></div>
+                <div className="form-group"><label className="form-label">차수 *</label><input className="form-control" value={uploadMeta.orderWeek} disabled={uploading} onChange={e=>updateUploadMeta('orderWeek', e.target.value)} placeholder="13-01 또는 13-01.A"/></div>
               </div>
               <div className="form-row">
                 <div className="form-group"><label className="form-label">농장명 *</label><input className="form-control" value={uploadMeta.farmName} disabled={uploading} onChange={e=>updateUploadMeta('farmName', e.target.value)} placeholder="FREIGHTWISE"/></div>

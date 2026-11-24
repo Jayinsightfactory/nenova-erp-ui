@@ -1,0 +1,44 @@
+{
+  "id":"warehouse-detail-actions",
+  "title":"입고 세부차수 표시와 상세 수량 편집 계약",
+  "scope":[
+    "pages/incoming.js",
+    "pages/api/warehouse/detail-actions.js",
+    "pages/api/warehouse/correction.js",
+    "pages/api/warehouse/index.js",
+    "lib/incomingRoundLabel.js",
+    "lib/warehouseDetailActions.js",
+    "lib/warehouseCorrection.js",
+    "lib/warehouseCorrectionPolicy.js",
+    "components/WarehouseDetailActions.js"
+  ],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "warehouseIdentity":["OrderYear","OrderWeek","WarehouseKey","WdetailKey"],
+  "actions":[
+    {"name":"RECEIPT_ROUND_LABEL","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve raw business round","warehouseDetail":"preserve","systemActionLog":"append before/after A/B label and actor/date"},
+    {"name":"NATIVE_RECEIPT_QUANTITY","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"existing audit time/actor only","warehouseDetail":"in-place scoped row quantity and derived totals","stock":"recalculate only changed outbound quantity","systemActionLog":"existing correction writer appends atomic acknowledgment"},
+    {"name":"PACKING_ROUND_SUFFIX","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"same verified warehouse uploader using canonical round","systemActionLog":"append suffix atomically with receipt"}
+  ],
+  "crossYearFixture":{
+    "required":true,
+    "description":"2026 and 2027 same 47-02 and source key: label and detail cannot cross scope; packaging file suffix never changes the ERP key."
+  },
+  "requiredTestFiles":[
+    "__tests__/warehouseDetailActions.test.mjs",
+    "__tests__/warehouseCorrection.test.mjs",
+    "__tests__/incomingWarehouseDisplay.test.js"
+  ],
+  "dnspyEvidence":{
+    "required":true,
+    "record":"docs/exe-golden/WarehouseCorrection.md",
+    "source":"2026-11-24 installed Nenova.exe decoded by dnSpy and SELECT-only MSSQL check",
+    "methods":["FormWarehouseView.groupControl1_CustomButtonClick","FormWarehouseAdd.btnSave_Click","FormWarehouseAdd.UnitQuantity","ExcelLoadingPackingList.CheckData"],
+    "tables":["WarehouseMaster","WarehouseDetail","ShipmentMaster","StockMaster","Product","StockHistory","SystemActionLog"]
+  },
+  "requiredCommands":[
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

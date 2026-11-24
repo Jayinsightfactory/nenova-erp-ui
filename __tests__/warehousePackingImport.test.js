@@ -107,6 +107,9 @@ async function main() {
   const manualPolicy = await import('../lib/manualWarehouseUpload.js');
   const manualDb = await import('../lib/manualWarehouseUploadDb.js');
   const farmPolicy = await import('../lib/warehouseFarmChoices.js');
+  const roundPolicy = await import('../lib/incomingRoundLabel.js');
+  const detailActions = await import('../lib/warehouseDetailActions.js');
+  const approvalPolicy = await import('../lib/incomingApprovalPolicy.js');
   const babel = require('next/dist/compiled/babel/core');
   const compiled = babel.transformSync(apiSource, {
     plugins:[require('next/dist/compiled/babel/plugin-transform-modules-commonjs')],
@@ -115,6 +118,7 @@ async function main() {
   const out = {exports:{}};
   const product = {ProdKey:670,CountryFlower:1,OutUnit:'박스',EstUnit:'단'};
   const transactionSql = [];
+  const transactionArgs = [];
   const stored = [];
   const stock = [];
   let replaceUnit = false;
@@ -130,8 +134,8 @@ async function main() {
       if (statement.includes('FROM dbo.Farm f')) return {recordset:[{FarmKey:10,FarmName:'등록 농장'}]};
       return {recordset:statement.includes('SELECT DISTINCT p.CountryFlower')?(fixed?[product]:[]):[product]};
     },
-    withTransaction:async callback=>callback(async statement=>{
-      transactionSql.push(statement);
+    withTransaction:async callback=>callback(async (statement,params)=>{
+      transactionSql.push(statement); transactionArgs.push({statement,params});
       if (statement.includes('INSERT INTO WarehouseMaster')) return {recordset:[{WarehouseKey:9001}]};
       if (statement.includes('SELECT WdetailKey,ProdKey')) return {recordset:stored};
       if (statement.includes('SELECT DISTINCT p.CountryFlower')) return {recordset:fixed?[product]:[]};
@@ -161,6 +165,9 @@ async function main() {
       assertManualWarehouseEligible:async()=>{},
     },
     '../../../lib/warehouseFarmChoices.js':farmPolicy,
+    '../../../lib/incomingRoundLabel.js':roundPolicy,
+    '../../../lib/warehouseDetailActions.js':detailActions,
+    '../../../lib/incomingApprovalPolicy.js':approvalPolicy,
   };
   new Function('require','module','exports',compiled)(key=>mocks[key],out,out.exports);
   const handler=out.exports.default;
@@ -260,6 +267,17 @@ async function main() {
   await assert.rejects(manualDb.assertManualWarehouseEligible(sourceQuery({blockers:[
     {Phase:'CURRENT_FIXED',OrderYearWeek:'20264701',CountryFlower:'FIR',ProdKey:670,ProdName:'Douglas Fir'},
   ]}),database.sql,invoiceMeta,scoped),{code:'NATIVE_ELIGIBILITY_BLOCKED'});
+  stored.length=0;
+  transactionArgs.length=0;
+  const suffixUpload={...corrected,orderWeek:'47-01.B'};
+  assert.equal((await run(suffixUpload)).code,201);
+  const masterWrite=transactionArgs.find(item=>item.statement.includes('INSERT INTO WarehouseMaster'));
+  const labelWrite=transactionArgs.find(item=>item.statement.includes('correction:round-audit'));
+  assert.equal(masterWrite.params.week.value,'47-01');
+  assert.deepEqual(JSON.parse(labelWrite.params.payload.value),{
+    warehouseKey:9001,orderYear:'2026',orderWeek:'47-01',before:'',after:'B',source:'PACKING_UPLOAD',
+  });
+  assert(transactionArgs.indexOf(labelWrite)>transactionArgs.indexOf(masterWrite));
   console.log('warehouse packing import parser/policy tests passed');
 }
 
