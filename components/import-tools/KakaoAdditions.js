@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { validItem, farmTotals, importItemView, importTotalsText, importTotalKey, manualImportReviews, messageOrder, groupFarmTotals } from '../../lib/importKakaoAdditions';
+import { validItem, farmTotals, importItemView, importTotalsText, importTotalKey, manualImportReviews, messageOrder, groupFarmTotals, matchesCountryOrderScope, visibleKakaoMessages, kakaoMessagePageSize } from '../../lib/importKakaoAdditions';
+
+import { importCountryLabel } from '../../lib/importToolsDisplay';
 
 const fields = [['country','국가'],['group','품목군'],['week','차수'],['product','품종'],['quantity','수량'],['unit','단위'],['customer','업체 / CL']];
 const groupKey = row => [row.country||'국가 미상',row.group||'품목군 미상'].join(' · ');
@@ -24,16 +26,24 @@ function ChoiceButtons({label, values, value, onChange, all}) {
       onClick={()=>setExpanded(v=>!v)}>{expanded ? label+' 접기' : label+' 더 보기 ('+(choices.length-limit)+')'}</button>}
   </div>;
 }
-function RecentReview() {
+function RecentReview({orderScope}) {
   const [feed,setFeed]=useState(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
   const [loading,setLoading]=useState(true);
   const [edits,setEdits]=useState({}),[notice,setNotice]=useState('');
   const [week,setWeek]=useState(''),[group,setGroup]=useState(''),[focus,setFocus]=useState(null);
+  const scopeKey = JSON.stringify(orderScope);
+  const [lastScopeKey,setLastScopeKey] = useState(scopeKey);
+  const [messageLimit,setMessageLimit] = useState(kakaoMessagePageSize);
   const [showAudit,setShowAudit]=useState(false),[auditQuery,setAuditQuery]=useState('');
   const [sourceQuery,setSourceQuery]=useState(''),[sourceFilter,setSourceFilter]=useState('전체');
   const [manual,setManual]=useState({});
   const [openEditors,setOpenEditors]=useState({});
   const originalHeading=useRef(null),totalHeading=useRef(null),sourceList=useRef(null);
+  if (scopeKey !== lastScopeKey) {
+    setLastScopeKey(scopeKey);
+    setWeek('');setGroup('');setFocus(null);
+    setSourceFilter('전체');setSourceQuery('');setMessageLimit(kakaoMessagePageSize);
+  }
   useEffect(()=>{
     if(!focus)return;
     const heading=focus.type==='total'?originalHeading.current:totalHeading.current;
@@ -71,15 +81,17 @@ function RecentReview() {
   const reviews=[...(feed?.review||[]),...recovered];
   const allMessages=[...messages,...reviews];
   const view=row=>importItemView(row,edits[row.key]);
-  const allRows=allMessages.filter(m=>sourceType(m)!=='취소').flatMap(m=>m.items.map(view));
+  const inOrderScope=row=>matchesCountryOrderScope(row,orderScope);
+  const allRows=allMessages.filter(m=>sourceType(m)!=='취소').flatMap(m=>m.items.map(view)).filter(inOrderScope);
   const weeks=[...new Set(allRows.map(weekKey))].sort((a,b)=>b.localeCompare(a,undefined,{numeric:true}));
   const activeWeek=weeks.includes(week)?week:'';
   const groups=[...new Set(allRows.filter(r=>!activeWeek||weekKey(r)===activeWeek).map(groupKey))].sort();
   const activeGroup=groups.includes(group)?group:'';
-  const inScope=row=>(!activeWeek||weekKey(row)===activeWeek)&&(!activeGroup||groupKey(row)===activeGroup);
+  const inScope=row=>inOrderScope(row)&&(!activeWeek||weekKey(row)===activeWeek)&&(!activeGroup||groupKey(row)===activeGroup);
   const rows=allRows.filter(inScope),totals=farmTotals(rows);
   const invalid=rows.some(r=>r.checked&&(!validItem(r)||!r.unit||!/^\d{1,2}(?:-\d{1,2})?$/.test(r.week)));
   const includedSourceKeys=new Set(invalid?[]:totals.flatMap(total=>total.sourceKeys));
+  const includedRows=new Map(rows.filter(row=>includedSourceKeys.has(row.key)).map(row=>[row.key,row]));
   const selectedTotal=focus?.type==='total'?totals.find(t=>t.key===focus.key):null;
   const selectedMessage=focus?.type==='message'?allMessages.find(m=>m.id===focus.id):null;
   const sourceKeys=new Set(selectedTotal?.sourceKeys||[]);
@@ -89,11 +101,17 @@ function RecentReview() {
   const linkedSources=selectedTotal?allMessages.filter(m=>m.items.some(i=>sourceKeys.has(i.key))):[];
   const query=sourceQuery.normalize('NFKC').trim().toLowerCase();
   const shownMessages=allMessages
-    .filter(m=>(m.kind==='review'||m.items.some(i=>inScope(view(i))))
+    .filter(m=>(m.kind==='review'&&(!orderScope||manual[m.id]||m.items.some(i=>inOrderScope(view(i))))||m.items.some(i=>inScope(view(i))))
       && (m.items.some(i=>sourceKeys.has(i.key))
         || ((sourceFilter==='전체'||sourceType(m)===sourceFilter)
           && (!query||[importRoom,m.time,m.text].some(value=>String(value||'').normalize('NFKC').toLowerCase().includes(query))))))
     .sort((a,b)=>messageOrder(b.time).localeCompare(messageOrder(a.time)));
+  const linkedIds=new Set(linkedSources.map(m=>m.id));
+  if(selectedMessage)linkedIds.add(selectedMessage.id);
+  const visibleMessages=visibleKakaoMessages(shownMessages,messageLimit,linkedIds);
+  const scopeLabel=orderScope&&[importCountryLabel(orderScope.country),
+    orderScope.year&&orderScope.majorWeek ? orderScope.year+'/'+(orderScope.orderWeek||orderScope.majorWeek)+'차' : '',
+  ].filter(Boolean).join(' · ');
   function matchTotal(key) {
     setFocus({type:'total',key});
   }
@@ -118,16 +136,22 @@ function RecentReview() {
       <td>{r.notes||'업체 미기재'}{r.requests&&<small><br/>요청: {r.requests}</small>}</td></tr>;
   }
   function renderMessage(m){
-    const visible=m.kind==='review'?m.items:m.items.filter(i=>inScope(view(i)));
+    const visible=m.kind==='review'?m.items.filter(i=>manual[m.id]||inOrderScope(view(i))):m.items.filter(i=>inScope(view(i)));
     const linked=selectedMessage?.id===m.id||m.items.some(i=>sourceKeys.has(i.key));
-    const included=m.items.some(item=>includedSourceKeys.has(item.key));
+    const contributions=m.items.map(item=>includedRows.get(item.key)).filter(Boolean);
     const type=sourceType(m);
     const open=!!openEditors[m.id];
     return <article key={m.id} data-source-id={m.id} data-source-kind={m.kind} className={'kakao-order-message '+(linked?'kakao-linked':'')}>
       <div className="kakao-source-meta"><strong>{importRoom}</strong><span>{m.time}</span><span>{type==='추가'?'추가 발주':type==='취소'?'취소 요청':'검토 필요'}</span>
-        {included&&<span className="kakao-source-included"><span aria-hidden="true">✓ </span>합계 반영</span>}
+        {contributions.length>0&&<span className="kakao-source-included"><span aria-hidden="true">✓ </span>합계 반영</span>}
         {linked&&<strong className="kakao-source-reference">{sourceReference(m.id)}</strong>}
       </div>
+      {contributions.length>0&&<div className="kakao-source-contributions" aria-label="이 원문에서 합산한 품목">
+        <ul>{contributions.slice(0,3).map(row=><li key={row.key}>{row.product} {row.quantity} {row.unit}{row.customer&&' · '+row.customer}</li>)}</ul>
+        {contributions.length>3&&<details><summary>반영 품목 {contributions.length-3}개 더 보기</summary>
+          <ul>{contributions.slice(3).map(row=><li key={row.key}>{row.product} {row.quantity} {row.unit}{row.customer&&' · '+row.customer}</li>)}</ul>
+        </details>}
+      </div>}
       <pre className="kakao-source-body">{m.text}</pre>
       <div className="kakao-source-actions">
         {visible.length>0&&type!=='취소'&&<button type="button" className="kakao-match-source" aria-pressed={selectedMessage?.id===m.id} onClick={()=>setFocus({type:'message',id:m.id})}>이 원문의 합계 보기</button>}
@@ -154,6 +178,7 @@ function RecentReview() {
       <p>발주가 있는 최근 2일 · 최신 카톡순 · 1분마다 갱신</p>
       <button type="button" className="kakao-refresh" disabled={loading} onClick={()=>{setLoading(true);setRetry(v=>v+1);}}>{loading?'조회 중…':'새로 조회'}</button>
 
+      {scopeLabel&&<p className="kakao-order-scope">왼쪽 선택 반영 · {scopeLabel}</p>}
       {feed&&<p>{feed.orderDays?.length?'발주일: '+feed.orderDays.join(' · '):'합산 가능한 발주일 없음'}{feed.latest&&' · 최근 수집 원문 '+feed.latest}</p>}
       {feed?.reviewThrough&&<p>선택 발주일 이후 {feed.reviewThrough}까지의 취소·변경도 확인합니다.</p>}
       {stats&&<p className="kakao-counts">카톡 {stats.scanned}건 분석 · 추가 발주 {stats.selected}건 · 검토 {stats.review}건 · 일반 대화 제외 {stats.excluded}건 · 중복 제외 {stats.duplicates}건</p>}
@@ -165,8 +190,8 @@ function RecentReview() {
       <section className="kakao-totals" aria-label="농장 전달용 자동 합계"><h4 ref={totalHeading} tabIndex={-1}>농장 전달용 자동 합계</h4>
         {loading&&<p className="kakao-feed-status" role="status">{feed?'자동 합계를 갱신하는 중…':'농장 전달용 합계를 불러오는 중…'}</p>}
         {error&&!loading&&<p className="kakao-feed-status" role="alert">{feed?'자동 합계 갱신 실패 · 이전 합계 표시 중':'자동 합계를 불러오지 못했습니다.'} {error}</p>}
-        {feed&&<><ChoiceButtons label="차수" all="전체 차수" values={weeks} value={activeWeek} onChange={v=>{setWeek(v);setGroup('');setFocus(null);}}/>
-        <ChoiceButtons label="품목군" all="전체 품목군" values={groups} value={activeGroup} onChange={v=>{setGroup(v);setFocus(null);}}/>
+        {feed&&<><ChoiceButtons label="차수" all="전체 차수" values={weeks} value={activeWeek} onChange={v=>{setWeek(v);setGroup('');setFocus(null);setMessageLimit(kakaoMessagePageSize);}}/>
+        <ChoiceButtons label="품목군" all="전체 품목군" values={groups} value={activeGroup} onChange={v=>{setGroup(v);setFocus(null);setMessageLimit(kakaoMessagePageSize);}}/>
         </>}
         {selectedMessage&&<p className="kakao-match-notice">{sourceReference(selectedMessage.id)} · 선택 원문이 포함된 전체 합계 {shownTotals.length}행 <button type="button" onClick={()=>setFocus(null)}>매칭 해제</button></p>}
         {invalid&&<p role="alert">합산할 행의 차수, 품종, 양수 수량과 단위를 확인하세요.</p>}
@@ -187,14 +212,15 @@ function RecentReview() {
         {loading&&<p className="kakao-feed-status" role="status">{feed?'카톡 원문을 갱신하는 중…':'수입방 카톡 원문을 불러오는 중…'}</p>}
         {error&&!loading&&<p className="kakao-feed-status" role="alert">{feed?'카톡 원문 갱신 실패 · 이전 원문 표시 중':'수입방 카톡 원문을 불러오지 못했습니다.'} {error}</p>}
         {feed&&<><p className="kakao-source-period">{feed?.orderDays?.length?feed.orderDays.join(' · '):'최근 발주일'} · 수입방</p>
-        <input type="search" aria-label="카톡 원문 검색" placeholder="방·시각·내용 검색" value={sourceQuery} onChange={e=>setSourceQuery(e.target.value)}/>
+        <input type="search" aria-label="카톡 원문 검색" placeholder="방·시각·내용 검색" value={sourceQuery} onChange={e=>{setSourceQuery(e.target.value);setMessageLimit(kakaoMessagePageSize);}}/>
         <div className="kakao-source-controls" role="group" aria-label="카톡 요청 유형">
-          {requestFilters.map(type=><button key={type} type="button" aria-pressed={sourceFilter===type} onClick={()=>setSourceFilter(type)}>{type}</button>)}
-          <span role="status">최신순 · {shownMessages.length}건</span>
+          {requestFilters.map(type=><button key={type} type="button" aria-pressed={sourceFilter===type} onClick={()=>{setSourceFilter(type);setMessageLimit(kakaoMessagePageSize);}}>{type}</button>)}
+          <span role="status">최신순 · {visibleMessages.length} / {shownMessages.length}건</span>
         </div>
         {selectedTotal&&<p className="kakao-match-notice">{selectedTotal.product} {selectedTotal.quantity} {selectedTotal.unit}의 근거 원문 <button type="button" onClick={()=>setFocus(null)}>매칭 해제</button></p>}
         <div className="kakao-source-list" role="region" aria-label="카톡 요청 목록" tabIndex={0} ref={sourceList}>
-          {shownMessages.map(renderMessage)}
+          {visibleMessages.map(renderMessage)}
+          {visibleMessages.length<shownMessages.length&&<button type="button" className="kakao-more-sources" onClick={()=>setMessageLimit(n=>n+kakaoMessagePageSize)}>카톡 원문 {Math.min(kakaoMessagePageSize,shownMessages.length-visibleMessages.length)}건 더 보기</button>}
           {feed&&!shownMessages.length&&!loading&&!error&&<p>표시할 카톡 요청이 없습니다.</p>}
         </div>
         <details className="kakao-audit" onToggle={e=>setShowAudit(e.currentTarget.open)}><summary>누락 확인 · 제외 원문 대조</summary>
@@ -208,7 +234,7 @@ function RecentReview() {
     </div>
   </>;
 }
-export default function KakaoAdditions(){return <aside className="kakao-additions" aria-label="수입방 추가 발주"><RecentReview/><style jsx global>{`
+export default function KakaoAdditions({orderScope}){return <aside className="kakao-additions" aria-label="수입방 추가 발주"><RecentReview orderScope={orderScope}/><style jsx global>{`
 .kakao-additions{min-width:0;color:#193558;align-self:start}.kakao-toolbar,.kakao-originals,.kakao-totals{padding:14px;border:1px solid #cddbf0;border-radius:10px;background:#f6f9ff;min-width:0}
 .kakao-toolbar{margin-bottom:12px}.kakao-columns{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:12px;align-items:start}.kakao-additions h3,.kakao-additions h4{margin:0 0 12px}.kakao-additions p{line-height:1.5;margin:8px 0}
 .kakao-additions button{font:inherit;color:#193558;background:white;border:1px solid #b9cbed;border-radius:6px;padding:7px 9px;cursor:pointer}.kakao-additions button:disabled{opacity:.5;cursor:default}.kakao-additions button[aria-pressed=true]{background:#2056bd;color:white}.kakao-additions :focus-visible{outline:3px solid #eaa52c;outline-offset:2px}
@@ -221,6 +247,11 @@ export default function KakaoAdditions(){return <aside className="kakao-addition
 .kakao-source-controls,.kakao-source-actions,.kakao-source-meta{display:flex;flex-wrap:wrap;align-items:center;gap:5px 8px}
 .kakao-source-controls{margin:8px 0}
 .kakao-source-included{display:inline-block;white-space:nowrap;padding:1px 5px;border-radius:4px;background:#dcfce7;color:#14532d;font-weight:700}
+.kakao-order-scope{color:#193558;font-weight:700}
+.kakao-source-contributions{margin:5px 0;padding:4px 8px;border-left:2px solid #86b69d;color:#14532d;background:#edf8f1;font-size:13.5px;font-variant-numeric:tabular-nums}
+.kakao-source-contributions ul{padding-left:17px;margin:0}
+.kakao-source-contributions details{margin:3px 0 0;padding:0;border:0;background:transparent}
+.kakao-more-sources{margin:8px}
 .kakao-source-controls button,.kakao-source-actions button{font-size:13.5px;padding:4px 7px}
 .kakao-source-list{max-height:65dvh;overflow:auto;overscroll-behavior:contain;border-block:1px solid #cddbf0}
 .kakao-order-message{padding:10px 8px;border-bottom:1px solid #e0e8f5}
