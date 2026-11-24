@@ -74,6 +74,7 @@ import {
   buildEstimatePrintWorksheet,
   downloadEstimatePrintWorkbook,
 } from '../lib/estimatePrintExcel';
+import { buildEstimateWorksheetFromHtml, downloadRenderedEstimateWorkbook, uniqueEstimateSheetName } from '../lib/estimatePrintRenderedExcel.js';
 import {
   filterEstimateShipmentsByCustomer,
   filterEstimateShipmentsByManager,
@@ -1265,6 +1266,24 @@ function EstimateByWeek() {
 
   // 출력 다이얼로그
   const [showPrintDialog, setShowPrintDialog] = useState(false);
+  const printDialogRef = useRef(null);
+  useEffect(() => {
+    if (!showPrintDialog) return;
+    const trigger = document.activeElement;
+    const controls = () => [...(printDialogRef.current?.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]') || [])].filter(el => el.getClientRects().length);
+    const frame = requestAnimationFrame(() => controls()[0]?.focus());
+    const onKeyDown = event => {
+      if (event.key === 'Escape') { event.preventDefault(); setShowPrintDialog(false); }
+      if (event.key === 'Tab') {
+        const items = controls(), first = items[0], last = items.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('keydown', onKeyDown); if (trigger?.isConnected) trigger.focus(); };
+  }, [showPrintDialog]);
+
   const [printOpts, setPrintOpts] = useState({
     printDate: new Date().toISOString().slice(0, 10),
     splitMode: 'combined',   // 'combined' | 'split'
@@ -4031,7 +4050,7 @@ function EstimateByWeek() {
     }
 
     setShowPrintDialog(false);
-  }, [filteredItems, selectedShip, weekNum, loadEstimateLogoDataUrl, selectedGroups, shipments, reloadSelectedShipmentItems, filterItemsByWeekday, activeWD]);
+  }, [yearStr, filteredItems, selectedShip, weekNum, loadEstimateLogoDataUrl, selectedGroups, shipments, reloadSelectedShipmentItems, filterItemsByWeekday, activeWD]);
 
   const doActualExcelExport = useCallback(async (opts) => {
     const week = weekNum || '';
@@ -4041,7 +4060,9 @@ function EstimateByWeek() {
     }
 
     const bigoSuffix = getPrintFormatBigoSuffix(opts.printFormat);
+    const logoDataUrl = await loadEstimateLogoDataUrl();
     const sheetOpts = {
+      logoDataUrl,
       week,
       printDate: opts.printDate,
       serialNo: opts.serialNo,
@@ -4110,19 +4131,14 @@ function EstimateByWeek() {
       return Object.keys(groups).sort((a, b) => a.localeCompare(b, 'ko')).map(label => ({ label, rows: groups[label] }));
     };
 
-    const appendSheet = (sheets, custName, oneRows, bigoLabel) => {
+    const appendSheet = (sheets, custName, oneRows, bigoLabel, sheetLabel = custName) => {
       const printRows = filterPrintRows(oneRows);
       if (!printRows.length) return;
-      const baseName = sanitizeExcelSheetName(custName);
-      let name = baseName;
-      let n = 2;
-      while (sheets.some(s => s.name === name)) {
-        name = sanitizeExcelSheetName(`${baseName}_${n}`);
-        n += 1;
-      }
+      const name = uniqueEstimateSheetName(sheetLabel, sheets.map(sheet => sheet.name));
       sheets.push({
         name,
-        worksheet: buildEstimatePrintWorksheet({
+        html: buildEstimateHtml({
+          aggregate: true,
           custName,
           bigoLabel,
           rows: printRows,
@@ -4146,7 +4162,7 @@ function EstimateByWeek() {
             appendSheet(sheets, ship.CustName, rows, `${week}차 ${bigoSuffix}`);
           } else {
             groupPrintRows(filterPrintRows(rows)).forEach(({ label, rows: groupRows }) => {
-              appendSheet(sheets, `${ship.CustName}_${label}`, groupRows, `${week}차 ${label}`);
+              appendSheet(sheets, ship.CustName, groupRows, `${week}차 ${label}`, `${ship.CustName}_${label}`);
             });
           }
         } catch (e) {
@@ -4169,7 +4185,7 @@ function EstimateByWeek() {
         appendSheet(sheets, custName, rows, `${week}차 ${bigoSuffix}`);
       } else {
         groupPrintRows(filterPrintRows(rows)).forEach(({ label, rows: groupRows }) => {
-          appendSheet(sheets, `${custName}_${label}`, groupRows, `${week}차 ${label}`);
+          appendSheet(sheets, custName, groupRows, `${week}차 ${label}`, `${custName}_${label}`);
         });
       }
     }
@@ -4179,14 +4195,18 @@ function EstimateByWeek() {
       return;
     }
 
+    for (const sheet of sheets) {
+      sheet.worksheet = await buildEstimateWorksheetFromHtml(sheet.html);
+      delete sheet.html;
+    }
     const wb = buildEstimatePrintWorkbook(sheets);
     const title = getPrintFormatDocTitle(opts.printFormat);
     const fileName = sheets.length > 1
       ? `${title}_${week}차_일괄.xlsx`
       : `${title}_${sheets[0].name}_${week}차.xlsx`;
-    downloadEstimatePrintWorkbook(wb, fileName);
+    await downloadRenderedEstimateWorkbook(wb, fileName);
     setShowPrintDialog(false);
-  }, [weekNum, activeWD, selectedGroups, shipments, selectedShip, reloadSelectedShipmentItems, filterItemsByWeekday]);
+  }, [yearStr, loadEstimateLogoDataUrl, weekNum, activeWD, selectedGroups, shipments, selectedShip, reloadSelectedShipmentItems, filterItemsByWeekday]);
 
   /** 주문등록(ViewOrder) 품목 → 거래명세표 Excel (인쇄·엑셀과 동일 양식) */
   const handleOrderStatementExcel = useCallback(async () => {
@@ -5660,12 +5680,12 @@ function EstimateByWeek() {
       {/* ── 견적서 출력 다이얼로그 ── */}
       {showPrintDialog && (
         <div className="modal-overlay" onClick={() => setShowPrintDialog(false)}>
-          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+          <div ref={printDialogRef} role="dialog" aria-modal="true" aria-labelledby="estimate-print-title" className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">
-                🖨️ {getPrintFormatDocTitle(printOpts.printFormat)} 출력 옵션
+              <span id="estimate-print-title" className="modal-title">
+                {getPrintFormatDocTitle(printOpts.printFormat)} 출력 옵션
                 {selectedGroups.size > 0 && (
-                  <span style={{ fontSize:11, fontWeight:700, color:'#fff', background:'#2e7d32',
+                  <span style={{ fontSize:12.5, fontWeight:700, color:'#fff', background:'#2e7d32',
                                  padding:'2px 8px', borderRadius:10, marginLeft:8 }}>
                     {selectedGroups.size}건 일괄 인쇄
                   </span>
@@ -5910,12 +5930,12 @@ function EstimateByWeek() {
                 )}
               </div>
             </div>
-            <div className="modal-footer">
+            <div className="modal-footer" style={{ flexWrap: 'wrap' }}>
               <button className="btn btn-primary" onClick={() => doActualPrint(printOpts)}>
                 🖨️ {getPrintFormatDocTitle(printOpts.printFormat)} 출력 실행
               </button>
               <button className="btn" onClick={() => doActualExcelExport(printOpts)}>
-                📊 Excel 다운로드 (인쇄와 동일)
+                엑셀 다운로드 (인쇄와 동일)
               </button>
               <button className="btn" onClick={() => setShowPrintDialog(false)}>취소</button>
             </div>
