@@ -64,6 +64,9 @@ async function recordRole(browser, base, secret, role) {
   let packingSaves = 0;
   let manualSaves = 0;
   let identitySaves = 0;
+  let guideRound='', nativeRow=clone(before[0]), nativeSaves=0;
+  const history=[{id:1,kind:'WAREHOUSE_CORRECTION',product:before[0].ProdName,actor:'수입부 연습',
+    at:'2026-11-05T01:00:00.000Z',reason:'수량 확인',before:{BoxQuantity:9},after:{BoxQuantity:10}}];
   let guideInvoice = header.InvoiceNo;
   let manualPreviewBody;
   const {manualWarehouseLine}=await import('../lib/manualWarehouseUpload.js');
@@ -80,10 +83,20 @@ async function recordRole(browser, base, secret, role) {
       let data = { success: true, items: [], rows: [], data: [], products: [], countries: [], records: [], history: [], references: [], options: [], value: null, revision: 0 };
       if (u.pathname === '/api/products/search') data.products = products;
       if (u.pathname === '/api/auth/me') data.user = user;
-      if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,
-        OrderWeek:[header.OrderWeek,'45-02','47-02A','47-02B'][i]??'46-01',
+      if (u.pathname === '/api/warehouse') {data.canEditDetail=isImport; data.canReadDetailHistory=true; data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,
+        OrderWeek:[header.OrderWeek,'45-02','47-02','47-02'][i]??'46-01',
         FarmName:i?'다른 농장':header.FarmName,InvoiceNo:i?`GUIDE-${i+1}`:guideInvoice,
-        AWB:i===1?null:header.AWB,totalBox:i===1?null:header.totalBox}));
+        AWB:i===1?null:header.AWB,totalBox:i===1?null:header.totalBox,RoundSuffix:i===0?guideRound:i===2?'A':i===3?'B':''}));}
+      if (u.pathname === '/api/warehouse/detail-actions') {
+        if(r.method()==='POST'){
+          const input=JSON.parse(r.postData());
+          assert(isImport);
+          assert.deepEqual([input.warehouseKey,input.orderYear,input.orderWeek,input.expectedSuffix],[9001,'2026','45-01',guideRound]);
+          history.unshift({id:history.length+1,kind:'WAREHOUSE_ROUND_LABEL',actor:user.userName,at:'2026-11-05T01:02:00.000Z',before:guideRound,after:input.suffix});
+          guideRound=input.suffix;
+          data={success:true,warehouseKey:9001,suffix:guideRound};
+        }else data={success:true,history};
+      }
       if (u.pathname === '/api/warehouse/identity') {
         const input=r.method()==='PATCH'?JSON.parse(r.postData()):Object.fromEntries(u.searchParams);
         const linked=Number(input.warehouseKey)===9002;
@@ -141,10 +154,30 @@ async function recordRole(browser, base, secret, role) {
         data={success:true,bunchQuantities:results.map(item=>item.quantity),bunchResolutions,warehouseKey:9200,message:'입고 등록 완료: 2/2개 품목'};
       }
       if (u.pathname === '/api/arrival-cost/latest') data.references = {'1|': [1000, 1350].map((cost,i)=>({cost,unit:'단',farm:`원가 농장 ${i+1}`,week:'45-01',orderYear:'2026',sourceKind:'INVOICE',referenceKey:String(i)}))};
-      if (u.pathname === '/api/warehouse/9001') data.items = before;
+      if (u.pathname === '/api/warehouse/9001') data.items = [nativeRow];
       if (u.pathname === '/api/warehouse/9002') data.items = [{ ...before[0], BoxQuantity: null, IsWeightRow: false, ReceiptGoodsLines: 1 }];
       if (u.pathname === '/api/warehouse/correction') data = { success: true, draftOwner: user.userId, header, baselineDigest:'c'.repeat(64), details: before, farms: [{ FarmName: header.FarmName }, { FarmName: '연습농장 나' }], history: [] };
-      if(u.pathname==='/api/warehouse/correction'&&r.method()==='POST')data={...previewFor(JSON.parse(r.postData())),canCommit:false,issues:[{message:'現在 차수에 확정된 품목이 있습니다. 영업지원에 수정 요청하세요.'.replace('現在','현재')}]};
+      if(u.pathname==='/api/warehouse/correction'&&r.method()==='POST'){
+        const input=JSON.parse(r.postData());
+        if(input.mode==='NATIVE_QUANTITY'){
+          assert(isImport);
+          assert.deepEqual(input.detail.expected,{BoxQuantity:10,BunchQuantity:100,SteamQuantity:1000});
+          const blocked=input.warehouseKey===9002;
+          const after={...nativeRow,...Object.fromEntries(['BoxQuantity','BunchQuantity','SteamQuantity'].map(k=>[k,input.detail[k]])),
+            OutQuantity:input.detail.BunchQuantity,EstQuantity:input.detail.BunchQuantity,TPrice:input.detail.BunchQuantity};
+          if(input.action==='preview')data={success:true,canCommit:!blocked,baselineDigest:'e'.repeat(64),
+            issues:blocked?[{code:'NATIVE_ELIGIBILITY_BLOCKED',message:'현재 차수에 확정된 품목이 있습니다.'}]:[],
+            nativeQuantity:{before:nativeRow,after}};
+          else{
+            assert(!blocked);assert.equal(input.detail.detailKey,101);assert.equal(input.orderWeek,'45-01');
+            assert(input.confirmed&&input.operationId&&input.reason);assert.equal(input.baselineDigest,'e'.repeat(64));
+            history.unshift({id:history.length+1,kind:'WAREHOUSE_CORRECTION',actor:user.userName,product:nativeRow.ProdName,
+              at:'2026-11-05T01:03:00.000Z',reason:input.reason,before:nativeRow,after});
+            nativeRow={...after,총액:after.TPrice};nativeSaves++;
+            data={success:true,warehouseKey:9001,erpWritePerformed:false};
+          }
+        }else data={...previewFor(input),canCommit:false,issues:[{message:'현재 차수에 확정된 품목이 있습니다. 영업지원에 수정 요청하세요.'}]};
+      }
       if (u.pathname === '/api/warehouse/invoice-costs') data.costs = null;
       if (u.pathname === '/api/warehouse/approval') {
         if (r.method() === 'GET') {
@@ -188,7 +221,7 @@ async function recordRole(browser, base, secret, role) {
   });
   await page.goto(`${base}/import/tools?tab=incoming&warehouseKey=9001&from=2026-10-01&to=2026-11-30`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('nav[aria-label="입고 정정 처리 단계"]');
-  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},stop: async () => null,unfocus:async()=>{} } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 작업 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset: 'veryfast', crf:isImport?26:23 });
+  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},stop: async () => null,unfocus:async()=>{} } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 작업 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset: 'veryfast', crf:isImport?27:23 });
   let stepNumber=1,currentCaption='1. 조작할 위치를 확인합니다.';
   const hold = async (text, seconds = 5) => { currentCaption=`${stepNumber}. ${text.replace(/^\d+\. /,'')}`;await rec.caption(currentCaption); await rec.pause(Math.min(seconds, 7) * 1000); };
   const focusTarget=async element=>{
@@ -409,7 +442,7 @@ async function recordRole(browser, base, secret, role) {
         await hold('적용 완료 결과를 확인합니다.\n이미 발송한 견적서는 정정 내용으로 다시 발행하세요.',5);await click('요청 목록으로');
       }
     }
-    if(!['packing-quantity','manual-upload','inline-numbers'].includes(onlyScenario)){
+    if(!['packing-quantity','manual-upload','inline-numbers','native-detail'].includes(onlyScenario)){
       if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
       await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click(onlyScenario==='price'&&!isImport?'#4 열기':'#1 열기');await page.waitForFunction(()=>document.querySelector('[aria-label="작업 로그"]')?.textContent.includes('요청 내용과 처리 이력을 불러왔습니다.'));await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
     }
@@ -570,9 +603,43 @@ async function recordRole(browser, base, secret, role) {
       await hold('저장된 A/B 접미는 점을 넣어서 표시하고, 입력일은 연도 두 자리로 표시합니다.',5);
       assert.equal(identitySaves,1);
     }
+    if(!onlyScenario||onlyScenario==='native-detail'){
+      console.log(`${dry?'CHECK':'RECORD'} ${role}: native-detail`);
+      await page.goto(`${base}/incoming?popup=1&warehouseKey=9001`,{waitUntil:'networkidle0'});
+      await rec.restoreOverlay?.();
+      stepNumber=isImport?10:5;
+      rec.chapter('native-detail',isImport?'10. 차수 표시와 상세 수량 수정':'5. 원장 차수·수량 변경 이력');
+      if(isImport){
+        const trigger='button[aria-label="차수 표시 수정 · 입고 9001"]';
+        await moveClick(await page.waitForSelector(trigger));
+        await page.select('[data-row-key="9001"] select','B');
+        await hold('차수 옆에서 B를 선택합니다. 표시만 바뀌고 업무 차수는 유지됩니다.',4);
+        await click('저장','[data-row-key="9001"]');
+        await page.waitForFunction(()=>document.querySelector('[data-row-key="9001"]')?.innerText.includes('45-01.B'));
+        const edit='button[aria-label="상세 수량 수정 · 장미 레드 50"]';
+        await moveClick(await page.waitForSelector(edit));
+        const modal='[role="dialog"]';
+        await fill(modal+' label:nth-child(2) input[type="number"]','105');
+        await fill(modal+' input[maxlength="500"]','연습 단 수량 확인');
+        await click('변경 확인',modal);
+        await page.waitForFunction(()=>document.querySelector('[role="dialog"]')?.innerText.includes('100 → 105'));
+        await hold('수량과 합계를 확인한 다음 수량 저장을 누릅니다. 확정된 입고는 저장할 수 없습니다.',4);
+        await click('수량 저장',modal);
+        await page.waitForFunction(()=>document.body.innerText.includes('입고 #9001 상세 수량 저장 완료'));
+        assert.equal(nativeSaves,1);
+      }else{
+        assert.equal(await page.$('button[aria-label="차수 표시 수정 · 입고 9001"]'),null);
+        assert.equal(await page.$('button[aria-label^="상세 수량 수정"]'),null);
+      }
+      const historySummary=await page.evaluateHandle(()=>[...document.querySelectorAll('summary')].find(n=>n.textContent.startsWith('차수·수량 변경 이력')));
+      assert(historySummary.asElement());
+      await moveClick(historySummary.asElement());await historySummary.dispose();
+      await page.waitForFunction(()=>document.querySelector('details[open] article')?.innerText.includes('수입부 연습'));
+      await hold('변경 이력에서 수정한 사람, 시간과 수량 전후를 확인합니다.',5);
+    }
     assert.deepEqual(errors, []);
-    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (['packing-quantity','manual-upload','inline-numbers'].includes(onlyScenario)?0:onlyScenario?1:isImport?6:4)+(dry&&!isImport?1:0));
-    if(dry&&!isImport)assert(replayedApproval,'lost approval retry must reuse the same operation');
+    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (['packing-quantity','manual-upload','inline-numbers','native-detail'].includes(onlyScenario)?0:onlyScenario?1:isImport?6:4)+(dry&&!isImport&&onlyScenario!=='native-detail'?1:0));
+    if(dry&&!isImport&&onlyScenario!=='native-detail')assert(replayedApproval,'lost approval retry must reuse the same operation');
     const result = await rec.stop(); stopped = true;
     if (!dry) {
       const latestRegistry = JSON.parse(fs.readFileSync(registryPath,'utf8'));

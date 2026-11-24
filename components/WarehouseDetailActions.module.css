@@ -1,0 +1,50 @@
+.round {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  padding: 1px 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.roundEditor, .roundEditor label, .reason {
+  display: grid;
+  gap: 4px;
+}
+.roundEditor select {
+  width: 100%;
+  font: inherit;
+}
+.scope {
+  font-size: 12.5px;
+  color: #334155;
+}
+.roundEditor p, .history p {
+  margin: 4px 0;
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 8px;
+}
+.reason {
+  margin: 12px 0;
+}
+.changes {
+  margin: 4px 0;
+  padding-left: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.history {
+  margin: 6px 0;
+}
+.history summary {
+  cursor: pointer;
+}
+.history article {
+  padding: 6px 2px;
+  border-bottom: 1px solid #cbd5e1;
+}
