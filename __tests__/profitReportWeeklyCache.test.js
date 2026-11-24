@@ -35,6 +35,7 @@ async function main(){
   let live=0, reads=0, confirm=null,diagnostics=0,settlementVersion=0,changeSettlement=false;
   const scopeFixture={dateOnly:'2026-10-28',orderYearWeek:'202644'};
   const dependencies={
+    orchid4403ReportView:async p=>p,
     ...(await import('../lib/profitMixedFreightView.js')),
     estimateCalendarEvidenceByCategory:async(m,y)=>({orderYear:y,major:m,byCategory:{}}),applyProfitEstimateCalendarView:p=>p,
     ...policy,materializeProfitPayload:C.materializeProfitPayload,
