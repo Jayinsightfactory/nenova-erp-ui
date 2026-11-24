@@ -15,3 +15,9 @@ FormWarehouseView.GetDetail: WarehouseKey로 WarehouseDetail/Product 조회.
 ## 2026-11-18 농장 선택 후보·검색 근거
 실제 dnSpy CLI ClassWarehouseMaster.Update와 FormWarehouseView.GetData를 재확인했다. FarmName은 WarehouseMaster의 문자열이며 FarmKey를 새로 생성하는 저장이 아니다. Farm 마스터에 없는 기존 입고 농장명도 실제 입고에는 존재한다. 운영 SELECT-only: 활성 Farm87개, Fagua/Inti 이름0개; WarehouseMaster에는 Fagua Flowers/Faguaflowers Intl LLC 존재. 마스터 자동생성·원장정정은 실행하지 않았다.
 웹의 후보는 활성 마스터+활성 입고의 기존 이름을 warehouseFarmChoicesSql 한곳에서 읽고 preview/locked final에서 재검증한다. 삭제·동명중복 마스터는 과거입고로 우회하지 않는다. FarmKey없는이름은입고FarmName메타로만사용하고 ShipmentFarm배정후보는 실제마스터키만유지한다. 농장검색은표시필터이며수정대상연도/차수/PK와원가·확정·재고·견적·매출writer변경없음. 계획 incoming-farm-search-2026-11-18.md 및 real MSSQL candidate/warehouseCorrection fixture 참조.
+
+## 2026-11-24 차수 접미 표시·EXE 방식 상세수량
+
+실제 설치 Nenova.exe SHA256 FEDEA619A6E54D6CDD58802E0707DD51D06F5D46E883F53F00134E801AC62F79. dnSpy에서 FormWarehouseView.groupControl1_CustomButtonClick → FormWarehouseAdd EditMode 2와 WdetailKey 전달 → btnSave_Click에서 박스·단·송이와 Product.OutUnit/EstUnit 기반 수량, 송이×단가, StockHistory 및 usp_StockCalculation 순서를 확인했다. 추정 타입명 FormWarehouseDetail은 설치본에 없다. ExcelLoadingPackingList.CheckData는 파일 차수에서 '-'만 제거한 연도차수로 확정 검사한다. 웹 표시 접미를 기존 업무키에 붙이면 올바른 확정 키에서 벗어난다.
+
+운영 SELECT-only. WarehouseMaster·StockMaster·ShipmentMaster 차수는 NVARCHAR(20), 2026/47-02 활성 원장 26/26건은 47-02. #8249/51360 박스 NULL·단 60·송이 600, OutUnit/EstUnit 단, 입고 총액은 출고 단위×단가이며 EXE 송이 산식과 다르다. 기존 금액 기준을 입증하고 새 금액이 모호할 경우 차단한다. 기존 정정 감사 SystemActionLog에는 성공 이력 1건, Actor·ActionDtm·LogKey·Payload NVARCHAR(MAX), 저장소와 SQL 정의에서 관련 삭제 처리 없음. A/B 표시는 업무키를 그대로 두고 동일 감사 저장소에 별도 기록한다. 수량은 해당 WdetailKey만 갱신하고 기존 확정·원가·재고 가드와 원자적 감사를 사용한다. 계획 incoming-round-native-quantity-2026-11-24.md와 테스트 참고.

@@ -10,6 +10,9 @@ import { canManageInvoiceReceipt } from '../../../lib/invoiceReceiptAccess.js';
 import { manualWarehouseHeader, manualWarehouseLine } from '../../../lib/manualWarehouseUpload.js';
 import { assertManualWarehouseEligible, readManualWarehouseAttempt } from '../../../lib/manualWarehouseUploadDb.js';
 import { warehouseFarmChoicesSql } from '../../../lib/warehouseFarmChoices.js';
+import { splitIncomingRound } from '../../../lib/incomingRoundLabel.js';
+import { approvalPermissions } from '../../../lib/incomingApprovalPolicy.js';
+import { attachWarehouseRoundLabels, recordWarehouseRoundLabel } from '../../../lib/warehouseDetailActions.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return req.query.manualOptions === '1' ? await getManualOptions(req,res) : await getWarehouse(req, res);
@@ -61,6 +64,9 @@ async function patchFreight(req, res) {
 async function getWarehouse(req, res) {
   const { startDate, endDate, exeParity } = req.query;
   const useExe = useExeParityFlag(exeParity);
+  const labelsRequested=req.query.roundLabels==='1';
+  const mayEdit=canManageInvoiceReceipt(req.user);
+  const detailAccess=labelsRequested?{canEditDetail:mayEdit,canReadDetailHistory:mayEdit||approvalPermissions(req.user).review}:{};
 
   try {
     if (useExe && startDate && endDate) {
@@ -68,7 +74,7 @@ async function getWarehouse(req, res) {
         startDate: { type: sql.Date, value: new Date(startDate) },
         endDate: { type: sql.Date, value: new Date(endDate) },
       });
-      return res.status(200).json({ success: true, source: 'real_db_exe_parity', masters: result.recordset });
+      return res.status(200).json({ success: true, source: 'real_db_exe_parity', ...detailAccess, masters: labelsRequested ? await attachWarehouseRoundLabels(query,sql,result.recordset) : result.recordset });
     }
 
     let where = 'WHERE wm.isDeleted = 0';
@@ -94,7 +100,7 @@ async function getWarehouse(req, res) {
        ORDER BY wm.InputDate DESC, wm.WarehouseKey DESC`,
       params
     );
-    return res.status(200).json({ success: true, source: 'real_db', masters: masterResult.recordset });
+    return res.status(200).json({ success: true, source: 'real_db', ...detailAccess, masters: labelsRequested ? await attachWarehouseRoundLabels(query,sql,masterResult.recordset) : masterResult.recordset });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
@@ -114,7 +120,8 @@ async function uploadWarehouse(req, res) {
     try { manualMeta = manualWarehouseHeader(body); }
     catch (error) { return res.status(400).json({success:false,code:error.code,error:error.message}); }
   }
-  const { orderYear, orderWeek, farmName, invoiceNo, awb, inputDate } = manualMeta ?? body;
+  const { orderYear, orderWeek:rawRound, farmName, invoiceNo, awb, inputDate } = manualMeta ?? body;
+  const {orderWeek, suffix:roundSuffix}=splitIncomingRound(rawRound)??{};
   const { fileName, sourceWorkbookHash, items, gw, cw, rate, docFee } = body;
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ success: false, error: '업로드할 데이터가 없습니다.' });
   if (!/^\d{4}$/.test(String(orderYear || '')) || !/^\d{2}-\d{2}$/.test(String(orderWeek || ''))) {
@@ -319,6 +326,8 @@ async function uploadWarehouse(req, res) {
           : !Number.isFinite(saved.recordset[index][field]) || Math.abs(saved.recordset[index][field]-item[field])>0.000001))) {
         throw new Error('저장 후 입고 수량과 금액이 일치하지 않습니다.');
       }
+      if(roundSuffix)await recordWarehouseRoundLabel(tQuery,sql,{warehouseKey:wk,orderYear:String(orderYear),orderWeek},
+        {suffix:roundSuffix,actor,source:'PACKING_UPLOAD'});
       return wk;
     });
 

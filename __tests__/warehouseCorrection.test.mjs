@@ -12,7 +12,7 @@ export const products=[{ProdKey:1,ProdName:'Flower A',OutUnit:'단',EstUnit:'송
 export const farmInput={warehouseKey:90,orderYear:'2026',orderWeek:'44-01',mode:'FARM',farmName:'Farm B'};
 export const replaceInput={...farmInput,mode:'REPLACE',farmName:'Farm A',fileName:'fixed.xlsx',fileMeta:{orderYear:'2026',orderWeek:'44-01',invoiceNo:'I-1',awb:'A-1',inputDate:'2026/11/01'},items:[{prodName:'Flower B',orderCode:'C',boxQty:1,bunchQty:10,steamQty:100,steamOf1Box:100,steamOf1Bunch:10,unitPrice:1,totalPrice:100}]};
 
-function fixture({connection='',fixed=false,fail='',negative=false,gateBusy=false,gateReady=true}={}){
+function fixture({connection='',fixed=false,fail='',negative=false,gateBusy=false,gateReady=true,pending=false}={}){
   let state={header:structuredClone(header),details:[structuredClone(detail)],stock:{1:10,2:0},audit:[],history:[],calculated:[]};const calls=[];
   const q=async(text,params={})=>{
     calls.push(text);const p=Object.fromEntries(Object.entries(params).map(([k,v])=>[k,v.value]));let recordset=[];
@@ -26,6 +26,13 @@ function fixture({connection='',fixed=false,fail='',negative=false,gateBusy=fals
     else if(text.includes('DECLARE @products TABLE'))return {recordsets:[products.filter(v=>Object.values(p).includes(v.ProdKey)),[{CurrentYearWeek:'20264401',PreviousYearWeek:null,NextYearWeek:null}],fixed?[{Phase:'CURRENT_FIXED',OrderYearWeek:'20264401',CountryFlower:'TEST',ProdKey:1,ProdName:'Flower A'}]:[]]};
     else if(text.includes('correction:replay'))recordset=state.audit.filter(a=>a.op===p.op).map(a=>({Payload:a.payload}));
     else if(text.includes('correction:update-header'))state.header.FarmName=p.farm;
+    else if(text.includes('correction:pending-approval'))recordset=pending?[{RequestId:99}]:[];
+    else if(text.includes('correction:update-native-detail')){
+      assert.equal(p.year,state.header.OrderYear);assert.equal(p.week,state.header.OrderWeek);
+      const row=state.details.find(d=>d.WarehouseKey===p.wk&&d.WdetailKey===p.detail);
+      assert.ok(row);
+      for(const key of ['BoxQuantity','BunchQuantity','SteamQuantity','OutQuantity','EstQuantity','TPrice'])row[key]=p[key];
+    }
     else if(text.includes('correction:replace-details'))state.details=[];
     else if(text.includes('correction:insert-detail'))state.details.push(Object.fromEntries(['ProdKey','OrderCode','BoxQuantity','BunchQuantity','SteamQuantity','OutQuantity','EstQuantity','UPrice','TPrice','SteamOf1Box','SteamOf1Bunch'].map(k=>[k,p[k]])));
     else if(text.includes('correction:stock-delta')){state.stock[p.pk]+=p.delta;state.history.push(p.delta);recordset=[{ActualStock:state.stock[p.pk],ExpectedStock:state.stock[p.pk]}];}
@@ -123,4 +130,50 @@ test('Non-farm correction keeps the byte-for-byte farm on the scoped receipt',()
   assert.throws(()=>buildCorrectionPlan(tampered,sourceHeader,[detail],products),{code:'CORRECTION_EDIT_SCOPE'});
   const farm=normalizedCorrection({...farmInput,editKind:'FARM'});
   assert.equal(preserveOriginalFarmName(farm,sourceHeader).farmName,'Farm B');
+});
+
+const nativeInput={warehouseKey:90,orderYear:'2026',orderWeek:'44-01',mode:'NATIVE_QUANTITY',
+  detail:{detailKey:901,BoxQuantity:2,BunchQuantity:11,SteamQuantity:130,expected:{BoxQuantity:1,BunchQuantity:10,SteamQuantity:100}}};
+const normalizeNative=input=>normalizedCorrection(input,{allowNativeQuantity:true});
+
+test('native detail follows original price unit, preserves other fields and stays out of approval drafts',()=>{
+  assert.throws(()=>normalizedCorrection(nativeInput));
+  assert.throws(()=>buildCorrectionPlan(normalizeNative(nativeInput),header,[{...detail,BunchQuantity:9}],products),{code:'CORRECTION_DETAIL_STALE'});
+  const native=buildCorrectionPlan(normalizeNative(nativeInput),header,[detail],products);
+  assert.deepEqual(native.after[0],{...detail,BoxQuantity:2,BunchQuantity:11,SteamQuantity:130,OutQuantity:11,EstQuantity:130,TPrice:130});
+  const byBunch={...detail,BoxQuantity:null,TPrice:10};
+  const uploaded=buildCorrectionPlan(normalizeNative({...nativeInput,detail:{...nativeInput.detail,BoxQuantity:null,expected:{...nativeInput.detail.expected,BoxQuantity:null}}}),header,[byBunch],products);
+  assert.equal(uploaded.after[0].BoxQuantity,null);
+  assert.equal(uploaded.after[0].TPrice,11);
+  assert.throws(()=>buildCorrectionPlan(normalizeNative(nativeInput),{...header,OrderYear:'2027'},[detail],products),{code:'CORRECTION_SCOPE_CHANGED'});
+  assert.throws(()=>buildCorrectionPlan(normalizeNative({...nativeInput,detail:{...nativeInput.detail,expected:{...nativeInput.detail.expected,SteamQuantity:10}}}),header,[{...detail,SteamQuantity:10,EstQuantity:10,TPrice:10}],products),{code:'CORRECTION_DETAIL_PRICE_BASIS'});
+});
+
+test('native detail is a single keyed update, calls stock only for a changed outbound unit, logs old/new once',async()=>{
+  const f=fixture(),save=await approved(f,nativeInput);
+  await f.commit(save);
+  assert.equal(f.state.details[0].WdetailKey,901);
+  assert.equal(f.state.details[0].ProdKey,1);
+  assert.equal(f.state.details[0].UPrice,1);
+  assert.equal(f.state.details[0].TPrice,130);
+  assert.deepEqual(f.state.history,[1]);
+  assert.deepEqual(f.state.calculated,[1]);
+  assert(!f.calls.some(t=>t.includes('correction:replace-details')));
+  const audit=JSON.parse(f.state.audit[0].payload);
+  assert.equal(audit.nativeQuantity.before.SteamQuantity,100);
+  assert.equal(audit.nativeQuantity.after.SteamQuantity,130);
+  assert.equal((await f.commit(save)).replayed,true);
+  const sameOut=fixture();
+  const boxOnly={...nativeInput,detail:{...nativeInput.detail,BoxQuantity:2,BunchQuantity:10,SteamQuantity:100}};
+  await sameOut.commit(await approved(sameOut,boxOnly));
+  assert.equal(sameOut.state.details[0].BoxQuantity,2);
+  assert.deepEqual(sameOut.state.calculated,[]);
+});
+
+test('native fixed, owner, pending request and audit failure never partially save',async()=>{
+  for(const options of [{fixed:true},{connection:'INVOICE'},{pending:true},{fail:'audit'},{negative:true}]){
+    const f=fixture(options),before=structuredClone(f.state);
+    await assert.rejects(()=>approved(f,nativeInput).then(input=>f.commit(input)));
+    assert.deepEqual(f.state,before);
+  }
 });
