@@ -4961,6 +4961,14 @@ pm run test:canon 통과.
 
 
 
+## 2026-11-24 44차 선율 정산서 완결 · 중국 ProdKey 2513 관세 규칙 복원 · N->N+1 연쇄 스냅샷 자동 갱신
+검색어: 44차 선율 정산서 ProdKey 2513 프라우드 65-70cm profit-china-duty-recovery-2026 연쇄 스냅샷 cascadeNext g17 g19
+1. 작업 위치: nenova-erp-ui / feat/sunyul-44-complete-cascade / C:/Users/USER/nw-swm-sunyul-44-complete / origin/master bfa5bab7 기반.
+2. 완료된 것: 44차 중국 F=null의 유일한 원인인 ProdKey 2513(65-75cm->65-70cm 품명 변경으로 인한 POLICY_FINGERPRINT_MISMATCH)을 data/profit-china-duty-recovery-2026.json(0.214, 동일 ProdKey 2513 35-2 CLOUD B34/K34 근거)에 등록, lib/profitReportAutoRefresh.js에 직전 차수 스냅샷 최신시각(WebProfitReportSnapshot:prev) 연쇄 stale 감지 및 미확정 N+1차 1-hop 비동기 연쇄 자동 갱신(cascadeNext) 추가, 회귀 테스트 보강.
+3. 남은 할 일: PR 머지·Cafe24 배포 후 2026년 44차·45차 스냅샷 갱신으로 중국 F/E 및 양 차수 전체 합계(I·J·K) null 0건 실측 확인 및 워크트리 정리.
+4. 검증 상태: profitChinaDutyRecovery PASS(125개), profitReportAutoRefresh 14/14 PASS, test:profit-weekly-cache·pstack-verify 5/5·guard:erp-writes·test:erp-manifest 통과 확인 예정.
+5. 주의/잠금: 확정 차수(WebProfitReportConfirm IsActive=1)는 연쇄 갱신에서도 하드 스킵. ERP 공유 원장 쓰기 0건. 연결 목표 g17·g19.
+
 
 ## 2026-11-24 별도 품종 추천 문의로 발주 합계가 빠지는 문제
 검색어: 49-01 알스트로 추천 문의 확정 발주 5품종 10박스 카톡 누락 g19

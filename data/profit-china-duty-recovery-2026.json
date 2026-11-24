@@ -1856,6 +1856,26 @@
       "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
       "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
       "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2513,
+      "exactName": "ROSE CHINA / 프라우드(White proud) 65-70cm",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2513,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-2 CLOUD",
+        "cells": [
+          "B34",
+          "K34"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "동일 ProdKey 2513의 2026 원본 승인 규칙(65-75cm -> 65-70cm 품명 규격 변경 반영); 실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
     }
   ]
 }

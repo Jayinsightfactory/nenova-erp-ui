@@ -589,3 +589,88 @@ test('loadCoherentLatestReport fence ignores strictly future week edits (> major
     (e) => e.code === 'PROFIT_SOURCES_CHANGED' && e.statusCode === 409,
   );
 });
+
+test('chained N -> N+1 staleness detection & single-hop cascade refresh (skips confirmed and missing N+1)', async () => {
+  const A = await import('../lib/profitReportAutoRefresh.js');
+
+  // 1) Stale-on-Read: prevPeriod snapshot (2026:44) created AFTER current snapshot (2026:45) -> stale!
+  const mockQuery = async (sqlText, params) => {
+    const trimmed = sqlText.trim();
+    if (trimmed.includes('OBJECT_ID(N\'dbo.WebProfitReportSnapshot\'')) return { recordset: [{ id: 1 }] };
+    if (trimmed.includes('FROM dbo.WebProfitReportSnapshot') && params?.y?.value === '2026' && params?.m?.value === '44') {
+      return { recordset: [{ CreatedAtUtc: '2026-11-24T08:00:00.000Z' }] };
+    }
+    return { recordsets: [[]], recordset: [] };
+  };
+  const stale45 = await A.detectStaleProfitSnapshot({
+    orderYear: '2026',
+    major: '45',
+    snapshotSavedAt: '2026-11-23T06:31:50.000Z',
+    prevPeriod: { orderYear: '2026', major: '44' },
+    queryFn: mockQuery,
+    readLedger: async () => ({ version: 1, revision: 0, documents: [], values: {}, history: [] }),
+  });
+  assert.equal(stale45.isStale, true);
+  assert.ok(stale45.staleSources.some((s) => s.source === 'WebProfitReportSnapshot:prev' && s.scope === '2026:44'));
+
+  // 2) Single-hop cascade: saving 44 cascades to unconfirmed 45 (with existing snapshot), never to 46!
+  const savedScopes = [];
+  const pendingCascades = [];
+  const res44 = await A.autoRefreshUnconfirmedProfitSnapshot({
+    orderYear: '2026',
+    major: '44',
+    actor: 'worker:job44',
+    trigger: 'settlement-register',
+    cascadeNext: true,
+    checkConfirm: async () => ({ initialized: true, confirm: null }),
+    hasSnapshot: async (y, m) => y === '2026' && m === '45',
+    saveCache: async (arg) => {
+      savedScopes.push(`${arg.orderYear}:${arg.major}:${arg.actor}`);
+      return { action: 'saved', payload: {}, snapshot: { versionNo: 6 } };
+    },
+    clearDutyCache: () => {},
+    scheduleCascade: (fn) => pendingCascades.push(fn),
+  });
+  assert.equal(res44.refreshed, true);
+  assert.equal(res44.cascadedTo, '2026:45');
+  assert.equal(pendingCascades.length, 1);
+  await pendingCascades[0]();
+  assert.deepEqual(savedScopes, [
+    '2026:44:auto-refresh:settlement-register:worker:job44',
+    '2026:45:auto-refresh:cascade-from-44:worker:job44',
+  ]);
+  assert.equal(pendingCascades.length, 1, 'cascade must stop after 1 hop (never cascade 45 -> 46)');
+
+  // 3) Confirmed N+1 must NEVER be modified by cascade!
+  const confirmedSaved = [];
+  const confirmedCascades = [];
+  await A.autoRefreshUnconfirmedProfitSnapshot({
+    orderYear: '2026',
+    major: '44',
+    actor: 'tester',
+    trigger: 'settlement-register',
+    cascadeNext: true,
+    checkConfirm: async (_y, m) => ({ initialized: true, confirm: m === '45' ? { confirmKey: 9 } : null }),
+    hasSnapshot: async () => true,
+    saveCache: async (arg) => {
+      confirmedSaved.push(`${arg.orderYear}:${arg.major}`);
+      return { action: 'saved', payload: {}, snapshot: {} };
+    },
+    clearDutyCache: () => {},
+    scheduleCascade: (fn) => confirmedCascades.push(fn),
+  });
+  await confirmedCascades[0]();
+  assert.deepEqual(confirmedSaved, ['2026:44'], 'confirmed 2026:45 must be skipped during cascade');
+});
+
+test('ProdKey 2513 (ROSE CHINA / 프라우드 65-70cm) resolves 0.214 duty rate for 2026 only', async () => {
+  const duty = await import('../lib/profitTemplateDuty.mjs');
+  const chinaRecovery = JSON.parse(read('data/profit-china-duty-recovery-2026.json'));
+  const policy = { products: [], chinaRecovery };
+  const line = { prodKey: 2513, name: 'ROSE CHINA / 프라우드(White proud) 65-70cm', country: '중국', orderYear: '2026', orderWeek: '44-01' };
+  const rule = duty.resolveTemplateDutyRule(line, policy, '2026');
+  assert.equal(rule.rate, 0.214);
+  assert.equal(rule.referenceProdKey, 2513);
+  assert.equal(duty.resolveTemplateDutyRule({ ...line, orderYear: '2025' }, policy, '2025'), null);
+  assert.equal(duty.resolveTemplateDutyRule({ ...line, country: '호주' }, policy, '2026'), null);
+});

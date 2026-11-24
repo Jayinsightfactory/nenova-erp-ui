@@ -33,7 +33,7 @@ test('native H fallback replaces only missing other-cost component, never double
 });
 test('China registry uses exact key country name year and traceable approved form references',async()=>{
  const m=await duty,chinaRecovery=JSON.parse(fs.readFileSync('data/profit-china-duty-recovery-2026.json')),policy={products:[],chinaRecovery};
- assert.equal(chinaRecovery.products.length,124);
+ assert.equal(chinaRecovery.products.length,125);
  for(const p of chinaRecovery.products){
   const line={prodKey:p.prodKey,name:p.exactName,country:p.country,orderYear:'2026',orderWeek:'44-01'};
   const r=m.resolveTemplateDutyRule(line,policy,'2026');assert.equal(r.rate,p.rate);assert.equal(r.workbookEvidence.actualDeclarationVerified,false);assert.ok(r.workbookEvidence.source.cells.length>=2);
