@@ -1,0 +1,478 @@
+.container {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  color: #0f172a;
+  background: #f8fafc;
+  min-height: 100vh;
+  padding: 14px 16px 32px;
+  box-sizing: border-box;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.purposeBanner {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #0f766e;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  color: #0f172a;
+}
+
+.purposeTitle {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #0f766e;
+  margin-right: 8px;
+}
+
+.purposeText {
+  font-size: 13.5px;
+  color: #334155;
+}
+
+.headerBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.titleGroup h1 {
+  margin: 0 0 4px 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.titleSub {
+  margin: 0;
+  font-size: 13px;
+  color: #334155;
+}
+
+.actionGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.btnPrimary {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  background: #0f766e;
+  color: #ffffff;
+  border: 1px solid #0d9488;
+  border-radius: 5px;
+  padding: 7px 13px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnPrimary:hover {
+  background: #115e59;
+}
+
+.btnSecondary {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #94a3b8;
+  border-radius: 5px;
+  padding: 7px 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnSecondary:hover {
+  background: #f1f5f9;
+}
+
+.btnSecondaryActive {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  background: #0f172a;
+  color: #ffffff;
+  border: 1px solid #0f172a;
+  border-radius: 5px;
+  padding: 7px 12px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sampleToolbar {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sampleToolbarHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sampleLabel {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #0f172a;
+}
+
+.sampleChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sampleChip {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  background: #f8fafc;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  padding: 6px 11px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sampleChipActive {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 2px solid #059669;
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kpiStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.kpiTitle {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.kpiValue {
+  font-size: 19px;
+  font-weight: 700;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpiSub {
+  font-size: 12.5px;
+  color: #334155;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: minmax(420px, 520px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 1120px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panelCard {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.panelHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.panelTitle {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.canvasStage {
+  position: relative;
+  width: 100%;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  overflow: hidden;
+  user-select: none;
+}
+
+.stageImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 620px;
+  object-fit: contain;
+  margin: 0 auto;
+}
+
+.scanBeam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #10b981;
+  box-shadow: 0 0 12px 2px rgba(16, 185, 129, 0.75);
+  pointer-events: none;
+  z-index: 15;
+  animation: palletScanDown 2.6s ease-in-out infinite;
+}
+
+@keyframes palletScanDown {
+  0% {
+    top: 2%;
+    opacity: 0.95;
+  }
+  50% {
+    top: 94%;
+    opacity: 0.95;
+  }
+  100% {
+    top: 2%;
+    opacity: 0.85;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanBeam {
+    animation: none;
+    top: 12%;
+  }
+}
+
+.boxOverlay {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #10b981;
+  background: rgba(16, 185, 129, 0.14);
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 10;
+  transition: background-color 0.15s ease;
+}
+
+.boxOverlay:hover {
+  background: rgba(16, 185, 129, 0.28);
+}
+
+.boxOverlaySelected {
+  border: 3px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.24);
+  z-index: 12;
+}
+
+.boxOverlayDuplicate {
+  border: 2px dashed #dc2626;
+  background: rgba(220, 38, 38, 0.18);
+}
+
+.boxOverlayBackground {
+  border: 2px dotted #64748b;
+  background: rgba(100, 116, 139, 0.22);
+}
+
+.boxCapsule {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  max-width: calc(100% - 4px);
+  background: #0f172a;
+  color: #ffffff;
+  border: 1px solid #10b981;
+  border-radius: 3px;
+  padding: 2px 5px;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.boxCapsuleDup {
+  background: #7f1d1d;
+  border-color: #f87171;
+}
+
+.boxCapsuleBg {
+  background: #334155;
+  border-color: #94a3b8;
+}
+
+.formulaBar {
+  margin-top: 8px;
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 5px;
+  padding: 8px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.formulaProgress {
+  color: #34d399;
+  font-weight: 700;
+}
+
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dataTable th {
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 700;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  white-space: nowrap;
+}
+
+.dataTable td {
+  padding: 7px 10px;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  vertical-align: middle;
+}
+
+.dataTable tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.numCell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.badgeMatch {
+  display: inline-block;
+  background: #dcfce7;
+  color: #065f46;
+  border: 1px solid #86efac;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.badgeWarn {
+  display: inline-block;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.badgeDup {
+  display: inline-block;
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.badgeNeutral {
+  display: inline-block;
+  background: #e2e8f0;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.dropZone {
+  border: 2px dashed #0d9488;
+  background: #f0fdfa;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.noticeBanner {
+  background: #ecfdf5;
+  border: 1px solid #10b981;
+  color: #065f46;
+  border-radius: 5px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
