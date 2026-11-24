@@ -37,6 +37,8 @@
 - 상점 렌더 160장 0.79MB(상한 6MB), glb 총 2.80MB(상한 8MB). 착용 카드=소품만 evaluated bbox 확대, 레이어=종족 베이스와 같은 카메라(미리보기 겹침에 안경·손·배지 추가, PmTheme).
 - 검증: test:pm 전체(+신규 __tests__/pmProps3d.test.js: glb 노드 실재·look3d 경유·temp 0·클립 유지·용량 상한, pmShopArt 전수 확장) + 로컬 dev 실측(시드 pm-avatars.json·work-feature-pm-office.json 은 미커밋 dev 전용) — 3D에서 왕관·선글라스·풍선·책장·펭귄 부리 실표시 확인. 시트·스크린샷 C:\Users\USER\nenova-pm\pm-shots\props-*-2026-11-05.jpg, 3d-장착확인-2026-11-05.jpg, 상점-모자탭-2026-11-05.jpg.
 - 검색어: build_wearables build_shelves wearMesh shelfModel race_ 메시 토글 그룹 분해 w_ 알파 상점 소품 43종 임시 0 pmProps3d
+2026-11-05 판매등록 히스토리 차이 중심 개편: 왼쪽 이카운트 수집 판매원본(수집시각 표시), 불일치업체만 큰 카드, 펼침 품목별 단가/견적수량/VAT포함금액 비교 및 화요일 이후 수정자·초단위시각 타임라인. 총액상쇄·단가0·복수단가·동명이업체 연결보류·수집원본없음/RED비교대기. 실제SELECT43차13업체/199품목,44차11/03원본미수집;원장/ECOUNT쓰기0. dnSpy/대상회귀/manifest/writeguard/로컬build PASS, 전체ERP/브라우저/CI/배포 최종상태 미검증(진행중).
+검색어: salesHistoryReview ECOUNT WebEcountRow 불일치업체 수정자 타임라인 판매등록히스토리
 
 ## 2026-11-04 /pm 상점 그림 3D 렌더 전면 교체 + 종족 복원 + 탈것 경로 고정 (PR #1528)
 - 사장님 피드백 3건: 손그림 상점 그림 → 3D 장면 glb(char/kit/mounts) 블렌더 렌더로 교체(상점 모습=사무실 모습), 탈것 적용 점검, PR 1520 KayKit 교체로 유실된 종족 디자인 복원.
@@ -5040,9 +5042,17 @@ pm run test:canon 통과.
 
 안전 보존: 원격 참조 자동 갱신 중 잡힌 타 기능의 이전 상태는 stash 2f7a85a2215356726fd2e3ea0ab23f5c0c2f7f8b(codex-estimate-print-scope-safety-1124)에 보존하고 현재 HEAD 원본으로 분리했다. 스타일 차이는 줄바꿈뿐이며 원본 바이트 사본도 .verify/scope-safety-1124에 보존. stash 삭제/pop 금지.
 
+### 2026-11-24 · 수입 카톡 합계의 콜롬비아 기본값·태국 단일 표시
+1. 작업 위치: nenova-erp-ui / codex/kakao-country-default / nw-cdx-kakao-country-default / 국가 분류 PR 준비.
+2. 완료: 국가 미기재 수국·알스트로·카네이션·루스커스·장미는 콜롬비아, 명시 국가 우선. 태국 합계·버튼·복사 단일 표시. 품종·수량·단위·연도·세부차수·근거 원문 및 기존 취소 검토 유지.
+3. 남은 일: CI→squash→Cafe24→실제 원문·수량 대조.
+4. 검증 상태: 카톡 순수 로직·라우트, 연도/차수 조건, Chrome 합성 재생, manifest 245·dnSpy·쓰기 가드·1920x1080 영상 23장·등록 해시 통과. 전체 ERP/빌드 결과와 운영은 완료 인계에 기록한다.
+5. 주의/잠금: 조회와 브라우저 표시 전용, 운영 원장·카톡 수집기 변경 없음. 연결 목표: g19 / 학습 반영: 있음.
+검색어: 카톡 추가발주 국가 미기재 콜롬비아 기본값 알스트로메리아 태국 단일 그룹 국가 우선 g19
+
 ## 2026-11-24 중국 HUBFRESH 인보이스 분리와 입고 검증
 검색어: 중국hubfresh HUBFRESH NN012 CL 고객코드 카톤번호 파킹리스트 입고 검증 g17 g19
-1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / PR 미생성.
+1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / PR #2000.
 2. 완료된 것: 중국hubfresh 메뉴와 공급사 상세본 분류, 카톤 연결 인보이스, 중국 ERP 품목 확인, 기존 입고 검증 화면 연결. 웹과 데스크톱 메뉴 등록.
 3. 남은 할 일: 실제 브라우저 스모크와 최종 가이드 촬영, 가드 통과 후 PR·배포.
 4. 검증 상태: NN012 네노바 281박스·3,510단·39,325송이·72,420 CNY 파킹리스트 재파싱, 혼합코드 격리, 단위 테스트 및 dnSpy 근거 검사 통과. 운영 품목과 실입고 미검증.
@@ -5050,7 +5060,7 @@ pm run test:canon 통과.
 
 ## 2026-11-24 중국 HUBFRESH 최신 입고 화면 통합 검증
 검색어: 중국hubfresh NN012 상세본 281박스 48-01 전년도 수량 검증 #1995 g17 g19
-1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / 10d59784c 기반 / PR 미생성.
+1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / 10d59784c 기반 / PR #2000.
 2. 완료된 것: 입고 차수 표기와 상세 수량 수정이 반영된 최신 화면에 통합. HUBFRESH 가이드 4단계·자막과 데스크톱 메뉴 연결 확인.
 3. 남은 할 일: 기존 입고 정정 수입부 가이드 촬영 완료 후 최종 배포 검사, PR·CI·Cafe24 반영과 운영 화면 스모크.
 4. 검증 상태: 최신 기반 Next 빌드·ERP 계약 검사·manifest·쓰기 가드·dnSpy 근거 통과. 브라우저 수량 검증, 2025년 명시 선택 전달, 영상 재생 검증 통과. Electron 스모크 및 데스크톱 단위 테스트 96개 통과. 운영 원장 검증 미실행.
@@ -5058,7 +5068,7 @@ pm run test:canon 통과.
 
 ## 2026-11-24 중국 HUBFRESH 배포 준비
 검색어: 중국hubfresh NN012 입고 업로드 사용 가이드 영상 양쪽 역할 1920 g17 g19
-1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / PR 미생성.
+1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / PR #2000.
 2. 완료된 것: 중국 HUBFRESH 분류와 입고 연결, 신규 사용 영상 및 기존 패킹·입고 가이드 실제 화면 갱신 완료.
 3. 남은 할 일: 최종 빌드·PStack 확인 후 PR·CI·배포·운영 화면 확인.
 4. 검증 상태: NN012 281박스·3,510단·39,325송이·72,420 CNY 재검산, 파킹리스트 업로드·연도 선택 브라우저 검증, ERP 계약, 데스크톱 테스트 96개, Electron 스모크 및 HUBFRESH 가이드 플레이어 통과. 운영 미검증.

@@ -6,9 +6,18 @@
     "pages/api/sales/registration-history.js",
     "lib/salesSnapshot.js",
     "lib/salesSnapshotPolicy.js",
-    "__tests__/salesRegistrationConfirm.test.js"
+    "__tests__/salesRegistrationConfirm.test.js",
+    "components/sales/SalesHistoryReview.js",
+    "lib/salesHistoryReviewPolicy.js",
+    "__tests__/salesHistoryReview.test.js",
+    "lib/ecountSalesHistoryRead.js"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "actions": [
     {
       "name": "SALES_HISTORY_READ",
@@ -33,15 +42,22 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "INSERT WebSalesSnapshot(type=CHANGE) + rows when live capture differs from last snapshot. Ledger tables preserved."
+    },
+    {
+      "name": "MISMATCH_CUSTOMER_REVIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "READ ONLY collected WebEcountRow(Dataset=sales)/WebEcountSnapshot for the selected order year+major week sale date. Latest collected snapshot only, RED rejected, missing source is unavailable not zero. Compare VAT-inclusive total, quantity and actual price sets independently; exact existing aliases/name normalization only. Ambiguous customers remain unmatched. All selected subweeks captured with OrderYear. Timeline independently starts at each TUE_FINAL, UserInfo by ChangeID, pagination without silent truncation. Observation time is not edit time; snapshot Actor never identifies editor. No ECOUNT service writes."
     }
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "같은 OrderWeek(예: 33-01)라도 OrderYear 2025와 2026을 섞지 않는다. capture/list/changeLog/confirm 모두 OrderYear+OrderWeek로 한정한다. 2025-33 확정본을 2026-33 기준이나 변경로그에 쓰지 않는다."
+    "description": "같은 OrderWeek(예: 33-01)라도 OrderYear 2025와 2026을 섞지 않는다. capture/list/changeLog/confirm 모두 OrderYear+OrderWeek로 한정한다. 2025-33 확정본을 2026-33 기준이나 변경로그에 쓰지 않는다. Executable 2025/2026 same-week timeline predicate and snapshot fixtures in salesHistoryReview.test.js."
   },
   "requiredTestFiles": [
     "__tests__/salesRegistrationConfirm.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/salesHistoryReview.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -60,7 +76,10 @@
       "ShipmentHistory (read)",
       "WebSalesSnapshot (insert)",
       "WebSalesSnapshotRow (insert)",
-      "WebSalesBaselineConfirm (insert/soft-delete)"
+      "WebSalesBaselineConfirm (insert/soft-delete)",
+      "WebEcountSnapshot (read)",
+      "WebEcountRow (read)",
+      "Customer/UserInfo/CodeInfo (read)"
     ]
   },
   "requiredCommands": [
