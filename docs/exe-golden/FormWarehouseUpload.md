@@ -165,3 +165,6 @@ NULL 품목 2행은 금액 0이며 출고·견적수량 NULL인 경우에만 원
 
 ## 2026-11-24 도착원가 공유 편집과 출처 승계
 actual dnSpy CLI ExcelLoadingPackingList.MakeTempTable/InsertMaster를 재확인했다. 년도/차수·원장저장 순서는 변경하지 않는다. readonly47-02의8249/8250은38/2행·상품54909/2620CNY·미연결0·원장GW/CW NULL이다. 검증된 WebInvoiceDocument/operation에서 원문명을, 원가표 SHA1e36606d598edab2f58c337298c4e58f397f53227c3d7f68f5e3843b8a922563의47-2A/B CLOUD cbm C8/F8에서GW1823/21·CW2452/70을원가화면에만승계한다. E8계산부피는청구중량으로대체하지않는다. 정확한연도/차수/입고/파일/품목/금액지문이바뀌면참조를적용하지않는다. B호접의90송이/단NULL은원장에서보존하고원가표E35:F35의90계산수량으로만변환한다. 미확인통화·허가증·검역18은자동확정하지않는다. 카테고리공유는서버업무설정파일의CN/Cloudland/활성ProdKey만수정하며expectedRevision·파일lock·원자저장·사용자이력보존; ERP주문/출고/입고/재고/견적/손익쓰기0.
+
+## 2026-11-24 CLOUD 원가 전용 확인표
+설치된 Nenova.exe에 dnSpy.Console.exe --no-color -t ExcelLoadingPackingList를 실제 재실행했다. MakeTempTable/InsertMaster 저장·재고 순서는 변경하지 않는다. WarehouseMaster/Detail/Product 및 확정 WebInvoiceDocument/Operation은 SELECT-only이며 과거 등록 행 연결은 원문 비교 근거로만 표시한다. 현재 ERP와 동일함을 뜻하지 않는다. 2026/47-02 8249 38행63,000CNY /8250 2행2,620CNY를 사전 조회했다. 원가 적용값·수기 운임/관세·revision 초안은 별도 import-team runtime 파일에만 저장하며 Estimate/Shipment/Stock/손익 원장 쓰기는 없다.
