@@ -3,7 +3,8 @@ import ReceiptBunchConfirmation from '../components/ReceiptBunchConfirmation';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { apiGetExe } from '../lib/exeParity/client.js';
 import { apiGet } from '../lib/useApi.js';
-import { incomingDateLabel } from '../lib/incomingDateLabel.js';
+import { incomingDateLabel, incomingCompactDateLabel } from '../lib/incomingDateLabel.js';
+import { incomingRoundLabel, normalizeRoundSearch, matchesRound } from '../lib/incomingRoundLabel.js';
 import { incomingQueryDateRange } from '../lib/incomingQueryDateRange.js';
 import { useLang } from '../lib/i18n';
 import * as XLSX from 'xlsx';
@@ -16,6 +17,7 @@ import LatestArrivalReference from '../components/LatestArrivalReference.js';
 import WarehouseStockInvestigation from '../components/WarehouseStockInvestigation';
 import WarehouseCorrection from '../components/WarehouseCorrection.js';
 import WarehouseManualUpload from '../components/WarehouseManualUpload.js';
+import WarehouseIdentityCell from '../components/WarehouseIdentityCell.js';
 import { incomingWorkspaceHref } from '../lib/incomingWorkspaceNavigation.js';
 import { invoiceReceiptCostHref } from '../lib/invoiceReceiptCostRoute.js';
 import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
@@ -26,15 +28,6 @@ const fmt = n => Number(n || 0).toLocaleString();
 
 const normalizeLedgerSearch = value => String(value ?? '').normalize('NFKC').toLowerCase();
 const normalizeAwbSearch = value => normalizeLedgerSearch(value).replace(/[\s\p{Dash_Punctuation}]+/gu, '');
-
-const normalizeRoundSearch = value => normalizeLedgerSearch(value)
-  .replace(/\s/gu, '').replace(/\p{Dash_Punctuation}/gu, '-').replace(/차$/u, '');
-
-function matchesRound(value, query) {
-  const round = normalizeRoundSearch(value);
-  if (query.includes('-')) return round === query || (query.endsWith('-') && round.startsWith(query));
-  return round.split('-', 1)[0] === query;
-}
 
 function LedgerSearchHeading({ label, value, onChange, placeholder }) {
   const searchLabel = `${label} 검색`;
@@ -98,6 +91,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const [deleting, setDeleting] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [manualUpload, setManualUpload] = useState(null);
+  const [identityEditor, setIdentityEditor] = useState(null);
   const manualUploadButton = useRef(null);
   const [correctionTarget, setCorrectionTarget] = useState(null);
   const [uploadData, setUploadData] = useState(null);
@@ -405,6 +399,19 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
     XLSX.writeFile(wb, `입고상세_${selected.OrderYear}_${selected.OrderWeek}_${selected.FarmName || ''}.xlsx`);
   };
 
+  const identityCell = (row,field) => {
+    const token = `${row.WarehouseKey}:${field}`;
+    return <WarehouseIdentityCell row={row} field={field} editing={identityEditor===token}
+      disabled={identityEditor!==null&&identityEditor!==token}
+      onOpen={()=>setIdentityEditor(token)} onClose={()=>setIdentityEditor(current=>current===token?null:current)}
+      onSaved={(header,label)=>{
+        setMasters(current=>current.map(item=>item.WarehouseKey===header.WarehouseKey
+          ? {...item,InvoiceNo:header.InvoiceNo,AWB:header.OrderNo,OrderNo:header.OrderNo} : item));
+        setSuccessMsg(`입고 #${header.WarehouseKey} ${label} 저장 완료`);
+        if(selectedKey===header.WarehouseKey)selectMaster(header.WarehouseKey);
+      }}/>;
+  };
+
   return (
     <ConfigProvider locale={koKR} theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorPrimary: '#1166BB', borderRadius: 6, fontSize: 14, lineHeight: 1.35 }, components: { Table: { cellPaddingBlockSM: 3, cellPaddingInlineSM: 6 }, Card: { bodyPaddingSM: 8, headerHeightSM: 36 } } }}>
     <div className="incoming-ledger" style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -416,7 +423,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
         <Text type="secondary">농장</Text>
         <Select size="small" showSearch allowClear placeholder={`전체 (${farmOptions.length})`} style={{ width: 220 }} value={farmFilter || undefined} onChange={(v) => setFarmFilter(v || '')} options={farmOptions.map((f) => ({ value: f, label: f }))} />
         <Text type="secondary">차수</Text>
-        <Select size="small" allowClear placeholder="전체" style={{ width: 100 }} value={weekFilter || undefined} onChange={(v) => setWeekFilter(v || '')} options={weekOptions.map((w) => ({ value: w, label: w }))} />
+        <Select size="small" allowClear placeholder="전체" style={{ width: 100 }} value={weekFilter || undefined} onChange={(v) => setWeekFilter(v || '')} options={weekOptions.map((w) => ({ value: w, label: incomingRoundLabel(w) }))} />
         <Input.Search size="small" allowClear placeholder="농장명·인보이스·AWB·차수" value={masterSearch} onChange={(e) => setMasterSearch(e.target.value)} style={{ width: 220 }} />
         <Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={load}>{t('새로고침')}</Button>
         <Button size="small" type="primary" icon={<UploadOutlined />} disabled={uploading || deleting} onClick={() => fileRef.current.click()}>업로드 / Subir</Button>
@@ -445,17 +452,17 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
         <Col xs={24} xl={11} style={{ minWidth: 0 }}>
           <Card size="small" title={<Space wrap size={[6, 2]}><Text strong>입고 원장 목록</Text><Text type="secondary">{filteredMasters.length}/{masters.length}건</Text>{recentFarms.length > 0 && <Space wrap size={[4, 2]}><Text type="secondary">최근</Text>{recentFarms.map((f) => <Tag.CheckableTag key={f} checked={farmFilter === f} onChange={() => setFarmFilter(farmFilter === f ? '' : f)}>{f}</Tag.CheckableTag>)}</Space>}</Space>}>
             <Table size="small" rowKey="WarehouseKey" loading={loading} dataSource={filteredMasters} scroll={{ x: 1000 }} pagination={{ pageSize: 50, size: 'small', showSizeChanger: true, pageSizeOptions: [50, 100, 500], showTotal: (n) => `${n}건` }}
-              rowClassName={(m) => (selectedKey === m.WarehouseKey ? 'ant-table-row-selected' : '')} onRow={(m) => ({ tabIndex: 0, 'aria-selected': selectedKey === m.WarehouseKey, onClick: () => selectMaster(m.WarehouseKey), onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectMaster(m.WarehouseKey); } if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); (e.key === 'ArrowDown' ? e.currentTarget.nextElementSibling : e.currentTarget.previousElementSibling)?.focus(); } }, style: { cursor: 'pointer' } })}
+              rowClassName={(m) => (selectedKey === m.WarehouseKey ? 'ant-table-row-selected' : '')} onRow={(m) => ({ tabIndex: 0, 'aria-selected': selectedKey === m.WarehouseKey, onClick: () => selectMaster(m.WarehouseKey), onKeyDown: (e) => { if(e.target!==e.currentTarget)return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectMaster(m.WarehouseKey); } if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); (e.key === 'ArrowDown' ? e.currentTarget.nextElementSibling : e.currentTarget.previousElementSibling)?.focus(); } }, style: { cursor: 'pointer' } })}
               summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={6}><Text strong>합계</Text></Table.Summary.Cell><Table.Summary.Cell index={6} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBox || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={7} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBunch || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={8} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalSteam || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={9} colSpan={3} /></Table.Summary.Row></Table.Summary>}
               columns={[
-                { title: '주문년도', dataIndex: 'OrderYear', width: 80, sorter: (a, b) => String(a.OrderYear).localeCompare(String(b.OrderYear)) },
-                { title: <LedgerSearchHeading label="차수" value={roundSearch} onChange={setRoundSearch} placeholder="47 / 47-02" />, dataIndex: 'OrderWeek', width: 112, sorter: (a, b) => String(a.OrderWeek).localeCompare(String(b.OrderWeek)), render: (v) => <Text strong>{v}</Text> },
+                { title: '주문년도', dataIndex: 'OrderYear', width: 68, sorter: (a, b) => String(a.OrderYear).localeCompare(String(b.OrderYear)) },
+                { title: <LedgerSearchHeading label="차수" value={roundSearch} onChange={setRoundSearch} placeholder="47-02.A" />, dataIndex: 'OrderWeek', width: 94, sorter: (a, b) => String(a.OrderWeek).localeCompare(String(b.OrderWeek)), render: (v) => <Text strong title={v}>{incomingRoundLabel(v)}</Text> },
                 { title: <LedgerSearchHeading label="농장명" value={farmSearch} onChange={setFarmSearch} />, dataIndex: 'FarmName', width: 200,
                   render: name => <span style={{overflowWrap:'anywhere',whiteSpace:'normal'}}>{name || '미기재'}</span>,
                   sorter: (a, b) => String(a.FarmName || '').localeCompare(String(b.FarmName || ''), 'ko'), filterSearch: true, filters: farmOptions.map((f) => ({ text: f, value: f })), onFilter: (v, r) => r.FarmName === v },
-                { title: <LedgerSearchHeading label="인보이스" value={invoiceSearch} onChange={setInvoiceSearch} />, dataIndex: 'InvoiceNo', width: 110, ellipsis: true, render: (v) => <Text>{v}</Text> },
-                { title: <LedgerSearchHeading label="AWB" value={awbSearch} onChange={setAwbSearch} />, dataIndex: 'AWB', width: 120, ellipsis: true, render: (v) => <Text>{v}</Text> },
-                { title: '입력일자', dataIndex: 'InputDate', width: 100, render: value => <span style={{ whiteSpace: 'nowrap' }} title={value == null ? '' : String(value)}>{incomingDateLabel(value)}</span>, sorter: (a, b) => String(a.InputDate || '').localeCompare(String(b.InputDate || '')), defaultSortOrder: 'descend' },
+                { title: <LedgerSearchHeading label="인보이스" value={invoiceSearch} onChange={setInvoiceSearch} />, dataIndex: 'InvoiceNo', width: 124, render: (_,row) => identityCell(row,'invoiceNo') },
+                { title: <LedgerSearchHeading label="AWB" value={awbSearch} onChange={setAwbSearch} />, dataIndex: 'AWB', width: 124, render: (_,row) => identityCell(row,'awb') },
+                { title: '입력일자', dataIndex: 'InputDate', width: 84, render: value => <span style={{ whiteSpace: 'nowrap' }} title={incomingDateLabel(value)}>{incomingCompactDateLabel(value)}</span>, sorter: (a, b) => String(a.InputDate || '').localeCompare(String(b.InputDate || '')), defaultSortOrder: 'descend' },
                 { title: '박스', dataIndex: 'totalBox', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalBox || 0) - (b.totalBox || 0) },
                 { title: '단', dataIndex: 'totalBunch', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalBunch || 0) - (b.totalBunch || 0) },
                 { title: '송이', dataIndex: 'totalSteam', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalSteam || 0) - (b.totalSteam || 0) },

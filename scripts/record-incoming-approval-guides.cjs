@@ -63,6 +63,8 @@ async function recordRole(browser, base, secret, role) {
   const page = await browser.newPage();page.setDefaultNavigationTimeout(120000);const errors = [], posts = [];
   let packingSaves = 0;
   let manualSaves = 0;
+  let identitySaves = 0;
+  let guideInvoice = header.InvoiceNo;
   let manualPreviewBody;
   const {manualWarehouseLine}=await import('../lib/manualWarehouseUpload.js');
   let mainNavigations=0;page.on('framenavigated',frame=>{if(frame===page.mainFrame())mainNavigations++;});
@@ -78,7 +80,23 @@ async function recordRole(browser, base, secret, role) {
       let data = { success: true, items: [], rows: [], data: [], products: [], countries: [], records: [], history: [], references: [], options: [], value: null, revision: 0 };
       if (u.pathname === '/api/products/search') data.products = products;
       if (u.pathname === '/api/auth/me') data.user = user;
-      if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,OrderWeek:i===1?'45-02':i?'46-01':header.OrderWeek,FarmName:i?'다른 농장':header.FarmName,InvoiceNo:i?`GUIDE-${i+1}`:header.InvoiceNo,totalBox:i===1?null:header.totalBox}));
+      if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,
+        OrderWeek:[header.OrderWeek,'45-02','47-02A','47-02B'][i]??'46-01',
+        FarmName:i?'다른 농장':header.FarmName,InvoiceNo:i?`GUIDE-${i+1}`:guideInvoice,
+        AWB:i===1?null:header.AWB,totalBox:i===1?null:header.totalBox}));
+      if (u.pathname === '/api/warehouse/identity') {
+        const input=r.method()==='PATCH'?JSON.parse(r.postData()):Object.fromEntries(u.searchParams);
+        const linked=Number(input.warehouseKey)===9002;
+        if(r.method()==='PATCH'){
+          assert(isImport&&!linked);
+          assert.deepEqual([input.orderYear,input.orderWeek,input.field,input.expectedInvoiceNo,input.expectedAwb],
+            ['2026','45-01','invoiceNo','GUIDE-001',header.AWB]);
+          guideInvoice=input.value;
+          identitySaves++;
+        }
+        data={success:true,header:{...header,InvoiceNo:linked?'GUIDE-2':guideInvoice,OrderNo:linked?null:header.AWB},
+          issues:linked?[{code:'DOCUMENT',message:'이 입고에는 웹 인보이스 문서가 연결되어 있습니다.'}]:[]};
+      }
       if (u.pathname === '/api/warehouse' && u.searchParams.get('manualOptions')==='1') {
         data={success:true,farms:[{FarmName:'연습농장 가',FarmKey:1}],periods:[
           {OrderYear:'2026',OrderWeek:'45-01'},{OrderYear:'2026',OrderWeek:'45-02'},
@@ -170,7 +188,7 @@ async function recordRole(browser, base, secret, role) {
   });
   await page.goto(`${base}/import/tools?tab=incoming&warehouseKey=9001&from=2026-10-01&to=2026-11-30`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('nav[aria-label="입고 정정 처리 단계"]');
-  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},stop: async () => null,unfocus:async()=>{} } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 작업 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset: 'veryfast', crf:isImport?25:23 });
+  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},stop: async () => null,unfocus:async()=>{} } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 작업 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset: 'veryfast', crf:isImport?26:23 });
   let stepNumber=1,currentCaption='1. 조작할 위치를 확인합니다.';
   const hold = async (text, seconds = 5) => { currentCaption=`${stepNumber}. ${text.replace(/^\d+\. /,'')}`;await rec.caption(currentCaption); await rec.pause(Math.min(seconds, 7) * 1000); };
   const focusTarget=async element=>{
@@ -391,7 +409,7 @@ async function recordRole(browser, base, secret, role) {
         await hold('적용 완료 결과를 확인합니다.\n이미 발송한 견적서는 정정 내용으로 다시 발행하세요.',5);await click('요청 목록으로');
       }
     }
-    if(!['packing-quantity','manual-upload'].includes(onlyScenario)){
+    if(!['packing-quantity','manual-upload','inline-numbers'].includes(onlyScenario)){
       if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
       await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click(onlyScenario==='price'&&!isImport?'#4 열기':'#1 열기');await page.waitForFunction(()=>document.querySelector('[aria-label="작업 로그"]')?.textContent.includes('요청 내용과 처리 이력을 불러왔습니다.'));await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
     }
@@ -515,8 +533,45 @@ async function recordRole(browser, base, secret, role) {
       await hold('원장번호가 표시되면 등록이 완료됐습니다.',5);
       assert.equal(manualSaves,dry?2:1);
     }
+    if(isImport&&(!onlyScenario||onlyScenario==='inline-numbers')){
+      console.log(`${dry?'CHECK':'RECORD'} import: inline-numbers`);
+      await page.goto(`${base}/incoming?popup=1`,{waitUntil:'networkidle0'});
+      await rec.restoreOverlay?.();
+      stepNumber=9;
+      rec.chapter('inline-numbers','9. 원장 인보이스·AWB 번호 수정');
+      const linked='button[aria-label="AWB 수정 · 입고 9002"]';
+      const editable='button[aria-label="인보이스 수정 · 입고 9001"]';
+      await page.waitForSelector(editable);
+      await hold('원장 목록에서 인보이스나 AWB의 편집 버튼을 누르면 해당 셀을 확인할 수 있습니다.',4);
+      await moveClick(await page.$(editable));
+      const newNumber='input[aria-label="인보이스 새 번호"]';
+      await page.waitForSelector(newNumber);
+      await fill(newNumber,'GUIDE-001-R');
+      await hold('번호를 바꾸고 저장하면 대상 입고번호와 저장 결과가 표시됩니다.',4);
+      await click('저장','[data-row-key="9001"]');
+      await page.waitForFunction(()=>document.body.innerText.includes('입고 #9001 인보이스 저장 완료'));
+      await moveClick(await page.waitForSelector(linked));
+      await page.waitForFunction(()=>document.body.textContent.includes('이 입고에는 웹 인보이스 문서가 연결되어 있습니다.'));
+      assert.equal(await page.$('input[aria-label="AWB 새 번호"]'),null);
+      await hold('등록 문서가 연결된 경우 저장 대신 기존 입고 작업 링크가 표시됩니다.',5);
+      await click('닫기','[data-row-key="9002"]');
+      const round='input[aria-label="차수 검색"]';
+      await fill(round,'47-02.A');
+      await page.waitForSelector('[data-row-key="9003"]');
+      assert.equal(await page.$('[data-row-key="9004"]'),null);
+      assert.match(await page.$eval('[data-row-key="9003"]',row=>row.innerText),/47-02\.A.*26-11-05/s);
+      if(dry){
+        await fill(round,'47-02A');
+        await page.waitForSelector('[data-row-key="9003"]');
+        await page.setViewport({width:390,height:844});
+        assert(await page.$eval('.incoming-ledger',node=>node.scrollWidth<=node.clientWidth+4));
+        await page.setViewport({width:1920,height:1080});
+      }
+      await hold('저장된 A/B 접미는 점을 넣어서 표시하고, 입력일은 연도 두 자리로 표시합니다.',5);
+      assert.equal(identitySaves,1);
+    }
     assert.deepEqual(errors, []);
-    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (['packing-quantity','manual-upload'].includes(onlyScenario)?0:onlyScenario?1:isImport?6:4)+(dry&&!isImport?1:0));
+    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (['packing-quantity','manual-upload','inline-numbers'].includes(onlyScenario)?0:onlyScenario?1:isImport?6:4)+(dry&&!isImport?1:0));
     if(dry&&!isImport)assert(replayedApproval,'lost approval retry must reuse the same operation');
     const result = await rec.stop(); stopped = true;
     if (!dry) {

@@ -1,0 +1,36 @@
+.trigger {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.trigger span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trigger:focus-visible {
+  outline: 2px solid #1166bb;
+  outline-offset: 2px;
+}
+.editor {
+  min-width: 0;
+  white-space: normal;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.issue, .issue p {
+  overflow-wrap: anywhere;
+  margin: 0 0 4px;
+  line-height: 1.35;
+}

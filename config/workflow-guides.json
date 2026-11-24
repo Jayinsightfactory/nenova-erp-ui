@@ -690,7 +690,11 @@
         "components/ReceiptBunchConfirmation.js",
         "components/WarehouseManualUpload.js",
         "components/WarehouseManualUpload.module.css",
-        "lib/manualWarehouseUpload.js"
+        "lib/manualWarehouseUpload.js",
+        "components/WarehouseIdentityCell.js",
+        "components/WarehouseIdentityCell.module.css",
+        "lib/incomingDateLabel.js",
+        "lib/incomingRoundLabel.js"
       ],
       "requiredScenarios": [
         "farm",
@@ -711,42 +715,47 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 7.01
+              "seconds": 7.02
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 196.525
+              "seconds": 200.416
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 305.398
+              "seconds": 309.698
             },
             {
               "scenario": "add",
               "title": "4. 기존 입고에 품목·수량 추가",
-              "seconds": 385.77
+              "seconds": 390.927
             },
             {
               "scenario": "cancel",
               "title": "5. 기존 입고의 품목·수량 취소",
-              "seconds": 503.81
+              "seconds": 512.599
             },
             {
               "scenario": "price",
               "title": "6. 입고 단가만 변경",
-              "seconds": 583.39
+              "seconds": 592.68
             },
             {
               "scenario": "packing-quantity",
               "title": "7. 단 수량을 확인하고 새 입고 저장",
-              "seconds": 704.256
+              "seconds": 714.491
             },
             {
               "scenario": "manual-upload",
               "title": "8. 여러 품목 수기로 입고 등록",
-              "seconds": 777.422
+              "seconds": 788.279
+            },
+            {
+              "scenario": "inline-numbers",
+              "title": "9. 원장 인보이스·AWB 번호 수정",
+              "seconds": 939.188
             }
           ]
         },
@@ -762,22 +771,22 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.078
+              "seconds": 14.256
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 58.146
+              "seconds": 58.396
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 144.244
+              "seconds": 145.636
             },
             {
               "scenario": "price",
               "title": "4. 입고 단가만 변경",
-              "seconds": 271.874
+              "seconds": 275.621
             }
           ]
         }
