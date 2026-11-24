@@ -60,6 +60,9 @@ async function main(){
     const waits=['.kakao-totals .kakao-feed-status','.kakao-originals .kakao-feed-status'];
     await Promise.all(waits.map(selector=>page.waitForSelector(selector+'[role=status]',{visible:true})));
     await page.waitForSelector('.kakao-source-included');
+    assert.equal(await page.$eval('.kakao-toolbar-toggle',b=>b.getAttribute('aria-expanded')),'false');
+    assert(await page.$eval('.kakao-counts',n=>n.getClientRects().length===0));
+    assert(await page.$eval('.kakao-refresh',n=>n.getClientRects().length>0));
     kakaoMode='error';
     await page.click('.kakao-refresh');
     await Promise.all(waits.map(selector=>page.waitForSelector(selector+'[role=status]',{visible:true})));
@@ -157,7 +160,7 @@ async function main(){
   assert.deepEqual(await page.$$eval('.kakao-table thead th', nodes => nodes.map(node => node.textContent)),
     ['품종 / 원문 대조','수량','비고 (업체·수량)']);
   for(const [n,id,label,selector,caption,key] of [
-    [16,'chat','오른쪽 카톡 추가·취소 원문 확인',sourceFilter(3),'선택한 국가·차수에 맞는 최신 원문을 먼저 100건까지 표시합니다. 오른쪽에서 취소 원문을 보고 방·시각·내용으로 검색하세요. 취소 수량은 확인 전 합산하지 않습니다.','Enter'],
+    [16,'chat','오른쪽 카톡 추가·취소 원문 확인',sourceFilter(3),'취소와 합계 반영을 따로 볼 수 있습니다. 정리로 목록에서 숨기고 숨긴 원문에서 다시 표시할 수 있습니다.','Enter'],
     [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','중국 카네이션을 선택합니다. 합계는 국가, 품목군, 연도·세부차수 순으로 확인합니다. 오른쪽 합계 반영에서 원문별 품종·수량·업체를 확인합니다.',null],
     [18,'match-total','합계에서 원문 확인','.kakao-match-total','가운데 품종을 누르면 오른쪽 근거 원문으로 이동합니다. 양쪽의 같은 원문 번호를 비교합니다.','Enter'],
     [19,'match-source','원문에서 합계 확인','.kakao-order-message.kakao-linked .kakao-match-source','오른쪽 원문의 합계 보기를 누르면 가운데 전체 합계 아래에 해당 원문의 수량이 표시됩니다.','Enter'],
@@ -184,6 +187,27 @@ async function main(){
       await page.click(sourceFilter(2));
       assert(await page.$$eval('.kakao-order-message',nodes=>nodes.every(node=>node.dataset.sourceKind==='addition')));
       await page.click(sourceFilter(1));
+      await rec.unfocus();
+      await page.waitForSelector(source('0')+' .kakao-visibility-action',{visible:true});
+      const hideButton=source('0')+' .kakao-visibility-action';
+      await page.$eval(hideButton,el=>el.scrollIntoView({block:'center'}));
+      await rec.focus(hideButton,n);await page.click(hideButton);
+      assert.equal(await page.$(source('0')),null);
+      assert.match(await page.$eval('.kakao-table',el=>el.textContent),/4 박스/);
+      await rec.unfocus();
+      const matchingCultivar=await page.$$eval('.kakao-match-total',buttons=>buttons.findIndex(button=>button.textContent.startsWith('Moon Light')));
+      assert(matchingCultivar>=0);
+      await (await page.$$('.kakao-match-total'))[matchingCultivar].click();
+      assert(await page.$(source('0')+' .kakao-temporary-source'));
+      await page.click('.kakao-match-notice button');
+      assert.equal(await page.$(source('0')),null);
+      await rec.focus('.kakao-hidden-toggle',n);await page.click('.kakao-hidden-toggle');await rec.unfocus();
+      assert.match(await page.$eval(hideButton,el=>el.textContent),/다시 표시/);
+      await rec.focus(hideButton,n);await page.click(hideButton);await rec.unfocus();
+      await page.click('.kakao-hidden-toggle');
+      await page.click(sourceFilter(4));
+      assert(await page.$$eval('.kakao-order-message',cards=>cards.length>0&&cards.every(card=>card.querySelector('.kakao-source-included'))));
+      await page.click(sourceFilter(1));
     }
     if(id==='audit'){await page.waitForSelector('[data-audit-id="missed"]');await page.click('[data-audit-id="missed"] > summary');}
     if(id==='recover'){
@@ -206,6 +230,11 @@ async function main(){
   assert.equal(await page.$$eval('.kakao-order-message[data-source-kind="addition"]',nodes=>nodes.length),3);
   assert(!(await page.$eval('.kakao-additions',n=>n.textContent)).includes('이번에 온 3박스'));
   assert((await page.$eval('.kakao-counts',n=>n.textContent)).includes('중복 제외 1건'));
+  assert.equal(await page.$eval('.kakao-toolbar-toggle',el=>el.getAttribute('aria-expanded')),'false');
+  await page.click('.kakao-toolbar-toggle');
+  assert(await page.$eval('.kakao-counts',n=>n.getClientRects().length>0));
+  await page.click('.kakao-toolbar-toggle');
+  assert(await page.$eval('.kakao-match-total',b=>b.getBoundingClientRect().height<=30));
   assert.equal(await page.$('.kakao-additions input[type="date"]'),null);
   await page.click(source('0')+' .kakao-edit-source');
   assert(await page.$eval(source('0')+' .kakao-edit-source',node=>node.getAttribute('aria-expanded')==='true'));
@@ -219,6 +248,12 @@ async function main(){
   await page.click(source('0')+' input[type="checkbox"]');
   assert.equal(await page.$eval('.kakao-table tbody .kakao-quantity',n=>n.textContent),'3 박스');
   assert.equal(await page.$(included('0')),null);
+  await page.click(sourceFilter(4));
+  assert.equal(await page.$(source('0')),null);
+  assert(await page.$(included('1')));
+  await page.click(sourceFilter(2));
+  assert(await page.$(source('0')));
+  await page.click(sourceFilter(1));
   await page.click('.kakao-refresh');await page.waitForNetworkIdle();
   assert.equal(await page.$eval(source('0')+' input[type="checkbox"]',n=>n.checked),false);
   assert.equal(await page.$eval('.kakao-table tbody .kakao-quantity',n=>n.textContent),'3 박스');
@@ -419,9 +454,23 @@ async function main(){
     assert(await page.$eval('#country-order-guide-test video',video=>{const rect=video.getBoundingClientRect();return rect.width<=innerWidth;}));
     console.log('PASS actual guide player MP4 playback, registered chapters, Korean captions, keyboard and 390px');
     await page.setViewport({width:1572,height:900});
+    await page.click(source('page-0')+' .kakao-visibility-action');
+    assert.equal(await page.$(source('page-0')),null);
+    const storedVisibility=await page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('nenova.kakao-visibility.v1.')).map(key=>({key,isolation:key.length>85,stored:JSON.parse(localStorage.getItem(key))})));
+    assert.equal(storedVisibility.length,1);
+    assert.equal(storedVisibility[0].isolation,true);
+    assert.deepEqual(storedVisibility[0].stored,['page-0']);
     await page.reload({waitUntil:'networkidle0'});
     await page.evaluate(()=>{window.open=()=>null;window.showSaveFilePicker=undefined;});
     await page.click('[aria-controls="import-panel-orders"]');
+    await page.waitForSelector('.kakao-hidden-toggle',{visible:true});
+    assert.match(await page.$eval('.kakao-hidden-toggle',b=>b.textContent),/1건/);
+    assert.equal(await page.$(source('page-0')),null);
+    await page.click('.kakao-hidden-toggle');
+    await page.click(source('page-0')+' .kakao-visibility-action');
+    await page.click('.kakao-hidden-toggle');
+    assert(await page.$(source('page-0')));
+    console.log('PASS account-local hide/restore survives reload, retains totals and matched provenance');
     const china='[aria-label="국가"] button:nth-child('+chinaIndex+')';
     await page.waitForSelector(china,{visible:true});await page.click(china);
     await page.waitForSelector(cycle,{visible:true});await page.click(cycle);
