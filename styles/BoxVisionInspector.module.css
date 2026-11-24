@@ -476,3 +476,142 @@
   font-size: 13.5px;
   font-weight: 600;
 }
+
+.batchControlCard {
+  background: #ffffff;
+  border: 2px solid #0f766e;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.batchRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.routeInputGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.textInput {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  border: 1px solid #94a3b8;
+  border-radius: 5px;
+  padding: 7px 11px;
+  font-size: 13.5px;
+  color: #0f172a;
+  background: #ffffff;
+  min-width: 260px;
+  flex: 1;
+}
+
+.textInput:focus {
+  outline: 2px solid #0d9488;
+  border-color: #0d9488;
+}
+
+.filmstripBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.filmThumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.filmThumbActive {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecfdf5;
+  border: 2px solid #059669;
+  border-radius: 5px;
+  padding: 4px 9px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #065f46;
+  cursor: pointer;
+}
+
+.thumbRemoveBtn {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mixedAlertBanner {
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-left: 4px solid #d97706;
+  color: #78350f;
+  border-radius: 5px;
+  padding: 9px 12px;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.lookupBox {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-top: 10px;
+}
+
+.batchOverviewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.batchPhotoMiniCard {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.batchPhotoMiniCard:hover {
+  border-color: #0d9488;
+  background: #f0fdfa;
+}
+
+.miniThumbImg {
+  width: 100%;
+  height: 118px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background: #0f172a;
+}
