@@ -173,3 +173,29 @@ try {
   if (priorToken === undefined) delete process.env.ORBIT_OWNER_TOKEN;
   else process.env.ORBIT_OWNER_TOKEN = priorToken;
 }
+
+const recommendationOrder = '49-1 알스트로 발주 추가\n연습 적색 2박스\n연습 흰색 1박스\n연습 자주색 2박스\n연습 분홍 2박스\nPRACTICE PINK 3박스';
+const recommendation = '>알스트로 레드 컬러 추천 가능한 품목 두 가지 정도 올려주시면 감사하겠습니다.';
+const recommendationMessage = message(recommendationOrder+'\n'+recommendation,'recommendation','2026년 11월 24일 오후 4:16');
+const recommendationFeed = classifyImportFeed({messages:[recommendationMessage]});
+assert.equal(recommendationFeed.messages.length,1);
+assert.equal(recommendationFeed.review.length,0);
+assert.equal(recommendationFeed.messages[0].text,recommendationMessage.text);
+const recommendationTotals = totals([recommendationMessage]);
+assert.equal(recommendationTotals.length,5);
+assert.equal(recommendationTotals.reduce((sum,row)=>sum+row.quantity,0),10);
+assert(recommendationTotals.every(row=>row.year==='2026'&&row.week==='49-01'&&row.unit==='박스'&&row.group==='알스트로'&&row.country===''&&row.notes===''));
+assert.equal(parse(recommendationOrder+'\n>추천 품목이 가능하면 위 주문을 진행해주세요.').kind,'review');
+assert.equal(parse(recommendationOrder+'\n>추천 품종으로 대체해 주세요.').kind,'review');
+assert.equal(parse(recommendationOrder+'\n>추천 품목을 알려주세요. 위 수량 취소해주세요.').kind,'review');
+assert.equal(parse(recommendationOrder+'\n>추천 품종이 없으면 알려주세요.').kind,'review');
+assert.equal(parse(recommendationOrder+'\n>추천 품종 2박스 가능하면 올려주세요.').kind,'review');
+assert.equal(parse(recommendationOrder+'\n'+recommendation.slice(1)).kind,'review');
+assert.equal(parse(recommendationOrder+'\n가격 문의\n'+recommendation).kind,'review');
+assert.equal(parse(recommendationOrder+'\n'+recommendation+'\n연습 노랑 3박스').kind,'review');
+assert.equal(parse(recommendation).kind,'excluded');
+const mixedRecommendation = message(recommendationOrder+'\n연습 노랑 9\n'+recommendation,'mixed-recommendation','2026년 11월 24일 오후 4:17');
+const mixedAnalyzed = analyzeImportMessage(mixedRecommendation);
+assert.equal(mixedAnalyzed.kind,'addition');
+assert.equal(mixedAnalyzed.items.find(row=>row.product==='연습 노랑')?.reviewReason,'단위 확인 필요');
+assert.equal(totals([mixedRecommendation]).reduce((sum,row)=>sum+row.quantity,0),10);

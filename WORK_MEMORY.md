@@ -4969,6 +4969,15 @@ pm run test:canon 통과.
 4. 검증 상태: profitChinaDutyRecovery PASS(125개), profitReportAutoRefresh 14/14 PASS, test:profit-weekly-cache·pstack-verify 5/5·guard:erp-writes·test:erp-manifest 통과 확인 예정.
 5. 주의/잠금: 확정 차수(WebProfitReportConfirm IsActive=1)는 연쇄 갱신에서도 하드 스킵. ERP 공유 원장 쓰기 0건. 연결 목표 g17·g19.
 
+
+## 2026-11-24 별도 품종 추천 문의로 발주 합계가 빠지는 문제
+검색어: 49-01 알스트로 추천 문의 확정 발주 5품종 10박스 카톡 누락 g19
+1. 작업 위치: nenova-erp-ui / codex/kakao-order-note / nw-cdx-kakao-order-note.
+2. 완료: 명시적 추가 발주 끝에 별도로 인용한 품종 추천 요청은 앞선 확정 수량의 분류를 막지 않게 처리.
+3. 남은 일: 가이드·CI·배포와 실제 운영 원문 대조.
+4. 검증: 같은 구조의 연습 원문 5품종 10박스, 국가·업체 근거 없음, 단위 누락과 변경·취소·조건부 반례. 운영 자료 현시점 조회 오류.
+5. 주의: 원문은 보존하고 명시 자료만 집계. ERP와 수집기 쓰기 없음. 연결 목표: g19 / 학습 반영: 있음.
+
 ### 2026-11-24 입고 차수 접미·상세 수량 직접 수정
 검색어: 입고 원장 차수 A/B 상세 수량 박스 단 송이 SystemActionLog FormWarehouseAdd g03
 1. 작업 위치: nenova-erp-ui / codex/receipt-round-label-native-quantity-1124 / .task-receipt-round-native-quantity / PR 등록 전.
