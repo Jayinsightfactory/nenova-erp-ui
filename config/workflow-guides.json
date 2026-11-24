@@ -830,6 +830,24 @@
           "sha256": "cf1ec13e908a271cbab3fea96dbb155d8e5df9eb680e0db43f8013946a49b01b",
           "reason": "견적 목록 품목명 열 너비 복구. 기존 업무 조작 순서 유지.",
           "approvedBy": "사용자 명시 답변 2026-11-18: 이번 복구만 재촬영 제외"
+        },
+        {
+          "file": "pages/estimate.js",
+          "sha256": "89b1edae418ad74a74e4a25b1691e938cc45a705048988e607fffdc63dec98d3",
+          "reason": "사용자 우선 배포 지시로 이번 견적서 Excel 인쇄 양식·분리 출력·키보드 보완의 가이드 재촬영과 Drive 백업은 배포 후 처리. 다른 변경과 전체 가이드 검사는 면제하지 않음",
+          "approvedBy": "사용자 명시 지시 2026-11-24: 우선 배포부터"
+        },
+        {
+          "file": "lib/estimatePrintHtml.js",
+          "sha256": "82c94a755849a51332464c6a522e6029730caa15b09d7291048272ef5789d9f7",
+          "reason": "사용자 우선 배포 지시로 이번 견적서 Excel 인쇄 양식·분리 출력·키보드 보완의 가이드 재촬영과 Drive 백업은 배포 후 처리. 다른 변경과 전체 가이드 검사는 면제하지 않음",
+          "approvedBy": "사용자 명시 지시 2026-11-24: 우선 배포부터"
+        },
+        {
+          "file": "lib/estimatePrintRenderedExcel.js",
+          "sha256": "d3f247782a17427f547fa26d34723dbaa8de04822395837c7d2e0e70baba807d",
+          "reason": "사용자 우선 배포 지시로 이번 견적서 Excel 인쇄 양식·분리 출력·키보드 보완의 가이드 재촬영과 Drive 백업은 배포 후 처리. 다른 변경과 전체 가이드 검사는 면제하지 않음",
+          "approvedBy": "사용자 명시 지시 2026-11-24: 우선 배포부터"
         }
       ],
       "title": "견적서 관리",
@@ -839,7 +857,8 @@
       "sourceFiles": [
         "pages/estimate.js",
         "styles/globals.css",
-        "lib/estimatePrintHtml.js"
+        "lib/estimatePrintHtml.js",
+        "lib/estimatePrintRenderedExcel.js"
       ],
       "requiredScenarios": [
         "quantity",
@@ -895,6 +914,12 @@
           "sha256": "6b55772afa0ce2a43f161ab1201e225c3f85596cea613dbf7517e16fc9c20745",
           "reason": "견적 목록 상단 차수 총매출 및 업체순 버튼 추가. 이번 변경의 영상 재촬영 제외.",
           "approvedBy": "사용자 명시 답변 2026-11-16: 이번 변경만 영상 재촬영 제외"
+        },
+        {
+          "file": "pages/estimate.js",
+          "sha256": "89b1edae418ad74a74e4a25b1691e938cc45a705048988e607fffdc63dec98d3",
+          "reason": "사용자 우선 배포 지시로 이번 견적서 Excel 인쇄 양식·분리 출력·키보드 보완의 가이드 재촬영과 Drive 백업은 배포 후 처리. 다른 변경과 전체 가이드 검사는 면제하지 않음",
+          "approvedBy": "사용자 명시 지시 2026-11-24: 우선 배포부터"
         }
       ],
       "title": "업체별 출고일 정산 매출 조회",

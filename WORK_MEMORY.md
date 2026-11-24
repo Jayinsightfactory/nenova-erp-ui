@@ -4435,6 +4435,15 @@ pm run test:canon 통과.
 4. 검증: 실제 dnSpy/동일 범위 SELECT, 신규 13·기존 통관 22·desktop 11 회귀, 전체 ERP 계약, manifest237/dnSpy/write guard, 가이드 35업무/36영상 및 실제 재생, webpack build 통과. 이후 동시 매뉴얼 PR 2건 fast-forward 후 해당 회귀·가이드 재검증. 최종 통합 빌드/운영 상태는 PR 체크와 후속 완료 댓글을 따른다.
 5. 주의/잠금: 통관·03차 정책·가이드 파일은 이 PR 완료까지 본 작업 소유. 37 베트남은 SQL 입력행 부재를 PDF만으로 자동 보충하지 않는다. 원천 금융정보를 학습 선호로 저장하지 않음. 연결 목표 g03 / 학습 반영 없음.
 
+## 2026-11-21 evals/ + gold_outputs/ 회귀 방어 파일럿
+요약: 순수 계산 함수 5종(단위 환산·FIFO 단가·FIFO 가드·박스→단 환산·콜롬비아 박스 표) 25케이스를 정답 JSON과 값 하나까지 대조하는 `npm run eval` 추가. 정답은 기존 테스트·문서 주석에서 근거가 있는 값만 사용. CI 워크플로는 미수정.
+검색어: evals gold_outputs 회귀 방어 정답 대조 npm run eval run.cjs
+1. 작업 위치: nenova-erp-ui / chore/evals-gold-outputs-pilot / C:\Users\USER\nw-cld-evals-1121 / PR 생성(머지 금지)
+2. 완료: evals/README.md, evals/run.cjs, gold_outputs/*.json 5개, package.json 에 "eval" 한 줄
+3. 남은 일: 사장님 엑셀 정답(차수 계산·매출원가 총액) 수령 시 케이스 추가, CI 에 eval 단계 추가 여부 결정
+4. 검증: npm run eval 25/25 통과, 기대값 1750→1751 로 바꾸면 종료코드 1 + 차이 표 출력, 원복 후 통과. CI 통과 여부는 PR 체크 확인. 운영 DB 비교는 미검증(접속 안 함).
+5. 주의/잠금: 기본 폴더 nenova-erp-ui 미접촉. 케이스 근거를 `source` 없이 추가 금지. 연결 목표: g03 / 학습 반영: 없음
+
 ## 2026-11-21 — 데스크톱앱 관리자 알림 새 창 (Desktop 1.3.79)
 요약: 사장님 지시 "네노바 데스크톱앱에 관리자 계정만 알림을 새 창으로". PM이 스스로 해결 못 해 승인·확인이 필요한 일이 새로 생기면 관리자 계정의 데스크톱앱에 작은 창(460×600, 화면 오른쪽 아래)이 포커스를 뺏지 않고 뜬다. 같은 알림은 한 번만 띄우고, 홈 PM 칸의 "승인·확인 알림 N건 열기" 버튼으로 다시 열 수 있다.
 검색어: 관리자 알림 새창, admin-alerts, alerts.html, pmAlertCards, /api/pm/admin-alerts, adminAlertsOpen, Desktop 1.3.79
@@ -4995,6 +5004,32 @@ pm run test:canon 통과.
 3. 남은 할 일: PR·Cafe24 배포, 운영 읽기 확인.
 4. 검증 상태: 설치 EXE와 운영 #8249 읽기, 해당 행의 출고단위 금액 근거 및 문서·확정 차단, 다른 입고 #8254는 동일 검증에서 통과. 정정·차수 테스트, 실제 두 역할 브라우저와 영상 검사, ERP 계약, 246 매니페스트, 공식 빌드·플레이어 통과. 운영 writes 0건. 배포 미검증.
 5. 주의/잠금: 두 역할 가이드와 입고 UI 검증 중. 연결 목표 g03 / 학습 반영 있음.
+
+## 2026-11-24 업체 견적서 인쇄·Excel 일치 — 구현 검증 단계
+1. 작업 위치: codex/estimate-print-xlsx-1124 / C:/Users/USER/nw-cdx-estimate-print-xlsx-1124 / PR 준비 중. 연결 목표 g03·g19 / 학습 반영 있음.
+2. 완료된 것: 인쇄 HTML의 실제 셀·병합·글꼴·로고·행 높이에서 Excel 생성, A4 폭1쪽/높이자동·머리글 반복, 기존 메뉴·조회·산식 보존.
+3. 남은 할 일: 가이드 2종 실제 재촬영, ERP 필수검사·webpack·PR/CI·squash·Cafe24 배포·운영/데스크톱 스모크·Drive 백업·정리.
+4. 검증 상태: 실제 Chrome PDF/Excel PDF 6종 모두 페이지·공급사·품목·금액 일치. 기존12행1:2쪽→1:1쪽, 2업체110행4:8쪽→4:4쪽. unit2개·기존 인쇄계약/타이포·실제 UI 다운로드 합성 smoke 통과. 운영은 미검증.
+5. 주의/잠금: 본 worktree 출력 생성기·pages/estimate.js·가이드만 소유. 원장/ECOUNT 쓰기0, 기존 acba dirty 파일 보존. 종이 양식의 기존 EXE 글꼴은 계약에 따라 유지.
+검색어: 업체견적서 인쇄 엑셀 동일 HTML 셀 측정 A4 공급사 로고 estimate-print-xlsx-parity g03 g19
+
+## 2026-11-24 배포 우선 전환 — 견적서 Excel 출력
+1. 작업 위치: codex/estimate-print-xlsx-1124 / C:/Users/USER/nw-cdx-estimate-print-xlsx-1124 / PR 준비. 연결 목표 g03·g19 / 학습 반영 있음.
+2. 완료된 것: 실제 인쇄 HTML 기반 Excel, 분리 출력 업체명 보존·긴 시트명 중복 방지·출력 창 키보드/모바일 보완. native SELECT 52행 기준 지문 확보, 대상 회귀13개 통과.
+3. 남은 할 일: 진행 중 ERP 전체 검사→webpack/CI→squash→Cafe24→운영 출력 스모크. 사용자 “우선 배포부터”에 따라 가이드 보강·Drive는 배포 후 처리.
+4. 검증 상태: 기존 PDF/XLSX 7종 직접 대조 및 1920/1280/390 키보드 통과. 새 숫자 구분자·시트명 회귀 통과. 전체 검사/운영은 아직 미검증. 가이드 면제는 이번 파일 SHA에만 적용.
+5. 주의/잠금: 공용 ERP/ECOUNT 쓰기0, 기본 acba의 기존 dirty 파일 보존. 촬영 작업은 기존 로컬 커밋에 남겨 후속 복구 가능하며 이번 배포에서 제외.
+검색어: 우선배포 견적서 Excel 인쇄 동일 videoWaivers g03 g19
+
+## 2026-11-24 견적서 Excel 배포 전 필수 검사 완료
+1. 작업 위치: nenova-erp-ui / codex/estimate-print-xlsx-1124 / C:/Users/USER/nw-cdx-estimate-print-xlsx-1124 / PR 준비, 연결 목표 g03·g19 / 학습 반영 있음.
+2. 완료된 것: 실제 인쇄 HTML 기반 Excel·A4·로고·반복 머리글·수신 업체명/시트명 분리·숫자 구분자 보존·키보드/모바일 보완. 기존 데스크톱 경로 사용으로 installer 변경 제외.
+3. 남은 할 일: pstack→PR/실제 CI 성공→squash→Cafe24→운영 출력 스모크/SELECT 지문 대조. 영상 보강·Drive는 사용자 승인으로 배포 후 처리.
+4. 검증 상태: npm test:erp-contract 전체 exit0, dnSpy·manifest245·writes exit0, npm build webpack exit0, 좁은 SHA 가이드 예외와 전체37업무38영상 검사 PASS, 대상 회귀13개와3화면폭 키보드 PASS. 운영은 미검증.
+5. 주의/잠금: ERP/ECOUNT 쓰기0. base acba dirty 파일 보존. 가이드 미완성은 이번 배포 완료로 주장하지 않으며 기존 영상 자산 유지.
+검색어: 견적서 인쇄 Excel 필수검증 완료 우선배포 g03 g19
+
+안전 보존: 원격 참조 자동 갱신 중 잡힌 타 기능의 이전 상태는 stash 2f7a85a2215356726fd2e3ea0ab23f5c0c2f7f8b(codex-estimate-print-scope-safety-1124)에 보존하고 현재 HEAD 원본으로 분리했다. 스타일 차이는 줄바꿈뿐이며 원본 바이트 사본도 .verify/scope-safety-1124에 보존. stash 삭제/pop 금지.
 
 ### 2026-11-24 · 수입 카톡 합계의 콜롬비아 기본값·태국 단일 표시
 1. 작업 위치: nenova-erp-ui / codex/kakao-country-default / nw-cdx-kakao-country-default / 국가 분류 PR 준비.

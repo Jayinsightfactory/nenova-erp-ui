@@ -1,0 +1,71 @@
+{
+  "id": "colombia-box-metrics",
+  "title": "콜롬비아 박스당 무게·CBM 단일 원천 표",
+  "module": "lib/boxMetricTable.js",
+  "export": "colombiaBoxMetrics",
+  "source": [
+    "lib/boxMetricTable.js 머리 주석: 원가자료 엑셀 AA7:AJ13, 288개 시트(13-2~38-1) 전수 확인, 2026-09-30 사장님 결정(매출원가 양식의 장미 7·카네이션 CBM 11 폐기)",
+    "__tests__/boxMetricTable.test.js"
+  ],
+  "cases": [
+    {
+      "name": "장미 8kg / 10CBM",
+      "input": [
+        "장미"
+      ],
+      "expected": {
+        "boxWeight": 8,
+        "boxCBM": 10
+      }
+    },
+    {
+      "name": "카네이션 11kg / 9CBM",
+      "input": [
+        "CARNATION"
+      ],
+      "expected": {
+        "boxWeight": 11,
+        "boxCBM": 9
+      }
+    },
+    {
+      "name": "알스트로 9.7kg / 7CBM",
+      "input": [
+        "알스트로"
+      ],
+      "expected": {
+        "boxWeight": 9.7,
+        "boxCBM": 7
+      }
+    },
+    {
+      "name": "수국 38-01 은 5.5 / 6.7",
+      "input": [
+        "HYDRANGEA",
+        "38-01"
+      ],
+      "expected": {
+        "boxWeight": 5.5,
+        "boxCBM": 6.7
+      }
+    },
+    {
+      "name": "수국 17-02 예외 5.6 / 7",
+      "input": [
+        "수국",
+        "17-02"
+      ],
+      "expected": {
+        "boxWeight": 5.6,
+        "boxCBM": 7
+      }
+    },
+    {
+      "name": "표 밖 품목(아나나스)은 null",
+      "input": [
+        "아나나스"
+      ],
+      "expected": null
+    }
+  ]
+}
