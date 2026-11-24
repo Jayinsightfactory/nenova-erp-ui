@@ -1,0 +1,45 @@
+{
+  "id": "warehouse-inline-identity",
+  "title": "입고 원장 인보이스·AWB 한 셀 수정과 달력 표시",
+  "scope": [
+    "pages/api/warehouse/identity.js",
+    "lib/warehouseInlineIdentity.js",
+    "components/WarehouseIdentityCell.js",
+    "components/WarehouseIdentityCell.module.css",
+    "pages/incoming.js",
+    "lib/incomingDateLabel.js",
+    "lib/incomingRoundLabel.js"
+  ],
+  "businessIdentity": ["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "warehouseIdentity": ["OrderYear","OrderWeek","WarehouseKey"],
+  "actions": [{
+    "name": "WAREHOUSE_DOCUMENT_CELL_EDIT",
+    "warehouseMaster": "exact scoped row, one of InvoiceNo or OrderNo, LastUpdate metadata; transaction readback",
+    "warehouseDetail": "preserve",
+    "orderDetail": "preserve",
+    "shipmentDetail": "preserve",
+    "stock": "preserve",
+    "estimate": "preserve",
+    "webProfitReport": "preserve"
+  }],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025 and 2026 same exact 47-02, stale old identifiers, 47-02A/B presentation does not alter business keys."
+  },
+  "policy": {
+    "authorization": "Existing receipt managers only",
+    "preview": "same raw PK-year-week and dependency probes as commit; commit compares both original identifiers",
+    "duplicates": "same-year same-farm invoice, same-major shared AWB and document/forwarding associations",
+    "ownership": "linked document, active costs, customs/forwarding, confirmed profit or pending correction block direct edits",
+    "presentation": "stored suffix only; full-date/raw-scope sorting and lookup preserved"
+  },
+  "requiredTestFiles": ["__tests__/warehouseInlineIdentity.test.mjs"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormWarehouseView.md",
+    "source": "2026-11-24 actual installed Nenova.exe dnSpy and operating read-only comparison",
+    "methods": ["FormWarehouseView.GetData","ClassWarehouseMaster.Update"],
+    "tables": ["WarehouseMaster","WarehouseDetail"]
+  },
+  "requiredCommands": ["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

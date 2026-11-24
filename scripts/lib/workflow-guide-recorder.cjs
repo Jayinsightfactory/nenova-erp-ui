@@ -90,7 +90,13 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
       raw, mp4, captions, proofFile, sourceFiles, sourceHashes, chapters, cues, focusShots,
       includeHeader, encodingPreset, crf, filters, recordedAt: new Date().toISOString()
     }, null, 2) + '\n');
-    execFileSync(ffmpegPath, ['-y', '-hide_banner', '-loglevel', 'error', '-i', raw, ...filters, '-an', '-c:v', 'libx264', '-preset', encodingPreset, '-threads', '2', '-crf', String(crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4], { windowsHide: true, timeout: 900000 });
+    const graphPath = path.join(work, `${workflowId}-${guideId}.ffgraph`);
+    let filterArgs = filters;
+    if (process.platform === 'win32' && filters[1]?.length > 24000) {
+      fs.writeFileSync(graphPath, filters[1]);
+      filterArgs = ['-filter_complex_threads', '1', '-/filter_complex', graphPath, ...filters.slice(2)];
+    }
+    execFileSync(ffmpegPath, ['-y', '-hide_banner', '-loglevel', 'error', '-i', raw, ...filterArgs, '-an', '-c:v', 'libx264', '-preset', encodingPreset, '-threads', '2', '-crf', String(crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4], { windowsHide: true, timeout: 900000 });
     const probe = JSON.parse(execFileSync(ffprobePath, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height,avg_frame_rate:format=duration', '-of', 'json', mp4], { encoding: 'utf8', windowsHide: true }));
     const stream = probe.streams[0], duration = Number(probe.format.duration);
     const fps = stream.avg_frame_rate.split('/').map(Number).reduce((a, b) => a / b);

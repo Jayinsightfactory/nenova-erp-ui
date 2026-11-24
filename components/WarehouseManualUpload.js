@@ -131,7 +131,7 @@ export default function WarehouseManualUpload({ initial, onClose, onSaved }) {
           let line;
           try { if(row.product)line=manualWarehouseLine(requestLine(row),row.product); } catch {}
           return <fieldset className={styles.line} key={row.id}>
-            <legend>${index+1}행</legend>
+            <legend>{index+1}행</legend>
             <ReceiptProductSearch index={index} productName={row.product?.ProdName ?? ''} products={catalog.products}
               onSelect={(_,product)=>changeRow(row.id,{product})}/>
             {row.product && <p className={styles.unit}>전산 출고 {row.product.OutUnit} · 견적 {row.product.EstUnit}</p>}
