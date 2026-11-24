@@ -75,7 +75,7 @@ async function recordRole(browser, base, secret, role) {
       let data = { success: true, items: [], rows: [], data: [], products: [], countries: [], records: [], history: [], references: [], options: [], value: null, revision: 0 };
       if (u.pathname === '/api/products/search') data.products = products;
       if (u.pathname === '/api/auth/me') data.user = user;
-      if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,OrderWeek:i===1?'45-02':i?'46-01':header.OrderWeek,FarmName:i?'다른 농장':header.FarmName,InvoiceNo:i?`GUIDE-${i+1}`:header.InvoiceNo}));
+      if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,OrderWeek:i===1?'45-02':i?'46-01':header.OrderWeek,FarmName:i?'다른 농장':header.FarmName,InvoiceNo:i?`GUIDE-${i+1}`:header.InvoiceNo,totalBox:i===1?null:header.totalBox}));
       if (u.pathname === '/api/warehouse' && r.method() === 'POST') {
         assert(isImport,'fixture import authorization');
         const body=JSON.parse(r.postData());
@@ -99,6 +99,7 @@ async function recordRole(browser, base, secret, role) {
       }
       if (u.pathname === '/api/arrival-cost/latest') data.references = {'1|': [1000, 1350].map((cost,i)=>({cost,unit:'단',farm:`원가 농장 ${i+1}`,week:'45-01',orderYear:'2026',sourceKind:'INVOICE',referenceKey:String(i)}))};
       if (u.pathname === '/api/warehouse/9001') data.items = before;
+      if (u.pathname === '/api/warehouse/9002') data.items = [{ ...before[0], BoxQuantity: null, IsWeightRow: false, ReceiptGoodsLines: 1 }];
       if (u.pathname === '/api/warehouse/correction') data = { success: true, draftOwner: user.userId, header, baselineDigest:'c'.repeat(64), details: before, farms: [{ FarmName: header.FarmName }, { FarmName: '연습농장 나' }], history: [] };
       if(u.pathname==='/api/warehouse/correction'&&r.method()==='POST')data={...previewFor(JSON.parse(r.postData())),canCommit:false,issues:[{message:'現在 차수에 확정된 품목이 있습니다. 영업지원에 수정 요청하세요.'.replace('現在','현재')}]};
       if (u.pathname === '/api/warehouse/invoice-costs') data.costs = null;
@@ -163,8 +164,8 @@ async function recordRole(browser, base, secret, role) {
     const box = await element.boundingBox(); assert(box, 'Guide target not visible');
     await focusTarget(element);await movePointer(box.x + box.width / 2, box.y + box.height / 2); await rec.pause(450); await element.click(); await rec.pause(600);if(!keepFocus)await unfocusTarget();
   };
-  const selectReceipt = async () => {
-    const selector = '[data-row-key="9001"]';
+  const selectReceipt = async (warehouseKey=9001) => {
+    const selector = `[data-row-key="${warehouseKey}"]`;
     const target = await page.waitForSelector(selector + ' td:first-child', {visible:true});
     await focusTarget(target);
     await page.focus(selector);
@@ -194,26 +195,47 @@ async function recordRole(browser, base, secret, role) {
         if(scenario==='farm'){
           await page.goto(`${base}/incoming?popup=1`,{waitUntil:'networkidle0'});
           await page.waitForSelector('[data-row-key="9001"]');
+          await selectReceipt(9002);
+          const reference = await page.waitForFunction(()=>[...document.querySelectorAll('td span[tabindex="0"]')].find(node=>node.textContent==='10 참고'));
+          await reference.asElement().focus();
+          await page.waitForFunction(()=>document.body.textContent.includes('1000송이 ÷ 100송이/박스'));
+          await hold('박스 수량 미기재 행에서 근거가 충분하면 참고 수량을 보여줍니다. 원장 합계에는 반영하지 않습니다.',5);
+          await reference.dispose();
+          await click('인보이스·AWB 조정');
+          assert.equal(await page.$eval('details[open] a[href="/import/tools?tab=packing"]',node=>node.textContent),'패킹리스트 업무도구 열기');
+          await hold('등록한 원장 번호는 잠겨 있습니다. 등록 전 자료는 업무도구에서 입고 초안을 열어 수정합니다.',5);
+          await click('인보이스·AWB 조정');
+          if (dry) {
+            const ledger = '.incoming-ledger';
+            const rowHeight = await page.$eval('[data-row-key="9002"]',node=>node.getBoundingClientRect().height);
+            assert(rowHeight <= 32, `Compact master row height: ${rowHeight}px`);
+            await page.screenshot({path:'.verify/warehouse-ledger-desktop.png'});
+            await page.setViewport({width:390,height:844});
+            const widths = await page.$eval(ledger,node=>({ content:node.scrollWidth, container:node.clientWidth, viewport:window.innerWidth, document:document.documentElement.scrollWidth }));
+            assert(widths.content<=widths.container+4 && widths.document<=widths.viewport, `Table scrolling must stay inside the ledger: ${JSON.stringify(widths)}`);
+            await page.screenshot({path:'.verify/warehouse-ledger-mobile.png'});
+            await page.setViewport({width:1920,height:1080});
+          }
           const roundInput = 'input[aria-label="차수 검색"]';
           await hold('차수 열 위에서 45를 입력하면 45차 전체가 나옵니다. 45-01을 입력하면 해당 세부차수만 표시됩니다.',4);
           await fill(roundInput, '45');
-          await page.waitForFunction(() => document.querySelectorAll('tr[data-row-key]').length === 2);
+          await page.waitForFunction(() => document.querySelectorAll('tr[data-row-key][aria-selected]').length === 2);
           await fill(roundInput, '45-01');
-          await page.waitForFunction(() => document.querySelectorAll('tr[data-row-key]').length === 1);
+          await page.waitForFunction(() => document.querySelectorAll('tr[data-row-key][aria-selected]').length === 1);
           if (dry) {
             await fill(roundInput, '４５차');
-            await page.waitForFunction(() => document.querySelectorAll('tr[data-row-key]').length === 2);
+            await page.waitForFunction(() => document.querySelectorAll('tr[data-row-key][aria-selected]').length === 2);
             await fill(roundInput, '45 – 02');
             await page.waitForSelector('[data-row-key="9002"]');
             await fill(roundInput, '45-01');
           }
           await hold('농장명·인보이스·AWB 열 위에서 각각 검색할 수 있습니다. 여러 칸을 채우면 모든 조건과 일치하는 건만 표시됩니다.',4);
           await fill('input[aria-label="인보이스 검색"]','guide-001');
-          await page.waitForFunction(()=>document.querySelectorAll('tr[data-row-key]').length===1);
+          await page.waitForFunction(()=>document.querySelectorAll('tr[data-row-key][aria-selected]').length===1);
           await fill('input[aria-label="AWB 검색"]','12345678');
           await page.waitForSelector('[data-row-key="9001"]');
           await fill('input[aria-label="농장명 검색"]','연습농장');
-          await page.waitForFunction(()=>document.querySelectorAll('tr[data-row-key]').length===1);
+          await page.waitForFunction(()=>document.querySelectorAll('tr[data-row-key][aria-selected]').length===1);
           if (dry) {
             await fill(roundInput, '45-02');
             await page.waitForFunction(() => !document.querySelector('[data-row-key="9001"]'));

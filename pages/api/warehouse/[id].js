@@ -10,7 +10,10 @@ export default withAuth(async function handler(req, res) {
   const useExe = useExeParityFlag(exeParity);
   try {
     if (useExe) {
-      const result = await query(sqlWarehouseViewGetDetail({goodsTotals:req.query.goodsTotals === '1'}), {
+      const result = await query(sqlWarehouseViewGetDetail({
+        goodsTotals:req.query.goodsTotals === '1',
+        boxEvidence:req.query.boxEvidence === '1',
+      }), {
         warehouseKey: { type: sql.Int, value: parseInt(id, 10) },
       });
       return res.status(200).json({ success: true, source: 'real_db_exe_parity', items: result.recordset });
