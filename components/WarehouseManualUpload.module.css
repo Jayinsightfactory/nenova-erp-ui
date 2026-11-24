@@ -1,0 +1,73 @@
+.dialog {
+  max-height: 74vh;
+  overflow: auto;
+  padding: 4px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.fields, .line {
+  min-inline-size: 0;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #cbd5e1);
+}
+.fields legend, .line legend {
+  width: auto;
+  padding: 0 4px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.header {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(128px, 100%), 1fr));
+  gap: 8px;
+  margin-block: 6px;
+}
+.header label {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.header input, .header select {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+}
+.dialog :global(.receipt-product-search) input {
+  width: min(100%, 360px);
+  min-height: 32px;
+}
+.dialog :global(.receipt-product-search) ul {
+  padding: 0 0 0 20px;
+  margin: 4px 0;
+  max-height: 160px;
+  overflow: auto;
+}
+.unit {
+  margin: 4px 0;
+  color: #334155;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.table {
+  overflow-x: auto;
+  margin-block: 6px 10px;
+}
+.table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table th, .table td {
+  border: 1px solid var(--border, #cbd5e1);
+  padding: 4px 6px;
+  white-space: nowrap;
+}
+.table td {
+  text-align: right;
+}

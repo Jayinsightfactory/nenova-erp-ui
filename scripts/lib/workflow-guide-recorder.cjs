@@ -8,6 +8,13 @@ function vttTime(seconds) {
   return `${String(Math.floor(ms / 3600000)).padStart(2, '0')}:${String(Math.floor(ms / 60000) % 60).padStart(2, '0')}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}.${String(ms % 1000).padStart(3, '0')}`;
 }
 
+// Keep FFmpeg's expression tree shallow when a long guide has many camera events.
+function balancedSum(terms) {
+  if (terms.length === 1) return terms[0];
+  const midpoint = Math.floor(terms.length / 2);
+  return `(${balancedSum(terms.slice(0, midpoint))}+${balancedSum(terms.slice(midpoint))})`;
+}
+
 function cameraFilters(focusShots, includeHeader = false) {
   const top = includeHeader ? 0 : 70;
   const height = 900 - top;
@@ -18,14 +25,14 @@ function cameraFilters(focusShots, includeHeader = false) {
     previousEnd=s.end;
   }
   const weight=s=>`(1-cos(PI*max(0,min(1,min((on/20-${s.start})/1.2,(${s.end}-on/20)/1.2)))))/2`;
-  const zoom='1+'+focusShots.map(s=>`.4*(${weight(s)})`).join('+');
-  const axis=(name,fallback)=>`${fallback}+`+focusShots.map(s=>`(${s[name]}-${fallback})*(${weight(s)})`).join('+');
+  const zoom='1+'+balancedSum(focusShots.map(s=>`.4*(${weight(s)})`));
+  const axis=(name,fallback)=>`${fallback}+`+balancedSum(focusShots.map(s=>`(${s[name]}-${fallback})*(${weight(s)})`));
   return ['-filter_complex',`[0:v]split=2[picture][original];[picture]crop=1920:${height}:0:${top},zoompan=z='${zoom}':x='max(0,min(iw-iw/zoom,(${axis('x',960)})-iw/zoom/2))':y='max(0,min(ih-ih/zoom,(${axis('y',top + height / 2)})-${top}-ih/zoom/2))':d=1:s=1920x${height}:fps=20[zoomed];[original][zoomed]overlay=0:${top}[out]`,'-map','[out]'];
 }
 
 // Reusable real Chrome capture. The caller serves the tested UI and intercepts every API
 // with synthetic fixtures. This module deliberately refuses a production browser URL.
-async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflowId, guideId, title, sourceFiles, outputDir, fixtureOnly, includeHeader = false, ffmpegPath = 'ffmpeg', ffprobePath = 'ffprobe', encodingPreset = 'medium' }) {
+async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflowId, guideId, title, sourceFiles, outputDir, fixtureOnly, includeHeader = false, ffmpegPath = 'ffmpeg', ffprobePath = 'ffprobe', encodingPreset = 'medium', crf = 23 }) {
   if (fixtureOnly !== true || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(page.url()).hostname)) throw Error('Guide recording requires a local synthetic fixture page');
   if (!/^[a-z0-9-]+$/.test(workflowId) || !/^[a-z0-9-]+$/.test(guideId)) throw Error('Invalid guide identity');
   if (!sourceFiles?.length) throw Error('Guide sourceFiles required');
@@ -81,9 +88,9 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
     // Save the actual capture timing before encoding so a timeout does not lose it.
     fs.writeFileSync(path.join(work, `${workflowId}-${guideId}.capture.json`), JSON.stringify({
       raw, mp4, captions, proofFile, sourceFiles, sourceHashes, chapters, cues, focusShots,
-      includeHeader, encodingPreset, filters, recordedAt: new Date().toISOString()
+      includeHeader, encodingPreset, crf, filters, recordedAt: new Date().toISOString()
     }, null, 2) + '\n');
-    execFileSync(ffmpegPath, ['-y', '-hide_banner', '-loglevel', 'error', '-i', raw, ...filters, '-an', '-c:v', 'libx264', '-preset', encodingPreset, '-threads', '2', '-crf', '23', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4], { windowsHide: true, timeout: 900000 });
+    execFileSync(ffmpegPath, ['-y', '-hide_banner', '-loglevel', 'error', '-i', raw, ...filters, '-an', '-c:v', 'libx264', '-preset', encodingPreset, '-threads', '2', '-crf', String(crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4], { windowsHide: true, timeout: 900000 });
     const probe = JSON.parse(execFileSync(ffprobePath, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height,avg_frame_rate:format=duration', '-of', 'json', mp4], { encoding: 'utf8', windowsHide: true }));
     const stream = probe.streams[0], duration = Number(probe.format.duration);
     const fps = stream.avg_frame_rate.split('/').map(Number).reduce((a, b) => a / b);
