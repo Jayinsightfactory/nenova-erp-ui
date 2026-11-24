@@ -5,24 +5,28 @@ import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import {
   analyzeBoxVisionPhotos,
+  buildUnreadableBoxSearchCandidates,
   FALLBACK_DEFECT_DEDUCTIONS,
   FALLBACK_ERP_SHIPMENTS,
   FALLBACK_WAREHOUSE_BILLS,
+  SEARCHABLE_PRODUCT_CATALOG,
 } from '../../../lib/boxVisionInspector';
 
-async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02', billQuery = '' } = {}) {
+async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02', billQuery = '', itemSearchQuery = '' } = {}) {
   if (!process.env.DB_SERVER) {
     return {
       source: 'deterministic_fixture',
       erpShipments: FALLBACK_ERP_SHIPMENTS,
       defectRows: FALLBACK_DEFECT_DEDUCTIONS,
       warehouseBills: FALLBACK_WAREHOUSE_BILLS,
+      productCatalog: SEARCHABLE_PRODUCT_CATALOG,
     };
   }
   try {
     const parentWeek = String(orderWeek || '47-02').split('-')[0];
     const cleanBillQuery = String(billQuery || '').trim();
-    const [shipRes, defectRes, billRes] = await Promise.all([
+    const cleanItemQuery = String(itemSearchQuery || '').trim();
+    const [shipRes, defectRes, billRes, prodRes] = await Promise.all([
       query(
         `SELECT TOP 120
                 sm.ShipmentKey AS shipmentKey,
@@ -96,6 +100,23 @@ async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02', bi
           bq: { type: sql.NVarChar, value: cleanBillQuery },
         }
       ).catch(() => ({ recordset: [] })),
+      cleanItemQuery
+        ? query(
+            `SELECT TOP 25
+                    p.ProdKey AS prodKey,
+                    p.ProdName AS prodName,
+                    ISNULL(p.FlowerName, N'절화') AS flowerName,
+                    ISNULL(p.OutUnit, N'송이') AS unit,
+                    ISNULL(p.CounName, N'네덜란드') AS countryName
+               FROM Product p
+              WHERE ISNULL(p.isDeleted, 0) = 0
+                AND (p.ProdName LIKE '%' + @iq + '%' OR p.FlowerName LIKE '%' + @iq + '%')
+              ORDER BY p.ProdKey DESC`,
+            {
+              iq: { type: sql.NVarChar, value: cleanItemQuery },
+            }
+          ).catch(() => ({ recordset: [] }))
+        : Promise.resolve({ recordset: [] }),
     ]);
 
     const mergedShipments = [...FALLBACK_ERP_SHIPMENTS];
@@ -178,11 +199,33 @@ async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02', bi
       }
     }
 
+    const mergedProductCatalog = [...SEARCHABLE_PRODUCT_CATALOG];
+    for (const row of prodRes.recordset || []) {
+      const pk = Number(row.prodKey || 0);
+      if (!pk || mergedProductCatalog.some((p) => Number(p.prodKey) === pk)) continue;
+      mergedProductCatalog.push({
+        prodKey: pk,
+        prodName: String(row.prodName || ''),
+        flowerName: String(row.flowerName || '절화'),
+        unit: String(row.unit || '송이'),
+        defaultQtyPerBox: 40,
+        altQtys: [30, 40, 50, 100],
+        farmName: 'Holex',
+        countryName: String(row.countryName || '네덜란드'),
+        invoiceNo: '1222993',
+        awbNo: '180-9162-6441',
+        orderWeek: String(orderWeek || '47-02'),
+        boxColorProfile: 'holex-white-flat',
+        keywords: `${row.prodName || ''} ${row.flowerName || ''}`.toLowerCase(),
+      });
+    }
+
     return {
       source: 'real_db',
       erpShipments: mergedShipments,
       defectRows: combinedDefects,
       warehouseBills: mergedBills,
+      productCatalog: mergedProductCatalog,
     };
   } catch {
     return {
@@ -190,6 +233,7 @@ async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02', bi
       erpShipments: FALLBACK_ERP_SHIPMENTS,
       defectRows: FALLBACK_DEFECT_DEDUCTIONS,
       warehouseBills: FALLBACK_WAREHOUSE_BILLS,
+      productCatalog: SEARCHABLE_PRODUCT_CATALOG,
     };
   }
 }
@@ -223,10 +267,19 @@ async function handler(req, res) {
       ? req.body?.billQuery
       : req.query.billQuery || '';
 
+    const itemSearchQuery = req.method === 'POST'
+      ? req.body?.itemSearchQuery
+      : req.query.itemSearchQuery || '';
+
+    const targetBoxId = req.method === 'POST'
+      ? req.body?.targetBoxId
+      : req.query.targetBoxId || '';
+
     const live = await loadLiveErpAndDefects({
       orderYear: req.body?.orderYear || req.query.year || 2026,
       orderWeek: req.body?.orderWeek || req.query.week || '47-02',
       billQuery,
+      itemSearchQuery,
     });
 
     const result = analyzeBoxVisionPhotos({
@@ -240,10 +293,25 @@ async function handler(req, res) {
       billQuery,
     });
 
+    const targetBox = targetBoxId
+      ? result.allBoxes.find((b) => b.boxId === targetBoxId) || result.unreadablePendingQueue[0]
+      : result.unreadablePendingQueue[0];
+
+    const searchCandidates = targetBox
+      ? buildUnreadableBoxSearchCandidates(targetBox, {
+          allBoxes: result.allBoxes,
+          erpShipments: live.erpShipments,
+          productCatalog: live.productCatalog || SEARCHABLE_PRODUCT_CATALOG,
+          searchQuery: itemSearchQuery,
+        })
+      : [];
+
     return res.status(200).json({
       success: true,
       source: live.source,
       ...result,
+      searchableProducts: live.productCatalog || result.searchableProducts,
+      searchCandidates,
     });
   } catch (error) {
     return res.status(500).json({

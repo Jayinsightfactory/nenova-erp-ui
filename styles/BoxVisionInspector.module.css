@@ -321,6 +321,22 @@
   background: rgba(100, 116, 139, 0.22);
 }
 
+.boxOverlayUnreadable {
+  border: 3px dashed #f59e0b;
+  background: rgba(245, 158, 11, 0.28);
+  z-index: 14;
+}
+
+.boxOverlayUnreadable:hover {
+  background: rgba(245, 158, 11, 0.38);
+}
+
+.boxOverlayPassed {
+  border: 2px dashed #64748b;
+  background: rgba(100, 116, 139, 0.24);
+  z-index: 11;
+}
+
 .boxCapsule {
   position: absolute;
   top: 2px;
@@ -348,6 +364,159 @@
 .boxCapsuleBg {
   background: #334155;
   border-color: #94a3b8;
+}
+
+.boxCapsuleUnreadable {
+  background: #92400e;
+  color: #fef3c7;
+  border: 1px solid #fbbf24;
+}
+
+.boxCapsulePassed {
+  background: #475569;
+  color: #f1f5f9;
+  border: 1px solid #94a3b8;
+}
+
+.unreadablePanelCard {
+  background: #fffbeb;
+  border: 2px solid #d97706;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.unreadableQueueList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.unreadableItemCard {
+  background: #ffffff;
+  border: 1px solid #fcd34d;
+  border-left: 4px solid #d97706;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.unreadableItemCardResolved {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #64748b;
+  border-radius: 6px;
+  padding: 9px 12px;
+}
+
+.unreadableActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btnWarn {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  background: #d97706;
+  color: #ffffff;
+  border: 1px solid #b45309;
+  border-radius: 5px;
+  padding: 6px 11px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btnWarn:hover {
+  background: #b45309;
+}
+
+.btnPass {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #94a3b8;
+  border-radius: 5px;
+  padding: 6px 11px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnPass:hover {
+  background: #e2e8f0;
+}
+
+.searchMatcherDrawer {
+  margin-top: 10px;
+  background: #f8fafc;
+  border: 1px solid #0d9488;
+  border-left: 4px solid #0f766e;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.candidateGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+.candidateCard {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.candidateCard:hover {
+  border-color: #0d9488;
+  background: #f0fdfa;
+}
+
+.candidateCardActive {
+  background: #ecfdf5;
+  border: 2px solid #059669;
+  border-radius: 5px;
+  padding: 7px 9px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.inlineFieldGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.selectInput {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  border: 1px solid #94a3b8;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.numberInput {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  border: 1px solid #94a3b8;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #0f172a;
+  background: #ffffff;
+  width: 90px;
+  font-variant-numeric: tabular-nums;
 }
 
 .formulaBar {
