@@ -17,7 +17,12 @@
     "__tests__/estimatePrintContract.test.js",
     "__tests__/estimatePrintTypography.test.js",
     "__tests__/estimateInvariants.test.js",
-    "styles/globals.css"
+    "styles/globals.css",
+    "lib/estimatePrintRenderedExcel.js",
+    "__tests__/estimatePrintRenderedExcel.test.js",
+    "scripts/estimate-print-excel-parity.cjs",
+    "scripts/render-estimate-print-xlsx.ps1",
+    "scripts/estimate-print-production-smoke.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -73,6 +78,14 @@
       "estimateRows": "read-only reprint; Cost is shown as supply unit price; Amount=Cost*qty; Vat=Amount*0.1; stored Amount/Vat are not written back",
       "source": "web print option 부가세 미분류 견적서; layout is ReportEstimate, amounts are not EXE VAT-inclusive split",
       "sideEffect": "print and Excel only. Does not update Estimate, ShipmentDetail.Cost/Amount/Vat, or orders."
+    },
+    {
+      "name": "ESTIMATE_RENDERED_EXCEL_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimateRows": "Same buildEstimateHtml and options as print; per-customer and year scope unchanged",
+      "source": "Measured HTML leaf cells; ExcelJS A4 width1 height-auto, logo and repeated item header; document totals appear once on the last page, including statements",
+      "sideEffect": "browser document generation only; no ERP or ECOUNT writes"
     }
   ],
   "crossYearFixture": {
@@ -94,7 +107,8 @@
     "__tests__/estimateManagerPrint.test.js",
     "__tests__/estimateManagerFilter.test.js",
     "__tests__/exeEstimateViewSql.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/estimatePrintRenderedExcel.test.js"
   ],
   "dnspyEvidence": {
     "required": true,

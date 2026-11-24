@@ -4968,3 +4968,29 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 머지·Cafe24 배포 후 2026년 44차·45차 스냅샷 갱신으로 중국 F/E 및 양 차수 전체 합계(I·J·K) null 0건 실측 확인 및 워크트리 정리.
 4. 검증 상태: profitChinaDutyRecovery PASS(125개), profitReportAutoRefresh 14/14 PASS, test:profit-weekly-cache·pstack-verify 5/5·guard:erp-writes·test:erp-manifest 통과 확인 예정.
 5. 주의/잠금: 확정 차수(WebProfitReportConfirm IsActive=1)는 연쇄 갱신에서도 하드 스킵. ERP 공유 원장 쓰기 0건. 연결 목표 g17·g19.
+
+## 2026-11-24 업체 견적서 인쇄·Excel 일치 — 구현 검증 단계
+1. 작업 위치: codex/estimate-print-xlsx-1124 / C:/Users/USER/nw-cdx-estimate-print-xlsx-1124 / PR 준비 중. 연결 목표 g03·g19 / 학습 반영 있음.
+2. 완료된 것: 인쇄 HTML의 실제 셀·병합·글꼴·로고·행 높이에서 Excel 생성, A4 폭1쪽/높이자동·머리글 반복, 기존 메뉴·조회·산식 보존.
+3. 남은 할 일: 가이드 2종 실제 재촬영, ERP 필수검사·webpack·PR/CI·squash·Cafe24 배포·운영/데스크톱 스모크·Drive 백업·정리.
+4. 검증 상태: 실제 Chrome PDF/Excel PDF 6종 모두 페이지·공급사·품목·금액 일치. 기존12행1:2쪽→1:1쪽, 2업체110행4:8쪽→4:4쪽. unit2개·기존 인쇄계약/타이포·실제 UI 다운로드 합성 smoke 통과. 운영은 미검증.
+5. 주의/잠금: 본 worktree 출력 생성기·pages/estimate.js·가이드만 소유. 원장/ECOUNT 쓰기0, 기존 acba dirty 파일 보존. 종이 양식의 기존 EXE 글꼴은 계약에 따라 유지.
+검색어: 업체견적서 인쇄 엑셀 동일 HTML 셀 측정 A4 공급사 로고 estimate-print-xlsx-parity g03 g19
+
+## 2026-11-24 배포 우선 전환 — 견적서 Excel 출력
+1. 작업 위치: codex/estimate-print-xlsx-1124 / C:/Users/USER/nw-cdx-estimate-print-xlsx-1124 / PR 준비. 연결 목표 g03·g19 / 학습 반영 있음.
+2. 완료된 것: 실제 인쇄 HTML 기반 Excel, 분리 출력 업체명 보존·긴 시트명 중복 방지·출력 창 키보드/모바일 보완. native SELECT 52행 기준 지문 확보, 대상 회귀13개 통과.
+3. 남은 할 일: 진행 중 ERP 전체 검사→webpack/CI→squash→Cafe24→운영 출력 스모크. 사용자 “우선 배포부터”에 따라 가이드 보강·Drive는 배포 후 처리.
+4. 검증 상태: 기존 PDF/XLSX 7종 직접 대조 및 1920/1280/390 키보드 통과. 새 숫자 구분자·시트명 회귀 통과. 전체 검사/운영은 아직 미검증. 가이드 면제는 이번 파일 SHA에만 적용.
+5. 주의/잠금: 공용 ERP/ECOUNT 쓰기0, 기본 acba의 기존 dirty 파일 보존. 촬영 작업은 기존 로컬 커밋에 남겨 후속 복구 가능하며 이번 배포에서 제외.
+검색어: 우선배포 견적서 Excel 인쇄 동일 videoWaivers g03 g19
+
+## 2026-11-24 견적서 Excel 배포 전 필수 검사 완료
+1. 작업 위치: nenova-erp-ui / codex/estimate-print-xlsx-1124 / C:/Users/USER/nw-cdx-estimate-print-xlsx-1124 / PR 준비, 연결 목표 g03·g19 / 학습 반영 있음.
+2. 완료된 것: 실제 인쇄 HTML 기반 Excel·A4·로고·반복 머리글·수신 업체명/시트명 분리·숫자 구분자 보존·키보드/모바일 보완. 기존 데스크톱 경로 사용으로 installer 변경 제외.
+3. 남은 할 일: pstack→PR/실제 CI 성공→squash→Cafe24→운영 출력 스모크/SELECT 지문 대조. 영상 보강·Drive는 사용자 승인으로 배포 후 처리.
+4. 검증 상태: npm test:erp-contract 전체 exit0, dnSpy·manifest245·writes exit0, npm build webpack exit0, 좁은 SHA 가이드 예외와 전체37업무38영상 검사 PASS, 대상 회귀13개와3화면폭 키보드 PASS. 운영은 미검증.
+5. 주의/잠금: ERP/ECOUNT 쓰기0. base acba dirty 파일 보존. 가이드 미완성은 이번 배포 완료로 주장하지 않으며 기존 영상 자산 유지.
+검색어: 견적서 인쇄 Excel 필수검증 완료 우선배포 g03 g19
+
+안전 보존: 원격 참조 자동 갱신 중 잡힌 타 기능의 이전 상태는 stash 2f7a85a2215356726fd2e3ea0ab23f5c0c2f7f8b(codex-estimate-print-scope-safety-1124)에 보존하고 현재 HEAD 원본으로 분리했다. 스타일 차이는 줄바꿈뿐이며 원본 바이트 사본도 .verify/scope-safety-1124에 보존. stash 삭제/pop 금지.
