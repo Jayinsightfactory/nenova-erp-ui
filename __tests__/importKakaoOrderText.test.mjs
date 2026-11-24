@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { analyzeImportMessage, classifyImportFeed, importCustomerAliases, readLatestOrderImports, latestImportFeed } from '../lib/importKakaoOrderText.js';
-import { readRecentImports, importItemView, farmTotals, importTotalsText } from '../lib/importKakaoAdditions.js';
+import { readRecentImports, importItemView, farmTotals, importTotalsText, importCategoryLabel, matchesCountryOrderScope } from '../lib/importKakaoAdditions.js';
 const message=(text,id='a',time='2026년 11월 18일 오전 9:00')=>({id,time,text,sender:'fixture',items:[]});
 const parse=text=>analyzeImportMessage(message(text));
 const totals=messages=>farmTotals(classifyImportFeed({messages}).messages.flatMap(m=>m.items.map(i=>importItemView(i))));
@@ -184,7 +184,7 @@ assert.equal(recommendationFeed.messages[0].text,recommendationMessage.text);
 const recommendationTotals = totals([recommendationMessage]);
 assert.equal(recommendationTotals.length,5);
 assert.equal(recommendationTotals.reduce((sum,row)=>sum+row.quantity,0),10);
-assert(recommendationTotals.every(row=>row.year==='2026'&&row.week==='49-01'&&row.unit==='박스'&&row.group==='알스트로'&&row.country===''&&row.notes===''));
+assert(recommendationTotals.every(row=>row.year==='2026'&&row.week==='49-01'&&row.unit==='박스'&&row.group==='알스트로'&&row.country==='콜롬비아'&&row.notes===''));
 assert.equal(parse(recommendationOrder+'\n>추천 품목이 가능하면 위 주문을 진행해주세요.').kind,'review');
 assert.equal(parse(recommendationOrder+'\n>추천 품종으로 대체해 주세요.').kind,'review');
 assert.equal(parse(recommendationOrder+'\n>추천 품목을 알려주세요. 위 수량 취소해주세요.').kind,'review');
@@ -199,3 +199,39 @@ const mixedAnalyzed = analyzeImportMessage(mixedRecommendation);
 assert.equal(mixedAnalyzed.kind,'addition');
 assert.equal(mixedAnalyzed.items.find(row=>row.product==='연습 노랑')?.reviewReason,'단위 확인 필요');
 assert.equal(totals([mixedRecommendation]).reduce((sum,row)=>sum+row.quantity,0),10);
+
+for (const [heading, group] of [
+  ['수국','수국'], ['알스트로','알스트로'], ['알스트로메리아','알스트로'],
+  ['Alstroemeria','알스트로'], ['카네이션','카네이션'], ['루스커스','루스커스'], ['장미','장미'],
+]) {
+  const item = parse(`49-1 ${heading} 발주 추가\n연습 품종 2박스`).items[0];
+  assert.deepEqual([item.country,item.countryInferred,item.group,item.quantity,item.unit],
+    ['콜롬비아',true,group,'2','박스']);
+  assert(matchesCountryOrderScope(item,{country:'colombia',year:2026,majorWeek:49,orderWeek:'49-01'}));
+  assert(!matchesCountryOrderScope(item,{country:'colombia',year:2025,majorWeek:49,orderWeek:'49-01'}));
+  assert(!matchesCountryOrderScope(item,{country:'colombia',year:2026,majorWeek:49,orderWeek:'49-02'}));
+}
+for (const country of ['중국','네덜란드','에콰도르','태국','베트남','호주','미국','콜롬비아']) {
+  const item = parse(`49-1 ${country} 알스트로메리아 발주 추가\n연습 품종 2박스`).items[0];
+  assert.deepEqual([item.country,item.countryInferred,item.group],[country,false,'알스트로']);
+}
+assert.equal(parse('49-1 수국 발주 추가\n중국 수국 연습 2박스').items[0].country,'중국');
+assert.equal(parse('49-1 카라 발주 추가\n연습 2박스').items[0].country,'');
+assert.equal(parse(recommendationOrder+'\n'+recommendation.replace('알스트로','중국 알스트로')).items[0].country,'콜롬비아');
+assert.equal(parse('49-1 알스트로 발주 추가\n연습 2').items[0].reviewReason,'단위 확인 필요');
+const thaiRows = totals([
+  message('49-1 태국 발주 추가\n연습 흰색 4봉','thai-plain'),
+  message('49-1 태국 덴파레 발주 추가\n연습 분홍 3송이','thai-named'),
+]);
+assert.equal(thaiRows.length,2);
+assert.deepEqual(thaiRows.map(row=>row.group),['','덴파레']);
+assert(thaiRows.every(row=>importCategoryLabel(row,{showMissing:true})==='태국'));
+assert.match(importTotalsText(thaiRows),/태국 · 연습 흰색 4 봉/);
+assert.match(importTotalsText(thaiRows),/태국 · 연습 분홍 3 송이/);
+assert.doesNotMatch(importTotalsText(thaiRows),/품목군 미상|태국 · 덴파레/);
+assert.equal(importCategoryLabel({country:'중국',group:'수국'},{showMissing:true}),'중국 · 수국');
+assert.equal(importCategoryLabel({country:'네덜란드',group:'튤립'},{showMissing:true}),'네덜란드 · 튤립');
+assert.deepEqual(totals([
+  message('49-1 중국 카네이션 발주 추가\n연습 붉은색 2박스'),
+  message('49-1 카네이션 발주 취소\n연습 붉은색 2박스','cancel-with-unknown-country'),
+]),[]);
