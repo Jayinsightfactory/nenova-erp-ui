@@ -6,27 +6,50 @@ import Link from 'next/link';
 import WorkflowGuide from '../../components/WorkflowGuide';
 import {
   analyzeBoxVisionPhotos,
+  buildUnreadableBoxSearchCandidates,
   lookupBillOrderWeek,
   ROUTE_PRESETS,
   SAMPLE_PHOTOS,
+  SEARCHABLE_PRODUCT_CATALOG,
 } from '../../lib/boxVisionInspector';
 import styles from '../../styles/BoxVisionInspector.module.css';
 
 const fmt = (n) => Number(n || 0).toLocaleString('ko-KR');
 const ALL_SAMPLE_IDS = SAMPLE_PHOTOS.map((s) => s.sampleId);
 
+const CUSTOMER_OPTIONS = [
+  { custKey: 533, custName: '주광농원', custCode: 'YCL2', labelCode: 'ICNNEN/YCL2' },
+  { custKey: 335, custName: '늘봄원예', custCode: 'CL23', labelCode: 'ICNNEN/CL23' },
+  { custKey: 446, custName: '신라호텔', custCode: 'YCLS', labelCode: 'ICNNEN/YCLS' },
+];
+
+const BILL_OPTIONS = [
+  { invoiceNo: '1222993', awbNo: '180-9162-6441', orderWeek: '47-02', farmName: 'Holex', countryName: '네덜란드' },
+  { invoiceNo: '2026YY-055', awbNo: '2026YY-055', orderWeek: '47-02', farmName: 'Cloudland', countryName: '중국' },
+  { invoiceNo: '201693', awbNo: '180-5345-5275', orderWeek: '47-01', farmName: 'Hood Canal', countryName: '미국' },
+  { invoiceNo: '201694', awbNo: '180-5345-5334', orderWeek: '48-01', farmName: 'Hood Canal', countryName: '미국' },
+];
+
 export default function BoxVisionInspectorPage() {
   // 기본 진입 시 카톡 묶음 5장 전체 일괄 스캔 상태로 시작해 업체별×품목별×수량×Bill×입고차수를 즉시 한눈에 제공
   const [selectedSampleIds, setSelectedSampleIds] = useState(ALL_SAMPLE_IDS);
   // viewMode: 'BATCH_ALL' (전체 묶음 통합 보기) | 'SINGLE_PHOTO' (사진 1/N ~ N/N 개별 보기)
   const [viewMode, setViewMode] = useState('SINGLE_PHOTO');
-  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(3); // 기본 포커스: 샘플 4번(주광농원 20박스 · 하단 무라벨 민트 박스 #19, #20 및 가림 라벨 확인 대기 시연)
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [customPreviewUrl, setCustomPreviewUrl] = useState('');
   const [boxOverrides, setBoxOverrides] = useState({});
-  const [selectedBoxId, setSelectedBoxId] = useState(null);
+  const [selectedBoxId, setSelectedBoxId] = useState('s4-b19');
   const [batchRouteMessage, setBatchRouteMessage] = useState('호남선 출고입니다 (11/23 경부선·호남선 카톡 묶음 사진 일괄 업로드)');
   const [billSearchQuery, setBillSearchQuery] = useState('');
+
+  // [품목·숫자 미식별 박스 처리 패널] 검색 매칭기 드로어 상태
+  const [activeMatcherBoxId, setActiveMatcherBoxId] = useState('s4-b19');
+  const [matcherSearchQuery, setMatcherSearchQuery] = useState('');
+  const [matcherSelectedCandidate, setMatcherSelectedCandidate] = useState(null);
+  const [matcherQtyPerBox, setMatcherQtyPerBox] = useState(130);
+  const [matcherCustKey, setMatcherCustKey] = useState(533);
+  const [matcherInvoiceNo, setMatcherInvoiceNo] = useState('1222993');
 
   const [analysisData, setAnalysisData] = useState(() =>
     analyzeBoxVisionPhotos({
@@ -254,6 +277,160 @@ export default function BoxVisionInspectorPage() {
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
   }, [handleFilesAdded]);
+
+  // [신규] 품목·숫자 미식별 박스 처리: ① 패스(카운트 제외 패스 / 박스 수만 유지하고 품목 미확인 패스) ② 검색 매칭 ③ 다시 매칭하기/판독 보류 전환
+  const handlePassUnreadableBox = (box, passMode = 'exclude_count') => {
+    setSelectedBoxId(box.boxId);
+    const currentOverride = boxOverrides[box.boxId] || {};
+    const nextOverride = {
+      ...currentOverride,
+      status: passMode === 'exclude_count' ? 'EXCLUDED' : 'COUNTED',
+      resolutionAction: 'passed',
+      passMode,
+    };
+    const nextOverrides = { ...boxOverrides, [box.boxId]: nextOverride };
+    setBoxOverrides(nextOverrides);
+    if (activeMatcherBoxId === box.boxId) {
+      setActiveMatcherBoxId(null);
+    }
+    const modeLabel =
+      passMode === 'exclude_count'
+        ? '[카운트 제외 패스] (총 박스 수 및 품목 집계에서 제외)'
+        : '[박스 수만 유지하고 품목 미확인 패스] (총 박스 개수에는 포함하되 품목 매칭은 건너뜀)';
+    setNotice(`미식별 박스 [${box.serialNo} · ${box.custName}]를 ${modeLabel} 처리했습니다. 언제든 [다시 매칭하기]로 되돌릴 수 있습니다.`);
+    runAnalysis(selectedSampleIds, uploadedFiles, nextOverrides, batchRouteMessage, billSearchQuery);
+  };
+
+  const handleBatchPassAllUnreadable = (passMode = 'exclude_count') => {
+    const queue = analysisData?.unreadablePendingQueue || [];
+    if (!queue.length) {
+      setNotice('현재 확인 대기 중인 품목/숫자 미식별 박스가 없습니다.');
+      return;
+    }
+    const nextOverrides = { ...boxOverrides };
+    for (const box of queue) {
+      nextOverrides[box.boxId] = {
+        ...(nextOverrides[box.boxId] || {}),
+        status: passMode === 'exclude_count' ? 'EXCLUDED' : 'COUNTED',
+        resolutionAction: 'passed',
+        passMode,
+      };
+    }
+    setBoxOverrides(nextOverrides);
+    setActiveMatcherBoxId(null);
+    const modeLabel =
+      passMode === 'exclude_count' ? '카운트 제외 패스' : '박스 수만 유지하고 품목 미확인 패스';
+    setNotice(`품목/숫자 미식별 대기 박스 ${queue.length}건을 일괄 [${modeLabel}] 처리했습니다.`);
+    runAnalysis(selectedSampleIds, uploadedFiles, nextOverrides, batchRouteMessage, billSearchQuery);
+  };
+
+  const handleOpenSearchMatcher = (box) => {
+    setSelectedBoxId(box.boxId);
+    setActiveMatcherBoxId(box.boxId);
+    setMatcherSearchQuery('');
+    const candidates = buildUnreadableBoxSearchCandidates(box, {
+      allBoxes: analysisData?.allBoxes || [],
+      productCatalog: analysisData?.searchableProducts || SEARCHABLE_PRODUCT_CATALOG,
+      searchQuery: '',
+    });
+    const top = candidates[0] || null;
+    setMatcherSelectedCandidate(top);
+    setMatcherQtyPerBox(top ? Number(top.suggestedQtyPerBox || box.qtyPerBox || 40) : Number(box.qtyPerBox || 40));
+    setMatcherCustKey(Number(box.custKey || top?.custKey || 533));
+    setMatcherInvoiceNo(String(box.invoiceNo || top?.invoiceNo || '1222993'));
+    if (box.photoNumber && viewMode === 'SINGLE_PHOTO') {
+      setActivePhotoIndex(Math.max(0, box.photoNumber - 1));
+    }
+  };
+
+  const handleConfirmSearchMatch = (box, customCandidate = null) => {
+    const chosen = customCandidate || matcherSelectedCandidate;
+    if (!chosen) {
+      setNotice('매칭할 품목 후보를 선택해 주세요.');
+      return;
+    }
+    const custMeta = CUSTOMER_OPTIONS.find((c) => Number(c.custKey) === Number(matcherCustKey)) || {
+      custKey: chosen.custKey || box.custKey || 533,
+      custName: chosen.custName || box.custName || '주광농원',
+      custCode: chosen.custCode || box.custCode || 'YCL2',
+      labelCode: `ICNNEN/${chosen.custCode || box.custCode || 'YCL2'}`,
+    };
+    const billMeta = BILL_OPTIONS.find((b) => String(b.invoiceNo) === String(matcherInvoiceNo)) || {
+      invoiceNo: chosen.invoiceNo || box.invoiceNo || '1222993',
+      awbNo: chosen.awbNo || box.awbNo || '180-9162-6441',
+      orderWeek: chosen.orderWeek || box.orderWeek || '47-02',
+      farmName: chosen.farmName || box.farmName || 'Holex',
+      countryName: box.countryName || '네덜란드',
+    };
+    const finalQty = customCandidate
+      ? Number(customCandidate.suggestedQtyPerBox || matcherQtyPerBox || box.qtyPerBox || 40)
+      : Number(matcherQtyPerBox || chosen.suggestedQtyPerBox || box.qtyPerBox || 40);
+
+    const nextOverride = {
+      ...(boxOverrides[box.boxId] || {}),
+      status: 'COUNTED',
+      ocrStatus: 'confirmed',
+      resolutionAction: 'matched',
+      passMode: null,
+      custKey: custMeta.custKey,
+      custName: custMeta.custName,
+      custCode: custMeta.custCode,
+      labelCode: custMeta.labelCode,
+      prodKey: chosen.prodKey,
+      prodName: chosen.prodName,
+      flowerName: chosen.flowerName,
+      unit: chosen.unit,
+      qtyPerBox: finalQty,
+      stemsPerBox: chosen.stemsPerBox || (chosen.unit === '단' ? finalQty * 40 : finalQty),
+      invoiceNo: billMeta.invoiceNo,
+      awbNo: billMeta.awbNo,
+      orderWeek: billMeta.orderWeek,
+      farmName: billMeta.farmName,
+      countryName: billMeta.countryName,
+      stickerCode: `${box.stickerCode || '라벨가림'} → [수동 검색매칭 완료]`,
+    };
+    const nextOverrides = { ...boxOverrides, [box.boxId]: nextOverride };
+    setBoxOverrides(nextOverrides);
+
+    // 다음 미식별 대기 박스가 있으면 자동으로 매칭기를 이어서 열어줌
+    const remainingQueue = (analysisData?.unreadablePendingQueue || []).filter((b) => b.boxId !== box.boxId);
+    if (remainingQueue.length > 0) {
+      setActiveMatcherBoxId(remainingQueue[0].boxId);
+      setSelectedBoxId(remainingQueue[0].boxId);
+    } else {
+      setActiveMatcherBoxId(null);
+    }
+
+    setNotice(
+      `박스 [${box.serialNo}] 검색 매칭 확정 완료: [${custMeta.custName} · ${chosen.prodName} (${chosen.flowerName}) · ${fmt(finalQty)}${chosen.unit} · Bill #${billMeta.invoiceNo} (${billMeta.orderWeek}차)]로 반영되어 하단 업체×품목×Bill 통합 체크표 및 차수 원장이 실시간 재계산되었습니다.`
+    );
+    runAnalysis(selectedSampleIds, uploadedFiles, nextOverrides, batchRouteMessage, billSearchQuery);
+  };
+
+  const handleMarkBoxAsUnreadable = (box, ocrType = 'unreadable_both') => {
+    if (!box) return;
+    setSelectedBoxId(box.boxId);
+    const reasonMap = {
+      unreadable_item: '수동 지정: 라벨 일부 가림 (품목명 미식별 — 패스 또는 검색매칭 선택)',
+      unreadable_qty: '수동 지정: 수기 숫자 흐림/가림 (박스당 본수 확인 필요)',
+      unreadable_both: '수동 지정: 라벨 가림·저해상도 (품목 및 본수 숫자 모두 안 보임)',
+    };
+    const nextOverride = {
+      ...(boxOverrides[box.boxId] || {}),
+      status: 'COUNTED',
+      ocrStatus: ocrType,
+      unreadableReason: reasonMap[ocrType] || reasonMap.unreadable_both,
+      resolutionAction: 'pending',
+      passMode: null,
+    };
+    const nextOverrides = { ...boxOverrides, [box.boxId]: nextOverride };
+    setBoxOverrides(nextOverrides);
+    setActiveMatcherBoxId(box.boxId);
+    setNotice(
+      `박스 [${box.serialNo} · ${box.custName}]를 '판독 보류(품목/숫자 미식별)' 확인 대기열에 추가했습니다. [패스] 또는 [검색 매칭]을 선택하세요.`
+    );
+    runAnalysis(selectedSampleIds, uploadedFiles, nextOverrides, batchRouteMessage, billSearchQuery);
+  };
 
   const toggleBoxInclusion = (box) => {
     setSelectedBoxId(box.boxId);
@@ -614,6 +791,15 @@ export default function BoxVisionInspectorPage() {
           <div className={styles.kpiSub}>주 Bill #1222993 (AWB 180-9162-6441 · 47-02차)</div>
         </div>
         <div className={styles.kpiCard}>
+          <div className={styles.kpiTitle}>품목·숫자 미식별 박스 처리</div>
+          <div className={styles.kpiValue} data-testid="kpi-unreadable-boxes">
+            대기 {fmt(totals.unreadablePendingBoxes || 0)} · 해결 {fmt((totals.passedBoxes || 0) + (totals.manuallyMatchedBoxes || 0))}
+          </div>
+          <div className={styles.kpiSub}>
+            [패스 {fmt(totals.passedBoxes || 0)}건 · 검색매칭 {fmt(totals.manuallyMatchedBoxes || 0)}건]
+          </div>
+        </div>
+        <div className={styles.kpiCard}>
           <div className={styles.kpiTitle}>영업수입불량차감 매칭 후보</div>
           <div className={styles.kpiValue}>{fmt((analysisData?.matchedDefects || []).length)} 건</div>
           <div className={styles.kpiSub}>사진·농장·Bill·입고차수 원클릭 반영</div>
@@ -815,22 +1001,37 @@ export default function BoxVisionInspectorPage() {
               />
               {(currentPhoto?.boxes || []).map((box) => {
                 const isSelected = selectedBox?.boxId === box.boxId;
-                const isDup = box.status === 'DUPLICATE' || box.status === 'EXCLUDED';
+                const isPendingUnreadable = Boolean(box.isPendingUnreadable);
+                const isPassed = box.resolutionAction === 'passed';
+                const isManuallyMatched = box.resolutionAction === 'matched';
+                const isDup = box.status === 'DUPLICATE' || (box.status === 'EXCLUDED' && !isPassed);
                 const isBg = box.status === 'BACKGROUND';
                 const boxClass = [
                   styles.boxOverlay,
                   isSelected ? styles.boxOverlaySelected : '',
+                  isPendingUnreadable ? styles.boxOverlayUnreadable : '',
+                  isPassed ? styles.boxOverlayPassed : '',
                   isDup ? styles.boxOverlayDuplicate : '',
                   isBg ? styles.boxOverlayBackground : '',
                 ].filter(Boolean).join(' ');
 
                 const capsuleClass = [
                   styles.boxCapsule,
+                  isPendingUnreadable ? styles.boxCapsuleUnreadable : '',
+                  isPassed ? styles.boxCapsulePassed : '',
                   isDup ? styles.boxCapsuleDup : '',
                   isBg ? styles.boxCapsuleBg : '',
                 ].filter(Boolean).join(' ');
 
-                const prefix = box.status === 'COUNTED'
+                const prefix = isPendingUnreadable
+                  ? `[#${box.countSeq || box.boxSeq} · 품목/숫자 미식별 — 패스 또는 검색매칭 선택]`
+                  : isPassed
+                  ? box.passMode === 'keep_box_skip_item'
+                    ? `[#${box.countSeq || box.boxSeq} · 패스됨(박스유지·품목미확인)]`
+                    : '[패스됨(카운트 제외)]'
+                  : isManuallyMatched
+                  ? `[#${box.countSeq} · 수동 검색매칭 완료]`
+                  : box.status === 'COUNTED'
                   ? `#${box.countSeq}`
                   : box.status === 'DUPLICATE'
                   ? '[중복 제외됨]'
@@ -851,17 +1052,31 @@ export default function BoxVisionInspectorPage() {
                       width: `${box.bbox.w}%`,
                       height: `${box.bbox.h}%`,
                     }}
-                    title={`${prefix} ${box.custName} | ${box.prodName} (${box.qtyPerBox}${box.unit}) | Bill: ${box.invoiceNo} (${box.orderWeek}차) | 일련번호: ${box.serialNo} (클릭하여 포함/제외 토글)`}
-                    onClick={() => toggleBoxInclusion(box)}
+                    title={`${prefix} ${box.custName} | ${box.prodName} (${box.qtyPerBox}${box.unit}) | Bill: ${box.invoiceNo} (${box.orderWeek}차) | 일련번호: ${box.serialNo}${box.unreadableReason ? ` | 사유: ${box.unreadableReason}` : ''}`}
+                    onClick={() => {
+                      setSelectedBoxId(box.boxId);
+                      if (isPendingUnreadable) {
+                        handleOpenSearchMatcher(box);
+                      } else {
+                        toggleBoxInclusion(box);
+                      }
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        toggleBoxInclusion(box);
+                        setSelectedBoxId(box.boxId);
+                        if (isPendingUnreadable) {
+                          handleOpenSearchMatcher(box);
+                        } else {
+                          toggleBoxInclusion(box);
+                        }
                       }
                     }}
                   >
                     <span className={capsuleClass}>
-                      {prefix} {box.custName} · {box.flowerName} {box.qtyPerBox}{box.unit} (Bill {box.invoiceNo} · {box.orderWeek}차)
+                      {isPendingUnreadable
+                        ? `${prefix} ${box.custName} (${box.boxSpec})`
+                        : `${prefix} ${box.custName} · ${box.flowerName} ${box.qtyPerBox}${box.unit} (Bill ${box.invoiceNo} · ${box.orderWeek}차)`}
                     </span>
                   </div>
                 );
@@ -877,8 +1092,399 @@ export default function BoxVisionInspectorPage() {
                 {currentPhoto?.summaryNote}
               </div>
               <div>
-                박스를 클릭하면 집계 <strong>포함/제외</strong>가 즉시 전환됩니다.
+                미식별 박스는 <strong>[패스]</strong> 또는 <strong>[검색 매칭]</strong>을 선택하고, 일반 박스는 클릭 시 <strong>포함/제외</strong>가 전환됩니다.
               </div>
+            </div>
+          </section>
+
+          {/* [신규 핵심 B] 품목·숫자 미식별 박스 확인 대기열 (N건) 전용 액션 패널 — [1. 패스] vs [2. 검색 매칭] */}
+          <section className={styles.unreadablePanelCard} data-testid="box-vision-unreadable-queue-panel">
+            <div className={styles.panelHeader}>
+              <div>
+                <h2 className={styles.panelTitle}>
+                  [품목·숫자 미식별 박스 확인 대기열 ({fmt((analysisData?.unreadablePendingQueue || []).length)}건)] — 패스 또는 검색 매칭 선택
+                </h2>
+                <div style={{ fontSize: 12.5, color: '#78350f', marginTop: 2 }}>
+                  라벨이 경고 스티커(DON&apos;T DROP)·테이프에 가려지거나 하단 무라벨 박스로 품목명이나 본수 숫자가 안 보이는 박스입니다. 임의 추정하지 않고 <strong>[패스]</strong>할지 <strong>[검색 매칭]</strong>할지 직접 선택하세요.
+                </div>
+              </div>
+              <div className={styles.sampleChips}>
+                {(analysisData?.unreadablePendingQueue || []).length > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.btnPass}
+                      data-testid="unreadable-batch-pass-exclude-btn"
+                      onClick={() => handleBatchPassAllUnreadable('exclude_count')}
+                    >
+                      미식별 전체 패스 (카운트 제외)
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.btnPass}
+                      data-testid="unreadable-batch-pass-keepbox-btn"
+                      onClick={() => handleBatchPassAllUnreadable('keep_box_skip_item')}
+                    >
+                      미식별 전체 패스 (박스 수만 유지)
+                    </button>
+                  </>
+                )}
+                {selectedBox && !selectedBox.isPendingUnreadable && (
+                  <button
+                    type="button"
+                    className={styles.btnWarn}
+                    data-testid="mark-selected-box-unreadable-btn"
+                    onClick={() => handleMarkBoxAsUnreadable(selectedBox, 'unreadable_both')}
+                  >
+                    선택 박스({selectedBox.serialNo})를 판독 보류(미식별)로 전환
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.unreadableQueueList}>
+              {(analysisData?.unreadablePendingQueue || []).map((uBox) => {
+                const isMatcherOpen = activeMatcherBoxId === uBox.boxId;
+                const liveCandidates = buildUnreadableBoxSearchCandidates(uBox, {
+                  allBoxes: analysisData?.allBoxes || [],
+                  productCatalog: analysisData?.searchableProducts || SEARCHABLE_PRODUCT_CATALOG,
+                  searchQuery: isMatcherOpen ? matcherSearchQuery : '',
+                });
+                const activeCandidate =
+                  (isMatcherOpen && matcherSelectedCandidate) ||
+                  liveCandidates[0] ||
+                  (uBox.recommendedCandidates && uBox.recommendedCandidates[0]) ||
+                  null;
+
+                const ocrBadgeText =
+                  uBox.ocrStatus === 'unreadable_item'
+                    ? '품목명 미식별 (라벨 일부 가림)'
+                    : uBox.ocrStatus === 'unreadable_qty'
+                    ? '본수 숫자 미식별 (숫자 흐림/가림)'
+                    : '품목·본수 숫자 모두 미식별 (하단 무라벨/가림)';
+
+                return (
+                  <div
+                    key={uBox.boxId}
+                    className={styles.unreadableItemCard}
+                    data-testid={`unreadable-queue-item-${uBox.boxId}`}
+                  >
+                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 }}>
+                      <div>
+                        <span className={styles.badgeWarn}>{ocrBadgeText}</span>{' '}
+                        <strong>
+                          [사진 #{uBox.photoNumber} · 박스 #{uBox.countSeq || uBox.boxSeq}] {uBox.custName} ({uBox.labelCode})
+                        </strong>{' '}
+                        · 외형: <strong>{uBox.boxSpec}</strong> · 일련번호 힌트: <strong>{uBox.serialNo}</strong>
+                      </div>
+                      <span className={styles.badgeNeutral}>
+                        Bill #{uBox.invoiceNo} · {uBox.orderWeek}차 ({uBox.farmName})
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: '#78350f', marginTop: 4 }}>
+                      <strong>판독 보류 사유:</strong> {uBox.unreadableReason}
+                    </div>
+
+                    <div className={styles.unreadableActionRow}>
+                      <div className={styles.sampleChips}>
+                        <button
+                          type="button"
+                          className={styles.btnPass}
+                          data-testid={`pass-exclude-btn-${uBox.boxId}`}
+                          onClick={() => handlePassUnreadableBox(uBox, 'exclude_count')}
+                        >
+                          1-A. [카운트 제외 패스] (집계에서 제외)
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.btnPass}
+                          data-testid={`pass-keepbox-btn-${uBox.boxId}`}
+                          onClick={() => handlePassUnreadableBox(uBox, 'keep_box_skip_item')}
+                        >
+                          1-B. [박스 수만 유지하고 품목 미확인 패스]
+                        </button>
+                      </div>
+                      <div className={styles.sampleChips}>
+                        <button
+                          type="button"
+                          className={styles.btnPrimary}
+                          data-testid={`open-search-matcher-btn-${uBox.boxId}`}
+                          onClick={() => {
+                            if (isMatcherOpen) {
+                              setActiveMatcherBoxId(null);
+                            } else {
+                              handleOpenSearchMatcher(uBox);
+                            }
+                          }}
+                        >
+                          {isMatcherOpen
+                            ? '2. [검색 매칭기 닫기]'
+                            : '2. [검색 매칭 (품목 · 본수 · 업체/Bill 지정)]'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 인라인 드로어: [전산 품목·출고 후보 즉시 검색 매칭기] */}
+                    {isMatcherOpen && (
+                      <div
+                        className={styles.searchMatcherDrawer}
+                        data-testid={`search-matcher-drawer-${uBox.boxId}`}
+                      >
+                        <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f766e', marginBottom: 6 }}>
+                          [전산 품목·출고 후보 즉시 검색 매칭기] — {uBox.orderWeek}차 · Bill #{uBox.invoiceNo} · {uBox.custName} · {uBox.boxSpec} 기준 잔여 출고 후보 1순위 자동 추천
+                        </div>
+
+                        {/* 1) 스마트 추천 후보 1순위 원클릭 카드 리스트 */}
+                        <div style={{ fontSize: 12.5, color: '#334155', fontWeight: 600 }}>
+                          추천 출고 원장 후보 (클릭 시 품목·본수 자동 입력 또는 즉시 매칭):
+                        </div>
+                        <div className={styles.candidateGrid}>
+                          {liveCandidates.slice(0, 6).map((cand, cIdx) => {
+                            const isCandActive =
+                              activeCandidate &&
+                              Number(activeCandidate.prodKey) === Number(cand.prodKey) &&
+                              Number(activeCandidate.custKey) === Number(cand.custKey);
+                            return (
+                              <div
+                                key={cand.candidateId}
+                                role="button"
+                                tabIndex={0}
+                                data-testid={`candidate-card-${uBox.boxId}-${cand.prodKey}`}
+                                className={isCandActive ? styles.candidateCardActive : styles.candidateCard}
+                                onClick={() => {
+                                  setMatcherSelectedCandidate(cand);
+                                  setMatcherQtyPerBox(Number(cand.suggestedQtyPerBox || 40));
+                                  setMatcherCustKey(Number(cand.custKey || uBox.custKey || 533));
+                                  setMatcherInvoiceNo(String(cand.invoiceNo || uBox.invoiceNo || '1222993'));
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setMatcherSelectedCandidate(cand);
+                                    setMatcherQtyPerBox(Number(cand.suggestedQtyPerBox || 40));
+                                    setMatcherCustKey(Number(cand.custKey || uBox.custKey || 533));
+                                    setMatcherInvoiceNo(String(cand.invoiceNo || uBox.invoiceNo || '1222993'));
+                                  }
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
+                                  <span className={cIdx === 0 ? styles.badgeMatch : styles.badgeNeutral}>
+                                    {cIdx === 0 ? '스마트 추천 1순위' : `추천 후보 #${cIdx + 1}`}
+                                  </span>
+                                  <span style={{ fontSize: 12.5, fontWeight: 700, color: '#0f766e' }}>
+                                    박스당 {fmt(cand.suggestedQtyPerBox)}{cand.unit}
+                                    {cand.stemsPerBox ? ` (${fmt(cand.stemsPerBox)}본)` : ''}
+                                  </span>
+                                </div>
+                                <div style={{ fontWeight: 700, fontSize: 13.5, marginTop: 4 }}>
+                                  {cand.prodName} ({cand.flowerName})
+                                </div>
+                                <div style={{ fontSize: 12.5, color: '#475569', marginTop: 2 }}>
+                                  {cand.recommendReason}
+                                </div>
+                                <div style={{ marginTop: 6 }}>
+                                  <button
+                                    type="button"
+                                    className={styles.btnPrimary}
+                                    style={{ padding: '4px 9px', fontSize: 12.5 }}
+                                    data-testid={`quick-confirm-candidate-${uBox.boxId}-${cand.prodKey}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleConfirmSearchMatch(uBox, cand);
+                                    }}
+                                  >
+                                    이 후보로 즉시 매칭 확정 ({fmt(cand.suggestedQtyPerBox)}{cand.unit})
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* 2) 실시간 품목/본수 검색창 */}
+                        <div className={styles.inlineFieldGroup}>
+                          <label htmlFor={`matcher-search-${uBox.boxId}`} style={{ fontWeight: 700, fontSize: 13 }}>
+                            품목명(한글/영문) 또는 본수 숫자 검색:
+                          </label>
+                          <input
+                            id={`matcher-search-${uBox.boxId}`}
+                            type="text"
+                            className={styles.textInput}
+                            data-testid={`matcher-search-input-${uBox.boxId}`}
+                            value={matcherSearchQuery}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setMatcherSearchQuery(val);
+                              const nextList = buildUnreadableBoxSearchCandidates(uBox, {
+                                allBoxes: analysisData?.allBoxes || [],
+                                productCatalog: analysisData?.searchableProducts || SEARCHABLE_PRODUCT_CATALOG,
+                                searchQuery: val,
+                              });
+                              if (nextList[0]) {
+                                setMatcherSelectedCandidate(nextList[0]);
+                                setMatcherQtyPerBox(Number(nextList[0].suggestedQtyPerBox || 40));
+                              }
+                            }}
+                            placeholder="예: 카라, 튤립, 아마릴리스, 안시리움, 백합, 호접란 또는 본수 숫자(130, 200, 90, 40, 30, 12)"
+                          />
+                          {['카라', '튤립', '아마릴리스', '백합', '안시리움', '130', '200', '12'].map((kw) => (
+                            <button
+                              key={kw}
+                              type="button"
+                              className={matcherSearchQuery === kw ? styles.sampleChipActive : styles.sampleChip}
+                              data-testid={`matcher-quick-kw-${uBox.boxId}-${kw}`}
+                              onClick={() => {
+                                const nextVal = matcherSearchQuery === kw ? '' : kw;
+                                setMatcherSearchQuery(nextVal);
+                                const nextList = buildUnreadableBoxSearchCandidates(uBox, {
+                                  allBoxes: analysisData?.allBoxes || [],
+                                  productCatalog: analysisData?.searchableProducts || SEARCHABLE_PRODUCT_CATALOG,
+                                  searchQuery: nextVal,
+                                });
+                                if (nextList[0]) {
+                                  setMatcherSelectedCandidate(nextList[0]);
+                                  setMatcherQtyPerBox(Number(nextList[0].suggestedQtyPerBox || 40));
+                                }
+                              }}
+                            >
+                              {kw}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* 3) 품목 · 박스당 본수(숫자) · 업체 · Bill 번호 직접 지정 및 [매칭 확정] */}
+                        <div className={styles.inlineFieldGroup}>
+                          <label htmlFor={`matcher-prod-select-${uBox.boxId}`} style={{ fontWeight: 700, fontSize: 13 }}>
+                            매칭 품목:
+                          </label>
+                          <select
+                            id={`matcher-prod-select-${uBox.boxId}`}
+                            className={styles.selectInput}
+                            data-testid={`matcher-prod-select-${uBox.boxId}`}
+                            value={activeCandidate ? activeCandidate.prodKey : ''}
+                            onChange={(e) => {
+                              const pk = Number(e.target.value);
+                              const found =
+                                liveCandidates.find((c) => Number(c.prodKey) === pk) ||
+                                (analysisData?.searchableProducts || SEARCHABLE_PRODUCT_CATALOG).find(
+                                  (c) => Number(c.prodKey) === pk
+                                );
+                              if (found) {
+                                setMatcherSelectedCandidate(found);
+                                setMatcherQtyPerBox(Number(found.suggestedQtyPerBox || found.defaultQtyPerBox || 40));
+                              }
+                            }}
+                          >
+                            {liveCandidates.map((c) => (
+                              <option key={`${c.candidateId}-opt`} value={c.prodKey}>
+                                {c.prodName} ({c.flowerName} · 기본 {c.suggestedQtyPerBox}{c.unit})
+                              </option>
+                            ))}
+                          </select>
+
+                          <label htmlFor={`matcher-qty-input-${uBox.boxId}`} style={{ fontWeight: 700, fontSize: 13 }}>
+                            박스당 수량({activeCandidate?.unit || '송이'}):
+                          </label>
+                          <input
+                            id={`matcher-qty-input-${uBox.boxId}`}
+                            type="number"
+                            min={1}
+                            max={2000}
+                            className={styles.numberInput}
+                            data-testid={`matcher-qty-input-${uBox.boxId}`}
+                            value={matcherQtyPerBox}
+                            onChange={(e) => setMatcherQtyPerBox(Number(e.target.value || 0))}
+                          />
+
+                          <label htmlFor={`matcher-cust-select-${uBox.boxId}`} style={{ fontWeight: 700, fontSize: 13 }}>
+                            업체:
+                          </label>
+                          <select
+                            id={`matcher-cust-select-${uBox.boxId}`}
+                            className={styles.selectInput}
+                            data-testid={`matcher-cust-select-${uBox.boxId}`}
+                            value={matcherCustKey}
+                            onChange={(e) => setMatcherCustKey(Number(e.target.value))}
+                          >
+                            {CUSTOMER_OPTIONS.map((c) => (
+                              <option key={c.custKey} value={c.custKey}>
+                                {c.custName} ({c.custCode})
+                              </option>
+                            ))}
+                          </select>
+
+                          <label htmlFor={`matcher-bill-select-${uBox.boxId}`} style={{ fontWeight: 700, fontSize: 13 }}>
+                            Bill / 차수:
+                          </label>
+                          <select
+                            id={`matcher-bill-select-${uBox.boxId}`}
+                            className={styles.selectInput}
+                            data-testid={`matcher-bill-select-${uBox.boxId}`}
+                            value={matcherInvoiceNo}
+                            onChange={(e) => setMatcherInvoiceNo(e.target.value)}
+                          >
+                            {BILL_OPTIONS.map((b) => (
+                              <option key={b.invoiceNo} value={b.invoiceNo}>
+                                Bill #{b.invoiceNo} ({b.orderWeek}차 · {b.farmName})
+                              </option>
+                            ))}
+                          </select>
+
+                          <button
+                            type="button"
+                            className={styles.btnPrimary}
+                            data-testid={`confirm-search-match-btn-${uBox.boxId}`}
+                            onClick={() => handleConfirmSearchMatch(uBox, activeCandidate)}
+                          >
+                            [매칭 확정]
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* 이미 패스되었거나 수동 검색매칭 완료된 박스 내역 (언제든 [다시 매칭하기]로 복원 가능) */}
+              {(analysisData?.unreadableResolvedBoxes || []).length > 0 && (
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#334155', marginBottom: 6 }}>
+                    처리 완료된 미식별 박스 ({fmt((analysisData?.unreadableResolvedBoxes || []).length)}건) — 언제든 [다시 매칭하기]로 변경 가능:
+                  </div>
+                  {(analysisData?.unreadableResolvedBoxes || []).map((rBox) => (
+                    <div
+                      key={`resolved-${rBox.boxId}`}
+                      className={styles.unreadableItemCardResolved}
+                      data-testid={`unreadable-resolved-item-${rBox.boxId}`}
+                      style={{ marginBottom: 6, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
+                    >
+                      <div>
+                        {rBox.resolutionAction === 'passed' ? (
+                          <span className={styles.badgeNeutral} data-testid={`passed-badge-${rBox.boxId}`}>
+                            {rBox.passMode === 'keep_box_skip_item'
+                              ? '[패스됨 · 박스 수만 유지/품목 미확인]'
+                              : '[패스됨 · 카운트 제외]'}
+                          </span>
+                        ) : (
+                          <span className={styles.badgeMatch} data-testid={`matched-badge-${rBox.boxId}`}>
+                            [수동 검색매칭 완료]
+                          </span>
+                        )}{' '}
+                        <strong>[사진 #{rBox.photoNumber}] {rBox.serialNo}</strong> ·{' '}
+                        <strong>{rBox.custName}</strong> · <strong>{rBox.prodName}</strong> ({fmt(rBox.qtyPerBox)}{rBox.unit}) · Bill #{rBox.invoiceNo} ({rBox.orderWeek}차)
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        data-testid={`rematch-box-btn-${rBox.boxId}`}
+                        onClick={() => handleMarkBoxAsUnreadable(rBox, rBox.ocrStatus === 'confirmed' ? 'unreadable_both' : rBox.ocrStatus)}
+                      >
+                        [다시 매칭하기]
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
@@ -889,14 +1495,45 @@ export default function BoxVisionInspectorPage() {
                 <h2 className={styles.panelTitle}>
                   선택 박스 정밀 라벨 · Bill · 입고 차수 판독 정보 ({selectedBox.serialNo})
                 </h2>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  data-testid="toggle-selected-box-btn"
-                  onClick={() => toggleBoxInclusion(selectedBox)}
-                >
-                  {selectedBox.status === 'COUNTED' ? '이 박스 집계에서 제외' : '이 박스 집계에 포함'}
-                </button>
+                <div className={styles.sampleChips}>
+                  {selectedBox.isPendingUnreadable ? (
+                    <>
+                      <button
+                        type="button"
+                        className={styles.btnPass}
+                        data-testid="selected-box-pass-btn"
+                        onClick={() => handlePassUnreadableBox(selectedBox, 'exclude_count')}
+                      >
+                        [카운트 제외 패스]
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.btnPrimary}
+                        data-testid="selected-box-search-match-btn"
+                        onClick={() => handleOpenSearchMatcher(selectedBox)}
+                      >
+                        [검색 매칭 열기]
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className={styles.btnWarn}
+                      data-testid="selected-box-mark-unreadable-btn"
+                      onClick={() => handleMarkBoxAsUnreadable(selectedBox, 'unreadable_both')}
+                    >
+                      판독 보류(품목/숫자 미식별)로 전환
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    data-testid="toggle-selected-box-btn"
+                    onClick={() => toggleBoxInclusion(selectedBox)}
+                  >
+                    {selectedBox.status === 'COUNTED' ? '이 박스 집계에서 제외' : '이 박스 집계에 포함'}
+                  </button>
+                </div>
               </div>
               <div className={styles.tableWrap}>
                 <table className={styles.dataTable}>
@@ -906,9 +1543,29 @@ export default function BoxVisionInspectorPage() {
                       <td><strong>{selectedBox.serialNo}</strong> (오더 {selectedBox.orderNo} · 라인 {selectedBox.lineNo} · 박스 #{selectedBox.boxSeq})</td>
                       <th>판독 상태</th>
                       <td>
-                        {selectedBox.status === 'COUNTED' && <span className={styles.badgeMatch}>정상 카운팅 (#{selectedBox.countSeq})</span>}
+                        {selectedBox.isPendingUnreadable && (
+                          <span className={styles.badgeWarn}>판독 보류 · 품목/숫자 미식별 (패스 또는 검색매칭 대기)</span>
+                        )}
+                        {!selectedBox.isPendingUnreadable && selectedBox.resolutionAction === 'matched' && (
+                          <span className={styles.badgeMatch}>[수동 검색매칭 완료] (#{selectedBox.countSeq})</span>
+                        )}
+                        {!selectedBox.isPendingUnreadable && selectedBox.resolutionAction === 'passed' && (
+                          <span className={styles.badgeNeutral}>
+                            {selectedBox.passMode === 'keep_box_skip_item'
+                              ? '[패스됨 · 박스 수 유지/품목 미확인]'
+                              : '[패스됨 · 카운트 제외]'}
+                          </span>
+                        )}
+                        {!selectedBox.isPendingUnreadable &&
+                          selectedBox.resolutionAction !== 'matched' &&
+                          selectedBox.resolutionAction !== 'passed' &&
+                          selectedBox.status === 'COUNTED' && (
+                            <span className={styles.badgeMatch}>정상 카운팅 (#{selectedBox.countSeq})</span>
+                          )}
                         {selectedBox.status === 'DUPLICATE' && <span className={styles.badgeDup}>중복 제외됨 ({selectedBox.duplicateOfPhoto})</span>}
-                        {selectedBox.status === 'EXCLUDED' && <span className={styles.badgeWarn}>사용자 수동 제외</span>}
+                        {selectedBox.status === 'EXCLUDED' && selectedBox.resolutionAction !== 'passed' && (
+                          <span className={styles.badgeWarn}>사용자 수동 제외</span>
+                        )}
                         {selectedBox.status === 'BACKGROUND' && <span className={styles.badgeNeutral}>배경 타 팔레트 분리</span>}
                       </td>
                     </tr>

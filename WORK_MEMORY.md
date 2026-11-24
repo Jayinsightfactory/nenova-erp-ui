@@ -4958,6 +4958,16 @@ pm run test:canon 통과.
 4. 검증 상태: `boxVisionInspector.test.cjs` 3/3 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS (`agent-guardrails`, `guard-erp-writes`, `ui-layout-contract`, `workflow-guides`, `work-memory-handoff`), `npm run build` 성공.
 5. 주의/잠금: 기존 MSSQL 원장 테이블(`WarehouseMaster`, `ShipmentMaster`, `OrderMaster` 등)에 대한 쓰기(INSERT/UPDATE/DELETE) 0건(순수 SELECT 조회 전용). 연결 목표: g17, g19, g14, g03 / 학습 반영: 있음
 
+## 2026-11-24 박스 사진 판독 시 품목·숫자(본수) 미식별 박스 `[패스]` vs `[검색 매칭]` 선택 워크플로우 (`/vision/box-inspector`)
+- 요약: 창고 박스 사진 판독 시 라벨이 테이프/주황 경고 스티커(`DON'T DROP`)에 가려지거나 하단 무라벨 베이스 박스로 쌓여 영문 품목명이나 본수 숫자가 안 보이는 박스를 임의 추정하지 않고, 사용자가 `[패스(카운트 제외 패스 / 박스 수만 유지하고 품목 미확인 패스)]`할지 `[검색 매칭(전산 출고 잔여 후보 1순위 추천 + 품목/본수 직접 검색 지정)]`할지 즉시 선택해 업체별×품목별×Bill×입고차수 집계를 실시간 재계산하는 워크플로우를 구축했다 (Desktop `v1.3.93`).
+- 검색어: 박스 사진 판독 품목 숫자 안보이는 경우 미식별 패스 검색매칭 unreadable_item unreadable_qty unreadable_both box-inspector 잔여 출고 후보 추천 g17 g19 g14 g03
+1. 작업 위치: `nenova-erp-ui` (`nw-agy-unreadable-resolve` 워크트리, `feat/vision-unreadable-box-resolve` 브랜치) — `lib/boxVisionInspector.js`, `pages/vision/box-inspector.js`, `pages/api/vision/box-count-match.js`, `styles/BoxVisionInspector.module.css`, `__tests__/boxVisionInspector.test.cjs`, `desktop/package.json`(1.3.93).
+2. 완료된 것: ① 품목/숫자 미식별 박스 데이터 모델(`ocrStatus`, `unreadableReason`, `resolutionAction`, `passMode`) 및 샘플 4·5 하단 무라벨 민트 박스(`#19`, `#20`)·스티커 가림 박스 검출, ② 캔버스 앰버 점선 오버레이 캡슐 및 `[품목·숫자 미식별 박스 확인 대기열 (N건)]` 전용 액션 패널, ③ `[카운트 제외 패스]`/`[박스 수만 유지하고 품목 미확인 패스]` 원클릭 처리 및 `[다시 매칭하기]` 복원, ④ `[전산 품목·출고 후보 즉시 검색 매칭기]`(차수·Bill·업체·박스 외형 기준 미매칭 잔여 출고 품목 1순위 추천 + 한글/영문 품목명·본수 숫자 실시간 검색 및 매칭 확정 시 하단 통합 체크표·Bill 입고차수 원장 실시간 재계산).
+3. 남은 할 일: 추후 영업수입불량에서 농장 매칭 시 해당 차수·농장 박스 사진 자동 호출 연동(사장님 지시 후속 단계).
+4. 검증 상태: `__tests__/boxVisionInspector.test.cjs` 5/5 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS (`agent-guardrails`, `guard-erp-writes`, `ui-layout-contract`, `workflow-guides`, `work-memory-handoff`), `npm run build` 성공.
+5. 주의/잠금: MSSQL 원장 테이블(`WarehouseMaster`, `WarehouseDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentFarm`, `OrderMaster`, `OrderDetail`) 쓰기 0건(순수 SELECT 조회 전용). 연결 목표: g17, g19, g14, g03 / 학습 반영: 있음
+
+
 
 
 
