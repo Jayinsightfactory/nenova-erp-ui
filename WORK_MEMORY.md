@@ -5000,6 +5000,30 @@ pm run test:canon 통과.
 5. 주의/잠금: 확정 차수(WebProfitReportConfirm IsActive=1)는 연쇄 갱신에서도 하드 스킵. ERP 공유 원장 쓰기 0건. 연결 목표 g17·g19.
 
 
+## 2026-11-24 중국 HUBFRESH 인보이스 분리와 입고 검증
+검색어: 중국hubfresh HUBFRESH NN012 CL 고객코드 카톤번호 파킹리스트 입고 검증 g17 g19
+1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / PR #2000.
+2. 완료된 것: 중국hubfresh 메뉴와 공급사 상세본 분류, 카톤 연결 인보이스, 중국 ERP 품목 확인, 기존 입고 검증 화면 연결. 웹과 데스크톱 메뉴 등록.
+3. 남은 할 일: 실제 브라우저 스모크와 최종 가이드 촬영, 가드 통과 후 PR·배포.
+4. 검증 상태: NN012 네노바 281박스·3,510단·39,325송이·72,420 CNY 파킹리스트 재파싱, 혼합코드 격리, 단위 테스트 및 dnSpy 근거 검사 통과. 운영 품목과 실입고 미검증.
+5. 주의/잠금: pages/import/tools.js, pages/incoming.js 및 가이드 파일 작업 중. 이번 변경의 분류·파일 생성은 ERP 원장 쓰기 없음. 연결 목표 g17·g19 / 학습 반영 없음.
+
+## 2026-11-24 중국 HUBFRESH 최신 입고 화면 통합 검증
+검색어: 중국hubfresh NN012 상세본 281박스 48-01 전년도 수량 검증 #1995 g17 g19
+1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / 10d59784c 기반 / PR #2000.
+2. 완료된 것: 입고 차수 표기와 상세 수량 수정이 반영된 최신 화면에 통합. HUBFRESH 가이드 4단계·자막과 데스크톱 메뉴 연결 확인.
+3. 남은 할 일: 기존 입고 정정 수입부 가이드 촬영 완료 후 최종 배포 검사, PR·CI·Cafe24 반영과 운영 화면 스모크.
+4. 검증 상태: 최신 기반 Next 빌드·ERP 계약 검사·manifest·쓰기 가드·dnSpy 근거 통과. 브라우저 수량 검증, 2025년 명시 선택 전달, 영상 재생 검증 통과. Electron 스모크 및 데스크톱 단위 테스트 96개 통과. 운영 원장 검증 미실행.
+5. 주의/잠금: 사용 가이드 원본 소스 해시를 실제 재촬영으로 검증. 원장 쓰기 0건. 연결 목표 g17·g19 / 학습 반영 없음.
+
+## 2026-11-24 중국 HUBFRESH 배포 준비
+검색어: 중국hubfresh NN012 입고 업로드 사용 가이드 영상 양쪽 역할 1920 g17 g19
+1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / PR #2000.
+2. 완료된 것: 중국 HUBFRESH 분류와 입고 연결, 신규 사용 영상 및 기존 패킹·입고 가이드 실제 화면 갱신 완료.
+3. 남은 할 일: 최종 빌드·PStack 확인 후 PR·CI·배포·운영 화면 확인.
+4. 검증 상태: NN012 281박스·3,510단·39,325송이·72,420 CNY 재검산, 파킹리스트 업로드·연도 선택 브라우저 검증, ERP 계약, 데스크톱 테스트 96개, Electron 스모크 및 HUBFRESH 가이드 플레이어 통과. 운영 미검증.
+5. 주의/잠금: 연습 자료 검증 중 운영 쓰기 0건. 연결 목표 g17·g19 / 학습 반영 없음.
+
 ## 2026-11-24 별도 품종 추천 문의로 발주 합계가 빠지는 문제
 검색어: 49-01 알스트로 추천 문의 확정 발주 5품종 10박스 카톡 누락 g19
 1. 작업 위치: nenova-erp-ui / codex/kakao-order-note / nw-cdx-kakao-order-note.
@@ -5050,26 +5074,11 @@ pm run test:canon 통과.
 5. 주의/잠금: 조회와 브라우저 표시 전용, 운영 원장·카톡 수집기 변경 없음. 연결 목표: g19 / 학습 반영: 있음.
 검색어: 카톡 추가발주 국가 미기재 콜롬비아 기본값 알스트로메리아 태국 단일 그룹 국가 우선 g19
 
-## 2026-11-24 중국 HUBFRESH 인보이스 분리와 입고 검증
-검색어: 중국hubfresh HUBFRESH NN012 CL 고객코드 카톤번호 파킹리스트 입고 검증 g17 g19
-1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / PR #2000.
-2. 완료된 것: 중국hubfresh 메뉴와 공급사 상세본 분류, 카톤 연결 인보이스, 중국 ERP 품목 확인, 기존 입고 검증 화면 연결. 웹과 데스크톱 메뉴 등록.
-3. 남은 할 일: 실제 브라우저 스모크와 최종 가이드 촬영, 가드 통과 후 PR·배포.
-4. 검증 상태: NN012 네노바 281박스·3,510단·39,325송이·72,420 CNY 파킹리스트 재파싱, 혼합코드 격리, 단위 테스트 및 dnSpy 근거 검사 통과. 운영 품목과 실입고 미검증.
-5. 주의/잠금: pages/import/tools.js, pages/incoming.js 및 가이드 파일 작업 중. 이번 변경의 분류·파일 생성은 ERP 원장 쓰기 없음. 연결 목표 g17·g19 / 학습 반영 없음.
-
-## 2026-11-24 중국 HUBFRESH 최신 입고 화면 통합 검증
-검색어: 중국hubfresh NN012 상세본 281박스 48-01 전년도 수량 검증 #1995 g17 g19
-1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / 10d59784c 기반 / PR #2000.
-2. 완료된 것: 입고 차수 표기와 상세 수량 수정이 반영된 최신 화면에 통합. HUBFRESH 가이드 4단계·자막과 데스크톱 메뉴 연결 확인.
-3. 남은 할 일: 기존 입고 정정 수입부 가이드 촬영 완료 후 최종 배포 검사, PR·CI·Cafe24 반영과 운영 화면 스모크.
-4. 검증 상태: 최신 기반 Next 빌드·ERP 계약 검사·manifest·쓰기 가드·dnSpy 근거 통과. 브라우저 수량 검증, 2025년 명시 선택 전달, 영상 재생 검증 통과. Electron 스모크 및 데스크톱 단위 테스트 96개 통과. 운영 원장 검증 미실행.
-5. 주의/잠금: 사용 가이드 원본 소스 해시를 실제 재촬영으로 검증. 원장 쓰기 0건. 연결 목표 g17·g19 / 학습 반영 없음.
-
-## 2026-11-24 중국 HUBFRESH 배포 준비
-검색어: 중국hubfresh NN012 입고 업로드 사용 가이드 영상 양쪽 역할 1920 g17 g19
-1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / PR #2000.
-2. 완료된 것: 중국 HUBFRESH 분류와 입고 연결, 신규 사용 영상 및 기존 패킹·입고 가이드 실제 화면 갱신 완료.
-3. 남은 할 일: 최종 빌드·PStack 확인 후 PR·CI·배포·운영 화면 확인.
-4. 검증 상태: NN012 281박스·3,510단·39,325송이·72,420 CNY 재검산, 파킹리스트 업로드·연도 선택 브라우저 검증, ERP 계약, 데스크톱 테스트 96개, Electron 스모크 및 HUBFRESH 가이드 플레이어 통과. 운영 미검증.
-5. 주의/잠금: 연습 자료 검증 중 운영 쓰기 0건. 연결 목표 g17·g19 / 학습 반영 없음.
+## 2026-11-24 직육면체 박스 1면 라벨 & 팔레트 지그재그(교차) 적재 3면 노출 원리 및 전산 잔여 품목 소거 매칭 (`/vision/box-inspector`)
+- 요약: 직육면체 화훼 박스 한쪽 단면(`label_end`)에만 라벨지가 붙어있고 팔레트 안정성을 위해 층마다 90도 지그재그(교차) 적재하여 정면·좌측면·우측면 3면에 라벨이 분산 노출되는 현장 적재 원리를 반영해, 정면 사진에서 긴 옆면(`zigzag_side`, HOLEX 로고면)만 보여 라벨이 안 보이는 박스를 ① 팔레트 3면(정면·좌·우) 사진 교차 라벨 1:1 결합 또는 ② 전산 출고 원장 소거법(`전산 총 출고 품목 - 정면 라벨 단면 확인 품목 = 지그재그 옆면 잔여 품목`)으로 원클릭 역산 매칭하는 워크플로우를 구축했다 (Desktop `v1.3.94`).
+- 검색어: 직육면체 박스 지그재그 교차 적재 3면 노출 정면 좌측면 우측면 label_end zigzag_side exposedLabelSide 소거법 autoDeduceZigzagBoxes box-inspector 180-9162-6441 1222993 주광농원 Holex g17 g19 g14 g03
+1. 작업 위치: `nenova-erp-ui` (`nw-agy-zigzag-3side` 워크트리, `feat/vision-zigzag-3side-deduction` 브랜치) — `lib/boxVisionInspector.js`, `pages/vision/box-inspector.js`, `pages/api/vision/box-count-match.js`, `__tests__/boxVisionInspector.test.cjs`, `public/guides/box-vision-inspector/warehouse.proof.json`, `desktop/package.json`(1.3.94).
+2. 완료된 것: ① 박스 적재 방향(`boxFace`: `'label_end'` vs `'zigzag_side'`), 라벨 노출 측면(`exposedLabelSide`: `'front'`|`'left'`|`'right'`), 팔레트 촬영면(`cameraAngle`: `'front'`|`'left'`|`'right'`) 및 역산 후보(`deductionCandidate`) 데이터 모델링, ② 샘플 4(`s4-b11`, `s4-b19`, `s4-b20`) 및 샘플 5(`s5-b9`, `s5-b15`, `s5-b16`) 지그재그 옆면 박스에 대해 3면 사진 교차 라벨 매칭(`s4-b19` ⇄ `s5-w1` 이중 카운팅 방지 1:1 결합) 및 전산 출고 원장 차감 소거법(`buildZigzagDeductionCandidate`, `autoDeduceZigzagBoxes`) 구현, ③ 비전 캔버스·대기열에 `[지그재그 적재 옆면 (라벨 좌/우측면 노출)]` 배지·시각적 소거법 수식(`전산 출고 N박스 - 정면 라벨 확인 M박스 = 지그재그 옆면 잔여 K박스`) 및 `[지그재그 옆면 박스 → 전산 잔여 품목 자동 소거 매칭 (N건 일괄 적용)]` 원클릭 액션 + 개별 3버튼(① 소거법/3면교차 1클릭 확정, ② 직접 검색 매칭, ③ 패스) 제공.
+3. 남은 할 일: 운영 배포 후 현장 출고방 3면(정면·좌·우) 팔레트 묶음 사진 실전 자동 소거 매칭 모니터링.
+4. 검증 상태: `__tests__/boxVisionInspector.test.cjs` 6/6 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS (`agent-guardrails`, `guard-erp-writes`, `ui-layout-contract`, `workflow-guides`, `work-memory-handoff`), `next build --webpack` 성공.
+5. 주의/잠금: MSSQL 원장 테이블(`WarehouseMaster`, `WarehouseDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentFarm`, `OrderMaster`, `OrderDetail`) 쓰기 0건(순수 SELECT 조회 전용). 연결 목표: g17, g19, g14, g03 / 학습 반영: 있음

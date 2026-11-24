@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-24T08:18:26.515Z",
+  "recordedAt": "2026-11-24T09:11:11.384Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
@@ -12,8 +12,8 @@
   "videoSha256": "13ec9e7eac1e48ab7a18334c1920546e41875a093239c8ad00debb170e7efbc9",
   "captionsSha256": "c8c263c12cb3454b0e83d367d2c5394e58af62e9d0f74da8d2e761653a952d0a",
   "sourceHashes": {
-    "pages/vision/box-inspector.js": "60627ba22bfa0cd9467c998bd5a3d16b7ec1e3196afea0ed674bbab75a155624",
-    "lib/boxVisionInspector.js": "4907bb36ee59e46bf8d15c19c3e96240f979cbe9c7305db5f78724efbcf39910",
+    "pages/vision/box-inspector.js": "099a580a0bc99552230649d04dbc99d95542c144218eab529b938a1004627226",
+    "lib/boxVisionInspector.js": "9f3226920ab12933b0a0ca6a55cea7a165320a013e1d4bbb376a2d88d34599e7",
     "styles/BoxVisionInspector.module.css": "e490cf72da7564991786c3c25da7c8c88d7e2479f66bbc10b5c2b58cf39bec4e"
   }
 }

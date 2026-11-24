@@ -5,7 +5,9 @@ import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import {
   analyzeBoxVisionPhotos,
+  autoDeduceZigzagBoxes,
   buildUnreadableBoxSearchCandidates,
+  CAMERA_ANGLE_OPTIONS,
   FALLBACK_DEFECT_DEDUCTIONS,
   FALLBACK_ERP_SHIPMENTS,
   FALLBACK_WAREHOUSE_BILLS,
@@ -259,6 +261,12 @@ async function handler(req, res) {
       ? req.body.boxOverrides
       : {};
 
+    const photoAngleOverrides = req.method === 'POST' && req.body?.photoAngleOverrides && typeof req.body.photoAngleOverrides === 'object'
+      ? req.body.photoAngleOverrides
+      : {};
+
+    const autoDeduceZigzag = req.method === 'POST' && Boolean(req.body?.autoDeduceZigzag);
+
     const batchRouteMessage = req.method === 'POST'
       ? req.body?.batchRouteMessage
       : req.query.batchRouteMessage || '호남선 출고입니다 (묶음 사진 일괄 업로드)';
@@ -282,10 +290,25 @@ async function handler(req, res) {
       itemSearchQuery,
     });
 
+    let effectiveOverrides = boxOverrides;
+    let autoDeduceResult = null;
+    if (autoDeduceZigzag) {
+      autoDeduceResult = autoDeduceZigzagBoxes({
+        sampleIds: sampleIdsParam,
+        uploadedFiles,
+        boxOverrides,
+        photoAngleOverrides,
+        erpShipments: live.erpShipments,
+        productCatalog: live.productCatalog || SEARCHABLE_PRODUCT_CATALOG,
+      });
+      effectiveOverrides = autoDeduceResult.nextOverrides;
+    }
+
     const result = analyzeBoxVisionPhotos({
       sampleIds: sampleIdsParam,
       uploadedFiles,
-      boxOverrides,
+      boxOverrides: effectiveOverrides,
+      photoAngleOverrides,
       erpShipments: live.erpShipments,
       defectRows: live.defectRows,
       warehouseBills: live.warehouseBills,
@@ -310,6 +333,8 @@ async function handler(req, res) {
       success: true,
       source: live.source,
       ...result,
+      cameraAngleOptions: CAMERA_ANGLE_OPTIONS,
+      autoDeduceResult,
       searchableProducts: live.productCatalog || result.searchableProducts,
       searchCandidates,
     });
