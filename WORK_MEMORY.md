@@ -4959,11 +4959,4 @@ pm run test:canon 통과.
 5. 주의/잠금: 기존 MSSQL 원장 테이블(`WarehouseMaster`, `ShipmentMaster`, `OrderMaster` 등)에 대한 쓰기(INSERT/UPDATE/DELETE) 0건(순수 SELECT 조회 전용). 연결 목표: g17, g19, g14, g03 / 학습 반영: 있음
 
 
-## 2026-11-24 카톡 묶음 사진(예: 호남선 출고입니다 N장) 일괄 업로드 · 업체별 품목/수량/Bill 번호 체크 및 Bill 기준 입고 차수(OrderWeek) 역추적 고도화
-- 요약: `/vision/box-inspector` 및 데스크톱앱(`v1.3.92`)에서 카톡 묶음 사진(5장·15장·20장 등 가변 장수)과 출고 노선 메시지("호남선 출고입니다", "11/23 경부선 출고입니다" 등)를 일괄 업로드하면, 전체 사진에 걸친 업체별×품목별 수량과 Bill 번호(`InvoiceNo`/`AWB`)를 전수 체크하고 Bill 번호 기준 몇 차수(`OrderWeek`) 입고분인지 역추적·혼입 확인하는 원장 및 실시간 조회기를 구축했다.
-- 검색어: 호남선출고입니다 경부선 묶음사진 15장 일괄업로드 빌번호 Bill InvoiceNo AWB 입고차수 OrderWeek 47-02 47-01 48-01 1222993 2026YY-055 201693 201694 box-inspector g17 g19 g14 g03
-1. 작업 위치: `nenova-erp-ui` (`nw-agy-route-batch` 워크트리, `feat/route-batch-bill-inspector` 브랜치) — `lib/boxVisionInspector.js`, `pages/api/vision/box-count-match.js`, `pages/vision/box-inspector.js`, `styles/BoxVisionInspector.module.css`, `__tests__/boxVisionInspector.test.cjs`, `desktop/package.json`(1.3.92).
-2. 완료한 것: ① 카톡 묶음 사진(1~30장 가변 묶음) 일괄 업로드·필름스트립(`[전체 묶음 통합 보기]`/`[사진 1/N ~ N/N 개별 보기]`, 사진 추가/개별 삭제/초기화) 및 노선명(`호남선`, `경부선`, `영동선`, `중부선`, `직배`) 자동 파싱·원클릭 묶음 시연 버튼, ② 업체별×품목별 행마다 등장 사진 위치·중복 제외 수·사진 수량·전산 출고 수량·Bill 번호(`1222993` 등)·AWB·입고 차수(`2026년 47-02차 입고` 등)·농장·`[Bill·차수 확인완료]` 배지 100% 명시, ③ `[Bill 번호(송장/AWB) 기준 입고 차수 확인 원장]` 및 다중 차수(`47-02차`, `47-01차`, `48-01차`) 혼입 자동 안내 + `[Bill 번호 → 입고 차수 실시간 조회기]` 구현.
-3. 남은 일: 운영 배포 후 현장 출고방 노선별 카톡 묶음 사진 실시간 적재 및 차수별 출고 비중 모니터링.
-4. 검증 상태: `__tests__/boxVisionInspector.test.cjs` 4/4 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `npm run guard:erp-writes` PASS, `pstack-verify.cjs` 5/5 PASS, `npm run build` 성공.
-5. 주의/잠금: MSSQL 원장 테이블(`WarehouseMaster`, `WarehouseDetail`, `ShipmentMaster`, `ShipmentDetail`, `OrderMaster` 등) WRITE 0건(순수 SELECT 읽기 전용 조회 및 결정론적 폴백). 연결 목표: g17, g19, g14, g03 / 학습 반영: 있음
+

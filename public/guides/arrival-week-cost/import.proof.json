@@ -1,16 +1,16 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-24T03:29:29.517Z",
+  "recordedAt": "2026-11-24T07:13:51.671Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 56.45,
+  "duration": 58.45,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "685719c087cc470196f7d655e7113d847037cad85c3038f5efda642be3f78361",
-  "captionsSha256": "865b1369d1f91f35c3303e1a49ce972c664de04f8fa08070facce90e46999cd9",
+  "videoSha256": "74d35710951990b637f067ac53bfe7d81246f4cbfb7328d9a044c126e71da8f2",
+  "captionsSha256": "43e5053923ae544c274989ef3bd7b68749727ffe0824bdb47b89f300ddb4619f",
   "sourceHashes": {
     "pages/arrival-cost.js": "c4e6777fd7133543f8d0048e2e3e7406c282b3fbf4722b4ec407c03ef3002662",
     "components/import-tools/InvoiceWarehouseCostBrowse.js": "ec0e1e3a0ec59a29ac6cdbf8ae469755ed68c2045df094d2a4870f361631cfc7",
@@ -20,14 +20,15 @@
     "styles/CloudCostCategories.module.css": "c57f8fe918d0c225e953e15b9ba0b0f6251d8b2a4df1fe9f745e2358c2c05ccd",
     "lib/arrivalWeekCost.js": "43f87b834dbe96bc57e8e53e912cf38e1190df7f58f0f8aa6282ad59549ca302",
     "lib/arrivalWeekCostHttp.js": "a7684a84db6d47c6edc75c6905c28dee78babea28bc9b80401d980ed29c10506",
-    "lib/arrivalWeekCostWorkbook.js": "66a979bf1696df2b3f4265ccceb8147a229ac8df876a4c66fc8cf56b08057052",
+    "lib/arrivalWeekCostWorkbook.js": "81e9e6ac0b16ce471dca7d8bf11fd0e7cca026216d080ac1a79246194f504222",
     "components/import-tools/CloudCostReviewLedger.js": "46cba327a7637e2a8207fc15c17fec60b1395b42a4edc7502792a581396b004c",
     "styles/CloudCostReviewLedger.module.css": "fb661036fac31a78a17ebabf707b6827ca1c86d3110bb61eee6bba1e76f07139",
     "lib/cloudCostReview.js": "abb8af17fd2ebbe37d9edf0811d1cd49e2f67ef52f288f5cb194434e44a50e66",
     "lib/cloudCostReviewSource.js": "6ca9fa24084a418c92b5b371155f0eb4e0f6603a6f16834f350d6c7f243a4d98",
     "lib/cloudCostReviewHttp.js": "9e335876a29b35786299617c824d66b4f3e8d54f6f39f5ec9dc70c005b218d61",
     "pages/api/import/receipts/cost-review.js": "33f76064e1c06a06d8dc0be4df2d1ca0478ae1e84e3edeee2d1ff8bb79cbe648",
-    "data/cloud-cost-reference-evidence.json": "dc7131c08f5e55f5476ef6366881a55bdcafb3393d820914369d88b35f96b537"
+    "data/cloud-cost-reference-evidence.json": "dc7131c08f5e55f5476ef6366881a55bdcafb3393d820914369d88b35f96b537",
+    "lib/cloudCostTemplateWorkbook.js": "f99aec3deb3c97ecefabc939ddef7918a89be65509a4fb6ec75a4290b4958e17"
   },
   "presentation": {
     "numberedSteps": 6,
@@ -43,45 +44,45 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 2.9509906999999993,
+        "start": 2.9470370999999997,
         "x": 746.21875,
         "y": 398.234375,
-        "end": 8.3749868
+        "end": 8.462921099999999
       },
       {
         "number": 2,
-        "start": 11.503222299999997,
+        "start": 11.595771300000001,
         "x": 31.5,
         "y": 534.765625,
-        "end": 17.0034686
+        "end": 17.1643945
       },
       {
         "number": 3,
-        "start": 20.157706599999997,
+        "start": 20.3153259,
         "x": 1220.0859375,
         "y": 553.890625,
-        "end": 27.4454336
+        "end": 27.959734
       },
       {
         "number": 4,
-        "start": 31.885318799999997,
+        "start": 33.3030744,
         "x": 1666.984375,
         "y": 553.640625,
-        "end": 38.78052890000001
+        "end": 40.7458179
       },
       {
         "number": 5,
-        "start": 41.9195238,
+        "start": 43.8819516,
         "x": 124.7734375,
         "y": 553.890625,
-        "end": 47.2222281
+        "end": 49.1889769
       },
       {
         "number": 6,
-        "start": 50.5603534,
+        "start": 52.5606624,
         "x": 334.796875,
         "y": 553.890625,
-        "end": 56.33042270000001
+        "end": 58.3020271
       }
     ]
   }

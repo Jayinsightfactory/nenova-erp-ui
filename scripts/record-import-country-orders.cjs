@@ -75,9 +75,9 @@ async function main(){
     await page.waitForFunction(()=>document.querySelector('.kakao-totals').textContent.includes('자동 합산할 추가 발주가 없습니다')&&document.querySelector('.kakao-source-list').textContent.includes('표시할 카톡 요청이 없습니다'));
     kakaoMode='data';
     await page.click('.kakao-refresh');
-    await page.waitForSelector('.kakao-country-heading');
-    const headings=await page.$$eval('.kakao-table tbody tr',rows=>rows.slice(0,3).map(r=>r.textContent));
-    assert.deepEqual(headings,['중국','수국','2026/46-01차']);
+    await page.waitForSelector('.kakao-cycle-heading');
+    const ledger=await page.$$eval('.kakao-table tbody tr',rows=>rows.slice(0,3).map(r=>r.matches('.kakao-cycle-heading')?r.textContent:r.querySelector('.kakao-row-scope')?.textContent));
+    assert.deepEqual(ledger,['2026/46-01차','중국 · 수국','중국 · 카네이션']);
   }
   // Record the fullscreen fallback in the original tab. Dry runs separately exercise the actual popup.
   await page.evaluate(() => { window.__orderGuideOpen = window.open; window.open = () => null; window.showSaveFilePicker = undefined; });
@@ -158,10 +158,10 @@ async function main(){
   assert.match(await page.$eval(source('1')+' .kakao-source-contributions',el=>el.textContent),/Moon Light 2 박스 · 미우/);
   assert.equal(await page.$(included('cancel')),null);
   assert.deepEqual(await page.$$eval('.kakao-table thead th', nodes => nodes.map(node => node.textContent)),
-    ['품종 / 원문 대조','수량','비고 (업체·수량)']);
+    ['국가 · 품목군','품종 / 원문 대조','수량','비고 (업체·수량)']);
   for(const [n,id,label,selector,caption,key] of [
     [16,'chat','오른쪽 카톡 추가·취소 원문 확인',sourceFilter(3),'취소와 합계 반영을 따로 볼 수 있습니다. 정리로 목록에서 숨기고 숨긴 원문에서 다시 표시할 수 있습니다.','Enter'],
-    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','중국 카네이션을 선택합니다. 합계는 국가, 품목군, 연도·세부차수 순으로 확인합니다. 오른쪽 합계 반영에서 원문별 품종·수량·업체를 확인합니다.',null],
+    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','중국 카네이션을 선택합니다. 차수 제목 아래에서 같은 차수의 품종을 연속해서 확인합니다. 국가와 품목군은 각 행에 있습니다. 오른쪽 합계 반영에서 원문별 품종·수량·업체를 확인합니다.',null],
     [18,'match-total','합계에서 원문 확인','.kakao-match-total','가운데 품종을 누르면 오른쪽 근거 원문으로 이동합니다. 양쪽의 같은 원문 번호를 비교합니다.','Enter'],
     [19,'match-source','원문에서 합계 확인','.kakao-order-message.kakao-linked .kakao-match-source','오른쪽 원문의 합계 보기를 누르면 가운데 전체 합계 아래에 해당 원문의 수량이 표시됩니다.','Enter'],
     [20,'audit','제외 원문 대조','.kakao-audit > summary','분류 건수를 대조하고 제외 원문을 검색해 놓친 발주를 확인합니다. 카톡 자체 수집 누락과 사진은 별도 원본 대조가 필요합니다.','Enter'],
@@ -437,6 +437,18 @@ async function main(){
     await page.click('[aria-label="국가"] button:nth-child('+chinaIndex+')');
     assert.equal(await page.$('.kakao-order-scope'),null);
     assert.match(await page.$eval('.kakao-table',el=>el.textContent),/다른 국가/);
+    const cycleHeadings=await page.$$eval('.kakao-cycle-heading',rows=>rows.map(row=>row.textContent));
+    assert.deepEqual(cycleHeadings,['2025/46-01차','2026/46-01차','2026/46-02차']);
+    assert.equal(await page.$('.kakao-country-heading,.kakao-group-heading'),null);
+    await page.evaluate(()=>{
+      Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:async text=>{window.cycleGuideClipboard=text;}});
+    });
+    await page.click('.kakao-table + button');
+    const clipboardCycles=await page.evaluate(()=>window.cycleGuideClipboard.split('\n').map(line=>line.split(' · ')[0]));
+    assert.deepEqual([...new Set(clipboardCycles)],cycleHeadings);
+    assert.equal(clipboardCycles.filter(cycle=>cycle==='2026/46-01차').length,3);
+    console.log('PASS exact-cycle headers once, uninterrupted country rows and copy order');
+
     console.log('PASS left scope and reset; 100-card pagination, legacy year isolation and oldest matched original');
 
     await page.evaluate(title=>{const heading=[...document.querySelectorAll('h3')].find(node=>node.textContent===title);if(!heading)throw Error('Guide heading missing');heading.closest('details').id='country-order-guide-test';},workflow.title);
