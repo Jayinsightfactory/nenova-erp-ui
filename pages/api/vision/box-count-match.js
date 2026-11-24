@@ -7,19 +7,22 @@ import {
   analyzeBoxVisionPhotos,
   FALLBACK_DEFECT_DEDUCTIONS,
   FALLBACK_ERP_SHIPMENTS,
+  FALLBACK_WAREHOUSE_BILLS,
 } from '../../../lib/boxVisionInspector';
 
-async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02' } = {}) {
+async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02', billQuery = '' } = {}) {
   if (!process.env.DB_SERVER) {
     return {
       source: 'deterministic_fixture',
       erpShipments: FALLBACK_ERP_SHIPMENTS,
       defectRows: FALLBACK_DEFECT_DEDUCTIONS,
+      warehouseBills: FALLBACK_WAREHOUSE_BILLS,
     };
   }
   try {
     const parentWeek = String(orderWeek || '47-02').split('-')[0];
-    const [shipRes, defectRes] = await Promise.all([
+    const cleanBillQuery = String(billQuery || '').trim();
+    const [shipRes, defectRes, billRes] = await Promise.all([
       query(
         `SELECT TOP 120
                 sm.ShipmentKey AS shipmentKey,
@@ -73,6 +76,26 @@ async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02' } =
           parentWk: { type: sql.NVarChar, value: parentWeek },
         }
       ).catch(() => ({ recordset: [] })),
+      query(
+        `SELECT TOP 30
+                wm.WarehouseKey AS warehouseKey,
+                wm.OrderYear AS orderYear,
+                wm.OrderWeek AS orderWeek,
+                ISNULL(wm.InvoiceNo, N'') AS invoiceNo,
+                ISNULL(wm.OrderNo, N'') AS awbNo,
+                ISNULL(wm.FarmName, N'Holex') AS farmName,
+                ISNULL(wm.CountryName, N'네덜란드') AS countryName
+           FROM WarehouseMaster wm
+          WHERE ISNULL(wm.isDeleted, 0) = 0
+            AND (
+              wm.WarehouseKey IN (8247, 8250, 8169, 8251)
+              OR (@bq <> N'' AND (wm.InvoiceNo LIKE '%' + @bq + '%' OR wm.OrderNo LIKE '%' + @bq + '%' OR wm.OrderWeek LIKE '%' + @bq + '%'))
+            )
+          ORDER BY wm.WarehouseKey DESC`,
+        {
+          bq: { type: sql.NVarChar, value: cleanBillQuery },
+        }
+      ).catch(() => ({ recordset: [] })),
     ]);
 
     const mergedShipments = [...FALLBACK_ERP_SHIPMENTS];
@@ -117,16 +140,56 @@ async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02' } =
       ...FALLBACK_DEFECT_DEDUCTIONS.filter((d) => !seenKeys.has(d.deductionKey)),
     ];
 
+    const mergedBills = [...FALLBACK_WAREHOUSE_BILLS];
+    for (const row of billRes.recordset || []) {
+      const inv = String(row.invoiceNo || '').trim();
+      const awb = String(row.awbNo || '').trim();
+      if (!inv && !awb) continue;
+      const existingIdx = mergedBills.findIndex(
+        (b) => Number(b.warehouseKey) === Number(row.warehouseKey) || (inv && String(b.invoiceNo) === inv)
+      );
+      if (existingIdx >= 0) {
+        mergedBills[existingIdx] = {
+          ...mergedBills[existingIdx],
+          warehouseKey: Number(row.warehouseKey) || mergedBills[existingIdx].warehouseKey,
+          orderYear: Number(row.orderYear) || mergedBills[existingIdx].orderYear,
+          orderWeek: String(row.orderWeek || mergedBills[existingIdx].orderWeek),
+          orderWeekLabel: `${Number(row.orderYear) || 2026}년 ${String(row.orderWeek || mergedBills[existingIdx].orderWeek)}차 입고`,
+        };
+      } else {
+        mergedBills.push({
+          warehouseKey: Number(row.warehouseKey),
+          invoiceNo: inv || awb,
+          awbNo: awb || inv,
+          awbCompact: (awb || inv).replace(/[\s-]/g, ''),
+          holexOrderNos: [inv, awb].filter(Boolean),
+          orderYear: Number(row.orderYear) || 2026,
+          orderWeek: String(row.orderWeek || '47-02'),
+          orderWeekLabel: `${Number(row.orderYear) || 2026}년 ${String(row.orderWeek || '47-02')}차 입고`,
+          farmName: String(row.farmName || 'Holex').trim(),
+          countryName: String(row.countryName || '네덜란드').trim(),
+          totalInboundBoxes: 50,
+          totalInboundStems: 1500,
+          sourceDoc: `실시간 WarehouseMaster #${row.warehouseKey} 조회`,
+          distributedCustomers: ['실시간 입고 원장 매칭 거래처'],
+          isPrimaryBatchBill: false,
+          note: '실시간 WarehouseMaster Bill→입고차수 조회 결과',
+        });
+      }
+    }
+
     return {
       source: 'real_db',
       erpShipments: mergedShipments,
       defectRows: combinedDefects,
+      warehouseBills: mergedBills,
     };
   } catch {
     return {
       source: 'deterministic_fallback',
       erpShipments: FALLBACK_ERP_SHIPMENTS,
       defectRows: FALLBACK_DEFECT_DEDUCTIONS,
+      warehouseBills: FALLBACK_WAREHOUSE_BILLS,
     };
   }
 }
@@ -142,7 +205,7 @@ async function handler(req, res) {
   try {
     const sampleIdsParam = req.method === 'POST'
       ? req.body?.sampleIds
-      : String(req.query.sampleIds || 'sample-1-silla').split(',').map((s) => s.trim()).filter(Boolean);
+      : String(req.query.sampleIds || 'sample-1-silla,sample-2-neulbom-a,sample-3-neulbom-b,sample-4-jukwang,sample-5-holex-mint').split(',').map((s) => s.trim()).filter(Boolean);
 
     const uploadedFiles = req.method === 'POST' && Array.isArray(req.body?.uploadedFiles)
       ? req.body.uploadedFiles
@@ -152,9 +215,18 @@ async function handler(req, res) {
       ? req.body.boxOverrides
       : {};
 
+    const batchRouteMessage = req.method === 'POST'
+      ? req.body?.batchRouteMessage
+      : req.query.batchRouteMessage || '호남선 출고입니다 (묶음 사진 일괄 업로드)';
+
+    const billQuery = req.method === 'POST'
+      ? req.body?.billQuery
+      : req.query.billQuery || '';
+
     const live = await loadLiveErpAndDefects({
       orderYear: req.body?.orderYear || req.query.year || 2026,
       orderWeek: req.body?.orderWeek || req.query.week || '47-02',
+      billQuery,
     });
 
     const result = analyzeBoxVisionPhotos({
@@ -163,6 +235,9 @@ async function handler(req, res) {
       boxOverrides,
       erpShipments: live.erpShipments,
       defectRows: live.defectRows,
+      warehouseBills: live.warehouseBills,
+      batchRouteMessage,
+      billQuery,
     });
 
     return res.status(200).json({
