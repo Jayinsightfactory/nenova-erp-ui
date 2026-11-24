@@ -172,3 +172,6 @@ actual dnSpy CLI ExcelLoadingPackingList.MakeTempTable/InsertMaster를 재확인
 ## 2026-11-24 수기 입고 단위와 금액 재확인
 
 2026-11-24 설치본을 dnSpy CLI로 추출했다. `FormWarehouseAdd.CheckValue`는 품목·수량 및 `CheckFixSave`를 확인한다. `btnSave_Click`의 `UnitQuantity`는 `WarehouseDetail` 박스·단·송이에서 출고와 견적 수량을 각 단위대로 고른다. `TPrice=SteamQuantity×UPrice`이다. 상세·재고 이력·품목 재고와 연도/차수 재계산은 기존 보호된 웹 입고 트랜잭션으로 처리한다. [읽기 검증과 영향 표](../plans/manual-warehouse-upload-2026-11-24.md).
+
+## 2026-11-24 CLOUD 원본 양식 출력 전용
+실제 dnSpy CLI로 ExcelLoadingPackingList를 재확인했다. MakeTempTable/InsertMaster 및 공유 ERP 저장 순서는 변경하지 않는다. 원가 출력 모듈은 기존 prepared/calculation만 받아 XLSX bytes를 생성한다. 사전 SELECT 2026/47-02 8249 38행63000CNY,8250 2행2620CNY. Warehouse/Order/Shipment/Stock/Estimate/손익 쓰기0. TEST_ONLY는 최종 비용 확정이 아니다.
