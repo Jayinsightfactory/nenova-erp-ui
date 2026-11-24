@@ -2389,7 +2389,8 @@
         "lib/cloudCostReviewSource.js",
         "lib/cloudCostReviewHttp.js",
         "pages/api/import/receipts/cost-review.js",
-        "data/cloud-cost-reference-evidence.json"
+        "data/cloud-cost-reference-evidence.json",
+        "lib/cloudCostTemplateWorkbook.js"
       ],
       "requiredScenarios": [
         "lookup",
@@ -2412,32 +2413,32 @@
             {
               "scenario": "lookup",
               "title": "1. 연도와 차수를 조회합니다. 연습 자료이며 원장은 바뀌지 않습니다.",
-              "seconds": 0.015
+              "seconds": 0.013
             },
             {
               "scenario": "selection",
               "title": "2. A와 B를 함께 체크하고 다음을 누릅니다.",
-              "seconds": 8.585
+              "seconds": 8.671
             },
             {
               "scenario": "inputs",
               "title": "3. 같은 행에서 원문과 ERP를 비교하고 이번 원가 적용값·수기 비용을 입력합니다.",
-              "seconds": 17.239
+              "seconds": 17.389
             },
             {
               "scenario": "expenses",
               "title": "4. 원가표 재현과 실비를 구분하고 입고별 비용 귀속을 확인합니다.",
-              "seconds": 28.947
+              "seconds": 30.382
             },
             {
               "scenario": "preview",
               "title": "5. 변경한 행을 확인하고 수기 비용 선배분·잔액 CBM 계산을 검증합니다.",
-              "seconds": 38.999
+              "seconds": 40.958
             },
             {
               "scenario": "download",
               "title": "6. TEST_ONLY 한 시트 파일을 내려받고 원문·ERP·적용값과 합계를 확인합니다.",
-              "seconds": 47.631
+              "seconds": 49.631
             }
           ]
         }
