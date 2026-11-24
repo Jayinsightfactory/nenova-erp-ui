@@ -8,7 +8,7 @@ import { incomingQueryDateRange } from '../lib/incomingQueryDateRange.js';
 import { useLang } from '../lib/i18n';
 import * as XLSX from 'xlsx';
 import { parseWarehousePackingWorkbook } from '../lib/warehousePackingImport.js';
-import { ConfigProvider, Table, Card, Tag, Select, Input, Button, Space, Typography, Alert, Empty, Row, Col, DatePicker, theme as antdTheme } from 'antd';
+import { ConfigProvider, Table, Card, Tag, Select, Input, Button, Space, Typography, Alert, Empty, Row, Col, DatePicker, Tooltip, theme as antdTheme } from 'antd';
 import { ReloadOutlined, UploadOutlined, DeleteOutlined, DownloadOutlined, DashboardOutlined } from '@ant-design/icons';
 import koKR from 'antd/locale/ko_KR';
 import dayjs from 'dayjs';
@@ -18,6 +18,7 @@ import WarehouseCorrection from '../components/WarehouseCorrection.js';
 import { incomingWorkspaceHref } from '../lib/incomingWorkspaceNavigation.js';
 import { invoiceReceiptCostHref } from '../lib/invoiceReceiptCostRoute.js';
 import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
+import { receiptBoxSuggestion } from '../lib/receiptBoxSuggestion.js';
 const { Text } = Typography;
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -185,7 +186,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
       .then(d => { if (seq === detailSeq.current) { setInvoiceCosts(d.costs || null); setInvoiceExpenses(d.expenses || null); } })
       .catch(e => { if (seq === detailSeq.current) setCostError(e.message); })
       .finally(() => { if (seq === detailSeq.current) setCostLoading(false); });
-    apiGetExe(`/api/warehouse/${wk}`, {goodsTotals: '1'})
+    apiGetExe(`/api/warehouse/${wk}`, {goodsTotals: '1', boxEvidence: '1'})
       .then(d => { if (seq === detailSeq.current) setDetails(d.items||[]); })
       .catch(e => { if (seq === detailSeq.current) { setDetails([]); setErr(e.message); } })
       .finally(() => { if (seq === detailSeq.current) setDetailLoading(false); });
@@ -402,8 +403,8 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   };
 
   return (
-    <ConfigProvider locale={koKR} theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorPrimary: '#1166BB', borderRadius: 6, fontSize: 12 } }}>
-    <div>
+    <ConfigProvider locale={koKR} theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorPrimary: '#1166BB', borderRadius: 6, fontSize: 14, lineHeight: 1.35 }, components: { Table: { cellPaddingBlockSM: 3, cellPaddingInlineSM: 6 }, Card: { bodyPaddingSM: 8, headerHeightSM: 36 } } }}>
+    <div className="incoming-ledger" style={{ fontVariantNumeric: 'tabular-nums' }}>
       <Space style={{marginBottom:8}}><Button type={receiptView==="receipts"?"primary":"default"} onClick={()=>setReceiptView("receipts")}>입고 원장</Button><Button type={receiptView==="investigation"?"primary":"default"} onClick={()=>setReceiptView("investigation")}>범인찾기</Button></Space>
       {receiptView==="investigation" ? <WarehouseStockInvestigation/> : <>
       <Space wrap style={{ marginBottom: 6, background: '#fff', border: '1px solid var(--border)', padding: '6px 8px', width: '100%' }}>
@@ -434,8 +435,8 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
       <Alert type="info" showIcon style={{ marginBottom: 6 }} message={<span>nenova.exe와 동일한 <b>Packing 엑셀(.xlsx/.xls)</b>만 업로드합니다. 품목 하나라도 정확히 일치하지 않으면 전체 저장이 취소됩니다.</span>} />
 
       <Row gutter={[6,6]} style={{ alignItems: 'flex-start' }}>
-        <Col xs={24} lg={13} style={{ minWidth: 0 }}>
-          <Card size="small" title={<Space><Text strong>입고 원장 목록</Text><Text type="secondary">{filteredMasters.length}/{masters.length}건</Text>{recentFarms.length > 0 && <Space size={4}><Text type="secondary" style={{ fontSize: 11 }}>최근</Text>{recentFarms.map((f) => <Tag.CheckableTag key={f} checked={farmFilter === f} onChange={() => setFarmFilter(farmFilter === f ? '' : f)}>{f}</Tag.CheckableTag>)}</Space>}</Space>}>
+        <Col xs={24} xl={11} style={{ minWidth: 0 }}>
+          <Card size="small" title={<Space wrap size={[6, 2]}><Text strong>입고 원장 목록</Text><Text type="secondary">{filteredMasters.length}/{masters.length}건</Text>{recentFarms.length > 0 && <Space wrap size={[4, 2]}><Text type="secondary">최근</Text>{recentFarms.map((f) => <Tag.CheckableTag key={f} checked={farmFilter === f} onChange={() => setFarmFilter(farmFilter === f ? '' : f)}>{f}</Tag.CheckableTag>)}</Space>}</Space>}>
             <Table size="small" rowKey="WarehouseKey" loading={loading} dataSource={filteredMasters} scroll={{ x: 1000 }} pagination={{ pageSize: 50, size: 'small', showSizeChanger: true, pageSizeOptions: [50, 100, 500], showTotal: (n) => `${n}건` }}
               rowClassName={(m) => (selectedKey === m.WarehouseKey ? 'ant-table-row-selected' : '')} onRow={(m) => ({ tabIndex: 0, 'aria-selected': selectedKey === m.WarehouseKey, onClick: () => selectMaster(m.WarehouseKey), onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectMaster(m.WarehouseKey); } if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); (e.key === 'ArrowDown' ? e.currentTarget.nextElementSibling : e.currentTarget.previousElementSibling)?.focus(); } }, style: { cursor: 'pointer' } })}
               summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={6}><Text strong>합계</Text></Table.Summary.Cell><Table.Summary.Cell index={6} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBox || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={7} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBunch || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={8} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalSteam || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={9} colSpan={3} /></Table.Summary.Row></Table.Summary>}
@@ -445,8 +446,8 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
                 { title: <LedgerSearchHeading label="농장명" value={farmSearch} onChange={setFarmSearch} />, dataIndex: 'FarmName', width: 200,
                   render: name => <span style={{overflowWrap:'anywhere',whiteSpace:'normal'}}>{name || '미기재'}</span>,
                   sorter: (a, b) => String(a.FarmName || '').localeCompare(String(b.FarmName || ''), 'ko'), filterSearch: true, filters: farmOptions.map((f) => ({ text: f, value: f })), onFilter: (v, r) => r.FarmName === v },
-                { title: <LedgerSearchHeading label="인보이스" value={invoiceSearch} onChange={setInvoiceSearch} />, dataIndex: 'InvoiceNo', width: 110, ellipsis: true, render: (v) => <Text type="secondary" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
-                { title: <LedgerSearchHeading label="AWB" value={awbSearch} onChange={setAwbSearch} />, dataIndex: 'AWB', width: 120, ellipsis: true, render: (v) => <Text type="secondary" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
+                { title: <LedgerSearchHeading label="인보이스" value={invoiceSearch} onChange={setInvoiceSearch} />, dataIndex: 'InvoiceNo', width: 110, ellipsis: true, render: (v) => <Text>{v}</Text> },
+                { title: <LedgerSearchHeading label="AWB" value={awbSearch} onChange={setAwbSearch} />, dataIndex: 'AWB', width: 120, ellipsis: true, render: (v) => <Text>{v}</Text> },
                 { title: '입력일자', dataIndex: 'InputDate', width: 100, render: value => <span style={{ whiteSpace: 'nowrap' }} title={value == null ? '' : String(value)}>{incomingDateLabel(value)}</span>, sorter: (a, b) => String(a.InputDate || '').localeCompare(String(b.InputDate || '')), defaultSortOrder: 'descend' },
                 { title: '박스', dataIndex: 'totalBox', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalBox || 0) - (b.totalBox || 0) },
                 { title: '단', dataIndex: 'totalBunch', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalBunch || 0) - (b.totalBunch || 0) },
@@ -457,9 +458,19 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
               ]} />
           </Card>
         </Col>
-        <Col xs={24} lg={11} style={{ minWidth: 0 }}>
-          <Card size="small" title={<Space><Text strong>입고 상세 목록</Text>{selected && <Tag color="blue">{selected.FarmName} · {selected.InvoiceNo}</Tag>}</Space>} extra={selectedKey && <Input.Search size="small" allowClear placeholder="품목명·주문코드" value={detailSearch} onChange={(e) => setDetailSearch(e.target.value)} style={{ width: 180 }} />}>
-            {selectedCostHref && <Button size="small" href={selectedCostHref}>이 입고의 도착원가 작업</Button>}
+        <Col xs={24} xl={13} style={{ minWidth: 0 }}>
+          <Card size="small" title="입고 상세 목록" extra={selectedKey && <Input.Search size="small" allowClear placeholder="품목명·주문코드" value={detailSearch} onChange={(e) => setDetailSearch(e.target.value)} style={{ width: 155 }} />}>
+            {selected && <Space wrap size={[8, 4]} style={{ marginBottom: 4 }}>
+              <Text strong>{selected.FarmName || '농장 미기재'}</Text>
+              <Text>인보이스 {selected.InvoiceNo || '미기재'}</Text>
+              <Text>AWB {selected.AWB || '미기재'}</Text>
+              {selectedCostHref && <Button size="small" href={selectedCostHref}>도착원가 작업</Button>}
+              <details>
+                <summary>인보이스·AWB 조정</summary>
+                <p style={{ margin: '4px 0' }}>등록 원장은 번호가 잠겨 있습니다. 등록 전 자료는 수입부 업무도구의 ‘입고 작업’에서 초안을 열어 번호를 수정하세요.</p>
+                <a href="/import/tools?tab=packing">패킹리스트 업무도구 열기</a>
+              </details>
+            </Space>}
             {selectedKey && <div style={{ marginBottom: 8 }} role="status">
               {invoiceExpenses?.warning && <Alert type="warning" showIcon message={invoiceExpenses.warning} />}
               {invoiceExpenses?.entries?.length > 0 && <div>입고 연결 비용 · 웹 문서 저장값 (상품 수량·재고와 별도): {invoiceExpenses.entries.map(entry => `${entry.kind === 'freight' ? '운송비' : entry.kind === 'docFee' ? '문서비' : entry.kind} ${entry.amount.toLocaleString('ko-KR')} ${entry.currency}`).join(' · ')}</div>}
@@ -474,11 +485,10 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
                 최신원가 참고 상세 보기
               </label>
               <ReceiptDetailScroll tableRoot={detailTableRoot} />
-              <ConfigProvider theme={{components:{Table:{cellPaddingBlockSM:4,cellPaddingInlineSM:6}}}}>
               <Table size="small" rowKey={(d, i) => d.WdetailKey ?? i} loading={detailLoading} dataSource={filteredDetails} pagination={false} scroll={{ x: showLatestDetails ? 1580 : 1460 }}
                 summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={5}><Text strong>합계</Text></Table.Summary.Cell>{['BoxQuantity', 'BunchQuantity', 'SteamQuantity'].map((k, i) => <Table.Summary.Cell key={k} index={5 + i} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.IsWeightRow ? 0 : (b[k] || 0)), 0))}</Text></Table.Summary.Cell>)}<Table.Summary.Cell index={8} /><Table.Summary.Cell index={9} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.총액 || 0), 0))}</Text></Table.Summary.Cell></Table.Summary.Row></Table.Summary>}
                 columns={[
-                  { title: '주문코드', dataIndex: '주문코드', width: 90, render: (v) => <Text style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
+                  { title: '주문코드', dataIndex: '주문코드', width: 82 },
                   { title: '품목명(색상)', key: 'name', width: 280, render: (_, d) => (
                     <Text
                       className="incoming-product-name"
@@ -488,9 +498,15 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
                     >{d.DisplayName || d.ProdName}</Text>
                   ) },
                   { title: '단위', dataIndex: '단위', width: 56 },
-                  { title: '단/송이', dataIndex: '단송이', align: 'right', width: 66, render: fmt },
-                  { title: '박스/송이', dataIndex: '박스송이', align: 'right', width: 74, render: fmt },
-                  { title: '박스수량', dataIndex: 'BoxQuantity', align: 'right', width: 74, render: fmt },
+                  { title: '송이/단', dataIndex: '단송이', align: 'right', width: 64, render: fmt },
+                  { title: '송이/박스', dataIndex: '박스송이', align: 'right', width: 70, render: fmt },
+                  { title: '박스수량', dataIndex: 'BoxQuantity', align: 'right', width: 96, render: (value, row) => {
+                    if (value !== null && value !== undefined) return fmt(value);
+                    const suggestion = receiptBoxSuggestion(row);
+                    return suggestion
+                      ? <Tooltip title={`${suggestion.description}. 원장 합계에는 포함되지 않습니다.`} trigger={['hover','focus']}><span tabIndex={0}>{fmt(suggestion.quantity)} 참고</span></Tooltip>
+                      : <span aria-label="등록된 박스수량 없음">—</span>;
+                  } },
                   { title: '단수량', dataIndex: 'BunchQuantity', align: 'right', width: 70, render: fmt },
                   { title: '송이수량', dataIndex: 'SteamQuantity', align: 'right', width: 74, render: fmt },
                   { title: '단가', dataIndex: '단가', align: 'right', width: 70, render: fmt },
@@ -500,7 +516,6 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
                   { title: '도착원가 합계', key: 'actualCostTotal', align: 'right', width: 140, render: (_, d) => renderCost(d, actualCostByDetail, true) },
                   { title: '95% 예상·비교', key: 'expectedCost', align: 'right', width: 140, render: (_, d) => renderCost(d, expectedCostByDetail) },
                 ]} />
-              </ConfigProvider>
               </div>
             )}
           </Card>
