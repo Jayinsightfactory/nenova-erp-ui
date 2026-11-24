@@ -2373,7 +2373,14 @@
         "styles/CloudCostCategories.module.css",
         "lib/arrivalWeekCost.js",
         "lib/arrivalWeekCostHttp.js",
-        "lib/arrivalWeekCostWorkbook.js"
+        "lib/arrivalWeekCostWorkbook.js",
+        "components/import-tools/CloudCostReviewLedger.js",
+        "styles/CloudCostReviewLedger.module.css",
+        "lib/cloudCostReview.js",
+        "lib/cloudCostReviewSource.js",
+        "lib/cloudCostReviewHttp.js",
+        "pages/api/import/receipts/cost-review.js",
+        "data/cloud-cost-reference-evidence.json"
       ],
       "requiredScenarios": [
         "lookup",
@@ -2395,33 +2402,33 @@
           "chapters": [
             {
               "scenario": "lookup",
-              "title": "1. 도착원가에서 연도·차수만으로 입고를 조회합니다.",
+              "title": "1. 연도와 차수를 조회합니다. 연습 자료이며 원장은 바뀌지 않습니다.",
               "seconds": 0.015
             },
             {
               "scenario": "selection",
-              "title": "2. 여러 입고를 체크한 뒤 다음을 누릅니다. 한 건을 눌러도 화면은 넘어가지 않습니다.",
-              "seconds": 10.058
+              "title": "2. A와 B를 함께 체크하고 다음을 누릅니다.",
+              "seconds": 8.585
             },
             {
               "scenario": "inputs",
-              "title": "3. 원문·전산 품목·카테고리를 같은 행에서 확인하고 직접 수정합니다. 입력과 공유 저장 결과는 유지됩니다.",
-              "seconds": 20.113
+              "title": "3. 같은 행에서 원문과 ERP를 비교하고 이번 원가 적용값·수기 비용을 입력합니다.",
+              "seconds": 17.239
             },
             {
               "scenario": "expenses",
-              "title": "4. 근거 있는 중량과 환율을 확인하고 비용 증빙별 적용 대상을 지정합니다. 확인하지 않은 비용은 확정하지 않습니다.",
-              "seconds": 34.779
+              "title": "4. 원가표 재현과 실비를 구분하고 입고별 비용 귀속을 확인합니다.",
+              "seconds": 28.947
             },
             {
               "scenario": "preview",
-              "title": "5. 선택한 입고와 비용의 귀속을 확인한 뒤 계산을 검증합니다.",
-              "seconds": 48.13
+              "title": "5. 변경한 행을 확인하고 수기 비용 선배분·잔액 CBM 계산을 검증합니다.",
+              "seconds": 38.999
             },
             {
               "scenario": "download",
-              "title": "6. 한 시트의 원가 파일을 내려받습니다. 원문·매칭·카테고리와 계산 단위 근거가 함께 남습니다.",
-              "seconds": 57.961
+              "title": "6. TEST_ONLY 한 시트 파일을 내려받고 원문·ERP·적용값과 합계를 확인합니다.",
+              "seconds": 47.631
             }
           ]
         }

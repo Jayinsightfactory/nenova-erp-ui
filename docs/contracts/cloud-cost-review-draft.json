@@ -1,0 +1,80 @@
+{
+  "id": "cloud-cost-review-draft",
+  "title": "CLOUD 원문 ERP 원가전용 확인표 및 공유초안",
+  "scope": [
+    "lib/cloudCostReview.js",
+    "lib/cloudCostReviewSource.js",
+    "lib/cloudCostReviewHttp.js",
+    "components/import-tools/CloudCostReviewLedger.js",
+    "styles/CloudCostReviewLedger.module.css",
+    "pages/api/import/receipts/cost-review.js",
+    "lib/importTeamStore.js",
+    "lib/arrivalWeekCost.js",
+    "lib/arrivalWeekCostHttp.js",
+    "lib/arrivalWeekCostWorkbook.js",
+    "components/import-tools/ArrivalWeekCostReview.js",
+    "scripts/test-cloud-cost-review-ui.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "COST_REVIEW_SCOPE_DRAFT",
+      "warehouseMaster": "read-only",
+      "warehouseDetail": "read-only",
+      "product": "read-only",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "runtimeImportTeamFile": "expectedRevision + cross-process lock + atomic replace + actor history",
+      "notes": "ERP原장 SELECT-only. 입고별 applied값/사유/확인hash만 별도 runtime초안저장. 전역분류불변. TEST_ONLY다운로드는원가승인아님."
+    },
+    {
+      "name": "COST_SOURCE_SCOPE_PREVIEW_DOWNLOAD",
+      "warehouseMaster": "read-only",
+      "warehouseDetail": "read-only",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "notes": "선택은토글만하고명시다음으로진행. 같은국가/연도/차수만취합. 원문명|ERP|카테고리동일행고정. 입력·빈값·0·부분소수·편집중상태보존. 늦은공유조회응답은편집행덮어쓰기금지. sourceGW/CW분리,계산부피CW대체금지. AWB없으면입고별비용범위키로보존. 비용증빙식별자/범위별1회.47-02정확지문원가표값자동표시이나재무예외확정은별도."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 동일차수 source참조 및 공유매칭API의선택입고범위검증. 카테고리는같은CN/Cloudland/ProdKey에서명시공유하되원가조회/계산은선택연도·차수로한정."
+  },
+  "requiredTestFiles": [
+    "__tests__/cloudCostReview.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormWarehouseUpload.md",
+    "source": "2026-11-24 actual dnSpy CLI ExcelLoadingPackingList MakeTempTable/InsertMaster 재실행. readonly8249/8250 38/2행63000/2620CNY. 원문 비교는 과거 확정 문서의 행 연결이며 현재 원장 동일성으로 오인하지 않음. 원가 전용 적용값과 runtime 공유초안만 변경, ERP writer/Stock/Estimate 변경 없음.",
+    "methods": [
+      "ExcelLoadingPackingList.MakeTempTable",
+      "ExcelLoadingPackingList.InsertMaster"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "Product",
+      "WebInvoiceDocument",
+      "WebInvoiceOperation"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

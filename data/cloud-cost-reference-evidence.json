@@ -52,7 +52,71 @@
         "requiresConfirmation": true
       },
       "financialReviewRequired": true,
-      "unitConversions": []
+      "unitConversions": [],
+      "invoiceSource": {
+        "sha256": "fd136fbc2c0e33b58cf72a667a8197b2cb78eb00781b6809f13c0dfc79d2cb0b"
+      },
+      "reviewRules": [
+        {
+          "sourceRow": 8,
+          "prodKey": 2157,
+          "manualFreight": 7.48,
+          "manualDuty": 1010,
+          "source": "47-2A CLOUD cbm!H34/M34 · 미스티 수기 운임/관세",
+          "categoryCode": null
+        },
+        {
+          "sourceRow": 13,
+          "prodKey": 2693,
+          "categoryOverride": {
+            "label": "Kochia scoparia",
+            "bunchesPerBox": 10,
+            "length": 100,
+            "width": 40,
+            "height": 20,
+            "tariffRate": 0.214,
+            "weightMode": "VOLUME"
+          },
+          "source": "47-2A CLOUD cbm!K27:Q27 · P27은 AL28 오참조이므로 규격만 적용, 운임 재배분"
+        },
+        {
+          "sourceRow": 23,
+          "prodKey": 3118,
+          "categoryCode": 21,
+          "source": "47-2A CLOUD cbm!B49/H49/K28:Q28 · POPULUS15단/고정15kg"
+        },
+        {
+          "sourceRow": 27,
+          "prodKey": 3398,
+          "categoryOverride": {
+            "label": "Blue Star fern",
+            "bunchesPerBox": 30,
+            "length": 100,
+            "width": 40,
+            "height": 20,
+            "tariffRate": 0.032,
+            "weightMode": "VOLUME"
+          },
+          "source": "47-2A CLOUD cbm!K26:Q26 · 이번 입고30단/박스"
+        },
+        {
+          "sourceRow": 39,
+          "prodKey": 3190,
+          "note": "CI 75cm · 31×(27+2)=899 ↔ 현재 ERP8990. 원가표160×30=4800 ↔ CI129×30+31×29=4769, 차31CNY."
+        },
+        {
+          "sourceRow": 25,
+          "prodKey": 2294,
+          "categoryCode": 21,
+          "source": "47-2A CLOUD cbm!B51/H51/K28:Q28 · POPULUS15단/고정15kg"
+        },
+        {
+          "sourceRow": 30,
+          "prodKey": 3207,
+          "categoryCode": 6,
+          "source": "47-2A CLOUD cbm!B56/H56/K12:Q12 · PETAL20단/10kg"
+        }
+      ]
     },
     {
       "scope": {
@@ -116,7 +180,10 @@
           "cells": "E35:F35",
           "basis": "원장90송이는 보존하며 원가표의 계산수량90에 한해1:1 계산단위 사용"
         }
-      ]
+      ],
+      "invoiceSource": {
+        "sha256": "41c8778688245c80f93daa05667991a621bb94c2d3b1c0d2efdcb7696adc902b"
+      }
     }
   ]
 }
