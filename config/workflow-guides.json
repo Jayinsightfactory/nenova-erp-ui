@@ -1402,6 +1402,7 @@
         "components/import-tools/PedidosTool.js",
         "components/import-tools/KakaoAdditions.js",
         "lib/importKakaoAdditions.js",
+        "lib/importKakaoOrderText.js",
         "lib/importToolsDisplay.js",
         "components/import-tools/CountryDownloadComparison.js",
         "lib/countryOrderDownloadHistory.js"
@@ -1432,117 +1433,117 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.012
+              "seconds": 0.008
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.61
+              "seconds": 10.613
             },
             {
               "scenario": "week",
               "title": "3. 세부차수와 미리보기",
-              "seconds": 21.181
+              "seconds": 21.228
             },
             {
               "scenario": "review",
               "title": "4. 송이 수 확인·수정",
-              "seconds": 38.025
+              "seconds": 38.148
             },
             {
               "scenario": "download",
               "title": "5. 다운로드·ETA 창 열기",
-              "seconds": 49.146
+              "seconds": 49.562
             },
             {
               "scenario": "eta",
               "title": "6. ETA 날짜 입력",
-              "seconds": 59.745
+              "seconds": 60.183
             },
             {
               "scenario": "save",
               "title": "7. ETA 저장·엑셀 다운로드",
-              "seconds": 72.007
+              "seconds": 72.433
             },
             {
               "scenario": "china",
               "title": "8. 중국 발주 조회",
-              "seconds": 83.163
+              "seconds": 83.289
             },
             {
               "scenario": "china-cycle",
               "title": "9. 중국 차수 선택",
-              "seconds": 93.734
+              "seconds": 93.856
             },
             {
               "scenario": "china-week",
               "title": "10. 중국 세부차수와 미리보기",
-              "seconds": 104.307
+              "seconds": 104.442
             },
             {
               "scenario": "farm",
               "title": "11. 기본 수신명 수정",
-              "seconds": 121.117
+              "seconds": 121.255
             },
             {
               "scenario": "split",
               "title": "12. 농장별 파일 나누기",
-              "seconds": 133.054
+              "seconds": 133.19
             },
             {
               "scenario": "assign",
               "title": "13. 농장 1 품목 선택",
-              "seconds": 143.617
+              "seconds": 143.791
             },
             {
               "scenario": "farm-download",
               "title": "14. 농장별 파일 확인",
-              "seconds": 154.226
+              "seconds": 154.422
             },
             {
               "scenario": "farm-save",
               "title": "15. 농장 파일 다운로드",
-              "seconds": 164.823
+              "seconds": 165.041
             },
             {
               "scenario": "chat",
               "title": "16. 오른쪽 카톡 추가·취소 원문 확인",
-              "seconds": 175.582
+              "seconds": 176.01
             },
             {
               "scenario": "sum",
               "title": "17. 차수·품목군 버튼 선택",
-              "seconds": 210.544
+              "seconds": 211.186
             },
             {
               "scenario": "match-total",
               "title": "18. 합계에서 원문 확인",
-              "seconds": 221.136
+              "seconds": 221.784
             },
             {
               "scenario": "match-source",
               "title": "19. 원문에서 합계 확인",
-              "seconds": 234.599
+              "seconds": 235.214
             },
             {
               "scenario": "audit",
               "title": "20. 제외 원문 대조",
-              "seconds": 248.063
+              "seconds": 248.641
             },
             {
               "scenario": "recover",
               "title": "21. 누락 의심 발주 보완",
-              "seconds": 258.793
+              "seconds": 259.327
             },
             {
               "scenario": "copy",
               "title": "22. 농장 전달용 복사",
-              "seconds": 276.833
+              "seconds": 277.307
             },
             {
               "scenario": "download-history",
               "title": "23. 이전 다운로드와 수량 비교",
-              "seconds": 290.706
+              "seconds": 291.004
             }
           ]
         }
