@@ -1,10 +1,10 @@
 import { Fragment, useEffect, useId, useRef, useState } from 'react';
-import { validItem, farmTotals, importItemView, importTotalsText, importTotalKey, manualImportReviews, messageOrder, groupFarmTotalsByCycle, matchesCountryOrderScope, visibleKakaoMessages, kakaoMessagePageSize } from '../../lib/importKakaoAdditions';
+import { validItem, farmTotals, importItemView, importTotalsText, importCategoryLabel, importTotalKey, manualImportReviews, messageOrder, groupFarmTotalsByCycle, matchesCountryOrderScope, visibleKakaoMessages, kakaoMessagePageSize } from '../../lib/importKakaoAdditions';
 
 import { importCountryLabel } from '../../lib/importToolsDisplay';
 
 const fields = [['country','국가'],['group','품목군'],['week','차수'],['product','품종'],['quantity','수량'],['unit','단위'],['customer','업체 / CL']];
-const groupKey = row => [row.country||'국가 미상',row.group||'품목군 미상'].join(' · ');
+const groupKey = row => importCategoryLabel(row, {showMissing:true});
 const weekKey = row => row.year+'/'+(row.week||'차수 미상');
 const importRoom = '수입방';
 const requestFilters = ['전체','추가','취소','합계 반영'];
