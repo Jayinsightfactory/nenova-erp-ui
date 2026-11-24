@@ -1,3 +1,5 @@
+import { readEcountSalesHistory } from '../../../lib/ecountSalesHistoryRead';
+import { buildSalesObservationEvents } from '../../../lib/salesHistoryReviewPolicy.js';
 // 판매등록 히스토리 API — 스냅샷 조회/수동생성/변경검사. 스냅샷 수정·삭제 경로 없음(불변).
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
@@ -79,6 +81,67 @@ export default withAuth(async function handler(req, res) {
             }
           )).recordset.map(x => x.OrderWeek)
         : [week];
+
+      // 차이 중심 화면. 비교 기준과 화요일 이후 추적 시작점을 독립적으로 유지한다.
+      if (req.query.review) {
+        if (!majorMode) return res.status(400).json({ success:false,error:'이카운트 판매등록 비교는 대차수(예: 44)로 조회하세요.' });
+        const currentRows=(await Promise.all(subweeks.map(w=>captureCurrentRows(w,orderYear)))).flat();
+        const comparison=await readEcountSalesHistory({orderYear,major,currentRows});
+        return res.status(200).json({success:true,orderYear,subweeks,...comparison});
+      }
+
+      // 업체를 펼칠 때만 조회. 수정자는 EXE와 동일한 UserInfo JOIN으로 해석한다.
+      if (req.query.customerTimeline) {
+        const custKey = Number(req.query.custKey);
+        if (!Number.isSafeInteger(custKey)) return res.status(400).json({ success: false, error: '업체키 필요' });
+        const offset = Math.max(0, Math.floor(Number(req.query.offset) || 0));
+        const entries = [], observations = [], missingWeeks = [];
+        for (const w of subweeks) {
+          const snaps = await listSnapshots(w, orderYear);
+          const tue = snaps.find(s => s.SnapshotType === 'TUE_FINAL');
+          if (!tue) { missingWeeks.push(w); continue; }
+          const result = await query(
+            `SELECT sh.ShipHistoryKey, sh.SdetailKey, sm.CustKey, sd.ProdKey, sm.OrderWeek,
+                    CONVERT(varchar(19), sh.ChangeDtm, 120) AS changeDtm,
+                    CONVERT(varchar(19), sh.ShipmentDtm, 120) AS shipmentDtm,
+                    sh.ChangeID, u.UserName AS changeUser, sh.ChangeType,
+                    sh.BeforeValue, sh.AfterValue, sh.Descr, p.ProdName
+               FROM ShipmentHistory sh
+               JOIN ShipmentDetail sd ON sd.SdetailKey=sh.SdetailKey
+               JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
+               LEFT JOIN Product p ON p.ProdKey=sd.ProdKey
+               LEFT JOIN UserInfo u ON u.UserID=sh.ChangeID
+              WHERE sm.OrderWeek=@week AND ${salesCaptureYearPredicateSql()}
+                AND sm.CustKey=@cust AND sh.ChangeDtm > CONVERT(datetime,@since,120)
+                AND ISNULL(sh.BeforeValue,0) <> ISNULL(sh.AfterValue,0)
+              ORDER BY sh.ChangeDtm DESC, sh.ShipHistoryKey DESC
+              OFFSET @offset ROWS FETCH NEXT 101 ROWS ONLY`,
+            { week: { type: sql.NVarChar, value: w }, yr: { type: sql.NVarChar, value: String(orderYear) },
+              cust: { type: sql.Int, value: custKey }, since: { type: sql.NVarChar, value: tue.takenAt },
+              offset: { type: sql.Int, value: offset } });
+          entries.push(...result.recordset);
+          if (offset === 0) {
+            let previous = await getSnapshotRows(tue.SnapshotKey);
+            const subsequent = snaps.filter(s => Number(s.SnapshotKey) > Number(tue.SnapshotKey))
+              .sort((a,b) => Number(a.SnapshotKey)-Number(b.SnapshotKey));
+            for (const snap of subsequent) {
+              const next = await getSnapshotRows(snap.SnapshotKey);
+              observations.push(...buildSalesObservationEvents(previous, next,
+                { custKey, week: w, observedAt: snap.takenAt, observationKey: snap.SnapshotKey }));
+              previous = next;
+            }
+            const current = await captureCurrentRows(w, orderYear);
+            const clock = await query(`SELECT CONVERT(varchar(19), GETDATE(), 120) AS observedAt`, {});
+            observations.push(...buildSalesObservationEvents(previous, current,
+              { custKey, week: w, observedAt: clock.recordset[0].observedAt, observationKey: 'live' }));
+          }
+        }
+        entries.sort((a,b) => b.changeDtm.localeCompare(a.changeDtm) || b.ShipHistoryKey-a.ShipHistoryKey);
+        // offset is per subweek; preserve every fetched row instead of dropping interleaved events.
+        const hasMore = entries.some(e => entries.filter(x => x.OrderWeek === e.OrderWeek).length > 100);
+        const page = entries.filter(e => entries.filter(x => x.OrderWeek === e.OrderWeek).indexOf(e) < 100);
+        return res.status(200).json({ success: true, entries: page, observations, hasMore, nextOffset: offset + 100, missingWeeks });
+      }
 
       // 스냅샷 상세 행
       if (req.query.rows) {

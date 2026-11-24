@@ -37,6 +37,8 @@
 - 상점 렌더 160장 0.79MB(상한 6MB), glb 총 2.80MB(상한 8MB). 착용 카드=소품만 evaluated bbox 확대, 레이어=종족 베이스와 같은 카메라(미리보기 겹침에 안경·손·배지 추가, PmTheme).
 - 검증: test:pm 전체(+신규 __tests__/pmProps3d.test.js: glb 노드 실재·look3d 경유·temp 0·클립 유지·용량 상한, pmShopArt 전수 확장) + 로컬 dev 실측(시드 pm-avatars.json·work-feature-pm-office.json 은 미커밋 dev 전용) — 3D에서 왕관·선글라스·풍선·책장·펭귄 부리 실표시 확인. 시트·스크린샷 C:\Users\USER\nenova-pm\pm-shots\props-*-2026-11-05.jpg, 3d-장착확인-2026-11-05.jpg, 상점-모자탭-2026-11-05.jpg.
 - 검색어: build_wearables build_shelves wearMesh shelfModel race_ 메시 토글 그룹 분해 w_ 알파 상점 소품 43종 임시 0 pmProps3d
+2026-11-05 판매등록 히스토리 차이 중심 개편: 왼쪽 이카운트 수집 판매원본(수집시각 표시), 불일치업체만 큰 카드, 펼침 품목별 단가/견적수량/VAT포함금액 비교 및 화요일 이후 수정자·초단위시각 타임라인. 총액상쇄·단가0·복수단가·동명이업체 연결보류·수집원본없음/RED비교대기. 실제SELECT43차13업체/199품목,44차11/03원본미수집;원장/ECOUNT쓰기0. dnSpy/대상회귀/manifest/writeguard/로컬build PASS, 전체ERP/브라우저/CI/배포 최종상태 미검증(진행중).
+검색어: salesHistoryReview ECOUNT WebEcountRow 불일치업체 수정자 타임라인 판매등록히스토리
 
 ## 2026-11-04 /pm 상점 그림 3D 렌더 전면 교체 + 종족 복원 + 탈것 경로 고정 (PR #1528)
 - 사장님 피드백 3건: 손그림 상점 그림 → 3D 장면 glb(char/kit/mounts) 블렌더 렌더로 교체(상점 모습=사무실 모습), 탈것 적용 점검, PR 1520 KayKit 교체로 유실된 종족 디자인 복원.
