@@ -1,3 +1,4 @@
+import HubfreshPacking from './HubfreshPacking.js';
 import styles from '../../styles/ImportPacking.module.css';
 import typography from '../../styles/ImportReviewTypography.module.css';
 import WorkflowGuide from '../WorkflowGuide';
@@ -954,8 +955,8 @@ async function requestErpMatches(body, revisionOnly = false) {
   if(!response.ok||!data?.success){const error=new Error(data?.error||'전산 품목·매칭 자료를 불러오지 못했습니다. 다시 조회하세요.');error.statusCode=response.status;throw error;}
   return data;
 }
-export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '', sharedRestore, autoAnalyze = true, onContinue, costOnly = false }) {
-  const [screen, setScreen] = useState('country');
+export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '', sharedRestore, autoAnalyze = true, onContinue, costOnly = false, initialHubfresh = false, onHubfreshUpload }) {
+  const [screen, setScreen] = useState(initialHubfresh ? 'hubfresh' : 'country');
   const [country, setCountry] = useState(null);
   const [originPreview, setOriginPreview] = useState(null);
   const [nzReceiptSource, setNzReceiptSource] = useState(null);
@@ -2372,6 +2373,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           <>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.selectCountry}</div>
             <div className={styles.countryGrid}>
+              <button type="button" className={styles.reusePrimary} onClick={() => setScreen('hubfresh')}>중국hubfresh</button>
               {[...countryLabels, ...SUPPLEMENTAL_PACKING_ORIGINS].map((c) => (
                 <button type="button" key={c.code} aria-label={c.name} onClick={() => {
                   ++readerVersion.current; resetResults(); setOriginPreview(null); setNzReceiptSource(null); setChinaSheetReview(null); setCountry(c.code); setScreen('upload'); setFile(null); setPdfBase64(null); setStatus(null);
@@ -2401,6 +2403,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           </>
         )}
 
+        {screen === 'hubfresh' && <HubfreshPacking xlsx={xlsxLib} onBack={() => setScreen('country')} onUpload={onHubfreshUpload} />}
         {screen === 'awb' && (
           <AWBPanel xlsxLib={xlsxLib} lang={lang} readAwbPdf={readAwbPdf} onBack={() => setScreen('country')} />
         )}

@@ -71,7 +71,7 @@ function ReceiptDetailScroll({tableRoot}) {
   </div>;
 }
 
-export default function Warehouse({ embedded = false, active = true, onClose } = {}) {
+export default function Warehouse({ embedded = false, active = true, onClose, packingFile, onPackingFileConsumed } = {}) {
   const { t } = useLang();
   const [receiptView,setReceiptView]=useState('receipts');
   const [masters, setMasters] = useState([]);
@@ -299,9 +299,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   }
 
   // nenova.exe ExcelLoadingPackingList와 같은 Packing 엑셀만 허용한다.
-  const handleFileChange = async (event) => {
-    const file = event.target.files[0];
-    event.target.value = '';
+  async function openPackingFile(file, orderYear) {
     if (!file || uploadLifecycle.current.busy) return;
     if (!/\.xlsx?$/i.test(file.name)) {
       alert('nenova.exe Packing 엑셀(.xlsx/.xls) 파일만 업로드할 수 있습니다.');
@@ -322,6 +320,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
       setUploadData(rows);
       setUploadMeta(previous => ({
         ...previous,
+        orderYear: orderYear ?? previous.orderYear,
         fileName: file.name,
         sourceWorkbookHash,
         farmName: meta.farmName || '',
@@ -334,7 +333,19 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
     } catch (error) {
       if (version === uploadLifecycle.current.version) alert('엑셀 파일 파싱 오류: ' + error.message);
     }
+  }
+
+  const handleFileChange = event => {
+    const file = event.target.files[0];
+    event.target.value = '';
+    openPackingFile(file);
   };
+
+  useEffect(() => {
+    if (!active || !packingFile || uploadLifecycle.current.busy) return;
+    openPackingFile(packingFile.file, packingFile.year);
+    onPackingFileConsumed?.();
+  }, [active, packingFile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const uploadValidated = uploadValidation?.items === uploadData && uploadValidation?.meta === uploadMeta;
   const handleUpload = async (previewOnly, rows = uploadData, resumeSave = false) => {
@@ -502,6 +513,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
                 <summary>인보이스·AWB 조정</summary>
                 <p style={{ margin: '4px 0' }}>등록 원장은 번호가 잠겨 있습니다. 등록 전 자료는 수입부 업무도구의 ‘입고 작업’에서 초안을 열어 번호를 수정하세요.</p>
                 <a href="/import/tools?tab=packing">패킹리스트 업무도구 열기</a>
+                <a href="/import/tools?source=hubfresh">중국hubfresh</a>
               </details>
             </Space>}
             {selectedKey && <div style={{ marginBottom: 8 }} role="status">

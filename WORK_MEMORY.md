@@ -5000,6 +5000,30 @@ pm run test:canon 통과.
 5. 주의/잠금: 확정 차수(WebProfitReportConfirm IsActive=1)는 연쇄 갱신에서도 하드 스킵. ERP 공유 원장 쓰기 0건. 연결 목표 g17·g19.
 
 
+## 2026-11-24 중국 HUBFRESH 인보이스 분리와 입고 검증
+검색어: 중국hubfresh HUBFRESH NN012 CL 고객코드 카톤번호 파킹리스트 입고 검증 g17 g19
+1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / PR #2000.
+2. 완료된 것: 중국hubfresh 메뉴와 공급사 상세본 분류, 카톤 연결 인보이스, 중국 ERP 품목 확인, 기존 입고 검증 화면 연결. 웹과 데스크톱 메뉴 등록.
+3. 남은 할 일: 실제 브라우저 스모크와 최종 가이드 촬영, 가드 통과 후 PR·배포.
+4. 검증 상태: NN012 네노바 281박스·3,510단·39,325송이·72,420 CNY 파킹리스트 재파싱, 혼합코드 격리, 단위 테스트 및 dnSpy 근거 검사 통과. 운영 품목과 실입고 미검증.
+5. 주의/잠금: pages/import/tools.js, pages/incoming.js 및 가이드 파일 작업 중. 이번 변경의 분류·파일 생성은 ERP 원장 쓰기 없음. 연결 목표 g17·g19 / 학습 반영 없음.
+
+## 2026-11-24 중국 HUBFRESH 최신 입고 화면 통합 검증
+검색어: 중국hubfresh NN012 상세본 281박스 48-01 전년도 수량 검증 #1995 g17 g19
+1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / 10d59784c 기반 / PR #2000.
+2. 완료된 것: 입고 차수 표기와 상세 수량 수정이 반영된 최신 화면에 통합. HUBFRESH 가이드 4단계·자막과 데스크톱 메뉴 연결 확인.
+3. 남은 할 일: 기존 입고 정정 수입부 가이드 촬영 완료 후 최종 배포 검사, PR·CI·Cafe24 반영과 운영 화면 스모크.
+4. 검증 상태: 최신 기반 Next 빌드·ERP 계약 검사·manifest·쓰기 가드·dnSpy 근거 통과. 브라우저 수량 검증, 2025년 명시 선택 전달, 영상 재생 검증 통과. Electron 스모크 및 데스크톱 단위 테스트 96개 통과. 운영 원장 검증 미실행.
+5. 주의/잠금: 사용 가이드 원본 소스 해시를 실제 재촬영으로 검증. 원장 쓰기 0건. 연결 목표 g17·g19 / 학습 반영 없음.
+
+## 2026-11-24 중국 HUBFRESH 배포 준비
+검색어: 중국hubfresh NN012 입고 업로드 사용 가이드 영상 양쪽 역할 1920 g17 g19
+1. 작업 위치: nenova-erp-ui / codex/hubfresh-packing / C:/Users/USER/nw-cdx-hubfresh / PR #2000.
+2. 완료된 것: 중국 HUBFRESH 분류와 입고 연결, 신규 사용 영상 및 기존 패킹·입고 가이드 실제 화면 갱신 완료.
+3. 남은 할 일: 최종 빌드·PStack 확인 후 PR·CI·배포·운영 화면 확인.
+4. 검증 상태: NN012 281박스·3,510단·39,325송이·72,420 CNY 재검산, 파킹리스트 업로드·연도 선택 브라우저 검증, ERP 계약, 데스크톱 테스트 96개, Electron 스모크 및 HUBFRESH 가이드 플레이어 통과. 운영 미검증.
+5. 주의/잠금: 연습 자료 검증 중 운영 쓰기 0건. 연결 목표 g17·g19 / 학습 반영 없음.
+
 ## 2026-11-24 별도 품종 추천 문의로 발주 합계가 빠지는 문제
 검색어: 49-01 알스트로 추천 문의 확정 발주 5품종 10박스 카톡 누락 g19
 1. 작업 위치: nenova-erp-ui / codex/kakao-order-note / nw-cdx-kakao-order-note.

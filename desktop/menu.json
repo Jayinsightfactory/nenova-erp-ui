@@ -128,6 +128,11 @@
         "popup": false
       },
       {
+        "href": "/import/tools?source=hubfresh",
+        "labelKey": "중국hubfresh",
+        "popup": false
+      },
+      {
         "href": "/import/tools",
         "labelKey": "수입부 업무도구 · 발주 이력 · 인보이스 원본 대조",
         "popup": false

@@ -79,6 +79,7 @@ export const MENU_ITEMS = [
       { href: '/import',              labelKey: '수입부 통합',   popup: false },
       { href: '/import/pipeline',     labelKey: '수입 원스톱 파이프라인(인보이스→원가→공유)', popup: false },
       { href: '/import/cost-agi',  labelKey: '수입 원가·이익 AGI(시뮬레이션)', popup: false },
+      { href: '/import/tools?source=hubfresh', labelKey: '중국hubfresh', popup: false },
       { href: '/import/tools',        labelKey: '수입부 업무도구 · 발주 이력 · 인보이스 원본 대조', popup: false },
       { href: '/desktop-flight',      labelKey: '수입 비행기 현황', popup: false },
       { href: '/import/finance',      labelKey: '경영지원 통합(송금·채권)', popup: false },
