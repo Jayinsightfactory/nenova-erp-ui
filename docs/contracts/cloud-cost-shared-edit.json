@@ -1,0 +1,95 @@
+{
+  "id": "cloud-cost-shared-edit",
+  "title": "도착원가 차수조회·복수선택·CLOUD 원문행 매칭 공유 편집",
+  "scope": [
+    "pages/arrival-cost.js",
+    "components/import-tools/InvoiceWarehouseCostBrowse.js",
+    "components/import-tools/CloudCostCategories.js",
+    "components/import-tools/NativeReceiptCost.js",
+    "components/import-tools/InvoiceReceiptCostReview.js",
+    "components/import-tools/ArrivalWeekCostReview.js",
+    "styles/CloudCostCategories.module.css",
+    "pages/api/import/receipts/cloud-mappings.js",
+    "lib/cloudCostMappingHttp.js",
+    "lib/cloudCostMappings.js",
+    "lib/cloudCostReferenceEvidence.js",
+    "lib/importTeamStore.js",
+    "lib/invoiceReceiptExpenses.js",
+    "lib/invoiceWarehouseBrowse.js",
+    "lib/nativeReceiptCost.js",
+    "lib/chinaCloudCost.js",
+    "lib/chinaCloudCostWorkbook.js",
+    "lib/invoiceReceiptCost.js",
+    "lib/arrivalWeekCost.js",
+    "lib/arrivalWeekCostWorkbook.js",
+    "data/cloud-cost-reference-evidence.json"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "CLOUD_CATEGORY_SHARED_SETTINGS",
+      "warehouseMaster": "read-only",
+      "warehouseDetail": "read-only",
+      "product": "read-only",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "runtimeImportTeamFile": "expectedRevision + cross-process lock + atomic replace + actor history",
+      "notes": "권한·활성계정·국가CN·검증된Cloudland농장·선택입고의활성ProdKey 범위. 카테고리/규격/관세만공유. 원장상품매칭·입고가격·수량쓰기없음."
+    },
+    {
+      "name": "COST_SOURCE_SCOPE_PREVIEW_DOWNLOAD",
+      "warehouseMaster": "read-only",
+      "warehouseDetail": "read-only",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "notes": "선택은토글만하고명시다음으로진행. 같은국가/연도/차수만취합. 원문명|ERP|카테고리동일행고정. 입력·빈값·0·부분소수·편집중상태보존. 늦은공유조회응답은편집행덮어쓰기금지. sourceGW/CW분리,계산부피CW대체금지. AWB없으면입고별비용범위키로보존. 비용증빙식별자/범위별1회.47-02정확지문원가표값자동표시이나재무예외확정은별도."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 동일차수 source참조 및 공유매칭API의선택입고범위검증. 카테고리는같은CN/Cloudland/ProdKey에서명시공유하되원가조회/계산은선택연도·차수로한정."
+  },
+  "requiredTestFiles": [
+    "__tests__/cloudCostMappings.test.js",
+    "__tests__/cloudCostReferenceEvidence.test.js",
+    "__tests__/arrivalWeekCost.test.js",
+    "__tests__/chinaCloudCost.test.js",
+    "__tests__/chinaCloudCostWorkbook.test.js",
+    "__tests__/nativeReceiptCost.test.js",
+    "__tests__/invoiceWarehouseBrowse.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormWarehouseUpload.md",
+    "source": "2026-11-24 actual CLI ExcelLoadingPackingList MakeTempTable/InsertMaster 재확인. readonly8249/8250 2026/47-02 각38/2행54909/2620CNY·미연결0·원장GW/CW NULL. source원가표의C8/F8만별도로승계. nativewriter/SQL/SP/원장필드·트랜잭션·재고계산순서변경없음.",
+    "methods": [
+      "ExcelLoadingPackingList.MakeTempTable",
+      "ExcelLoadingPackingList.InsertMaster"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "Product",
+      "WebInvoiceDocument",
+      "WebInvoiceOperation"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

@@ -9,7 +9,7 @@ await page.setRequestInterception(true);page.on('request',async r=>{if(!r.url().
 await r.respond({status:200,contentType:'application/json',body:JSON.stringify(data)});});
 await page.goto(base+'/arrival-cost',{waitUntil:'networkidle0'});await page.waitForSelector('[aria-label="원가 엑셀 파일"]');
 const wb=require('xlsx').utils.book_new();require('xlsx').utils.book_append_sheet(wb,require('xlsx').utils.aoa_to_sheet([['연습용']]),'40-2');const file=path.join(root,'.verify','네덜란드 연습용.xlsx');require('xlsx').writeFile(wb,file);
-rec=await createWorkflowGuideRecorder(page,{root,workflowId:'arrival-upload-review',guideId:'import',title:'도착원가 시트 검토 업로드',sourceFiles,fixtureOnly:true,...(dry?{outputDir:path.join(root,'.verify/arrival-dry')}:{} )});
+rec=await createWorkflowGuideRecorder(page,{root,workflowId:'arrival-upload-review',guideId:'import',title:'도착원가 시트 검토 업로드',sourceFiles,fixtureOnly:true,encodingPreset:'veryfast',...(dry?{outputDir:path.join(root,'.verify/arrival-dry')}:{} )});
 const hold=async(t,n=5)=>{await rec.caption(t);await rec.pause(dry?150:n*1000)};
 const button=async text=>{const h=await page.evaluateHandle(t=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===t),text);await h.asElement().click();await h.dispose();};
 rec.chapter('analyze','1. 원본 엑셀 분석');await rec.caption('1. 도착원가의 원가 엑셀 파일을 선택합니다.');await rec.focus('[aria-label="원가 엑셀 파일"]',1);await hold('1. 도착원가에서 엑셀을 선택하고 분석합니다.\n이 단계에서는 원가를 저장하지 않습니다.');await (await page.$('[aria-label="원가 엑셀 파일"]')).uploadFile(file);await button('엑셀 분석');await page.waitForSelector('[aria-label="40-2 국가"]');await rec.unfocus();

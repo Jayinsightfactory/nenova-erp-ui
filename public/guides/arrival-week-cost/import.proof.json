@@ -1,22 +1,26 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-23T05:14:57.523Z",
+  "recordedAt": "2026-11-24T01:11:30.592Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 68.15,
+  "duration": 67.95,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "7bf284602f39a0e19943fb68a2dbbc585b8b778211be7928fcbb71f5a0c58f1c",
-  "captionsSha256": "0bfe86ab554ca3dfc10fd12f5155bcdfeb06092d93bebb9635401494d36aa7b4",
+  "videoSha256": "e5420fef217394924b6c82a54da37053f270e6c0129b092bfaf7146d6d170043",
+  "captionsSha256": "3f0b51c0faedc7c6080dc19b669f484330043ccf3baf22caea7d329a54760994",
   "sourceHashes": {
-    "components/import-tools/ArrivalWeekCostReview.js": "24629be50d6e2e81f3cb1a8995e6207d5bc22ce9118d8691059ea8952d49b6da",
+    "pages/arrival-cost.js": "c4e6777fd7133543f8d0048e2e3e7406c282b3fbf4722b4ec407c03ef3002662",
+    "components/import-tools/InvoiceWarehouseCostBrowse.js": "ec0e1e3a0ec59a29ac6cdbf8ae469755ed68c2045df094d2a4870f361631cfc7",
+    "components/import-tools/ArrivalWeekCostReview.js": "a3b118e580286d063b86201da579ad44732490328b28d01b75b6edd92fa54698",
+    "components/import-tools/CloudCostCategories.js": "19ea1371d91b2ada94e7f1da50efb1355f3289f95ac5b2e27e180a26e7dfc96a",
     "styles/ArrivalWeekCost.module.css": "8ce95a6c39b2637fe59e09b6c6b1a2ee4bcd06753886cac9fe9ee8e07622fc64",
-    "lib/arrivalWeekCost.js": "3abedcadce4f3d90c3ea982b20bb5a53402ea04b6e3d6fcc683a9e4b4b0dc682",
+    "styles/CloudCostCategories.module.css": "c57f8fe918d0c225e953e15b9ba0b0f6251d8b2a4df1fe9f745e2358c2c05ccd",
+    "lib/arrivalWeekCost.js": "1be9528f770b0cc84b27e2e860b46a194b9dc7bdae726576c1ce68af29d21e2e",
     "lib/arrivalWeekCostHttp.js": "7ed2059920d9b923f356ae4d24be674e1fda681b51f5e3112d5ebdf5234fee25",
-    "lib/arrivalWeekCostWorkbook.js": "dd36aa68521664ce439780a6ed7936862bdc50bb09180a04d6894ec93643aa70"
+    "lib/arrivalWeekCostWorkbook.js": "b1abe8727ab3edcf3af71628d75d5b75c055a9c1173b95baf90ea2edbb9756ed"
   },
   "presentation": {
     "numberedSteps": 6,
@@ -32,45 +36,45 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 3.532769400000001,
-        "x": 384.6875,
-        "y": 724.734375,
-        "end": 10.1125875
+        "start": 3.2402417999999997,
+        "x": 746.21875,
+        "y": 398.234375,
+        "end": 9.841675400000002
       },
       {
         "number": 2,
-        "start": 13.849641900000002,
-        "x": 440.8203125,
-        "y": 750.859375,
-        "end": 20.4872581
+        "start": 13.291029,
+        "x": 31.5,
+        "y": 534.765625,
+        "end": 19.9072748
       },
       {
         "number": 3,
-        "start": 24.2263226,
-        "x": 186.5,
-        "y": 553.984375,
-        "end": 33.183679000000005
+        "start": 23.340576699999996,
+        "x": 960,
+        "y": 553.578125,
+        "end": 34.559193300000004
       },
       {
         "number": 4,
-        "start": 36.991514,
-        "x": 960,
-        "y": 153.40625,
-        "end": 46.276701100000004
+        "start": 38.0057754,
+        "x": 526.5,
+        "y": 554.171875,
+        "end": 47.91134460000001
       },
       {
         "number": 5,
-        "start": 50.009484799999996,
-        "x": 94,
-        "y": 743.890625,
-        "end": 56.6388919
+        "start": 51.365367000000006,
+        "x": 46,
+        "y": 554.484375,
+        "end": 57.75305050000001
       },
       {
         "number": 6,
-        "start": 60.3853681,
-        "x": 673.640625,
-        "y": 713.046875,
-        "end": 67.94791000000001
+        "start": 61.185607600000004,
+        "x": 663.5625,
+        "y": 554.484375,
+        "end": 67.7236449
       }
     ]
   }

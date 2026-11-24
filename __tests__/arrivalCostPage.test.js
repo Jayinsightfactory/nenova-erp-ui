@@ -7,7 +7,8 @@ const source = fs.readFileSync(new URL('../pages/arrival-cost.js', import.meta.u
 assert.match(source, /<ArrivalUploadReview/);
 assert.doesNotMatch(source, /import Layout from/);
 assert.doesNotMatch(source, /<Layout title="도착원가">/);
-assert.match(source, /품종을 선택하거나 전체보기를 누르세요/);
+assert.match(source, /품목명으로 검색하거나 품종을 선택하세요/);
+assert.match(source, /normalizeWarehouseBrowse\(\{orderYear:String\(filters.orderYear\),orderWeek:filters.orderWeek\}\)/, '품종이 없어도 올바른 연도·차수로 입고 계산을 열 수 있어야 한다.');
 assert.match(source, /매칭데이터/);
 assert.match(source, /applySearch\(\)/);
 assert.doesNotMatch(source, /<label>국가 /);

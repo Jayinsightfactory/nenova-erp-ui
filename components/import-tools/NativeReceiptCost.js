@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { auInvoiceTariffDefault } from '../../lib/auInvoiceTariffDefaults.js';
 import { vnInvoiceTariffDefault } from '../../lib/vnOriginalCostInputs.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview';
@@ -59,20 +59,22 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
     link.href = url; link.download = `도착원가_계산본_${orderYear}_${orderWeek}_${warehouseKey}.xlsx`;
     link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  let costDocument = null;
   const downloadInput = inputDraft?.edited ? inputDraft.input : data?.automatic?.input;
   const editedNeedsReview = inputDraft?.edited && downloadInput?.formulaApplicabilityConfirmed !== true;
-  if (data && applied && JSON.stringify(applied) === JSON.stringify(metadata)) {
+  const costDocument = useMemo(()=>{
+   if (data && applied) {
     const lines = data.document.lines.map(line => ({ ...line, currency: applied.currency }));
     const tariffDefaults = {...data.document.reviewedMetadata.tariffDefaults,...Object.fromEntries(lines.map(line => [line.lineId, vnInvoiceTariffDefault({...data.document,reviewedMetadata:{...data.document.reviewedMetadata,transportMode:applied.transportMode}},line) || auInvoiceTariffDefault({
       ...data.document, reviewedMetadata: { ...data.document.reviewedMetadata, transportMode: applied.transportMode },
     }, { ProdKey: line.prodKey, ProdName: line.originalName, CounName: line.country === 'AU' ? '호주' : line.country, isDeleted: line.productDeleted })]).filter(([, value]) => value))};
-    costDocument = { ...data.document, lines, receiptLines: lines,
+    return { ...data.document, lines, receiptLines: lines,
       reviewedMetadata: { ...data.document.reviewedMetadata, ...applied, tariffDefaults,
         gw: applied.gw === '' ? null : Number(applied.gw), cw: applied.cw === '' ? null : Number(applied.cw),
         invoiceCostInput: { ...data.document.reviewedMetadata.invoiceCostInput, ...data.automatic?.input, nativeCurrency: applied.currency, freightCurrency: applied.currency,
           lineInputs: (data.automatic?.input?.lineInputs || data.document.reviewedMetadata.invoiceCostInput.lineInputs).map(line => ({ ...line, ...(tariffDefaults[line.lineId] ? { tariffRate: tariffDefaults[line.lineId].tariffRate } : {}) })) } } };
-  }
+   }
+   return null;
+  },[data,applied]);
   return <section className={styles.panel} aria-label="기존 입고자료 원가 계산">
     <WorkflowGuide workflowId="invoice-cost-readonly" initialRole="수입부" />
     <header className={styles.header}><div><small>입고자료로 바로 계산 · 원장 변경 없음</small><h3>{data?.source.farmName || '입고자료 조회'} <span>{orderYear} / {orderWeek}</span></h3>
@@ -103,10 +105,11 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
         <label>매입 통화<select required value={metadata.currency} onChange={e => updateMetadata('currency', e.target.value)}><option value="">통화 선택</option>{['USD','EUR','CNY','AUD','NZD','THB'].map(value => <option key={value}>{value}</option>)}</select></label>
         <label>운송 방식<select required value={metadata.transportMode} onChange={e => updateMetadata('transportMode', e.target.value)}><option value="">운송 선택</option><option value="AIR">항공</option><option value="SEA">해상</option></select></label>
         {['gw','cw'].map(key => <label key={key}>{key.toUpperCase()} (kg)<input type="number" min="0" step="any" value={metadata[key]} placeholder="중량 배분 공식에만 필요" onChange={e => updateMetadata(key, e.target.value)} /></label>)}
-        <button type="submit">{applied ? '기준 변경 · 입력 초기화' : '부족한 비용 입력하기'}</button>
+        <button type="submit">{applied ? '기준 변경 · 원가 입력 유지' : '부족한 비용 입력하기'}</button>
+        {applied&&JSON.stringify(applied)!==JSON.stringify(metadata)&&<p role="status">중량·통화 수정 중입니다. 기준 변경을 눌러 적용하세요. 아래 원가 입력과 카테고리는 유지됩니다.</p>}
       </form>
       {data.source.excluded.length > 0 && <details><summary>상품 원가에서 분리한 운송·중량 행 {data.source.excluded.length}건</summary><p>아래 원장 행은 상품 수량에 합산하지 않습니다. 운임 입력에 포함할지 확인하세요.</p>{data.source.excluded.map(row => <p key={row.key}>{row.name} · 수량 {row.quantity ?? '미기재'} · 금액 {row.amount ?? '미기재'}</p>)}</details>}
-      {costDocument && <InvoiceReceiptCostReview key={JSON.stringify(applied)} document={costDocument} nativePreview onNativeAction={action} onInputDraftChange={receiveInputDraft} />}
+      {costDocument && <InvoiceReceiptCostReview key={`${orderYear}/${orderWeek}/${warehouseKey}`} document={costDocument} nativePreview onNativeAction={action} onInputDraftChange={receiveInputDraft} />}
     </>}
   </section>;
 }

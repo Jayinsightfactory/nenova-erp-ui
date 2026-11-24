@@ -209,7 +209,9 @@ function initialForm(document, receiptLines) {
           && Number(line.sourceEvidence.grossWeightKg) >= 0 ? Number(line.sourceEvidence.grossWeightKg) : ''),
       volumeWeightKg: savedLines.get(String(line.lineId).toLowerCase())?.volumeWeightKg ?? '',
       groupId: String(savedLines.get(String(line.lineId).toLowerCase())?.groupId ?? ''),
-      categoryCode: savedLines.get(String(line.lineId).toLowerCase())?.categoryCode ?? (verifiedFormula?.formulaId==='CN_CLOUD_CBM_V1'?matchCloudCategory(line.originalName):null) ?? '',
+      categoryCode: Object.hasOwn(savedLines.get(String(line.lineId).toLowerCase())??{},'categoryCode')
+        ? savedLines.get(String(line.lineId).toLowerCase()).categoryCode??'' : (verifiedFormula?.formulaId==='CN_CLOUD_CBM_V1'?matchCloudCategory(line.originalName):null)??'',
+      categoryOverride:savedLines.get(String(line.lineId).toLowerCase())?.categoryOverride??null,
     })),
   };
 }
@@ -332,6 +334,7 @@ function payloadOf(form) {
       grossWeightKg: numberOrNull(line.grossWeightKg),
       volumeWeightKg: numberOrNull(line.volumeWeightKg),
       groupId: String(line.groupId ?? ''),
+      ...(line.categoryOverride?{categoryOverride:line.categoryOverride}:{}),
       ...(formulaGroupIds(INVOICE_COST_FORMULAS[form.formulaId]).length ? Object.fromEntries(DERIVED_GROUP_LINE_FIELDS.map(key => [key, null])) : {}),
     })),
   };
@@ -377,6 +380,13 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const [exchangeRateStatus, setExchangeRateStatus] = useState('');
   const [exchangeRateRetry, setExchangeRateRetry] = useState(0);
   const [preview, setPreview] = useState(null);
+  const externalBasis=JSON.stringify([document?.reviewedMetadata?.gw,document?.reviewedMetadata?.cw,document?.reviewedMetadata?.transportMode,document?.reviewedMetadata?.currency]);
+  const externalBasisRef=useRef(externalBasis);
+  useEffect(()=>{
+    if(externalBasisRef.current===externalBasis)return;
+    externalBasisRef.current=externalBasis;setPreview(null);setInputEdited(true);
+    setForm(current=>({...current,formulaApplicabilityConfirmed:false,cloudFinancialReviewConfirmed:false}));
+  },[externalBasis]);
   useEffect(() => { onInputDraftChange?.({...payloadOf(form),formulaApplicabilityConfirmed:nativePreview||form.formulaApplicabilityConfirmed===true}, { edited: inputEdited }); }, [form, inputEdited, onInputDraftChange, nativePreview]);
   useEffect(() => {
     const template = nlInvoiceDraftTemplate(document, receiptLines, form);
@@ -535,6 +545,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     invalidateApprovalStages();
     setForm(current => {
       const next = editedForm(current, name, value);
+      if(document.reviewedMetadata?.cloudReference&&name!=='cloudFinancialReviewConfirmed')next.cloudFinancialReviewConfirmed=false;
       if (documentCountry(document) === 'AU' && ['exchangeRateKRW', 'exchangeRateDate'].includes(name)) {
         return { ...next, exchangeRateType: 'USER_INPUT', exchangeRateSource: '담당자 직접 입력', exchangeRateSourceUrl: '', exchangeRateCarriedForward: false };
       }
@@ -559,6 +570,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     invalidateApprovalStages();
     setForm(current => ({
       ...current,
+      ...(document.reviewedMetadata?.cloudReference?{cloudFinancialReviewConfirmed:false}:{}),
       formulaApplicabilityConfirmed: false,
       lossTreatmentConfirmed: false,
       lineInputs: current.lineInputs.map(line => line.lineId === lineId ? { ...line, [name]: value,
@@ -962,6 +974,13 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     </div>
 
     {form.formulaId==='CN_CLOUD_CBM_V1'&&<>
+      {document.reviewedMetadata?.cloudReference&&<section className={styles.evidence} aria-label="원가표 출처와 확인 필요 항목">
+        <h4>원가표 출처 · 운영 입고 단가 유지</h4>
+        <p>{document.reviewedMetadata.cloudReference.source.fileName} · {document.reviewedMetadata.cloudReference.source.sheet} · GW C8 / CW F8. 계산 부피 E8은 청구중량으로 사용하지 않습니다. 운영 단가와 원가표 차이는 원장 보정 없이 비교합니다.</p>
+        <label>검역 분류수 · 원문 C9 참고<input aria-label="CLOUD 검역 분류수" type="text" inputMode="numeric" value={form.cloudQuarantineCategoryCount??''} onChange={e=>update('cloudQuarantineCategoryCount',e.target.value)}/></label>
+        <label><input type="checkbox" aria-label="CLOUD 재무 예외 확인" checked={form.cloudFinancialReviewConfirmed===true} onChange={e=>update('cloudFinancialReviewConfirmed',e.target.checked)}/>운영 단가·통화, 호접 허가증 입력값과 검역 분류수의 적용 근거를 확인했습니다.</label>
+        {!form.cloudFinancialReviewConfirmed&&<p role="alert">허가증 미반영·검역18 등은 미확인입니다. 자동으로 0원·300CNY 또는 확정비용으로 처리하지 않습니다.</p>}
+      </section>}
       <details className={styles.evidence}><summary>CLOUD 원본 통관비·허가증 기준 보기/수정</summary>
         <p>원본 기준값으로 추정합니다. 국내운송비 195,000원은 해당 자료의 값이며 모든 중량의 고정요금이 아닙니다. 실제 견적이 다르면 수정하세요.</p>
         <div className={styles.formGrid}>
@@ -969,7 +988,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
           {Object.entries({cloudWarehousePerKg:'백상 원/kg',cloudBrokerage:'통관 수수료 원',cloudQuarantinePerCategory:'검역 원/품종',cloudDomesticTransport:'국내운송비 원',cloudMiscellaneous:'기타비 원',cloudDisinfection:'소독비 원',cloudOrchidPermitNative:'호접 허가증 CNY'}).map(([key,label])=><Field key={key} label={label}><input type="number" min="0" step="any" value={form[key]??''} onChange={e=>update(key,e.target.value)}/></Field>)}
         </div><p>자동 계산 통관비: {money(cloudCustomsTotal(document,receiptLines,payloadOf(form)))}</p>
       </details>
-      <CloudCostCategories lines={receiptLines} inputs={form.lineInputs} onChange={updateLine} disabled={busy}/>
+      <CloudCostCategories lines={receiptLines} inputs={form.lineInputs} onChange={updateLine} disabled={busy}
+        scope={currentCommittedWarehouseKey(document)?{orderYear:document.orderYear,orderWeek:document.orderWeek,warehouseKeys:[currentCommittedWarehouseKey(document)]}:undefined}/>
     </>}
     <div className={styles.actions}>
       <button data-cost-preview type="button" onClick={runPreview} disabled={busy}>입력값으로 미리보기</button>

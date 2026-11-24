@@ -1,0 +1,18 @@
+.root { font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; font-size:14px; color:#0f172a; font-variant-numeric:tabular-nums; }
+.root table { width:100%; border-collapse:collapse; }
+.root th,.root td { padding:10px; text-align:left; vertical-align:top; border-bottom:1px solid #cbd5e1; overflow-wrap:anywhere; }
+.root th { background:#f1f5f9; }
+.root small { font-size:12.5px; color:#334155; }
+.root td:first-child { width:22%; }
+.root td:nth-child(2) { width:25%; }
+.root :is(th,td):last-child { width:150px; min-width:130px; word-break:keep-all; overflow-wrap:normal; }
+.root tr[data-state='pending'] { background:#fffbeb; }
+.root tr[data-state='changed'] { background:#eff6ff; }
+.root tr[data-state='matched'] td:last-child { border-left:3px solid #16a34a; }
+.root select,.root input { font:inherit; max-width:100%; min-height:36px; border:1px solid #94a3b8; padding:6px 8px; border-radius:3px; color:inherit; background:#fff; }
+.root button { font:inherit; min-height:36px; padding:7px 12px; margin:5px 8px 5px 0; }
+.fields { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.fields label { display:flex; flex-direction:column; gap:4px; max-width:180px; }
+.fields input { width:155px; }
+.root :is(button,input,select):focus-visible { outline:3px solid #2563eb; outline-offset:2px; }
+@media(max-width:800px) { .root table { display:block; overflow-x:auto; } .root td { min-width:180px; } }

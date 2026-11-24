@@ -5,14 +5,16 @@ import NativeReceiptCost from './NativeReceiptCost';
 import { filterInvoiceWarehouses } from '../../lib/invoiceWarehouseBrowse.js';
 import SharedAwbCostReview from './SharedAwbCostReview';
 import ArrivalWeekCostReview from './ArrivalWeekCostReview';
+import {baseCountry} from '../../lib/countryClassification.js';
 
-export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoiceNo }) {
-  const scope = `${orderYear}/${orderWeek}/${invoiceNo ?? '*'}`;
+export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoiceNo, country }) {
+  const scope = `${orderYear}/${orderWeek}/${invoiceNo ?? '*'}/${country??'*'}`;
   const live = useRef(scope); live.current = scope;
   const [state, setState] = useState({ rows: [], loading: true });
   const [action, setAction] = useState({ busy: false, error: '' });
   const lock = useRef(false);
   const [nativeKey, setNativeKey] = useState(null);
+  const [selectionKeys,setSelectionKeys]=useState([]),[selectionRequest,setSelectionRequest]=useState(null);
   // 차수 통합이 기본이다. 기존 단일 AWB·개별 입고는 별도 선택으로 보존한다.
   const [showColombia, setShowColombia] = useState(false);
   useEffect(() => {
@@ -20,13 +22,21 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
     const controller = new AbortController();
     setState({ rows: [], loading: true }); setAction({ busy: false, error: '' });
     setNativeKey(null);
+    setSelectionKeys([]);setSelectionRequest(null);
     fetch(`/api/import/receipts/warehouse-list?${new URLSearchParams({ orderYear, orderWeek })}`, { signal: controller.signal, cache: 'no-store' })
       .then(async response => { const data = await response.json(); if (!response.ok || !data.success || !Array.isArray(data.rows)) throw new Error(data.error || '조회 응답을 확인하지 못했습니다.'); return data; })
       .then(data => { if (!controller.signal.aborted) setState({ ...data, loading: false }); })
       .catch(error => { if (!controller.signal.aborted) setState({ rows: [], loading: false, error: error.message }); });
     return () => controller.abort();
-  }, [orderYear, orderWeek, invoiceNo]);
-  const rows = filterInvoiceWarehouses(state.rows, { orderYear, orderWeek }, invoiceNo);
+  }, [orderYear, orderWeek, invoiceNo, country]);
+  const rows = filterInvoiceWarehouses(state.rows, { orderYear, orderWeek }, invoiceNo).filter(row=>!country||baseCountry(row.CountryName)===baseCountry(country));
+  function nextSelection(){
+    const selected=rows.filter(r=>selectionKeys.includes(r.WarehouseKey));
+    const countries=[...new Set(selected.map(r=>baseCountry(r.CountryName)))];
+    if(selected.length===1&&!['중국','콜롬비아'].includes(countries[0])){setNativeKey(selected[0].WarehouseKey);return;}
+    if(countries.length!==1||!['중국','콜롬비아'].includes(countries[0])){setAction({busy:false,error:'같은 국가의 중국 CLOUD 또는 콜롬비아 입고를 선택하세요. 다른 국가는 1건씩 계산할 수 있습니다.'});return;}
+    setNativeKey(null);setAction({busy:false,error:''});setSelectionRequest({id:Date.now(),country:countries[0]==='중국'?'CN':'CO',keys:selected.map(r=>r.WarehouseKey)});
+  }
   async function open(row, download) {
     if (!download) { setNativeKey(row.WarehouseKey); return; }
     if (lock.current) return;
@@ -46,14 +56,16 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
   return <section className={styles.saved} aria-label="입고내역 도착원가 작업">
     <h3>{orderYear} / {orderWeek} 입고내역</h3>
     <p>인보이스 재연결 없이 입고자료로 계산합니다. 기존 입고·재고·승인 원가는 변경하지 않습니다.</p>
-    <ArrivalWeekCostReview orderYear={orderYear} orderWeek={orderWeek} />
+    <ArrivalWeekCostReview orderYear={orderYear} orderWeek={orderWeek} selectionRequest={selectionRequest}/>
     {invoiceNo != null && <p>송장 {invoiceNo}의 기존 입고만 표시합니다. 현재 초안의 수정값은 사용하지 않습니다. 농장·송장을 확인하고 선택하세요.</p>}
-    <p>같은 차수의 중국 A/B·콜롬비아 품종 통합은 위에서 계산하세요. 아래 기존 버튼은 선택한 입고 1건만 계산합니다.</p>
+    <p>입고는 여러 건을 선택한 뒤 다음을 누르세요. 체크만 하면 화면이 바뀌지 않습니다. 같은 국가·차수만 통합하며 개별 계산 버튼은 해당1건만 사용합니다.</p>
+    <button type="button" disabled={!selectionKeys.length||state.loading||action.busy} onClick={nextSelection}>선택 {selectionKeys.length}건 다음 · 도착원가 작성</button>
     <button type="button" aria-expanded={showColombia} onClick={() => setShowColombia(value => !value)}>{showColombia ? '기존 단일 AWB 계산 접기' : '기존 단일 AWB 계산 펼치기'}</button>
     {showColombia && <SharedAwbCostReview native={{ orderYear, orderWeek }} />}
     {state.loading && <p role="status">입고내역 조회 중…</p>}
     {(state.error || action.error) && <p className={styles.error} role="alert">{state.error || action.error}</p>}
     {nativeKey ? <NativeReceiptCost key={`${scope}/${nativeKey}`} orderYear={orderYear} orderWeek={orderWeek} warehouseKey={nativeKey} onClose={() => setNativeKey(null)} /> : <div className={styles.savedList}>{rows.map(row => <div key={row.WarehouseKey}>
+      <label><input type="checkbox" aria-label={`입고 ${row.WarehouseKey} 원가 선택`} checked={selectionKeys.includes(row.WarehouseKey)} onChange={e=>setSelectionKeys(current=>e.target.checked?[...current,row.WarehouseKey]:current.filter(k=>k!==row.WarehouseKey))}/>원가에 포함</label>
       <strong>{row.FarmName || '농장 미기재'} · {row.InvoiceNo || '송장번호 미기재'}</strong>
       <p>입고 #{row.WarehouseKey} · {row.InputDate} · GW {row.GrossWeight ?? '미기재'} / CW {row.ChargeableWeight ?? '미기재'} kg</p>
       <button type="button" disabled={action.busy} onClick={() => open(row, false)}>도착원가 엑셀 생성·다운로드</button>{' '}
