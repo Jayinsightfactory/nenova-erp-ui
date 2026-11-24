@@ -1,0 +1,51 @@
+{
+  "id": "box-vision-inspector",
+  "title": "박스 사진 판독 · 품목/수량/차수(Bill·AWB)/농장 분배/불량차감 매칭 계약",
+  "scope": [
+    "pages/vision/box-inspector.js",
+    "pages/api/vision/box-count-match.js",
+    "lib/boxVisionInspector.js",
+    "styles/BoxVisionInspector.module.css"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "BOX_VISION_COUNT_AND_MATCH_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "창고 박스 사진의 바코드 라벨(AWB·Bill·일련번호·영문 품목명·수기 업체명)과 농장 박스색상을 교차 판독하여 OrderYear+OrderWeek 범위로 ShipmentMaster/ShipmentDetail/WebSalesDefectDeduction을 SELECT 전용으로만 대조하며 기존 ERP 원장에 쓰기(INSERT/UPDATE/DELETE)를 수행하지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/boxVisionInspector.test.cjs",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "웹·데스크톱 전용 박스 비전 스캔 및 출고/불량차감 읽기 전용 대조 메뉴로, 원본 nenova.exe FormShipmentDistribution의 출고 원장(ShipmentMaster/ShipmentDetail) 및 입고 원장(WarehouseMaster/WarehouseDetail)을 SELECT 전용으로만 조회한다.",
+    "methods": [
+      "FormShipmentDistribution.GetCustomerList (SELECT-only parity)",
+      "FormShipmentDistribution.grdViewShipment_FocusedRowChanged (SELECT-only parity)"
+    ],
+    "tables": [
+      "WarehouseMaster (SELECT-only)",
+      "WarehouseDetail (SELECT-only)",
+      "ShipmentMaster (SELECT-only)",
+      "ShipmentDetail (SELECT-only)",
+      "WebSalesDefectDeduction (SELECT-only)",
+      "OrderDetail (preserve)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "node --test __tests__/boxVisionInspector.test.cjs",
+    "npm run build"
+  ]
+}
