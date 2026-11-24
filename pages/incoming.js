@@ -15,6 +15,7 @@ import dayjs from 'dayjs';
 import LatestArrivalReference from '../components/LatestArrivalReference.js';
 import WarehouseStockInvestigation from '../components/WarehouseStockInvestigation';
 import WarehouseCorrection from '../components/WarehouseCorrection.js';
+import WarehouseManualUpload from '../components/WarehouseManualUpload.js';
 import { incomingWorkspaceHref } from '../lib/incomingWorkspaceNavigation.js';
 import { invoiceReceiptCostHref } from '../lib/invoiceReceiptCostRoute.js';
 import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
@@ -96,6 +97,8 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [manualUpload, setManualUpload] = useState(null);
+  const manualUploadButton = useRef(null);
   const [correctionTarget, setCorrectionTarget] = useState(null);
   const [uploadData, setUploadData] = useState(null);
   const [uploadValidation, setUploadValidation] = useState(null);
@@ -417,6 +420,10 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
         <Input.Search size="small" allowClear placeholder="농장명·인보이스·AWB·차수" value={masterSearch} onChange={(e) => setMasterSearch(e.target.value)} style={{ width: 220 }} />
         <Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={load}>{t('새로고침')}</Button>
         <Button size="small" type="primary" icon={<UploadOutlined />} disabled={uploading || deleting} onClick={() => fileRef.current.click()}>업로드 / Subir</Button>
+        <Button size="small" ref={manualUploadButton} disabled={uploading || deleting} onClick={()=>{
+          const inputDate=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
+          setManualUpload({orderYear:inputDate.slice(0,4),orderWeek:'',inputDate});
+        }}>수기 업로드</Button>
         <input type="file" ref={fileRef} style={{ display: 'none' }} accept=".xlsx,.xls" onChange={handleFileChange} />
         <Button size="small" disabled={!selected || deleting || uploading} onClick={() => setCorrectionTarget({...selected})}>농장·품목 수정 / 파일 교체</Button>
         <Button size="small" disabled={!selected || deleting || uploading} onClick={() => setCorrectionTarget({...selected,approval:true})}>수입부 수정 요청</Button>
@@ -432,7 +439,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
 
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 6 }} closable onClose={() => setErr('')} />}
       {successMsg && <Alert type="success" showIcon message={successMsg} style={{ marginBottom: 6 }} />}
-      <Alert type="info" showIcon style={{ marginBottom: 6 }} message={<span>nenova.exe와 동일한 <b>Packing 엑셀(.xlsx/.xls)</b>만 업로드합니다. 품목 하나라도 정확히 일치하지 않으면 전체 저장이 취소됩니다.</span>} />
+      <Alert type="info" showIcon style={{ marginBottom: 6 }} message={<span>파일 업로드는 nenova.exe와 동일한 <b>Packing 엑셀(.xlsx/.xls)</b>을 사용합니다. 직접 입력하려면 수기 업로드를 여세요.</span>} />
 
       <Row gutter={[6,6]} style={{ alignItems: 'flex-start' }}>
         <Col xs={24} xl={11} style={{ minWidth: 0 }}>
@@ -523,6 +530,16 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
       </Row>
 
       {correctionTarget && <WarehouseCorrection selected={correctionTarget} onClose={() => setCorrectionTarget(null)} onSaved={(result) => { setSuccessMsg(result.approval?`수정 요청 #${result.requestId} · 영업지원 검토 대기로 전달했습니다.`:`입고 #${result.warehouseKey} 수정 완료`); if(result.approval){window.dispatchEvent(new Event('incoming-approval-saved'));return;} setFarmFilter(''); load(); selectMaster(result.warehouseKey); }} />}
+      {manualUpload && <WarehouseManualUpload initial={manualUpload} onClose={()=>{
+        setManualUpload(null);
+        requestAnimationFrame(()=>manualUploadButton.current?.focus());
+      }} onSaved={result=>{
+        setManualUpload(null);
+        requestAnimationFrame(()=>manualUploadButton.current?.focus());
+        setSuccessMsg(`수기 입고 #${result.warehouseKey} 등록 완료`);
+        load();
+        selectMaster(result.warehouseKey);
+      }}/>}
       {/* 업로드 모달 */}
       {showUploadModal && (
         <div className="modal-overlay" onClick={()=>{}}>

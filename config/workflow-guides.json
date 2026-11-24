@@ -687,7 +687,10 @@
         "lib/incomingApprovalSimple.js",
         "components/WarehouseFarmSelect.js",
         "lib/warehouseFarmChoices.js",
-        "components/ReceiptBunchConfirmation.js"
+        "components/ReceiptBunchConfirmation.js",
+        "components/WarehouseManualUpload.js",
+        "components/WarehouseManualUpload.module.css",
+        "lib/manualWarehouseUpload.js"
       ],
       "requiredScenarios": [
         "farm",
@@ -699,7 +702,7 @@
         {
           "id": "import",
           "role": "수입부",
-          "title": "농장·품목·수량 수정 요청하기",
+          "title": "입고 수정 요청과 수기 업로드",
           "status": "ready",
           "src": "/guides/incoming-approval/import.mp4",
           "captions": "/guides/incoming-approval/import.ko.vtt",
@@ -708,37 +711,42 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 7.02
+              "seconds": 7.01
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 195.156
+              "seconds": 196.525
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 305.321
+              "seconds": 305.398
             },
             {
               "scenario": "add",
               "title": "4. 기존 입고에 품목·수량 추가",
-              "seconds": 387.434
+              "seconds": 385.77
             },
             {
               "scenario": "cancel",
               "title": "5. 기존 입고의 품목·수량 취소",
-              "seconds": 508.282
+              "seconds": 503.81
             },
             {
               "scenario": "price",
               "title": "6. 입고 단가만 변경",
-              "seconds": 588.222
+              "seconds": 583.39
             },
             {
               "scenario": "packing-quantity",
               "title": "7. 단 수량을 확인하고 새 입고 저장",
-              "seconds": 709.939
+              "seconds": 704.256
+            },
+            {
+              "scenario": "manual-upload",
+              "title": "8. 여러 품목 수기로 입고 등록",
+              "seconds": 777.422
             }
           ]
         },
@@ -754,22 +762,22 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.051
+              "seconds": 14.078
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 57.937
+              "seconds": 58.146
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 143.02
+              "seconds": 144.244
             },
             {
               "scenario": "price",
               "title": "4. 입고 단가만 변경",
-              "seconds": 270.865
+              "seconds": 271.874
             }
           ]
         }

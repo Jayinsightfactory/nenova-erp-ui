@@ -7,7 +7,11 @@
     "pages/api/warehouse/index.js",
     "lib/exeWarehouseViewSql.js",
     "lib/warehousePackingImport.js",
-    "lib/invoiceReceiptAccess.js"
+    "lib/invoiceReceiptAccess.js",
+    "lib/manualWarehouseUpload.js",
+    "lib/manualWarehouseUploadDb.js",
+    "components/WarehouseManualUpload.js",
+    "components/WarehouseManualUpload.module.css"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -21,6 +25,14 @@
     "WarehouseKey",
     "ProdKey"
   ],
+  "manualEntry": {
+    "role": "Existing canManageInvoiceReceipt permission for options, preview and commit",
+    "scope": "Explicit year and exact subweek. Read StockMaster for existing choices grouped by year; direct exact subweek input uses the same native eligibility rules. Input date is explicit; invoice and AWB are optional.",
+    "rows": "1-100. Resolve exact active product identity and current outbound/estimate units. Convert actual box/bunch/stem quantities from operator-confirmed packing. Unknown optional physical quantities remain null.",
+    "amount": "Explicit total or per-stem price in the supplied document currency. Zero is valid and blanks are rejected. Store UPrice per stem and TPrice as the stem total.",
+    "confirmation": "Preview exact normalized payload; scope or field edits invalidate confirmation. Revalidate inside locked transaction; repeat same UUID and normalized values return one existing receipt. Same invoice scope or linked document blocks new registration.",
+    "preservation": "Existing packing-file upload, order/shipment, invoice document/revisions, estimates and profit ledger are preserved."
+  },
   "listDateContract": {
     "plan": "docs/plans/incoming-date-default-2026-10-27.md",
     "field": "WarehouseMaster.UploadDtm (existing EXE parity GET)",
@@ -36,6 +48,17 @@
     ]
   },
   "actions": [
+    {
+      "name": "MANUAL_WAREHOUSE_PREVIEW_AND_CREATE",
+      "source": "FormWarehouseAdd.CheckValue/btnSave_Click/UnitQuantity: positive confirmed packing quantities, TPrice=SteamQuantity*UPrice",
+      "warehouseMaster": "preserve in preview; create once after exact server preview, same attempt replay and duplicate rejection",
+      "warehouseDetail": "preserve in preview; insert rows through existing transaction",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve in preview; existing receipt delta, stock gate and recalculation at commit",
+      "estimate": "preserve",
+      "webProfitReport": "preserve"
+    },
     {
       "name": "WAREHOUSE_LIST_AND_DETAIL_READ",
       "source": "FormWarehouseView.GetData/GetDetail parity SQL; aggregate aliases match incoming page totals and full product names wrap in the detail table",
