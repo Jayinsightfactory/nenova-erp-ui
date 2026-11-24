@@ -34,14 +34,15 @@ const cloud=process.argv.includes('--cloud');
   assert.equal(await page.$('input[data-cost-confirm]'),null,'read-only calculation must not require consent checkbox');
   // Leave scroll room below the real last button so zoom and subtitles never cover it.
   if(!dry)await page.addStyleTag({content:'body { padding-bottom: 360px !important; }'});
-  if(!dry)rec=await createWorkflowGuideRecorder(page,{workflowId:'invoice-cost-readonly',guideId:'import',title:'기존 입고 도착원가 다운로드',sourceFiles:['components/import-tools/NativeReceiptCost.js','components/import-tools/InvoiceReceiptCostReview.js'],fixtureOnly:true});
+  if(!dry)rec=await createWorkflowGuideRecorder(page,{workflowId:'invoice-cost-readonly',guideId:'import',title:'기존 입고 도착원가 다운로드',sourceFiles:["components/import-tools/NativeReceiptCost.js", "components/import-tools/InvoiceReceiptCostReview.js", "components/import-tools/CloudCostCategories.js", "styles/CloudCostCategories.module.css"],fixtureOnly:true,encodingPreset:'veryfast'});
   const step=async(id,text,selector,n)=>{if(!rec)return;await page.$eval(selector,el=>el.scrollIntoView({block:'center',behavior:'instant'}));rec.chapter(id,`${n}. ${text}`);await rec.caption(`${n}. ${text}`);await rec.pause(1600);await rec.focus(selector,n);await rec.pause(2500);};
   await step('lookup','기존 입고의 자동 통화·중량·참고 세율을 확인합니다. 인보이스 재업로드와 매칭은 반복하지 않습니다.','[aria-label="기존 입고자료 원가 계산"] header > div',1);
   if(rec)await rec.unfocus();
   if(cloud){
-    await button('전체 품목 보기 · 기존 매칭 수정');
-    await step('categories','품종별 카테고리를 확인합니다. 장미를 유칼립투스로 바꾸면 운임과 관세가 다시 계산됩니다.','[aria-label="CLOUD 품종 카테고리"] [role="group"] button:nth-child(4)',2);
-    const category=await page.$('[aria-label="CLOUD 품종 카테고리"] [role="group"]');const buttons=await category.$$('button');await buttons[3].click();await page.waitForFunction(()=>document.querySelector('[aria-label="CLOUD 품종 카테고리"]').innerText.includes('현재: EUCALYPTUS'));await buttons[0].click();
+    await step('categories','원문과 전산 품목 옆에서 CLOUD 카테고리를 수정합니다. 확인한 행은 사라지지 않습니다.','[aria-label="CLOUD 품종 카테고리"] select',2);
+    const selector='[aria-label="CLOUD 품종 카테고리"] tbody tr:first-child select';
+    await page.select(selector,'4');assert.equal(await page.$$eval('[aria-label="CLOUD 품종 카테고리"] tbody tr',n=>n.length),2);
+    await setField('GW (kg)',1897);assert.equal(await page.$eval(selector,n=>n.value),'4','metadata draft must preserve category');await button('기준 변경 · 원가 입력 유지');assert.equal(await page.$eval(selector,n=>n.value),'4','applying metadata must preserve category');await setField('GW (kg)',1896);await button('기준 변경 · 원가 입력 유지');await page.select(selector,'1');
     if(rec){await rec.pause(2200);await rec.unfocus();}
   }
   const fx='[aria-label="인보이스 도착원가 검토"] input';

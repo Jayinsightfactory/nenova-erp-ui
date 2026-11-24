@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "scope": {
+        "warehouseKey": 8249,
+        "orderYear": "2026",
+        "orderWeek": "47-02",
+        "farmName": "Cloudland",
+        "invoiceNo": "2026YY-054",
+        "fileName": "47-2A CLOUD CI.xlsx"
+      },
+      "rowCount": 38,
+      "nativeDigest": "da976481036e0eae5d84acf188003168650bc715edeed00a1617d68c73a1881b",
+      "source": {
+        "fileName": "47-2 중국 원가자료.xlsx",
+        "sha256": "1e36606d598edab2f58c337298c4e58f397f53227c3d7f68f5e3843b8a922563",
+        "sheet": "47-2A CLOUD cbm"
+      },
+      "weights": [
+        {
+          "kind": "GW",
+          "kg": 1823,
+          "cells": "C8"
+        },
+        {
+          "kind": "CW",
+          "kg": 2452,
+          "cells": "F8"
+        }
+      ],
+      "exchangeRate": {
+        "value": 210,
+        "currency": "CNY",
+        "cells": "C7",
+        "type": "WORKBOOK_REFERENCE"
+      },
+      "freight": {
+        "amount": 23168,
+        "currency": "CNY",
+        "cells": "C11",
+        "classification": "UNCLASSIFIED_ADDITIONAL_COSTS"
+      },
+      "calculatedVolume": {
+        "kg": 2656.2633333333333,
+        "cells": "E8",
+        "useAsCw": false
+      },
+      "quarantineCount": {
+        "value": 18,
+        "cells": "C9",
+        "requiresConfirmation": true
+      },
+      "financialReviewRequired": true,
+      "unitConversions": []
+    },
+    {
+      "scope": {
+        "warehouseKey": 8250,
+        "orderYear": "2026",
+        "orderWeek": "47-02",
+        "farmName": "Cloudland",
+        "invoiceNo": "2026YY-055",
+        "fileName": "47-2B CLOUD CI.xlsx"
+      },
+      "rowCount": 2,
+      "nativeDigest": "6425bb2a01605270d298f507631e932a3f40f53afad93ee661a4273aa9c54e0d",
+      "source": {
+        "fileName": "47-2 중국 원가자료.xlsx",
+        "sha256": "1e36606d598edab2f58c337298c4e58f397f53227c3d7f68f5e3843b8a922563",
+        "sheet": "47-2B CLOUD cbm"
+      },
+      "weights": [
+        {
+          "kind": "GW",
+          "kg": 21,
+          "cells": "C8"
+        },
+        {
+          "kind": "CW",
+          "kg": 70,
+          "cells": "F8"
+        }
+      ],
+      "exchangeRate": {
+        "value": 210,
+        "currency": "CNY",
+        "cells": "C7",
+        "type": "WORKBOOK_REFERENCE"
+      },
+      "freight": {
+        "amount": 1830,
+        "currency": "CNY",
+        "cells": "C11",
+        "classification": "UNCLASSIFIED_ADDITIONAL_COSTS"
+      },
+      "calculatedVolume": {
+        "kg": 70,
+        "cells": "E8",
+        "useAsCw": false
+      },
+      "quarantineCount": {
+        "value": 18,
+        "cells": "C9",
+        "requiresConfirmation": true
+      },
+      "financialReviewRequired": true,
+      "unitConversions": [
+        {
+          "key": 51399,
+          "prodKey": 3529,
+          "from": "송이",
+          "to": "BUNCH",
+          "quantity": 90,
+          "amount": 2070,
+          "cells": "E35:F35",
+          "basis": "원장90송이는 보존하며 원가표의 계산수량90에 한해1:1 계산단위 사용"
+        }
+      ]
+    }
+  ]
+}

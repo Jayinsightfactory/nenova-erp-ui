@@ -14,7 +14,7 @@ const dry=process.argv.includes('--dry-run'),country=process.argv.includes('--co
   const check=async(label)=>page.click(`[aria-label=${JSON.stringify(label)}]`);
   await button('도착원가 작업');await fill('저장 연도','2026');await fill('저장 세부차수','46-01');await button('입고내역 조회 · 원가 계산');await page.waitForSelector('[aria-label="차수 통합 도착원가"]');
   if(country==='CO')await page.select('[aria-label="통합 대상 국가"]','CO');
-  if(!dry)rec=await createWorkflowGuideRecorder(page,{workflowId:'arrival-week-cost',guideId:'import',title:'차수 통합 원가 · 중국 A/B·콜롬비아',sourceFiles:['components/import-tools/ArrivalWeekCostReview.js','styles/ArrivalWeekCost.module.css','lib/arrivalWeekCost.js','lib/arrivalWeekCostHttp.js','lib/arrivalWeekCostWorkbook.js'],fixtureOnly:true,encodingPreset:'fast'});
+  if(!dry)rec=await createWorkflowGuideRecorder(page,{workflowId:'arrival-week-cost',guideId:'import',title:'차수 통합 원가 · 중국 A/B·콜롬비아',sourceFiles:JSON.parse(fs.readFileSync('config/workflow-guides.json')).workflows.find(w=>w.id==='arrival-week-cost').sourceFiles,fixtureOnly:true,encodingPreset:'fast'});
   const step=async(id,n,text,selector)=>{await page.$eval(selector,n=>n.scrollIntoView({block:'center',behavior:'instant'}));if(rec){rec.chapter(id,`${n}. ${text}`);await rec.caption(`${n}. ${text}`);await rec.pause(1700);await rec.focus(selector,n);await rec.pause(1500);}};
   const end=async()=>{if(rec){await rec.pause(1600);await rec.unfocus();}};
   await step('lookup',1,'연도·차수와 국가를 확인하고 현재 입고를 조회합니다. 원장은 바꾸지 않습니다.','[data-week-cost-lookup]');await page.click('[data-week-cost-lookup]');await page.waitForFunction(()=>document.querySelector('[aria-label="차수 통합 도착원가"]').innerText.includes('후보'));await end();

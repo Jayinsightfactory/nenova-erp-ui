@@ -56,3 +56,16 @@ test('form picks CLOUD only for CLOUD, auto-matches and retains saved category e
  f.document.reviewedMetadata.farmName='HUBFRESH';assert.equal(ui.applicableFormulaId(f.document),'CN_AIR_WEIGHT_CBM_V1');
  const require=createRequire(import.meta.url);require('next/dist/compiled/babel/core').transformSync(source,{filename:'InvoiceReceiptCostReview.js',presets:[require('next/dist/compiled/babel/preset-react')],configFile:false,babelrc:false});
 });
+
+
+test('distinct manual specifications retain separate live workbook lookups and tax rates',async()=>{
+ const f=fixture();f.input.cloudQuarantineCategoryCount=18;
+ const custom={label:'TEST_ONLY 규격',bunchesPerBox:20,length:100,width:30,height:20,tariffRate:.032,weightMode:'VOLUME'};
+ f.input.lineInputs[0].categoryOverride=custom;
+ f.input.lineInputs[1].categoryOverride={...custom,label:'TEST_ONLY 별도 규격',width:40,tariffRate:.214};
+ const preview=previewInvoiceCost({...f.document,costInput:f.input},f.document.lines);assert.equal(preview.status,'APPROVED',JSON.stringify(preview.issues));
+ const book=XLSX.read(await createInvoicePreviewCostWorkbook(f),{cellFormula:true}),main=book.Sheets['CLOUD 원가'],cat=book.Sheets['품종 기준'];
+ assert.equal(main.C12.v,22);assert.equal(main.C13.v,23);assert.equal(cat.H25.v,.032);assert.equal(cat.H26.v,.214);
+ assert.equal(cat.L25.v,0);assert.equal(cat.L26.v,1);assert.match(main.S13.f,/SUMPRODUCT/);assert.match(main.F12.f,/\$L\$26/);
+ assert.match(main.C6.f,/18\*V5/);assert.ok(Math.abs(main.C8.v-preview.totals.totalCostKRW)<1e-6);
+});

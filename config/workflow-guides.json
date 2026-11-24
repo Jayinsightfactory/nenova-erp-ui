@@ -259,7 +259,9 @@
       ],
       "sourceFiles": [
         "components/import-tools/NativeReceiptCost.js",
-        "components/import-tools/InvoiceReceiptCostReview.js"
+        "components/import-tools/InvoiceReceiptCostReview.js",
+        "components/import-tools/CloudCostCategories.js",
+        "styles/CloudCostCategories.module.css"
       ],
       "requiredScenarios": [
         "lookup",
@@ -279,22 +281,22 @@
             {
               "scenario": "lookup",
               "title": "1. 기존 입고의 자동 통화·중량·참고 세율을 확인합니다. 인보이스 재업로드와 매칭은 반복하지 않습니다.",
-              "seconds": 0.008
+              "seconds": 0.006
             },
             {
               "scenario": "categories",
-              "title": "2. 품종별 카테고리를 확인합니다. 장미를 유칼립투스로 바꾸면 운임과 관세가 다시 계산됩니다.",
-              "seconds": 9.621
+              "title": "2. 원문과 전산 품목 옆에서 CLOUD 카테고리를 수정합니다. 확인한 행은 사라지지 않습니다.",
+              "seconds": 9.54
             },
             {
               "scenario": "inputs",
               "title": "3. 자동 환율을 확인하고 필요할 때만 수정합니다. 수정 후 별도 체크나 미리보기 없이 다시 검증됩니다.",
-              "seconds": 21.436
+              "seconds": 21.587
             },
             {
               "scenario": "download",
               "title": "4. 다운로드를 누르면 서버가 현재 입고·금액·수량을 다시 검증하고 엑셀을 만듭니다. 운영 원장은 저장하지 않습니다.",
-              "seconds": 33.633
+              "seconds": 33.774
             }
           ]
         }
@@ -1634,52 +1636,6 @@
       ]
     },
     {
-      "id": "arrival-upload-review",
-      "title": "도착원가 시트 검토 업로드",
-      "entryPaths": [
-        "/arrival-cost"
-      ],
-      "sourceFiles": [
-        "pages/arrival-cost.js",
-        "components/ArrivalUploadReview.js",
-        "lib/arrivalReviewCountries.js",
-        "styles/ArrivalUploadReview.module.css"
-      ],
-      "requiredScenarios": [
-        "analyze",
-        "review",
-        "save"
-      ],
-      "guides": [
-        {
-          "id": "import",
-          "role": "수입부",
-          "title": "원본 분석·시트 검토·저장",
-          "status": "ready",
-          "src": "/guides/arrival-upload-review/import.mp4",
-          "captions": "/guides/arrival-upload-review/import.ko.vtt",
-          "proof": "/guides/arrival-upload-review/import.proof.json",
-          "chapters": [
-            {
-              "scenario": "analyze",
-              "title": "1. 원본 엑셀 분석",
-              "seconds": 0
-            },
-            {
-              "scenario": "review",
-              "title": "2. 국가·차수·연도와 제외 시트 검토",
-              "seconds": 15.715
-            },
-            {
-              "scenario": "save",
-              "title": "3. 선택 시트 저장·결과 확인",
-              "seconds": 58.308
-            }
-          ]
-        }
-      ]
-    },
-    {
       "id": "desktop-flight-popup",
       "title": "데스크톱 수입 비행기 확대 지도·상세내역",
       "entryPaths": [
@@ -2395,11 +2351,16 @@
       "title": "중국 A/B·콜롬비아 차수 통합 원가",
       "entryPaths": [
         "/import/tools",
-        "/import/pipeline"
+        "/import/pipeline",
+        "/arrival-cost"
       ],
       "sourceFiles": [
+        "pages/arrival-cost.js",
+        "components/import-tools/InvoiceWarehouseCostBrowse.js",
         "components/import-tools/ArrivalWeekCostReview.js",
+        "components/import-tools/CloudCostCategories.js",
         "styles/ArrivalWeekCost.module.css",
+        "styles/CloudCostCategories.module.css",
         "lib/arrivalWeekCost.js",
         "lib/arrivalWeekCostHttp.js",
         "lib/arrivalWeekCostWorkbook.js"
@@ -2424,33 +2385,79 @@
           "chapters": [
             {
               "scenario": "lookup",
-              "title": "1. 연도·차수와 국가를 확인하고 현재 입고를 조회합니다. 원장은 바꾸지 않습니다.",
-              "seconds": 0.005
+              "title": "1. 도착원가에서 연도·차수만으로 입고를 조회합니다.",
+              "seconds": 0.015
             },
             {
               "scenario": "selection",
-              "title": "2. 원본·송장·AWB로 포함할 입고를 선택합니다. 나중 파일을 올렸으면 다시 조회해 함께 선택합니다.",
-              "seconds": 10.325
+              "title": "2. 여러 입고를 체크한 뒤 다음을 누릅니다. 한 건을 눌러도 화면은 넘어가지 않습니다.",
+              "seconds": 10.058
             },
             {
               "scenario": "inputs",
-              "title": "3. AWB 전체 중량·환율 근거를 확인합니다. 검증용 환율은 당시 확정환율과 구분합니다. 혼합 품종은 원본 FB를 씁니다.",
-              "seconds": 20.694
+              "title": "3. 원문·전산 품목·카테고리를 같은 행에서 확인하고 직접 수정합니다. 입력과 공유 저장 결과는 유지됩니다.",
+              "seconds": 20.113
             },
             {
               "scenario": "expenses",
-              "title": "4. 각 운임과 공유 통관비에 증빙 식별자·대상 AWB를 지정합니다. 같은 증빙만 한 번, 별도 청구는 각각 반영합니다.",
-              "seconds": 33.415
+              "title": "4. 근거 있는 중량과 환율을 확인하고 비용 증빙별 적용 대상을 지정합니다. 확인하지 않은 비용은 확정하지 않습니다.",
+              "seconds": 34.779
             },
             {
               "scenario": "preview",
-              "title": "5. 선택 입고·비용 귀속을 확인한 뒤 계산을 검증합니다. 빠진 비용과 중복·동시 추가는 다운로드 전에 막힙니다.",
-              "seconds": 46.494
+              "title": "5. 선택한 입고와 비용의 귀속을 확인한 뒤 계산을 검증합니다.",
+              "seconds": 48.13
             },
             {
               "scenario": "download",
-              "title": "6. 한 원가 시트로 내려받습니다. 원본 입고·송장·AWB와 비용 근거, 검증용 환율 표시를 함께 보존합니다.",
-              "seconds": 56.848
+              "title": "6. 한 시트의 원가 파일을 내려받습니다. 원문·매칭·카테고리와 계산 단위 근거가 함께 남습니다.",
+              "seconds": 57.961
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arrival-upload-review",
+      "title": "도착원가 시트 검토 업로드",
+      "entryPaths": [
+        "/arrival-cost"
+      ],
+      "sourceFiles": [
+        "pages/arrival-cost.js",
+        "components/ArrivalUploadReview.js",
+        "lib/arrivalReviewCountries.js",
+        "styles/ArrivalUploadReview.module.css"
+      ],
+      "requiredScenarios": [
+        "analyze",
+        "review",
+        "save"
+      ],
+      "guides": [
+        {
+          "id": "import",
+          "role": "수입부",
+          "title": "원본 분석·시트 검토·저장",
+          "status": "ready",
+          "src": "/guides/arrival-upload-review/import.mp4",
+          "captions": "/guides/arrival-upload-review/import.ko.vtt",
+          "proof": "/guides/arrival-upload-review/import.proof.json",
+          "chapters": [
+            {
+              "scenario": "analyze",
+              "title": "1. 원본 엑셀 분석",
+              "seconds": 0
+            },
+            {
+              "scenario": "review",
+              "title": "2. 국가·차수·연도와 제외 시트 검토",
+              "seconds": 15.907
+            },
+            {
+              "scenario": "save",
+              "title": "3. 선택 시트 저장·결과 확인",
+              "seconds": 58.597
             }
           ]
         }

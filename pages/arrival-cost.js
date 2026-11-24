@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import ArrivalDriveAutoPanel from '../components/ArrivalDriveAutoPanel';
 import InvoiceArrivalCostPanel from '../components/import-tools/InvoiceArrivalCostPanel';
+import InvoiceWarehouseCostBrowse from '../components/import-tools/InvoiceWarehouseCostBrowse';
+import {normalizeWarehouseBrowse} from '../lib/invoiceWarehouseBrowse.js';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
 import { arrivalVarietyWeightActive, arrivalWeightHints, filterArrivalRowsByWeight, formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder, rowCost, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
 import { recalcArrivalCostWithFx } from '../lib/arrivalCostFxPreview.js';
@@ -107,6 +109,7 @@ export default function ArrivalCostPage() {
     orderYear: String(new Date().getFullYear()), orderWeek: '', country: '', flower: '', product: '', farm: '', weekOrder: 'desc',
   });
   const [data, setData] = useState({ rows: [], imports: [], total: 0, page: 1, pageSize: 200, hasMore: false });
+  const receiptScope=useMemo(()=>{try{return normalizeWarehouseBrowse({orderYear:String(appliedFilters.orderYear),orderWeek:appliedFilters.orderWeek});}catch{return null;}},[appliedFilters.orderYear,appliedFilters.orderWeek]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -261,7 +264,11 @@ export default function ArrivalCostPage() {
       return;
     }
     if (!filters.orderWeek) { setError('품목명으로 검색하거나 품종을 선택하세요. 전체보기는 차수를 입력하세요.'); return; }
-    if (!filters.flower) { setError('품종을 선택하거나 전체보기를 누르세요.'); return; }
+    if (!filters.flower) {
+      try{const scope=normalizeWarehouseBrowse({orderYear:String(filters.orderYear),orderWeek:filters.orderWeek});setError('');setPage(1);setAppliedFilters({...filters,...scope,allVarieties:'1',weekOrder:normalizeWeekOrder(filters.weekOrder)});}
+      catch{setError('연도와 세부차수를 확인하세요. 예: 2026 / 47-02');}
+      return;
+    }
     setError('');
     setPage(1);
     setAppliedFilters({ ...filters, allVarieties: '', weekOrder: normalizeWeekOrder(filters.weekOrder) });
@@ -307,6 +314,12 @@ export default function ArrivalCostPage() {
           <span className="read-only-badge">웹 원장 전용</span>
         </div>
 
+        <section aria-label="차수 입고자료로 원가 작성">
+          <h3>입고자료로 도착원가 계산</h3>
+          {receiptScope
+            ? <InvoiceWarehouseCostBrowse orderYear={receiptScope.orderYear} orderWeek={receiptScope.orderWeek} country={appliedFilters.country}/>
+            : <p>연도·세부차수를 조회하면 업로드한 입고를 여러 건 선택해 계산할 수 있습니다. 승인 원가가 없어도 계산본을 작성할 수 있습니다.</p>}
+        </section>
         <details><summary>인보이스 승인 이력·엑셀 다운로드</summary><InvoiceArrivalCostPanel orderYear={appliedFilters.orderYear} orderWeek={appliedFilters.orderWeek} country={appliedFilters.country} /></details>
         <ArrivalDriveAutoPanel />
         <section className="arrival-card">

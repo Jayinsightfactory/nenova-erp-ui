@@ -5,6 +5,10 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
   const { createNativeCostWorkbook } = await import('../lib/invoiceReceiptCostExport.js');
   const { createNativeCostHandler } = await import('../lib/nativeCostHttp.js');
   const { fetchLiveInvoiceRate } = await import('../lib/invoiceLiveExchangeRate.js');
+  const {createCloudCostMappingHandler}=await import('../lib/cloudCostMappingHttp.js');
+  const {readImportTeamRecord,writeImportTeamRecord}=await import('../lib/importTeamStore.js');
+  const fixtureFs=require('node:fs/promises'),fixturePath=require('node:path'),fixtureOs=require('node:os');
+  const mappingRoot=process.env.CLOUD_EDIT_FIXTURE==='1'?await fixtureFs.mkdtemp(fixturePath.join(fixtureOs.tmpdir(),'cloud-edit-ui-')):null;
   const appPort=Number(process.env.NATIVE_APP_PORT||19430),uiPort=Number(process.env.NATIVE_UI_PORT||19431);
   const secret = crypto.randomBytes(32).toString('hex'), user = { userId:'fixture-user', userName:'테스트 담당자', authority:1, deptName:'테스트' };
   const token = jwt.sign(user, secret, { expiresIn:'2h' });
@@ -22,6 +26,7 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
     raw.push(...s.excluded.map(l=>({...header,WdetailKey:l.key,ProdName:l.name,OutQuantity:l.quantity,TPrice:l.amount})));
   }
   if(!Array.isArray(raw)||!raw.length)throw Error('Fixture requires nonempty receipt rows');
+  if(process.env.CLOUD_EDIT_FIXTURE==='1')raw=raw.map(r=>({...r,ProductDeleted:0,CountryName:r.CounName,SourceOriginalName:`TEST_ONLY 원문 ${r.WarehouseKey}`}));
   const types = { Int:1, NVarChar:n=>n }, queryFn = async (sql,p) => {
     if (/\b(INSERT|UPDATE|DELETE|EXEC|MERGE)\b/i.test(sql)) throw new Error('Write blocked');
     counts.read++;
@@ -31,14 +36,20 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
     return { recordset: raw.filter(r=>(!p.warehouseKey||r.WarehouseKey===p.warehouseKey.value)&&r.OrderYear===p.orderYear.value&&r.OrderWeek===p.orderWeek.value) };
   };
   const child = spawn(process.execPath,[require.resolve('next/dist/bin/next'),...(process.env.NATIVE_FIXTURE_DEV==='1'?['dev','--webpack']:['start']),'-H','127.0.0.1','-p',String(appPort)],{
-    env:{...process.env,DB_SERVER:'',DB_USER:'',DB_PASSWORD:'',NEXT_DIST_DIR:'.next',JWT_SECRET:secret},stdio:['ignore','ignore','ignore'],windowsHide:true });
+    env:{...process.env,DB_SERVER:'',DB_USER:'',DB_PASSWORD:'',NEXT_DIST_DIR:'.next',JWT_SECRET:secret},stdio:['ignore',mappingRoot?'inherit':'ignore',mappingRoot?'inherit':'ignore'],windowsHide:true });
   const server = http.createServer(async (req,res) => {
     const url = new URL(req.url,'http://127.0.0.1');
     const send = (value,status=200) => {res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(value));};
     if(url.pathname==='/fixture-status') return send(counts);
     if(url.pathname.startsWith('/api/')) {
+      const requestUser=mappingRoot&&String(req.headers.cookie??'').includes('fixtureUser=second')?{...user,userId:'fixture-second'}:user;
       let body='';for await(const chunk of req) body+=chunk;
       let payload={};try {payload=JSON.parse(body||'{}');}catch{}
+      if(mappingRoot&&url.pathname==='/api/import/receipts/cloud-mappings'){
+        res.status=n=>{res.statusCode=n;return res;};res.json=v=>{res.setHeader('Content-Type','application/json; charset=utf-8');res.end(JSON.stringify(v));};
+        if(req.method==='POST')counts.mappingSaves=(counts.mappingSaves??0)+1;
+        return createCloudCostMappingHandler({authorize:u=>u===requestUser,queryFn,types,readRecord:key=>readImportTeamRecord(key,{root:mappingRoot}),writeRecord:(key,request)=>writeImportTeamRecord(key,request,{root:mappingRoot})})({method:req.method,query:Object.fromEntries(url.searchParams),body:payload,user:requestUser},res);
+      }
       if(process.env.CONTRACT_RECEIPT_FIXTURE==='1'&&url.pathname==='/api/import/receipts/auto-fill'&&req.method==='POST')return /^\d{4}$/.test(String(payload.orderYear||''))?send({success:true,resolution:{farm:{farmKey:1,farmName:'Cloudland TEST_ONLY'},inputDate:payload.rawMetadata?.invoiceUploadDate||'',transportMode:'AIR',issues:[],source:{basis:'TEST_ONLY'}}}):send({success:false,error:'인보이스 연도를 확인하세요.'},400);
       if(process.env.CONTRACT_RECEIPT_FIXTURE==='1'&&req.method==='GET'&&/^\/api\/import\/receipts\/[a-f0-9-]{36}$/.test(url.pathname))return send({success:false,code:'INVOICE_DOCUMENT_NOT_FOUND',error:'TEST_ONLY document not saved'},404);
       if(url.pathname==='/api/import/receipts/week-cost') {
@@ -58,10 +69,13 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
       }
       if(req.method!=='GET'){counts.blockedWrites++;return send({success:false,error:'Fixture blocks writes'},409);}
       if(url.pathname==='/api/import/receipts/live-exchange-rate'){
+        if(mappingRoot)return send({success:true,currency:'CNY',rate:210,marketRate:195,adjustmentKRW:15,quoteAt:'2026-11-24T00:00:00Z',requestedAt:'2026-11-24T00:00:00Z',source:'TEST_ONLY',sourceUrl:'http://127.0.0.1/fixture-rate'});
         try{return send({success:true,...await fetchLiveInvoiceRate(url.searchParams.get('currency'))});}
         catch{return send({success:false,error:'시험 환율 조회 실패'},503);}
       }
-      if(url.pathname==='/api/auth/me')return send({success:true,user});
+      if(url.pathname==='/api/auth/me')return send({success:true,user:requestUser});
+      if(mappingRoot&&url.pathname==='/api/arrival-cost/drive-auto')return send({success:false,error:'TEST_ONLY Drive auto is outside this fixture'},403);
+      if(mappingRoot&&url.pathname==='/api/arrival-cost')return send({success:true,rows:[],imports:[],total:0,page:1,pageSize:200,hasMore:false,varieties:['장미'],matchedVarieties:[]});
       if(url.pathname==='/api/import/receipts/warehouse-list')return send({success:true,
         scope:{orderYear:url.searchParams.get('orderYear'),orderWeek:url.searchParams.get('orderWeek')},
         rows:raw.filter(r=>String(r.OrderYear)===url.searchParams.get('orderYear')&&r.OrderWeek===url.searchParams.get('orderWeek'))
@@ -70,7 +84,7 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
       if(url.pathname==='/api/import/tools/product-matches')return send({success:true,products:[],value:{version:1,entries:[]},revision:1});
       return send({success:true,items:[],history:[],events:[],entries:[],documents:[]});
     }
-    const upstream=http.request({hostname:'127.0.0.1',port:appPort,path:req.url,method:req.method,headers:{...req.headers,host:`127.0.0.1:${appPort}`,cookie:`nenovaToken=${token}`,authorization:`Bearer ${token}`}},r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res);});
+    const upstream=http.request({hostname:'127.0.0.1',port:appPort,path:req.url,method:req.method,headers:{...req.headers,host:`127.0.0.1:${appPort}`,cookie:`nenovaToken=${token}`,authorization:`Bearer ${token}`}},r=>{res.writeHead(r.statusCode,{...r.headers,...(mappingRoot?{'set-cookie':`nenovaToken=${token}; Path=/; SameSite=Lax`}:{})});r.pipe(res);});
     upstream.on('error',()=>{res.writeHead(503);res.end('Starting isolated app');});req.pipe(upstream);
   });
   server.listen(uiPort,'127.0.0.1',()=>console.log(`NATIVE_UI_FIXTURE http://127.0.0.1:${uiPort}/import/tools?popup=1`));
