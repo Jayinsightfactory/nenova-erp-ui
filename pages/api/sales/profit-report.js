@@ -48,6 +48,7 @@ import {applyProfitEstimateCalendarView} from '../../../lib/profitEstimateCalend
 import { mixedFreightDeltas, applyMixedFreightView, assertFreightConservationForCache } from '../../../lib/profitMixedFreightView.js';
 import { autoForwardingByCountry } from '../../../lib/customsForwarding.js';
 import { detectStaleProfitSnapshot, safeAutoRefreshUnconfirmedProfitSnapshot, mergeKcsRatesWithSnapshotFallback } from '../../../lib/profitReportAutoRefresh.js';
+import { orchid4403ReportView } from '../../../lib/profitOrchid4403Data.js';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -787,6 +788,11 @@ async function loadCoherentLatestReport(major,orderYear,{forCache=false}={}){
   return forCache?execute():shareLatestProfitRead(orderYear,major,execute);
 }
 export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
+  const exactView=String(orderYear)==='2026'&&Number(major)===44;
+  const payload=await loadWeeklyReportBase(major,orderYear,exactView?{...options,checkStale:false}:options);
+  return exactView ? orchid4403ReportView(payload,major,orderYear) : payload;
+}
+async function loadWeeklyReportBase(major, orderYear, options = {}) {
   const {mode='display',preferLive=false,currentPeriod,confirmedResult,storedResult,checkStale}=options;
   const activeConfirm = confirmedResult !== undefined ? confirmedResult : await getActiveConfirm(orderYear, major);
   if (activeConfirm?.initialized && activeConfirm.confirm) {
@@ -948,7 +954,7 @@ export default withAuth(async function handler(req, res) {
         const { buildProfitReportXlsx } = await import('../../../lib/profitReportExcel');
         const { loadProfitImpactNotes } = await import('../../../lib/profitImpactNotesData');
         const display = profitDisplayCalculation(data);
-        const impactNotes = await loadProfitImpactNotes(data, s => loadWeeklyReportPayload(s.major, s.year, { currentPeriod: { orderYear: '9999', major: '53' } }));
+        const impactNotes = await loadProfitImpactNotes(data, s => loadWeeklyReportPayload(s.major, s.year, { checkStale:false, currentPeriod: { orderYear: '9999', major: '53' } }));
         const visibleCols = String(req.query.cols || '').split(',').map(s => s.trim()).filter(Boolean);
         const buf = buildProfitReportXlsx({
           // 자동 미분류 내역은 웹에서 확인·처리하는 검증 정보다. 다운로드 파일에는

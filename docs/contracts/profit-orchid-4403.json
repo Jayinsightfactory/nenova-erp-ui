@@ -1,0 +1,11 @@
+{
+ "id":"profit-orchid-4403",
+ "title":"44-03 호접란23CNY 승인 단건 표시 투영",
+ "scope":["lib/profitOrchid4403.js","lib/profitOrchid4403Data.js","lib/profitChinaTransportData.js","pages/api/sales/profit-report.js","pages/api/sales/profit-report-output.js","lib/profitReportCalcHash.cjs","scripts/probe-profit-orchid-4403.cjs"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "actions":[{"name":"READ_APPROVED_ORCHID_PRICE_VIEW","orderDetail":"preserve","shipmentDetail":"preserve","shipmentDate":"preserve","shipmentFarm":"preserve","estimate":"preserve","productStock":"preserve","stockHistory":"preserve","webProfitReport":"preserve","sideEffect":"SELECT and cloned display only. Exact2026/44-03 Warehouse7870 Detail47389 Prod3529 AWB99997130176 Cloudland600stems. Approved23 CNY/stem; no ERP or snapshot/confirmation DML, no auto refresh. Preserve other periods/rows and manual values. Validated ending average follows purchase delta once."}],
+ "crossYearFixture":{"required":true,"description":"2025/44-03 and2026/43/45, same product other detail or warehouse, wrongAWB/farm/unit/quantity, alreadycorrected and repeatprojection preserve."},
+ "requiredTestFiles":["__tests__/profitOrchid4403.test.cjs","__tests__/profitChinaTransportApi.test.cjs","__tests__/profitRangeOutput.test.cjs"],
+ "dnspyEvidence":{"required":true,"record":"docs/plans/profit-orchid-4403-2026-11-24.md","source":"Installed FormWarehouseView dnSpy and exact SELECT evidence; web-only approved price, ERP original preserved.","methods":["FormWarehouseView.GetData","FormWarehouseView.GetDetail"],"tables":["WarehouseMaster","WarehouseDetail","Product","WebProfitReportSnapshot","WebProfitReportConfirm"]},
+ "requiredCommands":["node __tests__/profitOrchid4403.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run verify:erp-change","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}
