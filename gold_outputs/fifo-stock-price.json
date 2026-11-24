@@ -1,0 +1,140 @@
+{
+  "id": "fifo-stock-price",
+  "title": "기말재고 품목단가 선입선출(FIFO) — 2026-09-30 사장님 규칙",
+  "module": "lib/profitReportCalc.js",
+  "export": "computeFifoStockUnitPrice",
+  "source": [
+    "__tests__/profitReportFifoStockPrice.test.js 항목 1·2·3·4·5 (기말재고 F 품목단가 선입선출, 2026-09-30 사장님 규칙)"
+  ],
+  "cases": [
+    {
+      "name": "기말 8단 ≤ 이번 차수 매입 10단 → 전부 이번 차수 단가",
+      "input": [
+        {
+          "endQty": 8,
+          "unit": "단",
+          "layers": [
+            {
+              "offset": 0,
+              "qty": 10,
+              "price": 1000,
+              "unit": "단"
+            },
+            {
+              "offset": 1,
+              "qty": 50,
+              "price": 500,
+              "unit": "단"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "status": "FIFO",
+        "price": 1000,
+        "value": 8000
+      }
+    },
+    {
+      "name": "기말 35송이: 이번(10)→전(10)→전전(10)→전전전(5) 순 소진",
+      "input": [
+        {
+          "endQty": 35,
+          "unit": "송이",
+          "layers": [
+            {
+              "offset": 3,
+              "qty": 100,
+              "price": 400
+            },
+            {
+              "offset": 0,
+              "qty": 10,
+              "price": 1000
+            },
+            {
+              "offset": 2,
+              "qty": 10,
+              "price": 600
+            },
+            {
+              "offset": 1,
+              "qty": 10,
+              "price": 800
+            }
+          ]
+        }
+      ],
+      "tolerance": 1e-9,
+      "expected": {
+        "status": "FIFO",
+        "value": 26000,
+        "price": 742.8571428571429
+      }
+    },
+    {
+      "name": "이번 차수 매입 없음 → 전차수 단가",
+      "input": [
+        {
+          "endQty": 5,
+          "layers": [
+            {
+              "offset": 1,
+              "qty": 20,
+              "price": 700
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "price": 700
+      }
+    },
+    {
+      "name": "룩백 4차수 밖(offset 4) 레이어는 무시",
+      "input": [
+        {
+          "endQty": 5,
+          "layers": [
+            {
+              "offset": 4,
+              "qty": 20,
+              "price": 700
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "status": "NO_PURCHASE",
+        "reason": "단가 근거 없음(4차수 내 매입 없음)"
+      }
+    },
+    {
+      "name": "단위 불일치(박스 단가 9999)는 단 품목에 쓰지 않음",
+      "input": [
+        {
+          "endQty": 15,
+          "unit": "단",
+          "layers": [
+            {
+              "offset": 0,
+              "qty": 10,
+              "price": 9999,
+              "unit": "박스"
+            },
+            {
+              "offset": 1,
+              "qty": 10,
+              "price": 500,
+              "unit": "BUNCH"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "status": "FIFO",
+        "value": 7500
+      }
+    }
+  ]
+}

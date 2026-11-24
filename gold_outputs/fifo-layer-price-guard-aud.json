@@ -1,0 +1,75 @@
+{
+  "id": "fifo-layer-price-guard-aud",
+  "title": "FIFO 레이어 단가 하한 가드 — 2026 30~32차 호주(AUD) 사고",
+  "module": "lib/profitReport.js",
+  "export": "guardFifoLayerPrice",
+  "source": [
+    "__tests__/profitReportFifoLayerPriceGuard.test.js 주석: AUD 환율 누락으로 재고가 1/200 로 평가된 2026 30~32차 사고 (매입 14.5 AUD × 과세환율 1056.39 + 통관배분 271.43)"
+  ],
+  "cases": [
+    {
+      "name": "환율 0 근거(goodsCostMissing) → 매입단가×과세환율+통관배분으로 대체",
+      "input": [
+        {
+          "evidencePrice": 74.44,
+          "goodsCostMissing": true,
+          "purchaseForeignPerUnit": 14.5,
+          "taxableRate": 1056.39,
+          "hShare": 271.43
+        }
+      ],
+      "tolerance": 0.000001,
+      "expected": {
+        "flag": "goods-cost-missing",
+        "purchasePrice": 15317.655,
+        "price": 15589.085,
+        "original": 74.44
+      }
+    },
+    {
+      "name": "매입×환율×0.5 미만이면 하한 가드 대체",
+      "input": [
+        {
+          "evidencePrice": 97,
+          "purchaseForeignPerUnit": 14.5,
+          "taxableRate": 1018.82,
+          "hShare": 0
+        }
+      ],
+      "tolerance": 0.000001,
+      "expected": {
+        "flag": "below-purchase-floor",
+        "price": 14772.89
+      }
+    },
+    {
+      "name": "정확히 50% 경계는 통과",
+      "input": [
+        {
+          "evidencePrice": 5000,
+          "purchaseForeignPerUnit": 10,
+          "taxableRate": 1000
+        }
+      ],
+      "expected": {
+        "flag": null,
+        "price": 5000
+      }
+    },
+    {
+      "name": "정상 도착원가는 그대로",
+      "input": [
+        {
+          "evidencePrice": 16500,
+          "purchaseForeignPerUnit": 14.5,
+          "taxableRate": 1018.82,
+          "hShare": 300
+        }
+      ],
+      "expected": {
+        "flag": null,
+        "price": 16500
+      }
+    }
+  ]
+}
