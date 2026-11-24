@@ -40,7 +40,7 @@ test('Pedidos UI wires read-only auto source, exact year/week, hidden-tab gate a
   assert.match(ui, /matrix.blockers.length === 0/); assert.match(ui, /matrix.scope.orderWeek === orderWeek/);
   assert.match(ui, /generation !== contextGeneration.current/); assert.match(ui, /!results\?\.includes\(output\)/);
   for (const handler of ['changeSource', 'changeCountry', 'changeCycle']) assert.match(ui, new RegExp(`function ${handler}[^]*?requestGuard.current.invalidate\\(\\)`));
-  assert.match(ui, /invalidate\(setOrderWeek, subweek.orderWeek\)/); assert.match(ui, /invalidate\(setFile/);
+  assert.match(ui, /invalidate\(setOrderWeek, orderWeek === subweek\.orderWeek \? '' : subweek\.orderWeek\)/); assert.match(ui, /invalidate\(setFile/);
   // The only write is the explicit, audited Product factor save through the existing bulk API (user confirms in a dialog); country-orders stays GET-only.
   assert.deepEqual([...ui.matchAll(/fetch\('([^']+)',\s*\{[^}]*method:\s*'(POST|PUT|PATCH|DELETE)'/g)].map(m => `${m[2]} ${m[1]}`), ['POST /api/master/products-bulk']);
 });
