@@ -11,7 +11,9 @@
     "lib/manualWarehouseUpload.js",
     "lib/manualWarehouseUploadDb.js",
     "components/WarehouseManualUpload.js",
-    "components/WarehouseManualUpload.module.css"
+    "components/WarehouseManualUpload.module.css",
+    "components/import-tools/HubfreshPacking.js",
+    "lib/hubfreshPacking.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -131,6 +133,7 @@
   },
   "requiredTestFiles": [
     "__tests__/warehousePackingImport.test.js",
+    "__tests__/hubfreshPacking.test.cjs",
     "__tests__/incomingWarehouseDisplay.test.js",
     "__tests__/incomingQueryDateRange.test.js",
     "__tests__/erpContractManifest.test.js",
@@ -173,5 +176,13 @@
     ],
     "denied": "Unrelated roles, missing identity, inactive account; no DB call before authorization",
     "deletion": "Existing PK lookup, fixed-week guard, soft delete and stock recalculation preserved; no new SQL"
+  },
+  "hubfreshPreparation": {
+    "criteria": "CL-containing customer code, carton number present, and unique China ERP name. Missing or mixed classification is shown for review. The selected order year is passed separately from the upload date.",
+    "actions": {
+      "classifyAndExport": "No ERP writes",
+      "prepareUpload": "Existing warehouse packing parser and preview. No ERP writes until the existing confirmation."
+    },
+    "sameWeekFixture": "2025/48-01 and 2026/48-01 use their explicitly selected order years."
   }
 }

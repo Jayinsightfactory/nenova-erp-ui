@@ -46,13 +46,15 @@ function History({onRestore}){
   </table>{!busy&&!rows.length&&<div className={styles.empty}>아직 공동 자료 변경 이력이 없습니다.<small>카탈로그나 체크리스트를 저장하면 이곳에 기록됩니다.</small></div>}{busy&&<p role="status" className={styles.loading}>변경 이력을 불러오는 중입니다…</p>}</div>
  </section>;
 }
-export default function ImportTools({userId='',initialTab='packing',initialCostScope=null}){
+export default function ImportTools({userId='',initialTab='packing',initialCostScope=null,initialHubfresh=false}){
  const [packingWorkMode,setPackingWorkMode]=useState(initialCostScope?'cost':'upload');
  const [costVisited,setCostVisited]=useState(Boolean(initialCostScope));
  const [resumeReceiptScope,setResumeReceiptScope]=useState(initialCostScope?{...initialCostScope,userId}:null);
  const [sharedRestore,setSharedRestore]=useState(null);
  const restoreShared=useCallback(snapshot=>{setSharedRestore({snapshot,id:crypto.randomUUID()});setTab('packing');setPackingWorkMode('upload');},[]);
  const [tab,setTab]=useState(initialTab),[saveError,setSaveError]=useState('');
+ const [hubfreshFile,setHubfreshFile]=useState(null);
+ const [hubfreshMode,setHubfreshMode]=useState(false);
  const [incomingVisited,setIncomingVisited]=useState(initialTab==='incoming');
  const [receiptSource,setReceiptSource]=useState(EMPTY_RECEIPT_SOURCE);
  const [receiptMatchState,setReceiptMatchState]=useState(null);
@@ -70,7 +72,7 @@ export default function ImportTools({userId='',initialTab='packing',initialCostS
  const [feedbackVisited,setFeedbackVisited]=useState(false);
  const [flightCount,setFlightCount]=useState(null);
  const [productsVisited,setProductsVisited]=useState(false),[productsDirty,setProductsDirty]=useState(false);
- function selectTab(id){setTab(id);if(id==='incoming')setIncomingVisited(true);if(id==='feedback')setFeedbackVisited(true);if(id==='products')setProductsVisited(true);
+ function selectTab(id){setTab(id);if(id!=='incoming')setHubfreshMode(false);if(id==='incoming')setIncomingVisited(true);if(id==='feedback')setFeedbackVisited(true);if(id==='products')setProductsVisited(true);
   const params=new URLSearchParams(window.location.search);if(id==='incoming')params.set('tab',id);else params.delete('tab');window.history.replaceState(null,'',`${window.location.pathname}?${params}`);
  }
  function moveTabFocus(event){const keys=['ArrowLeft','ArrowRight','Home','End'];if(!keys.includes(event.key))return;const buttons=[...event.currentTarget.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);if(index<0)return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].focus();}
@@ -83,7 +85,8 @@ export default function ImportTools({userId='',initialTab='packing',initialCostS
   <div className={styles.content}>
    <section id="import-panel-incoming" hidden={tab!=='incoming'} aria-label="입고 조회·수정">
     <div className={styles.sectionHeading}><div><h2>입고 조회·수정</h2><p>수입부 수정 요청 → 영업지원 매칭·확정 → 처리 이력</p></div><a href="/incoming">입고관리에서 열기 ↗</a></div>
-    {incomingVisited&&<IncomingApproval active={tab==='incoming'}><Incoming embedded active={tab==='incoming'} onClose={()=>selectTab('packing')}/></IncomingApproval>}
+    {incomingVisited&&<div hidden={hubfreshMode}><IncomingApproval active={tab==='incoming'&&!hubfreshMode}><Incoming embedded active={tab==='incoming'&&!hubfreshMode} onClose={()=>selectTab('packing')}/></IncomingApproval></div>}
+    {hubfreshMode&&<Incoming embedded active={tab==='incoming'} packingFile={hubfreshFile} onPackingFileConsumed={()=>setHubfreshFile(null)} onClose={()=>selectTab('packing')}/>}
    </section>
    {productsDirty&&tab!=='products'&&<p role="status">품목관리의 저장 전 입력을 보관 중입니다. <button type="button" onClick={()=>selectTab('products')}>품목관리로 돌아가기</button></p>}
    <div id="import-panel-packing" hidden={tab!=='packing'}>
@@ -91,7 +94,7 @@ export default function ImportTools({userId='',initialTab='packing',initialCostS
      {[['upload','인보이스 업로드','국가 선택 · 품목 매칭'],['receipt','입고 작업','수량 확인 · 입고 업로드'],['cost','도착원가 작업','기존 입고로 도착원가 생성']].map(([id,label,hint])=><button type="button" key={id} aria-pressed={packingWorkMode===id} onClick={()=>{if(id==='cost')setCostVisited(true);setPackingWorkMode(id);}}><strong>{label}</strong><small>{hint}</small></button>)}
     </nav>
     {costVisited&&<div hidden={packingWorkMode!=='cost'}><IndependentCostWorkspace key={userId} userId={userId} storage={storage} resumeReceiptScope={resumeReceiptScope}/></div>}
-    <div hidden={packingWorkMode!=='upload'}><PackingListTool key={userId} userId={userId} sharedRestore={sharedRestore} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState} onContinue={()=>setPackingWorkMode('receipt')}/></div>
+    <div hidden={packingWorkMode!=='upload'}><PackingListTool key={userId} initialHubfresh={initialHubfresh} onHubfreshUpload={file=>{setHubfreshFile(file);setHubfreshMode(true);selectTab('incoming');}} userId={userId} sharedRestore={sharedRestore} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState} onContinue={()=>setPackingWorkMode('receipt')}/></div>
     <div id="packing-receipt-stage" hidden={packingWorkMode!=='receipt'} tabIndex={-1} style={{scrollMarginTop:16}}>
      {receiptSource.packingActive && !receiptSource.excels.length && receiptSource.country!=='NZ' && <p role="status">인보이스 업로드에서 파일을 준비하세요. <button type="button" onClick={()=>setPackingWorkMode('upload')}>인보이스 업로드로 돌아가기</button></p>}
      <InvoiceReceiptWorkbench key={userId} userId={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState} workspaceMode="receipt" onWorkspaceModeChange={(mode,scope)=>{
@@ -126,5 +129,5 @@ export async function getServerSideProps({req,res,query={}}){
  if(!user)return {redirect:{destination:'/login',permanent:false}};
  const initialTab=query.tab==='incoming'?'incoming':'packing';
  const initialCostScope=query.tab==='cost'?invoiceReceiptCostScope(query):null;
- return {props:{userId:String(user.userId),initialTab,initialCostScope}};
+ return {props:{userId:String(user.userId),initialTab,initialCostScope,initialHubfresh:query.source==='hubfresh'}};
 }
