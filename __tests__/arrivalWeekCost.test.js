@@ -19,7 +19,7 @@ test('China A/B same canonical week, distinct AWBs and invoice rows; grouping in
  assert.deepEqual(calculateArrivalWeekCost(reversed,request).lines,r.lines);
  assert.equal(JSON.stringify(raw),before);
  const bytes=await createArrivalWeekCostWorkbook({prepared:p,calculation:r}),book=new ExcelJS.Workbook();await book.xlsx.load(bytes);
- assert.equal(book.worksheets.length,1);assert.equal(book.worksheets[0].getCell('B3').value.result,r.totals.totalCostKRW);assert.equal(book.worksheets[0].getCell('I8').value,20);assert.equal(book.worksheets[0].getCell('I9').value,20);
+ assert.equal(book.worksheets.length,1);assert.equal(book.worksheets[0].getCell('C3').value.result,r.totals.totalCostKRW);assert.equal(book.worksheets[0].getCell('F34').value,2);assert.equal(book.worksheets[0].getCell('F35').value,2);
 });
 test('expense identity deduplicates normalized AWB repeated source, preserves equal distinct sources; rejects conflicts and missing inputs',async()=>{
  const p=await read([row(1),row(2)]),request=inputs(p),r=calculateArrivalWeekCost(p,request);

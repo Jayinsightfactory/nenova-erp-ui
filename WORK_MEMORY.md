@@ -4958,3 +4958,12 @@ pm run test:canon 통과.
 4. 검증 상태: `boxVisionInspector.test.cjs` 3/3 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS (`agent-guardrails`, `guard-erp-writes`, `ui-layout-contract`, `workflow-guides`, `work-memory-handoff`), `npm run build` 성공.
 5. 주의/잠금: 기존 MSSQL 원장 테이블(`WarehouseMaster`, `ShipmentMaster`, `OrderMaster` 등)에 대한 쓰기(INSERT/UPDATE/DELETE) 0건(순수 SELECT 조회 전용). 연결 목표: g17, g19, g14, g03 / 학습 반영: 있음
 
+
+## 2026-11-24 CLOUD 원본 양식 통합 다운로드
+검색어: CLOUD cbm 원본 양식 A B 통합 40행 수식 출처 TEST_ONLY g17 g19
+1. 작업 위치: nenova-erp-ui / codex/cloud-template-1124 / C:/Users/USER/nw-cdx-cloud-template-1124 / PR 준비.
+2. 완료된 것: CLOUD 한 시트 상단 A/B 중량·비용·품종 요약, 원본 E:X 열 순서와 40행 단일 출력. 기존 원가 계산·ERP 원장 보존. 데스크톱 1.3.92 연결 및 해당 가이드 1개 갱신.
+3. 남은 할 일: 정식 검사·PR·CI·Cafe24 배포 후 운영 공유 초안 revision1 TEST_ONLY 다운로드와 원장 지문 재확인.
+4. 검증 상태: 대상 15개 PASS, 실제40행 Artifact 재계산 및 환율·수량 변경 대조 PASS. 격리 UI 공유/충돌/다운로드 및 가이드 재생 PASS. 운영 새 양식 다운로드 미검증.
+5. 주의/잠금: 이 작업트리 출력 모듈·해당 가이드만 잠금. 원본 전체 및 업무 스냅샷 Git 제외. 연결 목표 g17/g19 / 학습 반영 있음.
+검증 추가: 정식 verify:erp-change 전체와 최적화 빌드 PASS, dnSpy·정본 PASS, Desktop96/96 및 Electron smoke PASS. 가이드6단계 실제 재생·목차·키보드·접기 PASS. 배포 후 운영 다운로드는 아직 미검증.
