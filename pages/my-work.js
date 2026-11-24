@@ -962,13 +962,16 @@ function SelfTuneReport({ st }) {
   const days = arr(st.data.days); const t = days[days.length - 1]; if (!t) return null;
   const conf = arr(t.confidence), nearly = arr(t.aliases?.nearly), hints = arr(t.hintChanges);
   const sign = (d) => (d === null || d === undefined ? '-' : (d > 0 ? '+' : '') + d);
+  // 2026-11-24: 메시지 근거를 출처별로(카톡 업무방 / 왓츠앱·위챗). 분석 쪽이 출처별 건수를 올린 날부터만 넷째 숫자를 보인다.
+  const hasSrc = conf.some((c) => c.msgMessenger !== undefined);
+  const srcTotal = conf.reduce((a, c) => a + (Number(c.msgMessenger) || 0), 0);
   return (
     <div className="radar-selftune">
       <h2>자가수정 보고 <small className="num">{dash(t.date)} · 누적 {days.length}일</small></h2>
       <ul>{arr(t.summary).map((l, i) => <li key={i} className={/^⚠/.test(l) ? 'warn' : ''}>{l}</li>)}</ul>
-      <h3>직원별 확증 <small>어제 대비</small></h3>
-      <div className="tw"><table className="tbl small num-tbl"><thead><tr><th>직원</th><th>기록</th><th>확증</th><th>%</th><th>어제 대비</th><th>전산/파일/카톡</th></tr></thead>
-        <tbody>{conf.map((c) => <tr key={c.name}><td>{c.name}</td><td>{c.records}</td><td>{c.confirmed}</td><td>{c.pct}</td><td>{sign(c.delta)}</td><td>{c.erp}/{c.file}/{c.msg}</td></tr>)}</tbody></table></div>
+      <h3>직원별 확증 <small>어제 대비{hasSrc ? ` · 해외 메신저(왓츠앱·위챗) 근거 ${srcTotal}건` : ''}</small></h3>
+      <div className="tw"><table className="tbl small num-tbl"><thead><tr><th>직원</th><th>기록</th><th>확증</th><th>%</th><th>어제 대비</th><th>{hasSrc ? '전산/파일/카톡/해외 메신저' : '전산/파일/카톡'}</th></tr></thead>
+        <tbody>{conf.map((c) => <tr key={c.name}><td>{c.name}</td><td>{c.records}</td><td>{c.confirmed}</td><td>{c.pct}</td><td>{sign(c.delta)}</td><td>{hasSrc ? `${c.erp}/${c.file}/${c.msgKakao ?? c.msg}/${c.msgMessenger ?? 0}` : `${c.erp}/${c.file}/${c.msg}`}</td></tr>)}</tbody></table></div>
       <h3>채택 임박 별칭 <small className="num">후보 {dash(t.aliases?.candidates)} · 채택 {arr(t.aliases?.active).length}</small></h3>
       {nearly.length ? <ul>{nearly.map((p, i) => <li key={i}>{p.nick} → {p.canonical} <span className="dim num">({p.count}회·{p.days}일, {p.need})</span></li>)}</ul> : <p className="dim">없음</p>}
       {hints.length ? <><h3>해독 요령 변화 <small className="num">{hints.length}명</small></h3><ul>{hints.map((h, i) => <li key={i}><b>{h.name}</b><br /><span className="dim">전: {h.before}</span><br />후: {h.after}</li>)}</ul></> : null}
