@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readImportDay, farmTotals, validItem} from '../lib/importKakaoAdditions.js';
+import {readImportDay, farmTotals, groupFarmTotals, validItem} from '../lib/importKakaoAdditions.js';
 import './importKakaoOrderText.test.mjs';
 const headers='요청번호 항목|원문 시각|원문 작성자|분석 담당자|담당자 카톡|차수|원문 거래처|매칭 거래처|원문 품목|매칭 품목|수량|단위|매칭 판정|품목 후보|처리 상태|확인 필요사항|원문|검토 결과|거래처 수정|품목 수정'.replace('요청번호 항목','요청번호|항목').split('|');
 const row=(i,customer,q,date='2026년 11월 17일 오전 11:30')=>['m',i,date,'','','','46-01',customer,'','','콜롬비아수국 Moon Light',q,'박스','','','','','추가 요청'];
@@ -64,3 +64,20 @@ for (const status of ['cancelled_wrong_contact','superseded_test_restart','archi
 assert.equal(importItemView({...m.items[0],quantity:'0'}).checked,false);
 assert.equal(importItemView({...m.items[0],quantity:'-1'}).checked,false);
 assert.equal(farmTotals([importItemView(m.items[0]),importItemView({...m.items[0],quantity:'2'})])[0].notes,'주광 3');
+
+const groupFixture = {country:'콜롬비아', group:'수국', product:'Moon Light', checked:true, year:'2026', week:'46-01', quantity:1, unit:'박스'};
+const grouped = groupFarmTotals(farmTotals([
+  {...groupFixture,key:'a'},
+  {...groupFixture,key:'b',unit:'단'},
+  {...groupFixture,key:'c',week:'46-02'},
+  {...groupFixture,key:'d',year:'2025'},
+  {...groupFixture,key:'e',group:'카네이션'},
+  {...groupFixture,key:'f',country:'중국'},
+  {...groupFixture,key:'g',country:'',group:''},
+]));
+assert.deepEqual(grouped.map(x=>x.label),['중국','콜롬비아','국가 미상']);
+assert.deepEqual(grouped[1].groups.map(x=>x.label),['수국','카네이션']);
+assert.deepEqual(grouped[1].groups[0].cycles.map(x=>x.label),['2025/46-01차','2026/46-01차','2026/46-02차']);
+assert.deepEqual(grouped[1].groups[0].cycles[1].rows.flatMap(x=>x.sourceKeys),['a','b']);
+assert.equal(new Set(grouped[1].groups[0].cycles[1].rows.map(x=>x.unit)).size,2);
+assert.equal(grouped[2].groups[0].label,'품목군 미상');

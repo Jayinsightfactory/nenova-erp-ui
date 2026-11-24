@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { validItem, farmTotals, importItemView, importTotalsText, importTotalKey, manualImportReviews, messageOrder } from '../../lib/importKakaoAdditions';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { validItem, farmTotals, importItemView, importTotalsText, importTotalKey, manualImportReviews, messageOrder, groupFarmTotals } from '../../lib/importKakaoAdditions';
 
 const fields = [['country','국가'],['group','품목군'],['week','차수'],['product','품종'],['quantity','수량'],['unit','단위'],['customer','업체 / CL']];
 const groupKey = row => [row.country||'국가 미상',row.group||'품목군 미상'].join(' · ');
@@ -26,6 +26,7 @@ function ChoiceButtons({label, values, value, onChange, all}) {
 }
 function RecentReview() {
   const [feed,setFeed]=useState(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
+  const [loading,setLoading]=useState(true);
   const [edits,setEdits]=useState({}),[notice,setNotice]=useState('');
   const [week,setWeek]=useState(''),[group,setGroup]=useState(''),[focus,setFocus]=useState(null);
   const [showAudit,setShowAudit]=useState(false),[auditQuery,setAuditQuery]=useState('');
@@ -45,12 +46,25 @@ function RecentReview() {
   },[focus]);
   useEffect(()=>{
     const controller=new AbortController();let pending=false;
-    async function refresh(){if(pending)return;pending=true;try{
-      const response=await fetch('/api/import/tools/kakao-additions'+(showAudit?'?audit=1':''),{signal:controller.signal,cache:'no-store'});
-      const body=await response.json();if(!response.ok||!Array.isArray(body.messages))throw Error(body.error||'조회하지 못했습니다.');
-      if(!controller.signal.aborted){setFeed(body);setError('');}
-    }catch(failure){if(!controller.signal.aborted)setError(failure.message);}finally{pending=false;}}
-    refresh();const timer=setInterval(refresh,60000);return()=>{clearInterval(timer);controller.abort();};
+    async function refresh(foreground=false){
+      if(pending)return;
+      pending=true;
+      if(foreground){setLoading(true);setError('');}
+      try{
+        const response=await fetch('/api/import/tools/kakao-additions'+(showAudit?'?audit=1':''),{signal:controller.signal,cache:'no-store'});
+        const body=await response.json();
+        if(!response.ok||!Array.isArray(body.messages))throw Error(body.error||'조회하지 못했습니다.');
+        if(!controller.signal.aborted){setFeed(body);setError('');}
+      }catch(failure){
+        if(!controller.signal.aborted)setError(failure.message);
+      }finally{
+        pending=false;
+        if(foreground&&!controller.signal.aborted)setLoading(false);
+      }
+    }
+    refresh(true);
+    const timer=setInterval(refresh,60000);
+    return()=>{clearInterval(timer);controller.abort();};
   },[retry,showAudit]);
   const messages=feed?.messages||[];
   const recovered=manualImportReviews(manual,feed);
@@ -71,6 +85,7 @@ function RecentReview() {
   const sourceKeys=new Set(selectedTotal?.sourceKeys||[]);
   const messageKeys=new Set(selectedMessage?.items.map(i=>i.key)||[]);
   const shownTotals=selectedMessage?totals.filter(t=>t.sourceKeys.some(k=>messageKeys.has(k))):totals;
+  const countryTotals=groupFarmTotals(shownTotals);
   const linkedSources=selectedTotal?allMessages.filter(m=>m.items.some(i=>sourceKeys.has(i.key))):[];
   const query=sourceQuery.normalize('NFKC').trim().toLowerCase();
   const shownMessages=allMessages
@@ -89,7 +104,19 @@ function RecentReview() {
     setOpenEditors(previous => ({...previous,[m.id]:true}));
     setSourceFilter('전체');setSourceQuery('');setWeek('');setGroup('');setFocus(null);setNotice('검토 목록에 가져왔습니다. 품목·수량·단위·차수를 확인한 뒤 합산을 체크하세요.');
   }
-  async function copy(){try{await navigator.clipboard.writeText(importTotalsText(totals));setNotice('전달용 합계를 복사했습니다.');}catch{setNotice('복사할 수 없습니다. 합계 표를 선택해 복사하세요.');}}
+  async function copy(){try{await navigator.clipboard.writeText(importTotalsText(groupFarmTotals(totals).flatMap(country=>country.groups.flatMap(group=>group.cycles.flatMap(cycle=>cycle.rows)))));setNotice('전달용 합계를 복사했습니다.');}catch{setNotice('복사할 수 없습니다. 합계 표를 선택해 복사하세요.');}}
+  function renderTotal(r){
+    const picked=selectedTotal?.key===r.key;
+    const selectedKeys=selectedMessage&&new Set(r.sourceKeys);
+    const sourceAmounts=selectedMessage?.items.filter(i=>selectedKeys.has(i.key)).map(i=>{
+      const row=view(i);
+      return row.quantity+' '+row.unit;
+    });
+    return <tr key={r.key} className={picked||selectedMessage?'kakao-linked':''}><td><button type="button" className="kakao-match-total" aria-pressed={picked} onClick={()=>matchTotal(r.key)}>{r.product}<small>원문 {r.sourceKeys.length}행 보기</small></button>
+      {picked&&<small className="kakao-source-reference">{linkedSources.map(m=>sourceReference(m.id)).join(' · ')}</small>}</td>
+      <td className="kakao-quantity">{r.quantity} {r.unit}{sourceAmounts?.length>0&&<small className="kakao-source-reference">이 원문 {sourceAmounts.join(' + ')}</small>}</td>
+      <td>{r.notes||'업체 미기재'}{r.requests&&<small><br/>요청: {r.requests}</small>}</td></tr>;
+  }
   function renderMessage(m){
     const visible=m.kind==='review'?m.items:m.items.filter(i=>inScope(view(i)));
     const linked=selectedMessage?.id===m.id||m.items.some(i=>sourceKeys.has(i.key));
@@ -125,8 +152,8 @@ function RecentReview() {
   return <>
     <header className="kakao-toolbar"><h3>수입방 카톡 추가 발주</h3>
       <p>발주가 있는 최근 2일 · 최신 카톡순 · 1분마다 갱신</p>
-      <button type="button" className="kakao-refresh" onClick={()=>setRetry(v=>v+1)}>새로 조회</button>
-      {error&&<p role="alert">{error}</p>}{!feed&&!error&&<p role="status">수입방 카톡을 불러오는 중…</p>}
+      <button type="button" className="kakao-refresh" disabled={loading} onClick={()=>{setLoading(true);setRetry(v=>v+1);}}>{loading?'조회 중…':'새로 조회'}</button>
+
       {feed&&<p>{feed.orderDays?.length?'발주일: '+feed.orderDays.join(' · '):'합산 가능한 발주일 없음'}{feed.latest&&' · 최근 수집 원문 '+feed.latest}</p>}
       {feed?.reviewThrough&&<p>선택 발주일 이후 {feed.reviewThrough}까지의 취소·변경도 확인합니다.</p>}
       {stats&&<p className="kakao-counts">카톡 {stats.scanned}건 분석 · 추가 발주 {stats.selected}건 · 검토 {stats.review}건 · 일반 대화 제외 {stats.excluded}건 · 중복 제외 {stats.duplicates}건</p>}
@@ -136,27 +163,30 @@ function RecentReview() {
     </header>
     <div className="kakao-columns">
       <section className="kakao-totals" aria-label="농장 전달용 자동 합계"><h4 ref={totalHeading} tabIndex={-1}>농장 전달용 자동 합계</h4>
-        <ChoiceButtons label="차수" all="전체 차수" values={weeks} value={activeWeek} onChange={v=>{setWeek(v);setGroup('');setFocus(null);}}/>
+        {loading&&<p className="kakao-feed-status" role="status">{feed?'자동 합계를 갱신하는 중…':'농장 전달용 합계를 불러오는 중…'}</p>}
+        {error&&!loading&&<p className="kakao-feed-status" role="alert">{feed?'자동 합계 갱신 실패 · 이전 합계 표시 중':'자동 합계를 불러오지 못했습니다.'} {error}</p>}
+        {feed&&<><ChoiceButtons label="차수" all="전체 차수" values={weeks} value={activeWeek} onChange={v=>{setWeek(v);setGroup('');setFocus(null);}}/>
         <ChoiceButtons label="품목군" all="전체 품목군" values={groups} value={activeGroup} onChange={v=>{setGroup(v);setFocus(null);}}/>
+        </>}
         {selectedMessage&&<p className="kakao-match-notice">{sourceReference(selectedMessage.id)} · 선택 원문이 포함된 전체 합계 {shownTotals.length}행 <button type="button" onClick={()=>setFocus(null)}>매칭 해제</button></p>}
         {invalid&&<p role="alert">합산할 행의 차수, 품종, 양수 수량과 단위를 확인하세요.</p>}
-        {totals.length>0&&!invalid?<><div className="kakao-table"><table><thead><tr>{['차수 · 품목군','품종 / 원문 대조','수량','비고 (업체·수량)'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>
-          {shownTotals.map(r=>{
-            const picked=selectedTotal?.key===r.key;
-            const selectedKeys=selectedMessage&&new Set(r.sourceKeys);
-            const sourceAmounts=selectedMessage?.items.filter(i=>selectedKeys.has(i.key)).map(i=>{
-              const row=view(i);
-              return row.quantity+' '+row.unit;
-            });
-            return <tr key={r.key} className={picked||selectedMessage?'kakao-linked':''}><td>{r.year}/{r.week}차<br/>{groupKey(r)}</td><td><button type="button" className="kakao-match-total" aria-pressed={picked} onClick={()=>matchTotal(r.key)}>{r.product}<small>원문 {r.sourceKeys.length}행 보기</small></button>
-              {picked&&<small className="kakao-source-reference">{linkedSources.map(m=>sourceReference(m.id)).join(' · ')}</small>}</td>
-              <td className="kakao-quantity">{r.quantity} {r.unit}{sourceAmounts?.length>0&&<small className="kakao-source-reference">이 원문 {sourceAmounts.join(' + ')}</small>}</td>
-              <td>{r.notes||'업체 미기재'}{r.requests&&<small><br/>요청: {r.requests}</small>}</td></tr>;
-          })}
-        </tbody></table></div><button type="button" disabled={!!error} onClick={copy}>농장 전달용 복사</button><small>선택한 차수·품목군 전체 합계를 복사합니다.</small></>:!invalid&&feed&&<p role="status">현재 범위에 자동 합산할 추가 발주가 없습니다. 검토 필요 목록을 확인하세요.</p>}
+        {totals.length>0&&!invalid?<><div className="kakao-table"><table><thead><tr>{['품종 / 원문 대조','수량','비고 (업체·수량)'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>
+          {countryTotals.map(country=><Fragment key={country.key}>
+            <tr className="kakao-country-heading"><td colSpan={3}><h5>{country.label}</h5></td></tr>
+            {country.groups.map(group=><Fragment key={group.key}>
+              <tr className="kakao-group-heading"><td colSpan={3}><h6>{group.label}</h6></td></tr>
+              {group.cycles.map(cycle=><Fragment key={cycle.key}>
+                <tr className="kakao-cycle-heading"><td colSpan={3}>{cycle.label}</td></tr>
+                {cycle.rows.map(renderTotal)}
+              </Fragment>)}
+            </Fragment>)}
+          </Fragment>)}
+        </tbody></table></div><button type="button" disabled={loading||!!error} onClick={copy}>농장 전달용 복사</button><small>선택한 차수·품목군 전체 합계를 복사합니다.</small></>:!invalid&&feed&&!loading&&!error&&<p role="status">현재 범위에 자동 합산할 추가 발주가 없습니다. 검토 필요 목록을 확인하세요.</p>}
       </section>
       <section className="kakao-originals" aria-label="선별된 카톡 원문"><h4 ref={originalHeading} tabIndex={-1}>카톡 추가·취소 요청</h4>
-        <p className="kakao-source-period">{feed?.orderDays?.length?feed.orderDays.join(' · '):'최근 발주일'} · 수입방</p>
+        {loading&&<p className="kakao-feed-status" role="status">{feed?'카톡 원문을 갱신하는 중…':'수입방 카톡 원문을 불러오는 중…'}</p>}
+        {error&&!loading&&<p className="kakao-feed-status" role="alert">{feed?'카톡 원문 갱신 실패 · 이전 원문 표시 중':'수입방 카톡 원문을 불러오지 못했습니다.'} {error}</p>}
+        {feed&&<><p className="kakao-source-period">{feed?.orderDays?.length?feed.orderDays.join(' · '):'최근 발주일'} · 수입방</p>
         <input type="search" aria-label="카톡 원문 검색" placeholder="방·시각·내용 검색" value={sourceQuery} onChange={e=>setSourceQuery(e.target.value)}/>
         <div className="kakao-source-controls" role="group" aria-label="카톡 요청 유형">
           {requestFilters.map(type=><button key={type} type="button" aria-pressed={sourceFilter===type} onClick={()=>setSourceFilter(type)}>{type}</button>)}
@@ -165,7 +195,7 @@ function RecentReview() {
         {selectedTotal&&<p className="kakao-match-notice">{selectedTotal.product} {selectedTotal.quantity} {selectedTotal.unit}의 근거 원문 <button type="button" onClick={()=>setFocus(null)}>매칭 해제</button></p>}
         <div className="kakao-source-list" role="region" aria-label="카톡 요청 목록" tabIndex={0} ref={sourceList}>
           {shownMessages.map(renderMessage)}
-          {feed&&!shownMessages.length&&<p>표시할 카톡 요청이 없습니다.</p>}
+          {feed&&!shownMessages.length&&!loading&&!error&&<p>표시할 카톡 요청이 없습니다.</p>}
         </div>
         <details className="kakao-audit" onToggle={e=>setShowAudit(e.currentTarget.open)}><summary>누락 확인 · 제외 원문 대조</summary>
           <p>{stats?`수집 ${stats.scanned}건 = 발주·검토·제외·중복 ${accounted}건 (${stats.scanned===accounted?'분류 건수 일치':'분류 건수 불일치'})`:''}</p>
@@ -173,7 +203,7 @@ function RecentReview() {
           <label>제외 원문 검색<input value={auditQuery} onChange={e=>setAuditQuery(e.target.value)} placeholder="품목명 또는 수량"/></label>
           {showAudit&&!feed?.audit&&!error&&<p>제외 원문을 불러오는 중…</p>}
           {auditRows.map(m=><details key={m.id} data-audit-id={m.id}><summary>{m.time} · {m.quantityCandidate?'수량 포함 · ':''}{m.reason}</summary><blockquote>{m.text}</blockquote>{m.duplicateOf?<p>중복 원본 요청: {m.duplicateOf}</p>:<button type="button" disabled={!!manual[m.id]} onClick={()=>addManual(m)}>{manual[m.id]?'검토로 가져옴':'발주로 검토'}</button>}</details>)}
-        </details>
+        </details></>}
       </section>
     </div>
   </>;
@@ -198,6 +228,12 @@ export default function KakaoAdditions(){return <aside className="kakao-addition
 .kakao-source-body{margin:5px 0 7px;font:inherit;color:#0f172a;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
 .kakao-choices button{font-size:13.5px;padding:5px 8px;line-height:1.3}
 .kakao-choices .kakao-more{border-style:dashed}
+.kakao-feed-status{padding:8px 10px;border-left:3px solid #6888b7;background:#eef4ff;color:#193558;font-size:13.5px}
+.kakao-feed-status[role=alert]{border-color:#b45309;background:#fff4d6;color:#5d4206}
+.kakao-table h5,.kakao-table h6{margin:0;font:inherit;font-weight:700}
+.kakao-table .kakao-country-heading td{background:#dde9fa;font-size:14px}
+.kakao-table .kakao-group-heading td{background:#eef4fd;padding-left:12px}
+.kakao-table .kakao-cycle-heading td{color:#334155;font-size:12.5px;padding-left:17px;font-variant-numeric:tabular-nums}
 .kakao-table .kakao-quantity{white-space:nowrap;font-variant-numeric:tabular-nums}
 .kakao-table th,.kakao-table td{vertical-align:top}
 .kakao-match-total small{margin-top:3px}

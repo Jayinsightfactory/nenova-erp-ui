@@ -30,6 +30,7 @@ async function main(){
   fs.mkdirSync(downloadDir,{recursive:true});
   const client=await page.createCDPSession(); await client.send('Page.setDownloadBehavior',{behavior:'allow',downloadPath:downloadDir});
   const details=[];
+  let kakaoMode="data";
   await page.setRequestInterception(true);
   page.on('request',async req=>{
     const url=new URL(req.url());
@@ -37,7 +38,12 @@ async function main(){
     if(url.origin!==base)return req.abort();
     if(!url.pathname.startsWith('/api/'))return req.continue();
     let data={success:true,items:[],rows:[],products:[],data:[],value:null,revision:0,history:[],user};
-    if(url.pathname.endsWith('/kakao-additions')) data=url.searchParams.get('audit')==='1'?{...sampleFeed,audit:classifyImportFeed({messages:sampleMessages},new Map(),{audit:true}).audit}:sampleFeed;
+    if(url.pathname.endsWith('/kakao-additions')){
+      if(dry)await new Promise(resolve=>setTimeout(resolve,350));
+      if(kakaoMode==='error')return req.respond({status:503,contentType:'application/json',body:'{"error":"연습 자료 조회 실패"}'});
+      if(kakaoMode==='empty')return req.respond({status:200,contentType:'application/json',body:'{"messages":[]}'});
+      data=url.searchParams.get('audit')==='1'?{...sampleFeed,audit:classifyImportFeed({messages:sampleMessages},new Map(),{audit:true}).audit}:sampleFeed;
+    }
     if(url.pathname.endsWith('/country-orders')){
       const country=url.searchParams.get('country'),exact=url.searchParams.get('orderWeek');
       if(exact)details.push(exact);
@@ -50,6 +56,26 @@ async function main(){
   await page.goto(base+'/import/tools',{waitUntil:'networkidle0',timeout:150000});
   await page.waitForSelector('[aria-controls="import-panel-orders"]');
   await page.click('[aria-controls="import-panel-orders"]');
+  if(dry){
+    const waits=['.kakao-totals .kakao-feed-status','.kakao-originals .kakao-feed-status'];
+    await Promise.all(waits.map(selector=>page.waitForSelector(selector+'[role=status]',{visible:true})));
+    await page.waitForSelector('.kakao-source-included');
+    kakaoMode='error';
+    await page.click('.kakao-refresh');
+    await Promise.all(waits.map(selector=>page.waitForSelector(selector+'[role=status]',{visible:true})));
+    assert(await page.$('.kakao-match-total'));
+    assert(await page.$('.kakao-source-included'));
+    await Promise.all(waits.map(selector=>page.waitForSelector(selector+'[role=alert]',{visible:true})));
+    assert(await page.$('.kakao-table + button:disabled'));
+    kakaoMode='empty';
+    await page.click('.kakao-refresh');
+    await page.waitForFunction(()=>document.querySelector('.kakao-totals').textContent.includes('자동 합산할 추가 발주가 없습니다')&&document.querySelector('.kakao-source-list').textContent.includes('표시할 카톡 요청이 없습니다'));
+    kakaoMode='data';
+    await page.click('.kakao-refresh');
+    await page.waitForSelector('.kakao-country-heading');
+    const headings=await page.$$eval('.kakao-table tbody tr',rows=>rows.slice(0,3).map(r=>r.textContent));
+    assert.deepEqual(headings,['콜롬비아','수국','2026/46-01차']);
+  }
   // Record the fullscreen fallback in the original tab. Dry runs separately exercise the actual popup.
   await page.evaluate(() => { window.__orderGuideOpen = window.open; window.open = () => null; window.showSaveFilePicker = undefined; });
   const country='.pedidos-auto [aria-label="국가"] button:nth-child(2)',cycle='.pedidos-cycles button',sub='.pedidos-subweeks[aria-label="실제 주문 세부차수"] button',down='.pedidos-auto-actions button:not([disabled])';
@@ -127,10 +153,10 @@ async function main(){
   for(const id of ['0','1','2','white'])assert(await page.$(included(id)));
   assert.equal(await page.$(included('cancel')),null);
   assert.deepEqual(await page.$$eval('.kakao-table thead th', nodes => nodes.map(node => node.textContent)),
-    ['차수 · 품목군','품종 / 원문 대조','수량','비고 (업체·수량)']);
+    ['품종 / 원문 대조','수량','비고 (업체·수량)']);
   for(const [n,id,label,selector,caption,key] of [
-    [16,'chat','오른쪽 카톡 추가·취소 원문 확인',sourceFilter(3),'발주가 있는 최근 2일을 자동으로 찾습니다. 오른쪽에서 취소 원문을 보고 방·시각·내용으로 검색하세요. 취소 수량은 확인 전 합산하지 않습니다.','Enter'],
-    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','콜롬비아 카네이션을 선택하고 합계 수량을 확인합니다. 오른쪽의 합계 반영 체크는 이 범위의 합계에 수량이 들어간 원문입니다.',null],
+    [16,'chat','오른쪽 카톡 추가·취소 원문 확인',sourceFilter(3),'원문과 합계에 각각 조회 상태가 표시됩니다. 발주가 있는 최근 2일을 자동으로 찾습니다. 오른쪽에서 취소 원문을 보고 방·시각·내용으로 검색하세요. 취소 수량은 확인 전 합산하지 않습니다.','Enter'],
+    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','콜롬비아 카네이션을 선택합니다. 합계는 국가, 품목군, 연도·세부차수 순으로 확인합니다. 오른쪽의 합계 반영 체크는 이 범위의 합계에 수량이 들어간 원문입니다.',null],
     [18,'match-total','합계에서 원문 확인','.kakao-match-total','가운데 품종을 누르면 오른쪽 근거 원문으로 이동합니다. 양쪽의 같은 원문 번호를 비교합니다.','Enter'],
     [19,'match-source','원문에서 합계 확인','.kakao-order-message.kakao-linked .kakao-match-source','오른쪽 원문의 합계 보기를 누르면 가운데 전체 합계 아래에 해당 원문의 수량이 표시됩니다.','Enter'],
     [20,'audit','제외 원문 대조','.kakao-audit > summary','분류 건수를 대조하고 제외 원문을 검색해 놓친 발주를 확인합니다. 카톡 자체 수집 누락과 사진은 별도 원본 대조가 필요합니다.','Enter'],
@@ -186,14 +212,14 @@ async function main(){
   assert(await page.$eval(source('0')+' input[type="checkbox"]',node=>node.checked));
   assert((await page.$eval('.kakao-table',node=>node.textContent)).includes('주광 1, 미우 2, 일신 1'));
 
-  assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'4 박스');
+  assert.equal(await page.$eval('.kakao-table tbody .kakao-quantity',n=>n.textContent),'4 박스');
   assert(await page.$(included('0')));
   await page.click(source('0')+' input[type="checkbox"]');
-  assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'3 박스');
+  assert.equal(await page.$eval('.kakao-table tbody .kakao-quantity',n=>n.textContent),'3 박스');
   assert.equal(await page.$(included('0')),null);
   await page.click('.kakao-refresh');await page.waitForNetworkIdle();
   assert.equal(await page.$eval(source('0')+' input[type="checkbox"]',n=>n.checked),false);
-  assert.equal(await page.$eval('.kakao-table tbody tr td:nth-child(3)',n=>n.textContent),'3 박스');
+  assert.equal(await page.$eval('.kakao-table tbody .kakao-quantity',n=>n.textContent),'3 박스');
   console.log('PASS initial automatic total4, customer remarks, manual exclusion3 preserved after refresh');
   const layout=await page.evaluate(()=>{const box=s=>document.querySelector(s).getBoundingClientRect();return {ratio:box('.pedidos-primary').width/box('.pedidos-split').width,left:box('.pedidos-primary').x,center:box('.kakao-totals').x,right:box('.kakao-originals').x};});
   assert(layout.ratio>.23&&layout.ratio<.26);assert(layout.left<layout.center&&layout.center<layout.right);
@@ -205,7 +231,7 @@ async function main(){
   const aggregateRefs=await page.$eval('.kakao-table .kakao-source-reference',node=>node.textContent.split(' · ').sort());
   assert.deepEqual(aggregateRefs,refs);
   await page.click('.kakao-order-message.kakao-linked .kakao-match-source');
-  assert.equal(await page.$$eval('.kakao-table tbody tr',n=>n.length),1);
+  assert.equal(await page.$$eval('.kakao-table tbody .kakao-match-total',n=>n.length),1);
   assert(await page.$eval('.kakao-table .kakao-quantity',n=>/^3 박스이 원문 [12] 박스$/.test(n.textContent.trim())));
   assert(await page.evaluate(()=>document.querySelector('.kakao-totals .kakao-match-notice').textContent.includes(document.querySelector('.kakao-order-message.kakao-linked .kakao-source-reference').textContent)));
   for(const id of ['1','2'])assert(await page.$(included(id)));
