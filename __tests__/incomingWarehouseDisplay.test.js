@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import './incomingQueryDateRange.test.js';
 import assert from 'node:assert/strict';
 import { sqlWarehouseViewGetData, sqlWarehouseViewGetDetail } from '../lib/exeWarehouseViewSql.js';
+import { receiptBoxSuggestion } from '../lib/receiptBoxSuggestion.js';
 
 const sql = sqlWarehouseViewGetData();
 assert.match(sql, /SUM\(wd\.BoxQuantity\) AS BoxQuantity/);
@@ -17,6 +18,21 @@ const detailSql = sqlWarehouseViewGetDetail();
 assert.match(detailSql, /wd\.UPrice AS 단가/);
 assert.match(detailSql, /wd\.TPrice AS 총액/);
 assert.match(detailSql, /wd\.SteamOf1Bunch AS 단송이/);
+const detailEvidenceSql = sqlWarehouseViewGetDetail({ goodsTotals: true, boxEvidence: true });
+assert.doesNotMatch(detailSql, /ReceiptGoodsLines/);
+assert.match(detailEvidenceSql, /FROM WarehouseDetail wd\s+WHERE wd\.WarehouseKey=@warehouseKey/);
+assert.match(detailEvidenceSql, /receiptGoods\.GoodsLines AS ReceiptGoodsLines/);
+
+const confirmedPack = { WarehouseKey: 9001, OrderYear: '2026', OrderWeek: '47-02',
+  BoxQuantity: null, IsWeightRow: false, ReceiptGoodsLines: 1, SteamQuantity: 200,
+  박스송이: 100, BunchQuantity: 20, 단송이: 10, 단위: '단', OutQuantity: 20 };
+const priorYear = { ...confirmedPack, WarehouseKey: 1000, OrderYear: '2025', 박스송이: 0 };
+assert.deepEqual(receiptBoxSuggestion(confirmedPack), { quantity: 2, description: '원장행 200송이 ÷ 100송이/박스' });
+assert.equal(receiptBoxSuggestion(priorYear), null);
+for (const nearMiss of [
+  { BoxQuantity: 0 }, { BoxQuantity: 0.5 }, { IsWeightRow: true }, { ReceiptGoodsLines: 2 },
+  { 박스송이: 1 }, { 박스송이: 60 }, { BunchQuantity: 19 }, { 단위: 'kg' }, { OutQuantity: 19 },
+]) assert.equal(receiptBoxSuggestion({ ...confirmedPack, ...nearMiss }), null);
 
 const page = fs.readFileSync(new URL('../pages/incoming.js', import.meta.url), 'utf8');
 assert.match(page, /\/api\/warehouse\/invoice-costs/);
