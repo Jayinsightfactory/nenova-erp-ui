@@ -8,11 +8,12 @@ function load(file, deps = {}) {
 const accessSource = fs.readFileSync('lib/userAccess.js','utf8').replace(/export /g,'');
 const userAccess = new Function(accessSource+';return {hasFullWebAccess,isAdminUser};')();
 const canManageInvoiceReceipt = new Function(...Object.keys(userAccess),fs.readFileSync('lib/invoiceReceiptAccess.js','utf8').replace(/^import .*;\s*$/gm,'').replace(/export /g,'')+';return canManageInvoiceReceipt;')(...Object.values(userAccess));
+const splitIncomingRound = new Function(fs.readFileSync('lib/incomingRoundLabel.js','utf8').replace(/export /g,'')+';return splitIncomingRound;')();
 function response(){return {statusCode:200,status(n){this.statusCode=n;return this;},json(p){this.payload=p;return this;}};}
 function fixture(year='2026', fixed=false) {
   const calls=[];let transactions=0;
   const query=async (q,p)=>{calls.push({q,p});if(q.includes('SELECT wm.OrderYear'))return {recordset:[{OrderYear:year,OrderWeek:'44-01',ProdKey:1,OutQuantity:10}]};if(q.includes('SELECT DISTINCT p.CountryFlower'))return {recordset:fixed?[{CountryFlower:'fixture'}]:[]};return {recordset:[]};};
-  const handler=load('pages/api/warehouse/index.js',{query,withTransaction:async fn=>{transactions++;return fn(query);},sql:{Int:'int',NVarChar:'nvarchar',Bit:'bit',Float:'float'},withAuth:fn=>fn,useExeParityFlag:()=>false,sqlWarehouseViewGetData:()=>'',canManageInvoiceReceipt});
+  const handler=load('pages/api/warehouse/index.js',{query,withTransaction:async fn=>{transactions++;return fn(query);},sql:{Int:'int',NVarChar:'nvarchar',Bit:'bit',Float:'float'},withAuth:fn=>fn,useExeParityFlag:()=>false,sqlWarehouseViewGetData:()=>'',canManageInvoiceReceipt,splitIncomingRound});
   return {handler,calls,get transactions(){return transactions;}};
 }
 test('warehouse mutations reject unrelated, inactive and missing identity before DB',async()=>{
@@ -42,4 +43,18 @@ test('freight patch shares import authorization',async()=>{
 
 test('packing upload accepts native import role then performs product validation',async()=>{
   for(const authority of [4,7]){const f=fixture(),res=response();await f.handler({method:'POST',user:{userId:'fixture',authority},body:{orderYear:'2026',orderWeek:'44-01',inputDate:'2026-11-01',items:[{prodName:'unregistered fixture'}]}},res);assert.equal(res.statusCode,400);assert.equal(res.payload.code,'WAREHOUSE_PRODUCT_VALIDATION_FAILED');assert.equal(f.calls.length,1);assert.equal(f.transactions,0);}
+});
+
+test('packing upload can keep an A/B label while rejecting unsupported suffixes',async()=>{
+  for(const orderWeek of ['44-01A','44-01.B','44-01.C']){
+    const valid=orderWeek!=='44-01.C';
+    const f=fixture(),res=response();
+    await f.handler({method:'POST',user:{userId:'fixture',authority:4},body:{
+      orderYear:'2026',orderWeek,inputDate:'2026-11-01',items:[{prodName:'unregistered fixture'}],
+    }},res);
+    assert.equal(res.statusCode,400);
+    assert.equal(res.payload.code,valid?'WAREHOUSE_PRODUCT_VALIDATION_FAILED':'ORDER_YEAR_WEEK_REQUIRED');
+    assert.equal(f.calls.length,valid?1:0);
+    assert.equal(f.transactions,0);
+  }
 });

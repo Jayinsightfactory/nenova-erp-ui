@@ -14,7 +14,7 @@ export default withAuth(async function handler(req,res){
       const preview=await prepareWarehouseCorrection({queryFn:query,types:sql,input:req.body});
       const {canCommit,baselineDigest,issues,plan,receipt}=preview;
       return res.json({success:true,canCommit,baselineDigest,issues,changes:plan.changes,before:plan.before,after:plan.after,
-        farmBefore:receipt.header.FarmName,farmAfter:preview.request.farmName,detailsChanged:plan.detailsChanged});
+        farmBefore:receipt.header.FarmName,farmAfter:preview.request.farmName??receipt.header.FarmName,detailsChanged:plan.detailsChanged,nativeQuantity:plan.nativeQuantity});
     }
     if(req.body?.action==='commit')return res.json({success:true,...await commitWarehouseCorrection({withTransactionFn:withTransaction,types:sql,input:req.body,actor:req.user.userId})});
     return res.status(400).json({success:false,error:'미리보기 또는 저장 동작을 선택하세요.'});

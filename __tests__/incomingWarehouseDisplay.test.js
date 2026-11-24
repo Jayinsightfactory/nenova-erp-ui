@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import './incomingQueryDateRange.test.js';
 import './warehouseInlineIdentity.test.mjs';
+import './warehouseDetailActions.test.mjs';
 import assert from 'node:assert/strict';
 import { sqlWarehouseViewGetData, sqlWarehouseViewGetDetail } from '../lib/exeWarehouseViewSql.js';
 import { receiptBoxSuggestion } from '../lib/receiptBoxSuggestion.js';

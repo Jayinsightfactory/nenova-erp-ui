@@ -4968,3 +4968,11 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 머지·Cafe24 배포 후 2026년 44차·45차 스냅샷 갱신으로 중국 F/E 및 양 차수 전체 합계(I·J·K) null 0건 실측 확인 및 워크트리 정리.
 4. 검증 상태: profitChinaDutyRecovery PASS(125개), profitReportAutoRefresh 14/14 PASS, test:profit-weekly-cache·pstack-verify 5/5·guard:erp-writes·test:erp-manifest 통과 확인 예정.
 5. 주의/잠금: 확정 차수(WebProfitReportConfirm IsActive=1)는 연쇄 갱신에서도 하드 스킵. ERP 공유 원장 쓰기 0건. 연결 목표 g17·g19.
+
+### 2026-11-24 입고 차수 접미·상세 수량 직접 수정
+검색어: 입고 원장 차수 A/B 상세 수량 박스 단 송이 SystemActionLog FormWarehouseAdd g03
+1. 작업 위치: nenova-erp-ui / codex/receipt-round-label-native-quantity-1124 / .task-receipt-round-native-quantity / PR 등록 전.
+2. 완료된 것: 원본 차수 보존 A/B 저장·파일 수용, 한 상세 키 수량 편집·기존 재고 재계산·원자적 감사·영업지원 이력 화면.
+3. 남은 할 일: PR·Cafe24 배포, 운영 읽기 확인.
+4. 검증 상태: 설치 EXE와 운영 #8249 읽기, 해당 행의 출고단위 금액 근거 및 문서·확정 차단, 다른 입고 #8254는 동일 검증에서 통과. 정정·차수 테스트, 실제 두 역할 브라우저와 영상 검사, ERP 계약, 246 매니페스트, 공식 빌드·플레이어 통과. 운영 writes 0건. 배포 미검증.
+5. 주의/잠금: 두 역할 가이드와 입고 UI 검증 중. 연결 목표 g03 / 학습 반영 있음.
