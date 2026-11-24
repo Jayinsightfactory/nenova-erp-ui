@@ -277,3 +277,72 @@ test('unreadable boxes support [Pass (exclude_count / keep_box_skip_item)] and [
   assert.equal(matchedCallaRow.reconcileStatus, 'MATCH');
   assert.match(matchedCallaRow.inspectionBadge, /수동 검색매칭 반영 · 일치/);
 });
+
+test('zigzag_side boxes model 3-side (front/left/right) cross-angle label coupling and ERP residual deduction (autoDeduceZigzagBoxes)', async () => {
+  const mod = await import('../lib/boxVisionInspector.js');
+  const { analyzeBoxVisionPhotos, autoDeduceZigzagBoxes, buildZigzagDeductionCandidate } = mod;
+
+  // 1) Sample 4 (front angle) & Sample 5 (right/cross angle) model rectangular boxes with 1-side label and 90-degree zigzag stacking
+  const initial = analyzeBoxVisionPhotos({
+    sampleIds: ['sample-4-jukwang', 'sample-5-holex-mint'],
+  });
+
+  const photo4 = initial.analyzedPhotos.find((p) => p.sampleId === 'sample-4-jukwang');
+  const photo5 = initial.analyzedPhotos.find((p) => p.sampleId === 'sample-5-holex-mint');
+  assert.equal(photo4.cameraAngle, 'front');
+  assert.equal(photo5.cameraAngle, 'right');
+
+  // Verify zigzag_side boxes in Sample 4 (s4-b11, s4-b19, s4-b20) and Sample 5 (s5-b9, s5-b15, s5-b16)
+  const s4b11 = initial.allBoxes.find((b) => b.boxId === 's4-b11');
+  const s4b19 = initial.allBoxes.find((b) => b.boxId === 's4-b19');
+  const s4b20 = initial.allBoxes.find((b) => b.boxId === 's4-b20');
+  const s5b9 = initial.allBoxes.find((b) => b.boxId === 's5-b9');
+  const s5b15 = initial.allBoxes.find((b) => b.boxId === 's5-b15');
+  const s5b16 = initial.allBoxes.find((b) => b.boxId === 's5-b16');
+
+  for (const zBox of [s4b11, s4b19, s4b20, s5b9, s5b15, s5b16]) {
+    assert.ok(zBox, 'Zigzag side box must exist');
+    assert.equal(zBox.boxFace, 'zigzag_side');
+    assert.ok(['left', 'right'].includes(zBox.exposedLabelSide));
+    assert.ok(zBox.deductionCandidate, `${zBox.boxId} must carry a deductionCandidate`);
+    assert.ok(zBox.deductionCandidate.deductionReason);
+  }
+
+  // s4-b19 (zigzag_side in Sample 4 front view, serial 2494510.27.1) is coupled 1:1 with s5-w1 (label_end in Sample 5 side view) without double-counting
+  assert.equal(s4b19.deductionCandidate.matchMethod, 'cross_angle_3side');
+  assert.equal(s4b19.deductionCandidate.crossAngleMatchedSerial, '2494510.27.1');
+  assert.equal(s4b19.deductionCandidate.prodKey, 329);
+  assert.equal(s4b19.deductionCandidate.qtyPerBox, 130);
+
+  const s5w1 = initial.allBoxes.find((b) => b.boxId === 's5-w1');
+  assert.equal(s5w1.status, 'DUPLICATE', 'Side-angle label_end box s5-w1 must not double-count s4-b19');
+  assert.equal(s5w1.crossAngleLinkedToBoxId, 's4-b19');
+
+  // s4-b20 (when only Sample 4 is loaded) uses ERP residual elimination: [ERP total shipment - front label_end confirmed = zigzag_side residual]
+  const singlePhoto4 = analyzeBoxVisionPhotos({ sampleIds: ['sample-4-jukwang'] });
+  const s4b20Single = singlePhoto4.allBoxes.find((b) => b.boxId === 's4-b20');
+  const ded20 = buildZigzagDeductionCandidate(s4b20Single, { allBoxes: singlePhoto4.allBoxes });
+  assert.equal(ded20.matchMethod, 'erp_residual_elimination');
+  assert.equal(ded20.prodKey, 1874);
+  assert.equal(ded20.stemsPerBox, 200);
+  assert.match(ded20.formulaText, /전산 총출고/);
+
+  // 2) One-click batch autoDeduceZigzagBoxes resolves all zigzag_side / pending boxes and reaches 100% ERP shipment match
+  const batchDeduced = autoDeduceZigzagBoxes({
+    sampleIds: ['sample-4-jukwang', 'sample-5-holex-mint'],
+    includeAllUnreadable: true,
+  });
+  assert.equal(batchDeduced.appliedCount, 7, 'Must auto-deduce all 7 pending zigzag/obscured boxes across sample 4 & 5');
+
+  const afterDeduce = analyzeBoxVisionPhotos({
+    sampleIds: ['sample-4-jukwang', 'sample-5-holex-mint'],
+    boxOverrides: batchDeduced.nextOverrides,
+  });
+  assert.equal(afterDeduce.totals.unreadablePendingBoxes, 0, 'All pending boxes must be resolved after batch deduction');
+  assert.equal(afterDeduce.totals.zigzagResolvedBoxes, 6);
+  assert.match(afterDeduce.zigzagDeductionSummary.formulaEquation, /전산 출고 32박스 - 정면 라벨 단면\(label_end\) 확인 26박스 = 지그재그 옆면/);
+
+  for (const row of afterDeduce.customerItemSummary) {
+    assert.equal(row.reconcileStatus, 'MATCH', `Row ${row.prodName} must reconcile 100% with ERP shipment after zigzag deduction`);
+  }
+});

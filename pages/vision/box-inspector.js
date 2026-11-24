@@ -6,7 +6,9 @@ import Link from 'next/link';
 import WorkflowGuide from '../../components/WorkflowGuide';
 import {
   analyzeBoxVisionPhotos,
+  autoDeduceZigzagBoxes,
   buildUnreadableBoxSearchCandidates,
+  CAMERA_ANGLE_OPTIONS,
   lookupBillOrderWeek,
   ROUTE_PRESETS,
   SAMPLE_PHOTOS,
@@ -39,6 +41,7 @@ export default function BoxVisionInspectorPage() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [customPreviewUrl, setCustomPreviewUrl] = useState('');
   const [boxOverrides, setBoxOverrides] = useState({});
+  const [photoAngleOverrides, setPhotoAngleOverrides] = useState({});
   const [selectedBoxId, setSelectedBoxId] = useState('s4-b19');
   const [batchRouteMessage, setBatchRouteMessage] = useState('호남선 출고입니다 (11/23 경부선·호남선 카톡 묶음 사진 일괄 업로드)');
   const [billSearchQuery, setBillSearchQuery] = useState('');
@@ -67,12 +70,14 @@ export default function BoxVisionInspectorPage() {
     nextFiles,
     nextOverrides,
     nextRouteMsg = batchRouteMessage,
-    nextBillQuery = billSearchQuery
+    nextBillQuery = billSearchQuery,
+    nextAngleOverrides = photoAngleOverrides
   ) => {
     const localResult = analyzeBoxVisionPhotos({
       sampleIds: nextSampleIds,
       uploadedFiles: nextFiles,
       boxOverrides: nextOverrides,
+      photoAngleOverrides: nextAngleOverrides,
       batchRouteMessage: nextRouteMsg,
       billQuery: nextBillQuery,
     });
@@ -87,6 +92,7 @@ export default function BoxVisionInspectorPage() {
           sampleIds: nextSampleIds,
           uploadedFiles: nextFiles,
           boxOverrides: nextOverrides,
+          photoAngleOverrides: nextAngleOverrides,
           batchRouteMessage: nextRouteMsg,
           billQuery: nextBillQuery,
           orderYear: 2026,
@@ -104,7 +110,7 @@ export default function BoxVisionInspectorPage() {
     } finally {
       setLoading(false);
     }
-  }, [batchRouteMessage, billSearchQuery]);
+  }, [batchRouteMessage, billSearchQuery, photoAngleOverrides]);
 
   const selectSingleSample = (sampleId) => {
     const next = [sampleId];
@@ -421,15 +427,73 @@ export default function BoxVisionInspectorPage() {
       ocrStatus: ocrType,
       unreadableReason: reasonMap[ocrType] || reasonMap.unreadable_both,
       resolutionAction: 'pending',
+      deductionMatched: false,
       passMode: null,
     };
     const nextOverrides = { ...boxOverrides, [box.boxId]: nextOverride };
     setBoxOverrides(nextOverrides);
     setActiveMatcherBoxId(box.boxId);
     setNotice(
-      `박스 [${box.serialNo} · ${box.custName}]를 '판독 보류(품목/숫자 미식별)' 확인 대기열에 추가했습니다. [패스] 또는 [검색 매칭]을 선택하세요.`
+      `박스 [${box.serialNo} · ${box.custName}]를 '판독 보류(품목/숫자 미식별)' 확인 대기열에 추가했습니다. [소거법/3면교차 확정], [직접 검색 매칭], 또는 [패스]를 선택하세요.`
     );
     runAnalysis(selectedSampleIds, uploadedFiles, nextOverrides, batchRouteMessage, billSearchQuery);
+  };
+
+  // [신규 핵심] 직육면체 지그재그 옆면(zigzag_side) 박스 → 3면 사진 교차 라벨 결합 또는 전산 출고 원장 소거법 원클릭 확정 (개별 / 일괄)
+  const handleConfirmZigzagDeductionSingle = (box) => {
+    if (!box) return;
+    setSelectedBoxId(box.boxId);
+    const { nextOverrides, appliedList } = autoDeduceZigzagBoxes({
+      sampleIds: selectedSampleIds,
+      uploadedFiles,
+      boxOverrides,
+      photoAngleOverrides,
+      targetBoxIds: [box.boxId],
+      includeAllUnreadable: true,
+    });
+    setBoxOverrides(nextOverrides);
+    if (activeMatcherBoxId === box.boxId) {
+      setActiveMatcherBoxId(null);
+    }
+    const applied = appliedList[0];
+    if (applied) {
+      setNotice(
+        `지그재그 옆면 박스 [${box.serialNo}] ${applied.methodBadge} 1클릭 확정 완료: [${applied.prodName} · ${fmt(applied.qtyPerBox)}${applied.unit}] (${applied.deductionReason})`
+      );
+    }
+    runAnalysis(selectedSampleIds, uploadedFiles, nextOverrides, batchRouteMessage, billSearchQuery, photoAngleOverrides);
+  };
+
+  const handleBatchAutoDeduceZigzag = (includeAllUnreadable = true) => {
+    const { nextOverrides, appliedCount, appliedList } = autoDeduceZigzagBoxes({
+      sampleIds: selectedSampleIds,
+      uploadedFiles,
+      boxOverrides,
+      photoAngleOverrides,
+      includeAllUnreadable,
+    });
+    if (!appliedCount) {
+      setNotice('현재 자동 소거 매칭할 지그재그 옆면 / 판독 보류 박스가 없습니다.');
+      return;
+    }
+    setBoxOverrides(nextOverrides);
+    setActiveMatcherBoxId(null);
+    const summaryItems = appliedList.map((a) => `${a.prodName}(${fmt(a.qtyPerBox)}${a.unit})`).join(', ');
+    setNotice(
+      `[지그재그 옆면 박스 → 전산 잔여 품목 자동 소거 & 3면 교차 매칭] ${appliedCount}건 일괄 확정 완료 (${summaryItems}): 전산 출고 원장(ShipmentDetail)과 100% 일치로 검수 완료되었습니다.`
+    );
+    runAnalysis(selectedSampleIds, uploadedFiles, nextOverrides, batchRouteMessage, billSearchQuery, photoAngleOverrides);
+  };
+
+  const handlePhotoAngleChange = (sampleId, nextAngle) => {
+    const nextAngleOverrides = {
+      ...photoAngleOverrides,
+      [sampleId]: nextAngle,
+    };
+    setPhotoAngleOverrides(nextAngleOverrides);
+    const angleMeta = CAMERA_ANGLE_OPTIONS.find((a) => a.angleId === nextAngle) || CAMERA_ANGLE_OPTIONS[0];
+    setNotice(`사진 [${sampleId}]의 팔레트 촬영면 각도를 [${angleMeta.label}]으로 전환하여 3면(정면·좌·우) 교차 라벨 매칭을 재계산했습니다.`);
+    runAnalysis(selectedSampleIds, uploadedFiles, boxOverrides, batchRouteMessage, billSearchQuery, nextAngleOverrides);
   };
 
   const toggleBoxInclusion = (box) => {
@@ -652,11 +716,12 @@ export default function BoxVisionInspectorPage() {
           </div>
         </div>
 
-        {/* 상단 필름스트립 / 썸네일 바 ([전체 묶음 통합 보기] + [사진 1/N ~ N/N 개별 보기] 전환 및 개별 삭제) */}
+        {/* 상단 필름스트립 / 썸네일 바 ([전체 묶음 통합 보기] + [사진 1/N ~ N/N 개별 보기] 전환, 팔레트 촬영면 각도 태그(정면/좌/우) 원클릭 전환 및 개별 삭제) */}
         <div className={styles.filmstripBar} data-testid="box-vision-filmstrip">
-          <span style={{ fontWeight: 700, fontSize: 13 }}>현재 묶음 사진 필름스트립 ({fmt(analyzedPhotos.length)}장):</span>
+          <span style={{ fontWeight: 700, fontSize: 13 }}>현재 묶음 사진 필름스트립 및 3면(정면·좌·우) 각도 태그 ({fmt(analyzedPhotos.length)}장):</span>
           {analyzedPhotos.map((p, idx) => {
             const isCurr = viewMode === 'SINGLE_PHOTO' && idx === activePhotoIndex;
+            const currAngle = p.cameraAngle || 'front';
             return (
               <div
                 key={`${p.sampleId}-${idx}`}
@@ -678,8 +743,22 @@ export default function BoxVisionInspectorPage() {
                     }
                   }}
                 >
-                  [사진 {idx + 1}/{analyzedPhotos.length}] {p.shortLabel} (유효 {p.countedBoxes}박스{p.duplicateBoxes > 0 ? ` · 중복제외 ${p.duplicateBoxes}` : ''})
+                  [사진 {idx + 1}/{analyzedPhotos.length}] {p.shortLabel} (유효 {p.countedBoxes}박스{p.zigzagSideBoxes > 0 ? ` · 지그재그옆면 ${p.zigzagSideBoxes}` : ''}{p.duplicateBoxes > 0 ? ` · 중복제외 ${p.duplicateBoxes}` : ''})
                 </span>
+                <select
+                  aria-label={`사진 ${idx + 1} 팔레트 촬영 각도`}
+                  className={styles.selectInput}
+                  style={{ padding: '2px 6px', fontSize: 12.5 }}
+                  data-testid={`photo-angle-select-${idx + 1}`}
+                  value={currAngle}
+                  onChange={(e) => handlePhotoAngleChange(p.sampleId, e.target.value)}
+                >
+                  {CAMERA_ANGLE_OPTIONS.map((ang) => (
+                    <option key={ang.angleId} value={ang.angleId}>
+                      [{ang.shortLabel}]
+                    </option>
+                  ))}
+                </select>
                 {analyzedPhotos.length > 1 && (
                   <button
                     type="button"
@@ -791,12 +870,12 @@ export default function BoxVisionInspectorPage() {
           <div className={styles.kpiSub}>주 Bill #1222993 (AWB 180-9162-6441 · 47-02차)</div>
         </div>
         <div className={styles.kpiCard}>
-          <div className={styles.kpiTitle}>품목·숫자 미식별 박스 처리</div>
+          <div className={styles.kpiTitle}>지그재그 옆면 · 미식별 박스 처리</div>
           <div className={styles.kpiValue} data-testid="kpi-unreadable-boxes">
             대기 {fmt(totals.unreadablePendingBoxes || 0)} · 해결 {fmt((totals.passedBoxes || 0) + (totals.manuallyMatchedBoxes || 0))}
           </div>
           <div className={styles.kpiSub}>
-            [패스 {fmt(totals.passedBoxes || 0)}건 · 검색매칭 {fmt(totals.manuallyMatchedBoxes || 0)}건]
+            [단면라벨 {fmt(totals.labelEndBoxes || 0)} · 지그재그옆면 {fmt(totals.zigzagSideBoxes || 0)} · 패스 {fmt(totals.passedBoxes || 0)}]
           </div>
         </div>
         <div className={styles.kpiCard}>
@@ -1023,18 +1102,31 @@ export default function BoxVisionInspectorPage() {
                   isBg ? styles.boxCapsuleBg : '',
                 ].filter(Boolean).join(' ');
 
+                const isZigzagSide = box.boxFace === 'zigzag_side';
+                const sideDirText =
+                  box.exposedLabelSide === 'left'
+                    ? '라벨 좌측면 노출'
+                    : box.exposedLabelSide === 'right'
+                    ? '라벨 우측면 노출'
+                    : '라벨 좌/우측면 노출';
                 const prefix = isPendingUnreadable
-                  ? `[#${box.countSeq || box.boxSeq} · 품목/숫자 미식별 — 패스 또는 검색매칭 선택]`
+                  ? isZigzagSide
+                    ? `[#${box.countSeq || box.boxSeq} · 지그재그 적재 옆면 (${sideDirText}) — 소거법/3면교차 또는 검색/패스 선택]`
+                    : `[#${box.countSeq || box.boxSeq} · 품목/숫자 미식별 — 패스 또는 검색매칭 선택]`
                   : isPassed
                   ? box.passMode === 'keep_box_skip_item'
                     ? `[#${box.countSeq || box.boxSeq} · 패스됨(박스유지·품목미확인)]`
                     : '[패스됨(카운트 제외)]'
                   : isManuallyMatched
-                  ? `[#${box.countSeq} · 수동 검색매칭 완료]`
+                  ? box.deductionMatched
+                    ? `[#${box.countSeq} · 소거법/3면교차 매칭완료]`
+                    : `[#${box.countSeq} · 수동 검색매칭 완료]`
                   : box.status === 'COUNTED'
                   ? `#${box.countSeq}`
                   : box.status === 'DUPLICATE'
-                  ? '[중복 제외됨]'
+                  ? box.crossAngleLinkedToBoxId
+                    ? '[3면교차 결합됨(중복제외)]'
+                    : '[중복 제외됨]'
                   : box.status === 'EXCLUDED'
                   ? '[수동 제외]'
                   : '[배경 팔레트 분리]';
@@ -1097,20 +1189,28 @@ export default function BoxVisionInspectorPage() {
             </div>
           </section>
 
-          {/* [신규 핵심 B] 품목·숫자 미식별 박스 확인 대기열 (N건) 전용 액션 패널 — [1. 패스] vs [2. 검색 매칭] */}
+          {/* [신규 핵심 B] 직육면체 지그재그 3면 적재(정면·좌·우) 교차 & 전산 잔여 품목 소거 매칭 및 미식별 박스 처리 패널 */}
           <section className={styles.unreadablePanelCard} data-testid="box-vision-unreadable-queue-panel">
             <div className={styles.panelHeader}>
               <div>
                 <h2 className={styles.panelTitle}>
-                  [품목·숫자 미식별 박스 확인 대기열 ({fmt((analysisData?.unreadablePendingQueue || []).length)}건)] — 패스 또는 검색 매칭 선택
+                  [지그재그 3면 적재(정면·좌·우) 교차 & 전산 잔여 품목 소거 매칭 대기열 ({fmt((analysisData?.unreadablePendingQueue || []).length)}건)]
                 </h2>
                 <div style={{ fontSize: 12.5, color: '#78350f', marginTop: 2 }}>
-                  라벨이 경고 스티커(DON&apos;T DROP)·테이프에 가려지거나 하단 무라벨 박스로 품목명이나 본수 숫자가 안 보이는 박스입니다. 임의 추정하지 않고 <strong>[패스]</strong>할지 <strong>[검색 매칭]</strong>할지 직접 선택하세요.
+                  사장님 현장 적재 원리: 직육면체 박스 1면(단면)에만 라벨지가 붙어있고 팔레트 안정성을 위해 층마다 <strong>90도 지그재그(교차) 적재</strong>하여 정면·좌측면·우측면 3면에 라벨이 분산 노출됩니다. 옆면(HOLEX 로고 긴 면) 노출 박스는 ① <strong>[3면 사진 교차 / 전산 출고 원장 소거법 원클릭 확정]</strong>, ② <strong>[직접 검색 매칭]</strong>, ③ <strong>[패스]</strong> 중 선택하세요.
                 </div>
               </div>
               <div className={styles.sampleChips}>
                 {(analysisData?.unreadablePendingQueue || []).length > 0 && (
                   <>
+                    <button
+                      type="button"
+                      className={styles.btnPrimary}
+                      data-testid="zigzag-batch-auto-deduce-btn"
+                      onClick={() => handleBatchAutoDeduceZigzag(true)}
+                    >
+                      [지그재그 옆면 박스 → 전산 잔여 품목 자동 소거 매칭 ({fmt((analysisData?.unreadablePendingQueue || []).length)}건 일괄 적용)]
+                    </button>
                     <button
                       type="button"
                       className={styles.btnPass}
@@ -1142,6 +1242,33 @@ export default function BoxVisionInspectorPage() {
               </div>
             </div>
 
+            {/* 시각적 소거법 수식 배너: 전산 출고 N박스 - 정면 라벨 확인 M박스 = 지그재그 옆면 잔여 K박스 품목 확정 */}
+            {analysisData?.zigzagDeductionSummary && (
+              <div
+                style={{
+                  background: '#ecfdf5',
+                  border: '1px solid #10b981',
+                  borderLeft: '4px solid #059669',
+                  borderRadius: 5,
+                  padding: '8px 12px',
+                  marginBottom: 10,
+                  fontSize: 13,
+                  color: '#065f46',
+                }}
+                data-testid="zigzag-deduction-formula-banner"
+              >
+                <div>
+                  <strong>[직육면체 3면 교차 & 전산 잔여 소거법 수식]</strong>{' '}
+                  <span style={{ fontWeight: 700, color: '#0f172a' }}>
+                    {analysisData.zigzagDeductionSummary.formulaEquation}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12.5, color: '#047857', marginTop: 2 }}>
+                  {analysisData.zigzagDeductionSummary.principleExplanation}
+                </div>
+              </div>
+            )}
+
             <div className={styles.unreadableQueueList}>
               {(analysisData?.unreadablePendingQueue || []).map((uBox) => {
                 const isMatcherOpen = activeMatcherBoxId === uBox.boxId;
@@ -1156,12 +1283,21 @@ export default function BoxVisionInspectorPage() {
                   (uBox.recommendedCandidates && uBox.recommendedCandidates[0]) ||
                   null;
 
-                const ocrBadgeText =
-                  uBox.ocrStatus === 'unreadable_item'
-                    ? '품목명 미식별 (라벨 일부 가림)'
-                    : uBox.ocrStatus === 'unreadable_qty'
-                    ? '본수 숫자 미식별 (숫자 흐림/가림)'
-                    : '품목·본수 숫자 모두 미식별 (하단 무라벨/가림)';
+                const isZigzag = uBox.boxFace === 'zigzag_side';
+                const sideText =
+                  uBox.exposedLabelSide === 'left'
+                    ? '라벨 좌측면 노출'
+                    : uBox.exposedLabelSide === 'right'
+                    ? '라벨 우측면 노출'
+                    : '라벨 좌/우측면 노출';
+                const ocrBadgeText = isZigzag
+                  ? `[지그재그 적재 옆면 (${sideText})]`
+                  : uBox.ocrStatus === 'unreadable_item'
+                  ? '품목명 미식별 (라벨 일부 가림)'
+                  : uBox.ocrStatus === 'unreadable_qty'
+                  ? '본수 숫자 미식별 (숫자 흐림/가림)'
+                  : '품목·본수 숫자 모두 미식별 (하단 무라벨/가림)';
+                const dedCand = uBox.deductionCandidate;
 
                 return (
                   <div
@@ -1171,9 +1307,11 @@ export default function BoxVisionInspectorPage() {
                   >
                     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 }}>
                       <div>
-                        <span className={styles.badgeWarn}>{ocrBadgeText}</span>{' '}
+                        <span className={styles.badgeWarn} data-testid={`box-face-badge-${uBox.boxId}`}>
+                          {ocrBadgeText}
+                        </span>{' '}
                         <strong>
-                          [사진 #{uBox.photoNumber} · 박스 #{uBox.countSeq || uBox.boxSeq}] {uBox.custName} ({uBox.labelCode})
+                          [사진 #{uBox.photoNumber}({uBox.cameraAngleLabel || '정면'}) · 박스 #{uBox.countSeq || uBox.boxSeq}] {uBox.custName} ({uBox.labelCode})
                         </strong>{' '}
                         · 외형: <strong>{uBox.boxSpec}</strong> · 일련번호 힌트: <strong>{uBox.serialNo}</strong>
                       </div>
@@ -1182,32 +1320,51 @@ export default function BoxVisionInspectorPage() {
                       </span>
                     </div>
                     <div style={{ fontSize: 13, color: '#78350f', marginTop: 4 }}>
-                      <strong>판독 보류 사유:</strong> {uBox.unreadableReason}
+                      <strong>정면 미식별 사유:</strong> {uBox.unreadableReason}
                     </div>
+                    {dedCand && (
+                      <div
+                        style={{
+                          background: '#f0fdfa',
+                          border: '1px solid #99f6e4',
+                          borderRadius: 5,
+                          padding: '6px 10px',
+                          marginTop: 6,
+                          fontSize: 12.5,
+                          color: '#0f172a',
+                        }}
+                        data-testid={`deduction-candidate-box-${uBox.boxId}`}
+                      >
+                        <div>
+                          <span className={styles.badgeMatch}>{dedCand.methodBadge}</span>{' '}
+                          <strong>1순위 역산 품목:</strong>{' '}
+                          <strong style={{ color: '#0f766e' }}>
+                            {dedCand.prodName} ({dedCand.flowerName}) · {fmt(dedCand.qtyPerBox)}{dedCand.unit}
+                            {dedCand.stemsPerBox ? ` (${fmt(dedCand.stemsPerBox)}본)` : ''}
+                          </strong>{' '}
+                          (일련번호 <strong>{dedCand.serialNo}</strong>)
+                        </div>
+                        <div style={{ color: '#334155', marginTop: 2 }}>
+                          <strong>역산 근거:</strong> {dedCand.deductionReason}
+                        </div>
+                      </div>
+                    )}
 
                     <div className={styles.unreadableActionRow}>
                       <div className={styles.sampleChips}>
+                        {dedCand && (
+                          <button
+                            type="button"
+                            className={styles.btnPrimary}
+                            data-testid={`confirm-zigzag-deduction-btn-${uBox.boxId}`}
+                            onClick={() => handleConfirmZigzagDeductionSingle(uBox)}
+                          >
+                            ① [소거법/3면교차 추천 품목으로 1클릭 확정 ({dedCand.prodName} {fmt(dedCand.qtyPerBox)}{dedCand.unit})]
+                          </button>
+                        )}
                         <button
                           type="button"
-                          className={styles.btnPass}
-                          data-testid={`pass-exclude-btn-${uBox.boxId}`}
-                          onClick={() => handlePassUnreadableBox(uBox, 'exclude_count')}
-                        >
-                          1-A. [카운트 제외 패스] (집계에서 제외)
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.btnPass}
-                          data-testid={`pass-keepbox-btn-${uBox.boxId}`}
-                          onClick={() => handlePassUnreadableBox(uBox, 'keep_box_skip_item')}
-                        >
-                          1-B. [박스 수만 유지하고 품목 미확인 패스]
-                        </button>
-                      </div>
-                      <div className={styles.sampleChips}>
-                        <button
-                          type="button"
-                          className={styles.btnPrimary}
+                          className={styles.btnSecondary}
                           data-testid={`open-search-matcher-btn-${uBox.boxId}`}
                           onClick={() => {
                             if (isMatcherOpen) {
@@ -1218,8 +1375,26 @@ export default function BoxVisionInspectorPage() {
                           }}
                         >
                           {isMatcherOpen
-                            ? '2. [검색 매칭기 닫기]'
-                            : '2. [검색 매칭 (품목 · 본수 · 업체/Bill 지정)]'}
+                            ? '② [직접 검색 매칭기 닫기]'
+                            : '② [직접 검색 매칭 (품목 · 본수 · 업체/Bill 지정)]'}
+                        </button>
+                      </div>
+                      <div className={styles.sampleChips}>
+                        <button
+                          type="button"
+                          className={styles.btnPass}
+                          data-testid={`pass-exclude-btn-${uBox.boxId}`}
+                          onClick={() => handlePassUnreadableBox(uBox, 'exclude_count')}
+                        >
+                          ③-A. [패스 (카운트 제외)]
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.btnPass}
+                          data-testid={`pass-keepbox-btn-${uBox.boxId}`}
+                          onClick={() => handlePassUnreadableBox(uBox, 'keep_box_skip_item')}
+                        >
+                          ③-B. [패스 (박스 수만 유지)]
                         </button>
                       </div>
                     </div>
@@ -1467,7 +1642,11 @@ export default function BoxVisionInspectorPage() {
                           </span>
                         ) : (
                           <span className={styles.badgeMatch} data-testid={`matched-badge-${rBox.boxId}`}>
-                            [수동 검색매칭 완료]
+                            {rBox.deductionMatched
+                              ? rBox.deductionMethod === 'cross_angle_3side'
+                                ? '[3면 사진 교차 라벨 매칭완료]'
+                                : '[전산 잔여 품목 소거법 매칭완료]'
+                              : '[수동 검색매칭 완료]'}
                           </span>
                         )}{' '}
                         <strong>[사진 #{rBox.photoNumber}] {rBox.serialNo}</strong> ·{' '}
@@ -1580,7 +1759,15 @@ export default function BoxVisionInspectorPage() {
                     </tr>
                     <tr>
                       <th>라벨 영문 원문</th>
-                      <td colSpan={3}><strong>{selectedBox.rawLabelItem}</strong> ({selectedBox.stickerCode})</td>
+                      <td><strong>{selectedBox.rawLabelItem}</strong> ({selectedBox.stickerCode})</td>
+                      <th>적재 노출면 · 라벨 방향</th>
+                      <td>
+                        <span className={selectedBox.boxFace === 'zigzag_side' ? styles.badgeWarn : styles.badgeMatch}>
+                          {selectedBox.boxFace === 'zigzag_side'
+                            ? `지그재그 교차 옆면 (zigzag_side · 라벨 ${selectedBox.exposedLabelSide === 'left' ? '좌측면' : '우측면'} 노출)`
+                            : '라벨 부착 단면 (label_end · 정면 노출)'}
+                        </span>
+                      </td>
                     </tr>
                     <tr>
                       <th>DB 매칭 품목명</th>
@@ -1607,6 +1794,25 @@ export default function BoxVisionInspectorPage() {
                 총 {fmt(totals.countedBoxes)}박스 · {fmt((analysisData?.customerItemSummary || []).length)}개 품목 라인 · Bill/입고차수 100% 체크완료
               </span>
             </div>
+
+            {analysisData?.zigzagDeductionSummary && (
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #cbd5e1',
+                  borderLeft: '4px solid #0f766e',
+                  borderRadius: 5,
+                  padding: '8px 12px',
+                  marginBottom: 10,
+                  fontSize: 13,
+                  color: '#0f172a',
+                }}
+                data-testid="reconcile-zigzag-formula-bar"
+              >
+                <strong>[지그재그 옆면 소거 대조 수식]</strong>{' '}
+                {analysisData.zigzagDeductionSummary.formulaEquation}
+              </div>
+            )}
 
             {/* 업체별 소계 배지 (업체별 수량 + Bill 번호 + 입고 차수 명시) */}
             <div className={styles.sampleChips} style={{ marginBottom: 10 }}>
