@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useId, useRef, useState } from 'react';
-import { validItem, farmTotals, importItemView, importTotalsText, importTotalKey, manualImportReviews, messageOrder, groupFarmTotals, matchesCountryOrderScope, visibleKakaoMessages, kakaoMessagePageSize } from '../../lib/importKakaoAdditions';
+import { validItem, farmTotals, importItemView, importTotalsText, importTotalKey, manualImportReviews, messageOrder, groupFarmTotalsByCycle, matchesCountryOrderScope, visibleKakaoMessages, kakaoMessagePageSize } from '../../lib/importKakaoAdditions';
 
 import { importCountryLabel } from '../../lib/importToolsDisplay';
 
@@ -144,7 +144,7 @@ function RecentReview({orderScope,userId}) {
   const sourceKeys=new Set(selectedTotal?.sourceKeys||[]);
   const messageKeys=new Set(selectedMessage?.items.map(i=>i.key)||[]);
   const shownTotals=selectedMessage?totals.filter(t=>t.sourceKeys.some(k=>messageKeys.has(k))):totals;
-  const countryTotals=groupFarmTotals(shownTotals);
+  const cycleTotals=groupFarmTotalsByCycle(shownTotals);
   const linkedSources=selectedTotal?allMessages.filter(m=>m.items.some(i=>sourceKeys.has(i.key))):[];
   const query=sourceQuery.normalize('NFKC').trim().toLowerCase();
   const matchesCurrentScope=m=>(m.kind==='review'&&(!orderScope||manual[m.id]||m.items.some(i=>inOrderScope(view(i))))||m.items.some(i=>inScope(view(i))));
@@ -180,7 +180,7 @@ function RecentReview({orderScope,userId}) {
     setOpenEditors(previous => ({...previous,[m.id]:true}));
     setSourceFilter('전체');setSourceQuery('');setShowHidden(false);setWeek('');setGroup('');setFocus(null);setNotice('검토 목록에 가져왔습니다. 품목·수량·단위·차수를 확인한 뒤 합산을 체크하세요.');
   }
-  async function copy(){try{await navigator.clipboard.writeText(importTotalsText(groupFarmTotals(totals).flatMap(country=>country.groups.flatMap(group=>group.cycles.flatMap(cycle=>cycle.rows)))));setNotice('전달용 합계를 복사했습니다.');}catch{setNotice('복사할 수 없습니다. 합계 표를 선택해 복사하세요.');}}
+  async function copy(){try{await navigator.clipboard.writeText(importTotalsText(groupFarmTotalsByCycle(totals).flatMap(cycle=>cycle.rows)));setNotice('전달용 합계를 복사했습니다.');}catch{setNotice('복사할 수 없습니다. 합계 표를 선택해 복사하세요.');}}
   function renderTotal(r){
     const picked=selectedTotal?.key===r.key;
     const selectedKeys=selectedMessage&&new Set(r.sourceKeys);
@@ -188,7 +188,7 @@ function RecentReview({orderScope,userId}) {
       const row=view(i);
       return row.quantity+' '+row.unit;
     });
-    return <tr key={r.key} className={picked||selectedMessage?'kakao-linked':''}><td><button type="button" className="kakao-match-total" aria-pressed={picked} onClick={()=>matchTotal(r.key)}>{r.product} <small>원문 {r.sourceKeys.length}행 보기</small></button>
+    return <tr key={r.key} className={picked||selectedMessage?'kakao-linked':''}><td className="kakao-row-scope">{groupKey(r)}</td><td><button type="button" className="kakao-match-total" aria-pressed={picked} onClick={()=>matchTotal(r.key)}>{r.product} <small>원문 {r.sourceKeys.length}행 보기</small></button>
       {picked&&<small className="kakao-source-reference">{linkedSources.map(m=>sourceReference(m.id)).join(' · ')}</small>}</td>
       <td className="kakao-quantity">{r.quantity} {r.unit}{sourceAmounts?.length>0&&<small className="kakao-source-reference">이 원문 {sourceAmounts.join(' + ')}</small>}</td>
       <td>{r.notes||(!r.requests&&<span className="kakao-no-notes" role="img" aria-label="업체 미기재">–</span>)}{r.requests&&<small>요청: {r.requests}</small>}</td></tr>;
@@ -260,16 +260,10 @@ function RecentReview({orderScope,userId}) {
         </>}
         {selectedMessage&&<p className="kakao-match-notice">{sourceReference(selectedMessage.id)} · 선택 원문이 포함된 전체 합계 {shownTotals.length}행 <button type="button" onClick={()=>setFocus(null)}>매칭 해제</button></p>}
         {invalid&&<p role="alert">합산할 행의 차수, 품종, 양수 수량과 단위를 확인하세요.</p>}
-        {totals.length>0&&!invalid?<><div className="kakao-table"><table><thead><tr>{['품종 / 원문 대조','수량','비고 (업체·수량)'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>
-          {countryTotals.map(country=><Fragment key={country.key}>
-            <tr className="kakao-country-heading"><td colSpan={3}><h5>{country.label}</h5></td></tr>
-            {country.groups.map(group=><Fragment key={group.key}>
-              <tr className="kakao-group-heading"><td colSpan={3}><h6>{group.label}</h6></td></tr>
-              {group.cycles.map(cycle=><Fragment key={cycle.key}>
-                <tr className="kakao-cycle-heading"><td colSpan={3}>{cycle.label}</td></tr>
-                {cycle.rows.map(renderTotal)}
-              </Fragment>)}
-            </Fragment>)}
+        {totals.length>0&&!invalid?<><div className="kakao-table"><table><thead><tr>{['국가 · 품목군','품종 / 원문 대조','수량','비고 (업체·수량)'].map(v=><th key={v}>{v}</th>)}</tr></thead><tbody>
+          {cycleTotals.map(cycle=><Fragment key={cycle.key}>
+            <tr className="kakao-cycle-heading"><td colSpan={4}><h5>{cycle.label}</h5></td></tr>
+            {cycle.rows.map(renderTotal)}
           </Fragment>)}
         </tbody></table></div><button type="button" disabled={loading||!!error} onClick={copy}>농장 전달용 복사</button><small>선택한 차수·품목군 전체 합계를 복사합니다.</small></>:!invalid&&feed&&!loading&&!error&&<p role="status">현재 범위에 자동 합산할 추가 발주가 없습니다. 검토 필요 목록을 확인하세요.</p>}
       </section>
@@ -329,10 +323,9 @@ export default function KakaoAdditions({orderScope,userId}){return <aside classN
 .kakao-choices .kakao-more{border-style:dashed}
 .kakao-feed-status{padding:8px 10px;border-left:3px solid #6888b7;background:#eef4ff;color:#193558;font-size:13.5px}
 .kakao-feed-status[role=alert]{border-color:#b45309;background:#fff4d6;color:#5d4206}
-.kakao-table h5,.kakao-table h6{margin:0;font:inherit;font-weight:700}
-.kakao-table .kakao-country-heading td{background:#dde9fa;font-size:14px}
-.kakao-table .kakao-group-heading td{background:#eef4fd;padding-left:12px}
-.kakao-table .kakao-cycle-heading td{color:#334155;font-size:12.5px;padding-left:17px;font-variant-numeric:tabular-nums}
+.kakao-table h5{margin:0;font:inherit;font-weight:700}
+.kakao-table .kakao-cycle-heading td{background:#dde9fa;color:#193558;font-size:13.5px;font-variant-numeric:tabular-nums}
+.kakao-table .kakao-row-scope{width:24%;font-size:12.5px;color:#334155}
 .kakao-table .kakao-quantity{white-space:nowrap;font-variant-numeric:tabular-nums}
 .kakao-table th,.kakao-table td{vertical-align:top}
 .kakao-additions .kakao-match-total small{display:inline-block;margin-left:2px;font-size:12.5px;white-space:nowrap}

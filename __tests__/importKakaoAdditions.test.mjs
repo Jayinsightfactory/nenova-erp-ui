@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readImportDay, farmTotals, groupFarmTotals, matchesCountryOrderScope, visibleKakaoMessages, kakaoMessagePageSize, validItem} from '../lib/importKakaoAdditions.js';
+import {readImportDay, farmTotals, groupFarmTotalsByCycle, matchesCountryOrderScope, visibleKakaoMessages, kakaoMessagePageSize, validItem} from '../lib/importKakaoAdditions.js';
 import './importKakaoOrderText.test.mjs';
 const headers='요청번호 항목|원문 시각|원문 작성자|분석 담당자|담당자 카톡|차수|원문 거래처|매칭 거래처|원문 품목|매칭 품목|수량|단위|매칭 판정|품목 후보|처리 상태|확인 필요사항|원문|검토 결과|거래처 수정|품목 수정'.replace('요청번호 항목','요청번호|항목').split('|');
 const row=(i,customer,q,date='2026년 11월 17일 오전 11:30')=>['m',i,date,'','','','46-01',customer,'','','콜롬비아수국 Moon Light',q,'박스','','','','','추가 요청'];
@@ -66,7 +66,7 @@ assert.equal(importItemView({...m.items[0],quantity:'-1'}).checked,false);
 assert.equal(farmTotals([importItemView(m.items[0]),importItemView({...m.items[0],quantity:'2'})])[0].notes,'주광 3');
 
 const groupFixture = {country:'콜롬비아', group:'수국', product:'Moon Light', checked:true, year:'2026', week:'46-01', quantity:1, unit:'박스'};
-const grouped = groupFarmTotals(farmTotals([
+const grouped = groupFarmTotalsByCycle(farmTotals([
   {...groupFixture,key:'a'},
   {...groupFixture,key:'b',unit:'단'},
   {...groupFixture,key:'c',week:'46-02'},
@@ -75,12 +75,11 @@ const grouped = groupFarmTotals(farmTotals([
   {...groupFixture,key:'f',country:'중국'},
   {...groupFixture,key:'g',country:'',group:''},
 ]));
-assert.deepEqual(grouped.map(x=>x.label),['중국','콜롬비아','국가 미상']);
-assert.deepEqual(grouped[1].groups.map(x=>x.label),['수국','카네이션']);
-assert.deepEqual(grouped[1].groups[0].cycles.map(x=>x.label),['2025/46-01차','2026/46-01차','2026/46-02차']);
-assert.deepEqual(grouped[1].groups[0].cycles[1].rows.flatMap(x=>x.sourceKeys),['a','b']);
-assert.equal(new Set(grouped[1].groups[0].cycles[1].rows.map(x=>x.unit)).size,2);
-assert.equal(grouped[2].groups[0].label,'품목군 미상');
+assert.deepEqual(grouped.map(x=>x.label),['2025/46-01차','2026/46-01차','2026/46-02차']);
+assert.deepEqual(grouped[1].rows.map(x=>x.country),['중국','콜롬비아','콜롬비아','콜롬비아','']);
+assert.deepEqual(grouped[1].rows.map(x=>x.group),['수국','수국','수국','카네이션','']);
+assert.deepEqual(grouped[1].rows.flatMap(x=>x.sourceKeys).sort(),['a','b','e','f','g']);
+assert.equal(new Set(grouped[1].rows.filter(x=>x.country==='콜롬비아'&&x.group==='수국').map(x=>x.unit)).size,2);
 
 const selectedScope = {country:'Colombia',year:2026,majorWeek:'46'};
 assert(matchesCountryOrderScope(groupFixture, selectedScope));
