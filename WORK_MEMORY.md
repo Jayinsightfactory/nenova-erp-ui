@@ -4958,3 +4958,12 @@ pm run test:canon 통과.
 4. 검증 상태: `boxVisionInspector.test.cjs` 3/3 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS (`agent-guardrails`, `guard-erp-writes`, `ui-layout-contract`, `workflow-guides`, `work-memory-handoff`), `npm run build` 성공.
 5. 주의/잠금: 기존 MSSQL 원장 테이블(`WarehouseMaster`, `ShipmentMaster`, `OrderMaster` 등)에 대한 쓰기(INSERT/UPDATE/DELETE) 0건(순수 SELECT 조회 전용). 연결 목표: g17, g19, g14, g03 / 학습 반영: 있음
 
+
+
+## 2026-11-24 농장 전달용 자동 합계 차수 우선 정리
+검색어: 농장 자동 합계 차수 연속 국가 품목군 한줄 차수별 원문 g19
+1. 작업 위치: nenova-erp-ui / codex/kakao-cycle-ledger / nw-cdx-kakao-cycle-ledger.
+2. 완료: 연도·세부차수 제목 아래 품종 행을 연속 표시하고 국가·품목군을 열로 배치. 복사는 같은 차수 순서와 전체 선택 범위 사용.
+3. 남은 일: 가이드·CI·Cafe24와 실제 브라우저 실무 화면 확인.
+4. 검증: 교차연도·동일 차수의 단위 분리, 격리 Chrome의 합계·원문 양방향·숨김과 다운로드. 운영 미검증.
+5. 주의: 표와 복사 정렬만 바뀌며 ERP 원장·카톡 수집 변경 없음. 연결 목표: g19 / 학습 반영: 있음.
