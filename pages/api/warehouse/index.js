@@ -7,14 +7,31 @@ import { acquireInvoiceReceiptGate, nextInvoiceWarehouseKey, calculateInvoiceSto
 import { resolveReceiptBunch } from '../../../lib/receiptBunchQuantity.js';
 import { WAREHOUSE_WEIGHT_ROW_SQL } from '../../../lib/warehouseWeightRows.js';
 import { canManageInvoiceReceipt } from '../../../lib/invoiceReceiptAccess.js';
+import { manualWarehouseHeader, manualWarehouseLine } from '../../../lib/manualWarehouseUpload.js';
+import { assertManualWarehouseEligible, readManualWarehouseAttempt } from '../../../lib/manualWarehouseUploadDb.js';
+import { warehouseFarmChoicesSql } from '../../../lib/warehouseFarmChoices.js';
 
 export default withAuth(async function handler(req, res) {
-  if (req.method === 'GET')  return await getWarehouse(req, res);
+  if (req.method === 'GET')  return req.query.manualOptions === '1' ? await getManualOptions(req,res) : await getWarehouse(req, res);
   if (req.method === 'POST') return await uploadWarehouse(req, res);
   if (req.method === 'PATCH') return await patchFreight(req, res);
   if (req.method === 'DELETE') return await deleteWarehouse(req, res);
   return res.status(405).end();
 });
+
+async function getManualOptions(req,res) {
+  if (!canManageInvoiceReceipt(req.user)) return res.status(403).json({success:false,error:'입고 등록 권한이 없습니다.'});
+  try {
+    const [farms,periods] = await Promise.all([
+      query(warehouseFarmChoicesSql({activeOnly:true})),
+      query(`SELECT DISTINCT OrderYear,OrderWeek FROM dbo.StockMaster
+        WHERE OrderYear>=N'2026' ORDER BY OrderYear DESC,OrderWeek DESC`),
+    ]);
+    return res.status(200).json({success:true,farms:farms.recordset,periods:periods.recordset});
+  } catch {
+    return res.status(503).json({success:false,error:'등록 농장 또는 차수를 불러오지 못했습니다.'});
+  }
+}
 
 async function patchFreight(req, res) {
   const { warehouseKey, gw, cw, rate, docFee } = req.body;
@@ -90,7 +107,15 @@ function warehouseRowBunch(item, product) {
 }
 
 async function uploadWarehouse(req, res) {
-  const { orderYear, orderWeek, farmName, invoiceNo, awb, inputDate, fileName, sourceWorkbookHash, items, gw, cw, rate, docFee } = req.body;
+  const body = req.body ?? {};
+  const manual = body.source === 'manual';
+  let manualMeta;
+  if (manual) {
+    try { manualMeta = manualWarehouseHeader(body); }
+    catch (error) { return res.status(400).json({success:false,code:error.code,error:error.message}); }
+  }
+  const { orderYear, orderWeek, farmName, invoiceNo, awb, inputDate } = manualMeta ?? body;
+  const { fileName, sourceWorkbookHash, items, gw, cw, rate, docFee } = body;
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ success: false, error: '업로드할 데이터가 없습니다.' });
   if (!/^\d{4}$/.test(String(orderYear || '')) || !/^\d{2}-\d{2}$/.test(String(orderWeek || ''))) {
     return res.status(400).json({ success: false, code: 'ORDER_YEAR_WEEK_REQUIRED', error: '입고 저장에는 화면의 선택 연도와 세부차수가 필요합니다.' });
@@ -108,9 +133,10 @@ async function uploadWarehouse(req, res) {
   const bunchResolutions = {};
   for (const [index, item] of items.entries()) {
     const prodName = String(item?.prodName || '').trim();
+    const row = item ?? {};
     const numericFields = ['boxQty', 'bunchQty', 'steamQty', 'steamOf1Box', 'steamOf1Bunch', 'unitPrice', 'totalPrice'];
-    const badField = numericFields.find((field) => item[field] != null && item[field] !== '' && !Number.isFinite(Number(item[field])));
-    const negativeQuantity = numericFields.slice(0,5).find(field => Number(item[field]) < 0);
+    const badField = !manual && numericFields.find((field) => row[field] != null && row[field] !== '' && !Number.isFinite(Number(row[field])));
+    const negativeQuantity = !manual && numericFields.slice(0,5).find(field => Number(row[field]) < 0);
     if (!prodName || badField || negativeQuantity) {
       validationErrors.push({ row: index + 1, prodName, error: !prodName ? '품목명이 없습니다.'
         : badField ? `${badField} 값이 숫자가 아닙니다.` : '입고 수량과 포장 기준은 0 이상이어야 합니다.' });
@@ -128,6 +154,15 @@ async function uploadWarehouse(req, res) {
       continue;
     }
     const product = pr.recordset[0];
+    if (manual) {
+      try {
+        const line = manualWarehouseLine(row,product);
+        resolvedItems.push({...line,prodName,prodKey:product.ProdKey,countryFlower:product.CountryFlower});
+      } catch (error) {
+        validationErrors.push({row:index+1,prodName,error:error.message});
+      }
+      continue;
+    }
     const workbookScope = /^[a-f0-9]{64}$/i.test(sourceWorkbookHash || '') ? sourceWorkbookHash.toLowerCase() : fileName;
     const bunchScope = [orderYear, orderWeek, farmName, invoiceNo, inputDate, workbookScope, index];
     const resolution = warehouseRowBunch({...item,bunchScope}, product);
@@ -146,18 +181,39 @@ async function uploadWarehouse(req, res) {
       errors: validationErrors,bunchResolutions });
   }
 
-  if (req.body.previewOnly === true) return res.status(200).json({success:true, validatedRows:resolvedItems.length,
+  if (!manual && body.previewOnly === true) return res.status(200).json({success:true, validatedRows:resolvedItems.length,
     bunchQuantities:resolvedItems.map(item => item.previewBunchQuantity),bunchResolutions});
 
   try {
+    const actor = String(req.user.userId);
+    if (manual) {
+      const attempt = await readManualWarehouseAttempt(query,sql,manualMeta,resolvedItems,actor);
+      if (body.previewOnly === true) {
+        if (!attempt.replay) {
+          await assertWarehouseWeekEditable(query,orderYear,orderWeek,resolvedItems.map(item=>item.countryFlower));
+          await assertManualWarehouseEligible(query,sql,manualMeta,resolvedItems);
+        }
+        return res.status(200).json({success:true,manualPreview:resolvedItems,previewToken:attempt.fileName,
+          ...(attempt.replay ? { warehouseKey:attempt.replay } : {})});
+      }
+      if (body.previewToken !== attempt.fileName) {
+        return res.status(409).json({success:false,code:'WAREHOUSE_MANUAL_PREVIEW_CHANGED',error:'입력값을 다시 미리보기한 후 등록하세요.'});
+      }
+      if (attempt.replay) return res.status(200).json({success:true,warehouseKey:attempt.replay});
+    }
     const warehouseKey = await withTransaction(async (tQuery) => {
-      for (const item of resolvedItems) {
+      let manualFile;
+      for (const [index,item] of resolvedItems.entries()) {
         const current = await tQuery(
           `SELECT ProdKey, CountryFlower, OutUnit, EstUnit, SteamOf1Bunch, BunchOf1Box FROM dbo.Product WITH (UPDLOCK,HOLDLOCK)
            WHERE ISNULL(isDeleted,0)=0 AND LOWER(LTRIM(RTRIM(ProdName)))=LOWER(@name)`,
           {name:{type:sql.NVarChar,value:item.prodName}}
         );
         const product = current.recordset.length === 1 && current.recordset[0].ProdKey === item.prodKey ? current.recordset[0] : null;
+        if (manual && product) {
+          Object.assign(item,manualWarehouseLine(items[index],product),{countryFlower:product.CountryFlower});
+          continue;
+        }
         const resolution = product && warehouseRowBunch(item,product);
         const error = !product ? '품목이 변경됐습니다. 다시 확인하세요.' : resolution.message;
         if (error) throw Object.assign(new Error(`${item.prodName} · ${error}`), {statusCode:400,
@@ -172,6 +228,15 @@ async function uploadWarehouse(req, res) {
         item.estUnit = product.EstUnit;
       }
       const transactionMarker = await acquireInvoiceReceiptGate(tQuery, sql);
+      if (manual) {
+        const attempt = await readManualWarehouseAttempt(tQuery,sql,manualMeta,resolvedItems,actor,true);
+        if (body.previewToken !== attempt.fileName) {
+          throw Object.assign(new Error('입력값을 다시 미리보기한 후 등록하세요.'),{statusCode:409,code:'WAREHOUSE_MANUAL_PREVIEW_CHANGED'});
+        }
+        if (attempt.replay) return attempt.replay;
+        manualFile = attempt.fileName;
+        await assertManualWarehouseEligible(tQuery,sql,manualMeta,resolvedItems,true);
+      }
       await assertWarehouseWeekEditable(tQuery, orderYear, orderWeek, resolvedItems.map((item) => item.countryFlower));
       const scope = {
         year:{ type:sql.NVarChar,value:String(orderYear) },
@@ -179,7 +244,7 @@ async function uploadWarehouse(req, res) {
         farm:{ type:sql.NVarChar,value:String(farmName ?? '').trim() },
         invoice:{ type:sql.NVarChar,value:String(invoiceNo ?? '').trim() },
       };
-      if (scope.invoice.value) {
+      if (!manual && scope.invoice.value) {
         const previous = await tQuery(`SELECT WarehouseKey FROM dbo.WarehouseMaster WITH (UPDLOCK,HOLDLOCK)
           WHERE OrderYear=@year AND OrderWeek=@week AND FarmName=@farm AND InvoiceNo=@invoice AND ISNULL(isDeleted,0)=0`,scope);
         if (previous.recordset.length) {
@@ -198,17 +263,17 @@ async function uploadWarehouse(req, res) {
                  0, @uid, GETDATE())`,
         {
           wk:   { type: sql.Int, value: wk },
-          fn:   { type: sql.NVarChar, value: fileName || `upload_${Date.now()}` },
+          fn:   { type: sql.NVarChar, value: manualFile || fileName || `upload_${Date.now()}` },
           year: { type: sql.NVarChar, value: orderYear || '' },
           week: { type: sql.NVarChar, value: orderWeek || '' },
           farm: { type: sql.NVarChar, value: farmName || '' },
           inv:  { type: sql.NVarChar, value: invoiceNo || '' },
           awb:  { type: sql.NVarChar, value: awb || '' },
           dt:   { type: sql.DateTime, value: new Date(`${inputDate}T00:00:00`) },
-          gw:   { type: sql.Float,    value: gw === '' || gw == null ? null : parseFloat(gw) },
-          cw:   { type: sql.Float,    value: cw === '' || cw == null ? null : parseFloat(cw) },
-          rate: { type: sql.Float,    value: rate === '' || rate == null ? null : parseFloat(rate) },
-          doc:  { type: sql.Float,    value: docFee === '' || docFee == null ? null : parseFloat(docFee) },
+          gw:   { type: sql.Float,    value: manual || gw === '' || gw == null ? null : parseFloat(gw) },
+          cw:   { type: sql.Float,    value: manual || cw === '' || cw == null ? null : parseFloat(cw) },
+          rate: { type: sql.Float,    value: manual || rate === '' || rate == null ? null : parseFloat(rate) },
+          doc:  { type: sql.Float,    value: manual || docFee === '' || docFee == null ? null : parseFloat(docFee) },
           uid:  { type: sql.NVarChar, value: req.user.userId },
         }
       );
@@ -218,8 +283,8 @@ async function uploadWarehouse(req, res) {
       const delta = new Map();
       const expected = [];
       for (const item of resolvedItems) {
-        const box = fromWorkbook(item.boxQty);
-        const bunch = fromWorkbook(item.bunchQty);
+        const box = manual ? item.boxQty : fromWorkbook(item.boxQty);
+        const bunch = manual ? item.bunchQty : fromWorkbook(item.bunchQty);
         const steam = fromWorkbook(item.steamQty);
         const quantity = unit => {
           const normalized = String(unit ?? '').trim();
@@ -243,14 +308,15 @@ async function uploadWarehouse(req, res) {
       for (const [prodKey,quantity] of [...delta].sort((a,b)=>a[0]-b[0])) {
         await applyInvoiceWarehouseStockDelta(tQuery,{
           year:scope.year,week:scope.week,pk:{type:sql.Int,value:prodKey},delta:{type:sql.Float,value:quantity},
-          actor:{type:sql.NVarChar,value:String(req.user.userId)},description:{type:sql.NVarChar,value:'파킹리스트 업로드'},
+          actor:{type:sql.NVarChar,value:actor},description:{type:sql.NVarChar,value:manual?'수기 입고':'파킹리스트 업로드'},
         });
       }
       await calculateInvoiceStock(tQuery, sql, transactionMarker, {orderYear,orderWeek}, String(req.user.userId));
       const saved = await tQuery(`SELECT WdetailKey,ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,OutQuantity,EstQuantity,UPrice,TPrice
         FROM dbo.WarehouseDetail WHERE WarehouseKey=@wk ORDER BY WdetailKey`,{wk:{type:sql.Int,value:wk}});
       if (saved.recordset.length !== expected.length || expected.some((item,index)=>Object.keys(item)
-        .some(field=>!Number.isFinite(saved.recordset[index][field]) || Math.abs(saved.recordset[index][field]-item[field])>0.000001))) {
+        .some(field=>item[field] === null ? saved.recordset[index][field] !== null
+          : !Number.isFinite(saved.recordset[index][field]) || Math.abs(saved.recordset[index][field]-item[field])>0.000001))) {
         throw new Error('저장 후 입고 수량과 금액이 일치하지 않습니다.');
       }
       return wk;

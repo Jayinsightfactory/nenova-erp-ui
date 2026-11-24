@@ -152,16 +152,17 @@ export default function PedidosTool({ active = true }) {
   function changeSource(value) {
     if (value === sourceMode) return;
     closePreview(); requestGuard.current.invalidate(); setResponse(null); setLoading(false);
+    setCycleKey('');setOrderWeek('');setSubweeks([]);
     invalidate(setSourceMode, value);
   }
   function changeCountry(value) {
-    if (value === country) return;
+    if (value === country) value = '';
     closePreview(); setCycleKey(''); setSubweeks([]);
     requestGuard.current.invalidate(); setResponse(null); setOrderWeek(''); setLoading(false);
     invalidate(setCountry, value);
   }
   function changeCycle(value) {
-    if (value === cycleKey) return;
+    if (value === cycleKey) value = '';
     closePreview(); setSubweeks([]);
     requestGuard.current.invalidate(); setResponse(null); setOrderWeek(''); setLoading(false);
     invalidate(setCycleKey, value);
@@ -514,9 +515,8 @@ export default function PedidosTool({ active = true }) {
       <div className="pedidos-cycles" role="group" aria-label="오늘부터 다음 5개 대차수">{cycles.map(cycle => <button type="button" key={cycle.key} aria-pressed={selectedCycle?.key === cycle.key} onClick={() => changeCycle(cycle.key)}>{cycle.year} {cycle.majorWeek}차 <small>{cycle.startDate.slice(5).replace('-', '/')}–{cycle.endDate.slice(5).replace('-', '/')}</small></button>)}</div></>}
       {cycleKey && <><h3>3. 세부차수</h3>
       <div className="pedidos-subweeks" role="group" aria-label="실제 주문 세부차수">{subweeks.map(subweek => <button type="button" key={subweek.key} aria-pressed={orderWeek === subweek.orderWeek} onClick={() => {
-        if (orderWeek === subweek.orderWeek) return;
         closePreview();
-        requestGuard.current.invalidate(); setResponse(null); setManual({}); invalidate(setOrderWeek, subweek.orderWeek);
+        requestGuard.current.invalidate(); setResponse(null); setManual({}); invalidate(setOrderWeek, orderWeek === subweek.orderWeek ? '' : subweek.orderWeek);
       }}>{subweek.orderWeek}차</button>)}</div></>}
       {orderWeek && <button type="button" disabled={loading} className="pedidos-secondary pedidos-open-preview" onClick={event => openPreview(event.currentTarget)}>매칭데이터 미리보기 열기</button>}
       <p role="status">{loading ? (orderWeek ? '세부차수 주문 조회 중…' : '차수 목록 조회 중…') : !country ? '국가를 선택하세요.' : !cycleKey ? '차수를 선택하세요.' : !orderWeek ? (subweeks.length ? '세부차수를 선택하세요.' : '선택 범위에 주문 없음') : ''}</p>
@@ -536,7 +536,9 @@ export default function PedidosTool({ active = true }) {
     </form>}
     <p className="pedidos-note">주문·입고·재고에 자동 등록되지 않습니다. 수량 0은 화면·Excel에서 빈칸으로 표시하며 숫자와 수식은 보존합니다. 원인 확인용 저장수량 진단의 0은 표시합니다.</p>
     <details className="pedidos-guide"><summary>지원 양식과 변환 기준 보기</summary><p>기존 양식은 활성 시트(없으면 첫 시트)를 읽습니다. 중국 행렬은 수량원본과 구조화 시트의 업체키·품목키·숫자 수량을 사용하며 선택 연도·차수를 확인합니다. 파일명·시트명은 차수 기준으로 유지합니다. 차수의 공백·구두점은 원본 규칙대로 제거됩니다.</p></details>
-    </div>{active && <KakaoAdditions/>}</div>
+    </div>{active && <KakaoAdditions orderScope={sourceMode==='erp'&&country?{
+      country,year:selectedCycle?.year,majorWeek:selectedCycle?.majorWeek,orderWeek,
+    }:null}/>}</div>
     {preview ? (preview.mount ? createPortal(orderPreview, preview.mount) :
       <dialog ref={previewDialog} className="pedidos-preview-window" aria-labelledby="pedidos-preview-title"
         onCancel={event => { event.preventDefault(); closePreview(); }}>{orderPreview}</dialog>) : finishControls}

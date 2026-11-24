@@ -8,8 +8,8 @@ async function main(){
  fs.mkdirSync('.verify',{recursive:true});
  const {classifyImportFeed}=await import('../lib/importKakaoOrderText.js');
  const sampleMessage=(id,text)=>({id,time:id==='white'?'2026년 11월 12일 오전 9:10':'2026년 11월 18일 오전 9:10',text,sender:'연습 담당자',items:[]});
- const sampleMessages=[...['주광','미우','일신'].map((customer,i)=>sampleMessage(String(i),'46-1 콜 카네이션 발주 추가\n'+customer+'\nMoon Light '+[1,2,1][i]+'박스')),sampleMessage('white','46-1 콜 수국 발주 추가\n화이트 2박스'),sampleMessage('duplicate','46-1 콜 카네이션 발주 추가\n주광\nMoon Light 1박스'),sampleMessage('noise','이번에 온 3박스가 포장 불량입니다'),sampleMessage('cancel','46-1 콜 카네이션 발주 취소\n별도품종 1박스')];
- sampleMessages.push(sampleMessage('missed','46-1 콜 수국 추가\n연습화이트 두 박스 부탁합니다.'));
+ const sampleMessages=[...['주광','미우','일신'].map((customer,i)=>sampleMessage(String(i),'46-1 중국 카네이션 발주 추가\n'+customer+'\nMoon Light '+[1,2,1][i]+'박스')),sampleMessage('white','46-1 중국 수국 발주 추가\n화이트 2박스'),sampleMessage('duplicate','46-1 중국 카네이션 발주 추가\n주광\nMoon Light 1박스'),sampleMessage('noise','이번에 온 3박스가 포장 불량입니다'),sampleMessage('cancel','46-1 중국 카네이션 발주 취소\n별도품종 1박스')];
+ sampleMessages.push(sampleMessage('missed','46-1 중국 수국 추가\n연습화이트 두 박스 부탁합니다.'));
  const sampleFeed=classifyImportFeed({orderDays:['2026-11-18','2026-11-12'],reviewThrough:'2026-11-18',from:'2026-11-17',to:'2026-11-18',latest:'2026년 11월 18일 오전 9:10',messages:sampleMessages});
  const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8')),workflow=registry.workflows.find(w=>w.id==='import-country-orders');
  const listener=net.createServer();await new Promise(r=>listener.listen(0,'127.0.0.1',r));const port=listener.address().port;await new Promise(r=>listener.close(r));
@@ -74,7 +74,7 @@ async function main(){
     await page.click('.kakao-refresh');
     await page.waitForSelector('.kakao-country-heading');
     const headings=await page.$$eval('.kakao-table tbody tr',rows=>rows.slice(0,3).map(r=>r.textContent));
-    assert.deepEqual(headings,['콜롬비아','수국','2026/46-01차']);
+    assert.deepEqual(headings,['중국','수국','2026/46-01차']);
   }
   // Record the fullscreen fallback in the original tab. Dry runs separately exercise the actual popup.
   await page.evaluate(() => { window.__orderGuideOpen = window.open; window.open = () => null; window.showSaveFilePicker = undefined; });
@@ -92,7 +92,7 @@ async function main(){
   assert(countryButton);
   rec=dry?{chapter(){},focus:async()=>{},unfocus:async()=>{},caption:async()=>{},pause:async()=>{},stop:async()=>({})}:await createWorkflowGuideRecorder(page,{workflowId:workflow.id,guideId:'import',title:workflow.title,sourceFiles:workflow.sourceFiles,fixtureOnly:true});
   const steps=[
-   ['country','국가 선택','[aria-label="국가"] button:nth-child('+countryButton+')','네덜란드를 선택하면 차수 버튼이 나타납니다.'],
+   ['country','국가 선택','[aria-label="국가"] button:nth-child('+countryButton+')','왼쪽에서 국가를 선택하면 가운데 합계와 오른쪽 원문도 같은 국가로 좁혀집니다.'],
    ['cycle','차수 선택',cycle,'2026년 46차를 선택해 실제 주문이 있는 세부차수를 확인합니다.'],
    ['week','세부차수와 미리보기',sub,'46-01차로 주문을 조회한 뒤 매칭데이터 미리보기 열기를 눌러 품목과 수량을 확인합니다.'],
    ['review','송이 수 확인·수정','.pedidos-review-input','전산 원수량 150송이를 확인하고 이번 발주 수량을 140송이로 수정합니다.'],
@@ -151,12 +151,14 @@ async function main(){
   assert.equal(await page.$('.kakao-originals fieldset'),null);
   assert.equal(await page.$('.kakao-source-reference'),null);
   for(const id of ['0','1','2','white'])assert(await page.$(included(id)));
+  assert.match(await page.$eval('.kakao-order-scope',el=>el.textContent),/중국.*2026\/46-01/);
+  assert.match(await page.$eval(source('1')+' .kakao-source-contributions',el=>el.textContent),/Moon Light 2 박스 · 미우/);
   assert.equal(await page.$(included('cancel')),null);
   assert.deepEqual(await page.$$eval('.kakao-table thead th', nodes => nodes.map(node => node.textContent)),
     ['품종 / 원문 대조','수량','비고 (업체·수량)']);
   for(const [n,id,label,selector,caption,key] of [
-    [16,'chat','오른쪽 카톡 추가·취소 원문 확인',sourceFilter(3),'원문과 합계에 각각 조회 상태가 표시됩니다. 발주가 있는 최근 2일을 자동으로 찾습니다. 오른쪽에서 취소 원문을 보고 방·시각·내용으로 검색하세요. 취소 수량은 확인 전 합산하지 않습니다.','Enter'],
-    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','콜롬비아 카네이션을 선택합니다. 합계는 국가, 품목군, 연도·세부차수 순으로 확인합니다. 오른쪽의 합계 반영 체크는 이 범위의 합계에 수량이 들어간 원문입니다.',null],
+    [16,'chat','오른쪽 카톡 추가·취소 원문 확인',sourceFilter(3),'선택한 국가·차수에 맞는 최신 원문을 먼저 100건까지 표시합니다. 오른쪽에서 취소 원문을 보고 방·시각·내용으로 검색하세요. 취소 수량은 확인 전 합산하지 않습니다.','Enter'],
+    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','중국 카네이션을 선택합니다. 합계는 국가, 품목군, 연도·세부차수 순으로 확인합니다. 오른쪽 합계 반영에서 원문별 품종·수량·업체를 확인합니다.',null],
     [18,'match-total','합계에서 원문 확인','.kakao-match-total','가운데 품종을 누르면 오른쪽 근거 원문으로 이동합니다. 양쪽의 같은 원문 번호를 비교합니다.','Enter'],
     [19,'match-source','원문에서 합계 확인','.kakao-order-message.kakao-linked .kakao-match-source','오른쪽 원문의 합계 보기를 누르면 가운데 전체 합계 아래에 해당 원문의 수량이 표시됩니다.','Enter'],
     [20,'audit','제외 원문 대조','.kakao-audit > summary','분류 건수를 대조하고 제외 원문을 검색해 놓친 발주를 확인합니다. 카톡 자체 수집 누락과 사진은 별도 원본 대조가 필요합니다.','Enter'],
@@ -188,7 +190,7 @@ async function main(){
       const recovered=source('missed')+' fieldset';
       await page.waitForSelector(recovered);await page.$eval(recovered,n=>n.scrollIntoView({block:'center'}));await rec.unfocus();await rec.focus(recovered,n);
       const inputs=await page.$$(recovered+' > label input');
-      for(const [i,value] of ['콜롬비아','수국','46-01','연습화이트','2','박스',''].entries()){await inputs[i].focus();await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');await page.keyboard.type(value,{delay:dry?0:90});}
+      for(const [i,value] of ['중국','수국','46-01','연습화이트','2','박스',''].entries()){await inputs[i].focus();await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');await page.keyboard.type(value,{delay:dry?0:90});}
       assert.equal(await page.$eval(recovered+' input[type="checkbox"]',n=>n.checked),false);await page.focus(recovered+' input[type="checkbox"]');await page.keyboard.press('Space');
       assert(await page.$(included('missed')));
       assert((await page.$eval('.kakao-table',n=>n.textContent)).includes('연습화이트'));console.log('PASS manual recovered order edit and include');
@@ -279,7 +281,7 @@ async function main(){
   console.log('PASS recovered review survives closing audit and refresh');
   // A previously explicit inclusion must not survive a newly collected cancellation.
   await page.click(source('0')+' input[type="checkbox"]');
-  Object.assign(sampleFeed,classifyImportFeed({from:'2026-11-17',to:'2026-11-18',messages:[...sampleMessages,sampleMessage('new-cancel','46-1 콜 카네이션 발주 취소\nMoon Light 1박스')]}));
+  Object.assign(sampleFeed,classifyImportFeed({from:'2026-11-17',to:'2026-11-18',messages:[...sampleMessages,sampleMessage('new-cancel','46-1 중국 카네이션 발주 취소\nMoon Light 1박스')]}));
   await page.click('.kakao-refresh');await page.waitForNetworkIdle();
   assert(!(await page.$eval('.kakao-table',n=>n.textContent)).includes('Moon Light'));
   const related=await page.$$( '.kakao-order-message[data-source-kind="review"] .kakao-edit-source[aria-expanded="false"]');
@@ -289,15 +291,18 @@ async function main(){
   if(!dry){workflow.guides[0].chapters=result.chapters;workflow.guides[0].status='ready';fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');}
   if(dry){
     const savedFeed={...sampleFeed};
-    const mixed=sampleMessage('mixed','45-2 네덜란드 발주 추가\n연습수국 2\n연습장미 60cm 100스팀');
-    const good=sampleMessage('sample-hydrangea','45-2 네덜란드 수국 발주 추가\n연습화이트 8송이');
+    const mixed=sampleMessage('mixed','46-1 중국 발주 추가\n연습수국 2\n연습장미 60cm 100스팀');
+    const good=sampleMessage('sample-hydrangea','46-1 중국 수국 발주 추가\n연습화이트 8송이');
     Object.assign(sampleFeed,classifyImportFeed({messages:[mixed,good]}));
     await page.click('.kakao-refresh');await page.waitForNetworkIdle();
     assert(await page.$(included('mixed')));
+    const mixedDetails=await page.$eval(source('mixed')+' .kakao-source-contributions',el=>el.textContent);
+    assert.match(mixedDetails,/100 송이/);
+    assert.doesNotMatch(mixedDetails,/수국/);
     const groups='.kakao-choices[aria-label="품목군"]';
     const hydrangea=await page.$$(groups+' button');
     for(const button of hydrangea){
-      if(await button.evaluate(el=>el.textContent==='네덜란드 · 수국')){await button.click();break;}
+      if(await button.evaluate(el=>el.textContent==='중국 · 수국')){await button.click();break;}
     }
     assert(await page.$(source('mixed')));
     assert.equal(await page.$(included('mixed')),null);
@@ -351,7 +356,7 @@ async function main(){
     console.log('PASS native popup editing/reopen/download, 1572px three panels and close');
     const extraGroups=['수선화','튤립','히야신스','안시리움','장미','카라','거베라','루스커스'];
     Object.assign(sampleFeed, classifyImportFeed({from:'2026-11-17',to:'2026-11-18',
-      messages:extraGroups.map((name,index)=>sampleMessage('extra-'+index,'46-1 네덜란드 '+name+' 발주 추가\n연습품종 12송이'))}));
+      messages:extraGroups.map((name,index)=>sampleMessage('extra-'+index,'46-1 중국 '+name+' 발주 추가\n연습품종 12송이'))}));
     await page.click('.kakao-refresh');await page.waitForNetworkIdle();
     const group='.kakao-choices[aria-label="품목군"]';
     assert.equal(await page.$$eval(group+' button[aria-pressed]',nodes=>nodes.length),6);
@@ -364,6 +369,41 @@ async function main(){
     await page.click(group+' button[aria-pressed]:first-of-type');
     assert.equal(await page.$eval('.kakao-quantity',node=>getComputedStyle(node).whiteSpace),'nowrap');
     console.log('PASS compact filters retain hidden selection and quantities never wrap');
+    const scopedFixture = [
+      ...Array.from({length:105},(_,index)=>({...sampleMessage('page-'+index,'연습 발주 '+index),
+        kind:'addition',items:[{key:'page-'+index,country:'중국',group:'수국',year:'2026',week:'46-01',
+          product:index===104?'오래된 품종':'공통 품종',quantity:1,unit:'송이',checked:true}]})),
+      {...sampleMessage('other-sub','다른 세부차수'),kind:'addition',items:[{key:'other-sub',country:'중국',group:'수국',year:'2026',week:'46-02',product:'다른 세부차수',quantity:50,unit:'송이',checked:true}]},
+      {...sampleMessage('prior-year','다른 연도'),kind:'addition',items:[{key:'prior-year',country:'중국',group:'수국',year:'2025',week:'46-01',product:'다른 연도',quantity:30,unit:'송이',checked:true}]},
+      {...sampleMessage('other-country','다른 국가'),kind:'addition',items:[{key:'other-country',country:'네덜란드',group:'수국',year:'2026',week:'46-01',product:'다른 국가',quantity:25,unit:'송이',checked:true}]},
+    ];
+    Object.assign(sampleFeed,{messages:scopedFixture,review:[],audit:[]});
+    await page.click('.kakao-refresh');await page.waitForNetworkIdle();
+    assert.equal(await page.$$eval('.kakao-order-message',rows=>rows.length),100);
+    assert.equal(await page.$eval('.kakao-source-controls [role="status"]',el=>el.textContent),'최신순 · 100 / 105건');
+    assert.equal(await page.$(source('other-sub')),null);
+    assert.equal(await page.$(source('prior-year')),null);
+    assert.equal(await page.$(source('other-country')),null);
+    assert.match(await page.$eval('.kakao-table',el=>el.textContent),/104 송이/);
+    const oldest=await page.$$('.kakao-match-total');
+    for(const button of oldest)if(await button.evaluate(el=>el.textContent.startsWith('오래된 품종'))){await button.click();break;}
+    assert(await page.$(source('page-104')+'.kakao-linked'));
+    assert.match(await page.$eval(source('page-104')+' .kakao-source-contributions',el=>el.textContent),/오래된 품종 1 송이/);
+    await page.click('.kakao-match-notice button');
+    await page.click('.kakao-more-sources');
+    assert.equal(await page.$$eval('.kakao-order-message',rows=>rows.length),105);
+    await page.click(sub);
+    assert.match(await page.$eval('.kakao-order-scope',el=>el.textContent),/2026\/46차$/);
+    assert.match(await page.$eval('.kakao-table',el=>el.textContent),/다른 세부차수/);
+    assert.doesNotMatch(await page.$eval('.kakao-table',el=>el.textContent),/다른 연도|다른 국가/);
+    await page.click(cycle);
+    assert.match(await page.$eval('.kakao-order-scope',el=>el.textContent),/중국$/);
+    assert.match(await page.$eval('.kakao-table',el=>el.textContent),/다른 연도/);
+    await page.click('[aria-label="국가"] button:nth-child('+chinaIndex+')');
+    assert.equal(await page.$('.kakao-order-scope'),null);
+    assert.match(await page.$eval('.kakao-table',el=>el.textContent),/다른 국가/);
+    console.log('PASS left scope and reset; 100-card pagination, legacy year isolation and oldest matched original');
+
     await page.evaluate(title=>{const heading=[...document.querySelectorAll('h3')].find(node=>node.textContent===title);if(!heading)throw Error('Guide heading missing');heading.closest('details').id='country-order-guide-test';},workflow.title);
     await page.focus('#country-order-guide-test > summary');await page.keyboard.press('Enter');
     await page.$eval('#country-order-guide-test video',video=>{video.muted=true;return video.play();});

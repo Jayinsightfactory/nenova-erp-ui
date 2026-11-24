@@ -47,7 +47,7 @@ export function IncomingChangeSummary({before,after,products=[],farmBefore,farmA
   </section>;
 }
 
-function ReceiptProductSearch({index, productName, products, onSelect}) {
+export function ReceiptProductSearch({index, productName, products, onSelect}) {
   const [query,setQuery]=useState(''),[composing,setComposing]=useState(false),[active,setActive]=useState(-1);
   const [remote,setRemote]=useState(null);
   const listId=useId(), keyword=query.trim();
@@ -70,7 +70,7 @@ function ReceiptProductSearch({index, productName, products, onSelect}) {
     },250);
     return()=>{clearTimeout(timeout);controller.abort();};
   },[useRemote,keyword,products]);
-  const choose=product=>{onSelect(product.ProdName);setQuery('');setActive(-1);setRemote(null);};
+  const choose=product=>{onSelect(product.ProdName,product);setQuery('');setActive(-1);setRemote(null);};
   useEffect(()=>{
     if(active>=0)document.getElementById(listId+'-'+active)?.scrollIntoView({block:'nearest'});
   },[active,listId]);

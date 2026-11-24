@@ -168,3 +168,7 @@ actual dnSpy CLI ExcelLoadingPackingList.MakeTempTable/InsertMaster를 재확인
 
 ## 2026-11-24 CLOUD 원가 전용 확인표
 설치된 Nenova.exe에 dnSpy.Console.exe --no-color -t ExcelLoadingPackingList를 실제 재실행했다. MakeTempTable/InsertMaster 저장·재고 순서는 변경하지 않는다. WarehouseMaster/Detail/Product 및 확정 WebInvoiceDocument/Operation은 SELECT-only이며 과거 등록 행 연결은 원문 비교 근거로만 표시한다. 현재 ERP와 동일함을 뜻하지 않는다. 2026/47-02 8249 38행63,000CNY /8250 2행2,620CNY를 사전 조회했다. 원가 적용값·수기 운임/관세·revision 초안은 별도 import-team runtime 파일에만 저장하며 Estimate/Shipment/Stock/손익 원장 쓰기는 없다.
+
+## 2026-11-24 수기 입고 단위와 금액 재확인
+
+2026-11-24 설치본을 dnSpy CLI로 추출했다. `FormWarehouseAdd.CheckValue`는 품목·수량 및 `CheckFixSave`를 확인한다. `btnSave_Click`의 `UnitQuantity`는 `WarehouseDetail` 박스·단·송이에서 출고와 견적 수량을 각 단위대로 고른다. `TPrice=SteamQuantity×UPrice`이다. 상세·재고 이력·품목 재고와 연도/차수 재계산은 기존 보호된 웹 입고 트랜잭션으로 처리한다. [읽기 검증과 영향 표](../plans/manual-warehouse-upload-2026-11-24.md).

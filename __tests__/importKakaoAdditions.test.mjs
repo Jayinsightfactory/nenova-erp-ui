@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readImportDay, farmTotals, groupFarmTotals, validItem} from '../lib/importKakaoAdditions.js';
+import {readImportDay, farmTotals, groupFarmTotals, matchesCountryOrderScope, visibleKakaoMessages, kakaoMessagePageSize, validItem} from '../lib/importKakaoAdditions.js';
 import './importKakaoOrderText.test.mjs';
 const headers='요청번호 항목|원문 시각|원문 작성자|분석 담당자|담당자 카톡|차수|원문 거래처|매칭 거래처|원문 품목|매칭 품목|수량|단위|매칭 판정|품목 후보|처리 상태|확인 필요사항|원문|검토 결과|거래처 수정|품목 수정'.replace('요청번호 항목','요청번호|항목').split('|');
 const row=(i,customer,q,date='2026년 11월 17일 오전 11:30')=>['m',i,date,'','','','46-01',customer,'','','콜롬비아수국 Moon Light',q,'박스','','','','','추가 요청'];
@@ -81,3 +81,19 @@ assert.deepEqual(grouped[1].groups[0].cycles.map(x=>x.label),['2025/46-01차','2
 assert.deepEqual(grouped[1].groups[0].cycles[1].rows.flatMap(x=>x.sourceKeys),['a','b']);
 assert.equal(new Set(grouped[1].groups[0].cycles[1].rows.map(x=>x.unit)).size,2);
 assert.equal(grouped[2].groups[0].label,'품목군 미상');
+
+const selectedScope = {country:'Colombia',year:2026,majorWeek:'46'};
+assert(matchesCountryOrderScope(groupFixture, selectedScope));
+assert(matchesCountryOrderScope({...groupFixture,week:'46-02'}, selectedScope));
+assert(matchesCountryOrderScope({...groupFixture,week:'46-1'}, {...selectedScope,orderWeek:'46-01'}));
+assert(!matchesCountryOrderScope({...groupFixture,week:'46'}, {...selectedScope,orderWeek:'46-01'}));
+assert(!matchesCountryOrderScope({...groupFixture,week:'46-02'}, {...selectedScope,orderWeek:'46-01'}));
+assert(!matchesCountryOrderScope({...groupFixture,year:'2025'}, selectedScope));
+assert(!matchesCountryOrderScope({...groupFixture,country:''}, selectedScope));
+assert(!matchesCountryOrderScope({...groupFixture,week:''}, selectedScope));
+assert(matchesCountryOrderScope({...groupFixture,year:'',week:''}, {country:'Colombia'}));
+assert(matchesCountryOrderScope({...groupFixture,country:''}, null));
+const messagePages=Array.from({length:105},(_,i)=>({id:String(i)}));
+assert.equal(visibleKakaoMessages(messagePages,kakaoMessagePageSize,new Set()).length,100);
+assert.equal(visibleKakaoMessages(messagePages,100,new Set(['104'])).at(-1).id,'104');
+assert.equal(visibleKakaoMessages(messagePages,200,new Set()).length,105);

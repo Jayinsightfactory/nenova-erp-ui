@@ -62,6 +62,9 @@ async function recordRole(browser, base, secret, role) {
   let loseApproval=dry&&!isImport,lostApproval=null,replayedApproval=false;
   const page = await browser.newPage();page.setDefaultNavigationTimeout(120000);const errors = [], posts = [];
   let packingSaves = 0;
+  let manualSaves = 0;
+  let manualPreviewBody;
+  const {manualWarehouseLine}=await import('../lib/manualWarehouseUpload.js');
   let mainNavigations=0;page.on('framenavigated',frame=>{if(frame===page.mainFrame())mainNavigations++;});
   await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
   page.on('pageerror', error => errors.push(error.message)); page.on('dialog', dialog => dialog.accept());
@@ -76,9 +79,31 @@ async function recordRole(browser, base, secret, role) {
       if (u.pathname === '/api/products/search') data.products = products;
       if (u.pathname === '/api/auth/me') data.user = user;
       if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,OrderWeek:i===1?'45-02':i?'46-01':header.OrderWeek,FarmName:i?'다른 농장':header.FarmName,InvoiceNo:i?`GUIDE-${i+1}`:header.InvoiceNo,totalBox:i===1?null:header.totalBox}));
+      if (u.pathname === '/api/warehouse' && u.searchParams.get('manualOptions')==='1') {
+        data={success:true,farms:[{FarmName:'연습농장 가',FarmKey:1}],periods:[
+          {OrderYear:'2026',OrderWeek:'45-01'},{OrderYear:'2026',OrderWeek:'45-02'},
+          {OrderYear:'2027',OrderWeek:'45-01'},{OrderYear:'2027',OrderWeek:'02-01'},
+        ]};
+      }
       if (u.pathname === '/api/warehouse' && r.method() === 'POST') {
         assert(isImport,'fixture import authorization');
         const body=JSON.parse(r.postData());
+        if(body.source==='manual'){
+          const preview=body.items.map(row=>({...manualWarehouseLine(row,products.find(product=>product.ProdKey===row.prodKey)),prodName:row.prodName,prodKey:row.prodKey}));
+          assert.equal(body.farmName,'연습농장 가');
+          assert.equal(body.orderYear,'2026');
+          assert.equal(body.orderWeek,'45-01');
+          assert.deepEqual(preview.map(line=>[line.steamQty,line.bunchQty,line.totalPrice]),[[100,10,25],[200,20,0]]);
+          if(body.previewOnly){manualPreviewBody=body;data={success:true,manualPreview:preview,previewToken:'guide-manual-preview'};}
+          else {
+            assert.equal(body.operationId,manualPreviewBody.operationId);
+            assert.equal(body.previewToken,'guide-manual-preview');
+            manualSaves++;
+            if(dry && manualSaves===1) return r.respond({status:502,contentType:'application/json',body:'{"success":false}'});
+            data={success:true,warehouseKey:9201};
+          }
+          return r.respond({status:200,contentType:'application/json',body:JSON.stringify(data)});
+        }
         assert.equal(body.orderYear,'2026');
         const results=body.items.map((item,index)=>resolveReceiptBunch(products[index],{
           boxQuantity:item.boxQty,stemQuantity:item.steamQty,bunchQuantity:item.bunchQty,stemsPerBunch:item.steamOf1Bunch,
@@ -145,7 +170,7 @@ async function recordRole(browser, base, secret, role) {
   });
   await page.goto(`${base}/import/tools?tab=incoming&warehouseKey=9001&from=2026-10-01&to=2026-11-30`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('nav[aria-label="입고 정정 처리 단계"]');
-  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},unfocus:async()=>{},stop: async () => null } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 수정 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset: 'veryfast' });
+  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},stop: async () => null,unfocus:async()=>{} } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 작업 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset: 'veryfast', crf:isImport?25:23 });
   let stepNumber=1,currentCaption='1. 조작할 위치를 확인합니다.';
   const hold = async (text, seconds = 5) => { currentCaption=`${stepNumber}. ${text.replace(/^\d+\. /,'')}`;await rec.caption(currentCaption); await rec.pause(Math.min(seconds, 7) * 1000); };
   const focusTarget=async element=>{
@@ -366,7 +391,7 @@ async function recordRole(browser, base, secret, role) {
         await hold('적용 완료 결과를 확인합니다.\n이미 발송한 견적서는 정정 내용으로 다시 발행하세요.',5);await click('요청 목록으로');
       }
     }
-    if(onlyScenario!=='packing-quantity'){
+    if(!['packing-quantity','manual-upload'].includes(onlyScenario)){
       if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
       await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click(onlyScenario==='price'&&!isImport?'#4 열기':'#1 열기');await page.waitForFunction(()=>document.querySelector('[aria-label="작업 로그"]')?.textContent.includes('요청 내용과 처리 이력을 불러왔습니다.'));await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
     }
@@ -424,8 +449,74 @@ async function recordRole(browser, base, secret, role) {
       await hold('입고 등록 완료 메시지를 확인합니다.',5);
       assert.equal(packingSaves,1);
     }
+    if (isImport && (!onlyScenario || onlyScenario==='manual-upload')) {
+      console.log(`${dry?'CHECK':'RECORD'} import: manual-upload`);
+      await page.goto(`${base}/incoming?popup=1`,{waitUntil:'networkidle0'});
+      await rec.restoreOverlay?.();
+      stepNumber=8;
+      rec.chapter('manual-upload','8. 여러 품목 수기로 입고 등록');
+      await hold('파일 없이 입고할 때 업로드 옆의 수기 업로드를 선택합니다.',5);
+      await click('수기 업로드');
+      const modal='[role="dialog"]';
+      await page.waitForSelector(modal+' select[aria-label="입고 농장"] option[value="연습농장 가"]');
+      if(dry){
+        await page.keyboard.press('Escape');
+        await page.waitForSelector(modal,{hidden:true});
+        await page.waitForFunction(()=>document.activeElement?.textContent.trim()==='수기 업로드');
+        await page.keyboard.press('Enter');
+        await page.waitForSelector(modal+' select[aria-label="입고 농장"] option[value="연습농장 가"]');
+        await page.setViewport({width:390,height:844});
+        assert(await page.$eval(modal,node=>node.getBoundingClientRect().width<=window.innerWidth));
+        await page.setViewport({width:1920,height:1080});
+      }
+      await fill(modal+' input[aria-label="농장 검색"]','연습농장');
+      await select(modal+' select[aria-label="입고 농장"]','연습농장 가');
+      const yearSelect=modal+' select[aria-label="입고 연도"]';
+      const weekSelect=modal+' select[aria-label="입고 세부차수"]';
+      await select(yearSelect,'2026');
+      await select(weekSelect,'45-01');
+      await hold('연도와 세부차수를 각각 선택하고 실제 입고일을 확인합니다. 품목은 검색한 목록에서 선택합니다.',5);
+      const chooseManualProduct=async (row,query)=>{
+        const input=modal+` input[aria-label="${row}행 품목 검색"]`;
+        await fill(input,query);
+        await page.focus(input);
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('Enter');
+      };
+      await chooseManualProduct(1,'레드');
+      await fill(modal+' input[aria-label="1행 입고 수량"]','100');
+      await fill(modal+' input[aria-label="1행 송이/단"]','10');
+      await fill(modal+' input[aria-label="1행 금액"]','25');
+      await hold('100송이, 한 단 10송이, 행 금액 25를 입력했습니다. 송이당 단가는 계산됩니다.',5);
+      await click('품목 행 추가',modal);
+      await chooseManualProduct(2,'핑크');
+      await fill(modal+' input[aria-label="2행 입고 수량"]','200');
+      await fill(modal+' input[aria-label="2행 송이/단"]','10');
+      await fill(modal+' input[aria-label="2행 금액"]','0');
+      await click('등록 미리보기',modal);
+      await page.waitForSelector('[aria-label="수기 입고 검증 결과"]');
+      await page.waitForFunction(()=>document.querySelector('[aria-label="수기 입고 검증 결과"]')?.textContent.includes('2026년 45-01'));
+      if(dry){
+        await select(yearSelect,'2027');
+        assert.equal(await page.$eval(weekSelect,node=>node.value),'');
+        assert.equal(await page.$eval(weekSelect,node=>[...node.options].some(option=>option.value==='45-02')),false);
+        assert.equal(await page.$('[aria-label="수기 입고 검증 결과"]'),null);
+        await select(yearSelect,'2026');
+        await select(weekSelect,'45-01');
+        await click('등록 미리보기',modal);
+        await page.waitForSelector('[aria-label="수기 입고 검증 결과"]');
+      }
+      await hold('미리보기에서 두 품목의 실제 송이·출고·견적 수량과 금액을 확인합니다.',5);
+      const check=await page.$(modal+' input[type="checkbox"]');
+      await moveClick(check);
+      await click('입고 등록',modal);
+      if(dry) await click('같은 등록 결과 다시 확인',modal);
+      await page.waitForFunction(()=>document.body.innerText.includes('수기 입고 #9201 등록 완료'));
+      await hold('원장번호가 표시되면 등록이 완료됐습니다.',5);
+      assert.equal(manualSaves,dry?2:1);
+    }
     assert.deepEqual(errors, []);
-    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (onlyScenario==='packing-quantity'?0:onlyScenario?1:isImport?6:4)+(dry&&!isImport?1:0));
+    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (['packing-quantity','manual-upload'].includes(onlyScenario)?0:onlyScenario?1:isImport?6:4)+(dry&&!isImport?1:0));
     if(dry&&!isImport)assert(replayedApproval,'lost approval retry must reuse the same operation');
     const result = await rec.stop(); stopped = true;
     if (!dry) {
