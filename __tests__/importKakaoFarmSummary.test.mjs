@@ -549,15 +549,60 @@ const msg = (text, id = 'm1', time = '2026년 11월 25일 오전 9:30') => ({ id
   }
 }
 
-// 16. UI Anti-AI Slop, Typography, 1-Line 정리처리됨 Ellipsis, AI Badges & Read-Only ERP Contract assertions
+// 16. Standard normal orders (no farm = normal default) never emit '농장 미지정' / 'Farm TBD'; designated farms stay explicit
+{
+  const normalCarnation = analyzeImportMessage(msg('51-1 콜 카네이션 발주 추가\n돈셀 5박스\n문라이트 3박스', 'std1'));
+  const normalNoGroup = {
+    key: 'std2',
+    year: '2026',
+    week: '51-01',
+    country: '콜롬비아',
+    group: '',
+    farm: '',
+    product: '특수신품종',
+    quantity: '4',
+    unit: '박스',
+    checked: true,
+  };
+  const designated = analyzeImportMessage(msg('51-1 콜 수국 발주 추가\n주광 : 버건디 10박스(안티오퀴아)', 'des1'));
+  const rows = [
+    ...normalCarnation.items.map(i => importItemView(i)),
+    normalNoGroup,
+    ...designated.items.map(i => importItemView(i)),
+  ];
+  const summary = buildFarmSummary(farmTotals(rows));
+  assert.equal(summary.bundleCount, 3);
+  assert.equal(summary.standardCount, 2);
+  assert.equal(summary.farmCount, 1);
+
+  const koAll = formatFarmTransferText(summary, { format: 'concise', lang: 'ko' });
+  const enAll = formatFarmTransferText(summary, { format: 'concise', lang: 'en' });
+  assert.doesNotMatch(koAll, /농장\s*미지정|품목군\s*미상|Farm\s*TBD/i);
+  assert.doesNotMatch(enAll, /농장\s*미지정|품목군\s*미상|Farm\s*TBD/i);
+  assert.match(koAll, /^\[콜롬비아\] 2026\/51-01차/m);
+  assert.match(koAll, /^\[콜롬비아 · 카네이션\] 2026\/51-01차/m);
+  assert.match(koAll, /^\[콜롬비아 · 안티오퀴아\] 2026\/51-01차 · 수국/m);
+  assert.match(enAll, /^\[Colombia\] 2026\/51-01차/m);
+  assert.match(enAll, /^\[Colombia · Carnation\] 2026\/51-01차/m);
+  assert.match(enAll, /^\[안티오퀴아\] 2026\/51-01차/m);
+}
+
+// 17. UI Anti-AI Slop, Typography, 1-Line 정리처리됨 Ellipsis, AI Badges, Normal/Designated Labels & Read-Only ERP Contract assertions
 {
   const uiSource = fs.readFileSync(new URL('../components/import-tools/KakaoAdditions.js', import.meta.url), 'utf8');
+  const libSource = fs.readFileSync(new URL('../lib/importKakaoAdditions.js', import.meta.url), 'utf8');
   assert.match(uiSource, /'Pretendard Variable',\s*'Pretendard'/);
   assert.match(uiSource, /font-variant-numeric:\s*tabular-nums/);
   assert.match(uiSource, /정리처리됨/);
   assert.match(uiSource, /AI 정밀분류/);
   assert.match(uiSource, /AI분류/);
   assert.match(uiSource, /임시분류/);
+  assert.match(uiSource, /지정농장/);
+  assert.match(uiSource, /이 묶음 복사/);
+  assert.match(uiSource, /이 농장 복사/);
+  assert.match(uiSource, /발주 묶음/);
+  assert.doesNotMatch(uiSource, /농장\s*미지정|Farm\s*TBD|미지정\s*\$\{/i);
+  assert.doesNotMatch(libSource, /농장\s*미지정|Farm\s*TBD/i);
   assert.match(uiSource, /\.kakao-cleaned-text\s*\{[\s\S]*?overflow:\s*hidden;[\s\S]*?text-overflow:\s*ellipsis;[\s\S]*?white-space:\s*nowrap/);
   assert.match(uiSource, /복원/);
   assert.doesNotMatch(uiSource, /\bmonospace\b|JetBrains\s+Mono/i);
