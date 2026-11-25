@@ -169,6 +169,8 @@ test('next.config rewrite, DesktopDownloadButton, and CI Actions minute-diet con
   assert.match(deskWf, /concurrency:[\s\S]*cancel-in-progress:\s*\$\{\{\s*github\.event_name == 'pull_request'\s*\}\}/);
   assert.match(deskWf, /seed_from_release_tag:/);
   assert.match(deskWf, /DESKTOP_FAST_PASS/);
+  assert.match(deskWf, /':!desktop\/menu\.json'/);
+  assert.match(deskWf, /needs\.installer\.outputs\.full_build == 'true'/);
   assert.match(deskWf, /publish-cafe24:/);
   assert.match(deskWf, /verify-desktop-release-stage\.cjs/);
   assert.match(deskWf, /\/var\/lib\/nenova\/desktop-releases/);
