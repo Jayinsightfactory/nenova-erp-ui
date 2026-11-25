@@ -34,6 +34,12 @@ test('weight evidence wins over absent/legacy values; CW never derives from GW/n
  assert.equal(packingWeight({...invoice,packingReview:{values:{gw:0,cw:800}}},'gw'),0);
  assert.equal(packingWeight({...invoice,packingReview:{values:{gw:null}}},'gw'),null);
  assert.equal(packingWeight({gross_weight:759.7},'cw'),null);
+ for(const unit of ['kg (GRSWGHT)','KG.','KGS.','Kilograms','킬로그램']){
+  assert.equal(packingWeight({review_evidence:{gross_weight:{value:111.9,unit}}},'gw'),111.9,unit);
+ }
+ for(const unit of ['lb','500g','kg/lb','ton','cbm']){
+  assert.equal(packingWeight({review_evidence:{gross_weight:{value:111.9,unit}}},'gw'),null,unit);
+ }
 });
 test('same-source empty saved draft gets weight without overwriting manual/zero/committed/cross-year values',()=>{
  const doc={...source(),documentId:'d',sourceHash:'hash',reviewedMetadata:{gw:null,cw:null}};
@@ -47,10 +53,14 @@ test('same-source empty saved draft gets weight without overwriting manual/zero/
   {document:{...doc,reviewedMetadata:{gw:null,weightManual:{gw:true}}}}])assert.equal(fillMissingReceiptWeights(record,incoming),record);
 });
 test('adapter propagates evidence-only CO weight into draft and raw metadata',async()=>{
- const {adaptPackingReceipts}=await import('../lib/importPackingReceiptAdapter.js');
+ const {adaptPackingReceipts,toReceiptDraftPayload}=await import('../lib/importPackingReceiptAdapter.js');
  const [doc]=await adaptPackingReceipts({sourceHash:'a'.repeat(64),country:'CO',fileName:'2026 44-1.xlsx',reviewConfirmed:true,
-  invoices:[{invoice:'25529',date:'2026-10-23',review_evidence:{gross_weight:{value:759.7,unit:'kg',quote:'GRSWGHT 759,70'},vol_weight:{value:null,unit:'kg'}},products:[]}],excels:[{products:[]}]});
+  invoices:[{invoice:'25529',date:'2026-10-23',review_evidence:{gross_weight:{value:759.7,unit:'kg (GRSWGHT)',quote:'GRSWGHT 759,70'},vol_weight:{value:null,unit:'kg'}},products:[]}],excels:[{products:[]}]});
  assert.equal(doc.reviewedMetadata.gw,759.7);assert.equal(doc.rawMetadata.grossWeight,759.7);assert.equal(doc.reviewedMetadata.cw,null);
+ const payload=toReceiptDraftPayload({...doc,reviewedMetadata:{...doc.reviewedMetadata,costInputs:{
+  freight:{currency:'EUR',amount:''},box:{currency:'EUR',amount:null},document:{currency:'EUR',amount:0},
+ }}});
+ assert.deepEqual(payload.reviewedMetadata.costInputs,{document:{currency:'EUR',amount:0}});
 });
 test('valid AWB suggests AIR but missing/invalid AWB or manual transport is not replaced',()=>{
  for(const [awb,expected] of [['160-96630575','AIR'],['160-96630574',''],['',''],['BL-123','']]){

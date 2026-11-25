@@ -33,22 +33,22 @@
             {
               "scenario": "select",
               "title": "1. 패킹리스트에서 중국hubfresh 선택",
-              "seconds": 0.018
+              "seconds": 0.016
             },
             {
               "scenario": "split",
               "title": "2. 상세 인보이스를 올리고 업체별 카톤 수량 확인",
-              "seconds": 15.661
+              "seconds": 15.653
             },
             {
               "scenario": "match",
               "title": "3. 자동으로 연결된 전산 품목과 입고 차수 확인",
-              "seconds": 31.333
+              "seconds": 31.276
             },
             {
               "scenario": "receipt",
               "title": "4. 입고 화면에서 네노바 수량 검증",
-              "seconds": 47.83
+              "seconds": 47.567
             }
           ]
         }
@@ -218,22 +218,22 @@
             {
               "scenario": "automatic",
               "title": "1. 같은 공급자·국가에서 사용 이력이 많은 농장이 자동 선택됩니다.",
-              "seconds": 0.027
+              "seconds": 0.012
             },
             {
               "scenario": "change",
               "title": "2. 다른 후보를 눌러 선택을 변경하고 선택된 농장명을 확인합니다.",
-              "seconds": 9.876
+              "seconds": 9.867
             },
             {
               "scenario": "search",
               "title": "3. 농장명을 입력하면 후보를 좁혀 다시 선택할 수 있습니다.",
-              "seconds": 19.761
+              "seconds": 19.756
             },
             {
               "scenario": "compare",
               "title": "4. 이력에서 수량·금액 대조를 눌러 원본과 보관 분석을 비교합니다.",
-              "seconds": 30.918
+              "seconds": 30.893
             }
           ]
         }
@@ -659,32 +659,32 @@
             {
               "scenario": "select",
               "title": "1. 나라 고르기",
-              "seconds": 0.001
+              "seconds": 0.002
             },
             {
               "scenario": "upload",
               "title": "2. 인보이스 PDF 올리기",
-              "seconds": 25.483
+              "seconds": 25.521
             },
             {
               "scenario": "verify",
               "title": "3. 읽힌 농장·인보이스 번호·수량·합계 확인",
-              "seconds": 63.381
+              "seconds": 63.361
             },
             {
               "scenario": "match",
               "title": "4. 미확인 품종을 전산 품목에 연결",
-              "seconds": 95.984
+              "seconds": 95.837
             },
             {
               "scenario": "download",
               "title": "5. 필요할 때 입고용 엑셀 내려받기",
-              "seconds": 166.332
+              "seconds": 165.435
             },
             {
               "scenario": "receipt",
               "title": "6. 인보이스 입고 저장 완료",
-              "seconds": 231.643
+              "seconds": 230.291
             }
           ]
         }
@@ -809,57 +809,57 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 7.018
+              "seconds": 7.013
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 201.643
+              "seconds": 194.877
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 312.342
+              "seconds": 303.633
             },
             {
               "scenario": "add",
               "title": "4. 기존 입고에 품목·수량 추가",
-              "seconds": 395.008
+              "seconds": 383.861
             },
             {
               "scenario": "cancel",
               "title": "5. 기존 입고의 품목·수량 취소",
-              "seconds": 515.321
+              "seconds": 501.132
             },
             {
               "scenario": "price",
               "title": "6. 입고 단가만 변경",
-              "seconds": 595.794
+              "seconds": 580.558
             },
             {
               "scenario": "packing-quantity",
               "title": "7. 단 수량을 확인하고 새 입고 저장",
-              "seconds": 718.594
+              "seconds": 701.543
             },
             {
               "scenario": "manual-upload",
               "title": "8. 여러 품목 수기로 입고 등록",
-              "seconds": 792.576
+              "seconds": 774.535
             },
             {
               "scenario": "inline-numbers",
               "title": "9. 원장 인보이스·AWB 번호 수정",
-              "seconds": 945.223
+              "seconds": 926.179
             },
             {
               "scenario": "native-detail",
               "title": "10. 차수 표시와 상세 수량 수정",
-              "seconds": 1010.47
+              "seconds": 990.854
             },
             {
               "scenario": "density-retry",
               "title": "11. 상품과 중량·운송료를 구분하고 원가 다시 조회",
-              "seconds": 1084.363
+              "seconds": 1063.866
             }
           ]
         },
@@ -875,27 +875,27 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.234
+              "seconds": 13.917
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 58.76
+              "seconds": 57.817
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 146.07
+              "seconds": 142.402
             },
             {
               "scenario": "price",
               "title": "4. 입고 단가만 변경",
-              "seconds": 275.314
+              "seconds": 269.704
             },
             {
               "scenario": "native-detail",
               "title": "5. 원장 차수·수량 변경 이력",
-              "seconds": 368.409
+              "seconds": 360.706
             }
           ]
         }

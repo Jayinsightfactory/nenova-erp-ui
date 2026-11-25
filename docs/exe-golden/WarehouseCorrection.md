@@ -25,3 +25,7 @@ FormWarehouseView.GetDetail: WarehouseKey로 WarehouseDetail/Product 조회.
 ## 2026-11-25 판매 수량과 운송료·중량 표시
 
 실제 설치 EXE FormWarehouseAdd를 dnSpy로 다시 읽어 CheckFixSave, Product 단위 바인딩, 송이×단가, 재고 재계산 순서를 확인했다. 운영 SELECT 2026/48-01 #8205의 행 50907/50908은 3100/3101 중량이며, 행 50905/50906은 2182 운송료였다. 이 순수 분류는 상품 수량 경로에서 세 업무코드를 차단할 뿐 기존 원가·운임 소유 작업과 재고 트랜잭션을 수정하지 않는다. 운영 #8205 최신 원가 HTTP는 200 JSON이며 보고된 HTML은 재현되지 않았다. HTML/게이트웨이 오류에서 원시 파서 문자열을 숨기는 단위·브라우저 회귀를 추가했다.
+
+## 2026-11-25 상세 수량·단가(UPrice) 함께 수정
+
+실제 decompile `FormWarehouseAdd` EditMode 2(`spePrice` 로드 → `btnSave_Click`에서 `UPrice`/`TPrice = SteamQuantity * UPrice` UPDATE)를 재확인했다. 웹 상세 수정(`NATIVE_QUANTITY`)은 `BoxQuantity`·`BunchQuantity`·`SteamQuantity`와 함께 `UPrice` 입력을 지원하며, 기존 합계로 증명된 단위 기준(송이 vs 출고단위)을 보존하거나 모호할 때 명시 선택을 요구한다. `2182 운송료` 행은 수량을 고정한 채 단가만 수정 가능하고 `3100`/`3101` 중량 행은 차단한다. 단가만 변경되어 출고수량 증감이 0이면 `StockHistory`/`Product.Stock`/`usp_StockCalculation` 부작용 없이 해당 `WdetailKey`의 `UPrice`·`TPrice`와 감사 로그만 갱신한다. 운영 DB 쓰기 0.

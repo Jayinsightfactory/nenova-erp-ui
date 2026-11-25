@@ -2,7 +2,7 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { useExeParityFlag } from '../../../lib/exeParity/common.js';
-import { sqlWarehouseViewGetData } from '../../../lib/exeWarehouseViewSql.js';
+import { sqlWarehouseViewGetData, WAREHOUSE_DETAIL_COST_COLUMNS_SQL, WAREHOUSE_DOCUMENT_FREIGHT_APPLY_SQL } from '../../../lib/exeWarehouseViewSql.js';
 import { acquireInvoiceReceiptGate, nextInvoiceWarehouseKey, calculateInvoiceStock, insertInvoiceWarehouseDetail, applyInvoiceWarehouseStockDelta } from '../../../lib/invoiceReceiptNative.js';
 import { resolveReceiptBunch } from '../../../lib/receiptBunchQuantity.js';
 import { WAREHOUSE_WEIGHT_ROW_SQL } from '../../../lib/warehouseWeightRows.js';
@@ -88,15 +88,19 @@ async function getWarehouse(req, res) {
         CONVERT(NVARCHAR(10), wm.InputDate, 120) AS InputDate,
         wm.FileName,
         wm.GrossWeight, wm.ChargeableWeight, wm.FreightRateUSD, wm.DocFeeUSD,
-        SUM(CASE WHEN wd.IsWeightRow=0 THEN wd.BoxQuantity END)   AS totalBox,
-        SUM(CASE WHEN wd.IsWeightRow=0 THEN wd.BunchQuantity END) AS totalBunch,
-        SUM(CASE WHEN wd.IsWeightRow=0 THEN wd.SteamQuantity END) AS totalSteam
+        wd.DetailGrossWeight, wd.DetailChargeableWeight, wd.DetailFreightAmount,
+        invoiceDoc.DocFreightAmount, invoiceDoc.DocFreightCurrency,
+        wd.totalBox, wd.totalBunch, wd.totalSteam
        FROM WarehouseMaster wm
-       LEFT JOIN (SELECT wd.*, CONVERT(bit, CASE WHEN ${WAREHOUSE_WEIGHT_ROW_SQL} THEN 1 ELSE 0 END) AS IsWeightRow FROM WarehouseDetail wd) wd ON wm.WarehouseKey = wd.WarehouseKey
+       LEFT JOIN (
+         SELECT wd.WarehouseKey,
+           SUM(CASE WHEN wd.IsWeightRow=0 THEN wd.BoxQuantity END)   AS totalBox,
+           SUM(CASE WHEN wd.IsWeightRow=0 THEN wd.BunchQuantity END) AS totalBunch,
+           SUM(CASE WHEN wd.IsWeightRow=0 THEN wd.SteamQuantity END) AS totalSteam,${WAREHOUSE_DETAIL_COST_COLUMNS_SQL}
+         FROM (SELECT wd.*, CONVERT(bit, CASE WHEN ${WAREHOUSE_WEIGHT_ROW_SQL} THEN 1 ELSE 0 END) AS IsWeightRow FROM WarehouseDetail wd) wd
+         GROUP BY wd.WarehouseKey
+       ) wd ON wm.WarehouseKey = wd.WarehouseKey${WAREHOUSE_DOCUMENT_FREIGHT_APPLY_SQL}
        ${where}
-       GROUP BY wm.WarehouseKey, wm.OrderYear, wm.OrderWeek, wm.FarmName,
-                wm.InvoiceNo, wm.OrderNo, wm.InputDate, wm.FileName,
-                wm.GrossWeight, wm.ChargeableWeight, wm.FreightRateUSD, wm.DocFeeUSD
        ORDER BY wm.InputDate DESC, wm.WarehouseKey DESC`,
       params
     );
@@ -259,6 +263,15 @@ async function uploadWarehouse(req, res) {
         }
       }
       const wk = await nextInvoiceWarehouseKey(tQuery, sql, transactionMarker);
+      // Header GW/CW: explicit modal values win. Otherwise use the single
+      // canonical Gross/Chargeable weight row of this same upload (ProdKey 3100/3101).
+      const uploadWeight = prodKey => {
+        const rows = resolvedItems.filter(item => Number(item.prodKey) === prodKey);
+        const value = rows.length === 1 ? Number(rows[0].steamQty) : NaN;
+        return Number.isFinite(value) && value > 0 ? value : null;
+      };
+      const headerGw = manual ? null : gw === '' || gw == null ? uploadWeight(3100) : parseFloat(gw);
+      const headerCw = manual ? null : cw === '' || cw == null ? uploadWeight(3101) : parseFloat(cw);
       const masterResult = await tQuery(
         `INSERT INTO WarehouseMaster
            (WarehouseKey, UploadDtm, FileName, OrderYear, OrderWeek, FarmName, InvoiceNo, OrderNo,
@@ -277,8 +290,8 @@ async function uploadWarehouse(req, res) {
           inv:  { type: sql.NVarChar, value: invoiceNo || '' },
           awb:  { type: sql.NVarChar, value: awb || '' },
           dt:   { type: sql.DateTime, value: new Date(`${inputDate}T00:00:00`) },
-          gw:   { type: sql.Float,    value: manual || gw === '' || gw == null ? null : parseFloat(gw) },
-          cw:   { type: sql.Float,    value: manual || cw === '' || cw == null ? null : parseFloat(cw) },
+          gw:   { type: sql.Float,    value: headerGw },
+          cw:   { type: sql.Float,    value: headerCw },
           rate: { type: sql.Float,    value: manual || rate === '' || rate == null ? null : parseFloat(rate) },
           doc:  { type: sql.Float,    value: manual || docFee === '' || docFee == null ? null : parseFloat(docFee) },
           uid:  { type: sql.NVarChar, value: req.user.userId },

@@ -570,16 +570,26 @@ export default function InvoiceReceiptWorkbench({
   }
 
   function updateCostInput(field, value) {
-    updateSelected(document => ({ ...document, reviewedMetadata: {
-      ...document.reviewedMetadata,
-      costInputs: {
-        ...(document.reviewedMetadata.costInputs || {}),
-        [field]: {
-          ...(document.reviewedMetadata.costInputs?.[field] || {}),
-          currency: document.reviewedMetadata.freightCurrency || '', amount: value, source: 'review',
+    updateSelected(document => {
+      const current = { ...(document.reviewedMetadata.costInputs || {}) };
+      if (value == null || String(value).trim() === '') {
+        delete current[field];
+      } else {
+        current[field] = {
+          ...(current[field] || {}),
+          currency: document.reviewedMetadata.freightCurrency || document.rawMetadata?.currency || '',
+          amount: value,
+          source: 'review',
+        };
+      }
+      return {
+        ...document,
+        reviewedMetadata: {
+          ...document.reviewedMetadata,
+          costInputs: current,
         },
-      },
-    } }));
+      };
+    });
   }
 
   function updateLine(lineId, field, value) {
@@ -1436,7 +1446,9 @@ export default function InvoiceReceiptWorkbench({
           : 'CW 미입력 · 중량 기준 원가식에는 청구중량 확인이 필요합니다. GW·순중량으로 대신 채우지 않습니다.'}</small>}
       </Field>
       <Field label="운임 통화"><input value={documentValue.reviewedMetadata.freightCurrency || ''} maxLength={3} placeholder="명시 필요" onChange={event => updateFreightCurrency(event.target.value)} /></Field>
-      <Field label="운송·부대비 총액 (원가)"><NumberInput label="운송·부대비 총액 원가" value={documentValue.reviewedMetadata.costInputs?.freight?.amount} onChange={value => updateCostInput('freight', value)} /></Field>
+      <Field label="운송·부대비 총액 (원가)"><NumberInput label="운송·부대비 총액 원가" value={documentValue.reviewedMetadata.costInputs?.freight?.amount} onChange={value => updateCostInput('freight', value)} />
+        {nullableNumber(documentValue.reviewedMetadata.costInputs?.freight?.amount) == null && documentValue.reviewedMetadata.unclassifiedAdditionalCharges?.amount != null && <small>원문 운송·부대비 합계: {displayNumber(documentValue.reviewedMetadata.unclassifiedAdditionalCharges.amount)} {documentValue.reviewedMetadata.unclassifiedAdditionalCharges.currency || ''}</small>}
+      </Field>
       {documentValue.reviewedMetadata.freightCurrency === 'USD' ? <>
         <Field label="ERP 헤더 FreightRate (USD/kg)"><NumberInput label="ERP 헤더 FreightRate USD/kg" value={documentValue.reviewedMetadata.freightRate} onChange={value => updateMetadata('freightRate', value)} /></Field>
         <Field label="ERP 헤더 문서비 (USD)"><NumberInput label="ERP 헤더 문서비 USD" value={documentValue.reviewedMetadata.docFee} onChange={value => updateMetadata('docFee', value)} /></Field>

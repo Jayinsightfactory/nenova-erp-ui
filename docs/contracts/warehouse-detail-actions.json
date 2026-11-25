@@ -1,6 +1,6 @@
 {
   "id":"warehouse-detail-actions",
-  "title":"입고 세부차수 표시와 상세 수량 편집 계약",
+  "title":"입고 세부차수 표시와 상세 수량·단가 편집 계약",
   "scope":[
     "pages/incoming.js",
     "pages/api/warehouse/detail-actions.js",
@@ -16,7 +16,7 @@
   "warehouseIdentity":["OrderYear","OrderWeek","WarehouseKey","WdetailKey"],
   "actions":[
     {"name":"RECEIPT_ROUND_LABEL","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve raw business round","warehouseDetail":"preserve","systemActionLog":"append before/after A/B label and actor/date"},
-    {"name":"NATIVE_RECEIPT_QUANTITY","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"existing audit time/actor only","warehouseDetail":"in-place scoped row quantity and derived totals","stock":"recalculate only changed outbound quantity","systemActionLog":"existing correction writer appends atomic acknowledgment"},
+    {"name":"NATIVE_RECEIPT_QUANTITY","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"existing audit time/actor only","warehouseDetail":"in-place scoped row quantity, unit price(UPrice) and derived totals(TPrice)","stock":"recalculate only changed outbound quantity","systemActionLog":"existing correction writer appends atomic acknowledgment"},
     {"name":"PACKING_ROUND_SUFFIX","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"same verified warehouse uploader using canonical round","systemActionLog":"append suffix atomically with receipt"}
   ],
   "crossYearFixture":{
