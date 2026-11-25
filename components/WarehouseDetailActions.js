@@ -2,10 +2,15 @@ import { useState } from 'react';
 import { Button, Input, Modal, Space } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import { receiptRoundLabel } from '../lib/incomingRoundLabel.js';
+import { defaultPriceBasis } from '../lib/warehouseCorrectionPolicy.js';
 import styles from './WarehouseDetailActions.module.css';
 
 const editableFields={BoxQuantity:'박스',BunchQuantity:'단',SteamQuantity:'송이'};
-const compareFields={...editableFields,OutQuantity:'출고수량',EstQuantity:'견적수량',TPrice:'입고 합계'};
+const compareFields={...editableFields,OutQuantity:'출고수량',EstQuantity:'견적수량',UPrice:'단가',TPrice:'입고 합계'};
+const unitField={박스:'BoxQuantity',단:'BunchQuantity',송이:'SteamQuantity'};
+const basisLabel={SteamQuantity:'송이',BunchQuantity:'단',BoxQuantity:'박스'};
+const rowPrice=row=>row.UPrice??row['단가']??null;
+const rowTotal=row=>row.TPrice??row['총액']??null;
 const display=value=>value==null||value===''?'—':typeof value==='number'?value.toLocaleString('ko-KR',{maximumFractionDigits:8}):value;
 const scope=row=>({warehouseKey:row.WarehouseKey,orderYear:row.OrderYear,orderWeek:row.OrderWeek});
 async function post(url,payload){
@@ -50,19 +55,29 @@ export function WarehouseRoundCell({row,editable,onSaved}) {
 }
 
 function QuantityChanges({before,after}) {
-  return <ul className={styles.changes}>{Object.entries(compareFields).filter(([key])=>before[key]!==after[key]).map(([key,label])=>(
+  return <ul className={styles.changes}>{Object.entries(compareFields).filter(([key])=>before[key]!==undefined&&before[key]!==after[key]).map(([key,label])=>(
     <li key={key}>{label} {display(before[key])} → <strong>{display(after[key])}</strong></li>
   ))}</ul>;
 }
 
+export { defaultPriceBasis };
+
 export function WarehouseQuantityDialog({receipt,row,onClose,onSaved}) {
-  const [draft,setDraft]=useState(()=>Object.fromEntries(Object.keys(editableFields).map(field=>[field,row[field]??''])));
+  const freight=Number(row.ProdKey)===2182;
+  const outField=unitField[String(row.OutUnit??row['단위']??'').trim()]||'SteamQuantity';
+  const basisOptions=freight?['SteamQuantity']:[...new Set(['SteamQuantity',outField])];
+  const [draft,setDraft]=useState(()=>({...Object.fromEntries(Object.keys(editableFields).map(field=>[field,row[field]??''])),UPrice:rowPrice(row)??''}));
+  const [priceBasis,setPriceBasis]=useState(()=>defaultPriceBasis(row));
   const [reason,setReason]=useState(''),[preview,setPreview]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   const [operationId,setOperationId]=useState(null);
-  const changed=Object.keys(editableFields).some(key=>String(draft[key])!==String(row[key]??''));
+  const priceChanged=String(draft.UPrice)!==String(rowPrice(row)??'');
+  const changed=Object.keys(editableFields).some(key=>String(draft[key])!==String(row[key]??''))||priceChanged;
+  const basisRequired=priceChanged&&!freight&&!priceBasis;
   const payload=()=>({...scope(receipt),mode:'NATIVE_QUANTITY',detail:{detailKey:row.WdetailKey,
-    expected:Object.fromEntries(Object.keys(editableFields).map(key=>[key,row[key]??null])),
-    ...Object.fromEntries(Object.keys(editableFields).map(key=>[key,draft[key]===''?null:Number(draft[key])]))}});
+    expected:{...Object.fromEntries(Object.keys(editableFields).map(key=>[key,row[key]??null])),...(priceChanged?{UPrice:rowPrice(row)}:{})},
+    ...Object.fromEntries(Object.keys(editableFields).map(key=>[key,draft[key]===''?null:Number(draft[key])])),
+    ...(priceChanged?{UPrice:draft.UPrice===''?null:Number(draft.UPrice),...(freight?{}:{priceBasis})}:{})}});
+  const update=(key,value)=>{setDraft({...draft,[key]:value});setPreview(null);setError('');};
   async function check(){
     setBusy(true);setError('');setPreview(null);
     try{
@@ -79,18 +94,29 @@ export function WarehouseQuantityDialog({receipt,row,onClose,onSaved}) {
       onSaved();
     }catch(err){setError(err.message);}finally{setBusy(false);}
   }
-  return <Modal open title="입고 상세 수량 수정" onCancel={busy?undefined:onClose} closable={!busy} maskClosable={!busy} keyboard={!busy}
+  const estimate=priceChanged&&priceBasis&&draft.UPrice!==''&&draft[priceBasis]!==''
+    ? Math.round(Number(draft[priceBasis])*Number(draft.UPrice)*1e4)/1e4 : null;
+  return <Modal open title={freight?'입고 운송료 단가 수정':'입고 상세 수량·단가 수정'} onCancel={busy?undefined:onClose} closable={!busy} maskClosable={!busy} keyboard={!busy}
     footer={<Space wrap>
       <Button onClick={onClose} disabled={busy}>닫기</Button>
-      <Button onClick={check} loading={busy} disabled={!changed}>변경 확인</Button>
-      <Button type="primary" onClick={save} loading={busy} disabled={!preview?.canCommit||!reason.trim()}>수량 저장</Button>
+      <Button onClick={check} loading={busy} disabled={!changed||basisRequired}>변경 확인</Button>
+      <Button type="primary" onClick={save} loading={busy} disabled={!preview?.canCommit||!reason.trim()}>{freight?'단가 저장':'수량 저장'}</Button>
     </Space>}>
     <p>{row.DisplayName||row.ProdName} · 입고 #{receipt.WarehouseKey}</p>
     <div className={styles.fields}>{Object.entries(editableFields).map(([key,label])=><label key={key}>{label} 수량
-      <Input type="number" min={0} max={1e10} step="any" value={draft[key]} disabled={busy} onChange={event=>{
-        setDraft({...draft,[key]:event.target.value});setPreview(null);setError('');
-      }}/>
-    </label>)}</div>
+      <Input type="number" min={0} max={1e10} step="any" value={draft[key]} disabled={busy||freight} onChange={event=>update(key,event.target.value)}/>
+    </label>)}
+      <label>{freight?'운송료 단가':'단가'}
+        <Input type="number" min={0} max={1e10} step="any" value={draft.UPrice} disabled={busy} onChange={event=>update('UPrice',event.target.value)}/>
+      </label>
+    </div>
+    {priceChanged&&!freight&&<label className={styles.reason}>단가 기준 단위
+      <select value={priceBasis} disabled={busy} onChange={event=>{setPriceBasis(event.target.value);setPreview(null);setError('');}}>
+        <option value="">기준 선택</option>
+        {basisOptions.map(key=><option key={key} value={key}>{basisLabel[key]} 기준{key==='SteamQuantity'?' (nenova.exe 입고 상세 수정과 같음)':''}</option>)}
+      </select>
+    </label>}
+    {priceChanged&&<p role="status" style={{fontVariantNumeric:'tabular-nums'}}>입고 합계 = {freight?'송이':basisLabel[priceBasis]||'기준 미선택'} 수량 × 단가{estimate!=null?` = ${display(estimate)}`:''} · 저장 시 서버에서 다시 계산합니다.</p>}
     <label className={styles.reason}>수정 사유<Input value={reason} maxLength={500} disabled={busy} onChange={event=>setReason(event.target.value)}/></label>
     {error&&<p role="alert">{error}</p>}
     {!!preview?.issues?.length&&<div role="alert"><ul className={styles.changes}>{preview.issues.map(issue=><li key={issue.code}>{issue.message}</li>)}</ul></div>}

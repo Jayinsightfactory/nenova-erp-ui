@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { attachWarehouseRoundLabels, changeWarehouseRoundLabel, readWarehouseDetailActions } from '../lib/warehouseDetailActions.js';
+import { defaultPriceBasis } from '../lib/warehouseCorrectionPolicy.js';
 import { splitIncomingRound, receiptRoundLabel, normalizeRoundSearch, matchesRound } from '../lib/incomingRoundLabel.js';
 import { approvalPermissions } from '../lib/incomingApprovalPolicy.js';
 
@@ -44,8 +45,8 @@ test('receipt label writes one compare-and-set audit row; stale and cross-year r
 });
 
 test('listing and audit read use year plus raw round and selected receipt; history exposes changes, actor and time',async()=>{
-  const before={WdetailKey:901,BoxQuantity:2,BunchQuantity:8,SteamQuantity:80,OutQuantity:8,EstQuantity:80,TPrice:7};
-  const after={...before,BoxQuantity:4};
+  const before={WdetailKey:901,BoxQuantity:2,BunchQuantity:8,SteamQuantity:80,OutQuantity:8,EstQuantity:80,UPrice:0.875,TPrice:7};
+  const after={...before,BoxQuantity:4,UPrice:1.25,TPrice:10};
   const query=async(statement,p)=>{
     if(statement.includes('round-list')){
       assert.deepEqual(JSON.parse(p.keys.value),[target,'warehouse-round:2027:47-02:8249','warehouse-round:2026:47-02:8250']);
@@ -62,7 +63,17 @@ test('listing and audit read use year plus raw round and selected receipt; histo
   const [record]=await readWarehouseDetailActions(query,types,scope);
   assert.equal(record.actor,'tester');assert.equal(record.at,'2026-11-25T01:00:00.000Z');
   assert.equal(record.detailKey,901);assert.equal(record.before.BoxQuantity,2);assert.equal(record.after.BoxQuantity,4);
+  assert.equal(record.before.UPrice,0.875);assert.equal(record.after.UPrice,1.25);assert.equal(record.after.TPrice,10);
   assert.equal(record.before.WdetailKey,undefined);
+});
+
+test('defaultPriceBasis selects only proven unit basis and asks user when ambiguous',()=>{
+  assert.equal(defaultPriceBasis({ProdKey:2182,OutUnit:'박스',BoxQuantity:1,SteamQuantity:1,UPrice:1830,TPrice:1830}),'SteamQuantity');
+  assert.equal(defaultPriceBasis({ProdKey:2077,OutUnit:'송이',SteamQuantity:200,UPrice:0,TPrice:0}),'SteamQuantity');
+  assert.equal(defaultPriceBasis({ProdKey:2077,단위:'단',BunchQuantity:60,SteamQuantity:600,단가:5,총액:300}),'BunchQuantity');
+  assert.equal(defaultPriceBasis({ProdKey:2077,단위:'단',BunchQuantity:60,SteamQuantity:600,단가:0.5,총액:300}),'SteamQuantity');
+  assert.equal(defaultPriceBasis({ProdKey:2077,단위:'단',BunchQuantity:40,SteamQuantity:40,단가:7.5,총액:300}),'');
+  assert.equal(defaultPriceBasis({ProdKey:2077,단위:'단',BunchQuantity:60,SteamQuantity:600,단가:0,총액:0}),'');
 });
 
 test('sales support can review history without gaining modification rights',async()=>{

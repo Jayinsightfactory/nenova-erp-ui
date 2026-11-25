@@ -22,6 +22,14 @@ test('zero, absent, units and invalid numbers remain distinct',async()=>{
  assert.throws(()=>reviewNumber(-1,{weight:true}));assert.equal(reviewNumber(-1),-1);
  const [row]=makePackingReviewRows([invoice()],'CN');assert.equal(row.values.gw,'');assert.equal(row.values.cw,'0');
  const [lbs]=makePackingReviewRows([{review_evidence:{gross_weight:{value:12,unit:'lb'}}}],'CN');assert.equal(lbs.values.gw,'');assert.equal(lbs.original.gw,12);
+ for(const unit of ['kg (GRSWGHT)','KG.','KGS.','Kilograms','킬로그램']){
+  const [kg]=makePackingReviewRows([{review_evidence:{gross_weight:{value:125.4,unit}}}],'NL');
+  assert.equal(kg.values.gw,'125.4',unit);
+ }
+ for(const unit of ['500g','kg/lb','ton','cbm']){
+  const [nonKg]=makePackingReviewRows([{review_evidence:{gross_weight:{value:125.4,unit}}}],'NL');
+  assert.equal(nonKg.values.gw,'',unit);
+ }
  const [missing]=makePackingReviewRows([{gross_weight:0,review_evidence:{gross_weight:{value:null}}}],'CN');assert.equal(missing.values.gw,'');
  assert.equal(makePackingReviewRows([{}],'CN')[0].currency,'통화 미확인');
  assert.equal(makePackingReviewRows([{}],'NL')[0].currency,'통화 미확인');

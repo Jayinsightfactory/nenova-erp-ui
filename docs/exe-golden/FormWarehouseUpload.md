@@ -178,3 +178,6 @@ actual dnSpy CLI ExcelLoadingPackingList.MakeTempTable/InsertMaster를 재확인
 
 ## 2026-11-25 국가별 원가 진입·AWB 초안
 설치 EXE ExcelLoadingPackingList를 실제 dnSpy CLI로 재확인했다. MakeTempTable/InsertMaster 원장 저장 순서는 보존한다. 도착원가 화면의 기존9국가 공식 진입과 웹 원가 초안/PDF 로컬 읽기만 변경한다. 운영 SELECT 48-01 Apollo8205/8203은 운임·중량4행, 각각AWB86514699786/99204728043이며 상품이 아니다. 상품 국가를 운임 품목의 국내 표기로 판단하지 않는다. 실제 같은AWB 상품 국가만 연결하고 native 공동원가는 원장AWB/연도/차수를 재대조한다. 누락AWB는 원문 근거를 원가 요청 안에만 배정한다. Warehouse/Order/Shipment/Stock/Estimate/손익 원장 쓰기0.
+
+## 2026-11-25 패킹리스트 운송료·GW·CW 정합 및 입고관리 표기
+실제 decompile `ExcelLoadingPackingList.MakeTempTable` 및 운영 SELECT-only(`usp_CreateWarehouse`, `Product` 2182 `운송료`·3100 `Gross weight`·3101 `Chargeable weight`, 47/48차수 입고 8205·8247·8249·8250·8251·8255·8260)로 대조했다. `MakeTempTable`은 F/I/J 공란 행을 건너뛰고 수식 재계산 없이 캐시 `<v>`만 읽으며 `usp_CreateWarehouse`는 `LOWER(td.ProdName)=LOWER(p.ProdName)`로 매칭한다. 생성기는 정식 품목명(`Gross weight`/`Chargeable weight`/`운송료`, `F=G=H=I=J=1`)과 수식 캐시값을 함께 기록하고, 웹 업로드는 과거 `weigth` 오타·수량 공란 운송료를 호환 흡수하며 모달 미입력 시 상세 중량을 헤더 `GrossWeight`/`ChargeableWeight`에 반영한다. 입고관리 목록은 헤더 GW/CW 우선·상세 3100/3101/2182·확정 `WebInvoiceDocument` 송장 부대비(통화 병기) 순으로 표시한다. 운영 DB 쓰기 0.
