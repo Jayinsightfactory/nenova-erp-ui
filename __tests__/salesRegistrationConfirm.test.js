@@ -107,7 +107,7 @@ async function main() {
   assert.match(snapSrc, /NVARCHAR\(12\)/);
 
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-  assert.match(pkg.scripts['test:erp-contract'], /salesRegistrationConfirm\.test\.js/);
+  assert.match(pkg.scripts['erp:contract:main'] || pkg.scripts['test:erp-contract'], /salesRegistrationConfirm\.test\.js/);
 
   console.log('salesRegistrationConfirm tests passed');
 }

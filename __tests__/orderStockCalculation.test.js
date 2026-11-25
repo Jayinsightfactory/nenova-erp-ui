@@ -195,5 +195,6 @@ test('API seam is calculation-only and mycustomer/final absolute skip condition 
   assert.match(source, /const stockWarning = isMyCustomerSource\s*\? null\s*: await runStockCalculation/);
   const contract = JSON.parse(fs.readFileSync('docs/contracts/order-stock-calculation.json', 'utf8'));
   assert.ok(contract.requiredTestFiles.includes('__tests__/orderStockCalculation.test.js'));
-  assert.match(JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts['pretest:erp-contract'], /orderStockCalculation\.test\.js/);
+  const pkgScripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts;
+  assert.match(pkgScripts['erp:contract:pre'] || pkgScripts['pretest:erp-contract'], /orderStockCalculation\.test\.js/);
 });

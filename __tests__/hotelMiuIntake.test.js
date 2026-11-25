@@ -654,6 +654,6 @@ assert.match(perBoxMigration, /WebHotelMiuProductMap/);
 assert.match(perBoxMigration, /PerBox FLOAT NULL/);
 
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-assert.match(pkg.scripts['test:erp-contract'], /hotelMiuIntake\.test\.js/);
+assert.match(pkg.scripts['erp:contract:main'] || pkg.scripts['test:erp-contract'], /hotelMiuIntake\.test\.js/);
 
 console.log('hotelMiuIntake tests passed');

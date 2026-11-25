@@ -2,10 +2,12 @@
 // The original run log proves the completed prefix; CI runs the full final gate.
 const { spawnSync } = require('node:child_process');
 const scripts = require('../package.json').scripts;
-const commands = scripts['test:erp-contract'].split(' && ');
+const mainChain = scripts['erp:contract:main'] || scripts['test:erp-contract'];
+const postCommand = scripts['erp:contract:post'] ? 'npm run erp:contract:post' : 'npm run posttest:erp-contract';
+const commands = mainChain.split(' && ');
 const stop = commands.indexOf('node __tests__/profitReportWorkbookParity.test.js');
 if (stop < 0) throw Error('Documented resume boundary not found');
-for (const command of [...commands.slice(stop + 1), 'npm run posttest:erp-contract',
+for (const command of [...commands.slice(stop + 1), postCommand,
   'npm run test:erp-manifest -- --changed-from origin/master',
   'npm run guard:erp-writes -- --changed-from origin/master', 'npm run build']) {
   console.log(`\nRESUME GATE: ${command}`);
