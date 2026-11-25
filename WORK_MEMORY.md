@@ -5098,3 +5098,11 @@ pm run test:canon 통과.
 4. 검증 상태: 단위/수량·비일치 국가·명시 품목군 우선·미확인 별칭 회귀, dnSpy 증거 검사와 쓰기 가드 통과. 제공 원문의 11/19~20 128건 재현에서 시네신스 각 20단, Liberstar White 300송이, 미국 200·50박스 확인. 미분류 시네리아·안슬레이 각 10단 보존.
 5. 주의: 원본 카톡·전산·수집기 변경 없음. 운영 토큰 및 개인 식별 정보 출력·저장 금지. 연결 목표: g19 / 학습 반영: 있음.
 검색어: 수입 카톡 시네신스 리모늄 Liberstar Liberster 튤립 미국 태국 품목군 47-02 g19
+
+### 2026-11-25 · 품목군 별칭 준비 완료 및 선행 가이드 차단
+1. 작업 위치: nenova-erp-ui / codex/kakao-matching / C:/Users/USER/.codex/worktrees/f343/nw-cdx-kakao-matching / 기능 c7c86894, 최신 master 1b0cbf3c 통합 후 PR 미생성.
+2. 완료: 중국 시네신스 화이트·연핑크 리모늄, 네덜란드 Liberstar White 튤립, 미국 국가 단일 그룹. 실제 수입방 11/19~20 원문, 전산 2026/47-02 읽기 전용 대조, 1920x1080 최종 가이드 23단계 준비.
+3. 남은 일: upstream #1635의 PM staff 가이드 proof가 현재 pages/pm.js와 일치하도록 재촬영·반영된 뒤 최신 master 통합, PStack PASS, PR/CI/squash/Cafe24/운영 인증 확인.
+4. 검증 상태: Kakao 회귀·Chrome 실제 UI 연습자료·ERP 전체 계약·manifest·dnSpy·쓰기 가드(0 API)·local webpack PASS. 최신 master 단독과 이 작업 모두 PStack 4/5, pm-control/staff 기존 실패 재현. 배포 미검증.
+5. 주의: ERP DB 쓰기 및 수집기 실행 없음. feature worktree는 후속 사용을 위해 보존. 연결 목표: g19 / 학습 반영: 있음.
+검색어: 미국 단일그룹 시네신스 리모늄 Liberstar 튤립 PStack upstream 1635 pm-control staff
