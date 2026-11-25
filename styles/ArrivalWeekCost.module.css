@@ -3,27 +3,120 @@
   font-size: 14px;
   line-height: 1.55;
   color: #0f172a;
-  border-top: 2px solid #334155;
-  margin: 18px 0;
-  padding: 16px 0;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin: 14px 0;
+  padding: 16px 18px;
   font-variant-numeric: tabular-nums;
 }
-.root h3 { font-size: 18px; margin: 0 0 8px; }
-.root h4 { font-size: 15px; margin: 18px 0 6px; }
-.root p { margin: 8px 0; }
-.root fieldset { border: 1px solid #cbd5e1; padding: 12px; margin: 12px 0; min-width: 0; }
-.root legend { font-weight: 600; padding: 0 6px; }
-.root label { display: inline-flex; flex-direction: column; gap: 5px; margin: 8px 14px 8px 0; min-width: 180px; max-width: 440px; vertical-align: top; }
-.root label:has(input[type='checkbox']) { flex-direction: row; align-items: center; min-width: auto; }
-.root input:not([type='checkbox']), .root select { font: inherit; color: inherit; border: 1px solid #94a3b8; border-radius: 4px; padding: 7px 9px; min-height: 36px; max-width: 100%; }
-.root input[type='number'] { width: 175px; }
-.root input[type='text'], .root input:not([type]) { width: 320px; }
-.root input[type='checkbox'] { width: 16px; height: 16px; margin-right: 6px; }
-.root button { font: inherit; margin: 6px 5px 6px 0; min-height: 36px; padding: 7px 12px; }
-.root table { border-collapse: collapse; width: 100%; margin: 10px 0; }
-.root th, .root td { text-align: left; border-bottom: 1px solid #cbd5e1; padding: 8px 10px; overflow-wrap: anywhere; }
-.root th { background: #f1f5f9; color: #334155; }
-.root [role='alert'] { border-left: 3px solid #b45309; padding: 8px 12px; color: #78350f; }
+.root :is(button, input, select, textarea, table, th, td, code) {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.root h3 { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 6px; }
+.root h4 { font-size: 14.5px; font-weight: 700; color: #0f172a; margin: 16px 0 6px; }
+.root p { margin: 8px 0; font-size: 13.5px; color: #334155; }
+.root > fieldset { border: 0; padding: 0; margin: 10px 0 0; min-width: 0; }
+.root fieldset fieldset {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 14px 16px;
+  margin: 12px 0;
+  min-width: 0;
+}
+.root legend {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  padding: 2px 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+.root label {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 6px 14px 6px 0;
+  min-width: 190px;
+  max-width: 440px;
+  vertical-align: bottom;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+.root label:has(input[type='checkbox']) {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: auto;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.root input:not([type='checkbox']):not([type='file']),
+.root select {
+  box-sizing: border-box;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 11px;
+  height: 36px;
+  min-height: 36px;
+  font-size: 13.5px;
+  font-weight: 500;
+  max-width: 100%;
+}
+.root input[type='number'] { width: 185px; }
+.root input[type='text'], .root input:not([type]) { width: 280px; }
+.root input[type='checkbox'] { width: 16px; height: 16px; margin: 0; accent-color: #0f172a; flex-shrink: 0; }
+.root button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 6px 8px 6px 0;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  vertical-align: bottom;
+}
+.root button:hover:not(:disabled) { background: #f8fafc; border-color: #94a3b8; }
+.root button[data-week-cost-lookup],
+.root button[data-week-cost-apply],
+.root button[data-week-cost-preview],
+.root button[data-week-cost-download] {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+.root button[data-week-cost-lookup]:hover:not(:disabled),
+.root button[data-week-cost-apply]:hover:not(:disabled),
+.root button[data-week-cost-preview]:hover:not(:disabled),
+.root button[data-week-cost-download]:hover:not(:disabled) {
+  background: #1e293b;
+  border-color: #1e293b;
+}
+.root button:disabled {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+.root :is(button, input, select):focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.root table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13.5px; border: 1px solid #cbd5e1; }
+.root th, .root td { text-align: left; border-bottom: 1px solid #e2e8f0; padding: 9px 12px; overflow-wrap: anywhere; vertical-align: middle; }
+.root th { background: #f8fafc; color: #334155; font-size: 12.5px; font-weight: 700; border-bottom: 1px solid #cbd5e1; white-space: nowrap; }
+.root [role='alert'] { border: 1px solid #fde68a; border-left: 4px solid #d97706; background: #fffbeb; border-radius: 6px; padding: 9px 12px; color: #92400e; font-size: 13.5px; }
 @media (max-width: 700px) {
   .root table { display: block; overflow-x: auto; }
   .root label { width: 100%; max-width: 100%; }

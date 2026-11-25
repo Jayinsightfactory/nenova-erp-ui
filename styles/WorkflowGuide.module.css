@@ -1,6 +1,6 @@
-.guide{margin:12px 0;border:1px solid #b8c9e5;border-radius:8px;background:#fff;color:#15345a;max-width:100%;min-width:0}
-.guide summary{padding:12px 15px;font-weight:700;cursor:pointer;line-height:1.5}
-.guide summary span{font-weight:400;color:#526783;margin-left:10px;font-size:.9em}
+.guide{font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif;margin:10px 0;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#0f172a;max-width:100%;min-width:0;font-size:13.5px}
+.guide summary{padding:10px 14px;font-weight:700;cursor:pointer;line-height:1.5;color:#0f172a}
+.guide summary span{font-weight:500;color:#475569;margin-left:10px;font-size:13px}
 .body{padding:0 16px 16px;min-width:0}
 .body h3{font-size:18px;margin:6px 0 12px}.body h4{font-size:16px;margin:12px 0 8px}
 .roles,.chapters,.downloads{display:flex;gap:8px;flex-wrap:wrap;align-items:center}

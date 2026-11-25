@@ -1,6 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {CLOUD_CATEGORIES} from '../../lib/chinaCloudCost.js';
-import styles from '../../styles/InvoiceReceipt.module.css';
 import weekStyles from '../../styles/ArrivalWeekCost.module.css';
 import WorkflowGuide from '../WorkflowGuide';
 import CloudCostReviewLedger from './CloudCostReviewLedger';
@@ -51,7 +50,7 @@ export default function ArrivalWeekCostReview({orderYear,orderWeek,selectionRequ
  const updateInput=(awb,key,value)=>edit(setInputs,current=>({...current,[awb]:{...current[awb],[key]:value}}));
  const updateChoice=(lineId,key,value)=>edit(setChoices,current=>({...current,[lineId]:{...current[lineId],[key]:value}}));
  const updatePool=(index,key,value)=>edit(setPools,pools.map((p,i)=>i===index?{...p,[key]:value}:p));
- return <section className={`${styles.card??''} ${weekStyles.root}`} aria-label="차수 통합 도착원가">
+ return <section className={weekStyles.root} aria-label="차수 통합 도착원가">
   <h3>같은 차수 입고를 한 원가 시트로</h3>
   <WorkflowGuide workflowId="arrival-week-cost" initialRole="수입부" />
   <p>중국 A/B 또는 콜롬비아 수국·카네이션·장미를 함께 계산합니다. 업로드 순서와 파일 수에 관계없이 선택한 현재 입고 전체를 다시 읽습니다. 원장·승인 원가는 변경하지 않습니다.</p>

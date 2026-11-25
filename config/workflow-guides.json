@@ -334,22 +334,22 @@
             {
               "scenario": "lookup",
               "title": "1. 기존 입고의 자동 통화·중량·참고 세율을 확인합니다. 인보이스 재업로드와 매칭은 반복하지 않습니다.",
-              "seconds": 0.006
+              "seconds": 0.021
             },
             {
               "scenario": "categories",
               "title": "2. 원문과 전산 품목 옆에서 CLOUD 카테고리를 수정합니다. 확인한 행은 사라지지 않습니다.",
-              "seconds": 9.54
+              "seconds": 9.563
             },
             {
               "scenario": "inputs",
               "title": "3. 자동 환율을 확인하고 필요할 때만 수정합니다. 수정 후 별도 체크나 미리보기 없이 다시 검증됩니다.",
-              "seconds": 21.587
+              "seconds": 21.507
             },
             {
               "scenario": "download",
               "title": "4. 다운로드를 누르면 서버가 현재 입고·금액·수량을 다시 검증하고 엑셀을 만듭니다. 운영 원장은 저장하지 않습니다.",
-              "seconds": 33.774
+              "seconds": 33.699
             }
           ]
         }
@@ -455,6 +455,7 @@
         "data/cloud-cost-reference-evidence.json",
         "lib/cloudCostTemplateWorkbook.js",
         "components/import-tools/CostAwbEvidence.js",
+        "styles/ArrivalCostLedger.module.css",
         "lib/arrivalCostAwbDraft.js",
         "components/import-tools/SharedAwbCostReview.js",
         "lib/nativeSharedCost.js"
@@ -477,32 +478,32 @@
             {
               "scenario": "lookup",
               "title": "1. 국가별 기존 원가 공식을 선택합니다. 여러 입고 통합은 중국 CLOUD와 콜롬비아의 기존 공식만 사용합니다.",
-              "seconds": 0.023
+              "seconds": 0.003
             },
             {
               "scenario": "selection",
               "title": "2. AWB가 없어도 환율과 직접 통관비를 먼저 입력합니다. 조회 전 초안이며 최종 검증은 아직 불가합니다.",
-              "seconds": 9.378
+              "seconds": 8.804
             },
             {
               "scenario": "inputs",
               "title": "3. AWB PDF를 선택하고 자동 인식한 번호·GW·CW·운임을 원문과 대조합니다. 스캔 자료는 직접 입력할 수 있습니다.",
-              "seconds": 18.99
+              "seconds": 17.691
             },
             {
               "scenario": "expenses",
               "title": "4. 누락된 입고 AWB를 원문 근거로만 배정합니다. 기존 비용 입력은 보존되고 적용 범위 확인은 다시 받습니다.",
-              "seconds": 30.929
+              "seconds": 27.982
             },
             {
               "scenario": "preview",
               "title": "5. 상품 입고·중량·증빙을 확인하고 계산합니다. 누락 AWB와 동일 비용 중복은 서버 검증으로 막습니다.",
-              "seconds": 40.614
+              "seconds": 36.897
             },
             {
               "scenario": "download",
               "title": "6. 검증한 원가를 한 시트로 다운로드합니다. ERP 입고·수량·가격과 승인 원가는 변경하지 않습니다.",
-              "seconds": 49.407
+              "seconds": 45.534
             }
           ]
         }
@@ -2527,6 +2528,7 @@
         "data/cloud-cost-reference-evidence.json",
         "lib/cloudCostTemplateWorkbook.js",
         "components/import-tools/CostAwbEvidence.js",
+        "styles/ArrivalCostLedger.module.css",
         "lib/arrivalCostAwbDraft.js",
         "components/import-tools/SharedAwbCostReview.js",
         "lib/nativeSharedCost.js"
@@ -2552,32 +2554,32 @@
             {
               "scenario": "lookup",
               "title": "1. 국가별 기존 원가 공식을 선택합니다. 여러 입고 통합은 중국 CLOUD와 콜롬비아의 기존 공식만 사용합니다.",
-              "seconds": 0.023
+              "seconds": 0.003
             },
             {
               "scenario": "selection",
               "title": "2. AWB가 없어도 환율과 직접 통관비를 먼저 입력합니다. 조회 전 초안이며 최종 검증은 아직 불가합니다.",
-              "seconds": 9.378
+              "seconds": 8.804
             },
             {
               "scenario": "inputs",
               "title": "3. AWB PDF를 선택하고 자동 인식한 번호·GW·CW·운임을 원문과 대조합니다. 스캔 자료는 직접 입력할 수 있습니다.",
-              "seconds": 18.99
+              "seconds": 17.691
             },
             {
               "scenario": "expenses",
               "title": "4. 누락된 입고 AWB를 원문 근거로만 배정합니다. 기존 비용 입력은 보존되고 적용 범위 확인은 다시 받습니다.",
-              "seconds": 30.929
+              "seconds": 27.982
             },
             {
               "scenario": "preview",
               "title": "5. 상품 입고·중량·증빙을 확인하고 계산합니다. 누락 AWB와 동일 비용 중복은 서버 검증으로 막습니다.",
-              "seconds": 40.614
+              "seconds": 36.897
             },
             {
               "scenario": "download",
               "title": "6. 검증한 원가를 한 시트로 다운로드합니다. ERP 입고·수량·가격과 승인 원가는 변경하지 않습니다.",
-              "seconds": 49.407
+              "seconds": 45.534
             }
           ]
         }
@@ -2618,12 +2620,12 @@
             {
               "scenario": "review",
               "title": "2. 국가·차수·연도와 제외 시트 검토",
-              "seconds": 15.907
+              "seconds": 15.651
             },
             {
               "scenario": "save",
               "title": "3. 선택 시트 저장·결과 확인",
-              "seconds": 58.597
+              "seconds": 58.18
             }
           ]
         }

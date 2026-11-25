@@ -106,10 +106,14 @@ test('누적 반영: 콜카장은 콜카장 파일, 수국은 수국 파일에�
   const original = fs.readFileSync(SAMPLE);
   await store.writeMaster('CO', original);
   // 수국 파일이 없으면 수국 계산은 콜카장 파일을 건드리지 않고 막힌다.
-  let { r } = await runDownload('HYDRANGEA', l => l.suggestedGroupId, {}, { append: true });
+  let { r } = await runDownload('HYDRANGEA', l => l.suggestedGroupId, { exchangeRateType: 'MANUAL' }, { append: true });
   assert.equal(r.code, 409); assert.match(r.data.error, /수국 누적 원가자료/);
   assert.equal(Buffer.compare(await store.readMaster('CO'), original), 0);
-  ({ r } = await runDownload('MAIN', l => l.suggestedGroupId, { fullBoxCounts: { ROSE: 40, CARNATION: 100, ALSTROMERIA: 30, RUSCUS: 20 } }, { append: true }));
+  // 시험값(TEST_ONLY)은 실수로 누적 마스터를 덮어쓰지 않도록 차단한다.
+  ({ r } = await runDownload('MAIN', l => l.suggestedGroupId, { exchangeRateType: 'TEST_ONLY', fullBoxCounts: { ROSE: 40, CARNATION: 100, ALSTROMERIA: 30, RUSCUS: 20 } }, { append: true }));
+  assert.equal(r.code, 422); assert.match(r.data.error, /TEST_ONLY/);
+  assert.equal(Buffer.compare(await store.readMaster('CO'), original), 0);
+  ({ r } = await runDownload('MAIN', l => l.suggestedGroupId, { exchangeRateType: 'MANUAL', fullBoxCounts: { ROSE: 40, CARNATION: 100, ALSTROMERIA: 30, RUSCUS: 20 } }, { append: true }));
   assert.equal(r.code, 200, JSON.stringify(r.data)); assert.equal(r.headers['X-Cost-Master-Key'], 'CO'); assert.equal(r.headers['X-Cost-Master-Replaced'], 'true');
   const before = XLSX.read(original), after = XLSX.read(r.body);
   assert.deepEqual(after.SheetNames, before.SheetNames);
@@ -117,10 +121,20 @@ test('누적 반영: 콜카장은 콜카장 파일, 수국은 수국 파일에�
   assert.equal(after.Sheets['45-1'].A15.v, 'Ayura');
   // 수국 파일을 올려 두면 수국 계산은 그 파일에만 붙는다.
   await store.writeMaster('CO_HYDRANGEA', original);
-  ({ r } = await runDownload('HYDRANGEA', l => l.suggestedGroupId, {}, { append: true }));
+  ({ r } = await runDownload('HYDRANGEA', l => l.suggestedGroupId, { exchangeRateType: 'MANUAL' }, { append: true }));
   assert.equal(r.code, 200, JSON.stringify(r.data)); assert.equal(r.headers['X-Cost-Master-Key'], 'CO_HYDRANGEA');
   assert.equal(XLSX.read(await store.readMaster('CO_HYDRANGEA')).Sheets['45-1'].A15.v, 'Antioquia Floral S.A.S');
   assert.equal(XLSX.read(await store.readMaster('CO')).Sheets['45-1'].A15.v, 'Ayura'); // 콜카장 파일은 그대로
 });
 
 test('native shared matches actual AWB and year/week, never binds arbitrary typed AWB to the whole country',async()=>{const rows=weekRows();rows.filter(r=>r.WarehouseKey===7903).forEach(r=>r.OrderNo='01441369974');const p=await prepareNativeShared({queryFn:fakeQuery(rows),types,request:request('MAIN')});assert.deepEqual(p.members.map(m=>m.warehouseKey),[7902]);await assert.rejects(()=>prepareNativeShared({queryFn:fakeQuery(rows.map(r=>({...r,OrderNo:''}))),types,request:request('MAIN')}),/미확인/);await assert.rejects(()=>prepareNativeShared({queryFn:fakeQuery(rows.map(r=>({...r,OrderYear:'2025'}))),types,request:request('MAIN')}),/연도/);});
+
+test('SharedAwbCostReview defaults appendToMaster to false and guards TEST_ONLY from master overwrite', async () => {
+  const ui = fs.readFileSync(new URL('../components/import-tools/SharedAwbCostReview.js', import.meta.url), 'utf8');
+  assert.match(ui, /\[appendToMaster,\s*setAppendToMaster\]\s*=\s*useState\(false\)/);
+  assert.doesNotMatch(ui, /\[appendToMaster,\s*setAppendToMaster\]\s*=\s*useState\(true\)/);
+  assert.match(ui, /isTestOnly/);
+  const { r } = await runDownload('HYDRANGEA', l => l.suggestedGroupId, { exchangeRateType: 'TEST_ONLY' }, { append: true });
+  assert.equal(r.code, 422);
+  assert.match(r.data.error, /TEST_ONLY/);
+});

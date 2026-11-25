@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import XLSX from 'xlsx';
-import { readNativeCostSource, calculateNativeCost, nativeCostDocument } from '../lib/nativeReceiptCost.js';
+import { readNativeCostSource, calculateNativeCost, nativeCostDocument, isEmptyNativePlaceholderRow } from '../lib/nativeReceiptCost.js';
 import { createNativeCostWorkbook, createInvoiceCostWorkbook } from '../lib/invoiceReceiptCostExport.js';
 import { invoiceCostExportFixture } from './invoiceReceiptCostExport.test.js';
 import { createNativeCostHandler } from '../lib/nativeCostHttp.js';
@@ -193,4 +193,38 @@ test('weight rows are separated, conflicts stay missing, zero header is preserve
   assert.equal((await readNativeCostSource({queryFn:f.queryFn,types,input:f.request})).gw,null);
   await assert.rejects(()=>readNativeCostSource({queryFn:f.queryFn,types,input:{...f.request,warehouseKey:['901']}}),/입고 번호/);
   assert.throws(()=>calculateNativeCost(source,{...request,metadata:{...request.metadata,gw:true}}),/GW/);
+});
+
+test('CN SEA blank non-financial ERP placeholder rows are excluded while unlinked positive-amount rows still block', async () => {
+  const f = await fixture('CN_SEA_ACTUAL_V1');
+  f.raw.push(
+    { ...f.raw[0], WdetailKey: 51763, ProdKey: null, ProdName: null, CounName: null, FlowerName: null, OutUnit: null, OutQuantity: null, BoxQuantity: 0, BunchQuantity: 0, SteamQuantity: 0, UPrice: 0, TPrice: 0 },
+    { ...f.raw[0], WdetailKey: 51764, ProdKey: '', ProdName: '   ', CounName: null, FlowerName: null, OutUnit: null, OutQuantity: 0, BoxQuantity: 1, BunchQuantity: 1, SteamQuantity: 450, UPrice: 0, TPrice: 0 },
+  );
+  assert.equal(isEmptyNativePlaceholderRow(f.raw.at(-2)), true);
+  assert.equal(isEmptyNativePlaceholderRow(f.raw.at(-1)), true);
+  const source = await readNativeCostSource({ queryFn: f.queryFn, types, input: f.request });
+  assert.equal(source.country, 'CN');
+  assert.equal(source.lines.length, 3);
+  assert.equal(source.excluded.length, 2);
+  assert.equal(source.excluded[0].name, '(공란·비상품 행)');
+  const result = calculateNativeCost(source, { ...f.request, sourceHash: source.sourceHash });
+  assert.equal(result.preview.status, 'APPROVED', JSON.stringify(result.preview.issues));
+  assert.equal(result.preview.totals.totalCostKRW, f.f.revision.totalCostKRW);
+
+  // Near-miss 1: unlinked row with positive quantity/amount must NOT be silently excluded
+  f.raw.push({ ...f.raw[0], WdetailKey: 51765, ProdKey: null, ProdName: null, CounName: null, OutUnit: '단', OutQuantity: 10, UPrice: 8, TPrice: 80 });
+  assert.equal(isEmptyNativePlaceholderRow(f.raw.at(-1)), false);
+  const withUnlinkedGoods = await readNativeCostSource({ queryFn: f.queryFn, types, input: f.request });
+  assert.equal(withUnlinkedGoods.lines.length, 4);
+  const blocked = calculateNativeCost(withUnlinkedGoods, {
+    ...f.request,
+    sourceHash: withUnlinkedGoods.sourceHash,
+    input: { ...f.request.input, lineInputs: [...f.request.input.lineInputs, { lineId: withUnlinkedGoods.lines[3].lineId, tariffRate: 0.25, otherCostPerUnitKRW: 120 }] },
+  });
+  assert.equal(blocked.preview.status, 'REVIEW_REQUIRED');
+  assert.ok(blocked.preview.issues.some(issue => issue.code === 'PRODUCT_REQUIRED'));
+
+  // Near-miss 2: linked zero-quantity cancelled product row stays in goods
+  assert.equal(isEmptyNativePlaceholderRow({ ProdKey: 2997, ProdName: 'Carnation', OutQuantity: 0, UPrice: 0, TPrice: 0 }), false);
 });

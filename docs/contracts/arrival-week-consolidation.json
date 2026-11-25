@@ -11,6 +11,7 @@
     "components/import-tools/InvoiceWarehouseCostBrowse.js",
     "pages/api/import/receipts/week-cost.js",
     "components/import-tools/CostAwbEvidence.js",
+    "styles/ArrivalCostLedger.module.css",
     "lib/arrivalCostAwbDraft.js",
     "lib/invoiceWarehouseBrowse.js",
     "lib/nativeSharedCost.js"

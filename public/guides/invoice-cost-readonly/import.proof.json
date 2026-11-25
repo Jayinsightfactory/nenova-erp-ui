@@ -1,19 +1,19 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-24T01:12:56.128Z",
+  "recordedAt": "2026-11-25T04:33:49.642Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 46.8,
+  "duration": 46.55,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "18487ebb08aee530b76e6827bc9c4eb77389cd924efc79dcd09143e9a3177c07",
-  "captionsSha256": "19d30ef396e1c55090581ebd51d25dfa4d9b43c19d11dfbaf6a8593a9c716c22",
+  "videoSha256": "b94d732be47cd0ebde40a01bcb05f8da7f3cc0aff02a9c9852783e6a3848b0da",
+  "captionsSha256": "acd5b3b36e3bea53e2d2fe9d0e8a83525e9dc92223bcd7c0266102b6697389e1",
   "sourceHashes": {
     "components/import-tools/NativeReceiptCost.js": "2a84facf890c2e9c5f6e05416c2d1a781470a05e69e0bb5a0e017ae50696301c",
-    "components/import-tools/InvoiceReceiptCostReview.js": "cbe6c37d3d629d90235a11682db4a62bc1c7312244c8d3e81f5a26de60b35887",
+    "components/import-tools/InvoiceReceiptCostReview.js": "09a9887d46c6faebfabe9657bb35394b9ec3385bfe9a9bc0d6994066c0b11024",
     "components/import-tools/CloudCostCategories.js": "19ea1371d91b2ada94e7f1da50efb1355f3289f95ac5b2e27e180a26e7dfc96a",
     "styles/CloudCostCategories.module.css": "c57f8fe918d0c225e953e15b9ba0b0f6251d8b2a4df1fe9f745e2358c2c05ccd"
   },
@@ -31,31 +31,31 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 3.4239547999999997,
-        "x": 254.5078125,
-        "y": 540.3125,
-        "end": 9.330241099999999
+        "start": 3.4478959000000033,
+        "x": 260.90625,
+        "y": 540.109375,
+        "end": 9.3593097
       },
       {
         "number": 2,
-        "start": 12.962584399999999,
-        "x": 1020.53125,
-        "y": 539.90625,
-        "end": 21.381807199999994
+        "start": 12.9839739,
+        "x": 1022.484375,
+        "y": 539.859375,
+        "end": 21.296627000000004
       },
       {
         "number": 3,
-        "start": 25.011695199999995,
-        "x": 620.7890625,
-        "y": 540.3125,
-        "end": 33.5606499
+        "start": 24.9771295,
+        "x": 625.2890625,
+        "y": 539.859375,
+        "end": 33.4911119
       },
       {
         "number": 4,
-        "start": 37.2012122,
-        "x": 1042.4609375,
-        "y": 581.90625,
-        "end": 46.581676400000006
+        "start": 37.136619,
+        "x": 1041.9609375,
+        "y": 580.859375,
+        "end": 46.327049
       }
     ]
   }

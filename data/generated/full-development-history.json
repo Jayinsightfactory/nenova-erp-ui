@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-25T04:16:28.404Z",
+  "generatedAt": "2026-11-25T05:00:41.380Z",
   "coverage": {
     "stage": "verified-refs",
     "definition": "External source main refs and ERP build HEAD; a non-master ERP build HEAD may include its branch commits.",
@@ -16,22 +16,22 @@
       "label": "Nenova ERP",
       "repo": "nenova-erp-ui",
       "ref": "HEAD",
-      "headHash": "c3edd0158e7864c248b38e756ac26702957bd26f",
+      "headHash": "311d0f2ed75dae59dfb91630e64d4090f59845d3",
       "sourceStatus": "build-git",
       "stage": "build-head",
       "stale": false,
       "rootHashes": [
         "b4c5da128ba455091a4e602d88953c279eaaed3f"
       ],
-      "collectedAt": "2026-11-25T04:16:28.404Z",
-      "totalCommits": 4100,
-      "nonMergeCount": 3295,
+      "collectedAt": "2026-11-25T05:00:41.380Z",
+      "totalCommits": 4101,
+      "nonMergeCount": 3296,
       "mergeCount": 805,
       "summaryCount": 530,
       "knownSummaryTitles": 464,
       "unknownSummaryTitles": 66,
       "firstDate": "2026-04-01T05:01:29.000Z",
-      "lastDate": "2026-11-25T04:15:29.000Z"
+      "lastDate": "2026-11-25T04:54:55.000Z"
     },
     {
       "id": "mindmap-viewer",
@@ -101,14 +101,56 @@
   ],
   "records": [
     {
-      "hash": "c3edd0158e7864c248b38e756ac26702957bd26f",
-      "date": "2026-11-25T04:15:29.000Z",
-      "committedAt": "2026-11-25T04:15:32.000Z",
-      "subject": "fix(warehouse): 패킹리스트 운송료·CW·GW 정합 복구 및 입고 상세 수량·단가 함께 수정",
+      "hash": "311d0f2ed75dae59dfb91630e64d4090f59845d3",
+      "date": "2026-11-25T04:54:55.000Z",
+      "committedAt": "2026-11-25T04:54:55.000Z",
+      "subject": "feat(farm-board): show side-by-side order/inbound comparison and daily staff PO xlsx (#2013)",
+      "parents": [
+        "bf92b927e13def8c1551264cbc7991b84f7ba9ae"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/dailyStaffPurchaseOrder.test.js",
+        "__tests__/farmWeekBoard.test.js",
+        "components/DailyOrderSheetModal.js",
+        "components/FarmWeekBoard.module.css",
+        "docs/contracts/farm-week-board.json",
+        "lib/dailyStaffPurchaseOrder.js",
+        "lib/dailyStaffPurchaseOrderSql.js",
+        "lib/dailyStaffPurchaseOrderWorkbook.js",
+        "lib/farmWeekBoard.js",
+        "lib/farmWeekBoardSql.js",
+        "package.json",
+        "pages/api/stats/daily-order-sheet.js",
+        "pages/api/stats/farm-week-board.js",
+        "pages/stats/farm-week-board.js"
+      ],
+      "changedFileCount": 15,
+      "redactedPathCount": 0,
+      "id": "311d0f2ed75dae59dfb91630e64d4090f59845d3",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/stats/farm-week-board"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "bf92b927e13def8c1551264cbc7991b84f7ba9ae",
+      "date": "2026-11-25T04:26:43.000Z",
+      "committedAt": "2026-11-25T04:26:43.000Z",
+      "subject": "fix(warehouse): 패킹리스트 운송료·CW·GW 정합 복구 및 입고 상세 수량·단가 함께 수정 (#2012)",
       "parents": [
         "bb8352c91051f1d40af2a6ddcec214d70b155b61"
       ],
       "paths": [
+        "WORK_MEMORY.md",
         "__tests__/hubfreshPacking.test.cjs",
         "__tests__/importChinaInvoice.test.js",
         "__tests__/importPackingReview.test.js",
@@ -140,9 +182,9 @@
         "pages/api/warehouse/index.js",
         "pages/incoming.js"
       ],
-      "changedFileCount": 46,
-      "redactedPathCount": 16,
-      "id": "c3edd0158e7864c248b38e756ac26702957bd26f",
+      "changedFileCount": 49,
+      "redactedPathCount": 18,
+      "id": "bf92b927e13def8c1551264cbc7991b84f7ba9ae",
       "kind": "commit",
       "sourceIds": [
         "erp"
@@ -185771,8 +185813,8 @@
     }
   ],
   "counts": {
-    "uniqueCommits": 6039,
-    "nonMerge": 5228,
+    "uniqueCommits": 6040,
+    "nonMerge": 5229,
     "merge": 811,
     "summaries": 615,
     "knownSummaryTitles": 549,
