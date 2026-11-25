@@ -5145,3 +5145,10 @@ pm run test:canon 통과.
 3. 남은 할 일: PR 머지 후 운영 배포 및 현장 출고방 묶음 사진 스텝 위저드 사용성 확인.
 4. 검증 상태: `__tests__/boxVisionInspector.test.cjs` 6/6 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS (`agent-guardrails`, `guard-erp-writes`, `ui-layout-contract`, `workflow-guides`, `work-memory-handoff`), `npm run build` 성공.
 5. 주의/잠금: MSSQL 원장 테이블(`WarehouseMaster`, `WarehouseDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentFarm`, `OrderMaster`, `OrderDetail`) 쓰기 0건(순수 읽기 전용 대조). 연결 목표: g03, g14, g17, g19 / 학습 반영: 있음
+## 2026-11-25 수입부 매뉴얼 — 사장님 답 12건 원고 반영
+검색어: 수입부 인수인계 매뉴얼 사장님 답 12건 build-import-handover 남은 질문 12 5 폐기 프로포마 창고료 460 지출결의서 화 금 중국 최소 주문량 KCL BCL YCL g03
+1. 작업 위치: nenova-erp-ui / docs/import-manual-12-answers / PR #2009 (base master, 머지 전).
+2. 완료: `scripts/build-import-handover.cjs` 에 2026-11-25 사장님 답 12건 반영 블록 추가 → `data/import-handover.json` · `docs/IMPORT_DEPT_WORK_SCHEDULE.md` 재생성, `data/handover-plain-import.json` 4곳(패킹리스트 4단계 · 검역창고 8단계 · 원가자료 4단계 · 지출결의서 when), `components/manuals/ImportHandover.js` 중국 최소 주문량 절에 정식 표 11-26 안내 한 줄. 화면 「남은 일 · 물어볼 것」 12 → 5(기록으로 할 일 4 + 창고료 최소 요금 1), 「풀린 것」 79 → 91.
+3. 남은 일: PR #2009 리뷰 · 머지 → 화면 `/work/manuals` 에서 질문 5건 확인. 11-26 중국 최소 주문량 정식 표 받아 `chinaMoqNote` 자리에 값 반영, 에콰도르 아폴로 AWB 는 메일 기록으로 확인.
+4. 검증 상태: `node scripts/build-import-handover.cjs`, `__tests__/importHandover.test.cjs`, `scripts/validate-handover.cjs data/import-handover.json`, `scripts/validate-handover-plain.cjs import`, `npm run test:workflow-guides`, `agentGuardrails` · `check-agent-guardrails` 통과. CI(ERP Contract Guard verify) 통과. 화면 실제 렌더는 미검증(머지 뒤 확인).
+5. 주의/잠금: 원고는 `scripts/build-import-handover.cjs` 한 곳만 고친다(data · docs 는 생성물). 애매한 답(에콰도르 「받겠지」 · 창고료 최소 요금 · 11-26 표)은 추정·질문으로 남긴다. 연결 목표 g03 / 학습 반영: 없음.

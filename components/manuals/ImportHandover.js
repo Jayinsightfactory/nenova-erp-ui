@@ -406,7 +406,8 @@ function ManualList({ data, onOpen }) {
         </details>
       )}
       {(data.chinaMoq?.length > 0 || data.chinaBoxUnits?.length > 0) && (
-        <details className="fold"><summary>중국 최소 주문량 · 박스당 단수 <small className="muted">기록에서 찾은 값 — 공급처 정본 표는 아직 없음</small></summary>
+        <details className="fold"><summary>중국 최소 주문량 · 박스당 단수 <small className="muted">기록에서 찾은 값 — 정식 표는 11월 26일 받기로 함</small></summary>
+          {data.chinaMoqNote ? <p className="muted"><small>{data.chinaMoqNote}</small></p> : null}
           {data.chinaMoq?.length > 0 && (
             <div className="tblwrap"><table className="ihtbl"><thead><tr><th>품목</th><th>최소 주문량</th><th>출처 · 주의</th><th>근거</th></tr></thead>
               <tbody>{data.chinaMoq.map((r, i) => <tr key={i}><td><b>{r.item}</b></td><td>{r.moq}</td><td>{r.note || '-'}</td><td>{r.status ? <Status it={r} /> : null}</td></tr>)}</tbody></table></div>
