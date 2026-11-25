@@ -118,6 +118,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     if(url.startsWith('/api/import/tools/upload-history'))return Promise.resolve({ok:true,status:200,json:async()=>({success:true,rows:[]})});
     if (url === '/api/import/tools/upload-history') return Promise.resolve({ok:true,status:200,json:async()=>({success:true,rows:[]})});
     if (url === '/api/auth/me') return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, user: { userId } }) });
+    if (url.startsWith('/api/import/tools/farm-matches')) return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, farms: [], value: null, revision: 0 }) });
     if (url.startsWith('/api/import/tools/product-matches')) {
       erpRequests.push({ url, options });
       if(url.includes('revisionOnly=1')&&revisionGate){const gate=revisionGate;revisionGate=null;return gate.promise;}
@@ -196,6 +197,8 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     './PackingResults.js': { default: PackingResultsStub, __esModule: true },
     './PackingMatchManager.js': { default: PackingMatchManagerStub, __esModule: true },
     './PackingEvidenceReview.js': { default: 'PackingEvidenceReview', __esModule: true },
+    './PackingUploadMatchModal.js': { default: () => null, PackingUploadMatchAlertBanner: () => null, __esModule: true },
+    '../../lib/packingUploadMatchPrompt.js': await import('../lib/packingUploadMatchPrompt.js'),
     './PackingProductMatchDialog.js': { default: PackingProductMatchDialogStub, __esModule: true } };
   const module = { exports: {} };
   new Function('require', 'module', 'exports', 'fetch', 'FileReader', 'window', 'document', code + '\nmodule.exports.AWBPanel = AWBPanel; module.exports.PendingItem = PendingItem; module.exports.NoMatchItem = NoMatchItem;')(

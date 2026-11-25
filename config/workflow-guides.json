@@ -33,22 +33,22 @@
             {
               "scenario": "select",
               "title": "1. 패킹리스트에서 중국hubfresh 선택",
-              "seconds": 0.016
+              "seconds": 0.02
             },
             {
               "scenario": "split",
               "title": "2. 상세 인보이스를 올리고 업체별 카톤 수량 확인",
-              "seconds": 15.653
+              "seconds": 15.664
             },
             {
               "scenario": "match",
               "title": "3. 자동으로 연결된 전산 품목과 입고 차수 확인",
-              "seconds": 31.276
+              "seconds": 31.32
             },
             {
               "scenario": "receipt",
               "title": "4. 입고 화면에서 네노바 수량 검증",
-              "seconds": 47.567
+              "seconds": 47.412
             }
           ]
         }
@@ -566,27 +566,27 @@
             {
               "scenario": "recover",
               "title": "2. 원본 PDF 선택 · 처음 올린 PDF는 Claude로 분석하고 저장 결과는 재사용합니다.",
-              "seconds": 12.34
+              "seconds": 12.206
             },
             {
               "scenario": "review",
               "title": "3. 미매칭 확인 · 원본 품목을 눌러 전산 품목을 검색하고 선택합니다.",
-              "seconds": 26.13
+              "seconds": 25.852
             },
             {
               "scenario": "reuse",
               "title": "4. 기존 분석 재사용 · 파일을 다시 올리지 않고 저장 분석에서 바로 이어갑니다.",
-              "seconds": 69.695
+              "seconds": 69.236
             },
             {
               "scenario": "changed",
               "title": "5. 변경본 선택 · 내용이 다른 파일은 기존 분석과 새 파일 분석 중 선택합니다.",
-              "seconds": 100.018
+              "seconds": 99.538
             },
             {
               "scenario": "history",
               "title": "6. 업로드 이력 · 원본과 보관 분석의 수량·금액을 비교합니다.",
-              "seconds": 141.827
+              "seconds": 141.28
             }
           ]
         }
@@ -660,32 +660,32 @@
             {
               "scenario": "select",
               "title": "1. 나라 고르기",
-              "seconds": 0.002
+              "seconds": 0.001
             },
             {
               "scenario": "upload",
               "title": "2. 인보이스 PDF 올리기",
-              "seconds": 25.521
+              "seconds": 25.475
             },
             {
               "scenario": "verify",
               "title": "3. 읽힌 농장·인보이스 번호·수량·합계 확인",
-              "seconds": 63.361
+              "seconds": 63.137
             },
             {
               "scenario": "match",
               "title": "4. 미확인 품종을 전산 품목에 연결",
-              "seconds": 95.837
+              "seconds": 95.436
             },
             {
               "scenario": "download",
               "title": "5. 필요할 때 입고용 엑셀 내려받기",
-              "seconds": 165.435
+              "seconds": 164.639
             },
             {
               "scenario": "receipt",
               "title": "6. 인보이스 입고 저장 완료",
-              "seconds": 230.291
+              "seconds": 229.346
             }
           ]
         }

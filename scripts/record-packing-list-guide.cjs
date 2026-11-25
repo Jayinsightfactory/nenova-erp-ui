@@ -248,6 +248,12 @@ async function main() {
     await focus('[data-guide-id="fileBox"]');
     await out();
     await page.waitForFunction(() => /DB 매칭 미리보기 10행/.test(document.body.innerText));
+    await page.waitForSelector('[data-testid="packing-upload-match-modal"]', { visible: true });
+    await checkTypography('[data-testid="packing-upload-match-modal"] h2', 16);
+    await checkTypography('[data-testid="packing-match-modal-save"]', 13.5, true);
+    await page.click('[data-testid="packing-match-modal-later"]');
+    await page.waitForSelector('[data-testid="packing-upload-match-modal"]', { hidden: true });
+    assert(await page.$('[data-testid="packing-matching-alert"]'), '상단 입고 매칭 알림 배너가 유지되어야 함');
     await focus(await tag('analysisStatus', 'css', '[role="status"][aria-live="polite"]'));
     await out(3000);
     assert.equal(parseCalls, 1, '읽기 요청은 한 번(가로챈 연습 응답)');

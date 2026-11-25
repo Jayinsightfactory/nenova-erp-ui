@@ -4,10 +4,15 @@
   "scope": [
     "__tests__/importPackingAustraliaQuantity.test.js",
     "lib/importPackingErpMatches.js",
+    "lib/importPackingFarmMatches.js",
+    "lib/packingUploadMatchPrompt.js",
     "lib/productSearchRanking.js",
     "pages/api/import/tools/product-matches.js",
+    "pages/api/import/tools/farm-matches.js",
     "components/import-tools/PackingProductMatchDialog.js",
+    "components/import-tools/PackingUploadMatchModal.js",
     "styles/PackingProductMatch.module.css",
+    "styles/PackingUploadMatchModal.module.css",
     "pages/import/tools.js",
     "pages/api/import/tools/state.js",
     "pages/api/import/tools/parse-pdf.js",
@@ -102,6 +107,13 @@
       "runtimeFile": "packing.erp-matches; authenticated CAS mapping history; Product SELECT only, no receipt/estimate mutations"
     },
     {
+      "name": "MATCH_ERP_FARM",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "packing.farm-matches; authenticated CAS mapping history; Farm/WarehouseMaster SELECT only, no receipt/estimate/master mutations"
+    },
+    {
       "name": "REVIEW_EXTRACTION_EVIDENCE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -149,6 +161,7 @@
     "__tests__/importPackingAustraliaQuantity.test.js",
     "__tests__/packingProductMatchDialog.test.js",
     "__tests__/importPackingErpMatches.test.js",
+    "__tests__/packingUploadMatchPrompt.test.mjs",
     "__tests__/importPackingSourceIdentity.test.js",
     "__tests__/importTeamStore.test.js",
     "__tests__/importTeamTools.test.js",

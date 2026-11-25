@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-25T05:00:41.380Z",
+  "generatedAt": "2026-11-25T06:55:39.522Z",
   "coverage": {
     "stage": "verified-refs",
     "definition": "External source main refs and ERP build HEAD; a non-master ERP build HEAD may include its branch commits.",
@@ -16,22 +16,22 @@
       "label": "Nenova ERP",
       "repo": "nenova-erp-ui",
       "ref": "HEAD",
-      "headHash": "311d0f2ed75dae59dfb91630e64d4090f59845d3",
+      "headHash": "5fd34f4e11eb955f5540e8f2a256113bfb9ed82e",
       "sourceStatus": "build-git",
       "stage": "build-head",
       "stale": false,
       "rootHashes": [
         "b4c5da128ba455091a4e602d88953c279eaaed3f"
       ],
-      "collectedAt": "2026-11-25T05:00:41.380Z",
-      "totalCommits": 4101,
-      "nonMergeCount": 3296,
+      "collectedAt": "2026-11-25T06:55:39.522Z",
+      "totalCommits": 4106,
+      "nonMergeCount": 3301,
       "mergeCount": 805,
       "summaryCount": 530,
       "knownSummaryTitles": 464,
       "unknownSummaryTitles": 66,
       "firstDate": "2026-04-01T05:01:29.000Z",
-      "lastDate": "2026-11-25T04:54:55.000Z"
+      "lastDate": "2026-11-25T06:29:56.000Z"
     },
     {
       "id": "mindmap-viewer",
@@ -100,6 +100,179 @@
     }
   ],
   "records": [
+    {
+      "hash": "5fd34f4e11eb955f5540e8f2a256113bfb9ed82e",
+      "date": "2026-11-25T06:29:56.000Z",
+      "committedAt": "2026-11-25T06:29:56.000Z",
+      "subject": "feat(import-orders): adopt 3-tier subscription LLM order_parsed cache with regex fallback (#2019)",
+      "parents": [
+        "e38b5f5c64e240995506ac91104da43c55e37dba"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/importKakaoFarmSummary.test.mjs",
+        "components/import-tools/KakaoAdditions.js",
+        "docs/contracts/country-orders.json",
+        "lib/importKakaoArchive.js",
+        "lib/importKakaoOrderText.js"
+      ],
+      "changedFileCount": 7,
+      "redactedPathCount": 1,
+      "id": "5fd34f4e11eb955f5540e8f2a256113bfb9ed82e",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "e38b5f5c64e240995506ac91104da43c55e37dba",
+      "date": "2026-11-25T05:52:44.000Z",
+      "committedAt": "2026-11-25T05:52:44.000Z",
+      "subject": "fix(import): resolve 48-2 Colombia hydrangea invoice upload mismatches and eligibility UX (#2018)",
+      "parents": [
+        "f156983268d5df5f226e377849423ba41446d2c0"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "lib/importPacking.js",
+        "lib/importPackingPrompt.js",
+        "lib/importPackingResponse.js",
+        "lib/importPackingSourceReview.js",
+        "lib/invoiceReceiptValidation.js",
+        "lib/invoiceReceiptWriter.js"
+      ],
+      "changedFileCount": 8,
+      "redactedPathCount": 1,
+      "id": "e38b5f5c64e240995506ac91104da43c55e37dba",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "f156983268d5df5f226e377849423ba41446d2c0",
+      "date": "2026-11-25T05:40:43.000Z",
+      "committedAt": "2026-11-25T05:40:43.000Z",
+      "subject": "feat(farm-board): show OrderWeek in daily PO sheet remarks and preserve multi-week rows (#2017)",
+      "parents": [
+        "2bf43269681953bd60593e46074507137c9caafc"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/dailyStaffPurchaseOrder.test.js",
+        "components/DailyOrderSheetModal.js",
+        "lib/dailyStaffPurchaseOrder.js",
+        "lib/dailyStaffPurchaseOrderSql.js",
+        "lib/dailyStaffPurchaseOrderWorkbook.js"
+      ],
+      "changedFileCount": 6,
+      "redactedPathCount": 0,
+      "id": "f156983268d5df5f226e377849423ba41446d2c0",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "2bf43269681953bd60593e46074507137c9caafc",
+      "date": "2026-11-25T05:20:35.000Z",
+      "committedAt": "2026-11-25T05:20:35.000Z",
+      "subject": "fix(import-orders): capture 49차/bracket farms, expand 14d feed, and add 1-line 정리처리됨 (#2015)",
+      "parents": [
+        "fbb2023ca67422bf6df108542d28d76a4946325e"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/importKakaoAdditions.test.mjs",
+        "__tests__/importKakaoFarmSummary.test.mjs",
+        "__tests__/importKakaoOrderText.test.mjs",
+        "components/import-tools/KakaoAdditions.js",
+        "docs/contracts/country-orders.json",
+        "lib/importKakaoAdditions.js",
+        "lib/importKakaoOrderText.js",
+        "pages/api/import/tools/kakao-additions.js"
+      ],
+      "changedFileCount": 10,
+      "redactedPathCount": 1,
+      "id": "2bf43269681953bd60593e46074507137c9caafc",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "fbb2023ca67422bf6df108542d28d76a4946325e",
+      "date": "2026-11-25T05:07:47.000Z",
+      "committedAt": "2026-11-25T05:07:47.000Z",
+      "subject": "fix(arrival-cost): overhaul ledger UI and resolve CN/CO/US cost review guards (v1.3.99) (#2014)",
+      "parents": [
+        "311d0f2ed75dae59dfb91630e64d4090f59845d3"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/invoiceReceiptCostRegistryUi.test.js",
+        "__tests__/nativeReceiptCost.test.js",
+        "__tests__/nativeSharedCost.test.js",
+        "components/ArrivalDriveAutoPanel.js",
+        "components/import-tools/ArrivalWeekCostReview.js",
+        "components/import-tools/CostAwbEvidence.js",
+        "components/import-tools/InvoiceReceiptCostReview.js",
+        "components/import-tools/InvoiceWarehouseCostBrowse.js",
+        "components/import-tools/SharedAwbCostReview.js",
+        "config/workflow-guides.json",
+        "docs/contracts/arrival-week-consolidation.json",
+        "docs/contracts/invoice-shared-awb-cost.json",
+        "lib/invoiceSharedAwbApi.js",
+        "lib/nativeReceiptCost.js",
+        "pages/arrival-cost.js",
+        "scripts/test-arrival-entry-ui.cjs",
+        "styles/ArrivalCostLedger.module.css",
+        "styles/ArrivalWeekCost.module.css",
+        "styles/InvoiceArrivalCostPanel.module.css",
+        "styles/InvoiceReceiptCost.module.css",
+        "styles/NativeReceiptCost.module.css",
+        "styles/WorkflowGuide.module.css"
+      ],
+      "changedFileCount": 37,
+      "redactedPathCount": 14,
+      "id": "fbb2023ca67422bf6df108542d28d76a4946325e",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/arrival-cost"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
     {
       "hash": "311d0f2ed75dae59dfb91630e64d4090f59845d3",
       "date": "2026-11-25T04:54:55.000Z",
@@ -185813,8 +185986,8 @@
     }
   ],
   "counts": {
-    "uniqueCommits": 6040,
-    "nonMerge": 5229,
+    "uniqueCommits": 6045,
+    "nonMerge": 5234,
     "merge": 811,
     "summaries": 615,
     "knownSummaryTitles": 549,

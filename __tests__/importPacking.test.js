@@ -255,6 +255,9 @@ async function main() {
         erpReads.push({ url, options });
         return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, products: erpProducts, value: null, revision: 0 }) });
       }
+      if (url.startsWith('/api/import/tools/farm-matches')) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, farms: [], value: null, revision: 0 }) });
+      }
       fetchCalls.push({ url, options }); return new Promise(resolve => { resolveFetch = resolve; });
     };
     const extractionMock = { async extractPackingDocument({ country, pdfBase64, allowAI }) {
@@ -314,6 +317,8 @@ async function main() {
       './PackingEvidenceReview.js': { default: 'EvidenceReview', __esModule: true },
       './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
       './PackingProductMatchDialog.js': { default: 'PackingProductMatchDialog', __esModule: true },
+      './PackingUploadMatchModal.js': { default: () => null, PackingUploadMatchAlertBanner: () => null, __esModule: true },
+      '../../lib/packingUploadMatchPrompt.js': await import('../lib/packingUploadMatchPrompt.js'),
       './PackingMatchManager.js': { default: 'PackingMatchManager', __esModule: true },
       'xlsx-js-style': XLSX };
     const code = babel.transformSync(componentSource.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
