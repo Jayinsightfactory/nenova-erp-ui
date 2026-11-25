@@ -1,7 +1,8 @@
-.panel { margin: 16px 0; padding: 18px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #172033; font-size: 14px; min-width: 0; }
+.panel { font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; margin: 12px 0; padding: 16px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #0f172a; font-size: 13.5px; min-width: 0; }
+.panel :is(button, input, select, textarea, table, th, td, code) { font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; }
 .header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.header h2 { font-size: 18px; margin: 0; }
-.panel button { font: inherit; padding: 8px 12px; border: 1px solid #64748b; border-radius: 5px; background: #f8fafc; color: #172033; cursor: pointer; }
+.header h2 { font-size: 16px; font-weight: 700; margin: 0; color: #0f172a; }
+.panel button { font: inherit; height: 34px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; color: #0f172a; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .panel button:disabled { cursor: wait; opacity: .6; }
 .panel a { color: #1d4ed8; }
 .panel :is(button,a,summary):focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }

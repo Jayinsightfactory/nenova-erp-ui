@@ -57,11 +57,25 @@ function tariffPercent(value) {
 function tariffFraction(value) {
   return value === '' || value == null ? '' : Number(value) / 100;
 }
-function manualFieldsNeeded(line, input, fields) {
+function manualFieldsNeeded(line, input, fields, formula) {
   if (Number(line.outQuantity) === 0 && line.outQuantity != null) return [];
+  const unit = String(line.outUnit ?? '').trim().toUpperCase();
+  const isStem = ['STEM', '송이', '스팀'].includes(unit);
+  const isBunch = ['BUNCH', '단'].includes(unit);
+  const isBox = ['BOX', '박스'].includes(unit);
+  const basis = formula?.priceBasis;
   return fields.filter(key => {
-    if (key === 'stemsPerBunch' && ['STEM', '송이', '스팀'].includes(line.outUnit)) return false;
-    if (key === 'bunchesPerBox' && ['BUNCH', '단', 'STEM', '송이', '스팀'].includes(line.outUnit)) return false;
+    if (basis === 'BOX') {
+      if (isBox && (key === 'stemsPerBunch' || key === 'bunchesPerBox')) return false;
+      if (isBunch && key === 'stemsPerBunch') return false;
+    } else if (basis === 'BUNCH') {
+      if (isBunch && (key === 'stemsPerBunch' || key === 'bunchesPerBox')) return false;
+      if (isBox && key === 'stemsPerBunch') return false;
+      if (isStem && key === 'bunchesPerBox') return false;
+    } else {
+      if (key === 'stemsPerBunch' && isStem) return false;
+      if (key === 'bunchesPerBox' && (isBunch || isStem)) return false;
+    }
     const value = numberOrNull(input[key]);
     if (value === null || !Number.isFinite(Number(value))) return true;
     if (key === 'tariffRate') return value < 0 || value > 1;
@@ -570,7 +584,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     invalidateApprovalStages();
     setForm(current => ({
       ...current,
-      ...(document.reviewedMetadata?.cloudReference?{cloudFinancialReviewConfirmed:false}:{}),
+      ...(typeof document !== 'undefined' && document?.reviewedMetadata?.cloudReference ? { cloudFinancialReviewConfirmed: false } : {}),
       formulaApplicabilityConfirmed: false,
       lossTreatmentConfirmed: false,
       lineInputs: current.lineInputs.map(line => line.lineId === lineId ? { ...line, [name]: value,
@@ -783,7 +797,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const selectedFormula = INVOICE_COST_FORMULAS[form.formulaId];
   const isChinaAir = form.formulaId === 'CN_AIR_WEIGHT_CBM_V1';
   const lineFields = visibleLineFields(selectedFormula);
-  const neededByLine = new Map(receiptLines.map(line => [line.lineId, manualFieldsNeeded(line, form.lineInputs.find(item => item.lineId === line.lineId) || {}, lineFields)]));
+  const neededByLine = new Map(receiptLines.map(line => [line.lineId, manualFieldsNeeded(line, form.lineInputs.find(item => item.lineId === line.lineId) || {}, lineFields, selectedFormula)]));
   const manualLineIds = receiptLines.filter(line => neededByLine.get(line.lineId).length > 0).map(line => line.lineId);
   const groupIds = formulaGroupIds(selectedFormula);
   const groupFields = formulaGroupFields(selectedFormula);
@@ -850,13 +864,13 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       {!nativePreview && <><Field label="매입 통화"><input maxLength={3} value={form.nativeCurrency} onChange={event => update('nativeCurrency', event.target.value.toUpperCase())} placeholder="CNY / EUR 등" /></Field>
       <Field label="운임 통화"><input maxLength={3} value={form.freightCurrency} onChange={event => update('freightCurrency', event.target.value.toUpperCase())} placeholder="명시 입력" /></Field></>}
       <Field label="환율 (원/통화)"><input aria-required="true" aria-invalid={!Number.isFinite(Number(form.exchangeRateKRW)) || Number(form.exchangeRateKRW) <= 0} type="number" step="0.000001" value={form.exchangeRateKRW} onChange={event => update('exchangeRateKRW', event.target.value)} /></Field>
-      {<div role="status" style={{ gridColumn: '1 / -1', fontSize: 12, color: '#526580', marginTop: -10 }}>
+      {<div role="status" style={{ gridColumn: '1 / -1', fontSize: 13, color: '#475569', marginTop: -6, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         {form.exchangeRateKRW ? <>
-          환율 기준일 {form.exchangeRateDate || '기준일 미확인'} · {form.exchangeRateSource || '담당자 입력 또는 저장값'}{form.exchangeRateQuoteAt ? ` · 시세 시각 ${form.exchangeRateQuoteAt}` : ''}
-          {form.exchangeRateSourceUrl && <> · <a href={form.exchangeRateSourceUrl} target="_blank" rel="noreferrer">출처</a></>}
+          <span>환율 기준일 {form.exchangeRateDate || '기준일 미확인'} · {form.exchangeRateSource || '담당자 입력 또는 저장값'}{form.exchangeRateQuoteAt ? ` · 시세 시각 ${form.exchangeRateQuoteAt}` : ''}
+          {form.exchangeRateSourceUrl && <> · <a href={form.exchangeRateSourceUrl} target="_blank" rel="noreferrer">출처</a></>}</span>
         </> : <>
-          {exchangeRateStatus || '현재 시장 환율에 15원을 더한 기본값을 조회합니다.'}
-          <button type="button" onClick={() => setExchangeRateRetry(value => value + 1)} style={{ marginLeft: 8 }}>환율 다시 조회</button>
+          <span>{exchangeRateStatus || '현재 시장 환율에 15원을 더한 기본값을 조회합니다.'}</span>
+          <button type="button" onClick={() => setExchangeRateRetry(value => value + 1)}>환율 다시 조회</button>
         </>}
       </div>}
       {!nativePreview && <><Field label="환율 종류"><input value={form.exchangeRateType} onChange={event => update('exchangeRateType', event.target.value)} placeholder="매입/신고 등" /></Field>

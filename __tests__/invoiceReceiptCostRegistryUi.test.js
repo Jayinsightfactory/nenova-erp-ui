@@ -89,6 +89,11 @@ test('manual percentage editor preserves zero and missing values and roundtrips 
   assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 10, outUnit: '단' }, { tariffRate: '', stemsPerBunch: 0 }, ['tariffRate', 'stemsPerBunch']), ['tariffRate', 'stemsPerBunch']);
   assert.deepEqual(manual.manualFieldsNeeded({outQuantity:10,outUnit:'단'},{stemsPerBunch:5},['stemsPerBunch','bunchesPerBox']),[]);
   assert.deepEqual(manual.manualFieldsNeeded({outQuantity:10,outUnit:'박스'},{stemsPerBunch:5},['stemsPerBunch','bunchesPerBox']),['bunchesPerBox']);
+  assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 200, outUnit: '박스' }, { tariffRate: 0.08 }, ['tariffRate', 'stemsPerBunch', 'bunchesPerBox'], { priceBasis: 'BOX' }), []);
+  assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 200, outUnit: 'BOX' }, { tariffRate: 0.08 }, ['tariffRate', 'stemsPerBunch', 'bunchesPerBox'], { priceBasis: 'BOX' }), []);
+  assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 50, outUnit: '단' }, { tariffRate: 0.08 }, ['tariffRate', 'stemsPerBunch', 'bunchesPerBox'], { priceBasis: 'BOX' }), ['bunchesPerBox']);
+  assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 500, outUnit: '송이' }, { tariffRate: 0.08 }, ['tariffRate', 'stemsPerBunch', 'bunchesPerBox'], { priceBasis: 'BOX' }), ['stemsPerBunch', 'bunchesPerBox']);
+  assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 200, outUnit: '박스' }, { tariffRate: 0.08 }, ['tariffRate', 'stemsPerBunch', 'bunchesPerBox'], { priceBasis: 'STEM' }), ['stemsPerBunch', 'bunchesPerBox']);
   for (const tariffRate of [-0.01, 1.01, 'invalid']) assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 10 }, { tariffRate }, ['tariffRate']), ['tariffRate']);
   assert.match(source, /manualLineFilter\?\.identity === identity/);
   assert.match(source, /ids: manualLineIds/);

@@ -16,7 +16,8 @@
     "lib/costWorkbookMerge.js",
     "lib/driveMatchHistory.js",
     "components/import-tools/SharedAwbCostReview.js",
-    "components/import-tools/CostAwbEvidence.js"
+    "components/import-tools/CostAwbEvidence.js",
+    "styles/ArrivalCostLedger.module.css"
   ],
   "businessIdentity": [
     "OrderYear",
