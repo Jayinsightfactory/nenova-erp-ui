@@ -1,5 +1,13 @@
 # 작업 기록
 
+## 2026-11-25 수입방 카톡 발주 실시간 ERP 대조 및 영업 주문등록 반자동 핸드오프 (feat/kakao-semi-auto-order-handoff)
+- 1. 작업 위치: `nenova-erp-ui` (`feat/kakao-semi-auto-order-handoff`, `/import/tools?tool=pedidos` ↔ `/orders/sales-paste?mode=kakao-import`)
+- 2. 변경 파일: `lib/kakaoOrderErpStatus.js`, `pages/api/import/tools/kakao-order-status.js`, `components/import-tools/KakaoOrderRegisterBridge.js`, `components/import-tools/KakaoAdditions.js`, `lib/salesPasteOrder.js`, `pages/orders/sales-paste.js`, `docs/contracts/country-orders.json`, `__tests__/kakaoOrderErpStatus.test.mjs`
+- 3. 검증 결과: 해외 농장 발주 합계(`farmTotals`)와 국내 거래처 주문등록 2축 완전 분리, MSSQL 읽기 전용 대조(`ERP 등록완료 #주문번호` / `수량차이` / `미등록·주문가능` / `산지선발주`) 및 기등록·취소 중복 선택 차단, `/orders/sales-paste`(`source: 'sales-paste'`, `orderMode: 'ADD'`) 반자동 프리필·등록 완료 동기화 전수 테스트 PASS (운영 DB 쓰기 0)
+- 4. 남은 사항: 운영 배포 후 수입방 미등록 국내 거래처 건 선택 → 영업 주문등록 탭 프리필 및 등록 완료 배지 자동 갱신 실화면 확인
+- 5. 주의/잠금: 잠금 없음 (`nenovakakao` 매크로 미실행, `OrderMaster`/`OrderDetail` 신규 테이블 추가 없이 기존 `FormOrderAdd` 호환 계약 100% 유지)
+- 검색어: 수입방 카톡 발주 주문등록 반자동 핸드오프 kakao-order-status KakaoOrderRegisterBridge sales-paste kakao-import
+
 ## 2026-11-20 업무데이터 3축 이해도 지표(`understanding-3axis`) 피처 수신 허용 (feat/work-data-3axis-ingest, 연결 목표: g01, g19)
 - 원인: `nenova-work-features/metrics-3axis.js`가 매일 07:00 `/api/work/feature-data-ingest`로 `understanding-3axis`(디테일·신뢰도·파악량 3축 지표)를 업로드하지만 `lib/workFeatureData.js` `FEATURE_NAMES`에 미등록되어 매일 `HTTP 400`으로 탈락.
 - 수정: `lib/workFeatureData.js`(`FEATURE_NAMES`에 `'understanding-3axis'` 추가, `FEATURE_NAME_MAX` 2MB 상한 설정) 및 `__tests__/workFeatureData.test.js` 단위 테스트 보강. ERP 원장·SQL·데스크톱 변경 없음.

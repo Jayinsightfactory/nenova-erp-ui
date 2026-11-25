@@ -22,6 +22,11 @@ import {
 } from '../../lib/importKakaoAdditions';
 import { analyzeImportMessage, parsePastedKakaoChat } from '../../lib/importKakaoOrderText';
 import { importCountryLabel } from '../../lib/importToolsDisplay';
+import {
+  KakaoMessageErpSummary,
+  KakaoOrderRegisterPanel,
+  useKakaoOrderRegisterBridge,
+} from './KakaoOrderRegisterBridge';
 
 const fields = [
   ['country', '국가'],
@@ -374,6 +379,13 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
     orderScope.year && orderScope.majorWeek ? orderScope.year + '/' + (orderScope.orderWeek || orderScope.majorWeek) + '차' : '',
   ].filter(Boolean).join(' · ');
 
+  const orderBridge = useKakaoOrderRegisterBridge({
+    scopedMessages,
+    viewItem: view,
+    sourceTypeFn: sourceType,
+    orderScope: pastedFeed ? null : orderScope,
+  });
+
   // Collect scoped excluded/cancelled items, ignored total lines, and operational memos
   const scopedExcludedItems = useMemo(() => {
     const items = [];
@@ -704,6 +716,14 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
             )}
           </div>
         )}
+        {type !== '취소' && visible.length > 0 && (
+          <KakaoMessageErpSummary
+            message={m}
+            visibleItems={visible}
+            viewItem={view}
+            bridge={orderBridge}
+          />
+        )}
         <pre className="kakao-source-body">{m.text}</pre>
         <div className="kakao-source-actions">
           {visible.length > 0 && type !== '취소' && (
@@ -866,6 +886,11 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
         )}
         <span role="status" className="kakao-live-notice">{notice}</span>
       </header>
+
+      <KakaoOrderRegisterPanel
+        bridge={orderBridge}
+        onFocusMessage={(messageId) => setFocus({ type: 'message', id: messageId })}
+      />
 
       <div className="kakao-columns">
         <section className="kakao-totals" aria-label="농장 전달용 자동 합계">
