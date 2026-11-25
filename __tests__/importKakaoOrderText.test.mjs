@@ -253,3 +253,13 @@ assert.deepEqual(usRows.map(row=>[row.product,row.quantity,row.unit]),[['더글�
 assert(usRows.every(row=>importCategoryLabel(row,{showMissing:true})==='미국'));
 assert.equal(importCategoryLabel({country:'미국',group:'상록수'},{showMissing:true}),'미국');
 assert.match(importTotalsText(usRows),/미국 · 더글라스 200 박스/);
+
+for(const [product,group] of [['시네리아','유칼립투스'],['유칼리튭스_시네리아','유칼립투스'],['유킬립툽스_시네리아','유칼립투스'],['안슬레이','장미']]){
+  const item=parse('47-2 중국 발주 추가\n'+product+' 10단').items[0];
+  assert.deepEqual([item.product,item.group,item.quantity,item.unit],[product,group,'10','단']);
+}
+for(const heading of ['47-2 발주 추가','47-2 네덜란드 발주 추가']){
+  assert(parse(heading+'\n시네리아 10단\n안슬레이 10단').items.every(row=>!row.group));
+}
+assert.equal(parse('47-2 중국 안개 발주 추가\n시네리아 10단').items[0].group,'안개');
+assert.equal(totals([message('47-2 중국 발주 추가\n안슬레이 10단'),message('47-2 중국 발주 추가\n안슬레이 10송이','stems')]).length,2);

@@ -14,7 +14,7 @@ async function main(){
     sampleMessage('thai-group','46-1 태국 덴파레 발주 추가\n연습 분홍 3송이'),
     sampleMessage('thai-plain','46-1 태국 발주 추가\n연습 흰색 4봉'),
     sampleMessage('us-single','49차 미국 발주 추가\n연습 더글라스 2박스\n레몬잎 3박스'),
-    sampleMessage('china-name','47-2 중국 발주 추가\n시네신스 화이트 3단'),
+    sampleMessage('china-name','47-2 중국 발주 추가\n시네신스 화이트 3단\n시네리아 2단\n안슬레이 3단'),
     sampleMessage('dutch-name','47-2 네덜란드 발주 추가\nliberstar white 15송이'));
  const sampleFeed=classifyImportFeed({orderDays:['2026-11-18','2026-11-12'],reviewThrough:'2026-11-18',from:'2026-11-17',to:'2026-11-18',latest:'2026년 11월 18일 오전 9:10',messages:sampleMessages});
  const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8')),workflow=registry.workflows.find(w=>w.id==='import-country-orders');
@@ -87,6 +87,8 @@ async function main(){
     const scopes=await page.$$eval('.kakao-row-scope',nodes=>nodes.map(node=>node.textContent));
     assert(scopes.includes('콜롬비아 · 알스트로'));
     assert(scopes.includes('중국 · 리모늄'));
+    assert(scopes.includes('중국 · 유칼립투스'));
+    assert(scopes.includes('중국 · 장미'));
     assert(scopes.includes('네덜란드 · 튤립'));
     assert.deepEqual(scopes.filter(scope=>scope.includes('미국')),['미국','미국']);
     assert.deepEqual(scopes.filter(scope=>scope.includes('태국')),['태국','태국']);
@@ -188,7 +190,7 @@ async function main(){
     ['국가 · 품목군','품종 / 원문 대조','수량','비고 (업체·수량)']);
   for(const [n,id,label,selector,caption,key] of [
     [16,'chat','오른쪽 카톡 추가·취소 원문 확인',sourceFilter(3),'취소와 합계 반영을 따로 볼 수 있습니다. 정리로 목록에서 숨기고 숨긴 원문에서 다시 표시할 수 있습니다.','Enter'],
-    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','차수 안에서 품목군을 고릅니다. 시네신스 연핑크·화이트는 리모늄, Liberstar White는 튤립입니다. 태국과 미국은 국가 이름으로 표시합니다.',null],
+    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','시네신스는 리모늄, 시네리아는 유칼립투스, 안슬레이는 장미, Liberstar White는 튤립입니다. 태국과 미국은 국가 이름으로 표시합니다.',null],
     [18,'match-total','합계에서 원문 확인','.kakao-match-total','가운데 품종을 누르면 오른쪽 근거 원문으로 이동합니다. 양쪽의 같은 원문 번호를 비교합니다.','Enter'],
     [19,'match-source','원문에서 합계 확인','.kakao-order-message.kakao-linked .kakao-match-source','오른쪽 원문의 합계 보기를 누르면 가운데 전체 합계 아래에 해당 원문의 수량이 표시됩니다.','Enter'],
     [20,'audit','제외 원문 대조','.kakao-audit > summary','분류 건수를 대조하고 제외 원문을 검색해 놓친 발주를 확인합니다. 카톡 자체 수집 누락과 사진은 별도 원본 대조가 필요합니다.','Enter'],
