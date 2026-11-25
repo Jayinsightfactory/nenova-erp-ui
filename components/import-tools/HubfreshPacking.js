@@ -18,6 +18,10 @@ export default function HubfreshPacking({ xlsx, onBack, onUpload }) {
   const [year, setYear] = useState('');
   const [week, setWeek] = useState('');
   const [date, setDate] = useState(today);
+  const [awb, setAwb] = useState('');
+  const [freight, setFreight] = useState('');
+  const [gw, setGw] = useState('');
+  const [cw, setCw] = useState('');
 
   async function load(file) {
     if (!file) return;
@@ -80,7 +84,7 @@ export default function HubfreshPacking({ xlsx, onBack, onUpload }) {
       const workbook = xlsx.utils.book_new();
       if (kind === 'packing') {
         if (!/^\d{4}$/.test(year)) throw new Error('주문년도를 확인하세요.');
-        const packing = xlsx.utils.aoa_to_sheet(hubfreshPackingGrid(data.invoice, data.nenova, names, week, date));
+        const packing = xlsx.utils.aoa_to_sheet(hubfreshPackingGrid(data.invoice, data.nenova, names, week, date, { awb, freight, gw, cw }));
         xlsx.utils.book_append_sheet(workbook, packing, 'PACKING');
       }
       const rows = kind === 'other' ? data.other : data.nenova;
@@ -123,6 +127,10 @@ export default function HubfreshPacking({ xlsx, onBack, onUpload }) {
         <label>주문년도 <input value={year} onChange={event => setYear(event.target.value)} placeholder="2026" /></label>
         <label>차수 <input value={week} onChange={event => setWeek(event.target.value)} placeholder="48-01" /></label>
         <label>입고일 <input type="date" value={date} onChange={event => setDate(event.target.value)} /></label>
+        <label>AWB <input value={awb} onChange={event => setAwb(event.target.value)} placeholder="선택 입력" /></label>
+        <label>운송료 (CNY) <input inputMode="decimal" value={freight} onChange={event => setFreight(event.target.value)} placeholder="예: 1169" /></label>
+        <label>GW (kg) <input inputMode="decimal" value={gw} onChange={event => setGw(event.target.value)} placeholder="예: 88.13" /></label>
+        <label>CW (kg) <input inputMode="decimal" value={cw} onChange={event => setCw(event.target.value)} placeholder="예: 120" /></label>
       </Space>
       <p>ERP 품목 확인 필요 {unresolved.length}건</p>
       {items.map(([key, row]) => <div key={key}>

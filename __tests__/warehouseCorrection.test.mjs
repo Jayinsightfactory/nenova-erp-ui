@@ -31,7 +31,7 @@ function fixture({connection='',fixed=false,fail='',negative=false,gateBusy=fals
       assert.equal(p.year,state.header.OrderYear);assert.equal(p.week,state.header.OrderWeek);
       const row=state.details.find(d=>d.WarehouseKey===p.wk&&d.WdetailKey===p.detail);
       assert.ok(row);
-      for(const key of ['BoxQuantity','BunchQuantity','SteamQuantity','OutQuantity','EstQuantity','TPrice'])row[key]=p[key];
+      for(const key of ['BoxQuantity','BunchQuantity','SteamQuantity','OutQuantity','EstQuantity','UPrice','TPrice'])row[key]=p[key];
     }
     else if(text.includes('correction:replace-details'))state.details=[];
     else if(text.includes('correction:insert-detail'))state.details.push(Object.fromEntries(['ProdKey','OrderCode','BoxQuantity','BunchQuantity','SteamQuantity','OutQuantity','EstQuantity','UPrice','TPrice','SteamOf1Box','SteamOf1Bunch'].map(k=>[k,p[k]])));
@@ -176,5 +176,67 @@ test('native fixed, owner, pending request and audit failure never partially sav
     const f=fixture(options),before=structuredClone(f.state);
     await assert.rejects(()=>approved(f,nativeInput).then(input=>f.commit(input)));
     assert.deepEqual(f.state,before);
+  }
+});
+
+// 2026-11-25 owner directive: 입고관리 수량 수정에서 단가(UPrice)와 연동 금액도 수정한다.
+// nenova.exe FormWarehouseAdd.btnSave_Click: TPrice = SteamQuantity * UPrice, Out/Est by Product unit.
+const priceInput=(patch={},expected={})=>({...nativeInput,detail:{detailKey:901,BoxQuantity:1,BunchQuantity:10,SteamQuantity:100,
+  expected:{BoxQuantity:1,BunchQuantity:10,SteamQuantity:100,UPrice:1,...expected},UPrice:2,...patch}});
+
+test('native unit price keeps the proven total basis, explicit basis only when ambiguous, and never moves stock',()=>{
+  const steam=buildCorrectionPlan(normalizeNative(priceInput()),header,[detail],products);
+  assert.deepEqual(steam.after[0],{...detail,UPrice:2,TPrice:200});
+  assert.equal(steam.nativeQuantity.priceBasis,'SteamQuantity');
+  assert.equal(steam.changes[0].delta,0,'price-only edit has no outbound quantity delta');
+  const both=buildCorrectionPlan(normalizeNative(priceInput({BunchQuantity:11,SteamQuantity:130})),header,[detail],products);
+  assert.equal(both.after[0].TPrice,260);assert.equal(both.after[0].OutQuantity,11);
+  const byBunch={...detail,TPrice:10};
+  assert.equal(buildCorrectionPlan(normalizeNative(priceInput({UPrice:1.5})),header,[byBunch],products).after[0].TPrice,15);
+  const unpriced={...detail,UPrice:0,TPrice:0};
+  assert.throws(()=>buildCorrectionPlan(normalizeNative(priceInput({},{UPrice:0})),header,[unpriced],products),{code:'CORRECTION_DETAIL_PRICE_BASIS'});
+  assert.equal(buildCorrectionPlan(normalizeNative(priceInput({priceBasis:'BunchQuantity'},{UPrice:0})),header,[unpriced],products).after[0].TPrice,20);
+  assert.equal(buildCorrectionPlan(normalizeNative(priceInput({priceBasis:'SteamQuantity'},{UPrice:0})),header,[unpriced],products).after[0].TPrice,200);
+  assert.throws(()=>buildCorrectionPlan(normalizeNative(priceInput({priceBasis:'BoxQuantity'},{UPrice:0})),header,[unpriced],products),{code:'CORRECTION_DETAIL_PRICE_BASIS'});
+  assert.throws(()=>normalizeNative(priceInput({priceBasis:'Kilogram'})),{code:'CORRECTION_DETAIL_PRICE_BASIS'});
+  for(const UPrice of [-1,NaN,Infinity,'2',null])assert.throws(()=>normalizeNative(priceInput({UPrice})),{code:'CORRECTION_DETAIL_PRICE'});
+  assert.throws(()=>buildCorrectionPlan(normalizeNative(priceInput({},{UPrice:3})),header,[detail],products),{code:'CORRECTION_DETAIL_STALE'});
+  assert.throws(()=>buildCorrectionPlan(normalizeNative(priceInput()),{...header,OrderYear:'2027'},[detail],products),{code:'CORRECTION_SCOPE_CHANGED'});
+  const same=buildCorrectionPlan(normalizeNative(priceInput({UPrice:1})),header,[detail],products);
+  assert.equal(same.changed,false,'same unit price is not a change');
+});
+
+test('운송료 2182 accepts only a unit price change with the native 송이×단가 total; weights stay blocked',()=>{
+  const freight={...detail,WdetailKey:902,ProdKey:2182,BoxQuantity:1,BunchQuantity:1,SteamQuantity:1,OutQuantity:1,EstQuantity:1,UPrice:0,TPrice:0};
+  const freightProducts=[{ProdKey:2182,ProdName:'운송료',OutUnit:'박스',EstUnit:'박스',CountryFlower:'국내왁스',isDeleted:false}];
+  const input=(patch={})=>({...nativeInput,detail:{detailKey:902,BoxQuantity:1,BunchQuantity:1,SteamQuantity:1,
+    expected:{BoxQuantity:1,BunchQuantity:1,SteamQuantity:1,UPrice:0},UPrice:1169,...patch}});
+  const plan=buildCorrectionPlan(normalizeNative(input()),header,[freight],freightProducts);
+  assert.deepEqual(plan.after[0],{...freight,UPrice:1169,TPrice:1169});
+  assert.equal(plan.changes[0].delta,0);
+  assert.equal(buildCorrectionPlan(normalizeNative(input({priceBasis:'BoxQuantity'})),header,[freight],freightProducts).after[0].TPrice,1169,'freight always uses the native 송이 basis');
+  assert.throws(()=>buildCorrectionPlan(normalizeNative(input({SteamQuantity:2})),header,[freight],freightProducts),{code:'CORRECTION_DETAIL_NON_MERCHANDISE'});
+  for(const key of [3100,3101]){
+    const weight={...freight,ProdKey:key,SteamQuantity:111.9,OutQuantity:111.9,EstQuantity:111.9};
+    assert.throws(()=>buildCorrectionPlan(normalizeNative({...input(),detail:{...input().detail,SteamQuantity:111.9,expected:{...input().detail.expected,SteamQuantity:111.9}}}),header,[weight],[{...freightProducts[0],ProdKey:key,OutUnit:'송이',EstUnit:'송이'}]),{code:'CORRECTION_DETAIL_NON_MERCHANDISE'});
+  }
+});
+
+test('native unit price commit writes UPrice and TPrice in one keyed update, audits old/new price, no stock call',async()=>{
+  const f=fixture(),save=await approved(f,priceInput());
+  await f.commit(save);
+  assert.equal(f.state.details[0].UPrice,2);
+  assert.equal(f.state.details[0].TPrice,200);
+  assert.equal(f.state.details[0].SteamQuantity,100);
+  assert.deepEqual(f.state.history,[]);assert.deepEqual(f.state.calculated,[]);
+  assert(f.calls.some(t=>t.includes('correction:update-native-detail')&&t.includes('UPrice=@UPrice')));
+  const audit=JSON.parse(f.state.audit[0].payload);
+  assert.equal(audit.nativeQuantity.before.UPrice,1);assert.equal(audit.nativeQuantity.after.UPrice,2);
+  assert.equal(audit.nativeQuantity.priceBasis,'SteamQuantity');
+  assert.equal((await f.commit(save)).replayed,true);
+  for(const options of [{fixed:true},{connection:'INVOICE_COST'},{pending:true}]){
+    const blocked=fixture(options),before=structuredClone(blocked.state);
+    await assert.rejects(()=>approved(blocked,priceInput()).then(input=>blocked.commit(input)));
+    assert.deepEqual(blocked.state,before);
   }
 });

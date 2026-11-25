@@ -23,7 +23,7 @@ import { incomingWorkspaceHref } from '../lib/incomingWorkspaceNavigation.js';
 import { invoiceReceiptCostHref } from '../lib/invoiceReceiptCostRoute.js';
 import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
 import { receiptBoxSuggestion } from '../lib/receiptBoxSuggestion.js';
-import { incomingColumnWidth, incomingQuantityWidth, incomingRowKind } from '../lib/incomingLedgerLayout.js';
+import { incomingColumnWidth, incomingQuantityWidth, incomingRowKind, incomingMasterCosts, incomingCostLabel } from '../lib/incomingLedgerLayout.js';
 import ledgerStyles from '../components/IncomingLedger.module.css';
 const { Text } = Typography;
 
@@ -264,8 +264,11 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
 
   const handleMasterExcel = () => {
     if (!filteredMasters.length) { alert('내보낼 원장이 없습니다.'); return; }
-    const rows = filteredMasters.map(m => ({ 주문년도:m.OrderYear, 차수:receiptRoundLabel(m), 농장명:m.FarmName, 인보이스:m.InvoiceNo, AWB:m.AWB, 입력일자:m.InputDate,
-      박스:m.totalBox, 단:m.totalBunch, 송이:m.totalSteam, GW:m.GrossWeight, CW:m.ChargeableWeight, Rate:m.FreightRateUSD }));
+    const rows = filteredMasters.map(m => {
+      const costs = incomingMasterCosts(m);
+      return { 주문년도:m.OrderYear, 차수:receiptRoundLabel(m), 농장명:m.FarmName, 인보이스:m.InvoiceNo, AWB:m.AWB, 입력일자:m.InputDate,
+        박스:m.totalBox, 단:m.totalBunch, 송이:m.totalSteam, GW:costs.gw, CW:costs.cw, 운송료:costs.freight, 운송료통화:costs.freightCurrency, Rate:m.FreightRateUSD };
+    });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '입고원장');
     XLSX.writeFile(wb, `입고원장_${startDate}_${endDate}${farmFilter ? '_' + farmFilter : ''}.xlsx`);
@@ -330,6 +333,8 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
         invoiceNo: meta.invoiceNo || '',
         awb: meta.awb || '',
         inputDate: meta.inputDate ? meta.inputDate.replace(/\//g, '-') : previous.inputDate,
+        gw: meta.gw != null ? String(meta.gw) : '',
+        cw: meta.cw != null ? String(meta.cw) : '',
       }));
       setShowUploadModal(true);
     } catch (error) {
@@ -493,7 +498,7 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
           <Card size="small" title={<Space wrap size={[6, 2]}><Text strong>입고 원장 목록</Text><Text type="secondary">{filteredMasters.length}/{masters.length}건</Text>{recentFarms.length > 0 && <Space wrap size={[4, 2]}><Text type="secondary">최근</Text>{recentFarms.map((f) => <Tag.CheckableTag key={f} checked={farmFilter === f} onChange={() => setFarmFilter(farmFilter === f ? '' : f)}>{f}</Tag.CheckableTag>)}</Space>}</Space>}>
             <Table size="small" rowKey="WarehouseKey" loading={loading} dataSource={filteredMasters} scroll={{ x: 'max-content' }} pagination={{ pageSize: 50, size: 'small', showSizeChanger: true, pageSizeOptions: [50, 100, 500], showTotal: (n) => `${n}건` }}
               rowClassName={(m) => (selectedKey === m.WarehouseKey ? 'ant-table-row-selected' : '')} onRow={(m) => ({ tabIndex: 0, 'aria-selected': selectedKey === m.WarehouseKey, onClick: () => selectMaster(m.WarehouseKey), onKeyDown: (e) => { if(e.target!==e.currentTarget)return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectMaster(m.WarehouseKey); } if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); (e.key === 'ArrowDown' ? e.currentTarget.nextElementSibling : e.currentTarget.previousElementSibling)?.focus(); } }, style: { cursor: 'pointer' } })}
-              summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={6}><Text strong>합계</Text></Table.Summary.Cell><Table.Summary.Cell index={6} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBox || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={7} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBunch || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={8} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalSteam || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={9} colSpan={3} /></Table.Summary.Row></Table.Summary>}
+              summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={6}><Text strong>합계</Text></Table.Summary.Cell><Table.Summary.Cell index={6} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBox || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={7} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBunch || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={8} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalSteam || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={9} colSpan={4} /></Table.Summary.Row></Table.Summary>}
               columns={[
                 { title: '주문년도', dataIndex: 'OrderYear', width: 68, sorter: (a, b) => String(a.OrderYear).localeCompare(String(b.OrderYear)) },
                 { title: <LedgerSearchHeading label="차수" value={roundSearch} onChange={setRoundSearch} placeholder="47-02.A" />, dataIndex: 'OrderWeek', width: masterWidth('OrderWeek',132,36), sorter: (a, b) => String(a.OrderWeek).localeCompare(String(b.OrderWeek)), render: (_, row) => <WarehouseRoundCell row={row} editable={detailAccess.edit&&/^\d{2}-\d{2}$/.test(row.OrderWeek)&&Number(row.OrderYear)>=2026} onSaved={roundSaved} /> },
@@ -506,8 +511,9 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
                 { title: '박스', dataIndex: 'totalBox', align: 'right', className: ledgerStyles.compactQty, width: masterQtyWidth('totalBox','박스'), render: fmt, sorter: (a, b) => (a.totalBox || 0) - (b.totalBox || 0) },
                 { title: '단', dataIndex: 'totalBunch', align: 'right', className: ledgerStyles.compactQty, width: masterQtyWidth('totalBunch','단'), render: fmt, sorter: (a, b) => (a.totalBunch || 0) - (b.totalBunch || 0) },
                 { title: '송이', dataIndex: 'totalSteam', align: 'right', className: ledgerStyles.compactQty, width: masterQtyWidth('totalSteam','송이'), render: fmt, sorter: (a, b) => (a.totalSteam || 0) - (b.totalSteam || 0) },
-                { title: 'GW', dataIndex: 'GrossWeight', align: 'right', width: 70, render: (v) => v ?? <Text type="secondary">–</Text>, sorter: (a, b) => (a.GrossWeight || 0) - (b.GrossWeight || 0) },
-                { title: 'CW', dataIndex: 'ChargeableWeight', align: 'right', width: 70, render: (v) => v ?? <Text type="secondary">–</Text> },
+                { title: 'GW', key: 'GrossWeight', align: 'right', width: 76, render: (_, row) => { const costs = incomingMasterCosts(row); return costs.gw == null ? <Text type="secondary">–</Text> : <span title={costs.gwSource === 'detail' ? '입고 상세 Gross weight 행' : '입고 헤더 GW'}>{incomingCostLabel(costs.gw)}</span>; }, sorter: (a, b) => (incomingMasterCosts(a).gw ?? 0) - (incomingMasterCosts(b).gw ?? 0) },
+                { title: 'CW', key: 'ChargeableWeight', align: 'right', width: 76, render: (_, row) => { const costs = incomingMasterCosts(row); return costs.cw == null ? <Text type="secondary">–</Text> : <span title={costs.cwSource === 'detail' ? '입고 상세 Chargeable weight 행' : '입고 헤더 CW'}>{incomingCostLabel(costs.cw)}</span>; } },
+                { title: '운송료', key: 'FreightAmount', align: 'right', width: 104, render: (_, row) => { const costs = incomingMasterCosts(row); return costs.freight == null ? <Text type="secondary">–</Text> : <span style={{ whiteSpace: 'nowrap' }} title={costs.freightSource === 'detail' ? '입고 상세 운송료 행 금액' : '웹 입고 문서의 운송·부대비 원문 금액'}>{incomingCostLabel(costs.freight, costs.freightCurrency)}</span>; } },
                 { title: 'Rate', dataIndex: 'FreightRateUSD', align: 'right', width: 70, render: (v) => v ?? <Text type="secondary">–</Text> },
               ]} />
           </Card>
@@ -529,6 +535,7 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
             {selectedKey && <div style={{ marginBottom: 8 }} role="status">
               {invoiceExpenses?.warning && <Alert type="warning" showIcon message={invoiceExpenses.warning} />}
               {invoiceExpenses?.entries?.length > 0 && <div>입고 연결 비용 · 웹 문서 저장값 (상품 수량·재고와 별도): {invoiceExpenses.entries.map(entry => `${entry.kind === 'freight' ? '운송비' : entry.kind === 'docFee' ? '문서비' : entry.kind} ${entry.amount.toLocaleString('ko-KR')} ${entry.currency}`).join(' · ')}</div>}
+              {invoiceExpenses?.unclassified?.amount != null && Number.isFinite(Number(invoiceExpenses.unclassified.amount)) && <div>원문 운송·부대비 합계 · 웹 문서 저장값 (항목별 원가 배분 전): {Number(invoiceExpenses.unclassified.amount).toLocaleString('ko-KR')} {invoiceExpenses.unclassified.currency || '통화 미확인'}</div>}
               {costError ? <Alert type="warning" showIcon message={`도착원가 조회 실패: ${costError}`} /> : costLoading ? <Text>도착원가 조회 중…</Text> : invoiceCosts?.currentActual ?
                 <Space wrap><Tag color="green">실제 입고량 기준 원가</Tag><Text>합계 {Number(invoiceCosts.currentActual.totalCostKRW).toLocaleString('ko-KR', { maximumFractionDigits: 0 })}원</Text><Text type="secondary">확인: {invoiceCosts.currentActual.approvedBy} · 95% 원가는 비교용</Text></Space> :
                 <Space wrap><Tag color={invoiceCosts?.status === 'STALE' ? 'orange' : 'default'}>{invoiceCosts?.status === 'STALE' ? '원장 변경 · 원가 재검토 필요' : '도착원가 미확정'}</Tag><Text type="secondary">미확정값을 0원으로 표시하지 않습니다.</Text></Space>}
@@ -557,9 +564,10 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
                     >{d.DisplayName || d.ProdName}
                       {incomingRowKind(d)==='weight'&&<span className={ledgerStyles.rowMeta}>중량 {fmt(d.SteamQuantity)} kg</span>}
                       {incomingRowKind(d)==='freight'&&<span className={ledgerStyles.rowMeta}>{selectedCostHref?<a href={selectedCostHref}>운송료 원가 작업</a>:'운송료 기록'}</span>}
-                      {canEditSelected&&incomingRowKind(d)==='goods'&&Number.isInteger(d.WdetailKey)&&Number.isInteger(d.ProdKey)&&
-                        <Button type="link" size="small" className={ledgerStyles.qtyEdit} aria-label={`상세 수량 수정 · ${d.DisplayName || d.ProdName}`}
-                          onClick={()=>setQuantityTarget({receipt:selected,row:d})}>수량 수정</Button>}
+                      {canEditSelected&&['goods','freight'].includes(incomingRowKind(d))&&Number.isInteger(d.WdetailKey)&&Number.isInteger(d.ProdKey)&&
+                        <Button type="link" size="small" className={ledgerStyles.qtyEdit} aria-label={`${incomingRowKind(d)==='freight'?'운송료 단가 수정':'상세 수량 수정'} · ${d.DisplayName || d.ProdName}`}
+                          title={incomingRowKind(d)==='freight'?'운송료 단가(금액) 수정':'박스·단·송이 수량과 단가 수정'}
+                          onClick={()=>setQuantityTarget({receipt:selected,row:d})}>{incomingRowKind(d)==='freight'?'단가 수정':'수량·단가 수정'}</Button>}
                     </Text>
                   ) },
                   { title: '단위', dataIndex: '단위', width: 52, render:(value,row)=>incomingRowKind(row)==='weight'?'kg':incomingRowKind(row)==='freight'?'비용':value },

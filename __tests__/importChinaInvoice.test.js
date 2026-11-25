@@ -279,17 +279,22 @@ test('CN non-rose XLSX descriptions use current aliases and exact catalog member
   assert.equal(generate(packing, inv, { ...opts, catalog: catalog(['Different']) }).result.products[0].unmatched, true);
 });
 
-test('XLSX output preserves source boxes/bunches/exact stems/zero price and fee formulas without fake quantities', async () => {
+test('XLSX output preserves source boxes/bunches/exact stems/zero price and one native 운송료 row for all fees', async () => {
   const [, packing] = await ready;
   const inv = await parse();
   const name = packing.SEED_ALIASES_CN['SINENSIS WHITE'];
   const { result, sheet, book } = generate(packing, inv, { catalog: catalog([name]), aliases: packing.ALL_SEED_ALIASES });
   assert.equal(book.SheetNames[0], 'CN-HUB'); assert.match(result.name, /_HUB_XJ-2026-NN004/);
   for (const [cell, value] of Object.entries({ F6: 7, G6: 15, H6: 300, I6: 140, J6: 2100, K6: 0 })) assert.equal(sheet[cell].v, value);
-  assert.equal(sheet.J6.f, undefined); assert.equal(sheet.L6.f, 'K6*I6');
-  assert.equal(sheet.L7.f, 'K7'); assert.equal(sheet.K7.v, 189);
-  for (const c of 'FGHIJ') assert.ok(!sheet[`${c}7`]?.v);
-  assert.equal(sheet.L58.f, 'SUM(L6:L57)'); assert.equal(sheet.J58.f, 'SUM(J6:J57)');
+  assert.equal(sheet.J6.f, undefined); assert.equal(sheet.L6.f, 'K6*I6'); assert.equal(sheet.L6.v, 0);
+  // nenova.exe ExcelLoadingPackingList skips rows whose F/I/J are blank and
+  // matches B to Product.ProdName exactly: every fee is one 운송료(2182) row.
+  assert.equal(sheet.B7.v, '운송료');
+  for (const c of 'FGHIJ') assert.equal(sheet[`${c}7`].v, 1);
+  assert.equal(sheet.K7.v, 1169); assert.equal(sheet.L7.f, 'K7*I7'); assert.equal(sheet.L7.v, 1169);
+  assert.ok(!sheet.B8?.v, 'individual fee descriptions are not separate unmatched ERP rows');
+  assert.equal(sheet.L58.f, 'SUM(L6:L57)'); assert.equal(sheet.L58.v, 1169);
+  assert.equal(sheet.J58.f, 'SUM(J6:J6,J8:J57)'); assert.equal(sheet.J58.v, 2100);
   assert.equal(result.totalMismatch, null); assert.equal(result.itemSubtotal, 0);
   assert.equal(result.additionalCostTotal, 1169); assert.equal(result.invoiceTotal, 1169);
   assert.deepEqual(result.sourceTotals, { boxes: 7, bunches: 140, stems: 2100 });
@@ -297,6 +302,26 @@ test('XLSX output preserves source boxes/bunches/exact stems/zero price and fee 
   const actual = packing.genChina(XLSX, inv, '41', '01', { catalog: catalog([name]), aliases: packing.ALL_SEED_ALIASES });
   const decoded = XLSX.read(actual.buf, { type: 'array', sheetStubs: true }).Sheets['CN-HUB'];
   assert.equal(decoded.J6.v, 2100); assert.equal(decoded.K6.v, 0); assert.equal(decoded.L6.f, 'K6*I6');
+  assert.equal(decoded.L7.v, 1169, 'cached formula value is readable without Excel recalculation');
+});
+
+test('structured China fees round-trip through the web /incoming packing parser as one 운송료 row with GW', async () => {
+  const [, packing] = await ready;
+  const { parseWarehousePackingWorkbook } = await import('../lib/warehousePackingImport.js');
+  const rows = fixture([flower('Rose Proud', '75-80cm', 27, 'A级单头玫瑰')]);
+  rows[10][15] = '实际毛重A.G.W.T.';
+  rows[12][15] = rows[11][15];
+  const inv = await parse(rows);
+  const actual = packing.genChina(XLSX, inv, '48', '01', { catalog: catalog(['ROSE CHINA / Proud 75-80cm']), aliases: { [packing.aliasKey(inv.products[0].description)]: 'ROSE CHINA / Proud 75-80cm' } });
+  const parsed = parseWarehousePackingWorkbook(actual.buf, XLSX);
+  const freight = parsed.rows.filter(row => row.prodName === '운송료');
+  assert.equal(freight.length, 1);
+  assert.deepEqual([freight[0].boxQty, freight[0].bunchQty, freight[0].steamQty, freight[0].unitPrice, freight[0].totalPrice], [1, 1, 1, 1169, 1169]);
+  const gw = parsed.rows.find(row => row.prodName === 'Gross weight');
+  assert.equal(gw.steamQty, 88.13);
+  assert.equal(parsed.meta.gw, 88.13); assert.equal(parsed.meta.cw, undefined, 'CW is never derived from GW');
+  assert.equal(parsed.meta.freight, 1169);
+  assert.equal(parsed.rows.some(row => /weigth/i.test(row.prodName)), false);
 });
 
 test('generator rejects corrupted counts and blocks subtotal/fee/grand-total drift', async () => {

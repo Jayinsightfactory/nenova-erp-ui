@@ -31,5 +31,14 @@ test('HUBFRESH separates carton ownership and round-trips the Nenova packing she
     assert.deepEqual(result.rows.map(row => [row.orderCode, row.prodName, row.boxQty, row.totalPrice]),
       [['YCL1', 'ERP Rose 60CM', 1, 15], ['CL2', 'ERP Rose 60CM', 2, 30]]);
   }
+  const withCosts = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(withCosts, XLSX.utils.aoa_to_sheet(
+    hubfreshPackingGrid(data.invoice, data.nenova, names, '48-01', '2026-11-24', { awb: '999-12345675', freight: 1830, gw: 512.5, cw: 620 })
+  ), 'PACKING');
+  const parsedWithCosts = parseWarehousePackingWorkbook(XLSX.write(withCosts, { type: 'array', bookType: 'xlsx' }), XLSX);
+  assert.deepEqual([parsedWithCosts.meta.awb, parsedWithCosts.meta.freight, parsedWithCosts.meta.gw, parsedWithCosts.meta.cw],
+    ['999-12345675', 1830, 512.5, 620]);
+  assert.deepEqual(parsedWithCosts.rows.slice(2).map(row => [row.prodName, row.steamQty, row.totalPrice]),
+    [['운송료', 1, 1830], ['Gross weight', 512.5, 0], ['Chargeable weight', 620, 0]]);
   assert.throws(() => hubfreshPackingGrid(data.invoice, data.nenova, {}, '48-01', '2026-11-24'), /ERP/);
 });
