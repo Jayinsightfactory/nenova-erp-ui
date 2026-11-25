@@ -5099,6 +5099,29 @@ pm run test:canon 통과.
 4. 검증 상태: 설치 EXE, 운영 #8205 수량·운송료 구분, #8254 수량 미리보기 가능, 신규 17 테스트·249 매니페스트·브라우저 오류 복구·가이드 39개 검사 통과. 사용자 시점 HTML 원 응답은 재현 못 함. 최신 의존성의 ERP 전체 계약·공식 빌드·입고/HUBFRESH/PM 플레이어 통과. 기존 #1635 PM 가이드 불일치는 실제 영상으로 보정. 운영 저장 0건, 배포 미검증.
 5. 주의/잠금: 현 작업트리 표·가이드 검증 중. 연결 목표 g03 / 학습 반영 있음.
 
+### 2026-11-25 · 수입 카톡 전산 품목군 대조 및 미국 단일 표시
+1. 작업 위치: nenova-erp-ui / codex/kakao-matching / nw-cdx-kakao-matching / PR 준비.
+2. 완료: 미국을 합계·필터·복사에서 국가 한 그룹으로 표시. 2026/47-02 원문과 dbo.ViewOrder·Product 읽기 전용 대조로 중국 시네신스 화이트·연핑크 → 리모늄, 네덜란드 Liberstar White → 튤립 확인.
+3. 남은 일: 필수 검증, 가이드, PR·CI·Cafe24 및 실브라우저 확인.
+4. 검증 상태: 단위/수량·비일치 국가·명시 품목군 우선·미확인 별칭 회귀, dnSpy 증거 검사와 쓰기 가드 통과. 제공 원문의 11/19~20 128건 재현에서 시네신스 각 20단, Liberstar White 300송이, 미국 200·50박스 확인. 미분류 시네리아·안슬레이 각 10단 보존.
+5. 주의: 원본 카톡·전산·수집기 변경 없음. 운영 토큰 및 개인 식별 정보 출력·저장 금지. 연결 목표: g19 / 학습 반영: 있음.
+검색어: 수입 카톡 시네신스 리모늄 Liberstar Liberster 튤립 미국 태국 품목군 47-02 g19
+
+### 2026-11-25 · 품목군 별칭 준비 완료 및 선행 가이드 차단
+1. 작업 위치: nenova-erp-ui / codex/kakao-matching / C:/Users/USER/.codex/worktrees/f343/nw-cdx-kakao-matching / 기능 c7c86894, 최신 master 1b0cbf3c 통합 후 PR 미생성.
+2. 완료: 중국 시네신스 화이트·연핑크 리모늄, 네덜란드 Liberstar White 튤립, 미국 국가 단일 그룹. 실제 수입방 11/19~20 원문, 전산 2026/47-02 읽기 전용 대조, 1920x1080 최종 가이드 23단계 준비.
+3. 남은 일: upstream #1635의 PM staff 가이드 proof가 현재 pages/pm.js와 일치하도록 재촬영·반영된 뒤 최신 master 통합, PStack PASS, PR/CI/squash/Cafe24/운영 인증 확인.
+4. 검증 상태: Kakao 회귀·Chrome 실제 UI 연습자료·ERP 전체 계약·manifest·dnSpy·쓰기 가드(0 API)·local webpack PASS. 최신 master 단독과 이 작업 모두 PStack 4/5, pm-control/staff 기존 실패 재현. 배포 미검증.
+5. 주의: ERP DB 쓰기 및 수집기 실행 없음. feature worktree는 후속 사용을 위해 보존. 연결 목표: g19 / 학습 반영: 있음.
+검색어: 미국 단일그룹 시네신스 리모늄 Liberstar 튤립 PStack upstream 1635 pm-control staff
+
+### 2026-11-25 · 시네리아·안슬레이 전산 대조 추가 및 상류 차단 해소
+1. 작업 위치: nenova-erp-ui / codex/kakao-matching / nw-cdx-kakao-matching / 최신 master #2003 통합, PR 준비.
+2. 완료: 전산 2026/47-02 중국 시네리아 ProdKey 2377의 유칼립투스 등록명과 전산 품목군 기타, 안슬레이 3규격의 장미 품목군 대조. 사용자 요청과 전산에 따라 시네리아는 기타로 표시하고 원문 별칭을 보존. 동일 차수와 수량 10단씩 보존.
+3. 남은 일: 최종 가이드 확인, PStack PASS, CI/PR/배포 및 인증 운영 확인. #2003이 기존 pm-control/staff 문제를 별도로 해결했다.
+4. 검증 상태: 제공 11/19~20 원문 128건 재현 시 자동 합계 14행에 화면 품목군 미상 0. 미지정·타국·기존 품목군·단위 분리 회귀와 연습 Chrome 검증 통과.
+5. 주의: 동명의 전산 세부 SKU를 선택하지 않고, 원본·ERP·수집기 쓰기 없음. 연결 목표: g19 / 학습 반영: 있음.
+검색어: 시네리아 유칼립투스 안슬레이 중국 장미 47-02 원문 10단 upstream 2003
 ## 2026-11-25 — 불량차감 이월 등록 선택
 1. 작업 위치: nenova-erp-ui / codex/defect-explicit-carryover / nw-cdx-defect-explicit-carryover / PR 발행 전.
 2. 완료된 것: 공용 등록 검토창에 원차수·업체별 이월 안내와 별도 등록 버튼 추가. 잠긴 원장의 원차수·업체와 이월 승인 비교. 연결 목표 g03 / 학습 반영 없음.
@@ -5114,3 +5137,11 @@ pm run test:canon 통과.
 3. 남은 할 일: 정식 필수 검사·PR·CI·Cafe24/데스크톱 게시·운영 읽기 UI 확인. ERP 원장 보정 없음.
 4. 검증 상태: 대상27개·실제 Next 격리9국가/NL 진입·AWB 전 비용 입력·실제 PDF 인식·대조 후 입력 보존·1시트291050원 다운로드 PASS. 실제 가이드1개를 영향2진입점에 연결. 운영 배포 미검증.
 5. 주의/잠금: 본 작업트리 원가 진입·AWB 입력·가이드만 잠금. 중국 기존 계산/원본 양식 보존, 신규 국가 공식0, ERP 쓰기0. 연결 목표 g17/g19 / 학습 반영 있음.
+## 2026-11-25 박스 사진 판독 3단계 스텝 위저드(Step Wizard) UI 개편 및 새 작업(빈 초기 화면·새 탭) 지원 (`/vision/box-inspector`)
+- 요약: 한 화면에 9개 섹션이 세로로 나열되어 복잡했던 `/vision/box-inspector` 화면을 사장님 지시(방안 B + 새 작업 초기화/새 탭 지원)에 맞춰 `[1단계: 사진 올리기(묶음 업로드) → 2단계: 미식별/옆면 박스 확인(패스·매칭) → 3단계: 업체별 품목·수량·Bill·차수 결과표]` 3단계 스텝 위저드로 전면 개편하고, 첫 진입 및 `[+ 새 작업 (초기화)]` 클릭 시 완전히 깨끗한 빈 1단계(사진 0장)에서 시작하며 `[새 탭에서 새 작업 열기]`(`/vision/box-inspector?new=1`)로 다중 노선 동시 작업을 지원하도록 구현했다 (Desktop `v1.3.97`).
+- 검색어: 박스 사진 판독 3단계 스텝 위저드 Step Wizard 방안B 새작업 초기화 새탭 allowEmpty box-inspector 미식별 지그재그 옆면 결과표 Bill 입고차수 g03 g14 g17 g19
+1. 작업 위치: `nenova-erp-ui` (`nw-agy-step-wizard` 워크트리, `feat/box-inspector-step-wizard` 브랜치) — `pages/vision/box-inspector.js`, `lib/boxVisionInspector.js`, `styles/BoxVisionInspector.module.css`, `__tests__/boxVisionInspector.test.cjs`, `public/guides/box-vision-inspector/warehouse.proof.json`, `desktop/package.json`(1.3.97).
+2. 완료된 것: ① `lib/boxVisionInspector.js`에 `allowEmpty` 옵션을 추가해 첫 진입 및 `[+ 새 작업]` 시 샘플 강제 로드 없이 사진 0장 빈 세션으로 시작 지원, ② 상단 헤더와 3단계 결과표에 `[+ 새 작업 (초기화)]` 및 `[새 탭에서 새 작업 열기]`(`/vision/box-inspector?new=1`) 상시 배치, ③ 1단계(출고 노선 칩·메모 + 대형 드롭존 + `[샘플 사진으로 바로 테스트 ▾]` + 업로드 썸네일 리스트), 2단계(좌 50% 짧은 번호 중심 오버레이 캔버스 `#1 신라·안시리움 40송이` / `[#19 확인필요]` + 우 50% 정상 판독 접기 요약 및 미식별·옆면 박스 3버튼 카드), 3단계(4개 요약 타일 + 업체별 필터 칩 + 핵심 7열 결과표 + 하단 보조탭 A/B 분리) 구현.
+3. 남은 할 일: PR 머지 후 운영 배포 및 현장 출고방 묶음 사진 스텝 위저드 사용성 확인.
+4. 검증 상태: `__tests__/boxVisionInspector.test.cjs` 6/6 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS (`agent-guardrails`, `guard-erp-writes`, `ui-layout-contract`, `workflow-guides`, `work-memory-handoff`), `npm run build` 성공.
+5. 주의/잠금: MSSQL 원장 테이블(`WarehouseMaster`, `WarehouseDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentFarm`, `OrderMaster`, `OrderDetail`) 쓰기 0건(순수 읽기 전용 대조). 연결 목표: g03, g14, g17, g19 / 학습 반영: 있음

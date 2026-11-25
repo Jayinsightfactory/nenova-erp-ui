@@ -345,4 +345,17 @@ test('zigzag_side boxes model 3-side (front/left/right) cross-angle label coupli
   for (const row of afterDeduce.customerItemSummary) {
     assert.equal(row.reconcileStatus, 'MATCH', `Row ${row.prodName} must reconcile 100% with ERP shipment after zigzag deduction`);
   }
+
+  // 3) Empty session (allowEmpty: true) starts cleanly with 0 photos for [+ 새 작업] / Step 1 wizard entry
+  const emptySession = analyzeBoxVisionPhotos({ sampleIds: [], uploadedFiles: [], allowEmpty: true });
+  assert.equal(emptySession.totals.photoCount, 0);
+  assert.equal(emptySession.totals.countedBoxes, 0);
+
+  // 4) box-inspector.js implements the 3-step wizard (Step 1 Upload -> Step 2 Unreadable/Zigzag Review -> Step 3 Result Table) and [+ 새 작업] reset/new-tab actions
+  const pageSource = fs.readFileSync(path.join(repoRoot, 'pages/vision/box-inspector.js'), 'utf8');
+  assert.match(pageSource, /1단계\.\s*사진 올리기/);
+  assert.match(pageSource, /2단계\.\s*미식별\/옆면 박스 확인/);
+  assert.match(pageSource, /3단계\.\s*업체별 품목·수량·Bill 결과표/);
+  assert.match(pageSource, /box-vision-new-work-btn/);
+  assert.match(pageSource, /box-vision-new-tab-work-btn/);
 });
