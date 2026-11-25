@@ -2381,6 +2381,14 @@
     },
     {
       "id": "desktop-task-schedule",
+      "videoWaivers": [
+        {
+          "file": "desktop/main.cjs",
+          "sha256": "6f84ad986a02fb2031c2341585567f2462c8614ef7bebea8d33cdc0a59413550",
+          "approvedBy": "owner",
+          "reason": "2026-11-25 사용자 명시: 데스크톱앱 자동 업데이트를 하루 아침 첫 실행 시 1회만 확인하도록 변경하고 실행 중 주기적 반복 체크 타이머를 제거. 오늘의 내 업무·시간·바로가기 화면 및 조작 흐름은 변경 없음. 기존 영상 재촬영 완료 주장 없음."
+        }
+      ],
       "title": "오늘의 내 업무 · 시간과 바로가기",
       "entryPaths": [
         "/desktop-guide"
