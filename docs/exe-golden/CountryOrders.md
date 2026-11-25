@@ -71,5 +71,5 @@
 ## 2026-11-25 수입 카톡의 정확 표기와 ERP 품목군 대조
 - 기존 dnSpy `FormOrderView.GetData`의 `ViewOrder` 조회 근거 및 저장된 decompile 소스 재확인. 운영에서 읽기 전용으로 `OrderYear=2026, OrderWeek=47-02, CounName`을 지정해 `ViewOrder`와 활성 `Product`를 대조했다.
 - 중국 시네신스 화이트 ProdKey 2158, 연핑크 3096은 품목명에 `리모늄`이 명시되고 FlowerName은 `기타`다. 별도 활성 화이트 품목 2754는 해당 차수에 없다. 네덜란드 ProdKey 1857은 `Tulip / Liberster White`, FlowerName `튤립`이며 입고 별칭 `TULIPA LILY FLOWERED WHITE LIBERSTAR`와 대조했다.
-- 중국 2026/47-02에서 시네리아 ProdKey 2377 등록명은 `Eucalyptus CHINA / 유칼리튭스_시네리아 (Eucalyptus - Cinerea)`이고 FlowerName은 `기타`다. 안슬레이 ProdKey 2155·2596·3547의 공통 FlowerName은 `장미`다. 품목군만 연결하며 특정 등급·규격은 선택하지 않는다.
+- 중국 2026/47-02에서 시네리아 ProdKey 2377 등록명은 `Eucalyptus CHINA / 유칼리튭스_시네리아 (Eucalyptus - Cinerea)`이고 FlowerName은 `기타`다. 사용자 확인에 따라 합계 품목군은 등록명 속 식물명보다 전산 FlowerName `기타`를 사용한다. 안슬레이 ProdKey 2155·2596·3547의 공통 FlowerName은 `장미`다. 품목군만 연결하며 특정 등급·규격은 선택하지 않는다.
 - 카톡 원문의 품종·단위와 차수는 보존한다. 명시된 국가·품목군을 우선하고, 확인한 정확 별칭 외에는 기존 검토를 따른다. 새 SQL·프로시저·ERP 주문, 출고, 재고, 견적/매출 변경 없음.

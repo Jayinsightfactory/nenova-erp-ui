@@ -5114,3 +5114,11 @@ pm run test:canon 통과.
 4. 검증 상태: Kakao 회귀·Chrome 실제 UI 연습자료·ERP 전체 계약·manifest·dnSpy·쓰기 가드(0 API)·local webpack PASS. 최신 master 단독과 이 작업 모두 PStack 4/5, pm-control/staff 기존 실패 재현. 배포 미검증.
 5. 주의: ERP DB 쓰기 및 수집기 실행 없음. feature worktree는 후속 사용을 위해 보존. 연결 목표: g19 / 학습 반영: 있음.
 검색어: 미국 단일그룹 시네신스 리모늄 Liberstar 튤립 PStack upstream 1635 pm-control staff
+
+### 2026-11-25 · 시네리아·안슬레이 전산 대조 추가 및 상류 차단 해소
+1. 작업 위치: nenova-erp-ui / codex/kakao-matching / nw-cdx-kakao-matching / 최신 master #2003 통합, PR 준비.
+2. 완료: 전산 2026/47-02 중국 시네리아 ProdKey 2377의 유칼립투스 등록명과 전산 품목군 기타, 안슬레이 3규격의 장미 품목군 대조. 사용자 요청과 전산에 따라 시네리아는 기타로 표시하고 원문 별칭을 보존. 동일 차수와 수량 10단씩 보존.
+3. 남은 일: 최종 가이드 확인, PStack PASS, CI/PR/배포 및 인증 운영 확인. #2003이 기존 pm-control/staff 문제를 별도로 해결했다.
+4. 검증 상태: 제공 11/19~20 원문 128건 재현 시 자동 합계 14행에 화면 품목군 미상 0. 미지정·타국·기존 품목군·단위 분리 회귀와 연습 Chrome 검증 통과.
+5. 주의: 동명의 전산 세부 SKU를 선택하지 않고, 원본·ERP·수집기 쓰기 없음. 연결 목표: g19 / 학습 반영: 있음.
+검색어: 시네리아 유칼립투스 안슬레이 중국 장미 47-02 원문 10단 upstream 2003
