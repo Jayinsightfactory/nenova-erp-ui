@@ -64,6 +64,7 @@ async function recordRole(browser, base, secret, role) {
   let packingSaves = 0;
   let manualSaves = 0;
   let identitySaves = 0;
+  let costFault=false, costFailures=0;
   let guideRound='', nativeRow=clone(before[0]), nativeSaves=0;
   const history=[{id:1,kind:'WAREHOUSE_CORRECTION',product:before[0].ProdName,actor:'수입부 연습',
     at:'2026-11-05T01:00:00.000Z',reason:'수량 확인',before:{BoxQuantity:9},after:{BoxQuantity:10}}];
@@ -153,8 +154,19 @@ async function recordRole(browser, base, secret, role) {
         if (!body.previewOnly) packingSaves++;
         data={success:true,bunchQuantities:results.map(item=>item.quantity),bunchResolutions,warehouseKey:9200,message:'입고 등록 완료: 2/2개 품목'};
       }
+      if (u.pathname === '/api/arrival-cost/latest' && costFault && costFailures<2){
+        const items=JSON.parse(u.searchParams.get('items'));
+        assert.deepEqual(items.map(x=>x.prodKey),[1,2]);
+        costFailures++;
+        return r.respond({status:502,contentType:'text/html',body:'<!doctype html><title>Temporary gateway</title>'});
+      }
       if (u.pathname === '/api/arrival-cost/latest') data.references = {'1|': [1000, 1350].map((cost,i)=>({cost,unit:'단',farm:`원가 농장 ${i+1}`,week:'45-01',orderYear:'2026',sourceKind:'INVOICE',referenceKey:String(i)}))};
       if (u.pathname === '/api/warehouse/9001') data.items = [nativeRow];
+      if (u.pathname === '/api/warehouse/9005') data.items = [
+        {...before[0],WdetailKey:501},{...before[0],WdetailKey:502,ProdKey:2,ProdName:'장미 핑크 50'},
+        {...before[0],WdetailKey:503,ProdKey:3100,ProdName:'총중량',IsWeightRow:true,SteamQuantity:9973,TPrice:0,총액:0},
+        {...before[0],WdetailKey:504,ProdKey:2182,ProdName:'운송료'},
+      ];
       if (u.pathname === '/api/warehouse/9002') data.items = [{ ...before[0], BoxQuantity: null, IsWeightRow: false, ReceiptGoodsLines: 1 }];
       if (u.pathname === '/api/warehouse/correction') data = { success: true, draftOwner: user.userId, header, baselineDigest:'c'.repeat(64), details: before, farms: [{ FarmName: header.FarmName }, { FarmName: '연습농장 나' }], history: [] };
       if(u.pathname==='/api/warehouse/correction'&&r.method()==='POST'){
@@ -221,7 +233,7 @@ async function recordRole(browser, base, secret, role) {
   });
   await page.goto(`${base}/import/tools?tab=incoming&warehouseKey=9001&from=2026-10-01&to=2026-11-30`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('nav[aria-label="입고 정정 처리 단계"]');
-  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},stop: async () => null,unfocus:async()=>{} } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 작업 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset: 'veryfast', crf:isImport?27:23 });
+  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},stop: async () => null,unfocus:async()=>{} } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 작업 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true, encodingPreset: 'veryfast', crf:isImport?28:23 });
   let stepNumber=1,currentCaption='1. 조작할 위치를 확인합니다.';
   const hold = async (text, seconds = 5) => { currentCaption=`${stepNumber}. ${text.replace(/^\d+\. /,'')}`;await rec.caption(currentCaption); await rec.pause(Math.min(seconds, 7) * 1000); };
   const focusTarget=async element=>{
@@ -442,7 +454,7 @@ async function recordRole(browser, base, secret, role) {
         await hold('적용 완료 결과를 확인합니다.\n이미 발송한 견적서는 정정 내용으로 다시 발행하세요.',5);await click('요청 목록으로');
       }
     }
-    if(!['packing-quantity','manual-upload','inline-numbers','native-detail'].includes(onlyScenario)){
+    if(!['packing-quantity','manual-upload','inline-numbers','native-detail','density-retry'].includes(onlyScenario)){
       if(!isImport){await click('처리 이력');await hold('처리 이력에서 결과를 다시 확인할 수 있습니다.\n통신 오류 때는 같은 작업번호로 결과를 다시 확인하세요.',5);}
       await click('처리 이력');await hold('처리 이력에는 요청·검토 대기부터 완료·반려·취소까지 표시합니다. 요청을 열면 상태 변경 기록을 확인합니다.',6);await click(onlyScenario==='price'&&!isImport?'#4 열기':'#1 열기');await page.waitForFunction(()=>document.querySelector('[aria-label="작업 로그"]')?.textContent.includes('요청 내용과 처리 이력을 불러왔습니다.'));await click(`요청 처리 이력 (${isImport?2:3}건)`);await hold('요청 등록과 처리 기록을 확인합니다. 요청하지 않은 직접 수정은 입고 수정창의 수정 이력에서 확인합니다.',6);
     }
@@ -637,9 +649,34 @@ async function recordRole(browser, base, secret, role) {
       await page.waitForFunction(()=>document.querySelector('details[open] article')?.innerText.includes('수입부 연습'));
       await hold('변경 이력에서 수정한 사람, 시간과 수량 전후를 확인합니다.',5);
     }
+    if(isImport&&(!onlyScenario||onlyScenario==='density-retry')){
+      console.log(`${dry?'CHECK':'RECORD'} import: density-retry`);
+      costFault=true;
+      await page.goto(`${base}/incoming?popup=1&warehouseKey=9005`,{waitUntil:'networkidle0'});
+      await rec.restoreOverlay?.();
+      stepNumber=11;
+      rec.chapter('density-retry','11. 상품과 중량·운송료를 구분하고 원가 다시 조회');
+      if(!await page.$('[data-row-key="9005"][aria-selected="true"]'))await selectReceipt(9005);
+      await page.waitForFunction(()=>document.body.innerText.includes('최신 원가를 불러오지 못했습니다.'));
+      assert.equal(await page.evaluate(()=>document.body.innerText.split('최신 원가를 불러오지 못했습니다.').length-1),1);
+      assert.equal(await page.evaluate(()=>document.body.innerText.includes('Unexpected token')),false);
+      assert.equal(await page.$('[data-row-key="503"] button[aria-label^="상세 수량 수정"]'),null);
+      assert.equal(await page.$('[data-row-key="504"] button[aria-label^="상세 수량 수정"]'),null);
+      assert(await page.$('[data-row-key="501"] button[aria-label^="상세 수량 수정"]'));
+      assert(await page.$eval('input[aria-label="차수 검색"]',n=>n.getBoundingClientRect().width>=65));
+      await hold('중량과 운송료는 상품과 구분해 표시합니다. 상품행에서 수량 수정을 열 수 있습니다.',4);
+      await click('최신 원가 다시 조회');
+      await page.waitForFunction(()=>document.body.innerText.includes('1,350원/단'));
+      await hold('원가 조회가 실패하면 상세 상단에서 다시 조회합니다.',4);
+      if(dry){
+        await page.setViewport({width:390,height:844});
+        await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth+4);
+      }
+      assert.equal(costFailures,2);
+    }
     assert.deepEqual(errors, []);
-    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (['packing-quantity','manual-upload','inline-numbers','native-detail'].includes(onlyScenario)?0:onlyScenario?1:isImport?6:4)+(dry&&!isImport&&onlyScenario!=='native-detail'?1:0));
-    if(dry&&!isImport&&onlyScenario!=='native-detail')assert(replayedApproval,'lost approval retry must reuse the same operation');
+    assert.equal(posts.filter(body => body.action === (isImport ? 'submit' : 'approve')).length, (['packing-quantity','manual-upload','inline-numbers','native-detail','density-retry'].includes(onlyScenario)?0:onlyScenario?1:isImport?6:4)+(dry&&!isImport&&!['native-detail','density-retry'].includes(onlyScenario)?1:0));
+    if(dry&&!isImport&&!['native-detail','density-retry'].includes(onlyScenario))assert(replayedApproval,'lost approval retry must reuse the same operation');
     const result = await rec.stop(); stopped = true;
     if (!dry) {
       const latestRegistry = JSON.parse(fs.readFileSync(registryPath,'utf8'));
