@@ -1,4 +1,5 @@
 import { defectBatchDuplicates } from '../../lib/defectBatchDuplicates.js';
+import { defectCarryoverApproval, defectSourcePeriod } from '../../lib/defectCarryoverChoice.js';
 import { isDefectRegistrationHeld, defectResolution, resolutionDuplicateGroups, resolutionReadyRows } from '../../lib/defectResolution.js';
 import DefectResolutionEditor from '../../components/DefectResolutionEditor';
 import { isDefectAdmin } from '../../lib/salesDefectDeductionCore.js';
@@ -64,6 +65,15 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const duplicateGroups = useMemo(() => resolutionDuplicateGroups(rows, excludedKeys), [rows, excludedKeys]);
   const duplicateKeys = new Set(duplicateGroups.flat().map(row => Number(row.deductionKey)));
   const readyRows = resolutionReadyRows(rows, excludedKeys);
+  const targetPeriod = defectSourcePeriod(year, week);
+  const isCurrent = (row) => !!targetPeriod && defectSourcePeriod(row.sourceOrderYear, row.sourceOrderWeek) === targetPeriod;
+  const selectedRows = rows.filter(row => !excludedKeys.has(Number(row.deductionKey)));
+  const carryoverRows = selectedRows.filter(row => defectSourcePeriod(row.sourceOrderYear, row.sourceOrderWeek) && !isCurrent(row));
+  const registrationRows = resolveMode ? readyRows : selectedRows;
+  const currentCandidates = selectedRows.filter(isCurrent);
+  const currentRows = resolveMode ? resolutionReadyRows(currentCandidates, excludedKeys) : currentCandidates;
+  const currentCount = currentRows.length;
+  const carryoverCount = registrationRows.filter(row => !isCurrent(row) && defectCarryoverApproval(row.sourceOrderYear, row.sourceOrderWeek, row.custKey)).length;
   const displayRows = resolveMode ? [...rows].sort((a, b) => {
     const order = { cost: 0, match: 1, existing: 2, source: 3, unit: 4, other: 5, defer: 6, omitted: 7, ready: 8 };
     return (order[defectResolution(a).kind] ?? 5) - (order[defectResolution(b).kind] ?? 5)
@@ -73,7 +83,6 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   useEffect(() => { apiGet('/api/auth/me').then(data => setAdmin(isDefectAdmin(data.user || data))).catch(() => setAdmin(false)); }, []);
   const excludedRows = useMemo(() => rows.filter((row) => excludedKeys.has(Number(row.deductionKey))), [rows, excludedKeys]);
   const batchDuplicates = useMemo(() => defectBatchDuplicates(rows, excludedKeys), [rows, excludedKeys]);
-  const waitingForApply = !loading && !applying && !verified && rows.length > 0;
   const appendLog = (label) => {
     const at = new Date().toLocaleTimeString('ko-KR');
     setLogs((current) => [...current, { at, label }]);
@@ -172,14 +181,16 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       && Number(actual.ShipmentKey || 0) === Number(expected.ShipmentKey || 0);
   };
 
-  const apply = async () => {
+  const apply = async (includeCarryover) => {
     if (loading || !loadComplete || applying || editorBusy || verified) return;
-    const activeRows = resolveMode ? resolutionReadyRows(rows, excludedKeys) : rows.filter((row) => !excludedKeys.has(Number(row.deductionKey)));
+    const activeRows = includeCarryover
+      ? registrationRows.filter(row => isCurrent(row) || defectCarryoverApproval(row.sourceOrderYear, row.sourceOrderWeek, row.custKey))
+      : currentRows;
     if (!activeRows.length) {
       setError('등록할 행이 없습니다. 제외를 해제하거나 창을 닫아주세요.');
       return;
     }
-    if (resolveMode && !window.confirm(`${year}년 ${week}차에 정상 ${activeRows.length}건을 등록합니다.\n미해결 ${unresolvedCount}건·이번 보류 ${excludedKeys.size}건은 등록하지 않습니다.\n최종 수량과 단가는 '등록 예정 품목'에서 확인할 수 있습니다.`)) return;
+    if ((resolveMode || includeCarryover) && !window.confirm(`${year}년 ${week}차에 ${activeRows.length}건(이월 ${activeRows.filter(row => !isCurrent(row)).length}건)을 등록합니다.`)) return;
     const invalid = activeRows.filter((row) => row.error || !row.after || !(Number(row.editQuantity) > 0));
     if (invalid.length) {
       setError(`오류가 있는 ${invalid.length}건을 수정하거나 「오류 건 제외하고 계속」을 눌러주세요.`);
@@ -207,6 +218,9 @@ export default function SalesDefectDeductionRegisterReviewPage() {
         }]));
         const batchData = await apiPost('/api/sales/defect-deductions', {
           action: 'register', year, week, ids: batchIds, deductionType, overrides,
+          carryoverApprovals: Object.fromEntries(batchRows.filter(row => !isCurrent(row)).map(row => [
+            row.deductionKey, defectCarryoverApproval(row.sourceOrderYear, row.sourceOrderWeek, row.custKey),
+          ])),
           requestKey: registerRequestKeyRef.current,
         });
         combined.registered += Number(batchData.registered || 0);
@@ -293,16 +307,26 @@ export default function SalesDefectDeductionRegisterReviewPage() {
             <h2>{resolveMode ? '불량차감 — 필요한 내용만 해결하고 등록' : supportMode ? '영업지원 전산등록 — 견적서관리 반영 결과' : '견적서 등록 검토'}</h2>
             <div className="sub">{year}년 {week}차 · {deductionType} · 기존 견적서와 적용 후 값을 비교한 뒤 등록합니다.</div>
           </div>
-          <div className="head-actions"><button className="btn btn-primary" onClick={apply} disabled={applying || loading || !loadComplete || editorBusy || verified || !rows.length || (resolveMode && !readyRows.length)}>{resolveMode ? (verified ? '등록 완료' : `정상 ${readyRows.length}건 등록하기`) : supportMode ? (waitingForApply ? '전산등록 실행 및 검증 ← 클릭' : '전산등록 실행 및 검증') : '수정 적용 및 등록'}</button>{!resolveMode && rows.some((row) => !excludedKeys.has(Number(row.deductionKey)) && (row.error || !row.after || !(Number(row.editQuantity) > 0))) && <button className="btn btn-danger" onClick={excludeInvalidRows} disabled={loading || applying}>오류 건 제외하고 계속</button>}<button className="btn" onClick={() => load()} disabled={loading || applying || editorBusy}>새로 불러오기</button>{verified && <button className="btn" onClick={openEstimateManagement}>견적서관리 새창 열기</button>}<button className="btn" onClick={() => window.close()}>닫기</button></div>
+          <div className="head-actions"><button className="btn btn-primary" onClick={() => apply(false)} disabled={applying || loading || !loadComplete || editorBusy || verified || !currentCount}>{verified ? '등록 완료' : `이번 차수만 ${currentCount}건 등록`}</button>{carryoverRows.length > 0 && <button className="btn" onClick={() => apply(true)} disabled={applying || loading || !loadComplete || editorBusy || verified || !carryoverCount}>이월 {carryoverCount}건 포함해 등록</button>}{!resolveMode && rows.some((row) => !excludedKeys.has(Number(row.deductionKey)) && (row.error || !row.after || !(Number(row.editQuantity) > 0))) && <button className="btn btn-danger" onClick={excludeInvalidRows} disabled={loading || applying}>오류 건 제외하고 계속</button>}<button className="btn" onClick={() => load()} disabled={loading || applying || editorBusy}>새로 불러오기</button>{verified && <button className="btn" onClick={openEstimateManagement}>견적서관리 새창 열기</button>}<button className="btn" onClick={() => window.close()}>닫기</button></div>
         </div>
-        {!resolveMode && waitingForApply && <div className="notice waiting" role="status"><strong>진행 대기 중</strong> · 기존 견적서 조회가 완료되었습니다. 상단의 「전산등록 실행 및 검증 ← 클릭」 버튼을 눌러야 실제 등록이 시작됩니다.</div>}
+        {loadComplete && carryoverRows.length > 0 && !verified && <section aria-label="이월 등록 선택" style={{ padding: '10px 12px', fontSize: 14 }}>
+          <strong>이월 후보 {carryoverRows.length}건</strong>
+          <p>이전 차수 불량을 {year}년 {week}차 견적에 넣으려면 ‘이월 포함해 등록’을 선택하세요. 이번 차수 등록 대상은 {currentCount}건입니다.</p>
+          <ul>{Object.entries(carryoverRows.reduce((groups, row) => {
+            const label = `${row.sourceOrderYear}년 ${row.sourceOrderWeek}차 · ${row.customerName || '거래처 확인 필요'}`;
+            groups[label] = (groups[label] || 0) + 1;
+            return groups;
+          }, {})).map(([label, count]) => <li key={label}>{label} · {count}건</li>)}</ul>
+        </section>}
+
+        {!resolveMode && (!loading && !applying && !verified && rows.length > 0) && <div className="notice waiting" role="status"><strong>진행 대기 중</strong> · 기존 견적서 조회가 완료되었습니다. 상단에서 등록 범위를 선택하세요.</div>}
         {message && <div className="notice ok">{message}{verified && ' 재조회 검증 완료.'}</div>}
         {error && <div className="notice error">{error}</div>}
         {excludedRows.length > 0 && <div className="notice excluded-summary"><strong>이번 등록 제외 {excludedRows.length}건</strong>{excludedRows.map((row) => <div key={row.deductionKey}><b>{row.customerName || '-'}</b> · {rowProductName(row)} · {fmt(row.editQuantity || row.quantity)} {row.sourceUnit || row.after?.Unit || ''} · 원장키 #{row.deductionKey}{row.error ? ` · ${row.error}` : ''}</div>)}</div>}
         {!resolveMode && <div className="notice usage" role="note"><strong>공지</strong> {supportRegisterUsageNotice()}
           <ol>{SUPPORT_REGISTER_USAGE_STEPS.map((step) => <li key={step}>{step}</li>)}</ol>
         </div>}
-        {!resolveMode && <div className="notice info">단가는 같은 연도의 이전 차수 분배단가를 우선 사용하고, 해당 차수 금액이 없으면 가장 최근 유효 분배단가로 자동 대체합니다. 적용 차수는 각 행에 표시됩니다. 차감수량은 등록 시 음수로 적용되고 수정 이력은 원장에 남습니다. 「기존 견적서 조회 완료」가 로그에 뜨면 「전산등록 실행 및 검증」을 누르세요.</div>}
+        {!resolveMode && <div className="notice info">단가는 같은 연도의 이전 차수 분배단가를 우선 사용하고, 해당 차수 금액이 없으면 가장 최근 유효 분배단가로 자동 대체합니다. 적용 차수는 각 행에 표시됩니다. 차감수량은 등록 시 음수로 적용되고 수정 이력은 원장에 남습니다. 기존 견적서 조회가 끝나면 상단에서 등록 범위를 선택하세요.</div>}
         <div className="process-log" aria-live="polite"><strong>처리 로그</strong>{logs.length ? logs.map((log, index) => <div key={`${log.at}-${index}`}><span>{log.at}</span> {log.label}</div>) : <div className="empty">아직 처리 로그가 없습니다.</div>}</div>
         <div className="review-list">
           {resolveMode && <section className="resolution-summary" aria-live="polite">
