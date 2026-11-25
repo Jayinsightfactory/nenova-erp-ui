@@ -30,6 +30,7 @@
     "components/import-tools/CountryDownloadComparison.js",
     "__tests__/countryOrderDownloadHistory.test.js",
     "__tests__/importKakaoOrderText.test.mjs",
+    "__tests__/importKakaoFarmSummary.test.mjs",
     "docs/plans/import-kakao-filter-2026-11-18.md"
   ],
   "businessIdentity": [
@@ -305,7 +306,8 @@
     "__tests__/pedidosToolCountryOrders.test.js",
     "__tests__/importPedidos.test.js",
     "__tests__/erpContractManifest.test.js",
-    "__tests__/importKakaoOrderText.test.mjs"
+    "__tests__/importKakaoOrderText.test.mjs",
+    "__tests__/importKakaoFarmSummary.test.mjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",

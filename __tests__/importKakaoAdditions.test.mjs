@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readImportDay, farmTotals, groupFarmTotalsByCycle, matchesCountryOrderScope, visibleKakaoMessages, kakaoMessagePageSize, validItem} from '../lib/importKakaoAdditions.js';
 import './importKakaoOrderText.test.mjs';
+import './importKakaoFarmSummary.test.mjs';
 const headers='요청번호 항목|원문 시각|원문 작성자|분석 담당자|담당자 카톡|차수|원문 거래처|매칭 거래처|원문 품목|매칭 품목|수량|단위|매칭 판정|품목 후보|처리 상태|확인 필요사항|원문|검토 결과|거래처 수정|품목 수정'.replace('요청번호 항목','요청번호|항목').split('|');
 const row=(i,customer,q,date='2026년 11월 17일 오전 11:30')=>['m',i,date,'','','','46-01',customer,'','','콜롬비아수국 Moon Light',q,'박스','','','','','추가 요청'];
 const vals=[headers,row(1,'주광',1),row(2,'미우',2),row(3,'일신',1),row(4,'지난해',10,'2025년 11월 17일')];

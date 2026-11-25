@@ -38,6 +38,7 @@ export default function PedidosTool({ active = true }) {
   const [farms, setFarms] = useState(['Melody', 'CLOUD']);
   const [farmSplit, setFarmSplit] = useState(false);
   const [farmOptions, setFarmOptions] = useState([]);
+  const [farmMasterRecords, setFarmMasterRecords] = useState([]);
   const [farmSelection, setFarmSelection] = useState({});
   const [expandedRows, setExpandedRows] = useState({});
   useEffect(() => {
@@ -53,13 +54,17 @@ export default function PedidosTool({ active = true }) {
     return ()=>controller.abort();
   },[active]);
   useEffect(() => {
-    if (!active || country !== 'China') return;
+    if (!active) return;
     const controller = new AbortController();
     fetch('/api/master?entity=codes', { signal: controller.signal }).then(result => result.ok ? result.json() : null).then(body => {
-      if (!controller.signal.aborted) setFarmOptions((body?.farms ?? body?.data?.farms ?? []).map(farm => farm.FarmName).filter(Boolean));
+      if (!controller.signal.aborted) {
+        const list = body?.farms ?? body?.data?.farms ?? [];
+        setFarmMasterRecords(list.filter(farm => farm?.FarmName));
+        setFarmOptions(list.map(farm => farm.FarmName).filter(Boolean));
+      }
     }).catch(() => { /* Names remain directly editable; no ERP farm assignment is performed. */ });
     return () => controller.abort();
-  }, [active, country]);
+  }, [active]);
   // "품목관리에 변경하시겠습니까?" dialog: per blocked row, editable Product factors (1단송이 / 1박스단수 / 1박스송이) saved via /api/master/products-bulk.
   const [productDialog, setProductDialog] = useState(null); // { items: [{ row, snapshot, suggestion, drafts }], saving, error }
   const [productSaved, setProductSaved] = useState('');
@@ -536,7 +541,7 @@ export default function PedidosTool({ active = true }) {
     </form>}
     <p className="pedidos-note">주문·입고·재고에 자동 등록되지 않습니다. 수량 0은 화면·Excel에서 빈칸으로 표시하며 숫자와 수식은 보존합니다. 원인 확인용 저장수량 진단의 0은 표시합니다.</p>
     <details className="pedidos-guide"><summary>지원 양식과 변환 기준 보기</summary><p>기존 양식은 활성 시트(없으면 첫 시트)를 읽습니다. 중국 행렬은 수량원본과 구조화 시트의 업체키·품목키·숫자 수량을 사용하며 선택 연도·차수를 확인합니다. 파일명·시트명은 차수 기준으로 유지합니다. 차수의 공백·구두점은 원본 규칙대로 제거됩니다.</p></details>
-    </div>{active && <KakaoAdditions userId={userId} orderScope={sourceMode==='erp'&&country?{
+    </div>{active && <KakaoAdditions userId={userId} knownFarms={[...farms.filter(Boolean), ...farmMasterRecords]} orderScope={sourceMode==='erp'&&country?{
       country,year:selectedCycle?.year,majorWeek:selectedCycle?.majorWeek,orderWeek,
     }:null}/>}</div>
     {preview ? (preview.mount ? createPortal(orderPreview, preview.mount) :
