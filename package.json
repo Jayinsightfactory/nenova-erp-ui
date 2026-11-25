@@ -140,7 +140,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
-    "@anthropic-ai/sdk": "^0.89.0",
+    "@anthropic-ai/sdk": "^0.91.1",
     "@noble/hashes": "1.8.0",
     "@radix-ui/react-dialog": "1.1.23",
     "antd": "^6.6.5",
