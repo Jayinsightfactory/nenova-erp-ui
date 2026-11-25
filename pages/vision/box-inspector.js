@@ -11,6 +11,7 @@ import {
   buildUnreadableBoxSearchCandidates,
   CAMERA_ANGLE_OPTIONS,
   isIlsinYeongrimPallet14Photo,
+  isTaerimSuyeonPallet8Photo,
   lookupBillOrderWeek,
   ROUTE_PRESETS,
   SAMPLE_PHOTOS,
@@ -23,6 +24,9 @@ const fmt = (n) => Number(n || 0).toLocaleString('ko-KR');
 const ALL_SAMPLE_IDS = SAMPLE_PHOTOS.map((s) => s.sampleId);
 
 const CUSTOMER_OPTIONS = [
+  { custKey: 565, custName: '태림원예', custCode: 'KCL01', labelCode: 'ICNNEN/KCL81' },
+  { custKey: 439, custName: '수연원예', custCode: 'HCL15', labelCode: 'ICNNEN/KCL16' },
+  { custKey: 288, custName: '레바논 꽃방', custCode: 'CL8', labelCode: 'ICNNEN/CL8' },
   { custKey: 520, custName: '일신원예', custCode: 'KCL52', labelCode: 'ICNNEN/KCL52' },
   { custKey: 478, custName: '왕자원예 (영림원예)', custCode: 'KCL94', labelCode: 'ICNNEN/KCL94' },
   { custKey: 579, custName: '청화원예', custCode: 'CL62', labelCode: 'ICNNEN/CL62' },
@@ -32,6 +36,7 @@ const CUSTOMER_OPTIONS = [
 ];
 
 const BILL_OPTIONS = [
+  { invoiceNo: 'INV-019154', awbNo: '992-0472-7822', orderWeek: '47-02', farmName: 'Circasia 외', countryName: '콜롬비아/중국' },
   { invoiceNo: 'FE204356', awbNo: '992-0472-7822', orderWeek: '47-02', farmName: 'Flores De Funza', countryName: '콜롬비아' },
   { invoiceNo: '18065', awbNo: '992-0472-7822', orderWeek: '47-02', farmName: 'Ayura', countryName: '콜롬비아' },
   { invoiceNo: '133811', awbNo: '992-0472-7822', orderWeek: '47-02', farmName: 'Don Eusebio', countryName: '콜롬비아' },
@@ -70,7 +75,7 @@ async function extractLightweightVisionMeta(file, previewUrl) {
       try {
         const origW = img.naturalWidth || img.width || 1280;
         const origH = img.naturalHeight || img.height || 960;
-        const maxDim = 1280;
+        const maxDim = 1024;
         const scale = Math.min(1, maxDim / Math.max(origW, origH, 1));
         const targetW = Math.max(64, Math.round(origW * scale));
         const targetH = Math.max(64, Math.round(origH * scale));
@@ -81,7 +86,7 @@ async function extractLightweightVisionMeta(file, previewUrl) {
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         ctx.drawImage(img, 0, 0, targetW, targetH);
 
-        const compactDataUrl = canvas.toDataURL('image/jpeg', 0.78);
+        const compactDataUrl = canvas.toDataURL('image/jpeg', 0.72);
 
         // 48x64 경량 샘플링 그리드로 박스 색상 프로파일 및 수평 층 밴드(FUNZA 갈색 + SPARKLING 진녹색 등) 고속 분석
         const gridW = 48;
@@ -135,9 +140,10 @@ async function extractLightweightVisionMeta(file, previewUrl) {
         const kraftBrownRatio = Number((kraftBrownCount / totalCells).toFixed(3));
         const darkGreenBandRatio = Number((darkGreenCount / totalCells).toFixed(3));
         const isPallet14 = isIlsinYeongrimPallet14Photo(file);
+        const isPallet8 = isTaerimSuyeonPallet8Photo(file);
 
         let detectedBoxes = [];
-        if (!isPallet14) {
+        if (!isPallet14 && !isPallet8) {
           try {
             const edgeCanvas = document.createElement('canvas');
             const edgeW = 120;
@@ -173,6 +179,7 @@ async function extractLightweightVisionMeta(file, previewUrl) {
             darkGreenBandRatio,
             whiteLabelCount,
             isIlsinYeongrimPallet14: isPallet14,
+            isTaerimSuyeonPallet8: isPallet8,
             isYeongsinFunza13: isPallet14,
             dominantColorProfile,
             detectedBoxes,
@@ -291,8 +298,7 @@ export default function BoxVisionInspectorPage() {
           cameraAngle: f.cameraAngle,
           canvasSignature: f.canvasSignature || null,
           visionDetectedBoxes: f.visionDetectedBoxes || null,
-          compactDataUrl:
-            f.compactDataUrl && f.compactDataUrl.length <= 240000 ? f.compactDataUrl : undefined,
+          compactDataUrl: f.compactDataUrl || undefined,
         }));
 
         const response = await fetch('/api/vision/box-count-match', {
@@ -312,7 +318,13 @@ export default function BoxVisionInspectorPage() {
         if (response.ok) {
           const json = await response.json();
           if (json?.success && Array.isArray(json.analyzedPhotos)) {
-            setAnalysisData(json);
+            const mergedPhotos = json.analyzedPhotos.map((p, idx) => ({
+              ...p,
+              previewUrl: p.previewUrl || nextFiles[idx]?.previewUrl || customPreviewUrl,
+              imageUrl: p.imageUrl || p.previewUrl || nextFiles[idx]?.previewUrl || customPreviewUrl,
+            }));
+            setAnalysisData({ ...json, analyzedPhotos: mergedPhotos });
+            setActivePhotoIndex((prev) => Math.min(prev, Math.max(0, mergedPhotos.length - 1)));
           }
         }
       } catch {
@@ -337,6 +349,7 @@ export default function BoxVisionInspectorPage() {
       setPhotoAngleOverrides({});
       setSelectedBoxId(null);
       setActiveMatcherBoxId(null);
+      setCurrentStep(2);
       setMatcherSearchQuery('');
       setMatcherSelectedCandidate(null);
       setBatchRouteMessage('호남선 출고입니다');
@@ -1388,7 +1401,7 @@ export default function BoxVisionInspectorPage() {
             <section className={styles.panelCard} data-testid="box-vision-canvas-panel">
               <div className={styles.panelHeader}>
                 <h2 className={styles.panelTitle}>
-                  사진 {activePhotoIndex + 1}/{analyzedPhotos.length} · {currentPhoto?.shortLabel}
+                  사진 {activePhotoIndex + 1}/{analyzedPhotos.length || 1} · {currentPhoto?.shortLabel || '사진 #1'}
                 </h2>
                 <span className={styles.badgeMatch}>
                   유효 {currentPhoto?.countedBoxes || 0}박스 (확인필요 {currentPhoto?.unreadablePendingBoxes || 0}건)
@@ -1451,10 +1464,10 @@ export default function BoxVisionInspectorPage() {
                       data-testid={`canvas-box-${box.boxId}`}
                       className={boxClass}
                       style={{
-                        left: `${box.bbox.x}%`,
-                        top: `${box.bbox.y}%`,
-                        width: `${box.bbox.w}%`,
-                        height: `${box.bbox.h}%`,
+                        left: `${box.bbox?.x ?? box.x ?? 0}%`,
+                        top: `${box.bbox?.y ?? box.y ?? 0}%`,
+                        width: `${box.bbox?.w ?? box.w ?? 20}%`,
+                        height: `${box.bbox?.h ?? box.h ?? 15}%`,
                       }}
                       title={`#${seqNum} ${box.custName} | ${box.prodName} (${box.qtyPerBox}${box.unit}) | Bill #${box.invoiceNo} (${box.orderWeek}차)`}
                       onClick={() => {
