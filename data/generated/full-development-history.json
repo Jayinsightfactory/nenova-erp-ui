@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-24T08:36:14.840Z",
+  "generatedAt": "2026-11-25T03:23:29.729Z",
   "coverage": {
     "stage": "verified-refs",
     "definition": "External source main refs and ERP build HEAD; a non-master ERP build HEAD may include its branch commits.",
@@ -16,22 +16,22 @@
       "label": "Nenova ERP",
       "repo": "nenova-erp-ui",
       "ref": "HEAD",
-      "headHash": "08ad4b324471043a38733720696455f6de548e68",
+      "headHash": "855296539be4e910d5805643faa9dee5b037827e",
       "sourceStatus": "build-git",
       "stage": "build-head",
       "stale": false,
       "rootHashes": [
         "b4c5da128ba455091a4e602d88953c279eaaed3f"
       ],
-      "collectedAt": "2026-11-24T08:36:14.840Z",
-      "totalCommits": 4067,
-      "nonMergeCount": 3262,
+      "collectedAt": "2026-11-25T03:23:29.729Z",
+      "totalCommits": 4096,
+      "nonMergeCount": 3291,
       "mergeCount": 805,
       "summaryCount": 530,
       "knownSummaryTitles": 464,
       "unknownSummaryTitles": 66,
       "firstDate": "2026-04-01T05:01:29.000Z",
-      "lastDate": "2026-11-24T08:15:30.000Z"
+      "lastDate": "2026-11-25T02:07:53.000Z"
     },
     {
       "id": "mindmap-viewer",
@@ -100,6 +100,910 @@
     }
   ],
   "records": [
+    {
+      "hash": "855296539be4e910d5805643faa9dee5b037827e",
+      "date": "2026-11-25T02:07:53.000Z",
+      "committedAt": "2026-11-25T02:07:53.000Z",
+      "subject": "Restore arrival cost country entry and Apollo AWB review (#2005)",
+      "parents": [
+        "c0f0ddb21e380938f8756c1c3737fea4af4e17f0"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/arrivalCostAwbDraft.test.js",
+        "__tests__/arrivalWeekCost.test.js",
+        "__tests__/invoiceWarehouseBrowse.test.js",
+        "__tests__/nativeSharedCost.test.js",
+        "components/import-tools/ArrivalWeekCostReview.js",
+        "components/import-tools/CostAwbEvidence.js",
+        "components/import-tools/InvoiceWarehouseCostBrowse.js",
+        "components/import-tools/SharedAwbCostReview.js",
+        "config/workflow-guides.json",
+        "docs/contracts/arrival-week-consolidation.json",
+        "docs/contracts/invoice-shared-awb-cost.json",
+        "lib/arrivalCostAwbDraft.js",
+        "lib/arrivalWeekCost.js",
+        "lib/arrivalWeekCostHttp.js",
+        "lib/arrivalWeekCostWorkbook.js",
+        "lib/colombiaWeekCostSource.js",
+        "lib/invoiceWarehouseBrowse.js",
+        "lib/nativeSharedCost.js",
+        "package.json",
+        "scripts/arrival-week-cost-ui-fixture.cjs",
+        "scripts/test-arrival-entry-ui.cjs"
+      ],
+      "changedFileCount": 30,
+      "redactedPathCount": 8,
+      "id": "855296539be4e910d5805643faa9dee5b037827e",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "c0f0ddb21e380938f8756c1c3737fea4af4e17f0",
+      "date": "2026-11-25T02:00:43.000Z",
+      "committedAt": "2026-11-25T02:00:43.000Z",
+      "subject": "feat(vision): refactor box-inspector into 3-step wizard and clean new-work session (#2006)",
+      "parents": [
+        "2d5822ac9a8d246c85d40927d6fc2f8a99b540fe"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/boxVisionInspector.test.cjs",
+        "lib/boxVisionInspector.js",
+        "pages/vision/box-inspector.js",
+        "styles/BoxVisionInspector.module.css"
+      ],
+      "changedFileCount": 7,
+      "redactedPathCount": 2,
+      "id": "c0f0ddb21e380938f8756c1c3737fea4af4e17f0",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/vision/box-inspector"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "2d5822ac9a8d246c85d40927d6fc2f8a99b540fe",
+      "date": "2026-11-25T01:59:58.000Z",
+      "committedAt": "2026-11-25T01:59:58.000Z",
+      "subject": "수입방: 전산 근거 품목군 및 미국 단일 그룹 (#2007)",
+      "parents": [
+        "e5cda48cd6348a3751f3ff1b03eabd4483ec84a3"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/importKakaoOrderText.test.mjs",
+        "config/workflow-guides.json",
+        "docs/contracts/country-orders.json",
+        "docs/exe-golden/CountryOrders.md",
+        "lib/importKakaoAdditions.js",
+        "lib/importKakaoOrderText.js",
+        "scripts/record-import-country-orders.cjs"
+      ],
+      "changedFileCount": 11,
+      "redactedPathCount": 3,
+      "id": "2d5822ac9a8d246c85d40927d6fc2f8a99b540fe",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "e5cda48cd6348a3751f3ff1b03eabd4483ec84a3",
+      "date": "2026-11-25T01:39:18.000Z",
+      "committedAt": "2026-11-25T01:39:18.000Z",
+      "subject": "Require explicit carryover selection for defect estimates (#2004)",
+      "parents": [
+        "9144e1d5ede7728bbc12806ca150f3464673f9ca"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/defectCarryoverChoice.test.js",
+        "__tests__/salesDefectAutoSource.test.js",
+        "__tests__/salesDefectDeductions.test.js",
+        "docs/ERP_CHANGE_GUARD.md",
+        "docs/contracts/sales-defect-deduction.json",
+        "lib/defectCarryoverChoice.js",
+        "lib/salesDefectDeductions.js",
+        "pages/api/sales/defect-deductions.js",
+        "pages/sales/defect-deduction-register-review.js"
+      ],
+      "changedFileCount": 10,
+      "redactedPathCount": 0,
+      "id": "e5cda48cd6348a3751f3ff1b03eabd4483ec84a3",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "9144e1d5ede7728bbc12806ca150f3464673f9ca",
+      "date": "2026-11-25T01:10:53.000Z",
+      "committedAt": "2026-11-25T01:10:53.000Z",
+      "subject": "Keep incoming filters readable and isolate latest cost errors (#2003)",
+      "parents": [
+        "1b0cbf3c408553c1287b6b04265b510467e96961"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/incomingLedgerLayout.test.mjs",
+        "__tests__/incomingWarehouseDisplay.test.js",
+        "__tests__/warehouseCorrection.test.mjs",
+        "components/IncomingLedger.module.css",
+        "config/workflow-guides.json",
+        "docs/contracts/incoming-ledger-density-cost.json",
+        "docs/exe-golden/WarehouseCorrection.md",
+        "docs/plans/incoming-density-cost-2026-11-25.md",
+        "lib/incomingLedgerLayout.js",
+        "lib/latestArrivalResponse.js",
+        "lib/useLatestArrivalReferences.js",
+        "lib/warehouseCorrectionPolicy.js",
+        "pages/incoming.js",
+        "scripts/pm-control-smoke.cjs",
+        "scripts/record-incoming-approval-guides.cjs"
+      ],
+      "changedFileCount": 31,
+      "redactedPathCount": 15,
+      "id": "9144e1d5ede7728bbc12806ca150f3464673f9ca",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/incoming"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "1b0cbf3c408553c1287b6b04265b510467e96961",
+      "date": "2026-11-25T00:23:31.000Z",
+      "committedAt": "2026-11-25T00:23:31.000Z",
+      "subject": "chore(deps-dev): Bump electron from 44.6.0 to 44.9.1 in /desktop (#1985)",
+      "parents": [
+        "f32d634d39b3fd432f8586b66e5811173dbff539"
+      ],
+      "paths": [],
+      "changedFileCount": 2,
+      "redactedPathCount": 2,
+      "id": "1b0cbf3c408553c1287b6b04265b510467e96961",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "f32d634d39b3fd432f8586b66e5811173dbff539",
+      "date": "2026-11-25T00:23:18.000Z",
+      "committedAt": "2026-11-25T00:23:18.000Z",
+      "subject": "build(deps-dev): Bump undici from 6.29.0 to 6.29.1 in /desktop (#1984)",
+      "parents": [
+        "9c82e685000067555e96998ea4f8ea56a590c297"
+      ],
+      "paths": [],
+      "changedFileCount": 1,
+      "redactedPathCount": 1,
+      "id": "f32d634d39b3fd432f8586b66e5811173dbff539",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "9c82e685000067555e96998ea4f8ea56a590c297",
+      "date": "2026-11-25T00:23:00.000Z",
+      "committedAt": "2026-11-25T00:23:00.000Z",
+      "subject": "build(deps-dev): Bump fast-uri from 3.1.8 to 3.1.9 in /desktop (#1983)",
+      "parents": [
+        "17085c8075d7c3868802adb9f4a1179a14bf9dd3"
+      ],
+      "paths": [],
+      "changedFileCount": 1,
+      "redactedPathCount": 1,
+      "id": "9c82e685000067555e96998ea4f8ea56a590c297",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "17085c8075d7c3868802adb9f4a1179a14bf9dd3",
+      "date": "2026-11-25T00:22:41.000Z",
+      "committedAt": "2026-11-25T00:22:41.000Z",
+      "subject": "chore(deps): Bump next from 16.2.1 to 16.4.5 (#2002)",
+      "parents": [
+        "19aff01f05776956a6237070bfb14f8d9bf2f97e"
+      ],
+      "paths": [
+        "package-lock.json",
+        "package.json"
+      ],
+      "changedFileCount": 2,
+      "redactedPathCount": 0,
+      "id": "17085c8075d7c3868802adb9f4a1179a14bf9dd3",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "19aff01f05776956a6237070bfb14f8d9bf2f97e",
+      "date": "2026-11-25T00:22:24.000Z",
+      "committedAt": "2026-11-25T00:22:24.000Z",
+      "subject": "build(deps): Bump pdfjs-dist from 5.6.205 to 6.2.108 (#1974)",
+      "parents": [
+        "b70b0b8aad8ee7a1a50a822eb4879f50e72238e8"
+      ],
+      "paths": [
+        "package-lock.json",
+        "package.json"
+      ],
+      "changedFileCount": 2,
+      "redactedPathCount": 0,
+      "id": "19aff01f05776956a6237070bfb14f8d9bf2f97e",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "b70b0b8aad8ee7a1a50a822eb4879f50e72238e8",
+      "date": "2026-11-25T00:22:06.000Z",
+      "committedAt": "2026-11-25T00:22:06.000Z",
+      "subject": "build(deps): Bump @anthropic-ai/sdk from 0.89.0 to 0.91.1 (#1976)",
+      "parents": [
+        "3cec741922cd6dd3dc1c1fcfc4faf4cf07a29493"
+      ],
+      "paths": [
+        "package-lock.json",
+        "package.json"
+      ],
+      "changedFileCount": 2,
+      "redactedPathCount": 0,
+      "id": "b70b0b8aad8ee7a1a50a822eb4879f50e72238e8",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "3cec741922cd6dd3dc1c1fcfc4faf4cf07a29493",
+      "date": "2026-11-25T00:21:49.000Z",
+      "committedAt": "2026-11-25T00:21:49.000Z",
+      "subject": "build(deps): Bump baseline-browser-mapping from 2.10.12 to 2.11.39 (#1978)",
+      "parents": [
+        "76eec0c652ff59fe58a6306afd2be100717220ce"
+      ],
+      "paths": [
+        "package-lock.json"
+      ],
+      "changedFileCount": 1,
+      "redactedPathCount": 0,
+      "id": "3cec741922cd6dd3dc1c1fcfc4faf4cf07a29493",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "76eec0c652ff59fe58a6306afd2be100717220ce",
+      "date": "2026-11-25T00:21:31.000Z",
+      "committedAt": "2026-11-25T00:21:31.000Z",
+      "subject": "build(deps): Bump source-map-js from 1.2.1 to 1.2.4 (#1975)",
+      "parents": [
+        "b0e3ffe0e2039f5e24865293c321bee10019c45c"
+      ],
+      "paths": [
+        "package-lock.json"
+      ],
+      "changedFileCount": 1,
+      "redactedPathCount": 0,
+      "id": "76eec0c652ff59fe58a6306afd2be100717220ce",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "b0e3ffe0e2039f5e24865293c321bee10019c45c",
+      "date": "2026-11-25T00:21:14.000Z",
+      "committedAt": "2026-11-25T00:21:14.000Z",
+      "subject": "build(deps): Bump brace-expansion (#1973)",
+      "parents": [
+        "d1488c37728b888081865f91bee5fa2e17ad1251"
+      ],
+      "paths": [
+        "package-lock.json"
+      ],
+      "changedFileCount": 1,
+      "redactedPathCount": 0,
+      "id": "b0e3ffe0e2039f5e24865293c321bee10019c45c",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "d1488c37728b888081865f91bee5fa2e17ad1251",
+      "date": "2026-11-25T00:20:23.000Z",
+      "committedAt": "2026-11-25T00:20:23.000Z",
+      "subject": "build(deps): Bump @azure/msal-node and @azure/identity (#1897)",
+      "parents": [
+        "805a658bfd7395348aec4f3ac2aa79bb154af662"
+      ],
+      "paths": [
+        "package-lock.json"
+      ],
+      "changedFileCount": 1,
+      "redactedPathCount": 0,
+      "id": "d1488c37728b888081865f91bee5fa2e17ad1251",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "805a658bfd7395348aec4f3ac2aa79bb154af662",
+      "date": "2026-11-25T00:19:24.000Z",
+      "committedAt": "2026-11-25T00:19:24.000Z",
+      "subject": "feat(pm): PM 일지 팝오버에 자율 작업 구역 추가 (#1635)",
+      "parents": [
+        "31b69c0512867d08888d1911f5a38a53fd0645c1"
+      ],
+      "paths": [
+        "pages/pm.js"
+      ],
+      "changedFileCount": 1,
+      "redactedPathCount": 0,
+      "id": "805a658bfd7395348aec4f3ac2aa79bb154af662",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/pm"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "31b69c0512867d08888d1911f5a38a53fd0645c1",
+      "date": "2026-11-24T09:41:23.000Z",
+      "committedAt": "2026-11-24T09:41:23.000Z",
+      "subject": "fix(profit): project approved 44-03 orchid price without ledger writes (#2001)",
+      "parents": [
+        "6a0ea5c4407f2cf3880dd204f906876f7cefbba5"
+      ],
+      "paths": [
+        ".github/workflows/profit-download-smoke.yml",
+        "WORK_MEMORY.md",
+        "__tests__/profitFrozenExplicitQuery.test.cjs",
+        "__tests__/profitOrchid4403.test.cjs",
+        "__tests__/profitReportWeeklyCache.test.js",
+        "docs/contracts/profit-orchid-4403.json",
+        "docs/plans/profit-orchid-4403-2026-11-24.md",
+        "lib/profitChinaTransportData.js",
+        "lib/profitOrchid4403.js",
+        "lib/profitOrchid4403Data.js",
+        "lib/profitReportCalcHash.cjs",
+        "package.json",
+        "pages/api/sales/profit-report-output.js",
+        "pages/api/sales/profit-report.js",
+        "scripts/probe-profit-orchid-4403.cjs"
+      ],
+      "changedFileCount": 16,
+      "redactedPathCount": 1,
+      "id": "31b69c0512867d08888d1911f5a38a53fd0645c1",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "6a0ea5c4407f2cf3880dd204f906876f7cefbba5",
+      "date": "2026-11-24T09:36:09.000Z",
+      "committedAt": "2026-11-24T09:36:09.000Z",
+      "subject": "Add HUBFRESH invoice split and warehouse upload entry (#2000)",
+      "parents": [
+        "24b9dba4fefd5b888a63e8af6c880eae6f048883"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/hubfreshPacking.test.cjs",
+        "components/Layout.js",
+        "components/import-tools/HubfreshPacking.js",
+        "components/import-tools/PackingListTool.js",
+        "config/workflow-guides.json",
+        "lib/hubfreshPacking.js",
+        "package.json",
+        "pages/import/tools.js",
+        "pages/incoming.js",
+        "scripts/record-hubfresh-packing-guide.cjs",
+        "scripts/workflow-guide-player-smoke.cjs"
+      ],
+      "changedFileCount": 31,
+      "redactedPathCount": 19,
+      "id": "6a0ea5c4407f2cf3880dd204f906876f7cefbba5",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/import",
+        "/import/tools?source=hubfresh",
+        "/import/tools",
+        "/incoming"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "24b9dba4fefd5b888a63e8af6c880eae6f048883",
+      "date": "2026-11-24T09:34:25.000Z",
+      "committedAt": "2026-11-24T09:34:25.000Z",
+      "subject": "feat(vision): 직육면체 박스 지그재그 적재 3면(정면·좌·우) 노출 교차 매칭 및 전산 잔여 품목 자동 소거 매칭 (Desktop 1.3.94) (#1999)",
+      "parents": [
+        "1257eb940e0fd2c9f58c582e8e893cd6cc32bb35"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/boxVisionInspector.test.cjs",
+        "lib/boxVisionInspector.js",
+        "pages/api/vision/box-count-match.js",
+        "pages/vision/box-inspector.js"
+      ],
+      "changedFileCount": 6,
+      "redactedPathCount": 1,
+      "id": "24b9dba4fefd5b888a63e8af6c880eae6f048883",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/vision/box-inspector"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "1257eb940e0fd2c9f58c582e8e893cd6cc32bb35",
+      "date": "2026-11-24T09:18:30.000Z",
+      "committedAt": "2026-11-24T09:18:30.000Z",
+      "subject": "Default eligible Kakao orders to Colombia and simplify Thai labels (#1998)",
+      "parents": [
+        "70031711492195d3447a37075fe1aaf6cdb6be41"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/importKakaoOrderText.test.mjs",
+        "components/import-tools/KakaoAdditions.js",
+        "config/workflow-guides.json",
+        "docs/contracts/country-orders.json",
+        "lib/importKakaoAdditions.js",
+        "lib/importKakaoOrderText.js",
+        "scripts/record-import-country-orders.cjs"
+      ],
+      "changedFileCount": 11,
+      "redactedPathCount": 3,
+      "id": "1257eb940e0fd2c9f58c582e8e893cd6cc32bb35",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "70031711492195d3447a37075fe1aaf6cdb6be41",
+      "date": "2026-11-24T09:18:00.000Z",
+      "committedAt": "2026-11-24T09:18:00.000Z",
+      "subject": "판매등록 히스토리를 이카운트 불일치 업체 중심으로 개편 (#1557)",
+      "parents": [
+        "142cc1687e838f400b54b03fb1aae0db1b126d4a"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/salesHistoryReview.test.js",
+        "components/sales/SalesHistoryReview.js",
+        "docs/contracts/sales-registration-history.json",
+        "docs/exe-golden/WebSalesRegistrationHistory.md",
+        "lib/ecountSalesHistoryRead.js",
+        "lib/salesHistoryReviewPolicy.js",
+        "lib/salesSnapshotPolicy.js",
+        "package.json",
+        "pages/api/sales/registration-history.js",
+        "pages/sales/registration-history.js"
+      ],
+      "changedFileCount": 11,
+      "redactedPathCount": 0,
+      "id": "70031711492195d3447a37075fe1aaf6cdb6be41",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/sales/registration-history"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "142cc1687e838f400b54b03fb1aae0db1b126d4a",
+      "date": "2026-11-24T09:17:03.000Z",
+      "committedAt": "2026-11-24T09:17:03.000Z",
+      "subject": "docs: 핵심 테이블 ERD·SSOT·쓰기 트랜잭션 경계 문서 추가 (#1934)",
+      "parents": [
+        "ddaba959f13cefeab6f59b79f9330ee6fcb3d7f4"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "docs/erd/core-tables.md"
+      ],
+      "changedFileCount": 2,
+      "redactedPathCount": 0,
+      "id": "142cc1687e838f400b54b03fb1aae0db1b126d4a",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "ddaba959f13cefeab6f59b79f9330ee6fcb3d7f4",
+      "date": "2026-11-24T09:07:11.000Z",
+      "committedAt": "2026-11-24T09:07:11.000Z",
+      "subject": "fix: 견적서 Excel 출력을 실제 인쇄 양식과 통일 (#1997)",
+      "parents": [
+        "19742a4b8f3c1aa2f0727530fa47a4827fd9d543"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/estimatePrintRenderedExcel.test.js",
+        "config/workflow-guides.json",
+        "docs/contracts/estimate-print.json",
+        "docs/plans/estimate-print-xlsx-parity-2026-11-24.md",
+        "lib/estimatePrintHtml.js",
+        "lib/estimatePrintRenderedExcel.js",
+        "package.json",
+        "pages/estimate.js",
+        "scripts/estimate-print-excel-parity.cjs",
+        "scripts/estimate-print-production-smoke.cjs",
+        "scripts/render-estimate-print-xlsx.ps1"
+      ],
+      "changedFileCount": 15,
+      "redactedPathCount": 3,
+      "id": "ddaba959f13cefeab6f59b79f9330ee6fcb3d7f4",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/estimate"
+      ],
+      "workType": "fix",
+      "typeEvidence": "subject-prefix"
+    },
+    {
+      "hash": "19742a4b8f3c1aa2f0727530fa47a4827fd9d543",
+      "date": "2026-11-24T09:04:07.000Z",
+      "committedAt": "2026-11-24T09:04:07.000Z",
+      "subject": "feat(my-work): 도입 레이더에 과정 신뢰도 표(process-chains) 추가 — 직원별 반복 과정·신뢰도 4요소·자동화 힌트 (#1048)",
+      "parents": [
+        "d8886027cc136d6d5d72af1d4e18d822a00dd521"
+      ],
+      "paths": [
+        "lib/workFeatureData.js",
+        "pages/my-work.js"
+      ],
+      "changedFileCount": 2,
+      "redactedPathCount": 0,
+      "id": "19742a4b8f3c1aa2f0727530fa47a4827fd9d543",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/my-work",
+        "/my-work?tab=arch",
+        "/my-work?tab=suite-sim",
+        "/my-work?tab=devices",
+        "/my-work?tab=radar",
+        "/my-work?tab=proposals",
+        "/my-work?tab=mine",
+        "/my-work?tab=arch&view=staff"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "d8886027cc136d6d5d72af1d4e18d822a00dd521",
+      "date": "2026-11-24T09:03:29.000Z",
+      "committedAt": "2026-11-24T09:03:29.000Z",
+      "subject": "feat(orders): 안전장치 자동 주문 실행기 (dry/live, requestId 원장) (#838)",
+      "parents": [
+        "475e0ca40f15ca22ef0e88de99e8ff92fd46e191"
+      ],
+      "paths": [
+        "__tests__/orderExecutor.test.js",
+        "docs/contracts/order-executor.json",
+        "lib/orderExecutor.js",
+        "package.json",
+        "scripts/apply-order-exec-ledger-migration.mjs",
+        "scripts/order-exec-trial.mjs"
+      ],
+      "changedFileCount": 6,
+      "redactedPathCount": 0,
+      "id": "d8886027cc136d6d5d72af1d4e18d822a00dd521",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "475e0ca40f15ca22ef0e88de99e8ff92fd46e191",
+      "date": "2026-11-24T09:03:00.000Z",
+      "committedAt": "2026-11-24T09:03:00.000Z",
+      "subject": "chore(evals): add gold_outputs regression pilot with npm run eval (#1933)",
+      "parents": [
+        "10d59784ce217d436eac51888c57e4b71d8d5c68"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "package.json"
+      ],
+      "changedFileCount": 9,
+      "redactedPathCount": 7,
+      "id": "475e0ca40f15ca22ef0e88de99e8ff92fd46e191",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "10d59784ce217d436eac51888c57e4b71d8d5c68",
+      "date": "2026-11-24T08:48:35.000Z",
+      "committedAt": "2026-11-24T08:48:35.000Z",
+      "subject": "Add receipt round labels and in-place quantity corrections (#1995)",
+      "parents": [
+        "87098fb14387311acc90de7e5b75c9ef7d4a5cbc"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/incomingQueryDateRange.test.js",
+        "__tests__/incomingWarehouseDisplay.test.js",
+        "__tests__/warehouseAccess.test.cjs",
+        "__tests__/warehouseCorrection.test.mjs",
+        "__tests__/warehouseDetailActions.test.mjs",
+        "__tests__/warehousePackingImport.test.js",
+        "components/WarehouseDetailActions.js",
+        "components/WarehouseDetailActions.module.css",
+        "config/workflow-guides.json",
+        "docs/contracts/warehouse-detail-actions.json",
+        "docs/exe-golden/WarehouseCorrection.md",
+        "docs/plans/incoming-round-native-quantity-2026-11-24.md",
+        "lib/incomingRoundLabel.js",
+        "lib/warehouseCorrection.js",
+        "lib/warehouseCorrectionPolicy.js",
+        "lib/warehouseDetailActions.js",
+        "pages/api/warehouse/correction.js",
+        "pages/api/warehouse/detail-actions.js",
+        "pages/api/warehouse/index.js",
+        "pages/incoming.js",
+        "scripts/record-incoming-approval-guides.cjs"
+      ],
+      "changedFileCount": 30,
+      "redactedPathCount": 8,
+      "id": "10d59784ce217d436eac51888c57e4b71d8d5c68",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/incoming"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "87098fb14387311acc90de7e5b75c9ef7d4a5cbc",
+      "date": "2026-11-24T08:32:01.000Z",
+      "committedAt": "2026-11-24T08:32:01.000Z",
+      "subject": "feat(vision): 품목·숫자(본수) 미식별 박스 [패스] vs [검색 매칭] 선택 워크플로우 및 실시간 집계 재계산 (Desktop 1.3.93) (#1996)",
+      "parents": [
+        "39adac44c16ee2ee534e14c85c9ff68e2b56366a"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/boxVisionInspector.test.cjs",
+        "lib/boxVisionInspector.js",
+        "pages/api/vision/box-count-match.js",
+        "pages/vision/box-inspector.js",
+        "styles/BoxVisionInspector.module.css"
+      ],
+      "changedFileCount": 8,
+      "redactedPathCount": 2,
+      "id": "87098fb14387311acc90de7e5b75c9ef7d4a5cbc",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/vision/box-inspector"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "39adac44c16ee2ee534e14c85c9ff68e2b56366a",
+      "date": "2026-11-24T08:30:02.000Z",
+      "committedAt": "2026-11-24T08:30:02.000Z",
+      "subject": "Preserve confirmed Kakao orders before separate recommendation requests (#1994)",
+      "parents": [
+        "08ad4b324471043a38733720696455f6de548e68"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/importKakaoOrderText.test.mjs",
+        "config/workflow-guides.json",
+        "docs/contracts/country-orders.json",
+        "lib/importKakaoOrderText.js",
+        "scripts/record-import-country-orders.cjs"
+      ],
+      "changedFileCount": 9,
+      "redactedPathCount": 3,
+      "id": "39adac44c16ee2ee534e14c85c9ff68e2b56366a",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
     {
       "hash": "08ad4b324471043a38733720696455f6de548e68",
       "date": "2026-11-24T08:15:30.000Z",
@@ -1356,6 +2260,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -3025,6 +3930,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -3573,6 +4479,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/incoming"
       ],
@@ -10483,6 +11390,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/incoming"
       ],
@@ -16849,6 +17757,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/incoming"
       ],
@@ -17433,6 +18342,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/incoming"
       ],
@@ -21672,6 +22582,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -22566,6 +23477,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "fix",
@@ -23017,6 +23929,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -23330,6 +24243,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -27308,6 +28222,7 @@
         "/my-work?tab=arch&view=staff",
         "/operations-knowledge",
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/m/executive?preview=1"
       ],
@@ -27441,6 +28356,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -30795,6 +31711,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/master/products"
       ],
@@ -30839,6 +31756,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/master/products"
       ],
@@ -32109,6 +33027,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -32319,6 +33238,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -32402,6 +33322,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -32539,6 +33460,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "feature",
@@ -32652,6 +33574,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/shipment/distribute"
       ],
@@ -32719,6 +33642,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "fix",
@@ -33094,6 +34018,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/shipment/distribute",
         "/shipment/distribute-import",
@@ -33435,6 +34360,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "fix",
@@ -36716,6 +37642,7 @@
         "/orders/change-queue",
         "/orders",
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/import/freight-calc",
         "/incoming",
@@ -37636,6 +38563,7 @@
         "/orders/change-queue",
         "/orders",
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/import/freight-calc",
         "/incoming",
@@ -37899,6 +38827,7 @@
         "/orders/change-queue",
         "/orders",
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/import/freight-calc",
         "/incoming",
@@ -38440,6 +39369,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/incoming",
         "/stats/china-volume-board",
@@ -39486,6 +40416,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/incoming"
       ],
@@ -39550,6 +40481,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/incoming"
       ],
@@ -42084,6 +43016,7 @@
         "/my-work?tab=mine",
         "/my-work?tab=arch&view=staff",
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/incoming-price",
         "/shipment/distribute-import",
@@ -42846,6 +43779,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/sales/farm-quality"
       ],
@@ -43587,6 +44521,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -43632,6 +44567,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "feature",
@@ -44197,6 +45133,7 @@
         "/orders/import",
         "/orders",
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools",
         "/sales/defect-deductions",
         "/stats/dutch-volume-board"
@@ -44348,6 +45285,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -44419,6 +45357,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -44777,6 +45716,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -44901,6 +45841,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "other",
@@ -45387,6 +46328,7 @@
       ],
       "menuHrefs": [
         "/import",
+        "/import/tools?source=hubfresh",
         "/import/tools"
       ],
       "workType": "feature",
@@ -184681,8 +185623,8 @@
     }
   ],
   "counts": {
-    "uniqueCommits": 6006,
-    "nonMerge": 5195,
+    "uniqueCommits": 6035,
+    "nonMerge": 5224,
     "merge": 811,
     "summaries": 615,
     "knownSummaryTitles": 549,

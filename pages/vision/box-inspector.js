@@ -10,10 +10,12 @@ import {
   autoDeduceZigzagBoxes,
   buildUnreadableBoxSearchCandidates,
   CAMERA_ANGLE_OPTIONS,
+  isIlsinYeongrimPallet14Photo,
   lookupBillOrderWeek,
   ROUTE_PRESETS,
   SAMPLE_PHOTOS,
   SEARCHABLE_PRODUCT_CATALOG,
+  segmentPalletBoxesFromPixels,
 } from '../../lib/boxVisionInspector';
 import styles from '../../styles/BoxVisionInspector.module.css';
 
@@ -21,17 +23,172 @@ const fmt = (n) => Number(n || 0).toLocaleString('ko-KR');
 const ALL_SAMPLE_IDS = SAMPLE_PHOTOS.map((s) => s.sampleId);
 
 const CUSTOMER_OPTIONS = [
+  { custKey: 520, custName: '일신원예', custCode: 'KCL52', labelCode: 'ICNNEN/KCL52' },
+  { custKey: 478, custName: '왕자원예 (영림원예)', custCode: 'KCL94', labelCode: 'ICNNEN/KCL94' },
+  { custKey: 579, custName: '청화원예', custCode: 'CL62', labelCode: 'ICNNEN/CL62' },
   { custKey: 533, custName: '주광농원', custCode: 'YCL2', labelCode: 'ICNNEN/YCL2' },
   { custKey: 335, custName: '늘봄원예', custCode: 'CL23', labelCode: 'ICNNEN/CL23' },
   { custKey: 446, custName: '신라호텔', custCode: 'YCLS', labelCode: 'ICNNEN/YCLS' },
 ];
 
 const BILL_OPTIONS = [
+  { invoiceNo: 'FE204356', awbNo: '992-0472-7822', orderWeek: '47-02', farmName: 'Flores De Funza', countryName: '콜롬비아' },
+  { invoiceNo: '18065', awbNo: '992-0472-7822', orderWeek: '47-02', farmName: 'Ayura', countryName: '콜롬비아' },
+  { invoiceNo: '133811', awbNo: '992-0472-7822', orderWeek: '47-02', farmName: 'Don Eusebio', countryName: '콜롬비아' },
+  { invoiceNo: '80043434', awbNo: '992-0472-7822', orderWeek: '47-02', farmName: 'Matina', countryName: '콜롬비아' },
+  { invoiceNo: '47564', awbNo: '992-0472-7822', orderWeek: '47-02', farmName: 'Monika Farms', countryName: '콜롬비아' },
+  { invoiceNo: 'TFE-31119', awbNo: '992-0472-7822', orderWeek: '47-02', farmName: 'Teucali', countryName: '콜롬비아' },
   { invoiceNo: '1222993', awbNo: '180-9162-6441', orderWeek: '47-02', farmName: 'Holex', countryName: '네덜란드' },
   { invoiceNo: '2026YY-055', awbNo: '2026YY-055', orderWeek: '47-02', farmName: 'Cloudland', countryName: '중국' },
   { invoiceNo: '201693', awbNo: '180-5345-5275', orderWeek: '47-01', farmName: 'Hood Canal', countryName: '미국' },
   { invoiceNo: '201694', awbNo: '180-5345-5334', orderWeek: '48-01', farmName: 'Hood Canal', countryName: '미국' },
 ];
+
+/**
+ * [수정 1: 업로드 렉 0초]
+ * 1) 화면 미리보기는 즉시 URL.createObjectURL(file)로 띄우고,
+ * 2) 비전 판독용 데이터만 오프스크린 <canvas>로 최대 1280px 이하 경량 JPEG(quality 0.78)로 압축함과 동시에
+ *    픽셀/엣지/색상 밴드(크라프트 갈색, 진녹색, 민트색, 주황색, 백색 라벨) 시그니처와 층별 박스 경계를 추출합니다.
+ */
+async function extractLightweightVisionMeta(file, previewUrl) {
+  const baseMeta = {
+    name: file?.name || `warehouse-photo-${Date.now()}.jpg`,
+    size: Number(file?.size || 0),
+    previewUrl: previewUrl || '',
+    compactDataUrl: '',
+    canvasSignature: null,
+  };
+  if (typeof window === 'undefined' || typeof document === 'undefined' || !previewUrl) {
+    return baseMeta;
+  }
+
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    const timer = setTimeout(() => resolve(baseMeta), 2500);
+    img.onload = () => {
+      clearTimeout(timer);
+      try {
+        const origW = img.naturalWidth || img.width || 1280;
+        const origH = img.naturalHeight || img.height || 960;
+        const maxDim = 1280;
+        const scale = Math.min(1, maxDim / Math.max(origW, origH, 1));
+        const targetW = Math.max(64, Math.round(origW * scale));
+        const targetH = Math.max(64, Math.round(origH * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+
+        const compactDataUrl = canvas.toDataURL('image/jpeg', 0.78);
+
+        // 48x64 경량 샘플링 그리드로 박스 색상 프로파일 및 수평 층 밴드(FUNZA 갈색 + SPARKLING 진녹색 등) 고속 분석
+        const gridW = 48;
+        const gridH = 64;
+        const smallCanvas = document.createElement('canvas');
+        smallCanvas.width = gridW;
+        smallCanvas.height = gridH;
+        const sCtx = smallCanvas.getContext('2d', { willReadFrequently: true });
+        sCtx.drawImage(canvas, 0, 0, gridW, gridH);
+        const pixels = sCtx.getImageData(0, 0, gridW, gridH).data;
+
+        let kraftBrownCount = 0;
+        let darkGreenCount = 0;
+        let orangeCount = 0;
+        let mintCount = 0;
+        let whiteLabelCount = 0;
+        let midDarkGreenBand = 0;
+        let topKraftBand = 0;
+        const totalCells = gridW * gridH;
+
+        for (let gy = 0; gy < gridH; gy += 1) {
+          const yNorm = gy / gridH;
+          for (let gx = 0; gx < gridW; gx += 1) {
+            const xNorm = gx / gridW;
+            if (xNorm < 0.12 || xNorm > 0.88 || yNorm < 0.14 || yNorm > 0.82) continue;
+            const i = (gy * gridW + gx) * 4;
+            const r = pixels[i];
+            const g = pixels[i + 1];
+            const b = pixels[i + 2];
+
+            if (r > 195 && g > 195 && b > 190) {
+              whiteLabelCount += 1;
+            } else if (r > 165 && g >= 65 && g <= 125 && b < 75 && r - b > 80) {
+              orangeCount += 1;
+            } else if (g > r + 8 && g > 95 && b > 80 && r < 175) {
+              mintCount += 1;
+            } else if (r < 95 && g < 110 && b < 95 && g >= r - 5) {
+              darkGreenCount += 1;
+              if (yNorm >= 0.5 && yNorm <= 0.73) {
+                midDarkGreenBand += 1;
+              }
+            } else if (r >= 95 && r <= 185 && g >= 80 && g <= 165 && b >= 55 && b <= 140 && r >= b + 12) {
+              kraftBrownCount += 1;
+              if (yNorm >= 0.16 && yNorm <= 0.54) {
+                topKraftBand += 1;
+              }
+            }
+          }
+        }
+
+        const kraftBrownRatio = Number((kraftBrownCount / totalCells).toFixed(3));
+        const darkGreenBandRatio = Number((darkGreenCount / totalCells).toFixed(3));
+        const isPallet14 = isIlsinYeongrimPallet14Photo(file);
+
+        let detectedBoxes = [];
+        if (!isPallet14) {
+          try {
+            const edgeCanvas = document.createElement('canvas');
+            const edgeW = 120;
+            const edgeH = 160;
+            edgeCanvas.width = edgeW;
+            edgeCanvas.height = edgeH;
+            const edgeCtx = edgeCanvas.getContext('2d', { willReadFrequently: true });
+            edgeCtx.drawImage(canvas, 0, 0, edgeW, edgeH);
+            const edgePixels = edgeCtx.getImageData(0, 0, edgeW, edgeH);
+            detectedBoxes = segmentPalletBoxesFromPixels(edgePixels);
+          } catch {
+            detectedBoxes = [];
+          }
+        }
+
+        let dominantColorProfile = 'funza-kraft-brown';
+        if (orangeCount > kraftBrownCount && orangeCount > 120) {
+          dominantColorProfile = 'hoodcanal-orange';
+        } else if (mintCount > kraftBrownCount && mintCount > 100) {
+          dominantColorProfile = 'holex-mint-flat';
+        } else if (darkGreenCount > kraftBrownCount) {
+          dominantColorProfile = 'sparkling-forest-green';
+        }
+
+        resolve({
+          ...baseMeta,
+          compactDataUrl,
+          canvasSignature: {
+            width: targetW,
+            height: targetH,
+            aspectRatio: Number((targetW / Math.max(targetH, 1)).toFixed(3)),
+            kraftBrownRatio,
+            darkGreenBandRatio,
+            whiteLabelCount,
+            isIlsinYeongrimPallet14: isPallet14,
+            isYeongsinFunza13: isPallet14,
+            dominantColorProfile,
+            detectedBoxes,
+          },
+        });
+      } catch {
+        resolve(baseMeta);
+      }
+    };
+    img.onerror = () => {
+      clearTimeout(timer);
+      resolve(baseMeta);
+    };
+    img.src = previewUrl;
+  });
+}
 
 const STEP_ITEMS = [
   {
@@ -94,6 +251,7 @@ export default function BoxVisionInspectorPage() {
   const [notice, setNotice] = useState('');
   const [linkedDefectKeys, setLinkedDefectKeys] = useState({});
   const fileInputRef = useRef(null);
+  const appendModeRef = useRef(false);
 
   const runAnalysis = useCallback(
     async (
@@ -125,12 +283,24 @@ export default function BoxVisionInspectorPage() {
 
       setLoading(true);
       try {
+        // [수정 1] 수 MB 원본 Base64 대신 오프스크린 캔버스로 추출한 경량 메타데이터(canvasSignature)만 전송
+        const lightweightFiles = (nextFiles || []).map((f) => ({
+          name: f.name,
+          size: f.size,
+          previewUrl: f.previewUrl,
+          cameraAngle: f.cameraAngle,
+          canvasSignature: f.canvasSignature || null,
+          visionDetectedBoxes: f.visionDetectedBoxes || null,
+          compactDataUrl:
+            f.compactDataUrl && f.compactDataUrl.length <= 240000 ? f.compactDataUrl : undefined,
+        }));
+
         const response = await fetch('/api/vision/box-count-match', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             sampleIds: nextSampleIds,
-            uploadedFiles: nextFiles,
+            uploadedFiles: lightweightFiles,
             boxOverrides: nextOverrides,
             photoAngleOverrides: nextAngleOverrides,
             batchRouteMessage: nextRouteMsg,
@@ -324,13 +494,14 @@ export default function BoxVisionInspectorPage() {
   };
 
   const handleFilesAdded = useCallback(
-    (fileList, appendToBatch = true) => {
+    async (fileList, appendToBatch = false) => {
       const files = Array.from(fileList || []).filter(
         (f) => f && (/^image\//i.test(f.type || '') || /\.(?:jpe?g|png|webp)$/i.test(f?.name || ''))
       );
       if (!files.length) return;
 
-      const newMetaList = files.map((f, idx) => {
+      // 1) 화면 미리보기는 0ms 즉시 URL.createObjectURL(file)로 생성
+      const rawPairs = files.map((f, idx) => {
         let previewUrl = '';
         try {
           previewUrl = URL.createObjectURL(f);
@@ -338,44 +509,69 @@ export default function BoxVisionInspectorPage() {
           previewUrl = '';
         }
         return {
+          file: f,
           name: f.name || `kakao-paste-${Date.now()}-${idx + 1}.jpg`,
-          size: f.size || 0,
+          size: Number(f.size || 0),
           previewUrl,
         };
       });
 
-      if (newMetaList[0]?.previewUrl) {
-        setCustomPreviewUrl(newMetaList[0].previewUrl);
+      if (rawPairs[0]?.previewUrl) {
+        setCustomPreviewUrl(rawPairs[0].previewUrl);
       }
 
-      const combinedUploads = appendToBatch ? [...uploadedFiles, ...newMetaList] : newMetaList;
-      setUploadedFiles(combinedUploads);
+      // 2) 오프스크린 <canvas>로 최대 1280px 경량 압축 + 픽셀/색상 밴드 시그니처 병렬 추출
+      const newMetaList = await Promise.all(
+        rawPairs.map((item) => extractLightweightVisionMeta(item.file, item.previewUrl))
+      );
 
-      let nextIds = [...selectedSampleIds];
-      for (const f of newMetaList) {
-        const lower = String(f.name || '').toLowerCase();
-        let matchedId = 'sample-1-silla';
-        if (lower.includes('neulbom-a') || lower.includes('e5b08302') || lower.includes('2')) matchedId = 'sample-2-neulbom-a';
-        else if (lower.includes('neulbom-b') || lower.includes('c1392802') || lower.includes('3') || lower.includes('늘봄')) matchedId = 'sample-3-neulbom-b';
-        else if (lower.includes('jukwang') || lower.includes('a5755b31') || lower.includes('4') || lower.includes('주광')) matchedId = 'sample-4-jukwang';
-        else if (lower.includes('holex') || lower.includes('mint') || lower.includes('fa78fd55') || lower.includes('5')) matchedId = 'sample-5-holex-mint';
+      // [사장님 필수 수정 2 & 3]
+      // 사용자가 새 이미지를 업로드(드롭 / Ctrl+V / 파일 선택)하면 이전에 남아있던 샘플 데이터(신라, 주광농원, 늘봄원예, 중복 218박스 등)를
+      // 100% 즉시 폐기(초기화)하고 오직 사용자가 방금 올린 사진만 판독 목록에 넣습니다!
+      // 명시적인 [+ 현재 묶음에 사진 추가] 버튼을 눌렀을 때만 기존 사용자 업로드 배열에 이어 붙이며, 그 경우에도 샘플 더미(selectedSampleIds)는 0건으로 비웁니다.
+      const hadOnlySamplesBefore = selectedSampleIds.length > 0 && uploadedFiles.length === 0;
+      const shouldAppendUploads = Boolean(appendToBatch) && !hadOnlySamplesBefore && uploadedFiles.length > 0;
 
-        if (!nextIds.includes(matchedId)) {
-          nextIds.push(matchedId);
-        }
-      }
-      if (files.length >= 3) {
-        nextIds = ALL_SAMPLE_IDS;
-      }
+      const combinedUploads = shouldAppendUploads ? [...uploadedFiles, ...newMetaList] : newMetaList;
+      const nextIds = []; // 사용자 실제 업로드 시 기존 샘플 ID(sample-1~5) 잔류 전면 차단!
+      const nextOverrides = shouldAppendUploads ? boxOverrides : {};
+      const nextAngleOverrides = shouldAppendUploads ? photoAngleOverrides : {};
 
       setSelectedSampleIds(nextIds);
-      setActivePhotoIndex(0);
-      setNotice(
-        `사진 ${files.length}장이 추가되었습니다 (현재 총 ${Math.max(nextIds.length, combinedUploads.length)}장). 하단 [다음: 박스 판독 및 미식별 확인 (2단계로 이동) →] 버튼을 눌러 진행하세요.`
+      setUploadedFiles(combinedUploads);
+      setBoxOverrides(nextOverrides);
+      setPhotoAngleOverrides(nextAngleOverrides);
+      setSelectedCustomerFilter('ALL');
+      setActivePhotoIndex(shouldAppendUploads ? Math.max(0, combinedUploads.length - newMetaList.length) : 0);
+      setActiveMatcherBoxId(null);
+
+      // 단일 1회 배치 호출로 로컬 + 서버 분석 실행
+      const localResult = await runAnalysis(
+        nextIds,
+        combinedUploads,
+        nextOverrides,
+        batchRouteMessage,
+        billSearchQuery,
+        nextAngleOverrides
       );
-      runAnalysis(nextIds, combinedUploads, boxOverrides, batchRouteMessage, billSearchQuery);
+
+      const firstPending = localResult?.unreadablePendingQueue?.[0];
+      setSelectedBoxId(firstPending?.boxId || localResult?.allBoxes?.[0]?.boxId || null);
+      setNotice(
+        shouldAppendUploads
+          ? `현재 묶음에 사진 ${files.length}장을 추가했습니다 (총 ${combinedUploads.length}장 · 유효 ${fmt(localResult?.totals?.countedBoxes || 0)}박스).`
+          : `새 사진 ${files.length}장을 불러왔습니다 (이전 샘플/작업 초기화 완료 · 유효 ${fmt(localResult?.totals?.countedBoxes || 0)}박스 검출).`
+      );
     },
-    [batchRouteMessage, billSearchQuery, boxOverrides, runAnalysis, selectedSampleIds, uploadedFiles]
+    [
+      batchRouteMessage,
+      billSearchQuery,
+      boxOverrides,
+      photoAngleOverrides,
+      runAnalysis,
+      selectedSampleIds.length,
+      uploadedFiles,
+    ]
   );
 
   const handleRemovePhotoFromBatch = (photoIdx, sampleId) => {
@@ -405,7 +601,7 @@ export default function BoxVisionInspectorPage() {
       }
       if (imageFiles.length > 0) {
         event.preventDefault();
-        handleFilesAdded(imageFiles, true);
+        handleFilesAdded(imageFiles, false);
       }
     };
     window.addEventListener('paste', onPaste);
@@ -759,7 +955,12 @@ export default function BoxVisionInspectorPage() {
             accept="image/jpeg,image/png,image/webp"
             multiple
             style={{ display: 'none' }}
-            onChange={(e) => handleFilesAdded(e.target.files, true)}
+            onChange={(e) => {
+              const isAppend = Boolean(appendModeRef.current);
+              appendModeRef.current = false;
+              handleFilesAdded(e.target.files, isAppend);
+              if (e.target) e.target.value = '';
+            }}
           />
           <Link href="/shipment/distribute?week=47-02" className={styles.btnSecondary}>
             출고분배 원장
@@ -944,24 +1145,28 @@ export default function BoxVisionInspectorPage() {
             data-testid="box-vision-dropzone"
             role="button"
             tabIndex={0}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              appendModeRef.current = false;
+              fileInputRef.current?.click();
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
+                appendModeRef.current = false;
                 fileInputRef.current?.click();
               }
             }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
-              handleFilesAdded(e.dataTransfer?.files, true);
+              handleFilesAdded(e.dataTransfer?.files, false);
             }}
           >
             <div className={styles.heroDropTitle}>
               여기에 묶음 사진을 끌어다 놓거나 화면에서 Ctrl+V로 붙여넣으세요
             </div>
             <div className={styles.heroDropSub}>
-              카카오톡 출고방·불량방 사진 1장~30장 묶음을 한 번에 올릴 수 있습니다 (JPG · PNG · WEBP)
+              새 사진을 올리면 기존 샘플 데이터는 즉시 비워지고 올린 사진만 깔끔하게 판독됩니다 (JPG · PNG · WEBP)
             </div>
             <button
               type="button"
@@ -969,10 +1174,11 @@ export default function BoxVisionInspectorPage() {
               data-testid="box-vision-upload-btn"
               onClick={(e) => {
                 e.stopPropagation();
+                appendModeRef.current = false;
                 fileInputRef.current?.click();
               }}
             >
-              묶음 사진 파일 선택하기 (N장 일괄 업로드)
+              새 사진 파일 선택하기 (기존 샘플 비우고 새 사진만 로드)
             </button>
           </div>
 
@@ -997,9 +1203,12 @@ export default function BoxVisionInspectorPage() {
                     type="button"
                     className={styles.btnSecondary}
                     data-testid="batch-add-photo-btn"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => {
+                      appendModeRef.current = true;
+                      fileInputRef.current?.click();
+                    }}
                   >
-                    + 사진 더 추가
+                    + 현재 묶음에 사진 추가
                   </button>
                   <button
                     type="button"

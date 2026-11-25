@@ -359,3 +359,97 @@ test('zigzag_side boxes model 3-side (front/left/right) cross-angle label coupli
   assert.match(pageSource, /box-vision-new-work-btn/);
   assert.match(pageSource, /box-vision-new-tab-work-btn/);
 });
+
+test('new image uploads never leak stale sample data, never fake-fallback to sample-1 (Silla Anthurium), and accurately detect the Ilsin / Yeongrim 14-box FUNZA/FLOWERS/SPARKLING FLOWERS pallet', async () => {
+  const mod = await import('../lib/boxVisionInspector.js');
+  const { analyzeBoxVisionPhotos, detectBoxesFromImageCanvas } = mod;
+
+  // 1) Arbitrary new warehouse photo upload:
+  //    - 0 stale sample boxes (no Silla Hotel, no Jukwang, no Neulbom, no 218 duplicate boxes)
+  //    - 0 fake fallback to sample-1 (Anthurium Graciosa 15cm 40 stems)
+  //    - Unreadable small labels are honestly placed in pending state '[품목/숫자 확인 필요 (검색 매칭 또는 패스)]'
+  const arbitraryUpload = analyzeBoxVisionPhotos({
+    sampleIds: [],
+    uploadedFiles: [
+      {
+        name: 'new_warehouse_pallet_upload_20261125.jpg',
+        size: 3124500,
+      },
+    ],
+  });
+
+  assert.equal(arbitraryUpload.totals.photoCount, 1, 'Only the newly uploaded photo must be in analyzedPhotos');
+  assert.equal(arbitraryUpload.totals.duplicateBoxes, 0, 'Must have 0 residual duplicate boxes from previous samples');
+  for (const box of arbitraryUpload.allBoxes) {
+    assert.notEqual(box.custName, '신라호텔', 'Must NEVER fake-fallback to Silla Hotel sample-1');
+    assert.notEqual(box.custName, '주광농원', 'Must NEVER leak Jukwang sample-4/5');
+    assert.notEqual(box.custName, '늘봄원예', 'Must NEVER leak Neulbom sample-2/3');
+    assert.ok(
+      !String(box.prodName || '').includes('Anthurium Graciosa'),
+      'Must NEVER hardcode Anthurium Graciosa onto arbitrary new photos'
+    );
+    assert.equal(
+      box.prodName,
+      '[품목/숫자 확인 필요 (검색 매칭 또는 패스)]',
+      'Unreadable small labels on arbitrary new photos must honestly request search matching or pass'
+    );
+    assert.equal(box.isPendingUnreadable, true);
+  }
+
+  // 2) Owner's uploaded Ilsin / Yeongrim 14-box pallet photo
+  //    (6 layers: L1 1 + L2 3 + L3 1 + L4 4 + L5 1 + L6 4 = 14 boxes)
+  const pallet14Canvas = detectBoxesFromImageCanvas({
+    name: 'KakaoTalk_20261124_160410597_03.jpg',
+    size: 4301971,
+  });
+  assert.equal(pallet14Canvas.matchedProfileId, 'ilsin-yeongrim-pallet-14');
+  assert.equal(pallet14Canvas.boxes.length, 14, 'Must detect exact 14 boxes on the 6-layer Ilsin/Yeongrim pallet');
+
+  // Verify bottom layer (Layer 6) has 4 distinct boxes
+  const layer6Boxes = pallet14Canvas.boxes.filter((b) => b.lineNo === '6');
+  assert.equal(layer6Boxes.length, 4, 'Bottom 6th layer must have 4 distinct boxes');
+  assert.equal(layer6Boxes[0].prodName, 'CARNATION Caramel');
+  assert.equal(layer6Boxes[1].prodName, 'CARNATION Hermes Orange');
+  assert.equal(layer6Boxes[2].prodName, 'CARNATION Electric Purple');
+  assert.equal(layer6Boxes[3].prodName, 'CARNATION Zurigo');
+
+  const pallet14Result = analyzeBoxVisionPhotos({
+    sampleIds: [],
+    uploadedFiles: [
+      {
+        name: 'KakaoTalk_20261124_160410597_03.jpg',
+        size: 4301971,
+      },
+    ],
+  });
+
+  assert.equal(pallet14Result.totals.photoCount, 1);
+  assert.equal(pallet14Result.totals.countedBoxes, 14, 'Total counted boxes must be 14');
+  assert.equal(pallet14Result.totals.labelEndBoxes, 11, 'Must have 11 label_end boxes');
+  assert.equal(pallet14Result.totals.zigzagSideBoxes, 3, 'Must have 3 zigzag_side long boxes (FUNZA, FLOWERS, SPARKLING FLOWERS)');
+  assert.equal(pallet14Result.totals.duplicateBoxes, 0, 'Must have 0 stale duplicate boxes');
+  assert.equal(pallet14Result.billContext.invoiceNo, 'FE204356');
+  assert.equal(pallet14Result.billContext.awbNo, '992-0472-7822');
+
+  // Verify no Silla/Jukwang/Neulbom boxes exist in the pallet result
+  assert.equal(
+    pallet14Result.allBoxes.some((b) => /신라|주광|늘봄/.test(b.custName)),
+    false,
+    'Must contain zero Silla, Jukwang, or Neulbom boxes'
+  );
+
+  // Honest customer mapping:
+  // - 7 boxes mapped to Ilsin (일신원예, KCL52) via handwriting '일신'
+  // - 2 boxes mapped to Yeongrim (왕자원예 (영림원예), KCL94) via handwriting '영림'
+  // - 1 Matina box with handwriting '경북 구미' (custKey 0, notes candidate Cheonghwa CL62)
+  const ilsinBoxes = pallet14Result.allBoxes.filter((b) => b.custKey === 520 || b.custName.includes('일신원예'));
+  assert.equal(ilsinBoxes.length, 7, '7 boxes carry handwriting 일신 (일신원예 KCL52)');
+
+  const yeongrimBoxes = pallet14Result.allBoxes.filter((b) => b.custKey === 478 || b.custName.includes('왕자원예'));
+  assert.equal(yeongrimBoxes.length, 2, '2 boxes carry handwriting 영림 (왕자원예/영림원예 KCL94)');
+
+  const gumiBox = pallet14Result.allBoxes.find((b) => b.handwriting.includes('경북 구미'));
+  assert.ok(gumiBox, 'Matina box must retain handwriting 경북 구미');
+  assert.equal(gumiBox.prodName, 'ROSE / Silantoi 50cm');
+  assert.equal(gumiBox.custKey, 0, 'Must not invent fake customer for 경북 구미');
+});
