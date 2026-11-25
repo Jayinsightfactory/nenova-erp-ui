@@ -34,6 +34,7 @@ test('receipt adapter keeps Contract units, raw price components, nullable boxes
  assert.equal(d.lines[0].priceUnit,'단');assert.equal(d.lines[1].priceUnit,'송이');assert.equal(d.lines[1].bunchQuantity,null);
  assert(d.lines.every(l=>l.boxQuantity===null));assert.equal(d.lines[2].stemQuantity,null);assert.equal(d.reviewedMetadata.inputDate,'2026-11-23');
  assert.equal(d.rawMetadata.sourceContract.referenceRequired,true);assert.equal(d.rawMetadata.additionalCosts.length,3);
+ assert.equal(d.reviewedMetadata.cw,70);assert.equal(d.reviewedMetadata.weightSourceEvidence.cw.source,'CLOUD_CONTRACT_INTERNATIONAL_QTY');
  const products=d.lines.map((l,n)=>({ProdKey:n+1,ProdName:l.originalName,isDeleted:0,OutUnit:l.priceUnit,EstUnit:l.priceUnit,SteamOf1Box:100,SteamOf1Bunch:n===1?1:10,BunchOf1Box:10}));
  d.lines=d.lines.map((l,n)=>({...l,prodKey:n+1,reviewed:{...l.reviewed,confirmed:true,erpMatchConfirmed:true}}));
  d.farmKey=1;d.orderYear='2026';d.orderWeek='47-02';d.invoiceNo='47-2B CLOUD';d.invoiceYear='2026';d.reviewedMetadata.transportMode='AIR';

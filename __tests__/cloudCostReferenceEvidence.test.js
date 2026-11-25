@@ -9,6 +9,12 @@ const row={WarehouseKey:990001,OrderYear:'2026',OrderWeek:'47-02',FarmName:'Clou
 const evidence=()=>({scope:{warehouseKey:row.WarehouseKey,orderYear:row.OrderYear,orderWeek:row.OrderWeek,farmName:row.FarmName,invoiceNo:row.InvoiceNo,fileName:row.FileName},rowCount:1,nativeDigest:nativeCostSourceFingerprint([row]),source:{sha256:'a'.repeat(64),sheet:'TEST_ONLY'},weights:[{kind:'GW',kg:21,cells:'C8'},{kind:'CW',kg:70,cells:'F8'}],exchangeRate:{value:210,currency:'CNY'},freight:{amount:1830,currency:'CNY'},quarantineCount:{value:18},unitConversions:[{key:row.WdetailKey,prodKey:row.ProdKey,from:'송이',to:'BUNCH',quantity:90,amount:2070,cells:'E35:F35'}],financialReviewRequired:true});
 test('only exact source association restores independent GW/CW; nearby receipt/year/product/amount remains unresolved',()=>{
  const e=evidence(),resolved=resolveCloudCostReference([row],[e]);assert.equal(resolved.weights[0].kg,21);assert.equal(resolved.weights[1].kg,70);
+ const withSpecialRows=[row,
+  {...row,WdetailKey:990010,ProdKey:2182,ProdName:'운송료',OutUnit:'박스',BoxQuantity:1,BunchQuantity:1,SteamQuantity:1,OutQuantity:1,UPrice:1830,TPrice:1830},
+  {...row,WdetailKey:990011,ProdKey:3100,ProdName:'Gross weight',OutUnit:'송이',BoxQuantity:1,BunchQuantity:1,SteamQuantity:21,OutQuantity:21,UPrice:0,TPrice:0},
+  {...row,WdetailKey:990012,ProdKey:3101,ProdName:'Chargeable weight',OutUnit:'송이',BoxQuantity:1,BunchQuantity:1,SteamQuantity:70,OutQuantity:70,UPrice:0,TPrice:0},
+ ];
+ assert.equal(resolveCloudCostReference(withSpecialRows,[e])?.weights[1].kg,70,'2182/3100/3101 detail rows never break flower nativeDigest');
  for(const patch of [{OrderYear:'2025'},{OrderWeek:'47-01'},{WarehouseKey:990004},{InvoiceNo:'other'},{ProdKey:99},{TPrice:2069},{OutUnit:'단'},{BunchQuantity:90},{GrossWeight:20}])assert.equal(resolveCloudCostReference([{...row,...patch}],[e]),null);
  assert.equal(resolveCloudCostReference([row],[e,e]),null);
  assert.equal(resolveCloudCostReference([row],[{...e,exchangeRate:{value:210,currency:'USD'}}]),null);
