@@ -33,22 +33,22 @@
             {
               "scenario": "select",
               "title": "1. 패킹리스트에서 중국hubfresh 선택",
-              "seconds": 0.023
+              "seconds": 0.018
             },
             {
               "scenario": "split",
               "title": "2. 상세 인보이스를 올리고 업체별 카톤 수량 확인",
-              "seconds": 15.654
+              "seconds": 15.661
             },
             {
               "scenario": "match",
               "title": "3. 자동으로 연결된 전산 품목과 입고 차수 확인",
-              "seconds": 31.308
+              "seconds": 31.333
             },
             {
               "scenario": "receipt",
               "title": "4. 입고 화면에서 네노바 수량 검증",
-              "seconds": 47.579
+              "seconds": 47.83
             }
           ]
         }
@@ -749,7 +749,11 @@
         "lib/incomingDateLabel.js",
         "lib/incomingRoundLabel.js",
         "components/WarehouseDetailActions.js",
-        "components/WarehouseDetailActions.module.css"
+        "components/WarehouseDetailActions.module.css",
+        "components/IncomingLedger.module.css",
+        "lib/incomingLedgerLayout.js",
+        "lib/latestArrivalResponse.js",
+        "lib/useLatestArrivalReferences.js"
       ],
       "requiredScenarios": [
         "farm",
@@ -770,52 +774,57 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 7.023
+              "seconds": 7.018
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 199.803
+              "seconds": 201.643
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 312.518
+              "seconds": 312.342
             },
             {
               "scenario": "add",
               "title": "4. 기존 입고에 품목·수량 추가",
-              "seconds": 394.04
+              "seconds": 395.008
             },
             {
               "scenario": "cancel",
               "title": "5. 기존 입고의 품목·수량 취소",
-              "seconds": 513.611
+              "seconds": 515.321
             },
             {
               "scenario": "price",
               "title": "6. 입고 단가만 변경",
-              "seconds": 592.946
+              "seconds": 595.794
             },
             {
               "scenario": "packing-quantity",
               "title": "7. 단 수량을 확인하고 새 입고 저장",
-              "seconds": 714.37
+              "seconds": 718.594
             },
             {
               "scenario": "manual-upload",
               "title": "8. 여러 품목 수기로 입고 등록",
-              "seconds": 787.575
+              "seconds": 792.576
             },
             {
               "scenario": "inline-numbers",
               "title": "9. 원장 인보이스·AWB 번호 수정",
-              "seconds": 939.377
+              "seconds": 945.223
             },
             {
               "scenario": "native-detail",
               "title": "10. 차수 표시와 상세 수량 수정",
-              "seconds": 1004.133
+              "seconds": 1010.47
+            },
+            {
+              "scenario": "density-retry",
+              "title": "11. 상품과 중량·운송료를 구분하고 원가 다시 조회",
+              "seconds": 1084.363
             }
           ]
         },
@@ -831,27 +840,27 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.292
+              "seconds": 14.234
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 58.534
+              "seconds": 58.76
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 149.553
+              "seconds": 146.07
             },
             {
               "scenario": "price",
               "title": "4. 입고 단가만 변경",
-              "seconds": 283.301
+              "seconds": 275.314
             },
             {
               "scenario": "native-detail",
               "title": "5. 원장 차수·수량 변경 이력",
-              "seconds": 378.907
+              "seconds": 368.409
             }
           ]
         }
@@ -1426,32 +1435,32 @@
             {
               "scenario": "purpose",
               "title": "1. 맨 위 핵심 목적 먼저 확인",
-              "seconds": 0.298
+              "seconds": 0.153
             },
             {
               "scenario": "trace",
               "title": "2. 진행 도면에서 지금 단계 확인",
-              "seconds": 11.033
+              "seconds": 10.661
             },
             {
               "scenario": "task",
               "title": "3. 과제를 누르면 목적과 도면이 바뀜",
-              "seconds": 28.521
+              "seconds": 27.476
             },
             {
               "scenario": "control",
               "title": "4. 일반 관제에서 진행과 오류 확인",
-              "seconds": 43.286
+              "seconds": 41.731
             },
             {
               "scenario": "game",
               "title": "5. 필요한 경우 게임 화면 켜기",
-              "seconds": 53.943
+              "seconds": 67.863
             },
             {
               "scenario": "off",
               "title": "6. 게임을 끄고 일반 관제로 복귀",
-              "seconds": 67.477
+              "seconds": 80.973
             }
           ]
         }

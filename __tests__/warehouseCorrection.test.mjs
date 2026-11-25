@@ -139,6 +139,7 @@ const normalizeNative=input=>normalizedCorrection(input,{allowNativeQuantity:tru
 test('native detail follows original price unit, preserves other fields and stays out of approval drafts',()=>{
   assert.throws(()=>normalizedCorrection(nativeInput));
   assert.throws(()=>buildCorrectionPlan(normalizeNative(nativeInput),header,[{...detail,BunchQuantity:9}],products),{code:'CORRECTION_DETAIL_STALE'});
+  for(const key of [2182,3100,3101])assert.throws(()=>buildCorrectionPlan(normalizeNative(nativeInput),header,[{...detail,ProdKey:key}],[{...products[0],ProdKey:key}]),{code:'CORRECTION_DETAIL_NON_MERCHANDISE'});
   const native=buildCorrectionPlan(normalizeNative(nativeInput),header,[detail],products);
   assert.deepEqual(native.after[0],{...detail,BoxQuantity:2,BunchQuantity:11,SteamQuantity:130,OutQuantity:11,EstQuantity:130,TPrice:130});
   const byBunch={...detail,BoxQuantity:null,TPrice:10};

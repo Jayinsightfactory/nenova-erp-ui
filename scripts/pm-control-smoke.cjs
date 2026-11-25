@@ -10,6 +10,19 @@ await step('purpose','1. 맨 위 핵심 목적 먼저 확인','[data-testid=pm-p
 await step('trace','2. 진행 도면에서 지금 단계 확인','[data-testid=pm-live-trace-diagram]',2,'2. 진행 도면에서 오류가 지금 몇 번째 단계인지 봅니다.\n초록은 완료, 파란 점선은 실행 중, 회색은 대기입니다.');await p.click('[data-testid=pm-trace-auto]');await p.waitForFunction(()=>document.querySelector('[data-testid=pm-live-trace-diagram]').dataset.mode==='replay');await (rec?rec.pause(6000):new Promise(r=>setTimeout(r,2800)));await p.click('[data-testid=pm-trace-auto]');await p.click('.pmtr-live');await p.waitForFunction(()=>document.querySelector('[data-testid=pm-live-trace-diagram]').dataset.mode==='live');await rec?.unfocus();
 await step('task','3. 과제를 누르면 목적과 도면이 바뀜','.ledger-row[data-task-key=fixture-review]',3,'3. 업무 대장에서 과제를 누르면 그 과제의 목적·담당·기대 효과가\n맨 위 목적과 진행 도면에 바로 반영됩니다.');await p.click('.ledger-row[data-task-key=fixture-review]');await p.waitForFunction(()=>document.querySelector('[data-testid=pm-purpose-banner]').dataset.scope==='task');assert((await p.$eval('[data-testid=pm-purpose-banner]',e=>e.innerText)).includes('연습담당'));assert.equal(await p.$eval('[data-testid=pm-live-trace-diagram]',e=>e.dataset.running),'1');await rec?.unfocus();if(rec){await p.$eval('[data-testid=pm-purpose-banner]',e=>e.scrollIntoView({block:'center'}));await rec.pause(3500);}await p.click('.pmpb-clear');await p.waitForFunction(()=>document.querySelector('[data-testid=pm-purpose-banner]').dataset.scope==='global');
 await step('control','4. 일반 관제에서 진행과 오류 확인','.control-summary',4,'4. 기본 화면은 일반 관제입니다.\n게임 배경과 캐릭터 없이 진행 현황과 오류 내용을 확인합니다.');await rec?.unfocus();
+const journal=await p.evaluateHandle(()=>[...document.querySelectorAll('button')].find(node=>node.textContent.trim()==='PM 일지'));
+assert(journal.asElement(),'PM 일지 버튼이 표시되어야 합니다.');
+if(rec){
+ await rec.caption('4. PM 일지에서 현재 작업과 자율 작업을 확인합니다.');
+ await journal.asElement().evaluate(node=>node.scrollIntoView({block:'center'}));
+ await rec.focus('button::-p-text(PM 일지)',4,{staticHighlight:true,badgeLeft:1050});
+ await rec.pause(1800);
+}
+await journal.asElement().click();await journal.dispose();
+await p.waitForFunction(()=>document.querySelector('.pmpop')?.textContent.includes('자율 작업'));
+if(rec){await rec.unfocus();await rec.focus('.pmpop',4,{staticHighlight:true,badgeLeft:1050});await rec.pause(2800);await rec.unfocus();}
+await p.click('.pmpop button[aria-label="닫기"]');
+await p.waitForSelector('.pmpop',{hidden:true});
 await step('game','5. 필요한 경우 게임 화면 켜기','button[aria-pressed]::-p-text(게임 화면)',5,'5. 상단의 게임 화면 켜기를 누르면 게임 화면이 나타납니다.\n기존 장면과 목록 선택은 게임을 켠 동안에만 사용합니다.');await (await button()).focus();await p.keyboard.press('Enter');await p.waitForSelector('.floor');assert(await p.$('.seat'));await rec?.pause(2500);await rec?.unfocus();
 await step('off','6. 게임을 끄고 일반 관제로 복귀','button[aria-pressed]::-p-text(게임 화면)',6,'6. 게임 화면 끄기를 누르면 일반 관제로 돌아옵니다.\n탭을 새로 열거나 새로고침해도 기본은 게임 꺼짐입니다.');await (await button()).focus();await p.keyboard.press('Space');await p.waitForSelector('.control-summary');await off();await rec?.pause(2500);await rec?.unfocus();
 if(rec){const recording=rec;rec=null;const result=await recording.stop();const f='config/workflow-guides.json',r=JSON.parse(fs.readFileSync(f));r.workflows.find(w=>w.id==='pm-control').guides[0].chapters=result.chapters;fs.writeFileSync(f,JSON.stringify(r,null,2)+'\n');fs.writeFileSync('public/guides/pm-control/chapters.json',JSON.stringify(result.chapters,null,2)+'\n');}

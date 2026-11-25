@@ -2,31 +2,31 @@
   {
     "scenario": "purpose",
     "title": "1. 맨 위 핵심 목적 먼저 확인",
-    "seconds": 0.298
+    "seconds": 0.153
   },
   {
     "scenario": "trace",
     "title": "2. 진행 도면에서 지금 단계 확인",
-    "seconds": 11.033
+    "seconds": 10.661
   },
   {
     "scenario": "task",
     "title": "3. 과제를 누르면 목적과 도면이 바뀜",
-    "seconds": 28.521
+    "seconds": 27.476
   },
   {
     "scenario": "control",
     "title": "4. 일반 관제에서 진행과 오류 확인",
-    "seconds": 43.286
+    "seconds": 41.731
   },
   {
     "scenario": "game",
     "title": "5. 필요한 경우 게임 화면 켜기",
-    "seconds": 53.943
+    "seconds": 67.863
   },
   {
     "scenario": "off",
     "title": "6. 게임을 끄고 일반 관제로 복귀",
-    "seconds": 67.477
+    "seconds": 80.973
   }
 ]
