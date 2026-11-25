@@ -530,7 +530,7 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
     try {
       await navigator.clipboard.writeText(fullTransferText);
       setCopiedCardKey('__ALL__');
-      setNotice(`농장별 전달 양식(${farmSummary.cards.length}개 그룹)을 클립보드에 복사했습니다.`);
+      setNotice(`전달용 합계 양식(${farmSummary.cards.length}개 묶음)을 클립보드에 복사했습니다.`);
     } catch {
       setNotice('복사할 수 없습니다. 아래 미리보기 문구를 직접 선택해 복사하세요.');
     }
@@ -927,13 +927,11 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
             <>
               <div className="kakao-kpi-bar" role="region" aria-label="농장 전달용 요약 지표">
                 <div className="kakao-kpi-item">
-                  <span className="kakao-kpi-label">분류 농장</span>
+                  <span className="kakao-kpi-label">발주 묶음</span>
                   <strong className="kakao-kpi-value">
-                    {farmSummary.farmCount > 0
-                      ? `${farmSummary.farmCount}곳${farmSummary.unassignedCount > 0 ? ` · 미지정 ${farmSummary.unassignedCount}` : ''}`
-                      : farmSummary.unassignedCount > 0
-                        ? `미지정 ${farmSummary.unassignedCount}그룹`
-                        : '0곳'}
+                    {farmSummary.cards.length > 0
+                      ? `발주 묶음 ${farmSummary.cards.length}개${farmSummary.farmCount > 0 ? ` · 농장지정 ${farmSummary.farmCount}곳` : ''}`
+                      : '0개'}
                   </strong>
                 </div>
                 <div className="kakao-kpi-item">
@@ -1006,7 +1004,7 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
                 </div>
 
                 <details className="kakao-preview-box">
-                  <summary>복사될 농장 전달 문구 미리보기 ({farmSummary.cards.length}개 그룹)</summary>
+                  <summary>복사될 전달 문구 미리보기 ({farmSummary.cards.length}개 묶음)</summary>
                   <pre className="kakao-copy-preview">{fullTransferText}</pre>
                 </details>
 
@@ -1019,6 +1017,9 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
                           <div className="kakao-farm-card-heading">
                             <strong>{card.title}</strong>
                             <span className="kakao-farm-badge">{card.cycle}</span>
+                            {card.isNamedFarm && (
+                              <span className="kakao-designated-farm-badge">지정농장</span>
+                            )}
                             {card.groups.length > 0 && card.isNamedFarm && (
                               <span className="kakao-farm-group-tag">{card.groups.join(' · ')}</span>
                             )}
@@ -1031,7 +1032,7 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
                               disabled={copyDisabled}
                               onClick={() => copySingleFarm(card)}
                             >
-                              {copiedCardKey === card.key ? '복사됨' : '이 농장 복사'}
+                              {copiedCardKey === card.key ? '복사됨' : card.isNamedFarm ? '이 농장 복사' : '이 묶음 복사'}
                             </button>
                           </div>
                         </header>
@@ -1562,6 +1563,17 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
           background: #e2e8f0;
           color: #334155;
           font-variant-numeric: tabular-nums;
+        }
+        .kakao-designated-farm-badge {
+          display: inline-block;
+          padding: 1px 7px;
+          border-radius: 4px;
+          font-size: 12.5px;
+          font-weight: 700;
+          background: #dbeafe;
+          color: #1e3a8a;
+          border: 1px solid #93c5fd;
+          white-space: nowrap;
         }
         .kakao-farm-card-right {
           display: flex;
