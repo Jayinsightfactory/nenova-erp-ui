@@ -235,3 +235,31 @@ assert.deepEqual(totals([
   message('49-1 중국 카네이션 발주 추가\n연습 붉은색 2박스'),
   message('49-1 카네이션 발주 취소\n연습 붉은색 2박스','cancel-with-unknown-country'),
 ]),[]);
+
+const verifiedChina=parse('47-2 중국 발주 추가\n시네신스 연핑크 20단\n시네신스 화이트 20단');
+assert.deepEqual(verifiedChina.items.map(({product,group,quantity,unit})=>[product,group,quantity,unit]),[
+  ['시네신스 연핑크','리모늄','20','단'],['시네신스 화이트','리모늄','20','단'],
+]);
+for(const name of ['liberstar white','Liberster White','TULIPA LILY FLOWERED WHITE LIBERSTAR']){
+  const item=parse('47-2 네덜란드 발주 추가\n'+name+' 300송이').items[0];
+  assert.deepEqual([item.product,item.group,item.quantity,item.unit],[name,'튤립','300','송이']);
+}
+assert.equal(parse('47-2 중국 발주 추가\nliberstar white 300송이').items[0].group,'');
+assert.equal(parse('47-2 발주 추가\n시네신스 화이트 20단').items[0].group,'');
+assert.equal(parse('47-2 중국 발주 추가\n시네신스 옐로우 20단').items[0].group,'');
+assert.equal(parse('47-2 중국 안개 발주 추가\n시네신스 화이트 20단').items[0].group,'안개');
+const usRows=totals([message('49차 미국 발주 추가\n더글라스 200박스\n레몬잎 50박스')]);
+assert.deepEqual(usRows.map(row=>[row.product,row.quantity,row.unit]),[['더글라스',200,'박스'],['레몬잎',50,'박스']]);
+assert(usRows.every(row=>importCategoryLabel(row,{showMissing:true})==='미국'));
+assert.equal(importCategoryLabel({country:'미국',group:'상록수'},{showMissing:true}),'미국');
+assert.match(importTotalsText(usRows),/미국 · 더글라스 200 박스/);
+
+for(const [product,group] of [['시네리아','기타'],['유칼리튭스_시네리아','기타'],['유킬립툽스_시네리아','기타'],['안슬레이','장미']]){
+  const item=parse('47-2 중국 발주 추가\n'+product+' 10단').items[0];
+  assert.deepEqual([item.product,item.group,item.quantity,item.unit],[product,group,'10','단']);
+}
+for(const heading of ['47-2 발주 추가','47-2 네덜란드 발주 추가']){
+  assert(parse(heading+'\n시네리아 10단\n안슬레이 10단').items.every(row=>!row.group));
+}
+assert.equal(parse('47-2 중국 안개 발주 추가\n시네리아 10단').items[0].group,'안개');
+assert.equal(totals([message('47-2 중국 발주 추가\n안슬레이 10단'),message('47-2 중국 발주 추가\n안슬레이 10송이','stems')]).length,2);
