@@ -33,16 +33,73 @@ export default function ArrivalWeekCostReview({orderYear,orderWeek,selectionRequ
     if(action==='prepare'){
      if(country==='CO'){
       const restored=reconcileAwbDraft(overrides.draftInputs??inputs,data?.awbs??[],body.awbs);
-      setInputs(restored.inputs);
-      setPools(current=>remapAwbPools(current,data?.awbs??[],body.awbs));
+      const nextInputs=Object.fromEntries(body.awbs.map(a=>{
+       const prev=restored.inputs[a.awb]??{};
+       const ref=a.awbReference;
+       return [a.awb,{
+        gw:prev.gw!==undefined&&prev.gw!==''?prev.gw:(ref?.gw??(a.members.length===1?a.members[0].gw:null)??''),
+        cw:prev.cw!==undefined&&prev.cw!==''?prev.cw:(ref?.cw??(a.members.length===1?a.members[0].cw:null)??''),
+        exchangeRate:prev.exchangeRate??'',
+        permitAmount:prev.permitAmount??'',
+        exchangeRateSource:prev.exchangeRateSource??'',
+        exchangeRateType:prev.exchangeRateType??'SOURCE_REFERENCE',
+        financialReviewConfirmed:prev.financialReviewConfirmed??false,
+        fullBoxCounts:prev.fullBoxCounts??{},
+       }];
+      }));
+      setInputs(nextInputs);
+      setPools(current=>{
+       const next=remapAwbPools(current,data?.awbs??[],body.awbs);
+       for(const a of body.awbs){
+        const ref=a.awbReference;
+        if(!ref)continue;
+        if(ref.freightAmount!=null&&!next.some(p=>p.kind==='FREIGHT'&&p.awbs.includes(a.awb))){
+         next.push({kind:'FREIGHT',sourceId:ref.sourceId,mode:'TOTAL',basis:'CW',amount:ref.freightAmount,awbs:[a.awb],confirmed:false});
+        }
+        if((ref.gw>0||Number(nextInputs[a.awb]?.gw)>0)&&!next.some(p=>p.kind==='CUSTOMS'&&p.awbs.includes(a.awb))){
+         next.push({kind:'CUSTOMS',sourceId:`${ref.sourceId} · 42-1 통관수식`,mode:'FORMULA',basis:'GW',amount:'',awbs:[a.awb],confirmed:false});
+        }
+       }
+       return next;
+      });
       if(restored.conflicts.length)setNotice('AWB 범위를 합치며 값이 다른 입력은 재확인이 필요합니다. 이전 초안: '+restored.conflicts.map(c=>c.key+' '+c.values.map(v=>JSON.stringify(v)).join(' / ')).join('; '));
+      setData(body);setResult(null);setConfirmed(false);
+     }else{
+      setPools(current=>{
+       const keys=body.awbs.map(a=>a.awb),next=current.filter(p=>p.awbs.every(k=>keys.includes(k)));
+       for(const a of body.awbs){
+        const ref=a.members.length===1?a.members[0].source?.cloudReference:null;
+        const awbRef=a.awbReference;
+        const docFreight=a.members.length===1?body.documents?.find(d=>d.warehouseKey===a.members[0].warehouseKey)?.reviewedMetadata?.invoiceCostInput?.freightAmount:null;
+        const catCount=new Set(a.members.flatMap(m=>m.lineInputs.filter(l=>l.categoryCode).map(l=>l.categoryCode))).size;
+        if(ref){
+         for(const kind of ['FREIGHT','CUSTOMS'])if(!next.some(p=>p.kind===kind&&p.awbs.includes(a.awb)))next.push({kind,sourceId:`${ref.source.sha256}/${ref.source.sheet}/${kind==='FREIGHT'?'C11':'통관수식'}`,mode:kind==='FREIGHT'?'TOTAL':'FORMULA',basis:kind==='FREIGHT'?'CW':'GW',amount:kind==='FREIGHT'?ref.freight.amount:'',awbs:[a.awb],confirmed:false,quarantineCategoryCount:ref.quarantineCount.value});
+        }else if(awbRef||docFreight!=null){
+         const freightVal=awbRef?.freightAmount??docFreight;
+         const srcLabel=awbRef?.sourceId??`입고 #${a.members[0].warehouseKey}`;
+         if(freightVal!=null&&!next.some(p=>p.kind==='FREIGHT'&&p.awbs.includes(a.awb)))next.push({kind:'FREIGHT',sourceId:`${srcLabel} 운송료`,mode:'TOTAL',basis:'CW',amount:freightVal,awbs:[a.awb],confirmed:false});
+         if(!next.some(p=>p.kind==='CUSTOMS'&&p.awbs.includes(a.awb)))next.push({kind:'CUSTOMS',sourceId:`${srcLabel} CLOUD 통관수식`,mode:'FORMULA',basis:'GW',amount:'',awbs:[a.awb],confirmed:false,quarantineCategoryCount:catCount||''});
+        }
+       }
+       return next;
+      });
+      setData(body);setResult(null);setConfirmed(false);
+      setInputs(current=>Object.fromEntries(body.awbs.map(a=>{
+       const hasOrchid=a.members.some(m=>m.lineInputs.some(l=>Number(l.categoryCode)===8));
+       const reviewReq=a.members.some(m=>m.source?.cloudReference?.financialReviewRequired);
+       return [a.awb,current[a.awb]??{
+        gw:(a.members.length===1?a.members[0].gw:null)??a.awbReference?.gw??'',
+        cw:(a.members.length===1?a.members[0].cw:null)??a.awbReference?.cw??'',
+        exchangeRate:a.members.length===1?(a.members[0].source?.cloudReference?.exchangeRate?.value??a.members[0].source?.workbookEvidence?.exchangeRate?.value??''):'',
+        permitAmount:!reviewReq&&!hasOrchid?0:'',
+        exchangeRateSource:a.members.length===1&&a.members[0].source?.cloudReference?`${a.members[0].source.cloudReference.source.fileName} · ${a.members[0].source.cloudReference.source.sheet}!C7`:'',
+        exchangeRateType:'SOURCE_REFERENCE',
+        financialReviewConfirmed:false,
+        fullBoxCounts:{},
+       }];
+      })));
      }
-     if(country==='CN')setPools(current=>{
-      const keys=body.awbs.map(a=>a.awb),next=current.filter(p=>p.awbs.every(k=>keys.includes(k)));
-      for(const a of body.awbs){const ref=a.members.length===1?a.members[0].source?.cloudReference:null;if(!ref)continue;
-       for(const kind of ['FREIGHT','CUSTOMS'])if(!next.some(p=>p.kind===kind&&p.awbs.includes(a.awb)))next.push({kind,sourceId:`${ref.source.sha256}/${ref.source.sheet}/${kind==='FREIGHT'?'C11':'통관수식'}`,mode:kind==='FREIGHT'?'TOTAL':'FORMULA',basis:kind==='FREIGHT'?'CW':'GW',amount:kind==='FREIGHT'?ref.freight.amount:'',awbs:[a.awb],confirmed:false,quarantineCategoryCount:ref.quarantineCount.value});
-      }return next;
-     });setData(body);setResult(null);setConfirmed(false);setInputs(current=>Object.fromEntries(body.awbs.map(a=>[a.awb,current[a.awb]??{gw:a.members.length===1?a.members[0].gw??'':'',cw:a.members.length===1?a.members[0].cw??'':'',exchangeRate:a.members.length===1?(a.members[0].source?.cloudReference?.exchangeRate?.value??a.members[0].source?.workbookEvidence?.exchangeRate?.value??''):'',permitAmount:'',exchangeRateSource:a.members.length===1&&a.members[0].source?.cloudReference?`${a.members[0].source.cloudReference.source.fileName} · ${a.members[0].source.cloudReference.source.sheet}!C7`:'',exchangeRateType:'SOURCE_REFERENCE',financialReviewConfirmed:false,fullBoxCounts:{}}])));}
+    }
     else setResult(body.calculation);
    }
   }catch(e){if(token===generation.current)setError(e.message||'통합 원가 요청 실패');}finally{if(token===generation.current){lock.current=false;setBusy(false);}}
@@ -50,6 +107,30 @@ export default function ArrivalWeekCostReview({orderYear,orderWeek,selectionRequ
  const updateInput=(awb,key,value)=>edit(setInputs,current=>({...current,[awb]:{...current[awb],[key]:value}}));
  const updateChoice=(lineId,key,value)=>edit(setChoices,current=>({...current,[lineId]:{...current[lineId],[key]:value}}));
  const updatePool=(index,key,value)=>edit(setPools,pools.map((p,i)=>i===index?{...p,[key]:value}:p));
+ useEffect(()=>{
+  if(!data?.awbs?.length)return;
+  const missingAwbs=data.awbs.filter(a=>a.scopeType==='AWB'&&!String(inputs[a.awb]?.exchangeRate??'').trim());
+  if(!missingAwbs.length)return;
+  const currency=country==='CN'?'CNY':'USD';
+  const controller=new AbortController();
+  fetch(`/api/import/receipts/live-exchange-rate?currency=${currency}`,{cache:'no-store',credentials:'same-origin',signal:controller.signal})
+   .then(async r=>{const b=await r.json();if(!r.ok||!b.success)throw Error(b.error||'환율 조회 실패');return b;})
+   .then(quote=>{
+    if(controller.signal.aborted)return;
+    setInputs(current=>{
+     let changed=false;
+     const next={...current};
+     for(const a of missingAwbs){
+      if(String(next[a.awb]?.exchangeRate??'').trim())continue;
+      changed=true;
+      next[a.awb]={...next[a.awb],exchangeRate:quote.rate,exchangeRateSource:`${quote.source} · 시세 ${quote.marketRate} +15원`,exchangeRateType:'VALIDATION_ONLY'};
+     }
+     return changed?next:current;
+    });
+   })
+   .catch(()=>{});
+  return()=>controller.abort();
+ },[data,country]);
  return <section className={weekStyles.root} aria-label="차수 통합 도착원가">
   <h3>같은 차수 입고를 한 원가 시트로</h3>
   <WorkflowGuide workflowId="arrival-week-cost" initialRole="수입부" />

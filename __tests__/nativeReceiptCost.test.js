@@ -197,13 +197,16 @@ test('weight rows are separated, conflicts stay missing, zero header is preserve
 
 test('CN SEA blank non-financial ERP placeholder rows are excluded while unlinked positive-amount rows still block', async () => {
   const f = await fixture('CN_SEA_ACTUAL_V1');
+  for (const row of f.raw) { row.GrossWeight = null; row.ChargeableWeight = null; }
   f.raw.push(
-    { ...f.raw[0], WdetailKey: 51763, ProdKey: null, ProdName: null, CounName: null, FlowerName: null, OutUnit: null, OutQuantity: null, BoxQuantity: 0, BunchQuantity: 0, SteamQuantity: 0, UPrice: 0, TPrice: 0 },
-    { ...f.raw[0], WdetailKey: 51764, ProdKey: '', ProdName: '   ', CounName: null, FlowerName: null, OutUnit: null, OutQuantity: 0, BoxQuantity: 1, BunchQuantity: 1, SteamQuantity: 450, UPrice: 0, TPrice: 0 },
+    { ...f.raw[0], WdetailKey: 51763, ProdKey: null, ProdName: null, CounName: null, FlowerName: null, OutUnit: null, OutQuantity: null, BoxQuantity: 1, BunchQuantity: 1, SteamQuantity: 0, SteamOf1Box: 1, SteamOf1Bunch: 1, UPrice: 0, TPrice: 0 },
+    { ...f.raw[0], WdetailKey: 51764, ProdKey: '', ProdName: '   ', CounName: null, FlowerName: null, OutUnit: null, OutQuantity: null, BoxQuantity: 1, BunchQuantity: 1, SteamQuantity: 0, SteamOf1Box: 1, SteamOf1Bunch: 1, UPrice: 0, TPrice: 0 },
   );
   assert.equal(isEmptyNativePlaceholderRow(f.raw.at(-2)), true);
   assert.equal(isEmptyNativePlaceholderRow(f.raw.at(-1)), true);
   const source = await readNativeCostSource({ queryFn: f.queryFn, types, input: f.request });
+  assert.equal(source.gw, null);
+  assert.equal(source.cw, null);
   assert.equal(source.country, 'CN');
   assert.equal(source.lines.length, 3);
   assert.equal(source.excluded.length, 2);

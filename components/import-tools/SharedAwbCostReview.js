@@ -24,7 +24,7 @@ export default function SharedAwbCostReview({ document, native = null }) {
   const [result, setResult] = useState(null);
   const [lineInputs, setLineInputs] = useState([]);
   const [awbText, setAwbText] = useState(native?.awb ?? '');
-  const [scope, setScope] = useState('MAIN');
+  const [scope, setScope] = useState(native?.scope || 'MAIN');
   const [fullBox, setFullBox] = useState({});
   const [input, setInput] = useState({
     gw: '', cw: '', freightAmount: '', freightCurrency: 'USD', exchangeRate: '', customsTotalKRW: '', customsMode: 'FORMULA', exchangeRateType: 'MANUAL',
@@ -132,15 +132,16 @@ export default function SharedAwbCostReview({ document, native = null }) {
     ...extra,
   });
 
-  async function run(action) {
+  async function run(action, overrideScope = scope, options = {}) {
     setBusy(action); setError('');
     try {
       const append = action === 'download' && !isTestOnly && appendToMaster && master?.exists;
+      const targetAwb = options.awbOverride ?? awb;
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: action === 'prepare'
-          ? JSON.stringify({ action, orderYear, orderWeek, awb, ...(native ? { scope } : {}), lineInputs })
+          ? JSON.stringify({ action, orderYear, orderWeek, awb: targetAwb, ...(native ? { scope: overrideScope } : {}), lineInputs })
           : body(action, append ? { appendToMaster: true } : {}),
       });
       if (action === 'download' && response.ok) {
@@ -160,10 +161,28 @@ export default function SharedAwbCostReview({ document, native = null }) {
         return;
       }
       const data = await response.json();
-      if (!response.ok || data.success !== true) throw new Error(data.error || '공동 AWB 작업에 실패했습니다.');
+      if (!response.ok || data.success !== true) {
+        if (action === 'prepare' && native && options.autoFallbackScope && response.status === 404) {
+          const altScope = overrideScope === 'MAIN' ? 'HYDRANGEA' : 'MAIN';
+          setScope(altScope);
+          return await run('prepare', altScope, { ...options, autoFallbackScope: false });
+        }
+        throw new Error(data.error || '공동 AWB 작업에 실패했습니다.');
+      }
       if (action === 'prepare') {
         setPrepared(data);
-        setLineInputs(data.members.flatMap(member => member.lineInputs));
+        setLineInputs(data.members.flatMap(member => member.lineInputs.map(line => ({
+          ...line,
+          groupId: line.groupId || line.suggestedGroupId || '',
+        }))));
+        if (data.awbReference) {
+          setInput(current => ({
+            ...current,
+            gw: String(current.gw).trim() !== '' ? current.gw : (data.awbReference.gw ?? ''),
+            cw: String(current.cw).trim() !== '' ? current.cw : (data.awbReference.cw ?? ''),
+            freightAmount: String(current.freightAmount).trim() !== '' ? current.freightAmount : (data.awbReference.freightAmount ?? ''),
+          }));
+        }
         setConfirmed(false);
         setResult(null);
         setFullBox({});
@@ -173,6 +192,13 @@ export default function SharedAwbCostReview({ document, native = null }) {
     } catch (e) { setError(e.message); setResult(null); }
     finally { setBusy(''); }
   }
+
+  useEffect(() => {
+    const initialAwb = String(native?.awb ?? '').replace(/[\s-]/g, '');
+    if (native && /^\d{11}$/.test(initialAwb)) {
+      run('prepare', native.scope || 'MAIN', { awbOverride: initialAwb, autoFallbackScope: true });
+    }
+  }, []);
 
   const awbReady = !native || /^\d{11}$/.test(awbText.replace(/[\s-]/g, ''));
   const effectiveAppend = !isTestOnly && appendToMaster;
@@ -320,6 +346,12 @@ export default function SharedAwbCostReview({ document, native = null }) {
           <p className={ledger.statusNotice}>
             현재 입고 <strong>{prepared.members.length}건</strong> · 미승인 계산본 다운로드이며 기존 입고·승인 원가는 변경하지 않습니다.
           </p>
+          {prepared.awbReference && (
+            <p className={ledger.statusNotice} role="status">
+              동일 차수·AWB 운임 참고자료 자동 반영: <strong>{prepared.awbReference.sourceId}</strong>
+              {' '}(GW {prepared.awbReference.gw ?? '미기재'}kg · CW {prepared.awbReference.cw ?? '미기재'}kg · 운임 {prepared.awbReference.freightAmount != null ? `${prepared.awbReference.freightAmount.toLocaleString('ko-KR')} USD` : '미기재'})
+            </p>
+          )}
           {prepared.excluded?.length > 0 && (
             <div className={ledger.sectionBox} role="status">
               <p className={ledger.sectionBoxTitle}>계산에서 제외한 행 {prepared.excluded.length}개 (금액에 포함되지 않음)</p>

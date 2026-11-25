@@ -7,8 +7,42 @@ const n=v=>v==null?'—':Number(v).toLocaleString('ko-KR',{maximumFractionDigits
 const sourceRef=m=>m.reviewSource?.reference??m.source?.cloudReference;
 const label=m=>`#${m.warehouseKey} · ${m.invoiceNo}`;
 function initialReview(data){
- const awbInputs=data.awbs.map(a=>{const m=a.members[0],ref=a.members.length===1?sourceRef(m):null;return {awb:a.awb,input:{gw:(a.members.length===1?m.gw:null)??ref?.weights.find(w=>w.kind==='GW')?.kg??'',cw:(a.members.length===1?m.cw:null)??ref?.weights.find(w=>w.kind==='CW')?.kg??'',exchangeRate:ref?.exchangeRate.value??'',exchangeRateSource:ref?`${ref.source.fileName} · ${ref.source.sheet}!C7 · 참고 환율`:'',exchangeRateType:'VALIDATION_ONLY',permitAmount:'',permitReason:'',financialReviewConfirmed:false,reviewReason:'원가표 기반 재현 검증 · 실비 미승인'}};});
- const expensePools=data.awbs.flatMap(a=>{const ref=sourceRef(a.members[0]);return ['FREIGHT','CUSTOMS'].map(kind=>({kind,sourceId:ref?`${ref.source.sha256}/${ref.source.sheet}/${kind==='FREIGHT'?'C11':'통관수식'}`:'',mode:kind==='FREIGHT'?'TOTAL':'FORMULA',basis:kind==='FREIGHT'?'CW':'GW',currency:kind==='FREIGHT'?'CNY':'KRW',amount:kind==='FREIGHT'?ref?.freight.amount??'':'',quarantineCategoryCount:ref?.quarantineCount.value??'',awbs:[a.awb],confirmed:false,evidenceType:'SOURCE_REPRODUCTION',reason:ref?`${ref.source.sheet} · 원가표 재현값, 실비 확정 아님`:''}));});
+ const awbInputs=data.awbs.map(a=>{
+  const m=a.members[0],ref=a.members.length===1?sourceRef(m):null;
+  const hasOrchid=a.members.some(mem=>mem.lineInputs.some(l=>Number(l.categoryCode)===8));
+  const noOrchidAuto=!ref?.financialReviewRequired&&!hasOrchid;
+  return {awb:a.awb,input:{
+   gw:(a.members.length===1?m.gw:null)??a.awbReference?.gw??ref?.weights.find(w=>w.kind==='GW')?.kg??'',
+   cw:(a.members.length===1?m.cw:null)??a.awbReference?.cw??ref?.weights.find(w=>w.kind==='CW')?.kg??'',
+   exchangeRate:ref?.exchangeRate.value??'',
+   exchangeRateSource:ref?`${ref.source.fileName} · ${ref.source.sheet}!C7 · 참고 환율`:'',
+   exchangeRateType:'VALIDATION_ONLY',
+   permitAmount:noOrchidAuto?0:'',
+   permitReason:noOrchidAuto?'호접란 품목 없음':'',
+   financialReviewConfirmed:false,
+   reviewReason:'원가표 기반 재현 검증 · 실비 미승인',
+  }};
+ });
+ const expensePools=data.awbs.flatMap(a=>{
+  const m=a.members[0],ref=sourceRef(m);
+  const docFreight=a.members.length===1?data.documents?.find(d=>d.warehouseKey===m.warehouseKey)?.reviewedMetadata?.invoiceCostInput?.freightAmount:null;
+  const autoFreight=ref?.freight.amount??a.awbReference?.freightAmount??docFreight??'';
+  const catCount=new Set(a.members.flatMap(mem=>mem.lineInputs.filter(l=>l.categoryCode).map(l=>l.categoryCode))).size;
+  const fallbackLabel=a.awbReference?.sourceId??`입고 #${m.warehouseKey}`;
+  return ['FREIGHT','CUSTOMS'].map(kind=>({
+   kind,
+   sourceId:ref?`${ref.source.sha256}/${ref.source.sheet}/${kind==='FREIGHT'?'C11':'통관수식'}`:`${fallbackLabel} · ${kind==='FREIGHT'?'운임 초안':'CLOUD 통관수식'}`,
+   mode:kind==='FREIGHT'?'TOTAL':'FORMULA',
+   basis:kind==='FREIGHT'?'CW':'GW',
+   currency:kind==='FREIGHT'?'CNY':'KRW',
+   amount:kind==='FREIGHT'?autoFreight:'',
+   quarantineCategoryCount:ref?.quarantineCount.value??(catCount>0?catCount:''),
+   awbs:[a.awb],
+   confirmed:false,
+   evidenceType:ref?'SOURCE_REPRODUCTION':'ESTIMATE',
+   reason:ref?`${ref.source.sheet} · 원가표 재현값, 실비 확정 아님`:'입고 원장·CLOUD 수식 기준 초안',
+  }));
+ });
  return {version:1,mode:'TEST_ONLY',baselineDigest:data.baselineDigest,rows:Object.fromEntries(data.members.flatMap(m=>m.rows.map(l=>[l.lineId,{basis:'ERP',reason:'',source:'',manualFreight:'',manualDuty:'',manualReason:''}]))),lineInputs:data.members.flatMap(m=>m.lineInputs.map(l=>({lineId:l.lineId,categoryCode:l.categoryCode??null,...(l.categoryOverride?{categoryOverride:l.categoryOverride}:{})}))),awbInputs,expensePools,expenseDecisions:[],confirmations:{},reason:''};
 }
 export default function CloudCostReviewLedger({data,orderYear,orderWeek}){
@@ -22,7 +56,27 @@ export default function CloudCostReviewLedger({data,orderYear,orderWeek}){
  const change=fn=>{touched.current=true;setDirty(true);setResult(null);setNotice('');setDraft(d=>fn(d));};
  const rowChange=(id,field,value)=>change(d=>({...d,rows:{...d.rows,[id]:{...d.rows[id],[field]:value}}}));
  const inputChange=(awb,field,value)=>change(d=>({...d,awbInputs:d.awbInputs.map(a=>a.awb===awb?{...a,input:{...a.input,[field]:value}}:a)}));
- const categoryChange=(id,fields)=>change(d=>({...d,lineInputs:d.lineInputs.map(l=>l.lineId===id?{...l,...fields}:l)}));
+ const categoryChange=(id,fields)=>change(d=>{
+  const nextLines=d.lineInputs.map(l=>l.lineId===id?{...l,...fields}:l);
+  const member=data.members.find(m=>m.rows.some(r=>r.lineId===id));
+  const nextAwbInputs=member&&Number(fields?.categoryCode)===8?d.awbInputs.map(a=>a.awb===member.awb&&a.input.permitReason==='호접란 품목 없음'?{...a,input:{...a.input,permitAmount:'',permitReason:''}}:a):d.awbInputs;
+  return {...d,lineInputs:nextLines,awbInputs:nextAwbInputs};
+ });
+ useEffect(()=>{
+  if(!draft.awbInputs.some(a=>!String(a.input?.exchangeRate??'').trim()))return;
+  const controller=new AbortController();
+  fetch('/api/import/receipts/live-exchange-rate?currency=CNY',{cache:'no-store',credentials:'same-origin',signal:controller.signal})
+   .then(async r=>{const b=await r.json();if(!r.ok||!b.success)throw Error(b.error||'환율 조회 실패');return b;})
+   .then(quote=>{
+    if(controller.signal.aborted)return;
+    setDraft(current=>{
+     if(!current.awbInputs.some(a=>!String(a.input?.exchangeRate??'').trim()))return current;
+     return {...current,awbInputs:current.awbInputs.map(a=>String(a.input?.exchangeRate??'').trim()?a:{...a,input:{...a.input,exchangeRate:quote.rate,exchangeRateSource:`${quote.source} · 시세 ${quote.marketRate} +15원`}})};
+    });
+   })
+   .catch(()=>{});
+  return()=>controller.abort();
+ },[data.baselineDigest,draft.awbInputs.length]);
  const poolChange=(i,fields)=>change(d=>({...d,expensePools:d.expensePools.map((p,j)=>j===i?{...p,...fields,confirmed:false}:p)}));
  const entries=data.members.flatMap(m=>m.rows.map(row=>{
   const original=m.reviewSource?.lines.find(l=>l.wdetailKey===row.wdetailKey),choice=draft.rows[row.lineId]??{basis:'ERP'},category=draft.lineInputs.find(l=>l.lineId===row.lineId);

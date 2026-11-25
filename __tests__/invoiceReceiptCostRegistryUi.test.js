@@ -217,4 +217,65 @@ test('actual registered CO/TH descriptors are eligible in UI only within verifie
     assert.equal(actual.applicableFormulaId({ reviewedMetadata: { country, transportMode: 'SEA' } }), '');
     assert.equal(actual.applicableFormulaId({ reviewedMetadata: { country } }), '');
   }
+  assert.equal(actual.applicableFormulaId({ costStatus: 'PREVIEW_ONLY', reviewedMetadata: { country: 'CO', transportMode: 'AIR' } }), 'CO_GROUP_42_1_V1');
+});
+
+test('PREVIEW_ONLY auto-populates CNF zero freight, company reference customs, and CO/TH group aggregations without affecting approval mode', async () => {
+  const { INVOICE_COST_FORMULAS } = await import('../lib/invoiceReceiptCost.js');
+  const { calculateVnOriginalCustoms, VN_CUSTOMS_SOURCE } = await import('../lib/vnOriginalCostInputs.js');
+  const previewUi = new Function(
+    'INVOICE_COST_FORMULAS', 'initialAuOriginalInputs', 'calculateAuOriginalCustoms', 'isCloudInvoice', 'matchCloudCategory', 'calculateVnOriginalCustoms', 'VN_CUSTOMS_SOURCE',
+    `${helpers}; return { initialForm, payloadOf };`,
+  )(INVOICE_COST_FORMULAS, () => ({}), () => ({ total: null, missing: [] }), isCloudInvoice, matchCloudCategory, calculateVnOriginalCustoms, VN_CUSTOMS_SOURCE);
+
+  // US PREVIEW_ONLY: freightAmount=0 + US_ORIGINAL_V1 estimated customs from GW
+  const usForm = previewUi.initialForm(
+    { costStatus: 'PREVIEW_ONLY', reviewedMetadata: { country: 'US', transportMode: 'AIR', gw: 1996, cw: 2164 } },
+    [{ lineId: 'u1', prodKey: 501, originalName: 'Douglas Fir', outQuantity: 200, outUnit: '박스', boxQuantity: 200, currency: 'USD' }],
+  );
+  assert.equal(usForm.formulaId, 'US_CNF_BOX_V1');
+  assert.equal(usForm.freightAmount, 0);
+  assert.equal(usForm.freightCurrency, 'USD');
+  assert.equal(usForm.customsTotalKRW, 1996 * 460 + 33000 + 10000 + 90000);
+  assert.equal(usForm.expenseBasis, 'ESTIMATED');
+
+  // Approval mode (costStatus !== PREVIEW_ONLY) must NOT auto-zero US freight or auto-fill customs
+  const usApproval = previewUi.initialForm(
+    { reviewedMetadata: { country: 'US', transportMode: 'AIR', gw: 1996, cw: 2164 } },
+    [{ lineId: 'u1', prodKey: 501, originalName: 'Douglas Fir', outQuantity: 200, outUnit: '박스', boxQuantity: 200, currency: 'USD' }],
+  );
+  assert.equal(usApproval.freightAmount, '');
+  assert.equal(usApproval.customsTotalKRW, '');
+
+  // CO PREVIEW_ONLY: CO_GROUP_42_1_V1 + variety suggestion + stem/box/weight aggregation + 0% tariff + 42-1 customs
+  const coForm = previewUi.initialForm(
+    { costStatus: 'PREVIEW_ONLY', reviewedMetadata: { country: 'CO', transportMode: 'AIR', gw: 352, cw: 440 } },
+    [
+      { lineId: 'c1', prodKey: 601, originalName: 'CARNATION Red', flowerName: '카네이션', outQuantity: 10000, outUnit: '송이', stemQuantity: 10000, boxQuantity: 30, currency: 'USD' },
+      { lineId: 'c2', prodKey: 602, originalName: 'ROSE Mondial', flowerName: '장미', outQuantity: 3200, outUnit: '송이', stemQuantity: 3200, boxQuantity: 14, currency: 'USD' },
+    ],
+  );
+  assert.equal(coForm.formulaId, 'CO_GROUP_42_1_V1');
+  assert.deepEqual(coForm.lineInputs.map(l => l.groupId), ['CARNATION', 'ROSE']);
+  assert.deepEqual(coForm.lineInputs.map(l => l.tariffRate), [0, 0]);
+  const coPayload = previewUi.payloadOf(coForm);
+  assert.equal(coPayload.costGroups.length, 2);
+  assert.equal(Math.round(coPayload.costGroups.reduce((s, g) => s + g.grossWeightKg, 0) * 100) / 100, 352);
+  assert.equal(Math.round(coPayload.costGroups.reduce((s, g) => s + g.volumeWeightKg, 0) * 100) / 100, 440);
+  assert.equal(coForm.customsTotalKRW, 352 * 460 + 33000 + 2 * 10000 + 99000 + 40000);
+
+  // TH PREVIEW_ONLY with shared boxes (boxQuantity=0 or null on sub-items): auto PACKING_GROUP + packingBoxTotal
+  const thForm = previewUi.initialForm(
+    { costStatus: 'PREVIEW_ONLY', reviewedMetadata: { country: 'TH', transportMode: 'AIR', gw: 206, cw: 295 } },
+    [
+      { lineId: 't1', prodKey: 701, originalName: 'Anthurium Red', outQuantity: 150, outUnit: '송이', stemQuantity: 150, boxQuantity: 5, currency: 'USD' },
+      { lineId: 't2', prodKey: 702, originalName: 'Den Sonia', outQuantity: 1000, outUnit: '송이', stemQuantity: 1000, boxQuantity: 28.5, currency: 'USD' },
+      { lineId: 't3', prodKey: 703, originalName: 'Mokara Yellow', outQuantity: 500, outUnit: '송이', stemQuantity: 500, boxQuantity: null, currency: 'USD' },
+    ],
+  );
+  assert.equal(thForm.formulaId, 'TH_GROUP_BOX_SHARE_V1');
+  assert.deepEqual(thForm.lineInputs.map(l => l.groupId), ['ANTHURIUM', 'OTHERS', 'OTHERS']);
+  assert.equal(thForm.groupBoxBasis, 'PACKING_GROUP');
+  assert.equal(thForm.packingBoxTotal, 33.5);
+  assert.equal(thForm.lossTreatmentConfirmed, false);
 });

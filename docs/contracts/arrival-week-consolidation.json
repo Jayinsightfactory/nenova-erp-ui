@@ -13,6 +13,7 @@
     "components/import-tools/CostAwbEvidence.js",
     "styles/ArrivalCostLedger.module.css",
     "lib/arrivalCostAwbDraft.js",
+    "lib/awbReferenceReceipt.js",
     "lib/invoiceWarehouseBrowse.js",
     "lib/nativeSharedCost.js"
   ],
@@ -57,7 +58,8 @@
     "__tests__/colombiaWeekCostSource.test.js",
     "__tests__/arrivalCostAwbDraft.test.js",
     "__tests__/invoiceWarehouseBrowse.test.js",
-    "__tests__/nativeSharedCost.test.js"
+    "__tests__/nativeSharedCost.test.js",
+    "__tests__/awbReferenceReceipt.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
