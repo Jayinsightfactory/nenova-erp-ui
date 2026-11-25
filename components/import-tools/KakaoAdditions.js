@@ -10,6 +10,8 @@ import {
   messageOrder,
   groupFarmTotalsByCycle,
   matchesCountryOrderScope,
+  matchesCleanedScope,
+  formatCleanedSingleLine,
   visibleKakaoMessages,
   kakaoMessagePageSize,
   normalizeFarmName,
@@ -18,7 +20,7 @@ import {
   formatFarmTransferText,
   formatUnitDisplay,
 } from '../../lib/importKakaoAdditions';
-import { parsePastedKakaoChat } from '../../lib/importKakaoOrderText';
+import { analyzeImportMessage, parsePastedKakaoChat } from '../../lib/importKakaoOrderText';
 import { importCountryLabel } from '../../lib/importToolsDisplay';
 
 const fields = [
@@ -35,9 +37,18 @@ const fields = [
 const groupKey = row => importCategoryLabel(row, { showMissing: true });
 const weekKey = row => row.year + '/' + (row.week || '차수 미상');
 const importRoom = '수입방';
-const requestFilters = ['전체', '추가', '취소', '합계 반영'];
+const periodOptions = [7, 14, 30];
+const requestFilters = ['전체', '추가', '취소·검토', '합계 반영', '정리처리됨'];
 const sourceType = m => m.kind === 'addition' ? '추가' : /취소|삭제되었습니다/.test(m.text) ? '취소' : '검토';
 const sourceReference = id => '원문 ' + id.replace(/^archive:/, '').slice(0, 10).toUpperCase();
+
+function shortKakaoTime(stamp) {
+  const text = String(stamp || '').trim();
+  const m = text.match(/^(?:\d{4})\s*(?:년|[-./])\s*(\d{1,2})\s*(?:월|[-./])\s*(\d{1,2})(?:일|\b)\s*(.*)$/);
+  if (!m) return text;
+  const rest = m[3].replace(/:00$/, '').trim();
+  return `${Number(m[1])}/${Number(m[2])}${rest ? ' ' + rest : ''}`;
+}
 
 function ChoiceButtons({ label, values, value, onChange, all }) {
   const [expanded, setExpanded] = useState(false);
@@ -155,7 +166,9 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
   const [manual, setManual] = useState({});
   const [openEditors, setOpenEditors] = useState({});
   const [toolbarOpen, setToolbarOpen] = useState(false);
-  const [showHidden, setShowHidden] = useState(false);
+  const [windowDays, setWindowDays] = useState(14);
+  const [sessionCleaned, setSessionCleaned] = useState(() => new Set());
+  const [expandedCleaned, setExpandedCleaned] = useState({});
 
   // Farm copy formatting preferences & direct paste buffer (browser-only, 0 ERP write)
   const [copyFormat, setCopyFormat] = useState('concise');
@@ -166,7 +179,6 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
 
   const toolbarDetailsId = useId();
   const hiddenMessages = useHiddenMessages(userId);
-  const visibilityButton = useRef(null);
   const originalHeading = useRef(null);
   const totalHeading = useRef(null);
   const sourceList = useRef(null);
@@ -179,7 +191,6 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
     setFocus(null);
     setSourceFilter('전체');
     setSourceQuery('');
-    setShowHidden(false);
     setMessageLimit(kakaoMessagePageSize);
   }
 
@@ -206,7 +217,9 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
         setError('');
       }
       try {
-        const response = await fetch('/api/import/tools/kakao-additions' + (showAudit ? '?audit=1' : ''), {
+        const params = new URLSearchParams({ days: String(windowDays) });
+        if (showAudit) params.set('audit', '1');
+        const response = await fetch(`/api/import/tools/kakao-additions?${params}`, {
           signal: controller.signal,
           cache: 'no-store',
         });
@@ -229,13 +242,15 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
       clearInterval(timer);
       controller.abort();
     };
-  }, [retry, showAudit]);
+  }, [retry, showAudit, windowDays]);
 
   const activeFeed = pastedFeed || feed;
   const messages = activeFeed?.messages || [];
   const recovered = manualImportReviews(manual, activeFeed);
   const reviews = [...(activeFeed?.review || []), ...recovered];
   const allMessages = [...messages, ...reviews];
+  const isManuallyCleaned = id => pastedFeed ? sessionCleaned.has(id) : (hiddenMessages.ids.has(id) || sessionCleaned.has(id));
+  const activeMessages = allMessages.filter(m => !isManuallyCleaned(m.id));
 
   const view = row => {
     const base = importItemView(row, edits[row.key]);
@@ -246,7 +261,7 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
   };
 
   const inOrderScope = row => pastedFeed ? true : matchesCountryOrderScope(row, orderScope);
-  const allRows = allMessages
+  const allRows = activeMessages
     .filter(m => sourceType(m) !== '취소')
     .flatMap(m => m.items.map(view))
     .filter(inOrderScope);
@@ -280,12 +295,12 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
   const includedRows = new Map(rows.filter(row => includedSourceKeys.has(row.key)).map(row => [row.key, row]));
 
   const selectedTotal = focus?.type === 'total' ? totals.find(t => t.key === focus.key) : null;
-  const selectedMessage = focus?.type === 'message' ? allMessages.find(m => m.id === focus.id) : null;
+  const selectedMessage = focus?.type === 'message' ? activeMessages.find(m => m.id === focus.id) : null;
   const sourceKeys = new Set(selectedTotal?.sourceKeys || []);
   const messageKeys = new Set(selectedMessage?.items.map(i => i.key) || []);
   const shownTotals = selectedMessage ? totals.filter(t => t.sourceKeys.some(k => messageKeys.has(k))) : totals;
   const cycleTotals = groupFarmTotalsByCycle(shownTotals);
-  const linkedSources = selectedTotal ? allMessages.filter(m => m.items.some(i => sourceKeys.has(i.key))) : [];
+  const linkedSources = selectedTotal ? activeMessages.filter(m => m.items.some(i => sourceKeys.has(i.key))) : [];
 
   const query = sourceQuery.normalize('NFKC').trim().toLowerCase();
   const matchesCurrentScope = m => (
@@ -293,22 +308,65 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
     m.items.some(i => inScope(view(i))) ||
     (pastedFeed && (m.memos?.length || m.excludedItems?.length))
   );
-  const scopedMessages = allMessages.filter(matchesCurrentScope);
-  const hiddenCount = scopedMessages.filter(m => hiddenMessages.ids.has(m.id)).length;
+  const scopedMessages = activeMessages.filter(matchesCurrentScope);
+  const scopedManualCleaned = allMessages.filter(m => isManuallyCleaned(m.id) && matchesCurrentScope(m));
+  const scopedAutoCleaned = (activeFeed?.cleaned || []).filter(c => !manual[c.id] && (pastedFeed ? true : matchesCleanedScope(c, orderScope)));
+
+  const cleanedEntries = useMemo(() => {
+    const byId = new Map();
+    for (const m of scopedManualCleaned) {
+      byId.set(m.id, {
+        id: m.id,
+        time: m.time,
+        text: m.text,
+        reason: '수동 정리 처리',
+        isCleaned: true,
+        manualHidden: true,
+        sourceMessage: m,
+      });
+    }
+    for (const c of scopedAutoCleaned) {
+      if (!byId.has(c.id)) {
+        byId.set(c.id, {
+          ...c,
+          isCleaned: true,
+          manualHidden: false,
+        });
+      }
+    }
+    return [...byId.values()].sort((a, b) => messageOrder(b.time).localeCompare(messageOrder(a.time)));
+  }, [scopedManualCleaned, scopedAutoCleaned]);
+
+  const totalCleanedCount = ((activeFeed?.cleaned || []).filter(c => !manual[c.id]).length) + allMessages.filter(m => isManuallyCleaned(m.id)).length;
+
   const linkedIds = new Set(linkedSources.map(m => m.id));
   if (selectedMessage) linkedIds.add(selectedMessage.id);
 
-  const shownMessages = scopedMessages
-    .filter(m => linkedIds.has(m.id) || (
-      hiddenMessages.ids.has(m.id) === showHidden &&
-      (sourceFilter === '전체' || (sourceFilter === '합계 반영'
-        ? m.items.some(item => includedSourceKeys.has(item.key))
-        : sourceType(m) === sourceFilter)) &&
-      (!query || [importRoom, m.time, m.text].some(value => String(value || '').normalize('NFKC').toLowerCase().includes(query)))
-    ))
-    .sort((a, b) => messageOrder(b.time).localeCompare(messageOrder(a.time)));
+  const matchesSearch = entry =>
+    !query || [importRoom, entry.time, entry.text, entry.reason].some(value => String(value || '').normalize('NFKC').toLowerCase().includes(query));
 
-  const visibleMessages = visibleKakaoMessages(shownMessages, messageLimit, linkedIds);
+  const shownEntries = useMemo(() => {
+    if (sourceFilter === '정리처리됨') {
+      return cleanedEntries.filter(matchesSearch);
+    }
+    const activeMatched = scopedMessages.filter(m => linkedIds.has(m.id) || (
+      (sourceFilter === '전체'
+        || (sourceFilter === '합계 반영' && m.items.some(item => includedSourceKeys.has(item.key)))
+        || (sourceFilter === '추가' && sourceType(m) === '추가')
+        || (sourceFilter === '취소·검토' && (sourceType(m) === '취소' || sourceType(m) === '검토'))) &&
+      matchesSearch(m)
+    ));
+    if (sourceFilter === '전체') {
+      const cleanedMatched = cleanedEntries.filter(matchesSearch);
+      return [...activeMatched, ...cleanedMatched].sort((a, b) => messageOrder(b.time).localeCompare(messageOrder(a.time)));
+    }
+    return activeMatched.sort((a, b) => messageOrder(b.time).localeCompare(messageOrder(a.time)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceFilter, cleanedEntries, scopedMessages, query, selectedTotal, selectedMessage, includedSourceKeys]);
+
+  const priorityIds = new Set([...linkedIds, ...shownEntries.filter(e => !e.isCleaned).map(e => e.id)]);
+  const effectiveLimit = Math.max(messageLimit, priorityIds.size);
+  const visibleEntries = visibleKakaoMessages(shownEntries, effectiveLimit, priorityIds);
   const scopeLabel = orderScope && [
     importCountryLabel(orderScope.country),
     orderScope.year && orderScope.majorWeek ? orderScope.year + '/' + (orderScope.orderWeek || orderScope.majorWeek) + '차' : '',
@@ -364,11 +422,25 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
     [farmSummary, copyFormat, copyLang]
   );
 
-  function changeVisibility(message, hide) {
-    const persisted = hiddenMessages.change(message.id, hide);
-    if (hide && linkedIds.has(message.id)) setFocus(null);
-    setNotice((hide ? '원문을 목록에서 숨겼습니다.' : '원문을 다시 표시했습니다.') + (persisted ? '' : ' 이 화면에서만 적용됩니다.'));
-    visibilityButton.current?.focus({ preventScroll: true });
+  function toggleManualClean(message, cleanFlag) {
+    let persisted = false;
+    if (!pastedFeed && hiddenMessages.ready) {
+      persisted = hiddenMessages.change(message.id, cleanFlag);
+    } else {
+      setSessionCleaned(prev => {
+        const next = new Set(prev);
+        if (cleanFlag) next.add(message.id);
+        else next.delete(message.id);
+        return next;
+      });
+    }
+    if (cleanFlag && linkedIds.has(message.id)) setFocus(null);
+    setNotice(
+      (cleanFlag
+        ? '정리처리됨 상태로 전환했습니다. 한 줄 목록의 [복원]으로 되돌릴 수 있습니다.'
+        : '정리처리됨 원문을 발주 목록으로 복원했습니다.')
+      + (!pastedFeed && hiddenMessages.ready && persisted ? '' : ' (현재 화면 적용)')
+    );
   }
 
   function matchTotal(key) {
@@ -381,26 +453,53 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
     setEdits(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }));
   };
 
-  function addManual(m) {
-    const key = JSON.stringify(['manual', m.id, m.text]);
+  function restoreCleaned(m) {
+    const defaultYear = m.time?.match(/^\d{4}/)?.[0] || String(orderScope?.year || new Date().getFullYear());
+    const defaultWeek = orderScope?.orderWeek || orderScope?.majorWeek || '';
+    const defaultCountry = orderScope?.country ? importCountryLabel(orderScope.country) : '';
+    const candidate = analyzeImportMessage(
+      { id: m.id, time: m.time || '', text: m.text || '', items: [] },
+      new Map(),
+      { pastedOrder: true, knownFarms, defaultYear, defaultWeek, defaultCountry }
+    );
+    const parsedItems = (candidate.items || [])
+      .filter(it => !it.cancelled)
+      .map((it, idx) => ({
+        ...it,
+        key: JSON.stringify(['manual', m.id, m.text, idx]),
+        reviewReason: '정리처리됨 원문에서 복원 · 확인 후 체크',
+      }));
+    const fallbackKey = JSON.stringify(['manual', m.id, m.text]);
+    const items = parsedItems.length > 0
+      ? parsedItems
+      : [{
+          key: fallbackKey,
+          year: defaultYear,
+          country: defaultCountry,
+          group: '',
+          product: '',
+          quantity: '',
+          unit: '박스',
+          week: defaultWeek,
+          customer: '',
+          farm: '',
+          reviewReason: '원문과 대조 후 포함',
+        }];
     setManual(prev => ({
       ...prev,
       [m.id]: {
-        ...m,
+        id: m.id,
+        time: m.time,
+        text: m.text,
         kind: 'review',
-        reason: '제외 원문에서 수동 검토',
-        items: [{ key, year: m.time.match(/^\d{4}/)?.[0] || '', product: '', quantity: '', unit: '', week: '', farm: '', reviewReason: '원문과 대조 후 포함' }],
+        reason: '정리처리됨에서 복원한 원문',
+        items,
       },
     }));
     setOpenEditors(previous => ({ ...previous, [m.id]: true }));
-    setSourceFilter('전체');
-    setSourceQuery('');
-    setShowHidden(false);
-    setWeek('');
-    setGroup('');
-    setFarmFilter('');
+    if (sourceFilter === '정리처리됨') setSourceFilter('전체');
     setFocus(null);
-    setNotice('검토 목록에 가져왔습니다. 품목·수량·단위·차수를 확인한 뒤 합산을 체크하세요.');
+    setNotice('정리처리됨 원문을 검토 목록으로 복원했습니다. 품목·수량·단위·차수를 확인한 뒤 합산을 체크하세요.');
   }
 
   async function copy() {
@@ -451,16 +550,18 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
       knownFarms,
     });
     setPastedFeed(parsed);
+    setSessionCleaned(new Set());
     setWeek('');
     setGroup('');
     setFarmFilter('');
     setFocus(null);
     setCopiedCardKey('');
-    setNotice(`붙여넣은 카톡 원문을 분석했습니다 (발주 ${parsed.messages.length}건 · 검토 ${parsed.review.length}건 · 잡담/헤더 ${parsed.noise}줄 제거).`);
+    setNotice(`붙여넣은 카톡 원문을 분석했습니다 (발주 ${parsed.messages.length}건 · 검토 ${parsed.review.length}건 · 정리처리됨 ${(parsed.cleaned || []).length}건 · 잡담/헤더 ${parsed.noise}줄 제거).`);
   }
 
   function resetPastedChat() {
     setPastedFeed(null);
+    setSessionCleaned(new Set());
     setPasteDraft('');
     setWeek('');
     setGroup('');
@@ -502,6 +603,47 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
     );
   }
 
+  function renderCleanedRow(entry) {
+    const oneLine = formatCleanedSingleLine(entry.text) || '(빈 메시지)';
+    const expanded = !!expandedCleaned[entry.id];
+    const isDuplicate = Boolean(entry.duplicateOf);
+    return (
+      <div key={entry.id} data-cleaned-id={entry.id} className="kakao-cleaned-item">
+        <div className="kakao-cleaned-row">
+          <span className="kakao-cleaned-badge">정리처리됨</span>
+          <span className="kakao-cleaned-time">{shortKakaoTime(entry.time)}</span>
+          <button
+            type="button"
+            className="kakao-cleaned-text"
+            aria-expanded={expanded}
+            title={oneLine}
+            onClick={() => setExpandedCleaned(prev => ({ ...prev, [entry.id]: !expanded }))}
+          >
+            {oneLine}
+          </button>
+          <button
+            type="button"
+            className="kakao-restore-btn"
+            disabled={isDuplicate}
+            title={isDuplicate ? '동일 원문 중복' : '발주 검토 목록으로 복원'}
+            onClick={() => entry.manualHidden ? toggleManualClean(entry.sourceMessage || entry, false) : restoreCleaned(entry)}
+          >
+            {isDuplicate ? '중복' : '복원'}
+          </button>
+        </div>
+        {expanded && (
+          <div className="kakao-cleaned-detail">
+            <small className="kakao-cleaned-reason">
+              {entry.time}{entry.reason ? ' · ' + entry.reason : ''}
+              {entry.duplicateOf ? ' · 중복 원본 ' + sourceReference(entry.duplicateOf) : ''}
+            </small>
+            <pre className="kakao-source-body">{entry.text}</pre>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function renderMessage(m) {
     const visible = m.kind === 'review'
       ? m.items.filter(i => manual[m.id] || inOrderScope(view(i)))
@@ -510,7 +652,6 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
     const contributions = m.items.map(item => includedRows.get(item.key)).filter(Boolean);
     const type = sourceType(m);
     const open = !!openEditors[m.id];
-    const hidden = hiddenMessages.ids.has(m.id);
     return (
       <article key={m.id} data-source-id={m.id} data-source-kind={m.kind} className={'kakao-order-message ' + (linked ? 'kakao-linked' : '')}>
         <div className="kakao-source-meta">
@@ -518,7 +659,6 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
           <span>{m.time}</span>
           <span>{type === '추가' ? '추가 발주' : type === '취소' ? '취소 요청' : '검토 필요'}</span>
           {contributions.length > 0 && <span className="kakao-source-included"><span aria-hidden="true">✓ </span>합계 반영</span>}
-          {linked && hidden && !showHidden && <span className="kakao-temporary-source">숨긴 원문 · 매칭으로 표시</span>}
           {linked && <strong className="kakao-source-reference">{sourceReference(m.id)}</strong>}
         </div>
         {contributions.length > 0 && (
@@ -556,11 +696,9 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
               {open ? '품목·수량 접기' : m.kind === 'review' ? '발주 내용 검토' : '품목·수량 확인'}
             </button>
           )}
-          {hiddenMessages.ready && !pastedFeed && (
-            <button type="button" className="kakao-visibility-action" aria-label={hidden ? '숨긴 원문 다시 표시' : '정리: 원문 숨기기'} onClick={() => changeVisibility(m, !hidden)}>
-              {hidden ? '다시 표시' : '정리'}
-            </button>
-          )}
+          <button type="button" className="kakao-visibility-action" aria-label="발주 외 원문 정리 처리" onClick={() => toggleManualClean(m, true)}>
+            정리 처리
+          </button>
         </div>
         {open && (
           <div>
@@ -653,6 +791,21 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
             </button>
           </h3>
           <div className="kakao-toolbar-buttons">
+            {!pastedFeed && (
+              <div className="kakao-period-group" role="group" aria-label="수입방 수집 조회 기간">
+                {periodOptions.map(days => (
+                  <button
+                    key={days}
+                    type="button"
+                    aria-pressed={windowDays === days}
+                    disabled={loading && windowDays === days}
+                    onClick={() => { if (windowDays !== days) { setWindowDays(days); setMessageLimit(kakaoMessagePageSize); } }}
+                  >
+                    최근 {days}일
+                  </button>
+                ))}
+              </div>
+            )}
             {pastedFeed && (
               <button type="button" className="kakao-paste-reset" onClick={resetPastedChat}>
                 수입방 자동 원문 복귀
@@ -665,21 +818,26 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
         </div>
         {scopeLabel && !pastedFeed && <p className="kakao-order-scope">왼쪽 선택 반영 · {scopeLabel}</p>}
         {pastedFeed && <p className="kakao-order-scope">직접 붙여넣은 카톡 대화 분류 결과 · 브라우저 전용 (ERP·시트 저장 없음)</p>}
+        {stats && !pastedFeed && (
+          <p className="kakao-collection-summary">
+            최근 {activeFeed?.windowDays || windowDays}일 수입방 원문 {stats.scanned}건 수집 · 추가 발주 {activeMessages.filter(m => sourceType(m) === '추가').length}건 · 검토 {activeMessages.filter(m => sourceType(m) !== '추가').length}건 · 정리처리됨 {totalCleanedCount}건
+          </p>
+        )}
         <div id={toolbarDetailsId} hidden={!toolbarOpen}>
-          <p>발주가 있는 최근 2일 · 최신 카톡순 · 1분마다 갱신</p>
+          <p>최근 {activeFeed?.windowDays || windowDays}일 수입방 보관 원문 전체 조회 · 최신순 · 1분마다 갱신</p>
           {activeFeed && !pastedFeed && (
             <p>
               {activeFeed.orderDays?.length ? '발주일: ' + activeFeed.orderDays.join(' · ') : '합산 가능한 발주일 없음'}
               {activeFeed.latest && ' · 최근 수집 원문 ' + activeFeed.latest}
             </p>
           )}
-          {activeFeed?.reviewThrough && <p>선택 발주일 이후 {activeFeed.reviewThrough}까지의 취소·변경도 확인합니다.</p>}
+          {activeFeed?.reviewThrough && <p>조회 범위({activeFeed.windowFrom || activeFeed.from || '최근'} ~ {activeFeed.reviewThrough})의 취소·변경 및 비발주 정리처리 내역을 함께 확인합니다.</p>}
           {stats && (
             <p className="kakao-counts">
-              카톡 {stats.scanned}건 분석 · 추가 발주 {stats.selected}건 · 검토 {stats.review}건 · 일반 대화 제외 {stats.excluded}건 · 중복 제외 {stats.duplicates}건
+              카톡 {stats.scanned}건 분석 · 추가 발주 {stats.selected}건 · 검토 {stats.review}건 · 정리처리됨(비발주 {stats.excluded}건 · 중복 {stats.duplicates}건)
             </p>
           )}
-          <p>차수·품목군·농장 버튼으로 범위를 좁히고 원문과 합계를 상호 대조하세요. 수정 및 붙여넣기 분류는 이 화면에서만 유지됩니다.</p>
+          <p>발주 추가가 아닌 대화는 자동으로 정리처리됨(1줄 표시)으로 분류되며, 한 줄 내용을 눌러 전문을 보거나 [복원]으로 발주 검토에 되돌릴 수 있습니다.</p>
         </div>
         {((week && !activeWeek) || (group && !activeGroup) || (farmFilter && !activeFarm)) && (
           <p role="status">선택한 필터가 현재 자료에 없어 전체 범위를 표시합니다. 버튼에서 다시 선택하세요.</p>
@@ -971,35 +1129,25 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
           {activeFeed && (
             <>
               <p className="kakao-source-period">
-                {pastedFeed ? '직접 붙여넣은 카톡 원문' : (activeFeed?.orderDays?.length ? activeFeed.orderDays.join(' · ') : '최근 발주일') + ' · 수입방'}
+                {pastedFeed
+                  ? '직접 붙여넣은 카톡 원문'
+                  : `최근 ${activeFeed?.windowDays || windowDays}일 (${activeFeed?.windowFrom || activeFeed?.from || '최근'} ~ ${activeFeed?.reviewThrough || '오늘'}) · 수입방`}
               </p>
               <input
                 type="search"
                 aria-label="카톡 원문 검색"
-                placeholder="방·시각·내용 검색"
+                placeholder="시각·품목·농장·정리처리된 내용 검색"
                 value={sourceQuery}
                 onChange={e => { setSourceQuery(e.target.value); setMessageLimit(kakaoMessagePageSize); }}
               />
               <div className="kakao-source-controls" role="group" aria-label="카톡 요청 유형">
                 {requestFilters.map(type => (
                   <button key={type} type="button" aria-pressed={sourceFilter === type} onClick={() => { setSourceFilter(type); setMessageLimit(kakaoMessagePageSize); }}>
-                    {type}
+                    {type === '정리처리됨' ? `정리처리됨 (${cleanedEntries.length})` : type}
                   </button>
                 ))}
-                <span role="status">최신순 · {visibleMessages.length} / {shownMessages.length}건</span>
+                <span role="status">최신순 · {visibleEntries.length} / {shownEntries.length}건</span>
               </div>
-              {hiddenMessages.ready && !pastedFeed && (
-                <button
-                  ref={visibilityButton}
-                  type="button"
-                  className="kakao-hidden-toggle"
-                  aria-pressed={showHidden}
-                  onClick={() => { setShowHidden(show => !show); setFocus(null); setSourceQuery(''); setSourceFilter('전체'); setMessageLimit(kakaoMessagePageSize); }}
-                >
-                  숨긴 원문 {hiddenCount}건
-                </button>
-              )}
-              {showHidden && <p className="kakao-hidden-note">이 브라우저의 현재 계정에서만 목록을 정리합니다. 숨긴 원문도 합계에 반영됩니다.</p>}
               {selectedTotal && (
                 <p className="kakao-match-notice">
                   {selectedTotal.product} {selectedTotal.quantity} {selectedTotal.unit}의 근거 원문{' '}
@@ -1007,14 +1155,14 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
                 </p>
               )}
               <div className="kakao-source-list" role="region" aria-label="카톡 요청 목록" tabIndex={0} ref={sourceList}>
-                {visibleMessages.map(renderMessage)}
-                {visibleMessages.length < shownMessages.length && (
+                {visibleEntries.map(entry => entry.isCleaned ? renderCleanedRow(entry) : renderMessage(entry))}
+                {visibleEntries.length < shownEntries.length && (
                   <button type="button" className="kakao-more-sources" onClick={() => setMessageLimit(n => n + kakaoMessagePageSize)}>
-                    카톡 원문 {Math.min(kakaoMessagePageSize, shownMessages.length - visibleMessages.length)}건 더 보기
+                    카톡 원문 {Math.min(kakaoMessagePageSize, shownEntries.length - visibleEntries.length)}건 더 보기
                   </button>
                 )}
-                {activeFeed && !shownMessages.length && (!loading || pastedFeed) && (!error || pastedFeed) && (
-                  <p>{showHidden ? '조건에 맞는 숨긴 카톡 원문이 없습니다.' : '표시할 카톡 요청이 없습니다.'}</p>
+                {activeFeed && !shownEntries.length && (!loading || pastedFeed) && (!error || pastedFeed) && (
+                  <p>표시할 카톡 요청이 없습니다.</p>
                 )}
               </div>
               <details className="kakao-audit" onToggle={e => setShowAudit(e.currentTarget.open)}>
@@ -1030,8 +1178,8 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
                     {m.duplicateOf ? (
                       <p>중복 원본 요청: {m.duplicateOf}</p>
                     ) : (
-                      <button type="button" disabled={!!manual[m.id]} onClick={() => addManual(m)}>
-                        {manual[m.id] ? '검토로 가져옴' : '발주로 검토'}
+                      <button type="button" disabled={!!manual[m.id]} onClick={() => restoreCleaned(m)}>
+                        {manual[m.id] ? '검토로 가져옴' : '복원 · 발주로 검토'}
                       </button>
                     )}
                   </details>
@@ -1106,6 +1254,18 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
           font-size: 12.5px;
           color: #1e3a8a;
           font-weight: 700;
+        }
+        .kakao-period-group {
+          display: inline-flex;
+          gap: 4px;
+          align-items: center;
+        }
+        .kakao-toolbar .kakao-collection-summary {
+          margin: 4px 0 2px;
+          font-size: 13px;
+          color: #334155;
+          font-weight: 500;
+          font-variant-numeric: tabular-nums;
         }
         .kakao-live-notice {
           display: block;
@@ -1661,6 +1821,86 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
         }
         .kakao-order-message:last-child {
           border-bottom: 0;
+        }
+        .kakao-cleaned-item {
+          border-bottom: 1px solid #e2e8f0;
+          background: #f8fafc;
+        }
+        .kakao-cleaned-item:last-child {
+          border-bottom: 0;
+        }
+        .kakao-cleaned-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 5px 8px;
+          min-height: 34px;
+          max-width: 100%;
+          min-width: 0;
+        }
+        .kakao-cleaned-badge {
+          flex: 0 0 auto;
+          display: inline-block;
+          padding: 1px 6px;
+          border-radius: 4px;
+          background: #e2e8f0;
+          color: #334155;
+          font-size: 12.5px;
+          font-weight: 700;
+          line-height: 1.4;
+          white-space: nowrap;
+        }
+        .kakao-cleaned-time {
+          flex: 0 0 auto;
+          color: #475569;
+          font-size: 12.5px;
+          white-space: nowrap;
+          font-variant-numeric: tabular-nums;
+        }
+        .kakao-cleaned-text {
+          flex: 1 1 0%;
+          min-width: 0;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap !important;
+          text-align: left;
+          background: transparent !important;
+          border: 0 !important;
+          padding: 2px 4px !important;
+          color: #334155 !important;
+          font-size: 13.5px !important;
+          font-weight: 400 !important;
+          line-height: 1.4;
+        }
+        .kakao-cleaned-text:hover {
+          color: #0f172a !important;
+          text-decoration: underline;
+          background: transparent !important;
+        }
+        .kakao-restore-btn {
+          flex: 0 0 auto;
+          padding: 2px 8px !important;
+          font-size: 12.5px !important;
+          font-weight: 600;
+          white-space: nowrap;
+          color: #1e3a8a !important;
+          border-color: #93c5fd !important;
+          background: #ffffff !important;
+        }
+        .kakao-restore-btn:hover:not(:disabled) {
+          background: #eff6ff !important;
+          border-color: #3b82f6 !important;
+        }
+        .kakao-cleaned-detail {
+          padding: 6px 10px 8px;
+          border-top: 1px dashed #cbd5e1;
+          background: #ffffff;
+        }
+        .kakao-cleaned-reason {
+          margin-bottom: 4px;
+          color: #475569;
+          font-size: 12.5px;
         }
         .kakao-source-body {
           margin: 5px 0 7px;

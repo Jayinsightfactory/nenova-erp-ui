@@ -116,6 +116,13 @@ assert.deepEqual(retained.retained,[{product:'더글라스',quantity:'200',unit:
 const defaultRes={setHeader(){},json(body){this.body=body;return this;}};
 await route({method:'GET',user:{allowed:true},query:{}},defaultRes);
 assert.deepEqual(defaultRes.body.orderDays,['2026-11-18']);
+assert.equal(Array.isArray(defaultRes.body.cleaned),true);
+const windowRes={setHeader(){},status(code){this.code=code;return this;},json(body){this.body=body;return this;}};
+await route({method:'GET',user:{allowed:true},query:{days:'30'}},windowRes);
+assert.equal(windowRes.body.windowDays,30);
+const badDaysRes={code:200,setHeader(){},status(code){this.code=code;return this;},json(body){this.body=body;return this;}};
+await route({method:'GET',user:{allowed:true},query:{days:'99'}},badDaysRes);
+assert.equal(badDaysRes.code,400);
 console.log('PASS latest two actual order dates, quiet days, future exclusion, later cancellation, cross-year, retained quantities and default API');
 const auditFeed=classifyImportFeed({messages:[message(a),message(a,'duplicate'),message('사진','photo'),message('카라 400스팀 가격 문의','quote')]},new Map(),{audit:true});
 assert.equal(auditFeed.audit.length,3);assert.equal(auditFeed.audit.find(m=>m.id==='duplicate').duplicateOf,'a');
