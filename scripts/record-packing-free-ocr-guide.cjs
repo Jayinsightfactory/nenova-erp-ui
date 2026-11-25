@@ -64,6 +64,7 @@ async function main(){
   await rec?.unfocus();
   if(rec)await rec.caption('2. 최초 파일은 자동 분석합니다. 같은 내용의 저장 분석은 바로 불러옵니다.\n같은 이름의 변경본만 기존 분석과 새 분석 중 선택합니다.');
   try{await page.waitForFunction(()=>document.body.innerText.includes('ROSE RED'));}catch(e){console.log((await page.evaluate(()=>document.body.innerText)).slice(-6000));throw e;}
+  if(await page.$('[data-testid="packing-match-modal-later"]')){await page.click('[data-testid="packing-match-modal-later"]');await page.waitForSelector('[data-testid="packing-upload-match-modal"]',{hidden:true});}
   await rec?.unfocus();
   await step('review','미매칭 확인 · 원본 품목을 눌러 전산 품목을 검색하고 선택합니다.');
   const rowSearch='[aria-label="ROSE RED 매칭 품목 검색"]';
@@ -107,6 +108,7 @@ async function main(){
   if(rec){await rec.caption('5. 변경본을 처리할 때만 새 파일 분석을 누릅니다.\n이 영상은 연습 응답이며 실제 유료 API·운영 입고 저장은 호출하지 않습니다.');await rec.pause(4500);}
   await focus('[data-testid="packing-analyze-selected"]');await page.click('[data-testid="packing-analyze-selected"]');await rec?.unfocus();
   await page.waitForFunction(()=>!document.querySelector('[data-testid="packing-file-choice"]')&&document.body.innerText.includes('TRAINING-001'));
+  if(await page.$('[data-testid="packing-match-modal-later"]')){await page.click('[data-testid="packing-match-modal-later"]');await page.waitForSelector('[data-testid="packing-upload-match-modal"]',{hidden:true});}
   await page.waitForNetworkIdle({idleTime:1000});
   assert.equal(paidCalls,2);assert.equal(external,0);assert.equal(writes,0);
   await step('history','업로드 이력 · 원본과 보관 분석의 수량·금액을 비교합니다.');
@@ -125,6 +127,7 @@ async function main(){
     const cachedBytes=await cachedPdf.save(),cachedFile=path.join(changedDir,'46-1 cached.pdf');fs.writeFileSync(cachedFile,cachedBytes);
     cachePayloads.set(Buffer.from(cachedBytes).toString('base64'),payload);
     await input.uploadFile(cachedFile);await page.waitForFunction(()=>document.body.innerText.includes('46-1 cached.pdf')&&document.body.innerText.includes('TRAINING-001'));
+    if(await page.$('[data-testid="packing-match-modal-later"]')){await page.click('[data-testid="packing-match-modal-later"]');await page.waitForSelector('[data-testid="packing-upload-match-modal"]',{hidden:true});}
     await page.waitForNetworkIdle({idleTime:1000});assert.equal(cacheReadHits,1);assert.equal(paidCalls,2);
     // Corrupt history must leave the active work intact and cannot trigger AI.
     await page.waitForFunction(()=>document.body.innerText.includes('팀 업로드 이력 보관 완료'));

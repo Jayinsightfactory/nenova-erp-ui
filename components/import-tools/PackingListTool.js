@@ -15,6 +15,8 @@ import PackingResults from './PackingResults.js';
 import { packingReceiptMatchState, effectivePackingMatchReview } from '../../lib/packingReceiptMatchState.js';
 import PackingEvidenceReview from './PackingEvidenceReview.js';
 import PackingProductMatchDialog from './PackingProductMatchDialog.js';
+import PackingUploadMatchModal, { PackingUploadMatchAlertBanner } from './PackingUploadMatchModal.js';
+import { collectUploadMatchingNeeds, applyUploadQuantityEdits } from '../../lib/packingUploadMatchPrompt.js';
 import InvoiceUploadIssues from './InvoiceUploadIssues.js';
 import PackingMatchManager from './PackingMatchManager.js';
 import ChinaLegacyReview from './ChinaLegacyReview.js';
@@ -955,6 +957,22 @@ async function requestErpMatches(body, revisionOnly = false) {
   if(!response.ok||!data?.success){const error=new Error(data?.error||'전산 품목·매칭 자료를 불러오지 못했습니다. 다시 조회하세요.');error.statusCode=response.status;throw error;}
   return data;
 }
+async function requestFarmMatches(body, revisionOnly = false) {
+  try {
+    const response=await fetch('/api/import/tools/farm-matches'+(revisionOnly?'?revisionOnly=1':''),body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{cache:'no-store'});
+    const data=await response.json().catch(()=>null);
+    if(!response.ok||!data?.success){
+      if(!body) return { success:true, farms:[], value:null, revision:0, scope:'team' };
+      const error=new Error(data?.error||'전산 농장·매칭 자료를 저장하지 못했습니다. 다시 시도하세요.');
+      error.statusCode=response.status;
+      throw error;
+    }
+    return { ...data, farms: Array.isArray(data.farms) ? data.farms : [] };
+  } catch (error) {
+    if (!body) return { success:true, farms:[], value:null, revision:0, scope:'team' };
+    throw error;
+  }
+}
 export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '', sharedRestore, autoAnalyze = true, onContinue, costOnly = false, initialHubfresh = false, onHubfreshUpload }) {
   const [screen, setScreen] = useState(initialHubfresh ? 'hubfresh' : 'country');
   const [country, setCountry] = useState(null);
@@ -1037,6 +1055,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   // Catalog (Lista de productos Nenova) — persists across sessions
   const [catalog, setCatalog] = useState(null);
   const [erpMatches,setErpMatches]=useState(null);
+  const [farmMatches,setFarmMatches]=useState(null);
+  const [matchModalOpen,setMatchModalOpen]=useState(false);
+  const [matchModalError,setMatchModalError]=useState('');
+  const autoPromptedSources=useRef(new WeakSet());
   const [generatedErp,setGeneratedErp]=useState(null);
   const [latestShared,setLatestShared]=useState(false);
   const erpReadSequence=useRef(0);
@@ -1217,7 +1239,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setAwbFile(null);setAwbPdfBase64('');setAwbSourceHash('');setAwbValues(null);setAwbManualFields([]);setAwbReviewed(false);
       setCountry(work.country); setDateYear(work.dateYear || ''); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
       setMatchingReviewedFile(work.matchingReviewed === true ? restoredFile : null);
-      setLastExtraction({ ...extraction, sourceHash: hash }); setReviewRows(work.reviewRows || makePackingReviewRows(extraction.sourceInvoices, work.country));
+      const restoredExtraction = { ...extraction, sourceHash: hash };
+      autoPromptedSources.current.add(restoredExtraction);
+      setLastExtraction(restoredExtraction); setReviewRows(work.reviewRows || makePackingReviewRows(extraction.sourceInvoices, work.country));
       if(work.country==='CN'&&extraction.result.invoices.every(i=>i.source_format==='china_cloud_contract_xlsx'))setContractReceiptSource({country:'CN',file:restoredFile,invoices:extraction.result.invoices,
         excels:buildPackingMatchPreview({invoices:extraction.result.invoices,country:'CN',aliases:records.aliases,erpMatches:freshErp}),products:freshErp.products,reviewConfirmed:true,packingActive:true,truncated:false,invoiceUploadDate:work.invoiceUploadDate||''});
       setReviewConfirmed(confirmed); setReviewOpen(false); setReviewRevision(value => value + 1);
@@ -1289,6 +1313,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     setFileChoice(null);setSelectingFile(false);setHistoryOpen(false);setHistoryError('');
     receiptIntent.current = false;
     setMatchTarget(null);setMatchError('');
+    setMatchModalOpen(false);setMatchModalError('');
     setReviewRows(null); setReviewOpen(false); setReviewConfirmed(false);
     setReviewInitialTarget(null); setScrollMatchPreview(false);
     setNeedsAI(false); setExtractionSource(''); setPdfRetryJobId(null);
@@ -1311,10 +1336,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     ++sharedScopeVersion.current; ++catalogReaderVersion.current;
     setCatalogParsing(false); setCatalogReplaceConfirmed(false); setCatalogClearConfirm(false);
     setCatalogLoading(true); setSharedReady(false); setSharedError(null);
-    Promise.all([readPackingRecords(storage),requestErpMatches()]).then(([records,erp]) => {
+    Promise.all([readPackingRecords(storage),requestErpMatches(),requestFarmMatches()]).then(([records,erp,farmsData]) => {
       if (!active) return;
       setCatalog(records.catalog); setAliases(records.aliases);
-      setErpMatches(erp);
+      setErpMatches(erp); setFarmMatches(farmsData);
       if (lastExtraction) refreshPreviewForMappings({ nextAliases: records.aliases, nextErp: erp });
       else resetResults();
       setLatestShared(false); setSharedReady(true);
@@ -1660,6 +1685,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       throw new Error(`추출 검토 항목 ${unresolved.length}건이 남아 있습니다. ${packingValidationIssues(sourceInvoices, country).slice(0, 5).map(issue => issue.text).join('\n')}`);
     }
     const currentErp=params.erpMatches??erpMatches;
+    const currentFarmMatches=params.farmMatches??farmMatches;
     if(!currentErp)throw new Error('전산 품목을 먼저 불러오세요.');
     const generators = { CO: genColombia, NL: genNL, CN: genChina, EC: genEcuador, TH: genThailand, AU: genAustralia, US: genUS, VN: genVN };
     const gen = generators[country];
@@ -1671,7 +1697,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       // abbreviation in the filename (e.g. _BAL_, _FLO_) keeps them unique.
       const fileNum = weekParsed.num;
       const opts = { catalog:packingErpCatalog(currentErp.products), masterAwb,
-        aliases:packingErpAliases(country,currentAliases,currentErp.value,currentErp.products) };
+        aliases:packingErpAliases(country,currentAliases,currentErp.value,currentErp.products),
+        farmMatches:currentFarmMatches?.value??null };
       const res = gen(packingReviewWriter(xlsxLib, inv, file?.name), inv, weekParsed.week, fileNum, opts);
       const reviewedProducts = (res.products || []).map(product => {
         const description = String(product.matchingDescription || product.sourceName || '').trim();
@@ -1738,9 +1765,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     const sequence=++erpReadSequence.current;
     savingRef.current=true;setSaving(true);setMatchError('');
     try {
-      const [data,records]=await Promise.all([requestErpMatches(),readPackingRecords(storage)]);
+      const [ data, records, farmsData ] = await Promise.all([requestErpMatches(),readPackingRecords(storage),requestFarmMatches()]);
       if(scope!==sharedScopeVersion.current||sequence!==erpReadSequence.current)return;
-      setErpMatches(data);setAliases(records.aliases);
+      setErpMatches(data);setFarmMatches(farmsData);setAliases(records.aliases);
       refreshPreviewForMappings({ nextAliases: records.aliases, nextErp: data });
       setLatestShared(false);
       if (matchTarget?.origin === 'manager') {
@@ -1874,9 +1901,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     setStatus({ type: 'info', msg: t.processing });
     try {
       const sourceHashPromise = sha256File(file);
-      const [freshErp,freshRecords,sourceHash]=await Promise.all([requestErpMatches(),readPackingRecords(storage),sourceHashPromise]);
+      const [freshErp,freshRecords,freshFarms,sourceHash]=await Promise.all([requestErpMatches(),readPackingRecords(storage),requestFarmMatches(),sourceHashPromise]);
       if(!isCurrent())return;
-      setErpMatches(freshErp);setAliases(freshRecords.aliases);setLatestShared(false);
+      setErpMatches(freshErp);setFarmMatches(freshFarms);setAliases(freshRecords.aliases);setLatestShared(false);
       let extraction;
       if(savedExtraction){extraction=savedExtraction;}
       else if(reusableExtraction.current?.file===file){
@@ -2111,6 +2138,145 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     : matchingRows.filter(row => needsInvoiceAllocation(country,row.sourceName||row.matchingDescription)).length;
   const matchingComplete = matchingRows.length > 0 && remainingMatches === 0;
   const validationIssues = packingValidationIssues(lastExtraction?.result?.invoices || [], country);
+  const matchingNeeds = useMemo(() => {
+    if (!lastExtraction?.result?.invoices?.length || !country) {
+      return { unmatchedFarms: [], unmatchedProducts: [], quantityIssues: [], totalCount: 0 };
+    }
+    return collectUploadMatchingNeeds({
+      country,
+      invoices: lastExtraction.result.invoices,
+      excels: excels.length ? excels : matchPreview,
+      products: matchingProducts,
+      farms: farmMatches?.farms || [],
+      farmMatches: farmMatches?.value || null,
+      receiptMatches,
+      mismatches,
+    });
+  }, [country, lastExtraction, excels, matchPreview, matchingProducts, farmMatches, receiptMatches, mismatches]);
+
+  useEffect(() => {
+    if (!lastExtraction || processing || saving || !sharedReady || legacyReviewData) return;
+    if (autoPromptedSources.current.has(lastExtraction)) return;
+    autoPromptedSources.current.add(lastExtraction);
+    if (matchingNeeds.totalCount > 0) {
+      setMatchModalError('');
+      setMatchModalOpen(true);
+    }
+  }, [lastExtraction, matchingNeeds.totalCount, processing, saving, sharedReady, legacyReviewData]);
+
+  const handleSaveUploadMatches = async ({ farmEntries = [], productEntries = [], rowEdits = {}, invoiceEdits = {} }) => {
+    if (savingRef.current || processingRef.current || !lastExtraction || !erpMatches) return;
+    const scope = sharedScopeVersion.current;
+    const fileVersion = readerVersion.current;
+    savingRef.current = true;
+    setSaving(true);
+    setMatchModalError('');
+    ++erpReadSequence.current;
+    try {
+      let nextErp = erpMatches;
+      let nextFarms = farmMatches;
+
+      if (farmEntries.length > 0) {
+        const latestFarms = await requestFarmMatches();
+        nextFarms = await requestFarmMatches({
+          entries: farmEntries,
+          expectedRevision: latestFarms.revision ?? 0,
+        });
+        if (scope !== sharedScopeVersion.current) return;
+        setFarmMatches(nextFarms);
+      }
+
+      if (productEntries.length > 0) {
+        const latestErp = await requestErpMatches();
+        nextErp = await requestErpMatches({
+          entries: productEntries,
+          expectedRevision: latestErp.revision ?? 0,
+        });
+        if (scope !== sharedScopeVersion.current) return;
+        setErpMatches(nextErp);
+      }
+
+      let nextInvoices = lastExtraction.result.invoices;
+      let nextSourceInvoices = lastExtraction.sourceInvoices;
+      let nextResult = lastExtraction.result;
+      let quantityApplied = false;
+
+      if (Object.keys(rowEdits).length > 0 || Object.keys(invoiceEdits).length > 0) {
+        const edited = applyUploadQuantityEdits({
+          sourceInvoices: lastExtraction.sourceInvoices,
+          result: lastExtraction.result,
+          country,
+          rowEdits,
+          invoiceEdits,
+        });
+        if (edited.changed) {
+          quantityApplied = true;
+          nextInvoices = edited.invoices;
+          nextSourceInvoices = edited.invoices;
+          nextResult = edited.result;
+          setReviewRows(makePackingReviewRows(nextInvoices, country));
+        }
+      }
+
+      const nextPreview = buildPackingMatchPreview({
+        invoices: nextInvoices,
+        country,
+        aliases,
+        erpMatches: nextErp,
+      });
+      setMatchPreview(nextPreview);
+
+      const updatedExtraction = {
+        ...lastExtraction,
+        result: nextResult,
+        sourceInvoices: nextSourceInvoices,
+      };
+      // Prevent re-opening the modal on our own saved extraction unless unresolved items remain
+      const remaining = collectUploadMatchingNeeds({
+        country,
+        invoices: nextInvoices,
+        excels: nextPreview,
+        products: nextErp.products || [],
+        farms: nextFarms?.farms || [],
+        farmMatches: nextFarms?.value || null,
+        receiptMatches,
+        mismatches: [],
+      });
+      autoPromptedSources.current.add(updatedExtraction);
+      setLastExtraction(updatedExtraction);
+      setExcels([]);
+      setGenerated({});
+      setGeneratedErp(null);
+      setLatestShared(false);
+
+      if (file && fileVersion === readerVersion.current) {
+        const allRows = nextPreview.flatMap(ex => ex.products || []);
+        setMatchingReviewedFile(allRows.length && allRows.every(row => !packingMatchReview(row, nextErp.products, country).needsReview) ? file : null);
+      }
+
+      if (remaining.totalCount === 0) {
+        setMatchModalOpen(false);
+        setStatus({
+          type: 'success',
+          msg: `농장 ${farmEntries.length}건 · 품목 ${productEntries.length}건${quantityApplied ? ' · 수량 대조 보정' : ''} 저장 완료. 다음 업로드부터 자동 매칭됩니다.`,
+        });
+      } else {
+        setMatchModalOpen(false);
+        setStatus({
+          type: 'info',
+          msg: `선택한 매칭을 저장했습니다. 남은 확인 항목 ${remaining.totalCount}건은 상단 알림 배너 또는 아래 표에서 이어서 연결하세요.`,
+        });
+      }
+    } catch (err) {
+      if (scope === sharedScopeVersion.current) {
+        setMatchModalError(err.message || '매칭 저장 중 오류가 발생했습니다. 입력값은 유지됩니다.');
+      }
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
   const openValidationIssue = issue => {
     setReviewInitialTarget({ invoiceIndex: issue.invoiceIndex, field: issue.field, lineIndex: issue.lineIndex });
     setReviewOpen(true);
@@ -2120,7 +2286,13 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       sharedReady, saving: savingRef.current, processing: processingRef.current, latestShared,
       matchingComplete, remainingMatches, allowAllocationReview, allocationCount,
     });
-    if (blockedReason) { setStatus({ type: 'error', msg: blockedReason }); recordBlocked(blockedReason,'PREPARE_BLOCKED'); notifyPackingBlocked(blockedReason); return; }
+    if (blockedReason) {
+      setStatus({ type: 'error', msg: blockedReason });
+      recordBlocked(blockedReason,'PREPARE_BLOCKED');
+      notifyPackingBlocked(blockedReason);
+      if (matchingNeeds.totalCount > 0) setMatchModalOpen(true);
+      return;
+    }
     receiptIntent.current = true;
     processingRef.current = true; setProcessing(true);
     const version = readerVersion.current;
@@ -2189,14 +2361,29 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     // Preparing the mapped source is not ERP registration. The single explicit
     // receipt/cost button in the workbench remains the mutation boundary.
     if (!autoAnalyze || !lastExtraction || !matchingComplete || validationIssues.length
+      || matchingNeeds.unmatchedFarms.length
       || processing || saving || !sharedReady || latestShared || reviewOpen || matchTarget
+      || (matchModalOpen && matchingNeeds.totalCount > 0)
       || (excels.length && reviewConfirmed) || autoPreparedSources.current.has(lastExtraction)) return;
     autoPreparedSources.current.add(lastExtraction);
     prepareReceipt();
-  }, [autoAnalyze,lastExtraction,matchingComplete,validationIssues.length,processing,saving,sharedReady,latestShared,reviewOpen,matchTarget,excels.length,reviewConfirmed]);
+  }, [autoAnalyze,lastExtraction,matchingComplete,validationIssues.length,matchingNeeds.unmatchedFarms.length,processing,saving,sharedReady,latestShared,reviewOpen,matchTarget,matchModalOpen,excels.length,reviewConfirmed]);
 
   return (
     <div ref={toolRoot} className={`${styles.root} ${typography.scope}`} lang={lang} style={{ background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+      {matchModalOpen && matchingNeeds.totalCount > 0 && (
+        <PackingUploadMatchModal
+          open={matchModalOpen}
+          needs={matchingNeeds}
+          country={country}
+          products={matchingProducts}
+          farms={farmMatches?.farms || []}
+          saving={saving || processing}
+          error={matchModalError}
+          onSave={handleSaveUploadMatches}
+          onClose={() => setMatchModalOpen(false)}
+        />
+      )}
       {matchTarget&&<PackingProductMatchDialog target={matchTarget} country={matchTarget.country ?? country} products={erpMatches?.products??[]} matchEntries={erpMatches?.value?.entries??[]}
         onSave={saveErpMatch} onClose={()=>setMatchTarget(null)} onReload={reloadErpMatches} saving={saving} error={matchError}/>}
       {reviewRows && <PackingEvidenceReview key={reviewRevision} rows={reviewRows} open={reviewOpen && !matchTarget} onClose={closeReview} onConfirm={confirmReview}
@@ -2631,6 +2818,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             )}
             {(excels.length > 0 || matchPreview.length > 0 || reviewRows) && (
               <div ref={matchPreviewRef} style={{ marginTop: '1.25rem', scrollMarginTop: 12 }}>
+                <PackingUploadMatchAlertBanner
+                  needs={matchingNeeds}
+                  disabled={saving || processing}
+                  onOpen={() => { setMatchModalError(''); setMatchModalOpen(true); }}
+                />
                 <div className={styles.sourceBadge} role="status" data-testid="packing-upload-next">
                   <strong>{matchingComplete ? (allocationCount ? `일반 매칭 완료 · Woolly bush ${allocationCount}행 입고량 분류 필요` : `품목 매칭 완료 · ${matchingRows.length}행 유지`) : `품목 매칭 확인 ${remainingMatches}행 남음`}</strong>
                   {lastExtraction?.result?.invoices?.some(needsPackingWeekDate) && <label style={{ display: 'block', marginTop: 8 }}>
