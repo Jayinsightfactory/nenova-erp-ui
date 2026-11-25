@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-25T07:07:24.403Z",
+  "generatedAt": "2026-11-25T08:37:05.403Z",
   "coverage": {
     "stage": "verified-refs",
     "definition": "External source main refs and ERP build HEAD; a non-master ERP build HEAD may include its branch commits.",
@@ -16,22 +16,22 @@
       "label": "Nenova ERP",
       "repo": "nenova-erp-ui",
       "ref": "HEAD",
-      "headHash": "54d4fd7855167a4959105b9bff1f8ed746fb8561",
+      "headHash": "b9f82d828ae8f21a49a726f36f6d065a0b7914d5",
       "sourceStatus": "build-git",
       "stage": "build-head",
       "stale": false,
       "rootHashes": [
         "b4c5da128ba455091a4e602d88953c279eaaed3f"
       ],
-      "collectedAt": "2026-11-25T07:07:24.403Z",
-      "totalCommits": 4107,
-      "nonMergeCount": 3302,
+      "collectedAt": "2026-11-25T08:37:05.403Z",
+      "totalCommits": 4115,
+      "nonMergeCount": 3310,
       "mergeCount": 805,
       "summaryCount": 530,
       "knownSummaryTitles": 464,
       "unknownSummaryTitles": 66,
       "firstDate": "2026-04-01T05:01:29.000Z",
-      "lastDate": "2026-11-25T06:58:08.000Z"
+      "lastDate": "2026-11-25T08:35:25.000Z"
     },
     {
       "id": "mindmap-viewer",
@@ -101,12 +101,205 @@
   ],
   "records": [
     {
-      "hash": "54d4fd7855167a4959105b9bff1f8ed746fb8561",
-      "date": "2026-11-25T06:58:08.000Z",
-      "committedAt": "2026-11-25T06:58:08.000Z",
-      "subject": "feat(import): 입고 인보이스 업로드 시 자동 매칭 알림 및 원스톱 매칭 확인 창 구현",
+      "hash": "b9f82d828ae8f21a49a726f36f6d065a0b7914d5",
+      "date": "2026-11-25T08:19:45.000Z",
+      "committedAt": "2026-11-25T08:36:57.000Z",
+      "subject": "fix(incoming): distinguish C&F and forwarder-billed badges and include legacy NL freight codes",
       "parents": [
-        "5fd34f4e11eb955f5540e8f2a256113bfb9ed82e"
+        "b69bcade6c05c8df2b8ec2e83557787e8cac6c6c"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/incomingLedgerLayout.test.mjs",
+        "components/WarehouseDetailActions.js",
+        "config/workflow-guides.json",
+        "docs/exe-golden/WarehouseCorrection.md",
+        "lib/exeWarehouseViewSql.js",
+        "lib/incomingLedgerLayout.js",
+        "lib/warehouseWeightRows.js",
+        "pages/api/warehouse/index.js",
+        "pages/incoming.js"
+      ],
+      "changedFileCount": 21,
+      "redactedPathCount": 11,
+      "id": "b9f82d828ae8f21a49a726f36f6d065a0b7914d5",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/incoming"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "b69bcade6c05c8df2b8ec2e83557787e8cac6c6c",
+      "date": "2026-11-25T08:35:25.000Z",
+      "committedAt": "2026-11-25T08:35:25.000Z",
+      "subject": "feat(desktop): limit auto-update to morning first launch once per day (v1.3.100) (#2025)",
+      "parents": [
+        "92cfed0cfe5c7922d982e6755f4aa6d0bbace72f"
+      ],
+      "paths": [
+        ".github/workflows/desktop-windows.yml",
+        "WORK_MEMORY.md",
+        "__tests__/desktopReleasesFeed.test.cjs",
+        "config/workflow-guides.json",
+        "package.json"
+      ],
+      "changedFileCount": 12,
+      "redactedPathCount": 7,
+      "id": "b69bcade6c05c8df2b8ec2e83557787e8cac6c6c",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "92cfed0cfe5c7922d982e6755f4aa6d0bbace72f",
+      "date": "2026-11-25T08:24:49.000Z",
+      "committedAt": "2026-11-25T08:24:49.000Z",
+      "subject": "perf(ci): parallelize test:erp-contract runner and hold workflow guide lock until 2026-12-25 (#2027)",
+      "parents": [
+        "8744805818cacf23fae035517855b59e2240c647"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/erpContractSuiteRunner.test.mjs",
+        "__tests__/hotelMiuIntake.test.js",
+        "__tests__/orderStockCalculation.test.js",
+        "__tests__/profitReportConfirmAuditTrail.test.js",
+        "__tests__/salesRegistrationConfirm.test.js",
+        "__tests__/workflowGuides.test.cjs",
+        "config/workflow-guides.json",
+        "package.json",
+        "scripts/check-workflow-guides.cjs",
+        "scripts/resume-profit-margin-guard.cjs",
+        "scripts/run-erp-contract-suite.mjs"
+      ],
+      "changedFileCount": 12,
+      "redactedPathCount": 0,
+      "id": "92cfed0cfe5c7922d982e6755f4aa6d0bbace72f",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "8744805818cacf23fae035517855b59e2240c647",
+      "date": "2026-11-25T08:15:28.000Z",
+      "committedAt": "2026-11-25T08:15:28.000Z",
+      "subject": "feat(desktop): 수입부 업무도구 12개국 확장 및 농장 분할 반영 (v1.3.100) (#2026)",
+      "parents": [
+        "e2b5885206bb3961f90d2807a30315225e300aff"
+      ],
+      "paths": [
+        "WORK_MEMORY.md"
+      ],
+      "changedFileCount": 3,
+      "redactedPathCount": 2,
+      "id": "8744805818cacf23fae035517855b59e2240c647",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "e2b5885206bb3961f90d2807a30315225e300aff",
+      "date": "2026-11-25T08:11:28.000Z",
+      "committedAt": "2026-11-25T08:11:28.000Z",
+      "subject": "fix(import-orders): remove 농장 미지정/Farm TBD labels and mark 지정농장 as exception (#2024)",
+      "parents": [
+        "0b892facb65958b2f93f67d504460d93fe2ede1d"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/importKakaoFarmSummary.test.mjs",
+        "components/import-tools/KakaoAdditions.js",
+        "lib/importKakaoAdditions.js"
+      ],
+      "changedFileCount": 5,
+      "redactedPathCount": 1,
+      "id": "e2b5885206bb3961f90d2807a30315225e300aff",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "0b892facb65958b2f93f67d504460d93fe2ede1d",
+      "date": "2026-11-25T07:47:23.000Z",
+      "committedAt": "2026-11-25T07:47:23.000Z",
+      "subject": "fix(import-orders): expand 12 countries, add Ecuador farm split, registered unit/qty editing, and fix Ecuador box SUM formulas (#2023)",
+      "parents": [
+        "c81206af31b51f2d8821475983407a07992b9603"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/countryOrderPedidosAdapter.test.js",
+        "__tests__/countryOrderPresentation.test.js",
+        "__tests__/countryOrderSource.test.js",
+        "__tests__/countryOrderSourceApi.test.js",
+        "__tests__/importPedidos.test.js",
+        "__tests__/pedidosToolCountryOrders.test.js",
+        "components/import-tools/PedidosTool.js",
+        "docs/contracts/country-orders.json",
+        "docs/exe-golden/CountryOrders.md",
+        "lib/countryOrderPedidosAdapter.js",
+        "lib/countryOrderPresentation.js",
+        "lib/countryOrderSource.js",
+        "lib/importPedidos.js",
+        "lib/importToolsDisplay.js"
+      ],
+      "changedFileCount": 16,
+      "redactedPathCount": 1,
+      "id": "0b892facb65958b2f93f67d504460d93fe2ede1d",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "c81206af31b51f2d8821475983407a07992b9603",
+      "date": "2026-11-25T07:14:31.000Z",
+      "committedAt": "2026-11-25T07:14:31.000Z",
+      "subject": "feat(import): 입고 인보이스 업로드 시 자동 매칭 알림 및 원스톱 매칭 확인 창 구현 (#2022)",
+      "parents": [
+        "93f9732450e502dbe23b90bc50dde828cfc9d1e4"
       ],
       "paths": [
         "WORK_MEMORY.md",
@@ -127,7 +320,7 @@
       ],
       "changedFileCount": 30,
       "redactedPathCount": 15,
-      "id": "54d4fd7855167a4959105b9bff1f8ed746fb8561",
+      "id": "c81206af31b51f2d8821475983407a07992b9603",
       "kind": "commit",
       "sourceIds": [
         "erp"
@@ -136,6 +329,90 @@
         "nenova-erp"
       ],
       "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "93f9732450e502dbe23b90bc50dde828cfc9d1e4",
+      "date": "2026-11-25T06:54:39.000Z",
+      "committedAt": "2026-11-25T06:54:39.000Z",
+      "subject": "feat(import-orders): add live ERP order status badges and semi-auto sales-paste handoff (#2021)",
+      "parents": [
+        "b2a5ff42505e7c64e4678a60dd8e303200310b7a"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/kakaoOrderErpStatus.test.mjs",
+        "components/import-tools/KakaoAdditions.js",
+        "components/import-tools/KakaoOrderRegisterBridge.js",
+        "docs/contracts/country-orders.json",
+        "lib/kakaoOrderErpStatus.js",
+        "lib/salesPasteOrder.js",
+        "pages/api/import/tools/kakao-order-status.js",
+        "pages/orders/sales-paste.js"
+      ],
+      "changedFileCount": 10,
+      "redactedPathCount": 1,
+      "id": "93f9732450e502dbe23b90bc50dde828cfc9d1e4",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/orders/sales-paste",
+        "/orders"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "b2a5ff42505e7c64e4678a60dd8e303200310b7a",
+      "date": "2026-11-25T06:46:49.000Z",
+      "committedAt": "2026-11-25T06:46:49.000Z",
+      "subject": "fix(incoming): show and persist freight/GW/CW bottom rows across AI and legacy receipts (#2020)",
+      "parents": [
+        "5fd34f4e11eb955f5540e8f2a256113bfb9ed82e"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/chinaCloudContract.test.js",
+        "__tests__/cloudCostReferenceEvidence.test.js",
+        "__tests__/incomingLedgerLayout.test.mjs",
+        "__tests__/invoiceReceiptExpenses.test.js",
+        "__tests__/warehouseDetailActions.test.mjs",
+        "components/WarehouseDetailActions.js",
+        "config/workflow-guides.json",
+        "docs/contracts/warehouse-detail-actions.json",
+        "docs/exe-golden/WarehouseCorrection.md",
+        "lib/cloudCostReferenceEvidence.js",
+        "lib/exeWarehouseViewSql.js",
+        "lib/importPackingReceiptAdapter.js",
+        "lib/incomingLedgerLayout.js",
+        "lib/invoiceReceiptCost.js",
+        "lib/invoiceReceiptExpenses.js",
+        "lib/invoiceReceiptWriter.js",
+        "lib/nativeReceiptCost.js",
+        "lib/warehouseDetailActions.js",
+        "lib/warehouseWeightRows.js",
+        "pages/api/warehouse/index.js",
+        "pages/incoming.js"
+      ],
+      "changedFileCount": 34,
+      "redactedPathCount": 12,
+      "id": "b2a5ff42505e7c64e4678a60dd8e303200310b7a",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/incoming"
+      ],
       "workType": "other",
       "typeEvidence": "unclassified"
     },
@@ -186025,8 +186302,8 @@
     }
   ],
   "counts": {
-    "uniqueCommits": 6046,
-    "nonMerge": 5235,
+    "uniqueCommits": 6054,
+    "nonMerge": 5243,
     "merge": 811,
     "summaries": 615,
     "knownSummaryTitles": 549,
