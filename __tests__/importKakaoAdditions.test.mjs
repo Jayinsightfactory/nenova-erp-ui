@@ -86,7 +86,7 @@ const selectedScope = {country:'Colombia',year:2026,majorWeek:'46'};
 assert(matchesCountryOrderScope(groupFixture, selectedScope));
 assert(matchesCountryOrderScope({...groupFixture,week:'46-02'}, selectedScope));
 assert(matchesCountryOrderScope({...groupFixture,week:'46-1'}, {...selectedScope,orderWeek:'46-01'}));
-assert(!matchesCountryOrderScope({...groupFixture,week:'46'}, {...selectedScope,orderWeek:'46-01'}));
+assert(matchesCountryOrderScope({...groupFixture,week:'46'}, {...selectedScope,orderWeek:'46-01'}));
 assert(!matchesCountryOrderScope({...groupFixture,week:'46-02'}, {...selectedScope,orderWeek:'46-01'}));
 assert(!matchesCountryOrderScope({...groupFixture,year:'2025'}, selectedScope));
 assert(!matchesCountryOrderScope({...groupFixture,country:''}, selectedScope));

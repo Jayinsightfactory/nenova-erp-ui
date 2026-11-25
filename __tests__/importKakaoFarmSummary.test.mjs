@@ -8,14 +8,19 @@ import {
   analyzeImportMessage,
   classifyImportFeed,
   parsePastedKakaoChat,
+  latestImportFeed,
 } from '../lib/importKakaoOrderText.js';
 import {
   normalizeFarmName,
+  inferCountryFromFarm,
   normalizeOrderUnit,
   extractProductSpec,
   summarizeUnitQuantities,
   farmTotals,
   importItemView,
+  matchesCountryOrderScope,
+  matchesCleanedScope,
+  formatCleanedSingleLine,
   buildFarmSummary,
   formatFarmCardText,
   formatFarmTransferText,
@@ -301,11 +306,90 @@ const msg = (text, id = 'm1', time = '2026년 11월 25일 오전 9:30') => ({ id
   ]);
 }
 
-// 13. UI Anti-AI Slop, Typography, and Read-Only ERP Contract assertions
+// 13. Boss follow-up case: "49차 수국 발주 추가\n주광 : 버건디 10박스(안티오퀴아)" + trailing farm brackets + origin->country inference
+{
+  const bossMsg = msg('49차 수국 발주 추가\n주광 : 버건디 10박스(안티오퀴아)', 'boss-49', '2026년 11월 25일 오전 10:12');
+  const parsed = analyzeImportMessage(bossMsg);
+  assert.equal(parsed.kind, 'addition');
+  assert.equal(parsed.items.length, 1);
+  const item = parsed.items[0];
+  assert.equal(item.country, '콜롬비아');
+  assert.equal(item.group, '수국');
+  assert.equal(item.week, '49');
+  assert.equal(item.customer, '주광');
+  assert.equal(item.product, '버건디');
+  assert.equal(item.quantity, '10');
+  assert.equal(item.unit, '박스');
+  assert.equal(item.farm, '안티오퀴아');
+  assert.equal(item.note, '');
+  // Must match Colombia 49-01 subweek scope without vanishing!
+  assert.equal(matchesCountryOrderScope(item, { country: 'Colombia', year: 2026, majorWeek: '49', orderWeek: '49-01' }), true);
+  assert.equal(matchesCountryOrderScope(item, { country: 'China', year: 2026, majorWeek: '49', orderWeek: '49-01' }), false);
+  assert.equal(matchesCountryOrderScope(item, { country: 'Colombia', year: 2026, majorWeek: '48', orderWeek: '48-01' }), false);
+
+  const summary = buildFarmSummary(farmTotals([importItemView(item)]));
+  assert.equal(summary.cards.length, 1);
+  assert.equal(summary.cards[0].title, '콜롬비아 · 안티오퀴아');
+  assert.equal(summary.cards[0].cycle, '2026/49차');
+  const cardText = formatFarmCardText(summary.cards[0], { format: 'concise', lang: 'ko' });
+  assert.match(cardText, /^\[콜롬비아 · 안티오퀴아\] 2026\/49차 · 수국/m);
+  assert.match(cardText, /1\. 버건디 - 10박스/);
+
+  // Non-colombia-default flower group still infers country from origin/farm bracket
+  const callaMsg = analyzeImportMessage(msg('49차 카라 발주 추가\n주광 - 화이트 5HB (Melody)\n일신 : 그린 10B[플로렌스]\n미우 : 핑크 8박스(안티오퀴아)'));
+  assert.equal(callaMsg.kind, 'addition');
+  assert.deepEqual(
+    callaMsg.items.map(i => [i.customer, i.product, i.quantity, i.unit, i.farm, i.country]),
+    [
+      ['주광', '화이트', '5', 'HB', 'Melody', '중국'],
+      ['일신', '그린', '10', '박스', '플로렌스', '콜롬비아'],
+      ['미우', '핑크', '8', '박스', '안티오퀴아', '콜롬비아'],
+    ]
+  );
+  assert.equal(inferCountryFromFarm('쿤밍'), '중국');
+  assert.equal(inferCountryFromFarm('보고타'), '콜롬비아');
+  assert.equal(inferCountryFromFarm('메데진'), '콜롬비아');
+  assert.equal(inferCountryFromFarm('UnknownFarm', [{ FarmName: 'UnknownFarm', CounName: '에콰도르' }]), '에콰도르');
+
+  // Shipment-batch "1차 선적" must not clobber actual week "49차"
+  const batchMsg = analyzeImportMessage(msg('49차 수국 발주 추가 (1차 선적분)\n화이트 6박스(안티오퀴아)'));
+  assert.equal(batchMsg.items[0].week, '49');
+}
+
+// 14. 14-day window retention (resolving 37-message 2-day slice cutoff) & auto '정리처리됨' 1-line classification
+{
+  const multiDayMessages = [
+    msg('49차 수국 발주 추가\n주광 : 버건디 10박스(안티오퀴아)', 'd1', '2026년 11월 25일 오전 10:00'),
+    msg('네 확인했습니다\n감사합니다', 'c1', '2026년 11월 25일 오전 10:05'),
+    msg('49-1 콜 장미 발주 추가\n몬디알 5FB(엘리떼)', 'd2', '2026년 11월 23일 오전 11:00'),
+    msg('48-2 중국 발주 추가\n시네신스 화이트 20단(Melody)', 'd3', '2026년 11월 19일 오후 2:00'),
+    msg('48-1 콜 카네이션 발주 추가\n돈셀 4박스(아유라)', 'd4', '2026년 11월 14일 오전 9:30'),
+    msg('47-1 중국 단가 문의드립니다\n시네신스 얼마인가요?', 'c2', '2026년 11월 13일 오후 4:00'),
+  ];
+  const fullWindow = latestImportFeed(multiDayMessages, '2026-11-25', new Map(), {
+    maxOrderDays: 31,
+    windowFrom: '2026-11-12',
+  });
+  // Retains all 4 order days across 14 days instead of slicing to 2 days!
+  assert.equal(fullWindow.orderDays.length, 4);
+  assert.equal(fullWindow.messages.length, 4);
+  assert.equal(fullWindow.cleaned.length, 2);
+  assert(fullWindow.cleaned.every(c => !('sender' in c)));
+  assert.equal(formatCleanedSingleLine('네 확인했습니다\n\n감사합니다'), '네 확인했습니다 · 감사합니다');
+  // Scope filter keeps general cleaned items for Colombia 49 while filtering out explicit China 47 inquiry
+  const col49Scope = { country: 'Colombia', year: 2026, majorWeek: '49', orderWeek: '49-01' };
+  assert.equal(matchesCleanedScope(fullWindow.cleaned.find(c => c.id === 'c1'), col49Scope), true);
+  assert.equal(matchesCleanedScope(fullWindow.cleaned.find(c => c.id === 'c2'), col49Scope), false);
+}
+
+// 15. UI Anti-AI Slop, Typography, 1-Line 정리처리됨 Ellipsis & Read-Only ERP Contract assertions
 {
   const uiSource = fs.readFileSync(new URL('../components/import-tools/KakaoAdditions.js', import.meta.url), 'utf8');
   assert.match(uiSource, /'Pretendard Variable',\s*'Pretendard'/);
   assert.match(uiSource, /font-variant-numeric:\s*tabular-nums/);
+  assert.match(uiSource, /정리처리됨/);
+  assert.match(uiSource, /\.kakao-cleaned-text\s*\{[\s\S]*?overflow:\s*hidden;[\s\S]*?text-overflow:\s*ellipsis;[\s\S]*?white-space:\s*nowrap/);
+  assert.match(uiSource, /복원/);
   assert.doesNotMatch(uiSource, /\bmonospace\b|JetBrains\s+Mono/i);
   assert.doesNotMatch(uiSource, /[🚀✨🔥💡]/u);
   assert.doesNotMatch(uiSource, /감시|추적|모니터링|절감시간/);
