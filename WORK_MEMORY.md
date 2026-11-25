@@ -1,5 +1,14 @@
 # 작업 기록
 
+## 2026-11-25 데스크톱앱 수입부 업무도구 12개국 확장 반영 v1.3.100 빌드 및 배포 (feat/desktop-v1-4-0-import-tools, 연결 목표: g03, g19)
+- 1. 작업 위치: `nenova-erp-ui` (`nw-agy-desktop-import-release` 워크트리, `feat/desktop-v1-4-0-import-tools` 브랜치) — `desktop/package.json`(`1.3.100`), `desktop/package-lock.json`, `desktop/menu.json`, `WORK_MEMORY.md`
+- 2. 완료된 것: PR #2023 수입부 업무도구 12개국 확장(에콰도르·콜롬비아 등)·에콰도르 농장별 파일 분할·단위/수량 인라인 편집·49-1차 박스/SUM 수식 수정 사항에 맞춰 데스크톱앱 버전 갱신(v1.3.100), 릴리스 노트 동기화, 메뉴 카탈로그 동기화(`npm run menu`), NSIS x64 설치파일 로컬 빌드 및 서명 완료(`desktop/dist/Nenova-Desktop-Setup-1.3.100-x64.exe`, ~106MB), 일 1회 첫 실행 자동 업데이트 정책 유지 확인
+- 3. 남은 것: PR 생성 및 CI 통과 후 master squash 머지, Cafe24 정적 배포 피드(`https://nenovaweb.com/desktop-releases/latest.yml`) 및 GitHub Release 릴리스 확인, 사장님 실행 설치파일 전달
+- 4. 검증 상태: `desktop` 96개 단위 테스트 전수 PASS(`tests/*.test.cjs`), 메뉴 테스트 PASS(`tests/menu.test.cjs`), 프로세스 스모크 테스트 PASS(`electron scripts/smoke.cjs`), `pstack-verify.cjs` 5/5 전수 PASS, NSIS 인스톨러 실빌드 PASS
+- 5. 주의/잠금: 잠금 없음 (자동 업데이트 정책 "하루 아침 컴퓨터 새로 켜고 첫 실행 시 1번만" 불변 유지, 로컬 NSIS 산출물 gitignore 격리 완료)
+- 검색어: 데스크톱앱 설치파일 1.3.100 수입부 업무도구 12개국 확장 에콰도르 분할 download NSIS g03 g19
+
+
 ## 2026-11-25 수입방 카톡 발주 실시간 ERP 대조 및 영업 주문등록 반자동 핸드오프 (feat/kakao-semi-auto-order-handoff)
 - 1. 작업 위치: `nenova-erp-ui` (`feat/kakao-semi-auto-order-handoff`, `/import/tools?tool=pedidos` ↔ `/orders/sales-paste?mode=kakao-import`)
 - 2. 변경 파일: `lib/kakaoOrderErpStatus.js`, `pages/api/import/tools/kakao-order-status.js`, `components/import-tools/KakaoOrderRegisterBridge.js`, `components/import-tools/KakaoAdditions.js`, `lib/salesPasteOrder.js`, `pages/orders/sales-paste.js`, `docs/contracts/country-orders.json`, `__tests__/kakaoOrderErpStatus.test.mjs`
