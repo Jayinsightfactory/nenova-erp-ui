@@ -5090,3 +5090,11 @@ pm run test:canon 통과.
 3. 남은 할 일: 운영 배포 후 현장 출고방 3면(정면·좌·우) 팔레트 묶음 사진 실전 자동 소거 매칭 모니터링.
 4. 검증 상태: `__tests__/boxVisionInspector.test.cjs` 6/6 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS (`agent-guardrails`, `guard-erp-writes`, `ui-layout-contract`, `workflow-guides`, `work-memory-handoff`), `next build --webpack` 성공.
 5. 주의/잠금: MSSQL 원장 테이블(`WarehouseMaster`, `WarehouseDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentFarm`, `OrderMaster`, `OrderDetail`) 쓰기 0건(순수 SELECT 조회 전용). 연결 목표: g17, g19, g14, g03 / 학습 반영: 있음
+
+### 2026-11-25 · 수입 카톡 전산 품목군 대조 및 미국 단일 표시
+1. 작업 위치: nenova-erp-ui / codex/kakao-matching / nw-cdx-kakao-matching / PR 준비.
+2. 완료: 미국을 합계·필터·복사에서 국가 한 그룹으로 표시. 2026/47-02 원문과 dbo.ViewOrder·Product 읽기 전용 대조로 중국 시네신스 화이트·연핑크 → 리모늄, 네덜란드 Liberstar White → 튤립 확인.
+3. 남은 일: 필수 검증, 가이드, PR·CI·Cafe24 및 실브라우저 확인.
+4. 검증 상태: 단위/수량·비일치 국가·명시 품목군 우선·미확인 별칭 회귀, dnSpy 증거 검사와 쓰기 가드 통과. 제공 원문의 11/19~20 128건 재현에서 시네신스 각 20단, Liberstar White 300송이, 미국 200·50박스 확인. 미분류 시네리아·안슬레이 각 10단 보존.
+5. 주의: 원본 카톡·전산·수집기 변경 없음. 운영 토큰 및 개인 식별 정보 출력·저장 금지. 연결 목표: g19 / 학습 반영: 있음.
+검색어: 수입 카톡 시네신스 리모늄 Liberstar Liberster 튤립 미국 태국 품목군 47-02 g19

@@ -12,7 +12,10 @@ async function main(){
  sampleMessages.push(sampleMessage('missed','46-1 중국 수국 추가\n연습화이트 두 박스 부탁합니다.'));
  sampleMessages.push(sampleMessage('country-default','46-1 알스트로메리아 발주 추가\n연습 알스트로 2박스\n>중국 품종 추천도 알려주세요.'),
     sampleMessage('thai-group','46-1 태국 덴파레 발주 추가\n연습 분홍 3송이'),
-    sampleMessage('thai-plain','46-1 태국 발주 추가\n연습 흰색 4봉'));
+    sampleMessage('thai-plain','46-1 태국 발주 추가\n연습 흰색 4봉'),
+    sampleMessage('us-single','49차 미국 발주 추가\n연습 더글라스 2박스\n레몬잎 3박스'),
+    sampleMessage('china-name','47-2 중국 발주 추가\n시네신스 화이트 3단'),
+    sampleMessage('dutch-name','47-2 네덜란드 발주 추가\nliberstar white 15송이'));
  const sampleFeed=classifyImportFeed({orderDays:['2026-11-18','2026-11-12'],reviewThrough:'2026-11-18',from:'2026-11-17',to:'2026-11-18',latest:'2026년 11월 18일 오전 9:10',messages:sampleMessages});
  const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8')),workflow=registry.workflows.find(w=>w.id==='import-country-orders');
  const listener=net.createServer();await new Promise(r=>listener.listen(0,'127.0.0.1',r));const port=listener.address().port;await new Promise(r=>listener.close(r));
@@ -83,14 +86,25 @@ async function main(){
     assert.deepEqual(ledger,['2026/46-01차','중국 · 수국','중국 · 카네이션']);
     const scopes=await page.$$eval('.kakao-row-scope',nodes=>nodes.map(node=>node.textContent));
     assert(scopes.includes('콜롬비아 · 알스트로'));
+    assert(scopes.includes('중국 · 리모늄'));
+    assert(scopes.includes('네덜란드 · 튤립'));
+    assert.deepEqual(scopes.filter(scope=>scope.includes('미국')),['미국','미국']);
     assert.deepEqual(scopes.filter(scope=>scope.includes('태국')),['태국','태국']);
+    const moreGroups=await page.$('.kakao-choices[aria-label="품목군"] .kakao-more');
+    if(moreGroups)await moreGroups.click();
     const groupButtons=await page.$$('.kakao-choices[aria-label="품목군"] button');
     const thai=await page.$$eval('.kakao-choices[aria-label="품목군"] button',nodes=>nodes.findIndex(node=>node.textContent==='태국'));
     assert(thai>=0);
     await groupButtons[thai].click();
     assert.deepEqual(await page.$$eval('.kakao-row-scope',nodes=>nodes.map(node=>node.textContent)),['태국','태국']);
     assert.equal(await page.$$eval('.kakao-source-included',nodes=>nodes.length),2);
+    const us=await page.$$eval('.kakao-choices[aria-label="품목군"] button',nodes=>nodes.findIndex(node=>node.textContent==='미국'));
+    assert(us>=0);
+    await groupButtons[us].click();
+    assert.deepEqual(await page.$$eval('.kakao-row-scope',nodes=>nodes.map(node=>node.textContent)),['미국','미국']);
+    assert.equal(await page.$$eval('.kakao-source-included',nodes=>nodes.length),1);
     await groupButtons[0].click();
+    if(moreGroups)await page.click('.kakao-choices[aria-label="품목군"] .kakao-more');
   }
   // Record the fullscreen fallback in the original tab. Dry runs separately exercise the actual popup.
   await page.evaluate(() => { window.__orderGuideOpen = window.open; window.open = () => null; window.showSaveFilePicker = undefined; });
@@ -174,7 +188,7 @@ async function main(){
     ['국가 · 품목군','품종 / 원문 대조','수량','비고 (업체·수량)']);
   for(const [n,id,label,selector,caption,key] of [
     [16,'chat','오른쪽 카톡 추가·취소 원문 확인',sourceFilter(3),'취소와 합계 반영을 따로 볼 수 있습니다. 정리로 목록에서 숨기고 숨긴 원문에서 다시 표시할 수 있습니다.','Enter'],
-    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','중국 카네이션을 선택합니다. 차수 제목 아래에서 같은 차수의 품종을 연속해서 확인합니다. 국가와 품목군은 각 행에 있습니다. 오른쪽에서 원문별 반영 수량을 확인합니다. 별도 추천 문의가 붙어도 확정 발주 수량은 반영됩니다. 명시된 국가가 우선이며 국가가 빠진 수국 등 지정 품목은 콜롬비아로 표시합니다. 태국은 품목군을 나누지 않습니다.',null],
+    [17,'sum','차수·품목군 버튼 선택','.kakao-choices[aria-label="품목군"] button:last-child','차수 안에서 품목군을 고릅니다. 시네신스 연핑크·화이트는 리모늄, Liberstar White는 튤립입니다. 태국과 미국은 국가 이름으로 표시합니다.',null],
     [18,'match-total','합계에서 원문 확인','.kakao-match-total','가운데 품종을 누르면 오른쪽 근거 원문으로 이동합니다. 양쪽의 같은 원문 번호를 비교합니다.','Enter'],
     [19,'match-source','원문에서 합계 확인','.kakao-order-message.kakao-linked .kakao-match-source','오른쪽 원문의 합계 보기를 누르면 가운데 전체 합계 아래에 해당 원문의 수량이 표시됩니다.','Enter'],
     [20,'audit','제외 원문 대조','.kakao-audit > summary','분류 건수를 대조하고 제외 원문을 검색해 놓친 발주를 확인합니다. 카톡 자체 수집 누락과 사진은 별도 원본 대조가 필요합니다.','Enter'],
