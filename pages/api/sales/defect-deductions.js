@@ -216,6 +216,7 @@ async function handler(req, res) {
         const result = await registerDeductions({
           year, week, ids: req.body?.ids || [], deductionType: req.body?.deductionType || '불량차감',
           user: req.user, overrides: req.body?.overrides || {}, requestKey: req.body?.requestKey || req.headers['idempotency-key'] || '',
+          carryoverApprovals: req.body?.carryoverApprovals,
         });
         const registered = result.registered || [];
         const skipped = result.skipped || [];

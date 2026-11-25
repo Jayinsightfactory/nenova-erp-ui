@@ -308,7 +308,12 @@ const duplicateBatchQuery=async(statement,params={})=>{
  if(/INSERT INTO Estimate/.test(source))created.push({EstimateKey:9101+created.length,ProdKey:value(params,'pk'),Quantity:value(params,'qty'),Unit:value(params,'unit'),CustKey:manualDbRow.CustKey,OrderYear:2026,OrderWeek:'41',ProdName:'Hermes Orange'});
  return fakeRegisterQuery(statement,params);
 };
-const sameBatchResult=await registerDeductions({year:2026,week:'41',ids:[201,202,203],overrides:{202:{quantity:3,note:'must not persist'}},user:{userId:'test'}},{ensureTables:async()=>{},withTransaction:async cb=>cb(duplicateBatchQuery,{attempt:0})});
+const deniedCarryover=await registerDeductions({year:2026,week:'41',ids:[202],user:{userId:'test'}},{ensureTables:async()=>{},withTransaction:async cb=>cb(duplicateBatchQuery,{attempt:0})});
+assert.equal(deniedCarryover.registered.length,0);
+assert.match(deniedCarryover.skipped[0].error,/이월 포함 선택/);
+assert.deepEqual(created,[]);
+assert.deepEqual(skippedWrites,[]);
+const sameBatchResult=await registerDeductions({year:2026,week:'41',ids:[201,202,203],carryoverApprovals:{202:`2026/40/${manualDbRow.CustKey}`},overrides:{202:{quantity:3,note:'must not persist'}},user:{userId:'test'}},{ensureTables:async()=>{},withTransaction:async cb=>cb(duplicateBatchQuery,{attempt:0})});
 assert.deepEqual(sameBatchResult.registered.map(r=>r.deductionKey),[201,203]);
 assert.equal(sameBatchResult.skipped[0].deductionKey,202);
 assert.equal(sameBatchResult.skipped[0].errorCode,'EXISTING_ESTIMATE');

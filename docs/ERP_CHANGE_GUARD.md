@@ -1277,3 +1277,11 @@ source=manual-order/sales-paste 주문 저장은 정확한 연도+세부차수+�
 ## 2026-11-20 프로시저 생성 결과와 자동복구 허용 목록 동기화 가드
 
 42-02 확정 BUSY 재발 원인인 승인 SQL/자동복구 hash 누락을 `scripts/check-stock-procedure-hashes.cjs`가 오프라인에서 차단한다. 테스트 내 별도 문자열 치환 대신 실제 atomic installer 준비 함수와 실제 정렬 repair planner 출력을 사용한다. 이미 installer/repair가 승인하는 정확 CREATE/ALTER 저장형 4개만 허용하며 인자·업무본문·원자성 변경은 없다. 필수 절차/소비자 매핑은 [AGENTS.md](../AGENTS.md#db-프로시저-변경과-허용-해시-동시-검증)가 정본이다. `test:stock-procedure-hashes`는 SQL 변경+stale 목록, 허용 누락 subprocess exit1, unknown·중복 거부를 실행하며 ERP 계약과 PR/Cafe24 초기 단계에 연결된다. 운영 DB/SP 쓰기·UI/메뉴 변경 없음.
+# 2026-11-25 불량차감 이월 등록 선택
+
+47차 미카엘 등록에서 원차수 44~46차 21행과 47차 5행이 같은 요청으로 등록됐다.
+공용 등록 검토창에서 원차수·거래처별 건수를 표시하고, 이번 차수만 등록하거나 이월 포함을 선택한다.
+같은 연도·상위 차수는 승인 없이 등록할 수 있고, 이월 행은 잠긴 원장의 차수·업체가 미리보기의 승인값과 일치해야 한다.
+기존 출고/단가·중복·원천 검증은 그대로 적용된다. 선택하지 않은 행은 쓰기 대상에서 제외한다.
+등록이 실행되면 기존 경로로 Estimate와 불량 원장/적용 이력만 쓴다. 주문, ShipmentDate, ShipmentDetail의 금액·부가세·확정 상태, 농장, 재고, WebProfitReport에는 직접 쓰지 않는다.
+회귀 검사: `node --test __tests__/defectCarryoverChoice.test.js`.
