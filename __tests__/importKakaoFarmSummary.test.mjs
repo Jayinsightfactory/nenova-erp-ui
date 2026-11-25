@@ -5,11 +5,13 @@ import {
   isSummaryTotalLine,
   parseOrderItemLine,
   extractFarmHeader,
+  normalizeLlmOrderParsed,
   analyzeImportMessage,
   classifyImportFeed,
   parsePastedKakaoChat,
   latestImportFeed,
 } from '../lib/importKakaoOrderText.js';
+import { readImportArchive } from '../lib/importKakaoArchive.js';
 import {
   normalizeFarmName,
   inferCountryFromFarm,
@@ -382,16 +384,184 @@ const msg = (text, id = 'm1', time = '2026년 11월 25일 오전 9:30') => ({ id
   assert.equal(matchesCleanedScope(fullWindow.cleaned.find(c => c.id === 'c2'), col49Scope), false);
 }
 
-// 15. UI Anti-AI Slop, Typography, 1-Line 정리처리됨 Ellipsis & Read-Only ERP Contract assertions
+// 15. 3-tier Subscription LLM `order_parsed` priority + `replacesMessageId` + regex fallback + archive reception
+{
+  const priorToken = process.env.ORBIT_OWNER_TOKEN;
+  process.env.ORBIT_OWNER_TOKEN = 'fixture-only';
+  try {
+    const archiveRows = [
+      {
+        id: 501,
+        external_message_id: 'ext-501',
+        source: 'nenovakakao',
+        chatroom: '수입방',
+        created_at: '2026-11-25T01:00:00.000Z',
+        sender: 'fixture-a',
+        message: '49차 수국 주광 버건디 열박스 안티오퀴아로 먼저 넣을게요',
+        order_parsed: {
+          kind: 'addition',
+          provider: 'claude-sub',
+          country: '콜롬비아',
+          week: '49',
+          group: '',
+          category: '수국',
+          farm: '안티오퀴아',
+          customer: '주광',
+          items: [
+            { product: '버건디', category: '수국', farm: '안티오퀴아', country: '콜롬비아', customer: '주광', spec: '', quantity: 10, unit: '박스', rawUnit: '박스', note: '' },
+          ],
+          cancelledItems: [],
+          memos: [],
+          replacesMessageId: null,
+          reviewReason: '',
+          cleanReason: '',
+        },
+        order_parsed_at: '2026-11-25T01:02:00.000Z',
+        order_parser_version: 1,
+      },
+      {
+        id: 502,
+        external_message_id: 'ext-502',
+        source: 'nenovakakao',
+        chatroom: '수입방',
+        created_at: '2026-11-25T01:10:00.000Z',
+        sender: 'fixture-a',
+        message: '방금 주광 버건디 15박스로 수정 진행합니다 (안티오퀴아)',
+        order_parsed: {
+          kind: 'addition',
+          provider: 'codex-sub',
+          country: 'Colombia',
+          week: '2026/49',
+          group: '',
+          category: '수국',
+          farm: 'Antioquia',
+          customer: '주광',
+          items: [
+            { product: '버건디', category: '수국', farm: 'Antioquia', country: '', customer: '주광', spec: 'Select · 60cm', quantity: 15, unit: 'box', rawUnit: 'box', note: '' },
+            { product: '합계 15박스', quantity: 15, unit: '박스' },
+          ],
+          cancelledItems: [{ product: '에린지움', quantity: 2, unit: '박스', reason: '품목 제외' }],
+          memos: ['수요일 선적분'],
+          replacesMessageId: 'ext-501',
+          reviewReason: '',
+          cleanReason: '',
+        },
+        order_parsed_at: '2026-11-25T01:12:00.000Z',
+        order_parser_version: 1,
+      },
+      {
+        id: 503,
+        external_message_id: 'ext-503',
+        source: 'nenovakakao',
+        chatroom: '수입방',
+        created_at: '2026-11-25T01:15:00.000Z',
+        sender: 'fixture-b',
+        message: '네 수요일 항공편 스케줄 확인했습니다 감사합니다',
+        order_parsed: {
+          kind: 'cleaned',
+          provider: 'antigravity-sub',
+          country: '',
+          week: '',
+          items: [],
+          cancelledItems: [],
+          memos: [],
+          replacesMessageId: null,
+          cleanReason: '항공편 일정 확인 인사 (비발주)',
+        },
+        order_parsed_at: '2026-11-25T01:16:00.000Z',
+        order_parser_version: 1,
+      },
+      {
+        id: 504,
+        external_message_id: 'ext-504',
+        source: 'nenovakakao',
+        chatroom: '수입방',
+        created_at: '2026-11-25T01:20:00.000Z',
+        sender: 'fixture-c',
+        message: '49-1 중국 발주 추가\n시네신스 화이트 20단(Melody)',
+        order_parsed: null,
+        order_parsed_at: null,
+      },
+    ];
+    const loaded = await readImportArchive('2026-11-25', '2026-11-25', async () => ({
+      ok: true,
+      json: async () => ({ ok: true, total: 4, messages: archiveRows }),
+    }));
+    assert.equal(loaded.length, 4);
+    // Newest-first: ext-504 (null order_parsed), ext-503 (cleaned), ext-502 (replaces ext-501), ext-501
+    const m501 = loaded.find(m => m.text.includes('열박스'));
+    const m502 = loaded.find(m => m.text.includes('15박스로 수정'));
+    assert.equal(m502.order_parsed.replacesMessageId, m501.id);
+
+    const classified = classifyImportFeed({ messages: loaded });
+    assert.deepEqual(classified.llmStats, {
+      parsed: 3,
+      pending: 1,
+      providers: ['antigravity-sub', 'codex-sub', 'claude-sub'],
+    });
+    // Exact stats invariant: scanned === selected + review + excluded + duplicates
+    assert.equal(
+      classified.stats.scanned,
+      classified.stats.selected + classified.stats.review + classified.stats.excluded + classified.stats.duplicates
+    );
+    // m501 was superseded by m502 via replacesMessageId -> moved to review (unchecked), so Colombia total is 15, NOT 25!
+    assert.equal(classified.messages.length, 2); // m504 (regex fallback) + m502 (LLM)
+    assert.equal(classified.review.length, 1); // m501 superseded
+    assert.equal(classified.review[0].id, m501.id);
+    assert.equal(classified.cleaned.length, 1); // m503 (LLM cleaned)
+    assert.equal(classified.cleaned[0].analysisSource, 'llm');
+    assert.equal(classified.cleaned[0].reason, '항공편 일정 확인 인사 (비발주)');
+    assert(!('sender' in classified.messages[0]) && !('order_parsed' in classified.messages[0]));
+    assert(!('sender' in classified.cleaned[0]));
+
+    // Verify unparsed new message fell back to regex seamlessly
+    const fallbackMsg = classified.messages.find(m => m.text.includes('시네신스 화이트'));
+    assert.equal(fallbackMsg.analysisSource, 'regex');
+    assert.equal(fallbackMsg.items[0].farm, 'Melody');
+    assert.equal(fallbackMsg.items[0].quantity, '20');
+
+    // Verify LLM message normalized product+spec, ignored summary total item, and extracted cancelledItems + memos
+    const llmMsg = classified.messages.find(m => m.id === m502.id);
+    assert.equal(llmMsg.analysisSource, 'llm');
+    assert.equal(llmMsg.items.length, 1);
+    assert.equal(llmMsg.items[0].country, '콜롬비아');
+    assert.equal(llmMsg.items[0].farm, '안티오퀴아');
+    assert.equal(llmMsg.items[0].spec, 'Select · 60cm');
+    assert.equal(llmMsg.ignoredTotals.length, 1);
+    assert.equal(llmMsg.excludedItems.length, 1);
+    assert.equal(llmMsg.memos[0].text, '수요일 선적분');
+
+    const summed = farmTotals(
+      [...classified.messages, ...classified.review].flatMap(m => m.items.map(i => importItemView(i)))
+    );
+    const colombiaRows = summed.filter(r => r.country === '콜롬비아');
+    assert.equal(colombiaRows.length, 1);
+    assert.equal(colombiaRows[0].quantity, 15);
+
+    // Malformed order_parsed gracefully falls back to regex instead of throwing
+    assert.equal(normalizeLlmOrderParsed({ text: '49차 수국 발주 추가\n화이트 5박스', order_parsed: { kind: 'unknown_kind' } }), null);
+    const recoveredByRegex = analyzeImportMessage({ id: 'mal', time: '2026년 11월 25일 오전 9:00', text: '49차 수국 발주 추가\n화이트 5박스', order_parsed: 'not-json' });
+    assert.equal(recoveredByRegex.analysisSource, 'regex');
+    assert.equal(recoveredByRegex.items[0].quantity, '5');
+  } finally {
+    if (priorToken === undefined) delete process.env.ORBIT_OWNER_TOKEN;
+    else process.env.ORBIT_OWNER_TOKEN = priorToken;
+  }
+}
+
+// 16. UI Anti-AI Slop, Typography, 1-Line 정리처리됨 Ellipsis, AI Badges & Read-Only ERP Contract assertions
 {
   const uiSource = fs.readFileSync(new URL('../components/import-tools/KakaoAdditions.js', import.meta.url), 'utf8');
   assert.match(uiSource, /'Pretendard Variable',\s*'Pretendard'/);
   assert.match(uiSource, /font-variant-numeric:\s*tabular-nums/);
   assert.match(uiSource, /정리처리됨/);
+  assert.match(uiSource, /AI 정밀분류/);
+  assert.match(uiSource, /AI분류/);
+  assert.match(uiSource, /임시분류/);
   assert.match(uiSource, /\.kakao-cleaned-text\s*\{[\s\S]*?overflow:\s*hidden;[\s\S]*?text-overflow:\s*ellipsis;[\s\S]*?white-space:\s*nowrap/);
   assert.match(uiSource, /복원/);
   assert.doesNotMatch(uiSource, /\bmonospace\b|JetBrains\s+Mono/i);
-  assert.doesNotMatch(uiSource, /[🚀✨🔥💡]/u);
+  assert.doesNotMatch(uiSource, /[🚀✨🔥💡🤖]/u);
   assert.doesNotMatch(uiSource, /감시|추적|모니터링|절감시간/);
   assert.doesNotMatch(uiSource, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i);
 }
