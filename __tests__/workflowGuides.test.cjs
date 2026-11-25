@@ -1,6 +1,6 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
-const { validateWorkflowGuides, sourceHash, sha256 } = require('../scripts/check-workflow-guides.cjs');
+const { validateWorkflowGuides, isWorkflowGuideHoldActive, sourceHash, sha256 } = require('../scripts/check-workflow-guides.cjs');
 const { workflowGuide, guideTime, publicGuidePath } = require('../lib/workflowGuides.cjs');
 
 function fixture() {
@@ -48,4 +48,34 @@ test('local paths and human-readable times do not allow external media or traver
   assert.equal(publicGuidePath('/guides/incoming-approval/import.mp4', 'mp4'), true);
   for (const value of ['https://example.com/a.mp4', '/guides/../secret.mp4', '//guides/a.mp4', '/guides/a.mp4?token=x']) assert.equal(publicGuidePath(value, 'mp4'), false);
   assert.equal(workflowGuide('missing'), null); assert.equal(workflowGuide('incoming-approval').guides.length, 2);
+});
+test('holdUntil defers hash/new-menu failures until expiry unless WORKFLOW_GUIDES_FORCE_STRICT=1 is set', () => {
+  const f = fixture();
+  try {
+    f.registry.holdUntil = '2026-12-25';
+    f.registry.holdReason = '기획 재정비 보류 테스트';
+    fs.appendFileSync(path.join(f.root, 'pages/example.js'), '// planning revision');
+    assert.equal(isWorkflowGuideHoldActive(f.registry, { now: '2026-11-25T07:00:00Z', env: {} }), true);
+    const held = validateWorkflowGuides(f.root, f.registry, {
+      addedPages: ['pages/new-menu.js'],
+      now: '2026-11-25T07:00:00Z',
+      env: {},
+    });
+    assert.equal(held.held, true);
+    assert.equal(held.holdUntil, '2026-12-25');
+    assert.equal(held.deferredIssues.length, 2);
+    assert.match(held.deferredIssues[0], /다시 촬영/);
+    assert.match(held.deferredIssues[1], /새 메뉴/);
+
+    assert.throws(
+      () => validateWorkflowGuides(f.root, f.registry, { now: '2026-11-25T07:00:00Z', env: { WORKFLOW_GUIDES_FORCE_STRICT: '1' } }),
+      /다시 촬영/
+    );
+    assert.throws(
+      () => validateWorkflowGuides(f.root, f.registry, { now: '2026-12-26T00:00:00+09:00', env: {} }),
+      /다시 촬영/
+    );
+  } finally {
+    f.close();
+  }
 });

@@ -101,7 +101,7 @@ async function main() {
 
   console.log('\n=== package.json test:erp-contract에 확정 관련 테스트가 연결됨 ===');
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
-  const erpContractCmd = pkg.scripts['test:erp-contract'];
+  const erpContractCmd = pkg.scripts['erp:contract:main'] || pkg.scripts['test:erp-contract'];
   for (const testFile of [
     'profitReportConfirmSnapshotImmutability.test.js',
     'profitReportConfirmAuditTrail.test.js',
