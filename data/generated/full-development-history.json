@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-25T06:55:39.522Z",
+  "generatedAt": "2026-11-25T07:07:24.403Z",
   "coverage": {
     "stage": "verified-refs",
     "definition": "External source main refs and ERP build HEAD; a non-master ERP build HEAD may include its branch commits.",
@@ -16,22 +16,22 @@
       "label": "Nenova ERP",
       "repo": "nenova-erp-ui",
       "ref": "HEAD",
-      "headHash": "5fd34f4e11eb955f5540e8f2a256113bfb9ed82e",
+      "headHash": "54d4fd7855167a4959105b9bff1f8ed746fb8561",
       "sourceStatus": "build-git",
       "stage": "build-head",
       "stale": false,
       "rootHashes": [
         "b4c5da128ba455091a4e602d88953c279eaaed3f"
       ],
-      "collectedAt": "2026-11-25T06:55:39.522Z",
-      "totalCommits": 4106,
-      "nonMergeCount": 3301,
+      "collectedAt": "2026-11-25T07:07:24.403Z",
+      "totalCommits": 4107,
+      "nonMergeCount": 3302,
       "mergeCount": 805,
       "summaryCount": 530,
       "knownSummaryTitles": 464,
       "unknownSummaryTitles": 66,
       "firstDate": "2026-04-01T05:01:29.000Z",
-      "lastDate": "2026-11-25T06:29:56.000Z"
+      "lastDate": "2026-11-25T06:58:08.000Z"
     },
     {
       "id": "mindmap-viewer",
@@ -100,6 +100,45 @@
     }
   ],
   "records": [
+    {
+      "hash": "54d4fd7855167a4959105b9bff1f8ed746fb8561",
+      "date": "2026-11-25T06:58:08.000Z",
+      "committedAt": "2026-11-25T06:58:08.000Z",
+      "subject": "feat(import): 입고 인보이스 업로드 시 자동 매칭 알림 및 원스톱 매칭 확인 창 구현",
+      "parents": [
+        "5fd34f4e11eb955f5540e8f2a256113bfb9ed82e"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/importPacking.test.js",
+        "__tests__/importPackingHardening.test.js",
+        "components/import-tools/PackingListTool.js",
+        "config/workflow-guides.json",
+        "docs/contracts/import-team-tools.json",
+        "lib/importPacking.js",
+        "lib/importPackingErpMatches.js",
+        "lib/importPackingFarmMatches.js",
+        "lib/importTeamStore.js",
+        "pages/api/import/receipts/auto-fill.js",
+        "pages/api/import/tools/farm-matches.js",
+        "pages/api/import/tools/state.js",
+        "scripts/record-packing-free-ocr-guide.cjs",
+        "scripts/record-packing-list-guide.cjs"
+      ],
+      "changedFileCount": 30,
+      "redactedPathCount": 15,
+      "id": "54d4fd7855167a4959105b9bff1f8ed746fb8561",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
     {
       "hash": "5fd34f4e11eb955f5540e8f2a256113bfb9ed82e",
       "date": "2026-11-25T06:29:56.000Z",
@@ -185986,8 +186025,8 @@
     }
   ],
   "counts": {
-    "uniqueCommits": 6045,
-    "nonMerge": 5234,
+    "uniqueCommits": 6046,
+    "nonMerge": 5235,
     "merge": 811,
     "summaries": 615,
     "knownSummaryTitles": 549,

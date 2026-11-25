@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-25T06:46:06.297Z",
+  "recordedAt": "2026-11-25T07:07:17.404Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
@@ -9,13 +9,13 @@
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "426368f949de810fbd84bdd7f90375c454e5319b4f8b3e30a02832478d335e26",
-  "captionsSha256": "4c6a306380af893708ba7080f4fabdd25e88980c59bcae6e5f122a1970966523",
+  "videoSha256": "4c951e5d88b7b553dc20e208d5903ea670286c5d9792d3654484b56a26ef12f7",
+  "captionsSha256": "762247e6e0cbe68cdcb6317eff80961a4d614c35d70d7948c1b1aff52e8a2717",
   "sourceHashes": {
     "components/import-tools/HubfreshPacking.js": "617c79747ba01bd2227e41737d77f5efd6fc3133b4486cd884a15dea53871a8e",
     "components/import-tools/PackingListTool.js": "e8222e0258633bf4ce2bd517f4cb0ae993b5740c58455fc5befef947a6419d9d",
     "pages/import/tools.js": "3a19680c05197608ca0114a3fd7fbf2e6f5cd8c09977d058fddf94ccc0930ccb",
-    "pages/incoming.js": "e651c402d368cf5f786ae21e198fc3448bf2a781ac1e4c230da19e62004880b0",
+    "pages/incoming.js": "2a504f2082e5dbc4a188c4c8fcd241822c64c45058b04d9f6137591bd671bcc9",
     "lib/hubfreshPacking.js": "63969bdb1beb41f1ebbdf92c8a12194193641ec663d848e37e84213669cd2120"
   },
   "presentation": {
@@ -32,31 +32,31 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 5.658989900000001,
+        "start": 5.6336023,
         "x": 357.140625,
         "y": 823.7265625,
-        "end": 15.442602899999999
+        "end": 15.406379
       },
       {
         "number": 2,
-        "start": 21.299548799999997,
+        "start": 21.249461800000002,
         "x": 601.984375,
         "y": 772.453125,
-        "end": 31.112568100000004
+        "end": 31.048442599999998
       },
       {
         "number": 3,
-        "start": 36.9482111,
+        "start": 36.8926312,
         "x": 587.3125,
         "y": 881.515625,
-        "end": 47.192446800000006
+        "end": 47.1190098
       },
       {
         "number": 4,
-        "start": 53.0343857,
+        "start": 52.9788961,
         "x": 975.640625,
         "y": 774.625,
-        "end": 62.8275098
+        "end": 62.7897388
       }
     ]
   }

@@ -9,6 +9,7 @@ import {
   buildSalesPasteOrderChanges,
   buildSalesPasteText,
   buildSalesPasteWeekChoices,
+  mergeSalesPasteHandoffWeekChoices,
   normalizeSalesPasteInputText,
   replaceSalesPasteProduct,
   replaceSalesPasteUnit,
@@ -17,22 +18,35 @@ import {
   salesManagerOptions,
   salesPasteUnitOptions,
 } from '../../lib/salesPasteOrder';
+import {
+  KAKAO_ORDER_HANDOFF_KEY,
+  KAKAO_ORDER_SYNC_CHANNEL,
+  KAKAO_ORDER_SYNC_PING_KEY,
+} from '../../lib/kakaoOrderErpStatus';
 
 const productLabel = (row) =>
   row.displayName || row.prodName || row.inputName || '-';
 
 export default function SalesPasteOrderPage() {
-  const weekChoices = useMemo(() => buildSalesPasteWeekChoices(new Date()), []);
-  const [year, setYear] = useState(
-    weekChoices[0]?.year || String(new Date().getFullYear()),
+  const baseWeekChoices = useMemo(() => buildSalesPasteWeekChoices(new Date()), []);
+  const [kakaoHandoff, setKakaoHandoff] = useState(null);
+  const [kakaoSourceOpen, setKakaoSourceOpen] = useState(false);
+  const activeKakaoGroup = kakaoHandoff?.groups?.[kakaoHandoff.activeGroupIndex || 0] || null;
+  const weekChoices = useMemo(
+    () => mergeSalesPasteHandoffWeekChoices(baseWeekChoices, activeKakaoGroup),
+    [baseWeekChoices, activeKakaoGroup],
   );
-  const [week, setWeek] = useState(weekChoices[0]?.week || '');
+  const [year, setYear] = useState(
+    baseWeekChoices[0]?.year || String(new Date().getFullYear()),
+  );
+  const [week, setWeek] = useState(baseWeekChoices[0]?.week || '');
   const [user, setUser] = useState({});
   const [customers, setCustomers] = useState([]);
   const [manager, setManager] = useState('');
   const [custKey, setCustKey] = useState('');
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState([]);
+  const [loadedProductScope, setLoadedProductScope] = useState('');
   const [text, setText] = useState('');
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -45,6 +59,9 @@ export default function SalesPasteOrderPage() {
   const [lastAppliedChanges, setLastAppliedChanges] = useState([]);
   const submitLock = useRef(false);
   const detectedScopeChange = useRef(false);
+  const kakaoNeedsCustomerPickRef = useRef(false);
+  const appliedHandoffKeyRef = useRef('');
+  const autoAnalyzedKeyRef = useRef('');
 
   useEffect(() => {
     Promise.all([apiGet('/api/auth/me'), apiGet('/api/orders/my-customers')])
@@ -102,6 +119,23 @@ export default function SalesPasteOrderPage() {
   );
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') !== 'kakao-import') return;
+    try {
+      const raw = localStorage.getItem(KAKAO_ORDER_HANDOFF_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.groups) && parsed.groups.length > 0) {
+        setKakaoHandoff({
+          ...parsed,
+          activeGroupIndex: Number.isInteger(parsed.activeGroupIndex) ? parsed.activeGroupIndex : 0,
+        });
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     if (detectedScopeChange.current) detectedScopeChange.current = false;
     else {
       setRows([]);
@@ -112,13 +146,17 @@ export default function SalesPasteOrderPage() {
     }
     if (!custKey || !year || !week) {
       setProducts([]);
+      setLoadedProductScope('');
       return;
     }
     let active = true;
     setBusy(true);
     apiGet('/api/orders/my-customers', { custKey, year, week })
       .then((result) => {
-        if (active) setProducts(result.products || []);
+        if (active) {
+          setProducts(result.products || []);
+          setLoadedProductScope(`${custKey}:${year}:${week}`);
+        }
       })
       .catch((error) => {
         if (active) setMessage(error.message);
@@ -132,6 +170,7 @@ export default function SalesPasteOrderPage() {
   }, [custKey, year, week]);
 
   useEffect(() => {
+    if (kakaoNeedsCustomerPickRef.current && !custKey) return;
     if (
       custKey &&
       managerCustomers.some((row) => String(row.CustKey) === String(custKey))
@@ -139,6 +178,86 @@ export default function SalesPasteOrderPage() {
       return;
     setCustKey(managerCustomers[0] ? String(managerCustomers[0].CustKey) : '');
   }, [manager, managerCustomers, custKey]);
+
+  useEffect(() => {
+    if (!activeKakaoGroup || !customers.length) return;
+    const applyKey = `${kakaoHandoff?.handoffId || 'handoff'}:${activeKakaoGroup.groupKey}`;
+    if (appliedHandoffKeyRef.current === applyKey) return;
+    appliedHandoffKeyRef.current = applyKey;
+
+    detectedScopeChange.current = true;
+    setYear(activeKakaoGroup.year);
+    setWeek(activeKakaoGroup.week);
+    setRows([]);
+    setAnalysisPreview({ status: 'idle', items: [], error: '' });
+    setLastAppliedChanges([]);
+    setText(activeKakaoGroup.pasteText || '');
+
+    const matchedCustomer = activeKakaoGroup.custKey
+      ? customers.find((c) => Number(c.CustKey) === Number(activeKakaoGroup.custKey))
+      : null;
+
+    if (matchedCustomer) {
+      kakaoNeedsCustomerPickRef.current = false;
+      const nextManager = String(matchedCustomer.ManagerName || '').trim();
+      if (nextManager) setManager(nextManager);
+      setCustKey(String(matchedCustomer.CustKey));
+      setQuery('');
+      setMessage(
+        activeKakaoGroup.majorWeekOnly
+          ? `수입방 카톡 발주 ${activeKakaoGroup.itemCount}건을 불러왔습니다. 원문에 대차수(${activeKakaoGroup.originalWeekLabel})만 표기되어 ${activeKakaoGroup.week}로 설정되었으니 1. 등록 차수를 꼭 확인하세요.`
+          : `수입방 카톡 발주 ${activeKakaoGroup.itemCount}건을 불러왔습니다. 전산 품목 매칭 결과를 확인한 뒤 [주문만 등록]을 누르세요.`,
+      );
+    } else {
+      kakaoNeedsCustomerPickRef.current = true;
+      const hintToken = String(activeKakaoGroup.rawCustomer || '').trim().toLowerCase();
+      const candidateRow =
+        (activeKakaoGroup.customerCandidates?.[0]?.custKey &&
+          customers.find((c) => Number(c.CustKey) === Number(activeKakaoGroup.customerCandidates[0].custKey))) ||
+        (hintToken
+          ? customers.find((c) =>
+              `${c.CustName} ${c.OrderCode || ''} ${c.CustArea || ''}`.toLowerCase().includes(hintToken),
+            )
+          : null);
+      if (candidateRow?.ManagerName) {
+        setManager(String(candidateRow.ManagerName).trim());
+      }
+      setCustKey('');
+      setQuery(activeKakaoGroup.rawCustomer || '');
+      setMessage(
+        `거래처 [${activeKakaoGroup.rawCustomer || '미확인'}] 후보를 좁혔습니다. 3. 업체에서 정확한 거래처를 선택한 뒤 [기존 매칭으로 분석]을 눌러주세요.`,
+      );
+    }
+  }, [activeKakaoGroup, customers, kakaoHandoff]);
+
+  useEffect(() => {
+    if (!activeKakaoGroup || !activeKakaoGroup.custKey || activeKakaoGroup.completedAt) return;
+    if (!selectedCustomer || Number(selectedCustomer.CustKey) !== Number(activeKakaoGroup.custKey)) return;
+    if (year !== activeKakaoGroup.year || week !== activeKakaoGroup.week) return;
+    if (loadedProductScope !== `${custKey}:${year}:${week}`) return;
+    if (!text.trim() || busy) return;
+    const analyzeKey = `${kakaoHandoff?.handoffId || 'handoff'}:${activeKakaoGroup.groupKey}`;
+    if (autoAnalyzedKeyRef.current === analyzeKey) return;
+    autoAnalyzedKeyRef.current = analyzeKey;
+    analyze();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeKakaoGroup, selectedCustomer, loadedProductScope, custKey, year, week, text, busy]);
+
+  function selectKakaoHandoffGroup(nextIndex) {
+    if (!kakaoHandoff?.groups?.[nextIndex]) return;
+    appliedHandoffKeyRef.current = '';
+    autoAnalyzedKeyRef.current = '';
+    const updated = { ...kakaoHandoff, activeGroupIndex: nextIndex };
+    setKakaoHandoff(updated);
+    try {
+      localStorage.setItem(KAKAO_ORDER_HANDOFF_KEY, JSON.stringify(updated));
+    } catch {}
+  }
+
+  function dismissKakaoHandoff() {
+    kakaoNeedsCustomerPickRef.current = false;
+    setKakaoHandoff(null);
+  }
 
   async function analyze() {
     if (!selectedCustomer || !text.trim())
@@ -293,6 +412,36 @@ export default function SalesPasteOrderPage() {
         `${result.message || '주문 등록 완료'} · 현재 주문 재조회 완료 · 분배 변경 없음`,
       );
       appendOperationLog('완료', `${result.message || '주문 등록 완료'} · 재조회 검증 완료 · 분배 변경 없음`);
+      const orderMasterKey =
+        result.orderMasterKey ||
+        (result.results || []).find((r) => r.orderMasterKey)?.orderMasterKey ||
+        null;
+      try {
+        localStorage.setItem(KAKAO_ORDER_SYNC_PING_KEY, String(Date.now()));
+        if (typeof BroadcastChannel !== 'undefined') {
+          const channel = new BroadcastChannel(KAKAO_ORDER_SYNC_CHANNEL);
+          channel.postMessage({
+            type: 'KAKAO_ORDER_REGISTERED',
+            year,
+            week,
+            custKey: Number(custKey),
+            orderMasterKey,
+          });
+          channel.close();
+        }
+      } catch {}
+      if (kakaoHandoff && activeKakaoGroup) {
+        const nextGroups = kakaoHandoff.groups.map((g, idx) =>
+          idx === (kakaoHandoff.activeGroupIndex || 0)
+            ? { ...g, completedOrderMasterKey: orderMasterKey, completedAt: new Date().toISOString() }
+            : g,
+        );
+        const updatedHandoff = { ...kakaoHandoff, groups: nextGroups };
+        setKakaoHandoff(updatedHandoff);
+        try {
+          localStorage.setItem(KAKAO_ORDER_HANDOFF_KEY, JSON.stringify(updatedHandoff));
+        } catch {}
+      }
     } catch (error) {
       appendOperationLog('실패', error.message || '주문등록 실패');
       setMessage(error.message || '주문등록 실패');
@@ -394,6 +543,81 @@ export default function SalesPasteOrderPage() {
           <Link href="/orders/my-customers">수량 직접 입력</Link>
           <span aria-current="page">붙여서 주문등록</span>
         </nav>
+        {kakaoHandoff && activeKakaoGroup && (
+          <section className="kakao-handoff-banner" aria-label="수입방 카톡 발주 이관 정보">
+            <div className="kakao-handoff-head">
+              <div>
+                <strong>수입방 카톡 발주 반자동 넘겨받기</strong>
+                <span>
+                  {activeKakaoGroup.year}년 {activeKakaoGroup.week}차 ·{' '}
+                  {activeKakaoGroup.custName || activeKakaoGroup.rawCustomer || '거래처 선택 필요'} · 품목{' '}
+                  {activeKakaoGroup.itemCount}건
+                </span>
+                {activeKakaoGroup.completedAt && (
+                  <em className="kakao-handoff-done">
+                    등록 완료{activeKakaoGroup.completedOrderMasterKey ? ` (#${activeKakaoGroup.completedOrderMasterKey})` : ''}
+                  </em>
+                )}
+              </div>
+              <div className="kakao-handoff-controls">
+                {activeKakaoGroup.sourceMessages?.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setKakaoSourceOpen((prev) => !prev)}
+                  >
+                    {kakaoSourceOpen
+                      ? '카톡 원문 접기'
+                      : `카톡 원문 근거 보기 (${activeKakaoGroup.sourceMessages.length}건)`}
+                  </button>
+                )}
+                <button type="button" onClick={dismissKakaoHandoff}>
+                  배너 닫기
+                </button>
+              </div>
+            </div>
+            {activeKakaoGroup.majorWeekOnly && (
+              <p className="kakao-handoff-warn" role="alert">
+                카톡 원문에 세부차수 없이 대차수({activeKakaoGroup.originalWeekLabel})만 기재되어 기본 차수({activeKakaoGroup.week})로 설정되었습니다. 등록 전 아래 1. 등록 차수에서 1차/2차 여부를 반드시 확인하세요.
+              </p>
+            )}
+            {activeKakaoGroup.items?.some((it) => /^(?:FB|HB|QB|EB)$/i.test(it.sourceUnit)) && (
+              <p className="kakao-handoff-unit-note">
+                원문 박스 규격 참고:{' '}
+                {activeKakaoGroup.items
+                  .filter((it) => /^(?:FB|HB|QB|EB)$/i.test(it.sourceUnit))
+                  .map((it) => `${it.product} ${it.quantity}${it.sourceUnit}`)
+                  .join(' · ')}
+              </p>
+            )}
+            {kakaoHandoff.groups.length > 1 && (
+              <div className="kakao-handoff-groups" role="group" aria-label="이관된 거래처 묶음 선택">
+                {kakaoHandoff.groups.map((grp, idx) => (
+                  <button
+                    key={grp.groupKey}
+                    type="button"
+                    className={idx === (kakaoHandoff.activeGroupIndex || 0) ? 'active' : ''}
+                    onClick={() => selectKakaoHandoffGroup(idx)}
+                  >
+                    {grp.year}/{grp.week} · {grp.custName || grp.rawCustomer} ({grp.itemCount}건)
+                    {grp.completedAt ? ' [등록완료]' : ''}
+                  </button>
+                ))}
+              </div>
+            )}
+            {kakaoSourceOpen && activeKakaoGroup.sourceMessages?.length > 0 && (
+              <div className="kakao-handoff-sources">
+                {activeKakaoGroup.sourceMessages.map((msg) => (
+                  <article key={msg.id}>
+                    <small>
+                      {msg.room} · {msg.time}
+                    </small>
+                    <pre>{msg.text}</pre>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
         <section className="scope">
           <div>
             <b>1. 등록 차수</b>
@@ -451,7 +675,10 @@ export default function SalesPasteOrderPage() {
                   className={
                     String(row.CustKey) === String(custKey) ? 'active' : ''
                   }
-                  onClick={() => setCustKey(String(row.CustKey))}
+                  onClick={() => {
+                    kakaoNeedsCustomerPickRef.current = false;
+                    setCustKey(String(row.CustKey));
+                  }}
                 >
                   <span>
                     {row.CustName}
@@ -819,6 +1046,103 @@ export default function SalesPasteOrderPage() {
           background: #155bd7;
           color: #fff;
           border-color: #155bd7;
+        }
+        .kakao-handoff-banner {
+          margin-top: 8px;
+          padding: 9px 12px;
+          border: 1px solid #93c5fd;
+          border-radius: 6px;
+          background: #f8fbff;
+          color: #0f172a;
+        }
+        .kakao-handoff-head {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+        }
+        .kakao-handoff-head strong {
+          margin-right: 8px;
+          color: #1e3a8a;
+          font-size: 14px;
+        }
+        .kakao-handoff-head span {
+          font-size: 13.5px;
+          color: #334155;
+        }
+        .kakao-handoff-done {
+          margin-left: 8px;
+          padding: 2px 7px;
+          border-radius: 4px;
+          background: #dcfce7;
+          color: #166534;
+          font-style: normal;
+          font-weight: 700;
+          font-size: 12.5px;
+        }
+        .kakao-handoff-controls {
+          display: flex;
+          gap: 6px;
+        }
+        .kakao-handoff-controls button,
+        .kakao-handoff-groups button {
+          padding: 5px 10px;
+          background: #fff;
+          font-size: 13px;
+          font-weight: 700;
+          color: #1e293b;
+          cursor: pointer;
+        }
+        .kakao-handoff-groups button.active {
+          background: #155bd7;
+          border-color: #155bd7;
+          color: #fff;
+        }
+        .kakao-handoff-warn {
+          margin: 6px 0 0;
+          padding: 6px 9px;
+          border-radius: 5px;
+          background: #fffbeb;
+          border: 1px solid #fde68a;
+          color: #92400e;
+          font-size: 13px;
+          font-weight: 600;
+        }
+        .kakao-handoff-unit-note {
+          margin: 5px 0 0;
+          font-size: 12.5px;
+          color: #475569;
+        }
+        .kakao-handoff-groups {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 7px;
+        }
+        .kakao-handoff-sources {
+          margin-top: 8px;
+          display: grid;
+          gap: 6px;
+        }
+        .kakao-handoff-sources article {
+          padding: 7px 9px;
+          border: 1px solid #cbd5e1;
+          border-radius: 5px;
+          background: #fff;
+        }
+        .kakao-handoff-sources small {
+          display: block;
+          margin-bottom: 4px;
+          color: #475569;
+          font-weight: 600;
+        }
+        .kakao-handoff-sources pre {
+          margin: 0;
+          white-space: pre-wrap;
+          font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', sans-serif;
+          font-size: 13px;
+          line-height: 1.45;
         }
         .scope {
           display: grid;

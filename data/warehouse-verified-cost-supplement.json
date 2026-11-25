@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "scope": {
+        "warehouseKey": 8259,
+        "orderYear": "2026",
+        "orderWeek": "48-01",
+        "farmName": "HUBFRESH",
+        "invoiceNo": "XJ-2026-NN012",
+        "fileName": "48-01_CN_CLD_XJ-2026-NN012.xlsx"
+      },
+      "gw": 2523.76,
+      "cw": 2523.76,
+      "freight": null,
+      "source": "CI-2026-NN012(48-1)-账单(CNY).xlsx · 네노바 CL 281박스 확정 실중량·해상 과금중량(추정 해상운임 제외)"
+    },
+    {
+      "scope": {
+        "warehouseKey": 7967,
+        "orderYear": "2026",
+        "orderWeek": "45-01",
+        "farmName": "HUBFRESH",
+        "invoiceNo": "XJ-2026-NN009",
+        "fileName": "45-01_CN_CLD_XJ-2026-NN009.xlsx"
+      },
+      "gw": 1735.56,
+      "cw": 1735.56,
+      "freight": null,
+      "source": "45-01 HUBFRESH XJ-2026-NN009 원본 청구서 확정 중량"
+    },
+    {
+      "scope": {
+        "warehouseKey": 7103,
+        "orderYear": "2026",
+        "orderWeek": "35-02",
+        "farmName": "Holex",
+        "invoiceNo": "1205063",
+        "fileName": "35-02_NL_H_PROFORMA.xlsx"
+      },
+      "gw": 1106.6,
+      "cw": 1231,
+      "freight": {
+        "amount": 3041.33,
+        "currency": "EUR"
+      },
+      "source": "35-02 Holex 1205063 원본 송장 확정 운임·중량"
+    },
+    {
+      "scope": {
+        "warehouseKey": 6798,
+        "orderYear": "2026",
+        "orderWeek": "32-02",
+        "farmName": "Cloudland",
+        "invoiceNo": "2026YY-029",
+        "fileName": "32-2 CLOUD PL (1).xlsx"
+      },
+      "gw": 572,
+      "cw": 572,
+      "freight": {
+        "amount": 6934,
+        "currency": "CNY"
+      },
+      "source": "32-02 Cloudland 2026YY-029 원본 송장 확정 운임·중량"
+    }
+  ]
+}

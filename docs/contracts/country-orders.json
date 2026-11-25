@@ -31,7 +31,11 @@
     "__tests__/countryOrderDownloadHistory.test.js",
     "__tests__/importKakaoOrderText.test.mjs",
     "__tests__/importKakaoFarmSummary.test.mjs",
-    "docs/plans/import-kakao-filter-2026-11-18.md"
+    "docs/plans/import-kakao-filter-2026-11-18.md",
+    "pages/api/import/tools/kakao-order-status.js",
+    "lib/kakaoOrderErpStatus.js",
+    "components/import-tools/KakaoOrderRegisterBridge.js",
+    "__tests__/kakaoOrderErpStatus.test.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -83,6 +87,16 @@
     {
       "name": "COUNTRY_ORDER_XLSX_GENERATE",
       "source": "validated ERP-only CountryOrderMatrix through generatePedidosFromMatrix; subweek chooses and loads only; explicit preview button opens same-origin wide preview with a fullscreen fallback and identical state; download ETA label uses YYYY-MM-DD and retains workbook cell types and formulas; compares actual exported item/unit totals and ETA against five local-account snapshots per country/year/exact subweek/output filename; confirms OS save via browser writable close or Electron exact blob done, cancellation and failure do not record; explicit XLSX file import supports the unverified/legacy path; existing upload generatePedidos path remains intact; browser file only",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve"
+    },
+    {
+      "name": "IMPORT_ROOM_ERP_ORDER_RECONCILIATION_AND_HANDOFF",
+      "source": "authenticated GET /api/import/tools/kakao-order-status performs read-only SELECT on active Customer and explicit (OrderYear, OrderWeek/majorWeek) OrderMaster+OrderDetail+Product rows; KakaoOrderRegisterBridge classifies domestic-customer Kakao items as REGISTERED/DIFF_QTY/UNREGISTERED/CUSTOMER_CHECK while keeping unnamed stock PO items as NO_CUSTOMER and leaving farmTotals completely independent; eligible unregistered domestic items hand off via browser localStorage to /orders/sales-paste?mode=kakao-import where human review and explicit confirm execute existing sales-paste ADD order-only write",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "warehouseDetail": "preserve",
@@ -307,7 +321,8 @@
     "__tests__/importPedidos.test.js",
     "__tests__/erpContractManifest.test.js",
     "__tests__/importKakaoOrderText.test.mjs",
-    "__tests__/importKakaoFarmSummary.test.mjs"
+    "__tests__/importKakaoFarmSummary.test.mjs",
+    "__tests__/kakaoOrderErpStatus.test.mjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
