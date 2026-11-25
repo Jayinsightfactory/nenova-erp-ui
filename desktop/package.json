@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.99",
+  "version": "1.3.100",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -84,7 +84,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "Windows 로그인 시 자동 실행을 추가했습니다. 홈에서 켜고 끌 수 있으며, 자동 시작은 15~45초 분산해 서버 접속이 몰리지 않게 합니다."
+      "releaseNotes": "수입부 업무도구 12개국 확장(에콰도르·콜롬비아 등), 농장별 파일 분할 다운로드, 49-1차 박스/수량 수식 수정 및 등록 단위/수량 인라인 편집 지원"
     },
     "extraResources": [
       {
