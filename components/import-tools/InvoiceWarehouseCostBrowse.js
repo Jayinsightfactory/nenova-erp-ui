@@ -18,7 +18,7 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
   const [selectionRequest, setSelectionRequest] = useState(null);
   // 차수 통합이 기본이다. 기존 단일 AWB·개별 입고는 별도 선택으로 보존한다.
   const [showColombia, setShowColombia] = useState(false);
-  const [sharedAwb, setSharedAwb] = useState('');
+  const [sharedAwbState, setSharedAwbState] = useState({ awb: '', scope: 'MAIN' });
   const [individualCountry, setIndividualCountry] = useState('');
 
   useEffect(() => {
@@ -65,11 +65,26 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
   async function open(row, download) {
     if (!download && row.CostReferenceOnly) {
       const awb = String(row.OrderNo ?? '').replace(/[\s-]/g, '');
-      const goods = state.rows.filter(r => !r.CostReferenceOnly && String(r.OrderNo ?? '').replace(/[\s-]/g, '') === awb && baseCountry(r.CountryName) === '콜롬비아');
+      const sameAwbGoods = /^\d{11}$/.test(awb)
+        ? state.rows.filter(r => !r.CostReferenceOnly && String(r.OrderNo ?? '').replace(/[\s-]/g, '') === awb)
+        : [];
+      const coGoods = sameAwbGoods.filter(r => baseCountry(r.CountryName) === '콜롬비아');
       setNativeKey(null);
-      if (/^\d{11}$/.test(awb) && goods.length) {
-        setSharedAwb(awb);
+      if (/^\d{11}$/.test(awb) && coGoods.length) {
+        const invoiceHint = String(row.InvoiceNo ?? '');
+        const inferredScope = /수국|hydrangea/i.test(invoiceHint) && !/카장/i.test(invoiceHint) ? 'HYDRANGEA' : 'MAIN';
+        setSharedAwbState({ awb, scope: inferredScope });
         setShowColombia(true);
+        setAction({ busy: false, error: '' });
+      } else if (sameAwbGoods.length > 1 && sameAwbGoods.every(r => baseCountry(r.CountryName) === '중국')) {
+        setShowColombia(false);
+        setAction({ busy: false, error: '' });
+        const keys = sameAwbGoods.map(r => r.WarehouseKey);
+        setSelectionKeys(keys);
+        setSelectionRequest({ id: Date.now(), country: 'CN', keys });
+      } else if (sameAwbGoods.length >= 1) {
+        setShowColombia(false);
+        setNativeKey(sameAwbGoods[0].WarehouseKey);
         setAction({ busy: false, error: '' });
       } else {
         setAction({ busy: false, error: '이 입고는 운임·중량 참고자료이며 상품이 아닙니다. 해당 국가의 실제 상품 입고를 선택한 뒤 AWB 원문을 확인하세요.' });
@@ -158,14 +173,22 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
             type="button"
             className={ledger.btnSecondary}
             aria-expanded={showColombia}
-            onClick={() => setShowColombia(value => !value)}
+            onClick={() => {
+              if (!showColombia) setSharedAwbState({ awb: '', scope: 'MAIN' });
+              setShowColombia(value => !value);
+            }}
           >
             {showColombia ? 'AWB 업로드·공동 원가 접기' : 'AWB PDF 업로드·직접 입력 / 콜롬비아 공동 원가'}
           </button>
         </div>
       </div>
 
-      {showColombia && <SharedAwbCostReview key={sharedAwb} native={{ orderYear, orderWeek, awb: sharedAwb }} />}
+      {showColombia && (
+        <SharedAwbCostReview
+          key={`${sharedAwbState.awb}:${sharedAwbState.scope}`}
+          native={{ orderYear, orderWeek, awb: sharedAwbState.awb, scope: sharedAwbState.scope }}
+        />
+      )}
       {state.loading && <p className={ledger.statusNotice} role="status">입고내역 조회 중…</p>}
       {(state.error || action.error) && <p className={ledger.alertError} role="alert">{state.error || action.error}</p>}
 
@@ -176,6 +199,11 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
           orderWeek={orderWeek}
           warehouseKey={nativeKey}
           onClose={() => setNativeKey(null)}
+          onOpenSharedAwb={awb => {
+            setNativeKey(null);
+            setSharedAwbState({ awb, scope: 'MAIN' });
+            setShowColombia(true);
+          }}
         />
       ) : rows.length > 0 ? (
         <div className={ledger.ledgerTableWrap}>

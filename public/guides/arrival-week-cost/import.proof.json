@@ -1,27 +1,27 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-25T04:32:27.570Z",
+  "recordedAt": "2026-11-25T08:32:02.533Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 54.65,
+  "duration": 54.9,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "9cfe2f4649936dff3b90bcb9e7b4c7fe0a6542696523a749811454269c144841",
-  "captionsSha256": "7e733a2c807273149044048e40362e38890d437262741cd0e93daa96cd05e2a8",
+  "videoSha256": "5fcb9963ef6133cf3eca290e7f1b735936cea287d795c5294ead0b471a0f7326",
+  "captionsSha256": "ef6134d8e35a8eaf83f8ac2877e9e4eb4aaad7a225c58bc2ed672e429a585a2e",
   "sourceHashes": {
     "pages/arrival-cost.js": "c789897de7ee6a0e33c9679ddf8874e9c205cf5cb5950e71e68118fcac9f3cdf",
-    "components/import-tools/InvoiceWarehouseCostBrowse.js": "04672f5c2bb70a6e82b402df790865e684e016476fc3f9f72f39afd8a57d34d9",
-    "components/import-tools/ArrivalWeekCostReview.js": "e6bf17d0fbe41f8381888699466f3f99499acfbab65bbcaee31f03195db3fae9",
+    "components/import-tools/InvoiceWarehouseCostBrowse.js": "3785e355a30cf536dda8e60497c088e83cc9e0979a00669f2904a0c7670b63ae",
+    "components/import-tools/ArrivalWeekCostReview.js": "9db495d9bbd63c276166784c73abf65e7bb7c618c681b3939fe81e9dc468c83c",
     "components/import-tools/CloudCostCategories.js": "19ea1371d91b2ada94e7f1da50efb1355f3289f95ac5b2e27e180a26e7dfc96a",
     "styles/ArrivalWeekCost.module.css": "6fc865331f00238f4d8f30e954f4288ad075ebe642aa8603971f16006e80cd58",
     "styles/CloudCostCategories.module.css": "c57f8fe918d0c225e953e15b9ba0b0f6251d8b2a4df1fe9f745e2358c2c05ccd",
-    "lib/arrivalWeekCost.js": "f6f431d33482d29da40801274c44bc3e8f24f07bcd19265d051aab1fc4e5fbeb",
+    "lib/arrivalWeekCost.js": "ce0938e92711e0df4952b78ee05dc4278ce4df7ebabea6796c1111989ecc4a97",
     "lib/arrivalWeekCostHttp.js": "e1a649890716592298eb53abaf2de1d74551398dde9d439c0b1cb62a0a4d8011",
     "lib/arrivalWeekCostWorkbook.js": "ed189a9102710919e9a7a22546cea15dd3e2d4d8daa0afa96bee266d756bd4a1",
-    "components/import-tools/CloudCostReviewLedger.js": "46cba327a7637e2a8207fc15c17fec60b1395b42a4edc7502792a581396b004c",
+    "components/import-tools/CloudCostReviewLedger.js": "2676e3f6f3887986dea9a3cdf6f4c3d4f3b1d6d60e760d5353da9f1528b3dcc6",
     "styles/CloudCostReviewLedger.module.css": "fb661036fac31a78a17ebabf707b6827ca1c86d3110bb61eee6bba1e76f07139",
     "lib/cloudCostReview.js": "abb8af17fd2ebbe37d9edf0811d1cd49e2f67ef52f288f5cb194434e44a50e66",
     "lib/cloudCostReviewSource.js": "6ca9fa24084a418c92b5b371155f0eb4e0f6603a6f16834f350d6c7f243a4d98",
@@ -32,8 +32,8 @@
     "components/import-tools/CostAwbEvidence.js": "67f4c36dda8201eea4ce46a11317443b8a100ffc7f820fa92ce1f2b23acb251e",
     "styles/ArrivalCostLedger.module.css": "92f856ab5b6bcf8148d50a6889eaec8d7a9c985b241077b948457835d158f97f",
     "lib/arrivalCostAwbDraft.js": "9e0ace9c09d3d860e8f6291df084f26e1675fc0170b18910289e608de0a7506b",
-    "components/import-tools/SharedAwbCostReview.js": "4d57b836a845b31891adf98c2bb47dda02940fa1c9b349c4ab5df364de07a188",
-    "lib/nativeSharedCost.js": "03ba1e96658164f66211dcf46410dd5fc1e9a0d001a075a7a99512e670c054b5"
+    "components/import-tools/SharedAwbCostReview.js": "2e1cab4954705cad83988b13f08badb40d093e8fe0d76d8b1190f6f23cc05f61",
+    "lib/nativeSharedCost.js": "69c7150307bb26fa7430761ea24b34a477568b19afbe23f16e5d3d909ca1545d"
   },
   "presentation": {
     "numberedSteps": 6,
@@ -49,45 +49,45 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 3.024642599999999,
+        "start": 3.0367903999999997,
         "x": 1739,
         "y": 411.25,
-        "end": 8.589483499999998
+        "end": 8.6433411
       },
       {
         "number": 2,
-        "start": 11.8242235,
+        "start": 11.894423,
         "x": 1673.0546875,
         "y": 553.609375,
-        "end": 17.477580399999997
+        "end": 17.7922155
       },
       {
         "number": 3,
-        "start": 20.723839199999993,
+        "start": 21.0309187,
         "x": 313.125,
         "y": 553.859375,
-        "end": 26.543878499999998
+        "end": 26.7219085
       },
       {
         "number": 4,
-        "start": 31.0065732,
+        "start": 31.4445376,
         "x": 302,
         "y": 553.921875,
-        "end": 36.687681100000006
+        "end": 37.1131421
       },
       {
         "number": 5,
-        "start": 39.920921799999995,
+        "start": 40.3637659,
         "x": 91,
         "y": 554,
-        "end": 45.316559600000005
+        "end": 45.7575315
       },
       {
         "number": 6,
-        "start": 48.5529561,
+        "start": 48.9816762,
         "x": 684.765625,
         "y": 554.078125,
-        "end": 54.44264330000001
+        "end": 54.707478400000014
       }
     ]
   }

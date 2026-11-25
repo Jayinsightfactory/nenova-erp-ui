@@ -5,16 +5,23 @@ import InvoiceReceiptCostReview from './InvoiceReceiptCostReview';
 import styles from '../../styles/NativeReceiptCost.module.css';
 import WorkflowGuide from '../WorkflowGuide';
 
-// 원산지 → 매입 통화(운송은 항공 기본). 콜롬비아·에콰도르·미국 USD, 호주 AUD.
-// 중국은 운송이 두 가지라 자동 적용하지 않고 기존처럼 직접 선택한다. 그 외 나라도 마찬가지.
-const COUNTRY_DEFAULT_CURRENCY = { CO: 'USD', EC: 'USD', US: 'USD', AU: 'AUD', VN: 'USD' };
-// 중국은 통화 CNY 고정이고, 운송은 농장으로 정해진다(사용자 확인): HUBFRESH=해상, Cloudland=항공.
-// 이 두 농장이 아니면 통화만 채우고 운송은 직접 고르게 한다.
+// 원산지 → 매입 통화(운송은 항공 기본). 콜롬비아·에콰도르·미국·태국·베트남 USD, 호주 AUD, 뉴질랜드 NZD.
+// 다르면 화면의 "기준 변경"으로 즉시 바꿀 수 있다.
+const COUNTRY_DEFAULT_CURRENCY = { CO: 'USD', EC: 'USD', US: 'USD', AU: 'AUD', VN: 'USD', NZ: 'NZD', TH: 'USD' };
+// 중국은 통화 CNY 고정이고, 운송은 농장명 패턴(HUBFRESH/HUB2=해상, Cloudland=항공) 또는 항공 AWB·중량행으로 자동 추론한다.
 const COUNTRY_FIXED_CURRENCY = { CN: 'CNY' };
-const CN_FARM_TRANSPORT = [[/hub\s*fresh/i, 'SEA'], [/cloud\s*land/i, 'AIR']];
-const chinaTransport = farmName => (CN_FARM_TRANSPORT.find(([pattern]) => pattern.test(String(farmName || ''))) || [])[1] || '';
+const CN_FARM_TRANSPORT = [[/hub\s*fresh|^hub\d*\b|해상|\bsea\b/i, 'SEA'], [/cloud(?:\s*land)?|항공|\bair\b/i, 'AIR']];
+function chinaTransport(source) {
+  const byFarm = (CN_FARM_TRANSPORT.find(([pattern]) => pattern.test(String(source?.farmName || ''))) || [])[1];
+  if (byFarm) return byFarm;
+  const awb = String(source?.orderNo ?? '').replace(/[\s-]/g, '');
+  const hasAirWeight = (Number(source?.gw) > 0 && Number(source?.cw) > 0)
+    || (source?.excluded || []).some(row => /gross\s*weig|chargeable\s*weig/i.test(String(row?.name || '')));
+  if (/^\d{11}$/.test(awb) || hasAirWeight) return 'AIR';
+  return '';
+}
 
-export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, onClose }) {
+export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, onClose, onOpenSharedAwb }) {
   const [data, setData] = useState(null), [error, setError] = useState('');
   const [metadata, setMetadata] = useState({ currency: '', transportMode: '', gw: '', cw: '' });
   const [applied, setApplied] = useState(null);
@@ -34,7 +41,7 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
         // 입고에 저장된 검증 비용 메타(통화·운송)가 있으면 그것을, 없으면 원산지로 정해지는 나라는 묻지 않고 바로 적용한다(다르면 "기준 변경").
         const verifiedMetadata = value.source.receiptExpenses?.verified === true ? value.source.receiptExpenses.receiptMetadata : null;
         const verifiedBoth = Boolean(verifiedMetadata?.currency && verifiedMetadata?.transportMode);
-        const cnMode = value.source.country === 'CN' ? chinaTransport(value.source.farmName) : '';
+        const cnMode = value.source.country === 'CN' ? chinaTransport(value.source) : '';
         const guess = !value.automatic && !verifiedBoth && (COUNTRY_DEFAULT_CURRENCY[value.source.country] || (cnMode && COUNTRY_FIXED_CURRENCY.CN));
         const defaults = value.automatic?.metadata || {
           currency: verifiedMetadata?.currency || guess || COUNTRY_FIXED_CURRENCY[value.source.country] || '',
@@ -64,7 +71,9 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
   const costDocument = useMemo(()=>{
    if (data && applied) {
     const lines = data.document.lines.map(line => ({ ...line, currency: applied.currency }));
-    const tariffDefaults = {...data.document.reviewedMetadata.tariffDefaults,...Object.fromEntries(lines.map(line => [line.lineId, vnInvoiceTariffDefault({...data.document,reviewedMetadata:{...data.document.reviewedMetadata,transportMode:applied.transportMode}},line) || auInvoiceTariffDefault({
+    const coTariffDefault = line => data.source.country === 'CO' && applied.transportMode === 'AIR' && Number(line.prodKey) > 0
+      ? { tariffRate: 0, label: '콜롬비아 기본 0%', prodKey: line.prodKey } : null;
+    const tariffDefaults = {...data.document.reviewedMetadata.tariffDefaults,...Object.fromEntries(lines.map(line => [line.lineId, coTariffDefault(line) || vnInvoiceTariffDefault({...data.document,reviewedMetadata:{...data.document.reviewedMetadata,transportMode:applied.transportMode}},line) || auInvoiceTariffDefault({
       ...data.document, reviewedMetadata: { ...data.document.reviewedMetadata, transportMode: applied.transportMode },
     }, { ProdKey: line.prodKey, ProdName: line.originalName, CounName: line.country === 'AU' ? '호주' : line.country, isDeleted: line.productDeleted })]).filter(([, value]) => value))};
     return { ...data.document, lines, receiptLines: lines,
@@ -83,6 +92,26 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
     {!data && !error && <p role="status">전산 입고의 품목·수량·단가를 불러오는 중…</p>}
     {data && <>
       {data.source.receiptExpenses?.warning && <p role="status">{data.source.receiptExpenses.warning}</p>}
+      {data.source.awbReference && (
+        <div className={styles.automatic} role="status">
+          <strong>
+            {data.source.awbReference.sharedGoodsReceiptCount > 1
+              ? `공동 AWB(${data.source.awbReference.sharedGoodsReceiptCount}개 농장) 운임·중량 참고자료 자동 연동`
+              : '동일 AWB 운임·중량 참고자료 자동 연동'}
+          </strong>
+          <p>
+            {data.source.awbReference.sourceId} · 전체 GW {data.source.awbReference.gw ?? '미기재'}kg / CW {data.source.awbReference.cw ?? '미기재'}kg · 전체 운임 {data.source.awbReference.freightAmount != null ? data.source.awbReference.freightAmount.toLocaleString('ko-KR') : '미기재'}
+            {data.source.awbReference.sharedGoodsReceiptCount > 1 && data.source.awbReference.stemShareNumerator > 0 && data.source.awbReference.stemShareDenominator > 0
+              ? ` → 현재 입고 송이 비중(${data.source.awbReference.stemShareNumerator.toLocaleString('ko-KR')}/${data.source.awbReference.stemShareDenominator.toLocaleString('ko-KR')}) 안분 초안 자동 반영`
+              : ''}
+          </p>
+          {data.source.country === 'CO' && data.source.awbReference.sharedGoodsReceiptCount > 1 && onOpenSharedAwb && (
+            <button type="button" onClick={() => onOpenSharedAwb(data.source.awbReference.awb)}>
+              콜롬비아 전체 농장 공동 원가에서 한 번에 계산하기
+            </button>
+          )}
+        </div>
+      )}
       {data.automatic && <div className={styles.automatic} role="status">
         <strong>네덜란드 입고자료 자동 연결</strong>
         <p>EUR · 항공 · GW {data.source.gw ?? '미기재'}kg · CW {data.source.cw ?? '미기재'}kg · 저장 운송료 {data.automatic.input.freightAmount ?? '미기재'} EUR</p>

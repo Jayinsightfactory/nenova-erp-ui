@@ -155,6 +155,156 @@ function committedReceiptLines(document) {
   });
 }
 
+const PREVIEW_CO_COEFFICIENTS = Object.freeze({
+  ROSE: Object.freeze({ gross: 8, volume: 10 }),
+  CARNATION: Object.freeze({ gross: 11, volume: 9 }),
+  ALSTROMERIA: Object.freeze({ gross: 9.7, volume: 7 }),
+  RUSCUS: Object.freeze({ gross: 8, volume: 9.6 }),
+  HYDRANGEA: Object.freeze({ gross: 5.5, volume: 6.7 }),
+});
+
+function previewSuggestCoGroup(flowerName, prodName, allowedIds = []) {
+  const combined = `${flowerName || ''} ${prodName || ''}`.trim().toLowerCase();
+  if (!combined) return '';
+  let candidate = '';
+  if (/수국|hydrangea/i.test(combined)) candidate = 'HYDRANGEA';
+  else if (combined.includes('장미') || combined.includes('rose')) candidate = 'ROSE';
+  else if (combined.includes('카네이션') || combined.includes('carnation')) candidate = 'CARNATION';
+  else if (combined.includes('알스트로') || combined.includes('alstroemeria') || combined.includes('alstromeria') || combined.includes('alstro')) candidate = 'ALSTROMERIA';
+  else if (combined.includes('루스커스') || combined.includes('ruscus')) candidate = 'RUSCUS';
+  return candidate && (!allowedIds.length || allowedIds.includes(candidate)) ? candidate : '';
+}
+
+function previewSuggestThGroup(flowerName, prodName, allowedIds = []) {
+  const combined = `${flowerName || ''} ${prodName || ''}`.trim();
+  if (!combined) return '';
+  let candidate = '';
+  if (/anthurium|안스리움/i.test(combined)) candidate = 'ANTHURIUM';
+  else if (/loose\s*bloom|루스\s*블룸|꽃송이/i.test(combined)) candidate = 'LOOSE_BLOOMS';
+  else if (/\b(?:den|mok|aran|vanda|orchid|dendrobium|mokara|aranda|oncidium|julling|necklace|cymbidium|phalaenopsis|lotus|heliconia|ginger|monstera|pandanus|cordyline|philodendron|calathea|curcuma)\b|덴드로|모카라|아란다|반다|호접|난초|온시디움|연꽃/i.test(combined)) candidate = 'OTHERS';
+  return candidate && (!allowedIds.length || allowedIds.includes(candidate)) ? candidate : '';
+}
+
+function derivePreviewLineStems(line, lineInput) {
+  const explicit = numberOrNull(line?.stemQuantity);
+  if (explicit !== null && explicit > 0) return explicit;
+  const qty = numberOrNull(line?.outQuantity);
+  if (!(qty > 0)) return 0;
+  const unit = String(line?.outUnit ?? '').trim().toUpperCase();
+  if (['STEM', '송이', '스팀'].includes(unit)) return qty;
+  const spb = numberOrNull(lineInput?.stemsPerBunch ?? line?.stemsPerBunch);
+  if (['BUNCH', '단'].includes(unit) && spb > 0) return qty * spb;
+  const bpb = numberOrNull(lineInput?.bunchesPerBox);
+  if (['BOX', '박스'].includes(unit) && spb > 0 && bpb > 0) return qty * spb * bpb;
+  return 0;
+}
+
+function derivePreviewGroupState(formula, receiptLines, lineInputs, gwValue, cwValue) {
+  const allowedIds = formulaGroupIds(formula);
+  if (!allowedIds.length) return null;
+  const isCO = formula?.country === 'CO';
+  const isTH = formula?.country === 'TH';
+  if (!isCO && !isTH) return null;
+  const byLine = new Map((lineInputs || []).map(item => [String(item.lineId).toLowerCase(), item]));
+  const totals = new Map(allowedIds.map(id => [id, { quantity: 0, boxQuantity: 0, activeCount: 0 }]));
+  let totalReceiptBoxes = 0;
+  let hasZeroBoxActiveLine = false;
+  for (const line of receiptLines || []) {
+    const qty = numberOrNull(line?.outQuantity);
+    const amt = numberOrNull(line?.lineAmount);
+    if (qty === 0 && (amt === 0 || amt === null)) continue;
+    const setting = byLine.get(String(line?.lineId || '').toLowerCase());
+    const groupId = String(setting?.groupId || '').trim().toUpperCase();
+    const box = numberOrNull(line?.boxQuantity);
+    if (box !== null && box > 0) totalReceiptBoxes = Math.round((totalReceiptBoxes + box) * 1e6) / 1e6;
+    if (box === 0 || box === null) hasZeroBoxActiveLine = true;
+    if (!totals.has(groupId)) continue;
+    const bucket = totals.get(groupId);
+    bucket.quantity = Math.round((bucket.quantity + derivePreviewLineStems(line, setting)) * 1e6) / 1e6;
+    if (box !== null && box > 0) bucket.boxQuantity = Math.round((bucket.boxQuantity + box) * 1e6) / 1e6;
+    bucket.activeCount += 1;
+  }
+  const activeIds = allowedIds.filter(id => totals.get(id).activeCount > 0 && totals.get(id).quantity > 0);
+  const gw = numberOrNull(gwValue);
+  const cw = numberOrNull(cwValue);
+  const weightsByGroup = new Map();
+  if (isCO && gw > 0 && cw >= gw && activeIds.length > 0 && activeIds.every(id => totals.get(id).boxQuantity > 0 && PREVIEW_CO_COEFFICIENTS[id])) {
+    const grossDenom = activeIds.reduce((sum, id) => sum + totals.get(id).boxQuantity * PREVIEW_CO_COEFFICIENTS[id].gross, 0);
+    const volDenom = activeIds.reduce((sum, id) => sum + totals.get(id).boxQuantity * PREVIEW_CO_COEFFICIENTS[id].volume, 0);
+    if (grossDenom > 0 && volDenom > 0) {
+      let accGross = 0, accVol = 0, allocatedGross = 0, allocatedVol = 0;
+      activeIds.forEach((id, idx) => {
+        accGross += totals.get(id).boxQuantity * PREVIEW_CO_COEFFICIENTS[id].gross;
+        accVol += totals.get(id).boxQuantity * PREVIEW_CO_COEFFICIENTS[id].volume;
+        const targetGross = idx === activeIds.length - 1 ? Math.round(gw * 1e6) / 1e6 : Math.round(gw * accGross / grossDenom * 1e6) / 1e6;
+        const targetVol = idx === activeIds.length - 1 ? Math.round(cw * 1e6) / 1e6 : Math.round(cw * accVol / volDenom * 1e6) / 1e6;
+        const gVal = Math.round((targetGross - allocatedGross) * 1e6) / 1e6;
+        const vVal = Math.round((targetVol - allocatedVol) * 1e6) / 1e6;
+        allocatedGross = Math.round((allocatedGross + gVal) * 1e6) / 1e6;
+        allocatedVol = Math.round((allocatedVol + vVal) * 1e6) / 1e6;
+        weightsByGroup.set(id, { grossWeightKg: gVal, volumeWeightKg: vVal });
+      });
+    }
+  }
+  const costGroups = allowedIds.map(groupId => {
+    const t = totals.get(groupId);
+    const w = weightsByGroup.get(groupId);
+    const active = t.activeCount > 0 && t.quantity > 0;
+    return {
+      groupId,
+      quantity: active ? t.quantity : '',
+      boxQuantity: active && t.boxQuantity > 0 ? t.boxQuantity : '',
+      grossWeightKg: w ? w.grossWeightKg : '',
+      volumeWeightKg: w ? w.volumeWeightKg : '',
+    };
+  });
+  const sharedPacking = isTH && hasZeroBoxActiveLine && totalReceiptBoxes > 0;
+  return {
+    costGroups,
+    activeGroupIds: activeIds,
+    ...(sharedPacking ? { groupBoxBasis: 'PACKING_GROUP', packingBoxTotal: totalReceiptBoxes } : {}),
+  };
+}
+
+function previewReferenceCustoms(formula, gwValue, activeLineCount, activeGroupCount) {
+  const gw = numberOrNull(gwValue);
+  if (!(gw > 0)) return null;
+  const round = n => Math.round(n * 1e6) / 1e6;
+  const id = formula?.formulaId;
+  if ((id === 'CO_GROUP_42_1_V1' || id === 'CO_GROUP_WEIGHT_VOLUME_V1') && activeGroupCount > 0) {
+    return {
+      customsTotalKRW: round(gw * 460 + 33000 + activeGroupCount * 10000 + 99000 + 40000),
+      estimateSource: '콜롬비아 42-1 원본: GW×460 + 통관33,000 + 품종수×10,000 + 국내운송99,000 + 검역40,000',
+    };
+  }
+  if (!(activeLineCount > 0)) return null;
+  if (id === 'US_CNF_BOX_V1') {
+    return {
+      customsTotalKRW: round(gw * 460 + 33000 + activeLineCount * 10000 + 90000),
+      estimateSource: '미국 40-1 원본 기준: GW×460 + 통관33,000 + 품목수×10,000 + 국내운송90,000 (추정)',
+    };
+  }
+  if (id === 'NZ_CNF_STEM_V1') {
+    return {
+      customsTotalKRW: round(gw * 375 + 33000 + activeLineCount * 10000 + 90000),
+      estimateSource: '뉴질랜드 원본 기준: GW×375 + 통관33,000 + 품목수×10,000 + 국내운송90,000 (추정)',
+    };
+  }
+  if (id === 'EC_FOB_STEM_V1') {
+    return {
+      customsTotalKRW: round(gw * 460 + activeLineCount * 9000 + 36000 + 90000 + 20000),
+      estimateSource: '에콰도르 40-2 원본 기준: GW×460 + 통관(품목수×9,000) + 검역36,000 + 국내운송90,000 + 참고검역20,000 (추정)',
+    };
+  }
+  if (id === 'TH_GROUP_BOX_SHARE_V1') {
+    return {
+      customsTotalKRW: round(gw * 460 + 33000 + activeLineCount * 10000 + 99000),
+      estimateSource: '태국 40차 원본 기본식(검역손실 별도): GW×460 + 통관33,000 + 품목수×10,000 + 국내운송99,000 (추정)',
+    };
+  }
+  return null;
+}
+
 function initialForm(document, receiptLines) {
   const saved = document?.reviewedMetadata?.invoiceCostInput || document?.reviewedMetadata?.costInput || {};
   const freight = document?.reviewedMetadata?.costInputs?.freight;
@@ -167,11 +317,57 @@ function initialForm(document, receiptLines) {
     ? [...lineCurrencies][0] : '';
   const initialFormulaId = saved.formulaId || applicableFormulaId(document);
   const verifiedFormula = INVOICE_COST_FORMULAS[initialFormulaId];
+  const isPreviewOnly = document?.costStatus === 'PREVIEW_ONLY';
   const marketRate = document?.reviewedMetadata?.audMarketRate || null;
   const savedLines = new Map((saved.lineInputs || []).map(line => [String(line.lineId).toLowerCase(), line]));
-  const vn = verifiedFormula?.country==='VN' && document.costStatus==='PREVIEW_ONLY'
+  const vn = verifiedFormula?.country==='VN' && isPreviewOnly
     ? calculateVnOriginalCustoms({gw:document.reviewedMetadata?.gw,cw:document.reviewedMetadata?.cw,
       itemCount:new Set(receiptLines.filter(l=>Number(l.prodKey)>0).map(l=>Number(l.prodKey))).size}) : null;
+  const allowedGroups = formulaGroupIds(verifiedFormula);
+  const lineInputs = receiptLines.map(line => {
+    const savedLine = savedLines.get(String(line.lineId).toLowerCase());
+    const explicitGroup = String(savedLine?.groupId ?? '');
+    const suggestedGroup = !explicitGroup && isPreviewOnly
+      ? (verifiedFormula?.country === 'CO'
+        ? previewSuggestCoGroup(line.flowerName, line.originalName, allowedGroups)
+        : verifiedFormula?.country === 'TH'
+          ? previewSuggestThGroup(line.flowerName, line.originalName, allowedGroups)
+          : '')
+      : '';
+    return {
+      lineId: line.lineId,
+      ...Object.fromEntries(allLineFields().map(key => [key, savedLine?.[key] ?? ''])),
+      tariffRate: savedLine?.tariffRate
+        ?? (verifiedFormula?.country === 'NL' ? (typeof line.tariffRate === 'number' ? line.tariffRate
+          : nlInvoiceTariffRate(line.originalName, line.originName || line.countryName))
+          : (isPreviewOnly && verifiedFormula?.country === 'CO' ? 0 : '')),
+      otherCostPerUnitKRW: savedLine?.otherCostPerUnitKRW ?? '',
+      stemsPerBunch: savedLine?.stemsPerBunch ?? '',
+      grossWeightKg: savedLine?.grossWeightKg
+        ?? (documentCountry(document) === 'CN' && documentTransport(document) === 'AIR'
+          && line.sourceEvidence?.grossWeightKg !== null && line.sourceEvidence?.grossWeightKg !== undefined
+          && line.sourceEvidence?.grossWeightKg !== '' && Number.isFinite(Number(line.sourceEvidence?.grossWeightKg))
+          && Number(line.sourceEvidence.grossWeightKg) >= 0 ? Number(line.sourceEvidence.grossWeightKg) : ''),
+      volumeWeightKg: savedLine?.volumeWeightKg ?? '',
+      groupId: explicitGroup || suggestedGroup,
+      categoryCode: Object.hasOwn(savedLine ?? {}, 'categoryCode')
+        ? savedLine.categoryCode ?? '' : (verifiedFormula?.formulaId === 'CN_CLOUD_CBM_V1' ? matchCloudCategory(line.originalName) : null) ?? '',
+      categoryOverride: savedLine?.categoryOverride ?? null,
+    };
+  });
+  const hasSavedGroups = Array.isArray(saved.costGroups) && saved.costGroups.length > 0;
+  const derivedGroupState = isPreviewOnly && !hasSavedGroups
+    ? derivePreviewGroupState(verifiedFormula, receiptLines, lineInputs, document?.reviewedMetadata?.gw, document?.reviewedMetadata?.cw)
+    : null;
+  const activeLineCount = receiptLines.filter(line => {
+    const q = numberOrNull(line?.outQuantity);
+    return q === null ? true : q > 0;
+  }).length;
+  const refCustoms = isPreviewOnly && numberOrNull(saved.customsTotalKRW) === null && !vn
+    ? previewReferenceCustoms(verifiedFormula, document?.reviewedMetadata?.gw, activeLineCount, derivedGroupState?.activeGroupIds?.length ?? 0)
+    : null;
+  const autoCnfZeroFreight = isPreviewOnly && verifiedFormula?.freightIncluded === true
+    && numberOrNull(saved.freightAmount) === null && !recognizedFreight && numberOrNull(freight?.amount) === null;
   return {
     ...EMPTY_FORM,
     nativeCurrency: uniformNativeCurrency,
@@ -182,7 +378,8 @@ function initialForm(document, receiptLines) {
     ...saved,
     ...(verifiedFormula?.formulaId==='CN_CLOUD_CBM_V1'?{...CLOUD_CUSTOMS_DEFAULTS,...Object.fromEntries(Object.keys(CLOUD_CUSTOMS_DEFAULTS).filter(k=>saved[k]!=null).map(k=>[k,saved[k]])),cloudCustomsMode:saved.cloudCustomsMode??(saved.customsTotalKRW!=null?'TOTAL':'FORMULA'),expenseBasis:saved.expenseBasis??'ESTIMATED',estimateSource:saved.estimateSource??'46-2 CLOUD cbm 원본 기준값 · 실제 비용 확인 전 추정 · 국내운송비는 해당 자료의 195,000원이며 중량별 확정요율 아님'}:{}),
     ...(vn && vn.total!==null && numberOrNull(saved.customsTotalKRW)===null ? {customsTotalKRW:vn.total,expenseBasis:'ESTIMATED',estimateSource:VN_CUSTOMS_SOURCE} : {}),
-    ...(vn && verifiedFormula.freightIncluded && numberOrNull(saved.freightAmount)===null && !recognizedFreight ? {freightAmount:0,freightCurrency:uniformNativeCurrency} : {}),
+    ...(refCustoms ? { customsTotalKRW: refCustoms.customsTotalKRW, expenseBasis: 'ESTIMATED', estimateSource: refCustoms.estimateSource } : {}),
+    ...(autoCnfZeroFreight ? { freightAmount: 0, freightCurrency: String(saved.freightCurrency || uniformNativeCurrency).trim().toUpperCase() } : {}),
     ...(verifiedFormula?.country === 'AU' ? {
       exchangeRateKRW: saved.exchangeRateKRW ?? marketRate?.rate ?? '',
       exchangeRateType: saved.exchangeRateType ?? 'MARKET_SEARCH',
@@ -205,28 +402,12 @@ function initialForm(document, receiptLines) {
       formulaSourceSheet: verifiedFormula.formulaSourceSheet,
       formulaSourceCells: verifiedFormula.formulaSourceCells,
     } : {}),
+    ...(derivedGroupState?.groupBoxBasis && !saved.groupBoxBasis ? { groupBoxBasis: derivedGroupState.groupBoxBasis } : {}),
+    ...(derivedGroupState?.packingBoxTotal !== undefined && numberOrNull(saved.packingBoxTotal) === null ? { packingBoxTotal: derivedGroupState.packingBoxTotal } : {}),
     formulaApplicabilityConfirmed: false,
     lossTreatmentConfirmed: false,
-    costGroups: formulaGroups(verifiedFormula, saved.costGroups),
-    lineInputs: receiptLines.map(line => ({
-      lineId: line.lineId,
-      ...Object.fromEntries(allLineFields().map(key => [key, savedLines.get(String(line.lineId).toLowerCase())?.[key] ?? ''])),
-      tariffRate: savedLines.get(String(line.lineId).toLowerCase())?.tariffRate
-        ?? (verifiedFormula?.country === 'NL' ? (typeof line.tariffRate === 'number' ? line.tariffRate
-          : nlInvoiceTariffRate(line.originalName, line.originName || line.countryName)) : ''),
-      otherCostPerUnitKRW: savedLines.get(String(line.lineId).toLowerCase())?.otherCostPerUnitKRW ?? '',
-      stemsPerBunch: savedLines.get(String(line.lineId).toLowerCase())?.stemsPerBunch ?? '',
-      grossWeightKg: savedLines.get(String(line.lineId).toLowerCase())?.grossWeightKg
-        ?? (documentCountry(document) === 'CN' && documentTransport(document) === 'AIR'
-          && line.sourceEvidence?.grossWeightKg !== null && line.sourceEvidence?.grossWeightKg !== undefined
-          && line.sourceEvidence?.grossWeightKg !== '' && Number.isFinite(Number(line.sourceEvidence?.grossWeightKg))
-          && Number(line.sourceEvidence.grossWeightKg) >= 0 ? Number(line.sourceEvidence.grossWeightKg) : ''),
-      volumeWeightKg: savedLines.get(String(line.lineId).toLowerCase())?.volumeWeightKg ?? '',
-      groupId: String(savedLines.get(String(line.lineId).toLowerCase())?.groupId ?? ''),
-      categoryCode: Object.hasOwn(savedLines.get(String(line.lineId).toLowerCase())??{},'categoryCode')
-        ? savedLines.get(String(line.lineId).toLowerCase()).categoryCode??'' : (verifiedFormula?.formulaId==='CN_CLOUD_CBM_V1'?matchCloudCategory(line.originalName):null)??'',
-      categoryOverride:savedLines.get(String(line.lineId).toLowerCase())?.categoryOverride??null,
-    })),
+    costGroups: derivedGroupState ? derivedGroupState.costGroups : formulaGroups(verifiedFormula, saved.costGroups),
+    lineInputs,
   };
 }
 
@@ -263,7 +444,12 @@ function currentCommittedWarehouseKey(document) {
 
 function applicableFormulaId(document) {
   const choices = applicableFormulas(document);
-  return choices.length === 1 ? choices[0].formulaId : '';
+  if (choices.length === 1) return choices[0].formulaId;
+  if (document?.costStatus === 'PREVIEW_ONLY' && documentCountry(document) === 'CO' && documentTransport(document) === 'AIR') {
+    const preferred = choices.find(formula => formula.formulaId === 'CO_GROUP_42_1_V1');
+    if (preferred) return preferred.formulaId;
+  }
+  return '';
 }
 function applicableFormulas(document) {
   const country = documentCountry(document), transport = documentTransport(document);
@@ -377,6 +563,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const mountedRef = useRef(false);
   const workflowLocksRef = useRef(new Set());
   const pristineRef = useRef(true);
+  const groupsManuallyEditedRef = useRef(false);
+  const customsManuallyEditedRef = useRef(false);
   const [inputEdited, setInputEdited] = useState(false);
   const [manualLineFilter, setManualLineFilter] = useState(null);
   const isCurrent = (expectedIdentity = identity, expectedGeneration = generationRef.current) => isInvoiceCostGenerationCurrent({
@@ -399,7 +587,14 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   useEffect(()=>{
     if(externalBasisRef.current===externalBasis)return;
     externalBasisRef.current=externalBasis;setPreview(null);setInputEdited(true);
-    setForm(current=>({...current,formulaApplicabilityConfirmed:false,cloudFinancialReviewConfirmed:false}));
+    const nextGw=document?.reviewedMetadata?.gw;
+    setForm(current=>({
+      ...current,
+      formulaApplicabilityConfirmed:false,
+      cloudFinancialReviewConfirmed:false,
+      ...(current.formulaId==='AU_CNF_BUNCH_V1'&&nextGw!=null&&nextGw!==''&&Number.isFinite(Number(nextGw))&&Number(nextGw)>0
+        ?{auOriginal:{...current.auOriginal,gw:Number(nextGw)}}:{}),
+    }));
   },[externalBasis]);
   useEffect(() => { onInputDraftChange?.({...payloadOf(form),formulaApplicabilityConfirmed:nativePreview||form.formulaApplicabilityConfirmed===true}, { edited: inputEdited }); }, [form, inputEdited, onInputDraftChange, nativePreview]);
   useEffect(() => {
@@ -410,6 +605,39 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       nlTemplateCosts:template.costs, expenseBasis:'ESTIMATED', estimateSource:template.estimateSource,
       formulaApplicabilityConfirmed:false }));
   }, [form, document, receiptLines]);
+  useEffect(() => {
+    if (!nativePreview || document?.costStatus !== 'PREVIEW_ONLY') return;
+    const formula = INVOICE_COST_FORMULAS[form.formulaId];
+    if (!formula) return;
+    const derived = !groupsManuallyEditedRef.current
+      ? derivePreviewGroupState(formula, receiptLines, form.lineInputs, document?.reviewedMetadata?.gw, document?.reviewedMetadata?.cw)
+      : null;
+    const activeLineCount = receiptLines.filter(line => {
+      const q = numberOrNull(line?.outQuantity);
+      return q === null ? true : q > 0;
+    }).length;
+    const activeGroupCount = derived?.activeGroupIds?.length
+      ?? (form.costGroups || []).filter(g => numberOrNull(g.quantity) > 0).length;
+    const refCustoms = !customsManuallyEditedRef.current && (numberOrNull(form.customsTotalKRW) === null || form.expenseBasis === 'ESTIMATED')
+      ? previewReferenceCustoms(formula, document?.reviewedMetadata?.gw, activeLineCount, activeGroupCount)
+      : null;
+    const groupsChanged = derived && JSON.stringify(derived.costGroups) !== JSON.stringify(form.costGroups);
+    const customsChanged = refCustoms && Number(form.customsTotalKRW) !== refCustoms.customsTotalKRW;
+    if (!groupsChanged && !customsChanged) return;
+    setForm(current => ({
+      ...current,
+      ...(groupsChanged ? {
+        costGroups: derived.costGroups,
+        ...(derived.groupBoxBasis ? { groupBoxBasis: derived.groupBoxBasis } : {}),
+        ...(derived.packingBoxTotal !== undefined && numberOrNull(current.packingBoxTotal) === null ? { packingBoxTotal: derived.packingBoxTotal } : {}),
+      } : {}),
+      ...(customsChanged ? {
+        customsTotalKRW: refCustoms.customsTotalKRW,
+        expenseBasis: 'ESTIMATED',
+        estimateSource: refCustoms.estimateSource,
+      } : {}),
+    }));
+  }, [nativePreview, document?.costStatus, document?.reviewedMetadata?.gw, document?.reviewedMetadata?.cw, form.formulaId, form.lineInputs, receiptLines]);
   const [reason, setReason] = useState('');
   const [busyIdentity, setBusyIdentity] = useState('');
   const busy = busyIdentity === identity || workflowLocksRef.current.has(identity);
@@ -478,6 +706,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
 
   useEffect(() => {
     pristineRef.current = true;
+    groupsManuallyEditedRef.current = false;
+    customsManuallyEditedRef.current = false;
     setInputEdited(false);
     setFormIdentity(identity);
     const nextReceiptLines = committedReceiptLines(document);
@@ -555,6 +785,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   function update(name, value) {
     setNotice(null);
     pristineRef.current = false;
+    if (name === 'customsTotalKRW' || name === 'expenseBasis') customsManuallyEditedRef.current = true;
+    if (name === 'groupBoxBasis' || name === 'packingBoxTotal') groupsManuallyEditedRef.current = true;
     setInputEdited(true);
     invalidateApprovalStages();
     setForm(current => {
@@ -596,6 +828,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   function updateGroup(groupId, name, value) {
     setNotice(null);
     pristineRef.current = false;
+    if (typeof groupsManuallyEditedRef !== 'undefined' && groupsManuallyEditedRef) groupsManuallyEditedRef.current = true;
     setInputEdited(true);
     invalidateApprovalStages();
     setForm(current => editedGroupForm(current, groupId, name, value));

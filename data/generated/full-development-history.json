@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-25T08:37:05.403Z",
+  "generatedAt": "2026-11-25T08:59:07.514Z",
   "coverage": {
     "stage": "verified-refs",
     "definition": "External source main refs and ERP build HEAD; a non-master ERP build HEAD may include its branch commits.",
@@ -16,22 +16,22 @@
       "label": "Nenova ERP",
       "repo": "nenova-erp-ui",
       "ref": "HEAD",
-      "headHash": "b9f82d828ae8f21a49a726f36f6d065a0b7914d5",
+      "headHash": "7e4f9e0200c8c081017da914705f2127dea56027",
       "sourceStatus": "build-git",
       "stage": "build-head",
       "stale": false,
       "rootHashes": [
         "b4c5da128ba455091a4e602d88953c279eaaed3f"
       ],
-      "collectedAt": "2026-11-25T08:37:05.403Z",
-      "totalCommits": 4115,
-      "nonMergeCount": 3310,
+      "collectedAt": "2026-11-25T08:59:07.514Z",
+      "totalCommits": 4116,
+      "nonMergeCount": 3311,
       "mergeCount": 805,
       "summaryCount": 530,
       "knownSummaryTitles": 464,
       "unknownSummaryTitles": 66,
       "firstDate": "2026-04-01T05:01:29.000Z",
-      "lastDate": "2026-11-25T08:35:25.000Z"
+      "lastDate": "2026-11-25T08:55:21.000Z"
     },
     {
       "id": "mindmap-viewer",
@@ -101,10 +101,42 @@
   ],
   "records": [
     {
-      "hash": "b9f82d828ae8f21a49a726f36f6d065a0b7914d5",
-      "date": "2026-11-25T08:19:45.000Z",
-      "committedAt": "2026-11-25T08:36:57.000Z",
-      "subject": "fix(incoming): distinguish C&F and forwarder-billed badges and include legacy NL freight codes",
+      "hash": "7e4f9e0200c8c081017da914705f2127dea56027",
+      "date": "2026-11-25T08:55:21.000Z",
+      "committedAt": "2026-11-25T08:55:21.000Z",
+      "subject": "feat(import): 입고 매칭 좌우 원본 PDF 대조 스플릿 뷰어 · 1클릭 자동 역산 · 화종 전용 필터 · CO 25605/19121 자가보정 (#2029)",
+      "parents": [
+        "1d2aec9bd4194c1343c4c877fb5e4f0402aa9062"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "components/import-tools/PackingListTool.js",
+        "components/import-tools/PackingResults.js",
+        "lib/importPacking.js",
+        "lib/importPackingPdfPreview.js",
+        "lib/importPackingResponse.js",
+        "lib/importTeamPdfCache.js",
+        "lib/invoiceMatchAssist.js"
+      ],
+      "changedFileCount": 13,
+      "redactedPathCount": 5,
+      "id": "7e4f9e0200c8c081017da914705f2127dea56027",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "1d2aec9bd4194c1343c4c877fb5e4f0402aa9062",
+      "date": "2026-11-25T08:45:22.000Z",
+      "committedAt": "2026-11-25T08:45:22.000Z",
+      "subject": "fix(incoming): distinguish C&F and forwarder-billed badges and include legacy NL freight codes (#2028)",
       "parents": [
         "b69bcade6c05c8df2b8ec2e83557787e8cac6c6c"
       ],
@@ -122,7 +154,7 @@
       ],
       "changedFileCount": 21,
       "redactedPathCount": 11,
-      "id": "b9f82d828ae8f21a49a726f36f6d065a0b7914d5",
+      "id": "1d2aec9bd4194c1343c4c877fb5e4f0402aa9062",
       "kind": "commit",
       "sourceIds": [
         "erp"
@@ -186302,8 +186334,8 @@
     }
   ],
   "counts": {
-    "uniqueCommits": 6054,
-    "nonMerge": 5243,
+    "uniqueCommits": 6055,
+    "nonMerge": 5244,
     "merge": 811,
     "summaries": 615,
     "knownSummaryTitles": 549,
