@@ -12,8 +12,8 @@
   "videoSha256": "13ec9e7eac1e48ab7a18334c1920546e41875a093239c8ad00debb170e7efbc9",
   "captionsSha256": "c8c263c12cb3454b0e83d367d2c5394e58af62e9d0f74da8d2e761653a952d0a",
   "sourceHashes": {
-    "pages/vision/box-inspector.js": "a8227b9e2edbafce5d600a4c356ce02260c846d2b03e4bf4b01ab676a845c5a3",
-    "lib/boxVisionInspector.js": "b05978957bf685ee24272090daf40d2d0d8312281935900233aab2514453898f",
-    "styles/BoxVisionInspector.module.css": "d63d25a8e0863330a3a018c4a7763793620abbd04e1b5477cc0b43d1c862b95d"
+    "pages/vision/box-inspector.js": "7f19ea9ebf47ed45d36aee02c9083e10f30e4b177e0f941c652f429743f799d2",
+    "lib/boxVisionInspector.js": "7c008e2b3283fddbb92605e91036cd2569e56c25e9ea1f8ec5e01773596a5f9e",
+    "styles/BoxVisionInspector.module.css": "127273b5f196a78afeee05d7fa6a661352326302d18d5c67b6c01263616dee17"
   }
 }

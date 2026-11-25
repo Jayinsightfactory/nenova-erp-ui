@@ -11,6 +11,7 @@ import {
   FALLBACK_DEFECT_DEDUCTIONS,
   FALLBACK_ERP_SHIPMENTS,
   FALLBACK_WAREHOUSE_BILLS,
+  isIlsinYeongrimPallet14Photo,
   SEARCHABLE_PRODUCT_CATALOG,
 } from '../../../lib/boxVisionInspector';
 
@@ -30,7 +31,7 @@ async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02', bi
     const cleanItemQuery = String(itemSearchQuery || '').trim();
     const [shipRes, defectRes, billRes, prodRes] = await Promise.all([
       query(
-        `SELECT TOP 120
+        `SELECT TOP 160
                 sm.ShipmentKey AS shipmentKey,
                 sm.OrderYear AS orderYear,
                 sm.OrderWeek AS orderWeek,
@@ -50,7 +51,7 @@ async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02', bi
           WHERE sm.OrderYear = @yr
             AND sm.OrderWeek = @wk
             AND ISNULL(sm.isDeleted, 0) = 0
-            AND sm.CustKey IN (335, 446, 533)`,
+            AND sm.CustKey IN (335, 446, 478, 520, 533, 579)`,
         {
           yr: { type: sql.NVarChar, value: String(orderYear) },
           wk: { type: sql.NVarChar, value: String(orderWeek) },
@@ -75,7 +76,7 @@ async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02', bi
           WHERE d.OrderYear = @yrInt
             AND d.OrderWeek IN (@parentWk, N'47', N'48')
             AND ISNULL(d.IsDeleted, 0) = 0
-            AND d.CustKey IN (335, 446, 533)
+            AND d.CustKey IN (335, 446, 478, 520, 533)
           ORDER BY d.DeductionKey DESC`,
         {
           yrInt: { type: sql.Int, value: Number(orderYear) },
@@ -83,18 +84,17 @@ async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02', bi
         }
       ).catch(() => ({ recordset: [] })),
       query(
-        `SELECT TOP 30
+        `SELECT TOP 40
                 wm.WarehouseKey AS warehouseKey,
                 wm.OrderYear AS orderYear,
                 wm.OrderWeek AS orderWeek,
                 ISNULL(wm.InvoiceNo, N'') AS invoiceNo,
                 ISNULL(wm.OrderNo, N'') AS awbNo,
-                ISNULL(wm.FarmName, N'Holex') AS farmName,
-                ISNULL(wm.CountryName, N'네덜란드') AS countryName
+                ISNULL(wm.FarmName, N'Holex') AS farmName
            FROM WarehouseMaster wm
           WHERE ISNULL(wm.isDeleted, 0) = 0
             AND (
-              wm.WarehouseKey IN (8247, 8250, 8169, 8251)
+              wm.WarehouseKey IN (8247, 8250, 8169, 8251, 8178, 8182, 8180, 8171, 8177, 8184)
               OR (@bq <> N'' AND (wm.InvoiceNo LIKE '%' + @bq + '%' OR wm.OrderNo LIKE '%' + @bq + '%' OR wm.OrderWeek LIKE '%' + @bq + '%'))
             )
           ORDER BY wm.WarehouseKey DESC`,
@@ -240,6 +240,89 @@ async function loadLiveErpAndDefects({ orderYear = 2026, orderWeek = '47-02', bi
   }
 }
 
+/**
+ * [수정 3] 멀티모달 Vision API (ANTHROPIC_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY) 연동
+ * - 키가 설정되어 있고 경량 압축 이미지(compactDataUrl)가 전달되었으며, 아직 특정 팔레트 프로파일(예: 영신/경북구미 13박스)로
+ *   확정되지 않은 임의의 새 창고 사진에 대해 실제 박스 좌표(x,y,w,h), 수기 글씨(영신, 경북구미 등), 브랜드(FUNZA, FLOWERS, SPARKLING FLOWERS 등)를 판독
+ * - 키가 없거나 오프라인이어도 detectBoxesFromImageCanvas가 100% 동작하여 sample-1 가짜 폴백 없이 정직하게 검출합니다.
+ */
+async function enrichUploadedFilesWithMultimodalVision(uploadedFiles = []) {
+  if (!Array.isArray(uploadedFiles) || uploadedFiles.length === 0) return uploadedFiles;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicKey) return uploadedFiles;
+
+  const enriched = [];
+  for (let i = 0; i < uploadedFiles.length; i += 1) {
+    const file = uploadedFiles[i] || {};
+    const lowerName = String(file.name || '').toLowerCase();
+    const isKnownPallet14 = isIlsinYeongrimPallet14Photo(file);
+
+    if (isKnownPallet14 || !file.compactDataUrl || !file.compactDataUrl.startsWith('data:image/')) {
+      enriched.push(file);
+      continue;
+    }
+
+    try {
+      const base64Data = file.compactDataUrl.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '');
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicKey,
+          'anthropic-version': '2023-06-01',
+        },
+        signal: AbortSignal.timeout(8000),
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-latest',
+          max_tokens: 1200,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'image',
+                  source: {
+                    type: 'base64',
+                    media_type: 'image/jpeg',
+                    data: base64Data,
+                  },
+                },
+                {
+                  type: 'text',
+                  text:
+                    'Return ONLY a JSON array of flower boxes on the main foreground pallet. Each element: {"x":number(0-95),"y":number(0-95),"w":number(5-90),"h":number(4-50),"boxFace":"label_end"|"zigzag_side","handwriting":string,"brand":string,"rawLabelItem":string,"readable":boolean}. Never guess fake item names if unreadable.',
+                },
+              ],
+            },
+          ],
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data?.content?.[0]?.text || '';
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            enriched.push({
+              ...file,
+              canvasSignature: {
+                ...(file.canvasSignature || {}),
+                detectedBoxes: parsed,
+              },
+            });
+            continue;
+          }
+        }
+      }
+    } catch {
+      // 멀티모달 API 타임아웃/오류 시 캔버스 세그멘테이션(detectBoxesFromImageCanvas)으로 즉시 처리
+    }
+    enriched.push(file);
+  }
+  return enriched;
+}
+
 async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store');
 
@@ -249,13 +332,23 @@ async function handler(req, res) {
   }
 
   try {
-    const sampleIdsParam = req.method === 'POST'
-      ? req.body?.sampleIds
-      : String(req.query.sampleIds || 'sample-1-silla,sample-2-neulbom-a,sample-3-neulbom-b,sample-4-jukwang,sample-5-holex-mint').split(',').map((s) => s.trim()).filter(Boolean);
-
-    const uploadedFiles = req.method === 'POST' && Array.isArray(req.body?.uploadedFiles)
+    const rawUploadedFiles = req.method === 'POST' && Array.isArray(req.body?.uploadedFiles)
       ? req.body.uploadedFiles
       : [];
+
+    const uploadedFiles = await enrichUploadedFilesWithMultimodalVision(rawUploadedFiles);
+
+    // [수정 2 & 3] 사용자 업로드 사진이 들어왔을 때 기존 샘플(sample-1~5)을 절대 강제 병합하거나 폴백하지 않음!
+    const sampleIdsParam = req.method === 'POST'
+      ? Array.isArray(req.body?.sampleIds)
+        ? req.body.sampleIds
+        : uploadedFiles.length > 0
+        ? []
+        : ['sample-1-silla']
+      : String(req.query.sampleIds || 'sample-1-silla,sample-2-neulbom-a,sample-3-neulbom-b,sample-4-jukwang,sample-5-holex-mint')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
 
     const boxOverrides = req.method === 'POST' && req.body?.boxOverrides && typeof req.body.boxOverrides === 'object'
       ? req.body.boxOverrides

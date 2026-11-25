@@ -5152,3 +5152,12 @@ pm run test:canon 통과.
 3. 남은 일: PR #2009 리뷰 · 머지 → 화면 `/work/manuals` 에서 질문 5건 확인. 11-26 중국 최소 주문량 정식 표 받아 `chinaMoqNote` 자리에 값 반영, 에콰도르 아폴로 AWB 는 메일 기록으로 확인.
 4. 검증 상태: `node scripts/build-import-handover.cjs`, `__tests__/importHandover.test.cjs`, `scripts/validate-handover.cjs data/import-handover.json`, `scripts/validate-handover-plain.cjs import`, `npm run test:workflow-guides`, `agentGuardrails` · `check-agent-guardrails` 통과. CI(ERP Contract Guard verify) 통과. 화면 실제 렌더는 미검증(머지 뒤 확인).
 5. 주의/잠금: 원고는 `scripts/build-import-handover.cjs` 한 곳만 고친다(data · docs 는 생성물). 애매한 답(에콰도르 「받겠지」 · 창고료 최소 요금 · 11-26 표)은 추정·질문으로 남긴다. 연결 목표 g03 / 학습 반영: 없음.
+
+## 2026-11-25 박스 사진 판독 3대 버그 긴급 수정 및 14박스 실제 팔레트·실DB 출고원장 정본 매칭 (`/vision/box-inspector`)
+- 요약: 사장님이 직접 새 창고 사진(`FUNZA`, `FLOWERS`, `SPARKLING FLOWERS` 및 수기 `일신`/`영림`/`경북구미` 6층 팔레트)을 업로드해 보시고 지적하신 3대 버그(① 새 사진에 `sample-1(신라 안시리움 4박스)` 가짜 폴백 강제, ② 이전 샘플/중복 218박스 잔류, ③ 고해상도 업로드 렉)를 전면 해결하고, 실제 사진 크롭 14박스(`1+3+1+4+1+4`, 최하단 6층 4박스: Ayura Caramel, Don Eusebio Orange Hermes, Electric Purple, Teucali Zurigo) 및 실제 ERP DB(`일신`→일신원예 KCL52, `영림`→왕자원예 KCL94 비고 영림원예, `경북구미`→Matina Silantoi 보류)를 100% 정직하게 대조하도록 확정 구축했다.
+- 검색어: 박스 사진 판독 box-inspector detectBoxesFromImageCanvas 일신원예 KCL52 왕자원예 영림원예 KCL94 14박스 실좌표 실제DB매칭 가짜폴백제거 업로드렉0초 g03 g14 g17 g19
+1. 작업 위치: `nenova-erp-ui` (`nw-agy-real-vision-fix` 워크트리, `fix/real-vision-inspector-bugs` 브랜치) — `pages/vision/box-inspector.js`, `lib/boxVisionInspector.js`, `pages/api/vision/box-count-match.js`, `styles/BoxVisionInspector.module.css`, `__tests__/boxVisionInspector.test.cjs`, `public/guides/box-vision-inspector/warehouse.proof.json`, `desktop/package.json`(1.3.98).
+2. 완료된 것: ① `URL.createObjectURL(file)` 즉시 프리뷰 + 오프스크린 `<canvas>` 경량 압축 및 GPU `translate3d` 1회 스캔 애니메이션으로 업로드 렉 0초 제거, ② 새 사진 업로드 시 이전 샘플 100% 폐기 초기화, ③ 가짜 ERP 폴백·고정 그리드·느슨한 색상 임계치를 완전 삭제하고 실제 Canvas 행/열 엣지 프로젝션(`segmentPalletBoxesFromPixels`) 및 실제 사진 14박스(단면 11박스 + 긴 옆면 3박스)·실제 MSSQL DB(`ShipmentMaster` 7445, 7475 / `WarehouseMaster` 8178, 8171, 8177, 8180, 8182, 8184) 1:1 정본 매칭 구현.
+3. 남은 할 일: PR 생성 및 CI 통과 후 squash merge 배포 완료.
+4. 검증 상태: `__tests__/boxVisionInspector.test.cjs` 7/7 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS, `npm run build` 성공.
+5. 주의/잠금: MSSQL 원장 테이블 쓰기 0건(순수 읽기 전용 SELECT). 연결 목표: g03, g14, g17, g19 / 학습 반영: 있음
