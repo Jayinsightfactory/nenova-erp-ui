@@ -26,7 +26,7 @@ import {packingErpCatalog,packingErpAliases,packingLegacyExportBlocked} from '..
 import { makePackingReviewRows, applyPackingReview, packingReviewWriter } from '../../lib/importPackingReview.js';
 import { packingValidationIssues } from '../../lib/packingValidationIssues.js';
 import { notifyPackingBlocked } from '../../lib/packingBlockedNotice.js';
-import { parsePackingResponse } from '../../lib/importPackingResponse.js';
+import { parsePackingResponse, healColombiaInvoiceExtraction } from '../../lib/importPackingResponse.js';
 import { reconcileInvoiceSupplier } from '../../lib/invoiceSupplierEvidence.js';
 import { inspectNzBloomInvoice, nzOriginComparisonDocument, packingOriginMismatch, SUPPLEMENTAL_PACKING_ORIGINS } from '../../lib/packingOriginEvidence.js';
 import InvoiceReceiptComparison from './InvoiceReceiptComparison.js';
@@ -1229,9 +1229,31 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       }
       if (extraction.sourceHash !== hash) throw new Error('원본 파일과 분석 근거가 일치하지 않습니다. 다시 분석하세요.');
       if (/\.pdf$/i.test(restoredFile.name) && [...extraction.sourceInvoices, ...extraction.result.invoices].some(invoice => invoice.pdfSourceHash !== hash)) throw new Error('원본 파일과 분석 근거가 일치하지 않습니다. 다시 분석하세요.');
+      const healedResultInvoices = work.country === 'CO'
+        ? extraction.result.invoices.map(inv => {
+          const healed = healColombiaInvoiceExtraction(inv);
+          return /\.pdf$/i.test(restoredFile.name)
+            ? bindPackingSourceReviewPolicy({ ...healed, pdfReviewRequired: true, pdfSourceHash: hash }, work.country, { source: extraction.source || 'cache' })
+            : healed;
+        })
+        : extraction.result.invoices;
+      const healedSourceInvoices = work.country === 'CO'
+        ? extraction.sourceInvoices.map(inv => {
+          const healed = healColombiaInvoiceExtraction(inv);
+          return /\.pdf$/i.test(restoredFile.name)
+            ? bindPackingSourceReviewPolicy({ ...healed, pdfReviewRequired: true, pdfSourceHash: hash }, work.country, { source: extraction.source || 'cache' })
+            : healed;
+        })
+        : extraction.sourceInvoices;
+      const healedExtraction = {
+        ...extraction,
+        sourceHash: hash,
+        result: { ...extraction.result, invoices: healedResultInvoices },
+        sourceInvoices: healedSourceInvoices,
+      };
       let confirmed = work.reviewConfirmed;
       if (confirmed && /\.pdf$/i.test(restoredFile.name)) {
-        try { extraction.result.invoices.forEach(invoice => assertPackingSourceValues(invoice, work.country)); }
+        try { healedExtraction.result.invoices.forEach(invoice => assertPackingSourceValues(invoice, work.country)); }
         catch { confirmed = false; }
       }
       autoAnalysisFile.current=null;
@@ -1239,16 +1261,15 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setAwbFile(null);setAwbPdfBase64('');setAwbSourceHash('');setAwbValues(null);setAwbManualFields([]);setAwbReviewed(false);
       setCountry(work.country); setDateYear(work.dateYear || ''); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
       setMatchingReviewedFile(work.matchingReviewed === true ? restoredFile : null);
-      const restoredExtraction = { ...extraction, sourceHash: hash };
-      autoPromptedSources.current.add(restoredExtraction);
-      setLastExtraction(restoredExtraction); setReviewRows(work.reviewRows || makePackingReviewRows(extraction.sourceInvoices, work.country));
-      if(work.country==='CN'&&extraction.result.invoices.every(i=>i.source_format==='china_cloud_contract_xlsx'))setContractReceiptSource({country:'CN',file:restoredFile,invoices:extraction.result.invoices,
-        excels:buildPackingMatchPreview({invoices:extraction.result.invoices,country:'CN',aliases:records.aliases,erpMatches:freshErp}),products:freshErp.products,reviewConfirmed:true,packingActive:true,truncated:false,invoiceUploadDate:work.invoiceUploadDate||''});
+      autoPromptedSources.current.add(healedExtraction);
+      setLastExtraction(healedExtraction); setReviewRows(makePackingReviewRows(healedExtraction.sourceInvoices, work.country));
+      if(work.country==='CN'&&healedExtraction.result.invoices.every(i=>i.source_format==='china_cloud_contract_xlsx'))setContractReceiptSource({country:'CN',file:restoredFile,invoices:healedExtraction.result.invoices,
+        excels:buildPackingMatchPreview({invoices:healedExtraction.result.invoices,country:'CN',aliases:records.aliases,erpMatches:freshErp}),products:freshErp.products,reviewConfirmed:true,packingActive:true,truncated:false,invoiceUploadDate:work.invoiceUploadDate||''});
       setReviewConfirmed(confirmed); setReviewOpen(false); setReviewRevision(value => value + 1);
       setLegacyReviewData(work.legacyReviewData); setLegacyPackingReviewRequired(work.legacyPackingReviewRequired);
       setExtractionSource('저장 분석 재사용 · API 호출 없음'); setErpMatches(freshErp); setAliases(records.aliases); setLatestShared(false);
       setExcels([]); setGenerated({}); setGeneratedErp(null);
-      setMatchPreview(buildPackingMatchPreview({ invoices: extraction.result.invoices, country: work.country, aliases: records.aliases, erpMatches: freshErp }));
+      setMatchPreview(buildPackingMatchPreview({ invoices: healedExtraction.result.invoices, country: work.country, aliases: records.aliases, erpMatches: freshErp }));
       setScrollMatchPreview(true); setSavedWork(null);
       setStatus({ type: 'info', msg: '보관한 작업을 복구하고 최신 팀 매칭을 다시 적용했습니다. 입고 업로드는 별도로 승인해야 합니다.' });
     } catch (error) { setWorkError(`작업 복구 실패: ${error.message}`); }
@@ -2378,6 +2399,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           country={country}
           products={matchingProducts}
           farms={farmMatches?.farms || []}
+          pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null}
+          file={file}
           saving={saving || processing}
           error={matchModalError}
           onSave={handleSaveUploadMatches}

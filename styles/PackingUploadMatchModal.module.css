@@ -79,11 +79,11 @@
   position: fixed;
   inset: 0;
   z-index: 1200;
-  background: rgba(15, 23, 42, 0.52);
+  background: rgba(15, 23, 42, 0.56);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px;
+  padding: 14px;
   box-sizing: border-box;
 }
 
@@ -93,17 +93,21 @@
   color: #0f172a;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
-  width: min(1240px, 100%);
-  max-height: calc(100vh - 36px);
+  width: min(1420px, calc(100vw - 24px));
+  max-height: calc(100vh - 28px);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.24);
   overflow: hidden;
 }
 
+.dialogSingleCol {
+  width: min(1160px, calc(100vw - 24px));
+}
+
 .header {
-  padding: 16px 20px 14px;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid #cbd5e1;
   background: #f8fafc;
   display: flex;
   align-items: flex-start;
@@ -112,7 +116,7 @@
 }
 
 .headerTitle {
-  margin: 6px 0 4px;
+  margin: 5px 0 3px;
   font-size: 17px;
   font-weight: 700;
   color: #0f172a;
@@ -162,12 +166,138 @@
   color: #065f46;
 }
 
+.splitWorkspace {
+  display: grid;
+  grid-template-columns: minmax(460px, 46%) minmax(500px, 54%);
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 1080px) {
+  .splitWorkspace {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}
+
+.pdfPane {
+  border-right: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pdfToolbar {
+  padding: 10px 14px;
+  background: #ffffff;
+  border-bottom: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pdfToolbarGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pdfBadge {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdfStatusHint {
+  font-size: 12.5px;
+  color: #475569;
+  padding: 6px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolBtn {
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 5px 9px;
+  border-radius: 5px;
+  border: 1px solid #94a3b8;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.toolBtn:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #475569;
+}
+
+.toolBtnActive {
+  border-color: #1d4ed8;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.toolBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pdfCanvasScroller {
+  flex: 1;
+  min-height: 320px;
+  overflow: auto;
+  padding: 14px;
+  background: #e2e8f0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.pdfStage {
+  position: relative;
+  width: fit-content;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.16);
+}
+
+.pdfCanvas {
+  display: block;
+  max-width: none;
+}
+
+.pdfHighlight {
+  position: absolute;
+  pointer-events: none;
+  border: 2.5px solid #d97706;
+  background: rgba(254, 240, 138, 0.36);
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
 .body {
-  padding: 16px 20px;
+  padding: 16px 18px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  min-height: 0;
 }
 
 .errorBox {
@@ -184,6 +314,7 @@
   border-radius: 8px;
   background: #ffffff;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .sectionHeader {
@@ -243,6 +374,18 @@
   border-bottom: none;
 }
 
+.activeRow {
+  background: #f8fafc;
+  box-shadow: inset 4px 0 0 #1d4ed8;
+}
+
+.sourceHeaderRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .sourcePrimary {
   font-size: 14px;
   font-weight: 700;
@@ -255,6 +398,60 @@
   font-size: 12.5px;
   color: #475569;
   font-variant-numeric: tabular-nums;
+}
+
+.evidenceBadgeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.evidenceChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.evidenceChipLabel {
+  font-weight: 700;
+  color: #334155;
+}
+
+.familyFilterRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.familyBadge {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #065f46;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-variant-numeric: tabular-nums;
+}
+
+.familyToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: #334155;
+  cursor: pointer;
 }
 
 .chipRow {
@@ -326,7 +523,7 @@
 }
 
 .numInput {
-  width: 92px;
+  width: 86px;
   text-align: right;
 }
 
@@ -359,10 +556,68 @@
   align-items: flex-end;
 }
 
-.calcStatus {
-  margin-top: 6px;
+.suggestionBox {
+  margin-top: 8px;
+  padding: 9px 11px;
+  border-radius: 6px;
+  border: 1px solid #bfdbfe;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.suggestionText {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e3a8a;
+  font-variant-numeric: tabular-nums;
+}
+
+.suggestionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.autofixPrimaryBtn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #1d4ed8;
+  background: #1d4ed8;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.autofixPrimaryBtn:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.autofixSecondaryBtn {
+  font-family: inherit;
   font-size: 12.5px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #94a3b8;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.autofixSecondaryBtn:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.calcStatus {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -376,7 +631,7 @@
 
 .footer {
   padding: 12px 20px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid #cbd5e1;
   background: #f8fafc;
   display: flex;
   align-items: center;
