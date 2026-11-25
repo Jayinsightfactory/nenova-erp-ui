@@ -1,4 +1,6 @@
 'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
 
 // Only main owns the feed and installer. The web renderer never supplies URLs.
 const FEED = 'https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download';
@@ -8,6 +10,53 @@ const FEED = 'https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest
 const FEED_PRIMARY = 'https://nenovaweb.com/desktop-releases';
 const FEED_CHAIN = Object.freeze([FEED_PRIMARY, FEED]);
 const MIN_FREE = 1024 ** 3;
+const UPDATE_STATE_FILE = 'desktop-update-state.json';
+
+function localDateKey(value = Date.now()) {
+  const date = value instanceof Date ? value : new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function createUpdateStateStore(userDataPath = '') {
+  let memory = { lastCheckedDate: '', checkedAt: '', version: '', phase: '' };
+  if (!userDataPath) {
+    return {
+      read: () => ({ ...memory }),
+      write: (next) => { memory = { ...memory, ...next }; },
+    };
+  }
+  const file = path.join(userDataPath, UPDATE_STATE_FILE);
+  return {
+    file,
+    read() {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+        if (parsed && typeof parsed === 'object' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.lastCheckedDate)) {
+          return {
+            lastCheckedDate: parsed.lastCheckedDate,
+            checkedAt: typeof parsed.checkedAt === 'string' ? parsed.checkedAt : '',
+            version: typeof parsed.version === 'string' ? parsed.version : '',
+            phase: typeof parsed.phase === 'string' ? parsed.phase : '',
+          };
+        }
+      } catch { /* Missing or corrupt state falls back cleanly to a fresh daily check. */ }
+      return { ...memory };
+    },
+    write(next) {
+      memory = { ...memory, ...next };
+      try {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        const tmp = `${file}.tmp-${process.pid}`;
+        fs.writeFileSync(tmp, JSON.stringify(memory), 'utf8');
+        fs.renameSync(tmp, file);
+      } catch { /* In-memory state still prevents duplicate checks within the session. */ }
+    },
+  };
+}
+
 function releaseNoteLines(notes) {
   const text = typeof notes === 'string' ? notes : Array.isArray(notes) ? notes.slice(0, 3).map(item => typeof item?.note === 'string' ? item.note : '').join('\n') : '';
   return text.slice(0, 6000).split(/\r?\n/).map(line => line.replace(/^\s*[-*#]+\s*/, '').trim()).filter(Boolean).slice(0, 3).map(line => line.slice(0, 240));
@@ -94,32 +143,73 @@ function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall, f
     },
   };
 }
-// One scheduler per application, shared by all windows. Network restoration can
-// retry early, but repeated online events cannot cause a request storm.
-function createUpdateScheduler({ updater, isReady, isOnline, now = Date.now }) {
-  const interval = 6 * 60 * 60 * 1000, retry = 15 * 60 * 1000, cooldown = 60 * 1000;
-  let nextAt = 0, lastAttempt = -Infinity, wasOnline = false, busy = false;
+// One scheduler per application, shared by all windows.
+// Automatic checks run at most ONCE per local calendar day (YYYY-MM-DD persisted in
+// userData/desktop-update-state.json) on the first authenticated online launch of the day.
+// Explicit manual checks (Home update button or { manual: true / force: true }) and
+// NENOVA_FORCE_UPDATE_CHECK=1 bypass the daily gate.
+function createUpdateScheduler({
+  updater,
+  isReady,
+  isOnline,
+  userDataPath = '',
+  readState,
+  writeState,
+  env = process.env,
+  now = Date.now,
+  dateKey = localDateKey,
+}) {
+  const defaultStore = createUpdateStateStore(userDataPath);
+  const read = typeof readState === 'function' ? readState : () => defaultStore.read();
+  const write = typeof writeState === 'function' ? writeState : next => defaultStore.write(next);
+  let sessionCheckedDate = '';
+  let busy = false;
   return {
-    async tick(reconnected = false) {
-      const online = isOnline(), restored = online && (!wasOnline || reconnected);
-      wasOnline = online;
-      if (!online || !isReady() || busy) return;
+    async tick(options = false) {
+      const manualOrForce = Boolean(
+        (typeof options === 'object' && options !== null && (options.force === true || options.manual === true)) ||
+        env?.NENOVA_FORCE_UPDATE_CHECK === '1'
+      );
+      if (!isOnline() || !isReady() || busy) return false;
+      if (!['idle', 'current', 'error'].includes(updater.getState().phase)) return false;
       const time = now();
-      if (time < nextAt && !restored || time - lastAttempt < cooldown) return;
-      if (!['idle', 'current', 'error'].includes(updater.getState().phase)) return;
-      busy = true; lastAttempt = time; nextAt = time + interval;
+      const today = dateKey(time);
+      if (!manualOrForce) {
+        const persisted = read();
+        if (sessionCheckedDate === today || persisted?.lastCheckedDate === today) return false;
+      }
+      busy = true;
       try {
         await updater.check();
-        if (isReady() && isOnline() && updater.getState().phase === 'available') {
+        const latestState = updater.getState();
+        sessionCheckedDate = today;
+        write({
+          lastCheckedDate: today,
+          checkedAt: new Date(time).toISOString(),
+          version: latestState.version || '',
+          phase: latestState.phase || '',
+        });
+        if (isReady() && isOnline() && latestState.phase === 'available') {
           await updater.download();
           if (isReady() && updater.getState().phase === 'downloaded') await updater.install();
         }
-      }
-      finally {
-        if (updater.getState().phase === 'error') nextAt = now() + retry;
+        return true;
+      } finally {
         busy = false;
       }
     },
   };
 }
-module.exports = { createUpdater, createUpdateScheduler, validInfo, releaseNoteLines, FEED, FEED_PRIMARY, FEED_CHAIN, MIN_FREE };
+module.exports = {
+  createUpdater,
+  createUpdateScheduler,
+  createUpdateStateStore,
+  localDateKey,
+  validInfo,
+  releaseNoteLines,
+  FEED,
+  FEED_PRIMARY,
+  FEED_CHAIN,
+  MIN_FREE,
+  UPDATE_STATE_FILE,
+};

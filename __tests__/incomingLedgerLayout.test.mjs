@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildIncomingDetailRows, incomingColumnWidth, incomingCostLabel, incomingMasterCosts, incomingQuantityWidth, incomingRowKind, needsReceiptCostLedgerSync } from '../lib/incomingLedgerLayout.js';
+import { buildIncomingDetailRows, incomingColumnWidth, incomingCostLabel, incomingFreightPolicy, incomingMasterCosts, incomingQuantityWidth, incomingRowKind, needsReceiptCostLedgerSync } from '../lib/incomingLedgerLayout.js';
 import { resolveDocumentDetailFreight } from '../lib/invoiceReceiptWriter.js';
 import { readLatestArrivalResponse } from '../lib/latestArrivalResponse.js';
 const format=value=>Number(value||0).toLocaleString('ko-KR');
@@ -59,10 +59,25 @@ test('incomingMasterCosts resolves header, detail 3100/3101/2182 and committed d
   assert.equal(resolveDocumentDetailFreight({unclassifiedAdditionalCharges:{amount:23168,currency:'CNY'}}),23168);
   assert.equal(resolveDocumentDetailFreight({unclassifiedAdditionalCharges:{amount:0,currency:'USD'}}),null);
 
-  // Sync predicate flags missing Detail rows and respects native-cost-source-evidence header check
-  assert.equal(needsReceiptCostLedgerSync({WarehouseKey:8247,OrderYear:'2026',OrderWeek:'47-02',GrossWeight:1123.7,ChargeableWeight:1249,DocFreightAmount:3383.97,DocFreightCurrency:'EUR'}),true);
-  assert.equal(needsReceiptCostLedgerSync({WarehouseKey:8260,OrderYear:'2026',OrderWeek:'48-01',DetailGrossWeight:2784,DetailChargeableWeight:3364,DetailFreightAmount:30976}),false);
-  assert.equal(needsReceiptCostLedgerSync({WarehouseKey:8160,OrderYear:'2026',OrderWeek:'46-02',GrossWeight:2543,ChargeableWeight:2543,OrphanGrossWeight:2543,OrphanChargeableWeight:2543,DetailFreightAmount:24087}),false);
+  // Sync predicate flags missing Detail rows, excludes C&F & forwarder-billed farm receipts, and respects native-cost-source-evidence
+  assert.equal(needsReceiptCostLedgerSync({WarehouseKey:8247,OrderYear:'2026',OrderWeek:'47-02',GoodsCountry:'네덜란드',GrossWeight:1123.7,ChargeableWeight:1249,DocFreightAmount:3383.97,DocFreightCurrency:'EUR'}),true);
+  assert.equal(needsReceiptCostLedgerSync({WarehouseKey:8260,OrderYear:'2026',OrderWeek:'48-01',GoodsCountry:'네덜란드',DetailGrossWeight:2784,DetailChargeableWeight:3364,DetailFreightAmount:30976}),false);
+  assert.equal(needsReceiptCostLedgerSync({WarehouseKey:8160,OrderYear:'2026',OrderWeek:'46-02',GoodsCountry:'중국',GrossWeight:2543,ChargeableWeight:2543,OrphanGrossWeight:2543,OrphanChargeableWeight:2543,DetailFreightAmount:24087}),false);
+  assert.equal(needsReceiptCostLedgerSync({WarehouseKey:8252,OrderYear:'2026',OrderWeek:'47-01',FarmName:'Premium Greens',GoodsCountry:'호주',GrossWeight:120}),false);
+  assert.equal(needsReceiptCostLedgerSync({WarehouseKey:8248,OrderYear:'2026',OrderWeek:'47-01',FarmName:'NZ Blooms',GoodsCountry:'뉴질랜드'}),false);
+  assert.equal(needsReceiptCostLedgerSync({WarehouseKey:8162,OrderYear:'2026',OrderWeek:'47-02',FarmName:'Balverde',GoodsCountry:'콜롬비아',GrossWeight:489.9}),false);
+  assert.equal(needsReceiptCostLedgerSync({WarehouseKey:7345,OrderYear:'2026',OrderWeek:'38-01',FarmName:'Super Fresh',GoodsCountry:'태국',DocAction:'LINK_EXISTING_COST',DocGrossWeight:146,DocChargeableWeight:228.5}),false);
+  assert.equal(needsReceiptCostLedgerSync({WarehouseKey:7474,OrderYear:'2026',OrderWeek:'39-01',FarmName:'EXCEL',GoodsCountry:'태국',OrphanGrossWeight:209,OrphanChargeableWeight:270.5,DetailFreightAmount:772.315}),true);
+
+  // Freight policy badges: C&F vs forwarder-separate vs separate vs missing
+  assert.equal(incomingFreightPolicy({FarmName:'Premium Greens',GoodsCountry:'호주'}).freightBadge,'품목단가 운임포함 (C&F)');
+  assert.equal(incomingFreightPolicy({FarmName:'NZ Blooms',GoodsCountry:'뉴질랜드'}).freightBadge,'품목단가 운임포함 (C&F)');
+  assert.equal(incomingFreightPolicy({FarmName:'Hood Canal',GoodsCountry:'미국'}).freightBadge,'품목단가 운임포함 (C&F)');
+  assert.equal(incomingFreightPolicy({FarmName:'Royal Base',GoodsCountry:'베트남'}).freightBadge,'품목단가 운임포함 (C&F)');
+  assert.equal(incomingFreightPolicy({FarmName:'Balverde',GoodsCountry:'콜롬비아'}).freightBadge,'포워더 별도정산');
+  assert.equal(incomingFreightPolicy({FarmName:'Super Fresh',GoodsCountry:'태국'}).freightBadge,'포워더 별도정산');
+  assert.equal(incomingFreightPolicy({FarmName:'Apollo',GoodsCountry:'콜롬비아'}).freightBadge,'운송료 미기재');
+  assert.equal(incomingRowKind({ProdKey:2256,ProdName:'네덜란드 운송료'}),'freight');
 
   // Orphan weigth-typo rows recover GW/CW and detail bottom rows render consistently
   const c8160=incomingMasterCosts({WarehouseKey:8160,OrphanGrossWeight:2543,OrphanChargeableWeight:2543,DetailFreightAmount:24087});

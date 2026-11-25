@@ -35,22 +35,22 @@
             {
               "scenario": "select",
               "title": "1. 패킹리스트에서 중국hubfresh 선택",
-              "seconds": 0.01
+              "seconds": 0.02
             },
             {
               "scenario": "split",
               "title": "2. 상세 인보이스를 올리고 업체별 카톤 수량 확인",
-              "seconds": 15.618
+              "seconds": 15.685
             },
             {
               "scenario": "match",
               "title": "3. 자동으로 연결된 전산 품목과 입고 차수 확인",
-              "seconds": 31.262
+              "seconds": 31.32
             },
             {
               "scenario": "receipt",
               "title": "4. 입고 화면에서 네노바 수량 검증",
-              "seconds": 47.339
+              "seconds": 47.647
             }
           ]
         }
@@ -812,57 +812,57 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 7.02
+              "seconds": 7.024
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 194.869
+              "seconds": 199.615
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 303.834
+              "seconds": 311.613
             },
             {
               "scenario": "add",
               "title": "4. 기존 입고에 품목·수량 추가",
-              "seconds": 384.012
+              "seconds": 393.176
             },
             {
               "scenario": "cancel",
               "title": "5. 기존 입고의 품목·수량 취소",
-              "seconds": 501.539
+              "seconds": 512.176
             },
             {
               "scenario": "price",
               "title": "6. 입고 단가만 변경",
-              "seconds": 581.206
+              "seconds": 593.623
             },
             {
               "scenario": "packing-quantity",
               "title": "7. 단 수량을 확인하고 새 입고 저장",
-              "seconds": 702.758
+              "seconds": 716.353
             },
             {
               "scenario": "manual-upload",
               "title": "8. 여러 품목 수기로 입고 등록",
-              "seconds": 776.851
+              "seconds": 790.134
             },
             {
               "scenario": "inline-numbers",
               "title": "9. 원장 인보이스·AWB 번호 수정",
-              "seconds": 929.94
+              "seconds": 945.176
             },
             {
               "scenario": "native-detail",
               "title": "10. 차수 표시와 상세 수량 수정",
-              "seconds": 995.788
+              "seconds": 1011.125
             },
             {
               "scenario": "density-retry",
               "title": "11. 상품과 중량·운송료를 구분하고 원가 다시 조회",
-              "seconds": 1070.019
+              "seconds": 1085.927
             }
           ]
         },
@@ -878,27 +878,27 @@
             {
               "scenario": "farm",
               "title": "1. 농장만 수정",
-              "seconds": 14.098
+              "seconds": 13.988
             },
             {
               "scenario": "product",
               "title": "2. 품목·수량 함께 변경",
-              "seconds": 58.267
+              "seconds": 57.872
             },
             {
               "scenario": "quantity",
               "title": "3. 수량만 변경·부족 문제 해결",
-              "seconds": 143.916
+              "seconds": 142.982
             },
             {
               "scenario": "price",
               "title": "4. 입고 단가만 변경",
-              "seconds": 271.219
+              "seconds": 270.632
             },
             {
               "scenario": "native-detail",
               "title": "5. 원장 차수·수량 변경 이력",
-              "seconds": 362.238
+              "seconds": 361.629
             }
           ]
         }
@@ -2381,6 +2381,14 @@
     },
     {
       "id": "desktop-task-schedule",
+      "videoWaivers": [
+        {
+          "file": "desktop/main.cjs",
+          "sha256": "6f84ad986a02fb2031c2341585567f2462c8614ef7bebea8d33cdc0a59413550",
+          "approvedBy": "owner",
+          "reason": "2026-11-25 사용자 명시: 데스크톱앱 자동 업데이트를 하루 아침 첫 실행 시 1회만 확인하도록 변경하고 실행 중 주기적 반복 체크 타이머를 제거. 오늘의 내 업무·시간·바로가기 화면 및 조작 흐름은 변경 없음. 기존 영상 재촬영 완료 주장 없음."
+        }
+      ],
       "title": "오늘의 내 업무 · 시간과 바로가기",
       "entryPaths": [
         "/desktop-guide"

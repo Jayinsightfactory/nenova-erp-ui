@@ -49,7 +49,7 @@ function accountFavorites(action, w) {
   return favoriteQueue;
 }
 let nextId = 1, favorites = [], actor = '', locked = true, quitting = false, restoring = false, saved = null, saveTimer, authTimer, authGeneration = 0;
-let webSession, updater, updateScheduler, updateTimer, logoutInProgress = false;
+let webSession, updater, updateScheduler, logoutInProgress = false;
 let activity, activityTimer, activityWarning = '';
 let notesWindow = null, notesTimer = null,notesDirty=false;
 const hasNotes=()=>!!notesWindow&&!notesWindow.isDestroyed();
@@ -701,9 +701,7 @@ app.whenReady().then(async () => {
   if (enabled) repairTaskbarShortcuts({ shell, appData: app.getPath('appData'), execPath: process.execPath, resourcesPath: process.resourcesPath });
   const engine = enabled ? require('electron-updater').autoUpdater : null;
   updater = createUpdater({ engine, enabled, enoughSpace: enoughUpdateSpace, prepareInstall: prepareUpdate, notify: () => broadcast() });
-  updateScheduler = createUpdateScheduler({ updater, isReady: () => !locked && !!actor && !quitting, isOnline: () => net.isOnline() });
-  updateTimer = setInterval(() => { void updateScheduler.tick(); }, 60 * 1000);
-  updateTimer.unref();
+  updateScheduler = createUpdateScheduler({ updater, isReady: () => !locked && !!actor && !quitting, isOnline: () => net.isOnline(), userDataPath: app.getPath('userData'), env: process.env });
   if (engine) {
     require('electron').autoUpdater.on('before-quit-for-update', () => { quitting = true; });
     engine.on('error', () => { quitting = false; });
@@ -818,7 +816,7 @@ app.whenReady().then(async () => {
   adminAlertTimer = setInterval(() => { if (!locked && actor && !quitting) void adminAlerts.check(); }, 3 * 60 * 1000); adminAlertTimer.unref();
 });
 app.on('before-quit', e => { if (!quitting && (windows.size||hasNotes())) { e.preventDefault(); quit(); } });
-app.on('will-quit', () => { clearInterval(updateTimer); clearInterval(activityTimer); clearInterval(notesTimer); clearInterval(adminAlertTimer); aiBridge?.stop(); });
+app.on('will-quit', () => { clearInterval(activityTimer); clearInterval(notesTimer); clearInterval(adminAlertTimer); aiBridge?.stop(); });
 app.on('window-all-closed', () => { if (!quitting) { quitting = true; app.quit(); } });
 // Export only to the local Node test runner. No renderer receives this object.
 module.exports = { windows, tabs, command, createWindow, moveTab, snapshot, verifyAccount };

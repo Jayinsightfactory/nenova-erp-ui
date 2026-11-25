@@ -7,7 +7,7 @@ const { extractFile } = require('@electron/asar');
 const root = path.resolve(__dirname, '..');
 const archive = path.join(root, 'dist/win-unpacked/resources/app.asar');
 const shell = fs.readdirSync(path.join(root, 'shell')).filter(name => /\.(?:html|css|js)$/.test(name));
-for (const name of ['startup.cjs', 'main.cjs', 'flight-board.cjs', 'flight-popup.cjs', 'windows-identity.cjs', 'company-calendar.cjs', ...shell.map(file => 'shell/' + file)]) {
+for (const name of ['startup.cjs', 'updater.cjs', 'main.cjs', 'flight-board.cjs', 'flight-popup.cjs', 'windows-identity.cjs', 'company-calendar.cjs', ...shell.map(file => 'shell/' + file)]) {
   assert.ok(extractFile(archive, name).equals(fs.readFileSync(path.join(root, name))), 'Installed file differs: ' + name);
 }
 assert.equal(JSON.parse(extractFile(archive, 'package.json')).version, require('../package.json').version);

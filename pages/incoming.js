@@ -23,7 +23,7 @@ import { incomingWorkspaceHref } from '../lib/incomingWorkspaceNavigation.js';
 import { invoiceReceiptCostHref } from '../lib/invoiceReceiptCostRoute.js';
 import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
 import { receiptBoxSuggestion } from '../lib/receiptBoxSuggestion.js';
-import { incomingColumnWidth, incomingQuantityWidth, incomingRowKind, incomingMasterCosts, incomingCostLabel, needsReceiptCostLedgerSync, buildIncomingDetailRows } from '../lib/incomingLedgerLayout.js';
+import { incomingColumnWidth, incomingQuantityWidth, incomingRowKind, incomingMasterCosts, incomingCostLabel, incomingFreightPolicy, needsReceiptCostLedgerSync, buildIncomingDetailRows } from '../lib/incomingLedgerLayout.js';
 import ledgerStyles from '../components/IncomingLedger.module.css';
 const { Text } = Typography;
 
@@ -200,6 +200,7 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
 
   const selected = masters.find(m => m.WarehouseKey === selectedKey);
   const selectedCosts = useMemo(() => selected ? incomingMasterCosts(selected) : null, [selected]);
+  const selectedFreightPolicy = useMemo(() => selected ? incomingFreightPolicy(selected, selectedCosts, details) : null, [selected, selectedCosts, details]);
   const selectedYear=selected?.OrderYear, selectedRound=selected?.OrderWeek;
   useEffect(()=>{
     if(!selectedKey||!selectedYear||!/^\d{2}-\d{2}$/.test(selectedRound??'')||Number(selectedYear)<2026||!detailAccess.read){setDetailHistory({});return;}
@@ -523,7 +524,17 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
                 { title: '송이', dataIndex: 'totalSteam', align: 'right', className: ledgerStyles.compactQty, width: masterQtyWidth('totalSteam','송이'), render: fmt, sorter: (a, b) => (a.totalSteam || 0) - (b.totalSteam || 0) },
                 { title: 'GW', key: 'GrossWeight', align: 'right', width: 68, render: (_, row) => { const costs = incomingMasterCosts(row); return costs.gw == null ? <Text type="secondary">–</Text> : <span title={costs.gwSource === 'header' ? '입고 헤더 GW' : costs.gwSource === 'reference' ? '검증된 원가·송장 원본 GW' : '입고 상세 Gross weight 행'}>{incomingCostLabel(costs.gw)}</span>; }, sorter: (a, b) => (incomingMasterCosts(a).gw ?? 0) - (incomingMasterCosts(b).gw ?? 0) },
                 { title: 'CW', key: 'ChargeableWeight', align: 'right', width: 68, render: (_, row) => { const costs = incomingMasterCosts(row); return costs.cw == null ? <Text type="secondary">–</Text> : <span title={costs.cwSource === 'header' ? '입고 헤더 CW' : costs.cwSource === 'reference' ? '검증된 원가·송장 원본 CW' : '입고 상세 Chargeable weight 행'}>{incomingCostLabel(costs.cw)}</span>; } },
-                { title: '운송료', key: 'FreightAmount', align: 'right', width: 98, render: (_, row) => { const costs = incomingMasterCosts(row); return costs.freight == null ? <Text type="secondary">–</Text> : <span style={{ whiteSpace: 'nowrap' }} title={costs.freightSource === 'detail' ? '입고 상세 운송료 행 금액' : costs.freightSource === 'reference' ? '검증된 원본 송장 운송·부대비' : '웹 입고 문서의 운송·부대비 원문 금액'}>{incomingCostLabel(costs.freight, costs.freightCurrency)}</span>; } },
+                { title: '운송료', key: 'FreightAmount', align: 'right', width: 102, render: (_, row) => {
+                  const costs = incomingMasterCosts(row);
+                  if (costs.freight != null) {
+                    return <span style={{ whiteSpace: 'nowrap' }} title={costs.freightSource === 'detail' ? '입고 상세 운송료 행 금액' : costs.freightSource === 'reference' ? '검증된 원본 송장 운송·부대비' : '웹 입고 문서의 운송·부대비 원문 금액'}>{incomingCostLabel(costs.freight, costs.freightCurrency)}</span>;
+                  }
+                  const policy = incomingFreightPolicy(row, costs);
+                  if (policy.masterFallback) {
+                    return <Text type="secondary" style={{ whiteSpace: 'nowrap', fontSize: 12 }} title={policy.freightBadge}>{policy.masterFallback}</Text>;
+                  }
+                  return <Text type="secondary">–</Text>;
+                } },
                 { title: 'Rate', dataIndex: 'FreightRateUSD', align: 'right', width: 64, render: (v) => v ?? <Text type="secondary">–</Text> },
               ]} />
           </Card>
@@ -542,10 +553,10 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
                 <a href="/import/tools?source=hubfresh">중국hubfresh</a>
               </details>
             </Space>}
-            {selected && selectedCosts && <Space wrap size={[6, 4]} style={{ marginBottom: 6, fontVariantNumeric: 'tabular-nums' }} aria-label="입고 운송료·중량 요약">
-              <Tag color={selectedCosts.freight != null ? 'blue' : 'default'}>운송료 {selectedCosts.freight != null ? incomingCostLabel(selectedCosts.freight, selectedCosts.freightCurrency) : '미기재'}</Tag>
-              <Tag color={selectedCosts.gw != null ? 'geekblue' : 'default'}>GW {selectedCosts.gw != null ? `${incomingCostLabel(selectedCosts.gw)} kg` : '미기재'}</Tag>
-              <Tag color={selectedCosts.cw != null ? 'geekblue' : 'default'}>CW {selectedCosts.cw != null ? `${incomingCostLabel(selectedCosts.cw)} kg` : '미기재'}</Tag>
+            {selected && selectedCosts && selectedFreightPolicy && <Space wrap size={[6, 4]} style={{ marginBottom: 6, fontVariantNumeric: 'tabular-nums' }} aria-label="입고 운송료·중량 요약">
+              <Tag color={selectedFreightPolicy.tagColor}>{selectedFreightPolicy.freightBadge}</Tag>
+              <Tag color={selectedCosts.gw != null ? 'geekblue' : 'default'}>GW {selectedCosts.gw != null ? `${incomingCostLabel(selectedCosts.gw)} kg` : selectedFreightPolicy.mode === 'CNF_INCLUDED' ? '별도없음' : selectedFreightPolicy.mode === 'FORWARDER_SEPARATE' ? '포워더합산' : '미기재'}</Tag>
+              <Tag color={selectedCosts.cw != null ? 'geekblue' : 'default'}>CW {selectedCosts.cw != null ? `${incomingCostLabel(selectedCosts.cw)} kg` : selectedFreightPolicy.mode === 'CNF_INCLUDED' ? '별도없음' : selectedFreightPolicy.mode === 'FORWARDER_SEPARATE' ? '포워더합산' : '미기재'}</Tag>
               {canEditSelected && <Button size="small" onClick={() => setCostWeightTarget({ receipt: selected, costs: selectedCosts })}>운송료·중량 저장/수정</Button>}
             </Space>}
             {selectedKey && <div style={{ marginBottom: 8 }} role="status">

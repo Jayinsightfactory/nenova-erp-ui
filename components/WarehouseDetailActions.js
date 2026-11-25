@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Input, Modal, Space } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
+import { incomingRowKind } from '../lib/incomingLedgerLayout.js';
 import { receiptRoundLabel } from '../lib/incomingRoundLabel.js';
 import { defaultPriceBasis } from '../lib/warehouseCorrectionPolicy.js';
 import styles from './WarehouseDetailActions.module.css';
@@ -63,7 +64,7 @@ function QuantityChanges({before,after}) {
 export { defaultPriceBasis };
 
 export function WarehouseQuantityDialog({receipt,row,onClose,onSaved}) {
-  const freight=Number(row.ProdKey)===2182;
+  const freight=incomingRowKind(row)==='freight';
   const outField=unitField[String(row.OutUnit??row['단위']??'').trim()]||'SteamQuantity';
   const basisOptions=freight?['SteamQuantity']:[...new Set(['SteamQuantity',outField])];
   const [draft,setDraft]=useState(()=>({...Object.fromEntries(Object.keys(editableFields).map(field=>[field,row[field]??''])),UPrice:rowPrice(row)??''}));
