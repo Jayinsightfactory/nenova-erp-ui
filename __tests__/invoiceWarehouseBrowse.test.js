@@ -52,3 +52,5 @@ test('selected invoice exposes native download independently from unsupported li
   assert.match(browser,/filterInvoiceWarehouses\(state.rows/);
   assert.doesNotMatch(browser,/\/commit|link-existing/);
 });
+
+test('country chooser uses goods only; Apollo transport is a reference, never inferred as a foreign product',async()=>{const{costWarehouseDisplay}=await modulePromise;assert.equal(costWarehouseDisplay({CostProductRows:JSON.stringify([{ProdName:'ROSE',CounName:'콜롬비아'},{ProdName:'운송료',CounName:'국내'}])}).CountryName,'콜롬비아');assert.equal(costWarehouseDisplay({CostProductRows:JSON.stringify([{ProdName:'운송료',CounName:'국내'},{ProdName:'Gross weight',CounName:'국내'}])}).CostReferenceOnly,true);assert.equal(costWarehouseDisplay({CostProductRows:JSON.stringify([{ProdName:'ROSE',CounName:'콜롬비아'},{ProdName:'Tulip',CounName:'네덜란드'}])}).CountryName,null);assert.equal(costWarehouseDisplay({CostProductRows:'[{}]'}).CostReferenceOnly,false);});

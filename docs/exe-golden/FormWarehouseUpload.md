@@ -175,3 +175,6 @@ actual dnSpy CLI ExcelLoadingPackingList.MakeTempTable/InsertMaster를 재확인
 
 ## 2026-11-24 CLOUD 원본 양식 출력 전용
 실제 dnSpy CLI로 ExcelLoadingPackingList를 재확인했다. MakeTempTable/InsertMaster 및 공유 ERP 저장 순서는 변경하지 않는다. 원가 출력 모듈은 기존 prepared/calculation만 받아 XLSX bytes를 생성한다. 사전 SELECT 2026/47-02 8249 38행63000CNY,8250 2행2620CNY. Warehouse/Order/Shipment/Stock/Estimate/손익 쓰기0. TEST_ONLY는 최종 비용 확정이 아니다.
+
+## 2026-11-25 국가별 원가 진입·AWB 초안
+설치 EXE ExcelLoadingPackingList를 실제 dnSpy CLI로 재확인했다. MakeTempTable/InsertMaster 원장 저장 순서는 보존한다. 도착원가 화면의 기존9국가 공식 진입과 웹 원가 초안/PDF 로컬 읽기만 변경한다. 운영 SELECT 48-01 Apollo8205/8203은 운임·중량4행, 각각AWB86514699786/99204728043이며 상품이 아니다. 상품 국가를 운임 품목의 국내 표기로 판단하지 않는다. 실제 같은AWB 상품 국가만 연결하고 native 공동원가는 원장AWB/연도/차수를 재대조한다. 누락AWB는 원문 근거를 원가 요청 안에만 배정한다. Warehouse/Order/Shipment/Stock/Estimate/손익 원장 쓰기0.
