@@ -67,18 +67,23 @@ export default function DailyOrderSheetModal({
       >
         <header className={styles.modalHeader}>
           <div className={styles.modalTitleGroup}>
-            <div className={styles.modalPurposeTag}>[핵심 목적 · 당일 등록 주문 원장 대조 및 발주서 즉시 추출]</div>
+            <div className={styles.modalPurposeTag}>[핵심 목적 · 당일 전산·웹 주문등록 전체 차수 원장 대조 및 발주서 즉시 추출]</div>
             <h2 id="daily-po-modal-title">
               화훼 발주 내역서
               {data?.selectedStaffName ? ` · ${data.selectedStaffName}` : ''}
             </h2>
             <p className={styles.modalMeta}>
-              기준일 {data?.date || sheet?.dateText || '-'} (KST 당일 등록분)
+              기준일 {data?.date || sheet?.dateText || '-'} (KST 당일 등록 전 차수 통합)
               {sheet ? (
                 <>
                   {' · '}거래처 <strong>{fmtNum(sheet.customerCount)}곳</strong>
                   {' · '}품목 <strong>{fmtNum(sheet.itemCount)}건</strong>
                   {' · '}단순 수량 합계 <strong>{fmtNum(sheet.totalQty)}</strong>
+                  {sheet.includedWeeks?.length > 0 ? (
+                    <>
+                      {' · '}포함 차수 <strong>{sheet.includedWeeks.join(', ')}</strong>
+                    </>
+                  ) : null}
                 </>
               ) : null}
             </p>
@@ -157,7 +162,7 @@ export default function DailyOrderSheetModal({
             <>
               <div className={styles.sheetFilenameRow}>
                 <span>엑셀 저장 파일명: <strong>{sheet.filename}</strong></span>
-                <span>정렬 기준: 거래처 → 품목(대분류) → 상세품종 / 규격</span>
+                <span>비고란에 각 주문 행의 발주 차수(예: 48-01차 / 기존비고)가 자동 표시됩니다.</span>
               </div>
 
               <section aria-label="화훼 발주 내역서 본표" className={styles.sheetSection}>
@@ -172,7 +177,7 @@ export default function DailyOrderSheetModal({
                         <th>상세품종 / 규격</th>
                         <th style={{ width: 96 }}>수량</th>
                         <th style={{ width: 84 }}>단위</th>
-                        <th style={{ width: 180 }}>비고</th>
+                        <th style={{ width: 210 }}>비고</th>
                       </tr>
                     </thead>
                     <tbody>
