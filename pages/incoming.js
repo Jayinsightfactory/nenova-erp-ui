@@ -18,12 +18,12 @@ import WarehouseStockInvestigation from '../components/WarehouseStockInvestigati
 import WarehouseCorrection from '../components/WarehouseCorrection.js';
 import WarehouseManualUpload from '../components/WarehouseManualUpload.js';
 import WarehouseIdentityCell from '../components/WarehouseIdentityCell.js';
-import { WarehouseRoundCell, WarehouseQuantityDialog, WarehouseDetailHistory } from '../components/WarehouseDetailActions.js';
+import { WarehouseRoundCell, WarehouseQuantityDialog, WarehouseCostWeightDialog, WarehouseBatchCostWeightDialog, WarehouseDetailHistory } from '../components/WarehouseDetailActions.js';
 import { incomingWorkspaceHref } from '../lib/incomingWorkspaceNavigation.js';
 import { invoiceReceiptCostHref } from '../lib/invoiceReceiptCostRoute.js';
 import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
 import { receiptBoxSuggestion } from '../lib/receiptBoxSuggestion.js';
-import { incomingColumnWidth, incomingQuantityWidth, incomingRowKind, incomingMasterCosts, incomingCostLabel } from '../lib/incomingLedgerLayout.js';
+import { incomingColumnWidth, incomingQuantityWidth, incomingRowKind, incomingMasterCosts, incomingCostLabel, needsReceiptCostLedgerSync, buildIncomingDetailRows } from '../lib/incomingLedgerLayout.js';
 import ledgerStyles from '../components/IncomingLedger.module.css';
 const { Text } = Typography;
 
@@ -97,6 +97,8 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
   const [identityEditor, setIdentityEditor] = useState(null);
   const [detailAccess,setDetailAccess] = useState({edit:false,read:false});
   const [quantityTarget,setQuantityTarget]=useState(null);
+  const [costWeightTarget,setCostWeightTarget]=useState(null);
+  const [batchCostOpen,setBatchCostOpen]=useState(false);
   const [detailHistory,setDetailHistory]=useState({});
   const [historyRevision,setHistoryRevision]=useState(0);
   const manualUploadButton = useRef(null);
@@ -197,6 +199,7 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
   };
 
   const selected = masters.find(m => m.WarehouseKey === selectedKey);
+  const selectedCosts = useMemo(() => selected ? incomingMasterCosts(selected) : null, [selected]);
   const selectedYear=selected?.OrderYear, selectedRound=selected?.OrderWeek;
   useEffect(()=>{
     if(!selectedKey||!selectedYear||!/^\d{2}-\d{2}$/.test(selectedRound??'')||Number(selectedYear)<2026||!detailAccess.read){setDetailHistory({});return;}
@@ -274,10 +277,12 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
     XLSX.writeFile(wb, `입고원장_${startDate}_${endDate}${farmFilter ? '_' + farmFilter : ''}.xlsx`);
   };
 
-  const filteredDetails = details.filter(d => {
+  const displayDetails = useMemo(() => buildIncomingDetailRows(details, selectedCosts), [details, selectedCosts]);
+
+  const filteredDetails = displayDetails.filter(d => {
     if (!detailSearch) return true;
     const q = detailSearch.toLowerCase();
-    return (d.ProdName||'').toLowerCase().includes(q) ||
+    return (d.DisplayName||d.ProdName||'').toLowerCase().includes(q) ||
            (d.주문코드||'').toLowerCase().includes(q);
   });
 
@@ -428,8 +433,8 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
   };
 
   const handleExcel = () => {
-    if (!selected || !details.length) { alert('상세를 내보낼 입고 원장을 선택하세요.'); return; }
-    const rows = details.map(d => ({ 주문코드:d.주문코드, 품목명:d.DisplayName || d.ProdName, 단위:d.단위,
+    if (!selected || !displayDetails.length) { alert('상세를 내보낼 입고 원장을 선택하세요.'); return; }
+    const rows = displayDetails.map(d => ({ 주문코드:d.주문코드, 품목명:d.DisplayName || d.ProdName, 단위:d.단위,
       박스수량:d.BoxQuantity, 단수량:d.BunchQuantity, 송이수량:d.SteamQuantity, 단가:d.단가, 총액:d.총액 }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '입고상세');
@@ -457,6 +462,10 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
   const masterQtyWidth=(key,label)=>incomingQuantityWidth(filteredMasters,key,fmt,{label,padding:32,min:48});
   const rowQuantity=(value,row)=>incomingRowKind(row)==='weight'?'—':fmt(value);
   const canEditSelected=detailAccess.edit&&selected&&Number(selectedYear)>=2026&&/^\d{2}-\d{2}$/.test(selectedRound);
+  const unsavedCostTargets=useMemo(()=>filteredMasters.flatMap(row=>{
+    const costs=incomingMasterCosts(row);
+    return needsReceiptCostLedgerSync(row,costs)?[{row,costs}]:[];
+  }).slice(0,100),[filteredMasters]);
   return (
     <ConfigProvider locale={koKR} theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorPrimary: '#1166BB', borderRadius: 6, fontSize: 14, lineHeight: 1.35 }, components: { Table: { cellPaddingBlockSM: 3, cellPaddingInlineSM: 6 }, Card: { bodyPaddingSM: 8, headerHeightSM: 36 } } }}>
     <div className="incoming-ledger" style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -486,6 +495,7 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
         <Button size="small" href="/incoming/boxes">차수별 박스 입고 현황</Button>
         <Button size="small" icon={<DownloadOutlined />} disabled={!filteredMasters.length} onClick={handleMasterExcel}>원장 목록 엑셀</Button>
         <Button size="small" icon={<DownloadOutlined />} disabled={!selectedKey || detailLoading || !details.length} onClick={handleExcel}>선택 상세 엑셀</Button>
+        {detailAccess.edit&&unsavedCostTargets.length>0&&<Button size="small" onClick={()=>setBatchCostOpen(true)}>누락 운송료·중량 일괄 저장 ({unsavedCostTargets.length}건)</Button>}
         <Button size="small" onClick={() => embedded ? onClose?.() : window.opener ? window.close() : history.back()}>{embedded ? '업무도구로 돌아가기' : '닫기 / Cerrar'}</Button>
       </Space>
 
@@ -502,19 +512,19 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
               columns={[
                 { title: '주문년도', dataIndex: 'OrderYear', width: 68, sorter: (a, b) => String(a.OrderYear).localeCompare(String(b.OrderYear)) },
                 { title: <LedgerSearchHeading label="차수" value={roundSearch} onChange={setRoundSearch} placeholder="47-02.A" />, dataIndex: 'OrderWeek', width: masterWidth('OrderWeek',132,36), sorter: (a, b) => String(a.OrderWeek).localeCompare(String(b.OrderWeek)), render: (_, row) => <WarehouseRoundCell row={row} editable={detailAccess.edit&&/^\d{2}-\d{2}$/.test(row.OrderWeek)&&Number(row.OrderYear)>=2026} onSaved={roundSaved} /> },
-                { title: <LedgerSearchHeading label="농장명" value={farmSearch} onChange={setFarmSearch} />, dataIndex: 'FarmName', width: masterWidth('FarmName',164,43,280),
+                { title: <LedgerSearchHeading label="농장명" value={farmSearch} onChange={setFarmSearch} />, dataIndex: 'FarmName', width: masterWidth('FarmName',132,36,240),
                   render: name => <span style={{overflowWrap:'anywhere',whiteSpace:'normal'}}>{name || '미기재'}</span>,
                   sorter: (a, b) => String(a.FarmName || '').localeCompare(String(b.FarmName || ''), 'ko'), filterSearch: true, filters: farmOptions.map((f) => ({ text: f, value: f })), onFilter: (v, r) => r.FarmName === v },
-                { title: <LedgerSearchHeading label="인보이스" value={invoiceSearch} onChange={setInvoiceSearch} />, dataIndex: 'InvoiceNo', width: masterWidth('InvoiceNo',150,38), render: (_,row) => identityCell(row,'invoiceNo') },
-                { title: <LedgerSearchHeading label="AWB" value={awbSearch} onChange={setAwbSearch} />, dataIndex: 'AWB', width: masterWidth('AWB',136,38), render: (_,row) => identityCell(row,'awb') },
-                { title: '입력일자', dataIndex: 'InputDate', width: 84, render: value => <span style={{ whiteSpace: 'nowrap' }} title={incomingDateLabel(value)}>{incomingCompactDateLabel(value)}</span>, sorter: (a, b) => String(a.InputDate || '').localeCompare(String(b.InputDate || '')), defaultSortOrder: 'descend' },
+                { title: <LedgerSearchHeading label="인보이스" value={invoiceSearch} onChange={setInvoiceSearch} />, dataIndex: 'InvoiceNo', width: masterWidth('InvoiceNo',128,32), render: (_,row) => identityCell(row,'invoiceNo') },
+                { title: <LedgerSearchHeading label="AWB" value={awbSearch} onChange={setAwbSearch} />, dataIndex: 'AWB', width: masterWidth('AWB',120,32), render: (_,row) => identityCell(row,'awb') },
+                { title: '입력일자', dataIndex: 'InputDate', width: 76, render: value => <span style={{ whiteSpace: 'nowrap' }} title={incomingDateLabel(value)}>{incomingCompactDateLabel(value)}</span>, sorter: (a, b) => String(a.InputDate || '').localeCompare(String(b.InputDate || '')), defaultSortOrder: 'descend' },
                 { title: '박스', dataIndex: 'totalBox', align: 'right', className: ledgerStyles.compactQty, width: masterQtyWidth('totalBox','박스'), render: fmt, sorter: (a, b) => (a.totalBox || 0) - (b.totalBox || 0) },
                 { title: '단', dataIndex: 'totalBunch', align: 'right', className: ledgerStyles.compactQty, width: masterQtyWidth('totalBunch','단'), render: fmt, sorter: (a, b) => (a.totalBunch || 0) - (b.totalBunch || 0) },
                 { title: '송이', dataIndex: 'totalSteam', align: 'right', className: ledgerStyles.compactQty, width: masterQtyWidth('totalSteam','송이'), render: fmt, sorter: (a, b) => (a.totalSteam || 0) - (b.totalSteam || 0) },
-                { title: 'GW', key: 'GrossWeight', align: 'right', width: 76, render: (_, row) => { const costs = incomingMasterCosts(row); return costs.gw == null ? <Text type="secondary">–</Text> : <span title={costs.gwSource === 'detail' ? '입고 상세 Gross weight 행' : '입고 헤더 GW'}>{incomingCostLabel(costs.gw)}</span>; }, sorter: (a, b) => (incomingMasterCosts(a).gw ?? 0) - (incomingMasterCosts(b).gw ?? 0) },
-                { title: 'CW', key: 'ChargeableWeight', align: 'right', width: 76, render: (_, row) => { const costs = incomingMasterCosts(row); return costs.cw == null ? <Text type="secondary">–</Text> : <span title={costs.cwSource === 'detail' ? '입고 상세 Chargeable weight 행' : '입고 헤더 CW'}>{incomingCostLabel(costs.cw)}</span>; } },
-                { title: '운송료', key: 'FreightAmount', align: 'right', width: 104, render: (_, row) => { const costs = incomingMasterCosts(row); return costs.freight == null ? <Text type="secondary">–</Text> : <span style={{ whiteSpace: 'nowrap' }} title={costs.freightSource === 'detail' ? '입고 상세 운송료 행 금액' : '웹 입고 문서의 운송·부대비 원문 금액'}>{incomingCostLabel(costs.freight, costs.freightCurrency)}</span>; } },
-                { title: 'Rate', dataIndex: 'FreightRateUSD', align: 'right', width: 70, render: (v) => v ?? <Text type="secondary">–</Text> },
+                { title: 'GW', key: 'GrossWeight', align: 'right', width: 68, render: (_, row) => { const costs = incomingMasterCosts(row); return costs.gw == null ? <Text type="secondary">–</Text> : <span title={costs.gwSource === 'header' ? '입고 헤더 GW' : costs.gwSource === 'reference' ? '검증된 원가·송장 원본 GW' : '입고 상세 Gross weight 행'}>{incomingCostLabel(costs.gw)}</span>; }, sorter: (a, b) => (incomingMasterCosts(a).gw ?? 0) - (incomingMasterCosts(b).gw ?? 0) },
+                { title: 'CW', key: 'ChargeableWeight', align: 'right', width: 68, render: (_, row) => { const costs = incomingMasterCosts(row); return costs.cw == null ? <Text type="secondary">–</Text> : <span title={costs.cwSource === 'header' ? '입고 헤더 CW' : costs.cwSource === 'reference' ? '검증된 원가·송장 원본 CW' : '입고 상세 Chargeable weight 행'}>{incomingCostLabel(costs.cw)}</span>; } },
+                { title: '운송료', key: 'FreightAmount', align: 'right', width: 98, render: (_, row) => { const costs = incomingMasterCosts(row); return costs.freight == null ? <Text type="secondary">–</Text> : <span style={{ whiteSpace: 'nowrap' }} title={costs.freightSource === 'detail' ? '입고 상세 운송료 행 금액' : costs.freightSource === 'reference' ? '검증된 원본 송장 운송·부대비' : '웹 입고 문서의 운송·부대비 원문 금액'}>{incomingCostLabel(costs.freight, costs.freightCurrency)}</span>; } },
+                { title: 'Rate', dataIndex: 'FreightRateUSD', align: 'right', width: 64, render: (v) => v ?? <Text type="secondary">–</Text> },
               ]} />
           </Card>
         </Col>
@@ -531,6 +541,12 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
                 <a href="/import/tools?tab=packing">패킹리스트 업무도구 열기</a>
                 <a href="/import/tools?source=hubfresh">중국hubfresh</a>
               </details>
+            </Space>}
+            {selected && selectedCosts && <Space wrap size={[6, 4]} style={{ marginBottom: 6, fontVariantNumeric: 'tabular-nums' }} aria-label="입고 운송료·중량 요약">
+              <Tag color={selectedCosts.freight != null ? 'blue' : 'default'}>운송료 {selectedCosts.freight != null ? incomingCostLabel(selectedCosts.freight, selectedCosts.freightCurrency) : '미기재'}</Tag>
+              <Tag color={selectedCosts.gw != null ? 'geekblue' : 'default'}>GW {selectedCosts.gw != null ? `${incomingCostLabel(selectedCosts.gw)} kg` : '미기재'}</Tag>
+              <Tag color={selectedCosts.cw != null ? 'geekblue' : 'default'}>CW {selectedCosts.cw != null ? `${incomingCostLabel(selectedCosts.cw)} kg` : '미기재'}</Tag>
+              {canEditSelected && <Button size="small" onClick={() => setCostWeightTarget({ receipt: selected, costs: selectedCosts })}>운송료·중량 저장/수정</Button>}
             </Space>}
             {selectedKey && <div style={{ marginBottom: 8 }} role="status">
               {invoiceExpenses?.warning && <Alert type="warning" showIcon message={invoiceExpenses.warning} />}
@@ -552,7 +568,7 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
               </div>}
               <ReceiptDetailScroll tableRoot={detailTableRoot} />
               <Table size="small" rowKey={(d, i) => d.WdetailKey ?? i} loading={detailLoading} dataSource={filteredDetails} pagination={false} scroll={{ x: 'max-content' }}
-                summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={5}><Text strong>합계</Text></Table.Summary.Cell>{['BoxQuantity', 'BunchQuantity', 'SteamQuantity'].map((k, i) => <Table.Summary.Cell key={k} index={5 + i} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.IsWeightRow ? 0 : (b[k] || 0)), 0))}</Text></Table.Summary.Cell>)}<Table.Summary.Cell index={8} /><Table.Summary.Cell index={9} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.총액 || 0), 0))}</Text></Table.Summary.Cell></Table.Summary.Row></Table.Summary>}
+                summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={5}><Text strong>합계</Text></Table.Summary.Cell>{['BoxQuantity', 'BunchQuantity', 'SteamQuantity'].map((k, i) => <Table.Summary.Cell key={k} index={5 + i} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.IsWeightRow || b.IsSupplementRow ? 0 : (b[k] || 0)), 0))}</Text></Table.Summary.Cell>)}<Table.Summary.Cell index={8} /><Table.Summary.Cell index={9} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.총액 || 0), 0))}</Text></Table.Summary.Cell></Table.Summary.Row></Table.Summary>}
                 columns={[
                   { title: '주문코드', dataIndex: '주문코드', width: 82 },
                   { title: '품목명(색상)', key: 'name', width: 280, render: (_, d) => (
@@ -562,9 +578,13 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
                       title={d.DisplayName || d.ProdName || ''}
                       style={{ display: 'block', whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.35 }}
                     >{d.DisplayName || d.ProdName}
-                      {incomingRowKind(d)==='weight'&&<span className={ledgerStyles.rowMeta}>중량 {fmt(d.SteamQuantity)} kg</span>}
+                      {incomingRowKind(d)==='weight'&&<span className={ledgerStyles.rowMeta}>중량 {incomingCostLabel(d.SteamQuantity)} kg</span>}
                       {incomingRowKind(d)==='freight'&&<span className={ledgerStyles.rowMeta}>{selectedCostHref?<a href={selectedCostHref}>운송료 원가 작업</a>:'운송료 기록'}</span>}
-                      {canEditSelected&&['goods','freight'].includes(incomingRowKind(d))&&Number.isInteger(d.WdetailKey)&&Number.isInteger(d.ProdKey)&&
+                      {(d.IsSupplementRow||d.LegacyOrphanWeight)&&<span className={ledgerStyles.rowMeta}>{d.SupplementSource==='document'?'웹 송장 원문':d.SupplementSource==='reference'?'검증 원본 자료':'기존 원장 복원'}</span>}
+                      {canEditSelected&&(d.IsSupplementRow||d.LegacyOrphanWeight)&&
+                        <Button type="link" size="small" className={ledgerStyles.qtyEdit} aria-label={`운송료·중량 원장 저장 · ${d.DisplayName || d.ProdName}`}
+                          onClick={()=>setCostWeightTarget({receipt:selected,costs:selectedCosts})}>원장 저장·수정</Button>}
+                      {canEditSelected&&!d.IsSupplementRow&&!d.LegacyOrphanWeight&&['goods','freight'].includes(incomingRowKind(d))&&Number.isInteger(d.WdetailKey)&&Number.isInteger(d.ProdKey)&&
                         <Button type="link" size="small" className={ledgerStyles.qtyEdit} aria-label={`${incomingRowKind(d)==='freight'?'운송료 단가 수정':'상세 수량 수정'} · ${d.DisplayName || d.ProdName}`}
                           title={incomingRowKind(d)==='freight'?'운송료 단가(금액) 수정':'박스·단·송이 수량과 단가 수정'}
                           onClick={()=>setQuantityTarget({receipt:selected,row:d})}>{incomingRowKind(d)==='freight'?'단가 수정':'수량·단가 수정'}</Button>}
@@ -586,8 +606,8 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
                   } },
                   { title: '단', dataIndex: 'BunchQuantity', align: 'right', className: ledgerStyles.compactQty, width: detailQtyWidth('BunchQuantity','단'), render:rowQuantity },
                   { title: '송이', dataIndex: 'SteamQuantity', align: 'right', className: ledgerStyles.compactQty, width: detailQtyWidth('SteamQuantity','송이'), render:rowQuantity },
-                  { title: '단가', dataIndex: '단가', align: 'right', width: 70, render: fmt },
-                  { title: '출하단가', dataIndex: '총액', align: 'right', width: 80, render: fmt },
+                  { title: '단가', dataIndex: '단가', align: 'right', width: 82, render: (v, d) => d.SupplementCurrency ? incomingCostLabel(v, d.SupplementCurrency) : fmt(v) },
+                  { title: '출하단가', dataIndex: '총액', align: 'right', width: 92, render: (v, d) => d.SupplementCurrency ? incomingCostLabel(v, d.SupplementCurrency) : fmt(v) },
                   { title: '실제 도착원가', key: 'actualCost', align: 'right', width: 140, render: (_, d) => renderCost(d, actualCostByDetail) },
                   { title: showLatestDetails ? '최신 원가 참고' : '최신 원가 최고가', key: 'latestArrival', width: showLatestDetails ? 230 : 120, render: (_, d) => latestArrival.error||incomingRowKind(d)!=='goods'?'—':<LatestArrivalReference state={latestArrival} item={{prodKey:d.ProdKey,unit:''}} highestOnly={!showLatestDetails} /> },
                   { title: '도착원가 합계', key: 'actualCostTotal', align: 'right', width: 140, render: (_, d) => renderCost(d, actualCostByDetail, true) },
@@ -599,6 +619,19 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
         </Col>
       </Row>
 
+      {batchCostOpen&&<WarehouseBatchCostWeightDialog targets={unsavedCostTargets} onClose={()=>setBatchCostOpen(false)} onSaved={result=>{
+        setBatchCostOpen(false);
+        setSuccessMsg(`누락 운송료·중량 원장 ${result.savedCount}건 일괄 저장 완료`);
+        setHistoryRevision(value=>value+1);
+        load();if(selectedKey)selectMaster(selectedKey);
+      }}/>}
+      {costWeightTarget&&<WarehouseCostWeightDialog {...costWeightTarget} onClose={()=>setCostWeightTarget(null)} onSaved={()=>{
+        const key=costWeightTarget.receipt.WarehouseKey;
+        setCostWeightTarget(null);
+        setSuccessMsg(`입고 #${key} 운송료·중량 원장 저장 완료`);
+        setHistoryRevision(value=>value+1);
+        load();selectMaster(key);
+      }}/>}
       {quantityTarget&&<WarehouseQuantityDialog {...quantityTarget} onClose={()=>setQuantityTarget(null)} onSaved={()=>{
         const key=quantityTarget.receipt.WarehouseKey;
         setQuantityTarget(null);

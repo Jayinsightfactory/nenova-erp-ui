@@ -17,6 +17,8 @@
   "actions":[
     {"name":"RECEIPT_ROUND_LABEL","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve raw business round","warehouseDetail":"preserve","systemActionLog":"append before/after A/B label and actor/date"},
     {"name":"NATIVE_RECEIPT_QUANTITY","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"existing audit time/actor only","warehouseDetail":"in-place scoped row quantity, unit price(UPrice) and derived totals(TPrice)","stock":"recalculate only changed outbound quantity","systemActionLog":"existing correction writer appends atomic acknowledgment"},
+    {"name":"SAVE_RECEIPT_COSTS","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"in-place scoped GrossWeight and ChargeableWeight update","warehouseDetail":"upsert non-merchandise 2182/3100/3101 rows without touching flower rows","stock":"preserve","systemActionLog":"append before/after GW/CW/freight and actor/date"},
+    {"name":"BATCH_SAVE_RECEIPT_COSTS","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"atomic batch SAVE_RECEIPT_COSTS for verified missing 2026+ receipts","warehouseDetail":"upsert non-merchandise 2182/3100/3101 rows while preserving native-cost-source-evidence row counts","stock":"preserve","systemActionLog":"append per-receipt before/after GW/CW/freight and actor/date"},
     {"name":"PACKING_ROUND_SUFFIX","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"same verified warehouse uploader using canonical round","systemActionLog":"append suffix atomically with receipt"}
   ],
   "crossYearFixture":{

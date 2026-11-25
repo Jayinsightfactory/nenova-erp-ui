@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { attachWarehouseRoundLabels, changeWarehouseRoundLabel, readWarehouseDetailActions } from '../lib/warehouseDetailActions.js';
+import { attachWarehouseRoundLabels, changeWarehouseRoundLabel, readWarehouseDetailActions, saveWarehouseReceiptCosts } from '../lib/warehouseDetailActions.js';
 import { defaultPriceBasis } from '../lib/warehouseCorrectionPolicy.js';
 import { splitIncomingRound, receiptRoundLabel, normalizeRoundSearch, matchesRound } from '../lib/incomingRoundLabel.js';
 import { approvalPermissions } from '../lib/incomingApprovalPolicy.js';
@@ -74,6 +74,36 @@ test('defaultPriceBasis selects only proven unit basis and asks user when ambigu
   assert.equal(defaultPriceBasis({ProdKey:2077,단위:'단',BunchQuantity:60,SteamQuantity:600,단가:0.5,총액:300}),'SteamQuantity');
   assert.equal(defaultPriceBasis({ProdKey:2077,단위:'단',BunchQuantity:40,SteamQuantity:40,단가:7.5,총액:300}),'');
   assert.equal(defaultPriceBasis({ProdKey:2077,단위:'단',BunchQuantity:60,SteamQuantity:600,단가:0,총액:0}),'');
+});
+
+test('saveWarehouseReceiptCosts writes master GW/CW, upserts 2182/3100/3101, syncs committed op digest and audits',async()=>{
+  const calls=[];
+  const initialOp={receiptSnapshot:{header:{WarehouseKey:8249,OrderYear:'2026',OrderWeek:'47-02',GrossWeight:null,ChargeableWeight:null},details:[{WdetailKey:51360,ProdKey:2157}]},receiptDigest:'old'};
+  const query=async(statement,params={})=>{
+    const p=Object.fromEntries(Object.entries(params).map(([k,v])=>[k,v.value]));
+    calls.push({statement,p});
+    if(statement.includes('round-header'))return {recordset:p.year==='2026'&&p.week==='47-02'&&p.wk===8249?[{...master,GrossWeight:null,ChargeableWeight:null}]:[]};
+    if(statement.includes('cost-details'))return {recordset:[{WdetailKey:51360,ProdKey:2157,SteamQuantity:200}]};
+    if(statement.includes('FROM dbo.Product'))return {recordset:[{ProdKey:2182},{ProdKey:3100},{ProdKey:3101}]};
+    if(statement.includes('cost-sync-op'))return {recordset:[{OperationId:'op-1',ResultJson:JSON.stringify(initialOp)}]};
+    return success;
+  };
+  await assert.rejects(()=>saveWarehouseReceiptCosts(query,{...types,Float:'float'},{...scope,gw:2500,cw:1800,freight:23168,reason:'확인'},'tester'),{code:'CORRECTION_COST_INVALID'});
+  await assert.rejects(()=>saveWarehouseReceiptCosts(query,{...types,Float:'float'},{...scope,orderYear:'2025',gw:1823,cw:2452,freight:23168,reason:'확인'},'tester'),{code:'CORRECTION_SCOPE_INVALID'});
+  const saved=await changeWarehouseRoundLabel(query,{...types,Float:'float'},{...scope,action:'SAVE_RECEIPT_COSTS',gw:1823,cw:2452,freight:23168,reason:'47-2 원가자료 대조'},'tester');
+  assert.deepEqual(saved,{warehouseKey:8249,gw:1823,cw:2452,freight:23168});
+  assert(calls.some(c=>c.statement.includes('UPDATE dbo.WarehouseMaster')&&c.p.gw===1823&&c.p.cw===2452));
+  assert.equal(calls.filter(c=>c.statement.includes('INSERT INTO dbo.WarehouseDetail')).length,3);
+  const opUpdate=calls.find(c=>c.statement.includes('UPDATE dbo.WebInvoiceOperation'));
+  const synced=JSON.parse(opUpdate.p.json);
+  assert.deepEqual([synced.receiptSnapshot.header.GrossWeight,synced.receiptSnapshot.header.ChargeableWeight],[1823,2452]);
+  assert.notEqual(synced.receiptDigest,'old');
+  const batch=await changeWarehouseRoundLabel(query,{...types,Float:'float'},{
+    action:'BATCH_SAVE_RECEIPT_COSTS',
+    reason:'일괄 반영 테스트',
+    items:[{...scope,gw:1823,cw:2452,freight:23168},{...scope,gw:1823,cw:2452,freight:23168}],
+  },'tester');
+  assert.equal(batch.savedCount,1);
 });
 
 test('sales support can review history without gaining modification rights',async()=>{

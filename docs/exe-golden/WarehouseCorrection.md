@@ -29,3 +29,7 @@ FormWarehouseView.GetDetail: WarehouseKey로 WarehouseDetail/Product 조회.
 ## 2026-11-25 상세 수량·단가(UPrice) 함께 수정
 
 실제 decompile `FormWarehouseAdd` EditMode 2(`spePrice` 로드 → `btnSave_Click`에서 `UPrice`/`TPrice = SteamQuantity * UPrice` UPDATE)를 재확인했다. 웹 상세 수정(`NATIVE_QUANTITY`)은 `BoxQuantity`·`BunchQuantity`·`SteamQuantity`와 함께 `UPrice` 입력을 지원하며, 기존 합계로 증명된 단위 기준(송이 vs 출고단위)을 보존하거나 모호할 때 명시 선택을 요구한다. `2182 운송료` 행은 수량을 고정한 채 단가만 수정 가능하고 `3100`/`3101` 중량 행은 차단한다. 단가만 변경되어 출고수량 증감이 0이면 `StockHistory`/`Product.Stock`/`usp_StockCalculation` 부작용 없이 해당 `WdetailKey`의 `UPrice`·`TPrice`와 감사 로그만 갱신한다. 운영 DB 쓰기 0.
+
+## 2026-11-25 입고 상세 하단 운송료·GW·CW 일관 표기 및 원장 저장/수정
+
+실제 운영 SELECT(`47-02 Holex` `8247`, `47-02 Cloudland` `8249/8250`, `47-01 Super Fresh` `8198`, `46-02` `8160`, `48-01 HUBFRESH` `8259`, `45-01` `7967`, `35-02` `7103`, `32-02` `6798`)로 대조했다. `WebInvoiceDocument.SourceHash`는 `BINARY(32)`이므로 `LOWER(CONVERT(varchar(64), doc.SourceHash, 2))`로 비교해 `cloud-cost-reference-evidence.json` 및 원본 확정 레퍼런스(`warehouse-verified-cost-supplement.json`)를 보강하고, 동일 통화 `costInputs.freight + costInputs.docFee`(예: Holex `3,333.97 + 50 = 3,383.97 EUR`)를 합산하며 과거 `weigth` 오타로 `ProdKey IS NULL`인 중량 행을 `Gross weight`/`Chargeable weight`로 복원한다. 앞으로 웹 AI 인보이스 입고(`createInvoiceReceipt`)도 커밋 시 `2182/3100/3101` 상세 행을 자동 생성하며, `SAVE_RECEIPT_COSTS`/`BATCH_SAVE_RECEIPT_COSTS`는 꽃 품목·재고를 건드리지 않고 `WarehouseMaster`+`WarehouseDetail(2182/3100/3101)`+`WebInvoiceOperation.ResultJson` 헤더 스냅샷과 감사 로그를 원자적으로 갱신한다. 운영 DB 쓰기 0.

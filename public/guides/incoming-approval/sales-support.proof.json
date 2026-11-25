@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-25T04:13:55.317Z",
+  "recordedAt": "2026-11-25T06:21:25.061Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 372.95,
+  "duration": 374.3,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "dd7a9533cca3a590e2aa1008d2a8e68c1ed6d3d8a8222f41329059375ea0e429",
-  "captionsSha256": "aca7ee4a5ceea7209a72d86d8bf7f9d086ac7075ee88c8be90d5b577d184589a",
+  "videoSha256": "90bdcd75e4126b7979c18a0e67be0d66acf7de85bf8b0629002f589999a18c9a",
+  "captionsSha256": "74587b4bac263ea0eb51eb4d1900413ed577a2c21907c9f97f5c6b660c2da1ff",
   "sourceHashes": {
     "components/IncomingApproval.js": "e5256969bcb69cb9bcb9a3dccc7e8c98a277eb58ce95546c7f47451c4797e896",
     "components/IncomingApprovalLinkedReview.js": "4cb089cdf6f0ef7989e72f30732bcdc62227e00a40e5e434c259a6d9b664ced6",
     "components/WarehouseCorrection.js": "0bbf2ac56899a19f81dfe920b42c7a7b115a5437a6afefb91d8e611d3496bfc0",
-    "pages/incoming.js": "e651c402d368cf5f786ae21e198fc3448bf2a781ac1e4c230da19e62004880b0",
+    "pages/incoming.js": "2a504f2082e5dbc4a188c4c8fcd241822c64c45058b04d9f6137591bd671bcc9",
     "pages/import/tools.js": "3a19680c05197608ca0114a3fd7fbf2e6f5cd8c09977d058fddf94ccc0930ccb",
     "components/IncomingCorrectionRequest.js": "8295594331ff4f48085dbe073a89f5f18bef76569a2209e8caf9859abe51f54e",
     "lib/incomingApprovalSimple.js": "0b46505444b9a655ae11a2314c404f2d04461166b223cc5b032263a2d7cf8c54",
@@ -29,10 +29,10 @@
     "components/WarehouseIdentityCell.module.css": "975c31ce9d51af3698cc361685e09bdc21b1961f7d09711cdad8aa3b39f1f4ab",
     "lib/incomingDateLabel.js": "32597e33a0f2fa694b40db53677e7b269471237ecc3b6796eb43f1b6b8074f4e",
     "lib/incomingRoundLabel.js": "824f894eaa632445061cd6eebb284c859a1a3629aaade0f0f8ad8b28c185bae7",
-    "components/WarehouseDetailActions.js": "1bc62b78677146bedf042a35aba8a8f4a6f09b207b39ff025c72e14e3f2d2e19",
+    "components/WarehouseDetailActions.js": "2cf2f9a921060463eb333bbb2ad5a7202d1727f1f5d86c044897f699ce252aa4",
     "components/WarehouseDetailActions.module.css": "fe65ffb045751b880b870749f6e5913cbd04475e1d1e13230bd17ff9ad319678",
     "components/IncomingLedger.module.css": "7c8a08cfb5fc5cc19fe44afb12b53bc22a8371546c8a788ef2021a8a88fcf4f6",
-    "lib/incomingLedgerLayout.js": "1bf98858b3efa9c8a14dc513aa756c185a693a7d1e3a2a386546516f343895d1",
+    "lib/incomingLedgerLayout.js": "d5dbf0ed6f775ac974612255734d9ebe811cfa27669e10f46f052148e5c3034d",
     "lib/latestArrivalResponse.js": "4c9015c55862a3eaa63f999e6883a57f52dbb8a023c741a8eccab5ab4317718c",
     "lib/useLatestArrivalReferences.js": "338aa56642a26c0b87a3777d86d0a6c8caae1c20d69817a92b674e73ad2ceff9"
   },
@@ -50,178 +50,178 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 8.83615559999994,
+        "start": 8.844992000000087,
         "x": 380.453125,
         "y": 558.5,
-        "end": 13.70183729999978
+        "end": 13.879881500000133
       },
       {
         "number": 1,
-        "start": 15.741263999999967,
+        "start": 15.928075799999991,
         "x": 297.5703125,
         "y": 804.0625,
-        "end": 20.656904499999946
+        "end": 20.894919300000183
       },
       {
         "number": 1,
-        "start": 52.69580619999999,
+        "start": 53.01143859999999,
         "x": 308.4609375,
         "y": 791.5,
-        "end": 57.60958069999982
+        "end": 57.99192100000009
       },
       {
         "number": 2,
-        "start": 59.636380199999785,
+        "start": 60.28523030000017,
         "x": 297.5703125,
         "y": 868.0625,
-        "end": 64.5201679
+        "end": 65.27821820000001
       },
       {
         "number": 2,
-        "start": 78.55314429999981,
+        "start": 79.3599952,
         "x": 473,
         "y": 623.0625,
-        "end": 83.46233779999987
+        "end": 84.36703960000003
       },
       {
         "number": 2,
-        "start": 85.48803339999984,
+        "start": 86.40588829999999,
         "x": 376.921875,
         "y": 613.0625,
-        "end": 91.0922855
+        "end": 92.16797840000014
       },
       {
         "number": 2,
-        "start": 93.11988409999991,
+        "start": 94.21591500000004,
         "x": 476.40625,
         "y": 775.0625,
-        "end": 99.9727320999999
+        "end": 101.19912120000018
       },
       {
         "number": 2,
-        "start": 101.98844869999984,
+        "start": 103.22090010000021,
         "x": 574.40625,
         "y": 774.0625,
-        "end": 106.87758419999993
+        "end": 108.2104338
       },
       {
         "number": 2,
-        "start": 108.9030514,
+        "start": 110.24574210000014,
         "x": 336.84375,
         "y": 832.0625,
-        "end": 113.8553291999998
+        "end": 115.19986690000003
       },
       {
         "number": 2,
-        "start": 137.3460323999999,
+        "start": 138.7649989,
         "x": 308.4609375,
         "y": 735.5,
-        "end": 142.1980998999998
+        "end": 143.7092339000001
       },
       {
         "number": 3,
-        "start": 156.14722679999983,
+        "start": 157.7459454000001,
         "x": 530.6796875,
         "y": 581.0625,
-        "end": 161.07903699999977
+        "end": 162.6741527000002
       },
       {
         "number": 3,
-        "start": 170.1104989,
+        "start": 171.7202733,
         "x": 154.0625,
         "y": 261.5625,
-        "end": 175.1063289999999
+        "end": 176.71289120000017
       },
       {
         "number": 3,
-        "start": 177.15083979999997,
+        "start": 178.76931080000008,
         "x": 36.5,
         "y": 430.5625,
-        "end": 182.0821658999999
+        "end": 183.72204780000004
       },
       {
         "number": 3,
-        "start": 184.10596109999994,
+        "start": 185.75948820000002,
         "x": 834.859375,
         "y": 624.0625,
-        "end": 189.6639094
+        "end": 191.38322330000017
       },
       {
         "number": 3,
-        "start": 198.71643979999982,
+        "start": 200.4227498000001,
         "x": 119.9140625,
         "y": 782.0625,
-        "end": 203.65151909999992
+        "end": 205.29551160000008
       },
       {
         "number": 3,
-        "start": 212.6860604999999,
+        "start": 214.32918260000017,
         "x": 269.2890625,
         "y": 897.0625,
-        "end": 217.64589989999982
+        "end": 219.23682980000018
       },
       {
         "number": 3,
-        "start": 226.69637699999987,
+        "start": 228.29238089999998,
         "x": 257.5,
         "y": 788.0625,
-        "end": 231.58850699999996
+        "end": 233.21805590000002
       },
       {
         "number": 3,
-        "start": 233.61794389999983,
+        "start": 235.2417807,
         "x": 336.84375,
         "y": 581.0625,
-        "end": 238.54922949999988
+        "end": 240.13131330000002
       },
       {
         "number": 3,
-        "start": 264.58221999999995,
+        "start": 266.12359790000016,
         "x": 308.4609375,
         "y": 558.5,
-        "end": 269.50003269999985
+        "end": 271.0131438000002
       },
       {
         "number": 4,
-        "start": 308.4298298999998,
+        "start": 310.06637580000006,
         "x": 308.4609375,
         "y": 735.5,
-        "end": 313.3941074999999
+        "end": 315.02107500000017
       },
       {
         "number": 4,
-        "start": 315.41527619999994,
+        "start": 317.0490329,
         "x": 466.4453125,
         "y": 630.5,
-        "end": 320.3197829
+        "end": 321.95801380000006
       },
       {
         "number": 4,
-        "start": 327.3513232999998,
+        "start": 329.0026391,
         "x": 466.4453125,
         "y": 558.5,
-        "end": 332.30706609999993
+        "end": 333.936084
       },
       {
         "number": 4,
-        "start": 340.3498398,
+        "start": 341.96204410000007,
         "x": 297.5703125,
         "y": 804.0625,
-        "end": 345.27846389999985
+        "end": 346.9069623
       },
       {
         "number": 4,
-        "start": 347.3031024999998,
+        "start": 348.92922640000006,
         "x": 471,
         "y": 800.5,
-        "end": 352.1886902999999
+        "end": 353.8907533000002
       },
       {
         "number": 5,
-        "start": 362.5706043,
+        "start": 364.1229691000001,
         "x": 1397.6953125,
-        "y": 374.7734375,
-        "end": 367.5078474999999
+        "y": 375.3203125,
+        "end": 369.05865590000013
       }
     ]
   }

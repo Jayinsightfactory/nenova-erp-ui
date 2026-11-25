@@ -89,6 +89,8 @@ async function getWarehouse(req, res) {
         wm.FileName,
         wm.GrossWeight, wm.ChargeableWeight, wm.FreightRateUSD, wm.DocFeeUSD,
         wd.DetailGrossWeight, wd.DetailChargeableWeight, wd.DetailFreightAmount,
+        orphanWeight.OrphanGrossWeight, orphanWeight.OrphanChargeableWeight,
+        invoiceDoc.DocSourceHash, invoiceDoc.DocGrossWeight, invoiceDoc.DocChargeableWeight,
         invoiceDoc.DocFreightAmount, invoiceDoc.DocFreightCurrency,
         wd.totalBox, wd.totalBunch, wd.totalSteam
        FROM WarehouseMaster wm

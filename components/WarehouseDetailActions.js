@@ -6,7 +6,7 @@ import { defaultPriceBasis } from '../lib/warehouseCorrectionPolicy.js';
 import styles from './WarehouseDetailActions.module.css';
 
 const editableFields={BoxQuantity:'박스',BunchQuantity:'단',SteamQuantity:'송이'};
-const compareFields={...editableFields,OutQuantity:'출고수량',EstQuantity:'견적수량',UPrice:'단가',TPrice:'입고 합계'};
+const compareFields={...editableFields,OutQuantity:'출고수량',EstQuantity:'견적수량',UPrice:'단가',TPrice:'입고 합계',GW:'실중량(GW)',CW:'과금중량(CW)'};
 const unitField={박스:'BoxQuantity',단:'BunchQuantity',송이:'SteamQuantity'};
 const basisLabel={SteamQuantity:'송이',BunchQuantity:'단',BoxQuantity:'박스'};
 const rowPrice=row=>row.UPrice??row['단가']??null;
@@ -121,6 +121,90 @@ export function WarehouseQuantityDialog({receipt,row,onClose,onSaved}) {
     {error&&<p role="alert">{error}</p>}
     {!!preview?.issues?.length&&<div role="alert"><ul className={styles.changes}>{preview.issues.map(issue=><li key={issue.code}>{issue.message}</li>)}</ul></div>}
     {preview?.nativeQuantity&&<div role="status"><strong>저장 전후 비교</strong><QuantityChanges {...preview.nativeQuantity}/></div>}
+  </Modal>;
+}
+
+export function WarehouseCostWeightDialog({receipt,costs,onClose,onSaved}) {
+  const [gw,setGw]=useState(()=>costs?.gw==null?'':String(costs.gw));
+  const [cw,setCw]=useState(()=>costs?.cw==null?'':String(costs.cw));
+  const [freight,setFreight]=useState(()=>costs?.freight==null?'':String(costs.freight));
+  const [reason,setReason]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const changed=gw!==(costs?.gw==null?'':String(costs.gw))||cw!==(costs?.cw==null?'':String(costs.cw))||freight!==(costs?.freight==null?'':String(costs.freight))
+    ||['reference','document','orphan'].includes(costs?.gwSource)||['reference','document','orphan'].includes(costs?.cwSource)
+    ||['reference','document'].includes(costs?.freightSource)
+    ||(costs?.gw!=null&&receipt?.DetailGrossWeight==null)||(costs?.cw!=null&&receipt?.DetailChargeableWeight==null)
+    ||(costs?.freight!=null&&receipt?.DetailFreightAmount==null);
+  async function save() {
+    if(!reason.trim())return;
+    setBusy(true);setError('');
+    try{
+      await post('/api/warehouse/detail-actions',{
+        ...scope(receipt),action:'SAVE_RECEIPT_COSTS',
+        gw:gw.trim()===''?null:Number(gw),
+        cw:cw.trim()===''?null:Number(cw),
+        freight:freight.trim()===''?null:Number(freight),
+        reason:reason.trim(),
+      });
+      onSaved();
+    }catch(err){setError(err.message);}finally{setBusy(false);}
+  }
+  return <Modal open title="입고 운송료·GW·CW 원장 저장/수정" onCancel={busy?undefined:onClose} closable={!busy} maskClosable={!busy} keyboard={!busy}
+    footer={<Space wrap>
+      <Button onClick={onClose} disabled={busy}>닫기</Button>
+      <Button type="primary" onClick={save} loading={busy} disabled={!changed||!reason.trim()}>원장 저장</Button>
+    </Space>}>
+    <p>{receipt.FarmName||'농장 미기재'} · 인보이스 {receipt.InvoiceNo||'미기재'} · 입고 #{receipt.WarehouseKey}</p>
+    <div className={styles.fields} style={{fontVariantNumeric:'tabular-nums'}}>
+      <label>운송료 금액{costs?.freightCurrency?` (${costs.freightCurrency})`:''}
+        <Input type="number" step="any" value={freight} disabled={busy} placeholder="예: 23168" onChange={e=>{setFreight(e.target.value);setError('');}}/>
+      </label>
+      <label>GW 실중량 (kg)
+        <Input type="number" min={0} step="any" value={gw} disabled={busy} placeholder="예: 1823" onChange={e=>{setGw(e.target.value);setError('');}}/>
+      </label>
+      <label>CW 과금중량 (kg)
+        <Input type="number" min={0} step="any" value={cw} disabled={busy} placeholder="예: 2452" onChange={e=>{setCw(e.target.value);setError('');}}/>
+      </label>
+    </div>
+    <p style={{fontSize:12.5,color:'#475569',marginTop:8}}>저장하면 입고 헤더(GW·CW)와 상세 원장 행(운송료·Gross weight·Chargeable weight)에 함께 기록됩니다. 꽃 품목 재고는 변경하지 않습니다.</p>
+    <label className={styles.reason}>저장·수정 사유<Input value={reason} maxLength={500} disabled={busy} placeholder="원본 송장 또는 원가자료 대조 확인" onChange={e=>{setReason(e.target.value);setError('');}}/></label>
+    {error&&<p role="alert">{error}</p>}
+  </Modal>;
+}
+
+export function WarehouseBatchCostWeightDialog({targets=[],onClose,onSaved}) {
+  const [reason,setReason]=useState('검증된 웹 송장·원가 원본 운송료·중량 일괄 반영'),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  async function save() {
+    if(!reason.trim()||!targets.length)return;
+    setBusy(true);setError('');
+    try{
+      const result=await post('/api/warehouse/detail-actions',{
+        action:'BATCH_SAVE_RECEIPT_COSTS',
+        reason:reason.trim(),
+        items:targets.map(({row,costs})=>({
+          ...scope(row),
+          gw:costs.gw??null,
+          cw:costs.cw??null,
+          freight:costs.freight??null,
+        })),
+      });
+      onSaved(result);
+    }catch(err){setError(err.message);}finally{setBusy(false);}
+  }
+  return <Modal open title={`누락 운송료·GW·CW 원장 일괄 저장 (${targets.length}건)`} onCancel={busy?undefined:onClose} closable={!busy} maskClosable={!busy} keyboard={!busy}
+    footer={<Space wrap>
+      <Button onClick={onClose} disabled={busy}>닫기</Button>
+      <Button type="primary" onClick={save} loading={busy} disabled={!targets.length||!reason.trim()}>원장 일괄 저장</Button>
+    </Space>}>
+    <p style={{fontSize:13,color:'#334155',marginBottom:8}}>웹 인보이스 원문·원가자료·기존 중량 행에서 확인된 값을 입고 헤더(GW·CW) 및 상세 원장(운송료·Gross weight·Chargeable weight)에 일괄 기록합니다. 꽃 품목 재고는 변경하지 않습니다.</p>
+    <div style={{maxHeight:240,overflowY:'auto',border:'1px solid #e2e8f0',borderRadius:6,padding:'6px 8px',marginBottom:8,fontVariantNumeric:'tabular-nums',fontSize:12.5}}>
+      {targets.map(({row,costs})=>(
+        <div key={row.WarehouseKey} style={{padding:'3px 0',borderBottom:'1px solid #f1f5f9'}}>
+          <strong>#{row.WarehouseKey}</strong> · {row.OrderWeek} · {row.FarmName||'미기재'} ({row.InvoiceNo||'미기재'}) — 운송료 {display(costs.freight)}{costs.freightCurrency?` ${costs.freightCurrency}`:''} · GW {display(costs.gw)} · CW {display(costs.cw)}
+        </div>
+      ))}
+    </div>
+    <label className={styles.reason}>일괄 저장 사유<Input value={reason} maxLength={500} disabled={busy} onChange={e=>{setReason(e.target.value);setError('');}}/></label>
+    {error&&<p role="alert">{error}</p>}
   </Modal>;
 }
 

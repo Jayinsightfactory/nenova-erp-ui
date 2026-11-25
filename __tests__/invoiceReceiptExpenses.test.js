@@ -16,4 +16,7 @@ assert.equal(receiptFreightAmount({...source,receiptExpenses:{...source.receiptE
 assert.equal(receiptFreightAmount({...source,receiptExpenses:null},null),null);
 assert.throws(()=>invoiceExpenseValues({reviewedMetadata:{costInputs:{freight:{currency:'EUR',amount:null}}}}),/금액/);
 assert.throws(()=>receiptFreightAmount({...source,receiptExpenses:{...source.receiptExpenses,entries:[{kind:'freight',currency:'USD',amount:1}]}},null),/통화/);
+const staleExpenses={entries:[],totals:{},unclassified:{currency:'CNY',amount:23168,source:'invoice'},verified:false,orderYear:'2026',orderWeek:'47-02',warehouseKey:8249};
+assert.equal(receiptFreightAmount({orderYear:'2026',orderWeek:'47-02',warehouseKey:8249,receiptExpenses:staleExpenses},null),null);
+assert.equal(staleExpenses.unclassified.amount,23168);
 console.log('PASS invoice expenses: NL371.49, zero, missing, duplicate, conflict, cross-year/week/key');
