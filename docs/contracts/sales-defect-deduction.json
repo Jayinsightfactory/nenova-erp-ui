@@ -1,9 +1,12 @@
 {
   "id": "sales-defect-deduction",
+  "carryoverConsent": "The shared registration preview identifies each candidate by source year/parent week and customer. Current-only dispatch sends only rows from the destination year and parent week. An explicit include action sends per-row source period and customer approval. Registration checks it against the locked row before idempotency or any Estimate write. A prior-year same-week row does not qualify as current.",
   "sharedDuplicateLock": "Final lock:true Estimate revalidation uses estimateDuplicateWriteGuard transaction lock shared with direct estimate create/update, keyed by year+parentWeek+customer+product. Existing conservative support duplicate predicate and carryover requestKey remain unchanged. Automatic provenance is retained for audit and duplicate detection, never a standalone batch-registration exclusion.",
   "title": "영업수입불량차감 양식·견적서관리 등록 계약",
   "displaySorting": "Sales input and saved-summary default to customer then manager; manager then customer is selectable. Incoming confirmation supports both and retains country/product grouping. Display projections preserve row references and sourceIndex; selection, edit, deletion and save identity and ERP write behavior remain unchanged across years.",
   "scope": [
+    "lib/defectCarryoverChoice.js",
+    "__tests__/defectCarryoverChoice.test.js",
     "lib/defectManualHold.js",
     "scripts/defect-manual-hold-smoke.cjs",
     "pages/sales/defect-deductions.js",
