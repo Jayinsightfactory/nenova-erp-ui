@@ -1,5 +1,7 @@
 {
   "version": 1,
+  "holdUntil": "2026-12-25",
+  "holdReason": "2026-11-25 사장님 지시: 설명서 영상 자체 기획 재수정 기간 동안 잠금 검사 일시 보류",
   "workflows": [
     {
       "id": "hubfresh-packing",
