@@ -107,7 +107,7 @@
   ],
   "criteriaLedger": {
     "compactPresentation": "countryOrderPresentation generates a compact customer matrix as the first sheet, retaining all legacy country worksheets and formulas. Display-only common prefixes are shortened; original product name, ProdKey and current/stored quantity diagnostics remain accessible via an explicit row detail button.",
-    "chinaFarmSplit": "Browser-only recipient names default Melody/CLOUD; splitting is off by default, preserving the existing Melody filename, searchable from existing master GET or directly editable. No FarmKey is invented and no ShipmentFarm write occurs. ProdKey-selected products including all customers go to farm1, all remaining products go to farm2; same/blank names and stale product selections block generation. Scope changes clear selection. prepareCountryOrderPedidos validates the complete matrix before any partition.",
+    "chinaFarmSplit": "Browser-only recipient names default Melody/CLOUD for China and La Rosaleda/Fagua Flowers for Ecuador; splitting is off by default, preserving existing Melody/Ecuador filenames, searchable from existing master GET or directly editable. No FarmKey is invented and no ShipmentFarm write occurs. ProdKey-selected products including all customers go to farm1, all remaining products go to farm2; same/blank names and stale product selections block generation. Scope changes clear selection. prepareCountryOrderPedidos validates the complete matrix before any partition.",
     "eta": "Download opens ETA calendar plus manual YYYY-MM-DD input. Country-specific default is stored only in this browser localStorage. First default is PeriodDay cycle start+7 days; saved date follows actual cycle-start difference, same-major subweek unchanged, no guessed ISO calendar. Excel A1 appends Semana <week>차 ETA (year,month,day EnglishWeekday); title row minimum60pt prevents clipping. Other cells/formulas/source workbook preserved.",
     "noOmission": "No partial blocked-product export. Excluded rows are rejected by adapter. Hidden active orders block download until administrator resolves native linkage; no ERP repair is performed.",
     "viewport": "1920x1080 CSS pixels at 100%; page vertical scroll and matrix horizontal scroll; right Kakao source list has a bounded vertical scroll to match the requested feed",
@@ -117,7 +117,7 @@
     "calendar": "PeriodDay is authoritative; Asia/Seoul today main cycle plus next five, exactly six unique contiguous Thursday rows; no ISO week or 52-week fallback",
     "request": "country plus explicit year and majorWeek; year/majorWeek omitted together means current cycle; partial or outside-six scope rejected",
     "sqlScope": "v.OrderYear=@orderYear AND v.OrderWeek LIKE @majorWeek + '-%' and exact server country mapping",
-    "quantityReview": "Existing stem and bunch lines show original ERP quantity and accept file-only overrides, including zero. Every edit recalculates totals and invalidates old downloads. Missing required quantities keep their existing review path.",
+    "quantityReview": "Registered OutUnit is displayed verbatim alongside an editable unit selector (stems/bunches/boxes) and file-only quantity/box overrides, including zero. Every edit recalculates totals and invalidates old downloads without writing to ERP. Missing required quantities keep their existing review path.",
     "selection": "Country buttons unlock explicit year/majorWeek. list=subweeks fetches available weeks only. Selecting the full orderWeek fetches its rows and exposes each valid workbook download.",
     "subweeks": "derive actual full OrderWeek values only; numeric subweek then exact suffix ordering; never invent 01 or 02",
     "customerCode": "Customer.OrderCode by CustKey. Blank CL is normal and emits no missing-code warning: display customer name, never invent a code, preserve every CustKey/product quantity. Shared collision-safe labels in matrix/export disambiguate duplicate names and real-code collisions by display-only CustKey suffix.",
@@ -133,7 +133,7 @@
     "staleRequests": "AbortController plus request generation and exact response scopeKey; stale/cancelled/partial responses cannot mutate current state or enable download",
     "converterBoundary": "CountryOrderMatrix and generatePedidosFromMatrix are ERP-only additions; do not rewrite generatePedidos(workbook, ...) or unrelated country upload parsers",
     "sideEffects": "authenticated GET SELECT plus browser-local parse/export only; no ERP or web-table write. Exception (2026-11-04): when a blocked product had a web-entered quantity, PedidosTool asks \"품목관리에 변경하시겠습니까?\" and, only on explicit confirm, POSTs Product conversion factors (SteamOf1Bunch/BunchOf1Box/SteamOf1Box) to the existing audited /api/master/products-bulk under the product-save-compat contract; country-orders itself stays GET-only and never touches order quantities",
-    "exportProductOrder": "Each generated workbook sorts product names A-Z case-insensitively before writing rows/formulas, for ERP and uploaded input. Country/category/unit file splits remain unchanged. Ecuador retains adjacent half-box pairing after name sorting.",
+    "exportProductOrder": "Each generated workbook sorts product names A-Z case-insensitively before writing rows/formulas, for ERP and uploaded input. Country/category/unit file splits remain unchanged. Ecuador preserves pure A-Z order with independent per-row box formulas (default 10 bunches / 100 stems = 1 box or Product basis, no half-box pairing or C-column cell merges) and Excel SUM total formulas on both sheets.",
     "importKakaoText": "docs/plans/import-kakao-filter-2026-11-18.md; raw-first selection shared by API/fixtures/browser; review items excluded until explicit check, no guessed photo quantities; customer aliases require unambiguous evidence."
   },
   "erpMatrixSchema": {
@@ -206,12 +206,32 @@
       "outputUnit": "bunches"
     },
     "Ecuador": {
-      "erp": "SteamQuantity",
-      "outputUnit": "stems"
+      "erp": "OutQuantity plus exact OutUnit (default 10 bunches / 100 stems = 1 box, no pairing/merge, SUM total formula)",
+      "outputUnit": "registered unit (stems/bunches/boxes) with optional farm split and file-only unit/quantity/box review"
     },
     "Vietnam": {
       "erp": "SteamQuantity",
       "outputUnit": "stems"
+    },
+    "NewZealand": {
+      "erp": "OutQuantity plus exact OutUnit",
+      "outputUnit": "registered unit-separated matrix"
+    },
+    "Japan": {
+      "erp": "OutQuantity plus exact OutUnit",
+      "outputUnit": "registered unit-separated matrix"
+    },
+    "USA": {
+      "erp": "OutQuantity plus exact OutUnit",
+      "outputUnit": "registered unit-separated matrix"
+    },
+    "Israel": {
+      "erp": "OutQuantity plus exact OutUnit",
+      "outputUnit": "registered unit-separated matrix"
+    },
+    "Ethiopia": {
+      "erp": "OutQuantity plus exact OutUnit",
+      "outputUnit": "registered unit-separated matrix"
     }
   },
   "countryMap": {
@@ -221,7 +241,12 @@
     "Australia": "호주",
     "Thailand": "태국",
     "China": "중국",
-    "Vietnam": "베트남"
+    "Vietnam": "베트남",
+    "NewZealand": "뉴질랜드",
+    "Japan": "일본",
+    "USA": "미국",
+    "Israel": "이스라엘",
+    "Ethiopia": "에티오피아"
   },
   "crossYearFixture": {
     "required": true,

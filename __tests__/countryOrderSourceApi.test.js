@@ -103,3 +103,15 @@ test('cycle selection reads week names only and detail selection scopes rows and
   assert.equal(invalid.res.code, 400);
   assert.equal(invalid.calls.length, 0);
 });
+
+test('expanded import countries (NewZealand, Japan, USA, Israel, Ethiopia) query exact CounName with OrderYear scope', async () => {
+  for (const [country, counName] of [['NewZealand', '뉴질랜드'], ['Japan', '일본'], ['USA', '미국'], ['Israel', '이스라엘'], ['Ethiopia', '에티오피아']]) {
+    const s = setup({ rows: [{ ...row, CounName: counName, OutUnit: country === 'USA' ? '박스' : '단' }] });
+    await s.handler({ method: 'GET', query: { country, year: '2026', majorWeek: '42', orderWeek: '42-01' } }, s.res);
+    assert.equal(s.res.code, 200, country);
+    assert.equal(s.res.body.scope.country, country);
+    assert.equal(s.res.body.scope.counName, counName);
+    assert.equal(s.calls[1].params.counName.value, counName);
+    assert.equal(s.calls[1].params.orderYear.value, '2026');
+  }
+});

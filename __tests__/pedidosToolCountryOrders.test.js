@@ -125,3 +125,16 @@ test('after entering a missing quantity the UI asks to store Product conversion 
   assert.doesNotMatch(ui, /country-orders[^\n]*method:\s*'POST'/);
   assert.doesNotMatch(ui, /UPDATE Product/);
 });
+
+test('UI exposes registered unit, editable stems/bunches/boxes controls, Ecuador farm split and Ecuador box column', () => {
+  const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');
+  assert.match(ui, /FARM_SPLIT_COUNTRIES\.includes\(country\)/);
+  assert.match(ui, /<th scope="col">등록단위<\/th>/);
+  assert.match(ui, /<th scope="col">발주단위<\/th>/);
+  assert.match(ui, /className="pedidos-unit-select"/);
+  assert.match(ui, /<option value="stems">송이<\/option>/);
+  assert.match(ui, /<option value="bunches">단<\/option>/);
+  assert.match(ui, /<option value="boxes">박스<\/option>/);
+  assert.match(ui, /\['stems', 'bunches', 'boxes'\]\.includes\(row\.unit\)/);
+  assert.match(ui, /showEcuadorBoxes && <th scope="col">박스<\/th>/);
+});
