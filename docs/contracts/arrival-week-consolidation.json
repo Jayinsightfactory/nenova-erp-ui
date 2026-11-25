@@ -9,7 +9,11 @@
     "lib/colombiaWeekCostSource.js",
     "components/import-tools/ArrivalWeekCostReview.js",
     "components/import-tools/InvoiceWarehouseCostBrowse.js",
-    "pages/api/import/receipts/week-cost.js"
+    "pages/api/import/receipts/week-cost.js",
+    "components/import-tools/CostAwbEvidence.js",
+    "lib/arrivalCostAwbDraft.js",
+    "lib/invoiceWarehouseBrowse.js",
+    "lib/nativeSharedCost.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -28,6 +32,18 @@
       "estimate": "preserve",
       "webProfitReport": "preserve",
       "notes": "명시 국가·연도·세부차수·선택입고. 원문/AWB/농장/인보이스별 귀속 보존. 같은 비용증빙과 종류만 중복 제거하며 금액 동등성은 중복 근거가 아님. 원장 쓰기 없음."
+    },
+    {
+      "name": "AWB_DRAFT_EVIDENCE",
+      "warehouseMaster": "preserve",
+      "warehouseDetail": "preserve",
+      "product": "preserve",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "notes": "로컬 PDF 읽기/직접근거 확인, 누락AWB만 원가전용배정. 비용초안은AWB전입력가능, 최종전체범위·원장유효AWB·증빙중복검증유지. 신규국가공식없음."
     }
   ],
   "crossYearFixture": {
@@ -37,7 +53,10 @@
   "requiredTestFiles": [
     "__tests__/arrivalWeekCost.test.js",
     "__tests__/colombiaWeekCost.test.js",
-    "__tests__/colombiaWeekCostSource.test.js"
+    "__tests__/colombiaWeekCostSource.test.js",
+    "__tests__/arrivalCostAwbDraft.test.js",
+    "__tests__/invoiceWarehouseBrowse.test.js",
+    "__tests__/nativeSharedCost.test.js"
   ],
   "dnspyEvidence": {
     "required": true,

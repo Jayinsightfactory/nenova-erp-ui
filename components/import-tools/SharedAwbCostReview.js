@@ -1,5 +1,6 @@
 import React, {useEffect,useState} from 'react';
 import WorkflowGuide from '../WorkflowGuide';
+import CostAwbEvidence from './CostAwbEvidence';
 import {calculateCoOriginalCustoms} from '../../lib/coOriginalCostInputs.js';
 import styles from '../../styles/InvoiceReceipt.module.css';
 
@@ -17,7 +18,7 @@ export default function SharedAwbCostReview({document,native=null}) {
   const endpoint=native?'/api/import/receipts/native-shared-cost':'/api/import/receipts/shared-awb-cost';
   const [prepared,setPrepared]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState('');
   const [confirmed,setConfirmed]=useState(false),[result,setResult]=useState(null),[lineInputs,setLineInputs]=useState([]);
-  const [awbText,setAwbText]=useState(''),[scope,setScope]=useState('MAIN'),[fullBox,setFullBox]=useState({});
+  const [awbText,setAwbText]=useState(native?.awb??''),[scope,setScope]=useState('MAIN'),[fullBox,setFullBox]=useState({});
   const [input,setInput]=useState({gw:'',cw:'',freightAmount:'',freightCurrency:'USD',exchangeRate:'',customsTotalKRW:'',customsMode:'FORMULA',exchangeRateType:'MANUAL'});
   const [rateStatus,setRateStatus]=useState(''),[rateRetry,setRateRetry]=useState(0);
   const update=(field,value)=>{setInput(current=>({...current,[field]:value}));setResult(null);};
@@ -56,7 +57,7 @@ export default function SharedAwbCostReview({document,native=null}) {
   const customs=calculateCoOriginalCustoms(input.gw,groupIds);
   // 환율을 비워 두면 USD 현재 시세 +15원을 자동 조회한다(사용자가 입력하면 조회하지 않음).
   useEffect(()=>{
-    if(!prepared || String(input.exchangeRate).trim())return;
+    if(String(input.exchangeRate).trim())return;
     const controller=new AbortController();setRateStatus('USD 현재 시세 +15원 조회 중…');
     fetch('/api/import/receipts/live-exchange-rate?currency=USD',{cache:'no-store',credentials:'same-origin',signal:controller.signal})
       .then(async response=>{const data=await response.json();if(!response.ok||!data.success)throw Error(data.error||'환율 조회 실패');return data;})
@@ -99,14 +100,8 @@ export default function SharedAwbCostReview({document,native=null}) {
       <label>계산 범위<select aria-label="계산 범위" value={scope} onChange={event=>{setScope(event.target.value);setPrepared(null);setResult(null);}}>{Object.entries(scopeLabels).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
       <label>AWB 번호 (11자리)<input aria-label="AWB 번호" value={awbText} placeholder="160-17338005" onChange={event=>{setAwbText(event.target.value);setPrepared(null);setResult(null);}}/></label>
     </div>}
-    <button className={styles.primary} type="button" disabled={!!busy||!awbReady} onClick={()=>run('prepare')}>{native?'콜롬비아 전체 입고 조회':'공동 AWB 전체 입고 조회'}</button>
-    {error&&<p role="alert">{error}</p>}
-    {prepared&&<>
-      <p>현재 입고 {prepared.members.length}건 · 미승인 계산본 다운로드이며 기존 입고·승인 원가는 변경하지 않습니다.</p>
-      {prepared.excluded?.length>0&&<div role="status"><p>계산에서 제외한 행 {prepared.excluded.length}개 (금액에 포함되지 않음):</p>
-        <ul>{prepared.excluded.map(row=><li key={`${row.warehouseKey}-${row.wdetailKey}`}>{row.farmName} · {row.invoiceNo} · {row.name} · {row.stems}송이 · {row.amount} · {row.reason}</li>)}</ul></div>}
-      <ul>{prepared.members.map(member=><li key={member.documentId}>{member.farmName} · {member.invoiceNo} · {member.rows.length}품목</li>)}</ul>
-      <label><input type="checkbox" checked={confirmed} onChange={event=>{setConfirmed(event.target.checked);setResult(null);}}/>{native?'이 차수·범위의 전체 농장 입고가 모두 포함되었습니다':'공동 AWB의 전체 농장 송장이 모두 포함되었습니다'}</label>
+    {native&&<CostAwbEvidence label="공동 AWB 원문" onApply={proof=>{setAwbText(proof.awb);setPrepared(null);setResult(null);setConfirmed(false);setInput(current=>({...current,...Object.fromEntries(['gw','cw','freightAmount'].filter(k=>proof[k]!=='').map(k=>[k,proof[k]]))}));}}/>}
+    <p>AWB·입고 조회 전에도 환율과 통관비를 초안으로 입력할 수 있습니다. 최종 계산은 AWB 전체 입고와 비용 범위를 확인해야 가능합니다.</p>
       <div style={{display:'flex',flexWrap:'wrap',gap:12,margin:'16px 0'}}>
         {[['gw','공동 GW (kg)'],['cw','공동 CW (kg)'],['freightAmount','공동 운임·서류비 합계 (USD)'],['exchangeRate','환율 (원/USD)']].map(([field,label])=><label key={field}>{label}<input aria-label={label} type="number" min="0" step="any" value={input[field]} onChange={event=>{update(field,event.target.value);if(field==='exchangeRate')update('exchangeRateType','MANUAL');}}/></label>)}
         <label>통관비 기준<select aria-label="통관비 기준" value={input.customsMode} onChange={event=>update('customsMode',event.target.value)}><option value="FORMULA">기존 42-1 원가표 수식 자동 계산</option><option value="TOTAL">확인한 합계 직접 입력</option></select></label>
@@ -115,6 +110,14 @@ export default function SharedAwbCostReview({document,native=null}) {
       </div>
       <p role="status">{rateStatus} <button type="button" className={styles.secondary} onClick={()=>{update('exchangeRate','');setRateRetry(n=>n+1);}}>현재 환율 다시 조회</button></p>
       {input.customsMode==='FORMULA'&&<p>{customs.source} · {customs.groupCount}종류. 원본 기본값 계산본이며 실제 청구 확정액은 아닙니다.</p>}
+    <button className={styles.primary} type="button" disabled={!!busy||!awbReady} onClick={()=>run('prepare')}>{native?'콜롬비아 전체 입고 조회':'공동 AWB 전체 입고 조회'}</button>
+    {error&&<p role="alert">{error}</p>}
+    {prepared&&<>
+      <p>현재 입고 {prepared.members.length}건 · 미승인 계산본 다운로드이며 기존 입고·승인 원가는 변경하지 않습니다.</p>
+      {prepared.excluded?.length>0&&<div role="status"><p>계산에서 제외한 행 {prepared.excluded.length}개 (금액에 포함되지 않음):</p>
+        <ul>{prepared.excluded.map(row=><li key={`${row.warehouseKey}-${row.wdetailKey}`}>{row.farmName} · {row.invoiceNo} · {row.name} · {row.stems}송이 · {row.amount} · {row.reason}</li>)}</ul></div>}
+      <ul>{prepared.members.map(member=><li key={member.documentId}>{member.farmName} · {member.invoiceNo} · {member.rows.length}품목</li>)}</ul>
+      <label><input type="checkbox" checked={confirmed} onChange={event=>{setConfirmed(event.target.checked);setResult(null);}}/>{native?'이 차수·범위의 전체 농장 입고가 모두 포함되었습니다':'공동 AWB의 전체 농장 송장이 모두 포함되었습니다'}</label>
       <label>전체 품종 일괄 선택<select aria-label="공동 AWB 전체 품종" defaultValue="" onChange={event=>{if(event.target.value){setLineInputs(rows=>rows.map(row=>({...row,groupId:event.target.value})));setResult(null);}}}><option value="">선택</option>{Object.entries(labels).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
       {native&&<button type="button" disabled={!!busy} onClick={()=>{setLineInputs(rows=>rows.map(row=>({...row,groupId:row.suggestedGroupId||row.groupId})));setResult(null);}}>추천 품종 적용 (표에서 확인하세요)</button>}
       {needsFullBox&&<fieldset><legend>품종별 FB 환산 박스수 (원본 패킹 기준 · 실물 박스수를 그대로 쓰지 않습니다)</legend>

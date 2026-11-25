@@ -55,3 +55,14 @@ test('late concurrent receipt addition invalidates preview and download; generat
  for(const late of ['before','during']){let calls=0;const handler=createArrivalWeekCostHandler({authorize:()=>true,prepare:async()=>{calls++;return {...p,baselineDigest:(late==='before'||calls>1)?'changed':p.baselineDigest};},calculate:calculateArrivalWeekCost,generate:async()=>Buffer.from('TEST_ONLY')});const res=response();await handler({method:'POST',user:{},body:request},res);assert.equal(res.statusCode,409);assert.equal(res.headers['Content-Type'],undefined);}
  const handler=createArrivalWeekCostHandler({authorize:()=>true,prepare:async()=>p,calculate:calculateArrivalWeekCost,generate:createArrivalWeekCostWorkbook});const res=response();await handler({method:'POST',user:{},body:request},res);assert.equal(res.statusCode,200);assert(Buffer.isBuffer(res.body));
 });
+
+test('CO missing AWB opens an isolated editable receipt draft; confirmed evidence only rekeys calculation, never the ledger',async()=>{
+ const raw=[row(1,{CounName:'콜롬비아',OrderNo:'',OutUnit:'송이',OutQuantity:100,TPrice:200}),row(2,{CounName:'콜롬비아',OrderNo:'',OutUnit:'송이',OutQuantity:100,TPrice:200})],scopeCo={country:'CO',orderYear:'2026',orderWeek:'45-03',selectedKeys:[1]},before=JSON.stringify(raw);
+ const p=await read(raw,scopeCo);assert.equal(p.members.length,1);assert.equal(p.awbs[0].awb,'RECEIPT:2026:45-03:1');assert(p.issues.some(i=>i.code==='RECEIPT_AWB_REQUIRED'));assert.throws(()=>calculateArrivalWeekCost(p,inputs(p)),/귀속/);
+ const assignment={warehouseKey:1,awb:'784-69519262',sourceId:'TEST_ONLY original AWB p1',confirmed:true};
+ for(const bad of [{...assignment,confirmed:false},{...assignment,sourceId:''},{...assignment,warehouseKey:99}])await assert.rejects(()=>read(raw,{...scopeCo,awbAssignments:[bad]}),/AWB/);
+ const ready=await read(raw,{...scopeCo,awbAssignments:[assignment]});assert.equal(ready.awbs[0].awb,'78469519262');assert.equal(ready.issues.length,0);assert.equal(ready.members[0].awbEvidence.sourceId,assignment.sourceId);assert.notEqual(ready.baselineDigest,p.baselineDigest);assert.equal(JSON.stringify(raw),before);
+ await assert.rejects(()=>read([raw[0],{...raw[1],OrderNo:'78469519262'}],{...scopeCo,awbAssignments:[assignment]}),/含|포함/);
+ await assert.rejects(()=>read([{...raw[0],OrderNo:'78469519262'}],{...scopeCo,awbAssignments:[assignment]}),/유효한 원장 AWB/);
+ const prior=await prepareArrivalWeekCost({types,request:{...scopeCo,orderYear:'2025'},queryFn:async(sql,params)=>{assert.equal(params.orderYear.value,'2025');return {recordset:raw.map(r=>({...r,OrderYear:'2025'}))};}});assert.equal(prior.awbs[0].awb,'RECEIPT:2025:45-03:1');assert.notEqual(prior.baselineDigest,p.baselineDigest);
+});

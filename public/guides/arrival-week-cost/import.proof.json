@@ -1,26 +1,26 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-24T07:13:51.671Z",
+  "recordedAt": "2026-11-25T01:44:15.526Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 58.45,
+  "duration": 60,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "74d35710951990b637f067ac53bfe7d81246f4cbfb7328d9a044c126e71da8f2",
-  "captionsSha256": "43e5053923ae544c274989ef3bd7b68749727ffe0824bdb47b89f300ddb4619f",
+  "videoSha256": "0b5bf2c17df86c3196b756ffebdd7be8f7669464844668b4ad0f8501e090d867",
+  "captionsSha256": "f575e411005086176a0d8a15b1a84b8845e755a2810b7a70f2c0efbfbf074bf9",
   "sourceHashes": {
     "pages/arrival-cost.js": "c4e6777fd7133543f8d0048e2e3e7406c282b3fbf4722b4ec407c03ef3002662",
-    "components/import-tools/InvoiceWarehouseCostBrowse.js": "ec0e1e3a0ec59a29ac6cdbf8ae469755ed68c2045df094d2a4870f361631cfc7",
-    "components/import-tools/ArrivalWeekCostReview.js": "5346dfa6d8685743d0dcfcf30578a491336a0a061bccf07e3926d6e9ab739f1d",
+    "components/import-tools/InvoiceWarehouseCostBrowse.js": "f17828bb3ea066a57285a89c4aed9ad330627859dd35090231bf37c44a320a00",
+    "components/import-tools/ArrivalWeekCostReview.js": "a17b93c783050b649083b3210bbe62eea17d420ccf26d68f90f191014aa500c6",
     "components/import-tools/CloudCostCategories.js": "19ea1371d91b2ada94e7f1da50efb1355f3289f95ac5b2e27e180a26e7dfc96a",
     "styles/ArrivalWeekCost.module.css": "8ce95a6c39b2637fe59e09b6c6b1a2ee4bcd06753886cac9fe9ee8e07622fc64",
     "styles/CloudCostCategories.module.css": "c57f8fe918d0c225e953e15b9ba0b0f6251d8b2a4df1fe9f745e2358c2c05ccd",
-    "lib/arrivalWeekCost.js": "43f87b834dbe96bc57e8e53e912cf38e1190df7f58f0f8aa6282ad59549ca302",
-    "lib/arrivalWeekCostHttp.js": "a7684a84db6d47c6edc75c6905c28dee78babea28bc9b80401d980ed29c10506",
-    "lib/arrivalWeekCostWorkbook.js": "81e9e6ac0b16ce471dca7d8bf11fd0e7cca026216d080ac1a79246194f504222",
+    "lib/arrivalWeekCost.js": "f6f431d33482d29da40801274c44bc3e8f24f07bcd19265d051aab1fc4e5fbeb",
+    "lib/arrivalWeekCostHttp.js": "e1a649890716592298eb53abaf2de1d74551398dde9d439c0b1cb62a0a4d8011",
+    "lib/arrivalWeekCostWorkbook.js": "ed189a9102710919e9a7a22546cea15dd3e2d4d8daa0afa96bee266d756bd4a1",
     "components/import-tools/CloudCostReviewLedger.js": "46cba327a7637e2a8207fc15c17fec60b1395b42a4edc7502792a581396b004c",
     "styles/CloudCostReviewLedger.module.css": "fb661036fac31a78a17ebabf707b6827ca1c86d3110bb61eee6bba1e76f07139",
     "lib/cloudCostReview.js": "abb8af17fd2ebbe37d9edf0811d1cd49e2f67ef52f288f5cb194434e44a50e66",
@@ -28,7 +28,11 @@
     "lib/cloudCostReviewHttp.js": "9e335876a29b35786299617c824d66b4f3e8d54f6f39f5ec9dc70c005b218d61",
     "pages/api/import/receipts/cost-review.js": "33f76064e1c06a06d8dc0be4df2d1ca0478ae1e84e3edeee2d1ff8bb79cbe648",
     "data/cloud-cost-reference-evidence.json": "dc7131c08f5e55f5476ef6366881a55bdcafb3393d820914369d88b35f96b537",
-    "lib/cloudCostTemplateWorkbook.js": "f99aec3deb3c97ecefabc939ddef7918a89be65509a4fb6ec75a4290b4958e17"
+    "lib/cloudCostTemplateWorkbook.js": "f99aec3deb3c97ecefabc939ddef7918a89be65509a4fb6ec75a4290b4958e17",
+    "components/import-tools/CostAwbEvidence.js": "ae5ffbcdf11e05e75ea4a037da19c044d7740dca411d28f90b38849e3efb95d2",
+    "lib/arrivalCostAwbDraft.js": "9e0ace9c09d3d860e8f6291df084f26e1675fc0170b18910289e608de0a7506b",
+    "components/import-tools/SharedAwbCostReview.js": "6e4007caf93f901c315abb36b408c486dda0db3828a99a56bdba2856fcda6331",
+    "lib/nativeSharedCost.js": "03ba1e96658164f66211dcf46410dd5fc1e9a0d001a075a7a99512e670c054b5"
   },
   "presentation": {
     "numberedSteps": 6,
@@ -44,45 +48,45 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 2.9470370999999997,
-        "x": 746.21875,
-        "y": 398.234375,
-        "end": 8.462921099999999
+        "start": 3.0800936,
+        "x": 152.640625,
+        "y": 221,
+        "end": 9.1531699
       },
       {
         "number": 2,
-        "start": 11.595771300000001,
-        "x": 31.5,
-        "y": 534.765625,
-        "end": 17.1643945
+        "start": 12.431867700000003,
+        "x": 358.1015625,
+        "y": 554.265625,
+        "end": 18.754570599999997
       },
       {
         "number": 3,
-        "start": 20.3153259,
-        "x": 1220.0859375,
-        "y": 553.890625,
-        "end": 27.959734
+        "start": 22.041014500000006,
+        "x": 252.40625,
+        "y": 554.3125,
+        "end": 28.4027854
       },
       {
         "number": 4,
-        "start": 33.3030744,
-        "x": 1666.984375,
-        "y": 553.640625,
-        "end": 40.7458179
+        "start": 34.008360499999995,
+        "x": 192.5,
+        "y": 554.453125,
+        "end": 40.38049240000001
       },
       {
         "number": 5,
-        "start": 43.8819516,
-        "x": 124.7734375,
-        "y": 553.890625,
-        "end": 49.1889769
+        "start": 43.668987699999995,
+        "x": 46,
+        "y": 554.171875,
+        "end": 49.188660000000006
       },
       {
         "number": 6,
-        "start": 52.5606624,
-        "x": 334.796875,
-        "y": 553.890625,
-        "end": 58.3020271
+        "start": 52.478306599999996,
+        "x": 663.5625,
+        "y": 554.171875,
+        "end": 59.4005068
       }
     ]
   }

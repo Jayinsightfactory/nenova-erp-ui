@@ -1,6 +1,8 @@
 // Loopback-only fixture: all API requests terminate here, no DB connection.
 const http = require('node:http'), crypto = require('node:crypto'), { spawn } = require('node:child_process'), jwt = require('jsonwebtoken');
 (async () => {
+  const {createSharedAwbHandler}=await import('../lib/invoiceSharedAwbApi.js');
+  const {prepareNativeShared}=await import('../lib/nativeSharedCost.js');
   const {createArrivalWeekCostHandler}=await import('../lib/arrivalWeekCostHttp.js');
   const { createNativeCostWorkbook } = await import('../lib/invoiceReceiptCostExport.js');
   const { createNativeCostHandler } = await import('../lib/nativeCostHttp.js');
@@ -61,6 +63,10 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
       }
       if(process.env.CONTRACT_RECEIPT_FIXTURE==='1'&&url.pathname==='/api/import/receipts/auto-fill'&&req.method==='POST')return /^\d{4}$/.test(String(payload.orderYear||''))?send({success:true,resolution:{farm:{farmKey:1,farmName:'Cloudland TEST_ONLY'},inputDate:payload.rawMetadata?.invoiceUploadDate||'',transportMode:'AIR',issues:[],source:{basis:'TEST_ONLY'}}}):send({success:false,error:'인보이스 연도를 확인하세요.'},400);
       if(process.env.CONTRACT_RECEIPT_FIXTURE==='1'&&req.method==='GET'&&/^\/api\/import\/receipts\/[a-f0-9-]{36}$/.test(url.pathname))return send({success:false,code:'INVOICE_DOCUMENT_NOT_FOUND',error:'TEST_ONLY document not saved'},404);
+      if(url.pathname==='/api/import/receipts/native-shared-cost'){
+        res.status=n=>{res.statusCode=n;return res;};res.json=v=>{res.setHeader('Content-Type','application/json; charset=utf-8');res.end(JSON.stringify(v));};res.send=v=>res.end(v);
+        return createSharedAwbHandler({queryFn,types,authorize:u=>u===requestUser,prepare:prepareNativeShared})({method:req.method,body:payload,user:requestUser},res);
+      }
       if(url.pathname==='/api/import/receipts/week-cost') {
         if(payload.action==='preview')counts.preview++;if(payload.action==='download')counts.download++;
         res.status=n=>{res.statusCode=n;return res;};res.json=v=>{res.setHeader('Content-Type','application/json; charset=utf-8');res.end(JSON.stringify(v));};res.send=v=>res.end(v);
@@ -68,7 +74,7 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
       }
       if(url.pathname==='/api/import/receipts/native-cost') {
         if(payload.action==='preview')counts.preview++;
-        const handler=createNativeCostHandler({queryFn,types,authorize:u=>u===user,generate:async result=>{
+        const handler=createNativeCostHandler({queryFn,types,authorize:u=>u===user,fetchRate:async currency=>({currency,rate:1600,marketRate:1585,adjustmentKRW:15,source:'TEST_ONLY',quoteAt:'2026-11-25T00:00:00Z'}),generate:async result=>{
           const testResult={...result,input:{...result.input,exchangeRateType:'TEST_ONLY',
             estimateSource:`TEST_ONLY 격리 재생. 고객 주문은 합성 시험자료. ${result.input.estimateSource||''}`}};
           const bytes=await createNativeCostWorkbook(testResult);counts.download++;counts.downloadBytes=bytes.length;return bytes;
@@ -78,7 +84,7 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
       }
       if(req.method!=='GET'){counts.blockedWrites++;return send({success:false,error:'Fixture blocks writes'},409);}
       if(url.pathname==='/api/import/receipts/live-exchange-rate'){
-        if(mappingRoot)return send({success:true,currency:'CNY',rate:210,marketRate:195,adjustmentKRW:15,quoteAt:'2026-11-24T00:00:00Z',requestedAt:'2026-11-24T00:00:00Z',source:'TEST_ONLY',sourceUrl:'http://127.0.0.1/fixture-rate'});
+        if(mappingRoot)return send({success:true,currency:url.searchParams.get('currency'),rate:url.searchParams.get('currency')==='USD'?1400:210,marketRate:url.searchParams.get('currency')==='USD'?1385:195,adjustmentKRW:15,quoteAt:'2026-11-24T00:00:00Z',requestedAt:'2026-11-24T00:00:00Z',source:'TEST_ONLY',sourceUrl:'http://127.0.0.1/fixture-rate'});
         try{return send({success:true,...await fetchLiveInvoiceRate(url.searchParams.get('currency'))});}
         catch{return send({success:false,error:'시험 환율 조회 실패'},503);}
       }

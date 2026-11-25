@@ -15,7 +15,7 @@ let wd = 0;
 const line = (key, name, flower, box, stems, price, perBunch = 20, counName = '콜롬비아') => ({ WarehouseKey: key, WdetailKey: ++wd, ProdKey: 1000 + wd, SteamOf1Bunch: perBunch, SteamOf1Box: perBunch * 10,
   BoxQuantity: box, BunchQuantity: stems / perBunch, SteamQuantity: stems, OutQuantity: box, UPrice: price, TPrice: Math.round(stems * price * 100) / 100,
   ProdName: name, CounName: counName, FlowerName: flower, OutUnit: '박스' });
-const head = (key, farm, inv) => ({ FarmName: farm, InvoiceNo: inv, InputDate: '2026-11-04' });
+const head = (key, farm, inv) => ({ OrderYear:'2026',OrderWeek:'45-01',OrderNo:'160-17338005', FarmName: farm, InvoiceNo: inv, InputDate: '2026-11-04' });
 function fakeQuery(rows) {
   return async (sqlText, params) => {
     assert.match(sqlText, /^\/\* native-shared-cost:readonly-source \*\/ SELECT/); assert.doesNotMatch(sqlText, /\b(INSERT|UPDATE|DELETE|MERGE|EXEC)\b/i);
@@ -122,3 +122,5 @@ test('누적 반영: 콜카장은 콜카장 파일, 수국은 수국 파일에�
   assert.equal(XLSX.read(await store.readMaster('CO_HYDRANGEA')).Sheets['45-1'].A15.v, 'Antioquia Floral S.A.S');
   assert.equal(XLSX.read(await store.readMaster('CO')).Sheets['45-1'].A15.v, 'Ayura'); // 콜카장 파일은 그대로
 });
+
+test('native shared matches actual AWB and year/week, never binds arbitrary typed AWB to the whole country',async()=>{const rows=weekRows();rows.filter(r=>r.WarehouseKey===7903).forEach(r=>r.OrderNo='01441369974');const p=await prepareNativeShared({queryFn:fakeQuery(rows),types,request:request('MAIN')});assert.deepEqual(p.members.map(m=>m.warehouseKey),[7902]);await assert.rejects(()=>prepareNativeShared({queryFn:fakeQuery(rows.map(r=>({...r,OrderNo:''}))),types,request:request('MAIN')}),/미확인/);await assert.rejects(()=>prepareNativeShared({queryFn:fakeQuery(rows.map(r=>({...r,OrderYear:'2025'}))),types,request:request('MAIN')}),/연도/);});
