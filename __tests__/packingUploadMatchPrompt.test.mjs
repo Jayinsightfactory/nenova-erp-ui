@@ -22,9 +22,14 @@ import { readImportTeamRecord, writeImportTeamRecord } from '../lib/importTeamSt
 import { buildPackingMatchPreview } from '../lib/importPackingMatchPreview.js';
 import { detectCOFarm, genColombia } from '../lib/importPacking.js';
 import { bindPackingSourceReviewPolicy } from '../lib/importPackingSourceReview.js';
+import { parsePackingResponse, healColombiaInvoiceExtraction } from '../lib/importPackingResponse.js';
+import { filterProductsByDetectedFamily, rankProductSuggestions } from '../lib/invoiceMatchAssist.js';
 import {
   collectUploadMatchingNeeds,
   applyUploadQuantityEdits,
+  analyzeRowQuantitySuggestion,
+  extractLineEvidenceBadges,
+  sanitizeIssueMessageForOperator,
 } from '../lib/packingUploadMatchPrompt.js';
 
 const MOCK_FARMS = [
@@ -302,4 +307,150 @@ test('3. Cross-country isolation & deleted-farm fail-closed safety', () => {
   const defaults = suggestColombiaPackingDefaults('UNK FLOWERS SAS', [{ description: 'ROSE FREEDOM 50CM' }]);
   assert.notEqual(defaults.packingAbbr, 'UNK');
   assert.equal(defaults.coRegion, 'BOGOTA');
+});
+
+test('4. Colombia 25605 ($1,923 null freight) and 19121 (7,500 BXS vs 30 QB) self-heal cleanly across fresh & cached/restored state', () => {
+  const rawPayload = {
+    invoices: [
+      {
+        supplier: 'CI FLORES BALVERDE SAS',
+        invoice: '25605',
+        awb: '992-04727833',
+        date: '24NOV2026',
+        currency: 'USD',
+        freight_total: null,
+        invoice_total: '1.923,00',
+        products: [
+          { description: 'HYDRANGEA WHITE', pcs: 27, steam_box: 40, total_stems: 1080, u_price: '0,57', t_price: '615,60' },
+          { description: 'HYDRANGEA BLUE', pcs: 18, steam_box: 40, total_stems: 720, u_price: '0,62', t_price: '446,40' },
+          { description: 'HYDRANGEA ESMERALDA PREMIUN', pcs: 8, steam_box: 30, total_stems: 240, u_price: '0,87', t_price: '208,80' },
+          { description: 'HYDRANGEA TINTED LAVANDER', pcs: 4, steam_box: 40, total_stems: 160, u_price: '0,77', t_price: '123,20' },
+          { description: 'HYDRANGEA TINTED LIGHT PINK', pcs: 10, steam_box: 40, total_stems: 400, u_price: '0,77', t_price: '308,00' },
+          { description: 'HYDRANGEA DARK PINK', pcs: 10, steam_box: 34, total_stems: 340, u_price: '0,65', t_price: '221,00' },
+        ],
+      },
+      {
+        supplier: 'PRINCESS FARMS SAS',
+        invoice: '19121',
+        awb: '992-04727833',
+        date: '24/11/2026',
+        currency: 'USD',
+        freight_total: null,
+        invoice_total: '513,00',
+        products: [
+          {
+            description: 'HYDRANGEA WHITE SELECT',
+            pcs: 7500, // OCR misread 7,500 BXS as 7500!
+            steam_box: 30,
+            total_stems: 900,
+            u_price: '0,57',
+            t_price: '513,00',
+            source_cells: { pcs: { page: 6, quote: '7,500 30,00QBx30' } },
+          },
+        ],
+      },
+    ],
+  };
+
+  const { result: parsed } = parsePackingResponse({
+    content: [{ type: 'text', text: JSON.stringify(rawPayload) }],
+    stop_reason: 'end_turn',
+  }, 'CO');
+  assert.equal(parsed.invoices[0].invoice_total, 1923);
+  assert.equal(parsed.invoices[0].freight_total, 0, 'When goods sum equals invoice_total, freight_total resolves to 0');
+  const inv0Issues = parsed.invoices[0].metadataIssues || parsed.invoices[0].metadata_issues || [];
+  assert.equal(inv0Issues.filter(i => i.code === 'INVOICE_EXTRAS_UNAVAILABLE' || i.code === 'INVOICE_TOTAL_MISMATCH').length, 0);
+
+  assert.equal(parsed.invoices[1].products[0].pcs, 30, '19121 7,500 BXS reconciles to 30 physical QB boxes');
+  assert.equal(parsed.invoices[1].freight_total, 0);
+
+  // Also test stale cached/saved state where 25605 already had INVOICE_EXTRAS_UNAVAILABLE and 19121 had pcs=7500 or 7.5 without QB quote
+  const stale25605 = bindPackingSourceReviewPolicy({
+    supplier: 'CI FLORES BALVERDE SAS',
+    invoice: '25605',
+    freight_total: null,
+    invoice_total: 1923,
+    metadataIssues: [{ code: 'INVOICE_EXTRAS_UNAVAILABLE', field: 'invoice_total', message: '콜롬비아 상품 외 부대비가 미확인이라 최종 송장 총액을 검증할 수 없습니다.' }],
+    products: [{ description: 'HYDRANGEA WHITE', pcs: 1, steam_box: 1, total_stems: 1, u_price: 1923, t_price: 1923 }],
+  }, 'CO', { source: 'cache' });
+  const healed25605 = healColombiaInvoiceExtraction(stale25605);
+  assert.equal(healed25605.freight_total, 0);
+  assert.equal((healed25605.metadataIssues || []).some(i => i.code === 'INVOICE_EXTRAS_UNAVAILABLE'), false);
+
+  const stale19121Scaled = {
+    supplier: 'PRINCESS FARMS SAS',
+    invoice: '19121',
+    freight_total: 0,
+    invoice_total: 513,
+    products: [{ description: 'HYDRANGEA WHITE SELECT', pcs: 7500, steam_box: 30, total_stems: 900, u_price: 0.57, t_price: 513 }],
+  };
+  assert.equal(healColombiaInvoiceExtraction(stale19121Scaled).products[0].pcs, 30, 'x1000 BXS 7500 vs 30 QB auto-reconciles when 900*0.57=513');
+
+  const stale19121Fractional = {
+    supplier: 'PRINCESS FARMS SAS',
+    invoice: '19121',
+    freight_total: 0,
+    invoice_total: 513,
+    products: [{ description: 'HYDRANGEA WHITE SELECT', pcs: 7.5, steam_box: 30, total_stems: 900, u_price: 0.57, t_price: 513 }],
+  };
+  assert.equal(healColombiaInvoiceExtraction(stale19121Fractional).products[0].pcs, 30, 'Fractional BXS 7.5 vs 30 QB auto-reconciles when 900*0.57=513');
+});
+
+test('5. Flower-family default filter & supplier-aware color ranking (Hydrangea P.PK BA #1, Carnation excluded)', () => {
+  const catalog = [
+    { ProdKey: 9991, ProdCode: 'CO-CAR-LPK', ProdName: 'CARNATION Light Pink Candy', DisplayName: 'CARNATION Light Pink Candy', CounName: '콜롬비아', FlowerName: '카네이션', country: 'CO', selectable: true },
+    { ProdKey: 878, ProdCode: 'CO-HYD-PPK-BA', ProdName: 'Hydrangea P.PK (BA) (연핑크)', DisplayName: 'Hydrangea P.PK (BA) (연핑크)', CounName: '콜롬비아', FlowerName: '수국', country: 'CO', selectable: true },
+    { ProdKey: 3498, ProdCode: 'CO-HYD-LPK', ProdName: 'Hydrangea light pink (연핑크)', DisplayName: 'Hydrangea light pink (연핑크)', CounName: '콜롬비아', FlowerName: '수국', country: 'CO', selectable: true },
+    { ProdKey: 880, ProdCode: 'CO-HYD-SLPK-BA', ProdName: 'Hydrangea Super light pink (연연핑크) (BA)', DisplayName: 'Hydrangea Super light pink (연연핑크) (BA)', CounName: '콜롬비아', FlowerName: '수국', country: 'CO', selectable: true },
+    { ProdKey: 871, ProdCode: 'CO-HYD-LAV', ProdName: 'Hydrangea Lavender (라벤더)', DisplayName: 'Hydrangea Lavender (라벤더)', CounName: '콜롬비아', FlowerName: '수국', country: 'CO', selectable: true },
+  ];
+
+  const scoped = filterProductsByDetectedFamily('HYDRANGEA TINTED LIGHT PINK', catalog, { includeAll: false });
+  assert.equal(scoped.family?.code, 'HYDRANGEA');
+  assert.equal(scoped.family?.label, '수국');
+  assert.equal(scoped.filtered.some(p => p.ProdKey === 9991), false, 'CARNATION must be excluded when HYDRANGEA family filter is active');
+
+  const lightPinkRanked = rankProductSuggestions('HYDRANGEA TINTED LIGHT PINK', catalog, {
+    country: 'CO',
+    supplier: 'CI FLORES BALVERDE SAS',
+    limit: 5,
+  });
+  assert.equal(lightPinkRanked.items.some(item => item.product.ProdKey === 9991), false, 'Cross-family Carnation must never appear in Hydrangea suggestions');
+  assert.equal(lightPinkRanked.items[0]?.product.ProdKey, 878, 'Balverde Hydrangea P.PK (BA) (연핑크) must rank #1 for Balverde Tinted Light Pink');
+
+  const lavRanked = rankProductSuggestions('HYDRANGEA TINTED LAVANDER', catalog, {
+    country: 'CO',
+    supplier: 'CI FLORES BALVERDE SAS',
+    limit: 5,
+  });
+  assert.equal(lavRanked.items[0]?.product.ProdKey, 871, 'Hydrangea Lavender (라벤더) must rank #1 for HYDRANGEA TINTED LAVANDER');
+});
+
+test('6. Plain Korean evidence badges, 1-click auto-backcalculation, and zero developer jargon', () => {
+  const suggestion = analyzeRowQuantitySuggestion({
+    country: 'CO',
+    pcs: 7,
+    steam_box: 30,
+    total_stems: 900,
+    u_price: 0.57,
+    t_price: 513,
+  });
+  assert.ok(suggestion, 'Must diagnose box*steam_box != total_stems');
+  assert.match(suggestion.diagnosis, /총송이\(900\).*단가\(0\.57\).*513/);
+  assert.equal(suggestion.primaryAction?.patch?.pcs, 30);
+  assert.match(suggestion.primaryAction?.label || '', /박스 수를 30으로 맞춤/);
+
+  const badges = extractLineEvidenceBadges({
+    review_evidence: {
+      pcs: { page: 6, quote: '30 QB' },
+      steam_box: { page: 6, quote: '30 STEMS/QB' },
+      total_stems: { page: 6, quote: '900' },
+      u_price: { page: 6, quote: '0,57' },
+      t_price: { page: 6, quote: '513,00' },
+    },
+  });
+  assert.deepEqual(badges.map(b => b.label), ['원문 박스칸', '원문 입수칸', '원문 총송이', '원문 단가', '원문 금액']);
+
+  const cleaned = sanitizeIssueMessageForOperator('pcs(7) * steam_box(30) != total_stems(900) tabular-nums');
+  assert.doesNotMatch(cleaned, /tabular-nums|steam_box|\bpcs\b|total_stems/i);
 });

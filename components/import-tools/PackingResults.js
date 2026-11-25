@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styles from '../../styles/ImportPacking.module.css';
 import { packingMatchPriority, packingMatchReview } from '../../lib/packingMatchReview';
 import { effectivePackingMatchReview } from '../../lib/packingReceiptMatchState';
-import { defaultInvoiceMatchSuggestion, rankProductSuggestions, scoreProductMatch } from '../../lib/invoiceMatchAssist.js';
+import { defaultInvoiceMatchSuggestion, filterProductsByDetectedFamily, rankProductSuggestions, scoreProductMatch } from '../../lib/invoiceMatchAssist.js';
 import { scoreProductSearchOptions } from '../../lib/productSearchRanking.js';
 
 const hasValue = value => value !== null && value !== undefined && value !== '';
@@ -126,19 +126,26 @@ async function copyTextarea(textarea, statusNode) {
 function InlinePackingMatch({product, sourceName, currentKey, country, products, disabled, onSave}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [includeAllFamilies, setIncludeAllFamilies] = useState(false);
   const [error, setError] = useState('');
   const editor = useRef(null), toggle = useRef(null), search = useRef(null), inFlight = useRef(false);
   const description = product.matchingDescription || sourceName;
+  const familyScope = useMemo(
+    () => (typeof filterProductsByDetectedFamily === 'function'
+      ? filterProductsByDetectedFamily(description, products, { includeAll: includeAllFamilies })
+      : { family: null, filtered: Array.isArray(products) ? products : [], filteredCount: 0, totalCount: Array.isArray(products) ? products.length : 0 }),
+    [description, products, includeAllFamilies],
+  );
   const suggested = useMemo(() => {
     const ranked = rankProductSuggestions(description, products, {country, limit: 3});
     return ranked.items.filter(item => Number(item.product.ProdKey) !== currentKey).slice(0, 2);
   }, [description, products, country, currentKey]);
   const defaultItem = useMemo(() => currentKey == null ? defaultInvoiceMatchSuggestion(description, products, country) : null,
     [description, products, country, currentKey]);
-  const found = useMemo(() => !open || !query.trim() ? suggested : scoreProductSearchOptions(query, products, {packingSuggestions:true})
+  const found = useMemo(() => !open || !query.trim() ? suggested : scoreProductSearchOptions(query, familyScope.filtered, {packingSuggestions:true})
     .filter(item => Number(item.option.ProdKey) !== currentKey)
     .slice(0, 8).map(({option}) => ({product:option, score:scoreProductMatch(description,option)})),
-  [open, query, suggested, products, currentKey, description]);
+  [open, query, suggested, familyScope.filtered, currentKey, description]);
 
   const close = () => {
     setOpen(false);
@@ -193,8 +200,12 @@ function InlinePackingMatch({product, sourceName, currentKey, country, products,
         }}>검색</button>
     </div>
     {open && <div ref={editor} className={styles.inlineMatchEditor} onKeyDown={keyboard}>
-      <input ref={search} type="search" aria-label={`${sourceName} 같은 국가 품목 검색`} placeholder="품목명 또는 코드" value={query}
+      <input ref={search} type="search" aria-label={`${sourceName} 같은 국가 품목 검색`} placeholder={familyScope.family && !includeAllFamilies ? `${familyScope.family.label} 품목 내 검색` : '품목명 또는 코드'} value={query}
         disabled={disabled} onChange={event => setQuery(event.target.value)} />
+      {familyScope.family && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12.5, marginLeft: 6 }}>
+        <input type="checkbox" checked={includeAllFamilies} onChange={e => setIncludeAllFamilies(e.target.checked)} />
+        전체 품목에서 검색
+      </label>}
       {found.length > 0 ? <div className={styles.inlineMatchChoices}>{found.map(item => <button key={item.product.ProdKey} type="button"
         data-testid="packing-inline-search-result" data-prod-key={item.product.ProdKey} className={styles.inlineCandidate} disabled={disabled} onClick={() => choose(item)}>
         {item.product.ProdName} <small>{item.score}%</small>
