@@ -1,12 +1,58 @@
 {
   "id": "farm-week-board",
-  "title": "차수별 농장 입고 및 주문/분배 비교",
-  "scope": ["lib/farmWeekBoard.js", "lib/farmWeekBoardSql.js", "pages/api/stats/farm-week-board.js", "pages/stats/farm-week-board.js", "components/FarmWeekBoard.module.css"],
+  "title": "차수별 농장 입고·주문/분배 비교 및 담당자별 당일 주문발주 내역서",
+  "scope": [
+    "lib/farmWeekBoard.js",
+    "lib/farmWeekBoardSql.js",
+    "pages/api/stats/farm-week-board.js",
+    "pages/stats/farm-week-board.js",
+    "components/FarmWeekBoard.module.css",
+    "lib/dailyStaffPurchaseOrder.js",
+    "lib/dailyStaffPurchaseOrderSql.js",
+    "lib/dailyStaffPurchaseOrderWorkbook.js",
+    "pages/api/stats/daily-order-sheet.js",
+    "components/DailyOrderSheetModal.js"
+  ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
-  "actions": [{"name":"READ_FARM_WEEK_BOARD","orderDetail":"preserve","shipmentDetail":"preserve"}],
-  "crossYearFixture": {"required":true,"description":"2025/2026 동일 39-02를 별도 집계한다."},
-  "requiredTestFiles": ["__tests__/farmWeekBoard.test.js"],
-  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormQuantityPivot.md","source":"Actual dnSpy CLI and 2026-10-01 read-only probe recorded in docs/work-reports/2026-10-01_farm-week-board-design.md; quantity presentation follows pivotStats volume source predicates.","methods":["FormQuantityPivot.GetData"],"tables":["OrderMaster","OrderDetail","WarehouseMaster","WarehouseDetail","ShipmentMaster","ShipmentDetail"]},
-  "preserves": ["OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail","ShipmentDate","ShipmentFarm","WarehouseMaster","WarehouseDetail","ProductStock","Estimate","WebProfitReport"],
-  "requiredCommands": ["node __tests__/farmWeekBoard.test.js","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+  "actions": [
+    {"name": "READ_FARM_WEEK_BOARD", "orderDetail": "preserve", "shipmentDetail": "preserve"},
+    {"name": "READ_DAILY_STAFF_ORDER_SHEET", "orderDetail": "preserve", "shipmentDetail": "preserve"}
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 동일 39-02를 별도 집계하고 당일 주문발주 내역서는 KST 당일 등록 범위 및 활성 OrderYear 원장만 읽기 전용으로 조회한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/farmWeekBoard.test.js",
+    "__tests__/dailyStaffPurchaseOrder.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormQuantityPivot.md",
+    "source": "Actual dnSpy CLI and 2026-10-01/2026-11-25 read-only MSSQL probes recorded in docs/work-reports/2026-10-01_farm-week-board-design.md; quantity comparison and KST daily staff order sheet use read-only SELECT queries only.",
+    "methods": ["FormQuantityPivot.GetData"],
+    "tables": ["OrderMaster", "OrderDetail", "OrderHistory", "Customer", "Product", "UserInfo", "WarehouseMaster", "WarehouseDetail", "ShipmentMaster", "ShipmentDetail"]
+  },
+  "preserves": [
+    "OrderMaster",
+    "OrderDetail",
+    "OrderHistory",
+    "ShipmentMaster",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "WarehouseMaster",
+    "WarehouseDetail",
+    "ProductStock",
+    "Estimate",
+    "WebProfitReport"
+  ],
+  "requiredCommands": [
+    "node __tests__/farmWeekBoard.test.js",
+    "node __tests__/dailyStaffPurchaseOrder.test.js",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
 }
