@@ -6,6 +6,8 @@ const XLSX = require('xlsx');
   const {
     buildKstDayBounds,
     buildPurchaseOrderSheetModel,
+    formatOrderRemarkWithWeek,
+    formatOrderWeekLabel,
     kstDateString,
     matchRowToStaff,
     resolveStaffOrderAccess,
@@ -28,7 +30,6 @@ const XLSX = require('xlsx');
   const adminAccess = resolveStaffOrderAccess({ userId: 'admin', userName: '관리자', authority: 1 });
   assert.equal(adminAccess.isAdmin, true);
 
-  // 웹 등록 시 CreateID='admin'이고 OrderHistory.ChangeID='nenovaSD7'인 경우 본인 직접등록 매칭
   const webDirectRow = {
     odCreateId: 'admin',
     todayActorId: 'nenovaSD7',
@@ -37,7 +38,6 @@ const XLSX = require('xlsx');
   };
   assert.deepEqual(matchRowToStaff(webDirectRow, parkAccess), { matched: true, kind: 'direct' });
 
-  // 영업지원(설연주)이 박성수 담당 거래처 주문을 당일 등록한 경우
   const assignedCustomerRow = {
     odCreateId: 'nenovaSS2',
     todayActorId: 'nenovaSS2',
@@ -48,7 +48,6 @@ const XLSX = require('xlsx');
   };
   assert.deepEqual(matchRowToStaff(assignedCustomerRow, parkAccess), { matched: true, kind: 'assigned_customer' });
 
-  // Near-miss: 타 담당자(조현욱 nenovaSD3) 당일 등록 건은 박성수에게 절대 매칭되지 않음
   const otherStaffRow = {
     odCreateId: 'nenovaSD3',
     todayActorId: 'nenovaSD3',
@@ -59,7 +58,6 @@ const XLSX = require('xlsx');
   };
   assert.deepEqual(matchRowToStaff(otherStaffRow, parkAccess), { matched: false, kind: null });
 
-  // 영업지원(설연주) 로그인 시 본인이 직접 입력한 건은 매칭되고 조현욱 건은 매칭되지 않음
   const supportAccess = resolveStaffOrderAccess({ userId: 'nenovaSS2', userName: '설연주', authority: 2 });
   assert.deepEqual(matchRowToStaff(assignedCustomerRow, supportAccess), { matched: true, kind: 'direct' });
   assert.deepEqual(matchRowToStaff(otherStaffRow, supportAccess), { matched: false, kind: null });
@@ -90,13 +88,21 @@ const XLSX = require('xlsx');
     { category: '안시리움', detail: 'GRACIOSA 15cm' },
   );
 
-  // 4. 결정론적 주요 발주 내역 요약 포매터 검증 (사장님 샘플 3유형 모두 확인)
-  // 4-1. 단일 품종
+  // 4. 차수 라벨 및 비고 차수 결합 포맷 검증
+  assert.equal(formatOrderWeekLabel('2026', '48-01', '2026-11-25'), '48-01차');
+  assert.equal(formatOrderWeekLabel('2027', '01-01', '2026-12-28'), '2027-01-01차');
+  assert.equal(formatOrderWeekLabel('', '', '2026-11-25'), '');
+
+  assert.equal(formatOrderRemarkWithWeek('2026', '48-01', '', '2026-11-25'), '48-01차');
+  assert.equal(formatOrderRemarkWithWeek('2026', '48-01', '중국(해상)', '2026-11-25'), '48-01차 / 중국(해상)');
+  // 이미 동일 차수가 적힌 비고는 중복 삽입하지 않음
+  assert.equal(formatOrderRemarkWithWeek('2026', '48-01', '48-01차 / 중국(해상)', '2026-11-25'), '48-01차 / 중국(해상)');
+
+  // 5. 결정론적 주요 발주 내역 요약 포매터 검증 (단일/소수/다품종 + 단일차수/복수차수)
   assert.equal(
     summarizeCustomerOrderItems([{ category: '루스커스', detail: '-', qty: 1, unit: '박스' }]),
     '루스커스 1박스',
   );
-  // 4-2. 소수 품종 (2~4종)
   assert.equal(
     summarizeCustomerOrderItems([
       { category: '수국', detail: '화이트', qty: 1, unit: '박스' },
@@ -105,31 +111,49 @@ const XLSX = require('xlsx');
     ]),
     '수국(화이트 1, 진핑크 1, 블루 1)',
   );
-  // 4-3. 다품종(5종 이상) + 단일 품종 복합
   const carnation11 = Array.from({ length: 11 }, (_, idx) => ({
     category: '카네이션',
     detail: `품종${idx + 1}`,
-    qty: idx < 3 ? 2 : 1, // 2*3 + 1*8 = 14박스 (11종)
+    qty: idx < 3 ? 2 : 1,
     unit: '박스',
+    orderYear: '2026',
+    orderWeek: '49-02',
   }));
   assert.equal(
-    summarizeCustomerOrderItems([
-      ...carnation11,
-      { category: '프리덤', detail: '-', qty: 10, unit: '단' },
-      { category: '루스커스', detail: '그린 40cm', qty: 2, unit: '박스' },
-    ]),
-    '카네이션 14박스(11종), 프리덤 10단, 루스커스 40cm 2박스',
+    summarizeCustomerOrderItems(
+      [
+        ...carnation11,
+        { category: '프리덤', detail: '-', qty: 10, unit: '단', orderYear: '2026', orderWeek: '49-02' },
+        { category: '루스커스', detail: '그린 40cm', qty: 2, unit: '박스', orderYear: '2026', orderWeek: '49-02' },
+      ],
+      { referenceDateText: '2026-11-25' },
+    ),
+    '[49-02차] 카네이션 14박스(11종), 프리덤 10단, 루스커스 40cm 2박스',
   );
 
-  // 5. 본표 그룹화·연속 중복 빈칸 처리·합계·엑셀(.xlsx) 셀 구조 100% 일치 검증
+  // 복수 차수 요약 분리 검증
+  assert.equal(
+    summarizeCustomerOrderItems(
+      [
+        { category: '카네이션', detail: '돈셀', qty: 2, unit: '박스', orderYear: '2026', orderWeek: '49-01' },
+        { category: '카네이션', detail: '돈셀', qty: 3, unit: '박스', orderYear: '2026', orderWeek: '49-02' },
+        { category: '알스트로', detail: 'NADYA', qty: 16, unit: '단', orderYear: '2026', orderWeek: '49-02' },
+      ],
+      { referenceDateText: '2026-11-25' },
+    ),
+    '[49-01차] 카네이션 돈셀 2박스 / [49-02차] 카네이션 돈셀 3박스, 알스트로 NADYA 16단',
+  );
+
+  // 6. 본표 그룹화·차수별 행 분리·비고 차수 표시·엑셀(.xlsx) 셀 구조 100% 일치 검증
   const sampleInput = [
-    { custName: '나원예', category: '수국', detail: '화이트', qty: 1, unit: '박스', remark: '' },
-    { custName: '나원예', category: '수국', detail: '진핑크', qty: 2, unit: '박스', remark: '급건' },
-    { custName: '가플라워', category: '루스커스', detail: '', qty: 1, unit: '박스', remark: '' },
-    { custName: '가플라워', category: '카네이션', detail: '돈셀', qty: 3, unit: '박스', remark: '' },
-    { custName: '가플라워', category: '카네이션', detail: '문라이트', qty: 2, unit: '박스', remark: '' },
-    // 다른 거래처로 바뀔 때 이전 거래처의 마지막 품목과 같아도 품목명이 반드시 다시 출력되어야 함
-    { custName: '다플라워', category: '수국', detail: '블루', qty: 5, unit: '단', remark: '' },
+    { custName: '나원예', orderYear: '2026', orderWeek: '48-02', category: '수국', detail: '화이트', qty: 1, unit: '박스', remark: '' },
+    { custName: '나원예', orderYear: '2026', orderWeek: '48-02', category: '수국', detail: '진핑크', qty: 2, unit: '박스', remark: '중국(해상)' },
+    { custName: '가플라워', orderYear: '2026', orderWeek: '48-01', category: '루스커스', detail: '', qty: 1, unit: '박스', remark: '' },
+    // 동일 거래처·동일 품종(카네이션 돈셀)이라도 차수(49-01 vs 49-02)가 다르면 별도 행으로 분리되어야 함!
+    { custName: '가플라워', orderYear: '2026', orderWeek: '49-02', category: '카네이션', detail: '돈셀', qty: 2, unit: '박스', remark: '' },
+    { custName: '가플라워', orderYear: '2026', orderWeek: '49-01', category: '카네이션', detail: '돈셀', qty: 3, unit: '박스', remark: '' },
+    // 다른 거래처로 바뀔 때 이전 거래처의 마지막 품목과 같아도 품목명이 다시 출력되어야 함
+    { custName: '다플라워', orderYear: '2027', orderWeek: '01-01', category: '수국', detail: '블루', qty: 5, unit: '단', remark: '선발주' },
   ];
 
   const sheetModel = buildPurchaseOrderSheetModel(sampleInput, {
@@ -141,17 +165,17 @@ const XLSX = require('xlsx');
   assert.equal(sheetModel.itemCount, 6);
   assert.equal(sheetModel.customerCount, 3);
   assert.equal(sheetModel.totalQty, 14);
+  assert.deepEqual(sheetModel.includedWeeks, ['48-01차', '48-02차', '49-01차', '49-02차', '2027-01-01차']);
 
-  // 가플라워(3행) → 나원예(2행) → 다플라워(1행) 정렬 및 연속 셀 빈칸 검증
   assert.deepEqual(
     sheetModel.detailRows.map(r => [r.no, r.customerDisplay, r.categoryDisplay, r.detailDisplay, r.qty, r.unit, r.remark]),
     [
-      [1, '가플라워', '루스커스', '-', 1, '박스', ''],
-      [2, '', '카네이션', '돈셀', 3, '박스', ''],
-      [3, '', '', '문라이트', 2, '박스', ''],
-      [4, '나원예', '수국', '진핑크', 2, '박스', '급건'],
-      [5, '', '', '화이트', 1, '박스', ''],
-      [6, '다플라워', '수국', '블루', 5, '단', ''],
+      [1, '가플라워', '루스커스', '-', 1, '박스', '48-01차'],
+      [2, '', '카네이션', '돈셀', 3, '박스', '49-01차'],
+      [3, '', '', '돈셀', 2, '박스', '49-02차'],
+      [4, '나원예', '수국', '진핑크', 2, '박스', '48-02차 / 중국(해상)'],
+      [5, '', '', '화이트', 1, '박스', '48-02차'],
+      [6, '다플라워', '수국', '블루', 5, '단', '2027-01-01차 / 선발주'],
     ],
   );
 
@@ -163,15 +187,14 @@ const XLSX = require('xlsx');
   const ws = wb.Sheets['화훼 발주 내역서'];
   const rowsAoA = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-  // 1행: 제목, 2행: 빈 줄, 3행: 본표 헤더
   assert.equal(rowsAoA[0][0], '화훼 발주 내역서');
   assert.deepEqual(rowsAoA[1].slice(0, 7), ['', '', '', '', '', '', '']);
   assert.deepEqual(rowsAoA[2].slice(0, 7), ['No.', '거래처', '품목(대분류)', '상세품종 / 규격', '수량', '단위', '비고']);
 
-  // 본표 첫 행 & 연속 행
-  assert.deepEqual(rowsAoA[3].slice(0, 7), [1, '가플라워', '루스커스', '-', 1, '박스', '']);
-  assert.deepEqual(rowsAoA[4].slice(0, 7), [2, '', '카네이션', '돈셀', 3, '박스', '']);
-  assert.deepEqual(rowsAoA[5].slice(0, 7), [3, '', '', '문라이트', 2, '박스', '']);
+  assert.deepEqual(rowsAoA[3].slice(0, 7), [1, '가플라워', '루스커스', '-', 1, '박스', '48-01차']);
+  assert.deepEqual(rowsAoA[4].slice(0, 7), [2, '', '카네이션', '돈셀', 3, '박스', '49-01차']);
+  assert.deepEqual(rowsAoA[5].slice(0, 7), [3, '', '', '돈셀', 2, '박스', '49-02차']);
+  assert.deepEqual(rowsAoA[6].slice(0, 7), [4, '나원예', '수국', '진핑크', 2, '박스', '48-02차 / 중국(해상)']);
 
   // 본표 합계 행 (Row index 3 + 6 = 9)
   assert.equal(rowsAoA[9][0], '총 발주 품목 수 / 단순 수량 합계');
@@ -183,12 +206,15 @@ const XLSX = require('xlsx');
   assert.equal(rowsAoA[11][0], '거래처별 발주 요약');
   assert.deepEqual(rowsAoA[12].slice(0, 4), ['', '', '', '']);
   assert.deepEqual(rowsAoA[13].slice(0, 4), ['거래처', '품목 건수', '단순 수량 합계', '주요 발주 내역 요약']);
-  assert.deepEqual(rowsAoA[14].slice(0, 4), ['가플라워', 3, 6, '루스커스 1박스, 카네이션(돈셀 3, 문라이트 2)']);
-  assert.deepEqual(rowsAoA[15].slice(0, 4), ['나원예', 2, 3, '수국(진핑크 2, 화이트 1)']);
-  assert.deepEqual(rowsAoA[16].slice(0, 4), ['다플라워', 1, 5, '수국 블루 5단']);
+  assert.deepEqual(
+    rowsAoA[14].slice(0, 4),
+    ['가플라워', 3, 6, '[48-01차] 루스커스 1박스 / [49-01차] 카네이션 돈셀 3박스 / [49-02차] 카네이션 돈셀 2박스'],
+  );
+  assert.deepEqual(rowsAoA[15].slice(0, 4), ['나원예', 2, 3, '[48-02차] 수국(진핑크 2, 화이트 1)']);
+  assert.deepEqual(rowsAoA[16].slice(0, 4), ['다플라워', 1, 5, '[2027-01-01차] 수국 블루 5단']);
   assert.deepEqual(rowsAoA[17].slice(0, 4), ['합계', 6, 14, '총 3개 거래처']);
 
-  // 6. SQL 및 API 보안·읽기전용 불변식 검사
+  // 7. SQL 및 API 보안·읽기전용 불변식 검사
   const sqlSource = fs.readFileSync('lib/dailyStaffPurchaseOrderSql.js', 'utf8');
   assert(!/\b(INSERT|UPDATE|DELETE|MERGE|EXEC|DROP|ALTER|CREATE)\b/i.test(sqlSource));
   assert(sqlSource.includes('om.OrderYear'));
@@ -198,7 +224,7 @@ const XLSX = require('xlsx');
   assert(apiSource.includes("req.method !== 'GET'"));
   assert(apiSource.includes('status(403)'));
 
-  console.log('dailyStaffPurchaseOrder: KST bounds, staff isolation, summary formatter, and XLSX layout passed');
+  console.log('dailyStaffPurchaseOrder: KST bounds, staff isolation, week-in-remark, multi-week split, and XLSX layout passed');
 })().catch(e => {
   console.error(e);
   process.exitCode = 1;
