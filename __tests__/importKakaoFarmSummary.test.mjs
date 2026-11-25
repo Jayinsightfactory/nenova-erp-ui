@@ -1,0 +1,315 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {
+  stripKakaoLineEnvelope,
+  isSummaryTotalLine,
+  parseOrderItemLine,
+  extractFarmHeader,
+  analyzeImportMessage,
+  classifyImportFeed,
+  parsePastedKakaoChat,
+} from '../lib/importKakaoOrderText.js';
+import {
+  normalizeFarmName,
+  normalizeOrderUnit,
+  extractProductSpec,
+  summarizeUnitQuantities,
+  farmTotals,
+  importItemView,
+  buildFarmSummary,
+  formatFarmCardText,
+  formatFarmTransferText,
+} from '../lib/importKakaoAdditions.js';
+
+const msg = (text, id = 'm1', time = '2026년 11월 25일 오전 9:30') => ({ id, time, text, sender: 'fixture', items: [] });
+
+// 1. Kakao PC & Mobile copy-paste headers, date dividers, media & greeting noise removal
+{
+  assert.equal(stripKakaoLineEnvelope('--------------- 2026년 11월 25일 수요일 ---------------').text, '');
+  assert.equal(stripKakaoLineEnvelope('2026년 11월 25일 수요일').text, '');
+  assert.equal(stripKakaoLineEnvelope('[정재훈] [오전 9:25] 화이트 10박스').text, '화이트 10박스');
+  assert.equal(stripKakaoLineEnvelope('2026. 11. 25. 오후 2:10, 김대리 : 몬디알 60cm 5FB').text, '몬디알 60cm 5FB');
+  for (const noise of ['[홍길동] [오전 10:00] 사진', '[홍길동] [오전 10:01] 이모티콘', '네 확인했습니다', '감사합니다', '수고하세요^^', 'ㅇㅋ']) {
+    assert.equal(stripKakaoLineEnvelope(noise).text, '', noise);
+  }
+  const parsed = analyzeImportMessage(msg(
+    '--- 2026년 11월 25일 수요일 ---\n[정재훈] [오전 9:25] 47-2 콜 수국 발주 추가\n[정재훈] [오전 9:25] 화이트 10박스\n[김대리] [오전 9:26] 네 확인했습니다\n[김대리] [오전 9:26] 이모티콘'
+  ));
+  assert.equal(parsed.kind, 'addition');
+  assert.equal(parsed.items.length, 1);
+  assert.equal(parsed.items[0].product, '화이트');
+  assert.equal(parsed.items[0].quantity, '10');
+}
+
+// 2. Multi-farm context block headers ([국가] 농장명, ■ 농장, ▶ 농장, 농장명:, <농장명>, uppercase)
+{
+  const blockText = [
+    '47-2 발주 추가',
+    '[콜롬비아] 플로렌스 농장',
+    '몬디알 60cm 5FB',
+    '■ Melody',
+    '시네신스 화이트 20단',
+    '▶ CLOUD',
+    '안슬레이 15단',
+    '농장명 : Apollo',
+    '킹프로테아 40본',
+    '<San Marino>',
+    '문라이트 3HB',
+    'BELLA ROSA',
+    '익스플로러 60cm 2FB',
+  ].join('\n');
+  const parsed = analyzeImportMessage(msg(blockText));
+  assert.equal(parsed.kind, 'addition');
+  assert.deepEqual(
+    parsed.items.map(i => [i.farm, i.product, i.quantity, i.unit]),
+    [
+      ['플로렌스', '몬디알 60cm', '5', 'FB'],
+      ['Melody', '시네신스 화이트', '20', '단'],
+      ['CLOUD', '안슬레이', '15', '단'],
+      ['Apollo', '킹프로테아', '40', '송이'],
+      ['San Marino', 'Moon Light', '3', 'HB'],
+      ['Bella Rosa', '익스플로러 60cm', '2', 'FB'],
+    ]
+  );
+  assert.equal(parsed.items[0].country, '콜롬비아');
+}
+
+// 3. Inline farm + product + spec + quantity patterns (preserving generic "(지정 농장)" as non-farm note)
+{
+  const inlineText = [
+    '47-2 콜 장미 발주 추가',
+    '[엘리떼] 몬디알 60cm 4FB',
+    '티바 익스플로러 50cm 2HB',
+    'Melody : 캐서린 30단',
+    '주광 : 버건디 5박스(지정 농장)',
+  ].join('\n');
+  const parsed = analyzeImportMessage(msg(inlineText));
+  assert.equal(parsed.kind, 'addition');
+  assert.deepEqual(
+    parsed.items.map(i => [i.farm, i.customer, i.product, i.quantity, i.unit]),
+    [
+      ['The Elite Flowers', '', '몬디알 60cm', '4', 'FB'],
+      ['FLORES Tiba', '', '익스플로러 50cm', '2', 'HB'],
+      ['Melody', '', '캐서린', '30', '단'],
+      ['', '주광', '버건디', '5', '박스'],
+    ]
+  );
+}
+
+// 4. Fuzzy / normalized matching against screen-registered knownFarms prevents duplicate farm split
+{
+  const knownFarms = [
+    { FarmName: 'The Elite Flowers', FarmCode: 'ELI' },
+    { FarmName: 'San Marino Farms', FarmCode: 'SMF' },
+    'Melody',
+    'HUBFRESH',
+  ];
+  for (const variant of ['엘리떼', '엘리테 농장', 'ELITE', 'the elite flowers']) {
+    assert.equal(normalizeFarmName(variant, knownFarms), 'The Elite Flowers', variant);
+  }
+  for (const variant of ['SAN MARINO', 'san marino 농장', 'San Marino']) {
+    assert.equal(normalizeFarmName(variant, knownFarms), 'San Marino Farms', variant);
+  }
+  for (const variant of ['허브프레시', '허브프레쉬', 'hub fresh', 'HUBFRESH']) {
+    assert.equal(normalizeFarmName(variant, knownFarms), 'HUBFRESH', variant);
+  }
+  const m1 = analyzeImportMessage(msg('47-2 콜 장미 발주 추가\n■ 엘리떼 농장\n몬디알 60cm 3FB'), new Map(), { knownFarms });
+  const m2 = analyzeImportMessage(msg('47-2 콜 장미 발주 추가\n[ELITE]\n몬디알 60CM 2FB', 'm2'), new Map(), { knownFarms });
+  const summed = farmTotals([...m1.items, ...m2.items].map(i => importItemView(i)), { knownFarms });
+  assert.equal(summed.length, 1);
+  assert.equal(summed[0].farm, 'The Elite Flowers');
+  assert.equal(summed[0].quantity, 5);
+  assert.equal(summed[0].unit, 'FB');
+}
+
+// 5. Practical flower import units (FB/HB/QB/EB/B/박스/상자, 단/속/bunch/bd, 본/개/송이/st/stems) never mix
+{
+  assert.equal(normalizeOrderUnit('FB'), 'FB');
+  assert.equal(normalizeOrderUnit('hb'), 'HB');
+  assert.equal(normalizeOrderUnit('QB'), 'QB');
+  assert.equal(normalizeOrderUnit('EB'), 'EB');
+  for (const u of ['B', 'box', 'boxes', '박스', '상자']) assert.equal(normalizeOrderUnit(u), '박스', u);
+  for (const u of ['단', '속', 'bunch', 'bunches', 'bd']) assert.equal(normalizeOrderUnit(u), '단', u);
+  for (const u of ['송이', '본', '개', '스팀', '스템', 'st', 'stem', 'stems']) assert.equal(normalizeOrderUnit(u), '송이', u);
+
+  const mixed = analyzeImportMessage(msg(
+    '47-2 콜 장미 발주 추가\n■ 엘리떼\n몬디알 3FB\n몬디알 2HB\n몬디알 4B\n몬디알 10속\n몬디알 50본'
+  ));
+  const rows = farmTotals(mixed.items.map(i => importItemView(i)));
+  assert.equal(rows.length, 5);
+  const unitSummary = summarizeUnitQuantities(rows);
+  assert.equal(unitSummary.totalLine, '9박스 (3FB · 2HB · 4박스), 10단, 50송이');
+}
+
+// 6. Spec (length cm + grade) & multiplication expressions (`50cm * 3B`, `2박스 x 10단`, `100본*5`)
+{
+  const p1 = parseOrderItemLine('몬디알 Select 50cm * 3B');
+  assert.equal(p1.quantity, '3');
+  assert.equal(p1.unit, '박스');
+  const spec1 = extractProductSpec(p1.product);
+  assert.equal(spec1.grade, 'Select');
+  assert.equal(spec1.lengthCm, '50cm');
+
+  const p2 = parseOrderItemLine('시네신스 화이트 2박스 x 10단');
+  assert.equal(p2.quantity, '2');
+  assert.equal(p2.unit, '박스');
+  assert.equal(p2.packSpec, '1박스당 10단');
+
+  const p3 = parseOrderItemLine('튤립 화이트 100본*5');
+  assert.equal(p3.quantity, '500');
+  assert.equal(p3.unit, '송이');
+  assert.equal(p3.packSpec, '100송이×5');
+}
+
+// 7. Summary / total lines (`합계 15B`, `총 20박스`, `Total 10 HB`, `계: 5박스`) never double-count
+{
+  for (const totalText of ['합계 15B', '총 20박스', 'Total 10 HB', '계: 5박스', '소계 8단', '총 합계 : 25박스']) {
+    assert.equal(isSummaryTotalLine(totalText), true, totalText);
+    assert.equal(parseOrderItemLine(totalText), null, totalText);
+  }
+  const withTotals = analyzeImportMessage(msg(
+    '47-2 콜 카네이션 발주 추가\n■ 아유라\n돈셀 5B\n문라이트 10B\n합계 15B\n총 15박스\nTotal 15 B'
+  ));
+  assert.equal(withTotals.kind, 'addition');
+  const summed = farmTotals(withTotals.items.map(i => importItemView(i)));
+  assert.equal(summed.reduce((acc, r) => acc + r.quantity, 0), 15);
+  assert.equal(withTotals.ignoredTotals.length, 3);
+}
+
+// 8. Arrow quantity changes (`3B -> 5B`, `3박스에서 5박스로 변경`), `+2B 추가`, and cross-message superseding
+{
+  const rev = analyzeImportMessage(msg(
+    '47-2 콜 수국 발주 추가\n■ 플로렌스 농장\n화이트 3B -> 5B\n블루 3박스에서 5박스로 변경\n그린 +2B 추가'
+  ));
+  assert.equal(rev.kind, 'addition');
+  assert.deepEqual(
+    rev.items.map(i => [i.product, i.quantity, i.unit, i.revisionNote]),
+    [
+      ['화이트', '5', '박스', '3→5 변경'],
+      ['블루', '5', '박스', '3→5 변경'],
+      ['그린', '2', '박스', ''],
+    ]
+  );
+
+  // Feed-level: newer arrow revision supersedes older initial 3B message so total is 5, not 8
+  const feed = classifyImportFeed({
+    messages: [
+      msg('47-2 콜 수국 발주 추가\n화이트 3B -> 5B', 'later', '2026년 11월 25일 오전 10:00'),
+      msg('47-2 콜 수국 발주 추가\n화이트 3박스', 'earlier', '2026년 11월 25일 오전 9:00'),
+    ],
+  });
+  const feedTotals = farmTotals(feed.messages.flatMap(m => m.items.map(i => importItemView(i))));
+  assert.equal(feedTotals.length, 1);
+  assert.equal(feedTotals[0].quantity, 5);
+}
+
+// 9. Item-level cancellation (`취소`, `제외`, `빼주세요`, `패스`, `0박스`, `~취소선~`) excluded while keeping valid items
+{
+  const partial = analyzeImportMessage(msg([
+    '47-2 콜 수국 발주 추가',
+    '■ 플로렌스 농장',
+    '화이트 6B',
+    '핑크 4B',
+    '~블루 3B~',
+    '퍼플 2B 취소',
+    '그린 1B 빼주세요',
+    '옐로우 0박스',
+    '레드는 패스',
+  ].join('\n')));
+  assert.equal(partial.kind, 'addition');
+  const summed = farmTotals(partial.items.map(i => importItemView(i)));
+  assert.deepEqual(summed.map(r => [r.product, r.quantity, r.unit]), [
+    ['핑크', 4, '박스'],
+    ['화이트', 6, '박스'],
+  ]);
+  assert.equal(partial.excludedItems.length, 5);
+}
+
+// 10. Operational memos (`수요일 선적분`, `색상 진한걸로 부탁`) separated cleanly without breaking customer or items
+{
+  const withMemo = analyzeImportMessage(msg([
+    '47-2 콜 장미 발주 추가',
+    '[콜롬비아] 엘리떼',
+    '몬디알 60cm 5FB',
+    '수요일 선적분으로 부탁드립니다',
+    '색상 진한걸로 부탁',
+  ].join('\n')));
+  assert.equal(withMemo.kind, 'addition');
+  assert.equal(withMemo.unparsed.length, 0);
+  assert.equal(withMemo.items[0].customer, '');
+  assert.deepEqual(withMemo.memos.map(m => m.text), ['수요일 선적분으로 부탁드립니다', '색상 진한걸로 부탁']);
+}
+
+// 11. Full pasted KakaoTalk chat -> buildFarmSummary & formatFarmTransferText (Concise / Detailed / KO / EN)
+{
+  const rawChat = [
+    '--------------- 2026년 11월 25일 수요일 ---------------',
+    '[정재훈] [오전 9:15] 47-2 콜롬비아 장미 발주 추가',
+    '[정재훈] [오전 9:15] [콜롬비아] 엘리떼 농장',
+    '몬디알 Select 70cm 4FB',
+    '몬디알 Select 60cm 6FB',
+    '익스플로러 Fancy 60cm 3HB',
+    '합계 13박스',
+    '수요일 선적분 부탁',
+    '[김대리] [오전 9:16] 네 확인했습니다!',
+    '[정재훈] [오전 9:20] 47-2 중국 발주 추가',
+    '[정재훈] [오전 9:20] ■ Melody',
+    '시네신스 화이트 10단 -> 15단',
+    '~시네신스 옐로우 5단~',
+    '색상 선명한 걸로 부탁',
+  ].join('\n');
+
+  const pasted = parsePastedKakaoChat(rawChat, { year: '2026', week: '47-02' });
+  const rows = pasted.messages.flatMap(m => m.items.map(i => importItemView(i)));
+  const totals = farmTotals(rows);
+  const summary = buildFarmSummary(totals, {
+    excludedItems: pasted.messages.flatMap(m => m.excludedItems || []),
+    ignoredTotals: pasted.messages.flatMap(m => m.ignoredTotals || []),
+    memos: pasted.messages.flatMap(m => m.memos || []),
+  });
+
+  assert.equal(summary.farmCount, 2);
+  assert.equal(summary.itemCount, 4);
+  assert.equal(summary.excludedItems.length, 1);
+  assert.equal(summary.ignoredTotals.length, 1);
+
+  const koText = formatFarmTransferText(summary, { format: 'concise', lang: 'ko' });
+  assert.match(koText, /\[중국 · Melody\] 2026\/47-02차/);
+  assert.match(koText, /1\. 시네신스 화이트 - 15단/);
+  assert.match(koText, /\[콜롬비아 · The Elite Flowers\] 2026\/47-02차/);
+  // Sorted: 몬디알 60cm before 몬디알 70cm, followed by 익스플로러
+  assert.match(koText, /1\. 몬디알 \(Select · 60cm\) - 6FB\n2\. 몬디알 \(Select · 70cm\) - 4FB\n3\. 익스플로러 \(Fancy · 60cm\) - 3HB/);
+  assert.match(koText, /합계: 13박스 \(10FB · 3HB\)/);
+  assert.match(koText, /전달 메모: 수요일 선적분 부탁/);
+
+  const singleEn = formatFarmCardText(summary.cards.find(c => c.farm === 'The Elite Flowers'), { format: 'concise', lang: 'en' });
+  assert.match(singleEn, /^\[The Elite Flowers\] 2026\/47-02차/m);
+  assert.match(singleEn, /Total: 13 Boxes \(10 FB · 3 HB\)/);
+  assert.match(singleEn, /Note: 수요일 선적분 부탁/);
+}
+
+// 12. Cross-year same-week isolation in buildFarmSummary
+{
+  const m2025 = analyzeImportMessage(msg('47-2 콜 장미 발주 추가\n■ 엘리떼\n몬디알 60cm 5FB', 'y25', '2025년 11월 25일 오전 9:00'));
+  const m2026 = analyzeImportMessage(msg('47-2 콜 장미 발주 추가\n■ 엘리떼\n몬디알 60cm 7FB', 'y26', '2026년 11월 25일 오전 9:00'));
+  const totals = farmTotals([...m2025.items, ...m2026.items].map(i => importItemView(i)));
+  const summary = buildFarmSummary(totals);
+  assert.equal(summary.cards.length, 2);
+  assert.deepEqual(summary.cards.map(c => [c.cycle, c.items[0].quantity]), [
+    ['2025/47-02차', 5],
+    ['2026/47-02차', 7],
+  ]);
+}
+
+// 13. UI Anti-AI Slop, Typography, and Read-Only ERP Contract assertions
+{
+  const uiSource = fs.readFileSync(new URL('../components/import-tools/KakaoAdditions.js', import.meta.url), 'utf8');
+  assert.match(uiSource, /'Pretendard Variable',\s*'Pretendard'/);
+  assert.match(uiSource, /font-variant-numeric:\s*tabular-nums/);
+  assert.doesNotMatch(uiSource, /\bmonospace\b|JetBrains\s+Mono/i);
+  assert.doesNotMatch(uiSource, /[🚀✨🔥💡]/u);
+  assert.doesNotMatch(uiSource, /감시|추적|모니터링|절감시간/);
+  assert.doesNotMatch(uiSource, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i);
+}
+
+console.log('PASS Kakao farm classification, noise/total dedup, units/specs/revisions, farm cards, copy formatter and Anti-AI Slop');
