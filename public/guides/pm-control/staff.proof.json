@@ -1,18 +1,18 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-19T09:19:43.903Z",
+  "recordedAt": "2026-11-25T00:58:03.823Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 98.2,
+  "duration": 95.8,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "005633a07a1f8f494341a509101bde84f19835bc2ad5f1bf18207226a7988b4a",
-  "captionsSha256": "1c5e4eab9a0aa58a54613846f2398bdb53c762723139f1c0235e32516e80bdd4",
+  "videoSha256": "53c25b3533c2b9623cf19b8ee267527790c812444735aebe243b70b08332d5b3",
+  "captionsSha256": "2dda116315a3b393426ea33586ea83e124aa1b2bc67502e8e9f768ea23c515ed",
   "sourceHashes": {
-    "pages/pm.js": "0804e8892b23fea18218fd8e22ed0615d0849237fb641bea2aada6d3d54add26",
+    "pages/pm.js": "46ee327c07d50c818194c4349869f7dc8510cc9d5c9380007fd108153986efcd",
     "lib/pmThemes.js": "d09b85f43db49304bf97b534850a74b265dd9576081e574ccbadf7939d1b8411",
     "components/pm/grow/Grow.js": "82abfecc56e09952ca518ea987b0489539a8bec1177379a129e8a10475779779",
     "components/pm/ControlGuide.js": "e2d83825f3d5780380d64bdf38a2970f4597adc7bfe98d661137e1cb1d7978a7",
@@ -32,10 +32,10 @@
     "focusShots": [
       {
         "number": 1,
-        "start": 4.8390138,
+        "start": 4.5329443000000005,
         "x": 960,
         "y": 177.5703125,
-        "end": 10.766007099999998
+        "end": 10.444666999999999
       }
     ]
   }

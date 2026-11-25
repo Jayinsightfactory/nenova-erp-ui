@@ -5090,3 +5090,11 @@ pm run test:canon 통과.
 3. 남은 할 일: 운영 배포 후 현장 출고방 3면(정면·좌·우) 팔레트 묶음 사진 실전 자동 소거 매칭 모니터링.
 4. 검증 상태: `__tests__/boxVisionInspector.test.cjs` 6/6 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS (`agent-guardrails`, `guard-erp-writes`, `ui-layout-contract`, `workflow-guides`, `work-memory-handoff`), `next build --webpack` 성공.
 5. 주의/잠금: MSSQL 원장 테이블(`WarehouseMaster`, `WarehouseDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentFarm`, `OrderMaster`, `OrderDetail`) 쓰기 0건(순수 SELECT 조회 전용). 연결 목표: g17, g19, g14, g03 / 학습 반영: 있음
+
+### 2026-11-25 입고 원장 좁은 검색·행 원가 오류 회귀
+검색어: 입고 원장 검색 폭 상세 최상 원가 HTML Unexpected token 상품 수량 운송료 중량 #8205 #8254 g03
+1. 작업 위치: nenova-erp-ui / codex/incoming-density-cost-1125 / .task-incoming-density-cost / PR 등록 전.
+2. 완료된 것: 데이터 길이 기반 검색·수량 열과 패딩, 단일 오류·재조회, 운송료/중량 분리 및 기존 비용 작업 연결.
+3. 남은 할 일: PR CI·운영 배포 및 두 화면 읽기 확인.
+4. 검증 상태: 설치 EXE, 운영 #8205 수량·운송료 구분, #8254 수량 미리보기 가능, 신규 17 테스트·249 매니페스트·브라우저 오류 복구·가이드 39개 검사 통과. 사용자 시점 HTML 원 응답은 재현 못 함. 최신 의존성의 ERP 전체 계약·공식 빌드·입고/HUBFRESH/PM 플레이어 통과. 기존 #1635 PM 가이드 불일치는 실제 영상으로 보정. 운영 저장 0건, 배포 미검증.
+5. 주의/잠금: 현 작업트리 표·가이드 검증 중. 연결 목표 g03 / 학습 반영 있음.

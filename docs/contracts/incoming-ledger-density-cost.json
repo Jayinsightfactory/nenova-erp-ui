@@ -1,0 +1,14 @@
+{
+ "id":"incoming-ledger-density-cost",
+ "title":"입고 화면 원가 오류 표시와 상품 수량 범위",
+ "scope":["pages/incoming.js","components/IncomingLedger.module.css","lib/incomingLedgerLayout.js","lib/latestArrivalResponse.js","lib/useLatestArrivalReferences.js","lib/warehouseCorrectionPolicy.js"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "actions":[
+  {"name":"SHOW_INCOMING_LEDGER","orderDetail":"preserve","shipmentDetail":"preserve","warehouse":"read only","stock":"preserve"},
+  {"name":"REJECT_NON_MERCHANDISE_QUANTITY","orderDetail":"preserve","shipmentDetail":"preserve","warehouse":"no change to approved quantity-writer guards, reject native quantity for known weight/freight codes before write","stock":"preserve"}
+ ],
+ "crossYearFixture":{"required":true,"description":"Existing 2026/2027 same-week correction fixture; receipt classification cannot change exact scoped receipt or shipment keys."},
+ "requiredTestFiles":["__tests__/incomingLedgerLayout.test.mjs","__tests__/incomingWarehouseDisplay.test.js","__tests__/warehouseCorrection.test.mjs"],
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/WarehouseCorrection.md","source":"2026-11-25 actual installed EXE and operating read-only #8205 / 48-01 receipt","methods":["FormWarehouseAdd.CheckValue","FormWarehouseAdd.btnSave_Click","FormWarehouseAdd.UnitQuantity"],"tables":["WarehouseMaster","WarehouseDetail","Product","StockHistory"]},
+ "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

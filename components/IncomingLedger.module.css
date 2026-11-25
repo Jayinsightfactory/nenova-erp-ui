@@ -1,0 +1,26 @@
+.compactQty {
+  padding-inline: 4px !important;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.searchHeading {
+  min-inline-size: 96px;
+}
+.costLookup {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0;
+}
+.rowMeta {
+  display: inline-block;
+  margin-inline-start: 5px;
+  color: #334155;
+  font-size: 12.5px;
+}
+.qtyEdit {
+  height: auto;
+  padding: 0 4px;
+  white-space: nowrap;
+}

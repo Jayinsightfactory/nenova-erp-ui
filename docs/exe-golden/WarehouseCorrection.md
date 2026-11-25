@@ -21,3 +21,7 @@ FormWarehouseView.GetDetail: WarehouseKey로 WarehouseDetail/Product 조회.
 실제 설치 Nenova.exe SHA256 FEDEA619A6E54D6CDD58802E0707DD51D06F5D46E883F53F00134E801AC62F79. dnSpy에서 FormWarehouseView.groupControl1_CustomButtonClick → FormWarehouseAdd EditMode 2와 WdetailKey 전달 → btnSave_Click에서 박스·단·송이와 Product.OutUnit/EstUnit 기반 수량, 송이×단가, StockHistory 및 usp_StockCalculation 순서를 확인했다. 추정 타입명 FormWarehouseDetail은 설치본에 없다. ExcelLoadingPackingList.CheckData는 파일 차수에서 '-'만 제거한 연도차수로 확정 검사한다. 웹 표시 접미를 기존 업무키에 붙이면 올바른 확정 키에서 벗어난다.
 
 운영 SELECT-only. WarehouseMaster·StockMaster·ShipmentMaster 차수는 NVARCHAR(20), 2026/47-02 활성 원장 26/26건은 47-02. #8249/51360 박스 NULL·단 60·송이 600, OutUnit/EstUnit 단, 입고 총액은 출고 단위×단가이며 EXE 송이 산식과 다르다. 기존 금액 기준을 입증하고 새 금액이 모호할 경우 차단한다. 기존 정정 감사 SystemActionLog에는 성공 이력 1건, Actor·ActionDtm·LogKey·Payload NVARCHAR(MAX), 저장소와 SQL 정의에서 관련 삭제 처리 없음. A/B 표시는 업무키를 그대로 두고 동일 감사 저장소에 별도 기록한다. 수량은 해당 WdetailKey만 갱신하고 기존 확정·원가·재고 가드와 원자적 감사를 사용한다. 계획 incoming-round-native-quantity-2026-11-24.md와 테스트 참고.
+
+## 2026-11-25 판매 수량과 운송료·중량 표시
+
+실제 설치 EXE FormWarehouseAdd를 dnSpy로 다시 읽어 CheckFixSave, Product 단위 바인딩, 송이×단가, 재고 재계산 순서를 확인했다. 운영 SELECT 2026/48-01 #8205의 행 50907/50908은 3100/3101 중량이며, 행 50905/50906은 2182 운송료였다. 이 순수 분류는 상품 수량 경로에서 세 업무코드를 차단할 뿐 기존 원가·운임 소유 작업과 재고 트랜잭션을 수정하지 않는다. 운영 #8205 최신 원가 HTTP는 200 JSON이며 보고된 HTML은 재현되지 않았다. HTML/게이트웨이 오류에서 원시 파서 문자열을 숨기는 단위·브라우저 회귀를 추가했다.
