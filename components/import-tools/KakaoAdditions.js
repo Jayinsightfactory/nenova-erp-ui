@@ -320,6 +320,8 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
         time: m.time,
         text: m.text,
         reason: '수동 정리 처리',
+        analysisSource: m.analysisSource || 'regex',
+        llmProvider: m.llmProvider || '',
         isCleaned: true,
         manualHidden: true,
         sourceMessage: m,
@@ -460,7 +462,7 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
     const candidate = analyzeImportMessage(
       { id: m.id, time: m.time || '', text: m.text || '', items: [] },
       new Map(),
-      { pastedOrder: true, knownFarms, defaultYear, defaultWeek, defaultCountry }
+      { pastedOrder: true, ignoreLlmCache: true, knownFarms, defaultYear, defaultWeek, defaultCountry }
     );
     const parsedItems = (candidate.items || [])
       .filter(it => !it.cancelled)
@@ -607,10 +609,19 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
     const oneLine = formatCleanedSingleLine(entry.text) || '(빈 메시지)';
     const expanded = !!expandedCleaned[entry.id];
     const isDuplicate = Boolean(entry.duplicateOf);
+    const isAi = entry.analysisSource === 'llm';
     return (
       <div key={entry.id} data-cleaned-id={entry.id} className="kakao-cleaned-item">
         <div className="kakao-cleaned-row">
           <span className="kakao-cleaned-badge">정리처리됨</span>
+          {!pastedFeed && (
+            <span
+              className={'kakao-analysis-badge ' + (isAi ? 'kakao-analysis-ai' : 'kakao-analysis-fallback')}
+              title={isAi ? '구독 LLM 정밀 분류 완료' : '미분석 신규 원문 · 정규식 임시 분류'}
+            >
+              {isAi ? 'AI분류' : '임시분류'}
+            </span>
+          )}
           <span className="kakao-cleaned-time">{shortKakaoTime(entry.time)}</span>
           <button
             type="button"
@@ -652,12 +663,21 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
     const contributions = m.items.map(item => includedRows.get(item.key)).filter(Boolean);
     const type = sourceType(m);
     const open = !!openEditors[m.id];
+    const isAi = m.analysisSource === 'llm';
     return (
       <article key={m.id} data-source-id={m.id} data-source-kind={m.kind} className={'kakao-order-message ' + (linked ? 'kakao-linked' : '')}>
         <div className="kakao-source-meta">
           <strong>{pastedFeed ? '붙여넣기' : importRoom}</strong>
           <span>{m.time}</span>
           <span>{type === '추가' ? '추가 발주' : type === '취소' ? '취소 요청' : '검토 필요'}</span>
+          {!pastedFeed && !manual[m.id] && (
+            <span
+              className={'kakao-analysis-badge ' + (isAi ? 'kakao-analysis-ai' : 'kakao-analysis-fallback')}
+              title={isAi ? '구독 LLM 정밀 분류 완료' : '미분석 신규 원문 · 정규식 임시 분류'}
+            >
+              {isAi ? 'AI분류' : '임시분류'}
+            </span>
+          )}
           {contributions.length > 0 && <span className="kakao-source-included"><span aria-hidden="true">✓ </span>합계 반영</span>}
           {linked && <strong className="kakao-source-reference">{sourceReference(m.id)}</strong>}
         </div>
@@ -777,6 +797,7 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
   }
 
   const stats = activeFeed?.stats;
+  const llmStats = activeFeed?.llmStats;
   const accounted = stats && stats.selected + stats.review + stats.excluded + stats.duplicates;
   const auditRows = (activeFeed?.audit || []).filter(m => !auditQuery || m.text.toLowerCase().includes(auditQuery.toLowerCase()));
   const copyDisabled = !pastedFeed && (loading || !!error);
@@ -821,6 +842,7 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
         {stats && !pastedFeed && (
           <p className="kakao-collection-summary">
             최근 {activeFeed?.windowDays || windowDays}일 수입방 원문 {stats.scanned}건 수집 · 추가 발주 {activeMessages.filter(m => sourceType(m) === '추가').length}건 · 검토 {activeMessages.filter(m => sourceType(m) !== '추가').length}건 · 정리처리됨 {totalCleanedCount}건
+            {llmStats ? ` · AI 정밀분류 ${llmStats.parsed}건${llmStats.pending > 0 ? ` · 분석대기 ${llmStats.pending}건` : ''}` : ''}
           </p>
         )}
         <div id={toolbarDetailsId} hidden={!toolbarOpen}>
@@ -1849,6 +1871,27 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
           font-weight: 700;
           line-height: 1.4;
           white-space: nowrap;
+        }
+        .kakao-analysis-badge {
+          flex: 0 0 auto;
+          display: inline-block;
+          padding: 1px 6px;
+          border-radius: 4px;
+          font-size: 12.5px;
+          font-weight: 600;
+          line-height: 1.4;
+          white-space: nowrap;
+          font-variant-numeric: tabular-nums;
+        }
+        .kakao-analysis-ai {
+          background: #e2e8f0;
+          color: #1e293b;
+          border: 1px solid #cbd5e1;
+        }
+        .kakao-analysis-fallback {
+          background: #f8fafc;
+          color: #475569;
+          border: 1px solid #cbd5e1;
         }
         .kakao-cleaned-time {
           flex: 0 0 auto;
