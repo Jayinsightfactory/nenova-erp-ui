@@ -38,10 +38,10 @@ test('five non-CL customers retain every product and converted stem cell through
     assert.equal(input.customers.length,5);assert.equal(input.rows.length,2);assert.deepEqual(input.warnings,[]);assert.deepEqual(input.blockers,[]);
     const outputs=generatePedidosFromMatrix(input);
     assert.equal(outputs.reduce((sum,out)=>sum+out.itemCount,0),2);
-    assert.equal(outputs.reduce((sum,out)=>sum+out.totalQuantity,0),['Netherlands','Ecuador','Vietnam'].includes(country)?450:45);
+    assert.equal(outputs.reduce((sum,out)=>sum+out.totalQuantity,0),['Netherlands','Vietnam'].includes(country)?450:45);
     const saved=readPedidosWorkbook(serializePedidosWorkbook(outputs[0].workbook));
     const sheet=saved.Sheets[saved.SheetNames[0]];
-    if(country==='Netherlands'||country==='China'){
+    if(['Netherlands','China','NewZealand','Japan','USA','Israel','Ethiopia'].includes(country)){
       const header=XLSX.utils.sheet_to_json(sheet,{header:1,raw:true})[2];
       for(const [key,name]of customers){const col=header.indexOf(name);assert.ok(col>0);for(let n=1;n<=2;n++){assert.equal(sheet[XLSX.utils.encode_cell({r:n+2,c:col})].v,input.rows.find(r=>r.prodKey===n).quantities[String(key)]);}}
     }
@@ -155,10 +155,22 @@ test('every country exports mixed-case names A-Z with quantities and formulas in
   }
 });
 
-test('Ecuador sorts names before preserving half-box pair adjacency and total', () => {
+test('Ecuador sorts A-Z without half-box pairing/merging, calculates 100 stems=1 box per row and emits SUM formulas', () => {
   const input=matrix('Ecuador','stems');
   input.rows=[['Rose C',100],['Rose B',200],['Rose A',300]].map(([name,q],i)=>({...input.rows[0],key:`${10+i}|stems`,prodKey:10+i,name,total:q,quantities:{1:q}}));
   const out=generatePedidosFromMatrix(input)[0];
-  assert.deepEqual(out.preview.rows.map(row=>row.slice(0,2)),[['Rose A',300],['Rose C',100],['Rose B',200]]);
-  assert.equal(out.totalQuantity,600);assert.equal(out.totalBoxes,3);
+  assert.deepEqual(out.preview.rows.map(row=>row.slice(0,3)),[['Rose A',300,3],['Rose B',200,2],['Rose C',100,1]]);
+  assert.equal(out.totalQuantity,600);assert.equal(out.totalBoxes,6);
+  const ws=out.workbook.Sheets[out.workbook.SheetNames[0]];
+  assert.equal(ws.C4.f,'B4/100');assert.equal(ws.C5.f,'B5/100');assert.equal(ws.C6.f,'B6/100');
+  assert.equal(ws.B7.f,'SUM(B4:B6)');assert.equal(ws.B7.v,600);
+  assert.equal(ws.C7.f,'SUM(C4:C6)');assert.equal(ws.C7.v,6);
+  assert.equal(ws['!merges'].length,1,'only title A1:C1 merge; zero C-column merges');
+});
+
+test('explicit unit override passes through adapter for any country without blocking', () => {
+  const input = matrix('Netherlands', 'bunches');
+  input.rows[0].unitOverridden = true;
+  const out = generatePedidosFromMatrix(input)[0];
+  assert.equal(out.totalQuantity, 200);
 });

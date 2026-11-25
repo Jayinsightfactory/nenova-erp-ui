@@ -67,3 +67,78 @@ test('compact workbook roundtrip retains codes, no-code customer, numeric quanti
     assert.equal(output.totalQuantity, 90);
   }
 });
+
+test('Ecuador 49-01 farm split, 10단=100송이=1박스 without pairing/merge, and SUM formulas on both sheets', () => {
+  const rawRows = [
+    [1487, 'Ecuador Candy X-pression', 100],
+    [1556, 'Ecuador Channel  AS154 ', 100],
+    [1552, 'Ecuador Choco Bloom AS73', 200],
+    [2240, 'Ecuador Electric MO AS295', 400],
+    [1555, 'Ecuador Gala AS 43', 200],
+    [1494, 'Ecuador Tinted Dark Whisper AS033', 200],
+    [1527, 'Ecuador Tinted Light Eucalyptus AS231', 100],
+    [1496, 'Ecuador Tinted Shiny Pearl AS047', 200],
+    [1524, 'Ecuador Tinted Sweet Lavender AS198', 100],
+  ].map(([ProdKey, ProdName, qty]) => ({
+    OrderYear: 2026, OrderWeek: '49-01', CustKey: 533, CustName: '주광농원', CustOrderCode: 'YCL2',
+    ProdKey, ProdName, FlowerName: '장미', CounName: '에콰도르', OutUnit: '송이',
+    SteamOf1Bunch: 0, BunchOf1Box: 0, SteamOf1Box: 0,
+    OutQuantity: qty, BoxQuantity: 0, BunchQuantity: 0, SteamQuantity: qty, SourceRowCount: 1,
+  }));
+  const matrix = buildCountryOrderMatrix({
+    success: true, readOnly: true,
+    scope: { country: 'Ecuador', counName: '에콰도르', year: 2026, majorWeek: '49', scopeKey: 'Ecuador/2026/49' },
+    subweeks: [{ orderWeek: '49-01' }], rows: rawRows, warnings: [],
+  }, '49-01');
+
+  // Default (no split): single file 49-01_Ecuador.xlsx, 1600 stems, 16 boxes, SUM formulas on both sheets
+  const [single] = generateCompactCountryOrders(matrix);
+  assert.equal(single.filename, '49-01_Ecuador.xlsx');
+  assert.equal(single.itemCount, 9);
+  assert.equal(single.totalQuantity, 1600);
+  assert.equal(single.totalBoxes, 16);
+  const reopened = XLSX.read(serializePedidosWorkbook(withCountryOrderEta(single.workbook, '49-01', '2026-12-03')), { type: 'array', cellFormula: true });
+  const s1 = reopened.Sheets['업체별 발주'];
+  assert.equal(s1.E3.v, '박스');
+  assert.equal(s1.A14.v, 'TOTAL');
+  assert.equal(s1.C14.f, 'SUM(C4:C13)'); assert.equal(s1.C14.v, 1600);
+  assert.equal(s1.D14.f, 'SUM(D4:D13)'); assert.equal(s1.D14.v, 1600);
+  assert.equal(s1.E14.f, 'SUM(E4:E13)'); assert.equal(s1.E14.v, 16);
+  const s2 = reopened.Sheets['1_Ecuador 49-01'];
+  assert.equal(s2.C4.f, 'B4/100'); assert.equal(s2.C4.v, 1);
+  assert.equal(s2.C5.f, 'B5/100'); assert.equal(s2.C5.v, 1);
+  assert.equal(s2.B13.f, 'SUM(B4:B12)'); assert.equal(s2.B13.v, 1600);
+  assert.equal(s2.C13.f, 'SUM(C4:C12)'); assert.equal(s2.C13.v, 16);
+  assert.equal((s2['!merges'] ?? []).some(m => m.s.c === 2), false, 'no C-column merges');
+
+  // Farm split ON: La Rosaleda (4 items = 800 stems = 8 boxes) + Fagua Flowers (5 items = 800 stems = 8 boxes)
+  const splitOut = generateCompactCountryOrders(matrix, {
+    split: true,
+    farms: ['La Rosaleda', 'Fagua Flowers'],
+    selected: { 1487: true, 1556: true, 1552: true, 2240: true },
+  });
+  assert.deepEqual(splitOut.map(o => [o.filename, o.itemCount, o.totalQuantity, o.totalBoxes]), [
+    ['49-01_La Rosaleda.xlsx', 4, 800, 8],
+    ['49-01_Fagua Flowers.xlsx', 5, 800, 8],
+  ]);
+});
+
+test('expanded countries (NewZealand mixed units, Japan, USA, Israel, Ethiopia) generate valid workbooks', () => {
+  const nzRows = [
+    { OrderYear: 2026, OrderWeek: '48-01', CustKey: 1, CustName: '업체A', CustOrderCode: 'CL1', ProdKey: 101, ProdName: 'NZ Peony', FlowerName: '작약', CounName: '뉴질랜드', OutUnit: '단', OutQuantity: 15, BoxQuantity: 1, BunchQuantity: 15, SteamQuantity: 75, SourceRowCount: 1 },
+    { OrderYear: 2026, OrderWeek: '48-01', CustKey: 1, CustName: '업체A', CustOrderCode: 'CL1', ProdKey: 102, ProdName: 'NZ Protea', FlowerName: '프로테아', CounName: '뉴질랜드', OutUnit: '송이', OutQuantity: 50, BoxQuantity: 0, BunchQuantity: 0, SteamQuantity: 50, SourceRowCount: 1 },
+  ];
+  const nzMatrix = buildCountryOrderMatrix({
+    success: true, readOnly: true,
+    scope: { country: 'NewZealand', counName: '뉴질랜드', year: 2026, majorWeek: '48', scopeKey: 'NewZealand/2026/48' },
+    subweeks: [{ orderWeek: '48-01' }], rows: nzRows, warnings: [],
+  }, '48-01');
+  const [nzOut] = generateCompactCountryOrders(nzMatrix);
+  assert.equal(nzOut.filename, '48-01_NewZealand.xlsx');
+  assert.equal(nzOut.totalQuantity, '15 단 · 50 송이');
+  assert.equal(nzOut.workbook.SheetNames.length, 3);
+  const nzWb = XLSX.read(serializePedidosWorkbook(withCountryOrderEta(nzOut.workbook, '48-01', '2026-11-26')), { type: 'array', cellFormula: true });
+  const nzS1 = nzWb.Sheets['업체별 발주'];
+  assert.equal(nzS1.A8.v, 'TOTAL (단)'); assert.match(nzS1.C8.f, /^SUMIF\(/); assert.equal(nzS1.C8.v, 15);
+  assert.equal(nzS1.A9.v, 'TOTAL (송이)'); assert.match(nzS1.C9.f, /^SUMIF\(/); assert.equal(nzS1.C9.v, 50);
+});

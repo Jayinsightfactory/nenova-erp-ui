@@ -108,15 +108,19 @@ test('Netherlands marker layout does not aggregate continuation CL rows; zero ro
   assert.equal(outputs.length, 1); assert.equal(outputs[0].totalQuantity, 2);
 });
 
-test('Ecuador: sequential half-box pairing, display reordering, merged boxes, odd and 50 remainder', () => {
+test('Ecuador: independent boxes (10단=100송이=1박스), no pairing/merge, C-column formula and SUM total', () => {
   const products = [['Rose A', 300], ['Rose B', 200], ['Rose C', 100], ['Rose D', 100], ['Rose E', 50]];
-  assert.deepEqual(calculateEcuadorBoxes(products).order, [0, 2, 1, 3, 4]);
+  assert.deepEqual(calculateEcuadorBoxes(products).order, [0, 1, 2, 3, 4]);
+  assert.equal(calculateEcuadorBoxes([['Rose 10단 A', 100], ['Rose 10단 B', 100]]).totalBoxes, 2);
   const out = generatePedidos(fixture([['name', 'Grand Total'], ...products]), 'Ecuador', 'W')[0], ws = sheet(out);
-  assert.equal(out.totalQuantity, 750); assert.equal(out.totalBoxes, 4);
-  assert.equal(ws.A5.v, 'Rose C'); assert.equal(ws.C4.v, 2); assert.equal(ws.C5.v, undefined);
-  assert.ok(ws['!merges'].some(m => m.s.r === 3 && m.e.r === 4 && m.s.c === 2));
-  assert.equal(ws.B9.f, 'SUM(B4:B8)'); assert.equal(ws.C9.v, 4);
-  assert.equal(calculateEcuadorBoxes([['Rose negative', -100]]).totalBoxes, 0);
+  assert.equal(out.totalQuantity, 750); assert.equal(out.totalBoxes, 7.5);
+  assert.equal(ws.A5.v, 'Rose B');
+  assert.equal(ws.C4.f, 'B4/100'); assert.equal(ws.C4.v, 3);
+  assert.equal(ws.C6.f, 'B6/100'); assert.equal(ws.C6.v, 1);
+  assert.equal(ws.C7.f, 'B7/100'); assert.equal(ws.C7.v, 1);
+  assert.equal(ws['!merges'].some(m => m.s.c === 2), false, 'no C-column merges');
+  assert.equal(ws.B9.f, 'SUM(B4:B8)'); assert.equal(ws.B9.v, 750);
+  assert.equal(ws.C9.f, 'SUM(C4:C8)'); assert.equal(ws.C9.v, 7.5);
 });
 
 test('Ecuador marker chooses first numeric fallback, not numeric strings', () => {

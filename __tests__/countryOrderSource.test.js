@@ -38,9 +38,28 @@ test('actual subweeks required and mismatched response scope rejected', () => {
   assert.throws(() => buildCountryOrderMatrix(response([{ ...row, CounName: '중국' }]), '42-01'), /국가/);
 });
 test('other country saved authority, category unit guard; no quantity fallback', () => {
-  for (const [country, counName, unit, expected] of [['Australia', '호주', 'bunches', 20], ['Thailand', '태국', 'bunches', 20], ['Ecuador', '에콰도르', 'stems', 200], ['Vietnam', '베트남', 'stems', 200], ['China', '중국', 'bunches', 20]]) {
-    const matrix = buildCountryOrderMatrix(response([{ ...row, CounName: counName }], country, counName), '42-01'); assert.equal(matrix.rows[0].unit, unit); assert.equal(matrix.rows[0].total, expected); assert.deepEqual(matrix.blockers, []);
+  for (const [country, counName, unit, expected] of [
+    ['Australia', '호주', 'bunches', 20],
+    ['Thailand', '태국', 'bunches', 20],
+    ['Ecuador', '에콰도르', 'bunches', 20],
+    ['Vietnam', '베트남', 'stems', 200],
+    ['China', '중국', 'bunches', 20],
+    ['NewZealand', '뉴질랜드', 'bunches', 20],
+    ['Japan', '일본', 'bunches', 20],
+    ['USA', '미국', 'bunches', 20],
+    ['Israel', '이스라엘', 'bunches', 20],
+    ['Ethiopia', '에티오피아', 'bunches', 20],
+  ]) {
+    const matrix = buildCountryOrderMatrix(response([{ ...row, CounName: counName }], country, counName), '42-01');
+    assert.equal(matrix.rows[0].unit, unit, country);
+    assert.equal(matrix.rows[0].registeredOutUnit, '단', country);
+    assert.equal(matrix.rows[0].total, expected, country);
+    assert.deepEqual(matrix.blockers, [], country);
   }
+  const ecuadorStems = buildCountryOrderMatrix(response([{ ...row, CounName: '에콰도르', OutUnit: '송이', OutQuantity: 100, SteamQuantity: 100, BunchQuantity: 0, BoxQuantity: 0 }], 'Ecuador', '에콰도르'), '42-01');
+  assert.equal(ecuadorStems.rows[0].unit, 'stems'); assert.equal(ecuadorStems.rows[0].registeredOutUnit, '송이'); assert.equal(ecuadorStems.rows[0].total, 100);
+  const usaBoxes = buildCountryOrderMatrix(response([{ ...row, CounName: '미국', OutUnit: '박스', OutQuantity: 5, BoxQuantity: 5, BunchQuantity: 0, SteamQuantity: 0 }], 'USA', '미국'), '42-01');
+  assert.equal(usaBoxes.rows[0].unit, 'boxes'); assert.equal(usaBoxes.rows[0].total, 5);
   for (const [FlowerName, OutUnit] of [['장미', '단'], ['알스트로', '단'], ['카네이션', '박스'], ['수국', '박스'], ['루스커스', '박스']]) assert.deepEqual(buildCountryOrderMatrix(response([{ ...row, FlowerName, OutUnit, CounName: '콜롬비아' }], 'Colombia', '콜롬비아'), '42-01').blockers, []);
   assert.ok(buildCountryOrderMatrix(response([{ ...row, FlowerName: '장미', OutUnit: '박스', CounName: '콜롬비아' }], 'Colombia', '콜롬비아'), '42-01').blockers.length);
 });
@@ -153,9 +172,15 @@ test('product snapshot and factor suggestion derive only missing factors from en
   assert.deepEqual(suggestCountryOrderProductFactors(target, { 1: '0' }), {});
 });
 
-test('review uses the selected stem or bunch unit, allows zero and preserves ERP evidence', () => {
-  for (const [country, name, expected] of [['Netherlands', '네덜란드', 200], ['Australia', '호주', 20]]) {
-    const matrix = buildCountryOrderMatrix(response([{ ...row, CounName: name }], country, name), '42-01');
+test('review supports stems, bunches and boxes, unit switch and box overrides while preserving ERP evidence', () => {
+  for (const [country, name, outUnit, expected] of [
+    ['Netherlands', '네덜란드', '단', 200],
+    ['Australia', '호주', '단', 20],
+    ['USA', '미국', '박스', 1],
+    ['Ecuador', '에콰도르', '송이', 200],
+  ]) {
+    const sample = { ...row, CounName: name, OutUnit: outUnit, OutQuantity: expected };
+    const matrix = buildCountryOrderMatrix(response([sample], country, name), '42-01');
     const source = matrix.rows[0];
     const change = value => reviewCountryOrderQuantities(matrix, { [source.key]: { 1: value } });
     assert.equal(change('14').rows[0].total, 14);
@@ -164,4 +189,17 @@ test('review uses the selected stem or bunch unit, allows zero and preserves ERP
     assert.deepEqual(change('14').rows[0].storedQuantities, source.storedQuantities);
     for (const invalid of ['', '-1', 'Infinity']) assert.throws(() => change(invalid), /수량/);
   }
+  const ecuMatrix = buildCountryOrderMatrix(response([{ ...row, CounName: '에콰도르', OutUnit: '송이', OutQuantity: 100, SteamQuantity: 100, BunchQuantity: 10, BoxQuantity: 1 }], 'Ecuador', '에콰도르'), '42-01');
+  const k = ecuMatrix.rows[0].key;
+  const switchedToBunch = reviewCountryOrderQuantities(ecuMatrix, {}, { units: { [k]: 'bunches' } });
+  assert.equal(switchedToBunch.rows[0].unit, 'bunches');
+  assert.equal(switchedToBunch.rows[0].unitOverridden, true);
+  assert.equal(switchedToBunch.rows[0].total, 10);
+  const switchedAndEdited = reviewCountryOrderQuantities(ecuMatrix, { [k]: { 1: '2' } }, { units: { [k]: 'boxes' }, boxes: { [k]: '3' } });
+  assert.equal(switchedAndEdited.rows[0].unit, 'boxes');
+  assert.equal(switchedAndEdited.rows[0].total, 2);
+  assert.equal(switchedAndEdited.rows[0].boxesOverride, 3);
+  assert.equal(ecuMatrix.rows[0].unit, 'stems', 'source matrix immutable');
+  assert.throws(() => reviewCountryOrderQuantities(ecuMatrix, {}, { units: { [k]: 'invalid' } }), /단위/);
+  assert.throws(() => reviewCountryOrderQuantities(ecuMatrix, {}, { boxes: { [k]: '-1' } }), /박스 수량/);
 });
