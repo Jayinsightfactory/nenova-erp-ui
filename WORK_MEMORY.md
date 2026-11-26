@@ -1,5 +1,13 @@
 # 작업 기록
 
+## 2026-11-26 수입방 카톡 발주 3축 고도화(DB 농장 정규 매칭·12개국 품종 추론·누락 제로화) 및 데스크톱앱 v1.3.103 동시 반영 (feat/kakao-db-farm-country-recall-v2, 연결 목표: g03, g19)
+- 1. 작업 위치: `nenova-erp-ui` (`nw-agy-kakao-farm-country-v2` 워크트리, `feat/kakao-db-farm-country-recall-v2`) · `desktop/package.json`(`1.3.103`) · `nenova-pm/kakao-import-order-llm-worker.js`(`PARSER_VERSION = 2`)
+- 2. 변경 파일: `lib/importKakaoDbCatalog.js`(신규), `lib/importKakaoAdditions.js`, `lib/importKakaoOrderText.js`, `pages/api/import/tools/kakao-additions.js`, `components/import-tools/KakaoAdditions.js`, `docs/contracts/country-orders.json`, `public/guides/import-country-orders/import.proof.json`, `__tests__/importKakaoDbCatalogRecall.test.mjs`(신규), `desktop/package.json`, `desktop/package-lock.json`, `desktop/policy.cjs`, `desktop/tests/policy.test.cjs`
+- 3. 완료된 것: ① 축A: `dbo.Farm`+`WarehouseMaster` 기준 163개 정식 농장 매칭(`Zelecta=Matina`, `Flora Concept=The Elite Flowers` 통합 포함, 14일·31일 DB 농장 매칭률 100%, 품종 `아지마`·CL코드 `CLR` 농장 오인 복구, 일반건 `'농장 미지정'` 미부착 유지) ② 축B: `dbo.Product`+`OrderDetail` 기반 12개국 품종→국가·품목군 추론(14일 `국가 미상` 36건→0건, 31일 85건→2건) ③ 축C: 복합 취소·대체 단행 분리, 수량+취소어 `review` 구제, 근접 문맥 상속, LLM 워커 `v2` 업그레이드 및 14일 전량 재파싱 완료 ④ 데스크톱 `v1.3.103` 버전 상향·메뉴 동기화·`/import/tools?tool=pedidos` 및 `/orders/sales-paste?mode=kakao-import` 탭/즐겨찾기 쿼리 보존(하루 아침 첫 실행 1회 자동 업데이트 정책 불변 유지)
+- 4. 남은 것: PR CI(`verify` 및 `Nenova Desktop Windows`) 통과 후 `master` squash 머지, Cafe24 웹 배포 및 데스크톱 설치파일(`1.3.103`) 피드 승격 확인
+- 5. 주의/잠금: 잠금 없음 (운영 MSSQL 쓰기 0건, 데스크톱 아침 첫 실행 1회 자동 업데이트 정책 무수정 유지)
+- 검색어: 수입방 카톡 발주 DB 농장 마스터 매칭 국가 미상 제로화 importKakaoDbCatalog 데스크톱앱 1.3.103 PARSER_VERSION 2 g03 g19
+
 ## 2026-11-25 데스크톱앱 수입부 업무도구 12개국 확장 반영 v1.3.100 빌드 및 배포 (feat/desktop-v1-4-0-import-tools, 연결 목표: g03, g19)
 - 1. 작업 위치: `nenova-erp-ui` (`nw-agy-desktop-import-release` 워크트리, `feat/desktop-v1-4-0-import-tools` 브랜치) — `desktop/package.json`(`1.3.100`), `desktop/package-lock.json`, `desktop/menu.json`, `WORK_MEMORY.md`
 - 2. 완료된 것: PR #2023 수입부 업무도구 12개국 확장(에콰도르·콜롬비아 등)·에콰도르 농장별 파일 분할·단위/수량 인라인 편집·49-1차 박스/SUM 수식 수정 사항에 맞춰 데스크톱앱 버전 갱신(v1.3.100), 릴리스 노트 동기화, 메뉴 카탈로그 동기화(`npm run menu`), NSIS x64 설치파일 로컬 빌드 및 서명 완료(`desktop/dist/Nenova-Desktop-Setup-1.3.100-x64.exe`, ~106MB), 일 1회 첫 실행 자동 업데이트 정책 유지 확인

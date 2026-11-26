@@ -150,7 +150,7 @@ function useHiddenMessages(userId) {
   return { ids: current?.ids || noHiddenMessages, ready: !!current, change };
 }
 
-function RecentReview({ orderScope, userId, knownFarms = [] }) {
+function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
   const [feed, setFeed] = useState(null);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -250,6 +250,10 @@ function RecentReview({ orderScope, userId, knownFarms = [] }) {
   }, [retry, showAudit, windowDays]);
 
   const activeFeed = pastedFeed || feed;
+  const knownFarms = useMemo(() => {
+    const serverFarms = Array.isArray(feed?.knownFarms) ? feed.knownFarms : [];
+    return [...(propKnownFarms || []), ...serverFarms];
+  }, [propKnownFarms, feed]);
   const messages = activeFeed?.messages || [];
   const recovered = manualImportReviews(manual, activeFeed);
   const reviews = [...(activeFeed?.review || []), ...recovered];
