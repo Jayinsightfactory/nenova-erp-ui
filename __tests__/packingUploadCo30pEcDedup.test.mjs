@@ -32,10 +32,22 @@ import {
   reviewAirWaybill,
 } from '../lib/invoiceAwbEvidence.js';
 import {
+  applyInvoiceHeader,
   invoiceSupplierKey,
   resolveInvoiceHeader,
   sameInvoiceSupplier,
 } from '../lib/invoiceReceiptAutoFill.js';
+import {
+  resolveInvoiceHeaderWithSavedFarm,
+  upsertPackingFarmMatches,
+} from '../lib/importPackingFarmMatches.js';
+import {
+  collectUploadMatchingNeeds,
+  NEW_FARM_OPTION_KEY,
+  parseFarmChoiceOptionKey,
+} from '../lib/packingUploadMatchPrompt.js';
+import { hasNewReceiptFarm } from '../lib/invoiceFarmSource.js';
+import { businessKeyHash } from '../lib/invoiceReceiptDocuments.js';
 import {
   assertPackingExportBunches,
   readPackingExport,
@@ -484,6 +496,101 @@ test('Ecuador La Rosaleda CI (blank/SN AWB, mixed boxes, 9 AS varieties) + paire
   assert.equal(expRows.filter(r => !r.isWeight).length, 9);
   assert.equal(expRows.filter(r => r.isWeight).length, 2);
   assert.deepEqual(assertPackingExportBunches(expRows, ecProducts, 'EC'), []);
+});
+
+test('new farm selection (Flores de Aguata) saves to packing.farm-matches without dbo.Farm mutation, resolves cleanly, and graduates after first receipt', () => {
+  assert.deepEqual(parseFarmChoiceOptionKey(NEW_FARM_OPTION_KEY), { isNewFarm: true, farmKey: null, farmSourceWarehouseKey: null });
+  const existingFarms = [
+    { FarmKey: 15, FarmName: 'Matina', CounName: '콜롬비아', UsageCount: 49, isDeleted: 0 },
+  ];
+  const aguataInv = {
+    supplier: 'FLORES DE AGUATA S.A.S.',
+    invoice: 'FE 852',
+    awb: '992-04727833',
+    date: '2026/11/25',
+    freight_total: 0,
+    invoice_total: 10,
+    products: [{ description: '12-RCM ROSA COLOR/ MIX', pcs: 1, steam_box: 100, total_stems: 100, u_price: 0.1, t_price: 10 }],
+  };
+  const needsBefore = collectUploadMatchingNeeds({
+    country: 'CO',
+    invoices: [aguataInv],
+    excels: [],
+    products: [],
+    farms: existingFarms,
+    farmMatches: null,
+  });
+  assert.equal(needsBefore.unmatchedFarms.length, 1);
+  assert.equal(needsBefore.unmatchedFarms[0].defaultNewFarmName, 'Flores de Aguata');
+
+  const savedFarmMatches = upsertPackingFarmMatches(null, {
+    entries: [{
+      country: 'CO',
+      supplier: 'FLORES DE AGUATA S.A.S.',
+      isNewFarm: true,
+      farmName: 'Flores de Aguata',
+      farmKey: null,
+      farmSourceWarehouseKey: null,
+      packingAbbr: 'AGT',
+      packingShort: 'AGUATA',
+      coRegion: 'BOGOTA',
+    }],
+  }, existingFarms);
+  assert.equal(savedFarmMatches.entries[0].isNewFarm, true);
+  assert.equal(savedFarmMatches.entries[0].farmName, 'Flores de Aguata');
+  assert.equal(savedFarmMatches.entries[0].farmKey, null);
+
+  // After saving as new farm, modal no longer blocks and auto-fill resolves as TEAM_SAVED_NEW_FARM
+  const needsAfter = collectUploadMatchingNeeds({
+    country: 'CO',
+    invoices: [aguataInv],
+    excels: [],
+    products: [],
+    farms: existingFarms,
+    farmMatches: savedFarmMatches,
+  });
+  assert.equal(needsAfter.unmatchedFarms.length, 0);
+
+  const resolvedBeforeFirstReceipt = resolveInvoiceHeaderWithSavedFarm({
+    orderYear: '2026',
+    country: 'CO',
+    rawMetadata: { supplier: 'FLORES DE AGUATA S.A.S.', invoiceUploadDate: '2026-11-26' },
+    reviewedMetadata: { country: 'CO' },
+  }, existingFarms, savedFarmMatches);
+  assert.equal(resolvedBeforeFirstReceipt.farm?.farmKey, null);
+  assert.equal(resolvedBeforeFirstReceipt.farm?.farmName, 'Flores de Aguata');
+  assert.equal(resolvedBeforeFirstReceipt.farm?.isNewFarm, true);
+  assert.equal(resolvedBeforeFirstReceipt.source?.farmSelection?.rule, 'TEAM_SAVED_NEW_FARM');
+  assert.equal(resolvedBeforeFirstReceipt.issues.length, 0);
+
+  const applied = applyInvoiceHeader({
+    document: { farmKey: null, invoiceNo: 'FE 852', invoiceYear: '2026', reviewedMetadata: { country: 'CO' } },
+  }, resolvedBeforeFirstReceipt);
+  assert.equal(hasNewReceiptFarm(applied.document), true);
+  assert.ok(Buffer.isBuffer(businessKeyHash(applied.document)));
+
+  // NZ must never allow unverified new farm
+  assert.equal(hasNewReceiptFarm({ farmKey: null, reviewedMetadata: { country: 'NZ', isNewFarm: true, farmName: 'Unknown NZ' } }), false);
+
+  // Once the first receipt lands in WarehouseMaster, future lookups graduate to the historical WarehouseKey automatically
+  const farmsAfterFirstReceipt = [
+    ...existingFarms,
+    { FarmKey: null, WarehouseKey: 9101, FarmName: 'Flores de Aguata', CounName: '콜롬비아', UsageCount: 1, isDeleted: 0 },
+  ];
+  const resolvedAfterFirstReceipt = resolveInvoiceHeaderWithSavedFarm({
+    orderYear: '2026',
+    country: 'CO',
+    rawMetadata: { supplier: 'FLORES DE AGUATA S.A.S.', invoiceUploadDate: '2026-12-01' },
+    reviewedMetadata: { country: 'CO' },
+  }, farmsAfterFirstReceipt, savedFarmMatches);
+  assert.equal(resolvedAfterFirstReceipt.farm?.farmSourceWarehouseKey, 9101);
+  assert.equal(resolvedAfterFirstReceipt.farm?.farmName, 'Flores de Aguata');
+
+  // UI contract check: modal exposes both existing farm keyword search + quick search chips and new-farm selection
+  const modalSrc = fs.readFileSync(new URL('../components/import-tools/PackingUploadMatchModal.js', import.meta.url), 'utf8');
+  assert.match(modalSrc, /data-testid="upload-match-new-farm-btn"/);
+  assert.match(modalSrc, /data-testid="upload-match-new-farm-name"/);
+  assert.match(modalSrc, /searchQuickList/);
 });
 
 test('local 30p Colombia PDF and Ecuador AWB PDF smoke check when present on operator PC', async () => {
