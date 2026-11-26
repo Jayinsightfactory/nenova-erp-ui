@@ -1,0 +1,71 @@
+{
+  "id": "cn-cloud-hubfresh-arrival-cost",
+  "title": "중국 도착원가 CLOUD(항공) · HUBFRESH(40ft 혼적 해상) 이원화 엔진",
+  "scope": [
+    "pages/api/import/receipts/cn-arrival-cost.js",
+    "lib/cnArrivalCostHttp.js",
+    "lib/cnArrivalCostEngine.js",
+    "lib/cnArrivalCostRules.js",
+    "lib/cnArrivalCostWorkbook.js",
+    "lib/importPackingErpMatches.js",
+    "lib/hubfreshPacking.js",
+    "components/import-tools/CnArrivalCostWorkbench.js",
+    "components/import-tools/InvoiceWarehouseCostBrowse.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "CN_ARRIVAL_COST_SOURCE_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "notes": "GET: WarehouseMaster·WarehouseDetail·Product SELECT-only 조회(연도·차수·입고번호 스코프, 정적 JSON 의존 0건). 메타(운송료·중량·중국 TOTAL)·공란 행은 품목에서 제외하고 BoxQuantity=1 더미·오염된 TariffRate(0.0021)·FlowerName은 원가 계산에 사용하지 않음."
+    },
+    {
+      "name": "CN_ARRIVAL_COST_XLSX",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "notes": "POST: 화면에서 수정한 상단·행 입력값을 서버에서 동일 순수 엔진으로 재계산해 맑은 고딕 .xlsx 수식 시트만 반환. DB 쓰기 없음. CLOUD=GW/CW 중량·CBM 자동배분+3% 수수료(과세표준 제외)+통관 균등배분, HUBFRESH=CBM 지분율 안분+27/박스당단수+(400만x지분+260만)/입고단수."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "OrderYear·OrderWeek·WarehouseKey가 모두 일치하는 입고만 조회하며 연도 경계를 넘지 않음."
+  },
+  "requiredTestFiles": [
+    "__tests__/cnArrivalCost.test.mjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormWarehouseUpload.md",
+    "methods": [
+      "ExcelLoadingPackingList.MakeTempTable"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail"
+    ],
+    "source": "읽기 전용 원가 계산·엑셀 생성 및 CN 품목 후보 오염 보정만 수행. 기존 native 입고 writer·단위·가격·재고·주문·견적 SQL을 변경하지 않음."
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

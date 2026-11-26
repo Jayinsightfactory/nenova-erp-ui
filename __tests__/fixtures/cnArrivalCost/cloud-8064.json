@@ -1,0 +1,695 @@
+{
+ "warehouseKey": 8064,
+ "sheet": "46-3 CLOUD cbm",
+ "mode": "CLOUD",
+ "generatedBy": "SELECT-only build-fixtures.mjs",
+ "dbWrites": 0,
+ "dbRows": [
+  {
+   "WarehouseKey": 8064,
+   "OrderYear": "2026",
+   "OrderWeek": "46-03",
+   "OrderNo": "92161608271",
+   "FarmName": "Cloudland",
+   "InvoiceNo": "2026YY-052",
+   "GrossWeight": null,
+   "ChargeableWeight": null,
+   "WdetailKey": 49477,
+   "ProdKey": 2377,
+   "OrderCode": "1",
+   "BoxQuantity": 1,
+   "BunchQuantity": 100,
+   "SteamQuantity": 100,
+   "OutQuantity": 100,
+   "UPrice": 18,
+   "TPrice": 1800,
+   "SteamOf1Bunch": 1,
+   "SteamOf1Box": 0,
+   "ProdName": "Eucalyptus CHINA / 유칼리튭스_시네리아 (Eucalyptus - Cinerea)",
+   "CounName": "중국",
+   "FlowerName": "기타",
+   "OutUnit": "단",
+   "TariffRate": null
+  },
+  {
+   "WarehouseKey": 8064,
+   "OrderYear": "2026",
+   "OrderWeek": "46-03",
+   "OrderNo": "92161608271",
+   "FarmName": "Cloudland",
+   "InvoiceNo": "2026YY-052",
+   "GrossWeight": null,
+   "ChargeableWeight": null,
+   "WdetailKey": 49478,
+   "ProdKey": 2670,
+   "OrderCode": "2",
+   "BoxQuantity": 1,
+   "BunchQuantity": 10,
+   "SteamQuantity": 10,
+   "OutQuantity": 10,
+   "UPrice": 37,
+   "TPrice": 370,
+   "SteamOf1Bunch": 1,
+   "SteamOf1Box": 0,
+   "ProdName": "SPRAY ROSE CHINA / 블랙뷰티 (Spray-Rose Black Beauty) ",
+   "CounName": "중국",
+   "FlowerName": "장미",
+   "OutUnit": "단",
+   "TariffRate": null
+  },
+  {
+   "WarehouseKey": 8064,
+   "OrderYear": "2026",
+   "OrderWeek": "46-03",
+   "OrderNo": "92161608271",
+   "FarmName": "Cloudland",
+   "InvoiceNo": "2026YY-052",
+   "GrossWeight": null,
+   "ChargeableWeight": null,
+   "WdetailKey": 49479,
+   "ProdKey": 3529,
+   "OrderCode": "3",
+   "BoxQuantity": 1,
+   "BunchQuantity": 200,
+   "SteamQuantity": 200,
+   "OutQuantity": 200,
+   "UPrice": 23,
+   "TPrice": 4600,
+   "SteamOf1Bunch": 1,
+   "SteamOf1Box": 0,
+   "ProdName": "ORCHID CHINA / 호접란 White",
+   "CounName": "중국",
+   "FlowerName": "호접난 Orchid",
+   "OutUnit": "송이",
+   "TariffRate": null
+  },
+  {
+   "WarehouseKey": 8064,
+   "OrderYear": "2026",
+   "OrderWeek": "46-03",
+   "OrderNo": "92161608271",
+   "FarmName": "Cloudland",
+   "InvoiceNo": "2026YY-052",
+   "GrossWeight": null,
+   "ChargeableWeight": null,
+   "WdetailKey": 49480,
+   "ProdKey": 2182,
+   "OrderCode": "4",
+   "BoxQuantity": 1,
+   "BunchQuantity": 1,
+   "SteamQuantity": 1,
+   "OutQuantity": 1,
+   "UPrice": 4649,
+   "TPrice": 4649,
+   "SteamOf1Bunch": 1,
+   "SteamOf1Box": 1,
+   "ProdName": "운송료",
+   "CounName": "국내",
+   "FlowerName": "왁스",
+   "OutUnit": "박스",
+   "TariffRate": null
+  },
+  {
+   "WarehouseKey": 8064,
+   "OrderYear": "2026",
+   "OrderWeek": "46-03",
+   "OrderNo": "92161608271",
+   "FarmName": "Cloudland",
+   "InvoiceNo": "2026YY-052",
+   "GrossWeight": null,
+   "ChargeableWeight": null,
+   "WdetailKey": 49481,
+   "ProdKey": null,
+   "OrderCode": "5",
+   "BoxQuantity": 1,
+   "BunchQuantity": 1,
+   "SteamQuantity": 361,
+   "OutQuantity": null,
+   "UPrice": 0,
+   "TPrice": 0,
+   "SteamOf1Bunch": 1,
+   "SteamOf1Box": 1,
+   "ProdName": null,
+   "CounName": null,
+   "FlowerName": null,
+   "OutUnit": null,
+   "TariffRate": null
+  },
+  {
+   "WarehouseKey": 8064,
+   "OrderYear": "2026",
+   "OrderWeek": "46-03",
+   "OrderNo": "92161608271",
+   "FarmName": "Cloudland",
+   "InvoiceNo": "2026YY-052",
+   "GrossWeight": null,
+   "ChargeableWeight": null,
+   "WdetailKey": 49482,
+   "ProdKey": null,
+   "OrderCode": "6",
+   "BoxQuantity": 1,
+   "BunchQuantity": 1,
+   "SteamQuantity": 361,
+   "OutQuantity": null,
+   "UPrice": 0,
+   "TPrice": 0,
+   "SteamOf1Bunch": 1,
+   "SteamOf1Box": 1,
+   "ProdName": null,
+   "CounName": null,
+   "FlowerName": null,
+   "OutUnit": null,
+   "TariffRate": null
+  }
+ ],
+ "excel": {
+  "headerRow": 30,
+  "header": {
+   "C7": {
+    "v": 210,
+    "f": null
+   },
+   "C8": {
+    "v": 234,
+    "f": null
+   },
+   "E8": {
+    "v": 357.4,
+    "f": "O27"
+   },
+   "F8": {
+    "v": 361,
+    "f": null
+   },
+   "C9": {
+    "v": 3,
+    "f": null
+   },
+   "C10": {
+    "v": 310,
+    "f": "SUM(E25:E57)"
+   },
+   "C11": {
+    "v": 4349,
+    "f": "E11+H11"
+   },
+   "E11": {
+    "v": 1100,
+    "f": "1400-E12"
+   },
+   "H11": {
+    "v": 3249,
+    "f": null
+   },
+   "E12": {
+    "v": 300,
+    "f": null
+   },
+   "C14": {
+    "v": 0.214,
+    "f": null
+   },
+   "C15": {
+    "v": 0.032,
+    "f": null
+   },
+   "C16": {
+    "v": 0.08,
+    "f": null
+   },
+   "C17": {
+    "v": 0.25,
+    "f": null
+   },
+   "T6": {
+    "v": 107640,
+    "f": "C8*460"
+   },
+   "T7": {
+    "v": 33000,
+    "f": null
+   },
+   "T8": {
+    "v": 30000,
+    "f": "C9*10000"
+   },
+   "T9": {
+    "v": 99000,
+    "f": null
+   },
+   "V6": {
+    "v": 40000,
+    "f": null
+   },
+   "V7": {
+    "v": 200000,
+    "f": null
+   },
+   "T10": {
+    "v": 509640,
+    "f": "SUM(T6:T9)+V6+V7"
+   },
+   "T11": {
+    "v": 1644,
+    "f": "T10/N27"
+   },
+   "E9": {
+    "v": 12.168438724118635,
+    "f": "C11/E8"
+   }
+  },
+  "table": [
+   {
+    "row": 7,
+    "label": "ROSE",
+    "bunches": 10,
+    "volKg": 10,
+    "qty": 10,
+    "cbm": 10,
+    "perBunch": 12.168438724118635,
+    "tariff": 0.214,
+    "pFormula": "($C$11*AL8)/N7",
+    "al": "비율",
+    "alFormula": null
+   },
+   {
+    "row": 8,
+    "label": "CARNATION",
+    "bunches": 15,
+    "volKg": 9.930666666666667,
+    "qty": null,
+    "cbm": {
+     "formula": "M8/K8*N8",
+     "ref": "O8:O26",
+     "shareType": "shared"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "($C$11*AL9)/N8",
+    "al": 0.02797985450475658,
+    "alFormula": "(AJ8*AK8)/$E$8"
+   },
+   {
+    "row": 9,
+    "label": "LISIANTHUS",
+    "bunches": 10,
+    "volKg": 10,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 10,
+    "label": "EUCALYPTUS",
+    "bunches": 10,
+    "volKg": 21.406666666666666,
+    "qty": 100,
+    "cbm": 214.06666666666666,
+    "perBunch": 26.04857116209662,
+    "tariff": 0.08,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 11,
+    "label": "Sinensis",
+    "bunches": 20,
+    "volKg": 13.333333333333334,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": 0.5989554187651558,
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 12,
+    "label": "40cm",
+    "bunches": 10,
+    "volKg": 10,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 13,
+    "label": "Gypsophila",
+    "bunches": 10,
+    "volKg": 13.333333333333334,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 14,
+    "label": "ORCHID",
+    "bunches": 10,
+    "volKg": 6.666666666666667,
+    "qty": 200,
+    "cbm": 133.33333333333334,
+    "perBunch": 8.112292482745758,
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 15,
+    "label": "ROSE A grade",
+    "bunches": 10,
+    "volKg": 13.333333333333334,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": 0.3730647267300877,
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 16,
+    "label": "ASPARAGUS",
+    "bunches": 25,
+    "volKg": 10,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.25,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 17,
+    "label": "AMARANTHUS",
+    "bunches": 20,
+    "volKg": 10,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.25,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 18,
+    "label": "ACASIA",
+    "bunches": 10,
+    "volKg": 10,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 19,
+    "label": "WAX",
+    "bunches": 10,
+    "volKg": 10,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 20,
+    "label": "ORNITHOGALUM",
+    "bunches": 10,
+    "volKg": 10,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 21,
+    "label": "RANUNCULUS",
+    "bunches": 10,
+    "volKg": 4.75,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 22,
+    "label": "DIDISCUS",
+    "bunches": 10,
+    "volKg": 7.84,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 23,
+    "label": "SCABIOSA",
+    "bunches": 10,
+    "volKg": 13.333333333333334,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 24,
+    "label": "DELPHINIUM",
+    "bunches": 10,
+    "volKg": 15.47,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 25,
+    "label": "DAHLIA",
+    "bunches": 10,
+    "volKg": 10,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.214,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 26,
+    "label": "GREENS",
+    "bunches": 10,
+    "volKg": 10,
+    "qty": null,
+    "cbm": {
+     "sharedFormula": "O8"
+    },
+    "perBunch": {
+     "error": "#DIV/0!"
+    },
+    "tariff": 0.032,
+    "pFormula": "[P8]",
+    "al": {
+     "sharedFormula": "AL8"
+    },
+    "alFormula": "[AL8]"
+   },
+   {
+    "row": 30,
+    "label": "CNF 원아 (단)",
+    "bunches": "총금액\n(CNF포함)",
+    "volKg": "관세",
+    "qty": "그외통관\n(단)",
+    "cbm": "도착원가(단)",
+    "perBunch": "단당  수량",
+    "tariff": "도착원가(단)",
+    "pFormula": null,
+    "al": null,
+    "alFormula": null
+   }
+  ],
+  "rows": [
+   {
+    "row": 31,
+    "name": "Eucalyptus CHINA / 유칼리튭스_시네리아 (Eucalyptus - Cinerea)",
+    "qty": 100,
+    "fob": 18,
+    "permit": null,
+    "freight": 26.04857116209662,
+    "cnf": 44.04857116209662,
+    "fee3": 45.37002829695952,
+    "cnfKrw": 9527.7059423615,
+    "duty": 762.21647538892,
+    "customs": 1644,
+    "cost": 11933.922417750418,
+    "sale": 15498.600542533011,
+    "hFormula": "IF(ISNUMBER(SEARCH($L$8,B31)),$P$8,IF(ISNUMBER(SEARCH($L$7,B31)),$P$7,IF(ISNUMBER(SEARCH($L$9,B31)),$P$9,IF(ISNUMBER(SEARCH($L$10,B31)),$P$10,IF(ISNUMBER(SEARCH($L$11,B31)),$P$11,IF(ISNUMBER(SEARCH($L$12,B31)),$P$12,IF(ISNUMBER(SEARCH($L$12,B31)),$P$12,IF(ISNUMBER(SEARCH($L$13,B31)),$P$13,IF(ISNUMBER(SEARCH($L$14,B31)),$P$14,IF(ISNUMBER(SEARCH($L$15,B31)),$P$15,IF(ISNUMBER(SEARCH($L$16,B31)),$P$16,IF(ISNUMBER(SEARCH($L$17,B31)),$P$17,IF(ISNUMBER(SEARCH($L$18,B31)),$P$18,IF(ISNUMBER(SEARCH($L$19,B31)),$P$19,IF(ISNUMBER(SEARCH($L$20,B31)),$P$20,IF(ISNUMBER(SEARCH($L$21,B31)),$P$21,IF(ISNUMBER(SEARCH($L$22,B31)),$P$22,IF(ISNUMBER(SEARCH($L$23,B31)),$P$23,IF(ISNUMBER(SEARCH($L$24,B31)),$P$24,IF(ISNUMBER(SEARCH($L$25,B31)),$P$25,IF(ISNUMBER(SEARCH($L$26,B31)),$P$26)))))))))))))))))))))",
+    "mFormula": "IF(ISNUMBER(SEARCH($L$7,B31)),L31*$Q$7,IF(ISNUMBER(SEARCH($L$8,B31)),L31*$Q$8,IF(ISNUMBER(SEARCH($L$9,B31)),L31*$Q$9,IF(ISNUMBER(SEARCH($L$10,B31)),L31*$Q$10,IF(ISNUMBER(SEARCH($L$11,B31)),L31*$Q$11,IF(ISNUMBER(SEARCH($L$12,B31)),L31*$Q$12,IF(ISNUMBER(SEARCH($L$13,B31)),L31*$Q$13,IF(ISNUMBER(SEARCH($L$14,B31)),L31*$Q$14,IF(ISNUMBER(SEARCH($L$15,B31)),L31*$Q$15,IF(ISNUMBER(SEARCH($L$16,B31)),L31*$Q$16,IF(ISNUMBER(SEARCH($L$17,B31)),L31*$Q$17,IF(ISNUMBER(SEARCH($L$18,B31)),L31*$Q$18,IF(ISNUMBER(SEARCH($L$19,B31)),L31*$Q$19,IF(ISNUMBER(SEARCH($L$20,B31)),L31*$Q$20,IF(ISNUMBER(SEARCH($L$21,B31)),L31*$Q$21,IF(ISNUMBER(SEARCH($L$22,B31)),L31*$Q$22,IF(ISNUMBER(SEARCH($L$23,B31)),L31*$Q$23,IF(ISNUMBER(SEARCH($L$24,B31)),L31*$Q$24,IF(ISNUMBER(SEARCH($L$25,B31)),L31*$Q$25,IF(ISNUMBER(SEARCH($L$26,B31)),L31*$Q$26))))))))))))))))))))",
+    "jFormula": "I31*1.03"
+   },
+   {
+    "row": 32,
+    "name": "SPRAY ROSE CHINA / 블랙뷰티 (Spray-Rose Black Beauty)",
+    "qty": 10,
+    "fob": 37,
+    "permit": null,
+    "freight": 12.168438724118635,
+    "cnf": 49.16843872411864,
+    "fee3": 50.643491885842195,
+    "cnfKrw": 10635.133296026861,
+    "duty": 2275.918525349748,
+    "customs": 1644,
+    "cost": 14555.051821376608,
+    "sale": 18902.664703086502,
+    "hFormula": "IF(ISNUMBER(SEARCH($L$8,B32)),$P$8,IF(ISNUMBER(SEARCH($L$7,B32)),$P$7,IF(ISNUMBER(SEARCH($L$9,B32)),$P$9,IF(ISNUMBER(SEARCH($L$10,B32)),$P$10,IF(ISNUMBER(SEARCH($L$11,B32)),$P$11,IF(ISNUMBER(SEARCH($L$12,B32)),$P$12,IF(ISNUMBER(SEARCH($L$12,B32)),$P$12,IF(ISNUMBER(SEARCH($L$13,B32)),$P$13,IF(ISNUMBER(SEARCH($L$14,B32)),$P$14,IF(ISNUMBER(SEARCH($L$15,B32)),$P$15,IF(ISNUMBER(SEARCH($L$16,B32)),$P$16,IF(ISNUMBER(SEARCH($L$17,B32)),$P$17,IF(ISNUMBER(SEARCH($L$18,B32)),$P$18,IF(ISNUMBER(SEARCH($L$19,B32)),$P$19,IF(ISNUMBER(SEARCH($L$20,B32)),$P$20,IF(ISNUMBER(SEARCH($L$21,B32)),$P$21,IF(ISNUMBER(SEARCH($L$22,B32)),$P$22,IF(ISNUMBER(SEARCH($L$23,B32)),$P$23,IF(ISNUMBER(SEARCH($L$24,B32)),$P$24,IF(ISNUMBER(SEARCH($L$25,B32)),$P$25,IF(ISNUMBER(SEARCH($L$26,B32)),$P$26)))))))))))))))))))))",
+    "mFormula": "IF(ISNUMBER(SEARCH($L$7,B32)),L32*$Q$7,IF(ISNUMBER(SEARCH($L$8,B32)),L32*$Q$8,IF(ISNUMBER(SEARCH($L$9,B32)),L32*$Q$9,IF(ISNUMBER(SEARCH($L$10,B32)),L32*$Q$10,IF(ISNUMBER(SEARCH($L$11,B32)),L32*$Q$11,IF(ISNUMBER(SEARCH($L$12,B32)),L32*$Q$12,IF(ISNUMBER(SEARCH($L$13,B32)),L32*$Q$13,IF(ISNUMBER(SEARCH($L$14,B32)),L32*$Q$14,IF(ISNUMBER(SEARCH($L$15,B32)),L32*$Q$15,IF(ISNUMBER(SEARCH($L$16,B32)),L32*$Q$16,IF(ISNUMBER(SEARCH($L$17,B32)),L32*$Q$17,IF(ISNUMBER(SEARCH($L$18,B32)),L32*$Q$18,IF(ISNUMBER(SEARCH($L$19,B32)),L32*$Q$19,IF(ISNUMBER(SEARCH($L$20,B32)),L32*$Q$20,IF(ISNUMBER(SEARCH($L$21,B32)),L32*$Q$21,IF(ISNUMBER(SEARCH($L$22,B32)),L32*$Q$22,IF(ISNUMBER(SEARCH($L$23,B32)),L32*$Q$23,IF(ISNUMBER(SEARCH($L$24,B32)),L32*$Q$24,IF(ISNUMBER(SEARCH($L$25,B32)),L32*$Q$25,IF(ISNUMBER(SEARCH($L$26,B32)),L32*$Q$26))))))))))))))))))))",
+    "jFormula": "I32*1.03"
+   },
+   {
+    "row": 33,
+    "name": "ORCHID CHINA/ White",
+    "qty": 200,
+    "fob": 23,
+    "permit": null,
+    "freight": 8.112292482745758,
+    "cnf": 31.112292482745758,
+    "fee3": 32.04566125722813,
+    "cnfKrw": 6729.588864017908,
+    "duty": 1440.1320168998323,
+    "customs": 1644,
+    "cost": 9813.720880917741,
+    "sale": 12745.092053139922,
+    "hFormula": "[H32]",
+    "mFormula": "[M32]",
+    "jFormula": "[J32]"
+   }
+  ]
+ }
+}
