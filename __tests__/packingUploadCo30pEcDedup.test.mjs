@@ -19,7 +19,8 @@ import {
   parsePackingChunk,
   splitPackingPdf,
 } from '../lib/importPackingPdfChunks.js';
-import { healColombiaInvoiceExtraction } from '../lib/importPackingResponse.js';
+import { healColombiaInvoiceExtraction, detectColombiaInvoicePoConfusion } from '../lib/importPackingResponse.js';
+import { rankProductSuggestions, scoreProductMatch } from '../lib/invoiceMatchAssist.js';
 import { packingSourceValueIssues } from '../lib/importPackingSourceReview.js';
 import { buildPrompt } from '../lib/importPackingPrompt.js';
 import { validatePackingPdf } from '../lib/importTeamPdf.js';
@@ -591,6 +592,64 @@ test('new farm selection (Flores de Aguata) saves to packing.farm-matches withou
   assert.match(modalSrc, /data-testid="upload-match-new-farm-btn"/);
   assert.match(modalSrc, /data-testid="upload-match-new-farm-name"/);
   assert.match(modalSrc, /searchQuickList/);
+});
+
+test('MUESTRAS/SAMPLE lines rank ROSE / Sample #1, Don Eusebio PO-vs-Invoice confusion is flagged, and warehouse InputDate avoids UTC -9h shift', () => {
+  // 1. MUESTRAS / SAMPLE priority in importPacking findBestMatch & invoiceMatchAssist rankProductSuggestions
+  const coCatalog = [
+    { country: 'CO', name: 'ROSE / Mix Box 50cm', family: 'ROSE' },
+    { country: 'CO', name: 'ROSE / Mix Box 60cm', family: 'ROSE' },
+    { country: 'CO', name: 'ROSE / Sample', family: 'ROSE' },
+    { country: 'CO', name: 'CARNATION Mix box', family: 'CARNATION' },
+  ];
+  const sampleHit = findBestMatch('12-RCM ROSA COLOR/ MIX SAMPLE (MUESTRAS)', coCatalog);
+  assert.equal(sampleHit.item?.name, 'ROSE / Sample', 'MUESTRAS/SAMPLE rose must rank ROSE / Sample #1 over Mix Box');
+  assert.ok(sampleHit.score >= 0.95);
+
+  const nonSampleHit = findBestMatch('ROSE MIX BOX 50CM', coCatalog);
+  assert.equal(nonSampleHit.item?.name, 'ROSE / Mix Box 50cm', 'Normal non-sample Mix Box must still match Mix Box 50cm');
+
+  const erpProducts = [
+    { ProdKey: 1341, ProdName: 'ROSE / Mix Box 50cm', DisplayName: 'ROSE / Mix Box 50cm', FlowerName: '장미', country: 'CO', selectable: true },
+    { ProdKey: 2436, ProdName: 'ROSE / Sample', DisplayName: 'ROSE / Sample', FlowerName: '장미', country: 'CO', selectable: true },
+  ];
+  const rankedSample = rankProductSuggestions('12-RCM ROSA COLOR/ MIX (MUESTRAS)', erpProducts, { country: 'CO', limit: 3 });
+  assert.equal(rankedSample.items[0]?.product.ProdKey, 2436, 'ERP matcher must rank [2436] ROSE / Sample #1 for MUESTRAS');
+  assert.equal(scoreProductMatch('12-RCM ROSA COLOR/ MIX', erpProducts[1], { notes: 'MUESTRAS 1 QB ASSORTED' }), 96);
+  assert.ok(scoreProductMatch('ROSE / Mix Box 50cm', erpProducts[0]) > scoreProductMatch('ROSE / Mix Box 50cm', erpProducts[1]));
+
+  // 2. Don Eusebio PO vs Invoice Number guard
+  const badPoInv = healColombiaInvoiceExtraction({
+    supplier: 'Agroindustrial Don Eusebio S.A.S.',
+    invoice: '188489',
+    po: '188489',
+    currency: 'USD',
+    invoice_total: 634.5,
+    products: [{ description: 'CAR DONCEL', pcs: 3, steam_box: 300, total_stems: 900, u_price: 0.215, t_price: 193.5 }],
+  });
+  assert.ok((badPoInv.metadataIssues || []).some(i => i.code === 'INVOICE_NUMBER_PO_SUSPECT'));
+
+  const badQuotePo = detectColombiaInvoicePoConfusion({
+    supplier: 'Agroindustrial Don Eusebio S.A.S.',
+    invoice: '188489',
+    metadata_evidence: { invoice: { quote: 'PO: 188489' } },
+  });
+  assert.equal(badQuotePo?.code, 'INVOICE_NUMBER_PO_SUSPECT');
+
+  const goodEusebio = detectColombiaInvoicePoConfusion({
+    supplier: 'Agroindustrial Don Eusebio S.A.S.',
+    invoice: '133973',
+    po: '188489',
+    metadata_evidence: { invoice: { quote: 'INVOICE No 133973' } },
+  });
+  assert.equal(goodEusebio, null);
+
+  // 3. CO prompt includes both safeguards & warehouse upload stores exact calendar InputDate without UTC -9h shift
+  const coPrompt = buildPrompt('CO');
+  assert.match(coPrompt, /MUESTRAS \/ SAMPLE/);
+  assert.match(coPrompt, /Invoice Number vs PO Number/);
+  const whSrc = fs.readFileSync(new URL('../pages/api/warehouse/index.js', import.meta.url), 'utf8');
+  assert.match(whSrc, /CONVERT\(datetime, REPLACE\(@dt, N'-', N''\), 112\)/);
 });
 
 test('local 30p Colombia PDF and Ecuador AWB PDF smoke check when present on operator PC', async () => {

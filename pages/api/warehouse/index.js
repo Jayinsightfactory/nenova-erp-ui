@@ -284,7 +284,7 @@ async function uploadWarehouse(req, res) {
             InputDate, GrossWeight, ChargeableWeight, FreightRateUSD, DocFeeUSD,
             isDeleted, CreateID, CreateDtm)
          OUTPUT INSERTED.WarehouseKey
-         VALUES (@wk, GETDATE(), @fn, @year, @week, @farm, @inv, @awb, @dt,
+         VALUES (@wk, GETDATE(), @fn, @year, @week, @farm, @inv, @awb, CONVERT(datetime, REPLACE(@dt, N'-', N''), 112),
                  @gw, @cw, @rate, @doc,
                  0, @uid, GETDATE())`,
         {
@@ -295,7 +295,7 @@ async function uploadWarehouse(req, res) {
           farm: { type: sql.NVarChar, value: farmName || '' },
           inv:  { type: sql.NVarChar, value: invoiceNo || '' },
           awb:  { type: sql.NVarChar, value: awb || '' },
-          dt:   { type: sql.DateTime, value: new Date(`${inputDate}T00:00:00`) },
+          dt:   { type: sql.NVarChar, value: String(inputDate).trim() },
           gw:   { type: sql.Float,    value: headerGw },
           cw:   { type: sql.Float,    value: headerCw },
           rate: { type: sql.Float,    value: manual || rate === '' || rate == null ? null : parseFloat(rate) },
