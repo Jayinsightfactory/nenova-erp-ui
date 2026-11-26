@@ -144,6 +144,7 @@ async function main() {
   };
   const mocks = {
     '../../../lib/db':database, '../../../lib/auth':{withAuth:handler=>handler},
+    '../../../lib/withActionLog.js':{withActionLog:handler=>handler},
     '../../../lib/exeParity/common.js':{}, '../../../lib/exeWarehouseViewSql.js':{},
     '../../../lib/invoiceReceiptNative.js':{
       acquireInvoiceReceiptGate:async()=>({}), nextInvoiceWarehouseKey:async()=>9001,
