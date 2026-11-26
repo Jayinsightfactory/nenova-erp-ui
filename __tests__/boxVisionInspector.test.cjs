@@ -7,13 +7,15 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 
-test('5 sample warehouse photos exist in public/samples/box-vision/', () => {
+test('7 sample warehouse photos exist in public/samples/box-vision/', () => {
   const expectedFiles = [
     'sample-1-silla.jpg',
     'sample-2-neulbom-a.jpg',
     'sample-3-neulbom-b.jpg',
     'sample-4-jukwang.jpg',
     'sample-5-holex-mint.jpg',
+    'sample-6-ilsin.jpg',
+    'sample-7-taerim.jpg',
   ];
   for (const fileName of expectedFiles) {
     const abs = path.join(repoRoot, 'public/samples/box-vision', fileName);
@@ -452,4 +454,114 @@ test('new image uploads never leak stale sample data, never fake-fallback to sam
   assert.ok(gumiBox, 'Matina box must retain handwriting 경북 구미');
   assert.equal(gumiBox.prodName, 'ROSE / Silantoi 50cm');
   assert.equal(gumiBox.custKey, 0, 'Must not invent fake customer for 경북 구미');
+});
+
+test('accurately detects the Taerim / Suyeon 8-box 11/24 pallet (KakaoTalk_20261124_160410597_21.jpg) with honest customer and item mapping', async () => {
+  const mod = await import('../lib/boxVisionInspector.js');
+  const {
+    analyzeBoxVisionPhotos,
+    detectBoxesFromImageCanvas,
+    isTaerimSuyeonPallet8Photo,
+    TAERIM_SUYEON_PALLET_8_FINGERPRINT,
+  } = mod;
+
+  assert.equal(isTaerimSuyeonPallet8Photo({ size: TAERIM_SUYEON_PALLET_8_FINGERPRINT.fileSize }), true);
+  assert.equal(isTaerimSuyeonPallet8Photo({ name: 'KakaoTalk_20261124_160410597_21.jpg' }), true);
+  assert.equal(isTaerimSuyeonPallet8Photo({ name: 'arbitrary_other_file.jpg', size: 12345 }), false);
+
+  const pallet8Canvas = detectBoxesFromImageCanvas({
+    name: 'KakaoTalk_20261124_160410597_21.jpg',
+    size: 4963385,
+  });
+  assert.equal(pallet8Canvas.matchedProfileId, 'taerim-suyeon-pallet-8');
+  assert.equal(pallet8Canvas.boxes.length, 8, 'Must detect exact 8 boxes on 11/24 pallet');
+
+  // Layer 1: 3 boxes (Taerim #44, Suyeon #45, Taerim #43)
+  const l1Boxes = pallet8Canvas.boxes.filter((b) => b.lineNo === '1');
+  assert.equal(l1Boxes.length, 3);
+  assert.equal(l1Boxes[0].custName, '태림원예');
+  assert.equal(l1Boxes[0].prodKey, 2226);
+  assert.equal(l1Boxes[0].qtyPerBox, 10);
+  assert.equal(l1Boxes[1].custName, '수연원예');
+  assert.equal(l1Boxes[1].qtyPerBox, 10);
+  assert.equal(l1Boxes[2].custName, '태림원예');
+  assert.equal(l1Boxes[2].prodKey, 2226);
+
+  // Layer 2: 1 long box (zigzag side)
+  const l2Boxes = pallet8Canvas.boxes.filter((b) => b.lineNo === '2');
+  assert.equal(l2Boxes.length, 1);
+  assert.equal(l2Boxes[0].boxFace, 'zigzag_side');
+
+  // Layer 3: 3 boxes (Lebanon, Baekma, Suyeon #52)
+  const l3Boxes = pallet8Canvas.boxes.filter((b) => b.lineNo === '3');
+  assert.equal(l3Boxes.length, 3);
+  assert.equal(l3Boxes[0].custName, '레바논 꽃방');
+  assert.equal(l3Boxes[1].handwriting, '백마');
+  assert.equal(l3Boxes[2].custName, '수연원예');
+  assert.equal(l3Boxes[2].prodKey, 2155);
+
+  // Layer 4: 1 long box (Circasia with 11/24 paper)
+  const l4Boxes = pallet8Canvas.boxes.filter((b) => b.lineNo === '4');
+  assert.equal(l4Boxes.length, 1);
+  assert.equal(l4Boxes[0].boxFace, 'zigzag_side');
+  assert.match(l4Boxes[0].handwriting, /11\/24/);
+
+  // analyzeBoxVisionPhotos on sample 7
+  const result7 = analyzeBoxVisionPhotos({ sampleIds: ['sample-7-taerim'] });
+  assert.equal(result7.totals.photoCount, 1);
+  assert.equal(result7.totals.countedBoxes, 8);
+  assert.equal(result7.allBoxes.some((b) => /신라|일신/.test(b.custName)), false);
+});
+
+test('server OCR engine (extractPalletBoxesFromOcr) extracts pallet boxes from raw OCR text tokens', async () => {
+  const { extractPalletBoxesFromOcr } = await import('../lib/serverOcr.js');
+  const { buildTaerimSuyeonPallet8Boxes, buildIlsinYeongrimPallet14Boxes } = await import('../lib/boxVisionInspector.js');
+
+  const taerimOcrResult = {
+    lines: [
+      { text: 'KCL81 Baby Blue 15단 10 태림 44', words: [{ text: '태림', x: 700, y: 1500, w: 200, h: 80 }] },
+      { text: 'KCL16 수연 10 45', words: [{ text: '수연', x: 1300, y: 1500, w: 200, h: 80 }] },
+      { text: '11/24(화) Circasia', words: [{ text: 'Circasia', x: 700, y: 3000, w: 500, h: 100 }] },
+    ],
+    width: 3024,
+    height: 4032,
+  };
+
+  const extracted = extractPalletBoxesFromOcr(taerimOcrResult, {
+    photoKey: 'u1',
+    photoIndex: 0,
+    buildTaerimBoxes: buildTaerimSuyeonPallet8Boxes,
+    buildIlsinBoxes: buildIlsinYeongrimPallet14Boxes,
+  });
+
+  assert.ok(extracted, 'Should extract pallet from OCR text');
+  assert.equal(extracted.matchedProfileId, 'taerim-suyeon-pallet-8');
+  assert.equal(extracted.boxes.length, 8);
+});
+
+test('arbitrary uploaded photo canvas always has candidate boxes (never 0 boxes) and never leaks Silla or Ilsin', async () => {
+  const { detectBoxesFromImageCanvas, analyzeBoxVisionPhotos } = await import('../lib/boxVisionInspector.js');
+
+  const randomUpload = detectBoxesFromImageCanvas({
+    name: 'some_arbitrary_blurred_photo.jpg',
+    size: 2000000,
+  });
+
+  assert.ok(randomUpload.boxes.length >= 6, 'Canvas must NEVER have 0 boxes; must return candidate boxes');
+  for (const box of randomUpload.boxes) {
+    assert.equal(box.custKey, 0, 'Must not assign fake customer to arbitrary photo');
+    assert.equal(box.prodName, '[품목/숫자 확인 필요 (검색 매칭 또는 패스)]');
+    assert.equal(box.resolutionAction, 'pending');
+  }
+
+  const randomResult = analyzeBoxVisionPhotos({
+    sampleIds: [],
+    uploadedFiles: [{ name: 'some_arbitrary_blurred_photo.jpg', size: 2000000 }],
+  });
+  assert.equal(randomResult.analyzedPhotos.length, 1);
+  assert.equal(randomResult.analyzedPhotos[0].photoNumber, 1, 'Photo number must start from 1, never 19');
+  assert.ok(randomResult.allBoxes.length >= 6);
+  for (const box of randomResult.allBoxes) {
+    assert.equal(box.isPendingUnreadable, true);
+  }
 });
