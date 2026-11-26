@@ -502,6 +502,53 @@
   flex-wrap: wrap;
 }
 
+.newFarmChip {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px dashed #0f766e;
+  background: #f0fdfa;
+  color: #115e59;
+  cursor: pointer;
+}
+
+.newFarmChip:hover:not(:disabled) {
+  background: #ccfbf1;
+}
+
+.newFarmChipSelected {
+  border-style: solid;
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.searchQuickList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.newFarmBox {
+  margin-top: 8px;
+  padding: 9px 11px;
+  border-radius: 6px;
+  border: 1px solid #99f6e4;
+  background: #f0fdfa;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.newFarmHint {
+  font-size: 12.5px;
+  color: #115e59;
+  line-height: 1.45;
+}
+
 .input,
 .select {
   font-family: inherit;

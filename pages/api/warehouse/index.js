@@ -13,6 +13,7 @@ import { warehouseFarmChoicesSql } from '../../../lib/warehouseFarmChoices.js';
 import { splitIncomingRound } from '../../../lib/incomingRoundLabel.js';
 import { approvalPermissions } from '../../../lib/incomingApprovalPolicy.js';
 import { attachWarehouseRoundLabels, recordWarehouseRoundLabel } from '../../../lib/warehouseDetailActions.js';
+import { isMatchingDuplicateWarehouseRow } from '../../../lib/packingDuplicateCheck.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return req.query.manualOptions === '1' ? await getManualOptions(req,res) : await getWarehouse(req, res);
@@ -259,10 +260,12 @@ async function uploadWarehouse(req, res) {
         invoice:{ type:sql.NVarChar,value:String(invoiceNo ?? '').trim() },
       };
       if (!manual && scope.invoice.value) {
-        const previous = await tQuery(`SELECT WarehouseKey FROM dbo.WarehouseMaster WITH (UPDLOCK,HOLDLOCK)
-          WHERE OrderYear=@year AND OrderWeek=@week AND FarmName=@farm AND InvoiceNo=@invoice AND ISNULL(isDeleted,0)=0`,scope);
-        if (previous.recordset.length) {
-          throw Object.assign(new Error('같은 연도·차수·농장·인보이스의 입고가 이미 있습니다. 원장에서 기존 입고를 확인하세요.'), {statusCode:409,code:'DUPLICATE_INVOICE'});
+        const previous = await tQuery(`SELECT WarehouseKey, FarmName, InvoiceNo FROM dbo.WarehouseMaster WITH (UPDLOCK,HOLDLOCK)
+          WHERE OrderYear=@year AND OrderWeek=@week AND ISNULL(isDeleted,0)=0`,scope);
+        const duplicate = (previous.recordset || []).find(row =>
+          isMatchingDuplicateWarehouseRow(row, { farmName: scope.farm.value, invoiceNo: scope.invoice.value }));
+        if (duplicate) {
+          throw Object.assign(new Error(`같은 연도·차수·농장·인보이스의 입고(#${duplicate.WarehouseKey})가 이미 있습니다. 원장에서 기존 입고를 확인하세요.`), {statusCode:409,code:'DUPLICATE_INVOICE',warehouseKey:duplicate.WarehouseKey});
         }
       }
       const wk = await nextInvoiceWarehouseKey(tQuery, sql, transactionMarker);

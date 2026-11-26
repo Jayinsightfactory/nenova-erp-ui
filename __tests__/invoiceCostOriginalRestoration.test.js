@@ -29,7 +29,8 @@ test('NL sample loss is added and cheapest selection uses an acyclic live formul
  assert.match(s.AZ15.f,/SUM\(\$Q\$6:\$Q\$9\)\+\$S\$7\+0/);
  assert.match(s.BA15.f,/AZ\$1/);
  for(let r=15;r<=17;r++)assert.doesNotMatch(s[`CE${r}`].f,/\bM\d+|\$?Q\$?10|\$?S\$?6/,'selection cannot depend on final landed cost');
- assert.match(s.CE1.f,/F15/);assert.match(s.CE1.f,/F16/);
+ assert.match(s.CE1.f,/MIN\(CE15,CE16,CE17\)/);
+ assert.ok(Math.abs(s.S6.v-estimate.costs.deduct)<1e-6);
  const xml=await(await JSZip.loadAsync(bytes)).file('xl/worksheets/sheet3.xml').async('string');
  assert.match(xml,/dimension ref="A1:CE/);assert.match(xml,/min="52" max="83".*hidden="1"/);
 });

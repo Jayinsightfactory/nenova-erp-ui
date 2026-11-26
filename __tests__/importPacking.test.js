@@ -219,7 +219,7 @@ async function main() {
   await check('native component syntax and server-only credential boundary', () => {
     babel.transformSync(componentSource, { filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')], configFile: false, babelrc: false });
     assert.doesNotMatch(componentSource, /dangerouslySetInnerHTML|ReactDOM|window\.|localStorage|apiKey|saveApiKey|buildPrompt|cdn\.jsdelivr|api\.anthropic|claude-sonnet/);
-    assert.match(componentSource, /extractPackingDocument\(\{country,pdfBase64,awbPdfBase64:country==='AU'\?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:true,retryJobId,/);
+    assert.match(componentSource, /extractPackingDocument\(\{country,pdfBase64,awbPdfBase64:\(country==='AU'\|\|country==='EC'\)\?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:true,retryJobId,/);
     assert.match(componentSource, /onClick=\{\(\) => process\(false\)\}/);
     assert.match(componentSource, /return process\(true,pdfRetryJobId\)/);
     assert.match(componentSource, /pdfRetryJobId && !toolRoot\.current\?\.ownerDocument\?\.defaultView\?\.confirm/);
@@ -257,6 +257,9 @@ async function main() {
       }
       if (url.startsWith('/api/import/tools/farm-matches')) {
         return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, farms: [], value: null, revision: 0 }) });
+      }
+      if (url.startsWith('/api/import/tools/check-existing-receipts')) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, matches: [] }) });
       }
       fetchCalls.push({ url, options }); return new Promise(resolve => { resolveFetch = resolve; });
     };
@@ -319,6 +322,7 @@ async function main() {
       './PackingProductMatchDialog.js': { default: 'PackingProductMatchDialog', __esModule: true },
       './PackingUploadMatchModal.js': { default: () => null, PackingUploadMatchAlertBanner: () => null, __esModule: true },
       '../../lib/packingUploadMatchPrompt.js': await import('../lib/packingUploadMatchPrompt.js'),
+      '../../lib/packingDuplicateCheck.js': await import('../lib/packingDuplicateCheck.js'),
       './PackingMatchManager.js': { default: 'PackingMatchManager', __esModule: true },
       'xlsx-js-style': XLSX };
     const code = babel.transformSync(componentSource.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {

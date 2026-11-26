@@ -30,7 +30,8 @@ import { parsePackingResponse, healColombiaInvoiceExtraction } from '../../lib/i
 import { reconcileInvoiceSupplier } from '../../lib/invoiceSupplierEvidence.js';
 import { inspectNzBloomInvoice, nzOriginComparisonDocument, packingOriginMismatch, SUPPLEMENTAL_PACKING_ORIGINS } from '../../lib/packingOriginEvidence.js';
 import InvoiceReceiptComparison from './InvoiceReceiptComparison.js';
-import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
+import { parseAwbFields, parsePrintedDate, parseSupportAwbDocument, isAirWaybillDocument } from '../../lib/importAwbFields.js';
+import { partitionPackingInvoicesByDuplicates } from '../../lib/packingDuplicateCheck.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
 import { packingWeight } from '../../lib/invoiceReceiptAutoFill.js';
 import { parseChinaInvoiceWorkbook, CHINA_INVOICE_MAX_BYTES } from '../../lib/importChinaInvoice.js';
@@ -1000,10 +1001,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const [awbFile, setAwbFile] = useState(null);
   const [awbPdfBase64, setAwbPdfBase64] = useState('');
   const [awbSourceHash, setAwbSourceHash] = useState('');
+  const [localAwbDocument, setLocalAwbDocument] = useState(null);
   const [awbValues, setAwbValues] = useState(null);
   const [awbManualFields, setAwbManualFields] = useState([]);
   const [awbReviewed, setAwbReviewed] = useState(false);
   const awbFileRef = useRef(null);
+  const [existingReceipts, setExistingReceipts] = useState({ matchesByIndex: {}, orderYear: '', orderWeek: '', checking: false });
+  const [excludedDuplicateIndexes, setExcludedDuplicateIndexes] = useState(() => new Set());
+  const existingCheckSeq = useRef(0);
   const [dateYear, setDateYear] = useState('');
   useEffect(() => { setDateYear(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Seoul', year: 'numeric' }).format(new Date())); }, []);
   const [pdfBase64, setPdfBase64] = useState(null);
@@ -1022,8 +1027,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const [xlsxLib, setXlsxLib] = useState(null);
   const [lastExtraction, setLastExtraction] = useState(null);
   const awbReview = useMemo(() => {
-    if (country !== 'AU') return null;
-    const parsed = lastExtraction?.result?.awb_document || {};
+    if (country !== 'AU' && country !== 'EC') return null;
+    const parsed = lastExtraction?.result?.awb_document || localAwbDocument || {};
     const edited = awbValues || {};
     return reviewAirWaybill({
       awbDocument: {
@@ -1037,20 +1042,72 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       packageTotal: invoiceBoxTotal(lastExtraction?.result?.invoices || []),
       manualFields: awbManualFields,
     });
-  }, [awbManualFields, awbValues, country, lastExtraction]);
+  }, [awbManualFields, awbValues, country, lastExtraction, localAwbDocument]);
   const awbObjectUrl = useMemo(() => awbFile && typeof URL !== 'undefined' && URL.createObjectURL
     ? URL.createObjectURL(awbFile) : '', [awbFile]);
   useEffect(() => () => { if (awbObjectUrl) URL.revokeObjectURL(awbObjectUrl); }, [awbObjectUrl]);
   useEffect(() => {
-    const parsed = lastExtraction?.result?.awb_document;
-    if (country !== 'AU' || !parsed) return;
+    const parsed = lastExtraction?.result?.awb_document || localAwbDocument;
+    if ((country !== 'AU' && country !== 'EC') || !parsed) return;
     setAwbValues({
       awb: parsed.awb || '', packages: parsed.packages ?? '',
       grossWeightKg: parsed.gross_weight_kg ?? '', chargeableWeightKg: parsed.chargeable_weight_kg ?? '',
     });
     setAwbManualFields([]);
     setAwbReviewed(false);
-  }, [country, lastExtraction?.sourceHash, lastExtraction?.result?.awb_document]);
+  }, [country, lastExtraction?.sourceHash, lastExtraction?.result?.awb_document, localAwbDocument]);
+
+  useEffect(() => {
+    const invoices = lastExtraction?.result?.invoices;
+    if (!Array.isArray(invoices) || !invoices.length || !country || typeof fetch !== 'function') {
+      setExistingReceipts({ matchesByIndex: {}, orderYear: '', orderWeek: '', checking: false });
+      setExcludedDuplicateIndexes(prev => (prev.size === 0 ? prev : new Set()));
+      return undefined;
+    }
+    const seq = ++existingCheckSeq.current;
+    const explicitYear = file?.name?.match(/(?:^|[^0-9])(20\d{2})(?=[^0-9]|$)/)?.[1];
+    const orderYear = explicitYear || dateYear || '';
+    const weekParsed = lastExtraction?.weekParsed;
+    const orderWeek = weekParsed ? `${weekParsed.week}-${weekParsed.num}` : '';
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    setExistingReceipts(prev => ({ ...prev, checking: true }));
+    fetch('/api/import/tools/check-existing-receipts', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      ...(controller ? { signal: controller.signal } : {}),
+      body: JSON.stringify({
+        country,
+        orderYear,
+        orderWeek,
+        invoices: invoices.map((inv, index) => ({
+          index,
+          invoice: inv?.invoice || '',
+          supplier: inv?.supplier || '',
+          awb: inv?.awb || '',
+          date: inv?.date || '',
+        })),
+      }),
+    })
+      .then(response => (response.ok ? response.json() : null))
+      .then(data => {
+        if (seq !== existingCheckSeq.current) return;
+        const list = data?.success && Array.isArray(data.matches) ? data.matches : [];
+        const byIndex = {};
+        for (const item of list) byIndex[item.index] = item;
+        setExistingReceipts({ matchesByIndex: byIndex, orderYear: data?.orderYear || orderYear, orderWeek: data?.orderWeek || orderWeek, checking: false });
+        setExcludedDuplicateIndexes(prev => {
+          const next = new Set(list.map(item => item.index));
+          return prev.size === next.size && [...prev].every(x => next.has(x)) ? prev : next;
+        });
+      })
+      .catch(() => {
+        if (seq !== existingCheckSeq.current) return;
+        setExistingReceipts({ matchesByIndex: {}, orderYear, orderWeek, checking: false });
+        setExcludedDuplicateIndexes(prev => (prev.size === 0 ? prev : new Set()));
+      });
+    return () => controller?.abort?.();
+  }, [lastExtraction?.sourceHash, lastExtraction?.result?.invoices?.length, country, dateYear, file?.name]);
 
   // Catalog (Lista de productos Nenova) — persists across sessions
   const [catalog, setCatalog] = useState(null);
@@ -1307,9 +1364,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       });
       return;
     }
+    const activeForReceipt = partitionPackingInvoicesByDuplicates(lastExtraction.result.invoices, excludedDuplicateIndexes).activeInvoices;
     onReceiptSourceChange({
       excels,
-      invoices: lastExtraction.result.invoices,
+      invoices: activeForReceipt,
       country,
       file,
       products: generatedErp.products,
@@ -1317,19 +1375,22 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       truncated: lastExtraction.wasTruncated === true,
       packingActive: true,
       invoiceUploadDate,
-      awb: country === 'AU' && awbFile ? {
+      awb: (country === 'AU' || country === 'EC') && awbFile ? {
         fileName: awbFile.name, sourceHash: awbSourceHash, uploadDate: invoiceUploadDate,
         review: awbReview, confirmed: awbReviewed, manualFields: awbManualFields,
       } : null,
       audMarketRate: country === 'AU' ? audMarketRate : null,
       audMarketRateError: country === 'AU' ? audMarketRateError : '',
     });
-  }, [country, nzReceiptSource, contractReceiptSource, generatedErp, excels, file, lastExtraction, onReceiptSourceChange, reviewConfirmed, latestShared,
+  }, [country, nzReceiptSource, contractReceiptSource, generatedErp, excels, file, lastExtraction, excludedDuplicateIndexes, onReceiptSourceChange, reviewConfirmed, latestShared,
     invoiceUploadDate, awbFile, awbSourceHash, awbReview, awbReviewed, awbManualFields, audMarketRate, audMarketRateError]);
 
   const resetResults = () => {
     exportGeneration.current++;
+    existingCheckSeq.current++;
     setExportReview(null);
+    setExistingReceipts({ matchesByIndex: {}, orderYear: '', orderWeek: '', checking: false });
+    setExcludedDuplicateIndexes(prev => (prev.size === 0 ? prev : new Set()));
     setMatchingReviewedFile(null);
     setFileChoice(null);setSelectingFile(false);setHistoryOpen(false);setHistoryError('');
     receiptIntent.current = false;
@@ -1528,6 +1589,21 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if (!base64) throw new Error('AWB PDF 파일에 데이터가 없습니다.');
       setAwbFile(f); setAwbPdfBase64(base64); setAwbSourceHash(hash);
       setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
+      if (country === 'EC') {
+        const parsedLocal = await readAwbPdf(base64).then(pdfData => parseSupportAwbDocument(pdfData, { currency: 'USD' })).catch(() => null);
+        if (parsedLocal && !parsedLocal._error) {
+          setLocalAwbDocument(parsedLocal);
+          setExcels([]); setGenerated({}); setGeneratedErp(null); setReviewConfirmed(false);
+          if (lastExtraction?.result?.invoices?.length) {
+            setStatus({ type: 'success', msg: `에콰도르 AWB(${parsedLocal.awb || f.name})를 로컬에서 읽었습니다. 아래 AWB 대조 확인을 체크하면 빈 AWB·중량·운임이 자동 반영됩니다.` });
+            return;
+          }
+        } else {
+          setLocalAwbDocument(null);
+        }
+      } else {
+        setLocalAwbDocument(null);
+      }
       resetResults();
       autoAnalysisFile.current = autoAnalyze ? file : null;
       setStatus({ type: 'info', msg: '인보이스와 AWB를 함께 분석합니다. GW·CW는 AWB 원문 대조를 확인하세요.' });
@@ -1579,7 +1655,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         .then(data => {if(readerVersion.current===version)setAudMarketRate(data);})
         .catch(error => {if(readerVersion.current===version)setAudMarketRateError(error.message);});
     }
-    setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
+    setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setLocalAwbDocument(null); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
     autoAnalysisFile.current = autoAnalyze ? f : null;
     reusableExtraction.current=cached?{file:f,data:cached}:null;
     setFile(f);
@@ -1602,6 +1678,30 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     if (!isChinaExcel && (!/\.pdf$/i.test(f.name) || (f.type && f.type !== 'application/pdf'))) {
       setStatus({ type: 'error', msg: country === 'CN' ? '중국 인보이스는 PDF 또는 XLSX 파일을 선택하세요.' : t.pdfOnly });
       return;
+    }
+    if (country === 'EC') {
+      try {
+        const ecBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+          reader.onerror = () => reject(new Error('선택한 원본 파일을 읽지 못했습니다.'));
+          reader.readAsDataURL(f);
+        });
+        const localPdf = await readAwbPdf(ecBase64).catch(() => null);
+        if (readerVersion.current !== version) return;
+        if (localPdf && isAirWaybillDocument(localPdf)) {
+          if (file) {
+            await handleAwbFile(f);
+          } else {
+            const parsed = parseAwbFields(localPdf);
+            setStatus({
+              type: 'info',
+              msg: `이 파일은 항공운송장(AWB ${parsed.awb || f.name}) PDF입니다. 먼저 에콰도르 인보이스(CI) PDF를 선택한 뒤 아래 「AWB 항공운송장 PDF (선택)」에 올려 주세요.`,
+            });
+          }
+          return;
+        }
+      } catch { /* fall through to normal CI handling */ }
     }
     if (country === 'AU' || country === 'NZ') {
       setOriginPreview(null); setNzReceiptSource(null); setStatus(null); setSelectingFile(true);
@@ -1713,9 +1813,17 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     const allPending = [];
     const allNm = [];
     const allMismatches = [];
-    const builtExcels = invoices.map((inv, idx) => {
+    const builtExcels = sourceInvoices.map((rawInv, idx) => {
       // All invoices in the same PDF share the same week-num.  The farm
       // abbreviation in the filename (e.g. _BAL_, _FLO_) keeps them unique.
+      const inv = (country === 'EC' && awbFile && awbReviewed && awbReview?.ready)
+        ? {
+          ...rawInv,
+          awb: awbReview.awb || rawInv.awb || '',
+          gross_weight: awbReview.grossWeightKg ?? rawInv.gross_weight,
+          vol_weight: awbReview.chargeableWeightKg ?? rawInv.vol_weight,
+        }
+        : rawInv;
       const fileNum = weekParsed.num;
       const opts = { catalog:packingErpCatalog(currentErp.products), masterAwb,
         aliases:packingErpAliases(country,currentAliases,currentErp.value,currentErp.products),
@@ -1946,7 +2054,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           }
         }
       } else {
-        extraction = await extractPackingDocument({country,pdfBase64,awbPdfBase64:country==='AU'?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:true,retryJobId,
+        extraction = await extractPackingDocument({country,pdfBase64,awbPdfBase64:(country==='AU'||country==='EC')?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:true,retryJobId,
           onProgress: progress => {
             if (!isCurrent()) return;
             const label=progress.stage==='SUBMITTING'?'PDF 분석 접수 중':'AI 분석 중 · 결과 확인 중';
@@ -2056,12 +2164,37 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     process('auto');
   }, [file, pdfBase64, awbPdfBase64, country, xlsxLib, sharedReady, saving, processing, catalogParsing]);
 
+  const duplicatePartition = useMemo(
+    () => partitionPackingInvoicesByDuplicates(lastExtraction?.result?.invoices || [], excludedDuplicateIndexes),
+    [lastExtraction?.result?.invoices, excludedDuplicateIndexes],
+  );
+  const activeInvoices = duplicatePartition.activeInvoices;
+  const activeOriginalIndexes = duplicatePartition.activeOriginalIndexes;
+  const activeMatchPreview = useMemo(() => {
+    if (!excludedDuplicateIndexes.size) return matchPreview;
+    return matchPreview.filter((item, idx) => !excludedDuplicateIndexes.has(item?.sourceInvoiceIdentity?.sourceInvoiceIndex ?? item?.sourceInvoiceIndex ?? idx));
+  }, [matchPreview, excludedDuplicateIndexes]);
+  const existingMatchesList = useMemo(
+    () => Object.values(existingReceipts.matchesByIndex || {}).sort((a, b) => a.index - b.index),
+    [existingReceipts.matchesByIndex],
+  );
+  const toggleDuplicateExclusion = index => {
+    setExcludedDuplicateIndexes(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+    setExcels([]); setGenerated({}); setGeneratedErp(null); setReviewConfirmed(false);
+  };
+
   const sourceReviewBlocked = () => {
     if (country === 'AU' && (!awbFile || !awbReview?.ready || !awbReviewed)) return true;
+    if (country === 'EC' && awbFile && (!awbReview?.ready || !awbReviewed)) return true;
     if (!/\.pdf$/i.test(file?.name || '')) return false;
     try {
-      if (!lastExtraction?.result?.invoices?.length) return true;
-      lastExtraction.result.invoices.forEach(invoice => assertPackingSourceValues(invoice, country));
+      if (!activeInvoices.length) return true;
+      activeInvoices.forEach(invoice => assertPackingSourceValues(invoice, country));
       return false;
     } catch { return true; }
   };
@@ -2146,11 +2279,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   }, 200);
   };
   const receiptStatus = excels.length ? packingReceiptMatchState({ snapshot: receiptMatchState, file, excels,
-    invoices: lastExtraction?.result?.invoices, country, products: erpMatches?.products || [] }) : null;
+    invoices: activeInvoices, country, products: erpMatches?.products || [] }) : null;
   const receiptMatches = receiptStatus?.byRow || new Map();
-  const matchingRows = (excels.length ? excels : matchPreview).flatMap(excel => excel.products || []);
+  const visiblePreviewOrExcels = excels.length ? excels : activeMatchPreview;
+  const matchingRows = visiblePreviewOrExcels.flatMap(excel => excel.products || []);
   const matchingProducts = excels.length ? generatedErp?.products || [] : erpMatches?.products || [];
-  const remainingMatches = (excels.length ? excels : matchPreview).flatMap((excel, excelIndex) =>
+  const remainingMatches = visiblePreviewOrExcels.flatMap((excel, excelIndex) =>
     (excel.products || []).map((row, rowIndex) => effectivePackingMatchReview(
       packingMatchReview(row, matchingProducts, country),
       receiptMatches.get(`${excel.sourceInvoiceIdentity?.sourceInvoiceIndex ?? excelIndex}:${rowIndex}`)
@@ -2158,22 +2292,23 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const allocationCount = receiptStatus?.valid && receiptStatus.allocationPending === 0 ? 0
     : matchingRows.filter(row => needsInvoiceAllocation(country,row.sourceName||row.matchingDescription)).length;
   const matchingComplete = matchingRows.length > 0 && remainingMatches === 0;
-  const validationIssues = packingValidationIssues(lastExtraction?.result?.invoices || [], country);
+  const validationIssues = packingValidationIssues(lastExtraction?.result?.invoices || [], country)
+    .filter(issue => !excludedDuplicateIndexes.has(issue.invoiceIndex));
   const matchingNeeds = useMemo(() => {
-    if (!lastExtraction?.result?.invoices?.length || !country) {
+    if (!activeInvoices.length || !country) {
       return { unmatchedFarms: [], unmatchedProducts: [], quantityIssues: [], totalCount: 0 };
     }
     return collectUploadMatchingNeeds({
       country,
-      invoices: lastExtraction.result.invoices,
-      excels: excels.length ? excels : matchPreview,
+      invoices: activeInvoices,
+      excels: visiblePreviewOrExcels,
       products: matchingProducts,
       farms: farmMatches?.farms || [],
       farmMatches: farmMatches?.value || null,
       receiptMatches,
       mismatches,
     });
-  }, [country, lastExtraction, excels, matchPreview, matchingProducts, farmMatches, receiptMatches, mismatches]);
+  }, [country, activeInvoices, visiblePreviewOrExcels, matchingProducts, farmMatches, receiptMatches, mismatches]);
 
   useEffect(() => {
     if (!lastExtraction || processing || saving || !sharedReady || legacyReviewData) return;
@@ -2223,12 +2358,23 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       let quantityApplied = false;
 
       if (Object.keys(rowEdits).length > 0 || Object.keys(invoiceEdits).length > 0) {
+        const mappedRowEdits = {};
+        for (const [key, val] of Object.entries(rowEdits)) {
+          const [invIdxStr, lineIdxStr] = key.split(':');
+          const origIdx = activeOriginalIndexes[Number(invIdxStr)] ?? Number(invIdxStr);
+          mappedRowEdits[`${origIdx}:${lineIdxStr}`] = val;
+        }
+        const mappedInvoiceEdits = {};
+        for (const [key, val] of Object.entries(invoiceEdits)) {
+          const origIdx = activeOriginalIndexes[Number(key)] ?? Number(key);
+          mappedInvoiceEdits[String(origIdx)] = val;
+        }
         const edited = applyUploadQuantityEdits({
           sourceInvoices: lastExtraction.sourceInvoices,
           result: lastExtraction.result,
           country,
-          rowEdits,
-          invoiceEdits,
+          rowEdits: mappedRowEdits,
+          invoiceEdits: mappedInvoiceEdits,
         });
         if (edited.changed) {
           quantityApplied = true;
@@ -2333,11 +2479,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         setReviewRows(makePackingReviewRows(invoices, country));
         setMatchPreview(buildPackingMatchPreview({ invoices, country, aliases, erpMatches }));
       }
-      if (/\.pdf$/i.test(file?.name || '')) result.invoices.forEach(invoice => assertPackingSourceValues(invoice, country));
-      if (!excels.length && buildExcels({ invoices: result.invoices,
+      const activeForBuild = partitionPackingInvoicesByDuplicates(result.invoices, excludedDuplicateIndexes).activeInvoices;
+      if (!activeForBuild.length) {
+        throw new Error('신규로 입고 진행할 송장이 없습니다. (전체 송장이 기입고 완료 상태입니다.)');
+      }
+      const activeResult = excludedDuplicateIndexes.size ? { ...result, invoices: activeForBuild } : result;
+      if (/\.pdf$/i.test(file?.name || '')) activeForBuild.forEach(invoice => assertPackingSourceValues(invoice, country));
+      if (!excels.length && buildExcels({ invoices: activeForBuild,
         masterAwb: lastExtraction.masterAwb, weekParsed: lastExtraction.weekParsed,
         currentAliases: aliases, wasTruncated: lastExtraction.wasTruncated,
-        extractionResult: result }) === false) return;
+        extractionResult: activeResult }) === false) return;
       setReviewConfirmed(true);
       receiptIntent.current = false;
       setStatus({ type: 'success', msg: '품목 매칭 완료. 입고 준비 화면에서 차수·농장·수량을 확인한 뒤 저장하세요. 아직 입고·재고는 변경하지 않았습니다.' });
@@ -2359,15 +2510,17 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     const invoices = applyPackingReview(lastExtraction.sourceInvoices, drafts, country, undefined, { requireConfirmation: false });
     const reviewedResult = { ...lastExtraction.result, invoices };
     setMatchPreview(buildPackingMatchPreview({ invoices, country, aliases, erpMatches }));
-    const unresolved = unresolvedExtractionIssues(invoices, reviewedResult);
+    const activeReviewed = partitionPackingInvoicesByDuplicates(invoices, excludedDuplicateIndexes).activeInvoices;
+    const activeReviewedResult = excludedDuplicateIndexes.size ? { ...reviewedResult, invoices: activeReviewed } : reviewedResult;
+    const unresolved = unresolvedExtractionIssues(activeReviewed, activeReviewedResult);
     if (unresolved.length) {
       setExcels([]); setGenerated({});
       setStatus({ type: 'error', msg: `인식값 확인 후에도 추출 검토 항목 ${unresolved.length}건이 남아 있습니다. 해결 근거를 확인하기 전까지 생성을 차단합니다.` });
       throw new Error('추출 검토 항목이 남아 있습니다. 해당 항목을 해결한 뒤 다시 확인하세요.');
     }
     // Build first: a failure preserves the previous extraction and review draft.
-    const built = buildExcels({ invoices, masterAwb: lastExtraction.masterAwb, weekParsed: lastExtraction.weekParsed,
-      currentAliases: aliases, wasTruncated: lastExtraction.wasTruncated, extractionResult: reviewedResult,
+    const built = buildExcels({ invoices: activeReviewed, masterAwb: lastExtraction.masterAwb, weekParsed: lastExtraction.weekParsed,
+      currentAliases: aliases, wasTruncated: lastExtraction.wasTruncated, extractionResult: activeReviewedResult,
       legacyPackingReviewConfirmed: country === 'CN' && legacyPackingReviewRequired });
     if (built === false) throw new Error('검토가 끝나지 않아 생성하지 않았습니다.');
     // Keep sourceInvoices as the immutable review baseline; later applies must
@@ -2403,6 +2556,20 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           file={file}
           saving={saving || processing}
           error={matchModalError}
+          onFarmCreated={farm => {
+            if (!farm?.FarmKey) return;
+            setFarmMatches(prev => {
+              const currentFarms = Array.isArray(prev?.farms) ? prev.farms : [];
+              if (currentFarms.some(item => Number(item.FarmKey) === Number(farm.FarmKey))) return prev;
+              return {
+                ...(prev || { success: true, value: null, revision: 0, scope: 'team' }),
+                farms: [
+                  { FarmKey: Number(farm.FarmKey), FarmName: farm.FarmName, CounName: farm.CounName || '', UsageCount: 0, isDeleted: 0 },
+                  ...currentFarms,
+                ],
+              };
+            });
+          }}
           onSave={handleSaveUploadMatches}
           onClose={() => setMatchModalOpen(false)}
         />
@@ -2588,7 +2755,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 <button type="button" key={c.code} aria-label={c.name} onClick={() => {
                   ++readerVersion.current; resetResults(); setOriginPreview(null); setNzReceiptSource(null); setChinaSheetReview(null); setCountry(c.code); setScreen('upload'); setFile(null); setPdfBase64(null); setStatus(null);
                   setInvoiceUploadDate(''); setAudMarketRate(null); setAudMarketRateError('');
-                  setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
+                  setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setLocalAwbDocument(null); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
                 }}
                   style={{ border: '1px solid #dce4ef', borderRadius: 12, padding: '16px', textAlign: 'left', cursor: 'pointer', position: 'relative', background: '#fff', transition: 'all 0.15s' }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#172b4d'; e.currentTarget.style.background = '#fafafa'; }}
@@ -2715,22 +2882,30 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 <button onClick={() => {
                   ++readerVersion.current; resetResults(); setFile(null); setPdfBase64(null);
                   setInvoiceUploadDate(''); setAudMarketRate(null); setAudMarketRateError('');
-                  setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
+                  setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setLocalAwbDocument(null); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
                 }} style={{ padding: '5px 12px', fontSize: 13, borderRadius: 8, border: '1px solid #ccd6e5', background: '#fff', cursor: 'pointer' }}>{t.uploadRemove}</button>
               </div>
             )}
-            {country === 'AU' && <section data-testid="packing-awb-review" aria-label="선택 사항 · 호주 AWB 업로드 및 검토" style={{ marginTop: 12, border: '1px solid #c9d8ef', borderRadius: 10, padding: 14, background: '#f8fbff', scrollMarginTop: 16 }}>
+            {(country === 'AU' || country === 'EC') && <section data-testid="packing-awb-review" aria-label={country === 'EC' ? '선택 사항 · 에콰도르 AWB 업로드 및 검토' : '선택 사항 · 호주 AWB 업로드 및 검토'} style={{ marginTop: 12, border: '1px solid #c9d8ef', borderRadius: 10, padding: 14, background: '#f8fbff', scrollMarginTop: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div>
                   <strong style={{ color: '#172b4d' }}>AWB 항공운송장 PDF (선택)</strong>
-                  <div style={{ fontSize: 12, color: '#526580', marginTop: 4 }}>같은 항공편 AWB가 있다면 원문과 대조한 값이 입고에 반영됩니다. 인보이스만으로 입고를 저장하고 원가는 나중에 작업할 수 있습니다.</div>
+                  <div style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>{country === 'EC' ? '인보이스에 AWB가 공란(SN)이거나 중량·운임이 별도 AWB PDF에 있을 때 첨부하면 AWB 번호·GW·CW·운임을 자동 추출해 대조합니다.' : '같은 항공편 AWB가 있다면 원문과 대조한 값이 입고에 반영됩니다. 인보이스만으로 입고를 저장하고 원가는 나중에 작업할 수 있습니다.'}</div>
                 </div>
                 <input ref={awbFileRef} type="file" accept=".pdf,application/pdf" style={{ display: 'none' }} onChange={event => { handleAwbFile(event.target.files?.[0]); event.target.value = ''; }} />
-                <button type="button" onClick={() => awbFileRef.current?.click()} disabled={!file || processing} style={{ border: '1px solid #2457c5', borderRadius: 7, padding: '8px 12px', background: '#fff', color: '#2457c5', cursor: file && !processing ? 'pointer' : 'not-allowed', opacity: file && !processing ? 1 : .5 }}>AWB PDF 선택</button>
+                <button type="button" onClick={() => awbFileRef.current?.click()} disabled={!file || processing} style={{ border: '1px solid #2457c5', borderRadius: 7, padding: '8px 12px', background: '#fff', color: '#2457c5', fontSize: 13.5, fontWeight: 600, cursor: file && !processing ? 'pointer' : 'not-allowed', opacity: file && !processing ? 1 : .5 }}>AWB PDF 선택</button>
               </div>
-              <div style={{ marginTop: 8, fontSize: 12, color: '#526580' }}>
+              <div style={{ marginTop: 8, fontSize: 13, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
                 인보이스 업로드일 <strong>{invoiceUploadDate || '인보이스 선택 시 자동 입력'}</strong>
-                {' · '}AUD 환율 {audMarketRate?.rate ? <strong>1 AUD = {Number(audMarketRate.rate).toLocaleString('ko-KR')} KRW · {audMarketRate.rateDate}{audMarketRate.carriedForward ? ' (직전 고시일)' : ''}</strong> : audMarketRateError ? <span role="alert" style={{ color: '#b42318' }}>{audMarketRateError} · 원가 단계에서 다시 조회할 수 있습니다.</span> : <span>시장 검색 환율 조회 중…</span>}
+                {country === 'AU' && <>
+                  {' · '}AUD 환율 {audMarketRate?.rate ? <strong>1 AUD = {Number(audMarketRate.rate).toLocaleString('ko-KR')} KRW · {audMarketRate.rateDate}{audMarketRate.carriedForward ? ' (직전 고시일)' : ''}</strong> : audMarketRateError ? <span role="alert" style={{ color: '#b42318' }}>{audMarketRateError} · 원가 단계에서 다시 조회할 수 있습니다.</span> : <span>시장 검색 환율 조회 중…</span>}
+                </>}
+                {country === 'EC' && awbReview && (awbReview.freightRate != null || awbReview.totalPrepaid != null) && <>
+                  {' · '}운임단가 <strong>{awbReview.freightRate != null ? `${awbReview.freightRate} USD/kg` : '미확인'}</strong>
+                  {' · '}부대비 <strong>{awbReview.otherCharges != null ? `${awbReview.otherCharges.toFixed(2)} USD` : '미확인'}</strong>
+                  {' · '}총 운임 <strong>{awbReview.totalPrepaid != null ? `${awbReview.totalPrepaid.toFixed(2)} USD` : '미확인'}</strong>
+                  {awbReview.daePmt && <> · DAE/PMT <strong>{awbReview.daePmt}</strong></>}
+                </>}
               </div>
               {awbFile && <div style={{ marginTop: 10, borderTop: '1px solid #dce4ef', paddingTop: 10 }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', fontSize: 13 }}>
@@ -2743,7 +2918,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                     ['awb', 'AWB 번호', 'text', ''], ['packages', '포장 수(박스)', 'number', ''],
                     ['grossWeightKg', 'GW (kg)', 'number', 'gross_weight_kg'], ['chargeableWeightKg', 'CW (kg)', 'number', 'chargeable_weight_kg'],
                   ].map(([field, label, type, proofKey]) => {
-                    const parsed = lastExtraction?.result?.awb_document || {};
+                    const parsed = lastExtraction?.result?.awb_document || localAwbDocument || {};
                     const current = awbValues?.[field] ?? (field === 'grossWeightKg' ? parsed.gross_weight_kg : field === 'chargeableWeightKg' ? parsed.chargeable_weight_kg : parsed[field]) ?? '';
                     const proof = proofKey ? parsed.evidence?.[proofKey] : null;
                     return <label key={field} style={{ fontSize: 12, color: '#344054' }}>{label}
@@ -2841,6 +3016,97 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             )}
             {(excels.length > 0 || matchPreview.length > 0 || reviewRows) && (
               <div ref={matchPreviewRef} style={{ marginTop: '1.25rem', scrollMarginTop: 12 }}>
+                {existingMatchesList.length > 0 && (
+                  <section
+                    data-testid="packing-existing-duplicates"
+                    aria-label="기입고 완료 송장 자동 제외"
+                    style={{
+                      marginBottom: 14,
+                      border: '1px solid #cbd5e1',
+                      borderLeft: '4px solid #b45309',
+                      borderRadius: 8,
+                      background: '#fffbeb',
+                      padding: '12px 14px',
+                      color: '#0f172a',
+                      fontSize: 13.5,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                      <strong style={{ fontSize: 14, color: '#0f172a' }}>
+                        기입고 완료 송장 {existingMatchesList.length}건 감지 · {excludedDuplicateIndexes.size}건 자동 제외 / 신규 {activeInvoices.length}건 진행 가능
+                      </strong>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: '#92400e', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 4, padding: '2px 8px' }}>
+                        중복 입고 자동 방지
+                      </span>
+                    </div>
+                    <p style={{ margin: '0 0 10px', fontSize: 13.5, color: '#334155' }}>
+                      전산 입고 원장에 이미 등록된 송장은 중복 입고를 막기 위해 매칭·엑셀 다운로드·입고 준비 대상에서 기본 제외했습니다. 신규 송장만 안전하게 진행하세요.
+                    </p>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, background: '#ffffff', border: '1px solid #e2e8f0' }}>
+                        <thead>
+                          <tr style={{ background: '#f8fafc', color: '#334155', textAlign: 'left', borderBottom: '1px solid #cbd5e1' }}>
+                            <th style={{ padding: '6px 10px' }}>상태</th>
+                            <th style={{ padding: '6px 10px' }}>송장번호</th>
+                            <th style={{ padding: '6px 10px' }}>농장명</th>
+                            <th style={{ padding: '6px 10px' }}>기존 입고번호</th>
+                            <th style={{ padding: '6px 10px' }}>기존 차수</th>
+                            <th style={{ padding: '6px 10px' }}>입고일</th>
+                            <th style={{ padding: '6px 10px', textAlign: 'right' }}>처리</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {existingMatchesList.map(item => {
+                            const isExcluded = excludedDuplicateIndexes.has(item.index);
+                            return (
+                              <tr key={`${item.index}-${item.warehouseKey}`} style={{ borderBottom: '1px solid #e2e8f0', color: '#0f172a' }}>
+                                <td style={{ padding: '6px 10px' }}>
+                                  <span style={{
+                                    display: 'inline-block',
+                                    fontSize: 12.5,
+                                    fontWeight: 600,
+                                    padding: '2px 7px',
+                                    borderRadius: 4,
+                                    background: isExcluded ? '#ecfdf5' : '#fef2f2',
+                                    color: isExcluded ? '#065f46' : '#991b1b',
+                                    border: `1px solid ${isExcluded ? '#6ee7b7' : '#fca5a5'}`,
+                                  }}>
+                                    {isExcluded ? '기입고 제외됨' : '재포함 (중복 주의)'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '6px 10px', fontWeight: 600 }}>{item.extractedInvoiceNo || item.invoiceNo}</td>
+                                <td style={{ padding: '6px 10px' }}>{item.farmName || item.extractedSupplier}</td>
+                                <td style={{ padding: '6px 10px', fontWeight: 600 }}>#{item.warehouseKey}</td>
+                                <td style={{ padding: '6px 10px' }}>{item.orderYear}/{item.orderWeek}</td>
+                                <td style={{ padding: '6px 10px' }}>{item.inputDate || '—'}</td>
+                                <td style={{ padding: '6px 10px', textAlign: 'right' }}>
+                                  <button
+                                    type="button"
+                                    disabled={saving || processing}
+                                    onClick={() => toggleDuplicateExclusion(item.index)}
+                                    style={{
+                                      padding: '4px 10px',
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      borderRadius: 6,
+                                      border: '1px solid #94a3b8',
+                                      background: '#ffffff',
+                                      color: '#0f172a',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {isExcluded ? '예외 재포함' : '다시 제외'}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                )}
                 <PackingUploadMatchAlertBanner
                   needs={matchingNeeds}
                   disabled={saving || processing}
@@ -2924,7 +3190,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   })}
                   erpProducts={excels.length ? (generatedErp?.products || []) : (erpMatches?.products || [])}
                   receiptMatches={receiptMatches}
-                  excels={excels.length ? excels : matchPreview}
+                  excels={visiblePreviewOrExcels}
                   country={country}
                   blocked={isBlocked}
                   onDownload={dl}

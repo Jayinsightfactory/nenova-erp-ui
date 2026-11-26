@@ -364,7 +364,7 @@ export default function InvoiceReceiptWorkbench({
       const adaptedDocuments = await adaptPackingReceipts({
         excels, invoices, country, fileName: file.name, products, sourceHash: hash, reviewConfirmed, truncated, invoiceUploadDate,
       });
-      const documents = country === 'AU' ? adaptedDocuments.map(document => {
+      const documents = (country === 'AU' || country === 'EC') ? adaptedDocuments.map(document => {
         const review = awb?.confirmed && awb.review?.ready ? awb.review : null;
         const evidence = review?.evidence || {};
         const attachment = review ? {
@@ -372,6 +372,7 @@ export default function InvoiceReceiptWorkbench({
           awb: review?.awb || '', invoiceAwb: review?.invoiceAwb || '',
           packageCount: review?.packages ?? null, uploadDate: awb.uploadDate || invoiceUploadDate,
           grossWeightKg: review?.grossWeightKg ?? null, chargeableWeightKg: review?.chargeableWeightKg ?? null,
+          ...(country === 'EC' ? { freightRate: review?.freightRate ?? null, otherCharges: review?.otherCharges ?? null, totalPrepaid: review?.totalPrepaid ?? null, daePmt: review?.daePmt || '' } : {}),
           reviewed: Boolean(awb.confirmed && review?.ready), issues: review?.issues || [], evidence,
         } : null;
         const sourceWeight = (field, proofKey) => review?.[field] == null ? null : {
@@ -394,6 +395,11 @@ export default function InvoiceReceiptWorkbench({
             awb: review?.awb || document.reviewedMetadata?.awb || '',
             gw: review?.grossWeightKg ?? document.reviewedMetadata?.gw ?? null,
             cw: review?.chargeableWeightKg ?? document.reviewedMetadata?.cw ?? null,
+            ...(country === 'EC' && review ? {
+              ...(review.freightRate != null && document.reviewedMetadata?.freightRate == null ? { freightRate: review.freightRate } : {}),
+              ...(review.otherCharges != null && document.reviewedMetadata?.docFee == null ? { docFee: review.otherCharges } : {}),
+              ...(review.currency && !document.reviewedMetadata?.freightCurrency ? { freightCurrency: review.currency } : {}),
+            } : {}),
             awbReviewed: Boolean(awb?.confirmed && review?.ready),
             awbAttachment: attachment,
             weightManual: review ? {
@@ -406,8 +412,8 @@ export default function InvoiceReceiptWorkbench({
               ...(sourceWeight('grossWeightKg', 'gross_weight_kg') ? { gw: sourceWeight('grossWeightKg', 'gross_weight_kg') } : {}),
               ...(sourceWeight('chargeableWeightKg', 'chargeable_weight_kg') ? { cw: sourceWeight('chargeableWeightKg', 'chargeable_weight_kg') } : {}),
             },
-            ...(audMarketRate ? { audMarketRate } : {}),
-            ...(audMarketRateError ? { audMarketRateError } : {}),
+            ...(country === 'AU' && audMarketRate ? { audMarketRate } : {}),
+            ...(country === 'AU' && audMarketRateError ? { audMarketRateError } : {}),
           },
         };
       }) : adaptedDocuments;
@@ -430,7 +436,7 @@ export default function InvoiceReceiptWorkbench({
         // Header lookup is optional; draft/preview/commit keep their server guards.
         if (!/^\d{4}$/.test(String(document.orderYear || ''))) return record;
         if (record.pendingOperation || record.recoveryRequired || document.receiptStatus === 'COMMITTED'
-          || ((document.farmKey || document.reviewedMetadata?.farmSourceWarehouseKey) && document.reviewedMetadata?.inputDate && document.reviewedMetadata?.transportMode)) return record;
+          || ((document.farmKey || document.reviewedMetadata?.farmSourceWarehouseKey || document.reviewedMetadata?.isNewFarm) && document.reviewedMetadata?.inputDate && document.reviewedMetadata?.transportMode)) return record;
         const data = await readJson(await fetch('/api/import/receipts/auto-fill', {
           method: 'POST', credentials: 'same-origin', headers: jsonHeaders,
           body: JSON.stringify({orderYear:document.orderYear,farmKey:document.farmKey,createdAt:document.createdAt,
@@ -1460,13 +1466,40 @@ export default function InvoiceReceiptWorkbench({
         {!farmBusy && !farmError && farmQuery.trim() && farmOptions.length === 0 && <span role="status">일치하는 농장이 없습니다. 농장명의 일부로 다시 검색해 주세요.</span>}
         <button type="button" onClick={() => setFarmSearchAttempt(value => value + 1)} disabled={farmBusy}>농장 다시 검색</button>
         {!farmBusy&&!farmError&&<InvoiceFarmChoices farms={farmOptions} selected={documentValue} searching={Boolean(farmQuery.trim())}
-          onSelect={farm=>updateSelected(document=>({...document,farmKey:farm.FarmKey??null,reviewedMetadata:{...document.reviewedMetadata,farmName:farm.FarmName,farmSourceWarehouseKey:farm.WarehouseKey??null}}))}/>} 
-        <span role="status">{documentValue.farmKey || documentValue.reviewedMetadata.farmSourceWarehouseKey ? `선택된 농장: ${documentValue.reviewedMetadata.farmName || '저장 농장'}` : '농장 미선택 · 검색어 입력만으로 선택되지 않습니다. 검색 결과의 농장을 눌러 주세요.'}</span>
+          onSelect={farm=>updateSelected(document=>({...document,farmKey:farm.FarmKey??null,reviewedMetadata:{...document.reviewedMetadata,farmName:farm.FarmName,farmSourceWarehouseKey:farm.WarehouseKey??null,isNewFarm:false}}))}/>} 
+        <button type="button" onClick={() => updateSelected(document => ({
+          ...document,
+          farmKey: null,
+          reviewedMetadata: {
+            ...document.reviewedMetadata,
+            farmName: document.reviewedMetadata?.farmName || document.rawMetadata?.supplier || '',
+            farmSourceWarehouseKey: null,
+            isNewFarm: true,
+          },
+        }))} disabled={Boolean(busy)||Boolean(selected.pendingOperation)||Boolean(selected.recoveryRequired)||currentRevisionCommitted}>신규 농장으로 선택</button>
+        <span role="status">{documentValue.farmKey || documentValue.reviewedMetadata.farmSourceWarehouseKey
+          ? `선택된 농장: ${documentValue.reviewedMetadata.farmName || '저장 농장'}`
+          : documentValue.reviewedMetadata.isNewFarm
+            ? `신규 농장(최초 입고): ${documentValue.reviewedMetadata.farmName || '이름 입력 필요'}`
+            : '농장 미선택 · 검색어 입력만으로 선택되지 않습니다. 검색 결과의 농장을 누르거나 신규 농장으로 선택해 주세요.'}</span>
       </Field>}
-      <Field label={farmBusy ? '농장 검색 중…' : '농장 선택'} wide><select data-receipt-field="farm" value={documentValue.farmKey ?? (documentValue.reviewedMetadata.farmSourceWarehouseKey ? `receipt:${documentValue.reviewedMetadata.farmSourceWarehouseKey}` : '')} onChange={event => {
+      <Field label={farmBusy ? '농장 검색 중…' : '농장 선택'} wide><select data-receipt-field="farm" value={documentValue.farmKey ?? (documentValue.reviewedMetadata.farmSourceWarehouseKey ? `receipt:${documentValue.reviewedMetadata.farmSourceWarehouseKey}` : documentValue.reviewedMetadata.isNewFarm ? 'new' : '')} onChange={event => {
+        if (event.target.value === 'new') {
+          updateSelected(document => ({
+            ...document,
+            farmKey: null,
+            reviewedMetadata: {
+              ...document.reviewedMetadata,
+              farmName: document.reviewedMetadata?.farmName || document.rawMetadata?.supplier || '',
+              farmSourceWarehouseKey: null,
+              isNewFarm: true,
+            },
+          }));
+          return;
+        }
         const farm = farmOptions.find(option => String(option.FarmKey ?? `receipt:${option.WarehouseKey}`) === event.target.value);
-        updateSelected(document => ({ ...document, farmKey: farm?.FarmKey ?? null, reviewedMetadata: { ...document.reviewedMetadata, farmName: farm?.FarmName || '', farmSourceWarehouseKey:farm?.WarehouseKey ?? null } }));
-      }}><option value="">신규 입고는 선택 · 기존 입고 연결은 생략 가능</option>{documentValue.farmKey && !farmOptions.some(farm => Number(farm.FarmKey) === Number(documentValue.farmKey))
+        updateSelected(document => ({ ...document, farmKey: farm?.FarmKey ?? null, reviewedMetadata: { ...document.reviewedMetadata, farmName: farm?.FarmName || '', farmSourceWarehouseKey:farm?.WarehouseKey ?? null, isNewFarm: false } }));
+      }}><option value="">신규 입고는 선택 · 기존 입고 연결은 생략 가능</option>{documentValue.reviewedMetadata.country !== 'NZ' && <option value="new">+ 신규 농장으로 선택 (최초 입고)</option>}{documentValue.farmKey && !farmOptions.some(farm => Number(farm.FarmKey) === Number(documentValue.farmKey))
         ? <option value={documentValue.farmKey}>{documentValue.reviewedMetadata.farmName || '저장 농장'} (#{documentValue.farmKey})</option> : null}
       {!documentValue.farmKey && documentValue.reviewedMetadata.farmSourceWarehouseKey && !farmOptions.some(farm=>farm.WarehouseKey===documentValue.reviewedMetadata.farmSourceWarehouseKey)
         ? <option value={`receipt:${documentValue.reviewedMetadata.farmSourceWarehouseKey}`}>{documentValue.reviewedMetadata.farmName} · 기존 입고 농장</option> : null}
@@ -1476,6 +1509,17 @@ export default function InvoiceReceiptWorkbench({
       })}</select>
       {documentValue.reviewedMetadata.country==='NZ'&&<><small>원본 New Zealand Bloom Ltd에 대응하는 뉴질랜드 농장만 선택할 수 있습니다. 등록 시 서버에서 근거를 다시 확인합니다.</small>
         {farmError&&<button type="button" onClick={()=>setFarmSearchAttempt(value=>value+1)}>농장 조회 다시 시도</button>}</>}</Field>
+      {documentValue.reviewedMetadata.isNewFarm && documentValue.reviewedMetadata.country !== 'NZ' && (
+        <Field label="신규 입고 농장명 (최초 입고)" wide>
+          <input
+            aria-label="신규 입고 농장명"
+            maxLength={100}
+            value={documentValue.reviewedMetadata.farmName || ''}
+            disabled={Boolean(busy)||Boolean(selected.pendingOperation)||Boolean(selected.recoveryRequired)||currentRevisionCommitted}
+            onChange={event => updateMetadata('farmName', event.target.value)}
+          />
+        </Field>
+      )}
       <Field label="입고 메모" wide><input value={documentValue.reviewedMetadata.receiptNotes || ''} onChange={event => updateMetadata('receiptNotes', event.target.value)} /></Field>
       <FarmMasterRegistration key={`farm-master:${documentValue.documentId}:${documentValue.reviewedMetadata.country}`} country={documentValue.reviewedMetadata.country} initialName={documentValue.rawMetadata?.supplier||''}
         disabled={Boolean(busy)||Boolean(selected.pendingOperation)||Boolean(selected.recoveryRequired)||currentRevisionCommitted}
