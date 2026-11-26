@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.104",
+  "version": "1.3.105",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -84,7 +84,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "부서별 업무 매뉴얼에 「판단 기준」 탭 추가 — 이럴 때 이렇게 합니다(영업지원 18·영업부 22·수입부 11·경영지원 3줄). 관련 매뉴얼 ⑤ 아래에도 같이 보입니다. (아침 첫 실행 1회 자동 업데이트 유지)"
+      "releaseNotes": "수입방 카톡 발주 스크롤·정리처리 무렉(Zero-Lag) 최적화 · 합계 반영 역방향 이동 · DB 품목명(영문) 열 및 영문 소문자 단위(bunches/box/stems) 기본 전환 반영 (아침 첫 실행 1회 자동 업데이트 유지)"
     },
     "extraResources": [
       {

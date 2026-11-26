@@ -1,5 +1,13 @@
 # 작업 기록
 
+## 2026-11-26 수입방 카톡 발주 무렉(Zero-Lag) 최적화 · 합계 반영 역방향 이동 · DB 품목명(영문) 열 · 영문 소문자 단위 기본 전환 및 데스크톱앱 v1.3.105 반영 (feat/kakao-perf-en-db-v1-3-105, 연결 목표: g03, g19)
+- 1. 작업 위치: `nenova-erp-ui` (`nw-agy-kakao-perf-en-db` 워크트리, `feat/kakao-perf-en-db-v1-3-105`) · `desktop/package.json`(`1.3.105`) · `nenova-pm/kakao-import-order-llm-worker.js`
+- 2. 변경 파일: `components/import-tools/KakaoAdditions.js`, `components/import-tools/KakaoOrderRegisterBridge.js`, `lib/importKakaoDbCatalog.js`, `lib/importKakaoOrderText.js`, `lib/importKakaoAdditions.js`, `AGENTS.md`, `docs/contracts/country-orders.json`, `public/guides/import-country-orders/import.proof.json`, `__tests__/importKakaoFarmSummary.test.mjs`, `__tests__/importKakaoDbCatalogRecall.test.mjs`, `desktop/package.json`, `desktop/package-lock.json`
+- 3. 완료된 것: ① 스크롤·`정리 처리` 클릭 렉 제거(`effectiveLimit` 무제한 확장 제거·100건 페이지네이션 유지, `KakaoOrderRegisterBridge` ERP 상태 1회 캐싱으로 토글 시 재대조 0회, `React.memo`·`content-visibility: auto`·보조 원장 기본 접힘 적용) ② 우측 초록 `합계 반영` 클릭 시 좌측 농장 카드 전체 유지 상태로 매칭 행 스크롤·하이라이트 ③ 농장 카드 `규격 · 포장` 열 삭제 후 `DB 품목명 (영문)`(`dbo.Product.ProdName`) 열 및 복사 양식 연동 ④ 기본 단위를 영문 소문자(`bunches`, `box`, `stems`, 박스 규격 `5 box (FB)`)로 전환 및 `'대'`→`'송이'`(`stems`) 정규화 ⑤ `AGENTS.md` Zero-Lag 4원칙 수록 및 데스크톱 `v1.3.105` 상향(아침 첫 실행 1회 자동 업데이트 불변)
+- 4. 남은 것: PR CI(`verify`·`Nenova Desktop Windows`) 통과 후 `master` squash 머지, Cafe24 웹 및 데스크톱 피드(`1.3.105`) 승격 확인, `sync-nenova-hq.js` 관제 동기화
+- 5. 주의/잠금: 잠금 없음 (운영 MSSQL 쓰기 0건, 데스크톱 아침 첫 실행 1회 자동 업데이트 정책 무수정 유지)
+- 검색어: 수입방 카톡 무렉 Zero-Lag 정리처리 렉 합계 반영 버튼 DB 품목명 영문 bunches box stems 데스크톱앱 1.3.105 g03 g19
+
 ## 2026-11-26 수입방 카톡 발주 3축 고도화(DB 농장 정규 매칭·12개국 품종 추론·누락 제로화) 및 데스크톱앱 v1.3.103 동시 반영 (feat/kakao-db-farm-country-recall-v2, 연결 목표: g03, g19)
 - 1. 작업 위치: `nenova-erp-ui` (`nw-agy-kakao-farm-country-v2` 워크트리, `feat/kakao-db-farm-country-recall-v2`) · `desktop/package.json`(`1.3.103`) · `nenova-pm/kakao-import-order-llm-worker.js`(`PARSER_VERSION = 2`)
 - 2. 변경 파일: `lib/importKakaoDbCatalog.js`(신규), `lib/importKakaoAdditions.js`, `lib/importKakaoOrderText.js`, `pages/api/import/tools/kakao-additions.js`, `components/import-tools/KakaoAdditions.js`, `docs/contracts/country-orders.json`, `public/guides/import-country-orders/import.proof.json`, `__tests__/importKakaoDbCatalogRecall.test.mjs`(신규), `desktop/package.json`, `desktop/package-lock.json`, `desktop/policy.cjs`, `desktop/tests/policy.test.cjs`

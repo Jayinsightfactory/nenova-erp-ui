@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   KAKAO_ORDER_HANDOFF_KEY,
   KAKAO_ORDER_SYNC_CHANNEL,
@@ -9,7 +9,10 @@ import {
 } from '../../lib/kakaoOrderErpStatus';
 
 export function useKakaoOrderRegisterBridge({
+  allMessages = null,
+  scopedMessageIds = null,
   scopedMessages = [],
+  baseViewByKey = null,
   viewItem,
   sourceTypeFn,
   orderScope = null,
@@ -21,17 +24,21 @@ export function useKakaoOrderRegisterBridge({
   const [selectedKeys, setSelectedKeys] = useState(() => new Set());
   const [bridgeNotice, setBridgeNotice] = useState('');
 
-  const scopedEntries = useMemo(() => {
+  // Pre-build catalog entries from full feed messages + edits so manual clean/filter toggles never invalidate O(N*M) ERP matching.
+  const catalogEntries = useMemo(() => {
+    const sourceList = Array.isArray(allMessages) ? allMessages : (scopedMessages || []);
     const out = [];
-    for (const message of scopedMessages || []) {
-      const messageType = sourceTypeFn ? sourceTypeFn(message) : '추가';
-      const defaultYear = String(message?.time || '').match(/^\d{4}/)?.[0] || '';
+    for (const message of sourceList) {
+      const messageType = message._sourceType || (sourceTypeFn ? sourceTypeFn(message) : '추가');
+      const defaultYear = message._year || String(message?.time || '').match(/^\d{4}/)?.[0] || '';
       for (const rawItem of message?.items || []) {
-        const row = viewItem ? viewItem(rawItem) : rawItem;
+        const row = (baseViewByKey && baseViewByKey.get(rawItem.key))
+          || (viewItem ? viewItem(rawItem) : rawItem);
         out.push({
           key: row.key,
           row,
           message,
+          messageId: message.id,
           messageType,
           messageKind: message.kind || 'addition',
           messageText: message.text || '',
@@ -40,11 +47,11 @@ export function useKakaoOrderRegisterBridge({
       }
     }
     return out;
-  }, [scopedMessages, viewItem, sourceTypeFn]);
+  }, [allMessages, scopedMessages, baseViewByKey, viewItem, sourceTypeFn]);
 
   const scopesParam = useMemo(
-    () => extractScopesFromKakaoEntries(scopedEntries, orderScope).join(','),
-    [scopedEntries, orderScope],
+    () => extractScopesFromKakaoEntries(catalogEntries, orderScope).join(','),
+    [catalogEntries, orderScope],
   );
 
   const triggerRefresh = useCallback(() => {
@@ -124,20 +131,11 @@ export function useKakaoOrderRegisterBridge({
     };
   }, [triggerRefresh]);
 
-  const evaluated = useMemo(() => {
+  // O(N*M) ERP reconciliation cached strictly on [catalogEntries, orderScope, erpData] — zero re-execution on '정리 처리' click.
+  const allEvaluated = useMemo(() => {
     const byKey = new Map();
     const list = [];
-    const counts = {
-      registered: 0,
-      diffQty: 0,
-      unregistered: 0,
-      customerCheck: 0,
-      noCustomer: 0,
-      cancelled: 0,
-      hold: 0,
-    };
-
-    for (const entry of scopedEntries) {
+    for (const entry of catalogEntries) {
       const evaluation = classifyKakaoItemErpStatus(entry.row, {
         messageType: entry.messageType,
         messageKind: entry.messageKind,
@@ -150,18 +148,43 @@ export function useKakaoOrderRegisterBridge({
       const enriched = { ...entry, evaluation };
       byKey.set(entry.key, enriched);
       list.push(enriched);
+    }
+    return { byKey, list };
+  }, [catalogEntries, orderScope, erpData]);
 
-      if (evaluation.status === 'REGISTERED') counts.registered += 1;
-      else if (evaluation.status === 'DIFF_QTY') counts.diffQty += 1;
-      else if (evaluation.status === 'UNREGISTERED') counts.unregistered += 1;
-      else if (evaluation.status === 'CUSTOMER_CHECK') counts.customerCheck += 1;
-      else if (evaluation.status === 'NO_CUSTOMER') counts.noCustomer += 1;
-      else if (evaluation.status === 'CANCELLED') counts.cancelled += 1;
+  // Lightweight O(N) projection for currently visible (non-cleaned, scoped) messages.
+  const evaluated = useMemo(() => {
+    const idFilter = scopedMessageIds instanceof Set
+      ? scopedMessageIds
+      : Array.isArray(allMessages)
+        ? new Set((scopedMessages || []).map((m) => m.id))
+        : null;
+    const list = [];
+    const counts = {
+      registered: 0,
+      diffQty: 0,
+      unregistered: 0,
+      customerCheck: 0,
+      noCustomer: 0,
+      cancelled: 0,
+      hold: 0,
+    };
+
+    for (const enriched of allEvaluated.list) {
+      if (idFilter && !idFilter.has(enriched.messageId)) continue;
+      list.push(enriched);
+      const st = enriched.evaluation.status;
+      if (st === 'REGISTERED') counts.registered += 1;
+      else if (st === 'DIFF_QTY') counts.diffQty += 1;
+      else if (st === 'UNREGISTERED') counts.unregistered += 1;
+      else if (st === 'CUSTOMER_CHECK') counts.customerCheck += 1;
+      else if (st === 'NO_CUSTOMER') counts.noCustomer += 1;
+      else if (st === 'CANCELLED') counts.cancelled += 1;
       else counts.hold += 1;
     }
 
-    return { byKey, list, counts };
-  }, [scopedEntries, orderScope, erpData]);
+    return { byKey: allEvaluated.byKey, list, counts };
+  }, [allEvaluated, scopedMessageIds, allMessages, scopedMessages]);
 
   const selectedEntries = useMemo(
     () => evaluated.list.filter((entry) => selectedKeys.has(entry.key) && entry.evaluation.eligible),
@@ -709,13 +732,24 @@ export function KakaoOrderRegisterPanel({ bridge, onFocusMessage }) {
   );
 }
 
-export function KakaoMessageErpSummary({ message, visibleItems = [], viewItem, bridge }) {
-  if (!bridge || !visibleItems.length) return null;
+export const KakaoMessageErpSummary = memo(function KakaoMessageErpSummary({
+  message,
+  visibleItems = [],
+  viewItem,
+  bridge,
+  byKey: propByKey,
+  selectedKeys: propSelectedKeys,
+  onToggleItem,
+}) {
+  const byKey = propByKey || bridge?.byKey;
+  const selectedKeys = propSelectedKeys || bridge?.selectedKeys;
+  const toggleFn = onToggleItem || bridge?.toggleItem;
+  if (!byKey || !visibleItems.length) return null;
 
   const rows = visibleItems
     .map((base) => {
       const row = viewItem ? viewItem(base) : base;
-      const entry = bridge.byKey.get(row.key);
+      const entry = byKey.get(row.key);
       return entry ? { row, evaluation: entry.evaluation } : null;
     })
     .filter(Boolean);
@@ -726,7 +760,7 @@ export function KakaoMessageErpSummary({ message, visibleItems = [], viewItem, b
     <div className="kakao-msg-erp-list" aria-label="이 원문의 전산 주문등록 상태">
       {rows.map(({ row, evaluation }) => {
         if (evaluation.status === 'CANCELLED') return null;
-        const checked = bridge.selectedKeys.has(row.key) && evaluation.eligible;
+        const checked = Boolean(selectedKeys?.has(row.key) && evaluation.eligible);
         const custLabel =
           evaluation.customerMatch?.customer?.CustName ||
           evaluation.customerMatch?.rawCustomer ||
@@ -740,7 +774,7 @@ export function KakaoMessageErpSummary({ message, visibleItems = [], viewItem, b
                 disabled={!evaluation.eligible}
                 checked={checked}
                 aria-label={`${message.id} ${custLabel} ${row.product} 주문등록 선택`}
-                onChange={(e) => bridge.toggleItem(row.key, e.target.checked)}
+                onChange={(e) => toggleFn?.(row.key, e.target.checked)}
               />
               <span className="kakao-msg-erp-cust">[{custLabel}]</span>
               <span>
@@ -759,4 +793,4 @@ export function KakaoMessageErpSummary({ message, visibleItems = [], viewItem, b
       })}
     </div>
   );
-}
+});

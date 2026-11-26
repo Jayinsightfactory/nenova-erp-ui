@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Fragment, memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   validItem,
   farmTotals,
@@ -150,6 +150,212 @@ function useHiddenMessages(userId) {
   return { ids: current?.ids || noHiddenMessages, ready: !!current, change };
 }
 
+const emptyArray = [];
+
+const MemoizedCleanedRow = memo(function CleanedRow({
+  entry,
+  expanded,
+  pastedFeed,
+  onToggleExpand,
+  onRestore,
+}) {
+  const oneLine = formatCleanedSingleLine(entry.text) || '(빈 메시지)';
+  const isDuplicate = Boolean(entry.duplicateOf);
+  const isAi = entry.analysisSource === 'llm';
+  return (
+    <div data-cleaned-id={entry.id} className="kakao-cleaned-item">
+      <div className="kakao-cleaned-row">
+        <span className="kakao-cleaned-badge">정리처리됨</span>
+        {!pastedFeed && (
+          <span
+            className={'kakao-analysis-badge ' + (isAi ? 'kakao-analysis-ai' : 'kakao-analysis-fallback')}
+            title={isAi ? '구독 LLM 정밀 분류 완료' : '미분석 신규 원문 · 정규식 임시 분류'}
+          >
+            {isAi ? 'AI분류' : '임시분류'}
+          </span>
+        )}
+        <span className="kakao-cleaned-time">{shortKakaoTime(entry.time)}</span>
+        <button
+          type="button"
+          className="kakao-cleaned-text"
+          aria-expanded={expanded}
+          title={oneLine}
+          onClick={() => onToggleExpand(entry.id)}
+        >
+          {oneLine}
+        </button>
+        <button
+          type="button"
+          className="kakao-restore-btn"
+          disabled={isDuplicate}
+          title={isDuplicate ? '동일 원문 중복' : '발주 검토 목록으로 복원'}
+          onClick={() => onRestore(entry)}
+        >
+          {isDuplicate ? '중복' : '복원'}
+        </button>
+      </div>
+      {expanded && (
+        <div className="kakao-cleaned-detail">
+          <small className="kakao-cleaned-reason">
+            {entry.time}{entry.reason ? ' · ' + entry.reason : ''}
+            {entry.duplicateOf ? ' · 중복 원본 ' + sourceReference(entry.duplicateOf) : ''}
+          </small>
+          <pre className="kakao-source-body">{entry.text}</pre>
+        </div>
+      )}
+    </div>
+  );
+});
+
+const MemoizedSourceMessageCard = memo(function SourceMessageCard({
+  message: m,
+  visibleItems,
+  contributions,
+  linked,
+  isMessageSelected,
+  open,
+  isManual,
+  pastedFeed,
+  sourceKeys,
+  knownFarms,
+  viewItem,
+  orderBridge,
+  onFocusMessage,
+  onToggleEditor,
+  onCleanMessage,
+  onUpdateItem,
+  onMatchTotal,
+  onAppendManualRow,
+}) {
+  const type = m._sourceType || sourceType(m);
+  const isAi = m.analysisSource === 'llm';
+  return (
+    <article data-source-id={m.id} data-source-kind={m.kind} className={'kakao-order-message ' + (linked ? 'kakao-linked' : '')}>
+      <div className="kakao-source-meta">
+        <strong>{pastedFeed ? '붙여넣기' : importRoom}</strong>
+        <span>{m.time}</span>
+        <span>{type === '추가' ? '추가 발주' : type === '취소' ? '취소 요청' : '검토 필요'}</span>
+        {!pastedFeed && !isManual && (
+          <span
+            className={'kakao-analysis-badge ' + (isAi ? 'kakao-analysis-ai' : 'kakao-analysis-fallback')}
+            title={isAi ? '구독 LLM 정밀 분류 완료' : '미분석 신규 원문 · 정규식 임시 분류'}
+          >
+            {isAi ? 'AI분류' : '임시분류'}
+          </span>
+        )}
+        {contributions.length > 0 && (
+          <button
+            type="button"
+            className={'kakao-source-included' + (isMessageSelected ? ' is-active' : '')}
+            aria-pressed={isMessageSelected}
+            title="농장 전달용 자동 합계에서 반영된 품목 위치로 이동"
+            onClick={() => onFocusMessage(m.id)}
+          >
+            <span aria-hidden="true">✓ </span>합계 반영
+          </button>
+        )}
+        {linked && <strong className="kakao-source-reference">{sourceReference(m.id)}</strong>}
+      </div>
+      {contributions.length > 0 && (
+        <div className="kakao-source-contributions" aria-label="이 원문에서 합산한 품목">
+          <ul>
+            {contributions.slice(0, 3).map(row => (
+              <li key={row.key}>
+                {row.farm && `[${row.farm}] `}{row.product} {row.quantity} {row.unit}{row.customer && ' · ' + row.customer}
+              </li>
+            ))}
+          </ul>
+          {contributions.length > 3 && (
+            <details>
+              <summary>반영 품목 {contributions.length - 3}개 더 보기</summary>
+              <ul>
+                {contributions.slice(3).map(row => (
+                  <li key={row.key}>
+                    {row.farm && `[${row.farm}] `}{row.product} {row.quantity} {row.unit}{row.customer && ' · ' + row.customer}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+      {type !== '취소' && visibleItems.length > 0 && (
+        <KakaoMessageErpSummary
+          message={m}
+          visibleItems={visibleItems}
+          viewItem={viewItem}
+          bridge={orderBridge}
+        />
+      )}
+      <pre className="kakao-source-body">{m.text}</pre>
+      <div className="kakao-source-actions">
+        {visibleItems.length > 0 && type !== '취소' && (
+          <button type="button" className="kakao-match-source" aria-pressed={isMessageSelected} onClick={() => onFocusMessage(m.id)}>
+            이 원문의 합계 보기
+          </button>
+        )}
+        {(visibleItems.length > 0 || m.reason) && (
+          <button type="button" className="kakao-edit-source" aria-expanded={open} onClick={() => onToggleEditor(m.id)}>
+            {open ? '품목·수량 접기' : m.kind === 'review' ? '발주 내용 검토' : '품목·수량 확인'}
+          </button>
+        )}
+        <button type="button" className="kakao-visibility-action" aria-label="발주 외 원문 정리 처리" onClick={() => onCleanMessage(m)}>
+          정리 처리
+        </button>
+      </div>
+      {open && (
+        <div>
+          {m.reason && <p className="kakao-review-reason">{m.reason} · {type === '취소' ? '취소 수량은 합산 제외' : '확인 전 합계 제외'}</p>}
+          {m.retained?.map((r, i) => (
+            <p key={i}>기존 주문 유지: {r.product} {r.quantity} {r.unit} · 새 추가 수량이 아니므로 합산하지 않습니다.</p>
+          ))}
+          {visibleItems.map(base => {
+            const row = viewItem(base);
+            const isRowDisabled = type === '취소';
+            return (
+              <fieldset key={row.key} disabled={isRowDisabled} className={sourceKeys?.has(row.key) ? 'kakao-linked' : ''}>
+                <legend>
+                  <label>
+                    <input
+                      type="checkbox"
+                      disabled={isRowDisabled}
+                      checked={!isRowDisabled && !!row.checked}
+                      onChange={e => onUpdateItem(row.key, { checked: e.target.checked })}
+                    />{' '}
+                    {type === '취소' || row.cancelled ? '취소·제외 품종' : m.kind === 'review' ? '검토 후 합산' : '합산'} · {row.product || '품종 확인'}
+                  </label>
+                </legend>
+                {fields.map(([key, label]) => (
+                  <label key={key}>
+                    {label}
+                    <input value={row[key] || ''} onChange={e => onUpdateItem(row.key, { [key]: e.target.value })} />
+                  </label>
+                ))}
+                <small>
+                  {row.checked ? '합계에 포함' : row.reviewReason || '합계에서 제외'}
+                  {row.revisionNote && ' · ' + row.revisionNote}
+                  {row.note && ' · 요청: ' + row.note}
+                </small>
+                {row.checked && validItem(row) && (
+                  <button type="button" onClick={() => onMatchTotal(importTotalKey(row, knownFarms))}>
+                    이 품종 원문 모아보기
+                  </button>
+                )}
+              </fieldset>
+            );
+          })}
+          {m.unparsed?.length > 0 && <p>해석하지 못한 수량 행: {m.unparsed.join(' / ')}</p>}
+          {isManual && (
+            <button type="button" onClick={() => onAppendManualRow(m)}>
+              품목 행 추가
+            </button>
+          )}
+        </div>
+      )}
+    </article>
+  );
+});
+
 function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
   const [feed, setFeed] = useState(null);
   const [error, setError] = useState('');
@@ -177,7 +383,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
 
   // Farm copy formatting preferences & direct paste buffer (browser-only, 0 ERP write)
   const [copyFormat, setCopyFormat] = useState('concise');
-  const [copyLang, setCopyLang] = useState('ko');
+  const [copyLang, setCopyLang] = useState('en');
   const [copiedCardKey, setCopiedCardKey] = useState('');
   const [pasteDraft, setPasteDraft] = useState('');
   const [pastedFeed, setPastedFeed] = useState(null);
@@ -186,6 +392,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
   const hiddenMessages = useHiddenMessages(userId);
   const originalHeading = useRef(null);
   const totalHeading = useRef(null);
+  const farmBoardRef = useRef(null);
   const sourceList = useRef(null);
 
   if (scopeKey !== lastScopeKey) {
@@ -201,14 +408,21 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
 
   useEffect(() => {
     if (!focus) return;
-    const heading = focus.type === 'total' ? originalHeading.current : totalHeading.current;
-    heading?.scrollIntoView({ block: 'start' });
-    heading?.focus({ preventScroll: true });
     if (focus.type === 'total') {
+      originalHeading.current?.scrollIntoView({ block: 'start' });
+      originalHeading.current?.focus({ preventScroll: true });
       const list = sourceList.current;
       const first = list?.querySelector('.kakao-order-message.kakao-linked');
       if (first) list.scrollTop += first.getBoundingClientRect().top - list.getBoundingClientRect().top;
+      return;
     }
+    const matchedRow = farmBoardRef.current?.querySelector('tr.kakao-linked[data-farm-line-key]');
+    if (matchedRow) {
+      matchedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      totalHeading.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    totalHeading.current?.focus({ preventScroll: true });
   }, [focus]);
 
   useEffect(() => {
@@ -251,75 +465,198 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
 
   const activeFeed = pastedFeed || feed;
   const knownFarms = useMemo(() => {
-    const serverFarms = Array.isArray(feed?.knownFarms) ? feed.knownFarms : [];
-    return [...(propKnownFarms || []), ...serverFarms];
-  }, [propKnownFarms, feed]);
-  const messages = activeFeed?.messages || [];
-  const recovered = manualImportReviews(manual, activeFeed);
-  const reviews = [...(activeFeed?.review || []), ...recovered];
-  const allMessages = [...messages, ...reviews];
-  const isManuallyCleaned = id => pastedFeed ? sessionCleaned.has(id) : (hiddenMessages.ids.has(id) || sessionCleaned.has(id));
-  const activeMessages = allMessages.filter(m => !isManuallyCleaned(m.id));
+    const serverFarms = Array.isArray(feed?.knownFarms) ? feed.knownFarms : emptyArray;
+    return [...(propKnownFarms || emptyArray), ...serverFarms];
+  }, [propKnownFarms, feed?.knownFarms]);
 
-  const view = row => {
-    const base = importItemView(row, edits[row.key]);
-    if (base.farm) {
-      return { ...base, farm: normalizeFarmName(base.farm, knownFarms) || base.farm };
+  const farmNormCache = useMemo(() => new Map(), [knownFarms]);
+  const resolveFarmDisplay = useCallback(raw => {
+    const text = String(raw || '').trim();
+    if (!text) return '';
+    if (farmNormCache.has(text)) return farmNormCache.get(text);
+    const resolved = normalizeFarmName(text, knownFarms) || text;
+    farmNormCache.set(text, resolved);
+    return resolved;
+  }, [knownFarms, farmNormCache]);
+
+  const resolveCanonicalFarm = useCallback(raw => {
+    const text = String(raw || '').trim();
+    if (!text) return '';
+    const cacheKey = '\0' + text;
+    if (farmNormCache.has(cacheKey)) return farmNormCache.get(cacheKey);
+    const resolved = normalizeFarmName(text, knownFarms);
+    farmNormCache.set(cacheKey, resolved);
+    return resolved;
+  }, [knownFarms, farmNormCache]);
+
+  const allMessages = useMemo(() => {
+    const messages = activeFeed?.messages || emptyArray;
+    const recovered = manualImportReviews(manual, activeFeed);
+    const reviews = [...(activeFeed?.review || emptyArray), ...recovered];
+    return [...messages, ...reviews].map(m => ({
+      ...m,
+      _orderKey: messageOrder(m.time),
+      _sourceType: sourceType(m),
+    }));
+  }, [activeFeed, manual]);
+
+  const dbProdByProduct = useMemo(() => {
+    const map = new Map();
+    for (const m of [...(feed?.messages || emptyArray), ...(feed?.review || emptyArray)]) {
+      for (const it of m.items || emptyArray) {
+        if (it?.product && it?.dbProdName && !map.has(it.product)) {
+          map.set(it.product, { dbProdName: it.dbProdName, dbProdKey: it.dbProdKey || null });
+        }
+      }
     }
+    return map;
+  }, [feed]);
+
+  const baseViewByKey = useMemo(() => {
+    const map = new Map();
+    for (const m of allMessages) {
+      for (const raw of m.items || emptyArray) {
+        if (!raw?.key) continue;
+        const base = importItemView(raw, edits[raw.key]);
+        const farm = base.farm ? resolveFarmDisplay(base.farm) : '';
+        const dbHint = !base.dbProdName && base.product ? dbProdByProduct.get(base.product) : null;
+        map.set(raw.key, {
+          ...base,
+          ...(farm ? { farm } : {}),
+          ...(dbHint ? { dbProdName: dbHint.dbProdName, dbProdKey: dbHint.dbProdKey } : {}),
+        });
+      }
+    }
+    return map;
+  }, [allMessages, edits, resolveFarmDisplay, dbProdByProduct]);
+
+  const view = useCallback(row => {
+    if (row?.key && baseViewByKey.has(row.key)) return baseViewByKey.get(row.key);
+    const base = importItemView(row, edits[row?.key]);
+    if (base.farm) return { ...base, farm: resolveFarmDisplay(base.farm) };
     return base;
-  };
+  }, [baseViewByKey, edits, resolveFarmDisplay]);
 
-  const inOrderScope = row => pastedFeed ? true : matchesCountryOrderScope(row, orderScope);
-  const allRows = activeMessages
-    .filter(m => sourceType(m) !== '취소')
-    .flatMap(m => m.items.map(view))
-    .filter(inOrderScope);
+  const cleanedIdSet = useMemo(() => {
+    if (pastedFeed) return sessionCleaned;
+    if (!sessionCleaned.size) return hiddenMessages.ids;
+    const merged = new Set(hiddenMessages.ids);
+    for (const id of sessionCleaned) merged.add(id);
+    return merged;
+  }, [pastedFeed, hiddenMessages.ids, sessionCleaned]);
 
-  const nonCancelledScopeRows = allRows.filter(r => !r.cancelled);
-  const weeks = [...new Set(nonCancelledScopeRows.map(weekKey))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  const activeMessages = useMemo(
+    () => allMessages.filter(m => !cleanedIdSet.has(m.id)),
+    [allMessages, cleanedIdSet]
+  );
+
+  const inOrderScope = useCallback(
+    row => (pastedFeed ? true : matchesCountryOrderScope(row, orderScope)),
+    [pastedFeed, orderScope]
+  );
+
+  const allRows = useMemo(
+    () => activeMessages
+      .filter(m => m._sourceType !== '취소')
+      .flatMap(m => m.items.map(view))
+      .filter(inOrderScope),
+    [activeMessages, view, inOrderScope]
+  );
+
+  const nonCancelledScopeRows = useMemo(
+    () => allRows.filter(r => !r.cancelled),
+    [allRows]
+  );
+
+  const weeks = useMemo(
+    () => [...new Set(nonCancelledScopeRows.map(weekKey))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true })),
+    [nonCancelledScopeRows]
+  );
   const activeWeek = weeks.includes(week) ? week : '';
 
-  const groups = [...new Set(nonCancelledScopeRows.filter(r => !activeWeek || weekKey(r) === activeWeek).map(groupKey))].sort();
+  const groups = useMemo(
+    () => [...new Set(nonCancelledScopeRows.filter(r => !activeWeek || weekKey(r) === activeWeek).map(groupKey))].sort(),
+    [nonCancelledScopeRows, activeWeek]
+  );
   const activeGroup = groups.includes(group) ? group : '';
 
-  const namedFarms = [...new Set(
-    nonCancelledScopeRows
-      .filter(r => (!activeWeek || weekKey(r) === activeWeek) && (!activeGroup || groupKey(r) === activeGroup))
-      .map(r => normalizeFarmName(r.farm, knownFarms))
-      .filter(Boolean)
-  )].sort((a, b) => a.localeCompare(b, 'ko'));
+  const namedFarms = useMemo(
+    () => [...new Set(
+      nonCancelledScopeRows
+        .filter(r => (!activeWeek || weekKey(r) === activeWeek) && (!activeGroup || groupKey(r) === activeGroup))
+        .map(r => resolveCanonicalFarm(r.farm))
+        .filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b, 'ko')),
+    [nonCancelledScopeRows, activeWeek, activeGroup, resolveCanonicalFarm]
+  );
   const activeFarm = namedFarms.includes(farmFilter) ? farmFilter : '';
 
-  const inScope = row =>
+  const inScope = useCallback(row => (
     inOrderScope(row) &&
     (!activeWeek || weekKey(row) === activeWeek) &&
     (!activeGroup || groupKey(row) === activeGroup) &&
-    (!activeFarm || normalizeFarmName(row.farm, knownFarms) === activeFarm);
+    (!activeFarm || resolveCanonicalFarm(row.farm) === activeFarm)
+  ), [inOrderScope, activeWeek, activeGroup, activeFarm, resolveCanonicalFarm]);
 
-  const rows = allRows.filter(inScope);
-  const totals = farmTotals(rows, { knownFarms });
-  const invalid = rows.some(r => r.checked && !r.cancelled && (!validItem(r) || !r.unit || !/^\d{1,2}(?:-\d{1,2})?$/.test(r.week)));
+  const rows = useMemo(() => allRows.filter(inScope), [allRows, inScope]);
+  const totals = useMemo(() => farmTotals(rows, { knownFarms }), [rows, knownFarms]);
+  const invalid = useMemo(
+    () => rows.some(r => r.checked && !r.cancelled && (!validItem(r) || !r.unit || !/^\d{1,2}(?:-\d{1,2})?$/.test(r.week))),
+    [rows]
+  );
 
-  const includedSourceKeys = new Set(invalid ? [] : totals.flatMap(total => total.sourceKeys));
-  const includedRows = new Map(rows.filter(row => includedSourceKeys.has(row.key)).map(row => [row.key, row]));
+  const includedSourceKeys = useMemo(
+    () => new Set(invalid ? emptyArray : totals.flatMap(total => total.sourceKeys)),
+    [invalid, totals]
+  );
+  const includedRows = useMemo(
+    () => new Map(rows.filter(row => includedSourceKeys.has(row.key)).map(row => [row.key, row])),
+    [rows, includedSourceKeys]
+  );
 
-  const selectedTotal = focus?.type === 'total' ? totals.find(t => t.key === focus.key) : null;
-  const selectedMessage = focus?.type === 'message' ? activeMessages.find(m => m.id === focus.id) : null;
-  const sourceKeys = new Set(selectedTotal?.sourceKeys || []);
-  const messageKeys = new Set(selectedMessage?.items.map(i => i.key) || []);
-  const shownTotals = selectedMessage ? totals.filter(t => t.sourceKeys.some(k => messageKeys.has(k))) : totals;
-  const cycleTotals = groupFarmTotalsByCycle(shownTotals);
-  const linkedSources = selectedTotal ? activeMessages.filter(m => m.items.some(i => sourceKeys.has(i.key))) : [];
+  const selectedTotal = useMemo(
+    () => (focus?.type === 'total' ? totals.find(t => t.key === focus.key) || null : null),
+    [focus, totals]
+  );
+  const selectedMessage = useMemo(
+    () => (focus?.type === 'message' ? activeMessages.find(m => m.id === focus.id) || null : null),
+    [focus, activeMessages]
+  );
+  const sourceKeys = useMemo(() => new Set(selectedTotal?.sourceKeys || emptyArray), [selectedTotal]);
+  const messageKeys = useMemo(() => new Set(selectedMessage?.items.map(i => i.key) || emptyArray), [selectedMessage]);
+  const shownTotals = useMemo(
+    () => (selectedMessage ? totals.filter(t => t.sourceKeys.some(k => messageKeys.has(k))) : totals),
+    [selectedMessage, totals, messageKeys]
+  );
+  const cycleTotals = useMemo(() => groupFarmTotalsByCycle(shownTotals), [shownTotals]);
+  const linkedSources = useMemo(
+    () => (selectedTotal ? activeMessages.filter(m => m.items.some(i => sourceKeys.has(i.key))) : emptyArray),
+    [selectedTotal, activeMessages, sourceKeys]
+  );
 
   const query = sourceQuery.normalize('NFKC').trim().toLowerCase();
-  const matchesCurrentScope = m => (
+  const matchesCurrentScope = useCallback(m => (
     (m.kind === 'review' && (!orderScope || pastedFeed || manual[m.id] || m.items.some(i => inOrderScope(view(i))))) ||
     m.items.some(i => inScope(view(i))) ||
     (pastedFeed && (m.memos?.length || m.excludedItems?.length))
+  ), [orderScope, pastedFeed, manual, inOrderScope, inScope, view]);
+
+  const scopedMessages = useMemo(
+    () => activeMessages.filter(matchesCurrentScope),
+    [activeMessages, matchesCurrentScope]
   );
-  const scopedMessages = activeMessages.filter(matchesCurrentScope);
-  const scopedManualCleaned = allMessages.filter(m => isManuallyCleaned(m.id) && matchesCurrentScope(m));
-  const scopedAutoCleaned = (activeFeed?.cleaned || []).filter(c => !manual[c.id] && (pastedFeed ? true : matchesCleanedScope(c, orderScope)));
+  const scopedMessageIds = useMemo(
+    () => new Set(scopedMessages.map(m => m.id)),
+    [scopedMessages]
+  );
+  const scopedManualCleaned = useMemo(
+    () => allMessages.filter(m => cleanedIdSet.has(m.id) && matchesCurrentScope(m)),
+    [allMessages, cleanedIdSet, matchesCurrentScope]
+  );
+  const scopedAutoCleaned = useMemo(
+    () => (activeFeed?.cleaned || emptyArray).filter(c => !manual[c.id] && (pastedFeed ? true : matchesCleanedScope(c, orderScope))),
+    [activeFeed?.cleaned, manual, pastedFeed, orderScope]
+  );
 
   const cleanedEntries = useMemo(() => {
     const byId = new Map();
@@ -334,6 +671,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
         isCleaned: true,
         manualHidden: true,
         sourceMessage: m,
+        _orderKey: m._orderKey || messageOrder(m.time),
       });
     }
     for (const c of scopedAutoCleaned) {
@@ -342,19 +680,27 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
           ...c,
           isCleaned: true,
           manualHidden: false,
+          _orderKey: messageOrder(c.time),
         });
       }
     }
-    return [...byId.values()].sort((a, b) => messageOrder(b.time).localeCompare(messageOrder(a.time)));
+    return [...byId.values()].sort((a, b) => b._orderKey.localeCompare(a._orderKey));
   }, [scopedManualCleaned, scopedAutoCleaned]);
 
-  const totalCleanedCount = ((activeFeed?.cleaned || []).filter(c => !manual[c.id]).length) + allMessages.filter(m => isManuallyCleaned(m.id)).length;
+  const totalCleanedCount = useMemo(
+    () => ((activeFeed?.cleaned || emptyArray).filter(c => !manual[c.id]).length) + allMessages.filter(m => cleanedIdSet.has(m.id)).length,
+    [activeFeed?.cleaned, manual, allMessages, cleanedIdSet]
+  );
 
-  const linkedIds = new Set(linkedSources.map(m => m.id));
-  if (selectedMessage) linkedIds.add(selectedMessage.id);
+  const linkedIds = useMemo(() => {
+    const ids = new Set(linkedSources.map(m => m.id));
+    if (selectedMessage) ids.add(selectedMessage.id);
+    return ids;
+  }, [linkedSources, selectedMessage]);
 
-  const matchesSearch = entry =>
-    !query || [importRoom, entry.time, entry.text, entry.reason].some(value => String(value || '').normalize('NFKC').toLowerCase().includes(query));
+  const matchesSearch = useCallback(entry => (
+    !query || [importRoom, entry.time, entry.text, entry.reason].some(value => String(value || '').normalize('NFKC').toLowerCase().includes(query))
+  ), [query]);
 
   const shownEntries = useMemo(() => {
     if (sourceFilter === '정리처리됨') {
@@ -363,28 +709,31 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
     const activeMatched = scopedMessages.filter(m => linkedIds.has(m.id) || (
       (sourceFilter === '전체'
         || (sourceFilter === '합계 반영' && m.items.some(item => includedSourceKeys.has(item.key)))
-        || (sourceFilter === '추가' && sourceType(m) === '추가')
-        || (sourceFilter === '취소·검토' && (sourceType(m) === '취소' || sourceType(m) === '검토'))) &&
+        || (sourceFilter === '추가' && m._sourceType === '추가')
+        || (sourceFilter === '취소·검토' && (m._sourceType === '취소' || m._sourceType === '검토'))) &&
       matchesSearch(m)
     ));
     if (sourceFilter === '전체') {
       const cleanedMatched = cleanedEntries.filter(matchesSearch);
-      return [...activeMatched, ...cleanedMatched].sort((a, b) => messageOrder(b.time).localeCompare(messageOrder(a.time)));
+      return [...activeMatched, ...cleanedMatched].sort((a, b) => b._orderKey.localeCompare(a._orderKey));
     }
-    return activeMatched.sort((a, b) => messageOrder(b.time).localeCompare(messageOrder(a.time)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceFilter, cleanedEntries, scopedMessages, query, selectedTotal, selectedMessage, includedSourceKeys]);
+    return [...activeMatched].sort((a, b) => b._orderKey.localeCompare(a._orderKey));
+  }, [sourceFilter, cleanedEntries, scopedMessages, linkedIds, includedSourceKeys, matchesSearch]);
 
-  const priorityIds = new Set([...linkedIds, ...shownEntries.filter(e => !e.isCleaned).map(e => e.id)]);
-  const effectiveLimit = Math.max(messageLimit, priorityIds.size);
-  const visibleEntries = visibleKakaoMessages(shownEntries, effectiveLimit, priorityIds);
+  const visibleEntries = useMemo(
+    () => visibleKakaoMessages(shownEntries, messageLimit, linkedIds),
+    [shownEntries, messageLimit, linkedIds]
+  );
   const scopeLabel = orderScope && [
     importCountryLabel(orderScope.country),
     orderScope.year && orderScope.majorWeek ? orderScope.year + '/' + (orderScope.orderWeek || orderScope.majorWeek) + '차' : '',
   ].filter(Boolean).join(' · ');
 
   const orderBridge = useKakaoOrderRegisterBridge({
+    allMessages,
+    scopedMessageIds,
     scopedMessages,
+    baseViewByKey,
     viewItem: view,
     sourceTypeFn: sourceType,
     orderScope: pastedFeed ? null : orderScope,
@@ -425,14 +774,14 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
   );
 
   const farmSummary = useMemo(
-    () => buildFarmSummary(invalid ? [] : shownTotals, {
+    () => buildFarmSummary(invalid ? emptyArray : totals, {
       knownFarms,
       excludedItems: scopedExcludedItems,
       ignoredTotals: scopedIgnoredTotals,
       memos: scopedMemos,
       reviewCount: reviewMessageCount,
     }),
-    [invalid, shownTotals, knownFarms, scopedExcludedItems, scopedIgnoredTotals, scopedMemos, reviewMessageCount]
+    [invalid, totals, knownFarms, scopedExcludedItems, scopedIgnoredTotals, scopedMemos, reviewMessageCount]
   );
 
   const fullTransferText = useMemo(
@@ -440,7 +789,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
     [farmSummary, copyFormat, copyLang]
   );
 
-  function toggleManualClean(message, cleanFlag) {
+  const toggleManualClean = useCallback((message, cleanFlag) => {
     let persisted = false;
     if (!pastedFeed && hiddenMessages.ready) {
       persisted = hiddenMessages.change(message.id, cleanFlag);
@@ -452,24 +801,62 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
         return next;
       });
     }
-    if (cleanFlag && linkedIds.has(message.id)) setFocus(null);
+    setFocus(prev => (cleanFlag && prev?.type === 'message' && prev.id === message.id ? null : prev));
     setNotice(
       (cleanFlag
         ? '정리처리됨 상태로 전환했습니다. 한 줄 목록의 [복원]으로 되돌릴 수 있습니다.'
         : '정리처리됨 원문을 발주 목록으로 복원했습니다.')
       + (!pastedFeed && hiddenMessages.ready && persisted ? '' : ' (현재 화면 적용)')
     );
-  }
+  }, [pastedFeed, hiddenMessages]);
 
-  function matchTotal(key) {
-    setFocus({ type: 'total', key });
-  }
+  const matchTotal = useCallback(key => {
+    setFocus(prev => (prev?.type === 'total' && prev.key === key ? null : { type: 'total', key }));
+  }, []);
 
-  const update = (key, patch) => {
+  const toggleFocusMessage = useCallback(messageId => {
+    setFocus(prev => (prev?.type === 'message' && prev.id === messageId ? null : { type: 'message', id: messageId }));
+  }, []);
+
+  const update = useCallback((key, patch) => {
     setNotice('');
     setFocus(null);
     setEdits(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }));
-  };
+  }, []);
+
+  const handleToggleCleanedExpand = useCallback(entryId => {
+    setExpandedCleaned(prev => ({ ...prev, [entryId]: !prev[entryId] }));
+  }, []);
+
+  const handleToggleOpenEditor = useCallback(messageId => {
+    setOpenEditors(prev => ({ ...prev, [messageId]: !prev[messageId] }));
+  }, []);
+
+  const handleCleanMessage = useCallback(message => {
+    toggleManualClean(message, true);
+  }, [toggleManualClean]);
+
+  const handleAppendManualRow = useCallback(m => {
+    setManual(prev => ({
+      ...prev,
+      [m.id]: {
+        ...prev[m.id],
+        items: [
+          ...prev[m.id].items,
+          {
+            key: JSON.stringify(['manual', m.id, m.text, prev[m.id].items.length]),
+            year: m.time.match(/^\d{4}/)?.[0] || '',
+            product: '',
+            quantity: '',
+            unit: '',
+            week: '',
+            farm: '',
+            reviewReason: '원문과 대조 후 포함',
+          },
+        ],
+      },
+    }));
+  }, []);
 
   function restoreCleaned(m) {
     const defaultYear = m.time?.match(/^\d{4}/)?.[0] || String(orderScope?.year || new Date().getFullYear());
@@ -621,202 +1008,59 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
     );
   }
 
+  const handleRestoreCleanedEntry = useCallback(entry => {
+    if (entry.manualHidden) {
+      toggleManualClean(entry.sourceMessage || entry, false);
+    } else {
+      restoreCleaned(entry);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toggleManualClean, orderScope, knownFarms, sourceFilter]);
+
   function renderCleanedRow(entry) {
-    const oneLine = formatCleanedSingleLine(entry.text) || '(빈 메시지)';
-    const expanded = !!expandedCleaned[entry.id];
-    const isDuplicate = Boolean(entry.duplicateOf);
-    const isAi = entry.analysisSource === 'llm';
     return (
-      <div key={entry.id} data-cleaned-id={entry.id} className="kakao-cleaned-item">
-        <div className="kakao-cleaned-row">
-          <span className="kakao-cleaned-badge">정리처리됨</span>
-          {!pastedFeed && (
-            <span
-              className={'kakao-analysis-badge ' + (isAi ? 'kakao-analysis-ai' : 'kakao-analysis-fallback')}
-              title={isAi ? '구독 LLM 정밀 분류 완료' : '미분석 신규 원문 · 정규식 임시 분류'}
-            >
-              {isAi ? 'AI분류' : '임시분류'}
-            </span>
-          )}
-          <span className="kakao-cleaned-time">{shortKakaoTime(entry.time)}</span>
-          <button
-            type="button"
-            className="kakao-cleaned-text"
-            aria-expanded={expanded}
-            title={oneLine}
-            onClick={() => setExpandedCleaned(prev => ({ ...prev, [entry.id]: !expanded }))}
-          >
-            {oneLine}
-          </button>
-          <button
-            type="button"
-            className="kakao-restore-btn"
-            disabled={isDuplicate}
-            title={isDuplicate ? '동일 원문 중복' : '발주 검토 목록으로 복원'}
-            onClick={() => entry.manualHidden ? toggleManualClean(entry.sourceMessage || entry, false) : restoreCleaned(entry)}
-          >
-            {isDuplicate ? '중복' : '복원'}
-          </button>
-        </div>
-        {expanded && (
-          <div className="kakao-cleaned-detail">
-            <small className="kakao-cleaned-reason">
-              {entry.time}{entry.reason ? ' · ' + entry.reason : ''}
-              {entry.duplicateOf ? ' · 중복 원본 ' + sourceReference(entry.duplicateOf) : ''}
-            </small>
-            <pre className="kakao-source-body">{entry.text}</pre>
-          </div>
-        )}
-      </div>
+      <MemoizedCleanedRow
+        key={entry.id}
+        entry={entry}
+        expanded={!!expandedCleaned[entry.id]}
+        pastedFeed={Boolean(pastedFeed)}
+        onToggleExpand={handleToggleCleanedExpand}
+        onRestore={handleRestoreCleanedEntry}
+      />
     );
   }
 
   function renderMessage(m) {
+    const isManual = Boolean(manual[m.id]);
     const visible = m.kind === 'review'
-      ? m.items.filter(i => manual[m.id] || inOrderScope(view(i)))
+      ? m.items.filter(i => isManual || inOrderScope(view(i)))
       : m.items.filter(i => inScope(view(i)));
-    const linked = selectedMessage?.id === m.id || m.items.some(i => sourceKeys.has(i.key));
+    const isMessageSelected = selectedMessage?.id === m.id;
+    const linked = isMessageSelected || (sourceKeys.size > 0 && m.items.some(i => sourceKeys.has(i.key)));
     const contributions = m.items.map(item => includedRows.get(item.key)).filter(Boolean);
-    const type = sourceType(m);
     const open = !!openEditors[m.id];
-    const isAi = m.analysisSource === 'llm';
     return (
-      <article key={m.id} data-source-id={m.id} data-source-kind={m.kind} className={'kakao-order-message ' + (linked ? 'kakao-linked' : '')}>
-        <div className="kakao-source-meta">
-          <strong>{pastedFeed ? '붙여넣기' : importRoom}</strong>
-          <span>{m.time}</span>
-          <span>{type === '추가' ? '추가 발주' : type === '취소' ? '취소 요청' : '검토 필요'}</span>
-          {!pastedFeed && !manual[m.id] && (
-            <span
-              className={'kakao-analysis-badge ' + (isAi ? 'kakao-analysis-ai' : 'kakao-analysis-fallback')}
-              title={isAi ? '구독 LLM 정밀 분류 완료' : '미분석 신규 원문 · 정규식 임시 분류'}
-            >
-              {isAi ? 'AI분류' : '임시분류'}
-            </span>
-          )}
-          {contributions.length > 0 && <span className="kakao-source-included"><span aria-hidden="true">✓ </span>합계 반영</span>}
-          {linked && <strong className="kakao-source-reference">{sourceReference(m.id)}</strong>}
-        </div>
-        {contributions.length > 0 && (
-          <div className="kakao-source-contributions" aria-label="이 원문에서 합산한 품목">
-            <ul>
-              {contributions.slice(0, 3).map(row => (
-                <li key={row.key}>
-                  {row.farm && `[${row.farm}] `}{row.product} {row.quantity} {row.unit}{row.customer && ' · ' + row.customer}
-                </li>
-              ))}
-            </ul>
-            {contributions.length > 3 && (
-              <details>
-                <summary>반영 품목 {contributions.length - 3}개 더 보기</summary>
-                <ul>
-                  {contributions.slice(3).map(row => (
-                    <li key={row.key}>
-                      {row.farm && `[${row.farm}] `}{row.product} {row.quantity} {row.unit}{row.customer && ' · ' + row.customer}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
-          </div>
-        )}
-        {type !== '취소' && visible.length > 0 && (
-          <KakaoMessageErpSummary
-            message={m}
-            visibleItems={visible}
-            viewItem={view}
-            bridge={orderBridge}
-          />
-        )}
-        <pre className="kakao-source-body">{m.text}</pre>
-        <div className="kakao-source-actions">
-          {visible.length > 0 && type !== '취소' && (
-            <button type="button" className="kakao-match-source" aria-pressed={selectedMessage?.id === m.id} onClick={() => setFocus({ type: 'message', id: m.id })}>
-              이 원문의 합계 보기
-            </button>
-          )}
-          {(visible.length > 0 || m.reason) && (
-            <button type="button" className="kakao-edit-source" aria-expanded={open} onClick={() => setOpenEditors(previous => ({ ...previous, [m.id]: !open }))}>
-              {open ? '품목·수량 접기' : m.kind === 'review' ? '발주 내용 검토' : '품목·수량 확인'}
-            </button>
-          )}
-          <button type="button" className="kakao-visibility-action" aria-label="발주 외 원문 정리 처리" onClick={() => toggleManualClean(m, true)}>
-            정리 처리
-          </button>
-        </div>
-        {open && (
-          <div>
-            {m.reason && <p className="kakao-review-reason">{m.reason} · {type === '취소' ? '취소 수량은 합산 제외' : '확인 전 합계 제외'}</p>}
-            {m.retained?.map((r, i) => (
-              <p key={i}>기존 주문 유지: {r.product} {r.quantity} {r.unit} · 새 추가 수량이 아니므로 합산하지 않습니다.</p>
-            ))}
-            {visible.map(base => {
-              const row = view(base);
-              const isRowDisabled = type === '취소';
-              return (
-                <fieldset key={row.key} disabled={isRowDisabled} className={sourceKeys.has(row.key) ? 'kakao-linked' : ''}>
-                  <legend>
-                    <label>
-                      <input
-                        type="checkbox"
-                        disabled={isRowDisabled}
-                        checked={!isRowDisabled && !!row.checked}
-                        onChange={e => update(row.key, { checked: e.target.checked })}
-                      />{' '}
-                      {type === '취소' || row.cancelled ? '취소·제외 품종' : m.kind === 'review' ? '검토 후 합산' : '합산'} · {row.product || '품종 확인'}
-                    </label>
-                  </legend>
-                  {fields.map(([key, label]) => (
-                    <label key={key}>
-                      {label}
-                      <input value={row[key] || ''} onChange={e => update(row.key, { [key]: e.target.value })} />
-                    </label>
-                  ))}
-                  <small>
-                    {row.checked ? '합계에 포함' : row.reviewReason || '합계에서 제외'}
-                    {row.revisionNote && ' · ' + row.revisionNote}
-                    {row.note && ' · 요청: ' + row.note}
-                  </small>
-                  {row.checked && validItem(row) && (
-                    <button type="button" onClick={() => matchTotal(importTotalKey(row, knownFarms))}>
-                      이 품종 원문 모아보기
-                    </button>
-                  )}
-                </fieldset>
-              );
-            })}
-            {m.unparsed?.length > 0 && <p>해석하지 못한 수량 행: {m.unparsed.join(' / ')}</p>}
-            {manual[m.id] && (
-              <button
-                type="button"
-                onClick={() =>
-                  setManual(prev => ({
-                    ...prev,
-                    [m.id]: {
-                      ...prev[m.id],
-                      items: [
-                        ...prev[m.id].items,
-                        {
-                          key: JSON.stringify(['manual', m.id, m.text, prev[m.id].items.length]),
-                          year: m.time.match(/^\d{4}/)?.[0] || '',
-                          product: '',
-                          quantity: '',
-                          unit: '',
-                          week: '',
-                          farm: '',
-                          reviewReason: '원문과 대조 후 포함',
-                        },
-                      ],
-                    },
-                  }))
-                }
-              >
-                품목 행 추가
-              </button>
-            )}
-          </div>
-        )}
-      </article>
+      <MemoizedSourceMessageCard
+        key={m.id}
+        message={m}
+        visibleItems={visible}
+        contributions={contributions}
+        linked={linked}
+        isMessageSelected={isMessageSelected}
+        open={open}
+        isManual={isManual}
+        pastedFeed={Boolean(pastedFeed)}
+        sourceKeys={open ? sourceKeys : null}
+        knownFarms={knownFarms}
+        viewItem={view}
+        orderBridge={orderBridge}
+        onFocusMessage={toggleFocusMessage}
+        onToggleEditor={handleToggleOpenEditor}
+        onCleanMessage={handleCleanMessage}
+        onUpdateItem={update}
+        onMatchTotal={matchTotal}
+        onAppendManualRow={handleAppendManualRow}
+      />
     );
   }
 
@@ -891,10 +1135,10 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
         <span role="status" className="kakao-live-notice">{notice}</span>
       </header>
 
-      <KakaoOrderRegisterPanel
-        bridge={orderBridge}
-        onFocusMessage={(messageId) => setFocus({ type: 'message', id: messageId })}
-      />
+              <KakaoOrderRegisterPanel
+                bridge={orderBridge}
+                onFocusMessage={toggleFocusMessage}
+              />
 
       <div className="kakao-columns">
         <section className="kakao-totals" aria-label="농장 전달용 자동 합계">
@@ -944,7 +1188,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                 </div>
                 <div className="kakao-kpi-item kakao-kpi-wide">
                   <span className="kakao-kpi-label">단위별 총 수량</span>
-                  <strong className="kakao-kpi-value">{farmSummary.units.totalLine || '0'}</strong>
+                  <strong className="kakao-kpi-value">{(copyLang === 'en' ? farmSummary.unitsEn : farmSummary.units).totalLine || '0'}</strong>
                 </div>
                 <div className="kakao-kpi-item">
                   <span className="kakao-kpi-label">제외 · 확인필요</span>
@@ -990,7 +1234,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
 
           {totals.length > 0 && !invalid ? (
             <>
-              <div className="kakao-farm-board" aria-label="농장별 전달 정돈 카드">
+              <div className="kakao-farm-board" aria-label="농장별 전달 정돈 카드" ref={farmBoardRef}>
                 <div className="kakao-copy-toolbar">
                   <div className="kakao-copy-toggles">
                     <div role="group" aria-label="전달 포맷 선택" className="kakao-segmented">
@@ -998,8 +1242,8 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                       <button type="button" aria-pressed={copyFormat === 'detailed'} onClick={() => setCopyFormat('detailed')}>상세(업체·변경)</button>
                     </div>
                     <div role="group" aria-label="단위 언어 선택" className="kakao-segmented">
+                      <button type="button" aria-pressed={copyLang === 'en'} onClick={() => setCopyLang('en')}>영문(bunches·box·stems)</button>
                       <button type="button" aria-pressed={copyLang === 'ko'} onClick={() => setCopyLang('ko')}>국문 단위</button>
-                      <button type="button" aria-pressed={copyLang === 'en'} onClick={() => setCopyLang('en')}>영문(Farm)</button>
                     </div>
                   </div>
                   <button type="button" className="kakao-primary-btn" disabled={copyDisabled} onClick={copyFarmTransferAll}>
@@ -1015,8 +1259,15 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                 <div className="kakao-farm-card-list">
                   {farmSummary.cards.map(card => {
                     const cardSubtotal = (copyLang === 'en' ? card.unitsEn : card.units).totalLine;
+                    const hasLinkedMessageItem = selectedMessage
+                      ? card.items.some(it => it.sourceKeys.some(k => messageKeys.has(k)))
+                      : false;
                     return (
-                      <article key={card.key} className="kakao-farm-card" aria-label={card.title}>
+                      <article
+                        key={card.key}
+                        className={'kakao-farm-card' + (hasLinkedMessageItem ? ' kakao-card-linked' : '')}
+                        aria-label={card.title}
+                      >
                         <header className="kakao-farm-card-head">
                           <div className="kakao-farm-card-heading">
                             <strong>{card.title}</strong>
@@ -1046,7 +1297,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                               <tr>
                                 <th scope="col">번호</th>
                                 <th scope="col">품목명</th>
-                                <th scope="col">규격 · 포장</th>
+                                <th scope="col">DB 품목명 (영문)</th>
                                 <th scope="col">수량</th>
                                 <th scope="col">비고</th>
                               </tr>
@@ -1054,15 +1305,21 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                             <tbody>
                               {card.items.map((item, idx) => {
                                 const isPicked = selectedTotal && item.totalKeys.includes(selectedTotal.key);
-                                const displayName = item.spec ? item.baseName : item.product;
-                                const specText = [item.spec, item.packSpec].filter(Boolean).join(' · ');
+                                const isLinkedFromMessage = selectedMessage
+                                  ? item.sourceKeys.some(k => messageKeys.has(k))
+                                  : false;
+                                const displayName = [item.product, item.packSpec].filter(Boolean).join(' · ');
                                 const remarks = [
                                   item.revisions,
                                   copyFormat === 'detailed' ? item.customers : '',
                                   ...item.requestNotes,
                                 ].filter(Boolean).join(' · ');
                                 return (
-                                  <tr key={item.key} className={isPicked ? 'kakao-linked' : ''}>
+                                  <tr
+                                    key={item.key}
+                                    data-farm-line-key={item.key}
+                                    className={(isPicked || isLinkedFromMessage) ? 'kakao-linked' : ''}
+                                  >
                                     <td className="kakao-col-num">{idx + 1}</td>
                                     <td>
                                       <button
@@ -1074,7 +1331,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                                         {displayName}
                                       </button>
                                     </td>
-                                    <td className="kakao-col-spec">{specText || '–'}</td>
+                                    <td className="kakao-col-db-en">{item.dbProdName || '–'}</td>
                                     <td className="kakao-col-qty">{formatUnitDisplay(item.quantity, item.unit, copyLang)}</td>
                                     <td className="kakao-col-note">{remarks || '–'}</td>
                                   </tr>
@@ -1127,26 +1384,28 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                 </div>
               )}
 
-              <h5 className="kakao-ledger-subheading">차수 · 원문 대조 원장</h5>
-              <div className="kakao-table">
-                <table>
-                  <thead>
-                    <tr>
-                      {['국가 · 품목군', '품종 / 원문 대조', '수량', '비고 (업체·수량)'].map(v => <th key={v}>{v}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cycleTotals.map(cycle => (
-                      <Fragment key={cycle.key}>
-                        <tr className="kakao-cycle-heading"><td colSpan={4}><h5>{cycle.label}</h5></td></tr>
-                        {cycle.rows.map(renderTotal)}
-                      </Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <button type="button" disabled={copyDisabled} onClick={copy}>농장 전달용 복사</button>
-              <small>선택한 차수·품목군 전체 합계를 한 줄 원장 형식으로 복사합니다.</small>
+              <details className="kakao-secondary-ledger">
+                <summary className="kakao-ledger-subheading">차수 · 원문 대조 원장 보기 ({totals.length}행)</summary>
+                <div className="kakao-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        {['국가 · 품목군', '품종 / 원문 대조', '수량', '비고 (업체·수량)'].map(v => <th key={v}>{v}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cycleTotals.map(cycle => (
+                        <Fragment key={cycle.key}>
+                          <tr className="kakao-cycle-heading"><td colSpan={4}><h5>{cycle.label}</h5></td></tr>
+                          {cycle.rows.map(renderTotal)}
+                        </Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <button type="button" disabled={copyDisabled} onClick={copy}>농장 전달용 복사</button>
+                <small>선택한 차수·품목군 전체 합계를 한 줄 원장 형식으로 복사합니다.</small>
+              </details>
             </>
           ) : (
             !invalid && activeFeed && (!loading || pastedFeed) && (!error || pastedFeed) && (
@@ -1536,6 +1795,12 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
           border: 1px solid #cbd5e1;
           border-radius: 8px;
           overflow: hidden;
+          content-visibility: auto;
+          contain-intrinsic-size: 0 220px;
+        }
+        .kakao-farm-card.kakao-card-linked {
+          border-color: #d97706;
+          box-shadow: 0 0 0 2px #fde68a;
         }
         .kakao-farm-card-head {
           display: flex;
@@ -1626,9 +1891,10 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
           color: #475569;
           text-align: right !important;
         }
-        .kakao-col-spec {
-          color: #334155;
+        .kakao-col-db-en {
+          color: #1e3a8a;
           font-size: 13px;
+          font-weight: 500;
         }
         .kakao-col-qty {
           white-space: nowrap;
@@ -1698,10 +1964,13 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
           font-size: 12.5px !important;
         }
         .kakao-ledger-subheading {
-          margin: 12px 0 6px;
+          margin: 0;
           font-size: 13px;
           color: #334155;
           font-weight: 700;
+        }
+        .kakao-secondary-ledger > .kakao-table {
+          margin-top: 8px;
         }
         .kakao-additions details {
           background: #ffffff;
@@ -1835,15 +2104,28 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
           color: #475569;
           font-size: 12.5px;
         }
-        .kakao-source-included {
-          display: inline-block;
+        .kakao-additions button.kakao-source-included {
+          display: inline-flex;
+          align-items: center;
           white-space: nowrap;
-          padding: 1px 6px;
-          border-radius: 4px;
+          padding: 2px 8px;
+          border-radius: 999px;
           background: #dcfce7;
+          border: 1px solid #86efac;
           color: #14532d;
           font-weight: 700;
           font-size: 12.5px;
+          line-height: 1.35;
+        }
+        .kakao-additions button.kakao-source-included:hover:not(:disabled) {
+          background: #bbf7d0;
+          border-color: #22c55e;
+        }
+        .kakao-additions button.kakao-source-included[aria-pressed='true'],
+        .kakao-additions button.kakao-source-included.is-active {
+          background: #15803d;
+          border-color: #15803d;
+          color: #ffffff;
         }
         .kakao-source-contributions {
           margin: 5px 0;
@@ -1881,6 +2163,8 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
         .kakao-order-message {
           padding: 10px 8px;
           border-bottom: 1px solid #e2e8f0;
+          content-visibility: auto;
+          contain-intrinsic-size: 0 180px;
         }
         .kakao-order-message:last-child {
           border-bottom: 0;
@@ -1888,6 +2172,8 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
         .kakao-cleaned-item {
           border-bottom: 1px solid #e2e8f0;
           background: #f8fafc;
+          content-visibility: auto;
+          contain-intrinsic-size: 0 36px;
         }
         .kakao-cleaned-item:last-child {
           border-bottom: 0;
