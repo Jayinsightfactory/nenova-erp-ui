@@ -5408,7 +5408,6 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: 단위·회귀·ERP 가드·빌드·`pstack-verify.cjs` 전수 PASS.
 5. 주의/잠금: `desktop/` 파일 미수정(2026-11-25 조건부 승인제 준수), `nenova.exe` 공유 테이블 스키마 변경 0건, 기존 `48-02` 수국 7건(`#8262~#8268`) 미변경. 연결 목표: g03, g17, g19 / 학습 반영: 있음
 
-
 ## 2026-11-26 데스크톱앱 v1.3.104 — 부서별 매뉴얼 「판단 기준」 탭 안내(사장님 "Yes, 앱까지") (`feat/desktop-judgments-1104`, 연결 목표: 없음 — 새 목표 후보 "판단 방식 추론 정확도")
 - 요약: nenova-erp-ui#2037 로 웹에 들어간 「판단 기준」 탭을 데스크톱앱에도 반영해 달라는 사장님 승인(Yes)에 따라 앱 버전을 1.3.103 → 1.3.104 로 올리고 업데이트 안내문에 새 탭을 적었다. 앱은 웹 화면을 그대로 띄우므로 탭 자체는 이미 보이며, 메뉴(`/work/manuals`)는 그대로라 `components/Layout.js`·`desktop/menu.json`·홈 `shell.js` 는 바꿀 것이 없었다.
 - 검색어: 데스크톱앱 1.3.104 판단 기준 탭 releaseNotes 업데이트 안내문 handover-judgments 아침 첫 실행 1회
@@ -5427,3 +5426,13 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: 자동 검사 통과 → 본편 반영 → 운영 반영 확인 → 작업 폴더 정리.
 4. 검증 상태: `node __tests__/importHandover.test.cjs` 통과, `pstack-verify.cjs` 통과. 운영 화면 확인은 반영 뒤.
 5. 주의/잠금: 맞은 비율이 높아도 "경고·확인 절차를 건너뛰는" 버릇은 매뉴얼에 싣기 전에 사장님께 먼저 여쭐 것. `desktop/` 미수정(자료 파일만 바뀜). 학습 반영: 있음.
+
+
+## 2026-11-26 네덜란드 도착원가 다주차 일반 규칙 4종 보강 — CI Org 원산지 세율(`0%/8%/25%`)·`PROFORMA`/복수 부대비용 보존·식물학명 6종/`[EZ]`·단당송이수·소량 샘플 상한 (`feat/nl-general-rules`, 연결 목표: g17, g03, g13, g19)
+- 요약: 네덜란드 실무 엑셀 75개 시트 전수 규칙 스캔(`all-sheets-rule-scan.json`) 및 다주차 일반화 감사(`hq-generalization-audit.json`) 결과를 반영해 매주 달라지는 네덜란드 업로드에 대응하는 4대 일반 규칙을 구현했다: ① Holex CI `Org` 2자리 ISO 원산지 추출·보존(`importInvoiceLocal.js`·`importPackingPrompt.js`·`importPackingResponse.js`·`importPackingReceiptAdapter.js`) 및 EU(`0%`)·이스라엘/소재류(`8%`)·비EU 제3국 절화(`25%`) 일반 세율 판정(`nlInvoiceTariffReference.js`, 구 원장 국가명 폴백 유지, `genNL`·`consolidateNlDraftLines` 혼합 원산지 병합 분리), ② `InvoiceReceiptCostReview.js` `source: 'review'` 운임/문서비 증발 차단 + `Holex PROFORMA` 헤더/푸터 및 복수 부대비용(`Phyto`·`Documents`·`Packing`·`Trolley` 등 `qty*price=total` 총액 대사) 로컬 파싱 + `PackingListTool.js` `NL` 상업송장 드롭존 AWB 오투입 가드 확장, ③ 검역 차감 식물학명·오타 6종(`onisogallium`·`acasia`·`zantedeschia`·`eustoma`·`anigozanthos`·`leucospermum` + `astillbe`) 및 `[EZ]` 접두사 제거(`nlQuarantineDeduction.js`·`importPacking.js`), ERP 품목 마스터 `SteamOf1Bunch > 1` 우선 적용 및 `BUNCH_ST_NL`(`TULIP:10`, `EUCALYPTUS:3`, `GOSSYPIUM:10`) 보강(`invoiceCostPreview.js`), ④ 소량 수입 시 검역 샘플 차감 송이수 상한(`Math.min(sampleStems, kindTotalStems)` 및 엑셀 `MIN(tableStems, SUM(E...))` 수식·캐시 `0.000000원` 일치) 적용.
+- 검색어: 네덜란드 도착원가 다주차 일반화 Org 원산지 한EU FTA 0% 8% 25% PROFORMA source review 부대비용 onisogallium zantedeschia eustoma anigozanthos leucospermum EZ SteamOf1Bunch 샘플 상한 MIN g17 g03 g13 g19
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-nl-general-rules` 워크트리, `feat/nl-general-rules` 브랜치) — `lib/{nlInvoiceTariffReference,nlQuarantineDeduction,nlCompanyTemplateCost,invoiceCostOriginalRestoration,importInvoiceLocal,importPackingPrompt,importPackingResponse,importPacking,importPackingReceiptAdapter,invoiceCostPreview}.js`, `components/import-tools/{InvoiceReceiptCostReview,PackingListTool}.js`, `__tests__/{importInvoiceLocal,nlQuarantineDeduction,invoiceCostOriginalRestoration,invoiceCostPreview}.test.js`.
+2. 완료된 것: CI `Org` 추출·혼합 원산지 분리·`0%/8%/25%` 일반 관세 규칙, `source:'review'` 부대비용 보존·`PROFORMA` 및 복수 부대비용 로컬 파서·`NL` AWB 드롭존 가드, 6종 식물학명·`[EZ]` 태그 제거·ERP `SteamOf1Bunch` 우선 순위, 소량 수입 검역 샘플 상한(`MIN`) JS-엑셀 `0.00원` 정합화 및 단위·통합 회귀 테스트 추가.
+3. 남은 할 일: PR 생성 및 GitHub Actions `verify` CI 통과 → `master` Squash 머지 → `Deploy to Cafe24` 웹 배포 확인 → 워크트리 정리 및 `owner-agi-twin.js --learn`·`sync-nenova-hq.js` 실행.
+4. 검증 상태: 대상 회귀 테스트 전수 PASS(NL 134/134, 로컬송장 18/18, 패킹 20/20, 어댑터 19/19), ERP 계약 스위트 492/492 PASS, `test:nenova-dnspy-evidence`·`test:erp-manifest`·`guard:erp-writes`·`guard:agent-slop` PASS, `npm run build` PASS, `pstack-verify.cjs` 5/5 PASS.
+5. 주의/잠금: 운영 MSSQL 쓰기 0건(`SELECT-only`), `desktop/` 하위 파일 수정 0건(웹 단독 배포), 국가별 고정 소독비 원칙(`NL 220,000원` 고정 + 샘플 손실 가산) 불변 유지. 연결 목표: g17, g03, g13, g19 / 학습 반영: 있음

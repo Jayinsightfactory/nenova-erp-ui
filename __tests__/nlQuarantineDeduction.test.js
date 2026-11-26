@@ -62,9 +62,9 @@ test('43-02 unmatched kinds remain distinct while 48-1 Gossypium/Weigelia/Hippea
     stemQuantity:100,lineAmount:100,unitPrice:1,effectiveTariffRate:0}));
   const r=nlQuarantineDeduction(lines,{freight:0,exchangeRate:1000,customsBeforeDeduction:100000});
   assert.equal(r.ready,true);assert.equal(r.kindCount,4);
-  assert.ok(Math.abs(r.deduction - 1500000 / 77) < 1e-6);
-  assert.deepEqual(r.selected.map(x=>[x.kind,x.stems]),[['Weigelia',5],['Tulip',10]]);
-  assert.deepEqual(r.excluded.map(x=>x.kind),['Amerine','Onisogallium']);
+  assert.ok(Math.abs(r.deduction - 100000 / 3) < 1e-6);
+  assert.deepEqual(r.selected.map(x=>[x.kind,x.stems]),[['Ornithogalum',10],['Weigelia',5],['Tulip',10]]);
+  assert.deepEqual(r.excluded.map(x=>x.kind),['Amerine']);
 });
 
 test('NL reference tariff priority and spelling normalization keep item-specific rate before origin',()=>{
@@ -117,4 +117,50 @@ test('48-1 Holex 7-row shipment converges to exact M-column quarantine deduction
   assert.deepEqual(tpl.costs.selections.map(s=>[s.kind,s.lineId,s.stems]),[['Amaryllis','1',5],['Skimmia','3',6],['Hydrangea','6',10]]);
   assert.ok(Math.abs(tpl.costs.deduct - 164288.54570430366) < 1e-6);
   assert.ok(Math.abs(tpl.total - 588762.5457043037) < 1e-6);
+});
+
+
+test('NL general rules: 6 botanical/spelling synonyms, [EZ] prefix stripping, 2-letter ISO Org 0%/8%/25% tariffs, and small-lot sample cap',()=>{
+  assert.equal(nlQuarantineKind({originalName:'Onisogallium / Arabicum'}),'Ornithogalum');
+  assert.equal(nlQuarantineKind({originalName:'Acasia Dealbata'}),'Acacia');
+  assert.equal(nlQuarantineKind({originalName:'Zantedeschia Aethiopica'}),'Calla');
+  assert.equal(nlQuarantineKind({originalName:'Eustoma Russelianum'}),'Lisianthus');
+  assert.equal(nlQuarantineKind({originalName:'Anigozanthos Flavidus'}),'Kangoroo');
+  assert.equal(nlQuarantineKind({originalName:'Leucospermum Cordifolium'}),'Nutan');
+  assert.equal(nlQuarantineKind({originalName:'Astillbe Washington'}),'Astilbe');
+
+  const ezUnmatched=nlQuarantineDeduction([
+    {lineId:'ez1',originalName:'[EZ] Bouvardia White 60cm',flowerName:'기타',stemQuantity:50,lineAmount:50,unitPrice:1,effectiveTariffRate:0},
+  ],{freight:0,exchangeRate:1000,customsBeforeDeduction:50000});
+  assert.equal(ezUnmatched.ready,true);
+  assert.deepEqual(ezUnmatched.excluded.map(x=>x.kind),['Bouvardia']);
+
+  assert.equal(nlInvoiceTariffRate('Eryngium / Questar','NL'),0);
+  assert.equal(nlInvoiceTariffRate('Clematis / Amazing','BE'),0);
+  assert.equal(nlInvoiceTariffRate('Gossypium Herbaceum','IT'),0);
+  assert.equal(nlInvoiceTariffRate('Clematis (no NL)','NL'),0.25);
+  assert.equal(nlInvoiceTariffRate('Gossypium Herbaceum','IL'),0.08);
+  assert.equal(nlInvoiceTariffRate('Waxflower / Chamelaucium','IL'),0.08);
+  assert.equal(nlInvoiceTariffRate('Cordyline / Red','CR'),0.08);
+  assert.equal(nlInvoiceTariffRate('Cordyline / Green','SG'),0.08);
+  assert.equal(nlInvoiceTariffRate('Grevillea / Ivanhoe','AU'),0.08);
+  assert.equal(nlInvoiceTariffRate('Eucalyptus / Cinerea','US'),0.08);
+  assert.equal(nlInvoiceTariffRate('Astrantia / Roma','KE'),0.25);
+  assert.equal(nlInvoiceTariffRate('Gossypium Herbaceum','TR'),0.25);
+  assert.equal(nlInvoiceTariffRate('Leucospermum / Ayoba','ZA'),0.25);
+  assert.equal(nlInvoiceTariffRate('Hypericum / Coco','ET'),0.25);
+  assert.equal(nlInvoiceTariffRate('Eryngium','네덜란드'),0.25);
+  assert.equal(nlInvoiceTariffRate('Eryngium','Netherlands'),0.25);
+
+  const smallLot=nlQuarantineDeduction([
+    {lineId:'t1',originalName:'Tulip / Double',stemQuantity:100,lineAmount:100,unitPrice:1,effectiveTariffRate:0},
+    {lineId:'h1',originalName:'Hydrangea / Mini',stemQuantity:5,lineAmount:20,unitPrice:4,effectiveTariffRate:0},
+    {lineId:'i1',originalName:'Iris / Blue Magic',stemQuantity:8,lineAmount:6.4,unitPrice:0.8,effectiveTariffRate:0},
+  ],{freight:0,exchangeRate:1000,customsBeforeDeduction:100000});
+  assert.equal(smallLot.ready,true);
+  assert.deepEqual(smallLot.selected.map(x=>[x.kind,x.stems,x.tableStems,x.kindTotalStems,x.capped]),[
+    ['Tulip',10,10,100,false],
+    ['Hydrangea',5,10,5,true],
+    ['Iris',8,30,8,true],
+  ]);
 });

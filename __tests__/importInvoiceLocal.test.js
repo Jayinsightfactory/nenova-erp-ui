@@ -50,8 +50,8 @@ async function main() {
     assert.equal(parsed.invoices[0].local_parser_proof.kind, 'HOLEX_POSITIONED_V1');
     delete parsed.invoices[0].local_parser_proof;
     assert.deepEqual(parsed, { invoices: [{ invoice: '777', supplier: 'Holex', awb: '180-1111-2222', date: '2025/03/03', raw_date: '03 maart 2025', date_kind: 'arrival', date_order: 'DMY', currency: 'EUR', vol_weight: 12, gross_weight: 9.5, total_colli: 1, freight: 2, handling: 1, total_value: 13, lines: [
-      { cl: 'CL7', description: 'ROSE RED 60cm', stems: 20, price: 0.25, t_price: 5, review_evidence: { description: { page: 1, quote: 'ROSE RED 60cm', bbox: null }, stems: { page: 1, quote: '20', bbox: null }, price: { page: 1, quote: '0,25', bbox: null }, t_price: { page: 1, quote: '5,00', bbox: null } } },
-      { cl: 'CL7', description: 'ROSE WHITE 70cm', stems: 10, price: 0.5, t_price: 5, review_evidence: { description: { page: 2, quote: 'ROSE WHITE', bbox: null }, stems: { page: 2, quote: '10', bbox: null }, price: { page: 2, quote: '0,50', bbox: null }, t_price: { page: 2, quote: '5,00', bbox: null } } },
+      { cl: 'CL7', org: 'NL', description: 'ROSE RED 60cm', stems: 20, price: 0.25, t_price: 5, review_evidence: { description: { page: 1, quote: 'ROSE RED 60cm', bbox: null }, stems: { page: 1, quote: '20', bbox: null }, price: { page: 1, quote: '0,25', bbox: null }, t_price: { page: 1, quote: '5,00', bbox: null } } },
+      { cl: 'CL7', org: 'NL', description: 'ROSE WHITE 70cm', stems: 10, price: 0.5, t_price: 5, review_evidence: { description: { page: 2, quote: 'ROSE WHITE', bbox: null }, stems: { page: 2, quote: '10', bbox: null }, price: { page: 2, quote: '0,50', bbox: null }, t_price: { page: 2, quote: '5,00', bbox: null } } },
     ] }] });
     assert.equal(JSON.stringify(f), before);
   });
@@ -196,6 +196,32 @@ async function main() {
     badGrand.pages[1].items.find(i => i.y === 630 && i.x === 549).str = '1';
     assert.equal(reject(badGrand), 'GRAND_TOTAL_MISMATCH');
   });
+  check('Holex PROFORMA header/footer, varied multi-qty charges, and mixed ISO Org extraction reconcile cleanly', () => {
+    const f = fixture();
+    replace(f, '777', 'PROFORMA');
+    replace(f, '777 - Nenova Co. Ltd. - Page 1 of 2', 'PROFORMA - Nenova Co. Ltd. - Page 1 of 2');
+    replace(f, '777 - Nenova Co. Ltd. - Page 2 of 2', '- Nenova Co. Ltd. - Page 2 of 2');
+    f.pages[0].items.find(i => i.y === 600 && i.str === 'NL').str = 'KE';
+    f.pages[1].items.find(i => i.y === 740 && i.str === 'NL').str = 'IL';
+    f.pages[1].items.push(
+      { x: 212, y: 652, str: '1', width: 4 }, { x: 294, y: 652, str: 'Phyto', width: 20 }, { x: 489, y: 652, str: '15,00', width: 20 }, { x: 540, y: 652, str: '15,00', width: 20 },
+      { x: 212, y: 644, str: '1', width: 4 }, { x: 294, y: 644, str: 'Documents', width: 32 }, { x: 489, y: 644, str: '10,00', width: 20 }, { x: 540, y: 644, str: '10,00', width: 20 },
+      { x: 212, y: 636, str: '2', width: 4 }, { x: 294, y: 636, str: 'Trolley', width: 24 }, { x: 489, y: 636, str: '12,50', width: 20 }, { x: 540, y: 636, str: '25,00', width: 20 },
+    );
+    replace(f, '13,00', '63,00');
+    const ok = inspectInvoiceLocal(f);
+    assert.equal(ok.reason, null);
+    const inv = ok.result.invoices[0];
+    assert.equal(inv.invoice, 'PROFORMA');
+    assert.deepEqual(inv.lines.map(l => l.org), ['KE', 'IL']);
+    assert.equal(inv.freight, 2);
+    assert.equal(inv.handling, 51);
+    assert.equal(inv.total_value, 63);
+    const badChargeQty = structuredClone(f);
+    badChargeQty.pages[1].items.find(i => i.y === 636 && i.str === '25,00').str = '24,00';
+    replace(badChargeQty, '63,00', '62,00');
+    assert.equal(reject(badChargeQty), 'CHARGE_AMOUNT_MISMATCH');
+  });
   const file = path.resolve(__dirname, '../output/drive-samples/40-2 NL H CI.pdf');
   if (fs.existsSync(file)) {
     const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
@@ -220,7 +246,7 @@ async function main() {
       assert.equal(inv.currency, 'EUR');
       assert.equal(inv.date_kind, 'arrival');
       assert.ok(inv.raw_date);
-      assert.deepEqual(Object.keys(inv.lines[0]).filter(key => !['t_price', 'review_evidence'].includes(key)).sort(), Object.keys(expected.lines[0]).sort());
+      assert.deepEqual(Object.keys(inv.lines[0]).filter(key => !['org', 't_price', 'review_evidence'].includes(key)).sort(), Object.keys(expected.lines[0]).sort());
       assert.ok(inv.lines.every(line => Number.isFinite(line.t_price) && line.review_evidence.description.page > 0));
       console.log(`INFO saved AI sample: ${expected.lines.length} rows / ${expected.lines.reduce((s, l) => s + l.stems, 0)} stems; local PDF: ${inv.lines.length} rows / ${inv.lines.reduce((s, l) => s + l.stems, 0)} stems`);
     });

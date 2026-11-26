@@ -1679,24 +1679,26 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setStatus({ type: 'error', msg: country === 'CN' ? '중국 인보이스는 PDF 또는 XLSX 파일을 선택하세요.' : t.pdfOnly });
       return;
     }
-    if (country === 'EC') {
+    if (country === 'EC' || country === 'NL') {
       try {
-        const ecBase64 = await new Promise((resolve, reject) => {
+        const localCheckBase64 = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
           reader.onerror = () => reject(new Error('선택한 원본 파일을 읽지 못했습니다.'));
           reader.readAsDataURL(f);
         });
-        const localPdf = await readAwbPdf(ecBase64).catch(() => null);
+        const localPdf = await readAwbPdf(localCheckBase64).catch(() => null);
         if (readerVersion.current !== version) return;
         if (localPdf && isAirWaybillDocument(localPdf)) {
-          if (file) {
+          if (country === 'EC' && file) {
             await handleAwbFile(f);
           } else {
             const parsed = parseAwbFields(localPdf);
             setStatus({
               type: 'info',
-              msg: `이 파일은 항공운송장(AWB ${parsed.awb || f.name}) PDF입니다. 먼저 에콰도르 인보이스(CI) PDF를 선택한 뒤 아래 「AWB 항공운송장 PDF (선택)」에 올려 주세요.`,
+              msg: country === 'EC'
+                ? `이 파일은 항공운송장(AWB ${parsed.awb || f.name}) PDF입니다. 먼저 에콰도르 인보이스(CI) PDF를 선택한 뒤 아래 「AWB 항공운송장 PDF (선택)」에 올려 주세요.`
+                : `이 파일은 항공운송장(AWB ${parsed.awb || f.name}) PDF입니다. 패킹리스트 변환에는 네덜란드 상업송장(CI / Factuur) PDF를 올려 주세요. AWB 중량·운임 대조는 도착원가 화면의 「AWB 업로드」에서 사용할 수 있습니다.`,
             });
           }
           return;

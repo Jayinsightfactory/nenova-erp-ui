@@ -232,4 +232,54 @@ test('NL 48-1 direct invoice draft consolidates 10 raw CI lines into 7 genNL row
  assert.ok(Math.abs(orig.O15.v - 6938.691489) < 1e-4);
  assert.ok(Math.abs(orig.O17.v - 12211.004311) < 1e-4);
 });
+test('NL general rules separate EU vs non-EU Org tariffs, prioritize ERP SteamOf1Bunch with [EZ] stripping, keep review charges, and guard NL AWB in CI dropzone',async()=>{
+ const {genNL,familyNL,BUNCH_ST_NL}=await import('../lib/importPacking.js');
+ const products=[
+  {ProdKey:501,ProdName:'Astrantia / Roma',CounName:'네덜란드',CountryFlower:'네덜란드',OutUnit:'단',EstUnit:'단',SteamOf1Box:0,SteamOf1Bunch:10,BunchOf1Box:0,isDeleted:0},
+  {ProdKey:502,ProdName:'Skimmia / Conf Kew',CounName:'네덜란드',CountryFlower:'네덜란드',OutUnit:'단',EstUnit:'단',SteamOf1Box:0,SteamOf1Bunch:5,BunchOf1Box:0,isDeleted:0},
+  {ProdKey:503,ProdName:'Eucalyptus / Baby Blue',CounName:'네덜란드',CountryFlower:'네덜란드',OutUnit:'단',EstUnit:'단',SteamOf1Box:0,SteamOf1Bunch:0,BunchOf1Box:0,isDeleted:0},
+  {ProdKey:504,ProdName:'Gossypium / Herbaceum',CounName:'네덜란드',CountryFlower:'네덜란드',OutUnit:'단',EstUnit:'단',SteamOf1Box:0,SteamOf1Bunch:0,BunchOf1Box:0,isDeleted:0},
+ ];
+ const raw=[
+  ['CL4','NL','ASTRANTIA ROMA 60cm',501,100,0.8,80],
+  ['CL4','KE','ASTRANTIA ROMA 60cm',501,100,0.8,80],
+  ['CL4','NL','[EZ] SKIMMIA CONF KEW 45cm',502,50,1.5,75],
+  ['CL4','IT','[EZ] EUCALYPTUS BABY BLUE 60cm',503,30,1.2,36],
+  ['CL4','IL','GOSSYPIUM HERBACEUM 60cm',504,20,2.0,40],
+ ].map(([cl,org,originalName,prodKey,stemQuantity,unitPrice,lineAmount],i)=>({
+  lineId:`cccccccc-cccc-4ccc-8ccc-${String(i+1).padStart(12,'0')}`,
+  lineNo:i+1,originalName,prodKey,boxQuantity:null,bunchQuantity:null,stemQuantity,
+  priceUnit:'송이',unitPrice,lineAmount,currency:'EUR',reviewed:{confirmed:true},
+  sourceEvidence:{invoiceCustomerCode:cl,originCountry:org},
+ }));
+ const document={orderYear:'2026',orderWeek:'47-02',sourceHash:'ef'.repeat(32),originalFileName:'47-2_NL_PROFORMA.pdf',
+  invoiceNo:'PROFORMA',farmKey:null,invoiceYear:'2026',rawMetadata:{},
+  reviewedMetadata:{country:'NL',transportMode:'AIR',inputDate:'2026-11-18',gw:85,cw:95,
+   costInputs:{freight:{currency:'EUR',amount:210.5,source:'review'},docFee:{currency:'EUR',amount:75,source:'review'}}},
+  lines:raw};
+ const queryFn=async sql=>{assert.doesNotMatch(sql,/\b(INSERT|UPDATE|DELETE|EXEC)\b/i);return{recordset:structuredClone(products)};};
+ const p=await prepareInvoiceCostPreview({queryFn,types:{Int:'INT'},request:{document}});
+ assert.deepEqual(p.issues,[]);
+ assert.equal(p.document.lines.length,5,'EU (NL) and non-EU (KE) Astrantia in same CL block must not merge');
+ const lineInputs=p.document.reviewedMetadata.invoiceCostInput.lineInputs;
+ const byOriginAndKey=p.document.lines.map((l,i)=>[l.prodKey,l.sourceEvidence?.originCountry,lineInputs[i].tariffRate,lineInputs[i].stemsPerBunch]);
+ assert.deepEqual(byOriginAndKey,[
+  [503,'IT',0,3],
+  [502,'NL',0,5],
+  [501,'NL',0,10],
+  [501,'KE',0.25,10],
+  [504,'IL',0.08,10],
+ ]);
+ const packed=genNL(XLSX,{invoice:'PROFORMA',supplier:'Holex',lines:[
+  {cl:'CL4',org:'NL',description:'ASTRANTIA ROMA 60cm',stems:100,price:0.8},
+  {cl:'CL4',org:'KE',description:'ASTRANTIA ROMA 60cm',stems:100,price:0.8},
+  {cl:'CL4',org:'IT',description:'[EZ] EUCALYPTUS BABY BLUE 60cm',stems:30,price:1.2},
+ ]},'47','2');
+ assert.equal(packed.products.length,3);
+ assert.equal(BUNCH_ST_NL[familyNL('[EZ] EUCALYPTUS BABY BLUE 60cm')],3);
+ const reviewSrc=readFileSync('components/import-tools/InvoiceReceiptCostReview.js','utf8');
+ assert.match(reviewSrc,/\['invoice',\s*'review'\]\.includes\(item\?\.source\)/);
+ const packingToolSrc=readFileSync('components/import-tools/PackingListTool.js','utf8');
+ assert.match(packingToolSrc,/country === 'EC' \|\| country === 'NL'/);
+});
 import './costStepGuide.test.cjs';

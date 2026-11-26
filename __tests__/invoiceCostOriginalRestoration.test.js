@@ -113,3 +113,37 @@ test('NL current template defaults recalculate and prior-year identity is preser
  assert.equal(s.V13.f,'IF(COUNT(V15:V17)=3,SUM(V15:V17),"입력 필요")');
  assert.equal(s.Q6.v,'내역 미보유');assert.equal(s.Q10.v,f.snapshot.input.customsTotalKRW);
 });
+
+test('NL small-lot quarantine sample cap uses MIN(tableStems, kindStems) in Excel with 0.000000 KRW parity',async()=>{
+ const f=invoiceCostExportFixture(3,'NL_AMOUNT_V1'),input=f.snapshot.input;
+ const smallLot=[
+  ['Tulip / Double',100,20,5,1,100,0],
+  ['Hydrangea / Mini',5,5,1,4,20,0],
+  ['Iris / Blue Magic',8,2,4,0.8,6.4,0],
+ ];
+ f.document.lines.forEach((l,i)=>{
+  const[name,stems,outQty,spb,price,amt,rate]=smallLot[i];
+  l.originalName=name;l.stemQuantity=stems;l.unitPrice=price;l.lineAmount=amt;
+  const det=f.snapshot.receiptSnapshot.details[i];
+  det.stemQuantity=stems;det.outQuantity=outQty;det.unitPrice=price;det.lineAmount=amt;
+  f.document.operations[0].result.lineMappings[i].outQuantity=outQty;
+  input.lineInputs[i].stemsPerBunch=spb;
+  input.lineInputs[i].tariffRate=rate;
+ });
+ const lines=f.document.lines.map((l,i)=>({...l,effectiveTariffRate:input.lineInputs[i].tariffRate}));
+ const estimate=nlCompanyTemplateCost(lines,{gw:f.document.reviewedMetadata.gw,freight:input.freightAmount,exchangeRate:input.exchangeRateKRW});
+ assert.equal(estimate.ready,true);
+ assert.deepEqual(estimate.costs.selections.map(x=>[x.kind,x.stems,x.capped]),[['Tulip',10,false],['Hydrangea',5,true],['Iris',8,true]]);
+ input.customsTotalKRW=estimate.total;input.nlTemplateCosts=estimate.costs;input.expenseBasis='ESTIMATED';input.estimateSource=estimate.estimateSource;
+ const receipt=f.snapshot.receiptSnapshot.details.map((d,i)=>({...f.document.lines[i],...d,outUnit:f.revision.lines[i].unit}));
+ const calc=previewInvoiceCost({...f.document,costInput:input},receipt);
+ assert.equal(calc.status,'APPROVED');
+ f.revision.lines=calc.lines.map((l,i)=>({...l,wdetailKey:receipt[i].wdetailKey}));f.revision.totalCostKRW=calc.totals.totalCostKRW;
+ const s=XLSX.read(await createInvoiceCostWorkbook(f),{cellFormula:true}).Sheets['원본 양식 계산'];
+ assert.match(s.CE1.f,/MIN\(10,E16\)/);
+ assert.match(s.CE1.f,/MIN\(30,E17\)/);
+ assert.match(s.AC16.f,/MIN\(10,E16\)/);
+ assert.match(s.AC17.f,/MIN\(30,E17\)/);
+ assert.ok(Math.abs(s.S6.v-estimate.costs.deduct)<1e-6);
+ assert.ok(Math.abs(s.Q10.v-estimate.total)<1e-6);
+});
