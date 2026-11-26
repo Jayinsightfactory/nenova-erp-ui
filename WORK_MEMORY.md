@@ -5473,7 +5473,6 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: `node --test __tests__/prWorkLink.test.cjs` 4개 통과, 빈 본문 실패·기준일 이전 건너뜀을 손으로 확인, `pstack-verify.cjs` 통과. 실제 수정안에서 막히는 것은 11-27 이후 첫 수정안에서 확인 필요(미검증).
 5. 주의/잠금: 2026-11-27 이전에 연 수정안은 검사하지 않음(열려 있는 36개 보호). 운영 DB 쓰기 0건, `desktop/` 미수정. 학습 반영: 있음.
 
-
 ## 2026-11-26 `/incoming` · `/import/tools` PDF·AWB 확대 하이라이트·선 연결 시각 검증 → 바로 입고 작업대 구축 (`feat/visual-inbound-verify-workbench`, 연결 목표: g03, g17, g19)
 - 요약: 사장님 승인 방향(안 A, `desktop/` 무수정 · 웹뷰 자동 반영)에 따라 엑셀 변환 없이 인보이스·AWB PDF를 원문 확대 하이라이트 + 좌우 실시간 SVG 선 연결(`VisualInboundLeaderLine.js`, `data-layer="wires"`, 글자 겹침 0건)로 전 항목 눈 검증·인라인 수정 후 바로 정식 입고하는 공용 작업대(`VisualInboundVerifyWorkbench.js`, `VisualInboundPdfPane.js`, `lib/visualInboundWorkbench.js`)를 `/incoming` 최상단 및 `/import/tools`에 통합했다. 아울러 `pages/api/warehouse/index.js`의 `previewOnly=true`에 `DUPLICATE_INVOICE`·`WAREHOUSE_WEEK_FIXED`·`operationId` 이중입고 방지 사전 검사 및 `withActionLog` 관측 연결·빈 오류 메시지 차단을 보강하고, `lib/importPackingResponse.js`의 에콰도르 AWB `USD` 통화 거부 버그를 수정했다.
 - 검색어: visual-inbound-verify-workbench PDF AWB 바로 입고 확대 하이라이트 SVG 선 연결 LeaderLine previewOnly DUPLICATE_INVOICE withActionLog operationId g03 g17 g19
@@ -5482,3 +5481,12 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: PR 생성 → GitHub Actions `verify` PASS → Squash 머지 → Cafe24 배포 SUCCESS 및 `/api/ping` HTTP 200 확인 → 워크트리 제거 → `sync-nenova-hq.js` 동기화.
 4. 검증 상태: `__tests__/visualInboundWorkbench.test.mjs` 9/9 PASS, `test:warehouse-upload` PASS, `guard:agent-slop`·`guard:erp-writes`·`test:nenova-dnspy-evidence`·`test:erp-manifest`(250) PASS, `next build --webpack` PASS, `pstack-verify.cjs` 5/5 PASS, 실 Chrome `1920×1080` 실 PDF(`48-2 콜카장수국 CI.pdf`, `48-1 에콰 ROSALEDA CI.pdf` + `48-1 에콰 AWB.pdf`) 4종 스크린샷 및 AWB 자동 탭 전환·SVG 선 연결 검증 완료(운영 DB 쓰기 0건).
 5. 주의/잠금: `desktop/` 폴더 무수정(기존 웹뷰 자동 반영), MSSQL 스키마 무변경, 운영 DB `WarehouseMaster` 테스트 쓰기 0건(`previewOnly=true`까지만 검증). 연결 목표: g03, g17, g19 / 학습 반영: 있음
+
+## 2026-11-26 최초주문등록 과 분배 비교 기능 구현 (`feat/order-import-distribution-compare`, 연결 목표: g03, g17)
+- 요약: 업로드 주문등록(`pages/orders/import.js`) 완료 시 `dbo.WebOrderImportSnapshot`에 원본 행 순서·메타데이터·`sheetPreview` 스냅샷을 비차단 저장(`POST /api/orders/import-snapshots`)하고, 전용 비교 페이지(`pages/orders/import-compare.js`, `GET /api/orders/import-compare`)에서 연도·세부차수(`NN-NN`)·업체 기준으로 엑셀 업로드 스냅샷과 직접/수기 주문등록(`OrderDetail`+`OrderHistory` 최초 수량 역산)을 날짜별 복수 체크·합산해 현재 출고분배(`ShipmentDetail.OutQuantity`, `sd.isDeleted` 미참조)와 대조하도록 구현했다.
+- 검색어: 최초주문등록 분배비교 WebOrderImportSnapshot orderImportCompareLogic orderImportSnapshotStore import-compare import-snapshots 세부차수 역산 OutUnit 환산 g03 g17
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-import-compare`, `feat/order-import-distribution-compare`) — `lib/orderImportCompareLogic.js`, `lib/orderImportSnapshotStore.js`, `docs/migrations/2026-11-26_web_order_import_snapshot.sql`, `pages/api/orders/import-snapshots.js`, `pages/api/orders/import-compare.js`, `pages/orders/import.js`, `pages/orders/import-compare.js`, `docs/contracts/order-import-shipment-list.json`, `scripts/test-order-import-compare.mjs`.
+2. 완료된 것: 순수 비교/병합 엔진(`convertQtyToOutUnit`, `mergeBaselineCandidates`, `buildCompareRows`), 스냅샷 테이블 런타임 DDL+SQL 마이그레이션, 인증 API 2종, `import.js` 툴바 버튼 및 비차단 스냅샷 저장, Anti-AI Slop·고딕 서체 준수 비교 UI, 계약 등록 및 단위 테스트.
+3. 남은 할 일: PR #2047 GitHub Actions `verify` CI 통과 대기 → Squash 머지 → worktree 정리 → `sync-nenova-hq.js`·`owner-agi-twin.js` 실행.
+4. 검증 상태: `node scripts/test-order-import-compare.mjs`, `test:erp-contract`(493/493, 674 targets), `test:erp-manifest`(251), `guard:erp-writes`, `guard:agent-slop`, `test:ui-layout`, `test:workflow-guides`, `test:nenova-dnspy-evidence`, `test:pm`, `npm run build`, `pstack-verify.cjs`(5/5) 전수 PASS (실운영 DB 라이브 스모크 미검증).
+5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), `ShipmentDetail.isDeleted` 미참조, 모든 ERP 조회 `OrderYear+OrderWeek+CustKey` 4키 엄수, 스냅샷 저장 실패 시 주문등록 비차단. 연결 목표: g03, g17
