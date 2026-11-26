@@ -309,7 +309,7 @@ function initialForm(document, receiptLines) {
   const saved = document?.reviewedMetadata?.invoiceCostInput || document?.reviewedMetadata?.costInput || {};
   const freight = document?.reviewedMetadata?.costInputs?.freight;
   const docFee = document?.reviewedMetadata?.costInputs?.docFee;
-  const isValidInvoiceCharge = item => item?.source === 'invoice'
+  const isValidInvoiceCharge = item => ['invoice', 'review'].includes(item?.source)
     && /^[A-Z]{3}$/.test(String(item.currency || '').trim().toUpperCase())
     && item.amount !== null && item.amount !== undefined && item.amount !== ''
     && Number.isFinite(Number(item.amount)) && Number(item.amount) >= 0;
@@ -351,7 +351,7 @@ function initialForm(document, receiptLines) {
       ...Object.fromEntries(allLineFields().map(key => [key, savedLine?.[key] ?? ''])),
       tariffRate: savedLine?.tariffRate
         ?? (verifiedFormula?.country === 'NL' ? (typeof line.tariffRate === 'number' ? line.tariffRate
-          : nlInvoiceTariffRate(line.originalName, line.originName || line.countryName))
+          : nlInvoiceTariffRate(line.sourceEvidence?.nlRawDescription || line.originalName, line.sourceEvidence?.originCountry || line.org || line.originName || line.countryName))
           : (isPreviewOnly && verifiedFormula?.country === 'CO' ? 0 : '')),
       otherCostPerUnitKRW: savedLine?.otherCostPerUnitKRW ?? '',
       stemsPerBunch: savedLine?.stemsPerBunch ?? '',
