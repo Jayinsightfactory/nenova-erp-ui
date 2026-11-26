@@ -308,10 +308,22 @@ function previewReferenceCustoms(formula, gwValue, activeLineCount, activeGroupC
 function initialForm(document, receiptLines) {
   const saved = document?.reviewedMetadata?.invoiceCostInput || document?.reviewedMetadata?.costInput || {};
   const freight = document?.reviewedMetadata?.costInputs?.freight;
-  const recognizedFreight = freight?.source === 'invoice'
-    && /^[A-Z]{3}$/.test(String(freight.currency || '').trim().toUpperCase())
-    && freight.amount !== null && freight.amount !== undefined && freight.amount !== ''
-    && Number.isFinite(Number(freight.amount)) && Number(freight.amount) >= 0;
+  const docFee = document?.reviewedMetadata?.costInputs?.docFee;
+  const isValidInvoiceCharge = item => item?.source === 'invoice'
+    && /^[A-Z]{3}$/.test(String(item.currency || '').trim().toUpperCase())
+    && item.amount !== null && item.amount !== undefined && item.amount !== ''
+    && Number.isFinite(Number(item.amount)) && Number(item.amount) >= 0;
+  const hasFreight = isValidInvoiceCharge(freight);
+  const hasDocFee = isValidInvoiceCharge(docFee);
+  const sameChargeCurrency = !hasFreight || !hasDocFee
+    || String(freight.currency).trim().toUpperCase() === String(docFee.currency).trim().toUpperCase();
+  const recognizedFreight = (hasFreight || hasDocFee) && sameChargeCurrency;
+  const recognizedFreightCurrency = hasFreight
+    ? String(freight.currency).trim().toUpperCase()
+    : hasDocFee ? String(docFee.currency).trim().toUpperCase() : '';
+  const recognizedFreightAmount = recognizedFreight
+    ? Math.round(((hasFreight ? Number(freight.amount) : 0) + (hasDocFee ? Number(docFee.amount) : 0)) * 1e6) / 1e6
+    : null;
   const lineCurrencies = new Set(receiptLines.map(line => String(line.currency || '').trim().toUpperCase()));
   const uniformNativeCurrency = lineCurrencies.size === 1 && /^[A-Z]{3}$/.test([...lineCurrencies][0])
     ? [...lineCurrencies][0] : '';
@@ -372,8 +384,8 @@ function initialForm(document, receiptLines) {
     ...EMPTY_FORM,
     nativeCurrency: uniformNativeCurrency,
     ...(recognizedFreight ? {
-      freightAmount: Number(freight.amount),
-      freightCurrency: String(freight.currency).trim().toUpperCase(),
+      freightAmount: recognizedFreightAmount,
+      freightCurrency: recognizedFreightCurrency,
     } : {}),
     ...saved,
     ...(verifiedFormula?.formulaId==='CN_CLOUD_CBM_V1'?{...CLOUD_CUSTOMS_DEFAULTS,...Object.fromEntries(Object.keys(CLOUD_CUSTOMS_DEFAULTS).filter(k=>saved[k]!=null).map(k=>[k,saved[k]])),cloudCustomsMode:saved.cloudCustomsMode??(saved.customsTotalKRW!=null?'TOTAL':'FORMULA'),expenseBasis:saved.expenseBasis??'ESTIMATED',estimateSource:saved.estimateSource??'46-2 CLOUD cbm 원본 기준값 · 실제 비용 확인 전 추정 · 국내운송비는 해당 자료의 195,000원이며 중량별 확정요율 아님'}:{}),

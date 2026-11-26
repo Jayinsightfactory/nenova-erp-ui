@@ -10,6 +10,8 @@ import {applyInvoiceAllocation,allocationSource} from '../lib/invoiceProductAllo
 import {auInvoiceTariffDefault} from '../lib/auInvoiceTariffDefaults.js';
 import {invoiceCostExportFixture} from './invoiceReceiptCostExport.test.js';
 import {AU_ORIGINAL_DEFAULTS} from '../lib/auOriginalCostInputs.js';
+import {nlCompanyTemplateCost} from '../lib/nlCompanyTemplateCost.js';
+import {nlComparisonForExport} from '../lib/nlCostCustomerComparison.js';
 
 test('AU source customs recomputed server-side; missing GW blocks; original formula download equals preview',async()=>{
  const f=fixture(),p=await prepare(f);
@@ -172,5 +174,62 @@ test('UI has independent upload and existing data paths, no receipt/write reques
  assert.match(readFileSync('pages/import/tools.js','utf8'),/IndependentCostWorkspace key=\{userId\}/);
  assert.match(readFileSync('components/import-tools/IndependentCostWorkspace.js','utf8'),/workspaceMode="cost"/);
  assert.match(readFileSync('components/import-tools/InvoiceReceiptWorkbench.js','utf8'),/InvoiceDraftCost document={documentValue}/);
+});
+test('NL 48-1 direct invoice draft consolidates 10 raw CI lines into 7 genNL rows with exact bunch ratios and customer split',async()=>{
+ const nlProducts=[
+  {ProdKey:114,ProdName:'Amaryllis / Loyalty',CounName:'네덜란드',CountryFlower:'네덜란드',OutUnit:'송이',EstUnit:'송이',SteamOf1Box:0,SteamOf1Bunch:0,BunchOf1Box:0,isDeleted:0},
+  {ProdKey:116,ProdName:'Amaryllis / Mont Blanc 12st White',CounName:'네덜란드',CountryFlower:'네덜란드',OutUnit:'송이',EstUnit:'송이',SteamOf1Box:0,SteamOf1Bunch:0,BunchOf1Box:0,isDeleted:0},
+  {ProdKey:119,ProdName:'Amaryllis / Rilona (Salmon) 12st',CounName:'네덜란드',CountryFlower:'네덜란드',OutUnit:'송이',EstUnit:'송이',SteamOf1Box:0,SteamOf1Bunch:0,BunchOf1Box:0,isDeleted:0},
+  {ProdKey:1732,ProdName:'Skimmia / Champagne',CounName:'네덜란드',CountryFlower:'네덜란드',OutUnit:'단',EstUnit:'단',SteamOf1Box:null,SteamOf1Bunch:3,BunchOf1Box:1,isDeleted:0},
+  {ProdKey:1733,ProdName:'Skimmia / Conf Kew Ger Green',CounName:'네덜란드',CountryFlower:'네덜란드',OutUnit:'단',EstUnit:'단',SteamOf1Box:0,SteamOf1Bunch:3,BunchOf1Box:1,isDeleted:0},
+  {ProdKey:1737,ProdName:'Skimmia / Jap Rubella Red',CounName:'네덜란드',CountryFlower:'네덜란드',OutUnit:'단',EstUnit:'단',SteamOf1Box:0,SteamOf1Bunch:3,BunchOf1Box:1,isDeleted:0},
+  {ProdKey:3445,ProdName:'Hydrangea Classic Verena Green/Red 60cm-20cm ',CounName:'네덜란드',CountryFlower:'네덜란드',OutUnit:'송이',EstUnit:'송이',SteamOf1Box:30,SteamOf1Bunch:0,BunchOf1Box:0,isDeleted:0},
+ ];
+ const raw10=[
+  ['CL30','HIPPEASTRUM MONT BLANC 12x 4 80cm',116,12,2.54,30.48],
+  ['CL30','HIPPEASTRUM RILONA 12x 4 85cm',119,12,3.36,40.32],
+  ['CLR','HYDRANGEA CLASSIC VERENA GREEN/RED 60cm 18cm',3445,50,3.85,192.5],
+  ['KCL03','SKIMMIA KEW GREEN 45cm',1733,360,1.49,536.4],
+  ['YCL10','HIPPEASTRUM LOYALTY 12x 4 80cm',114,12,3.37,40.44],
+  ['YCL10','HIPPEASTRUM MONT BLANC 12x 4 80cm',116,12,2.54,30.48],
+  ['YCL10','HIPPEASTRUM RILONA 12x 4 85cm',119,12,3.36,40.32],
+  ['CL4','SKIMMIA DYED CHAMPAGNE 45cm',1732,90,1.55,139.5],
+  ['CL4','SKIMMIA KEW GREEN 45cm',1733,90,1.49,134.1],
+  ['CL4','SKIMMIA RUBELLA 50cm',1737,90,1.5,135],
+ ].map(([cl,originalName,prodKey,stemQuantity,unitPrice,lineAmount],i)=>({
+  lineId:`bbbbbbbb-bbbb-4bbb-8bbb-${String(i+1).padStart(12,'0')}`,
+  lineNo:i+1,originalName,prodKey,boxQuantity:null,bunchQuantity:null,stemQuantity,
+  priceUnit:'송이',unitPrice,lineAmount,currency:'EUR',reviewed:{confirmed:true},
+  sourceEvidence:{invoiceCustomerCode:cl},
+ }));
+ const document={orderYear:'2026',orderWeek:'48-01',sourceHash:'cd'.repeat(32),originalFileName:'48-1_NL_CI_UPDATED.pdf',
+  invoiceNo:'1223663',farmKey:null,invoiceYear:'2026',rawMetadata:{},
+  reviewedMetadata:{country:'NL',transportMode:'AIR',inputDate:'2026-11-25',gw:111.9,cw:125,
+   costInputs:{freight:{currency:'EUR',amount:353.84,source:'invoice'},docFee:{currency:'EUR',amount:50,source:'invoice'}}},
+  lines:raw10};
+ const queryFn=async sql=>{assert.doesNotMatch(sql,/\b(INSERT|UPDATE|DELETE|EXEC)\b/i);return{recordset:structuredClone(nlProducts)};};
+ const p=await prepareInvoiceCostPreview({queryFn,types:{Int:'INT'},request:{document}});
+ assert.deepEqual(p.issues,[]);
+ assert.equal(p.document.lines.length,7);
+ assert.deepEqual(p.document.lines.map(l=>[l.prodKey,l.stemQuantity,l.bunchQuantity,l.lineAmount]),[
+  [116,24,24,60.96],[119,24,24,80.64],[1733,450,150,670.5],[1737,90,30,135],[114,12,12,40.44],[3445,50,50,192.5],[1732,90,30,139.5],
+ ]);
+ const lineInputs=p.document.reviewedMetadata.invoiceCostInput.lineInputs;
+ assert.deepEqual(lineInputs.map(l=>l.stemsPerBunch),[1,1,3,3,1,1,3]);
+ const tpl=nlCompanyTemplateCost(p.document.receiptLines.map((l,i)=>({...l,effectiveTariffRate:lineInputs[i].tariffRate})),{gw:111.9,freight:403.84,exchangeRate:1750});
+ const formula=INVOICE_COST_FORMULAS.NL_AMOUNT_V1;
+ const input={...p.document.reviewedMetadata.invoiceCostInput,...formula,formulaApplicabilityConfirmed:true,
+  nativeCurrency:'EUR',freightCurrency:'EUR',freightAmount:403.84,exchangeRateKRW:1750,exchangeRateType:'MANUAL',exchangeRateDate:'2026-11-25',
+  customsTotalKRW:tpl.total,expenseBasis:'ESTIMATED',estimateSource:tpl.estimateSource,nlTemplateCosts:tpl.costs,lineInputs};
+ const calc=calculateInvoiceCostPreview(p,request(p,input));
+ assert.equal(calc.preview.status,'APPROVED');
+ calc.nlComparison=await nlComparisonForExport({document:calc.document});
+ assert.equal(calc.nlComparison.status,'READY');
+ assert.equal(calc.nlComparison.rows.reduce((s,r)=>s+r.other,0),740);
+ const orig=XLSX.read(await createInvoicePreviewCostWorkbook(calc),{cellFormula:true}).Sheets['원본 양식 계산'];
+ assert.ok(Math.abs(orig.S6.v - 164288.54570430366) < 1e-6);
+ assert.ok(Math.abs(orig.Q10.v - 588762.5457043037) < 1e-6);
+ assert.ok(Math.abs(orig.O15.v - 6938.691489) < 1e-4);
+ assert.ok(Math.abs(orig.O17.v - 12211.004311) < 1e-4);
 });
 import './costStepGuide.test.cjs';

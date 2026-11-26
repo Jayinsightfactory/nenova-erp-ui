@@ -163,6 +163,39 @@ async function main() {
     let reason; const result = parseInvoiceLocal({ items: [] }, { onReject: r => { reason = r; } });
     assert.equal(result, null); assert.ok(reason);
   });
+  const { isAirWaybillDocument } = await import('../lib/importAwbFields.js');
+  check('updated Holex invoice with spaced editor tokens and pre-edit CBS summary reconciles while monetary drift rejects', () => {
+    const f = fixture();
+    assert.equal(isAirWaybillDocument(f), false);
+    assert.equal(isAirWaybillDocument({ ...f, text: f.text + '\nTotal Prepaid 13.00' }), false);
+    replace(f, '180-1111-2222', '180 - 1111 - 2222');
+    // Split stem check "(10 st)" -> "(10" + "st)" and spaced subtotal/grand tokens
+    const stemItem = f.pages[1].items.find(i => i.str === '(10 st)');
+    stemItem.str = '(10';
+    f.pages[1].items.push({ str: 'st)', x: 261, y: stemItem.y, width: 10 });
+    const subItem = f.pages[1].items.find(i => i.y === 700 && i.str === '10,00');
+    subItem.str = '10';
+    f.pages[1].items.push({ str: ',', x: 549, y: 700, width: 3 }, { str: '0', x: 553, y: 700, width: 4 }, { str: '0', x: 558, y: 700, width: 4 });
+    const grandItem = f.pages[1].items.find(i => i.y === 630 && i.str === '13,00');
+    grandItem.str = '13';
+    f.pages[1].items.push({ str: ',', x: 540, y: 630, width: 3 }, { str: '0', x: 544, y: 630, width: 4 }, { str: '0', x: 549, y: 630, width: 4 });
+    // Pre-edit CBS table whose commodity rows internally reconcile (48 = 38 + 10, 15 = 12 + 3)
+    f.pages[1].items.push(
+      { str: 'Other cutflowers', x: 18, y: 572, width: 60 }, { str: '06031970', x: 146, y: 572, width: 30 }, { str: 'KR', x: 190, y: 572, width: 12 }, { str: '38', x: 248, y: 572, width: 12 }, { str: '12', x: 300, y: 572, width: 12 }, { str: '7', x: 344, y: 572, width: 8 },
+      { str: 'Cutflowers dyed', x: 18, y: 566, width: 60 }, { str: '06039000', x: 146, y: 566, width: 30 }, { str: 'KR', x: 190, y: 566, width: 12 }, { str: '10', x: 248, y: 566, width: 12 }, { str: '3', x: 300, y: 566, width: 12 }, { str: '2', x: 344, y: 566, width: 8 },
+    );
+    f.pages[1].items.find(i => i.y === 560 && i.str === '30').str = '48';
+    f.pages[1].items.find(i => i.y === 560 && i.str === '10').str = '15';
+    const ok = inspectInvoiceLocal(f);
+    assert.equal(ok.reason, null);
+    assert.equal(ok.result.invoices[0].awb, '180-1111-2222');
+    assert.equal(ok.result.invoices[0].total_value, 13);
+    assert.equal(ok.result.invoices[0].lines.reduce((s, l) => s + l.stems, 0), 30);
+    // Any monetary mismatch still rejects strictly
+    const badGrand = structuredClone(f);
+    badGrand.pages[1].items.find(i => i.y === 630 && i.x === 549).str = '1';
+    assert.equal(reject(badGrand), 'GRAND_TOTAL_MISMATCH');
+  });
   const file = path.resolve(__dirname, '../output/drive-samples/40-2 NL H CI.pdf');
   if (fs.existsSync(file)) {
     const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
