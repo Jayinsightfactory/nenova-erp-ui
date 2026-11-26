@@ -2556,6 +2556,20 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           file={file}
           saving={saving || processing}
           error={matchModalError}
+          onFarmCreated={farm => {
+            if (!farm?.FarmKey) return;
+            setFarmMatches(prev => {
+              const currentFarms = Array.isArray(prev?.farms) ? prev.farms : [];
+              if (currentFarms.some(item => Number(item.FarmKey) === Number(farm.FarmKey))) return prev;
+              return {
+                ...(prev || { success: true, value: null, revision: 0, scope: 'team' }),
+                farms: [
+                  { FarmKey: Number(farm.FarmKey), FarmName: farm.FarmName, CounName: farm.CounName || '', UsageCount: 0, isDeleted: 0 },
+                  ...currentFarms,
+                ],
+              };
+            });
+          }}
           onSave={handleSaveUploadMatches}
           onClose={() => setMatchModalOpen(false)}
         />
