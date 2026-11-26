@@ -5407,3 +5407,13 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: 단위·회귀·ERP 가드·빌드·`pstack-verify.cjs` PASS → PR 생성 → CI `verify` PASS → Squash 머지 → Cafe24 배포 확인 → 워크트리 정리 → `sync-nenova-hq.js`.
 4. 검증 상태: 단위·회귀·ERP 가드·빌드·`pstack-verify.cjs` 전수 PASS.
 5. 주의/잠금: `desktop/` 파일 미수정(2026-11-25 조건부 승인제 준수), `nenova.exe` 공유 테이블 스키마 변경 0건, 기존 `48-02` 수국 7건(`#8262~#8268`) 미변경. 연결 목표: g03, g17, g19 / 학습 반영: 있음
+
+
+## 2026-11-26 데스크톱앱 v1.3.104 — 부서별 매뉴얼 「판단 기준」 탭 안내(사장님 "Yes, 앱까지") (`feat/desktop-judgments-1104`, 연결 목표: 없음 — 새 목표 후보 "판단 방식 추론 정확도")
+- 요약: nenova-erp-ui#2037 로 웹에 들어간 「판단 기준」 탭을 데스크톱앱에도 반영해 달라는 사장님 승인(Yes)에 따라 앱 버전을 1.3.103 → 1.3.104 로 올리고 업데이트 안내문에 새 탭을 적었다. 앱은 웹 화면을 그대로 띄우므로 탭 자체는 이미 보이며, 메뉴(`/work/manuals`)는 그대로라 `components/Layout.js`·`desktop/menu.json`·홈 `shell.js` 는 바꿀 것이 없었다.
+- 검색어: 데스크톱앱 1.3.104 판단 기준 탭 releaseNotes 업데이트 안내문 handover-judgments 아침 첫 실행 1회
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-cld-judgments-desk` 작업 폴더, `feat/desktop-judgments-1104`) — `desktop/package.json`, `desktop/package-lock.json`
+2. 완료된 것: 버전 1.3.104 · 업데이트 안내문 교체(아침 첫 실행 1회 자동 업데이트 유지 문구 포함).
+3. 남은 할 일: 자동 검사(`verify`, `Nenova Desktop Windows`) 통과 → 본편 반영 → 설치파일 게시 확인 → 작업 폴더 정리.
+4. 검증 상태: `pstack-verify.cjs` 통과. 로컬 앱 단위 검사는 98개 중 89개 통과·9개 실패인데, 바꾸기 전 본편도 같은 9개가 실패(이 PC 작업 폴더에 앱 부품 미설치 — 자동 검사에서 확인). 앱에서 새 탭을 눈으로 본 것은 미검증.
+5. 주의/잠금: 앱 실행 코드(`main.cjs`·`updater.cjs`·`shell/`)는 건드리지 않음. 운영 DB 쓰기 0건. 학습 반영: 있음.
