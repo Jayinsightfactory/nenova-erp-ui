@@ -10,6 +10,7 @@ import {
   scoreProductMatch,
 } from '../../lib/invoiceMatchAssist.js';
 import { loadPdfPreview } from '../../lib/importPackingPdfPreview.js';
+import FarmMasterRegistration from './FarmMasterRegistration.js';
 
 const text = value => String(value ?? '').normalize('NFKC').trim();
 function normalizePackingAbbr(value) {
@@ -70,6 +71,7 @@ export default function PackingUploadMatchModal({
   saving = false,
   error = '',
   onSave,
+  onFarmCreated,
   onClose,
 }) {
   const [farmDrafts, setFarmDrafts] = useState({});
@@ -450,6 +452,24 @@ export default function PackingUploadMatchModal({
                               );
                             })}
                           </select>
+                        </div>
+                        <div style={{ marginTop: 6 }} onClick={e => e.stopPropagation()}>
+                          <FarmMasterRegistration
+                            country={country}
+                            initialName={item.supplier}
+                            disabled={saving}
+                            onCreated={farm => {
+                              if (!farm?.FarmKey) return;
+                              onFarmCreated?.(farm);
+                              setFarmDrafts(prev => ({
+                                ...prev,
+                                [item.supplierKey]: {
+                                  ...(prev[item.supplierKey] || draft),
+                                  optionKey: farmChoiceOptionKey(farm),
+                                },
+                              }));
+                            }}
+                          />
                         </div>
                       </td>
                       {country === 'CO' && (

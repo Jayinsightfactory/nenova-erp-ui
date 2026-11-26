@@ -34,6 +34,7 @@ import {
 import {
   invoiceSupplierKey,
   resolveInvoiceHeader,
+  sameInvoiceSupplier,
 } from '../lib/invoiceReceiptAutoFill.js';
 import {
   assertPackingExportBunches,
@@ -250,14 +251,71 @@ test('cross-chunk 2-page Maxiflores VE325268 continuation (totals-only p10 witho
   ], 2), /확인하지 못했습니다/);
 });
 
-test('CO_FARMS covers Aguata, Zelecta/Aguaclara, Flora Concept/Elite, and integer Full-Box El Cactus/Varietta + Funza PHYTO $15 heal cleanly', () => {
+test('CO_FARMS covers Aguata, unified Zelecta=Matina=Aguaclara (MAT), Flora Concept=The Elite Flowers (ELI), and integer Full-Box El Cactus/Varietta + Funza PHYTO $15 heal cleanly', () => {
   assert.equal(detectCOFarm('FLORES DE AGUATA SAS').abbr, 'AGT');
-  assert.equal(detectCOFarm('COMMERCIAL ZELECTA TRADING GROUP CORP').abbr, 'ACL');
-  assert.equal(detectCOFarm('ROSAS AGUACLARA S.A.S').abbr, 'ACL');
+  assert.equal(detectCOFarm('COMMERCIAL ZELECTA TRADING GROUP CORP').abbr, 'MAT');
+  assert.equal(detectCOFarm('COMMERCIAL ZELECTA TRADING GROUP CORP').name, 'Matina');
+  assert.equal(detectCOFarm('ROSAS AGUACLARA S.A.S').abbr, 'MAT');
+  assert.equal(detectCOFarm('ROSAS AGUACLARA S.A.S').name, 'Matina');
+  assert.equal(detectCOFarm('Agua Clara').abbr, 'MAT');
+  assert.equal(detectCOFarm('Matina Flowers').abbr, 'MAT');
   assert.equal(detectCOFarm('FLORA CONCEPT LLC').abbr, 'ELI');
   assert.equal(detectCOFarm('THE ELITE FLOWER S.A.S. C.I.').abbr, 'ELI');
   assert.ok(CO_FARMS.some(f => f.abbr === 'AGT'));
-  assert.ok(CO_FARMS.some(f => f.abbr === 'ACL'));
+  assert.equal(CO_FARMS.some(f => f.abbr === 'ACL'), false, 'Aguaclara/Zelecta must be unified into MAT (Matina), not split into ACL');
+
+  // Owner canonical farm alias rules in resolveInvoiceHeader & duplicate supplier matching
+  const dbFarms = [
+    { FarmKey: 15, FarmName: 'Matina', CounName: '콜롬비아', UsageCount: 49, isDeleted: 0 },
+    { FarmKey: 16, FarmName: 'Agua Clara', CounName: '콜롬비아', UsageCount: 0, isDeleted: 0 },
+    { FarmKey: 82, FarmName: 'AGUA CLARA', CounName: '', UsageCount: 0, isDeleted: 0 },
+    { FarmKey: 22, FarmName: 'The Elite Flowers', CounName: '콜롬비아', UsageCount: 95, isDeleted: 0 },
+    { FarmKey: 83, FarmName: 'ELITE', CounName: '', UsageCount: 0, isDeleted: 0 },
+    { FarmKey: 64, FarmName: 'Elite', CounName: '에티오피아', UsageCount: 5, isDeleted: 0 },
+    { FarmKey: 54, FarmName: 'La Rosaleda', CounName: '에콰도르', UsageCount: 69, isDeleted: 0 },
+  ];
+  for (const sup of ['COMMERCIAL ZELECTA TRADING GROUP CORP', 'ROSAS AGUACLARA S.A.S', 'Agua Clara', 'Matina']) {
+    const res = resolveInvoiceHeader({
+      rawMetadata: { supplier: sup, invoiceDate: '2026-11-25', invoiceUploadDate: '2026-11-26' },
+      reviewedMetadata: { country: 'CO' },
+    }, dbFarms);
+    assert.equal(res.farm?.farmKey, 15, `${sup} should resolve to canonical [15] Matina`);
+    assert.equal(res.farm?.farmName, 'Matina');
+    assert.equal(res.issues.length, 0);
+  }
+  for (const sup of ['FLORA CONCEPT LLC', 'THE ELITE FLOWER S.A.S. C.I.']) {
+    const res = resolveInvoiceHeader({
+      rawMetadata: { supplier: sup, invoiceDate: '2026-11-25', invoiceUploadDate: '2026-11-26' },
+      reviewedMetadata: { country: 'CO' },
+    }, dbFarms);
+    assert.equal(res.farm?.farmKey, 22, `${sup} should resolve to canonical [22] The Elite Flowers, never Ethiopia [64] Elite`);
+    assert.equal(res.farm?.farmName, 'The Elite Flowers');
+    assert.equal(res.issues.length, 0);
+  }
+  assert.equal(sameInvoiceSupplier('Matina', { rawMetadata: { supplier: 'COMMERCIAL ZELECTA TRADING GROUP CORP' }, reviewedMetadata: { country: 'CO' } }, 'ROSAS AGUACLARA S.A.S'), true);
+  assert.equal(sameInvoiceSupplier('The Elite Flowers', { rawMetadata: { supplier: 'FLORA CONCEPT LLC' }, reviewedMetadata: { country: 'CO' } }, 'The Elite Flowers'), true);
+  assert.equal(samePackingSupplier('Matina', 'COMMERCIAL ZELECTA TRADING GROUP CORP', { country: 'CO' }), true);
+  assert.equal(samePackingSupplier('Matina', 'ROSAS AGUACLARA S.A.S', { country: 'CO' }), true);
+
+  // Brand-new farm Flores de Aguata (FE 852, 1 QB ROSA COLOR/ MIX $10.00): Excel generation + modal new-farm registration embedded
+  const aguataExcel = genColombia(XLSX, {
+    supplier: 'FLORES DE AGUATA SAS',
+    invoice: 'FE 852',
+    awb: '992-04727833',
+    date: '2026/11/25',
+    freight_total: 0,
+    invoice_total: 10.00,
+    products: [
+      { description: '12-RCM ROSA COLOR/ MIX', pcs: 1, steam_box: 100, total_stems: 100, u_price: 0.10, t_price: 10.00 },
+    ],
+  }, '48', '02', {
+    catalog: { items: [{ country: 'CO', name: 'ROSE Mix', family: 'ROSE' }], byCountry: { CO: [{ country: 'CO', name: 'ROSE Mix', family: 'ROSE' }] } },
+  });
+  assert.equal(aguataExcel.name, '48-02_CO_AGT_FE 852.xlsx');
+  assert.equal(aguataExcel.totalMismatch, null);
+  const modalSrc = fs.readFileSync(new URL('../components/import-tools/PackingUploadMatchModal.js', import.meta.url), 'utf8');
+  assert.match(modalSrc, /import FarmMasterRegistration from '\.\/FarmMasterRegistration\.js'/);
+  assert.match(modalSrc, /<FarmMasterRegistration/);
 
   // El Cactus integer Full Box (1.00 = 2 HB, 2.00 = 4 HB) & Varietta (1,00 = 4 QB)
   const cactus = healColombiaInvoiceExtraction({
