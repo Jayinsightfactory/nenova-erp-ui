@@ -173,3 +173,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 2. **페이지네이션 상한 강제(`50~100건`) 및 비가상화 전량 마운트 금지**: `Math.max(100, all.size)` 식의 페이지네이션 상한 무력화를 금지하고(포커스·매칭된 단건만 우선 노출), 반복 카드·행 컴포넌트는 `React.memo` 분리 및 CSS `content-visibility: auto; contain-intrinsic-size`를 기본 적용한다.
 3. **중복 보조 원장 기본 접기/지연 렌더링**: 요약 카드 보드와 수백 행 원본 대조 표를 한 화면에 동시에 다 펼치지 않고 보조 원장은 기본 접기(`<details>`) 또는 탭 전환으로 지연 렌더링한다.
 4. **서버 마스터 TTL 캐시 재사용**: 수천 건 품목(`dbo.Product`)·농장(`dbo.Farm`)·거래처 마스터 정규 매칭은 클라이언트 반복 순회 대신 서버 메모리 TTL 캐시 인덱스를 재사용한다.
+
+## 수정안 「업무 연결」 여섯 줄 (2026-11-26 사장님 지정)
+- 수정안 본문과 저장 기록 본문에 `화면` · `대신하는 업무` · `없애려는 것` · `종류` · `누가 언제 여나` · `2주 뒤 셀 것` 여섯 줄을 적는다(양식 `.github/pull_request_template.md`). 대응하는 직원 업무가 없으면 「대응 업무 없음 — 누구를 위한 것」이라고 그대로 적는다.
+- `종류`는 새로 만듦 / 직원이 쓰다 걸린 것 고침 / AI가 만든 것을 다시 고침 / 보기만 바꿈 중 하나.
+- CI `verify`의 `node scripts/check-pr-work-link.cjs`가 2026-11-27 이후에 연 수정안에서 빈 칸을 막는다. 직원 업무 이름은 `/work/manuals` 업무표(`data/handover-*.json`, `data/import-handover.json`)의 제목을 쓴다.

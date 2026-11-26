@@ -5454,3 +5454,13 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: 전체 게이트(`test:erp-contract`·`pstack-verify.cjs`·`npm run build`) 통과 확인 → PR 생성 → GitHub Actions CI `verify` 통과 확인 즉시 Squash 머지 → 워크트리 정리 및 `sync-nenova-hq.js` 실행.
 4. 검증 상태: 단위 테스트 및 `test:packing-team`(422건) PASS, 실DB 5개 차수 스모크 전수 PASS(`dbWrites: 0`), `test:erp-contract`·`test:nenova-dnspy-evidence`·`test:erp-manifest`·`guard:erp-writes`·`guard:agent-slop`·`pstack-verify.cjs`(5/5 PASS)·`npm run build`(PASS) 완료.
 5. 주의/잠금: 운영 MSSQL 쓰기 0건(`SELECT-only`), `desktop/` 하위 파일 수정 0건(사장님 지시 엄수), 주차 하드코딩 0건. 연결 목표: g17, g03, g13, g19 / 학습 반영: 있음
+
+
+## 2026-11-26 수정안 「업무 연결」 여섯 줄 — 양식 + 자동 검사 (`feat/pr-work-link`, 연결 목표: 없음 — 새 목표 후보 "업무가 왜 있는지 읽어 주는 분석")
+- 요약: 사장님 지시("화면 저장 기록부터 지침을 변경해야 더 정확한 정보로 분배된다" → "문안대로 넣어")에 따라 수정안 양식에 `화면 · 대신하는 업무 · 없애려는 것 · 종류 · 누가 언제 여나 · 2주 뒤 셀 것` 여섯 줄을 더하고, CI `verify`가 2026-11-27 이후에 연 수정안에서 빈 칸을 막게 했다. 배경: 저장 기록 3,323건 중 1,628건을 어느 화면 몫인지 못 붙였고, 최근 400건 중 제목에 화면 주소가 있는 것은 9건.
+- 검색어: 업무 연결 여섯 줄 check-pr-work-link 수정안 양식 pull_request_template 대신하는 업무 종류 직원이 쓰다 걸린 것 고침 AI가 만든 것을 다시 고침 2주 뒤 셀 것
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-cld-worklink` 작업 폴더, `feat/pr-work-link`) — `.github/pull_request_template.md`, `.github/workflows/erp-contract.yml`, `scripts/check-pr-work-link.cjs`(신규), `__tests__/prWorkLink.test.cjs`(신규), `AGENTS.md`
+2. 완료된 것: 양식 여섯 줄(기존 변경 계약 10줄 유지), 검사기(본문 또는 저장 기록 본문 중 한 곳에 여섯 줄이면 통과, 「대응 업무 없음」「화면 없음」 인정, 종류 네 가지), 시험 4개, 저장소 규칙 한 단락.
+3. 남은 할 일: 자동 검사 통과 → 본편 반영. 공용 규칙 세 파일(`SHARED_AGENT_RULES.md` · `~/.claude/CLAUDE.md` · `~/.codex/AGENTS.md`)에 한 단락. 다른 저장소(mindmap-viewer 등)에는 아직 없음. 지난 1,628건을 화면에 붙이는 일은 별도.
+4. 검증 상태: `node --test __tests__/prWorkLink.test.cjs` 4개 통과, 빈 본문 실패·기준일 이전 건너뜀을 손으로 확인, `pstack-verify.cjs` 통과. 실제 수정안에서 막히는 것은 11-27 이후 첫 수정안에서 확인 필요(미검증).
+5. 주의/잠금: 2026-11-27 이전에 연 수정안은 검사하지 않음(열려 있는 36개 보호). 운영 DB 쓰기 0건, `desktop/` 미수정. 학습 반영: 있음.
