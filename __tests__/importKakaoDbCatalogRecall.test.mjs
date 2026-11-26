@@ -4,6 +4,7 @@ import {
   matchDbFarm,
   inferCountryAndGroupFromDb,
   isKnownCatalogProductLine,
+  matchDbEnglishProductName,
 } from '../lib/importKakaoDbCatalog.js';
 import {
   normalizeFarmName,
@@ -12,7 +13,11 @@ import {
   importItemView,
   buildFarmSummary,
   formatFarmTransferText,
+  formatUnitDisplay,
 } from '../lib/importKakaoAdditions.js';
+import {
+  classifyKakaoItemErpStatus,
+} from '../lib/kakaoOrderErpStatus.js';
 import {
   analyzeImportMessage,
   classifyImportFeed,
@@ -63,6 +68,14 @@ const fixtureCatalog = buildImportKakaoDbCatalog({
     { ProdKey: 1014, ProdName: '콜롬비아 장미 레드팬서', FlowerName: '장미', CounName: '콜롬비아', RecentSeasonOrders: 37, RecentOrders: 135, TotalOrders: 270 },
     { ProdKey: 1015, ProdName: '중국 보리사초', FlowerName: '기타', CounName: '중국', RecentSeasonOrders: 28, RecentOrders: 95, TotalOrders: 190 },
     { ProdKey: 1016, ProdName: '이스라엘 왁스플라워 화이트', FlowerName: '왁스', CounName: '이스라엘', RecentSeasonOrders: 12, RecentOrders: 40, TotalOrders: 90 },
+    { ProdKey: 2001, ProdName: 'ROSE / Freedom 50cm', FlowerName: '장미', CounName: '콜롬비아', RecentSeasonOrders: 85, RecentOrders: 320, TotalOrders: 640 },
+    { ProdKey: 2002, ProdName: 'ROSE / Freedom 60cm', FlowerName: '장미', CounName: '콜롬비아', RecentSeasonOrders: 75, RecentOrders: 280, TotalOrders: 550 },
+    { ProdKey: 2003, ProdName: 'Hydrangea Burgundy (버건디)', FlowerName: '수국', CounName: '콜롬비아', RecentSeasonOrders: 92, RecentOrders: 340, TotalOrders: 710 },
+    { ProdKey: 2004, ProdName: 'Peony / New Zealand. Bowl of Cream AAA (50cm/4.5cm)', FlowerName: '작약', CounName: '뉴질랜드', RecentSeasonOrders: 44, RecentOrders: 130, TotalOrders: 240 },
+    { ProdKey: 2005, ProdName: 'Skimmia / Conf Kew Ger Green', FlowerName: '스키미아', CounName: '네덜란드', RecentSeasonOrders: 52, RecentOrders: 175, TotalOrders: 330 },
+    { ProdKey: 2006, ProdName: 'Minicarnation Rosita (로지타)', FlowerName: '카네이션', CounName: '콜롬비아', RecentSeasonOrders: 61, RecentOrders: 210, TotalOrders: 420 },
+    { ProdKey: 2007, ProdName: 'ARAN.Juling Red XL', FlowerName: '덴파레', CounName: '태국', RecentSeasonOrders: 68, RecentOrders: 250, TotalOrders: 510 },
+    { ProdKey: 2008, ProdName: 'Douglas Fir', FlowerName: '상록수', CounName: '미국', RecentSeasonOrders: 95, RecentOrders: 410, TotalOrders: 840 },
   ],
 });
 
@@ -286,4 +299,169 @@ const msg = (text, id = 'm1', time = '2026년 11월 25일 오전 10:00', sender 
   assert.equal(mFOld.items[0].week, '');
 }
 
-console.log('PASS Axis A (DB Farm Master), Axis B (12-country ERP Product inference), Axis C (Compound split, Hard Recall & Context Inheritance)');
+// Axis D: English dbo.Product.ProdName binding (`dbProdName`), lowercase English units (`bunches`/`box`/`stems`/`5 box (FB)`), `'대'` unit, & Zero-Lag O(1) toggle benchmark
+{
+  const eliteMsg = analyzeImportMessage(
+    msg([
+      '49-1 콜롬비아 장미 발주 추가',
+      '■ 엘리떼 농장',
+      '프리덤 50cm 5FB',
+      '프리덤 70cm 3HB',
+    ].join('\n'), 'en-elite'),
+    new Map(),
+    opts
+  );
+  const multiMsg = analyzeImportMessage(
+    msg([
+      '49-1 발주 추가',
+      '버건디 10박스(안티오퀴아)',
+      '볼오브크림 AAA 80대',
+      '스키미아 그린 20단',
+      '로지타 15단',
+      '줄링 XL 30속',
+      '더글라스 12박스',
+    ].join('\n'), 'en-multi'),
+    new Map(),
+    opts
+  );
+  assert.equal(eliteMsg.kind, 'addition');
+  assert.equal(multiMsg.kind, 'addition');
+  const allEnItems = [...eliteMsg.items, ...multiMsg.items];
+  const byProd = new Map(allEnItems.map(i => [i.product, i]));
+
+  assert.equal(byProd.get('프리덤 50cm').dbProdName, 'ROSE / Freedom 50cm');
+  // 70cm adapts length from Freedom 60cm/50cm when 70cm SKU is absent so cm never lies to the farm
+  assert.equal(byProd.get('프리덤 70cm').dbProdName, 'ROSE / Freedom 70cm');
+  // Korean parenthetical '(버건디)' stripped cleanly -> pure English DB ProdName
+  assert.equal(byProd.get('버건디').dbProdName, 'Hydrangea Burgundy');
+  assert.equal(byProd.get('볼오브크림 AAA').dbProdName, 'Peony / New Zealand. Bowl of Cream AAA (50cm/4.5cm)');
+  assert.equal(byProd.get('볼오브크림 AAA').unit, '송이'); // '80대' -> '송이'
+  assert.equal(byProd.get('그린').group, '스키미아');
+  assert.equal(byProd.get('그린').dbProdName, 'Skimmia / Conf Kew Ger Green');
+  assert.equal(byProd.get('로지타').dbProdName, 'Minicarnation Rosita');
+  assert.equal(byProd.get('줄링 XL').dbProdName, 'ARAN.Juling Red XL');
+  assert.equal(byProd.get('더글라스').dbProdName, 'Douglas Fir');
+
+  // Lowercase English unit formatting & default 'en' transfer output
+  assert.equal(formatUnitDisplay(5, 'FB'), '5 box (FB)');
+  assert.equal(formatUnitDisplay(3, 'HB'), '3 box (HB)');
+  assert.equal(formatUnitDisplay(10, '박스'), '10 box');
+  assert.equal(formatUnitDisplay(20, '단'), '20 bunches');
+  assert.equal(formatUnitDisplay(80, '송이'), '80 stems');
+  assert.equal(formatUnitDisplay(4, '봉'), '4 bags');
+
+  const totals = farmTotals(allEnItems.map(i => importItemView(i)), { knownFarms });
+  const summary = buildFarmSummary(totals, { knownFarms });
+  const defaultCopy = formatFarmTransferText(summary);
+  assert.match(defaultCopy, /ROSE \/ Freedom 50cm - 5 box \(FB\)/);
+  assert.match(defaultCopy, /ROSE \/ Freedom 70cm - 3 box \(HB\)/);
+  assert.match(defaultCopy, /Total: 8 box \(5 FB · 3 HB\)/);
+  assert.match(defaultCopy, /Hydrangea Burgundy - 10 box/);
+  assert.match(defaultCopy, /Peony \/ New Zealand\. Bowl of Cream AAA \(50cm\/4\.5cm\) - 80 stems/);
+  assert.match(defaultCopy, /Skimmia \/ Conf Kew Ger Green - 20 bunches/);
+  assert.match(defaultCopy, /Douglas Fir - 12 box/);
+
+  // Zero-Lag Clean-Toggle O(1) ERP Status Projection Benchmark (500 items × 1,500 ERP orders)
+  const erpCustomers = Array.from({ length: 120 }, (_, i) => ({
+    CustKey: i + 1,
+    CustName: `거래처${i + 1}`,
+    OrderCode: `CL${i + 1}`,
+  }));
+  const erpOrders = Array.from({ length: 1500 }, (_, i) => ({
+    OrdNo: 900000 + i,
+    OrderYear: 2026,
+    OrderWeek: '49-01',
+    CustKey: (i % 120) + 1,
+    CustName: `거래처${(i % 120) + 1}`,
+    OrderCode: `CL${(i % 120) + 1}`,
+    ProdKey: 2001 + (i % 8),
+    ProdName: `ROSE / Freedom ${(i % 3 + 5) * 10}cm`,
+    FlowerName: '장미',
+    CounName: '콜롬비아',
+    OutUnit: '박스',
+    OutQuantity: (i % 5) + 1,
+    BoxQuantity: (i % 5) + 1,
+    BunchQuantity: 0,
+    SteamQuantity: 0,
+  }));
+  const synthMessages = Array.from({ length: 250 }, (_, mIdx) => ({
+    id: `msg-${mIdx}`,
+    time: '2026-11-25 10:00:00',
+    kind: 'addition',
+    text: `49-1 발주 추가 CL${(mIdx % 120) + 1}`,
+    items: [
+      {
+        key: `k-${mIdx}-0`,
+        year: '2026',
+        week: '49-01',
+        country: '콜롬비아',
+        group: '장미',
+        product: 'Freedom 50cm',
+        quantity: '2',
+        unit: '박스',
+        customer: `CL${(mIdx % 120) + 1}`,
+        farm: 'The Elite Flowers',
+        checked: true,
+      },
+      {
+        key: `k-${mIdx}-1`,
+        year: '2026',
+        week: '49-01',
+        country: '콜롬비아',
+        group: '수국',
+        product: 'Hydrangea Burgundy',
+        quantity: '3',
+        unit: '박스',
+        customer: `CL${((mIdx + 1) % 120) + 1}`,
+        farm: 'Antioquia',
+        checked: true,
+      },
+    ],
+  }));
+
+  // 1) Legacy per-toggle recomputation (re-running classifyKakaoItemErpStatus on all 498 remaining items)
+  const tLegacy0 = performance.now();
+  const legacyByItemKey = new Map();
+  for (const m of synthMessages.slice(1)) {
+    for (const raw of m.items) {
+      const viewed = importItemView(raw);
+      legacyByItemKey.set(raw.key, classifyKakaoItemErpStatus(viewed, {
+        customers: erpCustomers,
+        erpOrders,
+        defaultYear: '2026',
+        orderScope: { country: 'Colombia', year: 2026, majorWeek: '49', orderWeek: '49-01' },
+      }));
+    }
+  }
+  const legacyMs = performance.now() - tLegacy0;
+
+  // 2) Pre-cached allEvaluated + O(1) scoped projection on 정리 처리 click
+  const cachedByItemKey = new Map();
+  for (const m of synthMessages) {
+    for (const raw of m.items) {
+      const viewed = importItemView(raw);
+      cachedByItemKey.set(raw.key, classifyKakaoItemErpStatus(viewed, {
+        customers: erpCustomers,
+        erpOrders,
+        defaultYear: '2026',
+        orderScope: { country: 'Colombia', year: 2026, majorWeek: '49', orderWeek: '49-01' },
+      }));
+    }
+  }
+  const tOpt0 = performance.now();
+  const scopedIds = new Set(synthMessages.slice(1).map(m => m.id));
+  const projectedByItemKey = new Map();
+  for (const m of synthMessages) {
+    if (!scopedIds.has(m.id)) continue;
+    for (const raw of m.items) {
+      const st = cachedByItemKey.get(raw.key);
+      if (st) projectedByItemKey.set(raw.key, st);
+    }
+  }
+  const optMs = performance.now() - tOpt0;
+  assert.equal(projectedByItemKey.size, legacyByItemKey.size);
+  assert.ok(optMs < 10, `Expected O(1) cached clean-toggle projection < 10ms, got ${optMs.toFixed(3)}ms`);
+  console.log(`[BENCH] ERP status on 정리 처리 toggle (500 items × 1,500 orders): legacy=${legacyMs.toFixed(2)}ms -> cached=${optMs.toFixed(3)}ms`);
+}
+
+console.log('PASS Axis A (DB Farm Master), Axis B (12-country ERP Product inference), Axis C (Compound split & Recall), Axis D (English DB ProdName, lowercase units & O(1) Zero-Lag toggle)');

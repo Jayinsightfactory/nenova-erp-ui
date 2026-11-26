@@ -137,7 +137,7 @@ const msg = (text, id = 'm1', time = '2026년 11월 25일 오전 9:30') => ({ id
   assert.equal(normalizeOrderUnit('EB'), 'EB');
   for (const u of ['B', 'box', 'boxes', '박스', '상자']) assert.equal(normalizeOrderUnit(u), '박스', u);
   for (const u of ['단', '속', 'bunch', 'bunches', 'bd']) assert.equal(normalizeOrderUnit(u), '단', u);
-  for (const u of ['송이', '본', '개', '스팀', '스템', 'st', 'stem', 'stems']) assert.equal(normalizeOrderUnit(u), '송이', u);
+  for (const u of ['송이', '본', '개', '스팀', '스템', '대', 'st', 'stem', 'stems']) assert.equal(normalizeOrderUnit(u), '송이', u);
 
   const mixed = analyzeImportMessage(msg(
     '47-2 콜 장미 발주 추가\n■ 엘리떼\n몬디알 3FB\n몬디알 2HB\n몬디알 4B\n몬디알 10속\n몬디알 50본'
@@ -291,7 +291,8 @@ const msg = (text, id = 'm1', time = '2026년 11월 25일 오전 9:30') => ({ id
 
   const singleEn = formatFarmCardText(summary.cards.find(c => c.farm === 'The Elite Flowers'), { format: 'concise', lang: 'en' });
   assert.match(singleEn, /^\[The Elite Flowers\] 2026\/47-02차/m);
-  assert.match(singleEn, /Total: 13 Boxes \(10 FB · 3 HB\)/);
+  assert.match(singleEn, /1\. 몬디알 Select 60cm - 6 box \(FB\)/);
+  assert.match(singleEn, /Total: 13 box \(10 FB · 3 HB\)/);
   assert.match(singleEn, /Note: 수요일 선적분 부탁/);
 }
 
@@ -609,6 +610,15 @@ const msg = (text, id = 'm1', time = '2026년 11월 25일 오전 9:30') => ({ id
   assert.doesNotMatch(uiSource, /[🚀✨🔥💡🤖]/u);
   assert.doesNotMatch(uiSource, /감시|추적|모니터링|절감시간/);
   assert.doesNotMatch(uiSource, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i);
+
+  // 18. Zero-Lag UI invariants, clickable 합계 반영 reverse match, DB 품목명 (영문) column & lowercase English unit defaults
+  assert.match(uiSource, /DB 품목명 \(영문\)/);
+  assert.doesNotMatch(uiSource, /<th scope="col">규격 · 포장<\/th>/);
+  assert.match(uiSource, /useState\('en'\)/);
+  assert.match(uiSource, /button\.kakao-source-included/);
+  assert.match(uiSource, /data-farm-line-key=/);
+  assert.match(uiSource, /content-visibility:\s*auto/);
+  assert.doesNotMatch(uiSource, /effectiveLimit\s*=\s*Math\.max/);
 }
 
 console.log('PASS Kakao farm classification, noise/total dedup, units/specs/revisions, farm cards, copy formatter and Anti-AI Slop');
