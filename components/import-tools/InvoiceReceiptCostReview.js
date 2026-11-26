@@ -228,7 +228,16 @@ function derivePreviewGroupState(formula, receiptLines, lineInputs, gwValue, cwV
   const gw = numberOrNull(gwValue);
   const cw = numberOrNull(cwValue);
   const weightsByGroup = new Map();
-  if (isCO && gw > 0 && cw >= gw && activeIds.length > 0 && activeIds.every(id => totals.get(id).boxQuantity > 0 && PREVIEW_CO_COEFFICIENTS[id])) {
+  const coSingleZeroBox = isCO
+    && activeIds.length === 1
+    && totals.get(activeIds[0]).boxQuantity === 0
+    && totalReceiptBoxes === 0;
+  if (isCO && gw > 0 && cw >= gw && coSingleZeroBox) {
+    weightsByGroup.set(activeIds[0], {
+      grossWeightKg: Math.round(gw * 1e6) / 1e6,
+      volumeWeightKg: Math.round(cw * 1e6) / 1e6,
+    });
+  } else if (isCO && gw > 0 && cw >= gw && activeIds.length > 0 && activeIds.every(id => totals.get(id).boxQuantity > 0 && PREVIEW_CO_COEFFICIENTS[id])) {
     const grossDenom = activeIds.reduce((sum, id) => sum + totals.get(id).boxQuantity * PREVIEW_CO_COEFFICIENTS[id].gross, 0);
     const volDenom = activeIds.reduce((sum, id) => sum + totals.get(id).boxQuantity * PREVIEW_CO_COEFFICIENTS[id].volume, 0);
     if (grossDenom > 0 && volDenom > 0) {
@@ -253,16 +262,18 @@ function derivePreviewGroupState(formula, receiptLines, lineInputs, gwValue, cwV
     return {
       groupId,
       quantity: active ? t.quantity : '',
-      boxQuantity: active && t.boxQuantity > 0 ? t.boxQuantity : '',
+      boxQuantity: active && t.boxQuantity > 0 ? t.boxQuantity : (active && coSingleZeroBox ? 0 : ''),
       grossWeightKg: w ? w.grossWeightKg : '',
       volumeWeightKg: w ? w.volumeWeightKg : '',
     };
   });
   const sharedPacking = isTH && hasZeroBoxActiveLine && totalReceiptBoxes > 0;
+  const coMultiZeroBox = isCO && formula?.formulaId === 'CO_GROUP_42_1_V1' && activeIds.length > 1 && totalReceiptBoxes === 0 && hasZeroBoxActiveLine;
   return {
     costGroups,
     activeGroupIds: activeIds,
     ...(sharedPacking ? { groupBoxBasis: 'PACKING_GROUP', packingBoxTotal: totalReceiptBoxes } : {}),
+    ...(coMultiZeroBox ? { groupBoxBasis: 'PACKING_GROUP' } : {}),
   };
 }
 
@@ -843,7 +854,38 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     if (typeof groupsManuallyEditedRef !== 'undefined' && groupsManuallyEditedRef) groupsManuallyEditedRef.current = true;
     setInputEdited(true);
     invalidateApprovalStages();
-    setForm(current => editedGroupForm(current, groupId, name, value));
+    setForm(current => {
+      const next = editedGroupForm(current, groupId, name, value);
+      if (name === 'boxQuantity' && next.formulaId === 'CO_GROUP_42_1_V1' && next.groupBoxBasis === 'PACKING_GROUP') {
+        const gw = numberOrNull(document?.reviewedMetadata?.gw);
+        const cw = numberOrNull(document?.reviewedMetadata?.cw);
+        const active = (next.costGroups || []).filter(g => numberOrNull(g.quantity) > 0 && numberOrNull(g.boxQuantity) > 0 && PREVIEW_CO_COEFFICIENTS[g.groupId]);
+        const boxSum = active.reduce((s, g) => s + Number(g.boxQuantity), 0);
+        if (boxSum > 0 && gw > 0 && cw >= gw && active.length === (next.costGroups || []).filter(g => numberOrNull(g.quantity) > 0).length) {
+          const grossDenom = active.reduce((s, g) => s + Number(g.boxQuantity) * PREVIEW_CO_COEFFICIENTS[g.groupId].gross, 0);
+          const volDenom = active.reduce((s, g) => s + Number(g.boxQuantity) * PREVIEW_CO_COEFFICIENTS[g.groupId].volume, 0);
+          let accG = 0, accV = 0, allocG = 0, allocV = 0;
+          const byId = new Map();
+          active.forEach((g, idx) => {
+            accG += Number(g.boxQuantity) * PREVIEW_CO_COEFFICIENTS[g.groupId].gross;
+            accV += Number(g.boxQuantity) * PREVIEW_CO_COEFFICIENTS[g.groupId].volume;
+            const tG = idx === active.length - 1 ? Math.round(gw * 1e6) / 1e6 : Math.round(gw * accG / grossDenom * 1e6) / 1e6;
+            const tV = idx === active.length - 1 ? Math.round(cw * 1e6) / 1e6 : Math.round(cw * accV / volDenom * 1e6) / 1e6;
+            const gVal = Math.round((tG - allocG) * 1e6) / 1e6;
+            const vVal = Math.round((tV - allocV) * 1e6) / 1e6;
+            allocG = Math.round((allocG + gVal) * 1e6) / 1e6;
+            allocV = Math.round((allocV + vVal) * 1e6) / 1e6;
+            byId.set(g.groupId, { grossWeightKg: gVal, volumeWeightKg: vVal });
+          });
+          return {
+            ...next,
+            packingBoxTotal: Math.round(boxSum * 1e6) / 1e6,
+            costGroups: next.costGroups.map(g => byId.has(g.groupId) ? { ...g, ...byId.get(g.groupId) } : g),
+          };
+        }
+      }
+      return next;
+    });
     setPreview(null);
   }
 
@@ -1169,13 +1211,15 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       행별 CBM 환산중량은 kg입니다. 원시 m³나 임의 환산계수를 입력하지 마세요. 인식 GW는 미확정 힌트이며 현재 자료와 대조해야 합니다.</p>}
     {groupIds.length > 0 && <>
       <h4>포장 그룹 수동 확인</h4>
-      {country === 'TH' && <>
+      {(country === 'TH' || (country === 'CO' && form.formulaId === 'CO_GROUP_42_1_V1' && receiptLines.length > 0 && receiptLines.every(l => Number(l?.boxQuantity ?? 0) === 0))) && <>
         <label>박스 배분 기준 <select aria-label="박스 배분 기준" value={form.groupBoxBasis ?? 'RECEIPT_LINES'} onChange={event => update('groupBoxBasis', event.target.value)}>
-          <option value="RECEIPT_LINES">입고 품목별 박스 합계</option>
+          <option value="RECEIPT_LINES">입고 품목별 박스 합계{country === 'CO' ? ' (단일 품종 0박스 송이 배분)' : ''}</option>
           <option value="PACKING_GROUP">패킹 그룹별 박스 (기존 입고 보존)</option>
         </select></label>
         {form.groupBoxBasis === 'PACKING_GROUP' && <label>패킹 전체 박스수 <input aria-label="패킹 전체 박스수" type="number" min="0" step="0.000001" value={form.packingBoxTotal ?? ''} onChange={event => update('packingBoxTotal', event.target.value)} /></label>}
-        <p>여러 품목이 한 박스를 공유하면 패킹 그룹별 박스를 선택하세요. 그룹 박스 비율 × 그룹 안의 송이 비율로 운임·통관비를 나눕니다. 기존 입고 박스수는 바꾸지 않습니다. 상품 단가는 인보이스 값을 사용합니다.</p>
+        <p>{country === 'CO'
+          ? '소매형 송장(입고 박스수 0)의 단일 품종은 송이수 비중으로 자동 배분하며, 복수 품종은 패킹 그룹별 박스를 입력해 중량·부피 계수로 배분합니다. 기존 입고 박스수는 바꾸지 않습니다.'
+          : '여러 품목이 한 박스를 공유하면 패킹 그룹별 박스를 선택하세요. 그룹 박스 비율 × 그룹 안의 송이 비율로 운임·통관비를 나눕니다. 기존 입고 박스수는 바꾸지 않습니다. 상품 단가는 인보이스 값을 사용합니다.'}</p>
       </>}
       <p>송이수·박스수·중량은 원문 근거로 직접 입력하세요. 품목명으로 그룹을 추정하거나 자동 선택하지 않습니다. 사용하지 않는 그룹은 비워 두세요.</p>
       {country === 'CO' && <p role="status">그룹 실중량 합계는 문서 GW, 그룹 부피중량 합계는 문서 CW와 각각 일치해야 합니다 (0.01 kg). 합계가 다르면 계산 승인할 수 없습니다.</p>}

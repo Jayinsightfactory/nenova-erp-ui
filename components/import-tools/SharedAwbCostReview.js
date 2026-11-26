@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import WorkflowGuide from '../WorkflowGuide';
 import CostAwbEvidence from './CostAwbEvidence';
-import { calculateCoOriginalCustoms } from '../../lib/coOriginalCostInputs.js';
+import { CO_ORIGINAL_CUSTOMS_DEFAULTS, calculateCoOriginalCustoms } from '../../lib/coOriginalCostInputs.js';
+import { CO_DEFAULT_STEMS_PER_BUNCH } from '../../lib/receiptOriginInheritance.js';
 import ledger from '../../styles/ArrivalCostLedger.module.css';
 
 const labels = { ROSE: '장미', CARNATION: '카네이션', ALSTROMERIA: '알스트로', RUSCUS: '루스커스', HYDRANGEA: '수국' };
 const MASTER_LABELS = { CO: '콜카장 누적 원가자료', CO_HYDRANGEA: '수국 누적 원가자료' };
-const scopeLabels = { MAIN: '콜카장 (장미·카네이션·알스트로·루스커스)', HYDRANGEA: '수국' };
+const scopeLabels = {
+  MAIN: '콜카장 (장미·카네이션·알스트로·루스커스)',
+  HYDRANGEA: '수국',
+  ALL: '통합 5품종 (콜카장 + 수국 혼적 AWB)',
+};
 
 /**
  * 공동 AWB 원가. 두 가지 입구를 같은 계산 코어로 쓴다.
@@ -25,9 +30,18 @@ export default function SharedAwbCostReview({ document, native = null }) {
   const [lineInputs, setLineInputs] = useState([]);
   const [awbText, setAwbText] = useState(native?.awb ?? '');
   const [scope, setScope] = useState(native?.scope || 'MAIN');
+  const [scopeNotice, setScopeNotice] = useState('');
   const [fullBox, setFullBox] = useState({});
   const [input, setInput] = useState({
     gw: '', cw: '', freightAmount: '', freightCurrency: 'USD', exchangeRate: '', customsTotalKRW: '', customsMode: 'FORMULA', exchangeRateType: 'MANUAL',
+  });
+  const [customsParts, setCustomsParts] = useState({
+    storagePerKg: String(CO_ORIGINAL_CUSTOMS_DEFAULTS.storagePerKg),
+    clearance: String(CO_ORIGINAL_CUSTOMS_DEFAULTS.clearance),
+    inspectionPerGroup: String(CO_ORIGINAL_CUSTOMS_DEFAULTS.inspectionPerGroup),
+    domestic: String(CO_ORIGINAL_CUSTOMS_DEFAULTS.domestic),
+    quarantine: String(CO_ORIGINAL_CUSTOMS_DEFAULTS.quarantine),
+    disinfection: '0',
   });
   const [rateStatus, setRateStatus] = useState('');
   const [rateRetry, setRateRetry] = useState(0);
@@ -94,7 +108,15 @@ export default function SharedAwbCostReview({ document, native = null }) {
       .reduce((sum, row) => sum + (Number(row.boxQuantity) || 0), 0),
   ]));
   const needsFullBox = groupIds.length > 1;
-  const customs = calculateCoOriginalCustoms(input.gw, groupIds);
+  const parsedCustomsOverrides = {
+    storagePerKg: customsParts.storagePerKg === '' ? null : Number(customsParts.storagePerKg),
+    clearance: customsParts.clearance === '' ? null : Number(customsParts.clearance),
+    inspectionPerGroup: customsParts.inspectionPerGroup === '' ? null : Number(customsParts.inspectionPerGroup),
+    domestic: customsParts.domestic === '' ? null : Number(customsParts.domestic),
+    quarantine: customsParts.quarantine === '' ? null : Number(customsParts.quarantine),
+    disinfection: customsParts.disinfection === '' ? null : Number(customsParts.disinfection),
+  };
+  const customs = calculateCoOriginalCustoms(input.gw, groupIds, parsedCustomsOverrides);
 
   // 환율을 비워 두면 USD 현재 시세 +15원을 자동 조회한다(사용자가 입력하면 조회하지 않음).
   useEffect(() => {
@@ -122,11 +144,19 @@ export default function SharedAwbCostReview({ document, native = null }) {
     return () => controller.abort();
   }, [prepared, input.exchangeRate, rateRetry]);
 
+  const serializeLineInputs = () => lineInputs.map(line => ({
+    ...line,
+    stemsPerBunch: line.stemsPerBunch === '' || line.stemsPerBunch == null ? null : Number(line.stemsPerBunch),
+    tariffRate: line.tariffPercent === '' || line.tariffPercent == null ? 0 : Number(line.tariffPercent) / 100,
+  }));
+
   const body = (action, extra = {}) => JSON.stringify({
     action, orderYear, orderWeek, awb, ...(native ? { scope } : {}),
-    baselineDigest: prepared?.baselineDigest, completeManifestConfirmed: confirmed, lineInputs,
+    baselineDigest: prepared?.baselineDigest, completeManifestConfirmed: confirmed,
+    lineInputs: serializeLineInputs(),
     input: {
       ...input,
+      ...(input.customsMode === 'FORMULA' ? { coCustomsOverrides: parsedCustomsOverrides } : {}),
       ...(needsFullBox ? { fullBoxCounts: Object.fromEntries(groupIds.map(id => [id, fullBox[id] === '' || fullBox[id] == null ? null : Number(fullBox[id])])) } : {}),
     },
     ...extra,
@@ -134,6 +164,7 @@ export default function SharedAwbCostReview({ document, native = null }) {
 
   async function run(action, overrideScope = scope, options = {}) {
     setBusy(action); setError('');
+    if (action === 'prepare' && !options.preserveScopeNotice) setScopeNotice('');
     try {
       const append = action === 'download' && !isTestOnly && appendToMaster && master?.exists;
       const targetAwb = options.awbOverride ?? awb;
@@ -141,7 +172,7 @@ export default function SharedAwbCostReview({ document, native = null }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: action === 'prepare'
-          ? JSON.stringify({ action, orderYear, orderWeek, awb: targetAwb, ...(native ? { scope: overrideScope } : {}), lineInputs })
+          ? JSON.stringify({ action, orderYear, orderWeek, awb: targetAwb, ...(native ? { scope: overrideScope } : {}), lineInputs: serializeLineInputs() })
           : body(action, append ? { appendToMaster: true } : {}),
       });
       if (action === 'download' && response.ok) {
@@ -162,19 +193,27 @@ export default function SharedAwbCostReview({ document, native = null }) {
       }
       const data = await response.json();
       if (!response.ok || data.success !== true) {
-        if (action === 'prepare' && native && options.autoFallbackScope && response.status === 404) {
+        if (action === 'prepare' && native && options.autoFallbackScope && response.status === 404 && overrideScope !== 'ALL') {
           const altScope = overrideScope === 'MAIN' ? 'HYDRANGEA' : 'MAIN';
           setScope(altScope);
-          return await run('prepare', altScope, { ...options, autoFallbackScope: false });
+          setScopeNotice(`선택한 AWB에 ${scopeLabels[overrideScope]} 입고가 없어 ${scopeLabels[altScope]} 범위로 자동 전환했습니다.`);
+          return await run('prepare', altScope, { ...options, autoFallbackScope: false, preserveScopeNotice: true });
         }
         throw new Error(data.error || '공동 AWB 작업에 실패했습니다.');
       }
       if (action === 'prepare') {
+        if (native && options.autoDetectMixedScope && data.awbScopeSummary?.mixedAwb && overrideScope !== 'ALL') {
+          setScope('ALL');
+          setScopeNotice('이 AWB에는 콜카장과 수국이 함께 입고되어 통합 5품종(ALL) 범위를 기본 적용했습니다. 전체 중량·운임을 1회만 배분합니다.');
+          return await run('prepare', 'ALL', { ...options, autoDetectMixedScope: false, autoFallbackScope: false, preserveScopeNotice: true });
+        }
         setPrepared(data);
-        setLineInputs(data.members.flatMap(member => member.lineInputs.map(line => ({
-          ...line,
-          groupId: line.groupId || line.suggestedGroupId || '',
-        }))));
+        setLineInputs(data.members.flatMap(member => member.lineInputs.map(line => {
+          const groupId = line.groupId || line.suggestedGroupId || '';
+          const spb = line.stemsPerBunch > 0 ? line.stemsPerBunch : (CO_DEFAULT_STEMS_PER_BUNCH[groupId] ?? '');
+          const tariffPercent = Number.isFinite(Number(line.tariffRate)) ? String(Math.round(Number(line.tariffRate) * 10000) / 100) : '0';
+          return { ...line, groupId, stemsPerBunch: spb, tariffPercent };
+        })));
         if (data.awbReference) {
           setInput(current => ({
             ...current,
@@ -196,7 +235,7 @@ export default function SharedAwbCostReview({ document, native = null }) {
   useEffect(() => {
     const initialAwb = String(native?.awb ?? '').replace(/[\s-]/g, '');
     if (native && /^\d{11}$/.test(initialAwb)) {
-      run('prepare', native.scope || 'MAIN', { awbOverride: initialAwb, autoFallbackScope: true });
+      run('prepare', native.scope || 'MAIN', { awbOverride: initialAwb, autoFallbackScope: true, autoDetectMixedScope: true });
     }
   }, []);
 
@@ -328,17 +367,51 @@ export default function SharedAwbCostReview({ document, native = null }) {
       </div>
 
       {input.customsMode === 'FORMULA' && (
-        <p className={ledger.formulaNote}>
-          {customs.source} · {customs.groupCount}종류. 원본 기본값 계산본이며 실제 청구 확정액은 아닙니다.
-        </p>
+        <div className={ledger.sectionBox} style={{ marginTop: 8 }}>
+          <p className={ledger.sectionBoxTitle}>42-1 통관비 수식 항목 (표준 기본값 미리 채움 · 수정 시 미리보기와 엑셀 동일 반영)</p>
+          <div className={ledger.formGrid}>
+            {[
+              ['storagePerKg', '창고료 단가 (원/kg · P6)'],
+              ['clearance', '통관수수료 (원 · P7)'],
+              ['inspectionPerGroup', '검역수수료 단가 (원/품종 · P8)'],
+              ['domestic', '국내운송비 (원 · P9)'],
+              ['quarantine', '검역차감 (원 · R6)'],
+              ['disinfection', '소독비 (원 · R7)'],
+            ].map(([field, label]) => (
+              <label key={field} className={ledger.field}>
+                <span>{label}</span>
+                <input
+                  aria-label={label}
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={customsParts[field]}
+                  onChange={event => {
+                    setCustomsParts(current => ({ ...current, [field]: event.target.value }));
+                    setResult(null);
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+          <p className={ledger.formulaNote} style={{ marginTop: 8 }}>
+            {customs.source} · {customs.groupCount}종류. 화면에서 항목을 수정하면 미리보기와 다운로드 엑셀 모두 동일하게 반영됩니다.
+          </p>
+        </div>
       )}
 
       <div className={ledger.actionRow}>
-        <button className={ledger.btnPrimary} type="button" disabled={!!busy || !awbReady} onClick={() => run('prepare')}>
+        <button
+          className={ledger.btnPrimary}
+          type="button"
+          disabled={!!busy || !awbReady}
+          onClick={() => run('prepare', scope, { autoFallbackScope: !prepared, autoDetectMixedScope: !prepared })}
+        >
           {native ? '콜롬비아 전체 입고 조회' : '공동 AWB 전체 입고 조회'}
         </button>
       </div>
 
+      {scopeNotice && <p className={ledger.statusNotice} role="status">{scopeNotice}</p>}
       {error && <p className={ledger.alertError} role="alert">{error}</p>}
 
       {prepared && (
@@ -346,17 +419,53 @@ export default function SharedAwbCostReview({ document, native = null }) {
           <p className={ledger.statusNotice}>
             현재 입고 <strong>{prepared.members.length}건</strong> · 미승인 계산본 다운로드이며 기존 입고·승인 원가는 변경하지 않습니다.
           </p>
+          {prepared.awbScopeSummary?.partialScopeOfMixedAwb && (
+            <div className={ledger.alertError} role="alert">
+              <p style={{ margin: 0 }}>
+                이 AWB에는 콜카장과 수국이 함께 입고되어 있습니다. 전체 중량·운임 200% 이중 계상을 막기 위해 부분 범위에는 전체 AWB 참고 중량·운임을 자동 채우지 않았습니다.
+                {prepared.mixedAwbReference ? ` (전체 참고: GW ${prepared.mixedAwbReference.gw ?? '미기재'}kg / CW ${prepared.mixedAwbReference.cw ?? '미기재'}kg / 운임 ${prepared.mixedAwbReference.freightAmount ?? '미기재'} USD)` : ''}
+              </p>
+              <button
+                type="button"
+                className={ledger.btnSecondarySm}
+                style={{ marginTop: 8 }}
+                disabled={!!busy}
+                onClick={() => {
+                  setScope('ALL');
+                  setInput(current => ({ ...current, gw: '', cw: '', freightAmount: '' }));
+                  run('prepare', 'ALL', { autoDetectMixedScope: false, autoFallbackScope: false });
+                }}
+              >
+                통합 5품종(ALL) 범위로 전환하여 한 번에 계산
+              </button>
+            </div>
+          )}
           {prepared.awbReference && (
             <p className={ledger.statusNotice} role="status">
               동일 차수·AWB 운임 참고자료 자동 반영: <strong>{prepared.awbReference.sourceId}</strong>
               {' '}(GW {prepared.awbReference.gw ?? '미기재'}kg · CW {prepared.awbReference.cw ?? '미기재'}kg · 운임 {prepared.awbReference.freightAmount != null ? `${prepared.awbReference.freightAmount.toLocaleString('ko-KR')} USD` : '미기재'})
             </p>
           )}
-          {prepared.excluded?.length > 0 && (
+          {prepared.unmappedPaidRows?.length > 0 && (
+            <div className={ledger.alertError} role="alert">
+              <strong>전산 품목 미매핑 유상 행 {prepared.unmappedPaidRows.length}건 확인 필요 (현재 계산 금액에서 제외됨)</strong>
+              <p style={{ margin: '4px 0 0' }}>
+                아래 행은 품목코드(ProdKey)가 비어 있어 자동 포함되지 않았습니다. 원장 매칭 누락인지 별도 행으로 수기 재등록된 중복인지 확인하세요.
+              </p>
+              <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
+                {prepared.unmappedPaidRows.map(row => (
+                  <li key={`unmapped-${row.warehouseKey}-${row.wdetailKey}`}>
+                    입고 #{row.warehouseKey} {row.farmName} · 송장 {row.invoiceNo} · 상세 #{row.wdetailKey} · {row.stems ?? 0}송이 · {row.amount ?? 0} USD
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {prepared.excluded?.filter(row => !row.unmappedPaid).length > 0 && (
             <div className={ledger.sectionBox} role="status">
-              <p className={ledger.sectionBoxTitle}>계산에서 제외한 행 {prepared.excluded.length}개 (금액에 포함되지 않음)</p>
+              <p className={ledger.sectionBoxTitle}>계산에서 제외한 비상품 행 {prepared.excluded.filter(row => !row.unmappedPaid).length}개 (금액에 포함되지 않음)</p>
               <ul style={{ margin: '6px 0 0', paddingLeft: 20, fontSize: '13px', color: '#475569' }}>
-                {prepared.excluded.map(row => (
+                {prepared.excluded.filter(row => !row.unmappedPaid).map(row => (
                   <li key={`${row.warehouseKey}-${row.wdetailKey}`}>
                     {row.farmName} · {row.invoiceNo} · {row.name} · {row.stems}송이 · {row.amount} · {row.reason}
                   </li>
@@ -440,30 +549,71 @@ export default function SharedAwbCostReview({ document, native = null }) {
                   <th>농장·송장</th>
                   <th>품목</th>
                   <th>송이</th>
+                  <th>단당 송이</th>
+                  <th>관세율(%)</th>
                   <th>품종</th>
                 </tr>
               </thead>
               <tbody>
-                {prepared.members.flatMap(member => member.rows.map(row => (
-                  <tr key={row.lineId}>
-                    <td>{member.farmName} · {member.invoiceNo}</td>
-                    <td>{row.originalName}</td>
-                    <td>{Number(row.stemQuantity ?? 0).toLocaleString('ko-KR')}</td>
-                    <td>
-                      <select
-                        aria-label={`${row.originalName} 품종`}
-                        value={lineInputs.find(line => line.lineId === row.lineId)?.groupId || ''}
-                        onChange={event => {
-                          setLineInputs(lines => lines.map(line => line.lineId === row.lineId ? { ...line, groupId: event.target.value } : line));
-                          setResult(null);
-                        }}
-                      >
-                        <option value="">품종 확인</option>
-                        {Object.entries(labels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-                )))}
+                {prepared.members.flatMap(member => member.rows.map(row => {
+                  const currentLine = lineInputs.find(line => line.lineId === row.lineId);
+                  return (
+                    <tr key={row.lineId}>
+                      <td>{member.farmName} · {member.invoiceNo}</td>
+                      <td>{row.originalName}</td>
+                      <td>{Number(row.stemQuantity ?? 0).toLocaleString('ko-KR')}</td>
+                      <td>
+                        <input
+                          aria-label={`${row.originalName} 단당 송이수`}
+                          type="number"
+                          min="0.000001"
+                          step="any"
+                          style={{ width: 84 }}
+                          value={currentLine?.stemsPerBunch ?? ''}
+                          onChange={event => {
+                            setLineInputs(lines => lines.map(line => line.lineId === row.lineId ? { ...line, stemsPerBunch: event.target.value } : line));
+                            setResult(null);
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          aria-label={`${row.originalName} 관세율`}
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="any"
+                          style={{ width: 72 }}
+                          value={currentLine?.tariffPercent ?? '0'}
+                          onChange={event => {
+                            setLineInputs(lines => lines.map(line => line.lineId === row.lineId ? { ...line, tariffPercent: event.target.value } : line));
+                            setResult(null);
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <select
+                          aria-label={`${row.originalName} 품종`}
+                          value={currentLine?.groupId || ''}
+                          onChange={event => {
+                            const nextGroup = event.target.value;
+                            setLineInputs(lines => lines.map(line => line.lineId === row.lineId ? {
+                              ...line,
+                              groupId: nextGroup,
+                              stemsPerBunch: (line.stemsPerBunch !== '' && line.stemsPerBunch != null && Number(line.stemsPerBunch) > 0)
+                                ? line.stemsPerBunch
+                                : (CO_DEFAULT_STEMS_PER_BUNCH[nextGroup] ?? ''),
+                            } : line));
+                            setResult(null);
+                          }}
+                        >
+                          <option value="">품종 확인</option>
+                          {Object.entries(labels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                }))}
               </tbody>
             </table>
           </div>

@@ -57,12 +57,19 @@ test('범위 분리: 콜카장은 수국 농장을 제외하고, 수국은 수�
   assert.notEqual((await prepareNativeShared({ queryFn: fakeQuery(rows), types, request: request('MAIN') })).baselineDigest, main.baselineDigest);
 });
 
-test('잘못된 요청·섞인 입고는 계산 전에 막는다', async () => {
+test('잘못된 요청·부분 범위 섞인 입고는 계산 전에 막고, 통합 5품종(ALL)은 혼적 입고를 한 번에 묶는다', async () => {
   const rows = weekRows();
   await assert.rejects(prepareNativeShared({ queryFn: fakeQuery(rows), types, request: request('MAIN', { awb: '123' }) }), /AWB/);
-  await assert.rejects(prepareNativeShared({ queryFn: fakeQuery(rows), types, request: request('ALL') }), /범위/);
+  await assert.rejects(prepareNativeShared({ queryFn: fakeQuery(rows), types, request: request('INVALID') }), /범위/);
+  const all = await prepareNativeShared({ queryFn: fakeQuery(rows), types, request: request('ALL') });
+  assert.deepEqual(all.members.map(m => m.farmName), ['Ayura', 'El Cactus', 'Antioquia Floral S.A.S', 'C.I Flores Balverde S.A.S']);
+  assert.equal(all.awbScopeSummary.mixedAwb, true);
+  assert.equal(all.awbScopeSummary.recommendedScope, 'ALL');
+  assert.equal(all.awbScopeSummary.partialScopeOfMixedAwb, false);
   const mixed = weekRows(); mixed.push({ ...head(7902, 'Ayura', '17655'), ...line(7902, 'Hydrangea White', '수국', 1, 100, 1, 1) });
   await assert.rejects(prepareNativeShared({ queryFn: fakeQuery(mixed), types, request: request('MAIN') }), /수국과 다른 품종/);
+  const mixedAll = await prepareNativeShared({ queryFn: fakeQuery(mixed), types, request: request('ALL') });
+  assert.equal(mixedAll.members.length, 4);
   const foreign = weekRows(); foreign.push({ ...head(7902, 'Ayura', '17655'), ...line(7902, 'Tulip', '튤립', 1, 100, 1, 10, '네덜란드') });
   await assert.rejects(prepareNativeShared({ queryFn: fakeQuery(foreign), types, request: request('MAIN') }), /콜롬비아가 아닌/);
 });

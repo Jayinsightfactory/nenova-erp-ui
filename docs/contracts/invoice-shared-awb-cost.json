@@ -11,6 +11,8 @@
     "pages/api/import/receipts/cost-master.js",
     "pages/api/import/receipts/drive-match-history.js",
     "lib/nativeSharedCost.js",
+    "lib/receiptOriginInheritance.js",
+    "lib/invoiceCostOriginalColombia.js",
     "lib/awbReferenceReceipt.js",
     "lib/costMasterStore.js",
     "lib/costMasterHttp.js",
@@ -49,6 +51,7 @@
     "__tests__/invoiceSharedAwbApi.test.js",
     "__tests__/invoiceSourcePacking.test.js",
     "__tests__/nativeSharedCost.test.js",
+    "__tests__/coArrivalCostGeneralRules.test.js",
     "__tests__/awbReferenceReceipt.test.js",
     "__tests__/costMasterStore.test.js",
     "__tests__/costWorkbookMerge.test.js"

@@ -15,6 +15,7 @@
     "lib/arrivalCostAwbDraft.js",
     "lib/awbReferenceReceipt.js",
     "lib/invoiceWarehouseBrowse.js",
+    "lib/receiptOriginInheritance.js",
     "lib/nativeSharedCost.js"
   ],
   "businessIdentity": [
@@ -59,6 +60,7 @@
     "__tests__/arrivalCostAwbDraft.test.js",
     "__tests__/invoiceWarehouseBrowse.test.js",
     "__tests__/nativeSharedCost.test.js",
+    "__tests__/coArrivalCostGeneralRules.test.js",
     "__tests__/awbReferenceReceipt.test.js"
   ],
   "dnspyEvidence": {

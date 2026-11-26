@@ -12,6 +12,7 @@
   "invoiceDownloadShortcut": "2026-10-27: selected invoice exposes native read-only cost/download browser independently of LINK_EXISTING_COST country support or draft receipt status. Exact year/week/invoice filter, explicit warehouse/farm selection, no draft values copied to native source. Native amount mismatches remain blocking. See plans/au-cost-download-2026-10-27.md.",
   "additionalScope": [
     "lib/nativeReceiptCost.js",
+    "lib/receiptOriginInheritance.js",
     "lib/nativeCostHttp.js",
     "components/import-tools/NativeReceiptCost.js",
     "pages/api/import/receipts/native-cost.js",
@@ -28,6 +29,7 @@
     "components/import-tools/IndependentCostWorkspace.js",
     "lib/packingWorkDraft.js",
     "lib/nativeReceiptCost.js",
+    "lib/receiptOriginInheritance.js",
     "lib/nativeCostHttp.js",
     "components/import-tools/NativeReceiptCost.js",
     "pages/api/import/receipts/native-cost.js",
