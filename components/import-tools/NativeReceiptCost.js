@@ -105,12 +105,22 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
               ? ` → 현재 입고 송이 비중(${data.source.awbReference.stemShareNumerator.toLocaleString('ko-KR')}/${data.source.awbReference.stemShareDenominator.toLocaleString('ko-KR')}) 안분 초안 자동 반영`
               : ''}
           </p>
+          {data.document?.reviewedMetadata?.freightBreakdown && (
+            <p>
+              공동 AWB 안분 항공운임 {data.document.reviewedMetadata.freightBreakdown.sharedAwbFreight.toLocaleString('ko-KR')} + 농장 송장 자체 부대비 {data.document.reviewedMetadata.freightBreakdown.farmEmbeddedFee.toLocaleString('ko-KR')} = 합계 {data.document.reviewedMetadata.freightBreakdown.combinedFreight.toLocaleString('ko-KR')} 분리 합산 반영 (농장 부대비가 AWB 운임을 덮어쓰지 않습니다)
+            </p>
+          )}
           {data.source.country === 'CO' && data.source.awbReference.sharedGoodsReceiptCount > 1 && onOpenSharedAwb && (
             <button type="button" onClick={() => onOpenSharedAwb(data.source.awbReference.awb)}>
               콜롬비아 전체 농장 공동 원가에서 한 번에 계산하기
             </button>
           )}
         </div>
+      )}
+      {data.source.lines?.some(line => !(Number(line.prodKey) > 0)) && (
+        <p role="alert">
+          전산 품목 미매핑 유상 행({data.source.lines.filter(line => !(Number(line.prodKey) > 0)).length}건)이 포함되어 있습니다. 원장 매칭 누락 또는 중복 등록 여부를 먼저 확인하세요.
+        </p>
       )}
       {data.automatic && <div className={styles.automatic} role="status">
         <strong>네덜란드 입고자료 자동 연결</strong>

@@ -72,7 +72,8 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
       setNativeKey(null);
       if (/^\d{11}$/.test(awb) && coGoods.length) {
         const invoiceHint = String(row.InvoiceNo ?? '');
-        const inferredScope = /수국|hydrangea/i.test(invoiceHint) && !/카장/i.test(invoiceHint) ? 'HYDRANGEA' : 'MAIN';
+        const isMixedHint = /수국|hydrangea/i.test(invoiceHint) && /카장|콜카|콯카/i.test(invoiceHint);
+        const inferredScope = isMixedHint ? 'ALL' : (/수국|hydrangea/i.test(invoiceHint) && !/카장/i.test(invoiceHint) ? 'HYDRANGEA' : 'MAIN');
         setSharedAwbState({ awb, scope: inferredScope });
         setShowColombia(true);
         setAction({ busy: false, error: '' });
