@@ -30,6 +30,17 @@ jobs:
         run: |
           node --test __tests__/agentGuardrails.test.cjs
           npm run guard:agent-slop -- --changed-from "$BASE_SHA"
+      - name: Work link block (업무 연결 여섯 줄 — 어느 업무를 대신하나)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_CREATED_AT: ${{ github.event.pull_request.created_at }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          node --test __tests__/prWorkLink.test.cjs
+          node scripts/check-pr-work-link.cjs
       - run: npm ci
       - name: CI build artifact contracts
         run: node --test __tests__/ciBuildArtifact.test.cjs __tests__/codeOnlyDeployment.test.cjs __tests__/privateRepoDeploy.test.cjs __tests__/desktopReleasesFeed.test.cjs
