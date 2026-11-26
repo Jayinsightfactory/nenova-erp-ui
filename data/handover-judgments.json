@@ -3,7 +3,7 @@
   "updatedAt": "2026-11-26",
   "basis": {
     "period": "2026-10-27~11-26",
-    "sourceStatements": 62,
+    "sourceStatements": 61,
     "threshold": 80,
     "note": "화면 기록과 카카오톡 글을 날짜순으로 나눠, 앞 기간에서 찾은 판단 방식이 뒤 기간에도 같은지 세어 80% 이상 맞은 것만 실었습니다. 「왜」는 기록에서 읽어 낸 것이고 일한 사람에게 직접 확인한 것은 아닙니다."
   },
@@ -151,17 +151,6 @@
         "people": 1,
         "held": 10,
         "judged": 10
-      },
-      {
-        "id": "ss-upload-apply",
-        "situation": "엑셀 물량표를 네노바웹 출고분배 업로드로 올릴 때",
-        "rule": "미매칭 업체·품목은 손으로 연결하고 「선출고 포함 원본」 기준을 고릅니다. 물량표 합계를 이미 맞춰 본 상태라면 수량·단위 확인 경고가 떠도 엑셀 최종값 그대로 적용합니다.",
-        "why": "물량표에서 먼저 합계를 맞춰 봤기 때문에 엑셀 숫자가 기준값입니다.",
-        "manualId": "shipment-distribution",
-        "sources": 1,
-        "people": 1,
-        "held": 5,
-        "judged": 5
       },
       {
         "id": "ss-quarantine-notice",

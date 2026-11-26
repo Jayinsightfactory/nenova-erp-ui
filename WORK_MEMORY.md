@@ -5417,3 +5417,13 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: 자동 검사(`verify`, `Nenova Desktop Windows`) 통과 → 본편 반영 → 설치파일 게시 확인 → 작업 폴더 정리.
 4. 검증 상태: `pstack-verify.cjs` 통과. 로컬 앱 단위 검사는 98개 중 89개 통과·9개 실패인데, 바꾸기 전 본편도 같은 9개가 실패(이 PC 작업 폴더에 앱 부품 미설치 — 자동 검사에서 확인). 앱에서 새 탭을 눈으로 본 것은 미검증.
 5. 주의/잠금: 앱 실행 코드(`main.cjs`·`updater.cjs`·`shell/`)는 건드리지 않음. 운영 DB 쓰기 0건. 학습 반영: 있음.
+
+
+## 2026-11-26 판단 기준에서 「경고가 떠도 엑셀 값 그대로 적용」 한 줄 뺌 — 사장님 "빼줘" (`fix/handover-judgments-drop-warning`, 연결 목표: 없음 — 새 목표 후보 "판단 방식 추론 정확도")
+- 요약: 영업지원 판단 기준 `ss-upload-apply`(출고분배 업로드 때 수량·단위 경고가 떠도 엑셀 최종값 그대로 적용)는 기록상 5번 중 5번 맞았지만, 새 직원이 경고를 습관처럼 넘길 수 있어 사장님 결정으로 매뉴얼에서 뺐다. 판단 기준 54 → 53줄(영업지원 18 → 17), 근거 문장 62 → 61.
+- 검색어: 판단 기준 경고 무시 줄 삭제 ss-upload-apply handover-judgments 선출고 포함 원본 출고분배 업로드
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-cld-judg-drop` 작업 폴더, `fix/handover-judgments-drop-warning`) — `data/handover-judgments.json`
+2. 완료된 것: 해당 줄 1개 삭제, 근거 문장 수 61로 수정.
+3. 남은 할 일: 자동 검사 통과 → 본편 반영 → 운영 반영 확인 → 작업 폴더 정리.
+4. 검증 상태: `node __tests__/importHandover.test.cjs` 통과, `pstack-verify.cjs` 통과. 운영 화면 확인은 반영 뒤.
+5. 주의/잠금: 맞은 비율이 높아도 "경고·확인 절차를 건너뛰는" 버릇은 매뉴얼에 싣기 전에 사장님께 먼저 여쭐 것. `desktop/` 미수정(자료 파일만 바뀜). 학습 반영: 있음.
