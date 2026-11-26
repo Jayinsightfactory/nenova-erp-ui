@@ -5372,6 +5372,16 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: `after_fix_fx1750_8269.xlsx`·`after_fix_ci_direct_fx1750.xlsx` 수식-캐시 오차 `0.000000원` 및 양 경로 7행 단가 차이 `0.000000원`(`48-1` 원본 대비 단당 `~0.66~1.20원` 고정점 수렴 일치), `test:erp-contract` 492/492 PASS, `test:nenova-dnspy-evidence` PASS, `test:erp-manifest` PASS, `guard:erp-writes` PASS, `guard:agent-slop` PASS, `pstack-verify.cjs` 5/5 PASS, `npm run build` PASS.
 5. 주의/잠금: 운영 MSSQL 쓰기 0건(`SELECT-only`), `desktop/` 하위 파일 수정 0건, 기존 입고 등록 원문 행 분리(`adaptPackingReceipts`) 보존. 연결 목표: g17, g03, g13, g19 / 학습 반영: 있음
 
+
+## 2026-11-26 부서 인수인계 매뉴얼에 「판단 기준」 탭 추가 — 기록에서 찾아 뒤 기간에도 80% 이상 같았던 판단 방식 54개 (`feat/handover-judgments`, 연결 목표: 없음(새 목표 후보 — 판단 방식 추론 정확도))
+- 요약: 사장님 지시("쓸 만한 판단 방식 40개를 매뉴얼에 넣어줘")에 따라 직원 10명 화면 기록·카톡에서 뽑아 뒤 기간 채점 80% 이상이었던 판단 문장 62개(첫 채점 40 + 안 쓴 뒤 기간 기록으로 다시 채점해 넘은 22)를 사람 이름 없이 업무 주어로 고쳐, 같은 내용은 묶어 54개(영업지원 18 · 영업부 22 · 수입부 11 · 경영지원 3 · 현장팀 0)로 `/work/manuals` 부서별 「판단 기준」 탭과 해당 매뉴얼 ⑤ 아래 「이 일의 판단 기준」에 실었다. 「왜」는 기록에서 읽어 낸 것이며 본인 확인은 아니라고 화면에 적었다.
+- 검색어: 판단 기준 탭 handover-judgments 이럴 때 이렇게 합니다 맞은 횟수 80% 변경사항 글 틀 잔량 전체 다시 취소 추가 짝 validateHandoverJudgments 인수인계 매뉴얼
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-cld-judgments` 작업 폴더, `feat/handover-judgments`) — `data/handover-judgments.json`(신규), `lib/importHandover.js`, `components/manuals/ImportHandover.js`, `__tests__/importHandover.test.cjs`
+2. 완료된 것: 판단 기준 자료 파일 + 읽기·검사 함수(`loadHandoverJudgments`·`validateHandoverJudgments`: 판정 3번 이상·맞은 비율 기준·사람 이름/사람 주어/없는 매뉴얼 차단) + 화면 탭·매뉴얼 안 묶음. 원고(`scripts/build-*-handover.cjs`)와 부서 자료 파일은 건드리지 않음(되돌리기: `data/handover-judgments.json` 을 빼면 탭이 사라짐).
+3. 남은 할 일: 자동 검사 통과 → 본편 반영 → 운영 화면 확인. 「확인 부족」 101개는 안 쓴 뒤 기간 기록(화면 3,230건·카톡 853건)으로 다시 채점함 — 쓸 만함 33(판단 22·성향 11) · 반반 8 · 틀림 8 · 여전히 확인 부족 52. 남은 52개는 기록이 더 쌓인 뒤 다시. 사람이 읽고 틀린 줄 고르기는 아직.
+4. 검증 상태: `node __tests__/importHandover.test.cjs` 7묶음 통과(handoverJudgments ok), `pstack-verify.cjs` 5/5 PASS, 화면 코드 문법 확인. 실행본 만들기(build)는 자동 검사에서 확인. 운영 화면 눈 확인은 반영 뒤. 판단 문장을 사람이 다시 채점한 것은 미검증.
+5. 주의/잠금: `desktop/` 미수정(조건부 승인제 — 사장님께 Yes/No 여쭘). 판단 기준 원천 문서(직원 이름 포함)는 사장님 전용이라 저장소에 넣지 않음 — `data/handover-judgments.json` 에 사람 이름·직원 번호를 넣지 말 것. 운영 DB 쓰기 0건. 학습 반영: 있음.
+
 ## 2026-11-25 Google Sheets 타임아웃·재시도·캐시·10M 셀 용량진단 및 수입부 `kakao-additions` 시트 장애 격리 (`feat/gsheet-resilience-capacity-diag`, Draft PR 초안)
 - 요약: 카카오 Google Sheets 1천만 셀 한도 임박(96.5%) 및 일시 장애(429/503/타임아웃) 시 수입부 업무 화면이 통째로 502 중단되는 위험을 차단하기 위해 ① `lib/googleSheets.js`의 OAuth·Sheets `fetch`에 `AbortSignal.timeout(12_000)`(환경변수 `GOOGLE_SHEETS_TIMEOUT_MS` 조정 가능)·429/503 1회 짧은 백오프 재시도·60초 TTL + in-flight singleflight 중복제거 캐시 및 1천만 셀 대비 사용률(%)·탭별 할당 셀·임계치 상태(`ok`/`warn`/`critical`)를 계산하는 `readSheetCapacity`를 추가했고, ② `pages/api/import/tools/kakao-additions.js`에서 보조 거래처 별칭 시트(`'수입방 주문검토'!A:U`) 조회를 독립 `try/catch`로 격리해 시트 장애 시에도 주 데이터(Orbit 아카이브)를 HTTP 200으로 무중단 응답하고 `aliasWarning`(원인 요약 포함)만 고지하도록 개선(빈 `catch {}` 제거)했으며, ③ `pages/api/kakao/diag.js`에 1천만 셀 용량 진단(`capacity`: 총 셀, 사용률 %, 상태, 상위 사용 탭 Top-5)과 긴급 경고 힌트를 통합했다.
 - 검색어: Google Sheets 타임아웃 AbortSignal.timeout 429 503 재시도 singleflight TTL 캐시 1천만 셀 readSheetCapacity evaluateSheetCapacity kakao-additions aliasWarning kakao/diag 장애 격리 g03 g17 g19
