@@ -25,6 +25,9 @@ import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js
 import { receiptBoxSuggestion } from '../lib/receiptBoxSuggestion.js';
 import { incomingColumnWidth, incomingQuantityWidth, incomingRowKind, incomingMasterCosts, incomingCostLabel, incomingFreightPolicy, needsReceiptCostLedgerSync, buildIncomingDetailRows } from '../lib/incomingLedgerLayout.js';
 import ledgerStyles from '../components/IncomingLedger.module.css';
+import dynamic from 'next/dynamic';
+// PDF·AWB 바로 입고 작업대(브라우저 전용 PDF 뷰어 포함) — 열 때만 불러온다.
+const VisualInboundVerifyWorkbench = dynamic(() => import('../components/import-tools/VisualInboundVerifyWorkbench.js'), { ssr: false });
 const { Text } = Typography;
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -94,6 +97,7 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
   const [deleting, setDeleting] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [manualUpload, setManualUpload] = useState(null);
+  const [visualOpen, setVisualOpen] = useState(false);
   const [identityEditor, setIdentityEditor] = useState(null);
   const [detailAccess,setDetailAccess] = useState({edit:false,read:false});
   const [quantityTarget,setQuantityTarget]=useState(null);
@@ -472,6 +476,12 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
     <div className="incoming-ledger" style={{ fontVariantNumeric: 'tabular-nums' }}>
       <Space style={{marginBottom:8}}><Button type={receiptView==="receipts"?"primary":"default"} onClick={()=>setReceiptView("receipts")}>입고 원장</Button><Button type={receiptView==="investigation"?"primary":"default"} onClick={()=>setReceiptView("investigation")}>범인찾기</Button></Space>
       {receiptView==="investigation" ? <WarehouseStockInvestigation/> : <>
+      <div role="region" aria-label="PDF·AWB 바로 입고" data-testid="visual-inbound-entry" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 6, padding: '8px 10px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 6 }}>
+        <Text strong style={{ color: '#1e3a8a' }}>[핵심 목적 · PURPOSE]</Text>
+        <Text>인보이스·AWB PDF를 엑셀 변환 없이 원문과 눈으로 대조·수정하고 바로 입고합니다.</Text>
+        <Button type="primary" disabled={uploading || deleting} onClick={() => setVisualOpen(true)}>PDF/AWB 바로 입고</Button>
+      </div>
+      <VisualInboundVerifyWorkbench open={visualOpen} entry="incoming" onClose={() => setVisualOpen(false)} onUploaded={() => load()} />
       <Space wrap style={{ marginBottom: 6, background: '#fff', border: '1px solid var(--border)', padding: '6px 8px', width: '100%' }}>
         <Text type="secondary">업로드일자</Text>
         <DatePicker.RangePicker size="small" allowClear={false} value={[startDate ? dayjs(startDate) : null, endDate ? dayjs(endDate) : null]} onChange={(v) => { if (v && v[0] && v[1]) { setStartDate(v[0].format('YYYY-MM-DD')); setEndDate(v[1].format('YYYY-MM-DD')); } }} presets={[{ label: '최근 7일', value: [dayjs().subtract(7, 'day'), dayjs()] }, { label: '최근 30일', value: [dayjs().subtract(30, 'day'), dayjs()] }, { label: '최근 90일', value: [dayjs().subtract(90, 'day'), dayjs()] }]} />

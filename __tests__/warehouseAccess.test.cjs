@@ -13,7 +13,7 @@ function response(){return {statusCode:200,status(n){this.statusCode=n;return th
 function fixture(year='2026', fixed=false) {
   const calls=[];let transactions=0;
   const query=async (q,p)=>{calls.push({q,p});if(q.includes('SELECT wm.OrderYear'))return {recordset:[{OrderYear:year,OrderWeek:'44-01',ProdKey:1,OutQuantity:10}]};if(q.includes('SELECT DISTINCT p.CountryFlower'))return {recordset:fixed?[{CountryFlower:'fixture'}]:[]};return {recordset:[]};};
-  const handler=load('pages/api/warehouse/index.js',{query,withTransaction:async fn=>{transactions++;return fn(query);},sql:{Int:'int',NVarChar:'nvarchar',Bit:'bit',Float:'float'},withAuth:fn=>fn,useExeParityFlag:()=>false,sqlWarehouseViewGetData:()=>'',canManageInvoiceReceipt,splitIncomingRound});
+  const handler=load('pages/api/warehouse/index.js',{query,withTransaction:async fn=>{transactions++;return fn(query);},sql:{Int:'int',NVarChar:'nvarchar',Bit:'bit',Float:'float'},withAuth:fn=>fn,withActionLog:fn=>fn,useExeParityFlag:()=>false,sqlWarehouseViewGetData:()=>'',canManageInvoiceReceipt,splitIncomingRound});
   return {handler,calls,get transactions(){return transactions;}};
 }
 test('warehouse mutations reject unrelated, inactive and missing identity before DB',async()=>{

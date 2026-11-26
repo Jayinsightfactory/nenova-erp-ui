@@ -13,7 +13,12 @@
     "components/WarehouseManualUpload.js",
     "components/WarehouseManualUpload.module.css",
     "components/import-tools/HubfreshPacking.js",
-    "lib/hubfreshPacking.js"
+    "lib/hubfreshPacking.js",
+    "lib/visualInboundWorkbench.js",
+    "components/import-tools/VisualInboundVerifyWorkbench.js",
+    "components/import-tools/VisualInboundPdfPane.js",
+    "components/import-tools/VisualInboundLeaderLine.js",
+    "styles/VisualInboundVerifyWorkbench.module.css"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -137,7 +142,8 @@
     "__tests__/incomingWarehouseDisplay.test.js",
     "__tests__/incomingQueryDateRange.test.js",
     "__tests__/erpContractManifest.test.js",
-    "__tests__/warehouseAccess.test.cjs"
+    "__tests__/warehouseAccess.test.cjs",
+    "__tests__/visualInboundWorkbench.test.mjs"
   ],
   "dnspyEvidence": {
     "required": true,

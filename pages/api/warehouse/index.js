@@ -14,14 +14,72 @@ import { splitIncomingRound } from '../../../lib/incomingRoundLabel.js';
 import { approvalPermissions } from '../../../lib/incomingApprovalPolicy.js';
 import { attachWarehouseRoundLabels, recordWarehouseRoundLabel } from '../../../lib/warehouseDetailActions.js';
 import { isMatchingDuplicateWarehouseRow } from '../../../lib/packingDuplicateCheck.js';
+import { withActionLog } from '../../../lib/withActionLog.js';
 
-export default withAuth(async function handler(req, res) {
+// 2026-11-26: 입고 쓰기(POST/PATCH/DELETE)를 SystemActionLog에 남긴다. GET은 기록하지 않는다.
+export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return req.query.manualOptions === '1' ? await getManualOptions(req,res) : await getWarehouse(req, res);
   if (req.method === 'POST') return await uploadWarehouse(req, res);
   if (req.method === 'PATCH') return await patchFreight(req, res);
   if (req.method === 'DELETE') return await deleteWarehouse(req, res);
   return res.status(405).end();
-});
+}, { actionType: 'WAREHOUSE_WRITE', affectedTable: 'WarehouseMaster/WarehouseDetail', riskLevel: 'HIGH' }));
+
+// 함수 선언만 사용한다(모듈 상단 export default 뒤에 선언돼도 호이스팅으로 안전).
+function warehouseErrorText(code) {
+  return ({
+    DUPLICATE_INVOICE: '같은 연도·차수·농장·송장번호의 입고가 이미 있습니다. 입고관리 목록에서 기존 입고를 확인하세요.',
+    WAREHOUSE_WEEK_FIXED: '이 차수는 출고 확정되어 입고를 변경할 수 없습니다. 출고 확정 취소 후 다시 시도하세요.',
+    WAREHOUSE_OPERATION_CONFLICT: '같은 요청 번호로 다른 사용자 또는 삭제된 입고가 있습니다. 화면을 새로 열어 다시 시도하세요.',
+  })[code] || '';
+}
+
+/** 빈 오류 문구를 보내지 않는다. DB 원문이 비어 있으면 쉬운 한국어 안내로 바꾼다. */
+function warehouseErrorMessage(err, fallback = '입고 처리 중 문제가 발생했습니다. 입력값을 확인하고 다시 시도하세요.') {
+  const message = String(err?.message ?? '').trim();
+  if (message) return message;
+  if (err?.code && warehouseErrorText(err.code)) return warehouseErrorText(err.code);
+  if (Number.isInteger(err?.number)) return `전산 DB 처리 중 오류가 발생했습니다(오류 번호 ${err.number}). 잠시 후 다시 시도하고 계속되면 수입부 관리자에게 알려 주세요.`;
+  return fallback;
+}
+
+/** 화면 요청 번호(operationId)는 FileName 접두어로 남겨 같은 요청의 이중 입고를 막는다(스키마 변경 없음). */
+function packingOperationPrefix(operationId) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(operationId || '')) ? `visual-${String(operationId).toLowerCase()}-` : '';
+}
+
+async function readPackingOperation(tQuery, prefix, actor, locked = false) {
+  if (!prefix) return null;
+  const hint = locked ? 'WITH (UPDLOCK,HOLDLOCK)' : '';
+  const { recordset } = await tQuery(`/* warehouse:packing-operation */
+    SELECT WarehouseKey, FileName, CreateID, isDeleted FROM dbo.WarehouseMaster ${hint}
+    WHERE LEFT(FileName,LEN(@filePrefix))=@filePrefix`, { filePrefix: { type: sql.NVarChar, value: prefix } });
+  if (!recordset?.length) return null;
+  const prior = recordset[0];
+  if (recordset.length !== 1 || prior.isDeleted || String(prior.CreateID) !== String(actor)) {
+    throw Object.assign(new Error(warehouseErrorText('WAREHOUSE_OPERATION_CONFLICT')), { statusCode: 409, code: 'WAREHOUSE_OPERATION_CONFLICT' });
+  }
+  return Number(prior.WarehouseKey);
+}
+
+/** 미리보기(잠금 없음)와 본 저장(잠금)이 같은 중복 판정 함수를 쓴다. */
+async function findDuplicateWarehouseReceipt(tQuery, { orderYear, orderWeek, farmName, invoiceNo }, locked = false) {
+  const invoice = String(invoiceNo ?? '').trim();
+  if (!invoice) return null;
+  const hint = locked ? 'WITH (UPDLOCK,HOLDLOCK)' : '';
+  const previous = await tQuery(`SELECT WarehouseKey, FarmName, InvoiceNo FROM dbo.WarehouseMaster ${hint}
+    WHERE OrderYear=@year AND OrderWeek=@week AND ISNULL(isDeleted,0)=0`, {
+    year: { type: sql.NVarChar, value: String(orderYear) },
+    week: { type: sql.NVarChar, value: String(orderWeek) },
+  });
+  return (previous.recordset || []).find(row =>
+    isMatchingDuplicateWarehouseRow(row, { farmName: String(farmName ?? '').trim(), invoiceNo: invoice })) || null;
+}
+
+function duplicateError(duplicate) {
+  return Object.assign(new Error(`같은 연도·차수·농장·인보이스의 입고(#${duplicate.WarehouseKey})가 이미 있습니다. 원장에서 기존 입고를 확인하세요.`),
+    { statusCode: 409, code: 'DUPLICATE_INVOICE', warehouseKey: duplicate.WarehouseKey });
+}
 
 async function getManualOptions(req,res) {
   if (!canManageInvoiceReceipt(req.user)) return res.status(403).json({success:false,error:'입고 등록 권한이 없습니다.'});
@@ -58,7 +116,7 @@ async function patchFreight(req, res) {
     );
     return res.status(200).json({ success: true });
   } catch (err) {
-    return res.status(err.code === 'WAREHOUSE_WEEK_FIXED' ? 409 : 500).json({ success: false, code: err.code, error: err.message });
+    return res.status(err.code === 'WAREHOUSE_WEEK_FIXED' ? 409 : 500).json({ success: false, code: err.code, error: warehouseErrorMessage(err) });
   }
 }
 
@@ -110,7 +168,7 @@ async function getWarehouse(req, res) {
     );
     return res.status(200).json({ success: true, source: 'real_db', ...detailAccess, masters: labelsRequested ? await attachWarehouseRoundLabels(query,sql,masterResult.recordset) : masterResult.recordset });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: warehouseErrorMessage(err, '입고 목록을 불러오지 못했습니다. 잠시 후 다시 조회하세요.') });
   }
 }
 
@@ -196,11 +254,32 @@ async function uploadWarehouse(req, res) {
       errors: validationErrors,bunchResolutions });
   }
 
-  if (!manual && body.previewOnly === true) return res.status(200).json({success:true, validatedRows:resolvedItems.length,
-    bunchQuantities:resolvedItems.map(item => item.previewBunchQuantity),bunchResolutions});
+  if (!manual && body.previewOnly === true) {
+    // 사전 검증에서도 본 저장과 같은 중복·확정차수 판정을 읽기 전용으로 먼저 보여 준다(쓰기·잠금 없음).
+    try {
+      const replayKey = await readPackingOperation(query, packingOperationPrefix(body.operationId), String(req.user.userId));
+      if (replayKey) return res.status(200).json({success:true, replay:true, warehouseKey:replayKey, validatedRows:resolvedItems.length,
+        bunchQuantities:resolvedItems.map(item => item.previewBunchQuantity),bunchResolutions});
+      await assertWarehouseWeekEditable(query, orderYear, orderWeek, resolvedItems.map((item) => item.countryFlower));
+      const duplicate = await findDuplicateWarehouseReceipt(query, { orderYear, orderWeek, farmName, invoiceNo });
+      if (duplicate) throw duplicateError(duplicate);
+    } catch (err) {
+      const status = [400,409,503].includes(err.statusCode) ? err.statusCode : err.code === 'WAREHOUSE_WEEK_FIXED' ? 409 : 503;
+      return res.status(status).json({ success:false, code:err.code || 'WAREHOUSE_PREVIEW_CHECK_FAILED',
+        error: warehouseErrorMessage(err, '입고 사전 검사(중복·확정 차수)를 확인하지 못했습니다. 잠시 후 다시 시도하세요.'),
+        ...(err.warehouseKey ? { warehouseKey: err.warehouseKey } : {}), bunchResolutions });
+    }
+    return res.status(200).json({success:true, validatedRows:resolvedItems.length,
+      bunchQuantities:resolvedItems.map(item => item.previewBunchQuantity),bunchResolutions});
+  }
 
+  const operationPrefix = manual ? '' : packingOperationPrefix(body.operationId);
   try {
     const actor = String(req.user.userId);
+    if (operationPrefix) {
+      const replayKey = await readPackingOperation(query, operationPrefix, actor);
+      if (replayKey) return res.status(200).json({ success: true, replay: true, warehouseKey: replayKey, message: `이미 입고된 요청입니다 (#${replayKey}).` });
+    }
     if (manual) {
       const attempt = await readManualWarehouseAttempt(query,sql,manualMeta,resolvedItems,actor);
       if (body.previewOnly === true) {
@@ -243,6 +322,10 @@ async function uploadWarehouse(req, res) {
         item.estUnit = product.EstUnit;
       }
       const transactionMarker = await acquireInvoiceReceiptGate(tQuery, sql);
+      if (operationPrefix) {
+        const replayKey = await readPackingOperation(tQuery, operationPrefix, actor, true);
+        if (replayKey) return { replay: replayKey };
+      }
       if (manual) {
         const attempt = await readManualWarehouseAttempt(tQuery,sql,manualMeta,resolvedItems,actor,true);
         if (body.previewToken !== attempt.fileName) {
@@ -260,13 +343,8 @@ async function uploadWarehouse(req, res) {
         invoice:{ type:sql.NVarChar,value:String(invoiceNo ?? '').trim() },
       };
       if (!manual && scope.invoice.value) {
-        const previous = await tQuery(`SELECT WarehouseKey, FarmName, InvoiceNo FROM dbo.WarehouseMaster WITH (UPDLOCK,HOLDLOCK)
-          WHERE OrderYear=@year AND OrderWeek=@week AND ISNULL(isDeleted,0)=0`,scope);
-        const duplicate = (previous.recordset || []).find(row =>
-          isMatchingDuplicateWarehouseRow(row, { farmName: scope.farm.value, invoiceNo: scope.invoice.value }));
-        if (duplicate) {
-          throw Object.assign(new Error(`같은 연도·차수·농장·인보이스의 입고(#${duplicate.WarehouseKey})가 이미 있습니다. 원장에서 기존 입고를 확인하세요.`), {statusCode:409,code:'DUPLICATE_INVOICE',warehouseKey:duplicate.WarehouseKey});
-        }
+        const duplicate = await findDuplicateWarehouseReceipt(tQuery, { orderYear, orderWeek, farmName, invoiceNo }, true);
+        if (duplicate) throw duplicateError(duplicate);
       }
       const wk = await nextInvoiceWarehouseKey(tQuery, sql, transactionMarker);
       // Header GW/CW: explicit modal values win. Otherwise use the single
@@ -289,7 +367,7 @@ async function uploadWarehouse(req, res) {
                  0, @uid, GETDATE())`,
         {
           wk:   { type: sql.Int, value: wk },
-          fn:   { type: sql.NVarChar, value: manualFile || fileName || `upload_${Date.now()}` },
+          fn:   { type: sql.NVarChar, value: manualFile || (operationPrefix ? operationPrefix + String(fileName || 'pdf').slice(0, 60) : '') || fileName || `upload_${Date.now()}` },
           year: { type: sql.NVarChar, value: orderYear || '' },
           week: { type: sql.NVarChar, value: orderWeek || '' },
           farm: { type: sql.NVarChar, value: farmName || '' },
@@ -350,13 +428,17 @@ async function uploadWarehouse(req, res) {
       return wk;
     });
 
+    if (warehouseKey && typeof warehouseKey === 'object' && warehouseKey.replay) {
+      return res.status(200).json({ success: true, replay: true, warehouseKey: warehouseKey.replay, message: `이미 입고된 요청입니다 (#${warehouseKey.replay}).` });
+    }
     return res.status(201).json({
       success: true, warehouseKey,
       message: `입고 등록 완료: ${items.length}/${items.length}개 품목`,
     });
   } catch (err) {
     return res.status([400,409,503].includes(err.statusCode) ? err.statusCode : err.code === 'WAREHOUSE_WEEK_FIXED' ? 409 : 500).json({
-      success: false, code: err.code, error: err.message, ...(err.errors ? {errors:err.errors} : {}),
+      success: false, code: err.code, error: warehouseErrorMessage(err), ...(err.errors ? {errors:err.errors} : {}),
+      ...(err.warehouseKey ? { warehouseKey: err.warehouseKey } : {}),
     });
   }
 }
@@ -396,7 +478,7 @@ async function deleteWarehouse(req, res) {
     });
     return res.status(200).json({ success: true, message: '원장 삭제 완료' });
   } catch (err) {
-    return res.status(err.code === 'WAREHOUSE_WEEK_FIXED' ? 409 : 500).json({ success: false, code: err.code, error: err.message });
+    return res.status(err.code === 'WAREHOUSE_WEEK_FIXED' ? 409 : 500).json({ success: false, code: err.code, error: warehouseErrorMessage(err) });
   }
 }
 

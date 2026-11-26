@@ -18,6 +18,7 @@ const HandoffTool=dynamic(()=>import('../../components/import-tools/HandoffTool'
 const Products=dynamic(()=>import('../master/products'),{ssr:false,loading});
 const Incoming=dynamic(()=>import('../incoming'),{ssr:false,loading});
 const IncomingApproval=dynamic(()=>import('../../components/IncomingApproval'),{ssr:false,loading});
+const VisualInboundVerifyWorkbench=dynamic(()=>import('../../components/import-tools/VisualInboundVerifyWorkbench'),{ssr:false});
 const EMPTY_RECEIPT_SOURCE=Object.freeze({excels:Object.freeze([]),invoices:Object.freeze([]),country:'',file:null,products:Object.freeze([]),reviewConfirmed:false,truncated:false});
 const tabs=[['packing','패킹리스트','송장 · 항공운송장 변환'],['orders','국가별 발주서','엑셀 변환 · 다운로드'],['checklist','일일 업무','요일 업무 · 미결 · 결제'],['flights','항공 일정','추가 · 수정 · 도착/반입'],['vacations','휴가 관리','잔여 일수 · 계정 이력'],['planting','재배 계획','배정 추가 · 수정 · 삭제'],['feedback','불량 피드백','기존 피드백 · 처리 이력'],['handoff','인수인계·특이사항','이슈 · 처리 · 주의 · 체크'],['history','변경 이력','공동 자료 수정 기록'],['products','품목관리','단수 · 송이 · 무게 · 관세 일괄 입력']];
 const checklistTabs={checklist:'daily',flights:'flights',vacations:'vacations',planting:'planting'};
@@ -55,6 +56,7 @@ export default function ImportTools({userId='',initialTab='packing',initialCostS
  const [tab,setTab]=useState(initialTab),[saveError,setSaveError]=useState('');
  const [hubfreshFile,setHubfreshFile]=useState(null);
  const [hubfreshMode,setHubfreshMode]=useState(false);
+ const [visualOpen,setVisualOpen]=useState(false);
  const [incomingVisited,setIncomingVisited]=useState(initialTab==='incoming');
  const [receiptSource,setReceiptSource]=useState(EMPTY_RECEIPT_SOURCE);
  const [receiptMatchState,setReceiptMatchState]=useState(null);
@@ -80,6 +82,8 @@ export default function ImportTools({userId='',initialTab='packing',initialCostS
  return <><Head><title>수입부 업무도구 | Nenova</title></Head><main className={`${styles.workspace} ${tab==='packing'?styles.packingWorkspace:''} ${desktopUi.page}`}>
   <header className={styles.header}>{tab==='packing'?<div className={styles.packingPurpose} data-testid="import-packing-purpose"><span>[핵심 목적 · PURPOSE]</span><h1>인보이스 품목을 확인하고 입고 저장</h1></div>:<div><span data-desktop-chrome className={styles.eyebrow}>수입 업무</span><h1 data-desktop-chrome>수입부 업무도구</h1><p>파일 변환부터 일정 확인까지, 한곳에서 처리하세요.</p></div>}<div className={styles.headerMeta}><span className={styles.saveBadge}>팀 공동 저장 · 수정자 이력</span><small>입고 등록은 초안·미리보기·명시 확인 후에만 실행</small></div></header>
   <div className={styles.costEntry}><button type="button" onClick={()=>selectTab('incoming')} aria-controls="import-panel-incoming">입고 정정 업무</button><span>기존 입고 조회 · 농장·품목 수정 · 파일 교체 · 수정 이력</span></div>
+  <div className={styles.costEntry} data-testid="visual-inbound-entry"><button type="button" onClick={()=>setVisualOpen(true)}>PDF·AWB 바로 입고</button><span>엑셀 변환 없이 원문 강조·선 연결로 전 항목을 눈으로 확인·수정하고 바로 입고</span></div>
+  <VisualInboundVerifyWorkbench open={visualOpen} entry="import-tools" onClose={()=>setVisualOpen(false)}/>
   <nav aria-label="수입부 업무도구" className={styles.tabs} onKeyDown={moveTabFocus}>{[...tabs.slice(0,1),['incoming','입고 조회·수정','기존 입고 · 농장·품목 수정 · 수정 이력'],...tabs.slice(1)].map(([id,label,description],index)=><button type="button" key={id} onClick={()=>selectTab(id)} aria-pressed={tab===id} aria-controls={`import-panel-${checklistTabs[id]?'checklist':id}`} className={tab===id?styles.activeTab:''}><span className={styles.tabNumber}>{String(index+1).padStart(2,'0')}</span><span><strong>{label}{id==='flights'&&flightCount>0&&<span className={styles.flightBadge}>반입 대기 {flightCount}</span>}</strong><small>{description}</small></span></button>)}</nav>
   {saveError&&<div role="alert" className={styles.error}>공동 저장 실패: {saveError} <button onClick={()=>window.location.reload()}>공동 자료 다시 조회</button></div>}
   <div className={styles.content}>
