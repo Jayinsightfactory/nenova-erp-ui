@@ -364,7 +364,7 @@ export default function InvoiceReceiptWorkbench({
       const adaptedDocuments = await adaptPackingReceipts({
         excels, invoices, country, fileName: file.name, products, sourceHash: hash, reviewConfirmed, truncated, invoiceUploadDate,
       });
-      const documents = country === 'AU' ? adaptedDocuments.map(document => {
+      const documents = (country === 'AU' || country === 'EC') ? adaptedDocuments.map(document => {
         const review = awb?.confirmed && awb.review?.ready ? awb.review : null;
         const evidence = review?.evidence || {};
         const attachment = review ? {
@@ -372,6 +372,7 @@ export default function InvoiceReceiptWorkbench({
           awb: review?.awb || '', invoiceAwb: review?.invoiceAwb || '',
           packageCount: review?.packages ?? null, uploadDate: awb.uploadDate || invoiceUploadDate,
           grossWeightKg: review?.grossWeightKg ?? null, chargeableWeightKg: review?.chargeableWeightKg ?? null,
+          ...(country === 'EC' ? { freightRate: review?.freightRate ?? null, otherCharges: review?.otherCharges ?? null, totalPrepaid: review?.totalPrepaid ?? null, daePmt: review?.daePmt || '' } : {}),
           reviewed: Boolean(awb.confirmed && review?.ready), issues: review?.issues || [], evidence,
         } : null;
         const sourceWeight = (field, proofKey) => review?.[field] == null ? null : {
@@ -394,6 +395,11 @@ export default function InvoiceReceiptWorkbench({
             awb: review?.awb || document.reviewedMetadata?.awb || '',
             gw: review?.grossWeightKg ?? document.reviewedMetadata?.gw ?? null,
             cw: review?.chargeableWeightKg ?? document.reviewedMetadata?.cw ?? null,
+            ...(country === 'EC' && review ? {
+              ...(review.freightRate != null && document.reviewedMetadata?.freightRate == null ? { freightRate: review.freightRate } : {}),
+              ...(review.otherCharges != null && document.reviewedMetadata?.docFee == null ? { docFee: review.otherCharges } : {}),
+              ...(review.currency && !document.reviewedMetadata?.freightCurrency ? { freightCurrency: review.currency } : {}),
+            } : {}),
             awbReviewed: Boolean(awb?.confirmed && review?.ready),
             awbAttachment: attachment,
             weightManual: review ? {
@@ -406,8 +412,8 @@ export default function InvoiceReceiptWorkbench({
               ...(sourceWeight('grossWeightKg', 'gross_weight_kg') ? { gw: sourceWeight('grossWeightKg', 'gross_weight_kg') } : {}),
               ...(sourceWeight('chargeableWeightKg', 'chargeable_weight_kg') ? { cw: sourceWeight('chargeableWeightKg', 'chargeable_weight_kg') } : {}),
             },
-            ...(audMarketRate ? { audMarketRate } : {}),
-            ...(audMarketRateError ? { audMarketRateError } : {}),
+            ...(country === 'AU' && audMarketRate ? { audMarketRate } : {}),
+            ...(country === 'AU' && audMarketRateError ? { audMarketRateError } : {}),
           },
         };
       }) : adaptedDocuments;

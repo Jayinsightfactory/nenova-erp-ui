@@ -134,6 +134,9 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
       }
       return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, products: erpProducts(), value: erpValue, revision: erpRevision }) });
     }
+    if (String(url).startsWith('/api/import/tools/check-existing-receipts')) {
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, matches: [] }) });
+    }
     const request = { url, options, ...deferred() }; requests.push(request); return request.promise;
   };
   const extractionMock = { async extractPackingDocument({ country, pdfBase64, allowAI, onProgress, revalidateOnly }) {
@@ -199,6 +202,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     './PackingEvidenceReview.js': { default: 'PackingEvidenceReview', __esModule: true },
     './PackingUploadMatchModal.js': { default: () => null, PackingUploadMatchAlertBanner: () => null, __esModule: true },
     '../../lib/packingUploadMatchPrompt.js': await import('../lib/packingUploadMatchPrompt.js'),
+    '../../lib/packingDuplicateCheck.js': await import('../lib/packingDuplicateCheck.js'),
     './PackingProductMatchDialog.js': { default: PackingProductMatchDialogStub, __esModule: true } };
   const module = { exports: {} };
   new Function('require', 'module', 'exports', 'fetch', 'FileReader', 'window', 'document', code + '\nmodule.exports.AWBPanel = AWBPanel; module.exports.PendingItem = PendingItem; module.exports.NoMatchItem = NoMatchItem;')(
