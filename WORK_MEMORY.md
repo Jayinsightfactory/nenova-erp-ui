@@ -1,5 +1,13 @@
 # 작업 기록
 
+## 2026-11-26 중국 도착원가 CLOUD(항공)·HUBFRESH(40ft 혼적 해상 최종본) 이원화 엔진 · 41순위 매처 · 화면 수정값=엑셀 수식 연동 (feat/cn-cloud-hubfresh-arrival-cost, 연결 목표: g17·g03·g13·g19 / 학습 반영: 있음)
+- 1. 작업 위치: `nenova-erp-ui` (`nw-agy-cn-general-rules` 워크트리) · `lib/cnArrivalCostRules.js`·`lib/cnArrivalCostEngine.js`·`lib/cnArrivalCostWorkbook.js`·`lib/cnArrivalCostHttp.js`(신규) · `pages/api/import/receipts/cn-arrival-cost.js` · `components/import-tools/CnArrivalCostWorkbench.js`(+`styles/CnArrivalCost.module.css`) · `components/import-tools/InvoiceWarehouseCostBrowse.js`(중국 입고 기본 원가표 직결·다건 통합 지원) · `lib/importPackingErpMatches.js`(`[MEL]...CHINA` 국가오염 CN 상속) · `lib/hubfreshPacking.js`(CL vs 타사 CBM 지분·부대비 추출) · `docs/contracts/cn-cloud-hubfresh-arrival-cost.json` · `__tests__/cnArrivalCost.test.mjs`(+SELECT-only 픽스처 7건)
+- 2. 완료된 것: 멜로디·헨지 폐지 → 중국 항공=`CLOUD(중국 항공)`, 해상=`HUBFRESH(중국 해상)` 2축(레거시 입고는 CLOUD 항공 수수료 0% 호환, `#8249·#8250` 정적 JSON 의존 제거). 상단 공통 변수(백상단가/직접입력·GW=CW 중량/GW<CW CBM 자동전환 포함)·행별 수량/FOB/카테고리/박스당단수/단당CBM/관세율/단당줄기수 전부 기본값 선입력+수정 가능, 미리보기와 `.xlsx`(노란 입력칸=수정값, 나머지=입력칸 참조 수식, `맑은 고딕`·굴림체 0건) 100% 동일 엔진. HUBFRESH 안분운송료=(서류+PROCESS+검역박스+SEA FREIGHT+로거+상차)×CBM지분율, 운송비(단)=단당CBM×Rate, 박스비=27÷박스당단수, 그외통관=(400만×지분+260만)÷입고단수, 판매가=원가÷(1-마진)×1.1. `#8170` 운송료 40,191 CNY 합산 함정 자동 감지·박스비 분리 역산, `BoxQuantity=1` 더미·오염 `TariffRate=0.0021` 미사용, `HUB2(중국 TOTAL)` 제외, 미등록 품종 422 대신 행 강조+드롭다운+`ProdKey` 로컬스토리지 기억, 화면 내 `.xlsx` 서류 자동채움 지원.
+- 3. 남은 할 일: 데스크톱앱 후속 일괄 반영 시 중국 원가표 작업면 포함 확인.
+- 4. 검증 상태: 백테스트 `47-1 #8170` 64행·`48-1 #8259` 169행(주문 분할)·`46-1 #8082`·`47-2A #8249`·`47-2B #8250`·`46-2 #8160`·`46-3 #8064` 및 `#8249+#8250` 다건 통합 전수 검증, 생성 `.xlsx` 셀 변경(GW=CW 포함) 시 수식 재계산=화면 미리보기 일치(20건 PASS), `npm run test:erp-contract`·`pstack-verify`·`npm run build` 전부 PASS.
+- 5. 주의/잠금: 잠금 없음 (운영 MSSQL SELECT-only, `dbWrites: 0` · `desktop/` 수정 0건)
+- 검색어: 중국 도착원가 CLOUD HUBFRESH 40ft 혼적 CBM 지분율 안분운송료 41순위 매처 override 엑셀 수식 연동 cnArrivalCostEngine g17 g03 g13 g19
+
 ## 2026-11-26 수입방 카톡 발주 무렉(Zero-Lag) 최적화 · 합계 반영 역방향 이동 · DB 품목명(영문) 열 · 영문 소문자 단위 기본 전환 및 데스크톱앱 v1.3.105 반영 (feat/kakao-perf-en-db-v1-3-105, 연결 목표: g03, g19)
 - 1. 작업 위치: `nenova-erp-ui` (`nw-agy-kakao-perf-en-db` 워크트리, `feat/kakao-perf-en-db-v1-3-105`) · `desktop/package.json`(`1.3.105`) · `nenova-pm/kakao-import-order-llm-worker.js`
 - 2. 변경 파일: `components/import-tools/KakaoAdditions.js`, `components/import-tools/KakaoOrderRegisterBridge.js`, `lib/importKakaoDbCatalog.js`, `lib/importKakaoOrderText.js`, `lib/importKakaoAdditions.js`, `AGENTS.md`, `docs/contracts/country-orders.json`, `public/guides/import-country-orders/import.proof.json`, `__tests__/importKakaoFarmSummary.test.mjs`, `__tests__/importKakaoDbCatalogRecall.test.mjs`, `desktop/package.json`, `desktop/package-lock.json`

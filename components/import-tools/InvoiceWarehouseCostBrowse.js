@@ -5,6 +5,7 @@ import NativeReceiptCost from './NativeReceiptCost';
 import { filterInvoiceWarehouses } from '../../lib/invoiceWarehouseBrowse.js';
 import SharedAwbCostReview from './SharedAwbCostReview';
 import ArrivalWeekCostReview from './ArrivalWeekCostReview';
+import CnArrivalCostWorkbench from './CnArrivalCostWorkbench';
 import { baseCountry } from '../../lib/countryClassification.js';
 
 export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoiceNo, country }) {
@@ -14,6 +15,7 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
   const [action, setAction] = useState({ busy: false, error: '' });
   const lock = useRef(false);
   const [nativeKey, setNativeKey] = useState(null);
+  const [cnKeys, setCnKeys] = useState(null);
   const [selectionKeys, setSelectionKeys] = useState([]);
   const [selectionRequest, setSelectionRequest] = useState(null);
   // 차수 통합이 기본이다. 기존 단일 AWB·개별 입고는 별도 선택으로 보존한다.
@@ -25,7 +27,7 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
     setShowColombia(false);
     const controller = new AbortController();
     setState({ rows: [], loading: true }); setAction({ busy: false, error: '' });
-    setNativeKey(null);
+    setNativeKey(null); setCnKeys(null);
     setSelectionKeys([]); setSelectionRequest(null);
     fetch(`/api/import/receipts/warehouse-list?${new URLSearchParams({ orderYear, orderWeek })}`, { signal: controller.signal, cache: 'no-store' })
       .then(async response => {
@@ -85,14 +87,29 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
         setSelectionRequest({ id: Date.now(), country: 'CN', keys });
       } else if (sameAwbGoods.length >= 1) {
         setShowColombia(false);
-        setNativeKey(sameAwbGoods[0].WarehouseKey);
+        if (baseCountry(sameAwbGoods[0].CountryName) === '중국') {
+          setNativeKey(null);
+          setCnKeys([sameAwbGoods[0].WarehouseKey]);
+        } else {
+          setCnKeys(null);
+          setNativeKey(sameAwbGoods[0].WarehouseKey);
+        }
         setAction({ busy: false, error: '' });
       } else {
         setAction({ busy: false, error: '이 입고는 운임·중량 참고자료이며 상품이 아닙니다. 해당 국가의 실제 상품 입고를 선택한 뒤 AWB 원문을 확인하세요.' });
       }
       return;
     }
-    if (!download) { setNativeKey(row.WarehouseKey); return; }
+    if (!download) {
+      if (!row.CostReferenceOnly && baseCountry(row.CountryName) === '중국') {
+        setNativeKey(null);
+        setCnKeys([row.WarehouseKey]);
+        return;
+      }
+      setCnKeys(null);
+      setNativeKey(row.WarehouseKey);
+      return;
+    }
     if (lock.current) return;
     lock.current = true;
     const expected = scope;
@@ -129,14 +146,14 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
       <section className={ledger.countryBar} aria-label="국가별 기존 원가 계산">
         <div className={ledger.countryBarInfo}>
           <h3>국가별 도착원가 · 기존 공식</h3>
-          <p>네덜란드·중국·콜롬비아·에콰도르·미국·호주·뉴질랜드·태국·베트남은 아래 입고의 생성 버튼에서 기존 국가별 공식을 사용합니다. 중국 CLOUD A/B·콜롬비아 여러 입고는 별도 통합 계산을 사용합니다.</p>
+          <p>중국은 CLOUD(중국 항공) · HUBFRESH(중국 해상) 2축 전용 원가표로 즉시 계산하며(레거시 멜로디·헨지는 CLOUD 항공 수수료 0% 호환), 네덜란드·콜롬비아·에콰도르·미국·호주·뉴질랜드·태국·베트남은 국가별 공식을 사용합니다.</p>
         </div>
         <label className={ledger.countrySelectField}>
           <span>개별 원가 국가</span>
           <select
             aria-label="개별 원가 국가"
             value={individualCountry}
-            onChange={e => { setIndividualCountry(e.target.value); setSelectionKeys([]); setNativeKey(null); }}
+            onChange={e => { setIndividualCountry(e.target.value); setSelectionKeys([]); setNativeKey(null); setCnKeys(null); }}
           >
             <option value="">전체 국가</option>
             {['네덜란드', '중국', '콜롬비아', '에콰도르', '미국', '호주', '뉴질랜드', '태국', '베트남'].map(n => <option key={n}>{n}</option>)}
@@ -170,6 +187,16 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
           >
             선택 {selectionKeys.length}건 다음 · 도착원가 작성
           </button>
+          {selectionKeys.length > 0 && rows.filter(r => selectionKeys.includes(r.WarehouseKey)).every(r => !r.CostReferenceOnly && baseCountry(r.CountryName) === '중국') && (
+            <button
+              type="button"
+              className={ledger.btnSecondary}
+              disabled={state.loading || action.busy}
+              onClick={() => { setNativeKey(null); setAction({ busy: false, error: '' }); setCnKeys([...selectionKeys]); }}
+            >
+              선택 {selectionKeys.length}건 중국 CLOUD·HUBFRESH 원가표
+            </button>
+          )}
           <button
             type="button"
             className={ledger.btnSecondary}
@@ -205,6 +232,16 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
             setSharedAwbState({ awb, scope: 'MAIN' });
             setShowColombia(true);
           }}
+        />
+      ) : cnKeys?.length ? (
+        <CnArrivalCostWorkbench
+          key={`${scope}/cn/${cnKeys.join('-')}`}
+          orderYear={orderYear}
+          orderWeek={orderWeek}
+          warehouseKey={cnKeys[0]}
+          warehouseKeys={cnKeys}
+          onClose={() => setCnKeys(null)}
+          onOpenLegacy={k => { setCnKeys(null); setNativeKey(k); }}
         />
       ) : rows.length > 0 ? (
         <div className={ledger.ledgerTableWrap}>
@@ -282,7 +319,7 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
                     <td>
                       <div className={ledger.rowActions}>
                         <button type="button" className={ledger.btnPrimarySm} disabled={action.busy} onClick={() => open(row, false)}>
-                          도착원가 엑셀 생성·다운로드
+                          {countryText === '중국' && !row.CostReferenceOnly ? '중국 CLOUD·HUBFRESH 원가표' : '도착원가 엑셀 생성·다운로드'}
                         </button>
                         <button type="button" className={ledger.btnSecondarySm} disabled={action.busy} onClick={() => open(row, true)}>
                           기존 승인 원가 다운로드
