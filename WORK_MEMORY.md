@@ -5371,3 +5371,13 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: 전체 게이트 통과 확인 후 PR 생성 → GitHub Actions CI 통과 확인 즉시 Squash 머지 → 워크트리 정리 및 `sync-nenova-hq.js` 동기화.
 4. 검증 상태: `after_fix_fx1750_8269.xlsx`·`after_fix_ci_direct_fx1750.xlsx` 수식-캐시 오차 `0.000000원` 및 양 경로 7행 단가 차이 `0.000000원`(`48-1` 원본 대비 단당 `~0.66~1.20원` 고정점 수렴 일치), `test:erp-contract` 492/492 PASS, `test:nenova-dnspy-evidence` PASS, `test:erp-manifest` PASS, `guard:erp-writes` PASS, `guard:agent-slop` PASS, `pstack-verify.cjs` 5/5 PASS, `npm run build` PASS.
 5. 주의/잠금: 운영 MSSQL 쓰기 0건(`SELECT-only`), `desktop/` 하위 파일 수정 0건, 기존 입고 등록 원문 행 분리(`adaptPackingReceipts`) 보존. 연결 목표: g17, g03, g13, g19 / 학습 반영: 있음
+
+
+## 2026-11-26 샘플(MUESTRAS/SAMPLE) 품목 최우선 매칭 · Don Eusebio PO↔송장번호 오추출 방지 · 입고일 KST 날짜 보존 (`fix/sample-match-eusebio-po`, 연결 목표: g03, g17, g19)
+- 요약: 운영 입고 독립 감사 및 사장님 정정 지시(#52)에 따라 1단계로 운영 DB 3건(`WK #8270` 송장 `133973`, `WK #8283` `Flores de Aguata` `[2436] ROSE / Sample` 변경 + `usp_StockCalculation` 재고 반영, `WK #8270~#8288` 19건 `InputDate = 2026-11-30`)을 정정 완료한 뒤, 재발 방지를 위해 ① `MUESTRAS`/`SAMPLE` 표기 품목이 `Mix Box` 대신 전산 `Sample` 품목(`[2436] ROSE / Sample` 등)으로 최우선 매칭되도록 `importPacking.js`·`invoiceMatchAssist.js`·`importPackingPrompt.js` 보강, ② `Don Eusebio` 등 `PO` 번호가 송장번호 칸에 혼입될 때 즉시 감지하는 `detectColombiaInvoicePoConfusion` 가드 추가, ③ `pages/api/warehouse/index.js` `InputDate` 저장 시 `CONVERT(datetime, REPLACE(@dt, N'-', N''), 112)`를 사용해 KST→UTC `-9시간` 시프트로 입고일이 하루 앞당겨지던 근본 원인을 수정했다(`desktop/` 무수정).
+- 검색어: MUESTRAS SAMPLE ROSE Sample 2436 Don Eusebio PO 송장번호 오추출 detectColombiaInvoicePoConfusion InputDate KST UTC 112 g03 g17 g19
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-fix-sample-eusebio` 워크트리, `fix/sample-match-eusebio-po` 브랜치) — `lib/importPacking.js`, `lib/invoiceMatchAssist.js`, `lib/importPackingPrompt.js`, `lib/importPackingResponse.js`, `pages/api/warehouse/index.js`, `__tests__/packingUploadCo30pEcDedup.test.mjs`.
+2. 완료된 것: 1단계 운영 DB 3건 원자적 정정·재고 재계산 실측 완료, 2단계 `MUESTRAS`/`SAMPLE` 최우선 매칭·`PO`↔`INVOICE No` 오추출 가드·`InputDate` UTC -9h 시프트 수정 및 회귀 테스트 작성.
+3. 남은 할 일: 단위·회귀·ERP 가드·빌드·`pstack-verify.cjs` PASS → PR 생성 → CI `verify` PASS → Squash 머지 → Cafe24 배포 확인 → 워크트리 정리 → `sync-nenova-hq.js`.
+4. 검증 상태: 단위·회귀·ERP 가드·빌드·`pstack-verify.cjs` 실행 예정.
+5. 주의/잠금: `desktop/` 파일 미수정(2026-11-25 조건부 승인제 준수), `nenova.exe` 공유 테이블 스키마 변경 0건, 기존 `48-02` 수국 7건(`#8262~#8268`) 미변경. 연결 목표: g03, g17, g19 / 학습 반영: 있음
