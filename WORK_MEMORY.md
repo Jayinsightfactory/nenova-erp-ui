@@ -5482,6 +5482,16 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: `__tests__/visualInboundWorkbench.test.mjs` 9/9 PASS, `test:warehouse-upload` PASS, `guard:agent-slop`·`guard:erp-writes`·`test:nenova-dnspy-evidence`·`test:erp-manifest`(250) PASS, `next build --webpack` PASS, `pstack-verify.cjs` 5/5 PASS, 실 Chrome `1920×1080` 실 PDF(`48-2 콜카장수국 CI.pdf`, `48-1 에콰 ROSALEDA CI.pdf` + `48-1 에콰 AWB.pdf`) 4종 스크린샷 및 AWB 자동 탭 전환·SVG 선 연결 검증 완료(운영 DB 쓰기 0건).
 5. 주의/잠금: `desktop/` 폴더 무수정(기존 웹뷰 자동 반영), MSSQL 스키마 무변경, 운영 DB `WarehouseMaster` 테스트 쓰기 0건(`previewOnly=true`까지만 검증). 연결 목표: g03, g17, g19 / 학습 반영: 있음
 
+
+## 2026-11-26 화면 사용 기록 날짜별 집계 창구 (`feat/activity-summary`, 연결 목표: 없음 — 새 목표 후보 "업무가 왜 있는지 읽어 주는 분석")
+- 요약: 사장님 말씀("네노바웹도 로그 이력 보면 되니까")에 따라, 화면 사용 기록을 화면 주소별로 세어 주는 읽기 전용 창구 `GET /api/work/activity?summary=1&from=&to=`를 추가. 기존 창구는 쪽마다 하루치 파일(약 5,700개)을 전부 다시 읽어 44일치에 2시간이 넘게 걸렸다(7일치에서 중단).
+- 검색어: 사용 기록 집계 userActivitySummary summarizeRange summary=1 pendingDays _summary 화면 주소별 건수 계정 수 느린 창구
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-cld-actsum` 작업 폴더, `feat/activity-summary`) — `lib/userActivitySummary.cjs`(신규), `pages/api/work/activity.js`, `__tests__/userActivitySummary.test.cjs`(신규), `package.json`
+2. 완료된 것: 하루치를 한 번만 읽어 화면 주소별 건수·계정 수·쓴 날 수·데스크톱앱 건수를 셈. 지난 날은 기록 폴더 `_summary/<날짜>.json`에 적어 두고 다시 읽지 않음. 20초를 넘기면 남은 날을 `pendingDays`로 돌려줌. 응답에 계정 이름·번호 없음. 볼 권한 확인 뒤에만 동작.
+3. 남은 할 일: 자동 검사 → 본편 반영 → 운영에서 10-14~11-26 전체 집계를 받아 화면별 사용을 다시 붙이기(문서 13번 갱신).
+4. 검증 상태: 시험 5개 통과. 운영 서버에서 하루치가 몇 초 걸리는지는 반영 뒤 재야 함(미검증).
+5. 주의/잠금: 기록 원본(`lib/userActivityStore.cjs`)과 기존 응답은 그대로. 서버 기록 폴더에 `_summary` 폴더가 새로 생김(지우면 다시 계산됨). 부서별 집계는 없음. 운영 DB 쓰기 0건, `desktop/` 미수정. 학습 반영: 없음.
+
 ## 2026-11-26 최초주문등록 과 분배 비교 기능 구현 (`feat/order-import-distribution-compare`, 연결 목표: g03, g17)
 - 요약: 업로드 주문등록(`pages/orders/import.js`) 완료 시 `dbo.WebOrderImportSnapshot`에 원본 행 순서·메타데이터·`sheetPreview` 스냅샷을 비차단 저장(`POST /api/orders/import-snapshots`)하고, 전용 비교 페이지(`pages/orders/import-compare.js`, `GET /api/orders/import-compare`)에서 연도·세부차수(`NN-NN`)·업체 기준으로 엑셀 업로드 스냅샷과 직접/수기 주문등록(`OrderDetail`+`OrderHistory` 최초 수량 역산)을 날짜별 복수 체크·합산해 현재 출고분배(`ShipmentDetail.OutQuantity`, `sd.isDeleted` 미참조)와 대조하도록 구현했다.
 - 검색어: 최초주문등록 분배비교 WebOrderImportSnapshot orderImportCompareLogic orderImportSnapshotStore import-compare import-snapshots 세부차수 역산 OutUnit 환산 g03 g17

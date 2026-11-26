@@ -2,6 +2,7 @@ import { withAuth } from '../../../lib/auth';
 import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
 import store from '../../../lib/userActivityStore.cjs';
 import asyncStore from '../../../lib/userActivityAsync.cjs';
+import summary from '../../../lib/userActivitySummary.cjs';
 
 export const config = { api: { bodyParser: { sizeLimit: '64kb' } } };
 export async function activityHandler(req, res) {
@@ -9,6 +10,11 @@ export async function activityHandler(req, res) {
   if (req.method === 'GET') {
     if (req.query.me === '1') return res.status(200).json({ success: true, userId: req.user.userId, record: true, canView: isOrbitReportViewer(req.user), health: store.getHealth() });
     if (!isOrbitReportViewer(req.user)) return res.status(404).json({ success: false, error: 'Not found' });
+    // 화면 주소별 날짜 집계(계정 이름·번호 없음). 하루치를 한 번만 읽고 지난 날은 적어 둔다 — 못 한 날은 pendingDays 로 돌려주니 다시 부른다.
+    if (req.query.summary === '1') {
+      try { return res.status(200).json({ success: true, ...await summary.summarizeRange({ from: req.query.from, to: req.query.to }) }); }
+      catch (error) { return res.status(error.message === 'INVALID_DATE_RANGE' ? 400 : 503).json({ success: false, code: error.message === 'INVALID_DATE_RANGE' ? 'INVALID_DATE_RANGE' : 'ACTIVITY_SUMMARY_FAILED' }); }
+    }
     try { return res.status(200).json({ success: true, ...await store.listEvents(req.query) }); }
     catch (error) { return res.status(error.message.startsWith('INVALID_') ? 400 : 503).json({ success: false, code: error.code === 'ACTIVITY_QUERY_TOO_LARGE' ? error.code : 'ACTIVITY_QUERY_FAILED', error: error.code === 'ACTIVITY_QUERY_TOO_LARGE' ? '조회량이 너무 많습니다. 날짜와 시간(hour, 한국시간 0~23)을 좁혀 주세요. 일부 기록을 생략하지 않고 조회를 중단했습니다.' : '활동 기록을 조회하지 못했습니다.' }); }
   }
