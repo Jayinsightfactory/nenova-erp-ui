@@ -5472,3 +5472,12 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: 자동 검사 통과 → 본편 반영. 공용 규칙 세 파일(`SHARED_AGENT_RULES.md` · `~/.claude/CLAUDE.md` · `~/.codex/AGENTS.md`)에 한 단락. 다른 저장소(mindmap-viewer 등)에는 아직 없음. 지난 1,628건을 화면에 붙이는 일은 별도.
 4. 검증 상태: `node --test __tests__/prWorkLink.test.cjs` 4개 통과, 빈 본문 실패·기준일 이전 건너뜀을 손으로 확인, `pstack-verify.cjs` 통과. 실제 수정안에서 막히는 것은 11-27 이후 첫 수정안에서 확인 필요(미검증).
 5. 주의/잠금: 2026-11-27 이전에 연 수정안은 검사하지 않음(열려 있는 36개 보호). 운영 DB 쓰기 0건, `desktop/` 미수정. 학습 반영: 있음.
+
+## 2026-11-26 최초주문등록 과 분배 비교 기능 구현 (`feat/order-import-distribution-compare`, 연결 목표: g03, g17)
+- 요약: 업로드 주문등록(`pages/orders/import.js`) 완료 시 `dbo.WebOrderImportSnapshot`에 원본 행 순서·메타데이터·`sheetPreview` 스냅샷을 비차단 저장(`POST /api/orders/import-snapshots`)하고, 전용 비교 페이지(`pages/orders/import-compare.js`, `GET /api/orders/import-compare`)에서 연도·세부차수(`NN-NN`)·업체 기준으로 엑셀 업로드 스냅샷과 직접/수기 주문등록(`OrderDetail`+`OrderHistory` 최초 수량 역산)을 날짜별 복수 체크·합산해 현재 출고분배(`ShipmentDetail.OutQuantity`, `sd.isDeleted` 미참조)와 대조하도록 구현했다.
+- 검색어: 최초주문등록 분배비교 WebOrderImportSnapshot orderImportCompareLogic orderImportSnapshotStore import-compare import-snapshots 세부차수 역산 OutUnit 환산 g03 g17
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-import-compare`, `feat/order-import-distribution-compare`) — `lib/orderImportCompareLogic.js`, `lib/orderImportSnapshotStore.js`, `docs/migrations/2026-11-26_web_order_import_snapshot.sql`, `pages/api/orders/import-snapshots.js`, `pages/api/orders/import-compare.js`, `pages/orders/import.js`, `pages/orders/import-compare.js`, `docs/contracts/order-import-shipment-list.json`, `scripts/test-order-import-compare.mjs`.
+2. 완료된 것: 순수 비교/병합 엔진(`convertQtyToOutUnit`, `mergeBaselineCandidates`, `buildCompareRows`), 스냅샷 테이블 런타임 DDL+SQL 마이그레이션, 인증 API 2종, `import.js` 툴바 버튼 및 비차단 스냅샷 저장, Anti-AI Slop·고딕 서체 준수 비교 UI, 계약 등록 및 단위 테스트.
+3. 남은 할 일: `test:erp-contract`·`npm run build`·`pstack-verify.cjs` 전수 통과 확인 후 PR 생성, CI 대기 및 squash 머지, worktree 정리, `nenova-hq` 동기화.
+4. 검증 상태: `node scripts/test-order-import-compare.mjs`, `test:erp-manifest`, `guard:erp-writes`, `guard:agent-slop`, `test:ui-layout`, `test:workflow-guides` 통과. 전체 `test:erp-contract`·`npm run build`·`pstack-verify.cjs` 실행 중(실운영 DB 라이브 스모크는 별도).
+5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), `ShipmentDetail.isDeleted` 미참조, 모든 ERP 조회 `OrderYear+OrderWeek+CustKey` 4키 엄수, 스냅샷 저장 실패 시 주문등록 비차단. 연결 목표: g03, g17

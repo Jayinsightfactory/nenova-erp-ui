@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import WorkflowGuide from '../../components/WorkflowGuide';
 import { groupImportPriceCustomers } from '../../lib/orderImportWorkspace.js';
 import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
@@ -744,6 +745,7 @@ function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick
 }
 
 export default function OrderImportPage() {
+  const router = useRouter();
   const [week, setWeek] = useState(getCurrentWeek());
   const [weeks, setWeeks] = useState([]);
   const [showOldWeeks, setShowOldWeeks] = useState(false);
@@ -1528,6 +1530,55 @@ export default function OrderImportPage() {
         source: 'order-import-final',
       }));
       if (!d.success) throw new Error(d.error || '저장 실패');
+      try {
+        const rawCellsByRowNo = new Map(
+          (sheetPreview?.rows || []).map(r => [Number(r.rowNo), r.cells || null]),
+        );
+        const productByKey = new Map((allProducts || []).map(p => [Number(p.ProdKey), p]));
+        const snapshotItems = items
+          .filter(it => !it.skip && it.prodKey && Number(it.qty) > 0)
+          .map((it, idx) => {
+            const pk = Number(it.prodKey);
+            const prod = productByKey.get(pk);
+            const rowNo = Number(it.rowNo)
+              || (Array.isArray(it.sourceDetails) && it.sourceDetails[0]?.rowNo ? Number(it.sourceDetails[0].rowNo) : idx + 1);
+            return {
+              rowNo,
+              inputName: it.inputName || '',
+              colorOrDetail: it.colorOrDetail || it.color || it.detailLabel || '',
+              matchName: it.matchName || '',
+              prodKey: pk,
+              prodName: it.prodName || prod?.ProdName || '',
+              displayName: it.displayName || prod?.DisplayName || it.prodName || prod?.ProdName || '',
+              flowerName: it.flowerName || prod?.FlowerName || '',
+              counName: it.counName || prod?.CounName || '',
+              qty: Number(it.qty),
+              unit: it.unit || '',
+              rawUnit: it.rawUnit || it.unit || '',
+              unitPrice: Number(it.unitPrice) || 0,
+              note: it.note || '',
+              outUnit: it.outUnit || prod?.OutUnit || it.unit || '박스',
+              bunchOf1Box: Number(it.bunchOf1Box ?? prod?.BunchOf1Box ?? 0) || 0,
+              steamOf1Box: Number(it.steamOf1Box ?? prod?.SteamOf1Box ?? 0) || 0,
+              rawCells: Array.isArray(it.rawCells) ? it.rawCells : (rawCellsByRowNo.get(rowNo) || null),
+            };
+          });
+        if (snapshotItems.length > 0) {
+          await apiPost('/api/orders/import-snapshots', {
+            orderYear: weekQuery.year,
+            orderWeek: weekQuery.week,
+            custKey: cust.CustKey,
+            custName: cust.CustName || '',
+            fileName: fileName || '',
+            sheetName: sheetName || '',
+            sourceType: sourceType || 'excel',
+            sheetPreview: sheetPreview || null,
+            items: snapshotItems,
+          });
+        }
+      } catch {
+        // 스냅샷 저장 실패가 주문등록 완료를 막지 않도록 무시
+      }
       const orderedApiResults = sortImportRowsByProductOrder(d.results, registerItems);
       const appliedCount = d.results?.filter(r => ['OK', 'UPDATED', 'ADDED', 'DELETED'].includes(r.status)).length ?? registerItems.length;
       const unchangedCount = d.results?.filter(r => r.status === 'UNCHANGED').length || 0;
@@ -1672,6 +1723,29 @@ export default function OrderImportPage() {
                 setRegisterMode(registerMode === 'priceOnly' ? 'order' : 'priceOnly'); setSelectedSubWeeks([]); setPriceEdits({}); setPriceLog([]);
               }}>
               {registerMode === 'priceOnly' ? '파일 업로드로 돌아가기' : '담당업체 분배단가 수정'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const weekQuery = resolveOrderWeekQuery(week);
+                void router.push({
+                  pathname: '/orders/import-compare',
+                  query: {
+                    year: weekQuery.year,
+                    week: weekQuery.week,
+                    custKey: cust?.CustKey || '',
+                  },
+                });
+              }}
+              style={{
+                ...st.btn,
+                background: '#f8fafc',
+                color: '#0f172a',
+                border: '1px solid #cbd5e1',
+              }}
+              title="세부차수 기준 최초주문등록 수량과 현재 출고분배 수량 대조"
+            >
+              최초주문등록 과 분배 비교
             </button>
             <WorkflowGuide workflowId="order-import-workspace" />
           </div>

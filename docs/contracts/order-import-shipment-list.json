@@ -13,7 +13,9 @@
     "pages/orders/product-match.js",
     "lib/orderImportMatchPopup.js",
     "__tests__/orderImportMatchPopup.test.js",
-    "pages/api/orders/index.js", "lib/orderRegistrationBatch.cjs", "scripts/verify-order-batch-sql.cjs",
+    "pages/api/orders/index.js",
+    "lib/orderRegistrationBatch.cjs",
+    "scripts/verify-order-batch-sql.cjs",
     "pages/api/orders/import-parse.js",
     "pages/api/orders/import-price-targets.js",
     "pages/api/orders/import-price-customers.js",
@@ -52,7 +54,14 @@
     "lib/orderImportWorkspace.js",
     "__tests__/orderImportWorkspace.test.cjs",
     "__tests__/orderImportSheetIdentity.test.cjs",
-    "__tests__/orderImportParseApi.test.cjs"
+    "__tests__/orderImportParseApi.test.cjs",
+    "lib/orderImportCompareLogic.js",
+    "lib/orderImportSnapshotStore.js",
+    "pages/api/orders/import-snapshots.js",
+    "pages/api/orders/import-compare.js",
+    "pages/orders/import-compare.js",
+    "docs/migrations/2026-11-26_web_order_import_snapshot.sql",
+    "scripts/test-order-import-compare.mjs"
   ],
   "actions": [
     {
@@ -212,6 +221,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "note": "Filename customer+majorWeek matches a parseable sheet title before row/price scoring; metadata title parsed per cell, never concatenated table headers. Namdaemun Gyeongwon upload alias resolves exact ERP customer name 경원원예 uniquely, without global mapping mutation. Actual 47th originals select Sheet1 7 and 4 rows instead of MIU reference13 rows/07 week. See executable synthetic fixture."
+    },
+    {
+      "name": "SAVE_AND_COMPARE_INITIAL_ORDER_IMPORT_SNAPSHOT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "note": "Saves read-only upload snapshot into WebOrderImportSnapshot after successful FINAL_SNAPSHOT order registration without modifying ERP master/detail tables; pages/api/orders/import-compare.js and pages/orders/import-compare.js compare selected chronological upload/order-date baselines against current ShipmentDetail.OutQuantity scoped by OrderYear + OrderWeek + CustKey."
     }
   ],
   "crossYearFixture": {
@@ -230,7 +245,8 @@
     "__tests__/myCustomerOrderApi.test.js",
     "__tests__/orderImportWorkspace.test.cjs",
     "__tests__/orderImportSheetIdentity.test.cjs",
-    "__tests__/orderImportParseApi.test.cjs"
+    "__tests__/orderImportParseApi.test.cjs",
+    "scripts/test-order-import-compare.mjs"
   ],
   "dnspyEvidence": {
     "required": true,
