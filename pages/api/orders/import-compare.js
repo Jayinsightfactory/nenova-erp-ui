@@ -76,18 +76,18 @@ async function handleOptions(req, res) {
       `WITH UploadCust AS (
          SELECT DISTINCT CustKey
            FROM dbo.WebOrderImportSnapshot
-          WHERE OrderYear = @yr AND OrderWeek = @wk AND IsDeleted = 0
+          WHERE OrderYear = @yrInt AND OrderWeek = @wk AND IsDeleted = 0
        ),
        OrderCust AS (
          SELECT DISTINCT CustKey
            FROM OrderMaster
-          WHERE OrderYear = @yr AND OrderWeek = @wk AND ISNULL(isDeleted, 0) = 0
+          WHERE OrderYear = @yrStr AND OrderWeek = @wk AND ISNULL(isDeleted, 0) = 0
        ),
        ShipCust AS (
          SELECT DISTINCT COALESCE(NULLIF(sd.CustKey, 0), sm.CustKey) AS CustKey
            FROM ShipmentMaster sm
            JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
-          WHERE sm.OrderYear = @yr AND sm.OrderWeek = @wk AND ISNULL(sm.isDeleted, 0) = 0
+          WHERE sm.OrderYear = @yrStr AND sm.OrderWeek = @wk AND ISNULL(sm.isDeleted, 0) = 0
        ),
        AllCust AS (
          SELECT CustKey FROM UploadCust
@@ -110,7 +110,8 @@ async function handleOptions(req, res) {
          LEFT JOIN ShipCust sc ON sc.CustKey = ac.CustKey
         ORDER BY hasUploadSnapshot DESC, hasShipment DESC, c.CustName ASC`,
       {
-        yr: { type: sql.Int, value: Number(scope.orderYear) },
+        yrInt: { type: sql.Int, value: Number(scope.orderYear) },
+        yrStr: { type: sql.NVarChar, value: String(scope.orderYear) },
         wk: { type: sql.NVarChar, value: scope.orderWeek },
       },
     );
@@ -149,6 +150,7 @@ async function handleCompare(req, res) {
   }
 
   const yrNum = Number(scope.orderYear);
+  const yrStr = String(scope.orderYear);
   const wk = scope.orderWeek;
 
   await ensureOrderImportSnapshotTable(null);
@@ -184,7 +186,7 @@ async function handleCompare(req, res) {
           AND ISNULL(om.isDeleted, 0) = 0
         ORDER BY od.OrderDetailKey ASC`,
       {
-        yr: { type: sql.Int, value: yrNum },
+        yr: { type: sql.NVarChar, value: yrStr },
         wk: { type: sql.NVarChar, value: wk },
         ck: { type: sql.Int, value: custKey },
       },
@@ -208,7 +210,7 @@ async function handleCompare(req, res) {
        HAVING SUM(ISNULL(sd.OutQuantity, 0)) <> 0
         ORDER BY MIN(sd.SdetailKey) ASC`,
       {
-        yr: { type: sql.Int, value: yrNum },
+        yr: { type: sql.NVarChar, value: yrStr },
         wk: { type: sql.NVarChar, value: wk },
         ck: { type: sql.Int, value: custKey },
       },
