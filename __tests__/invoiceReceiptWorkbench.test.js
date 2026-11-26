@@ -148,7 +148,7 @@ test('component compiles and is connected only through the bounded packing sourc
     configFile: false,
     babelrc: false,
   });
-  assert.match(packingSource, /onReceiptSourceChange\(\{[\s\S]*?excels,[\s\S]*?invoices:\s*lastExtraction\.result\.invoices,[\s\S]*?country,[\s\S]*?file,[\s\S]*?products:\s*generatedErp\.products,[\s\S]*?reviewConfirmed,[\s\S]*?truncated:/);
+  assert.match(packingSource, /onReceiptSourceChange\(\{[\s\S]*?excels,[\s\S]*?invoices:\s*(?:lastExtraction\.result\.invoices|activeForReceipt),[\s\S]*?country,[\s\S]*?file,[\s\S]*?products:\s*generatedErp\.products,[\s\S]*?reviewConfirmed,[\s\S]*?truncated:/);
   assert.match(pageSource, /<InvoiceReceiptWorkbench key=\{userId\} userId=\{userId\} \{\.\.\.receiptSource\} onMatchStateChange=\{changeReceiptMatchState\} workspaceMode=/);
   assert.doesNotMatch(pageSource, /receiptSource&&<InvoiceReceiptWorkbench/);
   assert.match(pageSource, /EMPTY_RECEIPT_SOURCE=Object\.freeze/);

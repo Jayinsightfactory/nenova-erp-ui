@@ -5,10 +5,13 @@
     "__tests__/importPackingAustraliaQuantity.test.js",
     "lib/importPackingErpMatches.js",
     "lib/importPackingFarmMatches.js",
+    "lib/packingDuplicateCheck.js",
+    "lib/packingExistingReceiptsApi.js",
     "lib/packingUploadMatchPrompt.js",
     "lib/productSearchRanking.js",
     "pages/api/import/tools/product-matches.js",
     "pages/api/import/tools/farm-matches.js",
+    "pages/api/import/tools/check-existing-receipts.js",
     "components/import-tools/PackingProductMatchDialog.js",
     "components/import-tools/PackingUploadMatchModal.js",
     "styles/PackingProductMatch.module.css",
@@ -107,6 +110,13 @@
       "runtimeFile": "packing.erp-matches; authenticated CAS mapping history; Product SELECT only, no receipt/estimate mutations"
     },
     {
+      "name": "CHECK_EXISTING_RECEIPTS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "read-only WarehouseMaster SELECT scoped by OrderYear and active isDeleted=0; leading-zero canonical invoice and supplier equivalence detect already-committed receipts and exclude them by default from packing matching/export/receipt handoff without modifying ERP tables"
+    },
+    {
       "name": "MATCH_ERP_FARM",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -162,6 +172,7 @@
     "__tests__/packingProductMatchDialog.test.js",
     "__tests__/importPackingErpMatches.test.js",
     "__tests__/packingUploadMatchPrompt.test.mjs",
+    "__tests__/packingUploadCo30pEcDedup.test.mjs",
     "__tests__/importPackingSourceIdentity.test.js",
     "__tests__/importTeamStore.test.js",
     "__tests__/importTeamTools.test.js",
