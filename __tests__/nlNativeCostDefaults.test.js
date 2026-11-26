@@ -9,7 +9,7 @@ const quote={rate:1503.6,marketRate:1488.6,adjustmentKRW:15,requestedAt:'2026-11
 test('NL same receipt freight, placeholder-free weights, company customs and actual quantity factor',()=>{
  const before=JSON.stringify(source),r=nlNativeCostDefaults(source,quote);
  assert.deepEqual(r.missing,[]);assert.equal(r.input.freightAmount,3689.69);
- assert.equal(r.input.customsTotalKRW,963844.2);assert.equal(r.input.expenseBasis,'ESTIMATED');
+ assert.ok(Math.abs(r.input.customsTotalKRW - 1362185.5759250936) < 1e-6);assert.equal(r.input.expenseBasis,'ESTIMATED');
  assert.equal(r.input.nlTemplateCosts.kindCount,2);
  assert.equal(r.input.lineInputs[0].stemsPerBunch,3);assert.equal(r.input.lineInputs[1].tariffRate,0);
  assert.equal(r.input.exchangeRateKRW,1503.6);assert.equal(JSON.stringify(source),before);

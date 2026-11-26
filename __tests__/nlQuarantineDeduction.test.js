@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { nlQuarantineDeduction, nlQuarantineKind } from '../lib/nlQuarantineDeduction.js';
+import { NL_QUARANTINE_SAMPLES, nlQuarantineDeduction, nlQuarantineKind } from '../lib/nlQuarantineDeduction.js';
+import { nlCompanyTemplateCost } from '../lib/nlCompanyTemplateCost.js';
 import { nlInvoiceTariffRate } from '../lib/nlInvoiceTariffReference.js';
 
-test('chooses cheapest landed line but deducts FOB times original sample stems', () => {
+test('chooses cheapest landed line and deducts converged landed stem cost times original sample stems', () => {
   const lines = [
     {lineId:'t1',originalName:'Tulip expensive',stemQuantity:100,lineAmount:200,unitPrice:2,effectiveTariffRate:0},
     {lineId:'t2',originalName:'Tulip cheap',stemQuantity:100,lineAmount:100,unitPrice:1,effectiveTariffRate:0},
@@ -13,17 +14,22 @@ test('chooses cheapest landed line but deducts FOB times original sample stems',
   const r=nlQuarantineDeduction(lines,{freight:0,exchangeRate:1000,customsBeforeDeduction:100000});
   assert.equal(r.ready,true);assert.equal(r.kindCount,2);
   assert.deepEqual(r.selected.map(row=>[row.kind,row.lineId,row.stems]),[['Tulip','t2',10],['Eryngium','e1',5]]);
-  assert.equal(r.deduction,20000);assert.equal(JSON.stringify(lines),before);
+  assert.ok(Math.abs(r.deduction - 550000 / 19) < 1e-6);
+  assert.equal(JSON.stringify(lines),before);
 });
 
-test('missing original sample is zero; sample loss is added even above base customs',()=>{
+test('missing original sample is zero; sample loss is added even above base customs while 100% destruction fails closed',()=>{
   assert.equal(nlQuarantineKind({originalName:'Woolly bush'}),null);
   const noSample=nlQuarantineDeduction([{lineId:'x',originalName:'Woolly bush',stemQuantity:10,lineAmount:10,unitPrice:1,effectiveTariffRate:0}],
     {freight:0,exchangeRate:1000,customsBeforeDeduction:100000});
   assert.equal(noSample.ready,true);assert.equal(noSample.kindCount,1);assert.equal(noSample.deduction,0);
   assert.deepEqual(noSample.excluded.map(x=>x.kind),['Woolly']);
+  const converged=nlQuarantineDeduction([{lineId:'t',originalName:'Tulip',stemQuantity:100,lineAmount:1000,unitPrice:10,effectiveTariffRate:0}],
+    {freight:0,exchangeRate:1000,customsBeforeDeduction:1000});
+  assert.equal(converged.ready,true);
+  assert.ok(converged.deduction > 100000);
   assert.equal(nlQuarantineDeduction([{lineId:'t',originalName:'Tulip',stemQuantity:10,lineAmount:100,unitPrice:10,effectiveTariffRate:0}],
-    {freight:0,exchangeRate:1000,customsBeforeDeduction:1000}).ready,true);
+    {freight:0,exchangeRate:1000,customsBeforeDeduction:1000}).ready,false);
 });
 
 test('missing freight is not silently treated as zero',()=>{
@@ -40,18 +46,25 @@ test('additional reference kinds are independent, not replacements or double ded
  assert.deepEqual(r.selected.map(x=>x.kind),['Nerine','Ornithogalum','Leucothoe','Cordyline']);
  assert.ok(r.selected.every(x=>x.stems===10));
  assert.equal(r.selected.find(x=>x.kind==='Ornithogalum').lineId,'1');
- assert.equal(r.deduction,48000);
+ assert.ok(Math.abs(r.deduction - 1600000 / 23) < 1e-6);
 });
 
-test('43-02 unmatched kinds remain distinct and sample deduction never assumes ten stems',()=>{
+test('43-02 unmatched kinds remain distinct while 48-1 Gossypium/Weigelia/Hippeastrum use exact sample stems',()=>{
+  assert.equal(nlQuarantineKind({originalName:'HIPPEASTRUM MONT BLANC 12x 4 80cm'}),'Amaryllis');
+  assert.equal(nlQuarantineKind({originalName:'Gossypium Herbaceum'}),'Gossypium');
+  assert.equal(nlQuarantineKind({originalName:'Weigelia Alexandra'}),'Weigelia');
+  assert.equal(NL_QUARANTINE_SAMPLES.find(s=>s.kind==='Gossypium')?.stems,1);
+  assert.equal(NL_QUARANTINE_SAMPLES.find(s=>s.kind==='Weigelia')?.stems,5);
   const lines=[
     ['a','Amerine/ Anastasia','기타'],['o','Onisogallium / Arabicum','오니소겔륨'],
     ['w','Weigelia Alexandra','기타'],['t','Tulip / Double','튤립'],
   ].map(([lineId,originalName,flowerName])=>({lineId,originalName,flowerName,
     stemQuantity:100,lineAmount:100,unitPrice:1,effectiveTariffRate:0}));
   const r=nlQuarantineDeduction(lines,{freight:0,exchangeRate:1000,customsBeforeDeduction:100000});
-  assert.equal(r.ready,true);assert.equal(r.kindCount,4);assert.equal(r.deduction,10000);
-  assert.deepEqual(r.excluded.map(x=>x.kind),['Amerine','Onisogallium','Weigelia']);
+  assert.equal(r.ready,true);assert.equal(r.kindCount,4);
+  assert.ok(Math.abs(r.deduction - 1500000 / 77) < 1e-6);
+  assert.deepEqual(r.selected.map(x=>[x.kind,x.stems]),[['Weigelia',5],['Tulip',10]]);
+  assert.deepEqual(r.excluded.map(x=>x.kind),['Amerine','Onisogallium']);
 });
 
 test('NL reference tariff priority and spelling normalization keep item-specific rate before origin',()=>{
@@ -70,7 +83,7 @@ test('selection follows landed stem cost even when cheaper FOB belongs to taxed 
   ];
   const r=nlQuarantineDeduction(rows,{freight:0,exchangeRate:1000,customsBeforeDeduction:20000});
   assert.equal(r.ready,true);assert.equal(r.selected[0].lineId,'untaxed');
-  assert.equal(r.deduction,10000);
+  assert.ok(Math.abs(r.deduction - 35000 / 3) < 1e-6);
 });
 
 test('editing price changes the selected kind member without mutating prior results',()=>{
@@ -79,8 +92,29 @@ test('editing price changes the selected kind member without mutating prior resu
   {lineId:'b',originalName:'Tulip Alternative',stemQuantity:100,lineAmount:43,unitPrice:.43,effectiveTariffRate:0},
  ];
  const settings={freight:20,exchangeRate:1500,customsBeforeDeduction:100000};
- const first=nlQuarantineDeduction(lines,settings);assert.equal(first.selected[0].lineId,'a');assert.equal(first.deduction,5250);
+ const first=nlQuarantineDeduction(lines,settings);
+ assert.equal(first.selected[0].lineId,'a');
+ assert.ok(Math.abs(first.deduction - 1912750 / 184) < 1e-6);
  const next=nlQuarantineDeduction(lines.map(l=>l.lineId==='a'?{...l,unitPrice:1,lineAmount:150}:l),settings);
- assert.equal(next.selected[0].lineId,'b');assert.equal(next.deduction,6450);
+ assert.equal(next.selected[0].lineId,'b');
+ assert.ok(Math.abs(next.deduction - 1803850 / 188.7) < 1e-6);
  assert.equal(first.selected[0].lineId,'a');assert.equal(lines[0].lineAmount,52.5);
+});
+
+test('48-1 Holex 7-row shipment converges to exact M-column quarantine deduction without float64 tie crossing',()=>{
+  const rows481=[
+    {lineId:'1',originalName:'Amaryllis / Mont Blanc 12st White',stemQuantity:24,unitPrice:2.54,lineAmount:60.96,effectiveTariffRate:0},
+    {lineId:'2',originalName:'Amaryllis / Rilona (Salmon) 12st',stemQuantity:24,unitPrice:3.36,lineAmount:80.64,effectiveTariffRate:0},
+    {lineId:'3',originalName:'Skimmia / Conf Kew Ger Green',stemQuantity:450,unitPrice:1.49,lineAmount:670.5,effectiveTariffRate:0},
+    {lineId:'4',originalName:'Skimmia / Jap Rubella Red',stemQuantity:90,unitPrice:1.5,lineAmount:135,effectiveTariffRate:0},
+    {lineId:'5',originalName:'Amaryllis / Loyalty',stemQuantity:12,unitPrice:3.37,lineAmount:40.44,effectiveTariffRate:0},
+    {lineId:'6',originalName:'Hydrangea Classic Verena Green/Red 60cm-20cm ',stemQuantity:50,unitPrice:3.85,lineAmount:192.5,effectiveTariffRate:0},
+    {lineId:'7',originalName:'Skimmia / Champagne',stemQuantity:90,unitPrice:1.55,lineAmount:139.5,effectiveTariffRate:0},
+  ];
+  const tpl=nlCompanyTemplateCost(rows481,{gw:111.9,freight:403.84,exchangeRate:1750});
+  assert.equal(tpl.ready,true);
+  assert.equal(tpl.costs.kindCount,3);
+  assert.deepEqual(tpl.costs.selections.map(s=>[s.kind,s.lineId,s.stems]),[['Amaryllis','1',5],['Skimmia','3',6],['Hydrangea','6',10]]);
+  assert.ok(Math.abs(tpl.costs.deduct - 164288.54570430366) < 1e-6);
+  assert.ok(Math.abs(tpl.total - 588762.5457043037) < 1e-6);
 });
