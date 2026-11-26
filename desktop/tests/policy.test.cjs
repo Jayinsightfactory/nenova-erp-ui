@@ -78,3 +78,15 @@ test('favorite numbers and aliases survive deletion, insertion and restart', () 
   assert.deepEqual(restored[1], favorites[1]);
   assert.deepEqual(restored[2], favorites[2]);
 });
+
+test('safeSnapshot preserves import-tools pedidos/country/days and kakao-import sales-paste query params while stripping secrets', () => {
+  const snapshot = safeSnapshot({
+    favorites: [
+      { url: '/import/tools?tool=pedidos&country=colombia&days=14&token=leak', title: '수입부 발주서' },
+      { url: '/orders/sales-paste?mode=kakao-import&secret=1', title: '영업 주문등록' },
+    ],
+  });
+  assert.equal(snapshot.favorites.length, 2);
+  assert.equal(snapshot.favorites[0].url, `${ORIGIN}/import/tools?tool=pedidos&country=colombia&days=14&popup=1`);
+  assert.equal(snapshot.favorites[1].url, `${ORIGIN}/orders/sales-paste?mode=kakao-import&popup=1`);
+});

@@ -4,6 +4,8 @@ import { getKakaoSheetId, readSheetValues } from '../../../../lib/googleSheets';
 import { todaySeoul } from '../../../../lib/importKakaoAdditions';
 import { classifyImportFeed, importCustomerAliases, latestImportFeed } from '../../../../lib/importKakaoOrderText';
 import { offsetImportDay, readImportArchive } from '../../../../lib/importKakaoArchive';
+import { query as queryErpDb } from '../../../../lib/db';
+import { loadImportKakaoDbCatalog } from '../../../../lib/importKakaoDbCatalog';
 
 function sanitizeErrorSummary(err) {
   const raw = String(err?.message || err || '')
@@ -60,17 +62,26 @@ export default withAuth(async (req,res)=>{
         return new Map();
       }
     };
-    const [aliases, messages] = await Promise.all([
+    const [aliases, messages, dbCatalog] = await Promise.all([
       loadAliases(),
       readImportArchive(from, through),
+      typeof loadImportKakaoDbCatalog === 'function' && typeof queryErpDb === 'function'
+        ? loadImportKakaoDbCatalog({ queryFn: queryErpDb })
+        : Promise.resolve(null),
     ]);
-    const warningExtra = aliasWarning ? { aliasWarning } : {};
-    if (day !== undefined) return res.json({ ...classifyImportFeed({from:day,to:day,messages},aliases,options), ...warningExtra });
-    const feedOpts = { ...options, maxOrderDays: 31, windowFrom: from };
+    const enrichedOptions = dbCatalog
+      ? { ...options, dbCatalog, knownFarms: dbCatalog.knownFarms || [], inheritContext: true }
+      : options;
+    const responseExtra = {
+      ...(aliasWarning ? { aliasWarning } : {}),
+      ...(dbCatalog ? { knownFarms: dbCatalog.knownFarms || [] } : {}),
+    };
+    if (day !== undefined) return res.json({ ...classifyImportFeed({from:day,to:day,messages},aliases,enrichedOptions), ...responseExtra });
+    const feedOpts = { ...enrichedOptions, maxOrderDays: 31, windowFrom: from };
     const latest = latestImportFeed(messages, through, aliases, feedOpts);
-    if (rawDays !== undefined || latest.orderDays.length >= 2 || days >= 31) return res.json({ ...latest, windowDays: days, ...warningExtra });
+    if (rawDays !== undefined || latest.orderDays.length >= 2 || days >= 31) return res.json({ ...latest, windowDays: days, ...responseExtra });
     const older = await readImportArchive(offsetImportDay(through, -30), offsetImportDay(from, -1));
-    return res.json({ ...latestImportFeed([...messages, ...older], through, aliases, { ...options, maxOrderDays: 31, windowFrom: offsetImportDay(through, -30) }), windowDays: 31, ...warningExtra });
+    return res.json({ ...latestImportFeed([...messages, ...older], through, aliases, { ...enrichedOptions, maxOrderDays: 31, windowFrom: offsetImportDay(through, -30) }), windowDays: 31, ...responseExtra });
   } catch (err) {
     const detail = sanitizeErrorSummary(err);
     console.error('[kakao-additions] 수입방 Orbit 아카이브 조회 실패:', detail);

@@ -21,7 +21,7 @@ function safeTab(t) {
   let url = trustedUrl(t?.url);
   if (!url || new URL(url).pathname.startsWith('/api/') || new URL(url).pathname === '/login') return null;
   const u = new URL(url);
-  const allowed = new Set(['popup','year','week','orderYear','orderWeek','OrderYear','OrderWeek','custKey','CustKey','prodKey','ProdKey','tab','hotel','hotelId','mode','preview','date','from','to']);
+  const allowed = new Set(['popup','year','week','orderYear','orderWeek','OrderYear','OrderWeek','custKey','CustKey','prodKey','ProdKey','tab','tool','country','source','days','hotel','hotelId','mode','preview','date','from','to']);
   const warehouseKeys = u.searchParams.getAll('warehouseKey');
   if ((u.pathname === '/incoming' || (u.pathname === '/import/tools' && u.searchParams.get('tab') === 'cost'))
     && warehouseKeys.length === 1 && /^[1-9]\d*$/.test(warehouseKeys[0]) && Number.isSafeInteger(Number(warehouseKeys[0]))) allowed.add('warehouseKey');
