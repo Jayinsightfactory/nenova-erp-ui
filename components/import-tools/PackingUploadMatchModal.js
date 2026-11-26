@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styles from '../../styles/PackingUploadMatchModal.module.css';
 import {
+  NEW_FARM_OPTION_KEY,
   farmChoiceOptionKey,
   parseFarmChoiceOptionKey,
   analyzeRowQuantitySuggestion,
@@ -124,6 +125,7 @@ export default function PackingUploadMatchModal({
       for (const item of needs.unmatchedFarms) {
         next[item.supplierKey] = prev[item.supplierKey] || {
           optionKey: item.defaultOptionKey || '',
+          newFarmName: item.defaultNewFarmName || item.supplier || '',
           packingAbbr: item.defaultPackingAbbr || '',
           packingShort: item.defaultPackingShort || '',
           coRegion: item.defaultCoRegion || 'ANTIOQUIA',
@@ -281,6 +283,7 @@ export default function PackingUploadMatchModal({
   const selectedFarmCount = needs.unmatchedFarms.filter(item => {
     const draft = farmDrafts[item.supplierKey];
     if (!draft?.optionKey) return false;
+    if (draft.optionKey === NEW_FARM_OPTION_KEY && !text(draft.newFarmName)) return false;
     if (country === 'CO' && !normalizePackingAbbr(draft.packingAbbr)) return false;
     return true;
   }).length;
@@ -302,6 +305,29 @@ export default function PackingUploadMatchModal({
       if (!parsed) {
         setLocalError(`"${item.supplier}" 농장의 전산 연결 대상을 다시 선택하세요.`);
         return;
+      }
+      if (parsed.isNewFarm) {
+        const cleanNewName = text(draft.newFarmName || item.defaultNewFarmName || item.supplier);
+        if (!cleanNewName || cleanNewName.length > 100) {
+          setLocalError(`"${item.supplier}" 신규 입고 농장명을 1~100자로 입력하세요.`);
+          return;
+        }
+        if (country === 'CO' && !normalizePackingAbbr(draft.packingAbbr)) {
+          setLocalError(`"${item.supplier}" 농장의 콜롬비아 패킹 약어(영문/숫자 3자, UNK 제외)를 입력하세요.`);
+          return;
+        }
+        farmEntries.push({
+          country,
+          supplier: item.supplier,
+          isNewFarm: true,
+          farmName: cleanNewName,
+          farmKey: null,
+          farmSourceWarehouseKey: null,
+          packingAbbr: country === 'CO' ? normalizePackingAbbr(draft.packingAbbr) : null,
+          packingShort: country === 'CO' ? text(draft.packingShort || cleanNewName || item.defaultPackingShort || item.supplier) : null,
+          coRegion: country === 'CO' ? (draft.coRegion === 'BOGOTA' ? 'BOGOTA' : 'ANTIOQUIA') : null,
+        });
+        continue;
       }
       if (country === 'CO' && !normalizePackingAbbr(draft.packingAbbr)) {
         setLocalError(`"${item.supplier}" 농장의 콜롬비아 패킹 약어(영문/숫자 3자, UNK 제외)를 입력하세요.`);
@@ -369,9 +395,22 @@ export default function PackingUploadMatchModal({
                 {needs.unmatchedFarms.map(item => {
                   const draft = farmDrafts[item.supplierKey] || {};
                   const q = text(farmSearches[item.supplierKey] || '').toLowerCase();
+                  const qCompact = q.replace(/[^\p{L}\p{N}]/gu, '');
                   const filteredFarms = q
-                    ? activeCountryFarms.filter(f => String(f.FarmName || '').toLowerCase().includes(q)).slice(0, 40)
+                    ? activeCountryFarms.filter(f => {
+                      const raw = `${f.FarmName || ''} ${f.FarmCode || ''}`.toLowerCase();
+                      if (raw.includes(q)) return true;
+                      if (!qCompact) return false;
+                      return raw.replace(/[^\p{L}\p{N}]/gu, '').includes(qCompact);
+                    }).slice(0, 40)
                     : activeCountryFarms.slice(0, 40);
+                  const selectedExistingFarm = draft.optionKey && draft.optionKey !== NEW_FARM_OPTION_KEY
+                    ? activeCountryFarms.find(f => farmChoiceOptionKey(f) === draft.optionKey)
+                    : null;
+                  const selectFarmOptions = selectedExistingFarm && !filteredFarms.some(f => farmChoiceOptionKey(f) === draft.optionKey)
+                    ? [selectedExistingFarm, ...filteredFarms]
+                    : filteredFarms;
+                  const isNewSelected = draft.optionKey === NEW_FARM_OPTION_KEY;
 
                   return (
                     <tr
@@ -393,43 +432,60 @@ export default function PackingUploadMatchModal({
                           송장 {item.invoices.join(', ') || '-'} · {item.reasonLabel}
                         </div>
                       </td>
-                      <td style={{ minWidth: 300 }}>
-                        {item.candidates.length > 0 && (
-                          <div className={styles.chipRow}>
-                            {item.candidates.slice(0, 4).map(cand => {
-                              const optKey = farmChoiceOptionKey(cand);
-                              const selected = draft.optionKey === optKey;
-                              return (
-                                <button
-                                  key={optKey}
-                                  type="button"
-                                  aria-pressed={selected}
-                                  className={`${styles.candidateChip} ${selected ? styles.candidateChipSelected : ''}`}
-                                  disabled={saving}
-                                  onClick={() => setFarmDrafts(prev => ({
-                                    ...prev,
-                                    [item.supplierKey]: { ...draft, optionKey: optKey },
-                                  }))}
-                                >
-                                  <span>{cand.FarmName}</span>
-                                  <span className={styles.chipScore}>
-                                    {cand.FarmKey ? '마스터' : `입고이력 ${Number(cand.UsageCount || 0)}회`}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
+                      <td style={{ minWidth: 320 }}>
+                        <div className={styles.chipRow}>
+                          {item.candidates.slice(0, 4).map(cand => {
+                            const optKey = farmChoiceOptionKey(cand);
+                            const selected = draft.optionKey === optKey;
+                            return (
+                              <button
+                                key={optKey}
+                                type="button"
+                                aria-pressed={selected}
+                                className={`${styles.candidateChip} ${selected ? styles.candidateChipSelected : ''}`}
+                                disabled={saving}
+                                onClick={() => setFarmDrafts(prev => ({
+                                  ...prev,
+                                  [item.supplierKey]: { ...draft, optionKey: optKey },
+                                }))}
+                              >
+                                <span>{cand.FarmName}</span>
+                                <span className={styles.chipScore}>
+                                  {cand.FarmKey ? '마스터' : `입고이력 ${Number(cand.UsageCount || 0)}회`}
+                                </span>
+                              </button>
+                            );
+                          })}
+                          {country !== 'NZ' && (
+                            <button
+                              type="button"
+                              data-testid="upload-match-new-farm-btn"
+                              aria-pressed={isNewSelected}
+                              className={`${styles.newFarmChip} ${isNewSelected ? styles.newFarmChipSelected : ''}`}
+                              disabled={saving}
+                              onClick={() => setFarmDrafts(prev => ({
+                                ...prev,
+                                [item.supplierKey]: {
+                                  ...draft,
+                                  optionKey: NEW_FARM_OPTION_KEY,
+                                  newFarmName: draft.newFarmName || item.defaultNewFarmName || item.supplier,
+                                },
+                              }))}
+                            >
+                              + 신규 농장으로 선택 (최초 입고)
+                            </button>
+                          )}
+                        </div>
                         <div className={styles.searchRow}>
                           <input
                             type="search"
                             className={styles.input}
-                            placeholder="농장명 검색"
+                            placeholder="기존 농장 검색"
                             aria-label={`${item.supplier} 농장 검색`}
                             value={farmSearches[item.supplierKey] || ''}
                             disabled={saving}
                             onChange={e => setFarmSearches(prev => ({ ...prev, [item.supplierKey]: e.target.value }))}
-                            style={{ width: 150 }}
+                            style={{ width: 155 }}
                           />
                           <select
                             className={styles.select}
@@ -438,12 +494,21 @@ export default function PackingUploadMatchModal({
                             disabled={saving}
                             onChange={e => setFarmDrafts(prev => ({
                               ...prev,
-                              [item.supplierKey]: { ...draft, optionKey: e.target.value },
+                              [item.supplierKey]: {
+                                ...draft,
+                                optionKey: e.target.value,
+                                ...(e.target.value === NEW_FARM_OPTION_KEY
+                                  ? { newFarmName: draft.newFarmName || item.defaultNewFarmName || item.supplier }
+                                  : {}),
+                              },
                             }))}
-                            style={{ minWidth: 210, flex: 1 }}
+                            style={{ minWidth: 215, flex: 1 }}
                           >
-                            <option value="">-- 전산 농장 선택 --</option>
-                            {filteredFarms.map(f => {
+                            <option value="">-- 기존 농장 또는 신규 농장 선택 --</option>
+                            {country !== 'NZ' && (
+                              <option value={NEW_FARM_OPTION_KEY}>+ 신규 농장으로 선택 (최초 입고)</option>
+                            )}
+                            {selectFarmOptions.map(f => {
                               const optKey = farmChoiceOptionKey(f);
                               return (
                                 <option key={optKey} value={optKey}>
@@ -453,6 +518,61 @@ export default function PackingUploadMatchModal({
                             })}
                           </select>
                         </div>
+                        {q && (
+                          <div className={styles.searchQuickList} onClick={e => e.stopPropagation()}>
+                            {filteredFarms.length === 0 ? (
+                              <span className={styles.sectionHint}>
+                                "{farmSearches[item.supplierKey]}" 일치 농장 없음 — 신규 농장이면 위 &quot;신규 농장으로 선택&quot;을 누르세요.
+                              </span>
+                            ) : (
+                              filteredFarms.slice(0, 5).map(f => {
+                                const optKey = farmChoiceOptionKey(f);
+                                const selected = draft.optionKey === optKey;
+                                return (
+                                  <button
+                                    key={optKey}
+                                    type="button"
+                                    aria-pressed={selected}
+                                    className={`${styles.candidateChip} ${selected ? styles.candidateChipSelected : ''}`}
+                                    disabled={saving}
+                                    onClick={() => setFarmDrafts(prev => ({
+                                      ...prev,
+                                      [item.supplierKey]: { ...draft, optionKey: optKey },
+                                    }))}
+                                  >
+                                    <span>{f.FarmName}</span>
+                                    <span className={styles.chipScore}>
+                                      {f.FarmKey ? `마스터 #${f.FarmKey}` : `입고이력 ${Number(f.UsageCount || 0)}회`}
+                                    </span>
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        )}
+                        {isNewSelected && (
+                          <div className={styles.newFarmBox} onClick={e => e.stopPropagation()}>
+                            <label className={styles.fieldLabel}>
+                              신규 입고 농장명 (최초 입고 시 입고원장에 이 이름으로 저장)
+                              <input
+                                type="text"
+                                maxLength={100}
+                                data-testid="upload-match-new-farm-name"
+                                aria-label={`${item.supplier} 신규 농장명`}
+                                className={styles.input}
+                                value={draft.newFarmName ?? ''}
+                                disabled={saving}
+                                onChange={e => setFarmDrafts(prev => ({
+                                  ...prev,
+                                  [item.supplierKey]: { ...draft, newFarmName: e.target.value },
+                                }))}
+                              />
+                            </label>
+                            <div className={styles.newFarmHint}>
+                              별도 마스터 변경 없이 이 농장명으로 패킹·입고를 진행하며, 첫 입고 후부터 기존 입고 농장 목록에 자동 포함됩니다.
+                            </div>
+                          </div>
+                        )}
                         <div style={{ marginTop: 6 }} onClick={e => e.stopPropagation()}>
                           <FarmMasterRegistration
                             country={country}

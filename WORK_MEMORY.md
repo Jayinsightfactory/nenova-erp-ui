@@ -5352,3 +5352,13 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: 회귀 테스트 + ERP 가드/빌드/`pstack-verify.cjs` 통과 → PR 생성 → CI `verify` PASS → Squash 머지 → Cafe24 배포 확인 → 워크트리 정리 → `sync-nenova-hq.js`.
 4. 검증 상태: 단위·회귀·ERP 계약/매니페스트/쓰기가드/Anti-AI Slop/빌드/`pstack-verify.cjs` 검증 실행 예정.
 5. 주의/잠금: 운영 DB 쓰기 0건(`dbo.Farm`·`WarehouseMaster` 미변경), `desktop/` 무수정(2026-11-25 조건부 승인제 준수), 에티오피아 `[64] Elite` 비충돌 보장. 연결 목표: g03, g17, g19 / 학습 반영: 있음
+
+
+## 2026-11-26 농장 미매칭 검색 선택 UX 보강 및 신규 농장(최초 입고) 직접 선택 지원 (`fix/farm-search-and-new-farm-ux`, 연결 목표: g03, g17, g19)
+- 요약: 사장님 지시(`"입고 업로드할떄, 농장미매칭의 경우 검색해서 매칭가능하게 해져있지? 신규농장의 경우는 신규로 선택하고."`)에 따라 ① `PackingUploadMatchModal`의 농장 미매칭 카드에서 기존 전산 농장(`dbo.Farm` + `WarehouseMaster` 과거 입고 이력)을 공백 무시 키워드 검색 및 즉시 클릭 칩(`searchQuickList`)으로 바로 연결할 수 있게 보강했고, ② 최초 거래 신규 농장(`Flores de Aguata S.A.S` 등)의 경우 `dbo.Farm` 무단 INSERT 없이 **`+ 신규 농장으로 선택 (최초 입고)`** 옵션(`isNewFarm: true`, 신규 농장명 + 콜롬비아 약어/양식)으로 `packing.farm-matches` 저장·패킹 엑셀 생성·인보이스 입고 작업대 검증/등록까지 막힘없이 통과하고, 첫 입고 완료 후부터 자동으로 기존 입고 농장 이력(`WarehouseKey`)으로 승격되도록 구현했다(`desktop/` 무수정).
+- 검색어: 농장 미매칭 검색 매칭 신규 농장으로 선택 isNewFarm Flores de Aguata PackingUploadMatchModal packing.farm-matches InvoiceReceiptWorkbench g03 g17 g19
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-farm-aliases-matina` 워크트리, `fix/farm-search-and-new-farm-ux` 브랜치) — `lib/importPackingFarmMatches.js`, `lib/packingUploadMatchPrompt.js`, `lib/invoiceFarmSource.js`, `lib/invoiceReceiptAutoFill.js`, `lib/invoiceReceiptDocuments.js`, `lib/invoiceReceiptWriter.js`, `components/import-tools/PackingUploadMatchModal.js`, `styles/PackingUploadMatchModal.module.css`, `components/import-tools/InvoiceReceiptWorkbench.js`, `__tests__/packingUploadCo30pEcDedup.test.mjs`.
+2. 완료된 것: 농장 검색 즉시 선택 칩 강화, `isNewFarm: true` 신규 농장 선택·저장·자동 승격(`TEAM_SAVED_NEW_FARM` → `TEAM_SAVED_FARM_MATCH`)·작업대 검증 연동, NZ 미검증 농장 차단 유지, 회귀 테스트 추가.
+3. 남은 할 일: 회귀 테스트·ERP 가드·빌드·`pstack-verify.cjs` → PR 생성/CI PASS/Squash 머지 → Cafe24 배포 확인 → 콜롬비아 `48-02` 17건 + 에콰도르 `48-01` `La Rosaleda` 1건 실제 품목 전수 대조 및 정식 입고 업로드 완료.
+4. 검증 상태: 단위·회귀·ERP 가드·빌드·`pstack-verify.cjs` 실행 예정.
+5. 주의/잠금: `desktop/` 파일 미수정(2026-11-25 조건부 승인제 준수), `dbo.Farm` 무단 쓰기 0건, 뉴질랜드 농장 근거 검증 유지. 연결 목표: g03, g17, g19 / 학습 반영: 있음
