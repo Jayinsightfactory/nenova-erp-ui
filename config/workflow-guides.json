@@ -948,6 +948,36 @@
           "sha256": "d3f247782a17427f547fa26d34723dbaa8de04822395837c7d2e0e70baba807d",
           "reason": "사용자 우선 배포 지시로 이번 견적서 Excel 인쇄 양식·분리 출력·키보드 보완의 가이드 재촬영과 Drive 백업은 배포 후 처리. 다른 변경과 전체 가이드 검사는 면제하지 않음",
           "approvedBy": "사용자 명시 지시 2026-11-24: 우선 배포부터"
+        },
+        {
+          "file": "pages/estimate.js",
+          "sha256": "b5b1bf25b2c3fbd89896e2049b5261cf96f3f7c872d483a3f2749eed98c8650c",
+          "reason": "사용자가 이번11/25 견적 페이지·셀/테두리·EXE미기록 표시 릴리스에서 가이드를 명시 제외. 기존 정상영상 보존; 이번정확SHA만 예외이며 다른변경/전체검사는 유지. 후속촬영 요구 없음.",
+          "approvedBy": "사용자 명시 지시 2026-11-25: 배포해, 가이드는 누락해"
+        },
+        {
+          "file": "lib/estimatePrintHtml.js",
+          "sha256": "82c94a755849a51332464c6a522e6029730caa15b09d7291048272ef5789d9f7",
+          "reason": "사용자가 이번11/25 견적 페이지·셀/테두리·EXE미기록 표시 릴리스에서 가이드를 명시 제외. 기존 정상영상 보존; 이번정확SHA만 예외이며 다른변경/전체검사는 유지. 후속촬영 요구 없음.",
+          "approvedBy": "사용자 명시 지시 2026-11-25: 배포해, 가이드는 누락해"
+        },
+        {
+          "file": "lib/estimatePrintRenderedExcel.js",
+          "sha256": "1a88be1094cc2f5ea776920a7b3b32fd703eb821c20e0756c8fe914f3356c65c",
+          "reason": "사용자가 이번11/25 견적 페이지·셀/테두리·EXE미기록 표시 릴리스에서 가이드를 명시 제외. 기존 정상영상 보존; 이번정확SHA만 예외이며 다른변경/전체검사는 유지. 후속촬영 요구 없음.",
+          "approvedBy": "사용자 명시 지시 2026-11-25: 배포해, 가이드는 누락해"
+        },
+        {
+          "file": "lib/estimatePrintPagination.js",
+          "sha256": "af7a20c19740bf0d856af6f8434cbc9fcf27baa869e0bf9a66581895f02d0f35",
+          "reason": "사용자가 이번11/25 견적 페이지·셀/테두리·EXE미기록 표시 릴리스에서 가이드를 명시 제외. 기존 정상영상 보존; 이번정확SHA만 예외이며 다른변경/전체검사는 유지. 후속촬영 요구 없음.",
+          "approvedBy": "사용자 명시 지시 2026-11-25: 배포해, 가이드는 누락해"
+        },
+        {
+          "file": "pages/estimate.js",
+          "sha256": "20fae06ea2931feba843c6221854bdf2d20f628048dd298e837a0be6396929be",
+          "reason": "2026-11-27 사장님 지시(‘EXE 기준 미기록 / 변경 여부 미확인’ 상시 안내 제거)로 견적 변경 이력 모달을 없애고 기존 직접 링크만 남김. 견적서 관리 기본 조작 순서 변화 없음 — 이번 정확 SHA만 예외, 다른 변경·전체 가이드 검사는 유지.",
+          "approvedBy": "사용자 명시 지시 2026-11-27: 빼고 머지 (안내 문구 제거)"
         }
       ],
       "title": "견적서 관리",
@@ -958,7 +988,8 @@
         "pages/estimate.js",
         "styles/globals.css",
         "lib/estimatePrintHtml.js",
-        "lib/estimatePrintRenderedExcel.js"
+        "lib/estimatePrintRenderedExcel.js",
+        "lib/estimatePrintPagination.js"
       ],
       "requiredScenarios": [
         "quantity",
@@ -1020,6 +1051,18 @@
           "sha256": "89b1edae418ad74a74e4a25b1691e938cc45a705048988e607fffdc63dec98d3",
           "reason": "사용자 우선 배포 지시로 이번 견적서 Excel 인쇄 양식·분리 출력·키보드 보완의 가이드 재촬영과 Drive 백업은 배포 후 처리. 다른 변경과 전체 가이드 검사는 면제하지 않음",
           "approvedBy": "사용자 명시 지시 2026-11-24: 우선 배포부터"
+        },
+        {
+          "file": "pages/estimate.js",
+          "sha256": "b5b1bf25b2c3fbd89896e2049b5261cf96f3f7c872d483a3f2749eed98c8650c",
+          "reason": "사용자가 이번11/25 견적 페이지·셀/테두리·EXE미기록 표시 릴리스에서 가이드를 명시 제외. 기존 정상영상 보존; 이번정확SHA만 예외이며 다른변경/전체검사는 유지. 후속촬영 요구 없음.",
+          "approvedBy": "사용자 명시 지시 2026-11-25: 배포해, 가이드는 누락해"
+        },
+        {
+          "file": "pages/estimate.js",
+          "sha256": "20fae06ea2931feba843c6221854bdf2d20f628048dd298e837a0be6396929be",
+          "reason": "2026-11-27 사장님 지시(‘EXE 기준 미기록 / 변경 여부 미확인’ 상시 안내 제거)로 견적 변경 이력 모달을 없애고 기존 직접 링크만 남김. 견적서 관리 기본 조작 순서 변화 없음 — 이번 정확 SHA만 예외, 다른 변경·전체 가이드 검사는 유지.",
+          "approvedBy": "사용자 명시 지시 2026-11-27: 빼고 머지 (안내 문구 제거)"
         }
       ],
       "title": "업체별 출고일 정산 매출 조회",

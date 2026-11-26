@@ -22,7 +22,8 @@
     "__tests__/estimatePrintRenderedExcel.test.js",
     "scripts/estimate-print-excel-parity.cjs",
     "scripts/render-estimate-print-xlsx.ps1",
-    "scripts/estimate-print-production-smoke.cjs"
+    "scripts/estimate-print-production-smoke.cjs",
+    "lib/estimatePrintPagination.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -108,7 +109,8 @@
     "__tests__/estimateManagerFilter.test.js",
     "__tests__/exeEstimateViewSql.test.js",
     "__tests__/erpContractManifest.test.js",
-    "__tests__/estimatePrintRenderedExcel.test.js"
+    "__tests__/estimatePrintRenderedExcel.test.js",
+    "__tests__/estimatePrintPagination.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -135,5 +137,11 @@
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
   ],
-  "listColumnWidths": "품목명은 fixed table 첫 행에서 280px, 단위64px, 출고일자88px. 기존 교차연도 조회 및 원장 보존. 1920/1280 Chrome 검증."
+  "listColumnWidths": "품목명은 fixed table 첫 행에서 280px, 단위64px, 출고일자88px. 기존 교차연도 조회 및 원장 보존. 1920/1280 Chrome 검증.",
+  "renderedExcelGeometry": {
+    "basis": "Measured leaf-cell CSS and header frames; explicit Calibri11 Normal metric without locale theme substitution; integer absolute pixel edges; ceil OOXML column precision; actual cell font and numeric values preserved.",
+    "borders": "Per-edge CSS width/style/color and enclosing header frames; apply only perimeter after merge.",
+    "verification": "Eight synthetic actual ChromePDF/ExcelPDF cases: exact page item IDs/order, amount multiplicities, complete long notes, headers/options. Long2customers55 each=35/20/35/20 rows; longstatement29/26. Actual Excel100% header geometry and print preview checked. Printer-independent pixel identity is not promised.",
+    "pagination": "Same measured whole-row page groups drive browser print and one worksheet per print page; item header every page, document header first page, footer only last page; fit width1/height1 per page, original whole-document helper retains height-auto."
+  }
 }
