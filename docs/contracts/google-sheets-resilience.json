@@ -1,0 +1,68 @@
+{
+  "id": "google-sheets-resilience",
+  "title": "Google Sheets 타임아웃·재시도·캐시·10M 셀 용량진단 및 수입방 별칭 시트 장애 격리",
+  "scope": [
+    "lib/googleSheets.js",
+    "pages/api/kakao/diag.js",
+    "__tests__/googleSheetsResilience.test.mjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "GOOGLE_SHEETS_READ_AND_CAPACITY_DIAG",
+      "source": "read-only Google Sheets v4 values and metadata GET with AbortSignal timeout, single short-backoff retry on 429/503, 60s TTL plus in-flight singleflight deduplication, 10M-cell capacity evaluation in /api/kakao/diag, and isolated customer-alias fallback in /api/import/tools/kakao-additions without touching any MSSQL table",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "Google Sheets 읽기/용량 진단 및 수입방 별칭 폴백은 MSSQL OrderMaster/OrderDetail/ShipmentDetail을 읽거나 쓰지 않으며, 수입방 원문 파싱의 교차연도 분리는 country-orders 계약 및 __tests__/importKakaoOrderText.test.mjs로 그대로 보존된다."
+  },
+  "requiredTestFiles": [
+    "__tests__/googleSheetsResilience.test.mjs",
+    "__tests__/importKakaoOrderText.test.mjs",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "Google Sheets 연동(lib/googleSheets.js)과 연결·용량 진단(/api/kakao/diag)은 nenova.exe 기능이 아닌 웹 전용 읽기 경로이며 공유 MSSQL 원장 쓰기는 0건이다.",
+    "methods": [
+      "Google Sheets v4 spreadsheets.values.get (readonly)",
+      "Google Sheets v4 spreadsheets.get?fields=sheets.properties(title,gridProperties) (readonly)"
+    ],
+    "tables": [
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)"
+    ]
+  },
+  "writes": [],
+  "preserves": [
+    "OrderMaster",
+    "OrderDetail",
+    "ShipmentMaster",
+    "ShipmentDetail",
+    "WarehouseMaster",
+    "WarehouseDetail",
+    "ProductStock",
+    "Estimate",
+    "WebProfitReport"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

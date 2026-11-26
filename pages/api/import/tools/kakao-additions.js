@@ -5,6 +5,32 @@ import { todaySeoul } from '../../../../lib/importKakaoAdditions';
 import { classifyImportFeed, importCustomerAliases, latestImportFeed } from '../../../../lib/importKakaoOrderText';
 import { offsetImportDay, readImportArchive } from '../../../../lib/importKakaoArchive';
 
+function sanitizeErrorSummary(err) {
+  const raw = String(err?.message || err || '')
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [redacted]')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return raw.slice(0, 140);
+}
+
+function summarizeAliasSheetError(err) {
+  const detail = sanitizeErrorSummary(err);
+  const status = Number(err?.status || 0);
+  if (err?.code === 'GSHEETS_TIMEOUT' || err?.name === 'TimeoutError' || err?.name === 'AbortError' || /시간 초과|timeout|aborted/i.test(detail)) {
+    return `거래처 별칭 시트 응답 시간 초과로 원문 거래처 코드를 그대로 표시합니다.${detail ? ` (원인: ${detail})` : ''}`;
+  }
+  if (status === 429 || /429|RESOURCE_EXHAUSTED|quota|10,?000,?000|cell|limit|한도/i.test(detail)) {
+    return `거래처 별칭 시트 용량·요청 한도 오류로 원문 거래처 코드를 그대로 표시합니다.${detail ? ` (원인: ${detail})` : ''}`;
+  }
+  if (status === 503 || /503|UNAVAILABLE|temporarily unavailable/i.test(detail)) {
+    return `거래처 별칭 시트 일시 장애(503)로 원문 거래처 코드를 그대로 표시합니다.${detail ? ` (원인: ${detail})` : ''}`;
+  }
+  if (/환경변수|service account|invalid_grant|token|401|403|permission/i.test(detail)) {
+    return `거래처 별칭 시트 인증·권한 오류로 원문 거래처 코드를 그대로 표시합니다.${detail ? ` (원인: ${detail})` : ''}`;
+  }
+  return `거래처 별칭 시트 조회 실패로 원문 거래처 코드를 그대로 표시합니다.${detail ? ` (원인: ${detail})` : ''}`;
+}
+
 export default withAuth(async (req,res)=>{
   res.setHeader('Cache-Control','private, no-store');
   if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).end();}
@@ -23,16 +49,34 @@ export default withAuth(async (req,res)=>{
   try {
     const through = day || todaySeoul();
     const from = day || offsetImportDay(through, -(days - 1));
-    const [rows, messages] = await Promise.all([
-      readSheetValues({spreadsheetId:getKakaoSheetId(),range:"'수입방 주문검토'!A:U"}),
+    let aliasWarning = null;
+    const loadAliases = async () => {
+      try {
+        const rows = await readSheetValues({spreadsheetId:getKakaoSheetId(),range:"'수입방 주문검토'!A:U"});
+        return importCustomerAliases(rows);
+      } catch (sheetErr) {
+        aliasWarning = summarizeAliasSheetError(sheetErr);
+        console.warn('[kakao-additions] 거래처 별칭 시트 조회 실패(Orbit 원문 정상 응답 유지):', sanitizeErrorSummary(sheetErr));
+        return new Map();
+      }
+    };
+    const [aliases, messages] = await Promise.all([
+      loadAliases(),
       readImportArchive(from, through),
     ]);
-    const aliases = importCustomerAliases(rows);
-    if (day !== undefined) return res.json(classifyImportFeed({from:day,to:day,messages},aliases,options));
+    const warningExtra = aliasWarning ? { aliasWarning } : {};
+    if (day !== undefined) return res.json({ ...classifyImportFeed({from:day,to:day,messages},aliases,options), ...warningExtra });
     const feedOpts = { ...options, maxOrderDays: 31, windowFrom: from };
     const latest = latestImportFeed(messages, through, aliases, feedOpts);
-    if (rawDays !== undefined || latest.orderDays.length >= 2 || days >= 31) return res.json({ ...latest, windowDays: days });
+    if (rawDays !== undefined || latest.orderDays.length >= 2 || days >= 31) return res.json({ ...latest, windowDays: days, ...warningExtra });
     const older = await readImportArchive(offsetImportDay(through, -30), offsetImportDay(from, -1));
-    return res.json({ ...latestImportFeed([...messages, ...older], through, aliases, { ...options, maxOrderDays: 31, windowFrom: offsetImportDay(through, -30) }), windowDays: 31 });
-  } catch { return res.status(502).json({error:'nenovakakao 수입방 원문 또는 거래처 대조 자료를 읽지 못했습니다. 조회 연결을 확인하세요.'}); }
+    return res.json({ ...latestImportFeed([...messages, ...older], through, aliases, { ...options, maxOrderDays: 31, windowFrom: offsetImportDay(through, -30) }), windowDays: 31, ...warningExtra });
+  } catch (err) {
+    const detail = sanitizeErrorSummary(err);
+    console.error('[kakao-additions] 수입방 Orbit 아카이브 조회 실패:', detail);
+    return res.status(502).json({
+      error: 'nenovakakao 수입방 원문 아카이브를 읽지 못했습니다. 조회 연결을 확인하세요.',
+      ...(detail ? { detail } : {}),
+    });
+  }
 });
