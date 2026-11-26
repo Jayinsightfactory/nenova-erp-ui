@@ -14,7 +14,7 @@ import { extractManualCautions, matchKnowledgeForContext, resolveToolShortcuts }
 
 export { evidenceText };
 
-const KINDS = [['daily', '하루'], ['weekly', '주'], ['monthly', '월'], ['trouble', '문제가 생겼을 때'], ['manuals', '매뉴얼 전체'], ['edu', '신입 교육'], ['todo', '남은 일 · 물어볼 것']];
+const KINDS = [['daily', '하루'], ['weekly', '주'], ['monthly', '월'], ['trouble', '문제가 생겼을 때'], ['judge', '판단 기준'], ['manuals', '매뉴얼 전체'], ['edu', '신입 교육'], ['todo', '남은 일 · 물어볼 것']];
 const WHEN_HEAD = { daily: '시간대', weekly: '요일', monthly: '시기' };
 // 받침이 있으면 「이」, 없으면 「가」 — 「수입부가」「영업지원이」
 const josaGa = (name) => { const c = String(name || '').trim().slice(-1).charCodeAt(0); return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 ? '이' : '가'; };
@@ -171,7 +171,7 @@ function Zoom({ img, onClose }) {
 const TOC = [['why', '① 왜·언제'], ['prep', '② 준비'], ['steps', '③ 따라 하기'], ['check', '④ 확인'], ['pit', '⑤ 자주 틀리는 곳'], ['next', '⑥ 다음 일']];
 const goTo = (id) => document.getElementById(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
 
-function ManualView({ manual, manuals, knowledge = [], deptId = '', onBack, onOpen, blurred }) {
+function ManualView({ manual, manuals, judgments = [], knowledge = [], deptId = '', onBack, onOpen, blurred }) {
   const [zoom, setZoom] = useState(null);
   const closeZoom = useCallback(() => setZoom(null), []);
   const titleRef = useRef(null);
@@ -308,6 +308,11 @@ function ManualView({ manual, manuals, knowledge = [], deptId = '', onBack, onOp
 
       <h4 id="mn-pit">⑤ 자주 틀리는 곳</h4>
       <ul>{manual.pitfalls.map((p, i) => <li key={i}><b>{p.mistake}</b> → {p.fix}</li>)}</ul>
+      {judgments.some((r) => r.manualId === manual.id) && (
+        <details className="fold" open><summary>이 일의 판단 기준 ({judgments.filter((r) => r.manualId === manual.id).length}) <small className="muted">이럴 때는 이렇게 합니다</small></summary>
+          <JudgeRows rows={judgments.filter((r) => r.manualId === manual.id)} />
+        </details>
+      )}
 
       <h4 id="mn-next">⑥ 다음 일</h4>
       <p>{manual.next}</p>
@@ -364,6 +369,32 @@ function Trouble({ data, onOpen }) {
           })}
         </>
       )}
+    </>
+  );
+}
+
+// 판단 기준 — 「이럴 때 · 이렇게 합니다 · 왜」. 기록의 뒤 기간에서 다시 세어 기준 비율 이상 맞은 것만 싣는다.
+function JudgeRows({ rows, manuals, onOpen }) {
+  return (
+    <div className="tblwrap"><table className="ihtbl judge"><thead><tr><th>이럴 때</th><th>이렇게 합니다</th><th>왜</th><th>맞은 횟수</th>{onOpen ? <th>매뉴얼</th> : null}</tr></thead>
+      <tbody>{rows.map((r) => (
+        <tr key={r.id}><td><b>{r.situation}</b></td><td>{r.rule}</td><td>{r.why}</td>
+          <td className="num" title={`뒤 기간에 ${r.judged}번 판정해 ${r.held}번 같았습니다${r.people > 1 ? ` · ${r.people}명에게서 같은 방식` : ''}`}>{r.held} / {r.judged}{r.people > 1 ? <><br /><small className="muted">{r.people}명 같음</small></> : null}</td>
+          {onOpen ? <td>{r.manualId ? <ManualBtn id={r.manualId} manuals={manuals} onOpen={onOpen} /> : <small className="muted">-</small>}</td> : null}</tr>
+      ))}</tbody></table></div>
+  );
+}
+function Judgments({ data, onOpen }) {
+  const [q, setQ] = useState('');
+  const k = q.trim().toLowerCase();
+  const rows = (data.judgments || []).filter((r) => !k || [r.situation, r.rule, r.why].some((x) => String(x || '').toLowerCase().includes(k)));
+  const b = data.judgmentBasis || {};
+  return (
+    <>
+      <p className="muted">절차에는 안 적히는 「이럴 때는 이렇게 한다」를 모았습니다. 지금 일하는 방식을 기록에서 읽어 낸 것이고, 뒤 기간 기록에서 다시 세어 {b.threshold}% 이상 같았던 것만 실었습니다.</p>
+      <label className="search">상황에서 찾기 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="예: 취소, 잔량, 합계" aria-label="상황에서 찾기" /></label>
+      {rows.length ? <JudgeRows rows={rows} manuals={data.manuals} onOpen={onOpen} /> : <p className="muted">찾는 말이 들어간 판단 기준이 없습니다.</p>}
+      <p className="muted"><small>근거 기간 {b.period} · 갱신 {b.updatedAt}. 「왜」는 기록에서 읽어 낸 것이고 일한 사람에게 직접 확인한 것은 아닙니다. 「맞은 횟수」는 뒤 기간에 같은 상황이 나온 횟수 가운데 같은 방식이었던 횟수입니다.</small></p>
     </>
   );
 }
@@ -556,7 +587,7 @@ export default function ImportHandover({ data, me, initialManual, knowledge = []
   if (!data) return null;
   const manual = (data.manuals || []).find((m) => m.id === openId);
   const src = data.sourceSummary || [];
-  const kinds = KINDS.filter(([k]) => k !== 'edu' || data.education); // 신입 교육 자료가 없는 부서는 탭을 뺀다
+  const kinds = KINDS.filter(([k]) => (k !== 'edu' || data.education) && (k !== 'judge' || data.judgments?.length > 0)); // 신입 교육 자료가 없는 부서는 탭을 뺀다
   const tabLabel = kinds.find(([k]) => k === kind)?.[1];
 
   return (
@@ -580,12 +611,13 @@ export default function ImportHandover({ data, me, initialManual, knowledge = []
             </details>
           </div>
         )}
-        {manual ? <ManualView key={manual.id} manual={manual} manuals={data.manuals} knowledge={knowledge} deptId={deptId} onBack={back} onOpen={open} blurred={data.captureInfo?.clarity !== 'clear'} /> : (
+        {manual ? <ManualView key={manual.id} manual={manual} manuals={data.manuals} judgments={data.judgments || []} knowledge={knowledge} deptId={deptId} onBack={back} onOpen={open} blurred={data.captureInfo?.clarity !== 'clear'} /> : (
           <>
             <Tabs label="업무표 보기" items={kinds} value={kind} onChange={setKind} />
             <h3 className="sr">{tabLabel}</h3>
             {kind === 'manuals' && <ManualList data={data} onOpen={open} />}
             {kind === 'trouble' && <Trouble data={data} onOpen={open} />}
+            {kind === 'judge' && <Judgments data={data} onOpen={open} />}
             {kind === 'edu' && data.education && <ImportEducation data={data.education} />}
             {kind === 'todo' && <Todo data={data} />}
             {kind === 'weekly' && <CountryCalendar calendar={data.countryCalendar} manuals={data.manuals} onOpen={open} today={today} />}
@@ -636,6 +668,9 @@ export default function ImportHandover({ data, me, initialManual, knowledge = []
         .ih .trrow ol, .ih .trrow ul { margin: 2px 0 6px; }
         .ih .tblwrap { overflow-x: auto; margin-top: 8px; }
         .ih .ihtbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .ih .ihtbl.judge td { font-size: 13.5px; line-height: 1.55; }
+        .ih .ihtbl.judge td:first-child { min-width: 150px; max-width: 220px; }
+        .ih .ihtbl.judge td.num { white-space: nowrap; font-variant-numeric: tabular-nums; }
         .ih .ihtbl th, .ih .ihtbl td { border-bottom: 1px solid var(--pm-line); padding: 8px 6px; text-align: left; vertical-align: top; color: var(--pm-ink); background: transparent; }
         .ih .ihtbl th { background: var(--pm-surface2); white-space: nowrap; }
         .ih .ihtbl th.today, .ih .ihtbl td.today { background: var(--pm-est-bg); color: var(--pm-est-ink); }

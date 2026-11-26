@@ -162,3 +162,24 @@ console.log('deptHandover ok');
   assert.ok(ui.includes('자세히 · 근거') && ui.indexOf('<figure className="cap">') < ui.indexOf('<dt>무엇을 보고</dt>'), '화면: 캡처가 글보다 먼저, 원고 글은 접어서');
 }
 console.log('handoverPlain ok');
+
+// ── 판단 기준(data/handover-judgments.json): 이럴 때 · 이렇게 합니다 · 왜. 뒤 기간에서 다시 세어 기준 이상 맞은 것만 ──
+{
+  const read = (...p) => fs.readFileSync(path.join(repo, ...p), 'utf8');
+  const tmp4 = fs.mkdtempSync(path.join(os.tmpdir(), 'ihj-'));
+  fs.writeFileSync(path.join(tmp4, 'ih.cjs'), strip(read('lib', 'importHandover.js')) + '\nmodule.exports = { loadHandover, loadHandoverJudgments, validateHandoverJudgments, handoverForView, HANDOVER_DEPTS };');
+  const J = require(path.join(tmp4, 'ih.cjs'));
+  const doc = J.loadHandoverJudgments();
+  assert.ok(doc, 'data/handover-judgments.json 을 읽을 수 있어야 함');
+  const manualsByDept = {}; const names = new Set();
+  for (const d of J.HANDOVER_DEPTS) { const h = J.loadHandover(d.id); manualsByDept[d.id] = (h?.manuals || []).map((m) => m.id); for (const m of h?.manuals || []) for (const n of m.practicedBy || []) names.add(n); }
+  assert.deepStrictEqual(J.validateHandoverJudgments(doc, manualsByDept, [...names]), [], '판단 기준이 기준(판정 3번 이상 · 맞은 비율 · 사람 이름 없음 · 있는 매뉴얼)을 통과해야 함');
+  const bad = { version: 1, basis: { threshold: 80 }, depts: { sales: [{ id: 'x', situation: 'a', rule: '본인은 b', why: 'c', manualId: 'none', held: 1, judged: 2 }] } };
+  assert.equal(J.validateHandoverJudgments(bad, manualsByDept).length, 3, '없는 매뉴얼 · 판정 부족 · 사람 주어를 잡아야 함');
+  const v = J.handoverForView('sales');
+  assert.ok(v.judgments.length > 0 && v.judgmentBasis.threshold === doc.basis.threshold, '영업부 화면 자료에 판단 기준이 붙어야 함');
+  assert.ok(J.handoverForView('field').judgments.length === 0, '판단 기준이 없는 부서는 빈 목록(탭이 안 보임)');
+  const ui4 = read('components', 'manuals', 'ImportHandover.js');
+  assert.ok(ui4.includes("['judge', '판단 기준']") && ui4.includes('이 일의 판단 기준'), '화면: 판단 기준 탭과 매뉴얼 안 묶음');
+}
+console.log('handoverJudgments ok');
