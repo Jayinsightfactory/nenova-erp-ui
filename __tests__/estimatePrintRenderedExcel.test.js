@@ -65,3 +65,20 @@ test('localized display separators do not change the numeric amount or turn text
   assert.equal(ws.A2.v,12.34);assert.equal(ws.A2.t,'n');
   assert.equal(ws.A3.v,'001234');assert.equal(ws.A3.t,'s');
 });
+
+
+test('Excel metric edges round absolute pixels and preserve CSS perimeter after merging',async()=>{
+ const ws=buildEstimateRenderedWorksheet({images:[],head:null,frames:[{x:0,y:0,w:100,h:41,borders:{left:{width:1,color:'rgb(85, 85, 85)'},right:{width:1,color:'rgb(85, 85, 85)'}}}],cells:[
+ {x:0,y:0,w:100,h:20.6,text:'참조',fontSize:9,borders:{top:{width:1,color:'rgb(153, 153, 153)'},bottom:{width:1,color:'rgb(153, 153, 153)'}}},
+ {x:0,y:20.6,w:40,h:20.4,text:'TEL/FAX',fontSize:9,borders:{bottom:{width:1,color:'rgb(136, 136, 136)'}}},
+ {x:40,y:20.6,w:60,h:20.4,text:'',fontSize:8,borders:{bottom:{width:1,color:'rgb(136, 136, 136)'}}}
+ ]});
+ assert.deepEqual(ws['!rows'].map(r=>r.hpt),[15.75,15]);
+ const bytes=await serializeEstimatePrintWorkbook(buildEstimatePrintWorkbook([{name:'연습',worksheet:ws}]));
+ const {default:Zip}=await import('jszip');const z=await Zip.loadAsync(bytes);const styles=await z.file('xl/styles.xml').async('string');
+ const normal=styles.match(/<fonts[^>]*><font>([\s\S]*?)<\/font>/)[1];
+ assert.match(normal,/<name val="Calibri"/);assert.doesNotMatch(normal,/scheme/,'Korean minor font must not change digit metrics');
+ const reopened=new ExcelJS.Workbook();await reopened.xlsx.load(bytes);const s=reopened.worksheets[0];
+ assert.ok(Math.abs(s.getColumn(1).width-Math.ceil(40/7*256)/256)<1e-6);assert.equal(s.getCell('A1').border.left.color.argb,'555555');
+ assert.equal(s.getCell('B1').border.right.color.argb,'555555');assert.equal(s.getCell('A2').border.bottom.color.argb,'888888');
+});

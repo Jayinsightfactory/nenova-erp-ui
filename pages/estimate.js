@@ -74,7 +74,7 @@ import {
   buildEstimatePrintWorksheet,
   downloadEstimatePrintWorkbook,
 } from '../lib/estimatePrintExcel';
-import { buildEstimateWorksheetFromHtml, downloadRenderedEstimateWorkbook, uniqueEstimateSheetName } from '../lib/estimatePrintRenderedExcel.js';
+import { buildEstimateWorksheetFromHtml, downloadRenderedEstimateWorkbook, uniqueEstimateSheetName, splitEstimateHtmlPages } from '../lib/estimatePrintRenderedExcel.js';
 import {
   filterEstimateShipmentsByCustomer,
   filterEstimateShipmentsByManager,
@@ -471,17 +471,12 @@ function mapEstimateType(t) {
 
 
 function extractEstimateBody(html) {
-  const bodyStart = html.indexOf('<body>');
-  const scriptStart = html.indexOf('<script>', bodyStart);
-  const bodyEnd = html.indexOf('</body>', bodyStart);
-  if (bodyStart < 0) return html;
-  const end = scriptStart > -1 ? scriptStart : bodyEnd;
-  return html.slice(bodyStart + '<body>'.length, end > -1 ? end : undefined).trim();
+  const match=String(html).match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
+  return match?match[1].split('<script')[0].trim():html;
 }
 
 function extractEstimateStyle(html) {
-  const match = html.match(/<style>([\s\S]*?)<\/style>/);
-  return match ? match[1] : '';
+  return [...String(html).matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map(match=>match[1]).join('\n');
 }
 
 function buildEstimatePrintBundle(htmlPages, printFormat = ESTIMATE_PRINT_FORMAT.ESTIMATE) {
@@ -3865,6 +3860,7 @@ function EstimateByWeek() {
     // ── 숨김 iframe 에 HTML 주입 후 인쇄 (부모 창 영향 없음)
     const printInIframe = (html) => new Promise((resolve) => {
       const iframe = document.createElement('iframe');
+      iframe.setAttribute('data-estimate-print','1');
       iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
       iframe.srcdoc = html;
       let done = false;
@@ -4034,7 +4030,7 @@ function EstimateByWeek() {
         alert('출력할 데이터가 없습니다.');
         return;
       }
-      await printInIframe(buildEstimatePrintBundle(printPages, opts.printFormat));
+      await printInIframe(buildEstimatePrintBundle((await Promise.all(printPages.map(splitEstimateHtmlPages))).flat(), opts.printFormat));
     } else {
       // 단일 선택 — 출고일별(byDate) 항목으로 요일필터 적용 후 인쇄
       const custName = selectedShip?.CustName || '';
@@ -4046,7 +4042,7 @@ function EstimateByWeek() {
         alert('출력할 데이터가 없습니다.');
         return;
       }
-      await printInIframe(buildEstimatePrintBundle(printPages, opts.printFormat));
+      await printInIframe(buildEstimatePrintBundle((await Promise.all(printPages.map(splitEstimateHtmlPages))).flat(), opts.printFormat));
     }
 
     setShowPrintDialog(false);
@@ -4195,11 +4191,15 @@ function EstimateByWeek() {
       return;
     }
 
+    const pageSheets=[];
     for (const sheet of sheets) {
-      sheet.worksheet = await buildEstimateWorksheetFromHtml(sheet.html);
-      delete sheet.html;
+      const htmlPages=await splitEstimateHtmlPages(sheet.html);
+      for(let index=0;index<htmlPages.length;index++){
+        const name=uniqueEstimateSheetName(htmlPages.length>1?sheet.name.slice(0,31-("_p"+(index+1)).length)+"_p"+(index+1):sheet.name,pageSheets.map(page=>page.name));
+        pageSheets.push({name,worksheet:await buildEstimateWorksheetFromHtml(htmlPages[index])});
+      }
     }
-    const wb = buildEstimatePrintWorkbook(sheets);
+    const wb = buildEstimatePrintWorkbook(pageSheets);
     const title = getPrintFormatDocTitle(opts.printFormat);
     const fileName = sheets.length > 1
       ? `${title}_${week}차_일괄.xlsx`
@@ -4814,7 +4814,7 @@ function EstimateByWeek() {
           <button className="btn" disabled={ecountExporting} onClick={handleEcountExcel} title="이카운트 업로드용 파일과 다운로드 당시 값을 함께 보관">{ecountExporting?'파일 기준 보관 중…':'이카운트 엑셀'}</button>
           <a className="btn" href={`/estimate-change-history?year=${yearStr}&week=${weekNum}${selectedShip?.CustKey?`&custKey=${selectedShip.CustKey}`:''}`}>견적 변경 이력</a>
           {pendingExportRecord&&<button type="button" className="btn" onClick={async()=>{try{const r=await apiPost('/api/estimate/change-history',pendingExportRecord);if(!r.success)throw Error(r.error);setPendingExportRecord(null);setErr('');setSuccessMsg('다운로드 요청 이력을 확인했습니다.');}catch(e){setErr(e.message);}}}>다운로드 이력 기록 재시도</button>}
-          <button className="btn" onClick={handleExcel} title="인쇄와 동일한 양식으로 Excel 저장">📊 인쇄·엑셀</button>
+          <button className="btn" onClick={handleExcel} title="인쇄 페이지별 시트로 Excel 저장 · 마지막 페이지에 합계 표시">📊 인쇄·엑셀</button>
           <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
       </div>
@@ -5281,7 +5281,7 @@ function EstimateByWeek() {
                                   textDecoration: 'underline', fontWeight: 600,
                                 }}
                                 title="품목 정보를 열어 수정"
-                              >{item.ProdName}</button><EstimateHistoryRowLink row={item} year={yearStr} week={weekNum} custKey={selectedShip?.CustKey||item.CustKey}/>
+                              >{item.ProdName}</button><EstimateHistoryRowLink row={item} year={yearStr} week={weekNum} custKey={selectedShip?.CustKey||item.CustKey} custName={selectedShip?.CustName}/>
                             </td>
                             <td style={{fontSize:12}}>{item.Unit}</td>
                             <td style={{fontFamily:'var(--mono)', fontSize:12}}>{fmtDate(item.outDate)}</td>
@@ -5935,7 +5935,7 @@ function EstimateByWeek() {
                 🖨️ {getPrintFormatDocTitle(printOpts.printFormat)} 출력 실행
               </button>
               <button className="btn" onClick={() => doActualExcelExport(printOpts)}>
-                엑셀 다운로드 (인쇄와 동일)
+                엑셀 다운로드 (인쇄 페이지별)
               </button>
               <button className="btn" onClick={() => setShowPrintDialog(false)}>취소</button>
             </div>

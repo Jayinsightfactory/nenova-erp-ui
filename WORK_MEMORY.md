@@ -5132,6 +5132,14 @@ pm run test:canon 통과.
 4. 검증 상태: `__tests__/boxVisionInspector.test.cjs` 6/6 PASS, `desktop/tests/menu.test.cjs` 3/3 PASS, `pstack-verify.cjs` 5/5 PASS (`agent-guardrails`, `guard-erp-writes`, `ui-layout-contract`, `workflow-guides`, `work-memory-handoff`), `next build --webpack` 성공.
 5. 주의/잠금: MSSQL 원장 테이블(`WarehouseMaster`, `WarehouseDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentFarm`, `OrderMaster`, `OrderDetail`) 쓰기 0건(순수 SELECT 조회 전용). 연결 목표: g17, g19, g14, g03 / 학습 반영: 있음
 
+## 2026-11-25 견적 Excel 편집셀·테두리 및 EXE 성공 기준 조사
+1. 작업 위치: codex/estimate-parity-history-1125 / C:/Users/USER/nw-cdx-estimate-parity-history-1125 / PR 미생성 / 연결 목표 g03·g19 / 학습 반영 있음(기존 진행률 유지).
+2. 완료: 한국어 Excel Normal메트릭·OOXML열폭·절대픽셀 경계·병합 후 CSS변별 테두리/헤더외곽 수정. 합성 종합견적 실제Excel100% 제목폭519→510pt(HTML510.234), 헤더좌표·빈값보존 확인. 실제UI 가이드75.05초/4목차 새 촬영.
+3. 남음: 필수전체검증·CI·배포. 긴55행2업체는 페이지수4여도 페이지별행경계 불일치로 완전일치 미완료. EXE 성공export기준 이력 연동은 공식 소스·배포경로/인증생산자 선행 필요, 웹클릭이나REG_CONFIRM 대체 금지.
+4. 검증: 대상14회귀·가이드실제버튼 dry/record PASS. Excel100%·인쇄미리보기/HTML·ExcelPDF 실제관측. 전체ERP suite/webpack/운영반영 미검증. EXE dnSpy 재실행·운영SELECT로그집계 완료(정확성한계 계획문서 참조).
+5. 주의/잠금: 이 전용 작업트리만 수정. acba 기존dirty/45차CSV·안전stash·공유node_modules·옛가이드후속브랜치 보존. 원장/ECOUNT쓰기·EXE무단패치·직원원격명령 없음. 상세 docs/plans/estimate-export-evidence-and-print-geometry-2026-11-25.md.
+검색어: EXE 이카운트 성공 내보내기 미기록 REG_CONFIRM 대체금지 Excel100 셀폭 테두리 g03 g19 1125
+
 ### 2026-11-25 입고 원장 좁은 검색·행 원가 오류 회귀
 검색어: 입고 원장 검색 폭 상세 최상 원가 HTML Unexpected token 상품 수량 운송료 중량 #8205 #8254 g03
 1. 작업 위치: nenova-erp-ui / codex/incoming-density-cost-1125 / .task-incoming-density-cost / PR 등록 전.
@@ -5139,6 +5147,16 @@ pm run test:canon 통과.
 3. 남은 할 일: PR CI·운영 배포 및 두 화면 읽기 확인.
 4. 검증 상태: 설치 EXE, 운영 #8205 수량·운송료 구분, #8254 수량 미리보기 가능, 신규 17 테스트·249 매니페스트·브라우저 오류 복구·가이드 39개 검사 통과. 사용자 시점 HTML 원 응답은 재현 못 함. 최신 의존성의 ERP 전체 계약·공식 빌드·입고/HUBFRESH/PM 플레이어 통과. 기존 #1635 PM 가이드 불일치는 실제 영상으로 보정. 운영 저장 0건, 배포 미검증.
 5. 주의/잠금: 현 작업트리 표·가이드 검증 중. 연결 목표 g03 / 학습 반영 있음.
+
+## 2026-11-25 배포 우선 · 공통 인쇄 페이지 보정 준비
+1. 위치: codex/estimate-parity-history-1125 / nw-cdx-estimate-parity-history-1125 / PR 생성 전 / 연결 목표 g03·g19 / 학습 반영 있음.
+2. 완료: 인쇄·Excel 공통 전체행 페이지구획 및 페이지별 시트, 마지막합계1회. 실제8종PDF 페이지별ID/순서/금액 PASS, 긴2업체35/20/35/20·긴명세서29/26일치. 셀폭·높이·병합외곽 보정과 EXE기준 미기록/변경여부미확인 UI, 기존 변경안 메뉴보존, Desktop1.3.97연결.
+3. 남음: ERP필수전체검사·webpack 실행중 → pstack → PR/CI → squash/Cafe24 → 실제운영3종다운로드와미기록UI스모크. EXE진짜성공이력 수집은 공식소스·배포채널/생산자 선행조건 필요, 현재미구현. 출고일매출가이드 재촬영은 사용자배포우선으로후속.
+4. 검증: 견적대상·페이지정책·UI레이아웃·1920/1280/390 키보드/Esc복귀 PASS. 관리영상110.8초5목차 완성. 출고일매출은 정상본복원+pages/estimate.js b5b1bf25b2c3fbd89896e2049b5261cf96f3f7c872d483a3f2749eed98c8650c만 사용자2026-11-25 ‘배포해’ 예외; 전체가이드38/39 PASS. 운영반영 미검증.
+5. 주의: 원장/ECOUNT쓰기·EXE패치·직원PC원격명령0. acba 기존dirty/45차CSV/공유의존성/안전stash 보존. source .verify에는합성증거만, 기존기본폴더사본은수정금지.
+검색어: 견적 EXE 미기록 페이지별Excel 35 20 29 26 셀폭 테두리 배포우선1125
+
+2026-11-25 최종 배포 지시 정정: “가이드는 누락해”에 따라 이번 릴리스 가이드 변경은 제외, 후속촬영 할 일도 없음. 기존 정상영상/자막/목차 복원 및 현재변경 정확SHA 예외만 기록. ERP전체0·dnSpy·manifest249·쓰기0API·webpack0 통과. 이제 PR/CI/실제배포/운영검증 진행.
 
 ### 2026-11-25 · 수입 카톡 전산 품목군 대조 및 미국 단일 표시
 1. 작업 위치: nenova-erp-ui / codex/kakao-matching / nw-cdx-kakao-matching / PR 준비.
@@ -5500,3 +5518,13 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: PR #2047 GitHub Actions `verify` CI 통과 대기 → Squash 머지 → worktree 정리 → `sync-nenova-hq.js`·`owner-agi-twin.js` 실행.
 4. 검증 상태: `node scripts/test-order-import-compare.mjs`, `test:erp-contract`(493/493, 674 targets), `test:erp-manifest`(251), `guard:erp-writes`, `guard:agent-slop`, `test:ui-layout`, `test:workflow-guides`, `test:nenova-dnspy-evidence`, `test:pm`, `npm run build`, `pstack-verify.cjs`(5/5) 전수 PASS (실운영 DB 라이브 스모크 미검증).
 5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), `ShipmentDetail.isDeleted` 미참조, 모든 ERP 조회 `OrderYear+OrderWeek+CustKey` 4키 엄수, 스냅샷 저장 실패 시 주문등록 비차단. 연결 목표: g03, g17
+
+2026-11-25 PR직전: 최신master c0f0ddb21 정상병합(양쪽WORK_MEMORY보존), Desktop최신1.3.97과중복피해1.3.98로연결. 기능소스변경없음. 추가마스터변경은기존성공PR2004~2006이며 이번PR의3점diff는견적수정만유지. 필수ERP/webpack완료후 PR최종가드진행.
+
+## 2026-11-27 견적 변경 이력 상시 안내 제거 · master 리베이스 정리 (PR #2008)
+1. 작업 위치: nenova-erp-ui / codex/estimate-parity-history-1125 / PR #2008 / 연결 목표 g03·g19 / 학습 반영 있음.
+2. 완료: master(025a7068) 기준으로 PR을 다시 얹고 충돌 4개(WORK_MEMORY·data/generated 2종·package.json)를 정리. 생성물 data/generated 는 master 판을 쓰고 빌드 시 재생성에 맡김, 새 테스트 2개(estimatePrintPagination·estimatePrintRenderedExcel)를 `erp:contract:main` 으로 옮겨 CI에서 실제 실행, `scripts/record-estimate-management-guide.cjs` CRLF 재작성 diff 원복. 품목 '변경 이력' 모달(EstimatePostExportHistory)과 상단 '판매등록 이후 변경' 버튼을 제거하고 기존 직접 링크로 되돌림(사장님 지시: 'EXE 기준 미기록 / 변경 여부 미확인' 상시 안내 제거, 빼고 머지).
+3. 남음: CI(ERP Contract Guard verify) 통과 확인 후 스쿼시 머지, 운영 배포·실제 인쇄 3종 확인.
+4. 검증: 페이지구획·렌더 Excel 단위테스트는 PR 기존분 그대로. 이 환경에는 node가 없어 로컬 실행 불가 — CI 결과로 판정. 변경 파일 계약(estimate-print.json scope, workflow-guides sourceFiles/waiver) 동기화 완료.
+5. 주의/잠금: 원장·ECOUNT 쓰기 0, EXE 패치 0. 생성물 JSON은 손으로 합치지 않는다(prebuild가 재생성).
+검색어: 견적 변경 이력 모달 EXE 기준 미기록 제거 master 리베이스 erp:contract:main estimatePrintPagination g03 g19
