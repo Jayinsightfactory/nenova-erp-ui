@@ -132,3 +132,75 @@ test('ROSE CHINA(중국장미)와 ROSE(콜롬비아장미)는 서로 후보가 �
   assert.ok(rankProductSuggestions('ROSE CHINA / 로맨틱 비치(Romantic Beach) 40cm', list, { country: 'CN' }).items.every(item => item.product.country === 'CN'));
   assert.ok(rankProductSuggestions('ROSE / Candlelight 50cm', list, { country: 'CO' }).items.every(item => item.product.country === 'CO'));
 });
+
+test('자동 우선매칭은 supplier 농장 약어(+7점), history(94~99점), 85점+격차10점 규칙을 반영하고 85점 미만·근접·화종 불일치를 차단한다', () => {
+  // 1) 농장 약어 (BA) 보너스: 발베르데 공급자 전달 시 (BA) 품목이 자동 우선 선택
+  const baList = [
+    { ProdKey: 101, ProdName: 'HYDRANGEA White Premium (BA)', country: 'CO', selectable: true },
+    { ProdKey: 102, ProdName: 'HYDRANGEA White Premium (GL)', country: 'CO', selectable: true },
+  ];
+  assert.equal(defaultInvoiceMatchSuggestion('HYDRANGEA WHITE PREMIUM', baList, 'CO'), null);
+  const baPicked = defaultInvoiceMatchSuggestion('HYDRANGEA WHITE PREMIUM', baList, 'CO', { supplier: 'CI FLORES BALVERDE SAS' });
+  assert.equal(baPicked?.product.ProdKey, 101);
+
+  // 2) 과거 입고 이력(history) 1순위 자동매칭
+  const hist = { [historyKey('Mandala MQ special')]: [{ prodKey: 4, count: 3, lastWeek: '48-01' }] };
+  const histPicked = defaultInvoiceMatchSuggestion('Mandala MQ special', products, 'CN', { history: hist });
+  assert.equal(histPicked?.product.ProdKey, 4);
+  assert.equal(histPicked?.history?.count, 3);
+
+  // 3) 85~89점 구간: 2위 격차 >= 10점 자동 선택 vs 근접(격차 < 10) 및 85점 미만 미자동화
+  const gapList = [
+    { ProdKey: 201, ProdName: 'CARNATION Moon Light Select', country: 'CO', selectable: true }, // 86점
+    { ProdKey: 202, ProdName: 'CARNATION Moon Glow Pink', country: 'CO', selectable: true },    // 50점
+  ];
+  const score1 = scoreProductMatch('CARNATION MOON LIGHT WHITE', gapList[0]);
+  const score2 = scoreProductMatch('CARNATION MOON LIGHT WHITE', gapList[1]);
+  assert.ok(score1 >= 85 && score1 < 90, `expected 85..89, got ${score1}`);
+  assert.ok(score1 - score2 >= 10, `expected gap>=10, got ${score1 - score2}`);
+  const pickedByGap = defaultInvoiceMatchSuggestion('CARNATION MOON LIGHT WHITE', gapList, 'CO');
+  assert.equal(pickedByGap?.product.ProdKey, 201);
+  assert.equal(pickedByGap?.score, score1);
+
+  const nearTieList = [
+    { ProdKey: 201, ProdName: 'CARNATION Moon Light Select', country: 'CO', selectable: true },    // 86점
+    { ProdKey: 203, ProdName: 'CARNATION Moon Light White Extra', country: 'CO', selectable: true }, // 89점 (격차 3점 < 10)
+  ];
+  const sA = scoreProductMatch('CARNATION MOON LIGHT WHITE', nearTieList[0]);
+  const sB = scoreProductMatch('CARNATION MOON LIGHT WHITE', nearTieList[1]);
+  assert.ok(Math.max(sA, sB) < 90 && Math.abs(sA - sB) < 10, `expected near tie in 85..89, got ${sA} vs ${sB}`);
+  assert.equal(defaultInvoiceMatchSuggestion('CARNATION MOON LIGHT WHITE', nearTieList, 'CO'), null);
+
+  // 85점 미만은 단독 후보라도 미자동화
+  const lowCandidate = [{ ProdKey: 204, ProdName: 'CARNATION Moon Bright Extra Special', country: 'CO', selectable: true }];
+  assert.ok(scoreProductMatch('CARNATION MOON LIGHT WHITE', lowCandidate[0]) < 85);
+  assert.equal(defaultInvoiceMatchSuggestion('CARNATION MOON LIGHT WHITE', lowCandidate, 'CO'), null);
+
+  // 4) 화종 불일치(ROSE vs CARNATION)는 farmProdKeys가 있어도 0점 유지(자동매칭 불가)
+  const wrongFamily = [{ ProdKey: 301, ProdName: 'ROSE / Moon Light', country: 'CO', selectable: true }];
+  assert.equal(defaultInvoiceMatchSuggestion('CARNATION MOON LIGHT', wrongFamily, 'CO', { farmProdKeys: new Set([301]) }), null);
+});
+
+test('loadDriveMatchHistory(includeWarehouse:true)는 최근 180일 입고 농장별 품목을 읽기 전용 SELECT하고 실패 시 fail-open한다', async () => {
+  const queries = [];
+  const fake = async text => {
+    queries.push(text);
+    if (text.includes('WarehouseMaster')) {
+      return { recordset: [{ farmName: 'Flores El Zorro', prodKey: 555, n: 6, lastWeek: '48-02' }] };
+    }
+    return { recordset: [{ raw: 'CARNATION MOON LIGHT WHITE', prodKey: 555, n: 4, lastWeek: '48-02' }] };
+  };
+  const res = await loadDriveMatchHistory({ queryFn: fake, types: { NVarChar: () => 'nv' }, country: 'CO', includeWarehouse: true });
+  assert.equal(queries.length, 2);
+  for (const q of queries) assert.doesNotMatch(q, /\b(UPDATE|INSERT|DELETE|MERGE)\b/i);
+  assert.deepEqual(res.byFarm[historyKey('Flores El Zorro')], [555]);
+
+  // 원장 보조 조회 실패 시에도 byName 유지(fail-open)
+  const failWarehouse = async text => {
+    if (text.includes('WarehouseMaster')) throw new Error('timeout');
+    return { recordset: [{ raw: 'CARNATION MOON LIGHT WHITE', prodKey: 555, n: 4, lastWeek: '48-02' }] };
+  };
+  const fallback = await loadDriveMatchHistory({ queryFn: failWarehouse, types: { NVarChar: () => 'nv' }, country: 'CO', includeWarehouse: true });
+  assert.equal(fallback.names, 1);
+  assert.deepEqual(fallback.byFarm, {});
+});
