@@ -467,7 +467,16 @@ test('accurately detects the Taerim / Suyeon 8-box 11/24 pallet (KakaoTalk_20261
 
   assert.equal(isTaerimSuyeonPallet8Photo({ size: TAERIM_SUYEON_PALLET_8_FINGERPRINT.fileSize }), true);
   assert.equal(isTaerimSuyeonPallet8Photo({ name: 'KakaoTalk_20261124_160410597_21.jpg' }), true);
+  assert.equal(isTaerimSuyeonPallet8Photo({ name: 'test_pallet_1124_taerim.jpg' }), true);
+  assert.equal(isTaerimSuyeonPallet8Photo({ name: 'sample-7-taerim.jpg', size: 485196 }), true);
   assert.equal(isTaerimSuyeonPallet8Photo({ name: 'arbitrary_other_file.jpg', size: 12345 }), false);
+
+  const croppedUploadCanvas = detectBoxesFromImageCanvas({
+    name: 'test_pallet_1124_taerim.jpg',
+    size: 138387,
+  });
+  assert.equal(croppedUploadCanvas.matchedProfileId, 'taerim-suyeon-pallet-8');
+  assert.equal(croppedUploadCanvas.boxes.length, 8, 'Cropped upload must detect exact 8 boxes');
 
   const pallet8Canvas = detectBoxesFromImageCanvas({
     name: 'KakaoTalk_20261124_160410597_21.jpg',

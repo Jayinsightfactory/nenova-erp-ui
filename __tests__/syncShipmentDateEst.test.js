@@ -105,6 +105,17 @@ async function main() {
     else { fail++; console.log(`  ✗ ${label}`); }
   };
 
+  const preserved = makeMockTq({
+    detail: { SdetailKey: 48, OutQuantity: 4, Cost: 100, ShipmentDtm: '2026-11-25' },
+    product: { OutUnit: '박스', EstUnit: '박스' },
+    dates: [{ SdateKey: 481, ShipmentDtm: '2026-11-27', ShipmentQuantity: 2 }],
+  });
+  await refreshShipmentDatesAfterDetailChange(preserved.tQ, 48, fakeSql, {
+    preserveExistingDate: true,
+  });
+  assert('quantity edit retains the existing date row instead of copying the representative date',
+    preserved.state.dates[0].ShipmentDtm === '2026-11-27' && preserved.state.dates[0].ShipmentQuantity === 4);
+
   console.log('=== scaleShipmentDateQtys edge cases ===');
   assert('empty rows', scaleShipmentDateQtys([], 10, 20).length === 0);
   const zeroOld = scaleShipmentDateQtys(
