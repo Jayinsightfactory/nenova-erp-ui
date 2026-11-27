@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-27T02:35:48.273Z",
+  "generatedAt": "2026-11-27T10:50:42.319Z",
   "coverage": {
     "stage": "verified-refs",
     "definition": "External source main refs and ERP build HEAD; a non-master ERP build HEAD may include its branch commits.",
@@ -16,22 +16,22 @@
       "label": "Nenova ERP",
       "repo": "nenova-erp-ui",
       "ref": "HEAD",
-      "headHash": "936df4ed70b13a1807a52bb72ac0f3d41290001b",
+      "headHash": "41463982b205c854ac86ead950bfb135a9d46754",
       "sourceStatus": "build-git",
       "stage": "build-head",
       "stale": false,
       "rootHashes": [
         "b4c5da128ba455091a4e602d88953c279eaaed3f"
       ],
-      "collectedAt": "2026-11-27T02:35:48.273Z",
-      "totalCommits": 4142,
-      "nonMergeCount": 3337,
+      "collectedAt": "2026-11-27T10:50:42.319Z",
+      "totalCommits": 4171,
+      "nonMergeCount": 3366,
       "mergeCount": 805,
       "summaryCount": 530,
       "knownSummaryTitles": 464,
       "unknownSummaryTitles": 66,
       "firstDate": "2026-04-01T05:01:29.000Z",
-      "lastDate": "2026-11-27T02:26:57.000Z"
+      "lastDate": "2026-11-27T10:06:39.000Z"
     },
     {
       "id": "mindmap-viewer",
@@ -101,14 +101,1101 @@
   ],
   "records": [
     {
-      "hash": "936df4ed70b13a1807a52bb72ac0f3d41290001b",
-      "date": "2026-11-27T02:19:15.000Z",
-      "committedAt": "2026-11-27T02:34:00.000Z",
-      "subject": "feat(incoming): 수기입고 nenovaSS2 권한 추가 · 다중 품목행 즐겨찾기 등록/불러오기 · 농장명 클릭 연관 드롭다운 (g03, g19)",
+      "hash": "41463982b205c854ac86ead950bfb135a9d46754",
+      "date": "2026-11-27T10:06:39.000Z",
+      "committedAt": "2026-11-27T10:06:39.000Z",
+      "subject": "fix(ui): nenova.exe 리본 Main/즐겨찾기 분리 토글·86px/180px 높이 고정·오와열 정렬 (#2081)",
+      "parents": [
+        "1af1a440d2c8366260179f10c585a62992786b96"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "components/NenovaRibbonShell.js",
+        "scripts/verify-classic-ui-tabs.mjs",
+        "styles/nenova-classic.css"
+      ],
+      "changedFileCount": 4,
+      "redactedPathCount": 0,
+      "id": "41463982b205c854ac86ead950bfb135a9d46754",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "1af1a440d2c8366260179f10c585a62992786b96",
+      "date": "2026-11-27T10:06:22.000Z",
+      "committedAt": "2026-11-27T10:06:22.000Z",
+      "subject": "feat(vision): add interactive canvas manual box drawing and fix sample-4 jukwang coordinates (#2082)",
+      "parents": [
+        "e38e40b7869267231cbf04d42313f8c3ccdcfec4"
+      ],
+      "paths": [
+        "__tests__/boxVisionInspector.test.cjs",
+        "components/vision/BoxVisionStep2ReviewPanel.js",
+        "lib/boxVision/samplePhotos.js",
+        "lib/boxVisionInspector.js",
+        "pages/api/vision/box-count-match.js",
+        "pages/vision/box-inspector.js",
+        "styles/BoxVisionInspector.module.css"
+      ],
+      "changedFileCount": 7,
+      "redactedPathCount": 0,
+      "id": "1af1a440d2c8366260179f10c585a62992786b96",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/vision/box-inspector"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "e38e40b7869267231cbf04d42313f8c3ccdcfec4",
+      "date": "2026-11-27T09:57:54.000Z",
+      "committedAt": "2026-11-27T09:57:54.000Z",
+      "subject": "영업부 카톡 이미지 붙여넣기 주문 매칭 (g03, g19) (#2080)",
+      "parents": [
+        "0d952606663b2887f05c433a14902bc47029e0c3"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "docs/contracts/sales-paste-order.json",
+        "pages/api/orders/sales-paste-image.js",
+        "pages/orders/sales-paste.js"
+      ],
+      "changedFileCount": 4,
+      "redactedPathCount": 0,
+      "id": "e38e40b7869267231cbf04d42313f8c3ccdcfec4",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/orders/sales-paste",
+        "/orders"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "0d952606663b2887f05c433a14902bc47029e0c3",
+      "date": "2026-11-27T09:38:31.000Z",
+      "committedAt": "2026-11-27T09:38:31.000Z",
+      "subject": "refactor(erp): Phase 3 출고분배·불량차감 거대 파일 무사고 순수 모듈·패널 분리 (g13·g17·g18) (#2078)",
+      "parents": [
+        "353c510032a8bcc10fee462515dc35d53af31085"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/distributeProductDisplayUi.test.cjs",
+        "__tests__/helpers/shipmentImportLoader.cjs",
+        "__tests__/shipmentAndDefectModularParity.test.cjs",
+        "__tests__/shipmentFarmTextImport.test.cjs",
+        "__tests__/shipmentFieldVolume.test.cjs",
+        "__tests__/shipmentImportManualSkip.test.js",
+        "components/sales/DefectHistoryAndPrintSection.js",
+        "components/sales/DefectOmissionHistoryModal.js",
+        "components/sales/DefectSupportModals.js",
+        "components/shipment/DistributionAddItemModal.js",
+        "components/shipment/DistributionScheduleAndPivotTabs.js",
+        "components/shipment/DistributionStatusModals.js",
+        "docs/contracts/sales-defect-deduction.json",
+        "docs/contracts/shipment-additive-import.json",
+        "docs/contracts/shipment-distribution-workspace.json",
+        "lib/salesDefect/dragSelectionController.js",
+        "lib/salesDefect/ledgerAdminAndHold.js",
+        "lib/salesDefect/ledgerRowStore.js",
+        "lib/salesDefect/lookupAndMatching.js",
+        "lib/salesDefect/managerAndCostCandidates.js",
+        "lib/salesDefect/pageHelpers.js",
+        "lib/salesDefect/snapshotAndSummary.js",
+        "lib/salesDefect/useDefectSupportAdminControllers.js",
+        "lib/salesDefectDeductions.js",
+        "lib/shipmentDistributionPageHelpers.js",
+        "lib/shipmentImport.js",
+        "lib/shipmentImport/applyHelpers.js",
+        "lib/shipmentImport/matchingEngine.js",
+        "lib/shipmentImport/preDistributeOrders.js",
+        "lib/shipmentImport/previewSummary.js",
+        "pages/sales/defect-deductions.js",
+        "pages/shipment/distribute.js"
+      ],
+      "changedFileCount": 36,
+      "redactedPathCount": 3,
+      "id": "0d952606663b2887f05c433a14902bc47029e0c3",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/shipment/distribute",
+        "/sales/defect-deductions"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "353c510032a8bcc10fee462515dc35d53af31085",
+      "date": "2026-11-27T09:36:19.000Z",
+      "committedAt": "2026-11-27T09:36:19.000Z",
+      "subject": "feat(shipment): 분배·출고 리스트 출고일 복구(COALESCE) · 출고요일 통일 배지 명시 · 고밀도 리스트 양식 일괄 적용 (g03, g17) (#2076)",
+      "parents": [
+        "06e7d53604e8e8068e2642aead44af73fc507f21"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/dispatchWeekdayAndListDesign.test.mjs",
+        "components/shipment/WeekPivotDispatchList.js",
+        "docs/contracts/week-pivot-distribution.json",
+        "lib/shipmentWeekdayFormat.js",
+        "pages/api/shipment/stock-status.js",
+        "pages/orders/import-compare.js",
+        "pages/shipment/distribute-import.js",
+        "pages/shipment/view.js"
+      ],
+      "changedFileCount": 11,
+      "redactedPathCount": 2,
+      "id": "353c510032a8bcc10fee462515dc35d53af31085",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/orders",
+        "/shipment/distribute-import",
+        "/shipment/view"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "06e7d53604e8e8068e2642aead44af73fc507f21",
+      "date": "2026-11-27T09:27:34.000Z",
+      "committedAt": "2026-11-27T09:27:34.000Z",
+      "subject": "feat(arrival-cost): 기존 차수 시트(14-1~48-1) 무손실 OOXML 업그레이더·캐시 분리·개별행 보기 및 엑셀 다운로드 (g03·g13·g17·g19) (#2079)",
+      "parents": [
+        "03a4cf1f41eca2fdbf75bcce98338f59c773ad26"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/costMasterStore.test.js",
+        "__tests__/costWorkbookMerge.test.js",
+        "__tests__/upgradeLegacyCostSheets.test.mjs",
+        "components/import-tools/SharedAwbCostReview.js",
+        "docs/contracts/arrival-cost.json",
+        "docs/contracts/invoice-cost-export.json",
+        "docs/contracts/invoice-shared-awb-cost.json",
+        "lib/arrivalHistoryWorkbook.js",
+        "lib/costMasterHttp.js",
+        "lib/costMasterStore.js",
+        "lib/costWorkbookMerge.js",
+        "lib/invoiceCostHistoryStore.js",
+        "lib/invoiceCostWorkbookHistory.js",
+        "lib/upgradeLegacyCostSheetXml.js",
+        "pages/arrival-cost.js"
+      ],
+      "changedFileCount": 16,
+      "redactedPathCount": 0,
+      "id": "06e7d53604e8e8068e2642aead44af73fc507f21",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/arrival-cost"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "03a4cf1f41eca2fdbf75bcce98338f59c773ad26",
+      "date": "2026-11-27T09:19:14.000Z",
+      "committedAt": "2026-11-27T09:19:14.000Z",
+      "subject": "feat(orders): import-compare variety grouping, subtotals, shipdate split, and multi-subweek (g03, g17) (#2077)",
+      "parents": [
+        "d8456c8f0cca43804d49cdf2193ffe3f6b788a41"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "lib/orderImportCompareLogic.js",
+        "pages/api/orders/import-compare.js",
+        "pages/orders/import-compare.js",
+        "scripts/test-order-import-compare.mjs"
+      ],
+      "changedFileCount": 5,
+      "redactedPathCount": 0,
+      "id": "03a4cf1f41eca2fdbf75bcce98338f59c773ad26",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/orders"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "d8456c8f0cca43804d49cdf2193ffe3f6b788a41",
+      "date": "2026-11-27T09:09:29.000Z",
+      "committedAt": "2026-11-27T09:09:29.000Z",
+      "subject": "차수피벗 출고 집계 반복 조회 제거 (g03) (#2075)",
+      "parents": [
+        "0b8c3da3febb82d78f9e10628ffce0a405ba9b65"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "docs/contracts/week-pivot-distribution.json",
+        "docs/exe-golden/FormShipmentDistribution.md",
+        "pages/api/shipment/stock-status.js"
+      ],
+      "changedFileCount": 5,
+      "redactedPathCount": 1,
+      "id": "d8456c8f0cca43804d49cdf2193ffe3f6b788a41",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "0b8c3da3febb82d78f9e10628ffce0a405ba9b65",
+      "date": "2026-11-27T09:03:24.000Z",
+      "committedAt": "2026-11-27T09:03:24.000Z",
+      "subject": "내 업체 주문등록 품종과 품목 정렬을 버튼으로 변경 (#2074)",
+      "parents": [
+        "1a93fb63cbbcf661916f18b711f1713f25671c24"
+      ],
+      "paths": [
+        "WORK_MEMORY.md"
+      ],
+      "changedFileCount": 4,
+      "redactedPathCount": 3,
+      "id": "0b8c3da3febb82d78f9e10628ffce0a405ba9b65",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "1a93fb63cbbcf661916f18b711f1713f25671c24",
+      "date": "2026-11-27T09:02:08.000Z",
+      "committedAt": "2026-11-27T09:02:08.000Z",
+      "subject": "feat(ui): nenova.exe 클래식 세이지 그린 리본·MDI 탭·전 탭 가로/세로폭 리사이즈 엔진 구축 (#2073)",
+      "parents": [
+        "f37a3df6019abe1c350509c94242e441835ed3ce"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "components/FavoritesEditorModal.js",
+        "components/GlobalViewportResizeController.js",
+        "components/Layout.js",
+        "components/MdiTabBar.js",
+        "components/NenovaRibbonShell.js",
+        "pages/_app.js",
+        "pages/arrival-cost.js",
+        "pages/orders/new.js",
+        "pages/shipment/distribute.js",
+        "pages/shipment/week-pivot.js",
+        "pages/stats/pivot.js",
+        "scripts/verify-classic-ui-tabs.mjs",
+        "styles/desktop-workspace.css",
+        "styles/nenova-classic.css"
+      ],
+      "changedFileCount": 15,
+      "redactedPathCount": 0,
+      "id": "1a93fb63cbbcf661916f18b711f1713f25671c24",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/orders/new",
+        "/orders",
+        "/arrival-cost",
+        "/shipment/distribute",
+        "/shipment/week-pivot",
+        "/stats/pivot"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "f37a3df6019abe1c350509c94242e441835ed3ce",
+      "date": "2026-11-27T08:51:57.000Z",
+      "committedAt": "2026-11-27T08:51:57.000Z",
+      "subject": "엑셀 분배 업로드에서 업체별 출고일 적용 (g03) (#2072)",
+      "parents": [
+        "a21447fe987225e8184f0d5f98568a3f934de9b3"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/helpers/shipmentImportLoader.cjs",
+        "__tests__/pivotVolumeAlstroPairs.test.js",
+        "__tests__/shipmentFarmTextImport.test.cjs",
+        "__tests__/shipmentImportFileScope.test.js",
+        "__tests__/shipmentImportManualSkip.test.js",
+        "__tests__/shipmentReplacementPlan.test.js",
+        "docs/contracts/shipment-additive-import.json",
+        "docs/exe-golden/FormShipmentDistribution.md",
+        "lib/shipmentImport.js",
+        "lib/shipmentReplacementPlan.js",
+        "package.json",
+        "pages/api/shipment/distribute-import-preview.js",
+        "pages/shipment/distribute-import.js",
+        "scripts/test-distribution-dates-sql.cjs"
+      ],
+      "changedFileCount": 18,
+      "redactedPathCount": 3,
+      "id": "f37a3df6019abe1c350509c94242e441835ed3ce",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/shipment/distribute-import"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "a21447fe987225e8184f0d5f98568a3f934de9b3",
+      "date": "2026-11-27T08:40:23.000Z",
+      "committedAt": "2026-11-27T08:40:23.000Z",
+      "subject": "fix(vision): calibrate Taerim/Suyeon 11/24 pallet 8-box bounding boxes and token fingerprinting (#2071)",
+      "parents": [
+        "9e74dfedbe0502deb026781c97309f89c58c5bc6"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/boxVisionInspector.test.cjs",
+        "lib/boxVision/palletProfiles.js"
+      ],
+      "changedFileCount": 3,
+      "redactedPathCount": 0,
+      "id": "a21447fe987225e8184f0d5f98568a3f934de9b3",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "9e74dfedbe0502deb026781c97309f89c58c5bc6",
+      "date": "2026-11-27T08:22:06.000Z",
+      "committedAt": "2026-11-27T08:22:06.000Z",
+      "subject": "차수피벗에 연속 출고일·지역 보기와 날짜 보존 추가 (g03) (#2070)",
+      "parents": [
+        "6d9bf73780c6e8cc0f00e902bcbdb6c51aaf044b"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/syncShipmentDateEst.test.js",
+        "components/shipment/WeekPivotDispatchList.js",
+        "docs/contracts/week-pivot-distribution.json",
+        "docs/exe-golden/FormShipmentDistribution.md",
+        "lib/syncShipmentDateEst.js",
+        "pages/api/shipment/adjust.js",
+        "pages/api/shipment/distribute.js",
+        "pages/api/shipment/stock-status.js",
+        "pages/shipment/week-pivot.js",
+        "scripts/week-pivot-dispatch-smoke.cjs"
+      ],
+      "changedFileCount": 11,
+      "redactedPathCount": 0,
+      "id": "9e74dfedbe0502deb026781c97309f89c58c5bc6",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/shipment/week-pivot"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "6d9bf73780c6e8cc0f00e902bcbdb6c51aaf044b",
+      "date": "2026-11-27T08:14:33.000Z",
+      "committedAt": "2026-11-27T08:14:33.000Z",
+      "subject": "refactor(import): Phase 2 수입 패킹 생성기 거대 파일 무사고 순수 모듈·패널 분리 (g13·g17·g18) (#2069)",
+      "parents": [
+        "1acca64328fa4688edaa398d49ab80295775f0f2"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/importPacking.test.js",
+        "__tests__/importPackingHardening.test.js",
+        "__tests__/importPackingModularParity.test.cjs",
+        "components/import-tools/PackingAwbPanel.js",
+        "components/import-tools/PackingCatalogSection.js",
+        "components/import-tools/PackingCountryAndReusePanels.js",
+        "components/import-tools/PackingLegacyMatchItems.js",
+        "components/import-tools/PackingListTool.js",
+        "docs/contracts/import-team-tools.json",
+        "lib/importPacking.js",
+        "lib/importPacking/awbWorkbook.js",
+        "lib/importPacking/catalogAndMatching.js",
+        "lib/importPacking/countryGenerators.js",
+        "lib/importPacking/countryRules.js",
+        "lib/importPacking/excelSheetBuilder.js",
+        "lib/importPacking/packingToolSupport.js",
+        "lib/importPacking/seedAliases.js"
+      ],
+      "changedFileCount": 18,
+      "redactedPathCount": 0,
+      "id": "6d9bf73780c6e8cc0f00e902bcbdb6c51aaf044b",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "1acca64328fa4688edaa398d49ab80295775f0f2",
+      "date": "2026-11-27T07:58:45.000Z",
+      "committedAt": "2026-11-27T07:58:45.000Z",
+      "subject": "feat(arrival-cost): 원가 그룹→농장 옆 품종(B열) 위치 이동 및 엑셀 Freeze Panes·웹 Sticky 동시 고정헤드 적용 (g17·g03·g13·g19) (#2066)",
+      "parents": [
+        "deb7747b759c604b55da019ccc94e2677374a67b"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/arrivalCostEcosystemRoundtrip.test.mjs",
+        "__tests__/arrivalCostSingleSheet.test.js",
+        "__tests__/invoiceCostOriginalRestoration.test.js",
+        "__tests__/invoiceReceiptCostExport.test.js",
+        "__tests__/nativeReceiptCost.test.js",
+        "components/import-tools/CnArrivalCostWorkbench.js",
+        "components/import-tools/InvoiceReceiptCostReview.js",
+        "components/import-tools/SharedAwbCostReview.js",
+        "lib/arrivalCostExcel.js",
+        "lib/arrivalWeekCostWorkbook.js",
+        "lib/chinaCloudCostWorkbook.js",
+        "lib/cnArrivalCostWorkbook.js",
+        "lib/invoiceCostOriginalAustralia.js",
+        "lib/invoiceCostOriginalColombia.js",
+        "lib/invoiceCostOriginalRestoration.js",
+        "pages/arrival-cost.js",
+        "styles/ArrivalCostLedger.module.css",
+        "styles/CnArrivalCost.module.css",
+        "styles/InvoiceReceiptCost.module.css"
+      ],
+      "changedFileCount": 20,
+      "redactedPathCount": 0,
+      "id": "1acca64328fa4688edaa398d49ab80295775f0f2",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/arrival-cost"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "deb7747b759c604b55da019ccc94e2677374a67b",
+      "date": "2026-11-27T07:51:58.000Z",
+      "committedAt": "2026-11-27T07:51:58.000Z",
+      "subject": "feat(orders): compact statement layout and default excel columns for import-compare (g03, g17) (#2068)",
+      "parents": [
+        "85f21c9c103cd564635bd0d786ea0f43c42f8212"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "pages/orders/import-compare.js"
+      ],
+      "changedFileCount": 2,
+      "redactedPathCount": 0,
+      "id": "deb7747b759c604b55da019ccc94e2677374a67b",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/orders"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "85f21c9c103cd564635bd0d786ea0f43c42f8212",
+      "date": "2026-11-27T07:46:13.000Z",
+      "committedAt": "2026-11-27T07:46:13.000Z",
+      "subject": "내 업체 주문등록 품종 필터와 품목 정렬 개선 (#2063)",
+      "parents": [
+        "387f4ce3d0d91f564a64ffa8343f5fb644149e4c"
+      ],
+      "paths": [
+        "WORK_MEMORY.md"
+      ],
+      "changedFileCount": 4,
+      "redactedPathCount": 3,
+      "id": "85f21c9c103cd564635bd0d786ea0f43c42f8212",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "387f4ce3d0d91f564a64ffa8343f5fb644149e4c",
+      "date": "2026-11-27T07:44:15.000Z",
+      "committedAt": "2026-11-27T07:44:15.000Z",
+      "subject": "feat(import): add inline DB product English alias editor, shared persistence, and Korean phonetic auto-match (g03, g19) (#2067)",
+      "parents": [
+        "af7b13c21d2ae60ff38122db518abeee52a0e3d3"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/importKakaoDbProdAliases.test.mjs",
+        "components/import-tools/KakaoAdditions.js",
+        "components/import-tools/KakaoDbProdEditor.js",
+        "components/import-tools/KakaoOrderRegisterBridge.js",
+        "docs/contracts/country-orders.json",
+        "lib/importKakaoAdditions.js",
+        "lib/importKakaoDbCatalog.js",
+        "lib/importKakaoDbProductAliases.js",
+        "lib/importKakaoDbProductAliasesApi.js",
+        "lib/importKakaoOrderText.js",
+        "lib/importTeamStore.js",
+        "pages/api/import/tools/kakao-additions.js",
+        "pages/api/import/tools/kakao-product-aliases.js"
+      ],
+      "changedFileCount": 15,
+      "redactedPathCount": 1,
+      "id": "387f4ce3d0d91f564a64ffa8343f5fb644149e4c",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "af7b13c21d2ae60ff38122db518abeee52a0e3d3",
+      "date": "2026-11-27T07:39:24.000Z",
+      "committedAt": "2026-11-27T07:39:24.000Z",
+      "subject": "Persist excluded defect carryovers and list applied sales rows (#2065)",
+      "parents": [
+        "a66d2ee4a0d9e7897d3594da7bba015ea8acbd78"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "docs/contracts/sales-defect-deduction.json",
+        "lib/salesDefectDeductions.js",
+        "pages/api/sales/defect-deductions.js",
+        "pages/sales/defect-deduction-register-review.js",
+        "pages/sales/defect-deductions.js"
+      ],
+      "changedFileCount": 6,
+      "redactedPathCount": 0,
+      "id": "af7b13c21d2ae60ff38122db518abeee52a0e3d3",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/sales/defect-deductions"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "a66d2ee4a0d9e7897d3594da7bba015ea8acbd78",
+      "date": "2026-11-27T07:31:43.000Z",
+      "committedAt": "2026-11-27T07:31:43.000Z",
+      "subject": "Show ERP order registration on import farm totals (#2064)",
+      "parents": [
+        "0a521d9d582cf3782f2f529aed2aaf747681fad0"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/importKakaoFarmSummary.test.mjs",
+        "components/import-tools/KakaoAdditions.js",
+        "components/import-tools/KakaoOrderRegisterBridge.js",
+        "docs/contracts/country-orders.json",
+        "lib/kakaoOrderErpStatus.js"
+      ],
+      "changedFileCount": 6,
+      "redactedPathCount": 0,
+      "id": "a66d2ee4a0d9e7897d3594da7bba015ea8acbd78",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "0a521d9d582cf3782f2f529aed2aaf747681fad0",
+      "date": "2026-11-27T06:57:27.000Z",
+      "committedAt": "2026-11-27T06:57:27.000Z",
+      "subject": "fix(orders): set import-compare default week to latest shipment and filter empty subweeks (g03, g17) (#2062)",
+      "parents": [
+        "cd1f5c74a9dfc017c6efda0fb442d03e65af103e"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "lib/orderImportCompareLogic.js",
+        "pages/api/orders/import-compare.js",
+        "pages/orders/import-compare.js",
+        "pages/orders/import.js",
+        "scripts/test-order-import-compare.mjs"
+      ],
+      "changedFileCount": 6,
+      "redactedPathCount": 0,
+      "id": "0a521d9d582cf3782f2f529aed2aaf747681fad0",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/orders/import",
+        "/orders"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "cd1f5c74a9dfc017c6efda0fb442d03e65af103e",
+      "date": "2026-11-27T06:29:56.000Z",
+      "committedAt": "2026-11-27T06:29:56.000Z",
+      "subject": "feat(volume): unify day/region colors and add non-destructive OOXML decimal unit badges (g03) (#2061)",
+      "parents": [
+        "3273ea2ec5ca4aab7bbc48bf338ddabb59578fde"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/pivotVolumeAlstroPairs.test.js",
+        "__tests__/pivotVolumeCombinedCells.test.js",
+        "__tests__/pivotVolumeDayGrouping.test.js",
+        "__tests__/pivotVolumeRemainingFormula.test.js",
+        "__tests__/volumeColorsAndDecimalBadges.test.cjs",
+        "docs/contracts/pivot-stats.json",
+        "docs/contracts/shipment-field-volume.json",
+        "lib/pivotFieldVolume.js",
+        "lib/pivotStats.js",
+        "lib/pivotVolumeColors.cjs",
+        "lib/shipmentFieldCompact.js",
+        "lib/shipmentFieldSources.js",
+        "lib/shipmentFieldVolume.js",
+        "lib/shipmentImport.js",
+        "lib/volumeDecimalShapes.cjs",
+        "lib/volumeDecimalUnits.cjs",
+        "pages/api/shipment/field-sources.js",
+        "pages/api/stats/pivot-volume-excel.js"
+      ],
+      "changedFileCount": 23,
+      "redactedPathCount": 4,
+      "id": "cd1f5c74a9dfc017c6efda0fb442d03e65af103e",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "3273ea2ec5ca4aab7bbc48bf338ddabb59578fde",
+      "date": "2026-11-27T06:27:40.000Z",
+      "committedAt": "2026-11-27T06:27:40.000Z",
+      "subject": "fix(import-kakao): 농장 컨펌 발주추가 배제 · 현지이슈/취소 마이너스(-) 합계 차감 · 주문등록 안전 가드 (g03·g19) (#2060)",
+      "parents": [
+        "a79b7bedb8fd10de0d844b244083378428da8f8a"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/importKakaoConfirmMinus.test.mjs",
+        "__tests__/importKakaoOrderText.test.mjs",
+        "components/import-tools/KakaoAdditions.js",
+        "components/import-tools/KakaoOrderRegisterBridge.js",
+        "docs/contracts/country-orders.json",
+        "lib/importKakaoAdditions.js",
+        "lib/importKakaoOrderText.js",
+        "lib/kakaoOrderErpStatus.js"
+      ],
+      "changedFileCount": 10,
+      "redactedPathCount": 1,
+      "id": "3273ea2ec5ca4aab7bbc48bf338ddabb59578fde",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "a79b7bedb8fd10de0d844b244083378428da8f8a",
+      "date": "2026-11-27T05:43:34.000Z",
+      "committedAt": "2026-11-27T05:43:34.000Z",
+      "subject": "fix(arrival-cost): 중국 신형·3개국 엑셀 업로드 라운드트립 · 업로드 검토 브릿지 · NL/CN 매출이익 연동 · 3단 버튼 조회 완성 (g17·g03·g13·g19) (#2059)",
+      "parents": [
+        "cd155ff3b7b159f381e9e8361166cf1e79062f7e"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/arrivalCostEcosystemRoundtrip.test.mjs",
+        "components/import-tools/ArrivalWeekCostReview.js",
+        "components/import-tools/CnArrivalCostWorkbench.js",
+        "components/import-tools/InvoiceReceiptCostReview.js",
+        "components/import-tools/InvoiceWarehouseCostBrowse.js",
+        "components/import-tools/NativeReceiptCost.js",
+        "components/import-tools/SharedAwbCostReview.js",
+        "docs/contracts/arrival-cost.json",
+        "lib/arrivalCost.js",
+        "lib/arrivalCostExcel.js",
+        "lib/arrivalCostProductSearch.js",
+        "lib/arrivalCostView.js",
+        "lib/profitReport.js",
+        "lib/profitReportEvidence/sourceResolvers.mjs",
+        "package.json",
+        "pages/arrival-cost.js",
+        "styles/CnArrivalCost.module.css"
+      ],
+      "changedFileCount": 21,
+      "redactedPathCount": 3,
+      "id": "a79b7bedb8fd10de0d844b244083378428da8f8a",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/arrival-cost"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "cd155ff3b7b159f381e9e8361166cf1e79062f7e",
+      "date": "2026-11-27T05:13:26.000Z",
+      "committedAt": "2026-11-27T05:13:26.000Z",
+      "subject": "feat(kakao-additions): 카드 좌우 스플릿 단순화·컨펌/현지이슈 제외·취소 차감 반영 (g03, g17) (#2058)",
+      "parents": [
+        "c21d13df1f557b483b0b4d92176e8eae1c69b9b5"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/importKakaoAdditions.test.mjs",
+        "__tests__/importKakaoFarmSummary.test.mjs",
+        "__tests__/importKakaoOrderText.test.mjs",
+        "__tests__/kakaoOrderErpStatus.test.mjs",
+        "components/import-tools/KakaoAdditions.js",
+        "components/import-tools/KakaoOrderRegisterBridge.js",
+        "docs/contracts/country-orders.json",
+        "lib/importKakaoAdditions.js",
+        "lib/importKakaoOrderText.js",
+        "lib/kakaoOrderErpStatus.js"
+      ],
+      "changedFileCount": 11,
+      "redactedPathCount": 0,
+      "id": "cd155ff3b7b159f381e9e8361166cf1e79062f7e",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "c21d13df1f557b483b0b4d92176e8eae1c69b9b5",
+      "date": "2026-11-27T05:02:48.000Z",
+      "committedAt": "2026-11-27T05:02:48.000Z",
+      "subject": "fix(arrival-cost): 도착원가 .xlsx 안내문구·감사열 제거 · Rate/서류/운송비·AutoFilter 복원 · 품종·농장·품목 버튼형 뷰 구현 (g17·g03·g13·g19) (#2057)",
+      "parents": [
+        "c26a507ec757cef56710c5bd895c2050fe96e8c2"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/arrivalCostSingleSheet.test.js",
+        "__tests__/awbReferenceReceipt.test.js",
+        "__tests__/chinaCloudCostWorkbook.test.js",
+        "__tests__/invoiceCostCellPresentation.test.js",
+        "__tests__/invoiceCostPreview.test.js",
+        "__tests__/invoiceCostSalesDefaults.test.js",
+        "__tests__/invoiceReceiptCostExport.test.js",
+        "__tests__/invoiceSharedAwbApi.test.js",
+        "__tests__/nativeReceiptCost.test.js",
+        "components/import-tools/CnArrivalCostWorkbench.js",
+        "components/import-tools/CostAwbEvidence.js",
+        "components/import-tools/SharedAwbCostReview.js",
+        "lib/arrivalWeekCostWorkbook.js",
+        "lib/awbReferenceReceipt.js",
+        "lib/chinaCloudCostWorkbook.js",
+        "lib/cloudCostTemplateWorkbook.js",
+        "lib/cnArrivalCostWorkbook.js",
+        "lib/importAwbFields.js",
+        "lib/invoiceCostCellPresentation.js",
+        "lib/invoiceCostOriginalAustralia.js",
+        "lib/invoiceCostOriginalColombia.js",
+        "lib/invoiceCostOriginalRestoration.js",
+        "lib/invoiceCostSalesDefaults.js",
+        "lib/invoiceReceiptCostExport.js",
+        "lib/invoiceSharedAwbApi.js",
+        "lib/nativeReceiptCost.js",
+        "scripts/test-invoice-receipt-writer-sql.cjs",
+        "styles/ArrivalCostLedger.module.css",
+        "styles/CnArrivalCost.module.css"
+      ],
+      "changedFileCount": 31,
+      "redactedPathCount": 1,
+      "id": "c21d13df1f557b483b0b4d92176e8eae1c69b9b5",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "c26a507ec757cef56710c5bd895c2050fe96e8c2",
+      "date": "2026-11-27T04:51:59.000Z",
+      "committedAt": "2026-11-27T04:51:59.000Z",
+      "subject": "feat(volume-board): add 신형물량표 download and day>region>customer grouping (g03) (#2056)",
+      "parents": [
+        "0ab60b1537919ac8f36715d41a047bed93dc99af"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/pivotFieldVolume.test.cjs",
+        "__tests__/pivotVolumeAlstroPairs.test.js",
+        "__tests__/pivotVolumeCombinedCells.test.js",
+        "__tests__/pivotVolumeDayGrouping.test.js",
+        "__tests__/pivotVolumeRemainingFormula.test.js",
+        "docs/contracts/pivot-stats.json",
+        "lib/distributionBaseline.js",
+        "lib/pivotFieldVolume.js",
+        "lib/pivotVolumeGrouping.js",
+        "lib/pivotVolumeHeaderOrder.cjs",
+        "lib/shipmentFieldVolume.js",
+        "lib/shipmentPallet.js",
+        "pages/api/stats/pivot-volume-excel.js",
+        "pages/stats/volume-board.js"
+      ],
+      "changedFileCount": 16,
+      "redactedPathCount": 1,
+      "id": "c26a507ec757cef56710c5bd895c2050fe96e8c2",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/stats/volume-board"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "0ab60b1537919ac8f36715d41a047bed93dc99af",
+      "date": "2026-11-27T04:40:26.000Z",
+      "committedAt": "2026-11-27T04:40:26.000Z",
+      "subject": "refactor(vision): Phase 1 박스 사진 판독 거대 파일 무사고 순수 모듈·패널 분리 (g13·g17·g18) (#2055)",
+      "parents": [
+        "429a922f5496d0d9f036c28be372613dc00c59b6"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/boxVisionModularParity.test.cjs",
+        "components/vision/BoxVisionStep2ReviewPanel.js",
+        "components/vision/BoxVisionStep3ResultsPanel.js",
+        "docs/contracts/box-vision-inspector.json",
+        "lib/boxVision/canvasSegmentation.js",
+        "lib/boxVision/deductionEngine.js",
+        "lib/boxVision/fallbackLedgers.js",
+        "lib/boxVision/palletProfiles.js",
+        "lib/boxVision/routeAndBill.js",
+        "lib/boxVision/samplePhotos.js",
+        "lib/boxVisionInspector.js",
+        "pages/vision/box-inspector.js"
+      ],
+      "changedFileCount": 14,
+      "redactedPathCount": 1,
+      "id": "0ab60b1537919ac8f36715d41a047bed93dc99af",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/vision/box-inspector"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "429a922f5496d0d9f036c28be372613dc00c59b6",
+      "date": "2026-11-27T03:26:04.000Z",
+      "committedAt": "2026-11-27T03:26:04.000Z",
+      "subject": "fix(arrival-cost): 도착원가 .xlsx 부가 시트 전면 제거 · 차수별 원가시트 단일 1장 출력 통일 (g17·g03·g13·g19) (#2054)",
+      "parents": [
+        "74a27d899c389f6960317be41754c66f6541da6b"
+      ],
+      "paths": [
+        "WORK_MEMORY.md",
+        "__tests__/arrivalCostSingleSheet.test.js",
+        "__tests__/chinaCloudCostWorkbook.test.js",
+        "__tests__/cnArrivalCost.test.mjs",
+        "__tests__/coArrivalCostGeneralRules.test.js",
+        "__tests__/costMasterStore.test.js",
+        "__tests__/invoiceCostCellPresentation.test.js",
+        "__tests__/invoiceCostOriginalRestoration.test.js",
+        "__tests__/invoiceCostPreview.test.js",
+        "__tests__/invoiceCostSalesDefaults.test.js",
+        "__tests__/invoiceCostWorkbookHistory.test.js",
+        "__tests__/invoiceReceiptCostExport.test.js",
+        "__tests__/invoiceSharedAwbApi.test.js",
+        "__tests__/nativeReceiptCost.test.js",
+        "__tests__/nativeReceiptCostEvidence.test.js",
+        "__tests__/nativeSharedCost.test.js",
+        "lib/arrivalWeekCostWorkbook.js",
+        "lib/chinaCloudCostWorkbook.js",
+        "lib/cloudCostTemplateWorkbook.js",
+        "lib/cnArrivalCostWorkbook.js",
+        "lib/costMasterStore.js",
+        "lib/invoiceCostCellPresentation.js",
+        "lib/invoiceCostOriginalAustralia.js",
+        "lib/invoiceCostOriginalColombia.js",
+        "lib/invoiceCostOriginalRestoration.js",
+        "lib/invoiceReceiptCostExport.js",
+        "lib/invoiceSharedAwbApi.js",
+        "package.json",
+        "pages/api/import/receipts/invoice-cost.js",
+        "pages/api/import/receipts/native-cost.js",
+        "pages/api/import/receipts/native-shared-cost.js",
+        "pages/api/import/receipts/shared-awb-cost.js",
+        "scripts/test-invoice-receipt-writer-sql.cjs"
+      ],
+      "changedFileCount": 35,
+      "redactedPathCount": 2,
+      "id": "429a922f5496d0d9f036c28be372613dc00c59b6",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "74a27d899c389f6960317be41754c66f6541da6b",
+      "date": "2026-11-27T02:41:13.000Z",
+      "committedAt": "2026-11-27T02:41:13.000Z",
+      "subject": "feat(incoming): 수기입고 nenovaSS2 권한 추가 · 다중 품목행 즐겨찾기 등록/불러오기 · 농장명 클릭 연관 드롭다운 (g03, g19) (#2053)",
       "parents": [
         "05bb94fde1d93717a8cf411477fd39e9e8301c5b"
       ],
       "paths": [
+        "WORK_MEMORY.md",
         "__tests__/manualWarehouseFavoritesAndAccess.test.mjs",
         "__tests__/warehouseAccess.test.cjs",
         "lib/importTeamStore.js",
@@ -121,9 +1208,9 @@
         "pages/api/warehouse/manual-favorites.js",
         "pages/incoming.js"
       ],
-      "changedFileCount": 15,
-      "redactedPathCount": 4,
-      "id": "936df4ed70b13a1807a52bb72ac0f3d41290001b",
+      "changedFileCount": 18,
+      "redactedPathCount": 6,
+      "id": "74a27d899c389f6960317be41754c66f6541da6b",
       "kind": "commit",
       "sourceIds": [
         "erp"
@@ -187254,8 +188341,8 @@
     }
   ],
   "counts": {
-    "uniqueCommits": 6081,
-    "nonMerge": 5270,
+    "uniqueCommits": 6110,
+    "nonMerge": 5299,
     "merge": 811,
     "summaries": 615,
     "knownSummaryTitles": 549,
