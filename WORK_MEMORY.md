@@ -5779,3 +5779,13 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: PR 생성 → GitHub Actions CI(`verify`) 통과 → Squash 머지 → Cafe24 배포 및 실서버 `cost-master` 정화 확인 → 격리 워크트리 삭제 → `sync-nenova-hq.js` 동기화.
 4. 검증 상태: `node --test __tests__/upgradeLegacyCostSheets.test.mjs __tests__/costWorkbookMerge.test.js __tests__/costMasterStore.test.js __tests__/invoiceCostWorkbookHistory.test.js` 전수 PASS(수식 재평가 오차 `0.000000원`, `#REF!/#VALUE!` 0건, 2회 연속 멱등성 확인), `arrivalCostPage.test.js`·`arrivalCostSingleSheet.test.js`·`arrivalCostEcosystemRoundtrip.test.mjs` PASS, `test:erp-manifest`·`guard:erp-writes`·`test:nenova-dnspy-evidence`·`test:workflow-guides`·`pstack-verify`·`test:erp-contract`·`npm run build` 검증 완료.
 5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 배포), 운영 DB 쓰기 0건(순수 SELECT-only), 비정형 시트(`21,22차` 등)는 수식 무변형 `AutoFilter + Freeze Panes` 방어 가드 유지. 연결 목표: g03, g13, g17, g19 / 학습 반영: 있음
+
+
+## 2026-11-27 상단 리본·즐겨찾기 오와열 및 세로폭 폭발 긴급 수정 (`fix/ribbon-compact-alignment`)
+- 요약: 상단 세이지 그린 바(`30px`)에서 `Main`(`nenova.exe` 기본 6그룹)과 `★ 즐겨찾기 (N)` 모드를 상호 배타적 열기/닫기 토글로 분리하고, `[전체메뉴 ▾]` 및 그룹 `▾` 확장을 `position: fixed` 플로팅 오버레이로 전환했다. `Main` 리본은 `.nv-ribbon-body` 물리 높이 `86px` 고정(전체 `87px`) + 대형 아이콘 버튼(`64×58px`/`72×58px`)·3행×2열 고정 그리드(`19px`행)로 `1366px`에서도 가로 스크롤 없이 `0px` 편차 오와열을 달성했고, `★ 즐겨찾기` 패널은 50개 이상에서도 `<= 180px` 상한(`172px`)과 `26px` 동일 높이 격자 오와열을 유지한다.
+- 검색어: 상단리본 즐겨찾기 오와열 세로폭고정 86px 180px NenovaRibbonShell nenova-classic.css verify-classic-ui-tabs
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-ribbon-fix`, 브랜치 `fix/ribbon-compact-alignment`) — `components/NenovaRibbonShell.js`, `styles/nenova-classic.css`, `scripts/verify-classic-ui-tabs.mjs`, `WORK_MEMORY.md`.
+2. 완료된 것: `Main` vs `★ 즐겨찾기 (N)` 배타 토글 및 재클릭/`닫기 ×`/ESC/항목 클릭 닫힘, `[전체메뉴 ▾]`(`max-height: 440px`)·그룹 `▾`(`max-height: 320px`) 플로팅 오버레이화, `Main` 6그룹(`주문관리`·`입/출고관리`·`견적서 관리`·`통계화면`·`코드관리`·`웹 업무`) `86px` 고정 및 오와열 정렬, 즐겨찾기 50개 스트레스 테스트·픽셀 실측 단언·스크린샷 검증 추가.
+3. 남은 할 일: `pstack-verify.cjs` 실행 → PR 생성 → CI 통과 확인 → squash 머지 → worktree 정리(`sync-nenova-hq.js` 동기화 포함).
+4. 검증 상태: `npm run test:ui-layout` PASS, `npm run guard:agent-slop` PASS, `npm run build` PASS, `node scripts/verify-classic-ui-tabs.mjs` PASS(`15`개 화면 × `3`뷰포트 `45`건, `Main` 높이 `87px`/`body 86px`/라벨 하단 편차 `0px`/대형·소형 높이 편차 `0px`/열별 너비 편차 `0px`/1366px 가로 넘침 `0px`/즐겨찾기 혼입 `0`건, 즐겨찾기 50개 패널 높이 `172px`/50항목 높이 `26px` 동일/열별 너비 편차 `0px`, 페이지 오류 `0`건). 실운영 DB/Cafe24 실브라우저 확인은 배포 후 별도.
+5. 주의/잠금: `desktop/` 하위 파일 수정 0건, `components/Layout.js`·`styles/desktop-workspace.css`·`sidebarMenuFavorites`/`unifiedUi` 계약 100% 무변경 보존, `.verify/` 임시 폴더는 커밋 제외.
