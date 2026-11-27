@@ -5,6 +5,7 @@
   "estimateVisibilityReadPerformance": "Preserve TOP400/year/weeks/q/base order and all native counts. Split repeated correlated native views into bounded independent SELECT aggregates keyed by candidate SdetailKey; preserve broad OrderYearWeek2 and explicit CustKey/ProdKey diagnostic counts separately, exact date multiplicity, active raw orders and split count. All ERP tables/SP/indexes preserved; no NOLOCK, timeout increase or validation bypass.",
   "adjustmentConcurrency": "Single, batch, preflight and undo adjustment cores acquire one transaction-owned SQL applock before ERP lease/snapshot locks. Keep CANCEL-before-ADD business order. Shared global PK allocators require one gate across business keys. Only confirmed deadlock aborts replay the whole transaction, at most five retries for adjustment routes; unknown commit outcomes never replay. Preflight always rolls back; native ERP calculation and downstream write scope are unchanged.",
   "batchFailureContext": "Preflight and commit failures display the server failedEntry action, customer, original input plus matched product/key, quantity/unit and selected year/week. Client labels may fill only missing names from matching inputIndex and business keys; executionIndex is never an input index. Context enriches server error rather than being discarded by error fallback. Preserve payload, stock gates, mappings and atomic transaction behavior; similar names never authorize a product substitution.",
+  "customerReadPreaggregation": "The initial quantity-pivot customer GET scopes shipment aggregation to selected OrderYear and full OrderWeek range before joining order rows. Preserve per-customer quantities, total product shipments, cost, representative timestamp, status and raw notes including multi-detail concatenation. Shipment-only projection stays unchanged. No ERP writes or schema changes.",
   "dispatchList": "Read-only exact-year full-week range. Each positive ShipmentDate allocation is shown at its real date, falling back via COALESCE(d.ShipmentDtm, sd.ShipmentDtm) to ShipmentDetail.ShipmentDtm when no positive ShipmentDate split exists, and marked unassigned only when both are null, with explicit 출고요일 badge colors from pivotVolumeColors. Stable paging returns at most 100 rows. Day-first and region-first use the same source. Date edits reuse the existing distribution-dates transaction.",
   "preserveWebShipmentDates": "Web distribution quantity saves without an explicit replacement date keep ShipmentDetail and ShipmentDate dates independently. Positive new rows and missing date values retain the existing default. Date splits, confirmation guards, and selected-year scope are preserved.",
   "scope": [
@@ -15,6 +16,7 @@
     "components/shipment/WeekPivotDispatchList.js",
     "pages/shipment/view.js",
     "scripts/week-pivot-dispatch-smoke.cjs",
+    "scripts/test-week-pivot-customer-read-sql.cjs",
     "scripts/paste-batch-failure-smoke.cjs",
     "lib/pasteBatchFailure.js",
     "__tests__/pasteBatchFailure.test.js",

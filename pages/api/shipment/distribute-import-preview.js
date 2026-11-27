@@ -71,7 +71,7 @@ export async function processWorkbook(req, res, farmOnly) {
       throw error;
     }
     mirrorWebUpload({ filepath: file.filepath, filename: file.originalFilename, user: req.user, source: 'shipment/distribute-import-preview' });
-    const workbook = XLSX.readFile(file.filepath, { cellDates: false, cellNF: false, cellStyles: false });
+    const workbook = XLSX.readFile(file.filepath, { cellDates: false, cellNF: true, cellStyles: false });
     const sourceMetadata=readImportFileMetadata(workbook);
     const distributionMode=resolveImportMode({addToExisting:field('addToExisting'),metadata:sourceMetadata,year:year || String(week).match(/^(\d{4})-/)?.[1],week,earlyImportMode});
     const downloadKind=requireDownloadKind(field('downloadKind'));

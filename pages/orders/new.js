@@ -758,7 +758,7 @@ export default function OrderNew() {
   };
 
   return (
-    <div className={desktopUi.page} style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 72px)' }}>
+    <div className={desktopUi.page} style={{ display: 'flex', flexDirection: 'column', height: 'var(--nv-page-inner-h, calc(100vh - 72px))' }}>
 
       {/* ── 주문 정보 툴바 ── */}
       <div className={desktopUi.toolbar} style={{ background: 'var(--header-bg)', border: '1px solid var(--border2)', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
@@ -845,7 +845,7 @@ export default function OrderNew() {
             </div>
           )}
           {showCustPanel && (
-            <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 210, width: 620, maxWidth: 'calc(100vw - 80px)', background: '#fff', border: '2px solid var(--border2)', boxShadow: '2px 2px 10px rgba(0,0,0,0.25)', padding: 10 }}>
+            <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 210, width: 620, maxWidth: 'min(620px, calc(100vw - 32px))', background: '#fff', border: '2px solid var(--border2)', boxShadow: '2px 2px 10px rgba(0,0,0,0.25)', padding: 10 }}>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
                 <input
                   className="filter-input"

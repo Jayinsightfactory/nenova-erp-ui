@@ -5676,6 +5676,14 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: 화면 회귀, manifest, dnSpy 근거, ERP 쓰기 범위, 정적 가드, 로컬 빌드, 최초 GitHub verify 통과. 로컬 수입팀 PDF 묶음 2개 시간 초과, 재시도 PDF 잠금 오류. 로컬 Chrome에서 위치, 기본·선택 정렬, 필터 조합 및 초안 유지 확인. 운영 화면 미검증.
 5. 주의/잠금: 화면에 로드된 품목만 정렬·필터. ERP 테이블과 저장 경로 변경 없음.
 
+## 2026-11-27 내 업체 주문등록 품종·품목 정렬 버튼
+- 검색어: 내 업체 주문등록 품종 버튼 전체 품종 ABCD순 사용량순 g03
+1. 작업 위치: nenova-erp-ui / codex/my-order-filter-buttons / C:/Users/USER/nw-cdx-my-order-filter-buttons / PR #2074.
+2. 완료된 것: 알파벳 바로 아래 품종 버튼과 두 정렬 버튼을 배치하고 선택 상태를 표시. 연결 목표 g03.
+3. 남은 할 일: GitHub 검사, Cafe24 배포, 브라우저 동작·캡처 확인.
+4. 검증 상태: 주문등록 화면 회귀, dnSpy 근거, ERP 쓰기 범위 및 로컬 Chrome 버튼·필터·정렬·초안 유지 확인. 운영 화면은 미검증.
+5. 주의/잠금: 목록 표시 변경. 기존 주문 API와 원장 동작 유지. 품종·정렬 버튼 선호 학습 반영.
+
 ## 2026-11-27 최초주문등록 과 분배 비교 기본 대주차 보정(48-01) 및 빈 세부차수 제거 (`fix/import-compare-default-week-and-subweeks`, 연결 목표: g03·g17 / 학습 반영: 반영 예정)
 - 요약: `pages/api/orders/import-compare.js`의 `handleOptions`에서 실제 품목 수량(`OrderDetail`/`ShipmentDetail`/`WebOrderImportSnapshot`)이 존재하는 세부차수·거래처만 필터링하고(최초 `EXISTS` 30초 타임아웃을 `INNER JOIN`+`GROUP BY` 해시 조인으로 최적화해 `553ms` 달성), `lib/orderImportCompareLogic.js`에 `pickDefaultOrderWeek`를 추가해 사전주문 전용 미래 주차(`49~51`) 대신 실제 출고분배가 있는 최신 대주차의 첫 세부차수(`48-01`)를 `defaultOrderWeek`로 반환·선택하도록 보정했다. `pages/orders/import-compare.js` 세부차수 버튼에 `분배 N`/`주문만` 구분 배지를 추가했고, `pages/orders/import.js`에서 `localStorage` 초안 복원 주차(`weekFromDraftRef`)가 비교 페이지 진입 시 구차수로 고정되지 않게 했다.
 - 검색어: 최초주문등록 분배비교 기본주차 defaultOrderWeek pickDefaultOrderWeek 48-01 44-04 빈세부차수 OrderDetail ShipmentDetail import-compare g03 g17
@@ -5734,3 +5742,39 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: PR 생성 → squash 머지 → worktree 정리 → coordinator 보고.
 4. 검증 상태: `node --test __tests__/boxVisionInspector.test.cjs __tests__/boxVisionModularParity.test.cjs` PASS (13/13), `pstack-verify.cjs` PASS, Playwright 실제 브라우저 렌더링 캡처 3장(`verify_step2_taerim_canvas.png`, `verify_step3_taerim_table.png`, `verify_step2_batch_5photos.png`) 육안 검증 PASS (0박스 버그 없음, 이전 샘플 잔류 없음, 글씨 깨짐 없음, 1920x1080 고해상도).
 5. 주의/잠금: `desktop/` 파일 수정 0건(웹 단독 반영), 운영 DB 쓰기 0건(순수 SELECT·원장 대조). 연결 목표: g13, g17, g19 / 학습 반영: 있음
+
+## 2026-11-27 엑셀 분배 업로드의 요일·출고일 적용
+
+1. 작업 위치: nenova-erp-ui / codex/shipment-upload-date / C:\Users\USER\nw-cdx-shipment-upload-date / 후속 PR 준비.
+2. 완료된 것: 기존 업체 매칭과 선택 차수를 유지하며 양수 열의 날짜를 달력으로 해석한다. 원문 대차수가 다르면 기존 업체 선택 또는 제외를 요청한다. 서명된 날짜별 수량을 기존 출고일 저장기에서 업로드 트랜잭션으로 적용한다.
+3. 남은 할 일: 후속 PR CI, Cafe24 배포와 운영 브라우저 검증. 기존 수량 피벗 전체 SQL 및 출고 일정 목록의 수량·재고 직접 편집은 미완료.
+4. 검증 상태: 앞선 #2070 배포·실브라우저 두 정렬 및 날짜 편집기 열기 통과. 첨부 장미 128/128·카네이션 365/365 양수 셀 요일 감지, 2025·2026 동차수 달력 7행 분리, ERP 계약 495/495 및 격리 MSSQL 날짜분배·원복 PASS, 1920×1080 연습 파일 미리보기 캡처, 변경 쓰기 범위·계약 manifest·dnSpy·빌드·pstack PASS. 첨부 파일 운영 저장 미실행.
+5. 주의/잠금: 선택하지 않은 차수로 원장 이동 없음. 날짜 없는 열은 기존 날짜 유지. 수량·확정·매출 검증과 기존 업체 제외 선택을 유지한다. 연결 목표 g03 / 학습 반영 있음.
+- 검색어: 엑셀 분배 업로드, 셀 출고일, 47차 선출고, 업체 선택, 요일, PeriodDay, 48-01
+
+## 2026-11-27 `nenova.exe` 클래식 세이지 그린 리본·MDI 다중 탭·개인 즐겨찾기 편집·전 탭 가로/세로폭 리사이즈 엔진 (`feat/nenova-exe-classic-ui`)
+- 요약: `styles/nenova-classic.css`에 `nenova.exe` 클래식 디자인 토큰(세이지 그린 `#5E8572`/`#4E7361`, 쿨그레이 리본 `#E9ECEF`~`#DADEE2`, 연크림 필수 필터 `#FEF8E1`, 소계 민트 `#D8EADC`, 굴림 폴백 없는 Pretendard/맑은 고딕 고딕 스택)을 화면 전용으로 구축하고, `NenovaRibbonShell` + `MdiTabBar` + `FavoritesEditorModal` + `GlobalViewportResizeController`를 통해 리본 `Main`/`전체메뉴(118개)`·MDI 다중 탭·즐겨찾기 순서/추가/삭제·전 탭 동적 세로폭(`--nv-avail-h`)·테이블 컬럼 드래그 리사이즈/자동맞춤/저장·분할 패널 스플리터/접기펼치기를 구현했다.
+- 검색어: nenova.exe 클래식 UI 세이지그린 리본 MDI탭 즐겨찾기편집 GlobalViewportResizeController 컬럼리사이즈 스플리터 nv-avail-h
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-nenova-exe-ui`, 브랜치 `feat/nenova-exe-classic-ui`) — 신규 `styles/nenova-classic.css`, `components/NenovaRibbonShell.js`, `components/MdiTabBar.js`, `components/FavoritesEditorModal.js`, `components/GlobalViewportResizeController.js`, `scripts/verify-classic-ui-tabs.mjs`, 수정 `pages/_app.js`, `components/Layout.js`, `styles/desktop-workspace.css`, `pages/orders/new.js`, `pages/shipment/distribute.js`, `pages/shipment/week-pivot.js`, `pages/stats/pivot.js`, `pages/arrival-cost.js`, `WORK_MEMORY.md`.
+2. 완료된 것: `nenova.exe` 클래식 디자인 토큰/밀도 적용, `Main`/`전체메뉴(13그룹 118메뉴)` 리본 및 접기/펼치기·사이드바 전환, MDI 다중 탭(열기/전환/닫기/다른 탭 닫기/전체 닫기/새 창/스크롤 복원), 개인 즐겨찾기 편집 모달(`/api/favorites?page=dashboard-menu` 및 `nenova-menu-favorites-changed` 연동), 전 탭 동적 `--nv-avail-h`·표준 테이블 컬럼 드래그/더블클릭/저장/초기화·분할 패널 드래그/접기펼치기 적용.
+3. 남은 할 일: PR 생성 → CI 통과 확인 → squash 머지 → worktree 정리(실운영 DB/Cafe24 실브라우저 확인은 머지/배포 후 별도).
+4. 검증 상태: `npm run build` PASS, `npm run test:ui-layout` PASS, `npm run guard:agent-slop` PASS, `npm run guard:erp-writes -- --changed-from origin/master` PASS, `npm run test:erp-manifest -- --changed-from origin/master` PASS(252 manifests), `npm run test:erp-contract -- --no-worker-threads --concurrency=4` PASS(494/494 commands, 680 targets), `node scripts/verify-classic-ui-tabs.mjs` PASS(15개 탭 × 3대 뷰포트 `1920x1080`/`1366x768`/`960x1000` 45개 점검, 리본 접기 `--nv-avail-h` 907→1016, 컬럼 드래그 142→222 및 새로고침 222 복원, 스플리터 609→704 및 접기 0/펼치기 704, 즐겨찾기 추가/순서/삭제, 페이지 오류 0건), `pstack-verify.cjs` PASS 확인. 실운영 서버/DB 연동 화면은 미검증.
+5. 주의/잠금: `desktop/` 하위 파일 변경 0건, 기존 `Layout`/`MENU_ITEMS`/`sidebarMenuFavorites`/`unifiedUi` 계약 100% 보존, `.verify/` 임시 로그 파일은 커밋 제외.
+
+## 2026-11-27 차수피벗 기존 수량 조회의 출고 집계 최적화
+
+1. 작업 위치: nenova-erp-ui / codex/week-pivot-customer-read / C:\Users\USER\nw-cdx-week-pivot-customer-read / PR #2075.
+2. 완료된 것: 기존 업체별 조회의 반복 출고 조인을 선택 연도·차수의 일괄 집계로 전환했다. 기존 다중 비고·분배 수량·금액 필드와 주문 없는 출고 조회를 유지한다.
+3. 남은 할 일: CI·Cafe24 배포 뒤 기존 차수피벗 브라우저 확인. 새 출고 일정 목록에서 수량과 기초재고를 직접 편집하는 동작은 미완료.
+4. 검증 상태: 운영 SELECT 재생 4범위 데이터 일치. 2026년 47-01~48-01 2,633행에서 ShipmentMaster 4,901,526→770 논리 읽기, 1,680→764ms. 격리 MSSQL 교차연도·다중 비고·삭제행·품목 필터·ERP 계약 495/495·빌드 PASS. #2072 배포와 운영 브라우저 날짜 미리보기 2일 확인.
+5. 주의/잠금: 운영 데이터와 스키마 변경 없음. 다른 파일의 SQL과 기존 분배 쓰기는 보존. 연결 목표 g03 / 선호 학습 반영 있음.
+- 검색어: 차수피벗 서버 속도, stock-status, 고객별 출고 집계, 47-01, 48-01, MSSQL 논리 읽기
+
+## 2026-11-27 최초주문등록 과 분배 비교 품종별 묶기·소계·출고일 분할·다중 세부차수 합산 (`feat/import-compare-variety-shipdate-multiweek`, 연결 목표: g03, g17)
+- 요약: `/orders/import-compare`에 `CounName+FlowerName` 품종별 묶기(`국내+왁스→운임비`, 빈값→`기타 품목`), 단위별 품종 합계(`합계(단)`/`합계(박스)`), `ShipmentDate` 기반 출고일별 묶어보기/그냥 보기 토글(다중 출고일 분할 시 발주수량 이중합산 방지), 1차+2차 등 세부차수 다중 합산 조회 및 스마트 기본 체크를 구현했다.
+- 검색어: import-compare 최초주문등록 분배비교 품종별묶기 품종별합계 출고일 ShipmentDate 다중세부차수 1차2차합산 groupCompareRows
+1. 작업 위치: `nenova-erp-ui` / `feat/import-compare-variety-shipdate-multiweek` / `C:\Users\USER\nw-agy-import-compare-grouping`
+2. 완료된 것: `lib/orderImportCompareLogic.js`(`getVarietyGroupLabel`, `formatShipDateShort`, `groupCompareRows`), `pages/api/orders/import-compare.js`(`orderWeeks` 다중 파싱·`Product` 메타 보강·`ShipmentDate` 배치 조회), `pages/orders/import-compare.js`(다중 세부차수 바·출고일/품종 토글·고밀도 소계/출고일 테이블), `scripts/test-order-import-compare.mjs` 단위 테스트 확장.
+3. 남은 할 일: PR 생성, CI 통과 후 squash 머지, worktree 정리, `owner-agi-twin.js` 및 `sync-nenova-hq.js` 실행(Cafe24 배포 및 실브라우저 1920×1080 확인은 머지 후 진행).
+4. 검증 상태: `node scripts/test-order-import-compare.mjs` PASS, 라이브 읽기전용 MSSQL 검증(`CustKey=533` 48-01 132ms·분할 28품목 75행·합계 4366/4188 정합, `CustKey=578` 48-01,48-02 74ms·합계 538/547 정합, `options` 68업체 151ms) PASS, `test:erp-contract` 495/495(681 targets) PASS, `test:ui-layout`/`test:nenova-dnspy-evidence`/`test:erp-manifest`/`guard:erp-writes`/`guard:agent-slop`/`pstack-verify.cjs`/`next build --webpack` PASS (Cafe24 배포 완료·실브라우저 화면 확인 미검증).
+5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), 운영 MSSQL 쓰기 0건(SELECT-only). 연결 목표: g03, g17 / 학습 반영: 없음

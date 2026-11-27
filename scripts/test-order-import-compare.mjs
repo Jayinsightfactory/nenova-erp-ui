@@ -5,6 +5,9 @@ import {
   buildCompareRows,
   buildUpdateCostPayload,
   pickDefaultOrderWeek,
+  getVarietyGroupLabel,
+  formatShipDateShort,
+  groupCompareRows,
   roundQty,
 } from '../lib/orderImportCompareLogic.js';
 
@@ -326,5 +329,179 @@ assert.equal(
 );
 
 assert.equal(pickDefaultOrderWeek([]), '', '빈 배열은 빈 문자열을 반환한다');
+
+// 8. getVarietyGroupLabel tests
+assert.equal(getVarietyGroupLabel({ counName: '중국', flowerName: '장미' }), '중국 장미');
+assert.equal(getVarietyGroupLabel({ counName: ' 국내 ', flowerName: ' 왁스 ' }), '운임비');
+assert.equal(getVarietyGroupLabel({ counName: '콜롬비아', flowerName: '' }), '콜롬비아');
+assert.equal(getVarietyGroupLabel({ counName: '', flowerName: '수국' }), '수국');
+assert.equal(getVarietyGroupLabel({ counName: '', flowerName: '' }), '기타 품목');
+
+// 9. formatShipDateShort tests (timezone-safe calendar math)
+assert.equal(formatShipDateShort('2026-10-31'), '10/31(토)');
+assert.equal(formatShipDateShort('2026-11-25'), '11/25(수)');
+assert.equal(formatShipDateShort('2026-11-29'), '11/29(일)');
+assert.equal(formatShipDateShort(''), '');
+assert.equal(formatShipDateShort('2026-02-30'), '');
+
+// 10. groupCompareRows tests (variety grouping + unit subtotals + split ship dates + NO_DATE)
+const groupedBaseline = mergeBaselineCandidates([
+  {
+    id: 'upload:4801',
+    sourceKind: 'UPLOAD',
+    orderWeek: '48-01',
+    dateKey: '2026-11-24',
+    timestamp: '2026-11-24T09:00:00',
+    label: '1차 업로드',
+    items: [
+      { rowNo: 1, inputName: '몬디알', prodKey: 501, prodName: 'ROSE Mondial', counName: '중국', flowerName: '장미', unit: '단', outUnit: '단', qty: 10 },
+      { rowNo: 2, inputName: '카네이션', prodKey: 502, prodName: 'CARNATION', counName: '콜롬비아', flowerName: '카네이션', unit: '박스', outUnit: '박스', qty: 5 },
+      { rowNo: 3, inputName: '미분배품목', prodKey: 503, prodName: 'UNALLOC', counName: '', flowerName: '', unit: '단', outUnit: '단', qty: 4 },
+      { rowNo: 4, inputName: '운임', prodKey: 504, prodName: 'WAX', counName: '국내', flowerName: '왁스', unit: '박스', outUnit: '박스', qty: 1 },
+    ],
+  },
+  {
+    id: 'upload:4802',
+    sourceKind: 'UPLOAD',
+    orderWeek: '48-02',
+    dateKey: '2026-11-25',
+    timestamp: '2026-11-25T09:00:00',
+    label: '2차 업로드',
+    items: [
+      { rowNo: 1, inputName: '몬디알 추가', prodKey: 501, prodName: 'ROSE Mondial', counName: '중국', flowerName: '장미', unit: '단', outUnit: '단', qty: 2 },
+    ],
+  },
+]);
+
+const groupedShipItems = [
+  {
+    prodKey: 501,
+    prodName: 'ROSE Mondial',
+    counName: '중국',
+    flowerName: '장미',
+    outUnit: '단',
+    shipQty: 12,
+    shipAmount: 120000,
+    shipCost: 10000,
+    shipmentDetails: [
+      { shipmentKey: 8001, orderWeek: '48-01', sdetailKey: 9101, outQty: 7, estQty: 7, cost: 10000, amount: 70000, isFix: 0 },
+      { shipmentKey: 8002, orderWeek: '48-02', sdetailKey: 9102, outQty: 5, estQty: 5, cost: 10000, amount: 50000, isFix: 0 },
+    ],
+    shipDates: [
+      { dateKey: '2026-11-26', qty: 5, amount: 50000 },
+      { dateKey: '2026-11-25', qty: 7, amount: 70000 },
+    ],
+  },
+  {
+    prodKey: 502,
+    prodName: 'CARNATION',
+    counName: '콜롬비아',
+    flowerName: '카네이션',
+    outUnit: '박스',
+    shipQty: 5,
+    shipAmount: 250000,
+    shipCost: 50000,
+    shipmentDetails: [
+      { shipmentKey: 8001, orderWeek: '48-01', sdetailKey: 9103, outQty: 5, estQty: 5, cost: 50000, amount: 250000, isFix: 0 },
+    ],
+    shipDates: [{ dateKey: '2026-11-25', qty: 5, amount: 250000 }],
+  },
+  {
+    prodKey: 504,
+    prodName: 'WAX',
+    counName: '국내',
+    flowerName: '왁스',
+    outUnit: '박스',
+    shipQty: 1,
+    shipAmount: 20000,
+    shipCost: 20000,
+    shipmentDetails: [
+      { shipmentKey: 8001, orderWeek: '48-01', sdetailKey: 9104, outQty: 1, estQty: 1, cost: 20000, amount: 20000, isFix: 0 },
+    ],
+    shipDates: [{ dateKey: '2026-11-25', qty: 1, amount: 20000 }],
+  },
+];
+
+const cmpGrouped = buildCompareRows(groupedBaseline, groupedShipItems);
+assert.deepEqual(cmpGrouped.rows[0].subWeeks, ['48-01', '48-02']);
+assert.equal(cmpGrouped.rows[0].varietyGroup, '중국 장미');
+assert.equal(cmpGrouped.rows[2].varietyGroup, '기타 품목');
+assert.equal(cmpGrouped.rows[3].varietyGroup, '운임비');
+assert.deepEqual(
+  cmpGrouped.rows[0].shipDates.map((d) => d.dateKey),
+  ['2026-11-25', '2026-11-26'],
+  'shipDates는 날짜 오름차순으로 정렬되어야 한다',
+);
+
+// 10-1. groupByShipDate=false, groupByVariety=true -> flat single section, variety subtotals, 기타 품목 last
+const flatByVariety = groupCompareRows(cmpGrouped.rows, {
+  groupByShipDate: false,
+  groupByVariety: true,
+});
+assert.equal(flatByVariety.sections.length, 1);
+assert.equal(flatByVariety.sections[0].dateKey, null);
+assert.deepEqual(
+  flatByVariety.sections[0].varietyGroups.map((g) => g.varietyGroup),
+  ['운임비', '중국 장미', '콜롬비아 카네이션', '기타 품목'],
+  '한글 사전순 정렬 및 기타 품목 맨 뒤 배치',
+);
+assert.deepEqual(flatByVariety.sections[0].varietyGroups[1].unitSubtotals, [
+  { unit: '단', baselineQty: 12, shipQty: 12, diff: 0, shipAmount: 120000, hasSplitRows: false },
+]);
+assert.deepEqual(flatByVariety.sections[0].varietyGroups[2].unitSubtotals, [
+  { unit: '박스', baselineQty: 5, shipQty: 5, diff: 0, shipAmount: 250000, hasSplitRows: false },
+]);
+
+// 10-2. groupByShipDate=false, groupByVariety=false -> preserves original order in 1 group
+const flatNoVariety = groupCompareRows(cmpGrouped.rows, {
+  groupByShipDate: false,
+  groupByVariety: false,
+});
+assert.equal(flatNoVariety.sections[0].varietyGroups.length, 1);
+assert.deepEqual(
+  flatNoVariety.sections[0].varietyGroups[0].rows.map((r) => r.prodKey),
+  [501, 502, 503, 504],
+);
+
+// 10-3. groupByShipDate=true -> multi-date split prevents baselineQty double-counting, NO_DATE last
+const byDate = groupCompareRows(cmpGrouped.rows, {
+  groupByShipDate: true,
+  groupByVariety: true,
+});
+assert.deepEqual(
+  byDate.sections.map((s) => s.dateKey),
+  ['2026-11-25', '2026-11-26', 'NO_DATE'],
+);
+assert.equal(byDate.sections[0].dateLabel, '11/25(수)');
+assert.equal(byDate.sections[2].isNoDate, true);
+assert.equal(byDate.sections[2].dateLabel, '미분배 · 출고일 없음');
+
+const nov25Rose = byDate.sections[0].varietyGroups.find((g) => g.varietyGroup === '중국 장미');
+const nov26Rose = byDate.sections[1].varietyGroups.find((g) => g.varietyGroup === '중국 장미');
+assert.equal(nov25Rose.rows[0].isSplitDateRow, true);
+assert.equal(nov25Rose.rows[0].countsBaselineInSubtotal, true);
+assert.equal(nov25Rose.rows[0].displayShipQty, 7);
+assert.equal(nov25Rose.unitSubtotals[0].baselineQty, 12);
+assert.equal(nov25Rose.unitSubtotals[0].shipQty, 7);
+assert.equal(nov25Rose.unitSubtotals[0].diff, -5);
+assert.equal(nov25Rose.unitSubtotals[0].hasSplitRows, true);
+
+assert.equal(nov26Rose.rows[0].isSplitDateRow, true);
+assert.equal(nov26Rose.rows[0].countsBaselineInSubtotal, false);
+assert.equal(nov26Rose.rows[0].displayShipQty, 5);
+assert.equal(nov26Rose.rows[0].totalBaselineQty, 12);
+assert.equal(nov26Rose.rows[0].totalShipQty, 12);
+assert.equal(nov26Rose.unitSubtotals[0].baselineQty, 0, '두 번째 이후 출고일 소계는 발주수량을 이중 합산하지 않는다');
+assert.equal(nov26Rose.unitSubtotals[0].shipQty, 5);
+assert.equal(nov26Rose.unitSubtotals[0].diff, 5);
+
+// 10-4. Multi-subweek (48-01 + 48-02) buildUpdateCostPayload spans both sub-weeks
+const multiWeekPayload = buildUpdateCostPayload(cmpGrouped.rows, { '501': '11000' });
+assert.equal(multiWeekPayload.editedRowCount, 1);
+assert.equal(multiWeekPayload.detailRowCount, 2);
+assert.deepEqual(
+  multiWeekPayload.items.map((it) => it.sdetailKey),
+  [9101, 9102],
+);
 
 console.log('order import compare tests passed');

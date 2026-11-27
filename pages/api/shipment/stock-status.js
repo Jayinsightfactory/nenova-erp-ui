@@ -345,10 +345,34 @@ export default withAuth(async function handler(req, res) {
     if (view === 'customers') {
       // prodKey 필터 (품목별 탭 업체분포 조회용)
       const pkFilter = prodKey ? 'AND od.ProdKey = @pk' : '';
+      const shipmentProductFilter = prodKey ? 'AND sd.ProdKey=@pk' : '';
       if (prodKey) params.pk = { type: sql.Int, value: parseInt(prodKey) };
 
       const result = await query(
-        `SELECT
+        `WITH ShipmentByCustomer AS (
+          SELECT sm.CustKey, sd.ProdKey, sm.OrderWeek,
+                 SUM(ISNULL(sd.OutQuantity,0)) AS OutQuantity,
+                 MAX(sd.ShipmentDtm) AS ShipmentDtm,
+                 MAX(NULLIF(sd.Cost,0)) AS Cost,
+                 MAX(ISNULL(sm.CreateID,'')) AS CreateID,
+                 MAX(CAST(ISNULL(sd.isFix,0) AS int)) AS isFix,
+                 MIN(sd.SdetailKey) AS SdetailKey,
+                 COUNT(NULLIF(CONVERT(nvarchar(max),sd.Descr),N'')) AS DescrCount,
+                 MAX(NULLIF(CONVERT(nvarchar(max),sd.Descr),N'')) AS SingleDescr
+            FROM ShipmentMaster sm
+            JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+           WHERE sm.OrderYear=@orderYear AND sm.OrderWeek BETWEEN @weekFrom AND @weekTo
+             AND sm.isDeleted=0 ${shipmentProductFilter}
+           GROUP BY sm.CustKey,sd.ProdKey,sm.OrderWeek
+        ), ShipmentTotals AS (
+          SELECT sm.OrderWeek, sd.ProdKey, SUM(sd.OutQuantity) AS OutQuantity
+            FROM ShipmentMaster sm
+            JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+           WHERE sm.OrderYear=@orderYear AND sm.OrderWeek BETWEEN @weekFrom AND @weekTo
+             AND sm.isDeleted=0 ${shipmentProductFilter}
+           GROUP BY sm.OrderWeek,sd.ProdKey
+        )
+        SELECT
           c.CustKey, c.CustName, c.CustArea, c.Manager, ISNULL(c.BaseOutDay,0) AS BaseOutDay,
           ISNULL(c.Descr, '') AS CustDescr,
           p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
@@ -362,7 +386,18 @@ export default withAuth(async function handler(req, res) {
           CONVERT(NVARCHAR(16), ship.ShipmentDtm, 120) AS outCreateDtm,
           ISNULL(ship.CreateID, '') AS outCreateID,
           COALESCE(NULLIF(shipu.UserName, ''), NULLIF(ship.CreateID, ''), '') AS outUserName,
-          ISNULL(ship.Descr, '') AS outDescr,
+          CASE WHEN ship.DescrCount>1 THEN STUFF((
+             SELECT CHAR(10) + sd3.Descr
+             FROM ShipmentMaster sm3
+             JOIN ShipmentDetail sd3 ON sd3.ShipmentKey=sm3.ShipmentKey
+             WHERE sm3.CustKey=om.CustKey
+               AND sm3.OrderYear=@orderYear AND sm3.OrderWeek=om.OrderWeek
+               AND sm3.isDeleted=0
+               AND sd3.ProdKey=p.ProdKey
+               AND NULLIF(sd3.Descr,'') IS NOT NULL
+             FOR XML PATH(''), TYPE
+             ).value('.', 'NVARCHAR(MAX)'), 1, 1, '')
+               ELSE ISNULL(ship.SingleDescr,N'') END AS outDescr,
           ISNULL(ship.isFix, 0) AS isFix,
           ship.SdetailKey,
           ISNULL((
@@ -409,42 +444,13 @@ export default withAuth(async function handler(req, res) {
             WHERE sh.ProdKey=p.ProdKey AND sh.OrderYear=@orderYear AND sh.OrderWeek=om.OrderWeek
               AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
           ), 0) AS totalInQty,
-          ISNULL((
-            SELECT SUM(sd2.OutQuantity) FROM ShipmentDetail sd2
-            JOIN ShipmentMaster sm2 ON sd2.ShipmentKey=sm2.ShipmentKey
-            WHERE sd2.ProdKey=p.ProdKey AND sm2.OrderYear=@orderYear
-              AND sm2.OrderWeek=om.OrderWeek AND sm2.isDeleted=0
-          ), 0) AS totalOutQty
+          ISNULL(st.OutQuantity,0) AS totalOutQty
          FROM OrderMaster om
          JOIN Customer c      ON om.CustKey = c.CustKey
          JOIN OrderDetail od  ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted=0 ${pkFilter}
          JOIN Product p       ON od.ProdKey = p.ProdKey
-         OUTER APPLY (
-           SELECT
-             SUM(ISNULL(sd2.OutQuantity,0)) AS OutQuantity,
-             MAX(sd2.ShipmentDtm) AS ShipmentDtm,
-             MAX(NULLIF(sd2.Cost,0)) AS Cost,
-             MAX(ISNULL(sm2.CreateID,'')) AS CreateID,
-             MAX(CAST(ISNULL(sd2.isFix,0) AS INT)) AS isFix,
-             MIN(sd2.SdetailKey) AS SdetailKey,
-             STUFF((
-               SELECT CHAR(10) + sd3.Descr
-               FROM ShipmentMaster sm3
-               JOIN ShipmentDetail sd3 ON sd3.ShipmentKey=sm3.ShipmentKey
-               WHERE sm3.CustKey=om.CustKey
-                 AND sm3.OrderYear=@orderYear AND sm3.OrderWeek=om.OrderWeek
-                 AND sm3.isDeleted=0
-                 AND sd3.ProdKey=p.ProdKey
-                 AND NULLIF(sd3.Descr,'') IS NOT NULL
-               FOR XML PATH(''), TYPE
-             ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Descr
-           FROM ShipmentMaster sm2
-           JOIN ShipmentDetail sd2 ON sd2.ShipmentKey=sm2.ShipmentKey
-           WHERE sm2.CustKey=om.CustKey AND sm2.OrderYear=@orderYear
-             AND sm2.OrderWeek=om.OrderWeek
-             AND sm2.isDeleted=0
-             AND sd2.ProdKey=p.ProdKey
-         ) ship
+         LEFT JOIN ShipmentByCustomer ship ON ship.CustKey=om.CustKey AND ship.ProdKey=p.ProdKey AND ship.OrderWeek=om.OrderWeek
+         LEFT JOIN ShipmentTotals st ON st.ProdKey=p.ProdKey AND st.OrderWeek=om.OrderWeek
          LEFT JOIN UserInfo shipu ON shipu.UserID=ship.CreateID
          LEFT JOIN CustomerProdCost cpc ON cpc.CustKey=c.CustKey AND cpc.ProdKey=p.ProdKey
            WHERE om.OrderYear=@orderYear

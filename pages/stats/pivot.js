@@ -1290,7 +1290,7 @@ export function LegacyPivot() {
     <>
       <Head><title>Pivot 통계 - nenova ERP</title></Head>
       <style>{`body { overflow: hidden; margin: 0; }`}</style>
-      <div style={{display:'flex',flexDirection:'column',height:'100vh',background:'var(--bg)'}}>
+      <div style={{display:'flex',flexDirection:'column',height:'var(--nv-avail-h, 100vh)',background:'var(--bg)'}}>
       {/* 전체화면 상단바 (사이드메뉴 없음) */}
       <div style={{
         height:28, flexShrink:0, background:'linear-gradient(to right,#000080,#1084d0)',

@@ -10,6 +10,8 @@ import {
 import {
   buildCompareRows,
   buildUpdateCostPayload,
+  formatShipDateShort,
+  groupCompareRows,
   mergeBaselineCandidates,
 } from '../lib/orderImportCompareLogic.js';
 
@@ -88,26 +90,31 @@ import {
     {
       prodKey: 101,
       prodName: 'Rose Freedom 60cm',
+      counName: '콜롬비아',
+      flowerName: '장미',
       outUnit: '박스',
       shipQty: 10,
       shipCost: 120000,
       shipAmount: 1200000,
       hasFixed: true,
-      shipDates: summarizeShipmentDates([
-        { date: '2026-11-26', qty: 6 },
-        { date: '2026-11-28', qty: 4 },
-      ]),
+      shipDates: [
+        { dateKey: '2026-11-26', qty: 6, amount: 720000 },
+        { dateKey: '2026-11-28', qty: 4, amount: 480000 },
+      ],
       shipmentDetails: [{ shipmentKey: 1, sdetailKey: 11, outQty: 10, estQty: 10, cost: 120000, amount: 1200000, isFix: 1 }],
     },
     {
       prodKey: 205,
       prodName: 'Carnation Moon Light',
+      counName: '콜롬비아',
+      flowerName: '카네이션',
       outUnit: '단',
       shipQty: 20,
       shipCost: 8500,
       shipAmount: 170000,
       hasFixed: false,
-      shipmentDetails: [{ shipmentKey: 1, sdetailKey: 12, outQty: 20, estQty: 20, cost: 8500, amount: 170000, isFix: 0, shipDate: '2026-11-27' }],
+      shipDates: [{ dateKey: '2026-11-27', qty: 20, amount: 170000 }],
+      shipmentDetails: [{ shipmentKey: 1, sdetailKey: 12, outQty: 20, estQty: 20, cost: 8500, amount: 170000, isFix: 0 }],
     },
   ]);
 
@@ -117,15 +124,21 @@ import {
 
   assert.equal(row101.status, 'SAME');
   assert.deepEqual(
-    row101.shipDates.map((d) => `${d.shortDate}(${d.weekday}):${d.qty}`),
-    ['11-26(목):6', '11-28(토):4'],
+    row101.shipDates.map((d) => `${formatShipDateShort(d.dateKey)}:${d.qty}`),
+    ['11/26(목):6', '11/28(토):4'],
   );
   assert.equal(row102.status, 'UNALLOCATED');
   assert.equal(row102.shipDates.length, 0);
   assert.equal(row205.status, 'ADDED');
   assert.deepEqual(
-    row205.shipDates.map((d) => `${d.shortDate}(${d.weekday}):${d.qty}`),
-    ['11-27(금):20'],
+    row205.shipDates.map((d) => `${formatShipDateShort(d.dateKey)}:${d.qty}`),
+    ['11/27(금):20'],
+  );
+
+  const grouped = groupCompareRows(compared.rows, { groupByShipDate: true, groupByVariety: true });
+  assert.deepEqual(
+    grouped.sections.map((s) => s.dateKey),
+    ['2026-11-26', '2026-11-27', '2026-11-28', 'NO_DATE'],
   );
 
   // Ensure inline price update payload remains 100% intact
@@ -175,10 +188,11 @@ import {
   assert.match(dispatchListUi, /font-variant-numeric:\s*tabular-nums/);
   assert.match(dispatchListUi, /content-visibility:\s*auto/);
 
-  // 3c. import-compare: SELECTs ShipmentDtm + ShipmentDate splits without write statements, renders 분배 출고일 · 요일
-  assert.match(importCompareApi, /CONVERT\(NVARCHAR\(10\),\s*sd\.ShipmentDtm,\s*120\)\s*AS\s*ShipDate/);
-  assert.match(importCompareApi, /FROM\s+ShipmentDate\s+d/);
+  // 3c. import-compare: SELECTs ShipmentDtm + ShipmentDate splits without write statements, renders 분배 출고일 · 요일 with unified weekday badges
+  assert.match(importCompareApi, /ShipmentDtm/);
+  assert.match(importCompareApi, /ShipmentDate/);
   assert.match(importCompareUi, /분배 출고일 · 요일/);
+  assert.match(importCompareUi, /ShipDateWeekdayBadge/);
 
   // 3d. distribute-import & shipment/view: explicit 출고요일 badges & clean editorial typography without monospace/decorative emojis
   assert.match(distributeImportUi, /출고일 · 요일/);

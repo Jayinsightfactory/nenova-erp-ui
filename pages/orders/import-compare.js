@@ -7,8 +7,11 @@ import {
   buildCompareRows,
   buildUpdateCostPayload,
   pickDefaultOrderWeek,
+  groupCompareRows,
+  formatShipDateShort,
   roundQty,
 } from '../../lib/orderImportCompareLogic';
+import { parseShipmentDateMeta } from '../../lib/shipmentWeekdayFormat';
 
 const FONT_STACK = "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif";
 
@@ -56,6 +59,12 @@ function formatSubWeekButtonLabel(orderWeek) {
   return `${orderWeek} (${Number(m[2])}차)`;
 }
 
+function formatSubWeekShortTag(orderWeek) {
+  const m = String(orderWeek || '').match(/^(\d{2})-(\d{2})$/);
+  if (!m) return String(orderWeek || '');
+  return `${orderWeek} ${Number(m[2])}차`;
+}
+
 function formatKstTimestamp(ts) {
   const s = String(ts || '').replace('T', ' ').trim();
   return s.slice(0, 16) || '-';
@@ -75,6 +84,89 @@ function formatDiffText(row) {
   return formatNum(row.diff);
 }
 
+function ShipDateWeekdayBadge({ dateKey, qty = null, showFullWeekday = false }) {
+  const meta = parseShipmentDateMeta(dateKey);
+  if (meta.unassigned) {
+    return <span>{String(dateKey || '-')}</span>;
+  }
+  const md = meta.isoDate ? `${Number(meta.isoDate.slice(5, 7))}/${Number(meta.isoDate.slice(8, 10))}` : dateKey;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        whiteSpace: 'nowrap',
+        fontVariantNumeric: 'tabular-nums',
+      }}
+    >
+      <span style={{ fontWeight: 600, color: '#0f172a' }}>{md}</span>
+      <span
+        style={{
+          display: 'inline-block',
+          padding: '1px 5px',
+          borderRadius: 4,
+          background: meta.dayColor.fill,
+          color: meta.dayColor.ink,
+          fontSize: 12,
+          fontWeight: 800,
+          lineHeight: 1.15,
+        }}
+      >
+        {showFullWeekday ? meta.weekdayFull : meta.weekday}
+      </span>
+      {qty != null && (
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>
+          ({formatNum(qty)})
+        </span>
+      )}
+    </span>
+  );
+}
+
+function ShipDatesCellContent({ row, groupByShipDate }) {
+  if (groupByShipDate && row.isSplitDateRow && row.shipDateKey) {
+    return <ShipDateWeekdayBadge dateKey={row.shipDateKey} />;
+  }
+  const list = Array.isArray(row.shipDates) ? row.shipDates : [];
+  if (list.length === 0) {
+    return <span style={{ color: '#64748b' }}>-</span>;
+  }
+  if (list.length === 1) {
+    return <ShipDateWeekdayBadge dateKey={list[0].dateKey} />;
+  }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
+      {list.map((sd, i) => (
+        <ShipDateWeekdayBadge key={`${sd.dateKey}-${i}`} dateKey={sd.dateKey} qty={sd.qty} />
+      ))}
+    </span>
+  );
+}
+
+function formatShipDatesTooltip(row) {
+  const list = Array.isArray(row.shipDates) ? row.shipDates : [];
+  if (list.length === 0) return undefined;
+  const unitLabel = row.outUnit || row.unit || '';
+  return list
+    .map((sd) => `${formatShipDateShort(sd.dateKey) || sd.dateKey}: ${formatNum(sd.qty)}${unitLabel}`)
+    .join(' · ');
+}
+
+function normalizeWeekList(input) {
+  const raw = Array.isArray(input)
+    ? input
+    : typeof input === 'string'
+      ? input.split(',')
+      : [];
+  const set = new Set();
+  for (const item of raw) {
+    const t = String(item || '').trim();
+    if (/^\d{2}-\d{2}$/.test(t)) set.add(t);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
 export default function OrderImportComparePage() {
   const router = useRouter();
 
@@ -83,7 +175,9 @@ export default function OrderImportComparePage() {
   const [customersInWeek, setCustomersInWeek] = useState([]);
 
   const [orderYear, setOrderYear] = useState('');
-  const [orderWeek, setOrderWeek] = useState('');
+  const [selectedOrderWeeks, setSelectedOrderWeeks] = useState([]);
+  const primaryOrderWeek = selectedOrderWeeks[0] || '';
+  const selectedOrderWeeksKey = selectedOrderWeeks.join(',');
   const [custKey, setCustKey] = useState('');
   const [custLabel, setCustLabel] = useState('');
 
@@ -103,7 +197,9 @@ export default function OrderImportComparePage() {
 
   const [onlyChanged, setOnlyChanged] = useState(false);
   const [productSearch, setProductSearch] = useState('');
-  const [showAllExcelCols, setShowAllExcelCols] = useState(true);
+  const [groupByShipDate, setGroupByShipDate] = useState(true);
+  const [groupByVariety, setGroupByVariety] = useState(true);
+  const [showAllExcelCols, setShowAllExcelCols] = useState(false);
   const [initializedFromQuery, setInitializedFromQuery] = useState(false);
 
   const [priceEdits, setPriceEdits] = useState({});
@@ -113,15 +209,16 @@ export default function OrderImportComparePage() {
   useEffect(() => {
     setPriceEdits({});
     setPriceSaveNotice(null);
-  }, [orderYear, orderWeek, custKey]);
+  }, [orderYear, selectedOrderWeeksKey, custKey]);
 
-  const loadOptions = useCallback(async (targetYear = '', targetWeek = '') => {
+  const loadOptions = useCallback(async (targetYear = '', targetWeeks = []) => {
     setOptionsLoading(true);
     try {
+      const weekList = normalizeWeekList(targetWeeks);
       const data = await apiGet('/api/orders/import-compare', {
         action: 'options',
         orderYear: targetYear || undefined,
-        orderWeek: targetWeek || undefined,
+        orderWeeks: weekList.length > 0 ? weekList.join(',') : undefined,
       });
       if (!data?.success) throw new Error(data?.error || '옵션 조회 실패');
       setYears(data.years || []);
@@ -138,14 +235,15 @@ export default function OrderImportComparePage() {
     }
   }, []);
 
-  const fetchCompare = useCallback(async (yr, wk, ck, { preserveSelection = false } = {}) => {
-    if (!yr || !wk || !ck) return;
+  const fetchCompare = useCallback(async (yr, wks, ck, { preserveSelection = false } = {}) => {
+    const weekList = normalizeWeekList(wks);
+    if (!yr || weekList.length === 0 || !ck) return;
     setCompareLoading(true);
     setErrorMsg('');
     try {
       const data = await apiGet('/api/orders/import-compare', {
         orderYear: yr,
-        orderWeek: wk,
+        orderWeeks: weekList.join(','),
         custKey: ck,
       });
       if (!data?.success) throw new Error(data?.error || '비교 데이터 조회 실패');
@@ -159,14 +257,32 @@ export default function OrderImportComparePage() {
         const validIds = new Set(list.map((c) => c.id));
         setSelectedCandidateIds((prev) => prev.filter((id) => validIds.has(id)));
       } else {
-        const firstUpload = list.find((c) => c.sourceKind === 'UPLOAD');
-        const firstOrderDate = list.find((c) => c.sourceKind === 'ORDER_DATE');
-        if (firstUpload) {
-          setSelectedCandidateIds([firstUpload.id]);
-        } else if (firstOrderDate) {
-          setSelectedCandidateIds([firstOrderDate.id]);
+        if (weekList.length >= 2) {
+          const picked = [];
+          for (const wk of weekList) {
+            const subList = list.filter((c) => c.orderWeek === wk);
+            const u = subList.find((c) => c.sourceKind === 'UPLOAD');
+            const o = subList.find((c) => c.sourceKind === 'ORDER_DATE');
+            if (u) picked.push(u.id);
+            else if (o) picked.push(o.id);
+          }
+          if (picked.length === 0 && list.length > 0) {
+            const firstUpload = list.find((c) => c.sourceKind === 'UPLOAD');
+            const firstOrderDate = list.find((c) => c.sourceKind === 'ORDER_DATE');
+            if (firstUpload) picked.push(firstUpload.id);
+            else if (firstOrderDate) picked.push(firstOrderDate.id);
+          }
+          setSelectedCandidateIds(picked);
         } else {
-          setSelectedCandidateIds([]);
+          const firstUpload = list.find((c) => c.sourceKind === 'UPLOAD');
+          const firstOrderDate = list.find((c) => c.sourceKind === 'ORDER_DATE');
+          if (firstUpload) {
+            setSelectedCandidateIds([firstUpload.id]);
+          } else if (firstOrderDate) {
+            setSelectedCandidateIds([firstOrderDate.id]);
+          } else {
+            setSelectedCandidateIds([]);
+          }
         }
         setExpandedPreviewIds(new Set());
       }
@@ -183,25 +299,32 @@ export default function OrderImportComparePage() {
     if (!router.isReady || initializedFromQuery) return;
     setInitializedFromQuery(true);
     const qYear = String(router.query.year || '').trim();
-    const qWeek = String(router.query.week || '').trim();
+    const qWeeks = normalizeWeekList(router.query.weeks || router.query.week || '');
     const qCust = String(router.query.custKey || '').trim();
 
     (async () => {
-      const opt = await loadOptions(qYear, qWeek);
+      const opt = await loadOptions(qYear, qWeeks);
       let latestOpt = opt;
       const yr = qYear || String(opt?.orderYear || '');
       const availableWeeks = opt?.weeks || [];
-      const wk = (qWeek && availableWeeks.some((w) => w.orderWeek === qWeek))
-        ? qWeek
-        : (opt?.defaultOrderWeek || availableWeeks[0]?.orderWeek || '');
+      const availableSet = new Set(availableWeeks.map((w) => w.orderWeek));
+      const matchedQueryWeeks = qWeeks.filter((w) => availableSet.has(w));
+      const fallbackWk = opt?.defaultOrderWeek || availableWeeks[0]?.orderWeek || '';
+      const resolvedWeeks =
+        matchedQueryWeeks.length > 0
+          ? matchedQueryWeeks
+          : fallbackWk
+            ? [fallbackWk]
+            : [];
+
       if (yr) setOrderYear(yr);
-      if (wk) {
-        setOrderWeek(wk);
-        if (wk !== qWeek && yr) {
-          latestOpt = (await loadOptions(yr, wk)) || opt;
+      if (resolvedWeeks.length > 0) {
+        setSelectedOrderWeeks(resolvedWeeks);
+        if (resolvedWeeks.join(',') !== qWeeks.join(',') && yr) {
+          latestOpt = (await loadOptions(yr, resolvedWeeks)) || opt;
         }
       }
-      if (qCust && yr && wk) {
+      if (qCust && yr && resolvedWeeks.length > 0) {
         const matched = (latestOpt?.customers || []).find(
           (c) => String(c.custKey) === qCust,
         );
@@ -209,32 +332,33 @@ export default function OrderImportComparePage() {
           setCustomerScope('all');
         }
         setCustKey(qCust);
-        await fetchCompare(yr, wk, qCust);
+        await fetchCompare(yr, resolvedWeeks, qCust);
       }
     })();
   }, [router.isReady, router.query, initializedFromQuery, loadOptions, fetchCompare]);
 
   const handleYearChange = async (nextYear) => {
     setOrderYear(nextYear);
-    setOrderWeek('');
+    setSelectedOrderWeeks([]);
     setCustKey('');
     setCustLabel('');
     setCompareData(null);
     setSelectedCandidateIds([]);
-    const opt = await loadOptions(nextYear, '');
+    const opt = await loadOptions(nextYear, []);
     const firstWk = opt?.defaultOrderWeek || opt?.weeks?.[0]?.orderWeek || '';
     if (firstWk) {
-      setOrderWeek(firstWk);
-      await loadOptions(nextYear, firstWk);
+      setSelectedOrderWeeks([firstWk]);
+      await loadOptions(nextYear, [firstWk]);
     }
   };
 
-  const handleWeekChange = async (nextWeek) => {
-    if (!nextWeek) return;
-    setOrderWeek(nextWeek);
+  const handleWeeksChange = async (nextWeeksInput) => {
+    const nextWeeks = normalizeWeekList(nextWeeksInput);
+    if (nextWeeks.length === 0) return;
+    setSelectedOrderWeeks(nextWeeks);
     setCompareData(null);
     setSelectedCandidateIds([]);
-    const opt = await loadOptions(orderYear, nextWeek);
+    const opt = await loadOptions(orderYear, nextWeeks);
     const nextCustomers = opt?.customers || [];
     const matched = custKey
       ? nextCustomers.find((c) => String(c.custKey) === String(custKey))
@@ -243,11 +367,21 @@ export default function OrderImportComparePage() {
       if (!matched.hasShipment && customerScope === 'shipment') {
         setCustomerScope('all');
       }
-      await fetchCompare(orderYear, nextWeek, custKey);
+      await fetchCompare(orderYear, nextWeeks, custKey);
     } else {
       setCustKey('');
       setCustLabel('');
     }
+  };
+
+  const handleToggleSubWeek = async (wk) => {
+    if (!wk || optionsLoading) return;
+    const exists = selectedOrderWeeks.includes(wk);
+    if (exists && selectedOrderWeeks.length <= 1) return;
+    const nextWeeks = exists
+      ? selectedOrderWeeks.filter((w) => w !== wk)
+      : [...selectedOrderWeeks, wk];
+    await handleWeeksChange(nextWeeks);
   };
 
   const handleParentWeekChange = async (nextParentWeek) => {
@@ -265,7 +399,7 @@ export default function OrderImportComparePage() {
       );
     const targetWeek = pickDefaultOrderWeek(candidatesInParent) || candidatesInParent[0]?.orderWeek || '';
     if (targetWeek) {
-      await handleWeekChange(targetWeek);
+      await handleWeeksChange([targetWeek]);
     }
   };
 
@@ -278,8 +412,8 @@ export default function OrderImportComparePage() {
     if (inWeek && !inWeek.hasShipment && customerScope === 'shipment') {
       setCustomerScope('all');
     }
-    if (orderYear && orderWeek && nextCustKey) {
-      await fetchCompare(orderYear, orderWeek, nextCustKey);
+    if (orderYear && selectedOrderWeeks.length > 0 && nextCustKey) {
+      await fetchCompare(orderYear, selectedOrderWeeks, nextCustKey);
     }
   };
 
@@ -299,12 +433,12 @@ export default function OrderImportComparePage() {
   }, [weeks]);
 
   const activeParentWeek = useMemo(() => {
-    if (orderWeek) {
-      const pw = String(orderWeek).slice(0, 2);
+    if (primaryOrderWeek) {
+      const pw = String(primaryOrderWeek).slice(0, 2);
       if (pw) return pw;
     }
     return parentWeeks[0]?.parentWeek || '';
-  }, [orderWeek, parentWeeks]);
+  }, [primaryOrderWeek, parentWeeks]);
 
   const subWeeksInParent = useMemo(() => {
     if (!activeParentWeek) return [];
@@ -543,7 +677,7 @@ export default function OrderImportComparePage() {
         type: 'success',
         text: `분배단가 ${savedProdCount}품목 (${savedDetailCount}행) 수정 완료 · 출고분배 금액 자동 재계산`,
       });
-      await fetchCompare(orderYear, orderWeek, custKey, { preserveSelection: true });
+      await fetchCompare(orderYear, selectedOrderWeeks, custKey, { preserveSelection: true });
     } catch (err) {
       if (err?.status === 409 || err?.code === 'ERP_EDIT_LOCKED') {
         setPriceSaveNotice({
@@ -567,6 +701,9 @@ export default function OrderImportComparePage() {
       if (onlyChanged && row.status === 'SAME') return false;
       if (!q) return true;
       const haystack = [
+        row.varietyGroup,
+        row.counName,
+        row.flowerName,
         row.inputName,
         row.prodName,
         row.displayName,
@@ -580,13 +717,9 @@ export default function OrderImportComparePage() {
     });
   }, [allRows, onlyChanged, productSearch]);
 
-  const mainRows = useMemo(
-    () => filteredRows.filter((r) => r.status !== 'ADDED'),
-    [filteredRows],
-  );
-  const addedRows = useMemo(
-    () => filteredRows.filter((r) => r.status === 'ADDED'),
-    [filteredRows],
+  const groupedResult = useMemo(
+    () => groupCompareRows(filteredRows, { groupByShipDate, groupByVariety }),
+    [filteredRows, groupByShipDate, groupByVariety],
   );
 
   const canShowExcelCols = Boolean(
@@ -624,30 +757,25 @@ export default function OrderImportComparePage() {
     : 5 + (hasAnyUnitPrice ? 1 : 0) + (hasAnyNote ? 1 : 0);
   const totalColCount = leftColCount + rightColCount;
 
+  const isFiltered = onlyChanged || Boolean(productSearch.trim());
   const footerTotals = useMemo(() => {
-    const baselineTotal = roundQty(
-      filteredRows.reduce((s, r) => s + (Number(r.baselineQty) || 0), 0),
-    );
-    const shipTotal = roundQty(
-      filteredRows.reduce((s, r) => s + (Number(r.shipQty) || 0), 0),
-    );
+    const baselineTotal = isFiltered
+      ? roundQty(filteredRows.reduce((s, r) => s + (Number(r.baselineQty) || 0), 0))
+      : summary.baselineTotalQty;
+    const shipTotal = isFiltered
+      ? roundQty(filteredRows.reduce((s, r) => s + (Number(r.shipQty) || 0), 0))
+      : summary.shipTotalQty;
+    const netDiff = isFiltered ? roundQty(shipTotal - baselineTotal) : summary.netDiff;
     const shipAmountTotal = Math.round(
       filteredRows.reduce((s, r) => s + (Number(r.shipAmount) || 0), 0),
     );
-    const weekdaySet = new Set();
-    for (const r of filteredRows) {
-      for (const sd of r.shipDates || []) {
-        if (!sd.unassigned && sd.weekday) weekdaySet.add(`${sd.weekday}`);
-      }
-    }
     return {
       baselineTotal,
       shipTotal,
-      netDiff: roundQty(shipTotal - baselineTotal),
+      netDiff,
       shipAmountTotal,
-      weekdaysLabel: weekdaySet.size > 0 ? [...weekdaySet].map((w) => `${w}요일`).join('·') : '',
     };
-  }, [filteredRows]);
+  }, [filteredRows, isFiltered, summary]);
 
   const tdCompactStyle = {
     padding: '2px 7px',
@@ -671,7 +799,7 @@ export default function OrderImportComparePage() {
     borderBottom: '2px solid #cbd5e1',
   };
 
-  const renderTableRow = (row, idx) => {
+  const renderTableRow = (row, idx, { varietyCell = null } = {}) => {
     const st = ROW_STATUS_STYLE[row.status] || ROW_STATUS_STYLE.SAME;
     const rowLabel = row.rowNos?.length
       ? row.rowNos.join(', ')
@@ -701,7 +829,23 @@ export default function OrderImportComparePage() {
       row.sources?.length === 1 &&
       row.sources[0].unit !== row.outUnit &&
       row.sources[0].qty !== row.baselineQty;
+    const isSecondOrLaterSplit = Boolean(
+      row.isSplitDateRow && row.countsBaselineInSubtotal === false,
+    );
     const qtyTooltipParts = [];
+    if (isSecondOrLaterSplit) {
+      const firstDateLabel =
+        formatShipDateShort(row.shipDates?.[0]?.dateKey) ||
+        row.shipDates?.[0]?.dateKey ||
+        '첫 출고일';
+      qtyTooltipParts.push(
+        `총 발주 ${formatNum(row.totalBaselineQty)} ${row.outUnit || row.unit || ''} — ${firstDateLabel} 소계에 합산됨 (이중 합산 방지)`,
+      );
+    } else if (row.isSplitDateRow) {
+      qtyTooltipParts.push(
+        `총 발주 ${formatNum(row.totalBaselineQty)} ${row.outUnit || row.unit || ''} (출고일 ${row.splitDateCount}일 분할)`,
+      );
+    }
     if (hasConversion) {
       qtyTooltipParts.push(
         `원본 ${row.sources[0].qty}${row.sources[0].unit} → ${row.baselineQty}${row.outUnit}`,
@@ -710,7 +854,7 @@ export default function OrderImportComparePage() {
     if (row.sources?.length > 1) {
       qtyTooltipParts.push(
         row.sources
-          .map((s) => `${s.dateKey ? s.dateKey.slice(5) : s.label}: ${s.outQty}`)
+          .map((s) => `${s.orderWeek ? `${s.orderWeek} ` : ''}${s.dateKey ? s.dateKey.slice(5) : s.label}: ${s.outQty}`)
           .join(' + '),
       );
     }
@@ -719,196 +863,148 @@ export default function OrderImportComparePage() {
     }
     const unitLabel = row.outUnit || row.unit || '';
     const shipUnitLabel = row.shipUnit || row.outUnit || row.unit || '';
+    const effectiveShipQty =
+      row.displayShipQty != null ? row.displayShipQty : row.shipQty;
+    const shipDateTitle = formatShipDatesTooltip(row);
 
     return (
       <tr
-        key={`${row.prodKey || 'n'}-${row.status}-${idx}`}
+        key={`${row.shipDateKey || 'all'}-${row.prodKey || 'n'}-${row.status}-${idx}`}
         style={{ background: st.bg, color: st.color }}
       >
-        <td
-          style={{
-            ...tdCompactStyle,
-            width: 38,
-            borderLeft: st.borderLeft,
-            fontVariantNumeric: 'tabular-nums',
-            color: '#475569',
-            textAlign: 'center',
-          }}
-        >
-          {rowLabel}
-        </td>
-
         {effectiveShowExcelCols ? (
-          Array.isArray(row.rawCells) ? (
-            visibleExcelCols.map(({ idx: cIdx }) => (
+          <>
+            <td
+              style={{
+                ...tdCompactStyle,
+                width: 38,
+                borderLeft: st.borderLeft,
+                fontVariantNumeric: 'tabular-nums',
+                color: '#475569',
+                textAlign: 'center',
+              }}
+            >
+              {rowLabel}
+            </td>
+            {Array.isArray(row.rawCells) ? (
+              visibleExcelCols.map(({ idx: cIdx }) => (
+                <td
+                  key={`raw-${cIdx}`}
+                  style={{
+                    ...tdCompactStyle,
+                    color: '#0f172a',
+                    maxWidth: 220,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                  title={String(row.rawCells?.[cIdx] ?? '')}
+                >
+                  {row.rawCells?.[cIdx] ?? ''}
+                </td>
+              ))
+            ) : (
               <td
-                key={`raw-${cIdx}`}
+                colSpan={visibleExcelCols.length}
                 style={{
                   ...tdCompactStyle,
                   color: '#0f172a',
-                  maxWidth: 220,
+                  fontWeight: 600,
+                  maxWidth: 360,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                 }}
-                title={String(row.rawCells?.[cIdx] ?? '')}
+                title={nameTooltipParts.join(' · ')}
               >
-                {row.rawCells?.[cIdx] ?? ''}
+                {inlineName}
               </td>
-            ))
-          ) : (
+            )}
+          </>
+        ) : (
+          <>
+            {varietyCell}
             <td
-              colSpan={visibleExcelCols.length}
               style={{
                 ...tdCompactStyle,
-                color: '#0f172a',
-                fontWeight: 600,
-                maxWidth: 360,
+                minWidth: 200,
+                maxWidth: 380,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
+                color: '#0f172a',
+                fontWeight: 600,
+                borderLeft: varietyCell ? undefined : st.borderLeft,
               }}
               title={nameTooltipParts.join(' · ')}
             >
               {inlineName}
             </td>
-          )
-        ) : (
-          <td
-            style={{
-              ...tdCompactStyle,
-              minWidth: 220,
-              maxWidth: 420,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              color: '#0f172a',
-              fontWeight: 600,
-            }}
-            title={nameTooltipParts.join(' · ')}
-          >
-            {inlineName}
-          </td>
+          </>
         )}
 
         <td
           title={qtyTooltipParts.length > 0 ? qtyTooltipParts.join(' · ') : undefined}
           style={{
             ...tdCompactStyle,
-            width: 96,
+            width: 92,
             borderRight: '2px solid #94a3b8',
             textAlign: 'right',
-            fontWeight: 700,
+            fontWeight: isSecondOrLaterSplit ? 500 : 700,
             fontVariantNumeric: 'tabular-nums',
-            color: '#0f172a',
+            color: isSecondOrLaterSplit ? '#64748b' : '#0f172a',
           }}
         >
-          {formatNum(row.baselineQty)}
-          {unitLabel ? ` ${unitLabel}` : ''}
-          {row.sources?.length > 1 && (
-            <span style={{ marginLeft: 3, fontSize: 12.5, fontWeight: 500, color: '#475569' }}>
-              ({row.sources.length}일)
-            </span>
+          {isSecondOrLaterSplit ? (
+            <span>{formatNum(row.totalBaselineQty)}(분할)</span>
+          ) : (
+            <>
+              {formatNum(row.baselineQty)}
+              {unitLabel ? ` ${unitLabel}` : ''}
+              {row.sources?.length > 1 && (
+                <span style={{ marginLeft: 3, fontSize: 12.5, fontWeight: 500, color: '#475569' }}>
+                  ({row.sources.length}건)
+                </span>
+              )}
+            </>
           )}
         </td>
 
         <td
+          title={
+            row.isSplitDateRow
+              ? `이 출고일 분배: ${formatNum(effectiveShipQty)} ${shipUnitLabel} (전체 분배: ${formatNum(row.totalShipQty)} ${shipUnitLabel})`
+              : undefined
+          }
           style={{
             ...tdCompactStyle,
-            width: 96,
+            width: 92,
             textAlign: 'right',
             fontWeight: 700,
             fontVariantNumeric: 'tabular-nums',
           }}
         >
-          {formatNum(row.shipQty)}
+          {formatNum(effectiveShipQty)}
           {shipUnitLabel ? ` ${shipUnitLabel}` : ''}
         </td>
         <td
           title={
-            Array.isArray(row.shipDates) && row.shipDates.length > 0
-              ? row.shipDates
-                  .map((sd) =>
-                    sd.unassigned
-                      ? `출고일 미지정 (${formatNum(sd.qty)}${shipUnitLabel})`
-                      : `${sd.isoDate} (${sd.weekday}요일) ${formatNum(sd.qty)}${shipUnitLabel}`,
-                  )
-                  .join(' · ')
+            row.isSplitDateRow
+              ? `전체 기준 차이: 분배 ${formatNum(row.totalShipQty)} - 발주 ${formatNum(row.totalBaselineQty)}`
               : undefined
           }
           style={{
             ...tdCompactStyle,
-            minWidth: 112,
-            textAlign: 'center',
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          {!(Number(row.shipQty) > 0) ? (
-            <span style={{ color: '#94a3b8' }}>-</span>
-          ) : Array.isArray(row.shipDates) && row.shipDates.length > 0 ? (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' }}>
-              {row.shipDates.map((sd, sIdx) => (
-                <span
-                  key={`${sd.isoDate || 'u'}-${sIdx}`}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}
-                >
-                  {!sd.unassigned && (
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: '#334155' }}>
-                      {sd.shortDate}
-                    </span>
-                  )}
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      padding: '1px 5px',
-                      borderRadius: 4,
-                      background: sd.dayColor?.fill || '#E8EEF4',
-                      color: sd.dayColor?.ink || '#334155',
-                      fontSize: 12,
-                      lineHeight: 1.15,
-                      fontWeight: 800,
-                    }}
-                  >
-                    {sd.unassigned ? '미지정' : sd.weekday}
-                  </span>
-                  {row.shipDates.length > 1 && (
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
-                      {formatNum(sd.qty)}
-                    </span>
-                  )}
-                </span>
-              ))}
-            </span>
-          ) : (
-            <span
-              style={{
-                display: 'inline-block',
-                padding: '1px 5px',
-                borderRadius: 4,
-                background: '#E8EEF4',
-                color: '#334155',
-                fontSize: 12,
-                lineHeight: 1.15,
-                fontWeight: 700,
-              }}
-            >
-              미지정
-            </span>
-          )}
-        </td>
-        <td
-          style={{
-            ...tdCompactStyle,
-            width: 96,
+            width: 88,
             textAlign: 'right',
-            fontWeight: 800,
+            fontWeight: isSecondOrLaterSplit ? 600 : 800,
             fontVariantNumeric: 'tabular-nums',
-            color: st.color,
+            color: isSecondOrLaterSplit ? '#64748b' : st.color,
           }}
         >
-          {formatDiffText(row)}
+          {isSecondOrLaterSplit ? `(${formatDiffText(row)})` : formatDiffText(row)}
         </td>
         <td
           style={{
             ...tdCompactStyle,
-            width: 68,
+            width: 64,
             textAlign: 'center',
           }}
         >
@@ -930,8 +1026,8 @@ export default function OrderImportComparePage() {
         <td
           style={{
             ...tdCompactStyle,
-            width: 158,
-            minWidth: 158,
+            width: 152,
+            minWidth: 152,
             textAlign: 'right',
           }}
         >
@@ -1050,7 +1146,7 @@ export default function OrderImportComparePage() {
                       }
                     }}
                     style={{
-                      width: 82,
+                      width: 80,
                       height: 22,
                       padding: '1px 6px',
                       borderRadius: 4,
@@ -1075,6 +1171,21 @@ export default function OrderImportComparePage() {
           ) : (
             <span style={{ color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>-</span>
           )}
+        </td>
+
+        <td
+          title={shipDateTitle}
+          style={{
+            ...tdCompactStyle,
+            width: 146,
+            minWidth: 132,
+            maxWidth: 210,
+            fontVariantNumeric: 'tabular-nums',
+            color: '#334155',
+            textAlign: 'center',
+          }}
+        >
+          <ShipDatesCellContent row={row} groupByShipDate={groupByShipDate} />
         </td>
 
         {!effectiveShowExcelCols && hasAnyUnitPrice && (
@@ -1312,65 +1423,142 @@ export default function OrderImportComparePage() {
           <div style={{ flex: 1, minWidth: 260 }}>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 3 }}>
               세부차수 선택
+              {subWeeksInParent.length >= 2 && (
+                <span style={{ marginLeft: 6, fontWeight: 500, color: '#475569' }}>
+                  (단독 클릭 또는 + 로 다중 차수 합산)
+                </span>
+              )}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
               {subWeeksInParent.length === 0 ? (
                 <span style={{ fontSize: 13, color: '#475569' }}>선택된 주차의 세부차수가 없습니다.</span>
               ) : (
-                subWeeksInParent.map((w) => {
-                  const active = w.orderWeek === orderWeek;
-                  const shipCustCount = Number(w.shipmentCustomerCount) || 0;
-                  const hasShip = Boolean(w.hasShipment);
-                  const badgeText = shipCustCount > 0
-                    ? `분배 ${shipCustCount}`
-                    : hasShip
-                      ? '분배'
-                      : '주문만';
-                  return (
-                    <button
-                      key={w.orderWeek}
-                      type="button"
-                      aria-pressed={active}
-                      disabled={optionsLoading}
-                      onClick={() => void handleWeekChange(w.orderWeek)}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '4px 10px',
-                        borderRadius: 5,
-                        border: active ? '1px solid #0f172a' : '1px solid #cbd5e1',
-                        background: active ? '#0f172a' : '#ffffff',
-                        color: active ? '#ffffff' : '#334155',
-                        fontSize: 13,
-                        fontWeight: active ? 700 : 600,
-                        fontFamily: FONT_STACK,
-                        fontVariantNumeric: 'tabular-nums',
-                        cursor: optionsLoading ? 'wait' : 'pointer',
-                      }}
-                    >
-                      <span>{formatSubWeekButtonLabel(w.orderWeek)}</span>
-                      <span
+                <>
+                  {subWeeksInParent.length >= 2 && (() => {
+                    const allSubWeeks = subWeeksInParent.map((w) => w.orderWeek);
+                    const allActive =
+                      allSubWeeks.length > 0 &&
+                      selectedOrderWeeks.length === allSubWeeks.length &&
+                      allSubWeeks.every((wk) => selectedOrderWeeks.includes(wk));
+                    const lastSubNum = Number(String(allSubWeeks[allSubWeeks.length - 1]).slice(3)) || allSubWeeks.length;
+                    return (
+                      <button
+                        key="all-subweeks"
+                        type="button"
+                        aria-pressed={allActive}
+                        disabled={optionsLoading}
+                        onClick={() => void handleWeeksChange(allSubWeeks)}
                         style={{
-                          padding: '1px 6px',
-                          borderRadius: 4,
-                          fontSize: 12.5,
-                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '4px 10px',
+                          borderRadius: 5,
+                          border: allActive ? '1px solid #1e3a8a' : '1px solid #cbd5e1',
+                          background: allActive ? '#1e3a8a' : '#f8fafc',
+                          color: allActive ? '#ffffff' : '#1e3a8a',
+                          fontSize: 13,
+                          fontWeight: 700,
                           fontFamily: FONT_STACK,
                           fontVariantNumeric: 'tabular-nums',
-                          background: active
-                            ? (hasShip ? '#1e293b' : '#334155')
-                            : (hasShip ? '#eff6ff' : '#f1f5f9'),
-                          color: active
-                            ? (hasShip ? '#e2e8f0' : '#cbd5e1')
-                            : (hasShip ? '#1d4ed8' : '#475569'),
+                          cursor: optionsLoading ? 'wait' : 'pointer',
                         }}
                       >
-                        {badgeText}
-                      </span>
-                    </button>
-                  );
-                })
+                        전체 합산 (1~{lastSubNum}차)
+                      </button>
+                    );
+                  })()}
+                  {subWeeksInParent.map((w) => {
+                    const active = selectedOrderWeeks.includes(w.orderWeek);
+                    const shipCustCount = Number(w.shipmentCustomerCount) || 0;
+                    const hasShip = Boolean(w.hasShipment);
+                    const badgeText = shipCustCount > 0
+                      ? `분배 ${shipCustCount}`
+                      : hasShip
+                        ? '분배'
+                        : '주문만';
+                    return (
+                      <div
+                        key={w.orderWeek}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'stretch',
+                          borderRadius: 5,
+                          overflow: 'hidden',
+                          border: active ? '1px solid #0f172a' : '1px solid #cbd5e1',
+                          background: active ? '#0f172a' : '#ffffff',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          aria-pressed={active}
+                          disabled={optionsLoading}
+                          onClick={() => void handleWeeksChange([w.orderWeek])}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            padding: '4px 9px',
+                            border: 'none',
+                            background: 'transparent',
+                            color: active ? '#ffffff' : '#334155',
+                            fontSize: 13,
+                            fontWeight: active ? 700 : 600,
+                            fontFamily: FONT_STACK,
+                            fontVariantNumeric: 'tabular-nums',
+                            cursor: optionsLoading ? 'wait' : 'pointer',
+                          }}
+                        >
+                          <span>{formatSubWeekButtonLabel(w.orderWeek)}</span>
+                          <span
+                            style={{
+                              padding: '1px 6px',
+                              borderRadius: 4,
+                              fontSize: 12.5,
+                              fontWeight: 600,
+                              fontFamily: FONT_STACK,
+                              fontVariantNumeric: 'tabular-nums',
+                              background: active
+                                ? (hasShip ? '#1e293b' : '#334155')
+                                : (hasShip ? '#eff6ff' : '#f1f5f9'),
+                              color: active
+                                ? (hasShip ? '#e2e8f0' : '#cbd5e1')
+                                : (hasShip ? '#1d4ed8' : '#475569'),
+                            }}
+                          >
+                            {badgeText}
+                          </span>
+                        </button>
+                        {subWeeksInParent.length >= 2 && (
+                          <button
+                            type="button"
+                            aria-label={`${formatSubWeekButtonLabel(w.orderWeek)} 합산 포함 토글`}
+                            aria-pressed={active}
+                            title={active ? '합산에서 제외' : '현재 선택에 이 차수 추가 합산'}
+                            disabled={optionsLoading || (active && selectedOrderWeeks.length <= 1)}
+                            onClick={() => void handleToggleSubWeek(w.orderWeek)}
+                            style={{
+                              padding: '4px 7px',
+                              border: 'none',
+                              borderLeft: active ? '1px solid #334155' : '1px solid #e2e8f0',
+                              background: active ? '#1e293b' : '#f8fafc',
+                              color: active ? '#e2e8f0' : '#475569',
+                              fontSize: 13,
+                              fontWeight: 800,
+                              fontFamily: FONT_STACK,
+                              cursor:
+                                optionsLoading || (active && selectedOrderWeeks.length <= 1)
+                                  ? 'not-allowed'
+                                  : 'pointer',
+                              opacity: active && selectedOrderWeeks.length <= 1 ? 0.45 : 1,
+                            }}
+                          >
+                            {active ? '✓' : '+'}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
               )}
             </div>
           </div>
@@ -1381,8 +1569,8 @@ export default function OrderImportComparePage() {
             )}
             <button
               type="button"
-              disabled={!orderYear || !orderWeek || !custKey || compareLoading}
-              onClick={() => void fetchCompare(orderYear, orderWeek, custKey)}
+              disabled={!orderYear || selectedOrderWeeks.length === 0 || !custKey || compareLoading}
+              onClick={() => void fetchCompare(orderYear, selectedOrderWeeks, custKey)}
               style={{
                 padding: '5px 12px',
                 borderRadius: 5,
@@ -1392,8 +1580,14 @@ export default function OrderImportComparePage() {
                 fontSize: 13,
                 fontWeight: 700,
                 fontFamily: FONT_STACK,
-                cursor: !orderYear || !orderWeek || !custKey || compareLoading ? 'not-allowed' : 'pointer',
-                opacity: !orderYear || !orderWeek || !custKey || compareLoading ? 0.55 : 1,
+                cursor:
+                  !orderYear || selectedOrderWeeks.length === 0 || !custKey || compareLoading
+                    ? 'not-allowed'
+                    : 'pointer',
+                opacity:
+                  !orderYear || selectedOrderWeeks.length === 0 || !custKey || compareLoading
+                    ? 0.55
+                    : 1,
               }}
             >
               {compareLoading ? '조회 중…' : '새로고침'}
@@ -1771,7 +1965,7 @@ export default function OrderImportComparePage() {
             >
               <div>
                 <strong style={{ fontSize: 14, color: '#0f172a' }}>
-                  최초주문등록 기준 선택 — {custLabel || compareData.customer?.custName || `업체 #${custKey}`} · {orderYear}년 {orderWeek}
+                  최초주문등록 기준 선택 — {custLabel || compareData.customer?.custName || `업체 #${custKey}`} · {orderYear}년 {selectedOrderWeeks.join(' + ')}
                 </strong>
                 <span style={{ marginLeft: 8, fontSize: 12.5, color: '#475569' }}>
                   여러 날짜·등록건을 체크하면 수량이 합산되어 비교됩니다.
@@ -1906,6 +2100,24 @@ export default function OrderImportComparePage() {
                             {formatKstTimestamp(c.timestamp)}
                           </td>
                           <td style={{ padding: '3px 8px', color: '#0f172a', fontWeight: 600 }}>
+                            {selectedOrderWeeks.length >= 2 && c.orderWeek && (
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  marginRight: 6,
+                                  padding: '1px 6px',
+                                  borderRadius: 4,
+                                  background: '#f1f5f9',
+                                  border: '1px solid #cbd5e1',
+                                  color: '#334155',
+                                  fontSize: 12.5,
+                                  fontWeight: 700,
+                                  fontVariantNumeric: 'tabular-nums',
+                                }}
+                              >
+                                {formatSubWeekShortTag(c.orderWeek)}
+                              </span>
+                            )}
                             {c.label}
                             {c.sheetName ? (
                               <span style={{ marginLeft: 8, fontSize: 12.5, fontWeight: 400, color: '#475569' }}>
@@ -2067,6 +2279,62 @@ export default function OrderImportComparePage() {
             </div>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div
+                role="group"
+                aria-label="출고일 보기 방식"
+                style={{
+                  display: 'inline-flex',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: 5,
+                  overflow: 'hidden',
+                }}
+              >
+                <button
+                  type="button"
+                  aria-pressed={groupByShipDate}
+                  onClick={() => setGroupByShipDate(true)}
+                  style={{
+                    padding: '4px 10px',
+                    border: 'none',
+                    background: groupByShipDate ? '#0f172a' : '#ffffff',
+                    color: groupByShipDate ? '#ffffff' : '#334155',
+                    fontSize: 13,
+                    fontWeight: groupByShipDate ? 700 : 600,
+                    fontFamily: FONT_STACK,
+                    cursor: 'pointer',
+                  }}
+                >
+                  출고일별 묶어보기
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={!groupByShipDate}
+                  onClick={() => setGroupByShipDate(false)}
+                  style={{
+                    padding: '4px 10px',
+                    border: 'none',
+                    borderLeft: '1px solid #cbd5e1',
+                    background: !groupByShipDate ? '#0f172a' : '#ffffff',
+                    color: !groupByShipDate ? '#ffffff' : '#334155',
+                    fontSize: 13,
+                    fontWeight: !groupByShipDate ? 700 : 600,
+                    fontFamily: FONT_STACK,
+                    cursor: 'pointer',
+                  }}
+                >
+                  그냥 보기 (출고일 합침)
+                </button>
+              </div>
+
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={groupByVariety}
+                  onChange={(e) => setGroupByVariety(e.target.checked)}
+                />
+                품종별 묶기
+              </label>
+
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 <input
                   type="checkbox"
@@ -2080,7 +2348,7 @@ export default function OrderImportComparePage() {
                 type="text"
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="품명 · 칼라 · 비고 검색"
+                placeholder="품종 · 품명 · 칼라 · 비고 검색"
                 style={{
                   minWidth: 200,
                   padding: '4px 9px',
@@ -2167,7 +2435,7 @@ export default function OrderImportComparePage() {
                 </button>
 
                 <span style={{ fontSize: 12.5, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
-                  표시 {filteredRows.length}행 / 전체 {allRows.length}행
+                  표시 {filteredRows.length}품목 / 전체 {allRows.length}품목
                 </span>
               </div>
             </div>
@@ -2191,7 +2459,7 @@ export default function OrderImportComparePage() {
             )}
           </div>
 
-          {/* 5. 비교 테이블 (고밀도 출고내역서 양식 + 주문↔분배 밀착) */}
+          {/* 5. 비교 테이블 (고밀도 출고내역서 양식 · 품종별 묶기 · 출고일 표시) */}
           <div
             style={{
               background: '#ffffff',
@@ -2199,14 +2467,14 @@ export default function OrderImportComparePage() {
               borderRadius: 6,
               overflowX: 'auto',
               width: 'fit-content',
-              minWidth: 'min(740px, 100%)',
+              minWidth: 'min(820px, 100%)',
               maxWidth: '100%',
             }}
           >
             <table
               style={{
                 width: 'auto',
-                minWidth: 740,
+                minWidth: 820,
                 maxWidth: '100%',
                 borderCollapse: 'collapse',
                 fontSize: 13.5,
@@ -2214,50 +2482,57 @@ export default function OrderImportComparePage() {
             >
               <thead>
                 <tr>
-                  <th style={{ ...thCompactStyle, textAlign: 'center', width: 38 }}>NO</th>
                   {effectiveShowExcelCols ? (
-                    visibleExcelCols.map(({ idx: hIdx, header }) => (
-                      <th key={`hdr-${hIdx}`} style={{ ...thCompactStyle, textAlign: 'left' }}>
-                        {header || `열${hIdx + 1}`}
-                      </th>
-                    ))
+                    <>
+                      <th style={{ ...thCompactStyle, textAlign: 'center', width: 38 }}>NO</th>
+                      {visibleExcelCols.map(({ idx: hIdx, header }) => (
+                        <th key={`hdr-${hIdx}`} style={{ ...thCompactStyle, textAlign: 'left' }}>
+                          {header || `열${hIdx + 1}`}
+                        </th>
+                      ))}
+                    </>
                   ) : (
-                    <th style={{ ...thCompactStyle, textAlign: 'left', minWidth: 220, maxWidth: 420 }}>
-                      품목명
-                    </th>
+                    <>
+                      <th style={{ ...thCompactStyle, textAlign: 'left', width: 112 }}>
+                        품종
+                      </th>
+                      <th style={{ ...thCompactStyle, textAlign: 'left', minWidth: 200, maxWidth: 380 }}>
+                        품목명
+                      </th>
+                    </>
                   )}
                   <th
                     style={{
                       ...thCompactStyle,
                       textAlign: 'right',
-                      width: 96,
+                      width: 92,
                       borderRight: '2px solid #94a3b8',
                     }}
                   >
-                    주문수량
+                    발주수량
                   </th>
-                  <th style={{ ...thCompactStyle, textAlign: 'right', width: 96, background: '#f8fafc' }}>
-                    분배수량
+                  <th style={{ ...thCompactStyle, textAlign: 'right', width: 92, background: '#f8fafc' }}>
+                    출고수량
                   </th>
-                  <th style={{ ...thCompactStyle, textAlign: 'center', minWidth: 112, background: '#f8fafc' }}>
-                    분배 출고일 · 요일
-                  </th>
-                  <th style={{ ...thCompactStyle, textAlign: 'right', width: 96, background: '#f8fafc' }}>
+                  <th style={{ ...thCompactStyle, textAlign: 'right', width: 88, background: '#f8fafc' }}>
                     차이
                   </th>
-                  <th style={{ ...thCompactStyle, textAlign: 'center', width: 68, background: '#f8fafc' }}>
+                  <th style={{ ...thCompactStyle, textAlign: 'center', width: 64, background: '#f8fafc' }}>
                     구분
                   </th>
                   <th
                     style={{
                       ...thCompactStyle,
                       textAlign: 'right',
-                      width: 158,
-                      minWidth: 158,
+                      width: 152,
+                      minWidth: 152,
                       background: '#f8fafc',
                     }}
                   >
                     분배단가
+                  </th>
+                  <th style={{ ...thCompactStyle, textAlign: 'center', width: 146, minWidth: 132, background: '#f8fafc' }}>
+                    분배 출고일 · 요일
                   </th>
                   {!effectiveShowExcelCols && hasAnyUnitPrice && (
                     <th style={{ ...thCompactStyle, textAlign: 'right', width: 80, background: '#f8fafc' }}>
@@ -2287,22 +2562,206 @@ export default function OrderImportComparePage() {
                     </td>
                   </tr>
                 ) : (
-                  <>
-                    {mainRows.map((row, idx) => renderTableRow(row, idx))}
-                    {addedRows.length > 0 && (
-                      <>
-                        <tr style={{ background: '#ecfeff', borderTop: '2px solid #0d9488', borderBottom: '1px solid #99f6e4' }}>
-                          <td
-                            colSpan={totalColCount}
-                            style={{ padding: '3px 8px', fontSize: 12.5, fontWeight: 700, color: '#0f766e' }}
+                  groupedResult.sections.map((sec, secIdx) => {
+                    const sectionItemCount = sec.varietyGroups.reduce(
+                      (sum, vg) => sum + vg.rows.length,
+                      0,
+                    );
+                    return (
+                      <Fragment key={`sec-${sec.dateKey || 'all'}-${secIdx}`}>
+                        {groupByShipDate && (
+                          <tr
+                            style={{
+                              background: sec.isNoDate ? '#f8fafc' : '#eff6ff',
+                              borderTop: secIdx > 0 ? '2px solid #94a3b8' : '1px solid #cbd5e1',
+                              borderBottom: '1px solid #cbd5e1',
+                            }}
                           >
-                            최초주문등록 외 추가 분배 품목 ({addedRows.length}건)
-                          </td>
-                        </tr>
-                        {addedRows.map((row, idx) => renderTableRow(row, idx))}
-                      </>
-                    )}
-                  </>
+                            <td
+                              colSpan={totalColCount}
+                              style={{
+                                padding: '4px 9px',
+                                fontSize: 13,
+                                fontWeight: 800,
+                                color: sec.isNoDate ? '#475569' : '#1e3a8a',
+                                fontVariantNumeric: 'tabular-nums',
+                              }}
+                            >
+                              {sec.isNoDate ? (
+                                `${sec.dateLabel} · ${sectionItemCount}품목`
+                              ) : (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                  <ShipDateWeekdayBadge dateKey={sec.dateKey} showFullWeekday />
+                                  <span>출고 · {sectionItemCount}품목</span>
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+
+                        {sec.varietyGroups.map((vg, vgIdx) => (
+                          <Fragment key={`vg-${sec.dateKey || 'all'}-${vg.varietyGroup || 'flat'}-${vgIdx}`}>
+                            {vg.rows.map((row, rowIdx) => {
+                              let varietyCell = null;
+                              if (!effectiveShowExcelCols) {
+                                if (groupByVariety) {
+                                  if (rowIdx === 0) {
+                                    varietyCell = (
+                                      <td
+                                        rowSpan={vg.rows.length}
+                                        title={vg.varietyGroup}
+                                        style={{
+                                          padding: '4px 7px',
+                                          width: 112,
+                                          maxWidth: 112,
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                          whiteSpace: 'nowrap',
+                                          verticalAlign: 'top',
+                                          fontSize: 13,
+                                          fontWeight: 700,
+                                          color: '#1e293b',
+                                          background: '#f8fafc',
+                                          borderRight: '1px solid #cbd5e1',
+                                          borderBottom: '1px solid #cbd5e1',
+                                        }}
+                                      >
+                                        {vg.varietyGroup}
+                                      </td>
+                                    );
+                                  }
+                                } else {
+                                  varietyCell = (
+                                    <td
+                                      title={row.varietyGroup}
+                                      style={{
+                                        ...tdCompactStyle,
+                                        width: 112,
+                                        maxWidth: 112,
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        fontWeight: 600,
+                                        color: '#334155',
+                                        borderLeft: (ROW_STATUS_STYLE[row.status] || ROW_STATUS_STYLE.SAME).borderLeft,
+                                      }}
+                                    >
+                                      {row.varietyGroup}
+                                    </td>
+                                  );
+                                }
+                              }
+                              return renderTableRow(row, rowIdx, { varietyCell });
+                            })}
+
+                            {groupByVariety &&
+                              vg.unitSubtotals.map((sub) => (
+                                <tr
+                                  key={`sub-${sec.dateKey || 'all'}-${vg.varietyGroup}-${sub.unit}`}
+                                  style={{
+                                    background: '#f1f5f9',
+                                    borderBottom: '1px solid #cbd5e1',
+                                    height: 25,
+                                    fontWeight: 700,
+                                    color: '#0f172a',
+                                  }}
+                                >
+                                  {effectiveShowExcelCols ? (
+                                    <td
+                                      colSpan={Math.max(1, leftColCount - 1)}
+                                      style={{
+                                        padding: '2px 7px',
+                                        fontSize: 13,
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {vg.varietyGroup} · 합계({sub.unit})
+                                    </td>
+                                  ) : (
+                                    <>
+                                      <td
+                                        style={{
+                                          padding: '2px 7px',
+                                          fontSize: 12.5,
+                                          color: '#475569',
+                                          borderRight: '1px solid #cbd5e1',
+                                          whiteSpace: 'nowrap',
+                                        }}
+                                      />
+                                      <td
+                                        style={{
+                                          padding: '2px 7px',
+                                          fontSize: 13,
+                                          fontWeight: 800,
+                                          color: '#0f172a',
+                                          whiteSpace: 'nowrap',
+                                        }}
+                                      >
+                                        합계({sub.unit})
+                                      </td>
+                                    </>
+                                  )}
+                                  <td
+                                    style={{
+                                      padding: '2px 7px',
+                                      borderRight: '2px solid #94a3b8',
+                                      textAlign: 'right',
+                                      fontSize: 13,
+                                      fontVariantNumeric: 'tabular-nums',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {formatNum(sub.baselineQty)} {sub.unit}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: '2px 7px',
+                                      textAlign: 'right',
+                                      fontSize: 13,
+                                      fontVariantNumeric: 'tabular-nums',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {formatNum(sub.shipQty)} {sub.unit}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: '2px 7px',
+                                      textAlign: 'right',
+                                      fontSize: 13,
+                                      fontVariantNumeric: 'tabular-nums',
+                                      whiteSpace: 'nowrap',
+                                      color:
+                                        sub.diff > 0
+                                          ? '#1d4ed8'
+                                          : sub.diff < 0
+                                            ? '#b45309'
+                                            : '#0f172a',
+                                    }}
+                                  >
+                                    {sub.diff > 0 ? `+${formatNum(sub.diff)}` : formatNum(sub.diff)}
+                                  </td>
+                                  <td style={{ padding: '2px 7px' }} />
+                                  <td
+                                    style={{
+                                      padding: '2px 7px',
+                                      textAlign: 'right',
+                                      fontSize: 13,
+                                      fontVariantNumeric: 'tabular-nums',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {formatNum(Math.round(sub.shipAmount))}원
+                                  </td>
+                                  <td style={{ padding: '2px 7px' }} />
+                                  {!effectiveShowExcelCols && hasAnyUnitPrice && <td style={{ padding: '2px 7px' }} />}
+                                  {!effectiveShowExcelCols && hasAnyNote && <td style={{ padding: '2px 7px' }} />}
+                                </tr>
+                              ))}
+                          </Fragment>
+                        ))}
+                      </Fragment>
+                    );
+                  })
                 )}
               </tbody>
               {filteredRows.length > 0 && (
@@ -2324,7 +2783,7 @@ export default function OrderImportComparePage() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      합 계 ({filteredRows.length}품목)
+                      전체 합 계 ({filteredRows.length}품목)
                     </td>
                     <td
                       style={{
@@ -2348,18 +2807,6 @@ export default function OrderImportComparePage() {
                       }}
                     >
                       {formatNum(footerTotals.shipTotal)}
-                    </td>
-                    <td
-                      style={{
-                        padding: '4px 7px',
-                        textAlign: 'center',
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: '#475569',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {footerTotals.weekdaysLabel || '-'}
                     </td>
                     <td
                       style={{
@@ -2402,6 +2849,7 @@ export default function OrderImportComparePage() {
                     >
                       {formatNum(footerTotals.shipAmountTotal)}원
                     </td>
+                    <td style={{ padding: '4px 7px' }} />
                     {!effectiveShowExcelCols && hasAnyUnitPrice && <td style={{ padding: '4px 7px' }} />}
                     {!effectiveShowExcelCols && hasAnyNote && <td style={{ padding: '4px 7px' }} />}
                   </tr>

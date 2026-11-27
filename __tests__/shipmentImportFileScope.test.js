@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import XLSX from 'xlsx';
+import { allocationDateHeader } from '../lib/shipmentUploadDates.js';
 const source=fs.readFileSync('lib/shipmentImport.js','utf8').replace(/^import[\s\S]*?;\r?\n/gm,'').replace(/^export \{[^}]+\} from [^;]+;/gm,'').replace(/export /g,'');
-const parser={normalizeOrderWeek:x=>x,cleanPivotProdName:x=>x};vm.createContext(parser);vm.runInContext(source+'\nthis.parse=parseAllocationWorkbook;',parser);
+const parser={allocationDateHeader,normalizeOrderWeek:x=>x,cleanPivotProdName:x=>x};vm.createContext(parser);vm.runInContext(source+'\nthis.parse=parseAllocationWorkbook;',parser);
 function workbook(name,family){const b=XLSX.utils.book_new();XLSX.utils.book_append_sheet(b,XLSX.utils.aoa_to_sheet([[family],[],['','Fixture A','주문','입고'],['PINK',5,5,0]]),name);return b;}
 const old=workbook('카네이션','카네이션');assert.ok(parser.parse(XLSX,old).rows.every(r=>r.productFamily==='carnation'));
 const fresh=workbook('Sheet1','수국');XLSX.utils.book_append_sheet(fresh,XLSX.utils.aoa_to_sheet([['kind','sheet','label','key'],['prod','카네이션','WHITE',502]]),'_keymap');

@@ -3,9 +3,11 @@ import MenuBackButton from '../components/MenuBackButton';
 import ReplayRecorder from '../components/ReplayRecorder';
 import UserActivityRecorder from '../components/UserActivityRecorder';
 import EcountPreviewShell from '../components/EcountPreviewShell';
+import GlobalViewportResizeController from '../components/GlobalViewportResizeController';
 import '../styles/globals.css';
 import '../styles/unified-ui.css';
 import '../styles/desktop-workspace.css';
+import '../styles/nenova-classic.css';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { MENU_PAGE_RESET_EVENT } from '../lib/menuNavigationHistory';
@@ -71,6 +73,7 @@ export default function App({ Component, pageProps }) {
     return (
       <>
         <style>{`body { background: #F0F0F0; }`}</style>
+        <GlobalViewportResizeController />
         {needsStandaloneBack && <MenuBackButton standalone />}
         <ReplayRecorder />
         <UserActivityRecorder />
@@ -81,6 +84,7 @@ export default function App({ Component, pageProps }) {
 
   return (
     <Layout>
+      <GlobalViewportResizeController />
       <ReplayRecorder />
       <UserActivityRecorder />
       {page}
