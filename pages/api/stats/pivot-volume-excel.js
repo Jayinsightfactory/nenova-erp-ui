@@ -22,6 +22,9 @@ import {
   normalizeVolumeGroupBy,
 } from '../../../lib/pivotVolumeGrouping';
 import { renderPivotFieldVolumeWorkbook } from '../../../lib/pivotFieldVolume';
+import { getDayColor, getRegionColor } from '../../../lib/pivotVolumeColors.cjs';
+import { isFractionalQty, convertFractionalToUnit } from '../../../lib/volumeDecimalUnits.cjs';
+import { injectDecimalUnitShapes } from '../../../lib/volumeDecimalShapes.cjs';
 const ALSTRO_DIVISOR = 16;
 const CUSTOMER_COL_WCH = 4;
 const DUTCH_CUSTOMER_COL_WCH = 10;
@@ -342,9 +345,25 @@ function makeSheet(rows, customers, farms, meta) {
       const cellVal = typeof ws[addr].v === 'number' ? ws[addr].v : null;
       const remainNeg = col.type === 'summary' && col.label === '잔량' && cellVal != null && cellVal < 0;
       if (r <= headerRows) {
-        ws[addr].s = r === 1 ? STYLES.title
-          : (r === 3 && (col.type === 'customer' || col.type === 'farm')) ? STYLES.headerTop  // #5 업체/농장 위쪽맞춤
-          : STYLES.header;
+        if (col.type === 'customer' && ((groupBy === 'day' && r === 1) || (groupBy !== 'day' && r === 2))) {
+          const dayColor = getDayColor(col.day);
+          ws[addr].s = {
+            ...STYLES.header,
+            fill: { fgColor: { rgb: dayColor.fill } },
+            font: { ...STYLES.header.font, color: { rgb: dayColor.ink } },
+          };
+        } else if (col.type === 'customer' && ((groupBy === 'day' && r === 2) || (groupBy !== 'day' && r === 1))) {
+          const regionColor = getRegionColor(col.region);
+          ws[addr].s = {
+            ...STYLES.header,
+            fill: { fgColor: { rgb: regionColor.fill } },
+            font: { ...STYLES.header.font, color: { rgb: regionColor.ink } },
+          };
+        } else {
+          ws[addr].s = r === 1 ? STYLES.title
+            : (r === 3 && (col.type === 'customer' || col.type === 'farm')) ? STYLES.headerTop  // #5 업체/농장 위쪽맞춤
+            : STYLES.header;
+        }
       } else if (r === totalRow) ws[addr].s = remainNeg ? STYLES.summaryRed : STYLES.summary;
       else if (col.type === 'product' || col.type === 'flower') ws[addr].s = STYLES.text;
       else if (col.type === 'color') ws[addr].s = STYLES.text;
@@ -363,6 +382,19 @@ function makeSheet(rows, customers, farms, meta) {
       if (!cell) continue;
       const isNegativeRemain = colPlan[col].type === 'summary' && colPlan[col].label === '잔량' && Number(cell.v) < 0;
       if (!isNegativeRemain) cell.s = { ...(cell.s || STYLES.text), fill, border: BORDER };
+    }
+  }
+
+  if (!meta.combined) {
+    for (let row = dataStart; row < totalRow; row += 1) {
+      for (let col = 0; col < colPlan.length; col += 1) {
+        const addr = encodeCell(row, col + 1);
+        const cell = ws[addr];
+        if (cell?.t === 'n' && isFractionalQty(cell.v)) {
+          cell.z = '0.##';
+          cell.s = { ...(cell.s || STYLES.number), numFmt: '0.##' };
+        }
+      }
     }
   }
 
@@ -418,13 +450,42 @@ function makeSheet(rows, customers, farms, meta) {
     keymap.push({ kind: 'meta', label: 'groupBy', key: 'day' });
   }
 
-  return { ws: rows.some(isAlstroRow)
-    ? pairAlstroBoxColumns(ws, colPlan, rows, dataStart, totalRow) : ws, keymap };
+  const hasAlstro = rows.some(isAlstroRow);
+  const pairedCol = col => ['customer', 'summary', 'farm', 'farm-total'].includes(col.type);
+  const finalColCount = hasAlstro ? colPlan.reduce((sum, col) => sum + (pairedCol(col) ? 2 : 1), 0) : colPlan.length;
+  const badges = [];
+  if (!meta.combined) {
+    rows.forEach((row, idx) => {
+      const excelRow = dataStart + idx;
+      const parts = [];
+      colPlan.forEach(col => {
+        if (col.type === 'customer') {
+          const v = q(row, pivotCustomerQuantity(row, col.customer));
+          if (isFractionalQty(v)) {
+            const conv = convertFractionalToUnit(v, row);
+            if (conv) parts.push(`${col.label} ${conv.label}`);
+          }
+        } else if (col.type === 'summary' && (col.label === '주문' || col.label === '입고')) {
+          const v = col.label === '주문' ? q(row, sumOrderQty(row)) : q(row, sumIncomingQty(row));
+          if (isFractionalQty(v)) {
+            const conv = convertFractionalToUnit(v, row);
+            if (conv) parts.push(`${col.label} ${conv.label}`);
+          }
+        }
+      });
+      if (parts.length) {
+        badges.push({ row: excelRow - 1, col: finalColCount, text: parts.join(' · ') });
+      }
+    });
+  }
+
+  return { ws: hasAlstro
+    ? pairAlstroBoxColumns(ws, colPlan, rows, dataStart, totalRow, Boolean(meta.combined)) : ws, keymap, badges };
 }
 
 // Box cells are TEXT formulas: Excel SUM ignores them, including after users
 // insert copied quantity/box column pairs inside the customer block.
-function pairAlstroBoxColumns(ws, plan, rows, dataStart, totalRow) {
+function pairAlstroBoxColumns(ws, plan, rows, dataStart, totalRow, combined = false) {
   const paired = col => ['customer', 'summary', 'farm', 'farm-total'].includes(col.type);
   const positions = [];
   let width = 0;
@@ -448,7 +509,15 @@ function pairAlstroBoxColumns(ws, plan, rows, dataStart, totalRow) {
       result[address] = cell;
       if (!paired(col)) continue;
       const boxAddress = encodeCell(r, target + 2);
-      result[boxAddress] = { t: 's', v: '', s: { ...cell.s } };
+      result[boxAddress] = {
+        t: 's',
+        v: '',
+        s: {
+          ...cell.s,
+          ...(cell.s?.fill ? { fill: { ...cell.s.fill } } : {}),
+          ...(cell.s?.font ? { font: { ...cell.s.font } } : {}),
+        },
+      };
       if (r === 3) {
         result['!merges'].push({ s: { r: r - 1, c: target }, e: { r: r - 1, c: target + 1 } });
         cell.s.alignment = { ...cell.s.alignment, horizontal: 'center' };
@@ -461,7 +530,8 @@ function pairAlstroBoxColumns(ws, plan, rows, dataStart, totalRow) {
         cell.f = `SUM(${encodeCell(dataStart, target + 1)}:${encodeCell(totalRow - 1, target + 1)})`;
       }
       // Keep raw numeric values editable and free of download-time annotations.
-      cell.z = 'General'; cell.s.numFmt = 'General'; delete cell.w;
+      const cellFmt = !combined && r < totalRow && typeof cell.v === 'number' && isFractionalQty(cell.v) ? '0.##' : 'General';
+      cell.z = cellFmt; cell.s.numFmt = cellFmt; delete cell.w;
       cell.s.alignment = { ...cell.s.alignment, horizontal: 'right' };
       cell.s.border = { ...cell.s.border };
       delete cell.s.border.right;
@@ -585,6 +655,7 @@ export default withAuth(async function handler(req, res) {
 
     const usedSheetNames = new Set();
     const globalKeymap = [];   // 재업로드 정확 매칭용: { sheet, kind, idx, key }
+    const sheetBadgesMap = {};
     for (const [key, group] of groups) {
       if (onlyKey && key !== onlyKey) continue;
       const sheetRows = sortGroupRows(group);
@@ -592,7 +663,7 @@ export default withAuth(async function handler(req, res) {
       const sheetName = group.sheetNameBase
         ? makePivotVolumeSheetName(group.sheetNameBase, '', usedSheetNames)
         : makePivotVolumeSheetName(group.country, group.flower, usedSheetNames);
-      const { ws, keymap } = makeSheet(sheetRows, customers, farms, {
+      const { ws, keymap, badges } = makeSheet(sheetRows, customers, farms, {
         orderYear: data.orderYear,
         combined,
         weekLabel,
@@ -603,6 +674,7 @@ export default withAuth(async function handler(req, res) {
         groupBy,
       });
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      if (badges?.length) sheetBadgesMap[sheetName] = badges;
       (keymap || []).forEach(k => globalKeymap.push({ sheet: sheetName, kind: k.kind, label: k.label, key: k.key }));
     }
 
@@ -627,7 +699,10 @@ export default withAuth(async function handler(req, res) {
       : `${data.orderYear}_${data.weekStart}${data.weekEnd !== data.weekStart ? `_${data.weekEnd}` : ''}_통합물량표${groupSuffix}.xlsx`;
     if (combined) fileBase = fileBase.replace(/\.xlsx$/, `_${data.weekEnd}_합산셀.xlsx`);
     wb.Workbook = { ...wb.Workbook, CalcPr: { calcMode: 'auto', fullCalcOnLoad: true, forceFullCalc: true } };
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', compression: true });
+    let buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', compression: true });
+    if (Object.keys(sheetBadgesMap).length) {
+      buf = await injectDecimalUnitShapes(buf, sheetBadgesMap);
+    }
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileBase)}`);
     return res.status(200).send(buf);

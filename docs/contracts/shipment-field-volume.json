@@ -5,12 +5,16 @@
     "lib/shipmentFieldVolume.js",
     "lib/shipmentFieldCompact.js",
     "lib/shipmentFarmDrawing.js",
+    "lib/pivotVolumeColors.cjs",
+    "lib/volumeDecimalUnits.cjs",
+    "lib/volumeDecimalShapes.cjs",
     "pages/api/shipment/distribute-import-preview.js",
     "pages/api/shipment/distribute-import-export.js",
     "pages/shipment/distribute-import.js",
     "lib/shipmentFarmText.js",
     "lib/shipmentFarmImport.js",
     "__tests__/shipmentFieldVolume.test.cjs",
+    "__tests__/volumeColorsAndDecimalBadges.test.cjs",
     "scripts/lib/shipment-field-fixture.cjs",
     "scripts/lib/shipment-field-guide-caption.cjs",
     "scripts/record-shipment-field-volume.cjs",
@@ -81,7 +85,7 @@
     "routeHeading": "Column C beside weekday-region heading lists customer total(cultivar quantity,...), grouped by CustKey and ProdKey within date/region/unit.",
     "previousSelection": "Cultivar breakdown includes previous only when includePrevious is not false; never substitutes farm assignment quantity.",
     "palletBoxes": "Append source snapshot box quantity (up to six decimal places) beside rounded pallets; never reverse rounded pallets. Existing capacities and rose 10 / Snow Flake 25 bundle-to-box conversion preserved.",
-    "print": "Single worksheet, day-first merged weekday heading blocks in footer only after total; canonical suggestDisplayName plus trusted display aliases, unknown cultivar labels preserved; A3 landscape; original D/E/F/G values and remaining-stock formulas retained."
+    "print": "Single worksheet, day-first merged weekday heading blocks in footer only after total; canonical suggestDisplayName plus trusted display aliases, unknown cultivar labels preserved; A3 landscape; original D/E/F/G values and remaining-stock formulas retained; consistent day/region fills and inks (fallback when monochrome); non-destructive OOXML DecimalUnitBadge_* shapes right of table when fractional quantities exist (Product BunchOf1Box/SteamOf1Bunch/SteamOf1Box SELECT-only)."
   },
   "sourceSummary": {
     "identity": [

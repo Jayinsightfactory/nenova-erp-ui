@@ -27,14 +27,26 @@ async function handler(req,res){
     if(mode!=null&&!['true','false'].includes(mode))throw Error('1차 합산 여부를 확인하세요.');
     const includePrevious=!orderWeek.endsWith('-02')||mode!=='false';
     const selection=JSON.parse(first(fields.selection)||'[]');
-    const customers=await query('SELECT CustName, OrderCode, Descr FROM Customer WHERE ISNULL(isDeleted,0)=0');
+    const [customers, productResult]=await Promise.all([
+      query('SELECT CustName, OrderCode, Descr FROM Customer WHERE ISNULL(isDeleted,0)=0'),
+      query('SELECT ProdKey, ProdName, DisplayName, FlowerName, OutUnit, ISNULL(BunchOf1Box,0) AS BunchOf1Box, ISNULL(SteamOf1Bunch,0) AS SteamOf1Bunch, ISNULL(SteamOf1Box,0) AS SteamOf1Box FROM Product WHERE ISNULL(isDeleted,0)=0'),
+    ]);
+    const productUnits={};
+    for(const p of productResult.recordset||[]){
+      const meta={outUnit:p.OutUnit||'',bunchOf1Box:Number(p.BunchOf1Box||0),steamOf1Bunch:Number(p.SteamOf1Bunch||0),steamOf1Box:Number(p.SteamOf1Box||0)};
+      if(p.ProdKey)productUnits[String(p.ProdKey)]=meta;
+      for(const name of [p.ProdName,p.DisplayName].filter(Boolean)){
+        const norm=String(name).replace(/\s+/g,'').toLowerCase();
+        if(norm&&!productUnits[norm])productUnits[norm]=meta;
+      }
+    }
     async function renderSaved(plan){
       const scope=fieldVolumeSql(plan.products.map(p=>p.prodKey),plan.includePrevious);
       const params={year:{type:sql.NVarChar,value:orderYear},major:{type:sql.NVarChar,value:orderWeek.slice(0,2)},minor:{type:sql.Int,value:Number(orderWeek.slice(3))}};
       const [lines,farms]=await Promise.all([query(scope.lines,params),query(scope.farms,params)]);
       return createFieldVolumeWorkbook(plan,lines.recordset,farms.recordset);
     }
-    const {output,name}=await downloadSelection(orderYear,orderWeek,selection,customers.recordset,{filename:first(fields.filename),text:first(fields.farmText)},renderSaved,includePrevious);
+    const {output,name}=await downloadSelection(orderYear,orderWeek,selection,customers.recordset,{filename:first(fields.filename),text:first(fields.farmText),productUnits},renderSaved,includePrevious);
     res.setHeader('Content-Disposition',"attachment; filename*=UTF-8''"+encodeURIComponent(name));
     res.setHeader('Content-Type',name.endsWith('.zip')?'application/zip':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     return res.send(output);

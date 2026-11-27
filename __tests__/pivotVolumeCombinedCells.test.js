@@ -55,6 +55,9 @@ async function main() {
   const source = fs.readFileSync(path.join(__dirname, '../pages/api/stats/pivot-volume-excel.js'),'utf8')
     .split('export default withAuth')[0].replace(/^import[\s\S]*?;\r?\n/gm, '');
   const context = { XLSX, ...helper, ...grouping, volumeProdLabel, pivotCustomerQuantity, isAlstroImportRow, getFarmDisplayName: x=>x, customerDisplayLabel:c=>c.custName,
+    ...require('../lib/pivotVolumeColors.cjs'),
+    ...require('../lib/volumeDecimalUnits.cjs'),
+    ...require('../lib/volumeDecimalShapes.cjs'),
     DAY_ORDER:{}, extractDays:()=>[], pickDataDay:()=>'', isNetherlandsVolume:()=>false,
     buildPivotVolumeIdentityColumns:()=>[{type:'product'}], pivotVolumeFlowerLabel:r=>r.flower,
     sumOrderQty:r=>Object.values(r.orders||{}).reduce((a,b)=>a+b,0), sumIncomingQty:()=>0 };
