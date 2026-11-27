@@ -13,6 +13,7 @@ import {
   arrivalVarietyWeightActive,
   arrivalWeightHints,
   buildArrivalThreeTierChips,
+  cleanArrivalFlowerChip,
   filterArrivalRowsByWeight,
   filterArrivalRowsThreeTier,
   formatFarmCostSummary,
@@ -25,6 +26,8 @@ import {
 } from '../lib/arrivalCostView.js';
 import { recalcArrivalCostWithFx } from '../lib/arrivalCostFxPreview.js';
 import { formatOrderWeekDateRange } from '../lib/orderWeekDate.js';
+import { buildArrivalHistoryWorkbook } from '../lib/arrivalHistoryWorkbook.js';
+import { upgradeLegacyCostWorkbook } from '../lib/upgradeLegacyCostSheetXml.js';
 
 const BASIS = [
   ['SOURCE', '엑셀 원식'],
@@ -283,6 +286,11 @@ export default function ArrivalCostPage() {
   const [showAllChipProducts, setShowAllChipProducts] = useState(false);
   const [quickChipQuery, setQuickChipQuery] = useState('');
   const [groupLimit, setGroupLimit] = useState(100);
+  const [historyViewMode, setHistoryViewMode] = useState('summary');
+  const [rowViewLimit, setRowViewLimit] = useState(200);
+  const [exportingXlsx, setExportingXlsx] = useState(false);
+  const [upgradingFile, setUpgradingFile] = useState(false);
+  const legacyUpgradeInputRef = useRef(null);
 
   const cleanVarieties = useMemo(() => normalizeArrivalVarietyTabs(varieties), [varieties]);
   const visibleRows = useMemo(
@@ -299,6 +307,7 @@ export default function ArrivalCostPage() {
   }, [data.rows]);
   useEffect(() => {
     setGroupLimit(100);
+    setRowViewLimit(200);
   }, [selectedChipVarieties, selectedChipFarms, selectedChipProducts, quickChipQuery, weightRuleOn]);
 
   const chipVarietySet = useMemo(() => new Set(selectedChipVarieties), [selectedChipVarieties]);
@@ -384,6 +393,107 @@ export default function ArrivalCostPage() {
   const movePage = (nextPage) => {
     if (nextPage < 1 || (nextPage > page && !data.hasMore)) return;
     load(nextPage, appliedFilters);
+  };
+
+  const rowSectionsByWeek = useMemo(() => {
+    const sliced = filteredRows.slice(0, rowViewLimit);
+    const sections = [];
+    for (const row of sliced) {
+      const wk = String(row.orderWeek || '');
+      const last = sections[sections.length - 1];
+      if (!last || last.orderWeek !== wk) sections.push({ orderWeek: wk, rows: [row] });
+      else last.rows.push(row);
+    }
+    return sections;
+  }, [filteredRows, rowViewLimit]);
+
+  const triggerBlobDownload = (bytes, filename) => {
+    const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = window.document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    window.document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  };
+
+  const exportQueriedWeeksXlsx = async () => {
+    if (exportingXlsx) return;
+    setExportingXlsx(true);
+    setError('');
+    setMessage('');
+    try {
+      let sourceRows = data.rows || [];
+      const totalCount = Number(data.total || 0);
+      if ((data.hasMore || page > 1) && totalCount > sourceRows.length) {
+        const collected = [];
+        const batchSize = 500;
+        const maxPages = Math.min(30, Math.ceil(totalCount / batchSize));
+        for (let pNo = 1; pNo <= maxPages; pNo += 1) {
+          const qs = new URLSearchParams(Object.entries(appliedFilters).filter(([, value]) => value !== ''));
+          qs.set('page', String(pNo));
+          qs.set('pageSize', String(batchSize));
+          const res = await fetch(`/api/arrival-cost?${qs}`, { credentials: 'same-origin' });
+          const json = await parseJsonResponse(res);
+          if (!res.ok || !json.success) throw new Error(json.error || '전체 페이지 원가 조회에 실패했습니다.');
+          collected.push(...(json.rows || []));
+          if (!json.hasMore) break;
+        }
+        if (collected.length > 0) sourceRows = collected;
+      }
+      const weightFiltered = weightRuleOn ? filterArrivalRowsByWeight(sourceRows) : sourceRows;
+      const exportRows = filterArrivalRowsThreeTier(weightFiltered, {
+        selectedVarieties: selectedChipVarieties,
+        selectedFarms: selectedChipFarms,
+        selectedProducts: selectedChipProducts,
+        quickQuery: quickChipQuery,
+      });
+      if (!exportRows.length) throw new Error('내보낼 도착원가 행이 없습니다.');
+      const bytes = await buildArrivalHistoryWorkbook({
+        rows: exportRows,
+        orderYear: appliedFilters.orderYear,
+        weekOrder: currentWeekOrder === 'desc' ? 'desc' : 'asc',
+        previewFx: previewFxActive ? previewFxNum : null,
+        outputType: 'uint8array',
+      });
+      const distinctWeeks = [...new Set(exportRows.map(r => r.orderWeek).filter(Boolean))];
+      const weekLabel = distinctWeeks.length === 1
+        ? distinctWeeks[0]
+        : distinctWeeks.length > 1
+          ? `${distinctWeeks[0]}~${distinctWeeks[distinctWeeks.length - 1]}`
+          : '조회분';
+      const fileName = `도착원가_${appliedFilters.orderYear || ''}_${weekLabel}_품종필터·고정헤드.xlsx`;
+      triggerBlobDownload(bytes, fileName);
+      setMessage(`${distinctWeeks.length || 1}개 차수(${exportRows.length.toLocaleString('ko-KR')}행) 원가시트 엑셀을 내려받았습니다.`);
+    } catch (e) {
+      setError(e.message || '원가시트 엑셀 생성에 실패했습니다.');
+    } finally {
+      setExportingXlsx(false);
+    }
+  };
+
+  const handleUpgradeLegacyWorkbookFile = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || upgradingFile) return;
+    setUpgradingFile(true);
+    setError('');
+    setMessage('');
+    try {
+      const arrayBuf = await file.arrayBuffer();
+      const upgraded = await upgradeLegacyCostWorkbook(new Uint8Array(arrayBuf));
+      const stem = String(file.name || '원가자료').replace(/\.xlsx$/i, '');
+      const outName = `${stem}_품종필터·고정헤드.xlsx`;
+      triggerBlobDownload(upgraded.buffer, outName);
+      const removedInfo = upgraded.removedSheets.length > 0 ? ` · 부가시트 ${upgraded.removedSheets.length}개 정리` : '';
+      setMessage(`「${file.name}」의 차수 시트 ${upgraded.sheetNames.length}개(변환 ${upgraded.upgradedSheets.length}개${removedInfo})에 품종 필터·틀고정을 적용해 내려받았습니다.`);
+    } catch (e) {
+      setError(e.message || '기존 원가엑셀 시트 변환에 실패했습니다.');
+    } finally {
+      setUpgradingFile(false);
+    }
   };
 
   return (
@@ -488,7 +598,53 @@ export default function ArrivalCostPage() {
         {(data.warnings || []).map(warning => <div className="notice error" key={warning}>{warning}</div>)}
 
         <section className="arrival-card table-card">
-          <div className="section-title">도착원가 내역 <span className="muted">(현재 revision)</span></div>
+          <div className="table-card-header">
+            <div className="section-title">도착원가 내역 <span className="muted">(현재 revision)</span></div>
+            <div className="history-view-toolbar">
+              <div className="view-mode-switch" role="group" aria-label="도착원가 내역 보기 방식">
+                <button
+                  type="button"
+                  className={historyViewMode === 'summary' ? 'active' : ''}
+                  aria-pressed={historyViewMode === 'summary'}
+                  onClick={() => setHistoryViewMode('summary')}
+                >
+                  품목 요약 보기
+                </button>
+                <button
+                  type="button"
+                  className={historyViewMode === 'rows' ? 'active' : ''}
+                  aria-pressed={historyViewMode === 'rows'}
+                  onClick={() => setHistoryViewMode('rows')}
+                >
+                  개별 행 보기 (농장·품종·품명)
+                </button>
+              </div>
+              <button
+                type="button"
+                className="primary"
+                disabled={loading || exportingXlsx || filteredRows.length === 0}
+                onClick={exportQueriedWeeksXlsx}
+              >
+                {exportingXlsx ? '엑셀 생성 중…' : '조회 차수 원가시트(.xlsx) 다운로드'}
+              </button>
+              <input
+                ref={legacyUpgradeInputRef}
+                type="file"
+                accept=".xlsx"
+                style={{ display: 'none' }}
+                aria-label="보유 누적 원가자료 엑셀 일괄 신형 변환 파일 선택"
+                onChange={handleUpgradeLegacyWorkbookFile}
+              />
+              <button
+                type="button"
+                disabled={upgradingFile}
+                onClick={() => legacyUpgradeInputRef.current?.click()}
+                title="기존 누적 원가자료(.xlsx)의 모든 과거 차수 시트에 농장 옆 품종 필터와 가로·세로 고정헤드를 무손실 일괄 적용합니다"
+              >
+                {upgradingFile ? '시트 변환 중…' : '기존 누적엑셀 전 시트 변환(.xlsx)'}
+              </button>
+            </div>
+          </div>
           {!loading && visibleRows.length > 0 && (
             <div className="three-tier-bar" aria-label="품종·농장·품목 원클릭 필터">
               <div className="tier-row" role="toolbar" aria-label="품종별 버튼 필터">
@@ -662,9 +818,100 @@ export default function ArrivalCostPage() {
               </dl>
             </div>
           )}
-          {loading ? <div className="empty">조회 중입니다.</div> : data.rows.length === 0 ? <div className="empty">선택 범위에 표시할 품목이 없습니다.</div> : visibleRows.length === 0 ? <div className="empty">지금 활성화된 품종이 아닙니다. 전체보기나 특별기준을 끄면 전체가 보입니다.</div> : filteredRows.length === 0 ? <div className="empty">선택한 품종·농장·품목 버튼 조건에 해당하는 원가 내역이 없습니다. 초기화를 눌러 전체를 확인하세요.</div> : (
+          {loading ? <div className="empty">조회 중입니다.</div> : data.rows.length === 0 ? <div className="empty">선택 범위에 표시할 품목이 없습니다.</div> : visibleRows.length === 0 ? <div className="empty">지금 활성화된 품종이 아닙니다. 전체보기나 특별기준을 끄면 전체가 보입니다.</div> : filteredRows.length === 0 ? <div className="empty">선택한 품종·농장·품목 버튼 조건에 해당하는 원가 내역이 없습니다. 초기화를 눌러 전체를 확인하세요.</div> : historyViewMode === 'rows' ? (
             <div className="table-wrap">
-              <table>
+              <table className="row-ledger-table">
+                <thead><tr>
+                  <th>농장</th>
+                  <th>품종</th>
+                  <th>칼라·품명</th>
+                  <th>차수·국가</th>
+                  <th className="num">수량</th>
+                  <th className="num">FOB</th>
+                  <th className="num">운임·통관</th>
+                  <th className="num">도착원가</th>
+                  <th className="num">합계(원)</th>
+                  <th>매칭·이력</th>
+                </tr></thead>
+                <tbody>{rowSectionsByWeek.flatMap(section => [
+                  <tr key={`row-week-${section.orderWeek || 'none'}`} className="week-head">
+                    <td colSpan={10}>
+                      차수 {section.orderWeek || '-'}
+                      {section.orderWeek && (() => {
+                        const range = formatOrderWeekDateRange(appliedFilters.orderYear, section.orderWeek);
+                        return range ? ` (${range})` : '';
+                      })()}
+                      {' '}· {section.rows.length.toLocaleString('ko-KR')}행
+                    </td>
+                  </tr>,
+                  ...section.rows.map(row => {
+                    const draft = drafts[row.arrivalLineKey] || {};
+                    const unitCost = farmSummaryCostFn(row);
+                    const totalKRW = Number.isFinite(unitCost) ? (Number(row.quantity) || 0) * unitCost : null;
+                    const farmText = row.farmName || row.autoFarmName || row.farmNameRaw || '-';
+                    const varietyText = cleanArrivalFlowerChip(row);
+                    const displayProd = row.displayName || row.prodName || row.productNameRaw || '-';
+                    const freightCustomsParts = [];
+                    if (row.freightPerUnitUSD != null && Number.isFinite(Number(row.freightPerUnitUSD))) {
+                      freightCustomsParts.push(`$${fmt(row.freightPerUnitUSD, 3)}`);
+                    }
+                    const customsSum = (Number(row.customsPerUnitKRW) || 0) + (Number(row.otherPerUnitKRW) || 0);
+                    if ((row.customsPerUnitKRW != null || row.otherPerUnitKRW != null) && customsSum !== 0) {
+                      freightCustomsParts.push(`${fmt(customsSum)}원`);
+                    }
+                    const rowClass = [
+                      'row-ledger-item',
+                      row.uploadStatus === 'COST_NOT_UPLOADED'
+                        ? 'cost-missing'
+                        : row.matchStatus !== 'MATCHED'
+                          ? 'needs-match'
+                          : '',
+                    ].filter(Boolean).join(' ');
+                    return (
+                      <tr key={row.arrivalLineKey} className={rowClass}>
+                        <td className="sticky-farm" title={farmText}><strong>{farmText}</strong></td>
+                        <td className="sticky-variety"><span className="variety-pill">{varietyText}</span></td>
+                        <td className="sticky-prod" title={row.productNameRaw || displayProd}>
+                          <span>{displayProd}</span>
+                          {row.sourceKind === 'INVOICE' && <span className="auto-match">인보이스</span>}
+                        </td>
+                        <td>{row.orderWeek || '-'} · {row.countryName || row.dbCountryName || '-'}</td>
+                        <td className="num">{fmt(row.quantity, 2)} {row.unit}</td>
+                        <td className="num">{row.fobUSD != null ? fmt(row.fobUSD, 3) : '-'}</td>
+                        <td className="num">{freightCustomsParts.join(' · ') || '-'}</td>
+                        <td className="num selected-cost">
+                          {row.uploadStatus === 'COST_NOT_UPLOADED'
+                            ? <span className="missing-badge">원가 미업로드</span>
+                            : unitCost != null ? `${fmt(unitCost)}원` : '-'}
+                        </td>
+                        <td className="num">{totalKRW != null ? `${fmt(totalKRW)}원` : '-'}</td>
+                        <td>
+                          <div className="detail-row">
+                            {row.sourceKind === 'INVOICE' ? (
+                              <a href="/import/tools">승인 이력</a>
+                            ) : (
+                              <>
+                                <LookupInput kind="product" value={draft.prodInput || ''} onInput={value => updateProductInput(row, value)} onSelect={value => selectProduct(row, value)} placeholder="품목 검색·선택" />
+                                <LookupInput kind="farm" value={draft.farmInput || ''} onInput={value => updateFarmInput(row, value)} onSelect={value => selectFarm(row, value)} placeholder={row.autoFarmKey && !row.farmKey ? '자동 후보 · 저장 필요' : '농장 검색·선택'} />
+                                {row.uploadStatus !== 'COST_NOT_UPLOADED' && (
+                                  <>
+                                    <button type="button" onClick={() => save(row)}>저장</button>
+                                    <button type="button" onClick={() => showHistory(row)}>이력</button>
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }),
+                ])}</tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="summary-group-table">
                 <thead><tr>
                   <th>차수</th><th>국가</th><th>품종</th><th>품목</th><th>농장별 원가</th>
                 </tr></thead>
@@ -722,11 +969,19 @@ export default function ArrivalCostPage() {
               </table>
             </div>
           )}
-          {groups.length > groupLimit && (
+          {historyViewMode === 'summary' && groups.length > groupLimit && (
             <div className="more-groups-bar">
               <span>표시 {pagedGroups.length.toLocaleString('ko-KR')} / {groups.length.toLocaleString('ko-KR')}그룹</span>
               <button type="button" onClick={() => setGroupLimit(n => n + 100)}>
                 더 보기 (+100건 · 남은 {(groups.length - groupLimit).toLocaleString('ko-KR')}그룹)
+              </button>
+            </div>
+          )}
+          {historyViewMode === 'rows' && filteredRows.length > rowViewLimit && (
+            <div className="more-groups-bar">
+              <span>표시 {Math.min(rowViewLimit, filteredRows.length).toLocaleString('ko-KR')} / {filteredRows.length.toLocaleString('ko-KR')}행</span>
+              <button type="button" onClick={() => setRowViewLimit(n => n + 200)}>
+                더 보기 (+200행 · 남은 {(filteredRows.length - rowViewLimit).toLocaleString('ko-KR')}행)
               </button>
             </div>
           )}
@@ -985,17 +1240,35 @@ export default function ArrivalCostPage() {
         .notice.success { color: #065f46; background: #ecfdf5; border: 1px solid #a7f3d0; }
         .notice.error { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; }
         .table-card { padding: 0; overflow: hidden; }
-        .table-card .section-title { padding: 14px 18px 10px; margin-bottom: 0; }
+        .table-card-header { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 14px 18px 10px; }
+        .table-card .section-title { padding: 0; margin-bottom: 0; }
+        .history-view-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .view-mode-switch { display: inline-flex; border: 1px solid #cbd5e1; border-radius: 7px; overflow: hidden; background: #f8fafc; }
+        .view-mode-switch button { border: 0; border-right: 1px solid #cbd5e1; border-radius: 0; height: 34px; min-height: 34px; padding: 0 12px; font-size: 13px; background: transparent; color: #334155; }
+        .view-mode-switch button:last-child { border-right: 0; }
+        .view-mode-switch button.active { background: #0f172a; color: #ffffff; font-weight: 700; }
         .table-wrap { overflow: auto; max-height: min(72vh, max(240px, calc(var(--nv-avail-h, 100vh) - 180px))); border-top: 1px solid #cbd5e1; background: #ffffff; }
         table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1040px; font-size: 13.5px; }
         thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; color: #334155; font-size: 12.5px; font-weight: 700; text-align: left; }
-        thead th:nth-child(1), .group-head td:nth-child(1) { position: sticky; left: 0; width: 80px; min-width: 80px; max-width: 80px; }
-        thead th:nth-child(2), .group-head td:nth-child(2) { position: sticky; left: 80px; width: 84px; min-width: 84px; max-width: 84px; }
-        thead th:nth-child(3), .group-head td:nth-child(3) { position: sticky; left: 164px; width: 122px; min-width: 122px; max-width: 122px; }
-        thead th:nth-child(4), .group-head td:nth-child(4) { position: sticky; left: 286px; min-width: 240px; border-right: 1px solid #cbd5e1; }
-        thead th:nth-child(-n+4) { z-index: 5; background: #f8fafc; }
-        .group-head td:nth-child(-n+4) { z-index: 2; background: #f8fafc; }
-        .group-head:hover td:nth-child(-n+4) { background: #f1f5f9; }
+        thead th.num { text-align: right; }
+        .summary-group-table thead th:nth-child(1), .summary-group-table .group-head td:nth-child(1) { position: sticky; left: 0; width: 80px; min-width: 80px; max-width: 80px; }
+        .summary-group-table thead th:nth-child(2), .summary-group-table .group-head td:nth-child(2) { position: sticky; left: 80px; width: 84px; min-width: 84px; max-width: 84px; }
+        .summary-group-table thead th:nth-child(3), .summary-group-table .group-head td:nth-child(3) { position: sticky; left: 164px; width: 122px; min-width: 122px; max-width: 122px; }
+        .summary-group-table thead th:nth-child(4), .summary-group-table .group-head td:nth-child(4) { position: sticky; left: 286px; min-width: 240px; border-right: 1px solid #cbd5e1; }
+        .summary-group-table thead th:nth-child(-n+4) { z-index: 5; background: #f8fafc; }
+        .summary-group-table .group-head td:nth-child(-n+4) { z-index: 2; background: #f8fafc; }
+        .summary-group-table .group-head:hover td:nth-child(-n+4) { background: #f1f5f9; }
+        .row-ledger-table { min-width: 1240px; }
+        .row-ledger-table thead th:nth-child(1), .row-ledger-table .row-ledger-item td:nth-child(1) { position: sticky; left: 0; width: 156px; min-width: 156px; max-width: 156px; overflow: hidden; text-overflow: ellipsis; }
+        .row-ledger-table thead th:nth-child(2), .row-ledger-table .row-ledger-item td:nth-child(2) { position: sticky; left: 156px; width: 96px; min-width: 96px; max-width: 96px; }
+        .row-ledger-table thead th:nth-child(3), .row-ledger-table .row-ledger-item td:nth-child(3) { position: sticky; left: 252px; min-width: 240px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #cbd5e1; }
+        .row-ledger-table thead th:nth-child(-n+3) { z-index: 5; background: #f8fafc; }
+        .row-ledger-table .row-ledger-item td:nth-child(-n+3) { z-index: 2; background: #ffffff; }
+        .row-ledger-table .row-ledger-item:hover td { background: #f8fafc; }
+        .row-ledger-table .row-ledger-item:hover td:nth-child(-n+3) { background: #f8fafc; }
+        .row-ledger-table .row-ledger-item.needs-match td:nth-child(-n+3) { background: #fffbeb; }
+        .row-ledger-table .row-ledger-item.cost-missing td:nth-child(-n+3) { background: #fef2f2; }
+        .variety-pill { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 999px; background: #f1f5f9; border: 1px solid #cbd5e1; color: #0f172a; font-size: 12.5px; font-weight: 700; }
         th, td { border-bottom: 1px solid #e2e8f0; padding: 9px 12px; vertical-align: middle; white-space: nowrap; }
         tr.needs-match { background: #fffbeb; }
         tr.cost-missing { background: #fef2f2; }
