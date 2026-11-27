@@ -1,8 +1,13 @@
 import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { apiGet } from '../../lib/useApi';
-import { mergeBaselineCandidates, buildCompareRows, roundQty } from '../../lib/orderImportCompareLogic';
+import { apiGet, apiPost } from '../../lib/useApi';
+import {
+  mergeBaselineCandidates,
+  buildCompareRows,
+  buildUpdateCostPayload,
+  roundQty,
+} from '../../lib/orderImportCompareLogic';
 
 const FONT_STACK = "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif";
 
@@ -94,6 +99,15 @@ export default function OrderImportComparePage() {
   const [showAllExcelCols, setShowAllExcelCols] = useState(false);
   const [initializedFromQuery, setInitializedFromQuery] = useState(false);
 
+  const [priceEdits, setPriceEdits] = useState({});
+  const [savingPrices, setSavingPrices] = useState(false);
+  const [priceSaveNotice, setPriceSaveNotice] = useState(null);
+
+  useEffect(() => {
+    setPriceEdits({});
+    setPriceSaveNotice(null);
+  }, [orderYear, orderWeek, custKey]);
+
   const loadOptions = useCallback(async (targetYear = '', targetWeek = '') => {
     setOptionsLoading(true);
     try {
@@ -117,7 +131,7 @@ export default function OrderImportComparePage() {
     }
   }, []);
 
-  const fetchCompare = useCallback(async (yr, wk, ck) => {
+  const fetchCompare = useCallback(async (yr, wk, ck, { preserveSelection = false } = {}) => {
     if (!yr || !wk || !ck) return;
     setCompareLoading(true);
     setErrorMsg('');
@@ -134,16 +148,21 @@ export default function OrderImportComparePage() {
       }
 
       const list = data.candidates || [];
-      const firstUpload = list.find((c) => c.sourceKind === 'UPLOAD');
-      const firstOrderDate = list.find((c) => c.sourceKind === 'ORDER_DATE');
-      if (firstUpload) {
-        setSelectedCandidateIds([firstUpload.id]);
-      } else if (firstOrderDate) {
-        setSelectedCandidateIds([firstOrderDate.id]);
+      if (preserveSelection) {
+        const validIds = new Set(list.map((c) => c.id));
+        setSelectedCandidateIds((prev) => prev.filter((id) => validIds.has(id)));
       } else {
-        setSelectedCandidateIds([]);
+        const firstUpload = list.find((c) => c.sourceKind === 'UPLOAD');
+        const firstOrderDate = list.find((c) => c.sourceKind === 'ORDER_DATE');
+        if (firstUpload) {
+          setSelectedCandidateIds([firstUpload.id]);
+        } else if (firstOrderDate) {
+          setSelectedCandidateIds([firstOrderDate.id]);
+        } else {
+          setSelectedCandidateIds([]);
+        }
+        setExpandedPreviewIds(new Set());
       }
-      setExpandedPreviewIds(new Set());
     } catch (err) {
       setCompareData(null);
       setSelectedCandidateIds([]);
@@ -436,6 +455,102 @@ export default function OrderImportComparePage() {
 
   const { rows: allRows, summary } = compareResult;
 
+  const pricePayload = useMemo(
+    () => buildUpdateCostPayload(allRows, priceEdits),
+    [allRows, priceEdits],
+  );
+
+  const invalidProdKeySet = useMemo(
+    () => new Set(pricePayload.invalidRows.map((r) => Number(r.prodKey))),
+    [pricePayload.invalidRows],
+  );
+
+  const fillableBaselinePriceRows = useMemo(
+    () =>
+      allRows.filter(
+        (row) =>
+          row.prodKey &&
+          Number(row.unitPrice) > 0 &&
+          Array.isArray(row.shipmentDetails) &&
+          row.shipmentDetails.length > 0 &&
+          Math.abs(Number(row.unitPrice) - Number(row.shipCost ?? 0)) >= 0.5,
+      ),
+    [allRows],
+  );
+
+  const handleFillAllBaselinePrices = () => {
+    if (fillableBaselinePriceRows.length === 0) return;
+    setPriceEdits((prev) => {
+      const next = { ...prev };
+      for (const row of fillableBaselinePriceRows) {
+        next[String(row.prodKey)] = String(row.unitPrice);
+      }
+      return next;
+    });
+    setPriceSaveNotice(null);
+  };
+
+  const handleCancelPriceEdits = () => {
+    setPriceEdits({});
+    setPriceSaveNotice(null);
+  };
+
+  const handleSavePrices = async () => {
+    if (savingPrices) return;
+    if (pricePayload.invalidRows.length > 0) {
+      const names = pricePayload.invalidRows.map((r) => r.prodName || String(r.prodKey)).join(', ');
+      setPriceSaveNotice({
+        type: 'error',
+        text: `유효하지 않은 단가가 입력되었습니다 (${names}). 0 이상의 숫자만 입력해 주세요.`,
+      });
+      return;
+    }
+    if (pricePayload.items.length === 0) return;
+    if (
+      pricePayload.hasFixedTarget &&
+      typeof window !== 'undefined' &&
+      !window.confirm('확정(마감)된 출고분배 행이 포함되어 있습니다. 확정 상태를 유지한 채 분배단가와 금액만 수정할까요?')
+    ) {
+      return;
+    }
+
+    const savedProdCount = pricePayload.editedRowCount;
+    const savedDetailCount = pricePayload.detailRowCount;
+    setSavingPrices(true);
+    setPriceSaveNotice(null);
+    try {
+      const res = await apiPost('/api/estimate/update-cost', {
+        items: pricePayload.items,
+        mode: 'once',
+        orderYear: Number(orderYear),
+        custKey: Number(custKey),
+      });
+      if (!res?.success) {
+        throw new Error(res?.error || '분배단가 저장에 실패했습니다.');
+      }
+      setPriceEdits({});
+      setPriceSaveNotice({
+        type: 'success',
+        text: `분배단가 ${savedProdCount}품목 (${savedDetailCount}행) 수정 완료 · 출고분배 금액 자동 재계산`,
+      });
+      await fetchCompare(orderYear, orderWeek, custKey, { preserveSelection: true });
+    } catch (err) {
+      if (err?.status === 409 || err?.code === 'ERP_EDIT_LOCKED') {
+        setPriceSaveNotice({
+          type: 'error',
+          text: '다른 담당자가 해당 차수 출고분배를 편집 중입니다. 잠시 후 다시 시도해 주세요.',
+        });
+      } else {
+        setPriceSaveNotice({
+          type: 'error',
+          text: err?.message || '분배단가 저장 중 오류가 발생했습니다.',
+        });
+      }
+    } finally {
+      setSavingPrices(false);
+    }
+  };
+
   const filteredRows = useMemo(() => {
     const q = productSearch.trim().toLowerCase();
     return allRows.filter((row) => {
@@ -683,6 +798,144 @@ export default function OrderImportComparePage() {
           >
             {row.statusLabel}
           </span>
+        </td>
+        <td
+          style={{
+            padding: '6px 10px',
+            borderBottom: '1px solid #e2e8f0',
+            textAlign: 'right',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {Array.isArray(row.shipmentDetails) && row.shipmentDetails.length > 0 ? (
+            (() => {
+              const pkKey = String(row.prodKey);
+              const hasEdit = Object.prototype.hasOwnProperty.call(priceEdits, pkKey);
+              const rawVal = hasEdit
+                ? priceEdits[pkKey]
+                : row.shipCost != null
+                  ? String(row.shipCost)
+                  : '';
+              const isInvalid = row.prodKey != null && invalidProdKeySet.has(Number(row.prodKey));
+              const parsedVal = Number(String(rawVal).replace(/[,\s]+/g, ''));
+              const isModified =
+                hasEdit &&
+                String(rawVal).trim() !== '' &&
+                !isInvalid &&
+                (Math.abs(parsedVal - Number(row.shipCost ?? 0)) >= 0.5 || row.hasMixedShipCost);
+              const canApplyBaseline =
+                Number(row.unitPrice) > 0 &&
+                Math.abs(Number(row.unitPrice) - Number(row.shipCost ?? 0)) >= 0.5;
+              const mixedTooltip = row.hasMixedShipCost
+                ? `세부 행 단가 혼재: ${row.shipmentDetails
+                    .map((d) => `${Number(d.cost || 0).toLocaleString()}원`)
+                    .join(', ')}`
+                : undefined;
+
+              return (
+                <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      aria-label={`${erpTitle || row.inputName || '품목'} 분배단가`}
+                      value={rawVal}
+                      disabled={savingPrices}
+                      onChange={(e) => {
+                        const nextVal = e.target.value;
+                        setPriceEdits((prev) => ({ ...prev, [pkKey]: nextVal }));
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (pricePayload.invalidRows.length > 0 || pricePayload.editedRowCount > 0) {
+                            void handleSavePrices();
+                          }
+                        }
+                      }}
+                      style={{
+                        width: 96,
+                        padding: '5px 8px',
+                        borderRadius: 4,
+                        border: isInvalid
+                          ? '1.5px solid #dc2626'
+                          : isModified
+                            ? '1.5px solid #2563eb'
+                            : '1px solid #cbd5e1',
+                        background: isInvalid ? '#fef2f2' : isModified ? '#eff6ff' : '#ffffff',
+                        color: '#0f172a',
+                        fontSize: 13.5,
+                        fontWeight: isModified ? 700 : 500,
+                        fontFamily: FONT_STACK,
+                        fontVariantNumeric: 'tabular-nums',
+                        textAlign: 'right',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    {canApplyBaseline && (
+                      <button
+                        type="button"
+                        disabled={savingPrices}
+                        onClick={() =>
+                          setPriceEdits((prev) => ({ ...prev, [pkKey]: String(row.unitPrice) }))
+                        }
+                        title={`최초단가 ${Number(row.unitPrice).toLocaleString()}원 적용`}
+                        style={{
+                          padding: '4px 7px',
+                          borderRadius: 4,
+                          border: '1px solid #cbd5e1',
+                          background: '#f8fafc',
+                          color: '#1e3a8a',
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          fontFamily: FONT_STACK,
+                          cursor: savingPrices ? 'wait' : 'pointer',
+                        }}
+                      >
+                        최초적용
+                      </button>
+                    )}
+                  </div>
+                  {(row.hasFixed || row.hasMixedShipCost) && (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      {row.hasFixed && (
+                        <span
+                          style={{
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            background: '#fef3c7',
+                            color: '#92400e',
+                            fontSize: 12.5,
+                            fontWeight: 700,
+                          }}
+                        >
+                          확정
+                        </span>
+                      )}
+                      {row.hasMixedShipCost && (
+                        <span
+                          title={mixedTooltip}
+                          style={{
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            background: '#e0e7ff',
+                            color: '#1e3a8a',
+                            fontSize: 12.5,
+                            fontWeight: 700,
+                            cursor: 'help',
+                          }}
+                        >
+                          복수단가
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()
+          ) : (
+            <span style={{ color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>-</span>
+          )}
         </td>
       </tr>
     );
@@ -1648,10 +1901,93 @@ export default function OrderImportComparePage() {
                 </label>
               )}
 
-              <span style={{ marginLeft: 'auto', fontSize: 12.5, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
-                표시 {filteredRows.length}행 / 전체 {allRows.length}행
-              </span>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                {fillableBaselinePriceRows.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={savingPrices}
+                    onClick={handleFillAllBaselinePrices}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: '1px solid #cbd5e1',
+                      background: '#f8fafc',
+                      color: '#0f172a',
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      fontFamily: FONT_STACK,
+                      cursor: savingPrices ? 'wait' : 'pointer',
+                    }}
+                  >
+                    최초단가 일괄 채우기
+                  </button>
+                )}
+
+                {Object.keys(priceEdits).length > 0 && (
+                  <button
+                    type="button"
+                    disabled={savingPrices}
+                    onClick={handleCancelPriceEdits}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#334155',
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      fontFamily: FONT_STACK,
+                      cursor: savingPrices ? 'wait' : 'pointer',
+                    }}
+                  >
+                    단가 수정 취소
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  disabled={pricePayload.editedRowCount === 0 || savingPrices}
+                  onClick={() => void handleSavePrices()}
+                  style={{
+                    padding: '7px 14px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: '#1e3a8a',
+                    color: '#ffffff',
+                    fontSize: 13.5,
+                    fontWeight: 700,
+                    fontFamily: FONT_STACK,
+                    fontVariantNumeric: 'tabular-nums',
+                    cursor: pricePayload.editedRowCount === 0 || savingPrices ? 'not-allowed' : 'pointer',
+                    opacity: pricePayload.editedRowCount === 0 || savingPrices ? 0.5 : 1,
+                  }}
+                >
+                  {savingPrices ? '저장 중…' : `분배단가 저장 (${pricePayload.editedRowCount}품목)`}
+                </button>
+
+                <span style={{ fontSize: 12.5, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
+                  표시 {filteredRows.length}행 / 전체 {allRows.length}행
+                </span>
+              </div>
             </div>
+
+            {priceSaveNotice && (
+              <div
+                role={priceSaveNotice.type === 'error' ? 'alert' : 'status'}
+                style={{
+                  marginTop: 10,
+                  padding: '9px 12px',
+                  borderRadius: 6,
+                  border: priceSaveNotice.type === 'error' ? '1px solid #fecaca' : '1px solid #bbf7d0',
+                  background: priceSaveNotice.type === 'error' ? '#fef2f2' : '#f0fdf4',
+                  color: priceSaveNotice.type === 'error' ? '#b91c1c' : '#166534',
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                }}
+              >
+                {priceSaveNotice.text}
+              </div>
+            )}
           </div>
 
           {/* 5. 비교 테이블 (좌측 원본 엑셀 양식 + 수직 구분선 + 우측 분배/변경차이) */}
@@ -1714,12 +2050,15 @@ export default function OrderImportComparePage() {
                   <th style={{ padding: '9px 10px', textAlign: 'center', width: 100, background: '#f8fafc' }}>
                     구분
                   </th>
+                  <th style={{ padding: '9px 10px', textAlign: 'right', minWidth: 170, background: '#f8fafc' }}>
+                    분배단가
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={leftColCount + 3} style={{ padding: '24px 16px', textAlign: 'center', color: '#475569' }}>
+                    <td colSpan={leftColCount + 4} style={{ padding: '24px 16px', textAlign: 'center', color: '#475569' }}>
                       표시할 비교 행이 없습니다.
                     </td>
                   </tr>
@@ -1730,7 +2069,7 @@ export default function OrderImportComparePage() {
                       <>
                         <tr style={{ background: '#ecfeff', borderTop: '2px solid #0d9488', borderBottom: '1px solid #99f6e4' }}>
                           <td
-                            colSpan={leftColCount + 3}
+                            colSpan={leftColCount + 4}
                             style={{ padding: '7px 12px', fontSize: 13, fontWeight: 700, color: '#0f766e' }}
                           >
                             최초주문등록 외 추가 분배 품목 ({addedRows.length}건)
