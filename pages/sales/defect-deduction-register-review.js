@@ -1,4 +1,5 @@
 import { defectBatchDuplicates } from '../../lib/defectBatchDuplicates.js';
+import { manualHoldDescriptor } from '../../lib/defectManualHold.js';
 import { defectCarryoverApproval, defectSourcePeriod } from '../../lib/defectCarryoverChoice.js';
 import { isDefectRegistrationHeld, defectResolution, resolutionDuplicateGroups, resolutionReadyRows } from '../../lib/defectResolution.js';
 import DefectResolutionEditor from '../../components/DefectResolutionEditor';
@@ -190,7 +191,9 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       setError('등록할 행이 없습니다. 제외를 해제하거나 창을 닫아주세요.');
       return;
     }
-    if ((resolveMode || includeCarryover) && !window.confirm(`${year}년 ${week}차에 ${activeRows.length}건(이월 ${activeRows.filter(row => !isCurrent(row)).length}건)을 등록합니다.`)) return;
+    const heldRows = includeCarryover ? [] : carryoverRows.filter(row => !row.error && row.after);
+    const holdNotice = heldRows.length ? ` 이월 ${heldRows.length}건은 보류로 이동하며, 보류를 해제하면 다시 등록할 수 있습니다.` : '';
+    if ((resolveMode || includeCarryover || heldRows.length) && !window.confirm(`${year}년 ${week}차에 ${activeRows.length}건(이월 ${activeRows.filter(row => !isCurrent(row)).length}건)을 등록합니다.${holdNotice}`)) return;
     const invalid = activeRows.filter((row) => row.error || !row.after || !(Number(row.editQuantity) > 0));
     if (invalid.length) {
       setError(`오류가 있는 ${invalid.length}건을 수정하거나 「오류 건 제외하고 계속」을 눌러주세요.`);
@@ -209,8 +212,9 @@ export default function SalesDefectDeductionRegisterReviewPage() {
     let registeredCount = 0;
     try {
       const combined = { registered: 0, rows: [], skipped: [] };
-      for (let offset = 0; offset < activeRows.length; offset += REGISTRATION_APPLY_BATCH_SIZE) {
-        const batchRows = activeRows.slice(offset, offset + REGISTRATION_APPLY_BATCH_SIZE);
+      const batchSize = heldRows.length ? activeRows.length : REGISTRATION_APPLY_BATCH_SIZE;
+      for (let offset = 0; offset < activeRows.length; offset += batchSize) {
+        const batchRows = activeRows.slice(offset, offset + batchSize);
         const batchIds = batchRows.map((row) => Number(row.deductionKey));
         const overrides = Object.fromEntries(batchRows.map((row) => [String(row.deductionKey), {
           ...(Number(row.editQuantity) !== Number(row.quantity) && { quantity: Number(row.editQuantity) }),
@@ -222,6 +226,9 @@ export default function SalesDefectDeductionRegisterReviewPage() {
             row.deductionKey, defectCarryoverApproval(row.sourceOrderYear, row.sourceOrderWeek, row.custKey),
           ])),
           requestKey: registerRequestKeyRef.current,
+          excludedCarryovers: heldRows.map(row => manualHoldDescriptor({
+            ...row, orderYear: row.sourceOrderYear, orderWeek: row.sourceOrderWeek,
+          })),
         });
         combined.registered += Number(batchData.registered || 0);
         registeredCount = combined.registered;
@@ -232,6 +239,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
         appendLog(`전산등록 진행 · ${completedCount}/${activeRows.length}건 · 적용 ${combined.registered}건 · 제외 ${combined.skipped.length}건`);
         setMessage(`전산등록 ${completedCount}/${activeRows.length}건 처리 중…`);
       }
+      if (heldRows.length) appendLog(`이월 보류 · ${heldRows.length}건`);
       const data = combined;
       const skipped = data.skipped || [];
       const skippedKeys = skipped.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
