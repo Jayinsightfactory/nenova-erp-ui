@@ -3,17 +3,21 @@ const XLSX=require('xlsx'),ExcelJS=require('exceljs'),JSZip=require('jszip');
 const suffix=process.platform==='win32'?'-msvc':process.platform==='linux'?'-gnu':'';
 const {transformSync}=require(`@next/swc-${process.platform}-${process.arch}${suffix}`);
 const cache=new Map();
-const allowed=new Set(['shipmentFarmText','shipmentFarmWorkbook','shipmentFarmImport','shipmentFarmAssignments','shipmentFarmCandidates','customerExportName','shipmentImportQty','shipmentImportMode','shipmentUploadDates','orderUtils','shipmentImport','shipmentFixScopeCore','shipmentFixScope','shipmentDescr','distributeUnits','pivotProdName','orderImportCustomerMatch','sourceProductScope','shipmentImportSourceScope']);
+const allowed=new Set(['shipmentFarmText','shipmentFarmWorkbook','shipmentFarmImport','shipmentFarmAssignments','shipmentFarmCandidates','customerExportName','shipmentImportQty','shipmentImportMode','shipmentUploadDates','orderUtils','shipmentImport','shipmentImport/matchingEngine','shipmentImport/previewSummary','shipmentImport/applyHelpers','shipmentImport/preDistributeOrders','shipmentFixScopeCore','shipmentFixScope','shipmentDescr','distributeUnits','pivotProdName','pivotVolumeProductLabel','dutchVolumeCustomerMatch','orderImportCustomerMatch','sourceProductScope','shipmentImportSourceScope']);
 function load(name){
   if(cache.has(name))return cache.get(name).exports;
   const mod={exports:{}};cache.set(name,mod);
-  const file=path.resolve('lib',`${name}.js`);
+  const libDir=path.resolve('lib');
+  const file=path.resolve(libDir,`${name}.js`);
   const out=transformSync(fs.readFileSync(file,'utf8'),false,Buffer.from(JSON.stringify({filename:file,jsc:{target:'es2020',parser:{syntax:'ecmascript'}},module:{type:'commonjs'}})));
   const forbidden=()=>{throw new Error('Unexpected real DB/write dependency');};
   new Function('require','module','exports',out.code)(id=>{
-    if(id==='./db' || id==='./db.js')return {query:forbidden,withTransaction:forbidden,sql:{Int:'Int',NVarChar:'NVarChar',Float:'Float'}};
+    if(id==='./db' || id==='./db.js' || id==='../db' || id==='../db.js')return {query:forbidden,withTransaction:forbidden,sql:{Int:'Int',NVarChar:'NVarChar',Float:'Float'}};
     if(!id.startsWith('.'))return require(id);
+    const resolved=path.resolve(path.dirname(file),id.replace(/\.(js|cjs)$/,'')+'.js');
+    const rel=path.relative(libDir,resolved).replace(/\\/g,'/').replace(/\.js$/,'');
     const dep=path.basename(id).replace(/\.(js|cjs)$/,'');
+    if(allowed.has(rel))return load(rel);
     if(allowed.has(dep))return load(dep);
     return new Proxy({},{get:(_,key)=>key==='__esModule'?true:forbidden});
   },mod,mod.exports);return mod.exports;

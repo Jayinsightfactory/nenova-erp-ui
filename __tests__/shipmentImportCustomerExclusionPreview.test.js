@@ -12,7 +12,8 @@ const require = createRequire(import.meta.url);
 const suffix = process.platform === 'win32' ? '-msvc' : process.platform === 'linux' ? '-gnu' : '';
 const { transformSync } = require(`@next/swc-${process.platform}-${process.arch}${suffix}`);
 const lib = fileURLToPath(new URL('../lib/', import.meta.url));
-const realModules = new Set(['shipmentImport', 'orderUtils', 'customerExportName','shipmentImportQty','shipmentImportMode','shipmentUploadDates', 'shipmentFixScope',
+const realModules = new Set(['shipmentImport', 'matchingEngine', 'previewSummary', 'applyHelpers', 'preDistributeOrders',
+  'orderUtils', 'customerExportName','shipmentImportQty','shipmentImportMode','shipmentUploadDates', 'shipmentFixScope',
   'shipmentFixScopeCore', 'shipmentDescr', 'distributeUnits', 'pivotProdName',
   'pivotVolumeProductLabel', 'dutchVolumeCustomerMatch', 'weekdayEarlyShipmentImport']);
 const cache = new Map();
@@ -25,8 +26,8 @@ function load(filename) {
     filename, jsc: { target: 'es2020', parser: { syntax: 'ecmascript' } }, module: { type: 'commonjs' },
   })));
   new Function('require', 'module', 'exports', compiled.code)(name => {
-    if (name === './weekdayEstimateCompare.js') return {normalizeWeekdayUnit};
-    if (name === './db') return { query: forbidden, withTransaction: forbidden,
+    if (name === './weekdayEstimateCompare.js' || name === '../weekdayEstimateCompare.js') return {normalizeWeekdayUnit};
+    if (name === './db' || name === './db.js' || name === '../db' || name === '../db.js') return { query: forbidden, withTransaction: forbidden,
       sql: { NVarChar: 'NVarChar', Int: 'Int', Decimal: forbidden } };
     const target = resolve(dirname(filename), name.endsWith('.js') ? name : `${name}.js`);
     if (realModules.has(basename(target, '.js'))) return load(target);

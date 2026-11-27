@@ -1,8 +1,6 @@
-import { incomingProductLabel, incomingOutputProductLabel } from '../../lib/incomingProductLabel.js';
+import { incomingProductLabel } from '../../lib/incomingProductLabel.js';
 import { incomingDefectPrintBlockReason } from '../../lib/salesDefectDeductionCore';
-import { incomingDefectPrintNote } from '../../lib/incomingDefectPrintNote.js';
 import { manualHoldDescriptor, canSelectSupportDisposition } from '../../lib/defectManualHold.js';
-import DefectCostLookup from '../../components/DefectCostLookup';
 import { defectResolution, defectSourcePeriodLabel, isDefectRegistrationHeld } from '../../lib/defectResolution.js';
 // 영업수입불량차감 — 원본 양식 업로드/수정/이력/견적서관리 일괄 등록
 
@@ -11,21 +9,81 @@ import { createPortal } from 'react-dom';
 import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import { parseJsonResponse } from '../../lib/parseJsonResponse';
-import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getStatementProductName } from '../../lib/estimatePrintFormats';
-import { suggestDisplayName } from '../../lib/displayName';
 import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
-import { isDefectAdmin, isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek, needsDefectManagerGuide } from '../../lib/salesDefectDeductionCore';
-import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, getSupportLinkedEstimate, supportRegistrationDecisionLabel, supportStatusDetail, supportRegisterBlockReason } from '../../lib/salesDefectSupportStatus.js';
+import {
+  isDefectAdmin,
+  isNoopDeductionHistory,
+  lookupSelectionDelta,
+  mergeSavedDeductionRows,
+  managerFilterForUser,
+  partitionRegistrationPreflight,
+  partitionSelectedDeductionRows,
+  shiftParentWeek,
+  needsDefectManagerGuide,
+} from '../../lib/salesDefectDeductionCore';
+import {
+  isSupportManualCompleteSelectable,
+  isSupportProcessingComplete,
+  SUPPORT_REGISTER_USAGE_STEPS,
+  buildSupportEstimateCapture,
+  getSupportLinkedEstimate,
+  supportRegistrationDecisionLabel,
+  supportStatusDetail,
+  supportRegisterBlockReason,
+} from '../../lib/salesDefectSupportStatus.js';
 import { sortDefectDisplayRows, sortIncomingRows } from '../../lib/salesDefectIncomingGroup.js';
-import { canUseDefectIncoming, canUseDefectSupport } from '../../lib/salesDefectDeductionCore';
-import { selectDefectRange } from '../../lib/defectDragSelection.js';
 import { buildDefectProductDisplay } from '../../lib/defectProductDisplay.js';
 import DefectCompanyFilter, { DefectInputSource } from '../../components/DefectCompanyFilter.js';
 import { matchesDefectCompany } from '../../lib/defectCompanyFilter.js';
 import { defectSourceReview } from '../../lib/salesDefectAutoSource.js';
+import {
+  fmt,
+  buildExistingEstimateLabel,
+  usageLabel,
+  productSearchLabel,
+  isMatchingHistory,
+  matchingHistoryText,
+  UNIT_OPTIONS,
+  unitPosition,
+  createEmptyDefectRow,
+  hasSalesDefectRowInput,
+  initialScope,
+  valueOf,
+  printQuantity,
+  deriveVisibleManagerOptions,
+  deriveManagerQuickOptions,
+  deriveCarryoverCustomerGroups,
+  buildDefectPrintSections,
+  buildRegistrationHistoryByKey,
+  buildAddModeDefectRow,
+  buildRelatedDefectRow,
+  computeSalesStatusSummary,
+  buildProductSelectionTelemetry,
+  buildConfirmedSaveTelemetryPayloads,
+} from '../../lib/salesDefect/pageHelpers.js';
+import {
+  endDefectSelectionDrag,
+  buildDefectSelectionZoneProps,
+} from '../../lib/salesDefect/dragSelectionController.js';
+import {
+  useDefectManualCostController,
+  useDefectOmissionController,
+  useDefectManagementController,
+} from '../../lib/salesDefect/useDefectSupportAdminControllers.js';
+import DefectOmissionHistoryModal from '../../components/sales/DefectOmissionHistoryModal.js';
+import {
+  DefectPeriodCorrectionSection,
+  DefectManagerEditorBar,
+  DefectHistoryPanel,
+  DefectPrintSheet,
+} from '../../components/sales/DefectHistoryAndPrintSection.js';
+import {
+  DefectManualCostModal,
+  DefectManagementEditModal,
+  DefectEstimatePreviewModal,
+} from '../../components/sales/DefectSupportModals.js';
 
-const fmt = (n) => Number(n || 0).toLocaleString();
 const isCarryoverRetrySelectable = (row = {}) => Boolean(
   Number(row.deductionKey) > 0 && row.registrationEligible === true
 );
@@ -35,19 +93,7 @@ const isSupportRegistrationSelectable = (row = {}, activeTab = 'support') => Boo
   && !isSupportProcessingComplete(row)
   && (activeTab !== 'carryover' || isCarryoverRetrySelectable(row))
 );
-const existingEstimateLabel = (record = {}) => {
-  const estimateKey = Number(record.estimateKey ?? record.EstimateKey ?? 0);
-  const type = record.estimateTypeLabel || record.estimateType || record.EstimateType || '불량차감';
-  const product = record.productName || record.prodName || record.ProdName || '품목 미확인';
-  const quantity = Number(record.quantity ?? record.Quantity ?? 0);
-  const unit = record.unit || record.Unit || '';
-  const week = record.orderWeek || record.OrderWeek || '';
-  const cost = Number(record.cost ?? record.Cost ?? 0);
-  const amount = Number(record.amount ?? record.Amount ?? 0);
-  const date = String(record.estimateDtm || record.EstimateDtm || '').slice(0, 10);
-  const descr = record.descr || record.Descr || '';
-  return `${estimateKey > 0 ? `#${estimateKey} · ` : ''}${type} · ${product} · ${fmt(Math.abs(quantity))}${unit}${cost ? ` · 단가 ${fmt(cost)}원` : ''}${amount ? ` · 금액 ${fmt(amount)}원` : ''}${week ? ` · ${week}차` : ''}${date ? ` · ${date}` : ''}${descr ? ` · ${descr}` : ''}`;
-};
+const existingEstimateLabel = buildExistingEstimateLabel;
 
 function SupportEstimatePreviewButton({ capture, onOpen }) {
   const registered = capture.mode === 'page';
@@ -63,73 +109,9 @@ function SupportEstimatePreviewButton({ capture, onOpen }) {
     </button>
   );
 }
-const usageLabel = (item) => {
-  const count = Number(item?.UsageCount ?? item?.usageCount ?? 0);
-  const mappingCount = Number(item?.MappingCount ?? item?.mappingCount ?? 0);
-  const labels = [];
-  if (count > 0) labels.push(`사용 ${fmt(count)}회`);
-  if (mappingCount > 0) labels.push(`붙여넣기 매칭 ${fmt(mappingCount)}건`);
-  return labels.length ? ` · ${labels.join(' · ')}` : '';
-};
-const productSearchLabel = (item) => {
-  const dbName = item?.ProdName || item?.prodName || '';
-  const displayName = item?.DisplayName || item?.displayName || '';
-  const suggested = item?.SuggestedDisplayName || item?.suggestedDisplayName || suggestDisplayName(dbName);
-  const countryFlower = [item?.CounName || item?.counName, item?.FlowerName || item?.flowerName].filter(Boolean).join(' ');
-  const names = [dbName, displayName, suggested].filter((name, index, all) => name && all.indexOf(name) === index);
-  return [countryFlower, ...names].filter(Boolean).join(' · ');
-};
-const historyJson = (value) => {
-  try { return value ? JSON.parse(value) : null; } catch { return null; }
-};
-const isMatchingHistory = (item) => {
-  if (isNoopDeductionHistory(item)) return false;
-  if (/매칭|MATCH/i.test(String(item?.ChangeSummary || ''))) return true;
-  const before = historyJson(item?.BeforeJson);
-  const after = historyJson(item?.AfterJson);
-  if (!after) return false;
-  if (!before) return Boolean(after.custKey || after.prodKey);
-  return Number(before.custKey || 0) !== Number(after.custKey || 0)
-    || Number(before.prodKey || 0) !== Number(after.prodKey || 0);
-};
-const matchingHistoryText = (item) => {
-  const summary = String(item?.ChangeSummary || '');
-  if (/매칭|MATCH/i.test(summary)) return summary;
-  const after = historyJson(item?.AfterJson);
-  if (!after?.prodKey && !after?.custKey) return summary;
-  const product = [after.countryName, after.matchedFlowerName || after.productName, after.matchedProductDbName || after.matchedProductName]
-    .filter(Boolean).join(' ');
-  const customer = after.customerName ? `거래처 ${after.customerName} (#${after.custKey || '-'})` : '';
-  return `${summary}${customer || product ? ` · ${customer}${customer && product ? ' · ' : ''}${product ? `품목 ${product} (#${after.prodKey || '-'})` : ''}` : ''}`;
-};
-const UNIT_OPTIONS = [
-  { value: '단', label: '단' },
-  { value: '박스', label: '박스' },
-  { value: '스팀(대)', label: '스팀' },
-];
-const emptyRow = () => ({
-  deductionKey: null,
-  sourceFileName: '',
-  customerName: '', custKey: null,
-  productName: '', prodKey: null,
-  colorName: '', quantity: '', sourceUnit: '단', unit: '단',
-  matchedProductName: '', matchedProductDbName: '',
-  countryName: '', matchedFlowerName: '',
-  creditApplied: false, farmName: '', farmKey: null, note: '',
-  status: 'DRAFT', estimateKey: null, estimateCost: null,
-  customerSuggestions: [], productSuggestions: [],
-});
 
-const salesRowHasInput = (row = {}) => Boolean(
-  String(row.customerName || '').trim()
-  || String(row.productName || '').trim()
-  || String(row.colorName || '').trim()
-  || String(row.quantity ?? '').trim()
-  || String(row.estimateQuantity ?? '').trim()
-  || String(row.note || '').trim()
-  || row.custKey
-  || row.prodKey
-);
+const emptyRow = () => createEmptyDefectRow({ sourceFileName: '' });
+const salesRowHasInput = hasSalesDefectRowInput;
 
 // 화면에서만 사용하는 저장 상태 비교값이다. 공유 ERP 원장에는 쓰지 않는다.
 const salesRowSignature = (row = {}) => JSON.stringify([
@@ -142,26 +124,12 @@ const salesRowSignature = (row = {}) => JSON.stringify([
   Boolean(row.importReviewRequired),
 ]);
 
-function initialScope() {
-  const parts = String(getCurrentWeek() || '').split('-');
-  return {
-    year: parts.length === 3 ? parts[0] : String(new Date().getFullYear()),
-    week: parts.length === 3 ? String(Number(parts[1])) : String(Number(parts[0]) || 1),
-  };
-}
-
-function valueOf(row, key) {
-  return row[key] == null ? '' : row[key];
-}
-
 const REGISTRATION_PREFLIGHT_BATCH_SIZE = 10;
 
 export default function SalesDefectDeductionsPage() {
   const scope = useMemo(initialScope, []);
   const [year, setYear] = useState(scope.year);
   const [week, setWeek] = useState(scope.week);
-  const [omissionRows,setOmissionRows]=useState(null);
-  const [omissionBusy,setOmissionBusy]=useState(false);
   const [manager, setManager] = useState('');
   const [managerOptions, setManagerOptions] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
@@ -171,16 +139,9 @@ export default function SalesDefectDeductionsPage() {
   const [managerEditName, setManagerEditName] = useState('');
   const [deductionType, setDeductionType] = useState('불량차감');
   const [activeTab, setActiveTab] = useState('sales');
-  const [managementMode, setManagementMode] = useState(false);
   const selectionDrag = useRef(null);
   const selectionPointerType = useRef('');
-  const [managementSelected, setManagementSelected] = useState(new Set());
-  const [managementBusy, setManagementBusy] = useState(false);
-  const [managementEdit, setManagementEdit] = useState(null);
-  const [managementCandidates, setManagementCandidates] = useState([]);
-  const managementSequence = useRef(0);
   const managementIncomingRequest = useRef(0);
-  const managementAllowed = canUseDefectIncoming(currentUser || {}) || canUseDefectSupport(currentUser || {});
   const [rows, setRows] = useState([]);
   const [incomingRows, setIncomingRows] = useState([]);
   // 입고 농장 후보(읽기 전용 참고). 농장 칸은 채우지 않는다 — 사람이 검색·확정으로 저장한다.
@@ -190,17 +151,14 @@ export default function SalesDefectDeductionsPage() {
   const [supportRows, setSupportRows] = useState([]);
   const [companyFilters, setCompanyFilters] = useState({ sales: '', support: '' });
   const [supportListMode, setSupportListMode] = useState('active');
-  const supportModeRows = useMemo(() => supportRows.filter(row => isDefectRegistrationHeld(row) === (supportListMode === 'held')), [supportRows, supportListMode]);
-  const visibleSupportRows = useMemo(() => activeTab === 'support' ? supportModeRows.filter(row => matchesDefectCompany(row, companyFilters.support)) : supportRows, [supportRows, supportModeRows, activeTab, companyFilters.support]);
+  const supportModeRows = useMemo(() => supportRows.filter((row) => isDefectRegistrationHeld(row) === (supportListMode === 'held')), [supportRows, supportListMode]);
+  const visibleSupportRows = useMemo(() => activeTab === 'support' ? supportModeRows.filter((row) => matchesDefectCompany(row, companyFilters.support)) : supportRows, [supportRows, supportModeRows, activeTab, companyFilters.support]);
   useEffect(() => { setCompanyFilters({ sales: '', support: '' }); }, [year, week, manager]);
   const [supportSelected, setSupportSelected] = useState(new Set());
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportRegistering, setSupportRegistering] = useState(false);
   const [supportRegistrationOutcomeUnknown, setSupportRegistrationOutcomeUnknown] = useState(false);
   const [supportProcessLogs, setSupportProcessLogs] = useState([]);
-  const [manualCostModal, setManualCostModal] = useState(null);
-  const [manualCostValue, setManualCostValue] = useState('');
-  const [manualCostSaving, setManualCostSaving] = useState(false);
   const [estimatePreview, setEstimatePreview] = useState(null);
   const [incomingLoading, setIncomingLoading] = useState(false);
   const [incomingSaving, setIncomingSaving] = useState(false);
@@ -229,8 +187,6 @@ export default function SalesDefectDeductionsPage() {
   const searchTimer = useRef(null);
   const preflightTimer = useRef(null);
   const lookupPanelRef = useRef(null);
-  const manualCostInputRef = useRef(null);
-  const manualCostSavingRef = useRef(false);
   const lookupRequestSeq = useRef(0);
   const lookupController = useRef(null);
   useEffect(() => () => {
@@ -273,23 +229,6 @@ export default function SalesDefectDeductionsPage() {
   useEffect(() => {
     viewContextRef.current = { year, week, activeTab };
   }, [year, week, activeTab]);
-
-  useEffect(() => {
-    setManualCostModal(null);
-    setManualCostValue('');
-  }, [year, week]);
-
-  useEffect(() => {
-    if (!manualCostModal) return undefined;
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape' && !manualCostSaving) {
-        event.preventDefault(); setManualCostModal(null); setManualCostValue('');
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    const timer = window.setTimeout(() => manualCostInputRef.current?.focus(), 0);
-    return () => { document.removeEventListener('keydown', onKeyDown); window.clearTimeout(timer); };
-  }, [manualCostModal, manualCostSaving]);
 
   useEffect(() => {
     apiGet('/api/auth/me').then((data) => {
@@ -348,7 +287,6 @@ export default function SalesDefectDeductionsPage() {
       if (requestSeq !== managementIncomingRequest.current) return data;
       setIncomingRows(data.rows || []);
       setHistory(data.history || []);
-      // 후보는 참고 정보다. 못 불러와도 확인 업무는 그대로 진행된다(오류로 올리지 않음).
       setFarmCandidates({});
       apiGet('/api/sales/defect-deductions', { year, week, view: 'farm-candidates' })
         .then((extra) => { if (requestSeq === managementIncomingRequest.current) setFarmCandidates(extra.candidates || {}); })
@@ -398,101 +336,90 @@ export default function SalesDefectDeductionsPage() {
     finally { if (requestSeq === supportLoadRequestSeq.current) setSupportLoading(false); }
   }, [year, week]);
 
-  const openManualCost = useCallback((row) => {
-    if (!row?.manualCostEditable || !(Number(row.deductionKey) > 0)) return;
-    const existing = Number(row.manualCost);
-    setError('');
-    setManualCostValue(existing > 0 ? String(existing) : '');
-    setManualCostModal({
-      row,
-      year: String(year),
-      week: String(week),
-      hasExisting: existing > 0,
-    });
-  }, [year, week]);
+  const {
+    manualCostModal,
+    manualCostValue,
+    setManualCostValue,
+    manualCostSaving,
+    setManualCostSaving,
+    manualCostInputRef,
+    openManualCost,
+    saveManualCost,
+    closeManualCostModal,
+  } = useDefectManualCostController({
+    year,
+    week,
+    viewContextRef,
+    loadSupport,
+    loadCarryover,
+    setError,
+    setMessage,
+  });
 
-  const saveManualCost = useCallback(async (clear = false) => {
-    const modal = manualCostModal;
-    if (!modal || manualCostSaving || manualCostSavingRef.current) return;
-    const raw = clear ? null : String(manualCostValue).trim();
-    if (!clear) {
-      if (!raw) { setError('불량차감 단가를 입력하세요.'); return; }
-      if (!/^\d+(?:\.\d{1,4})?$/.test(raw) || !(Number(raw) > 0) || Number(raw) > 9999999999.9999) {
-        setError('단가는 0보다 큰 숫자이며 소수점 이하 4자리까지 입력할 수 있습니다.');
-        return;
-      }
-    }
-    manualCostSavingRef.current = true;
-    setManualCostSaving(true); setError(''); setMessage('');
-    try {
-      await apiPost('/api/sales/defect-deductions', {
-        action: 'manual-cost-save', year: modal.year, week: modal.week,
-        deductionKey: modal.row.deductionKey, cost: raw,
-        expectedRowVersionNo: modal.row.rowVersionNo,
-        expectedEstimateUnit: modal.row.distributionCostUnit,
-        custKey: modal.row.custKey, prodKey: modal.row.prodKey,
-      });
-      setManualCostModal(null); setManualCostValue('');
-      const current = viewContextRef.current;
-      let refreshed = true;
-      if (String(current.year) === String(modal.year) && String(current.week) === String(modal.week)) {
-        if (current.activeTab === 'support') refreshed = Boolean(await loadSupport());
-        else if (current.activeTab === 'carryover') refreshed = Boolean(await loadCarryover());
-      }
-      setMessage(clear
-        ? (refreshed ? '수동단가를 삭제하고 자동 분배단가로 되돌렸습니다.' : '수동단가는 저장했지만 목록을 새로고침하지 못했습니다.')
-        : (refreshed ? '수동단가를 저장했습니다. 등록 가능 여부를 다시 확인했습니다.' : '수동단가는 저장했지만 목록을 새로고침하지 못했습니다.'));
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      manualCostSavingRef.current = false;
-      setManualCostSaving(false);
-    }
-  }, [manualCostModal, manualCostSaving, manualCostValue, loadCarryover, loadSupport]);
+  const {
+    omissionRows,
+    setOmissionRows,
+    omissionBusy,
+    loadOmissionHistory,
+    undoOmission,
+    markSupportOmitted,
+  } = useDefectOmissionController({
+    year,
+    week,
+    activeTab,
+    supportRows,
+    supportSelected,
+    setSupportSelected,
+    setSupportLoading,
+    loadSupport,
+    loadCarryover,
+    setError,
+    setMessage,
+  });
+
+  const {
+    managementMode,
+    setManagementMode,
+    managementSelected,
+    setManagementSelected,
+    managementBusy,
+    managementEdit,
+    setManagementEdit,
+    managementCandidates,
+    setManagementCandidates,
+    managementAllowed,
+    managementLoading,
+    managementRows,
+    toggleManagement,
+    archiveManagement,
+    openManagementEdit,
+    searchManagement,
+    saveManagementEdit,
+    closeManagementEdit,
+  } = useDefectManagementController({
+    year,
+    week,
+    activeTab,
+    currentUser,
+    incomingLoading,
+    supportLoading,
+    incomingSaving,
+    supportRegistering,
+    incomingRows,
+    visibleSupportRows,
+    loadIncoming,
+    loadSupport,
+    setError,
+    setMessage,
+  });
 
   useEffect(() => {
     if (activeTab === 'support') loadSupport();
     if (activeTab === 'carryover') loadCarryover();
   }, [activeTab, loadSupport, loadCarryover]);
 
-  const visibleManagerOptions = useMemo(() => {
-    const normalizeName = (value) => String(value || '').toLowerCase().replace(/\s+/g, '').trim();
-    const map = new Map();
-    const names = new Set();
-    (managerOptions || []).forEach((item) => {
-      const nameKey = normalizeName(item.managerName || item.managerId);
-      if (!nameKey || names.has(nameKey)) return;
-      names.add(nameKey);
-      map.set(String(item.managerId), item);
-    });
-    const userId = String(currentUser?.userId || '').trim();
-    const userName = String(currentUser?.userName || userId).trim();
-    const userNameKey = normalizeName(userName);
-    if (userId && !map.has(userId) && !names.has(userNameKey)) {
-      map.set(userId, { managerId: userId, managerName: userName });
-    }
-    return [...map.values()];
-  }, [managerOptions, currentUser]);
-
-  const managerQuickOptions = useMemo(() => {
-    const defaults = [
-      { managerId: '', managerName: '전체' },
-      { managerId: '김원영', managerName: '김원영' },
-      { managerId: '박성수', managerName: '박성수' },
-      { managerId: '정재훈', managerName: '정재훈' },
-      { managerId: '조현욱', managerName: '조현욱' },
-    ];
-    const result = [...defaults];
-    const names = new Set(defaults.map((item) => String(item.managerName).replace(/\s+/g, '').toLowerCase()));
-    (visibleManagerOptions || []).forEach((item) => {
-      const name = String(item.managerName || item.managerId || '').trim();
-      const key = name.replace(/\s+/g, '').toLowerCase();
-      if (!key || names.has(key)) return;
-      names.add(key);
-      result.push({ managerId: String(item.managerId || name), managerName: name });
-    });
-    return result;
-  }, [visibleManagerOptions]);
+  const visibleManagerOptions = useMemo(() => deriveVisibleManagerOptions(managerOptions, currentUser), [managerOptions, currentUser]);
+  const managerQuickOptions = useMemo(() => deriveManagerQuickOptions(visibleManagerOptions), [visibleManagerOptions]);
   const showManagerGuide = needsDefectManagerGuide(manager, managerQuickOptions);
 
   useEffect(() => {
@@ -580,18 +507,11 @@ export default function SalesDefectDeductionsPage() {
     const panelHeight = Math.max(estimatedHeight, Number(measuredHeight) || 0);
     const availableAbove = rect.top - 12;
     const availableBelow = window.innerHeight - rect.bottom - 12;
-    // 실제 팝업 높이를 측정한 뒤 위쪽을 우선한다. 아래 공간이 남아 있어도
-    // 현재 행 아래의 버튼·입력창을 가리지 않도록 위에 붙이는 것이 기본이다.
     const showAbove = availableAbove >= panelHeight || availableBelow < panelHeight;
     const top = showAbove
       ? Math.max(12, rect.top - panelHeight - 8)
       : Math.min(rect.bottom + 8, Math.max(12, window.innerHeight - panelHeight - 12));
-    return {
-      left,
-      width,
-      top,
-      transform: 'none',
-    };
+    return { left, width, top, transform: 'none' };
   };
 
   const fetchLookup = (index, kind, term) => {
@@ -665,12 +585,6 @@ export default function SalesDefectDeductionsPage() {
 
   const focusAction = (action) => {
     window.setTimeout(() => document.querySelector(`[data-defect-action="${action}"]`)?.focus(), 0);
-  };
-
-  const unitPosition = (row) => {
-    const value = String(row?.sourceUnit || row?.unit || '단');
-    const position = UNIT_OPTIONS.findIndex((item) => item.value === value);
-    return position >= 0 ? position : 0;
   };
 
   const focusUnitGroup = (index) => {
@@ -797,16 +711,7 @@ export default function SalesDefectDeductionsPage() {
         matchCandidateProdKeys: lookup.map((candidate) => Number(candidate.ProdKey)).filter(Boolean),
         matchCandidateScores: lookup.map((candidate) => Number(candidate.MatchConfidence || candidate.MatchScore / 100 || 0)),
       });
-      apiPost('/api/product-matching/events', {
-        eventType: row.prodKey && Number(row.prodKey) !== Number(item.ProdKey) ? 'SELECTION_REPLACED' : 'CANDIDATE_SELECTED',
-        sourceChannel: 'sales-defect-deduction', query: lookupQuery,
-        orderYear: Number(year), orderWeek: String(week), custKey: Number(row.custKey) || null,
-        country: item.CounName || '', flower: item.FlowerName || '', color: item.DisplayName || item.ProdName || '',
-        unit: item.EstUnit || item.OutUnit || '', candidateProdKeys: lookup.map((candidate) => candidate.ProdKey),
-        candidateScores: lookup.map((candidate) => Number(candidate.MatchConfidence || candidate.MatchScore / 100 || 0)),
-        selectedProdKey: Number(item.ProdKey), replacedProdKey: Number(row.prodKey) || null,
-        modelVersion: item.MatchModelVersion, confirmedByUser: false, autoSelected: false,
-      }).catch(() => {});
+      apiPost('/api/product-matching/events', buildProductSelectionTelemetry({ row, item, lookupQuery, year, week, lookup })).catch(() => {});
     } else {
       updateRow(index, { farmName: item.FarmName, farmKey: Number(item.FarmKey) || null });
     }
@@ -837,7 +742,7 @@ export default function SalesDefectDeductionsPage() {
 
   const openAddModeMenu = (sourceIndex = rows.length - 1) => {
     setSalesViewMode('edit');
-    setCompanyFilters(current => ({ ...current, sales: '' }));
+    setCompanyFilters((current) => ({ ...current, sales: '' }));
     setSelected(new Set());
     const nextIndex = rows.length;
     setRows((current) => [...current, emptyRow()]);
@@ -849,25 +754,7 @@ export default function SalesDefectDeductionsPage() {
     if (!addModeMenu) return;
     const { index, sourceIndex } = addModeMenu;
     const source = rows[sourceIndex == null ? index - 1 : sourceIndex] || {};
-    const next = { ...emptyRow() };
-    if (mode === 'same-customer' || mode === 'same-customer-product') {
-      next.customerName = source.customerName || '';
-      next.custKey = source.custKey || null;
-      next.matchedCustomerName = source.matchedCustomerName || source.customerName || '';
-      next.farmName = source.farmName || '';
-      next.farmKey = source.farmKey || null;
-    }
-    if (mode === 'same-customer-product') {
-      next.productName = source.productName || '';
-      next.colorName = source.colorName || '';
-      next.prodKey = source.prodKey || null;
-      next.matchedProductName = source.matchedProductName || '';
-      next.matchedProductDbName = source.matchedProductDbName || '';
-      next.countryName = source.countryName || '';
-      next.matchedFlowerName = source.matchedFlowerName || '';
-      next.sourceUnit = source.sourceUnit || source.unit || '단';
-      next.unit = source.unit || source.sourceUnit || '단';
-    }
+    const next = buildAddModeDefectRow(source, mode);
     setRows((current) => current.map((row, rowIndex) => rowIndex === index ? next : row));
     setAddModeMenu(null);
     if (mode === 'same-customer-product') {
@@ -962,25 +849,7 @@ export default function SalesDefectDeductionsPage() {
     const source = rows[index];
     if (!source) return;
     const nextIndex = index + 1;
-    const next = {
-      ...emptyRow(),
-      customerName: source.customerName || '',
-      custKey: source.custKey || null,
-      matchedCustomerName: source.matchedCustomerName || source.customerName || '',
-      farmName: source.farmName || '',
-      farmKey: source.farmKey || null,
-      ...(keepProduct ? {
-        productName: source.productName || '',
-        colorName: source.colorName || '',
-        prodKey: source.prodKey || null,
-        matchedProductName: source.matchedProductName || '',
-        matchedProductDbName: source.matchedProductDbName || '',
-        countryName: source.countryName || '',
-        matchedFlowerName: source.matchedFlowerName || '',
-        sourceUnit: source.sourceUnit || source.unit || '',
-        unit: source.unit || source.sourceUnit || '',
-      } : {}),
-    };
+    const next = buildRelatedDefectRow(source, keepProduct);
     setRows((current) => {
       const copy = [...current];
       copy.splice(index + 1, 0, next);
@@ -1015,7 +884,8 @@ export default function SalesDefectDeductionsPage() {
     try {
       const form = new FormData();
       form.append('file', file);
-      form.append('year',String(year));form.append('week',String(week));
+      form.append('year', String(year));
+      form.append('week', String(week));
       const res = await fetch('/api/sales/defect-deductions-upload', {
         method: 'POST', credentials: 'include', body: form,
       });
@@ -1041,19 +911,15 @@ export default function SalesDefectDeductionsPage() {
         sourceFileName: '',
       });
       const savedRows = data.rows || [];
-      await Promise.allSettled(submittedRows.filter((row) => row.prodKey).map((row) => apiPost('/api/product-matching/events', {
-        eventType: 'SELECTION_CONFIRMED', sourceChannel: 'sales-defect-deduction',
-        query: row.matchQuery || `${row.productName || ''} ${row.colorName || ''}`.trim(), orderYear: Number(year), orderWeek: String(week),
-        custKey: Number(row.custKey) || null, country: row.countryName || '', flower: row.matchedFlowerName || row.productName || '',
-        color: row.colorName || '', unit: row.unit || row.sourceUnit || '', selectedProdKey: Number(row.prodKey),
-        candidateProdKeys: row.matchCandidateProdKeys || [Number(row.prodKey)], candidateScores: row.matchCandidateScores || [1], confirmedByUser: true, autoSelected: false,
-      })));
+      await Promise.allSettled(
+        buildConfirmedSaveTelemetryPayloads({ submittedRows, year, week })
+          .map((payload) => apiPost('/api/product-matching/events', payload))
+      );
       setRows((current) => mergeSavedDeductionRows(current, savedRows, submittedRows));
       mergeSavedRowSignatures(savedRows);
       setSelected(new Set());
       setSalesViewMode('summary');
       setMessage(`${data.saved || 0}건 저장 완료. 이제 견적서관리 등록을 진행할 수 있습니다.`);
-      // 이력/담당자 목록은 갱신하되, 저장 직후 현재 화면의 행을 조회 결과로 덮어쓰지 않는다.
       await load(manager, { preserveRows: true });
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -1098,7 +964,7 @@ export default function SalesDefectDeductionsPage() {
     finally { setSaving(false); }
   };
 
-  const isSupportCheckable = row => activeTab === 'support' ? canSelectSupportDisposition(row, supportListMode === 'held') : isSupportRegistrationSelectable(row, activeTab);
+  const isSupportCheckable = (row) => activeTab === 'support' ? canSelectSupportDisposition(row, supportListMode === 'held') : isSupportRegistrationSelectable(row, activeTab);
   const toggleSupport = (deductionKey) => setSupportSelected((current) => {
     const next = new Set(current);
     const key = Number(deductionKey);
@@ -1117,24 +983,25 @@ export default function SalesDefectDeductionsPage() {
     return allSelected ? new Set() : new Set(keys);
   });
 
-  const toggleSupportVisible = () => setSupportSelected(current => {
-    const keys=visibleSupportRows.filter(isSupportCheckable).map(row=>Number(row.deductionKey));
-    return keys.length && keys.every(key=>current.has(key)) ? new Set() : new Set(keys);
+  const toggleSupportVisible = () => setSupportSelected((current) => {
+    const keys = visibleSupportRows.filter(isSupportCheckable).map((row) => Number(row.deductionKey));
+    return keys.length && keys.every((key) => current.has(key)) ? new Set() : new Set(keys);
   });
-  const changeSupportHold = async hold => {
-    const selectedRows=visibleSupportRows.filter(row=>supportSelected.has(Number(row.deductionKey)) && isSupportCheckable(row));
+
+  const changeSupportHold = async (hold) => {
+    const selectedRows = visibleSupportRows.filter((row) => supportSelected.has(Number(row.deductionKey)) && isSupportCheckable(row));
     if (!selectedRows.length || supportLoading || supportRegistering) return;
     setSupportRegistering(true); setError(''); setMessage('보류 상태를 저장하고 다시 확인하고 있습니다…');
     try {
-      await apiPost('/api/sales/defect-deductions',{action:'support-hold',year,week,hold,rows:selectedRows.map(manualHoldDescriptor)});
-      const data=await loadSupport();
-      if(!data || !Array.isArray(data.rows)) throw Error('저장 후 목록 재조회에 실패했습니다. 조회 버튼으로 다시 확인하세요.');
-      for(const selected of selectedRows) {
-        const fresh=data.rows.find(row=>Number(row.deductionKey)===Number(selected.deductionKey));
-        if((hold && !fresh) || (fresh && Boolean(fresh.manualHeld)!==hold)) throw Error('보류 상태가 다시 변경됐습니다. 조회 후 확인하세요.');
+      await apiPost('/api/sales/defect-deductions', { action: 'support-hold', year, week, hold, rows: selectedRows.map(manualHoldDescriptor) });
+      const data = await loadSupport();
+      if (!data || !Array.isArray(data.rows)) throw Error('저장 후 목록 재조회에 실패했습니다. 조회 버튼으로 다시 확인하세요.');
+      for (const selectedRow of selectedRows) {
+        const fresh = data.rows.find((row) => Number(row.deductionKey) === Number(selectedRow.deductionKey));
+        if ((hold && !fresh) || (fresh && Boolean(fresh.manualHeld) !== hold)) throw Error('보류 상태가 다시 변경됐습니다. 조회 후 확인하세요.');
       }
       setMessage(hold ? `${selectedRows.length}건을 보류 목록으로 이동했습니다. 원장과 견적은 그대로 보존됩니다.` : `${selectedRows.length}건의 담당자 보류를 해제했습니다. 다른 보류 사유가 남은 건은 계속 보류 목록에 표시됩니다.`);
-    } catch(e) { setSupportRows([]); setSupportSelected(new Set()); setMessage(''); setError(e.message); }
+    } catch (e) { setSupportRows([]); setSupportSelected(new Set()); setMessage(''); setError(e.message); }
     finally { setSupportRegistering(false); }
   };
 
@@ -1189,7 +1056,7 @@ export default function SalesDefectDeductionsPage() {
       setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `사전검증 완료 · 등록 가능 ${valid.length}건 · 오류 제외 ${invalid.length}건` }]);
       for (const rejected of invalid) {
         const source = selectedRows[rejected.index] || {};
-        setSupportProcessLogs(current => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `${source.customerName || '업체 미확인'} / ${source.productName || '품목 미확인'} / ${source.quantity ?? ''}${source.sourceUnit || ''}: ${rejected.error || '등록 제외'}` }]);
+        setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `${source.customerName || '업체 미확인'} / ${source.productName || '품목 미확인'} / ${source.quantity ?? ''}${source.sourceUnit || ''}: ${rejected.error || '등록 제외'}` }]);
       }
       if (!valid.length) {
         throw new Error(`등록 가능한 행이 없습니다.\n${invalid.map((r) => `행 ${r.index + 1}: ${r.error || '원장키가 없습니다.'}`).join('\n')}`);
@@ -1220,16 +1087,6 @@ export default function SalesDefectDeductionsPage() {
       setError(e.message);
     }
     finally { if (!handedOffToReview) setSupportRegistering(false); }
-  };
-
-  const loadOmissionHistory=async()=>{setOmissionBusy(true);try{const r=await fetch(`/api/sales/defect-deductions?view=omission-history&year=${year}`,{credentials:'include'});const d=await parseJsonResponse(r);if(!r.ok||!d.success)throw Error(d.error||'조회 실패');setOmissionRows(d.rows);}catch(e){setError(e.message);}finally{setOmissionBusy(false);}};
-  const undoOmission=async(row)=>{if(!window.confirm(`${row.customerName||''} / ${row.productName||''} / ${row.orderWeek}차 ${row.quantity}${row.sourceUnit} 누락 처리를 취소합니까?`))return;setOmissionBusy(true);try{await apiPost('/api/sales/defect-deductions',{action:'permanent-omit-cancel',year,historyKey:row.historyKey});await loadOmissionHistory();if(activeTab==='carryover')await loadCarryover();else await loadSupport();setMessage('누락 취소 완료. 출고·단가·중복 검사 후 등록할 수 있습니다.');}catch(e){setError(e.message);}finally{setOmissionBusy(false);}};
-  const markSupportOmitted = async () => {
-    const selected=supportRows.filter(r=>supportSelected.has(Number(r.deductionKey))&&r.registrationEligible);
-    if(!selected.length){setError('등록 가능한 행을 선택하세요.');return;}
-    if(!window.confirm(`선택한 ${selected.length}건을 누락 처리합니다. 같은 연도·차수·업체·품목·수량·단위는 이후 업로드에서도 고정 제외됩니다. 새 차수나 다른 수량은 제외하지 않습니다.`))return;
-    setSupportLoading(true);setError('');
-    try{const data=await apiPost('/api/sales/defect-deductions',{action:'permanent-omit',year,week,rows:selected.map(r=>({deductionKey:r.deductionKey,expectedRowVersionNo:r.rowVersionNo}))});setMessage(`누락 처리 ${data.omitted}건 · 동일 자료 재업로드 고정 제외`);setSupportSelected(new Set());if(activeTab==='carryover')await loadCarryover();else await loadSupport();}catch(e){setError(e.message);}finally{setSupportLoading(false);}
   };
 
   const markSupportManualComplete = async () => {
@@ -1356,7 +1213,7 @@ export default function SalesDefectDeductionsPage() {
       supportReviewWindowRef.current = null;
       const failed = event.data.failed === true;
       setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: failed
-          ? `등록 중단 · 응답 확인 묶음 ${event.data.completedCount || 0}건 · ${event.data.operationStage || '오류 단계 미확인'}${event.data.errorCode ? ` · ${event.data.errorCode}` : ''}`
+        ? `등록 중단 · 응답 확인 묶음 ${event.data.completedCount || 0}건 · ${event.data.operationStage || '오류 단계 미확인'}${event.data.errorCode ? ` · ${event.data.errorCode}` : ''}`
         : event.data.verified === false ? '완료 알림 · 재조회 확인 필요' : `전체 완료 · 등록 ${event.data.registered || 0}건 · 재조회 검증 통과` }]);
       if (failed) {
         setError(`영업지원 전산등록이 중단되었습니다.${event.data.operationStage ? ` 실패 단계: ${event.data.operationStage}.` : ''}${event.data.errorCode ? ` 오류 코드: ${event.data.errorCode}.` : ''} 검토창의 상세 메시지를 확인하고, 자동 재실행하지 말고 목록 재조회로 현재 상태부터 확인하세요.`);
@@ -1383,7 +1240,7 @@ export default function SalesDefectDeductionsPage() {
 
   const correctPeriod = async () => {
     const chosen = rows.filter((_, index) => selected.has(index));
-    if (!chosen.length || chosen.some(row => salesRowSaveState(row) !== '저장 완료')) {
+    if (!chosen.length || chosen.some((row) => salesRowSaveState(row) !== '저장 완료')) {
       setError('저장된 초안만 선택하고 미저장 변경을 먼저 저장하세요.'); return;
     }
     const target = periodForm?.target || '';
@@ -1393,9 +1250,11 @@ export default function SalesDefectDeductionsPage() {
     if (!reason?.trim()) { setError('차수 정정 사유를 입력하세요.'); return; }
     setSaving(true); setError('');
     try {
-      const result = await apiPost('/api/sales/defect-deductions', { action: 'correct-period', year, week,
+      const result = await apiPost('/api/sales/defect-deductions', {
+        action: 'correct-period', year, week,
         targetYear: Number(match[1]), targetWeek: Number(match[2]), reason,
-        rows: chosen.map(row => ({ deductionKey: Number(row.deductionKey), expectedRowVersionNo: Number(row.rowVersionNo) })) });
+        rows: chosen.map((row) => ({ deductionKey: Number(row.deductionKey), expectedRowVersionNo: Number(row.rowVersionNo) })),
+      });
       setPeriodForm(null);
       setMessage(`${result.corrected}건 차수 정정 완료 · ${match[1]}년 ${match[2]}차 · 수정이력 기록`);
       await load();
@@ -1428,83 +1287,6 @@ export default function SalesDefectDeductionsPage() {
     finally { setSaving(false); }
   };
 
-  useEffect(() => {
-    managementSequence.current += 1;
-    setManagementSelected(new Set());
-    setManagementEdit(null);
-    setManagementCandidates([]);
-  }, [year, week, activeTab, incomingLoading, supportLoading]);
-  useEffect(() => {
-    setManagementMode(false);
-  }, [year, week, activeTab]);
-  const managementLoading = managementBusy || incomingLoading || supportLoading || incomingSaving || supportRegistering;
-  const managementRows = activeTab === 'incoming' ? incomingRows : visibleSupportRows;
-  const managementDescriptor = row => ({ deductionKey: Number(row.deductionKey), sourceYear: Number(row.orderYear), sourceWeek: String(row.orderWeek), expectedRowVersionNo: Number(row.rowVersionNo) });
-  const toggleManagement = key => setManagementSelected(current => {
-    const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next;
-  });
-  const refreshManagement = () => activeTab === 'incoming' ? loadIncoming() : loadSupport();
-  const archiveManagement = async () => {
-    const selectedRows = managementRows.filter(row => managementSelected.has(Number(row.deductionKey)));
-    if (!selectedRows.length || managementLoading) return;
-    const payload = { action: 'manage-archive', year, week, rows: selectedRows.map(managementDescriptor) };
-    const seq = managementSequence.current;
-    setManagementBusy(true); setError('');
-    try {
-      await apiPost('/api/sales/defect-deductions', { ...payload, preview: true });
-      if (seq !== managementSequence.current) return;
-      const details = selectedRows.map(row => `${row.customerName} · ${row.orderYear}년 ${row.orderWeek}차 · #${row.deductionKey}${row.estimateKey ? ` · 연결 견적 #${row.estimateKey}` : ''}`).join('\n');
-      if (!window.confirm(`${details}\n\n${selectedRows.length}건을 불량 목록에서 제외할까요? 실제 견적서와 주문·출고·재고는 보존됩니다.`)) return;
-      await apiPost('/api/sales/defect-deductions', { ...payload, preview: false });
-      setManagementSelected(new Set());
-      setMessage(`${selectedRows.length}건 목록 제외 완료. 실제 견적서와 처리 이력은 보존되었습니다.`);
-      if (!await refreshManagement()) setError('목록 제외는 완료했지만 재조회에 실패했습니다. 다시 조회하세요. 제외 요청을 반복하지 마세요.');
-    } catch (error) { setError(`목록 정리: ${error.message} 요청 결과가 불명확하면 새로 조회하여 확인하세요.`); }
-    finally { setManagementBusy(false); }
-  };
-  const openManagementEdit = async row => {
-    const seq = ++managementSequence.current;
-    setManagementBusy(true); setError('');
-    const descriptor = managementDescriptor(row);
-    try {
-      const result = await apiPost('/api/sales/defect-deductions', { action: 'manage-edit', year, week, rows: [descriptor], changes: {}, preview: true });
-      if (seq !== managementSequence.current) return;
-      const plan = result.rows?.[0];
-      const noteOnly = Boolean(plan?.noteOnly || row.estimateKey || ['REGISTERED', 'COMPLETED', 'MANUAL_COMPLETED'].includes(row.status));
-      setManagementEdit({ descriptor, noteOnly, row, changes: { custKey: row.custKey, customerName: row.customerName, prodKey: row.prodKey, productName: row.productName, quantity: row.quantity, sourceUnit: row.sourceUnit, note: row.note || '' }, query: '', kind: 'customer' });
-      setManagementCandidates([]);
-    } catch (error) { setError(`수정 확인: ${error.message}`); }
-    finally { setManagementBusy(false); }
-  };
-  const searchManagement = async () => {
-    const edit = managementEdit, seq = managementSequence.current;
-    if (!edit || edit.noteOnly) return;
-    setManagementBusy(true);
-    try {
-      const data = await apiGet('/api/sales/defect-deductions', { view: 'lookups', kind: edit.kind, q: edit.query });
-      if (seq === managementSequence.current) setManagementCandidates(data[edit.kind === 'customer' ? 'customers' : 'products'] || []);
-    } catch (error) { setError(error.message); }
-    finally { setManagementBusy(false); }
-  };
-  const saveManagementEdit = async () => {
-    const edit = managementEdit;
-    if (!edit || managementLoading) return;
-    const editableChanges = edit.noteOnly ? { note: edit.changes.note } : edit.changes;
-    const changes = Object.fromEntries(Object.entries(editableChanges).filter(([key, value]) => String(value ?? '') !== String(edit.row[key] ?? '')));
-    if (!Object.keys(changes).length) { setError('변경할 내용을 입력하세요.'); return; }
-    const payload = { action: 'manage-edit', year, week, rows: [edit.descriptor], changes };
-    const seq = managementSequence.current;
-    setManagementBusy(true); setError('');
-    try {
-      await apiPost('/api/sales/defect-deductions', { ...payload, preview: true });
-      if (seq !== managementSequence.current) return;
-      await apiPost('/api/sales/defect-deductions', { ...payload, preview: false });
-      setManagementEdit(null); setMessage('불량 목록 수정 완료. 실제 견적서는 변경하지 않았습니다.');
-      if (!await refreshManagement()) setError('수정은 완료했지만 재조회에 실패했습니다. 다시 조회하세요. 저장 요청을 반복하지 마세요.');
-    } catch (error) { setError(`수정: ${error.message} 요청 결과가 불명확하면 새로 조회하여 확인하세요.`); }
-    finally { setManagementBusy(false); }
-  };
-
   const download = async () => {
     try {
       const view = activeTab === 'incoming' ? '&view=incoming' : '';
@@ -1527,10 +1309,10 @@ export default function SalesDefectDeductionsPage() {
     window.print();
   };
 
-  const openCustomerEstimate = (row, scope = null) => {
+  const openCustomerEstimate = (row, targetScope = null) => {
     const url = buildEstimateCustomerUrl({
-      year: scope?.year || year,
-      week: scope?.week || week,
+      year: targetScope?.year || year,
+      week: targetScope?.week || week,
       custKey: row?.custKey,
       customerName: row?.customerName,
     });
@@ -1551,76 +1333,22 @@ export default function SalesDefectDeductionsPage() {
     });
   };
 
-  const endSelectionDrag = () => {
-    const session = selectionDrag.current;
-    if (session?.frame) cancelAnimationFrame(session.frame);
-    if (session?.zone.hasPointerCapture?.(session.pointerId)) session.zone.releasePointerCapture(session.pointerId);
-    selectionDrag.current = null;
-  };
+  const endSelectionDrag = useCallback(() => endDefectSelectionDrag(selectionDrag), []);
   useEffect(() => {
     endSelectionDrag();
-  }, [year, week, activeTab, managementMode, managementBusy, loading, incomingLoading, supportLoading, saving, incomingSaving, incomingConfirming, supportRegistering]);
+  }, [endSelectionDrag, year, week, activeTab, managementMode, managementBusy, loading, incomingLoading, supportLoading, saving, incomingSaving, incomingConfirming, supportRegistering]);
   useEffect(() => {
     const stop = () => endSelectionDrag();
     window.addEventListener('blur', stop); window.addEventListener('pointerup', stop); window.addEventListener('pointercancel', stop);
     return () => { stop(); window.removeEventListener('blur', stop); window.removeEventListener('pointerup', stop); window.removeEventListener('pointercancel', stop); };
-  }, []);
-  const updateSelectionDrag = (x, y, recordPointer = true) => {
-    const session = selectionDrag.current;
-    if (!session) return;
-    if (recordPointer) { session.x = x; session.y = y; }
-    const row = document.elementFromPoint(x, y)?.closest('tr');
-    const zone = row?.querySelector(`[data-selection-group="${session.group}"]`);
-    const current = session.zones.indexOf(zone);
-    if (current >= 0) session.current = current;
-    session.setSelection(selectDefectRange({ baseline: session.baseline, items: session.items, anchor: session.anchor, current: session.current, selected: session.selected }));
-  };
-  const startSelectionDrag = (event, group, baseline, setSelection) => {
-    selectionPointerType.current = event.pointerType;
-    if (!['mouse', 'pen'].includes(event.pointerType) || event.button !== 0 || !event.isPrimary
-      || event.currentTarget.querySelector('input')?.disabled) return;
-    event.preventDefault(); endSelectionDrag();
-    const zone = event.currentTarget;
-    const zones = [...document.querySelectorAll(`[data-selection-group="${group}"]`)];
-    const items = zones.map(item => ({ key: Number(item.dataset.selectionKey), eligible: !item.querySelector('input').disabled }));
-    const anchor = zones.indexOf(zone);
-    const session = { zone, zones, items, group, baseline: new Set(baseline), setSelection, anchor, current: anchor,
-      selected: !baseline.has(items[anchor].key), pointerId: event.pointerId, scroll: zone.closest('.defect-grid-scroll'), x: event.clientX, y: event.clientY };
-    selectionDrag.current = session;
-    zone.querySelector('input')?.focus({ preventScroll: true }); zone.setPointerCapture(event.pointerId);
-    updateSelectionDrag(event.clientX, event.clientY);
-    const frame = () => {
-      if (selectionDrag.current !== session) return;
-      const rect = session.scroll?.getBoundingClientRect();
-      if (rect) {
-        const top = Math.max(0, rect.top), bottom = Math.min(innerHeight, rect.bottom);
-        const delta = session.y < top + 44 ? -18 : session.y > bottom - 44 ? 18 : 0;
-        if (delta) {
-          session.scroll.scrollTop += delta;
-          const headerBottom = Math.max(top, ...[...session.scroll.querySelectorAll('thead th')].map(cell => cell.getBoundingClientRect().bottom));
-          updateSelectionDrag(session.x, Math.max(headerBottom + 2, Math.min(bottom - 5, session.y)), false);
-        }
-      }
-      session.frame = requestAnimationFrame(frame);
-    };
-    session.frame = requestAnimationFrame(frame);
-  };
-  const selectionZoneProps = (group, key, baseline, setter) => ({
-    'data-selection-group': group, 'data-selection-key': key,
-    title: '↑↓ 항목 이동 · Space 또는 Enter 선택',
-    onKeyDown: event => {
-      if (event.target.tagName !== 'INPUT' || event.target.type !== 'checkbox') return;
-      if (event.key === 'Enter') { event.preventDefault(); event.target.click(); return; }
-      if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
-      const inputs = [...document.querySelectorAll(`[data-selection-group="${group}"] input`)].filter(input => !input.disabled);
-      const index = inputs.indexOf(event.target);
-      const next = inputs[index + (event.key === 'ArrowDown' ? 1 : -1)];
-      event.preventDefault(); next?.focus();
-    },
-    onPointerDown: event => startSelectionDrag(event, group, baseline, setter),
-    onPointerMove: event => { if (selectionDrag.current?.pointerId === event.pointerId) updateSelectionDrag(event.clientX, event.clientY); },
-    onPointerUp: endSelectionDrag, onPointerCancel: endSelectionDrag,
-    onClickCapture: event => { if (event.detail > 0 && ['mouse', 'pen'].includes(selectionPointerType.current)) { event.preventDefault(); event.stopPropagation(); } },
+  }, [endSelectionDrag]);
+  const selectionZoneProps = (group, key, baseline, setter) => buildDefectSelectionZoneProps({
+    group,
+    key,
+    baseline,
+    setter,
+    selectionDragRef: selectionDrag,
+    selectionPointerTypeRef: selectionPointerType,
   });
 
   const toggle = (index) => setSelected((current) => {
@@ -1632,14 +1360,7 @@ export default function SalesDefectDeductionsPage() {
     ? `견적서 등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}`
     : row.status === 'MANUAL_COMPLETED' ? '수동처리완료'
     : row.status === 'DELETED' ? '삭제됨' : salesRowSaveState(row);
-  const registrationHistoryByKey = useMemo(() => {
-    const map = new Map();
-    (history || []).filter((item) => String(item.ActionType || '') === 'REGISTER_ESTIMATE').forEach((item) => {
-      const key = Number(item.DeductionKey || 0);
-      if (key > 0 && !map.has(key)) map.set(key, item);
-    });
-    return map;
-  }, [history]);
+  const registrationHistoryByKey = useMemo(() => buildRegistrationHistoryByKey(history), [history]);
   const estimateStatusText = (row) => {
     if (defectSourceReview(row)) return '원문·견적 확인 필요';
     if (!['REGISTERED', 'COMPLETED'].includes(row.status)) return '-';
@@ -1666,63 +1387,30 @@ export default function SalesDefectDeductionsPage() {
       visibleKeys.add(key);
     }
   }
-  const pendingSalesRows = new Set();
-  const salesStatusCounts = rows.reduce((counts, row, index) => {
-    const state = salesRowSaveState(row);
-    if (state === '미저장' || state === '저장 안 됨') {
-      const key = Number(row.deductionKey);
-      pendingSalesRows.add(key > 0 ? key : `draft-${index}`);
-    }
-    counts[state] = (counts[state] || 0) + 1;
-    return counts;
-  }, {});
-  const carryoverCustomerGroups = [...supportRows.reduce((map, row) => {
-    const key = Number(row.custKey || 0);
-    if (!map.has(key)) map.set(key, { custKey: key, customerName: row.customerName || '-', rows: [], remaining: 0 });
-    const group = map.get(key); group.rows.push(row); group.remaining += Number(row.remainingQuantity || 0);
-    return map;
-  }, new Map()).values()];
+  const { pendingSalesRows, salesStatusCounts } = computeSalesStatusSummary(rows, salesRowSaveState);
+  const carryoverCustomerGroups = useMemo(() => deriveCarryoverCustomerGroups(supportRows), [supportRows]);
   const supportSelectableKeys = visibleSupportRows
     .filter((row) => isSupportRegistrationSelectable(row, activeTab))
     .map((row) => Number(row.deductionKey))
     .filter((key) => key > 0);
-  const supportCheckedRows = visibleSupportRows.filter(row=>supportSelected.has(Number(row.deductionKey)));
-  const supportSelectionBlocked = supportCheckedRows.some(row=>!isSupportRegistrationSelectable(row, activeTab));
+  const supportCheckedRows = visibleSupportRows.filter((row) => supportSelected.has(Number(row.deductionKey)));
+  const supportSelectionBlocked = supportCheckedRows.some((row) => !isSupportRegistrationSelectable(row, activeTab));
   const supportRegistrationReason = supportRegisterBlockReason({
     managementMode, managementBusy, supportLoading, supportRegistering,
     eligibleCount: supportSelectableKeys.length, checkedCount: supportCheckedRows.length, selectionBlocked: supportSelectionBlocked,
   });
   const supportVisibleSelectable = visibleSupportRows.filter(isSupportCheckable);
-  const supportVisibleAllSelected = supportVisibleSelectable.length>0 && supportVisibleSelectable.every(row=>supportSelected.has(Number(row.deductionKey)));
+  const supportVisibleAllSelected = supportVisibleSelectable.length > 0 && supportVisibleSelectable.every((row) => supportSelected.has(Number(row.deductionKey)));
   const supportAllSelected = supportSelectableKeys.length > 0 && supportSelectableKeys.every((key) => supportSelected.has(key));
 
   const displayedIncomingRows = useMemo(
     () => sortIncomingRows(incomingRows, incomingGroupMode),
     [incomingRows, incomingGroupMode],
   );
-  const printSections = useMemo(() => {
-    if (activeTab !== 'incoming') {
-      const paddedRows = Array.from({ length: Math.max(rows.length, 39) }, (_, index) => rows[index] || null);
-      return [{ manager: currentUser?.userName || '', customerGroups: [paddedRows] }];
-    }
-    const groups = new Map();
-    for (const { row } of displayedIncomingRows) {
-      const manager = row.managerName?.trim() || '담당자 미지정';
-      if (!groups.has(manager)) groups.set(manager, new Map());
-      const customers = groups.get(manager);
-      const customer = row.custKey || row.customerName;
-      if (!customers.has(customer)) customers.set(customer, []);
-      customers.get(customer).push(row);
-    }
-    return Array.from(groups, ([manager, customers]) => ({ manager, customerGroups: Array.from(customers.values()) }))
-      .sort((a, b) => a.manager.localeCompare(b.manager, 'ko'));
-  }, [activeTab, currentUser?.userName, displayedIncomingRows, rows]);
-  const printQuantity = (row) => {
-    if (!row || row.quantity == null || row.quantity === '') return '';
-    const quantity = Number(row.quantity);
-    const value = Number.isFinite(quantity) && Number.isInteger(quantity) ? fmt(quantity) : String(row.quantity);
-    return `${value}${row.sourceUnit || row.unit || ''}`;
-  };
+  const printSections = useMemo(
+    () => buildDefectPrintSections({ activeTab, rows, currentUserName: currentUser?.userName, displayedIncomingRows }),
+    [activeTab, currentUser?.userName, displayedIncomingRows, rows],
+  );
 
   const renderLookupPanel = (index, kind, scope = 'sales') => {
     if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind || (activeSearch.scope || 'sales') !== scope) return null;
@@ -1750,7 +1438,7 @@ export default function SalesDefectDeductionsPage() {
           {kind === 'product' ? <>
             <span className="defect-lookup-country">{item.CounName || item.counName || '-'}</span>
             <span className="defect-lookup-flower">{item.FlowerName || item.flowerName || '-'}</span>
-            <span className="defect-lookup-product-name">{[item.ProdName || item.prodName, item.DisplayName || item.displayName].filter((name, index, names) => name && names.indexOf(name) === index).join(' · ') || productSearchLabel(item)}<small>{` · ${item.EstUnit || item.OutUnit || '-'} · DB #${item.ProdKey || item.prodKey} · ${item.AlternateCountry ? '다른 국가 후보' : (item.MatchReasons || []).join('/') || '유사 후보'}`}</small></span>
+            <span className="defect-lookup-product-name">{[item.ProdName || item.prodName, item.DisplayName || item.displayName].filter((name, idx, names) => name && names.indexOf(name) === idx).join(' · ') || productSearchLabel(item)}<small>{` · ${item.EstUnit || item.OutUnit || '-'} · DB #${item.ProdKey || item.prodKey} · ${item.AlternateCountry ? '다른 국가 후보' : (item.MatchReasons || []).join('/') || '유사 후보'}`}</small></span>
           </> : <span className="defect-lookup-simple-label">{kind === 'customer' ? `${item.CustName} (${item.CustKey})${usageLabel(item)}` : item.FarmName}</span>}
         </button>)}
         {!lookup.length && <div className="defect-lookup-empty">{{ COUNTRY_CONFLICT: '입력 국가와 일치하는 전산 후보가 없습니다. 다른 국가 후보를 확인하세요.', FLOWER_MISMATCH: '입력 품종과 일치하는 전산 후보가 없습니다.', NO_MASTER_CANDIDATE: '사용 가능한 전산 품목 마스터가 없습니다.', NO_SIMILAR_CANDIDATE: '유사 품목을 찾지 못했습니다. 국가·품종·색상을 나누어 검색하세요.' }[lookupMatchMeta?.emptyReason] || '관련 전산 후보가 없습니다. 거래처 범위와 전산 마스터 등록 여부를 확인하세요.'}</div>}
@@ -1819,12 +1507,12 @@ export default function SalesDefectDeductionsPage() {
           </>}
           <button className="btn btn-primary" onClick={() => (activeTab === 'incoming' ? loadIncoming : activeTab === 'support' ? loadSupport : activeTab === 'carryover' ? loadCarryover : load)()} disabled={managementBusy || loading || incomingLoading || supportLoading || supportRegistering}>조회</button>
           {activeTab === 'sales' && <>
-          <button className="btn" onClick={() => fileRef.current?.click()} disabled={saving}>엑셀 업로드</button>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
-           <button className="btn" onClick={() => openAddModeMenu(rows.length - 1)}>빈 행 추가</button>
-          <button className="btn" onClick={rematch} disabled={saving || !rows.length}>미매칭 재매칭</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving || !pendingSalesRows.size}>변경건({pendingSalesRows.size}) 저장</button>
-          <button className="btn" onClick={register} disabled={saving || !selected.size}>선택 일괄 견적서관리 등록</button>
+            <button className="btn" onClick={() => fileRef.current?.click()} disabled={saving}>엑셀 업로드</button>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
+            <button className="btn" onClick={() => openAddModeMenu(rows.length - 1)}>빈 행 추가</button>
+            <button className="btn" onClick={rematch} disabled={saving || !rows.length}>미매칭 재매칭</button>
+            <button className="btn btn-primary" onClick={save} disabled={saving || !pendingSalesRows.size}>변경건({pendingSalesRows.size}) 저장</button>
+            <button className="btn" onClick={register} disabled={saving || !selected.size}>선택 일괄 견적서관리 등록</button>
           </>}
           {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={managementMode || managementBusy || incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
           {activeTab === 'support' && <>
@@ -1835,7 +1523,7 @@ export default function SalesDefectDeductionsPage() {
             <button type="button" className="btn" onClick={() => changeSupportHold(supportListMode !== 'held')} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportCheckedRows.length}>{supportListMode === 'held' ? '선택 보류 해제' : '선택 항목 보류로 이동'}</button>
             <button type="button" className="btn" onClick={markSupportOmitted} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>선택 누락 처리</button>
             <button type="button" className="btn" onClick={loadOmissionHistory} disabled={omissionBusy}>누락 처리 내역·취소</button>
-            {omissionRows!==null&&<div role="dialog" aria-label="누락 처리 내역" style={{position:'fixed',inset:'10%',zIndex:10000,background:'white',padding:20,overflow:'auto',border:'1px solid #999'}}><h3>{year}년 누락 처리 내역</h3><button type="button" onClick={()=>setOmissionRows(null)}>닫기</button><table><thead><tr><th>원차수</th><th>업체</th><th>품목</th><th>수량</th><th>처리일</th><th>상태</th><th>취소</th></tr></thead><tbody>{omissionRows.map(r=><tr key={r.historyKey}><td>{r.orderWeek}</td><td>{r.customerName}</td><td>{r.productName}</td><td>{r.quantity}{r.sourceUnit}</td><td>{String(r.changedAt).slice(0,10)}</td><td>{r.cancelled?'취소됨':'고정 제외'}</td><td><button type="button" disabled={omissionBusy||r.cancelled} onClick={()=>undoOmission(r)}>누락 취소</button></td></tr>)}</tbody></table>{!omissionRows.length&&<p>누락 처리 내역이 없습니다.</p>}</div>}
+            <DefectOmissionHistoryModal omissionRows={omissionRows} year={year} omissionBusy={omissionBusy} onClose={() => setOmissionRows(null)} onUndo={undoOmission} />
             <button type="button" className="btn" onClick={markSupportManualComplete} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>수동처리완료</button>
             <button type="button" className="btn" onClick={() => {
               const selectedWeek = `${year}-${String(week).padStart(2, '0')}-01`;
@@ -1851,7 +1539,7 @@ export default function SalesDefectDeductionsPage() {
             <button className="btn btn-primary" onClick={() => registerSupport(false)} disabled={supportLoading || supportRegistering || !supportSelected.size}>선택 항목 처리 검토</button>
             <button type="button" className="btn" onClick={markSupportOmitted} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>선택 누락 처리</button>
             <button type="button" className="btn" onClick={loadOmissionHistory} disabled={omissionBusy}>누락 처리 내역·취소</button>
-            {omissionRows!==null&&<div role="dialog" aria-label="누락 처리 내역" style={{position:'fixed',inset:'10%',zIndex:10000,background:'white',padding:20,overflow:'auto',border:'1px solid #999'}}><h3>{year}년 누락 처리 내역</h3><button type="button" onClick={()=>setOmissionRows(null)}>닫기</button><table><thead><tr><th>원차수</th><th>업체</th><th>품목</th><th>수량</th><th>처리일</th><th>상태</th><th>취소</th></tr></thead><tbody>{omissionRows.map(r=><tr key={r.historyKey}><td>{r.orderWeek}</td><td>{r.customerName}</td><td>{r.productName}</td><td>{r.quantity}{r.sourceUnit}</td><td>{String(r.changedAt).slice(0,10)}</td><td>{r.cancelled?'취소됨':'고정 제외'}</td><td><button type="button" disabled={omissionBusy||r.cancelled} onClick={()=>undoOmission(r)}>누락 취소</button></td></tr>)}</tbody></table>{!omissionRows.length&&<p>누락 처리 내역이 없습니다.</p>}</div>}
+            <DefectOmissionHistoryModal omissionRows={omissionRows} year={year} omissionBusy={omissionBusy} onClose={() => setOmissionRows(null)} onUndo={undoOmission} />
             <button type="button" className="btn" onClick={markSupportManualComplete} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>수동처리완료</button>
           </>}
           <button className="btn" onClick={printForm} aria-describedby={incomingPrintReason ? 'incoming-print-reason' : undefined} disabled={activeTab === 'support' || activeTab === 'carryover' || (activeTab === 'incoming' ? !!incomingPrintReason : !rows.length)}>인쇄</button>
@@ -1860,25 +1548,19 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn" onClick={() => setShowHistory((v) => !v)}>수정이력 {showHistory ? '닫기' : '보기'}</button>
           {managementAllowed && ['incoming', 'support'].includes(activeTab) && <>
             <button type="button" className="btn" aria-pressed={managementMode} disabled={managementLoading} onClick={() => { setManagementMode(!managementMode); setManagementSelected(new Set()); }}>목록 수정·정리{managementMode ? ' 닫기' : ''}</button>
-            {managementMode && <><button type="button" className="btn" disabled={managementLoading || !managementRows.length} onClick={() => setManagementSelected(new Set(managementRows.map(row => Number(row.deductionKey))))}>정리 항목 전체 선택</button><button type="button" className="btn btn-danger" disabled={managementLoading || !managementSelected.size} onClick={archiveManagement}>선택 {managementSelected.size}건 목록에서 제외</button><span>실제 견적서 보존 · 등록 선택과 별도</span></>}
+            {managementMode && <><button type="button" className="btn" disabled={managementLoading || !managementRows.length} onClick={() => setManagementSelected(new Set(managementRows.map((row) => Number(row.deductionKey))))}>정리 항목 전체 선택</button><button type="button" className="btn btn-danger" disabled={managementLoading || !managementSelected.size} onClick={archiveManagement}>선택 {managementSelected.size}건 목록에서 제외</button><span>실제 견적서 보존 · 등록 선택과 별도</span></>}
           </>}
           {activeTab === 'sales' && isDefectAdmin(currentUser) && <button className="btn" onClick={() => setPeriodForm({ target: '', reason: '' })} disabled={saving || !selected.size}>선택 차수 정정</button>}
           {activeTab === 'sales' && <button className="btn btn-danger" onClick={remove} disabled={saving || !selected.size}>선택 삭제</button>}
         </div>
         {activeTab === 'support' && <div role="group" aria-label="등록 대상과 보류 목록" style={{ display: 'flex', gap: 8, margin: '10px 0' }}>
-          {[['active', '등록 대상'], ['held', '보류']].map(([mode, label]) => <button type="button" className={`btn ${supportListMode === mode ? 'btn-primary' : ''}`} key={mode} aria-pressed={supportListMode === mode} disabled={supportLoading || supportRegistering || managementBusy} onClick={() => { setSupportListMode(mode); setSupportSelected(new Set()); setManagementSelected(new Set()); setCompanyFilters(current => ({ ...current, support: '' })); }}>{label} ({supportRows.filter(row => isDefectRegistrationHeld(row) === (mode === 'held')).length}건)</button>)}
+          {[['active', '등록 대상'], ['held', '보류']].map(([mode, label]) => <button type="button" className={`btn ${supportListMode === mode ? 'btn-primary' : ''}`} key={mode} aria-pressed={supportListMode === mode} disabled={supportLoading || supportRegistering || managementBusy} onClick={() => { setSupportListMode(mode); setSupportSelected(new Set()); setManagementSelected(new Set()); setCompanyFilters((current) => ({ ...current, support: '' })); }}>{label} ({supportRows.filter((row) => isDefectRegistrationHeld(row) === (mode === 'held')).length}건)</button>)}
           {supportListMode === 'active' && <span>등록 가능은 이 불량 건의 등록 조건을 통과했다는 뜻입니다. 체크한 항목은 보류로 이동할 수 있습니다.</span>}
           {supportListMode === 'held' && <span>이전 견적·원문 확인 또는 이번 차수 분배가 필요한 자료입니다. 담당자 보류는 체크 후 보류 해제할 수 있습니다. 원장은 보존하며, 다른 보류 사유가 해결되면 재조회 시 등록 대상으로 돌아옵니다.</span>}
         </div>}
-        {['sales', 'support'].includes(activeTab) && <DefectCompanyFilter key={activeTab} rows={activeTab === 'sales' ? rows : supportModeRows} value={companyFilters[activeTab]} disabled={loading || saving || supportLoading || supportRegistering || managementBusy} onChange={value => { endSelectionDrag(); setCompanyFilters(current => ({ ...current, [activeTab]: value })); setSelected(new Set()); setSupportSelected(new Set()); setManagementSelected(new Set()); setActiveSearch(null); }} />}
+        {['sales', 'support'].includes(activeTab) && <DefectCompanyFilter key={activeTab} rows={activeTab === 'sales' ? rows : supportModeRows} value={companyFilters[activeTab]} disabled={loading || saving || supportLoading || supportRegistering || managementBusy} onChange={(value) => { endSelectionDrag(); setCompanyFilters((current) => ({ ...current, [activeTab]: value })); setSelected(new Set()); setSupportSelected(new Set()); setManagementSelected(new Set()); setActiveSearch(null); }} />}
         {activeTab === 'sales' && companyFilters.sales && <p style={{ fontSize: 12 }}>저장 버튼은 업체 필터와 관계없이 전체 입력 초안을 저장합니다.</p>}
-        {periodForm && activeTab === 'sales' && <section aria-label="차수 정정" style={{ padding: 12, border: '1px solid #cbd5e1', marginTop: 8 }}>
-          <p>선택 {selected.size}건 · 현재 {year}년 {week}차. 저장번호·업체·품목·수량·담당자는 유지됩니다.</p>
-          <label>정정할 연도-차수 <input aria-label="정정할 연도-차수" placeholder="2026-40" value={periodForm.target} disabled={saving} onChange={e => setPeriodForm({ ...periodForm, target: e.target.value })} /></label>
-          <label>정정 사유 <input aria-label="정정 사유" maxLength={300} value={periodForm.reason} disabled={saving} onChange={e => setPeriodForm({ ...periodForm, reason: e.target.value })} /></label>
-          <button className="btn btn-primary" onClick={correctPeriod} disabled={saving || !selected.size}>차수 정정 적용</button>
-          <button className="btn" onClick={() => setPeriodForm(null)} disabled={saving}>취소</button>
-        </section>}
+        {activeTab === 'sales' && <DefectPeriodCorrectionSection periodForm={periodForm} setPeriodForm={setPeriodForm} selectedCount={selected.size} year={year} week={week} saving={saving} onApply={correctPeriod} />}
         <div style={{ marginTop: 7, color: '#475569', fontSize: 12 }}>
           {message && <span role="status" aria-live="polite" style={{ color: '#166534', marginRight: 12 }}>{message}</span>}
           {error && <span role="alert" style={{ color: '#b91c1c', whiteSpace: 'pre-wrap' }}>{error}</span>}
@@ -1886,40 +1568,25 @@ export default function SalesDefectDeductionsPage() {
             저장 완료 {salesStatusCounts['저장 완료'] || 0}건 · 미저장 {salesStatusCounts['미저장'] || 0}건 · 저장 안 됨 {salesStatusCounts['저장 안 됨'] || 0}건
           </span>}
         </div>
-        {showManagerEditor && <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8, paddingTop: 8, borderTop: '1px solid #e2e8f0' }}>
-          <span style={{ fontWeight: 700 }}>담당자 관리</span>
-          <select className="input" value={managerEditId} onChange={(e) => {
-            const id = e.target.value;
-            const option = visibleManagerOptions.find((item) => String(item.managerId) === id);
-            setManagerEditId(id);
-            setManagerEditName(option?.managerName || '');
-          }}>
-            <option value="">새 담당자</option>
-            {visibleManagerOptions.map((item) => <option key={`edit-${item.managerId}`} value={item.managerId}>{item.managerName}</option>)}
-          </select>
-          <input className="input" value={managerEditName} placeholder="담당자 이름" onChange={(e) => setManagerEditName(e.target.value)} />
-          <button className="btn btn-primary" onClick={saveManager} disabled={saving}>저장</button>
-          <button className="btn" onClick={() => { setManagerEditId(''); setManagerEditName(''); }}>새로 입력</button>
-        </div>}
+        <DefectManagerEditorBar
+          showManagerEditor={showManagerEditor}
+          visibleManagerOptions={visibleManagerOptions}
+          managerEditId={managerEditId}
+          setManagerEditId={setManagerEditId}
+          managerEditName={managerEditName}
+          setManagerEditName={setManagerEditName}
+          saving={saving}
+          onSave={saveManager}
+        />
       </div>
       </div>
 
-      {showHistory && (
-        <div className="screenOnly">
-        <div className="card" style={{ padding: 10, marginBottom: 10, maxHeight: 260, overflow: 'auto' }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>매칭·수정 이력 — 거래처/품목 매칭, 수량, 품명 변경내용</div>
-          <table className="data-table" style={{ fontSize: 12 }}><thead><tr><th>일시</th><th>작업자</th><th>작업</th><th>변경내용</th></tr></thead><tbody>
-            {meaningfulHistory.map((h) => <tr key={h.HistoryKey}><td>{String(h.ChangedAt || '').slice(0, 19)}</td><td>{h.ChangedByName || h.ChangedBy}</td><td>{h.ActionType}</td><td>{h.ChangeSummary}</td></tr>)}
-            {!meaningfulHistory.length && <tr><td colSpan="4">이력이 없습니다.</td></tr>}
-          </tbody></table>
-          <div style={{ fontWeight: 700, margin: '12px 0 6px', color: '#1e3a8a' }}>품목·거래처 매칭 이력</div>
-          <table className="data-table" style={{ fontSize: 12 }}><thead><tr><th>일시</th><th>작업자</th><th>매칭 변경내용</th></tr></thead><tbody>
-            {matchingHistory.map((h) => <tr key={`match-${h.HistoryKey}`}><td>{String(h.ChangedAt || '').slice(0, 19)}</td><td>{h.ChangedByName || h.ChangedBy}</td><td>{matchingHistoryText(h)}</td></tr>)}
-            {!matchingHistory.length && <tr><td colSpan="3">품목·거래처 매칭 이력이 없습니다.</td></tr>}
-          </tbody></table>
-        </div>
-        </div>
-      )}
+      <DefectHistoryPanel
+        showHistory={showHistory}
+        meaningfulHistory={meaningfulHistory}
+        matchingHistory={matchingHistory}
+        matchingHistoryText={matchingHistoryText}
+      />
 
       {activeTab === 'incoming' && <div className="screenOnly">
       <div className="card incoming-review-card">
@@ -2003,7 +1670,7 @@ export default function SalesDefectDeductionsPage() {
             </button>;
           })}
         </div>}
-        {activeTab === "support" && supportLoading && <div className="support-loading" role="status"><progress aria-label="등록 대상 조회 진행 중" />등록 대상과 견적 상태를 불러오는 중…</div>}
+        {activeTab === 'support' && supportLoading && <div className="support-loading" role="status"><progress aria-label="등록 대상 조회 진행 중" />등록 대상과 견적 상태를 불러오는 중…</div>}
         <div className="defect-grid-scroll support-grid-scroll" aria-busy={supportLoading}>
           <table className={`data-table defect-grid support-grid ${activeTab === 'support' ? 'support-compact' : ''}`}>
             <thead><tr><th><label className="defect-select-hit"><input type="checkbox" aria-label={activeTab === 'support' ? '보류 이동·해제 항목 전체 선택' : '등록 가능 항목 전체 선택'} checked={activeTab === 'support' ? supportVisibleAllSelected : supportAllSelected} disabled={managementMode || managementBusy || supportLoading || supportRegistering || (activeTab === 'support' ? !supportVisibleSelectable.length : !supportSelectableKeys.length)} onChange={activeTab === 'support' ? toggleSupportVisible : toggleAllSupport} /></label></th><th>{activeTab === 'support' && supportListMode === 'held' ? '불량 차수' : 'No'}</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '견적서 수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>불량차감</th></tr></thead>
@@ -2048,7 +1715,7 @@ export default function SalesDefectDeductionsPage() {
                     {registeredEstimate && <button type="button" className="btn btn-xs support-estimate-registered" onClick={() => openCustomerEstimate(row, registeredEstimate)} title={`${registeredEstimate.year}년 ${registeredEstimate.week}차 실제 등록 견적 #${registeredEstimate.estimateKey}`}>등록 견적</button>}
                     {Number(row.custKey) > 0 && <button type="button" className="btn btn-xs support-estimate-open" onClick={() => openCustomerEstimate(row)} title={`${year}년 ${week}차 ${row.customerName || '거래처'} 견적서에서 불량차감 현황을 엽니다.`}>{week}차 견적</button>}
                     {row.registrationEligibilityCode === 'CUSTOMER_SALE_MISSING' && <button type="button" className="btn btn-xs" onClick={() => { setManager(row.managerName || row.managerId || ''); setYear(String(row.orderYear || year)); setWeek(String(row.orderWeek || week)); setActiveTab('sales'); }}>원차수 출고 확인</button>}
-                    {existingEstimateCount > 0 && <details className="support-existing-estimates" onKeyDown={event => { if (event.key === 'Escape' && event.currentTarget.open) { event.preventDefault(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}><summary>기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}
+                    {existingEstimateCount > 0 && <details className="support-existing-estimates" onKeyDown={(event) => { if (event.key === 'Escape' && event.currentTarget.open) { event.preventDefault(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}><summary>기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}
                   </div>
                   {blockDetail && <div className="support-scope-label">{rowBlocked ? '사유 · ' : ''}{blockDetail}</div>}
                   {blockAction && blockAction !== blockDetail && <div className="support-scope-label">다음 조치 · {blockAction}</div>}
@@ -2188,7 +1855,7 @@ export default function SalesDefectDeductionsPage() {
                     </div>
                   </div>
                 </td>
-                <td><input className="input cell qty" aria-label="견적용수량" type="number" min="0.0001" step="0.0001" value={row.estimateQuantity ?? row.quantity ?? ""} onChange={(event) => changeText(index, "estimateQuantity", event.target.value)} /></td>
+                <td><input className="input cell qty" aria-label="견적용수량" type="number" min="0.0001" step="0.0001" value={row.estimateQuantity ?? row.quantity ?? ''} onChange={(event) => changeText(index, 'estimateQuantity', event.target.value)} /></td>
                 <td style={{ textAlign: 'center' }}><input className="sales-credit-checkbox" type="checkbox" aria-label="크레딧 적용" checked={!!row.creditApplied} onChange={(e) => updateRow(index, { creditApplied: e.target.checked })} /></td>
                 <td>
                   <div className="lookup-inline">
@@ -2262,27 +1929,14 @@ export default function SalesDefectDeductionsPage() {
         </div>
       </div>}
 
-      <div className="printOnly print-form" aria-hidden="true">
-        {printSections.map(({ manager, customerGroups }) => <section className="manager-print-section" key={manager}>
-        <div className="print-top">
-          <div className="print-title">{year}년 ( {week} )차 차감 내역</div>
-            <table className="print-approval"><tbody><tr><th>담당자</th><th>차장</th><th>이사</th></tr><tr><td>{manager}</td><td></td><td></td></tr></tbody></table>
-        </div>
-        <table className={`print-table ${activeTab === 'incoming' ? 'incoming-print' : ''}`}>
-          <colgroup><col className="customer-col" />{activeTab !== 'incoming' && <col className="product-col" />}<col className="color-col" /><col className="quantity-col" /><col className="credit-col" /><col className="farm-col" /><col className="note-col" /></colgroup>
-          <thead><tr><th>거래처</th>{activeTab !== 'incoming' && <th>품종</th>}<th>품명</th><th>{activeTab === 'incoming' ? '크레딧수량' : '차감수량'}</th><th>{activeTab === 'incoming' ? '견적서수량' : '크레딧(수입부)'}</th><th>농장</th><th>비고</th></tr></thead>
-          {customerGroups.map((items, groupIndex) => <tbody key={groupIndex}>{items.map((row, index) => <tr key={`print-${index}`}>
-            <td>{activeTab === 'incoming' && index > 0 ? '' : row?.customerName || ''}</td>
-            {activeTab !== 'incoming' && <td>{row?.productName || ''}</td>}
-            <td>{activeTab === 'incoming' ? incomingOutputProductLabel(row) : row?.colorName || ''}</td>
-            <td>{activeTab !== 'incoming' || row?.creditApplied ? printQuantity(row) : ''}</td>
-            <td>{activeTab === 'incoming' ? printQuantity({ ...row, quantity: row.estimateQuantity ?? row.quantity }) : row?.creditApplied ? '✓' : ''}</td>
-            <td>{row?.farmName || ''}</td>
-            <td style={activeTab === 'incoming' && /kakao-defect:/i.test(row?.note) ? { whiteSpace: 'nowrap' } : undefined}>{activeTab === 'incoming' ? incomingDefectPrintNote(row?.note, row?.managerName) : row?.note || ''}</td>
-          </tr>)}</tbody>)}
-        </table>
-        </section>)}
-      </div>
+      <DefectPrintSheet
+        printSections={printSections}
+        year={year}
+        week={week}
+        activeTab={activeTab}
+        printQuantity={printQuantity}
+      />
+
       <style jsx>{`
         .sales-defect-page { width: 100%; min-width: 0; }
         .defect-tabs { display: flex; align-items: center; gap: 6px; padding: 7px 10px; margin: 8px 0; flex-wrap: wrap; }
@@ -2412,33 +2066,6 @@ export default function SalesDefectDeductionsPage() {
         .support-estimate-preview-cell { width: 104px; min-width: 104px; text-align: center; white-space: nowrap; }
         .support-estimate-preview { min-width: 84px; color: #92400e; border-color: #f59e0b; background: #fffbeb; }
         .support-estimate-preview:disabled { color: #94a3b8; border-color: #cbd5e1; background: #f8fafc; cursor: not-allowed; }
-        .support-estimate-preview-modal { position: fixed; z-index: 2147483001; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .42); }
-        .support-estimate-preview-card { width: min(680px, 100%); max-height: min(520px, calc(100vh - 32px)); overflow: auto; border: 1px solid #f59e0b; border-radius: 8px; background: #fff; box-shadow: 0 18px 48px rgba(15, 23, 42, .32); }
-        .support-estimate-preview-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid #fde68a; background: #fffbeb; }
-        .support-estimate-preview-head strong { display: block; color: #92400e; font-size: 14px; }
-        .support-estimate-preview-head span { display: block; margin-top: 2px; color: #64748b; font-size: 11px; }
-        .support-estimate-preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        .support-estimate-preview-table th, .support-estimate-preview-table td { padding: 8px 9px; border-bottom: 1px solid #fde68a; text-align: left; }
-        .support-estimate-preview-table th { position: sticky; top: 0; background: #f8fafc; color: #475569; font-size: 11px; white-space: nowrap; }
-        .support-estimate-preview-table .num { text-align: right; font-variant-numeric: tabular-nums; color: #9a3412; white-space: nowrap; }
-        .support-estimate-preview-table tr.is-current { background: #fef3c7; }
-        .support-estimate-preview-empty { padding: 28px 18px; color: #475569; text-align: center; }
-        .support-estimate-preview-empty strong { display: block; color: #92400e; font-size: 14px; }
-        .support-estimate-preview-empty p { margin: 8px 0 0; font-size: 12px; }
-        .support-manual-cost-modal { position: fixed; z-index: 2147483002; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .42); }
-        .support-manual-cost-card { width: min(500px, 100%); border: 1px solid #0f766e; border-radius: 8px; background: #fff; box-shadow: 0 18px 48px rgba(15, 23, 42, .32); }
-        .support-manual-cost-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid #99f6e4; background: #f0fdfa; }
-        .support-manual-cost-head strong, .support-manual-cost-head span { display: block; }
-        .support-manual-cost-head strong { color: #115e59; font-size: 14px; }
-        .support-manual-cost-head span { margin-top: 2px; color: #64748b; font-size: 11px; }
-        .support-manual-cost-body { padding: 14px; }
-        .support-manual-cost-summary { display: grid; gap: 6px; margin: 0 0 14px; }
-        .support-manual-cost-summary div { display: grid; grid-template-columns: 88px 1fr; gap: 8px; font-size: 13px; }
-        .support-manual-cost-summary dt { color: #64748b; font-weight: 700; }
-        .support-manual-cost-summary dd { margin: 0; color: #0f172a; overflow-wrap: anywhere; }
-        .support-manual-cost-label { display: block; margin-bottom: 5px; color: #0f172a; font-weight: 700; font-size: 13px; }
-        .support-manual-cost-help { margin-top: 4px; color: #64748b; font-size: 11px; }
-        .support-manual-cost-actions { display: flex; align-items: center; gap: 6px; padding: 10px 13px; border-top: 1px solid #e2e8f0; }
         .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
         .sales-review-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid #fecaca; background: #fef2f2; color: #991b1b; font-size: 12px; }
         .sales-review-alert span { color: #b91c1c; }
@@ -2529,121 +2156,38 @@ export default function SalesDefectDeductionsPage() {
         .week-nav-buttons { display: inline-flex; gap: 3px; margin-left: 2px; }
         .empty-row-cell { padding: 24px !important; text-align: center; color: #64748b; }
         .empty-row-content { display: inline-flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
-        .printOnly { display: none; }
-        .manager-print-section + .manager-print-section { break-before: page; page-break-before: always; }
-        .print-form { color: #111; background: #fff; font-family: Arial, sans-serif; }
-        .print-top { display: grid; grid-template-columns: 1fr 210px; align-items: stretch; border: 1px solid #111; margin-bottom: 0; }
-        .print-title { display: flex; align-items: center; justify-content: center; min-height: 54px; font-size: 20px; font-weight: 700; }
-        .print-approval { width: 210px; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
-        .print-approval th, .print-approval td { border-left: 1px solid #111; border-bottom: 1px solid #111; text-align: center; height: 26px; }
-        .print-approval tr:last-child td { border-bottom: 0; }
-        .print-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
-        .print-table th, .print-table td { border: 1px solid #111; padding: 3px 5px; height: 23px; vertical-align: middle; overflow: hidden; white-space: nowrap; }
-        .incoming-print td { white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; height: auto; }
-        .incoming-print tr { break-inside: avoid; }
-        .incoming-print .customer-col { width: 16%; } .incoming-print .color-col { width: 34%; }
-        .incoming-print .quantity-col { width: 10%; } .incoming-print .credit-col { width: 10%; }
-        .incoming-print .farm-col { width: 20%; } .incoming-print .note-col { width: 16%; }
-        .incoming-print td:nth-child(4), .incoming-print th:nth-child(4) { padding-inline: 1px; text-align: center; }
-        .print-table th { background: #c69700; font-weight: 700; text-align: center; }
-        .print-table td:nth-child(4), .print-table td:nth-child(5) { text-align: center; }
-        .customer-col { width: 19%; } .product-col { width: 20%; } .color-col { width: 17%; }
-        .quantity-col { width: 11%; } .credit-col { width: 13%; } .farm-col { width: 11%; } .note-col { width: 19%; }
-        @media print {
-          @page { size: A4 portrait; margin: 10mm; }
-          :global(body:has(.sales-defect-page) *:not(:has(.print-form)):not(.print-form):not(.print-form *)) { display: none !important; }
-          :global(html:has(.sales-defect-page)), :global(body *:has(.print-form)), :global(body:has(.print-form)) {
-            display: block !important; position: static !important; height: auto !important; min-height: 0 !important;
-            max-height: none !important; width: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important;
-          }
-          .sales-defect-page .printOnly { display: block !important; position: static; width: 100%; }
-          .print-table thead { display: table-header-group; }
-          .print-table tr, .print-top, .incoming-print tbody { break-inside: avoid; }
-          .print-form:has(.incoming-print) { color: #000; }
-          .print-form .incoming-print th { background: #fff !important; color: #000; }
-          .print-table th { background: #c69700 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        }
       `}</style>
-      {manualCostModal && (
-        <div className="support-manual-cost-modal" role="presentation" onMouseDown={() => { if (!manualCostSaving) { setManualCostModal(null); setManualCostValue(''); } }}>
-          <section className="support-manual-cost-card" role="dialog" aria-modal="true" aria-labelledby="support-manual-cost-title" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="support-manual-cost-head">
-              <div><strong id="support-manual-cost-title">불량차감 단가 확인·입력</strong><span>{manualCostModal.year}년 {manualCostModal.week}차 · 웹 수동단가만 저장</span></div>
-              <button type="button" className="btn btn-xs" onClick={() => { setManualCostModal(null); setManualCostValue(''); }} disabled={manualCostSaving}>닫기</button>
-            </div>
-            <div className="support-manual-cost-body">
-              <dl className="support-manual-cost-summary">
-                <div><dt>거래처</dt><dd>{manualCostModal.row.customerName || '-'}{manualCostModal.row.custKey ? ` (#${manualCostModal.row.custKey})` : ''}</dd></div>
-                <div><dt>품목</dt><dd>{manualCostModal.row.matchedProductDbName || manualCostModal.row.matchedProductName || manualCostModal.row.colorName || manualCostModal.row.productName || '-'}{manualCostModal.row.prodKey ? ` (#${manualCostModal.row.prodKey})` : ''}</dd></div>
-                <div><dt>수량 / 단위</dt><dd>{printQuantity(manualCostModal.row) || '-'} / {manualCostModal.row.sourceUnit || manualCostModal.row.unit || '-'}</dd></div>
-                <div><dt>단가 기준</dt><dd>전산 견적 단위 {manualCostModal.row.distributionCostUnit || '-'}당 금액</dd></div>
-              </dl>
-              <DefectCostLookup row={manualCostModal.row} year={manualCostModal.year} week={manualCostModal.week} disabled={manualCostSaving} onBusy={setManualCostSaving} onSaved={async () => { await loadSupport(); setManualCostModal(null); setManualCostValue(''); }} />
-              <label className="support-manual-cost-label" htmlFor="support-manual-cost-input">불량차감 단가(부가세 포함, 원)</label>
-              <input ref={manualCostInputRef} id="support-manual-cost-input" className="input" inputMode="decimal" type="text" value={manualCostValue} onChange={(event) => setManualCostValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); saveManualCost(false); } }} placeholder="예: 12000 또는 12000.5000" disabled={manualCostSaving} aria-describedby="support-manual-cost-help" />
-              <div id="support-manual-cost-help" className="support-manual-cost-help">0보다 큰 숫자, 소수점 이하 최대 4자리</div>
-              {error && <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{error}</p>}
-            </div>
-            <div className="support-manual-cost-actions">
-              {manualCostModal.hasExisting && <button type="button" className="btn" onClick={() => saveManualCost(true)} disabled={manualCostSaving}>{manualCostSaving ? '저장중…' : '자동 단가로 돌아가기'}</button>}
-              <span style={{ flex: 1 }} />
-              <button type="button" className="btn" onClick={() => { setManualCostModal(null); setManualCostValue(''); }} disabled={manualCostSaving}>취소</button>
-              <button type="button" className="btn btn-primary" onClick={() => saveManualCost(false)} disabled={manualCostSaving}>{manualCostSaving ? '저장중…' : '저장'}</button>
-            </div>
-          </section>
-        </div>
-      )}
-      {managementEdit && <div className="support-estimate-preview-modal" role="presentation">
-        <section className="support-estimate-preview-card" role="dialog" aria-modal="true" aria-label="불량 목록 수정" style={{ padding: 16 }}>
-          <h3>불량 목록 수정 · #{managementEdit.row.deductionKey}</h3>
-          {error && <p role="alert" style={{ color: '#b91c1c', whiteSpace: 'pre-wrap' }}>{error}</p>}
-          <p>{managementEdit.row.orderYear}년 {managementEdit.row.orderWeek}차 · {managementEdit.row.customerName} · {managementEdit.row.matchedProductDbName || managementEdit.row.productName}</p>
-          {managementEdit.noteOnly ? <p role="status">견적 연결 또는 처리 이력이 있어 비고만 수정할 수 있습니다. 업체·품목·수량·단위와 실제 견적서는 보존됩니다.</p> : <>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><select aria-label="수정 검색 대상" value={managementEdit.kind} disabled={managementBusy} onChange={e => { setManagementEdit({ ...managementEdit, kind: e.target.value }); setManagementCandidates([]); }}><option value="customer">업체</option><option value="product">품목</option></select><input aria-label="수정 업체 품목 검색" value={managementEdit.query} disabled={managementBusy} onChange={e => setManagementEdit({ ...managementEdit, query: e.target.value })} /><button type="button" className="btn" disabled={managementBusy} onClick={searchManagement}>검색</button></div>
-            <div style={{ maxHeight: 180, overflow: 'auto' }}>{managementCandidates.map(item => <button type="button" className="btn" key={item.CustKey || item.ProdKey} disabled={managementBusy} onClick={() => { const changes = managementEdit.kind === 'customer' ? { custKey: item.CustKey, customerName: item.CustName } : { prodKey: item.ProdKey, productName: item.FlowerName || item.ProdName }; setManagementEdit({ ...managementEdit, changes: { ...managementEdit.changes, ...changes } }); setManagementCandidates([]); }}>{item.CustName || `${item.CounName || ''} ${item.ProdName || ''}`}</button>)}</div>
-            <p>업체: {managementEdit.changes.customerName} · 품목: {managementEdit.changes.productName}</p>
-            <label>수량 <input aria-label="수정 수량" type="number" min="0.001" step="any" disabled={managementBusy} value={managementEdit.changes.quantity} onChange={e => setManagementEdit({ ...managementEdit, changes: { ...managementEdit.changes, quantity: e.target.value } })} /></label>
-            <label>단위 <select aria-label="수정 단위" disabled={managementBusy} value={managementEdit.changes.sourceUnit} onChange={e => setManagementEdit({ ...managementEdit, changes: { ...managementEdit.changes, sourceUnit: e.target.value } })}>{[...new Set([managementEdit.changes.sourceUnit, '단', '박스', '스팀(대)'])].filter(Boolean).map(unit => <option key={unit}>{unit}</option>)}</select></label>
-          </>}
-          <label style={{ display: 'block', margin: '12px 0' }}>비고 <textarea aria-label="수정 비고" rows="3" style={{ width: '100%' }} disabled={managementBusy} value={managementEdit.changes.note} onChange={e => setManagementEdit({ ...managementEdit, changes: { ...managementEdit.changes, note: e.target.value } })} /></label>
-          <button type="button" className="btn btn-primary" disabled={managementLoading} onClick={saveManagementEdit}>목록 수정 저장</button> <button type="button" className="btn" disabled={managementBusy} onClick={() => { managementSequence.current += 1; setManagementEdit(null); }}>닫기</button>
-          <p>원본 파일과 담당자·변경 이력은 보존됩니다.</p>
-        </section>
-      </div>}
-      {estimatePreview && (
-        <div className="support-estimate-preview-modal" role="presentation" onMouseDown={() => setEstimatePreview(null)}>
-          <section className="support-estimate-preview-card" role="dialog" aria-modal="true" aria-labelledby="support-estimate-preview-title" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="support-estimate-preview-head">
-              <div>
-                <strong id="support-estimate-preview-title">{estimatePreview.title}</strong>
-                <span>{estimatePreview.subtitle} · 불량차감 항목만 표시</span>
-              </div>
-              <button type="button" className="btn btn-xs" aria-label="불량차감 미리보기 닫기" onClick={() => setEstimatePreview(null)}>닫기</button>
-            </div>
-            {estimatePreview.rows.length ? (
-              <table className="support-estimate-preview-table">
-                <thead><tr><th>견적키</th><th>상태</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th></tr></thead>
-                <tbody>{estimatePreview.rows.map((item, index) => (
-                  <tr key={item.estimateKey || index} className={item.current ? 'is-current' : ''}>
-                    <td>#{item.estimateKey || '-'}</td>
-                    <td>{item.statusLabel}</td>
-                    <td>{item.productName}{item.unit ? ` (${item.unit})` : ''}</td>
-                    <td className="num">{fmt(item.quantity)}</td>
-                    <td className="num">{fmt(item.cost)}원</td>
-                    <td className="num">{fmt(item.amount)}원</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            ) : (
-              <div className="support-estimate-preview-empty" role="status">
-                <strong>{estimatePreview.mode === 'manual' ? '수기 처리완료' : '아직 등록되지 않았습니다.'}</strong>
-                <p>{estimatePreview.mode === 'manual' ? '수기 처리된 항목으로 견적서 원장이 생성되지 않았습니다.' : '이 불량차감 항목은 현재 차수 견적서에 아직 등록되지 않았습니다.'}</p>
-                {estimatePreview.previousScopeLabel && <p>{estimatePreview.previousScopeLabel}</p>}
-              </div>
-            )}
-          </section>
-        </div>
-      )}
+      <DefectManualCostModal
+        manualCostModal={manualCostModal}
+        manualCostSaving={manualCostSaving}
+        manualCostValue={manualCostValue}
+        setManualCostValue={setManualCostValue}
+        manualCostInputRef={manualCostInputRef}
+        error={error}
+        printQuantity={printQuantity}
+        onClose={closeManualCostModal}
+        onSave={saveManualCost}
+        onBusy={setManualCostSaving}
+        onLookupSaved={async () => { await loadSupport(); closeManualCostModal(); }}
+      />
+      <DefectManagementEditModal
+        managementEdit={managementEdit}
+        setManagementEdit={setManagementEdit}
+        managementCandidates={managementCandidates}
+        setManagementCandidates={setManagementCandidates}
+        managementBusy={managementBusy}
+        managementLoading={managementLoading}
+        error={error}
+        onSearch={searchManagement}
+        onSave={saveManagementEdit}
+        onClose={closeManagementEdit}
+      />
+      <DefectEstimatePreviewModal
+        estimatePreview={estimatePreview}
+        fmt={fmt}
+        emptyTitle="아직 등록되지 않았습니다."
+        onClose={() => setEstimatePreview(null)}
+      />
       </div>
     </Layout>
   );
