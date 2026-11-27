@@ -114,6 +114,10 @@
 - ★함정: 도면 안 한글 토큰 상자는 monospace 만 쓰면 굴림체로 떨어짐 → Consolas,"Malgun Gothic" 순서. 테스트가 굴림 계열·그라디언트·이모지(화살표 ↔ 포함!)·금지어를 소스에서 검사.
 - 검증: purposeFlowTrace · workManualsUpgrade · importOneStopPipeline · test:workflow-guides · test:ui-layout · guard:erp-writes · test:pm 전수 PASS, next build --webpack 성공(락 사용).
 - 검색어: PurposeFlowTrace layoutTrace workPurposeTrace 목적 우선 트레이스 도면 /work/manuals /import/pipeline AUTO 1x 직교 S-커브
+## 2026-11-11 친구플라워 45차 견적 인쇄 경계 정정
+- 일반 견적 인쇄에도 table-header-group과 행 단위 page-break 방지를 적용해 44번 행 누락·2/3쪽 순번/품목 헤더 절단을 막았다. 100행 fixture PDF에서 44·92번과 반복 헤더를 직접 확인했다.
+- 화면 표는 품목 400px 고정 폭과 가로 스크롤로 줄바꿈을 없앴고, 인쇄 SQL은 EXE Product.BunchOf1Box/SteamOf1Box·EstUnit을 출력 데이터에 포함해 정수 1박스 초과 수량의 박스 표기를 복구했다. ERP 원장 쓰기 없음.
+검색어: 친구플라워 45차 44번 92번 견적인쇄 table-header-group BunchOf1Box SteamOf1Box
 
 ## 2026-11-05 /pm 3D(베타) 품질 총개선 — 체형 교정·클레이 렌더·배경 밀도 + 브리지 page/scroll (PR #1534)
 - 지시1 체형: build_char_kaykit.py 에 HEAD_K=0.55(머리 축소) + NECK_Z=1.17/BODY_K=1.1(목 아래 리그·메시 세로 스트레치, 머리는 평행이동) — 바인딩 전 변형이라 클립 9종 무손상, 머리:전신 1:2.2→≈1:4(레퍼런스 Kenney Protagonists·KayKit Rogue). sit 힙 0.48→0.52(SEAT_Y 보정), 서기 머리끝 1.94→1.78, CHAR_SCALE 0.95→1.1(화면 90~110px 테스트 유지). build_wearables.py 에도 같은 재매핑(head=이동+축소, chest=상승, hand=새 리그 좌표라 무수정) — 한쪽만 하면 착용물이 공중부양.
