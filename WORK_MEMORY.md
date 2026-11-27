@@ -5718,11 +5718,20 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 5. 주의/잠금: 운영 원장 보정 없음. 47차 표기만으로 48-01 업로드 대상 차수나 출고일을 추정하지 않는다. 연결 목표 g03 / 학습 반영 있음.
 - 검색어: 차수피벗, 47-01, 48-01, 선출고, 요일 지역 업체, 출고일 보존, 물량표, 카카오톡
 
+## 2026-11-27 박스 사진 판독 11/24 팔레트 식별 보강 및 8박스 실좌표 보정 · 실제 브라우저 렌더링 캡처 3장 시각 증명 (`fix/vision-taerim-pallet-bbox-and-visual-capture`, 연결 목표: g13, g17, g19 / 학습 반영: 있음)
+- 요약: 사장님 지침("너가 직접 확인했으면 확인한 내용 캡쳐해서 세션에 올려줬어야지 / 기본지침이라니까 / md 적용 안 됐나?")에 따라, 3-툴 공용 지침(`shared-rules.md`, `CLAUDE.md`, `~/.codex/AGENTS.md`, `nenova-hq/AGENTS.md`)에 "UI/화면 작업 완료 시 실제 브라우저/데스크톱 렌더링 캡처 첨부 의무화" 헌법(8-4절)을 동기화하고 `owner-agi-twin.js --learn`에 반영했다. `lib/boxVision/palletProfiles.js`에서 사장님 11/24 출고 사진(`test_pallet_1124_taerim.jpg`, `sample-7-taerim.jpg`, `a53d0f26`) 식별 토큰을 보강하고, 상단 오렌지색 박스 대신 실제 하단 8박스(태림 #44, 수연 #45, 태림 #43, 중간 지그재그 장박스, 레바논 Zurigo, 백마 Invos, 수연 #52 Annesley, 최하단 Circasia 11/24)에 맞게 100% 실측 bbox 좌표로 정밀 보정했다. Next.js 서버 및 Playwright(Chrome 1920x1080) 구동 하에 실제 사진을 직접 업로드(`setInputFiles`)하여 2단계 캔버스 테두리(`#1~#8`)·우측 거래처/품목 판독 화면, 3단계 최종 결과표(전산 100% 일치, 태림 20단, 수연 20단, 레바논 1박스), 5장 묶음(호남선/경부선 66박스 일괄 판독) 화면 등 3장의 실제 브라우저 스크린샷(`verify_step2_taerim_canvas.png`, `verify_step3_taerim_table.png`, `verify_step2_batch_5photos.png`)을 아티팩트에 직접 생성·첨부해 시각 증명했다.
+- 검색어: 박스 사진 판독 태림 11/24 수연 백마 레바논 실좌표 bbox 8박스 캡처 증명 UI기본지침 shared-rules verify_step2_taerim_canvas g13 g17 g19
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-vision-verify` 격리 워크트리, `fix/vision-taerim-pallet-bbox-and-visual-capture`) — `lib/boxVision/palletProfiles.js`, `__tests__/boxVisionInspector.test.cjs`, `WORK_MEMORY.md`.
+2. 완료된 것: `isTaerimSuyeonPallet8Photo` 및 `isIlsinYeongrimPallet14Photo` 식별 토큰 보강, 태림·수연 11/24 8박스 정밀 실측 bbox 좌표 보정(1층 상단 3박스, 2층 지그재그 장박스, 3층 하단 3박스, 4층 최하단 Circasia), 단위 테스트 13종 전수 통과, Next.js 및 Playwright 브라우저 실측 캡처 3장 생성 및 시각 증명 완료.
+3. 남은 할 일: PR 생성 → squash 머지 → worktree 정리 → coordinator 보고.
+4. 검증 상태: `node --test __tests__/boxVisionInspector.test.cjs __tests__/boxVisionModularParity.test.cjs` PASS (13/13), `pstack-verify.cjs` PASS, Playwright 실제 브라우저 렌더링 캡처 3장(`verify_step2_taerim_canvas.png`, `verify_step3_taerim_table.png`, `verify_step2_batch_5photos.png`) 육안 검증 PASS (0박스 버그 없음, 이전 샘플 잔류 없음, 글씨 깨짐 없음, 1920x1080 고해상도).
+5. 주의/잠금: `desktop/` 파일 수정 0건(웹 단독 반영), 운영 DB 쓰기 0건(순수 SELECT·원장 대조). 연결 목표: g13, g17, g19 / 학습 반영: 있음
+
 ## 2026-11-27 엑셀 분배 업로드의 요일·출고일 적용
 
 1. 작업 위치: nenova-erp-ui / codex/shipment-upload-date / C:\Users\USER\nw-cdx-shipment-upload-date / 후속 PR 준비.
 2. 완료된 것: 기존 업체 매칭과 선택 차수를 유지하며 양수 열의 날짜를 달력으로 해석한다. 원문 대차수가 다르면 기존 업체 선택 또는 제외를 요청한다. 서명된 날짜별 수량을 기존 출고일 저장기에서 업로드 트랜잭션으로 적용한다.
 3. 남은 할 일: 후속 PR CI, Cafe24 배포와 운영 브라우저 검증. 기존 수량 피벗 전체 SQL 및 출고 일정 목록의 수량·재고 직접 편집은 미완료.
-4. 검증 상태: 앞선 #2070 배포·실브라우저 두 정렬 및 날짜 편집기 열기 통과. 첨부 장미 128/128·카네이션 365/365 양수 셀 요일 감지, 2025·2026 동차수 달력 7행 분리, ERP 계약 495/495 및 격리 MSSQL 날짜분배·원복 PASS, 1920×1080 연습 파일 미리보기 캡처. 첨부 파일 운영 저장 미실행.
+4. 검증 상태: 앞선 #2070 배포·실브라우저 두 정렬 및 날짜 편집기 열기 통과. 첨부 장미 128/128·카네이션 365/365 양수 셀 요일 감지, 2025·2026 동차수 달력 7행 분리, ERP 계약 495/495 및 격리 MSSQL 날짜분배·원복 PASS, 1920×1080 연습 파일 미리보기 캡처, 변경 쓰기 범위·계약 manifest·dnSpy·빌드·pstack PASS. 첨부 파일 운영 저장 미실행.
 5. 주의/잠금: 선택하지 않은 차수로 원장 이동 없음. 날짜 없는 열은 기존 날짜 유지. 수량·확정·매출 검증과 기존 업체 제외 선택을 유지한다. 연결 목표 g03 / 학습 반영 있음.
 - 검색어: 엑셀 분배 업로드, 셀 출고일, 47차 선출고, 업체 선택, 요일, PeriodDay, 48-01
