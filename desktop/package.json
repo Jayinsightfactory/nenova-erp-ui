@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.105",
+  "version": "1.3.106",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -84,7 +84,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "수입방 카톡 발주 스크롤·정리처리 무렉(Zero-Lag) 최적화 · 합계 반영 역방향 이동 · DB 품목명(영문) 열 및 영문 소문자 단위(bunches/box/stems) 기본 전환 반영 (아침 첫 실행 1회 자동 업데이트 유지)"
+      "releaseNotes": "크롬 방식 멀티창(앱 재실행·상단 [+ 새 창]·탭 우클릭 새 창 분리/다른 탭 닫기) 지원 · 창 리사이즈/도구바 View 정합 보강 · 세이지 그린/쿨그레이 쉘 통일 (아침 첫 실행 1회 자동 업데이트 유지)"
     },
     "extraResources": [
       {

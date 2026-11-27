@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { app, session, dialog, BrowserWindow, clipboard } = require('electron');
+const { app, session, dialog, BrowserWindow, clipboard, Menu } = require('electron');
 process.on('uncaughtException', error => { console.error('Uncaught smoke error:', error.stack); app.exit(1); });
 process.on('unhandledRejection', error => { console.error('Unhandled smoke error:', error?.stack || error); app.exit(1); });
 
@@ -979,6 +979,110 @@ async function run() {
   await waitFor(() => !main.windows.has(detachedWindow.id) && detachedWindow.win.isDestroyed(), 'empty secondary window close');
   console.log('Smoke: secondary close');
 
+  // Chrome-style multi-window: always-visible quick new-window button, Ctrl+N,
+  // second-instance offset window with shared persist:nenova-work session, and --focus-only.
+  const quickBtn = await shellContents.executeJavaScript(`(() => {
+    const el = document.querySelector('#quickNewWindowButton');
+    const r = el.getBoundingClientRect();
+    return { visibility: getComputedStyle(el).visibility, disabled: el.disabled, width: r.width, height: r.height, top: r.top, bottom: r.bottom };
+  })()`);
+  assert.equal(quickBtn.visibility, 'visible', 'compact tabbar always exposes quick new-window button');
+  assert.equal(quickBtn.disabled, false, 'quick new-window button is enabled when logged in');
+  assert.ok(quickBtn.width > 30 && quickBtn.top >= 0 && quickBtn.bottom <= 44, 'quick new-window button fits inside 44px tabbar');
+
+  await shellContents.executeJavaScript('document.querySelector("#quickNewWindowButton").click()');
+  await waitFor(() => main.windows.size === 2, 'quickNewWindowButton opens second window');
+  const quickWin = [...main.windows.values()].find(w => w.id !== sourceWindow.id);
+  assert.ok(quickWin);
+  quickWin.win.close();
+  await waitFor(() => main.windows.size === 1 && quickWin.win.isDestroyed(), 'quick new window closed');
+
+  const sourceBoundsBeforeSecond = sourceWindow.win.getNormalBounds();
+  app.emit('second-instance', {}, ['nenova.exe']);
+  await waitFor(() => main.windows.size === 2, 'second-instance creates independent window when logged in');
+  const secondInstanceWin = [...main.windows.values()].find(w => w.id !== sourceWindow.id);
+  assert.ok(secondInstanceWin);
+  const secondBounds = secondInstanceWin.win.getNormalBounds();
+  assert.ok(secondBounds.x >= sourceBoundsBeforeSecond.x || secondBounds.y >= sourceBoundsBeforeSecond.y, 'second-instance window is offset within screen');
+  main.command(secondInstanceWin, 'open', { url: '/test/second', title: '멀티창 세션 공유' });
+  const sharedTab = [...main.tabs.values()].find(tab => tab.windowId === secondInstanceWin.id && new URL(tab.url).pathname === '/test/second');
+  assert.ok(sharedTab, 'second-instance window opens work tab without re-login');
+  await waitForTab(sharedTab, async tab => !tab.loading && await tab.view.webContents.executeJavaScript('Boolean(document.querySelector("#smoke-input"))'), 'shared session tab ready');
+
+  app.emit('second-instance', {}, ['nenova.exe', '--focus-only']);
+  await delay(100);
+  assert.equal(main.windows.size, 2, '--focus-only focuses existing window without creating a third');
+
+  dialog.showMessageBoxSync = () => 0;
+  secondInstanceWin.win.close();
+  await waitFor(() => main.windows.size === 1 && secondInstanceWin.win.isDestroyed(), 'second-instance window closed while main remains');
+
+  shellContents.focus();
+  shellContents.sendInputEvent({ type: 'keyDown', keyCode: 'N', modifiers: ['control'] });
+  shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'N', modifiers: ['control'] });
+  await waitFor(() => main.windows.size === 2, 'Ctrl+N opens a new window');
+  const ctrlNWin = [...main.windows.values()].find(w => w.id !== sourceWindow.id);
+  ctrlNWin.win.close();
+  await waitFor(() => main.windows.size === 1 && ctrlNWin.win.isDestroyed(), 'Ctrl+N window closed');
+
+  // Tab context menu and closeOthers preserve the target tab.
+  let capturedTabMenu = null;
+  const origBuildMenu = Menu.buildFromTemplate;
+  Menu.buildFromTemplate = (tpl) => { capturedTabMenu = tpl; return { popup() {} }; };
+  try {
+    await shellContents.executeJavaScript(`document.querySelector('[data-id="${first.id}"]').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 120, clientY: 20 }))`);
+    await waitFor(() => Array.isArray(capturedTabMenu), 'tab context menu template built');
+    assert.deepEqual(capturedTabMenu.map(item => item.label), ['새 창으로 분리', '탭 닫기', '다른 탭 닫기']);
+    assert.equal(capturedTabMenu[2].enabled, sourceWindow.ids.length > 1);
+  } finally {
+    Menu.buildFromTemplate = origBuildMenu;
+  }
+  main.command(sourceWindow, 'closeOthers', { id: first.id });
+  await waitFor(() => sourceWindow.ids.length === 1 && sourceWindow.ids[0] === first.id, 'closeOthers closes all other tabs while keeping target tab');
+
+  // Resize (1920/960/800), maximize/unmaximize, and toolsOpen immediately align WebContentsView bounds.
+  main.command(sourceWindow, 'menu', { open: false });
+  if (sourceWindow.toolsOpen) main.command(sourceWindow, 'tools');
+  for (const [rw, rh] of [[1920, 1080], [960, 1000], [800, 600]]) {
+    sourceWindow.win.setContentSize(rw, rh);
+    await waitFor(() => {
+      const b = first.view.getBounds();
+      return b.x === 0 && b.y === 44 && b.width === rw && b.height === rh - 44;
+    }, `compact bounds at ${rw}x${rh}`);
+    main.command(sourceWindow, 'tools');
+    await waitFor(() => {
+      const b = first.view.getBounds();
+      return b.x === 0 && b.y === 128 && b.width === rw && b.height === rh - 156;
+    }, `expanded tools bounds at ${rw}x${rh}`);
+    await waitFor(() => first.view.webContents.executeJavaScript(`document.documentElement.dataset.nenovaDesktopTools === 'open'`), `tools dataset open at ${rw}x${rh}`);
+    main.command(sourceWindow, 'tools');
+    await waitFor(() => {
+      const b = first.view.getBounds();
+      return b.x === 0 && b.y === 44 && b.width === rw && b.height === rh - 44;
+    }, `collapsed bounds at ${rw}x${rh}`);
+    await waitFor(() => first.view.webContents.executeJavaScript(`document.documentElement.dataset.nenovaDesktopTools === 'closed'`), `tools dataset closed at ${rw}x${rh}`);
+  }
+  sourceWindow.win.maximize();
+  await waitFor(() => {
+    const [cw, ch] = sourceWindow.win.getContentSize();
+    const b = first.view.getBounds();
+    return sourceWindow.win.isMaximized() && b.width === cw && b.height === ch - 44;
+  }, 'maximized bounds sync');
+  sourceWindow.win.unmaximize();
+  await waitFor(() => {
+    const [cw, ch] = sourceWindow.win.getContentSize();
+    const b = first.view.getBounds();
+    return !sourceWindow.win.isMaximized() && cw === 800 && ch === 600 && b.width === 800 && b.height === 556;
+  }, 'unmaximized bounds sync');
+  await delay(150);
+  sourceWindow.win.setContentSize(1920, 1080);
+  await waitFor(() => {
+    const [cw, ch] = sourceWindow.win.getContentSize();
+    const b = first.view.getBounds();
+    return cw === 1920 && ch === 1080 && b.width === 1920 && b.height === 1036;
+  }, 'restore 1920x1080 bounds');
+  console.log('Smoke: multi-window, second-instance, quick new-window, context menu, and resize bounds');
+
   // Change accounts while auth is deliberately pending. The old account is
   // locked immediately, writes are blocked, then its views and origin storage
   // are cleared before the new account becomes active. Keep an A bootstrap
@@ -1046,6 +1150,10 @@ async function run() {
   assert.equal(main.tabs.has(accountBTab.id), false, 'logout destroys the previous account tab');
   assert.ok([...main.tabs.values()].some(tab => new URL(tab.url).pathname === '/login'), 'logout opens login for account switching');
   assert.equal(fixtureRequests.filter(request => request.pathname === '/api/auth/logout' && request.method === 'POST').length, 1, 'logout revokes the server session once');
+
+  app.emit('second-instance', {}, ['nenova.exe']);
+  await delay(100);
+  assert.equal(main.windows.size, 1, 'second-instance while locked focuses login without creating a duplicate window');
 
   // A restored unauthenticated home must reveal the existing login, not leave it hidden.
   main.command(sourceWindow, 'menu', {open:true});
