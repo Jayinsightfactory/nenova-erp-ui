@@ -22,7 +22,7 @@
     "lib/distributionKakaoRequests.js": "d44396688dc5b3af39d8dda4f7a22351e7c501091dde76d9abca25b17d427e2c",
     "lib/distributionSalesInboxRefresh.js": "3ac2f1f5e9215d7c1baf95b07f06201ac6733597a6092dbfa7f688ab86050a4b",
     "pages/shipment/distribute.js": "00a2e44b1a8dc9be3e1bd7cf2d3fc9cdda7741a93acb0b8c9ec6e080e82f7276",
-    "components/shipment/DistributionKakaoFeed.js": "fe63817962d66f719af6171a803f81f3a7d81ee4a4812722ef768df46bf08de0",
+    "components/shipment/DistributionKakaoFeed.js": "9da1a00e2a74f15a429223340606d89df623ce24e3d802f862b6b66bed5504bc",
     "components/shipment/DistributionDateEditor.js": "fd95c92c8ac2c7d38033764680420b29ac61d14fd68b7318eca5c20051010823",
     "components/shipment/DistributionProductTree.js": "024019b8fe3bd836c87e2c62e00f9817e013e28086f3406e8763e3f6e5742538",
     "components/shipment/DistributionDateFilter.js": "58144457d0610a40acd752ab315442333f09d974fab37d7250777a55dc0747c2",

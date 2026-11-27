@@ -606,7 +606,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     <style jsx global>{`
       .sales-inbox .inbox-tools>summary{padding:5px 7px;cursor:pointer;color:#245b93}
       .sales-inbox .compact-match-list{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
-      .sales-inbox .compact-match-row{margin:1px 0;border-width:1px;min-width:0}
+      .sales-inbox .compact-match-row{margin:1px 0;border-width:1px;min-width:0;content-visibility:auto;contain-intrinsic-size:0 132px;font-variant-numeric:tabular-nums}
       .sales-inbox .folded-message{display:flex;align-items:center;gap:8px;padding:5px 8px;min-width:0}.sales-inbox .folded-message-preview{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sales-inbox .folded-message>button{flex:none}.sales-inbox .visible-change-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:2px 5px;background:#f7faff;font-size:11px}
       .sales-inbox .visible-change-meta>button{margin-left:0;font:inherit;font-size:11px;padding:2px 5px;min-height:23px}
       .sales-inbox .visible-change-meta .source-delivery-status{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;cursor:default}

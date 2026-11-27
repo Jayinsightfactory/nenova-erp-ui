@@ -1,16 +1,45 @@
 import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
-import { useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import Layout from '../../components/Layout';
+
+const PAGE_SIZE = 100;
+const FONT_STACK = "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', sans-serif";
 
 export default function KakaoAuditPage() {
   const [text, setText] = useState('');
   const [orderYear, setOrderYear] = useState(String(new Date().getFullYear()));
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
 
   const rows = result?.rows || [];
-  const needReviewRows = useMemo(() => rows.filter(r => r.status === '확인필요'), [rows]);
+  const indexedRows = useMemo(
+    () => rows.map((r, idx) => ({
+      row: r,
+      key: `${r.week || ''}-${r.inputCustomer || ''}-${r.inputProduct || ''}-${idx}`,
+      haystack: [
+        r.week,
+        r.inputCustomer,
+        r.custMatch?.CustName,
+        r.inputProduct,
+        r.prodMatch?.DisplayName,
+        r.prodMatch?.ProdName,
+        r.issues?.join(' '),
+        r.sourceLine,
+      ].filter(Boolean).join(' ').toLowerCase(),
+    })),
+    [rows]
+  );
+
+  const filteredIndexed = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return indexedRows;
+    return indexedRows.filter(item => item.haystack.includes(q));
+  }, [indexedRows, search]);
+
+  const filteredRows = useMemo(() => filteredIndexed.map(item => item.row), [filteredIndexed]);
+  const needReviewRows = useMemo(() => filteredRows.filter(r => r.status === '확인필요'), [filteredRows]);
 
   async function runAudit() {
     setLoading(true);
@@ -34,7 +63,7 @@ export default function KakaoAuditPage() {
 
   return (
     <Layout>
-      <div className={desktopUi.page} style={{ padding: 20, maxWidth: 1500, margin: '0 auto' }}>
+      <div className={desktopUi.page} style={{ padding: 20, maxWidth: 1500, margin: '0 auto', fontFamily: FONT_STACK, fontVariantNumeric: 'tabular-nums' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
           <div>
             <h1 data-desktop-chrome style={{ margin: 0, fontSize: 22 }}>카톡 변경사항 DB 검증</h1>
@@ -47,15 +76,26 @@ export default function KakaoAuditPage() {
           </button>
         </div>
 
-        <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-          조회 연도
-          <input value={orderYear} onChange={e => setOrderYear(e.target.value.replace(/\D/g, '').slice(0, 4))} style={{ width: 76, padding: 6 }} />
-        </label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+          <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+            조회 연도
+            <input value={orderYear} onChange={e => setOrderYear(e.target.value.replace(/\D/g, '').slice(0, 4))} style={{ width: 76, padding: 6, fontFamily: FONT_STACK }} />
+          </label>
+          {result && (
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="업체·품목·차수·이슈·원문 즉시 검색"
+              aria-label="검증 결과 검색"
+              style={{ minWidth: 240, padding: '6px 10px', border: '1px solid #cfd6e4', borderRadius: 4, fontSize: 12, fontFamily: FONT_STACK }}
+            />
+          )}
+        </div>
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
           placeholder="카카오톡 대화 텍스트를 붙여넣으세요."
-          style={{ width: '100%', height: 220, boxSizing: 'border-box', padding: 12, border: '1px solid #cfd6e4', borderRadius: 6, fontSize: 13, lineHeight: 1.45 }}
+          style={{ width: '100%', height: 220, boxSizing: 'border-box', padding: 12, border: '1px solid #cfd6e4', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: FONT_STACK }}
         />
 
         {error && <div style={errBox}>{error}</div>}
@@ -73,14 +113,18 @@ export default function KakaoAuditPage() {
 
             {needReviewRows.length > 0 && (
               <section style={{ marginTop: 18 }}>
-                <h2 style={h2}>확인 필요 항목</h2>
+                <h2 style={h2}>확인 필요 항목 ({needReviewRows.length}건)</h2>
                 <AuditTable rows={needReviewRows} />
               </section>
             )}
 
             <section style={{ marginTop: 18 }}>
-              <h2 style={h2}>전체 추출 결과</h2>
-              <AuditTable rows={rows} />
+              <details open={needReviewRows.length === 0}>
+                <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: 15, color: '#1f2937', marginBottom: 8 }}>
+                  전체 추출 결과 ({filteredRows.length}건)
+                </summary>
+                <AuditTable rows={filteredRows} />
+              </details>
             </section>
           </>
         )}
@@ -89,18 +133,44 @@ export default function KakaoAuditPage() {
   );
 }
 
-function Summary({ label, value, danger }) {
+const Summary = memo(function Summary({ label, value, danger }) {
   return (
     <div style={{ border: '1px solid #d9e2f1', borderRadius: 6, padding: 12, background: danger && value > 0 ? '#fff5f5' : '#fff' }}>
       <div style={{ fontSize: 12, color: '#667085' }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: danger && value > 0 ? '#c62828' : '#1f2937' }}>{value}</div>
+      <div style={{ fontSize: 24, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: danger && value > 0 ? '#c62828' : '#1f2937' }}>{value}</div>
     </div>
   );
-}
+});
 
-function AuditTable({ rows }) {
+const AuditRow = memo(function AuditRow({ r }) {
   return (
-    <div style={{ overflowX: 'auto', border: '1px solid #d9e2f1', borderRadius: 6 }}>
+    <tr style={{ borderTop: '1px solid #eef2f7', background: r.status === '확인필요' ? '#fffafa' : '#fff', contentVisibility: 'auto', containIntrinsicSize: '0 40px' }}>
+      <Td><span style={badge(r.status)}>{r.status}</span></Td>
+      <Td style={numTd}>{[r.sourceDate, r.sourceTime].filter(Boolean).join(' ')}</Td>
+      <Td style={numTd}>{r.week || '-'}</Td>
+      <Td>{r.inputCustomer}</Td>
+      <Td>{r.custMatch ? `${r.custMatch.CustName} (${r.custMatch.CustArea || '-'})` : '-'}</Td>
+      <Td>{r.inputProduct}</Td>
+      <Td>{r.prodMatch ? `${r.prodMatch.DisplayName || r.prodMatch.ProdName} / ${r.prodMatch.CounName || ''} / ${r.prodMatch.score}` : '-'}</Td>
+      <Td style={numTd}>{r.action} {r.qty}{r.unit}</Td>
+      <Td style={numTd}>{Number(r.db?.orderQty || 0)}</Td>
+      <Td style={numTd}>{Number(r.db?.shipQty || 0)}</Td>
+      <Td>{r.issues?.join(', ') || '-'}</Td>
+      <Td style={{ maxWidth: 260, whiteSpace: 'normal' }}>{r.sourceLine}</Td>
+    </tr>
+  );
+});
+
+const AuditTable = memo(function AuditTable({ rows }) {
+  const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE);
+  useEffect(() => {
+    setVisibleLimit(PAGE_SIZE);
+  }, [rows]);
+
+  const visibleRows = useMemo(() => rows.slice(0, visibleLimit), [rows, visibleLimit]);
+
+  return (
+    <div style={{ overflowX: 'auto', border: '1px solid #d9e2f1', borderRadius: 6, background: '#fff' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 1300 }}>
         <thead>
           <tr style={{ background: '#f6f8fb' }}>
@@ -119,27 +189,21 @@ function AuditTable({ rows }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
-            <tr key={i} style={{ borderTop: '1px solid #eef2f7', background: r.status === '확인필요' ? '#fffafa' : '#fff' }}>
-              <Td><span style={badge(r.status)}>{r.status}</span></Td>
-              <Td>{[r.sourceDate, r.sourceTime].filter(Boolean).join(' ')}</Td>
-              <Td>{r.week || '-'}</Td>
-              <Td>{r.inputCustomer}</Td>
-              <Td>{r.custMatch ? `${r.custMatch.CustName} (${r.custMatch.CustArea || '-'})` : '-'}</Td>
-              <Td>{r.inputProduct}</Td>
-              <Td>{r.prodMatch ? `${r.prodMatch.DisplayName || r.prodMatch.ProdName} / ${r.prodMatch.CounName || ''} / ${r.prodMatch.score}` : '-'}</Td>
-              <Td>{r.action} {r.qty}{r.unit}</Td>
-              <Td>{Number(r.db?.orderQty || 0)}</Td>
-              <Td>{Number(r.db?.shipQty || 0)}</Td>
-              <Td>{r.issues?.join(', ') || '-'}</Td>
-              <Td style={{ maxWidth: 260, whiteSpace: 'normal' }}>{r.sourceLine}</Td>
-            </tr>
+          {visibleRows.map((r, i) => (
+            <AuditRow key={`${r.week || ''}-${r.inputCustomer || ''}-${r.inputProduct || ''}-${i}`} r={r} />
           ))}
         </tbody>
       </table>
+      {rows.length > visibleLimit && (
+        <div style={{ padding: 10, borderTop: '1px solid #eef2f7', textAlign: 'center', background: '#f8fafc' }}>
+          <button type="button" onClick={() => setVisibleLimit(v => v + PAGE_SIZE)} style={moreBtn}>
+            더 보기 (+{PAGE_SIZE}건 · {visibleRows.length}/{rows.length}건 표시)
+          </button>
+        </div>
+      )}
     </div>
   );
-}
+});
 
 function Th({ children }) {
   return <th style={{ padding: '8px 10px', textAlign: 'left', color: '#344054', whiteSpace: 'nowrap' }}>{children}</th>;
@@ -149,6 +213,8 @@ function Td({ children, style }) {
   return <td style={{ padding: '8px 10px', verticalAlign: 'top', color: '#1f2937', whiteSpace: 'nowrap', ...style }}>{children}</td>;
 }
 
+const numTd = { fontVariantNumeric: 'tabular-nums' };
+
 const primaryBtn = {
   padding: '10px 16px',
   border: '1px solid #1d4ed8',
@@ -157,6 +223,19 @@ const primaryBtn = {
   borderRadius: 6,
   fontWeight: 700,
   cursor: 'pointer',
+  fontFamily: FONT_STACK,
+};
+
+const moreBtn = {
+  padding: '6px 14px',
+  border: '1px solid #cbd5e1',
+  background: '#fff',
+  color: '#1e293b',
+  borderRadius: 4,
+  fontSize: 12,
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: FONT_STACK,
 };
 
 const errBox = { marginTop: 12, padding: 12, border: '1px solid #fecaca', background: '#fff5f5', color: '#b91c1c', borderRadius: 6 };

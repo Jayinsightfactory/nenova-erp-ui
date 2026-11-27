@@ -6,7 +6,10 @@
 import fs from 'fs';
 import path from 'path';
 import { withAuth } from '../../../lib/auth';
-import { auditText } from './kakao-audit';
+import { auditMessages, auditText } from './kakao-audit';
+
+const SALES_FEED_CACHE_TTL_MS = 5 * 60 * 1000;
+const salesFeedCache = new Map();
 
 function validAfterKey(value) {
   return typeof value === 'string' && value.length <= 512 && !/[--]/.test(value);
@@ -57,12 +60,18 @@ function defaultRange() {
   return { from: fmt(from), to: fmt(to) };
 }
 
-async function fetchSalesFeed(from, to) {
+async function fetchSalesFeed(from, to, { fresh = false } = {}) {
   const token = process.env.NENOVA_SALES_READ_TOKEN;
   if (!token) {
     const err = new Error('영업방 자동 연결 설정이 아직 완료되지 않았습니다.');
     err.code = 'SALES_FEED_NOT_CONFIGURED';
     throw err;
+  }
+  const cacheKey = `${from}|${to}`;
+  const now = Date.now();
+  const cached = salesFeedCache.get(cacheKey);
+  if (!fresh && cached && cached.expiresAt > now) {
+    return cached.messages;
   }
   const messages = [];
   // 상류(nenova-sales-feed)는 ISO 경계 + 한 번에 최대 7일 → 7일 창으로 잘라 순회(sales-feed.js의 periodBounds와 같은 규칙)
@@ -97,6 +106,11 @@ async function fetchSalesFeed(from, to) {
     afterKey = data.nextAfterKey;
   }
   }
+  if (salesFeedCache.size > 24) {
+    const oldestKey = salesFeedCache.keys().next().value;
+    if (oldestKey !== undefined) salesFeedCache.delete(oldestKey);
+  }
+  salesFeedCache.set(cacheKey, { messages, expiresAt: Date.now() + SALES_FEED_CACHE_TTL_MS });
   return messages;
 }
 
@@ -120,10 +134,11 @@ export default withAuth(async function handler(req, res) {
     const from = String(req.query.from || defFrom);
     const to = String(req.query.to || defTo);
     const year = String(req.query.year || new Date().getFullYear());
+    const fresh = req.query.fresh === '1';
 
     let messages;
     try {
-      messages = await fetchSalesFeed(from, to);
+      messages = await fetchSalesFeed(from, to, { fresh });
     } catch (e) {
       if (e.code === 'SALES_FEED_NOT_CONFIGURED') {
         return res.status(503).json({ success: false, code: 'SALES_FEED_NOT_CONFIGURED', error: e.message });
@@ -135,21 +150,39 @@ export default withAuth(async function handler(req, res) {
 
     const state = loadState();
     const counts = {};
-    const rows = [];
+    const queued = [];
     for (const m of messages) {
       const { category, confidence, queue } = classify(m.message);
       counts[category] = (counts[category] || 0) + 1;
-      if (!queue) continue;
+      if (queue) queued.push({ message: m, category, confidence });
+    }
 
+    let batchedItems = null;
+    if (queued.length > 0) {
+      try {
+        batchedItems = await auditMessages(queued.map(q => q.message.message), year, { forceMasters: fresh });
+      } catch {
+        batchedItems = null;
+      }
+    }
+
+    const rows = [];
+    for (let idx = 0; idx < queued.length; idx++) {
+      const { message: m, category, confidence } = queued[idx];
       let items = [];
       let parseOk = true;
-      try {
-        const audited = await auditText(m.message, year);
-        items = audited.rows;
+      if (Array.isArray(batchedItems)) {
+        items = batchedItems[idx] || [];
         if (!items.length) parseOk = false;
-      } catch {
-        items = [];
-        parseOk = false;
+      } else {
+        try {
+          const audited = await auditText(m.message, year, { forceMasters: false });
+          items = audited.rows;
+          if (!items.length) parseOk = false;
+        } catch {
+          items = [];
+          parseOk = false;
+        }
       }
 
       const decision = state[m.external_message_id] || null;

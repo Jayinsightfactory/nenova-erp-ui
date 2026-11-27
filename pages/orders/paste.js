@@ -1,5 +1,5 @@
 // pages/orders/paste.js — 붙여넣기 주문등록 (Claude AI 파싱, 다중거래처/변경사항, 미매칭 질문)
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {createPreanalysisCache,usablePreparedAnalysis} from '../../lib/pasteInboxPreanalysis';
 import {buildPasteWorkspaceFingerprint,savePasteWorkspace,loadPasteWorkspace} from '../../lib/pasteWorkspace';
 import { currentProductLabel, hydratePasteOrderNamesWithCompletion } from '../../lib/pasteCurrentNames.js';
@@ -1163,6 +1163,22 @@ export default function PasteOrderPage() {
   const [kakaoFeedBlocks, setKakaoFeedBlocks] = useState([]);
   const [kakaoFeedLoading, setKakaoFeedLoading] = useState(false);
   const [kakaoFeedSel, setKakaoFeedSel] = useState({}); // msgId → true
+  const [kakaoFeedSearch, setKakaoFeedSearch] = useState('');
+  const [kakaoFeedLimit, setKakaoFeedLimit] = useState(100);
+  const toggleKakaoFeedSel = useCallback((key, checked) => {
+    setKakaoFeedSel(s => ({ ...s, [key]: checked }));
+  }, []);
+  const filteredKakaoFeedBlocks = useMemo(() => {
+    const q = kakaoFeedSearch.trim().toLowerCase();
+    if (!q) return kakaoFeedBlocks;
+    return kakaoFeedBlocks.filter(b =>
+      `${b.sender || ''} ${b.room || ''} ${b.text || ''}`.toLowerCase().includes(q)
+    );
+  }, [kakaoFeedBlocks, kakaoFeedSearch]);
+  const visibleKakaoFeedBlocks = useMemo(
+    () => filteredKakaoFeedBlocks.slice(0, kakaoFeedLimit),
+    [filteredKakaoFeedBlocks, kakaoFeedLimit]
+  );
   const [showMapModal, setShowMapModal] = useState(false);
   const [showHighlight, setShowHighlight] = useState(true);
   const [showExcludeHighlight, setShowExcludeHighlight] = useState(true);
@@ -4366,9 +4382,9 @@ export default function PasteOrderPage() {
               <button
                 type="button"
                 onClick={async () => {
-                  setKakaoFeedOpen(true); setKakaoFeedLoading(true); setKakaoFeedSel({});
+                  setKakaoFeedOpen(true); setKakaoFeedLoading(true); setKakaoFeedSel({}); setKakaoFeedSearch(''); setKakaoFeedLimit(100);
                   try {
-                    const r = await fetch('/api/kakao/order-feed?n=25', { credentials: 'same-origin' });
+                    const r = await fetch('/api/kakao/order-feed?n=60', { credentials: 'same-origin' });
                     const d = await r.json();
                     setKakaoFeedBlocks(d.ok ? d.blocks : []);
                     if (!d.ok) alert('카톡 피드 로드 실패: ' + (d.error || ''));
@@ -4376,36 +4392,67 @@ export default function PasteOrderPage() {
                   setKakaoFeedLoading(false);
                 }}
                 style={{ float: 'right', padding: '3px 10px', background: '#fff', color: '#1a237e', border: '1px solid #9fa8da', borderRadius: 6, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
-              >💬 카톡 발주 가져오기</button>
+              >카톡 발주 가져오기</button>
             </label>
             {kakaoFeedOpen && (
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', fontVariantNumeric: 'tabular-nums' }}
                    onClick={() => setKakaoFeedOpen(false)}>
                 <div style={{ background: '#fff', borderRadius: 10, width: 'min(680px, 94vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: 16 }}
                      onClick={e => e.stopPropagation()}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <b style={{ fontSize: 14 }}>💬 카톡 발주방 최근 메시지 <span style={{ fontWeight: 400, color: '#667085', fontSize: 12 }}>선택 → 입력창에 붙여넣기</span></b>
-                    <button type="button" onClick={() => setKakaoFeedOpen(false)} style={{ border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: '#667085' }}>✕</button>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <b style={{ fontSize: 14 }}>카톡 발주방 최근 메시지 <span style={{ fontWeight: 400, color: '#667085', fontSize: 12 }}>선택 → 입력창에 붙여넣기</span></b>
+                    <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        disabled={kakaoFeedLoading}
+                        onClick={async () => {
+                          setKakaoFeedLoading(true);
+                          try {
+                            const r = await fetch('/api/kakao/order-feed?n=60&fresh=1', { credentials: 'same-origin' });
+                            const d = await r.json();
+                            if (d.ok) setKakaoFeedBlocks(d.blocks);
+                          } catch { /* ignore manual refresh error */ }
+                          setKakaoFeedLoading(false);
+                        }}
+                        style={{ padding: '3px 8px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#f8fafc', fontSize: 11.5, cursor: 'pointer' }}
+                      >새로고침</button>
+                      <button type="button" onClick={() => setKakaoFeedOpen(false)} style={{ border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: '#667085' }}>✕</button>
+                    </div>
                   </div>
+                  <input
+                    value={kakaoFeedSearch}
+                    onChange={e => { setKakaoFeedSearch(e.target.value); setKakaoFeedLimit(100); }}
+                    placeholder="발신자·방이름·품목 검색"
+                    aria-label="카톡 발주방 메시지 검색"
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '6px 10px', marginBottom: 8, border: '1px solid #d1d5db', borderRadius: 6, fontSize: 12 }}
+                  />
                   <div style={{ overflowY: 'auto', flex: 1, border: '1px solid #e5e7eb', borderRadius: 8 }}>
                     {kakaoFeedLoading ? <div style={{ padding: 24, textAlign: 'center', color: '#667085' }}>불러오는 중…</div>
-                    : !kakaoFeedBlocks.length ? <div style={{ padding: 24, textAlign: 'center', color: '#667085' }}>발주방 메시지가 없습니다</div>
-                    : kakaoFeedBlocks.map(b => (
-                      <label key={b.msgId || b.time + b.sender} style={{ display: 'flex', gap: 10, padding: '9px 12px', borderBottom: '1px solid #f1f3f5', cursor: 'pointer', background: kakaoFeedSel[b.msgId] ? '#eef2ff' : '#fff' }}>
-                        <input type="checkbox" checked={!!kakaoFeedSel[b.msgId]} onChange={e => setKakaoFeedSel(s => ({ ...s, [b.msgId]: e.target.checked }))} style={{ marginTop: 3 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 11.5, color: '#4b5563', marginBottom: 3 }}>
-                            <b>{b.sender}</b> · {b.time} · <span style={{ color: '#9ca3af' }}>{b.room}</span> · {b.lineCount}줄
-                          </div>
-                          <div style={{ fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', color: '#111827', maxHeight: 96, overflow: 'hidden' }}>{b.text}</div>
-                        </div>
-                      </label>
-                    ))}
+                    : !visibleKakaoFeedBlocks.length ? <div style={{ padding: 24, textAlign: 'center', color: '#667085' }}>표시할 발주방 메시지가 없습니다</div>
+                    : visibleKakaoFeedBlocks.map(b => {
+                      const blockKey = b.msgId || `${b.time}-${b.sender}`;
+                      return (
+                        <KakaoFeedModalItem
+                          key={blockKey}
+                          block={b}
+                          blockKey={blockKey}
+                          checked={!!kakaoFeedSel[blockKey]}
+                          onToggle={toggleKakaoFeedSel}
+                        />
+                      );
+                    })}
+                    {filteredKakaoFeedBlocks.length > kakaoFeedLimit && (
+                      <div style={{ padding: 8, textAlign: 'center', borderTop: '1px solid #f1f3f5' }}>
+                        <button type="button" onClick={() => setKakaoFeedLimit(v => v + 100)} style={{ padding: '5px 12px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', fontSize: 12, cursor: 'pointer' }}>
+                          더 보기 (+100건 · {visibleKakaoFeedBlocks.length}/{filteredKakaoFeedBlocks.length}건)
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     <button type="button"
                       onClick={() => {
-                        const chosen = kakaoFeedBlocks.filter(b => kakaoFeedSel[b.msgId]).map(b => b.text);
+                        const chosen = kakaoFeedBlocks.filter(b => kakaoFeedSel[b.msgId || `${b.time}-${b.sender}`]).map(b => b.text);
                         if (!chosen.length) return alert('선택된 메시지가 없습니다');
                         const joined = chosen.join('\n\n');
                         setPasteText(prev => (prev.trim() ? prev + '\n\n' + joined : joined));
@@ -4417,13 +4464,13 @@ export default function PasteOrderPage() {
                     </button>
                     <button type="button" onClick={() => setKakaoFeedOpen(false)} style={{ padding: '10px 14px', background: '#fff', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>닫기</button>
                   </div>
-                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>⚠️ 같은 메시지를 두 번 등록하면 수량이 중복 누적됩니다(델타 저장). 이미 등록한 건 다시 선택하지 마세요.</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>주의: 같은 메시지를 두 번 등록하면 수량이 중복 누적됩니다(델타 저장). 이미 등록한 건 다시 선택하지 마세요.</div>
                 </div>
               </div>
             )}
             <textarea
               className="paste-main-ta"
-              style={{ width: '100%', padding: '8px 10px', border: '1px solid #9fa8da', borderRadius: 6, fontSize: 13, lineHeight: 1.4, fontFamily: 'monospace', resize: 'none', boxSizing: 'border-box', background: '#fff' }}
+              style={{ width: '100%', padding: '8px 10px', border: '1px solid #9fa8da', borderRadius: 6, fontSize: 13, lineHeight: 1.4, fontFamily: "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', sans-serif", fontVariantNumeric: 'tabular-nums', resize: 'none', boxSizing: 'border-box', background: '#fff' }}
               placeholder={'[변경사항형]\n21-1 수국 변경사항\n수경원예\n블루 1박스 취소\n\n[기본형]\n청화꽃집\nCaroline | 2'}
               value={pasteText}
               onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); setBulkResult(null); setBulkCompletionNotice(null); setBulkProgress(''); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
@@ -6424,6 +6471,20 @@ function CustSelector({ customers, onSelect }) {
     </div>
   );
 }
+
+const KakaoFeedModalItem = memo(function KakaoFeedModalItem({ block, blockKey, checked, onToggle }) {
+  return (
+    <label style={{ display: 'flex', gap: 10, padding: '9px 12px', borderBottom: '1px solid #f1f3f5', cursor: 'pointer', background: checked ? '#eef2ff' : '#fff', contentVisibility: 'auto', containIntrinsicSize: '0 88px' }}>
+      <input type="checkbox" checked={checked} onChange={e => onToggle(blockKey, e.target.checked)} style={{ marginTop: 3 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11.5, color: '#4b5563', marginBottom: 3, fontVariantNumeric: 'tabular-nums' }}>
+          <b>{block.sender}</b> · {block.time} · <span style={{ color: '#9ca3af' }}>{block.room}</span> · {block.lineCount}줄
+        </div>
+        <div style={{ fontSize: 12, fontFamily: "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', sans-serif", fontVariantNumeric: 'tabular-nums', whiteSpace: 'pre-wrap', color: '#111827', maxHeight: 96, overflow: 'hidden' }}>{block.text}</div>
+      </div>
+    </label>
+  );
+});
 
 const labelS = { display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 };
 const thS = (w, align = 'center') => ({ width: w, minWidth: w, padding: '7px 8px', textAlign: align, fontWeight: 600, color: '#333' });

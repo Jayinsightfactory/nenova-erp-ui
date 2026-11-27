@@ -13,7 +13,27 @@ import { readCustoms } from '../../../lib/importFlightCustoms';
 import { readDocsSent, setDocsSent } from '../../../lib/importFlightDocsStore';
 import { canManageInvoiceReceipt } from '../../../lib/invoiceReceiptAccess';
 
-async function readReceipts(includeInvoice) {
+const RECEIPTS_CACHE_TTL_MS = 5 * 60 * 1000;
+const receiptsCache = new Map();
+
+function cloneReceiptsMap(source) {
+  const cloned = new Map();
+  for (const [key, rec] of source.entries()) {
+    cloned.set(key, {
+      ...rec,
+      items: Array.isArray(rec.items) ? rec.items.map(it => ({ ...it })) : [],
+      invoices: Array.isArray(rec.invoices) ? rec.invoices.map(inv => ({ ...inv })) : undefined,
+    });
+  }
+  return cloned;
+}
+
+async function readReceipts(includeInvoice, { now = Date.now(), fresh = false } = {}) {
+  const cacheKey = includeInvoice ? 'with-invoice' : 'base';
+  const cached = receiptsCache.get(cacheKey);
+  if (!fresh && cached && cached.expiresAt > now) {
+    return cloneReceiptsMap(cached.map);
+  }
   // 최근 30일 안에 등록된 입고 기록을 운송장 번호로 묶는다. WarehouseDetail 에는 isDeleted 칸이 없다(마스터로만 거름).
   const masters = await query(`
     SELECT REPLACE(REPLACE(m.OrderNo,'-',''),' ','') AS Awb,
@@ -85,7 +105,8 @@ async function readReceipts(includeInvoice) {
       }
     } catch { /* Invoice storage can be unavailable while the warehouse ledger remains readable. */ }
   }
-  return map;
+  receiptsCache.set(cacheKey, { map, expiresAt: now + RECEIPTS_CACHE_TTL_MS });
+  return cloneReceiptsMap(map);
 }
 
 async function handler(req, res) {
@@ -116,7 +137,7 @@ async function handler(req, res) {
   }
   let receipts = new Map();
   let receiptError = null;
-  try { receipts = await readReceipts(canManageInvoiceReceipt(req.user)); } catch { receiptError = '전산 입고 기록을 불러오지 못했습니다.'; }
+  try { receipts = await readReceipts(canManageInvoiceReceipt(req.user), { now, fresh }); } catch { receiptError = '전산 입고 기록을 불러오지 못했습니다.'; }
 
   // 1차 편 목록 → 공항·통관 조회 대상 선별 → 다시 조립. 외부 조회 실패는 그 부분만 건너뛴다.
   const first = buildFlightBoard({ messages: feed.messages, receipts, now });

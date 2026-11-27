@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback, useLayoutEffect } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
@@ -1356,27 +1356,37 @@ function ComparisonZoom({children}) {
     <style jsx global>{`.farm-comparison-canvas > div { overflow:visible !important; max-height:none !important; }`}</style>
   </div>;
 }
+const FarmImportReviewRow = memo(function FarmImportReviewRow({ entry, targetValue, farmOverrides, eligibleRows, onChange, disabled }) {
+  return <tr style={{ contentVisibility: 'auto', containIntrinsicSize: '0 44px', fontVariantNumeric: 'tabular-nums' }}>
+    <td>{entry.customer} / {entry.product} {entry.quantity}{entry.unit}</td>
+    <td><select aria-label={`${entry.customer} ${entry.product} 적용 행`} disabled={disabled} value={targetValue}
+      onChange={e=>onChange('targets',entry.id,e.target.value)}><option value="">업체·품목 선택</option>
+      {eligibleRows.map(r=><option key={r.key} value={r.key}>{r.custName} / {r.displayName || r.prodName} · {r.uploadQty}{r.outUnit}</option>)}
+    </select></td>
+    <td>{entry.farms.map((f,i)=><label key={i} style={{display:'block',marginBottom:4}}>{f.name} {f.quantity}{f.unit}{' '}
+      <select aria-label={`${entry.customer} ${entry.product} ${f.name} 농장`} disabled={disabled} value={farmOverrides?.[`${entry.id}|${f.name}`] || ''} onChange={e=>onChange('farms',`${entry.id}|${f.name}`,e.target.value)}>
+        <option value="">자동 매칭 / 직접 선택</option>{(entry.farmOptions || []).map(option=><option key={option.FarmKey} value={option.FarmKey}>{option.FarmName} ({option.FarmCode})</option>)}
+      </select></label>)}</td>
+  </tr>;
+});
 function FarmImportReview({preview,overrides,onChange,onVerify,disabled}) {
   const farm=preview.farmImport;
+  const [visibleLimit,setVisibleLimit]=useState(100);
+  const reviews=farm.reviews || [];
+  useEffect(()=>{setVisibleLimit(100);},[reviews]);
+  const eligibleRows=useMemo(()=>preview.rows.filter(r=>r.cells?.some(c=>c!=='엑셀누락')),[preview.rows]);
+  const visibleReviews=useMemo(()=>reviews.slice(0,visibleLimit),[reviews,visibleLimit]);
   return <section style={st.panel} aria-label="농장분배 검증 결과">
-    <div style={st.panelHead}><strong>농장분배 변경 {farm.changedCount}건 · 확인 {(farm.errors || []).length}건</strong>
+    <div style={st.panelHead}><strong style={{fontVariantNumeric:'tabular-nums'}}>농장분배 변경 {farm.changedCount}건 · 확인 {(farm.errors || []).length}건</strong>
       <button disabled={disabled} onClick={onVerify}>선택 반영 후 다시 검증</button></div>
     <div style={{padding:12}}>
       {[...(farm.errors || []),...(farm.layoutErrors || []).map(message=>({message}))].map((issue,i)=><p key={i} role="alert" style={{color:'#b91c1c'}}>{issue.customer ? `${issue.customer} / ${issue.product}: `:''}{issue.message}</p>)}
       <div style={{overflow:'auto',maxHeight:340}}><table style={st.table}>
         <thead><tr><th>카톡/엑셀 농장분배</th><th>적용할 업체·품목</th><th>입고 농장 연결</th></tr></thead>
-        <tbody>{(farm.reviews || []).map(entry=><tr key={entry.id}>
-          <td>{entry.customer} / {entry.product} {entry.quantity}{entry.unit}</td>
-          <td><select aria-label={`${entry.customer} ${entry.product} 적용 행`} disabled={disabled} value={overrides.targets?.[entry.id] ?? entry.rowKey}
-            onChange={e=>onChange('targets',entry.id,e.target.value)}><option value="">업체·품목 선택</option>
-            {preview.rows.filter(r=>r.cells?.some(c=>c!=='엑셀누락')).map(r=><option key={r.key} value={r.key}>{r.custName} / {r.displayName || r.prodName} · {r.uploadQty}{r.outUnit}</option>)}
-          </select></td>
-          <td>{entry.farms.map((f,i)=><label key={i} style={{display:'block',marginBottom:4}}>{f.name} {f.quantity}{f.unit}{' '}
-            <select aria-label={`${entry.customer} ${entry.product} ${f.name} 농장`} disabled={disabled} value={overrides.farms?.[`${entry.id}|${f.name}`] || ''} onChange={e=>onChange('farms',`${entry.id}|${f.name}`,e.target.value)}>
-              <option value="">자동 매칭 / 직접 선택</option>{(entry.farmOptions || []).map(option=><option key={option.FarmKey} value={option.FarmKey}>{option.FarmName} ({option.FarmCode})</option>)}
-            </select></label>)}</td>
-        </tr>)}</tbody>
-      </table></div>
+        <tbody>{visibleReviews.map(entry=><FarmImportReviewRow key={entry.id} entry={entry} targetValue={overrides.targets?.[entry.id] ?? entry.rowKey} farmOverrides={overrides.farms} eligibleRows={eligibleRows} onChange={onChange} disabled={disabled}/>)}</tbody>
+      </table>
+      {reviews.length > visibleLimit && <div style={{padding:8,textAlign:'center'}}><button type="button" onClick={()=>setVisibleLimit(v=>v+100)}>더 보기 (+100건 · {visibleReviews.length}/{reviews.length}건)</button></div>}
+      </div>
     </div>
   </section>;
 }

@@ -2,6 +2,8 @@ import { withAuth } from '../../../lib/auth';
 import { getKakaoSheetId, readSheetValues } from '../../../lib/googleSheets';
 
 const BUSINESS_EVENT_RANGE = '비즈니스이벤트!A:P';
+const SUMMARY_SHEET_TTL_MS = 5 * 60 * 1000;
+const parsedSummaryRowsCache = new WeakMap();
 
 function normText(value) {
   return String(value || '').trim();
@@ -97,11 +99,18 @@ function aggregate(events) {
 async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method not allowed' });
 
+  const fresh = req.query?.fresh === '1';
   const values = await readSheetValues({
     spreadsheetId: getKakaoSheetId(),
     range: BUSINESS_EVENT_RANGE,
+    ttlMs: SUMMARY_SHEET_TTL_MS,
+    noCache: fresh,
   });
-  const rows = values.slice(1).map(rowToEvent);
+  let rows = Array.isArray(values) ? parsedSummaryRowsCache.get(values) : null;
+  if (!rows) {
+    rows = (values || []).slice(1).map(rowToEvent);
+    if (Array.isArray(values)) parsedSummaryRowsCache.set(values, rows);
+  }
   const filtered = rows.filter(event => passesFilter(event, req.query || {}));
   const items = aggregate(filtered);
 

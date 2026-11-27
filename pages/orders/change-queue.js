@@ -1,8 +1,8 @@
 // pages/orders/change-queue.js
 // 카톡 변경 큐 — 영업방 원문에서 변경사항/검역차감/발주추가 메시지를 자동 분류·DB대조하고
 // 사람이 [반영됨]/[무시]만 누르는 화면. Layout은 _app.js가 감싼다(자체 래핑 금지).
-import { useEffect, useMemo, useState } from 'react';
-import { ConfigProvider, Table, Card, Segmented, DatePicker, Select, Tag, Button, Space, Typography, Alert, Statistic, Row, Col, Tooltip, message, theme as antdTheme } from 'antd';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ConfigProvider, Table, Card, Segmented, DatePicker, Select, Input, Tag, Button, Space, Typography, Alert, Statistic, Row, Col, Tooltip, message, theme as antdTheme } from 'antd';
 import { ReloadOutlined, CheckOutlined, StopOutlined, UndoOutlined } from '@ant-design/icons';
 import koKR from 'antd/locale/ko_KR';
 import dayjs from 'dayjs';
@@ -10,6 +10,7 @@ import dayjs from 'dayjs';
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
 const CATEGORIES = ['변경사항', '검역차감', '발주추가'];
+const FONT_STACK = "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', sans-serif";
 const api = async (url, opt) => { const r = await fetch(url, opt); const j = await r.json().catch(() => ({})); if (!r.ok || j.success === false) { const e = new Error(j.error || `HTTP ${r.status}`); e.code = j.code; throw e; } return j; };
 
 function statusTag(status) {
@@ -23,31 +24,44 @@ export default function ChangeQueuePage() {
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [statusFilter, setStatusFilter] = useState('대기');
   const [catFilter, setCatFilter] = useState(CATEGORIES);
+  const [search, setSearch] = useState('');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
-  const load = () => {
+  const load = useCallback((fresh = false) => {
     setLoading(true);
     setErr(null);
     const from = range?.[0]?.format('YYYY-MM-DD');
     const to = range?.[1]?.format('YYYY-MM-DD');
-    api(`/api/orders/change-queue?from=${from}&to=${to}&year=${year}`)
+    api(`/api/orders/change-queue?from=${from}&to=${to}&year=${year}${fresh ? '&fresh=1' : ''}`)
       .then(setData)
       .catch((e) => setErr(e))
       .finally(() => setLoading(false));
-  };
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [range, year]);
+  useEffect(() => { load(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rows = data?.rows || [];
-  const filtered = useMemo(() => rows.filter((r) => {
-    if (!catFilter.includes(r.category)) return false;
-    if (statusFilter === '대기' && r.status !== 'pending') return false;
-    if (statusFilter === '반영됨' && r.status !== 'applied') return false;
-    if (statusFilter === '무시' && r.status !== 'ignored') return false;
-    return true;
-  }), [rows, catFilter, statusFilter]);
+  const searchIndex = useMemo(
+    () => new Map(rows.map((r) => [
+      r.id,
+      `${r.sender || ''} ${r.category || ''} ${r.text || ''}`.toLowerCase(),
+    ])),
+    [rows]
+  );
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (!catFilter.includes(r.category)) return false;
+      if (statusFilter === '대기' && r.status !== 'pending') return false;
+      if (statusFilter === '반영됨' && r.status !== 'applied') return false;
+      if (statusFilter === '무시' && r.status !== 'ignored') return false;
+      if (q && !(searchIndex.get(r.id) || '').includes(q)) return false;
+      return true;
+    });
+  }, [rows, catFilter, statusFilter, search, searchIndex]);
 
   const today = dayjs().format('YYYY-MM-DD');
   const summary = useMemo(() => ({
@@ -56,30 +70,45 @@ export default function ChangeQueuePage() {
     today: rows.filter((r) => String(r.at).slice(0, 10) === today).length,
   }), [rows, today]);
 
-  const decide = async (id, action) => {
+  const decide = useCallback(async (id, action) => {
     setBusyId(id);
     try {
       await api('/api/orders/change-queue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action }) });
+      const nowIso = new Date().toISOString();
+      setData((prev) => {
+        if (!prev?.rows) return prev;
+        return {
+          ...prev,
+          rows: prev.rows.map((r) => {
+            if (r.id !== id) return r;
+            if (action === 'reset') return { ...r, status: 'pending', decided: null };
+            return {
+              ...r,
+              status: action,
+              decided: { ...(r.decided || {}), at: nowIso },
+            };
+          }),
+        };
+      });
       message.success(action === 'reset' ? '되돌렸습니다' : action === 'applied' ? '반영됨으로 표시했습니다' : '무시로 표시했습니다');
-      load();
     } catch (e) {
       message.error(e.message);
     } finally {
       setBusyId(null);
     }
-  };
+  }, []);
 
-  const columns = [
-    { title: '시각', dataIndex: 'at', width: 130, render: (v) => String(v || '').slice(0, 16).replace('T', ' ') },
+  const columns = useMemo(() => [
+    { title: '시각', dataIndex: 'at', width: 130, render: (v) => <span style={{ fontVariantNumeric: 'tabular-nums' }}>{String(v || '').slice(0, 16).replace('T', ' ')}</span> },
     { title: '보낸 사람', dataIndex: 'sender', width: 90 },
-    { title: '분류', dataIndex: 'category', width: 90, render: (v, r) => <Tag color={v === '변경사항' ? 'blue' : v === '검역차감' ? 'purple' : 'gold'}>{v} {Math.round((r.confidence || 0) * 100)}%</Tag> },
+    { title: '분류', dataIndex: 'category', width: 95, render: (v, r) => <Tag color={v === '변경사항' ? 'blue' : v === '검역차감' ? 'purple' : 'gold'} style={{ fontVariantNumeric: 'tabular-nums' }}>{v} {Math.round((r.confidence || 0) * 100)}%</Tag> },
     { title: '원문', dataIndex: 'text', render: (v) => <div style={{ maxWidth: 420, whiteSpace: 'pre-wrap' }}>{v}</div> },
     {
       title: '파싱', key: 'parse', width: 220, render: (_, r) => {
         if (!r.parseOk) return <Tag color="red">파싱 실패</Tag>;
         const needReview = r.items.filter((it) => it.status === '확인필요');
         return (
-          <Space direction="vertical" size={2}>
+          <Space direction="vertical" size={2} style={{ fontVariantNumeric: 'tabular-nums' }}>
             <Text>항목 {r.items.length}건 (추가 {r.items.filter((it) => it.action === '추가').length} · 취소 {r.items.filter((it) => it.action === '취소').length})</Text>
             {needReview.length > 0 && (
               <Tooltip title={needReview.map((it) => `${it.inputCustomer} ${it.inputProduct}: ${it.issues.join(', ')}`).join(' / ')}>
@@ -90,7 +119,7 @@ export default function ChangeQueuePage() {
         );
       },
     },
-    { title: '상태', dataIndex: 'status', width: 90, render: (v, r) => (<Space direction="vertical" size={2}>{statusTag(v)}{r.decided && <Text type="secondary" style={{ fontSize: 11 }}>{r.decided.byName || r.decided.by} {String(r.decided.at).slice(0, 16).replace('T', ' ')}</Text>}</Space>) },
+    { title: '상태', dataIndex: 'status', width: 90, render: (v, r) => (<Space direction="vertical" size={2}>{statusTag(v)}{r.decided && <Text type="secondary" style={{ fontSize: 11, fontVariantNumeric: 'tabular-nums' }}>{r.decided.byName || r.decided.by || ''} {String(r.decided.at).slice(0, 16).replace('T', ' ')}</Text>}</Space>) },
     {
       title: '', key: 'actions', width: 190, render: (_, r) => (
         <Space size={4}>
@@ -105,26 +134,27 @@ export default function ChangeQueuePage() {
         </Space>
       ),
     },
-  ];
+  ], [busyId, decide]);
 
   return (
-    <ConfigProvider locale={koKR} theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorPrimary: '#1166BB', borderRadius: 6, fontSize: 12 } }}>
-      <div style={{ padding: 12 }}>
+    <ConfigProvider locale={koKR} theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorPrimary: '#1166BB', borderRadius: 6, fontSize: 12, fontFamily: FONT_STACK } }}>
+      <div style={{ padding: 12, fontFamily: FONT_STACK, fontVariantNumeric: 'tabular-nums' }}>
         <Space wrap style={{ marginBottom: 8 }}>
           <Text data-desktop-chrome strong style={{ fontSize: 15 }}>카톡 변경 큐</Text>
           <RangePicker size="small" value={range} onChange={setRange} allowClear={false} />
           <Select size="small" style={{ width: 90 }} value={year} onChange={setYear} options={[0, 1, 2].map((d) => { const y = String(new Date().getFullYear() - d); return { value: y, label: y }; })} />
           <Segmented size="small" value={statusFilter} onChange={setStatusFilter} options={['대기', '반영됨', '무시', '전체']} />
           <Select size="small" mode="multiple" style={{ minWidth: 220 }} value={catFilter} onChange={setCatFilter} options={CATEGORIES.map((c) => ({ value: c, label: c }))} />
-          <Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={load}>새로고침</Button>
+          <Input size="small" allowClear placeholder="발신자·원문 즉시 검색" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: 180 }} />
+          <Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={() => load(true)}>새로고침</Button>
         </Space>
         {err && err.code === 'SALES_FEED_NOT_CONFIGURED' && <Alert type="info" showIcon style={{ marginBottom: 8 }} message="영업방 자동 연결 설정이 아직 완료되지 않았습니다." description={err.message} />}
         {err && err.code !== 'SALES_FEED_NOT_CONFIGURED' && <Alert type="error" showIcon style={{ marginBottom: 8 }} message={err.message} />}
         {data && (
           <Row gutter={12} style={{ marginBottom: 8 }}>
-            <Col><Statistic title="대기" value={summary.pending} valueStyle={{ fontSize: 18 }} /></Col>
-            <Col><Statistic title="확인필요" value={summary.needReview} valueStyle={{ fontSize: 18, color: summary.needReview ? '#cf1322' : undefined }} /></Col>
-            <Col><Statistic title="오늘" value={summary.today} valueStyle={{ fontSize: 18 }} /></Col>
+            <Col><Statistic title="대기" value={summary.pending} valueStyle={{ fontSize: 18, fontVariantNumeric: 'tabular-nums' }} /></Col>
+            <Col><Statistic title="확인필요" value={summary.needReview} valueStyle={{ fontSize: 18, fontVariantNumeric: 'tabular-nums', color: summary.needReview ? '#cf1322' : undefined }} /></Col>
+            <Col><Statistic title="오늘" value={summary.today} valueStyle={{ fontSize: 18, fontVariantNumeric: 'tabular-nums' }} /></Col>
           </Row>
         )}
         <Card size="small">
@@ -134,14 +164,14 @@ export default function ChangeQueuePage() {
             loading={loading}
             dataSource={filtered}
             columns={columns}
-            pagination={{ pageSize: 20 }}
+            pagination={{ pageSize: 20, showSizeChanger: false }}
             expandable={{
               rowExpandable: (r) => r.items.length > 0,
               expandedRowRender: (r) => (
                 <Table
                   size="small"
                   rowKey={(it, i) => `${r.id}-${i}`}
-                  pagination={false}
+                  pagination={r.items.length > 100 ? { pageSize: 100, showSizeChanger: false } : false}
                   dataSource={r.items}
                   columns={[
                     { title: '차수', dataIndex: 'week', width: 70 },

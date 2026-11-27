@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { apiGet } from '../../lib/useApi';
+
+const PAGE_SIZE = 100;
+const FONT_STACK = "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', sans-serif";
 
 function flagList(value) {
   return String(value || '')
@@ -23,7 +26,7 @@ function fmtDate(value) {
   return d.toLocaleString('ko-KR');
 }
 
-function Badge({ children, tone = 'neutral' }) {
+const Badge = memo(function Badge({ children, tone = 'neutral' }) {
   const colors = {
     neutral: { bg: '#f5f5f5', color: '#444', border: '#ddd' },
     ok: { bg: '#e8f5e9', color: '#2e7d32', border: '#a5d6a7' },
@@ -48,13 +51,57 @@ function Badge({ children, tone = 'neutral' }) {
       {children}
     </span>
   );
-}
+});
+
+const ChatAuditRow = memo(function ChatAuditRow({ item }) {
+  const { row, debug, routeFlags, riskFlags, formattedDate } = item;
+  return (
+    <tr style={{ contentVisibility: 'auto', containIntrinsicSize: '0 84px', fontVariantNumeric: 'tabular-nums' }}>
+      <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{formattedDate}</td>
+      <td>
+        <div style={{ fontWeight: 700 }}>{row.UserName || row.UserID || '-'}</div>
+        <div style={{ fontSize: 10, color: 'var(--text3)' }}>{row.DurationMs || 0}ms</div>
+      </td>
+      <td style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{row.UserMessage}</td>
+      <td>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {routeFlags.map(flag => (
+            <Badge key={flag} tone={flag === 'LLM_SQL' ? 'info' : flag === 'ASKBACK' ? 'warn' : 'neutral'}>{flag}</Badge>
+          ))}
+          {row.Success ? <Badge tone="ok">SUCCESS</Badge> : <Badge tone="danger">ERROR</Badge>}
+        </div>
+      </td>
+      <td>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {riskFlags.length
+            ? riskFlags.map(flag => <Badge key={flag} tone="warn">{flag}</Badge>)
+            : <Badge tone="ok">없음</Badge>}
+        </div>
+        {row.ErrorMessage && <div style={{ marginTop: 4, fontSize: 11, color: '#c62828' }}>{row.ErrorMessage}</div>}
+      </td>
+      <td>
+        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45, maxHeight: 130, overflow: 'auto' }}>
+          {row.BotText || row.ErrorMessage || '-'}
+        </div>
+        {debug?.sql && (
+          <details style={{ marginTop: 6 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 11, color: '#1565c0' }}>SQL {debug.rowCount != null ? `(${debug.rowCount}건)` : ''}</summary>
+            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, fontFamily: FONT_STACK, background: '#f7f7f7', padding: 8, border: '1px solid #ddd', marginTop: 4 }}>
+              {debug.sql}
+            </pre>
+          </details>
+        )}
+      </td>
+    </tr>
+  );
+});
 
 export default function ChatAuditPage() {
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState({});
   const [byRisk, setByRisk] = useState([]);
   const [limit, setLimit] = useState(80);
+  const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE);
   const [mineOnly, setMineOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [routeFilter, setRouteFilter] = useState('');
@@ -62,9 +109,10 @@ export default function ChatAuditPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     setErr('');
+    setVisibleLimit(PAGE_SIZE);
     apiGet('/api/m/chat-audit', {
       limit,
       mine: mineOnly ? '1' : '',
@@ -76,32 +124,44 @@ export default function ChatAuditPage() {
       })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
-  };
+  }, [limit, mineOnly]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const enrichedRows = useMemo(() => rows.map(row => ({
+    row,
+    debug: parseDebug(row.DebugJson),
+    routeFlags: flagList(row.RouteFlags),
+    riskFlags: flagList(row.RiskFlags),
+    formattedDate: fmtDate(row.CreateDtm),
+    haystack: [
+      row.UserID,
+      row.UserName,
+      row.UserMessage,
+      row.BotText,
+      row.RouteFlags,
+      row.RiskFlags,
+      row.ErrorMessage,
+    ].map(v => String(v || '').toLowerCase()).join(' '),
+  })), [rows]);
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
-    return rows.filter(row => {
+    return enrichedRows.filter(item => {
+      const { row, haystack } = item;
       if (routeFilter && !String(row.RouteFlags || '').includes(routeFilter)) return false;
       if (riskOnly && !String(row.RiskFlags || '').trim()) return false;
       if (!s) return true;
-      return [
-        row.UserID,
-        row.UserName,
-        row.UserMessage,
-        row.BotText,
-        row.RouteFlags,
-        row.RiskFlags,
-        row.ErrorMessage,
-      ].some(v => String(v || '').toLowerCase().includes(s));
+      return haystack.includes(s);
     });
-  }, [rows, search, routeFilter, riskOnly]);
+  }, [enrichedRows, search, routeFilter, riskOnly]);
+
+  const visibleItems = useMemo(() => filtered.slice(0, visibleLimit), [filtered, visibleLimit]);
 
   const exportCsv = () => {
     const header = ['시간', '사용자', '질문', '처리경로', '위험플래그', '성공', '소요ms', '답변'];
-    const csvRows = [header, ...filtered.map(r => [
-      fmtDate(r.CreateDtm),
+    const csvRows = [header, ...filtered.map(({ row: r, formattedDate }) => [
+      formattedDate,
       r.UserName || r.UserID || '',
       r.UserMessage || '',
       r.RouteFlags || '',
@@ -120,7 +180,7 @@ export default function ChatAuditPage() {
   };
 
   return (
-    <div>
+    <div style={{ fontFamily: FONT_STACK, fontVariantNumeric: 'tabular-nums' }}>
       <div className="filter-bar">
         <span className="filter-label">표시</span>
         <select className="filter-select" value={limit} onChange={e => setLimit(Number(e.target.value))}>
@@ -131,11 +191,11 @@ export default function ChatAuditPage() {
           내 질문
         </label>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-          <input type="checkbox" checked={riskOnly} onChange={e => setRiskOnly(e.target.checked)} />
+          <input type="checkbox" checked={riskOnly} onChange={e => { setRiskOnly(e.target.checked); setVisibleLimit(PAGE_SIZE); }} />
           위험 플래그
         </label>
         <span className="filter-label">경로</span>
-        <select className="filter-select" value={routeFilter} onChange={e => setRouteFilter(e.target.value)}>
+        <select className="filter-select" value={routeFilter} onChange={e => { setRouteFilter(e.target.value); setVisibleLimit(PAGE_SIZE); }}>
           <option value="">전체</option>
           <option value="RULE_HANDLER">고정 핸들러</option>
           <option value="LLM_SQL">LLM SQL</option>
@@ -143,7 +203,7 @@ export default function ChatAuditPage() {
           <option value="CONTEXT_FOLLOWUP">대화맥락</option>
           <option value="INVESTIGATIVE">후보확인</option>
         </select>
-        <input className="filter-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="질문/답변/사용자 검색" style={{ minWidth: 220 }} />
+        <input className="filter-input" value={search} onChange={e => { setSearch(e.target.value); setVisibleLimit(PAGE_SIZE); }} placeholder="질문/답변/사용자 검색" style={{ minWidth: 220 }} />
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load} disabled={loading}>{loading ? '조회중' : '조회'}</button>
           <button className="btn" onClick={exportCsv}>Excel</button>
@@ -183,69 +243,39 @@ export default function ChatAuditPage() {
           {loading ? (
             <div className="skeleton" style={{ height: 320, margin: 12 }} />
           ) : (
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th style={{ minWidth: 130 }}>시간</th>
-                  <th style={{ minWidth: 80 }}>사용자</th>
-                  <th style={{ minWidth: 260 }}>질문</th>
-                  <th style={{ minWidth: 160 }}>처리</th>
-                  <th style={{ minWidth: 160 }}>위험</th>
-                  <th style={{ minWidth: 360 }}>답변/SQL</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(row => {
-                  const debug = parseDebug(row.DebugJson);
-                  return (
-                    <tr key={row.AuditKey}>
-                      <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{fmtDate(row.CreateDtm)}</td>
-                      <td>
-                        <div style={{ fontWeight: 700 }}>{row.UserName || row.UserID || '-'}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text3)' }}>{row.DurationMs || 0}ms</div>
-                      </td>
-                      <td style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{row.UserMessage}</td>
-                      <td>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                          {flagList(row.RouteFlags).map(flag => (
-                            <Badge key={flag} tone={flag === 'LLM_SQL' ? 'info' : flag === 'ASKBACK' ? 'warn' : 'neutral'}>{flag}</Badge>
-                          ))}
-                          {row.Success ? <Badge tone="ok">SUCCESS</Badge> : <Badge tone="danger">ERROR</Badge>}
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                          {flagList(row.RiskFlags).length
-                            ? flagList(row.RiskFlags).map(flag => <Badge key={flag} tone="warn">{flag}</Badge>)
-                            : <Badge tone="ok">없음</Badge>}
-                        </div>
-                        {row.ErrorMessage && <div style={{ marginTop: 4, fontSize: 11, color: '#c62828' }}>{row.ErrorMessage}</div>}
-                      </td>
-                      <td>
-                        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45, maxHeight: 130, overflow: 'auto' }}>
-                          {row.BotText || row.ErrorMessage || '-'}
-                        </div>
-                        {debug?.sql && (
-                          <details style={{ marginTop: 6 }}>
-                            <summary style={{ cursor: 'pointer', fontSize: 11, color: '#1565c0' }}>SQL {debug.rowCount != null ? `(${debug.rowCount}건)` : ''}</summary>
-                            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, background: '#f7f7f7', padding: 8, border: '1px solid #ddd', marginTop: 4 }}>
-                              {debug.sql}
-                            </pre>
-                          </details>
-                        )}
+            <>
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: 130 }}>시간</th>
+                    <th style={{ minWidth: 80 }}>사용자</th>
+                    <th style={{ minWidth: 260 }}>질문</th>
+                    <th style={{ minWidth: 160 }}>처리</th>
+                    <th style={{ minWidth: 160 }}>위험</th>
+                    <th style={{ minWidth: 360 }}>답변/SQL</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleItems.map(item => (
+                    <ChatAuditRow key={item.row.AuditKey} item={item} />
+                  ))}
+                  {!filtered.length && (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: 28, color: 'var(--text3)' }}>
+                        조건에 맞는 대화 로그가 없습니다.
                       </td>
                     </tr>
-                  );
-                })}
-                {!filtered.length && (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: 28, color: 'var(--text3)' }}>
-                      조회된 챗봇 감사 기록이 없습니다.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+              {filtered.length > visibleLimit && (
+                <div style={{ padding: 10, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+                  <button type="button" className="btn btn-sm" onClick={() => setVisibleLimit(v => v + PAGE_SIZE)}>
+                    더 보기 (+{PAGE_SIZE}건 · {visibleItems.length}/{filtered.length}건 표시)
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -253,12 +283,12 @@ export default function ChatAuditPage() {
   );
 }
 
-function Stat({ label, value, tone = 'neutral' }) {
-  const color = tone === 'danger' ? '#c62828' : tone === 'warn' ? '#ef6c00' : tone === 'info' ? '#1565c0' : '#333';
+const Stat = memo(function Stat({ label, value, tone = 'neutral' }) {
+  const color = tone === 'danger' ? '#c62828' : tone === 'warn' ? '#ef6c00' : tone === 'info' ? '#1565c0' : 'var(--text1)';
   return (
-    <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', padding: '8px 10px', minHeight: 58 }}>
+    <div className="card" style={{ padding: '8px 10px' }}>
       <div style={{ fontSize: 11, color: 'var(--text3)' }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color }}>{Number(value || 0).toLocaleString()}</div>
+      <div style={{ fontSize: 18, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color }}>{value}</div>
     </div>
   );
-}
+});

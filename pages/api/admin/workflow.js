@@ -20,6 +20,10 @@ import { stageOfRoom, stageName, personRole, STAGE_ORDER, EVENT_TYPES, KEY_PERSO
 const LOG_RANGE = '이벤트로그!A:F';
 const BIZ_RANGE = '비즈니스이벤트!A:J';
 const DEC_RANGE = '의사결정추적!A:K';
+const WORKFLOW_SHEET_TTL_MS = 5 * 60 * 1000;
+const parsedWorkflowLogCache = new WeakMap();
+const parsedWorkflowBizCache = new WeakMap();
+const parsedWorkflowDecCache = new WeakMap();
 
 const norm = v => String(v ?? '').trim();
 const majorWeek = v => { const m = norm(v).match(/(\d{1,3})/); return m ? m[1] : ''; };
@@ -67,19 +71,32 @@ async function handler(req, res) {
   try {
   const qWeek = majorWeek(req.query.week), qRoom = norm(req.query.room), qStage = norm(req.query.stage);
 
-  // ── 1) 카카오 시트 ──
+  // ── 1) 카카오 시트 (5분 TTL + 파싱 결과 WeakMap 캐시) ──
+  const fresh = req.query?.fresh === '1';
   let logs = [], events = [], decisions = [], kakaoAvailable = true, kakaoError = '';
   try {
     const id = getKakaoSheetId();
     const [lv, bv, dv] = await Promise.all([
-      readSheetValues({ spreadsheetId: id, range: LOG_RANGE }).catch(() => []),
-      readSheetValues({ spreadsheetId: id, range: BIZ_RANGE }),
-      readSheetValues({ spreadsheetId: id, range: DEC_RANGE }).catch(() => []),
+      readSheetValues({ spreadsheetId: id, range: LOG_RANGE, ttlMs: WORKFLOW_SHEET_TTL_MS, noCache: fresh }).catch(() => []),
+      readSheetValues({ spreadsheetId: id, range: BIZ_RANGE, ttlMs: WORKFLOW_SHEET_TTL_MS, noCache: fresh }),
+      readSheetValues({ spreadsheetId: id, range: DEC_RANGE, ttlMs: WORKFLOW_SHEET_TTL_MS, noCache: fresh }).catch(() => []),
     ]);
     // 시트가 커져도 안 느려지게 최근 N행만 처리(append-only라 뒤쪽이 최신).
-    logs = lv.slice(1).slice(-15000).map(rowToLog).filter(l => l.sender || l.text);
-    events = bv.slice(1).slice(-10000).map(rowToEvent).filter(e => e.sender || e.product || e.eventType);
-    decisions = dv.slice(1).slice(-5000).map(rowToDecision).filter(d => d.issueId || d.content);
+    logs = Array.isArray(lv) ? parsedWorkflowLogCache.get(lv) : null;
+    if (!logs) {
+      logs = (lv || []).slice(1).slice(-15000).map(rowToLog).filter(l => l.sender || l.text);
+      if (Array.isArray(lv)) parsedWorkflowLogCache.set(lv, logs);
+    }
+    events = Array.isArray(bv) ? parsedWorkflowBizCache.get(bv) : null;
+    if (!events) {
+      events = (bv || []).slice(1).slice(-10000).map(rowToEvent).filter(e => e.sender || e.product || e.eventType);
+      if (Array.isArray(bv)) parsedWorkflowBizCache.set(bv, events);
+    }
+    decisions = Array.isArray(dv) ? parsedWorkflowDecCache.get(dv) : null;
+    if (!decisions) {
+      decisions = (dv || []).slice(1).slice(-5000).map(rowToDecision).filter(d => d.issueId || d.content);
+      if (Array.isArray(dv)) parsedWorkflowDecCache.set(dv, decisions);
+    }
   } catch (e) { kakaoAvailable = false; kakaoError = e.message; }
 
   const matchFilters = x => (!qWeek || majorWeek(x.week) === qWeek) && (!qRoom || x.room.includes(qRoom)) && (!qStage || (x.pipeline || stageOfRoom(x.room)) === qStage);

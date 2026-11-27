@@ -1,5 +1,6 @@
-import {useEffect,useRef,useState} from 'react';
+import {memo,useEffect,useMemo,useRef,useState} from 'react';
 
+const PAGE_SIZE=100;
 const STATUS_LABEL={MATCHING_HISTORY:'동일 변동 이력',PARTIAL_HISTORY:'일부 이력',NEEDS_REVIEW:'확인 필요',NO_MATCHING_HISTORY:'확인 필요',AMBIGUOUS:'확인 필요'};
 const ACTION_LABEL={ADD:'추가',CANCEL:'취소'};
 
@@ -38,9 +39,18 @@ function validReport(report) {
   return !!report&&report.advisoryOnly===true&&report.scope&&typeof report.scope==='object'&&Array.isArray(report.findings)&&Array.isArray(report.requests)&&Array.isArray(report.unresolved)&&Array.isArray(report.warnings);
 }
 
+const AuditFindingItem=memo(function AuditFindingItem({finding,request,defaultWeek}) {
+  return <article className="audit-request">
+    <strong>{STATUS_LABEL[finding?.status]||'확인 필요'}</strong><span>{resultText(finding)||'이력 증거를 추가로 확인해 주세요.'}</span>
+    <div className="audit-request-data"><span>요청 {request?.customerText||'업체 확인 필요'} · {request?.productText||'품목 확인 필요'} · {ACTION_LABEL[request?.action]||'변경'} {request?.inputQty??request?.qty??'?'} {request?.inputUnit||request?.unit||''}</span><span>요청 차수 {request?.week||request?.requestedWeek||defaultWeek||'확인 필요'}</span><blockquote>{quoteFor(request)}</blockquote>{candidateEventsFor(finding).length>0&&<details><summary>이력 근거 {candidateEventsFor(finding).length}건 보기</summary>{candidateEventsFor(finding).map((event,index)=><div className="candidate-event" key={`${event.changeAt||'time'}:${event.week||'week'}:${index}`}>{event.before??'?'} → {event.after??'?'} · 차수 {event.week||'확인 필요'} · 출고일 {event.shipmentDate||'확인 필요'} · 단위 {event.unit||'확인 필요'} · 변경 시각 {event.changeAt||'확인 필요'}</div>)}</details>}</div>
+    {Array.isArray(finding?.candidateEventIds)&&finding.candidateEventIds.length>0&&<small>참고 이력 {finding.candidateEventIds.join(', ')}</small>}
+  </article>;
+});
+
 export default function DistributionChangeAudit({year,week,messages=[],disabled,onAuditSaved}) {
   const [from,setFrom]=useState(''),[to,setTo]=useState(''),[combined,setCombined]=useState(false);
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[audit,setAudit]=useState(null);
+  const [visibleLimit,setVisibleLimit]=useState(PAGE_SIZE);
   const [historyItems,setHistoryItems]=useState([]),[historyBusy,setHistoryBusy]=useState(false),[historyError,setHistoryError]=useState(''),[snapshotLabel,setSnapshotLabel]=useState('');
   const shortWeek=shortAuditWeek(year,week);
   const combinedAvailable=shortWeek?.endsWith('-02');
@@ -51,11 +61,14 @@ export default function DistributionChangeAudit({year,week,messages=[],disabled,
   activeContext.current=contextKey;
 
   useEffect(()=>{if(!combinedAvailable)setCombined(false);},[combinedAvailable]);
-  useEffect(()=>{setAudit(null);setError('');setBusy(false);setHistoryItems([]);setHistoryError('');setHistoryBusy(false);setSnapshotLabel('');},[contextKey]);
+  useEffect(()=>{setAudit(null);setVisibleLimit(PAGE_SIZE);setError('');setBusy(false);setHistoryItems([]);setHistoryError('');setHistoryBusy(false);setSnapshotLabel('');},[contextKey]);
   useEffect(()=>()=>{activeContext.current='unmounted';},[]);
 
+  const allAlignedFindings=useMemo(()=>audit?alignedFindings(audit):[],[audit]);
+  const visibleFindings=useMemo(()=>allAlignedFindings.slice(0,visibleLimit),[allAlignedFindings,visibleLimit]);
+
   async function runAudit() {
-    setError('');setAudit(null);
+    setError('');setAudit(null);setVisibleLimit(PAGE_SIZE);
     if(!shortWeek) {setError('비교를 실행하려면 선택 연도와 전체 차수가 일치해야 합니다.');return;}
     if(!from||!to) {setError('비교할 시작일과 종료일을 선택해 주세요.');return;}
     if(from>to) {setError('종료일은 시작일보다 빠를 수 없습니다.');return;}
@@ -102,6 +115,7 @@ export default function DistributionChangeAudit({year,week,messages=[],disabled,
       const data=await response.json().catch(()=>null);
       if(activeContext.current!==runContext) return;
       if(!response.ok||!data?.audit||typeof data.audit.id!=='string'||!validReport(data.audit.report)) {setHistoryError(errorText(data?.error,'저장된 비교 결과를 열지 못했습니다.'));return;}
+      setVisibleLimit(PAGE_SIZE);
       setAudit(data.audit.report);
       setSnapshotLabel(`저장된 비교 결과 · ${data.audit.createdAt||'저장 시각 확인 필요'}`);
     } catch {if(activeContext.current===runContext)setHistoryError('저장된 비교 결과를 열지 못했습니다. 네트워크를 확인한 뒤 다시 시도하세요.');}
@@ -126,13 +140,9 @@ export default function DistributionChangeAudit({year,week,messages=[],disabled,
     {audit&&<div className="audit-results" aria-live="polite">
       {snapshotLabel&&<p className="snapshot-label" role="status">{snapshotLabel}</p>}
       {audit.extractionErrorCode?<p className="audit-error" role="status">AI 분석 실패 · 원문을 보존했습니다</p>:<p className="audit-note">분석 {audit.requests.length}건 · 기준 시각 {audit.asOf||audit.scope.asOf||'응답에 없음'} · 자문 결과이며 기존 분석·등록·분배·확정 흐름은 계속 사용할 수 있습니다.</p>}
-      <div className="audit-request-list">{alignedFindings(audit).map(({finding,request},index)=><article className="audit-request" key={`${finding?.id||finding?.sourceIdentity||request?.id||request?.sourceIdentity||'finding'}:${index}`}>
-        <strong>{STATUS_LABEL[finding?.status]||'확인 필요'}</strong><span>{resultText(finding)||'이력 증거를 추가로 확인해 주세요.'}</span>
-        <div className="audit-request-data"><span>요청 {request?.customerText||'업체 확인 필요'} · {request?.productText||'품목 확인 필요'} · {ACTION_LABEL[request?.action]||'변경'} {request?.inputQty??request?.qty??'?'} {request?.inputUnit||request?.unit||''}</span><span>요청 차수 {request?.week||request?.requestedWeek||audit.scope.week||'확인 필요'}</span><blockquote>{quoteFor(request)}</blockquote>{candidateEventsFor(finding).length>0&&<details><summary>이력 근거 {candidateEventsFor(finding).length}건 보기</summary>{candidateEventsFor(finding).map((event,index)=><div className="candidate-event" key={`${event.changeAt||'time'}:${event.week||'week'}:${index}`}>{event.before??'?'} → {event.after??'?'} · 차수 {event.week||'확인 필요'} · 출고일 {event.shipmentDate||'확인 필요'} · 단위 {event.unit||'확인 필요'} · 변경 시각 {event.changeAt||'확인 필요'}</div>)}</details>}</div>
-        {Array.isArray(finding?.candidateEventIds)&&finding.candidateEventIds.length>0&&<small>참고 이력 {finding.candidateEventIds.join(', ')}</small>}
-      </article>)}{!audit.findings.length&&<p className="audit-note">{audit.extractionErrorCode?'AI 오류로 분석 결과를 만들지 못했습니다. 원문은 보존되어 있습니다.':'요청별 자문 결과가 없습니다.'}</p>}</div>
+      <div className="audit-request-list">{visibleFindings.map(({finding,request},index)=><AuditFindingItem key={`${finding?.id||finding?.sourceIdentity||request?.id||request?.sourceIdentity||'finding'}:${index}`} finding={finding} request={request} defaultWeek={audit.scope.week}/>)}{!audit.findings.length&&<p className="audit-note">{audit.extractionErrorCode?'AI 오류로 분석 결과를 만들지 못했습니다. 원문은 보존되어 있습니다.':'요청별 자문 결과가 없습니다.'}</p>}{allAlignedFindings.length>visibleLimit&&<div className="audit-more"><button type="button" onClick={()=>setVisibleLimit(v=>v+PAGE_SIZE)}>더 보기 (+{PAGE_SIZE}건 · {visibleFindings.length}/{allAlignedFindings.length}건)</button></div>}</div>
       {[['추가 확인',audit.unresolved],['경고',audit.warnings]].map(([title,items])=>items.length>0&&<div className="audit-extra" key={title}><strong>{title}</strong><ul>{items.map((item,index)=><li key={index}>{item?.quote&&<span style={{whiteSpace:'pre-wrap'}}>“{item.quote}” · </span>}{resultText(item)||'내용을 확인해 주세요.'}</li>)}</ul></div>)}
     </div>}
-    <style jsx>{`.change-audit{border:1px solid #c8d9e7;background:#fbfdff;margin:8px 0;font-size:12px}.audit-head,.audit-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:5px 7px}.audit-head{border-bottom:1px solid #dce8f1}.audit-head strong{color:#294f73}.audit-head span,.audit-note,.audit-count{color:#5c7286}.audit-controls label{display:flex;gap:4px;align-items:center}.audit-controls input{font:inherit}.audit-controls button,.audit-history button{font:inherit;background:#fff;border:1px solid #9db2ca;padding:4px 8px;color:#245b93;cursor:pointer;min-height:27px}.audit-controls button:disabled,.audit-history button:disabled{opacity:.55;cursor:not-allowed}.combined{color:#435d75}.audit-note,.audit-error,.snapshot-label{margin:5px 7px}.audit-error{color:#a33b28}.snapshot-label{color:#28587d;font-weight:600}.audit-history{display:flex;gap:5px;flex-wrap:wrap;padding:5px 7px;border-top:1px solid #e4edf4}.audit-results{border-top:1px solid #dce8f1}.audit-request-list{max-height:250px;overflow:auto}.audit-request{display:grid;grid-template-columns:108px minmax(260px,1fr);gap:5px 8px;padding:6px 7px;border-top:1px solid #e4edf4}.audit-request strong{color:#385f7d}.audit-request>span{color:#43576a}.audit-request-data{grid-column:2;display:grid;gap:3px;color:#4a6176}.audit-request-data blockquote{margin:1px 0;padding:3px 6px;border-left:2px solid #bfd1e0;background:#f5f8fb;white-space:pre-wrap;overflow-wrap:anywhere;color:#52677b}.audit-request-data details{padding:3px 0}.audit-request-data summary{cursor:pointer;color:#28587d}.candidate-event{padding:3px 5px;margin:3px 0;background:#f5f8fb;overflow-wrap:anywhere}.audit-request small{grid-column:2;color:#6a7d8e;overflow-wrap:anywhere}.audit-extra{padding:5px 7px;border-top:1px solid #e4edf4;color:#4a6176}.audit-extra ul{margin:3px 0 0;padding-left:18px}@media(max-width:900px){.audit-request{grid-template-columns:1fr}.audit-request-data,.audit-request small{grid-column:auto}}`}</style>
+    <style jsx>{`.change-audit{border:1px solid #c8d9e7;background:#fbfdff;margin:8px 0;font-size:12px;font-variant-numeric:tabular-nums}.audit-head,.audit-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:5px 7px}.audit-head{border-bottom:1px solid #dce8f1}.audit-head strong{color:#294f73}.audit-head span,.audit-note,.audit-count{color:#5c7286}.audit-controls label{display:flex;gap:4px;align-items:center}.audit-controls input{font:inherit}.audit-controls button,.audit-history button,.audit-more button{font:inherit;background:#fff;border:1px solid #9db2ca;padding:4px 8px;color:#245b93;cursor:pointer;min-height:27px}.audit-controls button:disabled,.audit-history button:disabled{opacity:.55;cursor:not-allowed}.combined{color:#435d75}.audit-note,.audit-error,.snapshot-label{margin:5px 7px}.audit-error{color:#a33b28}.snapshot-label{color:#28587d;font-weight:600}.audit-history{display:flex;gap:5px;flex-wrap:wrap;padding:5px 7px;border-top:1px solid #e4edf4}.audit-results{border-top:1px solid #dce8f1}.audit-request-list{max-height:250px;overflow:auto}.audit-request{display:grid;grid-template-columns:108px minmax(260px,1fr);gap:5px 8px;padding:6px 7px;border-top:1px solid #e4edf4;content-visibility:auto;contain-intrinsic-size:0 92px}.audit-request strong{color:#385f7d}.audit-request>span{color:#43576a}.audit-request-data{grid-column:2;display:grid;gap:3px;color:#4a6176}.audit-request-data blockquote{margin:1px 0;padding:3px 6px;border-left:2px solid #bfd1e0;background:#f5f8fb;white-space:pre-wrap;overflow-wrap:anywhere;color:#52677b}.audit-request-data details{padding:3px 0}.audit-request-data summary{cursor:pointer;color:#28587d}.candidate-event{padding:3px 5px;margin:3px 0;background:#f5f8fb;overflow-wrap:anywhere}.audit-request small{grid-column:2;color:#6a7d8e;overflow-wrap:anywhere}.audit-more{padding:6px 7px;border-top:1px solid #e4edf4;text-align:center}.audit-extra{padding:5px 7px;border-top:1px solid #e4edf4;color:#4a6176}.audit-extra ul{margin:3px 0 0;padding-left:18px}@media(max-width:900px){.audit-request{grid-template-columns:1fr}.audit-request-data,.audit-request small{grid-column:auto}}`}</style>
   </section>;
 }

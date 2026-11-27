@@ -16,9 +16,9 @@
     "desktop/flight-board.cjs": "5ae2fe97f2b44e20c7e7dee0489c4df7e3151ec017de98eefc5345de5227fdd9",
     "desktop/preload.cjs": "294e04ca323439d0747de91597ec6944e5323f49ab6f36b651234029d6370560",
     "desktop/shell/flight-board.js": "f635f602481374ddc2614532b08e15fa8d055821804de534c981a03dfa6b010b",
-    "components/home/ImportFlightBoard.js": "05da02598637216e1530b640ed30d80e49070628e8e3978839fe9e35f33e31c5",
+    "components/home/ImportFlightBoard.js": "956b6e83f7d35a7a51d35585cb7654634e7dfb0ad519218e3d1ea85d7011f855",
     "pages/desktop-flight.js": "30ebc42ee296cea9eefacb8a2d9fe63af05c12e8ea78f162208369c5fb7bca44",
-    "pages/api/import/flight-board.js": "498603b952a0471f2ad7cb18f98f88cd5e3f3cf00a91aebdfb1117aa4deded31",
+    "pages/api/import/flight-board.js": "6d0977f7f487738e387a99d6efbbed95a719ef32e9ee74560382910b97c3e627",
     "pages/_app.js": "152c11ecfd13c10d65257434e243f27c7f4504c66a502627b57e7de15ec20121",
     "desktop/shell/index.html": "88b2d825b098f3cf327aa6a472bf2b1da386dfab121e958704c6336afe32ff40"
   },

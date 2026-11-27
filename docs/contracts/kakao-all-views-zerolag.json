@@ -1,0 +1,87 @@
+{
+  "id": "kakao-all-views-zerolag",
+  "title": "카톡 데이터 표시 전체 기존 화면 무렉(Zero-Lag) 4원칙 · 서버 5분 TTL 캐시 · Anti-AI Slop 소급 적용",
+  "scope": [
+    "pages/incoming/kakao-summary.js",
+    "pages/api/kakao/summary.js",
+    "pages/orders/kakao-audit.js",
+    "pages/api/orders/kakao-audit.js",
+    "pages/orders/change-queue.js",
+    "pages/api/orders/change-queue.js",
+    "pages/api/kakao/order-feed.js",
+    "pages/admin/workflow.js",
+    "pages/api/admin/workflow.js",
+    "pages/admin/chat-audit.js",
+    "components/home/ImportFlightBoard.js",
+    "pages/api/import/flight-board.js",
+    "components/shipment/DistributionKakaoFeed.js",
+    "components/orders/DistributionSalesInbox.js",
+    "components/orders/DistributionChangeAudit.js",
+    "components/orders/DistributionChecklistReview.js",
+    "components/orders/KakaoStockInbox.js",
+    "pages/orders/kakao-stock.js",
+    "pages/shipment/distribute-import.js",
+    "pages/orders/paste.js",
+    "__tests__/kakaoAllScreensZeroLag.test.mjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "KAKAO_ALL_SURFACES_ZEROLAG_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "writeAllowlist": [],
+      "sideEffect": "Applies Zero-Lag 4 principles (100-item initial render cap + load-more pagination, O(1) memoized filter/toggle state updates, React.memo row/card isolation + CSS content-visibility: auto, and 5-minute server TTL + WeakMap parsed caches with ?fresh=1 manual refresh bypass) plus Pretendard tabular-nums typography across all Kakao-displaying web UIs and read-only APIs. Zero ERP table writes."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "카톡 수량집계·변경큐·DB검증·업무플로우·항공편 현황·분배 수신함은 조회 연도(OrderYear)와 차수(OrderWeek) 스코프를 그대로 보존하며, 5분 마스터/시트 캐시는 연도 조건을 덮어쓰지 않고 읽기 전용 SELECT로만 동작한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/kakaoAllScreensZeroLag.test.mjs",
+    "__tests__/kakaoChangeQueue.test.js",
+    "__tests__/distributionKakaoFeedApi.test.cjs",
+    "__tests__/distributionKakaoDone.test.cjs",
+    "__tests__/distributionSalesInbox.test.js",
+    "__tests__/distributionSalesInboxRender.test.js",
+    "__tests__/distributionChangeAuditUi.test.js",
+    "__tests__/distributionChecklistUi.test.js",
+    "__tests__/kakaoStockInbox.test.js",
+    "__tests__/importFlightBoard.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "카톡 화면 무렉(Zero-Lag) 최적화 및 5분 조회 캐시는 웹 전용 읽기 최적화이며 nenova.exe의 주문·출고·입고·재고 저장 프로시저나 원장 데이터를 일절 수정하지 않는다.",
+    "methods": [
+      "Read-only SELECT caching (5m TTL) and client React.memo + 100-item pagination + content-visibility"
+    ],
+    "tables": [
+      "Customer (SELECT only)",
+      "Product (SELECT only)",
+      "OrderMaster / OrderDetail (preserve, SELECT only)",
+      "ShipmentMaster / ShipmentDetail (preserve, SELECT only)",
+      "WarehouseMaster / WarehouseDetail (preserve, SELECT only)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "node __tests__/kakaoAllScreensZeroLag.test.mjs",
+    "node __tests__/kakaoChangeQueue.test.js",
+    "node __tests__/distributionKakaoFeedApi.test.cjs",
+    "npm run test:workflow-guides",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run build"
+  ]
+}
