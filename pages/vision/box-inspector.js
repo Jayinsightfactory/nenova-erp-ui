@@ -8,6 +8,7 @@ import WorkflowGuide from '../../components/WorkflowGuide';
 import BoxVisionStep2ReviewPanel from '../../components/vision/BoxVisionStep2ReviewPanel';
 import BoxVisionStep3ResultsPanel from '../../components/vision/BoxVisionStep3ResultsPanel';
 import {
+  addManualBox,
   analyzeBoxVisionPhotos,
   autoDeduceZigzagBoxes,
   buildUnreadableBoxSearchCandidates,
@@ -57,6 +58,9 @@ export default function BoxVisionInspectorPage() {
   const [customPreviewUrl, setCustomPreviewUrl] = useState('');
   const [boxOverrides, setBoxOverrides] = useState({});
   const [photoAngleOverrides, setPhotoAngleOverrides] = useState({});
+  const [manualBoxes, setManualBoxes] = useState([]);
+  const [isManualDrawMode, setIsManualDrawMode] = useState(false);
+  const [redrawingBoxId, setRedrawingBoxId] = useState(null);
   const [selectedBoxId, setSelectedBoxId] = useState(null);
   const [batchRouteMessage, setBatchRouteMessage] = useState('호남선 출고입니다');
   const [billSearchQuery, setBillSearchQuery] = useState('');
@@ -97,7 +101,8 @@ export default function BoxVisionInspectorPage() {
       nextOverrides,
       nextRouteMsg = batchRouteMessage,
       nextBillQuery = billSearchQuery,
-      nextAngleOverrides = photoAngleOverrides
+      nextAngleOverrides = photoAngleOverrides,
+      nextManualBoxes = manualBoxes
     ) => {
       const isEmptySession =
         (!Array.isArray(nextSampleIds) || nextSampleIds.length === 0) &&
@@ -108,6 +113,7 @@ export default function BoxVisionInspectorPage() {
         uploadedFiles: nextFiles,
         boxOverrides: nextOverrides,
         photoAngleOverrides: nextAngleOverrides,
+        manualBoxes: nextManualBoxes,
         batchRouteMessage: nextRouteMsg,
         billQuery: nextBillQuery,
         allowEmpty: isEmptySession,
@@ -139,6 +145,7 @@ export default function BoxVisionInspectorPage() {
             uploadedFiles: lightweightFiles,
             boxOverrides: nextOverrides,
             photoAngleOverrides: nextAngleOverrides,
+            manualBoxes: nextManualBoxes,
             batchRouteMessage: nextRouteMsg,
             billQuery: nextBillQuery,
             orderYear: 2026,
@@ -164,7 +171,7 @@ export default function BoxVisionInspectorPage() {
       }
       return localResult;
     },
-    [batchRouteMessage, billSearchQuery, photoAngleOverrides]
+    [batchRouteMessage, billSearchQuery, customPreviewUrl, manualBoxes, photoAngleOverrides]
   );
 
   // [+ 새 작업 (초기화)] — 모든 업로드 사진, 선택 상태, 수동 매칭, 필터를 깨끗한 빈 초기 상태(사진 0장)로 리셋하고 1단계로 즉시 이동
@@ -177,6 +184,9 @@ export default function BoxVisionInspectorPage() {
       setCustomPreviewUrl('');
       setBoxOverrides({});
       setPhotoAngleOverrides({});
+      setManualBoxes([]);
+      setIsManualDrawMode(false);
+      setRedrawingBoxId(null);
       setSelectedBoxId(null);
       setActiveMatcherBoxId(null);
       setCurrentStep(2);
@@ -241,10 +251,13 @@ export default function BoxVisionInspectorPage() {
     setCustomPreviewUrl('');
     setBoxOverrides({});
     setPhotoAngleOverrides({});
+    setManualBoxes([]);
+    setIsManualDrawMode(false);
+    setRedrawingBoxId(null);
     setSelectedCustomerFilter('ALL');
     setSampleMenuOpen(false);
 
-    const localResult = await runAnalysis(sampleIds, files, {}, routeMsg, billSearchQuery, {});
+    const localResult = await runAnalysis(sampleIds, files, {}, routeMsg, billSearchQuery, {}, []);
     const pendingList = localResult?.unreadablePendingQueue || [];
     if (pendingList.length > 0) {
       setSelectedBoxId(pendingList[0].boxId);
@@ -379,11 +392,15 @@ export default function BoxVisionInspectorPage() {
       const nextIds = []; // 사용자 실제 업로드 시 기존 샘플 ID(sample-1~5) 잔류 전면 차단!
       const nextOverrides = shouldAppendUploads ? boxOverrides : {};
       const nextAngleOverrides = shouldAppendUploads ? photoAngleOverrides : {};
+      const nextManualBoxes = shouldAppendUploads ? manualBoxes : [];
 
       setSelectedSampleIds(nextIds);
       setUploadedFiles(combinedUploads);
       setBoxOverrides(nextOverrides);
       setPhotoAngleOverrides(nextAngleOverrides);
+      setManualBoxes(nextManualBoxes);
+      setIsManualDrawMode(false);
+      setRedrawingBoxId(null);
       setSelectedCustomerFilter('ALL');
       setActivePhotoIndex(shouldAppendUploads ? Math.max(0, combinedUploads.length - newMetaList.length) : 0);
       setActiveMatcherBoxId(null);
@@ -395,7 +412,8 @@ export default function BoxVisionInspectorPage() {
         nextOverrides,
         batchRouteMessage,
         billSearchQuery,
-        nextAngleOverrides
+        nextAngleOverrides,
+        nextManualBoxes
       );
 
       const firstPending = localResult?.unreadablePendingQueue?.[0];
@@ -610,6 +628,7 @@ export default function BoxVisionInspectorPage() {
       uploadedFiles,
       boxOverrides,
       photoAngleOverrides,
+      manualBoxes,
       targetBoxIds: [box.boxId],
       includeAllUnreadable: true,
     });
@@ -623,7 +642,15 @@ export default function BoxVisionInspectorPage() {
         `박스 [#${box.countSeq || box.boxSeq}] 추천 품목 1클릭 확정 완료: [${applied.prodName} · ${fmt(applied.qtyPerBox)}${applied.unit}]`
       );
     }
-    runAnalysis(selectedSampleIds, uploadedFiles, nextOverrides, batchRouteMessage, billSearchQuery, photoAngleOverrides);
+    runAnalysis(
+      selectedSampleIds,
+      uploadedFiles,
+      nextOverrides,
+      batchRouteMessage,
+      billSearchQuery,
+      photoAngleOverrides,
+      manualBoxes
+    );
   };
 
   const handleBatchAutoDeduceZigzag = (includeAllUnreadable = true) => {
@@ -632,6 +659,7 @@ export default function BoxVisionInspectorPage() {
       uploadedFiles,
       boxOverrides,
       photoAngleOverrides,
+      manualBoxes,
       includeAllUnreadable,
     });
     if (!appliedCount) {
@@ -644,8 +672,164 @@ export default function BoxVisionInspectorPage() {
     setNotice(
       `지그재그 옆면·미식별 박스 ${appliedCount}건을 전산 잔여 품목(${summaryItems})으로 일괄 자동 매칭했습니다.`
     );
-    runAnalysis(selectedSampleIds, uploadedFiles, nextOverrides, batchRouteMessage, billSearchQuery, photoAngleOverrides);
+    runAnalysis(
+      selectedSampleIds,
+      uploadedFiles,
+      nextOverrides,
+      batchRouteMessage,
+      billSearchQuery,
+      photoAngleOverrides,
+      manualBoxes
+    );
   };
+
+  const handleAddManualBox = useCallback(
+    (bbox) => {
+      const activePhoto = analysisData?.analyzedPhotos?.[activePhotoIndex] || null;
+      const sampleId = activePhoto?.sampleId || selectedSampleIds[activePhotoIndex] || null;
+      const photoId = activePhoto?.sampleId || activePhoto?.photoId || `photo-${activePhotoIndex + 1}`;
+      const firstBox = activePhoto?.boxes?.[0] || null;
+
+      const newBox = addManualBox({
+        photoId,
+        sampleId,
+        bbox,
+        custName: firstBox?.custName || '주광농원',
+        custKey: firstBox?.custKey || 533,
+        custCode: firstBox?.custCode || 'YCL2',
+        invoiceNo: firstBox?.invoiceNo || '1222993',
+        awbNo: firstBox?.awbNo || '180-9162-6441',
+        orderWeek: firstBox?.orderWeek || '47-02',
+        farmName: firstBox?.farmName || 'Holex',
+        countryName: firstBox?.countryName || '네덜란드',
+        ocrStatus: 'unreadable_both',
+        unreadableReason: '사용자 직접 추가 박스 (품목·수량 매칭 대기)',
+        status: 'COUNTED',
+      });
+
+      const nextManualBoxes = [...manualBoxes, newBox];
+      setManualBoxes(nextManualBoxes);
+      setIsManualDrawMode(false);
+      setRedrawingBoxId(null);
+      setSelectedBoxId(newBox.boxId);
+      setActiveMatcherBoxId(newBox.boxId);
+
+      const candidates = buildUnreadableBoxSearchCandidates(newBox, {
+        allBoxes: [...(analysisData?.allBoxes || []), newBox],
+        productCatalog: analysisData?.searchableProducts || SEARCHABLE_PRODUCT_CATALOG,
+        searchQuery: '',
+      });
+      const top = candidates[0] || null;
+      setMatcherSelectedCandidate(top);
+      setMatcherQtyPerBox(top ? Number(top.suggestedQtyPerBox || 40) : 40);
+      setMatcherCustKey(Number(newBox.custKey || top?.custKey || 533));
+      setMatcherInvoiceNo(String(newBox.invoiceNo || top?.invoiceNo || '1222993'));
+
+      setNotice(
+        `새 박스 [#${newBox.countSeq || newBox.boxSeq}]를 추가했습니다. 우측에서 품목과 수량을 매칭해 주세요.`
+      );
+
+      runAnalysis(
+        selectedSampleIds,
+        uploadedFiles,
+        boxOverrides,
+        batchRouteMessage,
+        billSearchQuery,
+        photoAngleOverrides,
+        nextManualBoxes
+      );
+    },
+    [
+      activePhotoIndex,
+      analysisData?.allBoxes,
+      analysisData?.analyzedPhotos,
+      analysisData?.searchableProducts,
+      batchRouteMessage,
+      billSearchQuery,
+      boxOverrides,
+      manualBoxes,
+      photoAngleOverrides,
+      runAnalysis,
+      selectedSampleIds,
+      uploadedFiles,
+    ]
+  );
+
+  const handleUpdateBoxBbox = useCallback(
+    (boxId, bbox) => {
+      const nextOverrides = {
+        ...boxOverrides,
+        [boxId]: {
+          ...(boxOverrides[boxId] || {}),
+          bbox,
+        },
+      };
+      setBoxOverrides(nextOverrides);
+      setRedrawingBoxId(null);
+      setNotice(`박스 영역(위치·크기)을 재조정했습니다.`);
+      runAnalysis(
+        selectedSampleIds,
+        uploadedFiles,
+        nextOverrides,
+        batchRouteMessage,
+        billSearchQuery,
+        photoAngleOverrides,
+        manualBoxes
+      );
+    },
+    [
+      boxOverrides,
+      batchRouteMessage,
+      billSearchQuery,
+      photoAngleOverrides,
+      manualBoxes,
+      runAnalysis,
+      selectedSampleIds,
+      uploadedFiles,
+    ]
+  );
+
+  const handleDeleteBox = useCallback(
+    (boxId) => {
+      const nextOverrides = {
+        ...boxOverrides,
+        [boxId]: {
+          ...(boxOverrides[boxId] || {}),
+          status: 'DELETED',
+          deleted: true,
+        },
+      };
+      const nextManual = manualBoxes.filter((b) => b.boxId !== boxId);
+      setBoxOverrides(nextOverrides);
+      setManualBoxes(nextManual);
+      if (selectedBoxId === boxId) setSelectedBoxId(null);
+      if (activeMatcherBoxId === boxId) setActiveMatcherBoxId(null);
+      if (redrawingBoxId === boxId) setRedrawingBoxId(null);
+      setNotice(`박스를 삭제했습니다.`);
+      runAnalysis(
+        selectedSampleIds,
+        uploadedFiles,
+        nextOverrides,
+        batchRouteMessage,
+        billSearchQuery,
+        photoAngleOverrides,
+        nextManual
+      );
+    },
+    [
+      activeMatcherBoxId,
+      batchRouteMessage,
+      billSearchQuery,
+      boxOverrides,
+      manualBoxes,
+      photoAngleOverrides,
+      redrawingBoxId,
+      runAnalysis,
+      selectedBoxId,
+      selectedSampleIds,
+      uploadedFiles,
+    ]
+  );
 
   const handlePhotoAngleChange = (sampleId, nextAngle) => {
     const nextAngleOverrides = {
@@ -1204,6 +1388,13 @@ export default function BoxVisionInspectorPage() {
           handleConfirmSearchMatch={handleConfirmSearchMatch}
           resolvedQueue={resolvedQueue}
           setCurrentStep={setCurrentStep}
+          isManualDrawMode={isManualDrawMode}
+          setIsManualDrawMode={setIsManualDrawMode}
+          redrawingBoxId={redrawingBoxId}
+          setRedrawingBoxId={setRedrawingBoxId}
+          handleAddManualBox={handleAddManualBox}
+          handleUpdateBoxBbox={handleUpdateBoxBbox}
+          handleDeleteBox={handleDeleteBox}
         />
       )}
 

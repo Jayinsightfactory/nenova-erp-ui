@@ -1,6 +1,7 @@
 // components/vision/BoxVisionStep2ReviewPanel.js
 // [2단계] 미식별 · 지그재그 옆면 박스 확인 패널 (좌측 50% 캔버스 / 우측 50% 미식별 처리 카드)
 
+import { useRef, useState } from 'react';
 import {
   buildUnreadableBoxSearchCandidates,
   CAMERA_ANGLE_OPTIONS,
@@ -48,7 +49,83 @@ export default function BoxVisionStep2ReviewPanel({
   handleConfirmSearchMatch,
   resolvedQueue,
   setCurrentStep,
+  isManualDrawMode = false,
+  setIsManualDrawMode = () => {},
+  redrawingBoxId = null,
+  setRedrawingBoxId = () => {},
+  handleAddManualBox = () => {},
+  handleUpdateBoxBbox = () => {},
+  handleDeleteBox = () => {},
 }) {
+  const canvasStageRef = useRef(null);
+  const [dragState, setDragState] = useState(null);
+
+  const getCanvasCoords = (e) => {
+    if (!canvasStageRef.current) return { xPct: 0, yPct: 0 };
+    const rect = canvasStageRef.current.getBoundingClientRect();
+    const xPct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const yPct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    return { xPct, yPct };
+  };
+
+  const handleStageMouseDown = (e) => {
+    if (e.button !== 0) return;
+    const { xPct, yPct } = getCanvasCoords(e);
+    setDragState({
+      startX: xPct,
+      startY: yPct,
+      currentX: xPct,
+      currentY: yPct,
+      active: true,
+    });
+  };
+
+  const handleStageMouseMove = (e) => {
+    if (!dragState?.active) return;
+    const { xPct, yPct } = getCanvasCoords(e);
+    setDragState((prev) => (prev ? { ...prev, currentX: xPct, currentY: yPct } : null));
+  };
+
+  const handleStageMouseUp = () => {
+    if (!dragState?.active) return;
+    const x1 = Math.min(dragState.startX, dragState.currentX);
+    const y1 = Math.min(dragState.startY, dragState.currentY);
+    const x2 = Math.max(dragState.startX, dragState.currentX);
+    const y2 = Math.max(dragState.startY, dragState.currentY);
+    let w = x2 - x1;
+    let h = y2 - y1;
+    let x = x1;
+    let y = y1;
+
+    setDragState(null);
+
+    // 클릭이거나 미세한 드래그인 경우
+    if (w < 3 && h < 3) {
+      if (isManualDrawMode) {
+        w = 18;
+        h = 9;
+        x = Math.max(0, Math.min(82, dragState.startX - 9));
+        y = Math.max(0, Math.min(91, dragState.startY - 4.5));
+      } else {
+        return;
+      }
+    }
+
+    if (w >= 3 && h >= 3) {
+      const bbox = {
+        x: Math.round(x * 10) / 10,
+        y: Math.round(y * 10) / 10,
+        w: Math.round(w * 10) / 10,
+        h: Math.round(h * 10) / 10,
+      };
+      if (redrawingBoxId) {
+        handleUpdateBoxBbox(redrawingBoxId, bbox);
+      } else {
+        handleAddManualBox(bbox);
+      }
+    }
+  };
+
   return (
     <div data-testid="wizard-step-2-panel">
       {/* 상단 심플 필름스트립 (1/N ~ N/N 사진 전환 + 촬영면 정면/좌/우 심플 버튼) */}
@@ -112,27 +189,93 @@ export default function BoxVisionStep2ReviewPanel({
         {/* 좌측(50%): 사진 캔버스 (깔끔한 번호 중심 오버레이: #1 신라·안시리움 40송이 또는 [#19 확인필요]) */}
         <section className={styles.panelCard} data-testid="box-vision-canvas-panel">
           <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>
-              사진 {activePhotoIndex + 1}/{analyzedPhotos.length || 1} · {currentPhoto?.shortLabel || '사진 #1'}
-            </h2>
-            <span className={styles.badgeMatch}>
-              유효 {currentPhoto?.countedBoxes || 0}박스 (확인필요 {currentPhoto?.unreadablePendingBoxes || 0}건)
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <h2 className={styles.panelTitle}>
+                사진 {activePhotoIndex + 1}/{analyzedPhotos.length || 1} · {currentPhoto?.shortLabel || '사진 #1'}
+              </h2>
+              <span className={styles.badgeMatch}>
+                유효 {currentPhoto?.countedBoxes || 0}박스 (확인필요 {currentPhoto?.unreadablePendingBoxes || 0}건)
+              </span>
+            </div>
+            <div className={styles.sampleChips}>
+              <button
+                type="button"
+                className={isManualDrawMode ? styles.btnManualDrawActive : styles.btnSecondary}
+                style={{ padding: '4px 10px', fontSize: 12.5 }}
+                data-testid="toggle-manual-draw-btn"
+                onClick={() => {
+                  setIsManualDrawMode((prev) => !prev);
+                  if (redrawingBoxId) setRedrawingBoxId(null);
+                }}
+              >
+                {isManualDrawMode ? '✓ 직접 그리기 모드 켜짐' : '+ 놓친 박스 직접 추가 (마우스 드래그)'}
+              </button>
+            </div>
           </div>
 
-          <div className={styles.canvasStage} data-testid="box-vision-stage">
+          {(isManualDrawMode || redrawingBoxId) && (
+            <div className={styles.drawBanner} data-testid="manual-draw-guide-banner">
+              <div>
+                <strong>{redrawingBoxId ? '박스 영역 다시 그리기 모드' : '놓친 박스 직접 추가 모드'}:</strong>{' '}
+                사진 위에서 마우스로 드래그(또는 클릭)하면 박스 영역이 {redrawingBoxId ? '재조정' : '추가'}되고 바로 품목·수량을 매칭할 수 있습니다.
+              </div>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                style={{ padding: '2px 8px', fontSize: 12 }}
+                onClick={() => {
+                  setIsManualDrawMode(false);
+                  setRedrawingBoxId(null);
+                }}
+              >
+                모드 닫기
+              </button>
+            </div>
+          )}
+
+          <div
+            ref={canvasStageRef}
+            className={`${styles.canvasStage} ${isManualDrawMode || redrawingBoxId ? styles.crosshairStage : ''}`}
+            data-testid="box-vision-stage"
+            onMouseDown={handleStageMouseDown}
+            onMouseMove={handleStageMouseMove}
+            onMouseUp={handleStageMouseUp}
+          >
             <div className={styles.scanBeam} aria-hidden="true" />
             <img
               src={displayImageUrl}
               alt={currentPhoto?.title || '창고 박스 스캔 이미지'}
               className={styles.stageImage}
+              draggable={false}
             />
+
+            {/* 실시간 드래그 가이드 박스 프리뷰 */}
+            {dragState?.active && (
+              <div
+                className={styles.manualDrawGuideBox}
+                data-testid="manual-draw-guide-box"
+                style={{
+                  left: `${Math.min(dragState.startX, dragState.currentX)}%`,
+                  top: `${Math.min(dragState.startY, dragState.currentY)}%`,
+                  width: `${Math.abs(dragState.currentX - dragState.startX)}%`,
+                  height: `${Math.abs(dragState.currentY - dragState.startY)}%`,
+                }}
+              >
+                <span className={styles.manualDrawGuideBadge}>
+                  {redrawingBoxId ? '박스 위치 재지정 중...' : '새 박스 영역 지정 중...'} (
+                  {Math.round(Math.abs(dragState.currentX - dragState.startX))}% ×{' '}
+                  {Math.round(Math.abs(dragState.currentY - dragState.startY))}%)
+                </span>
+              </div>
+            )}
+
             {(currentPhoto?.boxes || []).map((box) => {
               const isSelected = selectedBox?.boxId === box.boxId;
               const isPendingUnreadable = Boolean(box.isPendingUnreadable);
               const isPassed = box.resolutionAction === 'passed';
               const isDup = box.status === 'DUPLICATE' || (box.status === 'EXCLUDED' && !isPassed);
               const isBg = box.status === 'BACKGROUND';
+              const isManual = Boolean(box.isManual);
 
               const boxClass = [
                 styles.boxOverlay,
@@ -141,6 +284,7 @@ export default function BoxVisionStep2ReviewPanel({
                 isPassed ? styles.boxOverlayPassed : '',
                 isDup ? styles.boxOverlayDuplicate : '',
                 isBg ? styles.boxOverlayBackground : '',
+                isManual ? styles.boxOverlayManual : '',
               ]
                 .filter(Boolean)
                 .join(' ');
@@ -151,13 +295,18 @@ export default function BoxVisionStep2ReviewPanel({
                 isPassed ? styles.boxCapsulePassed : '',
                 isDup ? styles.boxCapsuleDup : '',
                 isBg ? styles.boxCapsuleBg : '',
+                isManual ? styles.boxCapsuleManual : '',
               ]
                 .filter(Boolean)
                 .join(' ');
 
               const seqNum = box.countSeq || box.boxSeq;
               const shortCust = String(box.custName || '').replace(/호텔|농원|원예/g, '');
-              const shortOverlayLabel = isPendingUnreadable
+              const shortOverlayLabel = isManual
+                ? isPendingUnreadable
+                  ? `[#${seqNum} 직접추가·확인]`
+                  : `#${seqNum} ${shortCust}·${box.flowerName} ${box.qtyPerBox}${box.unit}`
+                : isPendingUnreadable
                 ? `[#${seqNum} 확인필요]`
                 : isPassed
                 ? `[#${seqNum} 패스]`
@@ -181,7 +330,8 @@ export default function BoxVisionStep2ReviewPanel({
                     height: `${box.bbox?.h ?? box.h ?? 15}%`,
                   }}
                   title={`#${seqNum} ${box.custName} | ${box.prodName} (${box.qtyPerBox}${box.unit}) | Bill #${box.invoiceNo} (${box.orderWeek}차)`}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setSelectedBoxId(box.boxId);
                     if (isPendingUnreadable) {
                       handleOpenSearchMatcher(box);
@@ -212,17 +362,40 @@ export default function BoxVisionStep2ReviewPanel({
               <span className={styles.formulaProgress}>
                 [유효 {currentPhoto?.countedBoxes || 0}박스 / 전체 {(currentPhoto?.boxes || []).length}박스]
               </span>{' '}
-              박스 번호를 클릭하면 포함/제외 또는 매칭 창이 열립니다.
+              박스를 클릭하여 매칭하거나, 빈 곳을 드래그하여 놓친 박스를 직접 추가할 수 있습니다.
             </div>
             {selectedBox && (
-              <button
-                type="button"
-                className={styles.btnSecondary}
-                style={{ padding: '3px 8px', fontSize: 12.5 }}
-                onClick={() => setShowSelectedBoxDetail((prev) => !prev)}
-              >
-                {showSelectedBoxDetail ? '선택 박스 상세 닫기' : `선택 박스(#${selectedBox.countSeq || selectedBox.boxSeq}) 상세`}
-              </button>
+              <div className={styles.sampleChips}>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  style={{ padding: '3px 8px', fontSize: 12.5 }}
+                  data-testid="redraw-box-btn"
+                  onClick={() => {
+                    setRedrawingBoxId(selectedBox.boxId);
+                    setIsManualDrawMode(false);
+                  }}
+                >
+                  박스 영역 다시 그리기
+                </button>
+                <button
+                  type="button"
+                  className={styles.btnPass}
+                  style={{ padding: '3px 8px', fontSize: 12.5 }}
+                  data-testid="delete-box-btn"
+                  onClick={() => handleDeleteBox(selectedBox.boxId)}
+                >
+                  이 박스 삭제
+                </button>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  style={{ padding: '3px 8px', fontSize: 12.5 }}
+                  onClick={() => setShowSelectedBoxDetail((prev) => !prev)}
+                >
+                  {showSelectedBoxDetail ? '상세 닫기' : `선택 박스(#${selectedBox.countSeq || selectedBox.boxSeq}) 상세`}
+                </button>
+              </div>
             )}
           </div>
 
@@ -238,23 +411,46 @@ export default function BoxVisionStep2ReviewPanel({
               }}
               data-testid="box-vision-selected-detail"
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <div>
                   <strong>일련번호 {selectedBox.serialNo}</strong> · {selectedBox.custName} ({selectedBox.labelCode}) ·{' '}
                   <strong>{selectedBox.prodName}</strong> ({fmt(selectedBox.qtyPerBox)}
                   {selectedBox.unit}) · Bill #{selectedBox.invoiceNo} ({selectedBox.orderWeek}차)
                 </div>
-                {!selectedBox.isPendingUnreadable && (
+                <div className={styles.sampleChips}>
                   <button
                     type="button"
-                    className={styles.btnWarn}
+                    className={styles.btnSecondary}
                     style={{ padding: '3px 8px', fontSize: 12.5 }}
-                    data-testid="mark-selected-box-unreadable-btn"
-                    onClick={() => handleMarkBoxAsUnreadable(selectedBox, 'unreadable_both')}
+                    data-testid="detail-redraw-box-btn"
+                    onClick={() => {
+                      setRedrawingBoxId(selectedBox.boxId);
+                      setIsManualDrawMode(false);
+                    }}
                   >
-                    미식별로 전환
+                    위치 재조정
                   </button>
-                )}
+                  <button
+                    type="button"
+                    className={styles.btnPass}
+                    style={{ padding: '3px 8px', fontSize: 12.5 }}
+                    data-testid="detail-delete-box-btn"
+                    onClick={() => handleDeleteBox(selectedBox.boxId)}
+                  >
+                    삭제
+                  </button>
+                  {!selectedBox.isPendingUnreadable && (
+                    <button
+                      type="button"
+                      className={styles.btnWarn}
+                      style={{ padding: '3px 8px', fontSize: 12.5 }}
+                      data-testid="mark-selected-box-unreadable-btn"
+                      onClick={() => handleMarkBoxAsUnreadable(selectedBox, 'unreadable_both')}
+                    >
+                      미식별로 전환
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -373,14 +569,14 @@ export default function BoxVisionStep2ReviewPanel({
                   productCatalog: analysisData?.searchableProducts || SEARCHABLE_PRODUCT_CATALOG,
                   searchQuery: isMatcherOpen ? matcherSearchQuery : '',
                 });
-                const activeCandidate =
+                const isZigzag = uBox.boxFace === 'zigzag_side';
+                const dedCand = uBox.deductionCandidate;
+                const topCandidate =
+                  dedCand ||
                   (isMatcherOpen && matcherSelectedCandidate) ||
                   liveCandidates[0] ||
                   (uBox.recommendedCandidates && uBox.recommendedCandidates[0]) ||
                   null;
-
-                const isZigzag = uBox.boxFace === 'zigzag_side';
-                const dedCand = uBox.deductionCandidate;
                 const seqNum = uBox.countSeq || uBox.boxSeq;
 
                 return (
@@ -392,7 +588,7 @@ export default function BoxVisionStep2ReviewPanel({
                     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6 }}>
                       <div>
                         <span className={styles.badgeWarn} data-testid={`box-face-badge-${uBox.boxId}`}>
-                          {isZigzag ? '지그재그 옆면' : '라벨 미식별'}
+                          {uBox.isManual ? '직접 추가 박스' : isZigzag ? '지그재그 옆면' : '라벨 미식별'}
                         </span>{' '}
                         <strong>
                           #{seqNum} · {uBox.custName} (사진 #{uBox.photoNumber} · {uBox.boxSpec})
@@ -403,28 +599,34 @@ export default function BoxVisionStep2ReviewPanel({
                       </span>
                     </div>
 
-                    {dedCand && (
+                    {topCandidate && (
                       <div
                         style={{ fontSize: 13, color: '#0f766e', fontWeight: 600, marginTop: 5 }}
                         data-testid={`deduction-candidate-box-${uBox.boxId}`}
                       >
-                        추천 품목: {dedCand.prodName} ({dedCand.flowerName}) · {fmt(dedCand.qtyPerBox)}
-                        {dedCand.unit}
-                        {dedCand.stemsPerBox ? ` (${fmt(dedCand.stemsPerBox)}본)` : ''}
+                        추천 품목: {topCandidate.prodName} ({topCandidate.flowerName}) · {fmt(topCandidate.suggestedQtyPerBox || topCandidate.qtyPerBox)}
+                        {topCandidate.unit}
+                        {topCandidate.stemsPerBox ? ` (${fmt(topCandidate.stemsPerBox)}본)` : ''}
                       </div>
                     )}
 
                     <div className={styles.unreadableActionRow}>
                       <div className={styles.sampleChips}>
-                        {dedCand && (
+                        {topCandidate && (
                           <button
                             type="button"
                             className={styles.btnPrimary}
                             data-testid={`confirm-zigzag-deduction-btn-${uBox.boxId}`}
-                            onClick={() => handleConfirmZigzagDeductionSingle(uBox)}
+                            onClick={() => {
+                              if (dedCand) {
+                                handleConfirmZigzagDeductionSingle(uBox);
+                              } else {
+                                handleConfirmSearchMatch(uBox, topCandidate);
+                              }
+                            }}
                           >
-                            추천 품목 1클릭 확정 ({dedCand.prodName} {fmt(dedCand.qtyPerBox)}
-                            {dedCand.unit})
+                            추천 품목 1클릭 확정 ({topCandidate.prodName} {fmt(topCandidate.suggestedQtyPerBox || topCandidate.qtyPerBox)}
+                            {topCandidate.unit})
                           </button>
                         )}
                         <button
@@ -457,6 +659,16 @@ export default function BoxVisionStep2ReviewPanel({
                         >
                           패스 (박스 수만 유지)
                         </button>
+                        {uBox.isManual && (
+                          <button
+                            type="button"
+                            className={styles.btnPass}
+                            data-testid={`delete-box-btn-${uBox.boxId}`}
+                            onClick={() => handleDeleteBox(uBox.boxId)}
+                          >
+                            박스 삭제
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -495,7 +707,7 @@ export default function BoxVisionStep2ReviewPanel({
                             aria-label="매칭 품목 선택"
                             className={styles.selectInput}
                             data-testid={`matcher-prod-select-${uBox.boxId}`}
-                            value={activeCandidate ? activeCandidate.prodKey : ''}
+                            value={topCandidate ? topCandidate.prodKey : ''}
                             onChange={(e) => {
                               const pk = Number(e.target.value);
                               const found =
@@ -548,7 +760,7 @@ export default function BoxVisionStep2ReviewPanel({
                             type="button"
                             className={styles.btnPrimary}
                             data-testid={`confirm-search-match-btn-${uBox.boxId}`}
-                            onClick={() => handleConfirmSearchMatch(uBox, activeCandidate)}
+                            onClick={() => handleConfirmSearchMatch(uBox, topCandidate)}
                           >
                             매칭 확정
                           </button>
@@ -631,3 +843,4 @@ export default function BoxVisionStep2ReviewPanel({
     </div>
   );
 }
+

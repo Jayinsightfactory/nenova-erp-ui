@@ -436,6 +436,10 @@ async function handler(req, res) {
       ? req.body.boxOverrides
       : {};
 
+    const manualBoxes = req.method === 'POST' && Array.isArray(req.body?.manualBoxes)
+      ? req.body.manualBoxes
+      : [];
+
     const photoAngleOverrides = req.method === 'POST' && req.body?.photoAngleOverrides && typeof req.body.photoAngleOverrides === 'object'
       ? req.body.photoAngleOverrides
       : {};
@@ -471,6 +475,7 @@ async function handler(req, res) {
       autoDeduceResult = autoDeduceZigzagBoxes({
         sampleIds: sampleIdsParam,
         uploadedFiles,
+        manualBoxes,
         boxOverrides,
         photoAngleOverrides,
         erpShipments: live.erpShipments,
@@ -482,6 +487,7 @@ async function handler(req, res) {
     const result = analyzeBoxVisionPhotos({
       sampleIds: sampleIdsParam,
       uploadedFiles,
+      manualBoxes,
       boxOverrides: effectiveOverrides,
       photoAngleOverrides,
       erpShipments: live.erpShipments,

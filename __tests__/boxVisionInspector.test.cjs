@@ -69,7 +69,7 @@ test('boxVisionInspector engine deduplicates overlapping serial numbers across p
   assert.equal(neulbomGraciosa.reconcileStatus, 'MATCH');
   assert.match(neulbomGraciosa.photoAppearanceLabel, /중복 2박스 자동제외/);
 
-  // 3) All 5 samples: deduplicates 3 overlapping boxes (2 in sample 3 + 1 Calla 2494510.27.1 in sample 5) and separates 2 background pallets
+  // 3) All 5 samples: deduplicates 4 overlapping boxes (2 in sample 3 + 2 Jukwang boxes 2494510.27.1, 2494510.23.5 in sample 5) and separates 2 background pallets
   const all = analyzeBoxVisionPhotos({
     sampleIds: [
       'sample-1-silla',
@@ -79,8 +79,8 @@ test('boxVisionInspector engine deduplicates overlapping serial numbers across p
       'sample-5-holex-mint',
     ],
   });
-  assert.equal(all.totals.duplicateBoxes, 3);
-  assert.equal(all.totals.backgroundBoxes, 2);
+  assert.equal(all.totals.duplicateBoxes, 4);
+  assert.equal(all.totals.backgroundBoxes, 4);
   assert.ok(all.matchedDefects.length >= 4);
   assert.ok(all.farmBoxProfiles.length >= 5);
 });
@@ -115,7 +115,7 @@ test('multi-photo batch (N=15 Kakao batch) integrates customer items, Bill numbe
     batchRouteMessage: '호남선 출고입니다 (15장 묶음)',
   });
 
-  // 15 uploaded files + base 5 samples => 15+ photo slots in batch, with barcode serial deduplication preserving exact 48 valid boxes
+  // 15 uploaded files + base 5 samples => 15+ photo slots in batch, with barcode serial deduplication preserving exact 50 valid boxes
   assert.ok(batchResult.totals.photoCount >= 15, 'Should track all 15+ photos in the batch');
   assert.equal(batchResult.totals.countedBoxes, 48, 'Deduplication across 15 batch photos must keep exact 48 unique boxes');
   assert.equal(batchResult.totals.customerCount, 3, 'Must check all 3 customers (Silla, Neulbom, Jukwang)');
@@ -188,14 +188,14 @@ test('unreadable boxes support [Pass (exclude_count / keep_box_skip_item)] and [
       },
     },
   });
-  assert.equal(afterPassExclude.totals.countedBoxes, 19, 'Excluding box #19 via pass must reduce sample 4 countedBoxes from 20 to 19');
+  assert.equal(afterPassExclude.totals.countedBoxes, 20, 'Excluding box #19 via pass must reduce sample 4 countedBoxes from 21 to 20');
   assert.equal(afterPassExclude.totals.passedBoxes, 1);
   const callaAfterExclude = afterPassExclude.customerItemSummary.find((r) => r.custKey === 533 && r.prodKey === 329);
   assert.equal(callaAfterExclude, undefined, 'Calla / Odessa in sample 4 must be omitted when its only box (s4-b19) is passed');
   const bill1222993AfterExclude = afterPassExclude.billOrderWeekLedger.find((b) => b.invoiceNo === '1222993');
-  assert.equal(bill1222993AfterExclude.countedBoxCount, 19);
+  assert.equal(bill1222993AfterExclude.countedBoxCount, 20);
 
-  // 3) Choice 1-B: [박스 수만 유지하고 품목 미확인 패스 (keep_box_skip_item)] keeps total countedBoxes=20 but skips item-level matching
+  // 3) Choice 1-B: [박스 수만 유지하고 품목 미확인 패스 (keep_box_skip_item)] keeps total countedBoxes=21 but skips item-level matching
   const afterPassKeepBox = analyzeBoxVisionPhotos({
     sampleIds: ['sample-4-jukwang'],
     boxOverrides: {
@@ -206,7 +206,7 @@ test('unreadable boxes support [Pass (exclude_count / keep_box_skip_item)] and [
       },
     },
   });
-  assert.equal(afterPassKeepBox.totals.countedBoxes, 20, 'Keep-box pass must preserve total 20 counted boxes');
+  assert.equal(afterPassKeepBox.totals.countedBoxes, 21, 'Keep-box pass must preserve total 21 counted boxes');
   assert.equal(afterPassKeepBox.totals.passedBoxes, 1);
   const callaAfterKeepBox = afterPassKeepBox.customerItemSummary.find((r) => r.custKey === 533 && r.prodKey === 329);
   assert.equal(callaAfterKeepBox, undefined, 'Keep-box pass must skip item-level aggregation while keeping total box count');
@@ -574,3 +574,93 @@ test('arbitrary uploaded photo canvas always has candidate boxes (never 0 boxes)
     assert.equal(box.isPendingUnreadable, true);
   }
 });
+
+test('manual box addition (addManualBox) on canvas and item/qty matching dynamically reconciles customer x item x Bill results', async () => {
+  const mod = await import('../lib/boxVisionInspector.js');
+  const { addManualBox, analyzeBoxVisionPhotos } = mod;
+
+  // 1) Start with sample 4
+  const initial = analyzeBoxVisionPhotos({ sampleIds: ['sample-4-jukwang'] });
+  const initialBoxesCount = initial.totals.countedBoxes;
+
+  // 2) User draws a missed box on sample-4 canvas
+  const manualBox = addManualBox({
+    photoId: 'sample-4-jukwang',
+    sampleId: 'sample-4-jukwang',
+    bbox: { x: 40.0, y: 78.0, w: 22.0, h: 8.5 },
+    custName: '주광농원',
+    custKey: 533,
+    custCode: 'YCL2',
+    invoiceNo: '1222993',
+    awbNo: '180-9162-6441',
+    orderWeek: '47-02',
+    farmName: 'Holex',
+    ocrStatus: 'unreadable_both',
+    unreadableReason: '사용자 직접 추가 박스 (품목·수량 매칭 대기)',
+  });
+
+  assert.ok(manualBox.boxId.startsWith('manual-box-'));
+  assert.equal(manualBox.isManual, true);
+  assert.equal(manualBox.status, 'COUNTED');
+  assert.equal(manualBox.isPendingUnreadable, true);
+
+  // 3) Analyze with manualBoxes passed in
+  const withManual = analyzeBoxVisionPhotos({
+    sampleIds: ['sample-4-jukwang'],
+    manualBoxes: [manualBox],
+  });
+
+  assert.equal(withManual.totals.countedBoxes, initialBoxesCount + 1, 'Counted boxes must increment by 1');
+  assert.equal(withManual.totals.unreadablePendingBoxes, initial.totals.unreadablePendingBoxes + 1);
+
+  // 4) User matches item & qty via overrides (e.g. Tulip / Single Antarctica 5단/200본)
+  const matchedResult = analyzeBoxVisionPhotos({
+    sampleIds: ['sample-4-jukwang'],
+    manualBoxes: [manualBox],
+    boxOverrides: {
+      [manualBox.boxId]: {
+        status: 'COUNTED',
+        ocrStatus: 'confirmed',
+        resolutionAction: 'matched',
+        custKey: 533,
+        custName: '주광농원',
+        custCode: 'YCL2',
+        prodKey: 1874,
+        prodName: 'Tulip / Single Antarctica',
+        flowerName: '튤립',
+        unit: '단',
+        qtyPerBox: 5,
+        stemsPerBox: 200,
+        invoiceNo: '1222993',
+        awbNo: '180-9162-6441',
+        orderWeek: '47-02',
+      },
+    },
+  });
+
+  assert.equal(matchedResult.totals.manuallyMatchedBoxes, 1);
+  const jukwangTulip = matchedResult.customerItemSummary.find(
+    (r) => r.custKey === 533 && r.prodKey === 1874
+  );
+  assert.ok(jukwangTulip, 'Matched item must appear in customerItemSummary');
+  assert.ok(jukwangTulip.photoBoxCount >= 1);
+
+  // Bill ledger check
+  const billEntry = matchedResult.billOrderWeekLedger.find((b) => b.invoiceNo === '1222993');
+  assert.ok(billEntry, 'Bill ledger must include matched box in bill 1222993');
+  assert.ok(billEntry.countedBoxCount >= 1);
+
+  // 5) Test deletion of manual box
+  const deletedResult = analyzeBoxVisionPhotos({
+    sampleIds: ['sample-4-jukwang'],
+    manualBoxes: [manualBox],
+    boxOverrides: {
+      [manualBox.boxId]: {
+        status: 'DELETED',
+        deleted: true,
+      },
+    },
+  });
+  assert.equal(deletedResult.totals.countedBoxes, initialBoxesCount, 'Deleted box must not be counted');
+});
+
