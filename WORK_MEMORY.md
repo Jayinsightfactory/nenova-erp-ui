@@ -5653,6 +5653,12 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: 라이브 MSSQL 읽기전용 SELECT(`Full_ywRes_JOIN 553ms`, `custRes(48-01) 102ms`, `44-04`/`21-03` 미포함, `48-01` 분배58·`48-02` 분배1) PASS, `node scripts/test-order-import-compare.mjs` PASS, `npm run test:erp-contract -- --no-worker-threads --concurrency=4`(494/494 commands, 680 targets) PASS, `npm run test:erp-manifest -- --changed-from origin/master` PASS, `npm run guard:erp-writes -- --changed-from origin/master` PASS, `npm run guard:agent-slop -- --changed-from origin/master` PASS, `npm run build` PASS, `pstack-verify.cjs` 검증 예정(Cafe24 배포 완료·실브라우저 확인 미검증).
 5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), `ShipmentDetail.isDeleted` 미참조(컬럼 부재), `OrderWeeks`/`OrderCust`는 `OrderDetail(OrderMasterKey)` 인덱스 부재로 `EXISTS` 대신 `INNER JOIN` 유지 필수, 운영 DB 쓰기 0건. 연결 목표: g03, g17
 
+## 2026-11-27 국가별 발주서 농장 전달용 합계 주문등록 표시
+- 수입방 원문의 품목 키로 전산 주문 대조 결과를 연결한다. 동일 전산 연도·세부차수·거래처·품목 집계가 여러 원문에 대응하거나 품목키가 다르면 완료 표시를 보류한다. 취소·현지 차감은 기존 합계에 반영하고 완료 건수에서 제외한다.
+- 검증: 합계 ±수량과 복사 문구 불변, 다른 연도 분리, 완료·부분 완료·수량차이·대조 실패·ERP 근거 공유 회귀 테스트 통과. 운영 화면은 미검증.
+- 검색어: 국가별 발주서 농장 전달용 자동 합계 주문등록 완료 수입방 중복 가산 KakaoAdditions
+
+
 ## 2026-11-27 불량차감 이월 제외 보류 및 적용 차수 완료 조회
 1. 작업 위치: nenova-erp-ui / codex/defect-hold-sales-visibility / nw-cdx-defect-hold-sales-visibility / PR 준비.
 2. 완료된 것: 확정 등록 및 보류를 단일 트랜잭션으로 연결. 영업입력 완료 목록에 실제 견적 적용 차수 조회 추가. 화면 /sales/defect-deductions.
