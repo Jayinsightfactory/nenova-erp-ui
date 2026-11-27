@@ -49,6 +49,21 @@ const loadPage = input => load(input, name=>{
   if(name.endsWith('/DistributionInlineDates')) return {__esModule:true,default:()=>null,DistributionInlineDatesHeader:()=>null};
   if(name.endsWith('/DistributionDateEditor') || name.endsWith('/WorkflowGuide')) return ()=>null;
   if(name.endsWith('/DistributionPicker')) return load(fs.readFileSync('components/shipment/DistributionPicker.js','utf8'),require);
+  if(name.endsWith('/shipmentDistributionPageHelpers.js')) return libRequire('./shipmentDistributionPageHelpers.js');
+  const compRequire = n => {
+    if(n.startsWith('./DistributionDateFilter')) return load(fs.readFileSync('components/shipment/DistributionDateFilter.js','utf8'),require);
+    if(n.includes('shipmentDistributionPeers')) return libRequire('./shipmentDistributionPeers.js');
+    if(n.includes('distributeProductDisplay')) return display;
+    if(n.includes('shipmentDistributionWorkspace')) return libRequire('./shipmentDistributionWorkspace.js');
+    if(n.includes('shipmentDistributionPageHelpers')) return libRequire('./shipmentDistributionPageHelpers.js');
+    if(n.includes('customerSearch')) return libRequire('./customerSearch.js');
+    return require(n);
+  };
+  if(name.endsWith('/DistributionAddItemModal')) return load(fs.readFileSync('components/shipment/DistributionAddItemModal.js','utf8'),compRequire);
+  if(name.endsWith('/DistributionStatusModals')) return load(fs.readFileSync('components/shipment/DistributionStatusModals.js','utf8'),compRequire);
+  if(name.endsWith('/DistributionFarmCustomerPanel')) return load(fs.readFileSync('components/shipment/DistributionFarmCustomerPanel.js','utf8'),compRequire);
+  if(name.endsWith('/DistributionCustomerWorkspacePanel')) return load(fs.readFileSync('components/shipment/DistributionCustomerWorkspacePanel.js','utf8'),compRequire);
+  if(name.endsWith('/DistributionScheduleAndPivotTabs')) return load(fs.readFileSync('components/shipment/DistributionScheduleAndPivotTabs.js','utf8'),compRequire);
   return require(name);
 }).default;
 const Page=loadPage(source);
