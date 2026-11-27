@@ -5699,12 +5699,21 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: `node scripts/test-order-import-compare.mjs` PASS, `npm run test:erp-manifest -- --changed-from origin/master` PASS(252 manifests), `npm run guard:erp-writes -- --changed-from origin/master` PASS, `npm run guard:agent-slop -- --changed-from origin/master` PASS, `npm run build` (`next build --webpack`) PASS, `node C:\Users\USER\nenova-pm\pstack-verify.cjs --repo C:\Users\USER\nw-agy-import-compare-compact` PASS(5/5), `npm run test:erp-contract -- --no-worker-threads --concurrency=4` 489/494(부하 시간초과 4건 `test:import-team`·`test:packing-team`·`workDriveListWorker`·`weekday*` 및 drive 잔여 8종 단독 재실행 전수 PASS), `desktop/` 변경 0건(Cafe24 배포 완료·실브라우저 화면 확인 미검증).
 5. 주의/잠금: `desktop/` 수정 0건(웹 단독 반영), 단독 `monospace` 금지(`FONT_STACK` + `tabular-nums`), 최소 폰트 12.5px 유지, `data/generated/*.json` 빌드 산출물 원복 완료. 연결 목표: g03, g17
 
+## 2026-11-27 Phase 2 수입 패킹 생성기 거대 파일 무사고(Zero-Regression) 순수 모듈·패널 분리 (`refactor/safe-modularize-phase2`, 연결 목표: g13, g17, g18 / 학습 반영: 있음)
+- 요약: 직전 열린 PR(#2067)에서 수정 중이던 `components/import-tools/KakaoAdditions.js`를 무충돌 원칙에 따라 제외하고, 충돌 0건인 `lib/importPacking.js`(2,971줄 → 114줄, -96.2%)와 `components/import-tools/PackingListTool.js`(3,322줄 → 2,008줄, -39.6%)를 화면·주소·API·SQL·엑셀 수식·DOM 구조 변경 0.0% Strangler Pure Extraction 방식으로 총 11개 하위 순수 모듈·패널(`lib/importPacking/*` 7종, `components/import-tools/*` 4종)로 분리했다. 원본 `lib/importPacking.js`의 80개 심볼 전체와 `PackingListTool.js`의 4개 보조 심볼(`NoticeText`, `PendingItem`, `NoMatchItem`, `AWBPanel`)을 100% 동일 참조(`===`)로 `re-export` 유지하고 회귀 단위검사(`__tests__/importPackingModularParity.test.cjs`)를 추가했다.
+- 검색어: 거대파일 분리 모듈화 Phase2 Strangler Pure Extraction Zero-Regression importPacking PackingListTool seedAliases catalogAndMatching countryRules excelSheetBuilder countryGenerators awbWorkbook PackingAwbPanel g13 g17 g18
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-safe-modularize-p2`, `refactor/safe-modularize-phase2`) — `lib/importPacking.js`, `lib/importPacking/*` (7종), `components/import-tools/PackingListTool.js`, `components/import-tools/Packing*.js` (4종), `docs/contracts/import-team-tools.json`, `__tests__/importPackingModularParity.test.cjs`, `__tests__/importPacking.test.js`, `__tests__/importPackingHardening.test.js`, `WORK_MEMORY.md`.
+2. 완료된 것: `lib/importPacking.js`(-2,857줄) 및 `PackingListTool.js`(-1,314줄) 본체 합계 **4,171줄 감축(-66.3%)**, 80개 도메인 심볼 및 4개 UI 심볼 동일 참조(`===`) `re-export` 보장, `import-team-tools.json` 계약 scope·테스트 동기화, 신규 단위검사 추가.
+3. 남은 할 일: PR 생성 → GitHub Actions CI(`verify`) 통과 확인 → Squash 머지 → worktree 제거 → `nenova-hq` Phase 2 실적 반영(`KakaoAdditions.js`는 후속 Phase 4에서 분리).
+4. 검증 상태: `importPackingModularParity.test.cjs`(3/3 PASS), `importPacking.test.js`(20/20 PASS), `importPackingHardening.test.js` 및 `test:import-team`·`test:packing-team` PASS, `npm run test:erp-contract -- --no-worker-threads --concurrency=4`(494/494 commands, 680 targets PASS), `npm run test:erp-manifest -- --changed-from origin/master`(252 manifests PASS), `npm run guard:erp-writes -- --changed-from origin/master` PASS, `npm run build`(`next build --webpack`) PASS, `pstack-verify.cjs` 5/5 PASS (Cafe24 운영 배포 반영 후 실브라우저 스모크는 미검증).
+5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), 운영 MSSQL 쓰기 0건(SELECT-only), 직전 열린 PR(#2067) 충돌 방지를 위해 `KakaoAdditions.js` 미수정 보존. 연결 목표: g13, g17, g18 / 학습 반영: 있음
+
 
 ## 2026-11-27 차수피벗 연속 출고 일정과 웹 저장 출고일 보존
 
-1. 작업 위치: nenova-erp-ui / codex/shipment-date-pivot / C:\Users\USER\nw-cdx-shipment-date-pivot / PR 생성 전.
+1. 작업 위치: nenova-erp-ui / codex/shipment-date-pivot / C:\Users\USER\nw-cdx-shipment-date-pivot / PR #2070.
 2. 완료된 것: 47-01부터 48-01까지 이어 보는 조회에 지역·요일 정렬 전환, 100행 페이지, 기존 출고일 편집기와 카카오톡 요청 연결. 웹의 분배 수량 수정에서 저장된 날짜 보존.
 3. 남은 할 일: 엑셀 48-1 내 47차 선출고 열의 실제 분배 차수 확인 후 업로드 날짜 적용. 수량 피벗의 기존 전체 범위 서버 조회 개선과 연속 화면의 수량·재고 편집 통합은 별도 검증 필요.
-4. 검증 상태: 설치 EXE dnSpy 확인, 운영 SELECT 날짜 477/99/530행 PeriodDay 매칭, 신규 목록 SQL 첫 페이지 55~98ms, 기존 고객 조회 두 SQL 1,871ms 및 966ms(반환 범위 다름), 브라우저 1920×1080 연습자료 두 정렬 캡처, ERP 계약 494/494 및 출고일 51개 회귀 PASS. 실운영 저장과 배포 후 브라우저 미검증.
+4. 검증 상태: 설치 EXE dnSpy 확인, 운영 SELECT 날짜 477/99/530행 PeriodDay 매칭, 신규 목록 SQL 첫 페이지 55~98ms, 기존 고객 조회 두 SQL 1,871ms 및 966ms(반환 범위 다름), 브라우저 1920×1080 연습자료 두 정렬 캡처, ERP 계약 494/494 및 출고일 51개 회귀 PASS. 2025/2026 동일 차수 조회 분리 PASS. 빌드·manifest·pstack PASS. 실운영 저장과 배포 후 브라우저 미검증.
 5. 주의/잠금: 운영 원장 보정 없음. 47차 표기만으로 48-01 업로드 대상 차수나 출고일을 추정하지 않는다. 연결 목표 g03 / 학습 반영 있음.
 - 검색어: 차수피벗, 47-01, 48-01, 선출고, 요일 지역 업체, 출고일 보존, 물량표, 카카오톡

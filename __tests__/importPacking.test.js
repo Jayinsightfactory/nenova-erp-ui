@@ -323,14 +323,26 @@ async function main() {
       './PackingUploadMatchModal.js': { default: () => null, PackingUploadMatchAlertBanner: () => null, __esModule: true },
       '../../lib/packingUploadMatchPrompt.js': await import('../lib/packingUploadMatchPrompt.js'),
       '../../lib/packingDuplicateCheck.js': await import('../lib/packingDuplicateCheck.js'),
+      '../../lib/invoiceAwbEvidence.js': await import('../lib/invoiceAwbEvidence.js'),
+      '../../lib/importPacking/packingToolSupport.js': await import('../lib/importPacking/packingToolSupport.js'),
       './PackingMatchManager.js': { default: 'PackingMatchManager', __esModule: true },
       'xlsx-js-style': XLSX };
+    class Reader { readAsDataURL() { this.result = 'data:application/pdf;base64,JVBERi0x'; this.onload(); } }
+    for (const subName of ['PackingLegacyMatchItems.js', 'PackingAwbPanel.js', 'PackingCatalogSection.js', 'PackingCountryAndReusePanels.js']) {
+      const subSrc = fs.readFileSync(path.join(root, 'components/import-tools', subName), 'utf8');
+      const subCode = babel.transformSync(subSrc, {
+        filename: subName, presets: [require('next/dist/compiled/babel/preset-react')],
+        plugins: [require('next/dist/compiled/babel/plugin-transform-modules-commonjs')], configFile: false, babelrc: false,
+      }).code;
+      const subMod = { exports: {} };
+      new Function('require', 'module', 'exports', 'fetch', 'FileReader', subCode)(key => modules[key], subMod, subMod.exports, fetchStub, Reader);
+      modules[`./${subName}`] = subMod.exports;
+    }
     const code = babel.transformSync(componentSource.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
       filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')],
       plugins: [require('next/dist/compiled/babel/plugin-transform-modules-commonjs')], configFile: false, babelrc: false,
     }).code;
     const module = { exports: {} };
-    class Reader { readAsDataURL() { this.result = 'data:application/pdf;base64,JVBERi0x'; this.onload(); } }
     new Function('require','module','exports','fetch','FileReader', code + '\nmodule.exports.NoticeText = NoticeText;')(
       key => modules[key], module, module.exports,
       fetchStub, Reader);
