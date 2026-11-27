@@ -1547,7 +1547,7 @@ export default function WeekPivot() {
         <style>{`
           /* 피벗을 화면높이 기준 자체 스크롤 박스로 — 하단 행이 페이지 밖으로 잘리지 않고,
              sticky 헤더(품명·업체)가 박스 안에서 유지되며 가로스크롤바도 항상 손에 닿는다. */
-          .wp-pivot { max-height: calc(100vh - ${pvFiltersOpen ? 250 : 155}px); overflow: auto; }
+          .wp-pivot { max-height: calc(var(--nv-avail-h, 100vh) - ${pvFiltersOpen ? 250 : 155}px); overflow: auto; }
           .wp-pivot table.tbl { font-size: ${pvFontSize}px !important; table-layout: fixed; }
           .wp-pivot td, .wp-pivot th { padding: ${pvCellPad}px ${Math.max(2,pvCellPad)}px !important; min-height: ${pvRowMinHeight}px; }
           .wp-pivot .wp-prod-col { width: ${pvProdColWidth}px !important; min-width: ${pvProdColWidth}px !important; max-width: ${pvProdColWidth}px !important; }
@@ -1589,7 +1589,7 @@ export default function WeekPivot() {
                  pvTopScrollRef.current.firstChild.style.width = pvBodyScrollRef.current.scrollWidth + 'px';
                }
              }}
-             style={{overflowX:'auto',overflowY:'auto',maxHeight:`calc(100vh - ${pvFiltersOpen ? 200 : 90}px)`,position:'relative'}}>
+             style={{overflowX:'auto',overflowY:'auto',maxHeight:`calc(var(--nv-avail-h, 100vh) - ${pvFiltersOpen ? 200 : 90}px)`,position:'relative'}}>
         <table ref={wpTableRef} className="tbl" style={{...st.table,fontSize:pvFontSize,borderCollapse:'collapse'}}>
           <thead style={{position:'sticky',top:0,zIndex:4}}>
             <tr className="wp-week-header-row" style={st.thead}>
