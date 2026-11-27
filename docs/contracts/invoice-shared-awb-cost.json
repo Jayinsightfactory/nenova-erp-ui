@@ -17,6 +17,7 @@
     "lib/costMasterStore.js",
     "lib/costMasterHttp.js",
     "lib/costWorkbookMerge.js",
+    "lib/upgradeLegacyCostSheetXml.js",
     "lib/driveMatchHistory.js",
     "components/import-tools/SharedAwbCostReview.js",
     "components/import-tools/CostAwbEvidence.js",
@@ -54,7 +55,8 @@
     "__tests__/coArrivalCostGeneralRules.test.js",
     "__tests__/awbReferenceReceipt.test.js",
     "__tests__/costMasterStore.test.js",
-    "__tests__/costWorkbookMerge.test.js"
+    "__tests__/costWorkbookMerge.test.js",
+    "__tests__/upgradeLegacyCostSheets.test.mjs"
   ],
   "dnspyEvidence": {
     "required": true,

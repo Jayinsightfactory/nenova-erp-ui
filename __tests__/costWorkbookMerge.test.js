@@ -58,11 +58,18 @@ test('공유 문자열 시트·잘못된 시트 이름은 거부한다', async (
 });
 
 const SAMPLE = 'C:/Users/USER/Downloads/45-1 콜카장 원가자료.xlsx';
-test('실제 누적 파일(45-1 콜카장)에 다음 차수를 붙여도 기존 47개 시트가 그대로 유지된다', { skip: !fs.existsSync(SAMPLE) }, async () => {
+test('실제 누적 파일(45-1 콜카장)에 다음 차수를 붙이면 기존 47개 시트에 품종 필터·틀고정이 무손실 적용되고 계산값은 유지된다', { skip: !fs.existsSync(SAMPLE) }, async () => {
   const master = fs.readFileSync(SAMPLE);
   const out = await mergeCostSheetIntoMaster({ masterBuffer: master, sheetXml: sheetOf('new46', true), sourceStyles: stylesOf('FF00FF00', '#,##0'), sheetName: '46-1' });
   const before = XLSX.read(master), after = XLSX.read(out.buffer);
   assert.equal(after.SheetNames.length, before.SheetNames.length + 1);
   assert.deepEqual(after.SheetNames.slice(0, -1), before.SheetNames); assert.equal(after.SheetNames.at(-1), '46-1');
-  for (const name of before.SheetNames) assert.equal(JSON.stringify(after.Sheets[name]), JSON.stringify(before.Sheets[name]), name);
+  for (const name of before.SheetNames) {
+    const bs = before.Sheets[name], as = after.Sheets[name];
+    assert.equal(as.B14?.v, '품종', `${name} B14 variety header`);
+    for (const [ref, cell] of Object.entries(bs)) {
+      if (!/^[E-Z]\d+$/.test(ref) || typeof cell?.v !== 'number') continue;
+      assert.equal(as[ref]?.v, cell.v, `${name} ${ref} value preserved`);
+    }
+  }
 });

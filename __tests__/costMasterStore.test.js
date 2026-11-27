@@ -57,7 +57,14 @@ test('공동 AWB 다운로드 + 누적 반영: 과거 47개 시트는 유지되�
   assert.equal(r.headers['X-Cost-Master-Replaced'], 'true'); // 샘플에는 이미 45-1 시트가 있다
   const before = XLSX.read(original), after = XLSX.read(r.body, { cellFormula: true });
   assert.deepEqual(after.SheetNames, before.SheetNames);
-  for (const name of before.SheetNames.filter(n => n !== '45-1')) assert.equal(JSON.stringify(after.Sheets[name]), JSON.stringify(before.Sheets[name]), name);
+  for (const name of before.SheetNames.filter(n => n !== '45-1')) {
+    const bs = before.Sheets[name], as = after.Sheets[name];
+    assert.equal(as.B14?.v, '품종', `${name} B14 variety header`);
+    for (const [ref, cell] of Object.entries(bs)) {
+      if (!/^[E-Z]\d+$/.test(ref) || typeof cell?.v !== 'number') continue;
+      assert.equal(as[ref]?.v, cell.v, `${name} ${ref} numeric value preserved`);
+    }
+  }
   const sheet = after.Sheets['45-1'];
   const farms = new Set(Object.keys(sheet).filter(k => /^A\d+$/.test(k) && Number(k.slice(1)) >= 15).map(k => sheet[k].v));
   assert.equal(farms.size, 13); for (let i = 0; i < 13; i++) assert.ok(farms.has(`FARM${i}`), `FARM${i}`);

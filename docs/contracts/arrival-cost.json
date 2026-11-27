@@ -36,6 +36,9 @@
     "scripts/reconcile-arrival-nl-split-20261105.mjs",
     "__tests__/arrivalUploadReview.test.js",
     "__tests__/arrivalCostEcosystemRoundtrip.test.mjs",
+    "__tests__/upgradeLegacyCostSheets.test.mjs",
+    "lib/arrivalHistoryWorkbook.js",
+    "lib/upgradeLegacyCostSheetXml.js",
     "styles/ArrivalUploadReview.module.css"
   ],
   "businessIdentity": [
@@ -166,7 +169,8 @@
     "__tests__/arrivalVietnamWorkbook.test.js",
     "__tests__/arrivalProductCountryTie.test.js",
     "__tests__/arrivalUploadReview.test.js",
-    "__tests__/arrivalCostEcosystemRoundtrip.test.mjs"
+    "__tests__/arrivalCostEcosystemRoundtrip.test.mjs",
+    "__tests__/upgradeLegacyCostSheets.test.mjs"
   ],
   "dnspyEvidence": {
     "required": true,

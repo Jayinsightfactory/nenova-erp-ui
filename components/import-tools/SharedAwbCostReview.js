@@ -1271,7 +1271,15 @@ export default function SharedAwbCostReview({ document, native = null, onSendToU
                 <p>
                   {master?.exists
                     ? `${MASTER_LABELS[masterKey]}: ${master.sheetNames.length}개 시트 · 마지막 ${master.sheetNames.at(-1)} · ${String(master.updatedAt || '').slice(0, 16).replace('T', ' ')}`
-                    : `서버에 ${MASTER_LABELS[masterKey]}가 없습니다. 기존 누적 파일을 한 번 올리면 이후 차수는 선택 시 쌓입니다.`}
+                    : `서버에 ${MASTER_LABELS[masterKey]}가 없습니다. 기존 누적 파일을 한 번 올리면 전 과거 차수 시트에도 품종 필터·고정헤드가 자동 적용되어 쌓입니다.`}
+                  {master?.exists && (
+                    <>
+                      {' · '}
+                      <a href={`/api/import/receipts/cost-master?country=${masterKey}&download=1`} className={ledger.awbSourceLink}>
+                        서버 보관 누적 원가자료(.xlsx) 바로 다운로드
+                      </a>
+                    </>
+                  )}
                 </p>
                 {master?.exists && (
                   <label className={ledger.checkLabel}>
