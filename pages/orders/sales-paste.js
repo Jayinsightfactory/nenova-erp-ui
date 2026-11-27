@@ -58,6 +58,9 @@ export default function SalesPasteOrderPage() {
   const [analysisLogs, setAnalysisLogs] = useState([]);
   const [lastAppliedChanges, setLastAppliedChanges] = useState([]);
   const submitLock = useRef(false);
+  const imageEvidence = useRef(null);
+  const analysisScope = useRef('');
+  analysisScope.current = JSON.stringify([year, week, custKey]);
   const detectedScopeChange = useRef(false);
   const kakaoNeedsCustomerPickRef = useRef(false);
   const appliedHandoffKeyRef = useRef('');
@@ -138,6 +141,7 @@ export default function SalesPasteOrderPage() {
   useEffect(() => {
     if (detectedScopeChange.current) detectedScopeChange.current = false;
     else {
+      imageEvidence.current = null;
       setRows([]);
       setText('');
       setMessage('');
@@ -259,8 +263,24 @@ export default function SalesPasteOrderPage() {
     setKakaoHandoff(null);
   }
 
-  async function analyze() {
-    if (!selectedCustomer || !text.trim())
+  function pasteOrderImage(event) {
+    const file = Array.from(event.clipboardData.files).find(item => item.type.startsWith('image/'));
+    if (!file) return;
+    event.preventDefault();
+    if (busy || submitLock.current) return;
+    if (!year || !week || !selectedCustomer) {
+      setMessage('차수와 업체를 선택한 뒤 이미지를 붙여넣으세요.');
+      return;
+    }
+    if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > 4 * 1024 * 1024) {
+      setMessage('4MB 이하 PNG 또는 JPEG 이미지를 붙여넣으세요.');
+      return;
+    }
+    analyze(event, file);
+  }
+
+  async function analyze(_event, image) {
+    if (!selectedCustomer || (!image && !text.trim()))
       return setMessage('업체를 선택하고 주문 내용을 붙여넣으세요.');
     setBusy(true);
     const startedAt = new Date().toISOString();
@@ -273,32 +293,56 @@ export default function SalesPasteOrderPage() {
       step,
       detail,
     }).catch(() => null);
-    setMessage('AI가 입력 문장을 분석 중입니다…');
+    const scope = analysisScope.current;
+    imageEvidence.current = null;
+    setMessage(image ? '카톡 이미지에서 주문 내용을 읽는 중입니다…' : 'AI가 입력 문장을 분석 중입니다…');
     setAnalysisPreview({ status: 'analyzing', items: [], error: '', startedAt });
     appendAnalysisLog('시작', `${year} ${week} · ${selectedCustomer.CustName}`);
     persistAnalysisLog('시작', `year=${year} week=${week} custKey=${custKey} chars=${text.length}`);
     setRows([]);
     try {
+      let input = text;
+      let imageResult;
+      if (image) {
+        const data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1]);
+          reader.onerror = () => reject(new Error('클립보드 이미지를 읽을 수 없습니다.'));
+          reader.readAsDataURL(image);
+        });
+        imageResult = await apiPost('/api/orders/sales-paste-image', { mimeType: image.type, data });
+        if (scope !== analysisScope.current) return;
+        input = imageResult.text;
+        setText(input);
+      }
       const parsed = await apiPost('/api/orders/parse-paste', {
         selectedCustKey: Number(custKey),
         selectedOrderYear: year,
         // 분석 문맥용 헤더보다 사용자가 붙여넣은 원문의 차수를 우선 판정한다.
         sourceText: normalizeSalesPasteInputText(text),
+        ...(image && { sourceText: '' }),
         text: buildSalesPasteText({
           year,
           week,
           customerName: selectedCustomer.CustName,
-          text,
+          text: input,
         }),
       });
+      if (image && scope !== analysisScope.current) return;
+      if (image && (parsed.orders || []).some(order => (order.items || []).some(item => item.action === '취소'))) {
+        throw new Error('취소 주문은 이미지로 등록할 수 없습니다. 원문을 확인하세요.');
+      }
       const previewItems = buildSalesPasteAiPreview(parsed);
+      if (image && previewItems.length !== input.split('\n').length) {
+        throw new Error('이미지에서 읽은 행과 주문 분석 행 수가 다릅니다. 원문을 확인하세요.');
+      }
       const previewBase = {
         status: 'complete',
         items: previewItems,
         error: '',
         startedAt,
         completedAt: new Date().toISOString(),
-        model: parsed.analysisModel || '',
+        model: [imageResult?.model, parsed.analysisModel].filter(Boolean).join(' · '),
         source: parsed.parseSource || '',
         expectedCount: Number(parsed.expectedItemCount || 0),
         parsedCount: Number(parsed.parsedItemCount || previewItems.length),
@@ -309,8 +353,8 @@ export default function SalesPasteOrderPage() {
         throw new Error(
           '여러 업체 구간이 감지되었습니다. 선택한 한 업체의 품목·수량만 붙여넣으세요.',
         );
-      const detectedScope = resolveDetectedSalesPasteScope(parsed.detectedWeek, weekChoices);
-      if (parsed.detectedWeek && !detectedScope)
+      const detectedScope = image ? null : resolveDetectedSalesPasteScope(parsed.detectedWeek, weekChoices);
+      if (!image && parsed.detectedWeek && !detectedScope)
         throw new Error(`입력 차수 ${parsed.detectedWeek}는 현재 선택 가능한 베이스~+3 범위가 아닙니다.`);
       let scopeProducts = products;
       if (detectedScope && (detectedScope.year !== year || detectedScope.week !== week)) {
@@ -328,6 +372,18 @@ export default function SalesPasteOrderPage() {
       const nextRows = buildSalesPasteRows(parsed.orders || [], scopeProducts);
       if (!nextRows.length)
         throw new Error('분석된 품목이 없습니다. 붙여넣기 형식을 확인하세요.');
+      if (imageResult) {
+        imageEvidence.current = {
+          model: imageResult.model,
+          matchingModel: parsed.analysisModel,
+          recommendation: (parsed.orders[0].items || []).map(item => ({
+            prodKey: item.prodKey || null,
+            qty: item.qty,
+            unit: item.unit,
+            candidates: (item.suggestedProducts || []).slice(0, 3).map(product => [product.ProdKey, product.MatchScore ?? null]),
+          })),
+        };
+      }
       setRows(nextRows);
       const failed = nextRows.filter(
         (row) => !row.prodKey || !(Number(row.qty) > 0) || row.unitConflict || row.unitConversionInvalid,
@@ -387,6 +443,18 @@ export default function SalesPasteOrderPage() {
       });
       if (result.success === false || result.verified !== true)
         throw new Error(result.error || '주문등록 검증에 실패했습니다.');
+      if (imageEvidence.current) {
+        const evidence = imageEvidence.current;
+        await apiPost('/api/log', {
+          category: 'sales-paste-image-match',
+          step: '등록 완료',
+          detail: JSON.stringify({
+            ...evidence, year, week, custKey, orderMasterKey: result.orderMasterKey,
+            selected: rows.map(row => [row.prodKey, row.qty, row.unit]),
+          }),
+        }).catch(() => appendOperationLog('기록 실패', '주문은 등록됐으나 이미지 매칭 이력을 기록하지 못했습니다.'));
+        imageEvidence.current = null;
+      }
       (result.results || []).forEach((row) => appendOperationLog(row.status || '등록', `${row.prodName || row.ProdName || row.prodKey || '품목'} · ${row.message || row.qty || ''}`));
       appendOperationLog('처리 중', '주문 DB 반영 완료 · 현재 주문 재조회 중');
       const refreshed = await apiGet('/api/orders/my-customers', {
@@ -719,9 +787,17 @@ export default function SalesPasteOrderPage() {
                 </aside>
                 <textarea
                   value={text}
-                  onChange={(event) => setText(event.target.value)}
+                  onPaste={pasteOrderImage}
+                  readOnly={busy}
+                  onChange={(event) => {
+                    if (imageEvidence.current) {
+                      imageEvidence.current = null;
+                      setRows([]);
+                    }
+                    setText(event.target.value);
+                  }}
                   placeholder={
-                    '품목과 수량을 붙여넣으세요.\n예) 돈셀 2박스\n문라이트 3박스'
+                    '카톡 이미지 또는 주문 텍스트를 Ctrl+V로 붙여넣으세요.\n예) 돈셀 2박스\n문라이트 3박스'
                   }
                 />
                 <div className="actions">
