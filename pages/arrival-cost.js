@@ -986,7 +986,7 @@ export default function ArrivalCostPage() {
         .notice.error { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; }
         .table-card { padding: 0; overflow: hidden; }
         .table-card .section-title { padding: 14px 18px 10px; margin-bottom: 0; }
-        .table-wrap { overflow: auto; max-height: 72vh; border-top: 1px solid #cbd5e1; background: #ffffff; }
+        .table-wrap { overflow: auto; max-height: min(72vh, max(240px, calc(var(--nv-avail-h, 100vh) - 180px))); border-top: 1px solid #cbd5e1; background: #ffffff; }
         table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1040px; font-size: 13.5px; }
         thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; color: #334155; font-size: 12.5px; font-weight: 700; text-align: left; }
         thead th:nth-child(1), .group-head td:nth-child(1) { position: sticky; left: 0; width: 80px; min-width: 80px; max-width: 80px; }

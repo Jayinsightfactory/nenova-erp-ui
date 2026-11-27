@@ -3,7 +3,7 @@
    Toolbar sizing is PC-only; table/grid geometry and printing are preserved. */
 @media screen {
   html[data-nenova-desktop="true"]:not([data-nenova-desktop-tools="open"])
-    :is([data-ui-sidebar], [data-ui-topbar], [data-ui-popupbar], .nv-standalone-back, [data-desktop-chrome]) {
+    :is([data-ui-sidebar], [data-ui-topbar], [data-ui-popupbar], .nv-standalone-back, [data-desktop-chrome], [data-ui-ribbon], [data-ui-mditabs]) {
     display: none !important;
   }
   html[data-nenova-desktop="true"] [data-ui-shell="standard"] .main-content {
