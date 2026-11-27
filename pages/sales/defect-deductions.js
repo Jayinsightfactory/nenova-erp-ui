@@ -210,6 +210,7 @@ export default function SalesDefectDeductionsPage() {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [salesViewMode, setSalesViewMode] = useState('edit');
+  const [salesApplied, setSalesApplied] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [periodForm, setPeriodForm] = useState(null);
@@ -306,11 +307,18 @@ export default function SalesDefectDeductionsPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await apiGet('/api/sales/defect-deductions', { year, week, manager: managerFilter, history: '1' });
+      const data = await apiGet('/api/sales/defect-deductions', { year, week, manager: managerFilter, history: '1', includeAppliedSales: '1' });
       if (requestSeq !== salesLoadRequestSeq.current) return data;
+      const currentRows = [];
+      const appliedRows = [];
+      for (const row of data.rows || []) {
+        if (Number(row.orderYear) === Number(year) && Number(row.orderWeek) === Number(week)) currentRows.push(row);
+        else appliedRows.push(row);
+      }
+      setSalesApplied({ year, week, manager: managerFilter, rows: appliedRows });
       if (!preserveRows) {
-        setRows(data.rows || []);
-        replaceSavedRowSignatures(data.rows || []);
+        setRows(currentRows);
+        replaceSavedRowSignatures(currentRows);
       }
       setHistory(data.history || []);
       setManagerOptions(data.managerOptions || []);
@@ -1634,7 +1642,8 @@ export default function SalesDefectDeductionsPage() {
   }, [history]);
   const estimateStatusText = (row) => {
     if (defectSourceReview(row)) return '원문·견적 확인 필요';
-    if (row.status !== 'REGISTERED') return '-';
+    if (!['REGISTERED', 'COMPLETED'].includes(row.status)) return '-';
+    if (row.missingLinkedEstimate) return '실제 견적 확인 필요';
     const item = registrationHistoryByKey.get(Number(row.deductionKey || 0));
     const actor = item?.ChangedByName || item?.ChangedBy;
     const at = item?.ChangedAt ? String(item.ChangedAt).slice(0, 16).replace('T', ' ') : '';
@@ -1648,6 +1657,15 @@ export default function SalesDefectDeductionsPage() {
     [rows, salesSortMode, companyFilters.sales],
   );
   const salesSummaryRows = displayedSalesRows.filter(({ row }) => salesRowHasInput(row));
+  if (salesApplied?.year === year && salesApplied.week === week && salesApplied.manager === manager) {
+    const visibleKeys = new Set(salesSummaryRows.map(({ row }) => Number(row.deductionKey)));
+    for (const row of salesApplied.rows) {
+      const key = Number(row.deductionKey);
+      if (visibleKeys.has(key) || !matchesDefectCompany(row, companyFilters.sales)) continue;
+      salesSummaryRows.push({ row, sourceIndex: -1 });
+      visibleKeys.add(key);
+    }
+  }
   const pendingSalesRows = new Set();
   const salesStatusCounts = rows.reduce((counts, row, index) => {
     const state = salesRowSaveState(row);
@@ -2232,9 +2250,9 @@ export default function SalesDefectDeductionsPage() {
                     <td>{row.creditApplied ? '✓' : ''}</td>
                     <td>{row.farmName || ''}</td>
                     <td>{row.note || ''}</td>
-                    <td className={stateClass}>{row.status === 'REGISTERED' ? estimateStatusText(row) : saveState}</td>
-                    <td>{row.status === 'REGISTERED' ? estimateStatusText(row) : row.estimateCost ? `${fmt(row.estimateCost)}원` : '-'}</td>
-                    <td><button type="button" className="btn btn-xs" onClick={() => setSalesViewMode('edit')}>편집</button></td>
+                    <td className={stateClass}>{['REGISTERED', 'COMPLETED'].includes(row.status) ? estimateStatusText(row) : statusText(row)}</td>
+                    <td>{row.estimateCost ? `${fmt(row.estimateCost)}원` : '-'}</td>
+                    <td>{sourceIndex === -1 ? `원장 ${row.orderYear}년 ${row.orderWeek}차` : <button type="button" className="btn btn-xs" onClick={() => setSalesViewMode('edit')}>편집</button>}</td>
                   </tr>;
                 })}
                 {!salesSummaryRows.length && <tr><td colSpan="12" className="empty-row-cell">입력된 항목이 없습니다.</td></tr>}

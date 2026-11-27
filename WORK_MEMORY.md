@@ -5652,3 +5652,11 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: PR 생성 → CI(`verify`) 통과 확인 → squash 머지 → worktree 정리 → `owner-agi-twin.js`·`sync-nenova-hq.js` 동기화(Cafe24 운영 배포 완료·실브라우저 화면 확인 별도).
 4. 검증 상태: 라이브 MSSQL 읽기전용 SELECT(`Full_ywRes_JOIN 553ms`, `custRes(48-01) 102ms`, `44-04`/`21-03` 미포함, `48-01` 분배58·`48-02` 분배1) PASS, `node scripts/test-order-import-compare.mjs` PASS, `npm run test:erp-contract -- --no-worker-threads --concurrency=4`(494/494 commands, 680 targets) PASS, `npm run test:erp-manifest -- --changed-from origin/master` PASS, `npm run guard:erp-writes -- --changed-from origin/master` PASS, `npm run guard:agent-slop -- --changed-from origin/master` PASS, `npm run build` PASS, `pstack-verify.cjs` 검증 예정(Cafe24 배포 완료·실브라우저 확인 미검증).
 5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), `ShipmentDetail.isDeleted` 미참조(컬럼 부재), `OrderWeeks`/`OrderCust`는 `OrderDetail(OrderMasterKey)` 인덱스 부재로 `EXISTS` 대신 `INNER JOIN` 유지 필수, 운영 DB 쓰기 0건. 연결 목표: g03, g17
+
+## 2026-11-27 불량차감 이월 제외 보류 및 적용 차수 완료 조회
+1. 작업 위치: nenova-erp-ui / codex/defect-hold-sales-visibility / nw-cdx-defect-hold-sales-visibility / PR 준비.
+2. 완료된 것: 확정 등록 및 보류를 단일 트랜잭션으로 연결. 영업입력 완료 목록에 실제 견적 적용 차수 조회 추가. 화면 /sales/defect-deductions.
+3. 남은 할 일: CI 및 Cafe24 운영 스모크.
+4. 검증 상태: 불량차감 회귀 5개 파일 통과. 운영 화면 미검증.
+5. 주의/잠금: 운영 원장 보정 없음. 연결 목표 미확정 / 학습 반영 없음.
+- 검색어: 이월 제외 보류, 적용 차수, 영업입력 완료 목록, 정재훈
