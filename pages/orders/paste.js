@@ -1124,20 +1124,6 @@ function buildKakaoStockDraft({
   };
 }
 
-const KakaoFeedModalItem = memo(function KakaoFeedModalItem({ block, blockKey, checked, onToggle }) {
-  return (
-    <label style={{ display: 'flex', gap: 10, padding: '9px 12px', borderBottom: '1px solid #f1f3f5', cursor: 'pointer', background: checked ? '#eef2ff' : '#fff', contentVisibility: 'auto', containIntrinsicSize: '0 88px' }}>
-      <input type="checkbox" checked={checked} onChange={e => onToggle(blockKey, e.target.checked)} style={{ marginTop: 3 }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11.5, color: '#4b5563', marginBottom: 3, fontVariantNumeric: 'tabular-nums' }}>
-          <b>{block.sender}</b> · {block.time} · <span style={{ color: '#9ca3af' }}>{block.room}</span> · {block.lineCount}줄
-        </div>
-        <div style={{ fontSize: 12, fontFamily: "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', sans-serif", fontVariantNumeric: 'tabular-nums', whiteSpace: 'pre-wrap', color: '#111827', maxHeight: 96, overflow: 'hidden' }}>{block.text}</div>
-      </div>
-    </label>
-  );
-});
-
 export default function PasteOrderPage() {
   const topRef = useRef(null);
   const workspaceActorRef = useRef('');
@@ -6485,6 +6471,20 @@ function CustSelector({ customers, onSelect }) {
     </div>
   );
 }
+
+const KakaoFeedModalItem = memo(function KakaoFeedModalItem({ block, blockKey, checked, onToggle }) {
+  return (
+    <label style={{ display: 'flex', gap: 10, padding: '9px 12px', borderBottom: '1px solid #f1f3f5', cursor: 'pointer', background: checked ? '#eef2ff' : '#fff', contentVisibility: 'auto', containIntrinsicSize: '0 88px' }}>
+      <input type="checkbox" checked={checked} onChange={e => onToggle(blockKey, e.target.checked)} style={{ marginTop: 3 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11.5, color: '#4b5563', marginBottom: 3, fontVariantNumeric: 'tabular-nums' }}>
+          <b>{block.sender}</b> · {block.time} · <span style={{ color: '#9ca3af' }}>{block.room}</span> · {block.lineCount}줄
+        </div>
+        <div style={{ fontSize: 12, fontFamily: "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', sans-serif", fontVariantNumeric: 'tabular-nums', whiteSpace: 'pre-wrap', color: '#111827', maxHeight: 96, overflow: 'hidden' }}>{block.text}</div>
+      </div>
+    </label>
+  );
+});
 
 const labelS = { display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 };
 const thS = (w, align = 'center') => ({ width: w, minWidth: w, padding: '7px 8px', textAlign: align, fontWeight: 600, color: '#333' });
