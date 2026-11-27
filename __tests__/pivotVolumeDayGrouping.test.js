@@ -34,6 +34,9 @@ async function createSheetContext() {
     XLSX,
     getFarmDisplayName: x => x,
     customerDisplayLabel: c => c.custName,
+    ...require('../lib/pivotVolumeColors.cjs'),
+    ...require('../lib/volumeDecimalUnits.cjs'),
+    ...require('../lib/volumeDecimalShapes.cjs'),
   };
   for (const name of [
     'pivotVolumeRows',

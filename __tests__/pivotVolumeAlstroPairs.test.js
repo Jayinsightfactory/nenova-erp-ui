@@ -4,7 +4,14 @@ const vm = require('node:vm');
 const XLSX = require('xlsx-js-style');
 
 async function main() {
-  const context = { XLSX, getFarmDisplayName: x => x, customerDisplayLabel: c => c.custName };
+  const context = {
+    XLSX,
+    getFarmDisplayName: x => x,
+    customerDisplayLabel: c => c.custName,
+    ...require('../lib/pivotVolumeColors.cjs'),
+    ...require('../lib/volumeDecimalUnits.cjs'),
+    ...require('../lib/volumeDecimalShapes.cjs'),
+  };
   for (const name of ['pivotVolumeRows', 'pivotVolumeCombinedCells', 'pivotVolumeProductLabel',
     'pivotCustomerQuantity', 'pivotVolumeNetherlands', 'pivotVolumeCustDays', 'pivotVolumeGrouping', 'productColor']) {
     Object.assign(context, await import(`../lib/${name}.js`));

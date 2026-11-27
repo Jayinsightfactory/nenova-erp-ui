@@ -33,9 +33,13 @@
     "lib/pivotVolumeCombinedCells.js",
     "lib/pivotVolumeGrouping.js",
     "lib/pivotVolumeHeaderOrder.cjs",
+    "lib/pivotVolumeColors.cjs",
+    "lib/volumeDecimalUnits.cjs",
+    "lib/volumeDecimalShapes.cjs",
     "lib/pivotFieldVolume.js",
     "__tests__/pivotVolumeDayGrouping.test.js",
     "__tests__/pivotFieldVolume.test.cjs",
+    "__tests__/volumeColorsAndDecimalBadges.test.cjs",
     "components/PivotExePanel.js",
     "components/PivotExeGrid.js",
     "lib/pivotExeInteraction.js"
@@ -126,6 +130,12 @@
       "description": "물량표 메뉴(/stats/volume-board)와 pivot-volume-excel API의 format=field 경로에서 SELECT-only 피벗 집계(getPivotStats)를 신형 현장물량표(A3 가로 단일 시트)로 변환해 다운로드한다. 재고(F열)는 수기 입력 공란(null), 입고(D열)는 0 포함 실숫값을 보존하며 콜롬비아 5품종 빠렛 환산과 알스트로 ERP 송이수(÷16) 규칙을 적용한다. ERP 원장은 변경하지 않는다.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "PIVOT_VOLUME_DAY_REGION_COLORS_AND_DECIMAL_BADGES",
+      "description": "구형·신형 물량표에서 같은 요일끼리 같은 색(getDayColor), 같은 지역끼리 같은 색(getRegionColor)을 일관 적용한다. getPivotStats는 Product 마스터(BunchOf1Box, SteamOf1Bunch, SteamOf1Box)를 SELECT-only로 읽어 소수점 수량의 단/송이 환산 근거를 제공하고, 셀 숫자값·SUM 수식·열 규격은 그대로 보존한 채 비파괴 OOXML 도형 배지(DecimalUnitBadge_*)로 표 우측에 환산 배지를 표시한다. ERP 원장 쓰기 없음.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -150,6 +160,7 @@
     "__tests__/pivotVolumeMenu.test.js",
     "__tests__/pivotVolumeDayGrouping.test.js",
     "__tests__/pivotFieldVolume.test.cjs",
+    "__tests__/volumeColorsAndDecimalBadges.test.cjs",
     "__tests__/pivotExeLiveLayout.test.js",
     "__tests__/pivotExeInteraction.test.js",
     "__tests__/erpContractManifest.test.js"
