@@ -26,7 +26,7 @@ test('exact reviewed source separates weight pair only in cost source, preservin
  const input={...CLOUD_COST_FORMULA,...CLOUD_CUSTOMS_DEFAULTS,...defaults,formulaApplicabilityConfirmed:true,cloudCustomsMode:'FORMULA',exchangeRateKRW:210,exchangeRateType:'TEST_ONLY',costSourceId:'TEST_ONLY'};
  const result=calculateNativeCost(source,{sourceHash:source.sourceHash,metadata:{currency:'CNY',transportMode:'AIR'},input});
  assert.equal(result.preview.status,'APPROVED',JSON.stringify(result.preview.issues));
- const book=XLSX.read(await createNativeCostWorkbook(result)),s=book.Sheets['CLOUD 원가'];assert.equal(s.C4.v,2543);assert.match(s.A15.v,/SHA256.*CN-CLD!B52:J52,B53:J53/);assert.match(s.A15.v,/C7=210/);
+ const book=XLSX.read(await createNativeCostWorkbook(result));assert.deepEqual(book.SheetNames,['46-2']);const s=book.Sheets['46-2'];assert.equal(s.C4.v,2543);assert.match(s.A15.v,/SHA256.*CN-CLD!B52:J52,B53:J53/);assert.match(s.A15.v,/C7=210/);
  assert.equal(s.C8.v,result.preview.totals.totalCostKRW);assert.equal(JSON.stringify(rows),before);
  const edited={...input,exchangeRateKRW:211,exchangeRateType:'WORKBOOK_REFERENCE'};
  const changed=calculateNativeCost(source,{sourceHash:source.sourceHash,metadata:{currency:'CNY',transportMode:'AIR'},input:edited});

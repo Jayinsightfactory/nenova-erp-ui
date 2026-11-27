@@ -2,7 +2,6 @@ import { withAuth } from '../../../../../lib/auth';
 import { query, sql } from '../../../../../lib/db';
 import { canManageInvoiceReceipt } from '../../../../../lib/invoiceReceiptAccess.js';
 import { exportCurrentInvoiceCost } from '../../../../../lib/invoiceReceiptCostExport.js';
-import {exportWithCostHistory} from '../../../../../lib/invoiceCostHistoryService';
 
 export function createInvoiceCostExportHandler({ queryFn = query, types = sql, exportFn = exportCurrentInvoiceCost,preserveHistory=async bytes=>bytes } = {}) {
   return async function handler(req, res) {
@@ -23,4 +22,4 @@ export function createInvoiceCostExportHandler({ queryFn = query, types = sql, e
     }
   };
 }
-export default withAuth(createInvoiceCostExportHandler({preserveHistory:exportWithCostHistory}));
+export default withAuth(createInvoiceCostExportHandler());

@@ -26,7 +26,7 @@ async function downloadBody() {
   const f = fixture(), p = await prepareSharedAwb(f);
   for (const member of p.members) for (const setting of member.lineInputs) { setting.groupId = 'HYDRANGEA'; if (!(setting.stemsPerBunch > 0)) setting.stemsPerBunch = 20; }
   return { p, body: { action: 'download', orderYear: '2026', orderWeek: '45-01', awb: '16017338005', baselineDigest: p.baselineDigest, completeManifestConfirmed: true,
-    input: { gw: 3483, cw: 4307, freightAmount: 12777.65, freightCurrency: 'USD', exchangeRate: 1400, customsTotalKRW: 1000, exchangeRateType: 'TEST_ONLY' } } };
+    input: { gw: 3483, cw: 4307, freightAmount: 12777.65, freightCurrency: 'USD', exchangeRate: 1400, customsTotalKRW: 1000, exchangeRateType: 'MANUAL' } } };
 }
 
 test('차수 이름은 누적 파일 표기(45-1)로 바뀐다', () => {
@@ -73,7 +73,7 @@ test('다음 차수(46-01)는 새 시트로 뒤에 붙고 다시 실행하면 �
   f.request.orderWeek = '46-01';
   const p = await prepareSharedAwb(f); for (const member of p.members) for (const setting of member.lineInputs) { setting.groupId = 'HYDRANGEA'; if (!(setting.stemsPerBunch > 0)) setting.stemsPerBunch = 20; }
   const body = { action: 'download', orderYear: '2026', orderWeek: '46-01', awb: '16017338005', baselineDigest: p.baselineDigest, completeManifestConfirmed: true, appendToMaster: true,
-    input: { gw: 3483, cw: 4307, freightAmount: 12777.65, freightCurrency: 'USD', exchangeRate: 1400, customsTotalKRW: 1000, exchangeRateType: 'TEST_ONLY' } };
+    input: { gw: 3483, cw: 4307, freightAmount: 12777.65, freightCurrency: 'USD', exchangeRate: 1400, customsTotalKRW: 1000, exchangeRateType: 'MANUAL' } };
   const handler = createSharedAwbHandler({ authorize: () => true, prepare: async () => p });
   let r = response(); await handler({ method: 'POST', body }, r); assert.equal(r.code, 200, JSON.stringify(r.data));
   assert.equal(r.headers['X-Cost-Master-Replaced'], 'false');

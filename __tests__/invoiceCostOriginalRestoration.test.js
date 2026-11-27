@@ -21,7 +21,8 @@ test('NL sample loss is added and cheapest selection uses an acyclic live formul
  const calc=previewInvoiceCost({...f.document,costInput:input},receipt);
  assert.equal(calc.status,'APPROVED');
  f.revision.lines=calc.lines.map((l,i)=>({...l,wdetailKey:receipt[i].wdetailKey}));f.revision.totalCostKRW=calc.totals.totalCostKRW;
- const before=JSON.stringify(f), bytes=await createInvoiceCostWorkbook(f),s=XLSX.read(bytes,{cellFormula:true}).Sheets['원본 양식 계산'];
+ const before=JSON.stringify(f), bytes=await createInvoiceCostWorkbook(f),book=XLSX.read(bytes,{cellFormula:true}),s=book.Sheets['41-2'];
+ assert.deepEqual(book.SheetNames,['41-2']);
  assert.equal(JSON.stringify(f),before);
  assert.equal(s.Q10.f,'SUM(Q6:Q9)+S6+S7');
  assert.match(s.S6.f,/CE1-CD1/);assert.match(s.AC15.f,/MIN\(CE15,CE16,CE17\)/);
@@ -31,12 +32,13 @@ test('NL sample loss is added and cheapest selection uses an acyclic live formul
  for(let r=15;r<=17;r++)assert.doesNotMatch(s[`CE${r}`].f,/\bM\d+|\$?Q\$?10|\$?S\$?6/,'selection cannot depend on final landed cost');
  assert.match(s.CE1.f,/MIN\(CE15,CE16,CE17\)/);
  assert.ok(Math.abs(s.S6.v-estimate.costs.deduct)<1e-6);
- const xml=await(await JSZip.loadAsync(bytes)).file('xl/worksheets/sheet3.xml').async('string');
+ const xml=await(await JSZip.loadAsync(bytes)).file('xl/worksheets/sheet1.xml').async('string');
  assert.match(xml,/dimension ref="A1:CE/);assert.match(xml,/min="52" max="83".*hidden="1"/);
 });
 for(const[id,p]of Object.entries(RESTORED_COST_LAYOUTS))test(`${id} original calculation restores sales/formulas/summary without historic input`,async()=>{
  const profile=INVOICE_COST_EXPORT_PROFILES[id],f=invoiceCostExportFixture(7,profile.formulaId),before=JSON.stringify(f);
- const bytes=await createInvoiceCostWorkbook(f),book=XLSX.read(bytes,{cellFormula:true,cellNF:true}),s=book.Sheets['원본 양식 계산'];
+ const bytes=await createInvoiceCostWorkbook(f),book=XLSX.read(bytes,{cellFormula:true,cellNF:true}),s=book.Sheets['41-2'];
+ assert.deepEqual(book.SheetNames,['41-2']);
  assert.equal(JSON.stringify(f),before);assert.ok(s);assert.equal(s[p.fx].v,f.snapshot.input.exchangeRateKRW);
  const header=profile.headerRow??p.first-1,last=p.first+6,summary=header-1;
  assert.match(s[`${p.input}${header}`].v,/매주 확인/);
@@ -58,10 +60,10 @@ for(const[id,p]of Object.entries(RESTORED_COST_LAYOUTS))test(`${id} original cal
   assert.equal(s.AB7.v,'입력 필요');assert.equal(s.AB8.v,'입력 필요');
   assert.equal(s[`${p.unitCost}${p.first}`].v,'입력 필요');assert.match(s[`AD${p.first}`].f,/ISNUMBER/);
  }else{assert.ok(Math.abs(s.AB7.v-s.AB6.v)<.01);assert.ok(Math.abs(s.AB8.v)<.01);}
- const zip=await JSZip.loadAsync(bytes);assert.match(await zip.file('xl/workbook.xml').async('string'),/activeTab="2"/);
- for(const file of ['sheet1.xml','sheet2.xml'])assert.doesNotMatch(await zip.file(`xl/worksheets/${file}`).async('string'),/tabSelected="1"/);
- assert.doesNotMatch(await zip.file('xl/worksheets/sheet3.xml').async('string'),/#REF!|<externalLink/);
- if(header>18)assert.match(await zip.file('xl/worksheets/sheet3.xml').async('string'),new RegExp(`ySplit="3" topLeftCell="B${header}"`),'long layouts must not freeze the data out of the viewport');
+ const zip=await JSZip.loadAsync(bytes);assert.match(await zip.file('xl/workbook.xml').async('string'),/activeTab="0"/);
+ assert.equal(zip.file('xl/worksheets/sheet2.xml'),null);
+ assert.doesNotMatch(await zip.file('xl/worksheets/sheet1.xml').async('string'),/#REF!|<externalLink|원본수식 비교/);
+ if(header>18)assert.match(await zip.file('xl/worksheets/sheet1.xml').async('string'),new RegExp(`ySplit="3" topLeftCell="B${header}"`),'long layouts must not freeze the data out of the viewport');
  if(id==='TH_ORIGINAL_V1')assert.doesNotMatch(s.P15.z,/%/,'legacy first-row percent style must not format currency');
  if(id==='TH_ORIGINAL_V1'){
   assert.equal(s.J10.v,f.snapshot.input.costGroups.reduce((n,g)=>n+g.boxQuantity,0));
@@ -106,7 +108,7 @@ test('NZ source has E quantity and M cost, unlike US D/L layout',()=>{
 });
 test('NL current template defaults recalculate and prior-year identity is preserved',async()=>{
  const f=invoiceCostExportFixture(3,'NL_AMOUNT_V1');f.document.orderYear='2025';
- const s=XLSX.read(await createInvoiceCostWorkbook(f),{cellFormula:true}).Sheets['원본 양식 계산'];
+ const s=XLSX.read(await createInvoiceCostWorkbook(f),{cellFormula:true}).Sheets['41-2'];
  assert.equal(s.C5.v,'2025/41-02');assert.equal(s.C9.v,3);assert.equal(s.C10.f,'SUM(E15:E17)');
  assert.equal(s.D6.f,'SUMPRODUCT(E15:E17,F15:F17)');assert.equal(s.C6.f,'D6+C11');
  assert.equal(s.O15.f,'M15*N15');assert.equal(s.Q15.f,'IF(ISNUMBER(R15),R15/1.1,"")');
@@ -139,7 +141,7 @@ test('NL small-lot quarantine sample cap uses MIN(tableStems, kindStems) in Exce
  const calc=previewInvoiceCost({...f.document,costInput:input},receipt);
  assert.equal(calc.status,'APPROVED');
  f.revision.lines=calc.lines.map((l,i)=>({...l,wdetailKey:receipt[i].wdetailKey}));f.revision.totalCostKRW=calc.totals.totalCostKRW;
- const s=XLSX.read(await createInvoiceCostWorkbook(f),{cellFormula:true}).Sheets['원본 양식 계산'];
+ const s=XLSX.read(await createInvoiceCostWorkbook(f),{cellFormula:true}).Sheets['41-2'];
  assert.match(s.CE1.f,/MIN\(10,E16\)/);
  assert.match(s.CE1.f,/MIN\(30,E17\)/);
  assert.match(s.AC16.f,/MIN\(10,E16\)/);

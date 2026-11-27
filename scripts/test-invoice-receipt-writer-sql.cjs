@@ -1058,14 +1058,11 @@ async function testExistingCostLink(pool, costs, thai = false) {
   assert.equal(saved.currentActual.liveReceiptStatus,'MATCH');assert.equal(saved.currentActual.lines.length,2);
   const output=await exporter.exportCurrentInvoiceCost({...args,warehouseKey:String(wk),costRevisionId:saved.currentActual.costRevisionId});
   const book=require('xlsx').read(output.buffer);
-  assert.deepEqual(book.SheetNames,thai
-    ? ['2026 41-01','원본수식 비교','원본 양식 계산']
-    : ['2026 41-01','원본수식 비교','원본 양식 계산','주광·기타 비교']);
+  assert.deepEqual(book.SheetNames,['41-1']);
   // TEST_ONLY takes precedence over the estimated-expense label in the exporter.
-  assert.equal(book.Sheets['2026 41-01'].B1.v,'TEST_ONLY · 시험값 포함 · 실제 원가 아님');
-  assert.equal(book.Sheets['원본수식 비교'].A9.v,'TEST_ONLY · 시험값 포함 · 실제 원가 아님');
-  if(thai){assert.equal(book.Sheets['2026 41-01'].G15.v,2);assert.equal(book.Sheets['2026 41-01'].R15.v,'BUNCH');assert.equal(saved.currentActual.editableInput.input.packingBoxTotal,1);}
-  else assert.equal(book.Sheets['2026 41-01'].C6.v,20);
+  assert.match(book.Sheets['41-1'].B1.v,/TEST_ONLY · 시험값/);
+  if(thai){assert.equal(book.Sheets['41-1'].G15.v,2);assert.equal(book.Sheets['41-1'].Y15.v,'단');assert.equal(saved.currentActual.editableInput.input.packingBoxTotal,1);}
+  else{assert.equal(book.Sheets['41-1'].D6.v,20);assert.equal(book.Sheets['41-1'].C6.v,32);assert.equal(book.Sheets['41-1'].A14.v,'주문 구분');}
   assert.deepEqual(await stockSnapshot(pool),before);assert.deepEqual(await protectedSnapshot(pool),protectedBefore);
   console.log('ok - existing receipt split-line cost link, replay, cross-year, cost save/read, estimated workbook and ERP preservation');
 }
@@ -1107,26 +1104,26 @@ async function testPrivateStageLogsAndCostExport(pool,scenario,committed,read,do
   const exported=await exportApi.exportCurrentInvoiceCost(exportArgs);
   ensure(Buffer.isBuffer(exported.buffer)&&exported.buffer.length>0&&/\.xlsx$/i.test(exported.filename),'full SQL exporter must return an XLSX buffer and filename');
   const workbook=XLSX.read(exported.buffer,{type:'buffer',cellStyles:true});
-  assert.equal(workbook.SheetNames.length,1,'export must contain only the approved snapshot sheet');
-  const sheet=workbook.Sheets[workbook.SheetNames[0]],value=address=>sheet[address]?.v;
+  assert.deepEqual(workbook.SheetNames,['41-2'],'export must contain only the single week cost sheet');
+  const sheet=workbook.Sheets['41-2'],value=address=>sheet[address]?.v;
   assert.equal(value('C5'),'2026/41-02');assert.equal(value('C9'),28);
-  ensure(Math.abs(Number(value('C10'))-read.currentActual.totalCostKRW)<0.0001,'export header must equal current approved total');
+  ensure(Math.abs(Number(value('AB6'))-read.currentActual.totalCostKRW)<0.0001,'export header must equal current approved total');
+  ensure(Math.abs(Number(value('AB7'))-read.currentActual.totalCostKRW)<0.01,'live formula total must equal current approved total');
   assert.equal(value('C7'),230,'FX stays explicitly TEST_ONLY');
   assert.equal(value('C8'),1985.94);assert.equal(value('E8'),1985.94,'CW is TEST_ONLY equal GW, not actual-source CW');
-  assert.equal(value('J13'),'환율 종류','exchange-rate basis must retain its current metadata label');
-  assert.equal(value('K13'),'TEST_ONLY','workbook must disclose the synthetic FX basis');
+  assert.match(String(value('B1')),/TEST_ONLY 시험값/,'workbook must disclose the synthetic FX basis');
   const expectedNames=document.lines.slice().sort((a,b)=>a.lineNo-b.lineNo).map(line=>line.originalName);
   let total=0,quantity=0;
   for(let index=0;index<28;index++){
     const row=24+index;
     assert.equal(value(`B${row}`),expectedNames[index],'all original product names must retain source order');
-    assert.equal(value(`N${row}`),'BUNCH','no arbitrary ERP unit conversion');
-    ensure(Number.isFinite(value(`O${row}`))&&Number.isFinite(value(`E${row}`)),'every exported actual line needs numeric quantity and total');
-    total+=value(`O${row}`);quantity+=value(`E${row}`);
+    assert.equal(value(`Y${row}`),'단','no arbitrary ERP unit conversion');
+    ensure(Number.isFinite(value(`AD${row}`))&&Number.isFinite(value(`E${row}`)),'every exported actual line needs numeric quantity and total');
+    total+=value(`AD${row}`);quantity+=value(`E${row}`);
   }
   assert.equal(value('B52'),undefined,'export must not add a 29th product');
-  ensure(Math.abs(total-read.currentActual.totalCostKRW)<0.0001&&Math.abs(quantity-2380)<0.000001,'28 exported lines must conserve approved cost and actual bunch totals');
-  for(const cell of Object.values(sheet))if(cell&&typeof cell==='object')assert.equal(cell.f,undefined,'exported snapshot must contain no recalculation formulas');
+  ensure(Math.abs(total-read.currentActual.totalCostKRW)<0.01&&Math.abs(quantity-2380)<0.000001,'28 exported lines must conserve approved cost and actual bunch totals');
+  ensure(Object.values(sheet).some(cell=>cell&&typeof cell==='object'&&cell.f),'single week sheet must retain live recalculation formulas');
   const zip=await JSZip.loadAsync(exported.buffer);
   const sheetXml=await zip.file('xl/worksheets/sheet1.xml').async('string');
   const stylesXml=await zip.file('xl/styles.xml').async('string');

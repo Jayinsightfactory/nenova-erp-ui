@@ -157,7 +157,8 @@ test('2 & 3 & 5. 혼적 AWB ALL(통합 5품종) 스코프, 200% 이중계상 차
   }, dlRes);
   assert.equal(dlRes.code, 200, JSON.stringify(dlRes.data));
   const wb = XLSX.read(dlRes.body, { cellFormula: true });
-  const sheet = wb.Sheets['원본 양식 계산'];
+  assert.deepEqual(wb.SheetNames, ['47-2']);
+  const sheet = wb.Sheets['47-2'];
   assert.equal(sheet.N15.v, 1);
   assert.equal(sheet.N16.v, 1);
   assert.equal(sheet.N17.v, 20);
@@ -225,7 +226,8 @@ test('4. 소매형(BoxQuantity=0) 농장 송장 계산·다운로드 및 농장 
   assert.equal(calc.preview.status, 'APPROVED', JSON.stringify(calc.preview.issues));
   const xlsxBytes = await createNativeCostWorkbook(calc);
   const wb = XLSX.read(xlsxBytes, { cellFormula: true });
-  const orig = wb.Sheets['원본 양식 계산'];
+  assert.deepEqual(wb.SheetNames, ['48-1']);
+  const orig = wb.Sheets['48-1'];
   assert.equal(orig.AD8.f, 'IF($C$10=0,0,L7/$C$10)');
   assert.equal(orig.AD8.v, 1);
   assert.ok(Math.abs(orig.AL12.v - orig.AL4.v) < 1e-6);
@@ -411,7 +413,8 @@ test('6. 화면 수정값(운임·GW/CW·검역R6/소독비R7·통관비직접�
   }, dlRes);
   assert.equal(dlRes.code, 200, JSON.stringify(dlRes.data));
   const wb = XLSX.read(dlRes.body, { cellFormula: true });
-  const sh = wb.Sheets['원본 양식 계산'];
+  assert.deepEqual(wb.SheetNames, ['47-2']);
+  const sh = wb.Sheets['47-2'];
   assert.equal(sh.C8.v, 2800);
   assert.equal(sh.E8.v, 3400);
   assert.equal(sh.C11.v, 9876.54);
@@ -445,7 +448,9 @@ test('6. 화면 수정값(운임·GW/CW·검역R6/소독비R7·통관비직접�
     },
   }, dlTotalRes);
   assert.equal(dlTotalRes.code, 200);
-  const shTotal = XLSX.read(dlTotalRes.body, { cellFormula: true }).Sheets['원본 양식 계산'];
+  const wbTotal = XLSX.read(dlTotalRes.body, { cellFormula: true });
+  assert.deepEqual(wbTotal.SheetNames, ['47-2']);
+  const shTotal = wbTotal.Sheets['47-2'];
   assert.equal(shTotal.P10.v, 777000);
   assert.ok(Math.abs(shTotal.AL12.v - shTotal.AL4.v) < 0.01);
 });

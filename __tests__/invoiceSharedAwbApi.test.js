@@ -32,10 +32,10 @@ test('shared workbook has all farms, test-value marking and formula sheets',asyn
  const result=calculateSharedAwbCost({manifest:p.manifest,members:p.members,input});assert.equal(result.status,'CALCULATED');
  const document={...f.docs[0],receiptStatus:'SHARED_AWB_PREVIEW',receiptLines:p.receiptLines,reviewedMetadata:{...f.docs[0].reviewedMetadata,gw:3483,cw:4307}};
  const bytes=await createSharedAwbCostWorkbook({document,input:{...input,nativeCurrency:'USD',exchangeRateKRW:1400,costGroups:result.costGroups,lineInputs:result.lineInputs},result});
- const book=XLSX.read(bytes,{cellFormula:true});assert.ok(book.SheetNames.length>=3);
- const values=Object.values(book.Sheets[book.SheetNames[0]]).map(c=>c?.v).join('\n');
- assert.match(values,/시험/);for(let i=0;i<13;i++)assert.match(values,new RegExp(`FARM${i} · Hydrangea White`));
- assert.ok(Object.values(book.Sheets['원본 양식 계산']).some(cell=>cell?.f));
+ const book=XLSX.read(bytes,{cellFormula:true});assert.deepEqual(book.SheetNames,['45-1']);
+ const sheet=book.Sheets['45-1'],values=Object.values(sheet).map(c=>c?.v).join('\n');
+ assert.match(values,/시험/);for(let i=0;i<13;i++){assert.equal(sheet[`A${15+i}`].v,`FARM${i}`);assert.equal(sheet[`B${15+i}`].v,'Hydrangea White');}
+ assert.ok(Object.values(sheet).some(cell=>cell?.f));
 });
 test('API authorization, stale digest and post-render drift never send download',async()=>{
  const f=fixture(),p=await prepareSharedAwb(f);
