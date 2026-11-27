@@ -5762,10 +5762,19 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 5. 주의/잠금: 운영 데이터와 스키마 변경 없음. 다른 파일의 SQL과 기존 분배 쓰기는 보존. 연결 목표 g03 / 선호 학습 반영 있음.
 - 검색어: 차수피벗 서버 속도, stock-status, 고객별 출고 집계, 47-01, 48-01, MSSQL 논리 읽기
 
+## 2026-11-27 최초주문등록 과 분배 비교 품종별 묶기·소계·출고일 분할·다중 세부차수 합산 (`feat/import-compare-variety-shipdate-multiweek`, 연결 목표: g03, g17)
+- 요약: `/orders/import-compare`에 `CounName+FlowerName` 품종별 묶기(`국내+왁스→운임비`, 빈값→`기타 품목`), 단위별 품종 합계(`합계(단)`/`합계(박스)`), `ShipmentDate` 기반 출고일별 묶어보기/그냥 보기 토글(다중 출고일 분할 시 발주수량 이중합산 방지), 1차+2차 등 세부차수 다중 합산 조회 및 스마트 기본 체크를 구현했다.
+- 검색어: import-compare 최초주문등록 분배비교 품종별묶기 품종별합계 출고일 ShipmentDate 다중세부차수 1차2차합산 groupCompareRows
+1. 작업 위치: `nenova-erp-ui` / `feat/import-compare-variety-shipdate-multiweek` / `C:\Users\USER\nw-agy-import-compare-grouping`
+2. 완료된 것: `lib/orderImportCompareLogic.js`(`getVarietyGroupLabel`, `formatShipDateShort`, `groupCompareRows`), `pages/api/orders/import-compare.js`(`orderWeeks` 다중 파싱·`Product` 메타 보강·`ShipmentDate` 배치 조회), `pages/orders/import-compare.js`(다중 세부차수 바·출고일/품종 토글·고밀도 소계/출고일 테이블), `scripts/test-order-import-compare.mjs` 단위 테스트 확장.
+3. 남은 할 일: PR 생성, CI 통과 후 squash 머지, worktree 정리, `owner-agi-twin.js` 및 `sync-nenova-hq.js` 실행(Cafe24 배포 및 실브라우저 1920×1080 확인은 머지 후 진행).
+4. 검증 상태: `node scripts/test-order-import-compare.mjs` PASS, 라이브 읽기전용 MSSQL 검증(`CustKey=533` 48-01 132ms·분할 28품목 75행·합계 4366/4188 정합, `CustKey=578` 48-01,48-02 74ms·합계 538/547 정합, `options` 68업체 151ms) PASS, `test:erp-contract` 495/495(681 targets) PASS, `test:ui-layout`/`test:nenova-dnspy-evidence`/`test:erp-manifest`/`guard:erp-writes`/`guard:agent-slop`/`pstack-verify.cjs`/`next build --webpack` PASS (Cafe24 배포 완료·실브라우저 화면 확인 미검증).
+5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), 운영 MSSQL 쓰기 0건(SELECT-only). 연결 목표: g03, g17 / 학습 반영: 없음
+
 ## 2026-11-27 Phase 3 출고분배 · 영업수입불량차감 거대 파일 4종 무사고(Zero-Regression) 순수 모듈·패널 21종 분리 (`refactor/safe-modularize-phase3`, 연결 목표: g13, g17, g18 / 학습 반영: 있음)
 - 요약: `nenova-hq/tasks/nenovaweb-safe-modularization.md` Phase 3 기획에 따라 출고분배(`lib/shipmentImport.js` 3,272→1,881줄, `pages/shipment/distribute.js` 2,612→1,673줄) 및 영업수입불량차감(`lib/salesDefectDeductions.js` 2,553→1,572줄, `pages/sales/defect-deductions.js` 2,651→2,195줄) 4개 본체(합계 11,088→7,321줄, -3,767줄 / -34.0%)에서 MSSQL 쿼리·트랜잭션·`OrderYear+OrderWeek` 스코프·API·DOM·스타일 동작 변경 0.0%로 21개 순수 헬퍼·컴포넌트 모듈(`lib/shipmentImport/*` 4종, `lib/shipmentDistributionPageHelpers.js`, `components/shipment/*` 5종, `lib/salesDefect/*` 8종, `components/sales/*` 3종)을 분리하고 원본 export 심볼(17개+28개) 100% 동일 참조(`===`) `re-export` 및 회귀 단위검사(`__tests__/shipmentAndDefectModularParity.test.cjs`)를 추가했다.
 - 검색어: Phase3 모듈분리 Strangler Pure Extraction shipmentImport distribute salesDefectDeductions defect-deductions shipmentAndDefectModularParity OrderYear OrderWeek g13 g17 g18
-1. 작업 위치: `nenova-erp-ui` / `refactor/safe-modularize-phase3` / `C:\Users\USER\nw-agy-safe-modularize-p3` / PR #2078 (`origin/master` PR #2072·#2073·#2075 무충돌 병합 완료)
+1. 작업 위치: `nenova-erp-ui` / `refactor/safe-modularize-phase3` / `C:\Users\USER\nw-agy-safe-modularize-p3` / PR #2078 (`origin/master` PR #2072·#2073·#2075·#2077 무충돌 병합 완료)
 2. 완료된 것: `lib/shipmentImport.js`(-1,391줄)·`pages/shipment/distribute.js`(-939줄)·`lib/salesDefectDeductions.js`(-981줄)·`pages/sales/defect-deductions.js`(-456줄) 21개 하위 모듈·컴포넌트 분리, 커스텀 SWC 테스트 로더 6종 상대경로 해석 보강, 계약 매니페스트 3종(`shipment-additive-import.json`, `shipment-distribution-workspace.json`, `sales-defect-deduction.json`) scope 갱신, `__tests__/shipmentAndDefectModularParity.test.cjs` 신설.
 3. 남은 할 일: PR #2078 GitHub Actions `verify` CI 통과 확인 → 무충돌 Squash 머지 → `nw-agy-safe-modularize-p3` worktree 제거 → `nenova-hq` Phase 3 완료 기록 및 `sync-nenova-hq.js` 동기화.
 4. 검증 상태: `shipmentAndDefectModularParity.test.cjs` 5/5 PASS, 출하·분배·불량차감 관련 단위/SSR 테스트(90/90 + 개별 스위트) PASS, `npm run test:erp-contract` 494/494 commands (680 targets) PASS, `test:erp-manifest` 252 manifests PASS, `guard:erp-writes` PASS, `guard:agent-slop` PASS, `npm run build` (`next build --webpack`) PASS (실운영 Cafe24 배포 후 실브라우저 스모크는 미검증).
