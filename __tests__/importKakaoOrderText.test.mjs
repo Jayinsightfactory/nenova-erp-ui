@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { analyzeImportMessage, classifyImportFeed, importCustomerAliases, readLatestOrderImports, latestImportFeed } from '../lib/importKakaoOrderText.js';
+import { analyzeImportMessage, classifyImportFeed, importCustomerAliases, readLatestOrderImports, latestImportFeed, normalizeLlmOrderParsed, hasExplicitAdditionIntent, isConfirmationNotice, isLocalIssueNotice } from '../lib/importKakaoOrderText.js';
 import { readRecentImports, importItemView, farmTotals, importTotalsText, importCategoryLabel, matchesCountryOrderScope } from '../lib/importKakaoAdditions.js';
 const message=(text,id='a',time='2026년 11월 18일 오전 9:00')=>({id,time,text,sender:'fixture',items:[]});
 const parse=text=>analyzeImportMessage(message(text));
@@ -270,3 +270,62 @@ for(const heading of ['47-2 발주 추가','47-2 네덜란드 발주 추가']){
 }
 assert.equal(parse('47-2 중국 안개 발주 추가\n시네리아 10단').items[0].group,'안개');
 assert.equal(totals([message('47-2 중국 발주 추가\n안슬레이 10단'),message('47-2 중국 발주 추가\n안슬레이 10송이','stems')]).length,2);
+
+// Confirmation notices and local issue/shortage notices are excluded on both regex and LLM paths
+for (const notice of [
+  '**48차 뉴질랜드 컨펌**\n볼오브크림 50송이',
+  '컨펌입니다',
+  '48차 뉴질랜드 컨펌 완료 공유드립니다',
+  '** 47-1 중국 이슈 (소트) **\n시네신스 화이트 10단',
+  '현지이슈 안내\n시네신스 5단 결품',
+  '항공 지연 입고 지연 안내',
+]) {
+  assert.equal(parse(notice).kind, 'excluded', `regex must exclude: ${notice}`);
+  const llmDemoted = normalizeLlmOrderParsed({
+    id: 'llm-notice',
+    time: '2026년 11월 27일 오전 9:00',
+    text: notice,
+    order_parsed: {
+      kind: 'addition',
+      provider: 'claude-sub',
+      country: '중국',
+      week: '47-01',
+      items: [{ product: '시네신스 화이트', quantity: 10, unit: '단' }],
+    },
+  });
+  assert.equal(llmDemoted.kind, 'excluded', `LLM post-process must demote: ${notice}`);
+  assert.deepEqual(llmDemoted.items, []);
+}
+
+// Explicit addition intent with "컨펌 부탁" remains addition, and "미컨펌" remains review
+assert.equal(hasExplicitAdditionIntent('49-1 콜 수국 추가 발주\n화이트 10박스\n컨펌 부탁드립니다'), true);
+assert.equal(isConfirmationNotice('49-1 콜 수국 추가 발주\n화이트 10박스\n컨펌 부탁드립니다'), false);
+assert.equal(parse('49-1 콜 수국 추가 발주\n화이트 10박스\n컨펌 부탁드립니다').kind, 'addition');
+assert.equal(isConfirmationNotice('미컨펌 건 확인 부탁'), false);
+assert.equal(isLocalIssueNotice('49-1 중국 시네신스 화이트 10단 소트 취소해주세요'), false);
+assert.equal(parse('49-1 중국 시네신스 화이트 10단 소트 취소해주세요').kind, 'review');
+
+// Pure cancellation messages expose cancelled: true / sign: -1 on both regex and LLM cancelledItems
+const pureRegexCancel = parse('46-1 콜 수국 발주 취소\n화이트 3박스');
+assert.equal(pureRegexCancel.kind, 'review');
+assert.equal(pureRegexCancel.items[0].cancelled, true);
+assert.equal(pureRegexCancel.items[0].sign, -1);
+
+const llmCancel = normalizeLlmOrderParsed({
+  id: 'llm-cancel',
+  time: '2026년 11월 27일 오전 9:10',
+  text: '46-1 콜 수국 발주 취소\n화이트 3박스',
+  order_parsed: {
+    kind: 'review',
+    provider: 'claude-sub',
+    country: '콜롬비아',
+    week: '46-01',
+    category: '수국',
+    items: [],
+    cancelledItems: [{ product: '화이트', quantity: 3, unit: '박스', reason: '발주 취소' }],
+  },
+});
+assert.equal(llmCancel.kind, 'review');
+assert.equal(llmCancel.items.length, 1);
+assert.equal(llmCancel.items[0].cancelled, true);
+assert.equal(llmCancel.items[0].sign, -1);

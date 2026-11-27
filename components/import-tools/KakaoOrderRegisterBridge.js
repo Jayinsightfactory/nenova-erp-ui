@@ -695,11 +695,10 @@ export function KakaoOrderRegisterPanel({ bridge, onFocusMessage }) {
           font-size: 13px;
         }
         .kakao-msg-erp-list {
-          margin: 6px 0;
-          padding: 6px 8px;
-          border: 1px solid #e2e8f0;
-          border-radius: 6px;
-          background: #ffffff;
+          margin: 2px 0 0;
+          padding: 0;
+          border: 0;
+          background: transparent;
           display: flex;
           flex-direction: column;
           gap: 4px;
@@ -710,6 +709,10 @@ export function KakaoOrderRegisterPanel({ bridge, onFocusMessage }) {
           align-items: center;
           justify-content: space-between;
           gap: 6px;
+          padding: 3px 6px;
+          border: 1px solid #e2e8f0;
+          border-radius: 5px;
+          background: #f8fafc;
           font-size: 13px;
         }
         .kakao-msg-erp-label {
@@ -740,6 +743,7 @@ export const KakaoMessageErpSummary = memo(function KakaoMessageErpSummary({
   byKey: propByKey,
   selectedKeys: propSelectedKeys,
   onToggleItem,
+  sharedCustomer = '',
 }) {
   const byKey = propByKey || bridge?.byKey;
   const selectedKeys = propSelectedKeys || bridge?.selectedKeys;
@@ -766,6 +770,10 @@ export const KakaoMessageErpSummary = memo(function KakaoMessageErpSummary({
           evaluation.customerMatch?.rawCustomer ||
           row.customer ||
           '산지선발주';
+        const badgeText =
+          sharedCustomer && evaluation.status === 'CUSTOMER_CHECK'
+            ? '거래처확인'
+            : evaluation.badgeLabel;
         return (
           <div key={row.key} className="kakao-msg-erp-row">
             <label className={`kakao-msg-erp-label ${evaluation.eligible ? '' : 'is-disabled'}`}>
@@ -776,7 +784,7 @@ export const KakaoMessageErpSummary = memo(function KakaoMessageErpSummary({
                 aria-label={`${message.id} ${custLabel} ${row.product} 주문등록 선택`}
                 onChange={(e) => toggleFn?.(row.key, e.target.checked)}
               />
-              <span className="kakao-msg-erp-cust">[{custLabel}]</span>
+              {!sharedCustomer && <span className="kakao-msg-erp-cust">[{custLabel}]</span>}
               <span>
                 {row.product} {row.quantity}
                 {row.unit}
@@ -786,7 +794,7 @@ export const KakaoMessageErpSummary = memo(function KakaoMessageErpSummary({
               className={`kakao-erp-badge ${statusToneClass(evaluation.status)}`}
               title={evaluation.detailLabel}
             >
-              {evaluation.badgeLabel}
+              {badgeText}
             </span>
           </div>
         );
