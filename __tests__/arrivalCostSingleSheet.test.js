@@ -43,6 +43,13 @@ async function assertSingleSelfContainedCostSheet(bytes, expectedSheetName, labe
     `${label}: 시스템 경고/안내 문구가 시트에 포함되면 안 된다`,
   );
   assert.match(sheetXml, /<autoFilter\b[^>]*ref="[A-Z]+\d+:[A-Z]+\d+"/, `${label}: 데이터 헤더 AutoFilter가 부착되어야 한다`);
+  assert.match(sheetXml, /<pane\b[^>]*\bxSplit="[1-9]\d*"[^>]*\bySplit="[1-9]\d*"[^>]*\bstate="frozen"/, `${label}: 가로(헤더행)+세로(식별열) 동시 틀고정(state="frozen")이 적용되어야 한다`);
+  const tagOrder = ['<sheetViews', '<cols', '<sheetData', '<autoFilter', '<mergeCells']
+    .map(tag => ({ tag, idx: sheetXml.indexOf(tag) }))
+    .filter(item => item.idx >= 0);
+  for (let i = 1; i < tagOrder.length; i++) {
+    assert.ok(tagOrder[i - 1].idx < tagOrder[i].idx, `${label}: OOXML 스키마 요소 순서 준수 (${tagOrder[i - 1].tag} < ${tagOrder[i].tag})`);
+  }
   for (const [, f] of sheetXml.matchAll(/<f\b[^>]*>([\s\S]*?)<\/f>/g)) {
     assert.doesNotMatch(f, /!/, `${label}: 타 시트 참조 수식이 없어야 한다 (${f})`);
   }
@@ -132,6 +139,12 @@ test('1. 콜롬비아 공동 AWB(48-02 / 992-04727833 형태, 환율 1,360원): 
   assert.equal(xsheet.V13.f, 'SUBTOTAL(9,V15:V18)');
   assert.deepEqual([xsheet.AB8.v, xsheet.AB9.v, xsheet.AB10.v, xsheet.AB11.v, xsheet.AB12.v], [8, 11, 9.7, 8, 5.5]);
   assert.deepEqual([xsheet.AG8.v, xsheet.AG9.v, xsheet.AG10.v, xsheet.AG11.v, xsheet.AG12.v], [10, 9, 7, 9.6, 6.7]);
+  assert.equal(xsheet.A14.v, '농장');
+  assert.equal(xsheet.B14.v, '품종');
+  assert.equal(xsheet.C14.v, 'Color\r\nGrade');
+  assert.equal(xsheet.E14.v, '수량');
+  assert.equal(xsheet.W14, undefined, 'W열 원가 그룹은 B열 품종으로 이동 완료');
+  assert.deepEqual([xsheet.B15.v, xsheet.B16.v, xsheet.B17.v, xsheet.B18.v], ['수국', '카네이션', '장미', '알스트로']);
   assert.equal(xsheet.P6.f, 'C8*460');
   assert.equal(xsheet.P10.f, 'SUM(P6:P9)+R6+R7');
   assert.ok(Math.abs(xsheet.AL12.v - previewTotalKRW) < 0.01, 'AL12 === 미리보기 총도착원가 (0.00원 오차)');

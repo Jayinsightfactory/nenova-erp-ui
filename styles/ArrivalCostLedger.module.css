@@ -740,14 +740,16 @@
 
 .reviewTable {
   width: 100%;
-  border-collapse: collapse;
+  min-width: 820px;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13.5px;
 }
 
 .reviewTable th {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 3;
   background: #f8fafc;
   color: #334155;
   font-size: 12.5px;
@@ -755,12 +757,56 @@
   text-align: left;
   padding: 9px 12px;
   border-bottom: 1px solid #cbd5e1;
+  white-space: nowrap;
 }
 
 .reviewTable td {
   padding: 8px 12px;
   border-bottom: 1px solid #e2e8f0;
   vertical-align: middle;
+  background: #ffffff;
+}
+
+.reviewTable tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.reviewTable thead th:nth-child(1),
+.reviewTable tbody td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  min-width: 176px;
+  max-width: 176px;
+}
+
+.reviewTable thead th:nth-child(2),
+.reviewTable tbody td:nth-child(2) {
+  position: sticky;
+  left: 176px;
+  min-width: 164px;
+  max-width: 164px;
+}
+
+.reviewTable thead th:nth-child(3),
+.reviewTable tbody td:nth-child(3) {
+  position: sticky;
+  left: 340px;
+  min-width: 220px;
+  border-right: 1px solid #cbd5e1;
+}
+
+.reviewTable thead th:nth-child(-n+3) {
+  z-index: 5;
+  background: #f8fafc;
+}
+
+.reviewTable tbody td:nth-child(-n+3) {
+  z-index: 2;
+  background: #ffffff;
+}
+
+.reviewTable tbody tr:hover td:nth-child(-n+3) {
+  background: #f8fafc;
 }
 
 .reviewTable select {
@@ -986,15 +1032,16 @@
 }
 
 .resultLedgerWrap {
-  max-height: 540px;
+  max-height: 560px;
   overflow: auto;
   background: #ffffff;
 }
 
 .resultLedgerTable {
   width: 100%;
-  min-width: 1060px;
-  border-collapse: collapse;
+  min-width: 1120px;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13.5px;
   font-variant-numeric: tabular-nums;
 }
@@ -1002,7 +1049,7 @@
 .resultLedgerTable thead th {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 3;
   background: #f1f5f9;
   color: #0f172a;
   font-size: 12.5px;
@@ -1018,8 +1065,7 @@
 }
 
 .resultLedgerRow {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 38px;
+  background: #ffffff;
 }
 
 .resultLedgerTable tbody td {
@@ -1027,21 +1073,68 @@
   border-bottom: 1px solid #e2e8f0;
   color: #0f172a;
   vertical-align: middle;
+  background: #ffffff;
 }
 
 .resultLedgerTable tbody tr:hover td {
   background: #f8fafc;
 }
 
+.resultLedgerTable thead th:nth-child(1),
+.resultLedgerTable tbody td:nth-child(1):not(.emptyFilterCell) {
+  position: sticky;
+  left: 0;
+  width: 168px;
+  min-width: 168px;
+  max-width: 168px;
+}
+
+.resultLedgerTable thead th:nth-child(2),
+.resultLedgerTable tbody td:nth-child(2) {
+  position: sticky;
+  left: 168px;
+  width: 84px;
+  min-width: 84px;
+  max-width: 84px;
+}
+
+.resultLedgerTable thead th:nth-child(3),
+.resultLedgerTable tbody td:nth-child(3) {
+  position: sticky;
+  left: 252px;
+  min-width: 228px;
+  border-right: 1px solid #cbd5e1;
+}
+
+.resultLedgerTable thead th:nth-child(-n+3) {
+  z-index: 5;
+  background: #f1f5f9;
+}
+
+.resultLedgerTable tbody td:nth-child(-n+3):not(.emptyFilterCell) {
+  z-index: 2;
+  background: #ffffff;
+}
+
+.resultLedgerTable tbody tr:hover td:nth-child(-n+3):not(.emptyFilterCell) {
+  background: #f8fafc;
+}
+
 .resultLedgerTable tfoot td {
   position: sticky;
   bottom: 0;
-  z-index: 1;
+  z-index: 3;
   background: #f8fafc;
   border-top: 2px solid #cbd5e1;
   padding: 9px 10px;
   font-weight: 700;
   color: #0f172a;
+}
+
+.resultLedgerTable tfoot td:first-child {
+  left: 0;
+  z-index: 4;
+  border-right: 1px solid #cbd5e1;
 }
 
 .resultFarmCell {

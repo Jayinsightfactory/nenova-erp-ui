@@ -928,11 +928,11 @@ export default function SharedAwbCostReview({ document, native = null, onSendToU
               <thead>
                 <tr>
                   <th>농장·송장</th>
+                  <th>품종</th>
                   <th>품목</th>
                   <th>송이</th>
                   <th>단당 송이</th>
                   <th>관세율(%)</th>
-                  <th>품종</th>
                 </tr>
               </thead>
               <tbody>
@@ -941,6 +941,26 @@ export default function SharedAwbCostReview({ document, native = null, onSendToU
                   return (
                     <tr key={row.lineId}>
                       <td>{member.farmName} · {member.invoiceNo}</td>
+                      <td>
+                        <select
+                          aria-label={`${row.originalName} 품종`}
+                          value={currentLine?.groupId || ''}
+                          onChange={event => {
+                            const nextGroup = event.target.value;
+                            setLineInputs(lines => lines.map(line => line.lineId === row.lineId ? {
+                              ...line,
+                              groupId: nextGroup,
+                              stemsPerBunch: (line.stemsPerBunch !== '' && line.stemsPerBunch != null && Number(line.stemsPerBunch) > 0)
+                                ? line.stemsPerBunch
+                                : (CO_DEFAULT_STEMS_PER_BUNCH[nextGroup] ?? ''),
+                            } : line));
+                            setResult(null);
+                          }}
+                        >
+                          <option value="">품종 확인</option>
+                          {Object.entries(labels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                        </select>
+                      </td>
                       <td>{row.originalName}</td>
                       <td>{Number(row.stemQuantity ?? 0).toLocaleString('ko-KR')}</td>
                       <td>
@@ -971,26 +991,6 @@ export default function SharedAwbCostReview({ document, native = null, onSendToU
                             setResult(null);
                           }}
                         />
-                      </td>
-                      <td>
-                        <select
-                          aria-label={`${row.originalName} 품종`}
-                          value={currentLine?.groupId || ''}
-                          onChange={event => {
-                            const nextGroup = event.target.value;
-                            setLineInputs(lines => lines.map(line => line.lineId === row.lineId ? {
-                              ...line,
-                              groupId: nextGroup,
-                              stemsPerBunch: (line.stemsPerBunch !== '' && line.stemsPerBunch != null && Number(line.stemsPerBunch) > 0)
-                                ? line.stemsPerBunch
-                                : (CO_DEFAULT_STEMS_PER_BUNCH[nextGroup] ?? ''),
-                            } : line));
-                            setResult(null);
-                          }}
-                        >
-                          <option value="">품종 확인</option>
-                          {Object.entries(labels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-                        </select>
                       </td>
                     </tr>
                   );
