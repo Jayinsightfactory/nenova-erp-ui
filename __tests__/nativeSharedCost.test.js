@@ -93,8 +93,8 @@ test('콜카장 4품종: 환산 박스수가 없으면 계산하지 않고, 입�
   ({ r } = await runDownload('MAIN', groupOf, fb));
   assert.equal(r.code, 200, JSON.stringify(r.data));
   const book = XLSX.read(r.body, { cellFormula: true });
-  assert.ok(book.SheetNames.includes('원본 양식 계산'));
-  const sheet = book.Sheets['원본 양식 계산'];
+  assert.deepEqual(book.SheetNames, ['45-1']);
+  const sheet = book.Sheets['45-1'];
   const farms = Object.keys(sheet).filter(k => /^A\d+$/.test(k) && Number(k.slice(1)) >= 15).map(k => sheet[k].v);
   assert.deepEqual(farms, ['Ayura', 'Ayura', 'El Cactus', 'El Cactus']);
   const names = Object.keys(sheet).filter(k => /^B\d+$/.test(k) && Number(k.slice(1)) >= 15).map(k => sheet[k].v);

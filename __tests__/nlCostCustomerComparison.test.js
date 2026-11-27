@@ -43,25 +43,23 @@ test('reader uses SELECT only with explicit year/week and exact live customer co
  assert.equal(called,1);assert.equal(r.customerKey,533);
  assert.equal(await nlComparisonForExport({document:{reviewedMetadata:{country:'AU'}}}),null);
 });
-test('workbook retains original formulas, adds left customer labels and estimates with honest zero/missing cost',async()=>{
+test('workbook outputs single week sheet, retains original formulas and marks left customer labels',async()=>{
  const f=invoiceCostExportFixture(3,'NL_AMOUNT_V1'),before=JSON.stringify(f),cmp=buildNlCustomerComparison(data());
- const bytes=await createInvoiceCostWorkbook({...f,nlComparison:cmp}),book=XLSX.read(bytes,{cellFormula:true,cellNF:true}),s=book.Sheets['주광·기타 비교'];
- assert.equal(JSON.stringify(f),before);assert.equal(book.SheetNames.length,4);assert.equal(book.Sheets['원본 양식 계산'].A15.v,'주광');
- assert.equal(book.Sheets['원본 양식 계산'].A17.v,'기타');assert.ok(book.Sheets['원본 양식 계산'].T15.f);
- assert.match(s.A3.v,/추정.*실제 업체 귀속 아님/);const refs=Object.keys(s).filter(k=>/^B\d+$/.test(k));
- const r=Number(refs.find(k=>s[k].v==='상품 1').slice(1));assert.equal(s[`E${r}`].v,40);assert.equal(s[`G${r}`].v,10);assert.equal(s[`H${r}`].v,50);
- assert.match(s[`C${r}`].f,/'원본 양식 계산'!M15/);assert.equal(s[`K${r}`].v,'공동 주문');
- const missing=Number(refs.find(k=>s[k].v==='상품 4').slice(1));assert.equal(s[`H${missing}`].v,0);assert.match(s[`H${missing}`].z,/"-"/);assert.equal(s[`C${missing}`].v,'-');
- assert.equal(s.C7.v,121);assert.match(s.D7.f,/COUNTIF/);
- const zip=await JSZip.loadAsync(bytes);assert.match(await zip.file('xl/workbook.xml').async('string'),/activeTab="3"/);
- assert.match(await zip.file('xl/worksheets/sheet4.xml').async('string'),/xSplit="2" ySplit="8"/);
- assert.doesNotMatch(await zip.file('xl/worksheets/sheet3.xml').async('string'),/tabSelected="1"/);
+ const bytes=await createInvoiceCostWorkbook({...f,nlComparison:cmp}),book=XLSX.read(bytes,{cellFormula:true,cellNF:true});
+ assert.equal(JSON.stringify(f),before);assert.deepEqual(book.SheetNames,['41-2']);
+ const s=book.Sheets['41-2'];
+ assert.equal(s.A14.v,'주문 구분');assert.equal(s.A15.v,'주광');assert.equal(s.A17.v,'기타');assert.ok(s.T15.f);
+ const zip=await JSZip.loadAsync(bytes);assert.match(await zip.file('xl/workbook.xml').async('string'),/activeTab="0"/);
+ assert.match(await zip.file('xl/worksheets/sheet1.xml').async('string'),/tabSelected="1"/);
+ assert.equal(zip.file('xl/worksheets/sheet2.xml'),null);
  await assert.rejects(()=>createInvoiceCostWorkbook({...f,nlComparison:{...cmp,orderYear:'2025'}}),/차수/);
  await assert.rejects(()=>createInvoiceCostWorkbook({...f,nlComparison:{...cmp,rows:cmp.rows.map(p=>({...p,current:p.current+1}))}}),/수량/);
 });
 test('unregistered invoice compares only existing receipts, never promotes invoice quantities to actual',async()=>{
  const f=invoiceCostExportFixture(3,'NL_AMOUNT_V1'),d=data(),cmp=buildNlCustomerComparison({...d,warehouseKey:null,receipts:[]});
- const book=XLSX.read(await createInvoiceCostWorkbook({...f,nlComparison:cmp}));assert.equal(book.Sheets['주광·기타 비교'].C7.v,0);
+ assert.equal(cmp.rows.reduce((s,r)=>s+r.own+r.other,0),0);
+ const book=XLSX.read(await createInvoiceCostWorkbook({...f,nlComparison:cmp}));assert.deepEqual(book.SheetNames,['41-2']);
+ assert.equal(book.Sheets['41-2'].A15.v,'주광');assert.equal(book.Sheets['41-2'].A17.v,'기타');
  for(const name of ['nativeCostHttp.js','invoiceCostPreview.js','invoiceReceiptCostExport.js']){
   const text=readFileSync(new URL(`../lib/${name}`,import.meta.url),'utf8');assert.match(text,/nlComparisonForExport/);assert.match(text,/digest!==/);
  }

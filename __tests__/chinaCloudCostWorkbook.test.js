@@ -19,15 +19,17 @@ test('generated export profiles have explicit dedicated coverage rather than sil
 });
 test('CLOUD export routes through validated preview and retains live category, GW, FX, freight, permit and sales formulas',async()=>{
  const f=fixture(),p=previewInvoiceCost({...f.document,costInput:f.input},f.document.lines);assert.equal(p.status,'APPROVED',JSON.stringify(p.issues));
- const bytes=await createInvoicePreviewCostWorkbook(f),book=XLSX.read(bytes,{type:'buffer',cellFormula:true}),main=book.Sheets['CLOUD 원가'],cat=book.Sheets['품종 기준'];
+ const bytes=await createInvoicePreviewCostWorkbook(f),book=XLSX.read(bytes,{type:'buffer',cellFormula:true});
+ assert.deepEqual(book.SheetNames,['46-2']);
+ const main=book.Sheets['46-2'];
  assert.match(main.A1.v,/미승인 계산본.*원장 변경 없음/);assert.match(main.A2.v,/TEST_ONLY 시험값/);
- f.input.expenseBasis='ESTIMATED';f.input.estimateSource='TEST_ONLY 46-2 CLOUD reference';const estimated=XLSX.read(await createInvoicePreviewCostWorkbook(f)).Sheets['CLOUD 원가'];assert.match(estimated.A2.v,/추정 통관비 포함.*실제 청구액 아님/);
+ f.input.expenseBasis='ESTIMATED';f.input.estimateSource='TEST_ONLY 46-2 CLOUD reference';const estimated=XLSX.read(await createInvoicePreviewCostWorkbook(f)).Sheets['46-2'];assert.match(estimated.A2.v,/추정 통관비 포함.*실제 청구액 아님/);
  assert.ok(Math.abs(main.C8.v-p.totals.totalCostKRW)<1e-6);
  assert.equal(main.C6.v,1360160);assert.match(main.C6.f,/C4\*V3/);assert.match(main.C6.f,/COUNTIF/);
  assert.match(main.S13.f,/\$J\$3/);assert.match(main.G13.f,/S13/);assert.match(main.L13.f,/I13\+J13\+K13/);
  assert.match(main.Q12.f,/N12\*D12/);assert.match(main.R12.f,/O12\*D12/);assert.match(main.C9.f,/SUM\(Q/);
  assert.equal(main.B12.v,'ROSE');assert.equal(main.L14.v,0);assert.equal(main.M14.v,0);
- assert.match(cat.I4.f,/SUMIF/);assert.match(cat.K4.f,/SUM\(\$J\$4:\$J\$24\)/);
+ assert.match(main.AF4.f,/SUMIF/);assert.match(main.AH4.f,/SUM\(\$AG\$4:\$AG\$24\)/);
  assert.ok(main.Q12.v>0&&main.R12.v>0);assert.ok(main.C9.v>0);assert.ok(bytes.length>2000);
 });
 test('changing category affects freight and tariff, changing GW affects customs, explicit zero permit remains zero',()=>{
@@ -64,8 +66,10 @@ test('distinct manual specifications retain separate live workbook lookups and t
  f.input.lineInputs[0].categoryOverride=custom;
  f.input.lineInputs[1].categoryOverride={...custom,label:'TEST_ONLY 별도 규격',width:40,tariffRate:.214};
  const preview=previewInvoiceCost({...f.document,costInput:f.input},f.document.lines);assert.equal(preview.status,'APPROVED',JSON.stringify(preview.issues));
- const book=XLSX.read(await createInvoicePreviewCostWorkbook(f),{cellFormula:true}),main=book.Sheets['CLOUD 원가'],cat=book.Sheets['품종 기준'];
- assert.equal(main.C12.v,22);assert.equal(main.C13.v,23);assert.equal(cat.H25.v,.032);assert.equal(cat.H26.v,.214);
- assert.equal(cat.L25.v,0);assert.equal(cat.L26.v,1);assert.match(main.S13.f,/SUMPRODUCT/);assert.match(main.F12.f,/\$L\$26/);
+ const book=XLSX.read(await createInvoicePreviewCostWorkbook(f),{cellFormula:true});
+ assert.deepEqual(book.SheetNames,['46-2']);
+ const main=book.Sheets['46-2'];
+ assert.equal(main.C12.v,22);assert.equal(main.C13.v,23);assert.equal(main.AE25.v,.032);assert.equal(main.AE26.v,.214);
+ assert.equal(main.AI25.v,0);assert.equal(main.AI26.v,1);assert.match(main.S13.f,/SUMPRODUCT/);assert.match(main.F12.f,/\$AI\$26/);
  assert.match(main.C6.f,/18\*V5/);assert.ok(Math.abs(main.C8.v-preview.totals.totalCostKRW)<1e-6);
 });

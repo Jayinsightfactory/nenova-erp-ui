@@ -36,8 +36,8 @@ function hasCycle(sheet){
 for(const profile of Object.values(INVOICE_COST_EXPORT_PROFILES).filter(profile=>!profile.generated))test(`${profile.id} automatic reference sales and complete profit totals, no source mutation`,async()=>{
  const f=invoiceCostExportFixture(4,profile.formulaId);f.document.orderYear='2025';
  if(profile.id==='CN_SEA_ORIGINAL_V1')f.snapshot.input.lineInputs.forEach(l=>{l.boxCbm=.1;});
- const before=JSON.stringify(f),bytes=await createInvoiceCostWorkbook(f),b=X.read(bytes,{cellFormula:true}),s=b.Sheets['원본 양식 계산'],p=layout(profile),r=p.first,summary=(profile.headerRow??r-1)-1;
- assert.equal(JSON.stringify(f),before);assert.ok(b.SheetNames[0].startsWith('2025 '));
+ const before=JSON.stringify(f),bytes=await createInvoiceCostWorkbook(f),b=X.read(bytes,{cellFormula:true}),s=b.Sheets['41-2'],p=layout(profile),r=p.first,summary=(profile.headerRow??r-1)-1;
+ assert.equal(JSON.stringify(f),before);assert.deepEqual(b.SheetNames,['41-2']);assert.match(s.B1.v,/2025\/41-02/);
  for(let i=0;i<4;i++){
   const n=r+i,cost=s[p.unitCost+n].v,price=cost/(profile.id==='CN_SEA_ORIGINAL_V1'?.85:.77)*(profile.id==='CN_SEA_ORIGINAL_V1'?1.1:1);
   assert.ok(Math.abs(s[p.input+n].v-price)<1e-7);assert.equal(s[p.sale+n].v,price/1.1);
@@ -47,10 +47,10 @@ for(const profile of Object.values(INVOICE_COST_EXPORT_PROFILES).filter(profile=
  }
  const sales=Array.from({length:4},(_,i)=>s[p.sales+(r+i)].v).reduce((a,b)=>a+b,0),profit=Array.from({length:4},(_,i)=>s[p.profits+(r+i)].v).reduce((a,b)=>a+b,0);
  assert.equal(s[p.sales+summary].v,sales);assert.equal(s[p.profits+summary].v,profit);assert.equal(s[p.margin+summary].v,profit/sales);
- const z=await JSZip.loadAsync(bytes),xml=await z.file('xl/worksheets/sheet3.xml').async('string');
+ const z=await JSZip.loadAsync(bytes),xml=await z.file('xl/worksheets/sheet1.xml').async('string');
  const cols=[...xml.matchAll(/<col\b[^>]*min="(\d+)"[^>]*max="(\d+)"[^>]*\/>/g)].map(m=>[+m[1],+m[2]]);
  for(let i=1;i<cols.length;i++)assert.ok(cols[i-1][1]<cols[i][0],'no overlapping column definitions');
- assert.match(xml,/NOT\(ISNUMBER/);assert.doesNotMatch(await z.file('xl/worksheets/sheet1.xml').async('string'),/<f\b/);
+ assert.match(xml,/NOT\(ISNUMBER/);assert.equal(z.file('xl/worksheets/sheet2.xml'),null);assert.equal(hasCycle(s),false,`${profile.id} must be acyclic`);
 });
 test('reference lookup is exact name and same quantity factor, retains zero, refuses collisions',()=>{
  const a={name:'Example White',price:0,factor:1,cell:'O19'};
@@ -62,7 +62,7 @@ test('reference lookup is exact name and same quantity factor, retains zero, ref
 
 test('CO sales diagnostic cannot overwrite any of the five weight allocation inputs',async()=>{
  const f=invoiceCostExportFixture(4,INVOICE_COST_EXPORT_PROFILES.CO_42_1_ORIGINAL_V1.formulaId);
- const s=X.read(await createInvoiceCostWorkbook(f),{cellFormula:true}).Sheets['원본 양식 계산'];
+ const s=X.read(await createInvoiceCostWorkbook(f),{cellFormula:true}).Sheets['41-2'];
  assert.equal(s.AB12.v,coContent.defaults.AB12);
  assert.equal(s.AB12.f,undefined,'weight denominator must not depend on sales');
  assert.equal(s.AL14.f,'COUNT(Q15:Q18)');
@@ -78,17 +78,17 @@ test('CO sales diagnostic cannot overwrite any of the five weight allocation inp
 });
 test('AU verified named reference price overrides recommendation only in same unit',async()=>{
  const f=invoiceCostExportFixture(1,'AU_CNF_BUNCH_V1');f.document.lines[0].originalName='Banker Bush';
- const s=X.read(await createInvoiceCostWorkbook(f),{cellFormula:true}).Sheets['원본 양식 계산'];
+ const s=X.read(await createInvoiceCostWorkbook(f),{cellFormula:true}).Sheets['41-2'];
  assert.equal(s.O13.v,19500);assert.equal(s.O13.f,undefined);assert.equal(s.N13.v,19500/1.1);assert.match(s.AE13.v,/품목판매가/);assert.match(s.AF13.v,/38-1.*W5/);
 });
 test('missing sea allocation does not invent a sales/profit total',async()=>{
- const f=invoiceCostExportFixture(2,'CN_SEA_ACTUAL_V1'),s=X.read(await createInvoiceCostWorkbook(f)).Sheets['원본 양식 계산'];
+ const f=invoiceCostExportFixture(2,'CN_SEA_ACTUAL_V1'),s=X.read(await createInvoiceCostWorkbook(f)).Sheets['41-2'];
  assert.equal(s.R44.v,'');assert.equal(s.V42.v,'입력 필요');assert.equal(s.W42.v,'입력 필요');
 });
 
 test('Thai sales headings wrap in desktop Excel while original fonts and widths remain intact',async()=>{
  const bytes=await createInvoiceCostWorkbook(invoiceCostExportFixture(3,INVOICE_COST_EXPORT_PROFILES.TH_ORIGINAL_V1.formulaId));
- const z=await JSZip.loadAsync(bytes),sheet=await z.file('xl/worksheets/sheet3.xml').async('string'),styles=await z.file('xl/styles.xml').async('string');
+ const z=await JSZip.loadAsync(bytes),sheet=await z.file('xl/worksheets/sheet1.xml').async('string'),styles=await z.file('xl/styles.xml').async('string');
  const xfs=[...styles.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/)[1].matchAll(/<xf\b[^>]*\/>|<xf\b[^>]*>[\s\S]*?<\/xf>/g)].map(m=>m[0]);
  for(const ref of ['R14','S14']){
   const cell=sheet.match(new RegExp(`<c\\b[^>]*r="${ref}"[^>]*>`))[0];
@@ -102,9 +102,9 @@ test('China sea source CBM completes file-only sales calculations without editin
  f.document.lines[0].originalName='Ammi CHINA 아미초';
  f.snapshot.input.lineInputs[0].bunchesPerBox=10;
  const before=JSON.stringify(f),b=X.read(await createInvoiceCostWorkbook(f),{cellFormula:true});
- const s=b.Sheets['원본 양식 계산'];
+ assert.deepEqual(b.SheetNames,['41-2']);
+ const s=b.Sheets['41-2'];
  assert.equal(typeof s.R44.v,'number');assert.equal(typeof s.V42.v,'number');
- const comparison=Object.values(b.Sheets).find(s=>s.W12?.v==='박스 CBM 입력');
- assert.equal(comparison.W13.v,.04704);assert.match(comparison.AD13.v,/참고 기본값/);
+ assert.equal(s.AK44.v,.04704);assert.match(s.AX44.v,/참고 기본값/);
  assert.equal(JSON.stringify(f),before);
 });

@@ -20,7 +20,9 @@ test('AU source customs recomputed server-side; missing GW blocks; original form
  assert.equal(calculated.input.customsTotalKRW,255130);
  assert.equal(calculated.input.expenseBasis,'ESTIMATED');
  assert.equal(input.customsTotalKRW,1);
- const s=XLSX.read(await createInvoicePreviewCostWorkbook(calculated),{cellFormula:true}).Sheets['원본 양식 계산'];
+ const book=XLSX.read(await createInvoicePreviewCostWorkbook(calculated),{cellFormula:true});
+ assert.deepEqual(book.SheetNames,['44-1']);
+ const s=book.Sheets['44-1'];
  assert.equal(s.N9.v,255130);assert.equal(s.W18?.v,undefined);assert.ok(Math.abs(s.W22.v)<0.01);
  assert.equal(s.W19.v,255130);assert.equal(s.D7.v,265.5);
  for(const gw of ['',false,null])assert.throws(()=>calculateInvoiceCostPreview(p,request(p,{...input,auOriginal:{...input.auOriginal,gw}})),/GW/);
@@ -105,7 +107,8 @@ test('new AU upload calculates and exports without FarmKey, native receipt, CW, 
  const result=calculateInvoiceCostPreview(p,request(p,f.input));assert.equal(result.preview.status,'APPROVED',JSON.stringify(result.preview.issues));
  assert.equal(result.preview.totals.totalCostKRW,1030000);
  const book=XLSX.read(await createInvoicePreviewCostWorkbook(result));
- const s=book.Sheets['2026 44-01'];assert.match(s.B1.v,/인보이스 41002.*입고 미반영/);assert.match(s.B1.v,/TEST_ONLY/);
+ assert.deepEqual(book.SheetNames,['44-1']);
+ const s=book.Sheets['44-1'];assert.match(s.B1.v,/인보이스 41002.*입고 미반영/);assert.match(s.B1.v,/TEST_ONLY/);
  assert.equal(p.document.receiptLines[0].lineAmount,1020);assert.equal(p.document.receiptLines[0].unitPrice,8.5);
  assert.equal(JSON.stringify(f.document),before);assert.equal(f.queries.length,1);
  await assert.rejects(createNativeCostWorkbook(result));await assert.rejects(createInvoiceCostWorkbook({document:p.document,revision:result.preview,snapshot:{input:f.input}}));
@@ -152,7 +155,7 @@ for(const formula of Object.values(INVOICE_COST_FORMULAS).filter(f=>f.formulaId!
  const p=await prepareInvoiceCostPreview({queryFn:async sql=>{assert.doesNotMatch(sql,/\b(INSERT|UPDATE|DELETE|EXEC)\b/);return{recordset:products};},types:{Int:'INT'},request:{document:f.document}});
  assert.deepEqual(p.issues,[],formula.formulaId);const result=calculateInvoiceCostPreview(p,request(p,f.snapshot.input));
  assert.equal(result.preview.status,'APPROVED',JSON.stringify(result.preview.issues));
- const book=XLSX.read(await createInvoicePreviewCostWorkbook(result));assert.match(book.Sheets['2026 41-02'].B1.v,/인보이스 CURRENT-EXPORT/);
+ const book=XLSX.read(await createInvoicePreviewCostWorkbook(result));assert.deepEqual(book.SheetNames,['41-2']);assert.match(book.Sheets['41-2'].B1.v,/인보이스 CURRENT-EXPORT/);
  assert.ok(Math.abs(result.preview.totals.totalCostKRW-f.revision.totalCostKRW)<0.01);
 });
 function response(){return{statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(s){this.statusCode=s;return this;},json(d){this.body=d;return this;},send(d){this.body=d;return this;}};}
@@ -226,7 +229,9 @@ test('NL 48-1 direct invoice draft consolidates 10 raw CI lines into 7 genNL row
  calc.nlComparison=await nlComparisonForExport({document:calc.document});
  assert.equal(calc.nlComparison.status,'READY');
  assert.equal(calc.nlComparison.rows.reduce((s,r)=>s+r.other,0),740);
- const orig=XLSX.read(await createInvoicePreviewCostWorkbook(calc),{cellFormula:true}).Sheets['원본 양식 계산'];
+ const wb=XLSX.read(await createInvoicePreviewCostWorkbook(calc),{cellFormula:true});
+ assert.deepEqual(wb.SheetNames,['48-1']);
+ const orig=wb.Sheets['48-1'];
  assert.ok(Math.abs(orig.S6.v - 164288.54570430366) < 1e-6);
  assert.ok(Math.abs(orig.Q10.v - 588762.5457043037) < 1e-6);
  assert.ok(Math.abs(orig.O15.v - 6938.691489) < 1e-4);

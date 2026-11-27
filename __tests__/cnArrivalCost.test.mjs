@@ -248,8 +248,12 @@ for (const [name, mode, edits] of [
     const rows = draft.rows.map((row, index) => index === 0 ? { ...applyCnCategory(row, mode === 'CLOUD' ? 'GYPSOPHILA' : 'LISIANTHUS', mode), ...edits.row } : row);
     const payload = normalizeCnPayload({ mode, header: { ...draft.header, ...edits.header }, rows, warehouseKey: draft.warehouseKey, orderYear: draft.orderYear, orderWeek: draft.orderWeek, farmName: draft.farmName });
     const preview = computeCnCost(payload);
-    const { buffer, layout } = await createCnArrivalCostWorkbook(payload);
-    const wb = await loadSheet(buffer), ws = wb.getWorksheet('도착원가');
+    const { buffer, layout, sheetName } = await createCnArrivalCostWorkbook(payload);
+    const wb = await loadSheet(buffer);
+    assert.equal(wb.worksheets.length, 1, '중국 도착원가는 차수별 원가시트 단일 1장만 출력해야 한다');
+    assert.equal(wb.worksheets[0].name, sheetName);
+    assert.match(sheetName, /^\d{1,2}-\d{1,2}$/);
+    const ws = wb.worksheets[0];
     // 1) 수정한 상단 입력값이 입력칸에 그대로 기록
     for (const [k, v] of Object.entries(edits.header)) assert.equal(ws.getCell(layout.input[k].replace(/\$/g, '')).value, v, k);
     // 2) 수정한 행 입력값이 행 입력칸에 그대로 기록
@@ -323,7 +327,9 @@ test('API: GET은 SELECT 1건만(dbWrites 0)으로 소스 반환, POST는 화면
   assert.equal(post.statusCode, 200);
   assert.match(post.headers['Content-Type'], /spreadsheetml/);
   const wb = new ExcelJS.Workbook(); await wb.xlsx.load(post.body);
-  const ws = wb.getWorksheet('도착원가');
+  assert.equal(wb.worksheets.length, 1);
+  assert.equal(wb.worksheets[0].name, '47-1');
+  const ws = wb.worksheets[0];
   const layout = cnWorkbookLayout('HUBFRESH', 64);
   assert.equal(ws.getCell(layout.input.seaFreight.replace(/\$/g, '')).value, 29600);
   const denied = res();
@@ -381,7 +387,10 @@ test('CLOUD 자동 배분(allocationMode=0): 엑셀 셀에서 GW=CW로 수정 �
   assert.equal(cbmPreview.derived.useWeight, false);
   assert.equal(cbmPreview.derived.warehouseFee, 250000, '백상비 직접입력 우선');
   const { buffer, layout } = await createCnArrivalCostWorkbook(payload);
-  const wb = await loadSheet(buffer), ws = wb.getWorksheet('도착원가');
+  const wb = await loadSheet(buffer);
+  assert.equal(wb.worksheets.length, 1);
+  assert.equal(wb.worksheets[0].name, '47-2');
+  const ws = wb.worksheets[0];
   // 엑셀 파일 안에서 사용자가 CW를 GW(380)와 같게 바꿨을 때 수식이 자동으로 중량 비례로 재계산되는지 검증
   ws.getCell(layout.input.cw.replace(/\$/g, '')).value = 380;
   const weightPreview = computeCnCost({ ...payload, header: { ...payload.header, cw: 380 } });

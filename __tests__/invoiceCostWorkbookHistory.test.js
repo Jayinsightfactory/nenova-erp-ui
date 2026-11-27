@@ -10,26 +10,26 @@ import {preserveCostHistory} from '../lib/invoiceCostHistoryStore.js';
 import {createInvoiceCostWorkbook} from '../lib/invoiceReceiptCostExport.js';
 import {invoiceCostExportFixture} from './invoiceReceiptCostExport.test.js';
 const XLSX=createRequire(import.meta.url)('xlsx');
-test('past worksheet XML remains exact and new references target renamed calculation sheets',async()=>{
+test('past worksheet XML remains exact and new single-sheet calculation appends cleanly',async()=>{
  const f=invoiceCostExportFixture(3,'TH_GROUP_BOX_SHARE_V1'),first=await createInvoiceCostWorkbook(f);
  f.document.orderWeek='44-01';const next=await createInvoiceCostWorkbook(f);
  const result=await appendCostWorkbookHistory(first,next,{label:'44-01'}),old=await JSZip.loadAsync(first),zip=await JSZip.loadAsync(result);
  const noSelection=s=>s.replace(/\s+tabSelected="[01]"/g,'');
- for(const n of ['sheet1.xml','sheet2.xml','sheet3.xml'])assert.equal(noSelection(await zip.file('xl/worksheets/'+n).async('string')),noSelection(await old.file('xl/worksheets/'+n).async('string')));
+ assert.equal(noSelection(await zip.file('xl/worksheets/sheet1.xml').async('string')),noSelection(await old.file('xl/worksheets/sheet1.xml').async('string')));
  for(const n of Object.keys(zip.files))if(/^xl\/worksheets\/[^/]+\.xml$/.test(n))assert.doesNotMatch(await zip.file(n).async('string'),/tabSelected="1"/,'old and new sheets must never open grouped');
- const book=XLSX.read(result,{cellFormula:true});assert.equal(book.SheetNames.length,6);
- const formula=book.Sheets['44-01 원본 양식 계산'].M15.f;assert.ok(formula);
- assert.match(book.Sheets['44-01 원본수식 비교'].B4.f,/44-01 원본 양식 계산/);
- assert.ok(book.Sheets['원본 양식 계산'].F15);
+ const book=XLSX.read(result,{cellFormula:true});assert.equal(book.SheetNames.length,2);
+ const formula=book.Sheets['44-01 44-1'].N15.f;assert.ok(formula);
+ assert.doesNotMatch(formula,/!/);
+ assert.ok(book.Sheets['41-2'].G15);
  const oldStyles=await old.file('xl/styles.xml').async('string'),offset=Number(oldStyles.match(/<cellXfs count="(\d+)"/)[1]);
- const oldSheet=await old.file('xl/worksheets/sheet3.xml').async('string'),newSheet=await zip.file('xl/worksheets/cost-history-6.xml').async('string');
+ const oldSheet=await old.file('xl/worksheets/sheet1.xml').async('string'),newSheet=await zip.file('xl/worksheets/cost-history-2.xml').async('string');
  for(const match of oldSheet.matchAll(/<col\b[^>]*\bstyle="(\d+)"/g))assert.ok(newSheet.includes(`style="${Number(match[1])+offset}"`));
 });
 test('source with default/omitted activeTab opens the current calculation, not an old tab',async()=>{
  const f=invoiceCostExportFixture(3,'NL_AMOUNT_V1'),bytes=await createInvoiceCostWorkbook(f),zip=await JSZip.loadAsync(bytes);
  zip.file('xl/workbook.xml',(await zip.file('xl/workbook.xml').async('string')).replace(/ activeTab="\d+"/,''));
  const out=await JSZip.loadAsync(await appendCostWorkbookHistory(await zip.generateAsync({type:'nodebuffer'}),bytes,{label:'44-01'}));
- assert.match(await out.file('xl/workbook.xml').async('string'),/activeTab="5"/);
+ assert.match(await out.file('xl/workbook.xml').async('string'),/activeTab="1"/);
 });
 test('private archive is idempotent and separates user/year/country scope',async()=>{
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'cost-history-'));
@@ -38,11 +38,11 @@ test('private archive is idempotent and separates user/year/country scope',async
   const run=(context=f,u=user)=>preserveCostHistory({bytes,context,user:u,root});
   const a=await run();assert.deepEqual(await run(),a);
   f.document.orderWeek='44-01';const next=await createInvoiceCostWorkbook(f);
-  const b=await preserveCostHistory({bytes:next,context:f,user,root});assert.equal(XLSX.read(b).SheetNames.length,6);
-  const earlier=await run();assert.equal(XLSX.read(earlier).SheetNames.length,6);
-  const earlierZip=await JSZip.loadAsync(earlier);assert.match(await earlierZip.file('xl/workbook.xml').async('string'),/activeTab="2"/,'redownloading an old calculation selects it without duplicating sheets');
-  assert.equal(XLSX.read(await run(f,{userId:'other'})).SheetNames.length,3);
-  f.document.orderYear='2025';assert.equal(XLSX.read(await run()).SheetNames.length,3);
+  const b=await preserveCostHistory({bytes:next,context:f,user,root});assert.equal(XLSX.read(b).SheetNames.length,2);
+  const earlier=await run();assert.equal(XLSX.read(earlier).SheetNames.length,2);
+  const earlierZip=await JSZip.loadAsync(earlier);assert.match(await earlierZip.file('xl/workbook.xml').async('string'),/activeTab="0"/,'redownloading an old calculation selects it without duplicating sheets');
+  assert.equal(XLSX.read(await run(f,{userId:'other'})).SheetNames.length,1);
+  f.document.orderYear='2025';assert.equal(XLSX.read(await run()).SheetNames.length,1);
  }finally{await fs.rm(root,{recursive:true,force:true});}
 });
 test('archive digest ignores ZIP timestamps and dollar format codes stay valid',async()=>{
