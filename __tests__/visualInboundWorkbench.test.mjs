@@ -23,9 +23,13 @@ import {
   friendlyUploadError,
   blankRow,
   STATUS,
+  resolveVisualAutoMatch,
 } from '../lib/visualInboundWorkbench.js';
 import { parseWarehousePackingGrid } from '../lib/warehousePackingImport.js';
 import { parsePackingResponse } from '../lib/importPackingResponse.js';
+import { SEED_ALIASES_CO, aliasKey, packingSourceKey } from '../lib/importPacking.js';
+import { defaultInvoiceMatchSuggestion } from '../lib/invoiceMatchAssist.js';
+import { historyKey } from '../lib/driveMatchHistory.js';
 
 const require = createRequire(import.meta.url);
 
@@ -303,6 +307,72 @@ test('parsePackingResponse allows USD awb_document for EC while enforcing AUD fo
   const parsed = parsePackingResponse(ecData, 'EC');
   assert.equal(parsed.result.awb_document.currency, 'USD');
   assert.throws(() => parsePackingResponse(ecData, 'AU'), /AWB 통화가 AUD가 아닙니다/);
+});
+
+test('resolveVisualAutoMatch 4-tier priority: team saved > seed alias > history/farm/supplier > >=85 gap>=10', () => {
+  const products = [
+    { ProdKey: 11, ProdName: 'CARNATION Novia', country: 'CO', selectable: true },
+    { ProdKey: 12, ProdName: 'CARNATION Custom Team', country: 'CO', selectable: true },
+    { ProdKey: 13, ProdName: 'HYDRANGEA White Premium (BA)', country: 'CO', selectable: true },
+    { ProdKey: 14, ProdName: 'HYDRANGEA White Premium (GL)', country: 'CO', selectable: true },
+    { ProdKey: 15, ProdName: 'CARNATION Moon Light Select', country: 'CO', selectable: true },
+    { ProdKey: 16, ProdName: 'CARNATION Moon Glow Pink', country: 'CO', selectable: true },
+  ];
+  const baseOpts = {
+    country: 'CO',
+    products,
+    teamAliases: {},
+    seedAliases: SEED_ALIASES_CO,
+    sourceKeyFn: packingSourceKey,
+    aliasKeyFn: aliasKey,
+    suggestFn: defaultInvoiceMatchSuggestion,
+  };
+
+  // 1) 시드 별칭 자동매칭 (SEED_ALIASES_CO)
+  const seedHit = resolveVisualAutoMatch('CARNATION SEL PEACH NOVIA', baseOpts);
+  assert.equal(seedHit?.prodKey, 11);
+  assert.equal(seedHit?.matchSource, '시드 별칭');
+
+  // 2) 팀 저장 매칭이 시드 별칭보다 최우선
+  const teamHit = resolveVisualAutoMatch('CARNATION SEL PEACH NOVIA', {
+    ...baseOpts,
+    teamAliases: { [packingSourceKey('CARNATION SEL PEACH NOVIA')]: 'CARNATION Custom Team' },
+  });
+  assert.equal(teamHit?.prodKey, 12);
+  assert.equal(teamHit?.matchSource, '팀 저장 매칭');
+
+  // 무효 팀 저장 매칭은 시드/유사도로 폴백하지 않고 차단(fail-closed)
+  const blockedTeam = resolveVisualAutoMatch('CARNATION SEL PEACH NOVIA', {
+    ...baseOpts,
+    teamAliases: { [packingSourceKey('CARNATION SEL PEACH NOVIA')]: '\u0000ERP_MATCH_REQUIRES_REVIEW' },
+  });
+  assert.equal(blockedTeam, null);
+
+  // 3) 농장 약어 supplier(+7점) 자동 우선매칭
+  const supplierHit = resolveVisualAutoMatch('HYDRANGEA WHITE PREMIUM', {
+    ...baseOpts,
+    supplier: 'CI FLORES BALVERDE SAS',
+  });
+  assert.equal(supplierHit?.prodKey, 13);
+  assert.match(supplierHit?.matchSource || '', /고신뢰 추천/);
+
+  // 4) 과거 입고 이력(history 94~99점) 최우선 자동매칭
+  const historyHit = resolveVisualAutoMatch('MYSTERY HYDRANGEA CODE 77', {
+    ...baseOpts,
+    history: { [historyKey('MYSTERY HYDRANGEA CODE 77')]: [{ prodKey: 14, count: 5, lastWeek: '48-01' }] },
+  });
+  assert.equal(historyHit?.prodKey, 14);
+  assert.equal(historyHit?.matchSource, '과거 입고 이력 (5회)');
+
+  // 5) 동일 농장 입고 원장 이력(byFarm) + >=85 & 격차>=10 자동매칭
+  const farmHistHit = resolveVisualAutoMatch('CARNATION MOON LIGHT WHITE', {
+    ...baseOpts,
+    supplier: 'Flores El Zorro S.A.S.',
+    farmName: 'Flores El Zorro',
+    byFarm: { [historyKey('Flores El Zorro')]: [15] },
+  });
+  assert.equal(farmHistHit?.prodKey, 15);
+  assert.match(farmHistHit?.matchSource || '', /고신뢰 추천 8\d%|고신뢰 추천 9\d%/);
 });
 
 test('UI entrypoints and leader-line SVG layer contract', () => {
