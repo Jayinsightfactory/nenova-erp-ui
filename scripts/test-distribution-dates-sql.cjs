@@ -27,7 +27,13 @@ async function main(){
  const scope={orderYear:'2026',orderWeek:'45-01',custKey:533,prodKey:866};
  for(const [bad,restore] of [["UPDATE OrderMaster SET Manager=N'missing' WHERE OrderMasterKey=3701","UPDATE OrderMaster SET Manager=N'fixture-user' WHERE OrderMasterKey=3701"],['UPDATE Product SET isDeleted=1','UPDATE Product SET isDeleted=0'],['UPDATE Customer SET isDeleted=1','UPDATE Customer SET isDeleted=0'],['UPDATE OrderDetail SET isDeleted=1','UPDATE OrderDetail SET isDeleted=0']]){await q(bad);await assert.rejects(()=>core.readDistributionDateContext(q,sql,scope));await q(restore);}
  const ctx=await core.readDistributionDateContext(q,sql,scope);assert.equal(ctx.detail.RawCustKey,null);const snapshot=core.distributionDateSnapshot(ctx);
- const allocations=[{timestamp:'2026-11-05 00:00:00.000',quantity:.4},{timestamp:'2026-11-09 00:00:00.000',quantity:.6}];
+ const { planUploadedDates, allocationDateHeader } = await import('../lib/shipmentUploadDates.js');
+ const XLSX = require('xlsx');
+ const allocations = planUploadedDates([
+   {header: allocationDateHeader({v:'목'},XLSX), quantity:.4},
+   {header: allocationDateHeader({v:'월요일'},XLSX), quantity:.6},
+ ], ctx.calendar, ctx.detail.OutQuantity);
+ assert.deepEqual(allocations,[{timestamp:'2026-11-05 00:00:00.000',quantity:.4},{timestamp:'2026-11-09 00:00:00.000',quantity:.6}]);
  const protectedRead=async()=>JSON.stringify((await q(`SELECT (SELECT * FROM OrderMaster FOR JSON PATH) O,(SELECT * FROM OrderDetail FOR JSON PATH) OD,(SELECT * FROM ShipmentFarm FOR JSON PATH) F,(SELECT * FROM Estimate FOR JSON PATH) E,(SELECT * FROM ProductStock FOR JSON PATH) PS,(SELECT * FROM StockHistory FOR JSON PATH) SH,(SELECT * FROM WebProfitReport FOR JSON PATH) W,(SELECT * FROM ShipmentDetail WHERE SdetailKey=90000 FOR JSON PATH) Prior`)).recordset);
  const before=await protectedRead();
  const transact=async(f,rollback=false)=>{const tx=new sql.Transaction(pool);await tx.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);try{const r=await f(fixture.tQuery(tx));if(rollback)await tx.rollback();else await tx.commit();return r;}catch(e){await tx.rollback();throw e;}};
@@ -50,7 +56,7 @@ async function main(){
  for(const [day,expected] of [[5,6],[2,9]]){const one=(await q(sqlEstimateGetExcelDetail({weekDayIn:String(day)}),params)).recordset;assert.equal(one.length,1);assert.equal(Number(one[0].EstQuantity),expected);}
  assert.equal(rows.reduce((s,r)=>s+Number(r.EstQuantity),0),15);assert.equal(rows.reduce((s,r)=>s+Number(r.Amount)+Number(r.Vat),0),172500);
  const mapped=rows.map(mapExcelDetailRowToEcount);assert.equal(mapped.reduce((s,r)=>s+r.수량,0),15);assert(buildEcountUploadSheet(rows)['!ref']);
- const XLSX=require('xlsx'),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,buildEcountUploadSheet(rows),'연습');assert(XLSX.read(XLSX.write(wb,{type:'buffer',bookType:'xlsx'}),{type:'buffer'}).Sheets['연습']);
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,buildEcountUploadSheet(rows),'연습');assert(XLSX.read(XLSX.write(wb,{type:'buffer',bookType:'xlsx'}),{type:'buffer'}).Sheets['연습']);
  assert.equal((await q('SELECT COUNT(*) N FROM SystemActionLog')).recordset[0].N,1);
  console.log('PASS date-only native split: null detail customer, fixed state, native exact PeriodDay, 15 invoice units/172500 gross in ECOUNT XLSX, gate+lease, rollback/stale/cross-year; orders/farm/stock/Estimate/profit preserved. Operational writes0.');
  }finally{await pool?.close();if(master)await fixture.query(master,`IF DB_ID(N'${name}') IS NOT NULL BEGIN ALTER DATABASE ${fixture.bracket(name)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE ${fixture.bracket(name)}; END`);await master?.close();}
