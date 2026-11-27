@@ -306,12 +306,20 @@ export default withAuth(async function handler(req, res) {
         || !Number.isSafeInteger(page) || page < 0 || page > 100000) {
         return res.status(400).json({ success: false, error: '연도와 차수 범위를 확인하세요.' });
       }
-      const order = req.query.groupBy === 'area' ? 'Area, DateLabel' : 'DateLabel, Area';
+      const resolvedDateExpr = 'COALESCE(d.ShipmentDtm, sd.ShipmentDtm)';
+      const dateOrderExpr = `CASE WHEN ${resolvedDateExpr} IS NULL THEN 1 ELSE 0 END, CONVERT(char(10), ${resolvedDateExpr}, 120)`;
+      const order = req.query.groupBy === 'area'
+        ? `Area, ${dateOrderExpr}`
+        : `${dateOrderExpr}, Area`;
       const result = await query(
         `SELECT sm.OrderWeek, c.CustKey, c.CustName,
                 COALESCE(NULLIF(LTRIM(RTRIM(c.CustArea)),N''),N'지역 미등록') AS Area,
-                p.ProdKey, p.ProdName, p.OutUnit, sd.SdetailKey, d.SdateKey,
-                CONVERT(char(10),d.ShipmentDtm,120) AS DateLabel,
+                p.ProdKey, p.ProdName,
+                ISNULL(p.DisplayName, p.ProdName) AS DisplayName,
+                ISNULL(p.CounName, N'') AS CounName,
+                ISNULL(p.FlowerName, N'') AS FlowerName,
+                p.OutUnit, sd.SdetailKey, d.SdateKey,
+                CONVERT(char(10), ${resolvedDateExpr}, 120) AS DateLabel,
                 COALESCE(d.ShipmentQuantity,sd.OutQuantity) AS Quantity,
                 CASE WHEN ISNULL(sd.isFix,0)=1 OR ISNULL(sm.isFix,0)=1 THEN 1 ELSE 0 END AS isFix, ISNULL(sd.Descr,N'') AS Descr
            FROM ShipmentMaster sm

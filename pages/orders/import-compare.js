@@ -620,8 +620,8 @@ export default function OrderImportComparePage() {
     ? 1 + visibleExcelCols.length + 1
     : 3;
   const rightColCount = effectiveShowExcelCols
-    ? 4
-    : 4 + (hasAnyUnitPrice ? 1 : 0) + (hasAnyNote ? 1 : 0);
+    ? 5
+    : 5 + (hasAnyUnitPrice ? 1 : 0) + (hasAnyNote ? 1 : 0);
   const totalColCount = leftColCount + rightColCount;
 
   const footerTotals = useMemo(() => {
@@ -634,11 +634,18 @@ export default function OrderImportComparePage() {
     const shipAmountTotal = Math.round(
       filteredRows.reduce((s, r) => s + (Number(r.shipAmount) || 0), 0),
     );
+    const weekdaySet = new Set();
+    for (const r of filteredRows) {
+      for (const sd of r.shipDates || []) {
+        if (!sd.unassigned && sd.weekday) weekdaySet.add(`${sd.weekday}`);
+      }
+    }
     return {
       baselineTotal,
       shipTotal,
       netDiff: roundQty(shipTotal - baselineTotal),
       shipAmountTotal,
+      weekdaysLabel: weekdaySet.size > 0 ? [...weekdaySet].map((w) => `${w}요일`).join('·') : '',
     };
   }, [filteredRows]);
 
@@ -813,6 +820,78 @@ export default function OrderImportComparePage() {
         >
           {formatNum(row.shipQty)}
           {shipUnitLabel ? ` ${shipUnitLabel}` : ''}
+        </td>
+        <td
+          title={
+            Array.isArray(row.shipDates) && row.shipDates.length > 0
+              ? row.shipDates
+                  .map((sd) =>
+                    sd.unassigned
+                      ? `출고일 미지정 (${formatNum(sd.qty)}${shipUnitLabel})`
+                      : `${sd.isoDate} (${sd.weekday}요일) ${formatNum(sd.qty)}${shipUnitLabel}`,
+                  )
+                  .join(' · ')
+              : undefined
+          }
+          style={{
+            ...tdCompactStyle,
+            minWidth: 112,
+            textAlign: 'center',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          {!(Number(row.shipQty) > 0) ? (
+            <span style={{ color: '#94a3b8' }}>-</span>
+          ) : Array.isArray(row.shipDates) && row.shipDates.length > 0 ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' }}>
+              {row.shipDates.map((sd, sIdx) => (
+                <span
+                  key={`${sd.isoDate || 'u'}-${sIdx}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                >
+                  {!sd.unassigned && (
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: '#334155' }}>
+                      {sd.shortDate}
+                    </span>
+                  )}
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      padding: '1px 5px',
+                      borderRadius: 4,
+                      background: sd.dayColor?.fill || '#E8EEF4',
+                      color: sd.dayColor?.ink || '#334155',
+                      fontSize: 12,
+                      lineHeight: 1.15,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {sd.unassigned ? '미지정' : sd.weekday}
+                  </span>
+                  {row.shipDates.length > 1 && (
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
+                      {formatNum(sd.qty)}
+                    </span>
+                  )}
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span
+              style={{
+                display: 'inline-block',
+                padding: '1px 5px',
+                borderRadius: 4,
+                background: '#E8EEF4',
+                color: '#334155',
+                fontSize: 12,
+                lineHeight: 1.15,
+                fontWeight: 700,
+              }}
+            >
+              미지정
+            </span>
+          )}
         </td>
         <td
           style={{
@@ -2160,6 +2239,9 @@ export default function OrderImportComparePage() {
                   <th style={{ ...thCompactStyle, textAlign: 'right', width: 96, background: '#f8fafc' }}>
                     분배수량
                   </th>
+                  <th style={{ ...thCompactStyle, textAlign: 'center', minWidth: 112, background: '#f8fafc' }}>
+                    분배 출고일 · 요일
+                  </th>
                   <th style={{ ...thCompactStyle, textAlign: 'right', width: 96, background: '#f8fafc' }}>
                     차이
                   </th>
@@ -2266,6 +2348,18 @@ export default function OrderImportComparePage() {
                       }}
                     >
                       {formatNum(footerTotals.shipTotal)}
+                    </td>
+                    <td
+                      style={{
+                        padding: '4px 7px',
+                        textAlign: 'center',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: '#475569',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {footerTotals.weekdaysLabel || '-'}
                     </td>
                     <td
                       style={{

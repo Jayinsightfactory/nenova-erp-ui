@@ -9,6 +9,32 @@ import { buildImportProductSearchHits, importProductOverrideKey, IMPORT_SKIP_PRO
 import { buildImportFixBlockedAlert } from '../../lib/shipmentFixScopeCore';
 import { waitForImportResult, IMPORT_UNKNOWN_CODES, importPendingKey, readPendingImport, savePendingImport, clearPendingImport } from '../../lib/importApplyClient';
 import { createImportReadRequests } from '../../lib/importReadRequests';
+import { parseShipmentDateMeta } from '../../lib/shipmentWeekdayFormat';
+
+function ShipDateWithWeekday({ rawDate }) {
+  if (!rawDate) return <span style={{ color: '#94a3b8' }}>-</span>;
+  const meta = parseShipmentDateMeta(rawDate);
+  if (meta.unassigned) return <span>{String(rawDate)}</span>;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+      <span>{meta.isoDate}</span>
+      <span
+        style={{
+          display: 'inline-block',
+          padding: '1px 6px',
+          borderRadius: 4,
+          background: meta.dayColor.fill,
+          color: meta.dayColor.ink,
+          fontSize: 12,
+          fontWeight: 800,
+          lineHeight: 1.2,
+        }}
+      >
+        {meta.weekday}요일
+      </span>
+    </span>
+  );
+}
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => {
@@ -1616,7 +1642,7 @@ function PreAlignResultLog({ result }) {
                 <th>주문기준 수량</th>
                 <th>출고분배 변화</th>
                 <th>처리 내용</th>
-                <th>출고일</th>
+                <th>출고일 · 요일</th>
               </tr>
             </thead>
             <tbody>
@@ -1637,7 +1663,7 @@ function PreAlignResultLog({ result }) {
                       color: r.shipmentAction === '분배삭제' ? '#991b1b' : r.shipmentAction === '출고일정리' ? '#92400e' : '#166534',
                     }}>{r.shipmentAction}</span>
                   </td>
-                  <td>{r.shipDate || ''}</td>
+                  <td><ShipDateWithWeekday rawDate={r.shipDate} /></td>
                 </tr>
               ))}
             </tbody>
@@ -1773,7 +1799,7 @@ function ApplyResultContent({ result }) {
               <th>주문등록 변화</th>
               <th>출고분배 변화</th>
               <th>처리 내용</th>
-              <th>출고일</th>
+              <th>출고일 · 요일</th>
             </tr>
           </thead>
           <tbody>
@@ -1804,7 +1830,7 @@ function ApplyResultContent({ result }) {
                     color: r.shipmentChanged ? '#166534' : '#64748b',
                   }}>{r.shipmentAction}</span>
                 </td>
-                <td>{r.shipDate || ''}</td>
+                <td><ShipDateWithWeekday rawDate={r.shipDate} /></td>
               </tr>
             ))}
           </tbody>

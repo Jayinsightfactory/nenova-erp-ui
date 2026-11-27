@@ -2,6 +2,7 @@ import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderUnit, requireOrderYear } from '../../../lib/orderUtils';
 import { roundQty, pickDefaultOrderWeek } from '../../../lib/orderImportCompareLogic';
+import { summarizeShipmentDates } from '../../../lib/shipmentWeekdayFormat';
 import {
   ensureOrderImportSnapshotTable,
   listOrderImportSnapshots,
@@ -280,7 +281,8 @@ async function handleCompare(req, res) {
               ISNULL(sd.EstQuantity, 0) AS EstQuantity,
               ISNULL(sd.Cost, 0) AS Cost,
               ISNULL(sd.Amount, 0) AS Amount,
-              CAST(ISNULL(sd.isFix, 0) AS INT) AS isFix
+              CAST(ISNULL(sd.isFix, 0) AS INT) AS isFix,
+              CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS ShipDate
          FROM ShipmentMaster sm
          INNER JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
          INNER JOIN Product p ON p.ProdKey = sd.ProdKey
@@ -423,8 +425,41 @@ async function handleCompare(req, res) {
     String(a.timestamp || a.dateKey).localeCompare(String(b.timestamp || b.dateKey)),
   );
 
+  const rawShipmentRows = shipmentRes.recordset || [];
+  const positiveSdetailKeys = rawShipmentRows
+    .filter((r) => (Number(r.OutQuantity) || 0) > 0 && Number(r.SdetailKey) > 0)
+    .map((r) => Number(r.SdetailKey));
+  const splitDatesByDetailKey = new Map();
+
+  if (positiveSdetailKeys.length > 0) {
+    const sdkParams = {};
+    const sdkPlaceholders = positiveSdetailKeys.map((sdk, idx) => {
+      const k = `sdk${idx}`;
+      sdkParams[k] = { type: sql.Int, value: sdk };
+      return `@${k}`;
+    });
+    const splitRes = await query(
+      `SELECT d.SdetailKey,
+              CONVERT(NVARCHAR(10), d.ShipmentDtm, 120) AS ShipDate,
+              ISNULL(d.ShipmentQuantity, 0) AS ShipmentQuantity
+         FROM ShipmentDate d
+        WHERE d.SdetailKey IN (${sdkPlaceholders.join(',')})
+          AND ISNULL(d.ShipmentQuantity, 0) > 0
+        ORDER BY d.ShipmentDtm ASC, d.SdateKey ASC`,
+      sdkParams,
+    );
+    for (const sRow of splitRes.recordset || []) {
+      const sdk = Number(sRow.SdetailKey);
+      if (!splitDatesByDetailKey.has(sdk)) splitDatesByDetailKey.set(sdk, []);
+      splitDatesByDetailKey.get(sdk).push({
+        date: String(sRow.ShipDate || '').trim(),
+        qty: roundQty(Number(sRow.ShipmentQuantity) || 0),
+      });
+    }
+  }
+
   const shipmentGroups = new Map();
-  for (const row of shipmentRes.recordset || []) {
+  for (const row of rawShipmentRows) {
     const pk = Number(row.ProdKey);
     if (!Number.isInteger(pk) || pk <= 0) continue;
     if (!shipmentGroups.has(pk)) {
@@ -438,6 +473,7 @@ async function handleCompare(req, res) {
         shipQty: 0,
         shipAmount: 0,
         details: [],
+        rawDateEntries: [],
       });
     }
     const group = shipmentGroups.get(pk);
@@ -446,17 +482,28 @@ async function handleCompare(req, res) {
     const cost = Number(row.Cost) || 0;
     const amount = Number(row.Amount) || 0;
     const isFix = Number(row.isFix) === 1 ? 1 : 0;
+    const sdetailKey = Number(row.SdetailKey);
+    const detailShipDate = String(row.ShipDate || '').trim();
+    const splitEntries = splitDatesByDetailKey.get(sdetailKey);
 
     group.shipQty = roundQty(group.shipQty + outQty);
     group.shipAmount += amount;
+    if (outQty > 0) {
+      if (splitEntries && splitEntries.length > 0) {
+        group.rawDateEntries.push(...splitEntries);
+      } else {
+        group.rawDateEntries.push({ date: detailShipDate, qty: outQty });
+      }
+    }
     group.details.push({
       shipmentKey: Number(row.ShipmentKey),
-      sdetailKey: Number(row.SdetailKey),
+      sdetailKey,
       outQty,
       estQty,
       cost,
       amount,
       isFix,
+      shipDate: detailShipDate,
     });
   }
 
@@ -472,6 +519,7 @@ async function handleCompare(req, res) {
       distinctCosts.length === 1
         ? distinctCosts[0]
         : (group.details.find((d) => Number(d.cost || 0) !== 0)?.cost ?? 0);
+    const shipDates = summarizeShipmentDates(group.rawDateEntries);
 
     shipmentItems.push({
       prodKey: group.prodKey,
@@ -486,6 +534,7 @@ async function handleCompare(req, res) {
       distinctCosts,
       hasMixedShipCost,
       shipCost,
+      shipDates,
       shipmentDetails: group.details,
     });
   }
