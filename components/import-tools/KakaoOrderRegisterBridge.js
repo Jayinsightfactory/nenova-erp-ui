@@ -77,6 +77,8 @@ export function useKakaoOrderRegisterBridge({
             customers: Array.isArray(body.customers) ? body.customers : [],
             erpOrders: Array.isArray(body.erpOrders) ? body.erpOrders : [],
             checkedAt: String(body.checkedAt || ''),
+            scopesParam,
+            refreshTick,
           });
           setError('');
         }
@@ -263,6 +265,8 @@ export function useKakaoOrderRegisterBridge({
     loading,
     error,
     checkedAt: erpData.checkedAt,
+    current: Boolean(erpData.checkedAt) && !loading && !error
+      && erpData.scopesParam === scopesParam && erpData.refreshTick === refreshTick,
     byKey: evaluated.byKey,
     entries: evaluated.list,
     counts: evaluated.counts,
