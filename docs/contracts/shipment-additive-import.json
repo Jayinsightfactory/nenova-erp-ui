@@ -1,7 +1,11 @@
 {
   "id": "shipment-additive-import",
   "title": "분배 엑셀 선택 합산·최종/추가분 다운로드",
+  "excelShipmentDates": "Existing customer overrides and explicit chosen shipment year/week remain authoritative. Recognized positive source columns bind to the selected PeriodDay calendar. Date allocations are signed with the preview, revalidated in the import transaction, and verified by the existing date editor planner. Mixed unknown date allocations and ambiguous early exclusions block apply. ADD retains locked baseline dates. Missing date metadata preserves existing dates. Customer master, Estimate, and WebProfitReport receive no direct date allocation writes.",
   "scope": [
+    "lib/shipmentUploadDates.js",
+    "__tests__/shipmentUploadDates.test.js",
+    "scripts/test-distribution-dates-sql.cjs",
     "lib/shipmentImportMode.js",
     "lib/shipmentImportWorkbook.js",
     "lib/shipmentImport.js",
@@ -91,7 +95,8 @@
   },
   "requiredTestFiles": [
     "__tests__/shipmentAdditiveImport.test.cjs",
-    "__tests__/shipmentAdditiveApply.test.cjs"
+    "__tests__/shipmentAdditiveApply.test.cjs",
+    "__tests__/shipmentUploadDates.test.js"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
