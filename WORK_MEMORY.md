@@ -5727,6 +5727,15 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: `node --test __tests__/boxVisionInspector.test.cjs __tests__/boxVisionModularParity.test.cjs` PASS (13/13), `pstack-verify.cjs` PASS, Playwright 실제 브라우저 렌더링 캡처 3장(`verify_step2_taerim_canvas.png`, `verify_step3_taerim_table.png`, `verify_step2_batch_5photos.png`) 육안 검증 PASS (0박스 버그 없음, 이전 샘플 잔류 없음, 글씨 깨짐 없음, 1920x1080 고해상도).
 5. 주의/잠금: `desktop/` 파일 수정 0건(웹 단독 반영), 운영 DB 쓰기 0건(순수 SELECT·원장 대조). 연결 목표: g13, g17, g19 / 학습 반영: 있음
 
+## 2026-11-27 엑셀 분배 업로드의 요일·출고일 적용
+
+1. 작업 위치: nenova-erp-ui / codex/shipment-upload-date / C:\Users\USER\nw-cdx-shipment-upload-date / 후속 PR 준비.
+2. 완료된 것: 기존 업체 매칭과 선택 차수를 유지하며 양수 열의 날짜를 달력으로 해석한다. 원문 대차수가 다르면 기존 업체 선택 또는 제외를 요청한다. 서명된 날짜별 수량을 기존 출고일 저장기에서 업로드 트랜잭션으로 적용한다.
+3. 남은 할 일: 후속 PR CI, Cafe24 배포와 운영 브라우저 검증. 기존 수량 피벗 전체 SQL 및 출고 일정 목록의 수량·재고 직접 편집은 미완료.
+4. 검증 상태: 앞선 #2070 배포·실브라우저 두 정렬 및 날짜 편집기 열기 통과. 첨부 장미 128/128·카네이션 365/365 양수 셀 요일 감지, 2025·2026 동차수 달력 7행 분리, ERP 계약 495/495 및 격리 MSSQL 날짜분배·원복 PASS, 1920×1080 연습 파일 미리보기 캡처, 변경 쓰기 범위·계약 manifest·dnSpy·빌드·pstack PASS. 첨부 파일 운영 저장 미실행.
+5. 주의/잠금: 선택하지 않은 차수로 원장 이동 없음. 날짜 없는 열은 기존 날짜 유지. 수량·확정·매출 검증과 기존 업체 제외 선택을 유지한다. 연결 목표 g03 / 학습 반영 있음.
+- 검색어: 엑셀 분배 업로드, 셀 출고일, 47차 선출고, 업체 선택, 요일, PeriodDay, 48-01
+
 ## 2026-11-27 `nenova.exe` 클래식 세이지 그린 리본·MDI 다중 탭·개인 즐겨찾기 편집·전 탭 가로/세로폭 리사이즈 엔진 (`feat/nenova-exe-classic-ui`)
 - 요약: `styles/nenova-classic.css`에 `nenova.exe` 클래식 디자인 토큰(세이지 그린 `#5E8572`/`#4E7361`, 쿨그레이 리본 `#E9ECEF`~`#DADEE2`, 연크림 필수 필터 `#FEF8E1`, 소계 민트 `#D8EADC`, 굴림 폴백 없는 Pretendard/맑은 고딕 고딕 스택)을 화면 전용으로 구축하고, `NenovaRibbonShell` + `MdiTabBar` + `FavoritesEditorModal` + `GlobalViewportResizeController`를 통해 리본 `Main`/`전체메뉴(118개)`·MDI 다중 탭·즐겨찾기 순서/추가/삭제·전 탭 동적 세로폭(`--nv-avail-h`)·테이블 컬럼 드래그 리사이즈/자동맞춤/저장·분할 패널 스플리터/접기펼치기를 구현했다.
 - 검색어: nenova.exe 클래식 UI 세이지그린 리본 MDI탭 즐겨찾기편집 GlobalViewportResizeController 컬럼리사이즈 스플리터 nv-avail-h

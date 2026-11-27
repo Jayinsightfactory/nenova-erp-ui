@@ -71,6 +71,6 @@ test('production route enforces plan before apply; transaction checks coverage b
   const core = readFileSync(new URL('../lib/shipmentImport.js', import.meta.url), 'utf8');
   assert(api.indexOf('assertReplacementPlan(req.body') < api.indexOf('await applyImportRows('));
   assert.match(api, /fullCategoryReplacement: distributionMode==='REPLACE'/);
-  assert.match(core, /withTransaction\(async \(tQ\) => \{\s*if \(fullCategoryReplacement\) await assertReplacementCoverage/);
+  assert.match(core, /withTransaction\(async \(tQ\) => \{\s*if \(targetRows\.some[\s\S]+?await lockDirectionalGate\(tQ\);\s*\}\s*if \(fullCategoryReplacement\) await assertReplacementCoverage/);
   assert.match(core, /if \(fixCheck.fixBlocked\) \{\s*if \(fullCategoryReplacement \|\| importMode!=='REPLACE'\) throw/);
 });

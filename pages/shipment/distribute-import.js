@@ -441,7 +441,7 @@ export default function DistributeImport() {
       // 적용대상만 자동 선택하면 기존 분배와 동일한 업체가 통째로 숨겨져
       // 업체/수량 미인식으로 오해할 수 있다. 변경분은 사용자가 필터 버튼으로 좁힌다.
       setFilter(rowCount > 0 ? 'all' : 'apply');
-      if ((data.rows || []).some(row => Number(row.processedEarlyTotal || 0) > 0)) setViewMode('list');
+      if ((data.rows || []).some(row => Number(row.processedEarlyTotal || 0) > 0 || row.shipmentDateAllocations?.length || row.shipmentDateError)) setViewMode('list');
       if (!options.preserveMessage) {
         const viewHint = rowCount > 0 ? ' (전체 업체·수량 표시)' : '';
         const fixedNotice = data.fixBlockedCount > 0 ? `, 확정차단 ${data.fixBlockedCount}건(확정취소 후 재검증 필요)` : '';
@@ -1008,6 +1008,12 @@ export default function DistributeImport() {
                 <button type="button" style={st.miniBtn} disabled={loading || applying} onClick={() => { pickProdOverride(item.key, ''); handlePreview(); }}>건너뛰기 취소 후 재검증</button>
               </div>)}
             </div>}
+            {rows.some(row => row.shipmentDateError) && <p role="alert">
+              {rows.find(row => row.shipmentDateError).shipmentDateError} 업체 열과 출고일을 확인한 뒤 다시 검증하세요.
+            </p>}
+            {rows.some(row => row.shipmentDateAllocations?.length) && <p>
+              엑셀 출고일 적용 예정 {rows.filter(row => row.shipmentDateAllocations?.length).length}행
+            </p>}
             {!preview.replacementPlan && <div>{rows.length === 0 && !(preview.unmatched || []).length ? '적용할 품목이 없습니다. 건너뛰기를 취소하거나 다른 파일을 검증하세요.' : '선택 변경·미매칭·확정 차단을 확인한 뒤 다시 검증해야 적용할 수 있습니다.'}</div>}
           </div>
         )}
@@ -1257,7 +1263,7 @@ export default function DistributeImport() {
                 <div style={st.tableWrapLarge}>
                   <table style={st.table}>
                     <thead>
-                      <tr><th>상태</th><th>업체</th><th>품목</th><th>단위</th><th>주문등록</th><th>원문 환산량</th><th>{preview.distributionMode==='ADD'?'합산전 분배':'현재분배'}</th><th>처리 선출고</th><th>이번 제외</th>{preview.distributionMode==='ADD'&&<th>추가분</th>}<th>최종 목표</th><th>주문변경</th><th>분배차이</th><th>농장 변경前</th><th>농장 변경後</th>{['ADD','FINAL'].includes(preview.distributionMode)&&<th>최종 미배정</th>}<th>수량경고</th><th>셀</th></tr>
+                      <tr><th>상태</th><th>업체</th><th>품목</th><th>단위</th><th>엑셀 출고일</th><th>주문등록</th><th>원문 환산량</th><th>{preview.distributionMode==='ADD'?'합산전 분배':'현재분배'}</th><th>처리 선출고</th><th>이번 제외</th>{preview.distributionMode==='ADD'&&<th>추가분</th>}<th>최종 목표</th><th>주문변경</th><th>분배차이</th><th>농장 변경前</th><th>농장 변경後</th>{['ADD','FINAL'].includes(preview.distributionMode)&&<th>최종 미배정</th>}<th>수량경고</th><th>셀</th></tr>
                     </thead>
                     <tbody>
                       {visibleRows.map(r => (
@@ -1266,6 +1272,9 @@ export default function DistributeImport() {
                           <td>{r.custName}</td>
                           <td>{r.displayName || r.prodName}</td>
                           <td>{r.outUnit}</td>
+                          <td title={(r.sourceCustomerLabels || []).join(', ')}>
+                            {r.shipmentDateError || r.shipmentDateAllocations?.map(date => `${date.timestamp.slice(0,10)} · ${fmt(date.quantity)}`).join(' / ') || '—'}
+                          </td>
                           <td>{fmt(r.orderQty)}</td>
                           <td>{fmt(r.originalTotal ?? r.uploadQty)}</td>
                           <td>{fmt(r.currentOutQty)}</td>
