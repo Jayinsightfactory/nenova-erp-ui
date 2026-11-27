@@ -3,14 +3,22 @@ import Head from 'next/head';
 import { defaultPivotBoardWeek } from '../../lib/pivotAvailableWeeks';
 import { normalizeRoundInput, roundOrdinal, volumeMenuQuickWeeks, volumeMenuQuery } from '../../lib/volumeMenuWeeks';
 
+const FONT_STACK = "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif";
 const inputStyle = {
   border: '1px solid #9db4d0', borderRadius: 5, padding: '8px 10px',
   minHeight: 38, fontSize: 14, color: '#17324f', background: '#fff',
+  fontFamily: FONT_STACK, fontVariantNumeric: 'tabular-nums',
 };
 const buttonStyle = {
   border: '1px solid #155da8', borderRadius: 5, padding: '9px 15px',
   minHeight: 38, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+  fontFamily: FONT_STACK, fontVariantNumeric: 'tabular-nums',
 };
+
+const GROUP_BY_OPTIONS = [
+  { value: 'day', label: '요일 > 지역 > 업체' },
+  { value: 'region', label: '지역 > 요일 > 업체' },
+];
 
 export default function VolumeBoard() {
   const [year, setYear] = useState(String(new Date().getFullYear()));
@@ -25,6 +33,7 @@ export default function VolumeBoard() {
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [combineSubweeks, setCombineSubweeks] = useState(false);
+  const [groupBy, setGroupBy] = useState('day');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -164,24 +173,28 @@ export default function VolumeBoard() {
     return next;
   });
 
-  const downloadSelected = async () => {
+  const downloadSelected = async (format = 'legacy') => {
     const chosen = items.filter(item => selected.has(item.key));
     if (!chosen.length) { setError('다운로드할 품종을 선택하세요.'); return; }
+    const isField = format === 'field';
+    const labelPrefix = isField ? '신형 물량표' : '물량표';
     setError('');
     setMessage('');
     try {
       for (let index = 0; index < chosen.length; index += 1) {
         const item = chosen[index];
-        setBusy(`${index + 1}/${chosen.length} 다운로드 중: ${item.species}`);
+        setBusy(`${index + 1}/${chosen.length} ${labelPrefix} 다운로드 중: ${item.species}`);
         const params = new URLSearchParams({
           ...baseParams,
           species: item.key,
+          format: isField ? 'field' : 'legacy',
+          ...(!isField ? { groupBy } : {}),
           ...(combineSubweeks ? { combineSubweeks: '1' } : {}),
         });
         const response = await fetch(`/api/stats/pivot-volume-excel?${params}`);
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload.error || `${item.species}: 다운로드 실패 (${response.status})`);
+          throw new Error(payload.error || `${item.species}: ${labelPrefix} 다운로드 실패 (${response.status})`);
         }
         const blob = await response.blob();
         const objectUrl = URL.createObjectURL(blob);
@@ -195,15 +208,15 @@ export default function VolumeBoard() {
         window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
         if (index < chosen.length - 1) await new Promise(resolve => window.setTimeout(resolve, 450));
       }
-      setMessage(`완료 — ${chosen.length}개 물량표를 다운로드했습니다.`);
-    } catch (err) { setError(`개별 다운로드 실패: ${err.message || err}`); }
+      setMessage(`완료 — ${chosen.length}개 ${labelPrefix}를 다운로드했습니다.`);
+    } catch (err) { setError(`${labelPrefix} 다운로드 실패: ${err.message || err}`); }
     finally { setBusy(''); }
   };
 
   return (
     <>
       <Head><title>물량표</title></Head>
-      <main style={{ minHeight: 'calc(100vh - 48px)', background: '#f2f5f9', padding: '28px 20px' }}>
+      <main style={{ minHeight: 'calc(100vh - 48px)', background: '#f2f5f9', padding: '28px 20px', fontFamily: FONT_STACK, fontVariantNumeric: 'tabular-nums' }}>
         <section style={{ width: 'min(1120px, 100%)', margin: '0 auto', background: '#fff', border: '1px solid #cbd8e8', borderRadius: 10, boxShadow: '0 8px 26px rgba(22,50,82,.12)', overflow: 'hidden' }}>
           <header style={{ padding: '18px 22px', background: '#174b89', color: '#fff' }}>
             <h1 style={{ margin: 0, fontSize: 20 }}>차수별 품종 물량표</h1>
@@ -300,10 +313,61 @@ export default function VolumeBoard() {
                     </label>
                   ))}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: 12 }}>
-                  <button type="button" style={{ ...buttonStyle, color: '#fff', background: '#13824a', borderColor: '#13824a' }} onClick={downloadSelected} disabled={!selected.size || !!busy}>
-                    {busy && busy.includes('다운로드 중') ? busy : `선택 ${selected.size}개 다운로드`}
-                  </button>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 12, background: '#f8fafc', borderTop: '1px solid #d5e0ec' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#284564' }}>물량표 분류 순서</span>
+                    <div role="radiogroup" aria-label="물량표 분류 순서" style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
+                      {GROUP_BY_OPTIONS.map(option => {
+                        const checked = groupBy === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={checked}
+                            disabled={!!busy}
+                            onClick={() => setGroupBy(option.value)}
+                            style={{
+                              minHeight: 34,
+                              padding: '5px 11px',
+                              borderRadius: 5,
+                              border: `1px solid ${checked ? '#0e4f96' : '#9db4d0'}`,
+                              background: checked ? '#1764b0' : '#fff',
+                              color: checked ? '#fff' : '#284564',
+                              fontSize: 13,
+                              fontWeight: 700,
+                              cursor: busy ? 'not-allowed' : 'pointer',
+                              fontFamily: FONT_STACK,
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      style={{ ...buttonStyle, color: '#fff', background: '#13824a', borderColor: '#13824a' }}
+                      onClick={() => downloadSelected('legacy')}
+                      disabled={!selected.size || !!busy}
+                    >
+                      {busy && busy.includes('물량표 다운로드 중') && !busy.includes('신형')
+                        ? busy
+                        : `물량표 다운로드 (${selected.size})`}
+                    </button>
+                    <button
+                      type="button"
+                      style={{ ...buttonStyle, color: '#fff', background: '#174b89', borderColor: '#174b89' }}
+                      onClick={() => downloadSelected('field')}
+                      disabled={!selected.size || !!busy}
+                    >
+                      {busy && busy.includes('신형 물량표 다운로드 중')
+                        ? busy
+                        : `신형 물량표 다운로드 (${selected.size})`}
+                    </button>
+                  </div>
                 </div>
               </section>
             )}
