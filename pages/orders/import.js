@@ -796,6 +796,7 @@ export default function OrderImportPage() {
   const custRef = useRef(cust);
   const draftHasCustomerRef = useRef(false);
   const weekChosenRef = useRef(false);
+  const weekFromDraftRef = useRef(false);
   itemsRef.current = items;
   custRef.current = cust;
 
@@ -818,7 +819,11 @@ export default function OrderImportPage() {
     setSourceType(draft.sourceType || '');
     setSheets(draft.sheets || []);
     setSheetName(draft.sheetName || '');
-    if (draft.week) { weekChosenRef.current = true; setWeek(draft.week); }
+    if (draft.week) {
+      weekChosenRef.current = true;
+      weekFromDraftRef.current = true;
+      setWeek(draft.week);
+    }
     draftHasCustomerRef.current = true;
     setCust(draft.cust || null);
     setRematchRevision(revision => revision + 1);
@@ -1060,6 +1065,7 @@ export default function OrderImportPage() {
         throw new Error(detail ? `${d.error || '파싱 실패'}\n\n${detail}` : (d.error || '파싱 실패'));
       }
       draftHasCustomerRef.current = true;
+      weekFromDraftRef.current = false;
       setItems(d.items || []);
       setRematchRevision(revision => revision + 1);
       setSummary(d.summary || null);
@@ -1727,6 +1733,13 @@ export default function OrderImportPage() {
             <button
               type="button"
               onClick={() => {
+                if (weekFromDraftRef.current) {
+                  void router.push({
+                    pathname: '/orders/import-compare',
+                    query: cust?.CustKey ? { custKey: cust.CustKey } : {},
+                  });
+                  return;
+                }
                 const weekQuery = resolveOrderWeekQuery(week);
                 void router.push({
                   pathname: '/orders/import-compare',
@@ -1840,7 +1853,7 @@ export default function OrderImportPage() {
                   key={w}
                   type="button"
                   data-ai-verify={`week-${w}`}
-                  onClick={() => { weekChosenRef.current = true; setWeek(w); }}
+                  onClick={() => { weekChosenRef.current = true; weekFromDraftRef.current = false; setWeek(w); }}
                   style={{
                     padding: '5px 22px',
                     borderRadius: 20,
@@ -1872,7 +1885,7 @@ export default function OrderImportPage() {
                         key={w}
                         type="button"
                         data-ai-verify={`week-${w}`}
-                        onClick={() => { weekChosenRef.current = true; setWeek(w); }}
+                        onClick={() => { weekChosenRef.current = true; weekFromDraftRef.current = false; setWeek(w); }}
                         style={{
                           padding: '4px 11px',
                           borderRadius: 20,
@@ -1891,7 +1904,7 @@ export default function OrderImportPage() {
               </div>
             )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-              <input style={st.input} value={week} onChange={(e) => { weekChosenRef.current = true; setWeek(e.target.value); }} placeholder="2026-28-01" data-ai-verify="week-input" />
+              <input style={st.input} value={week} onChange={(e) => { weekChosenRef.current = true; weekFromDraftRef.current = false; setWeek(e.target.value); }} placeholder="2026-28-01" data-ai-verify="week-input" />
               {week && (
                 <span style={{ fontSize: 12, color: '#1a237e', fontWeight: 600 }}>
                   선택: {formatWeekDisplay(week)}
@@ -2143,7 +2156,7 @@ export default function OrderImportPage() {
                             key={w}
                             type="button"
                             data-ai-verify={`price-week-${w}`}
-                            onClick={() => { weekChosenRef.current = true; setWeek(w); }}
+                            onClick={() => { weekChosenRef.current = true; weekFromDraftRef.current = false; setWeek(w); }}
                             style={{ padding: '4px 14px', borderRadius: 16, fontSize: 12, cursor: 'pointer', border: on ? '2px solid #1a237e' : '1px solid #c5cae9', background: on ? '#1a237e' : '#fff', color: on ? '#fff' : '#1a237e', fontWeight: on ? 700 : 500 }}
                           >
                             {formatWeekDisplay(w)}

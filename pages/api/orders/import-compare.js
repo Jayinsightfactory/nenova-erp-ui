@@ -1,7 +1,7 @@
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderUnit, requireOrderYear } from '../../../lib/orderUtils';
-import { roundQty } from '../../../lib/orderImportCompareLogic';
+import { roundQty, pickDefaultOrderWeek } from '../../../lib/orderImportCompareLogic';
 import {
   ensureOrderImportSnapshotTable,
   listOrderImportSnapshots,
@@ -25,26 +25,77 @@ async function handleOptions(req, res) {
   await ensureOrderImportSnapshotTable(null);
 
   const ywRes = await query(
-    `SELECT OrderYear, OrderWeek
-       FROM (
-         SELECT TRY_CONVERT(INT, OrderYear) AS OrderYear, OrderWeek
-           FROM OrderMaster
-          WHERE ISNULL(isDeleted, 0) = 0 AND OrderWeek LIKE '__-__'
-         UNION
-         SELECT TRY_CONVERT(INT, OrderYear) AS OrderYear, OrderWeek
-           FROM ShipmentMaster
-          WHERE ISNULL(isDeleted, 0) = 0 AND OrderWeek LIKE '__-__'
-         UNION
-         SELECT OrderYear, OrderWeek
-           FROM dbo.WebOrderImportSnapshot
-          WHERE IsDeleted = 0 AND OrderWeek LIKE '__-__'
-       ) t
-      WHERE OrderYear BETWEEN 2020 AND 2100
-        AND TRY_CONVERT(INT, LEFT(OrderWeek, 2)) BETWEEN 1 AND 53
-        AND TRY_CONVERT(INT, RIGHT(OrderWeek, 2)) BETWEEN 1 AND 9
-      ORDER BY OrderYear DESC,
-               TRY_CONVERT(INT, LEFT(OrderWeek, 2)) DESC,
-               TRY_CONVERT(INT, RIGHT(OrderWeek, 2)) DESC`,
+    `WITH OrderWeeks AS (
+       SELECT TRY_CONVERT(INT, om.OrderYear) AS OrderYear,
+              om.OrderWeek
+         FROM OrderMaster om
+         INNER JOIN OrderDetail od ON od.OrderMasterKey = om.OrderMasterKey
+         INNER JOIN Product p ON p.ProdKey = od.ProdKey
+        WHERE ISNULL(om.isDeleted, 0) = 0
+          AND ISNULL(od.isDeleted, 0) = 0
+          AND om.OrderWeek LIKE '__-__'
+          AND TRY_CONVERT(INT, om.OrderYear) BETWEEN 2020 AND 2100
+          AND TRY_CONVERT(INT, LEFT(om.OrderWeek, 2)) BETWEEN 1 AND 53
+          AND TRY_CONVERT(INT, RIGHT(om.OrderWeek, 2)) BETWEEN 1 AND 9
+          AND (
+            (CASE p.OutUnit
+               WHEN N'단' THEN ISNULL(od.BunchQuantity, 0)
+               WHEN N'송이' THEN ISNULL(od.SteamQuantity, 0)
+               ELSE ISNULL(od.BoxQuantity, 0)
+             END) > 0
+            OR ISNULL(od.OutQuantity, 0) > 0
+          )
+        GROUP BY TRY_CONVERT(INT, om.OrderYear), om.OrderWeek
+     ),
+     ShipWeeks AS (
+       SELECT TRY_CONVERT(INT, sm.OrderYear) AS OrderYear,
+              sm.OrderWeek,
+              COUNT(DISTINCT CASE
+                WHEN ISNULL(sd.OutQuantity, 0) <> 0
+                THEN COALESCE(NULLIF(sd.CustKey, 0), sm.CustKey)
+              END) AS ShipmentCustomerCount
+         FROM ShipmentMaster sm
+         INNER JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+        WHERE ISNULL(sm.isDeleted, 0) = 0
+          AND sm.OrderWeek LIKE '__-__'
+          AND TRY_CONVERT(INT, sm.OrderYear) BETWEEN 2020 AND 2100
+          AND TRY_CONVERT(INT, LEFT(sm.OrderWeek, 2)) BETWEEN 1 AND 53
+          AND TRY_CONVERT(INT, RIGHT(sm.OrderWeek, 2)) BETWEEN 1 AND 9
+        GROUP BY TRY_CONVERT(INT, sm.OrderYear), sm.OrderWeek
+       HAVING SUM(CASE WHEN ISNULL(sd.OutQuantity, 0) <> 0 THEN 1 ELSE 0 END) > 0
+     ),
+     SnapWeeks AS (
+       SELECT DISTINCT
+              OrderYear,
+              OrderWeek
+         FROM dbo.WebOrderImportSnapshot
+        WHERE IsDeleted = 0
+          AND ItemCount > 0
+          AND OrderWeek LIKE '__-__'
+          AND OrderYear BETWEEN 2020 AND 2100
+          AND TRY_CONVERT(INT, LEFT(OrderWeek, 2)) BETWEEN 1 AND 53
+          AND TRY_CONVERT(INT, RIGHT(OrderWeek, 2)) BETWEEN 1 AND 9
+     ),
+     AllWeeks AS (
+       SELECT OrderYear, OrderWeek FROM OrderWeeks
+       UNION
+       SELECT OrderYear, OrderWeek FROM ShipWeeks
+       UNION
+       SELECT OrderYear, OrderWeek FROM SnapWeeks
+     )
+     SELECT aw.OrderYear,
+            aw.OrderWeek,
+            CASE WHEN ow.OrderWeek IS NOT NULL THEN 1 ELSE 0 END AS HasOrder,
+            CASE WHEN sw.OrderWeek IS NOT NULL THEN 1 ELSE 0 END AS HasShipment,
+            CASE WHEN snw.OrderWeek IS NOT NULL THEN 1 ELSE 0 END AS HasUploadSnapshot,
+            ISNULL(sw.ShipmentCustomerCount, 0) AS ShipmentCustomerCount
+       FROM AllWeeks aw
+       LEFT JOIN OrderWeeks ow ON ow.OrderYear = aw.OrderYear AND ow.OrderWeek = aw.OrderWeek
+       LEFT JOIN ShipWeeks sw ON sw.OrderYear = aw.OrderYear AND sw.OrderWeek = aw.OrderWeek
+       LEFT JOIN SnapWeeks snw ON snw.OrderYear = aw.OrderYear AND snw.OrderWeek = aw.OrderWeek
+      ORDER BY aw.OrderYear DESC,
+               TRY_CONVERT(INT, LEFT(aw.OrderWeek, 2)) DESC,
+               TRY_CONVERT(INT, RIGHT(aw.OrderWeek, 2)) DESC`,
   );
 
   const rows = ywRes.recordset || [];
@@ -61,7 +112,14 @@ async function handleOptions(req, res) {
       parentWeek: String(r.OrderWeek).slice(0, 2),
       orderWeek: r.OrderWeek,
       subWeek: r.OrderWeek,
+      hasOrder: Number(r.HasOrder) === 1,
+      hasShipment: Number(r.HasShipment) === 1,
+      hasUploadSnapshot: Number(r.HasUploadSnapshot) === 1,
+      shipmentCustomerCount: Number(r.ShipmentCustomerCount) || 0,
     }));
+
+  const defaultOrderWeek = pickDefaultOrderWeek(weeks);
+  const defaultParentWeek = defaultOrderWeek ? defaultOrderWeek.slice(0, 2) : '';
 
   let customers = [];
   const rawWeek = String(req.query.orderWeek || '').trim();
@@ -80,9 +138,22 @@ async function handleOptions(req, res) {
           WHERE OrderYear = @yrInt AND OrderWeek = @wk AND IsDeleted = 0
        ),
        OrderCust AS (
-         SELECT DISTINCT CustKey
-           FROM OrderMaster
-          WHERE OrderYear = @yrStr AND OrderWeek = @wk AND ISNULL(isDeleted, 0) = 0
+         SELECT DISTINCT om.CustKey
+           FROM OrderMaster om
+           INNER JOIN OrderDetail od ON od.OrderMasterKey = om.OrderMasterKey
+           INNER JOIN Product p ON p.ProdKey = od.ProdKey
+          WHERE om.OrderYear = @yrStr
+            AND om.OrderWeek = @wk
+            AND ISNULL(om.isDeleted, 0) = 0
+            AND ISNULL(od.isDeleted, 0) = 0
+            AND (
+              (CASE p.OutUnit
+                 WHEN N'단' THEN ISNULL(od.BunchQuantity, 0)
+                 WHEN N'송이' THEN ISNULL(od.SteamQuantity, 0)
+                 ELSE ISNULL(od.BoxQuantity, 0)
+               END) > 0
+              OR ISNULL(od.OutQuantity, 0) > 0
+            )
        ),
        ShipCust AS (
          SELECT COALESCE(NULLIF(sd.CustKey, 0), sm.CustKey) AS CustKey
@@ -135,6 +206,8 @@ async function handleOptions(req, res) {
     orderYear: selectedYear,
     years,
     weeks,
+    defaultOrderWeek,
+    defaultParentWeek,
     customers,
   });
 }

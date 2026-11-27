@@ -4,6 +4,7 @@ import {
   mergeBaselineCandidates,
   buildCompareRows,
   buildUpdateCostPayload,
+  pickDefaultOrderWeek,
   roundQty,
 } from '../lib/orderImportCompareLogic.js';
 
@@ -289,5 +290,41 @@ assert.deepEqual(p4.invalidRows, [
   { prodKey: 101, prodName: '몬디알', rawValue: '-500' },
   { prodKey: 102, prodName: '프리덤', rawValue: 'abc' },
 ]);
+
+// 7. pickDefaultOrderWeek tests
+assert.equal(
+  pickDefaultOrderWeek([
+    { orderYear: 2026, orderWeek: '51-02', hasOrder: true, hasShipment: false },
+    { orderYear: 2026, orderWeek: '50-01', hasOrder: true, hasShipment: false },
+    { orderYear: 2026, orderWeek: '49-01', hasOrder: true, hasShipment: false },
+    { orderYear: 2026, orderWeek: '48-02', hasOrder: true, hasShipment: true },
+    { orderYear: 2026, orderWeek: '48-01', hasOrder: true, hasShipment: true },
+    { orderYear: 2026, orderWeek: '47-01', hasOrder: true, hasShipment: true },
+  ]),
+  '48-01',
+  '미래 사전주문 차수(51-02, 50-01, 49-01)보다 실제 출고분배가 있는 최신 대주차(48)의 첫 세부차수(48-01)를 선택한다',
+);
+
+assert.equal(
+  pickDefaultOrderWeek([
+    { orderYear: 2026, orderWeek: '49-01', hasOrder: true, hasShipment: false },
+    { orderYear: 2026, orderWeek: '48-02', hasOrder: true, hasShipment: true },
+    { orderYear: 2026, orderWeek: '48-01', hasOrder: true, hasShipment: false },
+  ]),
+  '48-02',
+  '같은 대주차 내 hasShipment=true인 가장 작은 세부차수를 우선 선택한다',
+);
+
+assert.equal(
+  pickDefaultOrderWeek([
+    { orderYear: 2026, orderWeek: '50-02', hasOrder: true, hasShipment: false },
+    { orderYear: 2026, orderWeek: '50-01', hasOrder: true, hasShipment: false },
+    { orderYear: 2026, orderWeek: '49-01', hasOrder: true, hasShipment: false },
+  ]),
+  '50-01',
+  'hasShipment=true 차수가 전혀 없으면 최신 parentWeek의 가장 작은 subWeek로 fallback한다',
+);
+
+assert.equal(pickDefaultOrderWeek([]), '', '빈 배열은 빈 문자열을 반환한다');
 
 console.log('order import compare tests passed');
