@@ -5797,6 +5797,23 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: `shipmentAndDefectModularParity.test.cjs` 5/5 PASS, 출하·분배·불량차감 관련 단위/SSR 테스트(90/90 + 개별 스위트) PASS, `npm run test:erp-contract` 494/494 commands (680 targets) PASS, `test:erp-manifest` 252 manifests PASS, `guard:erp-writes` PASS, `guard:agent-slop` PASS, `npm run build` (`next build --webpack`) PASS (실운영 Cafe24 배포 후 실브라우저 스모크는 미검증).
 5. 주의/잠금: `desktop/` 수정 0건 유지, 운영 MSSQL 쓰기 0건, `lib/shipmentImport.js`·`lib/salesDefectDeductions.js` export 심볼 `===` 참조 동일성 유지. 연결 목표: g13, g17, g18 / 학습 반영: 있음
 
+## 2026-11-27 영업부 카톡 이미지 주문 초안
+
+- 화면: /orders/sales-paste
+- 대신하는 업무: 영업부 · 영업부 붙여서 주문등록 · 품목·수량 입력 단계(업무표 단계 번호 미검증)
+- 없애려는 것: 카톡 이미지의 품목·수량 다시 넣기
+- 종류: 새로 만듦
+- 누가 언제 여나: 영업부가 카톡으로 주문 이미지를 받았을 때
+- 2주 뒤 셀 것: 이미지 등록 건수, 자동추천 수정률, 재입력 건수
+
+1. 작업 위치: nenova-erp-ui / codex/sales-paste-image / C:/Users/USER/nw-cdx-sales-paste-image / PR #2080
+2. 완료된 것: 클립보드 이미지 인식, 기존 매칭·수량 검증·ADD 저장 연결, 추천 및 확정 품목 기록. 연결 목표 g03·g19.
+3. 남은 할 일: 기존 ANTHROPIC_API_KEY로 Claude Sonnet 4.6 호출. CI, 운영 배포 및 비식별 실모델 스모크 확인.
+4. 검증 상태: 실제 dnSpy FormOrderAdd 빈 ShipmentMaster 조건과 UnitQuantity 확인. 동일 키 SELECT-only ViewOrder 1·ShipmentMaster 1·ViewShipment 0. 브라우저 1920×1080 API 대체 응답으로 붙여넣기·후보 변경·주문 요청·매칭 이력 확인. 주문 UI·계약·dnSpy 검사와 빌드 통과. 최신 master 반영 뒤 전체 ERP 계약 495/495 통과(681 테스트 대상). 운영 실등록과 실모델 미검증.
+5. 주의/잠금: 실험 주문 미등록. 이 작업트리에서 영업부 붙여넣기 화면과 계약 수정 중. 학습 반영 없음.
+
+검색어: sales-paste 카톡 이미지 클립보드 Ctrl+V Claude 매칭이력 dnSpy 빈 ShipmentMaster
+
 ## 2026-11-27 상단 리본·즐겨찾기 오와열 및 세로폭 폭발 긴급 수정 (`fix/ribbon-compact-alignment`)
 - 요약: 상단 세이지 그린 바(`30px`)에서 `Main`(`nenova.exe` 기본 6그룹)과 `★ 즐겨찾기 (N)` 모드를 상호 배타적 열기/닫기 토글로 분리하고, `[전체메뉴 ▾]` 및 그룹 `▾` 확장을 `position: fixed` 플로팅 오버레이로 전환했다. `Main` 리본은 `.nv-ribbon-body` 물리 높이 `86px` 고정(전체 `87px`) + 대형 아이콘 버튼(`64×58px`/`72×58px`)·3행×2열 고정 그리드(`19px`행)로 `1366px`에서도 가로 스크롤 없이 `0px` 편차 오와열을 달성했고, `★ 즐겨찾기` 패널은 50개 이상에서도 `<= 180px` 상한(`172px`)과 `26px` 동일 높이 격자 오와열을 유지한다.
 - 검색어: 상단리본 즐겨찾기 오와열 세로폭고정 86px 180px NenovaRibbonShell nenova-classic.css verify-classic-ui-tabs
