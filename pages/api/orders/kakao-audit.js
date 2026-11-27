@@ -7,6 +7,35 @@ const ACTION_RE = /(추가|취소|춰소|쥐소|츼소|추기)/;
 const QTY_RE = /(-?\d+(?:\.\d+)?)\s*(박스|박|box|BOX|단|bunch|BUNCH|송이|stem|STEM)?/;
 const WEEK_RE = /(?:^|\s)(\d{1,2})\s*(?:-|차\s*)\s*(\d{1,2})?/;
 const NOISE_LINE_RE = /(오늘|출고|부탁|확인|물량|체크|사진|파일|최종|요청|예정|적재|입구|앞으로)/;
+const AUDIT_MASTER_TTL_MS = 5 * 60 * 1000;
+let auditMasterCache = { expiresAt: 0, promise: null, data: null };
+
+export async function loadAuditMasters({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && auditMasterCache.data && auditMasterCache.expiresAt > now) {
+    return auditMasterCache.data;
+  }
+  if (!force && auditMasterCache.promise) {
+    return auditMasterCache.promise;
+  }
+  const task = Promise.all([
+    query(`SELECT CustKey, CustCode, CustName, CustArea, Manager, OrderCode FROM Customer WHERE ISNULL(isDeleted,0)=0 ORDER BY CustName`),
+    query(`SELECT ProdKey, ProdCode, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName, OutUnit
+           FROM Product WHERE ISNULL(isDeleted,0)=0 ORDER BY ProdName`),
+  ]).then(([custRes, prodRes]) => {
+    const data = {
+      customers: custRes.recordset || [],
+      products: prodRes.recordset || [],
+    };
+    auditMasterCache = { expiresAt: Date.now() + AUDIT_MASTER_TTL_MS, promise: null, data };
+    return data;
+  }).catch((err) => {
+    if (auditMasterCache.promise === task) auditMasterCache.promise = null;
+    throw err;
+  });
+  auditMasterCache.promise = task;
+  return task;
+}
 
 function normalizeWeek(raw = '') {
   const m = String(raw).match(WEEK_RE);
@@ -165,74 +194,81 @@ export async function getDbState(reqs, orderYear) {
   const unique = [...new Set(pairs)];
   if (unique.length === 0) return new Map();
 
-  const values = unique.map((key, i) => {
-    const [week, custKey, prodKey] = key.split('|');
-    return { key, i, week, custKey: Number(custKey), prodKey: Number(prodKey) };
-  });
-  const rowsSql = values.map(v => `SELECT @w${v.i} AS week, @c${v.i} AS custKey, @p${v.i} AS prodKey`).join(' UNION ALL ');
-  const params = { orderYear: { type: sql.NVarChar, value: String(orderYear) } };
-  for (const v of values) {
-    params[`w${v.i}`] = { type: sql.NVarChar, value: v.week };
-    params[`c${v.i}`] = { type: sql.Int, value: v.custKey };
-    params[`p${v.i}`] = { type: sql.Int, value: v.prodKey };
+  const merged = new Map();
+  const CHUNK_SIZE = 300;
+  for (let offset = 0; offset < unique.length; offset += CHUNK_SIZE) {
+    const slice = unique.slice(offset, offset + CHUNK_SIZE);
+    const values = slice.map((key, i) => {
+      const [week, custKey, prodKey] = key.split('|');
+      return { key, i, week, custKey: Number(custKey), prodKey: Number(prodKey) };
+    });
+    const rowsSql = values.map(v => `SELECT @w${v.i} AS week, @c${v.i} AS custKey, @p${v.i} AS prodKey`).join(' UNION ALL ');
+    const params = { orderYear: { type: sql.NVarChar, value: String(orderYear) } };
+    for (const v of values) {
+      params[`w${v.i}`] = { type: sql.NVarChar, value: v.week };
+      params[`c${v.i}`] = { type: sql.Int, value: v.custKey };
+      params[`p${v.i}`] = { type: sql.Int, value: v.prodKey };
+    }
+
+    const result = await query(
+      `WITH targets AS (${rowsSql})
+       SELECT
+         t.week, t.custKey, t.prodKey,
+         ISNULL(o.orderQty, 0) AS orderQty,
+         ISNULL(s.shipQty, 0) AS shipQty,
+         ISNULL(oh.orderHistoryCnt, 0) AS orderHistoryCnt,
+         ISNULL(sh.shipHistoryCnt, 0) AS shipHistoryCnt,
+         oh.lastOrderChangeDtm,
+         sh.lastShipChangeDtm
+       FROM targets t
+       OUTER APPLY (
+         SELECT SUM(ISNULL(od.OutQuantity,0)) AS orderQty
+         FROM OrderMaster om
+         JOIN OrderDetail od ON od.OrderMasterKey = om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
+         WHERE ISNULL(om.isDeleted,0)=0 AND om.OrderYear=@orderYear AND om.OrderWeek=t.week AND om.CustKey=t.custKey AND od.ProdKey=t.prodKey
+       ) o
+       OUTER APPLY (
+         SELECT SUM(ISNULL(sd.OutQuantity,0)) AS shipQty
+         FROM ShipmentMaster sm
+         JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+         WHERE ISNULL(sm.isDeleted,0)=0 AND sm.OrderYear=@orderYear AND sm.OrderWeek=t.week AND sm.CustKey=t.custKey AND sd.ProdKey=t.prodKey
+       ) s
+       OUTER APPLY (
+         SELECT COUNT(*) AS orderHistoryCnt, CONVERT(NVARCHAR(19), MAX(oh.ChangeDtm), 120) AS lastOrderChangeDtm
+         FROM OrderHistory oh
+         JOIN OrderDetail od ON oh.OrderDetailKey = od.OrderDetailKey
+         JOIN OrderMaster om ON od.OrderMasterKey = om.OrderMasterKey
+         WHERE om.OrderYear=@orderYear AND om.OrderWeek=t.week AND om.CustKey=t.custKey AND od.ProdKey=t.prodKey
+       ) oh
+       OUTER APPLY (
+         SELECT COUNT(*) AS shipHistoryCnt, CONVERT(NVARCHAR(19), MAX(sh.ChangeDtm), 120) AS lastShipChangeDtm
+         FROM ShipmentHistory sh
+         JOIN ShipmentDetail sd ON sh.SdetailKey = sd.SdetailKey
+         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+         WHERE sm.OrderYear=@orderYear AND sm.OrderWeek=t.week AND sm.CustKey=t.custKey AND sd.ProdKey=t.prodKey
+       ) sh`,
+      params
+    );
+    for (const r of result.recordset || []) {
+      merged.set(`${r.week}|${r.custKey}|${r.prodKey}`, r);
+    }
   }
 
-  const result = await query(
-    `WITH targets AS (${rowsSql})
-     SELECT
-       t.week, t.custKey, t.prodKey,
-       ISNULL(o.orderQty, 0) AS orderQty,
-       ISNULL(s.shipQty, 0) AS shipQty,
-       ISNULL(oh.orderHistoryCnt, 0) AS orderHistoryCnt,
-       ISNULL(sh.shipHistoryCnt, 0) AS shipHistoryCnt,
-       oh.lastOrderChangeDtm,
-       sh.lastShipChangeDtm
-     FROM targets t
-     OUTER APPLY (
-       SELECT SUM(ISNULL(od.OutQuantity,0)) AS orderQty
-       FROM OrderMaster om
-       JOIN OrderDetail od ON od.OrderMasterKey = om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
-       WHERE ISNULL(om.isDeleted,0)=0 AND om.OrderYear=@orderYear AND om.OrderWeek=t.week AND om.CustKey=t.custKey AND od.ProdKey=t.prodKey
-     ) o
-     OUTER APPLY (
-       SELECT SUM(ISNULL(sd.OutQuantity,0)) AS shipQty
-       FROM ShipmentMaster sm
-       JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
-       WHERE ISNULL(sm.isDeleted,0)=0 AND sm.OrderYear=@orderYear AND sm.OrderWeek=t.week AND sm.CustKey=t.custKey AND sd.ProdKey=t.prodKey
-     ) s
-     OUTER APPLY (
-       SELECT COUNT(*) AS orderHistoryCnt, CONVERT(NVARCHAR(19), MAX(oh.ChangeDtm), 120) AS lastOrderChangeDtm
-       FROM OrderHistory oh
-       JOIN OrderDetail od ON oh.OrderDetailKey = od.OrderDetailKey
-       JOIN OrderMaster om ON od.OrderMasterKey = om.OrderMasterKey
-       WHERE om.OrderYear=@orderYear AND om.OrderWeek=t.week AND om.CustKey=t.custKey AND od.ProdKey=t.prodKey
-     ) oh
-     OUTER APPLY (
-       SELECT COUNT(*) AS shipHistoryCnt, CONVERT(NVARCHAR(19), MAX(sh.ChangeDtm), 120) AS lastShipChangeDtm
-       FROM ShipmentHistory sh
-       JOIN ShipmentDetail sd ON sh.SdetailKey = sd.SdetailKey
-       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-       WHERE sm.OrderYear=@orderYear AND sm.OrderWeek=t.week AND sm.CustKey=t.custKey AND sd.ProdKey=t.prodKey
-     ) sh`,
-    params
-  );
-
-  return new Map(result.recordset.map(r => [`${r.week}|${r.custKey}|${r.prodKey}`, r]));
+  return merged;
 }
 
-// parsed → rows(issues/status) 계산을 handler와 change-queue.js API가 공유한다.
-export async function auditText(text, selectedYear) {
-  const [custRes, prodRes] = await Promise.all([
-    query(`SELECT CustKey, CustCode, CustName, CustArea, Manager, OrderCode FROM Customer WHERE ISNULL(isDeleted,0)=0 ORDER BY CustName`),
-    query(`SELECT ProdKey, ProdCode, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName, OutUnit
-           FROM Product WHERE ISNULL(isDeleted,0)=0 ORDER BY ProdName`),
-  ]);
-  const customers = custRes.recordset;
-  const products = prodRes.recordset;
-
-  const parsed = parseKakaoRequests(text).map(r => {
-    const custMatch = matchCustomer(customers, r.inputCustomer);
-    const prodInfo = matchProduct(products, r.inputProduct);
+function matchParsedRequests(rawText, customers, products, customerCache = new Map(), productCache = new Map()) {
+  return parseKakaoRequests(rawText).map(r => {
+    let custMatch = customerCache.get(r.inputCustomer);
+    if (custMatch === undefined) {
+      custMatch = matchCustomer(customers, r.inputCustomer);
+      customerCache.set(r.inputCustomer, custMatch);
+    }
+    let prodInfo = productCache.get(r.inputProduct);
+    if (prodInfo === undefined) {
+      prodInfo = matchProduct(products, r.inputProduct);
+      productCache.set(r.inputProduct, prodInfo);
+    }
     return {
       ...r,
       custMatch,
@@ -254,9 +290,10 @@ export async function auditText(text, selectedYear) {
       })),
     };
   });
+}
 
-  const dbState = await getDbState(parsed, selectedYear);
-  const rows = parsed.map(r => {
+function evaluateParsedRows(parsed, dbState) {
+  return parsed.map(r => {
     const key = r.week && r.custMatch?.CustKey && r.prodMatch?.ProdKey
       ? `${r.week}|${r.custMatch.CustKey}|${r.prodMatch.ProdKey}`
       : null;
@@ -277,6 +314,14 @@ export async function auditText(text, selectedYear) {
       issues,
     };
   });
+}
+
+// parsed → rows(issues/status) 계산을 handler와 change-queue.js API가 공유한다.
+export async function auditText(text, selectedYear, options = {}) {
+  const { customers, products } = await loadAuditMasters({ force: Boolean(options.forceMasters) });
+  const parsed = matchParsedRequests(text, customers, products);
+  const dbState = await getDbState(parsed, selectedYear);
+  const rows = evaluateParsedRows(parsed, dbState);
 
   const summary = {
     total: rows.length,
@@ -288,6 +333,16 @@ export async function auditText(text, selectedYear) {
   };
 
   return { summary, rows };
+}
+
+export async function auditMessages(texts, selectedYear, options = {}) {
+  if (!Array.isArray(texts) || texts.length === 0) return [];
+  const { customers, products } = await loadAuditMasters({ force: Boolean(options.forceMasters) });
+  const customerCache = new Map();
+  const productCache = new Map();
+  const parsedPerMessage = texts.map(t => matchParsedRequests(t, customers, products, customerCache, productCache));
+  const dbState = await getDbState(parsedPerMessage.flat(), selectedYear);
+  return parsedPerMessage.map(parsed => evaluateParsedRows(parsed, dbState));
 }
 
 export default withAuth(async function handler(req, res) {

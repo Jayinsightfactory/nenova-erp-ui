@@ -24,16 +24,47 @@ function roomLoose(raw, target) {
   return false;
 }
 const isOrderRoom = room => ORDER_ROOMS.some(r => roomLoose(room, r));
+const ORDER_FEED_TTL_MS = 5 * 60 * 1000;
+const parsedOrderFeedCache = new WeakMap();
+
+function parseOrderFeedValues(values) {
+  if (Array.isArray(values)) {
+    const cached = parsedOrderFeedCache.get(values);
+    if (cached) return cached;
+  }
+  const rows = (values || []).slice(1) // 헤더 제외
+    .map(r => ({ time: r[0] || '', room: r[1] || '', sender: r[3] || '', text: r[4] || '', msgId: r[5] || '' }))
+    .filter(r => r.text);
+  const recent = rows.filter(r => isOrderRoom(r.room)).slice(-800);
+  const blocks = [];
+  for (const r of recent) {
+    const last = blocks[blocks.length - 1];
+    if (last && last.room === r.room && last.sender === r.sender) {
+      last.lines.push(r.text);
+      last.messages.push(r);
+      last.lastMsgId = r.msgId || last.lastMsgId;
+    } else {
+      blocks.push({ msgId: r.msgId, lastMsgId: r.msgId, room: r.room, sender: r.sender, time: r.time, lines: [r.text], messages: [r] });
+    }
+  }
+  const parsed = { rows, blocks };
+  if (Array.isArray(values)) parsedOrderFeedCache.set(values, parsed);
+  return parsed;
+}
 
 async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
   try {
-    const values = await readSheetValues({ spreadsheetId: getKakaoSheetId(), range: '이벤트로그!A:F' });
-    const rows = (values || []).slice(1) // 헤더 제외
-      .map(r => ({ time: r[0] || '', room: r[1] || '', sender: r[3] || '', text: r[4] || '', msgId: r[5] || '' }))
-      .filter(r => r.text);
+    const fresh = req.query?.fresh === '1';
+    const values = await readSheetValues({
+      spreadsheetId: getKakaoSheetId(),
+      range: '이벤트로그!A:F',
+      ttlMs: ORDER_FEED_TTL_MS,
+      noCache: fresh,
+    });
+    const { rows, blocks } = parseOrderFeedValues(values);
 
-    if (req.query.debug === 'rooms') {
+    if (req.query?.debug === 'rooms') {
       const dist = {};
       for (const r of rows.slice(-3000)) dist[r.room] = (dist[r.room] || 0) + 1;
       const list = Object.entries(dist).sort((a, b) => b[1] - a[1])
@@ -41,22 +72,7 @@ async function handler(req, res) {
       return res.json({ ok: true, rooms: list.slice(0, 40) });
     }
 
-    const nBlocks = Math.min(parseInt(req.query.n) || 20, 60);
-    // 발주방만 + 최근순 (시각 파싱 불가 → 행 순서 신뢰, workflow.js slice(-N) 패턴)
-    const recent = rows.filter(r => isOrderRoom(r.room)).slice(-800);
-
-    // 같은 방·같은 발신자 연속 행 → 블록
-    const blocks = [];
-    for (const r of recent) {
-      const last = blocks[blocks.length - 1];
-      if (last && last.room === r.room && last.sender === r.sender) {
-        last.lines.push(r.text);
-        last.messages.push(r);
-        last.lastMsgId = r.msgId || last.lastMsgId;
-      } else {
-        blocks.push({ msgId: r.msgId, lastMsgId: r.msgId, room: r.room, sender: r.sender, time: r.time, lines: [r.text], messages: [r] });
-      }
-    }
+    const nBlocks = Math.min(parseInt(req.query?.n) || 20, 60);
     const out = blocks.slice(-nBlocks).reverse() // 최신 먼저
       .map(b => ({ ...b, text: b.lines.join('\n'), lineCount: b.lines.length }));
     res.json({ ok: true, count: out.length, blocks: out });

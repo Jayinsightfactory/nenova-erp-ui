@@ -1,6 +1,9 @@
 import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
+
+const PAGE_SIZE = 100;
+const FONT_STACK = "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', sans-serif";
 
 const inputStyle = {
   height: 32,
@@ -8,11 +11,22 @@ const inputStyle = {
   borderRadius: 4,
   padding: '0 8px',
   fontSize: 12,
+  fontFamily: FONT_STACK,
 };
 
 function fmt(value) {
   return Number(value || 0).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
 }
+
+const SummaryRow = memo(function SummaryRow({ item }) {
+  return (
+    <tr style={rowStyle}>
+      <td style={td}>{item.productName}</td>
+      <td style={tdQty}>{fmt(item.quantity)}</td>
+      <td style={td}>{item.unit}</td>
+    </tr>
+  );
+});
 
 export default function IncomingKakaoSummaryPage() {
   const [filters, setFilters] = useState({
@@ -22,6 +36,8 @@ export default function IncomingKakaoSummaryPage() {
     supplier: '',
     direction: '+',
   });
+  const [quickSearch, setQuickSearch] = useState('');
+  const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,11 +50,13 @@ export default function IncomingKakaoSummaryPage() {
     return p.toString();
   }, [filters]);
 
-  async function load() {
+  const load = useCallback(async (fresh = false) => {
     setLoading(true);
     setError('');
+    setVisibleLimit(PAGE_SIZE);
     try {
-      const res = await fetch(`/api/kakao/summary?${params}`, { credentials: 'same-origin' });
+      const qs = fresh ? (params ? `${params}&fresh=1` : 'fresh=1') : params;
+      const res = await fetch(`/api/kakao/summary${qs ? `?${qs}` : ''}`, { credentials: 'same-origin' });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || '카톡 수량 집계 조회 실패');
       setData(json);
@@ -48,26 +66,39 @@ export default function IncomingKakaoSummaryPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [params]);
 
   useEffect(() => {
-    load();
+    void load(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const items = data?.items || [];
+  const filteredItems = useMemo(() => {
+    const q = quickSearch.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(item =>
+      String(item.productName || '').toLowerCase().includes(q)
+      || String(item.unit || '').toLowerCase().includes(q)
+    );
+  }, [items, quickSearch]);
+
+  const visibleItems = useMemo(
+    () => filteredItems.slice(0, visibleLimit),
+    [filteredItems, visibleLimit]
+  );
 
   return (
     <>
-      <div className={desktopUi.page} style={{ padding: 18, maxWidth: 1200, margin: '0 auto' }}>
+      <div className={desktopUi.page} style={{ padding: 18, maxWidth: 1200, margin: '0 auto', fontFamily: FONT_STACK, fontVariantNumeric: 'tabular-nums' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
           <div>
             <h1 data-desktop-chrome style={{ margin: 0, fontSize: 20 }}>수입방 카톡 수량집계</h1>
             <div style={{ marginTop: 4, fontSize: 12, color: '#667085' }}>
-              Google Sheet의 카톡 구조화 데이터에서 품목과 수량만 집계합니다.
+              Google Sheet의 카톡 구조화 데이터에서 품목과 수량만 집계합니다. (5분 캐시 · 조회 시 즉시 갱신)
             </div>
           </div>
-          <button onClick={load} disabled={loading} style={primaryBtn}>
+          <button onClick={() => load(true)} disabled={loading} style={primaryBtn}>
             {loading ? '조회중...' : '조회'}
           </button>
         </div>
@@ -123,9 +154,16 @@ export default function IncomingKakaoSummaryPage() {
 
         {data && (
           <div style={summaryBar}>
-            <span>품목 {data.summary.products}개</span>
-            <span>근거 행 {data.summary.rows}건</span>
+            <span>품목 {fmt(data.summary.products)}개</span>
+            <span>근거 행 {fmt(data.summary.rows)}건</span>
             <span>총수량 {fmt(data.summary.totalQuantity)}</span>
+            <input
+              value={quickSearch}
+              onChange={e => { setQuickSearch(e.target.value); setVisibleLimit(PAGE_SIZE); }}
+              placeholder="결과 내 품목·단위 즉시 필터"
+              aria-label="결과 내 품목 즉시 필터"
+              style={{ ...inputStyle, marginLeft: 'auto', minWidth: 200, fontWeight: 400 }}
+            />
           </div>
         )}
 
@@ -139,14 +177,10 @@ export default function IncomingKakaoSummaryPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item, index) => (
-                <tr key={`${item.productName}-${item.unit}-${index}`} style={{ borderTop: '1px solid #eef2f7' }}>
-                  <td style={td}>{item.productName}</td>
-                  <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>{fmt(item.quantity)}</td>
-                  <td style={td}>{item.unit}</td>
-                </tr>
+              {visibleItems.map((item, index) => (
+                <SummaryRow key={`${item.productName}-${item.unit}-${index}`} item={item} />
               ))}
-              {!loading && items.length === 0 && (
+              {!loading && filteredItems.length === 0 && (
                 <tr>
                   <td colSpan={3} style={{ padding: 24, textAlign: 'center', color: '#667085' }}>
                     조회된 품목 수량이 없습니다.
@@ -162,6 +196,17 @@ export default function IncomingKakaoSummaryPage() {
               )}
             </tbody>
           </table>
+          {filteredItems.length > visibleLimit && (
+            <div style={{ padding: 10, borderTop: '1px solid #eef2f7', textAlign: 'center', background: '#f8fafc' }}>
+              <button
+                type="button"
+                onClick={() => setVisibleLimit(v => v + PAGE_SIZE)}
+                style={moreBtn}
+              >
+                더 보기 (+{PAGE_SIZE}건 · {visibleItems.length}/{filteredItems.length}건 표시)
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>
@@ -177,6 +222,20 @@ const primaryBtn = {
   borderRadius: 4,
   fontWeight: 700,
   cursor: 'pointer',
+  fontFamily: FONT_STACK,
+};
+
+const moreBtn = {
+  height: 30,
+  padding: '0 14px',
+  border: '1px solid #cbd5e1',
+  background: '#fff',
+  color: '#1e293b',
+  borderRadius: 4,
+  fontSize: 12,
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: FONT_STACK,
 };
 
 const filterBar = {
@@ -194,6 +253,7 @@ const filterBar = {
 const fieldLabel = { fontSize: 12, fontWeight: 700, color: '#344054' };
 const summaryBar = {
   display: 'flex',
+  flexWrap: 'wrap',
   gap: 14,
   alignItems: 'center',
   padding: '8px 10px',
@@ -206,5 +266,7 @@ const summaryBar = {
   fontWeight: 700,
 };
 const errorBox = { marginBottom: 12, padding: 12, border: '1px solid #fecaca', background: '#fff5f5', color: '#b91c1c', borderRadius: 6 };
+const rowStyle = { borderTop: '1px solid #eef2f7', contentVisibility: 'auto', containIntrinsicSize: '0 38px' };
 const th = { padding: '9px 10px', textAlign: 'left', color: '#344054', borderBottom: '1px solid #d9e2f1' };
 const td = { padding: '9px 10px', color: '#1f2937' };
+const tdQty = { ...td, textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' };

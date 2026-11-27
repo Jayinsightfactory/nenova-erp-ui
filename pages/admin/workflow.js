@@ -1,12 +1,14 @@
 // pages/admin/workflow.js
 // 직원간 업무플로우 분석 — nenovakakao 기획(파이프라인+흐름+라이프사이클+이슈) 풀반영.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet } from '../../lib/useApi';
 
+const PAGE_SIZE = 100;
+const FONT_STACK = "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', sans-serif";
 const fmt = n => Number(n || 0).toLocaleString();
 const P = ['#1d4ed8', '#16a34a', '#9333ea', '#ea580c', '#0891b2', '#dc2626', '#ca8a04', '#4f46e5'];
 
-function Bar({ data, label, vk = 'count', unit = '건' }) {
+const Bar = memo(function Bar({ data, label, vk = 'count', unit = '건' }) {
   const top = (data || []).slice(0, 12);
   const mx = Math.max(1, ...top.map(d => Math.abs(d[vk] || 0)));
   return (
@@ -22,9 +24,9 @@ function Bar({ data, label, vk = 'count', unit = '건' }) {
       ))}
     </div>
   );
-}
+});
 
-function FlowGraph({ flow }) {
+const FlowGraph = memo(function FlowGraph({ flow }) {
   const froms = [...new Set((flow || []).map(f => f.from))], tos = [...new Set((flow || []).map(f => f.to))];
   if (!flow?.length) return <div style={muted}>매칭된 요청→처리 흐름이 없습니다.</div>;
   const W = 640, rh = 34, H = Math.max(froms.length, tos.length) * rh + 40, y = i => 30 + i * rh, maxC = Math.max(1, ...flow.map(f => f.count));
@@ -37,9 +39,9 @@ function FlowGraph({ flow }) {
       {tos.map((s, i) => <g key={s}><rect x={W - 160} y={y(i) - 6} width="140" height="22" rx="11" fill="#dcfce7" stroke="#16a34a" /><text x={W - 90} y={y(i) + 9} fontSize="11" fill="#14532d" textAnchor="middle">{s.slice(0, 12)}</text></g>)}
     </svg>
   );
-}
+});
 
-function CoworkGraph({ cowork }) {
+const CoworkGraph = memo(function CoworkGraph({ cowork }) {
   const nodes = [...new Set((cowork || []).flatMap(e => [e.a, e.b]))];
   if (!nodes.length) return <div style={muted}>공동 참여 데이터가 없습니다.</div>;
   const W = 520, cx = W / 2, cy = 230, R = 170, pos = {};
@@ -51,19 +53,51 @@ function CoworkGraph({ cowork }) {
       {nodes.map((n, i) => <g key={n}><circle cx={pos[n].x} cy={pos[n].y} r="9" fill={P[i % P.length]} /><text x={pos[n].x} y={pos[n].y - 13} fontSize="10" fill="#334155" textAnchor="middle">{n.slice(0, 10)}</text></g>)}
     </svg>
   );
-}
+});
 
-function Table({ cols, rows, render, empty = '데이터 없음', max = 520 }) {
+const Table = memo(function Table({ cols, rows, render, empty = '데이터 없음', max = 520 }) {
+  const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE);
+  useEffect(() => {
+    setVisibleLimit(PAGE_SIZE);
+  }, [rows]);
+
+  const list = rows || [];
+  const visibleRows = useMemo(() => list.slice(0, visibleLimit), [list, visibleLimit]);
+
   return (
     <div style={{ ...card, overflow: 'auto', maxHeight: max, padding: 0 }}>
       <table style={tbl}><thead><tr>{cols.map(c => <th key={c} style={th}>{c}</th>)}</tr></thead>
-        <tbody>{(!rows || rows.length === 0) ? <tr><td colSpan={cols.length} style={emptyTd}>{empty}</td></tr> : rows.map((r, i) => <tr key={i}>{render(r, i)}</tr>)}</tbody>
+        <tbody>{list.length === 0 ? <tr><td colSpan={cols.length} style={emptyTd}>{empty}</td></tr> : visibleRows.map((r, i) => <tr key={i} style={trCv}>{render(r, i)}</tr>)}</tbody>
       </table>
+      {list.length > visibleLimit && (
+        <div style={moreWrap}>
+          <button type="button" onClick={() => setVisibleLimit(v => v + PAGE_SIZE)} style={moreBtn}>
+            더 보기 (+{PAGE_SIZE}건 · {visibleRows.length}/{list.length}건 표시)
+          </button>
+        </div>
+      )}
     </div>
   );
-}
+});
 
-const TABS = [['pipeline', '🏭 파이프라인'], ['summary', '📊 요약'], ['chasu', '🧭 차수 타임라인'], ['flow', '🔄 흐름분석'], ['issuetrack', '🗂 이슈트래킹'], ['people', '👥 직원·네트워크'], ['sql', '🔗 요청→처리(전산)']];
+const ChasuFlowRow = memo(function ChasuFlowRow({ f }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '64px 84px 1fr', gap: 8, padding: '7px 10px', borderBottom: '1px solid #f1f5f9', borderLeft: `4px solid ${STAGE_COLOR[f.stageKey] || '#94a3b8'}`, contentVisibility: 'auto', containIntrinsicSize: '0 44px' }}>
+      <span style={{ fontSize: 11, color: '#64748b', fontFamily: FONT_STACK, fontVariantNumeric: 'tabular-nums' }}>{f.time || ''}</span>
+      <span><span style={{ ...chip('#f1f5f9', STAGE_COLOR[f.stageKey] || '#475569'), fontSize: 10 }}>{f.stage}</span></span>
+      <span style={{ fontSize: 12, minWidth: 0 }}>
+        <b style={{ color: '#0f172a' }}>{f.sender || '?'}</b>
+        <span style={{ color: '#94a3b8' }}> · {f.room}</span>
+        <span style={{ marginLeft: 6, color: f.direction === '-' ? '#dc2626' : '#1d4ed8', fontWeight: 700 }}>{f.etLabel}</span>
+        {f.product && f.product !== '품목미분류' && <span style={{ marginLeft: 6, fontVariantNumeric: 'tabular-nums' }}>{f.product}{f.qty ? ` ${f.qty}${f.unit}` : ''}</span>}
+        {f.customer && <span style={{ marginLeft: 6, color: '#7c3aed' }}>[{f.customer}]</span>}
+        {f.summary && <div style={{ color: '#475569', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.summary}>{f.summary}</div>}
+      </span>
+    </div>
+  );
+});
+
+const TABS = [['pipeline', '파이프라인'], ['summary', '요약'], ['chasu', '차수 타임라인'], ['flow', '흐름분석'], ['issuetrack', '이슈 대응'], ['people', '직원·네트워크'], ['sql', '요청→처리(전산)']];
 
 const STAGE_COLOR = { IMPORT: '#0891b2', QC: '#dc2626', INVENTORY: '#ca8a04', ORDER: '#1d4ed8', DISTRIBUTE: '#16a34a', FIELD: '#9333ea', SYSTEM: '#64748b', '': '#94a3b8' };
 
@@ -71,14 +105,19 @@ export default function WorkflowAnalysis() {
   const [tab, setTab] = useState('pipeline');
   const [week, setWeek] = useState(''); const [room, setRoom] = useState(''); const [stage, setStage] = useState('');
   const [d, setD] = useState(null); const [loading, setLoading] = useState(false); const [err, setErr] = useState('');
+  const [chasuLimit, setChasuLimit] = useState(PAGE_SIZE);
   const [progress, setProgress] = useState(0); const timer = useRef(null);
 
-  const load = useCallback(async () => {
-    setLoading(true); setErr(''); setProgress(4);
+  const load = useCallback(async (fresh = false) => {
+    setLoading(true); setErr(''); setProgress(4); setChasuLimit(PAGE_SIZE);
     if (timer.current) clearInterval(timer.current);
     // 경과시간 기반 추정 진행률(서버가 실시간 %를 주지 않으므로 95%까지 점근, 완료 시 100%)
     timer.current = setInterval(() => setProgress(p => Math.min(95, p + Math.max(0.5, (95 - p) * 0.05))), 200);
-    try { const r = await apiGet('/api/admin/workflow', { week, room, stage }); if (!r.success) throw new Error(r.error); setD(r); }
+    try {
+      const r = await apiGet('/api/admin/workflow', { week, room, stage, ...(fresh ? { fresh: '1' } : {}) });
+      if (!r.success) throw new Error(r.error);
+      setD(r);
+    }
     catch (e) { setErr(e.message); setD(null); }
     finally {
       if (timer.current) { clearInterval(timer.current); timer.current = null; }
@@ -86,17 +125,19 @@ export default function WorkflowAnalysis() {
       setTimeout(() => setProgress(0), 600);
     }
   }, [week, room, stage]);
-  useEffect(() => { load(); return () => { if (timer.current) clearInterval(timer.current); }; }, [load]);
+  useEffect(() => { load(false); return () => { if (timer.current) clearInterval(timer.current); }; }, [load]);
 
   const stageMsg = progress < 30 ? '① 카카오 대화 시트 읽는 중…' : progress < 65 ? '② 주문(ViewOrder) 매칭 중…' : progress < 100 ? '③ 업무플로우 분석 중…' : '완료';
 
   const t = d?.totals || {};
   const pRate = t.requests ? Math.round((t.processed / t.requests) * 100) : 0;
   const iRate = t.issues ? Math.round((t.resolved / t.issues) * 100) : 0;
+  const chasuFlowList = d?.chasuFlow || [];
+  const visibleChasuFlow = useMemo(() => chasuFlowList.slice(0, chasuLimit), [chasuFlowList, chasuLimit]);
 
   return (
-    <div style={{ padding: 16, maxWidth: 1200, margin: '0 auto' }}>
-      <h1 data-desktop-chrome style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 4px' }}>📊 직원간 업무플로우 분석</h1>
+    <div style={{ padding: 16, maxWidth: 1200, margin: '0 auto', fontFamily: FONT_STACK, fontVariantNumeric: 'tabular-nums' }}>
+      <h1 data-desktop-chrome style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 4px' }}>직원간 업무플로우 분석</h1>
       <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>nenovakakao 대화(이벤트/이슈) + nenova.exe(ViewOrder) 매칭 · 파이프라인 IMPORT→QC→재고→발주→출고→현장. 읽기 전용.</div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
@@ -107,7 +148,7 @@ export default function WorkflowAnalysis() {
           <option value="">전체</option>
           {['IMPORT', 'QC', 'INVENTORY', 'ORDER', 'DISTRIBUTE', 'FIELD', 'SYSTEM'].map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <button onClick={load} disabled={loading} style={btn}>{loading ? `조회중 ${Math.round(progress)}%` : '조회'}</button>
+        <button onClick={() => load(true)} disabled={loading} style={btn}>{loading ? `조회중 ${Math.round(progress)}%` : '조회'}</button>
       </div>
 
       {loading && (
@@ -123,7 +164,7 @@ export default function WorkflowAnalysis() {
       )}
 
       {err && <div style={banner('#fef2f2', '#b91c1c')}>오류: {err}</div>}
-      {d && !d.kakaoAvailable && <div style={banner('#fffbeb', '#92400e')}>⚠️ 카카오 Google Sheet 미연동 — 서버 env <b>GOOGLE_SERVICE_ACCOUNT_JSON</b>, <b>KAKAO_SHEET_ID</b> 설정 필요. ({d.kakaoError})</div>}
+      {d && !d.kakaoAvailable && <div style={banner('#fffbeb', '#92400e')}>[안내] 카카오 Google Sheet 미연동 — 서버 env <b>GOOGLE_SERVICE_ACCOUNT_JSON</b>, <b>KAKAO_SHEET_ID</b> 설정 필요. ({d.kakaoError})</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 12 }}>
         <Kpi label="대화 로그" v={t.logs} /><Kpi label="업무 이벤트" v={t.events} /><Kpi label="업무 요청" v={t.requests} />
@@ -184,25 +225,21 @@ export default function WorkflowAnalysis() {
 
         {tab === 'chasu' && (
           <div>
-            {!week ? <div style={banner('#eff6ff', '#1d4ed8')}>위 "차수"에 숫자(예: 23)를 입력하고 <b>조회</b>하면, 그 차수의 <b>전사 업무흐름</b>이 단계별·시간순으로 펼쳐집니다.</div>
-              : (d.chasuFlow || []).length === 0 ? <div style={muted}>{week}차 이벤트가 없습니다. (최근 데이터 범위 밖이거나 미수집)</div>
+            {!week ? <div style={banner('#eff6ff', '#1d4ed8')}>위 &quot;차수&quot;에 숫자(예: 23)를 입력하고 <b>조회</b>하면, 그 차수의 <b>전사 업무흐름</b>이 단계별·시간순으로 펼쳐집니다.</div>
+              : chasuFlowList.length === 0 ? <div style={muted}>{week}차 이벤트가 없습니다. (최근 데이터 범위 밖이거나 미수집)</div>
                 : (<>
-                  <div style={secT}>{week}차 전사 업무흐름 — 시간순 {d.chasuFlow.length}건 (색=단계: 🔵수입 🔴검수 🟡재고 🔷발주 🟢출고)</div>
+                  <div style={secT}>{week}차 전사 업무흐름 — 시간순 {fmt(chasuFlowList.length)}건 (단계 색상 구분: 수입 · 검수 · 재고 · 발주 · 출고)</div>
                   <div style={{ ...card, padding: 0, overflow: 'auto', maxHeight: 640 }}>
-                    {d.chasuFlow.map((f, i) => (
-                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '64px 84px 1fr', gap: 8, padding: '7px 10px', borderBottom: '1px solid #f1f5f9', borderLeft: `4px solid ${STAGE_COLOR[f.stageKey] || '#94a3b8'}` }}>
-                        <span style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>{f.time || ''}</span>
-                        <span><span style={{ ...chip('#f1f5f9', STAGE_COLOR[f.stageKey] || '#475569'), fontSize: 10 }}>{f.stage}</span></span>
-                        <span style={{ fontSize: 12, minWidth: 0 }}>
-                          <b style={{ color: '#0f172a' }}>{f.sender || '?'}</b>
-                          <span style={{ color: '#94a3b8' }}> · {f.room}</span>
-                          <span style={{ marginLeft: 6, color: f.direction === '-' ? '#dc2626' : '#1d4ed8', fontWeight: 700 }}>{f.etLabel}</span>
-                          {f.product && f.product !== '품목미분류' && <span style={{ marginLeft: 6 }}>{f.product}{f.qty ? ` ${f.qty}${f.unit}` : ''}</span>}
-                          {f.customer && <span style={{ marginLeft: 6, color: '#7c3aed' }}>[{f.customer}]</span>}
-                          {f.summary && <div style={{ color: '#475569', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.summary}>{f.summary}</div>}
-                        </span>
-                      </div>
+                    {visibleChasuFlow.map((f, i) => (
+                      <ChasuFlowRow key={i} f={f} />
                     ))}
+                    {chasuFlowList.length > chasuLimit && (
+                      <div style={moreWrap}>
+                        <button type="button" onClick={() => setChasuLimit(v => v + PAGE_SIZE)} style={moreBtn}>
+                          더 보기 (+{PAGE_SIZE}건 · {visibleChasuFlow.length}/{chasuFlowList.length}건 표시)
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </>)}
           </div>
@@ -210,7 +247,7 @@ export default function WorkflowAnalysis() {
 
         {tab === 'issuetrack' && (
           <div style={{ display: 'grid', gap: 12 }}>
-            <div style={banner('#f5f3ff', '#6d28d9')}>실제 대화·의사결정 이력에서 자동 도출한 <b>"이슈 → 대응"</b> 패턴입니다(매뉴얼 초안). 어떤 이슈에 누가·어떻게 대응했는지, 거래처가 무엇을 요청·문제삼는지.</div>
+            <div style={banner('#f5f3ff', '#6d28d9')}>실제 대화·의사결정 이력에서 자동 도출한 <b>&quot;이슈 → 대응&quot;</b> 패턴입니다(매뉴얼 초안). 어떤 이슈에 누가·어떻게 대응했는지, 거래처가 무엇을 요청·문제삼는지.</div>
 
             <div><div style={secT}>① 이슈 유형별 대응 패턴 — 누가·어떤 단계·평균 소요·해결</div>
               <Table cols={['이슈 유형', '건수', '주 대응자', '담당 단계', '평균소요(분)', '해결/미해결']} rows={d.issueTracking?.issueTypes}
@@ -258,7 +295,7 @@ export default function WorkflowAnalysis() {
         )}
 
         {tab === 'sql' && (<>
-          {d.sqlSkipped && <div style={banner('#eff6ff', '#1d4ed8')}>전산(ViewOrder) 매칭은 무거워서 <b>차수를 선택</b>해야 조회됩니다. 위 "차수"에 숫자(예: 23) 입력 후 조회하세요.</div>}
+          {d.sqlSkipped && <div style={banner('#eff6ff', '#1d4ed8')}>전산(ViewOrder) 매칭은 무거워서 <b>차수를 선택</b>해야 조회됩니다. 위 &quot;차수&quot;에 숫자(예: 23) 입력 후 조회하세요.</div>}
           <Table cols={['시각', '발신자', '차수', '품목', '수량', '방향', '거래처', '매칭', '처리담당자']} rows={d.tracking}
             render={r => [
               <td key="1" style={td}>{(r.time || '').slice(0, 16)}</td>, <td key="2" style={td}>{r.sender}</td>, <td key="3" style={td}>{r.week}</td>,
@@ -273,10 +310,10 @@ export default function WorkflowAnalysis() {
   );
 }
 
-function Kpi({ label, v, tone }) {
+const Kpi = memo(function Kpi({ label, v, tone }) {
   const c = tone === 'ok' ? '#16a34a' : tone === 'warn' ? '#ea580c' : '#1e293b';
-  return <div style={card}><div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>{label}</div><div style={{ fontSize: 20, fontWeight: 800, color: c }}>{v == null ? '-' : v}</div></div>;
-}
+  return <div style={card}><div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>{label}</div><div style={{ fontSize: 20, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: c }}>{v == null ? '-' : v}</div></div>;
+});
 
 const card = { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px' };
 const cardTitle = { fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 8 };
@@ -284,18 +321,21 @@ const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(3
 const muted = { color: '#94a3b8', fontSize: 12, padding: 8 };
 const lbl = { fontSize: 11, color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 const track = { background: '#f1f5f9', borderRadius: 4, height: 16, overflow: 'hidden' };
-const numS = { fontSize: 11, textAlign: 'right', fontFamily: 'monospace', color: '#1e293b' };
-const inp = { width: 70, minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 8, padding: '0 8px', fontSize: 13, textAlign: 'center' };
+const numS = { fontSize: 11, textAlign: 'right', fontFamily: FONT_STACK, fontVariantNumeric: 'tabular-nums', color: '#1e293b' };
+const inp = { width: 70, minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 8, padding: '0 8px', fontSize: 13, textAlign: 'center', fontFamily: FONT_STACK };
 const flbl = { fontSize: 12, fontWeight: 700, color: '#475569' };
-const btn = { minHeight: 32, padding: '0 16px', background: '#1d4ed8', color: '#fff', border: 0, borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: 'pointer' };
-const tabOn = { padding: '6px 12px', borderRadius: 16, border: '1px solid #1d4ed8', background: '#1d4ed8', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' };
-const tabOff = { padding: '6px 12px', borderRadius: 16, border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 700, cursor: 'pointer' };
+const btn = { minHeight: 32, padding: '0 16px', background: '#1d4ed8', color: '#fff', border: 0, borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: FONT_STACK };
+const tabOn = { padding: '6px 12px', borderRadius: 16, border: '1px solid #1d4ed8', background: '#1d4ed8', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: FONT_STACK };
+const tabOff = { padding: '6px 12px', borderRadius: 16, border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: FONT_STACK };
 const tbl = { width: '100%', borderCollapse: 'collapse', fontSize: 12 };
+const trCv = { contentVisibility: 'auto', containIntrinsicSize: '0 34px' };
 const th = { position: 'sticky', top: 0, background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '6px 8px', textAlign: 'left', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap' };
 const td = { borderBottom: '1px solid #f1f5f9', padding: '5px 8px', color: '#1e293b', whiteSpace: 'nowrap', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' };
-const tdR = { ...td, textAlign: 'right', fontFamily: 'monospace' };
+const tdR = { ...td, textAlign: 'right', fontFamily: FONT_STACK, fontVariantNumeric: 'tabular-nums' };
 const emptyTd = { padding: 22, textAlign: 'center', color: '#94a3b8', fontSize: 13 };
 const secT = { fontSize: 13, fontWeight: 800, color: '#334155', margin: '0 0 6px' };
 const svgBox = { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 };
+const moreWrap = { padding: 8, borderTop: '1px solid #e2e8f0', textAlign: 'center', background: '#f8fafc' };
+const moreBtn = { padding: '5px 12px', border: '1px solid #cbd5e1', background: '#fff', color: '#1e293b', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: FONT_STACK };
 const chip = (bg, c) => ({ fontSize: 11, fontWeight: 800, background: bg, color: c, borderRadius: 6, padding: '1px 7px' });
 const banner = (bg, c) => ({ background: bg, color: c, border: `1px solid ${c}33`, borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: 10 });
