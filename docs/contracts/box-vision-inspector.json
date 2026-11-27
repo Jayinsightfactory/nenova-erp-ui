@@ -4,7 +4,16 @@
   "scope": [
     "pages/vision/box-inspector.js",
     "pages/api/vision/box-count-match.js",
+    "components/vision/BoxVisionStep2ReviewPanel.js",
+    "components/vision/BoxVisionStep3ResultsPanel.js",
     "lib/boxVisionInspector.js",
+    "lib/boxVision/palletProfiles.js",
+    "lib/boxVision/samplePhotos.js",
+    "lib/boxVision/fallbackLedgers.js",
+    "lib/boxVision/routeAndBill.js",
+    "lib/boxVision/deductionEngine.js",
+    "lib/boxVision/canvasSegmentation.js",
+    "lib/boxVision/clientCanvasMeta.js",
     "styles/BoxVisionInspector.module.css"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -22,6 +31,7 @@
   },
   "requiredTestFiles": [
     "__tests__/boxVisionInspector.test.cjs",
+    "__tests__/boxVisionModularParity.test.cjs",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
@@ -45,7 +55,7 @@
     "npm run test:erp-contract",
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from origin/master",
-    "node --test __tests__/boxVisionInspector.test.cjs",
+    "node --test __tests__/boxVisionInspector.test.cjs __tests__/boxVisionModularParity.test.cjs",
     "npm run build"
   ]
 }
