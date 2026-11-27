@@ -3,6 +3,7 @@ import {
   convertQtyToOutUnit,
   mergeBaselineCandidates,
   buildCompareRows,
+  buildUpdateCostPayload,
   roundQty,
 } from '../lib/orderImportCompareLogic.js';
 
@@ -202,5 +203,91 @@ const fallbackMerge = mergeBaselineCandidates([
 assert.equal(fallbackMerge.items.length, 1, 'prodKey null/0은 정규화 inputName 기준으로 병합');
 assert.equal(fallbackMerge.items[0].outQty, 5);
 assert.equal(roundQty(0.1 + 0.2), 0.3);
+
+// 6. buildUpdateCostPayload tests
+const priceRowsSource = [
+  {
+    prodKey: 101,
+    prodName: 'ROSE Mondial',
+    displayName: '몬디알',
+    shipQty: 10,
+    shipCost: 15000,
+    shipAmount: 150000,
+    hasFixed: false,
+    hasMixedShipCost: false,
+    shipmentDetails: [
+      { shipmentKey: 7001, sdetailKey: 9001, outQty: 10, estQty: 10, cost: 15000, amount: 150000, isFix: 0 },
+    ],
+  },
+  {
+    prodKey: 102,
+    prodName: 'ROSE Freedom',
+    displayName: '프리덤',
+    shipQty: 8,
+    shipCost: 12000,
+    shipAmount: 96000,
+    hasFixed: true,
+    hasMixedShipCost: false,
+    shipmentDetails: [
+      { shipmentKey: 7001, sdetailKey: 9002, outQty: 5, estQty: 5, cost: 12000, amount: 60000, isFix: 0 },
+      { shipmentKey: 7002, sdetailKey: 9003, outQty: 3, estQty: 3, cost: 12000, amount: 36000, isFix: 1 },
+    ],
+  },
+  {
+    prodKey: 103,
+    prodName: 'CARNATION Novia',
+    displayName: '노비아',
+    shipQty: 4,
+    shipCost: 10000,
+    shipAmount: 42000,
+    hasFixed: false,
+    hasMixedShipCost: true,
+    shipmentDetails: [
+      { shipmentKey: 7001, sdetailKey: 9004, outQty: 2, estQty: 2, cost: 10000, amount: 20000, isFix: 0 },
+      { shipmentKey: 7002, sdetailKey: 9005, outQty: 2, estQty: 2, cost: 11000, amount: 22000, isFix: 0 },
+    ],
+  },
+];
+
+// 6-1. Single row unit price edit -> { shipmentKey, sdetailKey, cost, expectedOldCost }
+const p1 = buildUpdateCostPayload(priceRowsSource, { '101': '16,500' });
+assert.deepEqual(p1, {
+  items: [{ shipmentKey: 7001, sdetailKey: 9001, cost: 16500, expectedOldCost: 15000 }],
+  editedRowCount: 1,
+  detailRowCount: 1,
+  hasFixedTarget: false,
+  invalidRows: [],
+});
+
+// 6-2 & 6-3. Multi ShipmentDetail rows per ProdKey expanded & isFix === 1 sets hasFixedTarget: true
+const p2 = buildUpdateCostPayload(priceRowsSource, { '102': '13000' });
+assert.deepEqual(p2, {
+  items: [
+    { shipmentKey: 7001, sdetailKey: 9002, cost: 13000, expectedOldCost: 12000 },
+    { shipmentKey: 7002, sdetailKey: 9003, cost: 13000, expectedOldCost: 12000 },
+  ],
+  editedRowCount: 1,
+  detailRowCount: 2,
+  hasFixedTarget: true,
+  invalidRows: [],
+});
+
+// 6-4. Unchanged price (< 0.5) skipped unless hasMixedShipCost: true
+const p3 = buildUpdateCostPayload(priceRowsSource, { '101': '15000.4', '103': '10000' });
+assert.equal(p3.editedRowCount, 1, '동일 단가는 건너뛰고 hasMixedShipCost=true 품목만 포함');
+assert.equal(p3.detailRowCount, 2);
+assert.deepEqual(p3.items, [
+  { shipmentKey: 7001, sdetailKey: 9004, cost: 10000, expectedOldCost: 10000 },
+  { shipmentKey: 7002, sdetailKey: 9005, cost: 10000, expectedOldCost: 11000 },
+]);
+
+// 6-5. Negative / non-numeric inputs collected into invalidRows
+const p4 = buildUpdateCostPayload(priceRowsSource, { '101': '-500', '102': 'abc', '103': '   ' });
+assert.equal(p4.editedRowCount, 0);
+assert.equal(p4.detailRowCount, 0);
+assert.deepEqual(p4.invalidRows, [
+  { prodKey: 101, prodName: '몬디알', rawValue: '-500' },
+  { prodKey: 102, prodName: '프리덤', rawValue: 'abc' },
+]);
 
 console.log('order import compare tests passed');

@@ -194,13 +194,20 @@ async function handleCompare(req, res) {
       },
     ),
     query(
-      `SELECT sd.ProdKey,
+      `SELECT
+              sm.ShipmentKey,
+              sd.SdetailKey,
+              sd.ProdKey,
               p.ProdName,
               ISNULL(p.DisplayName, p.ProdName) AS DisplayName,
               p.FlowerName,
               p.CounName,
               p.OutUnit,
-              SUM(ISNULL(sd.OutQuantity, 0)) AS ShipQty
+              ISNULL(sd.OutQuantity, 0) AS OutQuantity,
+              ISNULL(sd.EstQuantity, 0) AS EstQuantity,
+              ISNULL(sd.Cost, 0) AS Cost,
+              ISNULL(sd.Amount, 0) AS Amount,
+              CAST(ISNULL(sd.isFix, 0) AS INT) AS isFix
          FROM ShipmentMaster sm
          INNER JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
          INNER JOIN Product p ON p.ProdKey = sd.ProdKey
@@ -208,9 +215,7 @@ async function handleCompare(req, res) {
           AND sm.OrderWeek = @wk
           AND (sm.CustKey = @ck OR sd.CustKey = @ck)
           AND ISNULL(sm.isDeleted, 0) = 0
-        GROUP BY sd.ProdKey, p.ProdName, ISNULL(p.DisplayName, p.ProdName), p.FlowerName, p.CounName, p.OutUnit
-       HAVING SUM(ISNULL(sd.OutQuantity, 0)) <> 0
-        ORDER BY MIN(sd.SdetailKey) ASC`,
+        ORDER BY p.ProdName ASC, sm.ShipmentKey ASC, sd.SdetailKey ASC`,
       {
         yr: { type: sql.NVarChar, value: yrStr },
         wk: { type: sql.NVarChar, value: wk },
@@ -345,15 +350,72 @@ async function handleCompare(req, res) {
     String(a.timestamp || a.dateKey).localeCompare(String(b.timestamp || b.dateKey)),
   );
 
-  const shipmentItems = (shipmentRes.recordset || []).map((row) => ({
-    prodKey: Number(row.ProdKey),
-    prodName: row.ProdName || '',
-    displayName: row.DisplayName || row.ProdName || '',
-    flowerName: row.FlowerName || '',
-    counName: row.CounName || '',
-    outUnit: normalizeOrderUnit(row.OutUnit || '박스', '박스'),
-    shipQty: roundQty(Number(row.ShipQty) || 0),
-  }));
+  const shipmentGroups = new Map();
+  for (const row of shipmentRes.recordset || []) {
+    const pk = Number(row.ProdKey);
+    if (!Number.isInteger(pk) || pk <= 0) continue;
+    if (!shipmentGroups.has(pk)) {
+      shipmentGroups.set(pk, {
+        prodKey: pk,
+        prodName: row.ProdName || '',
+        displayName: row.DisplayName || row.ProdName || '',
+        flowerName: row.FlowerName || '',
+        counName: row.CounName || '',
+        outUnit: normalizeOrderUnit(row.OutUnit || '박스', '박스'),
+        shipQty: 0,
+        shipAmount: 0,
+        details: [],
+      });
+    }
+    const group = shipmentGroups.get(pk);
+    const outQty = roundQty(Number(row.OutQuantity) || 0);
+    const estQty = roundQty(Number(row.EstQuantity) || 0);
+    const cost = Number(row.Cost) || 0;
+    const amount = Number(row.Amount) || 0;
+    const isFix = Number(row.isFix) === 1 ? 1 : 0;
+
+    group.shipQty = roundQty(group.shipQty + outQty);
+    group.shipAmount += amount;
+    group.details.push({
+      shipmentKey: Number(row.ShipmentKey),
+      sdetailKey: Number(row.SdetailKey),
+      outQty,
+      estQty,
+      cost,
+      amount,
+      isFix,
+    });
+  }
+
+  const shipmentItems = [];
+  for (const group of shipmentGroups.values()) {
+    if (group.shipQty === 0) continue;
+    const hasFixed = group.details.some((d) => d.isFix === 1);
+    const distinctCosts = [
+      ...new Set(group.details.map((d) => Math.round(Number(d.cost || 0) * 100) / 100)),
+    ];
+    const hasMixedShipCost = distinctCosts.length > 1;
+    const shipCost =
+      distinctCosts.length === 1
+        ? distinctCosts[0]
+        : (group.details.find((d) => Number(d.cost || 0) !== 0)?.cost ?? 0);
+
+    shipmentItems.push({
+      prodKey: group.prodKey,
+      prodName: group.prodName,
+      displayName: group.displayName,
+      flowerName: group.flowerName,
+      counName: group.counName,
+      outUnit: group.outUnit,
+      shipQty: group.shipQty,
+      shipAmount: Math.round(group.shipAmount * 100) / 100,
+      hasFixed,
+      distinctCosts,
+      hasMixedShipCost,
+      shipCost,
+      shipmentDetails: group.details,
+    });
+  }
 
   const custRow = customerRes.recordset?.[0] || null;
   const customer = custRow

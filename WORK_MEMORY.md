@@ -5537,3 +5537,13 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: PR 생성 → GitHub Actions CI 통과 대기 → Squash 머지 → worktree 정리 → `sync-nenova-hq.js`·`owner-agi-twin.js` 실행(운영 Cafe24 배포 완료·실브라우저 클릭 확인 별도).
 4. 검증 상태: 라이브 MSSQL 읽기 전용 SELECT(`2026 / 48-02 / CustKey=578` options 34건·compare orderRows 12/historyRows 12/shipmentItems 1, 스키마 전수 대조) PASS, `test-order-import-compare.mjs` PASS, `test:erp-contract` PASS, `test:erp-manifest` PASS, `guard:erp-writes` PASS, `guard:agent-slop` PASS, `npm run build` PASS, `pstack-verify.cjs` 검증 진행(Cafe24 배포·실브라우저 클릭 미검증).
 5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), `ShipmentDetail.isDeleted` 미참조, `UserInfo.UserID` 조인 금지(`Customer.Manager` 직접 사용), 운영 DB 쓰기 0건. 연결 목표: g03, g17
+
+
+## 2026-11-27 최초주문등록 과 분배 비교 인라인 분배단가 수정·연동 (`feat/order-import-compare-unit-price`, 연결 목표: g03, g17)
+- 요약: `pages/api/orders/import-compare.js`의 출고분배 조회를 행 단위 `SELECT`(`ShipmentKey`, `SdetailKey`, `Cost`, `Amount`, `isFix`)로 확장해 `ProdKey`별 `shipCost`, `shipAmount`, `hasFixed`, `hasMixedShipCost`, `shipmentDetails`를 반환하고, `lib/orderImportCompareLogic.js`에 `buildUpdateCostPayload(compareRows, priceEdits)` 순수 헬퍼를 추가했다. `pages/orders/import-compare.js` 우측에 `분배단가` 입력 열과 `확정`·`복수단가` 배지, `최초적용`·`최초단가 일괄 채우기`·`단가 수정 취소`·`분배단가 저장 (N품목)` 제어를 배치해 기존 `/api/estimate/update-cost`(`mode: 'once'`)로 출고분배 단가·금액을 즉시 재계산하도록 연동했다.
+- 검색어: 최초주문등록 분배비교 분배단가 인라인 수정 update-cost buildUpdateCostPayload hasMixedShipCost hasFixed 최초단가 일괄 채우기 g03 g17
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-import-compare-price`, `feat/order-import-compare-unit-price`) — `pages/api/orders/import-compare.js`, `lib/orderImportCompareLogic.js`, `pages/orders/import-compare.js`, `scripts/test-order-import-compare.mjs`, `WORK_MEMORY.md`.
+2. 완료된 것: 행 단위 `ShipmentDetail` 조회·그룹화, `buildCompareRows` 필드 확장 및 `buildUpdateCostPayload` 구현, 비교 테이블 `분배단가` 인라인 편집·확정 확인·`409`/`ERP_EDIT_LOCKED` 안내·저장 후 재조회 UI, 단위 테스트 5종 추가.
+3. 남은 할 일: PR 생성 → CI 통과 확인 → Squash 머지 → worktree 정리 → `sync-nenova-hq.js`·`owner-agi-twin.js` 실행(실DB 쓰기 E2E 및 Cafe24 운영 배포 확인 별도).
+4. 검증 상태: 라이브 MSSQL 읽기 전용 SELECT(`2026 / 48-02 / CustKey=578`, `SQL_ROW_COUNT=1`, `ShipmentKey/SdetailKey/Cost/Amount/isFix`) PASS, `node scripts/test-order-import-compare.mjs` PASS, `npm run test:erp-contract -- --no-worker-threads --concurrency=4` (494/494 commands, 677 targets) PASS, `npm run test:erp-manifest -- --changed-from origin/master` PASS, `npm run guard:erp-writes -- --changed-from origin/master` PASS, `npm run guard:agent-slop -- --changed-from origin/master` PASS, `npm run build` PASS, `pstack-verify.cjs` 검증 완료(실DB 쓰기 `/api/estimate/update-cost` E2E·Cafe24 배포 완료 여부 미검증).
+5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), `ShipmentDetail.isDeleted` 미참조, 운영 DB 쓰기 0건. 연결 목표: g03, g17
