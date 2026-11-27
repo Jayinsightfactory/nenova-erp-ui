@@ -5787,3 +5787,20 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: PR 생성 → GitHub Actions CI(`verify`) 통과 → Squash 머지 → Cafe24 배포 및 실서버 `cost-master` 정화 확인 → 격리 워크트리 삭제 → `sync-nenova-hq.js` 동기화.
 4. 검증 상태: `node --test __tests__/upgradeLegacyCostSheets.test.mjs __tests__/costWorkbookMerge.test.js __tests__/costMasterStore.test.js __tests__/invoiceCostWorkbookHistory.test.js` 전수 PASS(수식 재평가 오차 `0.000000원`, `#REF!/#VALUE!` 0건, 2회 연속 멱등성 확인), `arrivalCostPage.test.js`·`arrivalCostSingleSheet.test.js`·`arrivalCostEcosystemRoundtrip.test.mjs` PASS, `test:erp-manifest`·`guard:erp-writes`·`test:nenova-dnspy-evidence`·`test:workflow-guides`·`pstack-verify`·`test:erp-contract`·`npm run build` 검증 완료.
 5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 배포), 운영 DB 쓰기 0건(순수 SELECT-only), 비정형 시트(`21,22차` 등)는 수식 무변형 `AutoFilter + Freeze Panes` 방어 가드 유지. 연결 목표: g03, g13, g17, g19 / 학습 반영: 있음
+
+## 2026-11-27 영업부 카톡 이미지 주문 초안
+
+- 화면: /orders/sales-paste
+- 대신하는 업무: 영업부 · 영업부 붙여서 주문등록 · 품목·수량 입력 단계(업무표 단계 번호 미검증)
+- 없애려는 것: 카톡 이미지의 품목·수량 다시 넣기
+- 종류: 새로 만듦
+- 누가 언제 여나: 영업부가 카톡으로 주문 이미지를 받았을 때
+- 2주 뒤 셀 것: 이미지 등록 건수, 자동추천 수정률, 재입력 건수
+
+1. 작업 위치: nenova-erp-ui / codex/sales-paste-image / C:/Users/USER/nw-cdx-sales-paste-image / PR 대기
+2. 완료된 것: 클립보드 이미지 인식, 기존 매칭·수량 검증·ADD 저장 연결, 추천 및 확정 품목 기록. 연결 목표 g03·g19.
+3. 남은 할 일: Gemini 운영 키 등록 후 비식별 실모델 검증, PR 병합, 배포·운영 스모크.
+4. 검증 상태: 실제 dnSpy FormOrderAdd 빈 ShipmentMaster 조건과 UnitQuantity 확인. 동일 키 SELECT-only ViewOrder 1·ShipmentMaster 1·ViewShipment 0. 브라우저 1920×1080 API 대체 응답으로 붙여넣기·후보 변경·주문 요청·매칭 이력 확인. 운영 실등록과 실모델 미검증.
+5. 주의/잠금: 실험 주문 미등록. 이 작업트리에서 영업부 붙여넣기 화면과 계약 수정 중. 학습 반영 없음.
+
+검색어: sales-paste 카톡 이미지 클립보드 Ctrl+V Gemini 매칭이력 dnSpy 빈 ShipmentMaster
