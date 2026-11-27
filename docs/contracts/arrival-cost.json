@@ -30,10 +30,12 @@
     "scripts/import-reviewed-vietnam-arrival-20261005.mjs",
     "scripts/quarantine-arrival-nl52-year-20261029.mjs",
     "lib/arrivalUploadReview.js",
+    "lib/arrivalCostUploadBridge.js",
     "lib/arrivalReviewCountries.js",
     "components/ArrivalUploadReview.js",
     "scripts/reconcile-arrival-nl-split-20261105.mjs",
     "__tests__/arrivalUploadReview.test.js",
+    "__tests__/arrivalCostEcosystemRoundtrip.test.mjs",
     "styles/ArrivalUploadReview.module.css"
   ],
   "businessIdentity": [
@@ -163,7 +165,8 @@
     "__tests__/arrivalYearEvidence.test.js",
     "__tests__/arrivalVietnamWorkbook.test.js",
     "__tests__/arrivalProductCountryTie.test.js",
-    "__tests__/arrivalUploadReview.test.js"
+    "__tests__/arrivalUploadReview.test.js",
+    "__tests__/arrivalCostEcosystemRoundtrip.test.mjs"
   ],
   "dnspyEvidence": {
     "required": true,

@@ -3,6 +3,8 @@ import s from '../../styles/CnArrivalCost.module.css';
 import { CN_CATEGORIES, CN_MODES } from '../../lib/cnArrivalCostRules.js';
 import { CN_HEADER_FIELDS, applyCnCategory, buildCnDraft, computeCnCost, isCnWeightAllocation, reconcileCnAutoHeader } from '../../lib/cnArrivalCostEngine.js';
 import { parseHubfreshFooterCharges, parseHubfreshInvoice } from '../../lib/hubfreshPacking.js';
+import { sendWorkbookToArrivalUploadReview } from '../../lib/arrivalCostUploadBridge.js';
+import { cleanArrivalFlowerChip } from '../../lib/arrivalCostView.js';
 
 const MEMORY_KEY = 'nenova.cnArrivalCost.prodMemory.v1';
 const MODE_LABEL = { CLOUD: 'CLOUD(중국 항공)', HUBFRESH: 'HUBFRESH(중국 해상)' };
@@ -34,7 +36,7 @@ function parseCloudSheetHints(grid = []) {
   return hints;
 }
 
-export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouseKey, warehouseKeys, onClose, onOpenLegacy }) {
+export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouseKey, warehouseKeys, onClose, onOpenLegacy, onSendToUploadReview = null }) {
   const keyList = useMemo(() => (Array.isArray(warehouseKeys) && warehouseKeys.length ? warehouseKeys : [warehouseKey].filter(Boolean)), [warehouseKey, warehouseKeys]);
   const keyParam = keyList.join(',');
   const [source, setSource] = useState(null);
@@ -44,12 +46,15 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [onlyReview, setOnlyReview] = useState(false);
+  const [selectedVarieties, setSelectedVarieties] = useState([]);
+  const [multiVariety, setMultiVariety] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [multiCategory, setMultiCategory] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [multiProduct, setMultiProduct] = useState(false);
   const [showAllProducts, setShowAllProducts] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [rowLimit, setRowLimit] = useState(100);
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -74,10 +79,30 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
 
   const preview = useMemo(() => (draft ? computeCnCost(draft) : null), [draft]);
   const categoryLabelMap = useMemo(() => new Map(CN_CATEGORIES.map(c => [c.code, c.label])), []);
+  const rowVarietyOf = row => cleanArrivalFlowerChip({
+    productNameRaw: row.name,
+    flowerNameRaw: categoryLabelMap.get(row.categoryCode) || '',
+  });
+  const varietySet = useMemo(() => new Set(selectedVarieties), [selectedVarieties]);
+  const categorySet = useMemo(() => new Set(selectedCategories), [selectedCategories]);
+  const productSet = useMemo(() => new Set(selectedProducts), [selectedProducts]);
+  const normalizedCnSearch = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+  const varietyButtons = useMemo(() => {
+    if (!draft?.rows?.length) return [];
+    const counts = new Map();
+    for (const row of draft.rows) {
+      const v = rowVarietyOf(row);
+      counts.set(v, (counts.get(v) || 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => Number(a[0] === '기타') - Number(b[0] === '기타') || a[0].localeCompare(b[0], 'ko'))
+      .map(([label, count]) => ({ label, count }));
+  }, [draft?.rows, categoryLabelMap]);
   const categoryButtons = useMemo(() => {
     if (!draft?.rows?.length) return [];
     const counts = new Map();
     for (const row of draft.rows) {
+      if (varietySet.size > 0 && !varietySet.has(rowVarietyOf(row))) continue;
       counts.set(row.categoryCode, (counts.get(row.categoryCode) || 0) + 1);
     }
     return [...counts.entries()].map(([code, count]) => ({
@@ -85,20 +110,19 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
       label: categoryLabelMap.get(code) || code,
       count,
     }));
-  }, [draft?.rows, categoryLabelMap]);
-  const categorySet = useMemo(() => new Set(selectedCategories), [selectedCategories]);
-  const productSet = useMemo(() => new Set(selectedProducts), [selectedProducts]);
-  const normalizedCnSearch = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+  }, [draft?.rows, categoryLabelMap, varietySet]);
   const productButtons = useMemo(() => {
     if (!draft?.rows?.length) return [];
     const counts = new Map();
     for (const row of draft.rows) {
       if (onlyReview && !row.needsReview) continue;
+      if (varietySet.size > 0 && !varietySet.has(rowVarietyOf(row))) continue;
       if (categorySet.size > 0 && !categorySet.has(row.categoryCode)) continue;
       counts.set(row.name, (counts.get(row.name) || 0) + 1);
     }
     return [...counts.entries()].map(([name, count]) => ({ name, count }));
-  }, [draft?.rows, onlyReview, categorySet]);
+  }, [draft?.rows, onlyReview, varietySet, categorySet, categoryLabelMap]);
+  useEffect(() => { setRowLimit(100); }, [onlyReview, selectedVarieties, selectedCategories, selectedProducts, normalizedCnSearch]);
 
   function switchMode(mode) {
     if (!source || draft?.mode === mode) return;
@@ -186,18 +210,32 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
     }
   }
 
-  async function download() {
+  async function download({ sendToUploadReview = false } = {}) {
     if (!draft || busy) return;
     setBusy(true); setNotice('');
     try {
       const response = await fetch('/api/import/receipts/cn-arrival-cost', { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
         body: JSON.stringify({ mode: draft.mode, header: draft.header, rows: draft.rows, warehouseKey: draft.warehouseKey, warehouseKeys: draft.warehouseKeys, orderYear: draft.orderYear, orderWeek: draft.orderWeek, farmName: draft.farmName, invoiceNo: draft.invoiceNo }) });
       if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || '엑셀을 만들지 못했습니다.'); }
-      const blob = await response.blob(), url = URL.createObjectURL(blob), a = document.createElement('a');
+      const blob = await response.blob();
       const keyPart = draft.warehouseKeys?.length > 1 ? draft.warehouseKeys.join('-') : draft.warehouseKey;
-      a.href = url; a.download = `중국도착원가_${draft.mode}_${draft.orderYear}_${draft.orderWeek}_${keyPart}.xlsx`; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-      setNotice(`화면 수정값 그대로 엑셀(.xlsx)을 생성했습니다 (${blob.size.toLocaleString('ko-KR')}바이트). 노란 입력칸을 바꾸면 엑셀에서도 같은 수식으로 재계산됩니다.`);
+      const fileName = `중국도착원가_${draft.mode}_${draft.orderYear}_${draft.orderWeek}_${keyPart}.xlsx`;
+      if (sendToUploadReview) {
+        await sendWorkbookToArrivalUploadReview({
+          blob,
+          fileName,
+          orderYear: draft.orderYear,
+          orderWeek: draft.orderWeek,
+          country: '중국',
+          onSendToUploadReview,
+        });
+        setNotice(`계산한 원가 엑셀(${fileName})을 도착원가 업로드 검토 패널로 전달했습니다. 아래 시트 검토에서 확인 후 선택 시트 저장을 누르세요.`);
+      } else {
+        const url = URL.createObjectURL(blob), a = document.createElement('a');
+        a.href = url; a.download = fileName; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        setNotice(`화면 수정값 그대로 엑셀(.xlsx)을 생성했습니다 (${blob.size.toLocaleString('ko-KR')}바이트). 노란 입력칸을 바꾸면 엑셀에서도 같은 수식으로 재계산됩니다.`);
+      }
     } catch (error) { setNotice(error.message); }
     finally { setBusy(false); }
   }
@@ -213,15 +251,17 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
   const resultById = new Map((preview?.rows || []).map(r => [r.lineId, r]));
   const visibleRows = draft.rows.filter(r => {
     if (onlyReview && !r.needsReview) return false;
+    if (varietySet.size > 0 && !varietySet.has(rowVarietyOf(r))) return false;
     if (categorySet.size > 0 && !categorySet.has(r.categoryCode)) return false;
     if (productSet.size > 0 && !productSet.has(r.name)) return false;
     if (normalizedCnSearch) {
       const catLabel = categoryLabelMap.get(r.categoryCode) || r.categoryCode || '';
-      if (!`${r.name} ${catLabel}`.toLowerCase().includes(normalizedCnSearch)) return false;
+      if (!`${r.name} ${catLabel} ${rowVarietyOf(r)}`.toLowerCase().includes(normalizedCnSearch)) return false;
     }
     return true;
   });
-  const hasCnFilter = onlyReview || selectedCategories.length > 0 || selectedProducts.length > 0 || normalizedCnSearch.length > 0;
+  const pagedVisibleRows = visibleRows.slice(0, rowLimit);
+  const hasCnFilter = onlyReview || selectedVarieties.length > 0 || selectedCategories.length > 0 || selectedProducts.length > 0 || normalizedCnSearch.length > 0;
   const visibleProductChips = showAllProducts || productButtons.length <= 24 ? productButtons : productButtons.slice(0, 24);
   const filteredSubtotal = visibleRows.reduce((acc, row) => {
     const r = resultById.get(row.lineId);
@@ -317,11 +357,57 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
         {onOpenLegacy && keyList.length === 1 && <button type="button" className={s.secondary} onClick={() => onOpenLegacy(keyList[0])}>구 개별 원가 화면</button>}
         <span className={s.spacer} />
         <button type="button" className={s.secondary} onClick={onClose}>입고 목록으로</button>
-        <button type="button" className={s.primary} disabled={busy || !preview?.rows?.length} onClick={download}>{busy ? '엑셀 생성 중' : '화면 수정값으로 원가 엑셀(.xlsx) 다운로드'}</button>
+        <button type="button" className={s.secondary} disabled={busy || !preview?.rows?.length} onClick={() => download({ sendToUploadReview: true })}>{busy ? '전달 준비 중' : '도착원가 업로드 검토로 바로 보내기'}</button>
+        <button type="button" className={s.primary} disabled={busy || !preview?.rows?.length} onClick={() => download()}>{busy ? '엑셀 생성 중' : '화면 수정값으로 원가 엑셀(.xlsx) 다운로드'}</button>
       </div>
       {notice && <p className={s.status} role="status">{notice}</p>}
 
       <div className={s.filterPanel} role="toolbar" aria-label="카테고리 원클릭 버튼 필터">
+        <div className={s.chipRow} role="toolbar" aria-label="중국 품종 원클릭 버튼 필터">
+          <span className={s.filterLabel}>품종</span>
+          <div className={s.chipList}>
+            <button
+              type="button"
+              className={selectedVarieties.length === 0 ? s.chipActive : s.chip}
+              aria-pressed={selectedVarieties.length === 0}
+              onClick={() => { setSelectedVarieties([]); setSelectedCategories([]); setSelectedProducts([]); }}
+            >
+              전체 품종 ({draft.rows.length})
+            </button>
+            {varietyButtons.map(v => {
+              const active = varietySet.has(v.label);
+              return (
+                <button
+                  key={v.label}
+                  type="button"
+                  className={active ? s.chipActive : s.chip}
+                  aria-pressed={active}
+                  onClick={e => {
+                    const additive = multiVariety || e.metaKey || e.ctrlKey || e.shiftKey;
+                    setSelectedCategories([]);
+                    setSelectedProducts([]);
+                    setSelectedVarieties(prev => {
+                      if (!additive) return prev.length === 1 && prev[0] === v.label ? [] : [v.label];
+                      return prev.includes(v.label) ? prev.filter(x => x !== v.label) : [...prev, v.label];
+                    });
+                  }}
+                >
+                  {v.label} ({v.count})
+                </button>
+              );
+            })}
+          </div>
+          <div className={s.filterRight}>
+            <button
+              type="button"
+              className={multiVariety ? s.chipModeOn : s.chipMode}
+              aria-pressed={multiVariety}
+              onClick={() => setMultiVariety(v => !v)}
+            >
+              복수 품종
+            </button>
+          </div>
+        </div>
         <div className={s.chipRow}>
           <span className={s.filterLabel}>카테고리</span>
           <div className={s.chipList}>
@@ -438,7 +524,7 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
               <button
                 type="button"
                 className={s.secondary}
-                onClick={() => { setOnlyReview(false); setSelectedCategories([]); setSelectedProducts([]); setSearchQuery(''); }}
+                onClick={() => { setOnlyReview(false); setSelectedVarieties([]); setSelectedCategories([]); setSelectedProducts([]); setSearchQuery(''); }}
               >
                 초기화
               </button>
@@ -462,7 +548,7 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map(row => {
+            {pagedVisibleRows.map(row => {
               const r = resultById.get(row.lineId);
               return (
                 <tr key={row.lineId} className={row.needsReview ? s.rowReview : row.edited ? s.rowEdited : undefined}>
@@ -495,6 +581,14 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
           </tbody>
         </table>
       </div>
+      {visibleRows.length > rowLimit && (
+        <div className={s.moreBar}>
+          <span>표시 {pagedVisibleRows.length} / {visibleRows.length}품목</span>
+          <button type="button" className={s.secondary} onClick={() => setRowLimit(n => n + 100)}>
+            더 보기 (+100건 · 남은 {visibleRows.length - rowLimit}건)
+          </button>
+        </div>
+      )}
       {draft.excluded.length > 0 && (
         <p className={s.sub}>원가 품목에서 제외한 비상품·메타 행 {draft.excluded.length}건: {draft.excluded.map(x => `${x.name}${x.amount ? ` ${Number(x.amount).toLocaleString('ko-KR')}` : ''}`).join(' · ')}</p>
       )}

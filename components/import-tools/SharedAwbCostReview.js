@@ -3,6 +3,7 @@ import WorkflowGuide from '../WorkflowGuide';
 import CostAwbEvidence from './CostAwbEvidence';
 import { CO_ORIGINAL_CUSTOMS_DEFAULTS, calculateCoOriginalCustoms } from '../../lib/coOriginalCostInputs.js';
 import { CO_DEFAULT_STEMS_PER_BUNCH } from '../../lib/receiptOriginInheritance.js';
+import { sendWorkbookToArrivalUploadReview } from '../../lib/arrivalCostUploadBridge.js';
 import ledger from '../../styles/ArrivalCostLedger.module.css';
 
 const labels = { ROSE: '장미', CARNATION: '카네이션', ALSTROMERIA: '알스트로', RUSCUS: '루스커스', HYDRANGEA: '수국' };
@@ -47,7 +48,7 @@ const ResultLedgerRow = memo(function ResultLedgerRow({ row }) {
  * - document: 저장된 인보이스 문서의 AWB (기존)
  * - native: 기존 입고(읽기 전용)에서 같은 차수 콜롬비아 농장 전체를 묶음 (도착원가 작업)
  */
-export default function SharedAwbCostReview({ document, native = null }) {
+export default function SharedAwbCostReview({ document, native = null, onSendToUploadReview = null }) {
   const orderYear = native ? native.orderYear : document.orderYear;
   const orderWeek = native ? native.orderWeek : document.orderWeek;
   const endpoint = native ? '/api/import/receipts/native-shared-cost' : '/api/import/receipts/shared-awb-cost';
@@ -94,6 +95,7 @@ export default function SharedAwbCostReview({ document, native = null }) {
   const [multiProduct, setMultiProduct] = useState(false);
   const [showAllProducts, setShowAllProducts] = useState(false);
   const [resultSearch, setResultSearch] = useState('');
+  const [resultLimit, setResultLimit] = useState(100);
 
   // 서버 보관 누적 원가자료는 사용자가 명시적으로 체크한 경우에만 차수 시트를 추가한다 (실수 덮어쓰기 방지).
   const [masters, setMasters] = useState({});
@@ -268,17 +270,32 @@ export default function SharedAwbCostReview({ document, native = null }) {
     setBusy(action); setError('');
     if (action === 'prepare' && !options.preserveScopeNotice) setScopeNotice('');
     try {
+      const wireAction = action === 'bridge' ? 'download' : action;
       const append = action === 'download' && !isTestOnly && appendToMaster && master?.exists;
       const targetAwb = options.awbOverride ?? awb;
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: action === 'prepare'
-          ? JSON.stringify({ action, orderYear, orderWeek, awb: targetAwb, ...(native ? { scope: overrideScope } : {}), lineInputs: serializeLineInputs() })
-          : body(action, append ? { appendToMaster: true } : {}),
+        body: wireAction === 'prepare'
+          ? JSON.stringify({ action: wireAction, orderYear, orderWeek, awb: targetAwb, ...(native ? { scope: overrideScope } : {}), lineInputs: serializeLineInputs() })
+          : body(wireAction, append ? { appendToMaster: true } : {}),
       });
-      if (action === 'download' && response.ok) {
-        const url = URL.createObjectURL(await response.blob());
+      if ((action === 'download' || action === 'bridge') && response.ok) {
+        const blob = await response.blob();
+        if (action === 'bridge') {
+          const bridgeName = `콜롬비아_공동원가_${orderYear}_${orderWeek}_${prepared?.manifest?.awb || awb || 'awb'}.xlsx`;
+          await sendWorkbookToArrivalUploadReview({
+            blob,
+            fileName: bridgeName,
+            orderYear,
+            orderWeek,
+            country: '콜롬비아',
+            onSendToUploadReview,
+          });
+          setMasterNote(`계산한 원가 엑셀(${bridgeName})을 도착원가 업로드 검토 패널로 전달했습니다.`);
+          return;
+        }
+        const url = URL.createObjectURL(blob);
         const a = window.document.createElement('a');
         a.href = url;
         const sheet = decodeURIComponent(response.headers.get('X-Cost-Master-Sheet') || '');
@@ -457,6 +474,7 @@ export default function SharedAwbCostReview({ document, native = null }) {
   const farmSet = useMemo(() => new Set(selectedFarms), [selectedFarms]);
   const productSet = useMemo(() => new Set(selectedProducts), [selectedProducts]);
   const normalizedQuery = useMemo(() => resultSearch.trim().toLowerCase(), [resultSearch]);
+  useEffect(() => { setResultLimit(100); }, [selectedVarieties, selectedFarms, selectedProducts, normalizedQuery]);
 
   const rowsAfterVarietyAndFarm = useMemo(() => {
     if (!enrichedResultRows.length) return [];
@@ -1007,9 +1025,14 @@ export default function SharedAwbCostReview({ document, native = null }) {
                   <span> · 전체 <strong>{result.lines.length}품목</strong></span>
                   <span> · 총 도착원가 <strong>{fmtInt(result.lines.reduce((s, l) => s + l.totalCostKRW, 0))}원</strong></span>
                 </div>
-                <button className={ledger.btnPrimarySm} disabled={!!busy || !downloadReady} type="button" onClick={() => run('download')}>
-                  {effectiveAppend && master?.exists ? '누적 원가 엑셀(.xlsx) 다운로드' : '원가 엑셀(.xlsx) 바로 다운로드'}
-                </button>
+                <div className={ledger.rowActions}>
+                  <button className={ledger.btnSecondarySm} disabled={!!busy || !downloadReady} type="button" onClick={() => run('bridge')}>
+                    도착원가 업로드 검토로 바로 보내기
+                  </button>
+                  <button className={ledger.btnPrimarySm} disabled={!!busy || !downloadReady} type="button" onClick={() => run('download')}>
+                    {effectiveAppend && master?.exists ? '누적 원가 엑셀(.xlsx) 다운로드' : '원가 엑셀(.xlsx) 바로 다운로드'}
+                  </button>
+                </div>
               </div>
 
               <section className={ledger.resultWorkbench} aria-label="품종·농장 원클릭 도착원가 뷰">
@@ -1214,7 +1237,7 @@ export default function SharedAwbCostReview({ document, native = null }) {
                           </td>
                         </tr>
                       ) : (
-                        filteredResultRows.map(row => <ResultLedgerRow key={row.lineId} row={row} />)
+                        filteredResultRows.slice(0, resultLimit).map(row => <ResultLedgerRow key={row.lineId} row={row} />)
                       )}
                     </tbody>
                     {filteredResultRows.length > 0 && (
@@ -1235,6 +1258,13 @@ export default function SharedAwbCostReview({ document, native = null }) {
                     )}
                   </table>
                 </div>
+                {filteredResultRows.length > resultLimit && (
+                  <div className={ledger.actionRow} style={{ padding: '10px 14px', justifyContent: 'center' }}>
+                    <button type="button" className={ledger.btnSecondarySm} onClick={() => setResultLimit(n => n + 100)}>
+                      더 보기 (+100건 · 남은 {filteredResultRows.length - resultLimit}건)
+                    </button>
+                  </div>
+                )}
               </section>
 
               <section className={ledger.masterSection} aria-label="누적 원가자료">
@@ -1271,6 +1301,9 @@ export default function SharedAwbCostReview({ document, native = null }) {
                 {masterNote && <p className={ledger.statusNotice} role="status">{masterNote}</p>}
               </section>
               <div className={ledger.actionRow}>
+                <button className={ledger.btnSecondary} disabled={!!busy || !downloadReady} type="button" onClick={() => run('bridge')}>
+                  도착원가 업로드 검토로 바로 보내기
+                </button>
                 <button className={ledger.btnPrimary} disabled={!!busy || !downloadReady} type="button" onClick={() => run('download')}>
                   {effectiveAppend && master?.exists
                     ? '누적 도착원가 엑셀 다운로드 · 이번 차수 시트 추가'

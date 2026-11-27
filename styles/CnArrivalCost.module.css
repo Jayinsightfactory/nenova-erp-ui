@@ -164,3 +164,20 @@
   font-size: 13px;
   color: #1e293b;
 }
+.moreBar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  font-size: 13px;
+  color: #334155;
+}
+.table tbody tr {
+  content-visibility: auto;
+  contain-intrinsic-size: 36px;
+}
