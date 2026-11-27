@@ -5788,6 +5788,15 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: `node --test __tests__/upgradeLegacyCostSheets.test.mjs __tests__/costWorkbookMerge.test.js __tests__/costMasterStore.test.js __tests__/invoiceCostWorkbookHistory.test.js` 전수 PASS(수식 재평가 오차 `0.000000원`, `#REF!/#VALUE!` 0건, 2회 연속 멱등성 확인), `arrivalCostPage.test.js`·`arrivalCostSingleSheet.test.js`·`arrivalCostEcosystemRoundtrip.test.mjs` PASS, `test:erp-manifest`·`guard:erp-writes`·`test:nenova-dnspy-evidence`·`test:workflow-guides`·`pstack-verify`·`test:erp-contract`·`npm run build` 검증 완료.
 5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 배포), 운영 DB 쓰기 0건(순수 SELECT-only), 비정형 시트(`21,22차` 등)는 수식 무변형 `AutoFilter + Freeze Panes` 방어 가드 유지. 연결 목표: g03, g13, g17, g19 / 학습 반영: 있음
 
+## 2026-11-27 Phase 3 출고분배 · 영업수입불량차감 거대 파일 4종 무사고(Zero-Regression) 순수 모듈·패널 21종 분리 (`refactor/safe-modularize-phase3`, 연결 목표: g13, g17, g18 / 학습 반영: 있음)
+- 요약: `nenova-hq/tasks/nenovaweb-safe-modularization.md` Phase 3 기획에 따라 출고분배(`lib/shipmentImport.js` 3,272→1,881줄, `pages/shipment/distribute.js` 2,612→1,673줄) 및 영업수입불량차감(`lib/salesDefectDeductions.js` 2,553→1,572줄, `pages/sales/defect-deductions.js` 2,651→2,195줄) 4개 본체(합계 11,088→7,321줄, -3,767줄 / -34.0%)에서 MSSQL 쿼리·트랜잭션·`OrderYear+OrderWeek` 스코프·API·DOM·스타일 동작 변경 0.0%로 21개 순수 헬퍼·컴포넌트 모듈(`lib/shipmentImport/*` 4종, `lib/shipmentDistributionPageHelpers.js`, `components/shipment/*` 5종, `lib/salesDefect/*` 8종, `components/sales/*` 3종)을 분리하고 원본 export 심볼(17개+28개) 100% 동일 참조(`===`) `re-export` 및 회귀 단위검사(`__tests__/shipmentAndDefectModularParity.test.cjs`)를 추가했다.
+- 검색어: Phase3 모듈분리 Strangler Pure Extraction shipmentImport distribute salesDefectDeductions defect-deductions shipmentAndDefectModularParity OrderYear OrderWeek g13 g17 g18
+1. 작업 위치: `nenova-erp-ui` / `refactor/safe-modularize-phase3` / `C:\Users\USER\nw-agy-safe-modularize-p3` / PR #2078 (`origin/master` PR #2072·#2073·#2075·#2077 무충돌 병합 완료)
+2. 완료된 것: `lib/shipmentImport.js`(-1,391줄)·`pages/shipment/distribute.js`(-939줄)·`lib/salesDefectDeductions.js`(-981줄)·`pages/sales/defect-deductions.js`(-456줄) 21개 하위 모듈·컴포넌트 분리, 커스텀 SWC 테스트 로더 6종 상대경로 해석 보강, 계약 매니페스트 3종(`shipment-additive-import.json`, `shipment-distribution-workspace.json`, `sales-defect-deduction.json`) scope 갱신, `__tests__/shipmentAndDefectModularParity.test.cjs` 신설.
+3. 남은 할 일: PR #2078 GitHub Actions `verify` CI 통과 확인 → 무충돌 Squash 머지 → `nw-agy-safe-modularize-p3` worktree 제거 → `nenova-hq` Phase 3 완료 기록 및 `sync-nenova-hq.js` 동기화.
+4. 검증 상태: `shipmentAndDefectModularParity.test.cjs` 5/5 PASS, 출하·분배·불량차감 관련 단위/SSR 테스트(90/90 + 개별 스위트) PASS, `npm run test:erp-contract` 494/494 commands (680 targets) PASS, `test:erp-manifest` 252 manifests PASS, `guard:erp-writes` PASS, `guard:agent-slop` PASS, `npm run build` (`next build --webpack`) PASS (실운영 Cafe24 배포 후 실브라우저 스모크는 미검증).
+5. 주의/잠금: `desktop/` 수정 0건 유지, 운영 MSSQL 쓰기 0건, `lib/shipmentImport.js`·`lib/salesDefectDeductions.js` export 심볼 `===` 참조 동일성 유지. 연결 목표: g13, g17, g18 / 학습 반영: 있음
+
 ## 2026-11-27 영업부 카톡 이미지 주문 초안
 
 - 화면: /orders/sales-paste
@@ -5797,10 +5806,10 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 - 누가 언제 여나: 영업부가 카톡으로 주문 이미지를 받았을 때
 - 2주 뒤 셀 것: 이미지 등록 건수, 자동추천 수정률, 재입력 건수
 
-1. 작업 위치: nenova-erp-ui / codex/sales-paste-image / C:/Users/USER/nw-cdx-sales-paste-image / PR 대기
+1. 작업 위치: nenova-erp-ui / codex/sales-paste-image / C:/Users/USER/nw-cdx-sales-paste-image / PR #2080
 2. 완료된 것: 클립보드 이미지 인식, 기존 매칭·수량 검증·ADD 저장 연결, 추천 및 확정 품목 기록. 연결 목표 g03·g19.
 3. 남은 할 일: Gemini 운영 키 등록 후 비식별 실모델 검증, PR 병합, 배포·운영 스모크.
-4. 검증 상태: 실제 dnSpy FormOrderAdd 빈 ShipmentMaster 조건과 UnitQuantity 확인. 동일 키 SELECT-only ViewOrder 1·ShipmentMaster 1·ViewShipment 0. 브라우저 1920×1080 API 대체 응답으로 붙여넣기·후보 변경·주문 요청·매칭 이력 확인. 운영 실등록과 실모델 미검증.
+4. 검증 상태: 실제 dnSpy FormOrderAdd 빈 ShipmentMaster 조건과 UnitQuantity 확인. 동일 키 SELECT-only ViewOrder 1·ShipmentMaster 1·ViewShipment 0. 브라우저 1920×1080 API 대체 응답으로 붙여넣기·후보 변경·주문 요청·매칭 이력 확인. 주문 UI·계약·dnSpy 검사와 빌드 통과. 전체 ERP 검사에서 PDF 재시도 테스트 1건 실패 후 단독 재실행 12/12 통과. 운영 실등록과 실모델 미검증.
 5. 주의/잠금: 실험 주문 미등록. 이 작업트리에서 영업부 붙여넣기 화면과 계약 수정 중. 학습 반영 없음.
 
 검색어: sales-paste 카톡 이미지 클립보드 Ctrl+V Gemini 매칭이력 dnSpy 빈 ShipmentMaster

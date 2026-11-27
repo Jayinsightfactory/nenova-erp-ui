@@ -37,6 +37,17 @@
     "lib/salesDefectManualCost.js",
     "lib/defectEstimateTargetScope.js",
     "lib/salesDefectDeductions.js",
+    "lib/salesDefect/lookupAndMatching.js",
+    "lib/salesDefect/managerAndCostCandidates.js",
+    "lib/salesDefect/snapshotAndSummary.js",
+    "lib/salesDefect/ledgerRowStore.js",
+    "lib/salesDefect/ledgerAdminAndHold.js",
+    "lib/salesDefect/pageHelpers.js",
+    "lib/salesDefect/dragSelectionController.js",
+    "lib/salesDefect/useDefectSupportAdminControllers.js",
+    "components/sales/DefectOmissionHistoryModal.js",
+    "components/sales/DefectHistoryAndPrintSection.js",
+    "components/sales/DefectSupportModals.js",
     "lib/defectPeriodCorrection.js",
     "lib/salesDefectSupportStatus.js",
     "lib/salesDefectIncomingGroup.js",
@@ -104,7 +115,8 @@
     "__tests__/defectFarmCandidates.test.js",
     "components/DefectCostLookup.js",
     "__tests__/defectCostCandidates.test.js",
-    "scripts/defect-cost-held-smoke.cjs"
+    "scripts/defect-cost-held-smoke.cjs",
+    "__tests__/shipmentAndDefectModularParity.test.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
