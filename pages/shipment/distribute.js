@@ -1472,7 +1472,7 @@ export default function Distribute() {
     onOpen={draft=>openDateEditor(custKey,prod,label,draft)} />;
 
   return (
-    <div ref={workspaceRef} data-testid="distribution-workspace" style={{height:tab<2?'var(--distribution-available-height,calc(100dvh - 104px))':undefined,overflow:tab<2?'hidden':undefined,display:'flex',flexDirection:'column',minHeight:tab<2?0:'calc(100vh - 104px)',minWidth:0}}>
+    <div ref={workspaceRef} data-testid="distribution-workspace" style={{height:tab<2?'var(--distribution-available-height,var(--nv-page-inner-h,calc(100dvh - 104px)))':undefined,overflow:tab<2?'hidden':undefined,display:'flex',flexDirection:'column',minHeight:tab<2?0:'var(--nv-page-inner-h,calc(100vh - 104px))',minWidth:0}}>
       {dateEditor && <DistributionDateEditor {...dateEditor} onClose={()=>setDateEditor(null)} onSaved={async()=>{
         setDateDrafts(prev=>{const next={...prev};delete next[dateEditor.draftKey];return next;});
         setSuccessMsg('출고일 분배 저장 완료 · 출고 총량·매출·확정 상태 유지');

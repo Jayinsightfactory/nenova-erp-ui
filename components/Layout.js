@@ -3,7 +3,7 @@
 // 수정이력: 2026-04-09 — 홈 링크 + topbar 닫기 버튼 추가
 // 수정이력: 2026-04-09b — Railway 강제 재빌드 v2
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -11,6 +11,15 @@ import Head from 'next/head';
 import { useLang } from '../lib/i18n';
 import MenuBackButton from './MenuBackButton';
 import DesktopDownloadButton from './DesktopDownloadButton';
+import NenovaRibbonShell from './NenovaRibbonShell';
+import MdiTabBar, {
+  readStoredMdiTabs,
+  writeStoredMdiTabs,
+  saveMdiTabScroll,
+  readMdiTabScroll,
+} from './MdiTabBar';
+import FavoritesEditorModal from './FavoritesEditorModal';
+import { RESET_LAYOUT_SIZES_EVENT } from './GlobalViewportResizeController';
 import { rememberMenuRoute } from '../lib/menuNavigationHistory';
 import { WORKFLOW_OWNERS } from '../lib/workFlowOwners';
 
@@ -279,7 +288,8 @@ export default function Layout({ children, title }) {
               ? { ...item, favoriteKey: Number(row.FavoriteKey), number: row.SortOrder, saved }
               : null;
           } catch { return null; }
-        }).filter(Boolean);
+        }).filter(Boolean)
+          .sort((a, b) => (a.saved?.customOrder ?? a.number ?? 0) - (b.saved?.customOrder ?? b.number ?? 0));
         setSidebarFavorites(favorites);
       })
       .catch(() => { if (active) setSidebarFavorites([]); });
@@ -314,6 +324,31 @@ export default function Layout({ children, title }) {
   // 사용자 수동 접기/펴기 토글 (자식창 자동 접힘을 언제든 복구 가능)
   // null = 미설정(자동 판정 따름), true = 강제 접힘, false = 강제 펼침
   const [sidebarOverride, setSidebarOverride] = useState(null);
+  const [navMode, setNavMode] = useState('ribbon'); // 'ribbon' (nenova.exe 기본) | 'sidebar'
+  const [ribbonCollapsed, setRibbonCollapsed] = useState(false);
+  const [favoritesModalOpen, setFavoritesModalOpen] = useState(false);
+  const [mdiTabs, setMdiTabs] = useState([]);
+  const pageAreaRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem('nv_nav_mode_v1');
+      if (savedMode === 'sidebar' || savedMode === 'ribbon') setNavMode(savedMode);
+      if (localStorage.getItem('nv_ribbon_collapsed_v1') === '1') setRibbonCollapsed(true);
+    } catch {}
+  }, []);
+
+  const handleToggleNavMode = (nextMode) => {
+    const mode = nextMode === 'sidebar' ? 'sidebar' : 'ribbon';
+    setNavMode(mode);
+    try { localStorage.setItem('nv_nav_mode_v1', mode); } catch {}
+  };
+
+  const handleToggleRibbonCollapsed = (nextVal) => {
+    const collapsed = Boolean(nextVal);
+    setRibbonCollapsed(collapsed);
+    try { localStorage.setItem('nv_ribbon_collapsed_v1', collapsed ? '1' : '0'); } catch {}
+  };
 
   // ?popup=1 이 아니면서, 자식창이고, 메인 진입 경로가 아니면 기본 접힘.
   // 사용자가 토글하면 그 값이 우선.
@@ -331,7 +366,114 @@ export default function Layout({ children, title }) {
   };
 
   const pageTitle = title || MENU_ITEMS.flatMap(g => g.items)
-    .find(i => i.href === router.pathname)?.labelKey || 'nenova ERP';
+    .find(i => i.href === router.pathname)?.labelKey || (router.pathname === '/dashboard' ? '홈' : 'nenova ERP');
+
+  useEffect(() => {
+    if (isPopup || sidebarSuppressed) return;
+    const currentHref = router.pathname;
+    if (!currentHref || currentHref === '/login') return;
+    const stored = readStoredMdiTabs(window.sessionStorage);
+    const idx = stored.findIndex(tab => tab.href.split('?')[0] === currentHref);
+    const nextTab = {
+      href: currentHref,
+      asPath: router.asPath || currentHref,
+      label: pageTitle,
+    };
+    const updated = idx >= 0
+      ? stored.map((tab, i) => (i === idx ? { ...tab, asPath: nextTab.asPath, label: nextTab.label } : tab))
+      : [...stored, nextTab];
+    writeStoredMdiTabs(window.sessionStorage, updated);
+    setMdiTabs(updated);
+    const savedTop = readMdiTabScroll(window.sessionStorage, currentHref);
+    requestAnimationFrame(() => {
+      if (pageAreaRef.current && savedTop > 0) pageAreaRef.current.scrollTop = savedTop;
+    });
+  }, [router.pathname, router.asPath, pageTitle, isPopup, sidebarSuppressed]);
+
+  const openMdiTab = (item) => {
+    if (!item?.href) return;
+    if (pageAreaRef.current) {
+      saveMdiTabScroll(window.sessionStorage, router.pathname, pageAreaRef.current.scrollTop);
+    }
+    const baseHref = item.href.split('?')[0];
+    const targetAsPath = item.asPath || item.href;
+    const label = item.label || item.labelKey || baseHref;
+    const stored = readStoredMdiTabs(window.sessionStorage);
+    const exists = stored.some(tab => tab.href.split('?')[0] === baseHref);
+    const updated = exists
+      ? stored.map(tab => (tab.href.split('?')[0] === baseHref ? { ...tab, asPath: targetAsPath, label } : tab))
+      : [...stored, { href: baseHref, asPath: targetAsPath, label }];
+    writeStoredMdiTabs(window.sessionStorage, updated);
+    setMdiTabs(updated);
+    rememberMenuRoute(router.asPath, window.sessionStorage);
+    router.push(targetAsPath);
+  };
+
+  const closeMdiTab = (targetTab) => {
+    const targetBase = String(targetTab?.href || '').split('?')[0];
+    const stored = readStoredMdiTabs(window.sessionStorage);
+    const idx = stored.findIndex(tab => tab.href.split('?')[0] === targetBase);
+    const remaining = stored.filter(tab => tab.href.split('?')[0] !== targetBase);
+    if (remaining.length === 0) {
+      const fallback = [{ href: '/dashboard', asPath: '/dashboard', label: '홈' }];
+      writeStoredMdiTabs(window.sessionStorage, fallback);
+      setMdiTabs(fallback);
+      if (router.pathname !== '/dashboard') router.push('/dashboard');
+      return;
+    }
+    writeStoredMdiTabs(window.sessionStorage, remaining);
+    setMdiTabs(remaining);
+    if (router.pathname === targetBase) {
+      const next = remaining[Math.min(idx, remaining.length - 1)] || remaining[0];
+      router.push(next.asPath || next.href);
+    }
+  };
+
+  const closeOtherMdiTabs = () => {
+    const current = mdiTabs.find(tab => tab.href.split('?')[0] === router.pathname)
+      || { href: router.pathname, asPath: router.asPath || router.pathname, label: pageTitle };
+    const next = [current];
+    writeStoredMdiTabs(window.sessionStorage, next);
+    setMdiTabs(next);
+  };
+
+  const closeAllMdiTabs = () => {
+    const home = [{ href: '/dashboard', asPath: '/dashboard', label: '홈' }];
+    writeStoredMdiTabs(window.sessionStorage, home);
+    setMdiTabs(home);
+    if (router.pathname !== '/dashboard') router.push('/dashboard');
+  };
+
+  const openCurrentInNewWindow = (targetHref) => {
+    const href = targetHref || router.asPath || router.pathname;
+    openPopup(href, t(pageTitle));
+  };
+
+  const updateFavoritesOrder = async (orderedList) => {
+    const updated = orderedList.map((item, idx) => ({
+      ...item,
+      saved: { ...(item.saved || { href: item.href }), customOrder: idx + 1 },
+    }));
+    setSidebarFavorites(updated);
+    try {
+      await Promise.all(
+        updated.map((item) =>
+          fetch('/api/favorites', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              favoriteKey: item.favoriteKey,
+              name: t(item.labelKey),
+              filterData: JSON.stringify(item.saved),
+            }),
+          })
+        )
+      );
+      window.dispatchEvent(new Event('nenova-menu-favorites-changed'));
+    } catch {
+      window.alert('즐겨찾기 순서를 저장하지 못했습니다.');
+    }
+  };
   const favoriteHrefs = new Set(sidebarFavorites.map(item => item.href));
   const toggleSidebarFavorite = async (event, item) => {
     event.preventDefault();
@@ -500,11 +642,11 @@ export default function Layout({ children, title }) {
     <>
       <Head><title>{t(pageTitle)} - nenova ERP</title></Head>
       <style>{`.sidebar-favorite-toggle:focus-visible { outline: 3px solid #2563eb; outline-offset: 1px; }`}</style>
-      <div className="layout" data-ui-shell="standard">
+      <div className="layout" data-ui-shell="standard" data-nav-mode={navMode}>
         <div className="sidebar" data-ui-sidebar>
           <Link href="/dashboard" style={{ textDecoration:'none', color:'inherit', display:'block' }}>
             <div className="sidebar-logo" style={{ cursor:'pointer' }} title={process.env.NEXT_PUBLIC_BUILD_VERSION || ''}>
-              🏠 nenova ERP
+              nenova ERP
               <span style={{
                 marginLeft: 6,
                 fontSize: 9,
@@ -514,16 +656,19 @@ export default function Layout({ children, title }) {
                 background: 'rgba(255,255,255,0.18)',
                 borderRadius: 4,
                 letterSpacing: 0.2,
-                fontFamily: "'Menlo','Monaco',monospace",
+                fontFamily: "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif",
                 verticalAlign: 'middle',
               }}>{process.env.NEXT_PUBLIC_BUILD_VERSION || 'v?'}</span>
             </div>
           </Link>
           <nav className="sidebar-nav">
-            {sidebarFavorites.length > 0 && <div className="nav-group nav-favorites">
-              <div className="nav-group-title">★ {t('즐겨찾기')}</div>
+            <div className="nav-group nav-favorites">
+              <div className="nav-group-title" style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span>★ {t('즐겨찾기')}</span>
+                <button type="button" className="btn btn-sm" style={{ height: 18, fontSize: 10, padding: '0 5px' }} onClick={() => setFavoritesModalOpen(true)}>편집</button>
+              </div>
               {sidebarFavorites.map(renderNavItem)}
-            </div>}
+            </div>
             {MENU_ITEMS.map(group => (
               <div key={group.group} className="nav-group">
                 {/* 그룹 제목도 번역 */}
@@ -538,44 +683,60 @@ export default function Layout({ children, title }) {
         </div>
 
         <div className="main-content">
-          <div className="topbar" data-ui-topbar style={{ height:'auto', minHeight:36, flexWrap:'wrap', paddingTop:4, paddingBottom:4 }}>
-            <span data-ui-page-title style={{fontWeight:'bold', fontSize:13}}>{t(pageTitle)}</span>
-            <span style={{marginLeft:'auto', display:'flex', flexWrap:'wrap', gap:6, alignItems:'center'}}>
-              <ClientDate />
-              <DesktopDownloadButton />
-              <MenuBackButton />
-              {/* 언어 전환 버튼 */}
-              <button className="btn btn-sm" onClick={toggleLang}
-                style={{
-                  background: lang==='es' ? '#1166BB' : lang==='ko' ? '#006600' : '#6a1b9a',
-                  color:'#fff',
-                  borderColor: lang==='es' ? '#0055AA' : lang==='ko' ? '#004400' : '#4a148c',
-                  minWidth: 52, fontWeight:'bold', fontSize:11
-                }}>
-                {lang==='bi' ? '🌐 KO/ES' : lang==='ko' ? '🌐 KO' : '🌐 ES'}
-              </button>
-              {user && (
-                <button className="btn btn-sm" onClick={handleLogout}>
-                  {t('로그아웃')}
-                </button>
-              )}
-              {/* 사이드바 접기 — 자식창에서 자동 펼침을 되돌리거나, 좁은 화면에서 메뉴 숨김 */}
-              <button className="btn btn-sm"
-                onClick={() => setSidebarOverride(true)}
-                title={t('메뉴 접기')}>
-                ☰
-              </button>
-              <button className="btn btn-sm"
-                onClick={() => window.opener ? window.close() : router.push('/dashboard')}
-                style={{ borderColor:'#999' }}
-                title="창 닫기 / 홈으로">
-                ✕ {t('닫기')}
-              </button>
-            </span>
-          </div>
-          <div className="page-area">{children}</div>
+          <NenovaRibbonShell
+            user={user}
+            pageTitle={pageTitle}
+            t={t}
+            lang={lang}
+            toggleLang={toggleLang}
+            handleLogout={handleLogout}
+            sidebarFavorites={sidebarFavorites}
+            favoriteHrefs={favoriteHrefs}
+            toggleSidebarFavorite={toggleSidebarFavorite}
+            favoriteBusyHref={favoriteBusyHref}
+            navMode={navMode}
+            onToggleNavMode={handleToggleNavMode}
+            ribbonCollapsed={ribbonCollapsed}
+            onToggleRibbonCollapsed={handleToggleRibbonCollapsed}
+            onOpenFavoritesModal={() => setFavoritesModalOpen(true)}
+            onOpenTab={openMdiTab}
+            onOpenNewWindow={openCurrentInNewWindow}
+            onResetLayoutSizes={() => window.dispatchEvent(new Event(RESET_LAYOUT_SIZES_EVENT))}
+            ClientDateComponent={ClientDate}
+            DesktopDownloadButtonComponent={DesktopDownloadButton}
+            MenuBackButtonNode={<MenuBackButton />}
+            menuItems={MENU_ITEMS}
+            currentPathname={router.pathname}
+            onCollapseSidebar={() => setSidebarOverride(true)}
+          />
+          {navMode === 'ribbon' && (
+            <MdiTabBar
+              tabs={mdiTabs}
+              activePath={router.pathname}
+              t={t}
+              onSelectTab={openMdiTab}
+              onCloseTab={closeMdiTab}
+              onCloseOtherTabs={closeOtherMdiTabs}
+              onCloseAllTabs={closeAllMdiTabs}
+              onOpenInNewWindow={() => openCurrentInNewWindow(router.asPath)}
+              onResetLayoutSizes={() => window.dispatchEvent(new Event(RESET_LAYOUT_SIZES_EVENT))}
+            />
+          )}
+          <div ref={pageAreaRef} className="page-area">{children}</div>
         </div>
       </div>
+      <FavoritesEditorModal
+        open={favoritesModalOpen}
+        onClose={() => setFavoritesModalOpen(false)}
+        user={user}
+        t={t}
+        menuItems={MENU_ITEMS}
+        sidebarFavorites={sidebarFavorites}
+        favoriteHrefs={favoriteHrefs}
+        toggleSidebarFavorite={toggleSidebarFavorite}
+        favoriteBusyHref={favoriteBusyHref}
+        onUpdateFavoritesOrder={updateFavoritesOrder}
+      />
     </>
   );
 }
