@@ -108,7 +108,7 @@ test('new AU upload calculates and exports without FarmKey, native receipt, CW, 
  assert.equal(result.preview.totals.totalCostKRW,1030000);
  const book=XLSX.read(await createInvoicePreviewCostWorkbook(result));
  assert.deepEqual(book.SheetNames,['44-1']);
- const s=book.Sheets['44-1'];assert.match(s.B1.v,/인보이스 41002.*입고 미반영/);assert.match(s.B1.v,/TEST_ONLY/);
+ const s=book.Sheets['44-1'];assert.equal(s.B1.v,'PREMIUM GREENS 2026/44-01 도착원가');
  assert.equal(p.document.receiptLines[0].lineAmount,1020);assert.equal(p.document.receiptLines[0].unitPrice,8.5);
  assert.equal(JSON.stringify(f.document),before);assert.equal(f.queries.length,1);
  await assert.rejects(createNativeCostWorkbook(result));await assert.rejects(createInvoiceCostWorkbook({document:p.document,revision:result.preview,snapshot:{input:f.input}}));
@@ -155,7 +155,7 @@ for(const formula of Object.values(INVOICE_COST_FORMULAS).filter(f=>f.formulaId!
  const p=await prepareInvoiceCostPreview({queryFn:async sql=>{assert.doesNotMatch(sql,/\b(INSERT|UPDATE|DELETE|EXEC)\b/);return{recordset:products};},types:{Int:'INT'},request:{document:f.document}});
  assert.deepEqual(p.issues,[],formula.formulaId);const result=calculateInvoiceCostPreview(p,request(p,f.snapshot.input));
  assert.equal(result.preview.status,'APPROVED',JSON.stringify(result.preview.issues));
- const book=XLSX.read(await createInvoicePreviewCostWorkbook(result));assert.deepEqual(book.SheetNames,['41-2']);assert.match(book.Sheets['41-2'].B1.v,/인보이스 CURRENT-EXPORT/);
+ const book=XLSX.read(await createInvoicePreviewCostWorkbook(result));assert.deepEqual(book.SheetNames,['41-2']);assert.doesNotMatch(book.Sheets['41-2'].B1.v,/미승인 계산본|운영 DB 변경 없음/);
  assert.ok(Math.abs(result.preview.totals.totalCostKRW-f.revision.totalCostKRW)<0.01);
 });
 function response(){return{statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(s){this.statusCode=s;return this;},json(d){this.body=d;return this;},send(d){this.body=d;return this;}};}

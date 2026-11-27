@@ -1059,10 +1059,10 @@ async function testExistingCostLink(pool, costs, thai = false) {
   const output=await exporter.exportCurrentInvoiceCost({...args,warehouseKey:String(wk),costRevisionId:saved.currentActual.costRevisionId});
   const book=require('xlsx').read(output.buffer);
   assert.deepEqual(book.SheetNames,['41-1']);
-  // TEST_ONLY takes precedence over the estimated-expense label in the exporter.
-  assert.match(book.Sheets['41-1'].B1.v,/TEST_ONLY · 시험값/);
+  assert.doesNotMatch(book.Sheets['41-1'].B1.v,/미승인 계산본|운영 DB 변경 없음|실제 청구액 아님/);
+  assert.match(book.Sheets['41-1'].B1.v,/2026\/41-01 도착원가/);
   if(thai){assert.equal(book.Sheets['41-1'].G15.v,2);assert.equal(book.Sheets['41-1'].Y15.v,'단');assert.equal(saved.currentActual.editableInput.input.packingBoxTotal,1);}
-  else{assert.equal(book.Sheets['41-1'].D6.v,20);assert.equal(book.Sheets['41-1'].C6.v,32);assert.equal(book.Sheets['41-1'].A14.v,'주문 구분');}
+  else{assert.equal(book.Sheets['41-1'].D6.v,20);assert.equal(book.Sheets['41-1'].C6.v,32);assert.equal(book.Sheets['41-1'].A14.v,'인보이스 구분');}
   assert.deepEqual(await stockSnapshot(pool),before);assert.deepEqual(await protectedSnapshot(pool),protectedBefore);
   console.log('ok - existing receipt split-line cost link, replay, cross-year, cost save/read, estimated workbook and ERP preservation');
 }
@@ -1111,7 +1111,7 @@ async function testPrivateStageLogsAndCostExport(pool,scenario,committed,read,do
   ensure(Math.abs(Number(value('AB7'))-read.currentActual.totalCostKRW)<0.01,'live formula total must equal current approved total');
   assert.equal(value('C7'),230,'FX stays explicitly TEST_ONLY');
   assert.equal(value('C8'),1985.94);assert.equal(value('E8'),1985.94,'CW is TEST_ONLY equal GW, not actual-source CW');
-  assert.match(String(value('B1')),/TEST_ONLY 시험값/,'workbook must disclose the synthetic FX basis');
+  assert.match(String(value('B1')),/2026\/41-02 도착원가/,'workbook must show clean week cost title');
   const expectedNames=document.lines.slice().sort((a,b)=>a.lineNo-b.lineNo).map(line=>line.originalName);
   let total=0,quantity=0;
   for(let index=0;index<28;index++){

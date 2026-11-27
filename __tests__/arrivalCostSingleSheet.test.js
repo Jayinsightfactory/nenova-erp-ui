@@ -37,6 +37,12 @@ async function assertSingleSelfContainedCostSheet(bytes, expectedSheetName, labe
   assert.deepEqual(worksheetFiles, ['xl/worksheets/sheet1.xml'], `${label}: OOXML 패키지 내 worksheet XML도 단일 1개여야 한다`);
   const sheetXml = await zip.file('xl/worksheets/sheet1.xml').async('string');
   assert.doesNotMatch(sheetXml, /#REF!|t="e"/, `${label}: #REF! 또는 엑셀 에러 셀이 없어야 한다`);
+  assert.doesNotMatch(
+    sheetXml,
+    /미승인 계산본|운영 DB 변경 없음|실제 청구액 아님|ERP에는 반영되지 않습니다|실제 판매가 아님|실판매 아님|ERP\/승인 원가 변경 없음|ERP 원장 불변|\[핵심 목적 · PURPOSE\]/,
+    `${label}: 시스템 경고/안내 문구가 시트에 포함되면 안 된다`,
+  );
+  assert.match(sheetXml, /<autoFilter\b[^>]*ref="[A-Z]+\d+:[A-Z]+\d+"/, `${label}: 데이터 헤더 AutoFilter가 부착되어야 한다`);
   for (const [, f] of sheetXml.matchAll(/<f\b[^>]*>([\s\S]*?)<\/f>/g)) {
     assert.doesNotMatch(f, /!/, `${label}: 타 시트 참조 수식이 없어야 한다 (${f})`);
   }
@@ -105,7 +111,27 @@ test('1. 콜롬비아 공동 AWB(48-02 / 992-04727833 형태, 환율 1,360원): 
 
   const { xsheet } = await assertSingleSelfContainedCostSheet(dl.body, '48-2', 'CO Shared AWB 48-02');
   const previewTotalKRW = previewRes.data.result.lines.reduce((s, l) => s + l.totalCostKRW, 0);
+  assert.equal(xsheet.B1.v, 'COLOMBIA                                    콜카장 + 수국');
+  assert.equal(xsheet.B2?.v, undefined);
+  assert.equal(xsheet.B3?.v, undefined);
+  assert.equal(xsheet.C5.v, '48-2');
+  assert.equal(xsheet.C7.t, 'n');
   assert.equal(xsheet.C7.v, 1360);
+  assert.equal(xsheet.D9.v, 'Rate');
+  assert.ok(Math.abs(xsheet.E9.v - 2.74) < 1e-9);
+  assert.equal(xsheet.D11.v, '서류');
+  assert.equal(xsheet.E11.v, 90.47);
+  assert.equal(xsheet.F11.v, '운송비');
+  assert.equal(xsheet.G11.f, 'E9*E8');
+  assert.ok(Math.abs(xsheet.G11.v - 11513.48) < 1e-6);
+  assert.equal(xsheet.C11.f, 'E11+G11');
+  assert.ok(Math.abs(xsheet.C11.v - 11603.95) < 1e-6);
+  assert.equal(xsheet.O5.v, '그외에 통관비');
+  assert.match(xsheet.Q14.v, /판매가[\s\S]*부가세 포함/);
+  assert.equal(xsheet.U13.f, 'SUBTOTAL(9,U15:U18)');
+  assert.equal(xsheet.V13.f, 'SUBTOTAL(9,V15:V18)');
+  assert.deepEqual([xsheet.AB8.v, xsheet.AB9.v, xsheet.AB10.v, xsheet.AB11.v, xsheet.AB12.v], [8, 11, 9.7, 8, 5.5]);
+  assert.deepEqual([xsheet.AG8.v, xsheet.AG9.v, xsheet.AG10.v, xsheet.AG11.v, xsheet.AG12.v], [10, 9, 7, 9.6, 6.7]);
   assert.equal(xsheet.P6.f, 'C8*460');
   assert.equal(xsheet.P10.f, 'SUM(P6:P9)+R6+R7');
   assert.ok(Math.abs(xsheet.AL12.v - previewTotalKRW) < 0.01, 'AL12 === 미리보기 총도착원가 (0.00원 오차)');
@@ -247,4 +273,71 @@ test('4. 모든 원가 다운로드 API 라우트는 과거 시트 자동 병합
     const src = fs.readFileSync(new URL(`../${routeFile}`, import.meta.url), 'utf8');
     assert.doesNotMatch(src, /exportWithCostHistory/, `${routeFile}: 단일 시트 다운로드에 과거 차수 시트가 합쳐지면 안 된다`);
   }
+});
+
+test('5. 콜롬비아 분리 내역 미보유 단일 총운임 폴백(내역 없음 0건) 및 원클릭 버튼형 도착원가 UI 계약 검증', async () => {
+  // DB 참고전표 없이 총운임만 입력된 경우에도 E9=total/cw, E11=0, G11=E9*E8, C11=E11+G11 수식 작동 및 '내역 없음' 문구 0건
+  const soloRows = [
+    { WarehouseKey: 8270, OrderYear: '2026', OrderWeek: '48-02', OrderNo: '99204727833', FarmName: 'Balverde', InvoiceNo: '25610', InputDate: '2026-11-26', WdetailKey: 10, ProdKey: 888, ProdName: 'Hydrangea Lavender', FlowerName: '수국', CounName: '콜롬비아', OutUnit: '박스', BoxQuantity: 10, BunchQuantity: 300, SteamQuantity: 300, OutQuantity: 10, UPrice: 0.9, TPrice: 270, SteamOf1Bunch: 1, SteamOf1Box: 30 },
+  ];
+  const handler = createSharedAwbHandler({ authorize: () => true, prepare: prepareNativeShared, queryFn: async () => ({ recordset: soloRows }), types: { NVarChar: () => 1 } });
+  const prep = { code: 200, headers: {}, setHeader() {}, status(c) { this.code = c; return this; }, json(d) { this.data = d; } };
+  await handler({ method: 'POST', user: {}, body: { action: 'prepare', orderYear: '2026', orderWeek: '48-02', awb: '992-04727833', scope: 'HYDRANGEA' } }, prep);
+  const lineInputs = prep.data.members.flatMap(m => m.lineInputs.map(l => ({ ...l, groupId: 'HYDRANGEA' })));
+  const dl = { code: 200, headers: {}, setHeader() {}, status(c) { this.code = c; return this; }, json(d) { this.data = d; }, send(b) { this.body = b; } };
+  await handler({
+    method: 'POST',
+    user: {},
+    body: {
+      action: 'download',
+      orderYear: '2026',
+      orderWeek: '48-02',
+      awb: '992-04727833',
+      scope: 'HYDRANGEA',
+      baselineDigest: prep.data.baselineDigest,
+      completeManifestConfirmed: true,
+      lineInputs,
+      input: { gw: 300, cw: 400, freightAmount: 1000, freightCurrency: 'USD', exchangeRate: '1360', customsMode: 'FORMULA', exchangeRateType: 'MANUAL' },
+    },
+  }, dl);
+  assert.equal(dl.code, 200);
+  const { xsheet } = await assertSingleSelfContainedCostSheet(dl.body, '48-2', 'CO Fallback No-Ref');
+  assert.equal(xsheet.B1.v, 'COLOMBIA                                    수국');
+  assert.equal(xsheet.C7.t, 'n');
+  assert.equal(xsheet.C7.v, 1360);
+  assert.equal(xsheet.E9.v, 2.5);
+  assert.equal(xsheet.E11.v, 0);
+  assert.equal(xsheet.G11.f, 'E9*E8');
+  assert.equal(xsheet.G11.v, 1000);
+  assert.equal(xsheet.C11.f, 'E11+G11');
+  assert.equal(xsheet.C11.v, 1000);
+  const allValues = Object.values(xsheet).map(c => String(c?.v ?? '')).join('\n');
+  assert.doesNotMatch(allValues, /내역 없음|미승인/);
+
+  // 원클릭 버튼형 뷰(SharedAwbCostReview · CnArrivalCostWorkbench) JSX 변환 및 핵심 UI 토큰 검증
+  const { createRequire } = await import('node:module');
+  const require = createRequire(import.meta.url);
+  const babel = require('next/dist/compiled/babel/core');
+  const presetReact = require('next/dist/compiled/babel/preset-react');
+  for (const uiPath of [
+    'components/import-tools/SharedAwbCostReview.js',
+    'components/import-tools/CnArrivalCostWorkbench.js',
+    'components/import-tools/CostAwbEvidence.js',
+  ]) {
+    const src = fs.readFileSync(new URL(`../${uiPath}`, import.meta.url), 'utf8');
+    babel.transformSync(src, { filename: uiPath, presets: [presetReact], configFile: false, babelrc: false });
+    assert.doesNotMatch(src, /[\u{1F300}-\u{1FAFF}]/u, `${uiPath}: 장식성 이모지 0건`);
+  }
+  const sharedSrc = fs.readFileSync(new URL('../components/import-tools/SharedAwbCostReview.js', import.meta.url), 'utf8');
+  assert.match(sharedSrc, /품종 버튼 필터/);
+  assert.match(sharedSrc, /농장 버튼 필터/);
+  assert.match(sharedSrc, /품목 버튼 필터/);
+  assert.match(sharedSrc, /선택 조건 소계/);
+  assert.match(sharedSrc, /도착원가 합계 \(KRW\)/);
+  assert.match(sharedSrc, /운송비 \(USD · G11\)/);
+  assert.match(sharedSrc, /서류비 \(USD · E11\)/);
+  assert.match(sharedSrc, /적용 Rate \(USD\/kg/);
+  const cnSrc = fs.readFileSync(new URL('../components/import-tools/CnArrivalCostWorkbench.js', import.meta.url), 'utf8');
+  assert.match(cnSrc, /카테고리 원클릭 버튼 필터/);
+  assert.match(cnSrc, /중국 품목 원클릭 버튼 필터/);
 });

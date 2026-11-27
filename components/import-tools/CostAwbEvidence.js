@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { parseAwbFields } from '../../lib/importAwbFields.js';
+import { parseAwbFields, parseAwbChargeBreakdown } from '../../lib/importAwbFields.js';
 import ledger from '../../styles/ArrivalCostLedger.module.css';
 
 // Reuse the official local PDF reader. Extracted numbers remain hints until reviewed.
 export default function CostAwbEvidence({ onApply, label = 'AWB 원문', initialAwb = '' }) {
-  const [draft, setDraft] = useState({ awb: initialAwb, sourceId: '', gw: '', cw: '', freightAmount: '' });
+  const [draft, setDraft] = useState({ awb: initialAwb, sourceId: '', gw: '', cw: '', freightAmount: '', freightOnlyUSD: '', docFeeUSD: '' });
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -15,7 +15,17 @@ export default function CostAwbEvidence({ onApply, label = 'AWB 원문', initial
   const edit = (key, value) => {
     generation.current++;
     setBusy(false);
-    setDraft(d => ({ ...d, [key]: value }));
+    setDraft(d => {
+      const next = { ...d, [key]: value };
+      if ((key === 'freightOnlyUSD' || key === 'docFeeUSD') && (next.freightOnlyUSD !== '' || next.docFeeUSD !== '')) {
+        const air = Number(next.freightOnlyUSD);
+        const doc = Number(next.docFeeUSD);
+        if ((next.freightOnlyUSD === '' || Number.isFinite(air)) && (next.docFeeUSD === '' || Number.isFinite(doc))) {
+          next.freightAmount = String(Math.round(((next.freightOnlyUSD === '' ? 0 : air) + (next.docFeeUSD === '' ? 0 : doc)) * 100) / 100);
+        }
+      }
+      return next;
+    });
     setConfirmed(false);
   };
 
@@ -25,7 +35,7 @@ export default function CostAwbEvidence({ onApply, label = 'AWB 원문', initial
     setError('');
     if (!file) return;
     setFileUrl('');
-    setDraft({ awb: initialAwb, sourceId: '', gw: '', cw: '', freightAmount: '' });
+    setDraft({ awb: initialAwb, sourceId: '', gw: '', cw: '', freightAmount: '', freightOnlyUSD: '', docFeeUSD: '' });
     if (!/\.pdf$/i.test(file.name) || file.size <= 0 || file.size > 20 * 1024 * 1024) {
       setError('20MiB 이하 AWB PDF를 선택하세요. 직접 입력도 가능합니다.');
       return;
@@ -40,7 +50,9 @@ export default function CostAwbEvidence({ onApply, label = 'AWB 원문', initial
       let text = '';
       for (let i = 0; i < bytes.length; i += 32768) text += String.fromCharCode(...bytes.subarray(i, i + 32768));
       const { readAwbPdf } = await import('../../lib/importAwbPdf.js');
-      const parsed = parseAwbFields(await readAwbPdf(btoa(text)));
+      const pdfContent = await readAwbPdf(btoa(text));
+      const parsed = parseAwbFields(pdfContent);
+      const breakdown = parseAwbChargeBreakdown(pdfContent);
       if (token !== generation.current) return;
       setDraft(d => ({
         ...d,
@@ -48,6 +60,8 @@ export default function CostAwbEvidence({ onApply, label = 'AWB 원문', initial
         gw: parsed.gw ?? '',
         cw: parsed.cw ?? '',
         freightAmount: parsed.total ?? '',
+        freightOnlyUSD: breakdown.freightOnlyUSD ?? '',
+        docFeeUSD: breakdown.docFeeUSD ?? '',
         sourceId: `${file.name} · SHA256 ${hash}`,
       }));
       if (parsed._error) setError('텍스트를 확인하지 못했습니다. 원문을 보고 직접 입력하세요.');
@@ -81,6 +95,8 @@ export default function CostAwbEvidence({ onApply, label = 'AWB 원문', initial
           ['sourceId', '원문 근거', '파일명 또는 AWB 청구서 번호', true],
           ['gw', 'GW kg', '실중량 kg', false],
           ['cw', 'CW kg', '청구중량 kg', false],
+          ['freightOnlyUSD', '운송비 USD (선택)', '항공운송비 USD', false],
+          ['docFeeUSD', '서류비 USD (선택)', '서류비 USD', false],
           ['freightAmount', '운임 합계 USD', '총 운임 USD', false],
         ].map(([k, t, ph, wide]) => (
           <label key={k} className={`${ledger.field} ${wide ? ledger.awbWide : ''}`}>
@@ -90,7 +106,7 @@ export default function CostAwbEvidence({ onApply, label = 'AWB 원문', initial
               value={draft[k]}
               placeholder={ph}
               onChange={e => edit(k, e.target.value)}
-              inputMode={['gw', 'cw', 'freightAmount'].includes(k) ? 'decimal' : undefined}
+              inputMode={['gw', 'cw', 'freightOnlyUSD', 'docFeeUSD', 'freightAmount'].includes(k) ? 'decimal' : undefined}
             />
           </label>
         ))}

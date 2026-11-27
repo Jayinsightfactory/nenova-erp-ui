@@ -5,13 +5,14 @@ import {appendCostInputDifferentialStyle,costSellingInputCue}from'../lib/invoice
 const X=createRequire(import.meta.url)('xlsx');
 for(const profile of Object.values(INVOICE_COST_EXPORT_PROFILES).filter(profile=>!profile.generated))test(`${profile.id}: single week sheet, no hidden populated cells, selling cue and immutable snapshot`,async()=>{
  const f=invoiceCostExportFixture(7,profile.formulaId);f.document.orderYear='2025';const before=JSON.stringify(f),bytes=await createInvoiceCostWorkbook(f),z=await JSZip.loadAsync(bytes),book=X.read(bytes,{cellFormula:true}),s=book.Sheets['41-2'];
- assert.equal(JSON.stringify(f),before);assert.deepEqual(book.SheetNames,['41-2']);assert.match(s.B1.v,/2025\/41-02/);
+ assert.equal(JSON.stringify(f),before);assert.deepEqual(book.SheetNames,['41-2']);
+ if(profile.id==='CO_42_1_ORIGINAL_V1')assert.match(s.B1.v,/^COLOMBIA\s+/);else assert.match(s.B1.v,/2025\/41-02/);
  const compact=profile.priceBasis&&profile.id!=='EC_ORIGINAL_V1',col=compact?['US_ORIGINAL_V1','NZ_ORIGINAL_V1'].includes(profile.id)?'C':'D':'C';
- assert.equal(s[`${col}${compact?8:9}`].v,profile.id==='CO_42_1_ORIGINAL_V1'?5:7);assert.match(s.B3.v,/기준가|원가|판매가/);
+ assert.equal(s[`${col}${compact?8:9}`].v,profile.id==='CO_42_1_ORIGINAL_V1'?5:7);assert.equal(s.B3?.v,undefined);
  const original=await z.file('xl/worksheets/sheet1.xml').async('string');
- assert.equal(z.file('xl/worksheets/sheet2.xml'),null);assert.match(original,/<conditionalFormatting/);assert.match(original,/NOT\(ISNUMBER\(/);assert.match(await z.file('xl/styles.xml').async('string'),/FFFCE4D6/);
+ assert.equal(z.file('xl/worksheets/sheet2.xml'),null);assert.match(original,/<conditionalFormatting/);assert.match(original,/NOT\(ISNUMBER\(/);assert.match(original,/<autoFilter\b/);assert.match(await z.file('xl/styles.xml').async('string'),/FFFCE4D6/);
  if(profile.id==='CN_SEA_ORIGINAL_V1'){assert.match(original,/sqref="AK44:AL50"/);assert.match(original,/AND\(\$E44&lt;&gt;0/);}
- if(profile.id==='CO_42_1_ORIGINAL_V1'){assert.match(s.P15.f,/ISNUMBER\(Q15\)/);assert.match(s.S15.f,/ISNUMBER\(P15\)/);assert.match(s.V15.f,/ISNUMBER\(S15\)/);assert.match(s.U13.f,/COUNT\(U15:U21\)=7/);assert.equal(typeof s.U13.v,'number');}
+ if(profile.id==='CO_42_1_ORIGINAL_V1'){assert.match(s.P15.f,/ISNUMBER\(Q15\)/);assert.match(s.S15.f,/ISNUMBER\(P15\)/);assert.match(s.V15.f,/ISNUMBER\(S15\)/);assert.equal(s.U13.f,'SUBTOTAL(9,U15:U21)');assert.equal(typeof s.U13.v,'number');}
  const populated=Object.entries(s).filter(([r,c])=>/^[A-Z]+\d+$/.test(r)&&c.v!==undefined&&c.v!=='');
  for(const m of s['!merges']||[])for(const[ref]of populated){const c=X.utils.decode_cell(ref);assert.ok(!(c.r>=m.s.r&&c.r<=m.e.r&&c.c>=m.s.c&&c.c<=m.e.c)||c.r===m.s.r&&c.c===m.s.c,`${profile.id}:${ref} hidden inside merged range ${X.utils.encode_range(m)}`);}
  if(profile.id==='NL_ORIGINAL_V1'){assert.equal(s.J6.v,'Eryngium');assert.equal(s.K6.v,.25);assert.equal(s.M8.v,.08);assert.equal(s.H6.v,f.document.lines.reduce((n,r)=>n+r.lineAmount,0)+f.revision.lines.reduce((n,r)=>n+r.componentAmounts.freightNative,0));assert.equal(s.C10.v,f.snapshot.receiptSnapshot.details.reduce((n,r)=>n+r.stemQuantity,0));assert.match(s.E11.v,/미보유/);}
