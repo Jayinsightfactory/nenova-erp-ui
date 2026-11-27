@@ -1,5 +1,13 @@
 # 작업 기록
 
+## 2026-11-27 수입방 카톡 DB 품목명(영문) 미매칭 행 인라인 검색·직접입력 수정 및 공용 영구 별칭 저장 · 한영 음차/FlowerName 자동매칭 고도화 (feat/kakao-db-prod-alias, 연결 목표: g03·g19 / 학습 반영: 있음)
+- 1. 작업 위치: `nenova-erp-ui` (`nw-agy-kakao-db-prod-alias` 워크트리, `feat/kakao-db-prod-alias`) · `lib/importKakaoDbProductAliases.js`(신규), `lib/importKakaoDbProductAliasesApi.js`(신규), `pages/api/import/tools/kakao-product-aliases.js`(신규), `components/import-tools/KakaoDbProdEditor.js`(신규), `components/import-tools/KakaoAdditions.js`, `components/import-tools/KakaoOrderRegisterBridge.js`, `lib/importKakaoDbCatalog.js`, `lib/importKakaoAdditions.js`, `lib/importKakaoOrderText.js`, `lib/importTeamStore.js`, `pages/api/import/tools/kakao-additions.js`, `docs/contracts/country-orders.json`, `public/guides/import-country-orders/import.proof.json`, `__tests__/importKakaoDbProdAliases.test.mjs`(신규)
+- 2. 완료된 것: 사장님 지시("db 품목명 매칭안된것 수정할수있게해줘야지")에 따라 ① `농장 전달용 자동 합계` 카드 표의 `DB 품목명 (영문)` 미매칭(`–`) 셀을 클릭 가능한 `[DB 품목 지정]` 버튼으로 전환하고 기존 매칭 행도 클릭 수정 가능하게 개선(편집 중인 단 1개 행에만 `<KakaoDbProdInlineEditor>`를 마운트해 비편집 행 추가 DOM 0개 무렉 유지) ② 편집창에서 `dbo.Product`(5분 TTL 캐시) 국가 우선 실시간 자동완성 검색(`[전체 국가 검색]` 토글 포함)과 DB 미등록 신품종 영문명 직접 입력 저장·`[수동지정 초기화]` 동시 지원 ③ `(국가 + 카톡 품목명) → DB 영문 품목명` 매핑을 Cafe24 재배포 보존 공용 저장소(`lib/importTeamStore.js` `kakao.db-product-aliases`)와 브라우저 `localStorage`(`nenova.kakao-db-prod-aliases.v1`)에 이중 영속화하여 새로고침·타 직원 PC·다음 차수 동일 품목에 자동 재적용 및 `[이 농장 복사]`·`[이 묶음 복사]`·`[농장 전달용 전체 복사]`·우측 `매칭값(DB)`에 지연 0ms 즉시 반영 ④ `importKakaoDbCatalog.js`에 한글 합성 음차 분해(`화이트`+`붐`↔`White Boom`/`Bom`, `레드스타`, `핑크퀸` 등), `FlowerName` 품종 색인 및 `L/M/S` 단독 사이즈 규격 매칭을 보강하여 태국 `화이트붐 M` → `Den. White Bom M`(`ProdKey: 608`) 1차 자동 매칭 달성.
+- 3. 남은 할 일: PR CI(`verify`) 통과 후 `master` Squash 머지, `Deploy to Cafe24` 운영 배포 완료 확인, 워크트리 정리 및 `sync-nenova-hq.js` 관제 동기화.
+- 4. 검증 상태: `__tests__/importKakaoDbProdAliases.test.mjs` 등 카톡·계약·가이드 해시(`test:workflow-guides`)·`test:erp-manifest`·`guard:erp-writes`·`npm run build`·`pstack-verify.cjs` 5/5 PASS.
+- 5. 주의/잠금: 잠금 없음 (`desktop/` 수정 0건 웹뷰 자동반영 · 운영 MSSQL 쓰기 0건 `SELECT-only`)
+- 검색어: 수입방 카톡 DB 품목명 영문 미매칭 DB 품목 지정 화이트붐 M Den. White Bom M 인라인 검색 직접입력 수동지정 초기화 kakao-product-aliases kakao.db-product-aliases KakaoDbProdEditor g03 g19
+
 ## 2026-11-27 수입방 카톡 농장 컨펌(확정 회신) 발주추가 배제 · 현지이슈/취소 마이너스(-) 합계 차감 반영 · ERP 주문등록 안전 가드 · LLM 워커 v3 (feat/kakao-confirm-minus-v3, 연결 목표: g03·g19 / 학습 반영: 있음)
 - 1. 작업 위치: `nenova-erp-ui` (`nw-agy-kakao-confirm-minus` 워크트리, `feat/kakao-confirm-minus-v3`) · `lib/importKakaoOrderText.js`, `lib/importKakaoAdditions.js`, `components/import-tools/KakaoAdditions.js`, `lib/kakaoOrderErpStatus.js`, `components/import-tools/KakaoOrderRegisterBridge.js`, `docs/contracts/country-orders.json`, `public/guides/import-country-orders/import.proof.json`, `__tests__/importKakaoOrderText.test.mjs`, `__tests__/importKakaoConfirmMinus.test.mjs`(신규) 및 `C:\Users\USER\nenova-pm\kakao-import-order-llm-worker.js`(`PARSER_VERSION = 3`)
 - 2. 완료된 것: 사장님 도메인 교정 지시("뉴질랜드 컨펌은 발주 추가가 아니야 · 현지이슈도 취소도 - 로 포함되는게 맞긴해")에 따라 ① `** 48차 뉴질랜드 컨펌**` 등 농장 확정 회신(컨펌) 공지는 LLM 캐시·정규식 양쪽에서 발주 추가(`+`) 합산 원천 차단(`컨펌 확인` 정리처리됨 분리, 복합 컨펌 원문은 일반 확정 줄을 버리고 `미컨펌·쇼트·취소` 마이너스 줄만 추출) ② 품목·수량·단위·차수가 명확한 `현지이슈`(`쇼트·소트·미컨펌·결품·출하불가·감량`) 및 `취소`(`발주 취소·빼주·제외·캔슬`)를 음수(`-quantity`, `minusKind: '현지이슈' | '취소'`)로 정규화해 `농장 전달용 자동 합계`(`farmTotals`·`buildFarmSummary`·클립보드 복사)에 자동 차감 반영(동일 품목 `+30 / -10`은 순합계 `20`과 `+30 / -10 (취소·현지이슈)` 비고 병기, 단독 마이너스 `-10 bunches`·`-5 box`·`-100 stems`도 필터 누락 없이 그대로 표시·복사, 수량 미기재 서술형 이슈·질문형은 `검토` 유지) ③ `KakaoOrderRegisterBridge.js`·`classifyKakaoItemErpStatus`에서 양수(`quantity > 0`) 추가 발주만 `/orders/sales-paste`(`ADD`) 선택 가능하게 잠그고 마이너스 건은 `취소·현지이슈 (-)` 배지로 구분 표시 ④ `kakao-import-order-llm-worker.js` `v3` 승격.
@@ -5644,6 +5652,14 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 5. 주의/잠금: `desktop/` 수정 0건(웹뷰 자동 반영), 운영 MSSQL 쓰기 0건(SELECT-only), 숫자 셀 값/수식/열 너비 보존 및 `DecimalUnitBadge_*` 불릿·괄호 금지 유지. 연결 목표: g03
 
 
+## 2026-11-27 내 업체 주문등록 품종 필터와 정렬
+- 검색어: 내 업체 주문등록 품종 알파벳 ABCD 사용량 UsageCount g03
+1. 작업 위치: nenova-erp-ui / codex/my-customer-product-filters / C:/Users/USER/nw-cdx-my-customer-filters / PR #2063.
+2. 완료된 것: 알파벳 아래 품종 필터와 ABCD 기본·사용량순 선택 추가. 화면, 계약 및 화면 회귀 검사 수정. 연결 목표 g03. 정렬 선호 학습 반영.
+3. 남은 할 일: master 갱신 후 CI 재검증, 병합, Cafe24 배포와 운영 화면 확인.
+4. 검증 상태: 화면 회귀, manifest, dnSpy 근거, ERP 쓰기 범위, 정적 가드, 로컬 빌드, 최초 GitHub verify 통과. 로컬 수입팀 PDF 묶음 2개 시간 초과, 재시도 PDF 잠금 오류. 로컬 Chrome에서 위치, 기본·선택 정렬, 필터 조합 및 초안 유지 확인. 운영 화면 미검증.
+5. 주의/잠금: 화면에 로드된 품목만 정렬·필터. ERP 테이블과 저장 경로 변경 없음.
+
 ## 2026-11-27 최초주문등록 과 분배 비교 기본 대주차 보정(48-01) 및 빈 세부차수 제거 (`fix/import-compare-default-week-and-subweeks`, 연결 목표: g03·g17 / 학습 반영: 반영 예정)
 - 요약: `pages/api/orders/import-compare.js`의 `handleOptions`에서 실제 품목 수량(`OrderDetail`/`ShipmentDetail`/`WebOrderImportSnapshot`)이 존재하는 세부차수·거래처만 필터링하고(최초 `EXISTS` 30초 타임아웃을 `INNER JOIN`+`GROUP BY` 해시 조인으로 최적화해 `553ms` 달성), `lib/orderImportCompareLogic.js`에 `pickDefaultOrderWeek`를 추가해 사전주문 전용 미래 주차(`49~51`) 대신 실제 출고분배가 있는 최신 대주차의 첫 세부차수(`48-01`)를 `defaultOrderWeek`로 반환·선택하도록 보정했다. `pages/orders/import-compare.js` 세부차수 버튼에 `분배 N`/`주문만` 구분 배지를 추가했고, `pages/orders/import.js`에서 `localStorage` 초안 복원 주차(`weekFromDraftRef`)가 비교 페이지 진입 시 구차수로 고정되지 않게 했다.
 - 검색어: 최초주문등록 분배비교 기본주차 defaultOrderWeek pickDefaultOrderWeek 48-01 44-04 빈세부차수 OrderDetail ShipmentDetail import-compare g03 g17
@@ -5657,6 +5673,14 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 - 수입방 원문의 품목 키로 전산 주문 대조 결과를 연결한다. 동일 전산 연도·세부차수·거래처·품목 집계가 여러 원문에 대응하거나 품목키가 다르면 완료 표시를 보류한다. 취소·현지 차감은 기존 합계에 반영하고 완료 건수에서 제외한다.
 - 검증: 합계 ±수량과 복사 문구 불변, 다른 연도 분리, 완료·부분 완료·수량차이·대조 실패·ERP 근거 공유 회귀 테스트 통과. 운영 화면은 미검증.
 - 검색어: 국가별 발주서 농장 전달용 자동 합계 주문등록 완료 수입방 중복 가산 KakaoAdditions
+
+## 2026-11-27 불량차감 이월 제외 보류 및 적용 차수 완료 조회
+1. 작업 위치: nenova-erp-ui / codex/defect-hold-sales-visibility / nw-cdx-defect-hold-sales-visibility / PR 준비.
+2. 완료된 것: 확정 등록 및 보류를 단일 트랜잭션으로 연결. 영업입력 완료 목록에 실제 견적 적용 차수 조회 추가. 화면 /sales/defect-deductions.
+3. 남은 할 일: CI 및 Cafe24 운영 스모크.
+4. 검증 상태: 불량차감 회귀 5개 파일 통과. 운영 화면 미검증.
+5. 주의/잠금: 운영 원장 보정 없음. 연결 목표 미확정 / 학습 반영 없음.
+- 검색어: 이월 제외 보류, 적용 차수, 영업입력 완료 목록, 정재훈
 
 ## 2026-11-27 최초주문등록 과 분배 비교 고밀도 출고내역서 양식 기본 적용 및 주문↔분배 밀착 레이아웃 (`feat/import-compare-compact-statement-layout`, 연결 목표: g03, g17)
 - 요약: `pages/orders/import-compare.js`를 한 페이지에 약 30품목(행 높이 26px, 본문 13.5px, 헤더 13px sticky, 배지 12.5px)이 보이도록 출고내역서 양식으로 고밀도 개편했다. `showAllExcelCols` 기본값을 `true`로 전환하고 완전 빈 엑셀 열을 제거하는 `visibleExcelCols`와 `leftColCount` off-by-1 버그를 보정했으며, 기본 출고내역서 모드에서는 `칼라/품종`·`단위` 별도 열을 제거해 `주문수량(단위)` 바로 우측 구분선(`2px solid #94a3b8`) 옆에 `분배수량(단위) | 차이 | 구분 | 분배단가`가 밀착되도록 재배치하고 `<tfoot>` `합 계` 행(총 주문수량·분배수량·순 증감·총 분배금액)을 추가했다. `분배단가` 셀은 `확정`·`복수`·`적용` 배지/버튼을 `<input>` 왼쪽 같은 줄 가로 인라인으로 고정해 1줄을 유지하도록 조정했다.

@@ -38,7 +38,12 @@
     "lib/kakaoOrderErpStatus.js",
     "components/import-tools/KakaoOrderRegisterBridge.js",
     "__tests__/kakaoOrderErpStatus.test.mjs",
-    "__tests__/importKakaoConfirmMinus.test.mjs"
+    "__tests__/importKakaoConfirmMinus.test.mjs",
+    "lib/importKakaoDbProductAliases.js",
+    "lib/importKakaoDbProductAliasesApi.js",
+    "pages/api/import/tools/kakao-product-aliases.js",
+    "components/import-tools/KakaoDbProdEditor.js",
+    "__tests__/importKakaoDbProdAliases.test.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -115,7 +120,7 @@
     "noOmission": "No partial blocked-product export. Excluded rows are rejected by adapter. Hidden active orders block download until administrator resolves native linkage; no ERP repair is performed.",
     "viewport": "1920x1080 CSS pixels at 100%; page vertical scroll and matrix horizontal scroll; right Kakao source list has a bounded vertical scroll to match the requested feed",
     "importSourceFeed": "The default right source list renders each card as a simplified 2-column split (left 원문 | right 매칭값(DB)) without duplicate summary boxes, preserves timestamp, multiline text and style without reference labels, and enforces a strict 100-item pagination window with React.memo and content-visibility. Matching an aggregate reveals any otherwise filtered contributors within the bounded window, highlights exact source-key matches in the chronological list, and scrolls to the first match. It preserves source filters for clearing the match. Clicking 합계 반영, - 합계 차감, or 이 원문의 합계 보기 on an original highlights and smoothly scrolls to the linked row(s) inside 농장 전달용 자동 합계 without hiding other farm cards. Both sides share the selected source reference; cancellation rows support inline checkbox toggling for negative delta subtraction in farmTotals while remaining blocked from positive ERP order handoff.",
-    "importFarmLedger": "Farm cards render 번호, 품목명 (Kakao cultivar+spec), DB 품목명 (영문) (dbo.Product.ProdName), 수량 (default lowercase English bunches/box/stems, preserving FB/HB/QB/EB box specs as '5 box (FB)') and 비고 columns, and copy uses English DB ProdName (fallback to Kakao product) + lowercase English units by default. Secondary cycle ledger stays available in a collapsible details section.",
+    "importFarmLedger": "Farm cards render 번호, 품목명 (Kakao cultivar+spec), DB 품목명 (영문) (dbo.Product.ProdName with inline [DB 품목 지정] single-row dbo.Product search + custom English input + shared importTeamStore kakao.db-product-aliases & localStorage dual persistence), 수량 (default lowercase English bunches/box/stems, preserving FB/HB/QB/EB box specs as '5 box (FB)') and 비고 columns, and copy uses English DB ProdName (fallback to Kakao product) + lowercase English units by default. Secondary cycle ledger stays available in a collapsible details section.",
     "importSourceIncluded": "The metadata check means at least one exact row (addition or checked cancellation subtraction) from this message entered valid farm totals for the current year/cycle and product-group scope. Matching focus and right-side filters do not recalculate it. Unchecked items, non-valid cancellations and unapproved review items contribute no source keys. An invalid blocking item hides totals and all checks.",
     "calendar": "PeriodDay is authoritative; Asia/Seoul today main cycle plus next five, exactly six unique contiguous Thursday rows; no ISO week or 52-week fallback",
     "request": "country plus explicit year and majorWeek; year/majorWeek omitted together means current cycle; partial or outside-six scope rejected",
@@ -352,7 +357,8 @@
     "__tests__/importKakaoFarmSummary.test.mjs",
     "__tests__/importKakaoDbCatalogRecall.test.mjs",
     "__tests__/kakaoOrderErpStatus.test.mjs",
-    "__tests__/importKakaoConfirmMinus.test.mjs"
+    "__tests__/importKakaoConfirmMinus.test.mjs",
+    "__tests__/importKakaoDbProdAliases.test.mjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",

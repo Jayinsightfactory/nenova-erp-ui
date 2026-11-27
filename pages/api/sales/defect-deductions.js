@@ -97,6 +97,7 @@ async function handler(req, res) {
         history: req.query.history === '1',
         includeCarryover: String(req.query.view || '') === 'support',
         pendingSupportOnly: String(req.query.view || '') === 'support',
+        includeAppliedSales: req.query.includeAppliedSales === '1' && !req.query.view,
         // 영업지원은 수입부 미확정 행도 업무 대기 목록에서 확인한다.
         // 등록은 업체 분배·단가·잔여수량·중복 여부를 공통 경로에서 검증한다.
         importConfirmedOnly: false,
@@ -217,6 +218,7 @@ async function handler(req, res) {
           year, week, ids: req.body?.ids || [], deductionType: req.body?.deductionType || '불량차감',
           user: req.user, overrides: req.body?.overrides || {}, requestKey: req.body?.requestKey || req.headers['idempotency-key'] || '',
           carryoverApprovals: req.body?.carryoverApprovals,
+          excludedCarryovers: req.body?.excludedCarryovers,
         });
         const registered = result.registered || [];
         const skipped = result.skipped || [];

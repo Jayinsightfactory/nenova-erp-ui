@@ -6,6 +6,8 @@ import { classifyImportFeed, importCustomerAliases, latestImportFeed } from '../
 import { offsetImportDay, readImportArchive } from '../../../../lib/importKakaoArchive';
 import { query as queryErpDb } from '../../../../lib/db';
 import { loadImportKakaoDbCatalog } from '../../../../lib/importKakaoDbCatalog';
+import { readImportTeamRecord } from '../../../../lib/importTeamStore';
+import { KAKAO_DB_PRODUCT_ALIASES_KEY, normalizeKakaoProductAliasMap } from '../../../../lib/importKakaoDbProductAliases';
 
 function sanitizeErrorSummary(err) {
   const raw = String(err?.message || err || '')
@@ -62,19 +64,28 @@ export default withAuth(async (req,res)=>{
         return new Map();
       }
     };
-    const [aliases, messages, dbCatalog] = await Promise.all([
+    const [aliases, messages, dbCatalog, aliasRecord] = await Promise.all([
       loadAliases(),
       readImportArchive(from, through),
       typeof loadImportKakaoDbCatalog === 'function' && typeof queryErpDb === 'function'
         ? loadImportKakaoDbCatalog({ queryFn: queryErpDb })
         : Promise.resolve(null),
+      typeof readImportTeamRecord === 'function'
+        ? readImportTeamRecord('kakao.db-product-aliases').catch(() => ({ value: {}, revision: 0 }))
+        : Promise.resolve(null),
     ]);
+    const productAliases = aliasRecord
+      ? (typeof normalizeKakaoProductAliasMap === 'function'
+          ? normalizeKakaoProductAliasMap(aliasRecord.value)
+          : (aliasRecord.value && typeof aliasRecord.value === 'object' ? aliasRecord.value : {}))
+      : null;
     const enrichedOptions = dbCatalog
-      ? { ...options, dbCatalog, knownFarms: dbCatalog.knownFarms || [], inheritContext: true }
-      : options;
+      ? { ...options, dbCatalog, knownFarms: dbCatalog.knownFarms || [], ...(productAliases ? { productAliases } : {}), inheritContext: true }
+      : (productAliases ? { ...options, productAliases } : options);
     const responseExtra = {
       ...(aliasWarning ? { aliasWarning } : {}),
       ...(dbCatalog ? { knownFarms: dbCatalog.knownFarms || [] } : {}),
+      ...(aliasRecord ? { productAliases: productAliases || {}, productAliasRevision: Number(aliasRecord.revision || 0) } : {}),
     };
     if (day !== undefined) return res.json({ ...classifyImportFeed({from:day,to:day,messages},aliases,enrichedOptions), ...responseExtra });
     const feedOpts = { ...enrichedOptions, maxOrderDays: 31, windowFrom: from };
