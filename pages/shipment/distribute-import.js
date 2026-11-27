@@ -9,6 +9,68 @@ import { buildImportProductSearchHits, importProductOverrideKey, IMPORT_SKIP_PRO
 import { buildImportFixBlockedAlert } from '../../lib/shipmentFixScopeCore';
 import { waitForImportResult, IMPORT_UNKNOWN_CODES, importPendingKey, readPendingImport, savePendingImport, clearPendingImport } from '../../lib/importApplyClient';
 import { createImportReadRequests } from '../../lib/importReadRequests';
+const SHIP_WEEKDAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+const SHIP_WEEKDAY_COLORS = {
+  '목': { fill: '#FCE4D6', ink: '#7C2D12' },
+  '금': { fill: '#FFF2CC', ink: '#713F12' },
+  '토': { fill: '#E2F0D9', ink: '#14532D' },
+  '일': { fill: '#DDEBF7', ink: '#1E3A8A' },
+  '화': { fill: '#E4DFEC', ink: '#4C1D95' },
+  '수': { fill: '#F4CCCC', ink: '#881337' },
+  '월': { fill: '#D9EAF7', ink: '#0C4A6E' },
+  '미지정': { fill: '#E8EEF4', ink: '#334155' },
+};
+
+function parseDistributeShipDate(rawDate) {
+  const text = rawDate instanceof Date && !Number.isNaN(rawDate.getTime())
+    ? rawDate.toISOString().slice(0, 10)
+    : String(rawDate ?? '').trim();
+  const m = text.match(/^(\d{4})[-./](\d{2})[-./](\d{2})/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const utcDate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    Number.isNaN(utcDate.getTime()) ||
+    utcDate.getUTCFullYear() !== year ||
+    utcDate.getUTCMonth() !== month - 1 ||
+    utcDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  const weekday = SHIP_WEEKDAY_NAMES[utcDate.getUTCDay()];
+  return {
+    isoDate: `${m[1]}-${m[2]}-${m[3]}`,
+    weekday,
+    dayColor: SHIP_WEEKDAY_COLORS[weekday] || SHIP_WEEKDAY_COLORS['미지정'],
+  };
+}
+
+function ShipDateWithWeekday({ rawDate }) {
+  if (!rawDate) return <span style={{ color: '#94a3b8' }}>-</span>;
+  const meta = parseDistributeShipDate(rawDate);
+  if (!meta) return <span>{String(rawDate)}</span>;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+      <span>{meta.isoDate}</span>
+      <span
+        style={{
+          display: 'inline-block',
+          padding: '1px 6px',
+          borderRadius: 4,
+          background: meta.dayColor.fill,
+          color: meta.dayColor.ink,
+          fontSize: 12,
+          fontWeight: 800,
+          lineHeight: 1.2,
+        }}
+      >
+        {meta.weekday}요일
+      </span>
+    </span>
+  );
+}
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => {
@@ -1625,7 +1687,7 @@ function PreAlignResultLog({ result }) {
                 <th>주문기준 수량</th>
                 <th>출고분배 변화</th>
                 <th>처리 내용</th>
-                <th>출고일</th>
+                <th>출고일 · 요일</th>
               </tr>
             </thead>
             <tbody>
@@ -1646,7 +1708,7 @@ function PreAlignResultLog({ result }) {
                       color: r.shipmentAction === '분배삭제' ? '#991b1b' : r.shipmentAction === '출고일정리' ? '#92400e' : '#166534',
                     }}>{r.shipmentAction}</span>
                   </td>
-                  <td>{r.shipDate || ''}</td>
+                  <td><ShipDateWithWeekday rawDate={r.shipDate} /></td>
                 </tr>
               ))}
             </tbody>
@@ -1782,7 +1844,7 @@ function ApplyResultContent({ result }) {
               <th>주문등록 변화</th>
               <th>출고분배 변화</th>
               <th>처리 내용</th>
-              <th>출고일</th>
+              <th>출고일 · 요일</th>
             </tr>
           </thead>
           <tbody>
@@ -1813,7 +1875,7 @@ function ApplyResultContent({ result }) {
                     color: r.shipmentChanged ? '#166534' : '#64748b',
                   }}>{r.shipmentAction}</span>
                 </td>
-                <td>{r.shipDate || ''}</td>
+                <td><ShipDateWithWeekday rawDate={r.shipDate} /></td>
               </tr>
             ))}
           </tbody>

@@ -11,6 +11,7 @@ import {
   formatShipDateShort,
   roundQty,
 } from '../../lib/orderImportCompareLogic';
+import { parseShipmentDateMeta } from '../../lib/shipmentWeekdayFormat';
 
 const FONT_STACK = "'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif";
 
@@ -83,22 +84,64 @@ function formatDiffText(row) {
   return formatNum(row.diff);
 }
 
-function formatShipDatesCell(row, { groupByShipDate }) {
+function ShipDateWeekdayBadge({ dateKey, qty = null, showFullWeekday = false }) {
+  const meta = parseShipmentDateMeta(dateKey);
+  if (meta.unassigned) {
+    return <span>{String(dateKey || '-')}</span>;
+  }
+  const md = meta.isoDate ? `${Number(meta.isoDate.slice(5, 7))}/${Number(meta.isoDate.slice(8, 10))}` : dateKey;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        whiteSpace: 'nowrap',
+        fontVariantNumeric: 'tabular-nums',
+      }}
+    >
+      <span style={{ fontWeight: 600, color: '#0f172a' }}>{md}</span>
+      <span
+        style={{
+          display: 'inline-block',
+          padding: '1px 5px',
+          borderRadius: 4,
+          background: meta.dayColor.fill,
+          color: meta.dayColor.ink,
+          fontSize: 12,
+          fontWeight: 800,
+          lineHeight: 1.15,
+        }}
+      >
+        {showFullWeekday ? meta.weekdayFull : meta.weekday}
+      </span>
+      {qty != null && (
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>
+          ({formatNum(qty)})
+        </span>
+      )}
+    </span>
+  );
+}
+
+function ShipDatesCellContent({ row, groupByShipDate }) {
   if (groupByShipDate && row.isSplitDateRow && row.shipDateKey) {
-    return formatShipDateShort(row.shipDateKey) || row.shipDateKey;
+    return <ShipDateWeekdayBadge dateKey={row.shipDateKey} />;
   }
   const list = Array.isArray(row.shipDates) ? row.shipDates : [];
-  if (list.length === 0) return '-';
-  if (list.length === 1) {
-    return formatShipDateShort(list[0].dateKey) || list[0].dateKey;
+  if (list.length === 0) {
+    return <span style={{ color: '#64748b' }}>-</span>;
   }
-  return list
-    .map((sd) => {
-      const short = formatShipDateShort(sd.dateKey);
-      const md = short ? short.replace(/\([^)]*\)/, '') : sd.dateKey;
-      return `${md}(${formatNum(sd.qty)})`;
-    })
-    .join('·');
+  if (list.length === 1) {
+    return <ShipDateWeekdayBadge dateKey={list[0].dateKey} />;
+  }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
+      {list.map((sd, i) => (
+        <ShipDateWeekdayBadge key={`${sd.dateKey}-${i}`} dateKey={sd.dateKey} qty={sd.qty} />
+      ))}
+    </span>
+  );
 }
 
 function formatShipDatesTooltip(row) {
@@ -822,7 +865,6 @@ export default function OrderImportComparePage() {
     const shipUnitLabel = row.shipUnit || row.outUnit || row.unit || '';
     const effectiveShipQty =
       row.displayShipQty != null ? row.displayShipQty : row.shipQty;
-    const shipDateText = formatShipDatesCell(row, { groupByShipDate });
     const shipDateTitle = formatShipDatesTooltip(row);
 
     return (
@@ -1135,16 +1177,15 @@ export default function OrderImportComparePage() {
           title={shipDateTitle}
           style={{
             ...tdCompactStyle,
-            width: 116,
-            maxWidth: 116,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
+            width: 146,
+            minWidth: 132,
+            maxWidth: 210,
             fontVariantNumeric: 'tabular-nums',
-            color: shipDateText === '-' ? '#64748b' : '#334155',
+            color: '#334155',
             textAlign: 'center',
           }}
         >
-          {shipDateText}
+          <ShipDatesCellContent row={row} groupByShipDate={groupByShipDate} />
         </td>
 
         {!effectiveShowExcelCols && hasAnyUnitPrice && (
@@ -2490,8 +2531,8 @@ export default function OrderImportComparePage() {
                   >
                     분배단가
                   </th>
-                  <th style={{ ...thCompactStyle, textAlign: 'center', width: 116, background: '#f8fafc' }}>
-                    출고일
+                  <th style={{ ...thCompactStyle, textAlign: 'center', width: 146, minWidth: 132, background: '#f8fafc' }}>
+                    분배 출고일 · 요일
                   </th>
                   {!effectiveShowExcelCols && hasAnyUnitPrice && (
                     <th style={{ ...thCompactStyle, textAlign: 'right', width: 80, background: '#f8fafc' }}>
@@ -2546,9 +2587,14 @@ export default function OrderImportComparePage() {
                                 fontVariantNumeric: 'tabular-nums',
                               }}
                             >
-                              {sec.isNoDate
-                                ? `${sec.dateLabel} · ${sectionItemCount}품목`
-                                : `${sec.dateLabel} 출고 · ${sectionItemCount}품목`}
+                              {sec.isNoDate ? (
+                                `${sec.dateLabel} · ${sectionItemCount}품목`
+                              ) : (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                  <ShipDateWeekdayBadge dateKey={sec.dateKey} showFullWeekday />
+                                  <span>출고 · {sectionItemCount}품목</span>
+                                </span>
+                              )}
                             </td>
                           </tr>
                         )}
