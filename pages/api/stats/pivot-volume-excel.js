@@ -16,6 +16,12 @@ import {
   isNetherlandsVolume,
   pivotVolumeFlowerLabel,
 } from '../../../lib/pivotVolumeNetherlands';
+import {
+  appendGroupedCustomerColumns,
+  buildVolumeCustomerGroups,
+  normalizeVolumeGroupBy,
+} from '../../../lib/pivotVolumeGrouping';
+import { renderPivotFieldVolumeWorkbook } from '../../../lib/pivotFieldVolume';
 const ALSTRO_DIVISOR = 16;
 const CUSTOMER_COL_WCH = 4;
 const DUTCH_CUSTOMER_COL_WCH = 10;
@@ -162,53 +168,14 @@ function extractCustomerAbbr(customer) {
   return customerDisplayLabel(customer);
 }
 
-function makeCustomerGroups(rows, customers, flower) {
-  const active = customers
-    .filter(customer => rows.some(row => n(pivotCustomerQuantity(row, customer)) > 0))
-    .map(customer => {
-      const days = extractDays(customer, flower);
-      return {
-        customer,
-        region: customer.area || '기타',
-        label: extractCustomerAbbr(customer) || customer.custName,
-        day: pickDataDay(days),
-      };
-    });
-
-  const labelCounts = new Map();
-  active.forEach(col => {
-    const key = String(col.label || '').trim();
-    if (key) labelCounts.set(key, (labelCounts.get(key) || 0) + 1);
+function makeCustomerGroups(rows, customers, flower, groupBy = 'region') {
+  return buildVolumeCustomerGroups(rows, customers, flower, groupBy, {
+    pivotCustomerQuantity,
+    extractDays,
+    pickDataDay,
+    DAY_ORDER,
+    customerDisplayLabel,
   });
-  active.forEach(col => {
-    if ((labelCounts.get(col.label) || 0) > 1) col.label = col.customer.custName;
-  });
-
-  const regions = [];
-  const seen = new Set();
-  active.forEach(col => {
-    if (!seen.has(col.region)) {
-      seen.add(col.region);
-      regions.push(col.region);
-    }
-  });
-  if (regions.includes('경부선_주광')) {
-    regions.splice(regions.indexOf('경부선_주광'), 1);
-    regions.unshift('경부선_주광');
-  }
-
-  return regions.map(region => ({
-    region,
-    cols: active
-      .filter(col => col.region === region)
-      .sort((a, b) => {
-        const pa = a.label === '주광' ? 0 : a.label === '주광여분' ? 1 : 2;
-        const pb = b.label === '주광' ? 0 : b.label === '주광여분' ? 1 : 2;
-        return pa - pb ||
-          (DAY_ORDER[a.day] ?? 99) - (DAY_ORDER[b.day] ?? 99) ||
-          String(a.label).localeCompare(String(b.label));
-      }),
-  }));
 }
 
 function activeFarms(rows, farms) {
@@ -216,17 +183,12 @@ function activeFarms(rows, farms) {
 }
 
 function makeColumnPlan(rows, customers, farms, meta) {
-  const customerGroups = makeCustomerGroups(rows, customers, meta.flower);
-  const customerColCount = customerGroups.reduce((sum, group) => sum + group.cols.length, 0);
+  const groupBy = normalizeVolumeGroupBy(meta?.groupBy);
+  const customerGroups = makeCustomerGroups(rows, customers, meta.flower, groupBy);
   const farmNames = activeFarms(rows, farms);
   const colPlan = buildPivotVolumeIdentityColumns(meta);
 
-  for (const group of customerGroups) {
-    if (customerColCount > 10 && group.region === '지방' && colPlan.filter(col => col.type === 'product').length === 1) {
-      colPlan.push({ type: 'product', section: 'middle' });
-    }
-    group.cols.forEach(col => colPlan.push({ type: 'customer', group: group.region, ...col }));
-  }
+  appendGroupedCustomerColumns(colPlan, customerGroups, groupBy);
 
   ['주문', '입고', '재고', '잔량'].forEach(label => colPlan.push({ type: 'summary', label }));
   colPlan.push({ type: 'product', section: 'farm' });
@@ -236,6 +198,7 @@ function makeColumnPlan(rows, customers, farms, meta) {
 }
 
 function makeSheet(rows, customers, farms, meta) {
+  const groupBy = normalizeVolumeGroupBy(meta?.groupBy);
   const colPlan = makeColumnPlan(rows, customers, farms, meta);
   const aoa = [[], [], []];
   const separateClientRow = showsCustomerCL(meta);
@@ -258,9 +221,14 @@ function makeSheet(rows, customers, farms, meta) {
       aoa[1][idx] = '';
       aoa[2][idx] = '칼라';
     } else if (col.type === 'customer') {
-      const isRegionStart = idx === 0 || colPlan[idx - 1]?.group !== col.group;
-      aoa[0][idx] = isRegionStart ? col.group : '';
-      aoa[1][idx] = meta.combined ? '' : col.day || '';
+      if (groupBy === 'day') {
+        aoa[0][idx] = col.isDayStart ? (col.day || '미지정') : '';
+        aoa[1][idx] = col.isRegionStart ? col.region : '';
+      } else {
+        const isRegionStart = idx === 0 || colPlan[idx - 1]?.group !== col.group;
+        aoa[0][idx] = isRegionStart ? col.group : '';
+        aoa[1][idx] = meta.combined ? '' : col.day || '';
+      }
       // 중국·네덜란드 시트: 업체명 아래 줄에 CL(OrderCode) 추가 표시
       const cl = String(col.customer?.orderCode || '').trim();
       const customerName = isNetherlandsVolume(meta) ? String(col.customer?.custName || col.label) : col.label;
@@ -323,6 +291,7 @@ function makeSheet(rows, customers, farms, meta) {
     wch: col.type === 'flower' ? 12 : col.type === 'product' ? 24 : col.type === 'color' ? 8 : col.type === 'summary' || col.type === 'farm-total' ? 8 : col.type === 'customer' ? isNetherlandsVolume(meta) ? DUTCH_CUSTOMER_COL_WCH : CUSTOMER_COL_WCH : 5,
   }));
   ws['!rows'] = [{ hpt: 32 }, { hpt: 20 }, { hpt: 44 }];
+  if (groupBy === 'day') ws['!rows'][1] = { hpt: 22 };
   if (separateClientRow) ws['!rows'].push({ hpt: 20 });
   ws['!freeze'] = { xSplit: isNetherlandsVolume(meta) ? 3 : 1, ySplit: headerRows };
 
@@ -445,6 +414,9 @@ function makeSheet(rows, customers, farms, meta) {
   rows.forEach((row) => {
     if (row?.prodKey) keymap.push({ kind: 'prod', label: volumeProdLabel(row), key: Number(row.prodKey) });
   });
+  if (groupBy === 'day') {
+    keymap.push({ kind: 'meta', label: 'groupBy', key: 'day' });
+  }
 
   return { ws: rows.some(isAlstroRow)
     ? pairAlstroBoxColumns(ws, colPlan, rows, dataStart, totalRow) : ws, keymap };
@@ -543,6 +515,8 @@ export default withAuth(async function handler(req, res) {
   const { weekStart, weekEnd, orderYear } = req.query;
   const onlyKey = req.query.species ? String(req.query.species) : null;   // 시트별 별도파일: 이 품종만
   const listMode = req.query.list === '1' || req.query.list === 'true';   // 품종 목록만 반환
+  const groupBy = normalizeVolumeGroupBy(req.query.groupBy);
+  const format = String(req.query.format || '').trim().toLowerCase() === 'field' ? 'field' : 'legacy';
 
   try {
     const data = await getPivotStats({ weekStart, weekEnd, orderYear });
@@ -573,6 +547,11 @@ export default withAuth(async function handler(req, res) {
 
     const weekNum = String(data.weekStart || '').replace(/-/g, '');
     const speciesOf = (g) => g.countryOnly ? g.country : `${g.country || ''}${g.flower || ''}`;
+    const sortGroupRows = (group) => group.rows
+      .filter(includePivotVolumeRow)
+      .sort((a, b) => group.countryOnly
+        ? `${normalizeVolumeFlower(a.flower)}${a.prodName}`.localeCompare(`${normalizeVolumeFlower(b.flower)}${b.prodName}`)
+        : String(a.prodName).localeCompare(String(b.prodName)));
 
     // 시트별 별도파일: 품종 목록만 반환 (페이지가 이걸 받아 품종마다 개별 다운로드)
     if (listMode) {
@@ -582,16 +561,33 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, weekNum, items });
     }
 
+    if (format === 'field') {
+      if (!onlyKey) {
+        return res.status(400).json({ success: false, error: '신형 물량표 다운로드는 품종(species) 지정이 필요합니다.' });
+      }
+      const targetGroup = groups.get(onlyKey);
+      const sheetRows = targetGroup ? sortGroupRows(targetGroup) : [];
+      if (!targetGroup || !sheetRows.length) {
+        return res.status(400).json({ success: false, error: '선택한 차수·품종에 신형 물량표로 출력할 물량이 없습니다.' });
+      }
+      const fieldBuf = await renderPivotFieldVolumeWorkbook({
+        data,
+        group: targetGroup,
+        rows: sheetRows,
+        customers,
+        weekLabel,
+      });
+      const fieldFile = `${data.orderYear}_${weekLabel}_${speciesOf(targetGroup)}-신형물량표.xlsx`;
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fieldFile)}`);
+      return res.status(200).send(fieldBuf);
+    }
+
     const usedSheetNames = new Set();
     const globalKeymap = [];   // 재업로드 정확 매칭용: { sheet, kind, idx, key }
     for (const [key, group] of groups) {
       if (onlyKey && key !== onlyKey) continue;
-      const sheetRows = group.rows
-        // 주문만·입고만 있는 품목 모두 포함 (totalOrder/totalIncoming 0 이어도 orders/incoming 맵 확인)
-        .filter(includePivotVolumeRow)
-        .sort((a, b) => group.countryOnly
-          ? `${normalizeVolumeFlower(a.flower)}${a.prodName}`.localeCompare(`${normalizeVolumeFlower(b.flower)}${b.prodName}`)
-          : String(a.prodName).localeCompare(String(b.prodName)));
+      const sheetRows = sortGroupRows(group);
       if (!sheetRows.length) continue;
       const sheetName = group.sheetNameBase
         ? makePivotVolumeSheetName(group.sheetNameBase, '', usedSheetNames)
@@ -604,6 +600,7 @@ export default withAuth(async function handler(req, res) {
         flower: group.flower,
         species: group.countryOnly ? group.country : `${group.country || ''}${group.flower || ''}`,
         sheetName,
+        groupBy,
       });
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
       (keymap || []).forEach(k => globalKeymap.push({ sheet: sheetName, kind: k.kind, label: k.label, key: k.key }));
@@ -624,9 +621,10 @@ export default withAuth(async function handler(req, res) {
       wb.Workbook.Sheets = wb.SheetNames.map(name => ({ Hidden: name === '_keymap' ? 1 : 0 }));
     }
 
+    const groupSuffix = groupBy === 'day' ? '-요일별' : '';
     let fileBase = (onlyKey && groups.get(onlyKey))
-      ? `${weekNum}_${speciesOf(groups.get(onlyKey))}.xlsx`
-      : `${data.orderYear}_${data.weekStart}${data.weekEnd !== data.weekStart ? `_${data.weekEnd}` : ''}_통합물량표.xlsx`;
+      ? `${weekNum}_${speciesOf(groups.get(onlyKey))}${groupSuffix}.xlsx`
+      : `${data.orderYear}_${data.weekStart}${data.weekEnd !== data.weekStart ? `_${data.weekEnd}` : ''}_통합물량표${groupSuffix}.xlsx`;
     if (combined) fileBase = fileBase.replace(/\.xlsx$/, `_${data.weekEnd}_합산셀.xlsx`);
     wb.Workbook = { ...wb.Workbook, CalcPr: { calcMode: 'auto', fullCalcOnLoad: true, forceFullCalc: true } };
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', compression: true });
