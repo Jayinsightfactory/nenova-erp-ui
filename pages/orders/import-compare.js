@@ -6,6 +6,7 @@ import {
   mergeBaselineCandidates,
   buildCompareRows,
   buildUpdateCostPayload,
+  pickDefaultOrderWeek,
   roundQty,
 } from '../../lib/orderImportCompareLogic';
 
@@ -183,11 +184,14 @@ export default function OrderImportComparePage() {
       const opt = await loadOptions(qYear, qWeek);
       let latestOpt = opt;
       const yr = qYear || String(opt?.orderYear || '');
-      const wk = qWeek || opt?.weeks?.[0]?.orderWeek || '';
+      const availableWeeks = opt?.weeks || [];
+      const wk = (qWeek && availableWeeks.some((w) => w.orderWeek === qWeek))
+        ? qWeek
+        : (opt?.defaultOrderWeek || availableWeeks[0]?.orderWeek || '');
       if (yr) setOrderYear(yr);
       if (wk) {
         setOrderWeek(wk);
-        if (!qWeek && yr) {
+        if (wk !== qWeek && yr) {
           latestOpt = (await loadOptions(yr, wk)) || opt;
         }
       }
@@ -212,7 +216,7 @@ export default function OrderImportComparePage() {
     setCompareData(null);
     setSelectedCandidateIds([]);
     const opt = await loadOptions(nextYear, '');
-    const firstWk = opt?.weeks?.[0]?.orderWeek || '';
+    const firstWk = opt?.defaultOrderWeek || opt?.weeks?.[0]?.orderWeek || '';
     if (firstWk) {
       setOrderWeek(firstWk);
       await loadOptions(nextYear, firstWk);
@@ -253,7 +257,7 @@ export default function OrderImportComparePage() {
         (a, b) =>
           Number(String(a.orderWeek).slice(3)) - Number(String(b.orderWeek).slice(3)),
       );
-    const targetWeek = candidatesInParent[0]?.orderWeek || '';
+    const targetWeek = pickDefaultOrderWeek(candidatesInParent) || candidatesInParent[0]?.orderWeek || '';
     if (targetWeek) {
       await handleWeekChange(targetWeek);
     }
@@ -1148,6 +1152,13 @@ export default function OrderImportComparePage() {
               ) : (
                 subWeeksInParent.map((w) => {
                   const active = w.orderWeek === orderWeek;
+                  const shipCustCount = Number(w.shipmentCustomerCount) || 0;
+                  const hasShip = Boolean(w.hasShipment);
+                  const badgeText = shipCustCount > 0
+                    ? `분배 ${shipCustCount}`
+                    : hasShip
+                      ? '분배'
+                      : '주문만';
                   return (
                     <button
                       key={w.orderWeek}
@@ -1156,6 +1167,9 @@ export default function OrderImportComparePage() {
                       disabled={optionsLoading}
                       onClick={() => void handleWeekChange(w.orderWeek)}
                       style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
                         padding: '7px 13px',
                         borderRadius: 6,
                         border: active ? '1px solid #0f172a' : '1px solid #cbd5e1',
@@ -1168,7 +1182,25 @@ export default function OrderImportComparePage() {
                         cursor: optionsLoading ? 'wait' : 'pointer',
                       }}
                     >
-                      {formatSubWeekButtonLabel(w.orderWeek)}
+                      <span>{formatSubWeekButtonLabel(w.orderWeek)}</span>
+                      <span
+                        style={{
+                          padding: '1px 7px',
+                          borderRadius: 4,
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          fontFamily: FONT_STACK,
+                          fontVariantNumeric: 'tabular-nums',
+                          background: active
+                            ? (hasShip ? '#1e293b' : '#334155')
+                            : (hasShip ? '#eff6ff' : '#f1f5f9'),
+                          color: active
+                            ? (hasShip ? '#e2e8f0' : '#cbd5e1')
+                            : (hasShip ? '#1d4ed8' : '#475569'),
+                        }}
+                      >
+                        {badgeText}
+                      </span>
                     </button>
                   );
                 })
