@@ -83,8 +83,8 @@ assert.equal(many.kind,'addition');assert.equal(many.items.length,23);assert.equ
 const routeSource=fs.readFileSync(new URL('../pages/api/import/tools/kakao-additions.js',import.meta.url),'utf8').replace(/^import .*;\r?$/gm,'').replace('export default withAuth(','return withAuth(');
 let sheetReads=0;
 const {offsetImportDay,readImportArchive}=await import('../lib/importKakaoArchive.js');
-const route=new Function('withAuth','canManageInvoiceReceipt','getKakaoSheetId','readSheetValues','todaySeoul','classifyImportFeed','importCustomerAliases','latestImportFeed','offsetImportDay','readImportArchive',routeSource)(
-  fn=>fn,user=>user.allowed,()=> 'fixture',async()=>{sheetReads++;return [header];},
+const route=new Function('withAuth','canManageInvoiceReceipt','readSheetValuesWithArchive','todaySeoul','classifyImportFeed','importCustomerAliases','latestImportFeed','offsetImportDay','readImportArchive',routeSource)(
+  fn=>fn,user=>user.allowed,async()=>{sheetReads++;return {values:[header],spreadsheetId:'fixture',source:'primary'};},
   ()=> '2026-11-18',classifyImportFeed,importCustomerAliases,latestImportFeed,offsetImportDay,
   async(from,through)=>through==='2026-11-18'?[message('사진 3장','info','2026년 11월 18일 오전 9:01'), message(a,'archive:raw')]:[]);
 const call=async(method='GET',allowed=true,day='2026-11-18')=>{const res={code:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(code){this.code=code;return this;},end(){return this;},json(body){this.body=body;return this;}};await route({method,user:{allowed},query:{day}},res);return res;};

@@ -1,6 +1,6 @@
 import { canManageInvoiceReceipt } from '../../../../lib/invoiceReceiptAccess';
 import { withAuth } from '../../../../lib/auth';
-import { getKakaoSheetId, readSheetValues } from '../../../../lib/googleSheets';
+import { readSheetValuesWithArchive } from '../../../../lib/googleSheets';
 import { todaySeoul } from '../../../../lib/importKakaoAdditions';
 import { classifyImportFeed, importCustomerAliases, latestImportFeed } from '../../../../lib/importKakaoOrderText';
 import { offsetImportDay, readImportArchive } from '../../../../lib/importKakaoArchive';
@@ -56,7 +56,7 @@ export default withAuth(async (req,res)=>{
     let aliasWarning = null;
     const loadAliases = async () => {
       try {
-        const rows = await readSheetValues({spreadsheetId:getKakaoSheetId(),range:"'수입방 주문검토'!A:U"});
+        const { values: rows } = await readSheetValuesWithArchive({range:"'수입방 주문검토'!A:U"});
         return importCustomerAliases(rows);
       } catch (sheetErr) {
         aliasWarning = summarizeAliasSheetError(sheetErr);

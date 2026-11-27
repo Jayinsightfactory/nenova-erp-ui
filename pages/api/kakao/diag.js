@@ -2,7 +2,7 @@
 // 카카오 Google Sheet 연결 및 1천만 셀 용량 진단 (읽기 전용, 시크릿 노출 없음).
 //   GET → 환경변수 존재여부 / 서비스계정 이메일 / 시트ID / 각 탭 A1:A3 읽기 결과 / 1천만 셀 용량(Top-5 탭 포함).
 import { withAuth } from '../../../lib/auth';
-import { getKakaoSheetId, readSheetCapacity, readSheetValues } from '../../../lib/googleSheets';
+import { getKakaoArchiveSheetId, getKakaoSheetId, readSheetCapacity, readSheetValues } from '../../../lib/googleSheets';
 
 function svcEmail() {
   try {
@@ -21,6 +21,8 @@ async function handler(req, res) {
     serviceAccountEmail: svcEmail(),       // 시트에 이 이메일을 공유했어야 함
     sheetIdSet: !!(process.env.KAKAO_SHEET_ID || process.env.GOOGLE_SHEET_URL),
     sheetId: getKakaoSheetId(),
+    // 2호가 비었을 때 되돌아 읽는 1호(아카이브). 같은 값이면 빈 문자열.
+    archiveSheetId: getKakaoArchiveSheetId(),
   };
 
   const tabs = {};
