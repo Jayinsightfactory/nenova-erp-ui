@@ -5752,3 +5752,12 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: PR 생성 → CI 통과 확인 → squash 머지 → worktree 정리(실운영 DB/Cafe24 실브라우저 확인은 머지/배포 후 별도).
 4. 검증 상태: `npm run build` PASS, `npm run test:ui-layout` PASS, `npm run guard:agent-slop` PASS, `npm run guard:erp-writes -- --changed-from origin/master` PASS, `npm run test:erp-manifest -- --changed-from origin/master` PASS(252 manifests), `npm run test:erp-contract -- --no-worker-threads --concurrency=4` PASS(494/494 commands, 680 targets), `node scripts/verify-classic-ui-tabs.mjs` PASS(15개 탭 × 3대 뷰포트 `1920x1080`/`1366x768`/`960x1000` 45개 점검, 리본 접기 `--nv-avail-h` 907→1016, 컬럼 드래그 142→222 및 새로고침 222 복원, 스플리터 609→704 및 접기 0/펼치기 704, 즐겨찾기 추가/순서/삭제, 페이지 오류 0건), `pstack-verify.cjs` PASS 확인. 실운영 서버/DB 연동 화면은 미검증.
 5. 주의/잠금: `desktop/` 하위 파일 변경 0건, 기존 `Layout`/`MENU_ITEMS`/`sidebarMenuFavorites`/`unifiedUi` 계약 100% 보존, `.verify/` 임시 로그 파일은 커밋 제외.
+
+## 2026-11-27 차수피벗 기존 수량 조회의 출고 집계 최적화
+
+1. 작업 위치: nenova-erp-ui / codex/week-pivot-customer-read / C:\Users\USER\nw-cdx-week-pivot-customer-read / PR #2075.
+2. 완료된 것: 기존 업체별 조회의 반복 출고 조인을 선택 연도·차수의 일괄 집계로 전환했다. 기존 다중 비고·분배 수량·금액 필드와 주문 없는 출고 조회를 유지한다.
+3. 남은 할 일: CI·Cafe24 배포 뒤 기존 차수피벗 브라우저 확인. 새 출고 일정 목록에서 수량과 기초재고를 직접 편집하는 동작은 미완료.
+4. 검증 상태: 운영 SELECT 재생 4범위 데이터 일치. 2026년 47-01~48-01 2,633행에서 ShipmentMaster 4,901,526→770 논리 읽기, 1,680→764ms. 격리 MSSQL 교차연도·다중 비고·삭제행·품목 필터·ERP 계약 495/495·빌드 PASS. #2072 배포와 운영 브라우저 날짜 미리보기 2일 확인.
+5. 주의/잠금: 운영 데이터와 스키마 변경 없음. 다른 파일의 SQL과 기존 분배 쓰기는 보존. 연결 목표 g03 / 선호 학습 반영 있음.
+- 검색어: 차수피벗 서버 속도, stock-status, 고객별 출고 집계, 47-01, 48-01, MSSQL 논리 읽기
