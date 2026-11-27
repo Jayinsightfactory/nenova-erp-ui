@@ -5809,7 +5809,7 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 1. 작업 위치: nenova-erp-ui / codex/sales-paste-image / C:/Users/USER/nw-cdx-sales-paste-image / PR #2080
 2. 완료된 것: 클립보드 이미지 인식, 기존 매칭·수량 검증·ADD 저장 연결, 추천 및 확정 품목 기록. 연결 목표 g03·g19.
 3. 남은 할 일: Gemini 운영 키 등록 후 비식별 실모델 검증, PR 병합, 배포·운영 스모크.
-4. 검증 상태: 실제 dnSpy FormOrderAdd 빈 ShipmentMaster 조건과 UnitQuantity 확인. 동일 키 SELECT-only ViewOrder 1·ShipmentMaster 1·ViewShipment 0. 브라우저 1920×1080 API 대체 응답으로 붙여넣기·후보 변경·주문 요청·매칭 이력 확인. 주문 UI·계약·dnSpy 검사와 빌드 통과. 전체 ERP 검사에서 PDF 재시도 테스트 1건 실패 후 단독 재실행 12/12 통과. 운영 실등록과 실모델 미검증.
+4. 검증 상태: 실제 dnSpy FormOrderAdd 빈 ShipmentMaster 조건과 UnitQuantity 확인. 동일 키 SELECT-only ViewOrder 1·ShipmentMaster 1·ViewShipment 0. 브라우저 1920×1080 API 대체 응답으로 붙여넣기·후보 변경·주문 요청·매칭 이력 확인. 주문 UI·계약·dnSpy 검사와 빌드 통과. 최신 master 반영 뒤 전체 ERP 계약 495/495 통과(681 테스트 대상). 운영 실등록과 실모델 미검증.
 5. 주의/잠금: 실험 주문 미등록. 이 작업트리에서 영업부 붙여넣기 화면과 계약 수정 중. 학습 반영 없음.
 
 검색어: sales-paste 카톡 이미지 클립보드 Ctrl+V Gemini 매칭이력 dnSpy 빈 ShipmentMaster
