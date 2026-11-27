@@ -13,9 +13,9 @@
   "captionsSha256": "f530cb9567fd0c9d2e50edda41b0f742fe33cfae867a6dc4ccf1a38d1888b9de",
   "sourceHashes": {
     "components/import-tools/PedidosTool.js": "fd65e36022edbda134302c8ea67046bc29f91e47d8ecd9700b31d458c4f01875",
-    "components/import-tools/KakaoAdditions.js": "b6b6f14b36902e9b849abbe34c800bd90f1b2935157db52fdf6c522a53cc8852",
-    "lib/importKakaoAdditions.js": "d99fab06267f9c45a9b42172024f427167e5c34bfac5ff591b23550b00fa5250",
-    "lib/importKakaoOrderText.js": "8b46848bf50c267d7c3b8fa231a13b797cab92025caf25cb38142898d66b1a03",
+    "components/import-tools/KakaoAdditions.js": "ddd809a7908bb9f24ac961ae2af3ccd9240acf9dd925e760e2c552b490b36320",
+    "lib/importKakaoAdditions.js": "b344f7f117ce950f6b0746a37bef6fa20e40cfd3c500eb4bd768730cbed62c5b",
+    "lib/importKakaoOrderText.js": "8c7fa2c6dc43ae4c435616b473bcc8ec3033bf4c49932fc499f92b4014e3077a",
     "lib/importToolsDisplay.js": "a91caf29a8b124985904cd5e98f84e7fe8822a3b61322287aee1b7cad3f8e96a",
     "components/import-tools/CountryDownloadComparison.js": "339cec364da1e08e2631a52574784b4bd8e061300577c1273d3ea2adf0f6fde7",
     "lib/countryOrderDownloadHistory.js": "785d2754c81d4601ec1b6ae84639d83d3c331fd09f4b58f55d4dd794735ea857"
