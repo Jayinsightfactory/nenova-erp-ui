@@ -37,13 +37,15 @@ for(const profile of Object.values(INVOICE_COST_EXPORT_PROFILES).filter(profile=
  const f=invoiceCostExportFixture(4,profile.formulaId);f.document.orderYear='2025';
  if(profile.id==='CN_SEA_ORIGINAL_V1')f.snapshot.input.lineInputs.forEach(l=>{l.boxCbm=.1;});
  const before=JSON.stringify(f),bytes=await createInvoiceCostWorkbook(f),b=X.read(bytes,{cellFormula:true}),s=b.Sheets['41-2'],p=layout(profile),r=p.first,summary=(profile.headerRow??r-1)-1;
- assert.equal(JSON.stringify(f),before);assert.deepEqual(b.SheetNames,['41-2']);assert.match(s.B1.v,/2025\/41-02/);
+ assert.equal(JSON.stringify(f),before);assert.deepEqual(b.SheetNames,['41-2']);
+ if(profile.id==='CO_42_1_ORIGINAL_V1'){assert.match(s.B1.v,/^COLOMBIA\s+/);assert.equal(s.C5.v,'41-2');}
+ else assert.match(s.B1.v,/2025\/41-02/);
  for(let i=0;i<4;i++){
   const n=r+i,cost=s[p.unitCost+n].v,price=cost/(profile.id==='CN_SEA_ORIGINAL_V1'?.85:.77)*(profile.id==='CN_SEA_ORIGINAL_V1'?1.1:1);
   assert.ok(Math.abs(s[p.input+n].v-price)<1e-7);assert.equal(s[p.sale+n].v,price/1.1);
   assert.equal(s[p.profit+n].v,price/1.1-cost);
   assert.ok(Math.abs(s[p.sales+n].v-s[p.sale+n].v*s[p.qty+n].v/s[p.factor+n].v)<1e-7);
-  assert.ok(s['AF'+n].v.includes(profile.sourceSheet));assert.match(s['AE'+n].v,/推薦|추천식/);
+  assert.equal(s['AE'+n],undefined);assert.equal(s['AF'+n],undefined);
  }
  const sales=Array.from({length:4},(_,i)=>s[p.sales+(r+i)].v).reduce((a,b)=>a+b,0),profit=Array.from({length:4},(_,i)=>s[p.profits+(r+i)].v).reduce((a,b)=>a+b,0);
  assert.equal(s[p.sales+summary].v,sales);assert.equal(s[p.profits+summary].v,profit);assert.equal(s[p.margin+summary].v,profit/sales);
@@ -65,9 +67,11 @@ test('CO sales diagnostic cannot overwrite any of the five weight allocation inp
  const s=X.read(await createInvoiceCostWorkbook(f),{cellFormula:true}).Sheets['41-2'];
  assert.equal(s.AB12.v,coContent.defaults.AB12);
  assert.equal(s.AB12.f,undefined,'weight denominator must not depend on sales');
- assert.equal(s.AL14.f,'COUNT(Q15:Q18)');
- assert.equal(s.AK14.v,'기준판매가 적용 행수');
- assert.equal(s.AL15.v,'자동 기준가 · 실판매 아님');
+ assert.equal(s.AL14,undefined);
+ assert.equal(s.AK14,undefined);
+ assert.equal(s.AL15,undefined);
+ assert.equal(s.U13.f,'SUBTOTAL(9,U15:U18)');
+ assert.equal(s.V13.f,'SUBTOTAL(9,V15:V18)');
  for(let r=8;r<=12;r++)for(const col of ['AB','AC','AG','AH']){
   assert.equal(s[col+r]?.f,undefined,`${col+r} allocation input stays independent of downstream prices`);
  }
@@ -79,7 +83,7 @@ test('CO sales diagnostic cannot overwrite any of the five weight allocation inp
 test('AU verified named reference price overrides recommendation only in same unit',async()=>{
  const f=invoiceCostExportFixture(1,'AU_CNF_BUNCH_V1');f.document.lines[0].originalName='Banker Bush';
  const s=X.read(await createInvoiceCostWorkbook(f),{cellFormula:true}).Sheets['41-2'];
- assert.equal(s.O13.v,19500);assert.equal(s.O13.f,undefined);assert.equal(s.N13.v,19500/1.1);assert.match(s.AE13.v,/품목판매가/);assert.match(s.AF13.v,/38-1.*W5/);
+ assert.equal(s.O13.v,19500);assert.equal(s.O13.f,undefined);assert.equal(s.N13.v,19500/1.1);assert.equal(s.AE13,undefined);assert.equal(s.AF13,undefined);
 });
 test('missing sea allocation does not invent a sales/profit total',async()=>{
  const f=invoiceCostExportFixture(2,'CN_SEA_ACTUAL_V1'),s=X.read(await createInvoiceCostWorkbook(f)).Sheets['41-2'];

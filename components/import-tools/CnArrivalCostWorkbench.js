@@ -44,6 +44,12 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [onlyReview, setOnlyReview] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [multiCategory, setMultiCategory] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [multiProduct, setMultiProduct] = useState(false);
+  const [showAllProducts, setShowAllProducts] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -67,6 +73,32 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
   }, [orderYear, orderWeek, keyParam]);
 
   const preview = useMemo(() => (draft ? computeCnCost(draft) : null), [draft]);
+  const categoryLabelMap = useMemo(() => new Map(CN_CATEGORIES.map(c => [c.code, c.label])), []);
+  const categoryButtons = useMemo(() => {
+    if (!draft?.rows?.length) return [];
+    const counts = new Map();
+    for (const row of draft.rows) {
+      counts.set(row.categoryCode, (counts.get(row.categoryCode) || 0) + 1);
+    }
+    return [...counts.entries()].map(([code, count]) => ({
+      code,
+      label: categoryLabelMap.get(code) || code,
+      count,
+    }));
+  }, [draft?.rows, categoryLabelMap]);
+  const categorySet = useMemo(() => new Set(selectedCategories), [selectedCategories]);
+  const productSet = useMemo(() => new Set(selectedProducts), [selectedProducts]);
+  const normalizedCnSearch = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+  const productButtons = useMemo(() => {
+    if (!draft?.rows?.length) return [];
+    const counts = new Map();
+    for (const row of draft.rows) {
+      if (onlyReview && !row.needsReview) continue;
+      if (categorySet.size > 0 && !categorySet.has(row.categoryCode)) continue;
+      counts.set(row.name, (counts.get(row.name) || 0) + 1);
+    }
+    return [...counts.entries()].map(([name, count]) => ({ name, count }));
+  }, [draft?.rows, onlyReview, categorySet]);
 
   function switchMode(mode) {
     if (!source || draft?.mode === mode) return;
@@ -179,7 +211,25 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
   const d = preview?.derived;
   const reviewCount = draft.rows.filter(r => r.needsReview).length;
   const resultById = new Map((preview?.rows || []).map(r => [r.lineId, r]));
-  const visibleRows = onlyReview ? draft.rows.filter(r => r.needsReview) : draft.rows;
+  const visibleRows = draft.rows.filter(r => {
+    if (onlyReview && !r.needsReview) return false;
+    if (categorySet.size > 0 && !categorySet.has(r.categoryCode)) return false;
+    if (productSet.size > 0 && !productSet.has(r.name)) return false;
+    if (normalizedCnSearch) {
+      const catLabel = categoryLabelMap.get(r.categoryCode) || r.categoryCode || '';
+      if (!`${r.name} ${catLabel}`.toLowerCase().includes(normalizedCnSearch)) return false;
+    }
+    return true;
+  });
+  const hasCnFilter = onlyReview || selectedCategories.length > 0 || selectedProducts.length > 0 || normalizedCnSearch.length > 0;
+  const visibleProductChips = showAllProducts || productButtons.length <= 24 ? productButtons : productButtons.slice(0, 24);
+  const filteredSubtotal = visibleRows.reduce((acc, row) => {
+    const r = resultById.get(row.lineId);
+    acc.qty += Number(row.quantity) || 0;
+    acc.fob += (Number(row.quantity) || 0) * (Number(row.fob) || 0);
+    acc.totalCost += Number(r?.totalCost) || 0;
+    return acc;
+  }, { qty: 0, fob: 0, totalCost: 0 });
   const categories = CN_CATEGORIES.filter(c => !(isSea && c.code === 'ORCHID'));
   const keyHeading = draft.warehouseKeys?.length > 1 ? draft.warehouseKeys.map(k => `#${k}`).join(' + ') : `#${draft.warehouseKey}`;
 
@@ -270,6 +320,137 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
         <button type="button" className={s.primary} disabled={busy || !preview?.rows?.length} onClick={download}>{busy ? '엑셀 생성 중' : '화면 수정값으로 원가 엑셀(.xlsx) 다운로드'}</button>
       </div>
       {notice && <p className={s.status} role="status">{notice}</p>}
+
+      <div className={s.filterPanel} role="toolbar" aria-label="카테고리 원클릭 버튼 필터">
+        <div className={s.chipRow}>
+          <span className={s.filterLabel}>카테고리</span>
+          <div className={s.chipList}>
+            <button
+              type="button"
+              className={!onlyReview && selectedCategories.length === 0 ? s.chipActive : s.chip}
+              aria-pressed={!onlyReview && selectedCategories.length === 0}
+              onClick={() => { setOnlyReview(false); setSelectedCategories([]); setSelectedProducts([]); }}
+            >
+              전체 ({draft.rows.length})
+            </button>
+            {reviewCount > 0 && (
+              <button
+                type="button"
+                className={onlyReview ? s.chipActive : s.chipWarn}
+                aria-pressed={onlyReview}
+                onClick={() => { setOnlyReview(v => !v); setSelectedProducts([]); }}
+              >
+                미등록 확인 ({reviewCount})
+              </button>
+            )}
+            {categoryButtons.map(cat => {
+              const active = categorySet.has(cat.code);
+              return (
+                <button
+                  key={cat.code}
+                  type="button"
+                  className={active ? s.chipActive : s.chip}
+                  aria-pressed={active}
+                  onClick={e => {
+                    const additive = multiCategory || e.metaKey || e.ctrlKey || e.shiftKey;
+                    setSelectedProducts([]);
+                    setSelectedCategories(prev => {
+                      if (!additive) return prev.length === 1 && prev[0] === cat.code ? [] : [cat.code];
+                      return prev.includes(cat.code) ? prev.filter(x => x !== cat.code) : [...prev, cat.code];
+                    });
+                  }}
+                >
+                  {cat.label} ({cat.count})
+                </button>
+              );
+            })}
+          </div>
+          <div className={s.filterRight}>
+            <button
+              type="button"
+              className={multiCategory ? s.chipModeOn : s.chipMode}
+              aria-pressed={multiCategory}
+              onClick={() => setMultiCategory(v => !v)}
+            >
+              복수 선택
+            </button>
+          </div>
+        </div>
+        <div className={s.chipRow} role="toolbar" aria-label="중국 품목 원클릭 버튼 필터">
+          <span className={s.filterLabel}>품목</span>
+          <div className={s.chipList}>
+            <button
+              type="button"
+              className={selectedProducts.length === 0 ? s.chipActive : s.chip}
+              aria-pressed={selectedProducts.length === 0}
+              onClick={() => setSelectedProducts([])}
+            >
+              전체 품목 ({productButtons.length})
+            </button>
+            {visibleProductChips.map(prod => {
+              const active = productSet.has(prod.name);
+              return (
+                <button
+                  key={prod.name}
+                  type="button"
+                  className={active ? s.chipActive : s.chip}
+                  aria-pressed={active}
+                  onClick={e => {
+                    const additive = multiProduct || e.metaKey || e.ctrlKey || e.shiftKey;
+                    setSelectedProducts(prev => {
+                      if (!additive) return prev.length === 1 && prev[0] === prod.name ? [] : [prod.name];
+                      return prev.includes(prod.name) ? prev.filter(x => x !== prod.name) : [...prev, prod.name];
+                    });
+                  }}
+                >
+                  {prod.name}{prod.count > 1 ? ` (${prod.count})` : ''}
+                </button>
+              );
+            })}
+            {productButtons.length > 24 && (
+              <button
+                type="button"
+                className={s.chipMode}
+                onClick={() => setShowAllProducts(v => !v)}
+              >
+                {showAllProducts ? '품목 접기' : `품목 더보기 (+${productButtons.length - 24})`}
+              </button>
+            )}
+          </div>
+          <div className={s.filterRight}>
+            <button
+              type="button"
+              className={multiProduct ? s.chipModeOn : s.chipMode}
+              aria-pressed={multiProduct}
+              onClick={() => setMultiProduct(v => !v)}
+            >
+              복수 품목
+            </button>
+            <input
+              type="search"
+              aria-label="중국 품명 또는 카테고리 검색"
+              className={s.searchInput}
+              value={searchQuery}
+              placeholder="품명 · 카테고리 검색"
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+            {hasCnFilter && (
+              <button
+                type="button"
+                className={s.secondary}
+                onClick={() => { setOnlyReview(false); setSelectedCategories([]); setSelectedProducts([]); setSearchQuery(''); }}
+              >
+                초기화
+              </button>
+            )}
+          </div>
+        </div>
+        {hasCnFilter && (
+          <div className={s.filterSubtotal}>
+            선택 <strong>{visibleRows.length}</strong> / {draft.rows.length}품목 · 수량 <strong>{won(filteredSubtotal.qty)}단</strong> · FOB <strong>{fix(filteredSubtotal.fob, 2)} CNY</strong> · 선택 도착원가 합계 <strong>{won(filteredSubtotal.totalCost)}원</strong>
+          </div>
+        )}
+      </div>
 
       <div className={s.tableWrap}>
         <table className={s.table}>

@@ -30,7 +30,7 @@ test('AU original template restores defaults, formulas, full range and preserves
   assert.equal(s.O23.v,s.P23.v);assert.equal(s.N23.v,s.O23.v/1.1);
   for(const [ref,label] of Object.entries({N12:'판매(부가세 별도)',Q12:'이익',R12:'이익률',S12:'총판매가',T12:'총이익',R10:'총이익률',S10:'총판매가',T10:'총이익'}))assert.equal(s[ref].v,label);
   assert.match(s.O12.v,/매주 확인/);assert.match(s.R11.f,/T11\/S11/);assert.match(s.S11.f,/SUM\(S13:S23\)/);assert.match(s.T11.f,/SUM\(T13:T23\)/);
-  assert.match(s.V2.v,/38-1.*현재 판매가 아님/);
+  assert.match(s.V2.v,/38-1.*참고 판매가/);
   assert.equal(s.W18.v,f.snapshot.input.customsTotalKRW);
   assert.ok(Math.abs(s.W22.v)<0.01);
   assert.match(await (await JSZip.loadAsync(bytes)).file('xl/workbook.xml').async('string'),/activeTab="0"/);
@@ -43,15 +43,19 @@ test('CO 42-1 restores original labels, defaults and live formulas without chang
   assert.deepEqual(book.SheetNames, ['41-2']);
   const s = book.Sheets['41-2'];
   assert.equal(JSON.stringify(f), before);
-  assert.equal(s.C5.v, '2026/41-02');
+  assert.equal(s.B1.v, 'COLOMBIA                                    콜카장 + 수국');
+  assert.equal(s.C5.v, '41-2');
   assert.equal(s.C7.v, f.snapshot.input.exchangeRateKRW);
   assert.equal(s.P7.v, 33000); assert.equal(s.P9.v, 99000); assert.equal(s.R6.v, 40000);
-  assert.equal(s.AL11.v, 5.5); assert.equal(s.AM11.v, 6.7);
+  assert.equal(s.O5.v, '그외에 통관비');
   assert.equal(s.P6.f, 'C8*460'); assert.equal(s.P10.f, 'SUM(P6:P9)+R6+R7');
-  assert.equal(s.E11.v, '내역 없음');
+  assert.equal(s.D9.v, 'Rate'); assert.equal(typeof s.E9.v, 'number');
+  assert.equal(s.D11.v, '서류'); assert.equal(s.E11.v, 0);
+  assert.equal(s.F11.v, '운송비'); assert.equal(s.G11.f, 'E9*E8'); assert.equal(s.C11.f, 'E11+G11');
   assert.equal(s.C10.f, 'SUM(E15:E21)');
   assert.equal(s.AL4.v, f.revision.totalCostKRW);
-  assert.match(s.B2.v, /미승인/);
+  assert.equal(s.B2?.v, undefined);
+  assert.equal(s.B3?.v, undefined);
   for (let i=0; i<7; i++) {
     const r=15+i;
     assert.equal(s[`B${r}`].v,f.document.lines[i].originalName);
@@ -78,7 +82,7 @@ test('CO original calculation keeps prior-year scope and explicit zero freight, 
   f.revision.lines=computed.lines.map((line,i)=>({...line,wdetailKey:f.snapshot.receiptSnapshot.details[i].wdetailKey}));
   f.revision.totalCostKRW=computed.totals.totalCostKRW;
   const bytes=await createInvoiceCostWorkbook(f), s=XLSX.read(bytes).Sheets['41-2'];
-  assert.equal(s.C5.v,'2025/41-02'); assert.equal(s.C11.v,0); assert.equal(s.G15.v,0);
+  assert.equal(s.C5.v,'41-2'); assert.equal(s.C11.v,0); assert.equal(s.G15.v,0);
   assert.equal(s.B15.f,undefined); assert.match(s.B15.v,/HYPERLINK/);
   assert.ok(!s.B15.v.includes('\u0001'));
 });
@@ -606,14 +610,15 @@ test('every enabled profile preserves explicit cancelled rows without allocation
   }
 });
 
-test('every country export retains an explicit TEST_ONLY warning on the single week sheet', async () => {
+test('every country export outputs a clean title without system disclaimers even under TEST_ONLY input', async () => {
   for (const profile of Object.values(INVOICE_COST_EXPORT_PROFILES).filter(profile=>!profile.generated)) {
     const f = invoiceCostExportFixture(1, profile.formulaId);
     f.snapshot.input.exchangeRateType = 'TEST_ONLY';
     const before = JSON.stringify(f);
-    const book = XLSX.read(await createInvoiceCostWorkbook(f));
+    const bytes = await createInvoiceCostWorkbook(f);
+    const book = XLSX.read(bytes);
     assert.deepEqual(book.SheetNames, ['41-2']);
-    assert.match(book.Sheets['41-2'].B1.v, /TEST_ONLY/);
+    assert.doesNotMatch(book.Sheets['41-2'].B1.v, /미승인 계산본|운영 DB 변경 없음|실제 청구액 아님|TEST_ONLY/);
     assert.equal(JSON.stringify(f), before);
   }
 });

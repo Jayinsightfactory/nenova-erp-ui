@@ -34,7 +34,12 @@ test('shared workbook has all farms, test-value marking and formula sheets',asyn
  const bytes=await createSharedAwbCostWorkbook({document,input:{...input,nativeCurrency:'USD',exchangeRateKRW:1400,costGroups:result.costGroups,lineInputs:result.lineInputs},result});
  const book=XLSX.read(bytes,{cellFormula:true});assert.deepEqual(book.SheetNames,['45-1']);
  const sheet=book.Sheets['45-1'],values=Object.values(sheet).map(c=>c?.v).join('\n');
- assert.match(values,/시험/);for(let i=0;i<13;i++){assert.equal(sheet[`A${15+i}`].v,`FARM${i}`);assert.equal(sheet[`B${15+i}`].v,'Hydrangea White');}
+ assert.equal(sheet.B1.v,'COLOMBIA                                    수국');
+ assert.equal(sheet.C5.v,'45-1');
+ assert.equal(sheet.C11.f,'E11+G11');
+ assert.equal(sheet.G11.f,'E9*E8');
+ assert.doesNotMatch(values,/미승인 계산본|운영 DB 변경 없음|내역 없음/);
+ for(let i=0;i<13;i++){assert.equal(sheet[`A${15+i}`].v,`FARM${i}`);assert.equal(sheet[`B${15+i}`].v,'Hydrangea White');}
  assert.ok(Object.values(sheet).some(cell=>cell?.f));
 });
 test('API authorization, stale digest and post-render drift never send download',async()=>{

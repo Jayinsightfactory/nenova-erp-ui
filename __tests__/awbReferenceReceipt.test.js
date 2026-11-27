@@ -29,10 +29,26 @@ test('extractAwbReferenceFromReceipts extracts Apollo GW, CW, summed freight+doc
   assert.equal(ref.gw, 9973);
   assert.equal(ref.cw, 9973);
   assert.equal(ref.freightAmount, 27495.75);
+  assert.equal(ref.freightOnlyUSD, 27425.75);
+  assert.equal(ref.docFeeUSD, 70);
+  assert.ok(Math.abs(ref.freightRateUSD - 27425.75 / 9973) < 1e-5);
   assert.equal(ref.sharedGoodsReceiptCount, 2);
   assert.equal(ref.stemShareNumerator, 13200);
   assert.equal(ref.stemShareDenominator, 40000);
   assert.match(ref.sourceId, /#8205 Apollo/);
+
+  // 48-02 #8289 Apollo pattern: row 1 has SteamQuantity === cw (4202, $11,513.48) and row 2 has SteamQuantity === 1 ($90.47)
+  const apollo8289 = [
+    { WarehouseKey: 8289, OrderYear: '2026', OrderWeek: '48-02', OrderNo: '992-04727833', FarmName: 'Apollo', InvoiceNo: '콜카장수국', WdetailKey: 51922, ProdKey: 3100, ProdName: 'Gross weight', OutQuantity: 3502, SteamQuantity: 3502, UPrice: 0, TPrice: 0 },
+    { WarehouseKey: 8289, OrderYear: '2026', OrderWeek: '48-02', OrderNo: '992-04727833', FarmName: 'Apollo', InvoiceNo: '콜카장수국', WdetailKey: 51923, ProdKey: 3101, ProdName: 'Chargeable weight', OutQuantity: 4202, SteamQuantity: 4202, UPrice: 0, TPrice: 0 },
+    { WarehouseKey: 8289, OrderYear: '2026', OrderWeek: '48-02', OrderNo: '992-04727833', FarmName: 'Apollo', InvoiceNo: '콜카장수국', WdetailKey: 51924, ProdKey: 2182, ProdName: '운송료', OutQuantity: 1, BunchQuantity: 4202, SteamQuantity: 4202, UPrice: 2.74, TPrice: 11513.48 },
+    { WarehouseKey: 8289, OrderYear: '2026', OrderWeek: '48-02', OrderNo: '992-04727833', FarmName: 'Apollo', InvoiceNo: '콜카장수국', WdetailKey: 51925, ProdKey: 2182, ProdName: '운송료', OutQuantity: 1, BunchQuantity: 1, SteamQuantity: 1, UPrice: 90.47, TPrice: 90.47 },
+  ];
+  const ref8289 = extractAwbReferenceFromReceipts(apollo8289, '99204727833');
+  assert.equal(ref8289.freightAmount, 11603.95);
+  assert.equal(ref8289.freightOnlyUSD, 11513.48);
+  assert.equal(ref8289.docFeeUSD, 90.47);
+  assert.equal(ref8289.freightRateUSD, 2.74);
 
   // Near-miss: duplicate reference receipts for the same AWB return null instead of double-summing
   const duplicate = [...raw, { ...raw[0], WarehouseKey: 8999, WdetailKey: 99, TPrice: 500 }];
