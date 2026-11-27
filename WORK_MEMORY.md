@@ -5652,6 +5652,14 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 5. 주의/잠금: `desktop/` 수정 0건(웹뷰 자동 반영), 운영 MSSQL 쓰기 0건(SELECT-only), 숫자 셀 값/수식/열 너비 보존 및 `DecimalUnitBadge_*` 불릿·괄호 금지 유지. 연결 목표: g03
 
 
+## 2026-11-27 내 업체 주문등록 품종 필터와 정렬
+- 검색어: 내 업체 주문등록 품종 알파벳 ABCD 사용량 UsageCount g03
+1. 작업 위치: nenova-erp-ui / codex/my-customer-product-filters / C:/Users/USER/nw-cdx-my-customer-filters / PR #2063.
+2. 완료된 것: 알파벳 아래 품종 필터와 ABCD 기본·사용량순 선택 추가. 화면, 계약 및 화면 회귀 검사 수정. 연결 목표 g03. 정렬 선호 학습 반영.
+3. 남은 할 일: master 갱신 후 CI 재검증, 병합, Cafe24 배포와 운영 화면 확인.
+4. 검증 상태: 화면 회귀, manifest, dnSpy 근거, ERP 쓰기 범위, 정적 가드, 로컬 빌드, 최초 GitHub verify 통과. 로컬 수입팀 PDF 묶음 2개 시간 초과, 재시도 PDF 잠금 오류. 로컬 Chrome에서 위치, 기본·선택 정렬, 필터 조합 및 초안 유지 확인. 운영 화면 미검증.
+5. 주의/잠금: 화면에 로드된 품목만 정렬·필터. ERP 테이블과 저장 경로 변경 없음.
+
 ## 2026-11-27 최초주문등록 과 분배 비교 기본 대주차 보정(48-01) 및 빈 세부차수 제거 (`fix/import-compare-default-week-and-subweeks`, 연결 목표: g03·g17 / 학습 반영: 반영 예정)
 - 요약: `pages/api/orders/import-compare.js`의 `handleOptions`에서 실제 품목 수량(`OrderDetail`/`ShipmentDetail`/`WebOrderImportSnapshot`)이 존재하는 세부차수·거래처만 필터링하고(최초 `EXISTS` 30초 타임아웃을 `INNER JOIN`+`GROUP BY` 해시 조인으로 최적화해 `553ms` 달성), `lib/orderImportCompareLogic.js`에 `pickDefaultOrderWeek`를 추가해 사전주문 전용 미래 주차(`49~51`) 대신 실제 출고분배가 있는 최신 대주차의 첫 세부차수(`48-01`)를 `defaultOrderWeek`로 반환·선택하도록 보정했다. `pages/orders/import-compare.js` 세부차수 버튼에 `분배 N`/`주문만` 구분 배지를 추가했고, `pages/orders/import.js`에서 `localStorage` 초안 복원 주차(`weekFromDraftRef`)가 비교 페이지 진입 시 구차수로 고정되지 않게 했다.
 - 검색어: 최초주문등록 분배비교 기본주차 defaultOrderWeek pickDefaultOrderWeek 48-01 44-04 빈세부차수 OrderDetail ShipmentDetail import-compare g03 g17
