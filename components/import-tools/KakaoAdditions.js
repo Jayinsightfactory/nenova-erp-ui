@@ -25,6 +25,7 @@ import {
 } from '../../lib/importKakaoAdditions';
 import { analyzeImportMessage, parsePastedKakaoChat } from '../../lib/importKakaoOrderText';
 import { importCountryLabel } from '../../lib/importToolsDisplay';
+import { indexFarmOrderEvidence, summarizeFarmOrderRegistration } from '../../lib/kakaoOrderErpStatus';
 import {
   KakaoMessageErpSummary,
   KakaoOrderRegisterPanel,
@@ -879,6 +880,20 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
     }),
     [invalid, totals, knownFarms, scopedExcludedItems, scopedIgnoredTotals, scopedMemos, reviewMessageCount]
   );
+  const farmRowsByKey = useMemo(() => new Map(rows.map(row => [row.key, row])), [rows]);
+  const { current: farmStatusCurrent, error: farmStatusError, byKey: farmStatusByKey, entries: farmStatusEntries } = orderBridge;
+  const farmStatusByLine = useMemo(() => {
+    const sourceKeysByEvidence = farmStatusCurrent ? indexFarmOrderEvidence(farmStatusEntries) : null;
+    const bridge = {
+      current: farmStatusCurrent,
+      error: farmStatusError,
+      byKey: farmStatusByKey,
+      sourceKeysByEvidence,
+    };
+    return new Map(farmSummary.cards.flatMap(card => card.items.map(line => [
+      line.key, summarizeFarmOrderRegistration(line.sourceKeys, farmRowsByKey, bridge),
+    ])));
+  }, [farmSummary, farmRowsByKey, farmStatusCurrent, farmStatusError, farmStatusByKey, farmStatusEntries]);
 
   const fullTransferText = useMemo(
     () => formatFarmTransferText(farmSummary, { format: copyFormat, lang: copyLang, memo: true }),
@@ -1353,6 +1368,11 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                 </details>
 
                 <div className="kakao-farm-card-list">
+                  {farmSummary.cards.length > 0 && (
+                    <p className="kakao-farm-order-hint">
+                      전산에서 불러온 발주 토탈에 주문등록 완료분을 다시 더하지 마세요. 수량차이·대조 필요 항목은 전산 주문을 확인하세요.
+                    </p>
+                  )}
                   {farmSummary.cards.map(card => {
                     const cardSubtotal = (copyLang === 'en' ? card.unitsEn : card.units).totalLine;
                     const hasLinkedMessageItem = selectedMessage
@@ -1412,6 +1432,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                                   ...item.requestNotes,
                                 ].filter(Boolean))].join(' · ');
                                 const isMinusQty = Number(item.quantity) < 0;
+                                const registration = farmStatusByLine.get(item.key);
                                 return (
                                   <tr
                                     key={item.key}
@@ -1428,6 +1449,11 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                                       >
                                         {displayName}
                                       </button>
+                                      {registration && (
+                                        <span className={`kakao-farm-order-status is-${registration.tone}`}>
+                                          {registration.label}
+                                        </span>
+                                      )}
                                     </td>
                                     <td className="kakao-col-db-en">{item.dbProdName || '–'}</td>
                                     <td className={'kakao-col-qty' + (isMinusQty ? ' is-minus' : '')}>{formatUnitDisplay(item.quantity, item.unit, copyLang)}</td>
@@ -2017,6 +2043,29 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
         }
         .kakao-farm-item-btn:hover {
           text-decoration: underline;
+        }
+        .kakao-farm-order-hint {
+          margin: 0 0 8px;
+          color: #475569;
+          font-size: 12px;
+        }
+        .kakao-farm-order-status {
+          display: block;
+          width: fit-content;
+          margin: 2px 4px;
+          padding: 1px 6px;
+          border-radius: 4px;
+          background: #f1f5f9;
+          color: #334155;
+          font-size: 11px;
+        }
+        .kakao-farm-order-status.is-complete {
+          background: #dcfce7;
+          color: #166534;
+        }
+        .kakao-farm-order-status.is-review {
+          background: #fef3c7;
+          color: #92400e;
         }
         .kakao-farm-memo {
           margin: 0 !important;

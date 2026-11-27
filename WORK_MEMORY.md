@@ -5653,6 +5653,11 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: 라이브 MSSQL 읽기전용 SELECT(`Full_ywRes_JOIN 553ms`, `custRes(48-01) 102ms`, `44-04`/`21-03` 미포함, `48-01` 분배58·`48-02` 분배1) PASS, `node scripts/test-order-import-compare.mjs` PASS, `npm run test:erp-contract -- --no-worker-threads --concurrency=4`(494/494 commands, 680 targets) PASS, `npm run test:erp-manifest -- --changed-from origin/master` PASS, `npm run guard:erp-writes -- --changed-from origin/master` PASS, `npm run guard:agent-slop -- --changed-from origin/master` PASS, `npm run build` PASS, `pstack-verify.cjs` 검증 예정(Cafe24 배포 완료·실브라우저 확인 미검증).
 5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), `ShipmentDetail.isDeleted` 미참조(컬럼 부재), `OrderWeeks`/`OrderCust`는 `OrderDetail(OrderMasterKey)` 인덱스 부재로 `EXISTS` 대신 `INNER JOIN` 유지 필수, 운영 DB 쓰기 0건. 연결 목표: g03, g17
 
+## 2026-11-27 국가별 발주서 농장 전달용 합계 주문등록 표시
+- 수입방 원문의 품목 키로 전산 주문 대조 결과를 연결한다. 동일 전산 연도·세부차수·거래처·품목 집계가 여러 원문에 대응하거나 품목키가 다르면 완료 표시를 보류한다. 취소·현지 차감은 기존 합계에 반영하고 완료 건수에서 제외한다.
+- 검증: 합계 ±수량과 복사 문구 불변, 다른 연도 분리, 완료·부분 완료·수량차이·대조 실패·ERP 근거 공유 회귀 테스트 통과. 운영 화면은 미검증.
+- 검색어: 국가별 발주서 농장 전달용 자동 합계 주문등록 완료 수입방 중복 가산 KakaoAdditions
+
 ## 2026-11-27 최초주문등록 과 분배 비교 고밀도 출고내역서 양식 기본 적용 및 주문↔분배 밀착 레이아웃 (`feat/import-compare-compact-statement-layout`, 연결 목표: g03, g17)
 - 요약: `pages/orders/import-compare.js`를 한 페이지에 약 30품목(행 높이 26px, 본문 13.5px, 헤더 13px sticky, 배지 12.5px)이 보이도록 출고내역서 양식으로 고밀도 개편했다. `showAllExcelCols` 기본값을 `true`로 전환하고 완전 빈 엑셀 열을 제거하는 `visibleExcelCols`와 `leftColCount` off-by-1 버그를 보정했으며, 기본 출고내역서 모드에서는 `칼라/품종`·`단위` 별도 열을 제거해 `주문수량(단위)` 바로 우측 구분선(`2px solid #94a3b8`) 옆에 `분배수량(단위) | 차이 | 구분 | 분배단가`가 밀착되도록 재배치하고 `<tfoot>` `합 계` 행(총 주문수량·분배수량·순 증감·총 분배금액)을 추가했다. `분배단가` 셀은 `확정`·`복수`·`적용` 배지/버튼을 `<input>` 왼쪽 같은 줄 가로 인라인으로 고정해 1줄을 유지하도록 조정했다.
 - 검색어: 최초주문등록 분배비교 고밀도 출고내역서 showAllExcelCols visibleExcelCols leftColCount 주문수량 분배수량 밀착 분배단가 합계 tfoot import-compare g03 g17
@@ -5661,3 +5666,4 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: PR 생성 → CI(`verify`) 통과 확인 → squash 머지 → worktree 정리 → `owner-agi-twin.js`·`sync-nenova-hq.js` 동기화(Cafe24 배포 완료·실브라우저 화면 확인 미검증).
 4. 검증 상태: `node scripts/test-order-import-compare.mjs` PASS, `npm run test:erp-manifest -- --changed-from origin/master` PASS(252 manifests), `npm run guard:erp-writes -- --changed-from origin/master` PASS, `npm run guard:agent-slop -- --changed-from origin/master` PASS, `npm run build` (`next build --webpack`) PASS, `node C:\Users\USER\nenova-pm\pstack-verify.cjs --repo C:\Users\USER\nw-agy-import-compare-compact` PASS(5/5), `npm run test:erp-contract -- --no-worker-threads --concurrency=4` 489/494(부하 시간초과 4건 `test:import-team`·`test:packing-team`·`workDriveListWorker`·`weekday*` 및 drive 잔여 8종 단독 재실행 전수 PASS), `desktop/` 변경 0건(Cafe24 배포 완료·실브라우저 화면 확인 미검증).
 5. 주의/잠금: `desktop/` 수정 0건(웹 단독 반영), 단독 `monospace` 금지(`FONT_STACK` + `tabular-nums`), 최소 폰트 12.5px 유지, `data/generated/*.json` 빌드 산출물 원복 완료. 연결 목표: g03, g17
+

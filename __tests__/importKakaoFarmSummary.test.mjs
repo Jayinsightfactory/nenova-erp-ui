@@ -13,6 +13,12 @@ import {
 } from '../lib/importKakaoOrderText.js';
 import { readImportArchive } from '../lib/importKakaoArchive.js';
 import {
+  aggregateErpOrderRows,
+  classifyKakaoItemErpStatus,
+  indexFarmOrderEvidence,
+  summarizeFarmOrderRegistration,
+} from '../lib/kakaoOrderErpStatus.js';
+import {
   normalizeFarmName,
   inferCountryFromFarm,
   normalizeOrderUnit,
@@ -29,6 +35,48 @@ import {
 } from '../lib/importKakaoAdditions.js';
 
 const msg = (text, id = 'm1', time = '2026년 11월 25일 오전 9:30') => ({ id, time, text, sender: 'fixture', items: [] });
+
+// The farm transfer keeps its signed total and uses the original rows for registration status.
+{
+  const row = { year: '2026', week: '48-1', country: '콜롬비아', group: '장미', product: 'Mondial', unit: '단', checked: true, dbProdKey: 7 };
+  const rows = [
+    { ...row, key: 'registered', customer: '주광', quantity: '10' },
+    { ...row, key: 'new', customer: '태림원예', quantity: '3' },
+    { ...row, key: 'short', quantity: '-2', sign: -1, minusKind: '현지이슈' },
+  ];
+  const customers = [{ CustKey: 1, CustName: '주광' }, { CustKey: 2, CustName: '태림원예' }];
+  const ledgerRow = { OrderYear: '2026', OrderWeek: '48-01', CustKey: 1, ProdKey: 7, OrderMasterKey: 100, ProdName: 'Mondial', FlowerName: '장미', CounName: '콜롬비아', BunchQuantity: 10 };
+  const entriesFor = (orders, sourceRows = rows) => sourceRows.map(item => ({
+    key: item.key,
+    row: item,
+    evaluation: classifyKakaoItemErpStatus(item, { customers, erpOrders: aggregateErpOrderRows(orders) }),
+  }));
+  const summary = buildFarmSummary(farmTotals(rows));
+  const transferText = formatFarmTransferText(summary);
+  const item = summary.cards[0].items[0];
+  const index = new Map(rows.map(entry => [entry.key, entry]));
+  const status = (entries, keys = item.sourceKeys, rowIndex = index, extra = {}) => summarizeFarmOrderRegistration(keys, rowIndex, {
+    current: true,
+    byKey: new Map(entries.map(entry => [entry.key, entry])),
+    sourceKeysByEvidence: indexFarmOrderEvidence(entries),
+    ...extra,
+  });
+  const entries = entriesFor([ledgerRow, { ...ledgerRow, OrderYear: '2025', CustKey: 2, OrderMasterKey: 99, BunchQuantity: 3 }]);
+  assert.equal(status(entries).label, '주문등록 완료 1/2 · 미등록 1건');
+  assert.equal(status(entries, ['registered']).label, '주문등록 완료');
+  assert.equal(status(entries, ['registered', 'short']).label, '추가분 주문등록 완료');
+  assert.equal(status(entries, ['short']), null);
+  assert.equal(status(entries, ['registered'], index, { current: false, error: '조회 실패' }).label, '주문등록 대조 불가');
+  assert.equal(status(entries, ['registered'], index, { current: false }).label, '주문등록 대조 중');
+  assert.equal(status(entriesFor([{ ...ledgerRow, BunchQuantity: 9 }]), ['registered']).label, '수량차이 1건');
+  const duplicate = { ...rows[0], key: 'other-original' };
+  const shared = entriesFor([ledgerRow], [...rows, duplicate]);
+  assert.equal(status(shared, ['registered']).label, '대조 필요 1건');
+  assert.equal(item.quantity, 11);
+  assert.equal(formatFarmTransferText(summary), transferText);
+  assert.doesNotMatch(transferText, /주문등록|수량차이|대조 필요/);
+  assert.match(fs.readFileSync('components/import-tools/KakaoAdditions.js', 'utf8'), /summarizeFarmOrderRegistration\(line\.sourceKeys,/);
+}
 
 // 1. Kakao PC & Mobile copy-paste headers, date dividers, media & greeting noise removal
 {
