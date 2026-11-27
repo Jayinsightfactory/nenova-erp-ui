@@ -8,7 +8,7 @@
 // 블록: 같은 방·같은 발신자의 연속 행을 하나의 붙여넣기 블록으로 묶음(행 순서 = append 순서).
 // 쿼리: ?n=블록수(기본 20, 최대 60) · ?debug=rooms → 최근 방이름 분포(매칭 실측용)
 import { withAuth } from '../../../lib/auth';
-import { readSheetValues, getKakaoSheetId } from '../../../lib/googleSheets';
+import { readSheetValuesWithArchive } from '../../../lib/googleSheets';
 import { PIPELINE_STAGES } from '../../../lib/workflowConfig';
 
 const ORDER_ROOMS = (PIPELINE_STAGES.find(s => s.key === 'ORDER') || { rooms: [] }).rooms;
@@ -56,8 +56,7 @@ async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
   try {
     const fresh = req.query?.fresh === '1';
-    const values = await readSheetValues({
-      spreadsheetId: getKakaoSheetId(),
+    const { values } = await readSheetValuesWithArchive({
       range: '이벤트로그!A:F',
       ttlMs: ORDER_FEED_TTL_MS,
       noCache: fresh,

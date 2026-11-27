@@ -6,7 +6,7 @@
 
 import { withAuth } from '../../../lib/auth';
 import { query } from '../../../lib/db';
-import { getKakaoSheetId, readSheetValues } from '../../../lib/googleSheets';
+import { readSheetValuesWithArchive } from '../../../lib/googleSheets';
 import { scoreMatch } from '../../../lib/displayName';
 import { stageOfRoom, stageName, personRole, STAGE_ORDER, EVENT_TYPES, KEY_PERSONNEL } from '../../../lib/workflowConfig';
 
@@ -75,11 +75,10 @@ async function handler(req, res) {
   const fresh = req.query?.fresh === '1';
   let logs = [], events = [], decisions = [], kakaoAvailable = true, kakaoError = '';
   try {
-    const id = getKakaoSheetId();
     const [lv, bv, dv] = await Promise.all([
-      readSheetValues({ spreadsheetId: id, range: LOG_RANGE, ttlMs: WORKFLOW_SHEET_TTL_MS, noCache: fresh }).catch(() => []),
-      readSheetValues({ spreadsheetId: id, range: BIZ_RANGE, ttlMs: WORKFLOW_SHEET_TTL_MS, noCache: fresh }),
-      readSheetValues({ spreadsheetId: id, range: DEC_RANGE, ttlMs: WORKFLOW_SHEET_TTL_MS, noCache: fresh }).catch(() => []),
+      readSheetValuesWithArchive({ range: LOG_RANGE, ttlMs: WORKFLOW_SHEET_TTL_MS, noCache: fresh }).then(r => r.values).catch(() => []),
+      readSheetValuesWithArchive({ range: BIZ_RANGE, ttlMs: WORKFLOW_SHEET_TTL_MS, noCache: fresh }).then(r => r.values),
+      readSheetValuesWithArchive({ range: DEC_RANGE, ttlMs: WORKFLOW_SHEET_TTL_MS, noCache: fresh }).then(r => r.values).catch(() => []),
     ]);
     // 시트가 커져도 안 느려지게 최근 N행만 처리(append-only라 뒤쪽이 최신).
     logs = Array.isArray(lv) ? parsedWorkflowLogCache.get(lv) : null;
