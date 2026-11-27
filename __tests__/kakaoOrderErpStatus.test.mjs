@@ -270,6 +270,24 @@ const sampleCustomers = [
   assert.equal(cancelledEval.status, 'CANCELLED');
   assert.equal(cancelledEval.eligible, false);
 
+  const signedCancelEval = classifyKakaoItemErpStatus(
+    { ...views[0], isCancel: true, sign: -1, signedQty: -10 },
+    { messageType: '취소', customers: sampleCustomers, erpOrders },
+  );
+  assert.equal(signedCancelEval.status, 'CANCELLED');
+  assert.equal(signedCancelEval.eligible, false);
+  assert.equal(signedCancelEval.autoSelectable, false);
+
+  // Even if eligible were tampered, negative/cancel rows never enter handoff payload
+  const tamperedPayload = buildKakaoOrderHandoffPayload([
+    {
+      row: { ...views[0], isCancel: true, sign: -1, quantity: -10 },
+      evaluation: { ...evaluations[0].evaluation, eligible: true },
+      message: analyzed,
+    },
+  ]);
+  assert.equal(tamperedPayload.groups.length, 0);
+
   const zeroQtyEval = classifyKakaoItemErpStatus(
     { ...views[0], quantity: '0' },
     { messageType: '추가', customers: sampleCustomers, erpOrders },

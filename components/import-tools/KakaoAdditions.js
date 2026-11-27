@@ -1,6 +1,7 @@
 import { Fragment, memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   validItem,
+  validSignedItem,
   farmTotals,
   importItemView,
   importTotalsText,
@@ -229,6 +230,29 @@ const MemoizedSourceMessageCard = memo(function SourceMessageCard({
 }) {
   const type = m._sourceType || sourceType(m);
   const isAi = m.analysisSource === 'llm';
+  const viewedItems = visibleItems.map(viewItem);
+  const cancelItems = viewedItems.filter(row => row.isCancel || row.cancelled);
+  const activeItems = viewedItems.filter(row => !row.isCancel && !row.cancelled);
+  const resolvedCustomers = viewedItems.map((row) => {
+    const evalEntry = orderBridge?.byKey?.get(row.key)?.evaluation;
+    return String(
+      evalEntry?.customerMatch?.customer?.CustName ||
+      evalEntry?.customerMatch?.rawCustomer ||
+      row.customer ||
+      ''
+    ).trim();
+  });
+  const distinctCustomers = [...new Set(resolvedCustomers.filter(Boolean))];
+  const sharedCustomer =
+    resolvedCustomers.length > 0 &&
+    resolvedCustomers.every(Boolean) &&
+    distinctCustomers.length === 1
+      ? distinctCustomers[0]
+      : '';
+  const hasReflectedAdd = type !== '취소' && contributions.length > 0;
+  const hasReflectedCancel = type === '취소' && contributions.length > 0;
+  const dbToneClass = hasReflectedAdd ? 'is-added' : hasReflectedCancel ? 'is-cancelled' : 'is-review';
+
   return (
     <article data-source-id={m.id} data-source-kind={m.kind} className={'kakao-order-message ' + (linked ? 'kakao-linked' : '')}>
       <div className="kakao-source-meta">
@@ -246,50 +270,70 @@ const MemoizedSourceMessageCard = memo(function SourceMessageCard({
         {contributions.length > 0 && (
           <button
             type="button"
-            className={'kakao-source-included' + (isMessageSelected ? ' is-active' : '')}
+            className={'kakao-source-included' + (type === '취소' ? ' is-cancel' : '') + (isMessageSelected ? ' is-active' : '')}
             aria-pressed={isMessageSelected}
-            title="농장 전달용 자동 합계에서 반영된 품목 위치로 이동"
+            title={type === '취소' ? '농장 전달용 자동 합계에서 차감 반영된 품목 위치로 이동' : '농장 전달용 자동 합계에서 반영된 품목 위치로 이동'}
             onClick={() => onFocusMessage(m.id)}
           >
-            <span aria-hidden="true">✓ </span>합계 반영
+            {type === '취소' ? '- 합계 차감' : (<><span aria-hidden="true">✓ </span>합계 반영</>)}
           </button>
         )}
         {linked && <strong className="kakao-source-reference">{sourceReference(m.id)}</strong>}
       </div>
-      {contributions.length > 0 && (
-        <div className="kakao-source-contributions" aria-label="이 원문에서 합산한 품목">
-          <ul>
-            {contributions.slice(0, 3).map(row => (
-              <li key={row.key}>
-                {row.farm && `[${row.farm}] `}{row.product} {row.quantity} {row.unit}{row.customer && ' · ' + row.customer}
-              </li>
-            ))}
-          </ul>
-          {contributions.length > 3 && (
-            <details>
-              <summary>반영 품목 {contributions.length - 3}개 더 보기</summary>
-              <ul>
-                {contributions.slice(3).map(row => (
-                  <li key={row.key}>
-                    {row.farm && `[${row.farm}] `}{row.product} {row.quantity} {row.unit}{row.customer && ' · ' + row.customer}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
+      <div className="kakao-source-split-wrap">
+        <div className="kakao-source-split">
+          <div className="kakao-source-raw-pane">
+            <div className="kakao-pane-head">
+              <span className="kakao-pane-label">원문</span>
+            </div>
+            <pre className="kakao-source-body">{m.text}</pre>
+          </div>
+          <div className={`kakao-source-db-pane ${dbToneClass}`}>
+            <div className="kakao-pane-head">
+              <span className="kakao-pane-label">매칭값(DB)</span>
+              {visibleItems.length > 0 && <span className="kakao-pane-count">{visibleItems.length}건</span>}
+              {sharedCustomer && <span className="kakao-pane-customer">{sharedCustomer}</span>}
+            </div>
+            {visibleItems.length === 0 ? (
+              <p className="kakao-db-empty">매칭된 품목 없음</p>
+            ) : (
+              <>
+                {activeItems.length > 0 && (
+                  <KakaoMessageErpSummary
+                    message={m}
+                    visibleItems={activeItems}
+                    viewItem={viewItem}
+                    bridge={orderBridge}
+                    sharedCustomer={sharedCustomer}
+                  />
+                )}
+                {cancelItems.length > 0 && (
+                  <div className="kakao-db-cancel-list" aria-label="취소 차감 내역">
+                    {cancelItems.map((row) => {
+                      const rawQty = String(row.quantity ?? '').replace(/^\-/, '').trim();
+                      const qtyLabel = rawQty ? `-${rawQty}${row.unit ? ` ${row.unit}` : ''}` : '수량 미상';
+                      return (
+                        <div key={row.key} className="kakao-db-cancel-row">
+                          <span className="kakao-db-cancel-qty">{qtyLabel}</span>
+                          <span className="kakao-db-cancel-name">
+                            {row.dbProdName ? `${row.product} (${row.dbProdName})` : row.product}
+                            {!sharedCustomer && row.customer ? ` · ${row.customer}` : ''}
+                          </span>
+                          <span className="kakao-db-cancel-badge">
+                            {row.checked ? '합계 차감' : '차감 제외'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      )}
-      {type !== '취소' && visibleItems.length > 0 && (
-        <KakaoMessageErpSummary
-          message={m}
-          visibleItems={visibleItems}
-          viewItem={viewItem}
-          bridge={orderBridge}
-        />
-      )}
-      <pre className="kakao-source-body">{m.text}</pre>
+      </div>
       <div className="kakao-source-actions">
-        {visibleItems.length > 0 && type !== '취소' && (
+        {visibleItems.length > 0 && (type !== '취소' || contributions.length > 0) && (
           <button type="button" className="kakao-match-source" aria-pressed={isMessageSelected} onClick={() => onFocusMessage(m.id)}>
             이 원문의 합계 보기
           </button>
@@ -305,24 +349,23 @@ const MemoizedSourceMessageCard = memo(function SourceMessageCard({
       </div>
       {open && (
         <div>
-          {m.reason && <p className="kakao-review-reason">{m.reason} · {type === '취소' ? '취소 수량은 합산 제외' : '확인 전 합계 제외'}</p>}
+          {m.reason && <p className="kakao-review-reason">{m.reason} · {type === '취소' ? '체크 시 합계 차감(-) 반영' : '확인 전 합계 제외'}</p>}
           {m.retained?.map((r, i) => (
             <p key={i}>기존 주문 유지: {r.product} {r.quantity} {r.unit} · 새 추가 수량이 아니므로 합산하지 않습니다.</p>
           ))}
           {visibleItems.map(base => {
             const row = viewItem(base);
-            const isRowDisabled = type === '취소';
+            const isRowCancel = Boolean(row.isCancel || row.cancelled);
             return (
-              <fieldset key={row.key} disabled={isRowDisabled} className={sourceKeys?.has(row.key) ? 'kakao-linked' : ''}>
+              <fieldset key={row.key} className={sourceKeys?.has(row.key) ? 'kakao-linked' : ''}>
                 <legend>
                   <label>
                     <input
                       type="checkbox"
-                      disabled={isRowDisabled}
-                      checked={!isRowDisabled && !!row.checked}
+                      checked={!!row.checked}
                       onChange={e => onUpdateItem(row.key, { checked: e.target.checked })}
                     />{' '}
-                    {type === '취소' || row.cancelled ? '취소·제외 품종' : m.kind === 'review' ? '검토 후 합산' : '합산'} · {row.product || '품종 확인'}
+                    {isRowCancel ? '합계 차감(-)' : m.kind === 'review' ? '검토 후 합산' : '합산'} · {row.product || '품종 확인'}
                   </label>
                 </legend>
                 {fields.map(([key, label]) => (
@@ -332,11 +375,11 @@ const MemoizedSourceMessageCard = memo(function SourceMessageCard({
                   </label>
                 ))}
                 <small>
-                  {row.checked ? '합계에 포함' : row.reviewReason || '합계에서 제외'}
+                  {row.checked ? (isRowCancel ? '합계 차감(-) 반영' : '합계에 포함') : row.reviewReason || '합계에서 제외'}
                   {row.revisionNote && ' · ' + row.revisionNote}
                   {row.note && ' · 요청: ' + row.note}
                 </small>
-                {row.checked && validItem(row) && (
+                {row.checked && validSignedItem(row) && (
                   <button type="button" onClick={() => onMatchTotal(importTotalKey(row, knownFarms))}>
                     이 품종 원문 모아보기
                   </button>
@@ -515,9 +558,10 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
   const baseViewByKey = useMemo(() => {
     const map = new Map();
     for (const m of allMessages) {
+      const isCancelMessage = m._sourceType === '취소';
       for (const raw of m.items || emptyArray) {
         if (!raw?.key) continue;
-        const base = importItemView(raw, edits[raw.key]);
+        const base = importItemView(raw, edits[raw.key], { autoCheckCancel: isCancelMessage });
         const farm = base.farm ? resolveFarmDisplay(base.farm) : '';
         const dbHint = !base.dbProdName && base.product ? dbProdByProduct.get(base.product) : null;
         map.set(raw.key, {
@@ -557,7 +601,6 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
 
   const allRows = useMemo(
     () => activeMessages
-      .filter(m => m._sourceType !== '취소')
       .flatMap(m => m.items.map(view))
       .filter(inOrderScope),
     [activeMessages, view, inOrderScope]
@@ -601,14 +644,18 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
   const rows = useMemo(() => allRows.filter(inScope), [allRows, inScope]);
   const totals = useMemo(() => farmTotals(rows, { knownFarms }), [rows, knownFarms]);
   const invalid = useMemo(
-    () => rows.some(r => r.checked && !r.cancelled && (!validItem(r) || !r.unit || !/^\d{1,2}(?:-\d{1,2})?$/.test(r.week))),
+    () => rows.some(r => r.checked && (!validSignedItem(r) || !r.unit || !/^\d{1,2}(?:-\d{1,2})?$/.test(r.week))),
     [rows]
   );
 
-  const includedSourceKeys = useMemo(
-    () => new Set(invalid ? emptyArray : totals.flatMap(total => total.sourceKeys)),
-    [invalid, totals]
-  );
+  const includedSourceKeys = useMemo(() => {
+    if (invalid) return new Set();
+    const keys = new Set(totals.flatMap(total => total.sourceKeys));
+    for (const r of rows) {
+      if (r.checked && validSignedItem(r)) keys.add(r.key);
+    }
+    return keys;
+  }, [invalid, totals, rows]);
   const includedRows = useMemo(
     () => new Map(rows.filter(row => includedSourceKeys.has(row.key)).map(row => [row.key, row])),
     [rows, includedSourceKeys]
@@ -745,7 +792,9 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
     for (const m of scopedMessages) {
       if (sourceType(m) === '취소') {
         for (const it of m.items || []) {
-          items.push({ product: it.product, quantity: it.quantity, unit: it.unit, farm: it.farm, reason: '취소 원문' });
+          if (!view(it).checked) {
+            items.push({ product: it.product, quantity: it.quantity, unit: it.unit, farm: it.farm, reason: '취소 원문 (차감 제외)' });
+          }
         }
       } else {
         for (const ex of m.excludedItems || []) {
@@ -756,7 +805,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
       }
     }
     return items;
-  }, [scopedMessages, orderScope, pastedFeed]);
+  }, [scopedMessages, orderScope, pastedFeed, view]);
 
   const scopedIgnoredTotals = useMemo(
     () => scopedMessages.flatMap(m => m.ignoredTotals || []),
@@ -2127,24 +2176,135 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
           border-color: #15803d;
           color: #ffffff;
         }
-        .kakao-source-contributions {
-          margin: 5px 0;
-          padding: 4px 8px;
-          border-left: 2px solid #16a34a;
-          color: #14532d;
-          background: #f0fdf4;
-          font-size: 13.5px;
+        .kakao-additions button.kakao-source-included.is-cancel {
+          background: #ffe4e6;
+          border-color: #fda4af;
+          color: #9f1239;
+        }
+        .kakao-additions button.kakao-source-included.is-cancel:hover:not(:disabled) {
+          background: #fecdd3;
+          border-color: #fb7185;
+        }
+        .kakao-additions button.kakao-source-included.is-cancel[aria-pressed='true'],
+        .kakao-additions button.kakao-source-included.is-cancel.is-active {
+          background: #be123c;
+          border-color: #be123c;
+          color: #ffffff;
+        }
+        .kakao-source-split-wrap {
+          container-type: inline-size;
+          margin: 6px 0;
+        }
+        .kakao-source-split {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 8px;
+          align-items: start;
+        }
+        @container (min-width: 420px) {
+          .kakao-source-split {
+            grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+            gap: 10px;
+            align-items: start;
+          }
+        }
+        .kakao-source-raw-pane {
+          min-width: 0;
+          padding: 6px 8px;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: #f8fafc;
+        }
+        .kakao-source-db-pane {
+          min-width: 0;
+          padding: 6px 8px;
+          border: 1px solid #e2e8f0;
+          border-left: 3px solid #94a3b8;
+          border-radius: 6px;
+          background: #ffffff;
           font-variant-numeric: tabular-nums;
         }
-        .kakao-source-contributions ul {
-          padding-left: 17px;
-          margin: 0;
+        .kakao-source-db-pane.is-added {
+          border-left-color: #10b981;
         }
-        .kakao-source-contributions details {
-          margin: 3px 0 0;
-          padding: 0;
-          border: 0;
-          background: transparent;
+        .kakao-source-db-pane.is-cancelled {
+          border-left-color: #e11d48;
+        }
+        .kakao-source-db-pane.is-review {
+          border-left-color: #94a3b8;
+        }
+        .kakao-pane-head {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 4px;
+        }
+        .kakao-pane-label {
+          font-size: 12.5px;
+          font-weight: 700;
+          color: #334155;
+        }
+        .kakao-pane-count {
+          font-size: 12.5px;
+          color: #475569;
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
+        }
+        .kakao-pane-customer {
+          display: inline-block;
+          padding: 1px 6px;
+          border-radius: 4px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          color: #1e3a8a;
+          font-size: 12.5px;
+          font-weight: 700;
+        }
+        .kakao-db-empty {
+          margin: 2px 0 0 !important;
+          color: #475569;
+          font-size: 12.5px !important;
+        }
+        .kakao-db-cancel-list {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-top: 2px;
+        }
+        .kakao-db-cancel-row {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 6px;
+          padding: 3px 6px;
+          border-radius: 5px;
+          background: #fff1f2;
+          border: 1px solid #fecdd3;
+          font-size: 13px;
+        }
+        .kakao-db-cancel-qty {
+          color: #be123c;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+        .kakao-db-cancel-name {
+          color: #0f172a;
+          font-weight: 600;
+          flex: 1 1 auto;
+          min-width: 0;
+          overflow-wrap: anywhere;
+        }
+        .kakao-db-cancel-badge {
+          padding: 1px 6px;
+          border-radius: 4px;
+          background: #ffe4e6;
+          color: #9f1239;
+          font-size: 12.5px;
+          font-weight: 700;
+          white-space: nowrap;
         }
         .kakao-more-sources {
           margin: 8px;
@@ -2273,12 +2433,13 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
           font-size: 12.5px;
         }
         .kakao-source-body {
-          margin: 5px 0 7px;
+          margin: 2px 0 0;
           font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
           font-size: 13.5px;
           color: #0f172a;
           line-height: 1.55;
           white-space: pre-wrap;
+          word-break: break-word;
           overflow-wrap: anywhere;
           font-variant-numeric: tabular-nums;
         }

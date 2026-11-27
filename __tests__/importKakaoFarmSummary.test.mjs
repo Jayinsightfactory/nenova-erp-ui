@@ -616,6 +616,14 @@ const msg = (text, id = 'm1', time = '2026년 11월 25일 오전 9:30') => ({ id
   assert.doesNotMatch(uiSource, /<th scope="col">규격 · 포장<\/th>/);
   assert.match(uiSource, /useState\('en'\)/);
   assert.match(uiSource, /button\.kakao-source-included/);
+  assert.match(uiSource, /kakao-source-split-wrap/);
+  assert.match(uiSource, /@container\s*\(min-width:\s*420px\)/);
+  assert.match(uiSource, /kakao-source-raw-pane/);
+  assert.match(uiSource, /kakao-source-db-pane/);
+  assert.match(uiSource, /매칭값\(DB\)/);
+  assert.match(uiSource, /- 합계 차감/);
+  assert.doesNotMatch(uiSource, /kakao-source-contributions/);
+  assert.doesNotMatch(uiSource, /취소 수량은 합산 제외/);
   assert.match(uiSource, /data-farm-line-key=/);
   assert.match(uiSource, /content-visibility:\s*auto/);
   assert.doesNotMatch(uiSource, /effectiveLimit\s*=\s*Math\.max/);

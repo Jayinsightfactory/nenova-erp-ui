@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readImportDay, farmTotals, groupFarmTotalsByCycle, matchesCountryOrderScope, visibleKakaoMessages, kakaoMessagePageSize, validItem} from '../lib/importKakaoAdditions.js';
+import {readImportDay, farmTotals, groupFarmTotalsByCycle, matchesCountryOrderScope, visibleKakaoMessages, kakaoMessagePageSize, validItem, validSignedItem, summarizeUnitQuantities} from '../lib/importKakaoAdditions.js';
 import './importKakaoOrderText.test.mjs';
 import './importKakaoFarmSummary.test.mjs';
 const headers='요청번호 항목|원문 시각|원문 작성자|분석 담당자|담당자 카톡|차수|원문 거래처|매칭 거래처|원문 품목|매칭 품목|수량|단위|매칭 판정|품목 후보|처리 상태|확인 필요사항|원문|검토 결과|거래처 수정|품목 수정'.replace('요청번호 항목','요청번호|항목').split('|');
@@ -97,3 +97,32 @@ const messagePages=Array.from({length:105},(_,i)=>({id:String(i)}));
 assert.equal(visibleKakaoMessages(messagePages,kakaoMessagePageSize,new Set()).length,100);
 assert.equal(visibleKakaoMessages(messagePages,100,new Set(['104'])).at(-1).id,'104');
 assert.equal(visibleKakaoMessages(messagePages,200,new Set()).length,105);
+
+// Signed cancellation subtraction in importItemView, farmTotals & summarizeUnitQuantities
+const baseRow = { key: 'add-1', year: '2026', week: '49-01', country: '콜롬비아', group: '수국', product: '화이트', quantity: '5', unit: '박스', customer: '주광' };
+const cancelRow = { key: 'cancel-1', year: '2026', week: '49-01', country: '콜롬비아', group: '수국', product: '화이트', quantity: '2', unit: '박스', customer: '주광', cancelled: true };
+const addView = importItemView(baseRow);
+const cancelView = importItemView(cancelRow);
+assert.equal(cancelView.isCancel, true);
+assert.equal(cancelView.sign, -1);
+assert.equal(cancelView.signedQty, -2);
+assert.equal(cancelView.checked, true);
+assert.equal(validItem({ ...baseRow, quantity: '-2' }), false);
+assert.equal(validSignedItem(cancelView), true);
+
+const netAdded = farmTotals([addView, cancelView]);
+assert.equal(netAdded.length, 1);
+assert.equal(netAdded[0].quantity, 3);
+assert.equal(netAdded[0].addedQuantity, 5);
+assert.equal(netAdded[0].cancelledQuantity, 2);
+assert.equal(netAdded[0].notes, '주광 3');
+assert.deepEqual(netAdded[0].sourceKeys, ['add-1', 'cancel-1']);
+
+const soloCancel = farmTotals([cancelView]);
+assert.equal(soloCancel.length, 1);
+assert.equal(soloCancel[0].quantity, -2);
+assert.equal(summarizeUnitQuantities(soloCancel).totalLine, '-2박스');
+assert.equal(summarizeUnitQuantities(soloCancel, { lang: 'en' }).totalLine, '-2 box');
+
+const offsetZero = farmTotals([importItemView({ ...baseRow, quantity: '2' }), cancelView]);
+assert.equal(offsetZero.length, 0);
