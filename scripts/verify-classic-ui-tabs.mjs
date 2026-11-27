@@ -419,6 +419,8 @@ async function run() {
     assert.ok(leftExpandedW > 100, `Left split expand failed: width=${leftExpandedW}`);
 
     // 6) 개인 즐겨찾기 편집 모달: 추가 / 순서 변경 / 삭제 검증
+    await page.click('[data-testid="ribbon-tab-favorites"]');
+    await page.waitForSelector('[data-testid="ribbon-favorites-panel"]');
     await page.click('[data-testid="open-favorites-editor"]');
     await page.waitForSelector('[data-testid="favorites-editor-modal"]');
     const favCheckboxes = await page.$$('[data-testid="favorites-editor-modal"] input[type="checkbox"]');
@@ -442,8 +444,10 @@ async function run() {
     assert.equal(orderRowsAfterDel, 1, `Expected 1 favorite after delete, got ${orderRowsAfterDel}`);
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => !document.querySelector('[data-testid="favorites-editor-modal"]'));
-    const ribbonFavText = await page.$eval('[data-testid="ribbon-favorites-group"]', (el) => el.textContent);
-    assert.ok(ribbonFavText.includes('★ 즐겨찾기 (1)'), `Ribbon favorites group did not reflect count: ${ribbonFavText}`);
+    const favTabText = await page.$eval('[data-testid="ribbon-tab-favorites"]', (el) => el.textContent);
+    assert.ok(favTabText.includes('★ 즐겨찾기 (1)'), `Ribbon favorites tab did not reflect count: ${favTabText}`);
+    await page.click('[data-testid="ribbon-tab-main"]');
+    await page.waitForSelector('[data-testid="ribbon-main-body"]');
 
     // 7) 창 리사이즈 (1920 -> 960 -> 1366) 후 겹침·폭발 0건 검증
     for (const w of [1920, 960, 1366]) {
@@ -465,6 +469,188 @@ async function run() {
       assert.ok(res.pageTop >= Math.max(res.topbarBottom, res.ribbonBottom) - 1, `Topbar/Ribbon overlaps page-area at ${w}: topbarBottom=${res.topbarBottom}, ribbonBottom=${res.ribbonBottom}, pageTop=${res.pageTop}`);
     }
 
+    // 8) 즐겨찾기 50개 스트레스 테스트 + 픽셀 오와열/높이 실측 + 스크린샷 2장 저장
+    const layoutSrc = fs.readFileSync(path.join(process.cwd(), 'components', 'Layout.js'), 'utf8');
+    const menuBlock = layoutSrc.match(/export const MENU_ITEMS = \[([\s\S]*?)\n\];/)?.[1] || '';
+    const candidateMenus = [];
+    for (const m of menuBlock.matchAll(/\{\s*href:\s*'([^']+)'\s*,\s*labelKey:\s*'([^']+)'([^}]*)\}/g)) {
+      if (m[3].includes('userIds')) continue;
+      candidateMenus.push({ href: m[1], labelKey: m[2] });
+      if (candidateMenus.length >= 50) break;
+    }
+    assert.equal(candidateMenus.length, 50, `Expected 50 candidate menu items, got ${candidateMenus.length}`);
+
+    favStore.items = candidateMenus.map((item, idx) => ({
+      FavoriteKey: 5000 + idx,
+      FavName: item.labelKey,
+      FilterData: JSON.stringify({ href: item.href, customOrder: idx + 1 }),
+      SortOrder: idx + 1,
+    }));
+
+    await page.setViewport({ width: 1366, height: 768, deviceScaleFactor: 1 });
+    await page.goto(`${base}/orders`, { waitUntil: 'networkidle0' });
+    await page.waitForSelector('[data-testid="ribbon-main-body"]');
+    await page.waitForFunction(() => (document.querySelector('[data-testid="ribbon-tab-favorites"]')?.textContent || '').includes('50'));
+    await new Promise((r) => setTimeout(r, 150));
+
+    // 8-a) Main 모드 픽셀 실측 (1366x768)
+    const mainMetrics = await page.evaluate(() => {
+      const ribbon = document.querySelector('[data-ui-ribbon]');
+      const body = document.querySelector('[data-testid="ribbon-main-body"]');
+      const labels = [...document.querySelectorAll('[data-ribbon-group-label]')];
+      const lgBtns = [...document.querySelectorAll('.nv-ribbon-btn-lg')];
+      const smGrids = [...document.querySelectorAll('.nv-items-grid3x2')];
+      const labelBottoms = labels.map((el) => Math.round(el.getBoundingClientRect().bottom));
+      const lgHeights = lgBtns.map((el) => Math.round(el.getBoundingClientRect().height));
+      const smHeights = [...document.querySelectorAll('.nv-ribbon-btn-sm')].map((el) => Math.round(el.getBoundingClientRect().height));
+      const smColWidthSpreads = smGrids.map((grid) => {
+        const byCol = new Map();
+        for (const btn of grid.querySelectorAll('.nv-ribbon-btn-sm')) {
+          const r = btn.getBoundingClientRect();
+          const colKey = Math.round(r.left);
+          if (!byCol.has(colKey)) byCol.set(colKey, []);
+          byCol.get(colKey).push(Math.round(r.width));
+        }
+        let maxSpread = 0;
+        for (const ws of byCol.values()) {
+          maxSpread = Math.max(maxSpread, Math.max(...ws) - Math.min(...ws));
+        }
+        return maxSpread;
+      });
+      return {
+        ribbonHeight: Math.round(ribbon.getBoundingClientRect().height),
+        bodyHeight: Math.round(body.getBoundingClientRect().height),
+        bodyScrollW: body.scrollWidth,
+        bodyClientW: body.clientWidth,
+        groupCount: labels.length,
+        favLeakedInMain: document.querySelectorAll('[data-testid="ribbon-favorites-group"], [data-testid="ribbon-favorite-item"]').length,
+        labelBottomDiff: Math.max(...labelBottoms) - Math.min(...labelBottoms),
+        lgHeightDiff: Math.max(...lgHeights) - Math.min(...lgHeights),
+        smHeightDiff: Math.max(...smHeights) - Math.min(...smHeights),
+        smColWidthMaxSpread: Math.max(...smColWidthSpreads),
+        docW: document.documentElement.scrollWidth,
+        winW: window.innerWidth,
+      };
+    });
+
+    assert.equal(mainMetrics.favLeakedInMain, 0, `Favorites leaked into Main ribbon: ${mainMetrics.favLeakedInMain}`);
+    assert.ok(mainMetrics.ribbonHeight <= 92, `Main ribbon height exceeded 92px: ${mainMetrics.ribbonHeight}`);
+    assert.equal(mainMetrics.groupCount, 6, `Expected 6 Main ribbon groups, got ${mainMetrics.groupCount}`);
+    assert.ok(mainMetrics.labelBottomDiff <= 1, `Main group label bottom misaligned: diff=${mainMetrics.labelBottomDiff}px`);
+    assert.ok(mainMetrics.lgHeightDiff <= 1, `Main large buttons height diff > 1px: ${mainMetrics.lgHeightDiff}px`);
+    assert.ok(mainMetrics.smHeightDiff <= 1, `Main 3-row small buttons height diff > 1px: ${mainMetrics.smHeightDiff}px`);
+    assert.ok(mainMetrics.smColWidthMaxSpread <= 1, `Main 3-row column width spread > 1px: ${mainMetrics.smColWidthMaxSpread}px`);
+    assert.ok(mainMetrics.bodyScrollW <= mainMetrics.bodyClientW + 1, `Main ribbon overflowed horizontally at 1366px: scrollW=${mainMetrics.bodyScrollW} > clientW=${mainMetrics.bodyClientW}`);
+    assert.ok(mainMetrics.docW <= mainMetrics.winW + 2, `Main 1366px doc overflow: ${mainMetrics.docW} > ${mainMetrics.winW}`);
+
+    const shotDir = process.env.RIBBON_SHOT_DIR || 'C:/Users/USER/.gemini/antigravity/brain/66a7e66b-6a3e-40bf-a035-031bdd013c5e/scratch';
+    fs.mkdirSync(shotDir, { recursive: true });
+    const mainShotPath = path.join(shotDir, 'ribbon-main-fixed.png');
+    await page.screenshot({ path: mainShotPath });
+
+    // 8-b) 그룹 ▾ 드롭다운 및 [전체메뉴 ▾] 플로팅 오버레이가 리본 세로 높이를 1px도 늘리지 않는지 확인
+    await page.click('[data-nv-more-btn]');
+    await page.waitForSelector('[data-nv-ribbon-dropdown]');
+    const ribbonHeightWithDrop = await page.$eval('[data-ui-ribbon]', (el) => Math.round(el.getBoundingClientRect().height));
+    assert.ok(ribbonHeightWithDrop <= 92, `Group dropdown expanded Main ribbon height: ${ribbonHeightWithDrop}`);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('[data-nv-ribbon-dropdown]'));
+
+    await page.click('[data-testid="ribbon-tab-all"]');
+    await page.waitForSelector('[data-testid="ribbon-all-menu-panel"]');
+    const allMenuInfo = await page.evaluate(() => {
+      const pop = document.querySelector('[data-testid="ribbon-all-menu-panel"]');
+      const ribbon = document.querySelector('[data-ui-ribbon]');
+      return {
+        position: getComputedStyle(pop).position,
+        popHeight: Math.round(pop.getBoundingClientRect().height),
+        ribbonHeight: Math.round(ribbon.getBoundingClientRect().height),
+      };
+    });
+    assert.equal(allMenuInfo.position, 'fixed', 'All-menu popover must be position: fixed');
+    assert.ok(allMenuInfo.popHeight <= 445, `All-menu popover height exceeded 445px: ${allMenuInfo.popHeight}`);
+    assert.ok(allMenuInfo.ribbonHeight <= 92, `All-menu popover expanded Main ribbon height: ${allMenuInfo.ribbonHeight}`);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('[data-testid="ribbon-all-menu-panel"]'));
+
+    // 8-c) ★ 즐겨찾기 (50) 클릭 → 패널 열림 + 높이 <=185px + 50개 격자 오와열 실측 + 스크린샷
+    await page.click('[data-testid="ribbon-tab-favorites"]');
+    await page.waitForSelector('[data-testid="ribbon-favorites-panel"]');
+    await page.waitForFunction(() => !document.querySelector('[data-testid="ribbon-main-body"]'));
+    await new Promise((r) => setTimeout(r, 150));
+
+    const favMetrics = await page.evaluate(() => {
+      const panel = document.querySelector('[data-testid="ribbon-favorites-panel"]');
+      const ribbon = document.querySelector('[data-ui-ribbon]');
+      const items = [...document.querySelectorAll('[data-testid="ribbon-favorite-item"]')];
+      const heights = items.map((el) => Math.round(el.getBoundingClientRect().height));
+      const byCol = new Map();
+      for (const el of items) {
+        const r = el.getBoundingClientRect();
+        const colKey = Math.round(r.left);
+        if (!byCol.has(colKey)) byCol.set(colKey, []);
+        byCol.get(colKey).push(Math.round(r.width));
+      }
+      let maxColWidthSpread = 0;
+      for (const ws of byCol.values()) {
+        maxColWidthSpread = Math.max(maxColWidthSpread, Math.max(...ws) - Math.min(...ws));
+      }
+      return {
+        count: items.length,
+        panelHeight: Math.round(panel.getBoundingClientRect().height),
+        ribbonHeight: Math.round(ribbon.getBoundingClientRect().height),
+        minItemH: Math.min(...heights),
+        maxItemH: Math.max(...heights),
+        maxColWidthSpread,
+        colCount: byCol.size,
+        docW: document.documentElement.scrollWidth,
+        winW: window.innerWidth,
+      };
+    });
+
+    assert.equal(favMetrics.count, 50, `Expected 50 favorite items rendered, got ${favMetrics.count}`);
+    assert.ok(favMetrics.panelHeight <= 185, `Favorites panel height exceeded 185px: ${favMetrics.panelHeight}`);
+    assert.ok(favMetrics.ribbonHeight <= 185, `Favorites ribbon wrapper height exceeded 185px: ${favMetrics.ribbonHeight}`);
+    assert.ok(favMetrics.minItemH >= 25 && favMetrics.maxItemH <= 27 && (favMetrics.maxItemH - favMetrics.minItemH) <= 1, `Favorite item height mismatch: min=${favMetrics.minItemH}, max=${favMetrics.maxItemH}`);
+    assert.ok(favMetrics.maxColWidthSpread <= 1, `Favorite column width spread > 1px: ${favMetrics.maxColWidthSpread}px`);
+    assert.ok(favMetrics.docW <= favMetrics.winW + 2, `Favorites 1366px overflow: ${favMetrics.docW} > ${favMetrics.winW}`);
+
+    const favShotPath = path.join(shotDir, 'ribbon-favorites-50-fixed.png');
+    await page.screenshot({ path: favShotPath });
+
+    // 3개 뷰포트 전부 50개 즐겨찾기 상태 가로 넘침 없음 확인
+    for (const vp of VIEWPORTS) {
+      await page.setViewport({ width: vp.width, height: vp.height, deviceScaleFactor: 1 });
+      await new Promise((r) => setTimeout(r, 100));
+      const vpRes = await page.evaluate(() => ({
+        docW: document.documentElement.scrollWidth,
+        winW: window.innerWidth,
+        favH: Math.round(document.querySelector('[data-testid="ribbon-favorites-panel"]').getBoundingClientRect().height),
+      }));
+      assert.ok(vpRes.docW <= vpRes.winW + 2, `Favorites 50 overflow at ${vp.name}: ${vpRes.docW} > ${vpRes.winW}`);
+      assert.ok(vpRes.favH <= 185, `Favorites 50 height > 185px at ${vp.name}: ${vpRes.favH}`);
+    }
+
+    // 8-d) ★ 즐겨찾기 재클릭 / 닫기 × / ESC / 항목 클릭 닫힘 확인
+    await page.setViewport({ width: 1366, height: 768, deviceScaleFactor: 1 });
+    await page.click('[data-testid="ribbon-tab-favorites"]');
+    await page.waitForFunction(() => !document.querySelector('[data-testid="ribbon-favorites-panel"]'));
+
+    await page.click('[data-testid="ribbon-tab-favorites"]');
+    await page.waitForSelector('[data-testid="ribbon-favorites-panel"]');
+    await page.click('[data-testid="favorites-panel-close"]');
+    await page.waitForFunction(() => !document.querySelector('[data-testid="ribbon-favorites-panel"]'));
+
+    await page.click('[data-testid="ribbon-tab-favorites"]');
+    await page.waitForSelector('[data-testid="ribbon-favorites-panel"]');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('[data-testid="ribbon-favorites-panel"]'));
+
+    await page.click('[data-testid="ribbon-tab-favorites"]');
+    await page.waitForSelector('[data-testid="ribbon-favorites-panel"]');
+    await page.click('[data-testid="ribbon-favorite-item"]');
+    await page.waitForFunction(() => !document.querySelector('[data-testid="ribbon-favorites-panel"]'));
+
     assert.deepEqual(pageErrors, [], `Unhandled page errors: ${pageErrors.join(' | ')}`);
 
     console.log(JSON.stringify({
@@ -477,6 +663,9 @@ async function run() {
       splitDragWidth: { before: splitBefore.leftW, afterDrag: splitAfterDrag, collapsed: leftCollapsedW, expanded: leftExpandedW },
       mdiTabsVerified: true,
       favoritesModalVerified: true,
+      mainRibbonMetrics: mainMetrics,
+      favorites50Metrics: favMetrics,
+      screenshots: { main: mainShotPath, favorites50: favShotPath },
       zeroPageErrors: true,
     }, null, 2));
   } finally {

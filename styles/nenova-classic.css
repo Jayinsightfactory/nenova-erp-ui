@@ -85,33 +85,35 @@
     flex-shrink: 0;
   }
   .topbar.nv-topbar-classic {
-    height: auto;
-    min-height: 32px;
+    height: 30px;
+    min-height: 30px;
     padding: 0 8px;
     background: linear-gradient(180deg, var(--nv-sage) 0%, var(--nv-sage-deep) 100%);
     border-bottom: 1px solid var(--nv-sage-deep);
     color: #FFFFFF;
     display: flex;
     align-items: stretch;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 6px;
+    flex-wrap: nowrap;
     flex-shrink: 0;
+    overflow: hidden;
   }
   .nv-brand-badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 13px;
+    gap: 5px;
+    font-size: 12.5px;
     font-weight: 700;
     color: #FFFFFF;
     text-decoration: none;
-    padding: 4px 6px 4px 2px;
+    padding: 0 4px 0 0;
     white-space: nowrap;
+    flex-shrink: 0;
   }
   .nv-brand-ver {
     font-size: 10px;
     font-weight: 500;
-    padding: 1px 5px;
+    padding: 1px 4px;
     border-radius: 2px;
     background: rgba(255, 255, 255, 0.18);
     color: #FFFFFF;
@@ -121,21 +123,23 @@
     display: inline-flex;
     align-items: flex-end;
     gap: 2px;
-    padding-top: 4px;
+    padding-top: 3px;
+    flex-shrink: 0;
   }
   .nv-ribbon-tab {
-    height: 26px;
-    padding: 0 12px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    height: 27px;
+    padding: 0 10px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
     border-bottom: none;
     border-radius: 2px 2px 0 0;
     background: var(--nv-tab-inactive);
     color: #1E293B;
     font-family: var(--ui-font);
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
   .nv-ribbon-tab:hover {
     background: #F4F6F8;
@@ -146,41 +150,75 @@
     border-color: #FFFFFF;
     font-weight: 700;
   }
+  .nv-ribbon-tab-fav.active {
+    background: #FFFDF4;
+    color: #854D0E;
+    border-color: #E5D49B;
+  }
+  .nv-ribbon-tab-all {
+    background: rgba(255, 255, 255, 0.16);
+    color: #FFFFFF;
+    border-color: rgba(255, 255, 255, 0.35);
+    border-radius: 2px;
+    height: 23px;
+    margin-bottom: 3px;
+    padding: 0 8px;
+  }
+  .nv-ribbon-tab-all:hover {
+    background: rgba(255, 255, 255, 0.28);
+  }
+  .nv-ribbon-tab-all.active {
+    background: #FFFFFF;
+    color: var(--nv-sage-deep);
+    border-color: #FFFFFF;
+  }
   .nv-topbar-title {
     display: inline-flex;
     align-items: center;
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 700;
     color: #FFFFFF;
-    padding: 4px 6px;
+    padding: 0 4px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 280px;
+    flex: 1 1 60px;
+    min-width: 0;
+    max-width: 240px;
   }
   .nv-topbar-actions {
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 4px;
-    flex-wrap: wrap;
-    padding: 3px 0;
+    gap: 3px;
+    flex-wrap: nowrap;
+    padding: 2px 0;
+    flex-shrink: 0;
+  }
+  .nv-topbar-date,
+  .nv-topbar-date > span {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    padding: 0 3px;
   }
   .nv-topbar-classic .nv-top-btn {
-    height: 24px;
-    padding: 0 8px;
-    border: 1px solid rgba(255, 255, 255, 0.45);
+    height: 22px;
+    padding: 0 7px;
+    border: 1px solid rgba(255, 255, 255, 0.42);
     border-radius: 2px;
     background: rgba(255, 255, 255, 0.14);
     color: #FFFFFF;
     font-family: var(--ui-font);
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
   }
   .nv-topbar-classic .nv-top-btn:hover {
     background: rgba(255, 255, 255, 0.26);
@@ -193,111 +231,259 @@
   .nv-topbar-classic .nv-top-btn-solid:hover {
     background: var(--nv-sage-hover);
   }
+  @media (max-width: 1180px) {
+    .topbar.nv-topbar-classic {
+      height: auto;
+      min-height: 30px;
+      flex-wrap: wrap;
+      padding: 2px 6px;
+    }
+    .nv-topbar-actions {
+      flex-wrap: wrap;
+    }
+    .nv-topbar-title {
+      max-width: 160px;
+    }
+  }
 
-  /* 리본 본체 */
+  /* 리본 본체 (Main = 86px 고정, ★ 즐겨찾기 = <=180px 고정) */
   .nv-ribbon-panel {
     background: linear-gradient(180deg, #F8F9FA 0%, var(--nv-toolbar-from) 100%);
     border-bottom: 1px solid var(--nv-toolbar-border);
-    padding: 4px 8px;
+    padding: 0;
     flex-shrink: 0;
-    overflow: visible;
+    overflow: hidden;
     position: relative;
     z-index: 45;
+    box-sizing: border-box;
+  }
+  .nv-ribbon-panel.is-main {
+    height: 87px;
+    min-height: 87px;
+    max-height: 87px;
+  }
+  .nv-ribbon-body {
+    height: 86px;
+    min-height: 86px;
+    max-height: 86px;
+    padding: 3px 8px 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    box-sizing: border-box;
+    scrollbar-width: thin;
   }
   .nv-ribbon-groups {
     display: flex;
     align-items: stretch;
     gap: 6px;
-    overflow-x: auto;
-    overflow-y: visible;
-    padding-bottom: 1px;
+    height: 81px;
+    min-width: max-content;
   }
   .nv-ribbon-group {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    height: 81px;
     border-right: 1px solid var(--nv-toolbar-border);
-    padding-right: 8px;
-    min-width: max-content;
+    padding-right: 7px;
     flex-shrink: 0;
     position: relative;
+    box-sizing: border-box;
   }
   .nv-ribbon-group:last-child {
     border-right: none;
     padding-right: 0;
   }
-  .nv-ribbon-group-fav {
-    background: #FDFCF5;
-    border: 1px solid #D9D5B8;
-    border-radius: 2px;
-    padding: 2px 6px;
-  }
   .nv-ribbon-group-items {
+    height: 59px;
+    box-sizing: border-box;
+  }
+  .nv-items-large {
     display: flex;
     align-items: center;
     gap: 3px;
-    flex-wrap: wrap;
-    max-width: 340px;
+    flex-wrap: nowrap;
   }
-  .nv-ribbon-group-fav .nv-ribbon-group-items {
-    max-width: 440px;
+  .nv-items-grid3x2 {
+    display: grid;
+    grid-template-rows: repeat(3, 19px);
+    grid-auto-flow: column;
+    grid-auto-columns: 114px;
+    row-gap: 1px;
+    column-gap: 3px;
+    align-content: start;
   }
-  .nv-ribbon-group-label {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--text3);
-    margin-top: 3px;
-    padding-top: 2px;
-    border-top: 1px solid #E2E6EA;
+  .nv-items-grid3x2.is-webwork {
+    grid-auto-columns: 112px;
   }
-  .nv-ribbon-btn {
-    height: 24px;
-    padding: 0 7px;
-    border: 1px solid var(--nv-btn-border);
+  .nv-ribbon-btn-lg {
+    width: 64px;
+    height: 58px;
+    min-height: 58px;
+    max-height: 58px;
+    padding: 4px 3px 3px;
+    border: 1px solid transparent;
     border-radius: 2px;
-    background: #FFFFFF;
+    background: transparent;
     color: var(--text1);
     font-family: var(--ui-font);
-    font-size: 12px;
-    font-weight: 500;
     cursor: pointer;
-    white-space: nowrap;
-    display: inline-flex;
+    display: flex;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 4px;
-    box-shadow: none;
+    box-sizing: border-box;
+    flex-shrink: 0;
   }
-  .nv-ribbon-btn:hover {
+  .nv-ribbon-btn-lg.is-estimate {
+    width: 72px;
+  }
+  .nv-ribbon-btn-lg:hover {
     background: var(--nv-sage-hover);
-    border-color: var(--nv-sage);
+    border-color: var(--nv-btn-border);
   }
-  .nv-ribbon-btn.active {
+  .nv-ribbon-btn-lg.active {
     background: var(--nv-sage-soft);
     border-color: var(--nv-sage);
     color: var(--nv-sage-deep);
     font-weight: 700;
   }
-  .nv-ribbon-btn-more {
-    background: #F1F4F7;
-    color: var(--text2);
+  .nv-btn-icon-lg {
+    width: 24px;
+    height: 24px;
+    border-radius: 2px;
+    background: #FFFFFF;
+    border: 1px solid #D0D7DE;
+    color: var(--nv-sage-deep);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .nv-ribbon-btn-lg.active .nv-btn-icon-lg {
+    background: var(--nv-sage);
+    border-color: var(--nv-sage-deep);
+    color: #FFFFFF;
+  }
+  .nv-btn-label-lg {
+    width: 100%;
+    font-size: 11.5px;
     font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .nv-ribbon-btn-sm {
+    width: 100%;
+    height: 19px;
+    min-height: 19px;
+    max-height: 19px;
+    padding: 0 5px;
+    border: 1px solid var(--nv-cell-border);
+    border-radius: 2px;
+    background: #FFFFFF;
+    color: var(--text1);
+    font-family: var(--ui-font);
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .nv-ribbon-btn-sm:hover {
+    background: var(--nv-sage-hover);
+    border-color: var(--nv-sage);
+  }
+  .nv-ribbon-btn-sm.active {
+    background: var(--nv-sage-soft);
+    border-color: var(--nv-sage);
+    color: var(--nv-sage-deep);
+    font-weight: 700;
+  }
+  .nv-ribbon-btn-sm-all {
+    background: #EEF2F5;
+    border-color: var(--nv-btn-border);
+    color: var(--nv-sage-deep);
+    font-weight: 700;
+  }
+  .nv-btn-label {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .nv-ribbon-group-label {
+    height: 18px;
+    min-height: 18px;
+    max-height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text3);
+    border-top: 1px solid #E2E6EA;
+    box-sizing: border-box;
+    white-space: nowrap;
+  }
+  .nv-ribbon-group-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .nv-ribbon-more-btn {
+    width: 16px;
+    height: 14px;
+    padding: 0;
+    border: 1px solid var(--nv-btn-border);
+    border-radius: 2px;
+    background: #FFFFFF;
+    color: var(--text2);
+    font-family: var(--ui-font);
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .nv-ribbon-more-btn:hover,
+  .nv-ribbon-more-btn.active {
+    background: var(--nv-sage-soft);
+    border-color: var(--nv-sage);
+    color: var(--nv-sage-deep);
   }
   .nv-ribbon-dropdown {
     position: fixed;
-    z-index: 1200;
+    z-index: 1260;
     min-width: 240px;
-    max-width: min(360px, calc(100vw - 24px));
-    max-height: min(420px, calc(100vh - 140px));
+    max-width: min(340px, calc(100vw - 24px));
+    max-height: min(320px, calc(100vh - 140px));
     overflow-y: auto;
     background: #FFFFFF;
     border: 1px solid var(--nv-sage);
     border-radius: 2px;
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16);
     padding: 4px;
+  }
+  .nv-ribbon-drop-head {
+    padding: 3px 6px 4px;
+    margin-bottom: 2px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--nv-sage-deep);
+    border-bottom: 1px solid var(--nv-toolbar-border);
+    background: #F4F7F5;
   }
   .nv-ribbon-drop-row {
     display: flex;
@@ -309,14 +495,141 @@
     border-bottom: none;
   }
 
-  /* 전체메뉴 드롭/패널 */
-  .nv-allmenu-panel {
-    max-height: min(62vh, 540px);
+  /* ★ 즐겨찾기 패널 (총 높이 <= 180px 엄수 + 칼같은 고정 격자 오와열) */
+  .nv-favorites-panel {
+    background: #FFFFFF;
+    max-height: 179px;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+  .nv-fav-header {
+    height: 26px;
+    min-height: 26px;
+    max-height: 26px;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(180deg, #FAF8EE 0%, #F1EFE2 100%);
+    border-bottom: 1px solid #D9D5B8;
+    box-sizing: border-box;
+  }
+  .nv-fav-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #713F12;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .nv-fav-filter {
+    height: 20px;
+    width: 190px;
+    padding: 0 6px;
+    border: 1px solid var(--nv-btn-border);
+    border-radius: 2px;
+    background: #FFFFFF;
+    color: var(--text1);
+    font-family: var(--ui-font);
+    font-size: 11.5px;
+    box-sizing: border-box;
+  }
+  .nv-fav-filter:focus {
+    outline: 1px solid var(--nv-sage);
+    border-color: var(--nv-sage);
+  }
+  .nv-fav-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .nv-fav-head-btn {
+    height: 20px;
+    font-size: 11px;
+    padding: 0 6px;
+  }
+  .nv-fav-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+    grid-auto-rows: 26px;
+    gap: 4px;
+    max-height: 146px;
+    overflow-y: auto;
+    padding: 6px 8px;
+    box-sizing: border-box;
+    background: #FDFCF8;
+  }
+  .nv-fav-item-btn {
+    height: 26px;
+    min-height: 26px;
+    max-height: 26px;
+    width: 100%;
+    min-width: 0;
+    padding: 0 7px;
+    border: 1px solid var(--nv-btn-border);
+    border-radius: 2px;
+    background: #FFFFFF;
+    color: var(--text1);
+    font-family: var(--ui-font);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .nv-fav-item-btn:hover {
+    background: var(--nv-sage-hover);
+    border-color: var(--nv-sage);
+  }
+  .nv-fav-item-btn.active {
+    background: var(--nv-sage-soft);
+    border-color: var(--nv-sage);
+    color: var(--nv-sage-deep);
+    font-weight: 700;
+  }
+  .nv-fav-item-star {
+    font-size: 11px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .nv-fav-item-star.saved {
+    color: #B45309;
+  }
+  .nv-fav-item-star.rec {
+    color: #94A3B8;
+  }
+  .nv-fav-item-text {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .nv-fav-empty {
+    grid-column: 1 / -1;
+    font-size: 12px;
+    color: var(--text3);
+    display: flex;
+    align-items: center;
+  }
+
+  /* 전체메뉴 플로팅 오버레이 팝오버 */
+  .nv-allmenu-popover {
+    position: fixed;
+    z-index: 1250;
+    width: min(1060px, calc(100vw - 16px));
+    max-height: min(440px, calc(100vh - 64px));
     overflow-y: auto;
     background: #FFFFFF;
-    border: 1px solid var(--nv-toolbar-border);
+    border: 1px solid var(--nv-sage);
     border-radius: 2px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.22);
     padding: 8px;
+    box-sizing: border-box;
   }
   .nv-allmenu-toolbar {
     display: flex;
