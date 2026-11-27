@@ -295,6 +295,45 @@ export default withAuth(async function handler(req, res) {
     }
 
     // ── 업체별: 해당 업체 출고수량 + 전체 입고/주문/출고 기준 잔량
+    if (view === 'dispatchList') {
+      const validWeek = /^(0[1-9]|[1-4]\d|5[0-3])-(0[1-9]|[1-9]\d)$/;
+      const explicitYear = String(req.query.orderYear ?? '');
+      const rawWeekTo = String(req.query.weekTo ?? rawWeekFrom);
+      const differentYear = [rawWeekFrom, rawWeekTo].some(value => /^\d{4}-/.test(value) && !value.startsWith(`${explicitYear}-`));
+      const page = Number(req.query.page ?? 0);
+      if (!/^20\d{2}$/.test(explicitYear) || explicitYear !== String(orderYear) || differentYear
+        || !validWeek.test(weekFrom) || !validWeek.test(weekTo) || weekFrom > weekTo
+        || !Number.isSafeInteger(page) || page < 0 || page > 100000) {
+        return res.status(400).json({ success: false, error: '연도와 차수 범위를 확인하세요.' });
+      }
+      const order = req.query.groupBy === 'area' ? 'Area, DateLabel' : 'DateLabel, Area';
+      const result = await query(
+        `SELECT sm.OrderWeek, c.CustKey, c.CustName,
+                COALESCE(NULLIF(LTRIM(RTRIM(c.CustArea)),N''),N'지역 미등록') AS Area,
+                p.ProdKey, p.ProdName, p.OutUnit, sd.SdetailKey, d.SdateKey,
+                CONVERT(char(10),d.ShipmentDtm,120) AS DateLabel,
+                COALESCE(d.ShipmentQuantity,sd.OutQuantity) AS Quantity,
+                CASE WHEN ISNULL(sd.isFix,0)=1 OR ISNULL(sm.isFix,0)=1 THEN 1 ELSE 0 END AS isFix, ISNULL(sd.Descr,N'') AS Descr
+           FROM ShipmentMaster sm
+           JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+           JOIN Customer c ON c.CustKey=sm.CustKey
+           JOIN Product p ON p.ProdKey=sd.ProdKey
+           LEFT JOIN ShipmentDate d ON d.SdetailKey=sd.SdetailKey AND d.ShipmentQuantity>0
+          WHERE sm.OrderYear=@orderYear AND sm.OrderWeek BETWEEN @weekFrom AND @weekTo
+            AND sm.isDeleted=0 AND sd.OutQuantity>0
+            AND (@search=N'' OR CHARINDEX(@search,c.CustName)>0 OR CHARINDEX(@search,p.ProdName)>0
+              OR CHARINDEX(@search,p.DisplayName)>0 OR CHARINDEX(@search,c.CustArea)>0)
+          ORDER BY sm.OrderWeek, ${order}, c.CustName, c.CustKey, p.ProdName, sd.SdetailKey, d.SdateKey
+          OFFSET @offset ROWS FETCH NEXT 101 ROWS ONLY`,
+        {
+          ...params,
+          offset: { type: sql.Int, value: page * 100 },
+          search: { type: sql.NVarChar, value: String(req.query.search ?? '').trim().slice(0, 100) },
+        },
+      );
+      const rows = result.recordset;
+      return res.status(200).json({ success: true, rows: rows.slice(0, 100), hasMore: rows.length > 100 });
+    }
     if (view === 'customers') {
       // prodKey 필터 (품목별 탭 업체분포 조회용)
       const pkFilter = prodKey ? 'AND od.ProdKey = @pk' : '';
@@ -1334,7 +1373,7 @@ async function updateOutQty(req, res) {
               Cost=CASE WHEN ISNULL(Cost,0)>0 THEN Cost ELSE @cost END,
               Amount=ROUND(ISNULL(NULLIF(Cost,0), @cost) * ROUND(@estQty,0) / 1.1, 0),
               Vat=((ISNULL(NULLIF(Cost,0), @cost) * ROUND(@estQty,0)) - ROUND(ISNULL(NULLIF(Cost,0), @cost) * ROUND(@estQty,0) / 1.1, 0)),
-              ShipmentDtm=${shipDtmExpr}
+              ShipmentDtm=${shipDate ? shipDtmExpr : `COALESCE(ShipmentDtm,${shipDtmExpr})`}
              WHERE SdetailKey=@sdk`,
             { qty: { type: sql.Float, value: units.outQty },
               estQty: { type: sql.Float, value: estQty },
@@ -1345,7 +1384,8 @@ async function updateOutQty(req, res) {
               sdk: { type: sql.Int, value: targetSdk }, ...shipDtmParam }
           );
           await refreshShipmentDatesAfterDetailChange(tQ, targetSdk, sql, {
-            shipDtm: finalDate ? new Date(finalDate) : foundSD.ShipmentDtm,
+            shipDtm: shipDate && finalDate ? new Date(finalDate) : undefined,
+            preserveExistingDate: !shipDate,
           });
         }
       } else if ((mode === 'delta' ? qty : qty) > 0) {

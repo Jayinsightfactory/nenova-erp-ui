@@ -1008,21 +1008,18 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
             // CustKey 는 항상 주문/마스터 업체(@ck)로 일치시킨다.
             //  전산이 미리 만든 빈 ShipmentDetail 의 CustKey 가 0/NULL/다른값이면
             //  nenova.exe 분배 화면이 그 행을 안 보여준다(= 분배 누락). repairMissingCustKey 와 동일 불변식.
-            // ShipmentDtm 은 항상 업체 BaseOutDay 기준 출고일(@dt)로 강제.
-            //  ISNULL 유지 시 전산/구버전이 만든 틀린 출고일(6일 밀림 등)이 남아
-            //  nenova.exe 분배 화면(출고일별)에서 다른 날짜에 박혀 "분배 안 보임" 발생.
-            //  distribute.js 는 삭제+재생성으로 항상 올바른 날짜를 쓰므로 그와 동치로 맞춤.
-            //  (직후 ShipmentDate 를 이 ShipmentDtm 으로 재생성 → 부분보정 아님, 2026-06-02 문서 준수)
+            // 차수피벗의 수량 편집은 별도로 지정한 출고일을 보존한다.
             `UPDATE ShipmentDetail SET
                OutQuantity=@oq, EstQuantity=@estQty,
                BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
                CustKey=@ck,
                Cost=@cost, Amount=@amount, Vat=@vat,
-               ShipmentDtm=@dt
+               ShipmentDtm=CASE WHEN @preserveDate=1 THEN COALESCE(ShipmentDtm,@dt) ELSE @dt END
              WHERE SdetailKey=@dk`,
             { dk: { type: sql.Int, value: targetSdk },
               ck: { type: sql.Int, value: ck },
               dt: { type: sql.DateTime, value: defaultShipDate },
+              preserveDate: { type: sql.Bit, value: pivotDistribution },
               oq: { type: sql.Float, value: u.outQ },
               estQty: { type: sql.Float, value: amountBase },
               bq: { type: sql.Float, value: u.box },
@@ -1086,7 +1083,10 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
 
       // ShipmentDate 동기화 — 전산(usp_DistributeOne) 구조: 1 Detail + N ShipmentDate 유지
       if (targetSdk && isActiveShipmentOutQty(u.outQ)) {
-        await refreshShipmentDatesAfterDetailChange(tQ, targetSdk, sql, { shipDtm: defaultShipDate });
+        await refreshShipmentDatesAfterDetailChange(tQ, targetSdk, sql, {
+          shipDtm: pivotDistribution && sdRow ? undefined : defaultShipDate,
+          preserveExistingDate: pivotDistribution,
+        });
       }
 
       // 0으로 취소한 경우 위에서 ShipmentFarm을 삭제하고 Detail도 정리한다.

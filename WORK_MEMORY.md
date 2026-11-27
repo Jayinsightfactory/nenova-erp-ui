@@ -5699,3 +5699,12 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: `node scripts/test-order-import-compare.mjs` PASS, `npm run test:erp-manifest -- --changed-from origin/master` PASS(252 manifests), `npm run guard:erp-writes -- --changed-from origin/master` PASS, `npm run guard:agent-slop -- --changed-from origin/master` PASS, `npm run build` (`next build --webpack`) PASS, `node C:\Users\USER\nenova-pm\pstack-verify.cjs --repo C:\Users\USER\nw-agy-import-compare-compact` PASS(5/5), `npm run test:erp-contract -- --no-worker-threads --concurrency=4` 489/494(부하 시간초과 4건 `test:import-team`·`test:packing-team`·`workDriveListWorker`·`weekday*` 및 drive 잔여 8종 단독 재실행 전수 PASS), `desktop/` 변경 0건(Cafe24 배포 완료·실브라우저 화면 확인 미검증).
 5. 주의/잠금: `desktop/` 수정 0건(웹 단독 반영), 단독 `monospace` 금지(`FONT_STACK` + `tabular-nums`), 최소 폰트 12.5px 유지, `data/generated/*.json` 빌드 산출물 원복 완료. 연결 목표: g03, g17
 
+
+## 2026-11-27 차수피벗 연속 출고 일정과 웹 저장 출고일 보존
+
+1. 작업 위치: nenova-erp-ui / codex/shipment-date-pivot / C:\Users\USER\nw-cdx-shipment-date-pivot / PR 생성 전.
+2. 완료된 것: 47-01부터 48-01까지 이어 보는 조회에 지역·요일 정렬 전환, 100행 페이지, 기존 출고일 편집기와 카카오톡 요청 연결. 웹의 분배 수량 수정에서 저장된 날짜 보존.
+3. 남은 할 일: 엑셀 48-1 내 47차 선출고 열의 실제 분배 차수 확인 후 업로드 날짜 적용. 수량 피벗의 기존 전체 범위 서버 조회 개선과 연속 화면의 수량·재고 편집 통합은 별도 검증 필요.
+4. 검증 상태: 설치 EXE dnSpy 확인, 운영 SELECT 날짜 477/99/530행 PeriodDay 매칭, 신규 목록 SQL 첫 페이지 55~98ms, 기존 고객 조회 두 SQL 1,871ms 및 966ms(반환 범위 다름), 브라우저 1920×1080 연습자료 두 정렬 캡처, ERP 계약 494/494 및 출고일 51개 회귀 PASS. 실운영 저장과 배포 후 브라우저 미검증.
+5. 주의/잠금: 운영 원장 보정 없음. 47차 표기만으로 48-01 업로드 대상 차수나 출고일을 추정하지 않는다. 연결 목표 g03 / 학습 반영 있음.
+- 검색어: 차수피벗, 47-01, 48-01, 선출고, 요일 지역 업체, 출고일 보존, 물량표, 카카오톡
