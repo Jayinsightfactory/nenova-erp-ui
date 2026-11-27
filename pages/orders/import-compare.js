@@ -61,12 +61,18 @@ function formatKstTimestamp(ts) {
   return s.slice(0, 16) || '-';
 }
 
+function formatNum(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0';
+  return n.toLocaleString('ko-KR', { maximumFractionDigits: 4 });
+}
+
 function formatDiffText(row) {
   if (row.status === 'SAME') return '0';
-  if (row.status === 'UNALLOCATED') return `미분배 (${row.diff})`;
-  if (row.status === 'ADDED') return `신규 (+${row.diff})`;
-  if (row.diff > 0) return `+${row.diff}`;
-  return String(row.diff);
+  if (row.status === 'UNALLOCATED') return `미분배 (${formatNum(row.diff)})`;
+  if (row.status === 'ADDED') return `신규 (+${formatNum(row.diff)})`;
+  if (row.diff > 0) return `+${formatNum(row.diff)}`;
+  return formatNum(row.diff);
 }
 
 export default function OrderImportComparePage() {
@@ -97,7 +103,7 @@ export default function OrderImportComparePage() {
 
   const [onlyChanged, setOnlyChanged] = useState(false);
   const [productSearch, setProductSearch] = useState('');
-  const [showAllExcelCols, setShowAllExcelCols] = useState(false);
+  const [showAllExcelCols, setShowAllExcelCols] = useState(true);
   const [initializedFromQuery, setInitializedFromQuery] = useState(false);
 
   const [priceEdits, setPriceEdits] = useState({});
@@ -586,10 +592,77 @@ export default function OrderImportComparePage() {
   const canShowExcelCols = Boolean(
     mergedBaseline.isSingleUpload && mergedBaseline.excelHeaders?.length,
   );
-  const effectiveShowExcelCols = showAllExcelCols && canShowExcelCols;
+  const visibleExcelCols = useMemo(() => {
+    if (!canShowExcelCols) return [];
+    const headers = mergedBaseline.excelHeaders || [];
+    return headers
+      .map((header, idx) => ({
+        idx,
+        header: String(header ?? '').trim(),
+      }))
+      .filter(
+        ({ idx, header }) =>
+          header !== '' ||
+          allRows.some((r) => String(r.rawCells?.[idx] ?? '').trim() !== ''),
+      );
+  }, [canShowExcelCols, mergedBaseline.excelHeaders, allRows]);
+  const effectiveShowExcelCols =
+    showAllExcelCols && canShowExcelCols && visibleExcelCols.length > 0;
+  const hasAnyUnitPrice = useMemo(
+    () => allRows.some((r) => r.unitPrice != null && Number(r.unitPrice) > 0),
+    [allRows],
+  );
+  const hasAnyNote = useMemo(
+    () => allRows.some((r) => Boolean(String(r.note || '').trim())),
+    [allRows],
+  );
   const leftColCount = effectiveShowExcelCols
-    ? 2 + mergedBaseline.excelHeaders.length + 2
-    : 7;
+    ? 1 + visibleExcelCols.length + 1
+    : 3;
+  const rightColCount = effectiveShowExcelCols
+    ? 4
+    : 4 + (hasAnyUnitPrice ? 1 : 0) + (hasAnyNote ? 1 : 0);
+  const totalColCount = leftColCount + rightColCount;
+
+  const footerTotals = useMemo(() => {
+    const baselineTotal = roundQty(
+      filteredRows.reduce((s, r) => s + (Number(r.baselineQty) || 0), 0),
+    );
+    const shipTotal = roundQty(
+      filteredRows.reduce((s, r) => s + (Number(r.shipQty) || 0), 0),
+    );
+    const shipAmountTotal = Math.round(
+      filteredRows.reduce((s, r) => s + (Number(r.shipAmount) || 0), 0),
+    );
+    return {
+      baselineTotal,
+      shipTotal,
+      netDiff: roundQty(shipTotal - baselineTotal),
+      shipAmountTotal,
+    };
+  }, [filteredRows]);
+
+  const tdCompactStyle = {
+    padding: '2px 7px',
+    borderBottom: '1px solid #e2e8f0',
+    fontSize: 13.5,
+    lineHeight: 1.25,
+    height: 26,
+    verticalAlign: 'middle',
+    whiteSpace: 'nowrap',
+  };
+
+  const thCompactStyle = {
+    padding: '4px 7px',
+    fontSize: 13,
+    lineHeight: 1.2,
+    whiteSpace: 'nowrap',
+    position: 'sticky',
+    top: 0,
+    zIndex: 2,
+    background: '#f1f5f9',
+    borderBottom: '2px solid #cbd5e1',
+  };
 
   const renderTableRow = (row, idx) => {
     const st = ROW_STATUS_STYLE[row.status] || ROW_STATUS_STYLE.SAME;
@@ -599,16 +672,46 @@ export default function OrderImportComparePage() {
         ? String(row.rowNo)
         : '-';
     const erpTitle = row.displayName || row.prodName || '';
+    const baseName = row.inputName || erpTitle || '-';
+    const detailText = String(row.colorOrDetail || '').trim();
+    const showInlineDetail = Boolean(
+      detailText && !baseName.toLowerCase().includes(detailText.toLowerCase()),
+    );
+    const inlineName = showInlineDetail ? `${baseName} (${detailText})` : baseName;
     const showErpSub = Boolean(
       erpTitle &&
         row.inputName &&
         erpTitle.replace(/\s+/g, '').toLowerCase() !==
           row.inputName.replace(/\s+/g, '').toLowerCase(),
     );
+    const nameTooltipParts = [
+      baseName,
+      showErpSub ? `ERP: ${erpTitle}` : '',
+      detailText ? `칼라/품종: ${detailText}` : '',
+      row.unitMixed ? '단위혼재' : '',
+    ].filter(Boolean);
     const hasConversion =
       row.sources?.length === 1 &&
       row.sources[0].unit !== row.outUnit &&
       row.sources[0].qty !== row.baselineQty;
+    const qtyTooltipParts = [];
+    if (hasConversion) {
+      qtyTooltipParts.push(
+        `원본 ${row.sources[0].qty}${row.sources[0].unit} → ${row.baselineQty}${row.outUnit}`,
+      );
+    }
+    if (row.sources?.length > 1) {
+      qtyTooltipParts.push(
+        row.sources
+          .map((s) => `${s.dateKey ? s.dateKey.slice(5) : s.label}: ${s.outQty}`)
+          .join(' + '),
+      );
+    }
+    if (row.unitMixed) {
+      qtyTooltipParts.push('단위혼재');
+    }
+    const unitLabel = row.outUnit || row.unit || '';
+    const shipUnitLabel = row.shipUnit || row.outUnit || row.unit || '';
 
     return (
       <tr
@@ -617,12 +720,11 @@ export default function OrderImportComparePage() {
       >
         <td
           style={{
-            padding: '8px 10px',
-            borderBottom: '1px solid #e2e8f0',
+            ...tdCompactStyle,
+            width: 38,
             borderLeft: st.borderLeft,
             fontVariantNumeric: 'tabular-nums',
             color: '#475569',
-            whiteSpace: 'nowrap',
             textAlign: 'center',
           }}
         >
@@ -630,16 +732,14 @@ export default function OrderImportComparePage() {
         </td>
 
         {effectiveShowExcelCols ? (
-          <>
-            {mergedBaseline.excelHeaders.map((_, cIdx) => (
+          Array.isArray(row.rawCells) ? (
+            visibleExcelCols.map(({ idx: cIdx }) => (
               <td
                 key={`raw-${cIdx}`}
                 style={{
-                  padding: '8px 10px',
-                  borderBottom: '1px solid #e2e8f0',
+                  ...tdCompactStyle,
                   color: '#0f172a',
                   maxWidth: 220,
-                  whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                 }}
@@ -647,156 +747,101 @@ export default function OrderImportComparePage() {
               >
                 {row.rawCells?.[cIdx] ?? ''}
               </td>
-            ))}
-            <td style={{ padding: '8px 10px', borderBottom: '1px solid #e2e8f0', color: '#0f172a' }}>
-              <div style={{ fontWeight: 600 }}>{erpTitle || row.inputName || '-'}</div>
-            </td>
+            ))
+          ) : (
             <td
+              colSpan={visibleExcelCols.length}
               style={{
-                padding: '8px 10px',
-                borderBottom: '1px solid #e2e8f0',
-                borderRight: '2px solid #94a3b8',
-                textAlign: 'right',
-                fontWeight: 700,
-                fontVariantNumeric: 'tabular-nums',
+                ...tdCompactStyle,
                 color: '#0f172a',
-                whiteSpace: 'nowrap',
+                fontWeight: 600,
+                maxWidth: 360,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
+              title={nameTooltipParts.join(' · ')}
             >
-              {row.baselineQty} {row.outUnit}
+              {inlineName}
             </td>
-          </>
+          )
         ) : (
-          <>
-            <td style={{ padding: '8px 10px', borderBottom: '1px solid #e2e8f0', color: '#0f172a' }}>
-              <div style={{ fontWeight: 600 }}>{row.inputName || erpTitle || '-'}</div>
-              {showErpSub && (
-                <div style={{ fontSize: 12.5, color: '#475569', marginTop: 2 }}>
-                  ERP: {erpTitle}
-                </div>
-              )}
-            </td>
-            <td style={{ padding: '8px 10px', borderBottom: '1px solid #e2e8f0', color: '#334155' }}>
-              {row.colorOrDetail || '-'}
-            </td>
-            <td
-              style={{
-                padding: '8px 10px',
-                borderBottom: '1px solid #e2e8f0',
-                color: '#334155',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <span>{row.outUnit || row.unit}</span>
-              {row.unitMixed && (
-                <span
-                  style={{
-                    marginLeft: 6,
-                    padding: '1px 6px',
-                    borderRadius: 4,
-                    background: '#fef3c7',
-                    color: '#92400e',
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                  }}
-                >
-                  단위혼재
-                </span>
-              )}
-            </td>
-            <td
-              style={{
-                padding: '8px 10px',
-                borderBottom: '1px solid #e2e8f0',
-                textAlign: 'right',
-                fontWeight: 700,
-                fontVariantNumeric: 'tabular-nums',
-                color: '#0f172a',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <div>{row.baselineQty}</div>
-              {hasConversion && (
-                <div style={{ fontSize: 12.5, fontWeight: 400, color: '#475569' }}>
-                  원본 {row.sources[0].qty}
-                  {row.sources[0].unit} → {row.baselineQty}
-                  {row.outUnit}
-                </div>
-              )}
-              {row.sources?.length > 1 && (
-                <div style={{ fontSize: 12.5, fontWeight: 400, color: '#475569', marginTop: 2 }}>
-                  {row.sources
-                    .map((s) => `${s.dateKey ? s.dateKey.slice(5) : s.label}: ${s.outQty}`)
-                    .join(' + ')}
-                </div>
-              )}
-            </td>
-            <td
-              style={{
-                padding: '8px 10px',
-                borderBottom: '1px solid #e2e8f0',
-                textAlign: 'right',
-                fontVariantNumeric: 'tabular-nums',
-                color: '#334155',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {row.unitPrice > 0 ? Number(row.unitPrice).toLocaleString() : '-'}
-            </td>
-            <td
-              style={{
-                padding: '8px 10px',
-                borderBottom: '1px solid #e2e8f0',
-                borderRight: '2px solid #94a3b8',
-                color: '#475569',
-                maxWidth: 240,
-              }}
-            >
-              {row.note || '-'}
-            </td>
-          </>
+          <td
+            style={{
+              ...tdCompactStyle,
+              minWidth: 220,
+              maxWidth: 420,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              color: '#0f172a',
+              fontWeight: 600,
+            }}
+            title={nameTooltipParts.join(' · ')}
+          >
+            {inlineName}
+          </td>
         )}
 
         <td
+          title={qtyTooltipParts.length > 0 ? qtyTooltipParts.join(' · ') : undefined}
           style={{
-            padding: '8px 10px',
-            borderBottom: '1px solid #e2e8f0',
+            ...tdCompactStyle,
+            width: 96,
+            borderRight: '2px solid #94a3b8',
             textAlign: 'right',
             fontWeight: 700,
             fontVariantNumeric: 'tabular-nums',
-            whiteSpace: 'nowrap',
+            color: '#0f172a',
           }}
         >
-          {row.shipQty}
+          {formatNum(row.baselineQty)}
+          {unitLabel ? ` ${unitLabel}` : ''}
+          {row.sources?.length > 1 && (
+            <span style={{ marginLeft: 3, fontSize: 12.5, fontWeight: 500, color: '#475569' }}>
+              ({row.sources.length}일)
+            </span>
+          )}
+        </td>
+
+        <td
+          style={{
+            ...tdCompactStyle,
+            width: 96,
+            textAlign: 'right',
+            fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          {formatNum(row.shipQty)}
+          {shipUnitLabel ? ` ${shipUnitLabel}` : ''}
         </td>
         <td
           style={{
-            padding: '8px 10px',
-            borderBottom: '1px solid #e2e8f0',
+            ...tdCompactStyle,
+            width: 96,
             textAlign: 'right',
             fontWeight: 800,
             fontVariantNumeric: 'tabular-nums',
-            whiteSpace: 'nowrap',
+            color: st.color,
           }}
         >
           {formatDiffText(row)}
         </td>
         <td
           style={{
-            padding: '8px 10px',
-            borderBottom: '1px solid #e2e8f0',
+            ...tdCompactStyle,
+            width: 68,
             textAlign: 'center',
-            whiteSpace: 'nowrap',
           }}
         >
           <span
             style={{
               display: 'inline-block',
-              padding: '3px 8px',
+              padding: '1px 6px',
               borderRadius: 4,
               background: st.badgeBg,
               color: st.badgeColor,
               fontSize: 12.5,
+              lineHeight: 1.15,
               fontWeight: 700,
             }}
           >
@@ -805,10 +850,10 @@ export default function OrderImportComparePage() {
         </td>
         <td
           style={{
-            padding: '6px 10px',
-            borderBottom: '1px solid #e2e8f0',
+            ...tdCompactStyle,
+            width: 158,
+            minWidth: 158,
             textAlign: 'right',
-            whiteSpace: 'nowrap',
           }}
         >
           {Array.isArray(row.shipmentDetails) && row.shipmentDetails.length > 0 ? (
@@ -837,103 +882,114 @@ export default function OrderImportComparePage() {
                 : undefined;
 
               return (
-                <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      aria-label={`${erpTitle || row.inputName || '품목'} 분배단가`}
-                      value={rawVal}
-                      disabled={savingPrices}
-                      onChange={(e) => {
-                        const nextVal = e.target.value;
-                        setPriceEdits((prev) => ({ ...prev, [pkKey]: nextVal }));
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          if (pricePayload.invalidRows.length > 0 || pricePayload.editedRowCount > 0) {
-                            void handleSavePrices();
-                          }
-                        }
-                      }}
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    gap: 4,
+                    flexWrap: 'nowrap',
+                  }}
+                >
+                  {row.hasFixed && (
+                    <span
                       style={{
-                        width: 96,
-                        padding: '5px 8px',
+                        padding: '1px 5px',
                         borderRadius: 4,
-                        border: isInvalid
-                          ? '1.5px solid #dc2626'
-                          : isModified
-                            ? '1.5px solid #2563eb'
-                            : '1px solid #cbd5e1',
-                        background: isInvalid ? '#fef2f2' : isModified ? '#eff6ff' : '#ffffff',
-                        color: '#0f172a',
-                        fontSize: 13.5,
-                        fontWeight: isModified ? 700 : 500,
-                        fontFamily: FONT_STACK,
-                        fontVariantNumeric: 'tabular-nums',
-                        textAlign: 'right',
-                        boxSizing: 'border-box',
+                        background: '#fef3c7',
+                        color: '#92400e',
+                        fontSize: 12.5,
+                        lineHeight: 1.15,
+                        fontWeight: 700,
+                        whiteSpace: 'nowrap',
                       }}
-                    />
-                    {canApplyBaseline && (
-                      <button
-                        type="button"
-                        disabled={savingPrices}
-                        onClick={() =>
-                          setPriceEdits((prev) => ({ ...prev, [pkKey]: String(row.unitPrice) }))
-                        }
-                        title={`최초단가 ${Number(row.unitPrice).toLocaleString()}원 적용`}
-                        style={{
-                          padding: '4px 7px',
-                          borderRadius: 4,
-                          border: '1px solid #cbd5e1',
-                          background: '#f8fafc',
-                          color: '#1e3a8a',
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          fontFamily: FONT_STACK,
-                          cursor: savingPrices ? 'wait' : 'pointer',
-                        }}
-                      >
-                        최초적용
-                      </button>
-                    )}
-                  </div>
-                  {(row.hasFixed || row.hasMixedShipCost) && (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      {row.hasFixed && (
-                        <span
-                          style={{
-                            padding: '1px 6px',
-                            borderRadius: 4,
-                            background: '#fef3c7',
-                            color: '#92400e',
-                            fontSize: 12.5,
-                            fontWeight: 700,
-                          }}
-                        >
-                          확정
-                        </span>
-                      )}
-                      {row.hasMixedShipCost && (
-                        <span
-                          title={mixedTooltip}
-                          style={{
-                            padding: '1px 6px',
-                            borderRadius: 4,
-                            background: '#e0e7ff',
-                            color: '#1e3a8a',
-                            fontSize: 12.5,
-                            fontWeight: 700,
-                            cursor: 'help',
-                          }}
-                        >
-                          복수단가
-                        </span>
-                      )}
-                    </div>
+                    >
+                      확정
+                    </span>
                   )}
+                  {row.hasMixedShipCost && (
+                    <span
+                      title={mixedTooltip}
+                      style={{
+                        padding: '1px 5px',
+                        borderRadius: 4,
+                        background: '#e0e7ff',
+                        color: '#1e3a8a',
+                        fontSize: 12.5,
+                        lineHeight: 1.15,
+                        fontWeight: 700,
+                        cursor: 'help',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      복수
+                    </span>
+                  )}
+                  {canApplyBaseline && (
+                    <button
+                      type="button"
+                      disabled={savingPrices}
+                      onClick={() =>
+                        setPriceEdits((prev) => ({ ...prev, [pkKey]: String(row.unitPrice) }))
+                      }
+                      title={`최초단가 ${Number(row.unitPrice).toLocaleString()}원 적용`}
+                      style={{
+                        height: 22,
+                        padding: '1px 6px',
+                        borderRadius: 4,
+                        border: '1px solid #cbd5e1',
+                        background: '#f8fafc',
+                        color: '#1e3a8a',
+                        fontSize: 12.5,
+                        lineHeight: 1.15,
+                        fontWeight: 600,
+                        fontFamily: FONT_STACK,
+                        cursor: savingPrices ? 'wait' : 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      적용
+                    </button>
+                  )}
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label={`${erpTitle || row.inputName || '품목'} 분배단가`}
+                    value={rawVal}
+                    disabled={savingPrices}
+                    onChange={(e) => {
+                      const nextVal = e.target.value;
+                      setPriceEdits((prev) => ({ ...prev, [pkKey]: nextVal }));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (pricePayload.invalidRows.length > 0 || pricePayload.editedRowCount > 0) {
+                          void handleSavePrices();
+                        }
+                      }
+                    }}
+                    style={{
+                      width: 82,
+                      height: 22,
+                      padding: '1px 6px',
+                      borderRadius: 4,
+                      border: isInvalid
+                        ? '1.5px solid #dc2626'
+                        : isModified
+                          ? '1.5px solid #2563eb'
+                          : '1px solid #cbd5e1',
+                      background: isInvalid ? '#fef2f2' : isModified ? '#eff6ff' : '#ffffff',
+                      color: '#0f172a',
+                      fontSize: 13,
+                      fontWeight: isModified ? 700 : 500,
+                      fontFamily: FONT_STACK,
+                      fontVariantNumeric: 'tabular-nums',
+                      textAlign: 'right',
+                      boxSizing: 'border-box',
+                    }}
+                  />
                 </div>
               );
             })()
@@ -941,6 +997,35 @@ export default function OrderImportComparePage() {
             <span style={{ color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>-</span>
           )}
         </td>
+
+        {!effectiveShowExcelCols && hasAnyUnitPrice && (
+          <td
+            style={{
+              ...tdCompactStyle,
+              width: 80,
+              textAlign: 'right',
+              fontVariantNumeric: 'tabular-nums',
+              color: '#334155',
+            }}
+          >
+            {row.unitPrice > 0 ? Number(row.unitPrice).toLocaleString() : '-'}
+          </td>
+        )}
+        {!effectiveShowExcelCols && hasAnyNote && (
+          <td
+            title={row.note || ''}
+            style={{
+              ...tdCompactStyle,
+              minWidth: 90,
+              maxWidth: 180,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              color: '#475569',
+            }}
+          >
+            {row.note || '-'}
+          </td>
+        )}
       </tr>
     );
   };
@@ -951,9 +1036,9 @@ export default function OrderImportComparePage() {
         fontFamily: FONT_STACK,
         maxWidth: 1680,
         margin: '0 auto',
-        padding: '16px 20px 80px',
+        padding: '10px 16px 40px',
         color: '#0f172a',
-        fontSize: 14,
+        fontSize: 13.5,
       }}
     >
       {/* 1. 목적 우선 헤더 */}
@@ -963,45 +1048,48 @@ export default function OrderImportComparePage() {
           border: '1px solid #cbd5e1',
           borderLeft: '4px solid #1e3a8a',
           borderRadius: 6,
-          padding: '14px 18px',
-          marginBottom: 14,
+          padding: '8px 12px',
+          marginBottom: 8,
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 16,
+          alignItems: 'center',
+          gap: 10,
           flexWrap: 'wrap',
         }}
       >
-        <div>
-          <div
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span
             style={{
               fontSize: 12.5,
               fontWeight: 700,
               color: '#1e3a8a',
-              letterSpacing: '0.03em',
-              marginBottom: 4,
+              letterSpacing: '0.02em',
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: 4,
+              padding: '2px 7px',
             }}
           >
             핵심 목적 · PURPOSE
-          </div>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#0f172a' }}>
+          </span>
+          <h1 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#0f172a' }}>
             최초주문등록 과 분배 비교
           </h1>
-          <p style={{ margin: '6px 0 0', fontSize: 13.5, color: '#334155' }}>
-            세부차수(1차·2차 등) 기준으로 최초주문등록 수량과 현재 출고분배 수량을 대조해 변경값만 확인합니다.
-          </p>
+          <span style={{ fontSize: 13, color: '#475569' }}>
+            세부차수 기준으로 최초주문등록 수량과 현재 출고분배 수량을 대조합니다.
+          </span>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <Link
             href="/orders/import"
             style={{
               display: 'inline-block',
-              padding: '8px 14px',
+              padding: '5px 11px',
               borderRadius: 6,
               border: '1px solid #cbd5e1',
               background: '#f8fafc',
               color: '#0f172a',
-              fontSize: 13.5,
+              fontSize: 13,
               fontWeight: 600,
               textDecoration: 'none',
             }}
@@ -1017,15 +1105,15 @@ export default function OrderImportComparePage() {
           background: '#ffffff',
           border: '1px solid #cbd5e1',
           borderRadius: 6,
-          padding: '14px 18px',
-          marginBottom: 12,
+          padding: '8px 12px',
+          marginBottom: 8,
         }}
       >
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
             <label
               htmlFor="compare-year"
-              style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}
+              style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 3 }}
             >
               연도
             </label>
@@ -1034,9 +1122,9 @@ export default function OrderImportComparePage() {
               value={orderYear}
               onChange={(e) => void handleYearChange(e.target.value)}
               style={{
-                padding: '7px 10px',
+                padding: '4px 8px',
                 border: '1px solid #cbd5e1',
-                borderRadius: 6,
+                borderRadius: 5,
                 fontSize: 13.5,
                 fontFamily: FONT_STACK,
                 fontVariantNumeric: 'tabular-nums',
@@ -1056,7 +1144,7 @@ export default function OrderImportComparePage() {
           <div>
             <label
               htmlFor="compare-parent-week"
-              style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}
+              style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 3 }}
             >
               대차수 (주차)
             </label>
@@ -1076,9 +1164,9 @@ export default function OrderImportComparePage() {
                   }
                 }}
                 style={{
-                  padding: '7px 10px',
+                  padding: '4px 8px',
                   border: '1px solid #cbd5e1',
-                  borderRadius: 6,
+                  borderRadius: 5,
                   background: '#f8fafc',
                   color: '#334155',
                   fontSize: 13.5,
@@ -1094,10 +1182,10 @@ export default function OrderImportComparePage() {
                 value={activeParentWeek}
                 onChange={(e) => void handleParentWeekChange(e.target.value)}
                 style={{
-                  minWidth: 140,
-                  padding: '7px 10px',
+                  minWidth: 130,
+                  padding: '4px 8px',
                   border: '1px solid #cbd5e1',
-                  borderRadius: 6,
+                  borderRadius: 5,
                   fontSize: 13.5,
                   fontFamily: FONT_STACK,
                   fontVariantNumeric: 'tabular-nums',
@@ -1126,9 +1214,9 @@ export default function OrderImportComparePage() {
                   }
                 }}
                 style={{
-                  padding: '7px 10px',
+                  padding: '4px 8px',
                   border: '1px solid #cbd5e1',
-                  borderRadius: 6,
+                  borderRadius: 5,
                   background: '#f8fafc',
                   color: '#334155',
                   fontSize: 13.5,
@@ -1143,12 +1231,12 @@ export default function OrderImportComparePage() {
           </div>
 
           <div style={{ flex: 1, minWidth: 260 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 3 }}>
               세부차수 선택
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
               {subWeeksInParent.length === 0 ? (
-                <span style={{ fontSize: 13.5, color: '#475569' }}>선택된 주차의 세부차수가 없습니다.</span>
+                <span style={{ fontSize: 13, color: '#475569' }}>선택된 주차의 세부차수가 없습니다.</span>
               ) : (
                 subWeeksInParent.map((w) => {
                   const active = w.orderWeek === orderWeek;
@@ -1169,13 +1257,13 @@ export default function OrderImportComparePage() {
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 6,
-                        padding: '7px 13px',
-                        borderRadius: 6,
+                        gap: 5,
+                        padding: '4px 10px',
+                        borderRadius: 5,
                         border: active ? '1px solid #0f172a' : '1px solid #cbd5e1',
                         background: active ? '#0f172a' : '#ffffff',
                         color: active ? '#ffffff' : '#334155',
-                        fontSize: 13.5,
+                        fontSize: 13,
                         fontWeight: active ? 700 : 600,
                         fontFamily: FONT_STACK,
                         fontVariantNumeric: 'tabular-nums',
@@ -1185,7 +1273,7 @@ export default function OrderImportComparePage() {
                       <span>{formatSubWeekButtonLabel(w.orderWeek)}</span>
                       <span
                         style={{
-                          padding: '1px 7px',
+                          padding: '1px 6px',
                           borderRadius: 4,
                           fontSize: 12.5,
                           fontWeight: 600,
@@ -1208,7 +1296,7 @@ export default function OrderImportComparePage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {optionsLoading && (
               <span style={{ fontSize: 12.5, color: '#475569' }}>차수·업체 불러오는 중…</span>
             )}
@@ -1217,12 +1305,12 @@ export default function OrderImportComparePage() {
               disabled={!orderYear || !orderWeek || !custKey || compareLoading}
               onClick={() => void fetchCompare(orderYear, orderWeek, custKey)}
               style={{
-                padding: '8px 16px',
-                borderRadius: 6,
+                padding: '5px 12px',
+                borderRadius: 5,
                 border: 'none',
                 background: '#1e3a8a',
                 color: '#ffffff',
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: 700,
                 fontFamily: FONT_STACK,
                 cursor: !orderYear || !orderWeek || !custKey || compareLoading ? 'not-allowed' : 'pointer',
@@ -1241,8 +1329,8 @@ export default function OrderImportComparePage() {
           background: '#ffffff',
           border: '1px solid #cbd5e1',
           borderRadius: 6,
-          padding: '14px 18px',
-          marginBottom: 14,
+          padding: '8px 12px',
+          marginBottom: 8,
         }}
       >
         <div
@@ -1251,23 +1339,23 @@ export default function OrderImportComparePage() {
             justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: 10,
-            marginBottom: 10,
+            gap: 6,
+            marginBottom: 6,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>거래처 선택</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>거래처 선택</span>
             <button
               type="button"
               aria-pressed={customerScope === 'shipment'}
               onClick={() => setCustomerScope('shipment')}
               style={{
-                padding: '6px 12px',
-                borderRadius: 6,
+                padding: '4px 10px',
+                borderRadius: 5,
                 border: customerScope === 'shipment' ? '1px solid #0f172a' : '1px solid #cbd5e1',
                 background: customerScope === 'shipment' ? '#0f172a' : '#ffffff',
                 color: customerScope === 'shipment' ? '#ffffff' : '#334155',
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: customerScope === 'shipment' ? 700 : 600,
                 fontFamily: FONT_STACK,
                 fontVariantNumeric: 'tabular-nums',
@@ -1281,12 +1369,12 @@ export default function OrderImportComparePage() {
               aria-pressed={customerScope === 'all'}
               onClick={() => setCustomerScope('all')}
               style={{
-                padding: '6px 12px',
-                borderRadius: 6,
+                padding: '4px 10px',
+                borderRadius: 5,
                 border: customerScope === 'all' ? '1px solid #0f172a' : '1px solid #cbd5e1',
                 background: customerScope === 'all' ? '#0f172a' : '#ffffff',
                 color: customerScope === 'all' ? '#ffffff' : '#334155',
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: customerScope === 'all' ? 700 : 600,
                 fontFamily: FONT_STACK,
                 fontVariantNumeric: 'tabular-nums',
@@ -1298,8 +1386,8 @@ export default function OrderImportComparePage() {
             {custKey && (
               <span
                 style={{
-                  marginLeft: 4,
-                  padding: '4px 10px',
+                  marginLeft: 2,
+                  padding: '2px 8px',
                   borderRadius: 4,
                   background: '#eff6ff',
                   border: '1px solid #bfdbfe',
@@ -1313,7 +1401,7 @@ export default function OrderImportComparePage() {
             )}
           </div>
 
-          <div style={{ position: 'relative', minWidth: 250 }}>
+          <div style={{ position: 'relative', minWidth: 220 }}>
             <label htmlFor="compare-customer-search" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
               거래처명 검색
             </label>
@@ -1325,17 +1413,17 @@ export default function OrderImportComparePage() {
               placeholder="거래처명 · 담당자 검색"
               style={{
                 width: '100%',
-                padding: '7px 10px',
+                padding: '4px 9px',
                 border: '1px solid #cbd5e1',
-                borderRadius: 6,
-                fontSize: 13.5,
+                borderRadius: 5,
+                fontSize: 13,
                 fontFamily: FONT_STACK,
                 color: '#0f172a',
                 boxSizing: 'border-box',
               }}
             />
             {custSearching && (
-              <span style={{ position: 'absolute', right: 10, top: 8, fontSize: 12.5, color: '#475569' }}>
+              <span style={{ position: 'absolute', right: 8, top: 5, fontSize: 12.5, color: '#475569' }}>
                 검색중…
               </span>
             )}
@@ -1347,10 +1435,10 @@ export default function OrderImportComparePage() {
           style={{
             display: 'flex',
             flexWrap: 'wrap',
-            gap: 6,
+            gap: 5,
             alignItems: 'center',
-            paddingBottom: 10,
-            marginBottom: 10,
+            paddingBottom: 6,
+            marginBottom: 6,
             borderBottom: '1px solid #e2e8f0',
           }}
         >
@@ -1362,12 +1450,12 @@ export default function OrderImportComparePage() {
             aria-pressed={selectedManager === 'ALL'}
             onClick={() => setSelectedManager('ALL')}
             style={{
-              padding: '5px 11px',
-              borderRadius: 5,
+              padding: '3px 9px',
+              borderRadius: 4,
               border: selectedManager === 'ALL' ? '1px solid #1e3a8a' : '1px solid #cbd5e1',
               background: selectedManager === 'ALL' ? '#1e3a8a' : '#f8fafc',
               color: selectedManager === 'ALL' ? '#ffffff' : '#334155',
-              fontSize: 13.5,
+              fontSize: 13,
               fontWeight: selectedManager === 'ALL' ? 700 : 600,
               fontFamily: FONT_STACK,
               fontVariantNumeric: 'tabular-nums',
@@ -1385,12 +1473,12 @@ export default function OrderImportComparePage() {
                 aria-pressed={active}
                 onClick={() => setSelectedManager(m.name)}
                 style={{
-                  padding: '5px 11px',
-                  borderRadius: 5,
+                  padding: '3px 9px',
+                  borderRadius: 4,
                   border: active ? '1px solid #1e3a8a' : '1px solid #cbd5e1',
                   background: active ? '#1e3a8a' : '#f8fafc',
                   color: active ? '#ffffff' : '#334155',
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: active ? 700 : 600,
                   fontFamily: FONT_STACK,
                   fontVariantNumeric: 'tabular-nums',
@@ -1409,8 +1497,8 @@ export default function OrderImportComparePage() {
             style={{
               display: 'flex',
               flexWrap: 'wrap',
-              gap: 6,
-              maxHeight: 168,
+              gap: 5,
+              maxHeight: 108,
               overflowY: 'auto',
               paddingRight: 4,
             }}
@@ -1424,29 +1512,30 @@ export default function OrderImportComparePage() {
                   aria-pressed={active}
                   onClick={() => void handleSelectCustomer(c.custKey, c.custName)}
                   style={{
-                    padding: '6px 11px',
-                    borderRadius: 5,
+                    padding: '3px 9px',
+                    borderRadius: 4,
                     border: active ? '1px solid #0f172a' : '1px solid #cbd5e1',
                     background: active ? '#0f172a' : '#f8fafc',
                     color: active ? '#ffffff' : '#0f172a',
-                    fontSize: 13.5,
+                    fontSize: 13,
                     fontWeight: active ? 700 : 500,
                     fontFamily: FONT_STACK,
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 6,
+                    gap: 5,
                   }}
                 >
                   <span>{c.custName}</span>
                   {c.hasUploadSnapshot && (
                     <span
                       style={{
-                        padding: '1px 6px',
+                        padding: '1px 5px',
                         borderRadius: 4,
                         background: active ? '#1d4ed8' : '#dbeafe',
                         color: active ? '#ffffff' : '#1d4ed8',
                         fontSize: 12.5,
+                        lineHeight: 1.15,
                         fontWeight: 700,
                       }}
                     >
@@ -1456,11 +1545,12 @@ export default function OrderImportComparePage() {
                   {customerScope === 'all' && !c.hasShipment && (
                     <span
                       style={{
-                        padding: '1px 6px',
+                        padding: '1px 5px',
                         borderRadius: 4,
                         background: active ? '#475569' : '#e2e8f0',
                         color: active ? '#ffffff' : '#475569',
                         fontSize: 12.5,
+                        lineHeight: 1.15,
                         fontWeight: 600,
                       }}
                     >
@@ -1472,10 +1562,10 @@ export default function OrderImportComparePage() {
             })}
           </div>
         ) : (
-          <div style={{ fontSize: 13.5, color: '#475569', padding: '4px 0' }}>
+          <div style={{ fontSize: 13, color: '#475569', padding: '2px 0' }}>
             {custQuery.trim() ? (
               <div>
-                <div style={{ marginBottom: 8 }}>
+                <div style={{ marginBottom: 6 }}>
                   현재 목록({customerScope === 'shipment' ? '분배 거래처만' : '전체'})에서
                   {' '}
                   &ldquo;{custQuery.trim()}&rdquo; 검색 결과가 없습니다.
@@ -1485,7 +1575,7 @@ export default function OrderImportComparePage() {
                       onClick={() => setCustomerScope('all')}
                       style={{
                         marginLeft: 8,
-                        padding: '3px 9px',
+                        padding: '2px 8px',
                         borderRadius: 4,
                         border: '1px solid #cbd5e1',
                         background: '#ffffff',
@@ -1501,7 +1591,7 @@ export default function OrderImportComparePage() {
                   )}
                 </div>
                 {custSearchResults.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 140, overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxHeight: 108, overflowY: 'auto' }}>
                     <span style={{ fontSize: 12.5, fontWeight: 700, color: '#334155', alignSelf: 'center', marginRight: 4 }}>
                       전체 ERP 거래처:
                     </span>
@@ -1513,12 +1603,12 @@ export default function OrderImportComparePage() {
                           type="button"
                           onClick={() => void handleSelectCustomer(c.CustKey, c.CustName)}
                           style={{
-                            padding: '5px 10px',
-                            borderRadius: 5,
+                            padding: '3px 9px',
+                            borderRadius: 4,
                             border: active ? '1px solid #0f172a' : '1px solid #cbd5e1',
                             background: active ? '#0f172a' : '#ffffff',
                             color: active ? '#ffffff' : '#0f172a',
-                            fontSize: 13.5,
+                            fontSize: 13,
                             fontWeight: 600,
                             fontFamily: FONT_STACK,
                             cursor: 'pointer',
@@ -1533,18 +1623,18 @@ export default function OrderImportComparePage() {
                 )}
               </div>
             ) : customerScope === 'shipment' && customersInWeek.length > 0 ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span>이 세부차수에 분배된 거래처가 없습니다.</span>
                 <button
                   type="button"
                   onClick={() => setCustomerScope('all')}
                   style={{
-                    padding: '4px 10px',
-                    borderRadius: 5,
+                    padding: '3px 9px',
+                    borderRadius: 4,
                     border: '1px solid #1e3a8a',
                     background: '#eff6ff',
                     color: '#1e3a8a',
-                    fontSize: 13.5,
+                    fontSize: 13,
                     fontWeight: 700,
                     fontFamily: FONT_STACK,
                     cursor: 'pointer',
@@ -1564,13 +1654,13 @@ export default function OrderImportComparePage() {
         <div
           role="alert"
           style={{
-            padding: '10px 14px',
-            marginBottom: 14,
+            padding: '8px 12px',
+            marginBottom: 8,
             borderRadius: 6,
             border: '1px solid #fecaca',
             background: '#fef2f2',
             color: '#b91c1c',
-            fontSize: 13.5,
+            fontSize: 13,
             fontWeight: 600,
           }}
         >
@@ -1586,8 +1676,8 @@ export default function OrderImportComparePage() {
               background: '#ffffff',
               border: '1px solid #cbd5e1',
               borderRadius: 6,
-              padding: '14px 18px',
-              marginBottom: 14,
+              padding: '8px 12px',
+              marginBottom: 8,
             }}
           >
             <div
@@ -1596,24 +1686,24 @@ export default function OrderImportComparePage() {
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 flexWrap: 'wrap',
-                gap: 8,
-                marginBottom: 10,
+                gap: 6,
+                marginBottom: 6,
               }}
             >
               <div>
-                <strong style={{ fontSize: 15, color: '#0f172a' }}>
+                <strong style={{ fontSize: 14, color: '#0f172a' }}>
                   최초주문등록 기준 선택 — {custLabel || compareData.customer?.custName || `업체 #${custKey}`} · {orderYear}년 {orderWeek}
                 </strong>
-                <span style={{ marginLeft: 10, fontSize: 13, color: '#475569' }}>
+                <span style={{ marginLeft: 8, fontSize: 12.5, color: '#475569' }}>
                   여러 날짜·등록건을 체크하면 수량이 합산되어 비교됩니다.
                 </span>
               </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={selectEarliestOne}
                   style={{
-                    padding: '5px 10px',
+                    padding: '3px 8px',
                     borderRadius: 4,
                     border: '1px solid #cbd5e1',
                     background: '#f8fafc',
@@ -1630,7 +1720,7 @@ export default function OrderImportComparePage() {
                   type="button"
                   onClick={selectAllUploads}
                   style={{
-                    padding: '5px 10px',
+                    padding: '3px 8px',
                     borderRadius: 4,
                     border: '1px solid #cbd5e1',
                     background: '#f8fafc',
@@ -1647,7 +1737,7 @@ export default function OrderImportComparePage() {
                   type="button"
                   onClick={selectAllOrderDates}
                   style={{
-                    padding: '5px 10px',
+                    padding: '3px 8px',
                     borderRadius: 4,
                     border: '1px solid #cbd5e1',
                     background: '#f8fafc',
@@ -1664,7 +1754,7 @@ export default function OrderImportComparePage() {
                   type="button"
                   onClick={clearCandidates}
                   style={{
-                    padding: '5px 10px',
+                    padding: '3px 8px',
                     borderRadius: 4,
                     border: '1px solid #cbd5e1',
                     background: '#ffffff',
@@ -1681,20 +1771,20 @@ export default function OrderImportComparePage() {
             </div>
 
             {candidates.length === 0 ? (
-              <div style={{ padding: '12px 0', color: '#475569', fontSize: 13.5 }}>
+              <div style={{ padding: '6px 0', color: '#475569', fontSize: 13 }}>
                 이 세부차수에 저장된 업로드 스냅샷이나 직접 주문등록 이력이 없습니다.
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
-                    <th style={{ padding: '7px 10px', textAlign: 'center', width: 44 }}>선택</th>
-                    <th style={{ padding: '7px 10px', textAlign: 'left', width: 110 }}>구분</th>
-                    <th style={{ padding: '7px 10px', textAlign: 'left', width: 150 }}>등록일시 (KST)</th>
-                    <th style={{ padding: '7px 10px', textAlign: 'left' }}>파일명 / 출처</th>
-                    <th style={{ padding: '7px 10px', textAlign: 'right', width: 100 }}>품목 수</th>
-                    <th style={{ padding: '7px 10px', textAlign: 'right', width: 120 }}>수량 합계</th>
-                    <th style={{ padding: '7px 10px', textAlign: 'center', width: 110 }}>미리보기</th>
+                    <th style={{ padding: '4px 8px', textAlign: 'center', width: 44 }}>선택</th>
+                    <th style={{ padding: '4px 8px', textAlign: 'left', width: 100 }}>구분</th>
+                    <th style={{ padding: '4px 8px', textAlign: 'left', width: 140 }}>등록일시 (KST)</th>
+                    <th style={{ padding: '4px 8px', textAlign: 'left' }}>파일명 / 출처</th>
+                    <th style={{ padding: '4px 8px', textAlign: 'right', width: 90 }}>품목 수</th>
+                    <th style={{ padding: '4px 8px', textAlign: 'right', width: 100 }}>수량 합계</th>
+                    <th style={{ padding: '4px 8px', textAlign: 'center', width: 100 }}>미리보기</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1709,7 +1799,7 @@ export default function OrderImportComparePage() {
                     return (
                       <Fragment key={c.id}>
                         <tr style={{ background: checked ? '#f8fafc' : '#ffffff', borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '7px 10px', textAlign: 'center' }}>
+                          <td style={{ padding: '3px 8px', textAlign: 'center' }}>
                             <input
                               type="checkbox"
                               checked={checked}
@@ -1717,13 +1807,14 @@ export default function OrderImportComparePage() {
                               aria-label={`${c.label} ${formatKstTimestamp(c.timestamp)}`}
                             />
                           </td>
-                          <td style={{ padding: '7px 10px' }}>
+                          <td style={{ padding: '3px 8px' }}>
                             <span
                               style={{
                                 display: 'inline-block',
-                                padding: '2px 8px',
+                                padding: '1px 6px',
                                 borderRadius: 4,
                                 fontSize: 12.5,
+                                lineHeight: 1.15,
                                 fontWeight: 700,
                                 background: isUpload ? '#dbeafe' : '#fef3c7',
                                 color: isUpload ? '#1d4ed8' : '#b45309',
@@ -1732,10 +1823,10 @@ export default function OrderImportComparePage() {
                               {isUpload ? '엑셀업로드' : '직접등록'}
                             </span>
                           </td>
-                          <td style={{ padding: '7px 10px', fontVariantNumeric: 'tabular-nums', color: '#334155' }}>
+                          <td style={{ padding: '3px 8px', fontVariantNumeric: 'tabular-nums', color: '#334155' }}>
                             {formatKstTimestamp(c.timestamp)}
                           </td>
-                          <td style={{ padding: '7px 10px', color: '#0f172a', fontWeight: 600 }}>
+                          <td style={{ padding: '3px 8px', color: '#0f172a', fontWeight: 600 }}>
                             {c.label}
                             {c.sheetName ? (
                               <span style={{ marginLeft: 8, fontSize: 12.5, fontWeight: 400, color: '#475569' }}>
@@ -1743,18 +1834,18 @@ export default function OrderImportComparePage() {
                               </span>
                             ) : null}
                           </td>
-                          <td style={{ padding: '7px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                          <td style={{ padding: '3px 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                             {(c.items || []).length}
                           </td>
-                          <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                          <td style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
                             {totalQty}
                           </td>
-                          <td style={{ padding: '7px 10px', textAlign: 'center' }}>
+                          <td style={{ padding: '3px 8px', textAlign: 'center' }}>
                             <button
                               type="button"
                               onClick={() => togglePreview(c.id)}
                               style={{
-                                padding: '3px 8px',
+                                padding: '2px 7px',
                                 borderRadius: 4,
                                 border: '1px solid #cbd5e1',
                                 background: '#ffffff',
@@ -1770,31 +1861,31 @@ export default function OrderImportComparePage() {
                         </tr>
                         {previewOpen && (
                           <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
-                            <td colSpan={7} style={{ padding: '10px 18px' }}>
+                            <td colSpan={7} style={{ padding: '8px 14px' }}>
                               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                                 <thead>
                                   <tr style={{ borderBottom: '1px solid #cbd5e1', color: '#334155' }}>
-                                    <th style={{ padding: '4px 8px', textAlign: 'center', width: 60 }}>행</th>
-                                    <th style={{ padding: '4px 8px', textAlign: 'left' }}>품명</th>
-                                    <th style={{ padding: '4px 8px', textAlign: 'right', width: 100 }}>수량</th>
-                                    <th style={{ padding: '4px 8px', textAlign: 'left', width: 80 }}>단위</th>
-                                    <th style={{ padding: '4px 8px', textAlign: 'right', width: 110 }}>단가</th>
+                                    <th style={{ padding: '3px 7px', textAlign: 'center', width: 60 }}>행</th>
+                                    <th style={{ padding: '3px 7px', textAlign: 'left' }}>품명</th>
+                                    <th style={{ padding: '3px 7px', textAlign: 'right', width: 100 }}>수량</th>
+                                    <th style={{ padding: '3px 7px', textAlign: 'left', width: 80 }}>단위</th>
+                                    <th style={{ padding: '3px 7px', textAlign: 'right', width: 110 }}>단가</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {(c.items || []).map((it, pIdx) => (
                                     <tr key={pIdx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                      <td style={{ padding: '4px 8px', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
+                                      <td style={{ padding: '3px 7px', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
                                         {it.rowNo ?? pIdx + 1}
                                       </td>
-                                      <td style={{ padding: '4px 8px' }}>
+                                      <td style={{ padding: '3px 7px' }}>
                                         {it.inputName || it.displayName || it.prodName}
                                       </td>
-                                      <td style={{ padding: '4px 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                                      <td style={{ padding: '3px 7px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
                                         {it.qty}
                                       </td>
-                                      <td style={{ padding: '4px 8px' }}>{it.unit || it.outUnit}</td>
-                                      <td style={{ padding: '4px 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                      <td style={{ padding: '3px 7px' }}>{it.unit || it.outUnit}</td>
+                                      <td style={{ padding: '3px 7px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                                         {Number(it.unitPrice) > 0 ? Number(it.unitPrice).toLocaleString() : '-'}
                                       </td>
                                     </tr>
@@ -1815,8 +1906,8 @@ export default function OrderImportComparePage() {
               <div
                 role="status"
                 style={{
-                  marginTop: 10,
-                  padding: '8px 12px',
+                  marginTop: 6,
+                  padding: '6px 10px',
                   borderRadius: 4,
                   border: '1px solid #fcd34d',
                   background: '#fffbeb',
@@ -1836,69 +1927,68 @@ export default function OrderImportComparePage() {
               background: '#ffffff',
               border: '1px solid #cbd5e1',
               borderRadius: 6,
-              padding: '14px 18px',
-              marginBottom: 14,
+              padding: '8px 12px',
+              marginBottom: 8,
             }}
           >
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))',
+                gridTemplateColumns: 'repeat(4, minmax(160px, 1fr))',
                 gap: 0,
                 border: '1px solid #cbd5e1',
-                borderRadius: 6,
+                borderRadius: 5,
                 overflow: 'hidden',
-                marginBottom: 12,
+                marginBottom: 8,
               }}
             >
-              <div style={{ padding: '10px 14px', borderRight: '1px solid #cbd5e1', background: '#f8fafc' }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#475569' }}>최초등록 합계</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>
-                  {summary.baselineTotalQty}
-                </div>
-                <div style={{ fontSize: 12.5, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
-                  {summary.baselineItemCount}품목
-                </div>
+              <div style={{ padding: '6px 10px', borderRight: '1px solid #cbd5e1', background: '#f8fafc', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#475569' }}>최초등록 합계</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                  {formatNum(summary.baselineTotalQty)}
+                  <span style={{ marginLeft: 5, fontSize: 12.5, fontWeight: 500, color: '#475569' }}>
+                    ({summary.baselineItemCount}품목)
+                  </span>
+                </span>
               </div>
-              <div style={{ padding: '10px 14px', borderRight: '1px solid #cbd5e1', background: '#f8fafc' }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#475569' }}>현재 분배 합계</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>
-                  {summary.shipTotalQty}
-                </div>
-                <div style={{ fontSize: 12.5, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
-                  {summary.shipItemCount}품목
-                </div>
+              <div style={{ padding: '6px 10px', borderRight: '1px solid #cbd5e1', background: '#f8fafc', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#475569' }}>현재 분배 합계</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                  {formatNum(summary.shipTotalQty)}
+                  <span style={{ marginLeft: 5, fontSize: 12.5, fontWeight: 500, color: '#475569' }}>
+                    ({summary.shipItemCount}품목)
+                  </span>
+                </span>
               </div>
-              <div style={{ padding: '10px 14px', borderRight: '1px solid #cbd5e1', background: '#f8fafc' }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#475569' }}>순 증감</div>
-                <div
+              <div style={{ padding: '6px 10px', borderRight: '1px solid #cbd5e1', background: '#f8fafc', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#475569' }}>순 증감</span>
+                <span
                   style={{
-                    fontSize: 20,
+                    fontSize: 16,
                     fontWeight: 800,
                     color: summary.netDiff > 0 ? '#1d4ed8' : summary.netDiff < 0 ? '#b45309' : '#0f172a',
                     fontVariantNumeric: 'tabular-nums',
-                    marginTop: 2,
                   }}
                 >
-                  {summary.netDiff > 0 ? `+${summary.netDiff}` : summary.netDiff}
-                </div>
-                <div style={{ fontSize: 12.5, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
-                  동일 {summary.sameCount}품목
-                </div>
+                  {summary.netDiff > 0 ? `+${formatNum(summary.netDiff)}` : formatNum(summary.netDiff)}
+                  <span style={{ marginLeft: 5, fontSize: 12.5, fontWeight: 500, color: '#475569' }}>
+                    (동일 {summary.sameCount})
+                  </span>
+                </span>
               </div>
-              <div style={{ padding: '10px 14px', background: '#f8fafc' }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#475569' }}>변경 품목 수</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>
+              <div style={{ padding: '6px 10px', background: '#f8fafc', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#475569' }}>변경 품목</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
                   {summary.changedCount}건
-                </div>
-                <div style={{ fontSize: 12.5, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
-                  증가 {summary.increasedCount} · 감소 {summary.decreasedCount} · 미분배 {summary.unallocatedCount} · 신규 {summary.addedCount}
-                </div>
+                  <span style={{ marginLeft: 5, fontSize: 12.5, fontWeight: 500, color: '#475569' }}>
+                    (+{summary.increasedCount} / -{summary.decreasedCount} / 미{summary.unallocatedCount} / 신{summary.addedCount})
+                  </span>
+                </span>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={onlyChanged}
@@ -1913,39 +2003,39 @@ export default function OrderImportComparePage() {
                 onChange={(e) => setProductSearch(e.target.value)}
                 placeholder="품명 · 칼라 · 비고 검색"
                 style={{
-                  minWidth: 220,
-                  padding: '6px 10px',
+                  minWidth: 200,
+                  padding: '4px 9px',
                   border: '1px solid #cbd5e1',
-                  borderRadius: 6,
-                  fontSize: 13.5,
+                  borderRadius: 5,
+                  fontSize: 13,
                   fontFamily: FONT_STACK,
                 }}
               />
 
               {canShowExcelCols && (
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={showAllExcelCols}
                     onChange={(e) => setShowAllExcelCols(e.target.checked)}
                   />
-                  원본 엑셀 전체 열 보기
+                  업로드 원본 양식 열 보기
                 </label>
               )}
 
-              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 {fillableBaselinePriceRows.length > 0 && (
                   <button
                     type="button"
                     disabled={savingPrices}
                     onClick={handleFillAllBaselinePrices}
                     style={{
-                      padding: '6px 12px',
-                      borderRadius: 6,
+                      padding: '4px 10px',
+                      borderRadius: 5,
                       border: '1px solid #cbd5e1',
                       background: '#f8fafc',
                       color: '#0f172a',
-                      fontSize: 13.5,
+                      fontSize: 13,
                       fontWeight: 600,
                       fontFamily: FONT_STACK,
                       cursor: savingPrices ? 'wait' : 'pointer',
@@ -1961,12 +2051,12 @@ export default function OrderImportComparePage() {
                     disabled={savingPrices}
                     onClick={handleCancelPriceEdits}
                     style={{
-                      padding: '6px 12px',
-                      borderRadius: 6,
+                      padding: '4px 10px',
+                      borderRadius: 5,
                       border: '1px solid #cbd5e1',
                       background: '#ffffff',
                       color: '#334155',
-                      fontSize: 13.5,
+                      fontSize: 13,
                       fontWeight: 600,
                       fontFamily: FONT_STACK,
                       cursor: savingPrices ? 'wait' : 'pointer',
@@ -1981,12 +2071,12 @@ export default function OrderImportComparePage() {
                   disabled={pricePayload.editedRowCount === 0 || savingPrices}
                   onClick={() => void handleSavePrices()}
                   style={{
-                    padding: '7px 14px',
-                    borderRadius: 6,
+                    padding: '4px 12px',
+                    borderRadius: 5,
                     border: 'none',
                     background: '#1e3a8a',
                     color: '#ffffff',
-                    fontSize: 13.5,
+                    fontSize: 13,
                     fontWeight: 700,
                     fontFamily: FONT_STACK,
                     fontVariantNumeric: 'tabular-nums',
@@ -2007,13 +2097,13 @@ export default function OrderImportComparePage() {
               <div
                 role={priceSaveNotice.type === 'error' ? 'alert' : 'status'}
                 style={{
-                  marginTop: 10,
-                  padding: '9px 12px',
-                  borderRadius: 6,
+                  marginTop: 6,
+                  padding: '6px 10px',
+                  borderRadius: 5,
                   border: priceSaveNotice.type === 'error' ? '1px solid #fecaca' : '1px solid #bbf7d0',
                   background: priceSaveNotice.type === 'error' ? '#fef2f2' : '#f0fdf4',
                   color: priceSaveNotice.type === 'error' ? '#b91c1c' : '#166534',
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: 600,
                 }}
               >
@@ -2022,75 +2112,95 @@ export default function OrderImportComparePage() {
             )}
           </div>
 
-          {/* 5. 비교 테이블 (좌측 원본 엑셀 양식 + 수직 구분선 + 우측 분배/변경차이) */}
+          {/* 5. 비교 테이블 (고밀도 출고내역서 양식 + 주문↔분배 밀착) */}
           <div
             style={{
               background: '#ffffff',
               border: '1px solid #cbd5e1',
               borderRadius: 6,
               overflowX: 'auto',
+              width: 'fit-content',
+              minWidth: 'min(740px, 100%)',
+              maxWidth: '100%',
             }}
           >
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+            <table
+              style={{
+                width: 'auto',
+                minWidth: 740,
+                maxWidth: '100%',
+                borderCollapse: 'collapse',
+                fontSize: 13.5,
+              }}
+            >
               <thead>
-                <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-                  <th style={{ padding: '9px 10px', textAlign: 'center', width: 56, whiteSpace: 'nowrap' }}>행</th>
+                <tr>
+                  <th style={{ ...thCompactStyle, textAlign: 'center', width: 38 }}>NO</th>
                   {effectiveShowExcelCols ? (
-                    <>
-                      {mergedBaseline.excelHeaders.map((hdr, hIdx) => (
-                        <th key={`hdr-${hIdx}`} style={{ padding: '9px 10px', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                          {hdr || `열${hIdx + 1}`}
-                        </th>
-                      ))}
-                      <th style={{ padding: '9px 10px', textAlign: 'left', whiteSpace: 'nowrap' }}>ERP 품명</th>
-                      <th
-                        style={{
-                          padding: '9px 10px',
-                          textAlign: 'right',
-                          borderRight: '2px solid #94a3b8',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        최초주문수량
+                    visibleExcelCols.map(({ idx: hIdx, header }) => (
+                      <th key={`hdr-${hIdx}`} style={{ ...thCompactStyle, textAlign: 'left' }}>
+                        {header || `열${hIdx + 1}`}
                       </th>
-                    </>
+                    ))
                   ) : (
-                    <>
-                      <th style={{ padding: '9px 10px', textAlign: 'left', minWidth: 210 }}>품명</th>
-                      <th style={{ padding: '9px 10px', textAlign: 'left', minWidth: 120 }}>칼라/품종</th>
-                      <th style={{ padding: '9px 10px', textAlign: 'left', width: 90 }}>단위</th>
-                      <th style={{ padding: '9px 10px', textAlign: 'right', minWidth: 120 }}>최초주문수량</th>
-                      <th style={{ padding: '9px 10px', textAlign: 'right', width: 100 }}>단가</th>
-                      <th
-                        style={{
-                          padding: '9px 10px',
-                          textAlign: 'left',
-                          minWidth: 140,
-                          borderRight: '2px solid #94a3b8',
-                        }}
-                      >
-                        비고
-                      </th>
-                    </>
+                    <th style={{ ...thCompactStyle, textAlign: 'left', minWidth: 220, maxWidth: 420 }}>
+                      품목명
+                    </th>
                   )}
-                  <th style={{ padding: '9px 10px', textAlign: 'right', width: 120, background: '#f8fafc' }}>
-                    현재 분배수량
+                  <th
+                    style={{
+                      ...thCompactStyle,
+                      textAlign: 'right',
+                      width: 96,
+                      borderRight: '2px solid #94a3b8',
+                    }}
+                  >
+                    주문수량
                   </th>
-                  <th style={{ padding: '9px 10px', textAlign: 'right', width: 130, background: '#f8fafc' }}>
-                    변경차이
+                  <th style={{ ...thCompactStyle, textAlign: 'right', width: 96, background: '#f8fafc' }}>
+                    분배수량
                   </th>
-                  <th style={{ padding: '9px 10px', textAlign: 'center', width: 100, background: '#f8fafc' }}>
+                  <th style={{ ...thCompactStyle, textAlign: 'right', width: 96, background: '#f8fafc' }}>
+                    차이
+                  </th>
+                  <th style={{ ...thCompactStyle, textAlign: 'center', width: 68, background: '#f8fafc' }}>
                     구분
                   </th>
-                  <th style={{ padding: '9px 10px', textAlign: 'right', minWidth: 170, background: '#f8fafc' }}>
+                  <th
+                    style={{
+                      ...thCompactStyle,
+                      textAlign: 'right',
+                      width: 158,
+                      minWidth: 158,
+                      background: '#f8fafc',
+                    }}
+                  >
                     분배단가
                   </th>
+                  {!effectiveShowExcelCols && hasAnyUnitPrice && (
+                    <th style={{ ...thCompactStyle, textAlign: 'right', width: 80, background: '#f8fafc' }}>
+                      최초단가
+                    </th>
+                  )}
+                  {!effectiveShowExcelCols && hasAnyNote && (
+                    <th
+                      style={{
+                        ...thCompactStyle,
+                        textAlign: 'left',
+                        minWidth: 90,
+                        maxWidth: 180,
+                        background: '#f8fafc',
+                      }}
+                    >
+                      비고
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={leftColCount + 4} style={{ padding: '24px 16px', textAlign: 'center', color: '#475569' }}>
+                    <td colSpan={totalColCount} style={{ padding: '18px 14px', textAlign: 'center', color: '#475569' }}>
                       표시할 비교 행이 없습니다.
                     </td>
                   </tr>
@@ -2101,8 +2211,8 @@ export default function OrderImportComparePage() {
                       <>
                         <tr style={{ background: '#ecfeff', borderTop: '2px solid #0d9488', borderBottom: '1px solid #99f6e4' }}>
                           <td
-                            colSpan={leftColCount + 4}
-                            style={{ padding: '7px 12px', fontSize: 13, fontWeight: 700, color: '#0f766e' }}
+                            colSpan={totalColCount}
+                            style={{ padding: '3px 8px', fontSize: 12.5, fontWeight: 700, color: '#0f766e' }}
                           >
                             최초주문등록 외 추가 분배 품목 ({addedRows.length}건)
                           </td>
@@ -2113,6 +2223,96 @@ export default function OrderImportComparePage() {
                   </>
                 )}
               </tbody>
+              {filteredRows.length > 0 && (
+                <tfoot>
+                  <tr
+                    style={{
+                      background: '#f1f5f9',
+                      borderTop: '2px solid #94a3b8',
+                      fontWeight: 800,
+                      color: '#0f172a',
+                    }}
+                  >
+                    <td
+                      colSpan={leftColCount - 1}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: 13,
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      합 계 ({filteredRows.length}품목)
+                    </td>
+                    <td
+                      style={{
+                        padding: '4px 7px',
+                        borderRight: '2px solid #94a3b8',
+                        textAlign: 'right',
+                        fontSize: 13.5,
+                        fontVariantNumeric: 'tabular-nums',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {formatNum(footerTotals.baselineTotal)}
+                    </td>
+                    <td
+                      style={{
+                        padding: '4px 7px',
+                        textAlign: 'right',
+                        fontSize: 13.5,
+                        fontVariantNumeric: 'tabular-nums',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {formatNum(footerTotals.shipTotal)}
+                    </td>
+                    <td
+                      style={{
+                        padding: '4px 7px',
+                        textAlign: 'right',
+                        fontSize: 13.5,
+                        fontVariantNumeric: 'tabular-nums',
+                        whiteSpace: 'nowrap',
+                        color:
+                          footerTotals.netDiff > 0
+                            ? '#1d4ed8'
+                            : footerTotals.netDiff < 0
+                              ? '#b45309'
+                              : '#0f172a',
+                      }}
+                    >
+                      {footerTotals.netDiff > 0
+                        ? `+${formatNum(footerTotals.netDiff)}`
+                        : formatNum(footerTotals.netDiff)}
+                    </td>
+                    <td
+                      style={{
+                        padding: '4px 7px',
+                        textAlign: 'center',
+                        fontSize: 12.5,
+                        color: '#475569',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      분배금액
+                    </td>
+                    <td
+                      style={{
+                        padding: '4px 7px',
+                        textAlign: 'right',
+                        fontSize: 13.5,
+                        fontVariantNumeric: 'tabular-nums',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {formatNum(footerTotals.shipAmountTotal)}원
+                    </td>
+                    {!effectiveShowExcelCols && hasAnyUnitPrice && <td style={{ padding: '4px 7px' }} />}
+                    {!effectiveShowExcelCols && hasAnyNote && <td style={{ padding: '4px 7px' }} />}
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </>
