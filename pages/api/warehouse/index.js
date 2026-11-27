@@ -7,7 +7,7 @@ import { acquireInvoiceReceiptGate, nextInvoiceWarehouseKey, calculateInvoiceSto
 import { resolveReceiptBunch } from '../../../lib/receiptBunchQuantity.js';
 import { WAREHOUSE_WEIGHT_ROW_SQL } from '../../../lib/warehouseWeightRows.js';
 import { canManageInvoiceReceipt } from '../../../lib/invoiceReceiptAccess.js';
-import { manualWarehouseHeader, manualWarehouseLine } from '../../../lib/manualWarehouseUpload.js';
+import { manualWarehouseHeader, manualWarehouseLine, isManualWarehouseAllowedAccount } from '../../../lib/manualWarehouseUpload.js';
 import { assertManualWarehouseEligible, readManualWarehouseAttempt } from '../../../lib/manualWarehouseUploadDb.js';
 import { warehouseFarmChoicesSql } from '../../../lib/warehouseFarmChoices.js';
 import { splitIncomingRound } from '../../../lib/incomingRoundLabel.js';
@@ -81,15 +81,58 @@ function duplicateError(duplicate) {
     { statusCode: 409, code: 'DUPLICATE_INVOICE', warehouseKey: duplicate.WarehouseKey });
 }
 
+const MANUAL_OPTIONS_TTL_MS = 5 * 60 * 1000;
+const manualOptionsCache = new WeakMap();
+
+function mayManualUpload(user) {
+  if (canManageInvoiceReceipt(user)) return true;
+  return typeof isManualWarehouseAllowedAccount === 'function' && isManualWarehouseAllowedAccount(user);
+}
+
 async function getManualOptions(req,res) {
-  if (!canManageInvoiceReceipt(req.user)) return res.status(403).json({success:false,error:'입고 등록 권한이 없습니다.'});
+  if (!mayManualUpload(req.user)) return res.status(403).json({success:false,error:'입고 등록 권한이 없습니다.'});
+  const now = Date.now();
+  const forceRefresh = req.query?.refresh === '1';
+  const cached = !forceRefresh ? manualOptionsCache.get(query) : null;
+  if (cached && cached.expiresAt > now) {
+    return res.status(200).json(cached.payload);
+  }
   try {
-    const [farms,periods] = await Promise.all([
+    const [farms,periods,recentManual,farmCountries] = await Promise.all([
       query(warehouseFarmChoicesSql({activeOnly:true})),
       query(`SELECT DISTINCT OrderYear,OrderWeek FROM dbo.StockMaster
         WHERE OrderYear>=N'2026' ORDER BY OrderYear DESC,OrderWeek DESC`),
+      Promise.resolve(query(`SELECT TOP 40 LTRIM(RTRIM(wm.FarmName)) AS FarmName, COUNT(*) AS UseCount, MAX(wm.WarehouseKey) AS LastWarehouseKey
+        FROM dbo.WarehouseMaster wm
+        WHERE ISNULL(wm.isDeleted,0)=0 AND wm.FileName LIKE N'manual-%' AND NULLIF(LTRIM(RTRIM(wm.FarmName)),N'') IS NOT NULL
+        GROUP BY LTRIM(RTRIM(wm.FarmName))
+        ORDER BY COUNT(*) DESC, MAX(wm.WarehouseKey) DESC`)).catch(() => ({ recordset: [] })),
+      Promise.resolve(query(`SELECT f.FarmKey, LTRIM(RTRIM(c.CounName)) AS CounName
+        FROM dbo.Farm f LEFT JOIN dbo.Country c ON c.CounKey=f.CounKey
+        WHERE f.isDeleted=0`)).catch(() => ({ recordset: [] })),
     ]);
-    return res.status(200).json({success:true,farms:farms.recordset,periods:periods.recordset});
+    const countryByFarmKey = new Map();
+    for (const row of farmCountries?.recordset ?? []) {
+      const counName = String(row?.CounName ?? '').trim();
+      if (row?.FarmKey != null && counName) countryByFarmKey.set(Number(row.FarmKey), counName);
+    }
+    const activeFarmNames = new Set();
+    const enrichedFarms = (farms.recordset ?? []).map(row => {
+      const farmName = String(row?.FarmName ?? '').trim();
+      if (farmName) activeFarmNames.add(farmName);
+      const counName = row?.FarmKey != null ? countryByFarmKey.get(Number(row.FarmKey)) : undefined;
+      return counName ? { ...row, CounName: counName } : row;
+    });
+    const recentManualFarms = (recentManual?.recordset ?? [])
+      .filter(row => row?.FarmName && activeFarmNames.has(String(row.FarmName).trim()))
+      .map(row => ({
+        farmName: String(row.FarmName).trim(),
+        useCount: Number(row.UseCount || 0) || 0,
+        lastWarehouseKey: Number(row.LastWarehouseKey || 0) || 0,
+      }));
+    const payload = { success: true, farms: enrichedFarms, periods: periods.recordset, recentManualFarms };
+    manualOptionsCache.set(query, { expiresAt: now + MANUAL_OPTIONS_TTL_MS, payload });
+    return res.status(200).json(payload);
   } catch {
     return res.status(503).json({success:false,error:'등록 농장 또는 차수를 불러오지 못했습니다.'});
   }
@@ -125,7 +168,7 @@ async function getWarehouse(req, res) {
   const useExe = useExeParityFlag(exeParity);
   const labelsRequested=req.query.roundLabels==='1';
   const mayEdit=canManageInvoiceReceipt(req.user);
-  const detailAccess=labelsRequested?{canEditDetail:mayEdit,canReadDetailHistory:mayEdit||approvalPermissions(req.user).review}:{};
+  const detailAccess=labelsRequested?{canEditDetail:mayEdit,canReadDetailHistory:mayEdit||approvalPermissions(req.user).review,canManualUpload:mayManualUpload(req.user)}:{};
 
   try {
     if (useExe && startDate && endDate) {
@@ -196,7 +239,8 @@ async function uploadWarehouse(req, res) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(inputDate || '')) || Number.isNaN(new Date(`${inputDate}T00:00:00`).getTime())) {
     return res.status(400).json({ success: false, code: 'WAREHOUSE_INPUT_DATE_REQUIRED', error: '관세청 과세환율 기준이 되는 실제 입고·신고일자를 입력하세요.' });
   }
-  if (!canManageInvoiceReceipt(req.user)) {
+  const canWrite = manual ? mayManualUpload(req.user) : canManageInvoiceReceipt(req.user);
+  if (!canWrite) {
     return res.status(403).json({ success: false, code: 'WAREHOUSE_WRITE_FORBIDDEN', error: '입고 등록은 관리자 또는 수입부 계정만 가능합니다.' });
   }
 

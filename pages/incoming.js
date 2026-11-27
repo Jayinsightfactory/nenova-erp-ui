@@ -99,7 +99,7 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
   const [manualUpload, setManualUpload] = useState(null);
   const [visualOpen, setVisualOpen] = useState(false);
   const [identityEditor, setIdentityEditor] = useState(null);
-  const [detailAccess,setDetailAccess] = useState({edit:false,read:false});
+  const [detailAccess,setDetailAccess] = useState({edit:false,read:false,manualUpload:true});
   const [quantityTarget,setQuantityTarget]=useState(null);
   const [costWeightTarget,setCostWeightTarget]=useState(null);
   const [batchCostOpen,setBatchCostOpen]=useState(false);
@@ -141,7 +141,7 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
     const seq = ++loadSeq.current;
     setLoading(true);
     apiGetExe('/api/warehouse', { startDate, endDate, goodsTotals: '1', roundLabels:'1' })
-      .then(d => { if (seq === loadSeq.current) { setMasters(d.masters||[]); setErr(''); setDetailAccess({edit:d.canEditDetail===true,read:d.canReadDetailHistory===true}); } })
+      .then(d => { if (seq === loadSeq.current) { setMasters(d.masters||[]); setErr(''); setDetailAccess({edit:d.canEditDetail===true,read:d.canReadDetailHistory===true,manualUpload:d.canManualUpload!==false}); } })
       .catch(e => { if (seq === loadSeq.current) setErr(e.message); })
       .finally(() => { if (seq === loadSeq.current) setLoading(false); });
   };
@@ -492,7 +492,7 @@ export default function Warehouse({ embedded = false, active = true, onClose, pa
         <Input.Search size="small" allowClear placeholder="농장명·인보이스·AWB·차수" value={masterSearch} onChange={(e) => setMasterSearch(e.target.value)} style={{ width: 220 }} />
         <Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={load}>{t('새로고침')}</Button>
         <Button size="small" type="primary" icon={<UploadOutlined />} disabled={uploading || deleting} onClick={() => fileRef.current.click()}>업로드 / Subir</Button>
-        <Button size="small" ref={manualUploadButton} disabled={uploading || deleting} onClick={()=>{
+        <Button size="small" ref={manualUploadButton} disabled={uploading || deleting || detailAccess.manualUpload === false} title={detailAccess.manualUpload === false ? '수기 입고 업로드 권한이 있는 계정만 사용할 수 있습니다.' : undefined} onClick={()=>{
           const inputDate=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
           setManualUpload({orderYear:inputDate.slice(0,4),orderWeek:'',inputDate});
         }}>수기 업로드</Button>
