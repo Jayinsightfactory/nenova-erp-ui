@@ -13,14 +13,22 @@ import { extractPackingDocument } from '../../lib/importPackingExtractClient.js'
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { packingFileReuse } from '../../lib/packingFileReuse.js';
 import { packingErpAliases } from '../../lib/importPackingErpMatches.js';
-import { packingSourceKey } from '../../lib/importPacking.js';
+import {
+  ALL_SEED_ALIASES, SEED_ALIASES_CO, SEED_ALIASES_AU, SEED_ALIASES_CN, SEED_ALIASES_US, SEED_ALIASES_VN, SEED_ALIASES_TH,
+  aliasKey, packingSourceKey,
+} from '../../lib/importPacking.js';
 import { rankProductSuggestions, defaultInvoiceMatchSuggestion } from '../../lib/invoiceMatchAssist.js';
 import { findSavedFarmMatch, suggestColombiaPackingDefaults, suggestNewFarmName } from '../../lib/importPackingFarmMatches.js';
 import {
   WORKBENCH_COUNTRIES, AWB_COUNTRIES, STATUS, HEADER_FIELDS, blankRow, buildWorkbenchInvoices, normalizeRoundInput, hintsFromFileName,
   reviewInvoice, invoiceStatus, requiredCheckKeys, backSolveRow, suggestReconcileFix, applyReconcileFix, buildWarehouseUploadPayload,
   buildPackingGrid, evidenceTarget, connectorTone, applyExistingReceipts, duplicateRangeLabel, runSequentialUpload, normalizeAwbDocument, round2,
+  farmHistoryProdKeys, resolveVisualAutoMatch,
 } from '../../lib/visualInboundWorkbench.js';
+
+const SEED_ALIASES_BY_COUNTRY = Object.freeze({
+  CO: SEED_ALIASES_CO, AU: SEED_ALIASES_AU, CN: SEED_ALIASES_CN, US: SEED_ALIASES_US, VN: SEED_ALIASES_VN, TH: SEED_ALIASES_TH,
+});
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 const num = value => (value === '' || value == null ? '' : String(value));
@@ -73,6 +81,7 @@ export default function VisualInboundVerifyWorkbench({ open, onClose, onUploaded
   const [layoutRevision, setLayoutRevision] = useState(0);
   const [catalog, setCatalog] = useState({ products: [], value: null, revision: 0, loaded: false, error: '' });
   const [farms, setFarms] = useState({ farms: [], value: null, revision: 0, loaded: false, error: '' });
+  const [matchHistoryByCountry, setMatchHistoryByCountry] = useState({});
   const [includeAwbFreight, setIncludeAwbFreight] = useState(true);
   const [upload, setUpload] = useState({ busy: false, message: '', progress: '' });
   const [notice, setNotice] = useState('');
@@ -256,31 +265,60 @@ export default function VisualInboundVerifyWorkbench({ open, onClose, onUploaded
     setAnalysis({ stage: 'done', message: '직접 입력 모드 · 값을 입력하면 왼쪽 원문에서 같은 글자를 찾아 강조합니다.' });
   }
 
-  // 저장된 품목 별칭 → 고득점 단일 후보 순서로 자동 연결(사람 확인 전에는 확인됨 표시 없음).
-  function autoMatchDraft(draft) {
+  const historyCountry = active?.header?.country || country || '';
+  const matchHistory = matchHistoryByCountry[historyCountry] || { byName: null, byFarm: null };
+
+  // 과거 동일 국가 원가·입고 이력 조회(읽기 전용 · 서버 5분 캐시 · 실패 시 fail-open).
+  useEffect(() => {
+    if (!open || !historyCountry || matchHistoryByCountry[historyCountry]) return undefined;
+    let alive = true;
+    jsonFetch(`/api/import/receipts/drive-match-history?${new URLSearchParams({ country: historyCountry, includeWarehouse: '1' })}`)
+      .then(({ ok, data }) => {
+        if (!alive) return;
+        const entry = ok && data?.success ? { byName: data.byName || {}, byFarm: data.byFarm || {} } : { byName: {}, byFarm: {} };
+        setMatchHistoryByCountry(prev => ({ ...prev, [historyCountry]: entry }));
+      })
+      .catch(() => {
+        if (alive) setMatchHistoryByCountry(prev => ({ ...prev, [historyCountry]: { byName: {}, byFarm: {} } }));
+      });
+    return () => { alive = false; };
+  }, [open, historyCountry]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 4단계 자동 우선매칭: ① 팀 저장 매칭 → ② 국가별 내장 시드 별칭 → ③ 과거 입고 이력(94~99점)+농장 약어(+7점) → ④ 고신뢰 추천(>=90 단독 / >=85 & 격차>=10).
+  function autoMatchDraft(draft, histOverride = null) {
     const products = catalog.products;
     if (!products.length) return draft;
-    const aliases = packingErpAliases(draft.header.country, {}, catalog.value, products);
-    const rows = draft.rows.map(row => {
-      if (row.kind !== 'goods' || row.prodName) return row;
-      const alias = aliases[packingSourceKey(row.description)];
-      if (alias && !alias.startsWith('\u0000')) {
-        const product = products.find(p => p.ProdName === alias && p.country === draft.header.country);
-        return { ...row, prodName: alias, prodKey: product?.ProdKey ?? null, matchSource: '저장된 별칭' };
-      }
-      const suggestion = defaultInvoiceMatchSuggestion(row.description, products, draft.header.country);
-      return suggestion ? { ...row, prodName: suggestion.product.ProdName, prodKey: suggestion.product.ProdKey, matchSource: `자동 후보 ${suggestion.score}점` } : row;
-    });
-    const saved = findSavedFarmMatch(farms.value, draft.header.country, draft.header.supplier);
+    const docCountry = draft.header.country;
+    const saved = findSavedFarmMatch(farms.value, docCountry, draft.header.supplier);
     const header = saved && !draft.header.farmName
       ? { ...draft.header, farmName: saved.farmName, farmKey: saved.farmKey ?? null, farmSourceWarehouseKey: saved.farmSourceWarehouseKey ?? null, isNewFarm: saved.isNewFarm === true, farmSource: '저장된 농장 연결' }
       : draft.header;
+    const teamAliases = packingErpAliases(docCountry, {}, catalog.value, products);
+    const seedAliases = SEED_ALIASES_BY_COUNTRY[docCountry] || ALL_SEED_ALIASES;
+    const hist = histOverride || matchHistoryByCountry[docCountry] || { byName: null, byFarm: null };
+    const rows = draft.rows.map(row => {
+      if (row.kind !== 'goods' || row.prodName) return row;
+      const matched = resolveVisualAutoMatch(row.description, {
+        country: docCountry,
+        supplier: header.supplier,
+        farmName: header.farmName,
+        products,
+        teamAliases,
+        seedAliases,
+        history: hist.byName,
+        byFarm: hist.byFarm,
+        sourceKeyFn: packingSourceKey,
+        aliasKeyFn: aliasKey,
+        suggestFn: defaultInvoiceMatchSuggestion,
+      });
+      return matched ? { ...row, prodName: matched.prodName, prodKey: matched.prodKey, matchSource: matched.matchSource } : row;
+    });
     return { ...draft, rows, header };
   }
 
   useEffect(() => {
-    if (catalog.loaded && farms.loaded && drafts.length) setDrafts(list => list.map(autoMatchDraft));
-  }, [catalog.loaded, farms.loaded]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (catalog.loaded && farms.loaded && drafts.length) setDrafts(list => list.map(d => autoMatchDraft(d)));
+  }, [catalog.loaded, farms.loaded, matchHistoryByCountry]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function checkExisting(list = drafts) {
     if (!list.length) return;
@@ -391,8 +429,16 @@ export default function VisualInboundVerifyWorkbench({ open, onClose, onUploaded
   const activeRow = active?.rows.find(r => r.id === activeRowId) || null;
   const productCandidates = useMemo(() => {
     if (!activeRow || activeRow.kind !== 'goods' || !active) return [];
-    return rankProductSuggestions(productQuery || activeRow.description, catalog.products, { country: active.header.country, supplier: active.header.supplier, limit: 6, minScore: productQuery ? 10 : 30 }).items;
-  }, [activeRow, catalog.products, productQuery, active]);
+    const farmProdKeys = farmHistoryProdKeys(matchHistory.byFarm, { farmName: active.header.farmName, supplier: active.header.supplier });
+    return rankProductSuggestions(productQuery || activeRow.description, catalog.products, {
+      country: active.header.country,
+      supplier: active.header.supplier || active.header.farmName,
+      history: matchHistory.byName,
+      farmProdKeys,
+      limit: 6,
+      minScore: productQuery ? 10 : 30,
+    }).items;
+  }, [activeRow, catalog.products, productQuery, active, matchHistory]);
 
   function addRow(kind) {
     if (!active || locked) return;
@@ -635,10 +681,10 @@ export default function VisualInboundVerifyWorkbench({ open, onClose, onUploaded
                         onKeyDown={e => { if (e.key === 'Escape') { setProductQuery(''); } }} />
                     </label>
                     <div className={styles.chips} role="listbox" aria-label="품목 후보">
-                      {productCandidates.map(({ product, score }) => (
+                      {productCandidates.map(({ product, score, history: histInfo, farmHistory }) => (
                         <button type="button" role="option" aria-selected={activeRow.prodKey === product.ProdKey} key={product.ProdKey} className={activeRow.prodKey === product.ProdKey ? styles.chipOn : styles.chip}
-                          onClick={() => { setRow(activeRow.id, { prodName: product.ProdName, prodKey: product.ProdKey, matchSource: `직접 선택 ${score}점`, aliasSaved: false }); setProductQuery(''); }}>
-                          {product.ProdName} <small>{score}점</small>
+                          onClick={() => { setRow(activeRow.id, { prodName: product.ProdName, prodKey: product.ProdKey, matchSource: `직접 선택 ${score}%`, aliasSaved: false }); setProductQuery(''); }}>
+                          {product.ProdName} <small>{histInfo ? `이력 ${histInfo.count}회 · ` : farmHistory ? '농장이력 · ' : ''}{score}%</small>
                         </button>
                       ))}
                       {!productCandidates.length && <span className={styles.hint}>{catalog.error || '후보가 없습니다. 검색어를 바꿔 보세요.'}</span>}
