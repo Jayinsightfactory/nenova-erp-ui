@@ -30,6 +30,10 @@ import {
   KakaoOrderRegisterPanel,
   useKakaoOrderRegisterBridge,
 } from './KakaoOrderRegisterBridge';
+import {
+  KakaoDbProdInlineEditor,
+  useKakaoProductAliases,
+} from './KakaoDbProdEditor';
 
 const fields = [
   ['country', '국가'],
@@ -450,6 +454,18 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
   const [copiedCardKey, setCopiedCardKey] = useState('');
   const [pasteDraft, setPasteDraft] = useState('');
   const [pastedFeed, setPastedFeed] = useState(null);
+  const [editingDbProdKey, setEditingDbProdKey] = useState('');
+
+  const {
+    productAliases,
+    savingKey: savingDbProdKey,
+    resolveAlias: resolveDbProductAlias,
+    saveAlias: saveDbProductAlias,
+    resetAlias: resetDbProductAlias,
+  } = useKakaoProductAliases({
+    serverAliases: feed?.productAliases,
+    onNotice: setNotice,
+  });
 
   const toolbarDetailsId = useId();
   const hiddenMessages = useHiddenMessages(userId);
@@ -464,6 +480,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
     setGroup('');
     setFarmFilter('');
     setFocus(null);
+    setEditingDbProdKey('');
     setSourceFilter('전체');
     setSourceQuery('');
     setMessageLimit(kakaoMessagePageSize);
@@ -567,7 +584,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
     const map = new Map();
     for (const m of [...(feed?.messages || emptyArray), ...(feed?.review || emptyArray)]) {
       for (const it of m.items || emptyArray) {
-        if (it?.product && it?.dbProdName && !map.has(it.product)) {
+        if (it?.product && it?.dbProdName && !it?.isManualDbAlias && !map.has(it.product)) {
           map.set(it.product, { dbProdName: it.dbProdName, dbProdKey: it.dbProdKey || null });
         }
       }
@@ -605,23 +622,34 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
           ? importItemView(raw, edits[raw.key], { autoCheckCancel, netMatchedAddition: true })
           : firstPass.get(raw.key);
         const farm = base.farm ? resolveFarmDisplay(base.farm) : '';
-        const dbHint = !base.dbProdName && base.product ? dbProdByProduct.get(base.product) : null;
+        const manualAlias = resolveDbProductAlias({ country: base.country, product: base.product });
+        const autoDbName = base.isManualDbAlias ? '' : (base.dbProdName || '');
+        const autoDbKey = base.isManualDbAlias ? null : (base.dbProdKey || null);
+        const dbHint = !manualAlias && !autoDbName && base.product ? dbProdByProduct.get(base.product) : null;
+        const resolvedDbProdName = manualAlias ? manualAlias.dbProdName : (autoDbName || dbHint?.dbProdName || '');
+        const resolvedDbProdKey = manualAlias ? (manualAlias.dbProdKey || null) : (autoDbKey || dbHint?.dbProdKey || null);
         map.set(raw.key, {
           ...base,
           ...(farm ? { farm } : {}),
-          ...(dbHint ? { dbProdName: dbHint.dbProdName, dbProdKey: dbHint.dbProdKey } : {}),
+          dbProdName: resolvedDbProdName,
+          dbProdKey: resolvedDbProdKey,
+          isManualDbAlias: Boolean(manualAlias),
         });
       }
     }
     return map;
-  }, [allMessages, manual, edits, resolveFarmDisplay, dbProdByProduct]);
+  }, [allMessages, manual, edits, resolveFarmDisplay, dbProdByProduct, resolveDbProductAlias]);
 
   const view = useCallback(row => {
     if (row?.key && baseViewByKey.has(row.key)) return baseViewByKey.get(row.key);
     const base = importItemView(row, edits[row?.key]);
-    if (base.farm) return { ...base, farm: resolveFarmDisplay(base.farm) };
-    return base;
-  }, [baseViewByKey, edits, resolveFarmDisplay]);
+    const manualAlias = resolveDbProductAlias({ country: base.country, product: base.product });
+    const next = manualAlias
+      ? { ...base, dbProdName: manualAlias.dbProdName, dbProdKey: manualAlias.dbProdKey || null, isManualDbAlias: true }
+      : base;
+    if (next.farm) return { ...next, farm: resolveFarmDisplay(next.farm) };
+    return next;
+  }, [baseViewByKey, edits, resolveFarmDisplay, resolveDbProductAlias]);
 
   const cleanedIdSet = useMemo(() => {
     if (pastedFeed) return sessionCleaned;
@@ -684,7 +712,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
   ), [inOrderScope, activeWeek, activeGroup, activeFarm, resolveCanonicalFarm]);
 
   const rows = useMemo(() => allRows.filter(inScope), [allRows, inScope]);
-  const totals = useMemo(() => farmTotals(rows, { knownFarms }), [rows, knownFarms]);
+  const totals = useMemo(() => farmTotals(rows, { knownFarms, productAliases }), [rows, knownFarms, productAliases]);
   const invalid = useMemo(
     () => rows.some(r => r.checked && (!validSignedItem(r) || !r.unit || !/^\d{1,2}(?:-\d{1,2})?$/.test(r.week))),
     [rows]
@@ -872,12 +900,13 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
   const farmSummary = useMemo(
     () => buildFarmSummary(invalid ? emptyArray : totals, {
       knownFarms,
+      productAliases,
       excludedItems: scopedExcludedItems,
       ignoredTotals: scopedIgnoredTotals,
       memos: scopedMemos,
       reviewCount: reviewMessageCount,
     }),
-    [invalid, totals, knownFarms, scopedExcludedItems, scopedIgnoredTotals, scopedMemos, reviewMessageCount]
+    [invalid, totals, knownFarms, productAliases, scopedExcludedItems, scopedIgnoredTotals, scopedMemos, reviewMessageCount]
   );
 
   const fullTransferText = useMemo(
@@ -1429,7 +1458,53 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                                         {displayName}
                                       </button>
                                     </td>
-                                    <td className="kakao-col-db-en">{item.dbProdName || '–'}</td>
+                                    <td className="kakao-col-db-en">
+                                      {editingDbProdKey === item.key ? (
+                                        <KakaoDbProdInlineEditor
+                                          item={item}
+                                          cardCountry={card.country}
+                                          hasManualAlias={Boolean(
+                                            item.isManualDbAlias ||
+                                              resolveDbProductAlias({
+                                                country: card.country || item.country,
+                                                product: item.product,
+                                              })
+                                          )}
+                                          saving={savingDbProdKey === item.key}
+                                          onSave={async (payload) => {
+                                            const ok = await saveDbProductAlias(payload);
+                                            if (ok) setEditingDbProdKey('');
+                                          }}
+                                          onReset={async (payload) => {
+                                            const ok = await resetDbProductAlias(payload);
+                                            if (ok) setEditingDbProdKey('');
+                                          }}
+                                          onCancel={() => setEditingDbProdKey('')}
+                                        />
+                                      ) : item.dbProdName ? (
+                                        <button
+                                          type="button"
+                                          className={'kakao-db-matched-btn' + (item.isManualDbAlias ? ' is-manual' : '')}
+                                          title={
+                                            item.isManualDbAlias
+                                              ? '수동 지정된 영문 품목명 · 클릭하여 변경 또는 초기화'
+                                              : '자동 매칭된 DB 영문 품목명 · 클릭하여 수정'
+                                          }
+                                          onClick={() => setEditingDbProdKey(item.key)}
+                                        >
+                                          <span>{item.dbProdName}</span>
+                                          {item.isManualDbAlias && <small className="kakao-db-manual-tag">수동지정</small>}
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          className="kakao-db-assign-btn"
+                                          onClick={() => setEditingDbProdKey(item.key)}
+                                        >
+                                          DB 품목 지정
+                                        </button>
+                                      )}
+                                    </td>
                                     <td className={'kakao-col-qty' + (isMinusQty ? ' is-minus' : '')}>{formatUnitDisplay(item.quantity, item.unit, copyLang)}</td>
                                     <td className="kakao-col-note">{remarks || '–'}</td>
                                   </tr>
@@ -1993,6 +2068,198 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
           color: #1e3a8a;
           font-size: 13px;
           font-weight: 500;
+          min-width: 170px;
+        }
+        .kakao-additions .kakao-db-assign-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 9px;
+          border-radius: 5px;
+          border: 1px dashed #d97706;
+          background: #fffbeb;
+          color: #92400e;
+          font-size: 12.5px;
+          font-weight: 700;
+          line-height: 1.35;
+          white-space: nowrap;
+        }
+        .kakao-additions .kakao-db-assign-btn:hover:not(:disabled) {
+          background: #fef3c7;
+          border-color: #b45309;
+          border-style: solid;
+          color: #78350f;
+        }
+        .kakao-additions .kakao-db-matched-btn {
+          display: inline-flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 5px;
+          padding: 2px 6px;
+          margin: -2px -6px;
+          border: 1px solid transparent;
+          border-radius: 5px;
+          background: transparent;
+          color: #1e3a8a;
+          font-size: 13px;
+          font-weight: 600;
+          text-align: left;
+          line-height: 1.4;
+        }
+        .kakao-additions .kakao-db-matched-btn:hover:not(:disabled) {
+          background: #eff6ff;
+          border-color: #bfdbfe;
+          text-decoration: underline;
+        }
+        .kakao-additions .kakao-db-matched-btn.is-manual {
+          color: #065f46;
+        }
+        .kakao-additions .kakao-db-matched-btn.is-manual:hover:not(:disabled) {
+          background: #ecfdf5;
+          border-color: #a7f3d0;
+        }
+        .kakao-additions .kakao-db-manual-tag {
+          display: inline-block;
+          padding: 1px 5px;
+          border-radius: 4px;
+          background: #d1fae5;
+          color: #065f46;
+          font-size: 11.5px;
+          font-weight: 700;
+          line-height: 1.3;
+          white-space: nowrap;
+        }
+        .kakao-db-editor {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          padding: 7px 8px;
+          background: #f8fafc;
+          border: 1px solid #93c5fd;
+          border-radius: 6px;
+          min-width: 260px;
+        }
+        .kakao-db-editor-top {
+          display: flex;
+          gap: 5px;
+          align-items: center;
+        }
+        .kakao-db-editor-top input {
+          flex: 1 1 auto;
+          padding: 5px 8px !important;
+          font-size: 13px !important;
+          background: #ffffff;
+          border: 1px solid #94a3b8 !important;
+        }
+        .kakao-additions .kakao-db-save-btn,
+        .kakao-additions .kakao-db-cancel-edit-btn {
+          flex: 0 0 auto;
+          padding: 5px 9px;
+          font-size: 12.5px;
+          white-space: nowrap;
+        }
+        .kakao-db-editor-bar {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 4px 8px;
+        }
+        .kakao-db-editor-hint {
+          font-size: 12px;
+          color: #475569;
+        }
+        .kakao-db-editor-toggles {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+        }
+        .kakao-additions .kakao-db-mini-btn,
+        .kakao-additions .kakao-db-reset-btn {
+          padding: 2px 7px;
+          font-size: 12px;
+          line-height: 1.35;
+        }
+        .kakao-additions .kakao-db-reset-btn {
+          border-color: #fda4af;
+          background: #fff1f2;
+          color: #9f1239;
+          font-weight: 600;
+        }
+        .kakao-additions .kakao-db-reset-btn:hover:not(:disabled) {
+          background: #ffe4e6;
+          border-color: #fb7185;
+        }
+        .kakao-db-editor-status {
+          margin: 0 !important;
+          padding: 6px 8px;
+          font-size: 12.5px !important;
+          color: #475569;
+        }
+        .kakao-db-editor-status.is-error {
+          background: #fffbeb;
+          border-radius: 4px;
+          color: #92400e;
+        }
+        .kakao-db-cand-list {
+          max-height: 185px;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          border-radius: 5px;
+          display: flex;
+          flex-direction: column;
+        }
+        .kakao-additions .kakao-db-cand-item {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 4px 8px;
+          width: 100%;
+          padding: 5px 8px;
+          border: 0;
+          border-bottom: 1px solid #f1f5f9;
+          border-radius: 0;
+          background: #ffffff;
+          text-align: left;
+          font-size: 12.5px;
+        }
+        .kakao-additions .kakao-db-cand-item:last-child {
+          border-bottom: 0;
+        }
+        .kakao-additions .kakao-db-cand-item:hover:not(:disabled),
+        .kakao-additions .kakao-db-cand-item.is-active {
+          background: #eff6ff;
+          color: #1e3a8a;
+        }
+        .kakao-db-cand-en {
+          font-weight: 700;
+          color: #0f172a;
+        }
+        .kakao-db-cand-meta {
+          display: inline-flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 4px;
+          font-size: 12px;
+          color: #475569;
+        }
+        .kakao-db-cand-country {
+          padding: 1px 5px;
+          border-radius: 4px;
+          background: #e2e8f0;
+          color: #334155;
+          font-weight: 600;
+          font-size: 11.5px;
+        }
+        .kakao-db-cand-country.is-other {
+          background: #fef3c7;
+          color: #92400e;
+        }
+        .kakao-db-cand-ko {
+          color: #475569;
         }
         .kakao-col-qty {
           white-space: nowrap;

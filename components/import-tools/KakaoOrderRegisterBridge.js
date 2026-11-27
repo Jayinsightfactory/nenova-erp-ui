@@ -806,7 +806,8 @@ export const KakaoMessageErpSummary = memo(function KakaoMessageErpSummary({
               />
               {!sharedCustomer && <span className="kakao-msg-erp-cust">[{custLabel}]</span>}
               <span>
-                {row.product} {row.quantity}
+                {row.product}
+                {row.dbProdName ? ` (${row.dbProdName})` : ''} {row.quantity}
                 {row.unit}
               </span>
             </label>
