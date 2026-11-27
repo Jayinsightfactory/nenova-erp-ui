@@ -35,6 +35,15 @@ const code = babel.transformSync(source.replace("import('xlsx-js-style')", "Prom
   filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')],
   plugins: [require('next/dist/compiled/babel/plugin-transform-modules-commonjs')], configFile: false, babelrc: false,
 }).code;
+const subcomponentCodes = Object.fromEntries(
+  ['PackingLegacyMatchItems.js', 'PackingAwbPanel.js', 'PackingCatalogSection.js', 'PackingCountryAndReusePanels.js'].map(subName => {
+    const subSrc = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools', subName), 'utf8');
+    return [subName, babel.transformSync(subSrc, {
+      filename: subName, presets: [require('next/dist/compiled/babel/preset-react')],
+      plugins: [require('next/dist/compiled/babel/plugin-transform-modules-commonjs')], configFile: false, babelrc: false,
+    }).code];
+  })
+);
 const legacyReviewSource = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools/ChinaLegacyReview.js'), 'utf8');
 const legacyReviewCode = babel.transformSync(legacyReviewSource, {
   filename: 'ChinaLegacyReview.js', presets: [require('next/dist/compiled/babel/preset-react')],
@@ -203,7 +212,15 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     './PackingUploadMatchModal.js': { default: () => null, PackingUploadMatchAlertBanner: () => null, __esModule: true },
     '../../lib/packingUploadMatchPrompt.js': await import('../lib/packingUploadMatchPrompt.js'),
     '../../lib/packingDuplicateCheck.js': await import('../lib/packingDuplicateCheck.js'),
+    '../../lib/invoiceAwbEvidence.js': await import('../lib/invoiceAwbEvidence.js'),
+    '../../lib/importPacking/packingToolSupport.js': await import('../lib/importPacking/packingToolSupport.js'),
     './PackingProductMatchDialog.js': { default: PackingProductMatchDialogStub, __esModule: true } };
+  for (const [subName, subCode] of Object.entries(subcomponentCodes)) {
+    const subMod = { exports: {} };
+    new Function('require', 'module', 'exports', 'fetch', 'FileReader', 'window', 'document', subCode)(
+      key => modules[key], subMod, subMod.exports, fetchStub, Reader, browserWindow, browserDocument);
+    modules[`./${subName}`] = subMod.exports;
+  }
   const module = { exports: {} };
   new Function('require', 'module', 'exports', 'fetch', 'FileReader', 'window', 'document', code + '\nmodule.exports.AWBPanel = AWBPanel; module.exports.PendingItem = PendingItem; module.exports.NoMatchItem = NoMatchItem;')(
     key => modules[key], module, module.exports, fetchStub, Reader, browserWindow, browserDocument);
