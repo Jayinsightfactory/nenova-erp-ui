@@ -820,3 +820,278 @@
     flex: 1 1 auto;
   }
 }
+
+
+/* One-click variety & farm button filter workbench + high-density result ledger */
+.calcSummaryBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+}
+
+.calcSummaryText {
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.resultWorkbench {
+  margin: 14px 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.filterBarGroup {
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.filterBarRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filterGroupLabel {
+  min-width: 42px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+  letter-spacing: -0.01em;
+}
+
+.chipGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1 1 420px;
+}
+
+.filterChip,
+.filterChipActive,
+.modeToggle,
+.modeToggleActive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.filterChip {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.filterChip:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.filterChipActive {
+  border: 1px solid #0f172a;
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.modeToggle {
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12.5px;
+}
+
+.modeToggleActive {
+  border: 1px solid #334155;
+  background: #334155;
+  color: #ffffff;
+  font-size: 12.5px;
+}
+
+.filterSearchTools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.filterSearchInput {
+  height: 32px;
+  min-width: 210px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13.5px;
+}
+
+.resultSubtotalStrip {
+  margin: 0;
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.resultSubtotalStrip > div {
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.resultSubtotalStrip dt {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.resultSubtotalStrip dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.kpiSub {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.kpiHighlight {
+  border-color: #94a3b8 !important;
+  background: #f1f5f9 !important;
+}
+
+.resultLedgerWrap {
+  max-height: 540px;
+  overflow: auto;
+  background: #ffffff;
+}
+
+.resultLedgerTable {
+  width: 100%;
+  min-width: 1060px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.resultLedgerTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: left;
+  padding: 9px 10px;
+  border-bottom: 1px solid #cbd5e1;
+  white-space: nowrap;
+}
+
+.resultLedgerTable thead th.numHead {
+  text-align: right;
+}
+
+.resultLedgerRow {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 38px;
+}
+
+.resultLedgerTable tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #0f172a;
+  vertical-align: middle;
+}
+
+.resultLedgerTable tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.resultLedgerTable tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: #f8fafc;
+  border-top: 2px solid #cbd5e1;
+  padding: 9px 10px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.resultFarmCell {
+  white-space: nowrap;
+}
+
+.resultFarmCell strong {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.resultSubMeta {
+  margin-left: 6px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.varietyTag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.resultProdCell {
+  min-width: 220px;
+  font-weight: 500;
+}
+
+.numCell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.numStrongCell {
+  text-align: right;
+  white-space: nowrap;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.emptyFilterCell {
+  text-align: center;
+  padding: 28px 12px !important;
+  color: #64748b !important;
+}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import WorkflowGuide from '../WorkflowGuide';
 import CostAwbEvidence from './CostAwbEvidence';
 import { CO_ORIGINAL_CUSTOMS_DEFAULTS, calculateCoOriginalCustoms } from '../../lib/coOriginalCostInputs.js';
@@ -6,12 +6,41 @@ import { CO_DEFAULT_STEMS_PER_BUNCH } from '../../lib/receiptOriginInheritance.j
 import ledger from '../../styles/ArrivalCostLedger.module.css';
 
 const labels = { ROSE: '장미', CARNATION: '카네이션', ALSTROMERIA: '알스트로', RUSCUS: '루스커스', HYDRANGEA: '수국' };
+const VARIETY_BUTTON_ORDER = ['HYDRANGEA', 'ROSE', 'CARNATION', 'ALSTROMERIA', 'RUSCUS'];
 const MASTER_LABELS = { CO: '콜카장 누적 원가자료', CO_HYDRANGEA: '수국 누적 원가자료' };
 const scopeLabels = {
   MAIN: '콜카장 (장미·카네이션·알스트로·루스커스)',
   HYDRANGEA: '수국',
   ALL: '통합 5품종 (콜카장 + 수국 혼적 AWB)',
 };
+
+const round2 = value => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+const fmtInt = value => (Number.isFinite(value) ? Math.round(value).toLocaleString('ko-KR') : '-');
+const fmtDec = (value, digits = 2) => (Number.isFinite(value)
+  ? value.toLocaleString('ko-KR', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  : '-');
+
+const ResultLedgerRow = memo(function ResultLedgerRow({ row }) {
+  return (
+    <tr className={ledger.resultLedgerRow}>
+      <td className={ledger.resultFarmCell}>
+        <strong>{row.farmName}</strong>
+        {row.invoiceNo && <span className={ledger.resultSubMeta}>{row.invoiceNo}</span>}
+      </td>
+      <td><span className={ledger.varietyTag}>{row.groupLabel}</span></td>
+      <td className={ledger.resultProdCell}>{row.originalName}</td>
+      <td className={ledger.numCell}>{fmtDec(row.boxQuantity, Number.isInteger(row.boxQuantity) ? 0 : 2)}</td>
+      <td className={ledger.numCell}>{fmtInt(row.stems)}</td>
+      <td className={ledger.numCell}>{fmtDec(row.stemsPerBunch, Number.isInteger(row.stemsPerBunch) ? 0 : 2)}</td>
+      <td className={ledger.numCell}>{fmtDec(row.fobUnitUSD, 2)}</td>
+      <td className={ledger.numCell}>{fmtDec(row.freightUnitUSD, 4)}</td>
+      <td className={ledger.numCell}>{fmtInt(row.customsUnitKRW)}</td>
+      <td className={ledger.numStrongCell}>{fmtInt(row.arrivalStemKRW)}</td>
+      <td className={ledger.numCell}>{fmtInt(row.arrivalBunchKRW)}</td>
+      <td className={ledger.numStrongCell}>{fmtInt(row.totalCostKRW)}</td>
+    </tr>
+  );
+});
 
 /**
  * 공동 AWB 원가. 두 가지 입구를 같은 계산 코어로 쓴다.
@@ -33,8 +62,18 @@ export default function SharedAwbCostReview({ document, native = null }) {
   const [scopeNotice, setScopeNotice] = useState('');
   const [fullBox, setFullBox] = useState({});
   const [input, setInput] = useState({
-    gw: '', cw: '', freightAmount: '', freightCurrency: 'USD', exchangeRate: '', customsTotalKRW: '', customsMode: 'FORMULA', exchangeRateType: 'MANUAL',
+    gw: '',
+    cw: '',
+    freightAmount: '',
+    freightOnlyUSD: '',
+    docFeeUSD: '',
+    freightCurrency: 'USD',
+    exchangeRate: '',
+    customsTotalKRW: '',
+    customsMode: 'FORMULA',
+    exchangeRateType: 'MANUAL',
   });
+  const [rateDraft, setRateDraft] = useState(null);
   const [customsParts, setCustomsParts] = useState({
     storagePerKg: String(CO_ORIGINAL_CUSTOMS_DEFAULTS.storagePerKg),
     clearance: String(CO_ORIGINAL_CUSTOMS_DEFAULTS.clearance),
@@ -46,6 +85,16 @@ export default function SharedAwbCostReview({ document, native = null }) {
   const [rateStatus, setRateStatus] = useState('');
   const [rateRetry, setRateRetry] = useState(0);
 
+  // 원클릭 버튼형 필터 상태 (품종 · 농장 · 품목 3단 + 검색어 · 복수선택)
+  const [selectedVarieties, setSelectedVarieties] = useState([]);
+  const [multiVariety, setMultiVariety] = useState(false);
+  const [selectedFarms, setSelectedFarms] = useState([]);
+  const [multiFarm, setMultiFarm] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [multiProduct, setMultiProduct] = useState(false);
+  const [showAllProducts, setShowAllProducts] = useState(false);
+  const [resultSearch, setResultSearch] = useState('');
+
   // 서버 보관 누적 원가자료는 사용자가 명시적으로 체크한 경우에만 차수 시트를 추가한다 (실수 덮어쓰기 방지).
   const [masters, setMasters] = useState({});
   const [appendToMaster, setAppendToMaster] = useState(false);
@@ -53,11 +102,62 @@ export default function SharedAwbCostReview({ document, native = null }) {
   const isTestOnly = input.exchangeRateType === 'TEST_ONLY';
 
   const update = (field, value) => {
-    setInput(current => ({ ...current, [field]: value }));
+    setInput(current => {
+      const next = { ...current, [field]: value };
+      if (field === 'freightOnlyUSD') {
+        if (value === '') {
+          if (current.docFeeUSD !== '' && Number.isFinite(Number(current.docFeeUSD))) {
+            next.freightAmount = String(round2(Number(current.docFeeUSD)));
+          }
+        } else if (Number.isFinite(Number(value))) {
+          const doc = current.docFeeUSD !== '' && Number.isFinite(Number(current.docFeeUSD)) ? Number(current.docFeeUSD) : 0;
+          next.freightAmount = String(round2(Number(value) + doc));
+        }
+      } else if (field === 'docFeeUSD') {
+        const doc = value === '' ? 0 : Number(value);
+        if (Number.isFinite(doc) && doc >= 0) {
+          if (current.freightOnlyUSD !== '' && Number.isFinite(Number(current.freightOnlyUSD))) {
+            next.freightAmount = String(round2(Number(current.freightOnlyUSD) + doc));
+          } else if (current.freightAmount !== '' && Number.isFinite(Number(current.freightAmount)) && Number(current.freightAmount) >= doc) {
+            next.freightOnlyUSD = String(round2(Number(current.freightAmount) - doc));
+          }
+        }
+      } else if (field === 'freightAmount') {
+        const total = Number(value);
+        if (value === '') {
+          next.freightOnlyUSD = '';
+          next.docFeeUSD = '';
+        } else if (Number.isFinite(total) && total >= 0) {
+          const doc = current.docFeeUSD !== '' && Number.isFinite(Number(current.docFeeUSD)) ? Number(current.docFeeUSD) : null;
+          if (doc !== null && total >= doc) {
+            next.freightOnlyUSD = String(round2(total - doc));
+          } else {
+            next.freightOnlyUSD = '';
+            next.docFeeUSD = '';
+          }
+        }
+      }
+      return next;
+    });
     if (field === 'exchangeRateType' && value === 'TEST_ONLY') setAppendToMaster(false);
     setResult(null);
   };
   const awb = native ? awbText : document.reviewedMetadata.awb;
+
+  const effectiveFreightSplit = useMemo(() => {
+    const total = Number(input.freightAmount);
+    const cwNum = Number(input.cw);
+    const hasDoc = String(input.docFeeUSD).trim() !== '' && Number.isFinite(Number(input.docFeeUSD));
+    const hasAir = String(input.freightOnlyUSD).trim() !== '' && Number.isFinite(Number(input.freightOnlyUSD));
+    let docFee = hasDoc ? Number(input.docFeeUSD) : 0;
+    let freightOnly = hasAir ? Number(input.freightOnlyUSD) : (Number.isFinite(total) ? Math.max(0, round2(total - docFee)) : 0);
+    if (!hasAir && !hasDoc && Number.isFinite(total) && total >= 0) {
+      docFee = 0;
+      freightOnly = total;
+    }
+    const rate = cwNum > 0 && freightOnly >= 0 ? freightOnly / cwNum : null;
+    return { docFee, freightOnly, rate };
+  }, [input.freightAmount, input.freightOnlyUSD, input.docFeeUSD, input.cw]);
 
   const loadMasters = async () => {
     const next = {};
@@ -156,6 +256,8 @@ export default function SharedAwbCostReview({ document, native = null }) {
     lineInputs: serializeLineInputs(),
     input: {
       ...input,
+      ...(String(input.docFeeUSD).trim() !== '' ? { docFeeUSD: Number(input.docFeeUSD) } : {}),
+      ...(String(input.freightOnlyUSD).trim() !== '' ? { freightOnlyUSD: Number(input.freightOnlyUSD) } : {}),
       ...(input.customsMode === 'FORMULA' ? { coCustomsOverrides: parsedCustomsOverrides } : {}),
       ...(needsFullBox ? { fullBoxCounts: Object.fromEntries(groupIds.map(id => [id, fullBox[id] === '' || fullBox[id] == null ? null : Number(fullBox[id])])) } : {}),
     },
@@ -215,16 +317,32 @@ export default function SharedAwbCostReview({ document, native = null }) {
           return { ...line, groupId, stemsPerBunch: spb, tariffPercent };
         })));
         if (data.awbReference) {
-          setInput(current => ({
-            ...current,
-            gw: String(current.gw).trim() !== '' ? current.gw : (data.awbReference.gw ?? ''),
-            cw: String(current.cw).trim() !== '' ? current.cw : (data.awbReference.cw ?? ''),
-            freightAmount: String(current.freightAmount).trim() !== '' ? current.freightAmount : (data.awbReference.freightAmount ?? ''),
-          }));
+          const ref = data.awbReference;
+          setInput(current => {
+            const currentTotal = String(current.freightAmount).trim() !== '' ? Number(current.freightAmount) : null;
+            const matchesRefTotal = currentTotal === null || (ref.freightAmount != null && Math.abs(currentTotal - Number(ref.freightAmount)) <= 0.02);
+            return {
+              ...current,
+              gw: String(current.gw).trim() !== '' ? current.gw : (ref.gw ?? ''),
+              cw: String(current.cw).trim() !== '' ? current.cw : (ref.cw ?? ''),
+              freightAmount: String(current.freightAmount).trim() !== '' ? current.freightAmount : (ref.freightAmount ?? ''),
+              freightOnlyUSD: String(current.freightOnlyUSD).trim() !== ''
+                ? current.freightOnlyUSD
+                : (matchesRefTotal && ref.freightOnlyUSD != null ? ref.freightOnlyUSD : ''),
+              docFeeUSD: String(current.docFeeUSD).trim() !== ''
+                ? current.docFeeUSD
+                : (matchesRefTotal && ref.docFeeUSD != null ? ref.docFeeUSD : ''),
+            };
+          });
         }
         setConfirmed(false);
         setResult(null);
         setFullBox({});
+        setSelectedVarieties([]);
+        setSelectedFarms([]);
+        setSelectedProducts([]);
+        setShowAllProducts(false);
+        setResultSearch('');
       } else {
         setResult(data.result);
       }
@@ -239,9 +357,215 @@ export default function SharedAwbCostReview({ document, native = null }) {
     }
   }, []);
 
+  // O(1) 맵 인덱싱 및 결과 원장 데이터 메모이제이션
+  const sourceRowById = useMemo(() => {
+    const map = new Map();
+    for (const member of prepared?.members || []) {
+      for (const row of member.rows || []) {
+        map.set(row.lineId, {
+          farmName: member.farmName,
+          invoiceNo: member.invoiceNo,
+          originalName: row.originalName,
+          boxQuantity: Number(row.boxQuantity) || 0,
+          stemQuantity: Number(row.stemQuantity) || 0,
+        });
+      }
+    }
+    return map;
+  }, [prepared]);
+
+  const lineSettingById = useMemo(() => {
+    const map = new Map();
+    for (const entry of result?.lineInputs || lineInputs) {
+      map.set(entry.lineId, entry);
+    }
+    return map;
+  }, [result?.lineInputs, lineInputs]);
+
+  const enrichedResultRows = useMemo(() => {
+    if (result?.status !== 'CALCULATED' || !Array.isArray(result.lines)) return [];
+    return result.lines.map(cost => {
+      const src = sourceRowById.get(cost.lineId);
+      const setting = lineSettingById.get(cost.lineId);
+      const groupId = cost.groupId || setting?.groupId || '';
+      const groupLabel = labels[groupId] || groupId || '-';
+      const farmName = cost.farmName || src?.farmName || '-';
+      const invoiceNo = cost.invoiceNo || src?.invoiceNo || '';
+      const originalName = src?.originalName || '';
+      const boxQuantity = src?.boxQuantity ?? 0;
+      const stems = Number(cost.priceBasisQuantity ?? cost.quantity ?? src?.stemQuantity ?? 0);
+      const rawSpb = Number(setting?.stemsPerBunch);
+      const stemsPerBunch = Number.isFinite(rawSpb) && rawSpb > 0 ? rawSpb : (CO_DEFAULT_STEMS_PER_BUNCH[groupId] ?? 1);
+      const c = cost.componentAmounts || {};
+      const fobTotalUSD = Number(c.goodsNative) || 0;
+      const fobUnitUSD = stems > 0 ? fobTotalUSD / stems : 0;
+      const freightTotalUSD = Number(c.freightNative) || 0;
+      const freightUnitUSD = stems > 0 ? freightTotalUSD / stems : 0;
+      const freightKRW = Number(c.freightKRW) || 0;
+      const tariffKRW = Number(c.tariffKRW) || 0;
+      const customsKRW = Number(c.customsKRW) || 0;
+      const customsUnitKRW = stems > 0 ? customsKRW / stems : 0;
+      const arrivalStemKRW = stems > 0 ? Number(cost.totalCostKRW) / stems : 0;
+      const arrivalBunchKRW = arrivalStemKRW * stemsPerBunch;
+      const totalCostKRW = Number(cost.totalCostKRW) || 0;
+      const searchKey = `${farmName} ${invoiceNo} ${groupLabel} ${groupId} ${originalName}`.toLowerCase();
+      return {
+        lineId: cost.lineId,
+        farmName,
+        invoiceNo,
+        groupId,
+        groupLabel,
+        originalName,
+        boxQuantity,
+        stems,
+        stemsPerBunch,
+        fobUnitUSD,
+        fobTotalUSD,
+        freightUnitUSD,
+        freightTotalUSD,
+        freightKRW,
+        tariffKRW,
+        customsUnitKRW,
+        customsKRW,
+        arrivalStemKRW,
+        arrivalBunchKRW,
+        totalCostKRW,
+        searchKey,
+      };
+    });
+  }, [result, sourceRowById, lineSettingById]);
+
+  const varietyButtons = useMemo(() => {
+    const counts = new Map();
+    for (const row of enrichedResultRows) {
+      counts.set(row.groupId, (counts.get(row.groupId) || 0) + 1);
+    }
+    return VARIETY_BUTTON_ORDER
+      .filter(id => (counts.get(id) || 0) > 0)
+      .map(id => ({ id, label: labels[id] || id, count: counts.get(id) }));
+  }, [enrichedResultRows]);
+
+  const farmButtons = useMemo(() => {
+    const counts = new Map();
+    for (const row of enrichedResultRows) {
+      counts.set(row.farmName, (counts.get(row.farmName) || 0) + 1);
+    }
+    return [...counts.entries()].map(([farmName, count]) => ({ farmName, count }));
+  }, [enrichedResultRows]);
+
+  const varietySet = useMemo(() => new Set(selectedVarieties), [selectedVarieties]);
+  const farmSet = useMemo(() => new Set(selectedFarms), [selectedFarms]);
+  const productSet = useMemo(() => new Set(selectedProducts), [selectedProducts]);
+  const normalizedQuery = useMemo(() => resultSearch.trim().toLowerCase(), [resultSearch]);
+
+  const rowsAfterVarietyAndFarm = useMemo(() => {
+    if (!enrichedResultRows.length) return [];
+    return enrichedResultRows.filter(row => {
+      if (varietySet.size > 0 && !varietySet.has(row.groupId)) return false;
+      if (farmSet.size > 0 && !farmSet.has(row.farmName)) return false;
+      return true;
+    });
+  }, [enrichedResultRows, varietySet, farmSet]);
+
+  const productButtons = useMemo(() => {
+    const counts = new Map();
+    for (const row of rowsAfterVarietyAndFarm) {
+      counts.set(row.originalName, (counts.get(row.originalName) || 0) + 1);
+    }
+    return [...counts.entries()].map(([productName, count]) => ({ productName, count }));
+  }, [rowsAfterVarietyAndFarm]);
+
+  const filteredResultRows = useMemo(() => {
+    if (!rowsAfterVarietyAndFarm.length) return [];
+    return rowsAfterVarietyAndFarm.filter(row => {
+      if (productSet.size > 0 && !productSet.has(row.originalName)) return false;
+      if (normalizedQuery && !row.searchKey.includes(normalizedQuery)) return false;
+      return true;
+    });
+  }, [rowsAfterVarietyAndFarm, productSet, normalizedQuery]);
+
+  const filteredSummary = useMemo(() => {
+    let boxes = 0, stems = 0, fobUSD = 0, freightUSD = 0, freightKRW = 0, customsKRW = 0, tariffKRW = 0, totalCostKRW = 0;
+    const presentGroups = new Set();
+    for (const row of filteredResultRows) {
+      boxes += row.boxQuantity;
+      stems += row.stems;
+      fobUSD += row.fobTotalUSD;
+      freightUSD += row.freightTotalUSD;
+      freightKRW += row.freightKRW;
+      customsKRW += row.customsKRW;
+      tariffKRW += row.tariffKRW;
+      totalCostKRW += row.totalCostKRW;
+      if (row.groupId) presentGroups.add(row.groupId);
+    }
+    let fbSum = 0, hasFb = false;
+    if (farmSet.size === 0 && productSet.size === 0 && !normalizedQuery && Array.isArray(result?.costGroups)) {
+      for (const g of result.costGroups) {
+        if ((varietySet.size === 0 || varietySet.has(g.groupId)) && presentGroups.has(g.groupId) && Number(g.fullBoxEquivalent) > 0) {
+          fbSum += Number(g.fullBoxEquivalent);
+          hasFb = true;
+        }
+      }
+    }
+    return {
+      itemCount: filteredResultRows.length,
+      totalItemCount: enrichedResultRows.length,
+      boxes,
+      fbSum: hasFb ? fbSum : null,
+      stems,
+      fobUSD,
+      freightUSD,
+      freightKRW,
+      customsKRW,
+      tariffKRW,
+      freightAndCustomsKRW: freightKRW + customsKRW + tariffKRW,
+      totalCostKRW,
+    };
+  }, [filteredResultRows, enrichedResultRows.length, farmSet, productSet, normalizedQuery, result?.costGroups, varietySet]);
+
+  const handleVarietyClick = useCallback((id, event) => {
+    setSelectedProducts([]);
+    if (id === 'ALL') {
+      setSelectedVarieties([]);
+      return;
+    }
+    const additive = multiVariety || event?.metaKey || event?.ctrlKey || event?.shiftKey;
+    setSelectedVarieties(prev => {
+      if (!additive) return prev.length === 1 && prev[0] === id ? [] : [id];
+      return prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id];
+    });
+  }, [multiVariety]);
+
+  const handleFarmClick = useCallback((farmName, event) => {
+    setSelectedProducts([]);
+    if (farmName === 'ALL') {
+      setSelectedFarms([]);
+      return;
+    }
+    const additive = multiFarm || event?.metaKey || event?.ctrlKey || event?.shiftKey;
+    setSelectedFarms(prev => {
+      if (!additive) return prev.length === 1 && prev[0] === farmName ? [] : [farmName];
+      return prev.includes(farmName) ? prev.filter(item => item !== farmName) : [...prev, farmName];
+    });
+  }, [multiFarm]);
+
+  const handleProductClick = useCallback((productName, event) => {
+    if (productName === 'ALL') {
+      setSelectedProducts([]);
+      return;
+    }
+    const additive = multiProduct || event?.metaKey || event?.ctrlKey || event?.shiftKey;
+    setSelectedProducts(prev => {
+      if (!additive) return prev.length === 1 && prev[0] === productName ? [] : [productName];
+      return prev.includes(productName) ? prev.filter(item => item !== productName) : [...prev, productName];
+    });
+  }, [multiProduct]);
+
   const awbReady = !native || /^\d{11}$/.test(awbText.replace(/[\s-]/g, ''));
   const effectiveAppend = !isTestOnly && appendToMaster;
   const downloadReady = !(effectiveAppend && masters[masterKey] === undefined);
+  const hasActiveFilter = selectedVarieties.length > 0 || selectedFarms.length > 0 || selectedProducts.length > 0 || normalizedQuery.length > 0;
+  const visibleProductButtons = showAllProducts || productButtons.length <= 24 ? productButtons : productButtons.slice(0, 24);
 
   return (
     <section className={ledger.sharedPanel} aria-label={native ? '기존 입고 콜롬비아 전체 농장 원가' : '공동 AWB 원가'}>
@@ -285,6 +609,10 @@ export default function SharedAwbCostReview({ document, native = null }) {
         <CostAwbEvidence
           label="공동 AWB 원문"
           onApply={proof => {
+            const ref = prepared?.awbReference ?? prepared?.mixedAwbReference ?? null;
+            const sameAwb = ref && ref.awb === proof.awb;
+            const matchesRefTotal = sameAwb && proof.freightAmount !== '' && ref.freightAmount != null
+              && Math.abs(Number(proof.freightAmount) - Number(ref.freightAmount)) <= 0.02;
             setAwbText(proof.awb);
             setPrepared(null);
             setResult(null);
@@ -292,20 +620,28 @@ export default function SharedAwbCostReview({ document, native = null }) {
             setInput(current => ({
               ...current,
               ...Object.fromEntries(['gw', 'cw', 'freightAmount'].filter(k => proof[k] !== '').map(k => [k, proof[k]])),
+              freightOnlyUSD: proof.freightOnlyUSD !== '' && proof.freightOnlyUSD != null
+                ? proof.freightOnlyUSD
+                : (matchesRefTotal && ref.freightOnlyUSD != null ? ref.freightOnlyUSD : ''),
+              docFeeUSD: proof.docFeeUSD !== '' && proof.docFeeUSD != null
+                ? proof.docFeeUSD
+                : (matchesRefTotal && ref.docFeeUSD != null ? ref.docFeeUSD : ''),
             }));
           }}
         />
       )}
 
       <div className={ledger.sectionBox}>
-        <p className={ledger.sectionBoxTitle}>공동 운임 · 환율 · 통관비 초안 입력</p>
+        <p className={ledger.sectionBoxTitle}>공동 운임 · 서류비 · 환율 · 통관비 입력</p>
         <p className={ledger.sectionBoxDesc}>
-          AWB·입고 조회 전에도 환율과 통관비를 초안으로 입력할 수 있습니다. 최종 계산은 AWB 전체 입고와 비용 범위를 확인해야 가능합니다.
+          DB 운임 참고입고(예: Apollo)에 운송비·서류비가 분리되어 있으면 자동 반영되며, 화면에서 수정하면 미리보기와 엑셀(.xlsx) Rate(E9)·서류(E11)·운송비(G11)에 동일하게 적용됩니다.
         </p>
         <div className={ledger.formGrid}>
           {[
             ['gw', '공동 GW (kg)'],
             ['cw', '공동 CW (kg)'],
+            ['freightOnlyUSD', '운송비 (USD · G11)'],
+            ['docFeeUSD', '서류비 (USD · E11)'],
             ['freightAmount', '공동 운임·서류비 합계 (USD)'],
             ['exchangeRate', '환율 (원/USD)'],
           ].map(([field, label]) => (
@@ -317,6 +653,7 @@ export default function SharedAwbCostReview({ document, native = null }) {
                 min="0"
                 step="any"
                 value={input[field]}
+                placeholder={field === 'docFeeUSD' ? '없으면 0' : field === 'freightOnlyUSD' ? '미입력 시 합계 전체' : undefined}
                 onChange={event => {
                   update(field, event.target.value);
                   if (field === 'exchangeRate') update('exchangeRateType', 'MANUAL');
@@ -324,6 +661,28 @@ export default function SharedAwbCostReview({ document, native = null }) {
               />
             </label>
           ))}
+          <label className={ledger.field}>
+            <span>적용 Rate (USD/kg · E9)</span>
+            <input
+              aria-label="적용 Rate (USD/kg)"
+              type="number"
+              min="0"
+              step="any"
+              value={rateDraft !== null ? rateDraft : (effectiveFreightSplit.rate != null ? round2(effectiveFreightSplit.rate) : '')}
+              placeholder="운송비 ÷ CW 자동 산출"
+              onFocus={() => setRateDraft(effectiveFreightSplit.rate != null ? String(round2(effectiveFreightSplit.rate)) : '')}
+              onBlur={() => setRateDraft(null)}
+              onChange={event => {
+                const raw = event.target.value;
+                setRateDraft(raw);
+                const rVal = Number(raw);
+                const cwVal = Number(input.cw);
+                if (raw !== '' && Number.isFinite(rVal) && rVal >= 0 && cwVal > 0) {
+                  update('freightOnlyUSD', String(round2(rVal * cwVal)));
+                }
+              }}
+            />
+          </label>
           <label className={ledger.field}>
             <span>통관비 기준</span>
             <select aria-label="통관비 기준" value={input.customsMode} onChange={event => update('customsMode', event.target.value)}>
@@ -417,7 +776,7 @@ export default function SharedAwbCostReview({ document, native = null }) {
       {prepared && (
         <>
           <p className={ledger.statusNotice}>
-            현재 입고 <strong>{prepared.members.length}건</strong> · 미승인 계산본 다운로드이며 기존 입고·승인 원가는 변경하지 않습니다.
+            현재 입고 <strong>{prepared.members.length}건</strong> ({prepared.receiptLines?.length ?? 0}품목) · 운영 원장은 읽기 전용으로 유지됩니다.
           </p>
           {prepared.awbScopeSummary?.partialScopeOfMixedAwb && (
             <div className={ledger.alertError} role="alert">
@@ -432,7 +791,7 @@ export default function SharedAwbCostReview({ document, native = null }) {
                 disabled={!!busy}
                 onClick={() => {
                   setScope('ALL');
-                  setInput(current => ({ ...current, gw: '', cw: '', freightAmount: '' }));
+                  setInput(current => ({ ...current, gw: '', cw: '', freightAmount: '', freightOnlyUSD: '', docFeeUSD: '' }));
                   run('prepare', 'ALL', { autoDetectMixedScope: false, autoFallbackScope: false });
                 }}
               >
@@ -443,7 +802,11 @@ export default function SharedAwbCostReview({ document, native = null }) {
           {prepared.awbReference && (
             <p className={ledger.statusNotice} role="status">
               동일 차수·AWB 운임 참고자료 자동 반영: <strong>{prepared.awbReference.sourceId}</strong>
-              {' '}(GW {prepared.awbReference.gw ?? '미기재'}kg · CW {prepared.awbReference.cw ?? '미기재'}kg · 운임 {prepared.awbReference.freightAmount != null ? `${prepared.awbReference.freightAmount.toLocaleString('ko-KR')} USD` : '미기재'})
+              {' '}(GW {prepared.awbReference.gw ?? '미기재'}kg · CW {prepared.awbReference.cw ?? '미기재'}kg
+              {prepared.awbReference.freightOnlyUSD != null ? ` · 운송비 ${prepared.awbReference.freightOnlyUSD.toLocaleString('ko-KR')} USD` : ''}
+              {prepared.awbReference.docFeeUSD != null ? ` · 서류비 ${prepared.awbReference.docFeeUSD.toLocaleString('ko-KR')} USD` : ''}
+              {prepared.awbReference.freightRateUSD != null ? ` · Rate ${fmtDec(prepared.awbReference.freightRateUSD, 2)}` : ''}
+              {' '}· 합계 {prepared.awbReference.freightAmount != null ? `${prepared.awbReference.freightAmount.toLocaleString('ko-KR')} USD` : '미기재'})
             </p>
           )}
           {prepared.unmappedPaidRows?.length > 0 && (
@@ -633,8 +996,247 @@ export default function SharedAwbCostReview({ document, native = null }) {
           {result?.status === 'CALCULATED' && (
             <>
               <div className={ledger.calcSummaryBar}>
-                운임 {result.totals.freightNative.toLocaleString()} USD · 통관비 {result.totals.customsKRW.toLocaleString()}원 · 전체 {result.lines.length}품목
+                <div className={ledger.calcSummaryText}>
+                  <span>
+                    항공료 <strong>${fmtDec(result.totals.freightNative, 2)}</strong>
+                    {result.freightBreakdown && (
+                      <> (운송비 ${fmtDec(result.freightBreakdown.freightOnlyUSD, 2)} + 서류 ${fmtDec(result.freightBreakdown.docFeeUSD, 2)} · Rate {fmtDec(result.freightBreakdown.freightRateUSD, 2)})</>
+                    )}
+                  </span>
+                  <span> · 통관비 <strong>{fmtInt(result.totals.customsKRW)}원</strong></span>
+                  <span> · 전체 <strong>{result.lines.length}품목</strong></span>
+                  <span> · 총 도착원가 <strong>{fmtInt(result.lines.reduce((s, l) => s + l.totalCostKRW, 0))}원</strong></span>
+                </div>
+                <button className={ledger.btnPrimarySm} disabled={!!busy || !downloadReady} type="button" onClick={() => run('download')}>
+                  {effectiveAppend && master?.exists ? '누적 원가 엑셀(.xlsx) 다운로드' : '원가 엑셀(.xlsx) 바로 다운로드'}
+                </button>
               </div>
+
+              <section className={ledger.resultWorkbench} aria-label="품종·농장 원클릭 도착원가 뷰">
+                <div className={ledger.filterBarGroup}>
+                  <div className={ledger.filterBarRow} role="toolbar" aria-label="품종 버튼 필터">
+                    <span className={ledger.filterGroupLabel}>품종</span>
+                    <div className={ledger.chipGroup}>
+                      <button
+                        type="button"
+                        className={selectedVarieties.length === 0 ? ledger.filterChipActive : ledger.filterChip}
+                        aria-pressed={selectedVarieties.length === 0}
+                        onClick={e => handleVarietyClick('ALL', e)}
+                      >
+                        전체 ({enrichedResultRows.length})
+                      </button>
+                      {varietyButtons.map(item => {
+                        const active = varietySet.has(item.id);
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className={active ? ledger.filterChipActive : ledger.filterChip}
+                            aria-pressed={active}
+                            onClick={e => handleVarietyClick(item.id, e)}
+                          >
+                            {item.label} ({item.count})
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      className={multiVariety ? ledger.modeToggleActive : ledger.modeToggle}
+                      aria-pressed={multiVariety}
+                      onClick={() => setMultiVariety(v => !v)}
+                    >
+                      복수 선택
+                    </button>
+                  </div>
+
+                  <div className={ledger.filterBarRow} role="toolbar" aria-label="농장 버튼 필터">
+                    <span className={ledger.filterGroupLabel}>농장</span>
+                    <div className={ledger.chipGroup}>
+                      <button
+                        type="button"
+                        className={selectedFarms.length === 0 ? ledger.filterChipActive : ledger.filterChip}
+                        aria-pressed={selectedFarms.length === 0}
+                        onClick={e => handleFarmClick('ALL', e)}
+                      >
+                        전체 농장 ({farmButtons.length})
+                      </button>
+                      {farmButtons.map(item => {
+                        const active = farmSet.has(item.farmName);
+                        return (
+                          <button
+                            key={item.farmName}
+                            type="button"
+                            className={active ? ledger.filterChipActive : ledger.filterChip}
+                            aria-pressed={active}
+                            onClick={e => handleFarmClick(item.farmName, e)}
+                          >
+                            {item.farmName} ({item.count})
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className={ledger.filterSearchTools}>
+                      <button
+                        type="button"
+                        className={multiFarm ? ledger.modeToggleActive : ledger.modeToggle}
+                        aria-pressed={multiFarm}
+                        onClick={() => setMultiFarm(v => !v)}
+                      >
+                        복수 농장
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={ledger.filterBarRow} role="toolbar" aria-label="품목 버튼 필터">
+                    <span className={ledger.filterGroupLabel}>품목</span>
+                    <div className={ledger.chipGroup}>
+                      <button
+                        type="button"
+                        className={selectedProducts.length === 0 ? ledger.filterChipActive : ledger.filterChip}
+                        aria-pressed={selectedProducts.length === 0}
+                        onClick={e => handleProductClick('ALL', e)}
+                      >
+                        전체 품목 ({productButtons.length})
+                      </button>
+                      {visibleProductButtons.map(item => {
+                        const active = productSet.has(item.productName);
+                        return (
+                          <button
+                            key={item.productName}
+                            type="button"
+                            className={active ? ledger.filterChipActive : ledger.filterChip}
+                            aria-pressed={active}
+                            onClick={e => handleProductClick(item.productName, e)}
+                          >
+                            {item.productName}{item.count > 1 ? ` (${item.count})` : ''}
+                          </button>
+                        );
+                      })}
+                      {productButtons.length > 24 && (
+                        <button
+                          type="button"
+                          className={ledger.modeToggle}
+                          onClick={() => setShowAllProducts(v => !v)}
+                        >
+                          {showAllProducts ? '품목 접기' : `품목 더보기 (+${productButtons.length - 24})`}
+                        </button>
+                      )}
+                    </div>
+                    <div className={ledger.filterSearchTools}>
+                      <button
+                        type="button"
+                        className={multiProduct ? ledger.modeToggleActive : ledger.modeToggle}
+                        aria-pressed={multiProduct}
+                        onClick={() => setMultiProduct(v => !v)}
+                      >
+                        복수 품목
+                      </button>
+                      <input
+                        type="search"
+                        aria-label="품목명 또는 농장 검색"
+                        className={ledger.filterSearchInput}
+                        value={resultSearch}
+                        placeholder="품목명 · 농장 · 송장 검색"
+                        onChange={e => setResultSearch(e.target.value)}
+                      />
+                      {hasActiveFilter && (
+                        <button
+                          type="button"
+                          className={ledger.btnSecondarySm}
+                          onClick={() => { setSelectedVarieties([]); setSelectedFarms([]); setSelectedProducts([]); setResultSearch(''); }}
+                        >
+                          초기화
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <dl className={ledger.resultSubtotalStrip} aria-label="선택 조건 소계">
+                  <div>
+                    <dt>품목수</dt>
+                    <dd>
+                      {filteredSummary.itemCount}품목
+                      {hasActiveFilter && <span className={ledger.kpiSub}> / 전체 {filteredSummary.totalItemCount}</span>}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>실물박스 (FB)</dt>
+                    <dd>
+                      {fmtDec(filteredSummary.boxes, Number.isInteger(filteredSummary.boxes) ? 0 : 2)}박스
+                      {filteredSummary.fbSum != null && <span className={ledger.kpiSub}> (FB {fmtDec(filteredSummary.fbSum, Number.isInteger(filteredSummary.fbSum) ? 0 : 2)})</span>}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>총송이</dt>
+                    <dd>{fmtInt(filteredSummary.stems)}송이</dd>
+                  </div>
+                  <div>
+                    <dt>FOB 합계 (USD)</dt>
+                    <dd>${fmtDec(filteredSummary.fobUSD, 2)}</dd>
+                  </div>
+                  <div>
+                    <dt>운임 + 통관 합계</dt>
+                    <dd>
+                      ${fmtDec(filteredSummary.freightUSD, 2)} · {fmtInt(filteredSummary.freightAndCustomsKRW)}원
+                    </dd>
+                  </div>
+                  <div className={ledger.kpiHighlight}>
+                    <dt>도착원가 합계 (KRW)</dt>
+                    <dd>{fmtInt(filteredSummary.totalCostKRW)}원</dd>
+                  </div>
+                </dl>
+
+                <div className={ledger.resultLedgerWrap}>
+                  <table className={ledger.resultLedgerTable}>
+                    <thead>
+                      <tr>
+                        <th>농장</th>
+                        <th>품종</th>
+                        <th>품목명</th>
+                        <th className={ledger.numHead}>박스</th>
+                        <th className={ledger.numHead}>송이수</th>
+                        <th className={ledger.numHead}>단당송이</th>
+                        <th className={ledger.numHead}>FOB($)</th>
+                        <th className={ledger.numHead}>송이당운임($)</th>
+                        <th className={ledger.numHead}>통관(원)</th>
+                        <th className={ledger.numHead}>도착원가(송이)</th>
+                        <th className={ledger.numHead}>도착원가(단)</th>
+                        <th className={ledger.numHead}>총원가(원)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredResultRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={12} className={ledger.emptyFilterCell}>
+                            선택한 품종·농장·검색어 조건에 해당하는 품목이 없습니다.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredResultRows.map(row => <ResultLedgerRow key={row.lineId} row={row} />)
+                      )}
+                    </tbody>
+                    {filteredResultRows.length > 0 && (
+                      <tfoot>
+                        <tr>
+                          <td colSpan={3}>선택 합계 ({filteredSummary.itemCount}품목)</td>
+                          <td className={ledger.numCell}>{fmtDec(filteredSummary.boxes, Number.isInteger(filteredSummary.boxes) ? 0 : 2)}</td>
+                          <td className={ledger.numCell}>{fmtInt(filteredSummary.stems)}</td>
+                          <td className={ledger.numCell}>-</td>
+                          <td className={ledger.numCell}>${fmtDec(filteredSummary.fobUSD, 2)}</td>
+                          <td className={ledger.numCell}>${fmtDec(filteredSummary.freightUSD, 2)}</td>
+                          <td className={ledger.numCell}>{fmtInt(filteredSummary.customsKRW)}</td>
+                          <td className={ledger.numCell}>-</td>
+                          <td className={ledger.numCell}>-</td>
+                          <td className={ledger.numStrongCell}>{fmtInt(filteredSummary.totalCostKRW)}</td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              </section>
+
               <section className={ledger.masterSection} aria-label="누적 원가자료">
                 <p>
                   {master?.exists
@@ -672,7 +1274,7 @@ export default function SharedAwbCostReview({ document, native = null }) {
                 <button className={ledger.btnPrimary} disabled={!!busy || !downloadReady} type="button" onClick={() => run('download')}>
                   {effectiveAppend && master?.exists
                     ? '누적 도착원가 엑셀 다운로드 · 이번 차수 시트 추가'
-                    : (native ? '콜롬비아 전체 도착원가 엑셀 다운로드 · 미승인 계산본' : '공동 AWB 도착원가 엑셀 다운로드 · 미승인 계산본')}
+                    : (native ? '콜롬비아 전체 도착원가 엑셀 다운로드' : '공동 AWB 도착원가 엑셀 다운로드')}
                 </button>
               </div>
             </>

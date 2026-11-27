@@ -78,7 +78,7 @@ for (const formula of ['CN_AIR_WEIGHT_CBM_V1','CN_SEA_ACTUAL_V1','NL_AMOUNT_V1',
     assert.equal(result.preview.totals.totalCostKRW, f.revision.totalCostKRW);
     const bytes = await createNativeCostWorkbook(result), book = XLSX.read(bytes);
     assert.deepEqual(book.SheetNames, ['41-2']);
-    assert.match(book.Sheets['41-2'].B1.v, /미승인 계산본/);
+    assert.doesNotMatch(book.Sheets['41-2'].B1.v, /미승인 계산본|운영 DB 변경 없음/);
     assert.equal(JSON.stringify(source), before);
     await assert.rejects(() => createInvoiceCostWorkbook({ document: result.document, revision: f.revision, snapshot: f.snapshot }));
   });
@@ -147,7 +147,8 @@ test('NL native workbook retains template customs components and estimated warni
  const book=XLSX.read(await createNativeCostWorkbook(result),{cellFormula:true,cellStyles:true});
  assert.deepEqual(book.SheetNames,['41-2']);
  const original=book.Sheets['41-2'];
- assert.match(original.B1.v,/미승인 계산본.*추정 통관비.*실제 청구액 아님/);
+ assert.equal(original.B1.v,'NL 2026/41-02 도착원가');
+ assert.equal(original.P5.v,'그외에 통관비');
  assert.equal(original.Q6.v,a.costs.bakSang);assert.equal(original.Q7.v,33000);assert.equal(original.Q8.v,20000);
  assert.equal(original.Q9.v,90000);assert.equal(original.S6.v,a.costs.deduct);assert.equal(original.S7.v,220000);
  assert.equal(original.C9.v,2);assert.equal(original.AC15.v,a.costs.deduct);assert.equal(original.AC16.v,0);
