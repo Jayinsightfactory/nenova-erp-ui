@@ -283,6 +283,7 @@ function statusToneClass(status) {
   if (status === 'UNREGISTERED') return 'is-unregistered';
   if (status === 'CUSTOMER_CHECK') return 'is-custcheck';
   if (status === 'NO_CUSTOMER') return 'is-nocust';
+  if (status === 'CANCELLED') return 'is-cancelled';
   return 'is-muted';
 }
 
@@ -306,9 +307,17 @@ export function KakaoOrderRegisterPanel({ bridge, onFocusMessage }) {
     handoffToSalesPaste,
   } = bridge;
 
-  const domesticEntries = entries.filter((e) =>
-    ['REGISTERED', 'DIFF_QTY', 'UNREGISTERED', 'CUSTOMER_CHECK'].includes(e.evaluation.status),
-  );
+  const domesticEntries = entries.filter((e) => {
+    const st = e.evaluation.status;
+    if (['REGISTERED', 'DIFF_QTY', 'UNREGISTERED', 'CUSTOMER_CHECK'].includes(st)) return true;
+    if (st === 'CANCELLED') {
+      return Boolean(
+        (e.evaluation.customerMatch?.status && e.evaluation.customerMatch.status !== 'NONE') ||
+        String(e.row?.customer || '').trim(),
+      );
+    }
+    return false;
+  });
   const filteredRows = domesticEntries.filter((e) => {
     if (tableFilter === 'actionable') {
       return e.evaluation.status === 'UNREGISTERED' || e.evaluation.status === 'CUSTOMER_CHECK';
@@ -368,6 +377,11 @@ export function KakaoOrderRegisterPanel({ bridge, onFocusMessage }) {
         {counts.customerCheck > 0 && (
           <span className="kakao-erp-pill is-custcheck">
             거래처확인 <b>{counts.customerCheck}</b>건
+          </span>
+        )}
+        {counts.cancelled > 0 && (
+          <span className="kakao-erp-pill is-cancelled" title="취소·현지이슈 마이너스 건은 신규 주문등록(ADD)에서 자동 제외됩니다">
+            취소·현지이슈 (-) <b>{counts.cancelled}</b>건
           </span>
         )}
         <span className="kakao-erp-pill is-nocust">
@@ -473,7 +487,7 @@ export function KakaoOrderRegisterPanel({ bridge, onFocusMessage }) {
                         <td className="col-prod">
                           {[row.country, row.group].filter(Boolean).join(' ')} · <b>{row.product}</b>{' '}
                           <span>
-                            {row.quantity}
+                            {evaluation.status === 'CANCELLED' && Number(row.quantity) > 0 ? `-${row.quantity}` : row.quantity}
                             {row.unit}
                           </span>
                         </td>
@@ -606,6 +620,12 @@ export function KakaoOrderRegisterPanel({ bridge, onFocusMessage }) {
           background: #f1f5f9;
           border-color: #cbd5e1;
           color: #475569;
+        }
+        .kakao-erp-pill.is-cancelled,
+        .kakao-erp-badge.is-cancelled {
+          background: #fff1f2;
+          border-color: #fecdd3;
+          color: #9f1239;
         }
         .kakao-additions .kakao-erp-expand-btn {
           margin-left: auto;

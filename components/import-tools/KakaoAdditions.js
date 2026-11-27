@@ -2,6 +2,8 @@ import { Fragment, memo, useCallback, useEffect, useId, useMemo, useRef, useStat
 import {
   validItem,
   validSignedItem,
+  isCancelItem,
+  resolveMinusKind,
   farmTotals,
   importItemView,
   importTotalsText,
@@ -45,7 +47,19 @@ const weekKey = row => row.year + '/' + (row.week || '차수 미상');
 const importRoom = '수입방';
 const periodOptions = [7, 14, 30];
 const requestFilters = ['전체', '추가', '취소·검토', '합계 반영', '정리처리됨'];
-const sourceType = m => m.kind === 'addition' ? '추가' : /취소|삭제되었습니다/.test(m.text) ? '취소' : '검토';
+const sourceType = m => {
+  if (m.kind === 'addition') return '추가';
+  const items = Array.isArray(m.items) ? m.items : [];
+  const cancelRows = items.filter(isCancelItem);
+  if (cancelRows.length > 0 && cancelRows.length === items.length) {
+    return cancelRows.some(r => resolveMinusKind(r) === '현지이슈') ? '현지이슈' : '취소';
+  }
+  if (/취소|캔슬|삭제되었습니다/.test(m.text)) return '취소';
+  if (cancelRows.some(r => resolveMinusKind(r) === '현지이슈') || /현지\s*이슈|이슈|소트|쇼트|미\s*컨펌|결품/.test(m.text)) {
+    return '현지이슈';
+  }
+  return '검토';
+};
 const sourceReference = id => '원문 ' + id.replace(/^archive:/, '').slice(0, 10).toUpperCase();
 
 function shortKakaoTime(stamp) {
@@ -249,16 +263,17 @@ const MemoizedSourceMessageCard = memo(function SourceMessageCard({
     distinctCustomers.length === 1
       ? distinctCustomers[0]
       : '';
-  const hasReflectedAdd = type !== '취소' && contributions.length > 0;
-  const hasReflectedCancel = type === '취소' && contributions.length > 0;
-  const dbToneClass = hasReflectedAdd ? 'is-added' : hasReflectedCancel ? 'is-cancelled' : 'is-review';
+  const hasPositiveContribution = contributions.some(r => !r.isCancel && !r.cancelled);
+  const hasMinusContribution = contributions.some(r => r.isCancel || r.cancelled);
+  const isMinusOnlyContribution = hasMinusContribution && !hasPositiveContribution;
+  const dbToneClass = hasPositiveContribution ? 'is-added' : hasMinusContribution ? 'is-cancelled' : 'is-review';
 
   return (
     <article data-source-id={m.id} data-source-kind={m.kind} className={'kakao-order-message ' + (linked ? 'kakao-linked' : '')}>
       <div className="kakao-source-meta">
         <strong>{pastedFeed ? '붙여넣기' : importRoom}</strong>
         <span>{m.time}</span>
-        <span>{type === '추가' ? '추가 발주' : type === '취소' ? '취소 요청' : '검토 필요'}</span>
+        <span>{type === '추가' ? '추가 발주' : type === '현지이슈' ? '현지이슈 (-)' : type === '취소' ? '취소 (-)' : '검토 필요'}</span>
         {!pastedFeed && !isManual && (
           <span
             className={'kakao-analysis-badge ' + (isAi ? 'kakao-analysis-ai' : 'kakao-analysis-fallback')}
@@ -270,12 +285,16 @@ const MemoizedSourceMessageCard = memo(function SourceMessageCard({
         {contributions.length > 0 && (
           <button
             type="button"
-            className={'kakao-source-included' + (type === '취소' ? ' is-cancel' : '') + (isMessageSelected ? ' is-active' : '')}
+            className={'kakao-source-included' + (isMinusOnlyContribution ? ' is-cancel' : '') + (isMessageSelected ? ' is-active' : '')}
             aria-pressed={isMessageSelected}
-            title={type === '취소' ? '농장 전달용 자동 합계에서 차감 반영된 품목 위치로 이동' : '농장 전달용 자동 합계에서 반영된 품목 위치로 이동'}
+            title={isMinusOnlyContribution ? '농장 전달용 자동 합계에서 차감(-) 반영된 품목 위치로 이동' : '농장 전달용 자동 합계에서 반영된 품목 위치로 이동'}
             onClick={() => onFocusMessage(m.id)}
           >
-            {type === '취소' ? '- 합계 차감' : (<><span aria-hidden="true">✓ </span>합계 반영</>)}
+            {isMinusOnlyContribution
+              ? '- 합계 차감'
+              : hasMinusContribution
+                ? (<><span aria-hidden="true">✓ </span>합계·차감 반영</>)
+                : (<><span aria-hidden="true">✓ </span>합계 반영</>)}
           </button>
         )}
         {linked && <strong className="kakao-source-reference">{sourceReference(m.id)}</strong>}
@@ -308,10 +327,11 @@ const MemoizedSourceMessageCard = memo(function SourceMessageCard({
                   />
                 )}
                 {cancelItems.length > 0 && (
-                  <div className="kakao-db-cancel-list" aria-label="취소 차감 내역">
+                  <div className="kakao-db-cancel-list" aria-label="취소·현지이슈 차감 내역">
                     {cancelItems.map((row) => {
                       const rawQty = String(row.quantity ?? '').replace(/^\-/, '').trim();
                       const qtyLabel = rawQty ? `-${rawQty}${row.unit ? ` ${row.unit}` : ''}` : '수량 미상';
+                      const minusLabel = resolveMinusKind(row);
                       return (
                         <div key={row.key} className="kakao-db-cancel-row">
                           <span className="kakao-db-cancel-qty">{qtyLabel}</span>
@@ -320,7 +340,7 @@ const MemoizedSourceMessageCard = memo(function SourceMessageCard({
                             {!sharedCustomer && row.customer ? ` · ${row.customer}` : ''}
                           </span>
                           <span className="kakao-db-cancel-badge">
-                            {row.checked ? '합계 차감' : '차감 제외'}
+                            {row.checked ? `${minusLabel} · 합계 차감` : `${minusLabel} · 차감 제외`}
                           </span>
                         </div>
                       );
@@ -333,7 +353,7 @@ const MemoizedSourceMessageCard = memo(function SourceMessageCard({
         </div>
       </div>
       <div className="kakao-source-actions">
-        {visibleItems.length > 0 && (type !== '취소' || contributions.length > 0) && (
+        {visibleItems.length > 0 && ((!isMinusOnlyContribution && type !== '취소' && type !== '현지이슈') || contributions.length > 0) && (
           <button type="button" className="kakao-match-source" aria-pressed={isMessageSelected} onClick={() => onFocusMessage(m.id)}>
             이 원문의 합계 보기
           </button>
@@ -349,7 +369,7 @@ const MemoizedSourceMessageCard = memo(function SourceMessageCard({
       </div>
       {open && (
         <div>
-          {m.reason && <p className="kakao-review-reason">{m.reason} · {type === '취소' ? '체크 시 합계 차감(-) 반영' : '확인 전 합계 제외'}</p>}
+          {m.reason && <p className="kakao-review-reason">{m.reason} · {(type === '취소' || type === '현지이슈') ? '체크 시 합계 차감(-) 반영' : '확인 전 합계 제외'}</p>}
           {m.retained?.map((r, i) => (
             <p key={i}>기존 주문 유지: {r.product} {r.quantity} {r.unit} · 새 추가 수량이 아니므로 합산하지 않습니다.</p>
           ))}
@@ -556,12 +576,34 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
   }, [feed]);
 
   const baseViewByKey = useMemo(() => {
-    const map = new Map();
+    const msgById = new Map(allMessages.map(m => [m.id, m]));
+    const firstPass = new Map();
     for (const m of allMessages) {
-      const isCancelMessage = m._sourceType === '취소';
+      const autoCheckCancel = !manual[m.id] && m.kind !== 'addition';
       for (const raw of m.items || emptyArray) {
         if (!raw?.key) continue;
-        const base = importItemView(raw, edits[raw.key], { autoCheckCancel: isCancelMessage });
+        firstPass.set(raw.key, importItemView(raw, edits[raw.key], { autoCheckCancel }));
+      }
+    }
+    const map = new Map();
+    for (const m of allMessages) {
+      const autoCheckCancel = !manual[m.id] && m.kind !== 'addition';
+      const netMatchedAddition = !manual[m.id]
+        && m.kind === 'review'
+        && String(m.reason || '').trim() === '같은 차수·품목의 취소/변경 요청 대조 필요'
+        && Array.isArray(m.relatedChanges)
+        && m.relatedChanges.length > 0
+        && m.relatedChanges.every(relId => {
+          const rel = msgById.get(relId);
+          if (!rel || rel.unparsed?.length || !Array.isArray(rel.items) || rel.items.length === 0) return false;
+          const cancelRows = rel.items.filter(isCancelItem);
+          return cancelRows.length > 0 && cancelRows.every(ci => Boolean(firstPass.get(ci.key)?.checked));
+        });
+      for (const raw of m.items || emptyArray) {
+        if (!raw?.key) continue;
+        const base = netMatchedAddition
+          ? importItemView(raw, edits[raw.key], { autoCheckCancel, netMatchedAddition: true })
+          : firstPass.get(raw.key);
         const farm = base.farm ? resolveFarmDisplay(base.farm) : '';
         const dbHint = !base.dbProdName && base.product ? dbProdByProduct.get(base.product) : null;
         map.set(raw.key, {
@@ -572,7 +614,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
       }
     }
     return map;
-  }, [allMessages, edits, resolveFarmDisplay, dbProdByProduct]);
+  }, [allMessages, manual, edits, resolveFarmDisplay, dbProdByProduct]);
 
   const view = useCallback(row => {
     if (row?.key && baseViewByKey.has(row.key)) return baseViewByKey.get(row.key);
@@ -607,7 +649,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
   );
 
   const nonCancelledScopeRows = useMemo(
-    () => allRows.filter(r => !r.cancelled),
+    () => allRows.filter(r => !r.cancelled || r.checked),
     [allRows]
   );
 
@@ -757,7 +799,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
       (sourceFilter === '전체'
         || (sourceFilter === '합계 반영' && m.items.some(item => includedSourceKeys.has(item.key)))
         || (sourceFilter === '추가' && m._sourceType === '추가')
-        || (sourceFilter === '취소·검토' && (m._sourceType === '취소' || m._sourceType === '검토'))) &&
+        || (sourceFilter === '취소·검토' && (m._sourceType === '취소' || m._sourceType === '현지이슈' || m._sourceType === '검토'))) &&
       matchesSearch(m)
     ));
     if (sourceFilter === '전체') {
@@ -786,18 +828,23 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
     orderScope: pastedFeed ? null : orderScope,
   });
 
-  // Collect scoped excluded/cancelled items, ignored total lines, and operational memos
+  // Collect scoped excluded/cancelled items that were NOT already subtracted in farmTotals, ignored total lines, and operational memos
   const scopedExcludedItems = useMemo(() => {
     const items = [];
     for (const m of scopedMessages) {
-      if (sourceType(m) === '취소') {
+      const checkedKeysInMsg = new Set(
+        (m.items || []).filter(it => view(it).checked).map(it => it.key)
+      );
+      if (sourceType(m) === '취소' || sourceType(m) === '현지이슈') {
         for (const it of m.items || []) {
           if (!view(it).checked) {
-            items.push({ product: it.product, quantity: it.quantity, unit: it.unit, farm: it.farm, reason: '취소 원문 (차감 제외)' });
+            const mKind = resolveMinusKind(it);
+            items.push({ product: it.product, quantity: it.quantity, unit: it.unit, farm: it.farm, reason: `${mKind} 원문 (차감 제외)` });
           }
         }
       } else {
         for (const ex of m.excludedItems || []) {
+          if (ex.key && checkedKeysInMsg.has(ex.key)) continue;
           if (pastedFeed || matchesCountryOrderScope(ex, orderScope)) {
             items.push(ex);
           }
@@ -1358,11 +1405,13 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                                   ? item.sourceKeys.some(k => messageKeys.has(k))
                                   : false;
                                 const displayName = [item.product, item.packSpec].filter(Boolean).join(' · ');
-                                const remarks = [
+                                const remarks = [...new Set([
+                                  item.breakdownNote,
                                   item.revisions,
                                   copyFormat === 'detailed' ? item.customers : '',
                                   ...item.requestNotes,
-                                ].filter(Boolean).join(' · ');
+                                ].filter(Boolean))].join(' · ');
+                                const isMinusQty = Number(item.quantity) < 0;
                                 return (
                                   <tr
                                     key={item.key}
@@ -1381,7 +1430,7 @@ function RecentReview({ orderScope, userId, knownFarms: propKnownFarms = [] }) {
                                       </button>
                                     </td>
                                     <td className="kakao-col-db-en">{item.dbProdName || '–'}</td>
-                                    <td className="kakao-col-qty">{formatUnitDisplay(item.quantity, item.unit, copyLang)}</td>
+                                    <td className={'kakao-col-qty' + (isMinusQty ? ' is-minus' : '')}>{formatUnitDisplay(item.quantity, item.unit, copyLang)}</td>
                                     <td className="kakao-col-note">{remarks || '–'}</td>
                                   </tr>
                                 );
@@ -1950,6 +1999,9 @@ export default function KakaoAdditions({ orderScope, userId, knownFarms = [] }) 
           font-weight: 700;
           color: #0f172a;
           text-align: right !important;
+        }
+        .kakao-col-qty.is-minus {
+          color: #be123c;
         }
         .kakao-col-note {
           color: #475569;

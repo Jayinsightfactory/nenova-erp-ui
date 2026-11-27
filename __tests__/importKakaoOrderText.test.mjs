@@ -271,13 +271,11 @@ for(const heading of ['47-2 발주 추가','47-2 네덜란드 발주 추가']){
 assert.equal(parse('47-2 중국 안개 발주 추가\n시네리아 10단').items[0].group,'안개');
 assert.equal(totals([message('47-2 중국 발주 추가\n안슬레이 10단'),message('47-2 중국 발주 추가\n안슬레이 10송이','stems')]).length,2);
 
-// Confirmation notices and local issue/shortage notices are excluded on both regex and LLM paths
+// Pure confirmation notices and pure shipping delay notices are excluded on both regex and LLM paths
 for (const notice of [
   '**48차 뉴질랜드 컨펌**\n볼오브크림 50송이',
   '컨펌입니다',
   '48차 뉴질랜드 컨펌 완료 공유드립니다',
-  '** 47-1 중국 이슈 (소트) **\n시네신스 화이트 10단',
-  '현지이슈 안내\n시네신스 5단 결품',
   '항공 지연 입고 지연 안내',
 ]) {
   assert.equal(parse(notice).kind, 'excluded', `regex must exclude: ${notice}`);
@@ -288,13 +286,30 @@ for (const notice of [
     order_parsed: {
       kind: 'addition',
       provider: 'claude-sub',
-      country: '중국',
-      week: '47-01',
-      items: [{ product: '시네신스 화이트', quantity: 10, unit: '단' }],
+      country: '뉴질랜드',
+      week: '48',
+      items: [{ product: '볼오브크림', quantity: 50, unit: '송이' }],
     },
   });
   assert.equal(llmDemoted.kind, 'excluded', `LLM post-process must demote: ${notice}`);
   assert.deepEqual(llmDemoted.items, []);
+}
+
+// Quantified local-issue / shortage notices extract negative (-) 현지이슈 items on both regex and LLM paths
+for (const issueMsg of [
+  ['** 47-1 중국 이슈 (소트) **\n시네신스 화이트 10단', '시네신스 화이트', '10', '단'],
+  ['47-1 중국 현지이슈 안내\n시네신스 5단 결품', '시네신스', '5', '단'],
+]) {
+  const [text, expectedProd, expectedQty, expectedUnit] = issueMsg;
+  const parsedIssue = parse(text);
+  assert.equal(parsedIssue.kind, 'review', `regex must keep quantified local issue as review(-): ${text}`);
+  assert.equal(parsedIssue.items.length, 1);
+  assert.equal(parsedIssue.items[0].product, expectedProd);
+  assert.equal(parsedIssue.items[0].quantity, expectedQty);
+  assert.equal(parsedIssue.items[0].unit, expectedUnit);
+  assert.equal(parsedIssue.items[0].cancelled, true);
+  assert.equal(parsedIssue.items[0].sign, -1);
+  assert.equal(parsedIssue.items[0].minusKind, '현지이슈');
 }
 
 // Explicit addition intent with "컨펌 부탁" remains addition, and "미컨펌" remains review
