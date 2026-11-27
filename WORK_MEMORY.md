@@ -5674,7 +5674,6 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 - 검증: 합계 ±수량과 복사 문구 불변, 다른 연도 분리, 완료·부분 완료·수량차이·대조 실패·ERP 근거 공유 회귀 테스트 통과. 운영 화면은 미검증.
 - 검색어: 국가별 발주서 농장 전달용 자동 합계 주문등록 완료 수입방 중복 가산 KakaoAdditions
 
-
 ## 2026-11-27 불량차감 이월 제외 보류 및 적용 차수 완료 조회
 1. 작업 위치: nenova-erp-ui / codex/defect-hold-sales-visibility / nw-cdx-defect-hold-sales-visibility / PR 준비.
 2. 완료된 것: 확정 등록 및 보류를 단일 트랜잭션으로 연결. 영업입력 완료 목록에 실제 견적 적용 차수 조회 추가. 화면 /sales/defect-deductions.
@@ -5682,3 +5681,13 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증 상태: 불량차감 회귀 5개 파일 통과. 운영 화면 미검증.
 5. 주의/잠금: 운영 원장 보정 없음. 연결 목표 미확정 / 학습 반영 없음.
 - 검색어: 이월 제외 보류, 적용 차수, 영업입력 완료 목록, 정재훈
+
+## 2026-11-27 최초주문등록 과 분배 비교 고밀도 출고내역서 양식 기본 적용 및 주문↔분배 밀착 레이아웃 (`feat/import-compare-compact-statement-layout`, 연결 목표: g03, g17)
+- 요약: `pages/orders/import-compare.js`를 한 페이지에 약 30품목(행 높이 26px, 본문 13.5px, 헤더 13px sticky, 배지 12.5px)이 보이도록 출고내역서 양식으로 고밀도 개편했다. `showAllExcelCols` 기본값을 `true`로 전환하고 완전 빈 엑셀 열을 제거하는 `visibleExcelCols`와 `leftColCount` off-by-1 버그를 보정했으며, 기본 출고내역서 모드에서는 `칼라/품종`·`단위` 별도 열을 제거해 `주문수량(단위)` 바로 우측 구분선(`2px solid #94a3b8`) 옆에 `분배수량(단위) | 차이 | 구분 | 분배단가`가 밀착되도록 재배치하고 `<tfoot>` `합 계` 행(총 주문수량·분배수량·순 증감·총 분배금액)을 추가했다. `분배단가` 셀은 `확정`·`복수`·`적용` 배지/버튼을 `<input>` 왼쪽 같은 줄 가로 인라인으로 고정해 1줄을 유지하도록 조정했다.
+- 검색어: 최초주문등록 분배비교 고밀도 출고내역서 showAllExcelCols visibleExcelCols leftColCount 주문수량 분배수량 밀착 분배단가 합계 tfoot import-compare g03 g17
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-import-compare-compact` 격리 워크트리, `feat/import-compare-compact-statement-layout`) — `pages/orders/import-compare.js`, `WORK_MEMORY.md`.
+2. 완료된 것: `showAllExcelCols` 기본 `true` 및 `visibleExcelCols` 빈 엑셀 열 제거, `leftColCount`/`totalColCount` 오프바이원 보정, 기본 컴팩트 열(`NO | 품목명 | 주문수량 | 분배수량 | 차이 | 구분 | 분배단가` + 선택 `최초단가`/`비고`), `분배단가` 1줄 인라인(`확정`/`복수`/`적용` + `<input 82x22>`), `<tfoot>` `합 계` 행, 상단 헤더·필터·거래처·기준일·요약 바 여백 축소(26px 행 높이 · sticky 헤더 · `width: 'auto'` 밀착), 전수 검증 및 빌드 통과.
+3. 남은 할 일: PR 생성 → CI(`verify`) 통과 확인 → squash 머지 → worktree 정리 → `owner-agi-twin.js`·`sync-nenova-hq.js` 동기화(Cafe24 배포 완료·실브라우저 화면 확인 미검증).
+4. 검증 상태: `node scripts/test-order-import-compare.mjs` PASS, `npm run test:erp-manifest -- --changed-from origin/master` PASS(252 manifests), `npm run guard:erp-writes -- --changed-from origin/master` PASS, `npm run guard:agent-slop -- --changed-from origin/master` PASS, `npm run build` (`next build --webpack`) PASS, `node C:\Users\USER\nenova-pm\pstack-verify.cjs --repo C:\Users\USER\nw-agy-import-compare-compact` PASS(5/5), `npm run test:erp-contract -- --no-worker-threads --concurrency=4` 489/494(부하 시간초과 4건 `test:import-team`·`test:packing-team`·`workDriveListWorker`·`weekday*` 및 drive 잔여 8종 단독 재실행 전수 PASS), `desktop/` 변경 0건(Cafe24 배포 완료·실브라우저 화면 확인 미검증).
+5. 주의/잠금: `desktop/` 수정 0건(웹 단독 반영), 단독 `monospace` 금지(`FONT_STACK` + `tabular-nums`), 최소 폰트 12.5px 유지, `data/generated/*.json` 빌드 산출물 원복 완료. 연결 목표: g03, g17
+
