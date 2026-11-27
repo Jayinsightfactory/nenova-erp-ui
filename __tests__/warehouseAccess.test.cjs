@@ -9,11 +9,12 @@ const accessSource = fs.readFileSync('lib/userAccess.js','utf8').replace(/export
 const userAccess = new Function(accessSource+';return {hasFullWebAccess,isAdminUser};')();
 const canManageInvoiceReceipt = new Function(...Object.keys(userAccess),fs.readFileSync('lib/invoiceReceiptAccess.js','utf8').replace(/^import .*;\s*$/gm,'').replace(/export /g,'')+';return canManageInvoiceReceipt;')(...Object.values(userAccess));
 const splitIncomingRound = new Function(fs.readFileSync('lib/incomingRoundLabel.js','utf8').replace(/export /g,'')+';return splitIncomingRound;')();
+const manualPolicy = new Function(fs.readFileSync('lib/manualWarehouseUpload.js','utf8').replace(/export /g,'')+';return {manualWarehouseHeader,manualWarehouseLine,isManualWarehouseAllowedAccount};')();
 function response(){return {statusCode:200,status(n){this.statusCode=n;return this;},json(p){this.payload=p;return this;}};}
 function fixture(year='2026', fixed=false) {
   const calls=[];let transactions=0;
   const query=async (q,p)=>{calls.push({q,p});if(q.includes('SELECT wm.OrderYear'))return {recordset:[{OrderYear:year,OrderWeek:'44-01',ProdKey:1,OutQuantity:10}]};if(q.includes('SELECT DISTINCT p.CountryFlower'))return {recordset:fixed?[{CountryFlower:'fixture'}]:[]};return {recordset:[]};};
-  const handler=load('pages/api/warehouse/index.js',{query,withTransaction:async fn=>{transactions++;return fn(query);},sql:{Int:'int',NVarChar:'nvarchar',Bit:'bit',Float:'float'},withAuth:fn=>fn,withActionLog:fn=>fn,useExeParityFlag:()=>false,sqlWarehouseViewGetData:()=>'',canManageInvoiceReceipt,splitIncomingRound});
+  const handler=load('pages/api/warehouse/index.js',{query,withTransaction:async fn=>{transactions++;return fn(query);},sql:{Int:'int',NVarChar:'nvarchar',Bit:'bit',Float:'float'},withAuth:fn=>fn,withActionLog:fn=>fn,useExeParityFlag:()=>false,sqlWarehouseViewGetData:()=>'',canManageInvoiceReceipt,splitIncomingRound,warehouseFarmChoicesSql:()=>'SELECT 1 AS FarmKey, N\'HUB2\' AS FarmName',...manualPolicy});
   return {handler,calls,get transactions(){return transactions;}};
 }
 test('warehouse mutations reject unrelated, inactive and missing identity before DB',async()=>{
