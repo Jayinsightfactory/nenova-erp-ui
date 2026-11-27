@@ -5581,3 +5581,12 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 - 4. 검증 상태: `__tests__/arrivalCostSingleSheet.test.js` 및 도착원가 테스트 28종(533개 케이스) 전수 PASS, `npm run test:erp-contract`(494/494)·`pstack-verify.cjs`(5/5)·`npm run build` 전수 PASS.
 - 5. 주의/잠금: 잠금 없음 (운영 MSSQL 쓰기 0건 `dbWrites: 0`, `desktop/` 수정 0건). 연결 목표: g17·g03·g13·g19 / 학습 반영: 있음
 - 검색어: 도착원가 엑셀 단일 시트 차수별 원가시트 48-2 부가시트 제거 원본수식 비교 카테고리 규격표 exportWithCostHistory formatCostSheetName g17 g03 g13 g19
+
+## 2026-11-27 거대 파일 무사고(Zero-Regression) 4단계 분리 마스터 기획 수립 및 Phase 1 박스 비전 모듈 분리 (`refactor/safe-modularize-phase1`, 연결 목표: g13, g18 / 학습 반영: 있음)
+- 요약: 사장님 지시("기획해서 작업해주면 안 돼? 문제 생기지만 않으면 되니까")에 따라 열린 PR 11건과 수정 파일 충돌이 0건인 거대 파일(`lib/boxVisionInspector.js` 4,304줄 → 833줄, `pages/vision/box-inspector.js` 2,382줄 → 1,237줄, 합계 4,616줄 감축)을 동작·라우트·SQL·DOM 변경 0% 순수 추출(Strangler Pure Extraction) 원칙으로 9개 하위 순수 모듈·패널(`lib/boxVision/*` 7종, `components/vision/*` 2종)로 분리하고 원본 모듈 `re-export` 하위 호환 100% 및 입출력 회귀 단위테스트(`__tests__/boxVisionModularParity.test.cjs`)를 추가했다.
+- 검색어: 거대파일 분리 모듈화 Strangler Pure Extraction Zero-Regression boxVisionInspector box-inspector BoxVisionStep2ReviewPanel BoxVisionStep3ResultsPanel g13 g17 g18
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-safe-modularize-p1`, `refactor/safe-modularize-phase1`) — `lib/boxVisionInspector.js`, `lib/boxVision/*`, `pages/vision/box-inspector.js`, `components/vision/*`, `docs/contracts/box-vision-inspector.json`, `__tests__/boxVisionModularParity.test.cjs`, `WORK_MEMORY.md` (마스터 기획 정본: `nenova-hq/tasks/nenovaweb-safe-modularization.md`).
+2. 완료된 것: 4단계(Phase 1~4) 무사고 분리 기획 `nenova-hq` 등록 완료 + Phase 1 `lib/boxVisionInspector.js`(-80.6%) 및 `pages/vision/box-inspector.js`(-48.1%) 순수 추출·하위 호환 `re-export`·계약 scope 동기화·단위테스트 13종 구현.
+3. 남은 할 일: PR 생성 → GitHub Actions CI(`verify`) 통과 확인 → Squash 머지 → worktree 제거 → Phase 2(`PackingListTool.js` · `importPacking.js` · `KakaoAdditions.js`) 후속 진행.
+4. 검증 상태: `boxVisionInspector.test.cjs` + `boxVisionModularParity.test.cjs`(13/13 PASS), `npm run test:erp-contract` 전수 통과, `npm run test:erp-manifest -- --changed-from origin/master` PASS, `npm run guard:erp-writes -- --changed-from origin/master` PASS, `npm run build`(`next build --webpack`) PASS, `pstack-verify.cjs` PASS (Cafe24 운영 배포 반영은 PR 머지 후 확인).
+5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), 운영 MSSQL 쓰기 0건(`SELECT-only`). 연결 목표: g13, g18 / 학습 반영: 있음
