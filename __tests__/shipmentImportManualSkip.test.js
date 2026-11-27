@@ -16,7 +16,7 @@ const require = createRequire(import.meta.url);
 const suffix = process.platform === 'win32' ? '-msvc' : process.platform === 'linux' ? '-gnu' : '';
 const { transformSync } = require(`@next/swc-${process.platform}-${process.arch}${suffix}`);
 const lib = fileURLToPath(new URL('../lib/', import.meta.url));
-const realModules = new Set(['shipmentImport', 'orderUtils', 'customerExportName','shipmentImportQty','shipmentImportMode', 'shipmentFixScope',
+const realModules = new Set(['shipmentImport', 'orderUtils', 'customerExportName','shipmentImportQty','shipmentImportMode','shipmentUploadDates', 'shipmentFixScope',
   'shipmentFixScopeCore', 'shipmentDescr', 'distributeUnits', 'pivotProdName',
   'pivotVolumeProductLabel', 'dutchVolumeCustomerMatch', 'weekdayEarlyShipmentImport']);
 const cache = new Map();
@@ -56,10 +56,14 @@ const sourceRows = ['루스커스', '루스커스 40cm', 'White'].map((productLa
 const key = i => importProductOverrideKey(sourceRows[i]);
 const options = { secret: 'fixture-only', now: 10000 };
 const ledger = ['2025','2026'].flatMap(year => products.map(p=>({year,week:'43-01',CustKey:2,ProdKey:p.ProdKey,orderQty:9,currentOutQty:7,shipmentDateIssueCount:0})));
-async function preview(overrides={}, rows=sourceRows, year='2026', catalog=products, fixtureLedger=ledger) {
+async function preview(overrides={}, rows=sourceRows, year='2026', catalog=products, fixtureLedger=ledger, customerOverrides={}) {
   const before=JSON.stringify(ledger);
   const queryFn=async(text, params={})=>{
     assert.doesNotMatch(text,/\b(?:INSERT|UPDATE|DELETE|EXEC|MERGE)\b/i);
+    if (/FROM PeriodDay/.test(text)) {
+      assert.equal(params.dateWeek.value, year + '43');
+      return {recordset:[{Timestamp:year+'-10-22 00:00:00.000', WeekDay:5}]};
+    }
     if (params.weekKey) { assert.equal(params.yr.value,year); return {recordset:[]}; }
     if (/FROM Product\s+WHERE/.test(text)) return {recordset:catalog};
     if (/FROM Customer\s+WHERE/.test(text)) return {recordset:customers};
@@ -68,7 +72,7 @@ async function preview(overrides={}, rows=sourceRows, year='2026', catalog=produ
     if (/NOT EXISTS/.test(text)) return {recordset:[]};
     return {recordset:fixtureLedger.filter(r=>r.year===year && r.week===params.week.value)};
   };
-  const result=await buildImportPreview({parsedRows:rows,rawWeek:'43-01',rawYear:year,productOverrides:overrides,fileBasedScope:true,queryFn});
+  const result=await buildImportPreview({parsedRows:rows,rawWeek:'43-01',rawYear:year,productOverrides:overrides,customerOverrides,fileBasedScope:true,queryFn});
   assert.equal(JSON.stringify(ledger),before);
   return result;
 }
@@ -432,4 +436,32 @@ test('explicit country heading rejects same-species keys from another country', 
   const bad=await preview({[importProductOverrideKey(input[0])]:8101},input,'2026',catalog,[]);
   assert.equal(bad.unmatched.length,1);
   assert.equal(createReplacementPlan(bad,'actor',options),null);
+});
+
+test('mapped customer receives only the selected-year calendar date and signed amount', async () => {
+  const source = { ...sourceRows[0], shipmentDateHeader: '목' };
+  for (const year of ['2025', '2026']) {
+    const decision = await preview({}, [source], year);
+    const row = decision.rows.find(r => r.custKey === 1 && r.prodKey === 1717);
+    assert.deepEqual(row.shipmentDateAllocations, [{timestamp:year+'-10-22 00:00:00.000',quantity:2}]);
+    assert.equal(row.needsShipmentApply, true);
+    const signed = body(decision);
+    assert.doesNotThrow(()=>assertReplacementPlan(signed,'actor',options));
+    row.shipmentDateAllocations[0].quantity += 1;
+    assert.throws(()=>assertReplacementPlan(signed,'actor',options));
+  }
+  const wrong = await preview({}, [{...source,shipmentDateHeader:'2025-10-22'}], '2026');
+  assert(wrong.rows.some(row => row.shipmentDateError));
+  assert.equal(createReplacementPlan(wrong,'actor',options),null);
+});
+
+test('different major week labels require the existing explicit customer choice', async () => {
+  const label = '표본거래처 42차 선출고';
+  const source = {...sourceRows[0],customerLabel:label,shipmentDateHeader:'목'};
+  const unresolved = await preview({},[source]);
+  assert.equal(unresolved.unmatched[0].matchKind,'customer');
+  assert.match(unresolved.unmatched[0].reason,/42차.*43-01/);
+  const chosen = await preview({},[source],'2026',products,ledger,{[label]:1});
+  const row = chosen.rows.find(r => r.custKey===1 && r.prodKey===1717);
+  assert.deepEqual(row.shipmentDateAllocations,[{timestamp:'2026-10-22 00:00:00.000',quantity:2}]);
 });

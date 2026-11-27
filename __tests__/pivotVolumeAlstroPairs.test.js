@@ -23,7 +23,8 @@ async function main() {
   // Only parse functions; DB/write dependencies cannot execute in this fixture.
   const importSource = fs.readFileSync('lib/shipmentImport.js', 'utf8')
     .replace(/^import[\s\S]*?;\r?\n/gm, '').replace(/^export \{[^}]+\} from [^;]+;/gm, '').replace(/export /g, '');
-  const parser = { normalizeOrderWeek: x => x, cleanPivotProdName: x => x };
+  const { allocationDateHeader } = await import('../lib/shipmentUploadDates.js');
+  const parser = { allocationDateHeader, normalizeOrderWeek: x => x, cleanPivotProdName: x => x };
   vm.createContext(parser);
   vm.runInContext(importSource + '\nthis.parse = parseAllocationWorkbook;', parser);
   const customers = [{ custName: 'Fixture A', custKey: 1 }, { custName: 'Fixture B', custKey: 2 }];
