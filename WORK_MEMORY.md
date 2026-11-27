@@ -5726,3 +5726,12 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: PR 생성 → squash 머지 → worktree 정리 → coordinator 보고.
 4. 검증 상태: `node --test __tests__/boxVisionInspector.test.cjs __tests__/boxVisionModularParity.test.cjs` PASS (13/13), `pstack-verify.cjs` PASS, Playwright 실제 브라우저 렌더링 캡처 3장(`verify_step2_taerim_canvas.png`, `verify_step3_taerim_table.png`, `verify_step2_batch_5photos.png`) 육안 검증 PASS (0박스 버그 없음, 이전 샘플 잔류 없음, 글씨 깨짐 없음, 1920x1080 고해상도).
 5. 주의/잠금: `desktop/` 파일 수정 0건(웹 단독 반영), 운영 DB 쓰기 0건(순수 SELECT·원장 대조). 연결 목표: g13, g17, g19 / 학습 반영: 있음
+
+## 2026-11-27 차수피벗 기존 수량 조회의 출고 집계 최적화
+
+1. 작업 위치: nenova-erp-ui / codex/week-pivot-customer-read / C:\Users\USER\nw-cdx-week-pivot-customer-read / PR 준비.
+2. 완료된 것: 기존 업체별 조회의 반복 출고 조인을 선택 연도·차수의 일괄 집계로 전환했다. 기존 다중 비고·분배 수량·금액 필드와 주문 없는 출고 조회를 유지한다.
+3. 남은 할 일: 최종 계약/빌드, CI·Cafe24 배포 뒤 기존 차수피벗 브라우저 확인. 새 출고 일정 목록에서 수량과 기초재고를 직접 편집하는 동작은 미완료.
+4. 검증 상태: 운영 SELECT 재생 4범위 데이터 일치. 2026년 47-01~48-01 2,633행에서 ShipmentMaster 4,901,526→770 논리 읽기, 1,680→764ms. 격리 MSSQL 교차연도·다중 비고·삭제행·품목 필터 PASS.
+5. 주의/잠금: 운영 데이터와 스키마 변경 없음. 다른 파일의 SQL과 기존 분배 쓰기는 보존. 연결 목표 g03 / 선호 학습 반영 있음.
+- 검색어: 차수피벗 서버 속도, stock-status, 고객별 출고 집계, 47-01, 48-01, MSSQL 논리 읽기
