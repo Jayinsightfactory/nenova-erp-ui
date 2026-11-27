@@ -1,5 +1,53 @@
 'use strict';
 const ORIGIN = 'https://nenovaweb.com';
+const MAX_WINDOWS = 12;
+const WINDOW_CASCADE_OFFSET = 32;
+
+function clampBoundsToDisplays(bounds, displays = [], primaryWorkArea = { x: 0, y: 0, width: 1920, height: 1080 }) {
+  const primary = primaryWorkArea || { x: 0, y: 0, width: 1920, height: 1080 };
+  const b = bounds || { ...primary, width: 1600, height: 1000 };
+  const list = Array.isArray(displays) ? displays : [];
+  const hit = list.find(({ workArea: a }) =>
+    a && b.x + 100 > a.x && b.x < a.x + a.width - 100 && b.y + 50 > a.y && b.y < a.y + a.height - 50
+  );
+  const a = hit?.workArea || primary;
+  const width = Math.min(a.width, Math.max(800, Number.isFinite(b.width) ? b.width : 1600));
+  const height = Math.min(a.height, Math.max(600, Number.isFinite(b.height) ? b.height : 1000));
+  const rawX = Number.isFinite(b.x) ? b.x : a.x;
+  const rawY = Number.isFinite(b.y) ? b.y : a.y;
+  return {
+    width,
+    height,
+    x: Math.max(a.x, Math.min(rawX, a.x + a.width - width)),
+    y: Math.max(a.y, Math.min(rawY, a.y + a.height - height)),
+  };
+}
+
+function cascadeWindowBounds(anchorBounds, displays = [], primaryWorkArea = { x: 0, y: 0, width: 1920, height: 1080 }, offset = WINDOW_CASCADE_OFFSET) {
+  if (!anchorBounds) return clampBoundsToDisplays(null, displays, primaryWorkArea);
+  return clampBoundsToDisplays({
+    ...anchorBounds,
+    x: (Number.isFinite(anchorBounds.x) ? anchorBounds.x : 0) + offset,
+    y: (Number.isFinite(anchorBounds.y) ? anchorBounds.y : 0) + offset,
+  }, displays, primaryWorkArea);
+}
+
+function secondInstanceAction({ argv = [], locked = true, windowCount = 0, maxWindows = MAX_WINDOWS } = {}) {
+  const args = Array.isArray(argv) ? argv.map(arg => String(arg || '').trim()) : [];
+  if (!locked && args.some(arg => /^nenova-notes:\/\/open\/?$/i.test(arg))) return 'open-notes';
+  if (args.some(arg => arg === '--focus-only')) return 'focus-existing';
+  if (!locked && windowCount < maxWindows) return 'new-window';
+  return 'focus-existing';
+}
+
+function tabContextMenuItems({ tabCount = 1, windowCount = 1, locked = false, maxWindows = MAX_WINDOWS } = {}) {
+  return [
+    { id: 'detach', label: '새 창으로 분리', enabled: !locked && windowCount < maxWindows },
+    { id: 'close', label: '탭 닫기', enabled: true },
+    { id: 'closeOthers', label: '다른 탭 닫기', enabled: tabCount > 1 },
+  ];
+}
+
 function trustedUrl(input, { popup = true } = {}) {
   if (typeof input !== 'string' || input.length > 8192) return null;
   try {
@@ -68,4 +116,17 @@ function safeSnapshot(s) {
     }))
   };
 }
-module.exports = { ORIGIN, trustedUrl, externalUrl, safeSnapshot, safeFavorites, text };
+module.exports = {
+  ORIGIN,
+  MAX_WINDOWS,
+  WINDOW_CASCADE_OFFSET,
+  clampBoundsToDisplays,
+  cascadeWindowBounds,
+  secondInstanceAction,
+  tabContextMenuItems,
+  trustedUrl,
+  externalUrl,
+  safeSnapshot,
+  safeFavorites,
+  text,
+};

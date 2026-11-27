@@ -185,6 +185,10 @@
       const close = makeButton('tab-close', '×', `${tab.title || '업무 화면'} 닫기`, () => run('close', { id: tab.id }));
       close.setAttribute('aria-label', `${tab.title || '업무 화면'} 닫기`);
       wrapper.append(main, close);
+      wrapper.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        run('tabContextMenu', { id: tab.id, x: Math.round(event.clientX), y: Math.round(event.clientY) });
+      });
       wrapper.addEventListener('dragstart', (event) => {
         draggingId = tab.id; dropHandled = false;
         event.dataTransfer.effectAllowed = 'move';
@@ -334,6 +338,8 @@
     $('connectionIndicator').className = `connection-indicator ${state.online ? 'online' : 'offline'}`;
     $('connectionText').textContent = state.online ? '로그인됨' : '로그인 필요';
     $('logoutButton').disabled = !state.online;
+    if ($('quickNewWindowButton')) $('quickNewWindowButton').disabled = !state.online;
+    if ($('newWindowButton')) $('newWindowButton').disabled = !state.online;
     $('syncButton').disabled = state.syncStatus === 'checking';
     $('syncButton').textContent = state.syncStatus === 'checking' ? '웹 메뉴 확인 중…' : '웹 메뉴 갱신';
     $('syncButton').title = state.webVersion ? `웹 메뉴·기능 확인 (${state.webVersion})` : '로그인 후 최신 웹 메뉴·기능을 확인합니다';
@@ -524,6 +530,7 @@
     $('toolsButton').addEventListener('click', () => run('tools'));
     $('compactFavoriteButton').addEventListener('click', () => { if (state.activeId) run('favorite', { id: state.activeId }); });
     $('addTabButton').addEventListener('click', () => setMenu(true, true));
+    $('quickNewWindowButton')?.addEventListener('click', () => run('newWindow'));
     $('newWindowButton').addEventListener('click', () => run('newWindow'));
     $('backButton').addEventListener('click', () => run('navigate', { direction: 'back' }));
     $('forwardButton').addEventListener('click', () => run('navigate', { direction: 'forward' }));
@@ -570,6 +577,7 @@
       if (event.key === 'Escape' && state.menuOpen && !event.defaultPrevented) { event.preventDefault(); setMenu(false); return; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setMenu(true, true); return; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 't') { event.preventDefault(); setMenu(true, true); return; }
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'n') { event.preventDefault(); run('newWindow'); return; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'w' && state.activeId) { event.preventDefault(); run('close', { id: state.activeId }); }
     });
   }

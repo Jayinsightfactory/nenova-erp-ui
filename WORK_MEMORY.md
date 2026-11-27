@@ -5822,3 +5822,18 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: `pstack-verify.cjs` 실행 → PR 생성 → CI 통과 확인 → squash 머지 → worktree 정리(`sync-nenova-hq.js` 동기화 포함).
 4. 검증 상태: `npm run test:ui-layout` PASS, `npm run guard:agent-slop` PASS, `npm run build` PASS, `node scripts/verify-classic-ui-tabs.mjs` PASS(`15`개 화면 × `3`뷰포트 `45`건, `Main` 높이 `87px`/`body 86px`/라벨 하단 편차 `0px`/대형·소형 높이 편차 `0px`/열별 너비 편차 `0px`/1366px 가로 넘침 `0px`/즐겨찾기 혼입 `0`건, 즐겨찾기 50개 패널 높이 `172px`/50항목 높이 `26px` 동일/열별 너비 편차 `0px`, 페이지 오류 `0`건). 실운영 DB/Cafe24 실브라우저 확인은 배포 후 별도.
 5. 주의/잠금: `desktop/` 하위 파일 수정 0건, `components/Layout.js`·`styles/desktop-workspace.css`·`sidebarMenuFavorites`/`unifiedUi` 계약 100% 무변경 보존, `.verify/` 임시 폴더는 커밋 제외.
+
+## 2026-11-27 네노바 데스크톱앱 크롬 방식 멀티창·탭 컨텍스트 메뉴·세이지 그린 쉘 통일 (v1.3.106) (`feat/desktop-multi-window`)
+- 화면: 화면 없음 — 네노바 데스크톱(Electron) 멀티창·쉘
+- 대신하는 업무: 전사 · 네노바 업무 데스크톱앱 멀티창 동시 실행 및 창/탭 관리
+- 없애려는 것: 앱 재실행 시 기존 창 덮어쓰기, 숨겨진 새 창 버튼, 창 리사이즈/도구바 전환 시 WebContentsView 어긋남
+- 종류: 새로 만듦
+- 누가 언제 여나: 전사 직원이 바탕화면/작업표시줄 아이콘을 재실행하거나 상단 [+ 새 창]·Ctrl+N·탭 우클릭으로 2개 이상 업무 화면을 동시에 띄울 때
+- 2주 뒤 셀 것: 멀티창 동시 실행 건수 및 데스크톱 창 크기·배치 관련 문의 감소 여부
+- 요약: `desktop/policy.cjs`에 `secondInstanceAction`·`cascadeWindowBounds`(+32px,+32px 오프셋·모니터 workArea 클램핑)·`clampBoundsToDisplays`·`tabContextMenuItems` 순수 헬퍼를 추가하고 `desktop/main.cjs` `second-instance`에서 로그인 완료(`!locked`) 상태·창 상한(`MAX_WINDOWS=12`) 미만 일반 재실행 시 `persist:nenova-work` 세션을 공유하는 독립 창을 즉시 생성(`--focus-only`/`nenova-notes://open`/미로그인은 기존 포커스·메모장 정책 유지)하도록 개선했다. `desktop/shell/index.html`·`shell.js`·`preload.cjs` 상단 `.tabbar`에 `#quickNewWindowButton`([+ 새 창])을 상시 노출하고, 탭 우클릭 컨텍스트 메뉴(`새 창으로 분리`·`탭 닫기`·`다른 탭 닫기`, `closeOthers`·`tabContextMenu` IPC) 및 `Ctrl+N`·`maximize`/`unmaximize`/`restore`/도구바 토글 즉시 `setBounds` + `data-nenova-desktop-tools` 동기화를 보강했다. `desktop/shell/shell.css`와 `titleBarOverlay`를 `nenova.exe` 세이지 그린(`#5E8572`)·쿨그레이(`#E8ECEF`)·화이트 활성 탭 톤으로 통일하고 `desktop/package.json`을 `1.3.106`으로 범프했다.
+- 검색어: 네노바 데스크톱 멀티창 second-instance cascadeWindowBounds quickNewWindowButton tabContextMenu closeOthers 세이지그린 1.3.106
+1. 작업 위치: `nenova-erp-ui` (`feat/desktop-multi-window`, `C:\Users\USER\nw-agy-desktop-multiwin`, `origin/master` 리베이스 완료) — `desktop/policy.cjs`, `desktop/main.cjs`, `desktop/preload.cjs`, `desktop/shell/index.html`, `desktop/shell/shell.js`, `desktop/shell/shell.css`, `desktop/tests/policy.test.cjs`, `desktop/scripts/smoke.cjs`, `desktop/package.json`, `desktop/package-lock.json`, `WORK_MEMORY.md`.
+2. 완료된 것: `second-instance` 멀티창 생성 및 `+32px,+32px` 오프셋/클램핑, 상단 `.tabbar` `#quickNewWindowButton` 상시 노출, 탭 우클릭 컨텍스트 메뉴(`detach`/`close`/`closeOthers`), 리사이즈(`1920/960/800`)·`maximize`/`unmaximize`·`toolsOpen` 즉시 `WebContentsView` 정합, 세이지 그린/쿨그레이/화이트 활성 탭 쉘 톤 통일, `v1.3.106` 범프 및 테스트/패키징/가드레일 통과.
+3. 남은 할 일: 커밋·푸시 → PR 생성 → CI(`verify`, `desktop-windows`) 통과 확인 → squash 머지 → worktree 정리(`sync-nenova-hq.js` 동기화 포함).
+4. 검증 상태: `npm --prefix desktop test`(101/101), `npm --prefix desktop run test:smoke`(멀티창·`second-instance`·`--focus-only`·`#quickNewWindowButton`·`Ctrl+N`·`tabContextMenu`·`closeOthers`·1920/960/800 및 `maximize`/`unmaximize` bounds 정합 포함), `npm --prefix desktop run test:restore`, `npm --prefix desktop run test:exit`(6/6), `npm --prefix desktop run test:updater`, `npm --prefix desktop run pack` + `verify-packaged-home.cjs`, `npm run test:workflow-guides`(holdUntil 2026-12-25), `npm run guard:agent-slop`, `pstack-verify.cjs`(5/5) 모두 PASS (리베이스 후 최종 재확인 예정).
+5. 주의/잠금: 웹 소스(`pages/`, `components/`, `styles/`, `lib/`) 0줄 변경(세션 A 충돌 방지), `desktop/dist`·`desktop/node_modules`·`desktop/test-output` 미커밋 유지, 아침 첫 실행 1회 자동 업데이트(`desktop/updater.cjs`) 및 `persist:nenova-work`·`requestSingleInstanceLock` 정책 보존.

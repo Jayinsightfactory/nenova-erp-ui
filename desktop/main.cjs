@@ -4,7 +4,20 @@ const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen,
 const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
-const { ORIGIN, trustedUrl, externalUrl, safeSnapshot, safeFavorites, text } = require('./policy.cjs');
+const {
+  ORIGIN,
+  MAX_WINDOWS,
+  WINDOW_CASCADE_OFFSET,
+  clampBoundsToDisplays,
+  cascadeWindowBounds,
+  secondInstanceAction,
+  tabContextMenuItems,
+  trustedUrl,
+  externalUrl,
+  safeSnapshot,
+  safeFavorites,
+  text,
+} = require('./policy.cjs');
 const { parseBootstrap } = require('./bootstrap.cjs');
 const { launchTaskShortcut }=require('./task-launcher.cjs');
 const {closeMainAction}=require('./lifecycle.cjs');
@@ -60,7 +73,28 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'nenova-app', privileges: { stan
 app.setName('Nenova Desktop');
 app.setAppUserModelId(appIdFor(app.isPackaged));
 if (!app.requestSingleInstanceLock()) app.quit();
-app.on('second-instance', (_event, argv) => { if (releaseStartup) { releaseStartup(); return; } if (argv.some(arg => /^nenova-notes:\/\/open\/?$/i.test(arg)) && !locked) { openNotesWindow(); return; } const w = ([...windows.values()][0]||createWindow()).win; if (w) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); } });
+app.on('second-instance', (_event, argv) => {
+  if (releaseStartup) { releaseStartup(); return; }
+  const action = secondInstanceAction({ argv, locked, windowCount: windows.size });
+  if (action === 'open-notes') { openNotesWindow(); return; }
+  if (action === 'new-window') {
+    const created = createWindow({ focus: true });
+    if (created?.win && !created.win.isDestroyed()) {
+      created.win.show();
+      created.win.focus();
+    }
+    return;
+  }
+  const existing = [...windows.values()].find(v => !v.win.isDestroyed() && v.win.isFocused())
+    || [...windows.values()].find(v => !v.win.isDestroyed())
+    || createWindow({ focus: true });
+  const win = existing?.win;
+  if (win && !win.isDestroyed()) {
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  }
+});
 
 function menuFavoriteEntry(item) { return safeSnapshot({ favorites: [{ url: item.href, title: item.labelKey }] }).favorites[0]; }
 function state(w) {
@@ -112,7 +146,9 @@ function layout(w) {
   const { top, bottom } = shellInsets(w);
   for (const id of w.ids) {
     const t = tabs.get(id); if (!t) continue;
-    t.view.setBounds({ x: 0, y: top, width, height: Math.max(1, height - top - bottom) });
+    if (width > 0 && height > 0) {
+      t.view.setBounds({ x: 0, y: top, width, height: Math.max(1, height - top - bottom) });
+    }
     t.view.setVisible(!w.menuOpen && id === w.activeId && (!locked || new URL(t.url).pathname === '/login'));
   }
 }
@@ -126,15 +162,23 @@ function syncRemoteTools(t) {
   wc.executeJavaScript("document.documentElement.dataset.nenovaCountryDownloads = '1'").catch(() => {});
 }
 function boundsOnScreen(bounds) {
-  const displays = screen.getAllDisplays();
-  const b = bounds || { ...screen.getPrimaryDisplay().workArea, width: 1600, height: 1000 };
-  const d = displays.find(({ workArea: a }) => b.x + 100 > a.x && b.x < a.x + a.width - 100 && b.y + 50 > a.y && b.y < a.y + a.height - 50) || screen.getPrimaryDisplay();
-  const a = d.workArea, width = Math.min(a.width, Math.max(800, b.width)), height = Math.min(a.height, Math.max(600, b.height));
-  return { width, height, x: Math.max(a.x, Math.min(b.x, a.x + a.width - width)), y: Math.max(a.y, Math.min(b.y, a.y + a.height - height)) };
+  return clampBoundsToDisplays(bounds, screen.getAllDisplays(), screen.getPrimaryDisplay().workArea);
+}
+function nextCascadeBounds() {
+  const anchor = [...windows.values()].find(v => !v.win.isDestroyed() && v.win.isFocused())
+    || [...windows.values()].reverse().find(v => !v.win.isDestroyed());
+  const anchorBounds = anchor ? anchor.win.getNormalBounds() : null;
+  return cascadeWindowBounds(anchorBounds, screen.getAllDisplays(), screen.getPrimaryDisplay().workArea, WINDOW_CASCADE_OFFSET);
+}
+function titleBarOverlayFor(toolsOpen) {
+  return toolsOpen
+    ? { color: '#5E8572', symbolColor: '#ffffff', height: 40 }
+    : { color: '#E8ECEF', symbolColor: '#243247', height: 44 };
 }
 function createWindow(config = {}) {
   const id = String(nextId++);
-  const win = new BrowserWindow({ ...boundsOnScreen(config.bounds), minWidth: 800, minHeight: 600, title: '네노바 업무', titleBarStyle: 'hidden', titleBarOverlay: { color: '#e9eef6', symbolColor: '#244766', height: 44 }, icon: path.join(__dirname, 'assets', 'icon.png'), backgroundColor: '#eef3fa', show: false,
+  const initialBounds = config.bounds ? boundsOnScreen(config.bounds) : nextCascadeBounds();
+  const win = new BrowserWindow({ ...initialBounds, minWidth: 800, minHeight: 600, title: '네노바 업무', titleBarStyle: 'hidden', titleBarOverlay: titleBarOverlayFor(false), icon: path.join(__dirname, 'assets', 'icon.png'), backgroundColor: '#E8ECEF', show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: !app.isPackaged } });
   const w = { id, win, ids: [], activeId: null, menuOpen: true, toolsOpen: false, message: '', notice: '', confirmedClose: false };
   windows.set(id, w);
@@ -143,7 +187,11 @@ function createWindow(config = {}) {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', e => e.preventDefault());
   win.webContents.on('will-attach-webview', e => e.preventDefault());
-  win.on('resize', () => { layout(w); broadcast(); });
+  const syncBounds = () => { layout(w); broadcast(); };
+  win.on('resize', syncBounds);
+  win.on('maximize', () => { syncBounds(); setImmediate(() => layout(w)); });
+  win.on('unmaximize', () => { syncBounds(); setImmediate(() => layout(w)); });
+  win.on('restore', () => { syncBounds(); setImmediate(() => layout(w)); });
   win.on('move', broadcast);
   win.on('close', e => {
     if (quitting || w.confirmedClose) return;
@@ -159,7 +207,7 @@ function createWindow(config = {}) {
   win.webContents.on('did-finish-load', () => { layout(w); broadcast(); });
   shortcuts(win.webContents, () => w);
   win.loadURL(SHELL);
-  win.once('ready-to-show', () => { if (config.maximized) win.maximize(); win.show(); });
+  win.once('ready-to-show', () => { if (config.maximized) win.maximize(); win.show(); if (config.focus) win.focus(); });
   broadcast(); return w;
 }
 function notesPrefsPath() { return path.join(app.getPath('userData'), 'notes-'+createHash('sha256').update(actor).digest('hex')+'.json'); }
@@ -247,6 +295,30 @@ function closeTab(t, ask = true) {
   t.closing = true;
   t.view.webContents.close({ waitForBeforeUnload: true });
 }
+function closeOtherTabs(w, keepId) {
+  if (!w) return;
+  const others = w.ids.filter(id => id !== keepId).map(id => tabs.get(id)).filter(Boolean);
+  if (!others.length) return;
+  if (!confirm(w, `선택한 탭 외 ${others.length}개의 탭을 모두 닫을까요?`)) return;
+  for (const other of others) closeTab(other, false);
+  if (w.ids.includes(keepId) && !w.menuOpen) activate(w, keepId);
+}
+function openTabContextMenu(w, p = {}) {
+  const t = tabs.get(typeof p.id === 'string' ? p.id : w.activeId);
+  if (!t || t.windowId !== w.id || w.win.isDestroyed()) return;
+  const handlers = {
+    detach: () => detach(t),
+    close: () => closeTab(t),
+    closeOthers: () => closeOtherTabs(w, t.id),
+  };
+  const template = tabContextMenuItems({ tabCount: w.ids.length, windowCount: windows.size, locked }).map(item => ({
+    label: item.label,
+    enabled: item.enabled,
+    click: handlers[item.id],
+  }));
+  const coords = Number.isFinite(p.x) && Number.isFinite(p.y) ? { x: Math.round(p.x), y: Math.round(p.y) } : {};
+  Menu.buildFromTemplate(template).popup({ window: w.win, ...coords });
+}
 function closeWindow(w) {
   activity?.record('closeWindow', tabs.get(w.activeId)?.url);
   if ((w.ids.length || w.homeDirty) && !confirm(w, '이 창의 미저장 입력을 버리고 창을 닫을까요?')) return;
@@ -324,8 +396,9 @@ function openTab(w, data = {}, adoption = null) {
   secureContents(wc, () => windows.get(t.windowId));
   wc.on('did-start-loading', () => { t.loading = true; t.error = ''; broadcast(); });
   wc.on('did-stop-loading', () => { t.loading = false; broadcast(); });
-  const navigation = (_e, newUrl) => { if (trustedUrl(newUrl, { popup: false })) { t.url = newUrl; layout(windows.get(t.windowId)); broadcast(); } };
+  const navigation = (_e, newUrl) => { if (trustedUrl(newUrl, { popup: false })) { t.url = newUrl; layout(windows.get(t.windowId)); syncRemoteTools(t); broadcast(); } };
   wc.on('did-navigate', navigation); wc.on('did-navigate-in-page', navigation);
+  wc.on('dom-ready', () => { syncRemoteTools(t); });
   wc.on('page-title-updated', (_e, title) => { if (!t.customTitle) t.title = text(title) || t.title; broadcast(); });
   wc.on('did-fail-load', (_e, code, description, _url, mainFrame) => { if (mainFrame && code !== -3) { t.error = '화면을 불러오지 못했습니다. 연결을 확인하고 새로고침해 주세요.'; t.loading = false; reportFailure(windows.get(t.windowId), t.error); broadcast(); } });
   wc.on('render-process-gone', () => { t.error = '화면이 중단되었습니다. 새로고침해 주세요. 저장 여부를 먼저 확인해 주세요.'; reportFailure(windows.get(t.windowId), t.error); broadcast(); });
@@ -347,8 +420,13 @@ function moveTab(t, target, beforeId) {
 function detach(t, point) {
   if (!t) return;
   const source = windows.get(t.windowId);
+  if (windows.size >= MAX_WINDOWS) {
+    reportFailure(source, `열린 창이 최대 ${MAX_WINDOWS}개입니다. 사용하지 않는 창을 닫아 주세요.`);
+    broadcast();
+    return;
+  }
   const b = source.win.getNormalBounds();
-  const target = createWindow({ bounds: { ...b, x: point?.x ?? b.x + 40, y: point?.y ?? b.y + 40 } });
+  const target = createWindow({ bounds: { ...b, x: point?.x ?? b.x + WINDOW_CASCADE_OFFSET, y: point?.y ?? b.y + WINDOW_CASCADE_OFFSET } });
   moveTab(t, target);
 }
 function shortcuts(wc, owner) {
@@ -374,7 +452,7 @@ function command(w, action, p = {}) {
   const t = tabs.get(typeof p.id === 'string' ? p.id : w.activeId);
   const auditAction = action === 'homeWorkspace' && p.method === 'POST'
     ? ({create:'homeCreate',update:'homeUpdate',complete:'homeComplete',archive:'homeArchive',restore:'homeRestore',stop:'homeStop',read:'homeRead'}[p.command?.action] || action) : action;
-  if (!['close', 'closeWindow', 'quit', 'pmLiveStatus', 'importFlightBoard'].includes(action) && !(action === 'appUpdate' && p.automatic === true)) activity?.record(auditAction, trustedUrl(p.url || p.href) || t?.url || '/desktop');
+  if (!['close', 'closeOthers', 'tabContextMenu', 'closeWindow', 'quit', 'pmLiveStatus', 'importFlightBoard'].includes(action) && !(action === 'appUpdate' && p.automatic === true)) activity?.record(auditAction, trustedUrl(p.url || p.href) || t?.url || '/desktop');
   switch (action) {
     case 'state': break;
     case 'startup': startup.set(p.enabled); broadcast(); return state(w);
@@ -414,6 +492,8 @@ function command(w, action, p = {}) {
     case 'open': openTab(w, p); break;
     case 'activate': activate(w, p.id); break;
     case 'close': if (t?.windowId === w.id) closeTab(t); break;
+    case 'closeOthers': if (t?.windowId === w.id) closeOtherTabs(w, t.id); break;
+    case 'tabContextMenu': if (t?.windowId === w.id) openTabContextMenu(w, p); break;
     case 'reorder': if (t) moveTab(t, w, p.beforeId); break;
     case 'move': if (t?.windowId === w.id) moveTab(t, windows.get(p.targetWindowId)); break;
     case 'detach': if (t?.windowId === w.id) detach(t); break;
@@ -428,7 +508,9 @@ function command(w, action, p = {}) {
     case 'tools':
       w.toolsOpen = !w.toolsOpen;
       if (w.toolsOpen) w.notice = '';
+      try { if (typeof w.win.setTitleBarOverlay === 'function') w.win.setTitleBarOverlay(titleBarOverlayFor(w.toolsOpen)); } catch {}
       layout(w);
+      setImmediate(() => layout(w));
       for (const id of w.ids) syncRemoteTools(tabs.get(id));
       if (!w.toolsOpen) {
         w.win.webContents.focus();
@@ -455,7 +537,29 @@ function command(w, action, p = {}) {
     case 'reload': if (t && confirm(w, '현재 화면을 새로고침할까요?', '새로고침')) { w.message = ''; if (locked) verifyAccount(); t.view.webContents.reload(); } break;
     case 'zoom': if (t && Number.isFinite(p.value)) { t.zoom = Math.round(Math.min(1.5, Math.max(.5, p.value)) * 100) / 100; t.view.webContents.setZoomFactor(t.zoom); } break;
     case 'print': if (t && !locked) t.view.webContents.print({ silent: false, printBackground: true }, (ok, reason) => { if (!ok && reason !== 'cancelled') { reportFailure(w, '인쇄를 완료하지 못했습니다. 프린터 설정을 확인해 주세요.'); broadcast(); } }); break;
-    case 'newWindow': createWindow(); break;
+    case 'newWindow': {
+      if (locked) {
+        const login = [...tabs.values()].find(tab => new URL(tab.url).pathname === '/login');
+        const target = (login && windows.get(login.windowId)) || w;
+        if (target?.win && !target.win.isDestroyed()) {
+          if (target.win.isMinimized()) target.win.restore();
+          target.win.show();
+          target.win.focus();
+        }
+        reportFailure(w, '로그인 후 새 창을 열 수 있습니다.');
+        break;
+      }
+      if (windows.size >= MAX_WINDOWS) {
+        reportFailure(w, `열린 창이 최대 ${MAX_WINDOWS}개입니다. 사용하지 않는 창을 닫아 주세요.`);
+        break;
+      }
+      const created = createWindow({ focus: true });
+      if (created?.win && !created.win.isDestroyed()) {
+        created.win.show();
+        created.win.focus();
+      }
+      break;
+    }
     case 'closeWindow': closeWindow(w); break;
     case 'quit': quit(); break;
     default: throw new Error('지원하지 않는 동작');
@@ -819,4 +923,4 @@ app.on('before-quit', e => { if (!quitting && (windows.size||hasNotes())) { e.pr
 app.on('will-quit', () => { clearInterval(activityTimer); clearInterval(notesTimer); clearInterval(adminAlertTimer); aiBridge?.stop(); });
 app.on('window-all-closed', () => { if (!quitting) { quitting = true; app.quit(); } });
 // Export only to the local Node test runner. No renderer receives this object.
-module.exports = { windows, tabs, command, createWindow, moveTab, snapshot, verifyAccount };
+module.exports = { windows, tabs, command, createWindow, moveTab, snapshot, verifyAccount, closeOtherTabs };

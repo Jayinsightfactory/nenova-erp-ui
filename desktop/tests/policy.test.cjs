@@ -2,7 +2,18 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { ORIGIN, trustedUrl, externalUrl, safeSnapshot } = require('../policy.cjs');
+const {
+  ORIGIN,
+  MAX_WINDOWS,
+  WINDOW_CASCADE_OFFSET,
+  clampBoundsToDisplays,
+  cascadeWindowBounds,
+  secondInstanceAction,
+  tabContextMenuItems,
+  trustedUrl,
+  externalUrl,
+  safeSnapshot,
+} = require('../policy.cjs');
 
 test('trustedUrl canonicalizes same-origin relative URLs and applies popup mode', () => {
   assert.equal(trustedUrl('/orders?year=2026'), `${ORIGIN}/orders?year=2026&popup=1`);
@@ -89,4 +100,65 @@ test('safeSnapshot preserves import-tools pedidos/country/days and kakao-import 
   assert.equal(snapshot.favorites.length, 2);
   assert.equal(snapshot.favorites[0].url, `${ORIGIN}/import/tools?tool=pedidos&country=colombia&days=14&popup=1`);
   assert.equal(snapshot.favorites[1].url, `${ORIGIN}/orders/sales-paste?mode=kakao-import&popup=1`);
+});
+
+test('secondInstanceAction opens new window when unlocked under cap, focuses when locked/capped/flag, or opens notes', () => {
+  assert.equal(secondInstanceAction({ argv: ['nenova.exe', 'nenova-notes://open'], locked: false, windowCount: 1 }), 'open-notes');
+  assert.equal(secondInstanceAction({ argv: ['nenova.exe', 'nenova-notes://open/'], locked: true, windowCount: 1 }), 'focus-existing');
+  assert.equal(secondInstanceAction({ argv: ['nenova.exe', '--focus-only'], locked: false, windowCount: 1 }), 'focus-existing');
+  assert.equal(secondInstanceAction({ argv: ['nenova.exe'], locked: false, windowCount: 1 }), 'new-window');
+  assert.equal(secondInstanceAction({ argv: ['nenova.exe'], locked: false, windowCount: MAX_WINDOWS - 1 }), 'new-window');
+  assert.equal(secondInstanceAction({ argv: ['nenova.exe'], locked: false, windowCount: MAX_WINDOWS }), 'focus-existing');
+  assert.equal(secondInstanceAction({ argv: ['nenova.exe'], locked: true, windowCount: 1 }), 'focus-existing');
+});
+
+test('cascadeWindowBounds offsets by +32,+32 and clamps inside primary and dual monitors', () => {
+  const primary = { x: 0, y: 0, width: 1920, height: 1040 };
+  const secondary = { x: 1920, y: 0, width: 1920, height: 1040 };
+  const displays = [{ workArea: primary }, { workArea: secondary }];
+
+  assert.equal(WINDOW_CASCADE_OFFSET, 32);
+  assert.deepEqual(
+    cascadeWindowBounds(null, displays, primary),
+    { x: 0, y: 0, width: 1600, height: 1000 }
+  );
+  assert.deepEqual(
+    cascadeWindowBounds({ x: 100, y: 60, width: 1200, height: 800 }, displays, primary),
+    { x: 132, y: 92, width: 1200, height: 800 }
+  );
+  assert.deepEqual(
+    cascadeWindowBounds({ x: 310, y: 30, width: 1600, height: 1000 }, displays, primary),
+    { x: 320, y: 40, width: 1600, height: 1000 }
+  );
+  assert.deepEqual(
+    cascadeWindowBounds({ x: 1960, y: 40, width: 1200, height: 800 }, displays, primary),
+    { x: 1992, y: 72, width: 1200, height: 800 }
+  );
+  assert.deepEqual(
+    clampBoundsToDisplays({ x: -100, y: -100, width: 500, height: 400 }, [{ workArea: { x: 0, y: 0, width: 1024, height: 768 } }], { x: 0, y: 0, width: 1024, height: 768 }),
+    { x: 0, y: 0, width: 800, height: 600 }
+  );
+});
+
+test('tabContextMenuItems exposes detach, close, and closeOthers with accurate enabled state', () => {
+  assert.deepEqual(tabContextMenuItems({ tabCount: 1, windowCount: 1, locked: false }), [
+    { id: 'detach', label: '새 창으로 분리', enabled: true },
+    { id: 'close', label: '탭 닫기', enabled: true },
+    { id: 'closeOthers', label: '다른 탭 닫기', enabled: false },
+  ]);
+  assert.deepEqual(tabContextMenuItems({ tabCount: 3, windowCount: 2, locked: false }), [
+    { id: 'detach', label: '새 창으로 분리', enabled: true },
+    { id: 'close', label: '탭 닫기', enabled: true },
+    { id: 'closeOthers', label: '다른 탭 닫기', enabled: true },
+  ]);
+  assert.deepEqual(tabContextMenuItems({ tabCount: 2, windowCount: MAX_WINDOWS, locked: false }), [
+    { id: 'detach', label: '새 창으로 분리', enabled: false },
+    { id: 'close', label: '탭 닫기', enabled: true },
+    { id: 'closeOthers', label: '다른 탭 닫기', enabled: true },
+  ]);
+  assert.deepEqual(tabContextMenuItems({ tabCount: 2, windowCount: 1, locked: true }), [
+    { id: 'detach', label: '새 창으로 분리', enabled: false },
+    { id: 'close', label: '탭 닫기', enabled: true },
+    { id: 'closeOthers', label: '다른 탭 닫기', enabled: true },
+  ]);
 });
