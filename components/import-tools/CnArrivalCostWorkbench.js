@@ -542,7 +542,7 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
         <table className={s.table}>
           <thead>
             <tr>
-              <th>No</th><th>품명</th><th>카테고리</th><th>수량(단)</th><th>FOB(CNY)</th><th>박스당단수</th><th>{isSea ? '단당 CBM' : '단당 CBM(kg)'}</th>
+              <th>No</th><th>품종</th><th>품명</th><th>수량(단)</th><th>FOB(CNY)</th><th>박스당단수</th><th>{isSea ? '단당 CBM' : '단당 CBM(kg)'}</th>
               {!isSea && <th>단당 중량(kg)</th>}<th>관세율(%)</th><th>단당줄기수</th>
               <th>{isSea ? '박스비(단)' : '허가증(단)'}</th><th>운송비(단)</th><th>CNF(단)</th><th>수수료(원)</th><th>관세(원)</th><th>그외통관(단)</th><th>도착원가(단)</th><th>줄기당 원가</th><th>목표마진 판매가</th>
             </tr>
@@ -553,12 +553,12 @@ export default function CnArrivalCostWorkbench({ orderYear, orderWeek, warehouse
               return (
                 <tr key={row.lineId} className={row.needsReview ? s.rowReview : row.edited ? s.rowEdited : undefined}>
                   <td>{row.lineNo}</td>
-                  <td className={s.name}>{row.name}{row.reviewReason && <span className={s.badge}>{row.reviewReason}</span>}{row.memoryApplied && <span className={s.badgeInfo}>기억값</span>}</td>
                   <td>
                     <select aria-label={`${row.name} 카테고리`} value={row.categoryCode} onChange={e => editRow(row.lineId, { categoryCode: e.target.value })} className={s.select}>
                       {categories.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
                     </select>
                   </td>
+                  <td className={s.name}>{row.name}{row.reviewReason && <span className={s.badge}>{row.reviewReason}</span>}{row.memoryApplied && <span className={s.badgeInfo}>기억값</span>}</td>
                   <td><input type="number" step="any" min="0" className={s.cell} aria-label={`${row.name} 수량`} value={row.quantity} onChange={e => editRow(row.lineId, { quantity: fromNum(e.target.value) })} /></td>
                   <td><input type="number" step="any" min="0" className={s.cell} aria-label={`${row.name} FOB`} value={row.fob} onChange={e => editRow(row.lineId, { fob: fromNum(e.target.value) })} /></td>
                   <td><input type="number" step="any" min="0" className={s.cell} aria-label={`${row.name} 박스당단수`} value={row.bunchesPerBox} onChange={e => editRow(row.lineId, { bunchesPerBox: fromNum(e.target.value) })} /></td>

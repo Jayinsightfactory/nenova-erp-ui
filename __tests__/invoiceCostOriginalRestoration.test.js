@@ -26,7 +26,7 @@ test('NL sample loss is added and cheapest selection uses an acyclic live formul
  assert.equal(JSON.stringify(f),before);
  assert.equal(s.Q10.f,'SUM(Q6:Q9)+S6+S7');
  assert.match(s.S6.f,/CE1-CD1/);assert.match(s.AC15.f,/MIN\(CE15,CE16,CE17\)/);
- assert.match(s.AB15.f,/B15/);assert.match(s.AB15.f,/B16/);
+ assert.match(s.AB15.f,/C15/);assert.match(s.AB15.f,/C16/);
  assert.match(s.AZ15.f,/SUM\(\$Q\$6:\$Q\$9\)\+\$S\$7\+0/);
  assert.match(s.BA15.f,/AZ\$1/);
  for(let r=15;r<=17;r++)assert.doesNotMatch(s[`CE${r}`].f,/\bM\d+|\$?Q\$?10|\$?S\$?6/,'selection cannot depend on final landed cost');
@@ -63,7 +63,9 @@ for(const[id,p]of Object.entries(RESTORED_COST_LAYOUTS))test(`${id} original cal
  const zip=await JSZip.loadAsync(bytes);assert.match(await zip.file('xl/workbook.xml').async('string'),/activeTab="0"/);
  assert.equal(zip.file('xl/worksheets/sheet2.xml'),null);
  assert.doesNotMatch(await zip.file('xl/worksheets/sheet1.xml').async('string'),/#REF!|<externalLink|원본수식 비교/);
- if(header>18)assert.match(await zip.file('xl/worksheets/sheet1.xml').async('string'),new RegExp(`ySplit="3" topLeftCell="B${header}"`),'long layouts must not freeze the data out of the viewport');
+ const restoredXml = await zip.file('xl/worksheets/sheet1.xml').async('string');
+ assert.match(restoredXml, /state="frozen"/, `${id}: freeze panes required`);
+ if(header>18)assert.match(restoredXml,new RegExp(`xSplit="4" ySplit="3" topLeftCell="E${header}" activePane="bottomRight" state="frozen"`),'long layouts must not freeze the data out of the viewport');
  if(id==='TH_ORIGINAL_V1')assert.doesNotMatch(s.P15.z,/%/,'legacy first-row percent style must not format currency');
  if(id==='TH_ORIGINAL_V1'){
   assert.equal(s.J10.v,f.snapshot.input.costGroups.reduce((n,g)=>n+g.boxQuantity,0));

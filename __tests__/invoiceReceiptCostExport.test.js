@@ -56,18 +56,28 @@ test('CO 42-1 restores original labels, defaults and live formulas without chang
   assert.equal(s.AL4.v, f.revision.totalCostKRW);
   assert.equal(s.B2?.v, undefined);
   assert.equal(s.B3?.v, undefined);
+  assert.equal(s.A14.v, '농장');
+  assert.equal(s.B14.v, '품종');
+  assert.equal(s.C14.v, 'Color\r\nGrade');
+  assert.equal(s.W14, undefined);
   for (let i=0; i<7; i++) {
     const r=15+i;
-    assert.equal(s[`B${r}`].v,f.document.lines[i].originalName);
+    assert.ok(['장미', '카네이션', '알스트로', '루스커스', '수국'].includes(s[`B${r}`].v));
+    assert.equal(s[`C${r}`].v,f.document.lines[i].originalName);
+    assert.equal(s[`W${r}`], undefined);
     assert.equal(s[`M${r}`].f,`J${r}+K${r}+L${r}`);
     assert.equal(s[`Q${r}`]?.v,s[`R${r}`].v,'unmatched item uses live recommendation, not another item price');
     assert.equal(s[`P${r}`].v,s[`Q${r}`].v/1.1);
   }
   assert.ok(Math.abs(s.AL12.v - Array.from({length:7},(_,i)=>s[`E${15+i}`].v*s[`M${15+i}`].v).reduce((a,b)=>a+b,0))<0.01);
   assert.equal(s.B22,undefined,'historical source rows must not leak');
+  assert.equal(s.C22,undefined,'historical source rows must not leak');
   const zip=await JSZip.loadAsync(bytes);
   assert.match(await zip.file('xl/workbook.xml').async('string'), /activeTab="0"/);
-  assert.match(await zip.file('xl/worksheets/sheet1.xml').async('string'), /activeCell="A1"/);
+  const coXml = await zip.file('xl/worksheets/sheet1.xml').async('string');
+  assert.match(coXml, /<pane xSplit="4" ySplit="14" topLeftCell="E15" activePane="bottomRight" state="frozen"\/>/);
+  assert.match(coXml, /activeCell="E15"/);
+  assert.match(coXml, /<autoFilter ref="A14:V21"\/>/);
 });
 
 test('CO original calculation keeps prior-year scope and explicit zero freight, and escapes names as text', async () => {
@@ -83,8 +93,8 @@ test('CO original calculation keeps prior-year scope and explicit zero freight, 
   f.revision.totalCostKRW=computed.totals.totalCostKRW;
   const bytes=await createInvoiceCostWorkbook(f), s=XLSX.read(bytes).Sheets['41-2'];
   assert.equal(s.C5.v,'41-2'); assert.equal(s.C11.v,0); assert.equal(s.G15.v,0);
-  assert.equal(s.B15.f,undefined); assert.match(s.B15.v,/HYPERLINK/);
-  assert.ok(!s.B15.v.includes('\u0001'));
+  assert.equal(s.C15.f,undefined); assert.match(s.C15.v,/HYPERLINK/);
+  assert.ok(!s.C15.v.includes('\u0001'));
 });
 
 test('all ten exports output single week sheet with self-contained formulas and honest missing CBM', async () => {
@@ -260,15 +270,16 @@ test('28 rows preserve OOXML style/theme/width/height/merges and exact approved 
   assert.equal(zip.file('xl/worksheets/sheet2.xml'), null);
   const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
   for (const part of [template.sheetFormatPr, template.print]) assert.ok(sheet.includes(part));
-  assert.ok(sheet.includes('ref="B51:D51"'));
+  assert.ok(sheet.includes('ref="C51:D51"'));
   const rowRefs = [...sheet.matchAll(/<row\s+r="(\d+)"/g)].map(m => m[1]);
   assert.equal(new Set(rowRefs).size, rowRefs.length);
   const workbook = XLSX.read(bytes, { cellStyles: true });
   assert.deepEqual(workbook.SheetNames, ['41-2']); const s = workbook.Sheets['41-2'];
+  assert.equal(s.B23.v, '품종'); assert.equal(s.C23.v, '원문 품목');
   assert.equal(s.O23.v, '원가(단위)'); assert.equal(s.AD23.v, '품목 원가 합계'); assert.equal(s.Y23.v, '전산 단위');
   const koUnit = { BUNCH: '단', STEM: '송이', BOX: '박스' };
   f.revision.lines.forEach((line, i) => {
-    assert.equal(s[`B${24 + i}`].v, f.document.lines[i].originalName);
+    assert.equal(s[`C${24 + i}`].v, f.document.lines[i].originalName);
     assert.ok(Math.abs(s[`O${24 + i}`].v - line.costPerUnitKRW) < 0.01);
     assert.ok(Math.abs(s[`AD${24 + i}`].v - line.totalCostKRW) < 0.01);
     assert.equal(s[`Y${24 + i}`].v, koUnit[line.unit]);
@@ -318,7 +329,7 @@ test('format-only template and generated package contain no historical rows, lit
   const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
   assert.doesNotMatch(sheet, /t="e"|#REF!|SERVER_ONLY_PRIVATE|ROSE|Gypsophila|372660|4706\.597090/);
   const s = XLSX.read(await zip.generateAsync({ type: 'nodebuffer' })).Sheets['41-2'];
-  assert.equal(s.B24.t, 's'); assert.equal(s.B24.f, undefined);
+  assert.equal(s.C24.t, 's'); assert.equal(s.C24.f, undefined);
   for (const row of template.rows) for (const cell of row.cells) assert.deepEqual(Object.keys(cell).sort(), ['ref', 'style']);
 });
 
@@ -381,7 +392,7 @@ for (const [profileId, filename, count] of [
     assert.equal(zip.file('xl/worksheets/sheet2.xml'), null);
     const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
     const last = profile.detailStartRow + count - 1;
-    assert.ok(sheet.includes(`ref="B${last}:D${last}"`));
+    assert.ok(sheet.includes(`ref="C${last}:D${last}"`));
     const refs = [...sheet.matchAll(/<row\s+r="(\d+)"/g)].map(m => m[1]);
     assert.equal(new Set(refs).size, refs.length);
     const output = XLSX.read(bytes, { cellNF: true }), s = output.Sheets['41-2'];
@@ -389,7 +400,7 @@ for (const [profileId, filename, count] of [
     const koUnit = { BUNCH: '단', STEM: '송이', BOX: '박스' };
     f.revision.lines.forEach((cost, i) => {
       const r = profile.detailStartRow + i;
-      assert.equal(s[`B${r}`].v, f.document.lines[i].originalName);
+      assert.equal(s[`C${r}`].v, f.document.lines[i].originalName);
       assert.equal(s[`Y${r}`].v, koUnit[cost.unit]);
       if (nl) {
         assert.ok(Math.abs(s[`O${r}`].v - cost.costPerUnitKRW) < 0.01);
@@ -548,17 +559,23 @@ for (const [id, assetName, filename] of [
     assert.equal(zip.file('xl/worksheets/sheet2.xml'), null);
     const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
     for (const part of [asset.sheetFormatPr, asset.print]) assert.ok(sheet.includes(part));
-    assert.ok(sheet.includes(`ref="${th ? 'C42:E42' : 'B42:D42'}"`));
+    assert.ok(sheet.includes(`ref="${th ? 'D42:E42' : 'C42:D42'}"`));
     const book = XLSX.read(buffer, { cellNF: true });
     assert.deepEqual(book.SheetNames, ['41-2']);
     const s = book.Sheets['41-2'];
     assert.equal(s[id === 'CO_42_1_ORIGINAL_V1' ? 'AL4' : 'AB6'].v, f.revision.totalCostKRW);
+    const coGroupKo = { ROSE: '장미', CARNATION: '카네이션', ALSTROMERIA: '알스트로', RUSCUS: '루스커스', HYDRANGEA: '수국' };
     f.revision.lines.forEach((cost, i) => {
       const r = 15 + i;
-      assert.equal(s[`${th ? 'C' : 'B'}${r}`].v, f.document.lines[i].originalName);
-      if (id === 'CO_42_1_ORIGINAL_V1') assert.ok(Math.abs(s[`O${r}`].v - s[`M${r}`].v * s[`N${r}`].v) < 0.01);
-      else assert.ok(Math.abs(s[`${th ? 'P' : 'O'}${r}`].v - cost.costPerUnitKRW) < 0.01);
-      assert.equal(s[`${id === 'CO_42_1_ORIGINAL_V1' ? 'W' : 'AC'}${r}`].v, f.snapshot.input.lineInputs[i].groupId);
+      assert.equal(s[`${th ? 'D' : 'C'}${r}`].v, f.document.lines[i].originalName);
+      if (id === 'CO_42_1_ORIGINAL_V1') {
+        assert.ok(Math.abs(s[`O${r}`].v - s[`M${r}`].v * s[`N${r}`].v) < 0.01);
+        assert.equal(s[`B${r}`].v, coGroupKo[f.snapshot.input.lineInputs[i].groupId]);
+        assert.equal(s[`W${r}`], undefined);
+      } else {
+        assert.ok(Math.abs(s[`${th ? 'P' : 'O'}${r}`].v - cost.costPerUnitKRW) < 0.01);
+        assert.equal(s[`AC${r}`].v, f.snapshot.input.lineInputs[i].groupId);
+      }
     });
     if (th) assert.doesNotMatch(s.P15.z || '', /%/);
     assert.doesNotMatch(sheet, /t="e"|#REF!|Den\. Big White|ALSTROMERIA Whistler/);

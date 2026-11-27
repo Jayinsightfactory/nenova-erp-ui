@@ -666,7 +666,7 @@ export default function ArrivalCostPage() {
             <div className="table-wrap">
               <table>
                 <thead><tr>
-                  <th>차수</th><th>국가</th><th>국가·품종</th><th>품목</th><th>농장별 원가</th>
+                  <th>차수</th><th>국가</th><th>품종</th><th>품목</th><th>농장별 원가</th>
                 </tr></thead>
                 <tbody>{weekSections.flatMap(section => [
                   <tr key={`week-${section.orderWeek || 'none'}`} className="week-head">
@@ -904,7 +904,7 @@ export default function ArrivalCostPage() {
         .week-sort { display: flex; gap: 6px; }
         .week-sort button { height: 32px; min-height: 32px; padding: 0 11px; font-size: 13px; }
         .week-sort button.active { color: #ffffff; background: #0f172a; border-color: #0f172a; font-weight: 700; }
-        .group-head { background: #f8fafc; font-weight: 700; cursor: pointer; content-visibility: auto; contain-intrinsic-size: 40px; }
+        .group-head { background: #f8fafc; font-weight: 700; cursor: pointer; }
         .three-tier-bar {
           padding: 12px 18px;
           background: #f8fafc;
@@ -986,9 +986,16 @@ export default function ArrivalCostPage() {
         .notice.error { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; }
         .table-card { padding: 0; overflow: hidden; }
         .table-card .section-title { padding: 14px 18px 10px; margin-bottom: 0; }
-        .table-wrap { overflow-x: auto; border-top: 1px solid #cbd5e1; }
-        table { border-collapse: collapse; width: 100%; min-width: 980px; font-size: 13.5px; }
-        th { background: #f8fafc; color: #334155; font-size: 12.5px; font-weight: 700; text-align: left; }
+        .table-wrap { overflow: auto; max-height: 72vh; border-top: 1px solid #cbd5e1; background: #ffffff; }
+        table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1040px; font-size: 13.5px; }
+        thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; color: #334155; font-size: 12.5px; font-weight: 700; text-align: left; }
+        thead th:nth-child(1), .group-head td:nth-child(1) { position: sticky; left: 0; width: 80px; min-width: 80px; max-width: 80px; }
+        thead th:nth-child(2), .group-head td:nth-child(2) { position: sticky; left: 80px; width: 84px; min-width: 84px; max-width: 84px; }
+        thead th:nth-child(3), .group-head td:nth-child(3) { position: sticky; left: 164px; width: 122px; min-width: 122px; max-width: 122px; }
+        thead th:nth-child(4), .group-head td:nth-child(4) { position: sticky; left: 286px; min-width: 240px; border-right: 1px solid #cbd5e1; }
+        thead th:nth-child(-n+4) { z-index: 5; background: #f8fafc; }
+        .group-head td:nth-child(-n+4) { z-index: 2; background: #f8fafc; }
+        .group-head:hover td:nth-child(-n+4) { background: #f1f5f9; }
         th, td { border-bottom: 1px solid #e2e8f0; padding: 9px 12px; vertical-align: middle; white-space: nowrap; }
         tr.needs-match { background: #fffbeb; }
         tr.cost-missing { background: #fef2f2; }

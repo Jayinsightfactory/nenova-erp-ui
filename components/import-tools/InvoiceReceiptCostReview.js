@@ -1254,17 +1254,18 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       <span>입력 중에는 행이 사라지지 않습니다. 입력 완료 후 미리보기로 전체 값을 검증하세요.</span>
     </div>
     <div className={styles.tableRegion} role="region" aria-label="행별 원가 입력과 결과" tabIndex={0}>
-      <table className={styles.table}><thead><tr><th>행</th><th>원문 품목</th><th>실제량</th><th>원문 금액/통화</th>{groupIds.length > 0 && <th>포장 그룹</th>}{lineFields.map(key => <th key={key}>{LINE_FIELD_LABELS[key] || key}</th>)}<th>실제 원가</th></tr></thead>
+      <table className={styles.table} data-grouped={groupIds.length > 0 ? 'true' : 'false'}><thead><tr><th>행</th>{groupIds.length > 0 && <th>품종(포장 그룹)</th>}<th>원문 품목</th><th>실제량</th><th>원문 금액/통화</th>{lineFields.map(key => <th key={key}>{LINE_FIELD_LABELS[key] || key}</th>)}<th>실제 원가</th></tr></thead>
         <tbody>{receiptLines.map((line, index) => {
           if (manualLineFilter?.identity === identity && !manualLineFilter.ids.includes(line.lineId)) return null;
           const lineInput = form.lineInputs.find(item => item.lineId === line.lineId) || {};
           const result = lineResult.get(String(line.lineId).toLowerCase());
           const matchedProduct = products.find(product => Number(product.ProdKey) === Number(line.prodKey));
-          return <tr key={line.lineId || index}><td>{line.lineNo ?? index + 1}</td><td className={styles.productCell}><strong>{line.originalName || '품목명 없음'}</strong><small>{line.lengthText || ''}{line.prodKey ? `${line.lengthText ? ' · ' : ''}전산 품목 ${line.prodKey}` : ''}</small>
+          return <tr key={line.lineId || index}><td>{line.lineNo ?? index + 1}</td>
+            {groupIds.length > 0 && <td><select aria-label={`${index + 1}행 포장 그룹`} value={lineInput.groupId ?? ''} onChange={event => updateLine(line.lineId, 'groupId', event.target.value)}><option value="">그룹을 선택하세요</option>{groupIds.map(groupId => <option key={groupId} value={groupId}>{groupLabel(groupId)}</option>)}</select></td>}
+            <td className={styles.productCell}><strong>{line.originalName || '품목명 없음'}</strong><small>{line.lengthText || ''}{line.prodKey ? `${line.lengthText ? ' · ' : ''}전산 품목 ${line.prodKey}` : ''}</small>
             {matchedProduct && <small>매칭: {matchedProduct.ProdName}{matchedProduct.DisplayName && matchedProduct.DisplayName !== matchedProduct.ProdName ? ` · ${matchedProduct.DisplayName}` : ''}</small>}
             {onEditAllocation && line.sourceEvidence?.allocationSourceId && <button type="button" disabled={busy || exportBusy} onClick={onEditAllocation} aria-label={`${line.lineNo ?? index + 1}행 Woolly bush 품목 변경`}>품목 선택·변경</button>}
           </td><td>{line.outQuantity ?? '—'} {line.outUnit || ''}</td><td>{line.lineAmount ?? '—'} {line.currency || '통화 없음'}</td>
-            {groupIds.length > 0 && <td><select aria-label={`${index + 1}행 포장 그룹`} value={lineInput.groupId ?? ''} onChange={event => updateLine(line.lineId, 'groupId', event.target.value)}><option value="">그룹을 선택하세요</option>{groupIds.map(groupId => <option key={groupId} value={groupId}>{groupLabel(groupId)}</option>)}</select></td>}
             {lineFields.map(key => <td key={key}><input aria-label={`${index + 1}행 ${LINE_FIELD_LABELS[key] || key}`} type="number" min="0" max={key === 'tariffRate' ? '100' : undefined} step="0.000001" placeholder="직접 입력" aria-invalid={neededByLine.get(line.lineId).includes(key)} value={key === 'tariffRate' ? lineInput.tariffPercentText ?? tariffPercent(lineInput[key]) : lineInput[key] ?? ''} onChange={event => updateLine(line.lineId, key, key === 'tariffRate' ? tariffFraction(event.target.value) : event.target.value, event.target.value)} />
               {key === 'tariffRate' && <small>% · 25 입력 = 25%</small>}
               {key === 'tariffRate' && document?.reviewedMetadata?.tariffDefaults?.[line.lineId] && <small className={styles.muted}>기본값 근거: {document.reviewedMetadata.tariffDefaults[line.lineId].label} · 직접 수정 가능</small>}

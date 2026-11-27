@@ -473,4 +473,23 @@ test('전 구간 품종·농장·품목 3단 원클릭 버튼 조회 · 사용�
     const compSrc = fs.readFileSync(path.join(root, rel), 'utf8');
     assert.match(compSrc, /도착원가 업로드 검토로 바로 보내기/, `${rel}: 원클릭 브릿지 버튼 존재`);
   }
+
+  // 웹·데스크톱 도착원가 표: 농장|품종|품목 순서 배치 + 상단(top:0) 및 좌측(left:...) 동시 고정헤드(Sticky) 계약
+  const sharedUi = fs.readFileSync(path.join(root, 'components/import-tools/SharedAwbCostReview.js'), 'utf8');
+  assert.match(sharedUi, /<th>농장·송장<\/th>\s*<th>품종<\/th>\s*<th>품목<\/th>/);
+  assert.match(sharedUi, /<th>농장<\/th>\s*<th>품종<\/th>\s*<th>품목명<\/th>/);
+  const cnUi = fs.readFileSync(path.join(root, 'components/import-tools/CnArrivalCostWorkbench.js'), 'utf8');
+  assert.match(cnUi, /<th>No<\/th><th>품종<\/th><th>품명<\/th><th>수량\(단\)<\/th>/);
+  assert.match(pageSrc, /<th>차수<\/th><th>국가<\/th><th>품종<\/th><th>품목<\/th><th>농장별 원가<\/th>/);
+  assert.match(pageSrc, /position:\s*sticky;\s*left:\s*0/);
+  for (const cssRel of [
+    'styles/ArrivalCostLedger.module.css',
+    'styles/CnArrivalCost.module.css',
+    'styles/InvoiceReceiptCost.module.css',
+  ]) {
+    const cssSrc = fs.readFileSync(path.join(root, cssRel), 'utf8');
+    assert.match(cssSrc, /position:\s*sticky[\s\S]*?top:\s*0/, `${cssRel}: 상단 고정헤드(top:0)`);
+    assert.match(cssSrc, /position:\s*sticky[\s\S]*?left:\s*0/, `${cssRel}: 좌측 식별열 고정(left:0)`);
+    assert.match(cssSrc, /border-collapse:\s*separate/, `${cssRel}: sticky 테두리 깨짐 방지 border-collapse: separate`);
+  }
 });
