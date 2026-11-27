@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { auInvoiceTariffDefault } from '../../lib/auInvoiceTariffDefaults.js';
 import { vnInvoiceTariffDefault } from '../../lib/vnOriginalCostInputs.js';
+import { arrivalBridgeCountryLabel, sendWorkbookToArrivalUploadReview } from '../../lib/arrivalCostUploadBridge.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview';
 import styles from '../../styles/NativeReceiptCost.module.css';
 import WorkflowGuide from '../WorkflowGuide';
@@ -21,8 +22,9 @@ function chinaTransport(source) {
   return '';
 }
 
-export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, onClose, onOpenSharedAwb }) {
+export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, onClose, onOpenSharedAwb, onSendToUploadReview = null }) {
   const [data, setData] = useState(null), [error, setError] = useState('');
+  const [bridgeNotice, setBridgeNotice] = useState('');
   const [metadata, setMetadata] = useState({ currency: '', transportMode: '', gw: '', cw: '' });
   const [applied, setApplied] = useState(null);
   const [autoApplied, setAutoApplied] = useState(false);
@@ -56,12 +58,27 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
   }, [orderYear, orderWeek, warehouseKey]);
   async function action(action, input) {
     const expected = generation.current;
+    const wireAction = action === 'bridge' ? 'download' : action;
     const response = await fetch('/api/import/receipts/native-cost', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderYear, orderWeek, warehouseKey, sourceHash: data.source.sourceHash, metadata: applied, action, input }) });
+      body: JSON.stringify({ orderYear, orderWeek, warehouseKey, sourceHash: data.source.sourceHash, metadata: applied, action: wireAction, input }) });
     if (!response.ok) { const value = await response.json(); throw new Error(value.error || '계산 실패'); }
     if (action === 'preview') return response.json();
     const blob = await response.blob();
     if (!active.current || expected !== generation.current) return;
+    const countryKo = arrivalBridgeCountryLabel(data?.source?.country || '');
+    const fileName = `${countryKo ? `${countryKo}_` : ''}도착원가_계산본_${orderYear}_${orderWeek}_${warehouseKey}.xlsx`;
+    if (action === 'bridge') {
+      await sendWorkbookToArrivalUploadReview({
+        blob,
+        fileName,
+        orderYear,
+        orderWeek,
+        country: countryKo,
+        onSendToUploadReview,
+      });
+      setBridgeNotice(`계산한 원가 엑셀(${fileName})을 도착원가 업로드 검토 패널로 전달했습니다.`);
+      return;
+    }
     const url = URL.createObjectURL(blob), link = window.document.createElement('a');
     link.href = url; link.download = `도착원가_계산본_${orderYear}_${orderWeek}_${warehouseKey}.xlsx`;
     link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -128,10 +145,17 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
         <p>적용 환율 {downloadInput?.exchangeRateKRW ?? '조회 필요'}원/EUR {inputDraft?.edited ? '(현재 수정값)' : '(현재 시세 + 15원)'} · 통관비 {downloadInput?.customsTotalKRW?.toLocaleString('ko-KR') ?? '중량 확인 필요'}원</p>
         <p>{data.automatic.input.estimateSource}</p>
         {data.rateError && <p role="alert">{data.rateError}</p>}
-        <button type="button" disabled={downloading || editedNeedsReview || (!inputDraft?.edited && data.automatic.missing.length > 0) || JSON.stringify(applied) !== JSON.stringify(metadata)}
-          onClick={async () => { setDownloading(true); setError(''); try { await action('download', downloadInput); } catch (e) { setError(e.message); } finally { if (active.current) setDownloading(false); } }}>
-          {downloading ? '네덜란드 엑셀 생성 중…' : editedNeedsReview ? '다운로드 대기 · 수정한 값의 공식 적용 확인 필요' : !inputDraft?.edited && data.automatic.missing.length ? `자동 다운로드 대기 · ${data.automatic.missing.join(' · ')} 확인 필요` : inputDraft?.edited ? '네덜란드 도착원가 엑셀 다운로드 · 현재 수정값 적용' : '네덜란드 도착원가 엑셀 다운로드 · 서식 기본값 계산본'}
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" disabled={downloading || editedNeedsReview || (!inputDraft?.edited && data.automatic.missing.length > 0) || JSON.stringify(applied) !== JSON.stringify(metadata)}
+            onClick={async () => { setDownloading(true); setError(''); setBridgeNotice(''); try { await action('bridge', downloadInput); } catch (e) { setError(e.message); } finally { if (active.current) setDownloading(false); } }}>
+            도착원가 업로드 검토로 바로 보내기
+          </button>
+          <button type="button" disabled={downloading || editedNeedsReview || (!inputDraft?.edited && data.automatic.missing.length > 0) || JSON.stringify(applied) !== JSON.stringify(metadata)}
+            onClick={async () => { setDownloading(true); setError(''); setBridgeNotice(''); try { await action('download', downloadInput); } catch (e) { setError(e.message); } finally { if (active.current) setDownloading(false); } }}>
+            {downloading ? '네덜란드 엑셀 생성 중…' : editedNeedsReview ? '다운로드 대기 · 수정한 값의 공식 적용 확인 필요' : !inputDraft?.edited && data.automatic.missing.length ? `자동 다운로드 대기 · ${data.automatic.missing.join(' · ')} 확인 필요` : inputDraft?.edited ? '네덜란드 도착원가 엑셀 다운로드 · 현재 수정값 적용' : '네덜란드 도착원가 엑셀 다운로드 · 서식 기본값 계산본'}
+          </button>
+        </div>
+        {bridgeNotice && <p role="status">{bridgeNotice}</p>}
       </div>}
       {data.source.country === 'AU' && <div role="status"><strong>호주 원가는 입고관리의 저장 총액(출하단가)을 기준으로 계산합니다.</strong>
         <p>CNF 단당 계산값 = 저장 총액 ÷ 단수. 입고의 원래 단가·총액은 변경하지 않습니다.</p>

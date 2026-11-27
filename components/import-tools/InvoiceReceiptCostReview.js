@@ -1296,13 +1296,22 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     </>}
     <div className={styles.actions}>
       <button data-cost-preview type="button" onClick={runPreview} disabled={busy}>입력값으로 미리보기</button>
-      {nativePreview ? <button data-cost-download type="button" className={styles.primary} disabled={downloadFeedback.disabled} title={downloadFeedback.reason || '미승인 계산본을 다운로드합니다.'} aria-describedby={downloadFeedback.disabled ? 'cost-download-reason' : undefined} onClick={async () => {
-        const expectedIdentity = identity, generation = generationRef.current;
-        setBusyIdentity(identity);
-        try { await onNativeAction('download', downloadInput); if(isCurrent(expectedIdentity,generation))setNotice({type:'success',text:'미승인 계산본 엑셀 다운로드를 시작했습니다. 입고·승인 원가는 변경하지 않았습니다.'}); }
-        catch (error) { if (isCurrent(expectedIdentity, generation)) setNotice({ type: 'error', text: error.message }); }
-        finally { if (isCurrent(expectedIdentity, generation)) setBusyIdentity(''); }
-      }}><span>도착원가 엑셀 다운로드 · 미승인 계산본</span>{downloadFeedback.disabled && <small className={styles.downloadReason}>{downloadFeedback.reason.length > 180 ? `${downloadFeedback.reason.slice(0,180)}… (아래 상세 사유 확인)` : downloadFeedback.reason}</small>}</button> : <>
+      {nativePreview ? <>
+        <button type="button" disabled={downloadFeedback.disabled || busy} onClick={async () => {
+          const expectedIdentity = identity, generation = generationRef.current;
+          setBusyIdentity(identity);
+          try { await onNativeAction('bridge', downloadInput); if (isCurrent(expectedIdentity, generation)) setNotice({ type: 'success', text: '계산한 원가 엑셀을 도착원가 업로드 검토 패널로 전달했습니다.' }); }
+          catch (error) { if (isCurrent(expectedIdentity, generation)) setNotice({ type: 'error', text: error.message }); }
+          finally { if (isCurrent(expectedIdentity, generation)) setBusyIdentity(''); }
+        }}>도착원가 업로드 검토로 바로 보내기</button>
+        <button data-cost-download type="button" className={styles.primary} disabled={downloadFeedback.disabled} title={downloadFeedback.reason || '미승인 계산본을 다운로드합니다.'} aria-describedby={downloadFeedback.disabled ? 'cost-download-reason' : undefined} onClick={async () => {
+          const expectedIdentity = identity, generation = generationRef.current;
+          setBusyIdentity(identity);
+          try { await onNativeAction('download', downloadInput); if(isCurrent(expectedIdentity,generation))setNotice({type:'success',text:'미승인 계산본 엑셀 다운로드를 시작했습니다. 입고·승인 원가는 변경하지 않았습니다.'}); }
+          catch (error) { if (isCurrent(expectedIdentity, generation)) setNotice({ type: 'error', text: error.message }); }
+          finally { if (isCurrent(expectedIdentity, generation)) setBusyIdentity(''); }
+        }}><span>도착원가 엑셀 다운로드 · 미승인 계산본</span>{downloadFeedback.disabled && <small className={styles.downloadReason}>{downloadFeedback.reason.length > 180 ? `${downloadFeedback.reason.slice(0,180)}… (아래 상세 사유 확인)` : downloadFeedback.reason}</small>}</button>
+      </> : <>
         <label><span>승인 사유</span><input value={reason} onChange={event => { pristineRef.current = false; setInputEdited(true); setReason(event.target.value); update('formulaApplicabilityConfirmed', false); }} placeholder="검토 근거를 입력하세요" /></label>
         <button type="button" className={styles.primary} onClick={save} disabled={busy || Boolean(pending) || preview?.status !== 'APPROVED' || !reason.trim()}>{busy ? '저장 중…' : '원가 승인 저장'}</button>
       </>}

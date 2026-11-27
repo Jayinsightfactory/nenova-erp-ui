@@ -8,7 +8,7 @@ import ArrivalWeekCostReview from './ArrivalWeekCostReview';
 import CnArrivalCostWorkbench from './CnArrivalCostWorkbench';
 import { baseCountry } from '../../lib/countryClassification.js';
 
-export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoiceNo, country }) {
+export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoiceNo, country, onSendToUploadReview = null }) {
   const scope = `${orderYear}/${orderWeek}/${invoiceNo ?? '*'}/${country ?? '*'}`;
   const live = useRef(scope); live.current = scope;
   const [state, setState] = useState({ rows: [], loading: true });
@@ -161,7 +161,7 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
         </label>
       </section>
 
-      <ArrivalWeekCostReview orderYear={orderYear} orderWeek={orderWeek} selectionRequest={selectionRequest} />
+      <ArrivalWeekCostReview orderYear={orderYear} orderWeek={orderWeek} selectionRequest={selectionRequest} onSendToUploadReview={onSendToUploadReview} />
 
       {invoiceNo != null && (
         <p className={ledger.statusNotice}>
@@ -215,6 +215,7 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
         <SharedAwbCostReview
           key={`${sharedAwbState.awb}:${sharedAwbState.scope}`}
           native={{ orderYear, orderWeek, awb: sharedAwbState.awb, scope: sharedAwbState.scope }}
+          onSendToUploadReview={onSendToUploadReview}
         />
       )}
       {state.loading && <p className={ledger.statusNotice} role="status">입고내역 조회 중…</p>}
@@ -227,6 +228,7 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
           orderWeek={orderWeek}
           warehouseKey={nativeKey}
           onClose={() => setNativeKey(null)}
+          onSendToUploadReview={onSendToUploadReview}
           onOpenSharedAwb={awb => {
             setNativeKey(null);
             setSharedAwbState({ awb, scope: 'MAIN' });
@@ -242,6 +244,7 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoi
           warehouseKeys={cnKeys}
           onClose={() => setCnKeys(null)}
           onOpenLegacy={k => { setCnKeys(null); setNativeKey(k); }}
+          onSendToUploadReview={onSendToUploadReview}
         />
       ) : rows.length > 0 ? (
         <div className={ledger.ledgerTableWrap}>

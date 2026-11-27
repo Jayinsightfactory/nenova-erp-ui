@@ -8,7 +8,21 @@ import InvoiceArrivalCostPanel from '../components/import-tools/InvoiceArrivalCo
 import InvoiceWarehouseCostBrowse from '../components/import-tools/InvoiceWarehouseCostBrowse';
 import {normalizeWarehouseBrowse} from '../lib/invoiceWarehouseBrowse.js';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
-import { arrivalVarietyWeightActive, arrivalWeightHints, filterArrivalRowsByWeight, formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder, rowCost, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
+import { consumePendingArrivalUploadBridge } from '../lib/arrivalCostUploadBridge.js';
+import {
+  arrivalVarietyWeightActive,
+  arrivalWeightHints,
+  buildArrivalThreeTierChips,
+  filterArrivalRowsByWeight,
+  filterArrivalRowsThreeTier,
+  formatFarmCostSummary,
+  groupArrivalCostRows,
+  normalizeArrivalVarietyTabs,
+  normalizeWeekOrder,
+  rowCost,
+  sectionArrivalCostGroupsByWeek,
+  summarizeArrivalFilteredRows,
+} from '../lib/arrivalCostView.js';
 import { recalcArrivalCostWithFx } from '../lib/arrivalCostFxPreview.js';
 import { formatOrderWeekDateRange } from '../lib/orderWeekDate.js';
 
@@ -118,7 +132,29 @@ export default function ArrivalCostPage() {
   const [history, setHistory] = useState(null);
   const [varieties, setVarieties] = useState([]);
   const [scopeReady, setScopeReady] = useState(false);
+  const [incomingUpload, setIncomingUpload] = useState(null);
+  const uploadSectionRef = useRef(null);
   const requestRef = useRef({ id: 0, controller: null });
+
+  const handleSendToUploadReview = useCallback((payload) => {
+    if (!payload?.file) return;
+    setIncomingUpload(payload);
+    if (payload.orderYear || payload.orderWeek) {
+      setFilters(prev => ({
+        ...prev,
+        orderYear: payload.orderYear || prev.orderYear,
+        orderWeek: payload.orderWeek || prev.orderWeek,
+      }));
+    }
+    setTimeout(() => {
+      uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  }, []);
+
+  useEffect(() => {
+    const pending = consumePendingArrivalUploadBridge();
+    if (pending) handleSendToUploadReview(pending);
+  }, [handleSendToUploadReview]);
 
   useEffect(() => {
     if (String(filters.product || '').trim()) return undefined;
@@ -238,14 +274,62 @@ export default function ArrivalCostPage() {
     return rowCost(row);
   }, [previewFxActive, previewFxNum]);
   const [expandedGroups, setExpandedGroups] = useState({});
+  const [selectedChipVarieties, setSelectedChipVarieties] = useState([]);
+  const [multiChipVariety, setMultiChipVariety] = useState(false);
+  const [selectedChipFarms, setSelectedChipFarms] = useState([]);
+  const [multiChipFarm, setMultiChipFarm] = useState(false);
+  const [selectedChipProducts, setSelectedChipProducts] = useState([]);
+  const [multiChipProduct, setMultiChipProduct] = useState(false);
+  const [showAllChipProducts, setShowAllChipProducts] = useState(false);
+  const [quickChipQuery, setQuickChipQuery] = useState('');
+  const [groupLimit, setGroupLimit] = useState(100);
+
+  const cleanVarieties = useMemo(() => normalizeArrivalVarietyTabs(varieties), [varieties]);
   const visibleRows = useMemo(
     () => (weightRuleOn ? filterArrivalRowsByWeight(data.rows || []) : (data.rows || [])),
     [data.rows, weightRuleOn],
   );
-  const weeks = useMemo(() => [...new Set(visibleRows.map(row => row.orderWeek).filter(Boolean))], [visibleRows]);
-  const unmatched = visibleRows.filter(row => row.matchStatus !== 'MATCHED').length;
-  const groups = useMemo(() => groupArrivalCostRows(visibleRows), [visibleRows]);
-  const weekSections = useMemo(() => sectionArrivalCostGroupsByWeek(groups), [groups]);
+  useEffect(() => {
+    setSelectedChipVarieties([]);
+    setSelectedChipFarms([]);
+    setSelectedChipProducts([]);
+    setShowAllChipProducts(false);
+    setQuickChipQuery('');
+    setGroupLimit(100);
+  }, [data.rows]);
+  useEffect(() => {
+    setGroupLimit(100);
+  }, [selectedChipVarieties, selectedChipFarms, selectedChipProducts, quickChipQuery, weightRuleOn]);
+
+  const chipVarietySet = useMemo(() => new Set(selectedChipVarieties), [selectedChipVarieties]);
+  const chipFarmSet = useMemo(() => new Set(selectedChipFarms), [selectedChipFarms]);
+  const chipProductSet = useMemo(() => new Set(selectedChipProducts), [selectedChipProducts]);
+  const chipModel = useMemo(
+    () => buildArrivalThreeTierChips(visibleRows, { selectedVarieties: selectedChipVarieties, selectedFarms: selectedChipFarms }),
+    [visibleRows, selectedChipVarieties, selectedChipFarms],
+  );
+  const filteredRows = useMemo(
+    () => filterArrivalRowsThreeTier(visibleRows, {
+      selectedVarieties: selectedChipVarieties,
+      selectedFarms: selectedChipFarms,
+      selectedProducts: selectedChipProducts,
+      quickQuery: quickChipQuery,
+    }),
+    [visibleRows, selectedChipVarieties, selectedChipFarms, selectedChipProducts, quickChipQuery],
+  );
+  const hasChipFilter = selectedChipVarieties.length > 0 || selectedChipFarms.length > 0 || selectedChipProducts.length > 0 || quickChipQuery.trim().length > 0;
+  const visibleProductButtons = showAllChipProducts || chipModel.productButtons.length <= 24
+    ? chipModel.productButtons
+    : chipModel.productButtons.slice(0, 24);
+  const subtotalSummary = useMemo(
+    () => summarizeArrivalFilteredRows(filteredRows, farmSummaryCostFn),
+    [filteredRows, farmSummaryCostFn],
+  );
+  const weeks = useMemo(() => [...new Set(filteredRows.map(row => row.orderWeek).filter(Boolean))], [filteredRows]);
+  const unmatched = filteredRows.filter(row => row.matchStatus !== 'MATCHED').length;
+  const groups = useMemo(() => groupArrivalCostRows(filteredRows), [filteredRows]);
+  const pagedGroups = useMemo(() => groups.slice(0, groupLimit), [groups, groupLimit]);
+  const weekSections = useMemo(() => sectionArrivalCostGroupsByWeek(pagedGroups), [pagedGroups]);
   const toggleGroup = (key) => setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   const weightHints = useMemo(() => arrivalWeightHints(data.rows || []), [data.rows]);
   const currentWeekOrder = normalizeWeekOrder(appliedFilters.weekOrder);
@@ -314,21 +398,21 @@ export default function ArrivalCostPage() {
             </div>
             <h2 data-desktop-chrome>도착원가</h2>
             <p className="purpose-headline">국가별·공동 AWB 운임·통관 실비를 정확히 배부해 품목별 도착원가를 산출하고 미검증 원가의 원장 반영을 차단합니다.</p>
-            <p className="purpose-sub">인보이스에서 승인 저장한 도착원가가 아래 내역에 자동 반영됩니다. 엑셀 재업로드는 필요 없습니다. 기존 입고·주문·출고·재고·손익 원장은 변경하지 않습니다.</p>
+            <p className="purpose-sub">상단 계산기에서 산출한 원가 엑셀은 [도착원가 업로드 검토로 바로 보내기] 또는 [엑셀 업로드]에서 검토·저장하면 아래 도착원가 내역과 입고·운송·매출이익 참고 원가에 반영됩니다(수입부 업무도구 승인 인보이스 원가는 자동 표시). 기존 입고·주문·출고·재고·손익 원장은 변경하지 않습니다.</p>
           </div>
         </section>
 
         <section className="arrival-card" aria-label="차수 입고자료로 원가 작성">
           <div className="section-title">입고자료로 도착원가 계산</div>
           {receiptScope
-            ? <InvoiceWarehouseCostBrowse orderYear={receiptScope.orderYear} orderWeek={receiptScope.orderWeek} country={appliedFilters.country}/>
+            ? <InvoiceWarehouseCostBrowse orderYear={receiptScope.orderYear} orderWeek={receiptScope.orderWeek} country={appliedFilters.country} onSendToUploadReview={handleSendToUploadReview} />
             : <p className="scope-empty-prompt">아래 검색에서 연도·표시 차수(예: 48-01)를 입력하고 조회하면 업로드한 입고를 선택해 국가별·통합·공동 AWB 도착원가를 작성할 수 있습니다. 승인 원가가 없어도 계산본을 작성할 수 있습니다.</p>}
         </section>
         <details className="approved-details"><summary>인보이스 승인 이력·엑셀 다운로드</summary><InvoiceArrivalCostPanel orderYear={appliedFilters.orderYear} orderWeek={appliedFilters.orderWeek} country={appliedFilters.country} /></details>
         <ArrivalDriveAutoPanel />
-        <section className="arrival-card">
+        <section id="arrival-upload-section" ref={uploadSectionRef} className="arrival-card">
           <div className="section-title">엑셀 업로드</div>
-          <ArrivalUploadReview orderYear={filters.orderYear} orderWeek={filters.orderWeek} onSaved={json=>{setMessage(json.message);if(json.viewScope){setFilters(json.viewScope);setAppliedFilters(json.viewScope);setPage(1);}else load(page,appliedFilters);}} />
+          <ArrivalUploadReview orderYear={filters.orderYear} orderWeek={filters.orderWeek} incomingUpload={incomingUpload} onSaved={json=>{setMessage(json.message);if(json.viewScope){setFilters(json.viewScope);setAppliedFilters(json.viewScope);setPage(1);}else load(page,appliedFilters);}} />
           <div className="hint">같은 연도·차수·국가를 다시 올리면 새 revision이 현재본이 되고, 기존 revision은 이력으로 남습니다.</div>
         </section>
 
@@ -349,7 +433,7 @@ export default function ArrivalCostPage() {
           <div className="hint">품목은 붙여넣기 매칭데이터 기준으로 찾습니다. 아래 버튼은 전산 국가·품종(CountryFlower)입니다. 품목명 없이 품종 버튼만 눌러도 조회됩니다. 결과는 차수 → 국가 → 품종 → 품목명 → 농장별 원가 순입니다.</div>
           <div className="variety-tabs" role="tablist" aria-label="국가·품종 선택">
             <button type="button" role="tab" aria-selected={appliedFilters.allVarieties === '1' || (!appliedFilters.flower && !!String(appliedFilters.product || '').trim())} className={appliedFilters.allVarieties === '1' || (!appliedFilters.flower && !!String(appliedFilters.product || '').trim()) ? 'active' : ''} onClick={showAll}>전체보기</button>
-            {varieties.map((name) => {
+            {cleanVarieties.map((name) => {
               const ruleOn = weightRuleOn && arrivalVarietyWeightActive(name, data.rows || []);
               const selected = appliedFilters.flower === name;
               return (
@@ -364,10 +448,10 @@ export default function ArrivalCostPage() {
               );
             })}
             {!scopeReady && !String(filters.product || '').trim() && <span className="muted">연도를 선택하면 품종 탭이 나옵니다. 품종만 눌러도 검색됩니다.</span>}
-            {String(appliedFilters.product || '').trim() && varieties.length === 0 && !loading && <span className="muted">검색된 품종이 없습니다.</span>}
+            {String(appliedFilters.product || '').trim() && cleanVarieties.length === 0 && !loading && <span className="muted">검색된 품종이 없습니다.</span>}
           </div>
           <div className="summary-row">
-            <span>현재본 {Number(data.total || 0).toLocaleString()}행 · 화면 {visibleRows.length.toLocaleString()}행</span>
+            <span>현재본 {Number(data.total || 0).toLocaleString()}행 · 화면 {filteredRows.length.toLocaleString()}행</span>
             <span>매칭확인 필요 {unmatched.toLocaleString()}행</span>
             <span>차수 {weeks.join(', ') || '-'}</span>
             <label className="weight-rule">
@@ -405,7 +489,180 @@ export default function ArrivalCostPage() {
 
         <section className="arrival-card table-card">
           <div className="section-title">도착원가 내역 <span className="muted">(현재 revision)</span></div>
-          {loading ? <div className="empty">조회 중입니다.</div> : data.rows.length === 0 ? <div className="empty">선택 범위에 표시할 품목이 없습니다.</div> : visibleRows.length === 0 ? <div className="empty">지금 활성화된 품종이 아닙니다. 전체보기나 특별기준을 끄면 전체가 보입니다.</div> : (
+          {!loading && visibleRows.length > 0 && (
+            <div className="three-tier-bar" aria-label="품종·농장·품목 원클릭 필터">
+              <div className="tier-row" role="toolbar" aria-label="품종별 버튼 필터">
+                <span className="tier-label">품종별</span>
+                <div className="tier-chips">
+                  <button
+                    type="button"
+                    className={selectedChipVarieties.length === 0 ? 'chip active' : 'chip'}
+                    aria-pressed={selectedChipVarieties.length === 0}
+                    onClick={() => { setSelectedChipVarieties([]); setSelectedChipFarms([]); setSelectedChipProducts([]); }}
+                  >
+                    전체 품종 ({visibleRows.length})
+                  </button>
+                  {chipModel.varietyButtons.map(item => {
+                    const active = chipVarietySet.has(item.label);
+                    return (
+                      <button
+                        key={item.label}
+                        type="button"
+                        className={active ? 'chip active' : 'chip'}
+                        aria-pressed={active}
+                        onClick={e => {
+                          const additive = multiChipVariety || e.metaKey || e.ctrlKey || e.shiftKey;
+                          setSelectedChipFarms([]);
+                          setSelectedChipProducts([]);
+                          setSelectedChipVarieties(prev => {
+                            if (!additive) return prev.length === 1 && prev[0] === item.label ? [] : [item.label];
+                            return prev.includes(item.label) ? prev.filter(x => x !== item.label) : [...prev, item.label];
+                          });
+                        }}
+                      >
+                        {item.label} ({item.count})
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="tier-tools">
+                  <button
+                    type="button"
+                    className={multiChipVariety ? 'chip-mode on' : 'chip-mode'}
+                    aria-pressed={multiChipVariety}
+                    onClick={() => setMultiChipVariety(v => !v)}
+                  >
+                    복수 선택
+                  </button>
+                </div>
+              </div>
+
+              {chipModel.farmButtons.length > 0 && (
+                <div className="tier-row" role="toolbar" aria-label="농장별 버튼 필터">
+                  <span className="tier-label">농장별</span>
+                  <div className="tier-chips">
+                    <button
+                      type="button"
+                      className={selectedChipFarms.length === 0 ? 'chip active' : 'chip'}
+                      aria-pressed={selectedChipFarms.length === 0}
+                      onClick={() => { setSelectedChipFarms([]); setSelectedChipProducts([]); }}
+                    >
+                      전체 농장 ({chipModel.farmButtons.length})
+                    </button>
+                    {chipModel.farmButtons.map(item => {
+                      const active = chipFarmSet.has(item.farmName);
+                      return (
+                        <button
+                          key={item.farmName}
+                          type="button"
+                          className={active ? 'chip active' : 'chip'}
+                          aria-pressed={active}
+                          onClick={e => {
+                            const additive = multiChipFarm || e.metaKey || e.ctrlKey || e.shiftKey;
+                            setSelectedChipProducts([]);
+                            setSelectedChipFarms(prev => {
+                              if (!additive) return prev.length === 1 && prev[0] === item.farmName ? [] : [item.farmName];
+                              return prev.includes(item.farmName) ? prev.filter(x => x !== item.farmName) : [...prev, item.farmName];
+                            });
+                          }}
+                        >
+                          {item.farmName} ({item.count})
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="tier-tools">
+                    <button
+                      type="button"
+                      className={multiChipFarm ? 'chip-mode on' : 'chip-mode'}
+                      aria-pressed={multiChipFarm}
+                      onClick={() => setMultiChipFarm(v => !v)}
+                    >
+                      복수 농장
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="tier-row" role="toolbar" aria-label="품목별 버튼 필터">
+                <span className="tier-label">품목별</span>
+                <div className="tier-chips">
+                  <button
+                    type="button"
+                    className={selectedChipProducts.length === 0 ? 'chip active' : 'chip'}
+                    aria-pressed={selectedChipProducts.length === 0}
+                    onClick={() => setSelectedChipProducts([])}
+                  >
+                    전체 품목 ({chipModel.productButtons.length})
+                  </button>
+                  {visibleProductButtons.map(item => {
+                    const active = chipProductSet.has(item.productName);
+                    return (
+                      <button
+                        key={item.productName}
+                        type="button"
+                        className={active ? 'chip active' : 'chip'}
+                        aria-pressed={active}
+                        onClick={e => {
+                          const additive = multiChipProduct || e.metaKey || e.ctrlKey || e.shiftKey;
+                          setSelectedChipProducts(prev => {
+                            if (!additive) return prev.length === 1 && prev[0] === item.productName ? [] : [item.productName];
+                            return prev.includes(item.productName) ? prev.filter(x => x !== item.productName) : [...prev, item.productName];
+                          });
+                        }}
+                      >
+                        {item.productName}{item.count > 1 ? ` (${item.count})` : ''}
+                      </button>
+                    );
+                  })}
+                  {chipModel.productButtons.length > 24 && (
+                    <button
+                      type="button"
+                      className="chip-mode"
+                      onClick={() => setShowAllChipProducts(v => !v)}
+                    >
+                      {showAllChipProducts ? '품목 접기' : `품목 더보기 (+${chipModel.productButtons.length - 24})`}
+                    </button>
+                  )}
+                </div>
+                <div className="tier-tools">
+                  <button
+                    type="button"
+                    className={multiChipProduct ? 'chip-mode on' : 'chip-mode'}
+                    aria-pressed={multiChipProduct}
+                    onClick={() => setMultiChipProduct(v => !v)}
+                  >
+                    복수 품목
+                  </button>
+                  <input
+                    type="search"
+                    className="tier-search"
+                    aria-label="결과 내 품목 또는 농장 즉시 검색"
+                    value={quickChipQuery}
+                    placeholder="결과 내 품목·농장 즉시 필터"
+                    onChange={e => setQuickChipQuery(e.target.value)}
+                  />
+                  {hasChipFilter && (
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedChipVarieties([]); setSelectedChipFarms([]); setSelectedChipProducts([]); setQuickChipQuery(''); }}
+                    >
+                      초기화
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <dl className="subtotal-strip" aria-label="선택 조건 실시간 소계">
+                <div><dt>선택 품목그룹</dt><dd>{groups.length.toLocaleString('ko-KR')}그룹 ({subtotalSummary.rowCount.toLocaleString('ko-KR')}행)</dd></div>
+                <div><dt>입고수량 합계</dt><dd>{subtotalSummary.qtySummary}</dd></div>
+                <div><dt>가중평균 원가</dt><dd>{subtotalSummary.avgCostKRW != null ? `${fmt(subtotalSummary.avgCostKRW)}원` : '-'}</dd></div>
+                <div className="subtotal-strong"><dt>수량×도착원가 합계</dt><dd>{fmt(subtotalSummary.totalCostKRW)}원</dd></div>
+                {subtotalSummary.missingRows > 0 && <div><dt>원가 미업로드</dt><dd>{subtotalSummary.missingRows.toLocaleString('ko-KR')}건</dd></div>}
+              </dl>
+            </div>
+          )}
+          {loading ? <div className="empty">조회 중입니다.</div> : data.rows.length === 0 ? <div className="empty">선택 범위에 표시할 품목이 없습니다.</div> : visibleRows.length === 0 ? <div className="empty">지금 활성화된 품종이 아닙니다. 전체보기나 특별기준을 끄면 전체가 보입니다.</div> : filteredRows.length === 0 ? <div className="empty">선택한 품종·농장·품목 버튼 조건에 해당하는 원가 내역이 없습니다. 초기화를 눌러 전체를 확인하세요.</div> : (
             <div className="table-wrap">
               <table>
                 <thead><tr>
@@ -463,6 +720,14 @@ export default function ArrivalCostPage() {
                   ]),
                 ])}</tbody>
               </table>
+            </div>
+          )}
+          {groups.length > groupLimit && (
+            <div className="more-groups-bar">
+              <span>표시 {pagedGroups.length.toLocaleString('ko-KR')} / {groups.length.toLocaleString('ko-KR')}그룹</span>
+              <button type="button" onClick={() => setGroupLimit(n => n + 100)}>
+                더 보기 (+100건 · 남은 {(groups.length - groupLimit).toLocaleString('ko-KR')}그룹)
+              </button>
             </div>
           )}
           {data.rows.length > 0 && <div className="pager">
@@ -639,7 +904,73 @@ export default function ArrivalCostPage() {
         .week-sort { display: flex; gap: 6px; }
         .week-sort button { height: 32px; min-height: 32px; padding: 0 11px; font-size: 13px; }
         .week-sort button.active { color: #ffffff; background: #0f172a; border-color: #0f172a; font-weight: 700; }
-        .group-head { background: #f8fafc; font-weight: 700; cursor: pointer; }
+        .group-head { background: #f8fafc; font-weight: 700; cursor: pointer; content-visibility: auto; contain-intrinsic-size: 40px; }
+        .three-tier-bar {
+          padding: 12px 18px;
+          background: #f8fafc;
+          border-top: 1px solid #e2e8f0;
+          display: flex;
+          flex-direction: column;
+          gap: 9px;
+        }
+        .tier-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .tier-label { min-width: 52px; font-size: 13px; font-weight: 700; color: #334155; }
+        .tier-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1 1 420px; }
+        .tier-chips .chip {
+          height: 32px;
+          min-height: 32px;
+          padding: 0 11px;
+          border-radius: 6px;
+          font-size: 13.5px;
+          font-weight: 600;
+          border: 1px solid #cbd5e1;
+          background: #ffffff;
+          color: #1e293b;
+        }
+        .tier-chips .chip:hover { background: #f1f5f9; border-color: #94a3b8; }
+        .tier-chips .chip.active { background: #0f172a; border-color: #0f172a; color: #ffffff; font-weight: 700; }
+        .tier-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+        .chip-mode {
+          height: 32px;
+          min-height: 32px;
+          padding: 0 10px;
+          border-radius: 6px;
+          font-size: 13px;
+          background: #f1f5f9;
+          border: 1px solid #cbd5e1;
+          color: #475569;
+        }
+        .chip-mode.on { background: #334155; border-color: #334155; color: #ffffff; }
+        .tier-search { height: 32px; min-height: 32px; width: 200px; font-size: 13.5px; }
+        .subtotal-strip {
+          margin: 4px 0 0;
+          padding-top: 10px;
+          border-top: 1px solid #e2e8f0;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 8px;
+        }
+        .subtotal-strip > div {
+          padding: 7px 10px;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+        }
+        .subtotal-strip dt { font-size: 12.5px; color: #475569; font-weight: 600; }
+        .subtotal-strip dd { margin: 2px 0 0; font-size: 14px; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; }
+        .subtotal-strong { border-color: #a7f3d0 !important; background: #ecfdf5 !important; }
+        .subtotal-strong dd { color: #065f46; }
+        .more-groups-bar {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 10px 14px;
+          border-top: 1px solid #e2e8f0;
+          background: #f8fafc;
+          font-size: 13.5px;
+          color: #334155;
+        }
         .group-head:hover td { background: #f1f5f9; }
         .group-head td { border-bottom: 1px solid #cbd5e1; }
         .farm-costs { white-space: normal; max-width: 920px; }

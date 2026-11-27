@@ -5,9 +5,10 @@ import WorkflowGuide from '../WorkflowGuide';
 import CloudCostReviewLedger from './CloudCostReviewLedger';
 import CostAwbEvidence from './CostAwbEvidence';
 import {reconcileAwbDraft,remapAwbPools} from '../../lib/arrivalCostAwbDraft.js';
+import {sendWorkbookToArrivalUploadReview} from '../../lib/arrivalCostUploadBridge.js';
 const numeric=v=>v===''||v==null?null:Number(v);
 const groups={ROSE:'장미',CARNATION:'카네이션',ALSTROMERIA:'알스트로',RUSCUS:'루스커스',HYDRANGEA:'수국'};
-export default function ArrivalWeekCostReview({orderYear,orderWeek,selectionRequest}){
+export default function ArrivalWeekCostReview({orderYear,orderWeek,selectionRequest,onSendToUploadReview=null}){
  const [country,setCountry]=useState('CN'),[data,setData]=useState(null),[selected,setSelected]=useState([]),[inputs,setInputs]=useState({}),[choices,setChoices]=useState({}),[pools,setPools]=useState([]),[decisions,setDecisions]=useState({}),[result,setResult]=useState(null),[confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const generation=useRef(0),lock=useRef(false);
  const [assignments,setAssignments]=useState([]);
@@ -19,15 +20,24 @@ export default function ArrivalWeekCostReview({orderYear,orderWeek,selectionRequ
  async function run(action,keys=selected,overrides={}){
   if(lock.current)return;lock.current=true;setBusy(true);setError('');const token=generation.current;
   try{
-   const payload={reviewEnabled:country==='CN',country,orderYear:String(orderYear),orderWeek,selectedKeys:keys,action,baselineDigest:data?.baselineDigest,versionHash:result?.versionHash,confirmed,awbAssignments:(overrides.awbAssignments??assignments).filter(a=>keys.includes(a.warehouseKey)),
+   const wireAction=action==='bridge'?'download':action;
+   const payload={reviewEnabled:country==='CN',country,orderYear:String(orderYear),orderWeek,selectedKeys:keys,action:wireAction,baselineDigest:data?.baselineDigest,versionHash:result?.versionHash,confirmed,awbAssignments:(overrides.awbAssignments??assignments).filter(a=>keys.includes(a.warehouseKey)),
     lineInputs:Object.entries(choices).filter(([lineId])=>data?.members?.some(m=>keys.includes(m.warehouseKey)&&m.rows.some(l=>l.lineId===lineId))).map(([lineId,value])=>({lineId,...value})),expenseDecisions:Object.entries(decisions).map(([key,evidence])=>({wdetailKey:Number(key),...evidence,confirmed:true,currency:country==='CO'?'USD':'CNY',basis:'BOX'})),
     expensePools:pools.map(p=>({...p,currency:p.kind==='CUSTOMS'?'KRW':country==='CN'?'CNY':'USD',amount:numeric(p.amount)})),
     awbInputs:(data?.awbs??[]).map(a=>({awb:a.awb,input:{...inputs[a.awb],gw:numeric(inputs[a.awb]?.gw),cw:numeric(inputs[a.awb]?.cw),exchangeRate:numeric(inputs[a.awb]?.exchangeRate),permitAmount:numeric(inputs[a.awb]?.permitAmount),fullBoxCounts:Object.fromEntries(Object.entries(inputs[a.awb]?.fullBoxCounts??{}).map(([k,v])=>[k,numeric(v)]))}}))};
    const response=await fetch('/api/import/receipts/week-cost',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),cache:'no-store'});
    if(!response.ok){const body=await response.json();throw Error(body.error);}
    if(token!==generation.current)return;
-   if(action==='download'){
-    const blob=await response.blob();if(token!==generation.current)return;const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=`도착원가_통합_${country}_${orderYear}_${orderWeek}.xlsx`;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),60000);setNotice(`통합 파일 전달 요청 · ${blob.size.toLocaleString()}바이트. 실제 다운로드 목록에서 확인하세요.`);
+   if(action==='download'||action==='bridge'){
+    const blob=await response.blob();if(token!==generation.current)return;
+    const countryKo=country==='CN'?'중국':'콜롬비아';
+    const fileName=`${countryKo}_도착원가_통합_${orderYear}_${orderWeek}.xlsx`;
+    if(action==='bridge'){
+     await sendWorkbookToArrivalUploadReview({blob,fileName,orderYear,orderWeek,country:countryKo,onSendToUploadReview});
+     setNotice(`통합 원가 엑셀(${fileName})을 도착원가 업로드 검토 패널로 전달했습니다.`);
+    }else{
+     const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=`도착원가_통합_${country}_${orderYear}_${orderWeek}.xlsx`;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),60000);setNotice(`통합 파일 전달 요청 · ${blob.size.toLocaleString()}바이트. 실제 다운로드 목록에서 확인하세요.`);
+    }
    }else{
     const body=await response.json();if(token!==generation.current)return;
     if(action==='prepare'){
@@ -150,7 +160,7 @@ export default function ArrivalWeekCostReview({orderYear,orderWeek,selectionRequ
     <button type="button" onClick={()=>edit(setPools,[...pools,{kind:'FREIGHT',sourceId:'',mode:'TOTAL',basis:'CW',amount:'',awbs:[],confirmed:false}])}>비용 증빙 추가</button>
     {pools.map((pool,i)=><fieldset key={i}><legend>비용 증빙 {i+1}</legend><label>종류<select aria-label={`비용 ${i+1} 종류`} value={pool.kind} onChange={e=>{const kind=e.target.value;edit(setPools,pools.map((p,j)=>j===i?{...p,kind,basis:kind==='CUSTOMS'?'GW':'CW',mode:'TOTAL',confirmed:false}:p));}}><option value="FREIGHT">운임</option><option value="CUSTOMS">통관비</option></select></label><label>증빙 식별자<input aria-label={`비용 ${i+1} 증빙 식별자`} value={pool.sourceId} onChange={e=>updatePool(i,'sourceId',e.target.value)}/></label><label>배분 기준<select aria-label={`비용 ${i+1} 배분 기준`} value={pool.basis} onChange={e=>updatePool(i,'basis',e.target.value)}><option value="GW">GW</option>{pool.kind==='FREIGHT'&&<option value="CW">CW</option>}</select></label><label>비용 기준<select aria-label={`비용 ${i+1} 기준`} value={pool.mode} onChange={e=>updatePool(i,'mode',e.target.value)}><option value="TOTAL">증빙 합계 직접 입력</option>{pool.kind==='CUSTOMS'&&<option value="FORMULA">기존 원가표 수식 · 추정</option>}</select></label>{pool.mode==='FORMULA'&&country==='CN'&&<label>검역 분류수 · 원문 참고<input aria-label={`비용 ${i+1} 검역 분류수`} type="text" inputMode="numeric" value={pool.quarantineCategoryCount??''} onChange={e=>updatePool(i,'quarantineCategoryCount',e.target.value)}/></label>}{pool.mode==='TOTAL'&&<label>합계 {pool.kind==='CUSTOMS'?'KRW':country==='CN'?'CNY':'USD'}<input aria-label={`비용 ${i+1} 합계`} type="number" min="0" step="any" value={pool.amount} onChange={e=>updatePool(i,'amount',e.target.value)}/></label>}{data.awbs.map(a=><label key={a.awb}><input aria-label={`비용 ${i+1} 대상 ${a.awb}`} type="checkbox" checked={pool.awbs.includes(a.awb)} onChange={e=>updatePool(i,'awbs',e.target.checked?[...pool.awbs,a.awb]:pool.awbs.filter(k=>k!==a.awb))}/>{a.awb}</label>)}<label><input aria-label={`비용 ${i+1} 귀속 확인`} type="checkbox" checked={pool.confirmed} onChange={e=>updatePool(i,'confirmed',e.target.checked)}/>동일 증빙·금액·대상 AWB 범위를 확인했습니다.</label><button type="button" onClick={()=>edit(setPools,pools.filter((_,j)=>j!==i))}>이 계산에서 제외</button></fieldset>)}
     {data.excluded.filter(r=>Number(r.amount)!==0).map(r=><label key={r.wdetailKey}>#{r.warehouseKey} 비용행 {r.wdetailKey} {r.name} / 원금 {r.amount}의 포함·중복 근거<select aria-label={`원장 비용 ${r.wdetailKey} 처리`} value={decisions[r.wdetailKey]?.treatment??''} onChange={e=>edit(setDecisions,{...decisions,[r.wdetailKey]:{...decisions[r.wdetailKey],treatment:e.target.value}})}><option value="">포함 범위 선택</option><option value="IN_FREIGHT_POOL">AWB 운임 합계에 이미 포함</option>{country==='CO'&&<option value="INVOICE_FEE">이 송장에만 별도 부대비 · 원본 박스(0박스면 송이) 배분</option>}</select><input aria-label={`원장 비용 ${r.wdetailKey} 근거`} value={decisions[r.wdetailKey]?.evidence??''} placeholder="어느 증빙 합계에 포함했는지 원문과 대조" onChange={e=>edit(setDecisions,{...decisions,[r.wdetailKey]:{...decisions[r.wdetailKey],evidence:e.target.value}})}/></label>)}
-    <label><input data-week-cost-confirm aria-label="통합 계산 기준 확인" type="checkbox" checked={confirmed} onChange={e=>{setConfirmed(e.target.checked);setResult(null);}}/>선택 입고·기존 공식·중량·비용 귀속을 확인했습니다.</label>{' '}<button type="button" disabled={!confirmed||JSON.stringify([...selected].sort())!==JSON.stringify([...(data.selectedKeys??[])].sort())} data-week-cost-preview onClick={()=>run('preview')}>5. 통합 원가 검증</button>{' '}<button type="button" disabled={!result} data-week-cost-download onClick={()=>run('download')}>6. 같은 시트로 실제 다운로드</button>
+    <label><input data-week-cost-confirm aria-label="통합 계산 기준 확인" type="checkbox" checked={confirmed} onChange={e=>{setConfirmed(e.target.checked);setResult(null);}}/>선택 입고·기존 공식·중량·비용 귀속을 확인했습니다.</label>{' '}<button type="button" disabled={!confirmed||JSON.stringify([...selected].sort())!==JSON.stringify([...(data.selectedKeys??[])].sort())} data-week-cost-preview onClick={()=>run('preview')}>5. 통합 원가 검증</button>{' '}<button type="button" disabled={!result} onClick={()=>run('bridge')}>도착원가 업로드 검토로 바로 보내기</button>{' '}<button type="button" disabled={!result} data-week-cost-download onClick={()=>run('download')}>6. 같은 시트로 실제 다운로드</button>
     {result&&<p role="status">검증 통과 · {result.receiptCount}입고 / {result.lines.length}행 · 도착원가 {result.totals.totalCostKRW.toLocaleString('ko-KR',{maximumFractionDigits:2})}원 · 운임원금 {result.totals.freightNative.toLocaleString()} · 통관비 {result.totals.customsKRW.toLocaleString()}원</p>}
    </>}
    </>}
