@@ -788,6 +788,7 @@ async function saveDistribute(req, res) {
     if (!resolvedShipDate || Number.isNaN(resolvedShipDate.getTime())) {
       throw new Error('출고일을 계산할 수 없습니다. 출고일을 지정한 뒤 다시 저장하세요.');
     }
+    const preserveExistingDate = !explicitShipDate || Number.isNaN(explicitShipDate.getTime());
     const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
 
     const savedResult = await withTransaction(async (tQuery) => {
@@ -872,7 +873,7 @@ async function saveDistribute(req, res) {
         if (targetSdk) {
           await tQuery(
             `UPDATE ShipmentDetail
-                SET CustKey=@ck, ShipmentDtm=@dt, OutQuantity=@outQty, EstQuantity=@estQty,
+                SET CustKey=@ck, ShipmentDtm=CASE WHEN @preserveDate=1 THEN COALESCE(ShipmentDtm,@dt) ELSE @dt END, OutQuantity=@outQty, EstQuantity=@estQty,
                     BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
                     Cost=@cost, Amount=@amount, Vat=@vat, Descr=@log
               WHERE SdetailKey=@dk`,
@@ -880,6 +881,7 @@ async function saveDistribute(req, res) {
               dk: { type: sql.Int, value: targetSdk },
               ck: { type: sql.Int, value: parseInt(custKey) },
               dt: { type: sql.DateTime, value: resolvedShipDate },
+              preserveDate: { type: sql.Bit, value: preserveExistingDate },
               outQty: { type: sql.Float, value: canonicalOutQty },
               estQty: { type: sql.Float, value: estQty },
               bq: { type: sql.Float, value: boxQty },
@@ -921,7 +923,7 @@ async function saveDistribute(req, res) {
           });
           await syncKeyNumbering(tQuery, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
         }
-        await refreshShipmentDatesAfterDetailChange(tQuery, targetSdk, sql, { shipDtm: resolvedShipDate });
+        await refreshShipmentDatesAfterDetailChange(tQuery, targetSdk, sql, { shipDtm: preserveExistingDate && oldRow ? undefined : resolvedShipDate, preserveExistingDate });
         await insertShipmentHistory(tQuery, targetSdk, String(oldQty), String(canonicalOutQty), logEntry, uid);
       }
       await advanceErpEditGuard(tQuery, { orderYear, orderWeek: week, custKey: Number(custKey) }, req.user, req.body);
@@ -990,6 +992,7 @@ async function saveDistributeBatch(req, res) {
     const { orderYear, orderWeek: week } = requireOrderYear(rawWeek, year || '');
     const ywk = orderYear + (week || '').split('-')[0];
     const explicitShipDate = outDate ? new Date(outDate) : null;
+    const preserveExistingDate = !explicitShipDate || Number.isNaN(explicitShipDate.getTime());
     const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
 
     const results = await withTransaction(async (tQuery) => {
@@ -1146,13 +1149,14 @@ async function saveDistributeBatch(req, res) {
         if (targetSdk) {
           await tQuery(
             `UPDATE ShipmentDetail
-                SET CustKey=@ck, ShipmentDtm=@dt, OutQuantity=@outQty, EstQuantity=@estQty,
+                SET CustKey=@ck, ShipmentDtm=CASE WHEN @preserveDate=1 THEN COALESCE(ShipmentDtm,@dt) ELSE @dt END, OutQuantity=@outQty, EstQuantity=@estQty,
                     BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
                     Cost=@cost, Amount=@amount, Vat=@vat, Descr=@log
               WHERE SdetailKey=@dk`,
             {
               dk: { type: sql.Int, value: targetSdk }, ck: { type: sql.Int, value: entry.custKey },
-              dt: { type: sql.DateTime, value: resolvedShipDate }, outQty: { type: sql.Float, value: canonicalOutQty },
+              dt: { type: sql.DateTime, value: resolvedShipDate },
+              preserveDate: { type: sql.Bit, value: preserveExistingDate }, outQty: { type: sql.Float, value: canonicalOutQty },
               estQty: { type: sql.Float, value: estQty }, bq: { type: sql.Float, value: boxQty },
               bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
               cost: { type: sql.Float, value: resolvedCost }, amount: { type: sql.Float, value: amount },
@@ -1182,7 +1186,7 @@ async function saveDistributeBatch(req, res) {
           });
           await syncKeyNumbering(tQuery, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
         }
-        await refreshShipmentDatesAfterDetailChange(tQuery, targetSdk, sql, { shipDtm: resolvedShipDate });
+        await refreshShipmentDatesAfterDetailChange(tQuery, targetSdk, sql, { shipDtm: preserveExistingDate && oldRow ? undefined : resolvedShipDate, preserveExistingDate });
         await insertShipmentHistory(tQuery, targetSdk, String(oldQty), String(canonicalOutQty), logEntry, uid);
         saved.push({ ...entry, shipmentKey, sdetailKey: targetSdk, outQty: canonicalOutQty, action: oldRow ? 'update' : 'insert' });
         if (oldQty !== canonicalOutQty) {

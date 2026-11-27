@@ -672,3 +672,10 @@ ShipmentDate↔PeriodDay exact 시각 JOIN, DetailFix=1, EstQuantity>0를 사용
 - 기준/부작용: 잠긴 committed WAIT_CALC의 연도/세부차수만 기존 full CALC0 수행. StockMaster/ProductStock는 native 계산, Gate는 native enter/leave만 허용. OrderMaster/OrderDetail, ShipmentMaster/ShipmentDetail(OutQuantity/Amount/Vat/isFix), ShipmentDate, ShipmentFarm, Product.Stock, StockHistory, Estimate, WebProfitReport 보존. 업무 수량·확정 토글·직접 gate clear·SP DDL 없음.
 - 양수 fixture: 이전 atomic/승인 정렬본 hash 양쪽 실행·재검증. 반례: 미검토 hash/원자성 이전 hash/6인자 불일치/capability not-ready/2025 같은 차수/RUN 모두 거부 또는 보존. 실제 fixture로 정의를 재구성하여 hash를 검증하므로 운영 hash 복사만으로 승인하지 않는다.
 - 기존 데스크톱의 확정 기능 서버 복구 수정이며 화면·URL·탭·메뉴 추가 없음. 기존 메뉴 연결 재사용, 버전/가이드 변경 대상 없음.
+## 2026-11-27 웹 분배 수량 수정의 출고일 보존
+
+- 기준: 실제 설치 EXE dnSpy CLI `FormShipmentDistribution.GetCustomerList / btnSave_Click`에서 분배 상세 저장 이후 날짜행 삭제·삽입 경로를 확인했다. 웹은 별도 출고일 편집기로 실제 날짜를 저장하므로 일반 수량 저장에서는 기존 상세일과 날짜행의 일자를 각각 유지한다.
+- 읽기 전용 운영 대조: 콜롬비아 장미·카네이션 47-01, 47-02, 48-01의 양수 상세는 465/98/507행. ShipmentDate는 477/99/530행으로 모두 같은 대차수 PeriodDay에 정확히 매칭됐으며 대표일과 다른 날짜행은 12/2/23행이다. 해당 날짜행은 모두 확정 상태였다.
+- 동작별 범위: 기존 양수 수량 수정은 기존 분배수량·환산·금액 계산대로 처리하고 ShipmentDetail/ShipmentDate 날짜는 유지한다. 단일 날짜행이 없거나 NULL일 때는 기존 생성 기본값을 사용한다. 신규는 기존 기본일로 생성하고 0수량 삭제와 농장분배 제한은 기존 동작을 유지한다.
+- 견적 원본 Estimate 및 WebProfitReport에 추가 쓰기 없음. ShipmentDate 날짜 키를 유지하므로 PeriodDay 조인 기준은 보존한다. 기존 금액/Vat 동기화 및 확정 가드는 유지한다.
+- 교차연도: 2025의 같은 차수·업체·품목은 선택 대상에서 제외한다. 수정은 기존 연도·차수·업체로 잠근 ShipmentMaster의 상세 PK 및 종속 날짜 PK로만 실행한다.

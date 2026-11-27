@@ -15,6 +15,7 @@ import { amountVatFromCostEst } from '../../lib/distributeUnits';
 import PivotFarmAssignmentModal from '../../components/PivotFarmAssignmentModal';
 import * as XLSX from 'xlsx';
 import * as XLSXStyled from 'xlsx-js-style';
+import WeekPivotDispatchList from '../../components/shipment/WeekPivotDispatchList';
 import { buildWeekPivotSheet } from '../../lib/weekPivotSheet';
 import {
   filterWeekPivotProductKeys,
@@ -421,6 +422,9 @@ export default function WeekPivot() {
   const weekFrom = weekFromInput.value;
   const weekTo   = weekToInput.value;
 
+  const [dispatchView, setDispatchView] = useState(null);
+  const [dispatchRevision, setDispatchRevision] = useState(0);
+  const showDispatchList = dispatchView ?? router.query.view === 'dispatch';
   const [loading,     setLoading]     = useState(false);
   const [custRows,    setCustRows]    = useState([]);
   const [startStocks, setStartStocks] = useState({});
@@ -702,8 +706,8 @@ export default function WeekPivot() {
   }, []);
 
   useEffect(() => {
-    if (weekFrom && weekTo) loadData(weekFrom, weekTo);
-  }, [weekFrom, weekTo, loadData]);
+    if (router.isReady && !showDispatchList && weekFrom && weekTo) loadData(weekFrom, weekTo);
+  }, [router.isReady, showDispatchList, weekFrom, weekTo, loadData]);
 
   // 시작재고 저장
   const saveStartStock = useCallback(async (prodKey, week, stock, remark) => {
@@ -1961,7 +1965,9 @@ export default function WeekPivot() {
           style={{...hst.wBtn, background:'#e65100', border:'1px solid #bf360c', fontWeight:900,
                   fontSize:11, padding:'2px 10px', letterSpacing:0, minWidth:40, color:'#fff'}}
           title="양쪽 동시 주차+1">&gt;&gt;&gt;</button>
-        <button onClick={()=>loadData(weekFrom,weekTo)} disabled={loading||!hasWeek}
+        <button type="button" aria-pressed={showDispatchList} onClick={() => setDispatchView(!showDispatchList)}
+          style={{...hst.hBtn, background:'#fff', color:'#0f172a', fontSize:14}}>{showDispatchList ? '수량 피벗 보기' : '출고일·지역 보기'}</button>
+        <button hidden={showDispatchList} onClick={()=>loadData(weekFrom,weekTo)} disabled={loading||!hasWeek}
           style={{...hst.hBtn,background:'rgba(255,255,255,0.2)',border:'1px solid rgba(255,255,255,0.4)'}}>
           {loading?'로딩중...':'🔄 새로고침'}
         </button>
@@ -2061,7 +2067,10 @@ export default function WeekPivot() {
 
       {/* 본문 */}
       <div style={{padding:'8px 10px'}}>
-        {apiError ? (
+        {showDispatchList && hasWeek ? (
+          <WeekPivotDispatchList key={`${weekFrom}:${weekTo}`} orderYear={orderYearFromWeek(weekFrom)}
+            weekFrom={weekFrom} weekTo={weekTo} revision={dispatchRevision} />
+        ) : apiError ? (
           <div style={{...st.empty, color:'#d32f2f'}}>
             <div style={{fontSize:16,fontWeight:700,marginBottom:8}}>⚠ 오류</div>
             <div style={{fontSize:13}}>{apiError}</div>
@@ -2093,7 +2102,10 @@ export default function WeekPivot() {
         <AddOrderModal
           weekFrom={weekFrom} weekTo={weekTo}
           onClose={()=>setShowAddOrder(false)}
-          onSuccess={()=>loadData(weekFrom,weekTo)}
+          onSuccess={() => {
+            if (showDispatchList) setDispatchRevision(value => value + 1);
+            else loadData(weekFrom,weekTo);
+          }}
         />
       )}
 
