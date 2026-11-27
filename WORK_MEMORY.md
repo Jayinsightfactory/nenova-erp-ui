@@ -5528,3 +5528,12 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 4. 검증: 페이지구획·렌더 Excel 단위테스트는 PR 기존분 그대로. 이 환경에는 node가 없어 로컬 실행 불가 — CI 결과로 판정. 변경 파일 계약(estimate-print.json scope, workflow-guides sourceFiles/waiver) 동기화 완료.
 5. 주의/잠금: 원장·ECOUNT 쓰기 0, EXE 패치 0. 생성물 JSON은 손으로 합치지 않는다(prebuild가 재생성).
 검색어: 견적 변경 이력 모달 EXE 기준 미기록 제거 master 리베이스 erp:contract:main estimatePrintPagination g03 g19
+
+## 2026-11-27 최초주문등록 과 분배 비교 SQL 오류 수정 및 세부차수·분배거래처·담당자 버튼 UX 개편 (`fix/order-import-compare-sql-and-ux`, 연결 목표: g03, g17)
+- 요약: `pages/api/orders/import-compare.js`의 `OrderDetail` SELECT에서 존재하지 않는 `od.UnitPrice` 컬럼을 제거(`Invalid column name 'UnitPrice'` 해소, `unitPrice: null` 매핑)하고 `OrderHistory` 수량 파싱(`N'수량'`, `N'주문수량'`) 및 `action=options`의 `Customer.Manager` trim·`hasShipment DESC, hasUploadSnapshot DESC, c.CustName ASC` 정렬·`weeks` `(orderYear, parentWeek, orderWeek)` 반환을 보강했다. `pages/orders/import-compare.js`는 세부차수 `<select>`를 연도+대차수(주차)+세부차수 버튼 바(`NN-NN (N차)`)로 교체하고, 기본 `분배 거래처만 (N)` vs `전체` 모드 토글·`Customer.Manager` 담당자 버튼 필터·고밀도 거래처 버튼 그리드(`useMemo`·`/api/customers/search` fallback·딥링크 자동 전환)로 개편했다.
+- 검색어: 최초주문등록 분배비교 import-compare UnitPrice OrderHistory 주문수량 세부차수 버튼 분배거래처만 담당자 필터 Customer.Manager g03 g17
+1. 작업 위치: `nenova-erp-ui` (`C:\Users\USER\nw-agy-import-compare-fix`, `fix/order-import-compare-sql-and-ux`) — `pages/api/orders/import-compare.js`, `pages/orders/import-compare.js`, `WORK_MEMORY.md`.
+2. 완료된 것: `od.UnitPrice` 제거 및 `unitPrice: null` 매핑, `OrderHistory` 쉼표/공백 제거 + `Number.isFinite` 가드, `options` `manager`/`hasShipment`/`weeks(orderYear, parentWeek, orderWeek)` 정비, 세부차수 버튼 바 + `분배 거래처만` 기본 토글 + `Customer.Manager` 담당자 버튼 필터 + 고밀도 거래처 그리드 UI 개편.
+3. 남은 할 일: PR 생성 → GitHub Actions CI 통과 대기 → Squash 머지 → worktree 정리 → `sync-nenova-hq.js`·`owner-agi-twin.js` 실행(운영 Cafe24 배포 완료·실브라우저 클릭 확인 별도).
+4. 검증 상태: 라이브 MSSQL 읽기 전용 SELECT(`2026 / 48-02 / CustKey=578` options 34건·compare orderRows 12/historyRows 12/shipmentItems 1, 스키마 전수 대조) PASS, `test-order-import-compare.mjs` PASS, `test:erp-contract` PASS, `test:erp-manifest` PASS, `guard:erp-writes` PASS, `guard:agent-slop` PASS, `npm run build` PASS, `pstack-verify.cjs` 검증 진행(Cafe24 배포·실브라우저 클릭 미검증).
+5. 주의/잠금: `desktop/` 하위 파일 수정 0건(웹 단독 반영), `ShipmentDetail.isDeleted` 미참조, `UserInfo.UserID` 조인 금지(`Customer.Manager` 직접 사용), 운영 DB 쓰기 0건. 연결 목표: g03, g17

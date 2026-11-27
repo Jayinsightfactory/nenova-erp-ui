@@ -44,10 +44,10 @@ const ROW_STATUS_STYLE = {
   },
 };
 
-function formatWeekLabel(orderWeek) {
+function formatSubWeekButtonLabel(orderWeek) {
   const m = String(orderWeek || '').match(/^(\d{2})-(\d{2})$/);
   if (!m) return String(orderWeek || '');
-  return `${Number(m[1])}차 ${Number(m[2])}차분 (${orderWeek})`;
+  return `${orderWeek} (${Number(m[2])}차)`;
 }
 
 function formatKstTimestamp(ts) {
@@ -76,6 +76,8 @@ export default function OrderImportComparePage() {
   const [custLabel, setCustLabel] = useState('');
 
   const [custQuery, setCustQuery] = useState('');
+  const [customerScope, setCustomerScope] = useState('shipment');
+  const [selectedManager, setSelectedManager] = useState('ALL');
   const [custSearchResults, setCustSearchResults] = useState([]);
   const [custSearching, setCustSearching] = useState(false);
 
@@ -160,16 +162,23 @@ export default function OrderImportComparePage() {
 
     (async () => {
       const opt = await loadOptions(qYear, qWeek);
+      let latestOpt = opt;
       const yr = qYear || String(opt?.orderYear || '');
       const wk = qWeek || opt?.weeks?.[0]?.orderWeek || '';
       if (yr) setOrderYear(yr);
       if (wk) {
         setOrderWeek(wk);
         if (!qWeek && yr) {
-          await loadOptions(yr, wk);
+          latestOpt = (await loadOptions(yr, wk)) || opt;
         }
       }
       if (qCust && yr && wk) {
+        const matched = (latestOpt?.customers || []).find(
+          (c) => String(c.custKey) === qCust,
+        );
+        if (!matched || !matched.hasShipment) {
+          setCustomerScope('all');
+        }
         setCustKey(qCust);
         await fetchCompare(yr, wk, qCust);
       }
@@ -192,43 +201,177 @@ export default function OrderImportComparePage() {
   };
 
   const handleWeekChange = async (nextWeek) => {
+    if (!nextWeek) return;
     setOrderWeek(nextWeek);
     setCompareData(null);
     setSelectedCandidateIds([]);
     const opt = await loadOptions(orderYear, nextWeek);
-    if (custKey && opt?.customers?.some((c) => String(c.custKey) === String(custKey))) {
+    const nextCustomers = opt?.customers || [];
+    const matched = custKey
+      ? nextCustomers.find((c) => String(c.custKey) === String(custKey))
+      : null;
+    if (matched) {
+      if (!matched.hasShipment && customerScope === 'shipment') {
+        setCustomerScope('all');
+      }
       await fetchCompare(orderYear, nextWeek, custKey);
-    } else if (custKey && nextWeek && orderYear) {
-      await fetchCompare(orderYear, nextWeek, custKey);
+    } else {
+      setCustKey('');
+      setCustLabel('');
+    }
+  };
+
+  const handleParentWeekChange = async (nextParentWeek) => {
+    if (!nextParentWeek) return;
+    const candidatesInParent = weeks
+      .filter(
+        (w) =>
+          String(w.parentWeek || String(w.orderWeek || '').slice(0, 2)) ===
+          String(nextParentWeek),
+      )
+      .slice()
+      .sort(
+        (a, b) =>
+          Number(String(a.orderWeek).slice(3)) - Number(String(b.orderWeek).slice(3)),
+      );
+    const targetWeek = candidatesInParent[0]?.orderWeek || '';
+    if (targetWeek) {
+      await handleWeekChange(targetWeek);
     }
   };
 
   const handleSelectCustomer = async (nextCustKey, nextCustName = '') => {
-    setCustKey(String(nextCustKey));
+    const keyStr = String(nextCustKey);
+    setCustKey(keyStr);
     if (nextCustName) setCustLabel(nextCustName);
     setCustSearchResults([]);
+    const inWeek = customersInWeek.find((c) => String(c.custKey) === keyStr);
+    if (inWeek && !inWeek.hasShipment && customerScope === 'shipment') {
+      setCustomerScope('all');
+    }
     if (orderYear && orderWeek && nextCustKey) {
       await fetchCompare(orderYear, orderWeek, nextCustKey);
     }
   };
 
-  const searchAllCustomers = async (q) => {
-    setCustQuery(q);
-    const trimmed = String(q || '').trim();
-    if (!trimmed) {
-      setCustSearchResults([]);
-      return;
+  const parentWeeks = useMemo(() => {
+    const seen = new Set();
+    const list = [];
+    for (const w of weeks) {
+      const pw = String(w.parentWeek || String(w.orderWeek || '').slice(0, 2));
+      if (!pw || seen.has(pw)) continue;
+      seen.add(pw);
+      list.push({
+        parentWeek: pw,
+        label: `${Number(pw)}주차 (${pw})`,
+      });
     }
-    setCustSearching(true);
-    try {
-      const d = await apiGet('/api/customers/search', { q: trimmed });
-      setCustSearchResults(d.customers || []);
-    } catch {
+    return list;
+  }, [weeks]);
+
+  const activeParentWeek = useMemo(() => {
+    if (orderWeek) {
+      const pw = String(orderWeek).slice(0, 2);
+      if (pw) return pw;
+    }
+    return parentWeeks[0]?.parentWeek || '';
+  }, [orderWeek, parentWeeks]);
+
+  const subWeeksInParent = useMemo(() => {
+    if (!activeParentWeek) return [];
+    return weeks
+      .filter(
+        (w) =>
+          String(w.parentWeek || String(w.orderWeek || '').slice(0, 2)) ===
+          activeParentWeek,
+      )
+      .slice()
+      .sort(
+        (a, b) =>
+          Number(String(a.orderWeek).slice(3)) - Number(String(b.orderWeek).slice(3)),
+      );
+  }, [weeks, activeParentWeek]);
+
+  const shipmentCustomersCount = useMemo(
+    () => customersInWeek.filter((c) => c.hasShipment).length,
+    [customersInWeek],
+  );
+
+  const scopedCustomers = useMemo(
+    () =>
+      customerScope === 'shipment'
+        ? customersInWeek.filter((c) => c.hasShipment)
+        : customersInWeek,
+    [customersInWeek, customerScope],
+  );
+
+  const managerOptions = useMemo(() => {
+    const counts = new Map();
+    for (const c of scopedCustomers) {
+      const mgr = String(c.manager || '').trim() || '담당자 미지정';
+      counts.set(mgr, (counts.get(mgr) || 0) + 1);
+    }
+    const list = [...counts.entries()].map(([name, count]) => ({ name, count }));
+    list.sort((a, b) => {
+      const aUnassigned = a.name === '담당자 미지정';
+      const bUnassigned = b.name === '담당자 미지정';
+      if (aUnassigned !== bUnassigned) return aUnassigned ? 1 : -1;
+      if (b.count !== a.count) return b.count - a.count;
+      return a.name.localeCompare(b.name, 'ko');
+    });
+    return list;
+  }, [scopedCustomers]);
+
+  useEffect(() => {
+    if (selectedManager === 'ALL') return;
+    if (!managerOptions.some((m) => m.name === selectedManager)) {
+      setSelectedManager('ALL');
+    }
+  }, [managerOptions, selectedManager]);
+
+  const filteredCustomers = useMemo(() => {
+    const q = custQuery.trim().toLowerCase();
+    return scopedCustomers.filter((c) => {
+      const mgr = String(c.manager || '').trim() || '담당자 미지정';
+      if (selectedManager !== 'ALL' && mgr !== selectedManager) return false;
+      if (!q) return true;
+      const hay = [c.custName, c.custArea, mgr].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [scopedCustomers, selectedManager, custQuery]);
+
+  useEffect(() => {
+    const trimmed = String(custQuery || '').trim();
+    if (!trimmed || filteredCustomers.length > 0) {
       setCustSearchResults([]);
-    } finally {
       setCustSearching(false);
+      return undefined;
     }
-  };
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setCustSearching(true);
+      try {
+        const d = await apiGet('/api/customers/search', { q: trimmed });
+        if (!cancelled) {
+          setCustSearchResults(d.customers || []);
+        }
+      } catch {
+        if (!cancelled) {
+          setCustSearchResults([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setCustSearching(false);
+        }
+      }
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [custQuery, filteredCustomers.length]);
 
   const candidates = useMemo(() => compareData?.candidates || [], [compareData]);
 
@@ -611,17 +754,17 @@ export default function OrderImportComparePage() {
         </div>
       </div>
 
-      {/* 2. 필터 바 (연도 · 세부차수 · 업체) */}
+      {/* 2. 상단 필터 바 (연도 · 대차수 · 세부차수 버튼) */}
       <div
         style={{
           background: '#ffffff',
           border: '1px solid #cbd5e1',
           borderRadius: 6,
           padding: '14px 18px',
-          marginBottom: 14,
+          marginBottom: 12,
         }}
       >
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
             <label
               htmlFor="compare-year"
@@ -640,7 +783,8 @@ export default function OrderImportComparePage() {
                 fontSize: 13.5,
                 fontFamily: FONT_STACK,
                 fontVariantNumeric: 'tabular-nums',
-                background: '#fff',
+                background: '#ffffff',
+                color: '#0f172a',
               }}
             >
               {years.length === 0 && <option value="">연도 선택</option>}
@@ -654,91 +798,246 @@ export default function OrderImportComparePage() {
 
           <div>
             <label
-              htmlFor="compare-week"
+              htmlFor="compare-parent-week"
               style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}
             >
-              세부차수 (1차·2차 구분)
+              대차수 (주차)
             </label>
-            <select
-              id="compare-week"
-              value={orderWeek}
-              onChange={(e) => void handleWeekChange(e.target.value)}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <button
+                type="button"
+                aria-label="이전 주차"
+                disabled={
+                  optionsLoading ||
+                  parentWeeks.findIndex((p) => p.parentWeek === activeParentWeek) < 0 ||
+                  parentWeeks.findIndex((p) => p.parentWeek === activeParentWeek) >= parentWeeks.length - 1
+                }
+                onClick={() => {
+                  const idx = parentWeeks.findIndex((p) => p.parentWeek === activeParentWeek);
+                  if (idx >= 0 && idx < parentWeeks.length - 1) {
+                    void handleParentWeekChange(parentWeeks[idx + 1].parentWeek);
+                  }
+                }}
+                style={{
+                  padding: '7px 10px',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: 6,
+                  background: '#f8fafc',
+                  color: '#334155',
+                  fontSize: 13.5,
+                  fontWeight: 700,
+                  fontFamily: FONT_STACK,
+                  cursor: 'pointer',
+                }}
+              >
+                ‹
+              </button>
+              <select
+                id="compare-parent-week"
+                value={activeParentWeek}
+                onChange={(e) => void handleParentWeekChange(e.target.value)}
+                style={{
+                  minWidth: 140,
+                  padding: '7px 10px',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: 6,
+                  fontSize: 13.5,
+                  fontFamily: FONT_STACK,
+                  fontVariantNumeric: 'tabular-nums',
+                  background: '#ffffff',
+                  color: '#0f172a',
+                }}
+              >
+                {parentWeeks.length === 0 && <option value="">주차 선택</option>}
+                {parentWeeks.map((pw) => (
+                  <option key={pw.parentWeek} value={pw.parentWeek}>
+                    {pw.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                aria-label="다음 주차"
+                disabled={
+                  optionsLoading ||
+                  parentWeeks.findIndex((p) => p.parentWeek === activeParentWeek) <= 0
+                }
+                onClick={() => {
+                  const idx = parentWeeks.findIndex((p) => p.parentWeek === activeParentWeek);
+                  if (idx > 0) {
+                    void handleParentWeekChange(parentWeeks[idx - 1].parentWeek);
+                  }
+                }}
+                style={{
+                  padding: '7px 10px',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: 6,
+                  background: '#f8fafc',
+                  color: '#334155',
+                  fontSize: 13.5,
+                  fontWeight: 700,
+                  fontFamily: FONT_STACK,
+                  cursor: 'pointer',
+                }}
+              >
+                ›
+              </button>
+            </div>
+          </div>
+
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+              세부차수 선택
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              {subWeeksInParent.length === 0 ? (
+                <span style={{ fontSize: 13.5, color: '#475569' }}>선택된 주차의 세부차수가 없습니다.</span>
+              ) : (
+                subWeeksInParent.map((w) => {
+                  const active = w.orderWeek === orderWeek;
+                  return (
+                    <button
+                      key={w.orderWeek}
+                      type="button"
+                      aria-pressed={active}
+                      disabled={optionsLoading}
+                      onClick={() => void handleWeekChange(w.orderWeek)}
+                      style={{
+                        padding: '7px 13px',
+                        borderRadius: 6,
+                        border: active ? '1px solid #0f172a' : '1px solid #cbd5e1',
+                        background: active ? '#0f172a' : '#ffffff',
+                        color: active ? '#ffffff' : '#334155',
+                        fontSize: 13.5,
+                        fontWeight: active ? 700 : 600,
+                        fontFamily: FONT_STACK,
+                        fontVariantNumeric: 'tabular-nums',
+                        cursor: optionsLoading ? 'wait' : 'pointer',
+                      }}
+                    >
+                      {formatSubWeekButtonLabel(w.orderWeek)}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {optionsLoading && (
+              <span style={{ fontSize: 12.5, color: '#475569' }}>차수·업체 불러오는 중…</span>
+            )}
+            <button
+              type="button"
+              disabled={!orderYear || !orderWeek || !custKey || compareLoading}
+              onClick={() => void fetchCompare(orderYear, orderWeek, custKey)}
               style={{
-                minWidth: 210,
-                padding: '7px 10px',
-                border: '1px solid #cbd5e1',
+                padding: '8px 16px',
                 borderRadius: 6,
+                border: 'none',
+                background: '#1e3a8a',
+                color: '#ffffff',
                 fontSize: 13.5,
+                fontWeight: 700,
+                fontFamily: FONT_STACK,
+                cursor: !orderYear || !orderWeek || !custKey || compareLoading ? 'not-allowed' : 'pointer',
+                opacity: !orderYear || !orderWeek || !custKey || compareLoading ? 0.55 : 1,
+              }}
+            >
+              {compareLoading ? '조회 중…' : '새로고침'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 2-2. 거래처 선택 패널 (분배 거래처 기본 + 담당자 버튼 필터 + 고밀도 거래처 그리드) */}
+      <div
+        style={{
+          background: '#ffffff',
+          border: '1px solid #cbd5e1',
+          borderRadius: 6,
+          padding: '14px 18px',
+          marginBottom: 14,
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 10,
+            marginBottom: 10,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>거래처 선택</span>
+            <button
+              type="button"
+              aria-pressed={customerScope === 'shipment'}
+              onClick={() => setCustomerScope('shipment')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 6,
+                border: customerScope === 'shipment' ? '1px solid #0f172a' : '1px solid #cbd5e1',
+                background: customerScope === 'shipment' ? '#0f172a' : '#ffffff',
+                color: customerScope === 'shipment' ? '#ffffff' : '#334155',
+                fontSize: 13.5,
+                fontWeight: customerScope === 'shipment' ? 700 : 600,
                 fontFamily: FONT_STACK,
                 fontVariantNumeric: 'tabular-nums',
-                background: '#fff',
+                cursor: 'pointer',
               }}
             >
-              <option value="">세부차수 선택</option>
-              {weeks.map((w) => (
-                <option key={w.orderWeek} value={w.orderWeek}>
-                  {formatWeekLabel(w.orderWeek)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ minWidth: 260 }}>
-            <label
-              htmlFor="compare-customer-select"
-              style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}
-            >
-              해당 세부차수 업체 ({customersInWeek.length}곳)
-            </label>
-            <select
-              id="compare-customer-select"
-              value={custKey}
-              onChange={(e) => {
-                const ck = e.target.value;
-                const found = customersInWeek.find((c) => String(c.custKey) === ck);
-                if (ck) void handleSelectCustomer(ck, found?.custName || '');
-              }}
+              분배 거래처만 ({shipmentCustomersCount})
+            </button>
+            <button
+              type="button"
+              aria-pressed={customerScope === 'all'}
+              onClick={() => setCustomerScope('all')}
               style={{
-                width: '100%',
-                padding: '7px 10px',
-                border: '1px solid #cbd5e1',
+                padding: '6px 12px',
                 borderRadius: 6,
+                border: customerScope === 'all' ? '1px solid #0f172a' : '1px solid #cbd5e1',
+                background: customerScope === 'all' ? '#0f172a' : '#ffffff',
+                color: customerScope === 'all' ? '#ffffff' : '#334155',
                 fontSize: 13.5,
+                fontWeight: customerScope === 'all' ? 700 : 600,
                 fontFamily: FONT_STACK,
-                background: '#fff',
+                fontVariantNumeric: 'tabular-nums',
+                cursor: 'pointer',
               }}
             >
-              <option value="">업체 선택</option>
-              {customersInWeek.map((c) => {
-                const tags = [
-                  c.hasUploadSnapshot ? '업로드' : '',
-                  c.hasOrder ? '주문' : '',
-                  c.hasShipment ? '분배' : '',
-                ]
-                  .filter(Boolean)
-                  .join('·');
-                return (
-                  <option key={c.custKey} value={String(c.custKey)}>
-                    {c.custName} [{tags}]
-                  </option>
-                );
-              })}
-            </select>
+              전체 (주문·업로드 포함 {customersInWeek.length})
+            </button>
+            {custKey && (
+              <span
+                style={{
+                  marginLeft: 4,
+                  padding: '4px 10px',
+                  borderRadius: 4,
+                  background: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  color: '#1e3a8a',
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                }}
+              >
+                선택됨: {custLabel || `업체 #${custKey}`}
+              </span>
+            )}
           </div>
 
-          <div style={{ position: 'relative', minWidth: 230 }}>
-            <label
-              htmlFor="compare-customer-search"
-              style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#334155', marginBottom: 4 }}
-            >
-              전체 거래처 검색
+          <div style={{ position: 'relative', minWidth: 250 }}>
+            <label htmlFor="compare-customer-search" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+              거래처명 검색
             </label>
             <input
               id="compare-customer-search"
               type="text"
               value={custQuery}
-              onChange={(e) => void searchAllCustomers(e.target.value)}
-              placeholder="거래처명 입력"
+              onChange={(e) => setCustQuery(e.target.value)}
+              placeholder="거래처명 · 담당자 검색"
               style={{
                 width: '100%',
                 padding: '7px 10px',
@@ -746,95 +1045,106 @@ export default function OrderImportComparePage() {
                 borderRadius: 6,
                 fontSize: 13.5,
                 fontFamily: FONT_STACK,
+                color: '#0f172a',
                 boxSizing: 'border-box',
               }}
             />
-            {custSearchResults.length > 0 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  zIndex: 40,
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: 6,
-                  maxHeight: 220,
-                  overflowY: 'auto',
-                  boxShadow: '0 6px 16px rgba(15,23,42,0.12)',
-                }}
-              >
-                {custSearchResults.map((c) => (
-                  <button
-                    key={c.CustKey}
-                    type="button"
-                    onClick={() => void handleSelectCustomer(c.CustKey, c.CustName)}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '8px 10px',
-                      border: 'none',
-                      borderBottom: '1px solid #f1f5f9',
-                      background: '#fff',
-                      fontSize: 13.5,
-                      fontFamily: FONT_STACK,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {c.CustName}
-                    {c.CustArea ? ` (${c.CustArea})` : ''}
-                  </button>
-                ))}
-              </div>
+            {custSearching && (
+              <span style={{ position: 'absolute', right: 10, top: 8, fontSize: 12.5, color: '#475569' }}>
+                검색중…
+              </span>
             )}
           </div>
-
-          <button
-            type="button"
-            disabled={!orderYear || !orderWeek || !custKey || compareLoading}
-            onClick={() => void fetchCompare(orderYear, orderWeek, custKey)}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 6,
-              border: 'none',
-              background: '#1e3a8a',
-              color: '#ffffff',
-              fontSize: 13.5,
-              fontWeight: 700,
-              fontFamily: FONT_STACK,
-              cursor: !orderYear || !orderWeek || !custKey || compareLoading ? 'not-allowed' : 'pointer',
-              opacity: !orderYear || !orderWeek || !custKey || compareLoading ? 0.55 : 1,
-            }}
-          >
-            {compareLoading ? '조회 중…' : '대조 조회'}
-          </button>
-
-          {optionsLoading && (
-            <span style={{ fontSize: 12.5, color: '#475569' }}>차수·업체 목록 불러오는 중…</span>
-          )}
-          {custSearching && (
-            <span style={{ fontSize: 12.5, color: '#475569' }}>거래처 검색 중…</span>
-          )}
         </div>
 
-        {customersInWeek.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-            {customersInWeek.slice(0, 16).map((c) => {
+        {/* 담당자 버튼 바 */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 6,
+            alignItems: 'center',
+            paddingBottom: 10,
+            marginBottom: 10,
+            borderBottom: '1px solid #e2e8f0',
+          }}
+        >
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: '#475569', marginRight: 2 }}>
+            담당자
+          </span>
+          <button
+            type="button"
+            aria-pressed={selectedManager === 'ALL'}
+            onClick={() => setSelectedManager('ALL')}
+            style={{
+              padding: '5px 11px',
+              borderRadius: 5,
+              border: selectedManager === 'ALL' ? '1px solid #1e3a8a' : '1px solid #cbd5e1',
+              background: selectedManager === 'ALL' ? '#1e3a8a' : '#f8fafc',
+              color: selectedManager === 'ALL' ? '#ffffff' : '#334155',
+              fontSize: 13.5,
+              fontWeight: selectedManager === 'ALL' ? 700 : 600,
+              fontFamily: FONT_STACK,
+              fontVariantNumeric: 'tabular-nums',
+              cursor: 'pointer',
+            }}
+          >
+            전체 ({scopedCustomers.length})
+          </button>
+          {managerOptions.map((m) => {
+            const active = selectedManager === m.name;
+            return (
+              <button
+                key={m.name}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setSelectedManager(m.name)}
+                style={{
+                  padding: '5px 11px',
+                  borderRadius: 5,
+                  border: active ? '1px solid #1e3a8a' : '1px solid #cbd5e1',
+                  background: active ? '#1e3a8a' : '#f8fafc',
+                  color: active ? '#ffffff' : '#334155',
+                  fontSize: 13.5,
+                  fontWeight: active ? 700 : 600,
+                  fontFamily: FONT_STACK,
+                  fontVariantNumeric: 'tabular-nums',
+                  cursor: 'pointer',
+                }}
+              >
+                {m.name} ({m.count})
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 거래처 버튼 리스트 (고밀도 랩 그리드) */}
+        {filteredCustomers.length > 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 6,
+              maxHeight: 168,
+              overflowY: 'auto',
+              paddingRight: 4,
+            }}
+          >
+            {filteredCustomers.map((c) => {
               const active = String(c.custKey) === String(custKey);
               return (
                 <button
                   key={c.custKey}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => void handleSelectCustomer(c.custKey, c.custName)}
                   style={{
-                    padding: '4px 10px',
-                    borderRadius: 4,
-                    border: active ? '1px solid #1e3a8a' : '1px solid #cbd5e1',
-                    background: active ? '#eff6ff' : '#f8fafc',
-                    color: active ? '#1e3a8a' : '#334155',
-                    fontSize: 12.5,
+                    padding: '6px 11px',
+                    borderRadius: 5,
+                    border: active ? '1px solid #0f172a' : '1px solid #cbd5e1',
+                    background: active ? '#0f172a' : '#f8fafc',
+                    color: active ? '#ffffff' : '#0f172a',
+                    fontSize: 13.5,
                     fontWeight: active ? 700 : 500,
                     fontFamily: FONT_STACK,
                     cursor: 'pointer',
@@ -845,23 +1155,122 @@ export default function OrderImportComparePage() {
                 >
                   <span>{c.custName}</span>
                   {c.hasUploadSnapshot && (
-                    <span style={{ padding: '1px 5px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontSize: 12.5 }}>
+                    <span
+                      style={{
+                        padding: '1px 6px',
+                        borderRadius: 4,
+                        background: active ? '#1d4ed8' : '#dbeafe',
+                        color: active ? '#ffffff' : '#1d4ed8',
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                      }}
+                    >
                       업로드
                     </span>
                   )}
-                  {c.hasOrder && (
-                    <span style={{ padding: '1px 5px', borderRadius: 3, background: '#f1f5f9', color: '#334155', fontSize: 12.5 }}>
-                      주문
-                    </span>
-                  )}
-                  {c.hasShipment && (
-                    <span style={{ padding: '1px 5px', borderRadius: 3, background: '#ccfbf1', color: '#0f766e', fontSize: 12.5 }}>
-                      분배
+                  {customerScope === 'all' && !c.hasShipment && (
+                    <span
+                      style={{
+                        padding: '1px 6px',
+                        borderRadius: 4,
+                        background: active ? '#475569' : '#e2e8f0',
+                        color: active ? '#ffffff' : '#475569',
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                      }}
+                    >
+                      분배없음
                     </span>
                   )}
                 </button>
               );
             })}
+          </div>
+        ) : (
+          <div style={{ fontSize: 13.5, color: '#475569', padding: '4px 0' }}>
+            {custQuery.trim() ? (
+              <div>
+                <div style={{ marginBottom: 8 }}>
+                  현재 목록({customerScope === 'shipment' ? '분배 거래처만' : '전체'})에서
+                  {' '}
+                  &ldquo;{custQuery.trim()}&rdquo; 검색 결과가 없습니다.
+                  {customerScope === 'shipment' && customersInWeek.length > shipmentCustomersCount && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomerScope('all')}
+                      style={{
+                        marginLeft: 8,
+                        padding: '3px 9px',
+                        borderRadius: 4,
+                        border: '1px solid #cbd5e1',
+                        background: '#ffffff',
+                        color: '#1e3a8a',
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        fontFamily: FONT_STACK,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      주문·업로드 포함 전체({customersInWeek.length})에서 보기
+                    </button>
+                  )}
+                </div>
+                {custSearchResults.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 140, overflowY: 'auto' }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: '#334155', alignSelf: 'center', marginRight: 4 }}>
+                      전체 ERP 거래처:
+                    </span>
+                    {custSearchResults.map((c) => {
+                      const active = String(c.CustKey) === String(custKey);
+                      return (
+                        <button
+                          key={c.CustKey}
+                          type="button"
+                          onClick={() => void handleSelectCustomer(c.CustKey, c.CustName)}
+                          style={{
+                            padding: '5px 10px',
+                            borderRadius: 5,
+                            border: active ? '1px solid #0f172a' : '1px solid #cbd5e1',
+                            background: active ? '#0f172a' : '#ffffff',
+                            color: active ? '#ffffff' : '#0f172a',
+                            fontSize: 13.5,
+                            fontWeight: 600,
+                            fontFamily: FONT_STACK,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {c.CustName}
+                          {c.CustArea ? ` (${c.CustArea})` : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : customerScope === 'shipment' && customersInWeek.length > 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span>이 세부차수에 분배된 거래처가 없습니다.</span>
+                <button
+                  type="button"
+                  onClick={() => setCustomerScope('all')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 5,
+                    border: '1px solid #1e3a8a',
+                    background: '#eff6ff',
+                    color: '#1e3a8a',
+                    fontSize: 13.5,
+                    fontWeight: 700,
+                    fontFamily: FONT_STACK,
+                    cursor: 'pointer',
+                  }}
+                >
+                  전체 (주문·업로드 포함 {customersInWeek.length}) 보기
+                </button>
+              </div>
+            ) : (
+              <span>해당 세부차수에 표시할 거래처가 없습니다.</span>
+            )}
           </div>
         )}
       </div>

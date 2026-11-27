@@ -9,7 +9,7 @@ import {
 
 function parseNumericHistoryValue(val) {
   if (val == null) return null;
-  const cleaned = String(val).replace(/,/g, '').trim();
+  const cleaned = String(val).replace(/[,\s]+/g, '');
   if (!cleaned) return null;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
@@ -57,8 +57,9 @@ async function handleOptions(req, res) {
   const weeks = rows
     .filter((r) => Number(r.OrderYear) === selectedYear)
     .map((r) => ({
-      orderWeek: r.OrderWeek,
+      orderYear: Number(r.OrderYear),
       parentWeek: String(r.OrderWeek).slice(0, 2),
+      orderWeek: r.OrderWeek,
       subWeek: r.OrderWeek,
     }));
 
@@ -84,10 +85,12 @@ async function handleOptions(req, res) {
           WHERE OrderYear = @yrStr AND OrderWeek = @wk AND ISNULL(isDeleted, 0) = 0
        ),
        ShipCust AS (
-         SELECT DISTINCT COALESCE(NULLIF(sd.CustKey, 0), sm.CustKey) AS CustKey
+         SELECT COALESCE(NULLIF(sd.CustKey, 0), sm.CustKey) AS CustKey
            FROM ShipmentMaster sm
            JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
           WHERE sm.OrderYear = @yrStr AND sm.OrderWeek = @wk AND ISNULL(sm.isDeleted, 0) = 0
+          GROUP BY COALESCE(NULLIF(sd.CustKey, 0), sm.CustKey)
+         HAVING SUM(ISNULL(sd.OutQuantity, 0)) <> 0
        ),
        AllCust AS (
          SELECT CustKey FROM UploadCust
@@ -99,7 +102,7 @@ async function handleOptions(req, res) {
        SELECT ac.CustKey AS custKey,
               c.CustName AS custName,
               c.CustArea AS custArea,
-              c.Manager AS manager,
+              LTRIM(RTRIM(ISNULL(c.Manager, N''))) AS manager,
               CASE WHEN uc.CustKey IS NOT NULL THEN 1 ELSE 0 END AS hasUploadSnapshot,
               CASE WHEN oc.CustKey IS NOT NULL THEN 1 ELSE 0 END AS hasOrder,
               CASE WHEN sc.CustKey IS NOT NULL THEN 1 ELSE 0 END AS hasShipment
@@ -108,7 +111,7 @@ async function handleOptions(req, res) {
          LEFT JOIN UploadCust uc ON uc.CustKey = ac.CustKey
          LEFT JOIN OrderCust oc ON oc.CustKey = ac.CustKey
          LEFT JOIN ShipCust sc ON sc.CustKey = ac.CustKey
-        ORDER BY hasUploadSnapshot DESC, hasShipment DESC, c.CustName ASC`,
+        ORDER BY hasShipment DESC, hasUploadSnapshot DESC, c.CustName ASC`,
       {
         yrInt: { type: sql.Int, value: Number(scope.orderYear) },
         yrStr: { type: sql.NVarChar, value: String(scope.orderYear) },
@@ -120,7 +123,7 @@ async function handleOptions(req, res) {
       custKey: Number(r.custKey),
       custName: r.custName || '',
       custArea: r.custArea || '',
-      manager: r.manager || '',
+      manager: String(r.manager || '').trim(),
       hasUploadSnapshot: Number(r.hasUploadSnapshot) === 1,
       hasOrder: Number(r.hasOrder) === 1,
       hasShipment: Number(r.hasShipment) === 1,
@@ -169,7 +172,6 @@ async function handleCompare(req, res) {
               ISNULL(p.BunchOf1Box, 0) AS BunchOf1Box,
               ISNULL(p.SteamOf1Box, 0) AS SteamOf1Box,
               ISNULL(od.isDeleted, 0) AS DetailDeleted,
-              ISNULL(od.UnitPrice, 0) AS UnitPrice,
               CASE p.OutUnit
                 WHEN N'단' THEN ISNULL(od.BunchQuantity, 0)
                 WHEN N'송이' THEN ISNULL(od.SteamQuantity, 0)
@@ -216,7 +218,7 @@ async function handleCompare(req, res) {
       },
     ),
     query(
-      `SELECT CustKey, CustName, CustArea, Manager
+      `SELECT CustKey, CustName, CustArea, LTRIM(RTRIM(ISNULL(Manager, N''))) AS Manager
          FROM Customer
         WHERE CustKey = @ck`,
       { ck: { type: sql.Int, value: custKey } },
@@ -319,7 +321,7 @@ async function handleCompare(req, res) {
       outUnit,
       bunchOf1Box: Number(row.BunchOf1Box) || 0,
       steamOf1Box: Number(row.SteamOf1Box) || 0,
-      unitPrice: Number(row.UnitPrice) || 0,
+      unitPrice: null,
       note: '',
       rawCells: null,
     });
@@ -359,7 +361,7 @@ async function handleCompare(req, res) {
         custKey: Number(custRow.CustKey),
         custName: custRow.CustName || '',
         custArea: custRow.CustArea || '',
-        manager: custRow.Manager || '',
+        manager: String(custRow.Manager || '').trim(),
       }
     : { custKey, custName: '', custArea: '', manager: '' };
 
