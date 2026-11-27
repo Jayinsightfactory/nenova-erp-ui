@@ -5,6 +5,7 @@
     "lib/invoiceCostWorkbookHistory.js",
     "lib/invoiceCostHistoryStore.js",
     "lib/invoiceCostHistoryService.js",
+    "lib/upgradeLegacyCostSheetXml.js",
     "lib/invoiceCostOriginalRestoration.js",
     "lib/nativeCostHttp.js",
     "lib/invoiceCostPreview.js",
@@ -198,7 +199,8 @@
     "__tests__/invoiceReceiptWorkflow.test.js",
     "__tests__/invoiceReceiptCostWorkflow.test.js",
     "__tests__/invoiceReceiptWorkbench.test.js",
-    "__tests__/invoiceReceiptChinaAirCost.test.js"
+    "__tests__/invoiceReceiptChinaAirCost.test.js",
+    "__tests__/upgradeLegacyCostSheets.test.mjs"
   ],
   "dnspyEvidence": {
     "required": true,
