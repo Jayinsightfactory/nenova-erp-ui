@@ -349,6 +349,28 @@ export default function BoxVisionInspectorPage() {
     });
   };
 
+  const handleSelectColombia15BatchPreset = () => {
+    const colombiaIds = Array.from({ length: 15 }, (_, i) => `sample-colombia-${i + 1}`);
+    const simulatedFiles = colombiaIds.map((sampleId, idx) => {
+      const sample = SAMPLE_PHOTOS.find((s) => s.sampleId === sampleId) || {};
+      return {
+        name: sample.fileName || `colombia-sample-${String(idx + 1).padStart(2, '0')}.jpg`,
+        size: sample.uploadedSize || 300000,
+        previewUrl: sample.imageUrl || `/samples/box-vision/colombia-sample-${String(idx + 1).padStart(2, '0')}.jpg`,
+      };
+    });
+    const nextMsg = '콜롬비아 출고입니다 (카톡 출고 15장 묶음 전수 판독 · 48-01차/47-01차/47-02차)';
+    applySamplePresetAndAdvance({
+      sampleIds: colombiaIds,
+      files: simulatedFiles,
+      routeMsg: nextMsg,
+      focusPhotoIndex: 0,
+      targetStep: 2,
+      noticeText:
+        '콜롬비아 카톡 출고 15장 묶음(카네이션·장미·수국) 전수 학습 시연을 불러왔습니다. 15장 전수 판독 내역을 확인해 주세요.',
+    });
+  };
+
   const handleFilesAdded = useCallback(
     async (fileList, appendToBatch = false) => {
       const files = Array.from(fileList || []).filter(
@@ -1085,6 +1107,15 @@ export default function BoxVisionInspectorPage() {
                 </button>
                 {sampleMenuOpen && (
                   <div className={styles.sampleDropdownMenu} data-testid="sample-dropdown-menu">
+                    <button
+                      type="button"
+                      className={styles.sampleChip}
+                      style={{ background: '#ecfdf5', borderColor: '#10b981', color: '#047857', fontWeight: 700 }}
+                      data-testid="box-vision-colombia-15batch-btn"
+                      onClick={handleSelectColombia15BatchPreset}
+                    >
+                      🌺 [콜롬비아 카톡 출고 15장 묶음 학습 시연 (카네이션·장미·수국)]
+                    </button>
                     <button
                       type="button"
                       className={styles.sampleChip}

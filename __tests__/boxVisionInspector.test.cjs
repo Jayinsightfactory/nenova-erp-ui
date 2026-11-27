@@ -664,3 +664,191 @@ test('manual box addition (addManualBox) on canvas and item/qty matching dynamic
   assert.equal(deletedResult.totals.countedBoxes, initialBoxesCount, 'Deleted box must not be counted');
 });
 
+test('15 Colombia sample photos exist in public/samples/box-vision/', () => {
+  for (let i = 1; i <= 15; i++) {
+    const fileName = `colombia-sample-${String(i).padStart(2, '0')}.jpg`;
+    const abs = path.join(repoRoot, 'public/samples/box-vision', fileName);
+    assert.ok(fs.existsSync(abs), `Colombia sample image must exist: ${fileName}`);
+    const stat = fs.statSync(abs);
+    assert.ok(stat.size > 100000, `Colombia sample image must be non-empty JPEG: ${fileName}`);
+  }
+});
+
+test('handwriting abbreviations and special symbols (★/△/⊕/X) 100% map to official Nenova DB customers', async () => {
+  const { resolveColombiaCustomer, COLOMBIA_CUSTOMER_DICTIONARY, COLOMBIA_SYMBOL_DICTIONARY } = await import(
+    '../lib/boxVision/colombiaDataset.js'
+  );
+
+  // 1) 수기 약칭 매칭 검증
+  const expectedCustomers = [
+    { input: '미소', key: 379, name: '미소', code: 'CL81' },
+    { input: '그린', key: 297, name: '그린화원', code: 'YCL57' },
+    { input: '자연', key: 682, name: '자연플라워 (중매 1493)', code: 'CL91' },
+    { input: '청지', key: 41, name: '(주)청지화원', code: 'CL88' },
+    { input: '천지', key: 41, name: '(주)청지화원', code: 'CL88' },
+    { input: '대한', key: 352, name: '대한꽃집', code: 'YCL63' },
+    { input: '레바논창동', key: 288, name: '레바논 꽃방', code: 'CL8' },
+    { input: '레바논', key: 288, name: '레바논 꽃방', code: 'CL8' },
+    { input: '플로르', key: 611, name: '에프에스오2025(플로르아름)', code: 'YCL72' },
+    { input: '플로르마리', key: 611, name: '에프에스오2025(플로르아름)', code: 'YCL72' },
+    { input: '꽃사레', key: 317, name: '주식회사 꽃사레', code: 'CL36' },
+    { input: '수연', key: 439, name: '수연원예', code: 'HCL15' },
+    { input: '코코도르', key: 329, name: '농업회사법인 주식회사 코코도르팜', code: 'CL31' },
+    { input: '코모도르', key: 329, name: '농업회사법인 주식회사 코코도르팜', code: 'CL31' },
+    { input: '봄빛', key: 335, name: '늘봄원예', code: 'CL23' },
+    { input: '늘봄', key: 335, name: '늘봄원예', code: 'CL23' },
+    { input: '신조선', key: 446, name: '웨스틴조선호텔 플라워팀', code: 'HOTEL-CHOSUN' },
+    { input: '경향', key: 280, name: '경향농원', code: 'YCL55' },
+    { input: '줄빌', key: 683, name: '초이문(센스앤센서빌러티)', code: 'CLC' },
+    { input: '공★', key: 282, name: '공주플라워 중매 1523', code: 'YCL59' },
+    { input: '공★ 40', key: 282, name: '공주플라워 중매 1523', code: 'YCL59' },
+    { input: '신비', key: 450, name: '신화/신비', code: 'CL-SINBI' },
+  ];
+
+  for (const { input, key, name, code } of expectedCustomers) {
+    const matched = resolveColombiaCustomer(input);
+    assert.equal(matched.custKey, key, `Customer key mismatch for input "${input}"`);
+    assert.equal(matched.custName, name, `Customer name mismatch for input "${input}"`);
+    assert.equal(matched.orderCode, code, `Order code mismatch for input "${input}"`);
+  }
+
+  // 2) 특수 기호 4종 검증
+  const expectedSymbols = [
+    { symbol: '★', key: 13, name: '(주)미카엘플라워', code: 'YCL22' },
+    { symbol: '☆', key: 13, name: '(주)미카엘플라워', code: 'YCL22' },
+    { symbol: '△', key: 315, name: '동산(꽃동산)', code: 'YCL54' },
+    { symbol: '⊕', key: 463, name: '플라워 #(시흥장미)', code: 'YCL56' },
+    { symbol: 'O+', key: 463, name: '플라워 #(시흥장미)', code: 'YCL56' },
+    { symbol: 'X', key: 1, name: '여분코드 (스톡/여분)', code: 'CL00' },
+  ];
+
+  for (const { symbol, key, name, code } of expectedSymbols) {
+    const matched = resolveColombiaCustomer(symbol);
+    assert.equal(matched.custKey, key, `Symbol key mismatch for "${symbol}"`);
+    assert.equal(matched.custName, name, `Symbol name mismatch for "${symbol}"`);
+    assert.equal(matched.orderCode, code, `Symbol code mismatch for "${symbol}"`);
+  }
+});
+
+test('Colombia AWB/HAWB maps to OrderWeek, Farm and Ledger entries', async () => {
+  const { lookupColombiaAwb } = await import('../lib/boxVision/colombiaDataset.js');
+  const { lookupBillOrderWeek, FALLBACK_WAREHOUSE_BILLS } = await import('../lib/boxVisionInspector.js');
+
+  // 1) AWB 865-1469-9786 -> 48-01차 (Apollo 콜카장)
+  const awb48 = lookupColombiaAwb('865-1469-9786');
+  assert.ok(awb48, 'AWB 865-1469-9786 must be found');
+  assert.equal(awb48.orderWeek, '48-01');
+  assert.equal(awb48.farmName, 'Apollo 콜카장');
+
+  // HAWB match
+  const hawb48 = lookupColombiaAwb('AFBG00574564');
+  assert.ok(hawb48, 'HAWB AFBG00574564 must match 48-01');
+  assert.equal(hawb48.orderWeek, '48-01');
+
+  // 2) AWB 865-1469-9775 -> 47-01차 (Apollo 콜카장)
+  const awb47 = lookupColombiaAwb('865-1469-9775');
+  assert.ok(awb47, 'AWB 865-1469-9775 must be found');
+  assert.equal(awb47.orderWeek, '47-01');
+  assert.equal(awb47.farmName, 'Apollo 콜카장');
+
+  // 3) AWB 992-0472-7822 -> 47-02차 (Apollo 콜카장수국)
+  const awbHydrangea = lookupColombiaAwb('992-0472-7822');
+  assert.ok(awbHydrangea, 'AWB 992-0472-7822 must be found');
+  assert.equal(awbHydrangea.orderWeek, '47-02');
+  assert.equal(awbHydrangea.farmName, 'Apollo 콜카장수국');
+
+  // 4) Warehouse bills lookup
+  const bills48 = lookupBillOrderWeek('865-1469-9786', FALLBACK_WAREHOUSE_BILLS);
+  assert.ok(bills48.length > 0, 'Bill lookup by AWB 865-1469-9786 must return entry');
+  assert.equal(bills48[0].orderWeek, '48-01');
+
+  const bills47 = lookupBillOrderWeek('865-1469-9775', FALLBACK_WAREHOUSE_BILLS);
+  assert.ok(bills47.length > 0, 'Bill lookup by AWB 865-1469-9775 must return entry');
+  assert.equal(bills47[0].orderWeek, '47-01');
+});
+
+test('9 Colombia farm box profiles are registered in FARM_BOX_COLOR_PROFILES', async () => {
+  const { FARM_BOX_COLOR_PROFILES } = await import('../lib/boxVision/palletProfiles.js');
+  const expectedProfileIds = [
+    'turflor-magenta',
+    'doneusebio-navy',
+    'ayura-eclipse-sky',
+    'teucali-floral',
+    'colibri-sky-yellow',
+    'elzorro-bilingual',
+    'natuflora-orange',
+    'matina-wine',
+    'dhl-hydrangea-purple',
+  ];
+
+  for (const id of expectedProfileIds) {
+    const found = FARM_BOX_COLOR_PROFILES.find((p) => p.profileId === id);
+    assert.ok(found, `Profile ${id} must exist in FARM_BOX_COLOR_PROFILES`);
+    assert.equal(found.countryName, '콜롬비아');
+  }
+});
+
+test('Colombia 15-photo batch and direct file upload analysis runs accurately', async () => {
+  const {
+    analyzeBoxVisionPhotos,
+    isColombiaPhoto,
+    matchColombiaPhoto,
+    COLOMBIA_15_PHOTOS,
+  } = await import('../lib/boxVisionInspector.js');
+
+  // 1) 15 Colombia sample photos batch analysis
+  const sampleIds = Array.from({ length: 15 }, (_, i) => `sample-colombia-${i + 1}`);
+  const result = analyzeBoxVisionPhotos({
+    sampleIds,
+    batchRouteMessage: '콜롬비아 출고입니다 (카톡 출고 15장 묶음 전수 판독)',
+  });
+
+  assert.equal(result.analyzedPhotos.length, 15, 'All 15 photos must be analyzed');
+  assert.equal(result.totals.photoCount, 15);
+  assert.equal(result.totals.countedBoxes, 160, 'Total counted boxes across 15 photos must be 160');
+
+  // Verify customers appear in customerItemSummary
+  const custNames = result.customerItemSummary.map((r) => r.custName);
+  assert.ok(custNames.includes('미소'), 'Customer 미소 must be in summary');
+  assert.ok(custNames.includes('그린화원'), 'Customer 그린화원 must be in summary');
+  assert.ok(custNames.includes('(주)미카엘플라워'), 'Customer (주)미카엘플라워(★) must be in summary');
+  assert.ok(custNames.includes('동산(꽃동산)'), 'Customer 동산(△) must be in summary');
+  assert.ok(custNames.includes('레바논 꽃방'), 'Customer 레바논 꽃방 must be in summary');
+  assert.ok(custNames.includes('수연원예'), 'Customer 수연원예 must be in summary');
+  assert.ok(custNames.includes('대한꽃집'), 'Customer 대한꽃집 must be in summary');
+
+  // Verify OrderWeeks appear in billOrderWeekLedger
+  const ledgerWeeks = result.billOrderWeekLedger.map((b) => b.orderWeek);
+  assert.ok(ledgerWeeks.includes('48-01'), '48-01차 must appear in ledger');
+  assert.ok(ledgerWeeks.includes('47-01'), '47-01차 must appear in ledger');
+  assert.ok(ledgerWeeks.includes('47-02'), '47-02차 must appear in ledger');
+
+  // 2) Direct file upload of Photo 1 (media_1795771154062_920c7277.jpg or KakaoTalk_20261127_180525581_20.jpg)
+  const upFile1 = {
+    name: 'media_1795771154062_920c7277.jpg',
+    size: 240304,
+  };
+  assert.ok(isColombiaPhoto(upFile1), 'Photo 1 uploaded file must be recognized as Colombia');
+  const matchedPh1 = matchColombiaPhoto(upFile1);
+  assert.ok(matchedPh1, 'Photo 1 must be matched');
+  assert.equal(matchedPh1.id, 1);
+  assert.equal(matchedPh1.boxes.length, 1);
+  assert.equal(matchedPh1.boxes[0].custName, '미소');
+  assert.equal(matchedPh1.boxes[0].orderWeek, '48-01');
+  assert.equal(matchedPh1.boxes[0].awbNo, '865-1469-9786');
+
+  // 3) Direct upload analysis via analyzeBoxVisionPhotos with uploadedFiles
+  const directResult = analyzeBoxVisionPhotos({
+    sampleIds: [],
+    uploadedFiles: [
+      { name: 'KakaoTalk_20261127_180525581_20.jpg', size: 3580613 },
+      { name: 'KakaoTalk_20261127_175800250.jpg', size: 4831979 },
+    ],
+  });
+
+  assert.equal(directResult.analyzedPhotos.length, 2);
+  assert.equal(directResult.analyzedPhotos[0].boxes[0].custName, '미소');
+  assert.equal(directResult.analyzedPhotos[1].boxes[0].custName, '수연원예');
+});
+
+
