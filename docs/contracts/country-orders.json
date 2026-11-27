@@ -99,7 +99,7 @@
     },
     {
       "name": "IMPORT_ROOM_ERP_ORDER_RECONCILIATION_AND_HANDOFF",
-      "source": "authenticated GET /api/import/tools/kakao-order-status performs read-only SELECT on active Customer and explicit (OrderYear, OrderWeek/majorWeek) OrderMaster+OrderDetail+Product rows; KakaoOrderRegisterBridge classifies domestic-customer Kakao items as REGISTERED/DIFF_QTY/UNREGISTERED/CUSTOMER_CHECK while keeping unnamed stock PO items as NO_CUSTOMER and leaving farmTotals completely independent; eligible unregistered domestic items hand off via browser localStorage to /orders/sales-paste?mode=kakao-import where human review and explicit confirm execute existing sales-paste ADD order-only write",
+      "source": "authenticated GET /api/import/tools/kakao-order-status performs read-only SELECT on active Customer and explicit (OrderYear, OrderWeek/majorWeek) OrderMaster+OrderDetail+Product rows; KakaoOrderRegisterBridge classifies domestic-customer Kakao items as REGISTERED/DIFF_QTY/UNREGISTERED/CUSTOMER_CHECK while keeping unnamed stock PO items as NO_CUSTOMER and preserving signed farmTotals and copied quantities; farm-card rows show domestic ERP completion, partial completion, quantity differences or review via exact contributing source keys. One ERP year/week/customer/product aggregate cannot confirm multiple source rows. A failed or refreshing lookup cannot show completion, and status labels never enter farm copy text; eligible unregistered domestic items hand off via browser localStorage to /orders/sales-paste?mode=kakao-import where human review and explicit confirm execute existing sales-paste ADD order-only write",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "warehouseDetail": "preserve",
@@ -253,7 +253,7 @@
   },
   "crossYearFixture": {
     "required": true,
-    "description": "2025/42-01 and 2026/42-01 coexist but an explicit 2026/42 request returns only 2026; a current 2026/52 calendar continues through actual 2027 rows without OrderWeek-only matching"
+    "description": "A 2025/48-01 ERP row never confirms a 2026/48-01 farm contribution even when customer, product and quantity match; 2025/42-01 and 2026/42-01 coexist but an explicit 2026/42 request returns only 2026; a current 2026/52 calendar continues through actual 2027 rows without OrderWeek-only matching"
   },
   "positiveFixtures": [
     "Extracted Moon Light quantities 1+2+1 automatically total 4 with customer remarks; unnamed customer quantities count; matching customer repeated quantities combine; comma-formatted quantities normalize",
