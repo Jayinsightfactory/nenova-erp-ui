@@ -5837,3 +5837,18 @@ enova-erp-ui (C:\Users\USER\nw-agy-desktop-daily-once 워크트리, eat/desktop
 3. 남은 할 일: 커밋·푸시 → PR 생성 → CI(`verify`, `desktop-windows`) 통과 확인 → squash 머지 → worktree 정리(`sync-nenova-hq.js` 동기화 포함).
 4. 검증 상태: `npm --prefix desktop test`(101/101), `npm --prefix desktop run test:smoke`(멀티창·`second-instance`·`--focus-only`·`#quickNewWindowButton`·`Ctrl+N`·`tabContextMenu`·`closeOthers`·1920/960/800 및 `maximize`/`unmaximize` bounds 정합 포함), `npm --prefix desktop run test:restore`, `npm --prefix desktop run test:exit`(6/6), `npm --prefix desktop run test:updater`, `npm --prefix desktop run pack` + `verify-packaged-home.cjs`, `npm run test:workflow-guides`(holdUntil 2026-12-25), `npm run guard:agent-slop`, `pstack-verify.cjs`(5/5) 모두 PASS (리베이스 후 최종 재확인 예정).
 5. 주의/잠금: 웹 소스(`pages/`, `components/`, `styles/`, `lib/`) 0줄 변경(세션 A 충돌 방지), `desktop/dist`·`desktop/node_modules`·`desktop/test-output` 미커밋 유지, 아침 첫 실행 1회 자동 업데이트(`desktop/updater.cjs`) 및 `persist:nenova-work`·`requestSingleInstanceLock` 정책 보존.
+
+## 2026-11-28 차수 이월·페이지 메모 시험의 자식 출력 경합 수정 (`fix/weekday-carryover-test-close`)
+- 화면: 화면 없음 — 계산·자료·점검
+- 대신하는 업무: 대응 업무 없음 — 배포가 걸리면 그날 전산 변경이 늦어지는 현장·영업·경영부 직원 전체를 위한 것
+- 없애려는 것: 배포 실패 뒤에 같은 검사를 다시 돌리는 일(2026-11-27 하루 배포 시도 36번 가운데 2번)
+- 종류: AI가 만든 것을 다시 고침
+- 누가 언제 여나: 화면 없음 — 부서가 여는 화면이 아니라, 저장소 기본 줄기에 변경을 올릴 때마다 자동으로 도는 검사
+- 2주 뒤 셀 것: 이 시험 때문에 배포를 다시 돌린 횟수가 0이 되었는지, 같은 방식(`exit` 대기)으로 자식 출력을 읽는 시험 파일이 남아 있는지
+- 요약: `__tests__/weekdayCarryoverStore.test.js`·`__tests__/weekdayPageNote.test.js`의 `child()` 도우미가 자식 프로세스 끝 알림(`exit`)에서 표준출력을 읽어, 출력이 다 도착하기 전에 `JSON.parse`가 걸려 `Unexpected end of JSON input`으로 간헐 실패(약 7%)하던 것을, 표준출력·표준오류가 닫힌 뒤 오는 알림(`close`)에서 읽도록 바꿨다. 실패할 때는 상태·시그널·표준오류·표준출력 앞부분을 메시지에 남긴다.
+- 검색어: weekdayCarryoverStore weekdayPageNote child-process exit close Unexpected end of JSON input 배포 간헐 실패 경합
+1. 작업 위치: `nenova-erp-ui` (`fix/weekday-carryover-test-close`) — `__tests__/weekdayCarryoverStore.test.js`, `__tests__/weekdayPageNote.test.js`, `WORK_MEMORY.md`.
+2. 완료된 것: 두 시험 파일의 자식 출력 수집을 `exit`→`close`로 바꾸고, 실패 메시지에 상태·시그널·표준오류·표준출력을 남김. `node __tests__/weekdayInitialMatrix.test.js` 42/42 통과, `node __tests__/weekdayCarryoverStore.test.js` 10/10 통과를 순차 40회·병렬 6개 60회(합계 100회) 반복해 전부 통과.
+3. 남은 할 일: 수정 제안(초안) 생성 → GitHub 자동 검증 통과 확인 → 대표님 확인 뒤 합치기·배포.
+4. 검증 상태: 수정본 반복 100회 전부 통과. `node __tests__/weekdayPageNote.test.js`는 이 작업 환경이 네트워크 폴더(NFS)라 10번째 시험이 `EBUSY ... .nfs...`로 실패하는데, 수정 전 파일에서도 같은 자리에서 똑같이 실패해 환경 탓임을 확인했다(자동 검증 환경은 로컬 디스크). 운영 서버·실브라우저 확인은 배포 뒤.
+5. 주의/잠금: 시험 파일만 바꿨다. 운영 코드·ERP 원장·계약 JSON·DB는 무변경.

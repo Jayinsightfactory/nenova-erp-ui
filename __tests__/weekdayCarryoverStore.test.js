@@ -30,7 +30,16 @@ async function child(directory, payload) {
     proc.stdout.on('data', chunk => { out += chunk; });
     proc.stderr.on('data', chunk => { err += chunk; });
     proc.on('error', reject);
-    proc.on('exit', status => status === 0 ? resolve(JSON.parse(out)) : reject(new Error(err)));
+    // 'exit' can fire while stdout/stderr are still open, so parsing there intermittently saw
+    // an empty tail and threw `Unexpected end of JSON input`. 'close' waits for stdio drain.
+    proc.on('close', (status, signal) => {
+      if (status !== 0) {
+        reject(new Error(`child exited (status=${status}, signal=${signal || 'none'}) stderr=${JSON.stringify(err.slice(0, 400))} stdout=${JSON.stringify(out.slice(0, 400))}`));
+        return;
+      }
+      try { resolve(JSON.parse(out)); }
+      catch (error) { reject(new Error(`child stdout was not JSON (${error.message}) ${JSON.stringify(out.slice(0, 400))}`)); }
+    });
   });
 }
 
